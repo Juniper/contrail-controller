@@ -878,7 +878,7 @@ void BgpXmppChannel::ProcessMcastItem(std::string vrf_name,
         DBRequest *request_entry = new DBRequest();
         request_entry->Swap(&req);
         std::string table_name =
-            RoutingInstance::GetTableNameFromVrf(vrf_name, Address::ERMVPN);
+            RoutingInstance::GetTableName(vrf_name, Address::ERMVPN);
         defer_q_.insert(std::make_pair(std::make_pair(vrf_name, table_name),
                                        request_entry));
         return;
@@ -1127,7 +1127,7 @@ void BgpXmppChannel::ProcessItem(string vrf_name,
         DBRequest *request_entry = new DBRequest();
         request_entry->Swap(&req);
         std::string table_name =
-            RoutingInstance::GetTableNameFromVrf(vrf_name, Address::INET);
+            RoutingInstance::GetTableName(vrf_name, Address::INET);
         defer_q_.insert(std::make_pair(std::make_pair(vrf_name, table_name),
                                        request_entry));
         return;
@@ -1370,7 +1370,7 @@ void BgpXmppChannel::ProcessInet6Item(string vrf_name,
         DBRequest *request_entry = new DBRequest();
         request_entry->Swap(&req);
         std::string table_name =
-            RoutingInstance::GetTableNameFromVrf(vrf_name, Address::INET6);
+            RoutingInstance::GetTableName(vrf_name, Address::INET6);
         defer_q_.insert(std::make_pair(std::make_pair(vrf_name, table_name),
                                        request_entry));
         return;
@@ -1613,7 +1613,7 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
         DBRequest *request_entry = new DBRequest();
         request_entry->Swap(&req);
         std::string table_name =
-            RoutingInstance::GetTableNameFromVrf(vrf_name, Address::EVPN);
+            RoutingInstance::GetTableName(vrf_name, Address::EVPN);
         defer_q_.insert(std::make_pair(std::make_pair(vrf_name, table_name),
                                        request_entry));
         return;
@@ -1936,14 +1936,12 @@ void BgpXmppChannel::ProcessDeferredSubscribeRequest(RoutingInstance *instance,
         BgpTable *table = it->second;
         if (table->IsVpnTable() || table->family() == Address::RTARGET)
             continue;
-        // XXX: Todo, replace with IsVpnTable()
-        if (table->family() == Address::INET6VPN)
-            continue;
 
         RegisterTable(table, instance_id);
 
         MembershipRequestState state(SUBSCRIBE, instance_id);
-        routingtable_membership_request_map_.insert(make_pair(table->name(), state));
+        routingtable_membership_request_map_.insert(make_pair(table->name(),
+                                                    state));
     }
 }
 

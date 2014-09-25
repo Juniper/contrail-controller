@@ -64,8 +64,8 @@ static const std::map<Address::Family, string>
         (Address::UNSPEC, "unspecified")
         (Address::INET, "inet")
         (Address::INET6, "inet6")
-        (Address::INETVPN, "inetvpn")
-        (Address::INET6VPN, "inet6vpn")
+        (Address::INETVPN, "l3vpn")
+        (Address::INET6VPN, "l3vpn-inet6")
         (Address::RTARGET, "rtarget")
         (Address::INETFLOW, "inetflow")
         (Address::INETVPNFLOW, "invpnflow")
@@ -110,7 +110,8 @@ static int CountDots(const string &str) {
     return count;
 }
 
-boost::system::error_code Ip4PrefixParse(const string &str, Ip4Address *addr, int *plen) {
+boost::system::error_code Ip4PrefixParse(const string &str, Ip4Address *addr,
+                                         int *plen) {
     size_t pos = str.find('/');
     if (pos == string::npos) {
         return make_error_code(boost::system::errc::invalid_argument);
