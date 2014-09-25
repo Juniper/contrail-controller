@@ -145,8 +145,14 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     req.set_fr_rid(0);
     req.set_fr_index(hash_id_);
     const FlowKey *fe_key = &flow_entry_->key();
-    req.set_fr_flow_sip(htonl(fe_key->src.ipv4));
-    req.set_fr_flow_dip(htonl(fe_key->dst.ipv4));
+    if (flow_entry_->key().family == Address::INET) {
+        req.set_fr_flow_sip(htonl(fe_key->src_addr.to_v4().to_ulong()));
+        req.set_fr_flow_dip(htonl(fe_key->dst_addr.to_v4().to_ulong()));
+    } else {
+        // TODO : IPV6
+        req.set_fr_flow_sip(0);
+        req.set_fr_flow_dip(0);
+    }
     req.set_fr_flow_proto(fe_key->protocol);
     req.set_fr_flow_sport(htons(fe_key->src_port));
     req.set_fr_flow_dport(htons(fe_key->dst_port));
@@ -248,10 +254,10 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             FlowEntry *nat_flow = flow_entry_->reverse_flow_entry();
             const FlowKey *nat_key = &nat_flow->key();
 
-            if (flow_entry_->key().src.ipv4 != nat_key->dst.ipv4) {
+            if (flow_entry_->key().src_addr != nat_key->dst_addr) {
                 flags |= VR_FLOW_FLAG_SNAT;
             }
-            if (flow_entry_->key().dst.ipv4 != nat_key->src.ipv4) {
+            if (flow_entry_->key().dst_addr != nat_key->src_addr) {
                 flags |= VR_FLOW_FLAG_DNAT;
             }
 
@@ -438,11 +444,11 @@ int FlowTableKSyncEntry::DeleteMsg(char *buf, int buf_len) {
 std::string FlowTableKSyncEntry::ToString() const {
     std::ostringstream str;
     const FlowKey *fe_key = &flow_entry_->key();
-    Ip4Address sip(fe_key->src.ipv4);
-    Ip4Address dip(fe_key->dst.ipv4);
-    str << "Flow : " << hash_id_ << " with Source IP: " << sip.to_string()
-        << " Source port: " << fe_key->src_port << " Destination IP: "
-        << dip.to_string() << " Destination port: " << fe_key->dst_port
+    str << "Flow : " << hash_id_
+        << " with Source IP: " << fe_key->src_addr.to_string()
+        << " Source port: " << fe_key->src_port
+        << " Destination IP: " << fe_key->dst_addr.to_string()
+        << " Destination port: " << fe_key->dst_port
         << " Protocol "<< fe_key->protocol;
     return str.str();
 }
@@ -534,8 +540,9 @@ bool FlowTableKSyncObject::GetFlowKey(uint32_t index, FlowKey *key) {
         return false;
     }
     key->nh = kflow->fe_key.key_nh_id;
-    key->src.ipv4 = ntohl(kflow->fe_key.key_src_ip);
-    key->dst.ipv4 = ntohl(kflow->fe_key.key_dest_ip);
+    // TODO : IPv6
+    key->src_addr = Ip4Address(ntohl(kflow->fe_key.key_src_ip));
+    key->dst_addr = Ip4Address(ntohl(kflow->fe_key.key_dest_ip));
     key->src_port = ntohs(kflow->fe_key.key_src_port);
     key->dst_port = ntohs(kflow->fe_key.key_dst_port);
     key->protocol = kflow->fe_key.key_proto;
@@ -575,9 +582,10 @@ bool FlowTableKSyncObject::AuditProcess() {
 
         vflow_entry = GetKernelFlowEntry(flow_idx, false);
         if (vflow_entry && vflow_entry->fe_action == VR_FLOW_ACTION_HOLD) {
+            // TODO : IPv6
             FlowKey key(vflow_entry->fe_key.key_nh_id,
-                        ntohl(vflow_entry->fe_key.key_src_ip), 
-                        ntohl(vflow_entry->fe_key.key_dest_ip),
+                        Ip4Address(ntohl(vflow_entry->fe_key.key_src_ip)),
+                        Ip4Address(ntohl(vflow_entry->fe_key.key_dest_ip)),
                         vflow_entry->fe_key.key_proto,
                         ntohs(vflow_entry->fe_key.key_src_port),
                         ntohs(vflow_entry->fe_key.key_dst_port));

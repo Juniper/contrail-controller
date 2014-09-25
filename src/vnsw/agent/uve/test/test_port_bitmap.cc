@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <netinet/in.h>
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_interface.h>
 #include <oper/operdb_init.h>
@@ -267,7 +268,7 @@ protected:
 };
 
 TEST_F(UvePortBitmapTest, PortBitmap_1) {
-    FlowKey key(0, 0, 0, IPPROTO_TCP, 1, 1);
+    FlowKey key(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 1, 1);
     FlowEntry flow(key);
     MakeFlow(&flow, 1, &dest_vn_name);
     Agent::GetInstance()->uve()->NewFlow(&flow);
@@ -278,7 +279,7 @@ TEST_F(UvePortBitmapTest, PortBitmap_1) {
 }
 
 TEST_F(UvePortBitmapTest, PortBitmap_2) {
-    FlowKey key(0, 0, 0, IPPROTO_TCP, 1, 1);
+    FlowKey key(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 1, 1);
     FlowEntry flow(key);
     MakeFlow(&flow, 1, &dest_vn_name);
     Agent::GetInstance()->uve()->NewFlow(&flow);
@@ -292,13 +293,13 @@ TEST_F(UvePortBitmapTest, PortBitmap_2) {
 }
 
 TEST_F(UvePortBitmapTest, PortBitmap_3) {
-    FlowKey key1(0, 0, 0, IPPROTO_TCP, 1, 1);
+    FlowKey key1(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 1, 1);
     FlowEntry flow1(key1);
     MakeFlow(&flow1, 1, &dest_vn_name);
     Agent::GetInstance()->uve()->NewFlow(&flow1);
     EXPECT_TRUE(ValidateFlow(&flow1));
 
-    FlowKey key2(0, 0, 0, IPPROTO_TCP, 2, 2);
+    FlowKey key2(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 2, 2);
     FlowEntry flow2(key2);
     MakeFlow(&flow2, 2, &dest_vn_name);
     Agent::GetInstance()->uve()->NewFlow(&flow2);
@@ -314,13 +315,13 @@ TEST_F(UvePortBitmapTest, PortBitmap_3) {
 }
 
 TEST_F(UvePortBitmapTest, PortBitmap_4) {
-    FlowKey key1(0, 0, 0, IPPROTO_TCP, 1, 1);
+    FlowKey key1(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 1, 1);
     FlowEntry flow1(key1);
     MakeFlow(&flow1, 1, &dest_vn_name);
     Agent::GetInstance()->uve()->NewFlow(&flow1);
     EXPECT_TRUE(ValidateFlow(&flow1));
 
-    FlowKey key2(0, 0, 0, IPPROTO_TCP, 257, 257);
+    FlowKey key2(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 257, 257);
     FlowEntry flow2(key2);
     MakeFlow(&flow2, 2, &dest_vn_name);
     Agent::GetInstance()->uve()->NewFlow(&flow2);

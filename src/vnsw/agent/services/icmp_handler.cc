@@ -26,7 +26,7 @@ bool IcmpHandler::Run() {
         return true;
     }
     VmInterface *vm_itf = static_cast<VmInterface *>(itf);
-    if (!vm_itf->ipv4_forwarding()) { 
+    if (!vm_itf->layer3_forwarding()) { 
         return true;
     } 
     switch (icmp_->type) {
@@ -72,12 +72,13 @@ void IcmpHandler::SendResponse(VmInterface *vm_intf) {
     // EthHdr - IP Header - ICMP Header
     len += EthHdr(ptr + len, buf_len - len,
                   agent()->vhost_interface()->mac().ether_addr_octet,
-                  pkt_info_->eth->h_source, IP_PROTOCOL, vm_intf->vlan_id());
+                  pkt_info_->eth->h_source, ETHERTYPE_IP, vm_intf->vlan_id());
 
     uint16_t ip_len = sizeof(iphdr) + icmp_len_;
 
-    len += IpHdr(ptr + len, buf_len - len, ip_len, htonl(pkt_info_->ip_daddr),
-                 htonl(pkt_info_->ip_saddr), IPPROTO_ICMP);
+    len += IpHdr(ptr + len, buf_len - len, ip_len, 
+                 htonl(pkt_info_->ip_daddr.to_v4().to_ulong()),
+                 htonl(pkt_info_->ip_saddr.to_v4().to_ulong()), IPPROTO_ICMP);
 
     // Restore the ICMP header copied earlier
     struct icmphdr *hdr = (struct icmphdr *) (ptr + len);

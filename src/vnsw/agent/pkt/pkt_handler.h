@@ -8,6 +8,7 @@
 #include <net/if.h>
 #include <netinet/if_ether.h>
 #include <netinet/ip.h>
+#include <netinet/ip6.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <netinet/ip_icmp.h>
@@ -15,6 +16,7 @@
 #include <tbb/atomic.h>
 #include <boost/array.hpp>
 
+#include <net/address.h>
 #include <oper/mirror_table.h>
 #include <oper/nexthop.h>
 #include <pkt/pkt_trace.h>
@@ -24,10 +26,13 @@
 
 #define DHCP_SERVER_PORT 67
 #define DHCP_CLIENT_PORT 68
+#define DHCPV6_SERVER_PORT 547
+#define DHCPV6_CLIENT_PORT 546
 #define DNS_SERVER_PORT 53
 
 #define IPv4_ALEN           4
 #define MIN_ETH_PKT_LEN    64
+#define IPC_HDR_LEN        (sizeof(ethhdr) + sizeof(struct agent_hdr))
 #define IP_PROTOCOL        0x800  
 #define VLAN_PROTOCOL      0x8100       
 
@@ -60,11 +65,12 @@ struct PktType {
     enum Type {
         INVALID,
         ARP,
-        IPV4,
+        IP,
         UDP,
         TCP,
         ICMP,
-        NON_IPV4,
+        ICMPV6,
+        NON_IP,
         MESSAGE
     };
 };
@@ -108,6 +114,8 @@ struct AgentHdr {
     uint16_t            mtu;
 };
 
+// Tunnel header decoded from the GRE encapsulated packet on fabric
+// Supports only IPv4 addresses since only IPv4 is supported on fabric
 struct TunnelInfo {
     TunnelInfo() : 
         type(TunnelType::INVALID), label(-1), ip_saddr(), ip_daddr() {}
@@ -128,13 +136,14 @@ struct PktInfo {
     uint8_t             *data;
     InterTaskMsg        *ipc;
 
+    Address::Family     family;
     PktType::Type       type;
     AgentHdr            agent_hdr;
     uint16_t            ether_type;
     // Fields extracted for processing in agent
     uint32_t            vrf;
-    uint32_t            ip_saddr;
-    uint32_t            ip_daddr;
+    IpAddress           ip_saddr;
+    IpAddress           ip_daddr;
     uint8_t             ip_proto;
     uint32_t            sport;
     uint32_t            dport;
@@ -146,10 +155,12 @@ struct PktInfo {
     struct ethhdr       *eth;
     struct ether_arp    *arp;
     struct iphdr        *ip;
+    struct ip6_hdr      *ip6;
     union {
         struct tcphdr   *tcp;
         struct udphdr   *udp;
         struct icmphdr  *icmp;
+        struct icmp6_hdr *icmp6;
     } transp;
 
     PktInfo(Agent *agent, uint32_t buff_len, uint32_t module, uint32_t mdata);
@@ -184,8 +195,10 @@ public:
         FLOW,
         ARP,
         DHCP,
+        DHCPV6,
         DNS,
         ICMP,
+        ICMPV6,
         DIAG,
         ICMP_ERROR,
         RX_PACKET,
@@ -220,7 +233,7 @@ public:
     void HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff);
     void SendMessage(PktModuleName mod, InterTaskMsg *msg); 
 
-    bool IsGwPacket(const Interface *intf, uint32_t dst_ip);
+    bool IsGwPacket(const Interface *intf, const IpAddress &dst_ip);
 
     const PktStats &GetStats() const { return stats_; }
     void ClearStats() { stats_.Reset(); }

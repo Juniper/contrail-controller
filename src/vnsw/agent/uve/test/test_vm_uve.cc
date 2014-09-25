@@ -711,8 +711,8 @@ TEST_F(UveVmUveTest, FipStats_1) {
     FlowSetUp();
     TestFlow flow[] = {
         {
-            TestFlowPkt(vm1_ip, vm4_ip, 1, 0, 0, "vrf5",
-                    flow0->id(), 1),
+            TestFlowPkt(Address::INET, vm1_ip, vm4_ip, 1, 0, 0, "vrf5",
+                        flow0->id(), 1),
             {
                 new VerifyNat(vm4_ip, vm1_fip, 1, 0, 0)
             }
@@ -762,8 +762,8 @@ TEST_F(UveVmUveTest, FipStats_2) {
     FlowSetUp();
     TestFlow flow[] = {
         {
-            TestFlowPkt(vm1_ip, vm4_ip, 1, 0, 0, "vrf5",
-                    flow0->id(), 1),
+            TestFlowPkt(Address::INET, vm1_ip, vm4_ip, 1, 0, 0, "vrf5",
+                        flow0->id(), 1),
             {
                 new VerifyNat(vm4_ip, vm1_fip, 1, 0, 0)
             }
@@ -809,8 +809,8 @@ TEST_F(UveVmUveTest, FipStats_3) {
     FlowSetUp();
     TestFlow flow[] = {
         {
-            TestFlowPkt(vm1_ip, vm4_ip, 1, 0, 0, "vrf5",
-                    flow0->id(), 1),
+            TestFlowPkt(Address::INET, vm1_ip, vm4_ip, 1, 0, 0, "vrf5",
+                        flow0->id(), 1),
             {
                 new VerifyNat(vm4_ip, vm1_fip, 1, 0, 0)
             }
@@ -880,7 +880,7 @@ TEST_F(UveVmUveTest, FipStats_4) {
     FlowSetUp2();
     TestFlow flow[] = {
         {
-            TestFlowPkt(vm_a_ip, vm_c_fip2, 1, 0, 0, "vrf6",
+            TestFlowPkt(Address::INET, vm_a_ip, vm_c_fip2, 1, 0, 0, "vrf6",
                         flowa->id(), 1),
             {
                 new VerifyNat(vm_b_ip, vm_c_fip1, 1, 0, 0)
@@ -956,8 +956,8 @@ TEST_F(UveVmUveTest, FipStats_5) {
     client->WaitForIdle();
     TestFlow flow[] = {
         {
-            TestFlowPkt(vm1_ip, remote_vm_fip, 1, 0, 0, "vrf5",
-                    flow0->id(), 1001),
+            TestFlowPkt(Address::INET, vm1_ip, remote_vm_fip, 1, 0, 0, "vrf5",
+                        flow0->id(), 1001),
             {}
         }
     };

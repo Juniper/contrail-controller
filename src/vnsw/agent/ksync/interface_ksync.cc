@@ -47,10 +47,10 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     interface_id_(entry->interface_id_),
     interface_name_(entry->interface_name_), 
     ip_(entry->ip_), ipv4_active_(false),
-    ipv4_forwarding_(entry->ipv4_forwarding_),
+    layer3_forwarding_(entry->layer3_forwarding_),
     ksync_obj_(obj), l2_active_(false),
     layer2_forwarding_(entry->layer2_forwarding_),
-    mac_(entry->mac_), mirror_direction_(entry->mirror_direction_), 
+    mac_(entry->mac_), mirror_direction_(entry->mirror_direction_),
     network_id_(entry->network_id_), os_index_(Interface::kInvalidIndex),
     parent_(entry->parent_), policy_enabled_(entry->policy_enabled_),
     sub_type_(entry->sub_type_), type_(entry->type_), vlan_id_(entry->vlan_id_),
@@ -64,9 +64,9 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     dhcp_enable_(true), fd_(-1), flow_key_nh_id_(0),
     has_service_vlan_(false), interface_id_(intf->id()),
     interface_name_(intf->name()), ip_(0), ipv4_active_(false),
-    ipv4_forwarding_(true), ksync_obj_(obj), l2_active_(false),
-    layer2_forwarding_(true), mac_(),
-    mirror_direction_(Interface::UNKNOWN), os_index_(intf->os_index()),
+    layer3_forwarding_(true), ksync_obj_(obj), l2_active_(false),                
+    layer2_forwarding_(true), mac_(),                                          
+    mirror_direction_(Interface::UNKNOWN), os_index_(intf->os_index()), 
     parent_(NULL), policy_enabled_(false), sub_type_(InetInterface::VHOST),
     type_(intf->type()), vlan_id_(VmInterface::kInvalidVlanId),
     vrf_id_(intf->vrf_id()), persistent_(false), xconnect_(NULL) {
@@ -158,8 +158,8 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
                 ret = true;
             }
         }
-        if (ipv4_forwarding_ != vm_port->ipv4_forwarding()) {
-            ipv4_forwarding_ = vm_port->ipv4_forwarding();
+        if (layer3_forwarding_ != vm_port->layer3_forwarding()) {
+            layer3_forwarding_ = vm_port->layer3_forwarding();
             ret = true;
         }
         if (layer2_forwarding_ != vm_port->layer2_forwarding()) {
@@ -410,7 +410,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         assert(0);
     }
 
-    if (ipv4_forwarding_) {
+    if (layer3_forwarding_) {
         flags |= VIF_FLAG_L3_ENABLED;
         if (policy_enabled_) {
             flags |= VIF_FLAG_POLICY_ENABLED;

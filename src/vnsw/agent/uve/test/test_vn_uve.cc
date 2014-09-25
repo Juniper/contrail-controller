@@ -445,16 +445,16 @@ TEST_F(UveVnUveTest, FlowCount_1) {
     FlowSetUp();
     TestFlow flow[] = {
         //Add a ICMP forward and reverse flow
-        {  TestFlowPkt(vm1_ip, vm2_ip, 1, 0, 0, "vrf5", 
-                flow0->id()),
+        {  TestFlowPkt(Address::INET, vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
+                       flow0->id()),
         {
             new VerifyVn("vn5", "vn5"),
             new VerifyVrf("vrf5", "vrf5")
         }
         },
         //Add a TCP forward and reverse flow
-        {  TestFlowPkt(vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 200, 
-                "vrf5", flow0->id()),
+        {  TestFlowPkt(Address::INET, vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 200,
+                       "vrf5", flow0->id()),
         {
             new VerifyVn("vn5", "vn5"),
             new VerifyVrf("vrf5", "vrf5")
@@ -508,16 +508,16 @@ TEST_F(UveVnUveTest, FlowCount_2) {
     TestFlow flow[] = {
         //Send an ICMP flow from remote VM in vn3 to local VM in vn5
         {
-            TestFlowPkt(remote_vm4_ip, vm1_ip, 1, 0, 0, "vrf5", 
-                    remote_router_ip, 16),
+            TestFlowPkt(Address::INET, remote_vm4_ip, vm1_ip, 1, 0, 0, "vrf5",
+                        remote_router_ip, 16),
             { 
                 new VerifyVn("vn3", "vn5"),
             }
         },
         //Send a TCP flow from remote VM in vn3 to local VM in vn5
         {
-            TestFlowPkt(remote_vm4_ip, vm1_ip, IPPROTO_TCP, 1006, 1007,
-                    "vrf5", remote_router_ip, 16),
+            TestFlowPkt(Address::INET, remote_vm4_ip, vm1_ip, IPPROTO_TCP,
+                        1006, 1007, "vrf5", remote_router_ip, 16),
             {
                 new VerifyVn("vn3", "vn5"),
             }
@@ -979,7 +979,7 @@ TEST_F(UveVnUveTest, InterVnStats_1) {
     FlowSetUp();
     TestFlow flow[] = {
         //Add a ICMP forward and reverse flow
-        {  TestFlowPkt(vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
+        {  TestFlowPkt(Address::INET, vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
                 flow0->id()),
         {
             new VerifyVn("vn5", "vn5"),
@@ -987,7 +987,7 @@ TEST_F(UveVnUveTest, InterVnStats_1) {
         }
         },
         //Add a TCP forward and reverse flow
-        {  TestFlowPkt(vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 200,
+        {  TestFlowPkt(Address::INET, vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 200,
                 "vrf5", flow0->id()),
         {
             new VerifyVn("vn5", "vn5"),

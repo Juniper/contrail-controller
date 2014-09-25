@@ -12,6 +12,9 @@ enum ServicesConsts {
 request sandesh DhcpInfo {
 }
 
+request sandesh Dhcpv6Info {
+}
+
 request sandesh ArpInfo {
 }
 
@@ -19,6 +22,9 @@ request sandesh DnsInfo {
 }
 
 request sandesh IcmpInfo {
+}
+
+request sandesh Icmpv6Info {
 }
 
 request sandesh MetadataInfo {
@@ -69,6 +75,21 @@ response sandesh DhcpStats {
     11: i32 relay_response;
 }
 
+response sandesh Dhcpv6Stats {
+    1: i32 dhcp_solicit;
+    2: i32 dhcp_advertise;
+    3: i32 dhcp_request;
+    4: i32 dhcp_confirm;
+    5: i32 dhcp_renew;
+    6: i32 dhcp_rebind;
+    7: i32 dhcp_reply;
+    8: i32 dhcp_release;
+    9: i32 dhcp_decline;
+    10: i32 dhcp_reconfigure;
+    11: i32 information_request;
+    12: i32 dhcp_error;
+}
+
 response sandesh ArpStats {
     1: i32 arp_entries;
     2: i32 arp_requests;           // received
@@ -96,6 +117,14 @@ response sandesh IcmpStats {
     1: i32 icmp_gw_ping;
     2: i32 icmp_gw_ping_err;
     3: i32 icmp_drop;
+}
+
+response sandesh Icmpv6Stats {
+    1: i32 icmpv6_router_solicit;
+    2: i32 icmpv6_router_advert;
+    3: i32 icmpv6_ping_request;
+    4: i32 icmpv6_ping_response;
+    5: i32 icmpv6_drop;
 }
 
 response sandesh MetadataResponse {
@@ -156,10 +185,26 @@ struct Ipv4Hdr {
     11: string dest_ip;
 }
 
+struct Ipv6Hdr {
+    1: i32 flow;
+    2: i16 plen;
+    3: i16 next_hdr;
+    4: i16 hlim;
+    5: string src_ip;
+    6: string dest_ip;
+}
+
 struct Icmpv4Hdr {
     1: string type;
     2: i16 code;
     3: string csum;
+}
+
+struct Icmpv6Hdr {
+    1: string type;
+    2: i16 code;
+    3: string csum;
+    4: string rest;
 }
 
 struct UdpHdr {
@@ -193,6 +238,12 @@ struct Dhcpv4Hdr {
     15: string cookie;
     16: string dhcp_options;
     17: string other_options;
+}
+
+struct Dhcpv6Header {
+    1: string type;
+    2: string xid;
+    3: string options;
 }
 
 struct DnsHdr {
@@ -236,6 +287,20 @@ response sandesh DhcpPktSandesh {
     2: list<DhcpPkt> pkt_list;
 }
 
+struct Dhcpv6Pkt {
+    1: PktData info;
+    2: VrouterHdr agent_hdr;
+    3: MacHdr mac_hdr;
+    4: Ipv6Hdr ip_hdr;
+    5: UdpHdr udp_hdr;
+    6: Dhcpv6Header dhcp_hdr;
+}
+
+response sandesh Dhcpv6PktSandesh {
+    1: string type;
+    2: list<Dhcpv6Pkt> pkt_list;
+}
+
 struct DnsPkt {
     1: PktData info;
     2: VrouterHdr agent_hdr;
@@ -258,9 +323,22 @@ struct IcmpPkt {
     5: Icmpv4Hdr icmp_hdr;
 }
 
+struct Icmpv6Pkt {
+    1: PktData info;
+    2: VrouterHdr agent_hdr;
+    3: MacHdr mac_hdr;
+    4: Ipv6Hdr ip_hdr;
+    5: Icmpv6Hdr icmp_hdr;
+}
+
 response sandesh IcmpPktSandesh {
     1: string type;
     2: list<IcmpPkt> pkt_list;
+}
+
+response sandesh Icmpv6PktSandesh {
+    1: string type;
+    2: list<Icmpv6Pkt> pkt_list;
 }
 
 struct PktDump {
@@ -373,6 +451,18 @@ trace sandesh DhcpError {
 }
 
 trace sandesh DhcpTrace {
+    1: string msg;
+}
+
+trace sandesh Dhcpv6Error {
+    1: string error;
+}
+
+trace sandesh Dhcpv6Trace {
+    1: string msg;
+}
+
+trace sandesh Icmpv6Trace {
     1: string msg;
 }
 

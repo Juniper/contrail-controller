@@ -740,16 +740,16 @@ TEST_F(UveVrouterUveTest, Bitmap_1) {
     FlowSetUp();
     TestFlow flow[] = {
         //Add a TCP forward and reverse flow
-        {  TestFlowPkt(vm1_ip, vm2_ip, IPPROTO_TCP, 100, 200, 
-                "vrf5", flow0->id()),
+        {  TestFlowPkt(Address::INET, vm1_ip, vm2_ip, IPPROTO_TCP, 100, 200,
+                       "vrf5", flow0->id()),
         {
             new VerifyVn("vn5", "vn5"),
             new VerifyVrf("vrf5", "vrf5")
         }
         },
         //Add a UDP forward and reverse flow
-        {  TestFlowPkt(vm1_ip, vm2_ip, IPPROTO_UDP, 100, 200, 
-                "vrf5", flow0->id()),
+        {  TestFlowPkt(Address::INET, vm1_ip, vm2_ip, IPPROTO_UDP, 100, 200,
+                       "vrf5", flow0->id()),
         {
             new VerifyVn("vn5", "vn5"),
             new VerifyVrf("vrf5", "vrf5")
@@ -778,16 +778,16 @@ TEST_F(UveVrouterUveTest, Bitmap_1) {
 
     TestFlow flow2[] = {
         //Add a TCP forward and reverse flow
-        {  TestFlowPkt(vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 2000, 
-                "vrf5", flow0->id()),
+        {  TestFlowPkt(Address::INET, vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 2000,
+                       "vrf5", flow0->id()),
         {
             new VerifyVn("vn5", "vn5"),
             new VerifyVrf("vrf5", "vrf5")
         }
         },
         //Add a UDP forward and reverse flow
-        {  TestFlowPkt(vm1_ip, vm2_ip, IPPROTO_UDP, 1000, 2000, 
-                "vrf5", flow0->id()),
+        {  TestFlowPkt(Address::INET, vm1_ip, vm2_ip, IPPROTO_UDP, 1000, 2000,
+                       "vrf5", flow0->id()),
         {
             new VerifyVn("vn5", "vn5"),
             new VerifyVrf("vrf5", "vrf5")

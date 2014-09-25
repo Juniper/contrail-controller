@@ -137,8 +137,10 @@ class CfgListener;
 
 class ArpProto;
 class DhcpProto;
+class Dhcpv6Proto;
 class DnsProto;
 class IcmpProto;
+class Icmpv6Proto;
 class FlowProto;
 
 class Peer;
@@ -179,6 +181,7 @@ public:
         INET4_UNICAST = 0,
         INET4_MULTICAST,
         LAYER2,
+        INET6_UNICAST,
         ROUTE_TABLE_MAX
     };
 
@@ -558,11 +561,17 @@ public:
     DhcpProto *GetDhcpProto() { return dhcp_proto_; }
     void SetDhcpProto(DhcpProto *proto) { dhcp_proto_ = proto; }
 
+    Dhcpv6Proto *dhcpv6_proto() const { return dhcpv6_proto_; }
+    void set_dhcpv6_proto(Dhcpv6Proto *proto) { dhcpv6_proto_ = proto; }
+
     DnsProto *GetDnsProto() { return dns_proto_; }
     void SetDnsProto(DnsProto *proto) { dns_proto_ = proto; }
 
     IcmpProto *GetIcmpProto() { return icmp_proto_; }
     void SetIcmpProto(IcmpProto *proto) { icmp_proto_ = proto; }
+
+    Icmpv6Proto *icmpv6_proto() { return icmpv6_proto_; }
+    void set_icmpv6_proto(Icmpv6Proto *proto) { icmpv6_proto_ = proto; }
 
     FlowProto *GetFlowProto() { return flow_proto_; }
     void SetFlowProto(FlowProto *proto) { flow_proto_ = proto; }
@@ -783,6 +792,8 @@ private:
     DhcpProto *dhcp_proto_;
     DnsProto *dns_proto_;
     IcmpProto *icmp_proto_;
+    Dhcpv6Proto *dhcpv6_proto_;
+    Icmpv6Proto *icmpv6_proto_;
     FlowProto *flow_proto_;
 
     std::auto_ptr<Peer> local_peer_;

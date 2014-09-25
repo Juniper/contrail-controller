@@ -151,7 +151,7 @@ TEST_F(FlowRpfTest, Flow_rpf_failure_missing_route) {
 
     TestFlow flow[] = {
         {
-            TestFlowPkt(remote_vm1_ip, vm2_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, remote_vm1_ip, vm2_ip, 1, 0, 0, "vrf5", 
                     flow0->id()),
             {}
         }
@@ -190,7 +190,7 @@ TEST_F(FlowRpfTest, Flow_rpf_failure_subnet_discard_route) {
 
     TestFlow flow[] = {
         {
-            TestFlowPkt(vn5_unused_ip, vm2_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vn5_unused_ip, vm2_ip, 1, 0, 0, "vrf5", 
                     flow0->id()),
             {}
         }
@@ -229,7 +229,7 @@ TEST_F(FlowRpfTest, Flow_rpf_failure_invalid_source) {
 
     TestFlow flow[] = {
         {
-            TestFlowPkt(vm3_ip, vm2_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vm3_ip, vm2_ip, 1, 0, 0, "vrf5", 
                     flow0->id()),
             {}
         }

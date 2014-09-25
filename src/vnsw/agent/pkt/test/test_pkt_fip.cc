@@ -259,8 +259,8 @@ static void Setup() {
             "default-project:vn3");
     client->WaitForIdle();
 
-    EXPECT_TRUE(vnet[1]->HasFloatingIp());
-    if (vnet[1]->HasFloatingIp() == false) {
+    EXPECT_TRUE(vnet[1]->HasFloatingIp(Address::INET));
+    if (vnet[1]->HasFloatingIp(Address::INET) == false) {
         ret = false;
     }
     // Get route tables
@@ -926,7 +926,7 @@ TEST_F(FlowTest, Nat2NonNat) {
             "default-project:vn2");
     DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
     client->WaitForIdle();
-    EXPECT_FALSE(vnet[1]->HasFloatingIp());
+    EXPECT_FALSE(vnet[1]->HasFloatingIp(Address::INET));
 
     // Deleting floating-ip will remove associated flows also
     WAIT_FOR(1000, 1000,
@@ -997,7 +997,7 @@ TEST_F(FlowTest, NonNat2Nat) {
             "default-project:vn2");
     AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
     client->WaitForIdle();
-    EXPECT_TRUE(vnet[1]->HasFloatingIp());
+    EXPECT_TRUE(vnet[1]->HasFloatingIp(Address::INET));
 
     //Send the traffic again
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[3], 1);
@@ -1056,7 +1056,7 @@ TEST_F(FlowTest, TwoFloatingIp) {
     AddLink("floating-ip", "fip2", "floating-ip-pool", "fip-pool1");
     AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip2");
     client->WaitForIdle();
-    EXPECT_TRUE(vnet[1]->HasFloatingIp());
+    EXPECT_TRUE(vnet[1]->HasFloatingIp(Address::INET));
     const VmInterface::FloatingIpList list2 = vnet[1]->floating_ip_list();
     EXPECT_EQ(2U, list2.list_.size());
 
@@ -1400,8 +1400,8 @@ TEST_F(FlowTest, fip1_to_fip2_SNAT_DNAT) {
     EXPECT_TRUE(fe->is_flags_set(FlowEntry::NatFlow));
 
     // both Source and Destination NAT should be set
-    EXPECT_TRUE(fe->key().src.ipv4 != rfe->key().dst.ipv4);
-    EXPECT_TRUE(fe->key().dst.ipv4 != rfe->key().src.ipv4);
+    EXPECT_TRUE(fe->key().src_addr != rfe->key().dst_addr);
+    EXPECT_TRUE(fe->key().dst_addr != rfe->key().src_addr);
 
     DelLink("virtual-machine-interface", "vnet5", "floating-ip", "fip_2");
     client->WaitForIdle();

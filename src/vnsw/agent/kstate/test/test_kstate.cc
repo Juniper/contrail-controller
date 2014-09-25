@@ -371,17 +371,20 @@ TEST_F(KStateTest, MirrorGetTest) {
 
 TEST_F(KStateTest, RouteDumpTest) {
     if (!ksync_init_) {
-        int rt_count = 0;
+        int rt_count = 0, prev_rt_count;
         TestRouteKState::Init(false);
         client->WaitForIdle();
         client->KStateResponseWait(1);
         rt_count = 0;
 
+        prev_rt_count = KSyncSockTypeMap::RouteCount();
         CreatePorts(0, 0, rt_count);
+        //Default
         //Addition of 2 vm ports in a new VN (VRF) will result in the following routes
         // 2 routes corresponding to the addresses of VM
-        // l2 broadcast
-        TestRouteKState::Init(true, rt_count + (MAX_TEST_FD * 2) + 1);
+        // l2 broadcast 
+        // v6 host route for new vrf addition
+        TestRouteKState::Init(true, prev_rt_count + (MAX_TEST_FD * 2) + 2);
         client->WaitForIdle();
         client->KStateResponseWait(1);
         DeletePorts();

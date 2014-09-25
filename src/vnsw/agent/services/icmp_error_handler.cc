@@ -34,7 +34,8 @@ bool IcmpErrorHandler::Run() {
 
     VmInterface *vm_itf = dynamic_cast<VmInterface *>
         (agent()->interface_table()->FindInterface(GetInterfaceIndex()));
-    if (vm_itf == NULL || vm_itf->ipv4_forwarding() == false || vm_itf->vn() == NULL) { 
+    if (vm_itf == NULL || vm_itf->layer3_forwarding() == false ||
+        vm_itf->vn() == NULL) {
         proto_->increment_interface_errors();
         return true;
     }
@@ -54,18 +55,18 @@ bool IcmpErrorHandler::SendIcmpError(VmInterface *intf) {
     FlowKey key;
     if (pkt_info_->agent_hdr.flow_index == (uint32_t)-1) {
         // flow index is -1 for 255.255.255.255
-        if (pkt_info_->ip_daddr != 0xFFFFFFFF) {
+        if (pkt_info_->ip_daddr.to_v4().to_ulong() != 0xFFFFFFFF) {
             proto_->increment_invalid_flow_index();
             return true;
         }
-        src_ip = pkt_info_->ip_saddr;
+        src_ip = pkt_info_->ip_saddr.to_v4().to_ulong();
     } else {
         if (proto_->FlowIndexToKey(pkt_info_->agent_hdr.flow_index, &key)
             == false) {
             proto_->increment_invalid_flow_index();
             return true;
         }
-        src_ip = key.src.ipv4;
+        src_ip = key.src_addr.to_v4().to_ulong();
     }
 
     // Get IPAM to find default gateway
@@ -84,10 +85,11 @@ bool IcmpErrorHandler::SendIcmpError(VmInterface *intf) {
     char *ptr = (char *)pkt_info_->pkt;
     len += EthHdr(ptr + len, buf_len - len,
                   agent()->vhost_interface()->mac().ether_addr_octet,
-                  pkt_info_->eth->h_source, IP_PROTOCOL, intf->vlan_id());
+                  pkt_info_->eth->h_source, ETH_P_IP, intf->vlan_id());
 
     uint16_t ip_len = sizeof(iphdr) + sizeof(icmphdr) + data_len;
-    len += IpHdr(ptr + len, buf_len - len, ip_len, ipam->default_gw.to_ulong(),
+    len += IpHdr(ptr + len, buf_len - len, ip_len,
+            ipam->default_gw.to_v4().to_ulong(),
             htonl(src_ip), IPPROTO_ICMP);
 
     char *icmp = ptr + len;
@@ -100,8 +102,8 @@ bool IcmpErrorHandler::SendIcmpError(VmInterface *intf) {
         iphdr *ip = (iphdr *)data;
         uint16_t ip_hlen = ip->ihl * 4;
 
-        ip->saddr = htonl(key.src.ipv4);
-        ip->daddr = htonl(key.dst.ipv4);
+        ip->saddr = htonl(key.src_addr.to_v4().to_ulong());
+        ip->daddr = htonl(key.dst_addr.to_v4().to_ulong());
         ip->check = Csum((uint16_t *)data, ip_hlen, 0);
         if (ip->protocol == IPPROTO_UDP) {
             udphdr *udp = (udphdr *)(data + ip_hlen);

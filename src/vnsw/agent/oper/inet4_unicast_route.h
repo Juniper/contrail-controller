@@ -28,7 +28,7 @@ public:
     virtual AgentRouteKey *Clone() const;
 
     const Ip4Address &addr() const {return dip_;}
-    const uint8_t &plen() const {return plen_;}
+    uint8_t plen() const {return plen_;}
 
 private:
     Ip4Address dip_;
@@ -75,7 +75,7 @@ public:
     const Ip4Address &addr() const { return addr_; }
     void set_addr(Ip4Address addr) { addr_ = addr; };
 
-    int plen() const { return plen_; }
+    uint8_t plen() const { return plen_; }
     void set_plen(int plen) { plen_ = plen; }
 
     //Key for patricia node lookup 

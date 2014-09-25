@@ -90,17 +90,23 @@ void DnsProto::InterfaceNotify(DBEntryBase *entry) {
         for (VmInterface::FloatingIpSet::iterator it = fip.list_.begin(),
              next = fip.list_.begin(); it != fip.list_.end(); it = next) {
             ++next;
-            UpdateFloatingIp(vmitf, it->vn_.get(), it->floating_ip_, true);
+            if (it->floating_ip_.is_v4()) {
+                UpdateFloatingIp(vmitf, it->vn_.get(), it->floating_ip_.to_v4(),
+                                 true);
+            } else {
+                //TODO: Ipv6 handling
+            }
         }
     } else {
         autogen::VirtualDnsType vdns_type;
         std::string vdns_name;
-        GetVdnsData(vmitf->vn(), vmitf->ip_addr(),
+        GetVdnsData(vmitf->vn(), vmitf->ip_addr(), vmitf->ip6_addr(),
                     vdns_name, vdns_type);
         VmDataMap::iterator it = all_vms_.find(vmitf);
         if (it == all_vms_.end()) {
             if (!UpdateDnsEntry(vmitf, vmitf->vn(), vmitf->vm_name(), vdns_name,
-                                vmitf->ip_addr(), false, false))
+                                vmitf->ip_addr(), vmitf->ip6_addr(),
+                                false, false))
                 vdns_name = "";
             IpVdnsMap vmdata;
             vmdata.insert(IpVdnsPair(vmitf->ip_addr().to_ulong(), vdns_name));
@@ -109,7 +115,8 @@ void DnsProto::InterfaceNotify(DBEntryBase *entry) {
                            vmitf->vm_name());
         } else {
             CheckForUpdate(it->second, vmitf, vmitf->vn(),
-                           vmitf->ip_addr(), vdns_name, vdns_type);
+                           vmitf->ip_addr(), vmitf->ip6_addr(),
+                           vdns_name, vdns_type);
         }
 
         // floating ip activate & de-activate are updated via the callback to
@@ -121,8 +128,10 @@ void DnsProto::InterfaceNotify(DBEntryBase *entry) {
             for (VmInterface::FloatingIpSet::iterator it = fip.list_.begin();
                  it != fip.list_.end(); ++it) {
                 if (it->installed_) {
-                    UpdateFloatingIp(vmitf, it->vn_.get(),
-                                     it->floating_ip_, false);
+                    if (it->floating_ip_.is_v4()) {
+                        UpdateFloatingIp(vmitf, it->vn_.get(),
+                                it->floating_ip_.to_v4(), false);
+                    }
                 }
             }
         }
@@ -154,9 +163,11 @@ void DnsProto::VnNotify(DBEntryBase *entry) {
         if (it->first->vn() == vn) {
             std::string vdns_name;
             autogen::VirtualDnsType vdns_type;
-            GetVdnsData(vn, it->first->ip_addr(), vdns_name, vdns_type);
+            GetVdnsData(vn, it->first->ip_addr(), it->first->ip6_addr(),
+                        vdns_name, vdns_type);
             CheckForUpdate(it->second, it->first, it->first->vn(),
-                           it->first->ip_addr(), vdns_name, vdns_type);
+                           it->first->ip_addr(), it->first->ip6_addr(),
+                           vdns_name, vdns_type);
         }
     }
     Ip4Address ip_key(0);
@@ -169,7 +180,8 @@ void DnsProto::VnNotify(DBEntryBase *entry) {
             break;
         }
         autogen::VirtualDnsType fip_vdns_type;
-        GetVdnsData(entry->vn_, entry->floating_ip_,
+        Ip6Address ip6; // TODO: update once floating ipv6 support is added
+        GetVdnsData(entry->vn_, entry->floating_ip_, ip6,
                     fip_vdns_name, fip_vdns_type);
         CheckForFipUpdate(entry, fip_vdns_name, fip_vdns_type);
         ++it;
@@ -201,19 +213,21 @@ void DnsProto::ProcessNotify(std::string name, bool is_deleted, bool is_ipam) {
         std::string vdns_name;
         autogen::VirtualDnsType vdns_type;
         GetVdnsData(it->first->vn(), it->first->ip_addr(),
-                    vdns_name, vdns_type);
+                    it->first->ip6_addr(), vdns_name, vdns_type);
         // in case of VDNS delete, clear the name
         if (!is_ipam && is_deleted && vdns_name == name)
             vdns_name.clear();
         CheckForUpdate(it->second, it->first, it->first->vn(),
-                       it->first->ip_addr(), vdns_name, vdns_type);
+                       it->first->ip_addr(), it->first->ip6_addr(),
+                       vdns_name, vdns_type);
     }
     DnsFipSet::iterator it = fip_list_.begin();
     while (it != fip_list_.end()) {
         std::string fip_vdns_name;
         DnsFipEntry *entry = (*it).get();
         autogen::VirtualDnsType fip_vdns_type;
-        GetVdnsData(entry->vn_, entry->floating_ip_,
+        Ip6Address ip6; // TODO: update once floating ipv6 support is added
+        GetVdnsData(entry->vn_, entry->floating_ip_, ip6,
                     fip_vdns_name, fip_vdns_type);
         CheckForFipUpdate(entry, fip_vdns_name, fip_vdns_type);
         ++it;
@@ -222,12 +236,12 @@ void DnsProto::ProcessNotify(std::string name, bool is_deleted, bool is_ipam) {
 
 void DnsProto::CheckForUpdate(IpVdnsMap &ipvdns, const VmInterface *vmitf,
                               const VnEntry *vn, const Ip4Address &ip,
-                              std::string &vdns_name,
+                              const Ip6Address &ip6, std::string &vdns_name,
                               const autogen::VirtualDnsType &vdns_type) {
     IpVdnsMap::iterator vmdata_it = ipvdns.find(ip.to_ulong());
     if (vmdata_it == ipvdns.end()) {
         if (UpdateDnsEntry(vmitf, vn, vmitf->vm_name(),
-                           vdns_name, ip, false, false))
+                           vdns_name, ip, ip6, false, false))
             ipvdns.insert(IpVdnsPair(ip.to_ulong(), vdns_name));
         else
             ipvdns.insert(IpVdnsPair(ip.to_ulong(), ""));
@@ -235,7 +249,7 @@ void DnsProto::CheckForUpdate(IpVdnsMap &ipvdns, const VmInterface *vmitf,
     }
     if (vmdata_it->second.empty() && vmdata_it->second != vdns_name) {
         if (UpdateDnsEntry(vmitf, vn, vmitf->vm_name(),
-                           vdns_name, ip, false, false))
+                           vdns_name, ip, ip6, false, false))
             vmdata_it->second = vdns_name;
     } else if (vmdata_it->second != vdns_name) {
         if (MoveVDnsEntry(vmitf, vdns_name, vmdata_it->second,
@@ -251,8 +265,10 @@ void DnsProto::CheckForFipUpdate(DnsFipEntry *entry, std::string &vdns_name,
         if (!GetFipName(entry->interface_, vdns_type,
                         entry->floating_ip_, fip_name))
             vdns_name = "";
+        // TODO: update once floating ipv6 support is added
+        Ip6Address ip6;
         if (UpdateDnsEntry(entry->interface_, entry->vn_, fip_name,
-                           vdns_name, entry->floating_ip_, true, false)) {
+                           vdns_name, entry->floating_ip_, ip6, true, false)) {
             entry->vdns_name_.assign(vdns_name);
             entry->fip_name_ = fip_name;
         }
@@ -268,6 +284,7 @@ void DnsProto::CheckForFipUpdate(DnsFipEntry *entry, std::string &vdns_name,
 bool DnsProto::SendUpdateDnsEntry(const VmInterface *vmitf,
                                   const std::string &name,
                                   const Ip4Address &ip, uint32_t plen,
+                                  const Ip6Address &ip6, uint32_t plen6,
                                   const std::string &vdns_name,
                                   const autogen::VirtualDnsType &vdns_type,
                                   bool is_floating, bool is_delete) {
@@ -284,17 +301,40 @@ bool DnsProto::SendUpdateDnsEntry(const VmInterface *vmitf,
 
     // Add a DNS record
     DnsItem item;
-    item.eclass = is_delete ? DNS_CLASS_NONE : DNS_CLASS_IN;
-    item.type = DNS_A_RECORD;
-    item.ttl = is_delete ? 0 : vdns_type.default_ttl_seconds;
-    item.name = name;
-    boost::system::error_code ec;
-    item.data = ip.to_string(ec);
-    data->items.push_back(item);
+    if (!ip.is_unspecified()) {
+        item.eclass = is_delete ? DNS_CLASS_NONE : DNS_CLASS_IN;
+        item.type = DNS_A_RECORD;
+        item.ttl = is_delete ? 0 : vdns_type.default_ttl_seconds;
+        item.name = name;
+        boost::system::error_code ec;
+        item.data = ip.to_string(ec);
+        data->items.push_back(item);
+    }
 
-    DNS_BIND_TRACE(DnsBindTrace, "DNS update sent for : " << item.ToString() <<
-                   " VDNS : " << data->virtual_dns << " Zone : " << data->zone);
-    SendDnsUpdateIpc(data, DnsAgentXmpp::Update, vmitf, is_floating);
+    DnsItem ip6_item;
+    if (!ip6.is_unspecified()) {
+        // TODO : not adding reverse record for IPv6 currently
+        ip6_item.eclass = is_delete ? DNS_CLASS_NONE : DNS_CLASS_IN;
+        ip6_item.type = DNS_AAAA_RECORD;
+        ip6_item.ttl = is_delete ? 0 : vdns_type.default_ttl_seconds;
+        ip6_item.name = name;
+        boost::system::error_code ec;
+        ip6_item.data = ip6.to_string(ec);
+        data->items.push_back(ip6_item);
+    }
+
+    if (data->items.size()) {
+        DNS_BIND_TRACE(DnsBindTrace,
+                       "DNS update sent for : " << item.ToString() <<
+                       " IPv6 : " << ip6_item.ToString() <<
+                       " VDNS : " << data->virtual_dns <<
+                       " Zone : " << data->zone);
+        SendDnsUpdateIpc(data, DnsAgentXmpp::Update, vmitf, is_floating);
+    } else {
+        DNS_BIND_TRACE(DnsBindTrace, "Not adding DNS entry; Name = " <<
+                       name << "Address unspecified");
+        return false;
+    }
 
     // Add a PTR record as well
     DnsUpdateData *ptr_data = new DnsUpdateData();
@@ -321,10 +361,11 @@ bool DnsProto::SendUpdateDnsEntry(const VmInterface *vmitf,
 // Update the floating ip entries
 bool DnsProto::UpdateFloatingIp(const VmInterface *vmitf, const VnEntry *vn,
                                 const Ip4Address &ip, bool is_deleted) {
+    Ip6Address ip6; // TODO: update once floating ipv6 support is added
     bool is_floating = true;
     std::string vdns_name;
     autogen::VirtualDnsType vdns_type;
-    GetVdnsData(vn, ip, vdns_name, vdns_type);
+    GetVdnsData(vn, ip, ip6, vdns_name, vdns_type);
     DnsFipEntryPtr key(new DnsFipEntry(vn, ip, vmitf));
     DnsFipSet::iterator it = fip_list_.find(key);
     if (it == fip_list_.end()) {
@@ -334,7 +375,7 @@ bool DnsProto::UpdateFloatingIp(const VmInterface *vmitf, const VnEntry *vn,
         if (!GetFipName(vmitf, vdns_type, ip, fip_name))
             vdns_name = "";
         if (!UpdateDnsEntry(vmitf, vn, fip_name,
-                            vdns_name, ip, is_floating, false))
+                            vdns_name, ip, ip6, is_floating, false))
             vdns_name = "";
         key.get()->vdns_name_ = vdns_name;
         key.get()->fip_name_ = fip_name;
@@ -343,7 +384,7 @@ bool DnsProto::UpdateFloatingIp(const VmInterface *vmitf, const VnEntry *vn,
         if (is_deleted) {
             std::string fip_name;
             UpdateDnsEntry(vmitf, vn, (*it)->fip_name_,
-                           (*it)->vdns_name_, ip, is_floating, true);
+                           (*it)->vdns_name_, ip, ip6, is_floating, true);
             fip_list_.erase(key);
         } else {
             DnsFipEntry *entry = (*it).get();
@@ -357,28 +398,50 @@ bool DnsProto::UpdateDnsEntry(const VmInterface *vmitf, const VnEntry *vn,
                               const std::string &vm_name,
                               const std::string &vdns_name,
                               const Ip4Address &ip,
+                              const Ip6Address &ip6,
                               bool is_floating, bool is_deleted) {
     if (!vdns_name.empty()) {
         uint32_t plen = 0;
         const std::vector<VnIpam> &ipam = vn->GetVnIpam();
         unsigned int i;
-        for (i = 0; i < ipam.size(); ++i) {
-            if (IsIp4SubnetMember(ip, ipam[i].ip_prefix, ipam[i].plen)) {
-                plen = ipam[i].plen;
-                break;
+        if (!ip.is_unspecified()) {
+            for (i = 0; i < ipam.size(); ++i) {
+                if (ipam[i].IsV4() &&
+                    IsIp4SubnetMember(ip, ipam[i].ip_prefix.to_v4(), ipam[i].plen)) {
+                    plen = ipam[i].plen;
+                    break;
+                }
+            }
+            if (i == ipam.size()) {
+                DNS_BIND_TRACE(DnsBindTrace, "UpdateDnsEntry for VM <" <<
+                               vm_name << "> not done for vn <" <<
+                               vn->GetName() << "> IPAM doesnt have Ipv4 subnet; " <<
+                               ((is_deleted)? "delete" : "update"));
+                return false;
             }
         }
-        if (i == ipam.size()) {
-            DNS_BIND_TRACE(DnsBindTrace, "UpdateDnsEntry for VM <" <<
-                           vm_name << "> not done for vn <" <<
-                           vn->GetName() << "> IPAM doesnt have the subnet; " <<
-                           ((is_deleted)? "delete" : "update"));
-            return false;
+
+        uint32_t plen6 = 0;
+        if (!ip6.is_unspecified()) {
+            for (i = 0; i < ipam.size(); ++i) {
+                if (ipam[i].IsV6() &&
+                    IsIp6SubnetMember(ip6, ipam[i].ip_prefix.to_v6(), ipam[i].plen)) {
+                    plen6 = ipam[i].plen;
+                    break;
+                }
+            }
+            if (i == ipam.size()) {
+                DNS_BIND_TRACE(DnsBindTrace, "UpdateDnsEntry for VM <" <<
+                               vm_name << "> not done for vn <" <<
+                               vn->GetName() << "> IPAM doesnt have Ipv6 subnet; " <<
+                               ((is_deleted)? "delete" : "update"));
+                return false;
+            }
         }
 
         autogen::VirtualDnsType vdns_type;
         if (agent_->domain_config_table()->GetVDns(vdns_name, &vdns_type)) {
-            return SendUpdateDnsEntry(vmitf, vm_name, ip, plen,
+            return SendUpdateDnsEntry(vmitf, vm_name, ip, plen, ip6, plen6,
                                       vdns_name, vdns_type, is_floating,
                                       is_deleted);
         } else {
@@ -411,16 +474,20 @@ bool DnsProto::MoveVDnsEntry(const VmInterface *vmitf,
     return true;
 }
 
-bool DnsProto::GetVdnsData(const VnEntry *vn, const Ip4Address &vm_addr, 
-                           std::string &vdns_name,
+bool DnsProto::GetVdnsData(const VnEntry *vn, const Ip4Address &v4_addr,
+                           const Ip6Address &v6_addr, std::string &vdns_name,
                            autogen::VirtualDnsType &vdns_type) {
     if (!vn)
         return false;
 
     autogen::IpamType ipam_type;
-    if (!vn->GetIpamVdnsData(vm_addr, &ipam_type, &vdns_type)) {
+    if ((!v4_addr.to_ulong() ||
+         !vn->GetIpamVdnsData(v4_addr, &ipam_type, &vdns_type)) &&
+        (v6_addr.is_unspecified() ||
+         !vn->GetIpamVdnsData(v6_addr, &ipam_type, &vdns_type))) {
         DNS_BIND_TRACE(DnsBindTrace, "Unable to retrieve VDNS data; VN : " <<
-                   vn->GetName() << " IP : " << vm_addr.to_string());
+                   vn->GetName() << " IPv4 : " << v4_addr.to_string() <<
+                   " IPv6 : " << v6_addr.to_string());
         return false;
     }
 

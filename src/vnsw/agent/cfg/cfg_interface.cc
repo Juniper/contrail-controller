@@ -24,7 +24,7 @@ CfgIntEntry::~CfgIntEntry() {
 void CfgIntData::Init (const uuid& vm_id, const uuid& vn_id,
                        const uuid& vm_project_id,
                        const std::string& tname, const IpAddress& ip,
-                       const std::string& mac,
+                       const Ip6Address& ip6, const std::string& mac,
                        const std::string& vm_name,
                        uint16_t vlan_id, const CfgIntEntry::CfgIntType port_type,
                        const int32_t version) {
@@ -33,6 +33,7 @@ void CfgIntData::Init (const uuid& vm_id, const uuid& vn_id,
     vm_project_id_ = vm_project_id;
     tap_name_ = tname;
     ip_addr_ = ip;
+    ip6_addr_ = ip6;
     mac_addr_ = mac;
     vm_name_ = vm_name;
     vlan_id_ = vlan_id;
@@ -46,6 +47,7 @@ void CfgIntEntry::Init(const CfgIntData& int_data) {
     vn_id_ = int_data.vn_id_;
     tap_name_ = int_data.tap_name_;
     ip_addr_ = int_data.ip_addr_;
+    ip6_addr_ = int_data.ip6_addr_;
     mac_addr_ = int_data.mac_addr_;
     vm_name_ = int_data.vm_name_;
     vlan_id_ = int_data.vlan_id_;
@@ -115,7 +117,8 @@ DBEntry *CfgIntTable::Add(const DBRequest *req) {
               cfg_int->ip_addr().to_string(), "ADD", 
               cfg_int->GetVersion(), cfg_int->vlan_id(),
               UuidToString(cfg_int->vm_project_uuid()),
-              cfg_int->CfgIntTypeToString(cfg_int->port_type()));
+              cfg_int->CfgIntTypeToString(cfg_int->port_type()),
+              cfg_int->ip6_addr().to_string());
     return cfg_int;
 }
 
@@ -128,7 +131,8 @@ void CfgIntTable::Delete(DBEntry *entry, const DBRequest *req) {
               cfg->ip_addr().to_string(), "DELETE",
               cfg->GetVersion(), cfg->vlan_id(),
               UuidToString(cfg->vm_project_uuid()),
-              cfg->CfgIntTypeToString(cfg->port_type()));
+              cfg->CfgIntTypeToString(cfg->port_type()),
+              cfg->ip6_addr().to_string());
 
     CfgVnPortKey vn_port_key(cfg->GetVnUuid(), cfg->GetUuid());
     CfgVnPortTree::iterator it = uuid_tree_.find(vn_port_key);

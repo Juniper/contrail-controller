@@ -118,10 +118,12 @@ void ArpVrfState::SendArpRequestForVm(Inet4UnicastRouteEntry *route) {
 
             const unsigned char zero_mac[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
             const unsigned char *smac = agent->vrrp_mac();
-            arp_handler.SendArp(ARPOP_REQUEST, smac,
-                                path->subnet_gw_ip().to_ulong(),
-                                zero_mac, route->addr().to_ulong(),
-                                intf_id, route->vrf_id());
+            if (path->subnet_gw_ip().is_v4()) {
+                arp_handler.SendArp(ARPOP_REQUEST, smac,
+                        path->subnet_gw_ip().to_v4().to_ulong(),
+                        zero_mac, route->addr().to_ulong(),
+                        intf_id, route->vrf_id());
+            }
             arp_proto->IncrementStatsVmArpReq();
         }
     }

@@ -55,6 +55,15 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
           rt_type_ = RT_UCAST;
           break;
     }
+    case Agent::INET6_UNICAST: {
+          const Inet6UnicastRouteEntry *uc_rt = 
+              static_cast<const Inet6UnicastRouteEntry *>(rt);
+          addr_ = uc_rt->addr();
+          src_addr_ = Ip6Address();
+          prefix_len_ = uc_rt->plen();
+          rt_type_ = RT_UCAST;
+          break;
+    }
     case Agent::INET4_MULTICAST: {
           const Inet4MulticastRouteEntry *mc_rt = 
               static_cast<const Inet4MulticastRouteEntry *>(rt);
@@ -254,10 +263,24 @@ int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
     encoder.set_rtr_rid(0);
     encoder.set_rtr_rt_type(rt_type_);
     encoder.set_rtr_vrf_id(vrf_id_);
-    encoder.set_rtr_family(AF_INET);
     if (rt_type_ != RT_LAYER2) {
-        encoder.set_rtr_prefix(addr_.to_v4().to_ulong());
-        encoder.set_rtr_src(src_addr_.to_v4().to_ulong());
+        if (addr_.is_v4()) {
+            encoder.set_rtr_family(AF_INET);
+            boost::array<unsigned char, 4> bytes = addr_.to_v4().to_bytes();
+            std::vector<int8_t> rtr_prefix(bytes.begin(), bytes.end());
+            encoder.set_rtr_prefix(rtr_prefix);
+            boost::array<unsigned char, 4> src_bytes = src_addr_.to_v4().to_bytes();
+            std::vector<int8_t> rtr_src(src_bytes.begin(), src_bytes.end());
+            encoder.set_rtr_src(rtr_src);
+        } else if (addr_.is_v6()) {
+            encoder.set_rtr_family(AF_INET6);
+            boost::array<unsigned char, 16> bytes = addr_.to_v6().to_bytes();
+            std::vector<int8_t> rtr_prefix(bytes.begin(), bytes.end());
+            encoder.set_rtr_prefix(rtr_prefix);
+            boost::array<unsigned char, 16> src_bytes = src_addr_.to_v6().to_bytes();
+            std::vector<int8_t> rtr_src(src_bytes.begin(), src_bytes.end());
+            encoder.set_rtr_src(rtr_src);
+        }
         encoder.set_rtr_prefix_len(prefix_len_);
     } else {
         encoder.set_rtr_family(AF_BRIDGE);
@@ -337,14 +360,18 @@ int RouteKSyncEntry::DeleteMsg(char *buf, int buf_len) {
 
     // For INET routes, we need to give replacement NH and prefixlen
     for (int plen = (prefix_len() - 1); plen >= 0; plen--) {
-        uint32_t mask = plen ? (0xFFFFFFFF << (32 - plen)) : 0;
-        if (!addr_.is_v4()) 
-            continue;
-        Ip4Address v4 = addr_.to_v4();
-        Ip4Address addr = boost::asio::ip::address_v4(v4.to_ulong() & mask);
+
+        if (addr_.is_v4()) {
+            uint32_t mask = plen ? (0xFFFFFFFF << (32 - plen)) : 0;
+            Ip4Address v4 = addr_.to_v4();
+            Ip4Address addr = boost::asio::ip::address_v4(v4.to_ulong() & mask);
+            key.set_ip(addr);
+        } else if (addr_.is_v6()) {
+            Ip6Address addr = GetIp6SubnetAddress(addr_.to_v6(), plen);
+            key.set_ip(addr);
+        }
 
         key.set_prefix_len(plen);
-        key.set_ip(addr);
         found = GetObject()->Find(&key);
         
         if (found) {
@@ -538,6 +565,14 @@ void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
         // Register route-table with KSync
         RouteKSyncObject *ksync = new RouteKSyncObject(ksync_, rt_table);
         AddToVrfMap(vrf->vrf_id(), ksync, RT_UCAST);
+
+        // Get Inet6 Route table and register with KSync
+        rt_table = static_cast<AgentRouteTable *>(vrf->
+                          GetInet6UnicastRouteTable());
+
+        // Register route-table with KSync
+        ksync = new RouteKSyncObject(ksync_, rt_table);
+        //AddToVrfMap(vrf->vrf_id(), ksync, RT_UCAST);
 
         rt_table = static_cast<AgentRouteTable *>(vrf->
                           GetLayer2RouteTable());

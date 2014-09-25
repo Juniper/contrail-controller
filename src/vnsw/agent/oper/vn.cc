@@ -69,7 +69,7 @@ bool VnEntry::GetVnHostRoutes(const std::string &ipam,
     return false;
 }
 
-bool VnEntry::GetIpamName(const Ip4Address &vm_addr,
+bool VnEntry::GetIpamName(const IpAddress &vm_addr,
                           std::string *ipam_name) const {
     for (unsigned int i = 0; i < ipam_.size(); i++) {
         if (ipam_[i].IsSubnetMember(vm_addr)) {
@@ -80,7 +80,7 @@ bool VnEntry::GetIpamName(const Ip4Address &vm_addr,
     return false;
 }
 
-const VnIpam *VnEntry::GetIpam(const Ip4Address &ip) const {
+const VnIpam *VnEntry::GetIpam(const IpAddress &ip) const {
     for (unsigned int i = 0; i < ipam_.size(); i++) {
         if (ipam_[i].IsSubnetMember(ip)) {
             return &ipam_[i];
@@ -89,7 +89,7 @@ const VnIpam *VnEntry::GetIpam(const Ip4Address &ip) const {
     return NULL;
 }
 
-bool VnEntry::GetIpamData(const Ip4Address &vm_addr, std::string *ipam_name,
+bool VnEntry::GetIpamData(const IpAddress &vm_addr, std::string *ipam_name,
                           autogen::IpamType *ipam_type) const {
     // This will be executed from non DB context; task policy will ensure that
     // this is not run while DB task is updating the map
@@ -100,7 +100,7 @@ bool VnEntry::GetIpamData(const Ip4Address &vm_addr, std::string *ipam_name,
     return true;
 }
 
-bool VnEntry::GetIpamVdnsData(const Ip4Address &vm_addr, 
+bool VnEntry::GetIpamVdnsData(const IpAddress &vm_addr,
                               autogen::IpamType *ipam_type,
                               autogen::VirtualDnsType *vdns_type) const {
     std::string ipam_name;
@@ -114,6 +114,22 @@ bool VnEntry::GetIpamVdnsData(const Ip4Address &vm_addr,
         return false;
         
     return true;
+}
+
+bool VnEntry::GetPrefix(const Ip6Address &ip, Ip6Address *prefix,
+                        uint8_t *plen) const {
+    for (uint32_t i = 0; i < ipam_.size(); ++i) {
+        if (!ipam_[i].IsV6()) {
+            continue;
+        }
+        if (IsIp6SubnetMember(ip, ipam_[i].ip_prefix.to_v6(),
+                              ipam_[i].plen)) {
+            *prefix = ipam_[i].ip_prefix.to_v6();
+            *plen = (uint8_t)ipam_[i].plen;
+            return true;
+        }
+    }
+    return false;
 }
 
 std::string VnEntry::GetProject() const {
@@ -318,8 +334,8 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
         ret = true;
     }
 
-    if (vn->ipv4_forwarding_ != data->ipv4_forwarding_) {
-        vn->ipv4_forwarding_ = data->ipv4_forwarding_;
+    if (vn->layer3_forwarding_ != data->layer3_forwarding_) {
+        vn->layer3_forwarding_ = data->layer3_forwarding_;
         ret = true;
     }
 
@@ -329,7 +345,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
     }
 
     //Ignore IPAM changes if layer3 is not enabled
-    if (!vn->ipv4_forwarding_) {
+    if (!vn->layer3_forwarding_) {
         data->ipam_.clear();
         data->vn_ipam_data_.clear();
     }
@@ -422,12 +438,17 @@ IFMapNode *VnTable::FindTarget(IFMapAgentTable *table, IFMapNode *node,
 
 bool VnTable::IsGatewayL2(const string &gateway) const {
     boost::system::error_code ec;
-    Ip4Address gateway_ip = Ip4Address::from_string(gateway, ec);
-
-    //0.0.0.0 or 169.254.0.0/16 is L2
-    return ((gateway_ip == Ip4Address::from_string("0.0.0.0", ec)) ||
-            IsIp4SubnetMember(gateway_ip, Ip4Address::from_string("169.254.0.0",
-                                                                  ec), 16));
+    IpAddress gateway_ip = IpAddress::from_string(gateway, ec);
+    if (gateway_ip.is_v4()) {
+        //0.0.0.0 or 169.254.0.0/16 is L2
+        return ((gateway_ip.to_v4() == Ip4Address::from_string("0.0.0.0", ec)) ||
+                IsIp4SubnetMember(gateway_ip.to_v4(),
+                                  Ip4Address::from_string("169.254.0.0", ec),
+                                  16));
+    } else if (gateway_ip.is_v6()) {
+        return gateway_ip.to_v6().is_unspecified();
+    }
+    return true;
 }
 
 bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
@@ -438,13 +459,13 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     int vnid = properties.network_id;
     int vxlan_id = properties.vxlan_network_identifier;
     bool layer2_forwarding = true;
-    bool ipv4_forwarding = true;
+    bool layer3_forwarding = true;
     boost::uuids::uuid u;
     CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
 
     if ((properties.forwarding_mode == "l2") ||
         (Agent::GetInstance()->simulate_evpn_tor())) {
-        ipv4_forwarding = false;
+        layer3_forwarding = false;
     }
     VnKey *key = new VnKey(u);
     VnData *data = NULL;
@@ -499,9 +520,9 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
                     assert(ipam);
                     const VnSubnetsType &subnets = ipam->data();
                     for (unsigned int i = 0; i < subnets.ipam_subnets.size(); ++i) {
-                        if (ipv4_forwarding &&
+                        if (layer3_forwarding &&
                             IsGatewayL2(subnets.ipam_subnets[i].default_gateway))
-                            ipv4_forwarding = false;
+                            layer3_forwarding = false;
 
                         vn_ipam.push_back(
                            VnIpam(subnets.ipam_subnets[i].subnet.ip_prefix,
@@ -522,7 +543,7 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         std::sort(vn_ipam.begin(), vn_ipam.end());
         data = new VnData(node->name(), acl_uuid, vrf_name, mirror_acl_uuid, 
                           mirror_cfg_acl_uuid, vn_ipam, vn_ipam_data,
-                          vxlan_id, vnid, layer2_forwarding, ipv4_forwarding,
+                          vxlan_id, vnid, layer2_forwarding, layer3_forwarding,
                           id_perms.enable);
     }
 
@@ -734,35 +755,61 @@ void VnTable::DelIPAMRoutes(VnEntry *vn, VnIpam &ipam) {
 // Add receive route for default gw
 void VnTable::AddHostRouteForGw(VnEntry *vn, const VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
-    static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-        GetInet4UnicastRouteTable())->AddHostRoute(vrf->GetName(),
-                                                   ipam.default_gw, 32,
-                                                   vn->GetName());
+    if (ipam.IsV4()) {
+        static_cast<Inet4UnicastAgentRouteTable *>(vrf->
+            GetInet4UnicastRouteTable())->AddHostRoute(vrf->GetName(),
+                ipam.default_gw.to_v4(), 32, vn->GetName());
+    } else if (ipam.IsV6()) {
+        static_cast<Inet6UnicastAgentRouteTable *>(vrf->
+            GetInet6UnicastRouteTable())->AddHostRoute(vrf->GetName(),
+                ipam.default_gw.to_v6(), 128, vn->GetName());
+    }
 }
 
 // Del receive route for default gw
 void VnTable::DelHostRouteForGw(VnEntry *vn, const VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
-    static_cast<Inet4UnicastAgentRouteTable *>
-        (vrf->GetInet4UnicastRouteTable())->DeleteReq
-        (Agent::GetInstance()->local_peer(), vrf->GetName(),
-         ipam.default_gw, 32, NULL);
+    if (ipam.IsV4()) {
+        static_cast<Inet4UnicastAgentRouteTable *>
+            (vrf->GetInet4UnicastRouteTable())->DeleteReq
+            (Agent::GetInstance()->local_peer(), vrf->GetName(),
+             ipam.default_gw.to_v4(), 32, NULL);
+    } else if (ipam.IsV6()) {
+        static_cast<Inet6UnicastAgentRouteTable *>
+            (vrf->GetInet6UnicastRouteTable())->DeleteReq
+            (Agent::GetInstance()->local_peer(), vrf->GetName(),
+             ipam.default_gw.to_v6(), 128);
+    }
 }
 
 void VnTable::AddSubnetRoute(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
-    static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-        GetInet4UnicastRouteTable())->AddSubnetRoute
-        (vrf->GetName(), ipam.GetSubnetAddress(), ipam.plen, vn->GetName(), 0);
+    if (ipam.IsV4()) {
+        static_cast<Inet4UnicastAgentRouteTable *>(vrf->
+            GetInet4UnicastRouteTable())->AddSubnetRoute
+            (vrf->GetName(), ipam.GetSubnetAddress(), ipam.plen, vn->GetName(), 0);
+    } else if (ipam.IsV6()) {
+        static_cast<Inet6UnicastAgentRouteTable *>(vrf->
+            GetInet6UnicastRouteTable())->AddSubnetRoute
+            (vrf->GetName(), ipam.GetV6SubnetAddress(), ipam.plen, 
+             vn->GetName(), 0);
+    }
 }
 
 // Del receive route for default gw
 void VnTable::DelSubnetRoute(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
-    static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-        GetInet4UnicastRouteTable())->DeleteReq
-        (Agent::GetInstance()->local_peer(), vrf->GetName(),
-         ipam.GetSubnetAddress(), ipam.plen, NULL);
+    if (ipam.IsV4()) {
+        static_cast<Inet4UnicastAgentRouteTable *>(vrf->
+            GetInet4UnicastRouteTable())->DeleteReq
+            (Agent::GetInstance()->local_peer(), vrf->GetName(),
+             ipam.GetSubnetAddress(), ipam.plen, NULL);
+    } else if (ipam.IsV6()) {
+        static_cast<Inet6UnicastAgentRouteTable *>(vrf->
+            GetInet6UnicastRouteTable())->DeleteReq
+            (Agent::GetInstance()->local_peer(), vrf->GetName(),
+             ipam.GetV6SubnetAddress(), ipam.plen);
+    }
 }
 
 bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
@@ -823,7 +870,7 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
             vn_ipam_host_routes_list.push_back(vn_ipam_host_routes);
         }
         data.set_ipam_host_routes(vn_ipam_host_routes_list);
-        data.set_ipv4_forwarding(Ipv4Forwarding());
+        data.set_ipv4_forwarding(layer3_forwarding());
         data.set_layer2_forwarding(layer2_forwarding());
         data.set_admin_state(admin_state());
 
@@ -900,7 +947,7 @@ void VnEntry::SendObjectLog(AgentLogEvent::type event) const {
         info.set_ipam_list(ipam_list);
     }
     info.set_layer2_forwarding(layer2_forwarding());
-    info.set_ipv4_forwarding(Ipv4Forwarding());
+    info.set_ipv4_forwarding(layer3_forwarding());
     info.set_admin_state(admin_state());
     VN_OBJECT_LOG_LOG("AgentVn", SandeshLevel::SYS_INFO, info);
 }

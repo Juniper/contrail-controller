@@ -63,6 +63,8 @@ struct ItfSandeshData {
    31: string admin_state;
    32: i32 flow_key_idx;
    33: optional list<StaticRouteSandesh> allowed_address_pair_list;
+   34: optional string ip6_addr;
+   35: optional string ip6_active;
 }
 
 struct VnIpamData {
@@ -240,6 +242,7 @@ struct VrfSandeshData {
     2: i32 ucindex  (link="Inet4UcRouteReq"); // VRF Index INET4 UC Table
     3: i32 mcindex  (link="Inet4McRouteReq"); // VRF Index INET4 MC Table
     4: i32 l2index  (link="Layer2RouteReq"); // VRF Index L2 Table
+    6: i32 uc6index (link="Inet6UcRouteReq"); // VRF Index INET6 UC Table
     5: string source;                        // config or gateway
 }
 
@@ -328,6 +331,17 @@ request sandesh Inet4UcRouteReq {
 }
 
 response sandesh Inet4UcRouteResp {
+    1: list<RouteUcSandeshData> route_list; // routes
+}
+
+request sandesh Inet6UcRouteReq {
+    1: i32 vrf_index = 0;             // send route entries for the VRF index
+    2: string src_ip;
+    3: u16 prefix_len;
+    4: bool stale = 0;                // Display stale entries only if set
+}
+
+response sandesh Inet6UcRouteResp {
     1: list<RouteUcSandeshData> route_list; // routes
 }
 

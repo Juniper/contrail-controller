@@ -7,11 +7,12 @@
 class TestFlowPkt {
 public:
     //Ingress flow
-    TestFlowPkt(std::string sip, std::string dip, uint16_t proto, uint32_t sport,
-                uint32_t dport, std::string vrf, uint32_t ifindex) : sip_(sip), 
-                dip_(dip), proto_(proto), sport_(sport), dport_(dport), 
-                ifindex_(ifindex), mpls_(0), hash_(0),
-                allow_wait_for_idle_(true) {
+    TestFlowPkt(Address::Family family, const std::string &sip,
+                const std::string &dip, uint16_t proto, uint32_t sport,
+                uint32_t dport, std::string vrf, uint32_t ifindex) :
+        family_(family), sip_(sip), dip_(dip), proto_(proto), sport_(sport),
+        dport_(dport), ifindex_(ifindex), mpls_(0), hash_(0),
+        allow_wait_for_idle_(true) {
         vrf_ = 
           Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf)->vrf_id();
         if (ifindex_) {
@@ -24,11 +25,13 @@ public:
     };
 
     //Ingress flow
-    TestFlowPkt(std::string sip, std::string dip, uint16_t proto, uint32_t sport,
-                uint32_t dport, std::string vrf, uint32_t ifindex, uint32_t hash):
-                sip_(sip), dip_(dip), proto_(proto), sport_(sport), dport_(dport),
-                ifindex_(ifindex), mpls_(0), hash_(hash),
-                allow_wait_for_idle_(true) {
+    TestFlowPkt(Address::Family family, const std::string &sip,
+                const std::string &dip, uint16_t proto, uint32_t sport,
+                uint32_t dport, const std::string &vrf, uint32_t ifindex,
+                uint32_t hash):
+        family_(family), sip_(sip), dip_(dip), proto_(proto),sport_(sport),
+        dport_(dport), ifindex_(ifindex), mpls_(0), hash_(hash),
+        allow_wait_for_idle_(true) {
          vrf_ = 
           Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf)->vrf_id();
          if (ifindex_) {
@@ -41,11 +44,13 @@ public:
     };
 
     //Egress flow
-    TestFlowPkt(std::string sip, std::string dip, uint16_t proto, uint32_t sport,
-                uint32_t dport, std::string vrf, std::string osip, uint32_t mpls) :
-                sip_(sip), dip_(dip), proto_(proto), sport_(sport), dport_(dport),
-                ifindex_(0), mpls_(mpls), outer_sip_(osip), hash_(0),
-                allow_wait_for_idle_(true) {
+    TestFlowPkt(Address::Family family, const std::string &sip,
+                const std::string &dip, uint16_t proto, uint32_t sport,
+                uint32_t dport, const std::string &vrf, const std::string &osip,
+                uint32_t mpls) :
+        family_(family), sip_(sip), dip_(dip), proto_(proto), sport_(sport),
+        dport_(dport), ifindex_(0), mpls_(mpls), outer_sip_(osip), hash_(0),
+        allow_wait_for_idle_(true) {
         vrf_ = 
          Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf)->vrf_id();
         if (ifindex_) {
@@ -58,11 +63,13 @@ public:
     };
 
     //Egress flow
-    TestFlowPkt(std::string sip, std::string dip, uint16_t proto, uint32_t sport,
-                uint32_t dport, std::string vrf, std::string osip, uint32_t mpls,
-                uint32_t hash) : sip_(sip), dip_(dip), proto_(proto), sport_(sport),
-                dport_(dport), ifindex_(0), mpls_(mpls), hash_(hash),
-                allow_wait_for_idle_(true) {
+    TestFlowPkt(Address::Family family, const std::string &sip,
+                const std::string &dip, uint16_t proto, uint32_t sport,
+                uint32_t dport, std::string vrf, std::string osip,
+                uint32_t mpls, uint32_t hash) :
+        family_(family), sip_(sip), dip_(dip), proto_(proto), sport_(sport),
+        dport_(dport), ifindex_(0), mpls_(mpls), hash_(hash),
+        allow_wait_for_idle_(true) {
          vrf_ = 
           Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf)->vrf_id();
          if (ifindex_) {
@@ -81,17 +88,32 @@ public:
 
         switch(proto_) {
         case IPPROTO_TCP:
-            TxTcpPacket(ifindex_, sip_.c_str(), dip_.c_str(), sport_, dport_, 
-                        false, hash_, vrf_);
+            if (family_ == Address::INET) {
+                TxTcpPacket(ifindex_, sip_.c_str(), dip_.c_str(), sport_,
+                            dport_, false, hash_, vrf_);
+            } else {
+                TxTcp6Packet(ifindex_, sip_.c_str(), dip_.c_str(), sport_,
+                             dport_, false, hash_, vrf_);
+            }
             break;
 
         case IPPROTO_UDP:
-            TxUdpPacket(ifindex_, sip_.c_str(), dip_.c_str(), sport_, dport_, 
-                        hash_, vrf_);
+            if (family_ == Address::INET) {
+                TxUdpPacket(ifindex_, sip_.c_str(), dip_.c_str(), sport_,
+                            dport_, hash_, vrf_);
+            } else {
+                TxUdp6Packet(ifindex_, sip_.c_str(), dip_.c_str(), sport_,
+                             dport_, hash_, vrf_);
+            }
             break;
 
         default:
-            TxIpPacket(ifindex_, sip_.c_str(), dip_.c_str(), proto_, hash_);
+            if (family_ == Address::INET) {
+                TxIpPacket(ifindex_, sip_.c_str(), dip_.c_str(), proto_, hash_);
+            } else {
+                TxIp6Packet(ifindex_, sip_.c_str(), dip_.c_str(), proto_,
+                            hash_);
+            }
             break;
         }
     };
@@ -108,21 +130,39 @@ public:
                     fabric_interface_name().c_str())->id();
         switch(proto_) {
         case IPPROTO_TCP:
-            TxTcpMplsPacket(eth_intf_id, outer_sip_.c_str(), 
-                            self_server.c_str(), mpls_, sip_.c_str(),
-                            dip_.c_str(), sport_, dport_, false, hash_);
+            if (family_ == Address::INET) {
+                TxTcpMplsPacket(eth_intf_id, outer_sip_.c_str(),
+                                self_server.c_str(), mpls_, sip_.c_str(),
+                                dip_.c_str(), sport_, dport_, false, hash_);
+            } else {
+                TxTcp6MplsPacket(eth_intf_id, outer_sip_.c_str(), 
+                                 self_server.c_str(), mpls_, sip_.c_str(),
+                                 dip_.c_str(), sport_, dport_, false, hash_);
+            }
             break;
 
         case IPPROTO_UDP:
-            TxUdpMplsPacket(eth_intf_id, outer_sip_.c_str(), 
-                            self_server.c_str(), mpls_, sip_.c_str(), 
-                            dip_.c_str(), sport_, dport_, hash_);
+            if (family_ == Address::INET) {
+                TxUdpMplsPacket(eth_intf_id, outer_sip_.c_str(),
+                                self_server.c_str(), mpls_, sip_.c_str(), 
+                                dip_.c_str(), sport_, dport_, hash_);
+            } else {
+                TxUdp6MplsPacket(eth_intf_id, outer_sip_.c_str(), 
+                                 self_server.c_str(), mpls_, sip_.c_str(), 
+                                 dip_.c_str(), sport_, dport_, hash_);
+            }
             break;
 
         default:
-            TxIpMplsPacket(eth_intf_id, outer_sip_.c_str(), 
-                           self_server.c_str(), mpls_, sip_.c_str(), 
-                           dip_.c_str(), proto_, hash_);
+            if (family_ == Address::INET) {
+                TxIpMplsPacket(eth_intf_id, outer_sip_.c_str(),
+                               self_server.c_str(), mpls_, sip_.c_str(), 
+                               dip_.c_str(), proto_, hash_);
+            } else {
+                TxIp6MplsPacket(eth_intf_id, outer_sip_.c_str(),
+                                self_server.c_str(), mpls_, sip_.c_str(), 
+                                dip_.c_str(), proto_, hash_);
+            }
             break;
         }
     };
@@ -151,11 +191,12 @@ public:
     void Delete() {
         FlowKey key;
         key.nh = nh_id_;
-        key.src.ipv4 = ntohl(inet_addr(sip_.c_str()));
-        key.dst.ipv4 = ntohl(inet_addr(dip_.c_str()));
+        key.src_addr = IpAddress::from_string(sip_);
+        key.dst_addr = IpAddress::from_string(dip_);
         key.src_port = sport_;
         key.dst_port = dport_;
         key.protocol = proto_;
+        key.family = Address::INET;
 
         if (Agent::GetInstance()->pkt()->flow_table()->Find(key) == NULL) {
             return;
@@ -183,6 +224,7 @@ public:
     }
 
 private:
+    Address::Family family_;
     std::string    sip_;
     std::string    dip_;
     uint16_t       proto_;
@@ -295,8 +337,8 @@ public:
     void Verify(FlowEntry *fe) {
         FlowEntry *rev = fe->reverse_flow_entry();
         EXPECT_TRUE(rev != NULL);
-        EXPECT_TRUE(rev->key().src.ipv4 == ntohl(inet_addr(nat_sip_.c_str())));
-        EXPECT_TRUE(rev->key().dst.ipv4 == ntohl(inet_addr(nat_dip_.c_str())));
+        EXPECT_TRUE(rev->key().src_addr == Ip4Address::from_string(nat_sip_));
+        EXPECT_TRUE(rev->key().dst_addr == Ip4Address::from_string(nat_dip_));
         EXPECT_TRUE(rev->key().src_port == nat_sport_);
         EXPECT_TRUE(rev->key().dst_port == nat_dport_ ||
                     rev->key().dst_port == fe->linklocal_src_port());

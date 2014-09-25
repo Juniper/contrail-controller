@@ -38,11 +38,12 @@ struct TestFlowKey {
 
     void InitFlowKey(FlowKey *key) const {
         key->nh = nh_;
-        key->src.ipv4 = ntohl(inet_addr(sip_));
-        key->dst.ipv4 = ntohl(inet_addr(dip_));
+        key->src_addr = Ip4Address::from_string(sip_);
+        key->dst_addr = Ip4Address::from_string(dip_);
         key->protocol = proto_;
         key->src_port = sport_;
         key->dst_port = dport_;
+        key->family = key->src_addr.is_v4() ? Address::INET : Address::INET6;
     }
 };
 
@@ -254,6 +255,30 @@ public:
         FlowKey key;
         flow->InitFlowKey(&key);
         Agent::GetInstance()->pkt()->flow_table()->Delete(key, true);
+        client->WaitForIdle();
+    }
+
+    FlowEntry *FlowInit(TestFlowKey *t) {
+        FlowKey key;
+        t->InitFlowKey(&key);
+        FlowEntry *flow = Agent::GetInstance()->pkt()->flow_table()->Allocate(key);
+
+        boost::shared_ptr<PktInfo> pkt_info(new PktInfo(NULL, 0, 0, 0));
+        pkt_info->family = Address::INET;
+        PktFlowInfo info(pkt_info, Agent::GetInstance()->pkt()->flow_table());
+        PktInfo *pkt = pkt_info.get();
+
+        PktControlInfo ctrl;
+        ctrl.vn_ = VnGet(t->vn_);
+        ctrl.intf_ = VmPortGet(t->ifindex_);
+        ctrl.vm_ = VmGet(t->vm_);
+
+        flow->InitFwdFlow(&info, pkt, &ctrl, &ctrl);
+        return flow;
+    }
+
+    static void FlowAdd(FlowEntry *fwd, FlowEntry *rev) {
+        Agent::GetInstance()->pkt()->flow_table()->Add(fwd, rev);
         client->WaitForIdle();
     }
 
