@@ -53,7 +53,7 @@ public:
     virtual ~RoutingInstance();
 
     const RouteTableList &GetTables() const {
-        return vrf_table_;
+        return vrf_tables_;
     }
 
     void ProcessConfig(BgpServer *server);
@@ -101,6 +101,7 @@ public:
     const BgpInstanceConfig *config() const { return config_; }
     const std::string virtual_network() const;
     int virtual_network_index() const;
+    bool virtual_network_allow_transit() const;
 
     const RoutingInstanceMgr *manager() const { return mgr_; }
     RoutingInstanceInfo GetDataCollection(const char *operation);
@@ -130,7 +131,7 @@ private:
     std::string name_;
     int index_;
     std::auto_ptr<RouteDistinguisher> rd_;
-    RouteTableList vrf_table_;
+    RouteTableList vrf_tables_;
     RouteTargetList import_;
     RouteTargetList export_;
     RoutingInstanceMgr *mgr_;
@@ -138,6 +139,7 @@ private:
     bool is_default_;
     std::string virtual_network_;
     int virtual_network_index_;
+    bool virtual_network_allow_transit_;
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<RoutingInstance> manager_delete_ref_;
     boost::scoped_ptr<StaticRouteMgr> static_route_mgr_;
@@ -246,6 +248,7 @@ public:
     size_t count() const { return instances_.count(); }
     BgpServer *server() { return server_; }
     LifetimeActor *deleter();
+
 private:
     friend class RoutingInstanceMgrTest;
     class DeleteActor;

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <virtual-network name="blue-vn">
+        <network-id>1000</network-id>
+    </virtual-network>
+    <virtual-network name="core-vn">
+        <network-id>2000</network-id>
+        <allow-transit>true</allow-transit>
+    </virtual-network>
+    <virtual-network name="red-vn">
+        <network-id>3000</network-id>
+    </virtual-network>
+    <virtual-network name="green-vn">
+        <network-id>4000</network-id>
+    </virtual-network>
+    <routing-instance name="blue">
+        <virtual-network>blue-vn</virtual-network>
+        <vrf-target>target:1:101</vrf-target>
+    </routing-instance>
+    <routing-instance name="blue-i1">
+        <virtual-network>blue-vn</virtual-network>
+        <vrf-target>target:1:102</vrf-target>
+        <service-chain-info>
+            <routing-instance>core</routing-instance>
+            <source-routing-instance>blue</source-routing-instance>
+            <prefix>192.168.2.0/24</prefix>
+            <service-chain-address>192.168.1.253</service-chain-address>
+        </service-chain-info>
+    </routing-instance>
+    <routing-instance name="core-i2">
+        <virtual-network>core-vn</virtual-network>
+        <vrf-target>target:1:103</vrf-target>
+    </routing-instance>
+    <routing-instance name="core">
+        <virtual-network>core-vn</virtual-network>
+        <vrf-target>target:1:104</vrf-target>
+    </routing-instance>
+    <routing-instance name="core-i3">
+        <virtual-network>core-vn</virtual-network>
+        <vrf-target>target:1:105</vrf-target>
+        <service-chain-info>
+            <routing-instance>red</routing-instance>
+            <source-routing-instance>core</source-routing-instance>
+            <prefix>192.168.3.0/24</prefix>
+            <service-chain-address>192.168.2.253</service-chain-address>
+        </service-chain-info>
+    </routing-instance>
+    <routing-instance name="red-i4">
+        <virtual-network>red-vn</virtual-network>
+        <vrf-target>target:1:106</vrf-target>
+    </routing-instance>
+    <routing-instance name="red">
+        <virtual-network>red-vn</virtual-network>
+        <vrf-target>target:1:107</vrf-target>
+    </routing-instance>
+    <routing-instance name="core-i5">
+        <virtual-network>core-vn</virtual-network>
+        <vrf-target>target:1:108</vrf-target>
+        <service-chain-info>
+            <routing-instance>green</routing-instance>
+            <source-routing-instance>core</source-routing-instance>
+            <prefix>192.168.4.0/24</prefix>
+            <service-chain-address>192.168.2.252</service-chain-address>
+        </service-chain-info>
+    </routing-instance>
+    <routing-instance name="green-i6">
+        <virtual-network>green-vn</virtual-network>
+        <vrf-target>target:1:109</vrf-target>
+    </routing-instance>
+    <routing-instance name="green">
+        <virtual-network>green-vn</virtual-network>
+        <vrf-target>target:1:110</vrf-target>
+    </routing-instance>
+</config>
