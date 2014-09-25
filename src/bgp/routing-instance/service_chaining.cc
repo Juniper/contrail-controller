@@ -114,10 +114,11 @@ bool ServiceChain::Match(BgpServer *server, BgpTable *table,
         }
         if (aggregate_enable() && is_more_specific(route, &aggregate_match)) {
             // More specific
-            if (deleted) 
+            if (deleted) {
                 type = ServiceChainRequest::MORE_SPECIFIC_DELETE;
-            else 
+            } else {
                 type = ServiceChainRequest::MORE_SPECIFIC_ADD_CHG;
+            }
         } else {
             // External connecting routes
             if (!deleted) {
@@ -130,15 +131,21 @@ bool ServiceChain::Match(BgpServer *server, BgpTable *table,
                         deleted = true;
 
                     int vn_index = GetOriginVnIndex(route);
-                    if (!vn_index || dest_->virtual_network_index() != vn_index)
-                        deleted = true;
+                    int dest_vn_index = dest_->virtual_network_index();
+                    if (!vn_index || dest_vn_index != vn_index) {
+                        if (!dest_->virtual_network_allow_transit())
+                            deleted = true;
+                        if (!dest_vn_index)
+                            deleted = true;
+                    }
                 }
             }
 
-            if (deleted)
+            if (deleted) {
                 type = ServiceChainRequest::EXT_CONNECT_ROUTE_DELETE;
-            else
+            } else {
                 type = ServiceChainRequest::EXT_CONNECT_ROUTE_ADD_CHG;
+            }
         }
     } else if ((table == connected_table()) && 
                !connected_table_unregistered() &&
@@ -148,11 +155,13 @@ bool ServiceChain::Match(BgpServer *server, BgpTable *table,
                 deleted = true;
             }
         }
+
         // Connected route for service chain
-        if (deleted) 
+        if (deleted) {
             type = ServiceChainRequest::CONNECTED_ROUTE_DELETE;
-        else 
+        } else {
             type = ServiceChainRequest::CONNECTED_ROUTE_ADD_CHG;
+        }
     } else {
         return false;
     }
@@ -447,6 +456,7 @@ struct ServiceChainInfoComp {
         if (lhs.service_instance != rhs.service_instance) {
             return (lhs.service_instance < rhs.service_instance);
         }
+
         return false;
     }
 };

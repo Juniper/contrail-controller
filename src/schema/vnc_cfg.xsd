@@ -643,6 +643,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name='VirtualNetworkType'>
     <xsd:all>
+        <xsd:element name='allow-transit' type="xsd:boolean"/>
         <!-- This indicates whether this virtual-network will be extended to
              non-contrail bgp routers -->
         <xsd:element name='extend-to-external-routers' type="xsd:boolean"/>

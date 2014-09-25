@@ -412,7 +412,10 @@ const string &BgpProtocolConfig::InstanceName() const {
 // Constructor for BgpInstanceConfig.
 //
 BgpInstanceConfig::BgpInstanceConfig(const string &name)
-    : name_(name), protocol_(NULL), virtual_network_index_(0) {
+    : name_(name),
+      protocol_(NULL),
+      virtual_network_index_(0),
+      virtual_network_allow_transit_(false) {
 }
 
 //
@@ -505,6 +508,18 @@ static int GetVirtualNetworkIndex(DBGraph *graph, IFMapNode *node) {
 }
 
 //
+// Check if a virtual-network allows transit. The input IFMapNode represents
+// the virtual-network.
+//
+static bool GetVirtualNetworkAllowTransit(DBGraph *graph, IFMapNode *node) {
+    const autogen::VirtualNetwork *vn =
+        static_cast<autogen::VirtualNetwork *>(node->GetObject());
+    if (vn && vn->IsPropertySet(autogen::VirtualNetwork::PROPERTIES))
+        return vn->properties().allow_transit;
+    return false;
+}
+
+//
 // Update BgpInstanceConfig based on a new autogen::RoutingInstance object.
 //
 // Rebuild the import and export route target lists and update the virtual
@@ -552,6 +567,8 @@ void BgpInstanceConfig::Update(BgpConfigManager *manager,
         } else if (strcmp(adj->table()->Typename(), "virtual-network") == 0) {
             virtual_network_ = adj->name();
             virtual_network_index_ = GetVirtualNetworkIndex(graph, adj);
+            virtual_network_allow_transit_ =
+                GetVirtualNetworkAllowTransit(graph, adj);
         }
     }
 

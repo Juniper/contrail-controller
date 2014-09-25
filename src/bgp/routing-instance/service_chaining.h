@@ -252,12 +252,13 @@ struct ServiceChainRequest {
     ServiceChainRequest(RequestType type, BgpTable *table, BgpRoute *route,
                         Ip4Prefix aggregate_match, ServiceChainPtr info) 
         : type_(type), table_(table), rt_(route), 
-          aggregate_match_(aggregate_match), info_(info) {
+          aggregate_match_(aggregate_match), info_(info), snh_resp_(NULL) {
     }
 
     ServiceChainRequest(RequestType type, SandeshResponse *resp) 
-        : type_(type), snh_resp_(resp) {
+        : type_(type), table_(NULL), rt_(NULL), snh_resp_(resp) {
     }
+
     RequestType type_;
     BgpTable    *table_;
     BgpRoute    *rt_;
@@ -269,16 +270,12 @@ struct ServiceChainRequest {
 
 class ServiceChainMgr {
 public:
-    //
     // Set of service chains created in the system
-    //
     typedef std::map<RoutingInstance *, ServiceChainPtr> ServiceChainMap;
 
-    //
     // At the time of processing, service chain request, all required 
     // routing instance may not be created. Create a list of service chain
     // waiting for a routing instance to get created
-    //
     typedef std::set<RoutingInstance *> UnresolvedServiceChainList;
 
     ServiceChainMgr(BgpServer *server);
@@ -331,33 +328,32 @@ public:
     void set_aggregate_host_route(bool value) {
         aggregate_host_route_= value;
     }
+
 private:
-    //
-    // All service chain related actions are performed in the context 
-    // of this task. This task has exclusion with DBTable task
-    //
     friend class ServiceChainTest;
+
+    // All service chain related actions are performed in the context 
+    // of this task. This task has exclusion with db::DBTable task.
     static int service_chain_task_id_;
 
     ServiceChainMap chain_set_;
     int id_;
     UnresolvedServiceChainList pending_chain_;
     BgpServer *server_;
-    // 
-    // Work Queue to handle requests posted from Match function(DBTable ctx)
-    // The actions are performed in the ServiceChain task ctx
-    //
+
+    // Work Queue to handle requests posted from Match function, called
+    // in the context of db::DBTable task.
+    // The actions are performed in the bgp::ServiceChain task context.
     void DisableQueue() { process_queue_->set_disable(true); }
     void EnableQueue() { process_queue_->set_disable(false); }
-
     WorkQueue<ServiceChainRequest *> *process_queue_;
 
-    //
-    // Task trigger to resolve pending dependencies
-    //
+    // Task trigger to resolve pending dependencies.
     boost::scoped_ptr<TaskTrigger> resolve_trigger_;
 
     bool aggregate_host_route_;
+
     DISALLOW_COPY_AND_ASSIGN(ServiceChainMgr);
 };
+
 #endif // ctrlplane_service_chaining_h
