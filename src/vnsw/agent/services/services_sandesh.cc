@@ -436,13 +436,13 @@ ServicesSandesh::FillHostRoutes(uint8_t *data, int len,
     resp += routes.str();
 }
 
-void ServicesSandesh::FillDhcpOptions(DhcpOptions *opt, std::string &resp,
-                                      std::string &other, int32_t len) {
+void ServicesSandesh::FillDhcpv4Options(Dhcpv4Options *opt, std::string &resp,
+                                        std::string &other, int32_t len) {
     while (opt->code != DHCP_OPTION_END && len > 0) {
         switch (opt->code) {
             case DHCP_OPTION_PAD:
                 len -= 1;
-                opt = (DhcpOptions *)((uint8_t *)opt + 1);
+                opt = (Dhcpv4Options *)((uint8_t *)opt + 1);
                 continue;
 
             case DHCP_OPTION_MSG_TYPE:
@@ -529,7 +529,7 @@ void ServicesSandesh::FillDhcpOptions(DhcpOptions *opt, std::string &resp,
                 break;
         }
         len -= (2 + opt->len);
-        opt = (DhcpOptions *)((uint8_t *)opt + 2 + opt->len);
+        opt = (Dhcpv4Options *)((uint8_t *)opt + 2 + opt->len);
     }
 }
 
@@ -556,8 +556,8 @@ void ServicesSandesh::FillDhcpv4Hdr(dhcphdr *dhcp, Dhcpv4Hdr &resp,
     PktToHexString(dhcp->file, DHCP_FILE_LEN, resp.file);
     PktToHexString(dhcp->options, 4, resp.cookie);
     len -= (DHCP_FIXED_LEN + 4);
-    FillDhcpOptions((DhcpOptions *)(dhcp->options + 4),
-                    resp.dhcp_options, resp.other_options, len);
+    FillDhcpv4Options((Dhcpv4Options *)(dhcp->options + 4),
+                      resp.dhcp_options, resp.other_options, len);
 }
 
 void ServicesSandesh::FillDhcpv6Hdr(Dhcpv6Hdr *dhcp, Dhcpv6Header &resp,

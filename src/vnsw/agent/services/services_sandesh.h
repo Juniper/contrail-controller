@@ -7,7 +7,7 @@
 
 #include <services/services_types.h>
 
-struct DhcpOptions;
+struct Dhcpv4Options;
 struct dhcphdr;
 struct Dhcpv6Hdr;
 struct dnshdr;
@@ -57,7 +57,8 @@ private:
     void FillIcmpv4Hdr(icmphdr *icmp, Icmpv4Hdr &resp);
     void FillIcmpv6Hdr(icmp6_hdr *icmp, Icmpv6Hdr &resp, int32_t len);
     void FillUdpHdr(udphdr *udp, UdpHdr &resp);
-    void FillDhcpOptions(DhcpOptions *opt, std::string &resp, std::string &other, int32_t len);
+    void FillDhcpv4Options(Dhcpv4Options *opt, std::string &resp,
+                           std::string &other, int32_t len);
     void FillDhcpv4Hdr(dhcphdr *dhcp, Dhcpv4Hdr &resp, int32_t len);
     void FillDhcpv6Hdr(Dhcpv6Hdr *dhcp, Dhcpv6Header &resp, int32_t len);
     void FillDnsHdr(dnshdr *dns, DnsHdr &resp, int32_t dnslen);

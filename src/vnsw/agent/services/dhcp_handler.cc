@@ -171,39 +171,39 @@ Dhcpv4NameCodeMap g_dhcpv4_namecode_map =
 
 Dhcpv4CategoryMap g_dhcpv4_category_map =
     map_list_of<uint32_t, DhcpHandler::DhcpOptionCategory>
-        // (DHCP_OPTION_SUBNET_MASK, DhcpHandler::OneIP)       // agent adds this option
+        // (DHCP_OPTION_SUBNET_MASK, DhcpHandler::OneIPv4)       // agent adds this option
         (DHCP_OPTION_TIME_OFFSET, DhcpHandler::Int32bit)
-        (DHCP_OPTION_ROUTER, DhcpHandler::OneIPPlus)
-        (DHCP_OPTION_TIME_SERVER, DhcpHandler::OneIPPlus)
-        (DHCP_OPTION_NAME_SERVER, DhcpHandler::OneIPPlus)
-        (DHCP_OPTION_DNS, DhcpHandler::OneIPPlus)
-        (DHCP_OPTION_LOG_SERVER, DhcpHandler::OneIPPlus)
-        (DHCP_OPTION_QUOTE_SERVER, DhcpHandler::OneIPPlus)
-        (DHCP_OPTION_LPR_SERVER, DhcpHandler::OneIPPlus)
-        (DHCP_OPTION_IMPRESS_SERVER, DhcpHandler::OneIPPlus)
-        (DHCP_OPTION_RESOURCE_LOCATION_SERVER, DhcpHandler::OneIPPlus)
+        (DHCP_OPTION_ROUTER, DhcpHandler::OneIPv4Plus)
+        (DHCP_OPTION_TIME_SERVER, DhcpHandler::OneIPv4Plus)
+        (DHCP_OPTION_NAME_SERVER, DhcpHandler::OneIPv4Plus)
+        (DHCP_OPTION_DNS, DhcpHandler::OneIPv4Plus)
+        (DHCP_OPTION_LOG_SERVER, DhcpHandler::OneIPv4Plus)
+        (DHCP_OPTION_QUOTE_SERVER, DhcpHandler::OneIPv4Plus)
+        (DHCP_OPTION_LPR_SERVER, DhcpHandler::OneIPv4Plus)
+        (DHCP_OPTION_IMPRESS_SERVER, DhcpHandler::OneIPv4Plus)
+        (DHCP_OPTION_RESOURCE_LOCATION_SERVER, DhcpHandler::OneIPv4Plus)
         (DHCP_OPTION_HOST_NAME, DhcpHandler::String)
         (DHCP_OPTION_BOOT_FILE_SIZE, DhcpHandler::Uint16bit)
         (DHCP_OPTION_MERIT_DUMP_FILE, DhcpHandler::String)
         (DHCP_OPTION_DOMAIN_NAME, DhcpHandler::String)
-        (DHCP_OPTION_SWAP_SERVER, DhcpHandler::OneIP)
+        (DHCP_OPTION_SWAP_SERVER, DhcpHandler::OneIPv4)
         (DHCP_OPTION_ROOT_PATH, DhcpHandler::String)
         (DHCP_OPTION_EXTENSION_PATH, DhcpHandler::String)
         (DHCP_OPTION_IP_FWD_CONTROL, DhcpHandler::Bool)
         (DHCP_OPTION_NL_SRC_ROUTING, DhcpHandler::Bool)
-        (DHCP_OPTION_POLICY_FILTER, DhcpHandler::TwoIPPlus)
+        (DHCP_OPTION_POLICY_FILTER, DhcpHandler::TwoIPv4Plus)
         (DHCP_OPTION_MAX_DG_REASSEMBLY_SIZE, DhcpHandler::Uint16bit)
         (DHCP_OPTION_DEFAULT_IP_TTL, DhcpHandler::Byte)
         (DHCP_OPTION_PATH_MTU_AGING_TIMEOUT, DhcpHandler::Uint32bit)
         (DHCP_OPTION_PATH_MTU_PLATEAU_TABLE, DhcpHandler::Uint16bitArray)
         (DHCP_OPTION_INTERFACE_MTU, DhcpHandler::Uint16bit)
         (DHCP_OPTION_ALL_SUBNETS_LOCAL, DhcpHandler::Bool)
-        // (DHCP_OPTION_BCAST_ADDRESS, DhcpHandler::OneIP)     // agent adds this option
+        // (DHCP_OPTION_BCAST_ADDRESS, DhcpHandler::OneIPv4)     // agent adds this option
         (DHCP_OPTION_PERFORM_MASK_DISCOVERY, DhcpHandler::Bool)
         (DHCP_OPTION_MASK_SUPPLIER, DhcpHandler::Bool)
         (DHCP_OPTION_PERFORM_ROUTER_DISCOVERY, DhcpHandler::Bool)
-        (DHCP_OPTION_ROUTER_SOLICIT_ADDRESS, DhcpHandler::OneIP)
-        (DHCP_OPTION_STATIC_ROUTING_TABLE, DhcpHandler::TwoIPPlus)
+        (DHCP_OPTION_ROUTER_SOLICIT_ADDRESS, DhcpHandler::OneIPv4)
+        (DHCP_OPTION_STATIC_ROUTING_TABLE, DhcpHandler::TwoIPv4Plus)
         (DHCP_OPTION_TRAILER_ENCAP, DhcpHandler::Bool)
         (DHCP_OPTION_ARP_CACHE_TIMEOUT, DhcpHandler::Uint32bit)
         (DHCP_OPTION_ETHERNET_ENCAP, DhcpHandler::Bool)
@@ -211,20 +211,20 @@ Dhcpv4CategoryMap g_dhcpv4_category_map =
         (DHCP_OPTION_TCP_KEEPALIVE_INTERVAL, DhcpHandler::Uint32bit)
         (DHCP_OPTION_TCP_KEEPALIVE_GARBAGE, DhcpHandler::Bool)
         (DHCP_OPTION_NIS_DOMAIN, DhcpHandler::String)
-        (DHCP_OPTION_NIS_SERVERS, DhcpHandler::OneIPPlus)
-        (DHCP_OPTION_NTP_SERVERS, DhcpHandler::OneIPPlus)
+        (DHCP_OPTION_NIS_SERVERS, DhcpHandler::OneIPv4Plus)
+        (DHCP_OPTION_NTP_SERVERS, DhcpHandler::OneIPv4Plus)
         (DHCP_OPTION_VENDOR_SPECIFIC_INFO, DhcpHandler::String)
-        (DHCP_OPTION_NETBIOS_OVER_TCP_NS, DhcpHandler::OneIPPlus)
-        (DHCP_OPTION_NETBIOS_OVER_TCP_DG_DS, DhcpHandler::OneIPPlus)
+        (DHCP_OPTION_NETBIOS_OVER_TCP_NS, DhcpHandler::OneIPv4Plus)
+        (DHCP_OPTION_NETBIOS_OVER_TCP_DG_DS, DhcpHandler::OneIPv4Plus)
         (DHCP_OPTION_NETBIOS_OVER_TCP_NODE_TYPE, DhcpHandler::Byte)
         (DHCP_OPTION_NETBIOS_OVER_TCP_SCOPE, DhcpHandler::String)
-        (DHCP_OPTION_XWINDOW_FONT_SERVER, DhcpHandler::OneIPPlus)
-        (DHCP_OPTION_XWINDOW_SYSTEM_DISP_MGR, DhcpHandler::OneIPPlus)
-        (DHCP_OPTION_REQ_IP_ADDRESS, DhcpHandler::OneIP)
+        (DHCP_OPTION_XWINDOW_FONT_SERVER, DhcpHandler::OneIPv4Plus)
+        (DHCP_OPTION_XWINDOW_SYSTEM_DISP_MGR, DhcpHandler::OneIPv4Plus)
+        (DHCP_OPTION_REQ_IP_ADDRESS, DhcpHandler::OneIPv4)
         // (DHCP_OPTION_IP_LEASE_TIME, DhcpHandler::Uint32bit) // agent adds this option
         (DHCP_OPTION_OVERLOAD, DhcpHandler::Byte)
         // (DHCP_OPTION_MSG_TYPE, DhcpHandler::Byte)           // agent adds this option
-        // (DHCP_OPTION_SERVER_IDENTIFIER, DhcpHandler::OneIP) // agent adds this option
+        // (DHCP_OPTION_SERVER_IDENTIFIER, DhcpHandler::OneIPv4) // agent adds this option
         (DHCP_OPTION_PARAMETER_REQUEST_LIST, DhcpHandler::ByteArray)
         (DHCP_OPTION_MESSAGE, DhcpHandler::String)
         (DHCP_OPTION_MAX_DHCP_MSG_SIZE, DhcpHandler::Uint16bit)
@@ -235,46 +235,46 @@ Dhcpv4CategoryMap g_dhcpv4_category_map =
         (DHCP_OPTION_NETWARE_IP_DOMAIN_NAME, DhcpHandler::String)
         (DHCP_OPTION_NETWARE_IP_INFO, DhcpHandler::ByteArray)  // send encoded data
         (DHCP_OPTION_NIS_PLUS_DOMAIN, DhcpHandler::String)
-        (DHCP_OPTION_NIS_PLUS_SERVERS, DhcpHandler::OneIPPlus)
+        (DHCP_OPTION_NIS_PLUS_SERVERS, DhcpHandler::OneIPv4Plus)
         (DHCP_OPTION_TFTP_SERVER_NAME, DhcpHandler::String)
         (DHCP_OPTION_BOOTFILE_NAME, DhcpHandler::String)
-        (DHCP_OPTION_MOBILE_IP_HA, DhcpHandler::ZeroIPPlus)
-        (DHCP_OPTION_SMTP_SERVER, DhcpHandler::OneIPPlus)
-        (DHCP_OPTION_POP_SERVER, DhcpHandler::OneIPPlus)
-        (DHCP_OPTION_NNTP_SERVER, DhcpHandler::OneIPPlus)
-        (DHCP_OPTION_DEFAULT_WWW_SERVER, DhcpHandler::OneIPPlus)
-        (DHCP_OPTION_DEFAULT_FINGER_SERVER, DhcpHandler::OneIPPlus)
-        (DHCP_OPTION_DEFAULT_IRC_SERVER, DhcpHandler::OneIPPlus)
-        (DHCP_OPTION_STREETTALK_SERVER, DhcpHandler::OneIPPlus)
-        (DHCP_OPTION_STREETTALK_DA_SERVER, DhcpHandler::OneIPPlus)
+        (DHCP_OPTION_MOBILE_IP_HA, DhcpHandler::ZeroIPv4Plus)
+        (DHCP_OPTION_SMTP_SERVER, DhcpHandler::OneIPv4Plus)
+        (DHCP_OPTION_POP_SERVER, DhcpHandler::OneIPv4Plus)
+        (DHCP_OPTION_NNTP_SERVER, DhcpHandler::OneIPv4Plus)
+        (DHCP_OPTION_DEFAULT_WWW_SERVER, DhcpHandler::OneIPv4Plus)
+        (DHCP_OPTION_DEFAULT_FINGER_SERVER, DhcpHandler::OneIPv4Plus)
+        (DHCP_OPTION_DEFAULT_IRC_SERVER, DhcpHandler::OneIPv4Plus)
+        (DHCP_OPTION_STREETTALK_SERVER, DhcpHandler::OneIPv4Plus)
+        (DHCP_OPTION_STREETTALK_DA_SERVER, DhcpHandler::OneIPv4Plus)
         (DHCP_OPTION_USER_CLASS_INFO, DhcpHandler::ByteArray)  // send encoded data
         (DHCP_OPTION_SLP_DIRECTORY_AGENT, DhcpHandler::ByteOneIPPlus)
         (DHCP_OPTION_SLP_SERVICE_SCOPE, DhcpHandler::ByteString)
         (DHCP_OPTION_RAPID_COMMIT, DhcpHandler::NoData)
         // (DHCP_OPTION_CLIENT_FQDN, DhcpHandler::ByteArray)   // sent by clients
         (DHCP_OPTION_STORAGE_NS, DhcpHandler::ByteArray)       // send encoded data
-        (DHCP_OPTION_NDS_SERVERS, DhcpHandler::OneIPPlus)
+        (DHCP_OPTION_NDS_SERVERS, DhcpHandler::OneIPv4Plus)
         (DHCP_OPTION_NDS_TREE_NAME, DhcpHandler::ByteArray)    // send encoded data
         (DHCP_OPTION_NDS_CONTEXT, DhcpHandler::ByteArray)      // send encoded data
         (DHCP_OPTION_BCMCS_DN_LIST, DhcpHandler::ByteArray)    // send encoded data
         (DHCP_OPTION_BCMCS_ADDR_LIST, DhcpHandler::ByteArray)  // send encoded data
         (DHCP_OPTION_AUTH, DhcpHandler::ByteArray)             // send encoded data
         (DHCP_OPTION_CLIENT_LAST_XTIME, DhcpHandler::Uint32bit)
-        (DHCP_OPTION_ASSOCIATE_IP, DhcpHandler::OneIPPlus)
+        (DHCP_OPTION_ASSOCIATE_IP, DhcpHandler::OneIPv4Plus)
         (DHCP_OPTION_CLIENT_SYSARCH_TYPE, DhcpHandler::Uint16bit)
         (DHCP_OPTION_CLIENT_NW_INTERFACE_ID, DhcpHandler::ByteArray)
-        (DHCP_OPTION_LDAP, DhcpHandler::OneIPPlus)
+        (DHCP_OPTION_LDAP, DhcpHandler::OneIPv4Plus)
         (DHCP_OPTION_CLIENT_MACHINE_ID, DhcpHandler::String)
         (DHCP_OPTION_OPENGROUP_USER_AUTH, DhcpHandler::String)
         (DHCP_OPTION_GEOCONF_CIVIC, DhcpHandler::ByteArray)    // send encoded data
         (DHCP_OPTION_IEEE_1003_1_TZ, DhcpHandler::String)
         (DHCP_OPTION_REF_TZ_DB, DhcpHandler::String)
         (DHCP_OPTION_NETINFO_PARENT_SERVER_TAG, DhcpHandler::String)
-        (DHCP_OPTION_NETINFO_PARENT_SERVER_ADDR, DhcpHandler::OneIPPlus)
+        (DHCP_OPTION_NETINFO_PARENT_SERVER_ADDR, DhcpHandler::OneIPv4Plus)
         (DHCP_OPTION_URL, DhcpHandler::String)
         (DHCP_OPTION_AUTO_CONFIGURE, DhcpHandler::Bool)
         (DHCP_OPTION_NAME_SERVICE_SEARCH, DhcpHandler::Uint16bitArray)
-        (DHCP_OPTION_SUBNET_SELECTION, DhcpHandler::OneIP)
+        (DHCP_OPTION_SUBNET_SELECTION, DhcpHandler::OneIPv4)
         (DHCP_OPTION_DNS_DOMAIN_SEARCH_LIST, DhcpHandler::NameCompression)
         (DHCP_OPTION_SIP_SERVERS, DhcpHandler::ByteArray)                // send encoded data
         (DHCP_OPTION_CLASSLESS_ROUTE, DhcpHandler::ClasslessRoute)
@@ -282,7 +282,7 @@ Dhcpv4CategoryMap g_dhcpv4_category_map =
         (DHCP_OPTION_GEOCONF, DhcpHandler::ByteArray)                    // send encoded data
         (DHCP_OPTION_VENDOR_ID_VENDOR_CLASS, DhcpHandler::ByteArray)     // send encoded data
         (DHCP_OPTION_VENDOR_ID_VENDOR_SPECIFIC, DhcpHandler::ByteArray)  // send encoded data
-        (DHCP_OPTION_TFTP_SERVER, DhcpHandler::OneIPPlus)
+        (DHCP_OPTION_TFTP_SERVER, DhcpHandler::OneIPv4Plus)
         (DHCP_OPTION_PXE_VENDOR_SPECIFIC_129, DhcpHandler::String)
         (DHCP_OPTION_PXE_VENDOR_SPECIFIC_130, DhcpHandler::String)
         (DHCP_OPTION_PXE_VENDOR_SPECIFIC_131, DhcpHandler::String)
@@ -290,17 +290,17 @@ Dhcpv4CategoryMap g_dhcpv4_category_map =
         (DHCP_OPTION_PXE_VENDOR_SPECIFIC_133, DhcpHandler::String)
         (DHCP_OPTION_PXE_VENDOR_SPECIFIC_134, DhcpHandler::String)
         (DHCP_OPTION_PXE_VENDOR_SPECIFIC_135, DhcpHandler::String)
-        (DHCP_OPTION_PANA_AUTH_AGENT, DhcpHandler::OneIPPlus)
+        (DHCP_OPTION_PANA_AUTH_AGENT, DhcpHandler::OneIPv4Plus)
         (DHCP_OPTION_LOST_SERVER, DhcpHandler::ByteArray)         // send encoded data
-        (DHCP_OPTION_CAPWAP_AC_ADDRESS, DhcpHandler::OneIPPlus)
+        (DHCP_OPTION_CAPWAP_AC_ADDRESS, DhcpHandler::OneIPv4Plus)
         (DHCP_OPTION_IPV4_ADDRESS_MOS, DhcpHandler::ByteArray)     // send encoded data
         (DHCP_OPTION_IPV4_FQDN_MOS, DhcpHandler::ByteArray)        // send encoded data
         (DHCP_OPTION_SIP_UA_CONFIG_DOMAIN, DhcpHandler::ByteArray) // send encoded data
-        (DHCP_OPTION_IPV4_ADDRESS_ANDSF, DhcpHandler::OneIPPlus)
+        (DHCP_OPTION_IPV4_ADDRESS_ANDSF, DhcpHandler::OneIPv4Plus)
         (DHCP_OPTION_GEOLOC, DhcpHandler::ByteArray)               // send encoded data
         (DHCP_OPTION_FORCERENEW_NONCE_CAP, DhcpHandler::ByteArray) // send encoded data
         (DHCP_OPTION_RDNSS_SELECTION, DhcpHandler::ByteArray)      // send encoded data
-        (DHCP_OPTION_TFTP_SERVER_ADDRESS, DhcpHandler::OneIPPlus)
+        (DHCP_OPTION_TFTP_SERVER_ADDRESS, DhcpHandler::OneIPv4Plus)
         (DHCP_OPTION_STATUS_CODE, DhcpHandler::ByteString)
         (DHCP_OPTION_BASE_TIME, DhcpHandler::Uint32bit)
         (DHCP_OPTION_START_TIME_OF_STATE, DhcpHandler::Uint32bit)
@@ -322,12 +322,14 @@ Dhcpv4CategoryMap g_dhcpv4_category_map =
 
 DhcpHandler::DhcpHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
                          boost::asio::io_service &io)
-        : ProtoHandler(agent, info, io), vm_itf_(NULL), vm_itf_index_(-1),
-          msg_type_(DHCP_UNKNOWN), out_msg_type_(DHCP_UNKNOWN), flags_(),
-          host_routes_level_(Invalid),
+        : DhcpHandlerBase(agent, info, io), msg_type_(DHCP_UNKNOWN),
+          out_msg_type_(DHCP_UNKNOWN),
           nak_msg_("cannot assign requested address") {
-    ipam_type_.ipam_dns_method = "none";
-};
+    option_.reset(new Dhcpv4OptionHandler(NULL));
+}
+
+DhcpHandler::~DhcpHandler() {
+}
 
 bool DhcpHandler::Run() {
     switch(pkt_info_->type) {
@@ -341,6 +343,7 @@ bool DhcpHandler::Run() {
 
 bool DhcpHandler::HandleVmRequest() {
     dhcp_ = (dhcphdr *) pkt_info_->data;
+    option_->SetDhcpOptionPtr(dhcp_->options);
     request_.UpdateData(dhcp_->xid, ntohs(dhcp_->flags), dhcp_->chaddr);
     DhcpProto *dhcp_proto = agent()->GetDhcpProto();
     Interface *itf =
@@ -423,10 +426,9 @@ bool DhcpHandler::HandleVmRequest() {
 
     if (FindLeaseData()) {
         SendDhcpResponse();
-        Ip4Address ip(config_.ip_addr);
         DHCP_TRACE(Trace, "DHCP response sent; message = " << 
                    ServicesSandesh::DhcpMsgType(out_msg_type_) << 
-                   "; ip = " << ip.to_string());
+                   "; ip = " << config_.ip_addr.to_string());
     }
 
     return true;
@@ -448,6 +450,7 @@ bool DhcpHandler::HandleDhcpFromFabric() {
     DhcpProto::DhcpVhostMsg *ipc = static_cast<DhcpProto::DhcpVhostMsg *>(pkt_info_->ipc);
     pkt_info_->len = ipc->len;
     dhcp_ = reinterpret_cast<dhcphdr *>(ipc->pkt);
+    option_->SetDhcpOptionPtr(dhcp_->options);
     request_.UpdateData(dhcp_->xid, ntohs(dhcp_->flags), dhcp_->chaddr);
 
     int16_t options_len = ipc->len - DHCP_FIXED_LEN;
@@ -473,13 +476,13 @@ bool DhcpHandler::ReadOptions(int16_t opt_rem_len) {
     }
 
     opt_rem_len -= 4;
-    DhcpOptions *opt = (DhcpOptions *)(dhcp_->options + 4);
+    Dhcpv4Options *opt = (Dhcpv4Options *)(dhcp_->options + 4);
     // parse thru the option fields
     while ((opt_rem_len > 0) && (opt->code != DHCP_OPTION_END)) {
         switch (opt->code) {
             case DHCP_OPTION_PAD:
                 opt_rem_len -= 1;
-                opt = (DhcpOptions *)((uint8_t *)opt + 1);
+                opt = (Dhcpv4Options *)((uint8_t *)opt + 1);
                 continue;
 
             case DHCP_OPTION_MSG_TYPE:
@@ -521,40 +524,43 @@ bool DhcpHandler::ReadOptions(int16_t opt_rem_len) {
                 break;
         }
         opt_rem_len -= (2 + opt->len);
-        opt = (DhcpOptions *)((uint8_t *)opt + 2 + opt->len);
+        opt = (Dhcpv4Options *)((uint8_t *)opt + 2 + opt->len);
     }
 
     return true;
 }
 
-void DhcpHandler::FillDhcpInfo(uint32_t addr, int plen, uint32_t gw, uint32_t dns) {
+void DhcpHandler::FillDhcpInfo(Ip4Address &addr, int plen,
+                               Ip4Address &gw, Ip4Address &dns) {
     config_.ip_addr = addr;
     config_.plen = plen;
     uint32_t mask = plen? (0xFFFFFFFF << (32 - plen)) : 0;
     config_.subnet_mask = mask;
-    config_.bcast_addr = (addr & mask) | ~mask;
+    config_.bcast_addr = (addr.to_ulong() & mask) | ~mask;
     config_.gw_addr = gw;
     config_.dns_addr = dns;
 }
 
 
 bool DhcpHandler::FindLeaseData() {
+    Ip4Address unspecified;
     Ip4Address ip = vm_itf_->ip_addr();
     // Change client name to VM name; this is the name assigned to the VM
     config_.client_name_ = vm_itf_->vm_name();
-    FindDomainName();
+    FindDomainName(ip);
     if (vm_itf_->ipv4_active()) {
         if (vm_itf_->fabric_port()) {
             Inet4UnicastRouteEntry *rt = 
                 Inet4UnicastAgentRouteTable::FindResolveRoute(
                              vm_itf_->vrf()->GetName(), ip);
             if (rt) {
-                uint32_t gw = agent()->vhost_default_gateway().to_ulong();
+                Ip4Address gw = agent()->vhost_default_gateway();
                 boost::system::error_code ec;
                 if (IsIp4SubnetMember(rt->addr(),
-                    Ip4Address::from_string("169.254.0.0", ec), rt->plen()))
-                    gw = 0;
-                FillDhcpInfo(ip.to_ulong(), rt->plen(), gw, gw);
+                    Ip4Address::from_string("169.254.0.0", ec), rt->plen())) {
+                    gw = unspecified;
+                }
+                FillDhcpInfo(ip, rt->plen(), gw, gw);
                 return true;
             }
             agent()->GetDhcpProto()->IncrStatsErrors();
@@ -571,8 +577,8 @@ bool DhcpHandler::FindLeaseData() {
             }
             if (IsIp4SubnetMember(ip, ipam[i].ip_prefix.to_v4(), 
                                   ipam[i].plen)) {
-                uint32_t default_gw = ipam[i].default_gw.to_v4().to_ulong();
-                FillDhcpInfo(ip.to_ulong(), ipam[i].plen, default_gw, default_gw);
+                Ip4Address default_gw = ipam[i].default_gw.to_v4();
+                FillDhcpInfo(ip, ipam[i].plen, default_gw, default_gw);
                 return true;
             }
         }
@@ -582,70 +588,34 @@ bool DhcpHandler::FindLeaseData() {
     config_.lease_time = DHCP_SHORTLEASE_TIME;
     if (ip.to_ulong()) {
         // Give address received from Nova
-        FillDhcpInfo(ip.to_ulong(), 32, 0, 0);
+        FillDhcpInfo(ip, 32, unspecified, unspecified);
     } else {
         // Give a link local address
         boost::system::error_code ec;
-        uint32_t gwip = Ip4Address::from_string(LINK_LOCAL_GW, ec).to_ulong();
-        FillDhcpInfo((gwip & 0xFFFF0000) | (vm_itf_->id() & 0xFF),
-                     16, 0, 0);
+        Ip4Address gwip = Ip4Address::from_string(LINK_LOCAL_SUBNET, ec);
+        gwip = Ip4Address((gwip.to_ulong() & 0xFFFF0000) | (vm_itf_->id() & 0xFF));
+        FillDhcpInfo(gwip, 16, unspecified, unspecified);
     }
     return true;
 }
 
-void DhcpHandler::FindDomainName() {
-    if (config_.lease_time != (uint32_t) -1)
-        return;
-
-    if (!vm_itf_->vn() || 
-        !vm_itf_->vn()->GetIpamData(vm_itf_->ip_addr(), &ipam_name_,
-                                    &ipam_type_)) {
-        DHCP_TRACE(Trace, "Ipam data not found; VM = " << vm_itf_->name());
-        return;
-    }
-
-    if (ipam_type_.ipam_dns_method != "virtual-dns-server" ||
-        !agent()->domain_config_table()->GetVDns(ipam_type_.ipam_dns_server.
-                                          virtual_dns_server_name, &vdns_type_))
-        return;
-
-    if (config_.domain_name_.size() &&
-        config_.domain_name_ != vdns_type_.domain_name) {
-        DHCP_TRACE(Trace, "Client domain " << config_.domain_name_ << 
-                   " doesnt match with configured domain " << 
-                   vdns_type_.domain_name << "; Client name = " << 
-                   config_.client_name_);
-    }
-    std::size_t pos;
-    if (config_.client_name_.size() &&
-        ((pos = config_.client_name_.find('.', 0)) != std::string::npos) &&
-        (config_.client_name_.substr(pos + 1) != vdns_type_.domain_name)) {
-        DHCP_TRACE(Trace, "Client domain doesnt match with configured domain "
-                   << vdns_type_.domain_name << "; Client name = " 
-                   << config_.client_name_);
-        config_.client_name_.replace(config_.client_name_.begin() + pos + 1,
-                                     config_.client_name_.end(),
-                                     vdns_type_.domain_name);
-    }
-    config_.domain_name_ = vdns_type_.domain_name;
-}
-
-void DhcpHandler::WriteOption82(DhcpOptions *opt, uint16_t *optlen) {
+void DhcpHandler::WriteOption82(Dhcpv4Options *opt, uint16_t *optlen) {
     optlen += 2;
     opt->code = DHCP_OPTION_82;
     opt->len = sizeof(uint32_t) + 2 + sizeof(VmInterface *) + 2;
-    DhcpOptions *subopt = reinterpret_cast<DhcpOptions *>(opt->data);
-    subopt->WriteWord(DHCP_SUBOP_CKTID, vm_itf_->id(), optlen);
+    Dhcpv4Options *subopt = reinterpret_cast<Dhcpv4Options *>(opt->data);
+    uint32_t value = htonl(vm_itf_->id());
+    subopt->WriteData(DHCP_SUBOP_CKTID, 4, &value, optlen);
     subopt = subopt->GetNextOptionPtr();
     subopt->WriteData(DHCP_SUBOP_REMOTEID, sizeof(VmInterface *),
                       &vm_itf_, optlen);
 }
 
-bool DhcpHandler::ReadOption82(DhcpOptions *opt) {
+bool DhcpHandler::ReadOption82(Dhcpv4Options *opt) {
     if (opt->len != sizeof(uint32_t) + 2 + sizeof(VmInterface *) + 2)
         return false;
 
-    DhcpOptions *subopt = reinterpret_cast<DhcpOptions *>(opt->data);
+    Dhcpv4Options *subopt = reinterpret_cast<Dhcpv4Options *>(opt->data);
     for (int i = 0; i < 2; i++) {
         switch (subopt->code) {
             case DHCP_SUBOP_CKTID:
@@ -692,8 +662,8 @@ bool DhcpHandler::CreateRelayPacket() {
     int16_t opt_rem_len = in_pkt_info.len - sizeof(ethhdr) - sizeof(iphdr)
         - sizeof(udphdr) - DHCP_FIXED_LEN - 4;
     uint16_t opt_len = 4;
-    DhcpOptions *read_opt = (DhcpOptions *)(dhcp_->options + 4);
-    DhcpOptions *write_opt = (DhcpOptions *)(dhcp->options + 4);
+    Dhcpv4Options *read_opt = (Dhcpv4Options *)(dhcp_->options + 4);
+    Dhcpv4Options *write_opt = (Dhcpv4Options *)(dhcp->options + 4);
     while ((opt_rem_len > 0) && (read_opt->code != DHCP_OPTION_END)) {
         switch (read_opt->code) {
             case DHCP_OPTION_PAD:
@@ -730,6 +700,7 @@ bool DhcpHandler::CreateRelayPacket() {
         read_opt = read_opt->GetNextOptionPtr();
     }
     dhcp_ = dhcp;
+    option_->SetDhcpOptionPtr(dhcp_->options);
     dhcp->giaddr = htonl(agent()->router_id().to_ulong());
     WriteOption82(write_opt, &opt_len);
     write_opt = write_opt->GetNextOptionPtr();
@@ -766,8 +737,8 @@ bool DhcpHandler::CreateRelayResponsePacket() {
 
     int16_t opt_rem_len = in_pkt_info.len - DHCP_FIXED_LEN - 4;
     uint16_t opt_len = 4;
-    DhcpOptions *read_opt = (DhcpOptions *)(dhcp_->options + 4);
-    DhcpOptions *write_opt = (DhcpOptions *)(dhcp->options + 4);
+    Dhcpv4Options *read_opt = (Dhcpv4Options *)(dhcp_->options + 4);
+    Dhcpv4Options *write_opt = (Dhcpv4Options *)(dhcp->options + 4);
     while ((opt_rem_len > 0) && (read_opt->code != DHCP_OPTION_END)) {
         switch (read_opt->code) {
             case DHCP_OPTION_PAD:
@@ -796,6 +767,7 @@ bool DhcpHandler::CreateRelayResponsePacket() {
         read_opt = read_opt->GetNextOptionPtr();
     }
     dhcp_ = dhcp;
+    option_->SetDhcpOptionPtr(dhcp_->options);
     dhcp->giaddr = 0;
     config_.client_name_ = vm_itf_->vm_name();
     write_opt->WriteData(DHCP_OPTION_HOST_NAME, config_.client_name_.size(),
@@ -850,555 +822,29 @@ void DhcpHandler::RelayResponseFromFabric() {
     agent()->GetDhcpProto()->IncrStatsRelayResps();
 }
 
-// Add option taking no data (length = 0)
-uint16_t DhcpHandler::AddNoDataOption(uint32_t option, uint16_t opt_len) {
-    DhcpOptions *opt = GetNextOptionPtr(opt_len);
-    opt->WriteData(option, 0, NULL, &opt_len);
-    return opt_len;
-}
-
-// Add option taking a byte from input
-uint16_t DhcpHandler::AddByteOption(uint32_t option, uint16_t opt_len,
-                                    const std::string &input) {
-    std::stringstream value(input);
-    uint32_t data = 0;
-    value >> data;
-    if (value.bad() || value.fail() || data > 0xFF) {
-        DHCP_TRACE(Error, "Invalid DHCP option " << option << " for VM " <<
-                   Ip4Address(config_.ip_addr).to_string() << " data : " <<
-                   input << "; invalid data");
-    } else {
-        uint8_t byte = (uint8_t)data;
-        DhcpOptions *opt = GetNextOptionPtr(opt_len);
-        opt->WriteData(option, 1, &byte, &opt_len);
-    }
-    return opt_len;
-}
-
-// Add option taking array of bytes from input
-uint16_t DhcpHandler::AddByteArrayOption(uint32_t option, uint16_t opt_len,
-                                         const std::string &input) {
-    DhcpOptions *opt = GetNextOptionPtr(opt_len);
-    opt->WriteData(option, 0, NULL, &opt_len);
-    std::stringstream value(input);
-    uint8_t byte = 0;
-    value >> byte;
-    while (!value.bad() && !value.fail()) {
-        opt->AppendData(1, &byte, &opt_len);
-        if (value.eof()) break;
-        value >> byte;
-    }
-
-    // if atleast one byte is not added, ignore this option
-    if (!opt->len || !value.eof()) {
-        DHCP_TRACE(Error, "Invalid DHCP option " << option << " for VM " <<
-                   Ip4Address(config_.ip_addr).to_string() << "; data missing");
-        return opt_len - opt->len - 2;
-    }
-
-    return opt_len;
-}
-
-// Add option taking a byte followed by a string, from input
-uint16_t DhcpHandler::AddByteStringOption(uint32_t option, uint16_t opt_len,
-                                          const std::string &input) {
-    DhcpOptions *opt = GetNextOptionPtr(opt_len);
-    std::stringstream value(input);
-    uint32_t data = 0;
-    value >> data;
-    if (value.fail() || value.bad() || data > 0xFF) {
-        DHCP_TRACE(Error, "Invalid DHCP option " << option << " for VM " <<
-                   Ip4Address(config_.ip_addr).to_string() << " data : " <<
-                   input << "; wrong data");
-        return opt_len;
-    }
-
-    uint8_t byte = (uint8_t)data;
-    std::string str;
-    value >> str;
-    opt->WriteData(option, 1, &byte, &opt_len);
-    opt->AppendData(str.length(), str.c_str(), &opt_len);
-
-    return opt_len;
-}
-
-// Add option taking a byte followed by one or more IPs, from input
-uint16_t DhcpHandler::AddByteIPOption(uint32_t option, uint16_t opt_len,
-                                      const std::string &input) {
-    DhcpOptions *opt = GetNextOptionPtr(opt_len);
-    std::stringstream value(input);
-    uint32_t data = 0;
-    value >> data;
-    uint8_t byte = (uint8_t)data;
-
-    if (value.fail() || value.bad() || data > 0xFF) {
-        DHCP_TRACE(Error, "Invalid DHCP option " << option << " for VM " <<
-                   Ip4Address(config_.ip_addr).to_string() << " data : " <<
-                   input << "; wrong data");
-        return opt_len;
-    }
-
-    opt->WriteData(option, 1, &byte, &opt_len);
-    while (value.good()) {
-        std::string ipstr;
-        value >> ipstr;
-        opt_len = AddIP(opt, opt_len, ipstr);
-    }
-
-    // if atleast one IP is not added, ignore this option
-    if (opt->len == 1) {
-        DHCP_TRACE(Error, "Invalid DHCP option " << option << " for VM " <<
-                   Ip4Address(config_.ip_addr).to_string() << "; IP missing");
-        return opt_len - opt->len - 2;
-    }
-
-    return opt_len;
-}
-
-// Add option taking string from input
-uint16_t DhcpHandler::AddStringOption(uint32_t option, uint16_t opt_len,
-                                      const std::string &input) {
-    DhcpOptions *opt = GetNextOptionPtr(opt_len);
-    opt->WriteData(option, input.length(), input.c_str(), &opt_len);
-    return opt_len;
-}
-
-// Add option taking integer from input
-uint16_t DhcpHandler::AddIntegerOption(uint32_t option, uint16_t opt_len,
-                                       const std::string &input) {
-    DhcpOptions *opt = GetNextOptionPtr(opt_len);
-    std::stringstream value(input);
-    uint32_t data = 0;
-    value >> data;
-    if (value.bad() || value.fail()) {
-        DHCP_TRACE(Error, "Invalid DHCP option " << option << " for VM " <<
-                   Ip4Address(config_.ip_addr).to_string() << " data : " <<
-                   input << "; invalid data");
-    } else {
-        data = htonl(data);
-        opt->WriteData(option, 4, &data, &opt_len);
-    }
-    return opt_len;
-}
-
-// Add option taking array of short from input
-uint16_t DhcpHandler::AddShortArrayOption(uint32_t option, uint16_t opt_len,
-                                          const std::string &input,
-                                          bool array) {
-    DhcpOptions *opt = GetNextOptionPtr(opt_len);
-    opt->WriteData(option, 0, NULL, &opt_len);
-    std::stringstream value(input);
-    uint16_t data = 0;
-    value >> data;
-    while (!value.bad() && !value.fail()) {
-        data = htons(data);
-        opt->AppendData(2, &data, &opt_len);
-        if (!array || value.eof()) break;
-        value >> data;
-    }
-
-    // if atleast one short is not added, ignore this option
-    if (!opt->len || !value.eof()) {
-        DHCP_TRACE(Error, "Invalid DHCP option " << option << " for VM " <<
-                   Ip4Address(config_.ip_addr).to_string() << " data : " <<
-                   input << "; invalid data");
-        return opt_len - opt->len - 2;
-    }
-
-    return opt_len;
-}
-
-uint16_t DhcpHandler::AddIpOption(uint32_t option, uint16_t opt_len,
-                                  const std::string &input,
-                                  uint8_t min_count, uint8_t max_count,
-                                  uint8_t multiples) {
-    DhcpOptions *opt = GetNextOptionPtr(opt_len);
-    opt->WriteData(option, 0, NULL, &opt_len);
-    std::stringstream value(input);
-    while (value.good()) {
-        std::string ipstr;
-        value >> ipstr;
-        opt_len = AddIP(opt, opt_len, ipstr);
-    }
-
-    if (option == DHCP_OPTION_DNS) {
-        // Add DNS servers from the IPAM dns method and server config also
-        opt_len = AddDnsServers(opt, opt_len);
-    } else if (option == DHCP_OPTION_ROUTER) {
-        // Add our gw as well
-        if (config_.gw_addr) {
-            uint32_t gw = htonl(config_.gw_addr);
-            opt->AppendData(4, &gw, &opt_len);
-        }
-    }
-
-    // check that atleast min_count IP addresses are added
-    if (min_count && opt->len < min_count * 4) {
-        DHCP_TRACE(Error, "Invalid DHCP option " << option << " for VM " <<
-                   Ip4Address(config_.ip_addr).to_string() << "; data missing");
-        return opt_len - opt->len - 2;
-    }
-
-    // if specified, check that we dont add more than max_count IP addresses
-    if (max_count && opt->len > max_count * 4) {
-        DHCP_TRACE(Error, "Invalid DHCP option " << option << " for VM " <<
-                   Ip4Address(config_.ip_addr).to_string() << "; invalid data");
-        return opt_len - opt->len - 2;
-    }
-
-    // if specified, check that we add in multiples of IP addresses
-    if (multiples && opt->len % (multiples * 4)) {
-        DHCP_TRACE(Error, "Invalid DHCP option " << option << " for VM " <<
-                   Ip4Address(config_.ip_addr).to_string() << "; invalid data");
-        return opt_len - opt->len - 2;
-    }
-
-    return opt_len;
-}
-
 // Add an IP address to the option
-uint16_t DhcpHandler::AddIP(DhcpOptions *opt, uint16_t opt_len,
-                            const std::string &input) {
+uint16_t DhcpHandler::AddIP(uint16_t opt_len, const std::string &input) {
     boost::system::error_code ec;
     uint32_t ip = Ip4Address::from_string(input, ec).to_ulong();
     if (!ec.value() && ip) {
         ip = htonl(ip);
-        opt->AppendData(4, &ip, &opt_len);
+        option_->AppendData(4, &ip, &opt_len);
     } else {
-        DHCP_TRACE(Error, "Invalid DHCP option " << opt->code << " for VM " <<
-                   Ip4Address(config_.ip_addr).to_string() <<
-                   "; has to be IP address");
-    }
-    return opt_len;
-}
-
-uint16_t DhcpHandler::AddCompressedName(uint32_t option, uint16_t opt_len,
-                                        const std::string &input) {
-    DhcpOptions *opt = GetNextOptionPtr(opt_len);
-    opt->WriteData(option, 0, NULL, &opt_len);
-    std::stringstream value(input);
-    while (value.good()) {
-        std::string str;
-        value >> str;
-        if (str.size()) {
-            uint8_t name[str.size() * 2 + 2];
-            uint16_t len = 0;
-            BindUtil::AddName(name, str, 0, 0, len);
-            opt->AppendData(len, name, &opt_len);
-        }
-    }
-
-    if (!opt->len) {
-        DHCP_TRACE(Error, "Invalid DHCP option " << option << " for VM " <<
-                   Ip4Address(config_.ip_addr).to_string() << "; invalid data");
-        return opt_len - opt->len - 2;
-    }
-
-    return opt_len;
-}
-
-// Add an DNS server addresses from IPAM to the option
-uint16_t DhcpHandler::AddDnsServers(DhcpOptions *opt, uint16_t opt_len) {
-    if (ipam_type_.ipam_dns_method == "default-dns-server" ||
-        ipam_type_.ipam_dns_method == "virtual-dns-server" ||
-        ipam_type_.ipam_dns_method == "") {
-        if (config_.dns_addr) {
-            uint32_t dns_addr = htonl(config_.dns_addr);
-            opt->AppendData(4, &dns_addr, &opt_len);
-        }
-    } else if (ipam_type_.ipam_dns_method == "tenant-dns-server") {
-        for (unsigned int i = 0; i < ipam_type_.ipam_dns_server.
-             tenant_dns_server_address.ip_address.size(); ++i) {
-            opt_len = AddIP(opt, opt_len,
-                            ipam_type_.ipam_dns_server.
-                            tenant_dns_server_address.ip_address[i]);
-        }
+        DHCP_TRACE(Error, "Invalid DHCP option " << option_->GetCode() <<
+                   " data : " << input << " for VM " <<
+                   config_.ip_addr.to_string() << "; has to be IP address");
     }
     return opt_len;
 }
 
 // Add domain name from IPAM to the option
-uint16_t DhcpHandler::AddDomainNameOption(DhcpOptions *opt, uint16_t opt_len) {
+uint16_t DhcpHandler::AddDomainNameOption(uint16_t opt_len) {
     if (ipam_type_.ipam_dns_method == "virtual-dns-server") {
         if (config_.domain_name_.size()) {
-            opt->WriteData(DHCP_OPTION_DOMAIN_NAME, 0, NULL, &opt_len);
-            opt->AppendData(config_.domain_name_.size(),
-                            config_.domain_name_.c_str(), &opt_len);
+            option_->WriteData(DHCP_OPTION_DOMAIN_NAME, 0, NULL, &opt_len);
+            option_->AppendData(config_.domain_name_.size(),
+                                config_.domain_name_.c_str(), &opt_len);
         }
-    }
-    return opt_len;
-}
-
-// Read the list of <subnet/plen, gw> from input and store them
-// for later processing in AddClasslessRouteOption
-void DhcpHandler::ReadClasslessRoute(uint32_t option, uint16_t opt_len,
-                                     const std::string &input) {
-    std::stringstream value(input);
-    while (value.good()) {
-        std::string snetstr;
-        value >> snetstr;
-        OperDhcpOptions::Subnet subnet;
-        boost::system::error_code ec = Ip4PrefixParse(snetstr, &subnet.prefix_,
-                                                      (int *)&subnet.plen_);
-        if (ec || subnet.plen_ > 32 || !value.good()) {
-            DHCP_TRACE(Error, "Invalid Classless route DHCP option for VM " <<
-                       Ip4Address(config_.ip_addr).to_string() <<
-                       "; has to be list of <subnet/plen gw>");
-            break;
-        }
-        host_routes_.push_back(subnet);
-
-        // ignore the gw, as we use always use subnet's gw
-        value >> snetstr;
-    }
-}
-
-// Add the option defined at the highest level in priority
-// Take all options defined at VM interface level, take those from subnet which
-// are not configured at interface, then take those from ipam which are not
-// configured at interface or subnet.
-uint16_t DhcpHandler::AddConfigDhcpOptions(uint16_t opt_len) {
-    std::vector<autogen::DhcpOptionType> options;
-    if (vm_itf_->GetInterfaceDhcpOptions(&options))
-        opt_len = AddDhcpOptions(opt_len, options, InterfaceLevel);
-
-    if (vm_itf_->GetSubnetDhcpOptions(&options, false))
-        opt_len = AddDhcpOptions(opt_len, options, SubnetLevel);
-
-    if (vm_itf_->GetIpamDhcpOptions(&options, false))
-        opt_len = AddDhcpOptions(opt_len, options, IpamLevel);
-
-    return opt_len;
-}
-
-uint16_t DhcpHandler::AddDhcpOptions(
-                        uint16_t opt_len,
-                        std::vector<autogen::DhcpOptionType> &options,
-                        DhcpOptionLevel level) {
-    for (unsigned int i = 0; i < options.size(); ++i) {
-        // if the option name is a number, use it as DHCP code
-        // otherwise, use it as option name
-        std::stringstream str(options[i].dhcp_option_name);
-        uint32_t option = 0;
-        str >> option;
-        if (!option) {
-            option =
-                OptionCode(boost::to_lower_copy(options[i].dhcp_option_name));
-            if (!option) {
-                DHCP_TRACE(Trace, "Invalid DHCP option : " <<
-                           options[i].dhcp_option_name << " for VM " <<
-                           Ip4Address(config_.ip_addr).to_string());
-                continue;
-            }
-        }
-
-        // if option is already set in the response (from higher level), ignore
-        if (is_flag_set(option))
-            continue;
-
-        uint16_t old_opt_len = opt_len;
-        DhcpOptionCategory category = OptionCategory(option);
-
-        switch(category) {
-            case None:
-                break;
-
-            case NoData:
-                opt_len = AddNoDataOption(option, opt_len);
-                break;
-
-            case Bool:
-            case Byte:
-                opt_len = AddByteOption(option, opt_len,
-                                        options[i].dhcp_option_value);
-                break;
-
-            case ByteArray:
-                opt_len = AddByteArrayOption(option, opt_len,
-                                             options[i].dhcp_option_value);
-                break;
-
-            case ByteString:
-                opt_len = AddByteStringOption(option, opt_len,
-                                              options[i].dhcp_option_value);
-                break;
-
-            case ByteOneIPPlus:
-                opt_len = AddByteIPOption(option, opt_len,
-                                          options[i].dhcp_option_value);
-                break;
-
-            case String:
-                opt_len = AddStringOption(option, opt_len,
-                                          options[i].dhcp_option_value);
-                break;
-
-            case Int32bit:
-            case Uint32bit:
-                opt_len = AddIntegerOption(option, opt_len,
-                                           options[i].dhcp_option_value);
-                break;
-
-            case Uint16bit:
-                opt_len = AddShortArrayOption(option, opt_len,
-                                              options[i].dhcp_option_value,
-                                              false);
-                break;
-
-            case Uint16bitArray:
-                opt_len = AddShortArrayOption(option, opt_len,
-                                              options[i].dhcp_option_value,
-                                              true);
-                break;
-
-            case OneIP:
-                opt_len = AddIpOption(option, opt_len,
-                                      options[i].dhcp_option_value, 1, 1, 0);
-                break;
-
-            case ZeroIPPlus:
-                opt_len = AddIpOption(option, opt_len,
-                                      options[i].dhcp_option_value, 0, 0, 0);
-                break;
-
-            case OneIPPlus:
-                if (option == DHCP_OPTION_ROUTER) {
-                    // Router option is added later
-                    routers_ = options[i].dhcp_option_value;
-                } else {
-                    opt_len = AddIpOption(option, opt_len,
-                                          options[i].dhcp_option_value,
-                                          1, 0, 0);
-                }
-                break;
-
-            case TwoIPPlus:
-                opt_len = AddIpOption(option, opt_len,
-                                      options[i].dhcp_option_value, 2, 0, 2);
-                break;
-
-            case ClasslessRoute:
-                ReadClasslessRoute(option, opt_len,
-                                   options[i].dhcp_option_value);
-                if (host_routes_.size()) {
-                    // set flag & level for classless route so that we dont
-                    // update these at other level (subnet or ipam)
-                    set_flag(DHCP_OPTION_CLASSLESS_ROUTE);
-                    host_routes_level_ = level;
-                }
-                break;
-
-            case NameCompression:
-                opt_len = AddCompressedName(option, opt_len,
-                                            options[i].dhcp_option_value);
-                break;
-
-            default:
-                DHCP_TRACE(Error, "Unsupported DHCP option : " +
-                           options[i].dhcp_option_name);
-                break;
-        }
-
-        if (opt_len != old_opt_len)
-            set_flag(option);
-    }
-
-    return opt_len;
-}
-
-// Add host route options coming via config. Config priority is
-// 1) options at VM interface level (host routes specifically set)
-// 2) options at VM interface level (classless routes from --extra-dhcp-opts)
-// 3) options at subnet level (host routes at subnet level - neutron config)
-// 4) options at subnet level (classless routes from dhcp options)
-// 5) options at IPAM level (host routes from IPAM)
-// 6) options at IPAM level (classless routes from IPAM dhcp options)
-// Add the options defined at the highest level in priority
-uint16_t DhcpHandler::AddClasslessRouteOption(uint16_t opt_len) {
-    std::vector<OperDhcpOptions::Subnet> host_routes;
-    do {
-        // Port specific host route options
-        // TODO: should we remove host routes at port level from schema ?
-        if (vm_itf_->oper_dhcp_options().are_host_routes_set()) {
-            host_routes = vm_itf_->oper_dhcp_options().host_routes();
-            break;
-        }
-        // Host routes from port specific DHCP options (neutron configuration)
-        if (host_routes_level_ == InterfaceLevel && host_routes_.size()) {
-            host_routes.swap(host_routes_);
-            break;
-        }
-
-        if (vm_itf_->vn()) {
-            Ip4Address ip(config_.ip_addr);
-            const std::vector<VnIpam> &vn_ipam = vm_itf_->vn()->GetVnIpam();
-            uint32_t index;
-            for (index = 0; index < vn_ipam.size(); ++index) {
-                if (vn_ipam[index].IsSubnetMember(ip)) {
-                    break;
-                }
-            }
-            if (index < vn_ipam.size()) {
-                // Subnet level host route options
-                // Preference to host routes at subnet (neutron configuration)
-                if (vn_ipam[index].oper_dhcp_options.are_host_routes_set()) {
-                    host_routes = vn_ipam[index].oper_dhcp_options.host_routes();
-                    break;
-                }
-                // Host route options from subnet level DHCP options
-                if (host_routes_level_ == SubnetLevel && host_routes_.size()) {
-                    host_routes.swap(host_routes_);
-                    break;
-                }
-            }
-
-            // TODO: should remove host routes at VN level from schema ?
-            vm_itf_->vn()->GetVnHostRoutes(ipam_name_, &host_routes);
-            if (host_routes.size() > 0)
-                break;
-        }
-
-        // IPAM level host route options
-        const std::vector<autogen::RouteType> &routes =
-            ipam_type_.host_routes.route;
-        for (unsigned int i = 0; i < routes.size(); ++i) {
-            OperDhcpOptions::Subnet subnet;
-            boost::system::error_code ec = Ip4PrefixParse(routes[i].prefix,
-                                                          &subnet.prefix_,
-                                                          (int *)&subnet.plen_);
-            if (ec || subnet.plen_ > 32) {
-                continue;
-            }
-            host_routes.push_back(subnet);
-        }
-        // Host route options from IPAM level DHCP options
-        if (!host_routes.size() && host_routes_.size()) {
-            host_routes.swap(host_routes_);
-            break;
-        }
-    } while (false);
-
-    if (host_routes.size()) {
-        DhcpOptions *opt = GetNextOptionPtr(opt_len);
-        opt->code = DHCP_OPTION_CLASSLESS_ROUTE;
-        uint8_t *ptr = opt->data;
-        uint8_t len = 0;
-        for (uint32_t i = 0; i < host_routes.size(); ++i) {
-            uint32_t prefix = host_routes[i].prefix_.to_ulong();
-            uint32_t plen = host_routes[i].plen_;
-            *ptr++ = plen;
-            len++;
-            for (unsigned int i = 0; plen && i <= (plen - 1) / 8; ++i) {
-                *ptr++ = (prefix >> 8 * (3 - i)) & 0xFF;
-                len++;
-            }
-            *(uint32_t *)ptr = htonl(config_.gw_addr);
-            ptr += sizeof(uint32_t);
-            len += sizeof(uint32_t);
-        }
-        opt->len = len;
-        opt_len += 2 + len;
-        set_flag(DHCP_OPTION_CLASSLESS_ROUTE);
     }
     return opt_len;
 }
@@ -1424,66 +870,72 @@ uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr, in_addr_t siaddr) {
     memcpy(dhcp_->options, DHCP_OPTIONS_COOKIE, 4);
 
     uint16_t opt_len = 4;
-    DhcpOptions *opt = GetNextOptionPtr(opt_len);
-    opt->WriteData(DHCP_OPTION_MSG_TYPE, 1, &out_msg_type_, &opt_len);
+    option_->SetNextOptionPtr(opt_len);
+    option_->WriteData(DHCP_OPTION_MSG_TYPE, 1, &out_msg_type_, &opt_len);
 
-    opt = GetNextOptionPtr(opt_len);
-    opt->WriteData(DHCP_OPTION_SERVER_IDENTIFIER, 4, &siaddr, &opt_len);
+    option_->SetNextOptionPtr(opt_len);
+    option_->WriteData(DHCP_OPTION_SERVER_IDENTIFIER, 4, &siaddr, &opt_len);
 
     if (out_msg_type_ == DHCP_NAK) {
-        opt = GetNextOptionPtr(opt_len);
-        opt->WriteData(DHCP_OPTION_MESSAGE, nak_msg_.size(), 
-                       nak_msg_.data(), &opt_len);
+        option_->SetNextOptionPtr(opt_len);
+        option_->WriteData(DHCP_OPTION_MESSAGE, nak_msg_.size(), 
+                            nak_msg_.data(), &opt_len);
     }
     else {
         if (msg_type_ != DHCP_INFORM) {
-            opt = GetNextOptionPtr(opt_len);
-            opt->WriteWord(DHCP_OPTION_IP_LEASE_TIME,
-                           config_.lease_time, &opt_len);
+            option_->SetNextOptionPtr(opt_len);
+            uint32_t value = htonl(config_.lease_time);
+            option_->WriteData(DHCP_OPTION_IP_LEASE_TIME, 4, &value, &opt_len);
         }
 
         if (config_.subnet_mask) {
-            opt = GetNextOptionPtr(opt_len);
-            opt->WriteWord(DHCP_OPTION_SUBNET_MASK, config_.subnet_mask, &opt_len);
+            option_->SetNextOptionPtr(opt_len);
+            uint32_t value = htonl(config_.subnet_mask);
+            option_->WriteData(DHCP_OPTION_SUBNET_MASK, 4, &value, &opt_len);
         }
 
         if (config_.bcast_addr) {
-            opt = GetNextOptionPtr(opt_len);
-            opt->WriteWord(DHCP_OPTION_BCAST_ADDRESS, config_.bcast_addr, &opt_len);
+            option_->SetNextOptionPtr(opt_len);
+            uint32_t value = htonl(config_.bcast_addr);
+            option_->WriteData(DHCP_OPTION_BCAST_ADDRESS, 4, &value, &opt_len);
         }
 
         // Add dhcp options coming from Config
-        opt_len = AddConfigDhcpOptions(opt_len);
+        opt_len = AddConfigDhcpOptions(opt_len, false);
 
         // Add classless route option
+        option_->SetNextOptionPtr(opt_len);
         opt_len = AddClasslessRouteOption(opt_len);
 
         if (IsRouterOptionNeeded()) {
-            opt_len = AddIpOption(DHCP_OPTION_ROUTER, opt_len,
-                                  routers_, 1, 0, 0);
+            option_->SetNextOptionPtr(opt_len);
+            opt_len = AddIpv4Option(DHCP_OPTION_ROUTER, opt_len,
+                                    routers_, 1, 0, 0);
         }
 
         if (!is_flag_set(DHCP_OPTION_HOST_NAME) &&
             config_.client_name_.size()) {
-            opt = GetNextOptionPtr(opt_len);
-            opt->WriteData(DHCP_OPTION_HOST_NAME, config_.client_name_.size(),
-                           config_.client_name_.c_str(), &opt_len);
+            option_->SetNextOptionPtr(opt_len);
+            option_->WriteData(DHCP_OPTION_HOST_NAME, config_.client_name_.size(),
+                               config_.client_name_.c_str(), &opt_len);
         }
 
         if (!is_flag_set(DHCP_OPTION_DNS)) {
-            opt = GetNextOptionPtr(opt_len);
-            opt->WriteData(DHCP_OPTION_DNS, 0, NULL, &opt_len);
-            opt_len = AddDnsServers(opt, opt_len);
+            uint16_t old_opt_len = opt_len;
+            option_->SetNextOptionPtr(opt_len);
+            option_->WriteData(DHCP_OPTION_DNS, 0, NULL, &opt_len);
+            opt_len = AddDnsServers(opt_len);
+            if (opt_len == old_opt_len) opt_len -= 4;
         }
 
         if (!is_flag_set(DHCP_OPTION_DOMAIN_NAME)) {
-            opt = GetNextOptionPtr(opt_len);
-            opt_len = AddDomainNameOption(opt, opt_len);
+            option_->SetNextOptionPtr(opt_len);
+            opt_len = AddDomainNameOption(opt_len);
         }
     }
 
-    opt = GetNextOptionPtr(opt_len);
-    opt->code = DHCP_OPTION_END;
+    option_->SetNextOptionPtr(opt_len);
+    option_->SetCode(DHCP_OPTION_END);
     opt_len += 1;
 
     return (DHCP_FIXED_LEN + opt_len);
@@ -1505,6 +957,7 @@ uint16_t DhcpHandler::FillDhcpResponse(unsigned char *dest_mac,
     pkt_info_->transp.udp = (udphdr *)(pkt_info_->ip + 1);
     dhcphdr *dhcp = (dhcphdr *)(pkt_info_->transp.udp + 1);
     dhcp_ = dhcp;
+    option_->SetDhcpOptionPtr(dhcp_->options);
 
     uint16_t len = DhcpHdr(yiaddr, siaddr);
     len += sizeof(udphdr);
@@ -1519,15 +972,15 @@ uint16_t DhcpHandler::FillDhcpResponse(unsigned char *dest_mac,
 void DhcpHandler::SendDhcpResponse() {
     // TODO: If giaddr is set, what to do ?
 
-    in_addr_t src_ip = htonl(config_.gw_addr);
+    in_addr_t src_ip = htonl(config_.gw_addr.to_v4().to_ulong());
     in_addr_t dest_ip = 0xFFFFFFFF;
-    in_addr_t yiaddr = htonl(config_.ip_addr);
+    in_addr_t yiaddr = htonl(config_.ip_addr.to_v4().to_ulong());
     in_addr_t siaddr = src_ip;
     unsigned char dest_mac[ETH_ALEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
     // If requested IP address is not available, send NAK
     if ((msg_type_ == DHCP_REQUEST) && (request_.ip_addr) &&
-        (config_.ip_addr != request_.ip_addr)) {
+        (config_.ip_addr.to_v4().to_ulong() != request_.ip_addr)) {
         out_msg_type_ = DHCP_NAK;
         yiaddr = 0;
         siaddr = 0;
@@ -1563,7 +1016,7 @@ bool DhcpHandler::IsOptionRequested(uint8_t option) {
 
 bool DhcpHandler::IsRouterOptionNeeded() {
     // If GW is not configured, dont include
-    if (!config_.gw_addr)
+    if (config_.gw_addr.is_unspecified())
         return false;
 
     // If router option is already included, nothing to do
@@ -1595,8 +1048,18 @@ DhcpHandler::OptionCategory(uint32_t option) const {
 }
 
 uint32_t DhcpHandler::OptionCode(const std::string &option) const {
-    Dhcpv4NameCodeIter iter = g_dhcpv4_namecode_map.find(option);
-    if (iter == g_dhcpv4_namecode_map.end())
-        return 0;
-    return iter->second;
+    // if the option name is a number, use it as DHCP code
+    // otherwise, use it as option name
+    std::stringstream str(option);
+    uint32_t code = 0;
+    str >> code;
+    if (code) return code;
+
+    Dhcpv4NameCodeIter iter =
+        g_dhcpv4_namecode_map.find(boost::to_lower_copy(option));
+    return (iter == g_dhcpv4_namecode_map.end()) ? 0 : iter->second;
+}
+
+void DhcpHandler::DhcpTrace(const std::string &msg) const {
+    DHCP_TRACE(Error, "VM " << config_.ip_addr.to_string() << " : " << msg);
 }
