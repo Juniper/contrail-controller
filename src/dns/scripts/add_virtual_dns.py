@@ -48,7 +48,8 @@ class AddVirtualDns(object):
         dp_obj.add_virtual_dns(self._args.name, self._args.domain_name, 
                                self._args.dns_domain, dyn_updates, 
                                self._args.record_order, self._args.ttl, 
-                               self._args.next_vdns)
+                               self._args.next_vdns,
+                               self._args.floating_ip_record)
     #end __init__
 
     def _parse_args(self, args_str):
@@ -57,6 +58,7 @@ class AddVirtualDns(object):
                                       --dns_domain example.com --dyn-updates
                                       --record_order fixed --ttl 20000 
                                       --next_vdns default-domain:vdns2
+                                      --floating_ip_record vm_name
         '''
 
         # Source any specified config/ini file
@@ -91,6 +93,9 @@ class AddVirtualDns(object):
         parser.add_argument("--record_order", choices=['fixed', 'random', 'round-robin'], help = "Order used for DNS resolution")
         parser.add_argument("--ttl", type = int, help = "Time to Live for DNS records")
         parser.add_argument("--next_vdns", help = "Next Virtual DNS Server")
+        parser.add_argument("--floating_ip_record",
+                            choices=['dashed-ip', 'dashed-ip-tenant-name', 'vm-name', 'vm-name-tenant-name'],
+                            help = "Name format for floating IP record")
         parser.add_argument("--api_server_ip", help = "IP address of api server")
         parser.add_argument("--api_server_port", type = int, help = "Port of api server")
         parser.add_argument("--admin_user", help = "Name of keystone admin user")
