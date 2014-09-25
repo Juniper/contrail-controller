@@ -142,7 +142,7 @@ class AuthServiceKeystone(object):
                 self._conf_info['token_cache_time'] = args.token_cache_time
     # end __init__
 
-    def json_request(self, method, path):
+    def json_request(self, method, path, retry_after_authn=False):
         if self._auth_token is None or self._auth_middleware is None:
             return {}
         headers = {'X-Auth-Token': self._auth_token}
@@ -152,6 +152,11 @@ class AuthServiceKeystone(object):
             status_code = response.status_code
         except AttributeError:
             status_code = response.status
+
+        # avoid multiple reauth
+        if ((status_code == 401) and (not retry_after_authn)):
+            self._auth_token = self._auth_middleware.get_admin_token()
+            return self.json_request(method, path, retry_after_authn=True)
 
         return data if status_code == 200 else {}
     # end json_request
