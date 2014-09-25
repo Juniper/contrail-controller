@@ -326,6 +326,19 @@ class SvcMonitor(object):
 
         return status 
 
+    def _check_vm_si_link(self, vm_uuid, si_info):
+        try:
+            vm_obj = self._vnc_lib.virtual_machine_read(id=vm_uuid)
+        except NoIdError:
+            return
+
+        si_fq_str = si_info['si_fq_str']
+        si_refs = vm_obj.get_service_instance_refs()
+        if (si_refs is None) or (si_refs[0]['to'][0] == 'ERROR'):
+            proj_name = self._get_proj_name_from_si_fq_str(si_fq_str)
+            self._delete_svc_instance(vm_uuid, proj_name,
+                si_fq_str, si_info['instance_type'])
+
     def _delmsg_project_service_instance(self, idents):
         proj_fq_str = idents['project']
         si_fq_str = idents['service-instance']
@@ -608,14 +621,15 @@ def launch_ssrc(monitor):
 
 def timer_callback(monitor):
     si_list = monitor.db.service_instance_list()
-    if not si_list:
-        return
-
-    for si_fq_name_str, si_info in si_list:
+    for si_fq_name_str, si_info in si_list or []:
         status = monitor._check_si_status(si_fq_name_str, si_info)
         if status == 'ERROR':
             monitor.logger.log("Relaunch SI %s" % (si_fq_name_str))
             monitor._restart_svc(si_fq_name_str)
+
+    vm_list = monitor.db.virtual_machine_list()
+    for vm_uuid, si_info in vm_list or []:
+        monitor._check_vm_si_link(vm_uuid, si_info)
 
 def launch_timer(monitor):
     while True:
