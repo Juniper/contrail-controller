@@ -21,6 +21,7 @@ class VrouterProvisioner(object):
         self._parse_args(args_str)
 
         connected = False
+        tries = 0
         while not connected:
             try:
                 self._vnc_lib = VncApi(
@@ -30,7 +31,11 @@ class VrouterProvisioner(object):
                     self._args.api_server_port, '/')
                 connected = True
             except ResourceExhaustionError: # haproxy throws 503
-                time.sleep(3)
+                if tries < 10:
+                    tries += 1
+                    time.sleep(3)
+                else:
+                    raise
 
         gsc_obj = self._vnc_lib.global_system_config_read(
             fq_name=['default-global-system-config'])
