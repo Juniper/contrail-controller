@@ -19,6 +19,7 @@ public:
     static WordListType ParseDoc(Iterator start, Iterator end);
     static void RemoveStopWords(WordListType *v);
     static std::string GetXmlString(const pugi::xml_node node);
+    static std::string MakeSane(const std::string &text);
 private:
     static std::map<std::string, bool> stop_words_;
 };
