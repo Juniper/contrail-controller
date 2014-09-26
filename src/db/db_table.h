@@ -78,7 +78,7 @@ public:
 
     void RunNotify(DBTablePartBase *tpart, DBEntryBase *entry);
 
-    // Calcuate the size across all partitions.
+    // Calculate the size across all partitions.
     virtual size_t Size() const { return 0; }
 
     DB *database() { return db_; }
@@ -87,8 +87,6 @@ public:
     const std::string &name() const { return name_; }
 
     bool HasListeners() const;
-
-    // Translates a DBRequest key to DBentry .... No search
 
 private:
     class ListenerInfo;
@@ -106,6 +104,8 @@ private:
 // functionality
 class DBTable : public DBTableBase {
 public:
+    static bool WalkCallback(DBTablePartBase *tpart, DBEntryBase *entry);
+
     DBTable(DB *db, const std::string &name);
     virtual ~DBTable();
     void Init();
@@ -146,6 +146,9 @@ public:
     // Suspended deletion resume hook for user function
     virtual void RetryDelete() { }
 
+    void WalkCompleteCallback(DBTableBase *tbl_base);
+    void NotifyAllEntries();
+
     ///////////////////////////////////////////////////////////
     // Utility methods for table
     ///////////////////////////////////////////////////////////
@@ -157,7 +160,7 @@ public:
     ///////////////////////////////////////////////////////////////
     // Virtual functions from DBTableBase implemented by DBTable
     ///////////////////////////////////////////////////////////////
-    
+
     // Return the table partition for a specific request.
     virtual DBTablePartBase *GetTablePartition(const DBRequestKey *key);
     // Return the table partition for a DBEntryBase
@@ -189,6 +192,8 @@ private:
     int GetPartitionId(const DBEntry *entry);
 
     std::vector<DBTablePartition *> partitions_;
+    int walk_id_;
+
     DISALLOW_COPY_AND_ASSIGN(DBTable);
 };
 
