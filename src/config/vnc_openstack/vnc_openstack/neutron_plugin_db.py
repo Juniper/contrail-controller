@@ -206,48 +206,6 @@ class DBInterface(object):
                 connected = True
             except requests.exceptions.RequestException as e:
                 gevent.sleep(3)
-
-        # TODO remove this backward compat code eventually
-        # changes 'net_fq_name_str pfx/len' key to 'net_id pfx/len' key
-        subnet_map = self._vnc_lib.kv_retrieve(key=None)
-        for kv_dict in subnet_map:
-            key = kv_dict['key']
-            if len(key.split()) == 1:
-                subnet_id = key
-                # uuid key, fixup value portion to 'net_id pfx/len' format
-                # if not already so
-                if len(kv_dict['value'].split(':')) == 1:
-                    # new format already, skip
-                    continue
-
-                net_fq_name = kv_dict['value'].split()[0].split(':')
-                try:
-                    net_obj = self._virtual_network_read(fq_name=net_fq_name)
-                except NoIdError:
-                    self._vnc_lib.kv_delete(subnet_id)
-                    continue
-
-                new_subnet_key = '%s %s' % (net_obj.uuid,
-                                            kv_dict['value'].split()[1])
-                self._vnc_lib.kv_store(subnet_id, new_subnet_key)
-            else:  # subnet key
-                if len(key.split()[0].split(':')) == 1:
-                    # new format already, skip
-                    continue
-
-                # delete old key, convert to new key format and save
-                old_subnet_key = key
-                self._vnc_lib.kv_delete(old_subnet_key)
-
-                subnet_id = kv_dict['value']
-                net_fq_name = key.split()[0].split(':')
-                try:
-                    net_obj = self._virtual_network_read(fq_name=net_fq_name)
-                except NoIdError:
-                    continue
-
-                new_subnet_key = '%s %s' % (net_obj.uuid, key.split()[1])
-                self._vnc_lib.kv_store(new_subnet_key, subnet_id)
     #end __init__
 
     # Helper routines
