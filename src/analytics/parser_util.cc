@@ -97,10 +97,23 @@ LineParser::RemoveStopWords(WordListType *v) {
 }
 
 std::string
+LineParser::MakeSane(const std::string &text) {
+    std::ostringstream s;
+    for (std::string::const_iterator it = text.begin(); it != text.end();
+            ++it) {
+        if (0x80 & *it)
+            s << "&#" << (int)((uint8_t)*it) << ";";
+        else
+            s << *it;
+    }
+    return s.str();
+}
+
+std::string
 LineParser::GetXmlString(const pugi::xml_node node) {
     std::ostringstream sstream;
     if (node.attribute("type").value() == std::string("string"))
-        sstream <<  " " << node.child_value();
+        sstream <<  " " << LineParser::MakeSane(node.child_value());
     for (pugi::xml_node child = node.first_child(); child; child =
             child.next_sibling())
         sstream << LineParser::GetXmlString(child);
