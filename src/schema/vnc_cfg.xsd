@@ -470,7 +470,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="created"       type="xsd:dateTime"/>
         <xsd:element name="last-modified" type="xsd:dateTime"/>
         <xsd:element name="description"   type="xsd:string"/>
-        <xsd:element name="user_visible"  type="xsd:boolean" default="true"/>
+        <xsd:element name="user-visible"  type="xsd:boolean" default="true"/>
     </xsd:all>
 </xsd:complexType> 
 
