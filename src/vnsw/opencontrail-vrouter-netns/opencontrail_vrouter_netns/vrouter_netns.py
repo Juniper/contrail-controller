@@ -22,6 +22,7 @@ Script to start or destroy a Linux network namespace plug
 between two virtual networks. Such that an application can
 be executed under the context of a virtualized network.
 """
+from __future__ import print_function
 __docformat__ = "restructuredtext en"
 
 import argparse
@@ -117,8 +118,7 @@ class NetnsManager(object):
         try:
             s = subprocess.check_output(cmd, shell=True)
         except subprocess.CalledProcessError:
-                print "Haproxy process does not exists"
-                return None
+            return None
         words = s.split()
         pid = int(words[1])
         return pid
@@ -141,7 +141,7 @@ class NetnsManager(object):
             if pid is not None:
                 self.ip_ns.netns.execute([self.LBAAS_PROCESS, '-f', self.cfg_file, '-D', '-p', pid_file, '-sf', pid])
             else:
-                print "No old Haproxy process to Update"
+                print ("No old Haproxy process to Update for %s" %(self.cfg_file), file=sys.stderr)
         try:
             self.ip_ns.netns.execute(['route', 'add', 'default', 'gw', self.gw_ip])
         except RuntimeError:
@@ -156,13 +156,13 @@ class NetnsManager(object):
             cmd = """kill -9 %(pid)s""" % {'pid':pid}
             try:
                 s = subprocess.check_output(cmd, shell=True)
+                print ("Haproxy process with pid %d config file %s killed" %(pid, self.cfg_file), file=sys.stderr)
             except subprocess.CalledProcessError:
-                print "SIGKILL Error"
+                print ("SIGKILL Error for pid %d %s" %(pid, self.cfg_file), file=sys.stderr)
         try:
             self.ip_ns.netns.execute(['route', 'del', 'default'])
         except RuntimeError:
             pass
-        
 
     def destroy(self):
         if not self.ip_ns.netns.exists(self.namespace):
