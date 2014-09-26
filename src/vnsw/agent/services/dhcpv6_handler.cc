@@ -121,7 +121,7 @@ Dhcpv6NameCodeMap g_dhcpv6_namecode_map =
         ("v6-address-andsf", DHCPV6_OPTION_IPv6_ADDRESS_ANDSF);
 
 Dhcpv6CategoryMap g_dhcpv6_category_map =
-    map_list_of<uint32_t, Dhcpv6Handler::Dhcpv6OptionCategory>
+    map_list_of<uint32_t, Dhcpv6Handler::DhcpOptionCategory>
         // the following are sent from Agent
         // (DHCPV6_OPTION_CLIENTID, Dhcpv6Handler::ByteArray)
         // (DHCPV6_OPTION_SERVERID, Dhcpv6Handler::ByteArray)
@@ -221,17 +221,21 @@ Dhcpv6CategoryMap g_dhcpv6_category_map =
 
 Dhcpv6Handler::Dhcpv6Handler(Agent *agent, boost::shared_ptr<PktInfo> info,
                              boost::asio::io_service &io)
-        : ProtoHandler(agent, info, io), vm_itf_(NULL),
+        : DhcpHandlerBase(agent, info, io),
           msg_type_(DHCPV6_UNKNOWN), out_msg_type_(DHCPV6_UNKNOWN),
           rapid_commit_(false), reconfig_accept_(false),
           client_duid_len_(0), server_duid_len_(0),
           client_duid_(NULL), server_duid_(NULL) {
     memset(xid_, 0, sizeof(xid_));
-    ipam_type_.ipam_dns_method = "none";
-};
+    option_.reset(new Dhcpv6OptionHandler(NULL));
+}
+
+Dhcpv6Handler::~Dhcpv6Handler() {
+}
 
 bool Dhcpv6Handler::Run() {
     dhcp_ = (Dhcpv6Hdr *) pkt_info_->data;
+    option_->SetDhcpOptionPtr((uint8_t *)dhcp_->options);
     // request_.UpdateData(dhcp_->xid, ntohs(dhcp_->flags), dhcp_->chaddr);
     Dhcpv6Proto *dhcp_proto = agent()->dhcpv6_proto();
     Interface *itf =
@@ -449,14 +453,13 @@ void Dhcpv6Handler::FillDhcpInfo(Ip6Address &addr, int plen,
                                  Ip6Address &gw, Ip6Address &dns) {
     config_.ip_addr = addr;
     config_.plen = plen;
-    config_.subnet_mask = GetIp6SubnetAddress(addr, plen);
     config_.gw_addr = gw;
     config_.dns_addr = dns;
 }
 
 bool Dhcpv6Handler::FindLeaseData() {
     Ip6Address ip = vm_itf_->ip6_addr();
-    FindDomainName();
+    FindDomainName(ip);
     if (vm_itf_->ipv6_active()) {
         if (vm_itf_->fabric_port()) {
             // TODO
@@ -491,382 +494,32 @@ bool Dhcpv6Handler::FindLeaseData() {
     return true;
 }
 
-void Dhcpv6Handler::FindDomainName() {
-    if (config_.preferred_time != (uint32_t) -1)
-        return;
-
-    if (!vm_itf_->vn() || 
-        !vm_itf_->vn()->GetIpamData(vm_itf_->ip6_addr(), &ipam_name_,
-                                    &ipam_type_)) {
-        DHCPV6_TRACE(Trace, "Ipam data not found; VM = " << vm_itf_->name());
-        return;
-    }
-
-    if (ipam_type_.ipam_dns_method != "virtual-dns-server" ||
-        !agent()->domain_config_table()->GetVDns(ipam_type_.ipam_dns_server.
-                                          virtual_dns_server_name, &vdns_type_))
-        return;
-
-    config_.domain_name_ = vdns_type_.domain_name;
-}
-
-// Add option taking no data (length = 0)
-uint16_t Dhcpv6Handler::AddNoDataOption(uint32_t option, uint16_t opt_len) {
-    Dhcpv6Options *opt = GetNextOptionPtr(opt_len);
-    opt->WriteData(option, 0, NULL, &opt_len);
-    return opt_len;
-}
-
-// Add option taking a byte from input
-uint16_t Dhcpv6Handler::AddByteOption(uint32_t option, uint16_t opt_len,
-                                      const std::string &input) {
-    std::stringstream value(input);
-    uint32_t data = 0;
-    value >> data;
-    if (value.bad() || value.fail() || data > 0xFF) {
-        DHCPV6_TRACE(Error, "Invalid DHCP option " << option << " for VM " <<
-                     config_.ip_addr.to_string() << " data : " <<
-                     input << "; invalid data");
-    } else {
-        uint8_t byte = (uint8_t)data;
-        Dhcpv6Options *opt = GetNextOptionPtr(opt_len);
-        opt->WriteData(option, 1, &byte, &opt_len);
-    }
-    return opt_len;
-}
-
-// Add option taking array of bytes from input
-uint16_t Dhcpv6Handler::AddByteArrayOption(uint32_t option, uint16_t opt_len,
-                                           const std::string &input) {
-    Dhcpv6Options *opt = GetNextOptionPtr(opt_len);
-    opt->WriteData(option, 0, NULL, &opt_len);
-    std::stringstream value(input);
-    uint8_t byte = 0;
-    value >> byte;
-    while (!value.bad() && !value.fail()) {
-        opt->AppendData(1, &byte, &opt_len);
-        if (value.eof()) break;
-        value >> byte;
-    }
-
-    // if atleast one byte is not added, ignore this option
-    if (!opt->GetLen() || !value.eof()) {
-        DHCPV6_TRACE(Error, "Invalid DHCP option " << option << " for VM " <<
-                     config_.ip_addr.to_string() << "; data missing");
-        return opt_len - opt->GetLen() - 4;
-    }
-
-    return opt_len;
-}
-
-// Add option taking string from input
-uint16_t Dhcpv6Handler::AddStringOption(uint32_t option, uint16_t opt_len,
-                                        const std::string &input) {
-    Dhcpv6Options *opt = GetNextOptionPtr(opt_len);
-    opt->WriteData(option, input.length(), input.c_str(), &opt_len);
-    return opt_len;
-}
-
-// Add option taking integer from input
-uint16_t Dhcpv6Handler::AddIntegerOption(uint32_t option, uint16_t opt_len,
-                                         const std::string &input) {
-    Dhcpv6Options *opt = GetNextOptionPtr(opt_len);
-    std::stringstream value(input);
-    uint32_t data = 0;
-    value >> data;
-    if (value.bad() || value.fail()) {
-        DHCPV6_TRACE(Error, "Invalid DHCP option " << option << " for VM " <<
-                     config_.ip_addr.to_string() << " data : " <<
-                     input << "; invalid data");
-    } else {
-        data = htonl(data);
-        opt->WriteData(option, 4, &data, &opt_len);
-    }
-    return opt_len;
-}
-
-// Add option taking array of short from input
-uint16_t Dhcpv6Handler::AddShortArrayOption(uint32_t option, uint16_t opt_len,
-                                            const std::string &input,
-                                            bool array) {
-    Dhcpv6Options *opt = GetNextOptionPtr(opt_len);
-    opt->WriteData(option, 0, NULL, &opt_len);
-    std::stringstream value(input);
-    uint16_t data = 0;
-    value >> data;
-    while (!value.bad() && !value.fail()) {
-        data = htons(data);
-        opt->AppendData(2, &data, &opt_len);
-        if (!array || value.eof()) break;
-        value >> data;
-    }
-
-    // if atleast one short is not added, ignore this option
-    if (!opt->GetLen() || !value.eof()) {
-        DHCPV6_TRACE(Error, "Invalid DHCP option " << option << " for VM " <<
-                     config_.ip_addr.to_string() << " data : " <<
-                     input << "; invalid data");
-        return opt_len - opt->GetLen() - 4;
-    }
-
-    return opt_len;
-}
-
-uint16_t Dhcpv6Handler::AddIpOption(uint32_t option, uint16_t opt_len,
-                                    const std::string &input, bool list) {
-    Dhcpv6Options *opt = GetNextOptionPtr(opt_len);
-    opt->WriteData(option, 0, NULL, &opt_len);
-    std::stringstream value(input);
-    while (value.good()) {
-        std::string ipstr;
-        value >> ipstr;
-        opt_len = AddIP(opt, opt_len, ipstr);
-        if (!list) break;
-    }
-
-    if (option == DHCPV6_OPTION_DNS_SERVERS) {
-        // Add DNS servers from the IPAM dns method and server config also
-        opt_len = AddDnsServers(opt, opt_len);
-    }
-
-    // check that atleast one IP address is added
-    if (opt->GetLen() < 16) {
-        DHCPV6_TRACE(Error, "Invalid DHCP option " << option << " for VM " <<
-                     config_.ip_addr.to_string() << "; data missing");
-        return opt_len - opt->GetLen() - 4;
-    }
-
-    return opt_len;
-}
-
 // Add an IP address to the option
-uint16_t Dhcpv6Handler::AddIP(Dhcpv6Options *opt, uint16_t opt_len,
-                              const std::string &input) {
+uint16_t Dhcpv6Handler::AddIP(uint16_t opt_len, const std::string &input) {
     boost::system::error_code ec;
     Ip6Address ip = Ip6Address::from_string(input, ec);
     if (!ec.value()) {
-        opt->AppendData(16, ip.to_bytes().data(), &opt_len);
+        option_->AppendData(16, ip.to_bytes().data(), &opt_len);
     } else {
-        DHCPV6_TRACE(Error, "Invalid DHCP option " << opt->code << " for VM " <<
-                     config_.ip_addr.to_string() << "; has to be IP address");
-    }
-    return opt_len;
-}
-
-uint16_t Dhcpv6Handler::AddCompressedNameOption(uint32_t option,
-                                                uint16_t opt_len,
-                                                const std::string &input,
-                                                bool list) {
-    Dhcpv6Options *opt = GetNextOptionPtr(opt_len);
-    opt->WriteData(option, 0, NULL, &opt_len);
-    std::stringstream value(input);
-    while (value.good()) {
-        std::string str;
-        value >> str;
-        if (str.size()) {
-            opt_len = AddCompressedName(opt, opt_len, str);
-            if (!list) break;
-        }
-    }
-
-    if (!opt->GetLen()) {
-        DHCPV6_TRACE(Error, "Invalid DHCP option " << option << " for VM " <<
-                     config_.ip_addr.to_string() << "; invalid data");
-        return opt_len - opt->GetLen() - 4;
-    }
-
-    return opt_len;
-}
-
-uint16_t Dhcpv6Handler::AddByteCompressedNameOption(uint32_t option,
-                                                    uint16_t opt_len,
-                                                    const std::string &input) {
-    Dhcpv6Options *opt = GetNextOptionPtr(opt_len);
-    opt->WriteData(option, 0, NULL, &opt_len);
-
-    std::stringstream value(input);
-    uint32_t data = 0;
-    value >> data;
-    if (value.bad() || value.fail() || data > 0xFF) {
-        DHCPV6_TRACE(Error, "Invalid DHCP option " << option << " for VM " <<
-                     config_.ip_addr.to_string() << " data : " <<
-                     input << "; invalid data");
-        return opt_len - opt->GetLen() - 4;
-    } else {
-        uint8_t byte = (uint8_t)data;
-        Dhcpv6Options *opt = GetNextOptionPtr(opt_len);
-        opt->WriteData(option, 1, &byte, &opt_len);
-    }
-
-    std::string str;
-    value >> str;
-    if (value.bad() || value.fail() || !str.size()) {
-        DHCPV6_TRACE(Error, "Invalid DHCP option " << option << " for VM " <<
-                     config_.ip_addr.to_string() << "; invalid data");
-        return opt_len - opt->GetLen() - 4;
-    }
-    return AddCompressedName(opt, opt_len, str);
-}
-
-uint16_t Dhcpv6Handler::AddCompressedName(Dhcpv6Options *opt, uint16_t opt_len,
-                                          const std::string &input) {
-    uint8_t name[input.size() * 2 + 2];
-    uint16_t len = 0;
-    BindUtil::AddName(name, input, 0, 0, len);
-    opt->AppendData(len, name, &opt_len);
-    return opt_len;
-}
-
-// Add an DNS server addresses from IPAM to the option
-uint16_t Dhcpv6Handler::AddDnsServers(Dhcpv6Options *opt, uint16_t opt_len) {
-    if (ipam_type_.ipam_dns_method == "default-dns-server" ||
-        ipam_type_.ipam_dns_method == "virtual-dns-server" ||
-        ipam_type_.ipam_dns_method == "") {
-        if (!config_.dns_addr.is_unspecified()) {
-            opt->AppendData(16, config_.dns_addr.to_bytes().data(), &opt_len);
-        }
-    } else if (ipam_type_.ipam_dns_method == "tenant-dns-server") {
-        for (unsigned int i = 0; i < ipam_type_.ipam_dns_server.
-             tenant_dns_server_address.ip_address.size(); ++i) {
-            // AddIP adds only IPv6 addresses
-            opt_len = AddIP(opt, opt_len,
-                            ipam_type_.ipam_dns_server.
-                            tenant_dns_server_address.ip_address[i]);
-        }
+        DHCPV6_TRACE(Error, "Invalid DHCP option " << option_->GetCode() <<
+                     " for VM " << config_.ip_addr.to_string() <<
+                     "; has to be IP address");
     }
     return opt_len;
 }
 
 // Add domain name from IPAM to the option
-uint16_t Dhcpv6Handler::AddDomainNameOption(Dhcpv6Options *opt, uint16_t opt_len) {
+uint16_t Dhcpv6Handler::AddDomainNameOption(uint16_t opt_len) {
     if (ipam_type_.ipam_dns_method == "virtual-dns-server") {
         if (config_.domain_name_.size()) {
             // encode the domain name in the dns encoding format
             uint8_t domain_name[config_.domain_name_.size() * 2 + 2];
             uint16_t len = 0;
             BindUtil::AddName(domain_name, config_.domain_name_, 0, 0, len);
-            opt->WriteData(DHCPV6_OPTION_DOMAIN_LIST, len,
-                           domain_name, &opt_len);
+            option_->WriteData(DHCPV6_OPTION_DOMAIN_LIST, len,
+                               domain_name, &opt_len);
         }
     }
-    return opt_len;
-}
-
-uint16_t Dhcpv6Handler::AddConfigDhcpOptions(uint16_t opt_len) {
-    std::vector<autogen::DhcpOptionType> options;
-    if (vm_itf_->GetInterfaceDhcpOptions(&options))
-        opt_len = AddDhcpOptions(opt_len, options);
-
-    if (vm_itf_->GetSubnetDhcpOptions(&options, true))
-        opt_len = AddDhcpOptions(opt_len, options);
-
-    if (vm_itf_->GetIpamDhcpOptions(&options, true))
-        opt_len = AddDhcpOptions(opt_len, options);
-
-    return opt_len;
-}
-
-uint16_t Dhcpv6Handler::AddDhcpOptions(
-                        uint16_t opt_len,
-                        std::vector<autogen::DhcpOptionType> &options) {
-    for (unsigned int i = 0; i < options.size(); ++i) {
-        // if the option name is a number, it is considered DHCPv4 option
-        std::stringstream str(options[i].dhcp_option_name);
-        uint32_t option =
-                  OptionCode(boost::to_lower_copy(options[i].dhcp_option_name));
-        if (!option) {
-            DHCPV6_TRACE(Trace, "Invalid DHCP option : " <<
-                       options[i].dhcp_option_name << " for VM " <<
-                       config_.ip_addr.to_string());
-            continue;
-        }
-
-        // if option is already set in the response (from higher level), ignore
-        if (is_flag_set(option))
-            continue;
-
-        uint16_t old_opt_len = opt_len;
-        Dhcpv6OptionCategory category = OptionCategory(option);
-
-        switch(category) {
-            case None:
-                break;
-
-            case NoData:
-                opt_len = AddNoDataOption(option, opt_len);
-                break;
-
-            case Byte:
-                opt_len = AddByteOption(option, opt_len,
-                                        options[i].dhcp_option_value);
-                break;
-
-            case ByteArray:
-                opt_len = AddByteArrayOption(option, opt_len,
-                                             options[i].dhcp_option_value);
-                break;
-
-            case String:
-                opt_len = AddStringOption(option, opt_len,
-                                          options[i].dhcp_option_value);
-                break;
-
-            case Uint32bit:
-                opt_len = AddIntegerOption(option, opt_len,
-                                           options[i].dhcp_option_value);
-                break;
-
-            case Uint16bit:
-                opt_len = AddShortArrayOption(option, opt_len,
-                                              options[i].dhcp_option_value,
-                                              false);
-                break;
-
-            case Uint16bitArray:
-                opt_len = AddShortArrayOption(option, opt_len,
-                                              options[i].dhcp_option_value,
-                                              true);
-                break;
-
-            case OneIPv6:
-                opt_len = AddIpOption(option, opt_len,
-                                      options[i].dhcp_option_value,
-                                      false);
-                break;
-
-            case OneIPv6Plus:
-                opt_len = AddIpOption(option, opt_len,
-                                      options[i].dhcp_option_value,
-                                      true);
-                break;
-
-            case NameCompression:
-                opt_len = AddCompressedNameOption(option, opt_len,
-                                                  options[i].dhcp_option_value,
-                                                  false);
-                break;
-
-            case ByteNameCompression:
-                opt_len = AddByteCompressedNameOption(
-                            option, opt_len, options[i].dhcp_option_value);
-                break;
-
-            case NameCompressionArray:
-                opt_len = AddCompressedNameOption(option, opt_len,
-                                                  options[i].dhcp_option_value,
-                                                  true);
-                break;
-
-            default:
-                DHCPV6_TRACE(Error, "Unsupported DHCP option : " +
-                             options[i].dhcp_option_name);
-                break;
-        }
-
-        if (opt_len != old_opt_len)
-            set_flag(option);
-    }
-
     return opt_len;
 }
 
@@ -877,17 +530,17 @@ uint16_t Dhcpv6Handler::FillDhcpv6Hdr() {
     memcpy(dhcp_->xid, xid_, 3);
 
     uint16_t opt_len = 0;
-    Dhcpv6Options *opt = dhcp_->options;
 
     // server duid
-    opt->WriteData(DHCPV6_OPTION_SERVERID, sizeof(Dhcpv6Proto::Duid),
-                   (void *)dhcp_proto->server_duid(), &opt_len);
+    option_->SetNextOptionPtr(opt_len);
+    option_->WriteData(DHCPV6_OPTION_SERVERID, sizeof(Dhcpv6Proto::Duid),
+                       (void *)dhcp_proto->server_duid(), &opt_len);
 
     // client duid
     if (client_duid_len_) {
-        opt = GetNextOptionPtr(opt_len);
-        opt->WriteData(DHCPV6_OPTION_CLIENTID, client_duid_len_,
-                       (void *)client_duid_.get(), &opt_len);
+        option_->SetNextOptionPtr(opt_len);
+        option_->WriteData(DHCPV6_OPTION_CLIENTID, client_duid_len_,
+                           (void *)client_duid_.get(), &opt_len);
     }
 
     // IA for non-temporary address
@@ -895,49 +548,48 @@ uint16_t Dhcpv6Handler::FillDhcpv6Hdr() {
     // have to handle multiple iana / iata in a single request
     for (std::vector<Dhcpv6IaData>::iterator it = iana_.begin();
          it != iana_.end(); ++it) {
-        opt = GetNextOptionPtr(opt_len);
-        WriteIaOption(opt, it->ia, opt_len);
+        option_->SetNextOptionPtr(opt_len);
+        WriteIaOption(it->ia, opt_len);
     }
 
     for (std::vector<Dhcpv6IaData>::iterator it = iata_.begin();
          it != iata_.end(); ++it) {
-        opt = GetNextOptionPtr(opt_len);
-        WriteIaOption(opt, it->ia, opt_len);
+        option_->SetNextOptionPtr(opt_len);
+        WriteIaOption(it->ia, opt_len);
     }
 
     // Add dhcp options coming from Config
-    opt_len = AddConfigDhcpOptions(opt_len);
+    opt_len = AddConfigDhcpOptions(opt_len, true);
 
     // GW doesnt come in DHCPV6, it should come via router advertisement
 
     if (!is_flag_set(DHCPV6_OPTION_DNS_SERVERS)) {
-        opt = GetNextOptionPtr(opt_len);
-        opt->WriteData(DHCPV6_OPTION_DNS_SERVERS, 0, NULL, &opt_len);
         uint16_t old_opt_len = opt_len;
-        opt_len = AddDnsServers(opt, opt_len);
+        option_->SetNextOptionPtr(opt_len);
+        option_->WriteData(DHCPV6_OPTION_DNS_SERVERS, 0, NULL, &opt_len);
+        opt_len = AddDnsServers(opt_len);
         if (opt_len == old_opt_len) opt_len -= 4;
     }
 
     if (!is_flag_set(DHCPV6_OPTION_DOMAIN_LIST)) {
-        opt = GetNextOptionPtr(opt_len);
-        opt_len = AddDomainNameOption(opt, opt_len);
+        option_->SetNextOptionPtr(opt_len);
+        opt_len = AddDomainNameOption(opt_len);
     }
 
     return (DHCPV6_FIXED_LEN + opt_len);
 }
 
-void Dhcpv6Handler::WriteIaOption(Dhcpv6Options *opt,
-                                  const Dhcpv6Ia &ia,
+void Dhcpv6Handler::WriteIaOption(const Dhcpv6Ia &ia,
                                   uint16_t &optlen) {
-    Dhcpv6IaAddr ia_addr(config_.ip_addr.to_bytes().data(),
+    Dhcpv6IaAddr ia_addr(config_.ip_addr.to_v6().to_bytes().data(),
                          config_.preferred_time,
                          config_.valid_time);
 
-    opt->WriteData(DHCPV6_OPTION_IA_NA, sizeof(Dhcpv6Ia), (void *)&ia, &optlen);
+    option_->WriteData(DHCPV6_OPTION_IA_NA, sizeof(Dhcpv6Ia), (void *)&ia, &optlen);
     Dhcpv6Options *ia_addr_opt = GetNextOptionPtr(optlen);
     ia_addr_opt->WriteData(DHCPV6_OPTION_IAADDR, sizeof(Dhcpv6IaAddr),
                            (void *)&ia_addr, &optlen);
-    opt->AddLen(sizeof(Dhcpv6IaAddr) + 4);
+    option_->AddLen(sizeof(Dhcpv6IaAddr) + 4);
 }
 
 uint16_t Dhcpv6Handler::FillDhcpResponse(unsigned char *dest_mac,
@@ -973,8 +625,8 @@ void Dhcpv6Handler::SendDhcpResponse() {
     memcpy(dest_mac, pkt_info_->eth->h_source, ETH_ALEN);
 
     UpdateStats();
-    FillDhcpResponse(dest_mac, config_.gw_addr,
-                                    pkt_info_->ip_saddr.to_v6());
+    FillDhcpResponse(dest_mac, config_.gw_addr.to_v6(),
+                     pkt_info_->ip_saddr.to_v6());
     Send(GetInterfaceIndex(), pkt_info_->vrf,
          AgentHdr::TX_SWITCH, PktHandler::DHCPV6);
 }
@@ -985,7 +637,7 @@ void Dhcpv6Handler::UpdateStats() {
                                           dhcp_proto->IncrStatsReply();
 }
 
-Dhcpv6Handler::Dhcpv6OptionCategory
+Dhcpv6Handler::DhcpOptionCategory
 Dhcpv6Handler::OptionCategory(uint32_t option) const {
     Dhcpv6CategoryIter iter = g_dhcpv6_category_map.find(option);
     if (iter == g_dhcpv6_category_map.end())
@@ -994,8 +646,11 @@ Dhcpv6Handler::OptionCategory(uint32_t option) const {
 }
 
 uint32_t Dhcpv6Handler::OptionCode(const std::string &option) const {
-    Dhcpv6NameCodeIter iter = g_dhcpv6_namecode_map.find(option);
-    if (iter == g_dhcpv6_namecode_map.end())
-        return 0;
-    return iter->second;
+    Dhcpv6NameCodeIter iter =
+        g_dhcpv6_namecode_map.find(boost::to_lower_copy(option));
+    return (iter == g_dhcpv6_namecode_map.end()) ? 0 : iter->second;
+}
+
+void Dhcpv6Handler::DhcpTrace(const std::string &msg) const {
+    DHCPV6_TRACE(Error, "VM " << config_.ip_addr.to_string() << " : " << msg);
 }

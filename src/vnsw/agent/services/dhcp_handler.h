@@ -5,9 +5,7 @@
 #ifndef vnsw_agent_dhcp_handler_hpp
 #define vnsw_agent_dhcp_handler_hpp
 
-#include <bitset>
-#include "pkt/proto_handler.h"
-#include "vnc_cfg_types.h"
+#include "dhcp_handler_base.h"
 
 #define DHCP_PKT_SIZE                 1024
 
@@ -210,7 +208,7 @@
 #define HW_TYPE_ETHERNET    1
 
 #define DHCP_SHORTLEASE_TIME 4
-#define LINK_LOCAL_GW        "169.254.1.1"
+#define LINK_LOCAL_SUBNET    "169.254.0.0"
 
 struct dhcphdr {
      uint8_t  op;
@@ -230,16 +228,12 @@ struct dhcphdr {
      uint8_t options[DHCP_MAX_OPTION_LEN];
 };
 
-struct DhcpOptions {
+struct Dhcpv4Options {
     void WriteData(uint8_t c, uint8_t l, const void *d, uint16_t *optlen) {
         code = c;
         len = l; 
         memcpy(data, (uint8_t *)d, l);
         *optlen += 2 + l;
-    }
-    void WriteWord(uint8_t c, uint32_t value, uint16_t *optlen) {
-        uint32_t net = htonl(value);
-        WriteData(c, 4, &net, optlen);
     }
     void WriteByte(uint8_t c, uint16_t *optlen) {
         code = c;
@@ -250,12 +244,12 @@ struct DhcpOptions {
         len += l;
         *optlen += l;
     }
-    DhcpOptions *GetNextOptionPtr() {
+    Dhcpv4Options *GetNextOptionPtr() {
         uint8_t *next = reinterpret_cast<uint8_t *>(this);
         if (code == DHCP_OPTION_PAD || code == DHCP_OPTION_END)
-            return reinterpret_cast<DhcpOptions *>(next + 1);
+            return reinterpret_cast<Dhcpv4Options *>(next + 1);
         else
-            return reinterpret_cast<DhcpOptions *>(next + len + 2);
+            return reinterpret_cast<Dhcpv4Options *>(next + len + 2);
     }
 
     uint8_t code;
@@ -264,51 +258,8 @@ struct DhcpOptions {
 };
 
 // DHCP protocol handler
-class DhcpHandler : public ProtoHandler {
+class DhcpHandler : public DhcpHandlerBase {
 public:
-    enum DhcpOptionCategory {
-        None,
-        NoData,         // no data for this option
-        Bool,           // data has bool value ( 0 or 1)
-        Byte,           // data has byte value
-        ByteArray,      // data has array of bytes
-        ByteString,     // data has byte followed by string
-        ByteOneIPPlus,  // data has byte followed by one or more IPs
-        String,         // data has a string
-        Int32bit,       // data 32 bit int
-        Uint32bit,      // data has 32 bit uint
-        Uint16bit,      // data has 16 bit uint
-        Uint16bitArray, // data has array of 16 bit uint
-        OneIP,          // data has one IP
-        ZeroIPPlus,     // data has zero or more IPs
-        OneIPPlus,      // data has one or more IPs
-        TwoIPPlus,      // data has multiples of two IPs
-        ClasslessRoute, // data is classless route option
-        NameCompression // data is name compressed (rfc1035)
-    };
-
-    enum DhcpOptionLevel {
-        Invalid,
-        InterfaceLevel,
-        SubnetLevel,
-        IpamLevel
-    };
-
-    struct ConfigRecord {
-        ConfigRecord() : ip_addr(0), subnet_mask(0), bcast_addr(0), gw_addr(0), 
-                         dns_addr(0), plen(0), lease_time(-1) {
-        }
-
-        uint32_t ip_addr;
-        uint32_t subnet_mask;
-        uint32_t bcast_addr;
-        uint32_t gw_addr;
-        uint32_t dns_addr;
-        uint32_t plen;
-        uint32_t lease_time;
-        std::string client_name_;
-        std::string domain_name_;
-    };
 
     struct DhcpRequestData {
         DhcpRequestData() : xid(-1), flags(0), ip_addr(0) {
@@ -326,9 +277,38 @@ public:
         in_addr_t ip_addr;
     };
 
+    struct Dhcpv4OptionHandler : DhcpOptionHandler {
+        static const uint16_t kDhcpOptionFixedLen = 2;
+
+        explicit Dhcpv4OptionHandler(uint8_t *ptr) { dhcp_option_ptr = ptr; }
+        void WriteData(uint8_t c, uint8_t l, const void *d, uint16_t *optlen) {
+            option->WriteData(c, l, d, optlen);
+        }
+        void WriteByte(uint8_t c, uint16_t *optlen) {
+            option->WriteByte(c, optlen);
+        }
+        void AppendData(uint16_t l, const void *d, uint16_t *optlen) {
+            option->AppendData(l, d, optlen);
+        }
+        uint16_t GetCode() const { return option->code; }
+        uint16_t GetLen() const { return option->len; }
+        uint16_t GetFixedLen() const { return kDhcpOptionFixedLen; }
+        uint8_t *GetData() { return option->data; }
+        void SetCode(uint16_t c) { option->code = (uint8_t) c; }
+        void SetLen(uint16_t l) { option->len = (uint8_t) l; }
+        void AddLen(uint16_t l) { option->len += (uint8_t) l; }
+        void SetNextOptionPtr(uint16_t optlen) {
+            option = (Dhcpv4Options *)(dhcp_option_ptr + optlen);
+        }
+        void SetDhcpOptionPtr(uint8_t *ptr) { dhcp_option_ptr = ptr; }
+
+        uint8_t *dhcp_option_ptr; // pointer to DHCP options in the packet
+        Dhcpv4Options *option;    // pointer to current option being processed
+    };
+
     DhcpHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
                 boost::asio::io_service &io);
-    virtual ~DhcpHandler() {};
+    virtual ~DhcpHandler();
 
     bool Run();
 
@@ -338,46 +318,17 @@ private:
     bool HandleDhcpFromFabric();
     bool ReadOptions(int16_t opt_rem_len);
     bool FindLeaseData();
-    void FillDhcpInfo(uint32_t addr, int plen, uint32_t gw, uint32_t dns);
-    void FindDomainName();
-    void WriteOption82(DhcpOptions *opt, uint16_t *optlen);
-    bool ReadOption82(DhcpOptions *opt);
+    void FillDhcpInfo(Ip4Address &addr, int plen,
+                      Ip4Address &gw, Ip4Address &dns);
+    void WriteOption82(Dhcpv4Options *opt, uint16_t *optlen);
+    bool ReadOption82(Dhcpv4Options *opt);
     bool CreateRelayPacket();
     bool CreateRelayResponsePacket();
     void RelayRequestToFabric();
     void RelayResponseFromFabric();
     uint16_t DhcpHdr(in_addr_t, in_addr_t);
-    uint16_t AddNoDataOption(uint32_t option, uint16_t opt_len);
-    uint16_t AddByteOption(uint32_t option, uint16_t opt_len,
-                           const std::string &input);
-    uint16_t AddByteArrayOption(uint32_t option, uint16_t opt_len,
-                                const std::string &input);
-    uint16_t AddByteStringOption(uint32_t option, uint16_t opt_len,
-                                 const std::string &input);
-    uint16_t AddByteIPOption(uint32_t option, uint16_t opt_len,
-                             const std::string &input);
-    uint16_t AddStringOption(uint32_t option, uint16_t opt_len,
-                             const std::string &input);
-    uint16_t AddIntegerOption(uint32_t option, uint16_t opt_len,
-                              const std::string &input);
-    uint16_t AddShortArrayOption(uint32_t option, uint16_t opt_len,
-                                 const std::string &input, bool array);
-    uint16_t AddIpOption(uint32_t option, uint16_t opt_len,
-                         const std::string &input, uint8_t min_count,
-                         uint8_t max_count, uint8_t multiples);
-    uint16_t AddIP(DhcpOptions *opt, uint16_t opt_len,
-                   const std::string &input);
-    uint16_t AddCompressedName(uint32_t option, uint16_t opt_len,
-                               const std::string &input);
-    uint16_t AddDnsServers(DhcpOptions *opt, uint16_t opt_len);
-    uint16_t AddDomainNameOption(DhcpOptions *opt, uint16_t opt_len);
-    void ReadClasslessRoute(uint32_t option, uint16_t opt_len,
-                            const std::string &input);
-    uint16_t AddConfigDhcpOptions(uint16_t opt_len);
-    uint16_t AddDhcpOptions(uint16_t opt_len,
-                            std::vector<autogen::DhcpOptionType> &options,
-                            DhcpOptionLevel level);
-    uint16_t AddClasslessRouteOption(uint16_t opt_len);
+    uint16_t AddIP(uint16_t opt_len, const std::string &input);
+    uint16_t AddDomainNameOption(uint16_t opt_len);
     uint16_t FillDhcpResponse(unsigned char *dest_mac,
                               in_addr_t src_ip, in_addr_t dest_ip,
                               in_addr_t siaddr, in_addr_t yiaddr);
@@ -385,34 +336,17 @@ private:
     bool IsOptionRequested(uint8_t option);
     bool IsRouterOptionNeeded();
     void UpdateStats();
-    DhcpOptionCategory OptionCategory(uint32_t option) const;
+    DhcpHandler::DhcpOptionCategory OptionCategory(uint32_t option) const;
     uint32_t OptionCode(const std::string &option) const;
-    bool is_flag_set(uint8_t flag) const { return flags_[flag]; }
-    void set_flag(uint8_t flag) { flags_.set(flag); }
-    DhcpOptions *GetNextOptionPtr(uint16_t optlen) {
-        return reinterpret_cast<DhcpOptions *>(dhcp_->options + optlen);
-    }
+    void DhcpTrace(const std::string &msg) const;
 
     dhcphdr *dhcp_;
-    VmInterface *vm_itf_;
-    uint32_t vm_itf_index_;
     uint8_t msg_type_;
     uint8_t out_msg_type_;
-    // bitset to indicate whether these options are added to the response or not
-    std::bitset<256> flags_;
-    // parse and store the host routes coming in config
-    std::vector<OperDhcpOptions::Subnet> host_routes_;
-    DhcpOptionLevel host_routes_level_;
-    // store the DHCP routers coming in config
-    std::string routers_;
 
     std::string parameters_; // options requested by the DHCP client
     std::string nak_msg_;
-    ConfigRecord config_;
     DhcpRequestData request_;
-    std::string ipam_name_;
-    autogen::IpamType ipam_type_;
-    autogen::VirtualDnsType vdns_type_;
     DISALLOW_COPY_AND_ASSIGN(DhcpHandler);
 };
 

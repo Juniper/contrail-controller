@@ -583,6 +583,7 @@ TEST_F(DhcpTest, DhcpReqTest) {
     EXPECT_EQ(3U, stats.offers);
     EXPECT_EQ(4U, stats.acks);
     EXPECT_EQ(1U, stats.errors);
+    client->WaitForIdle();
 
     DhcpInfo *sand = new DhcpInfo();
     Sandesh::set_response_callback(

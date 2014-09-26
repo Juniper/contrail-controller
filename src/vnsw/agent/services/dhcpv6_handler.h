@@ -5,9 +5,7 @@
 #ifndef vnsw_agent_dhcpv6_handler_hpp
 #define vnsw_agent_dhcpv6_handler_hpp
 
-#include <bitset>
-#include "pkt/proto_handler.h"
-#include "vnc_cfg_types.h"
+#include "dhcp_handler_base.h"
 
 #define ALL_DHCPV6_SERVERS_ADDRESS             "FF05::1:3"
 #define ALL_DHCPV6_RELAYAGENTS_SERVERS_ADDRESS "FF05::1:3"
@@ -138,7 +136,9 @@
 #define DHCPV6_SHORTLEASE_TIME      4
 #define DHCP_PKT_SIZE               1024
 #define MAX_DOMAIN_NAME_LENGTH      256
-#define LINK_LOCAL_GW               "169.254.1.1"
+
+// fixed length = sizeof(type) + sizeof(xid)
+#define DHCPV6_FIXED_LEN            4
 
 struct Dhcpv6Options {
     void WriteData(uint16_t c, uint16_t l, const void *d, uint16_t *optlen) {
@@ -166,9 +166,6 @@ struct Dhcpv6Options {
     uint16_t len;
     uint8_t  data[0];
 };
-
-// fixed length = sizeof(type) + sizeof(xid)
-#define DHCPV6_FIXED_LEN         4
 
 struct Dhcpv6Hdr {
     uint8_t     type;
@@ -210,25 +207,9 @@ struct Dhcpv6IaAddr {
 };
 
 // DHCP protocol handler
-class Dhcpv6Handler : public ProtoHandler {
+class Dhcpv6Handler : public DhcpHandlerBase {
 public:
     typedef boost::scoped_array<uint8_t> Duid;
-
-    enum Dhcpv6OptionCategory {
-        None,
-        NoData,              // no data for this option
-        Byte,                // data has byte value
-        ByteArray,           // data has array of bytes
-        String,              // data has a string
-        Uint32bit,           // data has 32 bit uint
-        Uint16bit,           // data has 16 bit uint
-        Uint16bitArray,      // data has array of 16 bit uint
-        OneIPv6,             // data has one IP
-        OneIPv6Plus,         // data has one or more IPs
-        NameCompression,     // data is name compressed (rfc1035)
-        ByteNameCompression, // data is byte followed by name compressed (rfc1035)
-        NameCompressionArray // data is name compressed (rfc1035)
-    };
 
     struct Dhcpv6IaData {
         Dhcpv6IaData(Dhcpv6Ia *ia_ptr, Dhcpv6IaAddr *ia_addr_ptr) :
@@ -238,24 +219,35 @@ public:
         Dhcpv6IaAddr ia_addr;
     };
 
-    struct Dhcpv6ConfigRecord {
-        Dhcpv6ConfigRecord() : plen(0), preferred_time(-1), valid_time(-1) {
-        }
+    struct Dhcpv6OptionHandler : DhcpOptionHandler {
+        static const uint16_t kDhcpOptionFixedLen = 4;
 
-        Ip6Address ip_addr;
-        Ip6Address subnet_mask;
-        Ip6Address bcast_addr;
-        Ip6Address gw_addr;
-        Ip6Address dns_addr;
-        uint32_t plen;
-        uint32_t preferred_time;
-        uint32_t valid_time;
-        std::string domain_name_;
+        explicit Dhcpv6OptionHandler(uint8_t *ptr) { dhcp_option_ptr = ptr; }
+        void WriteData(uint8_t c, uint8_t l, const void *d, uint16_t *optlen) {
+            option->WriteData(c, l, d, optlen);
+        }
+        void AppendData(uint16_t l, const void *d, uint16_t *optlen) {
+            option->AppendData(l, d, optlen);
+        }
+        uint16_t GetCode() const { return ntohs(option->code); }
+        uint16_t GetLen() const { return ntohs(option->len); }
+        uint16_t GetFixedLen() const { return kDhcpOptionFixedLen; }
+        uint8_t *GetData() { return option->data; }
+        void SetCode(uint16_t c) { option->code = htons(c); }
+        void SetLen(uint16_t l) { option->len = htons(l); }
+        void AddLen(uint16_t l) { option->AddLen(l); }
+        void SetNextOptionPtr(uint16_t optlen) {
+            option = (Dhcpv6Options *)(dhcp_option_ptr + optlen);
+        }
+        void SetDhcpOptionPtr(uint8_t *ptr) { dhcp_option_ptr = ptr; }
+
+        uint8_t *dhcp_option_ptr; // pointer to DHCP options in the packet
+        Dhcpv6Options *option;    // pointer to current option being processed
     };
 
     Dhcpv6Handler(Agent *agent, boost::shared_ptr<PktInfo> info,
-                boost::asio::io_service &io);
-    virtual ~Dhcpv6Handler() {};
+                  boost::asio::io_service &io);
+    virtual ~Dhcpv6Handler();
 
     bool Run();
 
@@ -265,49 +257,22 @@ private:
     void FillDhcpInfo(Ip6Address &addr, int plen,
                       Ip6Address &gw, Ip6Address &dns);
     bool FindLeaseData();
-    void FindDomainName();
-    uint16_t AddNoDataOption(uint32_t option, uint16_t opt_len);
-    uint16_t AddByteOption(uint32_t option, uint16_t opt_len,
-                           const std::string &input);
-    uint16_t AddByteArrayOption(uint32_t option, uint16_t opt_len,
-                                const std::string &input);
-    uint16_t AddStringOption(uint32_t option, uint16_t opt_len,
-                             const std::string &input);
-    uint16_t AddIntegerOption(uint32_t option, uint16_t opt_len,
-                              const std::string &input);
-    uint16_t AddShortArrayOption(uint32_t option, uint16_t opt_len,
-                                 const std::string &input, bool array);
-    uint16_t AddIpOption(uint32_t option, uint16_t opt_len,
-                         const std::string &input, bool list);
-    uint16_t AddIP(Dhcpv6Options *opt, uint16_t opt_len,
-                   const std::string &input);
-    uint16_t AddCompressedNameOption(uint32_t option, uint16_t opt_len,
-                                     const std::string &input, bool list);
-    uint16_t AddByteCompressedNameOption(uint32_t option, uint16_t opt_len,
-                                         const std::string &input);
-    uint16_t AddCompressedName(Dhcpv6Options *opt, uint16_t opt_len,
-                               const std::string &input);
-    uint16_t AddDnsServers(Dhcpv6Options *opt, uint16_t opt_len);
-    uint16_t AddDomainNameOption(Dhcpv6Options *opt, uint16_t opt_len);
-    uint16_t AddConfigDhcpOptions(uint16_t opt_len);
-    uint16_t AddDhcpOptions(uint16_t opt_len,
-                            std::vector<autogen::DhcpOptionType> &options);
+    uint16_t AddIP(uint16_t opt_len, const std::string &input);
+    uint16_t AddDomainNameOption(uint16_t opt_len);
     uint16_t FillDhcpv6Hdr();
-    void WriteIaOption(Dhcpv6Options *opt, const Dhcpv6Ia &ia, uint16_t &optlen);
+    void WriteIaOption(const Dhcpv6Ia &ia, uint16_t &optlen);
     uint16_t FillDhcpResponse(unsigned char *dest_mac,
                               Ip6Address src_ip, Ip6Address dest_ip);
     void SendDhcpResponse();
     void UpdateStats();
-    Dhcpv6OptionCategory OptionCategory(uint32_t option) const;
+    DhcpOptionCategory OptionCategory(uint32_t option) const;
     uint32_t OptionCode(const std::string &option) const;
-    bool is_flag_set(uint8_t flag) const { return flags_[flag]; }
-    void set_flag(uint8_t flag) { flags_.set(flag); }
+    void DhcpTrace(const std::string &msg) const;
     Dhcpv6Options *GetNextOptionPtr(uint16_t optlen) {
         return reinterpret_cast<Dhcpv6Options *>((uint8_t *)dhcp_->options + optlen);
     }
 
     Dhcpv6Hdr *dhcp_;
-    VmInterface *vm_itf_;
 
     uint8_t msg_type_;
     uint8_t out_msg_type_;
@@ -323,19 +288,12 @@ private:
     std::vector<Dhcpv6IaData> iana_;
     std::vector<Dhcpv6IaData> iata_;
 
-    // bitset to indicate whether these options are added to the response or not
-    std::bitset<256> flags_;
-
-    Dhcpv6ConfigRecord config_;
-    std::string ipam_name_;
-    autogen::IpamType ipam_type_;
-    autogen::VirtualDnsType vdns_type_;
     DISALLOW_COPY_AND_ASSIGN(Dhcpv6Handler);
 };
 
 typedef std::map<std::string, uint32_t> Dhcpv6NameCodeMap;
 typedef std::map<std::string, uint32_t>::const_iterator Dhcpv6NameCodeIter;
-typedef std::map<uint32_t, Dhcpv6Handler::Dhcpv6OptionCategory> Dhcpv6CategoryMap;
-typedef std::map<uint32_t, Dhcpv6Handler::Dhcpv6OptionCategory>::const_iterator Dhcpv6CategoryIter;
+typedef std::map<uint32_t, Dhcpv6Handler::DhcpOptionCategory> Dhcpv6CategoryMap;
+typedef std::map<uint32_t, Dhcpv6Handler::DhcpOptionCategory>::const_iterator Dhcpv6CategoryIter;
 
 #endif // vnsw_agent_dhcpv6_handler_hpp
