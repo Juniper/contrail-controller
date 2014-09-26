@@ -68,6 +68,7 @@ public:
     };
 
     struct DhcpOptionHandler {
+        virtual ~DhcpOptionHandler() {}
         virtual void WriteData(uint8_t c, uint8_t l, const void *d,
                                uint16_t *optlen) = 0;
         virtual void AppendData(uint16_t l, const void *d,
