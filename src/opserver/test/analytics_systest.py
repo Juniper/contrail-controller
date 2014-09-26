@@ -603,6 +603,10 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_keyword_query(line, ['babaghanoush'])
         # SYSTEMLOG
         assert vizd_obj.verify_keyword_query(line, ['PROGRESS', 'QueryExec'])
+        # bad charecter (loose?)
+        line = 'football ' + chr(201) + chr(203) + chr(70) + ' and baseball'
+        syslogger.critical(line)
+        assert vizd_obj.verify_keyword_query(line, ['football', 'baseball'])
 
     # end test_13_verify_syslog_table_query
 
