@@ -490,7 +490,7 @@ class NeutronPluginInterface(object):
 
         try:
             cfgdb = self._get_user_cfgdb(context)
-            net_info = cfgdb.floatingip_create(floatingip['resource'])
+            net_info = cfgdb.floatingip_create(context, floatingip['resource'])
             return net_info
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
@@ -503,7 +503,7 @@ class NeutronPluginInterface(object):
 
         try:
             cfgdb = self._get_user_cfgdb(context)
-            floatingip_info = cfgdb.floatingip_update(floatingip['id'],
+            floatingip_info = cfgdb.floatingip_update(context, floatingip['id'],
                                                       floatingip['resource'])
             return floatingip_info
         except Exception as e:
