@@ -447,35 +447,52 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
                 DB_LOG(ERROR, "Failed to parse:" << s);
         }
     }
+
+    /*
+     * Insert the message types,module_id in the stat table
+     * Construct the atttributes,attrib_tags beofore inserting
+     * to the StatTableInsert
+     */
+    uint64_t temp_u64;
+    temp_u64 = header.get_Timestamp();
+    //Insert only if sandesh type is a SYSTEM LOG or SYSLOG 
+    //Insert into the FieldNames stats table entries for Messagetype and Module ID
+    FieldNamesTableInsert(string(":Messagetype"),string(message_type),temp_u64);
+    FieldNamesTableInsert(string(":ModuleId"),string(header.get_Module()),temp_u64);
+
+}
+
+/*
+ * This function takes field name and field value as arguments and inserts
+ * into the FieldNames stats table
+ */
+void DbHandler::FieldNamesTableInsert(std::string field_name, std::string field_val, uint64_t temp_u64) {
     /*
      * Insert the message types in the stat table
      * Construct the atttributes,attrib_tags beofore inserting
      * to the StatTableInsert
      */
-    uint64_t temp_u64;
     DbHandler::TagMap tmap;
     DbHandler::AttribMap amap;
     DbHandler::Var pv;
     DbHandler::AttribMap attribs;
     std::string name_val = string(g_viz_constants.COLLECTOR_GLOBAL_TABLE);
-    name_val.append(":Messagetype");
+    name_val.append(field_name);
     pv = name_val;
     tmap.insert(make_pair("name", make_pair(pv, amap)));
     attribs.insert(make_pair(string("name"), pv));
     string sattrname("fields.value");
-    pv = string(message_type);
+    pv = string(field_val);
     attribs.insert(make_pair(sattrname,pv));
 
     //pv = string(header.get_Source());
     // Put the name of the collector, not the message source.
     // Using the message source will make queries slower
     pv = string(col_name_);
-    tmap.insert(make_pair("Source",make_pair(pv,amap))); 
+    tmap.insert(make_pair("Source",make_pair(pv,amap)));
     attribs.insert(make_pair(string("Source"),pv));
 
-    temp_u64 = header.get_Timestamp();
     StatTableInsert(temp_u64, "FieldNames","fields",tmap,attribs);
-
 }
 
 void DbHandler::GetRuleMap(RuleMap& rulemap) {

@@ -95,7 +95,7 @@ public:
         const boost::uuids::uuid& unm, const std::string keyword);
     virtual void MessageTableInsert(const VizMsg *vmsgp);
     void MessageTableOnlyInsert(const VizMsg *vmsgp);
-
+    void FieldNamesTableInsert(std::string field_name, std::string field_val, uint64_t temp_u64);
     void GetRuleMap(RuleMap& rulemap);
 
     void ObjectTableInsert(const std::string &table, const std::string &rowkey,

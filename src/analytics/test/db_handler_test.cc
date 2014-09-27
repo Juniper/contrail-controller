@@ -333,7 +333,7 @@ TEST_F(DbHandlerTest, MessageTableInsertTest) {
                     AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_TAG),
                         _,
                         _))))
-        .Times(2)
+        .Times(4)
         .WillRepeatedly(Return(true));
 
     db_handler()->MessageTableInsert(&vmsgp);
