@@ -1900,7 +1900,7 @@ class DBInterface(object):
         return rtr_q_dict
     #end _router_vnc_to_neutron
 
-    def _floatingip_neutron_to_vnc(self, fip_q, oper):
+    def _floatingip_neutron_to_vnc(self, context, fip_q, oper):
         if oper == CREATE:
             # TODO for now create from default pool, later
             # use first available pool on net
@@ -1923,13 +1923,17 @@ class DBInterface(object):
         else:  # READ/UPDATE/DELETE
             fip_obj = self._vnc_lib.floating_ip_read(id=fip_q['id'])
 
-        if fip_q.get('port_id'):
+        port_id = fip_q.get('port_id')
+        if port_id:
             try:
-                port_obj = self._virtual_machine_interface_read(
-                    port_id=fip_q['port_id'])
+                port_obj = self._virtual_machine_interface_read(port_id=port_id)
+                if context and not context['is_admin']:
+                    port_tenant_id = self._get_obj_tenant_id('port', port_id)
+                    if port_tenant_id != context['tenant']:
+                        raise NoIdError(port_id)
             except NoIdError:
                 self._raise_contrail_exception(
-                    404, exceptions.PortNotFound(port_id=fip_q['port_id']))
+                    404, exceptions.PortNotFound(port_id=port_id))
             fip_obj.set_virtual_machine_interface(port_obj)
         else:
             fip_obj.set_virtual_machine_interface_list([])
@@ -3558,9 +3562,9 @@ class DBInterface(object):
     # end remove_router_interface
 
     # floatingip api handlers
-    def floatingip_create(self, fip_q):
+    def floatingip_create(self, context, fip_q):
         try:
-            fip_obj = self._floatingip_neutron_to_vnc(fip_q, CREATE)
+            fip_obj = self._floatingip_neutron_to_vnc(context, fip_q, CREATE)
         except Exception, e:
             #logging.exception(e)
             msg = _('Internal error when trying to create floating ip. '
@@ -3587,9 +3591,9 @@ class DBInterface(object):
         return self._floatingip_vnc_to_neutron(fip_obj)
     #end floatingip_read
 
-    def floatingip_update(self, fip_id, fip_q):
+    def floatingip_update(self, context, fip_id, fip_q):
         fip_q['id'] = fip_id
-        fip_obj = self._floatingip_neutron_to_vnc(fip_q, UPDATE)
+        fip_obj = self._floatingip_neutron_to_vnc(context, fip_q, UPDATE)
         self._vnc_lib.floating_ip_update(fip_obj)
 
         return self._floatingip_vnc_to_neutron(fip_obj)
@@ -3803,7 +3807,8 @@ class DBInterface(object):
         fip_back_refs = getattr(port_obj, 'floating_ip_back_refs', None)
         if fip_back_refs:
             for fip_back_ref in fip_back_refs:
-                self.floatingip_update(fip_back_ref['uuid'], {'port_id': None})
+                self.floatingip_update(None, fip_back_ref['uuid'],
+                                       {'port_id': None})
 
         tenant_id = self._get_obj_tenant_id('port', port_id)
         self._virtual_machine_interface_delete(port_id=port_id)
