@@ -36,7 +36,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <!--Common types-->
 
-
 <xsd:complexType name="MacAddressesType">
     <xsd:element name="mac-address" maxOccurs="unbounded"/>
 </xsd:complexType>
