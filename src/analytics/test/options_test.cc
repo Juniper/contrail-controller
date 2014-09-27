@@ -104,11 +104,11 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.http_server_port(), default_http_server_port);
     EXPECT_EQ(options_.log_category(), "");
     EXPECT_EQ(options_.log_disable(), false);
-    EXPECT_EQ(options_.log_file(), "<stdout>");
+    EXPECT_EQ(options_.log_file(), "/var/log/contrail/contrail-collector.log");
     EXPECT_EQ(options_.log_files_count(), 10);
     EXPECT_EQ(options_.log_file_size(), 1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
-    EXPECT_EQ(options_.log_local(), false);
+    EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.analytics_data_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
     EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
@@ -148,7 +148,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.log_files_count(), 10);
     EXPECT_EQ(options_.log_file_size(), 1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
-    EXPECT_EQ(options_.log_local(), false);
+    EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.analytics_data_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
     EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
@@ -184,11 +184,11 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.http_server_port(), default_http_server_port);
     EXPECT_EQ(options_.log_category(), "");
     EXPECT_EQ(options_.log_disable(), false);
-    EXPECT_EQ(options_.log_file(), "<stdout>");
+    EXPECT_EQ(options_.log_file(), "/var/log/contrail/contrail-collector.log");
     EXPECT_EQ(options_.log_files_count(), 10);
     EXPECT_EQ(options_.log_file_size(), 1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
-    EXPECT_EQ(options_.log_local(), false);
+    EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.analytics_data_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
     EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);

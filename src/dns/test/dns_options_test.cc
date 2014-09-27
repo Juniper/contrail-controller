@@ -93,11 +93,11 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.dns_server_port(), default_dns_server_port);
     EXPECT_EQ(options_.log_category(), "");
     EXPECT_EQ(options_.log_disable(), false);
-    EXPECT_EQ(options_.log_file(), "<stdout>");
+    EXPECT_EQ(options_.log_file(), "/var/log/contrail/contrail-dns.log");
     EXPECT_EQ(options_.log_files_count(), 10);
     EXPECT_EQ(options_.log_file_size(), 1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
-    EXPECT_EQ(options_.log_local(), false);
+    EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.ifmap_server_url(), "");
     EXPECT_EQ(options_.ifmap_password(), "dns_user_passwd");
     EXPECT_EQ(options_.ifmap_user(), "dns_user");
@@ -134,7 +134,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.log_files_count(), 10);
     EXPECT_EQ(options_.log_file_size(), 1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
-    EXPECT_EQ(options_.log_local(), false);
+    EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.ifmap_server_url(), "");
     EXPECT_EQ(options_.ifmap_password(), "dns_user_passwd");
     EXPECT_EQ(options_.ifmap_user(), "dns_user");
@@ -167,11 +167,11 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.dns_server_port(), default_dns_server_port);
     EXPECT_EQ(options_.log_category(), "");
     EXPECT_EQ(options_.log_disable(), false);
-    EXPECT_EQ(options_.log_file(), "<stdout>");
+    EXPECT_EQ(options_.log_file(), "/var/log/contrail/contrail-dns.log");
     EXPECT_EQ(options_.log_files_count(), 10);
     EXPECT_EQ(options_.log_file_size(), 1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
-    EXPECT_EQ(options_.log_local(), false);
+    EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.ifmap_server_url(), "");
     EXPECT_EQ(options_.ifmap_password(), "dns_user_passwd");
     EXPECT_EQ(options_.ifmap_user(), "dns_user");

@@ -84,7 +84,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     int argc = 2;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=controller/src/analytics/contrail-query-engine.conf";
+    char argv_1[] = "--conf_file=controller/src/query_engine/contrail-query-engine.conf";
     argv[0] = argv_0;
     argv[1] = argv_1;
 
@@ -97,7 +97,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.redis_server(), "127.0.0.1");
     EXPECT_EQ(options_.redis_port(), default_redis_port);
     EXPECT_EQ(options_.config_file(),
-              "controller/src/analytics/contrail-query-engine.conf");
+              "controller/src/query_engine/contrail-query-engine.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
@@ -105,11 +105,11 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.http_server_port(), default_http_server_port);
     EXPECT_EQ(options_.log_category(), "");
     EXPECT_EQ(options_.log_disable(), false);
-    EXPECT_EQ(options_.log_file(), "<stdout>");
+    EXPECT_EQ(options_.log_file(), "/var/log/contrail/contrail-query-engine.log");
     EXPECT_EQ(options_.log_files_count(), 10);
     EXPECT_EQ(options_.log_file_size(), 1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
-    EXPECT_EQ(options_.log_local(), false);
+    EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.analytics_data_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
     EXPECT_EQ(options_.start_time(), 0);
     EXPECT_EQ(options_.max_tasks(), 16);
@@ -121,7 +121,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     int argc = 3;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=controller/src/analytics/contrail-query-engine.conf";
+    char argv_1[] = "--conf_file=controller/src/query_engine/contrail-query-engine.conf";
     char argv_2[] = "--DEFAULT.log_file=test.log";
     argv[0] = argv_0;
     argv[1] = argv_1;
@@ -136,7 +136,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.redis_server(), "127.0.0.1");
     EXPECT_EQ(options_.redis_port(), default_redis_port);
     EXPECT_EQ(options_.config_file(),
-              "controller/src/analytics/contrail-query-engine.conf");
+              "controller/src/query_engine/contrail-query-engine.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
@@ -148,7 +148,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.log_files_count(), 10);
     EXPECT_EQ(options_.log_file_size(), 1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
-    EXPECT_EQ(options_.log_local(), false);
+    EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.analytics_data_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
     EXPECT_EQ(options_.start_time(), 0);
     EXPECT_EQ(options_.max_tasks(), 16);
@@ -160,7 +160,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     int argc = 3;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=controller/src/analytics/contrail-query-engine.conf";
+    char argv_1[] = "--conf_file=controller/src/query_engine/contrail-query-engine.conf";
     char argv_2[] = "--DEFAULT.test_mode";
     argv[0] = argv_0;
     argv[1] = argv_1;
@@ -175,7 +175,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.redis_server(), "127.0.0.1");
     EXPECT_EQ(options_.redis_port(), default_redis_port);
     EXPECT_EQ(options_.config_file(),
-              "controller/src/analytics/contrail-query-engine.conf");
+              "controller/src/query_engine/contrail-query-engine.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
@@ -183,11 +183,11 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.http_server_port(), default_http_server_port);
     EXPECT_EQ(options_.log_category(), "");
     EXPECT_EQ(options_.log_disable(), false);
-    EXPECT_EQ(options_.log_file(), "<stdout>");
+    EXPECT_EQ(options_.log_file(), "/var/log/contrail/contrail-query-engine.log");
     EXPECT_EQ(options_.log_files_count(), 10);
     EXPECT_EQ(options_.log_file_size(), 1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
-    EXPECT_EQ(options_.log_local(), false);
+    EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.analytics_data_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
     EXPECT_EQ(options_.start_time(), 0);
     EXPECT_EQ(options_.max_tasks(), 16);
