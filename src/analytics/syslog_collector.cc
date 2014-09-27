@@ -490,8 +490,8 @@ class SyslogParser
                 hdr.set_Pid(pid);
 
 
-            std::string   body = GetMapVals (v, "body", "");
-            std::string xmsg("<Syslog>" + EscapeXmlTags(body) + "</Syslog>");
+            std::string   body = EscapeXmlTags(GetMapVals (v, "body", ""));
+            std::string xmsg("<Syslog>" + body + "</Syslog>");
             SandeshMessage *xmessage = syslog_->GetBuilder()->Create(
                 reinterpret_cast<const uint8_t *>(xmsg.c_str()), xmsg.size());
             SandeshSyslogMessage *smessage =
