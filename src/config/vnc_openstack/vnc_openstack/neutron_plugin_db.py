@@ -3291,6 +3291,8 @@ class DBInterface(object):
 
         rtr_obj = self._router_neutron_to_vnc(router_q, CREATE)
         rtr_uuid = self._resource_create('logical_router', rtr_obj)
+        # read it back to update id perms
+        rtr_obj = self._logical_router_read(rtr_uuid)
         self._router_add_gateway(router_q, rtr_obj)
         ret_router_q = self._router_vnc_to_neutron(rtr_obj, rtr_repr='SHOW')
         self._db_cache['q_routers'][rtr_uuid] = ret_router_q
