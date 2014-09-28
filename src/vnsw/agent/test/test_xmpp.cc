@@ -145,6 +145,15 @@ protected:
     AgentXmppUnitTest() : thread_(&evm_), agent_(Agent::GetInstance()) {}
  
     virtual void SetUp() {
+        //TestInit initilaizes the controller and xmpp, so disconnect that
+        //and again spawn a new one. Its required since the receive path 
+        //is overridden by mock class.
+        //TODO later use the agent initializer
+        Agent::GetInstance()->controller()->Cleanup();
+        client->WaitForIdle();
+        Agent::GetInstance()->controller()->DisConnect();
+        client->WaitForIdle();
+
         xs = new XmppServer(&evm_, XmppInit::kControlNodeJID);
         xc = new XmppClient(&evm_);
         Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
@@ -153,6 +162,7 @@ protected:
         xs->Initialize(0, false);
         
         thread_.Start();
+        client->WaitForIdle();
     }
 
     virtual void TearDown() {
@@ -166,6 +176,7 @@ protected:
         client->WaitForIdle();
 
         ShutdownAgentController(Agent::GetInstance());
+        client->WaitForIdle();
         TcpServerManager::DeleteServer(xs);
         TcpServerManager::DeleteServer(xc);
         delete xmpp_init;
@@ -375,7 +386,6 @@ protected:
 
 
     void XmppConnectionSetUp() {
-
         Agent::GetInstance()->controller()->increment_multicast_sequence_number();
         Agent::GetInstance()->set_cn_mcast_builder(NULL);
 
@@ -433,6 +443,9 @@ protected:
 
 namespace {
 
+TEST_F(AgentXmppUnitTest, dummy) {
+}
+
 TEST_F(AgentXmppUnitTest, Connection) {
 
     client->Reset();
@@ -475,7 +488,7 @@ TEST_F(AgentXmppUnitTest, Connection) {
     //Create vn,vrf,vm,vm-port and route entry in vrf1
     CreateVmportEnv(input, 1);
     //expect subscribe message+route at the mock server
-    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 7));
+    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 6));
     client->WaitForIdle();
 
     VrfAddReq("vrf2");
@@ -986,7 +999,7 @@ TEST_F(AgentXmppUnitTest, ConnectionUpDown) {
     //Create vn,vrf,vm,vm-port and route entry in vrf1
     CreateVmportEnv(input, 1);
     //expect subscribe message+route at the mock server
-    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 7));
+    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 6));
     client->WaitForIdle();
 
     Ip4Address addr = Ip4Address::from_string("1.1.1.2");
@@ -1049,7 +1062,7 @@ TEST_F(AgentXmppUnitTest, ConnectionUpDown) {
 
     //expect subscribe for __default__, vrf1,route
     //at the mock server
-    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 14));
+    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 12));
 
     VxLanNetworkIdentifierMode(false);
     client->WaitForIdle();
@@ -1185,13 +1198,13 @@ TEST_F(AgentXmppUnitTest, SgList) {
     //3> Layer 2 route add
     //4> All broadcast route
     //5> Broadcast layer 2 route
-    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 7));
+    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 6));
     client->WaitForIdle();
 
     VrfAddReq("vrf2");
     VnAddReq(2, "vn2", 0, "vrf2");
     //expect subscribe message at the mock server
-    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 7));
+    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 6));
 
     Ip4Address addr = Ip4Address::from_string("1.1.1.1");
     EXPECT_TRUE(VmPortActive(input, 0));
@@ -1291,13 +1304,13 @@ TEST_F(AgentXmppUnitTest, TransparentSISgList) {
     //Create vn,vrf,vm,vm-port and route entry in vrf1
     CreateVmportEnv(input, 1);
     //expect subscribe message+route at the mock server
-    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 7));
+    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 6));
     client->WaitForIdle();
 
     AddVrf("vrf2");
     AddVn("vn2", 2);
     //expect subscribe message at the mock server
-    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 7));
+    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 6));
 
     AddVmPortVrf("ser1", "11.1.1.1", 1);
     AddLink("virtual-machine-interface-routing-instance", "ser1",
@@ -1306,7 +1319,7 @@ TEST_F(AgentXmppUnitTest, TransparentSISgList) {
             "virtual-machine-interface", "vnet1");
     client->WaitForIdle();
     //expect subscribe message+route at the mock server
-    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 9));
+    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 8));
 
     Ip4Address addr = Ip4Address::from_string("11.1.1.1");
     EXPECT_TRUE(VmPortActive(input, 0));
@@ -1316,7 +1329,7 @@ TEST_F(AgentXmppUnitTest, TransparentSISgList) {
 
     // Send route, back to vrf2
     SendRouteMessageSg(mock_peer.get(), "vrf2", "11.1.1.1/32",
-                       MplsTable::kStartLabel + 2);
+                       MplsTable::kStartLabel);
     // Route reflected to vrf2
     WAIT_FOR(1000, 10000, (bgp_peer.get()->Count() == 1));
 
@@ -1327,7 +1340,7 @@ TEST_F(AgentXmppUnitTest, TransparentSISgList) {
     WAIT_FOR(1000, 10000, rt2->dest_vn_name().size() > 0);
     EXPECT_STREQ(rt2->dest_vn_name().c_str(), "vn1");
     const SecurityGroupList sglist = rt2->GetActivePath()->sg_list();
-    EXPECT_TRUE(sglist.size() == 2);
+    WAIT_FOR(1000, 10000, (rt2->GetActivePath()->sg_list().size() == 2));
 
     //Cleanup
     DelLink("virtual-machine-interface-routing-instance", "ser1",
@@ -1392,7 +1405,7 @@ TEST_F(AgentXmppUnitTest, vxlan_peer_l2route_add) {
     //Create vn,vrf,vm,vm-port and route entry in vrf1
     CreateVmportEnv(input, 1);
     //expect subscribe message+route at the mock server
-    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 7));
+    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 6));
     client->WaitForIdle();
 
     Ip4Address addr = Ip4Address::from_string("1.1.1.2");
@@ -1488,7 +1501,7 @@ TEST_F(AgentXmppUnitTest, mpls_peer_l2route_add) {
     //Create vn,vrf,vm,vm-port and route entry in vrf1
     CreateVmportEnv(input, 1);
     //expect subscribe message+route at the mock server
-    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 7));
+    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 6));
     client->WaitForIdle();
 
     Ip4Address addr = Ip4Address::from_string("1.1.1.2");
