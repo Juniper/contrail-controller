@@ -127,10 +127,19 @@ protected:
     AgentXmppUnitTest() : thread_(&evm_) {}
  
     virtual void SetUp() {
+        Agent::GetInstance()->controller()->Cleanup();
+        client->WaitForIdle();
+        Agent::GetInstance()->controller()->DisConnect();
+        client->WaitForIdle();
+
         xs_p = new XmppServer(&evm_, XmppInit::kControlNodeJID);
         xs_s = new XmppServer(&evm_, XmppInit::kControlNodeJID);
         xc_p = new XmppClient(&evm_);
         xc_s = new XmppClient(&evm_);
+        Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
+        Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.2", 1);
+        Agent::GetInstance()->SetAgentMcastLabelRange(0);
+        Agent::GetInstance()->SetAgentMcastLabelRange(1);
 
         xs_p->Initialize(0, false);
         xs_s->Initialize(0, false);
@@ -140,18 +149,24 @@ protected:
     }
 
     virtual void TearDown() {
+        xs_p->Shutdown();
+        client->WaitForIdle();
+        xs_s->Shutdown();
+        client->WaitForIdle();
         xc_p->ConfigUpdate(new XmppConfigData());
         xc_s->ConfigUpdate(new XmppConfigData());
         client->WaitForIdle();
         bgp_peer.reset(); 
         bgp_peer_s.reset(); 
         client->WaitForIdle();
+        Agent::GetInstance()->set_controller_xmpp_channel(NULL, 0);
+        Agent::GetInstance()->set_controller_ifmap_xmpp_client(NULL, 0);
+        Agent::GetInstance()->set_controller_ifmap_xmpp_init(NULL, 0);
+        Agent::GetInstance()->set_controller_xmpp_channel(NULL, 1);
+        Agent::GetInstance()->set_controller_ifmap_xmpp_client(NULL, 1);
+        Agent::GetInstance()->set_controller_ifmap_xmpp_init(NULL, 1);
         xc_p->Shutdown();
         xc_s->Shutdown();
-        client->WaitForIdle();
-        xs_p->Shutdown();
-        client->WaitForIdle();
-        xs_s->Shutdown();
         client->WaitForIdle();
 
         ShutdownAgentController(Agent::GetInstance());
@@ -402,8 +417,7 @@ TEST_F(AgentXmppUnitTest, Connection) {
                 == Peer::LOCAL_VM_PORT_PEER);
 
     n++; n++; n++; n++; n++;
-    n++; // EVPN flood route notification
-    n_s++; n_s++; n_s++;
+    n_s++; n_s++; n_s++; n_s++;
     //expect subscribe vrf1 ,vm route at the mock server
     WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == n));
     //expect subscribe vrf1, vm route at the mock secondary server
@@ -462,9 +476,8 @@ TEST_F(AgentXmppUnitTest, Connection) {
     // Route delete   
     n++; n_s++; 
     n++; n_s++;
+    n++; n_s++;
     n++;
-    n++;
-    n++; // EVPN flood route notification
     WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == n));
     WAIT_FOR(1000, 10000, (mock_peer_s.get()->Count() == n_s));
 

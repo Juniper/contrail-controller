@@ -396,7 +396,12 @@ bool Layer2RouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
     agent->nexthop_table()->Process(nh_req);
     NextHop *nh = static_cast<NextHop *>(agent->nexthop_table()->
                                  FindActiveEntry(nh_req.key.get()));
-    assert(nh);
+    //NH may not get added if VRF is marked for delete. Route may be in
+    //transition of getting deleted, skip NH modification.
+    if (!nh) {
+        return false;
+    }
+
     bool ret = MulticastRoute::CopyPathParameters(agent,
                                       multicast_peer_path,
                                       (local_peer_path ? local_peer_path->

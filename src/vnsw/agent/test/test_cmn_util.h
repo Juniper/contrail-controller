@@ -379,5 +379,5 @@ void FillEvpnNextHop(BgpPeer *peer, std::string name,
                      uint32_t label, uint32_t bmap);
 void FlushEvpnNextHop(BgpPeer *peer, std::string name,
                       uint32_t tag);
-
+Layer2RouteEntry *GetL2FloodRoute(const std::string &vrf_name);
 #endif // vnsw_agent_test_cmn_util_h

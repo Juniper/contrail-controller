@@ -2996,3 +2996,11 @@ void FlushEvpnNextHop(BgpPeer *peer, std::string vrf_name,
                                         ControllerPeerPath::kInvalidPeerIdentifier);
     client->WaitForIdle();
 }
+
+Layer2RouteEntry *GetL2FloodRoute(const std::string &vrf_name) {
+    struct ether_addr broadcast_mac;
+    memcpy (&broadcast_mac, ether_aton("ff:ff:ff:ff:ff:ff"), 
+            sizeof(struct ether_addr));
+    Layer2RouteEntry *rt = L2RouteGet("vrf1", broadcast_mac);
+    return rt;
+}

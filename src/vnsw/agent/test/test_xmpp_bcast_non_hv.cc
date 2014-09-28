@@ -9,6 +9,7 @@ int main(int argc, char **argv) {
     Agent::GetInstance()->set_headless_agent_mode(false);
     int ret = RUN_ALL_TESTS();
 
+    ShutdownAgentController(Agent::GetInstance());
     Agent::GetInstance()->event_manager()->Shutdown();
     TestShutdown();
     delete client;
