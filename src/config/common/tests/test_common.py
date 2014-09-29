@@ -149,6 +149,7 @@ def launch_schema_transformer(api_server_ip, api_server_port):
     args_str = ""
     args_str = args_str + "--api_server_ip %s " % (api_server_ip)
     args_str = args_str + "--api_server_port %s " % (api_server_port)
+    args_str = args_str + "--http_server_port %s " % (get_free_port())
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
     args_str = args_str + "--log_file schema_transformer.log "
     to_bgp.main(args_str)

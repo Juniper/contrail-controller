@@ -542,9 +542,20 @@ class TestPolicy(test_case.STTestCase):
             print "failed : routing instance state is not created ... ", test_common.lineno()
             self.assertTrue(False)
 
+        # stop st
+        self._st_greenlet.kill()
+        gevent.sleep(5)
+
+        # delete vn in api server
         self._vnc_lib.virtual_network_delete(
             fq_name=['default-domain', 'default-project', 'vn'])
 
+        # start st on a free port
+        self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
+            self._api_server_ip, self._api_server_port)
+        gevent.sleep(2)
+
+        # check if vn is deleted
         try:
             self.check_vn_is_deleted(uuid=vn.uuid)
 
@@ -552,6 +563,7 @@ class TestPolicy(test_case.STTestCase):
             print "failed : vn is still present in api server ... ", test_common.lineno()
             self.assertTrue(False)
 
+        # check if ri is deleted
         try:
             self.check_ri_is_deleted(fq_name=[u'default-domain', u'default-project', 'vn', 'vn'])
 
