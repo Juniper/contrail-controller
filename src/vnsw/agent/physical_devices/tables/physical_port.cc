@@ -13,6 +13,9 @@
 #include <physical_devices/tables/physical_device.h>
 #include <physical_devices/tables/physical_port.h>
 
+#include <vector>
+#include <string>
+
 using AGENT::PhysicalPortEntry;
 using AGENT::PhysicalPortTable;
 using AGENT::PhysicalPortKey;
@@ -34,7 +37,7 @@ DBEntryBase::KeyPtr PhysicalPortEntry::GetDBRequestKey() const {
     return DBEntryBase::KeyPtr(key);
 }
 
-void PhysicalPortEntry::SetKey(const DBRequestKey *key) { 
+void PhysicalPortEntry::SetKey(const DBRequestKey *key) {
     const PhysicalPortKey *k = static_cast<const PhysicalPortKey *>(key);
     uuid_ = k->uuid_;
 }
@@ -91,13 +94,13 @@ DBTableBase *PhysicalPortTable::CreateTable(DB *db, const std::string &name) {
     PhysicalPortTable *table = new PhysicalPortTable(db, name);
     table->Init();
     return table;
-};
+}
 
 void PhysicalPortTable::RegisterDBClients() {
     device_table_ = agent()->device_manager()->device_table();
 }
 
-bool PhysicalPortTable::IFNodeToReq(IFMapNode *node, DBRequest &req){
+bool PhysicalPortTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     autogen::VirtualMachine *cfg = static_cast <autogen::VirtualMachine *>
         (node->GetObject());
     assert(cfg);
@@ -128,11 +131,11 @@ PhysicalPortEntry *PhysicalPortTable::Find(const boost::uuids::uuid &u) {
 // Sandesh routines
 /////////////////////////////////////////////////////////////////////////////
 class AgentPhysicalPortSandesh : public AgentSandesh {
-public:
+ public:
     AgentPhysicalPortSandesh(std::string context, const std::string &name)
         : AgentSandesh(context, name) {}
 
-private:
+ private:
     DBTable *AgentGetTable() {
         return static_cast<DBTable *>
             (Agent::GetInstance()->device_manager()->physical_port_table());

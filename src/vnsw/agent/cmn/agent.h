@@ -104,8 +104,17 @@ void intrusive_ptr_add_ref(const AclDBEntry* p);
 typedef std::vector<int> SecurityGroupList;
 
 namespace AGENT {
+class PhysicalDeviceTable;
 class PhysicalDeviceEntry;
+
+class PhysicalPortTable;
 class PhysicalPortEntry;
+
+class LogicalPortTable;
+class LogicalPortEntry;
+
+class PhysicalDeviceVnTable;
+class PhysicalDeviceVnEntry;
 }
 
 typedef boost::intrusive_ptr<AGENT::PhysicalDeviceEntry> PhysicalDeviceEntryRef;
@@ -119,6 +128,19 @@ typedef boost::intrusive_ptr<const AGENT::PhysicalPortEntry>
     PhysicalPortEntryConstRef;
 void intrusive_ptr_release(const AGENT::PhysicalPortEntry* p);
 void intrusive_ptr_add_ref(const AGENT::PhysicalPortEntry* p);
+
+typedef boost::intrusive_ptr<AGENT::LogicalPortEntry> LogicalPortEntryRef;
+typedef boost::intrusive_ptr<const AGENT::LogicalPortEntry>
+    LogicalPortEntryConstRef;
+void intrusive_ptr_release(const AGENT::LogicalPortEntry* p);
+void intrusive_ptr_add_ref(const AGENT::LogicalPortEntry* p);
+
+typedef boost::intrusive_ptr<AGENT::PhysicalDeviceVnEntry>
+    PhysicalDeviceVnEntryRef;
+typedef boost::intrusive_ptr<const AGENT::PhysicalDeviceVnEntry>
+    PhysicalDeviceVnEntryConstRef;
+void intrusive_ptr_release(const AGENT::PhysicalDeviceVnEntry* p);
+void intrusive_ptr_add_ref(const AGENT::PhysicalDeviceVnEntry* p);
 
 class AgentDBTable;
 class InterfaceTable;

@@ -16,6 +16,7 @@ physical_devices = env.Library('physical_devices',
                                sandesh_objs +
                                [
                                    'physical_device.cc',
+                                   'physical_device_vn.cc',
                                    'physical_port.cc',
                                    'logical_port.cc',
                                    'device_manager.cc'
