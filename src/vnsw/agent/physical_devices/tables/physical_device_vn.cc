@@ -80,7 +80,6 @@ std::auto_ptr<DBEntry> PhysicalDeviceVnTable::AllocEntry(const DBRequestKey *k)
     const {
     const PhysicalDeviceVnKey *key =
         static_cast<const PhysicalDeviceVnKey *>(k);
-
     PhysicalDeviceVnEntry *entry = new PhysicalDeviceVnEntry(key->device_uuid_,
                                                              key->vn_uuid_);
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(entry));
