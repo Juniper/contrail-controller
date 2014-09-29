@@ -61,10 +61,16 @@ int ErmVpnPrefix::FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
     size_t rtid_offset = rd_offset + rd_size;
     prefix->router_id_ =
         Ip4Address(get_value(&proto_prefix.prefix[rtid_offset], rtid_size));
+
     size_t source_offset = rtid_offset + rtid_size + 1;
+    if (proto_prefix.prefix[source_offset - 1] != Address::kMaxV4PrefixLen)
+        return -1;
     prefix->source_ = Ip4Address(
         get_value(&proto_prefix.prefix[source_offset], Address::kMaxV4Bytes));
+
     size_t group_offset = source_offset + Address::kMaxV4Bytes + 1;
+    if (proto_prefix.prefix[group_offset - 1] != Address::kMaxV4PrefixLen)
+        return -1;
     prefix->group_ = Ip4Address(
         get_value(&proto_prefix.prefix[group_offset], Address::kMaxV4Bytes));
 

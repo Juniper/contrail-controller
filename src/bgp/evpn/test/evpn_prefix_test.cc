@@ -12,7 +12,7 @@
 #include "control-node/control_node.h"
 #include "testing/gunit.h"
 
-using namespace std;
+using std::string;
 
 class EvpnPrefixTest : public ::testing::Test {
 protected:
