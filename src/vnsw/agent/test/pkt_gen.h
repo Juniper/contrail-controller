@@ -18,20 +18,20 @@
 #define TCP_PAYLOAD_SIZE     64
 #define UDP_PAYLOAD_SIZE     64
 
-#define ARPOP_REQUEST   1 
+#define ARPOP_REQUEST   1
 #define ARPOP_REPLY     2
 
 #define ARPHRD_ETHER    1
 
 struct icmp_packet {
     struct ethhdr eth;
-    struct iphdr  ip; 
+    struct iphdr  ip;
     struct icmphdr icmp;
 } __attribute__((packed));
 
 struct tcp_packet {
     struct ethhdr eth;
-    struct iphdr  ip; 
+    struct iphdr  ip;
     struct tcphdr tcp;
     char   payload[TCP_PAYLOAD_SIZE];
 }__attribute__((packed));
@@ -121,7 +121,7 @@ public:
 
     static void EthInit(ethhdr *eth, unsigned short proto) {
         eth->h_proto = proto;
-        eth->h_dest[5] = 5;   
+        eth->h_dest[5] = 5;
         eth->h_source[5] = 4;
     }
     static void EthInit(ethhdr *eth, uint8_t *smac, uint8_t *dmac, unsigned short proto) {
@@ -140,7 +140,7 @@ public:
         IpUtils::IpInit(&pkt.ip, IPPROTO_TCP, len, sip, dip);
         IpUtils::EthInit(&pkt.eth, ETH_P_IP);
     }
-    unsigned char *GetPacket() const { return (unsigned char *)&pkt; } 
+    unsigned char *GetPacket() const { return (unsigned char *)&pkt; }
 private:
     void Init(uint16_t sport, uint16_t dport) {
         pkt.tcp.source = htons(sport);
@@ -174,14 +174,13 @@ public:
         IpUtils::IpInit(&pkt.ip, IPPROTO_UDP, len, sip, dip);
         IpUtils::EthInit(&pkt.eth, ETH_P_IP);
     }
-    unsigned char *GetPacket() const { return (unsigned char *)&pkt; } 
+    unsigned char *GetPacket() const { return (unsigned char *)&pkt; }
 private:
     void Init(uint16_t sport, uint16_t dport) {
         pkt.udp.source = htons(sport);
         pkt.udp.dest = htons(dport);
         pkt.udp.len = htons(sizeof(pkt.payload));
         pkt.udp.check = htons(0); //ignoring checksum for now.
-        
     }
     struct udp_packet pkt;
 };
@@ -201,25 +200,25 @@ public:
         tip = ntohl(tip);
         memcpy(pkt.arp_tpa, &tip, 4);
     }
-    unsigned char *GetPacket() const { return (unsigned char *)&pkt; } 
+    unsigned char *GetPacket() const { return (unsigned char *)&pkt; }
 private:
     struct ether_arp pkt;
 };
 
 class IcmpPacket {
-public:        
+public:
     IcmpPacket(uint8_t *smac, uint8_t *dmac, uint32_t sip, uint32_t dip) {
         uint16_t len;
         len = sizeof(pkt.ip) + sizeof(pkt.icmp);
         IpUtils::IpInit(&(pkt.ip), IPPROTO_ICMP, len, sip, dip);
         IpUtils::EthInit(&(pkt.eth), smac, dmac, ETH_P_IP);
-        pkt.icmp.type = ICMP_ECHO; 
+        pkt.icmp.type = ICMP_ECHO;
         pkt.icmp.code = 0;
         pkt.icmp.checksum = IpUtils::IPChecksum((uint16_t *)&pkt.icmp, sizeof(icmp_packet));
         pkt.icmp.un.echo.id = 0;
-        pkt.icmp.un.echo.sequence = 0; 
+        pkt.icmp.un.echo.sequence = 0;
     }
-    unsigned char *GetPacket() const { return (unsigned char *)&pkt; } 
+    unsigned char *GetPacket() const { return (unsigned char *)&pkt; }
 private:
     icmp_packet pkt;
 };
@@ -303,11 +302,11 @@ public:
     PktGen() : len(0) { memset(buff, 0, kMaxPktLen);};
     virtual ~PktGen() {};
 
-    void AddEthHdr(const char *dmac, const char *smac, uint16_t proto) {
+    void AddEthHdr(const std::string &dmac, const std::string &smac, uint16_t proto) {
         struct ethhdr *eth = (struct ethhdr *)(buff + len);
 
-        memcpy(eth->h_dest, ether_aton(dmac), sizeof(ether_addr));
-        memcpy(eth->h_source, ether_aton(smac), sizeof(ether_addr));
+        MacAddress::FromString(dmac).ToArray(eth->h_dest, sizeof(eth->h_dest));
+        MacAddress::FromString(smac).ToArray(eth->h_source, sizeof(eth->h_source));
         eth->h_proto = htons(proto);
         len += sizeof(ethhdr);
     };

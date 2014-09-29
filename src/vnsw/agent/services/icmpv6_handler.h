@@ -26,12 +26,12 @@ private:
                                      uint8_t plen);
     void SendRAResponse(uint16_t ifindex, uint16_t vrfindex,
                         uint8_t *src_ip, uint8_t *dest_ip,
-                        const unsigned char *dest_mac,
+                        const MacAddress &dest_mac,
                         const Ip6Address &prefix, uint8_t plen);
     void SendPingResponse();
     void SendIcmpv6Response(uint16_t ifindex, uint16_t vrfindex,
                             uint8_t *src_ip, uint8_t *dest_ip,
-                            const unsigned char *dest_mac, uint16_t len);
+                            const MacAddress &dest_mac, uint16_t len);
 
     icmp6_hdr *icmp_;
     uint16_t icmp_len_;

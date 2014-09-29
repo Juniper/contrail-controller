@@ -7,6 +7,8 @@
 
 #include "test/test_init.h"
 
+using namespace std;
+
 static const int kProjectUuid = 101;
 
 struct TestLinkLocalService {
@@ -120,9 +122,9 @@ void DeleteRoute(const char *vrf, const char *ip, uint8_t plen);
 void DeleteRoute(const char *vrf, const char *ip);
 bool RouteFind(const string &vrf_name, const Ip4Address &addr, int plen);
 bool RouteFind(const string &vrf_name, const string &addr, int plen);
-bool RouteFindV6(const string &vrf_name, const Ip6Address &addr, int plen);
+bool L2RouteFind(const string &vrf_name, const MacAddress &mac);
 bool RouteFindV6(const string &vrf_name, const string &addr, int plen);
-bool L2RouteFind(const string &vrf_name, const struct ether_addr &mac);
+bool RouteFindV6(const string &vrf_name, const Ip6Address &addr, int plen);
 bool MCRouteFind(const string &vrf_name, const Ip4Address &saddr,
                  const Ip4Address &daddr);
 bool MCRouteFind(const string &vrf_name, const Ip4Address &addr);
@@ -133,25 +135,25 @@ Inet4UnicastRouteEntry *RouteGet(const string &vrf_name, const Ip4Address &addr,
 Inet6UnicastRouteEntry *RouteGetV6(const string &vrf_name, const Ip6Address &addr, int plen);
 Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const Ip4Address &grp_addr);
 Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const string &grp_addr);
-Layer2RouteEntry *L2RouteGet(const string &vrf_name, const struct ether_addr &mac);
+Layer2RouteEntry *L2RouteGet(const string &vrf_name, const MacAddress &mac);
 bool TunnelNHFind(const Ip4Address &server_ip);
 bool TunnelNHFind(const Ip4Address &server_ip, bool policy, TunnelType::Type type);
 bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Address &vm_ip,
                        uint8_t plen, ComponentNHKeyList &comp_nh_list,
                        bool local_ecmp, const string &vn_name, const SecurityGroupList &sg,
                        const PathPreference &path_preference);
-bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf, 
+bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const Ip4Address &server_ip,
-                          uint32_t label, struct ether_addr &remote_vm_mac,
+                          uint32_t label, MacAddress &remote_vm_mac,
                           const Ip4Address &vm_addr, uint8_t plen);
 bool Inet4TunnelRouteAdd(const Peer *peer, const string &vm_vrf, const Ip4Address &vm_addr,
                          uint8_t plen, const Ip4Address &server_ip, TunnelType::TypeBmap bmap,
                          uint32_t label, const string &dest_vn_name,
                          const SecurityGroupList &sg,
                          const PathPreference &path_preference);
-bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf, 
+bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const char *server_ip,
-                          uint32_t label, struct ether_addr &remote_vm_mac,
+                          uint32_t label, MacAddress &remote_vm_mac,
                           const char *vm_addr, uint8_t plen);
 bool Inet4TunnelRouteAdd(const Peer *peer, const string &vm_vrf, char *vm_addr,
                          uint8_t plen, char *server_ip, TunnelType::TypeBmap bmap,

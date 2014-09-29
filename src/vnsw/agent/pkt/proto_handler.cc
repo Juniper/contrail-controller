@@ -13,7 +13,7 @@ ProtoHandler::ProtoHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
                            boost::asio::io_service &io)
     : agent_(agent), pkt_info_(info), io_(io) {}
 
-ProtoHandler::~ProtoHandler() { 
+ProtoHandler::~ProtoHandler() {
 }
 
 uint32_t ProtoHandler::EncapHeaderLen() const {
@@ -32,8 +32,8 @@ void ProtoHandler::Send(uint16_t itf, uint16_t vrf, uint16_t cmd,
     agent_->pkt()->pkt_handler()->Send(hdr, pkt_info_->packet_buffer_ptr());
 }
 
-uint16_t ProtoHandler::EthHdr(char *buff, uint8_t len, const unsigned char *src,
-                              const unsigned char *dest, const uint16_t proto,
+uint16_t ProtoHandler::EthHdr(char *buff, uint8_t len, const MacAddress &src,
+                              const MacAddress &dest, const uint16_t proto,
                               uint16_t vlan_id) {
     ethhdr *eth = (ethhdr *)buff;
     uint16_t encap_len = sizeof(ethhdr);
@@ -46,10 +46,10 @@ uint16_t ProtoHandler::EthHdr(char *buff, uint8_t len, const unsigned char *src,
         return 0;
     }
 
-    memcpy(eth->h_dest, dest, ETH_ALEN);
-    memcpy(eth->h_source, src, ETH_ALEN);
+    dest.ToArray(eth->h_dest, sizeof(eth->h_dest));
+    src.ToArray(eth->h_source, sizeof(eth->h_source));
 
-    uint16_t *ptr = (uint16_t *) (buff + ETH_ALEN * 2);
+    uint16_t *ptr = (uint16_t *) (buff + ETHER_ADDR_LEN * 2);
     if (vlan_id != VmInterface::kInvalidVlanId) {
         *ptr = htons(ETH_P_8021Q);
         ptr++;
@@ -60,7 +60,7 @@ uint16_t ProtoHandler::EthHdr(char *buff, uint8_t len, const unsigned char *src,
     return encap_len;
 }
 
-void ProtoHandler::EthHdr(const unsigned char *src, const unsigned char *dest,
+void ProtoHandler::EthHdr(const MacAddress &src, const MacAddress &dest,
                           const uint16_t proto) {
     EthHdr((char *)pkt_info_->eth, sizeof(ethhdr), src, dest, proto,
            VmInterface::kInvalidVlanId);

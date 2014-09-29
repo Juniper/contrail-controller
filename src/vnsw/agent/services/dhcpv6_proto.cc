@@ -18,7 +18,7 @@ Dhcpv6Proto::Dhcpv6Proto(Agent *agent, boost::asio::io_service &io,
     // server duid based on vrrp mac
     server_duid_.type = htons(DHCPV6_DUID_TYPE_LL);
     server_duid_.hw_type = 0;
-    memcpy(server_duid_.mac, agent->vrrp_mac(), ETH_ALEN);
+    agent->vrrp_mac().ToArray(server_duid_.mac, sizeof(server_duid_.mac));
 }
 
 Dhcpv6Proto::~Dhcpv6Proto() {
