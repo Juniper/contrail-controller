@@ -155,11 +155,6 @@ class Subnet(object):
                  alloc_pool_list=None,
                  addr_from_start=False):
 
-        """
-        print 'Name = %s, prefix = %s, len = %s, gw = %s, db_conn = %s' \
-            % (name, prefix, prefix_len, gw, 'Yes' if db_conn else 'No')
-        """
-
         network = IPNetwork('%s/%s' % (prefix, prefix_len))
 
         # check allocation-pool
@@ -391,6 +386,10 @@ class AddrMgmt(object):
                     ipam_subnet['default_gateway'] = str(subnet_obj.gw_ip)
     # end _create_subnet_objs
 
+    def config_log(self, msg, level):
+        self._server_mgr.config_log(msg, level)
+    # end config_log
+
     def net_create_req(self, obj_dict):
         self._get_db_conn()
         vn_fq_name_str = ':'.join(obj_dict['fq_name'])
@@ -409,7 +408,8 @@ class AddrMgmt(object):
             return
 
         if not ok:
-            print "Error: %s in net_create_notify" %(result)
+            db_conn.config_log("Error: %s in net_create_notify" %(result),
+                               level=SandeshLevel.SYS_ERR)
             return
 
         vn_dict = result
@@ -468,7 +468,8 @@ class AddrMgmt(object):
             return
 
         if not ok:
-            print "Error: %s in net_update_notify" %(result)
+            db_conn.config_log("Error: %s in net_update_notify" %(result),
+                               level=SandeshLevel.SYS_ERR)
             return
 
         vn_dict = result

@@ -180,7 +180,7 @@ class IndexAllocator(object):
 
 class ZookeeperClient(object):
 
-    def __init__(self, module, server_list):
+    def __init__(self, module, server_list, logging_fn=None):
         # logging
         logger = logging.getLogger(module)
         logger.setLevel(logging.INFO)
@@ -192,6 +192,11 @@ class ZookeeperClient(object):
             log_format = logging.Formatter('%(asctime)s [%(name)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
             handler.setFormatter(log_format)
             logger.addHandler(handler)
+
+        if logging_fn:
+            self.log = logging_fn
+        else:
+            self.log = self.syslog
 
         self._zk_client = \
             kazoo.client.KazooClient(
@@ -207,34 +212,31 @@ class ZookeeperClient(object):
         # KazooRetry to retry keeper CRUD operations
         self._retry = KazooRetry(max_tries=None)
 
+        self._conn_state = None
         self._sandesh_connection_info_update(status='INIT', message='')
 
         self.connect()
 
     # end __init__
 
-    # start 
+    # start
     def connect(self):
         while True:
             try:
                 self._zk_client.start()
                 break
             except gevent.event.Timeout as e:
-                self.syslog(
-                    'Failed to connect with Zookeeper -will retry in a second')
                 # Update connection info
                 self._sandesh_connection_info_update(status='DOWN',
                                                      message=str(e))
                 gevent.sleep(1)
             # Zookeeper is also throwing exception due to delay in master election
             except Exception as e:
-                self.syslog('%s -will retry in a second' % (str(e)))
                 # Update connection info
                 self._sandesh_connection_info_update(status='DOWN',
                                                      message=str(e))
                 gevent.sleep(1)
-        self.syslog('Connected to ZooKeeper!')
-                # Update connection info
+        # Update connection info
         self._sandesh_connection_info_update(status='UP', message='')
 
     # end
@@ -243,7 +245,7 @@ class ZookeeperClient(object):
         return self._zk_client.state == KazooState.CONNECTED
     # end is_connected
 
-    def syslog(self, msg):
+    def syslog(self, msg, *args, **kwargs):
         if not self._logger:
             return
         self._logger.info(msg)
@@ -323,10 +325,24 @@ class ZookeeperClient(object):
         from pysandesh.connection_info import ConnectionState
         from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
             ConnectionType
+        from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+
+        new_conn_state = getattr(ConnectionStatus, status)
         ConnectionState.update(conn_type = ConnectionType.ZOOKEEPER,
-                name = 'Zookeeper', status = getattr(ConnectionStatus, status),
+                name = 'Zookeeper', status = new_conn_state,
                 message = message,
                 server_addrs = self._server_list.split(','))
+
+        if (self._conn_state and self._conn_state != ConnectionStatus.DOWN and
+            new_conn_state == ConnectionStatus.DOWN):
+            msg = 'Connection to Zookeeper down: %s' %(message)
+            self.log(msg, level=SandeshLevel.SYS_ERR)
+        if (self._conn_state and self._conn_state != new_conn_state and
+            new_conn_state == ConnectionStatus.UP):
+            msg = 'Connection to Zookeeper ESTABLISHED'
+            self.log(msg, level=SandeshLevel.SYS_NOTICE)
+
+        self._conn_state = new_conn_state
     # end _sandesh_connection_info_update
 
 # end class ZookeeperClient

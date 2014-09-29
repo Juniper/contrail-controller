@@ -212,8 +212,6 @@ class VncApiServer(VncApiServerGen):
     # end __new__
 
     def __init__(self, args_str=None):
-        # self._init_logging()
-
         self._args = None
         if not args_str:
             args_str = ' '.join(sys.argv[1:])
@@ -473,8 +471,7 @@ class VncApiServer(VncApiServerGen):
                         format="text",
                         ).handle(sys.exc_info())
                     err_msg = mask_password(string_buf.getvalue())
-                    logger.error("Exception in REST api handler:\n%s" %(err_msg))
-                    self.config_log_error(err_msg)
+                    self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
 
                 raise
 
@@ -495,7 +492,8 @@ class VncApiServer(VncApiServerGen):
                     if addr != '127.0.0.1' and addr not in ip_list:
                         ip_list.append(addr)
             except ValueError, e:
-                print "Skipping interface %s" % i
+                self.config_log("Skipping interface %s" % i,
+                                level=SandeshLevel.SYS_DEBUG)
         return ip_list
     # end get_server_ip
 
@@ -755,8 +753,8 @@ class VncApiServer(VncApiServerGen):
             'ifmap_server_port': "8443",
             'collectors': None,
             'http_server_port': '8084',
-            'log_local': False,
-            'log_level': SandeshLevel.SYS_DEBUG,
+            'log_local': True,
+            'log_level': SandeshLevel.SYS_NOTICE,
             'log_category': '',
             'log_file': Sandesh._DEFAULT_LOG_FILE,
             'use_syslog': False,
@@ -977,7 +975,8 @@ class VncApiServer(VncApiServerGen):
                 api_server_port=self._args.listen_port,
                 conf_sections=conf_sections)
         except Exception as e:
-            logger.error("Exception in loading of extensions:\n%s" %(str(e)))
+            self.config_log("Exception in extension load: %s" %(str(e)),
+                level=SandeshLevel.SYS_ERR)
     # end _load_extensions
 
     def _db_connect(self, reset_config):
@@ -1126,10 +1125,10 @@ class VncApiServer(VncApiServerGen):
         log.send(sandesh=self._sandesh)
     # end config_object_error
 
-    def config_log_error(self, err_str):
-        VncApiError(api_error_msg=err_str, sandesh=self._sandesh).send(
+    def config_log(self, err_str, level=SandeshLevel.SYS_INFO):
+        VncApiError(api_error_msg=err_str, level=level, sandesh=self._sandesh).send(
             sandesh=self._sandesh)
-    # end config_log_error
+    # end config_log
 
     def add_virtual_network_refs(self, vn_log, obj_dict):
         # Reference to policies
@@ -1334,20 +1333,6 @@ class VncApiServer(VncApiServerGen):
 
         return (True, uuid_in_req)
     # end _http_post_common
-
-    def _init_logging(self):
-        ifmap_logger = logging.getLogger('ifmap.client')
-
-        fh = logging.FileHandler('ifmap.client.out')
-        fh.setLevel(logging.ERROR)
-
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.ERROR)
-
-        ifmap_logger.addHandler(ch)
-        ifmap_logger.addHandler(fh)
-
-    # end _init_logging
 
     def cleanup(self):
         # TODO cleanup sandesh context
