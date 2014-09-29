@@ -11,6 +11,7 @@
 #include <boost/intrusive_ptr.hpp>
 #include <cmn/agent_cmn.h>
 #include <base/connection_info.h>
+#include "net/mac_address.h"
 
 class Agent;
 class AgentParam;
@@ -191,7 +192,7 @@ public:
 
     static Agent *GetInstance() {return singleton_;}
     static const std::string &NullString() {return null_string_;};
-    static const uint8_t *vrrp_mac() {return vrrp_mac_;}
+    static const MacAddress &vrrp_mac() {return vrrp_mac_;}
     static const std::string &BcastMac() {return bcast_mac_;};
     static const std::string &xmpp_dns_server_prefix() {
         return xmpp_dns_server_connection_name_prefix_;
@@ -834,7 +835,7 @@ private:
     static const std::string fabric_vn_name_;
     static const std::string link_local_vrf_name_;
     static const std::string link_local_vn_name_;
-    static const uint8_t vrrp_mac_[ETHER_ADDR_LEN];
+    static const MacAddress vrrp_mac_;
     static const std::string bcast_mac_;
     static const std::string xmpp_dns_server_connection_name_prefix_;
     static const std::string xmpp_control_node_connection_name_prefix_;

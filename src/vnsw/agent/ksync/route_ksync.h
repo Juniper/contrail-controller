@@ -62,7 +62,7 @@ private:
     uint32_t vrf_id_;
     IpAddress addr_;
     IpAddress src_addr_;
-    struct ether_addr mac_;
+    MacAddress mac_;
     uint32_t prefix_len_;
     KSyncEntryPtr nh_;
     uint32_t label_;

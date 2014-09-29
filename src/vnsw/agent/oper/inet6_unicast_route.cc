@@ -421,12 +421,9 @@ Inet6UnicastAgentRouteTable::AddSubnetRoute(const string &vrf_name,
                                             const string &vn_name,
                                             uint32_t vxlan_id) {
     Agent *agent = Agent::GetInstance();
-    struct ether_addr flood_mac;
 
-    memcpy(&flood_mac, ether_aton("ff:ff:ff:ff:ff:ff"),
-           sizeof(struct ether_addr));
     AgentRoute *route = Layer2AgentRouteTable::FindRoute(agent, vrf_name,
-                                                         flood_mac);
+                                                         MacAddress::BroadcastMac());
 
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     ComponentNHKeyList component_nh_list;

@@ -139,11 +139,12 @@ protected:
 
 private:
     void ReceiveInternal(const XmppStanza::XmppMessage *msg);
-    void AddRoute(std::string vrf_name, Ip4Address ip, uint32_t plen, 
+    void AddRoute(std::string vrf_name, Ip4Address ip, uint32_t plen,
                   autogen::ItemType *item);
     void AddInet6Route(std::string vrf_name, Ip6Address ip, uint32_t plen, 
-                       autogen::ItemType *item);
-    void AddMulticastEvpnRoute(std::string vrf_name, struct ether_addr &mac, 
+                           autogen::ItemType *item);
+    void AddMulticastEvpnRoute(std::string vrf_name, MacAddress &mac,
+
                                autogen::EnetItemType *item);
     void AddEvpnRoute(std::string vrf_name, std::string mac_addr,
                       autogen::EnetItemType *item);
@@ -151,7 +152,7 @@ private:
                         autogen::ItemType *item);
     void AddRemoteInet6Route(std::string vrf_name, Ip6Address ip,
                              uint32_t plen, autogen::ItemType *item);
-    void AddEcmpRoute(std::string vrf_name, Ip4Address ip, uint32_t plen, 
+    void AddEcmpRoute(std::string vrf_name, Ip4Address ip, uint32_t plen,
                       autogen::ItemType *item);
     XmppChannel *channel_;
     std::string xmpp_server_;

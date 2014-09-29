@@ -33,8 +33,8 @@
 #define IPv4_ALEN           4
 #define MIN_ETH_PKT_LEN    64
 #define IPC_HDR_LEN        (sizeof(ethhdr) + sizeof(struct agent_hdr))
-#define IP_PROTOCOL        0x800  
-#define VLAN_PROTOCOL      0x8100       
+#define IP_PROTOCOL        0x800
+#define VLAN_PROTOCOL      0x8100
 
 struct agent_hdr;
 class PacketBuffer;

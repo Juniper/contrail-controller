@@ -126,7 +126,7 @@ void DiagPktHandler::SwapIpHdr() {
 
 void DiagPktHandler::SwapEthHdr() {
     ethhdr *eth = pkt_info_->eth;
-    EthHdr(eth->h_dest, eth->h_source, ntohs(eth->h_proto));
+    EthHdr(MacAddress(eth->h_dest), MacAddress(eth->h_source), ntohs(eth->h_proto));
 }
 
 void DiagPktHandler::Swap() {
