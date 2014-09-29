@@ -15,6 +15,7 @@
 #include "db/db_table_walker.h"
 
 #include "base/logging.h"
+#include "base/task_annotations.h"
 #include "testing/gunit.h"
 
 class VlanTable;
@@ -130,6 +131,62 @@ public:
 };
 
 #include "db_test_cmn.h"
+
+// To Test:
+// DBTable::NotifyAllEntries API
+TEST_F(DBTest, NotifyAllEntries) {
+    const int num_entries = 128;
+
+    // Register client for notification
+    tid_ = itbl->Register(boost::bind(&DBTest::DBTestListener, this, _1, _2));
+    TASK_UTIL_EXPECT_EQ(tid_, 0);
+    adc_notification = 0;
+    del_notification = 0;
+
+    // Add a bunch of entries
+    for (int idx = 0; idx < num_entries; ++idx) {
+        DBRequest addReq;
+        addReq.key.reset(new VlanTableReqKey(idx));
+        addReq.data.reset(new VlanTableReqData("DB Test Vlan"));
+        addReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+        itbl->Enqueue(&addReq);
+    }
+    TASK_UTIL_EXPECT_EQ(num_entries, adc_notification);
+    adc_notification = 0;
+
+    // Invoke method in right concurrency scope
+    {
+        ConcurrencyScope scope("bgp::Config");
+        itbl->NotifyAllEntries();
+    }
+
+    // Verify notification count
+    TASK_UTIL_EXPECT_EQ(num_entries, adc_notification);
+    adc_notification = 0;
+
+    // Invoke method before the previous walk has finished
+    TaskScheduler::GetInstance()->Stop();
+    {
+        ConcurrencyScope scope("bgp::Config");
+        itbl->NotifyAllEntries();
+        itbl->NotifyAllEntries();
+    }
+    TaskScheduler::GetInstance()->Start();
+    TASK_UTIL_EXPECT_EQ(num_entries, adc_notification);
+    adc_notification = 0;
+
+    // Delete all entries
+    for (int idx = 0; idx < num_entries; ++idx) {
+        DBRequest delReq;
+        delReq.key.reset(new VlanTableReqKey(idx));
+        delReq.oper = DBRequest::DB_ENTRY_DELETE;
+        itbl->Enqueue(&delReq);
+    }
+    TASK_UTIL_EXPECT_EQ(num_entries, del_notification);
+
+    // Unregister client
+    itbl->Unregister(tid_);
+}
 
 void RegisterFactory() {
     DB::RegisterFactory("db.test.vlan.0", &VlanTable::CreateTable);
