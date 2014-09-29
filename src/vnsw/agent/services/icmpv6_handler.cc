@@ -92,7 +92,7 @@ bool Icmpv6Handler::RouterAdvertisement(Icmpv6Proto *proto) {
     const Icmpv6Proto::VmInterfaceSet &interfaces = proto->vm_interfaces();
     boost::system::error_code ec;
     Ip6Address src_addr = Ip6Address::from_string(PKT0_LINKLOCAL_ADDRESS, ec);
-    Ip6Address dest_addr = Ip6Address::from_string(IPV6_ALL_ROUTERS_ADDRESS, ec);
+    Ip6Address dest_addr = Ip6Address::from_string(IPV6_ALL_NODES_ADDRESS, ec);
     // Ethernet mcast address corresponding to IPv6 mcast address ff02::1
     unsigned char dest_mac[ETH_ALEN] = { 0x33, 0x33, 0x00, 0x00, 0x00, 0x01 };
     for (Icmpv6Proto::VmInterfaceSet::const_iterator it = interfaces.begin();
