@@ -924,7 +924,38 @@ InetUnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
 }
 
 void 
-InetUnicastAgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
+InetUnicastAgentRouteTable::AddSubnetBroadcastRoute(const Peer *peer, 
+                                                    const string &vrf_name,
+                                                    const IpAddress &src_addr,
+                                                    const IpAddress &grp_addr,
+                                                    const string &vn_name,
+                                                    ComponentNHKeyList
+                                                    &component_nh_key_list) {
+    DBRequest nh_req;
+    NextHopKey *nh_key;
+    CompositeNHData *nh_data;
+
+    nh_key = new CompositeNHKey(Composite::L3COMP, true, component_nh_key_list,
+                                vrf_name);
+    nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    nh_req.key.reset(nh_key);
+    nh_data = new CompositeNHData();
+    nh_req.data.reset(nh_data);
+
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new InetUnicastRouteKey(peer, vrf_name, grp_addr, 32));
+
+    MulticastRoute *data = new MulticastRoute(vn_name,
+                                              MplsTable::kInvalidLabel,
+                                              VxLanTable::kInvalidvxlan_id,
+                                              TunnelType::AllType(),
+                                              nh_req);
+    req.data.reset(data);
+    InetUnicastTableEnqueue(Agent::GetInstance(), &req);
+}
+
+void 
+InetUnicastAgentRouteTable::AddRemoteVmRouteReq(const Peer *peer, 
                                                 const string &vm_vrf,
                                                 const IpAddress &vm_addr,
                                                 uint8_t plen,

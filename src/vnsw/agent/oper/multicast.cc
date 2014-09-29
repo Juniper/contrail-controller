@@ -66,6 +66,7 @@ void MulticastHandler::AddL2BroadcastRoute(MulticastGroupObject *obj,
                                                    vrf_name, vn_name,
                                                    label, vxlan_id,
                                                    ethernet_tag,
+                                                   TunnelType::AllType(),
                                                    Composite::L2INTERFACE,
                                                    component_nh_key_list);
 }
@@ -193,10 +194,7 @@ void MulticastHandler::ModifyVmInterface(DBTablePartBase *partition,
     vm_itf = static_cast<const VmInterface *>(intf);
     assert(vm_itf->vn() != NULL);
 
-    MulticastHandler::GetInstance()->AddVmInterfaceInFloodGroup(
-                                     vm_itf->vrf()->GetName(),
-                                     vm_itf->GetUuid(), 
-                                     vm_itf->vn());
+    MulticastHandler::GetInstance()->AddVmInterfaceInFloodGroup(vm_itf);
     return;
 }
 
@@ -331,6 +329,7 @@ void MulticastHandler::TriggerLocalRouteChange(MulticastGroupObject *obj,
                                                    obj->evpn_mpls_label(),
                                                    obj->vxlan_id(),
                                                    0,
+                                                   TunnelType::AllType(),
                                                    Composite::L2INTERFACE,
                                                    component_nh_key_list);
 }
@@ -432,6 +431,7 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
                                                    label,
                                                    obj->vxlan_id(),
                                                    ethernet_tag,
+                                                   TunnelType::AllType(),
                                                    comp_type,
                                                    component_nh_key_list);
     if (comp_type == Composite::EVPN) {
@@ -482,9 +482,10 @@ void MulticastHandler::RebakeSubnetRoute(const Peer *peer,
     }
 }
 
-void MulticastHandler::AddVmInterfaceInFloodGroup(const std::string &vrf_name, 
-                                                  const uuid &intf_uuid, 
-                                                  const VnEntry *vn) {
+void MulticastHandler::AddVmInterfaceInFloodGroup(const VmInterface *vm_itf) {
+    const string vrf_name = vm_itf->vrf()->GetName();
+    const uuid intf_uuid = vm_itf->GetUuid();
+    const VnEntry *vn = vm_itf->vn();
     MulticastGroupObject *all_broadcast = NULL;
     boost::system::error_code ec;
     Ip4Address broadcast =  IpAddress::from_string("255.255.255.255",
@@ -518,6 +519,7 @@ void MulticastHandler::AddVmInterfaceInFloodGroup(const std::string &vrf_name,
             all_broadcast->set_vxlan_id(vn->GetVxLanId());
         } 
         all_broadcast->SetLayer2Forwarding(vn->layer2_forwarding());
+        //TODO OVS no need to alloc mpls label for OVS VMI.
         uint32_t evpn_label = Agent::GetInstance()->mpls_table()->
             AllocLabel();
         if (evpn_label != MplsLabel::INVALID) { 
@@ -600,6 +602,33 @@ void MulticastHandler::ModifyEvpnMembers(const Peer *peer,
                                      peer_identifier, delete_op, Composite::EVPN,
                                      obj->evpn_mpls_label(), false, ethernet_tag);
     MCTRACE(Log, "Add EVPN TOR Olist ", vrf_name, grp.to_string(), 0);
+}
+
+void MulticastHandler::ModifyTorMembers(const Peer *peer,
+                                        const std::string &vrf_name,
+                                        const TunnelOlist &olist,
+                                        uint32_t ethernet_tag,
+                                        uint64_t peer_identifier)
+{
+    boost::system::error_code ec;
+    Ip4Address grp = Ip4Address::from_string("255.255.255.255", ec);
+    MulticastGroupObject *obj =
+        MulticastHandler::GetInstance()->FindActiveGroupObject(vrf_name, grp);
+    MCTRACE(Log, "TOR multicast handler ", vrf_name, grp.to_string(), 0);
+
+    if (obj == NULL) {
+        return;
+    }
+
+    bool delete_op = false;
+    if (peer_identifier == ControllerPeerPath::kInvalidPeerIdentifier) {
+        delete_op = true;
+    }
+
+    MulticastHandler::GetInstance()->TriggerRemoteRouteChange(obj, peer, vrf_name, olist,
+                                     peer_identifier, delete_op, Composite::TOR,
+                                     MplsTable::kInvalidLabel, false, ethernet_tag);
+    MCTRACE(Log, "Add external TOR Olist ", vrf_name, grp.to_string(), 0);
 }
 
 // Helper to delete fabric nh

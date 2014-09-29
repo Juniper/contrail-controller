@@ -1958,6 +1958,17 @@ static void ExpandCompositeNextHop(const CompositeNH *comp_nh,
         data.set_mc_list(data_list);
         break;
     }
+    case Composite::TOR: {
+        comp_str << "TOR Composite"  << " sub nh count: "
+            << comp_nh->ComponentNHCount();
+        data.set_type(comp_str.str());
+        if (comp_nh->ComponentNHCount() == 0)
+            break;
+        std::vector<McastData> data_list;
+        FillComponentNextHop(comp_nh, data_list);
+        data.set_mc_list(data_list);
+        break;
+    }
     case Composite::FABRIC: {
         comp_str << "fabric Composite"  << " sub nh count: " 
             << comp_nh->ComponentNHCount();

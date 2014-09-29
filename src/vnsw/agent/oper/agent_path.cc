@@ -577,7 +577,7 @@ bool MulticastRoute::AddChangePath(Agent *agent, AgentPath *path) {
                                              false,
                                              vxlan_id_,
                                              label_,
-                                             TunnelType::AllType(),
+                                             tunnel_type_,
                                              is_subnet_discard,
                                              nh);
     return ret;
@@ -600,7 +600,7 @@ bool MulticastRoute::CopyPathParameters(Agent *agent,
     //Setting of tunnel is only for simulated TOR.
     path->set_tunnel_bmap(tunnel_type);
     TunnelType::Type new_tunnel_type =
-        TunnelType::ComputeType(TunnelType::AllType());
+        TunnelType::ComputeType(tunnel_type);
     if (new_tunnel_type == TunnelType::VXLAN &&
         vxlan_id == VxLanTable::kInvalidvxlan_id) {
         new_tunnel_type = TunnelType::ComputeType(TunnelType::MplsType());
@@ -636,7 +636,7 @@ bool PathPreferenceData::AddChangePath(Agent *agent, AgentPath *path) {
 // Subnet Route route data
 SubnetRoute::SubnetRoute(const string &vn_name,
                          uint32_t vxlan_id, DBRequest &nh_req) :
-    MulticastRoute(vn_name, 0, vxlan_id, nh_req) {
+    MulticastRoute(vn_name, 0, vxlan_id, TunnelType::AllType(), nh_req) {
         is_multicast_ = false;
 }
 
