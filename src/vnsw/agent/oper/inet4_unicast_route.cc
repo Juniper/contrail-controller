@@ -850,6 +850,7 @@ Inet4UnicastAgentRouteTable::AddSubnetBroadcastRoute(const Peer *peer,
     MulticastRoute *data = new MulticastRoute(vn_name,
                                               MplsTable::kInvalidLabel,
                                               VxLanTable::kInvalidvxlan_id,
+                                              TunnelType::AllType(),
                                               nh_req);
     req.data.reset(data);
     UnicastTableEnqueue(Agent::GetInstance(), &req);
