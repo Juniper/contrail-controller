@@ -416,6 +416,7 @@ protected:
         EvTcpPassiveOpen();
         task_util::WaitForIdle();
         sm_->FireOpenTimer();
+        task_util::WaitForIdle();
     }
     void EvHoldTimerExpired() {
         sm_->FireHoldTimer();
