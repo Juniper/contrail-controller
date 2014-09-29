@@ -146,6 +146,11 @@ public:
                                   const TunnelOlist &olist,
                                   uint32_t ethernet_tag,
                                   uint64_t peer_identifier = 0);
+    static void ModifyTorMembers(const Peer *peer,
+                                 const std::string &vrf_name,
+                                 const TunnelOlist &olist,
+                                 uint32_t ethernet_tag,
+                                 uint64_t peer_identifier = 0);
     //Registered for VN notification
     static void ModifyVN(DBTablePartBase *partition, DBEntryBase *e);
     //Registered for VM notification
@@ -209,8 +214,7 @@ private:
 
     //VM intf add-delete
     void DeleteVmInterface(const Interface *intf);
-    void AddVmInterfaceInFloodGroup(const std::string &vrf_name, const uuid &itf_uuid, 
-                                    const VnEntry *vn);
+    void AddVmInterfaceInFloodGroup(const VmInterface *vm_itf);
 
     //broadcast rt add /delete
     void AddL2BroadcastRoute(MulticastGroupObject *obj,

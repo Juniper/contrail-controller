@@ -689,6 +689,10 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 flags |= NH_FLAG_COMPOSITE_EVPN;
                 break;
             }
+            case Composite::TOR: {
+                flags |= NH_FLAG_COMPOSITE_TOR;
+                break;
+            }
             case Composite::FABRIC: {
                 flags |= NH_FLAG_COMPOSITE_FABRIC;
                 break;

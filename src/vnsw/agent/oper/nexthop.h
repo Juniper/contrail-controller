@@ -997,7 +997,8 @@ struct Composite {
         L2INTERFACE,
         L3INTERFACE,
         LOCAL_ECMP,
-        EVPN
+        EVPN,
+        TOR
     };
 };
 
