@@ -36,7 +36,7 @@ public:
     virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg);
     virtual void ReceiveEvpnUpdate(XmlPugi *pugi);
     virtual void ReceiveMulticastUpdate(XmlPugi *pugi);
-    virtual void ReceiveV6Update(XmlPugi *pugi);
+    virtual void ReceiveV4V6Update(XmlPugi *pugi);
     XmppChannel *GetXmppChannel() { return channel_; }
 
     //Helper to identify if specified peer has active BGP peer attached
@@ -118,20 +118,14 @@ public:
     uint64_t unicast_sequence_number() const {return unicast_sequence_number_;}
 
     //Common helpers
-    bool ControllerSendV4UnicastRouteCommon(AgentRoute *route,
+    bool ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
                                             std::string vn,
                                             const SecurityGroupList *sg_list,
                                             uint32_t mpls_label,
                                             uint32_t tunnel_bmap,
                                             const PathPreference &path_preference,
-                                            bool associate);
-    bool ControllerSendV6UnicastRouteCommon(AgentRoute *route,
-                                            std::string vn,
-                                            const SecurityGroupList *sg_list,
-                                            uint32_t mpls_label,
-                                            uint32_t tunnel_bmap,
-                                            const PathPreference &path_preference,
-                                            bool associate);
+                                            bool associate,
+                                            Agent::RouteTableType type);
     bool ControllerSendEvpnRouteCommon(AgentRoute *route,
                                        std::string vn,
                                        uint32_t mpls_label,
