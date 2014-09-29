@@ -340,6 +340,7 @@ test_suite = [
     bgp_server_test,
     bgp_session_test,
     bgp_sg_test,
+    bgp_stress_test,
     bgp_table_export_test,
     bgp_table_test,
     bgp_update_rx_test,
@@ -386,7 +387,6 @@ env.Alias('controller/src/bgp:test', [
 
 flaky_test_suite = [
     bgp_xmpp_evpn_mcast_test,
-    bgp_stress_test,
 ]
 
 flaky_test = env.TestSuite('bgp-flaky-test', flaky_test_suite)
