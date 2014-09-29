@@ -9,6 +9,7 @@
 #include "services/icmpv6_handler.h"
 
 #define ICMP_PKT_SIZE 1024
+#define IPV6_ALL_NODES_ADDRESS "FF01::1"
 #define IPV6_ALL_ROUTERS_ADDRESS "FF01::2"
 #define PKT0_LINKLOCAL_ADDRESS "FE80::5E00:0100"
 
