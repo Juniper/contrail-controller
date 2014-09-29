@@ -229,14 +229,14 @@ KSyncLinuxFdbEntry::KSyncLinuxFdbEntry(KSyncLinuxFdbObject *obj,
 KSyncLinuxFdbEntry::~KSyncLinuxFdbEntry() {
 }
 
-static void MacToStr(char *buff, const struct ether_addr &mac) {
+static void MacToStr(char *buff, const MacAddress &mac) {
     sprintf(buff, "%02x:%02x:%02x:%02x:%02x:%02x",
-            mac.ether_addr_octet[0],
-            mac.ether_addr_octet[1],
-            mac.ether_addr_octet[2],
-            mac.ether_addr_octet[3],
-            mac.ether_addr_octet[4],
-            mac.ether_addr_octet[5]);
+            mac[0],
+            mac[1],
+            mac[2],
+            mac[3],
+            mac[4],
+            mac[5]);
 }
 
 bool KSyncLinuxFdbEntry::Add() {

@@ -9,7 +9,7 @@
 #include <services/icmp_proto.h>
 
 IcmpHandler::IcmpHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
-                         boost::asio::io_service &io) 
+                         boost::asio::io_service &io)
     : ProtoHandler(agent, info, io), icmp_(pkt_info_->transp.icmp) {
     icmp_len_ = ntohs(pkt_info_->ip->tot_len) - (pkt_info_->ip->ihl * 4);
 }
@@ -28,7 +28,7 @@ bool IcmpHandler::Run() {
     VmInterface *vm_itf = static_cast<VmInterface *>(itf);
     if (!vm_itf->layer3_forwarding()) { 
         return true;
-    } 
+    }
     switch (icmp_->type) {
         case ICMP_ECHO:
             if (CheckPacket()) {
@@ -71,8 +71,9 @@ void IcmpHandler::SendResponse(VmInterface *vm_intf) {
     // Form ICMP Packet with following
     // EthHdr - IP Header - ICMP Header
     len += EthHdr(ptr + len, buf_len - len,
-                  agent()->vhost_interface()->mac().ether_addr_octet,
-                  pkt_info_->eth->h_source, ETHERTYPE_IP, vm_intf->vlan_id());
+                  agent()->vhost_interface()->mac(),
+                  MacAddress(pkt_info_->eth->h_source),
+                  ETHERTYPE_IP, vm_intf->vlan_id());
 
     uint16_t ip_len = sizeof(iphdr) + icmp_len_;
 

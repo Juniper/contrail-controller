@@ -227,13 +227,13 @@ void InterfaceTable::UpdateVxLanNetworkIdentifierMode() {
 Interface::Interface(Type type, const uuid &uuid, const string &name,
                      VrfEntry *vrf) :
     type_(type), uuid_(uuid), name_(name),
-    vrf_(vrf), label_(MplsTable::kInvalidLabel), 
+    vrf_(vrf), label_(MplsTable::kInvalidLabel),
     l2_label_(MplsTable::kInvalidLabel), ipv4_active_(true), l2_active_(true),
     id_(kInvalidIndex), dhcp_enabled_(true), dns_enabled_(true), mac_(),
-    os_index_(kInvalidIndex), admin_state_(true), test_oper_state_(true) { 
+    os_index_(kInvalidIndex), admin_state_(true), test_oper_state_(true) {
 }
 
-Interface::~Interface() { 
+Interface::~Interface() {
     if (id_ != kInvalidIndex) {
         static_cast<InterfaceTable *>(get_table())->FreeInterfaceId(id_);
     }
@@ -244,8 +244,8 @@ void Interface::GetOsParams(Agent *agent) {
         static int dummy_ifindex = 0;
         if (os_index_ == kInvalidIndex) {
             os_index_ = ++dummy_ifindex;
-            bzero(&mac_, sizeof(mac_));
-            mac_.ether_addr_octet[5] = os_index_;
+            mac_.Zero();
+            mac_.last_octet() = os_index_;
         }
         os_oper_state_ = test_oper_state_;
         return;
@@ -257,7 +257,7 @@ void Interface::GetOsParams(Agent *agent) {
     int fd = socket(AF_LOCAL, SOCK_STREAM, 0);
     assert(fd >= 0);
     if (ioctl(fd, SIOCGIFHWADDR, (void *)&ifr) < 0) {
-        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) << 
+        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
             "> querying mac-address for interface <" << name_ << ">");
         os_oper_state_ = false;
         close(fd);
@@ -266,7 +266,7 @@ void Interface::GetOsParams(Agent *agent) {
 
 
     if (ioctl(fd, SIOCGIFFLAGS, (void *)&ifr) < 0) {
-        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) << 
+        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
             "> querying mac-address for interface <" << name_ << ">");
         os_oper_state_ = false;
         close(fd);
@@ -279,7 +279,7 @@ void Interface::GetOsParams(Agent *agent) {
     }
     close(fd);
 
-    memcpy(mac_.ether_addr_octet, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
+    mac_ = ifr.ifr_hwaddr;
     if (os_index_ == kInvalidIndex) {
         int idx = if_nametoindex(name_.c_str());
         if (idx)
@@ -287,7 +287,7 @@ void Interface::GetOsParams(Agent *agent) {
     }
 }
 
-void Interface::SetKey(const DBRequestKey *key) { 
+void Interface::SetKey(const DBRequestKey *key) {
     const InterfaceKey *k = static_cast<const InterfaceKey *>(key);
     type_ = k->type_;
     uuid_ = k->uuid_;
@@ -307,14 +307,14 @@ void InterfaceTable::set_update_floatingip_cb(UpdateFloatingIpFn fn) {
 }
 
 const InterfaceTable::UpdateFloatingIpFn &InterfaceTable::update_floatingip_cb()
-    const { 
+    const {
     return update_floatingip_cb_;
 }
 
 /////////////////////////////////////////////////////////////////////////////
 // Pkt Interface routines
 /////////////////////////////////////////////////////////////////////////////
-PacketInterface::PacketInterface(const std::string &name) : 
+PacketInterface::PacketInterface(const std::string &name) :
     Interface(Interface::PACKET, nil_uuid(), name, NULL) {
 }
 

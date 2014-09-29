@@ -105,7 +105,7 @@ public:
     uint32_t label() const {return label_;}
     bool IsL2LabelValid(uint32_t label) const { return (label_ == label);}
     uint32_t os_index() const {return os_index_;}
-    const ether_addr &mac() const {return mac_;}
+    const MacAddress &mac() const {return mac_;}
     bool os_oper_state() const { return os_oper_state_; }
     bool admin_state() const { return admin_state_; }
     // Used only for test code
@@ -128,7 +128,7 @@ protected:
     size_t id_;
     bool dhcp_enabled_;
     bool dns_enabled_;
-    struct ether_addr mac_;
+    MacAddress mac_;
     size_t os_index_;
     bool os_oper_state_;
     bool admin_state_;
@@ -146,7 +146,7 @@ private:
     DISALLOW_COPY_AND_ASSIGN(Interface);
 };
 
-// Common key for all interfaces. 
+// Common key for all interfaces.
 struct InterfaceKey : public AgentKey {
     InterfaceKey(const InterfaceKey &rhs) {
         type_ = rhs.type_;

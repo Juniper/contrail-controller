@@ -869,8 +869,8 @@ Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
     UnicastTableEnqueue(Agent::GetInstance(), &req);
 }
  
-void 
-Inet4UnicastAgentRouteTable::AddArpReq(const string &vrf_name, 
+void
+Inet4UnicastAgentRouteTable::AddArpReq(const string &vrf_name,
                                        const Ip4Address &ip) {
 
     Agent *agent = Agent::GetInstance();
@@ -885,12 +885,12 @@ Inet4UnicastAgentRouteTable::AddArpReq(const string &vrf_name,
     rt_req.data.reset(new Inet4UnicastArpRoute(vrf_name, ip));
     UnicastTableEnqueue(agent, &rt_req);
 }
-                                
-void 
-Inet4UnicastAgentRouteTable::ArpRoute(DBRequest::DBOperation op, 
-                                      const Ip4Address &ip, 
-                                      const struct ether_addr &mac,
-                                      const string &vrf_name, 
+
+void
+Inet4UnicastAgentRouteTable::ArpRoute(DBRequest::DBOperation op,
+                                      const Ip4Address &ip,
+                                      const MacAddress &mac,
+                                      const string &vrf_name,
                                       const Interface &intf,
                                       bool resolved,
                                       const uint8_t plen) {
@@ -898,12 +898,12 @@ Inet4UnicastAgentRouteTable::ArpRoute(DBRequest::DBOperation op,
     DBRequest  nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(new ArpNHKey(vrf_name, ip));
     ArpNHData *arp_data = new ArpNHData(mac,
-               static_cast<InterfaceKey *>(intf.GetDBRequestKey().release()), 
-               resolved); 
+               static_cast<InterfaceKey *>(intf.GetDBRequestKey().release()),
+               resolved);
     nh_req.data.reset(arp_data);
 
     DBRequest  rt_req(op);
-    Inet4UnicastRouteKey *rt_key = 
+    Inet4UnicastRouteKey *rt_key =
         new Inet4UnicastRouteKey(agent->local_peer(),
                                  vrf_name, ip, plen);
     Inet4UnicastArpRoute *data = NULL;
@@ -916,7 +916,7 @@ Inet4UnicastAgentRouteTable::ArpRoute(DBRequest::DBOperation op,
 
     case DBRequest::DB_ENTRY_DELETE: {
         VrfEntry *vrf = agent->vrf_table()->FindVrfFromName(vrf_name);
-        Inet4UnicastRouteEntry *rt = 
+        Inet4UnicastRouteEntry *rt =
             static_cast<Inet4UnicastRouteEntry *>(vrf->
                           GetInet4UnicastRouteTable()->Find(rt_key));
         assert(resolved==false);
@@ -935,14 +935,14 @@ Inet4UnicastAgentRouteTable::ArpRoute(DBRequest::DBOperation op,
     default:
         assert(0);
     }
- 
+
     rt_req.key.reset(rt_key);
     rt_req.data.reset(data);
     UnicastTableEnqueue(agent, &rt_req);
 }
 
 void
-Inet4UnicastAgentRouteTable::CheckAndAddArpReq(const string &vrf_name, 
+Inet4UnicastAgentRouteTable::CheckAndAddArpReq(const string &vrf_name,
                                                const Ip4Address &ip) {
 
     if (ip == Agent::GetInstance()->router_id() ||
@@ -1103,12 +1103,9 @@ Inet4UnicastAgentRouteTable::AddSubnetRoute(const string &vrf_name,
                                             const string &vn_name,
                                             uint32_t vxlan_id) {
     Agent *agent_ptr = agent();
-    struct ether_addr flood_mac;
 
-    memcpy(&flood_mac, ether_aton("ff:ff:ff:ff:ff:ff"),
-           sizeof(struct ether_addr));
     AgentRoute *route = Layer2AgentRouteTable::FindRoute(agent_ptr, vrf_name,
-                                                         flood_mac);
+                                                         MacAddress::BroadcastMac());
 
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     ComponentNHKeyList component_nh_list;

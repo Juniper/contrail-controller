@@ -261,7 +261,7 @@ private:
     uint16_t AddDomainNameOption(uint16_t opt_len);
     uint16_t FillDhcpv6Hdr();
     void WriteIaOption(const Dhcpv6Ia &ia, uint16_t &optlen);
-    uint16_t FillDhcpResponse(unsigned char *dest_mac,
+    uint16_t FillDhcpResponse(const MacAddress &dest_mac,
                               Ip6Address src_ip, Ip6Address dest_ip);
     void SendDhcpResponse();
     void UpdateStats();
