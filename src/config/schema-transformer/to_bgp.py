@@ -2712,6 +2712,7 @@ class SchemaTransformer(object):
                 instance_id,
                 staticmethod(ConnectionState.get_process_state_cb),
                 NodeStatusUVE, NodeStatus)
+        _zookeeper_client.sandesh = _sandesh
 
 
         self.reinit()
@@ -3844,7 +3845,7 @@ def main(args_str=None):
     else:
         client_pfx = ''
         zk_path_pfx = ''
-    _zookeeper_client = ZookeeperClient(client_pfx+"schema", args.zk_server_ip)
+    _zookeeper_client = ZookeeperClient(client_pfx+"schema", args.zk_server_ip, None)
     _zookeeper_client.master_election(zk_path_pfx+"/schema-transformer",
                                       os.getpid(), run_schema_transformer,
                                       args)

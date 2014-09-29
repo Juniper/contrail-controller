@@ -179,9 +179,11 @@ class AuthServiceKeystone(object):
                 self._auth_token = auth_middleware.get_admin_token()
                 break
             except auth_token.ServiceError as e:
-                self._server_mgr.config_log_error(
-                    "Error in getting admin token: " + str(e))
+                msg = "Error in getting admin token: " + str(e)
                 time.sleep(2)
+
+        self._server_mgr.config_log("Auth token fetched from keystone.",
+            level=SandeshLevel.SYS_NOTICE)
 
         # open access for troubleshooting
         admin_port = self._conf_info['admin_port']

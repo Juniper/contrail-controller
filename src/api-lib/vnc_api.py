@@ -318,7 +318,9 @@ class VncApi(VncApiClientGen):
             return (True, self.ifmap_to_id(ifmap_id))
     #end _read_args_to_id
 
-    def _request_server(self, op, url, data=None, retry_on_error=True, retry_after_authn=False):
+    def _request_server(self, op, url, data=None, retry_on_error=True,
+                        retry_after_authn=False, retry_count=10):
+        retried = 0
         while True:
             try:
                 if (op == rest.OP_GET):
@@ -360,7 +362,13 @@ class VncApi(VncApiClientGen):
                 raise PermissionDenied(content)
             elif status == 409:
                 raise RefsExistError(content)
-            elif status == 503 or status == 504:
+            elif status == 504:
+                raise TimeOutError('Gateway Timeout 504')
+            elif status == 503:
+                retried += 1
+                if retried >= retry_count:
+                    raise TimeOutError('Service Unavailable Timeout 503')
+
                 time.sleep(1)
                 continue
             else:  # Unknown Error

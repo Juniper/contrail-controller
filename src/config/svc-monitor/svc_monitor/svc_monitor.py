@@ -885,7 +885,7 @@ def main(args_str=None):
         client_pfx = ''
         zk_path_pfx = ''
 
-    _zookeeper_client = ZookeeperClient(client_pfx+"svc-monitor", args.zk_server_ip)
+    _zookeeper_client = ZookeeperClient(client_pfx+"svc-monitor", args.zk_server_ip, None)
     _zookeeper_client.master_election(zk_path_pfx+"/svc-monitor", os.getpid(),
                                   run_svc_monitor, args)
 # end main
