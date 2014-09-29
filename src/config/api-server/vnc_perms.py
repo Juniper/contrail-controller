@@ -6,7 +6,7 @@ import json
 import string
 from provision_defaults import *
 from cfgm_common.exceptions import *
-
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 class VncPermissions(object):
 
@@ -51,12 +51,12 @@ class VncPermissions(object):
         mode_mask = mode | mode << 3 | mode << 6
         ok = is_admin or (mask & perms & mode_mask)
 
-        print '%s %s %s admin=%s, mode=%03o mask=%03o %s/"%s", \
+        msg = '%s %s %s admin=%s, mode=%03o mask=%03o %s/"%s", \
             perms=%03o (%s/%s)' \
             % ('+++' if ok else '---', self.mode_str[mode], uuid,
                'yes' if is_admin else 'no', mode_mask, mask,
                user, string.join(roles, ','), perms, owner, group)
-        sys.stdout.flush()
+        self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
 
         return (True, '') if ok else (False, err_msg)
     # end validate_perms
