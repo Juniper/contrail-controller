@@ -19,7 +19,6 @@ public:
     Inet6Prefix(Ip6Address addr, int prefixlen)
         : ip6_addr_(addr), prefixlen_(prefixlen) {
     }
-    explicit Inet6Prefix(const BgpProtoPrefix &prefix);
     int CompareTo(const Inet6Prefix &rhs) const;
 
     Ip6Address ip6_addr() const { return ip6_addr_; }
@@ -73,11 +72,6 @@ public:
 
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *reqkey);
-
-    virtual void BuildProtoPrefix(BgpProtoPrefix *prefix, const BgpAttr *attr,
-                                  uint32_t label) const;
-    virtual void BuildBgpProtoNextHop(std::vector<uint8_t> &dest,
-                                      IpAddress src) const;
 
     virtual bool IsLess(const DBEntry &genrhs) const {
         const Inet6Route &rhs = static_cast<const Inet6Route &>(genrhs);
