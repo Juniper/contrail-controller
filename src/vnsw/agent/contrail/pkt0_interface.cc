@@ -83,7 +83,7 @@ void Pkt0Interface::InitControlInterface() {
             "> retrieving MAC address of the tap interface");
         assert(0);
     }
-    memcpy(mac_address_, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
+    memcpy(mac_address_, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
 
     int raw;
     if ((raw = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {

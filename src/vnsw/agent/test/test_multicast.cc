@@ -335,22 +335,22 @@ TEST_F(MulticastTest, L2Broadcast_1) {
 	EXPECT_TRUE(VmPortActive(input, 2));
 
     WAIT_FOR(1000, 1000, MCRouteFind("vrf1", "255.255.255.255"));
-    EXPECT_TRUE(L2RouteFind("vrf1", *ether_aton("FF:FF:FF:FF:FF:FF")));
+    EXPECT_TRUE(L2RouteFind("vrf1", MacAddress::BroadcastMac()));
 
     TunnelOlist olist_map;
-    olist_map.push_back(OlistTunnelEntry(2000, 
+    olist_map.push_back(OlistTunnelEntry(2000,
                                          IpAddress::from_string("8.8.8.8").to_v4(),
                                          TunnelType::AllType()));
     MulticastHandler::ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
                                           IpAddress::from_string("255.255.255.255").to_v4(),
                                           IpAddress::from_string("0.0.0.0").to_v4(),
                                           1111, olist_map);
-    AddArp("8.8.8.8", "00:00:08:08:08:08", 
+    AddArp("8.8.8.8", "00:00:08:08:08:08",
            agent_->fabric_interface_name().c_str());
     client->WaitForIdle();
 
     Ip4Address addr = Ip4Address::from_string("255.255.255.255");
-    Inet4MulticastRouteEntry *rt = 
+    Inet4MulticastRouteEntry *rt =
         MCRouteGet("vrf1", "255.255.255.255");
     nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     cnh = static_cast<CompositeNH *>(nh);
@@ -362,7 +362,7 @@ TEST_F(MulticastTest, L2Broadcast_1) {
     EXPECT_TRUE(cnh->composite_nh_type() == Composite::L3COMP);
     DoMulticastSandesh(1);
 
-    Layer2RouteEntry *l2_rt = L2RouteGet("vrf1", *ether_aton("FF:FF:FF:FF:FF:FF"));
+    Layer2RouteEntry *l2_rt = L2RouteGet("vrf1", MacAddress("FF:FF:FF:FF:FF:FF"));
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
     CompositeNH *l2_cnh = static_cast<CompositeNH *>(l2_nh);
     EXPECT_TRUE(l2_cnh->ComponentNHCount() == 2);
@@ -1075,7 +1075,7 @@ TEST_F(MulticastTest, evpn_flood_l2l3_mode) {
 	WAIT_FOR(1000, 1000, (VmPortActive(input, 1) == true));
 
     WAIT_FOR(1000, 1000, MCRouteFind("vrf1", "255.255.255.255"));
-    EXPECT_TRUE(L2RouteFind("vrf1", *ether_aton("FF:FF:FF:FF:FF:FF")));
+    EXPECT_TRUE(L2RouteFind("vrf1", MacAddress::BroadcastMac()));
 
     TunnelOlist olist_map;
     olist_map.push_back(OlistTunnelEntry(2000,
@@ -1118,7 +1118,7 @@ TEST_F(MulticastTest, evpn_flood_l2l3_mode) {
 
     DoMulticastSandesh(1);
 
-    Layer2RouteEntry *l2_rt = L2RouteGet("vrf1", *ether_aton("FF:FF:FF:FF:FF:FF"));
+    Layer2RouteEntry *l2_rt = L2RouteGet("vrf1", MacAddress::BroadcastMac());
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
     CompositeNH *l2_cnh = static_cast<CompositeNH *>(l2_nh);
     EXPECT_TRUE(l2_cnh->ComponentNHCount() == 3);
@@ -1134,10 +1134,10 @@ TEST_F(MulticastTest, evpn_flood_l2l3_mode) {
     EXPECT_TRUE(evpn_cnh->composite_nh_type() == Composite::EVPN);
     EXPECT_TRUE(evpn_cnh->ComponentNHCount() == 1);
     EXPECT_TRUE(evpn_cnh->Get(0)->label() == 1000);
-    const TunnelNH *evpn_tunnel_nh = 
+    const TunnelNH *evpn_tunnel_nh =
         static_cast<const TunnelNH *>(evpn_cnh->GetNH(0));
     EXPECT_TRUE(evpn_tunnel_nh->GetTunnelType().GetType() == TunnelType::MPLS_GRE);
-    EXPECT_TRUE(evpn_tunnel_nh->GetDip()->to_string() == 
+    EXPECT_TRUE(evpn_tunnel_nh->GetDip()->to_string() ==
                 IpAddress::from_string("8.8.8.8").to_v4().to_string());
 
     const CompositeNH *l3_intf_cnh = static_cast<const CompositeNH *>(cnh->GetNH(1));
@@ -1204,11 +1204,11 @@ TEST_F(MulticastTest, evpn_flood_l2_mode) {
     client->WaitForIdle();
 
 	WAIT_FOR(1000, 1000, (VmPortL2Active(input, 0) == true));
-    WAIT_FOR(1000, 1000, L2RouteFind("vrf1", *ether_aton("FF:FF:FF:FF:FF:FF")));
+    WAIT_FOR(1000, 1000, L2RouteFind("vrf1", MacAddress::BroadcastMac()));
     EXPECT_FALSE(MCRouteFind("vrf1", "255.255.255.255"));
 
     TunnelOlist olist_map;
-    olist_map.push_back(OlistTunnelEntry(2000, 
+    olist_map.push_back(OlistTunnelEntry(2000,
                                          IpAddress::from_string("8.8.8.8").to_v4(),
                                          TunnelType::AllType()));
     MulticastHandler::ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
@@ -1217,12 +1217,12 @@ TEST_F(MulticastTest, evpn_flood_l2_mode) {
                                           1111, olist_map);
     client->WaitForIdle();
 
-    AddArp("8.8.8.8", "00:00:08:08:08:08", 
+    AddArp("8.8.8.8", "00:00:08:08:08:08",
            Agent::GetInstance()->fabric_interface_name().c_str());
     client->WaitForIdle();
 
     TunnelOlist evpn_olist_map;
-    evpn_olist_map.push_back(OlistTunnelEntry(1000, 
+    evpn_olist_map.push_back(OlistTunnelEntry(1000,
                                               IpAddress::from_string("8.8.8.8").to_v4(),
                                               TunnelType::MplsType()));
     //Do it for non existent object, to catch any crashes
@@ -1234,14 +1234,14 @@ TEST_F(MulticastTest, evpn_flood_l2_mode) {
                                         evpn_olist_map, 0);
     client->WaitForIdle();
 
-    MulticastGroupObject *mcobj = 
+    MulticastGroupObject *mcobj =
         MulticastHandler::GetInstance()->FindFloodGroupObject("vrf1");
 
     uint32_t evpn_flood_label = mcobj->evpn_mpls_label();
     ASSERT_TRUE(evpn_flood_label != 0);
     ASSERT_TRUE((mcobj->GetLocalOlist()).size() == 1);
 
-    Layer2RouteEntry *l2_rt = L2RouteGet("vrf1", *ether_aton("FF:FF:FF:FF:FF:FF"));
+    Layer2RouteEntry *l2_rt = L2RouteGet("vrf1", MacAddress::BroadcastMac());
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
     CompositeNH *l2_cnh = static_cast<CompositeNH *>(l2_nh);
     EXPECT_TRUE(l2_cnh->ComponentNHCount() == 3);
@@ -1256,10 +1256,10 @@ TEST_F(MulticastTest, evpn_flood_l2_mode) {
     EXPECT_TRUE(evpn_cnh->composite_nh_type() == Composite::EVPN);
     EXPECT_TRUE(evpn_cnh->ComponentNHCount() == 1);
     EXPECT_TRUE(evpn_cnh->Get(0)->label() == 1000);
-    const TunnelNH *evpn_tunnel_nh = 
+    const TunnelNH *evpn_tunnel_nh =
         static_cast<const TunnelNH *>(evpn_cnh->GetNH(0));
     EXPECT_TRUE(evpn_tunnel_nh->GetTunnelType().GetType() == TunnelType::MPLS_GRE);
-    EXPECT_TRUE(evpn_tunnel_nh->GetDip()->to_string() == 
+    EXPECT_TRUE(evpn_tunnel_nh->GetDip()->to_string() ==
                 IpAddress::from_string("8.8.8.8").to_v4().to_string());
 
     const CompositeNH *l2_intf_cnh = static_cast<const CompositeNH *>(l2_cnh->GetNH(2));

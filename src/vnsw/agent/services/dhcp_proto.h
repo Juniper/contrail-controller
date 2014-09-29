@@ -38,7 +38,7 @@ public:
     struct DhcpStats {
         DhcpStats() { Reset(); }
         void Reset() {
-            discover = request = inform = decline = other = 
+            discover = request = inform = decline = other =
             offers = acks = nacks = errors = relay_req = relay_resp = 0;
         }
 
@@ -70,11 +70,11 @@ public:
     void set_ip_fabric_interface_index(uint16_t ind) {
         ip_fabric_interface_index_ = ind;
     }
-    const unsigned char *ip_fabric_interface_mac() const {
+    const MacAddress &ip_fabric_interface_mac() const {
         return ip_fabric_interface_mac_;
     }
-    void set_ip_fabric_interface_mac(char *mac) {
-        memcpy(ip_fabric_interface_mac_, mac, ETH_ALEN);
+    void set_ip_fabric_interface_mac(const MacAddress &mac) {
+        ip_fabric_interface_mac_ = mac;
     }
 
     void IncrStatsDiscover() { stats_.discover++; }
@@ -99,7 +99,7 @@ private:
     bool run_with_vrouter_;
     Interface *ip_fabric_interface_;
     uint16_t ip_fabric_interface_index_;
-    unsigned char ip_fabric_interface_mac_[ETH_ALEN];
+    MacAddress ip_fabric_interface_mac_;
     DBTableBase::ListenerId iid_;
     DhcpStats stats_;
 

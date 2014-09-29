@@ -101,9 +101,9 @@ public:
 
         // Add outer ethernet header
         struct ethhdr *eth = (ethhdr *)buff;
-        eth->h_source[ETH_ALEN-1] = 1;
-        eth->h_dest[ETH_ALEN-1] = 2;
-        eth->h_proto = htons(0x800);
+        eth->h_source[ETHER_ADDR_LEN-1] = 1;
+        eth->h_dest[ETHER_ADDR_LEN-1] = 2;
+        eth->h_proto = htons(ETHERTYPE_IP);
 
         // Fill agent_hdr
         agent_hdr *vr_agent_hdr = (agent_hdr *) (eth + 1);

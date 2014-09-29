@@ -328,7 +328,7 @@ bool ArpNH::Change(const DBRequest *req) {
         ret = true;
     }
 
-    if (memcmp(&mac_, &data->mac_, sizeof(mac_)) != 0) {
+    if (mac_.CompareTo(data->mac_) != 0) {
         mac_ = data->mac_;
         ret = true;
     }
@@ -364,7 +364,7 @@ void ArpNH::SendObjectLog(AgentLogEvent::type event) const {
     const Ip4Address *ip = GetIp();
     info.set_dest_ip(ip->to_string());
 
-    const unsigned char *m = GetMac()->ether_addr_octet;
+    const unsigned char *m = GetMac().GetData();
     FillObjectLogMac(m, info);
 
     OPER_TRACE(NextHop, info);
@@ -378,7 +378,7 @@ NextHop *InterfaceNHKey::AllocEntry() const {
         (Agent::GetInstance()->interface_table()->Find(intf_key_.get(), true));
     if (intf && intf->IsDeleted() && intf->GetRefCount() == 0) {
         //Ignore interface which are  deleted, and there are no reference to it
-        //taking reference on deleted interface with refcount 0, would result 
+        //taking reference on deleted interface with refcount 0, would result
         //in DB state set on deleted interface entry
         intf = NULL;
     }
@@ -435,17 +435,12 @@ bool InterfaceNH::Change(const DBRequest *req) {
         vrf_ = vrf;
         ret = true;
     }
-    if (memcmp(&dmac_, &data->dmac_, sizeof(dmac_)) != 0) {
+    if (dmac_.CompareTo(data->dmac_) != 0) {
         dmac_ = data->dmac_;
         ret = true;
     }
     if (is_multicastNH()) {
-        dmac_.ether_addr_octet[0] = 0xFF;
-        dmac_.ether_addr_octet[1] = 0xFF;
-        dmac_.ether_addr_octet[2] = 0xFF;
-        dmac_.ether_addr_octet[3] = 0xFF;
-        dmac_.ether_addr_octet[4] = 0xFF;
-        dmac_.ether_addr_octet[5] = 0xFF;
+        dmac_ = MacAddress::BroadcastMac();
     }
 
     return ret;
@@ -455,7 +450,7 @@ const uuid &InterfaceNH::GetIfUuid() const {
     return interface_->GetUuid();
 }
 
-static void AddInterfaceNH(const uuid &intf_uuid, const struct ether_addr &dmac,
+static void AddInterfaceNH(const uuid &intf_uuid, const MacAddress &dmac,
                           uint8_t flags, bool policy, const string vrf_name) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new InterfaceNHKey
@@ -465,10 +460,10 @@ static void AddInterfaceNH(const uuid &intf_uuid, const struct ether_addr &dmac,
     Agent::GetInstance()->nexthop_table()->Process(req);
 }
 
-// Create 3 InterfaceNH for every Vm interface. One with policy another without 
+// Create 3 InterfaceNH for every Vm interface. One with policy another without
 // policy, third one is for multicast.
 void InterfaceNH::CreateL3VmInterfaceNH(const uuid &intf_uuid,
-                                        const struct ether_addr &dmac, 
+                                        const MacAddress &dmac,
                                         const string &vrf_name) {
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::INET4, true, vrf_name);
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::INET4, false, vrf_name);
@@ -480,7 +475,7 @@ void InterfaceNH::DeleteL3InterfaceNH(const uuid &intf_uuid) {
 }
 
 void InterfaceNH::CreateL2VmInterfaceNH(const uuid &intf_uuid,
-                                        const struct ether_addr &dmac,
+                                        const MacAddress &dmac,
                                         const string &vrf_name) {
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::LAYER2, false, vrf_name);
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::LAYER2, true, vrf_name);
@@ -492,7 +487,7 @@ void InterfaceNH::DeleteL2InterfaceNH(const uuid &intf_uuid) {
 }
 
 void InterfaceNH::CreateMulticastVmInterfaceNH(const uuid &intf_uuid,
-                                               const struct ether_addr &dmac,
+                                               const MacAddress &dmac,
                                                const string &vrf_name) {
     AddInterfaceNH(intf_uuid, dmac, (InterfaceNHFlags::INET4 |
                                      InterfaceNHFlags::MULTICAST), false,
@@ -532,9 +527,8 @@ void InterfaceNH::CreateInetInterfaceNextHop(const string &ifname,
                                          false, InterfaceNHFlags::INET4);
     req.key.reset(key);
 
-    struct ether_addr mac;
-    memset(&mac, 0, sizeof(mac));
-    mac.ether_addr_octet[ETHER_ADDR_LEN-1] = 1;
+    MacAddress mac;
+    mac.last_octet() = 1;
     InterfaceNHData *data = new InterfaceNHData(vrf_name, mac);
     req.data.reset(data);
     NextHopTable::GetInstance()->Process(req);
@@ -555,9 +549,8 @@ void InterfaceNH::DeleteInetInterfaceNextHop(const string &ifname) {
 
 void InterfaceNH::CreatePacketInterfaceNh(const string &ifname) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    struct ether_addr mac;
-    memset(&mac, 0, sizeof(mac));
-    mac.ether_addr_octet[ETHER_ADDR_LEN-1] = 1;
+    MacAddress mac;
+    mac.last_octet() = 1;
     req.key.reset(new InterfaceNHKey(new PacketInterfaceKey(nil_uuid(), ifname),
                                      false, InterfaceNHFlags::INET4));
     req.data.reset(new InterfaceNHData(Agent::GetInstance()->fabric_vrf_name(),
@@ -585,7 +578,7 @@ void InterfaceNH::SendObjectLog(AgentLogEvent::type event) const {
     const Interface *intf = GetInterface();
     FillObjectLogIntf(intf, info);
 
-    const unsigned char *m = GetDMac().ether_addr_octet;
+    const unsigned char *m = (unsigned char *)GetDMac().GetData();
     FillObjectLogMac(m, info);
 
     OPER_TRACE(NextHop, info);
@@ -1035,12 +1028,12 @@ bool VlanNH::Change(const DBRequest *req) {
         ret = true;
     }
 
-    if (memcmp(&smac_, &data->smac_, sizeof(smac_)) != 0) {
+    if (smac_.CompareTo(data->smac_) != 0) {
         smac_ = data->smac_;
         ret = true;
     }
 
-    if (memcmp(&dmac_, &data->dmac_, sizeof(dmac_)) != 0) {
+    if (dmac_.CompareTo(data->dmac_) != 0) {
         dmac_ = data->dmac_;
         ret = true;
     }
@@ -1053,9 +1046,9 @@ const uuid &VlanNH::GetIfUuid() const {
 }
 
 // Create VlanNH for a VPort
-void VlanNH::Create(const uuid &intf_uuid, uint16_t vlan_tag, 
-                    const string &vrf_name, const ether_addr &smac, 
-                    const ether_addr &dmac) {
+void VlanNH::Create(const uuid &intf_uuid, uint16_t vlan_tag,
+                    const string &vrf_name, const MacAddress &smac,
+                    const MacAddress &dmac) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
@@ -1080,8 +1073,8 @@ void VlanNH::Delete(const uuid &intf_uuid, uint16_t vlan_tag) {
 
 // Create VlanNH for a VPort
 void VlanNH::CreateReq(const uuid &intf_uuid, uint16_t vlan_tag,
-                    const string &vrf_name, const ether_addr &smac,
-                    const ether_addr &dmac) {
+                    const string &vrf_name, const MacAddress &smac,
+                    const MacAddress &dmac) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VlanNHKey(intf_uuid, vlan_tag));
     req.data.reset(new VlanNHData(vrf_name, smac, dmac));
@@ -1113,7 +1106,7 @@ void VlanNH::SendObjectLog(AgentLogEvent::type event) const {
     const Interface *intf = GetInterface();
     FillObjectLogIntf(intf, info);
 
-    const unsigned char *m = GetDMac().ether_addr_octet;
+    const unsigned char *m = GetDMac().GetData();
     FillObjectLogMac(m, info);
 
     info.set_vlan_tag((short int)GetVlanTag());
@@ -2057,15 +2050,15 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
         case ARP: {
             data.set_type("arp");
             const ArpNH *arp = static_cast<const ArpNH *>(this);
-            data.set_sip(arp->GetIp()->to_string()); 
+            data.set_sip(arp->GetIp()->to_string());
             data.set_vrf(arp->GetVrf()->GetName());
             if (valid_ == false) {
                 break;
             }
             data.set_itf(arp->GetInterface()->name());
-            const unsigned char *m = arp->GetMac()->ether_addr_octet;
+            const unsigned char *m = arp->GetMac().GetData();
             char mstr[32];
-            snprintf(mstr, 32, "%x:%x:%x:%x:%x:%x", 
+            snprintf(mstr, 32, "%x:%x:%x:%x:%x:%x",
                      m[0], m[1], m[2], m[3], m[4], m[5]);
             std::string mac(mstr);
             data.set_mac(mac);
@@ -2081,15 +2074,15 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
             data.set_type("interface");
             const InterfaceNH *itf = static_cast<const InterfaceNH *>(this);
             data.set_itf(itf->GetInterface()->name());
-            const unsigned char *m = itf->GetDMac().ether_addr_octet;
+            const unsigned char *m = itf->GetDMac().GetData();
             char mstr[32];
-            snprintf(mstr, 32, "%x:%x:%x:%x:%x:%x", 
+            snprintf(mstr, 32, "%x:%x:%x:%x:%x:%x",
                      m[0], m[1], m[2], m[3], m[4], m[5]);
             std::string mac(mstr);
             data.set_mac(mac);
             if (itf->is_multicastNH())
                 data.set_mcast("enabled");
-            else 
+            else
                 data.set_mcast("disabled");
             break;
         }
@@ -2105,9 +2098,9 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
                                   (tun->GetRt()->GetActiveNextHop());
                 if (nh->GetType() == NextHop::ARP) {
                     const ArpNH *arp_nh = static_cast<const ArpNH *>(nh);
-                    const unsigned char *m = arp_nh->GetMac()->ether_addr_octet;
+                    const unsigned char *m = arp_nh->GetMac().GetData();
                     char mstr[32];
-                    snprintf(mstr, 32, "%x:%x:%x:%x:%x:%x", 
+                    snprintf(mstr, 32, "%x:%x:%x:%x:%x:%x",
                             m[0], m[1], m[2], m[3], m[4], m[5]);
                     std::string mac(mstr);
                     data.set_mac(mac);
@@ -2129,9 +2122,9 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
                 if (nh->GetType() == NextHop::ARP) {
                     const ArpNH *arp_nh = static_cast<const ArpNH *>(nh);
                     (mir_nh->GetRt()->GetActiveNextHop());
-                    const unsigned char *m = arp_nh->GetMac()->ether_addr_octet;
+                    const unsigned char *m = arp_nh->GetMac().GetData();
                     char mstr[32];
-                    snprintf(mstr, 32, "%x:%x:%x:%x:%x:%x", 
+                    snprintf(mstr, 32, "%x:%x:%x:%x:%x:%x",
                             m[0], m[1], m[2], m[3], m[4], m[5]);
                     std::string mac(mstr);
                     data.set_mac(mac);
@@ -2153,7 +2146,7 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
             const VlanNH *itf = static_cast<const VlanNH *>(this);
             data.set_itf(itf->GetInterface()->name());
             data.set_vlan_tag(itf->GetVlanTag());
-            const unsigned char *m = itf->GetDMac().ether_addr_octet;
+            const unsigned char *m = itf->GetDMac().GetData();
             char mstr[32];
             snprintf(mstr, 32, "%x:%x:%x:%x:%x:%x",
                     m[0], m[1], m[2], m[3], m[4], m[5]);
@@ -2161,7 +2154,7 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
             data.set_mac(mac);
             break;
         }
-       
+
         case INVALID:
         default:
             data.set_type("invalid");
