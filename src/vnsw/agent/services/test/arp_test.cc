@@ -62,26 +62,26 @@ public:
     }
 
     void SendArpReq(short ifindex, short vrf, uint32_t sip, uint32_t tip) {
-        int len = 2 * sizeof(ethhdr) + sizeof(agent_hdr) +
+        int len = 2 * sizeof(struct ether_header) + sizeof(agent_hdr) +
                   sizeof(ether_arp);
         uint8_t *ptr(new uint8_t[len]);
         uint8_t *buf  = ptr;
         memset(buf, 0, len);
 
-        ethhdr *eth = (ethhdr *)buf;
-        eth->h_dest[5] = 1;
-        eth->h_source[5] = 2;
-        eth->h_proto = htons(0x800);
+        struct ether_header *eth = (struct ether_header *)buf;
+        eth->ether_dhost[5] = 1;
+        eth->ether_shost[5] = 2;
+        eth->ether_type = htons(0x800);
 
         agent_hdr *agent = (agent_hdr *)(eth + 1);
         agent->hdr_ifindex = htons(ifindex);
         agent->hdr_vrf = htons(vrf);
         agent->hdr_cmd = htons(AgentHdr::TRAP_RESOLVE);
 
-        eth = (ethhdr *) (agent + 1);
-        memcpy(eth->h_dest, dest_mac, MAC_LEN);
-        memcpy(eth->h_source, src_mac, MAC_LEN);
-        eth->h_proto = htons(0x806);
+        eth = (struct ether_header *) (agent + 1);
+        memcpy(eth->ether_dhost, dest_mac, MAC_LEN);
+        memcpy(eth->ether_shost, src_mac, MAC_LEN);
+        eth->ether_type = htons(0x806);
 
         ether_arp *arp = (ether_arp *) (eth + 1);
         arp->ea_hdr.ar_hrd = htons(ARPHRD_ETHER);
@@ -102,25 +102,25 @@ public:
     }
 
     void SendArpReply(short ifindex, short vrf, uint32_t sip, uint32_t tip) {
-        int len = 2 * sizeof(ethhdr) + sizeof(agent_hdr) + sizeof(ether_arp);
+        int len = 2 * sizeof(struct ether_header) + sizeof(agent_hdr) + sizeof(ether_arp);
         uint8_t *ptr(new uint8_t[len]);
         uint8_t *buf  = ptr;
         memset(buf, 0, len);
 
-        ethhdr *eth = (ethhdr *)buf;
-        eth->h_dest[5] = 2;
-        eth->h_source[5] = 1;
-        eth->h_proto = htons(0x800);
+        struct ether_header *eth = (struct ether_header *)buf;
+        eth->ether_dhost[5] = 2;
+        eth->ether_shost[5] = 1;
+        eth->ether_type = htons(0x800);
 
         agent_hdr *agent = (agent_hdr *)(eth + 1);
         agent->hdr_ifindex = htons(ifindex);
         agent->hdr_vrf = htons(vrf);
         agent->hdr_cmd = htons(AgentHdr::TRAP_ARP);
 
-        eth = (ethhdr *) (agent + 1);
-        memcpy(eth->h_dest, src_mac, MAC_LEN);
-        memcpy(eth->h_source, dest_mac, MAC_LEN);
-        eth->h_proto = htons(0x806);
+        eth = (struct ether_header *) (agent + 1);
+        memcpy(eth->ether_dhost, src_mac, MAC_LEN);
+        memcpy(eth->ether_shost, dest_mac, MAC_LEN);
+        eth->ether_type = htons(0x806);
 
         ether_arp *arp = (ether_arp *) (eth + 1);
         arp->ea_hdr.ar_hrd = htons(ARPHRD_ETHER);

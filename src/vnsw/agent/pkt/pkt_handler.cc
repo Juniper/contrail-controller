@@ -189,9 +189,9 @@ void PktHandler::SetOuterIp(PktInfo *pkt_info, uint8_t *pkt) {
     if (pkt_info->ether_type != ETHERTYPE_IP) {
         return;
     }
-    iphdr *ip_hdr = (iphdr *)pkt;
-    pkt_info->tunnel.ip_saddr = ntohl(ip_hdr->saddr);
-    pkt_info->tunnel.ip_daddr = ntohl(ip_hdr->daddr);
+    struct ip *ip_hdr = (struct ip *)pkt;
+    pkt_info->tunnel.ip_saddr = ntohl(ip_hdr->ip_src.s_addr);
+    pkt_info->tunnel.ip_daddr = ntohl(ip_hdr->ip_dst.s_addr);
 }
 
 static bool InterestedIPv6Protocol(uint8_t proto) {
@@ -205,13 +205,13 @@ static bool InterestedIPv6Protocol(uint8_t proto) {
 uint8_t *PktHandler::ParseIpPacket(PktInfo *pkt_info,
                                    PktType::Type &pkt_type, uint8_t *pkt) {
     if (pkt_info->ether_type == ETHERTYPE_IP) {
-        iphdr *ip = (iphdr *)pkt;
+        struct ip *ip = (struct ip *)pkt;
         pkt_info->ip = ip;
         pkt_info->family = Address::INET;
-        pkt_info->ip_saddr = IpAddress(Ip4Address(ntohl(ip->saddr)));
-        pkt_info->ip_daddr = IpAddress(Ip4Address(ntohl(ip->daddr)));
-        pkt_info->ip_proto = ip->protocol;
-        pkt += (ip->ihl << 2);
+        pkt_info->ip_saddr = IpAddress(Ip4Address(ntohl(ip->ip_src.s_addr)));
+        pkt_info->ip_daddr = IpAddress(Ip4Address(ntohl(ip->ip_dst.s_addr)));
+        pkt_info->ip_proto = ip->ip_p;
+        pkt += (ip->ip_hl << 2);
     } else if (pkt_info->ether_type == ETHERTYPE_IPV6) {
         pkt_info->family = Address::INET6;
         ip6_hdr *ip = (ip6_hdr *)pkt;
@@ -277,15 +277,15 @@ uint8_t *PktHandler::ParseIpPacket(PktInfo *pkt_info,
     }
 
     case IPPROTO_ICMP: {
-        pkt_info->transp.icmp = (icmphdr *) pkt;
+        pkt_info->transp.icmp = (struct icmp *) pkt;
         pkt_type = PktType::ICMP;
 
-        icmphdr *icmp = (icmphdr *)pkt;
+        struct icmp *icmp = (struct icmp *)pkt;
 
-        pkt_info->dport = htons(icmp->type);
-        if (icmp->type == ICMP_ECHO || icmp->type == ICMP_ECHOREPLY) {
+        pkt_info->dport = htons(icmp->icmp_type);
+        if (icmp->icmp_type == ICMP_ECHO || icmp->icmp_type == ICMP_ECHOREPLY) {
             pkt_info->dport = ICMP_ECHOREPLY;
-            pkt_info->sport = htons(icmp->un.echo.id);
+            pkt_info->sport = htons(icmp->icmp_id);
         } else {
             pkt_info->sport = 0;
         }
@@ -345,15 +345,15 @@ int PktHandler::ParseMPLSoUDP(PktInfo *pkt_info, uint8_t *pkt) {
 uint8_t *PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
                                   PktType::Type &pkt_type, uint8_t *pkt) {
     // get to the actual packet header
-    pkt_info->eth = (ethhdr *) pkt;
-    pkt_info->ether_type = ntohs(pkt_info->eth->h_proto);
+    pkt_info->eth = (struct ether_header *) pkt;
+    pkt_info->ether_type = ntohs(pkt_info->eth->ether_type);
 
     if (pkt_info->ether_type == ETHERTYPE_VLAN) {
-        pkt = ((uint8_t *)pkt_info->eth) + sizeof(ethhdr) + 4;
+        pkt = ((uint8_t *)pkt_info->eth) + sizeof(struct ether_header) + 4;
         uint16_t *tmp = ((uint16_t *)pkt) - 1;
         pkt_info->ether_type = ntohs(*tmp);
     } else {
-        pkt = ((uint8_t *)pkt_info->eth) + sizeof(ethhdr);
+        pkt = ((uint8_t *)pkt_info->eth) + sizeof(struct ether_header);
     }
 
     // Parse payload
@@ -582,8 +582,8 @@ void PktInfo::set_len(uint32_t x) {
 }
 
 void PktInfo::UpdateHeaderPtr() {
-    eth = (struct ethhdr *)(pkt);
-    ip = (struct iphdr *)(eth + 1);
+    eth = (struct ether_header *)(pkt);
+    ip = (struct ip *)(eth + 1);
     transp.tcp = (struct tcphdr *)(ip + 1);
 }
 
