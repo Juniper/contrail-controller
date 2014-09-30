@@ -19,6 +19,7 @@
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_mirror.h>
 #include <cfg/discovery_agent.h>
+#include <cmn/agent.h>
 
 #include <oper/operdb_init.h>
 #include <oper/interface_common.h>
