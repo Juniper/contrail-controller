@@ -3611,34 +3611,39 @@ class SchemaTransformer(object):
 def launch_arc(transformer, ssrc_mapc):
     arc_mapc = arc_initialize(transformer._args, ssrc_mapc)
     while True:
-        # If not connected to zookeeper Pause the operations
-        if not _zookeeper_client.is_connected():
-            time.sleep(1)
-            continue
-        pollreq = PollRequest(arc_mapc.get_session_id())
-        result = arc_mapc.call('poll', pollreq)
         try:
+            # If not connected to zookeeper Pause the operations
+            if not _zookeeper_client.is_connected():
+                time.sleep(1)
+                continue
+            pollreq = PollRequest(arc_mapc.get_session_id())
+            result = arc_mapc.call('poll', pollreq)
             transformer.process_poll_result(result)
         except Exception as e:
-            string_buf = StringIO()
-            cgitb.Hook(
-                file=string_buf,
-                format="text",
-                ).handle(sys.exc_info())
-            try:
-                with open('/var/log/contrail/schema.err', 'a') as err_file:
-                    err_file.write(string_buf.getvalue())
-            except IOError:
-                with open('./schema.err', 'a') as err_file:
-                    err_file.write(string_buf.getvalue())
-            raise e
+            if type(e) == socket.error:
+                time.sleep(3)
+            else:
+                string_buf = StringIO()
+                cgitb.Hook(
+                    file=string_buf,
+                    format="text",
+                    ).handle(sys.exc_info())
+                try:
+                    with open('/var/log/contrail/schema.err', 'a') as err_file:
+                        err_file.write(string_buf.getvalue())
+                except IOError:
+                    with open('./schema.err', 'a') as err_file:
+                        err_file.write(string_buf.getvalue())
+                if type(e) == InvalidSessionID:
+                    return
 # end launch_arc
 
 
 def launch_ssrc(transformer):
-    ssrc_mapc = ssrc_initialize(transformer._args)
-    arc_glet = gevent.spawn(launch_arc, transformer, ssrc_mapc)
-    arc_glet.join()
+    while True:
+        ssrc_mapc = ssrc_initialize(transformer._args)
+        arc_glet = gevent.spawn(launch_arc, transformer, ssrc_mapc)
+        arc_glet.join()
 # end launch_ssrc
 
 
