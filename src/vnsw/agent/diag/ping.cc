@@ -55,10 +55,10 @@ Ping::CreateTcpPkt(Agent *agent) {
 
     //Update pointers to ethernet header, ip header and l4 header
     pkt_info->UpdateHeaderPtr();
-    pkt_handler->TcpHdr(htonl(sip_.to_ulong()), sport_,  htonl(dip_.to_ulong()), 
+    pkt_handler->TcpHdr(htonl(sip_.to_ulong()), sport_,  htonl(dip_.to_ulong()),
                         dport_, false, rand(), data_len_ + sizeof(tcphdr));
-    pkt_handler->IpHdr(data_len_ + sizeof(tcphdr) + sizeof(iphdr), 
-                       ntohl(sip_.to_ulong()), ntohl(dip_.to_ulong()), 
+    pkt_handler->IpHdr(data_len_ + sizeof(tcphdr) + sizeof(struct ip),
+                       ntohl(sip_.to_ulong()), ntohl(dip_.to_ulong()),
                        IPPROTO_TCP);
     pkt_handler->EthHdr(agent->vhost_interface()->mac().ether_addr_octet,
                         agent->vrrp_mac(), ETHERTYPE_IP);
@@ -85,8 +85,8 @@ Ping::CreateUdpPkt(Agent *agent) {
     pkt_info->UpdateHeaderPtr();
     pkt_handler->UdpHdr(data_len_+ sizeof(udphdr), sip_.to_ulong(), sport_,
                         dip_.to_ulong(), dport_);
-    pkt_handler->IpHdr(data_len_ + sizeof(udphdr) + sizeof(iphdr), 
-                       ntohl(sip_.to_ulong()), ntohl(dip_.to_ulong()), 
+    pkt_handler->IpHdr(data_len_ + sizeof(udphdr) + sizeof(struct ip),
+                       ntohl(sip_.to_ulong()), ntohl(dip_.to_ulong()),
                        IPPROTO_UDP);
     pkt_handler->EthHdr(agent->vhost_interface()->mac().ether_addr_octet,
                         agent->vrrp_mac(), ETHERTYPE_IP);
@@ -98,7 +98,7 @@ void Ping::SendRequest() {
     Agent *agent = Agent::GetInstance();
     DiagPktHandler *pkt_handler = NULL;
     //Increment the attempt count
-    seq_no_++; 
+    seq_no_++;
     switch(proto_) {
     case IPPROTO_TCP:
         pkt_handler = CreateTcpPkt(agent);

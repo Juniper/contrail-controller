@@ -87,11 +87,11 @@ public:
         memcpy(buf, msg, length);
 
         // Change the agent header
-        ethhdr *eth = (ethhdr *)buf;
+        struct ether_header *eth = (struct ether_header *)buf;
         unsigned char mac[ETH_ALEN];
-        memcpy(mac, eth->h_dest, ETH_ALEN);
-        memcpy(eth->h_dest, eth->h_source, ETH_ALEN);
-        memcpy(eth->h_source, mac, ETH_ALEN);
+        memcpy(mac, eth->ether_dhost, ETH_ALEN);
+        memcpy(eth->ether_dhost, eth->ether_shost, ETH_ALEN);
+        memcpy(eth->ether_shost, mac, ETH_ALEN);
 
         agent_hdr *agent = (agent_hdr *)(eth + 1);
         int intf_id = ntohs(agent->hdr_ifindex);
@@ -114,9 +114,9 @@ public:
 
         const unsigned char smac[] = {0x00, 0x25, 0x90, 0xc4, 0x82, 0x2c};
         const unsigned char dmac[] = {0x02, 0xce, 0xa0, 0x6c, 0x96, 0x34};
-        eth = (ethhdr *) (agent + 1);
-        memcpy(eth->h_dest, dmac, ETH_ALEN);
-        memcpy(eth->h_source, smac, ETH_ALEN);
+        eth = (struct ether_header *) (agent + 1);
+        memcpy(eth->ether_dhost, dmac, ETH_ALEN);
+        memcpy(eth->ether_shost, smac, ETH_ALEN);
 
         // send the recieved packet back
         tap_->TxPacket(buf, length);

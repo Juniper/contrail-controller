@@ -42,11 +42,11 @@ bool Icmpv6Handler::Run() {
         return true;
     }
     VmInterface *vm_itf = static_cast<VmInterface *>(itf);
-    if (!vm_itf->layer3_forwarding()) { 
+    if (!vm_itf->layer3_forwarding()) {
         icmpv6_proto->IncrementStatsDrop();
         ICMPV6_TRACE(Trace, "Received ICMP with l3 disabled");
         return true;
-    } 
+    }
     switch (icmp_->icmp6_type) {
         case ND_ROUTER_SOLICIT:
             icmpv6_proto->IncrementStatsRouterSolicit();
@@ -61,7 +61,7 @@ bool Icmpv6Handler::Run() {
                                    pkt_info_->vrf,
                                    src_addr.to_bytes().data(),
                                    pkt_info_->ip_saddr.to_v6().to_bytes().data(),
-                                   pkt_info_->eth->h_source, prefix, plen);
+                                   pkt_info_->eth->ether_shost, prefix, plen);
                     icmpv6_proto->IncrementStatsRouterAdvert();
                     return true;
                 }
@@ -99,10 +99,10 @@ bool Icmpv6Handler::RouterAdvertisement(Icmpv6Proto *proto) {
          it != interfaces.end(); ++it) {
         if ((*it)->IsIpv6Active()) {
             pkt_info_->AllocPacketBuffer(agent(), PktHandler::ICMPV6, ICMP_PKT_SIZE, 0);
-            pkt_info_->eth = (ethhdr *)(pkt_info_->pkt);
-            pkt_info_->ip6 = (ip6_hdr *)(pkt_info_->pkt + sizeof(ethhdr));
+            pkt_info_->eth = (struct ether_header *)(pkt_info_->pkt);
+            pkt_info_->ip6 = (ip6_hdr *)(pkt_info_->pkt + sizeof(struct ether_header));
             icmp_ = pkt_info_->transp.icmp6 =
-                (icmp6_hdr *)(pkt_info_->pkt + sizeof(ethhdr) + sizeof(ip6_hdr));
+                (icmp6_hdr *)(pkt_info_->pkt + sizeof(struct ether_header) + sizeof(ip6_hdr));
             Ip6Address prefix;
             uint8_t plen;
             if ((*it)->vn()->GetPrefix((*it)->ip6_addr(), &prefix, &plen)) {
@@ -119,7 +119,7 @@ bool Icmpv6Handler::RouterAdvertisement(Icmpv6Proto *proto) {
 }
 
 bool Icmpv6Handler::CheckPacket() {
-    if (pkt_info_->len < (sizeof(ethhdr) + sizeof(ip6_hdr) +
+    if (pkt_info_->len < (sizeof(struct ether_header) + sizeof(ip6_hdr) +
                           ntohs(pkt_info_->ip6->ip6_plen)))
         return false;
 
@@ -193,7 +193,7 @@ void Icmpv6Handler::SendPingResponse() {
     SendIcmpv6Response(pkt_info_->GetAgentHdr().ifindex, pkt_info_->vrf,
                        pkt_info_->ip_daddr.to_v6().to_bytes().data(),
                        pkt_info_->ip_saddr.to_v6().to_bytes().data(),
-                       pkt_info_->eth->h_source, pkt_info_->ip6->ip6_plen);
+                       pkt_info_->eth->ether_shost, pkt_info_->ip6->ip6_plen);
 }
 
 void Icmpv6Handler::SendIcmpv6Response(uint16_t ifindex, uint16_t vrfindex,
@@ -203,7 +203,7 @@ void Icmpv6Handler::SendIcmpv6Response(uint16_t ifindex, uint16_t vrfindex,
     Ip6Hdr(pkt_info_->ip6, len, IPV6_ICMP_NEXT_HEADER, 255, src_ip, dest_ip);
     len += sizeof(ip6_hdr);
     EthHdr(agent()->vrrp_mac(), dest_mac, ETHERTYPE_IPV6);
-    len += sizeof(ethhdr);
+    len += sizeof(struct ether_header);
     pkt_info_->set_len(len);
 
     Send(ifindex, vrfindex, AgentHdr::TX_SWITCH, PktHandler::ICMPV6);
