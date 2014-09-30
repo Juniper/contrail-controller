@@ -1,4 +1,6 @@
 #include "oper/loadbalancer_haproxy.h"
+#include "oper/operdb_init.h"
+#include "oper/namespace_manager.h"
 
 #include <cstdlib>
 #include <boost/uuid/random_generator.hpp>
@@ -6,6 +8,14 @@
 #include "testing/gunit.h"
 
 #include "oper/loadbalancer_properties.h"
+#include "cmn/agent.h"
+#include "test/test_init.h"
+
+using namespace std;
+class Agent;
+void RouterIdDepInit(Agent *agent) {
+}
+
 
 using boost::uuids::uuid;
 
@@ -16,8 +26,6 @@ class LoadbalancerHaproxyTest : public ::testing::Test {
 
     virtual void TearDown() {
     }
-
-    LoadbalancerHaproxy haproxy_;
 };
 
 TEST_F(LoadbalancerHaproxyTest, GenerateConfig) {
@@ -46,11 +54,14 @@ TEST_F(LoadbalancerHaproxyTest, GenerateConfig) {
     
     std::stringstream ss;
     ss << "/tmp/" << getpid() << ".conf";
-    haproxy_.GenerateConfig(ss.str(), pool_id, props);
+    Agent::GetInstance()->oper_db()->namespace_manager()->haproxy().GenerateConfig(ss.str(), pool_id, props);
 }
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
+    GETUSERARGS();
+    client = TestInit(init_file, ksync_init);
+
     LoggingInit();
     int result = RUN_ALL_TESTS();
     return result;

@@ -65,8 +65,10 @@ class NamespaceManager {
 
     static const int kTimeoutDefault = 30;
     static const int kWorkersDefault = 1;
+    static const int StaleTimerInterval = 5 * 60 * 1000;
 
-    NamespaceManager(EventManager *evm);
+    NamespaceManager(Agent *);
+    ~NamespaceManager();
 
     void Initialize(DB *database, AgentSignal *signal,
                     const std::string &netns_cmd, const int netns_workers,
@@ -75,9 +77,12 @@ class NamespaceManager {
     bool DequeueEvent(NamespaceManagerChildEvent event);
 
     NamespaceState *GetState(ServiceInstance *) const;
+    bool StaleTimeout();
+    const LoadbalancerHaproxy &haproxy() const { return *(haproxy_.get()); }
 
  private:
     friend class NamespaceManagerTest;
+    class NamespaceStaleCleaner;
 
     void HandleSigChild(const boost::system::error_code& error, int sig,
                         pid_t pid, int status);
@@ -86,6 +91,7 @@ class NamespaceManager {
     void StartNetNS(ServiceInstance *svc_instance, NamespaceState *state,
                     bool update);
     void StopNetNS(ServiceInstance *svc_instance, NamespaceState *state);
+    void StopStaleNetNS(ServiceInstance::Properties &props);
     void OnError(NamespaceTask *task, const std::string errors);
     void RegisterSvcInstance(NamespaceTask *task,
                              ServiceInstance *svc_instance);
@@ -128,7 +134,6 @@ class NamespaceManager {
      */
     void LoadbalancerObserver(DBTablePartBase *db_part, DBEntryBase *entry);
 
-    EventManager *evm_;
     DBTableBase *si_table_;
     DBTableBase::ListenerId si_listener_;
     DBTableBase *lb_table_;
@@ -142,6 +147,9 @@ class NamespaceManager {
     std::map<std::string, int> last_cmd_types_;
     std::string loadbalancer_config_path_;
     std::auto_ptr<LoadbalancerHaproxy> haproxy_;
+    Timer *stale_timer_;
+    std::auto_ptr<NamespaceStaleCleaner> stale_cleaner_;
+    Agent *agent_;
 
     DISALLOW_COPY_AND_ASSIGN(NamespaceManager);
 };

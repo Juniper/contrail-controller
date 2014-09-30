@@ -7,10 +7,12 @@
 #include <boost/bind.hpp>
 #include <boost/functional/hash.hpp>
 #include <boost/filesystem.hpp>
+#include<boost/tokenizer.hpp>
 #include <sys/wait.h>
 #include "db/db.h"
 #include "io/event_manager.h"
 #include "oper/service_instance.h"
+#include "oper/operdb_init.h"
 #include "oper/loadbalancer.h"
 #include "oper/loadbalancer_haproxy.h"
 #include "oper/loadbalancer_properties.h"
@@ -22,17 +24,111 @@ using boost::uuids::uuid;
 static const char loadbalancer_config_path_default[] =
         "/var/lib/contrail/loadbalancer/";
 
-NamespaceManager::NamespaceManager(EventManager *evm)
-        : evm_(evm), si_table_(NULL),
-          si_listener_(DBTableBase::kInvalidId),
-          lb_table_(NULL),
-          lb_listener_(DBTableBase::kInvalidId),
+class NamespaceManager::NamespaceStaleCleaner {
+public:
+    NamespaceStaleCleaner(Agent *agent): agent_(agent) {
+    }
+
+    bool SiEntryWalk(DBTablePartBase *partition, DBEntryBase *entry) {
+        ServiceInstance *svc_instance = static_cast<ServiceInstance *>(entry);
+
+        std::string instance_name = UuidToString(svc_instance->properties().instance_id);
+        boost::char_separator<char> sep(":");
+        typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
+        for(std::list<std::string>::iterator it = ns_list_.begin();
+                it != ns_list_.end(); ++ it) {
+            tokenizer tok(*it, sep);
+            if (*tok.begin() == instance_name) {
+                ns_list_.erase(it);
+                break;
+            }
+        }
+        return true;
+    }
+
+    void SiEntryWalkDone(DBTableBase *partition) {
+        if (!ns_list_.size())
+            return;
+        boost::char_separator<char> sep(":");
+        typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
+        ServiceInstance::Properties prop;
+        for(std::list<std::string>::iterator it = ns_list_.begin();
+                it != ns_list_.end(); ++ it) {
+            tokenizer tok(*it, sep);
+            std::string instance_id = *tok.begin();
+            std::string pool_id;
+            tokenizer::iterator next_tok = ++(tok.begin());
+            prop.service_type = ServiceInstance::SourceNAT;
+            if (next_tok != tok.end()) {
+                pool_id = *next_tok;
+                prop.service_type = ServiceInstance::LoadBalancer;
+            }
+            prop.instance_id = StringToUuid(instance_id);
+            prop.pool_id = StringToUuid(pool_id);
+            agent_->oper_db()->namespace_manager()->StopStaleNetNS(prop);
+        }
+    }
+
+    void CleanStaleEntries() {
+        namespace fs = boost::filesystem;
+
+        fs::path ns("/var/run/netns");
+
+        fs::directory_iterator end_iter;
+        fs::directory_iterator iter(ns);
+        typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
+        boost::char_separator<char> sep("/");
+        std::string ns_name;
+        std::size_t vrouter_found;
+        for(;iter != end_iter; iter++) {
+            tokenizer tokens(iter->path().string(), sep);
+            for(tokenizer::iterator it=tokens.begin(); it!=tokens.end(); it++){
+                ns_name = *it;
+            }
+            vrouter_found = ns_name.find("vrouter-");
+            if (vrouter_found == std::string::npos) {
+                continue;
+            }
+
+            ns_name.replace(vrouter_found, 8, "");
+            ns_list_.push_back(ns_name);
+        }
+
+        if (ns_list_.size()) {
+            DBTableWalker *walker = agent_->db()->GetWalker();
+            walker->WalkTable(agent_->service_instance_table(), NULL,
+                      boost::bind(&NamespaceManager::NamespaceStaleCleaner::
+                                    SiEntryWalk, this, _1, _2),
+                      boost::bind(&NamespaceManager::NamespaceStaleCleaner::
+                                    SiEntryWalkDone, this, _1));
+        }
+    }
+private:
+    std::list<std::string>ns_list_;
+    Agent *agent_;
+
+};
+
+NamespaceManager::~NamespaceManager() {
+    TimerManager::DeleteTimer(stale_timer_);
+}
+
+NamespaceManager::NamespaceManager(Agent *agent)
+        : si_table_(NULL), si_listener_(DBTableBase::kInvalidId),
+          lb_table_(NULL), lb_listener_(DBTableBase::kInvalidId),
           netns_timeout_(-1),
           work_queue_(TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0,
                       boost::bind(&NamespaceManager::DequeueEvent, this, _1)),
           loadbalancer_config_path_(loadbalancer_config_path_default),
-          haproxy_(new LoadbalancerHaproxy()) {
+          haproxy_(new LoadbalancerHaproxy(agent)),
+          stale_timer_(TimerManager::CreateTimer(*(agent->event_manager()->io_service()),
+                      "NameSpaceStaleTimer", TaskScheduler::GetInstance()->
+                      GetTaskId("db::DBTable"), 0)), stale_cleaner_
+                      (new NamespaceManager::NamespaceStaleCleaner(agent)),
+                      agent_(agent) {
+
 }
+
 
 void NamespaceManager::Initialize(DB *database, AgentSignal *signal,
                                   const std::string &netns_cmd,
@@ -71,13 +167,16 @@ void NamespaceManager::Initialize(DB *database, AgentSignal *signal,
     task_queues_.resize(workers);
     for (std::vector<NamespaceTaskQueue *>::iterator iter = task_queues_.begin();
          iter != task_queues_.end(); ++iter) {
-        NamespaceTaskQueue *task_queue = new NamespaceTaskQueue(evm_);
+        NamespaceTaskQueue *task_queue = new NamespaceTaskQueue(agent_->event_manager());
         assert(task_queue);
         task_queue->set_on_timeout_cb(
                         boost::bind(&NamespaceManager::OnTaskTimeout,
                                     this, _1));
         *iter = task_queue;
     }
+    stale_timer_->Start(StaleTimerInterval,
+                        boost::bind(&NamespaceManager::StaleTimeout, this));
+
 }
 
 void NamespaceManager::OnTaskTimeout(NamespaceTaskQueue *task_queue) {
@@ -390,6 +489,7 @@ void NamespaceManager::StartNetNS(ServiceInstance *svc_instance,
     if (props.service_type == ServiceInstance::LoadBalancer) {
         cmd_str << " --cfg-file " << loadbalancer_config_path_ <<
             props.pool_id << "/etc/haproxy/haproxy.cfg";
+        cmd_str << " --pool-id " << props.pool_id;
         cmd_str << " --gw-ip " << props.gw_ip;
     }
 
@@ -398,7 +498,8 @@ void NamespaceManager::StartNetNS(ServiceInstance *svc_instance,
     }
     state->set_properties(props);
 
-    NamespaceTask *task = new NamespaceTask(cmd_str.str(), Start, evm_);
+    NamespaceTask *task = new NamespaceTask(cmd_str.str(), Start,
+            agent_->event_manager());
     task->set_on_error_cb(boost::bind(&NamespaceManager::OnError,
                                       this, _1, _2));
 
@@ -446,14 +547,44 @@ void NamespaceManager::StopNetNS(ServiceInstance *svc_instance,
     if (props.service_type == ServiceInstance::LoadBalancer) {
         cmd_str << " --cfg-file " << loadbalancer_config_path_ <<
             props.pool_id << "/etc/haproxy/haproxy.cfg";
+        cmd_str << " pool-id " << props.pool_id;
     }
 
-    NamespaceTask *task = new NamespaceTask(cmd_str.str(), Stop, evm_);
+    NamespaceTask *task = new NamespaceTask(cmd_str.str(), Stop,
+            agent_->event_manager());
     boost::uuids::uuid uuid = svc_instance->properties().instance_id;
     Enqueue(task, uuid);
 
     RegisterSvcInstance(task, svc_instance);
     LOG(DEBUG, "NetNS run command queued: " << task->cmd());
+}
+
+void NamespaceManager::StopStaleNetNS(ServiceInstance::Properties &props) {
+    std::stringstream cmd_str;
+    std::string instance_id = UuidToString(props.instance_id);
+    std::string lb_pool_id = UuidToString(props.pool_id);
+
+    if (agent_->oper_db()->namespace_manager()->netns_cmd_.length() == 0) {
+        return;
+    }
+    cmd_str << agent_->oper_db()->namespace_manager()->netns_cmd_ << " destroy";
+
+
+    cmd_str << " " << props.ServiceTypeString();
+    cmd_str << " " << instance_id;
+    cmd_str << " " << UuidToString(boost::uuids::nil_uuid());
+    cmd_str << " " << UuidToString(boost::uuids::nil_uuid());
+    if (props.service_type == ServiceInstance::LoadBalancer) {
+        cmd_str << " --cfg-file " << loadbalancer_config_path_default <<
+            lb_pool_id << "/etc/haproxy/haproxy.cfg";
+        cmd_str << " --pool-id " << lb_pool_id;
+    }
+
+    NamespaceTask *task = new NamespaceTask(cmd_str.str(), Stop,
+                                agent_->event_manager());
+    agent_->oper_db()->namespace_manager()->Enqueue(task, props.instance_id);
+
+    LOG(DEBUG, "NetNS stale run command queued: " << task->cmd());
 }
 
 void NamespaceManager::SetLastCmdType(ServiceInstance *svc_instance,
@@ -532,35 +663,41 @@ void NamespaceManager::LoadbalancerObserver(
     DBTablePartBase *db_part, DBEntryBase *entry) {
     Loadbalancer *loadbalancer = static_cast<Loadbalancer *>(entry);
     std::stringstream pathgen;
-    pathgen << loadbalancer_config_path_ << loadbalancer->uuid();
+        pathgen << loadbalancer_config_path_ << loadbalancer->uuid();
 
-    boost::system::error_code error;
-    if (!loadbalancer->IsDeleted() && loadbalancer->properties() != NULL) {
-        pathgen << "/etc/haproxy";
-        boost::filesystem::path dir(pathgen.str());
-        if (!boost::filesystem::exists(dir, error)) {
+        boost::system::error_code error;
+        if (!loadbalancer->IsDeleted() && loadbalancer->properties() != NULL) {
+            pathgen << "/etc/haproxy";
+            boost::filesystem::path dir(pathgen.str());
+            if (!boost::filesystem::exists(dir, error)) {
 #if 0
-            if (error) {
-                LOG(ERROR, error.message());
-                return;
-            }
+                if (error) {
+                    LOG(ERROR, error.message());
+                    return;
+                }
 #endif
-            boost::filesystem::create_directories(dir, error);
-            if (error) {
-                LOG(ERROR, error.message());
-                return;
+                boost::filesystem::create_directories(dir, error);
+                if (error) {
+                    LOG(ERROR, error.message());
+                    return;
+                }
             }
+            pathgen << "/haproxy.cfg";
+            haproxy_->GenerateConfig(pathgen.str(), loadbalancer->uuid(),
+                                     *loadbalancer->properties());
+        } else {
+             boost::filesystem::remove(pathgen.str(), error);
+             if (error) {
+                 LOG(ERROR, error.message());
+                 return;
+             }
         }
-        pathgen << "/haproxy.cfg";
-        haproxy_->GenerateConfig(pathgen.str(), loadbalancer->uuid(),
-                                 *loadbalancer->properties());
-    } else {
-         boost::filesystem::remove(pathgen.str(), error);
-         if (error) {
-             LOG(ERROR, error.message());
-             return;
-         }
     }
+
+bool NamespaceManager::StaleTimeout() {
+
+    stale_cleaner_->CleanStaleEntries();
+    return false;
 }
 
 /*

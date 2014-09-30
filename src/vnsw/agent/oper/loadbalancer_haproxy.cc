@@ -16,9 +16,9 @@
 using namespace std;
 using boost::assign::map_list_of;
 
-LoadbalancerHaproxy::LoadbalancerHaproxy()
+LoadbalancerHaproxy::LoadbalancerHaproxy(Agent *agent)
         : protocol_default_("tcp"),
-          balance_default_("roundrobin") {
+          balance_default_("roundrobin"), agent_(agent) {
     protocol_map_ = map_list_of
             ("TCP", "tcp")
             ("HTTP", "http")
@@ -93,7 +93,7 @@ void LoadbalancerHaproxy::GenerateFrontend(
          << "bind " << vip.address << ":" << vip.protocol_port;
     if (vip.protocol_port ==  LB_HAPROXY_SSL_PORT) {
         *out << " ssl crt " <<
-            Agent::GetInstance()->params()->si_haproxy_ssl_cert_path();
+            agent_->params()->si_haproxy_ssl_cert_path();
     }
     *out << endl;
 

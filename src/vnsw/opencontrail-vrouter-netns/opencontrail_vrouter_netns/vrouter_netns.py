@@ -54,9 +54,11 @@ class NetnsManager(object):
     LBAAS_PROCESS = 'haproxy'
 
     def __init__(self, vm_uuid, nic_left, nic_right, root_helper='sudo',
-            cfg_file=None, update=False, gw_ip=None):
+            cfg_file=None, update=False, pool_id=None, gw_ip=None):
         self.vm_uuid = vm_uuid
         self.namespace = self.NETNS_PREFIX + self.vm_uuid
+        if pool_id:
+            self.namespace = self.namespace + ":" + pool_id;
         self.nic_left = nic_left
         self.nic_right = nic_right
         self.root_helper = root_helper
@@ -163,6 +165,7 @@ class NetnsManager(object):
             self.ip_ns.netns.execute(['route', 'del', 'default'])
         except RuntimeError:
             pass
+        
 
     def destroy(self):
         if not self.ip_ns.netns.exists(self.namespace):
@@ -190,9 +193,6 @@ class NetnsManager(object):
                                 self.vm_uuid)
 
     def unplug_namespace_interface(self):
-        if not self.nic_right:
-            raise ValueError('Need right interface to unplug a '
-                             'network namespace onto vrouter')
         if self.nic_left:
             self._delete_port_to_agent(self.nic_left)
         if self.nic_right:
@@ -327,6 +327,10 @@ class VRouterNetns(object):
             "--gw-ip",
             default=None,
             help=("Gateway IP for Virtual Network"))
+        create_parser.add_argument(
+            "--pool-id",
+            default=None,
+            help=("Loadbalancer Pool"))
         create_parser.set_defaults(func=self.create)
 
         destroy_parser = subparsers.add_parser('destroy')
@@ -347,6 +351,10 @@ class VRouterNetns(object):
             "--cfg-file",
             default=None,
             help=("config file for lbaas"))
+        destroy_parser.add_argument(
+            "--pool-id",
+            default=None,
+            help=("Loadbalancer Pool"))
         destroy_parser.set_defaults(func=self.destroy)
 
         self.args = parser.parse_args(remaining_argv)
@@ -383,7 +391,8 @@ class VRouterNetns(object):
         netns_mgr = NetnsManager(netns_name, nic_left, nic_right,
                                  root_helper=self.args.root_helper,
                                  cfg_file=self.args.cfg_file,
-                                 update=self.args.update, gw_ip=self.args.gw_ip)
+                                 update=self.args.update, gw_ip=self.args.gw_ip,
+                                 pool_id=self.args.pool_id)
 
         if (self.args.update is False):
             if netns_mgr.is_netns_already_exists():
@@ -417,7 +426,8 @@ class VRouterNetns(object):
 
         netns_mgr = NetnsManager(netns_name, nic_left, nic_right,
                                  root_helper=self.args.root_helper,
-                                 cfg_file=self.args.cfg_file, gw_ip=None)
+                                 cfg_file=self.args.cfg_file, gw_ip=None,
+                                 pool_id=self.args.pool_id)
 
         netns_mgr.unplug_namespace_interface()
         if self.args.service_type == self.SOURCE_NAT:
