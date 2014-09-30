@@ -45,7 +45,7 @@ bool DnsHandler::Run() {
        default:
             return HandleRequest();
     }
-}    
+}
 
 bool DnsHandler::HandleRequest() {
     DnsProto *dns_proto = agent()->GetDnsProto();
@@ -54,13 +54,13 @@ bool DnsHandler::HandleRequest() {
     uint16_t ret = DNS_ERR_NO_ERROR;
     const Interface *itf =
         agent()->interface_table()->FindInterface(GetInterfaceIndex());
-    if (!itf || (itf->type() != Interface::VM_INTERFACE) || 
+    if (!itf || (itf->type() != Interface::VM_INTERFACE) ||
         dns_->flags.req) {
         dns_proto->IncrStatsDrop();
         DNS_BIND_TRACE(DnsBindError, "Received Invalid DNS request - dropping"
-                       << "; itf = " << itf << "; flags.req = " 
-                       << dns_->flags.req << "; src addr = " 
-                       << pkt_info_->ip->saddr <<";");
+                       << "; itf = " << itf << "; flags.req = "
+                       << dns_->flags.req << "; src addr = "
+                       << pkt_info_->ip->ip_src.s_addr <<";");
         return true;
     }
 
@@ -731,17 +731,17 @@ DnsHandler::Resolve(dns_flags flags, const DnsItems &ques, DnsItems &ans,
 
 void DnsHandler::SendDnsResponse() {
     unsigned char dest_mac[ETH_ALEN];
-    memcpy(dest_mac, pkt_info_->eth->h_source, ETH_ALEN);
+    memcpy(dest_mac, pkt_info_->eth->ether_shost, ETH_ALEN);
 
     // fill in the response
     dns_resp_size_ += sizeof(udphdr);
     if (pkt_info_->ip) {
         // IPv4 request
-        in_addr_t src_ip = pkt_info_->ip->daddr;
-        in_addr_t dest_ip = pkt_info_->ip->saddr;
+        in_addr_t src_ip = pkt_info_->ip->ip_dst.s_addr;
+        in_addr_t dest_ip = pkt_info_->ip->ip_src.s_addr;
         UdpHdr(dns_resp_size_, src_ip, DNS_SERVER_PORT,
                dest_ip, ntohs(pkt_info_->transp.udp->source));
-        dns_resp_size_ += sizeof(iphdr);
+        dns_resp_size_ += sizeof(struct ip);
         IpHdr(dns_resp_size_, src_ip, dest_ip, IPPROTO_UDP);
         EthHdr(agent()->vhost_interface()->mac().ether_addr_octet, dest_mac,
                ETHERTYPE_IP);
@@ -758,7 +758,7 @@ void DnsHandler::SendDnsResponse() {
         EthHdr(agent()->vhost_interface()->mac().ether_addr_octet, dest_mac,
                ETHERTYPE_IPV6);
     }
-    dns_resp_size_ += sizeof(ethhdr);
+    dns_resp_size_ += sizeof(struct ether_header);
     pkt_info_->set_len(dns_resp_size_);
 
     PacketInterfaceKey key(nil_uuid(), agent()->pkt_interface_name());

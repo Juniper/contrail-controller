@@ -197,25 +197,25 @@ int SFlowParser::ReadSFlowFlowHeader(SFlowFlowHeader& flow_header) {
     }
     switch(flow_header.protocol) {
     case SFLOW_FLOW_HEADER_IPV4: {
-        if (DecodeIpv4Header(flow_header.header, 
+        if (DecodeIpv4Header(flow_header.header,
                              flow_header.decoded_ip_data) < 0) {
             return -1;
         }
-        flow_header.is_ip_data_set = true; 
+        flow_header.is_ip_data_set = true;
     }
         break;
     default:
-        LOG(DEBUG, "Skip processing of protocol header: " << 
+        LOG(DEBUG, "Skip processing of protocol header: " <<
             flow_header.protocol);
     }
     return 0;
 }
 
-int SFlowParser::DecodeIpv4Header(const uint8_t* ipv4h, 
+int SFlowParser::DecodeIpv4Header(const uint8_t* ipv4h,
                                   SFlowFlowIpData& ip_data) {
     // add sanity check
 
-    iphdr* ip = (iphdr*)ipv4h;
+    struct ip* ip = (struct ip*)ipv4h;
     ip_data.length = ntohs(ip->tot_len);
     ip_data.protocol = ip->protocol;
     ip_data.src_ip.type = SFLOW_IPADDR_V4;
@@ -234,7 +234,7 @@ int SFlowParser::DecodeLayer4Header(const uint8_t* l4h,
 
     switch(ip_data.protocol) {
     case IPPROTO_ICMP: {
-        icmphdr* icmp = (icmphdr*)l4h;
+        struct icmp* icmp = (struct icmp*)l4h;
         if (icmp->type == ICMP_ECHO || icmp->type == ICMP_ECHOREPLY) {
             ip_data.src_port = ntohs(icmp->un.echo.id);
             ip_data.dst_port = ICMP_ECHOREPLY;

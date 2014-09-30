@@ -13,7 +13,7 @@ ProtoHandler::ProtoHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
                            boost::asio::io_service &io)
     : agent_(agent), pkt_info_(info), io_(io) {}
 
-ProtoHandler::~ProtoHandler() { 
+ProtoHandler::~ProtoHandler() {
 }
 
 uint32_t ProtoHandler::EncapHeaderLen() const {
@@ -35,8 +35,8 @@ void ProtoHandler::Send(uint16_t itf, uint16_t vrf, uint16_t cmd,
 uint16_t ProtoHandler::EthHdr(char *buff, uint8_t len, const unsigned char *src,
                               const unsigned char *dest, const uint16_t proto,
                               uint16_t vlan_id) {
-    ethhdr *eth = (ethhdr *)buff;
-    uint16_t encap_len = sizeof(ethhdr);
+    struct ether_header *eth = (struct ether_header *)buff;
+    uint16_t encap_len = sizeof(struct ether_header);
 
     if (vlan_id != VmInterface::kInvalidVlanId) {
         encap_len += 4;
@@ -46,8 +46,8 @@ uint16_t ProtoHandler::EthHdr(char *buff, uint8_t len, const unsigned char *src,
         return 0;
     }
 
-    memcpy(eth->h_dest, dest, ETH_ALEN);
-    memcpy(eth->h_source, src, ETH_ALEN);
+    memcpy(eth->ether_dhost, dest, ETH_ALEN);
+    memcpy(eth->ether_shost, src, ETH_ALEN);
 
     uint16_t *ptr = (uint16_t *) (buff + ETH_ALEN * 2);
     if (vlan_id != VmInterface::kInvalidVlanId) {
@@ -62,7 +62,7 @@ uint16_t ProtoHandler::EthHdr(char *buff, uint8_t len, const unsigned char *src,
 
 void ProtoHandler::EthHdr(const unsigned char *src, const unsigned char *dest,
                           const uint16_t proto) {
-    EthHdr((char *)pkt_info_->eth, sizeof(ethhdr), src, dest, proto,
+    EthHdr((char *)pkt_info_->eth, sizeof(struct ether_header), src, dest, proto,
            VmInterface::kInvalidVlanId);
 }
 
@@ -77,30 +77,30 @@ void ProtoHandler::VlanHdr(uint8_t *ptr, uint16_t tci) {
 
 uint16_t ProtoHandler::IpHdr(char *buff, uint16_t buf_len, uint16_t len,
                              in_addr_t src, in_addr_t dest, uint8_t protocol) {
-    iphdr *ip = (iphdr *)buff;
-    if (buf_len < sizeof(iphdr))
+    struct ip *ip = (struct ip *)buff;
+    if (buf_len < sizeof(struct ip))
         return 0;
 
-    ip->ihl = 5;
-    ip->version = 4;
-    ip->tos = 0;
-    ip->tot_len = htons(len);
-    ip->id = 0;
-    ip->frag_off = 0;
-    ip->ttl = 16;
-    ip->protocol = protocol;
-    ip->check = 0; 
-    ip->saddr = src; 
-    ip->daddr = dest;
+    ip->ip_hl = 5;
+    ip->ip_v = 4;
+    ip->ip_tos = 0;
+    ip->ip_len = htons(len);
+    ip->ip_id = 0;
+    ip->ip_off = 0;
+    ip->ip_ttl = 16;
+    ip->ip_p = protocol;
+    ip->ip_sum = 0;
+    ip->ip_src.s_addr = src;
+    ip->ip_dst.s_addr = dest;
 
-    ip->check = Csum((uint16_t *)ip, ip->ihl * 4, 0);
-    return sizeof(iphdr);
+    ip->ip_sum = Csum((uint16_t *)ip, ip->ip_hl * 4, 0);
+    return sizeof(struct ip);
 }
 
-void ProtoHandler::IpHdr(uint16_t len, in_addr_t src, in_addr_t dest, 
+void ProtoHandler::IpHdr(uint16_t len, in_addr_t src, in_addr_t dest,
                          uint8_t protocol) {
 
-    IpHdr((char *)pkt_info_->ip, sizeof(iphdr), len, src, dest, protocol);
+    IpHdr((char *)pkt_info_->ip, sizeof(struct ip), len, src, dest, protocol);
 }
 
 void ProtoHandler::Ip6Hdr(ip6_hdr *ip, uint16_t plen, uint8_t next_header,
@@ -118,7 +118,7 @@ void ProtoHandler::FillUdpHdr(udphdr *udp, uint16_t len,
     udp->source = htons(src_port);
     udp->dest = htons(dest_port);
     udp->len = htons(len);
-    udp->check = 0; 
+    udp->check = 0;
 }
 
 uint16_t ProtoHandler::UdpHdr(udphdr *udp, uint16_t buf_len, uint16_t len,
@@ -143,23 +143,23 @@ void ProtoHandler::UdpHdr(uint16_t len, in_addr_t src, uint16_t src_port,
 
 uint16_t ProtoHandler::IcmpHdr(char *buff, uint16_t buf_len, uint8_t type,
                                uint8_t code, uint16_t word1, uint16_t word2) {
-    icmphdr *hdr = ((icmphdr *)buff);
+    struct icmp *hdr = ((struct icmp *)buff);
     if (buf_len < sizeof(hdr))
         return 0;
 
-    bzero(hdr, sizeof(icmphdr));
+    bzero(hdr, sizeof(struct icmp));
 
-    hdr->type = type;
-    hdr->code = code;
+    hdr->icmp_type = type;
+    hdr->icmp_code = code;
     assert(type == ICMP_DEST_UNREACH);
-    hdr->un.frag.mtu = htons(word2);
-    hdr->checksum = 0;
-    return sizeof(icmphdr);
+    hdr->icmp_nextmtu = htons(word2);
+    hdr->icmp_cksum = 0;
+    return sizeof(struct icmp);
 }
 
 void ProtoHandler::IcmpChecksum(char *buff, uint16_t buf_len) {
-    icmphdr *hdr = ((icmphdr *)buff);
-    hdr->checksum = Csum((uint16_t *)buff, buf_len, 0);
+    struct icmp *hdr = ((struct icmp *)buff);
+    hdr->icmp_cksum = Csum((uint16_t *)buff, buf_len, 0);
 }
 
 void ProtoHandler::UdpHdr(uint16_t len, const uint8_t *src, uint16_t src_port,

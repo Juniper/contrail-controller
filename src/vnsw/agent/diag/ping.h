@@ -12,10 +12,10 @@
 class DiagTable;
 class Ping: public DiagEntry {
 public:
-    static const uint32_t KPingUdpHdr = sizeof(ethhdr) + sizeof(iphdr) +
-        sizeof(udphdr);
-    static const uint32_t KPingTcpHdr = sizeof(ethhdr) + sizeof(iphdr) +
-        sizeof(tcphdr);
+    static const uint32_t KPingUdpHdr = sizeof(struct ether_header) +
+                                        sizeof(struct ip) + sizeof(udphdr);
+    static const uint32_t KPingTcpHdr = sizeof(struct ether_header) +
+                                        sizeof(struct ip) + sizeof(tcphdr);
     Ping(const PingReq *pr,DiagTable *diag_table);
     virtual ~Ping();
     virtual void SendRequest();

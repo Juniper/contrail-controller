@@ -50,11 +50,11 @@ private:
 
     void FillPktData(PktTrace::Pkt &pkt, PktData &resp);
     uint16_t FillVrouterHdr(PktTrace::Pkt &pkt, VrouterHdr &resp);
-    void FillMacHdr(ethhdr *eth, MacHdr &resp);
+    void FillMacHdr(struct ether_header *eth, MacHdr &resp);
     void FillArpHdr(ether_arp *arp, ArpHdr &resp);
-    void FillIpv4Hdr(iphdr *ip, Ipv4Hdr &resp);
+    void FillIpv4Hdr(struct ip *ip, Ipv4Hdr &resp);
     void FillIpv6Hdr(ip6_hdr *ip, Ipv6Hdr &resp);
-    void FillIcmpv4Hdr(icmphdr *icmp, Icmpv4Hdr &resp);
+    void FillIcmpv4Hdr(struct icmp *icmp, Icmpv4Hdr &resp);
     void FillIcmpv6Hdr(icmp6_hdr *icmp, Icmpv6Hdr &resp, int32_t len);
     void FillUdpHdr(udphdr *udp, UdpHdr &resp);
     void FillDhcpv4Options(Dhcpv4Options *opt, std::string &resp,
