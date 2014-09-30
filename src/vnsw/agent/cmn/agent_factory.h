@@ -24,7 +24,7 @@ class AgentObjectFactory : public Factory<AgentObjectFactory> {
     FACTORY_TYPE_N2(AgentObjectFactory, IFMapDependencyManager, DB *,
                     DBGraph *);
     FACTORY_TYPE_N1(AgentObjectFactory, NamespaceManager,
-                    EventManager *);
+                    Agent *);
 };
 
 #endif // vnsw_agent_factory_hpp
