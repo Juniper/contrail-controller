@@ -8,6 +8,7 @@ import uuid
 import re
 import StringIO
 from lxml import etree
+from cfgm_common import exceptions
 from cfgm_common.ifmap.client import client
 from ifmap.request import NewSessionRequest, RenewSessionRequest, \
     EndSessionRequest, PublishRequest, SearchRequest, \
@@ -200,6 +201,8 @@ def parse_poll_result(poll_result_str):
                                    namespaces=_XPATH_NAMESPACES)
 
     if error_results:
+        if error_results[0].get('errorCode') == 'InvalidSessionID':
+            raise exceptions.InvalidSessionID(etree.tostring(error_results[0]))
         raise Exception(etree.tostring(error_results[0]))
 
     xpath_expr = '/a:Envelope/a:Body/b:response/pollResult'
