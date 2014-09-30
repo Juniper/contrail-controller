@@ -25,11 +25,13 @@ protected:
     tbb::atomic<long> del_notification;
     tbb::atomic<long> add_notification_client1;
     tbb::atomic<long> add_notification_client2;
+    tbb::atomic<long> del_notification_client1;
+    tbb::atomic<long> del_notification_client2;
     tbb::atomic<long> walk_count_;
     tbb::atomic<bool> walk_done_;
     tbb::atomic<bool> notify_yield;
 public:
-    DBTest() { 
+    DBTest() : tid_(DBTableBase::kInvalidId), tid_1_(DBTableBase::kInvalidId) {
         itbl = static_cast<VlanTable *>(db_.CreateTable("db.test.vlan.0"));
         itbl_1 = static_cast<VlanTable *>(db1_.CreateTable("db.test.vlan.1"));
     }
@@ -104,16 +106,32 @@ public:
     }
 
     void DBTestYieldListener1(DBTablePartBase *root, DBEntryBase *entry) {
-        add_notification_client1++;
-        uint diff1 = std::abs(add_notification_client1 - add_notification_client2);
-        if (diff1 > DBTablePartBase::kMaxIterations) {
+        int diff = 0;
+        if (entry->IsDeleted()) {
+            del_notification_client1++;
+            diff =
+                std::abs(del_notification_client1 - del_notification_client2);
+        } else {
+            add_notification_client1++;
+            diff =
+                std::abs(add_notification_client1 - add_notification_client2);
+        }
+        if (diff > DBTablePartBase::kMaxIterations) {
             notify_yield = false;
         }
     }
     void DBTestYieldListener2(DBTablePartBase *root, DBEntryBase *entry) {
-        add_notification_client2++;
-        uint diff2 = std::abs(add_notification_client1 - add_notification_client2);
-        if (diff2 > DBTablePartBase::kMaxIterations) {
+        int diff = 0;
+        if (entry->IsDeleted()) {
+            del_notification_client2++;
+            diff =
+                std::abs(del_notification_client1 - del_notification_client2);
+        } else {
+            add_notification_client2++;
+            diff =
+                std::abs(add_notification_client1 - add_notification_client2);
+        }
+        if (diff > DBTablePartBase::kMaxIterations) {
             notify_yield = false;
         }
     }
@@ -663,6 +681,8 @@ TEST_F(DBTest, DB_RunNotify_Yield) {
     // Clear stats in begin
     add_notification_client1 = 0;
     add_notification_client2 = 0;
+    del_notification_client1 = 0;
+    del_notification_client2 = 0;
     notify_yield = true;
 
     // Register client1 for notification
@@ -675,9 +695,10 @@ TEST_F(DBTest, DB_RunNotify_Yield) {
         itbl_1->Register(boost::bind(&DBTest::DBTestYieldListener2, this, _1, _2));
     EXPECT_EQ(tid_1_, 0);
 
-    TaskScheduler::GetInstance()->Stop();
     int req_count = DBTablePartBase::kMaxIterations * 3;
-    // Enqueue requests to db.test.vlan.0
+
+    // Enqueue add requests to db.test.vlan.0
+    TaskScheduler::GetInstance()->Stop();
     for (int i = 0; i<req_count; i++) {
         bool retValue;
         DBRequest addReq;
@@ -688,7 +709,7 @@ TEST_F(DBTest, DB_RunNotify_Yield) {
         retValue = itbl->Enqueue(&addReq);
         EXPECT_TRUE(retValue);
     }
-    // Enqueue requests to db.test.vlan.1
+    // Enqueue add requests to db.test.vlan.1
     for (int i = 0; i<req_count; i++) {
         bool retValue;
         DBRequest addReq;
@@ -702,9 +723,36 @@ TEST_F(DBTest, DB_RunNotify_Yield) {
     TaskScheduler::GetInstance()->Start();
 
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_TRUE(add_notification_client1 == req_count);
-    TASK_UTIL_EXPECT_TRUE(add_notification_client2 == req_count);
+    TASK_UTIL_EXPECT_EQ(req_count, add_notification_client1);
+    TASK_UTIL_EXPECT_EQ(req_count, add_notification_client2);
+    EXPECT_TRUE(notify_yield);
 
+    // Enqueue delete requests to db.test.vlan.0
+    TaskScheduler::GetInstance()->Stop();
+    for (int i = 0; i<req_count; i++) {
+        bool retValue;
+        DBRequest addReq;
+        // Ensure entries are in the same DB partition
+        addReq.key.reset(new VlanTableReqKey(DB::PartitionCount() * i));
+        addReq.oper = DBRequest::DB_ENTRY_DELETE;
+        retValue = itbl->Enqueue(&addReq);
+        EXPECT_TRUE(retValue);
+    }
+    // Enqueue delete requests to db.test.vlan.1
+    for (int i = 0; i<req_count; i++) {
+        bool retValue;
+        DBRequest addReq;
+        // Ensure entries are in the same DB partition
+        addReq.key.reset(new VlanTableReqKey(DB::PartitionCount() * i));
+        addReq.oper = DBRequest::DB_ENTRY_DELETE;
+        retValue = itbl_1->Enqueue(&addReq);
+        EXPECT_TRUE(retValue);
+    }
+    TaskScheduler::GetInstance()->Start();
+
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(req_count, del_notification_client1);
+    TASK_UTIL_EXPECT_EQ(req_count, del_notification_client2);
     EXPECT_TRUE(notify_yield);
 
     itbl->Unregister(tid_);
@@ -713,6 +761,8 @@ TEST_F(DBTest, DB_RunNotify_Yield) {
     // Clear stats at end 
     add_notification_client1 = 0;
     add_notification_client2 = 0;
+    del_notification_client1 = 0;
+    del_notification_client2 = 0;
 }
 
 #endif // db_test_cmn_h
