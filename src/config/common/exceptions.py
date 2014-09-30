@@ -95,3 +95,8 @@ class HttpError(VncError):
 
 class AmbiguousParentError(VncError):
     pass
+
+
+class InvalidSessionID(VncError):
+    pass
+# end InvalidSessionID

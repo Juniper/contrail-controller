@@ -24,6 +24,7 @@ import os
 import logging
 import logging.handlers
 
+from cfgm_common import exceptions
 from cfgm_common.imid import *
 from cfgm_common import importutils
 from cfgm_common import svc_info
@@ -505,6 +506,9 @@ def launch_arc(monitor, ssrc_mapc):
             pollreq = PollRequest(arc_mapc.get_session_id())
             result = arc_mapc.call('poll', pollreq)
             monitor.process_poll_result(result)
+        except exceptions.InvalidSessionID:
+            cgitb_error_log(monitor)
+            return
         except Exception as e:
             if type(e) == socket.error:
                 time.sleep(3)
@@ -512,9 +516,10 @@ def launch_arc(monitor, ssrc_mapc):
                 cgitb_error_log(monitor)
 
 def launch_ssrc(monitor):
-    ssrc_mapc = ssrc_initialize(monitor._args)
-    arc_glet = gevent.spawn(launch_arc, monitor, ssrc_mapc)
-    arc_glet.join()
+    while True:
+        ssrc_mapc = ssrc_initialize(monitor._args)
+        arc_glet = gevent.spawn(launch_arc, monitor, ssrc_mapc)
+        arc_glet.join()
 
 def timer_callback(monitor):
     si_list = monitor.db.service_instance_list()
