@@ -98,6 +98,7 @@ public:
         DeleteVmportEnv(input, 1, true);
         client->WaitForIdle();
         EXPECT_FALSE(VmPortFindRetDel(1));
+        EXPECT_FALSE(VrfFind("vrf1", true));
         client->WaitForIdle();
     }
 protected:
@@ -469,6 +470,83 @@ TEST_F(TestAap, StateMachine_9) {
    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
    EXPECT_TRUE(path->path_preference().ecmp() == false);
    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+}
+
+//Check that agent retries to push the entry, if BGP doesnt update
+//with last nexthop
+TEST_F(TestAap, StateMachine_10) {
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    Ip4Address server_ip = Ip4Address::from_string("10.1.1.3");
+    VmInterface *vm_intf = VmInterfaceGet(1);
+
+    Agent::GetInstance()->oper_db()->route_preference_module()->
+        EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id());
+    client->WaitForIdle();
+    Inet4UnicastRouteEntry *rt =
+        RouteGet("vrf1", ip, 32);
+    const AgentPath *path = rt->FindPath(vm_intf->peer());
+    EXPECT_TRUE(path->path_preference().sequence() == 1);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+
+    TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE);
+    PathPreference path_preference(2, PathPreference::HIGH, false, false);
+    Inet4TunnelRouteAdd(peer_, "vrf1", ip, 32, server_ip, bmap,
+                        16, "vn1", SecurityGroupList(), path_preference);
+    client->WaitForIdle();
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+
+    //Check that agent withdraws its route after 100ms
+    //since BGP path, didnt reflect local agent nexthop
+    WAIT_FOR(1000, 1000, (path->path_preference().wait_for_traffic() == true));
+    client->WaitForIdle();
+}
+
+//Check that if route flap happen, retry timeout increases
+TEST_F(TestAap, StateMachine_11) {
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    Ip4Address server_ip = Ip4Address::from_string("10.1.1.3");
+    VmInterface *vm_intf = VmInterfaceGet(1);
+
+    Agent::GetInstance()->oper_db()->route_preference_module()->
+        EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id());
+    client->WaitForIdle();
+    Inet4UnicastRouteEntry *rt =
+        RouteGet("vrf1", ip, 32);
+    const AgentPath *path = rt->FindPath(vm_intf->peer());
+    EXPECT_TRUE(path->path_preference().sequence() == 1);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+
+    TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE);
+    PathPreference path_preference1(1, PathPreference::HIGH, false, false);
+    Inet4TunnelRouteAdd(peer_, "vrf1", ip, 32, server_ip, bmap,
+                        16, "vn1", SecurityGroupList(), path_preference1);
+    client->WaitForIdle();
+
+    WAIT_FOR(1000, 1000, (path->path_preference().wait_for_traffic() == true));
+    client->WaitForIdle();
+
+    Agent::GetInstance()->oper_db()->route_preference_module()->
+        EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id());
+    client->WaitForIdle();
+    PathPreference path_preference2(3, PathPreference::HIGH, false, false);
+    Inet4TunnelRouteAdd(peer_, "vrf1", ip, 32, server_ip, bmap,
+                        16, "vn1", SecurityGroupList(), path_preference2);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(path->path_preference().sequence() == 2);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+
+    usleep(1000 * PathPreferenceSM::kMinInterval);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+
+    usleep(1000 * PathPreferenceSM::kMinInterval);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
 }
 
 int main(int argc, char *argv[]) {

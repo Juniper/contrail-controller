@@ -61,6 +61,22 @@ struct EvActiveActiveMode : sc::event<EvActiveActiveMode> {
     }
 };
 
+struct EvRetry : sc::event<EvRetry> {
+    EvRetry() {
+    }
+    static const char *Name() {
+        return "Retry";
+    }
+};
+
+struct EvControlNodeInSync : sc::event<EvControlNodeInSync> {
+    EvControlNodeInSync() {
+    }
+    static const char *Name() {
+        return "Control node route in sync";
+    }
+};
+
 struct Init : public sc::state<Init, PathPreferenceSM> {
     typedef mpl::list<
         sc::custom_reaction<EvStart>
@@ -81,7 +97,9 @@ struct WaitForTraffic : sc::state<WaitForTraffic, PathPreferenceSM> {
         sc::custom_reaction<EvTrafficSeen>,
         sc::custom_reaction<EvSeqChange>,
         sc::custom_reaction<EvWaitForTraffic>,
-        sc::custom_reaction<EvActiveActiveMode>
+        sc::custom_reaction<EvActiveActiveMode>,
+        sc::custom_reaction<EvRetry>,
+        sc::custom_reaction<EvControlNodeInSync>
     > reactions;
 
     WaitForTraffic(my_context ctx) : my_base(ctx) {
@@ -111,6 +129,14 @@ struct WaitForTraffic : sc::state<WaitForTraffic, PathPreferenceSM> {
     sc::result react(const EvActiveActiveMode &event) {
         return transit<ActiveActiveState>();
     }
+
+    sc::result react(const EvRetry &event) {
+        return discard_event();
+    }
+
+    sc::result react(const EvControlNodeInSync &event) {
+        return discard_event();
+    }
 };
 
 struct TrafficSeen : sc::state<TrafficSeen, PathPreferenceSM> {
@@ -118,14 +144,21 @@ struct TrafficSeen : sc::state<TrafficSeen, PathPreferenceSM> {
         sc::custom_reaction<EvTrafficSeen>,
         sc::custom_reaction<EvSeqChange>,
         sc::custom_reaction<EvWaitForTraffic>,
-        sc::custom_reaction<EvActiveActiveMode>
+        sc::custom_reaction<EvActiveActiveMode>,
+        sc::custom_reaction<EvRetry>,
+        sc::custom_reaction<EvControlNodeInSync>
     > reactions;
 
     TrafficSeen(my_context ctx) : my_base(ctx) {
         PathPreferenceSM *state_machine = &context<PathPreferenceSM>();
         //Enqueue a route change
         if (state_machine->wait_for_traffic() == true) {
-            uint32_t seq = state_machine->max_sequence();
+           if (state_machine->IsPathFlapping()) {
+               state_machine->IncreaseRetryTimeout();
+           } else {
+               state_machine->DecreaseRetryTimeout();
+           }
+           uint32_t seq = state_machine->max_sequence();
            state_machine->set_wait_for_traffic(false);
            seq++;
            state_machine->set_max_sequence(seq);
@@ -133,6 +166,7 @@ struct TrafficSeen : sc::state<TrafficSeen, PathPreferenceSM> {
            state_machine->set_preference(PathPreference::HIGH);
            state_machine->EnqueuePathChange();
            state_machine->Log("Traffic seen");
+           state_machine->set_last_high_priority_change_at(UTCTimestampUsec());
         }
     }
 
@@ -148,13 +182,35 @@ struct TrafficSeen : sc::state<TrafficSeen, PathPreferenceSM> {
         PathPreferenceSM *state_machine = &context<PathPreferenceSM>();
         if (event.sequence_ > state_machine->sequence()) {
             state_machine->set_max_sequence(event.sequence_);
-            return transit<WaitForTraffic>();
+            if (state_machine->IsPathFlapping()) {
+                //If path is continuosly flapping
+                //delay wihtdrawing of route
+                if (state_machine->RetryTimerRunning() == false) {
+                    state_machine->StartRetryTimer();
+                    state_machine->Log("Back off and retry update");
+                }
+                return discard_event();
+            }
         }
-        return discard_event();
+        return transit<WaitForTraffic>();
     }
 
     sc::result react(const EvActiveActiveMode &event) {
         return transit<ActiveActiveState>();
+    }
+
+    sc::result react(const EvRetry &event) {
+        PathPreferenceSM *state_machine = &context<PathPreferenceSM>();
+        state_machine->StartRetryTimer();
+        state_machine->Log("control-node path not yet in sync, retry");
+        return discard_event();
+    }
+
+    sc::result react(const EvControlNodeInSync &event) {
+        PathPreferenceSM *state_machine = &context<PathPreferenceSM>();
+        state_machine->CancelRetryTimer();
+        state_machine->Log("in sync with control-node");
+        return discard_event();
     }
 };
 
@@ -163,7 +219,9 @@ struct ActiveActiveState : sc::state<ActiveActiveState, PathPreferenceSM> {
         sc::custom_reaction<EvTrafficSeen>,
         sc::custom_reaction<EvSeqChange>,
         sc::custom_reaction<EvWaitForTraffic>,
-        sc::custom_reaction<EvActiveActiveMode>
+        sc::custom_reaction<EvActiveActiveMode>,
+        sc::custom_reaction<EvRetry>,
+        sc::custom_reaction<EvControlNodeInSync>
     > reactions;
 
     ActiveActiveState(my_context ctx) : my_base(ctx) {
@@ -197,15 +255,83 @@ struct ActiveActiveState : sc::state<ActiveActiveState, PathPreferenceSM> {
     sc::result react(const EvActiveActiveMode &event) {
         return discard_event();
     }
+
+    sc::result react(const EvRetry &event) {
+        return discard_event();
+    }
+
+    sc::result react(const EvControlNodeInSync &event) {
+        return discard_event();
+    }
 };
-
-
 
 PathPreferenceSM::PathPreferenceSM(Agent *agent, const Peer *peer,
     Inet4UnicastRouteEntry *rt): agent_(agent), peer_(peer), rt_(rt),
-    path_preference_(0, PathPreference::LOW, false, false), max_sequence_(0) {
+    path_preference_(0, PathPreference::LOW, false, false), max_sequence_(0),
+    timer_(NULL), timeout_(kMinInterval) {
     initiate();
     process_event(EvStart());
+}
+
+PathPreferenceSM::~PathPreferenceSM() {
+    if (timer_ != NULL) {
+        timer_->Cancel();
+        TimerManager::DeleteTimer(timer_);
+    }
+    timer_ = NULL;
+}
+
+bool PathPreferenceSM::Retry() {
+    process_event(EvWaitForTraffic());
+    return false;
+}
+
+void PathPreferenceSM::StartRetryTimer() {
+    if (timer_ == NULL) {
+        timer_ = TimerManager::CreateTimer(
+                *(agent_->event_manager())->io_service(),
+                "Stale cleanup timer",
+                TaskScheduler::GetInstance()->GetTaskId("db::DBTable"),
+                0, false);
+    }
+    timer_->Start(timeout_,
+                  boost::bind(&PathPreferenceSM::Retry, this));
+}
+
+void PathPreferenceSM::CancelRetryTimer() {
+    if (timer_ == NULL) {
+        return;
+    }
+    timer_->Cancel();
+}
+
+bool PathPreferenceSM::RetryTimerRunning() {
+    if (timer_ == NULL) {
+        return false;
+    }
+    return timer_->running();
+}
+
+void PathPreferenceSM::IncreaseRetryTimeout() {
+    timeout_ = timeout_ * 2;
+    if (timeout_ > kMaxInterval) {
+        timeout_ = kMaxInterval;
+    }
+}
+
+void PathPreferenceSM::DecreaseRetryTimeout() {
+    timeout_ = timeout_ / 2;
+    if (timeout_ < kMinInterval) {
+        timeout_ = kMinInterval;
+    }
+}
+
+bool PathPreferenceSM::IsPathFlapping() const {
+    uint64_t time_sec = (UTCTimestampUsec() - last_high_priority_change_at_)/1000;
+    if (time_sec > (2 * timeout_)) {
+        return false;
+    }
+    return true;
 }
 
 void PathPreferenceSM::Process() {
@@ -225,6 +351,9 @@ void PathPreferenceSM::Process() {
           it != rt_->GetPathList().end(); ++it) {
          const AgentPath *path =
              static_cast<const AgentPath *>(it.operator->());
+         if (path->peer()->GetType() != Peer::BGP_PEER) {
+             continue;
+         }
          //Get best preference and sequence no from all BGP peer
          if (max_sequence < path->sequence()) {
              max_sequence = path->sequence();
@@ -239,10 +368,12 @@ void PathPreferenceSM::Process() {
      if (max_sequence > sequence()) {
          process_event(EvSeqChange(max_sequence));
      } else if (sequence() == max_sequence &&
-             best_path->nexthop(agent_) != local_path->nexthop(agent_)) {
-         //Control node chosen  path and local path are different
-         //move to wait for traffic state
-         process_event(EvWaitForTraffic());
+                best_path->nexthop(agent_) == local_path->nexthop(agent_)) {
+         //Control node chosen path and local path are same
+         process_event(EvControlNodeInSync());
+     } else if (sequence() == max_sequence &&
+                best_path->nexthop(agent_) != local_path->nexthop(agent_)) {
+         process_event(EvRetry());
      } else if (ecmp() == true) {
          path_preference_.set_ecmp(local_path->path_preference().ecmp());
          //Route transition from ECMP to non ECMP,
@@ -253,7 +384,7 @@ void PathPreferenceSM::Process() {
 
 void PathPreferenceSM::Log(std::string state) {
     PATH_PREFERENCE_TRACE(rt_->vrf()->GetName(), rt_->GetAddressString(),
-                          preference(), sequence(), state);
+                          preference(), sequence(), state, max_sequence());
 }
 
 void PathPreferenceSM::EnqueuePathChange() {

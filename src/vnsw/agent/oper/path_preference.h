@@ -28,12 +28,18 @@ do {                                                                      \
 class PathPreferenceSM:
     public sc::state_machine<PathPreferenceSM, Init> {
 public:
+    static const uint32_t kMinInterval = 100;
+    static const uint32_t kMaxInterval = 5 * 1000;
     PathPreferenceSM(Agent *agent, const Peer *peer,
                       Inet4UnicastRouteEntry *rt);
+    ~PathPreferenceSM();
     uint32_t sequence() const {return path_preference_.sequence();}
     uint32_t preference() const {return path_preference_.preference();}
     bool wait_for_traffic() const {return path_preference_.wait_for_traffic();}
     bool ecmp() const {return path_preference_.ecmp();}
+    uint64_t last_high_priority_change_at() const {
+        return last_high_priority_change_at_;
+    }
 
     void set_sequence(uint32_t seq_no) {
         path_preference_.set_sequence(seq_no);
@@ -59,12 +65,27 @@ public:
         max_sequence_ = seq;
     }
 
+    void set_timeout(uint32_t timeout) {
+        timeout_ = timeout;
+    }
+
+    void set_last_high_priority_change_at(uint64_t timestamp) {
+        last_high_priority_change_at_ = timestamp;
+    }
+
     bool seen() { return seen_; }
     uint32_t max_sequence() const { return max_sequence_;}
     void Process();
     void Delete();
     void Log(std::string state);
     void EnqueuePathChange();
+    bool Retry();
+    void StartRetryTimer();
+    void CancelRetryTimer();
+    bool RetryTimerRunning();
+    void IncreaseRetryTimeout();
+    void DecreaseRetryTimeout();
+    bool IsPathFlapping() const;
 private:
     Agent *agent_;
     const Peer *peer_;
@@ -72,6 +93,9 @@ private:
     PathPreference path_preference_;
     uint32_t max_sequence_;
     bool seen_;
+    Timer *timer_;
+    uint32_t timeout_;
+    uint64_t last_high_priority_change_at_;
 };
 
 //Per Route state machine containing a map for all
