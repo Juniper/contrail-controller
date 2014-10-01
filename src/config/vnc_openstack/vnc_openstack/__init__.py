@@ -61,8 +61,11 @@ def fill_keystone_opts(obj, conf_sections):
                                              obj._auth_port)
 
 
+openstack_driver = None
 class OpenstackDriver(vnc_plugin_base.Resync):
     def __init__(self, api_server_ip, api_server_port, conf_sections):
+        global openstack_driver
+        openstack_driver = self
         if api_server_ip == '0.0.0.0':
             self._vnc_api_ip = '127.0.0.1'
         else:
@@ -573,7 +576,7 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
         fill_keystone_opts(self, conf_sections)
 
         self._vnc_lib = None
-        self._openstack_drv = OpenstackDriver(api_server_ip, api_server_port, conf_sections)
+        self._openstack_drv = openstack_driver
         # Tracks which domains/projects have been sync'd from keystone to contrail api server
         self._vnc_domains = set()
         self._vnc_projects = set()
