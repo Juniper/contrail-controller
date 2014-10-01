@@ -9,6 +9,7 @@
 struct UveSvcInstanceVMConfig {
     1: string          uuid
     2: optional string vr_name;
+    3: optional string ha;
 }
 
 struct UveSvcInstanceConfig {
