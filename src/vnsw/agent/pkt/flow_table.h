@@ -447,8 +447,8 @@ private:
     bool SetRpfNH(const AgentRoute *rt);
     bool InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
                      const PktControlInfo *rev_ctrl);
-    void GetSourceRouteInfo(const Inet4UnicastRouteEntry *rt);
-    void GetDestRouteInfo(const Inet4UnicastRouteEntry *rt);
+    void GetSourceRouteInfo(const InetUnicastRouteEntry *rt);
+    void GetDestRouteInfo(const InetUnicastRouteEntry *rt);
 
     FlowKey key_;
     FlowData data_;
@@ -615,8 +615,8 @@ private:
     DBTableBase::ListenerId vrf_listener_id_;
     NhListener *nh_listener_;
 
-    Inet4UnicastRouteEntry inet4_route_key_;
-    Inet6UnicastRouteEntry inet6_route_key_;
+    InetUnicastRouteEntry inet4_route_key_;
+    InetUnicastRouteEntry inet6_route_key_;
 
     void AclNotify(DBTablePartBase *part, DBEntryBase *e);
     void IntfNotify(DBTablePartBase *part, DBEntryBase *e);
@@ -686,11 +686,11 @@ public:
         const NextHop* local_nh_;
     };
 
-    Inet4RouteUpdate(Inet4UnicastAgentRouteTable *rt_table);
+    Inet4RouteUpdate(InetUnicastAgentRouteTable *rt_table);
     Inet4RouteUpdate();
     ~Inet4RouteUpdate();
     void ManagedDelete();
-    static Inet4RouteUpdate *UnicastInit(Inet4UnicastAgentRouteTable *table);
+    static Inet4RouteUpdate *UnicastInit(InetUnicastAgentRouteTable *table);
     void Unregister();
     bool DeleteState(DBTablePartBase *partition, DBEntryBase *entry);
     static void WalkDone(DBTableBase *partition, Inet4RouteUpdate *rt);
@@ -698,7 +698,7 @@ private:
     void UnicastNotify(DBTablePartBase *partition, DBEntryBase *e);
 
     DBTableBase::ListenerId id_;
-    Inet4UnicastAgentRouteTable *rt_table_;
+    InetUnicastAgentRouteTable *rt_table_;
     bool marked_delete_;
     LifetimeRef<Inet4RouteUpdate> table_delete_ref_;
 };

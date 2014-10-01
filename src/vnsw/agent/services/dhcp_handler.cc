@@ -550,13 +550,13 @@ bool DhcpHandler::FindLeaseData() {
     FindDomainName(ip);
     if (vm_itf_->ipv4_active()) {
         if (vm_itf_->fabric_port()) {
-            Inet4UnicastRouteEntry *rt = 
-                Inet4UnicastAgentRouteTable::FindResolveRoute(
+            InetUnicastRouteEntry *rt =
+                InetUnicastAgentRouteTable::FindResolveRoute(
                              vm_itf_->vrf()->GetName(), ip);
             if (rt) {
                 Ip4Address gw = agent()->vhost_default_gateway();
                 boost::system::error_code ec;
-                if (IsIp4SubnetMember(rt->addr(),
+                if (IsIp4SubnetMember(rt->addr().to_v4(),
                     Ip4Address::from_string("169.254.0.0", ec), rt->plen())) {
                     gw = unspecified;
                 }

@@ -231,10 +231,9 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
         return ret;
     }
 
-    Inet4UnicastAgentRouteTable *table = NULL;
-    Inet4UnicastRouteEntry *rt = NULL;
-    table = static_cast<Inet4UnicastAgentRouteTable *>
-        (agent->vrf_table()->GetInet4UnicastRouteTable(vrf_name_));
+    InetUnicastAgentRouteTable *table = NULL;
+    InetUnicastRouteEntry *rt = NULL;
+    table = agent->vrf_table()->GetInet4UnicastRouteTable(vrf_name_);
     if (table)
         rt = table->FindRoute(gw_ip_);
 

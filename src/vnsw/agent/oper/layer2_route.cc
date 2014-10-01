@@ -298,7 +298,7 @@ bool Layer2RouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
     }
 
     Agent *agent =
-        (static_cast<Inet4UnicastAgentRouteTable *> (get_table()))->agent();
+        (static_cast<InetUnicastAgentRouteTable *> (get_table()))->agent();
     std::vector<AgentPath *> delete_paths;
     if (del && (path->peer() == agent->multicast_peer()))
         return false;

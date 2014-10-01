@@ -65,8 +65,7 @@ void VirtualGateway::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *en
         it->set_interface(intf);
     }
 
-    Inet4UnicastAgentRouteTable *rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>
+    InetUnicastAgentRouteTable *rt_table =
         (agent_->vrf_table()->GetInet4UnicastRouteTable(it->vrf_name()));
 
     state->active_ = active;
@@ -150,8 +149,7 @@ VirtualGateway::SubnetUpdate(const VirtualGatewayConfig &vgw,
     if (vgw.interface() && !vgw.interface()->ipv4_active())
         return;
 
-    Inet4UnicastAgentRouteTable *rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>
+    InetUnicastAgentRouteTable *rt_table =
         (agent_->vrf_table()->GetInet4UnicastRouteTable(vgw.vrf_name()));
     if (!rt_table)
         return;
@@ -161,7 +159,7 @@ VirtualGateway::SubnetUpdate(const VirtualGatewayConfig &vgw,
 
 void
 VirtualGateway::SubnetUpdate(const std::string &vrf,
-                             Inet4UnicastAgentRouteTable *rt_table,
+                             InetUnicastAgentRouteTable *rt_table,
                              const VirtualGatewayConfig::SubnetList &add_list,
                              const VirtualGatewayConfig::SubnetList &del_list) {
     for (uint32_t idx = 0; idx < add_list.size(); idx++) {
@@ -190,8 +188,7 @@ VirtualGateway::RouteUpdate(const VirtualGatewayConfig &vgw,
     if (vgw.interface() && !vgw.interface()->ipv4_active())
         return;
 
-    Inet4UnicastAgentRouteTable *rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>
+    InetUnicastAgentRouteTable *rt_table =
         (agent_->vrf_table()->GetInet4UnicastRouteTable(vgw.vrf_name()));
 
     RouteUpdate(vgw, new_list.size(), rt_table, add_list, del_list,
@@ -201,7 +198,7 @@ VirtualGateway::RouteUpdate(const VirtualGatewayConfig &vgw,
 void
 VirtualGateway::RouteUpdate(const VirtualGatewayConfig &vgw,
                             uint32_t new_list_size,
-                            Inet4UnicastAgentRouteTable *rt_table,
+                            InetUnicastAgentRouteTable *rt_table,
                             const VirtualGatewayConfig::SubnetList &add_list,
                             const VirtualGatewayConfig::SubnetList &del_list,
                             bool add_default_route, bool del_default_route) {

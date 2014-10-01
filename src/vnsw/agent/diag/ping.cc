@@ -109,9 +109,8 @@ void Ping::SendRequest() {
         break;
     }
 
-    Inet4UnicastAgentRouteTable *table = NULL;
-    table = static_cast<Inet4UnicastAgentRouteTable *>
-        (agent->vrf_table()->GetInet4UnicastRouteTable(vrf_name_));
+    InetUnicastAgentRouteTable *table =
+        agent->vrf_table()->GetInet4UnicastRouteTable(vrf_name_);
     AgentRoute *rt = table->FindRoute(sip_);
     if (!rt) {
         delete pkt_handler;
@@ -235,9 +234,8 @@ void PingReq::HandleRequest() const {
 
     const NextHop *nh = NULL;
     Agent *agent = Agent::GetInstance();
-    Inet4UnicastAgentRouteTable *table = NULL;
-    table = static_cast<Inet4UnicastAgentRouteTable *>
-        (agent->vrf_table()->GetInet4UnicastRouteTable(get_vrf_name()));
+    InetUnicastAgentRouteTable *table =
+        agent->vrf_table()->GetInet4UnicastRouteTable(get_vrf_name());
     AgentRoute *rt = table->FindRoute(sip);
     if (rt) {
         nh = rt->GetActiveNextHop();

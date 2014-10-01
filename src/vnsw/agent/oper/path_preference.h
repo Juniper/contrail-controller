@@ -29,7 +29,7 @@ class PathPreferenceSM:
     public sc::state_machine<PathPreferenceSM, Init> {
 public:
     PathPreferenceSM(Agent *agent, const Peer *peer,
-                      Inet4UnicastRouteEntry *rt);
+                      InetUnicastRouteEntry *rt);
     uint32_t sequence() const {return path_preference_.sequence();}
     uint32_t preference() const {return path_preference_.preference();}
     bool wait_for_traffic() const {return path_preference_.wait_for_traffic();}
@@ -68,7 +68,7 @@ public:
 private:
     Agent *agent_;
     const Peer *peer_;
-    Inet4UnicastRouteEntry *rt_;
+    InetUnicastRouteEntry *rt_;
     PathPreference path_preference_;
     uint32_t max_sequence_;
     bool seen_;
@@ -79,13 +79,13 @@ private:
 class PathPreferenceState: public DBState {
 public:
     typedef std::map<const Peer *, PathPreferenceSM *> PeerPathPreferenceMap;
-    PathPreferenceState(Agent *agent, Inet4UnicastRouteEntry *rt_);
+    PathPreferenceState(Agent *agent, InetUnicastRouteEntry *rt_);
     ~PathPreferenceState();
     void Process();
     PathPreferenceSM *GetSM(const Peer *);
 private:
     Agent *agent_;
-    Inet4UnicastRouteEntry *rt_;
+    InetUnicastRouteEntry *rt_;
     PeerPathPreferenceMap path_preference_peer_map_;
 };
 
@@ -134,7 +134,7 @@ private:
 class PathPreferenceModule {
 public:
     struct PathPreferenceEventContainer {
-        Ip4Address ip_;
+        IpAddress ip_;
         uint32_t plen_;
         uint32_t interface_index_;
         uint32_t vrf_index_;

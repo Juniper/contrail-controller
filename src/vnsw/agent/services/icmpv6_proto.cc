@@ -54,7 +54,7 @@ void Icmpv6Proto::VnNotify(DBEntryBase *entry) {
     if (vn->layer3_forwarding()) {
         boost::system::error_code ec;
         Ip6Address addr = Ip6Address::from_string(IPV6_ALL_ROUTERS_ADDRESS, ec);
-        static_cast<Inet6UnicastAgentRouteTable *>
+        static_cast<InetUnicastAgentRouteTable *>
             (vrf->GetInet6UnicastRouteTable())->AddHostRoute(vrf->GetName(),
                                                              addr, 128,
                                                              vn->GetName());
@@ -69,10 +69,10 @@ void Icmpv6Proto::VrfNotify(DBEntryBase *entry) {
     if (entry->IsDeleted()) {
         boost::system::error_code ec;
         Ip6Address addr = Ip6Address::from_string(IPV6_ALL_ROUTERS_ADDRESS, ec);
-        static_cast<Inet6UnicastAgentRouteTable *>
+        static_cast<InetUnicastAgentRouteTable *>
             (vrf->GetInet6UnicastRouteTable())->DeleteReq(agent_->local_peer(),
                                                           vrf->GetName(),
-                                                          addr, 128);
+                                                          addr, 128, NULL);
     }
 }
 

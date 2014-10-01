@@ -101,7 +101,7 @@ TEST_F(VgwTest, interface_1) {
 
 // The route for public-vn in fabric-vrf shold point to receive NH
 TEST_F(VgwTest, fabric_route_1) {
-    Inet4UnicastRouteEntry *route;
+    InetUnicastRouteEntry *route;
     route = RouteGet(Agent::GetInstance()->fabric_vrf_name(),
                      Ip4Address::from_string("1.1.1.0"), 24);
     EXPECT_TRUE(route != NULL);
@@ -139,7 +139,7 @@ TEST_F(VgwTest, fabric_route_1) {
     EXPECT_TRUE(nh->GetType() == NextHop::RECEIVE);
 }
 
-static void ValidateVgwInterface(Inet4UnicastRouteEntry *route,
+static void ValidateVgwInterface(InetUnicastRouteEntry *route,
                                  const char *name) {
     const NextHop *nh = route->GetActiveNextHop();
     EXPECT_TRUE(nh != NULL);
@@ -172,7 +172,7 @@ static void ValidateVgwInterface(Inet4UnicastRouteEntry *route,
 
 // The route in public-vn vrf should point to interface-nh for vgw
 TEST_F(VgwTest, vn_route_1) {
-    Inet4UnicastRouteEntry *route;
+    InetUnicastRouteEntry *route;
 
     route = RouteGet("default-domain:admin:public:public",
                      Ip4Address::from_string("0.0.0.0"), 0);
@@ -215,7 +215,7 @@ TEST_F(VgwTest, vrf_delete) {
 }
 
 TEST_F(VgwTest, RouteResync) {
-    Inet4UnicastRouteEntry *route;
+    InetUnicastRouteEntry *route;
     route = RouteGet("default-domain:admin:public:public",
                      Ip4Address::from_string("0.0.0.0"), 0);
     EXPECT_TRUE(route != NULL);

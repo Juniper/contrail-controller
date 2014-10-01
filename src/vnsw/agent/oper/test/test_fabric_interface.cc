@@ -77,7 +77,7 @@ public:
     Agent *agent_;
     InterfaceTable *interface_table_;
     NextHopTable *nh_table_;
-    Inet4UnicastAgentRouteTable *fabric_rt_table_;
+    InetUnicastAgentRouteTable *fabric_rt_table_;
     VrfTable *vrf_table_;
     char fabric_vrf_name_[64];
 };
@@ -261,7 +261,7 @@ TEST_F(FabricInterfaceTest, dhcp_snoop_1) {
 
     EXPECT_TRUE(intf->do_dhcp_relay());
     EXPECT_TRUE(intf->ip_addr().to_string() == "1.1.1.1");
-    Inet4UnicastRouteEntry *rt;
+    InetUnicastRouteEntry *rt;
     rt = RouteGet(fabric_vrf_name_, Ip4Address::from_string("1.1.1.1"), 32);
     EXPECT_TRUE(rt != NULL);
 

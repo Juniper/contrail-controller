@@ -53,7 +53,7 @@ char vnet_addr[16][32];
 InetInterface *vhost;
 char vhost_addr[32];
 
-Inet4UnicastAgentRouteTable *vnet_table[16];
+InetUnicastAgentRouteTable *vnet_table[16];
 PhysicalInterface *eth;
 int hash_id;
 
@@ -264,13 +264,13 @@ static void Setup() {
         ret = false;
     }
     // Get route tables
-    vnet_table[1] = static_cast<Inet4UnicastAgentRouteTable *>
+    vnet_table[1] = static_cast<InetUnicastAgentRouteTable *>
         (Agent::GetInstance()->vrf_table()->
         GetInet4UnicastRouteTable("vrf1"));
-    vnet_table[2] = static_cast<Inet4UnicastAgentRouteTable *>
+    vnet_table[2] = static_cast<InetUnicastAgentRouteTable *>
         (Agent::GetInstance()->vrf_table()->
         GetInet4UnicastRouteTable("default-project:vn2:vn2"));
-    vnet_table[3] = static_cast<Inet4UnicastAgentRouteTable *>
+    vnet_table[3] = static_cast<InetUnicastAgentRouteTable *>
         (Agent::GetInstance()->vrf_table()->
         GetInet4UnicastRouteTable("default-project:vn3:vn3"));
     EXPECT_TRUE(vnet_table[1] != NULL && vnet_table[2] != NULL &&

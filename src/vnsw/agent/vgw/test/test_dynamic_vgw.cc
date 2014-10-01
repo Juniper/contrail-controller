@@ -191,7 +191,7 @@ void ValidateInterfaceConfiguration(uint32_t count) {
 void ValidateSubnetReceiveRoute(uint32_t count) {
     for (uint32_t i = 0; i < count; ++i) {
         for (uint32_t j = 0; j < i+1; ++j) {
-            Inet4UnicastRouteEntry *route;
+            InetUnicastRouteEntry *route;
             route = RouteGet(Agent::GetInstance()->fabric_vrf_name(),
                              Ip4Address::from_string(subnet_list[i][j]), 24);
             EXPECT_TRUE(route != NULL);
@@ -207,7 +207,7 @@ void ValidateSubnetReceiveRoute(uint32_t count) {
     }
 }
 
-static void ValidateVgwInterface(Inet4UnicastRouteEntry *route,
+static void ValidateVgwInterface(InetUnicastRouteEntry *route,
                                  const char *name) {
     const NextHop *nh = route->GetActiveNextHop();
     EXPECT_TRUE(nh != NULL);
@@ -247,7 +247,7 @@ void ValidateVgwRoute(uint32_t count, uint32_t route_count) {
         inst << "default-domain:admin:public" << i << ":public" << i;
 
         if (route_count == 0) {
-            Inet4UnicastRouteEntry *route;
+            InetUnicastRouteEntry *route;
             route = RouteGet(inst.str(), Ip4Address::from_string("0.0.0.0"), 0);
             EXPECT_TRUE(route != NULL);
             if (route == NULL)
@@ -257,7 +257,7 @@ void ValidateVgwRoute(uint32_t count, uint32_t route_count) {
         }
 
         for (uint32_t j = 0; j < route_count; ++j) {
-            Inet4UnicastRouteEntry *route;
+            InetUnicastRouteEntry *route;
             route = RouteGet(inst.str(), Ip4Address::from_string(route_list[j]), 24);
             EXPECT_TRUE(route != NULL);
             if (route == NULL)
@@ -286,20 +286,20 @@ void ValidateVgwDelete(uint32_t count, uint32_t route_count,
         EXPECT_TRUE(gw == NULL);
 
         for (uint32_t j = 0; j < i+1; ++j) {
-            Inet4UnicastRouteEntry *route;
+            InetUnicastRouteEntry *route;
             route = RouteGet(Agent::GetInstance()->fabric_vrf_name(),
                              Ip4Address::from_string(subnet_list[i][j]), 24);
             EXPECT_TRUE(route == NULL);
         }
 
         if (route_count == 0) {
-            Inet4UnicastRouteEntry *route;
+            InetUnicastRouteEntry *route;
             route = RouteGet(inst.str(), Ip4Address::from_string("0.0.0.0"), 0);
             EXPECT_TRUE(route == NULL);
         }
 
         for (uint32_t j = 0; j < route_count; ++j) {
-            Inet4UnicastRouteEntry *route;
+            InetUnicastRouteEntry *route;
             route = RouteGet(inst.str(), Ip4Address::from_string(route_list[j]), 24);
             EXPECT_TRUE(route == NULL);
         }
@@ -519,7 +519,7 @@ TEST_F(DynamicVgwTest, Reconnect) {
         EXPECT_TRUE(gw == NULL);
 
         for (uint32_t j = 0; j < i+1; ++j) {
-            Inet4UnicastRouteEntry *route;
+            InetUnicastRouteEntry *route;
             route = RouteGet(Agent::GetInstance()->fabric_vrf_name(),
                              Ip4Address::from_string(subnet_list[i][j]), 24);
             EXPECT_TRUE(route == NULL);

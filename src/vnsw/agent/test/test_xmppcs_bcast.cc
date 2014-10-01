@@ -461,7 +461,7 @@ protected:
 	Ip4Address addr = Ip4Address::from_string("1.1.1.1");
 	EXPECT_TRUE(VmPortActive(input, 0));
 	EXPECT_TRUE(RouteFind("vrf1", addr, 32));
-	Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
+	InetUnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
 	EXPECT_STREQ(rt->dest_vn_name().c_str(), "vn1");
 
 	// Send route, back to vrf1
@@ -610,7 +610,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
     //ensure route learnt via control-node is cleaned/updated 
     Ip4Address addr = Ip4Address::from_string("1.1.1.255");
     ASSERT_TRUE(RouteFind("vrf1", addr, 32));
-    Inet4UnicastRouteEntry *rt=RouteGet("vrf1", addr, 32);
+    InetUnicastRouteEntry *rt=RouteGet("vrf1", addr, 32);
     NextHop *nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
