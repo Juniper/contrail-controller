@@ -155,8 +155,12 @@ class AuthServiceKeystone(object):
 
         # avoid multiple reauth
         if ((status_code == 401) and (not retry_after_authn)):
-            self._auth_token = self._auth_middleware.get_admin_token()
-            return self.json_request(method, path, retry_after_authn=True)
+            try:
+                self._auth_token = self._auth_middleware.get_admin_token()
+                return self.json_request(method, path, retry_after_authn=True)
+            except Exception as e:
+                self._server_mgr.config_log_error(
+                    "Error in getting admin token from keystone: " + str(e))
 
         return data if status_code == 200 else {}
     # end json_request
