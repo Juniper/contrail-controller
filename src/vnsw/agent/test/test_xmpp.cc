@@ -486,7 +486,7 @@ TEST_F(AgentXmppUnitTest, Connection) {
     Ip4Address addr = Ip4Address::from_string("1.1.1.1");
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(RouteFind("vrf1", addr, 32));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
     EXPECT_STREQ(rt->dest_vn_name().c_str(), "vn1");
 
     const struct ether_addr *mac = ether_aton("00:00:00:01:01:01");
@@ -508,7 +508,7 @@ TEST_F(AgentXmppUnitTest, Connection) {
 
     // Route leaked to vrf2, check entry in route-table
     WAIT_FOR(1000, 10000, (RouteFind("vrf2", addr, 32) == true));
-    Inet4UnicastRouteEntry *rt2 = RouteGet("vrf2", addr, 32);
+    InetUnicastRouteEntry *rt2 = RouteGet("vrf2", addr, 32);
     WAIT_FOR(1000, 10000, (rt2->GetActivePath() != NULL));
     WAIT_FOR(1000, 10000, rt2->dest_vn_name().size() > 0);
     EXPECT_STREQ(rt2->dest_vn_name().c_str(), "vn1");
@@ -623,7 +623,7 @@ TEST_F(AgentXmppUnitTest, Del_db_req_by_deleted_peer_non_hv) {
     Ip4Address addr = Ip4Address::from_string("1.1.1.10");
     WAIT_FOR(1000, 10000, (VmPortActive(input, 0)));
     WAIT_FOR(1000, 10000, (RouteFind("vrf10", addr, 32)));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf10", addr, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf10", addr, 32);
     const BgpPeer *old_bgp_peer = Agent::GetInstance()->controller_xmpp_channel(0)->
         bgp_peer_id();
 
@@ -693,7 +693,7 @@ TEST_F(AgentXmppUnitTest, resync_db_req_by_deleted_peer_non_hv) {
     Ip4Address addr = Ip4Address::from_string("1.1.1.10");
     WAIT_FOR(1000, 10000, (VmPortActive(input, 0)));
     WAIT_FOR(1000, 10000, (RouteFind("vrf10", addr, 32)));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf10", addr, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf10", addr, 32);
     const BgpPeer *old_bgp_peer = Agent::GetInstance()->controller_xmpp_channel(0)->
         bgp_peer_id();
     const AgentXmppChannel *channel = old_bgp_peer->GetBgpXmppPeerConst();
@@ -712,8 +712,8 @@ TEST_F(AgentXmppUnitTest, resync_db_req_by_deleted_peer_non_hv) {
                               100, "vn10", SecurityGroupList(),
                               PathPreference());
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    Inet4UnicastRouteKey *key =
-        new Inet4UnicastRouteKey(old_bgp_peer, "vrf10", addr, 32);
+    InetUnicastRouteKey *key =
+        new InetUnicastRouteKey(old_bgp_peer, "vrf10", addr, 32);
     key->sub_op_ = AgentKey::RESYNC;
     req.key.reset(key);
     req.data.reset(data);
@@ -737,7 +737,7 @@ TEST_F(AgentXmppUnitTest, resync_db_req_by_deleted_peer_non_hv) {
                                    sequence_number,
                                    channel);
     DBRequest localvm_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    key = new Inet4UnicastRouteKey(old_bgp_peer, "vrf10", addr, 32);
+    key = new InetUnicastRouteKey(old_bgp_peer, "vrf10", addr, 32);
     key->sub_op_ = AgentKey::RESYNC;
     localvm_req.key.reset(key);
     localvm_req.data.reset(local_vm_route);
@@ -752,7 +752,7 @@ TEST_F(AgentXmppUnitTest, resync_db_req_by_deleted_peer_non_hv) {
         new ControllerVlanNhRoute(intf_key, 10, 11, "", SecurityGroupList(),
                                   PathPreference(), sequence_number, channel);
     DBRequest vlanrt_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    key = new Inet4UnicastRouteKey(old_bgp_peer, "vrf10",
+    key = new InetUnicastRouteKey(old_bgp_peer, "vrf10",
                                    Ip4Address::from_string("2.2.2.0"), 24);
     key->sub_op_ = AgentKey::RESYNC;
     vlanrt_req.key.reset(key);
@@ -771,7 +771,7 @@ TEST_F(AgentXmppUnitTest, resync_db_req_by_deleted_peer_non_hv) {
                                          TunnelType::GREType(), "",
                                          sequence_number, channel);
     DBRequest inet_rt_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    key = new Inet4UnicastRouteKey(old_bgp_peer, "vrf10",
+    key = new InetUnicastRouteKey(old_bgp_peer, "vrf10",
                                    Ip4Address::from_string("3.3.3.3"), 32);
     key->sub_op_ = AgentKey::RESYNC;
     inet_rt_req.key.reset(key);
@@ -827,7 +827,7 @@ TEST_F(AgentXmppUnitTest, Add_db_inetinterface_req_by_deleted_peer_non_hv) {
     Ip4Address addr = Ip4Address::from_string("1.1.1.10");
     WAIT_FOR(1000, 10000, (VmPortActive(input, 0)));
     WAIT_FOR(1000, 10000, (RouteFind("vrf10", addr, 32)));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf10", addr, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf10", addr, 32);
     const BgpPeer *old_bgp_peer = Agent::GetInstance()->controller_xmpp_channel(0)->
         bgp_peer_id();
     const AgentXmppChannel *channel = old_bgp_peer->GetBgpXmppPeerConst();
@@ -992,7 +992,7 @@ TEST_F(AgentXmppUnitTest, ConnectionUpDown) {
     Ip4Address addr = Ip4Address::from_string("1.1.1.2");
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(RouteFind("vrf1", addr, 32));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
     EXPECT_STREQ(rt->dest_vn_name().c_str(), "vn1");
 
     const struct ether_addr *mac = ether_aton("00:00:00:01:01:02");
@@ -1063,7 +1063,7 @@ TEST_F(AgentXmppUnitTest, ConnectionUpDown) {
     Ip4Address addr2 = Ip4Address::from_string("1.1.1.3");
     EXPECT_TRUE(VmPortActive(input2, 0));
     EXPECT_TRUE(RouteFind("vrf1", addr2, 32));
-    Inet4UnicastRouteEntry *rt2 = RouteGet("vrf1", addr2, 32);
+    InetUnicastRouteEntry *rt2 = RouteGet("vrf1", addr2, 32);
     EXPECT_STREQ(rt2->dest_vn_name().c_str(), "vn1");
 
     const struct ether_addr *mac2 = ether_aton("00:00:00:02:01:03");
@@ -1196,7 +1196,7 @@ TEST_F(AgentXmppUnitTest, SgList) {
     Ip4Address addr = Ip4Address::from_string("1.1.1.1");
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(RouteFind("vrf1", addr, 32));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
     EXPECT_STREQ(rt->dest_vn_name().c_str(), "vn1");
 
     // Send route, back to vrf1
@@ -1213,7 +1213,7 @@ TEST_F(AgentXmppUnitTest, SgList) {
 
     // Route leaked to vrf2, check entry in route-table
     WAIT_FOR(1000, 10000, (RouteFind("vrf2", addr, 32) == true));
-    Inet4UnicastRouteEntry *rt2 = RouteGet("vrf2", addr, 32);
+    InetUnicastRouteEntry *rt2 = RouteGet("vrf2", addr, 32);
     WAIT_FOR(1000, 10000, (rt2->GetActivePath() != NULL));
     WAIT_FOR(1000, 10000, rt2->dest_vn_name().size() > 0);
     EXPECT_STREQ(rt2->dest_vn_name().c_str(), "vn1");
@@ -1311,7 +1311,7 @@ TEST_F(AgentXmppUnitTest, TransparentSISgList) {
     Ip4Address addr = Ip4Address::from_string("11.1.1.1");
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(RouteFind("vrf2", addr, 32));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf2", addr, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf2", addr, 32);
     EXPECT_STREQ(rt->dest_vn_name().c_str(), "vn1");
 
     // Send route, back to vrf2
@@ -1322,7 +1322,7 @@ TEST_F(AgentXmppUnitTest, TransparentSISgList) {
 
     // Route leaked to vrf2, check entry in route-table
     WAIT_FOR(1000, 10000, (RouteFind("vrf2", addr, 32) == true));
-    Inet4UnicastRouteEntry *rt2 = RouteGet("vrf2", addr, 32);
+    InetUnicastRouteEntry *rt2 = RouteGet("vrf2", addr, 32);
     WAIT_FOR(1000, 10000, (rt2->GetActivePath() != NULL));
     WAIT_FOR(1000, 10000, rt2->dest_vn_name().size() > 0);
     EXPECT_STREQ(rt2->dest_vn_name().c_str(), "vn1");
@@ -1398,7 +1398,7 @@ TEST_F(AgentXmppUnitTest, vxlan_peer_l2route_add) {
     Ip4Address addr = Ip4Address::from_string("1.1.1.2");
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(RouteFind("vrf1", addr, 32));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
     EXPECT_STREQ(rt->dest_vn_name().c_str(), "vn1");
 
     const struct ether_addr *mac = ether_aton("00:00:00:01:01:02");
@@ -1494,7 +1494,7 @@ TEST_F(AgentXmppUnitTest, mpls_peer_l2route_add) {
     Ip4Address addr = Ip4Address::from_string("1.1.1.2");
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(RouteFind("vrf1", addr, 32));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
     EXPECT_STREQ(rt->dest_vn_name().c_str(), "vn1");
 
     const struct ether_addr *mac = ether_aton("00:00:00:01:01:02");

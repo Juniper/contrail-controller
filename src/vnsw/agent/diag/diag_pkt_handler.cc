@@ -37,7 +37,11 @@ bool DiagPktHandler::Run() {
 
     if (!ad) {
         //Ignore if packet doesnt have proper L4 header
-               return true;
+        return true;
+    }
+    if (pkt_info_->ether_type == ETHERTYPE_IPV6) {
+        //Ignore IPv6 packets until it is supported
+        return true;
     }
     if (ntohl(ad->op_) == AgentDiagPktData::DIAG_REQUEST) {
         //Request received swap the packet

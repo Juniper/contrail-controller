@@ -169,7 +169,7 @@ public:
                 AgentRouteTable *table);
     void RouteUpdate(DBTablePartBase *part, DBEntryBase *entry);
     void ManagedDelete() { deleted = true;}
-    void SendArpRequestForVm(Inet4UnicastRouteEntry *route);
+    void SendArpRequestForVm(InetUnicastRouteEntry *route);
     void Delete();
     bool DeleteRouteState(DBTablePartBase *part, DBEntryBase *entry);
     void WalkDone(DBTableBase *partition, ArpVrfState *state);

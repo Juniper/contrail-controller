@@ -1361,9 +1361,9 @@ TEST_F(CfgTest, Basic_2) {
         return;
     }
 
-    Inet4UnicastAgentRouteTable *table = 
+    InetUnicastAgentRouteTable *table =
         Agent::GetInstance()->fabric_inet4_unicast_table();
-    Inet4UnicastRouteEntry *rt = static_cast<Inet4UnicastRouteEntry *>
+    InetUnicastRouteEntry *rt = static_cast<InetUnicastRouteEntry *>
         (table->FindRoute(intf->mdata_ip_addr()));
     EXPECT_TRUE(rt != NULL);
     if (rt == NULL) {
@@ -1379,7 +1379,7 @@ TEST_F(CfgTest, Basic_2) {
 
     Ip4Address addr = Ip4Address::from_string("1.1.1.1");
 
-    table = static_cast<Inet4UnicastAgentRouteTable *>
+    table = static_cast<InetUnicastAgentRouteTable *>
         (Agent::GetInstance()->vrf_table()->GetInet4UnicastRouteTable("vrf1"));
     rt = table->FindRoute(addr); 
 
@@ -1428,10 +1428,10 @@ TEST_F(CfgTest, SecurityGroup_1) {
     DoInterfaceSandesh("vnet1");
 
     Ip4Address addr(Ip4Address::from_string("1.1.1.1"));
-    Inet4UnicastAgentRouteTable *table = 
-        static_cast<Inet4UnicastAgentRouteTable *>
+    InetUnicastAgentRouteTable *table =
+        static_cast<InetUnicastAgentRouteTable *>
         (Agent::GetInstance()->vrf_table()->GetInet4UnicastRouteTable("vrf1"));
-    Inet4UnicastRouteEntry *rt = table->FindRoute(addr); 
+    InetUnicastRouteEntry *rt = table->FindRoute(addr);
     EXPECT_TRUE(rt != NULL);
     if (rt == NULL) {
         return;

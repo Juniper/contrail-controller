@@ -756,11 +756,11 @@ void VnTable::DelIPAMRoutes(VnEntry *vn, VnIpam &ipam) {
 void VnTable::AddHostRouteForGw(VnEntry *vn, const VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     if (ipam.IsV4()) {
-        static_cast<Inet4UnicastAgentRouteTable *>(vrf->
+        static_cast<InetUnicastAgentRouteTable *>(vrf->
             GetInet4UnicastRouteTable())->AddHostRoute(vrf->GetName(),
                 ipam.default_gw.to_v4(), 32, vn->GetName());
     } else if (ipam.IsV6()) {
-        static_cast<Inet6UnicastAgentRouteTable *>(vrf->
+        static_cast<InetUnicastAgentRouteTable *>(vrf->
             GetInet6UnicastRouteTable())->AddHostRoute(vrf->GetName(),
                 ipam.default_gw.to_v6(), 128, vn->GetName());
     }
@@ -770,26 +770,26 @@ void VnTable::AddHostRouteForGw(VnEntry *vn, const VnIpam &ipam) {
 void VnTable::DelHostRouteForGw(VnEntry *vn, const VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     if (ipam.IsV4()) {
-        static_cast<Inet4UnicastAgentRouteTable *>
+        static_cast<InetUnicastAgentRouteTable *>
             (vrf->GetInet4UnicastRouteTable())->DeleteReq
             (Agent::GetInstance()->local_peer(), vrf->GetName(),
              ipam.default_gw.to_v4(), 32, NULL);
     } else if (ipam.IsV6()) {
-        static_cast<Inet6UnicastAgentRouteTable *>
+        static_cast<InetUnicastAgentRouteTable *>
             (vrf->GetInet6UnicastRouteTable())->DeleteReq
             (Agent::GetInstance()->local_peer(), vrf->GetName(),
-             ipam.default_gw.to_v6(), 128);
+             ipam.default_gw.to_v6(), 128, NULL);
     }
 }
 
 void VnTable::AddSubnetRoute(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     if (ipam.IsV4()) {
-        static_cast<Inet4UnicastAgentRouteTable *>(vrf->
+        static_cast<InetUnicastAgentRouteTable *>(vrf->
             GetInet4UnicastRouteTable())->AddSubnetRoute
             (vrf->GetName(), ipam.GetSubnetAddress(), ipam.plen, vn->GetName(), 0);
     } else if (ipam.IsV6()) {
-        static_cast<Inet6UnicastAgentRouteTable *>(vrf->
+        static_cast<InetUnicastAgentRouteTable *>(vrf->
             GetInet6UnicastRouteTable())->AddSubnetRoute
             (vrf->GetName(), ipam.GetV6SubnetAddress(), ipam.plen, 
              vn->GetName(), 0);
@@ -800,15 +800,15 @@ void VnTable::AddSubnetRoute(VnEntry *vn, VnIpam &ipam) {
 void VnTable::DelSubnetRoute(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     if (ipam.IsV4()) {
-        static_cast<Inet4UnicastAgentRouteTable *>(vrf->
+        static_cast<InetUnicastAgentRouteTable *>(vrf->
             GetInet4UnicastRouteTable())->DeleteReq
             (Agent::GetInstance()->local_peer(), vrf->GetName(),
              ipam.GetSubnetAddress(), ipam.plen, NULL);
     } else if (ipam.IsV6()) {
-        static_cast<Inet6UnicastAgentRouteTable *>(vrf->
+        static_cast<InetUnicastAgentRouteTable *>(vrf->
             GetInet6UnicastRouteTable())->DeleteReq
             (Agent::GetInstance()->local_peer(), vrf->GetName(),
-             ipam.GetV6SubnetAddress(), ipam.plen);
+             ipam.GetV6SubnetAddress(), ipam.plen, NULL);
     }
 }
 

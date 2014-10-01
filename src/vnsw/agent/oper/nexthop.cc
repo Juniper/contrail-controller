@@ -714,10 +714,9 @@ bool TunnelNH::Change(const DBRequest *req) {
     bool ret = false;
     bool valid = false;
 
-    Inet4UnicastAgentRouteTable *rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>
+    InetUnicastAgentRouteTable *rt_table =
         (GetVrf()->GetInet4UnicastRouteTable());
-    Inet4UnicastRouteEntry *rt = rt_table->FindLPM(dip_);
+    InetUnicastRouteEntry *rt = rt_table->FindLPM(dip_);
     if (!rt) {
         //No route to reach destination, add to unresolved list
         valid = false;
@@ -726,7 +725,7 @@ bool TunnelNH::Change(const DBRequest *req) {
         //Trigger ARP resolution
         valid = false;
         rt_table->AddUnresolvedNH(this);
-        Inet4UnicastAgentRouteTable::AddArpReq(GetVrf()->GetName(), dip_);
+        InetUnicastAgentRouteTable::AddArpReq(GetVrf()->GetName(), dip_);
         rt = NULL;
     } else {
         valid = rt->GetActiveNextHop()->IsValid();
@@ -744,8 +743,7 @@ bool TunnelNH::Change(const DBRequest *req) {
 }
 
 void TunnelNH::Delete(const DBRequest *req) {
-    Inet4UnicastAgentRouteTable *rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>
+    InetUnicastAgentRouteTable *rt_table =
         (GetVrf()->GetInet4UnicastRouteTable());
     rt_table->RemoveUnresolvedNH(this);
 }
@@ -821,10 +819,9 @@ bool MirrorNH::Change(const DBRequest *req) {
         valid_ = true;
         return true;
     }
-    Inet4UnicastAgentRouteTable *rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>
+    InetUnicastAgentRouteTable *rt_table =
         (GetVrf()->GetInet4UnicastRouteTable());
-    Inet4UnicastRouteEntry *rt = rt_table->FindLPM(dip_);
+    InetUnicastRouteEntry *rt = rt_table->FindLPM(dip_);
     if (!rt) {
         //No route to reach destination, add to unresolved list
         valid = false;
@@ -834,7 +831,7 @@ bool MirrorNH::Change(const DBRequest *req) {
         //Trigger ARP resolution
         valid = false;
         rt_table->AddUnresolvedNH(this);
-        Inet4UnicastAgentRouteTable::AddArpReq(GetVrf()->GetName(), dip_);
+        InetUnicastAgentRouteTable::AddArpReq(GetVrf()->GetName(), dip_);
         rt = NULL;
     } else {
         valid = rt->GetActiveNextHop()->IsValid();
@@ -855,8 +852,7 @@ void MirrorNH::Delete(const DBRequest *req) {
     if (!GetVrf()) {
         return;
     }
-    Inet4UnicastAgentRouteTable *rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>
+    InetUnicastAgentRouteTable *rt_table =
         (GetVrf()->GetInet4UnicastRouteTable());
     rt_table->RemoveUnresolvedNH(this);
 }

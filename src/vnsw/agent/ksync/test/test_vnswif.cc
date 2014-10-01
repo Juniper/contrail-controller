@@ -283,7 +283,7 @@ TEST_F(TestVnswIf, EcmpActivateDeactivate_1) {
 
     // Ensure ECMP is created
     Ip4Address ip = Ip4Address::from_string("1.1.1.10");
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
     EXPECT_TRUE(rt != NULL);
 
     const CompositeNH *nh;

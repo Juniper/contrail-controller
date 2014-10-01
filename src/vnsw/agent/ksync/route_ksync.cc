@@ -47,8 +47,8 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
     boost::system::error_code ec;
     switch (rt->GetTableType()) {
     case Agent::INET4_UNICAST: {
-          const Inet4UnicastRouteEntry *uc_rt = 
-              static_cast<const Inet4UnicastRouteEntry *>(rt);
+          const InetUnicastRouteEntry *uc_rt =
+              static_cast<const InetUnicastRouteEntry *>(rt);
           addr_ = uc_rt->addr();
           src_addr_ = IpAddress::from_string("0.0.0.0", ec).to_v4();
           prefix_len_ = uc_rt->plen();
@@ -56,8 +56,8 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
           break;
     }
     case Agent::INET6_UNICAST: {
-          const Inet6UnicastRouteEntry *uc_rt = 
-              static_cast<const Inet6UnicastRouteEntry *>(rt);
+          const InetUnicastRouteEntry *uc_rt =
+              static_cast<const InetUnicastRouteEntry *>(rt);
           addr_ = uc_rt->addr();
           src_addr_ = Ip6Address();
           prefix_len_ = uc_rt->plen();
@@ -207,7 +207,7 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
     if (rt_type_ == RT_UCAST || rt_type_ == RT_LAYER2) {
         uint32_t old_label = label_;
         const AgentPath *path = 
-            (static_cast <Inet4UnicastRouteEntry *>(e))->GetActivePath();
+            (static_cast <InetUnicastRouteEntry *>(e))->GetActivePath();
         if (route->is_multicast()) {
             label_ = path->vxlan_id();
         } else {

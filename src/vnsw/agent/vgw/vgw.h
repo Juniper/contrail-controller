@@ -33,11 +33,11 @@ public:
 
 private:
     void SubnetUpdate(const std::string &vrf,
-                      Inet4UnicastAgentRouteTable *rt_table,
+                      InetUnicastAgentRouteTable *rt_table,
                       const VirtualGatewayConfig::SubnetList &add_list,
                       const VirtualGatewayConfig::SubnetList &del_list);
     void RouteUpdate(const VirtualGatewayConfig &vgw, uint32_t new_list_size,
-                     Inet4UnicastAgentRouteTable *rt_table,
+                     InetUnicastAgentRouteTable *rt_table,
                      const VirtualGatewayConfig::SubnetList &add_list,
                      const VirtualGatewayConfig::SubnetList &del_list,
                      bool add_default_route, bool del_default_route);

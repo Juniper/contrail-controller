@@ -61,7 +61,7 @@ class EcmpTest : public ::testing::Test {
         AddLink("virtual-machine-interface", "vnet4", "floating-ip", "fip1");
         client->WaitForIdle();
         Ip4Address ip = Ip4Address::from_string("3.1.1.100");
-        Inet4UnicastRouteEntry *rt = RouteGet("default-project:vn3:vn3", ip, 32);
+        InetUnicastRouteEntry *rt = RouteGet("default-project:vn3:vn3", ip, 32);
         EXPECT_TRUE(rt != NULL);
         EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
         mpls_label_1 = rt->GetActiveLabel();
@@ -500,7 +500,7 @@ TEST_F(EcmpTest, EcmpTest_10) {
 
     //Leak route for 2.1.1.1 in vrf9 and
     Ip4Address vm_ip = Ip4Address::from_string("2.1.1.1");
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf2", vm_ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf2", vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
 
     const CompositeNH *composite_nh = static_cast<const CompositeNH *>(
@@ -600,7 +600,7 @@ TEST_F(EcmpTest, EcmpTest_11) {
 
     //Leak route for 2.1.1.1 in vrf9 and
     Ip4Address vm_ip = Ip4Address::from_string("3.1.1.100");
-    Inet4UnicastRouteEntry *rt = RouteGet("default-project:vn3:vn3", vm_ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("default-project:vn3:vn3", vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
 
     const CompositeNH *composite_nh = static_cast<const CompositeNH *>(
@@ -1037,7 +1037,7 @@ TEST_F(EcmpTest, ServiceVlanTest_3) {
 
     //Leak aggregarete route to vrf10
     Ip4Address service_vm_ip = Ip4Address::from_string("10.1.1.2"); 
-    Inet4UnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
     ComponentNHKeyList comp_nh_list;
     EXPECT_TRUE(rt != NULL);
     const VlanNH *vlan_nh = static_cast<const VlanNH *>(rt->GetActiveNextHop());
@@ -1189,7 +1189,7 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
 
     //Leak aggregarete route to vrf10
     Ip4Address service_vm_ip = Ip4Address::from_string("10.1.1.2"); 
-    Inet4UnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
 
     DBEntryBase::KeyPtr key_ref = rt->GetActiveNextHop()->GetDBRequestKey();
@@ -1336,7 +1336,7 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
         Agent::GetInstance()->vrf_table()->FindVrfFromName("service-vrf1")->vrf_id();
 
     Ip4Address service_vm_ip = Ip4Address::from_string("11.1.1.2"); 
-    Inet4UnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
 
     DBEntryBase::KeyPtr key_ref = rt->GetActiveNextHop()->GetDBRequestKey();
@@ -1478,7 +1478,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
         Agent::GetInstance()->vrf_table()->FindVrfFromName("service-vrf1")->vrf_id();
 
     Ip4Address service_vm_ip = Ip4Address::from_string("11.1.1.2"); 
-    Inet4UnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
     uint32_t mpls_label = rt->GetActiveLabel();
 
@@ -1715,7 +1715,7 @@ TEST_F(EcmpTest, ServiceVlanTest_7) {
         Agent::GetInstance()->vrf_table()->FindVrfFromName("service-vrf1")->vrf_id();
 
     Ip4Address service_vm_ip = Ip4Address::from_string("11.1.1.2"); 
-    Inet4UnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
 
     ComponentNHKeyList comp_nh_list;
@@ -1810,7 +1810,7 @@ TEST_F(EcmpTest,ServiceVlanTest_8) {
         Agent::GetInstance()->vrf_table()->FindVrfFromName("service-vrf1")->vrf_id();
 
     Ip4Address service_vm_ip = Ip4Address::from_string("11.1.1.2"); 
-    Inet4UnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
 
     ComponentNHKeyList comp_nh_list;

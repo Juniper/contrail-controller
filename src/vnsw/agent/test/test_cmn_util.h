@@ -129,8 +129,8 @@ bool MCRouteFind(const string &vrf_name, const Ip4Address &addr);
 bool MCRouteFind(const string &vrf_name, const string &saddr,
                  const string &daddr);
 bool MCRouteFind(const string &vrf_name, const string &addr);
-Inet4UnicastRouteEntry *RouteGet(const string &vrf_name, const Ip4Address &addr, int plen);
-Inet6UnicastRouteEntry *RouteGetV6(const string &vrf_name, const Ip6Address &addr, int plen);
+InetUnicastRouteEntry *RouteGet(const string &vrf_name, const Ip4Address &addr, int plen);
+InetUnicastRouteEntry *RouteGetV6(const string &vrf_name, const Ip6Address &addr, int plen);
 Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const Ip4Address &grp_addr);
 Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const string &grp_addr);
 Layer2RouteEntry *L2RouteGet(const string &vrf_name, const struct ether_addr &mac);

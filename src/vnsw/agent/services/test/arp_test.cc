@@ -184,7 +184,7 @@ public:
     bool FindArpRoute(uint32_t addr, const string &vrf_name) {
         Agent *agent = Agent::GetInstance();
         Ip4Address ip(addr);
-        Inet4UnicastRouteKey rt_key(agent->local_peer(), vrf_name, ip, 32);
+        InetUnicastRouteKey rt_key(agent->local_peer(), vrf_name, ip, 32);
         VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
         if (!vrf || !(vrf->GetInet4UnicastRouteTable()))
             return false;

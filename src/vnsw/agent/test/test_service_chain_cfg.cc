@@ -33,7 +33,7 @@ class ServiceVlanTest : public ::testing::Test {
 };
 
 static int ServiceVlanGetLabel(const string &vrf, const string &addr) {
-    Inet4UnicastRouteEntry *rt = RouteGet(vrf, Ip4Address::from_string(addr), 32);
+    InetUnicastRouteEntry *rt = RouteGet(vrf, Ip4Address::from_string(addr), 32);
     EXPECT_TRUE(rt != NULL);
     if (rt == NULL) {
         return false;
@@ -46,7 +46,7 @@ static bool ValidateServiceVlan(int ifid, const string &vrf, const string &addr,
                                 uint16_t tag) {
     EXPECT_TRUE(VlanNhFind(ifid, tag));
 
-    Inet4UnicastRouteEntry *rt = RouteGet(vrf, Ip4Address::from_string(addr), 32);
+    InetUnicastRouteEntry *rt = RouteGet(vrf, Ip4Address::from_string(addr), 32);
     EXPECT_TRUE(rt != NULL);
     if (rt == NULL) {
         return false;
@@ -80,7 +80,7 @@ static bool ValidateServiceVlanDel(int ifid, const string &vrf,
                                    const string &addr, uint16_t tag, int label){
     EXPECT_FALSE(VlanNhFind(ifid, tag));
 
-    Inet4UnicastRouteEntry *rt = RouteGet(vrf, Ip4Address::from_string(addr), 32);
+    InetUnicastRouteEntry *rt = RouteGet(vrf, Ip4Address::from_string(addr), 32);
     EXPECT_TRUE(rt == NULL);
 
     MplsLabel *mpls = Agent::GetInstance()->mpls_table()->FindMplsLabel(label);
