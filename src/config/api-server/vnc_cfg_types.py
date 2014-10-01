@@ -81,9 +81,12 @@ class FloatingIpServer(FloatingIpServerGen):
 
         if 'floating_ip_back_refs' in proj_dict:
             quota_count = len(proj_dict['floating_ip_back_refs'])
-            (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
-            if not ok:
-                return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
+            if obj_dict['id_perms'].get('user_visible', True) is not False:
+                (ok, quota_limit) = QuotaHelper.check_quota_limit(
+                    proj_dict, obj_type, quota_count)
+                if not ok:
+                    return (False, (403, pformat(obj_dict['fq_name']) +
+                                    ' : ' + quota_limit))
 
         vn_fq_name = obj_dict['fq_name'][:-2]
         req_ip = obj_dict.get("floating_ip_address")
@@ -261,9 +264,12 @@ class LogicalRouterServer(LogicalRouterServerGen):
         QuotaHelper.ensure_quota_project_present(obj_type, proj_uuid, proj_dict, db_conn)
         if 'logical_routers' in proj_dict:
             quota_count = len(proj_dict['logical_routers'])
-            (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
-            if not ok:
-                return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
+            if obj_dict['id_perms'].get('user_visible', True) is not False:
+                (ok, quota_limit) = QuotaHelper.check_quota_limit(
+                    proj_dict, obj_type, quota_count)
+                if not ok:
+                    return (False, (403, pformat(obj_dict['fq_name']) +
+                                    ' : ' + quota_limit))
         return True, ""
     # end http_post_collection
 
@@ -296,9 +302,12 @@ class VirtualMachineInterfaceServer(VirtualMachineInterfaceServerGen):
             QuotaHelper.ensure_quota_project_present(obj_type, proj_uuid, proj_dict, db_conn)
             if 'virtual_machine_interfaces' in proj_dict:
                 quota_count = len(proj_dict['virtual_machine_interfaces'])
-                (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
-                if not ok:
-                    return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
+                if obj_dict['id_perms'].get('user_visible', True) is not False:
+                    (ok, quota_limit) = QuotaHelper.check_quota_limit(
+                        proj_dict, obj_type, quota_count)
+                    if not ok:
+                        return (False, (403, pformat(obj_dict['fq_name']) +
+                                        ' : ' + quota_limit))
 
         inmac = None
         if 'virtual_machine_interface_mac_addresses' in obj_dict:
@@ -363,9 +372,12 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
         QuotaHelper.ensure_quota_project_present(obj_type, proj_uuid, proj_dict, db_conn)
         if 'virtual_networks' in proj_dict:
             quota_count = len(proj_dict['virtual_networks'])
-            (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
-            if not ok:
-                return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
+            if obj_dict['id_perms'].get('user_visible', True) is not False:
+                (ok, quota_limit) = QuotaHelper.check_quota_limit(
+                    proj_dict, obj_type, quota_count)
+                if not ok:
+                    return (False, (403, pformat(obj_dict['fq_name']) +
+                                    ' : ' + quota_limit))
 
         (ok, error) =  cls._check_route_targets(obj_dict, db_conn)
         if not ok:
@@ -827,9 +839,12 @@ class SecurityGroupServer(SecurityGroupServerGen):
         QuotaHelper.ensure_quota_project_present(obj_type, proj_uuid, proj_dict, db_conn)
         if 'security_groups' in proj_dict:
             quota_count = len(proj_dict['security_groups'])
-            (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
-            if not ok:
-                return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
+            if obj_dict['id_perms'].get('user_visible', True) is not False:
+                (ok, quota_limit) = QuotaHelper.check_quota_limit(
+                    proj_dict, obj_type, quota_count)
+                if not ok:
+                    return (False, (403, pformat(obj_dict['fq_name']) +
+                                    ' : ' + quota_limit))
 
         _check_policy_rule_uuid(obj_dict.get('security_group_entries'))
 
@@ -851,9 +866,12 @@ class SecurityGroupServer(SecurityGroupServerGen):
             QuotaHelper.ensure_quota_project_present(obj_type, proj_dict['uuid'], proj_dict, db_conn)
             if 'security_group_entries' in obj_dict:
                 quota_count = len(obj_dict['security_group_entries']['policy_rule'])
-                (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
-                if not ok:
-                    return (False, (403, pformat(fq_name) + ' : ' + quota_limit))
+                if sec_dict['id_perms'].get('user_visible', True) is not False:
+                    (ok, quota_limit) = QuotaHelper.check_quota_limit(
+                        proj_dict, obj_type, quota_count)
+                    if not ok:
+                        return (False, (403, pformat(obj_dict['fq_name']) +
+                                        ' : ' + quota_limit))
 
         _check_policy_rule_uuid(obj_dict.get('security_group_entries'))
         return True, ""
@@ -880,9 +898,12 @@ class NetworkPolicyServer(NetworkPolicyServerGen):
         QuotaHelper.ensure_quota_project_present(obj_type, proj_uuid, proj_dict, db_conn)
         if 'network-policys' in proj_dict:
             quota_count = len(proj_dict['network-policys'])
-            (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type, quota_count)
-            if not ok:
-                return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
+            if obj_dict['id_perms'].get('user_visible', True) is not False:
+                (ok, quota_limit) = QuotaHelper.check_quota_limit(
+                    proj_dict, obj_type, quota_count)
+                if not ok:
+                    return (False, (403, pformat(obj_dict['fq_name']) +
+                                    ' : ' + quota_limit))
 
         _check_policy_rule_uuid(obj_dict.get('network_policy_entries'))
         try:
