@@ -721,7 +721,6 @@ DbHandler::StatTableInsert(uint64_t ts,
          boost::uuids::string_generator gen;
 	 unm = gen(std::string("ffffffffffffffffffffffffffffffff"));
     } else {
-         tbb::mutex::scoped_lock lock(umn_mutex_);
          unm = umn_gen_();
     }
 

@@ -157,9 +157,7 @@ bool Collector::ReceiveResourceUpdate(SandeshSession *session,
 
 bool Collector::ReceiveSandeshMsg(SandeshSession *session,
                                   const SandeshMessage *msg, bool rsc) {
-    rand_mutex_.lock();
     boost::uuids::uuid unm(umn_gen_());
-    rand_mutex_.unlock();
 
     VizMsg vmsg(msg, unm);
 
