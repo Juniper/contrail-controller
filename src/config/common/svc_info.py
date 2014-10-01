@@ -13,6 +13,7 @@ _VN_MGMT_SUBNET_CIDR = '10.250.1.0/24'
 _VN_LEFT_SUBNET_CIDR = '10.250.2.0/24'
 _VN_RIGHT_SUBNET_CIDR = '10.250.3.0/24'
 
+_VN_SNAT_PREFIX_NAME = 'snat-si-left'
 _VN_SNAT_SUBNET_CIDR = '100.64.0.0/29'
 
 _CHECK_SVC_VM_HEALTH_INTERVAL = 30
@@ -64,6 +65,9 @@ def get_left_vn_subnet():
 
 def get_right_vn_subnet():
     return _VN_RIGHT_SUBNET_CIDR
+
+def get_snat_left_network_prefix_name():
+    return _VN_SNAT_PREFIX_NAME
 
 def get_snat_left_subnet():
     return _VN_SNAT_SUBNET_CIDR
