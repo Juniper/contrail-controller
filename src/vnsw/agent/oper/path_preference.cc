@@ -202,7 +202,7 @@ struct ActiveActiveState : sc::state<ActiveActiveState, PathPreferenceSM> {
 
 
 PathPreferenceSM::PathPreferenceSM(Agent *agent, const Peer *peer,
-    Inet4UnicastRouteEntry *rt): agent_(agent), peer_(peer), rt_(rt),
+    InetUnicastRouteEntry *rt): agent_(agent), peer_(peer), rt_(rt),
     path_preference_(0, PathPreference::LOW, false, false), max_sequence_(0) {
     initiate();
     process_event(EvStart());
@@ -259,8 +259,8 @@ void PathPreferenceSM::Log(std::string state) {
 void PathPreferenceSM::EnqueuePathChange() {
     std::string vrf_name = rt_->vrf()->GetName();
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    Inet4UnicastRouteKey *rt_key =
-        new Inet4UnicastRouteKey(peer_, vrf_name, rt_->addr(), rt_->plen());
+    InetUnicastRouteKey *rt_key =
+        new InetUnicastRouteKey(peer_, vrf_name, rt_->addr(), rt_->plen());
     rt_key->sub_op_ = AgentKey::RESYNC;
     req.key.reset(rt_key);
     req.data.reset(new PathPreferenceData(path_preference_));
@@ -355,10 +355,10 @@ void PathPreferenceIntfState::UpdateDependentRoute(std::string vrf_name,
             continue;
         }
 
-        Inet4UnicastRouteKey rt_key(NULL, it->vrf_name_, it->ip_.to_v4(),
-                                    it->plen_);
-        const Inet4UnicastRouteEntry *rt =
-            static_cast<const Inet4UnicastRouteEntry *>(
+        InetUnicastRouteKey rt_key(NULL, it->vrf_name_, it->ip_.to_v4(),
+                                   it->plen_);
+        const InetUnicastRouteEntry *rt =
+            static_cast<const InetUnicastRouteEntry *>(
             vrf->GetInet4UnicastRouteTable()->FindActiveEntry(&rt_key));
         if (!rt) {
             continue;
@@ -446,7 +446,7 @@ void PathPreferenceIntfState::Notify() {
 }
 
 PathPreferenceState::PathPreferenceState(Agent *agent,
-    Inet4UnicastRouteEntry *rt): agent_(agent), rt_(rt) {
+    InetUnicastRouteEntry *rt): agent_(agent), rt_(rt) {
 }
 
 PathPreferenceState::~PathPreferenceState() {
@@ -568,8 +568,8 @@ void PathPreferenceVrfState::Notify(DBTablePartBase *partition,
         return;
     }
 
-    Inet4UnicastRouteEntry *rt =
-                static_cast<Inet4UnicastRouteEntry *>(e);
+    InetUnicastRouteEntry *rt =
+                static_cast<InetUnicastRouteEntry *>(e);
     if (!state) {
         state = new PathPreferenceState(agent_, rt);
     }
@@ -606,9 +606,9 @@ bool PathPreferenceModule::DequeueEvent(PathPreferenceEventContainer event) {
         return true;
     }
 
-    Inet4UnicastRouteKey rt_key(NULL, vrf->GetName(), event.ip_, event.plen_);
-    const Inet4UnicastRouteEntry *rt =
-        static_cast<const Inet4UnicastRouteEntry *>(
+    InetUnicastRouteKey rt_key(NULL, vrf->GetName(), event.ip_, event.plen_);
+    const InetUnicastRouteEntry *rt =
+        static_cast<const InetUnicastRouteEntry *>(
         vrf->GetInet4UnicastRouteTable()->FindActiveEntry(&rt_key));
     if (!rt) {
         return true;
@@ -642,8 +642,8 @@ bool PathPreferenceModule::DequeueEvent(PathPreferenceEventContainer event) {
 }
 
 void PathPreferenceModule::EnqueueTrafficSeen(Ip4Address ip, uint32_t plen,
-                                               uint32_t interface_index,
-                                               uint32_t vrf_index) {
+                                              uint32_t interface_index,
+                                              uint32_t vrf_index) {
     const Interface *intf =
         agent_->interface_table()->FindInterface(interface_index);
     if (intf == NULL || (intf->type() != Interface::VM_INTERFACE)) {
@@ -656,7 +656,7 @@ void PathPreferenceModule::EnqueueTrafficSeen(Ip4Address ip, uint32_t plen,
         return;
     }
 
-    Inet4UnicastRouteEntry *rt = vrf->GetUcRoute(ip);
+    InetUnicastRouteEntry *rt = vrf->GetUcRoute(ip);
     if (!rt) {
         return;
     }

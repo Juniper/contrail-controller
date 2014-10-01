@@ -922,7 +922,7 @@ TEST_F(IntfTest, VmPortFloatingIp_1) {
     EXPECT_TRUE(VmPortFloatingIpCount(1, 1));
     EXPECT_TRUE(VmPortPolicyEnable(1));
     EXPECT_TRUE(RouteFind("vrf2", "2.2.2.2", 32));
-    Inet4UnicastRouteEntry *rt =
+    InetUnicastRouteEntry *rt =
         RouteGet("vrf1", Ip4Address::from_string("2.2.2.2"), 32);
     if (rt) {
         EXPECT_STREQ(rt->GetActivePath()->dest_vn_name().c_str(), "vn2");
@@ -2509,7 +2509,7 @@ TEST_F(IntfTest, MetadataRoute_1) {
     client->Reset();
 
     VmInterface *intf = static_cast<VmInterface *>(VmPortGet(8));
-    Inet4UnicastRouteEntry *rt = RouteGet(agent->fabric_vrf_name(),
+    InetUnicastRouteEntry *rt = RouteGet(agent->fabric_vrf_name(),
                                           intf->mdata_ip_addr(), 32);
     EXPECT_TRUE(rt != NULL);
     const AgentPath *path = rt->GetActivePath();

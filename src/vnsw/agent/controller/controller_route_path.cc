@@ -66,11 +66,11 @@ bool ControllerEcmpRoute::AddChangePath(Agent *agent, AgentPath *path) {
     //Reorder the component NH list, and add a reference to local composite mpls
     //label if any
     path->ReorderCompositeNH(agent, comp_key);
-    return Inet4UnicastRouteEntry::ModifyEcmpPath(dest_addr_, plen_, vn_name_,
-                                                  label_, local_ecmp_nh_,
-                                                  vrf_name_, sg_list_,
-                                                  path_preference_,
-                                                  nh_req_, agent, path);
+    return InetUnicastRouteEntry::ModifyEcmpPath(dest_addr_, plen_, vn_name_,
+                                                 label_, local_ecmp_nh_,
+                                                 vrf_name_, sg_list_,
+                                                 path_preference_,
+                                                 nh_req_, agent, path);
 }
 
 ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(const Peer *peer,

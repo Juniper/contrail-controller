@@ -82,14 +82,14 @@ TEST_F(VmPortTest, XmppConnection) {
     Ip4Address addr = Ip4Address::from_string("1.1.1.1");
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(RouteFind("vrf1", addr, 32));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
     EXPECT_TRUE(rt->dest_vn_name() == "vn1");
 
     WAIT_FOR(2000, 1000, (AgentStats::GetInstance()->xmpp_in_msgs(0) == 2));
     ASSERT_TRUE(AgentStats::GetInstance()->xmpp_in_msgs(0) == 2);
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("vrf2", addr, 32));
-    Inet4UnicastRouteEntry *rt2 = RouteGet("vrf2", addr, 32);
+    InetUnicastRouteEntry *rt2 = RouteGet("vrf2", addr, 32);
     WAIT_FOR(100, 10000, (rt2->GetActivePath() != NULL));
     WAIT_FOR(100, 10000, rt2->dest_vn_name().size() > 0);
     EXPECT_STREQ(rt2->dest_vn_name().c_str(), "vn1");

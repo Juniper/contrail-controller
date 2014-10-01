@@ -459,10 +459,8 @@ void MulticastHandler::RebakeSubnetRoute(const Peer *peer,
         const Ip4Address &subnet_addr = (*it).GetSubnetAddress();
         DBRequest req;
 
-        req.key.reset(new Inet4UnicastRouteKey(peer,
-                                               vrf_name,
-                                               subnet_addr,
-                                               (*it).plen));
+        req.key.reset(new InetUnicastRouteKey(peer, vrf_name, subnet_addr,
+                                              (*it).plen));
         if (del_op == false) {
             DBRequest nh_req;
             nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;

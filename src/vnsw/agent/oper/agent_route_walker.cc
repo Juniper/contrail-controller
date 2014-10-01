@@ -21,7 +21,8 @@ AgentRouteWalker::AgentRouteWalker(Agent *agent, WalkType type) :
     vrf_walkid_(DBTableWalker::kInvalidWalkerId), walk_done_cb_(),
     route_walk_done_for_vrf_cb_() {
     walk_count_ = AgentRouteWalker::kInvalidWalkCount;
-    for (uint8_t table_type = 0; table_type < Agent::ROUTE_TABLE_MAX; 
+    for (uint8_t table_type = (Agent::INVALID + 1);
+         table_type < Agent::ROUTE_TABLE_MAX;
          table_type++) {
         route_walkid_[table_type].clear();
     }
@@ -49,7 +50,8 @@ void AgentRouteWalker::CancelRouteWalk(const VrfEntry *vrf) {
     uint32_t vrf_id = vrf->vrf_id();
 
     //Cancel Route table walks
-    for (uint8_t table_type = 0; table_type < Agent::ROUTE_TABLE_MAX; 
+    for (uint8_t table_type = (Agent::INVALID + 1);
+         table_type < Agent::ROUTE_TABLE_MAX;
          table_type++) {
         VrfRouteWalkerIdMapIterator iter = 
             route_walkid_[table_type].find(vrf_id);
@@ -102,7 +104,8 @@ void AgentRouteWalker::StartRouteWalk(const VrfEntry *vrf) {
     CancelRouteWalk(vrf);
 
     //Start the walk for every route table
-    for (uint8_t table_type = 0; table_type < Agent::ROUTE_TABLE_MAX; 
+    for (uint8_t table_type = (Agent::INVALID + 1);
+         table_type < Agent::ROUTE_TABLE_MAX;
          table_type++) {
         table = static_cast<AgentRouteTable *>
             (vrf->GetRouteTable(table_type));
@@ -211,7 +214,8 @@ void AgentRouteWalker::OnRouteTableWalkCompleteForVrf(VrfEntry *vrf) {
     if (!route_walk_done_for_vrf_cb_)
         return;
 
-    for (uint8_t table_type = 0; table_type < Agent::ROUTE_TABLE_MAX; 
+    for (uint8_t table_type = (Agent::INVALID + 1);
+         table_type < Agent::ROUTE_TABLE_MAX;
          table_type++) {
         VrfRouteWalkerIdMapIterator iter = 
             route_walkid_[table_type].find(vrf->vrf_id());
@@ -229,7 +233,8 @@ void AgentRouteWalker::OnWalkComplete() {
     bool walk_done = false;
     if (vrf_walkid_ == DBTableWalker::kInvalidWalkerId) {
         walk_done = true;
-        for (uint8_t table_type = 0; table_type < Agent::ROUTE_TABLE_MAX; 
+        for (uint8_t table_type = (Agent::INVALID + 1);
+             table_type < Agent::ROUTE_TABLE_MAX;
              table_type++) {
             if (route_walkid_[table_type].size() != 0) {
                 //Route walk pending

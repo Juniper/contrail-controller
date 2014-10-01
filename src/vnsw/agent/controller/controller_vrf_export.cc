@@ -65,7 +65,8 @@ void VrfExport::Notify(AgentXmppChannel *bgp_xmpp_peer,
 
         if (vrf->GetName().compare(bgp_xmpp_peer->agent()->fabric_vrf_name()) != 0) {
             // Dont export routes belonging to Fabric VRF table
-            for (table_type = 0; table_type < Agent::ROUTE_TABLE_MAX;
+            for (table_type = (Agent::INVALID + 1);
+                 table_type < Agent::ROUTE_TABLE_MAX;
                  table_type++)
             {
                 state->rt_export_[table_type] = 

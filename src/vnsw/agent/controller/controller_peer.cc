@@ -387,7 +387,7 @@ void AgentXmppChannel::ReceiveV4V6Update(XmlPugi *pugi) {
         return;
     }
 
-    AgentRouteTable *rt_table = NULL;
+    InetUnicastAgentRouteTable *rt_table = NULL;
     if (atoi(af) == BgpAf::IPv4) {
         rt_table = vrf->GetInet4UnicastRouteTable();
     } else if (atoi(af) == BgpAf::IPv6) {
@@ -421,11 +421,9 @@ void AgentXmppChannel::ReceiveV4V6Update(XmlPugi *pugi) {
                             return;
                         }
 
-                        Inet4UnicastAgentRouteTable *rt4_table = 
-                            static_cast<Inet4UnicastAgentRouteTable *>(rt_table);
-                        rt4_table->DeleteReq(bgp_peer_id(), vrf_name,
-                                             prefix_addr, prefix_len,
-                                             new ControllerVmRoute(bgp_peer_id()));
+                        rt_table->DeleteReq(bgp_peer_id(), vrf_name,
+                                            prefix_addr, prefix_len,
+                                            new ControllerVmRoute(bgp_peer_id()));
 
                     } else if (atoi(af) == BgpAf::IPv6) {
                         Ip6Address prefix_addr;
@@ -435,10 +433,8 @@ void AgentXmppChannel::ReceiveV4V6Update(XmlPugi *pugi) {
                                     "Error parsing v6 prefix for delete");
                             return;
                         }
-                        Inet6UnicastAgentRouteTable *rt6_table = 
-                            static_cast<Inet6UnicastAgentRouteTable *>(rt_table);
-                        rt6_table->DeleteReq(bgp_peer_id(), vrf_name,
-                                             prefix_addr, prefix_len);
+                        rt_table->DeleteReq(bgp_peer_id(), vrf_name,
+                                            prefix_addr, prefix_len, NULL);
                     }
                 }
             }
@@ -498,10 +494,8 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, Ip4Address prefix_addr,
         preference = PathPreference::HIGH;
     }
     PathPreference rp(item->entry.sequence_number, preference, false, false);
-    Inet4UnicastAgentRouteTable *rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>
-        (agent_->vrf_table()->GetInet4UnicastRouteTable
-         (vrf_name));
+    InetUnicastAgentRouteTable *rt_table =
+        agent_->vrf_table()->GetInet4UnicastRouteTable(vrf_name);
 
     ComponentNHKeyList comp_nh_list;
     for (uint32_t i = 0; i < item->entry.next_hops.next_hop.size(); i++) {
@@ -730,10 +724,8 @@ void AgentXmppChannel::AddEvpnRoute(std::string vrf_name,
 
 void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr, 
                                       uint32_t prefix_len, ItemType *item) {
-    Inet4UnicastAgentRouteTable *rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>
-        (agent_->vrf_table()->GetInet4UnicastRouteTable
-         (vrf_name));
+    InetUnicastAgentRouteTable *rt_table =
+        agent_->vrf_table()->GetInet4UnicastRouteTable(vrf_name);
 
     boost::system::error_code ec; 
     string nexthop_addr = item->entry.next_hops.next_hop[0].address;
@@ -851,10 +843,8 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
 void AgentXmppChannel::AddRemoteInet6Route(string vrf_name, 
          Ip6Address prefix_addr, uint32_t prefix_len, ItemType *item) { 
 
-    Inet6UnicastAgentRouteTable *rt_table = 
-        static_cast<Inet6UnicastAgentRouteTable *>
-        (agent_->vrf_table()->GetInet6UnicastRouteTable
-         (vrf_name));
+    InetUnicastAgentRouteTable *rt_table =
+        agent_->vrf_table()->GetInet6UnicastRouteTable(vrf_name);
 
     boost::system::error_code ec; 
     string nexthop_addr = item->entry.next_hops.next_hop[0].address;

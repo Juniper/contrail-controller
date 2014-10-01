@@ -320,7 +320,7 @@ TEST_F(CfgTest, EcmpNH_1) {
     //Check that route points to composite NH,
     //with 5 members
     Ip4Address ip = Ip4Address::from_string("1.1.1.1");
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
     EXPECT_TRUE(rt != NULL);
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
@@ -373,7 +373,7 @@ TEST_F(CfgTest, EcmpNH_2) {
     client->WaitForIdle();
     //First VM added, route points to composite NH
     Ip4Address ip = Ip4Address::from_string("1.1.1.1");
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
     EXPECT_TRUE(rt != NULL);
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(nh->GetType() == NextHop::INTERFACE);
@@ -546,7 +546,7 @@ TEST_F(CfgTest, EcmpNH_3) {
     client->WaitForIdle();
     //First VM added, route points to composite NH
     Ip4Address ip = Ip4Address::from_string("2.2.2.2");
-    Inet4UnicastRouteEntry *rt = RouteGet("default-project:vn2:vn2", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("default-project:vn2:vn2", ip, 32);
     EXPECT_TRUE(rt != NULL);
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(nh->GetType() == NextHop::INTERFACE);
@@ -757,7 +757,7 @@ TEST_F(CfgTest, EcmpNH_5) {
     EcmpTunnelRouteAdd(NULL, "vrf2", remote_vm_ip, 32,
                        comp_nh_list, -1, "vn2", sg_id_list, PathPreference());
     client->WaitForIdle();
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf2", remote_vm_ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf2", remote_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
@@ -827,7 +827,7 @@ TEST_F(CfgTest, EcmpNH_6) {
     EcmpTunnelRouteAdd(NULL, "vrf2", remote_vm_ip, 32,
                         comp_nh_list, -1, "vn2", sg_list, PathPreference());
     client->WaitForIdle();
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf2", remote_vm_ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf2", remote_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
@@ -879,7 +879,7 @@ TEST_F(CfgTest, EcmpNH_7) {
     client->WaitForIdle();
     //First VM added, route points to composite NH
     Ip4Address ip = Ip4Address::from_string("1.1.1.1");
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
     EXPECT_TRUE(rt != NULL);
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(nh->GetType() == NextHop::INTERFACE);
@@ -1051,8 +1051,8 @@ TEST_F(CfgTest, EcmpNH_8) {
             comp_nh_list, false, "vn1", sg_id_list, PathPreference());
     client->WaitForIdle();
 
-    Inet4UnicastRouteEntry *rt1 = RouteGet("vrf1", ip1, 32);
-    Inet4UnicastRouteEntry *rt2 = RouteGet("vrf1", ip2, 32);
+    InetUnicastRouteEntry *rt1 = RouteGet("vrf1", ip1, 32);
+    InetUnicastRouteEntry *rt2 = RouteGet("vrf1", ip2, 32);
     EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
     EXPECT_TRUE(rt1->GetActiveNextHop() == rt2->GetActiveNextHop());
 
@@ -1092,7 +1092,7 @@ TEST_F(CfgTest, EcmpNH_9) {
             comp_nh_list, false, "vn1", sg_id_list, PathPreference());
     client->WaitForIdle();
 
-    Inet4UnicastRouteEntry *rt1 = RouteGet("vrf1", ip1, 32);
+    InetUnicastRouteEntry *rt1 = RouteGet("vrf1", ip1, 32);
     EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
 
     const NextHop *nh = rt1->GetActiveNextHop();
@@ -1160,8 +1160,8 @@ TEST_F(CfgTest, EcmpNH_10) {
             comp_nh_list2, false, "vn1", sg_id_list, PathPreference());
     client->WaitForIdle();
 
-    Inet4UnicastRouteEntry *rt1 = RouteGet("vrf1", ip1, 32);
-    Inet4UnicastRouteEntry *rt2 = RouteGet("vrf1", ip2, 32);
+    InetUnicastRouteEntry *rt1 = RouteGet("vrf1", ip1, 32);
+    InetUnicastRouteEntry *rt2 = RouteGet("vrf1", ip2, 32);
     EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
     EXPECT_TRUE(rt1->GetActiveNextHop() != rt2->GetActiveNextHop());
 
@@ -1239,8 +1239,8 @@ TEST_F(CfgTest, EcmpNH_11) {
             comp_nh_list2, false, "vn1", sg_id_list, PathPreference());
     client->WaitForIdle();
 
-    Inet4UnicastRouteEntry *rt1 = RouteGet("vrf1", ip1, 32);
-    Inet4UnicastRouteEntry *rt2 = RouteGet("vrf1", ip2, 32);
+    InetUnicastRouteEntry *rt1 = RouteGet("vrf1", ip1, 32);
+    InetUnicastRouteEntry *rt2 = RouteGet("vrf1", ip2, 32);
     EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
     EXPECT_TRUE(rt1->GetActiveNextHop() != rt2->GetActiveNextHop());
     CompositeNHKey composite_nh_key1(Composite::ECMP, true, comp_nh_list1, "vrf1");
@@ -1296,7 +1296,7 @@ TEST_F(CfgTest, EcmpNH_12) {
                         SecurityGroupList(), PathPreference());
     client->WaitForIdle();
 
-    Inet4UnicastRouteEntry *rt1 = RouteGet("vrf1", ip1, 32);
+    InetUnicastRouteEntry *rt1 = RouteGet("vrf1", ip1, 32);
     EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::TUNNEL);
     client->WaitForIdle();
 
@@ -1393,7 +1393,7 @@ TEST_F(CfgTest, EcmpNH_14) {
     client->WaitForIdle();
     //First VM added, route points to composite NH
     Ip4Address ip = Ip4Address::from_string("1.1.1.1");
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
     EXPECT_TRUE(rt != NULL);
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(nh->GetType() == NextHop::INTERFACE);
@@ -1478,7 +1478,7 @@ TEST_F(CfgTest, EcmpNH_15) {
     EcmpTunnelRouteAdd(NULL, "vrf2", remote_vm_ip, 32,
                         comp_nh_list, -1, "vn2", sg_list, PathPreference());
     client->WaitForIdle();
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf2", remote_vm_ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf2", remote_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
@@ -1596,7 +1596,7 @@ TEST_F(CfgTest, EcmpNH_16) {
     client->WaitForIdle();
 
     //Nexthop is not found, hence component NH count is 0
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf2", remote_vm_ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf2", remote_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
@@ -1875,7 +1875,7 @@ TEST_F(CfgTest, Nexthop_keys) {
 
     //First VM added
 
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf10", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf10", ip, 32);
     WAIT_FOR(1000, 1000, (rt->GetActivePath() != NULL));
     const NextHop *nh = rt->GetActivePath()->nexthop(agent_);
     EXPECT_TRUE(nh != NULL);
@@ -1995,7 +1995,7 @@ TEST_F(CfgTest, Nexthop_keys) {
                           Ip4Address::from_string("2.2.2.0"), 24, MakeUuid(10), 100, 100, 
                           "vn10", sg_l, PathPreference());
     client->WaitForIdle();
-    Inet4UnicastRouteEntry *vlan_rt = 
+    InetUnicastRouteEntry *vlan_rt =
         RouteGet("vrf10", Ip4Address::from_string("2.2.2.0"), 24);
     EXPECT_TRUE(vlan_rt != NULL);
     VlanNH *vlan_nh = static_cast<VlanNH *>(agent_->

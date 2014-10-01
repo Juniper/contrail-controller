@@ -527,7 +527,7 @@ protected:
         Ip4Address gw_ip = Ip4Address::from_string("11.1.1.254");
         //Add a gateway route pointing to pkt0
         VrfEntry *vrf = VrfGet("vrf5");
-        static_cast<Inet4UnicastAgentRouteTable *>(
+        static_cast<InetUnicastAgentRouteTable *>(
                 vrf->GetInet4UnicastRouteTable())->AddHostRoute("vrf5",
                 gw_ip, 32, "vn5");
         client->WaitForIdle();

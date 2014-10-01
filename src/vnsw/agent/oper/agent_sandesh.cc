@@ -90,7 +90,7 @@ void AgentInet4UcRtSandesh::Alloc() {
 }
 
 bool AgentInet4UcRtSandesh::UpdateResp(DBEntryBase *entry) {
-    Inet4UnicastRouteEntry *rt = static_cast<Inet4UnicastRouteEntry *>(entry);
+    InetUnicastRouteEntry *rt = static_cast<InetUnicastRouteEntry *>(entry);
     if (dump_table_) {
         return rt->DBEntrySandesh(resp_, stale_);
     }
@@ -106,7 +106,7 @@ void AgentInet6UcRtSandesh::Alloc() {
 }
 
 bool AgentInet6UcRtSandesh::UpdateResp(DBEntryBase *entry) {
-    Inet6UnicastRouteEntry *rt = static_cast<Inet6UnicastRouteEntry *>(entry);
+    InetUnicastRouteEntry *rt = static_cast<InetUnicastRouteEntry *>(entry);
     if (dump_table_) {
         return rt->DBEntrySandesh(resp_, stale_);
     }

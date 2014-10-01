@@ -52,8 +52,8 @@ uint8_t PktFlowInfo::RouteToPrefixLen(const AgentRoute *route) {
     if (route == NULL) {
         return 0;
     }
-    const Inet4UnicastRouteEntry *rt =
-        static_cast<const Inet4UnicastRouteEntry *>(route);
+    const InetUnicastRouteEntry *rt =
+        static_cast<const InetUnicastRouteEntry *>(route);
     return rt->plen();
 }
 
@@ -193,8 +193,8 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
 
     case NextHop::TUNNEL: {
         if (pkt->family == Address::INET) {
-            const Inet4UnicastRouteEntry *rt =
-                static_cast<const Inet4UnicastRouteEntry *>(in->rt_);
+            const InetUnicastRouteEntry *rt =
+                static_cast<const InetUnicastRouteEntry *>(in->rt_);
             if (rt != NULL && rt->GetLocalNextHop()) {
                 out->nh_ = rt->GetLocalNextHop()->id();
             } else {
@@ -308,7 +308,7 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
     Agent *agent = static_cast<AgentRouteTable *>(in->rt_->get_table())->agent();
     //Get route for source IP route, which would be used to forward
     //reverse flow traffic
-    const Inet4UnicastRouteEntry *rt;
+    const InetUnicastRouteEntry *rt;
     FlowTable *ftable = agent->pkt()->flow_table();
     if (flow_info->nat_done) {
         VrfEntry *nat_vrf = NULL;
@@ -320,13 +320,13 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
         if (nat_vrf == NULL) {
             return;
         }
-        rt = static_cast<Inet4UnicastRouteEntry *>
+        rt = static_cast<InetUnicastRouteEntry *>
             (ftable->GetUcRoute(nat_vrf, Ip4Address(flow_info->nat_ip_saddr.to_v4())));
     } else {
         if (out->vrf_ == NULL) {
             return;
         }
-        rt = static_cast<Inet4UnicastRouteEntry *>
+        rt = static_cast<InetUnicastRouteEntry *>
             (ftable->GetUcRoute(out->vrf_, Ip4Address(pkt->ip_saddr.to_v4())));
     }
 

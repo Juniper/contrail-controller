@@ -216,7 +216,7 @@ public:
     }
 
     void VerifyInet4UnicastRoutes(TunnelType::Type type) {
-        Inet4UnicastRouteEntry *route = RouteGet(vrf_name_, local_vm_ip_, 32);
+        InetUnicastRouteEntry *route = RouteGet(vrf_name_, local_vm_ip_, 32);
         for(Route::PathList::iterator it = route->GetPathList().begin();
             it != route->GetPathList().end(); it++) {
             const AgentPath *path =
@@ -301,7 +301,7 @@ public:
         ASSERT_TRUE(tnh->GetTunnelType().GetType() == type);
 
         Ip4Address subnet_broadcast = Ip4Address::from_string("1.1.1.255");
-        Inet4UnicastRouteEntry *uc_rt =
+        InetUnicastRouteEntry *uc_rt =
             RouteGet("vrf1", subnet_broadcast, 32);
         const CompositeNH *subnet_cnh =
             static_cast<const CompositeNH *>(mc_rt->GetActiveNextHop());

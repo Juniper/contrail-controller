@@ -2,45 +2,51 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef vnsw_inet4_unicast_route_hpp
-#define vnsw_inet4_unicast_route_hpp
+#ifndef vnsw_inet_unicast_route_hpp
+#define vnsw_inet_unicast_route_hpp
 
 class VlanNhRoute;
 class LocalVmRoute;
 class InetInterfaceRoute;
 
 //////////////////////////////////////////////////////////////////
-//  UNICAST INET4
+//  UNICAST INET
 /////////////////////////////////////////////////////////////////
-class Inet4UnicastRouteKey : public AgentRouteKey {
+class InetUnicastRouteKey : public AgentRouteKey {
 public:
-    Inet4UnicastRouteKey(const Peer *peer, const string &vrf_name, 
-                         const Ip4Address &dip, uint8_t plen) : 
+    InetUnicastRouteKey(const Peer *peer, const string &vrf_name,
+                         const IpAddress &dip, uint8_t plen) :
         AgentRouteKey(peer, vrf_name), dip_(dip), plen_(plen) { }
-    virtual ~Inet4UnicastRouteKey() { }
+    virtual ~InetUnicastRouteKey() { }
 
     //Called from oute creation in input of route table
     AgentRoute *AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const;
     Agent::RouteTableType GetRouteTableType() {
-       return Agent::INET4_UNICAST;
+        if (dip_.is_v4()) {
+            return Agent::INET4_UNICAST;
+        }
+        if (dip_.is_v6()) {
+            return Agent::INET6_UNICAST;
+        }
+        return Agent::INVALID;
     }
     virtual string ToString() const;
     virtual AgentRouteKey *Clone() const;
 
-    const Ip4Address &addr() const {return dip_;}
+    const IpAddress &addr() const {return dip_;}
     uint8_t plen() const {return plen_;}
 
 private:
-    Ip4Address dip_;
+    IpAddress dip_;
     uint8_t plen_;
-    DISALLOW_COPY_AND_ASSIGN(Inet4UnicastRouteKey);
+    DISALLOW_COPY_AND_ASSIGN(InetUnicastRouteKey);
 };
 
-class Inet4UnicastRouteEntry : public AgentRoute {
+class InetUnicastRouteEntry : public AgentRoute {
 public:
-    Inet4UnicastRouteEntry(VrfEntry *vrf, const Ip4Address &addr, 
+    InetUnicastRouteEntry(VrfEntry *vrf, const IpAddress &addr,
                            uint8_t plen, bool is_multicast);
-    virtual ~Inet4UnicastRouteEntry() { }
+    virtual ~InetUnicastRouteEntry() { }
 
     virtual int CompareTo(const Route &rhs) const;
     virtual std::string ToString() const;
@@ -51,7 +57,13 @@ public:
         return addr_.to_string();
     }
     virtual Agent::RouteTableType GetTableType() const {
-        return Agent::INET4_UNICAST;
+        if (addr_.is_v4()) {
+            return Agent::INET4_UNICAST;
+        }
+        if (addr_.is_v6()) {
+            return Agent::INET6_UNICAST;
+        }
+        return Agent::INVALID;
     }
     virtual bool ReComputePathDeletion(AgentPath *path);
     virtual bool ReComputePathAdd(AgentPath *path);
@@ -62,7 +74,7 @@ public:
 
     AgentPath *AllocateEcmpPath(Agent *agent, const AgentPath *path1,
                                 const AgentPath *path2);
-    static bool ModifyEcmpPath(const Ip4Address &dest_addr,
+    static bool ModifyEcmpPath(const IpAddress &dest_addr,
                                uint8_t plen, const string &vn_name,
                                uint32_t label, bool local_ecmp_nh,
                                const string &vrf_name,
@@ -72,8 +84,8 @@ public:
                                Agent* agent,
                                AgentPath *path);
 
-    const Ip4Address &addr() const { return addr_; }
-    void set_addr(Ip4Address addr) { addr_ = addr; };
+    const IpAddress &addr() const { return addr_; }
+    void set_addr(IpAddress addr) { addr_ = addr; };
 
     uint8_t plen() const { return plen_; }
     void set_plen(int plen) { plen_ = plen; }
@@ -82,70 +94,101 @@ public:
     class Rtkey {
       public:
           static std::size_t Length(const AgentRoute *key) {
-              const Inet4UnicastRouteEntry *uckey =
-                  static_cast<const Inet4UnicastRouteEntry *>(key);
+              const InetUnicastRouteEntry *uckey =
+                  static_cast<const InetUnicastRouteEntry *>(key);
               return uckey->plen();
           }
           static char ByteValue(const AgentRoute *key, std::size_t i) {
-              const Inet4UnicastRouteEntry *uckey =
-                  static_cast<const Inet4UnicastRouteEntry *>(key);
-              const Ip4Address::bytes_type &addr_bytes = 
-                  uckey->addr().to_bytes();
-              return static_cast<char>(addr_bytes[i]);
+              const InetUnicastRouteEntry *uckey =
+                  static_cast<const InetUnicastRouteEntry *>(key);
+              if (uckey->addr().is_v4()) {
+                  Ip4Address::bytes_type addr_bytes;
+                  addr_bytes = uckey->addr().to_v4().to_bytes();
+                  return static_cast<char>(addr_bytes[i]);
+              } else {
+                  Ip6Address::bytes_type addr_bytes;
+                  addr_bytes = uckey->addr().to_v6().to_bytes();
+                  return static_cast<char>(addr_bytes[i]);
+              }
           }
     };
-    bool DBEntrySandesh(Sandesh *sresp, Ip4Address addr, uint8_t plen, bool stale) const;
+    bool DBEntrySandesh(Sandesh *sresp, IpAddress addr, uint8_t plen, bool stale) const;
     const NextHop* GetLocalNextHop() const;
 
 private:
-    friend class Inet4UnicastAgentRouteTable;
+    friend class InetUnicastAgentRouteTable;
 
-    Ip4Address addr_;
+    IpAddress addr_;
     uint8_t plen_;
     Patricia::Node rtnode_;
-    DISALLOW_COPY_AND_ASSIGN(Inet4UnicastRouteEntry);
+    DISALLOW_COPY_AND_ASSIGN(InetUnicastRouteEntry);
 };
 
-class Inet4UnicastAgentRouteTable : public AgentRouteTable {
+class InetUnicastAgentRouteTable : public AgentRouteTable {
 public:
-    typedef Patricia::Tree<Inet4UnicastRouteEntry,
-                           &Inet4UnicastRouteEntry::rtnode_, 
-                           Inet4UnicastRouteEntry::Rtkey> Inet4RouteTree;
+    typedef Patricia::Tree<InetUnicastRouteEntry,
+                           &InetUnicastRouteEntry::rtnode_,
+                           InetUnicastRouteEntry::Rtkey> InetRouteTree;
 
-    Inet4UnicastAgentRouteTable(DB *db, const std::string &name) :
-        AgentRouteTable(db, name), walkid_(DBTableWalker::kInvalidWalkerId) {
+    InetUnicastAgentRouteTable(DB *db, const std::string &name);
+    virtual ~InetUnicastAgentRouteTable() { }
+
+    InetUnicastRouteEntry *FindLPM(const IpAddress &ip);
+    InetUnicastRouteEntry *FindLPM(const InetUnicastRouteEntry &rt_key);
+    virtual string GetTableName() const {
+        if (type_ == Agent::INET4_UNICAST) {
+            return "Inet4UnicastAgentRouteTable";
+        }
+        if (type_ == Agent::INET6_UNICAST) {
+            return "Inet6UnicastAgentRouteTable";
+        }
+        return "Unknown";
     }
-    virtual ~Inet4UnicastAgentRouteTable() { }
-
-    Inet4UnicastRouteEntry *FindLPM(const Ip4Address &ip);
-    Inet4UnicastRouteEntry *FindLPM(const Inet4UnicastRouteEntry &rt_key);
-    virtual string GetTableName() const {return "Inet4UnicastAgentRouteTable";}
     virtual Agent::RouteTableType GetTableType() const {
-        return Agent::INET4_UNICAST;
+        return type_;
     }
     virtual void ProcessAdd(AgentRoute *rt) { 
-        tree_.Insert(static_cast<Inet4UnicastRouteEntry *>(rt));
+        tree_.Insert(static_cast<InetUnicastRouteEntry *>(rt));
     }
     virtual void ProcessDelete(AgentRoute *rt) { 
-        tree_.Remove(static_cast<Inet4UnicastRouteEntry *>(rt));
+        tree_.Remove(static_cast<InetUnicastRouteEntry *>(rt));
     }
-    Inet4UnicastRouteEntry *FindRoute(const Ip4Address &ip) { 
+    InetUnicastRouteEntry *FindRoute(const IpAddress &ip) {
         return FindLPM(ip);
     }
-    Inet4UnicastRouteEntry *FindResolveRoute(const Ip4Address &ip);
-    static Inet4UnicastRouteEntry *FindResolveRoute(const string &vrf_name, 
-                                                    const Ip4Address &ip);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static void ReEvaluatePaths(const string &vrf_name, 
-                               const Ip4Address &ip, uint8_t plen);
+                               const IpAddress &ip, uint8_t plen);
     static void DeleteReq(const Peer *peer, const string &vrf_name,
-                          const Ip4Address &addr, uint8_t plen,
+                          const IpAddress &addr, uint8_t plen,
                           AgentRouteData *data);
     static void Delete(const Peer *peer, const string &vrf_name,
-                       const Ip4Address &addr, uint8_t plen);
+                       const IpAddress &addr, uint8_t plen);
     static void AddHostRoute(const string &vrf_name,
-                             const Ip4Address &addr, uint8_t plen,
+                             const IpAddress &addr, uint8_t plen,
                              const std::string &dest_vn_name);
+    void AddLocalVmRouteReq(const Peer *peer, const string &vm_vrf,
+                            const IpAddress &addr, uint8_t plen,
+                            LocalVmRoute *data);
+    void AddLocalVmRouteReq(const Peer *peer, const string &vm_vrf,
+                            const IpAddress &addr, uint8_t plen,
+                            const uuid &intf_uuid, const string &vn_name,
+                            uint32_t label,
+                            const SecurityGroupList &sg_list,
+                            bool force_policy,
+                            const PathPreference &path_preference,
+                            const IpAddress &subnet_gw_ip);
+    static void AddLocalVmRoute(const Peer *peer, const string &vm_vrf,
+                                const IpAddress &addr, uint8_t plen,
+                                const uuid &intf_uuid, const string &vn_name,
+                                uint32_t label,
+                                const SecurityGroupList &sg_list,
+                                bool force_policy,
+                                const PathPreference &path_preference,
+                                const IpAddress &subnet_gw_ip);
+    static void AddRemoteVmRouteReq(const Peer *peer, const string &vm_vrf,
+                                    const IpAddress &vm_addr,uint8_t plen,
+                                    AgentRouteData *data);
     void AddVlanNHRouteReq(const Peer *peer, const string &vm_vrf,
                            const Ip4Address &addr, uint8_t plen,
                            VlanNhRoute *data);
@@ -161,35 +204,9 @@ public:
                                uint32_t label, const string &dest_vn_name,
                                const SecurityGroupList &sg_list_,
                                const PathPreference &path_preference);
-    static void AddSubnetBroadcastRoute(const Peer *peer, 
-                                        const string &vrf_name,
-                                        const Ip4Address &src_addr, 
-                                        const Ip4Address &grp_addr,
-                                        const string &vn_name,
-                                        ComponentNHKeyList
-                                        &component_nh_key_list);
-    void AddLocalVmRouteReq(const Peer *peer, const string &vm_vrf,
-                            const Ip4Address &addr, uint8_t plen,
-                            LocalVmRoute *data);
-    void AddLocalVmRouteReq(const Peer *peer, const string &vm_vrf,
-                            const Ip4Address &addr, uint8_t plen,
-                            const uuid &intf_uuid, const string &vn_name,
-                            uint32_t label,
-                            const SecurityGroupList &sg_list,
-                            bool force_policy,
-                            const PathPreference &path_preference,
-                            const Ip4Address &subnet_gw_ip);
-    static void AddLocalVmRoute(const Peer *peer, const string &vm_vrf,
-                                const Ip4Address &addr, uint8_t plen,
-                                const uuid &intf_uuid, const string &vn_name,
-                                uint32_t label, 
-                                const SecurityGroupList &sg_list,
-                                bool force_policy,
-                                const PathPreference &path_preference,
-                                const Ip4Address &subnet_gw_ip);
-    static void AddRemoteVmRouteReq(const Peer *peer, const string &vm_vrf,
-                                    const Ip4Address &vm_addr,uint8_t plen,
-                                    AgentRouteData *data);
+    InetUnicastRouteEntry *FindResolveRoute(const Ip4Address &ip);
+    static InetUnicastRouteEntry *FindResolveRoute(const string &vrf_name, 
+                                                   const Ip4Address &ip);
     static void CheckAndAddArpReq(const string &vrf_name, const Ip4Address &ip);
     static void AddArpReq(const string &vrf_name, const Ip4Address &ip); 
     static void ArpRoute(DBRequest::DBOperation op, 
@@ -199,8 +216,7 @@ public:
                          const Interface &intf,
                          bool resolved,
                          const uint8_t plen);
-    static void AddResolveRoute(const string &vrf_name, 
-                                const Ip4Address &ip, 
+    static void AddResolveRoute(const string &vrf_name, const Ip4Address &ip,
                                 const uint8_t plen); 
     void AddInetInterfaceRouteReq(const Peer *peer, const string &vm_vrf,
                                   const Ip4Address &addr, uint8_t plen,
@@ -235,15 +251,16 @@ public:
                                    const Ip4Address &dst_addr,uint8_t plen,
                                    const Ip4Address &gw_ip,
                                    const std::string &vn_name);
-    void AddSubnetRoute(const string &vm_vrf, const Ip4Address &addr,
+    void AddSubnetRoute(const string &vm_vrf, const IpAddress &addr,
                         uint8_t plen, const string &vn_name,
                         uint32_t vxlan_id);
 
 private:
-    Inet4RouteTree tree_;
+    Agent::RouteTableType type_;
+    InetRouteTree tree_;
     Patricia::Node rtnode_;
     DBTableWalker::WalkId walkid_;
-    DISALLOW_COPY_AND_ASSIGN(Inet4UnicastAgentRouteTable);
+    DISALLOW_COPY_AND_ASSIGN(InetUnicastAgentRouteTable);
 };
 
-#endif // vnsw_inet4_unicast_route_hpp
+#endif // vnsw_inet_unicast_route_hpp

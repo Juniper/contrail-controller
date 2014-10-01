@@ -74,7 +74,7 @@ typedef boost::intrusive_ptr<VxLanId> VxLanIdRef;
 void intrusive_ptr_release(const VxLanId* p);
 void intrusive_ptr_add_ref(const VxLanId* p);
 
-class Inet4UnicastRouteEntry;
+class InetUnicastRouteEntry;
 class Inet4MulticastRouteEntry;
 class Layer2RouteEntry;
 class Route;
@@ -112,7 +112,7 @@ class VrfTable;
 class MplsTable;
 class RouteTable;
 class AgentRouteTable;
-class Inet4UnicastAgentRouteTable;
+class InetUnicastAgentRouteTable;
 class Inet4MulticastAgentRouteTable;
 class Layer2AgentRouteTable;
 class CfgIntTable;
@@ -178,7 +178,8 @@ public:
     };
 
     enum RouteTableType {
-        INET4_UNICAST = 0,
+        INVALID = 0,
+        INET4_UNICAST,
         INET4_MULTICAST,
         LAYER2,
         INET6_UNICAST,
@@ -280,15 +281,15 @@ public:
         intf_mirror_cfg_table_ = table;
     }
 
-    Inet4UnicastAgentRouteTable *fabric_inet4_unicast_table() const {
+    InetUnicastAgentRouteTable *fabric_inet4_unicast_table() const {
         return uc_rt_table_;
     }
-    void set_fabric_inet4_unicast_table(Inet4UnicastAgentRouteTable *
+    void set_fabric_inet4_unicast_table(InetUnicastAgentRouteTable *
                                                  table) {
         uc_rt_table_ = table;
     }
     void set_fabric_inet4_unicast_table(RouteTable * table) {
-        uc_rt_table_ = (Inet4UnicastAgentRouteTable *)table;
+        uc_rt_table_ = (InetUnicastAgentRouteTable *)table;
     }
 
     Inet4MulticastAgentRouteTable *fabric_inet4_multicast_table() const {
@@ -555,25 +556,25 @@ public:
     }
 
     // Protocol objects
-    ArpProto *GetArpProto() { return arp_proto_; }
+    ArpProto *GetArpProto() const { return arp_proto_; }
     void SetArpProto(ArpProto *proto) { arp_proto_ = proto; }
 
-    DhcpProto *GetDhcpProto() { return dhcp_proto_; }
+    DhcpProto *GetDhcpProto() const { return dhcp_proto_; }
     void SetDhcpProto(DhcpProto *proto) { dhcp_proto_ = proto; }
 
     Dhcpv6Proto *dhcpv6_proto() const { return dhcpv6_proto_; }
     void set_dhcpv6_proto(Dhcpv6Proto *proto) { dhcpv6_proto_ = proto; }
 
-    DnsProto *GetDnsProto() { return dns_proto_; }
+    DnsProto *GetDnsProto() const { return dns_proto_; }
     void SetDnsProto(DnsProto *proto) { dns_proto_ = proto; }
 
-    IcmpProto *GetIcmpProto() { return icmp_proto_; }
+    IcmpProto *GetIcmpProto() const { return icmp_proto_; }
     void SetIcmpProto(IcmpProto *proto) { icmp_proto_ = proto; }
 
-    Icmpv6Proto *icmpv6_proto() { return icmpv6_proto_; }
+    Icmpv6Proto *icmpv6_proto() const { return icmpv6_proto_; }
     void set_icmpv6_proto(Icmpv6Proto *proto) { icmpv6_proto_ = proto; }
 
-    FlowProto *GetFlowProto() { return flow_proto_; }
+    FlowProto *GetFlowProto() const { return flow_proto_; }
     void SetFlowProto(FlowProto *proto) { flow_proto_ = proto; }
 
     // Peer objects
@@ -744,7 +745,7 @@ private:
     AgentInit *agent_init_;
     InterfaceTable *intf_table_;
     NextHopTable *nh_table_;
-    Inet4UnicastAgentRouteTable *uc_rt_table_;
+    InetUnicastAgentRouteTable *uc_rt_table_;
     Inet4MulticastAgentRouteTable *mc_rt_table_;
     Layer2AgentRouteTable *l2_rt_table_;
     VrfTable *vrf_table_;

@@ -72,12 +72,15 @@ InstanceServiceAsyncHandler::AddPort(const PortList& port_list) {
                       "IPv4 address is not correct, " + port.ip_address);
             v4_correct = false;
         }
-      
-        Ip6Address ip6 = Ip6Address::from_string(port.ip6_address, ec);
-        if (ec.value() != 0) {
-            CFG_TRACE(IntfInfo,
-                      "IPv6 address is not correct, " + port.ip6_address);
-            v6_correct = false;
+
+        Ip6Address ip6;
+        if (port.__isset.ip6_address) {
+            ip6 = Ip6Address::from_string(port.ip6_address, ec);
+            if (ec.value() != 0) {
+                CFG_TRACE(IntfInfo,
+                          "IPv6 address is not correct, " + port.ip6_address);
+                v6_correct = false;
+            }
         }
 
         if (!v4_correct && !v6_correct) {
@@ -332,7 +335,7 @@ InstanceServiceAsyncHandler::RouteEntryAdd(const std::string& ip_address,
                                                  mpls_label,
                                                  vn, SecurityGroupList(),
                                                  PathPreference());
-    Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(agent_->local_peer(),
+    InetUnicastAgentRouteTable::AddRemoteVmRouteReq(agent_->local_peer(),
                                      vrf, ipv4, 32, data);
     return true;
 }

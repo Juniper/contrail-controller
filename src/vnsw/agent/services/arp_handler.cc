@@ -114,7 +114,7 @@ bool ArpHandler::HandlePacket() {
 
     //Look for subnet broadcast
     AgentRoute *route = 
-        static_cast<Inet4UnicastAgentRouteTable *>(vrf->
+        static_cast<InetUnicastAgentRouteTable *>(vrf->
             GetInet4UnicastRouteTable())->FindLPM(arp_addr);
     if (route) {
         if (route->is_multicast()) {

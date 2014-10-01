@@ -133,44 +133,34 @@ void VrfEntry::SetKey(const DBRequestKey *key) {
     name_ = k->name_;
 }
 
-Inet4UnicastRouteEntry *VrfEntry::GetUcRoute(const Ip4Address &addr) const {
-    Inet4UnicastAgentRouteTable *table;
-    table = static_cast<Inet4UnicastAgentRouteTable *>
-        (GetInet4UnicastRouteTable());
+InetUnicastRouteEntry *VrfEntry::GetUcRoute(const Ip4Address &addr) const {
+    InetUnicastAgentRouteTable *table = GetInet4UnicastRouteTable();
     if (table == NULL)
         return NULL;
 
     return table->FindLPM(addr);
 }
 
-Inet4UnicastRouteEntry *VrfEntry::GetUcRoute(const Inet4UnicastRouteEntry &rt_key) const {
-    Inet4UnicastAgentRouteTable *table = static_cast<Inet4UnicastAgentRouteTable *>
-        (GetInet4UnicastRouteTable());
+InetUnicastRouteEntry *VrfEntry::GetUcRoute(const InetUnicastRouteEntry &rt_key) const {
+    InetUnicastAgentRouteTable *table = NULL;
+
+    if (rt_key.addr().is_v4()) {
+        table = GetInet4UnicastRouteTable();
+    } else if (rt_key.addr().is_v6()) {
+        table = GetInet6UnicastRouteTable();
+    }
     if (table == NULL)
         return NULL;
 
     return table->FindLPM(rt_key);
 }
 
-Inet6UnicastRouteEntry *VrfEntry::GetUcRoute(const Ip6Address &addr) const {
-    Inet6UnicastAgentRouteTable *table;
-    table = static_cast<Inet6UnicastAgentRouteTable *>
-        (GetInet6UnicastRouteTable());
+InetUnicastRouteEntry *VrfEntry::GetUcRoute(const Ip6Address &addr) const {
+    InetUnicastAgentRouteTable *table = GetInet6UnicastRouteTable();
     if (table == NULL)
         return NULL;
 
     return table->FindLPM(addr);
-}
-
-Inet6UnicastRouteEntry *VrfEntry::GetUcRoute
-(const Inet6UnicastRouteEntry &rt_key) const {
-    Inet6UnicastAgentRouteTable *table = NULL;
-    table = static_cast<Inet6UnicastAgentRouteTable *>
-        (GetInet6UnicastRouteTable());
-    if (table == NULL)
-        return NULL;
-
-    return table->FindLPM(rt_key);
 }
 
 LifetimeActor *VrfEntry::deleter() {
@@ -181,8 +171,9 @@ AgentRouteTable *VrfEntry::GetRouteTable(uint8_t table_type) const {
     return rt_table_db_[table_type];
 }
 
-AgentRouteTable *VrfEntry::GetInet4UnicastRouteTable() const {
-    return rt_table_db_[Agent::INET4_UNICAST];
+InetUnicastAgentRouteTable *VrfEntry::GetInet4UnicastRouteTable() const {
+    return static_cast<InetUnicastAgentRouteTable *>
+        (rt_table_db_[Agent::INET4_UNICAST]);
 }
 
 AgentRouteTable *VrfEntry::GetInet4MulticastRouteTable() const {
@@ -193,8 +184,9 @@ AgentRouteTable *VrfEntry::GetLayer2RouteTable() const {
     return rt_table_db_[Agent::LAYER2];
 }
 
-AgentRouteTable *VrfEntry::GetInet6UnicastRouteTable() const {
-    return rt_table_db_[Agent::INET6_UNICAST];
+InetUnicastAgentRouteTable *VrfEntry::GetInet6UnicastRouteTable() const {
+    return static_cast<InetUnicastAgentRouteTable *>
+        (rt_table_db_[Agent::INET6_UNICAST]);
 }
 
 bool VrfEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
@@ -334,7 +326,8 @@ void VrfTable::OnZeroRefcount(AgentDBEntry *e) {
     VrfEntry *vrf = static_cast<VrfEntry *>(e);
     if (e->IsDeleted()) {
         int table_type;
-        for (table_type = 0; table_type < Agent::ROUTE_TABLE_MAX; table_type++) {
+        for (table_type = (Agent::INVALID + 1);
+                table_type < Agent::ROUTE_TABLE_MAX; table_type++) {
             database()->RemoveTable(vrf->GetRouteTable(table_type));
             dbtree_[table_type].erase(vrf->GetName());
             delete vrf->GetRouteTable(table_type);
@@ -370,8 +363,10 @@ VrfEntry *VrfTable::FindVrfFromId(size_t index) {
     return NULL;
 }
 
-AgentRouteTable *VrfTable::GetInet4UnicastRouteTable(const string &vrf_name) {
-    return GetRouteTable(vrf_name, Agent::INET4_UNICAST);
+InetUnicastAgentRouteTable *VrfTable::GetInet4UnicastRouteTable
+    (const string &vrf_name) {
+    return static_cast<InetUnicastAgentRouteTable *>
+        (GetRouteTable(vrf_name, Agent::INET4_UNICAST));
 }
 
 AgentRouteTable *VrfTable::GetInet4MulticastRouteTable(const string &vrf_name) {
@@ -382,8 +377,10 @@ AgentRouteTable *VrfTable::GetLayer2RouteTable(const string &vrf_name) {
     return GetRouteTable(vrf_name, Agent::LAYER2);
 }
 
-AgentRouteTable *VrfTable::GetInet6UnicastRouteTable(const string &vrf_name) {
-    return GetRouteTable(vrf_name, Agent::INET6_UNICAST);
+InetUnicastAgentRouteTable *VrfTable::GetInet6UnicastRouteTable
+    (const string &vrf_name) {
+    return static_cast<InetUnicastAgentRouteTable *>
+        (GetRouteTable(vrf_name, Agent::INET6_UNICAST));
 }
 
 AgentRouteTable *VrfTable::GetRouteTable(const string &vrf_name,

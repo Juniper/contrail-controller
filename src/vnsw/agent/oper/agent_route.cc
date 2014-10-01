@@ -114,7 +114,7 @@ auto_ptr<DBEntry> AgentRouteTable::AllocEntry(const DBRequestKey *k) const {
 // Delete all paths from BGP Peer. Delete route if no path left
 bool AgentRouteTable::DeleteAllBgpPath(DBTablePartBase *part,
                                        DBEntryBase *entry) {
-    AgentRoute *route = static_cast<Inet4UnicastRouteEntry *>(entry);
+    AgentRoute *route = static_cast<InetUnicastRouteEntry *>(entry);
     if (route && !route->IsDeleted()) {
         for(Route::PathList::iterator it = route->GetPathList().begin();
             it != route->GetPathList().end();) {

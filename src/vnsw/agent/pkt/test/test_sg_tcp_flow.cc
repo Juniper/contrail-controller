@@ -316,12 +316,12 @@ public:
         WAIT_FOR(1000, 100, (agent_->pkt()->flow_table()->Size() == 0));
 
         boost::system::error_code ec;
-        Inet4UnicastAgentRouteTable::DeleteReq
+        InetUnicastAgentRouteTable::DeleteReq
             (NULL, "default-project:vn1:vn1", Ip4Address::from_string("1.1.1.0", ec),
              24, NULL);
         client->WaitForIdle();
 
-        Inet4UnicastAgentRouteTable::DeleteReq
+        InetUnicastAgentRouteTable::DeleteReq
             (NULL, "default-project:vn3:vn3", Ip4Address::from_string("3.3.3.2", ec),
              24, NULL);
 

@@ -132,7 +132,7 @@ TEST_F(RouteTest, RouteTest_1) {
 
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(RouteFind("vrf1", local_vm_ip, 32));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", local_vm_ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", local_vm_ip, 32);
 
     WAIT_FOR(100, 10000, rt->GetPathList().size() == 3);
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::BGP_PEER);
@@ -164,7 +164,7 @@ TEST_F(RouteTest, RouteTest_2) {
 
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(RouteFind("vrf1", local_vm_ip, 32));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", local_vm_ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", local_vm_ip, 32);
 
     WAIT_FOR(100, 10000, rt->GetPathList().size() == 3);
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::BGP_PEER);
@@ -219,7 +219,7 @@ TEST_F(RouteTest, BgpEcmpRouteTest_1) {
     WAIT_FOR(100, 10000, RouteFind("vrf1", ip, 32));
     WAIT_FOR(100, 10000, PathCount("vrf1", ip, 32) == 2);
 
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::BGP_PEER);
     //Expect route to point to composite NH
     const NextHop *bgp_nh = rt->GetActiveNextHop();
@@ -263,7 +263,7 @@ TEST_F(RouteTest, BgpEcmpRouteTest_2) {
     WAIT_FOR(100, 10000, RouteFind("vrf1", ip, 32));
     WAIT_FOR(100, 10000, PathCount("vrf1", ip, 32) == 2);
 
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::BGP_PEER);
     //Expect route to point to composite NH
     const NextHop *bgp_nh = rt->GetActiveNextHop();
@@ -316,7 +316,7 @@ TEST_F(RouteTest, BgpEcmpRouteTest_3) {
     WAIT_FOR(100, 10000, RouteFind("vrf1", ip, 32));
     WAIT_FOR(100, 10000, PathCount("vrf1", ip, 32) == 2);
 
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::BGP_PEER);
     const NextHop *bgp_nh = rt->GetActiveNextHop();
     EXPECT_TRUE(bgp_nh->GetType() == NextHop::COMPOSITE);
@@ -372,7 +372,7 @@ TEST_F(RouteTest, BgpEcmpRouteTest_4) {
     WAIT_FOR(100, 10000, RouteFind("vrf1", ip, 32));
     WAIT_FOR(100, 10000, PathCount("vrf1", ip, 32) == 2);
 
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::BGP_PEER);
     const NextHop *bgp_nh = rt->GetActiveNextHop();
     EXPECT_TRUE(bgp_nh->GetType() == NextHop::COMPOSITE);
@@ -419,7 +419,7 @@ TEST_F(RouteTest, EcmpRouteTest_1) {
     CreateVmportEnv(input1, 3);
     client->WaitForIdle();
 
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
     EXPECT_TRUE(rt != NULL);
     WAIT_FOR(100, 10000, rt->GetPathList().size() == 3);
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::BGP_PEER);
@@ -460,7 +460,7 @@ TEST_F(RouteTest, EcmpRouteTest_2) {
     client->WaitForIdle();
     //Check that route points to composite NH,
     //with 5 members
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
     EXPECT_TRUE(rt != NULL);
     WAIT_FOR(100, 10000, rt->GetPathList().size() == 3);
     WAIT_FOR(100, 10000, rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
@@ -516,7 +516,7 @@ TEST_F(RouteTest, EcmpRouteTest_3) {
     //Check that route points to composite NH,
     //with 3 members
     WAIT_FOR(100, 10000, RouteFind("vrf2", ip, 32) == true);
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf2", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf2", ip, 32);
     EXPECT_TRUE(rt != NULL);
     WAIT_FOR(100, 10000, rt->GetPathList().size() == 3);
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::BGP_PEER);
@@ -564,7 +564,7 @@ TEST_F(RouteTest, EcmpRouteTest_4) {
     client->WaitForIdle();
 
     WAIT_FOR(100, 10000, (RouteGet("vrf2", ip, 32) != NULL));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf2", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf2", ip, 32);
     EXPECT_TRUE(rt != NULL);
     WAIT_FOR(100, 10000, rt->GetPathList().size() == 2);
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::BGP_PEER);
@@ -613,7 +613,7 @@ TEST_F(RouteTest, EcmpRouteTest_5) {
     client->WaitForIdle();
 
     WAIT_FOR(100, 10000, (RouteGet("vrf2", ip, 32) != NULL));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf2", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf2", ip, 32);
     EXPECT_TRUE(rt != NULL);
     WAIT_FOR(100, 10000, rt->GetPathList().size() == 2);
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::BGP_PEER);
@@ -670,7 +670,7 @@ TEST_F(RouteTest, EcmpRouteTest_7) {
     client->WaitForIdle();
 
     WAIT_FOR(100, 10000, (RouteGet("vrf1", ip, 32) != NULL));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
     EXPECT_TRUE(rt != NULL);
     WAIT_FOR(100, 10000, rt->GetPathList().size() == 3);
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::BGP_PEER);

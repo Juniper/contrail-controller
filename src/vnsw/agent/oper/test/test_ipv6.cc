@@ -116,7 +116,7 @@ TEST_F(Ipv6Test, v4v6ip_2) {
 
     boost::system::error_code ec;
     Ip6Address addr = Ip6Address::from_string(input[0].ip6addr, ec);
-    Inet6UnicastRouteEntry* rt = RouteGetV6("vrf1", addr, 128);
+    InetUnicastRouteEntry* rt = RouteGetV6("vrf1", addr, 128);
     EXPECT_TRUE(rt != NULL);
     DeleteVmportEnv(input, 1, 1, 0, NULL, NULL, true, true);
     client->WaitForIdle();
@@ -137,7 +137,7 @@ TEST_F(Ipv6Test, v6ip_2) {
 
     boost::system::error_code ec;
     Ip6Address addr = Ip6Address::from_string(input[0].ip6addr, ec);
-    Inet6UnicastRouteEntry* rt = RouteGetV6("vrf1", addr, 128);
+    InetUnicastRouteEntry* rt = RouteGetV6("vrf1", addr, 128);
     EXPECT_TRUE(rt != NULL);
 
     DeleteVmportEnv(input, 1, 1, 0, NULL, NULL, false, true);
@@ -171,9 +171,9 @@ TEST_F(Ipv6Test, v6_subnet_gw_route) {
     Ip6Address v6_subnet1 = Ip6Address::from_string(ipam_info[1].ip_prefix, ec);
     Ip6Address v6_subnet2 = Ip6Address::from_string(ipam_info[2].ip_prefix, ec);
 
-    Inet4UnicastRouteEntry *rt1 = RouteGet("vrf1", v4_subnet1, 24);
-    Inet6UnicastRouteEntry *rt2 = RouteGetV6("vrf1", v6_subnet1, 120);
-    Inet6UnicastRouteEntry *rt3 = RouteGetV6("vrf1", v6_subnet2, 96);
+    InetUnicastRouteEntry *rt1 = RouteGet("vrf1", v4_subnet1, 24);
+    InetUnicastRouteEntry *rt2 = RouteGetV6("vrf1", v6_subnet1, 120);
+    InetUnicastRouteEntry *rt3 = RouteGetV6("vrf1", v6_subnet2, 96);
 
     EXPECT_TRUE(rt1 != NULL);
     EXPECT_TRUE(rt2 != NULL);
@@ -189,9 +189,9 @@ TEST_F(Ipv6Test, v6_subnet_gw_route) {
     Ip6Address v6_gw1 = Ip6Address::from_string(ipam_info[1].gw, ec);
     Ip6Address v6_gw2 = Ip6Address::from_string(ipam_info[2].gw, ec);
 
-    Inet4UnicastRouteEntry *rt4 = RouteGet("vrf1", v4_gw1, 32);
-    Inet6UnicastRouteEntry *rt5 = RouteGetV6("vrf1", v6_gw1, 128);
-    Inet6UnicastRouteEntry *rt6 = RouteGetV6("vrf1", v6_gw2, 128);
+    InetUnicastRouteEntry *rt4 = RouteGet("vrf1", v4_gw1, 32);
+    InetUnicastRouteEntry *rt5 = RouteGetV6("vrf1", v6_gw1, 128);
+    InetUnicastRouteEntry *rt6 = RouteGetV6("vrf1", v6_gw2, 128);
 
     EXPECT_TRUE(rt4 != NULL);
     EXPECT_TRUE(rt5 != NULL);

@@ -151,7 +151,7 @@ TEST_F(MulticastTest, McastSubnet_1) {
 
     client->Reset();
 
-	Inet4UnicastRouteEntry *rt;
+	InetUnicastRouteEntry *rt;
     NextHop *nh;
     CompositeNH *cnh;
     MulticastGroupObject *mcobj;
@@ -458,7 +458,7 @@ TEST_F(MulticastTest, McastSubnet_DeleteRouteOnVRFDeleteofVN) {
 
     client->Reset();
 
-    Inet4UnicastRouteEntry *rt;
+    InetUnicastRouteEntry *rt;
     const NextHop *nh;
     const CompositeNH *cnh;
     MulticastGroupObject *mcobj;
@@ -537,7 +537,7 @@ TEST_F(MulticastTest, McastSubnet_DeleteRouteOnIPAMDeleteofVN) {
 
     client->Reset();
 
-	Inet4UnicastRouteEntry *rt;
+	InetUnicastRouteEntry *rt;
     NextHop *nh;
     CompositeNH *cnh;
     MulticastGroupObject *mcobj;
@@ -607,7 +607,7 @@ TEST_F(MulticastTest, McastSubnet_DeleteCompNHThenModifyFabricList) {
 
     client->Reset();
 
-	Inet4UnicastRouteEntry *rt;
+	InetUnicastRouteEntry *rt;
     NextHop *nh;
     //CompositeNH *cnh;
     //MulticastGroupObject *mcobj;
@@ -1313,14 +1313,14 @@ TEST_F(MulticastTest, change_in_gateway_of_subnet_noop) {
     AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (RouteFind("vrf1", "11.1.1.255", 32)));
-    Inet4UnicastRouteEntry *route_1 = 
+    InetUnicastRouteEntry *route_1 =
         RouteGet("vrf1", Ip4Address::from_string("11.1.1.255"), 32);
 
     //Change IPAM
     AddIPAM("vn1", ipam_info_2, 1);
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (RouteFind("vrf1", "11.1.1.255", 32)));
-    Inet4UnicastRouteEntry *route_2 = 
+    InetUnicastRouteEntry *route_2 =
         RouteGet("vrf1", Ip4Address::from_string("11.1.1.255"), 32);
 
     EXPECT_TRUE(route_1 == route_2);
@@ -1379,11 +1379,11 @@ TEST_F(MulticastTest, McastSubnet_VN2MultipleVRFtest_negative) {
     DelIPAM("vn1");
     client->WaitForIdle();
 
-    Inet4UnicastAgentRouteTable::DeleteReq(Agent::GetInstance()->
+    InetUnicastAgentRouteTable::DeleteReq(Agent::GetInstance()->
                                            local_vm_peer(), "vrf1",
                                            IpAddress::from_string("11.1.1.3").to_v4(),
                                            32, NULL);
-    Inet4UnicastAgentRouteTable::DeleteReq(Agent::GetInstance()->
+    InetUnicastAgentRouteTable::DeleteReq(Agent::GetInstance()->
                                            local_vm_peer(), vrf_name,
                                            IpAddress::from_string("11.1.1.3").to_v4(),
                                            32, NULL);

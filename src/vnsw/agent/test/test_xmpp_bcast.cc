@@ -621,7 +621,7 @@ protected:
 	Ip4Address addr = Ip4Address::from_string("1.1.1.1");
 	EXPECT_TRUE(VmPortActive(input, 0));
 	EXPECT_TRUE(RouteFind("vrf1", addr, 32));
-	Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
+	InetUnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
 	EXPECT_STREQ(rt->dest_vn_name().c_str(), "vn1");
 
 	// Send route, back to vrf1
@@ -921,7 +921,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_VmDeActivate) {
     // ensure subnet broadcast route is deleted 
     Ip4Address sb_addr = Ip4Address::from_string("1.1.1.255");
     if (RouteFind("vrf1", sb_addr, 32) == true) { 
-        Inet4UnicastRouteEntry *rt = RouteGet("vrf1", sb_addr, 32);
+        InetUnicastRouteEntry *rt = RouteGet("vrf1", sb_addr, 32);
         nh = rt->GetActiveNextHop();
         cnh = static_cast<const CompositeNH *>(nh);
         ASSERT_TRUE(cnh->ComponentNHCount() == 0);
@@ -1091,7 +1091,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_SessionDownUp) {
 
     //ensure route learnt via control-node, path is updated 
     Ip4Address addr = Ip4Address::from_string("1.1.1.1");
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
     if (Agent::GetInstance()->headless_agent_mode()) {
         WAIT_FOR(1000, 10000, (rt->FindPath(bgp_peer_id)->is_stale()));
     } else {
@@ -1273,7 +1273,7 @@ TEST_F(AgentXmppUnitTest, Test_mcast_peer_identifier) {
 
     Ip4Address addr = Ip4Address::from_string("1.1.1.255");
     WAIT_FOR(1000, 10000, (RouteFind("vrf1", addr, 32)));
-    Inet4UnicastRouteEntry *rt = static_cast<Inet4UnicastRouteEntry *>
+    InetUnicastRouteEntry *rt = static_cast<InetUnicastRouteEntry *>
         (RouteGet("vrf1", addr, 32));
     NextHop *nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     WAIT_FOR(1000, 10000, (nh != NULL));
@@ -1357,7 +1357,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_MultipleRetracts) {
     //ensure route learnt via control-node, path is updated 
     Ip4Address addr = Ip4Address::from_string("1.1.1.255");
     ASSERT_TRUE(RouteFind("vrf1", addr, 32));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
 
     NextHop *nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);
@@ -1399,7 +1399,7 @@ TEST_F(AgentXmppUnitTest, Test_Update_Olist_Src_Label) {
     int alloc_label = GetStartLabel();
     Ip4Address addr = Ip4Address::from_string("1.1.1.255");
     EXPECT_TRUE(RouteFind("vrf1", addr, 32));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
     NextHop *nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
@@ -1506,7 +1506,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
     int alloc_label = GetStartLabel();
     Ip4Address addr = Ip4Address::from_string("1.1.1.255");
     EXPECT_TRUE(RouteFind("vrf1", addr, 32));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
     NextHop *nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
@@ -1690,7 +1690,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change_with_same_label) {
     int alloc_label = GetStartLabel();
     Ip4Address addr = Ip4Address::from_string("1.1.1.255");
     EXPECT_TRUE(RouteFind("vrf1", addr, 32));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
     NextHop *nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
@@ -1968,7 +1968,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_sessiondown_after_ipam_del) {
 
     Ip4Address addr = Ip4Address::from_string("1.1.1.255");
     ASSERT_TRUE(RouteFind("vrf1", addr, 32));
-    Inet4UnicastRouteEntry *rt = static_cast<Inet4UnicastRouteEntry *>
+    InetUnicastRouteEntry *rt = static_cast<InetUnicastRouteEntry *>
         (RouteGet("vrf1", addr, 32));
     NextHop *nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);
@@ -2017,7 +2017,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_sessiondown_after_vn_vrf_link_del) {
 
     Ip4Address addr = Ip4Address::from_string("1.1.1.255");
     ASSERT_TRUE(RouteFind("vrf1", addr, 32));
-    Inet4UnicastRouteEntry *rt = static_cast<Inet4UnicastRouteEntry *>
+    InetUnicastRouteEntry *rt = static_cast<InetUnicastRouteEntry *>
         (RouteGet("vrf1", addr, 32));
     NextHop *nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);

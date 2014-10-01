@@ -281,7 +281,7 @@ TEST_F(AgentBasicScaleTest, v4_unicast_one_channel_down_up) {
     //expect subscribe message+route at the mock server
     Ip4Address uc_addr = Ip4Address::from_string("1.1.1.1");
     WAIT_FOR(1000, 10000, RouteFind("vrf1", uc_addr, 32));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", uc_addr, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", uc_addr, 32);
     if (num_ctrl_peers == 2) {
         WAIT_FOR(1000, 10000, (rt->GetPathList().size() == 3));
     } else {
@@ -351,7 +351,7 @@ TEST_F(AgentBasicScaleTest, walk_on_vrf_marked_for_delete) {
     //expect subscribe message+route at the mock server
     Ip4Address uc_addr = Ip4Address::from_string("1.1.1.1");
     WAIT_FOR(1000, 10000, RouteFind("vrf1", uc_addr, 32));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", uc_addr, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", uc_addr, 32);
     if (num_ctrl_peers == 2) {
         WAIT_FOR(1000, 10000, (rt->GetPathList().size() == 3));
     } else {
@@ -412,7 +412,7 @@ TEST_F(AgentBasicScaleTest, flap_xmpp_channel_check_stale_path_count) {
     //expect subscribe message+route at the mock server
     Ip4Address uc_addr = Ip4Address::from_string("1.1.1.1");
     WAIT_FOR(1000, 10000, RouteFind("vrf1", uc_addr, 32));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", uc_addr, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", uc_addr, 32);
     WAIT_FOR(1000, 10000, (rt->GetPathList().size() == 2));
 
     //Get the peer
@@ -557,7 +557,7 @@ TEST_F(AgentBasicScaleTest, unicast_cleanup_timer_1) {
     //expect subscribe message+route at the mock server
     Ip4Address uc_addr = Ip4Address::from_string("1.1.1.1");
     WAIT_FOR(1000, 10000, RouteFind("vrf1", uc_addr, 32));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", uc_addr, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", uc_addr, 32);
     WAIT_FOR(1000, 10000, (rt->GetPathList().size() == 3));
 
     //Get the peer
@@ -646,7 +646,7 @@ TEST_F(AgentBasicScaleTest, unicast_cleanup_timer_2) {
     //expect subscribe message+route at the mock server
     Ip4Address uc_addr = Ip4Address::from_string("1.1.1.1");
     WAIT_FOR(1000, 10000, RouteFind("vrf1", uc_addr, 32));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", uc_addr, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", uc_addr, 32);
     WAIT_FOR(1000, 10000, (rt->GetPathList().size() == 3));
 
     //Get the peer

@@ -787,7 +787,7 @@ TEST_F(SgTest, Sg_Introspec) {
     DelSgAcl("ag2");
     DelNode("security-group", "sg2");
     boost::system::error_code ec;
-    Inet4UnicastAgentRouteTable::DeleteReq(NULL, "vrf1",
+    InetUnicastAgentRouteTable::DeleteReq(NULL, "vrf1",
         Ip4Address::from_string("10.10.10.0", ec), 24, NULL);
     client->WaitForIdle();
 
@@ -846,7 +846,7 @@ TEST_F(SgTest, Sg_Policy_1) {
     DelSgAclLink("sg2", "ag2");
     DelSgAcl("ag2");
     DelNode("security-group", "sg2");
-    Inet4UnicastAgentRouteTable::DeleteReq(NULL, "vrf1",
+    InetUnicastAgentRouteTable::DeleteReq(NULL, "vrf1",
         Ip4Address::from_string("10.10.10.0", ec), 24, NULL);
     client->WaitForIdle();
 }
@@ -903,7 +903,7 @@ TEST_F(SgTest, Sg_Policy_2) {
     DelNode("security-group", "sg2");
     DelSgAclLink("sg2", "ag2");
     DelSgAcl("ag2");
-    Inet4UnicastAgentRouteTable::DeleteReq(NULL, "vrf1",
+    InetUnicastAgentRouteTable::DeleteReq(NULL, "vrf1",
             Ip4Address::from_string("10.10.10.0", ec), 24, NULL);
     client->WaitForIdle();
 }

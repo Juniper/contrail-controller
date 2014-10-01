@@ -394,8 +394,8 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_1) {
     //By default l2_l3 mode
     Layer2RouteEntry *l2_uc_rt = L2RouteGet(vrf_name, vxlan_vm_mac);
     Layer2RouteEntry *l2_flood_rt = L2RouteGet(vrf_name, vxlan_flood_mac);
-    Inet4UnicastRouteEntry *uc_rt = RouteGet(vrf_name, vm_ip, 32);
-    Inet4UnicastRouteEntry *subnet_rt = RouteGet(vrf_name, subnet_ip, 32);
+    InetUnicastRouteEntry *uc_rt = RouteGet(vrf_name, vm_ip, 32);
+    InetUnicastRouteEntry *subnet_rt = RouteGet(vrf_name, subnet_ip, 32);
     Inet4MulticastRouteEntry *flood_rt = MCRouteGet(vrf_name, flood_ip);
     EXPECT_TRUE(l2_uc_rt != NULL);
     EXPECT_TRUE(l2_flood_rt != NULL);
@@ -492,8 +492,8 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_2) {
 
     Layer2RouteEntry *l2_uc_rt;
     Layer2RouteEntry *l2_flood_rt;
-    Inet4UnicastRouteEntry *uc_rt;
-    Inet4UnicastRouteEntry *subnet_rt;
+    InetUnicastRouteEntry *uc_rt;
+    InetUnicastRouteEntry *subnet_rt;
     Inet4MulticastRouteEntry *flood_rt;
     
     //default to l2 mode

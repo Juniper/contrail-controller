@@ -117,8 +117,7 @@ void InetInterface::ActivateSimpleGateway() {
 }
 
 void InetInterface::DeActivateSimpleGateway() {
-    Inet4UnicastAgentRouteTable *uc_rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>
+    InetUnicastAgentRouteTable *uc_rt_table =
         (VrfTable::GetInstance()->GetInet4UnicastRouteTable(vrf()->GetName()));
 
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
@@ -146,14 +145,14 @@ void InetInterface::DeActivateSimpleGateway() {
 /////////////////////////////////////////////////////////////////////////////
 
 // Add default route with given gateway
-static void AddDefaultRoute(Agent *agent, Inet4UnicastAgentRouteTable *table,
+static void AddDefaultRoute(Agent *agent, InetUnicastAgentRouteTable *table,
                             const VrfEntry *vrf, const Ip4Address &gw,
                             const string &vn_name) {
 
     table->AddGatewayRoute(vrf->GetName(), Ip4Address(0), 0, gw, vn_name);
 }
 
-static void DeleteDefaultRoute(Agent *agent, Inet4UnicastAgentRouteTable *table,
+static void DeleteDefaultRoute(Agent *agent, InetUnicastAgentRouteTable *table,
                                const VrfEntry *vrf, const Ip4Address &addr) {
     table->Delete(agent->local_peer(), vrf->GetName(), Ip4Address(0), 0);
 }
@@ -162,7 +161,7 @@ static void DeleteDefaultRoute(Agent *agent, Inet4UnicastAgentRouteTable *table,
 // - Receive route for IP address assigned
 // - Receive route for the sub-net broadcast address
 // - Resolve route for the subnet address
-static void AddHostRoutes(Agent *agent, Inet4UnicastAgentRouteTable *table,
+static void AddHostRoutes(Agent *agent, InetUnicastAgentRouteTable *table,
                           const VrfEntry *vrf, const string &interface,
                           const Ip4Address &addr, int plen,
                           const string &vn_name) {
@@ -179,7 +178,7 @@ static void AddHostRoutes(Agent *agent, Inet4UnicastAgentRouteTable *table,
                            GetIp4SubnetAddress(addr, plen), plen);
 }
 
-static void DeleteHostRoutes(Agent *agent, Inet4UnicastAgentRouteTable *table,
+static void DeleteHostRoutes(Agent *agent, InetUnicastAgentRouteTable *table,
                              const VrfEntry *vrf, const Ip4Address &addr,
                              int plen) {
     table->Delete(agent->local_peer(), vrf->GetName(), addr, 32);
@@ -202,8 +201,7 @@ void InetInterface::ActivateHostInterface() {
     ReceiveNH::Create(agent->nexthop_table(), name_);
 
     VrfTable *vrf_table = static_cast<VrfTable *>(vrf()->get_table());
-    Inet4UnicastAgentRouteTable *uc_rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>
+    InetUnicastAgentRouteTable *uc_rt_table =
         (vrf_table->GetInet4UnicastRouteTable(vrf()->GetName()));
     if (ip_addr_.to_ulong()) {
         AddHostRoutes(agent, uc_rt_table, vrf(), name(), ip_addr_, plen_,
@@ -230,8 +228,7 @@ void InetInterface::DeActivateHostInterface() {
 
     Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
     VrfTable *vrf_table = static_cast<VrfTable *>(vrf()->get_table());
-    Inet4UnicastAgentRouteTable *uc_rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>
+    InetUnicastAgentRouteTable *uc_rt_table =
         (vrf_table->GetInet4UnicastRouteTable(vrf()->GetName()));
     if (ip_addr_.to_ulong()) {
         DeleteHostRoutes(agent, uc_rt_table, vrf(), ip_addr_, plen_);
@@ -333,8 +330,7 @@ bool InetInterface::OnChange(InetInterfaceData *data) {
     Agent *agent = table->agent();
 
     VrfTable *vrf_table = static_cast<VrfTable *>(vrf()->get_table());
-    Inet4UnicastAgentRouteTable *uc_rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>
+    InetUnicastAgentRouteTable *uc_rt_table =
         (vrf_table->GetInet4UnicastRouteTable(vrf()->GetName()));
 
     if (ip_addr_ != data->ip_addr_ || plen_ != data->plen_) {

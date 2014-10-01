@@ -243,9 +243,9 @@ void GlobalVrouter::LinkLocalRouteManager::AddArpRoute(const Ip4Address &srv) {
         return;
     }
 
-    Inet4UnicastAgentRouteTable::CheckAndAddArpReq(global_vrouter_->oper_db()->
-                                                   agent()->fabric_vrf_name(),
-                                                   srv);
+    InetUnicastAgentRouteTable::CheckAndAddArpReq(global_vrouter_->oper_db()->
+                                                  agent()->fabric_vrf_name(),
+                                                  srv);
 }
 
 // Walk thru all the VNs
@@ -288,9 +288,8 @@ bool GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk(
         return true;
     }
 
-    Inet4UnicastAgentRouteTable *rt_table =
-        static_cast<Inet4UnicastAgentRouteTable *>(vrf_entry->
-            GetInet4UnicastRouteTable());
+    InetUnicastAgentRouteTable *rt_table =
+        vrf_entry->GetInet4UnicastRouteTable();
 
     if (is_add) {
         if (vn_entry->layer3_forwarding()) {
@@ -322,9 +321,8 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
             (vn_entry->GetState(partition->parent(), vn_id_));
         if (!state)
             return true;
-        Inet4UnicastAgentRouteTable *rt_table =
-            static_cast<Inet4UnicastAgentRouteTable *>
-            (state->vrf_->GetInet4UnicastRouteTable());
+        InetUnicastAgentRouteTable *rt_table =
+            state->vrf_->GetInet4UnicastRouteTable();
         const GlobalVrouter::LinkLocalServicesMap &services =
                    global_vrouter_->linklocal_services_map();
         for (GlobalVrouter::LinkLocalServicesMap::const_iterator it =
@@ -348,9 +346,8 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
             return true;
         LinkLocalDBState *state = new LinkLocalDBState(vrf_entry);
         vn_entry->SetState(partition->parent(), vn_id_, state);
-        Inet4UnicastAgentRouteTable *rt_table =
-            static_cast<Inet4UnicastAgentRouteTable *>
-            (vrf_entry->GetInet4UnicastRouteTable());
+        InetUnicastAgentRouteTable *rt_table =
+            vrf_entry->GetInet4UnicastRouteTable();
 
         const GlobalVrouter::LinkLocalServicesMap &services =
                    global_vrouter_->linklocal_services_map();

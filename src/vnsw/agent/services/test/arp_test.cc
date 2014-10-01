@@ -184,12 +184,12 @@ public:
     bool FindArpRoute(uint32_t addr, const string &vrf_name) {
         Agent *agent = Agent::GetInstance();
         Ip4Address ip(addr);
-        Inet4UnicastRouteKey rt_key(agent->local_peer(), vrf_name, ip, 32);
+        InetUnicastRouteKey rt_key(agent->local_peer(), vrf_name, ip, 32);
         VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
         if (!vrf || !(vrf->GetInet4UnicastRouteTable()))
             return false;
-        Inet4UnicastRouteEntry *rt = static_cast<Inet4UnicastRouteEntry *>
-            (static_cast<Inet4UnicastAgentRouteTable *>(vrf->
+        InetUnicastRouteEntry *rt = static_cast<InetUnicastRouteEntry *>
+            (static_cast<InetUnicastAgentRouteTable *>(vrf->
             GetInet4UnicastRouteTable())->FindActiveEntry(&rt_key));
         if (rt)
             return true;
@@ -200,7 +200,7 @@ public:
     void ArpNHUpdate(DBRequest::DBOperation op, in_addr_t addr) {
         Ip4Address ip(addr);
         ether_addr mac;
-        Inet4UnicastAgentRouteTable::ArpRoute(op, ip, mac, 
+        InetUnicastAgentRouteTable::ArpRoute(op, ip, mac, 
                           Agent::GetInstance()->fabric_vrf_name(), 
                           *Agent::GetInstance()->GetArpProto()->ip_fabric_interface(),
                           false, 32);
