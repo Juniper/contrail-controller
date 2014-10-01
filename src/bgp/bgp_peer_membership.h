@@ -194,10 +194,18 @@ public:
     typedef std::map<BgpTable *, MembershipRequestList *>
                                      TableMembershipRequestMap;
     typedef MembershipRequest::NotifyCompletionFn NotifyCompletionFn;
+
+    typedef boost::function<void(IPeer *, BgpTable *, bool)>
+        PeerRegistrationCallback;
+    typedef std::vector<PeerRegistrationCallback> PeerRegistrationListenerList;
+
     static const int kMembershipTaskInstanceId = 0;
 
     PeerRibMembershipManager(BgpServer *server);
     virtual ~PeerRibMembershipManager();
+
+    int RegisterPeerRegistrationCallback(PeerRegistrationCallback callback);
+    void UnregisterPeerRegistrationCallback(int id);
 
     virtual void Register(IPeer *ipeer, BgpTable *table,
                   const RibExportPolicy &policy, int instance_id,
@@ -214,6 +222,7 @@ public:
         }
         return false;
     }
+    int GetRegistrationId(const IPeer *ipeer, BgpTable *table);
 
     void Enqueue(IPeerRibEvent *event) { event_queue_->Enqueue(event); }
 
@@ -234,6 +243,8 @@ private:
 
     typedef std::multimap<const BgpTable *, IPeer *> RibPeerMap;
     typedef std::multimap<const IPeer *, IPeerRib *> PeerRibMap;
+
+    void NotifyPeerRegistration(IPeer *ipeer, BgpTable *table, bool unregister);
 
     void Join(BgpTable *table, MembershipRequestList *request_list);
     bool RouteJoin(DBTablePartBase *root, DBEntryBase *db_entry,
@@ -280,6 +291,10 @@ private:
     TableMembershipRequestMap register_request_map_;
     TableMembershipRequestMap unregister_request_map_;
     tbb::mutex mutex_;
+
+    boost::dynamic_bitset<> registration_bmap_;
+    tbb::mutex registration_mutex_;
+    PeerRegistrationListenerList registration_callbacks_;
 
     DISALLOW_COPY_AND_ASSIGN(PeerRibMembershipManager);
 };
