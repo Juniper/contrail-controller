@@ -17,11 +17,13 @@
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/uuid/nil_generator.hpp>
 #include <boost/uuid/string_generator.hpp>
+#include <boost/uuid/random_generator.hpp>
 #include <boost/asio/ip/address.hpp>
 #include <sstream>
 #include <stdlib.h>
 #include <sys/time.h>
 #include <vector>
+#include <tbb/mutex.h>
 
 #define DISALLOW_COPY_AND_ASSIGN(_Class) \
 	_Class(const _Class &);				\
@@ -540,5 +542,17 @@ void GetDiffStats(PtrMapType &stats_map, PtrMapType &old_stats_map,
          v_output_stats.push_back(output_stats);
     }
 }
+
+class ThreadSafeUuidGenerator {
+ public:
+    boost::uuids::uuid operator()() {
+        tbb::mutex::scoped_lock lock(mutex_);
+        return rgen_();
+    }
+
+ private:
+    boost::uuids::random_generator rgen_;
+    tbb::mutex mutex_;
+};
 
 #endif /* UTIL_H_ */

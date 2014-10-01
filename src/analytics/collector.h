@@ -151,8 +151,7 @@ private:
     GeneratorMap gen_map_;
 
     // Random generator for UUIDs
-    tbb::mutex rand_mutex_;
-    boost::uuids::random_generator umn_gen_;
+    ThreadSafeUuidGenerator umn_gen_;
     CollectorStats stats_;
     std::vector<Sandesh::QueueWaterMarkInfo> db_queue_wm_info_;
     std::vector<Sandesh::QueueWaterMarkInfo> sm_queue_wm_info_;
