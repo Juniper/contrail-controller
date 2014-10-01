@@ -122,15 +122,17 @@ class ServiceMonitorLogger(object):
 
 
     def uve_svc_instance(self, si_fq_name_str, status=None,
-                         vm_uuid=None, st_name=None, vr_name=None):
+                         vms=[], st_name=None):
         svc_uve = UveSvcInstanceConfig(name=si_fq_name_str,
                                        deleted=False, st_name=None,
                                        vm_list=[], create_ts=None)
 
         if st_name:
             svc_uve.st_name = st_name
-        if vm_uuid:
-            svc_uve_vm = UveSvcInstanceVMConfig(uuid=vm_uuid, vr_name=vr_name)
+        for vm in vms:
+            svc_uve_vm = UveSvcInstanceVMConfig(uuid=vm['uuid'])
+            if vm.has_key('vr_name'):
+                svc_uve_vm.vr_name = vm['vr_name']
             svc_uve.vm_list.append(svc_uve_vm)
         if status:
             svc_uve.status = status
