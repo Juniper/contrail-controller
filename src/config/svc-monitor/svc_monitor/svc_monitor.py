@@ -66,6 +66,7 @@ class SvcMonitor(object):
         # initialize logger
         self.logger = ServiceMonitorLogger(self.db, self._disc, args)
         self.db.add_logger(self.logger)
+        self.db.init_database()
 
         # rotating log file for catchall errors
         self._err_file = '/var/log/contrail/svc-monitor.err'
@@ -181,7 +182,6 @@ class SvcMonitor(object):
     #_create_default_analyzer_template
 
     def cleanup(self):
-        # TODO cleanup sandesh context
         pass
     # end cleanup
 
@@ -247,9 +247,11 @@ class SvcMonitor(object):
         if config_complete:
             self.logger.log("SI %s info is complete" %
                              si_obj.get_fq_name_str())
+            si_entry['state'] = 'active'
         else:
             self.logger.log("Warn: SI %s info is not complete" %
                              si_obj.get_fq_name_str())
+            si_entry['state'] = 'pending'
 
         #insert entry
         self.db.service_instance_insert(si_obj.get_fq_name_str(), si_entry)
@@ -264,18 +266,6 @@ class SvcMonitor(object):
             st_obj = self._vnc_lib.service_template_read(fq_name=fq_name)
             self._create_svc_instance(st_obj, si_obj)
     # end _restart_svc
-
-    def _delete_shared_vn(self, vn_uuid, proj_name):
-        try:
-            self.logger.log("Deleting VN %s %s" % (proj_name, vn_uuid))
-            self._vnc_lib.virtual_network_delete(id=vn_uuid)
-        except RefsExistError:
-            self._svc_err_logger.error("Delete failed refs exist VN %s %s" %
-                                       (proj_name, vn_uuid))
-        except NoIdError:
-            # remove from cleanup list
-            self.db.cleanup_table_remove(vn_uuid)
-    # end _delete_shared_vn
 
     def _create_svc_instance(self, st_obj, si_obj):
         #check if all config received before launch
@@ -302,21 +292,61 @@ class SvcMonitor(object):
             elif virt_type == svc_info.get_netns_instance_type():
                 self.netns_manager.delete_service(vm_uuid)
         except KeyError:
-            self.db.cleanup_table_remove(vm_uuid)
-            return
+            return True
 
-        # remove from launch table and queue into cleanup list
-        self.db.virtual_machine_remove(vm_uuid)
-        self.db.cleanup_table_insert(
-            vm_uuid, {'proj_name': proj_name, 'type': virt_type})
+        # generate UVE
         self.logger.uve_svc_instance(si_fq_str, status='DELETE', vm_uuid=vm_uuid)
+        return False
+
+    def _delete_shared_vn(self, vn_uuid, proj_name):
+        try:
+            self.logger.log("Deleting VN %s %s" % (proj_name, vn_uuid))
+            self._vnc_lib.virtual_network_delete(id=vn_uuid)
+        except RefsExistError:
+            self._svc_err_logger.error("Delete failed refs exist VN %s %s" %
+                                       (proj_name, vn_uuid))
+        except NoIdError:
+            return True
+        return False
+
+    def _cleanup_si(self, si_fq_str):
+        si_info = self.db.service_instance_get(si_fq_str)
+        if not si_info:
+            return
+        cleaned_up = True
+        state = {}
+        state['state'] = 'deleting'
+        self.db.service_instance_insert(si_fq_str, state)
+        proj_name = self._get_proj_name_from_si_fq_str(si_fq_str)
+
+        for idx in range(0, int(si_info.get('max-instances', '0'))):
+            prefix = self.db.get_vm_db_prefix(idx)
+            vm_key = prefix + 'uuid'
+            if vm_key in si_info.keys():
+                if not self._delete_svc_instance(
+                        si_info[vm_key], proj_name, si_fq_str=si_fq_str,
+                        virt_type=si_info['instance_type']):
+                    cleaned_up = False
+
+        if cleaned_up:
+            vn_name = 'snat-si-left_%s' % si_fq_str.split(':')[-1]
+            if vn_name in si_info.keys():
+                if not self._delete_shared_vn(si_info[vn_name], proj_name):
+                    cleaned_up = False
+
+        # delete shared vn and delete si info
+        if cleaned_up:
+            for vn_name in svc_info.get_shared_vn_list():
+                if vn_name in si_info.keys():
+                    self._delete_shared_vn(si_info[vn_name], proj_name)
+            self.db.service_instance_remove(si_fq_str)
 
     def _check_si_status(self, si_fq_name_str, si_info):
         try:
             si_obj = self._vnc_lib.service_instance_read(id=si_info['uuid'])
         except NoIdError:
-            self.db.service_instance_remove(si_fq_name_str)
-            return 'ACTIVE'
+            # cleanup service instance
+            return 'DELETE'
 
         if si_info['instance_type'] == 'virtual-machine':
             proj_name = self._get_proj_name_from_si_fq_str(si_fq_name_str)
@@ -326,76 +356,8 @@ class SvcMonitor(object):
 
         return status 
 
-    def _check_vm_si_link(self, vm_uuid, si_info):
-        try:
-            vm_obj = self._vnc_lib.virtual_machine_read(id=vm_uuid)
-        except NoIdError:
-            return
-
-        si_fq_str = si_info['si_fq_str']
-        si_refs = vm_obj.get_service_instance_refs()
-        if (si_refs is None) or (si_refs[0]['to'][0] == 'ERROR'):
-            proj_name = self._get_proj_name_from_si_fq_str(si_fq_str)
-            self._delete_svc_instance(vm_uuid, proj_name,
-                si_fq_str, si_info['instance_type'])
-
-    def _delmsg_project_service_instance(self, idents):
-        proj_fq_str = idents['project']
-        si_fq_str = idents['service-instance']
-
-        si_info = self.db.service_instance_get(si_fq_str)
-        if not si_info:
-            return
-
-        virt_type = si_info['instance_type']
-        if virt_type == 'virtual-machine':
-            self.vm_manager.clean_resources(proj_fq_str, si_fq_str)
-        elif virt_type == 'network-namespace':
-            self.netns_manager.clean_resources(proj_fq_str, si_fq_str)
-
-        #delete si info
-        self.db.service_instance_remove(si_fq_str)
-    # end _delmsg_project_service_instance
-
     def _delmsg_service_instance_service_template(self, idents):
-        si_fq_str = idents['service-instance']
-        si_info = self.db.service_instance_get(si_fq_str)
-        if not si_info:
-            return
-
-        vm_list = self.db.virtual_machine_list()
-        for vm_uuid, si in vm_list:
-            if si_fq_str != si['si_fq_str']:
-                continue
-
-            proj_name = self._get_proj_name_from_si_fq_str(si_fq_str)
-            self._delete_svc_instance(vm_uuid, proj_name, si_fq_str=si_fq_str,
-                                      virt_type=si['instance_type'])
-
-            #insert shared instance IP uuids into cleanup list if present
-            for itf_str in svc_info.get_if_str_list():
-                iip_uuid_str = itf_str + '-iip-uuid'
-                if not iip_uuid_str in si_info:
-                    continue
-                self.db.cleanup_table_insert(
-                    si_info[iip_uuid_str], {'proj_name': proj_name,
-                                            'type': 'iip'})
-
-        #delete si info
-        self.db.service_instance_remove(si_fq_str)
-    #end _delmsg_service_instance_service_template
-
-    def _delmsg_virtual_machine_service_instance(self, idents):
-        vm_uuid = idents['virtual-machine']
-        si_fq_str = idents['service-instance']
-        proj_name = self._get_proj_name_from_si_fq_str(si_fq_str)
-        vm_info = self.db.virtual_machine_get(vm_uuid)
-        if vm_info:
-            self._delete_svc_instance(vm_uuid, proj_name,
-                                      si_fq_str=vm_info['si_fq_str'],
-                                      virt_type=vm_info['instance_type'])
-        return
-    # end _delmsg_service_instance_virtual_machine
+        self._cleanup_si(idents['service-instance'])
 
     def _delmsg_virtual_machine_interface_route_table(self, idents):
         rt_fq_str = idents['interface-route-table']
@@ -405,43 +367,39 @@ class SvcMonitor(object):
         vmi_list = rt_obj.get_virtual_machine_interface_back_refs()
         if vmi_list is None:
             self._vnc_lib.interface_route_table_delete(id=rt_obj.uuid)
-    # end _delmsg_virtual_machine_interface_route_table
 
     def _addmsg_virtual_machine_interface_virtual_machine(self, idents):
         vm_fq_str = idents['virtual-machine']
+        vmi_fq_str = idents['virtual-machine-interface']
 
         try:
             vm_obj = self._vnc_lib.virtual_machine_read(
                 fq_name_str=vm_fq_str)
+            vmi_obj = self._vnc_lib.virtual_machine_interface_read(
+                fq_name_str=vmi_fq_str)
         except NoIdError:
             return
 
-        # check if this is a service vm
+        # if already linked as service vm then return
         si_list = vm_obj.get_service_instance_refs()
         if si_list:
             return
 
-        vm_info = self.db.virtual_machine_get(vm_obj.uuid)
-        if not vm_info:
+        try:
+            si_uuid = vmi_obj.name.split('__')[-2]
+        except IndexError:
             return
-        si_fq_str = vm_info['si_fq_str']
 
         try:
-            si_obj = self._vnc_lib.service_instance_read(
-                fq_name_str=si_fq_str)
+            si_obj = self._vnc_lib.service_instance_read(id=si_uuid)
         except NoIdError:
-            proj_name = self._get_proj_name_from_si_fq_str(si_fq_str)
-            self._delete_svc_instance(vm_obj.uuid, proj_name,
-                                      si_fq_str=si_fq_str,
-                                      virt_type=vm_info['instance_type'])
             return
 
         # create service instance to service vm link
         vm_obj.add_service_instance(si_obj)
         self._vnc_lib.virtual_machine_update(vm_obj)
         self.logger.log("Info: VM %s updated SI %s" %
-                         (vm_obj.get_fq_name_str(), si_fq_str))
-    # end _addmsg_virtual_machine_interface_virtual_machine
+            (vm_obj.get_fq_name_str(), si_obj.get_fq_name_str()))
 
     def _addmsg_service_instance_service_template(self, idents):
         st_fq_str = idents['service-template']
@@ -470,7 +428,6 @@ class SvcMonitor(object):
 
         #update static routes
         self._update_static_routes(si_obj)
-    # end _addmsg_service_instance_service_template
 
     def _addmsg_project_virtual_network(self, idents):
         vn_fq_str = idents['virtual-network']
@@ -497,7 +454,6 @@ class SvcMonitor(object):
                 self._create_svc_instance(st_obj, si_obj)
             except Exception:
                 continue
-    #end _addmsg_project_virtual_network
 
     def _addmsg_floating_ip_virtual_machine_interface(self, idents):
         fip_fq_str = idents['floating-ip']
@@ -626,37 +582,14 @@ def timer_callback(monitor):
         if status == 'ERROR':
             monitor.logger.log("Relaunch SI %s" % (si_fq_name_str))
             monitor._restart_svc(si_fq_name_str)
-
-    vm_list = monitor.db.virtual_machine_list()
-    for vm_uuid, si_info in vm_list or []:
-        monitor._check_vm_si_link(vm_uuid, si_info)
+        elif status == 'DELETE':
+            monitor._cleanup_si(si_fq_name_str)
 
 def launch_timer(monitor):
     while True:
         gevent.sleep(svc_info.get_vm_health_interval())
         try:
             timer_callback(monitor)
-        except Exception:
-            cgitb_error_log(monitor)
-
-def cleanup_callback(monitor):
-    delete_list = monitor.db.cleanup_table_list()
-    if not delete_list:
-        return
-
-    for uuid, info in delete_list or []:
-        if info['type'] == svc_info.get_vm_instance_type() or \
-                info['type'] == svc_info.get_netns_instance_type():
-            monitor._delete_svc_instance(uuid, info['proj_name'],
-                                         virt_type=info['type'])
-        elif info['type'] == 'vn':
-            monitor._delete_shared_vn(uuid, info['proj_name'])
-
-def launch_cleanup(monitor):
-    while True:
-        gevent.sleep(svc_info.get_cleanup_interval())
-        try:
-            cleanup_callback(monitor)
         except Exception:
             cgitb_error_log(monitor)
 
@@ -780,7 +713,6 @@ def parse_args(args_str):
         "--ifmap_server_ip", help="IP address of ifmap server")
     parser.add_argument("--ifmap_server_port", help="Port of ifmap server")
 
-    # TODO should be from certificate
     parser.add_argument("--ifmap_username",
                         help="Username known to ifmap server")
     parser.add_argument("--ifmap_password",
@@ -868,9 +800,7 @@ def run_svc_monitor(args=None):
     monitor.post_init(vnc_api, args)
     ssrc_task = gevent.spawn(launch_ssrc, monitor)
     timer_task = gevent.spawn(launch_timer, monitor)
-    cleanup_task = gevent.spawn(launch_cleanup, monitor)
-    gevent.joinall([ssrc_task, timer_task, cleanup_task])
-# end run_svc_monitor
+    gevent.joinall([ssrc_task, timer_task])
 
 
 def main(args_str=None):

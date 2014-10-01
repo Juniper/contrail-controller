@@ -25,33 +25,6 @@ _NETNS_INSTANCE_TYPE = 'network-namespace'
 _SNAT_SVC_TYPE = 'source-nat'
 _LB_SVC_TYPE = 'loadbalancer'
 
-def get_left_vn(parent_str, vn):
-    if vn is None:
-        return None
-    if vn == "":
-        return(parent_str + ':' + _SVC_VN_LEFT)
-    else:
-        return vn
-# end get_left_vn
-
-def get_right_vn(parent_str, vn):
-    if vn is None:
-        return None
-    if vn == "":
-        return(parent_str + ':' + _SVC_VN_RIGHT)
-    else:
-        return vn
-# end get_right_vn
-
-def get_management_vn(parent_str, vn):
-    if vn is None:
-        return None
-    if vn == "":
-        return(parent_str + ':' + _SVC_VN_MGMT)
-    else:
-        return vn
-# end get_management_vn
-
 def get_management_if_str():
     return _MGMT_STR
 
