@@ -423,6 +423,7 @@ class VirtualMachineManager(InstanceManager):
         vm_back_refs = si_obj.get_virtual_machine_back_refs()
         proj_name = si_obj.get_parent_fq_name()[-1]
         max_instances = si_props.get_scale_out().get_max_instances()
+        instances = []
         for inst_count in range(0, max_instances):
             instance_name = self._get_instance_name(si_obj, inst_count)
             exists = False
@@ -448,11 +449,12 @@ class VirtualMachineManager(InstanceManager):
             row_entry['instance_name'] = instance_name
             row_entry['instance_type'] = svc_info.get_vm_instance_type()
             self.db.virtual_machine_insert(vm_uuid, row_entry)
+            instances.append({'uuid': vm_uuid})
 
-            # uve trace
-            self.logger.uve_svc_instance(si_obj.get_fq_name_str(),
-                status='CREATE', vm_uuid=vm.id,
-                st_name=st_obj.get_fq_name_str())
+        # uve trace
+        self.logger.uve_svc_instance(si_obj.get_fq_name_str(),
+            status='CREATE', vms=instances,
+            st_name=st_obj.get_fq_name_str())
 
     def delete_service(self, vm_uuid, proj_name=None):
         try:
@@ -534,6 +536,7 @@ class NetworkNamespaceManager(InstanceManager):
 
         # Create virtual machines, associate them to the service instance and
         # schedule them to different virtual routers
+        instances = []
         for inst_count in range(0, max_instances):
             # Create a virtual machine
             instance_name = self._get_instance_name(si_obj, inst_count)
@@ -564,13 +567,13 @@ class NetworkNamespaceManager(InstanceManager):
                 user_visible = True
                 if nic['type'] == svc_info.get_left_if_str():
                     user_visible = False
+                vmi_obj = self._create_svc_vm_port(nic, instance_name, st_obj,
+                    si_obj, int(local_preference), user_visible)
                 if vmi_obj.get_virtual_machine_refs() is None:
-                    vmi_obj = self._create_svc_vm_port(nic, instance_name, st_obj,
-                        si_obj, int(local_preference), user_visible)
                     vmi_obj.set_virtual_machine(vm_obj)
                     self._vnc_lib.virtual_machine_interface_update(vmi_obj)
                     self.logger.log("Info: VMI %s updated with VM %s" %
-                        (vmi_obj.get_fq_name_str(), instance_name))
+                                    (vmi_obj.get_fq_name_str(), instance_name))
 
             # store NetNS instance in db use for linking when NetNS
             # is up. If the 'vrouter_name' key does not exist that means the
@@ -581,27 +584,26 @@ class NetworkNamespaceManager(InstanceManager):
 
             # Associate instance on the scheduled vrouter
             chosen_vr_fq_name = None
-            row_entry['vrouter_name'] = 'None'
             if vm_obj.get_virtual_router_back_refs() is None:
                 chosen_vr_fq_name = self.vrouter_scheduler.schedule(
                     si_obj.uuid, vm_obj.uuid)
                 if chosen_vr_fq_name:
-                    row_entry['vrouter_name'] = chosen_vr_fq_name[-1]
                     self.logger.log("Info: VRouter %s updated with VM %s" %
                         (':'.join(chosen_vr_fq_name), instance_name))
 
-            self.db.virtual_machine_insert(vm_obj.uuid, row_entry)
+            row_entry['vrouter_name'] = 'None'
+            if vm_obj.get_virtual_router_back_refs():
+                row_entry['vrouter_name'] = \
+                    vm_obj.get_virtual_router_back_refs()[0]['to'][-1]
 
-            # uve trace
-            if chosen_vr_fq_name:
-                self.logger.uve_svc_instance(si_obj.get_fq_name_str(),
-                    status='CREATE', vm_uuid=vm_obj.uuid,
-                    st_name=st_obj.get_fq_name_str(),
-                    vr_name=':'.join(chosen_vr_fq_name))
-            else:
-                self.logger.uve_svc_instance(si_obj.get_fq_name_str(),
-                    status='CREATE', vm_uuid=vm_obj.uuid,
-                    st_name=st_obj.get_fq_name_str())
+            self.db.virtual_machine_insert(vm_obj.uuid, row_entry)
+            instances.append({'uuid': vm_obj.uuid,
+                              'vr_name': row_entry['vrouter_name']})
+
+        # uve trace
+        self.logger.uve_svc_instance(si_obj.get_fq_name_str(),
+            status='CREATE', vms=instances,
+            st_name=st_obj.get_fq_name_str())
 
     def delete_service(self, vm_uuid, proj_name=None):
         try:
