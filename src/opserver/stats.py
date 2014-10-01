@@ -32,8 +32,8 @@ class StatQuerier(object):
     # Public functions
     def parse_args(self):
         """ 
-        Eg. python stats.py --opserver-ip 127.0.0.1
-                          --opserver-port 8081
+        Eg. python stats.py --analytics-api-ip 127.0.0.1
+                          --analytics-api-port 8081
                           --table AnalyticsCpuState.cpu_info
                           --where name=a6s40 cpu_info.module_id=Collector
                           --select "T=60 SUM(cpu_info.cpu_share)"
@@ -43,8 +43,8 @@ class StatQuerier(object):
             python stats.py --table AnalyticsCpuState.cpu_info
         """
         defaults = {
-            'opserver_ip': '127.0.0.1',
-            'opserver_port': '8081',
+            'analytics_api_ip': '127.0.0.1',
+            'analytics_api_port': '8081',
             'start_time': 'now-10m',
             'end_time': 'now',
             'select' : [],
@@ -55,8 +55,8 @@ class StatQuerier(object):
         parser = argparse.ArgumentParser(
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         parser.set_defaults(**defaults)
-        parser.add_argument("--opserver-ip", help="IP address of OpServer")
-        parser.add_argument("--opserver-port", help="Port of OpServer")
+        parser.add_argument("--analytics-api-ip", help="IP address of Analytics API Server")
+        parser.add_argument("--analytics-api-port", help="Port of Analytcis API Server")
         parser.add_argument(
             "--start-time", help="Logs start time (format now-10m, now-1h)")
         parser.add_argument("--end-time", help="Logs end time")
@@ -92,8 +92,8 @@ class StatQuerier(object):
     # Public functions
     def query(self):
         query_url = OpServerUtils.opserver_query_url(
-            self._args.opserver_ip,
-            self._args.opserver_port)
+            self._args.analytics_api_ip,
+            self._args.analytics_api_port)
 
         if self._args.dtable is not None:
             rtable = self._args.dtable
@@ -135,8 +135,8 @@ def main():
 
 
     if len(querier._args.select)==0 and querier._args.dtable is None: 
-        tab_url = "http://" + querier._args.opserver_ip + ":" +\
-            querier._args.opserver_port +\
+        tab_url = "http://" + querier._args.analytics_api_ip + ":" +\
+            querier._args.analytics_api_port +\
             "/analytics/table/StatTable." + querier._args.table
         schematxt = OpServerUtils.get_url_http(tab_url + "/schema")
         schema = json.loads(schematxt.text)['columns']

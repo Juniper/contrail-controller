@@ -835,7 +835,11 @@ static const std::vector<FlowRecordFields::type> FlowRecordTableColumns =
     (FlowRecordFields::FLOWREC_DATA_SAMPLE)
     (FlowRecordFields::FLOWREC_ACTION)
     (FlowRecordFields::FLOWREC_SG_RULE_UUID)
-    (FlowRecordFields::FLOWREC_NW_ACE_UUID);
+    (FlowRecordFields::FLOWREC_NW_ACE_UUID)
+    (FlowRecordFields::FLOWREC_VROUTER_IP)
+    (FlowRecordFields::FLOWREC_OTHER_VROUTER_IP)
+    (FlowRecordFields::FLOWREC_UNDERLAY_PROTO)
+    (FlowRecordFields::FLOWREC_UNDERLAY_SPORT);
 
 static void PopulateFlowRecordTableColumns(
     const std::vector<FlowRecordFields::type> &frvt,

@@ -152,6 +152,10 @@ enum FlowRecordFields {
    FLOWREC_ACTION,
    FLOWREC_SG_RULE_UUID,
    FLOWREC_NW_ACE_UUID,
+   FLOWREC_VROUTER_IP,
+   FLOWREC_OTHER_VROUTER_IP,
+   FLOWREC_UNDERLAY_PROTO,
+   FLOWREC_UNDERLAY_SPORT,
    FLOWREC_MAX,
 }
 
@@ -189,6 +193,10 @@ const list<string> FlowRecordNames = [
     "action",
     "sg_rule_uuid",
     "nw_ace_uuid",
+    "vrouter_ip",
+    "other_vrouter_ip",
+    "underlay_proto",
+    "underlay_source_port",
     "invalid",
 ]
 
@@ -641,6 +649,10 @@ const list<query_table> _TABLES = [
                { 'name' : 'action', 'datatype' : 'string', 'index' : false },
                { 'name' : 'sg_rule_uuid', 'datatype' : 'uuid', 'index' : false },
                { 'name' : 'nw_ace_uuid', 'datatype' : 'uuid', 'index' : false },
+               { 'name' : 'vrouter_ip', 'datatype' : 'ipv4', 'index' : false },
+               { 'name' : 'other_vrouter_ip', 'datatype' : 'ipv4', 'index' : false },
+               { 'name' : 'underlay_proto', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'underlay_source_port', 'datatype' : 'int', 'index' : false },
                ]
          },
          'columnvalues' : [ ],

@@ -64,16 +64,16 @@ void FlowStatsCollector::SetUnderlayInfo(FlowEntry *flow,
                                          FlowDataIpv4 &s_flow) {
     string rid = agent_uve_->agent()->router_id().to_string();
     if (flow->is_flags_set(FlowEntry::LocalFlow)) {
-        s_flow.set_vrouter(rid);
-        s_flow.set_other_vrouter(rid);
+        s_flow.set_vrouter_ip(rid);
+        s_flow.set_other_vrouter_ip(rid);
         /* Set source_port as 0 for local flows. Source port is calculated by
          * vrouter irrespective of whether flow is local or not. So for local
          * flows we need to ignore port given by vrouter
          */
         s_flow.set_underlay_source_port(0);
     } else {
-        s_flow.set_vrouter(rid);
-        s_flow.set_other_vrouter(flow->peer_vrouter());
+        s_flow.set_vrouter_ip(rid);
+        s_flow.set_other_vrouter_ip(flow->peer_vrouter());
         s_flow.set_underlay_source_port(flow->underlay_source_port());
     }
     s_flow.set_underlay_proto(flow->tunnel_type().GetType());
