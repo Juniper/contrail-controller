@@ -121,7 +121,7 @@ public:
     }
 
     u_int8_t &last_octet() {
-        return (*this)[5];
+        return ((u_int8_t *)&addr_)[5];
     }
 
     void Zero() {
