@@ -166,10 +166,12 @@ class SvcMonitor(object):
             if_list = [
                 ['management', False], ['left', False], ['right', False]]
 
+        st_itf_list = []
         for itf in if_list:
             if_type = ServiceTemplateInterfaceType(shared_ip=itf[1])
             if_type.set_service_interface_type(itf[0])
-            svc_properties.add_interface_type(if_type)
+            st_itf_list.append(if_type)
+        svc_properties.set_interface_type(st_itf_list)
 
         try:
             st_obj.set_service_template_properties(svc_properties)
