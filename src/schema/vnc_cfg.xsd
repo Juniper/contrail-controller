@@ -643,9 +643,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name='VirtualNetworkType'>
     <xsd:all>
-        <!-- This indicates whether this virtual-network will be extended to
-             non-contrail bgp routers -->
-        <xsd:element name='extend-to-external-routers' type="xsd:boolean"/>
         <!-- A unique id for the network, auto generated -->
         <xsd:element name='network-id' type='xsd:integer'/>
         <!-- VNI for the network, configured by user -->
@@ -984,14 +981,13 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
           'physical-router', 'physical-interface', ['has']) -->
           
 <xsd:element name="logical-interface" type="ifmap:IdentityType"/>
+<xsd:element name="physical-router-logical-interface"/>
 <xsd:element name="physical-interface-logical-interface"/>
 <!--#IFMAP-SEMANTICS-IDL 
+     Link('physical-router-logical-interface',
+          'physical-router', 'logical-interface', ['has']);
      Link('physical-interface-logical-interface',
           'physical-interface', 'logical-interface', ['has']) -->
-<xsd:element name="logical-interface-virtual-network"/>
-<!--#IFMAP-SEMANTICS-IDL 
-     Link('logical-interface-virtual-network',
-          'logical-interface', 'virtual-network', ['ref']) -->
 
 <xsd:element name="logical-interface-virtual-machine-interface"/>
 <!--#IFMAP-SEMANTICS-IDL
