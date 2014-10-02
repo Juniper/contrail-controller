@@ -20,7 +20,7 @@ private:
     bool CheckPacket();
     void SendResponse(VmInterface *vm_intf);
 
-    icmphdr *icmp_;
+    struct icmp *icmp_;
     uint16_t icmp_len_;
     DISALLOW_COPY_AND_ASSIGN(IcmpHandler);
 };

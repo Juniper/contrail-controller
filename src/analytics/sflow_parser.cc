@@ -14,8 +14,8 @@
 
 #include "sflow_parser.h"
 
-SFlowParser::SFlowParser(const uint8_t* buf, size_t len) 
-    : raw_datagram_(buf), length_(len), end_ptr_(buf+len), 
+SFlowParser::SFlowParser(const uint8_t* buf, size_t len)
+    : raw_datagram_(buf), length_(len), end_ptr_(buf+len),
       decode_ptr_(reinterpret_cast<const uint32_t*>(buf)) {
 }
 
@@ -197,33 +197,33 @@ int SFlowParser::ReadSFlowFlowHeader(SFlowFlowHeader& flow_header) {
     }
     switch(flow_header.protocol) {
     case SFLOW_FLOW_HEADER_IPV4: {
-        if (DecodeIpv4Header(flow_header.header, 
+        if (DecodeIpv4Header(flow_header.header,
                              flow_header.decoded_ip_data) < 0) {
             return -1;
         }
-        flow_header.is_ip_data_set = true; 
+        flow_header.is_ip_data_set = true;
     }
         break;
     default:
-        LOG(DEBUG, "Skip processing of protocol header: " << 
+        LOG(DEBUG, "Skip processing of protocol header: " <<
             flow_header.protocol);
     }
     return 0;
 }
 
-int SFlowParser::DecodeIpv4Header(const uint8_t* ipv4h, 
+int SFlowParser::DecodeIpv4Header(const uint8_t* ipv4h,
                                   SFlowFlowIpData& ip_data) {
     // add sanity check
 
-    iphdr* ip = (iphdr*)ipv4h;
-    ip_data.length = ntohs(ip->tot_len);
-    ip_data.protocol = ip->protocol;
+    struct ip* ip = (struct ip*)ipv4h;
+    ip_data.length = ntohs(ip->ip_len);
+    ip_data.protocol = ip->ip_p;
     ip_data.src_ip.type = SFLOW_IPADDR_V4;
-    memcpy(ip_data.src_ip.address.ipv4, &ip->saddr, 4);
+    memcpy(ip_data.src_ip.address.ipv4, &ip->ip_src.s_addr, 4);
     ip_data.dst_ip.type = SFLOW_IPADDR_V4;
-    memcpy(ip_data.dst_ip.address.ipv4, &ip->daddr, 4);
-    ip_data.tos = ntohs(ip->tos);
-    const uint8_t* l4h = ipv4h + (ip->ihl << 2);
+    memcpy(ip_data.dst_ip.address.ipv4, &ip->ip_dst.s_addr, 4);
+    ip_data.tos = ntohs(ip->ip_tos);
+    const uint8_t* l4h = ipv4h + (ip->ip_hl << 2);
     DecodeLayer4Header(l4h, ip_data);
     return 0;
 }
@@ -234,13 +234,13 @@ int SFlowParser::DecodeLayer4Header(const uint8_t* l4h,
 
     switch(ip_data.protocol) {
     case IPPROTO_ICMP: {
-        icmphdr* icmp = (icmphdr*)l4h;
-        if (icmp->type == ICMP_ECHO || icmp->type == ICMP_ECHOREPLY) {
-            ip_data.src_port = ntohs(icmp->un.echo.id);
+        struct icmp* icmp = (struct icmp*)l4h;
+        if (icmp->icmp_type == ICMP_ECHO || icmp->icmp_type == ICMP_ECHOREPLY) {
+            ip_data.src_port = ntohs(icmp->icmp_id);
             ip_data.dst_port = ICMP_ECHOREPLY;
         } else {
             ip_data.src_port = 0;
-            ip_data.dst_port = ntohs(icmp->type);
+            ip_data.dst_port = ntohs(icmp->icmp_type);
         }
         break;
     }
