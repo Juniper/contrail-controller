@@ -41,8 +41,8 @@ class LogQuerier(object):
     # Public functions
     def parse_args(self):
         """
-        Eg. python log.py --opserver-ip 127.0.0.1
-                          --opserver-port 8081
+        Eg. python log.py --analytics-api-ip 127.0.0.1
+                          --analytics-api-port 8081
                           --source 127.0.0.1
                           --node-type Control
                           --module bgp | cfgm | vnswad
@@ -64,15 +64,15 @@ class LogQuerier(object):
                           --keywords comma,seperated,list
         """
         defaults = {
-            'opserver_ip': '127.0.0.1',
-            'opserver_port': '8081',
+            'analytics_api_ip': '127.0.0.1',
+            'analytics_api_port': '8081',
         }
 
         parser = argparse.ArgumentParser(
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         parser.set_defaults(**defaults)
-        parser.add_argument("--opserver-ip", help="IP address of OpServer")
-        parser.add_argument("--opserver-port", help="Port of OpServer")
+        parser.add_argument("--analytics-api-ip", help="IP address of Analytics API Server")
+        parser.add_argument("--analytics-api-port", help="Port of Analytics API Server")
         parser.add_argument(
             "--start-time", help="Logs start time (format now-10m, now-1h)")
         parser.add_argument("--end-time", help="Logs end time")
@@ -136,8 +136,8 @@ class LogQuerier(object):
             return -1
         start_time, end_time = self._start_time, self._end_time 
         messages_url = OpServerUtils.opserver_query_url(
-            self._args.opserver_ip,
-            self._args.opserver_port)
+            self._args.analytics_api_ip,
+            self._args.analytics_api_port)
         where_msg = []
         where_obj = []
         and_filter = []
@@ -391,7 +391,7 @@ class LogQuerier(object):
             resp = json.loads(resp)
             qid = resp['href'].rsplit('/', 1)[1]
             result = OpServerUtils.get_query_result(
-                self._args.opserver_ip, self._args.opserver_port, qid)
+                self._args.analytics_api_ip, self._args.analytics_api_port, qid)
         return result
     # end query
 

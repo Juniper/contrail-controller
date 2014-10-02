@@ -36,10 +36,10 @@ class OpServerUtils(object):
     DEFAULT_TIME_DELTA = 10 * 60 * 1000000  # 10 minutes in microseconds
     USECS_IN_SEC = 1000 * 1000
     OBJECT_ID = 'ObjectId'
-
     POST_HEADERS = {'Content-type': 'application/json; charset="UTF-8"',
                     'Expect': '202-accepted'}
     POST_HEADERS_SYNC = {'Content-type': 'application/json; charset="UTF-8"'}
+    TunnelType = enum(INVALID=0, MPLS_GRE=1, MPLS_UDP=2, VXLAN=3)
 
     @staticmethod
     def _get_list_name(lst):
@@ -294,6 +294,18 @@ class OpServerUtils(object):
         else:
             return int(time.mktime(dt.timetuple()) * 10 ** 6)
     # end convert_to_utc_timestamp_usec
+
+    @staticmethod
+    def tunnel_type_to_str(tunnel_type):
+        if tunnel_type == OpServerUtils.TunnelType.MPLS_GRE:
+            return "MPLSoGRE"
+        elif tunnel_type == OpServerUtils.TunnelType.MPLS_UDP:
+            return "MPLSoUDP"
+        elif tunnel_type == OpServerUtils.TunnelType.VXLAN:
+            return "VXLAN"
+        else:
+            return str(tunnel_type)
+    #end tunnel_type_to_str
 
     @staticmethod
     def ip_protocol_to_str(protocol):
