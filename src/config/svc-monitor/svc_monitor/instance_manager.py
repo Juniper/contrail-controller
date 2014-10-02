@@ -27,9 +27,6 @@ from vnc_api.vnc_api import *
 from novaclient import client as nc
 from novaclient import exceptions as nc_exc
 
-_ACTIVE_LOCAL_PREFERENCE = 200
-_STANDBY_LOCAL_PREFERENCE = 100
-
 @six.add_metaclass(abc.ABCMeta)
 class InstanceManager(object):
 
@@ -401,6 +398,22 @@ class VirtualMachineManager(InstanceManager):
                                         availability_zone=avail_zone)
         nova_vm.get()
         self.logger.log('Created VM : ' + str(nova_vm))
+
+        # create vnc VM object and link to SI
+        try:
+            proj_obj = self._vnc_lib.project_read(
+                fq_name=si_obj.get_parent_fq_name())
+            vm_obj = VirtualMachine(nova_vm.id)
+            vm_obj.uuid = nova_vm.id
+            self._vnc_lib.virtual_machine_create(vm_obj)
+        except RefsExistError:
+            vm_obj = self._vnc_lib.virtual_machine_read(id=nova_vm.id)
+
+        vm_obj.add_service_instance(si_obj)
+        self._vnc_lib.virtual_machine_update(vm_obj)
+        self.logger.log("Info: VM %s updated SI %s" %
+            (vm_obj.get_fq_name_str(), si_obj.get_fq_name_str()))
+
         return nova_vm
 
     def create_service(self, st_obj, si_obj):
@@ -719,11 +732,11 @@ class NetworkNamespaceManager(InstanceManager):
                     local_prefs[inst_count] = int(si_db_entry[column])
 
         if not local_prefs[0] and not local_prefs[1]:
-            local_prefs[0] = _ACTIVE_LOCAL_PREFERENCE
-            local_prefs[1] = _STANDBY_LOCAL_PREFERENCE
-        elif local_prefs[0] == _ACTIVE_LOCAL_PREFERENCE:
-            local_prefs[1] = _STANDBY_LOCAL_PREFERENCE
-        elif local_prefs[0] == _STANDBY_LOCAL_PREFERENCE:
-            local_prefs[1] = _ACTIVE_LOCAL_PREFERENCE
+            local_prefs[0] = svc_info.get_active_preference()
+            local_prefs[1] = svc_info.get_standby_preference()
+        elif local_prefs[0] == svc_info.get_active_preference():
+            local_prefs[1] = svc_info.get_standby_preference()
+        elif local_prefs[0] == svc_info.get_standby_preference():
+            local_prefs[1] = svc_info.get_active_preference()
 
         return local_prefs
