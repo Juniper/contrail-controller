@@ -29,7 +29,7 @@ public:
 
     struct ListEntry {
         ListEntry() : installed_(false), del_pending_(false) { }
-        ListEntry(bool installed, bool del_pending) : 
+        ListEntry(bool installed, bool del_pending) :
             installed_(installed), del_pending_(del_pending) { }
         virtual ~ListEntry()  {}
 
@@ -82,8 +82,8 @@ public:
         ServiceVlan(const ServiceVlan &rhs);
         ServiceVlan(uint16_t tag, const std::string &vrf_name,
                     const Ip4Address &addr, uint8_t plen,
-                    const struct ether_addr &smac,
-                    const struct ether_addr &dmac);
+                    const MacAddress &smac,
+                    const MacAddress &dmac);
         virtual ~ServiceVlan();
 
         bool operator() (const ServiceVlan &lhs, const ServiceVlan &rhs) const;
@@ -95,8 +95,8 @@ public:
         std::string vrf_name_;
         Ip4Address addr_;
         uint8_t plen_;
-        struct ether_addr smac_;
-        struct ether_addr dmac_;
+        MacAddress smac_;
+        MacAddress dmac_;
         mutable VrfEntryRef vrf_;
         mutable uint32_t label_;
     };
@@ -490,7 +490,7 @@ private:
     void DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf);
 
     void DeleteL2Route(const std::string &vrf_name,
-                       const struct ether_addr &mac);
+                       const MacAddress &mac);
     void UpdateVrfAssignRule();
     void DeleteVrfAssignRule();
     void UpdateFipFamilyCount(const FloatingIp &fip);

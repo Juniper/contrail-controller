@@ -154,7 +154,7 @@ struct PktInfo {
     // Pointer to different headers in user packet
     struct ether_header *eth;
     struct ether_arp    *arp;
-    struct ip    *ip;
+    struct ip           *ip;
     struct ip6_hdr      *ip6;
     union {
         struct tcphdr   *tcp;

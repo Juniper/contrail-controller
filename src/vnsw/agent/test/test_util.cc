@@ -1120,9 +1120,7 @@ bool RouteFindV6(const string &vrf_name, const string &addr, int plen) {
     return RouteFindV6(vrf_name, Ip6Address::from_string(addr), plen);
 }
 
-
-
-bool L2RouteFind(const string &vrf_name, const struct ether_addr &mac) {
+bool L2RouteFind(const string &vrf_name, const MacAddress &mac) {
     Layer2RouteEntry *route =
         Layer2AgentRouteTable::FindRoute(Agent::GetInstance(), vrf_name, mac);
     return (route != NULL);
@@ -1135,7 +1133,7 @@ bool MCRouteFind(const string &vrf_name, const Ip4Address &grp_addr,
         return false;
 
     Inet4MulticastRouteKey key(vrf_name, src_addr, grp_addr);
-    Inet4MulticastRouteEntry *route = 
+    Inet4MulticastRouteEntry *route =
         static_cast<Inet4MulticastRouteEntry *>
         (static_cast<Inet4MulticastAgentRouteTable *>(vrf->
              GetInet4MulticastRouteTable())->FindActiveEntry(&key));
@@ -1154,7 +1152,7 @@ bool MCRouteFind(const string &vrf_name, const Ip4Address &grp_addr) {
         return false;
 
     Inet4MulticastRouteKey key(vrf_name, grp_addr);
-    Inet4MulticastRouteEntry *route = 
+    Inet4MulticastRouteEntry *route =
         static_cast<Inet4MulticastRouteEntry *>
         (static_cast<Inet4MulticastAgentRouteTable *>(vrf->
              GetInet4MulticastRouteTable())->FindActiveEntry(&key));
@@ -1166,14 +1164,14 @@ bool MCRouteFind(const string &vrf_name, const string &grp_addr) {
 
 }
 
-Layer2RouteEntry *L2RouteGet(const string &vrf_name, 
-                             const struct ether_addr &mac) {
+Layer2RouteEntry *L2RouteGet(const string &vrf_name,
+                             const MacAddress &mac) {
     VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     if (vrf == NULL)
         return NULL;
 
     Layer2RouteKey key(Agent::GetInstance()->local_vm_peer(), vrf_name, mac, 0);
-    Layer2RouteEntry *route = 
+    Layer2RouteEntry *route =
         static_cast<Layer2RouteEntry *>
         (static_cast<Layer2AgentRouteTable *>(vrf->
              GetLayer2RouteTable())->FindActiveEntry(&key));
@@ -1254,9 +1252,9 @@ bool VlanNhFind(int id, uint16_t tag) {
     return (nh != NULL);
 }
 
-bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf, 
+bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const Ip4Address &server_ip,
-                          uint32_t label, struct ether_addr &remote_vm_mac,
+                          uint32_t label, MacAddress &remote_vm_mac,
                           const Ip4Address &vm_addr, uint8_t plen) {
     ControllerVmRoute *data =
         ControllerVmRoute::MakeControllerVmRoute(peer,
@@ -1270,9 +1268,9 @@ bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf,
     return true;
 }
 
-bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf, 
+bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const char *server_ip,
-                          uint32_t label, struct ether_addr &remote_vm_mac,
+                          uint32_t label, MacAddress &remote_vm_mac,
                           const char *vm_addr, uint8_t plen) {
     boost::system::error_code ec;
     Layer2TunnelRouteAdd(peer, vm_vrf, bmap,
@@ -1349,13 +1347,13 @@ bool TunnelRouteAdd(const char *server, const char *vmip, const char *vm_vrf,
 }
 
 bool AddArp(const char *ip, const char *mac_str, const char *ifname) {
-    struct ether_addr mac = *ether_aton(mac_str);
+    MacAddress mac(mac_str);
     Interface *intf;
     PhysicalInterfaceKey key(ifname);
     intf = static_cast<Interface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     boost::system::error_code ec;
     InetUnicastAgentRouteTable::ArpRoute(DBRequest::DB_ENTRY_ADD_CHANGE,
-                              Ip4Address::from_string(ip, ec), mac, 
+                              Ip4Address::from_string(ip, ec), mac,
                               Agent::GetInstance()->fabric_vrf_name(),
                               *intf, true, 32);
 
@@ -1363,7 +1361,7 @@ bool AddArp(const char *ip, const char *mac_str, const char *ifname) {
 }
 
 bool DelArp(const string &ip, const char *mac_str, const string &ifname) {
-    struct ether_addr mac = *ether_aton(mac_str);
+    MacAddress mac(mac_str);
     Interface *intf;
     PhysicalInterfaceKey key(ifname);
     intf = static_cast<Interface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));

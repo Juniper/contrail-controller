@@ -642,18 +642,14 @@ void MulticastHandler::Shutdown() {
     const Agent *agent = MulticastHandler::GetInstance()->agent();
     //Delete all route mpls and trigger cnh change
 
-    struct ether_addr flood_mac;
-
-    memcpy(&flood_mac, ether_aton("ff:ff:ff:ff:ff:ff"),
-           sizeof(struct ether_addr));
     for (std::set<MulticastGroupObject *>::iterator it =
-         MulticastHandler::GetInstance()->GetMulticastObjList().begin(); 
+         MulticastHandler::GetInstance()->GetMulticastObjList().begin();
          it != MulticastHandler::GetInstance()->GetMulticastObjList().end();
          it++) {
         MulticastGroupObject *obj = (*it);
         AgentRoute *route = Layer2AgentRouteTable::FindRoute(agent,
                                                              obj->vrf_name(),
-                                                             flood_mac);
+                                                             MacAddress::BroadcastMac());
         if (route == NULL)
             return;
 

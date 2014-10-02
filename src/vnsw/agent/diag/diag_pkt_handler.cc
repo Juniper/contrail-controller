@@ -130,7 +130,7 @@ void DiagPktHandler::SwapIpHdr() {
 
 void DiagPktHandler::SwapEthHdr() {
     struct ether_header *eth = pkt_info_->eth;
-    EthHdr(eth->ether_dhost, eth->ether_shost, ntohs(eth->ether_type));
+    EthHdr(MacAddress(eth->ether_dhost), MacAddress(eth->ether_shost), ntohs(eth->ether_type));
 }
 
 void DiagPktHandler::Swap() {

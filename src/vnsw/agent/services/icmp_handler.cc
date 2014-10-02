@@ -71,8 +71,9 @@ void IcmpHandler::SendResponse(VmInterface *vm_intf) {
     // Form ICMP Packet with following
     // EthHdr - IP Header - ICMP Header
     len += EthHdr(ptr + len, buf_len - len,
-                  agent()->vhost_interface()->mac().ether_addr_octet,
-                  pkt_info_->eth->ether_shost, ETHERTYPE_IP, vm_intf->vlan_id());
+                  agent()->vhost_interface()->mac(),
+                  MacAddress(pkt_info_->eth->ether_shost),
+                  ETHERTYPE_IP, vm_intf->vlan_id());
 
     uint16_t ip_len = sizeof(struct ip) + icmp_len_;
 

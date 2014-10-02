@@ -29,7 +29,6 @@ ArpProto::ArpProto(Agent *agent, boost::asio::io_service &io,
     max_retries_(kMaxRetries), retry_timeout_(kRetryTimeout),
     aging_timeout_(kAgingTimeout) {
 
-    memset(ip_fabric_interface_mac_, 0, ETH_ALEN);
     vrf_table_listener_id_ = agent->vrf_table()->Register(
                              boost::bind(&ArpProto::VrfNotify, this, _1, _2));
     interface_table_listener_id_ = agent->interface_table()->Register(
@@ -116,12 +115,10 @@ void ArpVrfState::SendArpRequestForVm(InetUnicastRouteEntry *route) {
             ArpHandler arp_handler(agent, pkt,
                                    *(agent->event_manager()->io_service()));
 
-            const unsigned char zero_mac[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-            const unsigned char *smac = agent->vrrp_mac();
             if (path->subnet_gw_ip().is_v4()) {
-                arp_handler.SendArp(ARPOP_REQUEST, smac,
+                arp_handler.SendArp(ARPOP_REQUEST, agent->vrrp_mac(),
                         path->subnet_gw_ip().to_v4().to_ulong(),
-                        zero_mac, route->addr().to_v4().to_ulong(),
+                        MacAddress(), route->addr().to_v4().to_ulong(),
                         intf_id, route->vrf_id());
             }
             arp_proto->IncrementStatsVmArpReq();
@@ -194,7 +191,7 @@ ArpVrfState::ArpVrfState(Agent *agent_ptr, ArpProto *proto, VrfEntry *vrf_entry,
 void ArpProto::InterfaceNotify(DBEntryBase *entry) {
     Interface *itf = static_cast<Interface *>(entry);
     if (entry->IsDeleted()) {
-        if (itf->type() == Interface::PHYSICAL && 
+        if (itf->type() == Interface::PHYSICAL &&
             itf->name() == agent_->fabric_interface_name()) {
             for (ArpProto::ArpIterator it = arp_cache_.begin();
                  it != arp_cache_.end();) {
@@ -208,16 +205,14 @@ void ArpProto::InterfaceNotify(DBEntryBase *entry) {
             set_ip_fabric_interface_index(-1);
         }
     } else {
-        if (itf->type() == Interface::PHYSICAL && 
+        if (itf->type() == Interface::PHYSICAL &&
             itf->name() == agent_->fabric_interface_name()) {
             set_ip_fabric_interface(itf);
             set_ip_fabric_interface_index(itf->id());
             if (run_with_vrouter_) {
-                set_ip_fabric_interface_mac((char *)itf->mac().ether_addr_octet);
+                set_ip_fabric_interface_mac(itf->mac());
             } else {
-                char mac[ETH_ALEN];
-                memset(mac, 0, ETH_ALEN);
-                set_ip_fabric_interface_mac(mac);
+                set_ip_fabric_interface_mac(MacAddress());
             }
         }
     }
@@ -232,7 +227,7 @@ void ArpProto::NextHopNotify(DBEntryBase *entry) {
         if (arp_nh->IsDeleted()) {
             SendArpIpc(ArpProto::ARP_DELETE, arp_nh->GetIp()->to_ulong(),
                        arp_nh->GetVrf());
-        } else if (arp_nh->IsValid() == false) { 
+        } else if (arp_nh->IsValid() == false) {
             SendArpIpc(ArpProto::ARP_RESOLVE, arp_nh->GetIp()->to_ulong(),
                        arp_nh->GetVrf());
         }

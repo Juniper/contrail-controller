@@ -45,13 +45,13 @@ struct udp_packet {
 
 struct icmp6_packet {
     struct ether_header eth;
-    struct ip6_hdr  ip;
+    struct ip6_hdr ip;
     struct icmp icmp;
 } __attribute__((packed));
 
 struct tcp6_packet {
     struct ether_header eth;
-    struct ip6_hdr  ip;
+    struct ip6_hdr ip;
     struct tcphdr tcp;
     char   payload[TCP_PAYLOAD_SIZE];
 }__attribute__((packed));
@@ -181,7 +181,6 @@ private:
         pkt.udp.dest = htons(dport);
         pkt.udp.len = htons(sizeof(pkt.payload));
         pkt.udp.check = htons(0); //ignoring checksum for now.
-
     }
     struct udp_packet pkt;
 };
@@ -201,7 +200,7 @@ public:
         tip = ntohl(tip);
         memcpy(pkt.arp_tpa, &tip, 4);
     }
-    unsigned char *GetPacket() const { return (unsigned char *)&pkt; } 
+    unsigned char *GetPacket() const { return (unsigned char *)&pkt; }
 private:
     struct ether_arp pkt;
 };
@@ -303,11 +302,11 @@ public:
     PktGen() : len(0) { memset(buff, 0, kMaxPktLen);};
     virtual ~PktGen() {};
 
-    void AddEthHdr(const char *dmac, const char *smac, uint16_t proto) {
+    void AddEthHdr(const std::string &dmac, const std::string &smac, uint16_t proto) {
         struct ether_header *eth = (struct ether_header *)(buff + len);
 
-        memcpy(eth->ether_dhost, ether_aton(dmac), sizeof(ether_addr));
-        memcpy(eth->ether_shost, ether_aton(smac), sizeof(ether_addr));
+        MacAddress::FromString(dmac).ToArray(eth->ether_dhost, sizeof(eth->ether_dhost));
+        MacAddress::FromString(smac).ToArray(eth->ether_shost, sizeof(eth->ether_shost));
         eth->ether_type = htons(proto);
         len += sizeof(struct ether_header);
     };

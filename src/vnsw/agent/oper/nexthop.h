@@ -610,7 +610,7 @@ public:
         NextHopData(), intf_key_(NULL),
         mac_(), resolved_(false), valid_(false) { };
 
-    ArpNHData(const struct ether_addr &mac, InterfaceKey *intf_key,
+    ArpNHData(const MacAddress &mac, InterfaceKey *intf_key,
               bool resolved) : NextHopData(), intf_key_(intf_key), mac_(mac),
         resolved_(resolved), valid_(true) {
     }
@@ -619,7 +619,7 @@ public:
 private:
     friend class ArpNH;
     boost::scoped_ptr<InterfaceKey> intf_key_;
-    struct ether_addr mac_;
+    MacAddress mac_;
     bool resolved_;
     bool valid_;
     DISALLOW_COPY_AND_ASSIGN(ArpNHData);
@@ -627,7 +627,7 @@ private:
 
 class ArpNH : public NextHop {
 public:
-    ArpNH(VrfEntry *vrf, const Ip4Address &ip) : 
+    ArpNH(VrfEntry *vrf, const Ip4Address &ip) :
         NextHop(ARP, false, false), vrf_(vrf), ip_(ip), interface_(), mac_() {};
     virtual ~ArpNH() { };
 
@@ -640,7 +640,7 @@ public:
     virtual void SendObjectLog(AgentLogEvent::type event) const;
     virtual bool CanAdd() const;
 
-    const struct ether_addr *GetMac() const {return &mac_;};
+    const MacAddress &GetMac() const {return mac_;};
     const Interface *GetInterface() const {return interface_.get();};
     const uuid &GetIfUuid() const;
     const uint32_t vrf_id() const;
@@ -654,7 +654,7 @@ private:
     VrfEntryRef vrf_;
     Ip4Address ip_;
     InterfaceRef interface_;
-    struct ether_addr mac_;
+    MacAddress mac_;
     DISALLOW_COPY_AND_ASSIGN(ArpNH);
 };
 
@@ -770,28 +770,28 @@ private:
 
 class InterfaceNHData : public NextHopData {
 public:
-    InterfaceNHData(const string vrf_name, const struct ether_addr &dmac) :
+    InterfaceNHData(const string vrf_name, const MacAddress &dmac) :
         NextHopData(), dmac_(dmac), vrf_key_(vrf_name) { }
     virtual ~InterfaceNHData() { }
 
 private:
     friend class InterfaceNH;
-    struct ether_addr dmac_;
+    MacAddress dmac_;
     VrfKey vrf_key_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceNHData);
 };
 
 class InterfaceNH : public NextHop {
 public:
-    InterfaceNH(Interface *intf, bool policy, uint8_t flags) : 
+    InterfaceNH(Interface *intf, bool policy, uint8_t flags) :
         NextHop(INTERFACE, true, policy), interface_(intf),
         flags_(flags), dmac_() { };
-    InterfaceNH(Interface *intf, bool policy) : 
+    InterfaceNH(Interface *intf, bool policy) :
         NextHop(INTERFACE, true, policy), interface_(intf),
         flags_(InterfaceNHFlags::INET4), dmac_() { };
     virtual ~InterfaceNH() { };
 
-    virtual std::string ToString() const { 
+    virtual std::string ToString() const {
         return "InterfaceNH : " + interface_->name();
     };
     virtual bool NextHopIsLess(const DBEntry &rhs) const;
@@ -803,7 +803,7 @@ public:
     virtual void SendObjectLog(AgentLogEvent::type event) const;
 
     const Interface *GetInterface() const {return interface_.get();};
-    const struct ether_addr &GetDMac() const {return dmac_;};
+    const MacAddress &GetDMac() const {return dmac_;};
     bool is_multicastNH() const { return flags_ & InterfaceNHFlags::MULTICAST; };
     bool IsLayer2() const { return flags_ & InterfaceNHFlags::LAYER2; };
     uint8_t GetFlags() const {return flags_;};
@@ -811,15 +811,15 @@ public:
     const VrfEntry *GetVrf() const {return vrf_.get();};
 
     static void CreateMulticastVmInterfaceNH(const uuid &intf_uuid,
-                                             const struct ether_addr &dmac, 
+                                             const MacAddress &dmac,
                                              const string &vrf_name);
     static void DeleteMulticastVmInterfaceNH(const uuid &intf_uuid);
     static void CreateL2VmInterfaceNH(const uuid &intf_uuid,
-                                      const struct ether_addr &dmac, 
+                                      const MacAddress &dmac,
                                       const string &vrf_name);
     static void DeleteL2InterfaceNH(const uuid &intf_uuid);
     static void CreateL3VmInterfaceNH(const uuid &intf_uuid,
-                                      const struct ether_addr &dmac, 
+                                      const MacAddress &dmac,
                                       const string &vrf_name);
     static void DeleteL3InterfaceNH(const uuid &intf_uuid);
     static void DeleteNH(const uuid &intf_uuid, bool policy, uint8_t flags);
@@ -833,7 +833,7 @@ public:
 private:
     InterfaceRef interface_;
     uint8_t flags_;
-    struct ether_addr dmac_;
+    MacAddress dmac_;
     VrfEntryRef vrf_; 
     DISALLOW_COPY_AND_ASSIGN(InterfaceNH);
 };
@@ -933,14 +933,14 @@ private:
 
 class VlanNHData : public NextHopData {
 public:
-    VlanNHData(const string vrf_name, const struct ether_addr &smac, 
-               const struct ether_addr &dmac):
+    VlanNHData(const string vrf_name, const MacAddress &smac,
+               const MacAddress &dmac):
         NextHopData(), smac_(smac), dmac_(dmac), vrf_key_(vrf_name) {}
     virtual ~VlanNHData() { }
 private:
     friend class VlanNH;
-    struct ether_addr smac_;
-    struct ether_addr dmac_;
+    MacAddress smac_;
+    MacAddress dmac_;
     VrfKey vrf_key_;
     DISALLOW_COPY_AND_ASSIGN(VlanNHData);
 };
@@ -964,24 +964,24 @@ public:
     uint16_t GetVlanTag() const {return vlan_tag_;};
     const uuid &GetIfUuid() const;
     const VrfEntry *GetVrf() const {return vrf_.get();};
-    const struct ether_addr &GetSMac() const {return smac_;};
-    const struct ether_addr &GetDMac() const {return dmac_;};
+    const MacAddress &GetSMac() const {return smac_;};
+    const MacAddress &GetDMac() const {return dmac_;};
     static VlanNH *Find(const uuid &intf_uuid, uint16_t vlan_tag);
 
-    static void Create(const uuid &intf_uuid, uint16_t vlan_tag, 
-                          const std::string &vrf_name, const ether_addr &smac,
-                          const ether_addr &dmac);
+    static void Create(const uuid &intf_uuid, uint16_t vlan_tag,
+                          const std::string &vrf_name, const MacAddress &smac,
+                          const MacAddress &dmac);
     static void Delete(const uuid &intf_uuid, uint16_t vlan_tag);
     static void CreateReq(const uuid &intf_uuid, uint16_t vlan_tag,
-                          const std::string &vrf_name, const ether_addr &smac,
-                          const ether_addr &dmac);
+                          const std::string &vrf_name, const MacAddress &smac,
+                          const MacAddress &dmac);
     static void DeleteReq(const uuid &intf_uuid, uint16_t vlan_tag);
 
 private:
     InterfaceRef interface_;
     uint16_t vlan_tag_;
-    struct ether_addr smac_;
-    struct ether_addr dmac_;
+    MacAddress smac_;
+    MacAddress dmac_;
     VrfEntryRef vrf_; 
     DISALLOW_COPY_AND_ASSIGN(VlanNH);
 };

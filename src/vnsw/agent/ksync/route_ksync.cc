@@ -134,13 +134,12 @@ bool RouteKSyncEntry::L2IsLess(const KSyncEntry &rhs) const {
         return vrf_id_ < entry.vrf_id_;
     }
 
-    int cmp = memcmp(&mac_, &entry.mac_, sizeof(struct ether_addr));
-    return (cmp < 0);
+    return (mac_.CompareTo(entry.mac_) < 0);
 }
 
 bool RouteKSyncEntry::IsLess(const KSyncEntry &rhs) const {
     const RouteKSyncEntry &entry = static_cast<const RouteKSyncEntry &>(rhs);
-    if (rt_type_ != entry.rt_type_) 
+    if (rt_type_ != entry.rt_type_)
         return rt_type_ < entry.rt_type_;
 
     //First unicast
@@ -285,8 +284,8 @@ int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
     } else {
         encoder.set_rtr_family(AF_BRIDGE);
         //TODO add support for mac
-        std::vector<int8_t> mac(mac_.ether_addr_octet, 
-                                &mac_.ether_addr_octet[ETHER_ADDR_LEN]);
+        std::vector<int8_t> mac((int8_t *)mac_,
+                                (int8_t *)mac_ + mac_.size());
         encoder.set_rtr_mac(mac);
     }
 
