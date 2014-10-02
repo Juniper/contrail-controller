@@ -614,8 +614,14 @@ class NetworkNamespaceManager(InstanceManager):
             self.db.service_instance_insert(si_obj.get_fq_name_str(),
                                             vm_db_entry)
 
+            if int(local_preference) == svc_info.get_standby_preference():
+                ha = ("standby: %s" % (local_preference))
+            else:
+                ha = ("active: %s" % (local_preference))
+
             instances.append({'uuid': vm_obj.uuid,
                               'vr_name': vrouter_name})
+                              'ha': ha})
 
         # uve trace
         self.logger.uve_svc_instance(si_obj.get_fq_name_str(),
