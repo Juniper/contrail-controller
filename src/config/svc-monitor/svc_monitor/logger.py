@@ -140,6 +140,8 @@ class ServiceMonitorLogger(object):
             svc_uve_vm = UveSvcInstanceVMConfig(uuid=vm['uuid'])
             if vm.has_key('vr_name'):
                 svc_uve_vm.vr_name = vm['vr_name']
+            if vm.has_key('ha'):
+                svc_uve_vm.ha = vm['ha']
             svc_uve.vm_list.append(svc_uve_vm)
         if status:
             svc_uve.status = status
