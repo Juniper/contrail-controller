@@ -256,6 +256,8 @@ void IFMapGraphWalker::AddLinksToWhitelist() {
     traversal_white_list_->include_edge.insert(
         "source=virtual-router,target=provider-attachment");
     traversal_white_list_->include_edge.insert(
+        "source=virtual-router,target=physical-router");
+    traversal_white_list_->include_edge.insert(
         "source=virtual-machine,target=service-instance");
     traversal_white_list_->include_edge.insert(
         "source=virtual-machine,target=virtual-machine-interface");
@@ -282,13 +284,19 @@ void IFMapGraphWalker::AddLinksToWhitelist() {
     traversal_white_list_->include_edge.insert(
         "source=virtual-machine-interface,target=interface-route-table");       
     traversal_white_list_->include_edge.insert(
+        "source=virtual-machine-interface,target=logical-interface");
+    traversal_white_list_->include_edge.insert(
         "source=physical-router,target=physical-interface");
+    traversal_white_list_->include_edge.insert(
+        "source=physical-router,target=logical-interface");
+    traversal_white_list_->include_edge.insert(
+        "source=physical-interface,target=logical-interface");
     traversal_white_list_->include_edge.insert(
         "source=service-template,target=domain");
     traversal_white_list_->include_edge.insert(
         "source=virtual-network,target=floating-ip-pool");
     traversal_white_list_->include_edge.insert(
-        "source=virtual-network,target=logical-interface");
+        "source=virtual-network,target=physical-router");
     traversal_white_list_->include_edge.insert(
         "source=virtual-network,target=virtual-network-network-ipam");
     traversal_white_list_->include_edge.insert(
