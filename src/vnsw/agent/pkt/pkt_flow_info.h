@@ -87,6 +87,11 @@ public:
 
     uint32_t            flow_source_vrf;
     uint32_t            flow_dest_vrf;
+    // map for references to the routes which were ignored due to more specific
+    // route this will be used to trigger flow re-compute to use more specific
+    // on route add. key for the map is vrf and data is prefix length
+    map<int, int>       flow_source_plen_map;
+    map<int, int>       flow_dest_plen_map;
 
     // NAT addresses
     bool                nat_done;

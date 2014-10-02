@@ -121,7 +121,7 @@ public:
     void FlushFlowTable() {
         client->EnqueueFlowFlush();
         client->WaitForIdle();
-        EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+        WAIT_FOR(1000, 3000, agent()->pkt()->flow_table()->Size() == 0);
     }
 
     void CreateLocalRoute(const char *vrf, const char *ip,
@@ -1033,7 +1033,7 @@ TEST_F(FlowTest, FlowIndexChange) {
     EXPECT_EQ(2U, agent()->pkt()->flow_table()->Size());
 
     /* verify the entry on hash id 1 being deleted */
-    EXPECT_TRUE(((vr_flow->fe_flags & VR_FLOW_FLAG_ACTIVE) != VR_FLOW_FLAG_ACTIVE));
+    WAIT_FOR(1000, 3000, ((vr_flow->fe_flags & VR_FLOW_FLAG_ACTIVE) != VR_FLOW_FLAG_ACTIVE));
 
     DeleteFlow(flow_new, 1);
     client->WaitForIdle();
