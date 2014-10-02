@@ -8,6 +8,8 @@
 #include <physical_devices/tables/physical_port.h>
 #include <string>
 
+class IFMapDependencyManager;
+
 namespace AGENT {
 struct LogicalPortKey;
 struct LogicalPortData;
@@ -66,7 +68,9 @@ class LogicalPortTable : public AgentDBTable {
     PhysicalPortTable *physical_port_table() const {
         return physical_port_table_;
     }
-    void RegisterDBClients();
+
+    void ConfigEventHandler(DBEntry *entry);
+    void RegisterDBClients(IFMapDependencyManager *dep);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 
  private:
