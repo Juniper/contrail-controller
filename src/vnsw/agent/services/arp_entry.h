@@ -34,10 +34,10 @@ public:
 
     const ArpKey &key() const { return key_; }
     State state() const { return state_; }
-    const unsigned char *mac_address() const { return mac_address_; }
+    const MacAddress &mac_address() const { return mac_address_; }
 
     bool HandleArpRequest();
-    void HandleArpReply(uint8_t *mac);
+    void HandleArpReply(const MacAddress &);
     bool RetryExpiry();
     bool AgingExpiry();
     void SendGratuitousArp();
@@ -50,7 +50,7 @@ private:
     void AddArpRoute(bool resolved);
 
     ArpKey key_;
-    unsigned char mac_address_[ETH_ALEN];
+    MacAddress mac_address_;
     State state_;
     int retry_count_;
     boost::scoped_ptr<ArpHandler> handler_;

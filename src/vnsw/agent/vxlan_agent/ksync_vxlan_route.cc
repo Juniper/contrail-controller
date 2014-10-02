@@ -85,7 +85,7 @@ KSyncVxlanFdbEntry::~KSyncVxlanFdbEntry() {
 bool KSyncVxlanFdbEntry::CompareRoute(const KSyncVxlanRouteEntry &rhs) const {
     const KSyncVxlanFdbEntry &entry = static_cast
         <const KSyncVxlanFdbEntry &>(rhs);
-    return (memcmp(&mac_, &entry.mac_, sizeof(struct ether_addr)) < 0);
+    return (mac_.CompareTo(entry.mac_) < 0);
 }
 
 std::string KSyncVxlanFdbEntry::ToString() const {

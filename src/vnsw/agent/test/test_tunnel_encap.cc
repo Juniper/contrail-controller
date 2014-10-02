@@ -30,7 +30,7 @@
 #include "kstate/test/test_kstate_util.h"
 #include "vr_types.h"
 
-#include <controller/controller_export.h> 
+#include <controller/controller_export.h>
 
 using namespace std;
 
@@ -47,18 +47,16 @@ struct PortInfo input[] = {
 };
 
 class TunnelEncapTest : public ::testing::Test {
-public:    
-    TunnelEncapTest() : default_tunnel_type_(TunnelType::MPLS_GRE) { 
+public:
+    TunnelEncapTest() : default_tunnel_type_(TunnelType::MPLS_GRE) {
         vrf_name_ = "vrf1";
         server1_ip_ = Ip4Address::from_string("10.1.1.11");
         server2_ip_ = Ip4Address::from_string("10.1.1.12");
         local_vm_ip_ = Ip4Address::from_string("1.1.1.10");
         remote_vm_ip_ = Ip4Address::from_string("1.1.1.11");
         remote_ecmp_vm_ip_ = Ip4Address::from_string("1.1.1.12");
-        memcpy(&local_vm_mac_, ether_aton("00:00:01:01:01:10"),
-               sizeof(struct ether_addr));
-        memcpy(&remote_vm_mac_, ether_aton("00:00:01:01:01:11"),
-               sizeof(struct ether_addr));
+        local_vm_mac_ = MacAddress::FromString("00:00:01:01:01:10");
+        remote_vm_mac_ = MacAddress::FromString("00:00:01:01:01:11");
     };
     ~TunnelEncapTest() {
     }
@@ -320,8 +318,8 @@ public:
     Ip4Address  server1_ip_;
     Ip4Address  server2_ip_;
     Ip4Address  remote_ecmp_vm_ip_;
-    struct ether_addr local_vm_mac_;
-    struct ether_addr remote_vm_mac_;
+    MacAddress  local_vm_mac_;
+    MacAddress  remote_vm_mac_;
     static TunnelType::Type type_;
 };
 

@@ -14,7 +14,7 @@
 #include <oper/vn.h>
 
 Icmpv6Handler::Icmpv6Handler(Agent *agent, boost::shared_ptr<PktInfo> info,
-                             boost::asio::io_service &io) 
+                             boost::asio::io_service &io)
     : ProtoHandler(agent, info, io), icmp_(pkt_info_->transp.icmp6) {
     // payload length - length of ipv6 extension headers
     if (icmp_)
@@ -61,7 +61,7 @@ bool Icmpv6Handler::Run() {
                                    pkt_info_->vrf,
                                    src_addr.to_bytes().data(),
                                    pkt_info_->ip_saddr.to_v6().to_bytes().data(),
-                                   pkt_info_->eth->ether_shost, prefix, plen);
+                                   MacAddress(pkt_info_->eth->ether_shost), prefix, plen);
                     icmpv6_proto->IncrementStatsRouterAdvert();
                     return true;
                 }
@@ -94,7 +94,7 @@ bool Icmpv6Handler::RouterAdvertisement(Icmpv6Proto *proto) {
     Ip6Address src_addr = Ip6Address::from_string(PKT0_LINKLOCAL_ADDRESS, ec);
     Ip6Address dest_addr = Ip6Address::from_string(IPV6_ALL_NODES_ADDRESS, ec);
     // Ethernet mcast address corresponding to IPv6 mcast address ff02::1
-    unsigned char dest_mac[ETH_ALEN] = { 0x33, 0x33, 0x00, 0x00, 0x00, 0x01 };
+    MacAddress dest_mac(0x33, 0x33, 0x00, 0x00, 0x00, 0x01);
     for (Icmpv6Proto::VmInterfaceSet::const_iterator it = interfaces.begin();
          it != interfaces.end(); ++it) {
         if ((*it)->IsIpv6Active()) {
@@ -152,7 +152,9 @@ uint16_t Icmpv6Handler::FillRouterAdvertisement(uint8_t *buf, uint8_t *src,
     nd_opt_hdr *src_linklayer_addr = (nd_opt_hdr *)(buf + offset);
     src_linklayer_addr->nd_opt_type = ND_OPT_SOURCE_LINKADDR;
     src_linklayer_addr->nd_opt_len = 1;
-    memcpy(buf + offset + 2, agent()->vrrp_mac(), ETH_ALEN);
+    //XXX instead of ETHER_ADDR_LEN, actual buffer size should be given
+    //to preven buffer overrun.
+    agent()->vrrp_mac().ToArray(buf + offset + 2, ETHER_ADDR_LEN);
 
     // add prefix information
     offset += sizeof(nd_opt_hdr) + ETH_ALEN;
@@ -175,7 +177,7 @@ uint16_t Icmpv6Handler::FillRouterAdvertisement(uint8_t *buf, uint8_t *src,
 
 void Icmpv6Handler::SendRAResponse(uint16_t ifindex, uint16_t vrfindex,
                                    uint8_t *src_ip, uint8_t *dest_ip,
-                                   const unsigned char *dest_mac,
+                                   const MacAddress &dest_mac,
                                    const Ip6Address &prefix, uint8_t plen) {
     // fill in the response
     uint16_t len = FillRouterAdvertisement((uint8_t *)icmp_, src_ip, dest_ip,
@@ -193,12 +195,13 @@ void Icmpv6Handler::SendPingResponse() {
     SendIcmpv6Response(pkt_info_->GetAgentHdr().ifindex, pkt_info_->vrf,
                        pkt_info_->ip_daddr.to_v6().to_bytes().data(),
                        pkt_info_->ip_saddr.to_v6().to_bytes().data(),
-                       pkt_info_->eth->ether_shost, pkt_info_->ip6->ip6_plen);
+                       MacAddress(pkt_info_->eth->ether_shost),
+                       pkt_info_->ip6->ip6_plen);
 }
 
 void Icmpv6Handler::SendIcmpv6Response(uint16_t ifindex, uint16_t vrfindex,
                                        uint8_t *src_ip, uint8_t *dest_ip,
-                                       const unsigned char *dest_mac,
+                                       const MacAddress &dest_mac,
                                        uint16_t len) {
     Ip6Hdr(pkt_info_->ip6, len, IPV6_ICMP_NEXT_HEADER, 255, src_ip, dest_ip);
     len += sizeof(ip6_hdr);

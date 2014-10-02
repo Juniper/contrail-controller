@@ -138,11 +138,13 @@ public:
     static MacAddress FromString(const std::string &str,
         boost::system::error_code *error = NULL);
 
-    static const ether_addr kZeroMac;
-    static const ether_addr kBroadcastMac;
-    static const MacAddress BroadcastMac() {
-        MacAddress t(kBroadcastMac);
-        return t;
+    static const MacAddress kZeroMac;
+    static const MacAddress kBroadcastMac;
+    static const MacAddress &BroadcastMac() {
+        return kBroadcastMac;
+    }
+    static const MacAddress &ZeroMac() {
+        return kZeroMac;
     }
 private:
     struct ether_addr addr_;

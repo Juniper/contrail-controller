@@ -190,7 +190,7 @@ void KSync::UpdateVhostMac() {
     PhysicalInterfaceKey key(agent_->fabric_interface_name());
     Interface *eth = static_cast<Interface *>
         (agent_->interface_table()->FindActiveEntry(&key));
-    memcpy(ifm.if_mac, eth->mac().ether_addr_octet, ETHER_ADDR_LEN);
+    eth->mac().ToArray((u_int8_t *)ifm.if_mac, sizeof(ifm.if_mac));
     assert(nl_build_if_create_msg(cl, &ifm, 1) == 0);
     assert(nl_sendmsg(cl) > 0);
     assert(nl_recvmsg(cl) > 0);

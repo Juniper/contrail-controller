@@ -18,7 +18,7 @@
 
 #include "controller/controller_init.h"
 #include "controller/controller_ifmap.h"
-#include "controller/controller_peer.h" 
+#include "controller/controller_peer.h"
 
 using namespace pugi;
 
@@ -46,7 +46,7 @@ public:
         AgentXmppChannel::ReceiveUpdate(msg);
     }
 
-    bool ProcessChannelEvent(xmps::PeerState state) { 
+    bool ProcessChannelEvent(xmps::PeerState state) {
         AgentXmppChannel::HandleAgentXmppClientChannelEvent(static_cast<AgentXmppChannel *>(this), state);
 #if 0
         if (Agent::GetInstance()->headless_agent_mode()) {
@@ -152,7 +152,7 @@ public:
         }
 
         rx_count_++;
-    }    
+    }
 
     bool all_seen() {
         return (default_vrf_subscribe_seen_ && vrf1_subscribe_seen_ &&
@@ -186,7 +186,7 @@ public:
     }
 
     bool SendUpdate(uint8_t *msg, size_t size) {
-        if (channel_ && 
+        if (channel_ &&
             (channel_->GetPeerState() == xmps::READY)) {
             return channel_->Send(msg, size, xmps::BGP,
                    boost::bind(&ControlNodeMockBgpXmppPeer::WriteReadyCb, this, _1));
@@ -197,7 +197,7 @@ public:
     void WriteReadyCb(const boost::system::error_code &ec) {
     }
 
-    size_t Count() const { 
+    size_t Count() const {
         return rx_count_; }
     virtual ~ControlNodeMockBgpXmppPeer() {
     }
@@ -218,20 +218,20 @@ private:
 class AgentXmppUnitTest : public ::testing::Test {
 protected:
     AgentXmppUnitTest() : thread_(&evm_)  {}
- 
+
     virtual void SetUp() {
 
         xs = new XmppServer(&evm_, XmppInit::kControlNodeJID);
         xc = new XmppClient(&evm_);
 
         xs->Initialize(0, false);
-        
+
         thread_.Start();
     }
 
     virtual void TearDown() {
         xs->Shutdown();
-        bgp_peer.reset(); 
+        bgp_peer.reset();
         client->WaitForIdle();
         xc->Shutdown();
         client->WaitForIdle();
@@ -245,7 +245,7 @@ protected:
     }
 
     XmppChannelConfig *CreateXmppChannelCfg(const char *address, int port,
-                                            const char *local_address, 
+                                            const char *local_address,
                                             const string &from, const string &to,
                                             bool isclient) {
         XmppChannelConfig *cfg = new XmppChannelConfig(isclient);
@@ -275,7 +275,7 @@ protected:
         peer->SendUpdate(buf, msg.size());
     }
 
-    xml_node MessageHeaderInternal(xml_document *xdoc, std::string vrf, 
+    xml_node MessageHeaderInternal(xml_document *xdoc, std::string vrf,
                                    bool bcast, bool l2) {
         xml_node msg = xdoc->append_child("message");
         msg.append_attribute("type") = "set";
@@ -308,7 +308,7 @@ protected:
         return MessageHeaderInternal(xdoc, vrf, bcast, false);
     }
 
-    xml_node L2MessageHeader(xml_document *xdoc, std::string vrf, bool bcast) 
+    xml_node L2MessageHeader(xml_document *xdoc, std::string vrf, bool bcast)
     {
         return MessageHeaderInternal(xdoc, vrf, bcast, true);
     }
@@ -323,7 +323,7 @@ protected:
         item_nexthop.af = BgpAf::IPv4;
         item_nexthop.address = Agent::GetInstance()->router_id().to_string();;
         item_nexthop.label = label;
-        
+
         autogen::ItemType item;
         item.entry.next_hops.next_hop.push_back(item_nexthop);
 
@@ -339,7 +339,7 @@ protected:
         SendDocument(xdoc, peer);
     }
 
-    void SendL2FloodRouteMessage(ControlNodeMockBgpXmppPeer *peer, std::string vrf, 
+    void SendL2FloodRouteMessage(ControlNodeMockBgpXmppPeer *peer, std::string vrf,
                                  std::string mac_string, std::string address,
                                  int label, const char *vn = "vn1", bool is_vxlan = false) {
         xml_document xdoc;
@@ -385,13 +385,10 @@ protected:
 
         SendDocument(xdoc, peer);
     }
- 
-    void SendL2RouteMessage(ControlNodeMockBgpXmppPeer *peer, std::string vrf,
-                          struct ether_addr *mac, std::string address,
-                          int label) {
-        ostringstream str;
-        str << (ether_ntoa ((struct ether_addr *)&mac));
 
+    void SendL2RouteMessage(ControlNodeMockBgpXmppPeer *peer, std::string vrf,
+                          MacAddress &mac, std::string address,
+                          int label) {
         xml_document xdoc;
         xml_node xitems = L2MessageHeader(&xdoc, vrf, false);
 
@@ -399,25 +396,25 @@ protected:
         item_nexthop.af = BgpAf::IPv4;
         item_nexthop.address = Agent::GetInstance()->router_id().to_string();;
         item_nexthop.label = label;
-        
+
         autogen::EnetItemType item;
         item.entry.next_hops.next_hop.push_back(item_nexthop);
 
         item.entry.nlri.af = BgpAf::L2Vpn;
         item.entry.nlri.safi = BgpAf::Enet;
-        item.entry.nlri.mac = str.str();
+        item.entry.nlri.mac = mac.ToString();
         item.entry.nlri.address = address;
 
         xml_node node = xitems.append_child("item");
         ostringstream item_id;
-        item_id << str << "," << address;
+        item_id << mac.ToString() << "," << address;
         node.append_attribute("id") = item_id.str().c_str();
         item.Encode(&node);
 
         SendDocument(xdoc, peer);
     }
 
-    void SendRouteDeleteMessage(ControlNodeMockBgpXmppPeer *peer, 
+    void SendRouteDeleteMessage(ControlNodeMockBgpXmppPeer *peer,
                                 std::string address, std::string vrf) {
         xml_document xdoc;
         xml_node xitems = MessageHeader(&xdoc, vrf, false);
@@ -428,8 +425,8 @@ protected:
     }
 
     void SendBcastRouteMessage(ControlNodeMockBgpXmppPeer *peer, std::string vrf,
-                               std::string subnet_addr, int src_label, 
-                               std::string agent_addr, 
+                               std::string subnet_addr, int src_label,
+                               std::string agent_addr,
                                int dest_label) {
         xml_document xdoc;
         xml_node xitems = MessageHeader(&xdoc, vrf, true);
@@ -446,7 +443,7 @@ protected:
         nh.address = "127.0.0.2"; // agent-b, does not exist
         stringstream label;
         label << dest_label;
-        nh.label = label.str(); 
+        nh.label = label.str();
 
         //Add to olist
         item.entry.olist.next_hop.push_back(nh);
@@ -463,8 +460,8 @@ protected:
     }
 
     void SendBcastRouteMessage(ControlNodeMockBgpXmppPeer *peer, std::string vrf,
-                               std::string subnet_addr, int src_label, 
-                               std::string agent_addr, 
+                               std::string subnet_addr, int src_label,
+                               std::string agent_addr,
                                int dest_label1, int dest_label2) {
         xml_document xdoc;
         xml_node xitems = MessageHeader(&xdoc, vrf, true);
@@ -479,9 +476,9 @@ protected:
         autogen::McastNextHopType nh;
         nh.af = item.entry.nlri.af;
         nh.address = "127.0.0.2"; // agent-b, does not exist
-        stringstream label1;       
+        stringstream label1;
         label1 << dest_label1;
-        nh.label = label1.str(); 
+        nh.label = label1.str();
 
         //Add to olist
         item.entry.olist.next_hop.push_back(nh);
@@ -489,9 +486,9 @@ protected:
         autogen::McastNextHopType nh2;
         nh2.af = item.entry.nlri.af;
         nh2.address = "127.0.0.3"; // agent-c, does not exist
-        stringstream label2;       
+        stringstream label2;
         label2 << dest_label2;
-        nh2.label = label2.str(); 
+        nh2.label = label2.str();
 
         //Add to olist
         item.entry.olist.next_hop.push_back(nh2);
@@ -513,8 +510,8 @@ protected:
         xml_node node = xitems.append_child("retract");
         //Route-Distinguisher
         stringstream ss;
-        ss << agent_addr.c_str() << ":" << "65535:" << addr.c_str() 
-                                        << "," << "0.0.0.0"; 
+        ss << agent_addr.c_str() << ":" << "65535:" << addr.c_str()
+                                        << "," << "0.0.0.0";
         string node_str(ss.str());
         node.append_attribute("id") = node_str.c_str();
 
@@ -529,15 +526,15 @@ protected:
         xml_node node = xitems.append_child("retract");
         //Route-Distinguisher
         stringstream ss;
-        ss << agent_addr.c_str() << ":" << "65535:" << subnet_addr.c_str() 
-                                        << "," << "0.0.0.0"; 
+        ss << agent_addr.c_str() << ":" << "65535:" << subnet_addr.c_str()
+                                        << "," << "0.0.0.0";
         string node_str(ss.str());
         node.append_attribute("id") = node_str.c_str();
 
         node = xitems.append_child("retract");
         stringstream ss2;
-        ss2 << agent_addr.c_str() << ":" << "65535:" << allbcast_addr.c_str() 
-                                        << "," << "0.0.0.0"; 
+        ss2 << agent_addr.c_str() << ":" << "65535:" << allbcast_addr.c_str()
+                                        << "," << "0.0.0.0";
         string node2_str(ss2.str());
         node.append_attribute("id") = node2_str.c_str();
 
@@ -550,15 +547,15 @@ protected:
         Agent::GetInstance()->controller()->increment_multicast_sequence_number();
         Agent::GetInstance()->set_cn_mcast_builder(NULL);
 
-        //Create control-node bgp mock peer 
+        //Create control-node bgp mock peer
         mock_peer.reset(new ControlNodeMockBgpXmppPeer());
 	xs->RegisterConnectionEvent(xmps::BGP,
-	    boost::bind(&ControlNodeMockBgpXmppPeer::HandleXmppChannelEvent, 
+	    boost::bind(&ControlNodeMockBgpXmppPeer::HandleXmppChannelEvent,
                         mock_peer.get(), _1, _2));
 
         LOG(DEBUG, "Create xmpp agent client");
 	xmppc_cfg = new XmppConfigData;
-	xmppc_cfg->AddXmppChannelConfig(CreateXmppChannelCfg("127.0.0.1", 
+	xmppc_cfg->AddXmppChannelConfig(CreateXmppChannelCfg("127.0.0.1",
 					xs->GetPort(), "127.0.0.1",
                                         "agent-a",
 					XmppInit::kControlNodeJID, true));
@@ -568,11 +565,11 @@ protected:
 	cchannel = xc->FindChannel(XmppInit::kControlNodeJID);
 	//Create agent bgp peer
     bgp_peer.reset(new AgentBgpXmppPeerTest(
-                       Agent::GetInstance()->controller_ifmap_xmpp_server(0), 
+                       Agent::GetInstance()->controller_ifmap_xmpp_server(0),
                        Agent::GetInstance()->multicast_label_range(0), 0));
     bgp_peer.get()->RegisterXmppChannel(cchannel);
     xc->RegisterConnectionEvent(xmps::BGP,
-	    boost::bind(&AgentBgpXmppPeerTest::HandleXmppChannelEvent, 
+	    boost::bind(&AgentBgpXmppPeerTest::HandleXmppChannelEvent,
 			bgp_peer.get(), _2));
 	Agent::GetInstance()->set_controller_xmpp_channel(bgp_peer.get(), 0);
 
@@ -601,7 +598,7 @@ protected:
 	IpamInfo ipam_info[] = {
 	    {"1.1.1.0", 24, "1.1.1.200", true}
 	};
-	
+
 	client->Reset();
 
     VxLanNetworkIdentifierMode(false);
@@ -612,9 +609,9 @@ protected:
 	client->WaitForIdle();
 
 	// expect subscribe message + 2 VM routes+ subnet bcast +
-	// v4 bcast route at the mock server + 1/2 l2 uc routes 
-    // For broadcast request from IPv4 and L2 will be treated as 
-    // one export and not two. 
+	// v4 bcast route at the mock server + 1/2 l2 uc routes
+    // For broadcast request from IPv4 and L2 will be treated as
+    // one export and not two.
 	WAIT_FOR(1000, 10000, (mock_peer.get()->all_seen() == true));
     WAIT_FOR(1000, 10000, (Agent::GetInstance()->interface_table()->Size() == 5));
 
@@ -625,7 +622,7 @@ protected:
 	EXPECT_STREQ(rt->dest_vn_name().c_str(), "vn1");
 
 	// Send route, back to vrf1
-	SendRouteMessage(mock_peer.get(), "vrf1", "1.1.1.1/32", 
+	SendRouteMessage(mock_peer.get(), "vrf1", "1.1.1.1/32",
 			 MplsTable::kStartLabel);
 	// Route reflected to vrf1
 	WAIT_FOR(1000, 10000, (bgp_peer.get()->Count() == 1));
@@ -639,7 +636,7 @@ protected:
 	EXPECT_STREQ(rt->dest_vn_name().c_str(), "vn1");
 
 	// Send route, back to vrf1
-	SendRouteMessage(mock_peer.get(), "vrf1", "1.1.1.2/32", 
+	SendRouteMessage(mock_peer.get(), "vrf1", "1.1.1.2/32",
 			 MplsTable::kStartLabel+1);
 	// Route reflected to vrf1
 	WAIT_FOR(1000, 10000, (bgp_peer.get()->Count() == 2));
@@ -654,9 +651,9 @@ protected:
 	//with label allocated and olist
         int alloc_label = GetStartLabel();
 	SendBcastRouteMessage(mock_peer.get(), "vrf1",
-			      "1.1.1.255", alloc_label,  
+			      "1.1.1.255", alloc_label,
                               "127.0.0.1", alloc_label+10);
-	// Bcast Route with updated olist 
+	// Bcast Route with updated olist
 	WAIT_FOR(1000, 10000, (bgp_peer.get()->Count() == 3));
     client->CompositeNHWait(7);
     WAIT_FOR(1000, 10000, (client->CompositeNHCount() == 9));
@@ -681,10 +678,10 @@ protected:
     ASSERT_TRUE(fabric_component->label() == (uint32_t) alloc_label+10);
 
 	//Verify mpls table
-	MplsLabel *mpls = 
+	MplsLabel *mpls =
 	    Agent::GetInstance()->mpls_table()->FindMplsLabel(alloc_label);
     //Verifying mpls label for mcast does not get stored in UC table
-	ASSERT_TRUE(mpls == NULL); 
+	ASSERT_TRUE(mpls == NULL);
     // 2 v4 unicast label + 1 mc label + 2 l2 uc
 	ASSERT_TRUE(Agent::GetInstance()->mpls_table()->Size() == 6);
 
@@ -692,10 +689,10 @@ protected:
 	addr = Ip4Address::from_string("255.255.255.255");
 	ASSERT_TRUE(MCRouteFind("vrf1", addr));
 	Inet4MulticastRouteEntry *rt_m = MCRouteGet("vrf1", addr);
-	
+
 	//Send All bcast route
 	SendBcastRouteMessage(mock_peer.get(), "vrf1",
-			      "255.255.255.255", alloc_label+1,  
+			      "255.255.255.255", alloc_label+1,
                               "127.0.0.1", alloc_label + 11);
 	// Bcast Route with updated olist
 	WAIT_FOR(1000, 10000, (bgp_peer.get()->Count() == 4));
@@ -714,7 +711,7 @@ protected:
     nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     cnh = static_cast<CompositeNH *>(nh);
     ASSERT_TRUE(cnh->ComponentNHCount() == 3);
-	
+
 	//Verify mpls table
 	mpls = Agent::GetInstance()->mpls_table()->FindMplsLabel(alloc_label+ 1);
 	ASSERT_TRUE(mpls == NULL);
@@ -724,7 +721,7 @@ protected:
     void XmppL2SetUp() {
 
         //wait for connection establishment
-        WAIT_FOR(1000, 10000, (sconnection->GetStateMcState() == 
+        WAIT_FOR(1000, 10000, (sconnection->GetStateMcState() ==
                               xmsm::ESTABLISHED));
         WAIT_FOR(1000, 10000, (cchannel->GetPeerState() == xmps::READY));
 
@@ -744,43 +741,37 @@ protected:
         WAIT_FOR(1000, 10000, (mock_peer.get()->all_l2_seen() == true));
 
         EXPECT_TRUE(VmPortL2Active(input, 0));
-        struct ether_addr local_vm_mac;
-        memcpy (&local_vm_mac, ether_aton("00:00:00:01:01:01"), 
-                sizeof(struct ether_addr));
+        MacAddress local_vm_mac("00:00:00:01:01:01");
         EXPECT_TRUE(L2RouteFind("vrf1", local_vm_mac));
 
         // Send route, back to vrf1
-        SendL2RouteMessage(mock_peer.get(), "vrf1", &local_vm_mac, "1.1.1.1/32",
+        SendL2RouteMessage(mock_peer.get(), "vrf1", local_vm_mac, "1.1.1.1/32",
                          MplsTable::kStartLabel);
         // Route reflected to vrf1
         WAIT_FOR(1000, 10000, (bgp_peer.get()->Count() == 1));
 
         EXPECT_TRUE(VmPortL2Active(input, 1));
-        struct ether_addr local_vm_mac_2;
-        memcpy (&local_vm_mac_2, ether_aton("00:00:00:02:02:02"), 
-                sizeof(struct ether_addr));
+        MacAddress local_vm_mac_2("00:00:00:02:02:02");
         EXPECT_TRUE(L2RouteFind("vrf1", local_vm_mac_2));
 
         // Send route, back to vrf1
-        SendL2RouteMessage(mock_peer.get(), "vrf1", 
-                           &local_vm_mac_2, "1.1.1.2/32", 
+        SendL2RouteMessage(mock_peer.get(), "vrf1",
+                           local_vm_mac_2, "1.1.1.2/32",
                            MplsTable::kStartLabel + 1);
         // Route reflected to vrf1
         WAIT_FOR(1000, 10000, (bgp_peer.get()->Count() == 2));
 
         //verify presence of L2 broadcast route
-        struct ether_addr broadcast_mac;
-        memcpy (&broadcast_mac, ether_aton("ff:ff:ff:ff:ff:ff"), 
-                sizeof(struct ether_addr));
+        MacAddress broadcast_mac = MacAddress::BroadcastMac();
         EXPECT_TRUE(L2RouteFind("vrf1", broadcast_mac));
         Layer2RouteEntry *rt_m = L2RouteGet("vrf1", broadcast_mac);
 
         int alloc_label = GetStartLabel();
         //Send All bcast route
         SendBcastRouteMessage(mock_peer.get(), "vrf1",
-                              "255.255.255.255", alloc_label+1,  
+                              "255.255.255.255", alloc_label+1,
                               "127.0.0.1", alloc_label + 11);
-        SendL2FloodRouteMessage(mock_peer.get(), "vrf1", "ff:ff:ff:ff:ff:ff", 
+        SendL2FloodRouteMessage(mock_peer.get(), "vrf1", "ff:ff:ff:ff:ff:ff",
                                 "0.0.0.0/0", MplsTable::kStartLabel + 100);
         // Bcast Route with updated olist
         WAIT_FOR(1000, 10000, (bgp_peer.get()->Count() == 4));
@@ -800,7 +791,7 @@ protected:
         EXPECT_TRUE(intf_cnh->ComponentNHCount() == 2);
 
         //Verify mpls table
-        MplsLabel *mpls = 
+        MplsLabel *mpls =
             Agent::GetInstance()->mpls_table()->FindMplsLabel(alloc_label+ 1);
         ASSERT_TRUE(mpls == NULL);
         ASSERT_TRUE(Agent::GetInstance()->mpls_table()->Size() == 4);
@@ -832,8 +823,8 @@ protected:
         WAIT_FOR(1000, 1000,
                  (Agent::GetInstance()->mpls_table()->Size() == 0));
 
-        WAIT_FOR(1000, 1000, (VrfFind("vrf1") == false)); 
-        WAIT_FOR(1000, 1000, (VrfFind("vrf2") == false)); 
+        WAIT_FOR(1000, 1000, (VrfFind("vrf1") == false));
+        WAIT_FOR(1000, 1000, (VrfFind("vrf2") == false));
         client->NextHopReset();
         client->MplsReset();
     }
@@ -863,7 +854,7 @@ namespace {
 
 TEST_F(AgentXmppUnitTest, dummy) {
     XmppConnectionSetUp(true);
-    //cleanup all config links via config 
+    //cleanup all config links via config
     XmppSubnetTearDown();
 
     client->WaitForIdle();
@@ -886,12 +877,12 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_VmDeActivate) {
     IntfCfgDel(input, 0);
     client->CompositeNHWait(17);
     WAIT_FOR(1000, 10000, (client->CompositeNHCount() == 10));
-    // Route delete send to control-node 
+    // Route delete send to control-node
     WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 12));
 
     //Send route delete
     SendRouteDeleteMessage(mock_peer.get(), "1.1.1.1/32", "vrf1");
-    // Route delete for vrf1 
+    // Route delete for vrf1
     client->MplsDelWait(2);
     WAIT_FOR(1000, 10000, (bgp_peer.get()->Count() == 5));
 
@@ -905,7 +896,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_VmDeActivate) {
 
     //Send route delete
     SendRouteDeleteMessage(mock_peer.get(), "1.1.1.2/32", "vrf1");
-    // Route delete for vrf1 
+    // Route delete for vrf1
     WAIT_FOR(1000, 10000, (bgp_peer.get()->Count() == 6));
     client->MplsDelWait(6);
     client->CompositeNHDelWait(4);
@@ -918,24 +909,24 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_VmDeActivate) {
     WAIT_FOR(1000, 10000, (Agent::GetInstance()->mpls_table()->Size() == 0));
     client->WaitForIdle();
 
-    // ensure subnet broadcast route is deleted 
+    // ensure subnet broadcast route is deleted
     Ip4Address sb_addr = Ip4Address::from_string("1.1.1.255");
-    if (RouteFind("vrf1", sb_addr, 32) == true) { 
+    if (RouteFind("vrf1", sb_addr, 32) == true) {
         InetUnicastRouteEntry *rt = RouteGet("vrf1", sb_addr, 32);
         nh = rt->GetActiveNextHop();
         cnh = static_cast<const CompositeNH *>(nh);
         ASSERT_TRUE(cnh->ComponentNHCount() == 0);
     }
-    
+
     // send route-delete even though route-deleted at agent
     SendBcastRouteDelete(mock_peer.get(), "vrf1", "1.1.1.255", "127.0.0.1");
-    // Subnet Bcast Route delete for vrf1 
+    // Subnet Bcast Route delete for vrf1
     WAIT_FOR(1000, 10000, (bgp_peer.get()->Count() == 7));
     client->CompositeNHDelWait(4);
 
     //ensure all broadcast route  is deleted
     sb_addr = Ip4Address::from_string("255.255.255.255");
-    if(MCRouteFind("vrf1", sb_addr) == true) { 
+    if(MCRouteFind("vrf1", sb_addr) == true) {
 	Inet4MulticastRouteEntry *rt = MCRouteGet("vrf1", sb_addr);
         nh = rt->GetActiveNextHop();
         cnh = static_cast<const CompositeNH *>(nh);
@@ -944,13 +935,13 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_VmDeActivate) {
 
     // send route-delete even though route-deleted at agent
     SendBcastRouteDelete(mock_peer.get(), "vrf1", "255.255.255.255", "127.0.0.1");
-    // Subnet Bcast Route delete for vrf1 
+    // Subnet Bcast Route delete for vrf1
     WAIT_FOR(1000, 10000, (bgp_peer.get()->Count() == 8));
-    
+
     //Verify label deallocated from Mpls Table
     WAIT_FOR(1000, 10000, (Agent::GetInstance()->mpls_table()->Size() == 0));
 
-    //cleanup all config links via config 
+    //cleanup all config links via config
     XmppSubnetTearDown();
 
     client->WaitForIdle();
@@ -962,7 +953,7 @@ TEST_F(AgentXmppUnitTest, L2OnlyBcast_Test_SessionDownUp) {
 
     client->Reset();
     client->WaitForIdle();
- 
+
     XmppConnectionSetUp(false);
 
     EXPECT_TRUE(Agent::GetInstance()->mulitcast_builder() != NULL);
@@ -982,17 +973,11 @@ TEST_F(AgentXmppUnitTest, L2OnlyBcast_Test_SessionDownUp) {
     }
 
     EXPECT_TRUE(Agent::GetInstance()->mulitcast_builder() == NULL);
-    struct ether_addr mac_1;
-    struct ether_addr mac_2;
-    struct ether_addr broadcast_mac;
-    memcpy (&mac_1, ether_aton("00:00:00:01:01:01"), 
-            sizeof(struct ether_addr));
-    memcpy (&mac_2, ether_aton("00:00:00:02:02:02"), 
-            sizeof(struct ether_addr));
-    memcpy (&broadcast_mac, ether_aton("ff:ff:ff:ff:ff:ff"), 
-            sizeof(struct ether_addr));
+    MacAddress mac_1("00:00:00:01:01:01");
+    MacAddress mac_2("00:00:00:02:02:02");
+    MacAddress broadcast_mac = MacAddress::BroadcastMac();
 
-    //ensure route learnt via control-node, path is updated 
+    //ensure route learnt via control-node, path is updated
     Layer2RouteEntry *rt_1 = L2RouteGet("vrf1", mac_1);
     Layer2RouteEntry *rt_2 = L2RouteGet("vrf1", mac_2);
     Layer2RouteEntry *rt_b = L2RouteGet("vrf1", broadcast_mac);
@@ -1011,13 +996,13 @@ TEST_F(AgentXmppUnitTest, L2OnlyBcast_Test_SessionDownUp) {
     WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 12));
 
     // Send route, back to vrf1
-    SendL2RouteMessage(mock_peer.get(), "vrf1", &mac_1, "1.1.1.1/32", 
+    SendL2RouteMessage(mock_peer.get(), "vrf1", mac_1, "1.1.1.1/32",
 		     MplsTable::kStartLabel);
     // Route reflected to vrf1
     WAIT_FOR(1000, 10000, (bgp_peer.get()->Count() == 4));
 
     // Send route, back to vrf1
-    SendL2RouteMessage(mock_peer.get(), "vrf1", &mac_2, "1.1.1.2/32", 
+    SendL2RouteMessage(mock_peer.get(), "vrf1", mac_2, "1.1.1.2/32",
 		     MplsTable::kStartLabel+1);
     // Route reflected to vrf1
     WAIT_FOR(1000, 10000, (bgp_peer.get()->Count() == 5));
@@ -1026,7 +1011,7 @@ TEST_F(AgentXmppUnitTest, L2OnlyBcast_Test_SessionDownUp) {
 
     int alloc_label = GetStartLabel();
     SendBcastRouteMessage(mock_peer.get(), "vrf1",
-			  "255.255.255.255", alloc_label+1,  
+			  "255.255.255.255", alloc_label+1,
                           "127.0.0.1", alloc_label+10);
     // Bcast Route with updated olist
     WAIT_FOR(1000, 10000, (bgp_peer.get()->Count() == 7));
@@ -1040,7 +1025,7 @@ TEST_F(AgentXmppUnitTest, L2OnlyBcast_Test_SessionDownUp) {
     }
 
     //Verify mpls table
-    MplsLabel *mpls = 
+    MplsLabel *mpls =
         Agent::GetInstance()->mpls_table()->FindMplsLabel(alloc_label+ 1);
     ASSERT_TRUE(mpls == NULL);
     //Verify mpls table size
@@ -1053,8 +1038,8 @@ TEST_F(AgentXmppUnitTest, L2OnlyBcast_Test_SessionDownUp) {
     IntfCfgDel(input, 1);
     client->WaitForIdle(5);
 
-    //cleanup all config links via config 
-   
+    //cleanup all config links via config
+
     if (Agent::GetInstance()->headless_agent_mode()) {
         XmppSubnetTearDown(3);
     } else {
@@ -1071,7 +1056,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_SessionDownUp) {
 
     client->Reset();
     client->WaitForIdle();
- 
+
     XmppConnectionSetUp(true);
 
     EXPECT_TRUE(Agent::GetInstance()->mulitcast_builder() != NULL);
@@ -1089,7 +1074,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_SessionDownUp) {
 
     EXPECT_TRUE(Agent::GetInstance()->mulitcast_builder() == NULL);
 
-    //ensure route learnt via control-node, path is updated 
+    //ensure route learnt via control-node, path is updated
     Ip4Address addr = Ip4Address::from_string("1.1.1.1");
     InetUnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
     if (Agent::GetInstance()->headless_agent_mode()) {
@@ -1098,7 +1083,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_SessionDownUp) {
         WAIT_FOR(1000, 10000, (rt->FindPath(bgp_peer_id) == NULL));
     }
 
-    //ensure route learnt via control-node, path is updated 
+    //ensure route learnt via control-node, path is updated
     addr = Ip4Address::from_string("1.1.1.2");
     rt = RouteGet("vrf1", addr, 32);
     if (Agent::GetInstance()->headless_agent_mode()) {
@@ -1123,7 +1108,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_SessionDownUp) {
     const CompositeNH *intf_cnh = static_cast<const CompositeNH *>(cnh->GetNH(1));
     EXPECT_TRUE(intf_cnh->ComponentNHCount() == 2);
 
-    //ensure route learnt via control-node is updated 
+    //ensure route learnt via control-node is updated
     addr = Ip4Address::from_string("255.255.255.255");
     ASSERT_TRUE(MCRouteFind("vrf1", addr));
     Inet4MulticastRouteEntry *rt_m = MCRouteGet("vrf1", addr);

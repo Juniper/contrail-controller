@@ -39,7 +39,7 @@ public:
     struct ArpIpc : InterTaskMsg {
         ArpIpc(ArpProto::ArpMsgType msg, ArpKey &akey)
             : InterTaskMsg(msg), key(akey) {}
-        ArpIpc(ArpProto::ArpMsgType msg, in_addr_t ip, const VrfEntry *vrf) : 
+        ArpIpc(ArpProto::ArpMsgType msg, in_addr_t ip, const VrfEntry *vrf) :
             InterTaskMsg(msg), key(ip, vrf) {}
 
         ArpKey key;
@@ -85,15 +85,15 @@ public:
     uint16_t ip_fabric_interface_index() const {
         return ip_fabric_interface_index_;
     }
-    const unsigned char *ip_fabric_interface_mac() const { 
+    const MacAddress &ip_fabric_interface_mac() const {
         return ip_fabric_interface_mac_;
     }
     void set_ip_fabric_interface(Interface *itf) { ip_fabric_interface_ = itf; }
     void set_ip_fabric_interface_index(uint16_t ind) {
         ip_fabric_interface_index_ = ind;
     }
-    void set_ip_fabric_interface_mac(char *mac) { 
-        memcpy(ip_fabric_interface_mac_, mac, ETH_ALEN);
+    void set_ip_fabric_interface_mac(const MacAddress &mac) {
+        ip_fabric_interface_mac_ = mac;
     }
 
     ArpEntry *gratuitous_arp_entry() const;
@@ -148,7 +148,7 @@ private:
     ArpStats arp_stats_;
     bool run_with_vrouter_;
     uint16_t ip_fabric_interface_index_;
-    unsigned char ip_fabric_interface_mac_[ETH_ALEN];
+    MacAddress ip_fabric_interface_mac_;
     Interface *ip_fabric_interface_;
     ArpEntry *gratuitous_arp_entry_;
     DBTableBase::ListenerId vrf_table_listener_id_;

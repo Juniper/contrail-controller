@@ -208,16 +208,16 @@ public:
     static InetUnicastRouteEntry *FindResolveRoute(const string &vrf_name, 
                                                    const Ip4Address &ip);
     static void CheckAndAddArpReq(const string &vrf_name, const Ip4Address &ip);
-    static void AddArpReq(const string &vrf_name, const Ip4Address &ip); 
-    static void ArpRoute(DBRequest::DBOperation op, 
-                         const Ip4Address &ip, 
-                         const struct ether_addr &mac,
-                         const string &vrf_name, 
+    static void AddArpReq(const string &vrf_name, const Ip4Address &ip);
+    static void ArpRoute(DBRequest::DBOperation op,
+                         const Ip4Address &ip,
+                         const MacAddress &mac,
+                         const string &vrf_name,
                          const Interface &intf,
                          bool resolved,
                          const uint8_t plen);
     static void AddResolveRoute(const string &vrf_name, const Ip4Address &ip,
-                                const uint8_t plen); 
+                                const uint8_t plen);
     void AddInetInterfaceRouteReq(const Peer *peer, const string &vm_vrf,
                                   const Ip4Address &addr, uint8_t plen,
                                   InetInterfaceRoute *data);
