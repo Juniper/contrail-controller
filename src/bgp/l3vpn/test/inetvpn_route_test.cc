@@ -11,7 +11,7 @@
 #include "control-node/control_node.h"
 #include "testing/gunit.h"
 
-using namespace std;
+using std::string;
 
 class InetVpnRouteTest : public ::testing::Test {
 };
@@ -144,6 +144,80 @@ TEST_F(InetVpnRouteTest, GetDBRequestKey2) {
     const InetVpnTable::RequestKey *key =
         static_cast<InetVpnTable::RequestKey *>(keyptr.get());
     EXPECT_EQ(prefix, key->prefix);
+}
+
+TEST_F(InetVpnRouteTest, FromProtoPrefix1) {
+    string prefix_str("10.1.1.1:65535:0/0");
+    InetVpnPrefix prefix1(InetVpnPrefix::FromString(prefix_str));
+    InetVpnRoute route(prefix1);
+    BgpProtoPrefix proto_prefix;
+    route.BuildProtoPrefix(&proto_prefix, NULL, 1048575);
+    InetVpnPrefix prefix2;
+    uint32_t label;
+    int result = InetVpnPrefix::FromProtoPrefix(proto_prefix, &prefix2, &label);
+    EXPECT_EQ(0, result);
+    EXPECT_EQ(11 * 8, proto_prefix.prefixlen);
+    EXPECT_EQ(11, proto_prefix.prefix.size());
+    EXPECT_EQ(prefix1, prefix2);
+    EXPECT_EQ(1048575, label);
+}
+
+TEST_F(InetVpnRouteTest, FromProtoPrefix2) {
+    string prefix_str("10.1.1.1:65535:192.168.1.0/24");
+    InetVpnPrefix prefix1(InetVpnPrefix::FromString(prefix_str));
+    InetVpnRoute route(prefix1);
+    BgpProtoPrefix proto_prefix;
+    route.BuildProtoPrefix(&proto_prefix, NULL, 1048575);
+    InetVpnPrefix prefix2;
+    uint32_t label;
+    int result = InetVpnPrefix::FromProtoPrefix(proto_prefix, &prefix2, &label);
+    EXPECT_EQ(0, result);
+    EXPECT_EQ(14 * 8, proto_prefix.prefixlen);
+    EXPECT_EQ(14, proto_prefix.prefix.size());
+    EXPECT_EQ(prefix1, prefix2);
+    EXPECT_EQ(1048575, label);
+}
+
+TEST_F(InetVpnRouteTest, FromProtoPrefix3) {
+    string prefix_str("10.1.1.1:65535:192.168.1.1/32");
+    InetVpnPrefix prefix1(InetVpnPrefix::FromString(prefix_str));
+    InetVpnRoute route(prefix1);
+    BgpProtoPrefix proto_prefix;
+    route.BuildProtoPrefix(&proto_prefix, NULL, 1048575);
+    InetVpnPrefix prefix2;
+    uint32_t label;
+    int result = InetVpnPrefix::FromProtoPrefix(proto_prefix, &prefix2, &label);
+    EXPECT_EQ(0, result);
+    EXPECT_EQ(15 * 8, proto_prefix.prefixlen);
+    EXPECT_EQ(15, proto_prefix.prefix.size());
+    EXPECT_EQ(prefix1, prefix2);
+    EXPECT_EQ(1048575, label);
+}
+
+TEST_F(InetVpnRouteTest, FromProtoPrefixError1) {
+    string prefix_str("10.1.1.1:65535:192.168.1.1/32");
+    InetVpnPrefix prefix1(InetVpnPrefix::FromString(prefix_str));
+    InetVpnRoute route(prefix1);
+    BgpProtoPrefix proto_prefix;
+    route.BuildProtoPrefix(&proto_prefix, NULL, 1048575);
+    InetVpnPrefix prefix2;
+    uint32_t label;
+    proto_prefix.prefix.resize(10);
+    int result = InetVpnPrefix::FromProtoPrefix(proto_prefix, &prefix2, &label);
+    EXPECT_NE(0, result);
+}
+
+TEST_F(InetVpnRouteTest, FromProtoPrefixError2) {
+    string prefix_str("10.1.1.1:65535:192.168.1.1/32");
+    InetVpnPrefix prefix1(InetVpnPrefix::FromString(prefix_str));
+    InetVpnRoute route(prefix1);
+    BgpProtoPrefix proto_prefix;
+    route.BuildProtoPrefix(&proto_prefix, NULL, 1048575);
+    InetVpnPrefix prefix2;
+    uint32_t label;
+    proto_prefix.prefix.resize(16);
+    int result = InetVpnPrefix::FromProtoPrefix(proto_prefix, &prefix2, &label);
+    EXPECT_NE(0, result);
 }
 
 int main(int argc, char **argv) {

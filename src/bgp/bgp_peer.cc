@@ -956,7 +956,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
             if (result) {
                 BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
                     BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
-                    "Withdrawn route parse error");
+                    "Withdrawn route parse error for inet route");
                 continue;
             }
 
@@ -975,7 +975,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
             if (result) {
                 BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
                     BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
-                    "NLRI parse error");
+                    "NLRI parse error for inet route");
                 continue;
             }
 
@@ -1030,7 +1030,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
                 if (result) {
                     BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
                         BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
-                        "NLRI parse error for inet route");
+                        "MP NLRI parse error for inet route");
                     continue;
                 }
 
@@ -1058,7 +1058,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
                 if (result) {
                     BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
                         BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
-                        "NLRI parse error for inet-vpn route");
+                        "MP NLRI parse error for inet-vpn route");
                     continue;
                 }
 
@@ -1088,7 +1088,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
                 if (result) {
                     BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
                         BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
-                        "NLRI parse error for inet6-vpn route");
+                        "MP NLRI parse error for inet6-vpn route");
                     continue;
                 }
 
@@ -1121,7 +1121,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
                 if (result) {
                     BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
                         BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
-                        "NLRI parse error for e-vpn route type " << (*it)->type);
+                        "MP NLRI parse error for e-vpn route type " << (*it)->type);
                     continue;
                 }
 
@@ -1156,7 +1156,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
                 if (result) {
                     BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
                         BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
-                        "NLRI parse error for erm-vpn route type " << (*it)->type);
+                        "MP NLRI parse error for erm-vpn route type " << (*it)->type);
                     continue;
                 }
 
@@ -1191,7 +1191,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
                 if (result) {
                     BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
                         BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
-                        "NLRI parse error for rtarget route");
+                        "MP NLRI parse error for rtarget route");
                     continue;
                 }
 

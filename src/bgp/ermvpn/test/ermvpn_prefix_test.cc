@@ -12,7 +12,7 @@
 #include "control-node/control_node.h"
 #include "testing/gunit.h"
 
-using namespace std;
+using std::string;
 
 class ErmVpnPrefixTest : public ::testing::Test {
 };
@@ -446,6 +446,105 @@ TEST_F(ErmVpnRouteTest, GlobalGetDBRequestKey) {
     const ErmVpnTable::RequestKey *key =
         static_cast<ErmVpnTable::RequestKey *>(keyptr.get());
     EXPECT_EQ(prefix, key->prefix);
+}
+
+TEST_F(ErmVpnRouteTest, FromProtoPrefixError1) {
+    string prefix_str("1-10.1.1.1:65535-9.8.7.6,224.1.2.3,192.168.1.1");
+    ErmVpnPrefix prefix1(ErmVpnPrefix::FromString(prefix_str));
+    ErmVpnRoute route(prefix1);
+    BgpProtoPrefix proto_prefix;
+    route.BuildProtoPrefix(&proto_prefix, 0);
+    ErmVpnPrefix prefix2;
+    int result;
+    proto_prefix.type = ErmVpnPrefix::NativeRoute;
+    result = ErmVpnPrefix::FromProtoPrefix(proto_prefix, &prefix2);
+    EXPECT_NE(0, result);
+    proto_prefix.type = 13;
+    result = ErmVpnPrefix::FromProtoPrefix(proto_prefix, &prefix2);
+    EXPECT_NE(0, result);
+    proto_prefix.type = ErmVpnPrefix::Invalid;
+    result = ErmVpnPrefix::FromProtoPrefix(proto_prefix, &prefix2);
+    EXPECT_NE(0, result);
+}
+
+TEST_F(ErmVpnRouteTest, FromProtoPrefixError2) {
+    string prefix_str("1-10.1.1.1:65535-9.8.7.6,224.1.2.3,192.168.1.1");
+    ErmVpnPrefix prefix1(ErmVpnPrefix::FromString(prefix_str));
+    ErmVpnRoute route(prefix1);
+    BgpProtoPrefix proto_prefix;
+    route.BuildProtoPrefix(&proto_prefix, 0);
+    ErmVpnPrefix prefix2;
+    proto_prefix.prefix.resize(18);
+    int result = ErmVpnPrefix::FromProtoPrefix(proto_prefix, &prefix2);
+    EXPECT_NE(0, result);
+}
+
+TEST_F(ErmVpnRouteTest, FromProtoPrefixError3) {
+    string prefix_str("1-10.1.1.1:65535-9.8.7.6,224.1.2.3,192.168.1.1");
+    ErmVpnPrefix prefix1(ErmVpnPrefix::FromString(prefix_str));
+    ErmVpnRoute route(prefix1);
+    BgpProtoPrefix proto_prefix;
+    route.BuildProtoPrefix(&proto_prefix, 0);
+    ErmVpnPrefix prefix2;
+    proto_prefix.prefix.resize(20);
+    int result = ErmVpnPrefix::FromProtoPrefix(proto_prefix, &prefix2);
+    EXPECT_NE(0, result);
+}
+
+TEST_F(ErmVpnRouteTest, FromProtoPrefixError4) {
+    string prefix_str("1-10.1.1.1:65535-9.8.7.6,224.1.2.3,192.168.1.1");
+    ErmVpnPrefix prefix1(ErmVpnPrefix::FromString(prefix_str));
+    ErmVpnRoute route(prefix1);
+    BgpProtoPrefix proto_prefix;
+    route.BuildProtoPrefix(&proto_prefix, 0);
+    ErmVpnPrefix prefix2;
+    proto_prefix.prefix.resize(46);
+    int result = ErmVpnPrefix::FromProtoPrefix(proto_prefix, &prefix2);
+    EXPECT_NE(0, result);
+}
+
+TEST_F(ErmVpnRouteTest, FromProtoPrefixError5) {
+    string prefix_str("1-10.1.1.1:65535-9.8.7.6,224.1.2.3,192.168.1.1");
+    ErmVpnPrefix prefix1(ErmVpnPrefix::FromString(prefix_str));
+    ErmVpnRoute route(prefix1);
+    BgpProtoPrefix proto_prefix;
+    route.BuildProtoPrefix(&proto_prefix, 0);
+    ErmVpnPrefix prefix2;
+    int result;
+    proto_prefix.prefix[12] = 0;
+    result = ErmVpnPrefix::FromProtoPrefix(proto_prefix, &prefix2);
+    EXPECT_NE(0, result);
+    proto_prefix.prefix[12] = 24;
+    result = ErmVpnPrefix::FromProtoPrefix(proto_prefix, &prefix2);
+    EXPECT_NE(0, result);
+    proto_prefix.prefix[12] = 64;
+    result = ErmVpnPrefix::FromProtoPrefix(proto_prefix, &prefix2);
+    EXPECT_NE(0, result);
+    proto_prefix.prefix[12] = 128;
+    result = ErmVpnPrefix::FromProtoPrefix(proto_prefix, &prefix2);
+    EXPECT_NE(0, result);
+}
+
+TEST_F(ErmVpnRouteTest, FromProtoPrefixError6) {
+    string prefix_str("1-10.1.1.1:65535-9.8.7.6,224.1.2.3,192.168.1.1");
+    ErmVpnPrefix prefix1(ErmVpnPrefix::FromString(prefix_str));
+    ErmVpnRoute route(prefix1);
+    BgpProtoPrefix proto_prefix;
+    route.BuildProtoPrefix(&proto_prefix, 0);
+    ErmVpnPrefix prefix2;
+    int result;
+    proto_prefix.prefix[17] = 0;
+    result = ErmVpnPrefix::FromProtoPrefix(proto_prefix, &prefix2);
+    EXPECT_NE(0, result);
+    proto_prefix.prefix[17] = 24;
+    result = ErmVpnPrefix::FromProtoPrefix(proto_prefix, &prefix2);
+    EXPECT_NE(0, result);
+    proto_prefix.prefix[17] = 64;
+    result = ErmVpnPrefix::FromProtoPrefix(proto_prefix, &prefix2);
+    EXPECT_NE(0, result);
+    proto_prefix.prefix[17] = 128;
+    result = ErmVpnPrefix::FromProtoPrefix(proto_prefix, &prefix2);
+    EXPECT_NE(0, result);
 }
 
 int main(int argc, char **argv) {

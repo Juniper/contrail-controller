@@ -73,6 +73,46 @@ TEST_F(RTargetPrefixTest, FromProtoPrefix2) {
     EXPECT_TRUE((prefix.CompareTo(prefix_1) == 0));
 }
 
+TEST_F(RTargetPrefixTest, FromProtoPrefixError1) {
+    RTargetPrefix prefix(RTargetPrefix::FromString("64512:target:64512:1"));
+    BgpProtoPrefix proto_prefix;
+    prefix.BuildProtoPrefix(&proto_prefix);
+    RTargetPrefix prefix_1;
+    proto_prefix.prefix.resize(4);
+    int result = RTargetPrefix::FromProtoPrefix(proto_prefix, &prefix_1);
+    EXPECT_NE(0, result);
+}
+
+TEST_F(RTargetPrefixTest, FromProtoPrefixError2) {
+    RTargetPrefix prefix(RTargetPrefix::FromString("64512:target:64512:1"));
+    BgpProtoPrefix proto_prefix;
+    prefix.BuildProtoPrefix(&proto_prefix);
+    RTargetPrefix prefix_1;
+    proto_prefix.prefix.resize(8);
+    int result = RTargetPrefix::FromProtoPrefix(proto_prefix, &prefix_1);
+    EXPECT_NE(0, result);
+}
+
+TEST_F(RTargetPrefixTest, FromProtoPrefixError3) {
+    RTargetPrefix prefix(RTargetPrefix::FromString("64512:target:64512:1"));
+    BgpProtoPrefix proto_prefix;
+    prefix.BuildProtoPrefix(&proto_prefix);
+    RTargetPrefix prefix_1;
+    proto_prefix.prefix.resize(10);
+    int result = RTargetPrefix::FromProtoPrefix(proto_prefix, &prefix_1);
+    EXPECT_NE(0, result);
+}
+
+TEST_F(RTargetPrefixTest, FromProtoPrefixError4) {
+    RTargetPrefix prefix(RTargetPrefix::FromString("64512:target:64512:1"));
+    BgpProtoPrefix proto_prefix;
+    prefix.BuildProtoPrefix(&proto_prefix);
+    RTargetPrefix prefix_1;
+    proto_prefix.prefix.resize(13);
+    int result = RTargetPrefix::FromProtoPrefix(proto_prefix, &prefix_1);
+    EXPECT_NE(0, result);
+}
+
 TEST_F(RTargetPrefixTest, CompareTo1) {
     string prefix_str1("2:target:64512:4294967295");
     string prefix_str2("256:target:64512:4294967295");

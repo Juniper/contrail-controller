@@ -267,6 +267,85 @@ TEST_F(Inet6VpnRouteTest, IsMoreSpecificType1Rd) {
     EXPECT_EQ(route1.IsMoreSpecific(prefix_str), true);
 }
 
+TEST_F(Inet6VpnRouteTest, FromProtoPrefix1) {
+    std::string prefix_str = "65534:4294967295:0/0";
+    Inet6VpnPrefix prefix1(Inet6VpnPrefix::FromString(prefix_str));
+    Inet6VpnRoute route(prefix1);
+    BgpProtoPrefix proto_prefix;
+    route.BuildProtoPrefix(&proto_prefix, NULL, 1048575);
+    Inet6VpnPrefix prefix2;
+    uint32_t label;
+    int result =
+        Inet6VpnPrefix::FromProtoPrefix(proto_prefix, &prefix2, &label);
+    EXPECT_EQ(0, result);
+    EXPECT_EQ(11 * 8, proto_prefix.prefixlen);
+    EXPECT_EQ(11, proto_prefix.prefix.size());
+    EXPECT_EQ(prefix1, prefix2);
+    EXPECT_EQ(1048575, label);
+}
+
+TEST_F(Inet6VpnRouteTest, FromProtoPrefix2) {
+    std::string prefix_str = "65534:4294967295:2001:db8:85a3::/64";
+    Inet6VpnPrefix prefix1(Inet6VpnPrefix::FromString(prefix_str));
+    Inet6VpnRoute route(prefix1);
+    BgpProtoPrefix proto_prefix;
+    route.BuildProtoPrefix(&proto_prefix, NULL, 1048575);
+    Inet6VpnPrefix prefix2;
+    uint32_t label;
+    int result =
+        Inet6VpnPrefix::FromProtoPrefix(proto_prefix, &prefix2, &label);
+    EXPECT_EQ(0, result);
+    EXPECT_EQ(19 * 8, proto_prefix.prefixlen);
+    EXPECT_EQ(19, proto_prefix.prefix.size());
+    EXPECT_EQ(prefix1, prefix2);
+    EXPECT_EQ(1048575, label);
+}
+
+TEST_F(Inet6VpnRouteTest, FromProtoPrefix3) {
+    std::string prefix_str = "65534:4294967295:2001:db8:85a3::d:e:a/128";
+    Inet6VpnPrefix prefix1(Inet6VpnPrefix::FromString(prefix_str));
+    Inet6VpnRoute route(prefix1);
+    BgpProtoPrefix proto_prefix;
+    route.BuildProtoPrefix(&proto_prefix, NULL, 1048575);
+    Inet6VpnPrefix prefix2;
+    uint32_t label;
+    int result =
+        Inet6VpnPrefix::FromProtoPrefix(proto_prefix, &prefix2, &label);
+    EXPECT_EQ(0, result);
+    EXPECT_EQ(27 * 8, proto_prefix.prefixlen);
+    EXPECT_EQ(27, proto_prefix.prefix.size());
+    EXPECT_EQ(prefix1, prefix2);
+    EXPECT_EQ(1048575, label);
+}
+
+TEST_F(Inet6VpnRouteTest, FromProtoPrefixError1) {
+    std::string prefix_str = "65534:4294967295:2001:db8:85a3::d:e:a/128";
+    Inet6VpnPrefix prefix1(Inet6VpnPrefix::FromString(prefix_str));
+    Inet6VpnRoute route(prefix1);
+    BgpProtoPrefix proto_prefix;
+    route.BuildProtoPrefix(&proto_prefix, NULL, 1048575);
+    Inet6VpnPrefix prefix2;
+    uint32_t label;
+    proto_prefix.prefix.resize(10);
+    int result =
+        Inet6VpnPrefix::FromProtoPrefix(proto_prefix, &prefix2, &label);
+    EXPECT_NE(0, result);
+}
+
+TEST_F(Inet6VpnRouteTest, FromProtoPrefixError2) {
+    std::string prefix_str = "65534:4294967295:2001:db8:85a3::d:e:a/128";
+    Inet6VpnPrefix prefix1(Inet6VpnPrefix::FromString(prefix_str));
+    Inet6VpnRoute route(prefix1);
+    BgpProtoPrefix proto_prefix;
+    route.BuildProtoPrefix(&proto_prefix, NULL, 1048575);
+    Inet6VpnPrefix prefix2;
+    uint32_t label;
+    proto_prefix.prefix.resize(28);
+    int result =
+        Inet6VpnPrefix::FromProtoPrefix(proto_prefix, &prefix2, &label);
+    EXPECT_NE(0, result);
+}
+
 int main(int argc, char **argv) {
     bgp_log_test::init();
     ::testing::InitGoogleTest(&argc, argv);
