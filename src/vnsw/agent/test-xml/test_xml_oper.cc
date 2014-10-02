@@ -699,6 +699,7 @@ bool AgentUtXmlVrfValidate::ReadXml() {
 }
 
 bool AgentUtXmlVrfValidate::Validate() {
+
     VrfEntry *vrf = VrfGet(name().c_str(), true);
 
     if (present() && (vrf == NULL)) {
