@@ -295,7 +295,8 @@ class SvcMonitor(object):
             return True
 
         # generate UVE
-        self.logger.uve_svc_instance(si_fq_str, status='DELETE', vm_uuid=vm_uuid)
+        self.logger.uve_svc_instance(si_fq_str, status='DELETE',
+                                     vms=[{'uuid': vm_uuid}])
         return False
 
     def _delete_shared_vn(self, vn_uuid, proj_name):
