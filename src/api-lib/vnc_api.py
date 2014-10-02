@@ -81,18 +81,24 @@ class VncApi(VncApiClientGen):
                  api_server_host='127.0.0.1', api_server_port='8082',
                  api_server_url=None, conf_file=None, user_info=None,
                  auth_token=None, auth_host=None, auth_port=None,
-                 auth_protocol = None, auth_url=None):
+                 auth_protocol = None, auth_url=None, auth_type=None):
         # TODO allow for username/password to be present in creds file
 
         super(VncApi, self).__init__(self._obj_serializer_diff)
 
         cfg_parser = ConfigParser.ConfigParser()
-        clen = len(cfg_parser.read(conf_file or
-                                   "/etc/contrail/vnc_api_lib.ini"))
-
+        try:
+            cfg_parser.read(conf_file or
+                            "/etc/contrail/vnc_api_lib.ini")
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.warn("Exception: %s", str(e))
+            
         # keystone
-        self._authn_type = _read_cfg(cfg_parser, 'auth', 'AUTHN_TYPE',
-                                     self._DEFAULT_AUTHN_TYPE)
+        self._authn_type = auth_type or \
+            _read_cfg(cfg_parser, 'auth', 'AUTHN_TYPE',
+                      self._DEFAULT_AUTHN_TYPE)
+
         if self._authn_type == 'keystone':
             self._authn_protocol = auth_protocol or \
                 _read_cfg(cfg_parser, 'auth', 'AUTHN_PROTOCOL',

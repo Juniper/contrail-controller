@@ -28,7 +28,8 @@ class VrouterProvisioner(object):
                     self._args.admin_user, self._args.admin_password,
                     self._args.admin_tenant_name,
                     self._args.api_server_ip,
-                    self._args.api_server_port, '/')
+                    self._args.api_server_port, '/',
+                    auth_host=self._args.openstack_ip)
                 connected = True
             except ResourceExhaustionError: # haproxy throws 503
                 if tries < 10:
@@ -123,6 +124,8 @@ class VrouterProvisioner(object):
             "--admin_password", help="Password of keystone admin user")
         parser.add_argument(
             "--admin_tenant_name", help="Tenamt name for keystone admin user")
+        parser.add_argument(
+            "--openstack_ip", help="IP address of openstack node")
 
         self._args = parser.parse_args(remaining_argv)
 
