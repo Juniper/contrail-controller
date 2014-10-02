@@ -18,6 +18,7 @@ from gen.resource_server import *
 from pprint import pformat
 import uuid
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+import netaddr
 
 class GlobalSystemConfigServer(GlobalSystemConfigServerGen):
     @classmethod
@@ -399,11 +400,21 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
         if not rt_dict:
             return (True, '')
         for rt in rt_dict.get('route_target', []):
-            (_, asn, target) = rt.split(':')
-            if asn == global_asn and int(target) >= cfgm_common.BGP_RTGT_MIN_ID:
+            try:
+                (prefix, asn, target) = rt.split(':')
+                if prefix != 'target':
+                    raise ValueError()
+                target = int(target)
+                if not asn.isdigit():
+                    netaddr.IPAddress(asn)
+            except (ValueError, netaddr.core.AddrFormatError) as e:
+                 return (False, "Route target must be of the format "
+                         "'target:<asn>:<number>' or 'target:<ip>:number'")
+            if asn == global_asn and target >= cfgm_common.BGP_RTGT_MIN_ID:
                  return (False, "Configured route target must use ASN that is "
                          "different from global ASN or route target value must"
                          " be less than %d" % cfgm_common.BGP_RTGT_MIN_ID)
+
         return (True, '')
     # end _check_route_targets
 
@@ -998,4 +1009,4 @@ class NetworkPolicyServer(NetworkPolicyServerGen):
             return
     # end _check_policy
 
-# end class VirtualNetworkServer
+# end class NetworkPolicyServer
