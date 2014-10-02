@@ -95,12 +95,7 @@ class InstanceManager(object):
 
         # allocate ip
         if not iip_obj:
-            try:
-                addr = self._vnc_lib.virtual_network_ip_alloc(vn_obj)
-            except Exception as e:
-                return iip_obj
-
-            iip_obj = InstanceIp(name=iip_name, instance_ip_address=addr[0])
+            iip_obj = InstanceIp(name=iip_name)
             iip_obj.add_virtual_network(vn_obj)
             self._vnc_lib.instance_ip_create(iip_obj)
 
