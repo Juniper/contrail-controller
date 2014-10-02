@@ -528,6 +528,51 @@ class TestPolicy(test_case.STTestCase):
             fq_name=['default-domain', 'default-project', 'rvn'])
     # test_add_delete_route
 
+    def test_vn_delete(self):
+        vn = self.create_virtual_network("vn", "10.1.1.0/24")
+        gevent.sleep(2)
+        for obj in [vn]:
+            ident_name = self.get_obj_imid(obj)
+            ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
+
+        try:
+            self.check_vn_ri_state(fq_name=[u'default-domain', u'default-project', 'vn', 'vn'])
+
+        except NoIdError, e:
+            print "failed : routing instance state is not created ... ", test_common.lineno()
+            self.assertTrue(False)
+
+        # stop st
+        self._st_greenlet.kill()
+        gevent.sleep(5)
+
+        # delete vn in api server
+        self._vnc_lib.virtual_network_delete(
+            fq_name=['default-domain', 'default-project', 'vn'])
+
+        # start st on a free port
+        self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
+            self._api_server_ip, self._api_server_port)
+        gevent.sleep(2)
+
+        # check if vn is deleted
+        try:
+            self.check_vn_is_deleted(uuid=vn.uuid)
+
+        except Exception, e:
+            print "failed : vn is still present in api server ... ", test_common.lineno()
+            self.assertTrue(False)
+
+        # check if ri is deleted
+        try:
+            self.check_ri_is_deleted(fq_name=[u'default-domain', u'default-project', 'vn', 'vn'])
+
+        except Exception, e:
+            print "failed : routing instance is still present in api server ... ", test_common.lineno()
+            self.assertTrue(False)
+
+    # test_vn_delete
+
     @retries(5, hook=retry_exc_handler)
     def check_vn_ri_state(self, fq_name):
         ri = self._vnc_lib.routing_instance_read(fq_name)
