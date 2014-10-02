@@ -83,16 +83,23 @@ class ServiceMonitorLogger(object):
 
             for si_fq_name_str, si in si_list or []:
                 sandesh_si = sandesh.ServiceInstance(
-                    name=si_fq_name_str, si_type=si['instance_type'])
+                    name=si_fq_name_str, si_type=si.get('instance_type', ''),
+                    si_state=si.get('state', ''))
 
                 sandesh_vm_list = []
                 for idx in range(0, int(si.get('max-instances', '0'))):
                     prefix = self._db.get_vm_db_prefix(idx)
-                    vm_name = si[prefix + 'name']
-                    vm_uuid = si[prefix + 'uuid']
+                    vm_name = si.get(prefix + 'name', '')
+                    vm_uuid = si.get(prefix + 'uuid', '')
                     vm_str = ("%s: %s" % (vm_name, vm_uuid))
-                    vm = sandesh.ServiceInstanceVM(
-                        name=vm_str, vr_name=si.get(prefix+'vrouter', ''))
+                    vr_name = si.get(prefix + 'vrouter', '')
+                    ha = si.get(prefix + 'preference', '')
+                    if int(ha) == svc_info.get_standby_preference():
+                        ha_str = ("standby: %s" % (ha))
+                    else:
+                        ha_str = ("active: %s" % (ha))
+                    vm = sandesh.ServiceInstanceVM(name=vm_str,
+                        vr_name=vr_name, ha=ha_str)
                     sandesh_vm_list.append(vm)
                 sandesh_si.vm_list = list(sandesh_vm_list)
 

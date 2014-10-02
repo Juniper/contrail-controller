@@ -368,39 +368,6 @@ class SvcMonitor(object):
         if vmi_list is None:
             self._vnc_lib.interface_route_table_delete(id=rt_obj.uuid)
 
-    def _addmsg_virtual_machine_interface_virtual_machine(self, idents):
-        vm_fq_str = idents['virtual-machine']
-        vmi_fq_str = idents['virtual-machine-interface']
-
-        try:
-            vm_obj = self._vnc_lib.virtual_machine_read(
-                fq_name_str=vm_fq_str)
-            vmi_obj = self._vnc_lib.virtual_machine_interface_read(
-                fq_name_str=vmi_fq_str)
-        except NoIdError:
-            return
-
-        # if already linked as service vm then return
-        si_list = vm_obj.get_service_instance_refs()
-        if si_list:
-            return
-
-        try:
-            si_uuid = vmi_obj.name.split('__')[-2]
-        except IndexError:
-            return
-
-        try:
-            si_obj = self._vnc_lib.service_instance_read(id=si_uuid)
-        except NoIdError:
-            return
-
-        # create service instance to service vm link
-        vm_obj.add_service_instance(si_obj)
-        self._vnc_lib.virtual_machine_update(vm_obj)
-        self.logger.log("Info: VM %s updated SI %s" %
-            (vm_obj.get_fq_name_str(), si_obj.get_fq_name_str()))
-
     def _addmsg_service_instance_service_template(self, idents):
         st_fq_str = idents['service-template']
         si_fq_str = idents['service-instance']
