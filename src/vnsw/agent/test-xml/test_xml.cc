@@ -15,9 +15,11 @@
 using namespace std;
 using namespace pugi;
 using namespace boost::uuids;
+using namespace AgentUtXmlUtils;
 
-static bool GetStringAttribute(const xml_node &node, const string &name,
-                               string *value) {
+namespace AgentUtXmlUtils {
+bool GetStringAttribute(const xml_node &node, const string &name,
+                        string *value) {
     xml_attribute attr = node.attribute(name.c_str());
     if (!attr) {
         return false;;
@@ -28,8 +30,8 @@ static bool GetStringAttribute(const xml_node &node, const string &name,
     return true;
 }
 
-static bool GetUintAttribute(const xml_node &node, const string &name,
-                             uint16_t *value) {
+bool GetUintAttribute(const xml_node &node, const string &name,
+                      uint16_t *value) {
     xml_attribute attr = node.attribute(name.c_str());
     if (!attr) {
         return false;;
@@ -40,10 +42,9 @@ static bool GetUintAttribute(const xml_node &node, const string &name,
     return true;
 }
 
-static void NovaIntfAdd(bool op_delete, const uuid &id, const IpAddress &ip,
-                        const uuid &vm_uuid, const uuid vn_uuid,
-                        const string &name, const string &mac,
-                        const string vm_name) {
+void NovaIntfAdd(bool op_delete, const uuid &id, const IpAddress &ip,
+                 const uuid &vm_uuid, const uuid vn_uuid, const string &name,
+                 const string &mac, const string vm_name) {
     CfgIntKey *key = new CfgIntKey(id);
     DBRequest req;
     req.key.reset(key);
@@ -67,9 +68,8 @@ static void NovaIntfAdd(bool op_delete, const uuid &id, const IpAddress &ip,
     return;
 }
 
-static void LinkXmlNode(xml_node *parent, const string &ltype,
-                        const string lname, const string &rtype,
-                        const string rname) {
+void LinkXmlNode(xml_node *parent, const string &ltype, const string lname,
+                 const string &rtype, const string rname) {
     xml_node n = parent->append_child("link");
 
     xml_node n1 = n.append_child("node");
@@ -106,6 +106,7 @@ xml_node AddXmlNodeWithIntValue(xml_node *parent, const char *name,
     xml_node n = parent->append_child(name);
     n.append_child(pugi::node_pcdata).set_value(s.str().c_str());
 }
+}
 
 /////////////////////////////////////////////////////////////////////////////
 //  AgentUtXmlTest routines
@@ -114,7 +115,33 @@ AgentUtXmlTest::AgentUtXmlTest(const std::string &name) : file_name_(name) {
 }
 
 AgentUtXmlTest::~AgentUtXmlTest() {
-    // TODO : Delete list_
+
+    for (AgentUtXmlTestList::iterator i = test_list_.begin();
+         i != test_list_.end(); i++) {
+        delete *i;
+    }
+}
+
+void AgentUtXmlTest::AddConfigEntry(const std::string &name,
+                                    AgentUtXmlTestConfigCreateFn fn) {
+    config_factory_[name] = fn;
+}
+
+void AgentUtXmlTest::AddValidateEntry(const std::string &name,
+                                      AgentUtXmlTestValidateCreateFn fn) {
+    validate_factory_[name] = fn;
+}
+
+AgentUtXmlTest::AgentUtXmlTestConfigCreateFn
+AgentUtXmlTest::GetConfigCreateFn(const std::string &name) {
+    AgentUtXmlTestConfigFactory::iterator iter = config_factory_.find(name);
+    return iter->second;
+}
+
+AgentUtXmlTest::AgentUtXmlTestValidateCreateFn
+AgentUtXmlTest::GetValidateCreateFn(const std::string &name) {
+    AgentUtXmlTestValidateFactory::iterator iter = validate_factory_.find(name);
+    return iter->second;
 }
 
 bool AgentUtXmlTest::ReadXml() {
@@ -153,7 +180,7 @@ bool AgentUtXmlTest::Load() {
         return false;
     }
 
-    char *data = new char[s.st_size + 1];
+    char data[s.st_size + 1];
     if (read(fd, data, s.st_size) < s.st_size) {
         cout << "Error <" << strerror(errno) << "> reading file "
             << file_name_ << endl;
@@ -242,6 +269,10 @@ AgentUtXmlTestCase:: AgentUtXmlTestCase(const std::string &name,
 }
 
 AgentUtXmlTestCase::~AgentUtXmlTestCase() {
+    for (AgentUtXmlNodeList::iterator i =  node_list_.begin();
+         i != node_list_.end(); i++) {
+        delete *i;
+    }
 }
 
 bool AgentUtXmlTestCase::ReadXml() {
@@ -259,41 +290,12 @@ bool AgentUtXmlTestCase::ReadXml() {
         uuid id;
         string name;
         AgentUtXmlNode *cfg = NULL;
-        if (CheckConfigNode("virtual-network", node, &id, &name) == true ||
-            CheckConfigNode("vn", node, &id, &name) == true) {
-            cfg = new AgentUtXmlVn(name, id, node, this);
-        }
 
-        if (CheckConfigNode("virtual-machine", node, &id, &name) == true ||
-            CheckConfigNode("vm", node, &id, &name) == true) {
-            cfg = new AgentUtXmlVm(name, id, node, this);
-        }
-
-        if (CheckConfigNode("virtual-machine-interface", node, &id, &name) ||
-            CheckConfigNode("vm-interface", node, &id, &name)) {
-            cfg = new AgentUtXmlVmInterface(name, id, node, this);
-        }
-
-        if (CheckConfigNode("ethernet-interface", node, &id, &name) == true ||
-            CheckConfigNode("eth-port", node, &id, &name) == true) {
-            cfg = new AgentUtXmlEthInterface(name, id, node, this);
-        }
-
-        if (CheckConfigNode("routing-instance", node, &id, &name) == true ||
-            CheckConfigNode("vrf", node, &id, &name) == true) {
-            cfg = new AgentUtXmlVrf(name, id, node, this);
-        }
-
-        if (CheckConfigNode("acess-control-list", node, &id, &name) == true ||
-            CheckConfigNode("acl", node, &id, &name) == true) {
-            cfg = new AgentUtXmlAcl(name, id, node, this);
-        }
-
-
-        if (CheckConfigNode("virtual-machine-interface-routing-instance",
-                            node, &id, &name) == true ||
-            CheckConfigNode("vm-vrf", node, &id, &name) == true) {
-            cfg = new AgentUtXmlVmiVrf(name, id, node, this);
+        AgentUtXmlTest::AgentUtXmlTestConfigCreateFn fn =
+            test_->GetConfigCreateFn(node.name());
+        if (CheckConfigNode(node.name(), node, &id, &name) == true) {
+            if (fn.empty() == false)
+            cfg = fn(node.name(), name, id, node, this);
         }
 
         if (strcmp(node.name(), "link") == 0) {
@@ -307,15 +309,6 @@ bool AgentUtXmlTestCase::ReadXml() {
                 continue;
             }
             cfg = new AgentUtXmlPacket(name, node, this);
-        }
-
-        if (strcmp(node.name(), "nova") == 0) {
-            if (GetStringAttribute(node, "name", &name) == false) {
-                cout << "Attribute \"name\" not specified for vm-interface."
-                   " Skipping" << endl;
-                continue;
-            }
-            cfg = new AgentUtXmlNova(name, id, node, this);
         }
 
         if (strcmp(node.name(), "validate") == 0) {
@@ -561,395 +554,6 @@ bool AgentUtXmlConfig::AddIdPerms(xml_node *parent) {
 }
 
 /////////////////////////////////////////////////////////////////////////////
-//  AgentUtXmlVn routines
-/////////////////////////////////////////////////////////////////////////////
-AgentUtXmlVn::AgentUtXmlVn(const string &name, const uuid &id,
-                           const xml_node &node,
-                           AgentUtXmlTestCase *test_case) :
-    AgentUtXmlConfig(name, id, node, test_case) {
-}
-
-AgentUtXmlVn::~AgentUtXmlVn() {
-}
-
-
-bool AgentUtXmlVn::ReadXml() {
-    return AgentUtXmlConfig::ReadXml();
-}
-
-bool AgentUtXmlVn::ToXml(xml_node *parent) {
-    xml_node n = AddXmlNodeWithAttr(parent, NodeType().c_str());
-    AddXmlNodeWithValue(&n, "name", name());
-    AddIdPerms(&n);
-    return true;
-}
-
-void AgentUtXmlVn::ToString(string *str) {
-    AgentUtXmlConfig::ToString(str);
-    *str += "\n";
-    return;
-}
-
-string AgentUtXmlVn::NodeType() {
-    return "virtual-network";
-}
-
-/////////////////////////////////////////////////////////////////////////////
-//  AgentUtXmlVm routines
-/////////////////////////////////////////////////////////////////////////////
-AgentUtXmlVm::AgentUtXmlVm(const string &name, const uuid &id,
-                           const xml_node &node,
-                           AgentUtXmlTestCase *test_case) :
-    AgentUtXmlConfig(name, id, node, test_case) {
-}
-
-AgentUtXmlVm::~AgentUtXmlVm() {
-}
-
-
-bool AgentUtXmlVm::ReadXml() {
-    return AgentUtXmlConfig::ReadXml();
-}
-
-bool AgentUtXmlVm::ToXml(xml_node *parent) {
-    xml_node n = AddXmlNodeWithAttr(parent, NodeType().c_str());
-    AddXmlNodeWithValue(&n, "name", name());
-    AddIdPerms(&n);
-    return true;
-}
-
-void AgentUtXmlVm::ToString(string *str) {
-    AgentUtXmlConfig::ToString(str);
-    *str += "\n";
-    return;
-}
-
-string AgentUtXmlVm::NodeType() {
-    return "virtual-machine";
-}
-
-/////////////////////////////////////////////////////////////////////////////
-//  AgentUtXmlVmInterface routines
-/////////////////////////////////////////////////////////////////////////////
-AgentUtXmlVmInterface::AgentUtXmlVmInterface(const string &name,
-                                             const uuid &id,
-                                             const xml_node &node,
-                                             AgentUtXmlTestCase *test_case) :
-    AgentUtXmlConfig(name, id, node, test_case) {
-}
-
-AgentUtXmlVmInterface::~AgentUtXmlVmInterface() {
-}
-
-bool AgentUtXmlVmInterface::ReadXml() {
-    if (AgentUtXmlConfig::ReadXml() == false)
-        return false;
-
-    GetStringAttribute(node(), "mac", &mac_);
-
-    vm_name_ = "";
-    vn_uuid_ = nil_uuid();
-    vm_uuid_ = nil_uuid();
-    vrf_ = "";
-    add_nova_ = false;
-    ip_ = "0.0.0.0";
-
-    GetStringAttribute(node(), "vn-name", &vn_name_);
-    uint16_t id = 0;
-    GetUintAttribute(node(), "vn-uuid", &id);
-    if (id) {
-        vn_uuid_ = MakeUuid(id);
-    }
-
-    GetStringAttribute(node(), "vm-name", &vm_name_);
-    id = 0;
-    GetUintAttribute(node(), "vm-uuid", &id);
-    if (id) {
-        vm_uuid_ = MakeUuid(id);
-    }
-
-    GetStringAttribute(node(), "vrf", &vrf_);
-    GetStringAttribute(node(), "ip", &ip_);
-
-    string str;
-    if (GetStringAttribute(node(), "nova", &str) ||
-        GetUintAttribute(node(), "nova", &id)) {
-        add_nova_ = true;
-    }
-
-    return true;
-}
-
-bool AgentUtXmlVmInterface::ToXml(xml_node *parent) {
-    xml_node n = AddXmlNodeWithAttr(parent, NodeType().c_str());
-    AddXmlNodeWithValue(&n, "name", name());
-
-    if (op_delete() == false) {
-        xml_node n1 = n.append_child("virtual-machine-interface-mac-address");
-        AddXmlNodeWithValue(&n1, "mac-address", mac_);
-        AddIdPerms(&n);
-    }
-
-    if (add_nova_) {
-        boost::system::error_code ec;
-        IpAddress ip = Ip4Address::from_string(ip_, ec);
-        NovaIntfAdd(op_delete(), id(), ip, vm_uuid_, vm_uuid_, name(), mac_,
-                    vm_name_);
-    }
-
-    if (vm_name_ != "") {
-        LinkXmlNode(parent, NodeType(), name(), "virtual-network", vn_name_);
-    }
-
-    if (vm_name_ != "") {
-        LinkXmlNode(parent, NodeType(), name(), "virtual-machine", vm_name_);
-    }
-
-    if (vrf_ != "") {
-        string str = name() + "-" + vm_name_;
-        LinkXmlNode(parent, "virtual-machine-interface-routing-instance",
-                    str, "routing-instance", vrf_);
-
-        LinkXmlNode(parent, NodeType(), name(),
-                    "virtual-machine-interface-routing-instance", str);
-    }
-
-    return true;
-}
-
-void AgentUtXmlVmInterface::ToString(string *str) {
-    AgentUtXmlConfig::ToString(str);
-    *str += "\n";
-    return;
-}
-
-string AgentUtXmlVmInterface::NodeType() {
-    return "virtual-machine-interface";
-}
-
-/////////////////////////////////////////////////////////////////////////////
-//  AgentUtXmlEthInterface routines
-/////////////////////////////////////////////////////////////////////////////
-AgentUtXmlEthInterface::AgentUtXmlEthInterface(const string &name,
-                                               const uuid &id,
-                                               const xml_node &node,
-                                               AgentUtXmlTestCase *test_case) :
-    AgentUtXmlConfig(name, id, node, false, test_case) {
-}
-
-AgentUtXmlEthInterface::~AgentUtXmlEthInterface() {
-}
-
-bool AgentUtXmlEthInterface::ReadXml() {
-    return AgentUtXmlConfig::ReadXml();
-}
-
-bool AgentUtXmlEthInterface::ToXml(xml_node *parent) {
-    assert(0);
-    return true;
-}
-
-void AgentUtXmlEthInterface::ToString(string *str) {
-    AgentUtXmlConfig::ToString(str);
-    *str += "\n";
-    return;
-}
-
-string AgentUtXmlEthInterface::NodeType() {
-    return "physical-interface";
-}
-
-bool AgentUtXmlEthInterface::Run() {
-    cout << "Create Ethernet Interface" << endl;
-    return true;
-}
-/////////////////////////////////////////////////////////////////////////////
-//  AgentUtXmlVrf routines
-/////////////////////////////////////////////////////////////////////////////
-AgentUtXmlVrf::AgentUtXmlVrf(const string &name, const uuid &id,
-                             const xml_node &node,
-                             AgentUtXmlTestCase *test_case) :
-    AgentUtXmlConfig(name, id, node, test_case) {
-}
-
-AgentUtXmlVrf::~AgentUtXmlVrf() {
-}
-
-
-bool AgentUtXmlVrf::ReadXml() {
-    return AgentUtXmlConfig::ReadXml();
-}
-
-bool AgentUtXmlVrf::ToXml(xml_node *parent) {
-    xml_node n = AddXmlNodeWithAttr(parent, NodeType().c_str());
-    AddXmlNodeWithValue(&n, "name", name());
-    AddIdPerms(&n);
-    return true;
-}
-
-void AgentUtXmlVrf::ToString(string *str) {
-    AgentUtXmlConfig::ToString(str);
-    *str += "\n";
-    return;
-}
-
-string AgentUtXmlVrf::NodeType() {
-    return "routing-instance";
-}
-
-/////////////////////////////////////////////////////////////////////////////
-//  AgentUtXmlVmiVrf routines
-/////////////////////////////////////////////////////////////////////////////
-AgentUtXmlVmiVrf::AgentUtXmlVmiVrf(const string &name, const uuid &id,
-                                   const xml_node &node,
-                                   AgentUtXmlTestCase *test_case) :
-    AgentUtXmlConfig(name, id, node, test_case) {
-}
-
-AgentUtXmlVmiVrf::~AgentUtXmlVmiVrf() {
-}
-
-
-bool AgentUtXmlVmiVrf::ReadXml() {
-    return AgentUtXmlConfig::ReadXml();
-}
-
-bool AgentUtXmlVmiVrf::ToXml(xml_node *parent) {
-    xml_node n = AddXmlNodeWithAttr(parent, NodeType().c_str());
-    AddXmlNodeWithValue(&n, "name", name());
-
-    xml_node n1 = n.append_child("value");
-    AddXmlNodeWithValue(&n1, "direction", "both");
-    AddXmlNodeWithValue(&n1, "vlan-tag", "0");
-
-    AddIdPerms(&n);
-    return true;
-}
-
-void AgentUtXmlVmiVrf::ToString(string *str) {
-    AgentUtXmlConfig::ToString(str);
-    *str += "\n";
-    return;
-}
-
-string AgentUtXmlVmiVrf::NodeType() {
-    return "virtual-machine-interface-routing-instance";
-}
-
-/////////////////////////////////////////////////////////////////////////////
-//  AgentUtXmlAcl routines
-/////////////////////////////////////////////////////////////////////////////
-AgentUtXmlAcl::AgentUtXmlAcl(const string &name, const uuid &id,
-                             const xml_node &node,
-                             AgentUtXmlTestCase *test_case) :
-    AgentUtXmlConfig(name, id, node, test_case) {
-}
-
-AgentUtXmlAcl::~AgentUtXmlAcl() {
-}
-
-bool AgentUtXmlAcl::ReadXml() {
-    if (AgentUtXmlConfig::ReadXml() == false)
-        return false;
-
-    for (xml_node n = node().first_child(); n; n = n.next_sibling()) {
-        if (strcmp(n.name(), "ace") != 0) {
-            continue;
-        }
-
-        Ace ace;
-
-        GetUintAttribute(n, "src-sg", (uint16_t *)&ace.src_sg_);
-        GetUintAttribute(n, "dst-sg", (uint16_t *)&ace.dst_sg_);
-
-        GetStringAttribute(n, "src-vn", &ace.src_vn_);
-        GetStringAttribute(n, "dst-vn", &ace.dst_vn_);
-
-        GetStringAttribute(n, "src-ip", &ace.src_ip_);
-        GetUintAttribute(n, "src-plen", (uint16_t *)&ace.src_ip_plen_);
-        GetStringAttribute(n, "dst-ip", &ace.dst_ip_);
-        GetUintAttribute(n, "dst-plen", (uint16_t *)&ace.dst_ip_plen_);
-
-        std::string str;
-        GetStringAttribute(n, "sport", &str);
-        sscanf(str.c_str(), "%d:%d", &ace.sport_begin_, &ace.sport_end_);
-
-        GetStringAttribute(n, "dport", &str);
-        sscanf(str.c_str(), "%d:%d", &ace.dport_begin_, &ace.dport_end_);
-
-        GetStringAttribute(n, "dport", &ace.action_);
-
-        ace_list_.push_back(ace);
-    }
-
-    return true;
-}
-
-bool AgentUtXmlAcl::ToXml(xml_node *parent) {
-    xml_node n = AddXmlNodeWithAttr(parent, NodeType().c_str());
-    AddXmlNodeWithValue(&n, "name", name());
-
-    xml_node n1 = n.append_child("access-control-list-entries");
-    AddXmlNodeWithValue(&n1, "dynamic", "false");
-
-    for (AceList::iterator it = ace_list_.begin(); it != ace_list_.end();
-         it++) {
-        n1 = n1.append_child("acl-rule");
-
-        xml_node n2 = n1.append_child("match-condition");
-        AddXmlNodeWithValue(&n2, "protocol", "any");
-
-        xml_node n3 = n2.append_child("src-address");
-
-        Ace ace = (*it);
-        if (ace.src_sg_) {
-            AddXmlNodeWithIntValue(&n3, "security-group", ace.src_sg_);
-        }
-
-        if (ace.src_vn_ != "") {
-            AddXmlNodeWithValue(&n3, "virtual-network", ace.src_vn_);
-        }
-
-        if (ace.src_ip_ != "") {
-            xml_node n4 = n3.append_child("subnet");
-            AddXmlNodeWithValue(&n4, "ip-prefix", ace.src_ip_);
-            AddXmlNodeWithIntValue(&n4, "ip-prefix-len", ace.src_ip_plen_);
-        }
-
-        n3 = n2.append_child("dst-address");
-        if (ace.dst_sg_) {
-            AddXmlNodeWithIntValue(&n3, "security-group", ace.dst_sg_);
-        }
-
-        if (ace.dst_vn_ != "") {
-            AddXmlNodeWithValue(&n3, "virtual-network", ace.dst_vn_);
-        }
-
-        if (ace.dst_ip_ != "") {
-            xml_node n4 = n3.append_child("subnet");
-            AddXmlNodeWithValue(&n4, "ip-prefix", ace.dst_ip_);
-            AddXmlNodeWithIntValue(&n4, "ip-prefix-len", ace.dst_ip_plen_);
-        }
-
-        n2 = n1.append_child("action_list");
-        AddXmlNodeWithValue(&n2, "simple-action", ace.action_);
-    }
-
-    AddIdPerms(&n);
-    return true;
-}
-
-void AgentUtXmlAcl::ToString(string *str) {
-    AgentUtXmlConfig::ToString(str);
-    *str += "\n";
-    return;
-}
-
-string AgentUtXmlAcl::NodeType() {
-    return "access-control-list";
-}
-
-/////////////////////////////////////////////////////////////////////////////
 //  AgentUtXmlPacket routines
 /////////////////////////////////////////////////////////////////////////////
 AgentUtXmlPacket::AgentUtXmlPacket(const string &name, const xml_node &node,
@@ -1069,76 +673,3 @@ bool AgentUtXmlPacket::Run() {
     return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////
-//  AgentUtXmlNova routines
-/////////////////////////////////////////////////////////////////////////////
-AgentUtXmlNova::AgentUtXmlNova(const string &name, const uuid &id,
-                             const xml_node &node,
-                             AgentUtXmlTestCase *test_case) :
-    AgentUtXmlConfig(name, id, node, false, test_case) {
-}
-
-AgentUtXmlNova::~AgentUtXmlNova() {
-}
-
-bool AgentUtXmlNova::ReadXml() {
-    if (AgentUtXmlNode::ReadXml() == false)
-        return false;
-
-    if (GetStringAttribute(node(), "mac", &mac_) == false) {
-        cout << "Attribute \"mac\" not specified for nova. Skipping"
-            << endl;
-        return false;
-    }
-
-    uint16_t num;
-    if (GetUintAttribute(node(), "vm-uuid", &num) == false) {
-        cout << "Attribute \"vm-uuid\" not specified for nova. Skipping"
-            << endl;
-        return false;
-    }
-    vm_uuid_ = MakeUuid(num);
-
-    if (GetUintAttribute(node(), "vn-uuid", &num) == false) {
-        cout << "Attribute \"vn-uuid\" not specified for nova. Skipping"
-            << endl;
-        return false;
-    }
-    vn_uuid_ = MakeUuid(num);
-
-    if (GetStringAttribute(node(), "vm-name", &vm_name_) == false) {
-        cout << "Attribute \"vm_name\" not specified for nova. Skipping"
-            << endl;
-        return false;
-    }
-
-    if (GetStringAttribute(node(), "ip", &ip_) == false) {
-        cout << "Attribute \"ip\" not specified for nova. Skipping"
-            << endl;
-        return false;
-    }
-
-    return true;
-}
-
-bool AgentUtXmlNova::ToXml(xml_node *parent) {
-    assert(0);
-}
-
-void AgentUtXmlNova::ToString(string *str) {
-    AgentUtXmlConfig::ToString(str);
-    *str += "\n";
-    return;
-}
-
-string AgentUtXmlNova::NodeType() {
-    return "Nova";
-}
-
-bool AgentUtXmlNova::Run() {
-    boost::system::error_code ec;
-    IpAddress ip = Ip4Address::from_string(ip_, ec);
-    NovaIntfAdd(op_delete(), id(), ip, vm_uuid_, vn_uuid_, name(), mac_,
-                vm_name_);
-    return true;
-}
