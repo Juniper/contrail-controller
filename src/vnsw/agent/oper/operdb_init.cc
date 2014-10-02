@@ -175,7 +175,7 @@ OperDB::OperDB(Agent *agent)
               AgentObjectFactory::Create<IFMapDependencyManager>(
                   agent->db(), agent->cfg()->cfg_graph())),
           namespace_manager_(
-              AgentObjectFactory::Create<NamespaceManager>(agent->event_manager())) {
+              AgentObjectFactory::Create<NamespaceManager>(agent)) {
     assert(singleton_ == NULL);
     singleton_ = this;
 }
