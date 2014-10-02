@@ -615,6 +615,11 @@ void VnTable::DelVn(const uuid &vn_uuid) {
     Enqueue(&req);
 }
 
+VnEntry *VnTable::Find(const uuid &vn_uuid) {
+    VnKey key(vn_uuid);
+    return static_cast<VnEntry *>(FindActiveEntry(&key));
+}
+
 void VnTable::IpamVnSync(IFMapNode *node) {
     if (node->IsDeleted()) {
         return;
