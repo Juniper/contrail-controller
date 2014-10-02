@@ -8,15 +8,17 @@
 struct ServiceInstanceVM {
     1: string name;
     2: string vr_name;
+    3: string ha;
 }
 
 struct ServiceInstance {
     1: string name;
     2: string si_type;
-    3: list<ServiceInstanceVM> vm_list;
-    4: list<string> left_vn;
-    5: list<string> right_vn;
-    6: list<string> management_vn;
+    3: string si_state;
+    4: list<ServiceInstanceVM> vm_list;
+    5: list<string> left_vn;
+    6: list<string> right_vn;
+    7: list<string> management_vn;
 }
 
 request sandesh ServiceInstanceList {
