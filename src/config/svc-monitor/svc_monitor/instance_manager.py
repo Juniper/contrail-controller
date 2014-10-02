@@ -566,7 +566,7 @@ class NetworkNamespaceManager(InstanceManager):
                         svc_info.get_lb_service_type()):
                     if nic['type'] == svc_info.get_right_if_str():
                         user_visible = False
-                elif nic['type'] == svc_info.get_left_if_str():
+                else:
                     user_visible = False
 
                 vmi_obj = self._create_svc_vm_port(nic, instance_name, st_obj,
