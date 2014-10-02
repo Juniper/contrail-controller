@@ -75,6 +75,8 @@ public:
 
     void CreateDBTables(DB *db);
     void RegisterDBClients(DB *db);
+    void Register(const char *node_name, AgentDBTable *table,
+                  int need_property_id);
     void InitDiscovery();
     void Init();
     void InitDone();

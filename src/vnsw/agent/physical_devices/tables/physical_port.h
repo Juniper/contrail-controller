@@ -8,6 +8,8 @@
 #include <physical_devices/tables/physical_device.h>
 #include <string>
 
+class IFMapDependencyManager;
+
 namespace AGENT {
 struct PhysicalPortKey : public AgentKey {
     explicit PhysicalPortKey(const boost::uuids::uuid &id) :
@@ -75,7 +77,8 @@ class PhysicalPortTable : public AgentDBTable {
     PhysicalDeviceTable *device_table() const { return device_table_; }
     PhysicalPortEntry *Find(const boost::uuids::uuid &u);
 
-    void RegisterDBClients();
+    void ConfigEventHandler(DBEntry *entry);
+    void RegisterDBClients(IFMapDependencyManager *dep);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 
  private:
