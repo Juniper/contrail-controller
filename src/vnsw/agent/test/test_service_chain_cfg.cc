@@ -33,27 +33,27 @@ class ServiceVlanTest : public ::testing::Test {
 };
 
 static int ServiceVlanGetLabel(const string &vrf, const string &addr) {
-    Inet4UnicastRouteEntry *rt = RouteGet(vrf, Ip4Address::from_string(addr), 32);
+    InetUnicastRouteEntry *rt = RouteGet(vrf, Ip4Address::from_string(addr), 32);
     EXPECT_TRUE(rt != NULL);
     if (rt == NULL) {
         return false;
     }
 
-    return rt->GetMplsLabel();
+    return rt->GetActiveLabel();
 }
 
 static bool ValidateServiceVlan(int ifid, const string &vrf, const string &addr,
                                 uint16_t tag) {
     EXPECT_TRUE(VlanNhFind(ifid, tag));
 
-    Inet4UnicastRouteEntry *rt = RouteGet(vrf, Ip4Address::from_string(addr), 32);
+    InetUnicastRouteEntry *rt = RouteGet(vrf, Ip4Address::from_string(addr), 32);
     EXPECT_TRUE(rt != NULL);
     if (rt == NULL) {
         return false;
     }
 
-    int label = rt->GetMplsLabel();
-    MplsLabel *mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(label);
+    int label = rt->GetActiveLabel();
+    MplsLabel *mpls = Agent::GetInstance()->mpls_table()->FindMplsLabel(label);
     EXPECT_TRUE(mpls != NULL);
     if (mpls == NULL) {
         return false;
@@ -80,10 +80,10 @@ static bool ValidateServiceVlanDel(int ifid, const string &vrf,
                                    const string &addr, uint16_t tag, int label){
     EXPECT_FALSE(VlanNhFind(ifid, tag));
 
-    Inet4UnicastRouteEntry *rt = RouteGet(vrf, Ip4Address::from_string(addr), 32);
+    InetUnicastRouteEntry *rt = RouteGet(vrf, Ip4Address::from_string(addr), 32);
     EXPECT_TRUE(rt == NULL);
 
-    MplsLabel *mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(label);
+    MplsLabel *mpls = Agent::GetInstance()->mpls_table()->FindMplsLabel(label);
     EXPECT_TRUE(mpls == NULL);
 
     return ((rt == NULL) && (mpls == NULL));
@@ -238,6 +238,8 @@ int main(int argc, char **argv) {
     client = TestInit(init_file, ksync_init);
 
     int ret = RUN_ALL_TESTS();
-    usleep(10000);
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
     return ret;
 }

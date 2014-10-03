@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <routing-instance name="red">
+        <vrf-target>
+            target:100:2
+            <import-export>export</import-export>
+        </vrf-target>
+    </routing-instance>
+</config>

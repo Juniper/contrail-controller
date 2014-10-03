@@ -20,6 +20,7 @@
 #include "base/logging.h"
 #include "base/task.h"
 #include "base/task_annotations.h"
+#include "base/timer_impl.h"
 
 #include "ifmap_channel.h"
 #include "ifmap/ifmap_log.h"
@@ -198,6 +199,8 @@ struct SsrcStart : sc::state<SsrcStart, IFMapStateMachine> {
     > reactions;
     SsrcStart(my_context ctx) : my_base(ctx) {
         IFMapStateMachine *sm = &context<IFMapStateMachine>();
+        // Since we are restarting the SM, log all transitions.
+        sm->set_log_all_transitions(true);
         sm->set_state(IFMapStateMachine::SSRCSTART);
         sm->channel()->ReconnectPreparation();
     }
@@ -668,15 +671,18 @@ struct PollResponseWait :
 }  // namespace ifsm
 
 IFMapStateMachine::IFMapStateMachine(IFMapManager *manager)
-    : manager_(manager), connect_timer_(*manager->io_service()),
+    : manager_(manager),
+      connect_timer_(new TimerImpl(*manager->io_service())),
       ssrc_connect_attempts_(0), arc_connect_attempts_(0),
-      response_timer_(*manager->io_service()), response_timer_expired_count_(0),
+      response_timer_(new TimerImpl(*manager->io_service())),
+      response_timer_expired_count_(0),
       work_queue_(TaskScheduler::GetInstance()->GetTaskId(
                   "ifmap::StateMachine"),
                   0, boost::bind(&IFMapStateMachine::DequeueEvent, this, _1)),
       channel_(NULL), state_(IDLE), last_state_(IDLE), last_state_change_at_(0),
-      last_event_at_(0), connect_wait_interval_ms_(kConnectWaitIntervalMs),
-      response_wait_interval_ms_(kResponseWaitIntervalMs) {
+      last_event_at_(0), max_connect_wait_interval_ms_(kConnectWaitIntervalMs),
+      max_response_wait_interval_ms_(kResponseWaitIntervalMs),
+      log_all_transitions_(true) {
 }
 
 void IFMapStateMachine::Initialize() {
@@ -690,58 +696,51 @@ int IFMapStateMachine::GetConnectTime(bool is_ssrc) const {
     if (is_ssrc) {
         backoff = std::min(ssrc_connect_attempts_, 6);
         backoff_ms = (1 << backoff) * 1000;
-        return std::min(backoff_ms, connect_wait_interval_ms_);
+        return std::min(backoff_ms, max_connect_wait_interval_ms_);
     } else {
         backoff = std::min(arc_connect_attempts_, 6);
         backoff_ms = (1 << backoff) * 1000;
-        return std::min(backoff_ms, connect_wait_interval_ms_);
+        return std::min(backoff_ms, max_connect_wait_interval_ms_);
     }
 }
 
 void IFMapStateMachine::StartConnectTimer(int milliseconds) {
     // TODO assert if timer is still running. How?
-    IFMAP_SM_DEBUG(IFMapSmStartTimerMessage, milliseconds/1000,
-                   "second connect timer started.");
     error_code ec;
-    connect_timer_.expires_from_now(
-        boost::posix_time::milliseconds(milliseconds), ec);
-    connect_timer_.async_wait(
+    connect_timer_->expires_from_now(milliseconds, ec);
+    connect_timer_->async_wait(
         boost::bind(&IFMapStateMachine::ConnectTimerExpired, this,
-                    boost::asio::placeholders::error));
+                    boost::asio::placeholders::error, milliseconds));
 }
 
 void IFMapStateMachine::StopConnectTimer() {
-    IFMAP_SM_DEBUG(IFMapSmCancelTimerMessage, "Cancelling connect timer.");
     error_code ec;
-    connect_timer_.cancel(ec);
+    connect_timer_->cancel(ec);
 }
 
 // current state: ConnectTimerWait
 void IFMapStateMachine::ConnectTimerExpired(
-        const boost::system::error_code& error) {
+        const boost::system::error_code& error, int milliseconds) {
     // If the timer was cancelled, there is nothing to do.
     if (error == boost::asio::error::operation_aborted) {
         return;
     }
-    IFMAP_SM_DEBUG(IFMapSmExpiredTimerMessage, "Connect timer expired.");
+    IFMAP_SM_DEBUG(IFMapSmExpiredTimerMessage, milliseconds/1000,
+                   "second connect timer expired.");
     EnqueueEvent(ifsm::EvConnectTimerExpired());
 }
 
 void IFMapStateMachine::StartResponseTimer() {
-    IFMAP_SM_DEBUG(IFMapSmStartTimerMessage, response_wait_interval_ms_/1000,
-                   "second response timer started.");
     error_code ec;
-    response_timer_.expires_from_now(
-        boost::posix_time::milliseconds(response_wait_interval_ms_), ec);
-    response_timer_.async_wait(
+    response_timer_->expires_from_now(max_response_wait_interval_ms_, ec);
+    response_timer_->async_wait(
         boost::bind(&IFMapStateMachine::ResponseTimerExpired, this,
                     boost::asio::placeholders::error));
 }
 
 void IFMapStateMachine::StopResponseTimer() {
-    IFMAP_SM_DEBUG(IFMapSmCancelTimerMessage, "Cancelling Response timer.");
     error_code ec;
-    response_timer_.cancel(ec);
+    response_timer_->cancel(ec);
 }
 
 // current state: SsrcConnect or SsrcSslHandshake or NewSessionResponseWait
@@ -752,7 +751,8 @@ void IFMapStateMachine::ResponseTimerExpired(
     if (error == boost::asio::error::operation_aborted) {
         return;
     }
-    IFMAP_SM_DEBUG(IFMapSmExpiredTimerMessage, "Response timer expired.");
+    IFMAP_SM_DEBUG(IFMapSmExpiredTimerMessage,
+        max_response_wait_interval_ms_/1000, "second response timer expired.");
     response_timer_expired_count_inc();
     EnqueueEvent(ifsm::EvResponseTimerExpired());
 }
@@ -932,25 +932,43 @@ void IFMapStateMachine::OnStart(const ifsm::EvStart &event) {
 }
 
 void IFMapStateMachine::EnqueueEvent(const sc::event_base &event) {
-    IFMAP_SM_DEBUG(IFMapSmEventMessage, "Enqueuing", TYPE_NAME(event),
-                   "in state", StateName());
     work_queue_.Enqueue(event.intrusive_from_this());
 }
 
 bool IFMapStateMachine::DequeueEvent(
         boost::intrusive_ptr<const sc::event_base>& event) {
-    IFMAP_SM_DEBUG(IFMapSmEventMessage, "Processing", TYPE_NAME(*event),
-                   "in state", StateName());
     set_last_event(TYPE_NAME(*event));
     process_event(*event);
     event.reset();
     return true;
 }
 
+void IFMapStateMachine::LogSmTransition() {
+    switch (state_) {
+    case SENDPOLL:
+    case POLLRESPONSEWAIT:
+        // Log these states only once for each connection attempt. This helps
+        // since we will keep circling between them once the connection has
+        // been established and we dont need to print them for every new VM 
+        // that comes up.
+        if (log_all_transitions()) {
+            IFMAP_SM_DEBUG(IFMapSmTransitionMessage, StateName(last_state_),
+                           "===>", StateName(state_));
+            if (state_ == POLLRESPONSEWAIT) {
+                set_log_all_transitions(false);
+            }
+        }
+        break;
+    default:
+        IFMAP_SM_DEBUG(IFMapSmTransitionMessage, StateName(last_state_), "===>",
+                    StateName(state_));
+        break;
+    }
+}
+
 void IFMapStateMachine::set_state(State state) {
     last_state_ = state_; state_ = state;
-    IFMAP_SM_DEBUG(IFMapSmTransitionMessage, StateName(last_state_), "===>",
-                   StateName(state_));
+    LogSmTransition();
     last_state_change_at_ = UTCTimestampUsec();
 }
 

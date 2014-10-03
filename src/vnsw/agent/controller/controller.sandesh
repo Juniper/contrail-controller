@@ -35,6 +35,12 @@ traceobject sandesh AgentXmppIFMapVmExportTrace {
     3: string event;
 }
 
+traceobject sandesh AgentXmppIFMapSeqTrace {
+    1: u32 xmpp_server_index,
+    2: u64 new_seq_num;
+    3: string event;
+}
+
 traceobject sandesh AgentXmppRouteExport {
     1: string peer;
     2: string vrf;

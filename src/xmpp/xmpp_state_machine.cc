@@ -3,6 +3,7 @@
  */
 
 #include "xmpp/xmpp_state_machine.h"
+
 #include <typeinfo>
 #include <boost/bind.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -26,6 +27,7 @@
 #include "sandesh/xmpp_state_machine_sandesh_types.h"
 #include "sandesh/xmpp_trace_sandesh_types.h"
 #include "xmpp/xmpp_connection.h"
+#include "xmpp/xmpp_factory.h"
 #include "xmpp/xmpp_log.h"
 #include "xmpp/xmpp_server.h"
 #include "xmpp/xmpp_session.h"
@@ -130,7 +132,7 @@ struct EvXmppOpen : public sc::event<EvXmppOpen> {
     XmppSession *session;
     boost::shared_ptr<const XmppStanza::XmppStreamMessage> msg;
 };
-    
+
 struct EvXmppKeepalive : sc::event<EvXmppKeepalive> {
     EvXmppKeepalive(XmppSession *session, const XmppStanza::XmppMessage *msg)
     : session(session), msg(msg) {
@@ -185,25 +187,34 @@ struct Idle : public sc::state<Idle, XmppStateMachine> {
     Idle(my_context ctx) : my_base(ctx) {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
         SM_LOG(state_machine, "(Idle)");
+        bool flap = (state_machine->get_state() == ESTABLISHED);
         state_machine->set_state(IDLE);
         state_machine->SendConnectionInfo("Start", "Active");
+        if (flap) {
+            state_machine->connection()->increment_flap_count();
+        }
     }
 };
 
 struct Active : public sc::state<Active, XmppStateMachine> {
     typedef mpl::list<
-            sc::custom_reaction<EvConnectTimerExpired>,
-            sc::custom_reaction<EvOpenTimerExpired>,
-            sc::custom_reaction<EvTcpPassiveOpen>,
-            sc::custom_reaction<EvTcpClose>,
-            sc::custom_reaction<EvXmppOpen>,
-            sc::custom_reaction<EvStop>
-        > reactions;
+        sc::custom_reaction<EvAdminDown>,
+        sc::custom_reaction<EvConnectTimerExpired>,
+        sc::custom_reaction<EvOpenTimerExpired>,
+        sc::custom_reaction<EvTcpPassiveOpen>,
+        sc::custom_reaction<EvTcpClose>,
+        sc::custom_reaction<EvXmppOpen>,
+        sc::custom_reaction<EvStop>
+    > reactions;
 
     Active(my_context ctx) : my_base(ctx) {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
         SM_LOG(state_machine, "(Xmpp Active State)");
+        bool flap = (state_machine->get_state() == ESTABLISHED);
         state_machine->set_state(ACTIVE);
+        if (flap) {
+            state_machine->connection()->increment_flap_count();
+        }
         if (state_machine->IsActiveChannel() ) {
             SM_LOG(state_machine, "(Xmpp Start Connect Timer)");
             state_machine->StartConnectTimer(state_machine->GetConnectTime());
@@ -213,6 +224,7 @@ struct Active : public sc::state<Active, XmppStateMachine> {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
         SM_LOG(state_machine, "Cancelling Connect timer ");
         state_machine->CancelConnectTimer();
+        state_machine->CancelOpenTimer();
     }
 
    //event on client only
@@ -286,7 +298,7 @@ struct Active : public sc::state<Active, XmppStateMachine> {
         TcpSession *session = state_machine->session();
         state_machine->AssignSession();
         state_machine->CancelOpenTimer();
-        state_machine->StartHoldTimer(connection->GetKeepAliveTimer() * 3);
+        state_machine->StartHoldTimer();
         connection->SendOpenConfirm(session);
         connection->StartKeepAliveTimer();
         // Skipping openconfirm state till we have client authentication 
@@ -315,18 +327,29 @@ struct Active : public sc::state<Active, XmppStateMachine> {
             return transit<Idle>();
         }
     }
+
+    sc::result react(const EvAdminDown &event) {
+        XmppStateMachine *state_machine = &context<XmppStateMachine>();
+        SM_LOG(state_machine, "Xmpp Admin Down. Transit to IDLE");
+        XmppConnectionInfo info;
+        info.set_close_reason("Administratively down");
+        state_machine->connection()->set_close_reason("Administratively down");
+        state_machine->SendConnectionInfo(&info, event.Name(), "Idle");
+        return transit<Idle>();
+    }
+
 };
 
 //State valid only for client side, connection in Active state
 struct Connect : public sc::state<Connect, XmppStateMachine> {
     typedef mpl::list<
-            sc::custom_reaction<EvAdminDown>,
-            sc::custom_reaction<EvConnectTimerExpired>,
-            sc::custom_reaction<EvTcpConnected>,
-            sc::custom_reaction<EvTcpConnectFail>,
-            sc::custom_reaction<EvTcpClose>,
-            sc::custom_reaction<EvStop>
-        > reactions;
+        sc::custom_reaction<EvAdminDown>,
+        sc::custom_reaction<EvConnectTimerExpired>,
+        sc::custom_reaction<EvTcpConnected>,
+        sc::custom_reaction<EvTcpConnectFail>,
+        sc::custom_reaction<EvTcpClose>,
+        sc::custom_reaction<EvStop>
+    > reactions;
 
     static const int kConnectTimeout = 60;  // seconds
 
@@ -346,6 +369,11 @@ struct Connect : public sc::state<Connect, XmppStateMachine> {
             state_machine->SendConnectionInfo(&info, "Connect Event");
        }
     }
+    ~Connect() {
+        XmppStateMachine *state_machine = &context<XmppStateMachine>();
+        SM_LOG(state_machine, "Cancelling Connect timer ");
+        state_machine->CancelConnectTimer();
+    }
 
     sc::result react(const EvConnectTimerExpired &event) {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
@@ -361,7 +389,7 @@ struct Connect : public sc::state<Connect, XmppStateMachine> {
         state_machine->SendConnectionInfo(&info, event.Name(), "Active");
         return transit<Active>();
     }
-    
+
     sc::result react(const EvTcpConnected &event) {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
         if (event.session != state_machine->session()) {
@@ -371,7 +399,7 @@ struct Connect : public sc::state<Connect, XmppStateMachine> {
         state_machine->CancelConnectTimer();
         TcpSession *session = state_machine->session();
         connection->SendOpen(session);
-        state_machine->StartHoldTimer(connection->GetKeepAliveTimer() * 3);
+        state_machine->StartHoldTimer();
         SM_LOG(state_machine, "Xmpp Connected: Cancelling Connect timer");
         XmppConnectionInfo info;
         info.set_local_port(session->local_port());
@@ -406,19 +434,6 @@ struct Connect : public sc::state<Connect, XmppStateMachine> {
         return transit<Active>();
     }
 
-    sc::result react(const EvAdminDown &event) {
-        XmppStateMachine *state_machine = &context<XmppStateMachine>();
-        // close the tcp sessions.
-        CloseSession(state_machine);
-        SM_LOG(state_machine, "Xmpp Admin Down. Transit to IDLE");
-        state_machine->CancelConnectTimer();
-        XmppConnectionInfo info;
-        info.set_close_reason("Administratively down");
-        state_machine->connection()->set_close_reason("Administratively down");
-        state_machine->SendConnectionInfo(&info, event.Name(), "Idle");
-        return transit<Idle>();
-    }
-
     sc::result react(const EvStop &event) {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
         SM_LOG(state_machine, "EvStop in (Connect) State");
@@ -429,6 +444,17 @@ struct Connect : public sc::state<Connect, XmppStateMachine> {
         state_machine->connection()->set_close_reason("EvStop received");
         state_machine->SendConnectionInfo(&info, event.Name(), "Active");
         return transit<Active>();
+    }
+
+    sc::result react(const EvAdminDown &event) {
+        XmppStateMachine *state_machine = &context<XmppStateMachine>();
+        CloseSession(state_machine);
+        SM_LOG(state_machine, "Xmpp Admin Down. Transit to IDLE");
+        XmppConnectionInfo info;
+        info.set_close_reason("Administratively down");
+        state_machine->connection()->set_close_reason("Administratively down");
+        state_machine->SendConnectionInfo(&info, event.Name(), "Idle");
+        return transit<Idle>();
     }
 
     // Create an active connection request.
@@ -457,6 +483,7 @@ struct Connect : public sc::state<Connect, XmppStateMachine> {
 // connection. Server should not come in this state.
 struct OpenSent : public sc::state<OpenSent, XmppStateMachine> {
     typedef mpl::list<
+        sc::custom_reaction<EvAdminDown>,
         sc::custom_reaction<EvTcpClose>,
         sc::custom_reaction<EvXmppOpen>,
         sc::custom_reaction<EvHoldTimerExpired>,
@@ -467,6 +494,11 @@ struct OpenSent : public sc::state<OpenSent, XmppStateMachine> {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
         SM_LOG(state_machine, "(Xmpp OpenSent)");
         state_machine->set_state(OPENSENT);
+    }
+    ~OpenSent() {
+        XmppStateMachine *state_machine = &context<XmppStateMachine>();
+        SM_LOG(state_machine, "Cancelling Hold timer ");
+        state_machine->CancelHoldTimer();
     }
 
     sc::result react(const EvTcpClose &event) {
@@ -491,7 +523,7 @@ struct OpenSent : public sc::state<OpenSent, XmppStateMachine> {
             state_machine->AssignSession();
             connection->SendKeepAlive();
             connection->StartKeepAliveTimer();
-            state_machine->StartHoldTimer(connection->GetKeepAliveTimer() * 3);
+            state_machine->StartHoldTimer();
             XmppConnectionInfo info;
             info.set_identifier(event.msg->from);
             state_machine->SendConnectionInfo(&info, event.Name(), "Established");
@@ -528,6 +560,17 @@ struct OpenSent : public sc::state<OpenSent, XmppStateMachine> {
         return transit<Active>();
     }
 
+    sc::result react(const EvAdminDown &event) {
+        XmppStateMachine *state_machine = &context<XmppStateMachine>();
+        CloseSession(state_machine);
+        SM_LOG(state_machine, "Xmpp Admin Down. Transit to IDLE");
+        XmppConnectionInfo info;
+        info.set_close_reason("Administratively down");
+        state_machine->connection()->set_close_reason("Administratively down");
+        state_machine->SendConnectionInfo(&info, event.Name(), "Idle");
+        return transit<Idle>();
+    }
+
     void CloseSession(XmppStateMachine *state_machine) {
         state_machine->set_session(NULL);
     }
@@ -535,6 +578,7 @@ struct OpenSent : public sc::state<OpenSent, XmppStateMachine> {
 
 struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
     typedef mpl::list<
+        sc::custom_reaction<EvAdminDown>,
         sc::custom_reaction<EvXmppKeepalive>,
         sc::custom_reaction<EvTcpClose>,
         sc::custom_reaction<EvHoldTimerExpired>,
@@ -546,12 +590,11 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
         SM_LOG(state_machine, "(Xmpp OpenConfirm)");
         state_machine->set_state(OPENCONFIRM);
     }
-    
+
     sc::result react(const EvXmppKeepalive &event) {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
-        XmppConnection *connection = state_machine->connection();
         SM_LOG(state_machine, "EvXmppKeepalive in (OpenConfirm) State");
-        state_machine->StartHoldTimer(connection->GetKeepAliveTimer() * 3);
+        state_machine->StartHoldTimer();
         state_machine->SendConnectionInfo(event.Name(), "Established");
         return transit<XmppStreamEstablished>();
     }
@@ -608,6 +651,17 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
         }
     }
 
+    sc::result react(const EvAdminDown &event) {
+        XmppStateMachine *state_machine = &context<XmppStateMachine>();
+        CloseSession(state_machine);
+        SM_LOG(state_machine, "Xmpp Admin Down. Transit to IDLE");
+        XmppConnectionInfo info;
+        info.set_close_reason("Administratively down");
+        state_machine->connection()->set_close_reason("Administratively down");
+        state_machine->SendConnectionInfo(&info, event.Name(), "Idle");
+        return transit<Idle>();
+    }
+
     void CloseSession(XmppStateMachine *state_machine) {
         XmppConnection *connection = state_machine->connection();
         if (connection != NULL) connection->StopKeepAliveTimer();
@@ -620,6 +674,7 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
 struct XmppStreamEstablished : 
         public sc::state<XmppStreamEstablished, XmppStateMachine> {
     typedef mpl::list<
+        sc::custom_reaction<EvAdminDown>,
         sc::custom_reaction<EvTcpClose>,
         sc::custom_reaction<EvXmppKeepalive>,
         sc::custom_reaction<EvXmppMessageReceive>,
@@ -633,8 +688,14 @@ struct XmppStreamEstablished :
         SM_LOG(state_machine, "(XMPP Established)");
         state_machine->connect_attempts_clear();
         XmppConnection *connection = state_machine->connection();
+        state_machine->StartHoldTimer();
         state_machine->set_state(ESTABLISHED);
         connection->ChannelMux()->HandleStateEvent(xmsm::ESTABLISHED);
+    }
+    ~XmppStreamEstablished() {
+        XmppStateMachine *state_machine = &context<XmppStateMachine>();
+        SM_LOG(state_machine, "Cancelling Hold timer ");
+        state_machine->CancelHoldTimer();
     }
 
     sc::result react(const EvTcpClose &event) {
@@ -645,7 +706,11 @@ struct XmppStreamEstablished :
         SM_LOG(state_machine, "EvTcpClose in (Established) State");
         state_machine->SendConnectionInfo(event.Name());
         state_machine->ResetSession();
-        if (state_machine->IsActiveChannel()) return transit<Active>(); else return transit<Idle>();
+        if (state_machine->IsActiveChannel()) {
+            return transit<Active>();
+        } else {
+            return transit<Idle>();
+        }
     }
 
     sc::result react(const EvXmppKeepalive &event) {
@@ -653,8 +718,7 @@ struct XmppStreamEstablished :
         if (event.session != state_machine->session()) {
             return discard_event();
         }
-        XmppConnection *connection = state_machine->connection();
-        state_machine->StartHoldTimer(connection->GetKeepAliveTimer() * 3);
+        state_machine->StartHoldTimer();
         return discard_event();
     }
 
@@ -663,9 +727,8 @@ struct XmppStreamEstablished :
         if (event.session != state_machine->session()) {
             return discard_event();
         }
-        XmppConnection *connection = state_machine->connection();
         SM_LOG(state_machine, "EvXmppMessageReceive in (Established) State");
-        state_machine->StartHoldTimer(connection->GetKeepAliveTimer() * 3);
+        state_machine->StartHoldTimer();
         state_machine->connection()->ProcessXmppChatMessage(
             static_cast<const XmppStanza::XmppChatMessage *>(event.msg.get()));
         return discard_event();
@@ -676,12 +739,10 @@ struct XmppStreamEstablished :
         if (event.session != state_machine->session()) {
             return discard_event();
         }
-        XmppConnection *connection = state_machine->connection();
         SM_LOG(state_machine, "EvXmppIqMessageReceive in (Established) State");
-        state_machine->StartHoldTimer(connection->GetKeepAliveTimer() * 3);
+        state_machine->StartHoldTimer();
         state_machine->connection()->ProcessXmppIqMessage(
-                static_cast<const XmppStanza::XmppMessage *>(event.msg.get())
-                );
+            static_cast<const XmppStanza::XmppMessage *>(event.msg.get()));
         return discard_event();
     }
 
@@ -712,6 +773,17 @@ struct XmppStreamEstablished :
         } else {
             return transit<Idle>();
         }
+    }
+
+    sc::result react(const EvAdminDown &event) {
+        XmppStateMachine *state_machine = &context<XmppStateMachine>();
+        state_machine->ResetSession();
+        SM_LOG(state_machine, "Xmpp Admin Down. Transit to IDLE");
+        XmppConnectionInfo info;
+        info.set_close_reason("Administratively down");
+        state_machine->connection()->set_close_reason("Administratively down");
+        state_machine->SendConnectionInfo(&info, event.Name(), "Idle");
+        return transit<Idle>();
     }
 };
 
@@ -746,7 +818,6 @@ void XmppStateMachine::ResetSession() {
     if (!connection) return;
 
     // Stop keepalives, transition to IDLE and notify registerd entities.
-    connection->increment_flap_count();
     connection->StopKeepAliveTimer();
     connection->ChannelMux()->HandleStateEvent(xmsm::IDLE);
     if (IsActiveChannel()) return;
@@ -761,15 +832,24 @@ void XmppStateMachine::ResetSession() {
 
 XmppStateMachine::XmppStateMachine(XmppConnection *connection, bool active)
     : work_queue_(TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"),
-                  connection->GetIndex(),
-                  boost::bind(&XmppStateMachine::DequeueEvent, this, _1)),
-      connection_(connection), session_(NULL),
-      connect_timer_(TimerManager::CreateTimer(*connection->server()->event_manager()->io_service(), "Connect timer",
-             TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"), 0)),
-      open_timer_(TimerManager::CreateTimer(*connection->server()->event_manager()->io_service(), "Open timer",
-             TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"), 0)),
-      hold_timer_(TimerManager::CreateTimer(*connection->server()->event_manager()->io_service(), "Hold timer",
-             TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"), 0)),
+          connection->GetIndex(),
+          boost::bind(&XmppStateMachine::DequeueEvent, this, _1)),
+      connection_(connection),
+      session_(NULL),
+      server_(connection->server()),
+      connect_timer_(
+          TimerManager::CreateTimer(*server_->event_manager()->io_service(),
+          "Connect timer",
+          TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"), 0)),
+      open_timer_(
+          TimerManager::CreateTimer(*server_->event_manager()->io_service(),
+          "Open timer",
+          TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"), 0)),
+      hold_timer_(
+          TimerManager::CreateTimer(*server_->event_manager()->io_service(),
+          "Hold timer",
+          TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"), 0)),
+      hold_time_(GetConfiguredHoldTime()),
       attempts_(0),
       deleted_(false),
       in_dequeue_(false),
@@ -866,13 +946,35 @@ void XmppStateMachine::CancelOpenTimer() {
     open_timer_->Cancel();
 }
 
-void XmppStateMachine::StartHoldTimer(int seconds) {
+int XmppStateMachine::GetConfiguredHoldTime() const {
+    static tbb::atomic<bool> env_checked = tbb::atomic<bool>();
+    static tbb::atomic<int> env_hold_time = tbb::atomic<int>();
 
-    // To reset timer value, we need to cancel before start
+    // For testing only - configure through environment variable.
+    if (!env_checked) {
+        char *keepalive_time_str = getenv("XMPP_KEEPALIVE_SECONDS");
+        if (keepalive_time_str) {
+            env_hold_time = strtoul(keepalive_time_str, NULL, 0) * 3;
+            env_checked = true;
+            return env_hold_time;
+        } else {
+            env_checked = true;
+        }
+    } else if (env_hold_time) {
+        return env_hold_time;
+    }
+
+    // Use hard coded default.
+    return kHoldTime;
+}
+
+void XmppStateMachine::StartHoldTimer() {
     CancelHoldTimer();
-    if (!seconds) return;
 
-    hold_timer_->Start(seconds * 1000,
+    if (hold_time_ <= 0)
+        return;
+
+    hold_timer_->Start(hold_time_ * 1000,
         boost::bind(&XmppStateMachine::HoldTimerExpired, this),
         boost::bind(&XmppStateMachine::TimerErrorHandler, this, _1, _2));
 }
@@ -927,6 +1029,7 @@ void XmppStateMachine::OnSessionEvent(
                     "Event: Tcp Connect Fail ",
                     this->connection()->endpoint().address().to_string());
         Enqueue(xmsm::EvTcpConnectFail(static_cast<XmppSession *>(session)));
+        connection_->inc_connect_error();
         break;
     case TcpSession::CLOSE:
         XMPP_NOTICE(XmppEventLog, this->ChannelType(),
@@ -981,6 +1084,15 @@ void XmppStateMachine::OnMessage(XmppSession *session,
 
 void XmppStateMachine::Clear() {
     Enqueue(xmsm::EvStop());
+}
+
+void XmppStateMachine::SetAdminState(bool down) {
+    assert(IsActiveChannel());
+    if (down) {
+        Enqueue(xmsm::EvAdminDown());
+    } else {
+        Enqueue(xmsm::EvStart());
+    }
 }
 
 void XmppStateMachine::set_state(xmsm::XmState state) { 

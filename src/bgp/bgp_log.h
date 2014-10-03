@@ -20,7 +20,8 @@ namespace bgp_log_test {
 
 void init();
 void init(std::string log_file, unsigned long log_file_size,
-          unsigned long log_file_index);
+          unsigned long log_file_index, bool enable_syslog,
+          std::string syslog_facility, std::string ident);
 bool unit_test();
 void LogServerName(const BgpServer *server);
 void LogServerName(const IPeer *ipeer, const BgpTable *table);
@@ -132,16 +133,6 @@ do {                                                                       \
     _os << arg;                                                            \
     BGP_LOG_PEER_INTERNAL(Instance, peer, level, flags, BGP_PEER_DIR_NA,   \
                           instance, _os.str());                            \
-} while (false)
-
-#define BGP_LOG_SCHEDULING_GROUP(peer, arg)                                \
-do {                                                                       \
-    if (LoggingDisabled()) break;                                          \
-    BGP_LOG_SERVER(peer, (BgpTable *) 0);                                  \
-    ostringstream _os;                                                     \
-    _os << arg;                                                            \
-    BGP_LOG_PEER_INTERNAL(SchedulingGroup, peer, SandeshLevel::SYS_DEBUG,  \
-                          BGP_LOG_FLAG_TRACE, BGP_PEER_DIR_NA, _os.str()); \
 } while (false)
 
 // Bgp Route specific logging macro

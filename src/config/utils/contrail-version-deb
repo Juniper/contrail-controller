@@ -26,7 +26,13 @@ fi
 
 echo "Package                                Version                        Build-ID | Repo | Package Name"
 echo "-------------------------------------- ------------------------------ ----------------------------------"
-for i in `cat $CONTRAILRPMS`; do
+if [  "$#" -ne 0 ]; then
+    pkg_list=$*
+else
+    pkg_list=`cat $CONTRAILRPMS`
+fi
+
+for i in $pkg_list; do
   dpkg -s $i 2> /dev/null 1> /dev/null
   ret_code=$?
   if [ $ret_code == 0 ]; then

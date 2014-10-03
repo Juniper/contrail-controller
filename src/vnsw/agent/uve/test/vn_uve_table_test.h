@@ -21,13 +21,15 @@ public:
     int GetVnUveVmCount(const std::string &vn);
     L4PortBitmap* GetVnUvePortBitmap(const std::string &vn);
     UveVirtualNetworkAgent* VnUveObject(const std::string &vn);
-
+    const UveVirtualNetworkAgent &last_sent_uve() const { return uve_; }
+    void SendVnStatsMsg_Test(const VnEntry *vn, bool only_vrf_stats);
 private:
     virtual VnUveEntryPtr Allocate(const VnEntry *vn);
     virtual VnUveEntryPtr Allocate();
 
     uint32_t send_count_;
     uint32_t delete_count_;
+    UveVirtualNetworkAgent uve_;
     DISALLOW_COPY_AND_ASSIGN(VnUveTableTest);
 };
 

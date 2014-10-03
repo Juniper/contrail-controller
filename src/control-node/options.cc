@@ -39,7 +39,7 @@ bool Options::Parse(EventManager &evm, int argc, char *argv[]) {
 
 // Initialize control-node's command line option tags with appropriate default
 // values. Options can from a config file as well. By default, we read
-// options from /etc/contrail/control-node.conf
+// options from /etc/contrail/contrail-control.conf
 void Options::Initialize(EventManager &evm,
                          opt::options_description &cmdline_options) {
     boost::system::error_code error;
@@ -51,16 +51,16 @@ void Options::Initialize(EventManager &evm,
     // Command line only options.
     generic.add_options()
         ("conf_file", opt::value<string>()->default_value(
-                                            "/etc/contrail/control-node.conf"),
+                                            "/etc/contrail/contrail-control.conf"),
              "Configuration file")
          ("help", "help message")
         ("version", "Display version information")
     ;
 
-    uint16_t default_bgp_port = ContrailPorts::ControlBgp;
-    uint16_t default_http_server_port = ContrailPorts::HttpPortControl;
-    uint16_t default_xmpp_port = ContrailPorts::ControlXmpp;
-    uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort;
+    uint16_t default_bgp_port = ContrailPorts::ControlBgp();
+    uint16_t default_http_server_port = ContrailPorts::HttpPortControl();
+    uint16_t default_xmpp_port = ContrailPorts::ControlXmpp();
+    uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
 
     default_collector_server_list_.push_back("127.0.0.1:8086");
 
@@ -103,6 +103,10 @@ void Options::Initialize(EventManager &evm,
              "Severity level for local logging of sandesh messages")
         ("DEFAULT.log_local", opt::bool_switch(&log_local_),
              "Enable local logging of sandesh messages")
+        ("DEFAULT.use_syslog", opt::bool_switch(&use_syslog_),
+             "Enable logging to syslog")
+        ("DEFAULT.syslog_facility", opt::value<string>()->default_value("LOG_LOCAL0"),
+             "Syslog facility to receive log lines")
         ("DEFAULT.test_mode", opt::bool_switch(&test_mode_),
              "Enable control-node to run in test-mode")
 
@@ -135,10 +139,36 @@ void Options::Initialize(EventManager &evm,
 template <typename ValueType>
 void Options::GetOptValue(const boost::program_options::variables_map &var_map,
                           ValueType &var, std::string val) {
+    GetOptValueImpl(var_map, var, val, static_cast<ValueType *>(0));
+}
 
+template <typename ValueType>
+void Options::GetOptValueImpl(
+    const boost::program_options::variables_map &var_map,
+    ValueType &var, std::string val, ValueType*) {
     // Check if the value is present.
     if (var_map.count(val)) {
         var = var_map[val].as<ValueType>();
+    }
+}
+
+template <typename ElementType>
+void Options::GetOptValueImpl(
+    const boost::program_options::variables_map &var_map,
+    std::vector<ElementType> &var, std::string val, std::vector<ElementType>*) {
+    // Check if the value is present.
+    if (var_map.count(val)) {
+        std::vector<ElementType> tmp(
+            var_map[val].as<std::vector<ElementType> >());
+        // Now split the individual elements
+        for (typename std::vector<ElementType>::const_iterator it = 
+                 tmp.begin();
+             it != tmp.end(); it++) {
+            std::stringstream ss(*it);
+            std::copy(istream_iterator<ElementType>(ss),
+                istream_iterator<ElementType>(),
+                std::back_inserter(var));
+        }
     }
 }
 
@@ -207,6 +237,8 @@ bool Options::Process(int argc, char *argv[],
     GetOptValue<int>(var_map, log_files_count_, "DEFAULT.log_files_count");
     GetOptValue<long>(var_map, log_file_size_, "DEFAULT.log_file_size");
     GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");
+    GetOptValue<bool>(var_map, use_syslog_, "DEFAULT.use_syslog");
+    GetOptValue<string>(var_map, syslog_facility_, "DEFAULT.syslog_facility");
     GetOptValue<uint16_t>(var_map, xmpp_port_, "DEFAULT.xmpp_server_port");
 
     GetOptValue<uint16_t>(var_map, discovery_port_, "DISCOVERY.port");

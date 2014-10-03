@@ -1,0 +1,57 @@
+#
+# Copyright (c) 2014 CodiLime, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+import os
+import sys
+
+env = BuildEnv.Clone()
+
+env.Append(CPPPATH = [env['TOP'],
+                      env['TOP'] + '/base',
+                      env['TOP'] + '/io',
+                      env['TOP'] + '/bfd',
+                     ])
+
+env.Append(LIBPATH = env['TOP'] + '/base')
+env.Append(LIBPATH = env['TOP'] + '/base/test')
+env.Append(LIBPATH = env['TOP'] + '/io')
+env.Append(LIBPATH = env['TOP'] + '/bfd')
+env.Append(LIBPATH = env['TOP'] + '/bfd/rest_api')
+
+env.Prepend(LIBS = ['bfd_rest_api', 'bfd', 'gunit', 'task_test', 'io', 'sandesh', 'io', 'sandeshvns', 'base', 'http', 'httpc',
+                    'http_parser', 'curl', 'pugixml', 'boost_program_options', 'boost_thread', 'boost_regex', 'connection_info',
+                    'process_info'])
+
+if sys.platform != 'darwin':
+    env.Append(LIBS=['rt'])
+
+except_env = env.Clone()
+cflags = except_env['CCFLAGS']
+if '-fno-exceptions' in cflags:
+    cflags.remove('-fno-exceptions')
+except_env.Replace(CCFLAGS = cflags)
+
+config_test_env = env.Clone()
+
+bfd_json_config_test = env.UnitTest('bfd_json_config_test',
+                            ['bfd_json_config_test.cc'])
+env.Alias('src/bfd:bfd_json_config_test', bfd_json_config_test)
+
+bfd_config_test = env.UnitTest('bfd_config_test',
+                            ['bfd_config_test.cc'])
+env.Alias('src/bfd:bfd_config_test', bfd_config_test)
+
+# All Tests
+test_suite = [
+    bfd_json_config_test,
+    bfd_config_test
+]
+
+test = env.TestSuite('bfd-http-test', test_suite)
+env.Alias('src/bfd:test_http', test)
+
+Return('test_suite')

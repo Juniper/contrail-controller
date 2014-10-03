@@ -1,0 +1,1654 @@
+<?xml version="1.0"?>
+<ns3:Envelope xmlns:ns2="http://www.trustedcomputinggroup.org/2010/IFMAP/2" xmlns:ns3="http://www.w3.org/2003/05/soap-envelope">
+	<ns3:Body>
+		<ns2:response>
+			<pollResult>
+				<searchResult name="root">
+					<resultItem>
+						<identity name="contrail:route-target:target:64512:40" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:54:16-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>12916900405300187083</uuid-mslong>
+									<uuid-lslong>11008620990477039659</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-machine:vm_with_a_name3" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T03:01:06-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>10657595311160051973</uuid-mslong>
+									<uuid-lslong>11849690325284297516</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:domain:default-domain" type="other" other-type-definition="extended" />
+						<identity name="contrail:project:default-domain:admin" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:domain-project xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:network-ipam:default-domain:service:default-network-ipam" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>10773397502855958453</uuid-mslong>
+									<uuid-lslong>9530056180271304140</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-machine-interface:vm_with_a_name2:100698e8-dc7a-4bf3-bebe-3fff718bf3c9" type="other" other-type-definition="extended" />
+						<identity name="contrail:virtual-network:default-domain:demo:vn27" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:virtual-machine-interface-virtual-network xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:55:41-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:admin" type="other" other-type-definition="extended" />
+						<identity name="contrail:network-ipam:default-domain:admin:default-network-ipam" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:project-network-ipam xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:instance-ip:c6c8dc7f-b9ef-453b-8c24-c3f7bf7355cd" type="other" other-type-definition="extended" />
+						<identity name="contrail:virtual-network:default-domain:demo:vn27" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:instance-ip-virtual-network xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T03:01:06-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:default-project" type="other" other-type-definition="extended" />
+						<identity name="contrail:virtual-network:default-domain:default-project:ip-fabric" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:project-virtual-network xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:routing-instance:default-domain:default-project:ip-fabric:__default__" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>3490423571467288827</uuid-mslong>
+									<uuid-lslong>9862012154474536558</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:network-policy:default-domain:default-project:default-network-policy" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>4999470937679286247</uuid-mslong>
+									<uuid-lslong>11928466511279787886</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:routing-instance:default-domain:demo:default-virtual-network:default-virtual-network" type="other" other-type-definition="extended" />
+						<identity name="contrail:route-target:target:64512:35" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:instance-target xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:44:13-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:domain:default-domain" type="other" other-type-definition="extended" />
+						<identity name="contrail:namespace:default-domain:default-namespace" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:domain-namespace xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-machine:vm_with_a_name1" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T03:00:25-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>3256248227819900421</uuid-mslong>
+									<uuid-lslong>12615962661188075799</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:service" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>3410923664090744001</uuid-mslong>
+									<uuid-lslong>12846637264689678534</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:invisible_to_admin" type="other" other-type-definition="extended" />
+						<identity name="contrail:security-group:default-domain:invisible_to_admin:default-security-group" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:project-security-group xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:config-root:root" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:42-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-network:default-domain:demo:vn28" type="other" other-type-definition="extended" />
+						<identity name="contrail:network-ipam:default-domain:demo:default-network-ipam" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:virtual-network-network-ipam xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:54:40-07:00">
+								<ipam-subnets>
+									<subnet>
+										<ip-prefix>28.1.1.0</ip-prefix>
+										<ip-prefix-len>24</ip-prefix-len>
+									</subnet>
+									<default-gateway>28.1.1.254</default-gateway>
+								</ipam-subnets>
+							</contrail:virtual-network-network-ipam>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:network-policy:default-domain:admin:default-network-policy" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>6977341815775380719</uuid-mslong>
+									<uuid-lslong>11579960985954541710</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:routing-instance:default-domain:demo:vn28:vn28" type="other" other-type-definition="extended" />
+						<identity name="contrail:route-target:target:64512:41" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:instance-target xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:54:39-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:default-project" type="other" other-type-definition="extended" />
+						<identity name="contrail:virtual-network:default-domain:default-project:default-virtual-network" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:project-virtual-network xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-network:default-domain:demo:vn27" type="other" other-type-definition="extended" />
+						<identity name="contrail:network-ipam:default-domain:demo:default-network-ipam" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:virtual-network-network-ipam xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:54:17-07:00">
+								<ipam-subnets>
+									<subnet>
+										<ip-prefix>27.1.1.0</ip-prefix>
+										<ip-prefix-len>24</ip-prefix-len>
+									</subnet>
+									<default-gateway>27.1.1.254</default-gateway>
+								</ipam-subnets>
+							</contrail:virtual-network-network-ipam>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-network:default-domain:service:default-virtual-network" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>7557513008399993552</uuid-mslong>
+									<uuid-lslong>10239384680913573302</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:routing-instance:default-domain:default-project:default-virtual-network:default-virtual-network" type="other" other-type-definition="extended" />
+						<identity name="contrail:route-target:target:64512:37" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:instance-target xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:44:13-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:default-project" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>9052852508576596034</uuid-mslong>
+									<uuid-lslong>10168280895321008378</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:default-project" type="other" other-type-definition="extended" />
+						<identity name="contrail:network-ipam:default-domain:default-project:default-network-ipam" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:project-network-ipam xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:security-group:default-domain:demo:default-security-group" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>2411166514909956535</uuid-mslong>
+									<uuid-lslong>12118050091185166467</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:domain:default-domain" type="other" other-type-definition="extended" />
+						<identity name="contrail:project:default-domain:default-project" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:domain-project xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:routing-instance:default-domain:demo:vn28:vn28" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:54:39-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>9721264665378376976</uuid-mslong>
+									<uuid-lslong>13671311108759700661</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:instance-ip:c6c8dc7f-b9ef-453b-8c24-c3f7bf7355cd" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:instance-ip-address xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T03:01:06-07:00">27.1.1.251</contrail:instance-ip-address>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T03:01:06-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>14323941055990285627</uuid-mslong>
+									<uuid-lslong>10098411733307839949</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-network:default-domain:admin:default-virtual-network" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>16494708408294722744</uuid-mslong>
+									<uuid-lslong>13092473386219609458</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:config-root:root" type="other" other-type-definition="extended" />
+						<identity name="contrail:domain:default-domain" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:config-root-domain xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:invisible_to_admin" type="other" other-type-definition="extended" />
+						<identity name="contrail:virtual-network:default-domain:invisible_to_admin:default-virtual-network" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:project-virtual-network xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:demo" type="other" other-type-definition="extended" />
+						<identity name="contrail:virtual-network:default-domain:demo:vn28" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:project-virtual-network xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:54:40-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:invisible_to_admin" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>1569253260884263417</uuid-mslong>
+									<uuid-lslong>10063141118748943495</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-machine:vm_with_a_name2" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:55:41-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>4886553666083113503</uuid-mslong>
+									<uuid-lslong>10105342759908109962</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:security-group:default-domain:service:default-security-group" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>6804043923060246398</uuid-mslong>
+									<uuid-lslong>11821584480024606717</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:service" type="other" other-type-definition="extended" />
+						<identity name="contrail:virtual-network:default-domain:service:default-virtual-network" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:project-virtual-network xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-network:default-domain:demo:vn27" type="other" other-type-definition="extended" />
+						<identity name="contrail:routing-instance:default-domain:demo:vn27:vn27" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:virtual-network-routing-instance xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:54:16-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:instance-ip:c6c8dc7f-b9ef-453b-8c24-c3f7bf7355cd" type="other" other-type-definition="extended" />
+						<identity name="contrail:virtual-machine-interface:vm_with_a_name3:c4287577-b6af-4cca-a21d-6470a08af68a" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:instance-ip-virtual-machine-interface xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T03:01:06-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:service" type="other" other-type-definition="extended" />
+						<identity name="contrail:network-policy:default-domain:service:default-network-policy" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:project-network-policy xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:route-target:target:64512:39" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:44:13-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>5938017940557418271</uuid-mslong>
+									<uuid-lslong>10611843128290696114</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:domain:default-domain" type="other" other-type-definition="extended" />
+						<identity name="contrail:project:default-domain:demo" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:domain-project xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:network-ipam:default-domain:invisible_to_admin:default-network-ipam" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>16291547730521181775</uuid-mslong>
+									<uuid-lslong>12005217503293354954</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:network-ipam:default-domain:demo:default-network-ipam" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>4728619378538137503</uuid-mslong>
+									<uuid-lslong>9278299716194100204</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:instance-ip:52abcdf0-cbbd-4554-8391-c376b9aeba2e" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:instance-ip-address xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T03:00:25-07:00">27.1.1.252</contrail:instance-ip-address>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T03:00:25-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>5957081366221636948</uuid-mslong>
+									<uuid-lslong>9480573605280397870</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:config-root:root" type="other" other-type-definition="extended" />
+						<identity name="contrail:global-system-config:default-global-system-config" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:config-root-global-system-config xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-network:default-domain:default-project:ip-fabric" type="other" other-type-definition="extended" />
+						<identity name="contrail:routing-instance:default-domain:default-project:ip-fabric:__default__" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:virtual-network-routing-instance xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-network:default-domain:admin:default-virtual-network" type="other" other-type-definition="extended" />
+						<identity name="contrail:routing-instance:default-domain:admin:default-virtual-network:default-virtual-network" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:virtual-network-routing-instance xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:44:13-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-machine-interface:vm_with_a_name1:ef1e9828-05b6-44a2-a410-d1b662594fc3" type="other" other-type-definition="extended" />
+						<identity name="contrail:virtual-network:default-domain:demo:vn27" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:virtual-machine-interface-virtual-network xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T03:00:25-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:route-target:target:64512:38" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:44:13-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>13209388968954118330</uuid-mslong>
+									<uuid-lslong>10109914120581689505</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:routing-instance:default-domain:admin:default-virtual-network:default-virtual-network" type="other" other-type-definition="extended" />
+						<identity name="contrail:route-target:target:64512:36" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:instance-target xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:44:13-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:service" type="other" other-type-definition="extended" />
+						<identity name="contrail:network-ipam:default-domain:service:default-network-ipam" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:project-network-ipam xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:network-policy:default-domain:invisible_to_admin:default-network-policy" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>346855943459586900</uuid-mslong>
+									<uuid-lslong>9226483642436045938</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:domain:default-domain" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>1980026002413535473</uuid-mslong>
+									<uuid-lslong>9903434051029218606</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:admin" type="other" other-type-definition="extended" />
+						<identity name="contrail:network-policy:default-domain:admin:default-network-policy" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:project-network-policy xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-network:default-domain:default-project:default-virtual-network" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>13181424632493330148</uuid-mslong>
+									<uuid-lslong>11756322807291456362</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:instance-ip:52abcdf0-cbbd-4554-8391-c376b9aeba2e" type="other" other-type-definition="extended" />
+						<identity name="contrail:virtual-machine-interface:vm_with_a_name1:ef1e9828-05b6-44a2-a410-d1b662594fc3" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:instance-ip-virtual-machine-interface xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T03:00:26-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:route-target:target:64512:37" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:44:13-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>8297442640085470120</uuid-mslong>
+									<uuid-lslong>9837877457815790123</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:instance-ip:6bf45021-4898-4feb-9de4-7c19544b4993" type="other" other-type-definition="extended" />
+						<identity name="contrail:virtual-machine-interface:vm_with_a_name2:100698e8-dc7a-4bf3-bebe-3fff718bf3c9" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:instance-ip-virtual-machine-interface xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:55:42-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-network:default-domain:default-project:default-virtual-network" type="other" other-type-definition="extended" />
+						<identity name="contrail:routing-instance:default-domain:default-project:default-virtual-network:default-virtual-network" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:virtual-network-routing-instance xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:44:13-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-network:default-domain:demo:vn28" type="other" other-type-definition="extended" />
+						<identity name="contrail:routing-instance:default-domain:demo:vn28:vn28" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:virtual-network-routing-instance xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:54:39-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:routing-instance:default-domain:invisible_to_admin:default-virtual-network:default-virtual-network" type="other" other-type-definition="extended" />
+						<identity name="contrail:route-target:target:64512:38" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:instance-target xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:44:13-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:domain:default-domain" type="other" other-type-definition="extended" />
+						<identity name="contrail:project:default-domain:service" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:domain-project xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:security-group:default-domain:admin:default-security-group" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>13719663635505562038</uuid-mslong>
+									<uuid-lslong>10157389253084919371</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:default-project" type="other" other-type-definition="extended" />
+						<identity name="contrail:network-policy:default-domain:default-project:default-network-policy" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:project-network-policy xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:demo" type="other" other-type-definition="extended" />
+						<identity name="contrail:virtual-network:default-domain:demo:default-virtual-network" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:project-virtual-network xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:demo" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>17172857447645659563</uuid-mslong>
+									<uuid-lslong>13236129150061081599</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:routing-instance:default-domain:demo:vn27:vn27" type="other" other-type-definition="extended" />
+						<identity name="contrail:route-target:target:64512:40" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:instance-target xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:54:16-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:admin" type="other" other-type-definition="extended" />
+						<identity name="contrail:security-group:default-domain:admin:default-security-group" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:project-security-group xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:admin" type="other" other-type-definition="extended" />
+						<identity name="contrail:virtual-network:default-domain:admin:default-virtual-network" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:project-virtual-network xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:demo" type="other" other-type-definition="extended" />
+						<identity name="contrail:virtual-network:default-domain:demo:vn27" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:project-virtual-network xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:54:17-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:global-system-config:default-global-system-config" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:autonomous-system xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">64512</contrail:autonomous-system>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>1079667397199020369</uuid-mslong>
+									<uuid-lslong>11783474986262425118</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:routing-instance:default-domain:demo:vn27:vn27" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:54:16-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>17716094688876316488</uuid-mslong>
+									<uuid-lslong>11193000057528352649</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:demo" type="other" other-type-definition="extended" />
+						<identity name="contrail:security-group:default-domain:demo:default-security-group" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:project-security-group xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-machine-interface:vm_with_a_name3:c4287577-b6af-4cca-a21d-6470a08af68a" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:virtual-machine-interface-mac-addresses xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T03:01:06-07:00">
+								<mac-address>02:c4:28:75:77:b6</mac-address>
+							</contrail:virtual-machine-interface-mac-addresses>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T03:01:06-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>14134676587528801482</uuid-mslong>
+									<uuid-lslong>11681603443361511050</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-machine-interface:vm_with_a_name1:ef1e9828-05b6-44a2-a410-d1b662594fc3" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:virtual-machine-interface-mac-addresses xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T03:00:25-07:00">
+								<mac-address>02:ef:1e:98:28:05</mac-address>
+							</contrail:virtual-machine-interface-mac-addresses>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T03:00:25-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>17230376522028041378</uuid-mslong>
+									<uuid-lslong>11822179603111825347</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:route-target:target:64512:41" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:54:39-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>11504075932689319457</uuid-mslong>
+									<uuid-lslong>12587911400881485576</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:routing-instance:default-domain:service:default-virtual-network:default-virtual-network" type="other" other-type-definition="extended" />
+						<identity name="contrail:route-target:target:64512:39" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:instance-target xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:44:13-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:instance-ip:6bf45021-4898-4feb-9de4-7c19544b4993" type="other" other-type-definition="extended" />
+						<identity name="contrail:virtual-network:default-domain:demo:vn27" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:instance-ip-virtual-network xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:55:42-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:domain:default-domain" type="other" other-type-definition="extended" />
+						<identity name="contrail:project:default-domain:invisible_to_admin" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:domain-project xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-network:default-domain:service:default-virtual-network" type="other" other-type-definition="extended" />
+						<identity name="contrail:routing-instance:default-domain:service:default-virtual-network:default-virtual-network" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:virtual-network-routing-instance xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:44:13-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-network:default-domain:invisible_to_admin:default-virtual-network" type="other" other-type-definition="extended" />
+						<identity name="contrail:routing-instance:default-domain:invisible_to_admin:default-virtual-network:default-virtual-network" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:virtual-network-routing-instance xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:44:13-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:default-project" type="other" other-type-definition="extended" />
+						<identity name="contrail:security-group:default-domain:default-project:default-security-group" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:project-security-group xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-network:default-domain:demo:default-virtual-network" type="other" other-type-definition="extended" />
+						<identity name="contrail:routing-instance:default-domain:demo:default-virtual-network:default-virtual-network" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:virtual-network-routing-instance xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:44:13-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:instance-ip:6bf45021-4898-4feb-9de4-7c19544b4993" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:instance-ip-address xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:55:42-07:00">27.1.1.253</contrail:instance-ip-address>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:55:42-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>7778930560257773547</uuid-mslong>
+									<uuid-lslong>11377355006874962323</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-network:default-domain:invisible_to_admin:default-virtual-network" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>12970291049575170633</uuid-mslong>
+									<uuid-lslong>9351235559049583465</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:namespace:default-domain:default-namespace" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>11136120217576227354</uuid-mslong>
+									<uuid-lslong>13165121916763745731</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:service" type="other" other-type-definition="extended" />
+						<identity name="contrail:security-group:default-domain:service:default-security-group" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:project-security-group xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:global-system-config:default-global-system-config" type="other" other-type-definition="extended" />
+						<identity name="contrail:virtual-router:default-global-system-config:a1s27.contrail.juniper.net" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:global-system-config-virtual-router xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T03:01:06-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:routing-instance:default-domain:service:default-virtual-network:default-virtual-network" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:44:13-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>9045143534961575729</uuid-mslong>
+									<uuid-lslong>11522483110738166783</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:routing-instance:default-domain:demo:default-virtual-network:default-virtual-network" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:44:13-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>12532053756888565651</uuid-mslong>
+									<uuid-lslong>10151532162572842982</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:routing-instance:default-domain:admin:default-virtual-network:default-virtual-network" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:44:13-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>5861641326441023292</uuid-mslong>
+									<uuid-lslong>9518369309273493218</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-machine-interface:vm_with_a_name2:100698e8-dc7a-4bf3-bebe-3fff718bf3c9" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:virtual-machine-interface-mac-addresses xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:55:41-07:00">
+								<mac-address>02:10:06:98:e8:dc</mac-address>
+							</contrail:virtual-machine-interface-mac-addresses>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:55:41-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>1154778480365947891</uuid-mslong>
+									<uuid-lslong>13744493479135540169</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:network-ipam:default-domain:default-project:default-network-ipam" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>5701203722180837752</uuid-mslong>
+									<uuid-lslong>13090542530136043056</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-network:default-domain:default-project:ip-fabric" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>13049817929104180821</uuid-mslong>
+									<uuid-lslong>10815502387566658075</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:admin" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>14304778765039651555</uuid-mslong>
+									<uuid-lslong>9480258480438733182</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:security-group:default-domain:invisible_to_admin:default-security-group" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>6211371084572147764</uuid-mslong>
+									<uuid-lslong>10205399996800608411</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:routing-instance:default-domain:invisible_to_admin:default-virtual-network:default-virtual-network" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:44:13-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>13954895599632269782</uuid-mslong>
+									<uuid-lslong>13671749406892056044</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:invisible_to_admin" type="other" other-type-definition="extended" />
+						<identity name="contrail:network-ipam:default-domain:invisible_to_admin:default-network-ipam" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:project-network-ipam xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:security-group:default-domain:default-project:default-security-group" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>8774146405939695112</uuid-mslong>
+									<uuid-lslong>10388440970182185410</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:route-target:target:64512:35" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:44:13-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>15244929469810753625</uuid-mslong>
+									<uuid-lslong>11856081021943607978</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:demo" type="other" other-type-definition="extended" />
+						<identity name="contrail:network-policy:default-domain:demo:default-network-policy" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:project-network-policy xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-machine:vm_with_a_name1" type="other" other-type-definition="extended" />
+						<identity name="contrail:virtual-machine-interface:vm_with_a_name1:ef1e9828-05b6-44a2-a410-d1b662594fc3" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:virtual-machine-virtual-machine-interface xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T03:00:25-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:network-policy:default-domain:demo:default-network-policy" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:44-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>8909710740181894640</uuid-mslong>
+									<uuid-lslong>11751240779450138291</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:network-policy:default-domain:service:default-network-policy" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>14540370249673229186</uuid-mslong>
+									<uuid-lslong>9841883139337968317</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:routing-instance:default-domain:default-project:default-virtual-network:default-virtual-network" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:44:13-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>12994221679576695349</uuid-mslong>
+									<uuid-lslong>11112055742744429260</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-network:default-domain:demo:vn28" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:54:40-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>16847051688484359699</uuid-mslong>
+									<uuid-lslong>10479236741767907529</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:demo" type="other" other-type-definition="extended" />
+						<identity name="contrail:network-ipam:default-domain:demo:default-network-ipam" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:project-network-ipam xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-machine-interface:vm_with_a_name3:c4287577-b6af-4cca-a21d-6470a08af68a" type="other" other-type-definition="extended" />
+						<identity name="contrail:virtual-network:default-domain:demo:vn27" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:virtual-machine-interface-virtual-network xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T03:01:06-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-network:default-domain:demo:vn27" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:54:17-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>3581783077679746946</uuid-mslong>
+									<uuid-lslong>12855682262450960435</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-router:default-global-system-config:a1s27.contrail.juniper.net" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T03:01:06-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>2904240995427634571</uuid-mslong>
+									<uuid-lslong>11262735921732439366</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:instance-ip:52abcdf0-cbbd-4554-8391-c376b9aeba2e" type="other" other-type-definition="extended" />
+						<identity name="contrail:virtual-network:default-domain:demo:vn27" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:instance-ip-virtual-network xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T03:00:26-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:project:default-domain:invisible_to_admin" type="other" other-type-definition="extended" />
+						<identity name="contrail:network-policy:default-domain:invisible_to_admin:default-network-policy" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:project-network-policy xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-machine:vm_with_a_name2" type="other" other-type-definition="extended" />
+						<identity name="contrail:virtual-machine-interface:vm_with_a_name2:100698e8-dc7a-4bf3-bebe-3fff718bf3c9" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:virtual-machine-virtual-machine-interface xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:55:41-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:route-target:target:64512:36" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:44:13-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>1283158112719423007</uuid-mslong>
+									<uuid-lslong>10317787598353506516</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-machine:vm_with_a_name3" type="other" other-type-definition="extended" />
+						<identity name="contrail:virtual-machine-interface:vm_with_a_name3:c4287577-b6af-4cca-a21d-6470a08af68a" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:virtual-machine-virtual-machine-interface xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T03:01:06-07:00" />
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:network-ipam:default-domain:admin:default-network-ipam" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>8222075050447491018</uuid-mslong>
+									<uuid-lslong>13195692326108520219</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+					<resultItem>
+						<identity name="contrail:virtual-network:default-domain:demo:default-virtual-network" type="other" other-type-definition="extended" />
+						<metadata>
+							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:43-07:00">
+								<permissions>
+									<owner>cloud-admin</owner>
+									<owner-access>7</owner-access>
+									<group>cloud-admin-group</group>
+									<group-access>7</group-access>
+									<other-access>7</other-access>
+								</permissions>
+								<uuid>
+									<uuid-mslong>1418278011054935950</uuid-mslong>
+									<uuid-lslong>13298726339278977930</uuid-lslong>
+								</uuid>
+								<enable>true</enable>
+								<created />
+								<last-modified />
+							</contrail:id-perms>
+						</metadata>
+					</resultItem>
+				</searchResult>
+			</pollResult>
+		</ns2:response>
+	</ns3:Body>
+</ns3:Envelope>

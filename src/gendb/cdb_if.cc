@@ -4,6 +4,7 @@
 
 #include <boost/bind.hpp>
 #include <boost/assign/list_of.hpp>
+#include <boost/pointer_cast.hpp>
 
 #include <base/parse_object.h>
 #include <sandesh/sandesh_constants.h>
@@ -586,7 +587,7 @@ public:
         }
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         cdbif_->cdbq_.reset(new CdbIfQueue(
-            scheduler->GetTaskId(task_id_), task_instance_,
+            scheduler->GetTaskId(task_id_), cdbif_->task_instance_,
             boost::bind(&CdbIf::Db_AsyncAddColumn, cdbif_, _1)));
         cdbif_->cdbq_->SetStartRunnerFunc(
             boost::bind(&CdbIf::Db_IsInitDone, cdbif_));
@@ -609,9 +610,10 @@ private:
 };
 
 CdbIf::CdbIf(DbErrorHandler errhandler,
-        std::string cassandra_ip, unsigned short cassandra_port, int ttl,
+        const std::vector<std::string> &cassandra_ips,
+        const std::vector<int> &cassandra_ports, int ttl,
         std::string name, bool only_sync) :
-    socket_(new TSocket(cassandra_ip, cassandra_port)),
+    socket_(new TSocketPool(cassandra_ips, cassandra_ports)),
     transport_(new TFramedTransport(socket_)),
     protocol_(new TBinaryProtocol(transport_)),
     client_(new CassandraClient(protocol_)),
@@ -622,6 +624,7 @@ CdbIf::CdbIf(DbErrorHandler errhandler,
     cassandra_ttl_(ttl),
     only_sync_(only_sync),
     task_instance_(-1),
+    prev_task_instance_(-1),
     task_instance_initialized_(false) {
     db_init_done_ = false;
 }
@@ -632,6 +635,7 @@ CdbIf::CdbIf() :
     cassandra_ttl_(-1), 
     only_sync_(false), 
     task_instance_(-1),
+    prev_task_instance_(-1),
     task_instance_initialized_(false) {
     db_init_done_ = false;
 }
@@ -660,7 +664,7 @@ void CdbIf::Db_SetInitDone(bool init_done) {
     db_init_done_ = init_done;
 }
 
-bool CdbIf::Db_Init(std::string task_id, int task_instance) {
+bool CdbIf::Db_Init(const std::string& task_id, int task_instance) {
     std::ostringstream ostr;
     ostr << task_id << ":" << task_instance;
     std::string errstr(ostr.str());
@@ -680,15 +684,23 @@ bool CdbIf::Db_Init(std::string task_id, int task_instance) {
         // Start init task with previous task instance to ensure
         // task exclusion with dequeue and exit callback task
         // when calling shutdown
-        init_task_ = new InitTask(task_id, task_instance_, this);
+        prev_task_instance_ = task_instance_;
+        task_instance_ = task_instance;
+        init_task_ = new InitTask(task_id, prev_task_instance_, this);
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         scheduler->Enqueue(init_task_);
+        CDBIF_LOG(INFO, "Initialization Task Created: " <<
+            prev_task_instance_ << " -> " << task_instance_);
+    } else {
+        prev_task_instance_ = task_instance_;
+        task_instance_ = task_instance;
+        CDBIF_LOG(INFO, "Initialization Task Present: " <<
+            prev_task_instance_ << " -> " << task_instance_);
     }
-    task_instance_ = task_instance;
     return true;
 }
 
-void CdbIf::Db_Uninit(std::string task_id, int task_instance) {
+void CdbIf::Db_UninitUnlocked(const std::string& task_id, int task_instance) {
     std::ostringstream ostr;
     ostr << task_id << ":" << task_instance;
     std::string errstr(ostr.str());
@@ -698,12 +710,28 @@ void CdbIf::Db_Uninit(std::string task_id, int task_instance) {
     if (only_sync_) {
         return;
     }
-    tbb::mutex::scoped_lock lock(cdbq_mutex_);
     if (!cleanup_task_) {
         cleanup_task_ = new CleanupTask(task_id, task_instance, this);
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         scheduler->Enqueue(cleanup_task_);
     }
+}
+
+void CdbIf::Db_Uninit(const std::string& task_id, int task_instance) {
+    tbb::mutex::scoped_lock lock(cdbq_mutex_);
+    Db_UninitUnlocked(task_id, task_instance);
+}
+
+std::string CdbIf::Db_GetHost() const {
+    boost::shared_ptr<TSocket> tsocket = 
+        boost::dynamic_pointer_cast<TSocket>(socket_);
+    return tsocket->getHost();
+}
+
+int CdbIf::Db_GetPort() const {
+    boost::shared_ptr<TSocket> tsocket = 
+        boost::dynamic_pointer_cast<TSocket>(socket_);
+    return tsocket->getPort();
 }
 
 void CdbIf::Db_SetQueueWaterMarkInternal(CdbIfQueue *queue,
@@ -728,6 +756,7 @@ void CdbIf::Db_SetQueueWaterMark(bool high, size_t queue_count,
                                  DbQueueWaterMarkCb cb) {
     DbQueueWaterMarkInfo wm(high, queue_count, cb);
     cdbq_wm_info_.push_back(wm);
+    tbb::mutex::scoped_lock lock(cdbq_mutex_);
     if (cdbq_.get() == NULL) {
         return;
     }
@@ -736,6 +765,7 @@ void CdbIf::Db_SetQueueWaterMark(bool high, size_t queue_count,
 
 void CdbIf::Db_ResetQueueWaterMarks() {
     cdbq_wm_info_.clear();
+    tbb::mutex::scoped_lock lock(cdbq_mutex_);
     if (cdbq_.get() != NULL) {
         cdbq_->ResetHighWaterMark();
         cdbq_->ResetLowWaterMark();
@@ -1304,6 +1334,7 @@ void CdbIf::Db_BatchAddColumn(bool done) {
 }
 
 bool CdbIf::Db_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
+    tbb::mutex::scoped_lock lock(cdbq_mutex_);
     if (!Db_IsInitDone() || !cdbq_.get()) {
         UpdateCfWriteFailStats(cl->cfname_);
         return false;

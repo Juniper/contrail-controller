@@ -12,7 +12,8 @@
 
 import sys
 builddir = sys.path[0] + '/../..'
-
+import threading
+threading._DummyThread._Thread__stop = lambda x: 42
 import signal
 import gevent
 from gevent import monkey
@@ -135,6 +136,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_message_table_where_or()
         assert vizd_obj.verify_message_table_where_and()
         assert vizd_obj.verify_message_table_filter()
+        assert vizd_obj.verify_message_table_filter2()
         assert vizd_obj.verify_message_table_sort()
         return True
     # end test_02_message_table_query
@@ -267,6 +269,12 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         exp_genlist = ['Collector']
         assert vizd_obj.verify_generator_list(vizd_obj.collectors[0],
                                               exp_genlist)
+        # verify that the old UVEs are flushed from redis when collector restarts
+        exp_genlist = [vizd_obj.collectors[0].get_generator_id()]
+        assert vizd_obj.verify_generator_list_in_redis(\
+                                vizd_obj.collectors[0].get_redis_uve(),
+                                exp_genlist)
+
         # stop collectors[1] and verify that OpServer and QE switch 
         # from secondary to primary and VRouterAgent from primary to
         # secondary
@@ -274,12 +282,29 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         exp_genlist = ['Collector', 'VRouterAgent', 'OpServer', 'QueryEngine']
         assert vizd_obj.verify_generator_list(vizd_obj.collectors[0],
                                               exp_genlist)
+        # verify the generator list in redis
+        exp_genlist = [vizd_obj.collectors[0].get_generator_id(),
+                       vr_agent.get_generator_id(),
+                       vizd_obj.opserver.get_generator_id(),
+                       vizd_obj.query_engine.get_generator_id()]
+        assert vizd_obj.verify_generator_list_in_redis(\
+                                vizd_obj.collectors[0].get_redis_uve(),
+                                exp_genlist)
+
         # stop Opserver and QE 
         vizd_obj.opserver.stop()
         vizd_obj.query_engine.stop()
         exp_genlist = ['Collector', 'VRouterAgent']
         assert vizd_obj.verify_generator_list(vizd_obj.collectors[0],
                                               exp_genlist)
+
+        # verify the generator list in redis
+        exp_genlist = [vizd_obj.collectors[0].get_generator_id(),
+                       vr_agent.get_generator_id()]
+        assert vizd_obj.verify_generator_list_in_redis(\
+                                vizd_obj.collectors[0].get_redis_uve(),
+                                exp_genlist)
+
         # start Opserver and QE with collectors[1] as the primary and
         # collectors[0] as the secondary. On generator startup, verify 
         # that it connects to the secondary collector, if the 
@@ -548,6 +573,43 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_collector_obj_count()
         assert vizd_obj.verify_object_table_query()
     # end test_12_verify_object_table_query
+
+    #@unittest.skip('verify ObjectTable query')
+    def test_13_verify_syslog_table_query(self):
+        '''
+        This test verifies the Syslog query.
+        '''
+        import logging.handlers
+        logging.info('*** test_13_verify_syslog_table_query ***')
+
+        if AnalyticsTest._check_skip_test() is True:
+            return True
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging,
+                             builddir,
+                             self.__class__.cassandra_port))
+        assert vizd_obj.verify_on_setup()
+        syslogger = logging.getLogger("SYSLOGER")
+        lh = logging.handlers.SysLogHandler(address=('127.0.0.1',
+                    vizd_obj.collectors[0].get_syslog_port()))
+        lh.setFormatter(logging.Formatter('%(asctime)s %(name)s:%(message)s',
+                    datefmt='%b %d %H:%M:%S'))
+        lh.setLevel(logging.INFO)
+        syslogger.addHandler(lh)
+        line = 'pizza pasta babaghanoush'
+        syslogger.critical(line)
+        assert vizd_obj.verify_keyword_query(line, ['pasta', 'pizza'])
+        assert vizd_obj.verify_keyword_query(line, ['babaghanoush'])
+        # SYSTEMLOG
+        assert vizd_obj.verify_keyword_query(line, ['PROGRESS', 'QueryExec'])
+        # bad charecter (loose?)
+        line = 'football ' + chr(201) + chr(203) + chr(70) + ' and baseball'
+        syslogger.critical(line)
+        assert vizd_obj.verify_keyword_query(line, ['football', 'baseball'])
+
+    # end test_13_verify_syslog_table_query
+
 
     @staticmethod
     def get_free_port():

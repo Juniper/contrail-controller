@@ -17,15 +17,17 @@ public:
     Ip4Prefix(Ip4Address addr, int prefixlen)
         : ip4_addr_(addr), prefixlen_(prefixlen) {
     }
-    explicit Ip4Prefix(const BgpProtoPrefix &prefix);
     int CompareTo(const Ip4Prefix &rhs) const;
 
     Ip4Address ip4_addr() const { return ip4_addr_; }
-    
+
     int prefixlen() const { return prefixlen_; }
 
+    static int FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
+                               Ip4Prefix *prefix);
     static Ip4Prefix FromString(const std::string &str,
                                 boost::system::error_code *errorp = NULL);
+
     std::string ToString() const;
 
     bool operator==(const Ip4Prefix &rhs) const {
@@ -64,7 +66,9 @@ public:
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *reqkey);
 
-    virtual void BuildProtoPrefix(BgpProtoPrefix *prefix, uint32_t label) const;
+    virtual void BuildProtoPrefix(BgpProtoPrefix *prefix,
+                                  const BgpAttr *attr = NULL,
+                                  uint32_t label = 0) const;
     virtual void BuildBgpProtoNextHop(std::vector<uint8_t> &nh, 
                                       IpAddress nexthop) const;
 

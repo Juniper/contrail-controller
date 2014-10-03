@@ -12,6 +12,7 @@ const string COLLECTOR_KEYSPACE     = "ContrailAnalytics"
 const string COLLECTOR_GLOBAL_TABLE = "MessageTable"
 const string UUID_KEY               = "UuidKey"
 const string SOURCE                 = "Source"
+const string KEYWORD                = "Keyword"
 const string NAMESPACE              = "Namespace"
 const string MODULE                 = "ModuleId"
 const string INSTANCE_ID            = "InstanceId"
@@ -33,6 +34,7 @@ const string MESSAGE_TABLE_MESSAGE_TYPE  = "MessageTableMessageType"
 const string MESSAGE_TABLE_CATEGORY = "MessageTableCategory"
 const string MESSAGE_TABLE_LEVEL    = "MessageTableLevel"
 const string MESSAGE_TABLE_TIMESTAMP = "MessageTableTimestamp"
+const string MESSAGE_TABLE_KEYWORD = "MessageTableKeyword"
 const string OBJECT_ID              = "ObjectId"
 
 const string ROWTIMESTAMP           = "RowTimeStamp"
@@ -65,26 +67,31 @@ const string DNS_TABLE              = "ObjectDns"
 const string QUERY_TABLE_OBJECT     = "ObjectQueryTable"
 const string QUERY_QID_OBJECT       = "ObjectQueryQid"
 const string CONFIG_OBJECT_TABLE    = "ConfigObjectTable"
+const string POOL_TABLE             = "ObjectPoolTable"
+const string OSD_TABLE              = "ObjectOsdTable"
+const string DISK_TABLE            = "ObjectDiskTable"
 
 const string VN_DISPLAY_NAME        = "Virtual Network"
 const string VM_DISPLAY_NAME        = "Virtual Machine"
 const string SI_DISPLAY_NAME        = "Service Instance"
-const string VROUTER_DISPLAY_NAME   = "VRouter"
+const string VROUTER_DISPLAY_NAME   = "vRouter"
 const string BGP_PEER_DISPLAY_NAME  = "BGP Peer"
 const string ROUTING_INSTANCE_DISPLAY_NAME = "Routing Instance"
-const string BGP_ROUTER_DISPLAY_NAME       = "BGP Router"
-const string XMPP_PEER_INFO_DISPLAY_NAME   = "XMPP Peer Info"
+const string BGP_ROUTER_DISPLAY_NAME       = "Control Node"
+const string XMPP_PEER_INFO_DISPLAY_NAME   = "XMPP Peer"
 const string XMPP_CONNECTION_DISPLAY_NAME  = "XMPP Connection"
-const string COLLECTOR_INFO_DISPLAY_NAME   = "Collector Info"
-const string DATABASE_INFO_DISPLAY_NAME   = "Database Info"
-const string GENERATOR_INFO_DISPLAY_NAME   = "Generator Info"
-const string MODULE_INFO_DISPLAY_NAME      = "Module Info"
+const string COLLECTOR_INFO_DISPLAY_NAME   = "Analytics Node"
+const string DATABASE_INFO_DISPLAY_NAME   = "Database Node"
+const string GENERATOR_INFO_DISPLAY_NAME   = "Generator"
 const string CONFIG_NODE_DISPLAY_NAME      = "Config Node"
 const string SERVICE_CHAIN_DISPLAY_NAME = "Service Chain"
 const string DNS_DISPLAY_NAME              = "DNS Node"
 const string QUERY_TABLE_DISPLAY_NAME      = "Query Object Table"
 const string QUERY_QID_DISPLAY_NAME        = "Query Object Qid"
 const string CONFIG_OBJECT_DISPLAY_NAME    = "Config Object Table"
+const string STORAGE_POOL_DISPLAY_NAME     = "Storage Pool"
+const string STORAGE_OSD_DISPLAY_NAME      = "Storage Device"
+const string STORAGE_DISK_DISPLAY_NAME     = "Storage RawDisk"
 
 const string SYSTEM_LOG             = "SystemLog"
 const string OBJECT_LOG             = "ObjectLog"
@@ -101,12 +108,14 @@ const string FLOW_TABLE_VROUTER     = "FlowTableVRouterVer2"
 const string FLOW_SERIES_TABLE      = "FlowSeriesTable"
 const string FLOW_TABLE_INVALID     = "Invalid Flow Table"
 
-const string STATS_TABLE_BY_STR_STR_TAG     = "StatsTableByStrStrTag"
-const string STATS_TABLE_BY_STR_U64_TAG     = "StatsTableByStrU64Tag"
-const string STATS_TABLE_BY_STR_DBL_TAG     = "StatsTableByStrDblTag"
-const string STATS_TABLE_BY_U64_STR_TAG     = "StatsTableByU64StrTag"
-const string STATS_TABLE_BY_U64_U64_TAG     = "StatsTableByU64U64Tag"
-const string STATS_TABLE_BY_DBL_STR_TAG     = "StatsTableByDblStrTag"
+const string STATS_TABLE_BY_STR_STR_TAG     = "StatsTableByStrStrTagV3"
+const string STATS_TABLE_BY_STR_U64_TAG     = "StatsTableByStrU64TagV3"
+const string STATS_TABLE_BY_U64_STR_TAG     = "StatsTableByU64StrTagV3"
+const string STATS_TABLE_BY_U64_U64_TAG     = "StatsTableByU64U64TagV3"
+
+const string STATS_TABLE_BY_DBL_TAG         = "StatsTableByDblTagV3"
+const string STATS_TABLE_BY_STR_TAG         = "StatsTableByStrTagV3"
+const string STATS_TABLE_BY_U64_TAG         = "StatsTableByU64TagV3"
 
 // Please keep FlowRecordFields and FlowRecordNames in sync
 enum FlowRecordFields {
@@ -141,6 +150,12 @@ enum FlowRecordFields {
    FLOWREC_SHORT_FLOW,
    FLOWREC_JSON,
    FLOWREC_ACTION,
+   FLOWREC_SG_RULE_UUID,
+   FLOWREC_NW_ACE_UUID,
+   FLOWREC_VROUTER_IP,
+   FLOWREC_OTHER_VROUTER_IP,
+   FLOWREC_UNDERLAY_PROTO,
+   FLOWREC_UNDERLAY_SPORT,
    FLOWREC_MAX,
 }
 
@@ -176,6 +191,12 @@ const list<string> FlowRecordNames = [
     "short_flow",
     "json",
     "action",
+    "sg_rule_uuid",
+    "nw_ace_uuid",
+    "vrouter_ip",
+    "other_vrouter_ip",
+    "underlay_proto",
+    "underlay_source_port",
     "invalid",
 ]
 
@@ -201,75 +222,106 @@ const map<string, string> UVE_MAP = {
     "virtual-machine" : VM_TABLE,
     "service-instance" : SI_TABLE,
     "vrouter" : VROUTER_TABLE,
-    "bgp-router" : BGP_ROUTER_TABLE,
+    "control-node" : BGP_ROUTER_TABLE,
     "bgp-peer" : BGP_PEER_TABLE,
     "xmpp-peer" : XMPP_PEER_INFO_TABLE,
-    "collector" : COLLECTOR_INFO_TABLE,
+    "analytics-node" : COLLECTOR_INFO_TABLE,
     "database" : DATABASE_INFO_TABLE,
     "generator" : GENERATOR_INFO_TABLE
     "config-node" : CONFIG_NODE_TABLE,
     "service-chain" : SERVICE_CHAIN,
-    "dns-node" : DNS_TABLE
+    "dns-node" : DNS_TABLE,
+    "storage-pool" : POOL_TABLE,
+    "storage-osd" : OSD_TABLE,
+    "storage-disk" : DISK_TABLE,
 }
 
 struct objtable_info {
     1: string objtable_display_name;
+    2: string log_query_name;
 }
 
 const map<string, objtable_info> _OBJECT_TABLES = {
     CONFIG_OBJECT_TABLE    : {
         'objtable_display_name' : CONFIG_OBJECT_DISPLAY_NAME
+        'log_query_name'        : "config"
     }
     VN_TABLE               : {
         'objtable_display_name' : VN_DISPLAY_NAME
+        'log_query_name'        : "virtual-network"
     }
     VM_TABLE               : {
         'objtable_display_name' : VM_DISPLAY_NAME
+        'log_query_name'        : "virtual-machine"
     }
     SI_TABLE               : {
         'objtable_display_name' : SI_DISPLAY_NAME
+        'log_query_name'        : "service-instance"
     }
     VROUTER_TABLE          : {
         'objtable_display_name' : VROUTER_DISPLAY_NAME
+        'log_query_name'        : "vrouter"
     }
     BGP_PEER_TABLE         : {
         'objtable_display_name' : BGP_PEER_DISPLAY_NAME
+        'log_query_name'        : "bgp-peer"
     }
     BGP_ROUTER_TABLE       : {
         'objtable_display_name' : BGP_ROUTER_DISPLAY_NAME
+        'log_query_name'        : "control-node"
     }
     ROUTING_INSTANCE_TABLE : {
         'objtable_display_name' : ROUTING_INSTANCE_DISPLAY_NAME
+        'log_query_name'        : "routing-instance"
     }
     XMPP_CONNECTION_TABLE  : {
         'objtable_display_name' : XMPP_CONNECTION_DISPLAY_NAME
+        'log_query_name'        : "xmpp-connection"
     }
     XMPP_PEER_INFO_TABLE  : {
         'objtable_display_name' : XMPP_PEER_INFO_DISPLAY_NAME
+        'log_query_name'        : "xmpp-peer"
     }
     COLLECTOR_INFO_TABLE   : {
         'objtable_display_name' : COLLECTOR_INFO_DISPLAY_NAME
+        'log_query_name'        : "analytics-node"
     }
     DATABASE_INFO_TABLE   : {
         'objtable_display_name' : DATABASE_INFO_DISPLAY_NAME
+        'log_query_name'        : "database-node"
     }
     GENERATOR_INFO_TABLE   : {
         'objtable_display_name' : GENERATOR_INFO_DISPLAY_NAME
+        'log_query_name'        : "generator"
     }
     CONFIG_NODE_TABLE      : {
         'objtable_display_name' : CONFIG_NODE_DISPLAY_NAME
+        'log_query_name'        : "config-node"
     }
     SERVICE_CHAIN          : {
         'objtable_display_name' : SERVICE_CHAIN_DISPLAY_NAME
+        'log_query_name'        : "service-chain"
     }
     DNS_TABLE       : {
         'objtable_display_name' : DNS_DISPLAY_NAME
+        'log_query_name'        : "dns-node"
     }
     QUERY_TABLE_OBJECT       : {
         'objtable_display_name' : QUERY_TABLE_DISPLAY_NAME
+        'log_query_name'        : "analytics-query"
     }
     QUERY_QID_OBJECT       : {
         'objtable_display_name' : QUERY_QID_DISPLAY_NAME
+        'log_query_name'        : "analytics-query-id"
+    }
+    POOL_TABLE          : {
+        'objtable_display_name' : STORAGE_POOL_DISPLAY_NAME
+    }
+    OSD_TABLE          : {
+        'objtable_display_name' : STORAGE_OSD_DISPLAY_NAME
+    }
+    DISK_TABLE          : {
+        'objtable_display_name' : STORAGE_DISK_DISPLAY_NAME
     }
 }
 
@@ -297,13 +349,21 @@ struct query_table
     4: string display_name;
 }
 
+struct stat_query_column
+{
+    1: string name;
+    2: string datatype;
+    3: bool index;
+    4: list<string> suffixes;
+}
+
 struct stat_table
 {
     6: string display_name;
     1: string stat_type;
     2: string stat_attr;
     3: string obj_table;
-    5: list<query_column> attributes;
+    5: list<stat_query_column> attributes;
 }
 
 const string STAT_OBJECTID_FIELD = "name";
@@ -312,6 +372,24 @@ const string STAT_TIME_FIELD     = "T";
 const string STAT_TIMEBIN_FIELD  = "T=";
 const string STAT_UUID_FIELD     = "UUID";
 const string STAT_VT_PREFIX      = "StatTable";
+
+const list<stat_table> _STAT_TEST_TABLES = [ 
+{
+      'display_name' : 'Test',
+      'stat_type' : 'StatTestState',
+      'stat_attr' : 'st',
+      'obj_table' : COLLECTOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'st.i1', 'datatype' : 'int', 'index' : true, 'suffixes': ['st.i2']},
+          { 'name' : 'st.i2', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'st.d1', 'datatype' : 'double', 'index' : true},
+          { 'name' : 'st.s1', 'datatype' : 'string', 'index' : false},
+          { 'name' : 'st.s2', 'datatype' : 'string', 'index' : true},
+          { 'name' : 'l1',    'datatype' : 'string', 'index' : true},
+          { 'name' : 'name',  'datatype' : 'string', 'index' : true, 'suffixes': ['st.s1']},
+        ]
+}
+]
 
 const list<stat_table> _STAT_TABLES  = [
     {
@@ -360,6 +438,50 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'cpu_info.cpu_share', 'datatype' : 'double', 'index' : true},
           { 'name' : 'cpu_info.used_sys_mem', 'datatype' : 'int',    'index' : false},
           { 'name' : 'cpu_info.one_min_cpuload', 'datatype' : 'double', 'index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Storage Pool Info',
+      'stat_type' : 'ComputeStoragePool',
+      'stat_attr' : 'info_stats',
+      'obj_table' : POOL_TABLE,
+      'attributes': [
+          { 'name' : 'info_stats.reads',  'datatype' : 'int',    'index' : false},
+          { 'name' : 'info_stats.writes', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.read_kbytes', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.write_kbytes', 'datatype': 'int', 'index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Storage Device Info',
+      'stat_type' : 'ComputeStorageOsd',
+      'stat_attr' : 'info_stats',
+      'obj_table' : OSD_TABLE,
+      'attributes': [
+          { 'name' : 'name',  'datatype' : 'string',  'index' : true},
+          { 'name' : 'uuid',  'datatype' : 'string',    'index' : true},
+          { 'name' : 'info_stats.reads',  'datatype' : 'int',    'index' : false},
+          { 'name' : 'info_stats.writes', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.read_kbytes', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.write_kbytes', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.op_r_latency', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.op_w_latency', 'datatype': 'int', 'index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Storage Raw Device Info',
+      'stat_type' : 'ComputeStorageDisk',
+      'stat_attr' : 'info_stats',
+      'obj_table' : DISK_TABLE,
+      'attributes': [
+          { 'name' : 'name',  'datatype' : 'string',  'index' : true},
+          { 'name' : 'uuid',  'datatype' : 'string',    'index' : true},
+          { 'name' : 'info_stats.reads',  'datatype' : 'int',    'index' : false},
+          { 'name' : 'info_stats.writes', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.read_kbytes', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.write_kbytes', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.iops', 'datatype': 'int', 'index' : false},
+          { 'name' : 'info_stats.bw', 'datatype': 'int', 'index' : false},
         ]
     },
     {
@@ -426,10 +548,11 @@ const list<stat_table> _STAT_TABLES  = [
       'stat_attr' : 'query_stats',
       'obj_table' : COLLECTOR_INFO_TABLE,
       'attributes': [
-          { 'name' : 'query_stats.time', 'datatype' : 'int',   'index' : true},
-          { 'name' : 'query_stats.rows', 'datatype' : 'int',   'index' : true},
-          { 'name' : 'query_stats.table','datatype' : 'string','index' : true},
-          { 'name' : 'query_stats.qid',  'datatype' : 'string','index' : true},
+          { 'name' : 'table', 'datatype' : 'string','index' : true},
+          { 'name' : 'name', 'datatype' : 'string','index' : true, 'suffixes': ['query_stats.qid']},
+          { 'name' : 'query_stats.time', 'datatype' : 'int', 'index' : true},
+          { 'name' : 'query_stats.rows', 'datatype' : 'int', 'index' : true},
+          { 'name' : 'query_stats.qid',  'datatype' : 'string','index' : false},
           { 'name' : 'query_stats.where'      ,'datatype' : 'string','index' : false},
           { 'name' : 'query_stats.select'     ,'datatype' : 'string','index' : false},
           { 'name' : 'query_stats.post'       ,'datatype' : 'string','index' : false},
@@ -456,6 +579,29 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'vn_stats.out_bytes', 'datatype' : 'int',    'index' : false},
         ]
     },
+    {
+      'display_name' : 'Database Purge Statistics',
+      'stat_type' : 'DatabasePurgeInfo'
+      'stat_attr' : 'stats',
+      'obj_table' : DATABASE_INFO_TABLE, 
+      'attributes': [
+          { 'name' : 'stats.purge_id',  'datatype' : 'string', 'index' : true},
+          { 'name' : 'stats.request_time', 'datatype' : 'int', 'index' : true},
+          { 'name' : 'stats.rows_deleted', 'datatype' : 'int', 'index' : true},
+          { 'name' : 'stats.duration',     'datatype' : 'int', 'index' : true},
+        ]
+    },
+    {
+      'display_name' : 'Database Usage Statistics',
+      'stat_type' : 'DatabaseUsageInfo'
+      'stat_attr' : 'database_usage_stats',
+      'obj_table' : DATABASE_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'database_usage_stats.disk_space_used_1k',      'datatype' : 'int', 'index' : false},
+          { 'name' : 'database_usage_stats.disk_space_available_1k', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'database_usage_stats.analytics_db_size_1k',    'datatype' : 'int', 'index' : false},
+        ]
+    },
 ]
 
 const list<query_table> _TABLES = [
@@ -475,6 +621,7 @@ const list<query_table> _TABLES = [
                { 'name' : 'Messagetype', 'datatype' : 'string', 'index' : true },
                { 'name' : 'SequenceNum', 'datatype' : 'int', 'index' : false },
                { 'name' : 'Context', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'Keyword', 'datatype' : 'string', 'index' : true },
                { 'name' : 'Xmlmessage', 'datatype' : 'string', 'index' : false },
                ]
               },
@@ -500,6 +647,12 @@ const list<query_table> _TABLES = [
                { 'name' : FLOW_TABLE_AGG_PKTS, 'datatype' : 'long', 'index' : false },
                { 'name' : FLOW_TABLE_AGG_BYTES, 'datatype' : 'long', 'index' : false },
                { 'name' : 'action', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'sg_rule_uuid', 'datatype' : 'uuid', 'index' : false },
+               { 'name' : 'nw_ace_uuid', 'datatype' : 'uuid', 'index' : false },
+               { 'name' : 'vrouter_ip', 'datatype' : 'ipv4', 'index' : false },
+               { 'name' : 'other_vrouter_ip', 'datatype' : 'ipv4', 'index' : false },
+               { 'name' : 'underlay_proto', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'underlay_source_port', 'datatype' : 'int', 'index' : false },
                ]
          },
          'columnvalues' : [ ],

@@ -33,9 +33,9 @@ public:
 
     // Enqueue table on change list.
     void OnTableChange(DBTablePartBase *tpart);
-    bool IsDBQueueEmpty();
+    bool IsDBQueueEmpty() const;
     void SetQueueDisable(bool disable);
-        
+
 private:
     class WorkQueue;
     class QueueRunner;

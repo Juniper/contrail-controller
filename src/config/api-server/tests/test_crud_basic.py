@@ -8,13 +8,15 @@ import socket
 import errno
 import uuid
 import logging
+import coverage
 
 import cgitb
 cgitb.enable(format='text')
 
 import fixtures
 import testtools
-from testtools.matchers import Equals, MismatchError
+from testtools.matchers import Equals, MismatchError, Not, Contains
+from testtools import content, content_type, ExpectedException
 import unittest
 import re
 import json
@@ -22,24 +24,26 @@ import copy
 from lxml import etree
 import inspect
 import pycassa
+import kombu
+import requests
 
 from vnc_api.vnc_api import *
-from cfgm_common import exceptions as vnc_exceptions
-from cfgm_common.test_utils import *
-import gen.vnc_api_test_gen
-from gen.resource_test import *
-from gen.resource_client import *
-from gen.resource_xsd import *
-import discoveryclient.client as disc_client
+from vnc_api.common import exceptions as vnc_exceptions
+import vnc_api.gen.vnc_api_test_gen
+from vnc_api.gen.resource_test import *
+import cfgm_common
 
+sys.path.append('../common/tests')
+from test_utils import *
 import test_common
+import test_case
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-#class TestCrudBasic(object):
-class TestCrudBasic(gen.vnc_api_test_gen.VncApiTestGen):
+class TestCrudBasic(object):
+#class TestCrudBasic(gen.vnc_api_test_gen.VncApiTestGen):
 
     def setUp(self):
         super(TestCrudBasic, self).setUp()
@@ -111,8 +115,8 @@ class TestCrudBasic(gen.vnc_api_test_gen.VncApiTestGen):
 # end class TestCrudBasic
 
 
-#class TestFixtures(object):
-class TestFixtures(testtools.TestCase, fixtures.TestWithFixtures):
+class TestFixtures(object):
+#class TestFixtures(testtools.TestCase, fixtures.TestWithFixtures):
     def setUp(self):
         super(TestFixtures, self).setUp()
         test_common.setup_flexmock()
@@ -135,12 +139,7 @@ class TestFixtures(testtools.TestCase, fixtures.TestWithFixtures):
     # end tearDown
 
     def assertThat(self, *args):
-        try:
-            super(TestFixtures, self).assertThat(*args)
-        except MismatchError as e:
-            import pdb
-            pdb.set_trace()
-            raise e
+        super(TestFixtures, self).assertThat(*args)
     # end assertThat
 
     def test_fixture_ref(self):
@@ -243,10 +242,8 @@ class TestFixtures(testtools.TestCase, fixtures.TestWithFixtures):
     # end test_fixture_reuse_policy
 # end class TestFixtures
 
-# class TestNetAddrAlloc(object):
-
-
-class TestNetAddrAlloc(testtools.TestCase, fixtures.TestWithFixtures):
+class TestNetAddrAlloc(object):
+#class TestNetAddrAlloc(testtools.TestCase, fixtures.TestWithFixtures):
 
     def setUp(self):
         super(TestNetAddrAlloc, self).setUp()
@@ -270,12 +267,7 @@ class TestNetAddrAlloc(testtools.TestCase, fixtures.TestWithFixtures):
     # end tearDown
 
     def assertThat(self, *args):
-        try:
-            super(TestNetAddrAlloc, self).assertThat(*args)
-        except MismatchError as e:
-            import pdb
-            pdb.set_trace()
-            raise e
+        super(TestNetAddrAlloc, self).assertThat(*args)
     # end assertThat
 
     def test_ip_alloc_on_net(self):
@@ -381,10 +373,59 @@ class TestNetAddrAlloc(testtools.TestCase, fixtures.TestWithFixtures):
         pass
     # end test_ip_alloc_on_link_local
 
+    def test_alloc_with_subnet_id(self):
+        ipam_fixt = self.useFixture(NetworkIpamTestFixtureGen(self._vnc_lib))
+
+        subnet_vnc = IpamSubnetType(subnet=SubnetType('1.1.1.0', 24))
+        vnsn_data = VnSubnetsType([subnet_vnc])
+        subnet_vnc_1 = IpamSubnetType(subnet=SubnetType('2.2.2.0', 24),
+                                      default_gateway='2.2.2.128')
+        vnsn_data.add_ipam_subnets(subnet_vnc_1)
+        vn_fixt = self.useFixture(VirtualNetworkTestFixtureGen(self._vnc_lib,
+                  network_ipam_ref_infos=[(ipam_fixt.getObj(), vnsn_data)]))
+        vn_fixt.getObj().set_router_external(True)
+        self._vnc_lib.virtual_network_update(vn_fixt.getObj())
+
+        vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fixt.getobj().get_fq_name())
+        ipam_subnets = vn_obj.network_ipam_refs[0]['attr'].get_ipam_subnets()
+        # This should be using the first subnet, ie 1.1.1.x
+        iip_fixt_1 = self.useFixture(
+            InstanceIpTestFixtureGen(
+                self._vnc_lib, 'iip1', auto_prop_val=False,
+                virtual_network_refs=[vn_fixt.getObj()]))
+        self.assertEqual(iip_fixt_1.getObj().instance_ip_address[:6], "1.1.1.")
+
+        # This should be using the first subnet since its uuid is used
+        iip_fixt_2 = self.useFixture(
+            InstanceIpTestFixtureGen(
+                self._vnc_lib, 'iip2', auto_prop_val=False,
+                subnet_uuid=ipam_subnets[0].subnet_uuid,
+                virtual_network_refs=[vn_fixt.getObj()]))
+        self.assertEqual(iip_fixt_2.getObj().instance_ip_address[:6], "1.1.1.")
+
+        # Since second subnet's uuid is used, we should get IP from that
+        iip_fixt_3 = self.useFixture(
+            InstanceIpTestFixtureGen(
+                self._vnc_lib, 'iip3', auto_prop_val=False,
+                subnet_uuid=ipam_subnets[1].subnet_uuid,
+                virtual_network_refs=[vn_fixt.getObj()]))
+        self.assertEqual(iip_fixt_3.getObj().instance_ip_address[:6], "2.2.2.")
+
+        # Mismatched UUID and IP address combination, should catch an exception
+        with self.assertRaises(cfgm_common.exceptions.HttpError) as e:
+            iip_fixt_4 = self.useFixture(
+                InstanceIpTestFixtureGen(
+                    self._vnc_lib, 'iip4', auto_prop_val=False,
+                    subnet_uuid=ipam_subnets[1].subnet_uuid,
+                    instance_ip_address='1.1.1.4',
+                    virtual_network_refs=[vn_fixt.getObj()]))
+    #end test_alloc_with_subnet_id
+
 # end class TestNetAddrAlloc
 
 
-class DemoFixture(fixtures.Fixture):
+class DemoFixture(object):
+#class DemoFixture(fixtures.Fixture):
 
     def __init__(self, vnc_lib):
         self._vnc_lib = vnc_lib
@@ -507,40 +548,30 @@ class TestRefUpdate(object):
 # end class TestRefUpdate
 
 
-# class TestListUpdate(testtools.TestCase, fixtures.TestWithFixtures):
-class TestListUpdate(object):
-
-    def setUp(self):
-        super(TestListUpdate, self).setUp()
-        test_common.setup_flexmock()
-
-        api_server_ip = socket.gethostbyname(socket.gethostname())
-        api_server_port = get_free_port()
-        http_server_port = get_free_port()
-        self._api_svr = gevent.spawn(test_common.launch_api_server,
-                                     api_server_ip, api_server_port,
-                                     http_server_port)
-        block_till_port_listened(api_server_ip, api_server_port)
-        self._vnc_lib = VncApi('u', 'p', api_server_host=api_server_ip,
-                               api_server_port=api_server_port)
-    # end setUp
-
+class TestListUpdate(test_case.ApiServerTestCase):
     def test_policy_create_w_rules(self):
         proj_fixt = self.useFixture(ProjectTestFixtureGen(self._vnc_lib))
 
         policy_obj = NetworkPolicy(
             'test-policy-create-w-rules', proj_fixt.getObj())
         np_rules = [
-            PolicyRuleType(None, '<>', 'pass', 'any',
-                   [AddressType(virtual_network='local')], [
-                       PortType(-1, -1)], None,
-                [AddressType(
-                 virtual_network='any')], [PortType(-1, -1)], None),
-            PolicyRuleType(None, '<>', 'deny', 'any',
-                           [AddressType(virtual_network='local')], [
-                               PortType(-1, -1)], None,
-                           [AddressType(
-                            virtual_network='any')], [PortType(-1, -1)], None),
+            PolicyRuleType(direction='<>',
+                           action_list=ActionListType(simple_action='pass'),
+                           protocol='any',
+                           src_addresses=
+                               [AddressType(virtual_network='local')],
+                           src_ports=[PortType(-1, -1)],
+                           dst_addresses=[AddressType(virtual_network='any')],
+                           dst_ports=[PortType(-1, -1)]),
+
+            PolicyRuleType(direction='<>',
+                           action_list=ActionListType(simple_action='deny'),
+                           protocol='any',
+                           src_addresses=
+                               [AddressType(virtual_network='local')],
+                           src_ports=[PortType(-1, -1)],
+                           dst_addresses=[AddressType(virtual_network='any')],
+                           dst_ports=[PortType(-1, -1)]),
         ]
         policy_obj.set_network_policy_entries(PolicyEntriesType(np_rules))
 
@@ -558,16 +589,23 @@ class TestListUpdate(object):
         self._vnc_lib.network_policy_create(policy_obj)
 
         np_rules = [
-            PolicyRuleType(None, '<>', 'pass', 'any',
-                   [AddressType(virtual_network='local')], [
-                       PortType(1, 2)], None,
-                [AddressType(
-                 virtual_network='any')], [PortType(3, 4)], None),
-            PolicyRuleType(None, '<>', 'deny', 'any',
-                           [AddressType(virtual_network='local')], [
-                               PortType(5, 6)], None,
-                           [AddressType(
-                            virtual_network='any')], [PortType(7, 8)], None),
+            PolicyRuleType(direction='<>',
+                   action_list=ActionListType(simple_action='pass'),
+                   protocol='any',
+                   src_addresses=
+                       [AddressType(virtual_network='local')],
+                   src_ports=[PortType(1, 2)],
+                   dst_addresses=[AddressType(virtual_network='any')],
+                   dst_ports=[PortType(3, 4)]),
+
+            PolicyRuleType(direction='<>', 
+                           action_list=ActionListType(simple_action='deny'),
+                           protocol='any',
+                           src_addresses=
+                               [AddressType(virtual_network='local')],
+                           src_ports=[PortType(5, 6)],
+                           dst_addresses=[AddressType(virtual_network='any')],
+                           dst_ports=[PortType(7, 8)]),
         ]
         policy_entries = PolicyEntriesType(np_rules)
         policy_obj.set_network_policy_entries(policy_entries)
@@ -575,11 +613,14 @@ class TestListUpdate(object):
         self._vnc_lib.network_policy_update(policy_obj)
 
         policy_entries.policy_rule.append(
-            PolicyRuleType(None, '<>', 'deny', 'any',
-                           [AddressType(virtual_network='local')],
-                           [PortType(9, 10)], None,
-                           [AddressType(virtual_network='any')],
-                           [PortType(11, 12)], None)
+            PolicyRuleType(direction='<>',
+                           action_list=ActionListType(simple_action= 'deny'),
+                           protocol='any',
+                           src_addresses=
+                               [AddressType(virtual_network='local')],
+                           src_ports=[PortType(9, 10)],
+                           dst_addresses=[AddressType(virtual_network='any')],
+                           dst_ports=[PortType(11, 12)])
         )
         policy_obj.set_network_policy_entries(policy_entries)
 
@@ -590,6 +631,283 @@ class TestListUpdate(object):
     # end test_policy_create_wo_rules
 
 # end class TestListUpdate
+
+class TestCrud(test_case.ApiServerTestCase):
+    def test_create(self):
+        test_obj = self._create_test_object()
+        ident_name = self.get_obj_imid(test_obj)
+        self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
+
+class TestVncCfgApiServer(test_case.ApiServerTestCase):
+    def test_fq_name_to_id_http_post(self):
+        test_obj = self._create_test_object()
+        test_uuid = self._vnc_lib.fq_name_to_id('virtual-network', test_obj.get_fq_name())
+        # check that format is correct
+        try:
+            uuid.UUID(test_uuid)
+        except ValueError:
+            self.assertTrue(False, 'Bad form UUID ' + test_uuid)
+
+        with ExpectedException(NoIdError) as e:
+            test_uuid = self._vnc_lib.fq_name_to_id('project', test_obj.get_fq_name())
+
+    def test_id_to_fq_name_http_post(self):
+        test_obj = self._create_test_object()
+        fq_name = self._vnc_lib.id_to_fq_name(test_obj.uuid)
+        self.assertEqual(test_obj.fq_name, fq_name)
+        with ExpectedException(NoIdError) as e:
+            self._vnc_lib.id_to_fq_name(str(uuid.uuid4()))
+
+    def test_useragent_kv_http_post(self):
+        test_body = json.dumps({'operation': 'STORE',
+                                'key': 'fookey',
+                                'value': 'fooval'})
+        self.addDetail('useragent-kv-post-store', content.json_content(test_body))
+        (code, msg) = self._http_post('/useragent-kv', test_body)
+        self.assertEqual(code, 200)
+
+        test_body = json.dumps({'operation': 'RETRIEVE',
+                                'key': 'fookey'})
+        self.addDetail('useragent-kv-post-retrieve', content.json_content(test_body))
+        (code, msg) = self._http_post('/useragent-kv', test_body)
+        self.assertEqual(code, 200)
+        self.assertEqual(json.loads(msg)['value'], 'fooval')
+
+        test_body = json.dumps({'operation': 'foo',
+                                'key': 'fookey'})
+        self.addDetail('useragent-kv-post-wrongop', content.json_content(test_body))
+        (code, msg) = self._http_post('/useragent-kv', test_body)
+        self.assertEqual(code, 404)
+        
+    def test_err_on_max_rabbit_pending(self):
+        api_server = test_common.vnc_cfg_api_server.server
+        max_pend_upd = 10
+        api_server._args.rabbit_max_pending_updates = str(max_pend_upd)
+        orig_rabbitq_put = api_server._db_conn._msgbus._obj_update_q.put
+        try:
+            def err_rabbitq_put(*args, **kwargs):
+                raise Exception("Faking Rabbit Exception")
+            api_server._db_conn._msgbus._obj_update_q.put = err_rabbitq_put
+
+            logger.info("Creating objects to hit max rabbit pending.")
+            # every create updates project quota
+            test_objs = self._create_test_objects(count=max_pend_upd/2+1)
+
+            def asserts_on_max_pending():
+                self.assertEqual(e.status_code, 500)
+                self.assertIn("Too many pending updates", e.content)
+
+            logger.info("Creating one more object expecting failure.")
+            obj = VirtualNetwork('vn-to-fail')
+            self.addDetail('expecting-failed-create', content.text_content(obj.name))
+            try:
+                self._vnc_lib.virtual_network_create(obj)
+            except HttpError as e:
+                asserts_on_max_pending()
+
+            logger.info("Update of object should fail.")
+            test_objs[0].display_name = 'foo'
+            try:
+                self._vnc_lib.virtual_network_update(test_objs[0])
+            except HttpError as e:
+                asserts_on_max_pending()
+
+            logger.info("Delete of object should fail.")
+            test_objs[0].display_name = 'foo'
+            try:
+                self._vnc_lib.virtual_network_delete(id=test_objs[0].uuid)
+            except HttpError as e:
+                asserts_on_max_pending()
+
+            logger.info("Read obj object should be ok.")
+            self._vnc_lib.virtual_network_read(id=test_objs[0].uuid)
+
+        finally:
+            api_server._db_conn._msgbus._obj_update_q.put = orig_rabbitq_put
+ 
+    def test_handle_trap_on_exception(self):
+        api_server = test_common.vnc_cfg_api_server.server
+
+        def exception_on_log_error(*args, **kwargs):
+            self.assertTrue(False)
+
+        def exception_on_vn_read(*args, **kwargs):
+            raise Exception("fake vn read exception")
+
+        try:
+            orig_config_log_error = api_server.config_log_error
+            api_server.config_log_error = exception_on_log_error
+            with ExpectedException(NoIdError):
+                self._vnc_lib.virtual_network_read(fq_name=['foo', 'bar', 'baz'])
+        finally:
+            api_server.config_log_error = orig_config_log_error
+
+        try:
+            orig_vn_read = api_server._db_conn._cassandra_db._cassandra_virtual_network_read
+            test_obj = self._create_test_object()
+            api_server._db_conn._cassandra_db._cassandra_virtual_network_read = exception_on_vn_read
+            with ExpectedException(HttpError):
+                self._vnc_lib.virtual_network_read(fq_name=test_obj.get_fq_name())
+        finally:
+            api_server._db_conn._cassandra_db._cassandra_virtual_network_read = orig_vn_read
+
+    def test_sandesh_trace(self):
+        from lxml import etree
+        api_server = test_common.vnc_cfg_api_server.server
+        # the test
+        test_obj = self._create_test_object()
+        self.assertTill(self.ifmap_has_ident, obj=test_obj)
+        self._vnc_lib.virtual_network_delete(id=test_obj.uuid)
+
+        # and validations
+        introspect_port = api_server._args.http_server_port
+        traces = requests.get('http://localhost:%s/Snh_SandeshTraceRequest?x=RestApiTraceBuf' %(introspect_port))
+        self.assertThat(traces.status_code, Equals(200))
+        top_elem = etree.fromstring(traces.text)
+        self.assertThat(top_elem[0][0][0].text, Contains('POST'))
+        self.assertThat(top_elem[0][0][0].text, Contains('200 OK'))
+        self.assertThat(top_elem[0][0][1].text, Contains('DELETE'))
+        self.assertThat(top_elem[0][0][1].text, Contains('200 OK'))
+
+        traces = requests.get('http://localhost:%s/Snh_SandeshTraceRequest?x=DBRequestTraceBuf' %(introspect_port))
+        self.assertThat(traces.status_code, Equals(200))
+        top_elem = etree.fromstring(traces.text)
+        self.assertThat(top_elem[0][0][-1].text, Contains('delete'))
+        self.assertThat(top_elem[0][0][-1].text, Contains(test_obj.name))
+
+        traces = requests.get('http://localhost:%s/Snh_SandeshTraceRequest?x=MessageBusNotifyTraceBuf' %(introspect_port))
+        self.assertThat(traces.status_code, Equals(200))
+        top_elem = etree.fromstring(traces.text)
+        self.assertThat(top_elem[0][0][-1].text, Contains('DELETE'))
+        self.assertThat(top_elem[0][0][-1].text, Contains(test_obj.name))
+
+        traces = requests.get('http://localhost:%s/Snh_SandeshTraceRequest?x=IfmapTraceBuf' %(introspect_port))
+        self.assertThat(traces.status_code, Equals(200))
+        top_elem = etree.fromstring(traces.text)
+        print top_elem[0][0][-1].text
+        self.assertThat(top_elem[0][0][-1].text, Contains('delete'))
+        self.assertThat(top_elem[0][0][-1].text, Contains(test_obj.name))
+
+    def test_dup_create_with_same_uuid(self):
+        dom_name = self.id() + '-domain'
+        logger.info('Creating Domain %s', dom_name)
+        domain_obj = Domain(dom_name)
+        self._vnc_lib.domain_create(domain_obj)
+
+        project_name = self.id() + '-project'
+        logger.info('Creating Project %s', project_name)
+        orig_project_obj = Project(project_name, domain_obj)
+        self._vnc_lib.project_create(orig_project_obj)
+ 
+        logger.info('Creating Dup Project in default domain with same uuid')
+        dup_project_obj = Project(project_name)
+        dup_project_obj.uuid = orig_project_obj.uuid
+        with ExpectedException(RefsExistError) as e:
+            self._vnc_lib.project_create(dup_project_obj)
+
+    def test_put_on_wrong_type(self):
+        vn_name = self.id()+'-vn'
+        vn_obj = VirtualNetwork(vn_name)
+        self._add_detail('Creating network with name %s' %(vn_name))
+        self._vnc_lib.virtual_network_create(vn_obj)
+        listen_port = self._api_server._args.listen_port
+        uri = '/network-ipam/%s' %(vn_obj.uuid)
+        self._add_detail('Trying to update uuid as network-ipam, expecting 404')
+        code, msg = self._http_put(uri, json.dumps({'network-ipam': {'display_name': 'foobar'}}))
+        self.assertThat(code, Equals(404))
+
+        self._add_detail('Updating display_name as network, expecting success')
+        uri = '/virtual-network/%s' %(vn_obj.uuid)
+        code, msg = self._http_put(uri, json.dumps({'virtual-network': {'display_name': 'foobar'}}))
+        self.assertThat(code, Equals(200))
+        rb_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+        self.assertThat(rb_obj.display_name, Equals('foobar'))
+
+    def test_floatingip_as_instanceip(self):
+        ipam_fixt = self.useFixture(NetworkIpamTestFixtureGen(self._vnc_lib))
+
+        project_fixt = self.useFixture(ProjectTestFixtureGen(self._vnc_lib, 'default-project'))
+
+        subnet_vnc = IpamSubnetType(subnet=SubnetType('1.1.1.0', 24))
+        vnsn_data = VnSubnetsType([subnet_vnc])
+        logger.info("Creating a virtual network")
+        logger.info("Creating subnet 1.1.1.0/24")
+        vn_fixt = self.useFixture(VirtualNetworkTestFixtureGen(self._vnc_lib,
+                  network_ipam_ref_infos=[(ipam_fixt.getObj(), vnsn_data)]))
+        vn_fixt.getObj().set_router_external(True)
+        self._vnc_lib.virtual_network_update(vn_fixt.getObj())
+
+        logger.info("Fetching floating-ip-pool")
+        fip_pool_fixt = self.useFixture(
+            FloatingIpPoolTestFixtureGen(self._vnc_lib, 'floating-ip-pool',
+                                         parent_fixt=vn_fixt))
+
+        logger.info("Creating auto-alloc floating-ip")
+        fip_fixt = self.useFixture(
+            FloatingIpTestFixtureGen(
+                self._vnc_lib, 'fip1', parent_fixt=fip_pool_fixt,
+                project_refs=[project_fixt.getObj()]))
+        ip_allocated = fip_fixt.getObj().floating_ip_address
+
+        logger.info("Creating auto-alloc instance-ip, expecting an error")
+        with self.assertRaises(cfgm_common.exceptions.PermissionDenied):
+            iip_fixt = self.useFixture(
+                InstanceIpTestFixtureGen(
+                    self._vnc_lib, 'iip1', auto_prop_val=False,
+                    instance_ip_address=ip_allocated,
+                    virtual_network_refs=[vn_fixt.getObj()]))
+    # end test_floatingip_as_instanceip
+# end class TestVncCfgApiServer
+
+class TestLocalAuth(test_case.ApiServerTestCase):
+    def __init__(self, *args, **kwargs):
+        super(TestLocalAuth, self).__init__(*args, **kwargs)
+        self._config_knobs.extend([('DEFAULTS', 'auth', 'keystone'),
+                                   ('DEFAULTS', 'multi_tenancy', True),
+                                   ('KEYSTONE', 'admin_user', 'foo'),
+                                   ('KEYSTONE', 'admin_password', 'bar'),])
+
+    def setup_flexmock(self):
+        from keystoneclient.middleware import auth_token
+        class FakeAuthProtocol(object):
+            def __init__(self, app, *args, **kwargs):
+                self._app = app
+            # end __init__
+            def __call__(self, env, start_response):
+                return self._app(env, start_response)
+            # end __call__
+            def get_admin_token(self):
+                return None
+            # end get_admin_token
+        # end class FakeAuthProtocol
+        test_common.setup_extra_flexmock([(auth_token, 'AuthProtocol', FakeAuthProtocol)])
+    # end setup_flexmock
+
+    def setUp(self):
+        self.setup_flexmock()
+        super(TestLocalAuth, self).setUp()
+    # end setUp
+
+    def test_local_auth_on_8095(self):
+        from requests.auth import HTTPBasicAuth
+        admin_port = self._api_server._args.admin_port
+
+        # equivalent to curl -u foo:bar http://localhost:8095/virtual-networks
+        logger.info("Positive case")
+        url = 'http://localhost:%s/virtual-networks' %(admin_port)
+        resp = requests.get(url, auth=HTTPBasicAuth('foo', 'bar'))
+        self.assertThat(resp.status_code, Equals(200))
+
+        logger.info("Negative case without header")
+        resp = requests.get(url)
+        self.assertThat(resp.status_code, Equals(401))
+        self.assertThat(resp.text, Contains('HTTP_AUTHORIZATION header missing'))
+
+        logger.info("Negative case with wrong creds")
+        resp = requests.get(url, auth=HTTPBasicAuth('bar', 'foo'))
+        self.assertThat(resp.status_code, Equals(401))
+
+# end class TestLocalAuth
 
 if __name__ == '__main__':
     ch = logging.StreamHandler()

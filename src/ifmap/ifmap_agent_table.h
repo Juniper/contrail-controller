@@ -43,8 +43,6 @@ public:
      // Allocate an IFMapNode.
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *key) const;
     
-    // Allocate an IFMapObject 
-    virtual IFMapObject *AllocObject() = 0;
     static IFMapNode *TableEntryLookup(DB *db, RequestKey *key);
     void NotifyNode(IFMapNode *node);
     DBGraph *GetGraph() const {return graph_;};
@@ -65,6 +63,7 @@ public:
     struct RequestKey : DBRequestKey {
         IFMapTable::RequestKey left_key;
         IFMapTable::RequestKey right_key;
+        std::string metadata;
     };
 
     class comp {
@@ -86,9 +85,9 @@ public:
     static DBTable *CreateTable(DB *db, const std::string &name,
                                      DBGraph *graph);
     void EvalDefLink(IFMapTable::RequestKey *key);
-    void RemoveDefListEntry(LinkDefMap *map, LinkDefMap::iterator &map_it,
+    bool RemoveDefListEntry(LinkDefMap *map, LinkDefMap::iterator &map_it,
                             std::list<IFMapTable::RequestKey>::iterator *list_it);
-    void DestroyDefLink();
+    void DestroyDefLink(uint64_t);
     const LinkDefMap &GetLinkDefMap() const {
         return link_def_map_;
     }
@@ -96,7 +95,8 @@ public:
     void LinkDefAdd(DBRequest *request);
 private:
     void AddLink(DBGraphBase::edge_descriptor edge,
-                                   IFMapNode *left, IFMapNode *right, uint64_t seq);
+                 IFMapNode *left, IFMapNode *right,
+                 const std::string &metadata, uint64_t seq);
     DBGraph *graph_; 
     LinkDefMap link_def_map_;
 };
@@ -104,11 +104,11 @@ private:
 
 class IFMapAgentStaleCleaner {
 public:
-    IFMapAgentStaleCleaner(DB *db, DBGraph *graph, boost::asio::io_service &io_service);
+    IFMapAgentStaleCleaner(DB *db, DBGraph *graph);
     ~IFMapAgentStaleCleaner();
     class IFMapAgentStaleCleanerWorker;
     void Clear();
-    bool StaleTimeout();
+    bool StaleTimeout(uint64_t);
 
 private:
     DB *db_;

@@ -5,13 +5,10 @@
 #ifndef vnsw_agent_vn_hpp
 #define vnsw_agent_vn_hpp
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include <cmn/agent_cmn.h>
+#include <cmn/agent.h>
 #include <oper/agent_types.h>
-#include <filter/acl.h>
-#include <oper/vrf.h>
-#include <oper/vxlan.h>
+#include <oper/oper_dhcp_options.h>
 
 using namespace boost::uuids;
 using namespace std;
@@ -24,19 +21,32 @@ namespace autogen {
 }
 
 class VmInterface;
+
 struct VnIpam {
-    Ip4Address ip_prefix;
+    IpAddress ip_prefix;
     uint32_t   plen;
-    Ip4Address default_gw;
+    IpAddress default_gw;
     bool       installed;    // is the route to send pkts to host installed
+    bool       dhcp_enable;
     std::string ipam_name;
+    OperDhcpOptions oper_dhcp_options;
 
     VnIpam(const std::string& ip, uint32_t len, const std::string& gw,
-           std::string &name)
-        : plen(len), installed(false), ipam_name(name) {
+           bool dhcp, std::string &name,
+           const std::vector<autogen::DhcpOptionType> &dhcp_options,
+           const std::vector<autogen::RouteType> &host_routes)
+        : plen(len), installed(false), dhcp_enable(dhcp), ipam_name(name) {
         boost::system::error_code ec;
-        ip_prefix = Ip4Address::from_string(ip, ec);
-        default_gw = Ip4Address::from_string(gw, ec);
+        ip_prefix = IpAddress::from_string(ip, ec);
+        default_gw = IpAddress::from_string(gw, ec);
+        oper_dhcp_options.set_options(dhcp_options);
+        oper_dhcp_options.set_host_routes(host_routes);
+    }
+    bool IsV4() const {
+        return ip_prefix.is_v4();
+    }
+    bool IsV6() const {
+        return ip_prefix.is_v6();
     }
     bool operator<(const VnIpam &rhs) const {
         if (ip_prefix != rhs.ip_prefix)
@@ -45,49 +55,44 @@ struct VnIpam {
         return (plen < rhs.plen);
     }
     Ip4Address GetBroadcastAddress() const {
-        Ip4Address broadcast(ip_prefix.to_ulong() | 
-                             ~(0xFFFFFFFF << (32 - plen)));
-        return broadcast;
+        if (ip_prefix.is_v4()) {
+            Ip4Address broadcast(ip_prefix.to_v4().to_ulong() | 
+                    ~(0xFFFFFFFF << (32 - plen)));
+            return broadcast;
+        } 
+        return Ip4Address(0);
     }
     Ip4Address GetSubnetAddress() const {
-        return GetIp4SubnetAddress(ip_prefix, plen);
+        if (ip_prefix.is_v4()) {
+            return GetIp4SubnetAddress(ip_prefix.to_v4(), plen);
+        }
+        return Ip4Address(0);
     }
-    bool IsSubnetMember(const Ip4Address &ip) const {
-        return ((ip_prefix.to_ulong() | ~(0xFFFFFFFF << (32 - plen))) == 
-                 (ip.to_ulong() | ~(0xFFFFFFFF << (32 - plen)))); 
+    Ip6Address GetV6SubnetAddress() const {
+        if (ip_prefix.is_v6()) {
+            return GetIp6SubnetAddress(ip_prefix.to_v6(), plen);
+        }
+        return Ip6Address();
     }
-};
 
-struct VnSubnet {
-    Ip4Address prefix;
-    uint32_t plen;
-
-    VnSubnet() : prefix(), plen(0) {}
-    bool operator<(const VnSubnet &rhs) const {
-        if (prefix != rhs.prefix)
-            return prefix < rhs.prefix;
-        return (plen < rhs.plen);
-    }
-    bool operator==(const VnSubnet &rhs) const {
-        if (prefix == rhs.prefix && plen == rhs.plen)
-            return true;
+    bool IsSubnetMember(const IpAddress &ip) const {
+        if (ip_prefix.is_v4() && ip.is_v4()) {
+            return ((ip_prefix.to_v4().to_ulong() | ~(0xFFFFFFFF << (32 - plen))) == 
+                 (ip.to_v4().to_ulong() | ~(0xFFFFFFFF << (32 - plen))));
+        } else if (ip_prefix.is_v6() && ip.is_v6()) {
+            return IsIp6SubnetMember(ip.to_v6(), ip_prefix.to_v6(), plen);
+        }
         return false;
-    }
-    std::string ToString() const { 
-        char len[32];
-        snprintf(len, sizeof(len), "%u", plen);
-        return prefix.to_string() + "/" + std::string(len);
     }
 };
 
 // Per IPAM data of the VN
-// TODO: move the subnet, gw data here
 struct VnIpamLinkData {
-    std::set<VnSubnet> host_routes;
+    OperDhcpOptions oper_dhcp_options_;
 
-    void AddRoute(const VnSubnet &route) { host_routes.insert(route); }
     bool operator==(const VnIpamLinkData &rhs) const {
-        if (host_routes == rhs.host_routes)
+        if (oper_dhcp_options_.host_routes() ==
+            rhs.oper_dhcp_options_.host_routes())
             return true;
         return false;
     }
@@ -108,12 +113,12 @@ struct VnData : public AgentData {
            const uuid &mirror_acl_id, const uuid &mc_acl_id, 
            const std::vector<VnIpam> &ipam, const VnIpamDataMap &vn_ipam_data,
            int vxlan_id, int vnid, bool layer2_forwarding,
-           bool ipv4_forwarding) :
+           bool layer3_forwarding, bool admin_state) :
                 AgentData(), name_(name), vrf_name_(vrf_name), acl_id_(acl_id),
                 mirror_acl_id_(mirror_acl_id), mirror_cfg_acl_id_(mc_acl_id),
                 ipam_(ipam), vn_ipam_data_(vn_ipam_data), vxlan_id_(vxlan_id),
                 vnid_(vnid), layer2_forwarding_(layer2_forwarding), 
-                ipv4_forwarding_(ipv4_forwarding) {  
+                layer3_forwarding_(layer3_forwarding), admin_state_(admin_state) {
     };
     virtual ~VnData() { };
 
@@ -127,13 +132,14 @@ struct VnData : public AgentData {
     int vxlan_id_;
     int vnid_;
     bool layer2_forwarding_;
-    bool ipv4_forwarding_;
+    bool layer3_forwarding_;
+    bool admin_state_;
 };
 
 class VnEntry : AgentRefCount<VnEntry>, public AgentDBEntry {
 public:
     VnEntry(uuid id) : uuid_(id), vxlan_id_(0), vnid_(0), layer2_forwarding_(true), 
-    ipv4_forwarding_(true) { };
+    layer3_forwarding_(true), admin_state_(true) { }
     virtual ~VnEntry() { };
 
     virtual bool IsLess(const DBEntry &rhs) const;
@@ -152,13 +158,18 @@ public:
     const AclDBEntry *GetMirrorCfgAcl() const {return mirror_cfg_acl_.get();};
     VrfEntry *GetVrf() const {return vrf_.get();};
     const std::vector<VnIpam> &GetVnIpam() const { return ipam_; };
-    bool GetVnHostRoutes(const std::string &ipam, std::set<VnSubnet> *routes) const;
-    bool GetIpamName(const Ip4Address &vm_addr, std::string *ipam_name) const;
-    bool GetIpamData(const Ip4Address &vm_addr, std::string *ipam_name,
+    const VnIpam *GetIpam(const IpAddress &ip) const;
+    bool GetVnHostRoutes(const std::string &ipam,
+                         std::vector<OperDhcpOptions::Subnet> *routes) const;
+    bool GetIpamName(const IpAddress &vm_addr, std::string *ipam_name) const;
+    bool GetIpamData(const IpAddress &vm_addr, std::string *ipam_name,
                      autogen::IpamType *ipam_type) const;
-    bool GetIpamVdnsData(const Ip4Address &vm_addr, 
+    bool GetIpamVdnsData(const IpAddress &vm_addr,
                          autogen::IpamType *ipam_type,
                          autogen::VirtualDnsType *vdns_type) const;
+    bool GetPrefix(const Ip6Address &ip, Ip6Address *prefix,
+                   uint8_t *plen) const;
+    std::string GetProject() const;
     int GetVxLanId() const;
     bool Resync(); 
     bool VxLanNetworkIdentifierChanged();
@@ -167,8 +178,10 @@ public:
                          bool vxlan_network_identifier_mode_changed);
 
     const VxLanId *vxlan_id_ref() const {return vxlan_id_ref_.get();}
+    const VxLanId *vxlan_id() const {return vxlan_id_ref_.get();}
     bool layer2_forwarding() const {return layer2_forwarding_;};
-    bool Ipv4Forwarding() const {return ipv4_forwarding_;};
+    bool layer3_forwarding() const {return layer3_forwarding_;};
+    bool admin_state() const {return admin_state_;}
 
     AgentDBTable *DBToTable() const;
     uint32_t GetRefCount() const {
@@ -193,7 +206,8 @@ private:
     int vxlan_id_;
     int vnid_;
     bool layer2_forwarding_;
-    bool ipv4_forwarding_;
+    bool layer3_forwarding_;
+    bool admin_state_;
     VxLanIdRef vxlan_id_ref_;
     DISALLOW_COPY_AND_ASSIGN(VnEntry);
 };
@@ -220,7 +234,8 @@ public:
 
     void AddVn(const uuid &vn_uuid, const string &name, const uuid &acl_id,
                const string &vrf_name, const std::vector<VnIpam> &ipam,
-               const VnData::VnIpamDataMap &vn_ipam_data, int vxlan_id);
+               const VnData::VnIpamDataMap &vn_ipam_data, int vxlan_id,
+               bool admin_state);
     void DelVn(const uuid &vn_uuid);
     void UpdateVxLanNetworkIdentifierMode();
     bool VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry);
@@ -242,6 +257,7 @@ private:
     void AddHostRouteForGw(VnEntry *vn, const VnIpam &ipam);
     void DelHostRouteForGw(VnEntry *vn, const VnIpam &ipam);
     bool ChangeHandler(DBEntry *entry, const DBRequest *req);
+    bool IsGatewayL2(const string &gateway) const;
     IFMapNode *FindTarget(IFMapAgentTable *table, IFMapNode *node, 
                           std::string node_type);
     DBTableWalker::WalkId walkid_;
@@ -251,12 +267,14 @@ private:
 
 class DomainConfig {
 public:
-    typedef std::map<std::string, IFMapNode  *> DomainConfigMap;
-    typedef std::pair<std::string, IFMapNode *> DomainConfigPair;
+    typedef std::map<std::string, autogen::IpamType> IpamDomainConfigMap;
+    typedef std::pair<std::string, autogen::IpamType> IpamDomainConfigPair;
+    typedef std::map<std::string, autogen::VirtualDnsType> VdnsDomainConfigMap;
+    typedef std::pair<std::string, autogen::VirtualDnsType> VdnsDomainConfigPair;
     typedef boost::function<void(IFMapNode *)> Callback;
     
     DomainConfig() {}
-    virtual ~DomainConfig() {}
+    virtual ~DomainConfig();
     void RegisterIpamCb(Callback cb);
     void RegisterVdnsCb(Callback cb);
     void IpamSync(IFMapNode *node);
@@ -269,8 +287,8 @@ private:
     void CallVdnsCb(IFMapNode *node);
     void CallIpamCb(IFMapNode *node);
 
-    DomainConfigMap ipam_config_;
-    DomainConfigMap vdns_config_;
+    IpamDomainConfigMap ipam_config_;
+    VdnsDomainConfigMap vdns_config_;
     std::vector<Callback> ipam_callback_;
     std::vector<Callback> vdns_callback_;
 

@@ -44,6 +44,7 @@ class GeneratorFixture(fixtures.Fixture):
         self._opserver_port = opserver_port
         self._start_time = start_time
         self._node_type = node_type
+        self._generator_id = self._hostname+':'+self._node_type+':'+self._name+':0'
     # end __init__
 
     def setUp(self):
@@ -62,6 +63,10 @@ class GeneratorFixture(fixtures.Fixture):
         super(GeneratorFixture, self).cleanUp()
     # end tearDown
 
+    def get_generator_id(self):
+        return self._generator_id
+    # end get_generator_id
+
     @retry(delay=2, tries=5)
     def verify_on_setup(self):
         try:
@@ -76,8 +81,10 @@ class GeneratorFixture(fixtures.Fixture):
     def send_flow_stat(self, flow, flow_bytes, flow_pkts, ts=None):
         self._logger.info('Sending Flow Stats')
         if flow.bytes:
+            first_sample = False
             flow.diff_bytes = flow_bytes - flow.bytes
         else:
+            first_sample = True
             flow.diff_bytes = flow_bytes
         if flow.packets:
             flow.diff_packets = flow_pkts - flow.packets
@@ -85,6 +92,10 @@ class GeneratorFixture(fixtures.Fixture):
             flow.diff_packets = flow_pkts
         flow.bytes = flow_bytes
         flow.packets = flow_pkts
+        if first_sample:
+            action = flow.action
+        else:
+            action = None
         flow_data = FlowDataIpv4(
             flowuuid=flow.flowuuid, direction_ing=flow.direction_ing,
             sourcevn=flow.sourcevn, destvn=flow.destvn,
@@ -92,7 +103,9 @@ class GeneratorFixture(fixtures.Fixture):
             dport=flow.dport, sport=flow.sport,
             protocol=flow.protocol, bytes=flow.bytes,
             packets=flow.packets, diff_bytes=flow.diff_bytes,
-            diff_packets=flow.diff_packets)
+            diff_packets=flow.diff_packets, action=action,
+            sg_rule_uuid=flow.sg_rule_uuid,
+            nw_ace_uuid=flow.nw_ace_uuid)
         flow_object = FlowDataIpv4Object(flowdata=flow_data, sandesh=self._sandesh_instance)
         # overwrite the timestamp of the flow, if specified.
         if ts:
@@ -119,7 +132,10 @@ class GeneratorFixture(fixtures.Fixture):
                                            sourceip=0x0A0A0A01,
                                            destip=0x0A0A0A02,
                                            sport=i + 10, dport=i + 100,
-                                           protocol=i / 2))
+                                           protocol=i / 2,
+                                           action='pass',
+                                           sg_rule_uuid=str(uuid.uuid1()),
+                                           nw_ace_uuid=str(uuid.uuid1())))
             self.flows[i].samples = []
             self._logger.info(str(self.flows[i]))
         
@@ -131,7 +147,10 @@ class GeneratorFixture(fixtures.Fixture):
                                            destip=0x0A0A0A01,
                                            sourceip=0x0A0A0A02,
                                            dport=i + 10, sport=i + 100,
-                                           protocol=i / 2))
+                                           protocol=i / 2,
+                                           action='drop',
+                                           sg_rule_uuid=str(uuid.uuid1()),
+                                           nw_ace_uuid=str(uuid.uuid1())))
             self.egress_flows[i].samples = []
             self._logger.info(str(self.egress_flows[i]))
         
@@ -251,22 +270,10 @@ class GeneratorFixture(fixtures.Fixture):
             vm_if = VmInterfaceAgent()
             vm_if.name = self._VM_IF_PREFIX + str(num)
             vm_if_list.append(vm_if)
-            vm_if_stats = VmInterfaceAgentStats()
-            vm_if_stats.name = vm_if.name
-            vm_if_stats.in_pkts = self._INITIAL_PKT_COUNT
-            vm_if_stats.in_bytes = self._INITIAL_PKT_COUNT * \
-                self._BYTES_PER_PACKET
-            vm_if_stats_list.append(vm_if_stats)
 
         for num in range(msg_count):
             vm_agent = UveVirtualMachineAgent(interface_list=vm_if_list)
             vm_agent.name = vm_id
-            if num != 0:
-                for vm_if_stats in vm_if_stats_list:
-                    vm_if_stats.in_pkts += self._PKTS_PER_SEC
-                    vm_if_stats.in_bytes = vm_if_stats.in_pkts * \
-                        self._BYTES_PER_PACKET
-            vm_agent.if_stats_list = vm_if_stats_list
             uve_agent_vm = UveVirtualMachineAgentTrace(
                 data=vm_agent,
                 sandesh=self._sandesh_instance)
@@ -289,7 +296,7 @@ class GeneratorFixture(fixtures.Fixture):
         if type(vm_uves) is not list:
             vm_uves = [vm_uves]
         for uve in vm_uves:
-            if uve['data']['UveVirtualMachineAgent']['name'] == vm_id:
+            if uve['name'] == vm_id:
                 return uve
         return None
     # end find_vm_entry
@@ -308,23 +315,11 @@ class GeneratorFixture(fixtures.Fixture):
             self._logger.info(str(res))
             anum_vm_ifs = len(res.get_attr('Agent', 'interface_list'))
             assert anum_vm_ifs == num_vm_ifs
-            anum_vm_if_stats = len(res.get_attr('Agent', 'if_stats_list'))
-            assert anum_vm_if_stats == num_vm_ifs
             for i in range(num_vm_ifs):
                 vm_if_dict = res.get_attr('Agent', 'interface_list')[i]
-                vm_if_stats_dict = res.get_attr('Agent', 'if_stats_list')[i]
                 evm_if_name = self._VM_IF_PREFIX + str(i)
                 avm_if_name = vm_if_dict['name']
                 assert avm_if_name == evm_if_name
-                avm_if_stats_name = vm_if_stats_dict['name']
-                assert avm_if_stats_name == evm_if_name
-                epkt_count = self._INITIAL_PKT_COUNT + \
-                    (msg_count - 1) * self._PKTS_PER_SEC
-                apkt_count = vm_if_stats_dict['in_pkts']
-                assert int(apkt_count) == epkt_count
-                ebyte_count = epkt_count * self._BYTES_PER_PACKET
-                abyte_count = vm_if_stats_dict['in_bytes']
-                assert int(abyte_count) == ebyte_count
             return True
     # end verify_uve_vm
 
@@ -332,7 +327,7 @@ class GeneratorFixture(fixtures.Fixture):
     def verify_vm_uve_cache(self, vm_id, delete=False):
         try:
             vg = VerificationGenerator('127.0.0.1', self._http_port)
-            vm_uves = vg.get_uve('UveVirtualMachineAgentTrace')
+            vm_uves = vg.get_uve('UveVirtualMachineAgent')
         except Exception as e:
             self._logger.info('Failed to get vm uves: %s' % (e))
             return False
@@ -346,13 +341,13 @@ class GeneratorFixture(fixtures.Fixture):
                 return False
             if delete is True:
                 try:
-                    return vm_uve['data']['UveVirtualMachineAgent']['deleted'] \
+                    return vm_uve['deleted'] \
                                     == 'true'
                 except:
                     return False
             else:
                 try:
-                    return vm_uve['data']['UveVirtualMachineAgent']['deleted'] \
+                    return vm_uve['deleted'] \
                                    == 'false'
                 except:
                     return True

@@ -3,34 +3,21 @@
 #
 
 # -*- mode: python; -*-
-
 import re
-
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-env.Prepend(CPPPATH = env['TOP'] + '/vnsw/dp/sandesh')
-env.Prepend(LIBS=['gunit'])
-env.Prepend(CCFLAGS = ['-Wno-return-type', '-Wno-unused-function'])
+AgentEnv.MakeTestEnv(env)
 
-cflags = env['CCFLAGS']
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-    env.Replace(CCFLAGS = cflags)
+ksync_test_suite = []
+ksync_flaky_test_suite = []
 
-import sys
-if sys.platform != 'darwin':
-    env.Append(LIBPATH=['../../test'])
-    env.Prepend(LIBS=['agent_test'])
-    env.Append(LIBS=['agent_test_buildinfo'])
+test_vnswif = AgentEnv.MakeTestCmd(env, 'test_vnswif', ksync_test_suite)
 
-    test_vnswif = env.Program(target = 'test_vnswif', source = ['test_vnswif.cc'])
-    env.Alias('agent:test_vnswif', test_vnswif)
+flaky_test = env.TestSuite('agent-flaky-test', ksync_flaky_test_suite)
+env.Alias('controller/src/vnsw/agent/ksync:flaky_test', flaky_test)
 
-    ksync_suite = [test_vnswif,
-                  ]
-
-    test = env.TestSuite('agent-test', ksync_suite)
-    env.Alias('controller/src/vnsw/agent/ksync:test', test)
-    Return('ksync_suite')
-
+test = env.TestSuite('agent-test', ksync_test_suite)
+env.Alias('agent:ksync', test)
+env.Alias('controller/src/vnsw/agent/ksync:test', test)
+Return('ksync_test_suite')

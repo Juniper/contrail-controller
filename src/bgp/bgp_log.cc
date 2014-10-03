@@ -42,8 +42,10 @@ void init() {
 }
 
 void init(std::string log_file, unsigned long log_file_size,
-          unsigned long log_file_index) {
-    LoggingInit(log_file, log_file_size, log_file_index);
+          unsigned long log_file_index, bool enable_syslog,
+          std::string syslog_facility, std::string ident) {
+    LoggingInit(log_file, log_file_size, log_file_index,
+                enable_syslog, syslog_facility, ident);
     init_common();
 }
 

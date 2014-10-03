@@ -8,8 +8,6 @@
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
-#include "bgp/enet/enet_route.h"
-#include "bgp/enet/enet_table.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
@@ -19,36 +17,6 @@
 #include "xmpp/xmpp_server.h"
 
 using namespace std;
-
-//
-// Fire state machine timers faster and reduce possible delay in this test
-//
-class StateMachineTest : public StateMachine {
-public:
-    explicit StateMachineTest(BgpPeer *peer) : StateMachine(peer) { }
-    ~StateMachineTest() { }
-
-    void StartConnectTimer(int seconds) {
-        connect_timer_->Start(10,
-            boost::bind(&StateMachine::ConnectTimerExpired, this),
-            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
-    }
-
-    void StartOpenTimer(int seconds) {
-        open_timer_->Start(10,
-            boost::bind(&StateMachine::OpenTimerExpired, this),
-            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
-    }
-
-    void StartIdleHoldTimer() {
-        if (idle_hold_time_ <= 0)
-            return;
-
-        idle_hold_timer_->Start(10,
-            boost::bind(&StateMachine::IdleHoldTimerExpired, this),
-            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
-    }
-};
 
 class BgpXmppChannelMock : public BgpXmppChannel {
 public:
@@ -75,27 +43,49 @@ private:
 class BgpXmppChannelManagerMock : public BgpXmppChannelManager {
 public:
     BgpXmppChannelManagerMock(XmppServer *x, BgpServer *b) :
-        BgpXmppChannelManager(x, b), count(0), channels(0) { }
+        BgpXmppChannelManager(x, b) { }
 
     virtual void XmppHandleChannelEvent(XmppChannel *channel,
                                         xmps::PeerState state) {
-         count++;
          BgpXmppChannelManager::XmppHandleChannelEvent(channel, state);
     }
 
     virtual BgpXmppChannel *CreateChannel(XmppChannel *channel) {
-        channel_[channels] = new BgpXmppChannelMock(channel, bgp_server_, this);
-        channels++;
-        return channel_[channels-1];
+        BgpXmppChannel *mock_channel =
+            new BgpXmppChannelMock(channel, bgp_server_, this);
+        return mock_channel;
     }
-
-    int Count() {
-        return count;
-    }
-    int count;
-    int channels;
-    BgpXmppChannelMock *channel_[2];
 };
+
+static const autogen::EnetItemType *VerifyRouteUpdated(
+    test::NetworkAgentMockPtr agent, const string net, const string prefix,
+    const boost::crc_32_type &old_crc) {
+    static int max_retry = 10000;
+
+    int count = 0;
+    autogen::EnetItemType *rt;
+    boost::crc_32_type rt_crc;
+    do {
+        rt = const_cast<autogen::EnetItemType *>(agent->EnetRouteLookup(
+            net, prefix));
+        if (rt)
+            rt->CalculateCrc(&rt_crc);
+        usleep(1000);
+    } while ((!rt || rt_crc.checksum() == old_crc.checksum()) &&
+        (count++ < max_retry));
+
+    EXPECT_NE(max_retry, count);
+    return rt;
+}
+
+static const char *config_template_10 = "\
+<config>\
+    <bgp-router name=\'X\'>\
+        <identifier>192.168.0.1</identifier>\
+        <address>127.0.0.1</address>\
+    </bgp-router>\
+</config>\
+";
 
 static const char *config_template_11 = "\
 <config>\
@@ -126,7 +116,7 @@ static const char *config_template_11 = "\
 //
 class BgpXmppEvpnTest1 : public ::testing::Test {
 protected:
-    BgpXmppEvpnTest1() : thread_(&evm_) { }
+    BgpXmppEvpnTest1() : thread_(&evm_), xs_x_(NULL) { }
 
     virtual void SetUp() {
         bs_x_.reset(new BgpServerTest(&evm_, "X"));
@@ -162,12 +152,16 @@ protected:
         bs_x_->Configure(cfg_template);
     }
 
+    void ConfigureWithoutRoutingInstances() {
+        bs_x_->Configure(config_template_10);
+    }
+
     EventManager evm_;
     ServerThread thread_;
     BgpServerTestPtr bs_x_;
     XmppServer *xs_x_;
-    boost::scoped_ptr<test::NetworkAgentMock> agent_a_;
-    boost::scoped_ptr<test::NetworkAgentMock> agent_b_;
+    test::NetworkAgentMockPtr agent_a_;
+    test::NetworkAgentMockPtr agent_b_;
     boost::scoped_ptr<BgpXmppChannelManagerMock> bgp_channel_manager_;
 };
 
@@ -243,26 +237,25 @@ TEST_F(BgpXmppEvpnTest1, 1AgentRouteUpdate) {
     // Verify that the route showed up on the agent.
     TASK_UTIL_EXPECT_EQ(1, agent_a_->EnetRouteCount());
     TASK_UTIL_EXPECT_EQ(1, agent_a_->EnetRouteCount("blue"));
-    const autogen::EnetItemType *rt1 =
-        agent_a_->EnetRouteLookup("blue", "aa:00:00:00:00:01,10.1.1.1/32");
+    autogen::EnetItemType *rt1 = const_cast<autogen::EnetItemType *>
+        (agent_a_->EnetRouteLookup("blue", "aa:00:00:00:00:01,10.1.1.1/32"));
     TASK_UTIL_EXPECT_TRUE(rt1 != NULL);
     int label1 = rt1->entry.next_hops.next_hop[0].label;
     string nh1 = rt1->entry.next_hops.next_hop[0].address;
     TASK_UTIL_EXPECT_EQ("192.168.1.1", nh1);
     TASK_UTIL_EXPECT_EQ("blue", rt1->entry.virtual_network);
 
+    // Remember the CRC for rt1.
+    boost::crc_32_type rt1_crc;
+    rt1->CalculateCrc(&rt1_crc);
+
     // Change the route.
     agent_a_->AddEnetRoute("blue", eroute_a.str(), "192.168.2.1");
     task_util::WaitForIdle();
 
     // Wait for the route to get updated.
-    int count = 0;
-    const autogen::EnetItemType *rt2 =
-         agent_a_->EnetRouteLookup("blue", "aa:00:00:00:00:01,10.1.1.1/32");
-    while ((rt2 == rt1 || !rt2) && count++ < 10000) {
-        rt2 = agent_a_->EnetRouteLookup("blue","aa:00:00:00:00:01,10.1.1.1/32");
-        usleep(1000);
-    }
+    const autogen::EnetItemType *rt2 = VerifyRouteUpdated(agent_a_, "blue",
+        "aa:00:00:00:00:01,10.1.1.1/32", rt1_crc);
 
     // Verify that the route is updated.
     TASK_UTIL_EXPECT_EQ(1, agent_a_->EnetRouteCount());
@@ -335,6 +328,116 @@ TEST_F(BgpXmppEvpnTest1, 1AgentRouteDelete) {
 
     // Verify that there are no routes on agent.
     TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount());
+
+    // Delete route again.
+    agent_a_->DeleteEnetRoute("blue", eroute_a.str());
+    task_util::WaitForIdle();
+
+    // Verify that there are no routes on agent.
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount("blue"));
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+}
+
+//
+// Single agent.
+// Add/Delete route with only the MAC.
+// Address field is null.
+//
+TEST_F(BgpXmppEvpnTest1, 1AgentMacOnlyRouteAddDelete1) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Register to blue instance.
+    agent_a_->EnetSubscribe("blue", 1);
+
+    // Add route from agent.
+    stringstream eroute_a;
+    eroute_a << "aa:00:00:00:00:01";
+    agent_a_->AddEnetRoute("blue", eroute_a.str(), "192.168.1.1");
+    task_util::WaitForIdle();
+
+    // Verify that route showed up on agent.
+    TASK_UTIL_EXPECT_EQ(1, agent_a_->EnetRouteCount());
+    const autogen::EnetItemType *rt =
+        agent_a_->EnetRouteLookup("blue", "aa:00:00:00:00:01,0.0.0.0/32");
+    TASK_UTIL_EXPECT_TRUE(rt != NULL);
+    int label = rt->entry.next_hops.next_hop[0].label;
+    string nh = rt->entry.next_hops.next_hop[0].address;
+    TASK_UTIL_EXPECT_NE(0xFFFFF, label);
+    TASK_UTIL_EXPECT_EQ("192.168.1.1", nh);
+    TASK_UTIL_EXPECT_EQ("blue", rt->entry.virtual_network);
+
+    // Delete route.
+    agent_a_->DeleteEnetRoute("blue", eroute_a.str());
+    task_util::WaitForIdle();
+
+    // Verify that there are no routes on agent.
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount("blue"));
+
+    // Delete route again.
+    agent_a_->DeleteEnetRoute("blue", eroute_a.str());
+    task_util::WaitForIdle();
+
+    // Verify that there are no routes on agent.
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount("blue"));
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+}
+
+//
+// Single agent.
+// Add/Delete route with only the MAC.
+// Address field is 0.0.0.0/32.
+//
+TEST_F(BgpXmppEvpnTest1, 1AgentMacOnlyRouteAddDelete2) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Register to blue instance.
+    agent_a_->EnetSubscribe("blue", 1);
+
+    // Add route from agent.
+    stringstream eroute_a;
+    eroute_a << "aa:00:00:00:00:01,0.0.0.0/32";
+    agent_a_->AddEnetRoute("blue", eroute_a.str(), "192.168.1.1");
+    task_util::WaitForIdle();
+
+    // Verify that route showed up on agent.
+    TASK_UTIL_EXPECT_EQ(1, agent_a_->EnetRouteCount());
+    const autogen::EnetItemType *rt =
+        agent_a_->EnetRouteLookup("blue", "aa:00:00:00:00:01,0.0.0.0/32");
+    TASK_UTIL_EXPECT_TRUE(rt != NULL);
+    int label = rt->entry.next_hops.next_hop[0].label;
+    string nh = rt->entry.next_hops.next_hop[0].address;
+    TASK_UTIL_EXPECT_NE(0xFFFFF, label);
+    TASK_UTIL_EXPECT_EQ("192.168.1.1", nh);
+    TASK_UTIL_EXPECT_EQ("blue", rt->entry.virtual_network);
+
+    // Delete route.
+    agent_a_->DeleteEnetRoute("blue", eroute_a.str());
+    task_util::WaitForIdle();
+
+    // Verify that there are no routes on agent.
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount("blue"));
 
     // Delete route again.
     agent_a_->DeleteEnetRoute("blue", eroute_a.str());
@@ -443,26 +546,25 @@ TEST_F(BgpXmppEvpnTest1, 2AgentRouteUpdate) {
     // Verify that the route showed up on agent B.
     TASK_UTIL_EXPECT_EQ(1, agent_b_->EnetRouteCount());
     TASK_UTIL_EXPECT_EQ(1, agent_b_->EnetRouteCount("blue"));
-    const autogen::EnetItemType *rt1 =
-        agent_b_->EnetRouteLookup("blue", "aa:00:00:00:00:01,10.1.1.1/32");
+    autogen::EnetItemType *rt1 = const_cast<autogen::EnetItemType *>
+        (agent_b_->EnetRouteLookup("blue", "aa:00:00:00:00:01,10.1.1.1/32"));
     TASK_UTIL_EXPECT_TRUE(rt1 != NULL);
     int label1 = rt1->entry.next_hops.next_hop[0].label;
     string nh1 = rt1->entry.next_hops.next_hop[0].address;
     TASK_UTIL_EXPECT_EQ("192.168.1.1", nh1);
     TASK_UTIL_EXPECT_EQ("blue", rt1->entry.virtual_network);
 
+    // Remember the CRC for rt1.
+    boost::crc_32_type rt1_crc;
+    rt1->CalculateCrc(&rt1_crc);
+
     // Change the route from agent A.
     agent_a_->AddEnetRoute("blue", eroute_a.str(), "192.168.2.1");
     task_util::WaitForIdle();
 
     // Wait for the route to get updated on agent B.
-    int count = 0;
-    const autogen::EnetItemType *rt2 =
-         agent_b_->EnetRouteLookup("blue", "aa:00:00:00:00:01,10.1.1.1/32");
-    while ((rt2 == rt1 || !rt2) && count++ < 10000) {
-        rt2 = agent_b_->EnetRouteLookup("blue","aa:00:00:00:00:01,10.1.1.1/32");
-        usleep(1000);
-    }
+    const autogen::EnetItemType *rt2 = VerifyRouteUpdated(agent_b_, "blue",
+        "aa:00:00:00:00:01,10.1.1.1/32", rt1_crc);
 
     // Verify that the route is updated on agent B.
     TASK_UTIL_EXPECT_EQ(1, agent_b_->EnetRouteCount());
@@ -1017,6 +1119,9 @@ TEST_F(BgpXmppEvpnTest1, 2AgentSessionDown) {
 // have already advertised routes.
 //
 TEST_F(BgpXmppEvpnTest1, CreateInstanceLater) {
+    ConfigureWithoutRoutingInstances();
+    task_util::WaitForIdle();
+
     // Create XMPP Agent A connected to XMPP server X.
     agent_a_.reset(
         new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
@@ -1187,6 +1292,7 @@ static const char *config_template_21 = "\
                 <family>e-vpn</family>\
                 <family>route-target</family>\
                 <family>inet-vpn</family>\
+                <family>erm-vpn</family>\
             </address-families>\
         </session>\
     </bgp-router>\
@@ -1199,6 +1305,7 @@ static const char *config_template_21 = "\
                 <family>e-vpn</family>\
                 <family>route-target</family>\
                 <family>inet-vpn</family>\
+                <family>erm-vpn</family>\
             </address-families>\
         </session>\
     </bgp-router>\
@@ -1225,7 +1332,7 @@ static const char *config_template_21 = "\
 //
 class BgpXmppEvpnTest2 : public ::testing::Test {
 protected:
-    BgpXmppEvpnTest2() : thread_(&evm_) { }
+    BgpXmppEvpnTest2() : thread_(&evm_), xs_x_(NULL), xs_y_(NULL) { }
 
     virtual void SetUp() {
         bs_x_.reset(new BgpServerTest(&evm_, "X"));
@@ -1301,8 +1408,8 @@ protected:
     BgpServerTestPtr bs_y_;
     XmppServer *xs_x_;
     XmppServer *xs_y_;
-    boost::scoped_ptr<test::NetworkAgentMock> agent_a_;
-    boost::scoped_ptr<test::NetworkAgentMock> agent_b_;
+    test::NetworkAgentMockPtr agent_a_;
+    test::NetworkAgentMockPtr agent_b_;
     boost::scoped_ptr<BgpXmppChannelManagerMock> cm_x_;
     boost::scoped_ptr<BgpXmppChannelManagerMock> cm_y_;
 };
@@ -1473,26 +1580,25 @@ TEST_F(BgpXmppEvpnTest2, RouteUpdate) {
     // Verify that the route showed up on agent B.
     TASK_UTIL_EXPECT_EQ(1, agent_b_->EnetRouteCount());
     TASK_UTIL_EXPECT_EQ(1, agent_b_->EnetRouteCount("blue"));
-    const autogen::EnetItemType *rt1 =
-        agent_b_->EnetRouteLookup("blue", "aa:00:00:00:00:01,10.1.1.1/32");
+    autogen::EnetItemType *rt1 = const_cast<autogen::EnetItemType *>
+        (agent_b_->EnetRouteLookup("blue", "aa:00:00:00:00:01,10.1.1.1/32"));
     TASK_UTIL_EXPECT_TRUE(rt1 != NULL);
     int label1 = rt1->entry.next_hops.next_hop[0].label;
     string nh1 = rt1->entry.next_hops.next_hop[0].address;
     TASK_UTIL_EXPECT_EQ("192.168.1.1", nh1);
     TASK_UTIL_EXPECT_EQ("blue", rt1->entry.virtual_network);
 
+    // Remember the CRC for rt1.
+    boost::crc_32_type rt1_crc;
+    rt1->CalculateCrc(&rt1_crc);
+
     // Change the route from agent A.
     agent_a_->AddEnetRoute("blue", eroute_a.str(), "192.168.2.1");
     task_util::WaitForIdle();
 
     // Wait for the route to get updated on agent B.
-    int count = 0;
-    const autogen::EnetItemType *rt2 =
-         agent_b_->EnetRouteLookup("blue", "aa:00:00:00:00:01,10.1.1.1/32");
-    while ((rt2 == rt1 || !rt2) && count++ < 10000) {
-        rt2 = agent_b_->EnetRouteLookup("blue","aa:00:00:00:00:01,10.1.1.1/32");
-        usleep(1000);
-    }
+    const autogen::EnetItemType *rt2 = VerifyRouteUpdated(agent_b_, "blue",
+        "aa:00:00:00:00:01,10.1.1.1/32", rt1_crc);
 
     // Verify that the route is updated on agent B.
     TASK_UTIL_EXPECT_EQ(1, agent_b_->EnetRouteCount());
@@ -1510,6 +1616,128 @@ TEST_F(BgpXmppEvpnTest2, RouteUpdate) {
 
     // Delete route from agent A.
     agent_a_->DeleteEnetRoute("blue", eroute_a.str());
+    task_util::WaitForIdle();
+
+    // Verify that there are no routes on the agents.
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount("blue"));
+    TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount("blue"));
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Add/Delete routes from 2 agents with only MAC.
+// Address field is null.
+//
+TEST_F(BgpXmppEvpnTest2, MacOnlyRouteAddDelete1) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->EnetSubscribe("blue", 1);
+    agent_b_->EnetSubscribe("blue", 1);
+
+    // Add route from agent A.
+    stringstream eroute_a;
+    eroute_a << "aa:00:00:00:00:01";
+    agent_a_->AddEnetRoute("blue", eroute_a.str(), "192.168.1.1");
+    task_util::WaitForIdle();
+
+    // Add route from agent B.
+    stringstream eroute_b;
+    eroute_b << "bb:00:00:00:00:01";
+    agent_b_->AddEnetRoute("blue", eroute_b.str(), "192.168.1.2");
+    task_util::WaitForIdle();
+
+    // Verify that routes showed up on the agents.
+    TASK_UTIL_EXPECT_EQ(2, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_a_->EnetRouteCount("blue"));
+    TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount("blue"));
+
+    // Delete route from agent A.
+    agent_a_->DeleteEnetRoute("blue", eroute_a.str());
+    task_util::WaitForIdle();
+
+    // Delete route from agent B.
+    agent_b_->DeleteEnetRoute("blue", eroute_b.str());
+    task_util::WaitForIdle();
+
+    // Verify that there are no routes on the agents.
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount("blue"));
+    TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount("blue"));
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Add/Delete routes from 2 agents with only MAC.
+// Address field is 0.0.0.0/32.
+//
+TEST_F(BgpXmppEvpnTest2, MacOnlyRouteAddDelete2) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->EnetSubscribe("blue", 1);
+    agent_b_->EnetSubscribe("blue", 1);
+
+    // Add route from agent A.
+    stringstream eroute_a;
+    eroute_a << "aa:00:00:00:00:01,0.0.0.0/32";
+    agent_a_->AddEnetRoute("blue", eroute_a.str(), "192.168.1.1");
+    task_util::WaitForIdle();
+
+    // Add route from agent B.
+    stringstream eroute_b;
+    eroute_b << "bb:00:00:00:00:01,0.0.0.0/32";
+    agent_b_->AddEnetRoute("blue", eroute_b.str(), "192.168.1.2");
+    task_util::WaitForIdle();
+
+    // Verify that routes showed up on the agents.
+    TASK_UTIL_EXPECT_EQ(2, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_a_->EnetRouteCount("blue"));
+    TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount("blue"));
+
+    // Delete route from agent A.
+    agent_a_->DeleteEnetRoute("blue", eroute_a.str());
+    task_util::WaitForIdle();
+
+    // Delete route from agent B.
+    agent_b_->DeleteEnetRoute("blue", eroute_b.str());
     task_util::WaitForIdle();
 
     // Verify that there are no routes on the agents.
@@ -2103,6 +2331,7 @@ static const char *config_template_23 = "\
                 <family>route-target</family>\
                 <family>e-vpn</family>\
                 <family>inet-vpn</family>\
+                <family>erm-vpn</family>\
             </address-families>\
         </session>\
     </bgp-router>\
@@ -2115,6 +2344,7 @@ static const char *config_template_23 = "\
                 <family>route-target</family>\
                 <family>e-vpn</family>\
                 <family>inet-vpn</family>\
+                <family>erm-vpn</family>\
             </address-families>\
         </session>\
     </bgp-router>\
@@ -2371,6 +2601,7 @@ static const char *config_template_25 = "\
                 <family>e-vpn</family>\
                 <family>route-target</family>\
                 <family>inet-vpn</family>\
+                <family>erm-vpn</family>\
             </address-families>\
         </session>\
     </bgp-router>\
@@ -2383,6 +2614,7 @@ static const char *config_template_25 = "\
                 <family>e-vpn</family>\
                 <family>route-target</family>\
                 <family>inet-vpn</family>\
+                <family>erm-vpn</family>\
             </address-families>\
         </session>\
     </bgp-router>\

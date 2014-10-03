@@ -5,13 +5,15 @@
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 
+#include <net/if.h>
+
+#if defined(__linux__)
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <linux/genetlink.h>
 #include <linux/if_ether.h>
-
-#include <net/if.h>
 #include <netinet/ether.h>
+#endif
 
 #include <io/event_manager.h>
 #include <db/db_entry.h>
@@ -21,6 +23,7 @@
 #include <ksync/ksync_index.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
+#include <ksync/ksync_netlink.h>
 #include <ksync/ksync_sock.h>
 #include <ksync/ksync_sock_user.h>
 
@@ -31,7 +34,7 @@
 #include "ksync/mirror_ksync.h"
 #include "ksync/vrf_assign_ksync.h"
 #include "ksync/vxlan_ksync.h"
-#include "ksync/vnswif_listener.h"
+#include "vnswif_listener.h"
 #include "ksync/sandesh_ksync.h"
 #include "ksync/test/ksync_test.h"
 
@@ -48,6 +51,11 @@ void KSyncTest::Init(bool create_vhost) {
     NetlinkInitTest();
 }
 
+void KSyncTest::Shutdown() {
+    flowtable_ksync_obj_.get()->Shutdown();
+    NetlinkShutdownTest();
+}
+
 void KSyncTest::RegisterDBClients(DB *db) {
     KSyncObjectManager::Init();
     interface_ksync_obj_.get()->RegisterDBClients();
@@ -57,7 +65,7 @@ void KSyncTest::RegisterDBClients(DB *db) {
     mirror_ksync_obj_.get()->RegisterDBClients();
     vrf_assign_ksync_obj_.get()->RegisterDBClients();
     vxlan_ksync_obj_.get()->RegisterDBClients();
-    agent_->SetRouterIdConfigured(false);
+    agent_->set_router_id_configured(false);
 }
 
 void KSyncTest::GenericNetlinkInitTest() const {
@@ -69,7 +77,7 @@ void KSyncTest::GenericNetlinkInitTest() const {
 void KSyncTest::NetlinkInitTest() const {
     EventManager *event_mgr;
 
-    event_mgr = agent_->GetEventManager();
+    event_mgr = agent_->event_manager();
     boost::asio::io_service &io = *event_mgr->io_service();
 
     KSyncSockTypeMap::Init(io, 1);

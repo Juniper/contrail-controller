@@ -58,15 +58,16 @@ const std::vector<Sandesh::QueueWaterMarkInfo> Collector::kSmQueueWaterMarkInfo 
         (25000, SandeshLevel::INVALID, false);
 
 Collector::Collector(EventManager *evm, short server_port,
-        DbHandler *db_handler, Ruleeng *ruleeng, std::string cassandra_ip,
-        unsigned short cassandra_port, int analytics_ttl) :
+        DbHandler *db_handler, Ruleeng *ruleeng,
+        std::vector<std::string> cassandra_ips,
+        std::vector<int> cassandra_ports, int analytics_ttl) :
         SandeshServer(evm),
         db_handler_(db_handler),
         osp_(ruleeng->GetOSP()),
         evm_(evm),
         cb_(boost::bind(&Ruleeng::rule_execute, ruleeng, _1, _2, _3)),
-        cassandra_ip_(cassandra_ip),
-        cassandra_port_(cassandra_port),
+        cassandra_ips_(cassandra_ips),
+        cassandra_ports_(cassandra_ports),
         analytics_ttl_(analytics_ttl),
         db_task_id_(TaskScheduler::GetInstance()->GetTaskId(kDbTask)),
         db_queue_wm_info_(kDbQueueWaterMarkInfo),
@@ -156,9 +157,7 @@ bool Collector::ReceiveResourceUpdate(SandeshSession *session,
 
 bool Collector::ReceiveSandeshMsg(SandeshSession *session,
                                   const SandeshMessage *msg, bool rsc) {
-    rand_mutex_.lock();
     boost::uuids::uuid unm(umn_gen_());
-    rand_mutex_.unlock();
 
     VizMsg vmsg(msg, unm);
 
@@ -260,7 +259,7 @@ bool Collector::ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
              it != seqReply.end(); it++) {
             UVETypeInfo uti;
             uti.set_type_name(it->first);
-            uti.set_seq_num(it->second);
+            uti.set_seq_num(0);
             vu.push_back(uti);
         }
         SandeshCtrlServerToClient::Request(vu, retc, "ctrl", vsession->connection());
@@ -323,6 +322,7 @@ void Collector::GetGeneratorStats(vector<SandeshMessageStat> &smslist,
         gdbstats.set_name(gen->ToString());
         gdbstats.set_table_info(vdbti);
         gdbstats.set_errors(vdbe); 
+        gdbslist.push_back(gdbstats);
     }
 }
 
@@ -374,10 +374,10 @@ void Collector::GetGeneratorUVEInfo(vector<ModuleServerState> &genlist) {
         VizSession *session = gen->session();
         if (session) {
             ginfo.set_session_stats(session->GetStats());
-            TcpServerSocketStats rx_stats;
+            SocketIOStats rx_stats;
             session->GetRxSocketStats(rx_stats);
             ginfo.set_session_rx_socket_stats(rx_stats);
-            TcpServerSocketStats tx_stats;
+            SocketIOStats tx_stats;
             session->GetTxSocketStats(tx_stats);
             ginfo.set_session_tx_socket_stats(tx_stats);
         }
@@ -533,10 +533,10 @@ public:
             return true;
         }
         // Socket statistics
-        TcpServerSocketStats rx_socket_stats;
+        SocketIOStats rx_socket_stats;
         vsc->Analytics()->GetCollector()->GetRxSocketStats(rx_socket_stats);
         resp->set_rx_socket_stats(rx_socket_stats);
-        TcpServerSocketStats tx_socket_stats;
+        SocketIOStats tx_socket_stats;
         vsc->Analytics()->GetCollector()->GetTxSocketStats(tx_socket_stats);
         resp->set_tx_socket_stats(tx_socket_stats);
         // Collector statistics

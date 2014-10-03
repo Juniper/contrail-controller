@@ -1,0 +1,17 @@
+<ns3:Envelope xmlns:ns2="http://www.trustedcomputinggroup.org/2010/IFMAP/2" xmlns:ns3="http://www.w3.org/2003/05/soap-envelope">
+  <ns3:Body>
+    <ns2:response>
+      <pollResult>
+        <deleteResult name="root">
+          <resultItem>
+              <identity name="contrail:virtual-router:vr1" type="other" other-type-definition="extended" />
+                  <metadata>
+                          <contrail:display-name>testVr1
+                          </contrail:display-name>
+                  </metadata>
+          </resultItem>
+        </deleteResult>
+      </pollResult>
+    </ns2:response>
+  </ns3:Body>
+</ns3:Envelope>

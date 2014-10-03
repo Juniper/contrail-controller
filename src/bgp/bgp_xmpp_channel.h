@@ -34,6 +34,10 @@ class XmppSession;
 
 class BgpXmppChannel {
 public:
+    enum StatsIndex {
+        RX,
+        TX,
+    };
     struct Stats {
         Stats();
         int rt_updates;
@@ -41,7 +45,25 @@ public:
         int unreach;
     };
 
-    BgpXmppChannel(XmppChannel *, BgpServer *, BgpXmppChannelManager *);
+    struct ErrorStats {
+        ErrorStats();
+        void incr_inet6_rx_bad_xml_token_count();
+        void incr_inet6_rx_bad_prefix_count();
+        void incr_inet6_rx_bad_nexthop_count();
+        void incr_inet6_rx_bad_afi_safi_count();
+        int get_inet6_rx_bad_xml_token_count() const;
+        int get_inet6_rx_bad_prefix_count() const;
+        int get_inet6_rx_bad_nexthop_count() const;
+        int get_inet6_rx_bad_afi_safi_count() const;
+
+        int inet6_rx_bad_xml_token_count;
+        int inet6_rx_bad_prefix_count;
+        int inet6_rx_bad_nexthop_count;
+        int inet6_rx_bad_afi_safi_count;
+    };
+
+    explicit BgpXmppChannel(XmppChannel *channel, BgpServer *bgp_server = NULL,
+                            BgpXmppChannelManager *manager = NULL);
     virtual ~BgpXmppChannel();
 
     void Close();
@@ -51,13 +73,24 @@ public:
     std::string StateName() const;
     boost::asio::ip::tcp::endpoint remote_endpoint();
     boost::asio::ip::tcp::endpoint local_endpoint();
+    bool peer_deleted();
 
     const XmppSession *GetSession() const;
-    const Stats &rx_stats() const { return stats_[0]; }
-    const Stats &tx_stats() const { return stats_[1]; }
+    const Stats &rx_stats() const { return stats_[RX]; }
+    const Stats &tx_stats() const { return stats_[TX]; }
+    ErrorStats &error_stats() { return error_stats_; }
+    const ErrorStats &error_stats() const { return error_stats_; }
     void set_deleted(bool deleted) { deleted_ = deleted; }
     bool deleted() { return deleted_; }
     void RoutingInstanceCallback(std::string vrf_name, int op);
+    void ASNUpdateCallback(as_t old_asn);
+    void FillInstanceMembershipInfo(BgpNeighborResp *resp);
+    void FillTableMembershipInfo(BgpNeighborResp *resp);
+
+    const XmppChannel *channel() const { return channel_; }
+
+protected:
+    XmppChannel *channel_;
 
 private:
     friend class BgpXmppChannelMock;
@@ -85,9 +118,19 @@ private:
 
     };
 
-    // Set of routing instances to which this BgpXmppChannel is subscribed to
-    typedef std::map<RoutingInstance *, RoutingInstance::RouteTargetList> 
+    // Map of routing instances to which this BgpXmppChannel is subscribed.
+    struct SubscriptionState {
+        SubscriptionState(const RoutingInstance::RouteTargetList &targets,
+            int index) : targets(targets), index(index) {
+        }
+        RoutingInstance::RouteTargetList targets;
+        int index;
+    };
+    typedef std::map<RoutingInstance *, SubscriptionState>
         SubscribedRoutingInstanceList;
+    typedef std::set<RoutingInstance *> RoutingInstanceList;
+    typedef std::map<RouteTarget, RoutingInstanceList> PublishedRTargetRoutes;
+
     // map of routing-instance table name to XMPP subscription request state
     typedef std::map<std::string, MembershipRequestState> 
                                             RoutingTableMembershipRequestMap;
@@ -106,13 +149,22 @@ private:
 
     void ProcessItem(std::string rt_instance, const pugi::xml_node &item,
                      bool add_change);
+    void ProcessInet6Item(std::string vrf_name, const pugi::xml_node &node,
+                          bool add_change);
     void ProcessMcastItem(std::string rt_instance, 
                           const pugi::xml_node &item, bool add_change);
     void ProcessEnetItem(std::string rt_instance,
                          const pugi::xml_node &item, bool add_change);
-    void PublishRTargetRoute(RoutingInstance *instance, bool add_change);
-    void RTargetRouteOp(BgpTable *rtarget_table, const RouteTarget &rt, 
-                        BgpAttrPtr attr, bool add_change);
+    void PublishRTargetRoute(RoutingInstance *instance, bool add_change,
+                             int index);
+    void RTargetRouteOp(BgpTable *rtarget_table, as4_t asn, 
+                    const RouteTarget &rt, BgpAttrPtr attr, bool add_change);
+    void AddNewRTargetRoute(BgpTable *rtarget_table,
+        RoutingInstance *rtinstance, const RouteTarget &rtarget,
+        BgpAttrPtr attr);
+    void DeleteRTargetRoute(BgpTable *rtarget_table,
+        RoutingInstance *rtinstance, const RouteTarget &rtarget);
+    void ProcessASUpdate(as4_t old_as);
     void ProcessSubscriptionRequest(std::string rt_instance,
                                     const XmppStanza::XmppMessageIq *iq,
                                     bool add_change);
@@ -127,11 +179,9 @@ private:
     bool ResumeClose();
     void FlushDeferQ(std::string vrf_name);
     void FlushDeferQ(std::string vrf_name, std::string table_name);
-    void FlushDeferRegisterRequest();
     void ProcessDeferredSubscribeRequest(RoutingInstance *rt_instance, 
                                          int instance_id);
     xmps::PeerId peer_id_;
-    XmppChannel *channel_;
     BgpServer *bgp_server_;
     boost::scoped_ptr<XmppPeer> peer_;
     boost::scoped_ptr<PeerClose> peer_close_;
@@ -144,13 +194,16 @@ private:
     RoutingTableMembershipRequestMap routingtable_membership_request_map_;
     VrfMembershipRequestMap vrf_membership_request_map_;
     BgpXmppChannelManager *manager_;
+    bool close_in_progress_;
     bool deleted_;
-    bool defer_close_;
+    bool defer_peer_close_;
     WorkQueue<std::string> membership_response_worker_;
     SubscribedRoutingInstanceList routing_instances_;
+    PublishedRTargetRoutes rtarget_routes_;
 
     // statistics
     Stats stats_[2];
+    ErrorStats error_stats_;
 
     // Label block manager for multicast labels.
     LabelBlockManagerPtr lb_mgr_;
@@ -179,6 +232,7 @@ public:
     }
     bool IsReadyForDeletion();
     void RoutingInstanceCallback(std::string vrf_name, int op);
+    void ASNUpdateCallback(as_t old_asn);
 
     uint32_t count() const {
         return channel_map_.size();
@@ -188,17 +242,20 @@ public:
     }
     BgpServer *bgp_server() { return bgp_server_; }
     XmppServer *xmpp_server() { return xmpp_server_; }
+
 protected:
     virtual BgpXmppChannel *CreateChannel(XmppChannel *);
 
 private:
     friend class BgpXmppChannelManagerMock;
-    
+    friend class BgpXmppUnitTest;
+
     XmppServer *xmpp_server_;
     BgpServer  *bgp_server_;
     WorkQueue<BgpXmppChannel *> queue_;
     XmppChannelMap channel_map_;
     int id_;
+    int asn_listener_id_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpXmppChannelManager);
 };

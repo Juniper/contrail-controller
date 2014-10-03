@@ -11,4 +11,30 @@ import sys
 Import('BuildEnv')
 
 CfgmEnv = BuildEnv.Clone()
-CfgmEnv.SConscript(dirs=['uve', 'common', 'api-server', 'schema-transformer', 'svc-monitor', 'vnc_openstack','test'], exports='CfgmEnv', duplicate = 0)
+
+#
+# Deprecated
+# Builds into build/<optimization>
+#
+subdirs=[
+    'api-server',
+    'common',
+    'schema-transformer',
+    'test',
+    'utils',
+    'uve',
+    'vnc_openstack',
+]
+
+CfgmEnv.SConscript(dirs=subdirs, exports='CfgmEnv', duplicate = 0)
+
+#
+# Build into build/noarch
+#
+noarch_subdirs = [
+    'svc-monitor',
+]
+for sdir in noarch_subdirs:
+    CfgmEnv.SConscript('%s/SConscript' % sdir, exports='CfgmEnv',
+                       variant_dir='#build/noarch/config/%s' % sdir,
+                       duplicate = 1)

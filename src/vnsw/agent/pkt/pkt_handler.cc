@@ -6,21 +6,22 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
-#include <netinet/ip_icmp.h>
+#include <netinet/ip6.h>
+#include <netinet/icmp6.h>
 
 #include "cmn/agent_cmn.h"
-#include "cmn/agent_stats.h"
 #include "oper/interface_common.h"
 #include "oper/nexthop.h"
 #include "oper/route_common.h"
 #include "oper/vrf.h"
-#include "pkt/tap_interface.h"
-#include "pkt/test_tap_interface.h"
+#include "pkt/control_interface.h"
 #include "pkt/pkt_handler.h"
 #include "pkt/proto.h"
 #include "pkt/flow_table.h"
 #include "pkt/pkt_types.h"
 #include "pkt/pkt_init.h"
+#include "pkt/agent_stats.h"
+#include "pkt/packet_buffer.h"
 
 #include "vr_types.h"
 #include "vr_defs.h"
@@ -37,86 +38,61 @@ const std::size_t PktTrace::kPktMaxTraceSize;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-PktHandler::PktHandler(Agent *agent, const std::string &if_name,
-                       boost::asio::io_service &io_serv, bool run_with_vrouter) 
-                      : stats_(), agent_(agent) {
+PktHandler::PktHandler(Agent *agent, PktModule *pkt_module) :
+    stats_(), agent_(agent), pkt_module_(pkt_module) {
     for (int i = 0; i < MAX_MODULES; ++i) {
-        if (i == PktHandler::DHCP || i == PktHandler::DNS)
+        if (i == PktHandler::DHCP || i == PktHandler::DHCPV6 ||
+            i == PktHandler::DNS)
             pkt_trace_.at(i).set_pkt_trace_size(512);
         else
             pkt_trace_.at(i).set_pkt_trace_size(128);
     }
-
-    if (run_with_vrouter)
-        tap_interface_.reset(new TapInterface(agent, if_name, io_serv, 
-                             boost::bind(&PktHandler::HandleRcvPkt,
-                                         this, _1, _2)));
-    else
-        tap_interface_.reset(new TestTapInterface(agent, "test", io_serv,
-                             boost::bind(&PktHandler::HandleRcvPkt,
-                                         this, _1, _2)));
-    tap_interface_->Init();
 }
 
 PktHandler::~PktHandler() {
-    tap_interface_->Shutdown();
-}
-
-void PktHandler::Init() {
-}
-
-void PktHandler::Shutdown() {
 }
 
 void PktHandler::Register(PktModuleName type, RcvQueueFunc cb) {
     enqueue_cb_.at(type) = cb;
 }
 
-const unsigned char *PktHandler::mac_address() {
-    return tap_interface_->mac_address();
-}
-
-void PktHandler::CreateInterfaces(const std::string &if_name) {
-    PacketInterface::Create(agent_->GetInterfaceTable(), if_name);
-    InterfaceNH::CreatePacketInterfaceNh(if_name);
+uint32_t PktHandler::EncapHeaderLen() const {
+    return agent_->pkt()->control_interface()->EncapsulationLength();
 }
 
 // Send packet to tap interface
-void PktHandler::Send(uint8_t *msg, std::size_t len, PktModuleName mod) {
-    stats_.PktSent(mod);
-    pkt_trace_.at(mod).AddPktTrace(PktTrace::Out, len, msg);
-    tap_interface_->AsyncWrite(msg, len);
+void PktHandler::Send(const AgentHdr &hdr, const PacketBufferPtr &buff) {
+    stats_.PktSent(PktHandler::PktModuleName(buff->module()));
+    pkt_trace_.at(buff->module()).AddPktTrace(PktTrace::Out, buff->data_len(),
+                                              buff->data(), &hdr);
+    if (agent_->pkt()->control_interface()->Send(hdr, buff) <= 0) {
+        PKT_TRACE(Err, "Error sending packet");
+    }
+    return;
 }
- 
+
 // Process the packet received from tap interface
-void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
-    boost::shared_ptr<PktInfo> pkt_info(new PktInfo(ptr, len));
+void PktHandler::HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff){
+    boost::shared_ptr<PktInfo> pkt_info (new PktInfo(buff));
     PktType::Type pkt_type = PktType::INVALID;
     PktModuleName mod = INVALID;
     Interface *intf = NULL;
-    uint8_t *pkt;
+    uint8_t *pkt = buff->data();
 
+    pkt_info->agent_hdr = hdr;
     agent_->stats()->incr_pkt_exceptions();
-    if ((pkt = ParseAgentHdr(pkt_info.get())) == NULL) {
-        PKT_TRACE(Err, "Error parsing Agent Header");
-        agent_->stats()->incr_pkt_invalid_agent_hdr();
-        goto drop;
-    }
-
-    intf = agent_->GetInterfaceTable()->FindInterface(pkt_info->GetAgentHdr().
-                                                      ifindex);
+    intf = agent_->interface_table()->FindInterface(hdr.ifindex);
     if (intf == NULL) {
-        PKT_TRACE(Err, "Invalid interface index <" <<
-                  pkt_info->GetAgentHdr().ifindex << ">");
+        PKT_TRACE(Err, "Invalid interface index <" << hdr.ifindex << ">");
         agent_->stats()->incr_pkt_invalid_interface();
         goto enqueue;
     }
 
     if (intf->type() == Interface::VM_INTERFACE) {
         VmInterface *vm_itf = static_cast<VmInterface *>(intf);
-        if (!vm_itf->ipv4_forwarding()) {
+        if (!vm_itf->layer3_forwarding()) {
             PKT_TRACE(Err, "ipv4 not enabled for interface index <" <<
-                      pkt_info->GetAgentHdr().ifindex << ">");
+                      hdr.ifindex << ">");
             agent_->stats()->incr_pkt_dropped();
             goto drop;
         }
@@ -132,18 +108,27 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
     }
 
     // Packets needing flow
-    if ((pkt_info->GetAgentHdr().cmd == AGENT_TRAP_FLOW_MISS ||
-         pkt_info->GetAgentHdr().cmd == AGENT_TRAP_ECMP_RESOLVE) && 
-        pkt_info->ip) {
-        mod = FLOW;
-        goto enqueue;
+    if ((hdr.cmd == AgentHdr::TRAP_FLOW_MISS ||
+         hdr.cmd == AgentHdr::TRAP_ECMP_RESOLVE)) {
+        
+        if ((pkt_info->ip && pkt_info->family == Address::INET) ||
+            (pkt_info->ip6 && pkt_info->family == Address::INET6)) {
+            mod = FLOW;
+            goto enqueue;
+        }
     }
+
     // Look for DHCP and DNS packets if corresponding service is enabled
     // Service processing over-rides ACL/Flow
     if (intf->dhcp_enabled() && (pkt_type == PktType::UDP)) {
-        if (pkt_info->dport == DHCP_SERVER_PORT || 
+        if (pkt_info->dport == DHCP_SERVER_PORT ||
             pkt_info->sport == DHCP_CLIENT_PORT) {
             mod = DHCP;
+            goto enqueue;
+        }
+        if (pkt_info->dport == DHCPV6_SERVER_PORT ||
+            pkt_info->sport == DHCPV6_CLIENT_PORT) {
+            mod = DHCPV6;
             goto enqueue;
         }
     } 
@@ -156,7 +141,7 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
     }
 
     // Look for IP packets that need ARP resolution
-    if (pkt_info->ip && pkt_info->GetAgentHdr().cmd == AGENT_TRAP_RESOLVE) {
+    if (pkt_info->ip && hdr.cmd == AgentHdr::TRAP_RESOLVE) {
         mod = ARP;
         goto enqueue;
     }
@@ -166,15 +151,26 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
         goto enqueue;
     }
 
-    if (pkt_info->GetAgentHdr().cmd == AGENT_TRAP_DIAG && pkt_info->ip) {
+    if (pkt_type == PktType::ICMPV6) {
+        mod = ICMPV6;
+        goto enqueue;
+    }
+
+    if (pkt_info->ip && hdr.cmd == AgentHdr::TRAP_HANDLE_DF) {
+        mod = ICMP_ERROR;
+        goto enqueue;
+    }
+
+    if (hdr.cmd == AgentHdr::TRAP_DIAG && pkt_info->ip) {
         mod = DIAG;
         goto enqueue;
     }
 
 enqueue:
+    pkt_info->packet_buffer()->set_module(mod);
     stats_.PktRcvd(mod);
-    pkt_trace_.at(mod).AddPktTrace(PktTrace::In, 
-            pkt_info->len, pkt_info->pkt);
+    pkt_trace_.at(mod).AddPktTrace(PktTrace::In, pkt_info->len, pkt_info->pkt, 
+                                   &pkt_info->agent_hdr);
 
     if (mod != INVALID) {
         if (!(enqueue_cb_.at(mod))(pkt_info)) {
@@ -189,41 +185,72 @@ drop:
     return;
 }
 
-uint8_t *PktHandler::ParseAgentHdr(PktInfo *pkt_info) {
-    // Format of packet trapped is,
-    // OUTER_ETH - AGENT_HDR - PAYLOAD
-    // Enusure sanity of the packet
-    if (pkt_info->len < (sizeof(ethhdr) + sizeof(agent_hdr) + sizeof(ethhdr))) {
-        return NULL;
+void PktHandler::SetOuterIp(PktInfo *pkt_info, uint8_t *pkt) {
+    if (pkt_info->ether_type != ETHERTYPE_IP) {
+        return;
+    }
+    struct ip *ip_hdr = (struct ip *)pkt;
+    pkt_info->tunnel.ip_saddr = ntohl(ip_hdr->ip_src.s_addr);
+    pkt_info->tunnel.ip_daddr = ntohl(ip_hdr->ip_dst.s_addr);
+}
+
+static bool InterestedIPv6Protocol(uint8_t proto) {
+    if (proto == IPPROTO_UDP || proto == IPPROTO_TCP ||
+        proto == IPPROTO_ICMPV6) {
+        return true;
     }
 
-    // packet comes with (outer) eth header, agent_hdr, actual eth packet
-    pkt_info->eth = (ethhdr *) pkt_info->pkt;
-    uint8_t *pkt = ((uint8_t *)pkt_info->eth) + sizeof(ethhdr);
-
-    // Decode agent_hdr
-    agent_hdr *agent = (agent_hdr *) pkt;
-    pkt_info->agent_hdr.ifindex = ntohs(agent->hdr_ifindex);
-    pkt_info->agent_hdr.vrf = ntohs(agent->hdr_vrf);
-    pkt_info->agent_hdr.cmd = ntohs(agent->hdr_cmd);
-    pkt_info->agent_hdr.cmd_param = ntohl(agent->hdr_cmd_param);
-    pkt += sizeof(agent_hdr);
-    return pkt;
+    return false;
 }
-
-void PktHandler::SetOuterIp(PktInfo *pkt_info, uint8_t *pkt) {
-    iphdr *ip_hdr = (iphdr *)pkt;
-    pkt_info->tunnel.ip_saddr = ntohl(ip_hdr->saddr);
-    pkt_info->tunnel.ip_daddr = ntohl(ip_hdr->daddr);
-}
-
 uint8_t *PktHandler::ParseIpPacket(PktInfo *pkt_info,
                                    PktType::Type &pkt_type, uint8_t *pkt) {
-    pkt_info->ip = (iphdr *) pkt;
-    pkt_info->ip_saddr = ntohl(pkt_info->ip->saddr);
-    pkt_info->ip_daddr = ntohl(pkt_info->ip->daddr);
-    pkt_info->ip_proto = pkt_info->ip->protocol;
-    pkt += (pkt_info->ip->ihl << 2);
+    if (pkt_info->ether_type == ETHERTYPE_IP) {
+        struct ip *ip = (struct ip *)pkt;
+        pkt_info->ip = ip;
+        pkt_info->family = Address::INET;
+        pkt_info->ip_saddr = IpAddress(Ip4Address(ntohl(ip->ip_src.s_addr)));
+        pkt_info->ip_daddr = IpAddress(Ip4Address(ntohl(ip->ip_dst.s_addr)));
+        pkt_info->ip_proto = ip->ip_p;
+        pkt += (ip->ip_hl << 2);
+    } else if (pkt_info->ether_type == ETHERTYPE_IPV6) {
+        pkt_info->family = Address::INET6;
+        ip6_hdr *ip = (ip6_hdr *)pkt;
+        pkt_info->ip6 = ip;
+        pkt_info->ip = NULL;
+        Ip6Address::bytes_type addr;
+
+        for (int i = 0; i < 16; i++) {
+            addr[i] = ip->ip6_src.s6_addr[i];
+        }
+        pkt_info->ip_saddr = IpAddress(Ip6Address(addr));
+
+        for (int i = 0; i < 16; i++) {
+            addr[i] = ip->ip6_dst.s6_addr[i];
+        }
+        pkt_info->ip_daddr = IpAddress(Ip6Address(addr));
+
+        // Look for known transport headers. Fallback to the last header if
+        // no known header is found
+        uint8_t proto = ip->ip6_ctlun.ip6_un1.ip6_un1_nxt;
+        uint16_t len = sizeof(ip6_hdr);
+        while (InterestedIPv6Protocol(proto) == false) {
+            struct ip6_ext *ext = (ip6_ext *)(pkt + len);
+            proto = ext->ip6e_nxt;
+            len += (ext->ip6e_len * 8);
+            if (ext->ip6e_len == 0) {
+                proto = 0;
+                break;
+            }
+            if (len >= pkt_info->len) {
+                proto = 0;
+                break;
+            }
+        }
+        pkt += len;
+        pkt_info->ip_proto = proto;
+    } else {
+        assert(0);
+    }
 
     switch (pkt_info->ip_proto) {
     case IPPROTO_UDP : {
@@ -250,15 +277,31 @@ uint8_t *PktHandler::ParseIpPacket(PktInfo *pkt_info,
     }
 
     case IPPROTO_ICMP: {
-        pkt_info->transp.icmp = (icmphdr *) pkt;
+        pkt_info->transp.icmp = (struct icmp *) pkt;
         pkt_type = PktType::ICMP;
 
-        icmphdr *icmp = (icmphdr *)pkt;
+        struct icmp *icmp = (struct icmp *)pkt;
 
-        pkt_info->dport = htons(icmp->type);
-        if (icmp->type == ICMP_ECHO || icmp->type == ICMP_ECHOREPLY) {
+        pkt_info->dport = htons(icmp->icmp_type);
+        if (icmp->icmp_type == ICMP_ECHO || icmp->icmp_type == ICMP_ECHOREPLY) {
             pkt_info->dport = ICMP_ECHOREPLY;
-            pkt_info->sport = htons(icmp->un.echo.id);
+            pkt_info->sport = htons(icmp->icmp_id);
+        } else {
+            pkt_info->sport = 0;
+        }
+        break;
+    }
+
+    case IPPROTO_ICMPV6: {
+        pkt_type = PktType::ICMPV6;
+        icmp6_hdr *icmp = (icmp6_hdr *)pkt;
+        pkt_info->transp.icmp6 = icmp;
+
+        pkt_info->dport = htons(icmp->icmp6_type);
+        if (icmp->icmp6_type == ICMP6_ECHO_REQUEST ||
+            icmp->icmp6_type == ICMP6_ECHO_REPLY) {
+            pkt_info->dport = ICMP6_ECHO_REPLY;
+            pkt_info->sport = htons(icmp->icmp6_id);
         } else {
             pkt_info->sport = 0;
         }
@@ -266,7 +309,7 @@ uint8_t *PktHandler::ParseIpPacket(PktInfo *pkt_info,
     }
 
     default: {
-        pkt_type = PktType::IPV4;
+        pkt_type = PktType::IP;
         pkt_info->dport = 0;
         pkt_info->sport = 0;
         break;
@@ -302,27 +345,29 @@ int PktHandler::ParseMPLSoUDP(PktInfo *pkt_info, uint8_t *pkt) {
 uint8_t *PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
                                   PktType::Type &pkt_type, uint8_t *pkt) {
     // get to the actual packet header
-    pkt_info->eth = (ethhdr *) pkt;
-    pkt_info->ether_type = ntohs(pkt_info->eth->h_proto);
+    pkt_info->eth = (struct ether_header *) pkt;
+    pkt_info->ether_type = ntohs(pkt_info->eth->ether_type);
 
-    if (pkt_info->ether_type == VLAN_PROTOCOL) {
-        pkt = ((uint8_t *)pkt_info->eth) + sizeof(ethhdr) + 4;
+    if (pkt_info->ether_type == ETHERTYPE_VLAN) {
+        pkt = ((uint8_t *)pkt_info->eth) + sizeof(struct ether_header) + 4;
+        uint16_t *tmp = ((uint16_t *)pkt) - 1;
+        pkt_info->ether_type = ntohs(*tmp);
     } else {
-        pkt = ((uint8_t *)pkt_info->eth) + sizeof(ethhdr);
+        pkt = ((uint8_t *)pkt_info->eth) + sizeof(struct ether_header);
     }
 
     // Parse payload
-    if (pkt_info->ether_type == 0x806) {
+    if (pkt_info->ether_type == ETHERTYPE_ARP) {
         pkt_info->arp = (ether_arp *) pkt;
         pkt_type = PktType::ARP;
         return pkt;
     }
 
     // Identify NON-IP Packets
-    if (pkt_info->ether_type != IP_PROTOCOL && 
-            pkt_info->ether_type != VLAN_PROTOCOL) {
+    if (pkt_info->ether_type != ETHERTYPE_IP &&
+        pkt_info->ether_type != ETHERTYPE_IPV6) {
         pkt_info->data = pkt;
-        pkt_type = PktType::NON_IPV4;
+        pkt_type = PktType::NON_IP;
         return pkt;
     }
 
@@ -337,7 +382,8 @@ uint8_t *PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
 
     pkt_type = PktType::INVALID;
     // Decap only IP-DA is ours
-    if (pkt_info->ip_daddr != agent_->GetRouterId().to_ulong()) {
+    if (pkt_info->family != Address::INET ||
+        pkt_info->ip_daddr.to_v4() != agent_->router_id()) {
         PKT_TRACE(Err, "Tunnel packet not destined to me. Ignoring");
         return pkt;
     }
@@ -372,7 +418,7 @@ uint8_t *PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
     pkt_info->tunnel.label = (mpls_host & 0xFFFFF000) >> 12;
 
     MplsLabel *label = 
-        agent_->GetMplsTable()->FindMplsLabel(pkt_info->tunnel.label);
+        agent_->mpls_table()->FindMplsLabel(pkt_info->tunnel.label);
     if (label == NULL) {
         PKT_TRACE(Err, "Invalid MPLS Label <" <<
                   pkt_info->tunnel.label << ">. Ignoring");
@@ -390,6 +436,14 @@ uint8_t *PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
 
     // Point to IP header after GRE and MPLS
     pkt += len + sizeof(MplsHdr);
+
+    // Find IPv4/IPv6 Packet based on first nibble in payload
+    if ((pkt[0] & 0x60) == 0x60) {
+        pkt_info->ether_type = ETHERTYPE_IPV6;
+    } else {
+        pkt_info->ether_type = ETHERTYPE_IP;
+    }
+
     ParseIpPacket(pkt_info, pkt_type, pkt);
     return pkt;
 }
@@ -408,27 +462,42 @@ void PktHandler::SendMessage(PktModuleName mod, InterTaskMsg *msg) {
 bool PktHandler::IsDHCPPacket(PktInfo *pkt_info) {
     if (pkt_info->dport == DHCP_SERVER_PORT || 
         pkt_info->sport == DHCP_CLIENT_PORT) {
+        // we dont handle DHCPv6 coming from fabric
         return true;
     }
     return false;
 }
 
 // Check if the packet is destined to the VM's default GW
-bool PktHandler::IsGwPacket(const Interface *intf, uint32_t dst_ip) {
+bool PktHandler::IsGwPacket(const Interface *intf, const IpAddress &dst_ip) {
     if (!intf || intf->type() != Interface::VM_INTERFACE)
         return false;
 
     const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
+    if (dst_ip.is_v6() && vm_intf->ip6_addr().is_unspecified())
+        return false;
+    else if (dst_ip.is_v4() && vm_intf->ip_addr().is_unspecified())
+        return false;
     const VnEntry *vn = vm_intf->vn();
     if (vn) {
         const std::vector<VnIpam> &ipam = vn->GetVnIpam();
         for (unsigned int i = 0; i < ipam.size(); ++i) {
-            uint32_t mask = 
-                ipam[i].plen ? (0xFFFFFFFF << (32 - ipam[i].plen)) : 0;
-            if ((vm_intf->ip_addr().to_ulong() & mask)
-                    != (ipam[i].ip_prefix.to_ulong() & mask))
-                continue;
-            return (ipam[i].default_gw.to_ulong() == dst_ip);
+            if (dst_ip.is_v4()) {
+                if (!ipam[i].IsV4()) {
+                    continue;
+                }
+                if (IsIp4SubnetMember(vm_intf->ip_addr(),
+                                      ipam[i].ip_prefix.to_v4(), ipam[i].plen))
+                return (ipam[i].default_gw == dst_ip);
+            } else {
+                if (!ipam[i].IsV6()) {
+                    continue;
+                }
+                if (IsIp6SubnetMember(vm_intf->ip6_addr(),
+                                      ipam[i].ip_prefix.to_v6(), ipam[i].plen))
+                    return (ipam[i].default_gw == dst_ip);
+            }
+
         }
     }
 
@@ -459,36 +528,87 @@ void PktHandler::PktStats::PktQThresholdExceeded(PktModuleName mod) {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-PktInfo::PktInfo(uint8_t *msg, std::size_t msg_size) : 
-    pkt(msg), len(msg_size), data(), ipc(), type(PktType::INVALID),
-    agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(),
-    sport(), dport(), tcp_ack(false), tunnel(), eth(), arp(), ip() {
+PktInfo::PktInfo(const PacketBufferPtr &buff) :
+    pkt(buff->data()), len(buff->data_len()), max_pkt_len(buff->buffer_len()),
+    data(), ipc(), family(Address::UNSPEC), type(PktType::INVALID), agent_hdr(),
+    ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(), dport(),
+    tcp_ack(false), tunnel(), eth(), arp(), ip(), ip6(), packet_buffer_(buff) {
+    transp.tcp = 0;
+}
+
+PktInfo::PktInfo(Agent *agent, uint32_t buff_len, uint32_t module,
+                 uint32_t mdata) :
+    len(), max_pkt_len(), data(), ipc(), family(Address::UNSPEC),
+    type(PktType::INVALID), agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(),
+    ip_proto(), sport(), dport(), tcp_ack(false), tunnel(), eth(), arp(),
+    ip(), ip6() {
+
+    packet_buffer_ = agent->pkt()->packet_buffer_manager()->Allocate
+        (module, buff_len, mdata);
+    pkt = packet_buffer_->data();
+    len = packet_buffer_->data_len();
+    max_pkt_len = packet_buffer_->buffer_len();
+
     transp.tcp = 0;
 }
 
 PktInfo::PktInfo(InterTaskMsg *msg) :
-    pkt(), len(), data(), ipc(msg), type(PktType::MESSAGE), agent_hdr(),
-    ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(), dport(),
-    tcp_ack(false), tunnel(), eth(), arp(), ip() {
+    pkt(), len(), max_pkt_len(0), data(), ipc(msg), family(Address::UNSPEC),
+    type(PktType::MESSAGE), agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(),
+    ip_proto(), sport(), dport(), tcp_ack(false), tunnel(), eth(), arp(), ip(),
+    ip6(), packet_buffer_() {
     transp.tcp = 0;
 }
 
 PktInfo::~PktInfo() {
-    if (pkt) delete [] pkt;
 }
 
-const AgentHdr &PktInfo::GetAgentHdr() const {return agent_hdr;};
+const AgentHdr &PktInfo::GetAgentHdr() const {
+    return agent_hdr;
+}
+
+void PktInfo::AllocPacketBuffer(Agent *agent, uint32_t module, uint16_t len,
+                                uint32_t mdata) {
+    packet_buffer_ = agent->pkt()->packet_buffer_manager()->Allocate
+        (module, len, mdata);
+    pkt = packet_buffer_->data();
+    len = packet_buffer_->data_len();
+    max_pkt_len = packet_buffer_->buffer_len();
+}
+
+void PktInfo::set_len(uint32_t x) {
+    packet_buffer_->set_len(x);
+    len = x;
+}
 
 void PktInfo::UpdateHeaderPtr() {
-    eth = (struct ethhdr *)(pkt + IPC_HDR_LEN);
-    ip = (struct iphdr *)(eth + 1);
+    eth = (struct ether_header *)(pkt);
+    ip = (struct ip *)(eth + 1);
     transp.tcp = (struct tcphdr *)(ip + 1);
 }
 
 std::size_t PktInfo::hash() const {
     std::size_t seed = 0;
-    boost::hash_combine(seed, ip_saddr);
-    boost::hash_combine(seed, ip_daddr);
+    if (family == Address::INET) {
+        boost::hash_combine(seed, ip_saddr.to_v4().to_ulong());
+        boost::hash_combine(seed, ip_daddr.to_v4().to_ulong());
+    } else if (family == Address::INET6) {
+        uint32_t *words;
+
+        words = (uint32_t *) (ip_saddr.to_v6().to_bytes().c_array());
+        boost::hash_combine(seed, words[0]);
+        boost::hash_combine(seed, words[1]);
+        boost::hash_combine(seed, words[2]);
+        boost::hash_combine(seed, words[3]);
+
+        words = (uint32_t *) (ip_daddr.to_v6().to_bytes().c_array());
+        boost::hash_combine(seed, words[0]);
+        boost::hash_combine(seed, words[1]);
+        boost::hash_combine(seed, words[2]);
+        boost::hash_combine(seed, words[3]);
+    } else {
+        assert(0);
+    }
     boost::hash_combine(seed, ip_proto);
     boost::hash_combine(seed, sport);
     boost::hash_combine(seed, dport);
@@ -496,3 +616,20 @@ std::size_t PktInfo::hash() const {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+void PktTrace::Pkt::Copy(Direction d, std::size_t l, uint8_t *msg,
+                         std::size_t pkt_trace_size, const AgentHdr *hdr) {
+    uint16_t hdr_len = sizeof(AgentHdr);
+    dir = d;
+    len = l + hdr_len;
+    memcpy(pkt, hdr, hdr_len);
+    memcpy(pkt + hdr_len, msg, std::min(l, (pkt_trace_size - hdr_len)));
+}
+
+void PktTrace::AddPktTrace(Direction dir, std::size_t len, uint8_t *msg,
+                           const AgentHdr *hdr) {
+    if (num_buffers_) {
+        end_ = (end_ + 1) % num_buffers_;
+        pkt_buffer_[end_].Copy(dir, len, msg, pkt_trace_size_, hdr);
+        count_ = std::min((count_ + 1), (uint32_t) num_buffers_);
+    }
+}

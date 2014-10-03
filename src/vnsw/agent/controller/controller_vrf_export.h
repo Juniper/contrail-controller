@@ -6,11 +6,12 @@
 #define __CONTROLLER_VRF_EXPORT_H__
 
 #include <boost/uuid/uuid_io.hpp>
-
 #include <cmn/agent_cmn.h>
-#include <oper/vrf.h>
+#include <cmn/agent.h>
 
+class AgentXmppChannel;
 class RouteExport;
+
 class VrfExport {
 public:
     struct State : DBState {

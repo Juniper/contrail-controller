@@ -26,17 +26,13 @@ VmStat::VmStat(Agent *agent, const uuid &vm_uuid):
     virt_memory_(0), virt_memory_peak_(0), vm_memory_quota_(0), 
     prev_cpu_stat_(0), cpu_usage_(0), prev_cpu_snapshot_time_(0), 
     prev_vcpu_snapshot_time_(0), 
-    input_(*(agent_->GetEventManager()->io_service())),
-    timer_(TimerManager::CreateTimer(*(agent_->GetEventManager())->io_service(),
-    "VmStatTimer")), marked_delete_(false), pid_(0), retry_(0), 
-    signal_(*(agent_->GetEventManager()->io_service())) {
-    InitSigHandler();
+    input_(*(agent_->event_manager()->io_service())),
+    timer_(TimerManager::CreateTimer(*(agent_->event_manager())->io_service(),
+    "VmStatTimer")), marked_delete_(false), pid_(0), retry_(0) {
 }
 
 VmStat::~VmStat() {
     TimerManager::DeleteTimer(timer_);
-    boost::system::error_code ec;
-    signal_.cancel(ec);
 }
 
 void VmStat::ReadData(const boost::system::error_code &ec,
@@ -112,14 +108,21 @@ void VmStat::ExecCmd(std::string cmd, DoneCb cb) {
 void VmStat::ReadCpuStat() {
     std::string tmp;
     //Typical output from command
-    //Total:
-    //    cpu_time         16754.635764199 seconds
+    //Id:             1
+    //Name:           instance-00000001
+    //UUID:           90cb7351-d2dc-4d8d-a216-2f460be183b6
+    //OS Type:        hvm
+    //State:          running
+    //CPU(s):         1
+    //CPU time:       13.4s
+    //Max memory:     2097152 KiB
 
-    //Get Total cpu stats
+    //Get 'CPU time' from the output
     double cpu_stat = 0;
+    std::string cpu_stat_str;
     while (data_ >> tmp) {
-        if (tmp == "cpu_time") {
-            data_ >> cpu_stat;
+        if (tmp == "time:") {
+            data_ >> cpu_stat_str;
             break;
         }
     }
@@ -128,6 +131,14 @@ void VmStat::ReadCpuStat() {
     if (num_of_cpu == 0) {
         GetVcpuStat();
         return;
+    }
+
+    //Remove the last character from 'cpu_stat_str'
+    if (cpu_stat_str.size() >= 2) {
+        cpu_stat_str.erase(cpu_stat_str.size() - 1);
+        //Convert string to double
+        stringstream ss(cpu_stat_str);
+        ss >> cpu_stat;
     }
 
     time_t now;
@@ -163,7 +174,7 @@ void VmStat::ReadVcpuStat() {
 
         if (tmp == "time:") {
             double usage = 0;
-            data_ >> usage;
+            data_ >> usage; 
             vcpu_usage.push_back(usage);
         }
     }
@@ -231,36 +242,59 @@ void VmStat::ReadMemStat() {
     data_.str(" ");
     data_.clear();
     //Send Stats
-    UveVirtualMachineAgent vm_agent;
-    if (BuildVmStatsMsg(vm_agent)) {
-        agent_->uve()->vm_uve_table()->DispatchVmMsg(vm_agent);
+    //We need to send same cpu info in two different UVEs
+    //(VirtualMachineStats and UveVirtualMachineAgent). One of them uses
+    //stats-oracle infra and other one does not use it. We need two because
+    //stats-oracle infra returns only SUM of cpu-info over a period of time
+    //and current value is returned using non-stats-oracle version. Using
+    //stats oracle infra we can still query the current value but it is not
+    //simple and hence we sending current value in separate UVE.
+    VirtualMachineStats vm_agent;
+    if (BuildVmStatsMsg(&vm_agent)) {
+        agent_->uve()->vm_uve_table()->DispatchVmStatsMsg(vm_agent);
+    }
+    UveVirtualMachineAgent vm_msg;
+    if (BuildVmMsg(&vm_msg)) {
+        agent_->uve()->vm_uve_table()->DispatchVmMsg(vm_msg);
     }
     StartTimer();    
 }
 
-bool VmStat::BuildVmStatsMsg(UveVirtualMachineAgent &uve) {
-    bool changed = false;
-    uve.set_name(UuidToString(vm_uuid_));
+bool VmStat::BuildVmStatsMsg(VirtualMachineStats *uve) {
+    uve->set_name(UuidToString(vm_uuid_));
 
-    UveVirtualMachineStats stats;
+    std::vector<VmCpuStats> cpu_stats_list;
+    VmCpuStats stats;
     stats.set_cpu_one_min_avg(cpu_usage_);
-    stats.set_vcpu_one_min_avg(vcpu_usage_percent_);
     stats.set_vm_memory_quota(vm_memory_quota_);
     stats.set_rss(mem_usage_);
     stats.set_virt_memory(virt_memory_);
-    stats.set_peak_virt_memory(virt_memory_peak_);   
+    stats.set_peak_virt_memory(virt_memory_peak_);
 
-    if (stats != prev_stats_){
-        uve.set_vm_stats(stats);
-        prev_stats_ = stats;
-        changed = true;
-    }
-    return changed;
+    cpu_stats_list.push_back(stats);
+    uve->set_cpu_stats(cpu_stats_list);
+
+    return true;
+}
+
+bool VmStat::BuildVmMsg(UveVirtualMachineAgent *uve) {
+    uve->set_name(UuidToString(vm_uuid_));
+
+    VmCpuStats stats;
+    stats.set_cpu_one_min_avg(cpu_usage_);
+    stats.set_vm_memory_quota(vm_memory_quota_);
+    stats.set_rss(mem_usage_);
+    stats.set_virt_memory(virt_memory_);
+    stats.set_peak_virt_memory(virt_memory_peak_);
+
+    uve->set_cpu_info(stats);
+
+    return true;
 }
 
 void VmStat::GetCpuStat() {
     std::ostringstream cmd;
-    cmd << "virsh cpu-stats " << agent_->GetUuidStr(vm_uuid_) << " --total";
+    cmd << "virsh dominfo " << agent_->GetUuidStr(vm_uuid_);
     ExecCmd(cmd.str(), boost::bind(&VmStat::ReadCpuStat, this));
 }
 
@@ -312,7 +346,8 @@ void VmStat::ReadPid() {
     while (data_) {
         data_ >> pid;
         data_ >> tmp;
-        if (tmp.find("qemu") != std::string::npos) {
+        if (tmp.find("qemu") != std::string::npos ||
+               tmp.find("kvm") != std::string::npos) {
             //Copy PID 
             pid_ = pid;
             break;
@@ -337,7 +372,8 @@ void VmStat::ReadPid() {
 
 void VmStat::GetPid() {
     std::ostringstream cmd;
-    cmd << "ps -eo pid,cmd | grep " << agent_->GetUuidStr(vm_uuid_);
+    cmd << "ps -eo pid,cmd | grep " << agent_->GetUuidStr(vm_uuid_)
+        << " | grep instance-";
     ExecCmd(cmd.str(), boost::bind(&VmStat::ReadPid, this));
 }
 
@@ -353,26 +389,5 @@ void VmStat::Stop() {
         //entry as asio may be using it
         delete this;
     }
-}
-
-void VmStat::HandleSigChild(const boost::system::error_code& error, int sig) {
-    if (!error) {
-        int status;
-        while (::waitpid(-1, &status, WNOHANG) > 0);
-        RegisterSigHandler();
-    }
-}
-
-void VmStat::RegisterSigHandler() {
-    signal_.async_wait(boost::bind(&VmStat::HandleSigChild, this, _1, _2));
-}
-
-void VmStat::InitSigHandler() {
-    boost::system::error_code ec;
-    signal_.add(SIGCHLD, ec);
-    if (ec) {
-        LOG(ERROR, "SIGCHLD registration failed");
-    }
-    RegisterSigHandler();
 }
 

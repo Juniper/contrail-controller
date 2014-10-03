@@ -36,6 +36,10 @@ RedisAsyncConnection::RedisAsyncConnection(EventManager *evm, const std::string 
     reconnect_timer_(*evm->io_service()),
     client_connect_cb_(client_connect_cb),
     client_disconnect_cb_(client_disconnect_cb) {
+    boost::system::error_code ec;
+    boost::asio::ip::address redis_addr(
+        boost::asio::ip::address::from_string(hostname_, ec));
+    endpoint_ = boost::asio::ip::tcp::endpoint(redis_addr, redis_port);
 }
 
 RedisAsyncConnection::~RedisAsyncConnection() {

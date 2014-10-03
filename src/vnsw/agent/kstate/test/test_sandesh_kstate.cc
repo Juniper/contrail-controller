@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <boost/array.hpp>
 #include "test/test_init.h"
 #include "test/test_cmn_util.h"
 #include "oper/mirror_table.h"
@@ -53,7 +54,9 @@ public:
         assert(flow0);
         flow1 = VmInterfaceGet(input[1].intf_id);
         assert(flow1);
-        peer_ = CreateBgpPeer(Ip4Address(1), "BGP Peer 1");
+        boost::system::error_code ec;
+        peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+                              "xmpp channel");
     }
 
     void FlowTearDown() {
@@ -72,9 +75,8 @@ public:
         boost::system::error_code ec;
         Ip4Address addr = Ip4Address::from_string(remote_vm, ec);
         Ip4Address gw = Ip4Address::from_string(serv, ec);
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRouteReq
-            (peer_, vrf, addr, 32, gw, TunnelType::AllType(), label, vn,
-             SecurityGroupList());
+        Inet4TunnelRouteAdd(peer_, vrf, addr, 32, gw, TunnelType::AllType(), label, vn,
+             SecurityGroupList(), PathPreference());
         client->WaitForIdle(5);
         WAIT_FOR(1000, 500, (RouteFind(vrf, addr, 32) == true));
     }
@@ -611,6 +613,24 @@ TEST_F(KStateSandeshTest, NhTest_flags) {
     //cleanup
     KSyncSockTypeMap::NHDelete(18);
     KSyncSockTypeMap::NHDelete(19);
+    KSyncSockTypeMap::NHDelete(201);
+    KSyncSockTypeMap::NHDelete(202);
+    KSyncSockTypeMap::NHDelete(203);
+    KSyncSockTypeMap::NHDelete(204);
+    KSyncSockTypeMap::NHDelete(205);
+    KSyncSockTypeMap::NHDelete(206);
+    KSyncSockTypeMap::NHDelete(207);
+    KSyncSockTypeMap::NHDelete(208);
+    KSyncSockTypeMap::NHDelete(209);
+    KSyncSockTypeMap::NHDelete(210);
+    KSyncSockTypeMap::NHDelete(211);
+    KSyncSockTypeMap::NHDelete(212);
+    KSyncSockTypeMap::NHDelete(213);
+    KSyncSockTypeMap::NHDelete(214);
+    KSyncSockTypeMap::NHDelete(215);
+    KSyncSockTypeMap::NHDelete(216);
+    KSyncSockTypeMap::NHDelete(217);
+    KSyncSockTypeMap::NHDelete(218);
 }
 
 TEST_F(KStateSandeshTest, NhTest_MultiResponse) {
@@ -828,11 +848,15 @@ TEST_F(KStateSandeshTest, VxlanTest_MultiResponse) {
 TEST_F(KStateSandeshTest, RouteTest) {
     //Create 2 route objects in mock Kernel
     vr_route_req req1, req2;
+    boost::array<unsigned char, 3> bytes1 = { {0x10, 0x10, 0x10} };
+    boost::array<unsigned char, 3> bytes2 = { {0x20, 0x20, 0x20} };
+    std::vector<int8_t> prefix1(bytes1.begin(), bytes1.end());
+    std::vector<int8_t> prefix2(bytes2.begin(), bytes2.end());
     req1.set_rtr_vrf_id(1);
-    req1.set_rtr_prefix(0x101010);
+    req1.set_rtr_prefix(prefix1);
     req1.set_rtr_prefix_len(32);
     req1.set_rtr_vrf_id(2);
-    req2.set_rtr_prefix(0x202020);
+    req2.set_rtr_prefix(prefix2);
     req2.set_rtr_prefix_len(32);
     KSyncSockTypeMap::RouteAdd(req1);
     KSyncSockTypeMap::RouteAdd(req2);
@@ -864,12 +888,14 @@ TEST_F(KStateSandeshTest, RouteTest) {
 
 TEST_F(KStateSandeshTest, RouteTest_MultiResponse) {
     //Create 100 vrfs in mock Kernel
-    uint32_t ip = 0x30303000;
     vr_route_req req;
     req.set_rtr_vrf_id(10);
     req.set_rtr_prefix_len(32);
     for(int i = 1; i <= 50; i++) {
-        req.set_rtr_prefix((ip +i));
+        boost::array<unsigned char, 3> bytes = { {0x30, 0x30, 0x30} };
+        std::vector<int8_t> prefix(bytes.begin(), bytes.end());
+        prefix.push_back(i);
+        req.set_rtr_prefix(prefix);
         KSyncSockTypeMap::RouteAdd(req);
     }
     //Send Route DUMP request
@@ -884,7 +910,10 @@ TEST_F(KStateSandeshTest, RouteTest_MultiResponse) {
 
     //cleanup
     for(int i = 1; i <= 50; i++) {
-        req.set_rtr_prefix((ip +i));
+        boost::array<unsigned char, 3> bytes = { {0x30, 0x30, 0x30} };
+        std::vector<int8_t> prefix(bytes.begin(), bytes.end());
+        prefix.push_back(i);
+        req.set_rtr_prefix(prefix);
         KSyncSockTypeMap::RouteDelete(req);
     }
 }
@@ -1009,10 +1038,10 @@ TEST_F(KStateSandeshTest, VrfStatsTest_MultiResponse) {
     ClearCount();
     VrfStatsGet(-1);
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (response_count_ == 6));
+    WAIT_FOR(1000, 1000, (response_count_ == 7));
 
     //verify the response
-    EXPECT_EQ(6U, type_specific_response_count_);
+    EXPECT_EQ(7U, type_specific_response_count_);
     EXPECT_EQ(100U, num_entries_);
 
     //cleanup
@@ -1032,18 +1061,18 @@ TEST_F(KStateSandeshTest, DropStatsTest) {
     EXPECT_EQ(1U, type_specific_response_count_);
 }
 
-TEST_F(KStateSandeshTest, FlowTest_1) {
+TEST_F(KStateSandeshTest, DISABLED_FlowTest_1) {
     FlowSetUp();
     TestFlow flow[] = {
         //Add a ICMP forward and reverse flow
-        {  TestFlowPkt(vm1_ip, vm2_ip, 1, 0, 0, "vrf5", 
+        {  TestFlowPkt(Address::INET, vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
                 flow0->id()),
         {
             new VerifyVn("vn5", "vn5"),
             new VerifyVrf("vrf5", "vrf5")
         }
         },
-        {  TestFlowPkt(vm2_ip, vm1_ip, 1, 0, 0, "vrf5", 
+        {  TestFlowPkt(Address::INET, vm2_ip, vm1_ip, 1, 0, 0, "vrf5",
                 flow1->id()),
         {
             new VerifyVn("vn5", "vn5"),
@@ -1051,14 +1080,14 @@ TEST_F(KStateSandeshTest, FlowTest_1) {
         }
         },
         //Add a TCP forward and reverse flow
-        {  TestFlowPkt(vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 200, 
+        {  TestFlowPkt(Address::INET, vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 200,
                 "vrf5", flow0->id()),
         {
             new VerifyVn("vn5", "vn5"),
             new VerifyVrf("vrf5", "vrf5")
         }
         },
-        {  TestFlowPkt(vm2_ip, vm1_ip, IPPROTO_TCP, 200, 1000, 
+        {  TestFlowPkt(Address::INET, vm2_ip, vm1_ip, IPPROTO_TCP, 200, 1000,
                 "vrf5", flow1->id()),
         {
             new VerifyVn("vn5", "vn5"),
@@ -1099,7 +1128,7 @@ TEST_F(KStateSandeshTest, FlowTest_1) {
     FlowTearDown();
 }
 
-TEST_F(KStateSandeshTest, FlowTest_2) {
+TEST_F(KStateSandeshTest, DISABLED_FlowTest_2) {
     FlowSetUp();
     int total_flows = 110;
 
@@ -1110,13 +1139,13 @@ TEST_F(KStateSandeshTest, FlowTest_2) {
                 10, "vn5");
         TestFlow flow[]=  {
             {
-                TestFlowPkt(vm1_ip, dip.to_string(), 1, 0, 0, "vrf5", 
+                TestFlowPkt(Address::INET, vm1_ip, dip.to_string(), 1, 0, 0, "vrf5",
                         flow0->id(), i),
                 { }
             },
             {
-                TestFlowPkt(dip.to_string(), vm1_ip, 1, 0, 0, "vrf5",
-                        flow1->id(), i + 100),
+                TestFlowPkt(Address::INET, dip.to_string(), vm1_ip, 1, 0, 0, "vrf5",
+                        flow0->id(), i + 100),
                 { }
             }
         };
@@ -1162,7 +1191,8 @@ int main(int argc, char *argv[]) {
 
     ::testing::InitGoogleTest(&argc, argv);
     ret = RUN_ALL_TESTS();
-    Agent::GetInstance()->GetEventManager()->Shutdown();
-    AsioStop();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
     return ret;
 }

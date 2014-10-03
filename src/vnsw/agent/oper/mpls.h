@@ -6,6 +6,8 @@
 #define vnsw_agent_mpls_hpp
 
 #include <cmn/agent_cmn.h>
+#include <cmn/agent.h>
+#include <oper/route_common.h>
 #include <oper/nexthop.h>
 
 using namespace boost::uuids;
@@ -18,6 +20,7 @@ public:
         VPORT_NH,
         MCAST_NH
     };
+    typedef DependencyList<AgentRoute, MplsLabel> DependentPathList;
 
     MplsLabel(Type type, uint32_t label) :
         type_(type), label_(label), 
@@ -44,16 +47,13 @@ public:
                                            const string &ifname,
                                            bool policy,
                                            InterfaceNHFlags::Type type);
-    static void CreateMcastLabelReq(const string &vrf_name, 
-                                    const Ip4Address &grp_addr,
-                                    const Ip4Address &src_addr, 
-                                    uint32_t src_label, COMPOSITETYPE type);
-    static void CreateEcmpLabel(uint32_t label, const std::string &vrf_name,
-                                const Ip4Address &addr, uint8_t plen);
-    static void DeleteMcastLabelReq(const string &vrf_name, 
-                                    const Ip4Address &grp_addr,
-                                    const Ip4Address &src_addr, 
-                                    uint32_t src_label);
+    static void CreateMcastLabelReq(uint32_t src_label, COMPOSITETYPE type,
+                                    ComponentNHKeyList &component_nh_key_list,
+                                    const std::string vrf_name);
+    static void CreateEcmpLabel(uint32_t label, COMPOSITETYPE type,
+                                ComponentNHKeyList &component_nh_key_list,
+                                const std::string vrf_name);
+    static void DeleteMcastLabelReq(uint32_t src_label);
     // Delete MPLS Label entry
     static void DeleteReq(uint32_t label);
     static void Delete(uint32_t label);
@@ -64,13 +64,14 @@ public:
 
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
     void SendObjectLog(AgentLogEvent::type event) const;
-
+    void SyncDependentPath();
 private:
     Type type_;
     uint32_t label_;
     bool free_label_;
     NextHopRef nh_;
     friend class MplsTable;
+    DEPENDENCY_LIST(AgentRoute, MplsLabel, mpls_label_);
     DISALLOW_COPY_AND_ASSIGN(MplsLabel);
 };
 
@@ -106,18 +107,10 @@ public:
         AgentData(), nh_key(new VlanNHKey(intf_uuid, tag)) {
     }
 
-    MplsLabelData(const string &vrf_name, const Ip4Address &grp_addr,
-                  uint8_t plen, bool local_ecmp_nh) :
-         AgentData(), 
-         nh_key(new CompositeNHKey(vrf_name, grp_addr, plen, local_ecmp_nh)) {
-         }
-
-    //MplsLabelData(const NextHopKey &nh) : AgentData(), nh_key(nh) { };
-    MplsLabelData(const string &vrf_name, const Ip4Address &grp_addr,
-                  const Ip4Address &src_addr, bool local_ecmp_nh,
-                  COMPOSITETYPE comp_type) :
-        AgentData(), nh_key(new CompositeNHKey(vrf_name, grp_addr, src_addr,
-                                               local_ecmp_nh, comp_type)) { 
+    MplsLabelData(COMPOSITETYPE type, bool policy,
+        ComponentNHKeyList &component_nh_key_list, std::string vrf_name) :
+        AgentData(), nh_key(new CompositeNHKey(type, policy,
+        component_nh_key_list, vrf_name)) {
     }
 
     virtual ~MplsLabelData() { 

@@ -48,13 +48,13 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
         LOG(DEBUG, "Flow table size : " << r->get_fr_ftable_size());
     } else if (r->get_fr_op() == flow_op::FLOW_SET) {
         const KSyncIoContext *ioc = ksync_io_ctx();
-        FlowKey key;
-        key.vrf = r->get_fr_flow_vrf();
-        key.src.ipv4 = ntohl(r->get_fr_flow_sip());
-        key.dst.ipv4 = ntohl(r->get_fr_flow_dip());
-        key.src_port = ntohs(r->get_fr_flow_sport());
-        key.dst_port = ntohs(r->get_fr_flow_dport());
-        key.protocol = r->get_fr_flow_proto();
+        // TODO : IPv6
+        FlowKey key(r->get_fr_flow_nh_id(),
+                    Ip4Address(ntohl(r->get_fr_flow_sip())),
+                    Ip4Address(ntohl(r->get_fr_flow_dip())),
+                    r->get_fr_flow_proto(),
+                    ntohs(r->get_fr_flow_sport()),
+                    ntohs(r->get_fr_flow_dport()));
         FlowEntry *entry = flow_ksync_->ksync()->agent()->pkt()->flow_table()->
                            Find(key);
         in_addr src;
@@ -73,21 +73,20 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
             }
 
             LOG(ERROR, "Error Flow entry op = " << op
-                       << " vrf = " << (int) key.vrf
+                       << " nh = " << (int) key.nh
                        << " src = " << src_str << ":" << key.src_port
                        << " dst = " << dst_str << ":" << key.dst_port
                        << " proto = " << (int)key.protocol
                        << " flow_handle = " << (int) r->get_fr_index());
             if (entry && (int)entry->flow_handle() == r->get_fr_index()) {
-                entry->set_flow_handle(FlowEntry::kInvalidFlowHandle);
-                entry->MakeShortFlow();
+                entry->MakeShortFlow(FlowEntry::SHORT_FAILED_VROUTER_INSTALL);
             }
             return;
         }
 
         if (GetErrno() == ENOSPC) {
             if (entry) {
-                entry->MakeShortFlow();
+                entry->MakeShortFlow(FlowEntry::SHORT_FAILED_VROUTER_INSTALL);
             }
             return;
         }
@@ -105,13 +104,15 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
                         r->get_fr_index() << ">");
                 }
             }
-            entry->set_flow_handle(r->get_fr_index());
+            entry->set_flow_handle(r->get_fr_index(),
+                    flow_ksync_->ksync()->agent()->pkt()->flow_table());
             //Tie forward flow and reverse flow
             if (entry->is_flags_set(FlowEntry::NatFlow) ||
                 entry->is_flags_set(FlowEntry::EcmpFlow)) {
                  FlowEntry *rev_flow = entry->reverse_flow_entry();
                  if (rev_flow) {
-                     rev_flow->UpdateKSync();
+                     rev_flow->UpdateKSync(
+                           flow_ksync_->ksync()->agent()->pkt()->flow_table());
                  }
             }
         }

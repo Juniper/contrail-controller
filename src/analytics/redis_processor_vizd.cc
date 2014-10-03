@@ -3,6 +3,7 @@
  */
 
 #include "base/logging.h"
+#include "base/contrail-globals.h"
 #include "redis_processor_vizd.h"
 #include "redis_connection.h"
 #include <boost/assign/list_of.hpp>
@@ -14,6 +15,7 @@
 #include "uveupdate_lua.cpp"
 #include "uveupdate_st_lua.cpp"
 #include "uvedelete_lua.cpp"
+#include "flushuves_lua.cpp"
 
 using std::string;
 using std::vector;
@@ -70,7 +72,8 @@ RedisProcessorExec::UVEUpdate(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
                 ":" + module + ":" + instance_id + ":" + type)(
                 ss)(sc)(sp)(
                 source)(node_type)(module)(instance_id)(type)(attr)(key)
-                (seqstr.str())(lhist)(tsstr.str())(msg));
+                (seqstr.str())(lhist)(tsstr.str())(msg)
+                (integerToString(REDIS_DB_UVE)));
 
     } else {
 
@@ -85,7 +88,7 @@ RedisProcessorExec::UVEUpdate(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
                 string("VALUES:") + key + ":" + source + ":" + node_type + 
                 ":" + module + ":" + instance_id + ":" + type)(
                 source)(node_type)(module)(instance_id)(type)(attr)(key)
-                (seqstr.str())(msg));        
+                (seqstr.str())(msg)(integerToString(REDIS_DB_UVE)));        
     }
     return ret;
 }
@@ -115,7 +118,7 @@ RedisProcessorExec::UVEDelete(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
             string("ORIGINS:") + key)(
             string("TABLE:") + table)(
             string("DELETED"))(
-            source)(node_type)(module)(instance_id)(type)(key));
+            source)(node_type)(module)(instance_id)(type)(key)(integerToString(REDIS_DB_UVE)));
 
 }
 
@@ -138,9 +141,9 @@ RedisProcessorExec::SyncGetSeq(const std::string & redis_ip, unsigned short redi
     string lua_scr(reinterpret_cast<char *>(seqnum_lua), seqnum_lua_len);
 
     redisReply * reply = (redisReply *) redisCommand(c, 
-            "EVAL %s 0 %s %s %s %s",
+            "EVAL %s 0 %s %s %s %s %s",
             lua_scr.c_str(), source.c_str(), node_type.c_str(),
-            module.c_str(), instance_id.c_str());
+            module.c_str(), instance_id.c_str(), integerToString(REDIS_DB_UVE).c_str());
 
     if (!reply) {
         LOG(INFO, "SeqQuery Error : " << c->errstr);
@@ -187,9 +190,9 @@ RedisProcessorExec::SyncDeleteUVEs(const std::string & redis_ip, unsigned short 
     string lua_scr(reinterpret_cast<char *>(delrequest_lua), delrequest_lua_len);
 
     redisReply * reply = (redisReply *) redisCommand(c, 
-            "EVAL %s 0 %s %s %s %s",
+            "EVAL %s 0 %s %s %s %s %s",
             lua_scr.c_str(), source.c_str(), node_type.c_str(),
-            module.c_str(), instance_id.c_str());
+            module.c_str(), instance_id.c_str(), integerToString(REDIS_DB_UVE).c_str());
 
     if (!reply) {
         LOG(INFO, "SyncDeleteUVEs Error : " << c->errstr);
@@ -210,6 +213,39 @@ RedisProcessorExec::SyncDeleteUVEs(const std::string & redis_ip, unsigned short 
     return false;
 }
 
+bool
+RedisProcessorExec::FlushUVEs(const std::string & redis_ip,
+                              unsigned short redis_port) {
+    redisContext *c = redisConnect(redis_ip.c_str(), redis_port);
+
+    if (c->err) {
+        LOG(ERROR, "No connection for FlushUVEs");
+        redisFree(c);
+        return false;
+    }
+
+    string lua_scr(reinterpret_cast<char *>(flushuves_lua), flushuves_lua_len);
+
+    redisReply * reply = (redisReply *) redisCommand(c, "EVAL %s 0 %s",
+            lua_scr.c_str(), integerToString(REDIS_DB_UVE).c_str());
+
+    if (!reply) {
+        LOG(INFO, "FlushUVEs Error : " << c->errstr);
+        redisFree(c);
+        return false;
+    }
+
+    if (reply->type == REDIS_REPLY_INTEGER) {
+        freeReplyObject(reply);
+        redisFree(c);
+        return true;
+    }
+    LOG(ERROR, "Unrecognized reponse of type " << reply->type
+            << " for FlushUVEs");
+    freeReplyObject(reply);
+    redisFree(c);
+    return false;
+}
 
 void RedisProcessorIf::ChildSpawn(const vector<RedisProcessorIf *> & vch) {
     for (vector<RedisProcessorIf *>::const_iterator it = vch.begin();

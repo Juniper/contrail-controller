@@ -6,10 +6,10 @@
 #define __VNSW_CONTROLLER_INIT_HPP__
 
 #include <sandesh/sandesh_trace.h>
-#include <discovery_client.h>
+#include <discovery/client/discovery_client.h>
 #include <boost/scoped_ptr.hpp>
 #include <boost/shared_ptr.hpp>
-#include "controller/controller_cleanup_timer.h"
+#include <controller/controller_cleanup_timer.h>
 
 class AgentXmppChannel;
 class AgentDnsXmppChannel;
@@ -20,7 +20,6 @@ class VNController {
 public:
     typedef boost::shared_ptr<BgpPeer> BgpPeerPtr; 
     typedef std::list<boost::shared_ptr<BgpPeer> >::iterator BgpPeerIterator;
-    static const uint64_t kInvalidPeerIdentifier = 0xFFFFFFFFFFFFFFFFLL;
     VNController(Agent *agent);
     virtual ~VNController();
     void Connect();
@@ -36,6 +35,9 @@ public:
 
     void ApplyDiscoveryXmppServices(std::vector<DSResponse> resp); 
     void ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp); 
+
+    void DisConnectControllerIfmapServer(uint8_t idx);
+    void DisConnectDnsServer(uint8_t idx);
 
     //Multicast peer identifier
     void increment_multicast_sequence_number() {multicast_sequence_number_++;}
@@ -73,6 +75,8 @@ public:
 private:
     AgentXmppChannel *FindAgentXmppChannel(const std::string &server_ip);
     AgentDnsXmppChannel *FindAgentDnsXmppChannel(const std::string &server_ip);
+    void DeleteConnectionInfo(const std::string &addr, bool is_dns) const;
+    const std::string MakeConnectionPrefix(bool is_dns) const;
 
     Agent *agent_;
     uint64_t multicast_sequence_number_;

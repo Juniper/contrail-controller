@@ -42,6 +42,16 @@ class PktTest : public ::testing::Test {
 public:
     void CheckSandeshResponse(Sandesh *sandesh) {
     }
+
+    void FlushFlowTable() {
+        client->EnqueueFlowFlush();
+        client->WaitForIdle();
+        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    }
+
+    void TearDown() {
+        FlushFlowTable();
+    }
 };
 
 static void MakeIpPacket(PktGen *pkt, int ifindex, const char *sip,
@@ -59,7 +69,8 @@ static void TxIpPacket(int ifindex, const char *sip, const char *dip,
     MakeIpPacket(pkt, ifindex, sip, dip, proto);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
     delete pkt;
 }
 
@@ -68,7 +79,7 @@ static void MakeMplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
                             const char *sip, const char *dip, 
                             int proto) {
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS);
+    pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS);
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddIpHdr(out_sip, out_dip, IPPROTO_GRE);
     pkt->AddGreHdr();
@@ -84,7 +95,8 @@ static void TxMplsPacket(int ifindex, const char *out_sip,
     MakeMplsPacket(pkt, ifindex, out_sip, out_dip, label, sip, dip, proto);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
     delete pkt;
 }
 
@@ -99,10 +111,10 @@ TEST_F(PktTest, FlowAdd_1) {
 
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(VmPortPolicyEnable(input, 0));
-    EXPECT_EQ(4U, Agent::GetInstance()->GetInterfaceTable()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVmTable()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
-    EXPECT_EQ(1U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    EXPECT_EQ(4U, Agent::GetInstance()->interface_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vm_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->interface_config_table()->Size());
 
     // Generate packet and enqueue
     VmInterface *intf = VmInterfaceGet(input[0].intf_id);
@@ -110,8 +122,9 @@ TEST_F(PktTest, FlowAdd_1) {
     TxIpPacket(intf->id(), "1.1.1.1", "1.1.1.2", 1);
     client->WaitForIdle();
 
-    PhysicalInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
-                            "vnet0", Agent::GetInstance()->GetDefaultVrf());
+    PhysicalInterface::CreateReq(Agent::GetInstance()->interface_table(),
+                            "vnet0", Agent::GetInstance()->fabric_vrf_name(),
+                            false);
     client->WaitForIdle();
     TxMplsPacket(2, "1.1.1.2", "10.1.1.1", 0, "2.2.2.2", "3.3.3.3", 1);
     
@@ -127,6 +140,9 @@ TEST_F(PktTest, FlowAdd_1) {
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
+
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, true, 1);
 }
 
 
@@ -134,7 +150,11 @@ int main(int argc, char *argv[]) {
     GETUSERARGS();
 
     client = TestInit(init_file, ksync_init);
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1"));
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string("10.1.1.1"));
 
-    return RUN_ALL_TESTS();
+    int ret = RUN_ALL_TESTS();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
+    return ret;
 }

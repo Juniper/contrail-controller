@@ -2,14 +2,17 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <cmn/agent_cmn.h>
+#include <oper/vrf.h>
+#include <oper/route_common.h>
+#include <oper/peer.h>
+#include <oper/agent_route_walker.h>
+#include <oper/mirror_table.h>
+
 #include <controller/controller_route_walker.h>
 #include <controller/controller_peer.h>
 #include <controller/controller_vrf_export.h>
 #include <controller/controller_export.h>
-#include <oper/agent_route.h>
-#include <oper/peer.h>
-#include <oper/vrf.h>
-#include <oper/mirror_table.h>
 
 Peer::Peer(Type type, const std::string &name) : 
     type_(type), name_(name){ 
@@ -30,8 +33,8 @@ BgpPeer::BgpPeer(const Ip4Address &server_ip, const std::string &name,
 BgpPeer::~BgpPeer() {
     // TODO verify if this unregister can be done in walkdone callback 
     // for delpeer
-    if ((id_ != -1) && route_walker_->agent()->GetVrfTable()) {
-        route_walker_->agent()->GetVrfTable()->Unregister(id_);
+    if ((id_ != -1) && route_walker_->agent()->vrf_table()) {
+        route_walker_->agent()->vrf_table()->Unregister(id_);
     }
 }
 
@@ -69,9 +72,9 @@ void BgpPeer::DeleteVrfState(DBTablePartBase *partition,
     if (vrf_state == NULL)
         return;
     
-    if (vrf->GetName().compare(agent()->GetDefaultVrf()) != 0) {
-        for (uint8_t table_type = 0; table_type < Agent::ROUTE_TABLE_MAX;
-             table_type++) {
+    if (vrf->GetName().compare(agent()->fabric_vrf_name()) != 0) {
+        for (uint8_t table_type = (Agent::INVALID + 1);
+                table_type < Agent::ROUTE_TABLE_MAX; table_type++) {
             if (vrf_state->rt_export_[table_type]) 
                 vrf_state->rt_export_[table_type]->Unregister();
         }
@@ -111,7 +114,7 @@ DBState *BgpPeer::GetRouteExportState(DBTablePartBase *partition,
     AgentRoute *route = static_cast<AgentRoute *>(entry);
     VrfEntry *vrf = route->vrf();
 
-    DBTablePartBase *vrf_partition = agent()->GetVrfTable()->
+    DBTablePartBase *vrf_partition = agent()->vrf_table()->
         GetTablePartition(vrf);
 
     VrfExport::State *vs = static_cast<VrfExport::State *>

@@ -177,8 +177,7 @@ void XmppSession::OnRead(Buffer buffer) {
         ReleaseBuffer(buffer);
 
         // Reset the hold timer as we did receive some thing from the peer
-        connection_->state_machine()->StartHoldTimer(
-                connection_->GetKeepAliveTimer() * 3);
+        connection_->state_machine()->StartHoldTimer();
         return;
     }
 

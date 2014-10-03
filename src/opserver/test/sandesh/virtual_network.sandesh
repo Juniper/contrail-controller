@@ -1,0 +1,34 @@
+/*
+ * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+ */
+
+//
+// virtual_network.sandesh
+//
+
+struct InterVnStats {
+    1: string                               other_vn; 
+    2: string                               vrouter;
+    3: u64                                  in_tpkts;
+    4: u64                                  in_bytes;
+    5: u64                                  out_tpkts;
+    6: u64                                  out_bytes;    
+}
+
+struct UveVirtualNetworkAgent {
+    1: string                              name (key="ObjectVNTable")
+    2: optional bool                       deleted
+    3: optional i32                        total_acl_rules; 
+    4: optional list<string>               interface_list (aggtype="union")
+    5: optional u64                        in_tpkts  (aggtype="counter")
+    6: optional u64                        in_bytes  (aggtype="counter")
+    7: optional u64                        out_tpkts (aggtype="counter")
+    8: optional u64                        out_bytes (aggtype="counter")
+    9: optional list<string>               virtualmachine_list (aggtype="union")
+    10: optional list<InterVnStats>        vn_stats (tags=".other_vn,.vrouter")
+}
+
+uve sandesh UveVirtualNetworkAgentTrace {
+    1: UveVirtualNetworkAgent               data;
+}
+

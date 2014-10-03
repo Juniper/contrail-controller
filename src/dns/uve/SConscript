@@ -11,10 +11,7 @@ SandeshGenFiles = env.SandeshGenCpp('uve.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 
 except_env = DnsEnv.Clone()
-cflags = except_env['CCFLAGS']
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-    except_env.Replace(CCFLAGS = cflags)
+except_env.CppEnableExceptions()
 
 sandesh_objs = []
 for src in SandeshGenSrcs:

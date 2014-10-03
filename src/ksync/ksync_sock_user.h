@@ -58,10 +58,10 @@ struct TestRouteCmp {
         if (lhs.get_rtr_vrf_id() != rhs.get_rtr_vrf_id()) {
             return lhs.get_rtr_vrf_id() < rhs.get_rtr_vrf_id();
         }
-        if (lhs.get_rtr_prefix() != rhs.get_rtr_prefix()) {
-            return lhs.get_rtr_prefix() < rhs.get_rtr_prefix();
+        if (lhs.get_rtr_prefix_len() != rhs.get_rtr_prefix_len()) {
+            return lhs.get_rtr_prefix_len() < rhs.get_rtr_prefix_len();
         }
-        return lhs.get_rtr_prefix_len() < rhs.get_rtr_prefix_len();
+        return lhs.get_rtr_prefix() < rhs.get_rtr_prefix();
     }
 };
 
@@ -97,6 +97,7 @@ public:
         assert(mirror_map.size() == 0);
         assert(vrf_assign_tree.size() == 0);
         assert(vxlan_map.size() == 0);
+        singleton_ = NULL;
     }
 
     typedef std::map<int, vr_nexthop_req> ksync_map_nh;

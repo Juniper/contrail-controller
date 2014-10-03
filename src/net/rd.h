@@ -11,7 +11,7 @@
 class RouteDistinguisher {
 public:
     static const size_t kSize = 8;
-    static RouteDistinguisher null_rd;
+    static RouteDistinguisher kZeroRd;
 
     RouteDistinguisher();
 
@@ -22,8 +22,8 @@ public:
         const std::string &str,
         boost::system::error_code *error = NULL);
 
-    bool IsNull() { return CompareTo(RouteDistinguisher::null_rd) == 0; }
-    uint16_t Type() { return get_value(data_, 2); }
+    bool IsZero() const { return CompareTo(RouteDistinguisher::kZeroRd) == 0; }
+    uint16_t Type() const { return get_value(data_, 2); }
 
     int CompareTo(const RouteDistinguisher &rhs) const;
     bool operator==(const RouteDistinguisher &rhs) const {

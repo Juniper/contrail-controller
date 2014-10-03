@@ -31,6 +31,7 @@ public:
 
     // Get the partition with the specified id.
     DBPartition *GetPartition(int index);
+    const DBPartition *GetPartition(int index) const;
 
     void AddTable(DBTableBase *tbl_base);
 
@@ -53,7 +54,7 @@ public:
     static void ClearFactoryRegistry();
 
     void Clear();
-    bool IsDBQueueEmpty();
+    bool IsDBQueueEmpty() const;
 
     iterator begin() { return tables_.begin(); }
     iterator end() { return tables_.end(); }

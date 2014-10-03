@@ -20,15 +20,16 @@ void DiagPktHandler::SetReply() {
 }
 
 void DiagPktHandler::SetDiagChkSum() {
-    pkt_info_->ip->check = 0xffff;
+    pkt_info_->ip->ip_sum = 0xffff;
 }
 
 void DiagPktHandler::Reply() {
     SetReply();
     Swap();
     SetDiagChkSum();
-    Send(GetLength() - (2 * IPC_HDR_LEN), GetInterfaceIndex(), GetVrfIndex(),
-         AGENT_CMD_ROUTE, PktHandler::DIAG);
+    pkt_info_->set_len(GetLength() - (2 * EncapHeaderLen()));
+    Send(GetInterfaceIndex(), GetVrfIndex(), AgentHdr::TX_ROUTE,
+         PktHandler::DIAG);
 }
 
 bool DiagPktHandler::Run() {
@@ -36,13 +37,17 @@ bool DiagPktHandler::Run() {
 
     if (!ad) {
         //Ignore if packet doesnt have proper L4 header
-               return true;
+        return true;
+    }
+    if (pkt_info_->ether_type == ETHERTYPE_IPV6) {
+        //Ignore IPv6 packets until it is supported
+        return true;
     }
     if (ntohl(ad->op_) == AgentDiagPktData::DIAG_REQUEST) {
         //Request received swap the packet
         //and dump the packet back
-                Reply();
-                return false;
+        Reply();
+        return true;
     }
 
     if (ntohl(ad->op_) != AgentDiagPktData::DIAG_REPLY) {
@@ -68,7 +73,7 @@ bool DiagPktHandler::Run() {
     return true;
 }
 
-void DiagPktHandler::TcpHdr(in_addr_t src, uint16_t sport, in_addr_t dst, 
+void DiagPktHandler::TcpHdr(in_addr_t src, uint16_t sport, in_addr_t dst,
                             uint16_t dport, bool is_syn, uint32_t seq_no,
                             uint16_t len) {
     struct tcphdr *tcp = pkt_info_->transp.tcp;
@@ -93,7 +98,7 @@ void DiagPktHandler::TcpHdr(in_addr_t src, uint16_t sport, in_addr_t dst,
     tcp->check = TcpCsum(src, dst, len, tcp);
 }
 
-uint16_t DiagPktHandler::TcpCsum(in_addr_t src, in_addr_t dest, uint16_t len, 
+uint16_t DiagPktHandler::TcpCsum(in_addr_t src, in_addr_t dest, uint16_t len,
                                  tcphdr *tcp) {
     uint32_t sum = 0;
     PseudoTcpHdr phdr(src, dest, htons(len));
@@ -104,27 +109,28 @@ uint16_t DiagPktHandler::TcpCsum(in_addr_t src, in_addr_t dest, uint16_t len,
 void DiagPktHandler::SwapL4() {
     if (pkt_info_->ip_proto == IPPROTO_TCP) {
         tcphdr *tcp = pkt_info_->transp.tcp;
-        TcpHdr(htonl(pkt_info_->ip_daddr), ntohs(tcp->dest), 
-               htonl(pkt_info_->ip_saddr), ntohs(tcp->source), 
-               false, ntohs(tcp->ack_seq), 
-               ntohs(pkt_info_->ip->tot_len) - sizeof(iphdr));
+        TcpHdr(htonl(pkt_info_->ip_daddr.to_v4().to_ulong()), ntohs(tcp->dest),
+               htonl(pkt_info_->ip_saddr.to_v4().to_ulong()),
+               ntohs(tcp->source), false, ntohs(tcp->ack_seq),
+               ntohs(pkt_info_->ip->ip_len) - sizeof(struct ip));
 
     } else if(pkt_info_->ip_proto == IPPROTO_UDP) {
         udphdr *udp = pkt_info_->transp.udp;
-        UdpHdr(ntohs(udp->len), pkt_info_->ip_daddr, ntohs(udp->dest),
-               pkt_info_->ip_saddr, ntohs(udp->source));
+        UdpHdr(ntohs(udp->len), pkt_info_->ip_daddr.to_v4().to_ulong(),
+               ntohs(udp->dest), pkt_info_->ip_saddr.to_v4().to_ulong(),
+               ntohs(udp->source));
     }
 }
 
 void DiagPktHandler::SwapIpHdr() {
     //IpHdr expects IP address to be in network format
-    iphdr *ip = pkt_info_->ip;
-    IpHdr(ntohs(ip->tot_len), ip->daddr, ip->saddr, ip->protocol);
+    struct ip *ip = pkt_info_->ip;
+    IpHdr(ntohs(ip->ip_len), ip->ip_dst.s_addr, ip->ip_src.s_addr, ip->ip_p);
 }
 
 void DiagPktHandler::SwapEthHdr() {
-    ethhdr *eth = pkt_info_->eth;
-    EthHdr(eth->h_dest, eth->h_source, ntohs(eth->h_proto));
+    struct ether_header *eth = pkt_info_->eth;
+    EthHdr(MacAddress(eth->ether_dhost), MacAddress(eth->ether_shost), ntohs(eth->ether_type));
 }
 
 void DiagPktHandler::Swap() {

@@ -13,8 +13,8 @@
 #include <base/task.h>
 #include <io/event_manager.h>
 #include <base/util.h>
-#include <ifmap_agent_parser.h>
-#include <ifmap_agent_table.h>
+#include <ifmap/ifmap_agent_parser.h>
+#include <ifmap/ifmap_agent_table.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
 #include <oper/interface_common.h>
@@ -39,6 +39,14 @@ void VrouterUveEntryTest::clear_count() {
     compute_state_send_count_ = 0;
     vrouter_msg_count_ = 0;
     vrouter_stats_msg_count_ = 0;
+}
+
+void VrouterUveEntryTest::ResetCpuStatsCount() {
+    cpu_stats_count_ = 0;
+}
+
+void VrouterUveEntryTest::ResetPortBitmap() {
+    port_bitmap_.Reset();
 }
 
 void VrouterUveEntryTest::DispatchComputeCpuStateMsg

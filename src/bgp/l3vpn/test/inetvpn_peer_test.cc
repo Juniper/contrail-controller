@@ -2,18 +2,14 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <boost/foreach.hpp>
-#include <fstream>
 #include <tbb/mutex.h>
 
-#include "base/util.h"
+#include <fstream>
+
 #include "base/task.h"
 #include "base/test/task_test_util.h"
-#include "bgp/bgp_attr.h"
-#include "bgp/bgp_config.h"
-#include "bgp/bgp_path.h"
+#include "bgp/bgp_factory.h"
 #include "bgp/bgp_peer_membership.h"
-#include "bgp/bgp_server.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/community.h"
 #include "bgp/inet/inet_table.h"
@@ -27,8 +23,11 @@
 
 #include "testing/gunit.h"
 
-using namespace boost::asio;
-using namespace std;
+using std::ifstream;
+using std::istreambuf_iterator;
+using std::map;
+using std::ostringstream;
+using std::string;
 using ::testing::TestWithParam;
 using ::testing::ValuesIn;
 using ::testing::Combine;
@@ -55,7 +54,31 @@ static void Replace(string *str, const char *substr, T content) {
 
 class L3VPNPeerTest : public ::testing::TestWithParam<const char *> {
 protected:
-    L3VPNPeerTest() : thread_(&evm_) { }
+    L3VPNPeerTest()
+        : thread_(&evm_),
+          a_red_(NULL),
+          a_blue_(NULL),
+          a_vpn_(NULL),
+          a_red_inet_(NULL),
+          a_blue_inet_(NULL),
+          a_vpn_l_(DBTableBase::kInvalidId),
+          a_red_inet_l_(DBTableBase::kInvalidId),
+          a_blue_inet_l_(DBTableBase::kInvalidId),
+          peer_a_(NULL),
+          a_peer_red_(NULL),
+          a_peer_blue_(NULL),
+          b_red_(NULL),
+          b_blue_(NULL),
+          b_vpn_(NULL),
+          b_red_inet_(NULL),
+          b_blue_inet_(NULL),
+          b_vpn_l_(DBTableBase::kInvalidId),
+          b_red_inet_l_(DBTableBase::kInvalidId),
+          b_blue_inet_l_(DBTableBase::kInvalidId),
+          peer_b_(NULL),
+          b_peer_blue_(NULL),
+          vpn_notify_count_(0) {
+    }
 
     void TableListener(DBTablePartBase *root, DBEntryBase *entry) {
         if (root->parent() == a_vpn_)
@@ -228,7 +251,7 @@ protected:
     }
 
     void VerifyVpnTable(RoutingInstance *from_instance, string prefix,
-                        DBTable *dest, bool present=true, BgpPeer *peer=NULL) {
+        DBTable *dest, bool present = true, BgpPeer *peer = NULL) {
         Ip4Prefix rt_prefix(Ip4Prefix::FromString(prefix));
         WaitForIdle();
         const RouteDistinguisher *rd = from_instance->GetRD();
@@ -248,7 +271,7 @@ protected:
         }
     }
 
-    void VerifyInetTable(string prefix, DBTable *dest, bool present=true) {
+    void VerifyInetTable(string prefix, DBTable *dest, bool present = true) {
         Ip4Prefix rt_prefix(Ip4Prefix::FromString(prefix));
         WaitForIdle();
         // Verify the route in VPN Table
@@ -281,7 +304,8 @@ protected:
                                                        "a_red", "a_red_local",
                                                        &rtr_config));
         a_peer_red_ = dynamic_cast<BgpPeerTest *>(
-            a_red->peer_manager()->PeerLocate(a_.get(), a_peer_red_config_.get()));
+            a_red->peer_manager()->PeerLocate(
+                a_.get(), a_peer_red_config_.get()));
         a_peer_red_->IsReady_fnc_ = boost::bind(&L3VPNPeerTest::IsReady, this);
         a_->membership_mgr()->Register(a_peer_red_, a_red_inet_, policy, -1);
 
@@ -294,7 +318,8 @@ protected:
                                                         "a_blue_local",
                                                         &rtr_config));
         a_peer_blue_ = dynamic_cast<BgpPeerTest *>(
-            a_blue->peer_manager()->PeerLocate(a_.get(), a_peer_blue_config_.get()));
+            a_blue->peer_manager()->PeerLocate(
+                a_.get(), a_peer_blue_config_.get()));
         a_peer_blue_->IsReady_fnc_ = boost::bind(&L3VPNPeerTest::IsReady, this);
         a_->membership_mgr()->Register(a_peer_blue_, a_blue_inet_, policy, -1);
 
@@ -307,7 +332,8 @@ protected:
                                                         "b_blue_local",
                                                         &rtr_config));
         b_peer_blue_ = dynamic_cast<BgpPeerTest *>(
-            b_blue->peer_manager()->PeerLocate(b_.get(), b_peer_blue_config_.get()));
+            b_blue->peer_manager()->PeerLocate(
+                b_.get(), b_peer_blue_config_.get()));
         b_peer_blue_->IsReady_fnc_ = boost::bind(&L3VPNPeerTest::IsReady, this);
         b_->membership_mgr()->Register(b_peer_blue_, b_blue_inet_, policy, -1);
 
@@ -339,7 +365,7 @@ protected:
     ServerThread thread_;
 
     /* Server A */
-    auto_ptr<BgpServerTest> a_;
+    boost::scoped_ptr<BgpServerTest> a_;
     RoutingInstance *a_red_;
     RoutingInstance *a_blue_;
     BgpTable *a_vpn_;
@@ -353,7 +379,7 @@ protected:
     BgpPeerTest *a_peer_blue_;
 
     /* Server B */
-    auto_ptr<BgpServerTest> b_;
+    boost::scoped_ptr<BgpServerTest> b_;
     RoutingInstance *b_red_;
     RoutingInstance *b_blue_;
     BgpTable *b_vpn_;
@@ -370,7 +396,7 @@ protected:
     int vpn_notify_count_;
 
     tbb::mutex notification_count_lock_;
-    std::map<DBTableBase *, int> notification_count_;
+    map<DBTableBase *, int> notification_count_;
 
     DBTableBase::ChangeCallback func_;
 };
@@ -622,9 +648,11 @@ TEST_P(L3VPNPeerTest, Community) {
     noexport_subconf_community.communities.push_back(0xFFFFFF03);
     BgpAttrSpec noexport_subconf_attrs;
     noexport_subconf_attrs.push_back(&noexport_subconf_community);
-    BgpAttrPtr noexport_subconf_attr = a_->attr_db()->Locate(noexport_subconf_attrs);
+    BgpAttrPtr noexport_subconf_attr =
+        a_->attr_db()->Locate(noexport_subconf_attrs);
 
-    AddRoute(a_blue_inet_, "192.168.29.0/24", a_peer_blue_, noexport_subconf_attr);
+    AddRoute(a_blue_inet_, "192.168.29.0/24", a_peer_blue_,
+        noexport_subconf_attr);
     if (peer_type_ == "IBGP") {
         CHECK_NOTIFICATION_MSG(1, b_blue_inet_,
                               "Route to appear in BLUE INET table on Server B");
@@ -706,6 +734,8 @@ TEST_P(L3VPNPeerTest, ExtendedCommunity) {
 static void SetUp() {
     ControlNode::SetDefaultSchedulingPolicy();
     BgpServerTest::GlobalSetUp();
+    BgpObjectFactory::Register<StateMachine>(
+        boost::factory<StateMachineTest *>());
 
     //
     // This test uses multiple peering sessions between two BgpServers.

@@ -13,7 +13,7 @@
 #include <db/db_table.h>
 
 #include <cmn/agent_cmn.h>
-#include <cmn/agent_param.h>
+#include <init/agent_param.h>
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_interface.h>
 #include <cfg/cfg_types.h>
@@ -31,9 +31,10 @@
 #include <openstack/instance_service_server.h>
 #include <base/contrail_ports.h>
 #include <vgw/cfg_vgw.h>
+#include <controller/controller_route_path.h>
 
 InstanceServiceAsyncHandler::InstanceServiceAsyncHandler(Agent *agent)
-    : io_service_(*(agent->GetEventManager()->io_service())),
+    : io_service_(*(agent->event_manager()->io_service())),
       agent_(agent), version_(0), vgw_version_(0),
       novaPeer_(new Peer(Peer::NOVA_PEER, NOVA_PEER_NAME)),
       interface_stale_cleaner_(new InterfaceConfigStaleCleaner(agent)),
@@ -64,15 +65,30 @@ InstanceServiceAsyncHandler::AddPort(const PortList& port_list) {
         uuid vn_id = ConvertToUuid(port.vn_id);
         uuid vm_project_id = ConvertToUuid(port.vm_project_id);
         boost::system::error_code ec;
+        bool v6_correct = true, v4_correct = true;
         IpAddress ip = IpAddress::from_string(port.ip_address, ec);
         if (ec.value() != 0) {
             CFG_TRACE(IntfInfo,
-                      "IP address is not correct, " + port.ip_address);
+                      "IPv4 address is not correct, " + port.ip_address);
+            v4_correct = false;
+        }
+
+        Ip6Address ip6;
+        if (port.__isset.ip6_address) {
+            ip6 = Ip6Address::from_string(port.ip6_address, ec);
+            if (ec.value() != 0) {
+                CFG_TRACE(IntfInfo,
+                          "IPv6 address is not correct, " + port.ip6_address);
+                v6_correct = false;
+            }
+        }
+
+        if (!v4_correct && !v6_correct) {
             return false;
         }
         
         CfgIntTable *ctable = static_cast<CfgIntTable *>
-            (agent_->GetDB()->FindTable("db.cfg_int.0"));
+            (agent_->db()->FindTable("db.cfg_int.0"));
         assert(ctable);
 
         DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
@@ -84,17 +100,27 @@ InstanceServiceAsyncHandler::AddPort(const PortList& port_list) {
             vlan_id = port.vlan_id;
         }
 
+        uint32_t version = version_;
+        CfgIntEntry::CfgIntType port_type = CfgIntEntry::CfgIntVMPort;
+        if (port.__isset.port_type) {
+            if (port.port_type == PortTypes::NameSpacePort) {
+                version = 0;
+                port_type = CfgIntEntry::CfgIntNameSpacePort;
+            }
+        }
+
         cfg_int_data->Init(instance_id, vn_id, vm_project_id,
-                           port.tap_name, ip,
+                           port.tap_name, ip, ip6, 
                            port.mac_address,
-                           port.display_name, vlan_id, version_);
+                           port.display_name, vlan_id, port_type, version);
         req.data.reset(cfg_int_data);
         ctable->Enqueue(&req);
         CFG_TRACE(OpenstackAddPort, "Add", UuidToString(port_id),
                   UuidToString(instance_id), UuidToString(vn_id),
                   port.ip_address, port.tap_name, port.mac_address,
-                  port.display_name, port.hostname, port.host, version_,
-                  vlan_id, UuidToString(vm_project_id));
+                  port.display_name, port.hostname, port.host, version,
+                  vlan_id, UuidToString(vm_project_id),
+                  CfgIntEntry::CfgIntTypeToString(port_type), port.ip6_address);
     }
     return true;
 }
@@ -117,7 +143,7 @@ InstanceServiceAsyncHandler::DeletePort(const tuuid& t_port_id) {
     uuid port_id = ConvertToUuid(t_port_id);
 
     CfgIntTable *ctable = static_cast<CfgIntTable *>
-        (agent_->GetDB()->FindTable("db.cfg_int.0"));
+        (agent_->db()->FindTable("db.cfg_int.0"));
     assert(ctable);
     
     DBRequest req;
@@ -257,7 +283,7 @@ InstanceServiceAsyncHandler::TunnelNHEntryAdd(const std::string& src_ip,
     treq.data.reset(nh_data);
     treq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     NextHopTable *nh_table_ = static_cast<NextHopTable *>
-        (agent_->GetDB()->FindTable("db.nexthop.0"));
+        (agent_->db()->FindTable("db.nexthop.0"));
     nh_table_->Enqueue(&treq);
 
     return true;
@@ -300,11 +326,17 @@ InstanceServiceAsyncHandler::RouteEntryAdd(const std::string& ip_address,
     uint32_t mpls_label;
     const std::string vn = " ";
     sscanf(label.c_str(), "%u", &mpls_label);
-    Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(
-                                     agent_->local_peer(),
-                                     vrf, ipv4, 32, gwv4,
-                                     TunnelType::AllType(),
-                                     mpls_label, vn, SecurityGroupList());
+    ControllerVmRoute *data =
+        ControllerVmRoute::MakeControllerVmRoute(agent_->local_peer(),
+                                                 agent_->fabric_vrf_name(),
+                                                 agent_->router_id(),
+                                                 vrf, gwv4,
+                                                 TunnelType::AllType(),
+                                                 mpls_label,
+                                                 vn, SecurityGroupList(),
+                                                 PathPreference());
+    InetUnicastAgentRouteTable::AddRemoteVmRouteReq(agent_->local_peer(),
+                                     vrf, ipv4, 32, data);
     return true;
 }
 
@@ -329,8 +361,8 @@ InstanceServiceAsyncHandler::AddHostRoute(const std::string& ip_address,
 	return false;
     }
 
-    agent_->GetDefaultInet4UnicastRouteTable()->
-        AddHostRoute(vrf, ip.to_v4(), 32, agent_->GetFabricVnName());
+    agent_->fabric_inet4_unicast_table()->
+        AddHostRoute(vrf, ip.to_v4(), 32, agent_->fabric_vn_name());
 
     return true;
 }
@@ -367,10 +399,10 @@ InstanceServiceAsyncHandler::AddLocalVmRoute(const std::string& ip_address,
         sscanf(label.c_str(), "%u", &mpls_label);
     }
 
-    agent_->GetDefaultInet4UnicastRouteTable()->
+    agent_->fabric_inet4_unicast_table()->
         AddLocalVmRouteReq(novaPeer_.get(), vrf, ip.to_v4(), 32, intf_uuid, 
                            "instance-service", mpls_label, SecurityGroupList(),
-                           false);
+                           false, PathPreference(), Ip4Address(0));
     return true;
 }
 
@@ -401,10 +433,15 @@ InstanceServiceAsyncHandler::AddRemoteVmRoute(const std::string& ip_address,
         sscanf(label.c_str(), "%u", &mpls_label);
     }
 
-    agent_->GetDefaultInet4UnicastRouteTable()->
-        AddRemoteVmRouteReq(novaPeer_.get(), vrf, ip.to_v4(), 32,
-                            gw.to_v4(), TunnelType::AllType(), mpls_label, "",
-                            SecurityGroupList());
+    ControllerVmRoute *data =
+        ControllerVmRoute::MakeControllerVmRoute(novaPeer_.get(),
+                              agent_->fabric_vrf_name(),
+                              agent_->router_id(), vrf, gw.to_v4(),
+                              TunnelType::AllType(), mpls_label, "",
+                              SecurityGroupList(), PathPreference());
+    agent_->fabric_inet4_unicast_table()->
+        AddRemoteVmRouteReq(novaPeer_.get(),
+                            vrf, ip.to_v4(), 32, data);
     return true;
 }
 
@@ -412,7 +449,7 @@ InstanceServiceAsyncIf::CreateVrf_shared_future_t
 InstanceServiceAsyncHandler::CreateVrf(const std::string& vrf) {
     LOG(DEBUG, "CreateVrf" << vrf);
     // Vrf
-    agent_->GetVrfTable()->CreateVrf(vrf);
+    agent_->vrf_table()->CreateVrf(vrf);
     return true;
 }
 
@@ -449,8 +486,8 @@ void InstanceInfoServiceServerInit(Agent *agent) {
 
     boost::shared_ptr<apache::thrift::async::TAsioServer> server(
         new apache::thrift::async::TAsioServer(
-            *(agent->GetEventManager()->io_service()),
-            ContrailPorts::NovaVifVrouterAgentPort,
+            *(agent->event_manager()->io_service()),
+            ContrailPorts::NovaVifVrouterAgentPort(),
             protocolFactory,
             protocolFactory,
             processor));
@@ -487,9 +524,16 @@ void AddPortReq::HandleRequest() const {
     string vm_name = get_vm_name();
     string tap_name = get_tap_name();
     uint16_t vlan_id = get_vlan_id();
+    int16_t port_type = get_port_type();
+    CfgIntEntry::CfgIntType intf_type;
 
-    boost::system::error_code ec;
+    boost::system::error_code ec, ec6;
     IpAddress ip(IpAddress::from_string(get_ip_address(), ec));
+    Ip6Address ip6 = Ip6Address::from_string(get_ip6_address(), ec6);
+    if ((ec != 0) && (ec6 != 0)) {
+        resp_str += "Neither Ipv4 nor IPv6 address is correct, ";
+        err = true;
+    }
     string mac_address = get_mac_address();
 
     if (port_uuid == nil_uuid()) {
@@ -504,10 +548,6 @@ void AddPortReq::HandleRequest() const {
         resp_str += "Vn uuid is not correct, ";
         err = true;
     }
-    if (ec != 0) {
-        resp_str += "Ip address is not correct, ";
-        err = true;
-    }
     if (!ValidateMac(mac_address)) {
         resp_str += "Invalid MAC, Use xx:xx:xx:xx:xx:xx format";
         err = true;
@@ -519,16 +559,21 @@ void AddPortReq::HandleRequest() const {
         return;
     }
 
-    CfgIntTable *ctable = Agent::GetInstance()->GetIntfCfgTable();
+    CfgIntTable *ctable = Agent::GetInstance()->interface_config_table();
     assert(ctable);
 
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new CfgIntKey(port_uuid));
     CfgIntData *cfg_int_data = new CfgIntData();
+    intf_type = CfgIntEntry::CfgIntVMPort;
+    if (port_type) {
+        intf_type = CfgIntEntry::CfgIntNameSpacePort;
+    }
+
     cfg_int_data->Init(instance_uuid, vn_uuid, vm_project_uuid,
-                       tap_name, ip,
+                       tap_name, ip, ip6,
                        mac_address,
-                       vm_name, vlan_id, 0);
+                       vm_name, vlan_id, intf_type, 0);
     req.data.reset(cfg_int_data);
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     ctable->Enqueue(&req);
@@ -549,7 +594,7 @@ void DeletePortReq::HandleRequest() const {
         resp->Response();
     }
 
-    CfgIntTable *ctable = Agent::GetInstance()->GetIntfCfgTable();
+    CfgIntTable *ctable = Agent::GetInstance()->interface_config_table();
     assert(ctable);
 
     DBRequest req;
@@ -580,7 +625,7 @@ void ConfigStaleCleaner::StartStaleCleanTimer(int32_t version) {
     // create timer, to be deleted on completion
     Timer *timer =
         TimerManager::CreateTimer(
-            *(agent_->GetEventManager())->io_service(), "Stale cleanup timer",
+            *(agent_->event_manager())->io_service(), "Stale cleanup timer",
             TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0, true);
     running_timer_list_.insert(timer);
     timer->Start(timeout_,
@@ -605,19 +650,19 @@ InterfaceConfigStaleCleaner::InterfaceConfigStaleCleaner(Agent *agent) :
 InterfaceConfigStaleCleaner::~InterfaceConfigStaleCleaner() {
     if (walkid_ != DBTableWalker::kInvalidWalkerId) {
         CFG_TRACE(IntfInfo, "InterfaceConfigStaleCleaner Walk cancelled.");
-        agent_->GetDB()->GetWalker()->WalkCancel(walkid_);
+        agent_->db()->GetWalker()->WalkCancel(walkid_);
     }
 }
 
 bool
 InterfaceConfigStaleCleaner::OnInterfaceConfigStaleTimeout(int32_t version) {
-    DBTableWalker *walker = agent_->GetDB()->GetWalker();
+    DBTableWalker *walker = agent_->db()->GetWalker();
     if (walkid_ != DBTableWalker::kInvalidWalkerId) {
         CFG_TRACE(IntfInfo, "InterfaceConfigStaleCleaner Walk cancelled.");
         walker->WalkCancel(walkid_);
     }
 
-    walkid_ = walker->WalkTable(agent_->GetIntfCfgTable(), NULL,
+    walkid_ = walker->WalkTable(agent_->interface_config_table(), NULL,
               boost::bind(&InterfaceConfigStaleCleaner::CfgIntfWalk, this,
                           _1, _2, version),
               boost::bind(&InterfaceConfigStaleCleaner::CfgIntfWalkDone, this,
@@ -630,8 +675,16 @@ bool InterfaceConfigStaleCleaner::CfgIntfWalk(DBTablePartBase *partition,
                                               DBEntryBase *entry,
                                               int32_t version) {
     const CfgIntEntry *cfg_intf = static_cast<const CfgIntEntry *>(entry);
+
+    if (cfg_intf->port_type() != CfgIntEntry::CfgIntVMPort) {
+        CFG_TRACE(IntfInfo, "CfgIntfStaleWalk Skipping the delete of "
+                "port type  " +
+                cfg_intf->CfgIntTypeToString(cfg_intf->port_type()));
+        return true;
+    }
+
     if (cfg_intf->GetVersion() < version) {
-        CfgIntTable *ctable = Agent::GetInstance()->GetIntfCfgTable();
+        CfgIntTable *ctable = Agent::GetInstance()->interface_config_table();
         DBRequest req;
         req.key.reset(new CfgIntKey(cfg_intf->GetUuid()));
         req.oper = DBRequest::DB_ENTRY_DELETE;

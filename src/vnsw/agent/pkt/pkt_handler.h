@@ -8,6 +8,7 @@
 #include <net/if.h>
 #include <netinet/if_ether.h>
 #include <netinet/ip.h>
+#include <netinet/ip6.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <netinet/ip_icmp.h>
@@ -15,22 +16,28 @@
 #include <tbb/atomic.h>
 #include <boost/array.hpp>
 
+#include <net/address.h>
 #include <oper/mirror_table.h>
 #include <oper/nexthop.h>
 #include <pkt/pkt_trace.h>
+#include <pkt/packet_buffer.h>
+
+#include "vr_defs.h"
 
 #define DHCP_SERVER_PORT 67
 #define DHCP_CLIENT_PORT 68
+#define DHCPV6_SERVER_PORT 547
+#define DHCPV6_CLIENT_PORT 546
 #define DNS_SERVER_PORT 53
 
 #define IPv4_ALEN           4
 #define MIN_ETH_PKT_LEN    64
-#define IPC_HDR_LEN        (sizeof(ethhdr) + sizeof(struct agent_hdr))
-#define IP_PROTOCOL        0x800  
-#define VLAN_PROTOCOL      0x8100       
+#define IPC_HDR_LEN        (sizeof(struct ether_header) + sizeof(struct agent_hdr))
+#define IP_PROTOCOL        ETHERTYPE_IP
+#define VLAN_PROTOCOL      0x8100
 
 struct agent_hdr;
-class TapInterface;
+class PacketBuffer;
 
 struct InterTaskMsg {
     InterTaskMsg(uint16_t command): cmd(command) {}
@@ -58,17 +65,43 @@ struct PktType {
     enum Type {
         INVALID,
         ARP,
-        IPV4,
+        IP,
         UDP,
         TCP,
         ICMP,
-        NON_IPV4,
+        ICMPV6,
+        NON_IP,
         MESSAGE
     };
 };
 
 struct AgentHdr {
-    AgentHdr() : ifindex(-1), vrf(-1), cmd(-1), cmd_param(-1) {}
+    // Packet commands between agent and vrouter. The values must be in-sync 
+    // with vrouter/include/vr_defs.h
+    enum PktCommand {
+        TX_SWITCH = AGENT_CMD_SWITCH,
+        TX_ROUTE = AGENT_CMD_ROUTE,
+        TRAP_ARP = AGENT_TRAP_ARP,
+        TRAP_L2_PROTOCOL = AGENT_TRAP_L2_PROTOCOLS,
+        TRAP_NEXTHOP = AGENT_TRAP_NEXTHOP,
+        TRAP_RESOLVE = AGENT_TRAP_RESOLVE,
+        TRAP_FLOW_MISS = AGENT_TRAP_FLOW_MISS,
+        TRAP_L3_PROTOCOLS = AGENT_TRAP_L3_PROTOCOLS,
+        TRAP_DIAG = AGENT_TRAP_DIAG,
+        TRAP_ECMP_RESOLVE = AGENT_TRAP_ECMP_RESOLVE,
+        TRAP_SOURCE_MISMATCH = AGENT_TRAP_SOURCE_MISMATCH,
+        TRAP_HANDLE_DF = AGENT_TRAP_HANDLE_DF,
+        INVALID = MAX_AGENT_HDR_COMMANDS
+    };
+
+    AgentHdr() :
+        ifindex(-1), vrf(-1), cmd(-1), cmd_param(-1), nh(-1), flow_index(-1),
+        mtu(0) {}
+
+    AgentHdr(uint16_t ifindex_p, uint16_t vrf_p, uint16_t cmd_p) :
+        ifindex(ifindex_p), vrf(vrf_p), cmd(cmd_p), cmd_param(-1), nh(-1),
+        flow_index(-1), mtu(0) {}
+
     ~AgentHdr() {}
 
     // Fields from agent_hdr
@@ -76,8 +109,13 @@ struct AgentHdr {
     uint32_t            vrf;
     uint16_t            cmd;
     uint32_t            cmd_param;
+    uint16_t            nh;
+    uint32_t            flow_index;
+    uint16_t            mtu;
 };
 
+// Tunnel header decoded from the GRE encapsulated packet on fabric
+// Supports only IPv4 addresses since only IPv4 is supported on fabric
 struct TunnelInfo {
     TunnelInfo() : 
         type(TunnelType::INVALID), label(-1), ip_saddr(), ip_daddr() {}
@@ -93,17 +131,19 @@ struct TunnelInfo {
 struct PktInfo {
     uint8_t             *pkt;
     uint16_t            len;
+    uint16_t            max_pkt_len;
 
     uint8_t             *data;
     InterTaskMsg        *ipc;
 
+    Address::Family     family;
     PktType::Type       type;
     AgentHdr            agent_hdr;
     uint16_t            ether_type;
     // Fields extracted for processing in agent
     uint32_t            vrf;
-    uint32_t            ip_saddr;
-    uint32_t            ip_daddr;
+    IpAddress           ip_saddr;
+    IpAddress           ip_daddr;
     uint8_t             ip_proto;
     uint32_t            sport;
     uint32_t            dport;
@@ -112,22 +152,34 @@ struct PktInfo {
     TunnelInfo          tunnel;
 
     // Pointer to different headers in user packet
-    struct ethhdr       *eth;
+    struct ether_header *eth;
     struct ether_arp    *arp;
-    struct iphdr        *ip;
+    struct ip           *ip;
+    struct ip6_hdr      *ip6;
     union {
         struct tcphdr   *tcp;
         struct udphdr   *udp;
-        struct icmphdr  *icmp;
+        struct icmp     *icmp;
+        struct icmp6_hdr *icmp6;
     } transp;
 
-    PktInfo(uint8_t *msg, std::size_t msg_size);
+    PktInfo(Agent *agent, uint32_t buff_len, uint32_t module, uint32_t mdata);
+    PktInfo(const PacketBufferPtr &buff);
     PktInfo(InterTaskMsg *msg);
     virtual ~PktInfo();
 
     const AgentHdr &GetAgentHdr() const;
     void UpdateHeaderPtr();
     std::size_t hash() const;
+
+    PacketBuffer *packet_buffer() const { return packet_buffer_.get(); }
+    PacketBufferPtr packet_buffer_ptr() const { return packet_buffer_; }
+    void AllocPacketBuffer(Agent *agent, uint32_t module, uint16_t len,
+                           uint32_t mdata);
+    void set_len(uint32_t len);
+
+private:
+    PacketBufferPtr     packet_buffer_;
 };
 
 // Receive packets from the pkt0 (tap) interface, parse and send the packet to
@@ -143,9 +195,13 @@ public:
         FLOW,
         ARP,
         DHCP,
+        DHCPV6,
         DNS,
         ICMP,
+        ICMPV6,
         DIAG,
+        ICMP_ERROR,
+        RX_PACKET,
         MAX_MODULES
     };
 
@@ -166,25 +222,18 @@ public:
         void PktQThresholdExceeded(PktModuleName mod);
     };
 
-    PktHandler(Agent *, const std::string &, boost::asio::io_service &, bool);
+    PktHandler(Agent *, PktModule *pkt_module);
     virtual ~PktHandler();
-
-    void Init();
-    void Shutdown();
-    void CreateInterfaces(const std::string &if_name);
 
     void Register(PktModuleName type, RcvQueueFunc cb);
 
-    const unsigned char *mac_address();
-    const TapInterface *tap_interface() { return tap_interface_.get(); }
-
-    void Send(uint8_t *msg, std::size_t len, PktModuleName mod);
+    void Send(const AgentHdr &hdr, const PacketBufferPtr &buff);
 
     // identify pkt type and send to the registered handler
-    void HandleRcvPkt(uint8_t*, std::size_t);  
+    void HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff);
     void SendMessage(PktModuleName mod, InterTaskMsg *msg); 
 
-    bool IsGwPacket(const Interface *intf, uint32_t dst_ip);
+    bool IsGwPacket(const Interface *intf, const IpAddress &dst_ip);
 
     const PktStats &GetStats() const { return stats_; }
     void ClearStats() { stats_.Reset(); }
@@ -200,10 +249,12 @@ public:
         return pkt_trace_.at(mod).pkt_trace_size();
     }
 
+    uint32_t EncapHeaderLen() const;
+    Agent *agent() const { return agent_; }
+    PktModule *pkt_module() const { return pkt_module_; }
 private:
     friend bool ::CallPktParse(PktInfo *pkt_info, uint8_t *ptr, int len);
 
-    uint8_t *ParseAgentHdr(PktInfo *pkt_info);
     uint8_t *ParseIpPacket(PktInfo *pkt_info, PktType::Type &pkt_type,
                            uint8_t *ptr);
     uint8_t *ParseUserPkt(PktInfo *pkt_info, Interface *intf,
@@ -220,7 +271,7 @@ private:
     boost::array<PktTrace, MAX_MODULES> pkt_trace_;
 
     Agent *agent_;
-    boost::scoped_ptr<TapInterface> tap_interface_;
+    PktModule *pkt_module_;
 
     DISALLOW_COPY_AND_ASSIGN(PktHandler);
 };

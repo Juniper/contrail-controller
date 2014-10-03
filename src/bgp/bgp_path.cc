@@ -12,14 +12,16 @@ std::string BgpPath::PathIdString(uint32_t path_id) {
 
 std::string BgpPath::PathSourceString(PathSource source) {
     switch (source) {
-        case BGP_XMPP:
-            return "BGP_XMPP";
         case None:
             return "None";
+        case BGP_XMPP:
+            return "BGP_XMPP";
         case StaticRoute:
             return "StaticRoute";
         case ServiceChain:
             return "SericeChain";
+        case Local:
+            return "Local";
         default:
             break;
     }
@@ -41,6 +43,12 @@ BgpPath::BgpPath(const IPeer *peer, PathSource src, const BgpAttrPtr ptr,
 BgpPath::BgpPath(uint32_t path_id, PathSource src, const BgpAttrPtr ptr,
         uint32_t flags, uint32_t label)
     : peer_(NULL), path_id_(path_id), source_(src), attr_(ptr), 
+      flags_(flags), label_(label) {
+}
+
+BgpPath::BgpPath(PathSource src, const BgpAttrPtr ptr,
+        uint32_t flags, uint32_t label)
+    : peer_(NULL), path_id_(0), source_(src), attr_(ptr),
       flags_(flags), label_(label) {
 }
 

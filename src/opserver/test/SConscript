@@ -16,6 +16,7 @@ env = OpEnv.Clone()
 local_sources = [
                  'uveserver_test.py',
                  'analytics_systest.py',
+                 'analytics_statstest.py',
 #                 'analytics_perftest.py',
                  ]
 local_sources_rules = []
@@ -30,29 +31,19 @@ for dir in local_dirs:
     files = Glob('#/controller/src/opserver/test/' + dir + '/*.py')  
     local_dirs_rules.append(env.Install(dir, files))    
           
-generator_sandesh_files = env.SandeshGenPy('#controller/src/vnsw/agent/uve/virtual_machine.sandesh') 
-generator_sandesh_files += env.SandeshGenPy('#controller/src/vnsw/agent/uve/virtual_network.sandesh')
-generator_sandesh_files += env.SandeshGenPy('#controller/src/sandesh/common/flow.sandesh')
-generator_sandesh_files += env.SandeshGenPy('#controller/src/vnsw/agent/uve/port_bmap.sandesh')
+vm_pkg = env.SandeshGenPy('#controller/src/opserver/test/sandesh/virtual_machine.sandesh',
+                          'sandesh/', False)
+vn_pkg = env.SandeshGenPy('#controller/src/opserver/test/sandesh/virtual_network.sandesh',
+                          'sandesh/', False)
+stats_test_pkg = env.SandeshGenPy('#controller/src/opserver/test/sandesh/stats_test.sandesh',
+                                  'sandesh/', False)
+flow_pkg = env.SandeshGenPy('#controller/src/sandesh/common/flow.sandesh',
+                            'sandesh/', False)
+qe_test_pkg = env.SandeshGenPy('#controller/src/query_engine/qe.sandesh',
+                            'sandesh/', False)
+sandesh_pkgs = [vm_pkg, vn_pkg, stats_test_pkg, flow_pkg, qe_test_pkg]
 
-generator_sandesh_dirs = ['virtual_machine', 'flow', 'virtual_network']
-for dir in generator_sandesh_dirs:
-    Dir(env['TOP'] + '/opserver/test/gen_py/' + dir)
-generator_sandesh_dirs.append('__init__.py')    
-generator_sandesh_srcs = ['gen_py/' + src for src in generator_sandesh_dirs]
-generator_sandesh_rules = []
-for file in generator_sandesh_srcs:
-    generator_sandesh_rules.append(env.Install('sandesh', env['TOP'] + '/opserver/test/' + file))
-
-generator_inc_dirs = ['port_bmap'] 
-for dir in generator_inc_dirs:
-    Dir(env['TOP'] + '/opserver/test/gen_py/' + dir)
-generator_inc_srcs = ['gen_py/' + src for src in generator_inc_dirs]
-for file in generator_inc_srcs:
-    generator_sandesh_rules.append(env.Install('', env['TOP'] + '/opserver/test/' + file))
-
-env.Depends(generator_sandesh_rules, generator_sandesh_files)
-env.Depends(local_sources_rules, [generator_sandesh_rules, local_dirs_rules])
+env.Depends(local_sources_rules, [local_dirs_rules] + sandesh_pkgs)
 
 venv = env.setup_venv ('analytics_test', 'analytics_test')
 #maintain the order
@@ -73,7 +64,7 @@ build_pkgs = [
 #venv that we are building is in env['analytics_test']
 env.Depends (env['analytics_test'], env['OPSERVER_PKG'])
 env.Requires (env['analytics_test'], env['TOP']+'/sandesh/common/dist/sandesh-common-0.1dev.tar.gz')
-env.Requires (env['analytics_test'], env['TOP']+'/tools/sandesh/library/python/dist')
+env.Requires (env['analytics_test'], env['TOP']+'/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz')
 for local_sources_rule in local_sources_rules:
     env.Depends (env['analytics_test'], local_sources_rule)
 

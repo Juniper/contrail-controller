@@ -9,6 +9,7 @@
 #include <oper/mirror_table.h>
 #include <oper/vrf.h>
 #include <oper/vrf_assign.h>
+#include <oper/nexthop.h>
 #include <oper/agent_sandesh.h>
 
 using namespace std;
@@ -30,7 +31,7 @@ VrfAssign *VrfAssignTable::AllocWithKey(const DBRequestKey *k) const {
 
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, key->intf_uuid_, "");
     Interface *interface = static_cast<Interface *>
-        (Agent::GetInstance()->GetInterfaceTable()->Find(&intf_key, true));
+        (agent()->interface_table()->Find(&intf_key, true));
 
     switch (key->type_) {
     case VrfAssign::VLAN: {
@@ -78,11 +79,11 @@ DBTableBase *VrfAssignTable::CreateTable(DB *db, const string &name) {
 Interface *VrfAssignTable::FindInterface(const uuid &intf_uuid) {
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     return static_cast<Interface *>
-        (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+        (Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
 }
 
 VrfEntry *VrfAssignTable::FindVrf(const string &name) {
-    return Agent::GetInstance()->GetVrfTable()->FindVrfFromName(name);
+    return Agent::GetInstance()->vrf_table()->FindVrfFromName(name);
 }
 
 void VrfAssignTable::CreateVlanReq(const boost::uuids::uuid &intf_uuid,
@@ -153,6 +154,22 @@ bool VrfAssign::Change(const DBRequest *req) {
         ret = true;
     }
 
+    return ret;
+}
+
+bool VlanVrfAssign::VrfAssignChange(const DBRequest *req) {
+    bool ret = false;
+    const VrfAssign::VrfAssignKey *key =
+        static_cast<const VrfAssign::VrfAssignKey *>(req->key.get());
+    VlanNHKey nh_key(key->intf_uuid_, key->vlan_tag_);
+    Agent *agent = Agent::GetInstance();
+    const NextHop *nh =  static_cast<NextHop *>
+        (agent->nexthop_table()->FindActiveEntry(&nh_key));
+    assert(nh);
+    if (nh_ != nh) {
+        nh_ = nh;
+        ret = true;
+    }
     return ret;
 }
 

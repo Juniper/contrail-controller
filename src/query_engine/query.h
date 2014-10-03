@@ -82,6 +82,7 @@
 #include "viz_constants.h"
 #include "query_engine/qe_constants.h"
 #include "query_engine/qe_types.h"
+#include "rapidjson/document.h"
 #include "sandesh/common/query_types.h"
 #include <boost/regex.hpp>
 
@@ -419,6 +420,16 @@ private:
 
 class WhereQuery : public QueryUnit {
 public:
+
+    bool StatTermParse(QueryUnit *main_query, const rapidjson::Value& where_term,
+        std::string& pname, match_op& pop,
+        GenDb::DbDataValue& pval, GenDb::DbDataValue& pval2,
+        std::string& sname, match_op& sop,
+        GenDb::DbDataValue& sval, GenDb::DbDataValue& sval2);
+
+    bool StatTermProcess(const rapidjson::Value& where_term,
+        SetOperationUnit * and_node, QueryUnit *main_query);
+ 
     WhereQuery(const std::string& where_json_string, int direction,
             QueryUnit *main_query);
     virtual query_status_t process_query();
@@ -662,11 +673,12 @@ public:
 
     std::string json_string_;
 
-    // filter list
-    std::vector<filter_match_t> filter_list;
+    // filter list is an OR of ANDs
+    std::vector<std::vector<filter_match_t> > filter_list;
 
     // Whether to sort the table or not
     bool sorted;
+
     // Type of sorting
     sort_op sorting_type;
     // fields to sort on (these are actual Cassandra column names)
@@ -709,12 +721,15 @@ private:
     void fs_update_flow_count(QEOpServerProxy::ResultRowT& rrow);
 };
 
+class StatsQuery;
+
 class AnalyticsQuery: public QueryUnit {
 public:
     AnalyticsQuery(std::string qid, std::map<std::string, 
             std::string>& json_api_data, uint64_t analytics_start_time,
-            EventManager *evm, const std::string & cassandra_ip, 
-            unsigned short cassandra_port, int batch, int total_batches);
+            EventManager *evm, std::vector<std::string> cassandra_ips, 
+            std::vector<int> cassandra_ports, int batch,
+            int total_batches);
     AnalyticsQuery(std::string qid, GenDb::GenDbIf *dbif, 
             std::map<std::string, std::string> json_api_data,
             uint64_t analytics_start_time, int batch, int total_batches);
@@ -811,8 +826,7 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
     // validation functions
     bool is_valid_from_field(const std::string& from_field);
     virtual bool is_object_table_query();
-    virtual bool is_stat_table_query();
-    int  stat_table_index();
+    virtual bool is_stat_table_query() { return (stats_.get()!=NULL); }
     bool is_valid_where_field(const std::string& where_field);
     bool is_valid_sort_field(const std::string& sort_field);
     std::string get_column_field_datatype(const std::string& col_field);
@@ -820,7 +834,9 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
     virtual bool is_query_parallelized() { return parallelize_query_; }
     uint64_t parse_time(const std::string& relative_time);
 
+    const StatsQuery& stats(void) const { return *stats_; }
     private:
+    std::auto_ptr<StatsQuery> stats_;
     // Analytics table to query
     std::string table_; 
     // query start time requested by the user
@@ -868,7 +884,8 @@ public:
     uint64_t stime;
 
     QueryEngine(EventManager *evm,
-            const std::string & cassandra_ip, unsigned short cassandra_port,
+            std::vector<std::string> cassandra_ips,
+            std::vector<int> cassandra_ports,
             const std::string & redis_ip, unsigned short redis_port, 
             int max_tasks, int max_slice, uint64_t anal_ttl, 
             uint64_t start_time=0);
@@ -911,8 +928,8 @@ private:
     boost::scoped_ptr<GenDb::GenDbIf> dbif_;
     boost::scoped_ptr<QEOpServerProxy> qosp_;
     EventManager *evm_;
-    unsigned short cassandra_port_;
-    std::string cassandra_ip_;
+    std::vector<int> cassandra_ports_;
+    std::vector<std::string> cassandra_ips_;
     
 };
 

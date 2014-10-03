@@ -59,12 +59,23 @@ public:
     int sandesh_response_count() { return response_count_; }
     void ClearSandeshResponseCount() { response_count_ = 0; }
 
+    virtual void SetUp() {
+        agent_ = Agent::GetInstance();
+    }
+
+    virtual void TearDown() {
+        WAIT_FOR(10000, 100,
+                 (agent_->oper_db()->global_vrouter()->PendingFabricDnsRequests()
+                  == 0));
+    }
+
 private:
     int response_count_;
+    Agent *agent_;
 };
 
 TEST_F(LinkLocalTest, LinkLocalReqTest) {
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string(VHOST_IP));
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string(VHOST_IP));
     TestLinkLocalService services[MAX_SERVICES];
     FillServices(services, MAX_SERVICES);
     AddLinkLocalConfig(services, MAX_SERVICES);
@@ -77,9 +88,9 @@ TEST_F(LinkLocalTest, LinkLocalReqTest) {
     client->Reset();
 
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200"},
-        {"1.2.3.128", 27, "1.2.3.129"},
-        {"7.8.9.0", 24, "7.8.9.12"},
+        {"1.1.1.0", 24, "1.1.1.200", true},
+        {"1.2.3.128", 27, "1.2.3.129", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
     };
     AddIPAM("ipam1", ipam_info, 3);
     client->WaitForIdle();
@@ -93,20 +104,20 @@ TEST_F(LinkLocalTest, LinkLocalReqTest) {
 
     // check that all expected routes are added
     for (int i = 0; i < MAX_SERVICES; ++i) {
-        Inet4UnicastRouteEntry *rt =
+        InetUnicastRouteEntry *rt =
             RouteGet("vrf1", Ip4Address::from_string(linklocal_ip[i]), 32);
         EXPECT_TRUE(rt != NULL);
         EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::RECEIVE);
     }
     for (int i = 0; i < MAX_SERVICES; ++i) {
-        Inet4UnicastRouteEntry *rt =
+        InetUnicastRouteEntry *rt =
             RouteGet("vrf2", Ip4Address::from_string(linklocal_ip[i]), 32);
         EXPECT_TRUE(rt != NULL);
         EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::RECEIVE);
     }
     for (int i = 0; i < MAX_SERVICES; ++i) {
-        Inet4UnicastRouteEntry *rt =
-            RouteGet(Agent::GetInstance()->GetDefaultVrf(),
+        InetUnicastRouteEntry *rt =
+            RouteGet(Agent::GetInstance()->fabric_vrf_name(),
                      Ip4Address::from_string(fabric_ip[i]), 32);
         EXPECT_TRUE(rt != NULL);
         EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::ARP);
@@ -124,12 +135,12 @@ TEST_F(LinkLocalTest, LinkLocalReqTest) {
 
     // check that all routes are deleted
     for (int i = 0; i < MAX_SERVICES; ++i) {
-        Inet4UnicastRouteEntry *rt =
+        InetUnicastRouteEntry *rt =
             RouteGet("vrf1", Ip4Address::from_string(linklocal_ip[i]), 32);
         EXPECT_TRUE(rt == NULL);
     }
     for (int i = 0; i < MAX_SERVICES; ++i) {
-        Inet4UnicastRouteEntry *rt =
+        InetUnicastRouteEntry *rt =
             RouteGet("vrf2", Ip4Address::from_string(linklocal_ip[i]), 32);
         EXPECT_TRUE(rt == NULL);
     }
@@ -146,7 +157,7 @@ TEST_F(LinkLocalTest, LinkLocalReqTest) {
 }
 
 TEST_F(LinkLocalTest, LinkLocalChangeTest) {
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string(VHOST_IP));
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string(VHOST_IP));
     TestLinkLocalService services[MAX_SERVICES];
     FillServices(services, MAX_SERVICES);
     AddLinkLocalConfig(services, MAX_SERVICES);
@@ -164,7 +175,7 @@ TEST_F(LinkLocalTest, LinkLocalChangeTest) {
     AddLinkLocalConfig(services, 3);
     client->WaitForIdle();
     for (int i = 0; i < MAX_SERVICES; ++i) {
-        Inet4UnicastRouteEntry *rt =
+        InetUnicastRouteEntry *rt =
             RouteGet("vrf1", Ip4Address::from_string(linklocal_ip[i]), 32);
         if (i < 2) {
             EXPECT_TRUE(rt != NULL);
@@ -173,13 +184,13 @@ TEST_F(LinkLocalTest, LinkLocalChangeTest) {
             EXPECT_TRUE(rt == NULL);
         }
     }
-    Inet4UnicastRouteEntry *local_rt =
+    InetUnicastRouteEntry *local_rt =
         RouteGet("vrf1", Ip4Address::from_string("169.254.100.100"), 32);
     EXPECT_TRUE(local_rt != NULL);
     EXPECT_TRUE(local_rt->GetActiveNextHop()->GetType() == NextHop::RECEIVE);
     for (int i = 0; i < 3; ++i) {
-        Inet4UnicastRouteEntry *rt =
-            RouteGet(Agent::GetInstance()->GetDefaultVrf(),
+        InetUnicastRouteEntry *rt =
+            RouteGet(Agent::GetInstance()->fabric_vrf_name(),
                      Ip4Address::from_string(fabric_ip[i]), 32);
         EXPECT_TRUE(rt != NULL);
         EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::ARP);
@@ -200,7 +211,7 @@ TEST_F(LinkLocalTest, LinkLocalChangeTest) {
 
     // check that all routes are deleted
     for (int i = 0; i < MAX_SERVICES; ++i) {
-        Inet4UnicastRouteEntry *rt =
+        InetUnicastRouteEntry *rt =
             RouteGet("vrf1", Ip4Address::from_string(linklocal_ip[i]), 32);
         EXPECT_TRUE(rt == NULL);
     }
@@ -212,7 +223,7 @@ TEST_F(LinkLocalTest, LinkLocalChangeTest) {
 }
 
 TEST_F(LinkLocalTest, GlobalVrouterDeleteTest) {
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string(VHOST_IP));
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string(VHOST_IP));
     TestLinkLocalService services[MAX_SERVICES];
     FillServices(services, MAX_SERVICES);
     AddLinkLocalConfig(services, MAX_SERVICES);
@@ -225,9 +236,9 @@ TEST_F(LinkLocalTest, GlobalVrouterDeleteTest) {
     client->Reset();
 
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200"},
-        {"1.2.3.128", 27, "1.2.3.129"},
-        {"7.8.9.0", 24, "7.8.9.12"},
+        {"1.1.1.0", 24, "1.1.1.200", true},
+        {"1.2.3.128", 27, "1.2.3.129", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
     };
     AddIPAM("ipam1", ipam_info, 3);
     client->WaitForIdle();
@@ -241,20 +252,20 @@ TEST_F(LinkLocalTest, GlobalVrouterDeleteTest) {
 
     // check that all expected routes are added
     for (int i = 0; i < MAX_SERVICES; ++i) {
-        Inet4UnicastRouteEntry *rt =
+        InetUnicastRouteEntry *rt =
             RouteGet("vrf1", Ip4Address::from_string(linklocal_ip[i]), 32);
         EXPECT_TRUE(rt != NULL);
         EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::RECEIVE);
     }
     for (int i = 0; i < MAX_SERVICES; ++i) {
-        Inet4UnicastRouteEntry *rt =
+        InetUnicastRouteEntry *rt =
             RouteGet("vrf2", Ip4Address::from_string(linklocal_ip[i]), 32);
         EXPECT_TRUE(rt != NULL);
         EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::RECEIVE);
     }
     for (int i = 0; i < MAX_SERVICES; ++i) {
-        Inet4UnicastRouteEntry *rt =
-            RouteGet(Agent::GetInstance()->GetDefaultVrf(),
+        InetUnicastRouteEntry *rt =
+            RouteGet(Agent::GetInstance()->fabric_vrf_name(),
                      Ip4Address::from_string(fabric_ip[i]), 32);
         EXPECT_TRUE(rt != NULL);
         EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::ARP);
@@ -267,12 +278,12 @@ TEST_F(LinkLocalTest, GlobalVrouterDeleteTest) {
 
     // check that all routes are deleted
     for (int i = 0; i < MAX_SERVICES; ++i) {
-        Inet4UnicastRouteEntry *rt =
+        InetUnicastRouteEntry *rt =
             RouteGet("vrf1", Ip4Address::from_string(linklocal_ip[i]), 32);
         EXPECT_TRUE(rt == NULL);
     }
     for (int i = 0; i < MAX_SERVICES; ++i) {
-        Inet4UnicastRouteEntry *rt =
+        InetUnicastRouteEntry *rt =
             RouteGet("vrf2", Ip4Address::from_string(linklocal_ip[i]), 32);
         EXPECT_TRUE(rt == NULL);
     }
@@ -297,8 +308,8 @@ int main(int argc, char *argv[]) {
     client->WaitForIdle();
 
     int ret = RUN_ALL_TESTS();
-    // TestShutdown();
-    // client->WaitForIdle();
+    TestShutdown();
+    client->WaitForIdle();
     delete client;
     return ret;
 }

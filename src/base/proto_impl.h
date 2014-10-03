@@ -274,7 +274,7 @@ struct VariableLengthSetter {
         // If element size is unknown, read till the end of buffer
         if (element_size < 0) element_size = size;
         else if (size < (size_t) element_size) {
-            PROTO_DEBUG(TYPE_NAME(T) << "Variable Length Setter failed "
+            PROTO_DEBUG(TYPE_NAME(T) << " Variable Length Setter failed "
                        << size << " < " << element_size);
             return -1;
         }

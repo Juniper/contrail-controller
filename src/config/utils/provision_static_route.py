@@ -28,10 +28,9 @@ class StaticRouteProvisioner(object):
             self._args.api_server_port, '/')
         
         prefix = self._args.prefix
-        vm_id = self._args.virtual_machine_id
-        vm_ip = self._args.virtual_machine_interface_ip
-        vmi_id_got =None
+        vmi_id_got = self._args.virtual_machine_interface_id
         route_table_name = self._args.route_table_name
+        route_table_family = self._args.route_table_family
         
         project_fq_name_str = 'default-domain:'+ self._args.tenant_name
         project_fq_name = project_fq_name_str.split(':')
@@ -40,6 +39,7 @@ class StaticRouteProvisioner(object):
         route_table = RouteTableType(route_table_name)
         route_table.set_route([])
         intf_route_table = InterfaceRouteTable(
+                                interface_route_table_family = route_table_family,
                                 interface_route_table_routes = route_table,
                                 parent_obj=project_obj, 
                                 name=route_table_name)
@@ -62,33 +62,10 @@ class StaticRouteProvisioner(object):
             intf_route_table_obj = self.del_route(intf_route_table_obj, prefix)
         self._vnc_lib.interface_route_table_update(intf_route_table_obj)
         
-        #Figure out VMI from VM IP
-        vmi_list = self._vnc_lib.virtual_machine_interfaces_list( 
-                        parent_id = vm_id)['virtual-machine-interfaces']
-        vmi_id_list = [vmi['uuid'] for vmi in vmi_list]
-        found = False
-        for vmi_id in vmi_id_list:
-            vmi_obj = self._vnc_lib.virtual_machine_interface_read(
-                                id = vmi_id)
-            ip_back_refs = vmi_obj.get_instance_ip_back_refs()
-            for ip_back_ref in ip_back_refs:
-                ip_obj = self._vnc_lib.instance_ip_read(
-                                id = ip_back_ref['uuid'])
-                if ip_obj.instance_ip_address == vm_ip:
-                    found = True 
-                    vmi_id_got = vmi_id
-                    break
-            if found:
-                break
-        #end for vmi_id
-        if not found:
-            print "No Virtual Machine interface found for IP %s" %(vm_ip)
-            sys.exit(1)
-        
         #Update the VMI Object now
         vmi_obj = self._vnc_lib.virtual_machine_interface_read(id = vmi_id_got)
         if self._args.oper == 'add':
-            vmi_obj.set_interface_route_table(intf_route_table_obj)
+            vmi_obj.add_interface_route_table(intf_route_table_obj)
         elif self._args.oper == 'del':
             if self.is_route_table_empty(intf_route_table_obj):
                 vmi_obj.del_interface_route_table(intf_route_table_obj)
@@ -107,7 +84,8 @@ class StaticRouteProvisioner(object):
                 sys.exit(0) 
         if not found:
    	    rt1 = RouteType(prefix = prefix)
-            routes.append(rt1)
+        routes.append(rt1)
+        intf_route_table_obj.set_interface_route_table_routes(rt_routes)
         return intf_route_table_obj
     #end add_route 
      
@@ -123,6 +101,7 @@ class StaticRouteProvisioner(object):
         if not found : 
             print "Prefix %s not found in Route table %s!" %( prefix, intf_route_table_obj.name)
             sys.exit(1)
+        intf_route_table_obj.set_interface_route_table_routes(rt_routes)
         return intf_route_table_obj
     
     def is_route_table_empty(self, intf_route_table_obj):
@@ -139,9 +118,9 @@ class StaticRouteProvisioner(object):
                                         --api_server_ip 127.0.0.1
                                         --api_server_port 8082
                                         --prefix 2.2.2.0/24
-                                        --virtual_machine_id 57c8687a-2d63-4a5f-ac48-d49e834f2e89
-                                        --virtual_machine_interface_ip 1.1.1.10  
+                                        --virtual_machine_interface_id 242717c9-8e78-4c67-94a8-5fbef1f2f096 
                                         --route_table_name "MyRouteTable" 
+                                        --route_table_family "v4"
                                         --tenant_name "admin"
                                         --oper <add | del>
         '''
@@ -160,6 +139,7 @@ class StaticRouteProvisioner(object):
             'oper': 'add',
             'control_names': [],
             'route_table_name': 'CustomRouteTable',
+            'route_table_family': 'v4',
         }
         ksopts = {
             'user': 'user1',
@@ -188,9 +168,7 @@ class StaticRouteProvisioner(object):
         parser.set_defaults(**defaults)
 
         parser.add_argument(
-            "--prefix", help="IP Destination prefix to be updated in the Route")
-        parser.add_argument(
-            "--virtual_machine_id", help="UUID of the VM")
+            "--prefix", help="IP Destination prefix to be updated in the Route", required=True)
         parser.add_argument(
             "--api_server_ip", help="IP address of api server")
         parser.add_argument("--api_server_port", help="Port of api server")
@@ -198,7 +176,7 @@ class StaticRouteProvisioner(object):
             "--oper", default='add',
             help="Provision operation to be done(add or del)")
         parser.add_argument(
-            "--virtual_machine_interface_ip", help="VMI IP")
+            "--virtual_machine_interface_id", help="Next hop which is the UUID of the VMI(aka port-id)")
         parser.add_argument(
             "--tenant_name", help="Tenamt name for keystone admin user")
         parser.add_argument(
@@ -207,6 +185,8 @@ class StaticRouteProvisioner(object):
             "--password", help="Password of keystone admin user")
         parser.add_argument(
             "--route_table_name", help="Route Table name. Default : CustomRouteTable")
+        parser.add_argument(
+            "--route_table_family", help="Route Table family, v4 or v6. Default : v4")
 
         self._args = parser.parse_args(remaining_argv)
 
@@ -216,7 +196,8 @@ class StaticRouteProvisioner(object):
 
 
 def main(args_str=None):
-    StaticRouteProvisioner(args_str)
+    st=StaticRouteProvisioner(args_str)
+    #st.add_route()
 # end main
 
 if __name__ == "__main__":

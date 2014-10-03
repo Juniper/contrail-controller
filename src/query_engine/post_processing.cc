@@ -446,6 +446,11 @@ query_status_t PostProcessingQuery::process_query() {
     mresult_ = mquery->selectquery_->mresult_;
     QEOpServerProxy::BufferT *raw_result = result_.get();
 
+    /* filter are ANDs over OR
+     * [ [ e1 AND e2 ] OR [ e3 ] ]
+     */
+    /* below is filter processing for stats table queries
+     */
     if (filter_list.size()) {
         size_t num_filtered=0;
         MapBufT::iterator kt = mresult_->end();
@@ -457,39 +462,49 @@ query_status_t PostProcessingQuery::process_query() {
                 kt = mresult_->end();
             }
             std::map<std::string, QEOpServerProxy::SubVal>& attrs = it->second.first;
-            bool delete_row = false;
+            bool delete_row = true;
             std::string unknown_attr; 
             for (size_t j = 0; j < filter_list.size(); j++) {
-                std::map<std::string, QEOpServerProxy::SubVal>::const_iterator iter =
-                        attrs.find(filter_list[j].name);
-                if (iter == attrs.end()) {
-                    unknown_attr = filter_list[j].name;
+                std::vector<filter_match_t>& filter_and = filter_list[j];
+                bool and_check = true;
+
+                for (size_t k = 0; k < filter_and.size(); k++) {
+                    std::map<std::string, QEOpServerProxy::SubVal>::const_iterator iter =
+                        attrs.find(filter_and[k].name);
+                    if (iter == attrs.end()) {
+                        unknown_attr = filter_and[k].name;
+                        break;
+                    } else {
+                        unknown_attr.clear();
+                    }
+                    std::ostringstream vstream;
+                    vstream << iter->second;
+
+                    switch(filter_and[k].op) {
+                        case EQUAL:
+                            if (filter_and[k].value != vstream.str())
+                              {
+                                and_check = false;
+                              }
+                            break;
+                        case  NOT_EQUAL:
+                            if (filter_and[k].value == vstream.str())
+                              {
+                                and_check = false;
+                              }
+                            break;
+                        default:
+                            // upsupported filter operation
+                            QE_TRACE(DEBUG, "Unsupported filter operation " << filter_and[k].op);
+                            break;
+                    }
+                    if (and_check == false)
+                        break;
+                }
+                if (and_check == true) {
+                    delete_row = false;
                     break;
-                } else {
-                    unknown_attr.clear();
                 }
-                std::ostringstream vstream;
-                vstream << iter->second;
-
-                switch(filter_list[j].op) {
-                    case EQUAL:
-                        if (filter_list[j].value != vstream.str())
-                        {
-                            delete_row = true;
-                        }
-                        break;
-                    case  NOT_EQUAL:
-                        if (filter_list[j].value == vstream.str())
-                        {
-                            delete_row = true;
-                        }
-                        break;
-                    default:
-                        // upsupported filter operation
-                        QE_TRACE(DEBUG, "Unsupported filter operation " << filter_list[j].op);
-                        break;
-                }
-
             }
             if (unknown_attr.size()) {
                 QE_TRACE(DEBUG, "Unknown filter attr in row " << unknown_attr);
@@ -506,91 +521,100 @@ query_status_t PostProcessingQuery::process_query() {
         QE_TRACE(DEBUG, "# of entries filtered is " << num_filtered);
 
     }
-    if (filter_list.size() != 0)
-    {
+
+    /* below is filter processing for non stats table queries
+     */
+    if (filter_list.size() != 0) {
         QEOpServerProxy::BufferT filtered_table;
         // do filter operation
         QE_TRACE(DEBUG, "Doing filter operation");
-        for (size_t i = 0; i < raw_result->size(); i++)
-        {
-            bool delete_row = false;
+        for (size_t i = 0; i < raw_result->size(); i++) {
             QEOpServerProxy::ResultRowT row = (*raw_result)[i];
+            bool delete_row = true;
 
-            for (size_t j = 0; j < filter_list.size(); j++)
-            {
-                std::map<std::string, std::string>::iterator iter;
-                iter = row.first.find(filter_list[j].name);
-                if (iter == row.first.end())
-                {
-                    if (!(filter_list[j].ignore_col_absence))
-                        delete_row = true;
-                    break;
+            for (size_t j = 0; j < filter_list.size(); j++) {
+                std::vector<filter_match_t>& filter_and = filter_list[j];
+                bool and_check = true;
+
+                for (size_t k = 0; k < filter_and.size(); k++) {
+                    std::map<std::string, std::string>::iterator iter;
+                    iter = row.first.find(filter_and[k].name);
+                    if (iter == row.first.end())
+                      {
+                        if (!(filter_and[k].ignore_col_absence)) {
+                            and_check = false;
+                            break;
+                        } 
+                        continue;
+                      }
+
+                    switch(filter_and[k].op)
+                      {
+                        case EQUAL:
+                            if (filter_and[k].value != iter->second)
+                              {
+                                and_check = false;
+                              }
+                            break;
+
+                        case NOT_EQUAL:
+                            if (filter_and[k].value == iter->second)
+                              {
+                                and_check = false;
+                              }
+                            break;
+
+                        case LEQ:
+                              {
+                                int filter_value = 
+                                    atoi(filter_and[k].value.c_str());
+                                int column_value= atoi(iter->second.c_str());
+                                if (column_value > filter_value)
+                                  {
+                                    and_check = false;
+                                  }
+                                break;
+                              }
+
+                        case GEQ:
+                              {
+                                int filter_value = 
+                                    atoi(filter_and[k].value.c_str());
+                                int column_value= atoi(iter->second.c_str());
+                                if (column_value < filter_value)
+                                  {
+                                    and_check = false;
+                                  }
+                                break;
+                              }
+
+                        case REGEX_MATCH:
+                              {
+                                if (!boost::regex_match(iter->second, 
+                                            filter_and[k].match_e))
+                                  {
+                                    and_check = false;
+                                  }
+                                break;
+                              }
+
+                        default:
+                            // upsupported filter operation
+                            QE_LOG(ERROR, "Unsupported filter operation: " <<
+                                    filter_and[k].op);
+                            return QUERY_FAILURE;
+                      }
+                    if (and_check == false)
+                        break;
                 }
 
-                switch(filter_list[j].op)
-                {
-                    case EQUAL:
-                        if (filter_list[j].value != iter->second)
-                        {
-                            delete_row = true;
-                        }
-                        break;
-
-                    case NOT_EQUAL:
-                        if (filter_list[j].value == iter->second)
-                        {
-                            delete_row = true;
-                        }
-                        break;
-
-                    case LEQ:
-                        {
-                            int filter_value = 
-                                atoi(filter_list[j].value.c_str());
-                            int column_value= atoi(iter->second.c_str());
-                            if (column_value > filter_value)
-                            {
-                                delete_row = true;
-                            }
-                            break;
-                        }
-
-                    case GEQ:
-                        {
-                            int filter_value = 
-                                atoi(filter_list[j].value.c_str());
-                            int column_value= atoi(iter->second.c_str());
-                            if (column_value < filter_value)
-                            {
-                                delete_row = true;
-                            }
-                            break;
-                        }
-
-                    case REGEX_MATCH:
-                        {
-                            if (!boost::regex_match(iter->second, 
-                                        filter_list[j].match_e))
-                            {
-                                delete_row = true;
-                            }
-                            break;
-                        }
-
-                    default:
-                        // upsupported filter operation
-                        QE_LOG(ERROR, "Unsupported filter operation: " <<
-                               filter_list[j].op);
-                        return QUERY_FAILURE;
-                }
-                if (delete_row == true)
+                if (and_check == true) {
+                    QE_TRACE(DEBUG, "filter out entry #:" << i);
+                    delete_row = false;
                     break;
+                }
             }
- 
-            if (delete_row == true)
-            {
-                QE_TRACE(DEBUG, "filter out entry #:" << i);
-            } else {
+            if (!delete_row) {
                 filtered_table.push_back(row);
             }
         }

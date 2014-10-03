@@ -43,7 +43,7 @@ public:
     };
     static std::map<BuildModule, std::string> MapInit() {
         std::map<BuildModule, std::string> m;
-         m[Agent] = "contrail-vrouter ";
+         m[Agent] = "contrail-vrouter-agent ";
          m[Analytics] = "contrail-analytics ";
          m[ControlNode] = "contrail-control ";
          m[Dns] = "contrail-dns ";
@@ -51,6 +51,7 @@ public:
     }
     static const std::map<BuildModule, std::string> BuildModuleNames;
     typedef std::multimap<std::time_t, std::string> FileMMap;
+    static const std::string ContrailVersionCmd;
     static const std::string CoreFileDir;
     static const int MaxCoreFiles;
 

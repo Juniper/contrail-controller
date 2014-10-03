@@ -1,0 +1,22 @@
+/*
+ * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+ */
+
+struct TestStat {
+    1: string s1
+    2: u64    i1
+    3: double d1
+    4: string s2
+    5: u64    i2
+    6: double d2
+}
+
+struct TestState {
+    1: string name (key="ObjectCollectorInfo")
+    2: optional bool deleted
+    3: optional list<TestStat> ts (tags=".s1,.i1,.d1")
+}
+
+uve sandesh TestStateTrace {
+    1: TestState data
+}

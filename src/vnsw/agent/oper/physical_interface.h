@@ -11,62 +11,45 @@
 /////////////////////////////////////////////////////////////////////////////
 class PhysicalInterface : public Interface {
 public:
-    PhysicalInterface(const std::string &name, VrfEntry *vrf) :
-        Interface(Interface::PHYSICAL, nil_uuid(), name, vrf) {
-    }
-    virtual ~PhysicalInterface() { }
+    PhysicalInterface(const std::string &name, VrfEntry *vrf,
+                      bool persistent);
+    virtual ~PhysicalInterface();
 
-    bool CmpInterface(const DBEntry &rhs) const {
-        const PhysicalInterface &intf = 
-            static_cast<const PhysicalInterface &>(rhs);
-        return name_ < intf.name_;
-    }
+    bool CmpInterface(const DBEntry &rhs) const;
 
     std::string ToString() const { return "ETH <" + name() + ">"; }
     KeyPtr GetDBRequestKey() const;
+    // Lets kernel know if physical interface is to be kept after agent exits or
+    // dies. If its true keep the interface, else remove it.
+    // Currently only vnware physical interface is persistent.
+    // By default every physical interface is non-persistent.
+    bool persistent() const {return persistent_;}
 
     // Helper functions
     static void CreateReq(InterfaceTable *table, const std::string &ifname,
-                          const std::string &vrf_name);
+                          const std::string &vrf_name, bool persistent);
     static void Create(InterfaceTable *table, const std::string &ifname,
-                       const std::string &vrf_name);
+                       const std::string &vrf_name, bool persistent);
     static void DeleteReq(InterfaceTable *table, const std::string &ifname);
     static void Delete(InterfaceTable *table, const std::string &ifname);
 private:
+    bool persistent_;
     DISALLOW_COPY_AND_ASSIGN(PhysicalInterface);
 };
 
-struct PhysicalInterfaceKey : public InterfaceKey {
-    PhysicalInterfaceKey(const std::string &name) :
-        InterfaceKey(AgentKey::ADD_DEL_CHANGE, Interface::PHYSICAL, nil_uuid(),
-                     name, false) {
-    }
-    virtual ~PhysicalInterfaceKey() {}
-
-    Interface *AllocEntry(const InterfaceTable *table) const {
-        return new PhysicalInterface(name_, NULL);
-    }
-    Interface *AllocEntry(const InterfaceTable *table,
-                          const InterfaceData *data) const {
-        VrfKey key(data->vrf_name_);
-        VrfEntry *vrf = static_cast<VrfEntry *>
-            (table->agent()->GetVrfTable()->FindActiveEntry(&key));
-        if (vrf == NULL) {
-            return NULL;
-        }
-
-        return new PhysicalInterface(name_, vrf);
-    }
-
-    InterfaceKey *Clone() const {
-        return new PhysicalInterfaceKey(*this);
-    }
+struct PhysicalInterfaceData : public InterfaceData {
+    PhysicalInterfaceData(const std::string &vrf_name, bool persistent);
+    bool persistent_;
 };
 
-struct PhysicalInterfaceData : public InterfaceData {
-    PhysicalInterfaceData(const std::string &vrf_name) : InterfaceData() {
-        EthInit(vrf_name);
-    }
+struct PhysicalInterfaceKey : public InterfaceKey {
+    PhysicalInterfaceKey(const std::string &name);
+    virtual ~PhysicalInterfaceKey();
+
+    Interface *AllocEntry(const InterfaceTable *table) const;
+    Interface *AllocEntry(const InterfaceTable *table,
+                          const InterfaceData *data) const;
+    InterfaceKey *Clone() const;
 };
 
 #endif // vnsw_agent_physical_interface_hpp

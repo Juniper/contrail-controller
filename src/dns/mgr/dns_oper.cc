@@ -11,6 +11,7 @@
 #include <agent/agent_xmpp_channel.h>
 #include <sandesh/sandesh_types.h>
 #include <sandesh/common/vns_types.h>
+#include <vnc_cfg_types.h>
 
 #include <boost/bind.hpp>
 #include "base/logging.h"
@@ -303,10 +304,13 @@ VirtualDnsConfig::~VirtualDnsConfig() {
 }
 
 void VirtualDnsConfig::OnAdd(IFMapNode *node) {
+    if (!GetObject(node, rec_) || GetDomainName().empty())
+        return;
     MarkValid();
-    GetObject(node, rec_);
     // Update any ipam configs dependent on this virtual dns
     IpamConfig::AssociateIpamVdns(this);
+    // Update any records dependent on this virtual dns
+    VirtualDnsRecordConfig::UpdateVirtualDns(this);
     VdnsCallback(this, DnsConfig::CFG_ADD);
     old_rec_ = rec_;
     // No notification for subnets is required here as the config was
@@ -336,8 +340,20 @@ void VirtualDnsConfig::OnChange(IFMapNode *node) {
     Trace("Change");
     if (!GetObject(node, rec_) || !HasChanged())
         return;
+
+    bool notify = false;
+    if (!IsValid()) {
+        MarkValid();
+        // Update any ipam configs dependent on this virtual dns
+        IpamConfig::AssociateIpamVdns(this);
+        // Update any records dependent on this virtual dns
+        VirtualDnsRecordConfig::UpdateVirtualDns(this);
+        notify = true;
+    }
+
     VdnsCallback(this, DnsConfig::CFG_CHANGE);
     old_rec_ = rec_;
+    if (notify) NotifyPendingDnsRecords();
 }
 
 void VirtualDnsConfig::AddRecord(VirtualDnsRecordConfig *record) {
@@ -355,6 +371,7 @@ bool VirtualDnsConfig::GetObject(IFMapNode *node,
 
     autogen::VirtualDns *dns =
         static_cast<autogen::VirtualDns *>(node->GetObject());
+    // if (!dns || !dns->IsPropertySet(autogen::VirtualDns::ID_PERMS))
     if (!dns)
         return false;
 
@@ -471,6 +488,7 @@ VirtualDnsRecordConfig::VirtualDnsRecordConfig(const std::string &name,
         virt_dns_ = new VirtualDnsConfig(vdns_name);
         virt_dns_->AddRecord(this);
     }
+    virtual_dns_name_ = virt_dns_->GetName();
 }
 
 VirtualDnsRecordConfig::~VirtualDnsRecordConfig() {
@@ -542,6 +560,7 @@ void VirtualDnsRecordConfig::UpdateVdns(IFMapNode *node) {
             virt_dns_ = new VirtualDnsConfig(vdns_node);
             virt_dns_->AddRecord(this);
         }
+        virtual_dns_name_ = virt_dns_->GetName();
     }
 }
 
@@ -653,6 +672,19 @@ VirtualDnsRecordConfig *VirtualDnsRecordConfig::Find(std::string name) {
     if (iter != virt_dns_rec_config_.end())
         return iter->second;
     return NULL;
+}
+
+// Check virtual dns records having empty VDNS to see if they belong to
+// the vdns being added now; update the reference accordingly
+void VirtualDnsRecordConfig::UpdateVirtualDns(VirtualDnsConfig *vdns) {
+    for (DataMap::iterator it = virt_dns_rec_config_.begin();
+         it != virt_dns_rec_config_.end(); ++it) {
+        if (!it->second || it->second->GetVirtualDns()) continue;
+        if (it->second->virtual_dns_name_ == vdns->GetName()) {
+            it->second->virt_dns_ = vdns;
+            vdns->AddRecord(it->second);
+        }
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

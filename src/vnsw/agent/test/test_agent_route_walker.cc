@@ -56,20 +56,12 @@ public:
         local_vm_ip_1_ = Ip4Address::from_string("1.1.1.10");
         local_vm_ip_2_ = Ip4Address::from_string("2.2.2.20");
         remote_vm_ip_ = Ip4Address::from_string("1.1.1.11");
-        local_vm_mac_1_ = (struct ether_addr *)malloc(sizeof(struct ether_addr));
-        local_vm_mac_2_ = (struct ether_addr *)malloc(sizeof(struct ether_addr));
-        remote_vm_mac_ = (struct ether_addr *)malloc(sizeof(struct ether_addr));
-        memcpy (local_vm_mac_1_, ether_aton("00:00:01:01:01:10"), 
-                sizeof(struct ether_addr));
-        memcpy (local_vm_mac_2_, ether_aton("00:00:02:02:02:20"), 
-                sizeof(struct ether_addr));
-        memcpy (remote_vm_mac_, ether_aton("00:00:01:01:01:11"), 
-                sizeof(struct ether_addr));
         route_notifications_ = 0;
         vrf_notifications_ = vrf_notifications_count_ = 0;
         total_rt_vrf_walk_done_ = 0;
     };
-    ~AgentRouteWalkerTest() { };
+    ~AgentRouteWalkerTest() { 
+    }
 
     void SetupEnvironment(int num_vrfs) {
         client->Reset();
@@ -85,8 +77,8 @@ public:
         if (num_vrfs > 2) {
             VrfAddReq(vrf_name_3_.c_str());
         }
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddResolveRoute(
-                Agent::GetInstance()->GetDefaultVrf(), server_ip_, 24);
+        Agent::GetInstance()->fabric_inet4_unicast_table()->AddResolveRoute(
+                Agent::GetInstance()->fabric_vrf_name(), server_ip_, 24);
         client->WaitForIdle();
         client->WaitForIdle();
         if (num_vrfs > 0) {
@@ -198,9 +190,6 @@ public:
     Ip4Address  local_vm_ip_2_;
     Ip4Address  remote_vm_ip_;
     Ip4Address  server_ip_;
-    struct ether_addr *local_vm_mac_1_;
-    struct ether_addr *local_vm_mac_2_;
-    struct ether_addr *remote_vm_mac_;
     static TunnelType::Type type_;
     uint32_t route_notifications_;
     uint32_t vrf_notifications_;
@@ -212,7 +201,7 @@ TEST_F(AgentRouteWalkerTest, walk_all_routes_wih_no_vrf) {
     client->Reset();
     SetupEnvironment(0);
     StartVrfWalk();
-    VerifyNotifications(6, 1, 1, 3);
+    VerifyNotifications(6, 1, 1, Agent::ROUTE_TABLE_MAX);
     DeleteEnvironment(0);
 }
 
@@ -220,7 +209,7 @@ TEST_F(AgentRouteWalkerTest, walk_all_routes_wih_1_vrf) {
     client->Reset();
     SetupEnvironment(1);
     StartVrfWalk();
-    VerifyNotifications(11, 2, 1, 6);
+    VerifyNotifications(11, 2, 1, (Agent::ROUTE_TABLE_MAX * 2));
     DeleteEnvironment(1);
 }
 
@@ -228,7 +217,7 @@ TEST_F(AgentRouteWalkerTest, walk_all_routes_with_2_vrf) {
     client->Reset();
     SetupEnvironment(2);
     StartVrfWalk();
-    VerifyNotifications(16, 3, 1, 9);
+    VerifyNotifications(16, 3, 1, (Agent::ROUTE_TABLE_MAX * 3));
     DeleteEnvironment(2);
 }
 
@@ -236,7 +225,7 @@ TEST_F(AgentRouteWalkerTest, walk_all_routes_with_3_vrf) {
     client->Reset();
     SetupEnvironment(3);
     StartVrfWalk();
-    VerifyNotifications(21, 4, 1, 12);
+    VerifyNotifications(21, 4, 1, (Agent::ROUTE_TABLE_MAX * 4));
     DeleteEnvironment(3);
 }
 

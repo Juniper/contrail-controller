@@ -17,11 +17,13 @@ env.Append(LIBPATH = env['TOP'] + '/base')
 env.Append(LIBPATH = env['TOP'] + '/base/test')
 env.Append(LIBPATH = env['TOP'] + '/bgp')
 env.Append(LIBPATH = env['TOP'] + '/bgp/inet')
-env.Append(LIBPATH = env['TOP'] + '/bgp/inetmcast')
-env.Append(LIBPATH = env['TOP'] + '/bgp/enet')
+env.Append(LIBPATH = env['TOP'] + '/bgp/ermvpn')
 env.Append(LIBPATH = env['TOP'] + '/bgp/evpn')
+env.Append(LIBPATH = env['TOP'] + '/bgp/extended-community')
 env.Append(LIBPATH = env['TOP'] + '/bgp/test')
+env.Append(LIBPATH = env['TOP'] + '/bgp/inet6')
 env.Append(LIBPATH = env['TOP'] + '/bgp/l3vpn')
+env.Append(LIBPATH = env['TOP'] + '/bgp/inet6vpn')
 env.Append(LIBPATH = env['TOP'] + '/bgp/origin-vn')
 env.Append(LIBPATH = env['TOP'] + '/bgp/routing-instance')
 env.Append(LIBPATH = env['TOP'] + '/bgp/rtarget')
@@ -42,12 +44,13 @@ env.Prepend(LIBS = [
                     'bgptest',
                     'bgp',
                     'control_node',
+                    'extended_community',
                     'peer_sandesh',
                     'origin_vn',
                     'routing_instance',
-                    'rtarget',                    
-                    'security_group',                    
-                    'tunnel_encap',                    
+                    'rtarget',
+                    'security_group',
+                    'tunnel_encap',
                     'ifmap_vnc',
                     'bgp_schema',
                     'sandesh',
@@ -56,6 +59,7 @@ env.Prepend(LIBS = [
                     'curl',
                     'ifmap_server',
                     'ifmap_common',
+                    'process_info',
                     'base',
                     'db',
                     'gunit',
@@ -65,10 +69,11 @@ env.Prepend(LIBS = [
                     'route',
                     'xmpp',
                     'bgp_inet',
-                    'bgp_inetmcast',
-                    'bgp_enet',
+                    'bgp_ermvpn',
                     'bgp_evpn',
+                    'bgp_inet6',
                     'bgp_l3vpn',
+                    'bgp_inet6vpn',
                     'xmpp_unicast',
                     'xmpp_multicast',
                     'xmpp_enet',
@@ -81,35 +86,42 @@ if sys.platform != 'darwin':
     env.Append(LIBS=['rt'])
     env.Prepend(LINKFLAGS = ['-Wl,--whole-archive',
                              '-lbgp_inet',
-                             '-lbgp_inetmcast',
-                             '-lbgp_enet',
+                             '-lbgp_ermvpn',
                              '-lbgp_evpn',
                              '-lbgp_l3vpn',
                              '-lrtarget',
+                             '-lbgp_inet6',
+                             '-lbgp_inet6vpn',
                              '-ltask_test',
                              '-Wl,--no-whole-archive'])
 else:
     lib_inet = Dir('../../inet').path + '/libbgp_inet.a'
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_inet])
-    lib_inetmcast = Dir('../../inetmcast').path + '/libbgp_inetmcast.a'
-    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_inetmcast])
-    lib_enet = Dir('../../enet').path + '/libbgp_enet.a'
-    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_enet])
+    lib_ermvpn = Dir('../../ermvpn').path + '/libbgp_ermvpn.a'
+    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_ermvpn])
     lib_evpn = Dir('../../evpn').path + '/libbgp_evpn.a'
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_evpn])
     lib_l3vpn = Dir('../../l3vpn').path + '/libbgp_l3vpn.a'
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_l3vpn])
     lib_rtarget = Dir('../../rtarget').path + '/librtarget.a'
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_rtarget])
-
-evpn_table_test = env.UnitTest('evpn_table_test', ['evpn_table_test.cc'])
-env.Alias('src/bgp/evpn:evpn_table_test', evpn_table_test)
+    lib_inet6 = Dir('../../inet6').path + '/libbgp_inet6.a'
+    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_inet6])
+    lib_inet6vpn = Dir('../../inet6vpn').path + '/libbgp_inet6vpn.a'
+    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_inet6vpn])
 
 evpn_prefix_test = env.UnitTest('evpn_prefix_test', ['evpn_prefix_test.cc'])
 env.Alias('src/bgp/evpn:evpn_prefix_test', evpn_prefix_test)
 
+evpn_route_test = env.UnitTest('evpn_route_test', ['evpn_route_test.cc'])
+env.Alias('src/bgp/evpn:evpn_route_test', evpn_route_test)
+
+evpn_table_test = env.UnitTest('evpn_table_test', ['evpn_table_test.cc'])
+env.Alias('src/bgp/evpn:evpn_table_test', evpn_table_test)
+
 test_suite = [
     evpn_prefix_test,
+    evpn_route_test,
     evpn_table_test,
 ]
 

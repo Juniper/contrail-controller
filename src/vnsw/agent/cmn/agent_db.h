@@ -5,16 +5,12 @@
 #ifndef vnsw_agent_db_hpp
 #define vnsw_agent_db_hpp
 
-#include "agent_cmn.h"
-#include "db/db_table_partition.h"
-#include "db/db_table_walker.h"
-#include "ifmap/ifmap_table.h"
+#include <cmn/agent_cmn.h>
 
-class AgentDBTable;
-class AgentDBEntry;
-class IFMapNode;
-class Sandesh;
 class Agent;
+class AgentDBEntry;
+class AgentDBTable;
+class AgentDBState;
 
 /////////////////////////////////////////////////////////////////////////////
 // Refcount class for AgentDBEntry
@@ -145,6 +141,12 @@ public:
     virtual DBEntry *CfgAdd(DBRequest *req) {return NULL;};
     virtual bool Resync(DBEntry *entry, DBRequest *req) {return false;};
 
+    /*
+     * Clear all entries on a table. Requires the table to have no listeners.
+     * Used in process shutdown.
+     */
+    virtual void Clear();
+
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req) {assert(0);};
     virtual DBTablePartition *AllocPartition(int index) {
         return new AgentDBTablePartition(this, index);
@@ -166,6 +168,7 @@ public:
     void set_agent(Agent *agent) { agent_ = agent; }
     Agent *agent() const { return agent_; }
 
+    void Flush(DBTableWalker *walker);
 private:
     AgentDBEntry *Find(const DBEntry *key);
     AgentDBEntry *Find(const DBRequestKey *key);

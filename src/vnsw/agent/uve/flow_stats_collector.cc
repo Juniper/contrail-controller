@@ -13,6 +13,7 @@
 #include <ksync/ksync_index.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
+#include <ksync/ksync_netlink.h>
 #include <ksync/ksync_sock.h>
 #include <uve/agent_uve.h>
 #include <uve/flow_stats_collector.h>
@@ -44,6 +45,10 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
 FlowStatsCollector::~FlowStatsCollector() { 
 }
 
+void FlowStatsCollector::Shutdown() {
+    StatsCollector::Shutdown();
+}
+
 void FlowStatsCollector::UpdateFlowMultiplier() {
     uint32_t age_time_millisec = flow_age_time_intvl_ / 1000;
     if (age_time_millisec == 0) {
@@ -55,6 +60,25 @@ void FlowStatsCollector::UpdateFlowMultiplier() {
     flow_multiplier_ = (max_flows * FlowStatsMinInterval)/age_time_millisec;
 }
 
+void FlowStatsCollector::SetUnderlayInfo(FlowEntry *flow,
+                                         FlowDataIpv4 &s_flow) {
+    string rid = agent_uve_->agent()->router_id().to_string();
+    if (flow->is_flags_set(FlowEntry::LocalFlow)) {
+        s_flow.set_vrouter_ip(rid);
+        s_flow.set_other_vrouter_ip(rid);
+        /* Set source_port as 0 for local flows. Source port is calculated by
+         * vrouter irrespective of whether flow is local or not. So for local
+         * flows we need to ignore port given by vrouter
+         */
+        s_flow.set_underlay_source_port(0);
+    } else {
+        s_flow.set_vrouter_ip(rid);
+        s_flow.set_other_vrouter_ip(flow->peer_vrouter());
+        s_flow.set_underlay_source_port(flow->underlay_source_port());
+    }
+    s_flow.set_underlay_proto(flow->tunnel_type().GetType());
+}
+
 /* For ingress flows, change the SIP as Nat-IP instead of Native IP */
 void FlowStatsCollector::SourceIpOverride(FlowEntry *flow, 
                                           FlowDataIpv4 &s_flow) {
@@ -62,8 +86,13 @@ void FlowStatsCollector::SourceIpOverride(FlowEntry *flow,
     if (flow->is_flags_set(FlowEntry::NatFlow) && s_flow.get_direction_ing() &&
         rev_flow) {
         const FlowKey *nat_key = &rev_flow->key();
-        if (flow->key().src.ipv4 != nat_key->dst.ipv4) {
-            s_flow.set_sourceip(nat_key->dst.ipv4);
+        if (flow->key().src_addr != nat_key->dst_addr) {
+            // TODO: IPV6
+            if (flow->key().family == Address::INET) {
+                s_flow.set_sourceip(nat_key->dst_addr.to_v4().to_ulong());
+            } else {
+                s_flow.set_sourceip(0);
+            }
         }
     }
 }
@@ -80,8 +109,14 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
     s_flow.set_diff_bytes(diff_bytes);
     s_flow.set_diff_packets(diff_pkts);
 
-    s_flow.set_sourceip(flow->key().src.ipv4);
-    s_flow.set_destip(flow->key().dst.ipv4);
+    // TODO: IPV6
+    if (flow->key().family == Address::INET) {
+        s_flow.set_sourceip(flow->key().src_addr.to_v4().to_ulong());
+        s_flow.set_destip(flow->key().dst_addr.to_v4().to_ulong());
+    } else {
+        s_flow.set_sourceip(0);
+        s_flow.set_destip(0);
+    }
     s_flow.set_protocol(flow->key().protocol);
     s_flow.set_sport(flow->key().src_port);
     s_flow.set_dport(flow->key().dst_port);
@@ -98,6 +133,9 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
             }
         }
     }
+    s_flow.set_sg_rule_uuid(flow->sg_rule_uuid());
+    s_flow.set_nw_ace_uuid(flow->nw_ace_uuid());
+
     FlowEntry *rev_flow = flow->reverse_flow_entry();
     if (rev_flow) {
         s_flow.set_reverse_uuid(to_string(rev_flow->flow_uuid()));
@@ -114,6 +152,7 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
         s_flow.set_action(action_str);
         stats.exported = true;
         level = SandeshLevel::SYS_ERR;
+        SetUnderlayInfo(flow, s_flow);
     }
     if (stats.teardown_time) {
         s_flow.set_teardown_time(stats.teardown_time);
@@ -304,6 +343,11 @@ bool FlowStatsCollector::Run() {
             k_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow, 
                                    k_flow->fe_stats.flow_bytes);
             bytes = 0x0000ffffffffffffULL & stats->bytes;
+            /* Always copy udp source port even though vrouter does not change
+             * it. Vrouter many change this behavior and recompute source port
+             * whenever flow action changes. To keep agent independent of this,
+             * always copy UDP source port */
+            entry->set_underlay_source_port(k_flow->fe_udp_src_port);
             /* Don't account for agent overflow bits while comparing change in 
              * stats */
             if (bytes != k_bytes) {
@@ -318,6 +362,9 @@ bool FlowStatsCollector::Run() {
                 //Update Inter-VN stats
                 VnUveTable *vn_table = agent_uve_->vn_uve_table();
                 vn_table->UpdateInterVnStats(entry, diff_bytes, diff_pkts);
+                //Update Floating-IP stats
+                VmUveTable *vm_table = agent_uve_->vm_uve_table();
+                vm_table->UpdateFloatingIpStats(entry, diff_bytes, diff_pkts);
                 stats->bytes = bytes;
                 stats->packets = packets;
                 stats->last_modified_time = curr_time;

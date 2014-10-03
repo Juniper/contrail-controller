@@ -2,6 +2,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+import sys
 import re
 import time
 import subprocess
@@ -13,24 +14,20 @@ cflags = env['CCFLAGS']
 cflags.append('-Wno-return-type')
 cflags.append('-fexceptions')
 
-# Dependencies for generating buildinfo.cc
-#
+##########################################################################
+# Rules to generate buildinfo.cc
+##########################################################################
+
 # Dependencies on external libraries first
 buildinfo_dep_libs = [
     '#build/lib/libthrift.a',
     '#build/lib/libthriftasio.a',
-    '#build/lib/libboost_program_options.a',
-    '#build/lib/libboost_regex.a',
-    '#build/lib/libboost_system.a', 
-    '#build/lib/libcurl.a',
     '#build/lib/libhttp.a',
-    '#build/lib/libhttp_parser.a', 
-    '#build/lib/liblog4cplus.a',
+    '#build/lib/libhttp_parser.a',
     '#build/lib/libpugixml.a',
     '#build/lib/libsandesh.a',
-    '#build/lib/libsandeshflow.a', 
-    '#build/lib/libsandeshvns.a',
-    '#build/lib/libtbb_debug.so.2'
+    '#build/lib/libsandeshflow.a',
+    '#build/lib/libsandeshvns.a'
 ]
 
 def MapBuildCmnLib(list):
@@ -43,11 +40,11 @@ buildinfo_dep_libs += MapBuildCmnLib([
     'db/libdb.a',
     'dns/bind/libbind_interface.a',
     'ifmap/libifmap_agent.a',
-    'ifmap/libifmap_common.a', 
-    'io/libio.a', 
+    'ifmap/libifmap_common.a',
+    'io/libio.a',
     'ksync/libksync.a',
     'net/libnet.a',
-    'route/libroute.a', 
+    'route/libroute.a',
     'schema/libbgp_schema.a',
     'schema/libifmap_vnc.a',
     'schema/libxmpp_unicast.a',
@@ -69,9 +66,9 @@ buildinfo_dep_libs += MapBuildAgentLib([
     'kstate/libkstate.a',
     'ksync/libvnswksync.a',
     'openstack/libnova_ins.a',
-    'openstack/libnova_ins_thrift.a', 
+    'openstack/libnova_ins_thrift.a',
     'oper/libvnswoperdb.a',
-    'pkt/libpkt.a', 'diag/libdiag.a', 
+    'pkt/libpkt.a', 'diag/libdiag.a',
     'services/libagent_services.a',
     'uve/libagentuve.a'
 ])
@@ -80,17 +77,29 @@ env.GenerateBuildInfoCode(
     target = ['buildinfo.h', 'buildinfo.cc'],
     source = buildinfo_dep_libs + ['main.cc'],
     path=str(Dir('.').abspath))
+env.Depends('main.o', 'buildinfo.cc')
 
-#Add -Wno-return-type to ignore errors from thrift generated code in 
+# Add contrail-vrouter-agent specific libraries
+env.Prepend(LIBS = AgentEnv['CONTRAIL_LIBS'])
+
+# Whole-arhive flag causes the library to be included in the resulting output
+# even though there may not be any calls requiring its presence. We need this
+# for kstate library so that the HTML file for kstate  is listed in agent
+# introspect page
+env.Prepend(LINKFLAGS = ['-Wl,--whole-archive', '-rdynamic', '-lkstate',
+                         '-Wl,--no-whole-archive'])
+
+#Add -Wno-return-type to ignore errors from thrift generated code in
 #InstanceService.h
-cflags = env['CCFLAGS']
-cflags.append('-Wno-return-type')
-vnswad = env.Program(target = 'vnswad',
+contrail_vrouter_agent = env.Program(target = 'contrail-vrouter-agent',
                      source = ['buildinfo.cc',
                                'contrail_agent_init.cc',
-                               'main.cc'])
-env.Alias('agent:vnswad', vnswad)
-env.Default(vnswad)
-env.Alias('install', env.Install(env['INSTALL_BIN'], vnswad))
-env.Alias('install', env.Install(env['INSTALL_CONF'], 'contrail-vrouter-agent.conf'))
-env.Depends('main.o', 'buildinfo.cc')
+                               'main.cc',
+                                'pkt0_interface.cc'])
+env.Alias('agent:contrail-vrouter-agent', contrail_vrouter_agent)
+env.Default(contrail_vrouter_agent)
+
+# Please update sandesh/common/vns.sandesh on process name change
+env.Alias('install', env.Install(env['INSTALL_BIN'], contrail_vrouter_agent))
+env.Alias('install', env.Install(env['INSTALL_CONF'],
+          '../contrail-vrouter-agent.conf'))

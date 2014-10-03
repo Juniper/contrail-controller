@@ -9,6 +9,8 @@
 #include <boost/scoped_ptr.hpp>
 #include <boost/shared_ptr.hpp>
 
+class AgentXmppChannel;
+
 /*
  * Cleanup Timer 
  * Used to manage timers required for removing stale entries for config and
@@ -27,7 +29,7 @@
 struct CleanupTimer {
     CleanupTimer(Agent *agent, const std::string &timer_name, 
                  uint32_t default_stale_timer_interval);
-    virtual ~CleanupTimer() { }
+    virtual ~CleanupTimer();
 
     void Start(AgentXmppChannel *agent_xmpp_channel);
     bool Cancel();

@@ -6,6 +6,9 @@
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/foreach.hpp>
+#include <boost/throw_exception.hpp>
+#include <boost/asio/ip/address.hpp>
+#include <boost/asio/ip/address_v6.hpp>
 
 #include "base/logging.h"
 #include "base/task_annotations.h"
@@ -25,9 +28,13 @@
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_sandesh.h"
+#include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/evpn/evpn_table.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_table.h"
+#include "bgp/inet6/inet6_table.h"
+#include "bgp/inet6vpn/inet6vpn_route.h"
+#include "bgp/inet6vpn/inet6vpn_table.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/rtarget/rtarget_table.h"
@@ -95,8 +102,7 @@ class BgpPeer::PeerClose : public IPeerClose {
         //
         assert(!from_timer);
 
-        BgpServer *server = peer_->server_;
-        server->lifetime_manager()->Enqueue(peer_->deleter());
+        peer_->deleter()->RetryDelete();
         is_closed_ = true;
         return true;
     }
@@ -173,21 +179,17 @@ public:
         stats = update_stats_[1];
     }
 
-    virtual void GetRxSocketStats(SocketStats &stats) const {
-        TcpServer::SocketStats socket_stats;
-
+    virtual void GetRxSocketStats(IPeerDebugStats::SocketStats &stats) const {
         if (peer_->session()) {
-            socket_stats = peer_->session()->GetSocketStats();
+            io::SocketStats socket_stats(peer_->session()->GetSocketStats());
             stats.calls = socket_stats.read_calls;
             stats.bytes = socket_stats.read_bytes;
         }
     }
 
-    virtual void GetTxSocketStats(SocketStats &stats) const {
-        TcpServer::SocketStats socket_stats;
-
+    virtual void GetTxSocketStats(IPeerDebugStats::SocketStats &stats) const {
         if (peer_->session()) {
-            socket_stats = peer_->session()->GetSocketStats();
+            io::SocketStats socket_stats(peer_->session()->GetSocketStats());
             stats.calls = socket_stats.write_calls;
             stats.bytes = socket_stats.write_bytes;
             stats.blocked_count = socket_stats.write_blocked;
@@ -203,22 +205,34 @@ public:
     virtual void UpdateTxReachRoute(uint32_t count) {
         update_stats_[1].reach += count;
     }
+
+    virtual void GetRxErrorStats(RxErrorStats &) const {
+        // Do nothing for bgp peers
+    }
+
 private:
     friend class BgpPeer;
+
     BgpPeer *peer_;
+    ErrorStats error_stats_;
     ProtoStats proto_stats_[2];
     UpdateStats update_stats_[2];
 };
 
 class BgpPeer::DeleteActor : public LifetimeActor {
-  public:
+public:
     DeleteActor(BgpPeer *peer)
         : LifetimeActor(peer->server_->lifetime_manager()),
           peer_(peer) {
     }
 
     virtual bool MayDelete() const {
-        return peer_->peer_close_->IsClosed();
+        CHECK_CONCURRENCY("bgp::Config");
+        if (!peer_->peer_close_->IsClosed())
+            return false;
+        if (!peer_->state_machine_->IsQueueEmpty())
+            return false;
+        return true;
     }
 
     virtual void Shutdown() {
@@ -232,7 +246,7 @@ class BgpPeer::DeleteActor : public LifetimeActor {
         peer_->rtinstance_->peer_manager()->DestroyIPeer(peer_);
     }
 
-  private:
+private:
     BgpPeer *peer_;
 };
 
@@ -264,6 +278,7 @@ void BgpPeer::MembershipRequestCallback(IPeer *ipeer, BgpTable *table,
         trigger_.Set();
         return;
     }
+
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
     peer_info.set_send_state("in sync");
@@ -307,6 +322,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           state_machine_(BgpObjectFactory::Create<StateMachine>(this)),
           membership_req_pending_(0),
           defer_close_(false),
+          vpn_tables_registered_(false),
           local_as_(config->local_as()),
           peer_as_(config_->peer_as()),
           remote_bgp_id_(0),
@@ -324,7 +340,9 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
     local_bgp_id_ = id.to_ulong();
 
     refcount_ = 0;
-    BOOST_FOREACH(string family, config->address_families()) {
+    configured_families_ = config->address_families();
+    sort(configured_families_.begin(), configured_families_.end());
+    BOOST_FOREACH(string family, configured_families_) {
         Address::Family fmly = Address::FamilyFromString(family);
         assert(fmly != Address::UNSPEC);
         family_.insert(fmly);
@@ -370,7 +388,9 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
     if (!config_) return;
 
     AddressFamilyList new_families;
-    BOOST_FOREACH(string family, config->address_families()) {
+    configured_families_ = config->address_families();
+    sort(configured_families_.begin(), configured_families_.end());
+    BOOST_FOREACH(string family, configured_families_) {
         Address::Family fmly = Address::FamilyFromString(family);
         assert(fmly != Address::UNSPEC);
         new_families.insert(fmly);
@@ -468,6 +488,11 @@ bool BgpPeer::IsFamilyNegotiated(Address::Family family) {
     case Address::EVPN:
         return MpNlriAllowed(BgpAf::L2Vpn, BgpAf::EVpn);
         break;
+    case Address::ERMVPN:
+        return MpNlriAllowed(BgpAf::IPv4, BgpAf::ErmVpn);
+        break;
+    case Address::INET6VPN:
+        return MpNlriAllowed(BgpAf::IPv6, BgpAf::Vpn);
     default:
         break;
     }
@@ -501,27 +526,44 @@ uint32_t BgpPeer::bgp_identifier() const {
     return remote_bgp_id_;
 }
 
-// CustomClose
 //
 // Customized close routing for BgpPeers.
 //
 // Reset all stored capabilities information and cancel outstanding timers.
 //
 void BgpPeer::CustomClose() {
+    assert(vpn_tables_registered_);
+    negotiated_families_.clear();
     ResetCapabilities();
     keepalive_timer_->Cancel();
     end_of_rib_timer_->Cancel();
 }
 
-// Close
 //
-// Close this peer by closing all of it's ribs.
+// Close this peer by closing all of it's RIBs.
+//
+// If we haven't registered to VPN tables, do it now before we kick off
+// the peer close. This ensures that we will clean up all the VPN routes
+// when we do eventually perform the peer close. This handles the corner
+// case where the peer has to be closed before VPN tables are registered.
+// Need to do this since we add VPN routes before we've registered to the
+// VPN tables.
+//
+// Note that registering to VPN tables will bump membership_req_pending_
+// in most normal cases i.e. when at least one VPN family is negotiated.
+// Hence we must register to the VPN tables if needed before deciding if
+// we need to defer peer close.
 //
 void BgpPeer::Close() {
+    if (!vpn_tables_registered_) {
+        RegisterToVpnTables(false);
+    }
+
     if (membership_req_pending_) {
         defer_close_ = true;
         return;
     }
+
     peer_close_->Close();
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
@@ -585,6 +627,18 @@ bool BgpPeer::AcceptSession(BgpSession *session) {
     return state_machine_->PassiveOpen(session);
 }
 
+//
+// Register to tables for negotiated address families.
+//
+// If the route-target family has been negotiated, defer registration to
+// VPN tables till we receive an End-Of-RIB marker for the route-target
+// NLRI or till the EndOfRibTimer expires.  This ensures that we do not
+// start sending VPN routes to the peer till we know what route targets
+// the peer is interested in.
+//
+// Note that received VPN routes are still processed normally even if we
+// haven't registered this BgpPeer to the VPN table in question.
+//
 void BgpPeer::RegisterAllTables() {
     PeerRibMembershipManager *membership_mgr = server_->membership_mgr();
     RoutingInstance *instance = GetRoutingInstance();
@@ -601,6 +655,7 @@ void BgpPeer::RegisterAllTables() {
         }
     }
 
+    vpn_tables_registered_ = false;
     if (IsFamilyNegotiated(Address::RTARGET)) {
         BgpTable *table = instance->GetTable(Address::RTARGET);
         BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
@@ -615,6 +670,7 @@ void BgpPeer::RegisterAllTables() {
     } else {
         RegisterToVpnTables(true);
     }
+
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
     peer_info.set_send_state("not advertising");
@@ -629,11 +685,13 @@ void BgpPeer::SendOpen(TcpSession *session) {
     openmsg.as_num = server->autonomous_system();
     openmsg.holdtime = state_machine_->GetConfiguredHoldTime();
     openmsg.identifier = local_bgp_id_;
-    static const uint8_t cap_mp[4][4] = {
+    static const uint8_t cap_mp[6][4] = {
         { 0, BgpAf::IPv4,  0, BgpAf::Unicast },
         { 0, BgpAf::IPv4,  0, BgpAf::Vpn },
         { 0, BgpAf::L2Vpn, 0, BgpAf::EVpn },
         { 0, BgpAf::IPv4,  0, BgpAf::RTarget },
+        { 0, BgpAf::IPv4,  0, BgpAf::ErmVpn },
+        { 0, BgpAf::IPv6,  0, BgpAf::Vpn },
     };
 
     BgpProto::OpenMessage::OptParam *opt_param =
@@ -665,6 +723,21 @@ void BgpPeer::SendOpen(TcpSession *session) {
                 new BgpProto::OpenMessage::Capability(
                         BgpProto::OpenMessage::Capability::MpExtension,
                         cap_mp[3], 4);
+        opt_param->capabilities.push_back(cap);
+    }
+    if (LookupFamily(Address::ERMVPN)) {
+        BgpProto::OpenMessage::Capability *cap =
+                new BgpProto::OpenMessage::Capability(
+                        BgpProto::OpenMessage::Capability::MpExtension,
+                        cap_mp[4], 4);
+        opt_param->capabilities.push_back(cap);
+    }
+
+    if (LookupFamily(Address::INET6VPN)) {
+        BgpProto::OpenMessage::Capability *cap =
+                new BgpProto::OpenMessage::Capability(
+                        BgpProto::OpenMessage::Capability::MpExtension,
+                        cap_mp[5], 4);
         opt_param->capabilities.push_back(cap);
     }
 
@@ -747,6 +820,8 @@ bool BgpPeer::SendUpdate(const uint8_t *msg, size_t msgsize) {
     peer_stats_->proto_stats_[1].update++;
     inc_tx_route_update();
     if (!send_ready_) {
+        BGP_LOG_PEER(Event, this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+                     BGP_PEER_DIR_NA, "Send blocked");
         BgpPeerInfoData peer_info;
         peer_info.set_name(ToUVEKey());
         peer_info.set_send_state("not in sync");
@@ -767,7 +842,7 @@ void BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
     remote_bgp_id_ = msg->identifier;
     capabilities_.clear();
     std::vector<BgpProto::OpenMessage::OptParam *>::const_iterator it;
-    for (it = msg->opt_params.begin(); it < msg->opt_params.end(); it++) {
+    for (it = msg->opt_params.begin(); it < msg->opt_params.end(); ++it) {
         capabilities_.insert(capabilities_.end(), (*it)->capabilities.begin(),
                              (*it)->capabilities.end());
         (*it)->capabilities.clear();
@@ -779,7 +854,8 @@ void BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
 
     std::vector<std::string> families;
     std::vector<BgpProto::OpenMessage::Capability *>::iterator cap_it;
-    for (cap_it = capabilities_.begin(); cap_it < capabilities_.end(); cap_it++) {
+    for (cap_it = capabilities_.begin(); cap_it < capabilities_.end();
+         ++cap_it) {
         if ((*cap_it)->code != BgpProto::OpenMessage::Capability::MpExtension)
             continue;
         uint8_t *data = (*cap_it)->capability.data();
@@ -794,16 +870,17 @@ void BgpPeer::SetCapabilities(const BgpProto::OpenMessage *msg) {
     }
     peer_info.set_families(families);
 
-    std::vector<std::string> negotiated_families;
+    negotiated_families_.clear();
     BOOST_FOREACH(Address::Family family, family_) {
         uint16_t afi;
         uint8_t safi;
         BgpAf::FamilyToAfiSafi(family, afi, safi);
         if (!MpNlriAllowed(afi, safi))
             continue;
-        negotiated_families.push_back(Address::FamilyToString(family));
+        negotiated_families_.push_back(Address::FamilyToString(family));
     }
-    peer_info.set_negotiated_families(negotiated_families);
+    sort(negotiated_families_.begin(), negotiated_families_.end());
+    peer_info.set_negotiated_families(negotiated_families_);
 
     BGPPeerInfo::Send(peer_info);
 }
@@ -826,7 +903,7 @@ void BgpPeer::ResetCapabilities() {
 
 bool BgpPeer::MpNlriAllowed(uint16_t afi, uint8_t safi) {
     std::vector<BgpProto::OpenMessage::Capability *>::iterator it;
-    for (it = capabilities_.begin(); it < capabilities_.end(); it++) {
+    for (it = capabilities_.begin(); it < capabilities_.end(); ++it) {
         if ((*it)->code != BgpProto::OpenMessage::Capability::MpExtension)
             continue;
         uint8_t *data = (*it)->capability.data();
@@ -861,7 +938,6 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
         }
     }
 
-
     RoutingInstance *instance = GetRoutingInstance();
     if (msg->nlri.size() || msg->withdrawn_routes.size()) {
         InetTable *table =
@@ -874,11 +950,19 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
 
         for (vector<BgpProtoPrefix *>::const_iterator it =
              msg->withdrawn_routes.begin(); it != msg->withdrawn_routes.end();
-             ++it++) {
+             ++it) {
+            Ip4Prefix prefix;
+            int result = Ip4Prefix::FromProtoPrefix((**it), &prefix);
+            if (result) {
+                BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
+                    BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
+                    "Withdrawn route parse error for inet route");
+                continue;
+            }
+
             DBRequest req;
             req.oper = DBRequest::DB_ENTRY_DELETE;
             req.data.reset(NULL);
-            Ip4Prefix prefix = Ip4Prefix(**it);
             req.key.reset(new InetTable::RequestKey(prefix, this));
             table->Enqueue(&req);
             inc_rx_route_unreach();
@@ -886,10 +970,18 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
 
         for (vector<BgpProtoPrefix *>::const_iterator it = msg->nlri.begin();
              it != msg->nlri.end(); ++it) {
+            Ip4Prefix prefix;
+            int result = Ip4Prefix::FromProtoPrefix((**it), &prefix);
+            if (result) {
+                BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
+                    BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
+                    "NLRI parse error for inet route");
+                continue;
+            }
+
             DBRequest req;
             req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
             req.data.reset(new InetTable::RequestData(attr, flags, 0));
-            Ip4Prefix prefix = Ip4Prefix(**it);
             req.key.reset(new InetTable::RequestKey(prefix, this));
             table->Enqueue(&req);
             inc_rx_route_reach();
@@ -932,12 +1024,20 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
             assert(table);
 
             vector<BgpProtoPrefix *>::const_iterator it;
-            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); it++) {
+            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); ++it) {
+                Ip4Prefix prefix;
+                int result = Ip4Prefix::FromProtoPrefix((**it), &prefix);
+                if (result) {
+                    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
+                        BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
+                        "MP NLRI parse error for inet route");
+                    continue;
+                }
+
                 DBRequest req;
                 req.oper = oper;
                 if (oper == DBRequest::DB_ENTRY_ADD_CHANGE)
                     req.data.reset(new InetTable::RequestData(attr, flags, 0));
-                Ip4Prefix prefix = Ip4Prefix(**it);
                 req.key.reset(new InetTable::RequestKey(prefix, this));
                 table->Enqueue(&req);
             }
@@ -950,43 +1050,123 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
             assert(table);
 
             vector<BgpProtoPrefix *>::const_iterator it;
-            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); it++) {
-                uint32_t label = ((*it)->prefix[0] << 16 |
-                                  (*it)->prefix[1] << 8 |
-                                  (*it)->prefix[2]) >> 4;
+            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); ++it) {
+                InetVpnPrefix prefix;
+                uint32_t label = 0;
+                int result =
+                    InetVpnPrefix::FromProtoPrefix((**it), &prefix, &label);
+                if (result) {
+                    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
+                        BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
+                        "MP NLRI parse error for inet-vpn route");
+                    continue;
+                }
+
                 DBRequest req;
                 req.oper = oper;
-                if (oper == DBRequest::DB_ENTRY_ADD_CHANGE)
-                    req.data.reset(new InetVpnTable::RequestData(attr, flags, label));
-                req.key.reset(new InetVpnTable::RequestKey(InetVpnPrefix(**it),
-                                                           this));
+                if (oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
+                    req.data.reset(
+                        new InetVpnTable::RequestData(attr, flags, label));
+                }
+                req.key.reset(new InetVpnTable::RequestKey(prefix, this));
                 table->Enqueue(&req);
             }
             break;
         }
 
-        case Address::EVPN: {
-            EvpnTable *table =
-              static_cast<EvpnTable *>(instance->GetTable(family));
+        case Address::INET6VPN: {
+            Inet6VpnTable *table = 
+                static_cast<Inet6VpnTable *>(instance->GetTable(family));
             assert(table);
 
             vector<BgpProtoPrefix *>::const_iterator it;
-            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); it++) {
-                if ((*it)->type != 2) {
-                    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                                 BGP_PEER_DIR_IN,
-                                 "EVPN: Unsupported route type " << (*it)->type);
+            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); ++it) {
+                Inet6VpnPrefix prefix;
+                uint32_t label = 0;
+                int result =
+                    Inet6VpnPrefix::FromProtoPrefix((**it), &prefix, &label);
+                if (result) {
+                    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
+                        BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
+                        "MP NLRI parse error for inet6-vpn route");
                     continue;
                 }
-                size_t label_offset = EvpnPrefix::label_offset(**it);
-                uint32_t label = ((*it)->prefix[label_offset] << 16 |
-                                  (*it)->prefix[label_offset + 1] << 8 |
-                                  (*it)->prefix[label_offset + 2]) >> 4;
+
                 DBRequest req;
                 req.oper = oper;
-                if (oper == DBRequest::DB_ENTRY_ADD_CHANGE)
-                    req.data.reset(new EvpnTable::RequestData(attr, flags, label));
-                req.key.reset(new EvpnTable::RequestKey(EvpnPrefix(**it), this));
+                if (oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
+                    req.data.reset(
+                        new Inet6VpnTable::RequestData(attr, flags, label));
+                }
+                req.key.reset(new Inet6VpnTable::RequestKey(prefix, this));
+                table->Enqueue(&req);
+            }
+            break;
+        }
+
+
+        case Address::EVPN: {
+            EvpnTable *table =
+                static_cast<EvpnTable *>(instance->GetTable(family));
+            assert(table);
+
+            vector<BgpProtoPrefix *>::const_iterator it;
+            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); ++it) {
+                EvpnPrefix prefix;
+                BgpAttrPtr new_attr;
+                uint32_t label = 0;
+                int result = EvpnPrefix::FromProtoPrefix(server_, (**it),
+                    (oper == DBRequest::DB_ENTRY_ADD_CHANGE) ? attr.get() : NULL,
+                    &prefix, &new_attr, &label);
+                if (result) {
+                    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
+                        BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
+                        "MP NLRI parse error for e-vpn route type " << (*it)->type);
+                    continue;
+                }
+
+                DBRequest req;
+                req.oper = oper;
+                if (oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
+                    req.data.reset(
+                        new EvpnTable::RequestData(new_attr, flags, label));
+                }
+                req.key.reset(new EvpnTable::RequestKey(prefix, this));
+                table->Enqueue(&req);
+            }
+            break;
+        }
+
+        case Address::ERMVPN: {
+            ErmVpnTable *table;
+            table = static_cast<ErmVpnTable *>(instance->GetTable(family));
+            assert(table);
+
+            vector<BgpProtoPrefix *>::const_iterator it;
+            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); ++it) {
+                if (!ErmVpnPrefix::IsValidForBgp((*it)->type)) {
+                    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
+                        BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
+                        "ERMVPN: Unsupported route type " << (*it)->type);
+                    continue;
+                }
+
+                ErmVpnPrefix prefix;
+                int result = ErmVpnPrefix::FromProtoPrefix((**it), &prefix);
+                if (result) {
+                    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
+                        BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
+                        "MP NLRI parse error for erm-vpn route type " << (*it)->type);
+                    continue;
+                }
+
+                DBRequest req;
+                req.oper = oper;
+                if (oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
+                    req.data.reset(
+                        new ErmVpnTable::RequestData(attr, flags, 0));
+                }
+                req.key.reset(new ErmVpnTable::RequestKey(prefix, this));
                 table->Enqueue(&req);
             }
             break;
@@ -994,21 +1174,33 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
 
         case Address::RTARGET: {
             RTargetTable *table =
-                static_cast<RTargetTable *>(instance->GetTable(Address::RTARGET));
+                static_cast<RTargetTable *>(instance->GetTable(family));
             assert(table);
+
+            // Check for End-Of-RIB message.
             if (oper == DBRequest::DB_ENTRY_DELETE && nlri->nlri.empty()) {
-                // End-Of-RIB message
                 end_of_rib_timer_->Cancel();
                 RegisterToVpnTables(true);
                 return;
             }
+
             vector<BgpProtoPrefix *>::const_iterator it;
-            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); it++) {
+            for (it = nlri->nlri.begin(); it < nlri->nlri.end(); ++it) {
+                RTargetPrefix prefix;
+                int result = RTargetPrefix::FromProtoPrefix((**it), &prefix);
+                if (result) {
+                    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN,
+                        BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
+                        "MP NLRI parse error for rtarget route");
+                    continue;
+                }
+
                 DBRequest req;
                 req.oper = oper;
-                if (oper == DBRequest::DB_ENTRY_ADD_CHANGE)
-                    req.data.reset(new RTargetTable::RequestData(attr, flags, 0));
-                RTargetPrefix prefix = RTargetPrefix(**it);
+                if (oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
+                    req.data.reset(
+                        new RTargetTable::RequestData(attr, flags, 0));
+                }
                 req.key.reset(new RTargetTable::RequestKey(prefix, this));
                 table->Enqueue(&req);
             }
@@ -1030,10 +1222,14 @@ void BgpPeer::EndOfRibTimerErrorHandler(string error_name,
 
 void BgpPeer::RegisterToVpnTables(bool established) {
     CHECK_CONCURRENCY("bgp::StateMachine", "bgp::RTFilter");
-    if (!IsReady()) return;
+
+    if (vpn_tables_registered_)
+        return;
+    vpn_tables_registered_ = true;
 
     PeerRibMembershipManager *membership_mgr = server_->membership_mgr();
     RoutingInstance *instance = GetRoutingInstance();
+
     if (IsFamilyNegotiated(Address::INETVPN)) {
         BgpTable *table = instance->GetTable(Address::INETVPN);
         BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
@@ -1041,6 +1237,30 @@ void BgpPeer::RegisterToVpnTables(bool established) {
         if (table) {
             membership_mgr->Register(this, table, policy_, -1,
                 boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2, 
+                            established));
+            membership_req_pending_++;
+        }
+    }
+
+    if (IsFamilyNegotiated(Address::ERMVPN)) {
+        BgpTable *table = instance->GetTable(Address::ERMVPN);
+        BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
+                           table, "Register peer with the table");
+        if (table) {
+            membership_mgr->Register(this, table, policy_, -1,
+                boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2,
+                            established));
+            membership_req_pending_++;
+        }
+    }
+
+    if (IsFamilyNegotiated(Address::INET6VPN)) {
+        BgpTable *vtable = instance->GetTable(Address::INET6VPN);
+        BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
+                           vtable, "Register peer with the table");
+        if (vtable) {
+            membership_mgr->Register(this, vtable, policy_, -1,
+                boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2,
                             established));
             membership_req_pending_++;
         }
@@ -1094,11 +1314,11 @@ void BgpPeer::StartEndOfRibTimer() {
 }
 
 void BgpPeer::StartKeepaliveTimerUnlocked() {
-    int holdtime_msecs = state_machine_->hold_time_msecs();
-    if (holdtime_msecs <= 0)
+    int keepalive_time_msecs = state_machine_->keepalive_time_msecs();
+    if (keepalive_time_msecs <= 0)
         return;
 
-    keepalive_timer_->Start((holdtime_msecs/3),
+    keepalive_timer_->Start(keepalive_time_msecs,
         boost::bind(&BgpPeer::KeepaliveTimerExpired, this),
         boost::bind(&BgpPeer::KeepaliveTimerErrorHandler, this, _1, _2));
 }
@@ -1125,6 +1345,8 @@ bool BgpPeer::KeepaliveTimerRunning() {
 
 void BgpPeer::SetSendReady() {
     tbb::spin_mutex::scoped_lock lock(spin_mutex_);
+    BGP_LOG_PEER(Event, this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+                 BGP_PEER_DIR_NA, "Send ready");
     send_ready_ = true;
     if (session_ != NULL)
         StartKeepaliveTimerUnlocked();
@@ -1236,6 +1458,18 @@ BgpAttrPtr BgpPeer::GetMpNlriNexthop(BgpMpNlri *nlri, BgpAttrPtr attr) {
                       bt.begin());
             update_nh = true;
         }
+    } else if (nlri->afi == BgpAf::IPv6) {
+        if (nlri->safi == BgpAf::Vpn) {
+            Ip6Address::bytes_type v6_bt = { { 0 } };
+            size_t rdsize = RouteDistinguisher::kSize;
+            std::copy(nlri->nexthop.begin() + rdsize,
+                      nlri->nexthop.end(), v6_bt.begin());
+            Ip6Address v6_address(v6_bt);
+            if (v6_address.is_v4_mapped()) {
+                bt = Address::V4FromV4MappedV6(v6_address).to_bytes();
+                update_nh = true;
+            }
+        }
     }
 
     // Always update the nexthop in BgpAttr with MpReachNlri->nexthop.
@@ -1254,6 +1488,12 @@ void BgpPeer::ManagedDelete() {
     deleter_->Delete();
 }
  
+void BgpPeer::RetryDelete() {
+    if (!deleter_->IsDeleted())
+        return;
+    deleter_->RetryDelete();
+}
+
 void BgpPeer::SetDataCollectionKey(BgpPeerInfo *peer_info) const {
     if (rtinstance_) {
         peer_info->set_domain(rtinstance_->name());
@@ -1320,7 +1560,6 @@ void BgpPeer::FillBgpNeighborDebugState(BgpNeighborResp &resp,
     FillProtoStats(stats, proto_stats);
     resp.set_tx_proto_stats(proto_stats);
 
-
     IPeerDebugStats::UpdateStats update_stats;
     PeerUpdateStats rt_stats;
     peer_state->GetRxRouteUpdateStats(update_stats);
@@ -1345,17 +1584,21 @@ void BgpPeer::FillBgpNeighborDebugState(BgpNeighborResp &resp,
 
 void BgpPeer::FillNeighborInfo(std::vector<BgpNeighborResp> &nbr_list) const {
     BgpNeighborResp nbr;
-    nbr.set_peer(ToString());
+    nbr.set_peer(peer_name_.substr(rtinstance_->name().size() + 1));
     nbr.set_peer_address(peer_key_.endpoint.address().to_string());
+    nbr.set_deleted(IsDeleted());
     nbr.set_peer_asn(peer_as());
     nbr.set_local_address(server_->ToString());
     nbr.set_local_asn(local_as());
     nbr.set_peer_type(PeerType() == BgpProto::IBGP ? "internal" : "external");
     nbr.set_encoding("BGP");
     nbr.set_state(state_machine_->StateName());
-    nbr.set_peer_id(remote_bgp_id_);
-    nbr.set_local_id(local_bgp_id_);
-    nbr.set_active_holdtime(state_machine_->hold_time());
+    nbr.set_peer_id(Ip4Address(remote_bgp_id_).to_string());
+    nbr.set_local_id(Ip4Address(local_bgp_id_).to_string());
+    nbr.set_configured_address_families(configured_families_);
+    nbr.set_negotiated_address_families(negotiated_families_);
+    nbr.set_configured_hold_time(state_machine_->GetConfiguredHoldTime());
+    nbr.set_negotiated_hold_time(state_machine_->hold_time());
 
     FillBgpNeighborDebugState(nbr, peer_stats_.get());
 
@@ -1408,6 +1651,46 @@ void BgpPeer::inc_rx_route_reach() {
 
 void BgpPeer::inc_rx_route_unreach() {
     peer_stats_->update_stats_[0].unreach++;
+}
+
+void BgpPeer::inc_connect_error() {
+    peer_stats_->error_stats_.connect_error++;
+}
+
+void BgpPeer::inc_connect_timer_expired() {
+    peer_stats_->error_stats_.connect_timer++;
+}
+
+void BgpPeer::inc_hold_timer_expired() {
+    peer_stats_->error_stats_.hold_timer++;
+}
+
+void BgpPeer::inc_open_error() {
+    peer_stats_->error_stats_.open_error++;
+}
+
+void BgpPeer::inc_update_error() {
+    peer_stats_->error_stats_.update_error++;
+}
+
+size_t BgpPeer::get_connect_error() {
+    return peer_stats_->error_stats_.connect_error;
+}
+
+size_t BgpPeer::get_connect_timer_expired() {
+    return peer_stats_->error_stats_.connect_timer;
+}
+
+size_t BgpPeer::get_hold_timer_expired() {
+    return peer_stats_->error_stats_.hold_timer;
+}
+
+size_t BgpPeer::get_open_error() {
+    return peer_stats_->error_stats_.open_error;
+}
+
+size_t BgpPeer::get_update_error() {
+    return peer_stats_->error_stats_.update_error;
 }
 
 std::string BgpPeer::last_flap_at() const { 

@@ -2,15 +2,19 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <netinet/icmp6.h>
 #include <boost/assign/list_of.hpp>
 #include <pkt/pkt_handler.h>
 #include <oper/mirror_table.h>
+#include <oper/vn.h>
 #include <pkt/pkt_init.h>
 #include <services/services_init.h>
 #include <services/dhcp_proto.h>
+#include <services/dhcpv6_proto.h>
 #include <services/arp_proto.h>
 #include <services/dns_proto.h>
 #include <services/icmp_proto.h>
+#include <services/icmpv6_proto.h>
 #include <services/metadata_proxy.h>
 #include <services/services_types.h>
 #include <services/services_sandesh.h>
@@ -26,7 +30,7 @@ std::map<uint16_t, std::string> g_ip_protocol_map =
                             (41, "ipv6")
                             (47, "gre");
 
-std::map<uint32_t, std::string> g_dhcp_msg_types = 
+std::map<uint32_t, std::string> g_dhcp_msg_types =
                     boost::assign::map_list_of<uint32_t, std::string>
                             (DHCP_UNKNOWN, "Unknown")
                             (DHCP_DISCOVER, "Discover")
@@ -41,6 +45,21 @@ std::map<uint32_t, std::string> g_dhcp_msg_types =
                             (DHCP_LEASE_UNASSIGNED, "Lease Unassigned")
                             (DHCP_LEASE_UNKNOWN, "Lease Unknown")
                             (DHCP_LEASE_ACTIVE, "Lease Active");
+
+std::map<uint32_t, std::string> g_dhcpv6_msg_types =
+                    boost::assign::map_list_of<uint32_t, std::string>
+                            (DHCPV6_UNKNOWN, "Unknown")
+                            (DHCPV6_SOLICIT, "Solicit")
+                            (DHCPV6_ADVERTISE, "Advertise")
+                            (DHCPV6_REQUEST, "Request")
+                            (DHCPV6_CONFIRM, "Confirm")
+                            (DHCPV6_RENEW, "Renew")
+                            (DHCPV6_REBIND, "Rebind")
+                            (DHCPV6_REPLY, "Reply")
+                            (DHCPV6_RELEASE, "Release")
+                            (DHCPV6_DECLINE, "Decline")
+                            (DHCPV6_RECONFIGURE, "Reconfigure")
+                            (DHCPV6_INFORMATION_REQUEST, "Information Request");
 
 void ServicesSandesh::MacToString(const unsigned char *mac, std::string &mac_str) {
     char mstr[32];
@@ -82,6 +101,13 @@ std::string &ServicesSandesh::DhcpMsgType(uint32_t msg_type) {
     std::map<uint32_t, std::string>::iterator it = g_dhcp_msg_types.find(msg_type);
     if (it == g_dhcp_msg_types.end())
         return DhcpMsgType(DHCP_UNKNOWN);
+    return it->second;
+}
+
+std::string &ServicesSandesh::Dhcpv6MsgType(uint32_t msg_type) {
+    std::map<uint32_t, std::string>::iterator it = g_dhcpv6_msg_types.find(msg_type);
+    if (it == g_dhcpv6_msg_types.end())
+        return Dhcpv6MsgType(DHCPV6_OPTION_UNKNOWN);
     return it->second;
 }
 
@@ -136,6 +162,27 @@ void ServicesSandesh::DhcpStatsSandesh(std::string ctxt, bool more) {
     dhcp->Response();
 }
 
+void ServicesSandesh::Dhcpv6StatsSandesh(std::string ctxt, bool more) {
+    Dhcpv6Stats *dhcp = new Dhcpv6Stats();
+    const Dhcpv6Proto::DhcpStats &dstats =
+                Agent::GetInstance()->dhcpv6_proto()->GetStats();
+    dhcp->set_dhcp_solicit(dstats.solicit);
+    dhcp->set_dhcp_advertise(dstats.advertise);
+    dhcp->set_dhcp_request(dstats.request);
+    dhcp->set_dhcp_confirm(dstats.confirm);
+    dhcp->set_dhcp_renew(dstats.renew);
+    dhcp->set_dhcp_rebind(dstats.rebind);
+    dhcp->set_dhcp_reply(dstats.reply);
+    dhcp->set_dhcp_release(dstats.release);
+    dhcp->set_dhcp_decline(dstats.decline);
+    dhcp->set_dhcp_reconfigure(dstats.reconfigure);
+    dhcp->set_information_request(dstats.information_request);
+    dhcp->set_dhcp_error(dstats.error);
+    dhcp->set_context(ctxt);
+    dhcp->set_more(more);
+    dhcp->Response();
+}
+
 void ServicesSandesh::ArpStatsSandesh(std::string ctxt, bool more) {
     ArpProto *arp_proto = Agent::GetInstance()->GetArpProto();
     ArpStats *arp = new ArpStats();
@@ -181,6 +228,20 @@ void ServicesSandesh::IcmpStatsSandesh(std::string ctxt, bool more) {
     icmp->Response();
 }
 
+void ServicesSandesh::Icmpv6StatsSandesh(std::string ctxt, bool more) {
+    Icmpv6Stats *icmp = new Icmpv6Stats();
+    const Icmpv6Proto::Icmpv6Stats &istats =
+        Agent::GetInstance()->icmpv6_proto()->GetStats();
+    icmp->set_icmpv6_router_solicit(istats.icmpv6_router_solicit_);
+    icmp->set_icmpv6_router_advert(istats.icmpv6_router_advert_);
+    icmp->set_icmpv6_ping_request(istats.icmpv6_ping_request_);
+    icmp->set_icmpv6_ping_response(istats.icmpv6_ping_response_);
+    icmp->set_icmpv6_drop(istats.icmpv6_drop_);
+    icmp->set_context(ctxt);
+    icmp->set_more(more);
+    icmp->Response();
+}
+
 void ServicesSandesh::FillPktData(PktTrace::Pkt &pkt, PktData &resp) {
     switch (pkt.dir) {
         case PktTrace::In:
@@ -196,30 +257,31 @@ void ServicesSandesh::FillPktData(PktTrace::Pkt &pkt, PktData &resp) {
     resp.len = pkt.len;
 }
 
-void ServicesSandesh::FillVrouterHdr(PktTrace::Pkt &pkt, VrouterHdr &resp) {
-    boost::array<std::string, MAX_AGENT_HDR_COMMANDS> commands = 
+uint16_t ServicesSandesh::FillVrouterHdr(PktTrace::Pkt &pkt, VrouterHdr &resp) {
+    boost::array<std::string, MAX_AGENT_HDR_COMMANDS> commands =
            { { "switch", "route", "arp", "l2-protocol", "trap-nexthop",
                "trap-resolve", "trap-flow-miss", "trap-l3-protocol",
-               "trap-diag", "trap-ecmp-resolve" } };
+               "trap-diag", "trap-ecmp-resolve", "trap_source_mismatch",
+               "trap-dont-fragment" } };
     uint8_t *ptr = pkt.pkt;
-    ptr += sizeof(ethhdr);   // skip the outer ethernet header
-    agent_hdr *hdr = reinterpret_cast<agent_hdr *>(ptr);
-    resp.ifindex = ntohs(hdr->hdr_ifindex);
-    resp.vrf = ntohs(hdr->hdr_vrf);
-    uint16_t cmd = ntohs(hdr->hdr_cmd);
+    AgentHdr *hdr = reinterpret_cast<AgentHdr *>(ptr);
+    resp.ifindex = hdr->ifindex;
+    resp.vrf = hdr->vrf;
+    uint16_t cmd = hdr->cmd;
     if (cmd < MAX_AGENT_HDR_COMMANDS)
         resp.cmd = commands.at(cmd);
     else
         resp.cmd = "unknown";
-    resp.cmd_param = ntohl(hdr->hdr_cmd_param);
-    resp.nh = ntohl(hdr->hdr_nh);
+    resp.cmd_param = hdr->cmd_param;
+    resp.nh = hdr->nh;
+    return sizeof(AgentHdr);
 }
 
-void ServicesSandesh::FillMacHdr(ethhdr *eth, MacHdr &resp) {
-    MacToString(eth->h_dest, resp.dest_mac);
-    MacToString(eth->h_source, resp.src_mac);
-    uint16_t type = ntohs(eth->h_proto);
-    resp.type = (type == 0x800) ? "ip" : 
+void ServicesSandesh::FillMacHdr(struct ether_header *eth, MacHdr &resp) {
+    MacToString(eth->ether_dhost, resp.dest_mac);
+    MacToString(eth->ether_shost, resp.src_mac);
+    uint16_t type = ntohs(eth->ether_type);
+    resp.type = (type == 0x800) ? "ip" :
                  (type == 0x806) ? "arp" : IntToString(type);
 }
 
@@ -240,7 +302,7 @@ void ServicesSandesh::FillArpHdr(ether_arp *arp, ArpHdr &resp) {
     resp.hw_size = arp->arp_hln;
     resp.prot_size = arp->arp_pln;
     val = ntohs(arp->arp_op);
-    resp.opcode = (val == 1) ? "request" : 
+    resp.opcode = (val == 1) ? "request" :
                   (val == 2) ? "response" : IntToString(val);
     MacToString(arp->arp_sha, resp.sender_mac);
     MacToString(arp->arp_tha, resp.target_mac);
@@ -250,28 +312,74 @@ void ServicesSandesh::FillArpHdr(ether_arp *arp, ArpHdr &resp) {
     resp.target_ip = tpa.to_string();
 }
 
-void ServicesSandesh::FillIpv4Hdr(iphdr *ip, Ipv4Hdr &resp) {
-    resp.vers = ip->version;
-    resp.hdrlen = ip->ihl;
-    resp.tos = ip->tos;
-    resp.len = ntohs(ip->tot_len);
-    resp.id = IntToHexString(ntohs(ip->id));
-    resp.frag = IntToHexString(ntohs(ip->frag_off));
-    resp.ttl = ip->ttl;
-    resp.protocol = IpProtocol(ip->protocol);
-    resp.csum = IntToHexString(ntohs(ip->check));
-    Ip4Address sa(ntohl(ip->saddr));
-    Ip4Address da(ntohl(ip->daddr));
+void ServicesSandesh::FillIpv4Hdr(struct ip *ip, Ipv4Hdr &resp) {
+    resp.vers = ip->ip_v;
+    resp.hdrlen = ip->ip_hl;
+    resp.tos = ip->ip_tos;
+    resp.len = ntohs(ip->ip_len);
+    resp.id = IntToHexString(ntohs(ip->ip_id));
+    resp.frag = IntToHexString(ntohs(ip->ip_off));
+    resp.ttl = ip->ip_ttl;
+    resp.protocol = IpProtocol(ip->ip_p);
+    resp.csum = IntToHexString(ntohs(ip->ip_sum));
+    Ip4Address sa(ntohl(ip->ip_src.s_addr));
+    Ip4Address da(ntohl(ip->ip_dst.s_addr));
     resp.src_ip = sa.to_string();
     resp.dest_ip = da.to_string();
 }
 
-void ServicesSandesh::FillIcmpv4Hdr(icmphdr *icmp, Icmpv4Hdr &resp) {
-    resp.type = (icmp->type == ICMP_ECHO) ? "echo request":
-                 (icmp->type == ICMP_ECHOREPLY) ? "echo reply" : 
-                 IntToString(icmp->type);
-    resp.code = icmp->code;
-    resp.csum = IntToHexString(ntohs(icmp->checksum));
+void ServicesSandesh::FillIpv6Hdr(ip6_hdr *ip, Ipv6Hdr &resp) {
+    resp.flow = ntohl(ip->ip6_flow);
+    resp.plen = ntohs(ip->ip6_plen);
+    resp.next_hdr = ip->ip6_nxt;
+    resp.hlim = ip->ip6_hlim;
+
+    boost::system::error_code ec;
+    boost::asio::ip::address_v6::bytes_type src_addr;
+    memcpy(&src_addr[0], ip->ip6_src.s6_addr, 16);
+    boost::asio::ip::address_v6 src(src_addr);
+    resp.src_ip = src.to_string(ec);
+
+    boost::asio::ip::address_v6::bytes_type dest_addr;
+    memcpy(&dest_addr[0], ip->ip6_dst.s6_addr, 16);
+    boost::asio::ip::address_v6 dest(dest_addr);
+    resp.dest_ip = dest.to_string(ec);
+}
+
+void ServicesSandesh::FillIcmpv4Hdr(struct icmp *icmp, Icmpv4Hdr &resp) {
+    resp.type = (icmp->icmp_type == ICMP_ECHO) ? "echo request":
+                 (icmp->icmp_type == ICMP_ECHOREPLY) ? "echo reply" :
+                 IntToString(icmp->icmp_type);
+    resp.code = icmp->icmp_code;
+    resp.csum = IntToHexString(ntohs(icmp->icmp_cksum));
+}
+
+void ServicesSandesh::FillIcmpv6Hdr(icmp6_hdr *icmp, Icmpv6Hdr &resp,
+                                    int32_t len) {
+    switch (icmp->icmp6_type) {
+        case ICMP6_ECHO_REQUEST:
+            resp.type = "echo request";
+            break;
+
+        case ICMP6_ECHO_REPLY:
+            resp.type = "echo reply";
+            break;
+
+        case ND_ROUTER_SOLICIT:
+            resp.type = "router solicit";
+            break;
+
+        case ND_ROUTER_ADVERT:
+            resp.type = "router advertisement";
+            break;
+
+        default:
+            resp.type = IntToString(icmp->icmp6_type);
+            break;
+    }
+    resp.code = icmp->icmp6_code;
+    resp.csum = IntToHexString(ntohs(icmp->icmp6_cksum));
+    PktToHexString((uint8_t *)icmp->icmp6_data8, len - 4, resp.rest);
 }
 
 void ServicesSandesh::FillUdpHdr(udphdr *udp, UdpHdr &resp) {
@@ -328,13 +436,13 @@ ServicesSandesh::FillHostRoutes(uint8_t *data, int len,
     resp += routes.str();
 }
 
-void ServicesSandesh::FillDhcpOptions(DhcpOptions *opt, std::string &resp,
-                                      std::string &other, int32_t len) {
+void ServicesSandesh::FillDhcpv4Options(Dhcpv4Options *opt, std::string &resp,
+                                        std::string &other, int32_t len) {
     while (opt->code != DHCP_OPTION_END && len > 0) {
         switch (opt->code) {
             case DHCP_OPTION_PAD:
                 len -= 1;
-                opt = (DhcpOptions *)((uint8_t *)opt + 1);
+                opt = (Dhcpv4Options *)((uint8_t *)opt + 1);
                 continue;
 
             case DHCP_OPTION_MSG_TYPE:
@@ -384,8 +492,14 @@ void ServicesSandesh::FillDhcpOptions(DhcpOptions *opt, std::string &resp,
                 break;
 
             case DHCP_OPTION_ROUTER:
-                if (len >= (2 + opt->len))
-                    resp += FillOptionIp(get_val(opt->data), "Gateway : ");
+                if (len >= (2 + opt->len)) {
+                    int16_t optlen = 0;
+                    while (optlen < opt->len) {
+                        resp += FillOptionIp(get_val(opt->data + optlen),
+                                             "Gateway : ");
+                        optlen += 4;
+                    }
+                }
                 break;
 
             case DHCP_OPTION_DNS:
@@ -393,9 +507,9 @@ void ServicesSandesh::FillDhcpOptions(DhcpOptions *opt, std::string &resp,
                     resp += FillOptionIp(get_val(opt->data), "DNS : ");
                 break;
 
-            case DHCP_OPTION_NTP:
+            case DHCP_OPTION_TIME_SERVER:
                 if (len >= (2 + opt->len))
-                    resp += FillOptionIp(get_val(opt->data), "NTP : ");
+                    resp += FillOptionIp(get_val(opt->data), "Time Server : ");
                 break;
 
             case DHCP_OPTION_SERVER_IDENTIFIER:
@@ -415,7 +529,7 @@ void ServicesSandesh::FillDhcpOptions(DhcpOptions *opt, std::string &resp,
                 break;
         }
         len -= (2 + opt->len);
-        opt = (DhcpOptions *)((uint8_t *)opt + 2 + opt->len);
+        opt = (Dhcpv4Options *)((uint8_t *)opt + 2 + opt->len);
     }
 }
 
@@ -442,8 +556,15 @@ void ServicesSandesh::FillDhcpv4Hdr(dhcphdr *dhcp, Dhcpv4Hdr &resp,
     PktToHexString(dhcp->file, DHCP_FILE_LEN, resp.file);
     PktToHexString(dhcp->options, 4, resp.cookie);
     len -= (DHCP_FIXED_LEN + 4);
-    FillDhcpOptions((DhcpOptions *)(dhcp->options + 4),
-                    resp.dhcp_options, resp.other_options, len);
+    FillDhcpv4Options((Dhcpv4Options *)(dhcp->options + 4),
+                      resp.dhcp_options, resp.other_options, len);
+}
+
+void ServicesSandesh::FillDhcpv6Hdr(Dhcpv6Hdr *dhcp, Dhcpv6Header &resp,
+                                    int32_t len) {
+    resp.type = Dhcpv6MsgType(dhcp->type);
+    PktToHexString(dhcp->xid, 3, resp.xid);
+    PktToHexString((uint8_t *)dhcp->options, len - 4, resp.options);
 }
 
 void ServicesSandesh::FillDnsHdr(dnshdr *dns, DnsHdr &resp, int32_t dnslen) {
@@ -487,10 +608,10 @@ void ServicesSandesh::FillDnsHdr(dnshdr *dns, DnsHdr &resp, int32_t dnslen) {
 void ServicesSandesh::ArpPktTrace(PktTrace::Pkt &pkt, ArpPktSandesh *resp) {
     ArpPkt data;
     FillPktData(pkt, data.info);
-    FillVrouterHdr(pkt, data.agent_hdr);
-    uint8_t *ptr = pkt.pkt + sizeof(ethhdr) + sizeof(agent_hdr);
-    FillMacHdr((ethhdr *)ptr, data.mac_hdr);
-    ptr += sizeof(ethhdr);
+    uint16_t hdr_len = FillVrouterHdr(pkt, data.agent_hdr);
+    uint8_t *ptr = pkt.pkt + hdr_len;
+    FillMacHdr((struct ether_header *)ptr, data.mac_hdr);
+    ptr += sizeof(struct ether_header);
     FillArpHdr((ether_arp *)ptr, data.arp_hdr);
     std::vector<ArpPkt> &list =
         const_cast<std::vector<ArpPkt>&>(resp->get_pkt_list());
@@ -500,18 +621,18 @@ void ServicesSandesh::ArpPktTrace(PktTrace::Pkt &pkt, ArpPktSandesh *resp) {
 void ServicesSandesh::DhcpPktTrace(PktTrace::Pkt &pkt, DhcpPktSandesh *resp) {
     DhcpPkt data;
     FillPktData(pkt, data.info);
-    FillVrouterHdr(pkt, data.agent_hdr);
-    uint8_t *ptr = pkt.pkt + sizeof(ethhdr) + sizeof(agent_hdr);
-    FillMacHdr((ethhdr *)ptr, data.mac_hdr);
-    ptr += sizeof(ethhdr);
-    FillIpv4Hdr((iphdr *)ptr, data.ip_hdr);
+    uint16_t hdr_len = FillVrouterHdr(pkt, data.agent_hdr);
+    uint8_t *ptr = pkt.pkt + hdr_len;
+    FillMacHdr((struct ether_header *)ptr, data.mac_hdr);
+    ptr += sizeof(struct ether_header);
+    FillIpv4Hdr((struct ip *)ptr, data.ip_hdr);
     ptr += (data.ip_hdr.hdrlen * 4);
-    FillUdpHdr((udphdr *)ptr, data.udp_hdr); 
+    FillUdpHdr((udphdr *)ptr, data.udp_hdr);
     ptr += sizeof(udphdr);
     PktHandler *pkt_handler = Agent::GetInstance()->pkt()->pkt_handler();
     std::size_t trace_size = pkt_handler->PktTraceSize(PktHandler::DHCP);
-    int32_t remaining = std::min(pkt.len, trace_size) - 
-                        (2 * sizeof(ethhdr) + sizeof(agent_hdr) + 
+    int32_t remaining = std::min(pkt.len, trace_size) -
+                        (sizeof(struct ether_header) +
                          data.ip_hdr.hdrlen * 4 + sizeof(udphdr));
     FillDhcpv4Hdr((dhcphdr *)ptr, data.dhcp_hdr, remaining);
     std::vector<DhcpPkt> &list =
@@ -519,21 +640,42 @@ void ServicesSandesh::DhcpPktTrace(PktTrace::Pkt &pkt, DhcpPktSandesh *resp) {
     list.push_back(data);
 }
 
+void ServicesSandesh::Dhcpv6PktTrace(PktTrace::Pkt &pkt, Dhcpv6PktSandesh *resp) {
+    Dhcpv6Pkt data;
+    FillPktData(pkt, data.info);
+    uint16_t hdr_len = FillVrouterHdr(pkt, data.agent_hdr);
+    uint8_t *ptr = pkt.pkt + hdr_len;
+    FillMacHdr((struct ether_header *)ptr, data.mac_hdr);
+    ptr += sizeof(struct ether_header);
+    FillIpv6Hdr((ip6_hdr *)ptr, data.ip_hdr);
+    ptr += sizeof(ip6_hdr);
+    FillUdpHdr((udphdr *)ptr, data.udp_hdr);
+    ptr += sizeof(udphdr);
+    PktHandler *pkt_handler = Agent::GetInstance()->pkt()->pkt_handler();
+    std::size_t trace_size = pkt_handler->PktTraceSize(PktHandler::DHCPV6);
+    int32_t remaining = std::min(pkt.len, trace_size) -
+                        (sizeof(struct ether_header) + sizeof(ip6_hdr) + sizeof(udphdr));
+    FillDhcpv6Hdr((Dhcpv6Hdr *)ptr, data.dhcp_hdr, remaining);
+    std::vector<Dhcpv6Pkt> &list =
+        const_cast<std::vector<Dhcpv6Pkt>&>(resp->get_pkt_list());
+    list.push_back(data);
+}
+
 void ServicesSandesh::DnsPktTrace(PktTrace::Pkt &pkt, DnsPktSandesh *resp) {
     DnsPkt data;
     FillPktData(pkt, data.info);
-    FillVrouterHdr(pkt, data.agent_hdr);
-    uint8_t *ptr = pkt.pkt + sizeof(ethhdr) + sizeof(agent_hdr);
-    FillMacHdr((ethhdr *)ptr, data.mac_hdr);
-    ptr += sizeof(ethhdr);
-    FillIpv4Hdr((iphdr *)ptr, data.ip_hdr);
+    uint16_t hdr_len = FillVrouterHdr(pkt, data.agent_hdr);
+    uint8_t *ptr = pkt.pkt + hdr_len;
+    FillMacHdr((struct ether_header *)ptr, data.mac_hdr);
+    ptr += sizeof(struct ether_header);
+    FillIpv4Hdr((struct ip *)ptr, data.ip_hdr);
     ptr += (data.ip_hdr.hdrlen * 4);
-    FillUdpHdr((udphdr *)ptr, data.udp_hdr); 
+    FillUdpHdr((udphdr *)ptr, data.udp_hdr);
     ptr += sizeof(udphdr);
     PktHandler *pkt_handler = Agent::GetInstance()->pkt()->pkt_handler();
     std::size_t trace_size = pkt_handler->PktTraceSize(PktHandler::DNS);
-    int32_t remaining = std::min(pkt.len, trace_size) - 
-                        (2 * sizeof(ethhdr) + sizeof(agent_hdr) + 
+    int32_t remaining = std::min(pkt.len, trace_size) -
+                        (sizeof(struct ether_header) +
                          data.ip_hdr.hdrlen * 4 + sizeof(udphdr));
     FillDnsHdr((dnshdr *)ptr, data.dns_hdr, remaining);
     std::vector<DnsPkt> &list =
@@ -544,29 +686,47 @@ void ServicesSandesh::DnsPktTrace(PktTrace::Pkt &pkt, DnsPktSandesh *resp) {
 void ServicesSandesh::IcmpPktTrace(PktTrace::Pkt &pkt, IcmpPktSandesh *resp) {
     IcmpPkt data;
     FillPktData(pkt, data.info);
-    FillVrouterHdr(pkt, data.agent_hdr);
-    uint8_t *ptr = pkt.pkt + sizeof(ethhdr) + sizeof(agent_hdr);
-    FillMacHdr((ethhdr *)ptr, data.mac_hdr);
-    ptr += sizeof(ethhdr);
-    FillIpv4Hdr((iphdr *)ptr, data.ip_hdr);
+    uint16_t hdr_len = FillVrouterHdr(pkt, data.agent_hdr);
+    uint8_t *ptr = pkt.pkt + hdr_len;
+    FillMacHdr((struct ether_header *)ptr, data.mac_hdr);
+    ptr += sizeof(struct ether_header);
+    FillIpv4Hdr((struct ip *)ptr, data.ip_hdr);
     ptr += (data.ip_hdr.hdrlen * 4);
-    FillIcmpv4Hdr((icmphdr *)ptr, data.icmp_hdr); 
+    FillIcmpv4Hdr((struct icmp *)ptr, data.icmp_hdr);
     std::vector<IcmpPkt> &list =
         const_cast<std::vector<IcmpPkt>&>(resp->get_pkt_list());
+    list.push_back(data);
+}
+
+void ServicesSandesh::Icmpv6PktTrace(PktTrace::Pkt &pkt, Icmpv6PktSandesh *resp) {
+    Icmpv6Pkt data;
+    FillPktData(pkt, data.info);
+    uint16_t hdr_len = FillVrouterHdr(pkt, data.agent_hdr);
+    uint8_t *ptr = pkt.pkt + hdr_len;
+    FillMacHdr((struct ether_header *)ptr, data.mac_hdr);
+    ptr += sizeof(struct ether_header);
+    FillIpv6Hdr((ip6_hdr *)ptr, data.ip_hdr);
+    ptr += sizeof(ip6_hdr);
+    PktHandler *pkt_handler = Agent::GetInstance()->pkt()->pkt_handler();
+    std::size_t trace_size = pkt_handler->PktTraceSize(PktHandler::ICMPV6);
+    int32_t remaining = std::min(pkt.len, trace_size) -
+                        (sizeof(struct ether_header) + sizeof(ip6_hdr));
+    FillIcmpv6Hdr((icmp6_hdr *)ptr, data.icmp_hdr, remaining);
+    std::vector<Icmpv6Pkt> &list =
+        const_cast<std::vector<Icmpv6Pkt>&>(resp->get_pkt_list());
     list.push_back(data);
 }
 
 void ServicesSandesh::OtherPktTrace(PktTrace::Pkt &pkt, PktSandesh *resp) {
     PktDump data;
     FillPktData(pkt, data.info);
-    FillVrouterHdr(pkt, data.agent_hdr);
-    uint8_t *ptr = pkt.pkt + sizeof(ethhdr) + sizeof(agent_hdr);
-    FillMacHdr((ethhdr *)ptr, data.mac_hdr);
-    ptr += sizeof(ethhdr);
+    uint16_t hdr_len = FillVrouterHdr(pkt, data.agent_hdr);
+    uint8_t *ptr = pkt.pkt + hdr_len;
+    FillMacHdr((struct ether_header *)ptr, data.mac_hdr);
+    ptr += sizeof(struct ether_header);
     PktHandler *pkt_handler = Agent::GetInstance()->pkt()->pkt_handler();
     std::size_t trace_size = pkt_handler->PktTraceSize(PktHandler::FLOW);
-    int32_t remaining = std::min(pkt.len, trace_size) - 
-                        (2 * sizeof(ethhdr) + sizeof(agent_hdr));
+    int32_t remaining = std::min(pkt.len, trace_size) - sizeof(struct ether_header);
     PktToHexString(ptr, remaining, data.pkt);
     std::vector<PktDump> &list =
         const_cast<std::vector<PktDump>&>(resp->get_pkt_list());
@@ -578,7 +738,8 @@ void ServicesSandesh::HandleRequest(PktHandler::PktModuleName mod,
     SandeshResponse *resp = NULL;
     boost::function<void(PktTrace::Pkt &)> cb;
     boost::array<std::string, PktHandler::MAX_MODULES> names =
-        { { "Invalid", "Flow", "Arp", "Dhcp", "Dns", "Icmp", "Diagnostics" } };
+        { { "Invalid", "Flow", "Arp", "Dhcp", "Dhcpv6", "Dns",
+            "Icmp", "Icmpv6", "Diagnostics", "IcmpError" } };
 
     switch (mod) {
         case PktHandler::ARP:
@@ -597,6 +758,14 @@ void ServicesSandesh::HandleRequest(PktHandler::PktModuleName mod,
                              static_cast<DhcpPktSandesh *>(resp));
             break;
 
+        case PktHandler::DHCPV6:
+            resp = new Dhcpv6PktSandesh();
+            Dhcpv6StatsSandesh(ctxt, true);
+            static_cast<Dhcpv6PktSandesh *>(resp)->set_type(names.at(mod));
+            cb = boost::bind(&ServicesSandesh::Dhcpv6PktTrace, this, _1,
+                             static_cast<Dhcpv6PktSandesh *>(resp));
+            break;
+
         case PktHandler::DNS:
             resp = new DnsPktSandesh();
             DnsStatsSandesh(ctxt, true);
@@ -611,6 +780,14 @@ void ServicesSandesh::HandleRequest(PktHandler::PktModuleName mod,
             static_cast<IcmpPktSandesh *>(resp)->set_type(names.at(mod));
             cb = boost::bind(&ServicesSandesh::IcmpPktTrace, this, _1,
                              static_cast<IcmpPktSandesh *>(resp));
+            break;
+
+        case PktHandler::ICMPV6:
+            resp = new Icmpv6PktSandesh();
+            Icmpv6StatsSandesh(ctxt, true);
+            static_cast<Icmpv6PktSandesh *>(resp)->set_type(names.at(mod));
+            cb = boost::bind(&ServicesSandesh::Icmpv6PktTrace, this, _1,
+                             static_cast<Icmpv6PktSandesh *>(resp));
             break;
 
         case PktHandler::FLOW:
@@ -635,7 +812,7 @@ void ServicesSandesh::HandleRequest(PktHandler::PktModuleName mod,
 void ServicesSandesh::MetadataHandleRequest(std::string ctxt, bool more = false) {
     MetadataResponse *resp = new MetadataResponse();
     resp->set_metadata_server_port(
-          Agent::GetInstance()->GetMetadataServerPort());
+          Agent::GetInstance()->metadata_server_port());
     const MetadataProxy::MetadataStats &stats = 
           Agent::GetInstance()->services()->metadataproxy()->metadatastats();
     resp->set_metadata_requests(stats.requests);
@@ -654,6 +831,11 @@ void DhcpInfo::HandleRequest() const {
     ssandesh.HandleRequest(PktHandler::DHCP, context());
 }
 
+void Dhcpv6Info::HandleRequest() const {
+    ServicesSandesh ssandesh;
+    ssandesh.HandleRequest(PktHandler::DHCPV6, context());
+}
+
 void ArpInfo::HandleRequest() const {
     ServicesSandesh ssandesh;
     ssandesh.HandleRequest(PktHandler::ARP, context());
@@ -667,6 +849,11 @@ void DnsInfo::HandleRequest() const {
 void IcmpInfo::HandleRequest() const {
     ServicesSandesh ssandesh;
     ssandesh.HandleRequest(PktHandler::ICMP, context());
+}
+
+void Icmpv6Info::HandleRequest() const {
+    ServicesSandesh ssandesh;
+    ssandesh.HandleRequest(PktHandler::ICMPV6, context());
 }
 
 void MetadataInfo::HandleRequest() const {
@@ -763,6 +950,80 @@ void ShowDnsEntries::HandleRequest() const {
     }
     resp->set_dns_list(dns_list);
     resp->set_context(context());
+    resp->Response();
+}
+
+void VmVdnsListReq::HandleRequest() const {
+    VmVdnsListResponse *resp = new VmVdnsListResponse();
+    resp->set_context(context());
+
+    const DnsProto::VmDataMap& vm_list = Agent::GetInstance()->GetDnsProto()->all_vms();
+    std::vector<VmVdnsListEntry> &list =
+        const_cast<std::vector<VmVdnsListEntry>&>(resp->get_rlist());
+    DnsProto::VmDataMap::const_iterator it = vm_list.begin();
+    while (it != vm_list.end()) {
+        const VmInterface *itf = it->first;
+        VmVdnsListEntry entry;
+        entry.set_name(itf->name());
+        entry.set_vm_interface_index(itf->id());
+        list.push_back(entry);
+        ++it;
+    }
+    resp->Response();
+}
+
+void VmVdnsDataReq::HandleRequest() const {
+    VmVdnsDataResponse *resp = new VmVdnsDataResponse();
+    resp->set_context(context());
+
+    Agent *agent = Agent::GetInstance();
+    const VmInterface *vmi = static_cast<const VmInterface *>
+        (agent->interface_table()->FindInterface(get_vm_interface_index()));
+    if (vmi == NULL) {
+        resp->Response();
+        return;
+    }
+    const DnsProto::VmDataMap& all_vms = agent->GetDnsProto()->all_vms();
+    DnsProto::VmDataMap::const_iterator it = all_vms.find(vmi);
+    if (it == all_vms.end()) {
+        resp->Response();
+        return;
+    }
+    const DnsProto::IpVdnsMap &ip_list = it->second;
+    DnsProto::IpVdnsMap::const_iterator ip_it = ip_list.begin();
+    std::vector<VmVdnsDataEntry> &list =
+        const_cast<std::vector<VmVdnsDataEntry>&>(resp->get_rlist());
+    while (ip_it != ip_list.end()) {
+        VmVdnsDataEntry entry;
+        Ip4Address ip4(ip_it->first);
+        entry.set_ip(ip4.to_string());
+        entry.set_vdns_name(ip_it->second);
+        list.push_back(entry);
+        ++ip_it;
+    }
+    resp->Response();
+}
+
+void FipVdnsDataReq::HandleRequest() const {
+    FipVdnsDataResponse *resp = new FipVdnsDataResponse();
+    resp->set_context(context());
+    const DnsProto::DnsFipSet& fip_list = Agent::GetInstance()->GetDnsProto()
+                                                                ->fip_list();
+    std::vector<FipVdnsEntry> &list =
+        const_cast<std::vector<FipVdnsEntry>&>(resp->get_rlist());
+    DnsProto::DnsFipSet::const_iterator it = fip_list.begin();
+    while (it != fip_list.end()) {
+        FipVdnsEntry entry;
+        const DnsProto::DnsFipEntry *fip = (*it).get();
+        Ip4Address ip4(fip->floating_ip_);
+        entry.set_vn(fip->vn_->GetName());
+        entry.set_ip(ip4.to_string());
+        entry.set_vm_interface(fip->interface_->name());
+        entry.set_vdns_name(fip->vdns_name_);
+        list.push_back(entry);
+        ++it;
+    }
+
     resp->Response();
 }
 

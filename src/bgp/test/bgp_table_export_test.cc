@@ -79,7 +79,7 @@ public:
     }
     virtual uint32_t bgp_identifier() const { return 0; }
     virtual const std::string GetStateName() const { return ""; }
-    virtual void UpdateRefCount(int count) { }
+    virtual void UpdateRefCount(int count) const { }
     virtual tbb::atomic<int> GetRefCount() const {
         tbb::atomic<int> count;
         count = 0;
@@ -98,7 +98,7 @@ public:
     virtual KeyPtr GetDBRequestKey() const { return KeyPtr(NULL); }
     virtual bool IsLess(const DBEntry &rhs) const { return true; }
     virtual void BuildProtoPrefix(BgpProtoPrefix *prefix,
-                                  uint32_t label) const { }
+        const BgpAttr *attr = NULL, uint32_t label = 0) const { }
     virtual void BuildBgpProtoNextHop(std::vector<uint8_t> &nh,
                                       IpAddress nexthop) const { }
     virtual u_int16_t Afi() const { return 0; }

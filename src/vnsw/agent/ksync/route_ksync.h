@@ -14,6 +14,7 @@
 #include <base/lifetime.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
+#include <ksync/ksync_netlink.h>
 #include "oper/nexthop.h"
 #include "oper/route_common.h"
 #include "ksync/agent_ksync_types.h"
@@ -61,7 +62,7 @@ private:
     uint32_t vrf_id_;
     IpAddress addr_;
     IpAddress src_addr_;
-    struct ether_addr mac_;
+    MacAddress mac_;
     uint32_t prefix_len_;
     KSyncEntryPtr nh_;
     uint32_t label_;
@@ -69,6 +70,7 @@ private:
     bool proxy_arp_;
     string address_string_;
     TunnelType::Type tunnel_type_;
+    bool wait_for_traffic_;
     DISALLOW_COPY_AND_ASSIGN(RouteKSyncEntry);
 };
 

@@ -3,6 +3,7 @@
  */
 
 #include "xmpp/xmpp_connection.h"
+
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <sstream>
 
@@ -32,23 +33,22 @@ using boost::system::error_code;
 
 XmppConnection::XmppConnection(TcpServer *server, 
                                const XmppChannelConfig *config)
-    : is_deleted_(false),
-      server_(server),
+    : server_(server),
       endpoint_(config->endpoint),
       local_endpoint_(config->local_endpoint),
       config_(NULL),
       session_(NULL),
-      state_machine_(new XmppStateMachine(this, config->ClientOnly())),
       keepalive_timer_(TimerManager::CreateTimer(
                            *server->event_manager()->io_service(),
                            "Xmpp keepalive timer")),
       log_uve_(config->logUVE),
       admin_down_(false), 
+      disable_read_(false),
       from_(config->FromAddr),
       to_(config->ToAddr),
-      mux_(XmppObjectFactory::Create<XmppChannelMux>(this)),
-      keepalive_time_(GetDefaultkeepAliveTime()),
-      disable_read_(false), flap_count_(0), last_flap_(0), close_reason_("") {
+      state_machine_(XmppObjectFactory::Create<XmppStateMachine>(
+          this, config->ClientOnly())),
+      mux_(XmppObjectFactory::Create<XmppChannelMux>(this)) {
 }
 
 XmppConnection::~XmppConnection() {
@@ -82,17 +82,15 @@ void XmppConnection::WriteReady(const boost::system::error_code &ec) {
 }
 
 void XmppConnection::Shutdown() {
-    is_deleted_ = true;
-    deleter()->Delete();
+    ManagedDelete();
 }
 
-bool XmppConnection::ShutdownPending() const {
-    return is_deleted_;
+bool XmppConnection::IsDeleted() const {
+    return deleter()->IsDeleted();
 }
 
 bool XmppConnection::MayDelete() const {
-    size_t count = mux_->ReceiverCount();
-    return (count == 0);
+    return (mux_->ReceiverCount() == 0);
 }
 
 XmppSession *XmppConnection::CreateSession() {
@@ -135,15 +133,6 @@ void XmppConnection::SetFrom(const string &from) {
         from_ = from;
         state_machine_->Initialize();
     }
-}
-
-void XmppConnection::set_close_reason(const string &reason) {
-    close_reason_ = reason;
-    if (!logUVE()) return;
-    XmppPeerInfoData peer_info;
-    peer_info.set_name(ToUVEKey());
-    peer_info.set_close_reason(close_reason_);
-    XMPPPeerInfo::Send(peer_info);
 }
 
 void XmppConnection::SetTo(const string &to) {
@@ -252,25 +241,6 @@ void XmppConnection::SendKeepAlive() {
     LogKeepAliveSend();
 }
 
-//
-// Get the default keepalive time in seconds
-//
-const int XmppConnection::GetDefaultkeepAliveTime() {
-    static bool init_ = false;
-    static int time_ = keepAliveTime;
-
-    if (!init_) {
-
-        // XXX For testing only - Configure through environment variable
-        char *time_str = getenv("XMPP_KEEPALIVE_SECONDS");
-        if (time_str) {
-            time_ = strtoul(time_str, NULL, 0);
-        }
-        init_ = true;
-    }
-    return time_;
-}
-
 bool XmppConnection::KeepAliveTimerExpired() {
 
     // TODO: check timestamp of last received packet.
@@ -288,13 +258,15 @@ void XmppConnection::KeepaliveTimerErrorHanlder(string error_name,
 }
 
 void XmppConnection::StartKeepAliveTimer() {
-    // TODO use negotiated holdtime.
     tbb::spin_mutex::scoped_lock lock(spin_mutex_);
-    if (!session_) return;
+    if (!session_)
+        return;
 
-    if (!keepalive_time_) return;
+    int holdtime_msecs = state_machine_->hold_time_msecs();
+    if (holdtime_msecs <= 0)
+        return;
 
-    keepalive_timer_->Start(keepalive_time_ * 1000,
+    keepalive_timer_->Start(holdtime_msecs / 3,
         boost::bind(&XmppConnection::KeepAliveTimerExpired, this),
         boost::bind(&XmppConnection::KeepaliveTimerErrorHanlder, this, _1, _2));
 }
@@ -306,29 +278,6 @@ void XmppConnection::StopKeepAliveTimer() {
 
 XmppStateMachine *XmppConnection::state_machine() {
     return state_machine_.get();
-}
-
-void XmppConnection::increment_flap_count() {
-    flap_count_++;
-    last_flap_ = UTCTimestampUsec();
-
-    if (!logUVE()) return;
-
-    XmppPeerInfoData peer_info;
-    peer_info.set_name(ToUVEKey());
-    PeerFlapInfo flap_info;
-    flap_info.set_flap_count(flap_count_);
-    flap_info.set_flap_time(last_flap_);
-    peer_info.set_flap_info(flap_info);
-    XMPPPeerInfo::Send(peer_info);
-}
-
-const std::string XmppConnection::last_flap_at() const {
-    if (last_flap_) {
-        return integerToString(UTCUsecToPTime(last_flap_));
-    } else {
-        return "";
-    }
 }
 
 const XmppStateMachine *XmppConnection::state_machine() const {
@@ -352,6 +301,14 @@ void XmppConnection::IncProtoStats(unsigned int type) {
     }
 }
 
+void XmppConnection::inc_connect_error() {
+    error_stats_.connect_error++;
+}
+
+size_t XmppConnection::get_connect_error() {
+    return error_stats_.connect_error;
+}
+
 void XmppConnection::ReceiveMsg(XmppSession *session, const string &msg) {
     XmppStanza::XmppMessage *minfo = XmppDecode(msg);
 
@@ -361,12 +318,12 @@ void XmppConnection::ReceiveMsg(XmppSession *session, const string &msg) {
             XMPP_MESSAGE_TRACE(XmppRxStream, 
                   session->remote_endpoint().address().to_string(),
                   session->remote_endpoint().port(), msg.size(), msg);
-        }   
+        }
         IncProtoStats((unsigned int)minfo->type);
         state_machine_->OnMessage(session, minfo);
     } else {
         session->IncStats(XmppStanza::INVALID, msg.size());
-        XMPP_MESSAGE_TRACE(XmppRxStream, 
+        XMPP_MESSAGE_TRACE(XmppRxStreamInvalid,
              session->remote_endpoint().address().to_string(),
              session->remote_endpoint().port(), msg.size(), msg);
     }
@@ -439,15 +396,35 @@ public:
         : LifetimeActor(server->lifetime_manager()),
           server_(server), parent_(parent) {
     }
-    virtual bool MayDelete() const {
-        return (server_->ConnectionEventCount() == 0 || parent_->MayDelete());
-    }
-    virtual void Shutdown() {
 
-        // TODO: Separate xmps::NOT_READY and xmps:TERMINATE (for GR).
+    virtual bool MayDelete() const {
+        return (!parent_->on_work_queue() && parent_->MayDelete());
+    }
+
+    virtual void Shutdown() {
+        CHECK_CONCURRENCY("bgp::Config");
+
+        // If the connection is still on the WorkQueue, simply add it to the
+        // ConnectionSet.  It won't be on the ConnectionMap.
+        if (parent_->on_work_queue()) {
+            server_->InsertDeletedConnection(parent_);
+        }
+
+        // If the connection was rejected as duplicate, it will already be in
+        // the ConnectionSet. Non-duplicate connections need to be moved from
+        // from the ConnectionMap into the ConnectionSet.  We add it to the
+        // ConnectionSet and then remove it from ConnectionMap to ensure that
+        // the XmppServer connection count doesn't temporarily become 0. This
+        // is friendly to tests that wait for the XmppServer connection count
+        // to become 0.
+        else if (!parent_->duplicate()) {
+            server_->InsertDeletedConnection(parent_);
+            server_->RemoveConnection(parent_);
+        }
+
         if (parent_->session() || server_->IsPeerCloseGraceful()) {
             server_->NotifyConnectionEvent(parent_->ChannelMux(),
-                                           xmps::NOT_READY);
+                xmps::NOT_READY);
         }
 
         if (parent_->logUVE()) {
@@ -457,19 +434,18 @@ public:
             XMPPPeerInfo::Send(peer_info);
         }
 
-        XmppSession *session = NULL; // = parent_->session();
+        XmppSession *session = NULL;
         if (parent_->state_machine()) {
             session = parent_->state_machine()->session();
             parent_->state_machine()->clear_session();
         }
-
         if (session) {
             server_->DeleteSession(session);
         }
-        parent_->is_deleted_ = true;
     }
+
     virtual void Destroy() {
-        parent_->Destroy();
+        delete parent_;
     }
 
 private:
@@ -477,24 +453,36 @@ private:
     XmppServerConnection *parent_;
 };
 
-XmppServerConnection::XmppServerConnection(
-        XmppServer *server, const XmppChannelConfig *config)
+XmppServerConnection::XmppServerConnection(XmppServer *server,
+    const XmppChannelConfig *config)
     : XmppConnection(server, config), 
-    deleter_(new DeleteActor(server, this)),
-    server_delete_ref_(this, server->deleter()) {
+      duplicate_(false),
+      on_work_queue_(false),
+      deleter_(new DeleteActor(server, this)),
+      server_delete_ref_(this, server->deleter()) {
     assert(!config->ClientOnly());
     XMPP_INFO(XmppConnectionCreate, "Server", FromString(), ToString());
+    conn_endpoint_ =
+        server->LocateConnectionEndpoint(endpoint().address().to_v4());
 }
 
 XmppServerConnection::~XmppServerConnection() {
+    CHECK_CONCURRENCY("bgp::Config");
+
     XMPP_INFO(XmppConnectionDelete, "Server", FromString(), ToString());
+    server()->RemoveDeletedConnection(this);
 }
 
 void XmppServerConnection::ManagedDelete() {
     XMPP_UTDEBUG(XmppConnectionDelete, "Managed server connection delete", 
                  FromString(), ToString());
-    (static_cast<XmppServer *>(server()))->
-        lifetime_manager()->Enqueue(deleter_.get());
+    deleter_->Delete();
+}
+
+void XmppServerConnection::RetryDelete() {
+    if (!deleter()->IsDeleted())
+        return;
+    deleter()->RetryDelete();
 }
 
 bool XmppServerConnection::IsClient() const {
@@ -502,16 +490,54 @@ bool XmppServerConnection::IsClient() const {
 }
 
 LifetimeManager *XmppServerConnection::lifetime_manager() {
-    return static_cast<XmppServer *>(server())->lifetime_manager();
+    return server()->lifetime_manager();
 }
 
-void XmppServerConnection::Destroy() {
-    CHECK_CONCURRENCY("bgp::Config");
-    (static_cast<XmppServer *>(server()))->RemoveConnection(this);
-};
+XmppServer *XmppServerConnection::server() {
+    return static_cast<XmppServer *>(server_);
+}
 
 LifetimeActor *XmppServerConnection::deleter() {
     return deleter_.get();
+}
+
+const LifetimeActor *XmppServerConnection::deleter() const {
+    return deleter_.get();
+}
+
+void XmppServerConnection::set_close_reason(const string &close_reason) {
+    conn_endpoint_->set_close_reason(close_reason);
+
+    if (!logUVE())
+        return;
+
+    XmppPeerInfoData peer_info;
+    peer_info.set_name(ToUVEKey());
+    peer_info.set_close_reason(close_reason);
+    XMPPPeerInfo::Send(peer_info);
+}
+
+uint32_t XmppServerConnection::flap_count() const {
+    return conn_endpoint_->flap_count();
+}
+
+void XmppServerConnection::increment_flap_count() {
+    conn_endpoint_->increment_flap_count();
+
+    if (!logUVE())
+        return;
+
+    XmppPeerInfoData peer_info;
+    peer_info.set_name(ToUVEKey());
+    PeerFlapInfo flap_info;
+    flap_info.set_flap_count(conn_endpoint_->flap_count());
+    flap_info.set_flap_time(conn_endpoint_->last_flap());
+    peer_info.set_flap_info(flap_info);
+    XMPPPeerInfo::Send(peer_info);
+}
+
+const std::string XmppServerConnection::last_flap_at() const {
+    return conn_endpoint_->last_flap_at();
 }
 
 class XmppClientConnection::DeleteActor : public LifetimeActor {
@@ -520,28 +546,29 @@ public:
         : LifetimeActor(client->lifetime_manager()),
           client_(client), parent_(parent) {
     }
+
     virtual bool MayDelete() const {
-        return (client_->ConnectionEventCount() == 0 || parent_->MayDelete());
+        return parent_->MayDelete();
     }
+
     virtual void Shutdown() {
         if (parent_->session()) {
-            (static_cast<XmppClient *>(client_))->
-                NotifyConnectionEvent(parent_->ChannelMux(), xmps::NOT_READY);
+            client_->NotifyConnectionEvent(parent_->ChannelMux(),
+                xmps::NOT_READY);
         }
 
-        XmppSession *session = NULL; // = parent_->session();
+        XmppSession *session = NULL;
         if (parent_->state_machine()) {
             session = parent_->state_machine()->session();
             parent_->state_machine()->clear_session();
         }
-
         if (session) {
             client_->DeleteSession(session);
         }
-        parent_->is_deleted_ = true;
     }
+
     virtual void Destroy() {
-        parent_->Destroy();
+        delete parent_;
     }
 
 private:
@@ -549,23 +576,33 @@ private:
     XmppClientConnection *parent_;
 };
 
-XmppClientConnection::XmppClientConnection(
-        TcpServer *server, const XmppChannelConfig *config)
+XmppClientConnection::XmppClientConnection(XmppClient *server,
+    const XmppChannelConfig *config)
     : XmppConnection(server, config), 
-    deleter_(new DeleteActor(static_cast<XmppClient *>(server), this)),
-    server_delete_ref_(this, static_cast<XmppClient *>(server)->deleter()) {
+      flap_count_(0),
+      deleter_(new DeleteActor(server, this)),
+      server_delete_ref_(this, server->deleter()) {
     assert(config->ClientOnly());
     XMPP_UTDEBUG(XmppConnectionCreate, "Client", FromString(), ToString());
 }
 
 XmppClientConnection::~XmppClientConnection() {
+    CHECK_CONCURRENCY("bgp::Config");
+
+    XMPP_INFO(XmppConnectionDelete, "Client", FromString(), ToString());
+    server()->RemoveConnection(this);
 }
 
 void XmppClientConnection::ManagedDelete() {
     XMPP_UTDEBUG(XmppConnectionDelete, "Managed Client Delete", 
                  FromString(), ToString());
-    (static_cast<XmppClient *>(server()))->
-        lifetime_manager()->Enqueue(deleter_.get());
+    deleter_->Delete();
+}
+
+void XmppClientConnection::RetryDelete() {
+    if (!deleter()->IsDeleted())
+        return;
+    deleter()->RetryDelete();
 }
 
 bool XmppClientConnection::IsClient() const {
@@ -573,14 +610,77 @@ bool XmppClientConnection::IsClient() const {
 }
 
 LifetimeManager *XmppClientConnection::lifetime_manager() {
-    return static_cast<XmppClient *>(server())->lifetime_manager();
+    return server()->lifetime_manager();
+}
+
+XmppClient *XmppClientConnection::server() {
+    return static_cast<XmppClient *>(server_);
 }
 
 LifetimeActor *XmppClientConnection::deleter() {
     return deleter_.get();
 }
 
-void XmppClientConnection::Destroy() {
-    CHECK_CONCURRENCY("bgp::Config");
-    (static_cast<XmppClient *>(server()))->RemoveConnection(this);
-};
+const LifetimeActor *XmppClientConnection::deleter() const {
+    return deleter_.get();
+}
+
+void XmppClientConnection::set_close_reason(const string &close_reason) {
+    close_reason_ = close_reason;
+    if (!logUVE())
+        return;
+
+    XmppPeerInfoData peer_info;
+    peer_info.set_name(ToUVEKey());
+    peer_info.set_close_reason(close_reason_);
+    XMPPPeerInfo::Send(peer_info);
+}
+
+uint32_t XmppClientConnection::flap_count() const {
+    return flap_count_;
+}
+
+void XmppClientConnection::increment_flap_count() {
+    flap_count_++;
+    last_flap_ = UTCTimestampUsec();
+
+    if (!logUVE())
+        return;
+
+    XmppPeerInfoData peer_info;
+    peer_info.set_name(ToUVEKey());
+    PeerFlapInfo flap_info;
+    flap_info.set_flap_count(flap_count_);
+    flap_info.set_flap_time(last_flap_);
+    peer_info.set_flap_info(flap_info);
+    XMPPPeerInfo::Send(peer_info);
+}
+
+const std::string XmppClientConnection::last_flap_at() const {
+    return last_flap_ ? integerToString(UTCUsecToPTime(last_flap_)) : "";
+}
+
+XmppConnectionEndpoint::XmppConnectionEndpoint(Ip4Address address)
+    : address_(address), flap_count_(0), last_flap_(0) {
+}
+
+void XmppConnectionEndpoint::set_close_reason(const string &close_reason) {
+    close_reason_ = close_reason;
+}
+
+uint32_t XmppConnectionEndpoint::flap_count() const {
+    return flap_count_;
+}
+
+void XmppConnectionEndpoint::increment_flap_count() {
+    flap_count_++;
+    last_flap_ = UTCTimestampUsec();
+}
+
+uint64_t XmppConnectionEndpoint::last_flap() const {
+    return last_flap_;
+}
+
+const std::string XmppConnectionEndpoint::last_flap_at() const {
+    return last_flap_ ? integerToString(UTCUsecToPTime(last_flap_)) : "";
+}

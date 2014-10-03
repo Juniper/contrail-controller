@@ -12,6 +12,7 @@
 #include <ksync/ksync_index.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
+#include <ksync/ksync_netlink.h>
 #include <ksync/ksync_sock.h>
 
 #include "oper/interface_common.h"
@@ -94,7 +95,7 @@ int VxLanIdKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     encoder.set_h_op(op);
     encoder.set_vxlanr_rid(0);
     encoder.set_vxlanr_vnid(label_);
-    encoder.set_vxlanr_nhid(nexthop->GetIndex());
+    encoder.set_vxlanr_nhid(nexthop->nh_id());
     encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
     return encode_len;
 }
@@ -102,7 +103,7 @@ int VxLanIdKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 void VxLanIdKSyncEntry::FillObjectLog(sandesh_op::type op, 
                                       KSyncVxLanInfo &info) const {
     info.set_label(label_);
-    info.set_nh(nh()->GetIndex());
+    info.set_nh(nh()->nh_id());
 
     if (op == sandesh_op::ADD) {
         info.set_operation("ADD/CHANGE");
@@ -151,7 +152,7 @@ VxLanKSyncObject::~VxLanKSyncObject() {
 }
 
 void VxLanKSyncObject::RegisterDBClients() {
-    RegisterDb(ksync_->agent()->GetVxLanTable());
+    RegisterDb(ksync_->agent()->vxlan_table());
 }
 
 KSyncEntry *VxLanKSyncObject::Alloc(const KSyncEntry *entry, uint32_t index) {

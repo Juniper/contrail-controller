@@ -49,7 +49,6 @@ public:
 
     virtual const XmppConnection *connection() const { return connection_; }
     virtual XmppConnection *connection() { return connection_; }
-    virtual void XmppChannelCleanup();
 
 protected:
     friend class XmppChannelMuxMock;

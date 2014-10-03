@@ -71,12 +71,12 @@ TEST_F(AgentBasicScaleTest, local_and_remote) {
 
     int total_interface = num_vns * num_vms_per_vn;
     //int num_remote = num_remote;
-    int total_v4_routes = Agent::GetInstance()->GetVrfTable()->
+    int total_v4_routes = Agent::GetInstance()->vrf_table()->
         GetInet4UnicastRouteTable("vrf1")->Size();
 
     mock_peer[0].get()->AddRemoteV4Routes(num_remote, "vrf1", "vn1", 
                                           "172.0.0.0");
-    WAIT_FOR(10000, 10000, (Agent::GetInstance()->GetVrfTable()->
+    WAIT_FOR(10000, 10000, (Agent::GetInstance()->vrf_table()->
                             GetInet4UnicastRouteTable("vrf1")->Size() == 
                             (total_v4_routes + num_remote)));
 
@@ -98,7 +98,7 @@ TEST_F(AgentBasicScaleTest, local_and_remote) {
 
     mock_peer[0].get()->DeleteRemoteV4Routes(num_remote, "vrf1", 
                                              "172.0.0.0");
-    WAIT_FOR(10000, 10000, (Agent::GetInstance()->GetVrfTable()->
+    WAIT_FOR(10000, 10000, (Agent::GetInstance()->vrf_table()->
                             GetInet4UnicastRouteTable("vrf1")->Size() == 
                             total_v4_routes));
 
@@ -130,7 +130,8 @@ int main(int argc, char **argv) {
     InitXmppServers();
 
     int ret = RUN_ALL_TESTS();
-    Agent::GetInstance()->GetEventManager()->Shutdown();
+    Agent::GetInstance()->event_manager()->Shutdown();
     AsioStop();
+    TaskScheduler::GetInstance()->Terminate();
     return ret;
 }

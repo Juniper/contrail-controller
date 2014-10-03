@@ -26,13 +26,14 @@ static void TxIpPacket(int ifindex, const char *sip, const char *dip,
 			  int proto, int hash_id) {
     PktGen *pkt = new PktGen();
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_id);
+    pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS, hash_id);
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddIpHdr(sip, dip, proto);
     
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
     delete pkt;
 }
 
@@ -75,7 +76,7 @@ void ProcessExceptionPackets() {
 	 TxIpPacket(intf->id(), ep->sip.c_str(), ep->dip.c_str(), 
 	            strtoul((ep->proto).c_str(), NULL, 0), hash_id);
          client->WaitForIdle();
-         AclTable *table = Agent::GetInstance()->GetAclTable();
+         AclTable *table = Agent::GetInstance()->acl_table();
          KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
          KSyncSockTypeMap::ksync_map_flow::iterator ksit;
          EXPECT_TRUE((ksit = sock->flow_map.find(hash_id)) != sock->flow_map.end());
@@ -127,7 +128,7 @@ void CreateNodeNetworks() {
 void LoadAcl() {
     pugi::xml_document xdoc;
     xdoc.load_file("data.xml");
-    Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(xdoc.first_child(), 0);
+    Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc.first_child(), 0);
 }
   
 TEST_F(AclFlowTest, Setup) {
@@ -147,7 +148,6 @@ TEST_F(AclFlowTest, Setup) {
 } //namespace
 
 int main (int argc, char **argv) {
-    int ret;
     setup_file[0] = '\0';
     config_file[0] = '\0';
     opt::options_description desc("Command line options");
@@ -177,11 +177,12 @@ int main (int argc, char **argv) {
     LOG(DEBUG, "Config File:" << config_file);
 
     client = TestInit(config_file, false, true, false, true);
-	Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1"));
+	Agent::GetInstance()->set_router_id(Ip4Address::from_string("10.1.1.1"));
 
     ::testing::InitGoogleTest(&argc, argv);
-    usleep(1000);
-    ret = RUN_ALL_TESTS();
-    usleep(100000);
+    int ret = RUN_ALL_TESTS();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
     return ret;
 }

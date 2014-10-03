@@ -5,7 +5,6 @@
 #ifndef __IFMAP_STATE_MACHINE_H__
 #define __IFMAP_STATE_MACHINE_H__
 
-#include <boost/asio/monotonic_deadline_timer.hpp>
 #include <boost/statechart/state_machine.hpp>
 
 #include "base/queue_task.h"
@@ -14,6 +13,7 @@ namespace sc = boost::statechart;
 
 class IFMapChannel;
 class IFMapManager;
+class TimerImpl;
 
 namespace ifsm {
 struct EvStart;
@@ -55,7 +55,8 @@ public:
 
     void StopConnectTimer();
 
-    void ConnectTimerExpired(const boost::system::error_code& error);
+    void ConnectTimerExpired(const boost::system::error_code& error,
+                             int milliseconds);
 
     void StartResponseTimer();
 
@@ -126,12 +127,17 @@ public:
     void set_last_event(const std::string &event);
     const std::string &last_event() const { return last_event_; }
     const std::string last_event_at() const;
-    void set_connect_wait_interval_ms(int ms) {
-        connect_wait_interval_ms_ = ms;
+    void set_max_connect_wait_interval_ms(int ms) {
+        max_connect_wait_interval_ms_ = ms;
     }
-    void set_response_wait_interval_ms(int ms) {
-        response_wait_interval_ms_ = ms;
+    void set_max_response_wait_interval_ms(int ms) {
+        max_response_wait_interval_ms_ = ms;
     }
+    size_t WorkQueueEnqueues() const { return work_queue_.NumEnqueues(); }
+    size_t WorkQueueDequeues() const { return work_queue_.NumDequeues(); }
+    size_t WorkQueueLength() const { return work_queue_.Length(); }
+    bool log_all_transitions() { return log_all_transitions_; }
+    void set_log_all_transitions(bool value) { log_all_transitions_ = value; }
 
 private:
     void EnqueueEvent(const sc::event_base &ev);
@@ -140,13 +146,14 @@ private:
     void response_timer_expired_count_clear() {
         response_timer_expired_count_ = 0;
     }
+    void LogSmTransition();
 
     IFMapManager *manager_;
-    boost::asio::monotonic_deadline_timer connect_timer_;
+    std::auto_ptr<TimerImpl> connect_timer_;
     int ssrc_connect_attempts_;
     int arc_connect_attempts_;
     // used to limit the wait time for a response
-    boost::asio::monotonic_deadline_timer response_timer_;
+    std::auto_ptr<TimerImpl> response_timer_;
     // how many times we timed out waiting for a response
     int response_timer_expired_count_;
     WorkQueue<boost::intrusive_ptr<const sc::event_base> > work_queue_;
@@ -157,8 +164,9 @@ private:
     uint64_t last_state_change_at_;
     std::string last_event_;
     uint64_t last_event_at_;
-    int connect_wait_interval_ms_;
-    int response_wait_interval_ms_;
+    int max_connect_wait_interval_ms_;
+    int max_response_wait_interval_ms_;
+    bool log_all_transitions_;
 };
 
 #endif /* __IFMAP_STATE_MACHINE_H__ */

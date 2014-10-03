@@ -5,13 +5,12 @@
 #ifndef vnsw_agent_interface_common_hpp
 #define vnsw_agent_interface_common_hpp
 
+#include <vector>
 #include <net/ethernet.h>
 #include <cmn/agent_cmn.h>
-#include <oper/vrf.h>
-#include <oper/vm.h>
-#include <oper/vn.h>
-#include <oper/sg.h>
-#include <oper/agent_types.h>
+#include <cmn/agent.h>
+#include <agent_types.h>
+#include <vnc_cfg_types.h>
 
 // This is a wrapper header file. Real definitions are here
 #include <oper/interface.h>

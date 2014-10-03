@@ -23,7 +23,7 @@ MplsLabel::~MplsLabel() {
     }
     if ((type_ != MplsLabel::MCAST_NH) &&
         free_label_) {
-        Agent::GetInstance()->GetMplsTable()->FreeLabel(label_);
+        Agent::GetInstance()->mpls_table()->FreeLabel(label_);
     }
 }
 
@@ -70,10 +70,18 @@ bool MplsTable::ChangeHandler(MplsLabel *mpls, const DBRequest *req) {
     bool ret = false;
     MplsLabelData *data = static_cast<MplsLabelData *>(req->data.get());
     NextHop *nh = static_cast<NextHop *>
-        (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(data->nh_key));
+        (Agent::GetInstance()->nexthop_table()->FindActiveEntry(data->nh_key));
+    if (!nh) {
+        //NextHop not found, point mpls label to discard
+        DiscardNH key;
+        nh = static_cast<NextHop *>
+            (agent()->nexthop_table()->FindActiveEntry(&key));
+    }
 
     if (mpls->nh_ != nh) {
         mpls->nh_ = nh;
+        assert(nh);
+        mpls->SyncDependentPath();
         ret = true;
     }
 
@@ -151,39 +159,41 @@ void MplsLabel::CreateVPortLabel(uint32_t label, const uuid &intf_uuid,
     return;
 }
 
-void MplsLabel::CreateMcastLabelReq(const string &vrf_name, const Ip4Address &grp_addr,
-                                    const Ip4Address &src_addr, uint32_t src_label,
-                                    COMPOSITETYPE comp_type) {
+void MplsLabel::CreateMcastLabelReq(uint32_t label, COMPOSITETYPE type,
+                                    ComponentNHKeyList &component_nh_key_list,
+                                    const std::string vrf_name) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
-    MplsLabelKey *key = new MplsLabelKey(MplsLabel::MCAST_NH, src_label);
+    MplsLabelKey *key = new MplsLabelKey(MplsLabel::MCAST_NH, label);
     req.key.reset(key);
 
-    MplsLabelData *data = new MplsLabelData(vrf_name, grp_addr, src_addr, false, comp_type);
+    MplsLabelData *data = new MplsLabelData(type, false, component_nh_key_list,
+                                            vrf_name);
     req.data.reset(data);
 
     MplsTable::GetInstance()->Enqueue(&req);
     return;
 }
 
-void MplsLabel::CreateEcmpLabel(uint32_t label, const string &vrf_name,
-                                const Ip4Address &addr, uint8_t plen) {
+void MplsLabel::CreateEcmpLabel(uint32_t label, COMPOSITETYPE type,
+                                ComponentNHKeyList &component_nh_key_list,
+                                const std::string vrf_name) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
     MplsLabelKey *key = new MplsLabelKey(MplsLabel::VPORT_NH, label);
     req.key.reset(key);
 
-    MplsLabelData *data = new MplsLabelData(vrf_name, addr, plen, true);
+    MplsLabelData *data = new MplsLabelData(type, true, component_nh_key_list,
+                                            vrf_name);
     req.data.reset(data);
 
     MplsTable::GetInstance()->Process(req);
     return;
 }
                                    
-void MplsLabel::DeleteMcastLabelReq(const string &vrf_name, const Ip4Address &grp_addr,
-                                    const Ip4Address &src_addr, uint32_t src_label) {
+void MplsLabel::DeleteMcastLabelReq(uint32_t src_label) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
@@ -328,6 +338,15 @@ void MplsLabel::SendObjectLog(AgentLogEvent::type event) const {
         info.set_intf_name(intf->name());
     }
     OPER_TRACE(Mpls, info);
+}
+
+void MplsLabel::SyncDependentPath() {
+    for (DependentPathList::iterator iter =
+         mpls_label_.begin(); iter != mpls_label_.end(); iter++) {
+        AgentRoute *rt = iter.operator->();
+        LOG(DEBUG, "Syncing route" << rt->ToString());
+        rt->EnqueueRouteResync();
+    }
 }
 
 void MplsReq::HandleRequest() const {

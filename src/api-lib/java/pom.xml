@@ -4,7 +4,7 @@
   <groupId>net.juniper.contrail</groupId>
   <artifactId>juniper-contrail-api</artifactId>
   <packaging>jar</packaging>
-  <version>1.0-SNAPSHOT</version>
+  <version>1.0</version>
   <name>juniper-contrail-api</name>
   <url>http://maven.apache.org</url>
   <distributionManagement>
@@ -129,8 +129,8 @@
         <configuration>
           <argLine>-Xmx1024m</argLine>
           <excludes>
-	    <exclude>**/ContrailApiTest.java</exclude>
-	    <!--<exclude>**/ContrailApiMockTest.java</exclude>-->
+	    <!--exclude>**/ContrailApiTest.java</exclude>-->
+	    <!--exclude>**/ContrailApiMockTest.java</exclude>-->
 	  </excludes>
         </configuration>
       </plugin>

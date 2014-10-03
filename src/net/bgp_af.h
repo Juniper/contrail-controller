@@ -19,12 +19,12 @@ public:
     };
     enum Safi {
         Unicast = 1,
-        McastVpn = 5,
         EVpn = 70,
         Vpn = 128,
         RTarget = 132,
         Mcast = 241,
         Enet = 242,
+        ErmVpn = 243,
     };
 
     static std::string ToString(uint16_t afi, uint8_t safi);

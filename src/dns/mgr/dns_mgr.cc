@@ -13,9 +13,12 @@
 uint16_t DnsManager::g_trans_id_;
 
 DnsManager::DnsManager() 
-    : bind_status_(boost::bind(&DnsManager::BindEventHandler, this, _1)) {
-    std::vector<std::string> bind_servers;
-    bind_servers.push_back("127.0.0.1");
+    : bind_status_(boost::bind(&DnsManager::BindEventHandler, this, _1)),
+      pending_done_queue_(TaskScheduler::GetInstance()->GetTaskId("dns::Config"), 0,
+                          boost::bind(&DnsManager::PendingDone, this, _1)) {
+    std::vector<BindResolver::DnsServer> bind_servers;
+    bind_servers.push_back(BindResolver::DnsServer("127.0.0.1",
+                                                   Dns::GetDnsPort()));
     BindResolver::Init(*Dns::GetEventManager()->io_service(), bind_servers,
                        boost::bind(&DnsManager::HandleUpdateResponse, 
                                    this, _1));
@@ -36,6 +39,11 @@ DnsManager::DnsManager()
                                                 _1, _2);
     DnsConfig::VdnsZoneCallback = boost::bind(&DnsManager::DnsPtrZone, this,
                                               _1, _2, _3);
+    pending_timer_ =
+        TimerManager::CreateTimer(*Dns::GetEventManager()->io_service(),
+              "DnsRetransmitTimer",
+              TaskScheduler::GetInstance()->GetTaskId("dns::Config"), 0);
+    StartPendingTimer();
 }
 
 void DnsManager::Initialize(DB *config_db, DBGraph *config_graph) {
@@ -44,7 +52,11 @@ void DnsManager::Initialize(DB *config_db, DBGraph *config_graph) {
     config_mgr_.Initialize(config_db, config_graph);
 }
 
-DnsManager::~DnsManager() {}
+DnsManager::~DnsManager() {
+    pending_timer_->Cancel();
+    TimerManager::DeleteTimer(pending_timer_);
+    pending_done_queue_.Shutdown();
+}
 
 void DnsManager::Shutdown() {
     config_mgr_.Terminate();
@@ -152,6 +164,7 @@ void DnsManager::DnsView(const DnsConfig *cfg, DnsConfig::DnsConfigEvent ev) {
         }
     } else {
         ncfg->DelView(config);
+        PendingListViewDelete(config);
     }
 }
 
@@ -171,6 +184,7 @@ void DnsManager::DnsPtrZone(const Subnet &subnet, const VirtualDnsConfig *vdns,
     NamedConfig *ncfg = NamedConfig::GetNamedConfigObject();
     if (ev == DnsConfig::CFG_DELETE) {
         ncfg->DelZone(subnet, vdns);
+        PendingListZoneDelete(subnet, vdns);
     } else {
         ncfg->AddZone(subnet, vdns);
     }
@@ -264,7 +278,8 @@ bool DnsManager::SendRecordUpdate(BindUtil::Operation op,
     }
     DnsItems items;
     items.push_back(item);
-    SendUpdate(op, config->GetViewName(), zone, items);
+    std::string view_name = config->GetViewName();
+    SendUpdate(op, view_name, zone, items);
     return true;
 }
 
@@ -273,10 +288,24 @@ void DnsManager::SendUpdate(BindUtil::Operation op, const std::string &view,
     uint8_t *pkt = new uint8_t[BindResolver::max_pkt_size];
     uint16_t xid = GetTransId();
     int len = BindUtil::BuildDnsUpdate(pkt, op, xid, view, zone, items);
-    if (BindResolver::Resolver()->DnsSend(pkt, 0, len))
+    if (BindResolver::Resolver()->DnsSend(pkt, 0, len)) {
         DNS_BIND_TRACE(DnsBindTrace, "DNS Update sent for DNS record; xid = " <<
                    xid << "; View = " << view << "; Zone = " << zone << "; " << 
                    DnsItemsToString(items));
+        AddPendingList(xid, view, zone, items, op);
+    }
+}
+
+void DnsManager::SendRetransmit(uint16_t xid, BindUtil::Operation op,
+                                const std::string &view,
+                                const std::string &zone, DnsItems &items) {
+    uint8_t *pkt = new uint8_t[BindResolver::max_pkt_size];
+    int len = BindUtil::BuildDnsUpdate(pkt, op, xid, view, zone, items);
+    if (BindResolver::Resolver()->DnsSend(pkt, 0, len)) {
+        DNS_BIND_TRACE(DnsBindTrace, "DNS retransmit sent for DNS record; xid = " <<
+                   xid << "; View = " << view << "; Zone = " << zone << "; " <<
+                   DnsItemsToString(items));
+    }
 }
 
 void DnsManager::UpdateAll() {
@@ -312,16 +341,134 @@ void DnsManager::UpdateAll() {
 void DnsManager::HandleUpdateResponse(uint8_t *pkt) {
     dns_flags flags;
     uint16_t xid;
-    std::vector<DnsItem> ques, ans, auth, add;
+    DnsItems ques, ans, auth, add;
     BindUtil::ParseDnsQuery(pkt, xid, flags, ques, ans, auth, add);
     if (flags.ret) {
-        DNS_BIND_TRACE(DnsBindError, "Update failed : " << 
+        DNS_BIND_TRACE(DnsBindError, "Update failed : " <<
                        BindUtil::DnsResponseCode(flags.ret) << 
                        "; xid = " << xid << ";");
+        // ResendRecord(xid);
     } else {
         DNS_BIND_TRACE(DnsBindTrace, "Update successful; xid = " << xid << ";");
+        pending_done_queue_.Enqueue(xid);
     }
     delete [] pkt;
+}
+
+bool DnsManager::PendingDone(uint16_t xid) {
+    DeletePendingList(xid);
+    return true;
+}
+
+void DnsManager::ResendAllRecords() {
+    for (PendingListMap::iterator it = pending_map_.begin();
+         it != pending_map_.end(); ) {
+        SendRetransmit(it->first, it->second.op, it->second.view,
+                       it->second.zone, it->second.items);
+        it->second.retransmit_count++;
+        if (it->second.retransmit_count > kMaxRetransmitCount) {
+            DNS_BIND_TRACE(DnsBindTrace, "DNS records max retransmits reached;"
+                           << "no more retransmission; xid = " << it->first);
+            pending_map_.erase(it++);
+        } else {
+            it++;
+        }
+    }
+}
+
+void DnsManager::AddPendingList(uint16_t xid, const std::string &view,
+                                const std::string &zone, const DnsItems &items,
+                                BindUtil::Operation op) {
+    // delete earlier entries for the same items
+    UpdatePendingList(view, zone, items);
+
+    PendingListMap::iterator it = pending_map_.find(xid);
+    if (it != pending_map_.end()) {
+        it->second.view = view;
+        it->second.zone = zone;
+        it->second.items = items;
+        it->second.op = op;
+        it->second.retransmit_count = 0;
+        return;
+    }
+    pending_map_.insert(PendingListPair(xid, PendingList(xid, view, zone,
+                                                         items, op)));
+}
+
+// if there is an update for an item which is already in pending list,
+// remove it from the pending list
+void DnsManager::UpdatePendingList(const std::string &view,
+                                   const std::string &zone,
+                                   const DnsItems &items) {
+    for (PendingListMap::iterator it = pending_map_.begin();
+         it != pending_map_.end(); ) {
+        if (it->second.view == view &&
+            it->second.zone == zone &&
+            it->second.items == items)
+            pending_map_.erase(it++);
+        else
+            it++;
+    }
+}
+
+void DnsManager::DeletePendingList(uint16_t xid) {
+    pending_map_.erase(xid);
+}
+
+void DnsManager::ClearPendingList() {
+    pending_map_.clear();
+}
+
+// Remove entries from pending list, upon a view delete
+void DnsManager::PendingListViewDelete(const VirtualDnsConfig *config) {
+    for (PendingListMap::iterator it = pending_map_.begin();
+         it != pending_map_.end(); ) {
+        if (it->second.view == config->GetViewName())
+            pending_map_.erase(it++);
+        else
+            it++;
+    }
+}
+
+bool DnsManager::CheckZoneDelete(ZoneList &zones, PendingList &pend) {
+    for (uint32_t i = 0; i < zones.size(); i++) {
+        if (zones[i] == pend.zone)
+            return true;
+    }
+    return false;
+}
+
+// Remove entries from pending list, upon a zone delete
+void DnsManager::PendingListZoneDelete(const Subnet &subnet,
+                                       const VirtualDnsConfig *config) {
+    ZoneList zones;
+    BindUtil::GetReverseZones(subnet, zones);
+
+    for (PendingListMap::iterator it = pending_map_.begin();
+         it != pending_map_.end(); ) {
+        if (it->second.view == config->GetViewName() &&
+            CheckZoneDelete(zones, it->second))
+            pending_map_.erase(it++);
+        else
+            it++;
+    }
+}
+
+void DnsManager::StartPendingTimer() {
+    if (!pending_timer_->running()) {
+        pending_timer_->Start(kPendingRecordRetransmitTime,
+                              boost::bind(&DnsManager::PendingTimerExpiry, this));
+    }
+}
+
+void DnsManager::CancelPendingTimer() {
+    pending_timer_->Cancel();
+}
+
+bool DnsManager::PendingTimerExpiry() {
+    // TODO: change timer to be per record & resend only on individual timeout
+    ResendAllRecords();
+    return true;
 }
 
 inline uint16_t DnsManager::GetTransId() {
@@ -356,6 +503,7 @@ void DnsManager::BindEventHandler(BindStatus::Event event) {
                 SandeshLevel::SYS_NOTICE, "BIND named down; DNS is not operational");
             NamedConfig *ncfg = NamedConfig::GetNamedConfigObject();
             ncfg->Reset();
+            ClearPendingList();
             break;
         }
 

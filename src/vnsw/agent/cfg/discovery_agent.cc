@@ -7,7 +7,7 @@
 #include <sandesh/sandesh.h>
 #include "base/logging.h"
 #include "cmn/agent_cmn.h"
-#include "cmn/agent_param.h"
+#include "init/agent_param.h"
 #include "discovery_agent.h"
 #include "controller/controller_init.h"
 #include "cmn/agent_cmn.h"
@@ -19,37 +19,37 @@ using namespace boost::asio;
 
 void DiscoveryAgentClient::Init(AgentParam *param) {
     param_ = param;
-    if (!agent_cfg_->agent()->GetDiscoveryServer().empty()) {
+    if (!agent_cfg_->agent()->discovery_server().empty()) {
         boost::system::error_code ec;
         ip::tcp::endpoint dss_ep;
         dss_ep.address(
-            ip::address::from_string(agent_cfg_->agent()->GetDiscoveryServer(),
+            ip::address::from_string(agent_cfg_->agent()->discovery_server(),
             ec));
-        uint32_t port = agent_cfg_->agent()->GetDiscoveryServerPort();
+        uint32_t port = agent_cfg_->agent()->discovery_server_port();
         if (!port) {
             port = DISCOVERY_SERVER_PORT;
         }
         dss_ep.port(port);
  
-        std::string subscriber_name = 
-            g_vns_constants.ModuleNames.find(Module::VROUTER_AGENT)->second;
+        std::string subscriber_name =
+            agent_cfg_->agent()->discovery_client_name();
         DiscoveryServiceClient *ds_client = 
-            (new DiscoveryServiceClient(agent_cfg_->agent()->GetEventManager(), 
+            (new DiscoveryServiceClient(agent_cfg_->agent()->event_manager(), 
              dss_ep, subscriber_name));
         ds_client->Init();
 
-        agent_cfg_->agent()->SetDiscoveryServiceClient(ds_client);
+        agent_cfg_->agent()->set_discovery_service_client(ds_client);
     }
 }
 
 void DiscoveryAgentClient::DiscoverController() {
     
     DiscoveryServiceClient *ds_client = 
-        agent_cfg_->agent()->GetDiscoveryServiceClient();
+        agent_cfg_->agent()->discovery_service_client();
     if (ds_client) {
 
         int xs_instances = 
-            agent_cfg_->agent()->GetDiscoveryXmppServerInstances();
+            agent_cfg_->agent()->discovery_xmpp_server_instances();
         if ((xs_instances < 0) || (xs_instances > 2)) {
             xs_instances = 2;
         }
@@ -63,11 +63,11 @@ void DiscoveryAgentClient::DiscoverController() {
 void DiscoveryAgentClient::DiscoverDNS() {
     
     DiscoveryServiceClient *ds_client = 
-        agent_cfg_->agent()->GetDiscoveryServiceClient();
+        agent_cfg_->agent()->discovery_service_client();
     if (ds_client) {
 
         int dns_instances = 
-            agent_cfg_->agent()->GetDiscoveryXmppServerInstances();
+            agent_cfg_->agent()->discovery_xmpp_server_instances();
         if ((dns_instances < 0) || (dns_instances > 2)) {
             dns_instances = 2;
         }
@@ -89,18 +89,19 @@ void DiscoveryAgentClient::DiscoverySubscribeXmppHandler(std::vector<DSResponse>
 }
 
 void DiscoveryAgentClient::DiscoverServices() {
-    if (!agent_cfg_->agent()->GetDiscoveryServer().empty()) {
+    Agent *agent = agent_cfg_->agent();
+    if (!agent->discovery_server().empty()) {
         DiscoveryServiceClient *ds_client = 
-            agent_cfg_->agent()->GetDiscoveryServiceClient();
+            agent->discovery_service_client();
         if (ds_client) {
 
             //subscribe to collector service
-            if (param_->collector().to_ulong() == 0) {
+            if (param_->collector_server_list().size() == 0) {
                 Module::type module = Module::VROUTER_AGENT;
                 NodeType::type node_type = 
                     g_vns_constants.Module2NodeType.find(module)->second;
-                std::string subscriber_name = 
-                    g_vns_constants.ModuleNames.find(module)->second;
+                std::string subscriber_name =
+                    agent->discovery_client_name();
                 std::string node_type_name = 
                     g_vns_constants.NodeTypeNames.find(node_type)->second;
 
@@ -110,23 +111,23 @@ void DiscoveryAgentClient::DiscoverServices() {
                 std::vector<std::string> list;
                 list.clear();
                 Sandesh::InitGenerator(subscriber_name,
-                                       Agent::GetInstance()->GetHostName(),
+                                       Agent::GetInstance()->host_name(),
                                        node_type_name,
-                                       g_vns_constants.INSTANCE_ID_DEFAULT, 
-                                       Agent::GetInstance()->GetEventManager(),
-                                       Agent::GetInstance()->GetSandeshPort(),
+                                       agent->instance_id(),
+                                       agent->event_manager(),
+                                       agent->introspect_port(),
                                        csf,
                                        list,
                                        NULL);
             }
 
             //subscribe to Xmpp Server on controller
-            if (agent_cfg_->agent()->GetXmppServer(0).empty()) {
+            if (agent->controller_ifmap_xmpp_server(0).empty()) {
                 DiscoveryAgentClient::DiscoverController(); 
             } 
 
             //subscribe to DNServer 
-            if (agent_cfg_->agent()->GetDnsXmppServer(0).empty()) {
+            if (agent->dns_server(0).empty()) {
                 DiscoveryAgentClient::DiscoverDNS(); 
             } 
         }
@@ -135,7 +136,7 @@ void DiscoveryAgentClient::DiscoverServices() {
 
 void DiscoveryAgentClient::Shutdown() {
     DiscoveryServiceClient *ds_client = 
-        agent_cfg_->agent()->GetDiscoveryServiceClient(); 
+        agent_cfg_->agent()->discovery_service_client(); 
     if (ds_client) {
         //unsubscribe to services 
         ds_client->Shutdown();
@@ -151,7 +152,7 @@ void DiscoveryClientSubscriberStatsReq::HandleRequest() const {
 
     std::vector<DiscoveryClientSubscriberStats> stats_list;
     DiscoveryServiceClient *ds = 
-        Agent::GetInstance()->GetDiscoveryServiceClient();
+        Agent::GetInstance()->discovery_service_client();
         //DiscoveryAgentClient::GetAgentDiscoveryServiceClient();
     if (ds) {
         ds->FillDiscoveryServiceSubscriberStats(stats_list);

@@ -65,11 +65,11 @@ class SyslogParserTestHelper : public SyslogParser
         std::string body_;
 };
 
-class SyslogMsgGen : public UDPServer
+class SyslogMsgGen : public UdpServer
 {
   public:
-    explicit SyslogMsgGen(boost::asio::io_service& io_service, int snd_port) :
-                UDPServer(io_service) {
+    explicit SyslogMsgGen(boost::asio::io_service *io_service, int snd_port) :
+                UdpServer(io_service) {
         boost::system::error_code ec;
         ep_ = udp::endpoint(boost::asio::ip::address::from_string("127.0.0.1",
             ec), snd_port);
@@ -115,10 +115,10 @@ class SyslogCollectorTest : public ::testing::Test
     virtual void SetUp() {
         evm_.reset(new EventManager());
         db_handler_.reset(new DbHandlerMock(evm_.get()));
-        listener_ = new SyslogListeners(evm_.get(),
+        listener_.reset(new SyslogListeners(evm_.get(),
             boost::bind(&SyslogCollectorTest::myTestCb, this, _1, _2, _3),
-            db_handler_.get(), 0);
-        gen_ = new SyslogMsgGen(*evm_.get()->io_service(),
+            db_handler_.get(), 0));
+        gen_ = new SyslogMsgGen(evm_.get()->io_service(),
             listener_->GetUdpPort());
         gen_->Initialize(0);
         listener_->Start();
@@ -139,18 +139,23 @@ class SyslogCollectorTest : public ::testing::Test
 
     virtual void TearDown() {
         task_util::WaitForIdle();
+        gen_->Shutdown();
+        task_util::WaitForIdle();
+        UdpServerManager::DeleteServer(gen_);
+        task_util::WaitForIdle();
         listener_->Shutdown();
         task_util::WaitForIdle();
-        TcpServerManager::DeleteServer(listener_);
         evm_->Shutdown();
+        task_util::WaitForIdle();
+        Sandesh::Uninit();
         task_util::WaitForIdle();
         if (thread_.get() != NULL) {
             thread_->Join();
         }
-        Sandesh::Uninit();
+        task_util::WaitForIdle();
     }
-    SyslogMsgGen                  *gen_;
-    SyslogListeners               *listener_;
+    SyslogMsgGen                   *gen_;
+    std::auto_ptr<SyslogListeners> listener_;
     std::auto_ptr<DbHandlerMock>   db_handler_;
     std::auto_ptr<EventManager>    evm_;
     std::auto_ptr<ServerThread>    thread_;

@@ -26,6 +26,17 @@ struct PeerSocketStats {
     6: string average_blocked_duration;
 }
 
+struct PeerRxInet6ErrorStats {
+    1: u32 bad_inet6_xml_token_count;
+    2: u32 bad_inet6_prefix_count;
+    3: u32 bad_inet6_nexthop_count;
+    4: u32 bad_inet6_afi_safi_count;
+}
+
+struct PeerRxErrorStats {
+    1: PeerRxInet6ErrorStats inet6_error_stats;
+}
+
 struct PeerEventInfo {
     1: optional string last_event;
     2: optional u64 last_event_at;
@@ -49,4 +60,5 @@ struct PeerStatsInfo {
     4: optional PeerUpdateStats tx_update_stats;
     5: optional PeerSocketStats rx_socket_stats;
     6: optional PeerSocketStats tx_socket_stats;
+    7: optional PeerRxErrorStats rx_error_stats;
 }

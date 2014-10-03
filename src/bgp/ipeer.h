@@ -37,10 +37,29 @@ public:
     };
 
     struct ErrorStats {
-        ErrorStats() : update(0), open(0) {
+        ErrorStats()
+            : connect_error(0),
+              connect_timer(0),
+              hold_timer(0),
+              open_error(0),
+              update_error(0) {
         }
-        uint32_t update;
-        uint32_t open;
+        uint32_t connect_error;
+        uint32_t connect_timer;
+        uint32_t hold_timer;
+        uint32_t open_error;
+        uint32_t update_error;
+    };
+
+    struct RxErrorStats {
+        RxErrorStats() : inet6_bad_xml_token_count(0),
+            inet6_bad_prefix_count(0), inet6_bad_nexthop_count(0),
+            inet6_bad_afi_safi_count(0) {
+        }
+        uint32_t inet6_bad_xml_token_count;
+        uint32_t inet6_bad_prefix_count;
+        uint32_t inet6_bad_nexthop_count;
+        uint32_t inet6_bad_afi_safi_count;
     };
 
     struct UpdateStats {
@@ -80,6 +99,7 @@ public:
     virtual void GetRxProtoStats(ProtoStats &) const = 0;
     virtual void GetRxRouteUpdateStats(UpdateStats &) const = 0;
     virtual void GetRxSocketStats(SocketStats &) const = 0;
+    virtual void GetRxErrorStats(RxErrorStats &) const = 0;
 
     virtual void GetTxProtoStats(ProtoStats &) const = 0;
     virtual void GetTxRouteUpdateStats(UpdateStats &) const = 0;
@@ -115,7 +135,7 @@ public:
     virtual BgpProto::BgpPeerType PeerType() const = 0;
     virtual uint32_t bgp_identifier() const = 0;
     virtual const std::string GetStateName() const = 0;
-    virtual void UpdateRefCount(int count) = 0;
+    virtual void UpdateRefCount(int count) const = 0;
     virtual tbb::atomic<int> GetRefCount() const = 0;
 };
 

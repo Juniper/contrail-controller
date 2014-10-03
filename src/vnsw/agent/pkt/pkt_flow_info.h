@@ -7,11 +7,11 @@
 
 class VrfEntry;
 class Interface;
-class Inet4UnicastRouteEntry;
 class VnEntry;
 class VmEntry;
 class FlowTable;
 class FlowEntry;
+class AgentRoute;
 struct PktInfo;
 struct MatchPolicy;
 
@@ -23,28 +23,29 @@ struct PktControlInfo {
 
     const VrfEntry *vrf_;
     const Interface *intf_;
-    const Inet4UnicastRouteEntry *rt_;
+    const AgentRoute *rt_;
     const VnEntry *vn_;
     const VmEntry *vm_;
     bool  vlan_nh_;
     uint16_t vlan_tag_;
+    uint16_t nh_;
 };
 
 class PktFlowInfo {
 public:
     static const int kLinkLocalInvalidFd = -1;
 
-    PktFlowInfo(boost::shared_ptr<PktInfo> info, FlowTable *ftable): 
-        pkt(info), flow_table(ftable), source_vn(NULL), dest_vn(NULL),
-        flow_source_vrf(-1), flow_dest_vrf(-1), source_sg_id_l(NULL),
-        dest_sg_id_l(NULL), nat_done(false), nat_ip_saddr(0),
-        nat_ip_daddr(0), nat_sport(0), nat_dport(0), nat_vrf(0),
+    PktFlowInfo(boost::shared_ptr<PktInfo> info, FlowTable *ftable):
+        family(info->family), pkt(info), flow_table(ftable),
+        flow_source_vrf(-1), flow_dest_vrf(-1), nat_done(false),
+        nat_ip_saddr(), nat_ip_daddr(), nat_sport(0), nat_dport(0), nat_vrf(0),
         nat_dest_vrf(0), dest_vrf(0), acl(NULL), ingress(false),
         short_flow(false), local_flow(false), linklocal_flow(false),
         tcp_ack(false), linklocal_bind_local_port(false),
         linklocal_src_port_fd(kLinkLocalInvalidFd),
         ecmp(false), in_component_nh_idx(-1), out_component_nh_idx(-1),
-        trap_rev_flow(false), source_plen(0), dest_plen(0) {
+        trap_rev_flow(false), fip_snat(false), fip_dnat(false), snat_fip(),
+        short_flow_reason(0), peer_vrouter(), tunnel_type(TunnelType::INVALID) {
     }
 
     static bool ComputeDirection(const Interface *intf);
@@ -74,22 +75,23 @@ public:
     void VrfTranslate(const PktInfo *pkt, PktControlInfo *ctrl,
                       PktControlInfo *rev_flow);
     uint32_t LinkLocalBindPort(const VmEntry *vm, uint8_t proto);
+    void UpdateFipStatsInfo(FlowEntry *flow, FlowEntry *rflow, const PktInfo *p,
+                            const PktControlInfo *in, const PktControlInfo *o);
 
 public:
+    uint8_t RouteToPrefixLen(const AgentRoute *route);
+
+    Address::Family     family;
     boost::shared_ptr<PktInfo> pkt;
     FlowTable *flow_table;
 
-    const std::string   *source_vn;
-    const std::string   *dest_vn;
     uint32_t            flow_source_vrf;
     uint32_t            flow_dest_vrf;
-    const SecurityGroupList *source_sg_id_l;
-    const SecurityGroupList *dest_sg_id_l;
 
     // NAT addresses
     bool                nat_done;
-    uint32_t            nat_ip_saddr;
-    uint32_t            nat_ip_daddr;
+    IpAddress           nat_ip_saddr;
+    IpAddress           nat_ip_daddr;
     uint32_t            nat_sport;
     uint32_t            nat_dport;
     // VRF for matching the NAT flow
@@ -118,8 +120,14 @@ public:
     uint32_t            in_component_nh_idx;
     uint32_t            out_component_nh_idx;
     bool                trap_rev_flow;
-    uint8_t             source_plen;
-    uint8_t             dest_plen;
+
+    // Following fields are required for FIP stats accounting
+    bool                fip_snat;
+    bool                fip_dnat;
+    IpAddress           snat_fip;
+    uint16_t            short_flow_reason;
+    std::string         peer_vrouter;
+    TunnelType          tunnel_type;
 };
 
 #endif // __agent_pkt_flow_info_h_

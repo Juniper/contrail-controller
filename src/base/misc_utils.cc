@@ -19,6 +19,7 @@
 
 using namespace std;
 namespace fs = boost::filesystem;
+const std::string MiscUtils::ContrailVersionCmd = "/usr/bin/contrail-version";
 const std::string MiscUtils::CoreFileDir = "/var/crashes/";
 const int MiscUtils::MaxCoreFiles = 5;
 const map<MiscUtils::BuildModule, string> MiscUtils::BuildModuleNames = 
@@ -99,13 +100,21 @@ bool MiscUtils::GetContrailVersionInfo(BuildModule id, string &rpm_version,
                                        string &build_num) {
     bool ret1, ret2;
     stringstream build_id_cmd;
-    build_id_cmd << "contrail-version | grep '" << BuildModuleNames.at(id);
-    build_id_cmd << "' | awk '{ print $2 }'";
+    ifstream f(ContrailVersionCmd.c_str());
+    if (!f.good()) {
+        f.close();
+        rpm_version.assign("unknown");
+        build_num.assign("unknown");
+        return false;
+    }
+    f.close();
+    build_id_cmd << ContrailVersionCmd << " | grep '"
+                 << BuildModuleNames.at(id) << "' | awk '{ print $2 }'";
     ret1 = GetVersionInfoInternal(build_id_cmd.str(), rpm_version);
 
     stringstream build_num_cmd;
-    build_num_cmd << "contrail-version | grep '" << BuildModuleNames.at(id);
-    build_num_cmd << "' | awk '{ print $3 }'";
+    build_num_cmd << ContrailVersionCmd << " | grep '"
+                  << BuildModuleNames.at(id) << "' | awk '{ print $3 }'";
     ret2 = GetVersionInfoInternal(build_num_cmd.str(), build_num);
 
     if (!ret1 || !ret2) {

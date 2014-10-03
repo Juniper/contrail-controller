@@ -45,6 +45,7 @@ enum flow_dir_t {
 #define QUERY_SELECT            "select_fields"
 #define QUERY_WHERE             "where"
 #define WHERE_MATCH_NAME            "name"
+#define WHERE_MATCH_SUFFIX          "suffix"
 #define WHERE_MATCH_VALUE           "value"
 #define WHERE_MATCH_VALUE2          "value2"
 #define WHERE_MATCH_OP              "op"

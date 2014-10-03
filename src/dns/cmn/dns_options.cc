@@ -49,8 +49,9 @@ void Options::Initialize(EventManager &evm,
         ("version", "Display version information")
     ;
 
-    uint16_t default_http_server_port = ContrailPorts::HttpPortDns;
-    uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort;
+    uint16_t default_dns_server_port = ContrailPorts::DnsServerPort();
+    uint16_t default_http_server_port = ContrailPorts::HttpPortDns();
+    uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
 
     default_collector_server_list_.push_back("127.0.0.1:8086");
 
@@ -72,6 +73,9 @@ void Options::Initialize(EventManager &evm,
         ("DEFAULT.http_server_port",
              opt::value<uint16_t>()->default_value(default_http_server_port),
              "Sandesh HTTP listener port")
+        ("DEFAULT.dns_server_port",
+             opt::value<uint16_t>()->default_value(default_dns_server_port),
+             "DNS server port")
 
         ("DEFAULT.log_category",
              opt::value<string>()->default_value(log_category_),
@@ -90,6 +94,10 @@ void Options::Initialize(EventManager &evm,
              "Severity level for local logging of sandesh messages")
         ("DEFAULT.log_local", opt::bool_switch(&log_local_),
              "Enable local logging of sandesh messages")
+        ("DEFAULT.use_syslog", opt::bool_switch(&use_syslog_),
+             "Enable logging to syslog")
+        ("DEFAULT.syslog_facility", opt::value<string>()->default_value("LOG_LOCAL0"),
+             "Syslog facility to receive log lines")
         ("DEFAULT.test_mode", opt::bool_switch(&test_mode_),
              "Enable dns to run in test-mode")
 
@@ -118,10 +126,36 @@ void Options::Initialize(EventManager &evm,
 template <typename ValueType>
 void Options::GetOptValue(const boost::program_options::variables_map &var_map,
                           ValueType &var, std::string val) {
+    GetOptValueImpl(var_map, var, val, static_cast<ValueType *>(0));
+}
 
+template <typename ValueType>
+void Options::GetOptValueImpl(
+    const boost::program_options::variables_map &var_map,
+    ValueType &var, std::string val, ValueType*) {
     // Check if the value is present.
     if (var_map.count(val)) {
         var = var_map[val].as<ValueType>();
+    }
+}
+
+template <typename ElementType>
+void Options::GetOptValueImpl(
+    const boost::program_options::variables_map &var_map,
+    std::vector<ElementType> &var, std::string val, std::vector<ElementType>*) {
+    // Check if the value is present.
+    if (var_map.count(val)) {
+        std::vector<ElementType> tmp(
+            var_map[val].as<std::vector<ElementType> >());
+        // Now split the individual elements
+        for (typename std::vector<ElementType>::const_iterator it = 
+                 tmp.begin();
+             it != tmp.end(); it++) {
+            std::stringstream ss(*it);
+            std::copy(istream_iterator<ElementType>(ss),
+                istream_iterator<ElementType>(),
+                std::back_inserter(var));
+        }
     }
 }
 
@@ -173,11 +207,15 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<uint16_t>(var_map, http_server_port_,
                           "DEFAULT.http_server_port");
 
+    GetOptValue<uint16_t>(var_map, dns_server_port_, "DEFAULT.dns_server_port");
+
     GetOptValue<string>(var_map, log_category_, "DEFAULT.log_category");
     GetOptValue<string>(var_map, log_file_, "DEFAULT.log_file");
     GetOptValue<int>(var_map, log_files_count_, "DEFAULT.log_files_count");
     GetOptValue<long>(var_map, log_file_size_, "DEFAULT.log_file_size");
     GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");
+    GetOptValue<bool>(var_map, use_syslog_, "DEFAULT.use_syslog");
+    GetOptValue<string>(var_map, syslog_facility_, "DEFAULT.syslog_facility");
 
     GetOptValue<uint16_t>(var_map, discovery_port_, "DISCOVERY.port");
     GetOptValue<string>(var_map, discovery_server_, "DISCOVERY.server");

@@ -320,7 +320,7 @@ public:
 
     void Enqueue(ServiceChainRequest *req);
 
-    bool IsQueueEmpty() { return process_queue_->IsQueueEmpty(); }
+    bool IsQueueEmpty() const { return process_queue_->IsQueueEmpty(); }
 
     ServiceChain *FindServiceChain(const std::string &src);
 

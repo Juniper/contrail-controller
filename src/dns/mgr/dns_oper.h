@@ -190,6 +190,7 @@ struct VirtualDnsRecordConfig : public DnsConfig {
 
     DnsItem rec_;
     VirtualDnsConfig *virt_dns_;
+    std::string virtual_dns_name_;
     Source src_;
     static DataMap virt_dns_rec_config_;
 
@@ -216,6 +217,7 @@ struct VirtualDnsRecordConfig : public DnsConfig {
     void Trace(const std::string &ev);
 
     static VirtualDnsRecordConfig *Find(std::string name);
+    static void UpdateVirtualDns(VirtualDnsConfig *vdns);
 };
 
 #endif // __dns_oper_h__

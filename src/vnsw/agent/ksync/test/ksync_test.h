@@ -14,10 +14,11 @@ public:
 
     virtual void Init(bool create_vhost);
     virtual void RegisterDBClients(DB *db);
-    void NetlinkShutdownTest();
+    void Shutdown();
 private:
     void GenericNetlinkInitTest() const;
     void NetlinkInitTest() const;
+    void NetlinkShutdownTest();
     DISALLOW_COPY_AND_ASSIGN(KSyncTest);
 };
 

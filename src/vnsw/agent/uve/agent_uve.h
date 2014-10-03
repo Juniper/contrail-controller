@@ -5,6 +5,7 @@
 #ifndef vnsw_agent_uve_h
 #define vnsw_agent_uve_h
 
+#include <base/connection_info.h>
 #include <uve/stats_collector.h>
 #include <uve/agent_stats_collector.h>
 #include <uve/flow_stats_collector.h>
@@ -28,6 +29,7 @@ public:
     uint64_t bandwidth_intvl() const { return bandwidth_intvl_; } 
     VnUveTable* vn_uve_table() const { return vn_uve_table_.get(); }
     VmUveTable* vm_uve_table() const { return vm_uve_table_.get(); }
+    Agent* agent() const { return agent_; }
     VrouterUveEntry* vrouter_uve_entry() const { 
         return vrouter_uve_entry_.get();
     }
@@ -54,11 +56,21 @@ protected:
     boost::scoped_ptr<AgentStatsCollector> agent_stats_collector_;
 
 private:
+    void VrouterAgentProcessState(
+        const std::vector<process::ConnectionInfo> &c,
+        process::ProcessState::type &state, std::string &message);
+    uint8_t ExpectedConnections(uint8_t &num_c_nodes, uint8_t &num_d_servers);
+    void UpdateState(const process::ConnectionInfo &info, 
+                      process::ProcessState::type &c,
+                      std::string &message);
+
     static AgentUve *singleton_;
     Agent *agent_;
     uint64_t bandwidth_intvl_; //in microseconds
     boost::scoped_ptr<VrouterStatsCollector> vrouter_stats_collector_;
     boost::scoped_ptr<FlowStatsCollector> flow_stats_collector_;
+    process::ConnectionStateManager<NodeStatusUVE, NodeStatus>
+        *connection_state_manager_;
     DISALLOW_COPY_AND_ASSIGN(AgentUve);
 };
 

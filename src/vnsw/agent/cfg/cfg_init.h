@@ -15,6 +15,8 @@ class CfgFilter;
 class CfgListener;
 class InterfaceCfgClient;
 class DiscoveryAgentClient;
+class MirrorCfgTable;
+class IntfMirrorCfgTable;
 
 class AgentConfig  {
 public:
@@ -49,6 +51,10 @@ public:
     }
     IFMapAgentTable *cfg_route_table() const {
         return cfg_route_table_;
+    }
+
+    IFMapAgentTable *cfg_service_template_table() const {
+        return cfg_service_template_table_;
     }
 
     Agent *agent() const { return agent_; }
@@ -99,6 +105,7 @@ private:
     IFMapAgentTable *cfg_vn_network_ipam_table_;
     IFMapAgentTable *cfg_vm_port_vrf_table_;
     IFMapAgentTable *cfg_route_table_;
+    IFMapAgentTable *cfg_service_template_table_;
 
     DISALLOW_COPY_AND_ASSIGN(AgentConfig);
 };

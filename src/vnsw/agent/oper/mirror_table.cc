@@ -21,6 +21,13 @@ using namespace boost::asio;
 
 MirrorTable *MirrorTable::mirror_table_;
 
+MirrorTable::~MirrorTable() { 
+    boost::system::error_code err;
+    if (udp_sock_.get()) {
+        udp_sock_->close(err);
+    }
+}
+
 bool MirrorEntry::IsLess(const DBEntry &rhs) const {
     const MirrorEntry &a = static_cast<const MirrorEntry &>(rhs);
     return (analyzer_name_ < a.GetAnalyzerName());
@@ -59,7 +66,7 @@ bool MirrorTable::OnChange(DBEntry *entry, const DBRequest *req) {
     MirrorNHKey nh_key(data->vrf_name_, data->sip_, data->sport_, 
                        data->dip_, data->dport_);
     NextHop *nh = static_cast<NextHop *>
-                  (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&nh_key));
+                  (Agent::GetInstance()->nexthop_table()->FindActiveEntry(&nh_key));
     assert(nh);
 
     if (mirror_entry->nh_ != nh) {
@@ -68,7 +75,7 @@ bool MirrorTable::OnChange(DBEntry *entry, const DBRequest *req) {
         mirror_entry->sport_ = data->sport_;
         mirror_entry->dip_ = data->dip_;
         mirror_entry->dport_ = data->dport_;
-        mirror_entry->vrf_ = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(data->vrf_name_);
+        mirror_entry->vrf_ = Agent::GetInstance()->vrf_table()->FindVrfFromName(data->vrf_name_);
         ret = true;
     }
     return ret;
@@ -86,7 +93,7 @@ void MirrorTable::AddMirrorEntry(const std::string &analyzer_name,
     MirrorNHKey *nh_key = new MirrorNHKey(vrf_name, sip, sport, dip, dport);
     req.key.reset(nh_key);
     req.data.reset(NULL);
-    Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
+    Agent::GetInstance()->nexthop_table()->Enqueue(&req);
 
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     MirrorEntryKey *key = new MirrorEntryKey(analyzer_name);
@@ -135,11 +142,11 @@ void MirrorTable::ReadHandler(const boost::system::error_code &ec,
 void MirrorTable::MirrorSockInit(void) {
     EventManager *event_mgr;
 
-    event_mgr = Agent::GetInstance()->GetEventManager();
+    event_mgr = Agent::GetInstance()->event_manager();
     boost::asio::io_service &io = *event_mgr->io_service();
     ip::udp::endpoint ep(ip::udp::v4(), 0);
 
-    udp_sock_ = new ip::udp::socket(io);
+    udp_sock_.reset(new ip::udp::socket(io));
 
     boost::system::error_code ec;
     udp_sock_->open(ip::udp::v4(), ec);
@@ -150,12 +157,24 @@ void MirrorTable::MirrorSockInit(void) {
 
     ip::udp::endpoint sock_ep = udp_sock_->local_endpoint(ec);
     assert(ec.value() == 0);
-    Agent::GetInstance()->SetMirrorPort(sock_ep.port());
+    Agent::GetInstance()->set_mirror_port(sock_ep.port());
 
     udp_sock_->async_receive(boost::asio::buffer(rx_buff_, sizeof(rx_buff_)), 
                              boost::bind(&MirrorTable::ReadHandler, this, 
                                          placeholders::error,
                                          placeholders::bytes_transferred));
+}
+
+VrfEntry *MirrorTable::FindVrfEntry(const string &vrf_name) const {
+    return Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
+}
+
+uint32_t MirrorEntry::vrf_id() const {
+    return vrf_ ? vrf_->vrf_id() : uint32_t(-1);
+}
+
+const VrfEntry *MirrorEntry::GetVrf() const {
+    return vrf_ ? vrf_.get() : NULL;
 }
 
 void MirrorEntry::set_mirror_entrySandeshData(MirrorEntrySandeshData &data) const {

@@ -2,10 +2,19 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "kstate.h"
-#include "flow_kstate.h"
-#include <ksync/flowtable_ksync.h>
+#include <base/task.h>
 #include <base/util.h>
+
+#include <cmn/agent_cmn.h>
+#include <kstate/kstate.h>
+#include <kstate/flow_kstate.h>
+
+#include <vr_flow.h>
+#include <vr_mirror.h>
+
+#include <pkt/flow_table.h>
+
+#include <ksync/flowtable_ksync.h>
 #include <ksync/ksync_init.h>
 
 using namespace std;
@@ -75,7 +84,7 @@ void FlowKState::SetFlowData(vector<KFlowInfo> &list,
     data.set_sip(sip.to_string());
     Ip4Address dip(ntohl(k_flow->fe_key.key_dest_ip));
     data.set_dip(dip.to_string());
-    data.set_vrf_id(k_flow->fe_key.key_vrf_id);
+    data.set_vrf_id(k_flow->fe_vrf);
     data.set_proto(k_flow->fe_key.key_proto);
     switch (k_flow->fe_action) {
         case VR_FLOW_ACTION_FORWARD:

@@ -13,7 +13,7 @@
 #include <boost/ptr_container/ptr_unordered_map.hpp>
 
 #include <protocol/TBinaryProtocol.h>
-#include <transport/TSocket.h>
+#include <transport/TSocketPool.h>
 #include <transport/TTransportUtils.h>
 #include "gen-cpp/Cassandra.h"
 
@@ -22,13 +22,16 @@
 
 class CdbIf : public GenDb::GenDbIf {
 public:
-    CdbIf(DbErrorHandler, std::string, unsigned short, int ttl,
-        std::string name, bool only_sync);
+    CdbIf(DbErrorHandler, const std::vector<std::string>&,
+        const std::vector<int>&, int ttl, std::string name,
+        bool only_sync);
     CdbIf();
     ~CdbIf();
     // Init/Uninit
-    virtual bool Db_Init(std::string task_id, int task_instance);
-    virtual void Db_Uninit(std::string task_id, int task_instance);
+    virtual bool Db_Init(const std::string& task_id, int task_instance);
+    virtual void Db_Uninit(const std::string& task_id, int task_instance);
+    virtual void Db_UninitUnlocked(const std::string& task_id,
+        int task_instance);
     virtual void Db_SetInitDone(bool);
     // Tablespace
     virtual bool Db_AddTablespace(const std::string& tablespace,
@@ -62,6 +65,9 @@ public:
     // Stats
     virtual bool Db_GetStats(std::vector<GenDb::DbTableInfo> &vdbti,
         GenDb::DbErrors &dbe);
+    // Connection
+    virtual std::string Db_GetHost() const;
+    virtual int Db_GetPort() const;
 
 private:
     friend class CdbIfTest;
@@ -268,6 +274,7 @@ private:
     int cassandra_ttl_;
     bool only_sync_;
     int task_instance_;
+    int prev_task_instance_;
     bool task_instance_initialized_;
     typedef std::vector<org::apache::cassandra::Mutation> MutationList;
     typedef std::map<std::string, MutationList> CFMutationMap;
@@ -290,7 +297,7 @@ CdbIf::CdbIfStats::Errors operator-(const CdbIf::CdbIfStats::Errors &a,
 template<>
 struct WorkQueueDelete<CdbIf::CdbIfColList> {
     template <typename QueueT>
-    void operator()(QueueT &q) {
+    void operator()(QueueT &q, bool delete_entry) {
         CdbIf::CdbIfColList colList;
         while (q.try_pop(colList)) {    
             delete colList.gendb_cl;

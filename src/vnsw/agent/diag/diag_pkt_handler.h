@@ -4,12 +4,16 @@
 #ifndef vnsw_agent_diag_diag_pkt_handler_hpp
 #define vnsw_agent_diag_diag_pkt_handler_hpp
 
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <base/logging.h>
 #include <net/address.h>
 #include <base/timer.h>
-#include "boost/date_time/posix_time/posix_time.hpp"
+
+#include <cmn/agent_cmn.h>
+#include <cmn/agent.h>
 
 struct AgentDiagPktData;
+class PktInfo;
 
 // Pseudo header for TCP checksum
 struct PseudoTcpHdr {

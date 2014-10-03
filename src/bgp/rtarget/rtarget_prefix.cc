@@ -5,37 +5,52 @@
 #include "bgp/rtarget/rtarget_prefix.h"
 
 
-using namespace std;
 using boost::system::error_code;
+using std::copy;
+using std::string;
 
-RTargetPrefix::RTargetPrefix()
-  : as_(0), rtarget_(RouteTarget::null_rtarget) {
+RTargetPrefix::RTargetPrefix() : as_(0), rtarget_(RouteTarget::null_rtarget) {
 }
 
-RTargetPrefix::RTargetPrefix(const BgpProtoPrefix &prefix) {
-    if (prefix.prefixlen == 0) {
-        as_ = 0;
-        rtarget_ =  RouteTarget::null_rtarget;
-        return;
+int RTargetPrefix::FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
+                                   RTargetPrefix *prefix) {
+    size_t nlri_size = proto_prefix.prefix.size();
+    if (nlri_size == 0) {
+        prefix->as_ = 0;
+        prefix->rtarget_ =  RouteTarget::null_rtarget;
+        return 0;
     }
 
-    as_ = get_value(&prefix.prefix[0], 4);
+    size_t expected_nlri_size = sizeof(as4_t) + RouteTarget::kSize;
+    if (nlri_size != expected_nlri_size)
+        return -1;
+
+    size_t as_offset = 0;
+    prefix->as_ = get_value(&proto_prefix.prefix[as_offset], sizeof(as4_t));
+    size_t rtarget_offset = as_offset + sizeof(as4_t);
     RouteTarget::bytes_type bt = { { 0 } };
-    std::copy(prefix.prefix.begin() + 4, prefix.prefix.end(), bt.begin());
-    rtarget_ = RouteTarget(bt);
+    copy(proto_prefix.prefix.begin() + rtarget_offset,
+        proto_prefix.prefix.end(), bt.begin());
+    prefix->rtarget_ = RouteTarget(bt);
+
+    return 0;
 }
 
-void RTargetPrefix::BuildProtoPrefix(BgpProtoPrefix *prefix) const {
-    prefix->prefix.clear();
+void RTargetPrefix::BuildProtoPrefix(BgpProtoPrefix *proto_prefix) const {
+    proto_prefix->prefix.clear();
     if (as_ == 0 && rtarget_ == RouteTarget::null_rtarget) {
-        prefix->prefixlen = 0;
+        proto_prefix->prefixlen = 0;
         return;
     }
 
-    prefix->prefixlen = 96;
-    prefix->prefix.resize(12);
-    put_value(&prefix->prefix[0], 4, as_);
-    put_value(&prefix->prefix[4], 8, rtarget_.GetExtCommunityValue());
+    size_t nlri_size = sizeof(as4_t) + RouteTarget::kSize;
+    proto_prefix->prefix.resize(nlri_size);
+    proto_prefix->prefixlen = nlri_size * 8;
+    size_t as_offset = 0;
+    put_value(&proto_prefix->prefix[as_offset], sizeof(as4_t), as_);
+    size_t rtarget_offset = as_offset + sizeof(as4_t);
+    put_value(&proto_prefix->prefix[rtarget_offset], RouteTarget::kSize,
+        rtarget_.GetExtCommunityValue());
 }
 
 // as:rtarget

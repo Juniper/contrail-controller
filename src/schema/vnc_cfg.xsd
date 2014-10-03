@@ -45,9 +45,23 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:restriction base="xsd:string"/>
 </xsd:simpleType>
 
+<xsd:simpleType name="AddressMode">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="active-active"/>
+        <xsd:enumeration value="active-standby"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name="IpAddressesType">
     <xsd:all>
         <xsd:element name="ip-address" type="IpAddressType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="AllocationPoolType">
+    <xsd:all>
+        <xsd:element name="start" type="xsd:string"/>
+        <xsd:element name="end" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -57,6 +71,20 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="ip-prefix-len" type="xsd:integer"/>
     </xsd:all>
 </xsd:complexType> 
+
+<xsd:complexType name="AllowedAddressPair">
+    <xsd:all>
+        <xsd:element name="ip" type="SubnetType"/>
+        <xsd:element name="mac" type="xsd:string"/>
+        <xsd:element name="address-mode" type="AddressMode"/>
+    </xsd:all>
+</xsd:complexType> 
+
+<xsd:complexType name="AllowedAddressPairs">
+    <xsd:all>
+        <xsd:element name="allowed-address-pair" type="AllowedAddressPair" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
 
 <xsd:complexType name="UuidType">
     <xsd:all>
@@ -106,6 +134,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="subnet" type="SubnetType"/>
         <xsd:element name="virtual-network" type="xsd:string" />
         <xsd:element name="security-group" type="xsd:string" />
+        <xsd:element name="network-policy" type="xsd:string"/>
     </xsd:choice>
 </xsd:complexType>
 
@@ -162,6 +191,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:all>
         <xsd:element name="match-condition" type="MatchConditionType"/>
         <xsd:element name="action-list" type="ActionListType"/>
+        <xsd:element name="rule-uuid" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -270,6 +300,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="ipam-dns-server"  type="IpamDnsAddressType"/>
         <xsd:element name="dhcp-option-list" type="DhcpOptionsListType"/>
         <xsd:element name="cidr-block"       type="SubnetType"/>
+        <xsd:element name="host-routes"      type="RouteTableType"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -315,6 +346,15 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:restriction>
 </xsd:simpleType>
 
+<xsd:simpleType name="FloatingIpDnsNotation" default="dashed-ip-tenant-name">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="dashed-ip"/>
+        <xsd:enumeration value="dashed-ip-tenant-name"/>
+        <xsd:enumeration value="vm-name"/>
+        <xsd:enumeration value="vm-name-tenant-name"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name="VirtualDnsType">
     <xsd:all>
         <xsd:element name="domain-name"         type="xsd:string"/>
@@ -322,6 +362,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="record-order"        type="DnsRecordOrderType"/>
         <xsd:element name="default-ttl-seconds" type="xsd:integer"/>
         <xsd:element name="next-virtual-DNS"    type="xsd:string"/>
+        <xsd:element name="floating-ip-record"  type="FloatingIpDnsNotation"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -364,6 +405,13 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="subnet" type="SubnetType"/>
         <xsd:element name="default-gateway" type="IpAddressType"/>
         <xsd:element name="subnet-uuid" type="xsd:string"/>
+        <xsd:element name="enable-dhcp" type="xsd:boolean" default="true"/>
+        <xsd:element name="dns-nameservers" type="xsd:string" maxOccurs="unbounded"/>
+        <xsd:element name="allocation-pools" type="AllocationPoolType" maxOccurs="unbounded"/>
+        <xsd:element name="addr_from_start" type="xsd:boolean"/>
+        <xsd:element name="dhcp-option-list" type="DhcpOptionsListType"/>
+        <xsd:element name="host-routes" type="RouteTableType"/>
+        <xsd:element name="subnet-name" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -422,11 +470,50 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="created"       type="xsd:dateTime"/>
         <xsd:element name="last-modified" type="xsd:dateTime"/>
         <xsd:element name="description"   type="xsd:string"/>
+        <xsd:element name="user-visible"  type="xsd:boolean" default="true"/>
     </xsd:all>
 </xsd:complexType> 
 
+
+<xsd:complexType name="PluginProperty">
+    <xsd:all>
+        <xsd:element name="property"   type="xsd:string"/>
+        <xsd:element name="value"   type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType> 
+
+<xsd:complexType name="PluginProperties">
+    <xsd:all>
+        <xsd:element name="plugin-property" type="PluginProperty" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+  
 <xsd:element name="id-perms" type="IdPermsType"/>
 <!--#IFMAP-SEMANTICS-IDL Property('id-perms', 'all') -->
+
+<xsd:complexType name="QuotaType">
+    <xsd:all>
+        <xsd:element name="defaults" type="xsd:integer"/>
+        <xsd:element name="floating-ip" type="xsd:integer"/>
+        <xsd:element name="instance-ip" type="xsd:integer"/>
+        <xsd:element name="virtual-machine-interface" type="xsd:integer"/>
+        <xsd:element name="virtual-network" type="xsd:integer"/>
+        <xsd:element name="virtual-router" type="xsd:integer"/>
+        <xsd:element name="virtual-DNS" type="xsd:integer"/>
+        <xsd:element name="virtual-DNS-record" type="xsd:integer"/>
+        <xsd:element name="bgp-router" type="xsd:integer"/>
+        <xsd:element name="network-ipam" type="xsd:integer"/>
+        <xsd:element name="access-control-list" type="xsd:integer"/>
+        <xsd:element name="floating-ip-pool" type="xsd:integer"/>
+        <xsd:element name="service-template" type="xsd:integer"/>
+        <xsd:element name="service-instance" type="xsd:integer"/>
+        <xsd:element name="logical-router" type="xsd:integer"/>
+        <xsd:element name="security-group" type="xsd:integer"/>
+        <xsd:element name="security-group-rule" type="xsd:integer"/>
+	<xsd:element name="subnet" type="xsd:integer"/>
+	<xsd:element name="global-vrouter-config" type="xsd:integer"/>
+    </xsd:all>
+</xsd:complexType>
 
 <xsd:element name="display-name" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL Property('display-name', 'all') -->
@@ -453,6 +540,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="config-version" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('config-version', 'global-system-config') -->
+
+<xsd:element name="plugin-tuning" type="PluginProperties"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('plugin-tuning', 'global-system-config') -->
 
 <xsd:element name="global-system-config-bgp-router"/>
 <!--#IFMAP-SEMANTICS-IDL 
@@ -612,6 +703,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('virtual-network-network-policy',
           'virtual-network', 'network-policy', ['ref']) -->
 
+<xsd:element name="quota" type="QuotaType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('quota', 'project') -->
+
 <xsd:element name="network-policy-entries" type="PolicyEntriesType"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('network-policy-entries', 'network-policy') -->
@@ -645,7 +740,22 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Property('virtual-machine-interface-mac-addresses',
              'virtual-machine-interface') -->
+<xsd:element name="virtual-machine-interface-dhcp-option-list"
+                                                type="DhcpOptionsListType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('virtual-machine-interface-dhcp-option-list',
+              'virtual-machine-interface') -->
+<xsd:element name="virtual-machine-interface-host-routes"
+                                                type="RouteTableType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('virtual-machine-interface-host-routes',
+              'virtual-machine-interface') -->
 
+<xsd:element name="virtual-machine-interface-allowed-address-pairs" 
+                                                type="AllowedAddressPairs"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('virtual-machine-interface-allowed-address-pairs',
+             'virtual-machine-interface') -->
 <xsd:complexType name="VrfAssignRuleType">
     <xsd:all>
         <xsd:element name="match-condition" type="MatchConditionType"/>
@@ -662,6 +772,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="vrf-assign-table" type="VrfAssignTableType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('vrf-assign-table', 'virtual-machine-interface') -->
+
+<xsd:element name="virtual-machine-interface-device-owner"
+                                                type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('virtual-machine-interface-device-owner',
+             'virtual-machine-interface') -->
 
 <xsd:simpleType name="ServiceInterfaceType">
     <xsd:restriction base="xsd:string">
@@ -683,6 +799,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:all>
         <xsd:element name='service-interface-type' type="ServiceInterfaceType"/>
         <xsd:element name='interface-mirror'  type="InterfaceMirrorType"/>
+        <xsd:element name="local-preference" type="xsd:integer"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -752,11 +869,26 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('virtual-machine-interface-routing-instance',
           'virtual-machine-interface', 'bgp:routing-instance', ['ref']) -->
 
+<xsd:simpleType name="IpAddressFamilyType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="v4"/>
+        <xsd:enumeration value="v6"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:element name="instance-ip" type="ifmap:IdentityType"/>
 <xsd:element name="instance-ip-address" type="IpAddressType"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('instance-ip-address', 'instance-ip') -->
-
+<xsd:element name="instance-ip-family" type="IpAddressFamilyType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('instance-ip-family', 'instance-ip') -->
+<xsd:element name="instance-ip-mode" type="AddressMode"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('instance-ip-mode', 'instance-ip') -->
+<xsd:element name="subnet-uuid" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('subnet-uuid', 'instance-ip') -->
 <xsd:element name="instance-ip-virtual-network"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('instance-ip-virtual-network',
@@ -791,6 +923,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Exclude('floating-ip-is-virtual-ip', ['backend']);
      Property('floating-ip-is-virtual-ip', 'floating-ip') -->
+<xsd:element name="floating-ip-fixed-ip-address" type="IpAddressType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('floating-ip-fixed-ip-address', 'floating-ip') -->
+<xsd:element name="floating-ip-address-family" type="IpAddressFamilyType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('floating-ip-address-family', 'floating-ip') -->
 <xsd:element name="floating-ip-project"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('floating-ip-project',
@@ -812,10 +950,32 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('global-system-config-physical-router', 
              'global-system-config', 'physical-router', ['has']) -->
 
+<xsd:simpleType name="VirtualRouterType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="embedded"/>
+        <xsd:enumeration value="tor-agent"/>
+        <xsd:enumeration value="tor-service-node"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:element name="virtual-router-type" type="VirtualRouterType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('virtual-router-type', 'virtual-router') -->
+
+<xsd:element name="physical-router-virtual-router"/>
+<!--#IFMAP-SEMANTICS-IDL
+    Link('physical-router-virtual-router',
+         'physical-router', 'virtual-router', ['ref']) -->
+
 <xsd:element name="physical-router-bgp-router"/>
 <!--#IFMAP-SEMANTICS-IDL 
     Link('physical-router-bgp-router',
          'physical-router', 'bgp-router', ['ref']) -->
+
+<xsd:element name="physical-router-virtual-network"/>
+<!--#IFMAP-SEMANTICS-IDL
+    Link('physical-router-virtual-network',
+         'physical-router', 'virtual-network', ['ref']) -->
 
 <xsd:element name="physical-interface" type="ifmap:IdentityType"/>
 <xsd:element name="physical-router-physical-interface"/>
@@ -832,6 +992,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Link('logical-interface-virtual-network',
           'logical-interface', 'virtual-network', ['ref']) -->
+
+<xsd:element name="logical-interface-virtual-machine-interface"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('logical-interface-virtual-machine-interface',
+          'logical-interface', 'virtual-machine-interface', ['ref']) -->
 
 <xsd:element name="virtual-router" type="ifmap:IdentityType"/>
 <xsd:element name="global-system-config-virtual-router"/>
@@ -880,6 +1045,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:restriction base='xsd:string'>
         <xsd:enumeration value='firewall'/>
         <xsd:enumeration value='analyzer'/>
+        <xsd:enumeration value='source-nat'/>
+        <xsd:enumeration value='loadbalancer'/>
     </xsd:restriction>
 </xsd:simpleType>
 
@@ -898,6 +1065,13 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:restriction>
 </xsd:simpleType>
 
+<xsd:simpleType name="ServiceVirtualizationType" default="virtual-machine">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="virtual-machine"/>
+        <xsd:enumeration value="network-namespace"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name='ServiceTemplateType'> 
     <xsd:sequence>
         <xsd:element name='service-mode' type='ServiceModeType'/>
@@ -907,19 +1081,23 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='interface-type' type='ServiceTemplateInterfaceType' maxOccurs='unbounded'/>
         <xsd:element name='flavor' type='xsd:string'/>
         <xsd:element name='ordered-interfaces' type='xsd:boolean' default='false'/>
+        <xsd:element name='service-virtualization-type' type='ServiceVirtualizationType'/>
+        <xsd:element name='availability-zone-enable' type='xsd:boolean' default='false'/>
     </xsd:sequence>
 </xsd:complexType>
 
 <xsd:complexType name='ServiceInstanceType'> 
     <xsd:sequence>
         <xsd:element name='auto-policy' type="xsd:boolean" default='false'/>
-        <xsd:element name='management-virtual-network' type='xsd:string'/>
-        <xsd:element name='left-virtual-network' type='xsd:string'/>
-        <xsd:element name='left-ip-address' type='IpAddressType'/>
-        <xsd:element name='right-virtual-network' type='xsd:string'/>
-        <xsd:element name='right-ip-address' type='IpAddressType'/>
+        <xsd:element name='availability-zone' type='xsd:string'/>
+        <xsd:element name='management-virtual-network' type='xsd:string'/> <!-- Will be DEPRECATED -->
+        <xsd:element name='left-virtual-network' type='xsd:string'/>       <!-- Will be DEPRECATED -->
+        <xsd:element name='left-ip-address' type='IpAddressType'/>         <!-- Will be DEPRECATED -->
+        <xsd:element name='right-virtual-network' type='xsd:string'/>      <!-- Will be DEPRECATED -->
+        <xsd:element name='right-ip-address' type='IpAddressType'/>        <!-- Will be DEPRECATED -->
         <xsd:element name='interface-list' type='ServiceInstanceInterfaceType' maxOccurs='unbounded'/>
         <xsd:element name='scale-out' type='ServiceScaleOutType'/>
+        <xsd:element name="ha-mode" type="AddressMode"/>
     </xsd:sequence>
 </xsd:complexType>
 
@@ -1007,11 +1185,15 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Link('virtual-machine-interface-route-table',
           'virtual-machine-interface', 'interface-route-table', ['ref']) -->
+<xsd:element name="interface-route-table-family" type="IpAddressFamilyType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('interface-route-table-family', 'interface-route-table') -->
 <xsd:element name="interface-route-table-routes" type="RouteTableType"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('interface-route-table-routes', 'interface-route-table') -->
 
 <xsd:element name="logical-router" type="ifmap:IdentityType"/>
+
 <xsd:element name="project-logical-router"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('project-logical-router',
@@ -1026,4 +1208,17 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Link('logical-router-target',
           'logical-router', 'route-target', ['ref']) -->
+
+<!-- 
+    Link a virtual network used as the external gateway for source NAT support
+    (aka external gateway in OpenStack Neutron API).
+-->
+<xsd:element name="logical-router-gateway"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('logical-router-gateway',
+          'logical-router', 'virtual-network', ['ref']) -->
+
+<!-- Neutron extensions -->
+<xsd:include schemaLocation='loadbalancer.xsd'/>
+
 </xsd:schema>

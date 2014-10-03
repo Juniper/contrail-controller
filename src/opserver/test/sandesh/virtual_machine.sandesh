@@ -1,0 +1,48 @@
+/*
+ * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+ */
+
+//
+//  virtual_machine.sandesh
+//
+
+struct VmFloatingIPAgent {
+    1: string virtual_network;
+    2: string ip_address;
+}
+
+struct VmInterfaceAgent {
+    1: string name (aggtype="listkey")
+    2: string ip_address;
+    3: string virtual_network;
+    4: list<VmFloatingIPAgent> floating_ips;
+    5: string mac_address;
+    6: u32 label;
+    7: bool active;
+    8: string vm_name;
+    9: string gateway;
+   10: bool l2_active;
+}
+
+struct VmInterfaceAgentStats {
+    1: string name (aggtype="listkey")
+    2: i64 in_pkts;
+    3: i64 in_bytes; 
+    4: i64 out_pkts; 
+    5: i64 out_bytes; 
+    6: u64 in_bandwidth_usage;
+    7: u64 out_bandwidth_usage;
+}
+
+struct UveVirtualMachineAgent {
+    1: string                name (key="ObjectVMTable")
+    2: optional bool         deleted
+    3: optional list<string> attached_groups; 
+    4: optional list<VmInterfaceAgent> interface_list;
+    5: optional string       vrouter; 
+    6: optional list<VmInterfaceAgentStats> if_stats_list;
+}
+
+uve sandesh UveVirtualMachineAgentTrace {
+    1: UveVirtualMachineAgent data;
+}

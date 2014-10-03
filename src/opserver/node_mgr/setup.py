@@ -7,8 +7,9 @@ from setuptools import setup
 setup(
     name='node_mgr',
     version='0.1dev',
-    packages=['analytics_cpuinfo',
-              'analytics_cpuinfo.cpuinfo' ],
+    packages=['analytics',
+              'analytics.cpuinfo',
+              'analytics.process_info' ],
     package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,
     long_description="Analytics Node Manager Implementation",

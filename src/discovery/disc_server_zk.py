@@ -187,7 +187,9 @@ class DiscoveryServer():
         self._sandesh.set_logging_params(enable_local_log=self._args.log_local,
                                          category=self._args.log_category,
                                          level=self._args.log_level,
-                                         file=self._args.log_file)
+                                         file=self._args.log_file,
+                                         enable_syslog=self._args.use_syslog,
+                                         syslog_facility=self._args.syslog_facility)
         self._sandesh.trace_buffer_create(name="dsHeartBeatTraceBuf",
                                           size=1000)
 
@@ -1009,6 +1011,8 @@ def parse_args(args_str):
         'log_level': SandeshLevel.SYS_DEBUG,
         'log_category': '',
         'log_file': Sandesh._DEFAULT_LOG_FILE,
+        'use_syslog': False,
+        'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
         'worker_id': '0',
     }
 
@@ -1082,6 +1086,11 @@ def parse_args(args_str):
         help="Category filter for local logging of sandesh messages")
     parser.add_argument("--log_file",
         help="Filename for the logs to be written to")
+    parser.add_argument("--use_syslog",
+        action="store_true",
+        help="Use syslog for logging")
+    parser.add_argument("--syslog_facility",
+        help="Syslog facility to receive log lines")
     parser.add_argument(
         "--worker_id",
         help="Worker Id")

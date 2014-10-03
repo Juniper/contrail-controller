@@ -9,6 +9,7 @@
 #include "testing/gunit.h"
 
 #include "bgp/bgp_config.h"
+#include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_path.h"
 #include "bgp/bgp_proto.h"
@@ -25,6 +26,16 @@
 using namespace std;
 
 namespace {
+
+class BgpPeerMock : public BgpPeer {
+public:
+    BgpPeerMock(BgpServer *server, RoutingInstance *instance,
+                const BgpNeighborConfig *config) :
+        BgpPeer(server, instance, config) {
+    }
+
+    bool IsReady() const { return true; }
+};
 
 class BgpMsgBuilderTest : public testing::Test {
 protected:
@@ -178,6 +189,7 @@ TEST_F(BgpMsgBuilderTest, Build) {
 
 static void SetUp() {
     ControlNode::SetDefaultSchedulingPolicy();
+    BgpObjectFactory::Register<BgpPeer>(boost::factory<BgpPeerMock *>());
 }
 
 static void TearDown() {

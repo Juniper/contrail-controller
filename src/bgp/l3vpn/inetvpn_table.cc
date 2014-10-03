@@ -61,8 +61,8 @@ DBTableBase *InetVpnTable::CreateTable(DB *db, const std::string &name) {
 
 static RouteDistinguisher GenerateDistinguisher(
         const BgpTable *src_table, const BgpPath *src_path) {
-    RouteDistinguisher source_rd = src_path->GetAttr()->source_rd();
-    if (!source_rd.IsNull())
+    const RouteDistinguisher &source_rd = src_path->GetAttr()->source_rd();
+    if (!source_rd.IsZero())
         return source_rd;
 
     assert(!src_path->GetPeer() || !src_path->GetPeer()->IsXmppPeer());

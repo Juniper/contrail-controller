@@ -71,7 +71,8 @@ sdist_depends = [generated_rule, generateds_rule, cfixture_rule]
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(common_sources_rules)
-sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
+sdist_gen = env.Command('dist/vnc_api-0.1dev.tar.gz',
+                        'setup.py', 'python setup.py sdist', chdir=Dir('.'))
 
 env.Default(sdist_gen)
 
@@ -89,3 +90,5 @@ if 'install' in BUILD_TARGETS:
                              chdir = 1)		 
    env.Depends(install_cmd, sdist_depends)
    env.Alias('install', install_cmd)
+
+env.Alias('install', env.Install(env['INSTALL_CONF'], 'vnc_api_lib.ini'))

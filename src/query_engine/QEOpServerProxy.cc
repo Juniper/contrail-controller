@@ -21,8 +21,9 @@
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
 #include "query.h"
-#include "analytics_cpuinfo_types.h"
+#include "analytics_types.h"
 #include "stats_select.h"
+#include <base/connection_info.h>
 
 using std::list;
 using std::string;
@@ -37,6 +38,9 @@ using boost::scoped_ptr;
 using std::pair;
 using std::auto_ptr;
 using std::make_pair;
+using process::ConnectionState;
+using process::ConnectionType;
+using process::ConnectionStatus;
 
 extern RedisAsyncConnection * rac_alloc(EventManager *, const std::string & ,unsigned short,
 RedisAsyncConnection::ClientConnectCbFn ,
@@ -477,6 +481,7 @@ public:
 
                     QueryPerfInfo qpi;
                     qpi.set_name(Sandesh::source());
+                    qpi.set_table(inp.inp.table);
 
                     uint64_t enqtm = atol(ret.inp.qp.terms["enqueue_time"].c_str());
                     uint32_t enq_delay = static_cast<uint32_t>(
@@ -484,7 +489,6 @@ public:
                     qpi.set_enq_delay(enq_delay);
 
                     QueryStats qs;
-                    qs.set_table(inp.inp.table);
                     size_t outsize;
 
                     if (ret.inp.map_output)
@@ -532,12 +536,12 @@ public:
                     qpi.set_query_stats(vqs);
                     QueryPerfInfoTrace::Send(qpi);
 
-        		    QueryObjectData qo;
-        		    qo.set_qid(ret.inp.qp.qid);
-        		    qo.set_table(inp.inp.table);
-        		    qo.set_ops_start_ts(enqtm);
-        		    qo.set_qed_start_ts(ret.inp.qp.query_starttm);
-        		    qo.set_qed_end_ts(now);
+                    QueryObjectData qo;
+                    qo.set_qid(ret.inp.qp.qid);
+                    qo.set_table(inp.inp.table);
+                    qo.set_ops_start_ts(enqtm);
+                    qo.set_qed_start_ts(ret.inp.qp.query_starttm);
+                    qo.set_qed_end_ts(now);
                     qo.set_flow_query_rows(static_cast<uint32_t>(outsize));
         		    QUERY_OBJECT_SEND(qo);
 
@@ -754,6 +758,9 @@ public:
 
     void ConnUp(uint8_t cnum) {
         QE_LOG_NOQID(DEBUG, "ConnUp.. UP " << cnum);
+        ConnectionState::GetInstance()->Update(ConnectionType::REDIS,
+                "Query", ConnectionStatus::UP, conns_[cnum]->Endpoint(),
+                std::string());
         qosp_->evm_->io_service()->post(
                 boost::bind(&QEOpServerImpl::ConnUpPostProcess,
                         this, cnum));
@@ -762,6 +769,9 @@ public:
     void ConnDown(uint8_t cnum) {
         QE_LOG_NOQID(DEBUG, "ConnDown.. DOWN.. Reconnect.." << cnum);
         connState_[cnum] = false;
+        ConnectionState::GetInstance()->Update(ConnectionType::REDIS,
+                "Query", ConnectionStatus::DOWN, conns_[cnum]->Endpoint(),
+                std::string());
         qosp_->evm_->io_service()->post(boost::bind(&RedisAsyncConnection::RAC_Connect,
             conns_[cnum].get()));
     }

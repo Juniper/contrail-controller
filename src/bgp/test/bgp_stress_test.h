@@ -16,6 +16,7 @@
 #include "sandesh/sandesh.h"
 #include "sandesh/sandesh_server.h"
 #include "xmpp/xmpp_server.h"
+#include "xmpp/xmpp_state_machine.h"
 #include "testing/gunit.h"
 
 class BgpAttr;
@@ -181,16 +182,6 @@ public:
     void StartStaleTimer();
 };
 
-class StateMachineTest : public StateMachine {
-    public:
-        explicit StateMachineTest(BgpPeer *peer) : StateMachine(peer) { }
-        ~StateMachineTest() { }
-
-        void StartConnectTimer(int seconds);
-        void StartOpenTimer(int seconds);
-        void StartIdleHoldTimer();
-};
-
 class BgpXmppChannelManagerMock : public BgpXmppChannelManager {
 public:
     BgpXmppChannelManagerMock(XmppServerTest *x, BgpServer *b);
@@ -304,6 +295,19 @@ protected:
     void SandeshShutdown();
     void VerifyRoutingInstances();
     Ip4Prefix GetAgentRoute(int agent_id, int instance_id, int route_id);
+
+    Inet6Prefix CreateAgentInet6Prefix(int agent_id, int instance_id,
+                                       int route_id);
+    void AddLocalPrefToAttr(BgpAttrSpec *attr_spec);
+    void AddNexthopToAttr(BgpAttrSpec *attr_spec, int peer_id);
+    void AddRouteTargetsToCommunitySpec(ExtCommunitySpec *commspec,
+                                        int ntargets);
+    void AddTunnelEncapToCommunitySpec(ExtCommunitySpec *commspec);
+    void AddBgpInet6Route(int peer_id, int route_id, int num_targets);
+    Inet6VpnPrefix CreateInet6VpnPrefix(std::string pre_prefix, int agent_id,
+                                        int instance_id, int route_id);
+    void AddBgpInet6VpnRoute(int peer_id, int route_id, int num_targets);
+
     void Configure(std::string config);
     XmppChannelConfig *CreateXmppChannelCfg(const char *address, int port,
                                             const std::string &from,
@@ -315,11 +319,12 @@ protected:
                                 bool skip_rtr_config);
     BgpAttr *CreatePathAttr();
 
-    void AddBgpRoute(int family, int peer_id, int route_id, int ntargets);
-    void AddBgpRoute(std::vector<int> family, std::vector<int> peer_id,
-                     std::vector<int> route_id, int ntargets);
-    void AddBgpRouteInternal(int family, int peer_id, int ntargets,
-                             int route_id, std::string start_prefix, int label);
+    void AddBgpInetRoute(int family, int peer_id, int route_id, int ntargets);
+    void AddBgpRoutesInBulk(std::vector<int> family, std::vector<int> peer_id,
+                            std::vector<int> route_id, int ntargets);
+    void AddBgpInetRouteInternal(int family, int peer_id, int ntargets,
+                                 int route_id, std::string start_prefix,
+                                 int label);
     void AddBgpRoutes(int family, int peer_id, int nroutes, int ntargets);
     void AddAllBgpRoutes(int nroutes, int ntargets);
 
@@ -333,17 +338,20 @@ protected:
     void AddAllRoutes(int ninstances, int npeers, int nagents, int nroutes,
                       int ntargets);
 
-    void DeleteBgpRoute(int family, int peer_id, int route_id, int ntargets);
-    void DeleteBgpRoute(std::vector<int> family, std::vector<int> peer_id,
-                        std::vector<int> route_id, int ntargets);
-    void DeleteBgpRouteInternal(int family, int peer_id, int route_id,
-                                std::string start_prefix, int ntargets);
+    void DeleteBgpInetRoute(int family, int peer_id, int route_id,
+                            int ntargets);
+    void DeleteBgpRoutesInBulk(std::vector<int> family,
+                               std::vector<int> peer_id,
+                               std::vector<int> route_id, int ntargets);
+    void DeleteBgpInetRouteInternal(int family, int peer_id, int route_id,
+                                    std::string start_prefix, int ntargets);
+    void DeleteBgpInet6VpnRoute(int peer_id, int route_id, int num_targets);
     void DeleteBgpRoutes(int family, int peer_id, int nroutes, int ntargets);
     void DeleteAllBgpRoutes(int nroutes, int ntargets, int npeers, int nagents);
 
     void DeleteXmppRoute(int instance_id, int agent_id, int route_id);
-    void DeleteXmppRoute(std::vector<int> instance_ids, std::vector<int> agent_ids,
-                         std::vector<int> route_ids);
+    void DeleteXmppRoute(std::vector<int> instance_ids,
+                        std::vector<int> agent_ids, std::vector<int> route_ids);
     void DeleteXmppRoutes(int ninstances, int agent_id, int nroutes);
     void DeleteAllXmppRoutes(int ninstances, int nagents, int nroutes);
 
@@ -355,7 +363,6 @@ protected:
     size_t GetAllAgentRouteCount(int nagents, int ninstances);
     void VerifyXmppRouteNextHops();
 
-    ExtCommunitySpec *CreateRouteTargets(int ntargets);
     void InitParams();
 
     void SubscribeRoutingInstance(int agent_id, int instance_id,

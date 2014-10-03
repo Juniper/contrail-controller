@@ -20,8 +20,7 @@ while env_noWerror['CCFLAGS'].count('-Werror') > 0:
     env_noWerror['CCFLAGS'].remove('-Werror')
 
 env_noWerror_excep = env_noWerror.Clone()
-while env_noWerror_excep['CCFLAGS'].count('-fno-exceptions') > 0:
-    env_noWerror_excep['CCFLAGS'].remove('-fno-exceptions')
+env_noWerror_excep.CppEnableExceptions()
 
 SandeshGenFiles  = env.SandeshGenCpp('viz_collector_test.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('vizd_test.sandesh')
@@ -41,6 +40,11 @@ vizd_flow_test = env.Program('vizd_flow_test',
                              )
 env.Alias('src/analytics:vizd_flow_test', vizd_flow_test)
 
+stat_walker_test = env.UnitTest('stat_walker_test',
+                              ['stat_walker_test.cc',
+                               '../stat_walker.o'])
+env.Alias('src/analytics:stat_walker_test', stat_walker_test)
+
 viz_message_test = env.UnitTest('viz_message_test',
                               ['viz_message_test.cc',
                               '../viz_message.o']
@@ -58,7 +62,9 @@ syslog_test = env.UnitTest('syslog_test',
                                   '../vizd_table_desc.o',
                                   '../viz_message.o',
                                   '../ruleeng.o',
+                                  '../stat_walker.o',
                                   '../db_handler.o',
+                                  '../parser_util.o',
                                   '../viz_constants.o',
                                   '../collector_uve_types.o',
                                   '../collector_uve_html.o',
@@ -83,6 +89,7 @@ db_handler_test = env.UnitTest('db_handler_test',
                               AnalyticsEnv['ANALYTICS_VIZ_SANDESH_GEN_OBJS'] + 
                               [db_handler_test_obj,
                               '../db_handler.o',
+                              '../parser_util.o',
                               '../vizd_table_desc.o',
                               '../viz_message.o',
                               ]
@@ -112,11 +119,23 @@ env.Alias('src/analytics:options_test', options_test)
 #       )
 #env.Alias('src/analytics:vizd_test', vizd_test)
 
+protobufEnv = env.Clone()
+protobuf_test_gen_files = protobufEnv.ProtocGenCpp('test_message.proto')
+protobuf_test_gen_srcs = protobufEnv.ExtractCpp(protobuf_test_gen_files)
+protobuf_test_desc_files = protobufEnv.ProtocGenDesc('test_message.proto')
+protobuf_test = protobufEnv.UnitTest('protobuf_test', protobuf_test_gen_srcs +
+      protobufEnv['ANALYTICS_PROTOBUF_GEN_OBJS'] +
+      ['protobuf_test.cc', '../protobuf_server.o', '../stat_walker.o'])
+env.Requires(protobuf_test, env['TOP'] + '/analytics/test/test_message.desc')
+protobufEnv.Alias('src/analytics:protobuf_test', protobuf_test)
+
 test_suite = [ 
                options_test,
                viz_message_test,
                db_handler_test,
-#              syslog_test, # TODO This test fails!
+               stat_walker_test,
+               protobuf_test,
+               syslog_test,
              ]
 test = env.TestSuite('analytics-test', test_suite)
 
@@ -124,5 +143,9 @@ env.Alias('controller/src/analytics:test', [
     test,
     'controller/src/analytics/ruleparser:test',
 ])
+
+flaky_test_suite = [ ]
+flaky_test = env.TestSuite('analytics-flaky-test', flaky_test_suite)
+env.Alias('controller/src/analytics:flaky-test', flaky_test)
 
 Return('test_suite')

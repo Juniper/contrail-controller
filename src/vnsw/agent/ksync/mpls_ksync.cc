@@ -76,7 +76,7 @@ int MplsKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     encoder.set_h_op(op);
     encoder.set_mr_label(label_);
     encoder.set_mr_rid(0);
-    encoder.set_mr_nhid(next_hop->GetIndex());
+    encoder.set_mr_nhid(next_hop->nh_id());
     encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
     return encode_len;
 }
@@ -84,7 +84,7 @@ int MplsKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 void MplsKSyncEntry::FillObjectLog(sandesh_op::type op, 
                                    KSyncMplsInfo &info) const {
     info.set_label(label_);
-    info.set_nh(nh()->GetIndex());
+    info.set_nh(nh()->nh_id());
 
     if (op == sandesh_op::ADD) {
         info.set_operation("ADD/CHANGE");
@@ -133,7 +133,7 @@ MplsKSyncObject::~MplsKSyncObject() {
 }
 
 void MplsKSyncObject::RegisterDBClients() {
-    RegisterDb(ksync_->agent()->GetMplsTable());
+    RegisterDb(ksync_->agent()->mpls_table());
 }
 
 KSyncEntry *MplsKSyncObject::Alloc(const KSyncEntry *entry, uint32_t index) {

@@ -60,7 +60,8 @@ public:
     void UpdateConfig(BgpServer *server, const BgpInstanceConfig *config);
     void ClearConfig();
 
-    static std::string GetTableNameFromVrf(std::string name, Address::Family fmly);
+    static std::string GetTableName(std::string instance_name,
+                                    Address::Family fmly);
     static std::string GetVrfFromTableName(const std::string table);
 
     BgpTable *GetTable(Address::Family fmly);
@@ -119,9 +120,12 @@ private:
     // Cleanup all the state prior to deletion.
     void Shutdown();
 
-    BgpTable *InetVpnTableCreate(BgpServer *server);
-    BgpTable *EvpnTableCreate(BgpServer *server);
+    BgpTable *VpnTableCreate(BgpServer *server, Address::Family vpn_family);
     BgpTable *RTargetTableCreate(BgpServer *server);
+    BgpTable *VrfTableCreate(BgpServer *server, Address::Family vrf_family,
+                             Address::Family vpn_family);
+    void ClearFamilyRouteTarget(Address::Family vrf_family,
+                                Address::Family vpn_family);
 
     std::string name_;
     int index_;

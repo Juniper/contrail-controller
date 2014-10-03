@@ -11,9 +11,55 @@ import json
 import re
 
 import cfgm_common
+from vnc_quota import *
 from gen.resource_xsd import *
 from gen.resource_common import *
 from gen.resource_server import *
+from pprint import pformat
+import uuid
+
+class GlobalSystemConfigServer(GlobalSystemConfigServerGen):
+    @classmethod
+    def _check_asn(cls, obj_dict, db_conn):
+        global_asn = obj_dict.get('autonomous_system')
+        if not global_asn:
+            return (True, '')
+        (ok, result) = db_conn.dbe_list('virtual-network')
+        if not ok:
+            return (ok, result)
+        for vn_name, vn_uuid in result:
+            ok, result = db_conn.dbe_read('virtual-network', {'uuid': vn_uuid})
+            if not ok:
+                return ok, result
+            rt_dict = result.get('route_target_list', {})
+            for rt in rt_dict.get('route_target', []):
+                (_, asn, target) = rt.split(':')
+                if (int(asn) == global_asn and
+                    int(target) >= cfgm_common.BGP_RTGT_MIN_ID):
+                    return (False, (400, "Virtual network %s is configured "
+                            "with a route target with this ASN and route "
+                            "target value in the same range as used by "
+                            "automatically allocated route targets" % vn_name))
+        return (True, '')
+    # end _check_asn
+
+    @classmethod
+    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+        ok, result = cls._check_asn(obj_dict, db_conn)
+        if not ok:
+            return ok, result
+        return True, ''
+    # end http_post_collection
+
+    @classmethod
+    def http_put(cls, id, fq_name, obj_dict, db_conn):
+        ok, result = cls._check_asn(obj_dict, db_conn)
+        if not ok:
+            return ok, result
+        return True, ''
+    # end http_put
+
+# end class GlobalSystemConfigServer
 
 
 class FloatingIpServer(FloatingIpServerGen):
@@ -21,11 +67,32 @@ class FloatingIpServer(FloatingIpServerGen):
 
     @classmethod
     def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+        proj_dict = obj_dict['project_refs'][0]
+        if 'uuid' in proj_dict:
+            proj_uuid = proj_dict['uuid']
+        else:
+            proj_uuid = db_conn.fq_name_to_uuid('project', proj_dict['to'])
+        (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
+        if not ok:
+            return (False, (500, 'Internal error : ' + pformat(proj_dict)))
+
+        obj_type = 'floating-ip'
+
+        if 'floating_ip_back_refs' in proj_dict:
+            quota_count = len(proj_dict['floating_ip_back_refs'])
+            if obj_dict['id_perms'].get('user_visible', True) is not False:
+                (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type,
+                                                                  quota_count)
+                if not ok:
+                    return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
+
         vn_fq_name = obj_dict['fq_name'][:-2]
-        req_ip = obj_dict.get("floating_ip_address", None)
+        req_ip = obj_dict.get("floating_ip_address")
+        if req_ip and cls.addr_mgmt.is_ip_allocated(req_ip, vn_fq_name):
+            return (False, (403, 'Ip address already in use'))
         try:
-            fip_addr = cls.addr_mgmt.ip_alloc_req(
-                vn_fq_name, asked_ip_addr=req_ip)
+            fip_addr = cls.addr_mgmt.ip_alloc_req(vn_fq_name,
+                                                  asked_ip_addr=req_ip)
         except Exception as e:
             return (False, (500, str(e)))
         obj_dict['floating_ip_address'] = fip_addr
@@ -63,8 +130,8 @@ class FloatingIpServer(FloatingIpServerGen):
             cls.addr_mgmt.ip_alloc_req(vn_fq_name, asked_ip_addr=req_ip)
         except Exception as e:
             return (False, (500, str(e)))
-        print 'AddrMgmt: alloc %s FIP for vn=%s, tenant=%s to recover DELETE failure' \
-            % (obj_dict['floating_ip_address'], vn_fq_name, tenant_name)
+        print 'AddrMgmt: alloc %s FIP for vn=%s to recover DELETE failure' \
+            % (obj_dict['floating_ip_address'], vn_fq_name)
         return True, ""
     # end http_delete_fail
 
@@ -89,6 +156,30 @@ class InstanceIpServer(InstanceIpServerGen):
     generate_default_instance = False
 
     @classmethod
+    def _get_subnet_name(cls, vn_dict, subnet_uuid):
+        ipam_refs = vn_dict.get('network_ipam_refs', [])
+        subnet_name = None
+        for ipam in ipam_refs:
+            ipam_subnets = ipam['attr'].get('ipam_subnets', [])
+            for subnet in ipam_subnets:
+                if subnet['subnet_uuid'] == subnet_uuid:
+                    subnet_dict = subnet['subnet']
+                    subnet_name = subnet_dict['ip_prefix'] + '/' + str(
+                                  subnet_dict['ip_prefix_len'])
+                    return subnet_name
+
+    @classmethod
+    def _is_gateway_ip(cls, vn_dict, ip_addr):
+        ipam_refs = vn_dict.get('network_ipam_refs', [])
+        for ipam in ipam_refs:
+            ipam_subnets = ipam['attr'].get('ipam_subnets', [])
+            for subnet in ipam_subnets:
+                if subnet['default_gateway'] == ip_addr:
+                    return True
+
+        return False
+
+    @classmethod
     def http_post_collection(cls, tenant_name, obj_dict, db_conn):
         vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
         if ((vn_fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
@@ -97,9 +188,32 @@ class InstanceIpServer(InstanceIpServerGen):
             return True,  ""
 
         req_ip = obj_dict.get("instance_ip_address", None)
+        req_ip_family = obj_dict.get("instance_ip_family", None)
+        req_ip_version = 4 # default ip v4
+        if req_ip_family == "v6": req_ip_version = 6
+
+        vn_id = {'uuid': db_conn.fq_name_to_uuid('virtual-network', vn_fq_name)}
+        (read_ok, vn_dict) = db_conn.dbe_read('virtual-network', vn_id)
+        if not read_ok:
+            return (False, (500, 'Internal error : ' + pformat(vn_dict)))
+
+        subnet_uuid = obj_dict.get('subnet_uuid', None)
+        sub = cls._get_subnet_name(vn_dict, subnet_uuid) if subnet_uuid else None
+        if subnet_uuid and not sub:
+            return (False, (404, "Subnet id " + subnet_uuid + " not found"))
+
+        # If its an external network, check whether floating IP equivalent to
+        # requested fixed-IP is already reserved.
+        router_external = vn_dict.get('router_external', None)
+        if req_ip and router_external and \
+           not cls._is_gateway_ip(vn_dict, req_ip) and \
+           cls.addr_mgmt.is_ip_allocated(req_ip, vn_fq_name):
+            return (False, (403, 'Ip address already in use'))
+
         try:
             ip_addr = cls.addr_mgmt.ip_alloc_req(
-                vn_fq_name, asked_ip_addr=req_ip)
+                vn_fq_name, sub=sub, asked_ip_addr=req_ip,
+                asked_ip_version=req_ip_version)
         except Exception as e:
             return (False, (500, str(e)))
         obj_dict['instance_ip_address'] = ip_addr
@@ -152,8 +266,8 @@ class InstanceIpServer(InstanceIpServerGen):
             cls.addr_mgmt.ip_alloc_req(vn_fq_name, asked_ip_addr=req_ip)
         except Exception as e:
             return (False, (500, str(e)))
-        print 'AddrMgmt: alloc %s for vn=%s, tenant=%s to recover DELETE failure' \
-            % (obj_dict['instance_ip_address'], vn_fq_name, tenant_name)
+        print 'AddrMgmt: alloc %s for vn=%s to recover DELETE failure' \
+            % (obj_dict['instance_ip_address'], vn_fq_name)
         return True, ""
     # end http_delete_fail
 
@@ -174,13 +288,76 @@ class InstanceIpServer(InstanceIpServerGen):
 # end class InstanceIpServer
 
 
+class LogicalRouterServer(LogicalRouterServerGen):
+    generate_default_instance = False
+
+    @classmethod
+    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+        try:
+            fq_name = obj_dict['fq_name']
+            proj_uuid = db_conn.fq_name_to_uuid('project', fq_name[0:2])
+        except cfgm_common.exceptions.NoIdError:
+            return (False, (500, 'No Project ID error : ' + proj_uuid))
+
+        (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
+        if not ok:
+            return (False, (500, 'Internal error : ' + pformat(proj_dict)))
+
+        obj_type = 'logical-router'
+        if 'logical_routers' in proj_dict:
+            quota_count = len(proj_dict['logical_routers'])
+            if obj_dict['id_perms'].get('user_visible', True) is not False:
+                (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type,
+                                                                  quota_count)
+                if not ok:
+                    return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
+        return True, ""
+    # end http_post_collection
+
+# end class LogicalRouterServer
+
+
 class VirtualMachineInterfaceServer(VirtualMachineInterfaceServerGen):
     generate_default_instance = False
 
     @classmethod
     def http_post_collection(cls, tenant_name, obj_dict, db_conn):
-        mac_addr = cls.addr_mgmt.mac_alloc(obj_dict)
-        mac_addrs_obj = MacAddressesType([mac_addr])
+        vn_dict = obj_dict['virtual_network_refs'][0]
+        vn_uuid = vn_dict.get('uuid')
+        if not vn_uuid:
+            vn_fq_name = vn_dict.get('to')
+            if not vn_fq_name:
+                return (False, (500, 'Internal error : ' + pformat(vn_dict)))
+            vn_uuid = db_conn.fq_name_to_uuid('virtual-network', vn_fq_name)
+        (ok, vn_dict) = db_conn.dbe_read('virtual-network', {'uuid':vn_uuid})
+        if not ok:
+            return (False, (500, 'Internal error : ' + pformat(vn_dict)))
+
+        proj_uuid = vn_dict['parent_uuid']
+        (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
+        if not ok:
+            return (False, (500, 'Internal error : ' + pformat(proj_dict)))
+
+        obj_type = 'virtual-machine-interface'
+        if 'virtual_machine_interfaces' in proj_dict:
+            quota_count = len(proj_dict['virtual_machine_interfaces'])
+            if obj_dict['id_perms'].get('user_visible', True) is not False:
+                (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type,
+                                                                  quota_count)
+                if not ok:
+                    return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
+
+        inmac = None
+        if 'virtual_machine_interface_mac_addresses' in obj_dict:
+            mc = obj_dict['virtual_machine_interface_mac_addresses']
+            if 'mac_address' in mc:
+                if len(mc['mac_address'])==1:
+                    inmac = mc['mac_address']
+        if inmac!=None:
+            mac_addrs_obj = MacAddressesType(inmac)
+        else:
+            mac_addr = cls.addr_mgmt.mac_alloc(obj_dict)
+            mac_addrs_obj = MacAddressesType([mac_addr])
         mac_addrs_json = json.dumps(
             mac_addrs_obj,
             default=lambda o: dict((k, v)
@@ -196,8 +373,69 @@ class VirtualMachineInterfaceServer(VirtualMachineInterfaceServerGen):
 class VirtualNetworkServer(VirtualNetworkServerGen):
 
     @classmethod
+    def _check_route_targets(cls, obj_dict, db_conn):
+        if 'route_target_list' not in obj_dict:
+            return (True, '')
+        config_uuid = db_conn.fq_name_to_uuid('global_system_config', ['default-global-system-config'])
+        config = db_conn.uuid_to_obj_dict(config_uuid)
+        global_asn = config.get('prop:autonomous_system')
+        if not global_asn:
+            return (True, '')
+        global_asn = json.loads(global_asn)
+        rt_dict = obj_dict.get('route_target_list')
+        if not rt_dict:
+            return (True, '')
+        for rt in rt_dict.get('route_target', []):
+            (_, asn, target) = rt.split(':')
+            if asn == global_asn and int(target) >= cfgm_common.BGP_RTGT_MIN_ID:
+                 return (False, "Configured route target must use ASN that is "
+                         "different from global ASN or route target value must"
+                         " be less than %d" % cfgm_common.BGP_RTGT_MIN_ID)
+        return (True, '')
+    # end _check_route_targets
+
+    @classmethod
+    def _check_and_create_subnet_uuid(cls, vn_dict):
+        ipam_refs = vn_dict.get('network_ipam_refs', [])
+        for ipam in ipam_refs:
+            vnsn = ipam['attr']
+            subnets = vnsn['ipam_subnets']
+            for subnet in subnets:
+                if not subnet.get('subnet_uuid'):
+                    subnet['subnet_uuid'] = str(uuid.uuid4())
+    # end _check_and_create_subnet_uuid
+
+    @classmethod
     def http_post_collection(cls, tenant_name, obj_dict, db_conn):
-        cls.addr_mgmt.net_create_req(obj_dict)
+        try:
+            fq_name = obj_dict['fq_name']
+            proj_uuid = db_conn.fq_name_to_uuid('project', fq_name[0:2])
+        except cfgm_common.exceptions.NoIdError:
+            return (False, (500, 'No Project ID error : ' + proj_uuid))
+
+        (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
+        if not ok:
+            return (False, (500, 'Internal error : ' + pformat(proj_dict)))
+
+        obj_type = 'virtual-network'
+        if 'virtual_networks' in proj_dict:
+            quota_count = len(proj_dict['virtual_networks'])
+            if obj_dict['id_perms'].get('user_visible', True) is not False:
+                (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type,
+                                                                  quota_count)
+                if not ok:
+                    return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
+
+        cls._check_and_create_subnet_uuid(obj_dict)
+
+        (ok, error) =  cls._check_route_targets(obj_dict, db_conn)
+        if not ok:
+            return (False, (400, error))
+        try:
+            cls.addr_mgmt.net_create_req(obj_dict)
+        except Exception as e:
+            return (False, (500, str(e)))
+
         return True, ""
     # end http_post_collection
 
@@ -214,8 +452,7 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
             # Ignore ip-fabric subnet updates
             return True,  ""
 
-        ipam_refs = obj_dict.get('network_ipam_refs', None)
-        if not ipam_refs:
+        if 'network_ipam_refs' not in obj_dict:
             # NOP for addr-mgmt module
             return True,  ""
 
@@ -223,6 +460,15 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
         (read_ok, read_result) = db_conn.dbe_read('virtual-network', vn_id)
         if not read_ok:
             return (False, (500, read_result))
+
+        (ok, result) = cls.addr_mgmt.net_check_subnet(read_result, obj_dict)
+        if not ok:
+            return (ok, (409, result))
+
+        (ok, result) = cls.addr_mgmt.net_check_subnet_quota(read_result,
+                                                            obj_dict, db_conn)
+        if not ok:
+            return (ok, (403, result))
         (ok, result) = cls.addr_mgmt.net_check_subnet_overlap(read_result,
                                                               obj_dict)
         if not ok:
@@ -232,8 +478,16 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
         if not ok:
             return (ok, (409, result))
 
-        cls.addr_mgmt.net_update_req(fq_name, read_result, obj_dict, id)
+        try:
+            cls.addr_mgmt.net_update_req(fq_name, read_result, obj_dict, id)
+        except Exception as e:
+            return (False, (500, str(e)))
 
+        cls._check_and_create_subnet_uuid(obj_dict)
+
+        (ok, error) =  cls._check_route_targets(obj_dict, db_conn)
+        if not ok:
+            return (False, (400, error))
         return True, ""
     # end http_put
 
@@ -321,12 +575,11 @@ class NetworkIpamServer(NetworkIpamServerGen):
         if not read_ok:
             return (False, (500, "Internal error : IPAM is not valid"))
         old_ipam_mgmt = read_result.get('network_ipam_mgmt')
-        if not old_ipam_mgmt:
+        new_ipam_mgmt = obj_dict.get('network_ipam_mgmt')
+        if not old_ipam_mgmt or not new_ipam_mgmt:
             return True, ""
-
-        old_dns_method = old_ipam_mgmt['ipam_dns_method']
-        new_ipam_mgmt = obj_dict['network_ipam_mgmt']
-        new_dns_method = new_ipam_mgmt['ipam_dns_method']
+        old_dns_method = old_ipam_mgmt.get('ipam_dns_method')
+        new_dns_method = new_ipam_mgmt.get('ipam_dns_method')
         if not cls.is_change_allowed(old_dns_method, new_dns_method, obj_dict,
                                      db_conn):
             return (False, (409, "Cannot change DNS Method from " +
@@ -404,7 +657,7 @@ class VirtualDnsServer(VirtualDnsServerGen):
             if not read_ok:
                 return (
                     False,
-                    (500, "Internal error : Virtual Dns is not in a domain"))
+                    (500, "Internal error : Virtual DNS is not in a domain"))
             virtual_DNSs = read_result.get('virtual_DNSs', None)
             for vdns in virtual_DNSs:
                 vdns_uuid = vdns['uuid']
@@ -415,7 +668,7 @@ class VirtualDnsServer(VirtualDnsServerGen):
                     return (
                         False,
                         (500,
-                         "Internal error : Unable to read Virtual Dns data"))
+                         "Internal error : Unable to read Virtual DNS data"))
                 vdns_data = read_result['virtual_DNS_data']
                 if 'next_virtual_DNS' in vdns_data:
                     if vdns_data['next_virtual_DNS'] == vdns_name:
@@ -518,7 +771,7 @@ class VirtualDnsServer(VirtualDnsServerGen):
                         return (
                             False,
                             (403,
-                             "Cannot have Virtual Dns servers "
+                             "Cannot have Virtual DNS Servers "
                              "referring to each other"))
         return True, ""
     # end validate_dns_server
@@ -609,3 +862,125 @@ class VirtualDnsRecordServer(VirtualDnsRecordServerGen):
         return True, ""
     # end validate_dns_record
 # end class VirtualDnsRecordServer
+
+def _check_policy_rule_uuid(entries):
+    if not entries:
+        return
+    for rule in entries.get('policy_rule') or []:
+        if not rule.get('rule_uuid'):
+            rule['rule_uuid'] = str(uuid.uuid4())
+# end _check_policy_rule_uuid
+
+class SecurityGroupServer(SecurityGroupServerGen):
+    generate_default_instance = False
+
+    @classmethod
+    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+        try:
+            fq_name = obj_dict['fq_name']
+            proj_uuid = db_conn.fq_name_to_uuid('project', fq_name[0:2])
+        except cfgm_common.exceptions.NoIdError:
+            return (False, (500, 'No Project ID error : ' + proj_uuid))
+
+        (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
+        if not ok:
+            return (False, (500, 'Internal error : ' + pformat(proj_dict)))
+
+        obj_type = 'security-group'
+        if 'security_groups' in proj_dict:
+            quota_count = len(proj_dict['security_groups'])
+            if obj_dict['id_perms'].get('user_visible', True) is not False:
+                (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type,
+                                                                  quota_count)
+                if not ok:
+                    return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
+
+        _check_policy_rule_uuid(obj_dict.get('security_group_entries'))
+
+        return True, ""
+    # end http_post_collection
+
+    @classmethod
+    def http_put(cls, id, fq_name, obj_dict, db_conn):
+        (ok, sec_dict) = db_conn.dbe_read('security-group', {'uuid': id})
+        if not ok:
+            return (False, (500, 'Bad Security Group error : ' + pformat(sec_dict)))
+        (ok, proj_dict) = QuotaHelper.get_project_dict(sec_dict['parent_uuid'], db_conn)
+        if not ok:
+            return (False, (500, 'Bad Project error : ' + pformat(proj_dict)))
+
+        if 'security_group_entries' in obj_dict:
+            rule_count = len(obj_dict['security_group_entries']['policy_rule'])
+            obj_type = 'security-group-rule'
+            for sg in proj_dict.get('security_groups', []):
+                if sg['uuid'] == sec_dict['uuid']:
+                    continue
+                ok, sg_dict = db_conn.dbe_read('security-group', sg)
+                if not ok:
+                    continue
+                sge = sg_dict.get('security_group_entries', {})
+                rule_count += len(sge.get('policy_rule', []))
+
+            if sec_dict['id_perms'].get('user_visible', True) is not False:
+                (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type,
+                                                                  rule_count-1)
+                if not ok:
+                    return (False, (403, pformat(fq_name) + ' : ' + quota_limit))
+
+        _check_policy_rule_uuid(obj_dict.get('security_group_entries'))
+        return True, ""
+    # end http_put
+
+# end class SecurityGroupServer
+
+
+class NetworkPolicyServer(NetworkPolicyServerGen):
+
+    @classmethod
+    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+        try:
+            fq_name = obj_dict['fq_name']
+            proj_uuid = db_conn.fq_name_to_uuid('project', fq_name[0:2])
+        except cfgm_common.exceptions.NoIdError:
+            return (False, (500, 'No Project ID error : ' + proj_uuid))
+
+        (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
+        if not ok:
+            return (False, (500, 'Internal error : ' + pformat(proj_dict)))
+
+        obj_type = 'network-policy'
+        if 'network-policys' in proj_dict:
+            quota_count = len(proj_dict['network-policys'])
+            if obj_dict['id_perms'].get('user_visible', True) is not False:
+                (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type,
+                                                                  quota_count)
+                if not ok:
+                    return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
+
+        _check_policy_rule_uuid(obj_dict.get('network_policy_entries'))
+        try:
+            cls._check_policy(obj_dict)
+        except Exception as e:
+            return (False, (500, str(e)))
+
+        return True, ""
+    # end http_post_collection
+
+    @classmethod
+    def http_put(cls, id, fq_name, obj_dict, db_conn):
+        p_id = {'uuid': id}
+        (read_ok, read_result) = db_conn.dbe_read('network-policy', p_id)
+        if not read_ok:
+            return (False, (500, read_result))
+        _check_policy_rule_uuid(obj_dict.get('network_policy_entries'))
+        return True, ""
+    # end http_put
+
+    @classmethod
+    def _check_policy(cls, obj_dict):
+        entries = obj_dict.get('network_policy_entries')
+        if not entries:
+            return
+    # end _check_policy
+
+# end class VirtualNetworkServer

@@ -1,0 +1,38 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+import sys
+if sys.platform == 'darwin':
+    Return()
+
+import re
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+# test specific modifications
+AgentEnv.MakeTestEnv(env)
+
+lib_src = ['test_xml.cc', 'test_xml_validate.cc']
+env.Library('agent_test_xml', lib_src)
+
+env.Append(LIBPATH = env['TOP'] + '/vnsw/agent/test-xml')
+env.Append(LIBS = 'agent_test_xml')
+
+agent_suite = []
+flaky_agent_suite = []
+test_xml_dummy = AgentEnv.MakeTestCmdSrc(env, 'test_xml_dummy',
+                                        [
+                                         'test_xml_dummy.cc',
+                                         '../pkt/test/test_pkt_util.o'
+                                        ],
+                                        flaky_agent_suite)
+
+flaky_test = env.TestSuite('agent-flaky-test', flaky_agent_suite)
+env.Alias('controller/src/vnsw/agent:flaky_test', flaky_test)
+
+test = env.TestSuite('agent-test', agent_suite)
+env.Alias('agent:agent_test', test)
+Return('agent_suite')

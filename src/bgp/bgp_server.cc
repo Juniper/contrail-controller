@@ -7,11 +7,11 @@
 #include <boost/assign.hpp>
 
 #include "base/logging.h"
-#include "base/lifetime.h"
 #include "base/task_annotations.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_condition_listener.h"
 #include "bgp/bgp_factory.h"
+#include "bgp/bgp_lifetime.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_membership.h"
@@ -109,7 +109,9 @@ public:
                         "Updated Autonomous System from " <<
                         server_->autonomous_system_ << " to "
                         << params.autonomous_system);
+            as_t old_asn = server_->autonomous_system_;
             server_->autonomous_system_ = params.autonomous_system;
+            server_->NotifyASNUpdate(old_asn);
         }
 
         if (server_->hold_time_ != params.hold_time) {
@@ -155,9 +157,11 @@ private:
 class BgpServer::DeleteActor : public LifetimeActor {
 public:
     DeleteActor(BgpServer *server)
-        : LifetimeActor(server->lifetime_manager()), server_(server) { }
+        : LifetimeActor(server->lifetime_manager()), server_(server) {
+    }
     virtual bool MayDelete() const {
-        return true;
+        CHECK_CONCURRENCY("bgp::Config");
+        return server_->session_manager()->IsQueueEmpty();
     }
     virtual void Shutdown() {
         CHECK_CONCURRENCY("bgp::Config");
@@ -166,32 +170,47 @@ public:
     virtual void Destroy() {
         CHECK_CONCURRENCY("bgp::Config");
         server_->config_manager()->Terminate();
+        server_->session_manager()->Terminate();
         TcpServerManager::DeleteServer(server_->session_manager());
         server_->session_mgr_ = NULL;
     }
+
 private:
     BgpServer *server_;
 };
 
+bool BgpServer::IsDeleted() const {
+    return deleter_->IsDeleted();
+}
+
+void BgpServer::RetryDelete() {
+    if (!deleter_->IsDeleted())
+        return;
+    deleter_->RetryDelete();
+}
+
 bool BgpServer::IsReadyForDeletion() {
     CHECK_CONCURRENCY("bgp::Config");
 
-    //
-    // Check if the IPeer membership manager queue is empty
-    //
+    // Check if the IPeer membership manager queue is empty.
     if (!membership_mgr_->IsQueueEmpty()) {
         return false;
     }
 
-    // Check if the Service Chain Manager Work Queue is empty
+    // Check if the Service Chain Manager Work Queue is empty.
     if (!service_chain_mgr_->IsQueueEmpty()) {
         return false;
     }
 
-    //
-    // Check if the DB requests queue and change list is empty
-    //
+    // Check if the DB requests queue and change list is empty.
     if (!db_.IsDBQueueEmpty()) {
+        return false;
+    }
+
+    // Check if the RTargetGroupManager has processed all RTargetRoute updates.
+    // This is done to ensure that the InterestedPeerList of RtargetGroup gets
+    // updated before allowing the peer to get deleted.
+    if (!rtarget_group_mgr_->IsRTargetRoutesProcessed()) {
         return false;
     }
 
@@ -199,10 +218,9 @@ bool BgpServer::IsReadyForDeletion() {
 }
 
 BgpServer::BgpServer(EventManager *evm)
-    : autonomous_system_(0), bgp_identifier_(0),
-      lifetime_manager_(new LifetimeManager(
-          TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
-          boost::bind(&BgpServer::IsReadyForDeletion, this))),
+    : autonomous_system_(0), bgp_identifier_(0), hold_time_(0),
+      lifetime_manager_(new BgpLifetimeManager(this,
+          TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)),
       aspath_db_(new AsPathDB(this)),
       comm_db_(new CommunityDB(this)),
@@ -215,7 +233,9 @@ BgpServer::BgpServer(EventManager *evm)
       membership_mgr_(BgpObjectFactory::Create<PeerRibMembershipManager>(this)),
       condition_listener_(new BgpConditionListener(this)),
       inetvpn_replicator_(new RoutePathReplicator(this, Address::INETVPN)),
+      ermvpn_replicator_(new RoutePathReplicator(this, Address::ERMVPN)),
       evpn_replicator_(new RoutePathReplicator(this, Address::EVPN)),
+      inet6vpn_replicator_(new RoutePathReplicator(this, Address::INET6VPN)),
       service_chain_mgr_(new ServiceChainMgr(this)),
       config_mgr_(BgpObjectFactory::Create<BgpConfigManager>(this)),
       updater_(new ConfigUpdater(this)) {
@@ -325,3 +345,51 @@ void BgpServer::VisitBgpPeers(BgpServer::VisitorFn fn) const {
         }
     }
 }
+
+int
+BgpServer::RegisterASNUpdateCallback(ASNUpdateCb callback) {
+    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
+    size_t i = bmap_.find_first();
+    if (i == bmap_.npos) {
+        i = asn_listeners_.size();
+        asn_listeners_.push_back(callback);
+    } else {
+        bmap_.reset(i);
+        if (bmap_.none()) {
+            bmap_.clear();
+        }
+        asn_listeners_[i] = callback;
+    }
+    return i;
+}
+
+void BgpServer::UnregisterASNUpdateCallback(int listener) {
+    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
+    asn_listeners_[listener] = NULL;
+    if ((size_t) listener == asn_listeners_.size() - 1) {
+        while (!asn_listeners_.empty() && asn_listeners_.back() == NULL) {
+            asn_listeners_.pop_back();
+        }
+        if (bmap_.size() > asn_listeners_.size()) {
+            bmap_.resize(asn_listeners_.size());
+        }
+    } else {
+        if ((size_t) listener >= bmap_.size()) {
+            bmap_.resize(listener + 1);
+        }
+        bmap_.set(listener);
+    }
+}
+
+void BgpServer::NotifyASNUpdate(as_t asn) {
+    tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
+    for (ASNUpdateListenersList::iterator iter = asn_listeners_.begin();
+         iter != asn_listeners_.end(); ++iter) {
+        if (*iter != NULL) {
+            ASNUpdateCb cb = *iter;
+            (cb)(asn);
+        }
+    }
+}
+
+

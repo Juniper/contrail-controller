@@ -103,12 +103,12 @@ int main(int argc, char *argv[]) {
     }
 
     Dns::SetProgramName(argv[0]);
-    if (options.log_file() == "<stdout>") {
-        LoggingInit();
-    } else {
-        LoggingInit(options.log_file(), options.log_file_size(),
-                    options.log_files_count());
-    }
+    Module::type module = Module::DNS;
+    string module_name = g_vns_constants.ModuleNames.find(module)->second;
+
+    LoggingInit(options.log_file(), options.log_file_size(),
+                options.log_files_count(), options.use_syslog(),
+                options.syslog_facility(), module_name);
 
     string build_info_str;
     Dns::GetVersion(build_info_str);
@@ -118,17 +118,17 @@ int main(int argc, char *argv[]) {
         Dns::SetCollector(options.collector_server_list()[0]);
     }
     Dns::SetHttpPort(options.http_server_port());
+    Dns::SetDnsPort(options.dns_server_port());
 
     BgpSandeshContext sandesh_context;
     boost::system::error_code ec;
     string hostname = host_name(ec);
     Dns::SetHostName(hostname);
     if (options.discovery_server().empty()) {
-        Module::type module = Module::DNS;
         NodeType::type node_type = 
             g_vns_constants.Module2NodeType.find(module)->second;
         Sandesh::InitGenerator(
-                    g_vns_constants.ModuleNames.find(module)->second,
+                    module_name,
                     options.hostname(), 
                     g_vns_constants.NodeTypeNames.find(node_type)->second,
                     g_vns_constants.INSTANCE_ID_DEFAULT,
@@ -189,7 +189,7 @@ int main(int argc, char *argv[]) {
         if (!options.host_ip().empty()) {
             stringstream pub_ss;
             pub_ss << "<dns-server><ip-address>" << options.host_ip() <<
-                      "</ip-address><port>" << ContrailPorts::DnsXmpp <<
+                      "</ip-address><port>" << options.dns_server_port() <<
                       "</port></dns-server>";
             std::string pub_msg;
             pub_msg = pub_ss.str();

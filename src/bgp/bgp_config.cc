@@ -48,17 +48,6 @@ static string IdentifierParent(const string &identifier) {
     return parent;
 }
 
-BgpConfigDelta::BgpConfigDelta() {
-}
-
-BgpConfigDelta::BgpConfigDelta(const BgpConfigDelta &rhs)
-    : id_type(rhs.id_type), id_name(rhs.id_name),
-      node(rhs.node), obj(rhs.obj) {
-}
-
-BgpConfigDelta::~BgpConfigDelta() {
-}
-
 template<>
 void BgpConfigManager::Notify<BgpInstanceConfig>(
         const BgpInstanceConfig *config, EventType event) {
@@ -267,7 +256,7 @@ BgpNeighborConfig::BgpNeighborConfig(const BgpInstanceConfig *instance,
                                      const string &local_name,
                                      const autogen::BgpRouter *router,
                                      const autogen::BgpSession *session)
-        : instance_(instance) {
+        : instance_(instance), local_as_(0) {
 
     // If the autogen::BgpSession has a uuid, we append it to the remote
     // bgp-router's name to make the BgpNeighborConfig's name unique.
@@ -585,11 +574,15 @@ bool BgpInstanceConfig::DeleteIfEmpty(BgpConfigManager *manager) {
     if (name_ == BgpConfigManager::kMasterInstance) {
         return false;
     }
-    if (node() == NULL && protocol_.get() == NULL && neighbors_.empty()) {
-        manager->Notify(this, BgpConfigManager::CFG_DELETE);
-        return true;
+    if (node() != NULL || protocol_.get() != NULL) {
+        return false;
     }
-    return false;
+    if (!neighbors_.empty() || !peerings_.empty()) {
+        return false;
+    }
+
+    manager->Notify(this, BgpConfigManager::CFG_DELETE);
+    return true;
 }
 
 //
@@ -650,6 +643,20 @@ const BgpNeighborConfig *BgpInstanceConfig::FindNeighbor(string name) const {
 }
 
 //
+// Add a BgpPeeringConfig to this BgpInstanceConfig.
+//
+void BgpInstanceConfig::AddPeering(BgpPeeringConfig *peering) {
+    peerings_.insert(make_pair(peering->name(), peering));
+}
+
+//
+// Delete a BgpPeeringConfig from this BgpInstanceConfig.
+//
+void BgpInstanceConfig::DeletePeering(BgpPeeringConfig *peering) {
+    peerings_.erase(peering->name());
+}
+
+//
 // Constructor for BgpConfigData.
 //
 BgpConfigData::BgpConfigData() {
@@ -685,8 +692,9 @@ BgpInstanceConfig *BgpConfigData::LocateInstance(const string &name) {
 // Remove the given BgpInstanceConfig from the BgpInstanceMap and delete it.
 //
 void BgpConfigData::DeleteInstance(BgpInstanceConfig *rti) {
-    string name(rti->name());
-    instances_.erase(name);
+    BgpInstanceMap::iterator loc = instances_.find(rti->name());
+    assert(loc != instances_.end());
+    instances_.erase(loc);
     delete rti;
 }
 
@@ -727,6 +735,7 @@ BgpPeeringConfig *BgpConfigData::CreatePeering(BgpInstanceConfig *rti,
     pair<BgpPeeringMap::iterator, bool> result =
             peerings_.insert(make_pair(peering->node()->name(), peering));
     assert(result.second);
+    peering->instance()->AddPeering(peering);
     return peering;
 }
 
@@ -738,6 +747,7 @@ BgpPeeringConfig *BgpConfigData::CreatePeering(BgpInstanceConfig *rti,
 // via the destructor when the IFMapNodeProxy is destroyed.
 //
 void BgpConfigData::DeletePeering(BgpPeeringConfig *peering) {
+    peering->instance()->DeletePeering(peering);
     peerings_.erase(peering->node()->name());
     delete peering;
 }
@@ -797,7 +807,7 @@ void BgpConfigManager::Initialize(DB *db, DBGraph *db_graph,
     db_ = db;
     db_graph_ = db_graph;
     localname_ = localname;
-    listener_->Initialize(db);
+    listener_->Initialize();
     DefaultConfig();
 }
 
@@ -902,8 +912,7 @@ void BgpConfigManager::ProcessRoutingInstance(const BgpConfigDelta &delta) {
             return;
         }
         IFMapNode *node = proxy->node();
-        if (node == NULL || node->IsDeleted() ||
-            !node->HasAdjacencies(db_graph_)) {
+        if (node == NULL || node->IsDeleted()) {
             return;
         }
         event = BgpConfigManager::CFG_ADD;
@@ -913,9 +922,11 @@ void BgpConfigManager::ProcessRoutingInstance(const BgpConfigDelta &delta) {
         IFMapNode *node = rti->node();
         if (node == NULL) {
             IFMapNodeProxy *proxy = delta.node.get();
-            if (proxy == NULL) return;
+            if (proxy == NULL) {
+                return;
+            }
             rti->SetNodeProxy(proxy);
-        } else if (node->IsDeleted() || !node->HasAdjacencies(db_graph_)) {
+        } else if (node->IsDeleted()) {
             rti->ResetConfig();
             if (rti->DeleteIfEmpty(this)) {
                 BGP_CONFIG_LOG_INSTANCE(Delete, server_, rti,
@@ -976,14 +987,22 @@ void BgpConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
             return;
         }
         IFMapNode *node = proxy->node();
-        if (node == NULL || node->IsDeleted() ||
-            !node->HasAdjacencies(db_graph_)) {
+        if (node == NULL || node->IsDeleted()) {
             return;
         }
         event = BgpConfigManager::CFG_ADD;
         if (rti == NULL) {
             rti = config_->LocateInstance(instance_name);
             Notify(rti, BgpConfigManager::CFG_ADD);
+
+            vector<string> import_rt(rti->import_list().begin(),
+                                     rti->import_list().end());
+            vector<string> export_rt(rti->export_list().begin(),
+                                     rti->export_list().end());
+            BGP_CONFIG_LOG_INSTANCE(Create, server_, rti,
+                SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+                import_rt, export_rt,
+                rti->virtual_network(), rti->virtual_network_index());
         }
         protocol = rti->LocateProtocol();
         protocol->SetNodeProxy(proxy);
@@ -996,12 +1015,14 @@ void BgpConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
                 return;
             }
             protocol->SetNodeProxy(delta.node.get());
-        } else if (node->IsDeleted() || !node->HasAdjacencies(db_graph_)) {
+        } else if (node->IsDeleted()) {
             BGP_CONFIG_LOG_PROTOCOL(Delete, server_, protocol,
                 SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL);
             protocol->Delete(this);
             rti->ResetProtocol();
             if (rti->DeleteIfEmpty(this)) {
+                BGP_CONFIG_LOG_INSTANCE(Delete, server_, rti,
+                    SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL);
                 config_->DeleteInstance(rti);
             }
             return;
@@ -1013,8 +1034,9 @@ void BgpConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
     protocol->Update(this, rt_config);
     Notify(protocol, event);
 
-    if (!rt_config)
+    if (!rt_config) {
         return;
+    }
 
     vector<string> families(
         protocol->router_params().address_families.begin(),
@@ -1027,7 +1049,7 @@ void BgpConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
             protocol->router_params().address,
             protocol->router_params().hold_time,
             families);
-    } else if (protocol->bgp_router()) {
+    } else {
         BGP_CONFIG_LOG_PROTOCOL(Update, server_, protocol,
             SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
             protocol->router_params().autonomous_system,
@@ -1082,6 +1104,7 @@ void BgpConfigManager::ProcessBgpRouter(const BgpConfigDelta &delta) {
 void BgpConfigManager::ProcessBgpPeering(const BgpConfigDelta &delta) {
     CHECK_CONCURRENCY("bgp::Config");
 
+    BgpConfigManager::EventType event = BgpConfigManager::CFG_CHANGE;
     BgpPeeringConfig *peering = config_->FindPeering(delta.id_name);
     if (peering == NULL) {
         IFMapNodeProxy *proxy = delta.node.get();
@@ -1099,30 +1122,36 @@ void BgpConfigManager::ProcessBgpPeering(const BgpConfigDelta &delta) {
             return;
         }
 
+        event = BgpConfigManager::CFG_ADD;
         string instance_name(IdentifierParent(routers.first->name()));
         BgpInstanceConfig *rti = config_->FindInstance(instance_name);
         assert(rti != NULL);
         peering = config_->CreatePeering(rti, proxy);
-        BGP_CONFIG_LOG_PEERING(Create, server_, peering,
-            SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL);
     } else {
         const IFMapNode *node = peering->node();
         assert(node != NULL);
-        if (node->IsDeleted() || !node->HasAdjacencies(db_graph_)) {
+        if (node->IsDeleted()) {
             BGP_CONFIG_LOG_PEERING(Delete, server_, peering,
                 SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL);
             BgpInstanceConfig *rti = peering->instance();
             peering->Delete(this);
             config_->DeletePeering(peering);
             if (rti->DeleteIfEmpty(this)) {
+                BGP_CONFIG_LOG_INSTANCE(Delete, server_, rti,
+                    SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL);
                 config_->DeleteInstance(rti);
             }
             return;
         }
     }
 
-    BGP_CONFIG_LOG_PEERING(Update, server_, peering,
-        SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL);
+    if (event == BgpConfigManager::CFG_ADD) {
+        BGP_CONFIG_LOG_PEERING(Create, server_, peering,
+            SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL);
+    } else {
+        BGP_CONFIG_LOG_PEERING(Update, server_, peering,
+            SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL);
+    }
     autogen::BgpPeering *peering_config =
             static_cast<autogen::BgpPeering *>(delta.obj.get());
     peering->Update(this, peering_config);
@@ -1161,6 +1190,6 @@ bool BgpConfigManager::ConfigHandler() {
 // Terminate the BgpConfigManager.
 //
 void BgpConfigManager::Terminate() {
-    listener_->Terminate(db_);
+    listener_->Terminate();
     config_.reset();
 }

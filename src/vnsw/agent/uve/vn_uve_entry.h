@@ -74,6 +74,8 @@ public:
     VnUveEntry(Agent *agent);
     virtual ~VnUveEntry();
 
+    void set_vn(const VnEntry *vn) { vn_ = vn; }
+
     void InterfaceAdd(const Interface *intf);
     void InterfaceDelete(const Interface *intf);
     void VmAdd(const std::string &vm);
@@ -83,7 +85,8 @@ public:
     bool FillVrfStats(int vrf_id, UveVirtualNetworkAgent &s_vn);
     bool PopulateInterVnStats(UveVirtualNetworkAgent &s_vn);
     bool FrameVnMsg(const VnEntry *vn, UveVirtualNetworkAgent &uve);
-    bool FrameVnStatsMsg(const VnEntry *vn, UveVirtualNetworkAgent &uve);
+    bool FrameVnStatsMsg(const VnEntry *vn, UveVirtualNetworkAgent &uve,
+                         bool only_vrf_stats);
     void UpdateInterVnStats(const string &dst_vn, uint64_t bytes, 
                             uint64_t pkts, bool outgoing);
     void ClearInterVnStats();
@@ -117,7 +120,6 @@ private:
                                   &new_list) const;
     bool UveInterVnOutStatsChanged(const std::vector<UveInterVnStats> 
                                    &new_list) const;
-    bool UveInterVnStatsChanged(const std::vector<InterVnStats> &list) const;
     bool UveVnVrfStatsChanged(const std::vector<UveVrfStats> &vlist) const;
     bool UpdateVrfStats(const VnEntry *vn, UveVirtualNetworkAgent &s_vn);
     bool UveVnInFlowCountChanged(uint32_t size);

@@ -81,6 +81,10 @@ void BgpTable::set_routing_instance(RoutingInstance *rtinstance) {
     instance_delete_ref_.Reset(rtinstance->deleter());
 }
 
+BgpServer *BgpTable::server() {
+    return rtinstance_->server();
+}
+
 //
 // Find the RibOut for the given RibExportPolicy.
 //
@@ -438,27 +442,12 @@ void BgpTable::ManagedDelete() {
 }
 
 //
-// Resume deletion of the table if it is pending
+// Retry deletion of the table if it is pending.
 //
-void BgpTable::MayResumeDelete(bool is_empty) {
-
-    //
-    // If the table is not marked for deletion, ignore
-    //
-    if (!deleter()->IsDeleted()) return;
-
-    if (!is_empty) {
-        BGP_LOG_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
-                      "Paused table deletion, as it is still not empty");
+void BgpTable::RetryDelete() {
+    if (!deleter()->IsDeleted())
         return;
-    }
-
-    //
-    // Enqueue a request to the life time manager to try delete the table now.
-    // If all dependencies are cleared, only then would the table get actually
-    // deleted
-    //
-    rtinstance_->server()->lifetime_manager()->Enqueue(deleter());
+    deleter()->RetryDelete();
 }
 
 size_t BgpTable::GetPendingRiboutsCount(size_t &markers) {
@@ -480,6 +469,10 @@ size_t BgpTable::GetPendingRiboutsCount(size_t &markers) {
 }
 
 LifetimeActor *BgpTable::deleter() {
+    return deleter_.get();
+}
+
+const LifetimeActor *BgpTable::deleter() const {
     return deleter_.get();
 }
 

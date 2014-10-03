@@ -10,6 +10,7 @@ setup(
     packages=['vrouter',
               'vrouter.vrouter', 
               'vrouter.vrouter.cpuinfo',
+              'vrouter.vrouter.process_info',
               'vrouter.sandesh',
               'vrouter.sandesh.virtual_machine',
               'vrouter.sandesh.virtual_machine.port_bmap',

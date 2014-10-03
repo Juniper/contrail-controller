@@ -12,6 +12,7 @@
 #include <pthread.h>
 
 #include "base/logging.h"
+#include "base/connection_info.h"
 #include "base/cpuinfo.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_config_parser.h"
@@ -49,6 +50,8 @@
 using namespace std;
 using namespace boost::asio::ip;
 namespace opt = boost::program_options;
+using process::ConnectionStateManager;
+using process::GetProcessStateCb;
 
 static TaskTrigger *node_info_trigger;
 static Timer *node_info_log_timer;
@@ -107,7 +110,7 @@ static void ShutdownServers(
     WaitForIdle();
 
     // Wait until all XMPP connections are cleaned up.
-    for (cnt = 0; xmpp_server->ConnectionsCount() != 0 && cnt < 15; cnt++) {
+    for (cnt = 0; xmpp_server->ConnectionCount() != 0 && cnt < 15; cnt++) {
         sleep(1);
     }
 
@@ -126,8 +129,11 @@ static void ShutdownServers(
     TimerManager::DeleteTimer(node_info_log_timer);
     delete node_info_trigger;
 
-    //Shutdown Discovery Service Client
+    // Shutdown Discovery Service Client
     ShutdownDiscoveryClient(dsclient);
+
+    ConnectionStateManager<NodeStatusUVE, NodeStatus>::
+        GetInstance()->Shutdown();
 
     // Do sandesh cleanup.
     Sandesh::Uninit();
@@ -164,12 +170,25 @@ static void FillRouteUpdateStats(IPeerDebugStats::UpdateStats &stats,
     rt_stats.unreach = stats.unreach;
 }
 
+static void FillRxErrorStats(IPeerDebugStats::RxErrorStats &src,
+                             PeerRxErrorStats &dest) {
+    dest.inet6_error_stats.bad_inet6_xml_token_count =
+        src.inet6_bad_xml_token_count;
+    dest.inet6_error_stats.bad_inet6_prefix_count =
+        src.inet6_bad_prefix_count;
+    dest.inet6_error_stats.bad_inet6_nexthop_count =
+        src.inet6_bad_nexthop_count;
+    dest.inet6_error_stats.bad_inet6_afi_safi_count =
+        src.inet6_bad_afi_safi_count;
+}
+
 static void FillPeerDebugStats(IPeerDebugStats *peer_state,
                           PeerStatsInfo &stats) {
     PeerProtoStats proto_stats_tx;
     PeerProtoStats proto_stats_rx;
     PeerUpdateStats rt_stats_rx;
     PeerUpdateStats rt_stats_tx;
+    PeerRxErrorStats dest_error_stats_rx;
 
     IPeerDebugStats::ProtoStats stats_rx;
     peer_state->GetRxProtoStats(stats_rx);
@@ -187,10 +206,15 @@ static void FillPeerDebugStats(IPeerDebugStats *peer_state,
     peer_state->GetTxRouteUpdateStats(update_stats_tx);
     FillRouteUpdateStats(update_stats_tx, rt_stats_tx);
 
+    IPeerDebugStats::RxErrorStats src_error_stats_rx;
+    peer_state->GetRxErrorStats(src_error_stats_rx);
+    FillRxErrorStats(src_error_stats_rx, dest_error_stats_rx);
+
     stats.set_rx_proto_stats(proto_stats_rx);
     stats.set_tx_proto_stats(proto_stats_tx);
     stats.set_rx_update_stats(rt_stats_rx);
     stats.set_tx_update_stats(rt_stats_tx);
+    stats.set_rx_error_stats(dest_error_stats_rx);
 }
 
 void FillXmppPeerStats(BgpServer *server, BgpXmppChannel *channel) {
@@ -367,6 +391,7 @@ void ControlNodeShutdown() {
 
 int main(int argc, char *argv[]) {
     Options options;
+    bool sandesh_generator_init = true;
 
     // Process options from command-line and configuration file.
     if (!options.Parse(evm, argc, argv)) {
@@ -374,29 +399,50 @@ int main(int argc, char *argv[]) {
     }
 
     ControlNode::SetProgramName(argv[0]);
-    if (options.log_file() == "<stdout>") {
-        LoggingInit();
-    } else {
-        LoggingInit(options.log_file(), options.log_file_size(),
-                    options.log_files_count());
-    }
+    Module::type module = Module::CONTROL_NODE;
+    string module_name = g_vns_constants.ModuleNames.find(module)->second;
+    LoggingInit(options.log_file(), options.log_file_size(),
+                options.log_files_count(), options.use_syslog(),
+                options.syslog_facility(), module_name);
+
     TaskScheduler::Initialize();
     ControlNode::SetDefaultSchedulingPolicy();
     BgpSandeshContext sandesh_context;
 
-    if (options.discovery_server().empty()) {
-        Module::type module = Module::CONTROL_NODE;
+    /* If Sandesh initialization is not being done via discovery we need to
+     * initialize here. We need to do sandesh initialization here for cases
+     * (i) When both Discovery and Collectors are configured.
+     * (ii) When both are not configured (to initialize introspect)
+     * (iii) When only collector is configured
+     */
+    if (!options.discovery_server().empty() &&
+        !options.collectors_configured()) {
+        sandesh_generator_init = false;
+    }
+
+    if (sandesh_generator_init) {
         NodeType::type node_type = 
-            g_vns_constants.Module2NodeType.find(module)->second; 
-        Sandesh::InitGenerator(
-            g_vns_constants.ModuleNames.find(module)->second,
-            options.hostname(), 
-            g_vns_constants.NodeTypeNames.find(node_type)->second,
-            g_vns_constants.INSTANCE_ID_DEFAULT, 
-            &evm,
-            options.http_server_port(), 0,
-            options.collector_server_list(),
-            &sandesh_context);
+            g_vns_constants.Module2NodeType.find(module)->second;
+        if (options.collectors_configured()) {
+            Sandesh::InitGenerator(
+                    module_name,
+                    options.hostname(),
+                    g_vns_constants.NodeTypeNames.find(node_type)->second,
+                    g_vns_constants.INSTANCE_ID_DEFAULT,
+                    &evm,
+                    options.http_server_port(), 0,
+                    options.collector_server_list(),
+                    &sandesh_context);
+        } else {
+            Sandesh::InitGenerator(
+                    g_vns_constants.ModuleNames.find(module)->second,
+                    options.hostname(),
+                    g_vns_constants.NodeTypeNames.find(node_type)->second,
+                    g_vns_constants.INSTANCE_ID_DEFAULT,
+                    &evm,
+                    options.http_server_port(),
+                    &sandesh_context);
+        }
     }
 
     Sandesh::SetLoggingParams(options.log_local(), options.log_category(),
@@ -509,6 +555,20 @@ int main(int argc, char *argv[]) {
 
     CpuLoadData::Init();
     start_time = UTCTimestampUsec();
+    // Determine if the number of connections is as expected. At the moment, we
+    // consider connections to collector, discovery server and IFMap (irond)
+    // servers as critical to the normal functionality of control-node.
+    //
+    // 1. Collector client
+    // 2. Discovery Server publish XmppServer
+    // 3. Discovery Server subscribe Collector
+    // 4. Discovery Server subscribe IfmapServer
+    // 5. IFMap Server (irond)
+    ConnectionStateManager<NodeStatusUVE, NodeStatus>::
+        GetInstance()->Init(*evm.io_service(), options.hostname(),
+            g_vns_constants.ModuleNames.find(Module::CONTROL_NODE)->second,
+            Sandesh::instance_id(),
+            boost::bind(&GetProcessStateCb, _1, _2, _3, 5));
     node_info_trigger = 
         new TaskTrigger(boost::bind(&ControlNodeInfoLogger, sandesh_context),
             TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0);

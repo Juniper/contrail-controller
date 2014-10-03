@@ -28,6 +28,12 @@
 using namespace std;
 using namespace autogen;
 
+CfgFilter::CfgFilter(AgentConfig *cfg) : agent_cfg_(cfg) {
+}
+
+CfgFilter::~CfgFilter() {
+}
+
 bool CfgFilter::CheckProperty(DBTable *table, IFMapNode *node, DBRequest *req,
                               int property_id) {
     if (property_id < 0) {

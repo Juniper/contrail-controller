@@ -58,18 +58,18 @@ void StartControlNodeMock() {
     thread1 = new ServerThread(&evm1);
     bgp_peer1 = new test::ControlNodeMock(&evm1, "127.0.0.1");
     
-    Agent::GetInstance()->SetXmppServer("127.0.0.1", 0);
-    Agent::GetInstance()->SetXmppPort(bgp_peer1->GetServerPort(), 0);
-    Agent::GetInstance()->SetDnsXmppServer("", 0);
-    Agent::GetInstance()->SetDnsXmppPort(bgp_peer1->GetServerPort(), 0);
+    Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
+    Agent::GetInstance()->set_controller_ifmap_xmpp_port(bgp_peer1->GetServerPort(), 0);
+    Agent::GetInstance()->set_dns_server("", 0);
+    Agent::GetInstance()->set_dns_server_port(bgp_peer1->GetServerPort(), 0);
 
     thread2 = new ServerThread(&evm2);
     bgp_peer2 = new test::ControlNodeMock(&evm2, "127.0.0.1");
     
-    Agent::GetInstance()->SetXmppServer("127.0.0.1", 1);
-    Agent::GetInstance()->SetXmppPort(bgp_peer2->GetServerPort(), 1);
-    Agent::GetInstance()->SetDnsXmppServer("", 1);
-    Agent::GetInstance()->SetDnsXmppPort(bgp_peer2->GetServerPort(), 1);
+    Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 1);
+    Agent::GetInstance()->set_controller_ifmap_xmpp_port(bgp_peer2->GetServerPort(), 1);
+    Agent::GetInstance()->set_dns_server("", 1);
+    Agent::GetInstance()->set_dns_server_port(bgp_peer2->GetServerPort(), 1);
     thread1->Start();
     thread2->Start();
 }
@@ -77,8 +77,8 @@ void StartControlNodeMock() {
 void StopControlNodeMock() {
     Agent::GetInstance()->controller()->DisConnect();
     client->WaitForIdle();
-    TcpServerManager::DeleteServer(Agent::GetInstance()->GetAgentXmppClient(0));
-    TcpServerManager::DeleteServer(Agent::GetInstance()->GetAgentXmppClient(1));
+    TcpServerManager::DeleteServer(Agent::GetInstance()->controller_ifmap_xmpp_client(0));
+    TcpServerManager::DeleteServer(Agent::GetInstance()->controller_ifmap_xmpp_client(1));
 
     bgp_peer1->Shutdown();
     client->WaitForIdle();
@@ -132,7 +132,7 @@ TEST_F(RouteTest, RouteTest_1) {
 
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(RouteFind("vrf1", local_vm_ip, 32));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", local_vm_ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", local_vm_ip, 32);
 
     WAIT_FOR(100, 10000, rt->GetPathList().size() == 3);
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::BGP_PEER);
@@ -164,7 +164,7 @@ TEST_F(RouteTest, RouteTest_2) {
 
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(RouteFind("vrf1", local_vm_ip, 32));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", local_vm_ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", local_vm_ip, 32);
 
     WAIT_FOR(100, 10000, rt->GetPathList().size() == 3);
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::BGP_PEER);
@@ -219,7 +219,7 @@ TEST_F(RouteTest, BgpEcmpRouteTest_1) {
     WAIT_FOR(100, 10000, RouteFind("vrf1", ip, 32));
     WAIT_FOR(100, 10000, PathCount("vrf1", ip, 32) == 2);
 
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::BGP_PEER);
     //Expect route to point to composite NH
     const NextHop *bgp_nh = rt->GetActiveNextHop();
@@ -231,16 +231,16 @@ TEST_F(RouteTest, BgpEcmpRouteTest_1) {
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 2); 
 
     //Verfiy that all members of component NH are correct 
-    CompositeNH::ComponentNHList::const_iterator component_nh_it =
+    ComponentNHList::const_iterator component_nh_it =
         comp_nh->begin();
     EXPECT_TRUE((*component_nh_it)->label() == 16);
     const TunnelNH *tun_nh = 
-        static_cast<const TunnelNH *>((*component_nh_it)->GetNH());
+        static_cast<const TunnelNH *>((*component_nh_it)->nh());
     EXPECT_TRUE((*(tun_nh->GetDip())).to_string() == "10.10.10.10");
 
     component_nh_it++;
     EXPECT_TRUE((*component_nh_it)->label() == 17);
-    tun_nh = static_cast<const TunnelNH *>((*component_nh_it)->GetNH());
+    tun_nh = static_cast<const TunnelNH *>((*component_nh_it)->nh());
     EXPECT_TRUE((*(tun_nh->GetDip())).to_string() == "11.11.11.11");
 
     DelVrf("vrf1");
@@ -263,7 +263,7 @@ TEST_F(RouteTest, BgpEcmpRouteTest_2) {
     WAIT_FOR(100, 10000, RouteFind("vrf1", ip, 32));
     WAIT_FOR(100, 10000, PathCount("vrf1", ip, 32) == 2);
 
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::BGP_PEER);
     //Expect route to point to composite NH
     const NextHop *bgp_nh = rt->GetActiveNextHop();
@@ -281,16 +281,16 @@ TEST_F(RouteTest, BgpEcmpRouteTest_2) {
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 2); 
 
     //Verfiy that all members of component NH are correct 
-    CompositeNH::ComponentNHList::const_iterator component_nh_it =
+    ComponentNHList::const_iterator component_nh_it =
         comp_nh->begin();
     EXPECT_TRUE((*component_nh_it)->label() == 16);
     const TunnelNH *tun_nh = 
-        static_cast<const TunnelNH *>((*component_nh_it)->GetNH());
+        static_cast<const TunnelNH *>((*component_nh_it)->nh());
     EXPECT_TRUE((*(tun_nh->GetDip())).to_string() == "10.10.10.10");
 
     component_nh_it++;
     EXPECT_TRUE((*component_nh_it)->label() == 17);
-    tun_nh = static_cast<const TunnelNH *>((*component_nh_it)->GetNH());
+    tun_nh = static_cast<const TunnelNH *>((*component_nh_it)->nh());
     EXPECT_TRUE((*(tun_nh->GetDip())).to_string() == "11.11.11.11");
 
     DelVrf("vrf1");
@@ -316,7 +316,7 @@ TEST_F(RouteTest, BgpEcmpRouteTest_3) {
     WAIT_FOR(100, 10000, RouteFind("vrf1", ip, 32));
     WAIT_FOR(100, 10000, PathCount("vrf1", ip, 32) == 2);
 
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::BGP_PEER);
     const NextHop *bgp_nh = rt->GetActiveNextHop();
     EXPECT_TRUE(bgp_nh->GetType() == NextHop::COMPOSITE);
@@ -324,16 +324,16 @@ TEST_F(RouteTest, BgpEcmpRouteTest_3) {
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 2); 
 
     //Verfiy that all members of component NH are correct 
-    CompositeNH::ComponentNHList::const_iterator component_nh_it =
+    ComponentNHList::const_iterator component_nh_it =
         comp_nh->begin();
     EXPECT_TRUE((*component_nh_it)->label() == 16);
     const TunnelNH *tun_nh = 
-        static_cast<const TunnelNH *>((*component_nh_it)->GetNH());
+        static_cast<const TunnelNH *>((*component_nh_it)->nh());
     EXPECT_TRUE((*(tun_nh->GetDip())).to_string() == "10.10.10.10");
 
     component_nh_it++;
     EXPECT_TRUE((*component_nh_it)->label() == 17);
-    tun_nh = static_cast<const TunnelNH *>((*component_nh_it)->GetNH());
+    tun_nh = static_cast<const TunnelNH *>((*component_nh_it)->nh());
     EXPECT_TRUE((*(tun_nh->GetDip())).to_string() == "11.11.11.11");
 
     //Delete one of the component route
@@ -343,7 +343,7 @@ TEST_F(RouteTest, BgpEcmpRouteTest_3) {
     WAIT_FOR(100, 10000, rt->GetActiveNextHop()->GetType() == NextHop::TUNNEL);
     tun_nh = static_cast<const TunnelNH *>(rt->GetActiveNextHop());
     EXPECT_TRUE((*(tun_nh->GetDip())).to_string() == "11.11.11.11");
-    EXPECT_TRUE(rt->GetMplsLabel() == 17);
+    EXPECT_TRUE(rt->GetActiveLabel() == 17);
 
     DelVrf("vrf1");
     DelVn("vn1");
@@ -372,7 +372,7 @@ TEST_F(RouteTest, BgpEcmpRouteTest_4) {
     WAIT_FOR(100, 10000, RouteFind("vrf1", ip, 32));
     WAIT_FOR(100, 10000, PathCount("vrf1", ip, 32) == 2);
 
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::BGP_PEER);
     const NextHop *bgp_nh = rt->GetActiveNextHop();
     EXPECT_TRUE(bgp_nh->GetType() == NextHop::COMPOSITE);
@@ -383,11 +383,11 @@ TEST_F(RouteTest, BgpEcmpRouteTest_4) {
     bgp_peer1->DeleteRoute("vrf1", "1.1.1.1/32", "11.11.11.11", 17, "vn1");
     bgp_peer2->DeleteRoute("vrf1", "1.1.1.1/32", "11.11.11.11", 17, "vn1");
     //Verfiy that all members of component NH are correct 
-    CompositeNH::ComponentNHList::const_iterator component_nh_it =
+    ComponentNHList::const_iterator component_nh_it =
         comp_nh->begin();
     EXPECT_TRUE((*component_nh_it)->label() == 16);
     const TunnelNH *tun_nh = 
-        static_cast<const TunnelNH *>((*component_nh_it)->GetNH());
+        static_cast<const TunnelNH *>((*component_nh_it)->nh());
     EXPECT_TRUE((*(tun_nh->GetDip())).to_string() == "10.10.10.10");
 
     //Component NH at index 2 was deleted
@@ -396,7 +396,7 @@ TEST_F(RouteTest, BgpEcmpRouteTest_4) {
 
     component_nh_it++;
     EXPECT_TRUE((*component_nh_it)->label() == 18);
-    tun_nh = static_cast<const TunnelNH *>((*component_nh_it)->GetNH());
+    tun_nh = static_cast<const TunnelNH *>((*component_nh_it)->nh());
     EXPECT_TRUE((*(tun_nh->GetDip())).to_string() == "12.12.12.12");
 
     DelVrf("vrf1");
@@ -419,7 +419,7 @@ TEST_F(RouteTest, EcmpRouteTest_1) {
     CreateVmportEnv(input1, 3);
     client->WaitForIdle();
 
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
     EXPECT_TRUE(rt != NULL);
     WAIT_FOR(100, 10000, rt->GetPathList().size() == 3);
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::BGP_PEER);
@@ -460,7 +460,7 @@ TEST_F(RouteTest, EcmpRouteTest_2) {
     client->WaitForIdle();
     //Check that route points to composite NH,
     //with 5 members
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
     EXPECT_TRUE(rt != NULL);
     WAIT_FOR(100, 10000, rt->GetPathList().size() == 3);
     WAIT_FOR(100, 10000, rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
@@ -516,7 +516,7 @@ TEST_F(RouteTest, EcmpRouteTest_3) {
     //Check that route points to composite NH,
     //with 3 members
     WAIT_FOR(100, 10000, RouteFind("vrf2", ip, 32) == true);
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf2", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf2", ip, 32);
     EXPECT_TRUE(rt != NULL);
     WAIT_FOR(100, 10000, rt->GetPathList().size() == 3);
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::BGP_PEER);
@@ -558,13 +558,13 @@ TEST_F(RouteTest, EcmpRouteTest_4) {
 
     //Leak route to vrf2
     bgp_peer1->AddRoute("vrf2", "1.1.1.1/32", 
-            Agent::GetInstance()->GetRouterId().to_string().c_str(), 18, "vn1");
+            Agent::GetInstance()->router_id().to_string().c_str(), 18, "vn1");
     bgp_peer2->AddRoute("vrf2", "1.1.1.1/32", 
-            Agent::GetInstance()->GetRouterId().to_string().c_str(), 18, "vn1");
+            Agent::GetInstance()->router_id().to_string().c_str(), 18, "vn1");
     client->WaitForIdle();
 
     WAIT_FOR(100, 10000, (RouteGet("vrf2", ip, 32) != NULL));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf2", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf2", ip, 32);
     EXPECT_TRUE(rt != NULL);
     WAIT_FOR(100, 10000, rt->GetPathList().size() == 2);
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::BGP_PEER);
@@ -581,9 +581,9 @@ TEST_F(RouteTest, EcmpRouteTest_4) {
  
     //Delete route leaked to vrf2
     bgp_peer1->DeleteRoute("vrf2", "1.1.1.1/32", 
-            Agent::GetInstance()->GetRouterId().to_string().c_str(), 18, "vn1");
+            Agent::GetInstance()->router_id().to_string().c_str(), 18, "vn1");
     bgp_peer2->DeleteRoute("vrf2", "1.1.1.1/32", 
-            Agent::GetInstance()->GetRouterId().to_string().c_str(), 18, "vn1");
+            Agent::GetInstance()->router_id().to_string().c_str(), 18, "vn1");
     client->WaitForIdle();
     WAIT_FOR(100, 10000, RouteFind("vrf2", ip, 32) == false);
     DelVrf("vrf2");
@@ -607,13 +607,13 @@ TEST_F(RouteTest, EcmpRouteTest_5) {
 
     //Leak route to vrf2
     bgp_peer1->AddRoute("vrf2", "1.1.1.1/32", 
-            Agent::GetInstance()->GetRouterId().to_string().c_str(), 18, "vn1");
+            Agent::GetInstance()->router_id().to_string().c_str(), 18, "vn1");
     bgp_peer2->AddRoute("vrf2", "1.1.1.1/32", 
-            Agent::GetInstance()->GetRouterId().to_string().c_str(), 18, "vn1");
+            Agent::GetInstance()->router_id().to_string().c_str(), 18, "vn1");
     client->WaitForIdle();
 
     WAIT_FOR(100, 10000, (RouteGet("vrf2", ip, 32) != NULL));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf2", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf2", ip, 32);
     EXPECT_TRUE(rt != NULL);
     WAIT_FOR(100, 10000, rt->GetPathList().size() == 2);
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::BGP_PEER);
@@ -640,9 +640,9 @@ TEST_F(RouteTest, EcmpRouteTest_5) {
  
     //Delete route leaked to vrf2
     bgp_peer1->DeleteRoute("vrf2", "1.1.1.1/32", 
-            Agent::GetInstance()->GetRouterId().to_string().c_str(), 18, "vn1");
+            Agent::GetInstance()->router_id().to_string().c_str(), 18, "vn1");
     bgp_peer2->DeleteRoute("vrf2", "1.1.1.1/32", 
-            Agent::GetInstance()->GetRouterId().to_string().c_str(), 18, "vn1");
+            Agent::GetInstance()->router_id().to_string().c_str(), 18, "vn1");
     client->WaitForIdle();
     WAIT_FOR(100, 10000, RouteFind("vrf2", ip, 32) == false);
     DelVrf("vrf2");
@@ -670,7 +670,7 @@ TEST_F(RouteTest, EcmpRouteTest_7) {
     client->WaitForIdle();
 
     WAIT_FOR(100, 10000, (RouteGet("vrf1", ip, 32) != NULL));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
     EXPECT_TRUE(rt != NULL);
     WAIT_FOR(100, 10000, rt->GetPathList().size() == 3);
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::BGP_PEER);
@@ -681,11 +681,11 @@ TEST_F(RouteTest, EcmpRouteTest_7) {
     const CompositeNH *comp_nh = static_cast<const CompositeNH *>(bgp_nh);
 
     //Verfiy that all members of component NH are correct 
-    CompositeNH::ComponentNHList::const_iterator component_nh_it =
+    ComponentNHList::const_iterator component_nh_it =
         comp_nh->begin();
-    EXPECT_TRUE((*component_nh_it)->GetNH()->GetType() == NextHop::INTERFACE);
+    EXPECT_TRUE((*component_nh_it)->nh()->GetType() == NextHop::INTERFACE);
     const  InterfaceNH *intf_nh =
-        static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
+        static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->PolicyEnabled() == false);
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();

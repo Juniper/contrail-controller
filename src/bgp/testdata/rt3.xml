@@ -5,6 +5,7 @@
             <ip-address>10.1.1.3</ip-address>
             <remote-as>100</remote-as>
             <family>inet-vpn</family>
+            <family>erm-vpn</family>
         </neighbor>
     </bgp>
     <routing-instance name="blue">

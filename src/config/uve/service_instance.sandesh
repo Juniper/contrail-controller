@@ -6,13 +6,18 @@
 // Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 //
 
+struct UveSvcInstanceVMConfig {
+    1: string          uuid
+    2: optional string vr_name;
+}
+
 struct UveSvcInstanceConfig {
-    1: string                name (key="ObjectSITable")
-    2: optional bool         deleted
-    3: optional string       st_name
-    4: optional string       status
-    5: optional i64          create_ts
-    6: optional list<string> vm_list;
+    1: string                                name (key="ObjectSITable")
+    2: optional bool                         deleted
+    3: optional string                       st_name
+    4: optional string                       status
+    5: optional i64                          create_ts
+    6: optional list<UveSvcInstanceVMConfig> vm_list;
 }
 
 uve sandesh UveSvcInstanceConfigTrace {

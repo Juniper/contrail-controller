@@ -185,7 +185,8 @@ TEST_F(BgpUpdateRxTest, AdvertiseWithdraw) {
         EXPECT_EQ(nlri_count + 1, adc_notification_);
 
         for (i = 0; i < nlri_count; i++) {
-            Ip4Prefix ip_prefix(*nlri_list[i]);
+            Ip4Prefix ip_prefix;
+            assert(Ip4Prefix::FromProtoPrefix(*nlri_list[i], &ip_prefix) == 0);
             InetTable::RequestKey key(ip_prefix, peer_);
             BgpRoute *rt = static_cast<BgpRoute *>(rib1_->Find(&key));
             EXPECT_TRUE(rt != NULL);
@@ -228,7 +229,8 @@ TEST_F(BgpUpdateRxTest, AdvertiseWithdraw) {
         task_util::WaitForIdle();
 
         for (int i = 0; i < nlri_count; i++) {
-            Ip4Prefix ip_prefix(*nlri_list[i]);
+            Ip4Prefix ip_prefix;
+            assert(Ip4Prefix::FromProtoPrefix(*nlri_list[i], &ip_prefix) == 0);
             InetTable::RequestKey key(ip_prefix, peer_);
             Route *rt = static_cast<Route *>(rib1_->Find(&key));
             EXPECT_TRUE(rt == NULL);

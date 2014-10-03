@@ -1,0 +1,66 @@
+# -*- mode: python; -*-
+
+import os
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+sources = [
+    'setup.py',
+    'test-requirements.txt',
+    'requirements.txt',
+    'MANIFEST.in',
+    'stats_daemon/__init__.py',
+    'stats_daemon/storage_nodemgr.py',
+    'stats_daemon/tests/test_storage_nodemgr.py',
+    'stats_daemon/tests/__init__.py',
+    ]
+
+sources += env.SandeshGenPy(
+    'storage.sandesh',
+    'stats_daemon/sandesh/', False)
+
+
+test_sources = sources
+packages = [
+    '%s/api-lib/dist/vnc_api-0.1dev.tar.gz' % env['TOP'],
+    '%s/config/common/dist/cfgm_common-0.1dev.tar.gz' % env['TOP'],
+    '%s/discovery/client/dist/discoveryclient-0.1dev.tar.gz' % env['TOP'],
+    '%s/sandesh/common/dist/sandesh-common-0.1dev.tar.gz' % env['TOP'],
+    '%s/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz' % env['TOP'],
+]
+
+def BuildPyTestSetup(env, target, source):
+    file = open(target[0].abspath, 'w')
+    file.write("[easy_install]\nfind_links =")
+    for pkg in source:
+        dependency = env.File(pkg)
+        print dependency
+        file.write(" %s" % os.path.dirname(dependency.abspath))
+    file.write("\n")
+    file.close()
+    return
+
+def GeneratePyTestSetup(env, targets, source):
+    """
+    Generate a setup.cfg file that contains a list of directories
+    where dependent packages can be found. The fact that package directory
+    list is being given as a source automatically adds them as dependencies.
+    """
+    target = env.File('setup.cfg')
+    return env.Command(target=target, source=source, action=BuildPyTestSetup);
+
+env.Append(BUILDERS = {'PythonTestSetup': GeneratePyTestSetup})
+test_sources += env.PythonTestSetup(source=packages)
+
+test = env.Command(None, test_sources,
+                   'python setup.py test',
+                   chdir=1)
+env.Alias('controller/src/storage/stats_daemon:test', test)
+
+if 'install_stats_daemon' in BUILD_TARGETS:
+    env.Alias('install_stats_daemon',
+              env.Command(None, sources,
+                          'python setup.py install %s' %
+                          env['PYTHON_INSTALL_OPT'],
+                          chdir=1))
+env.Alias('install_stats_daemon', env.Install(env['INSTALL_CONF'], 'stats-daemon.conf'))

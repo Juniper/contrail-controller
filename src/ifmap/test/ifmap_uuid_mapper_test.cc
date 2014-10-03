@@ -80,10 +80,15 @@ protected:
     IFMapVmUuidMapper *vm_uuid_mapper_;
 };
 
+class IFMapVmUuidMapperTestWithParam1
+    : public IFMapVmUuidMapperTest,
+      public ::testing::WithParamInterface<string> {
+};
+
 // Receive config first and then vm-sub
-TEST_F(IFMapVmUuidMapperTest, ConfigThenSubscribe) {
-    string content = 
-        FileRead("controller/src/ifmap/testdata/cli1_vn1_vm3_add.xml");
+TEST_P(IFMapVmUuidMapperTestWithParam1, ConfigThenSubscribe) {
+    string filename = GetParam();
+    string content = FileRead(filename);
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -129,7 +134,7 @@ TEST_F(IFMapVmUuidMapperTest, ConfigThenSubscribe) {
     EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
 }
 
-TEST_F(IFMapVmUuidMapperTest, SubscribeThenConfig) {
+TEST_P(IFMapVmUuidMapperTestWithParam1, SubscribeThenConfig) {
     TASK_UTIL_EXPECT_FALSE(vm_uuid_mapper_->VmNodeExists(
         "2d308482-c7b3-4e05-af14-e732b7b50117"));
     TASK_UTIL_EXPECT_FALSE(vm_uuid_mapper_->VmNodeExists(
@@ -163,8 +168,8 @@ TEST_F(IFMapVmUuidMapperTest, SubscribeThenConfig) {
     EXPECT_EQ(vm_uuid_mapper_->NodeUuidMapCount(), 0);
     EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 3);
 
-    string content = 
-        FileRead("controller/src/ifmap/testdata/cli1_vn1_vm3_add.xml");
+    string filename = GetParam();
+    string content = FileRead(filename);
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -181,9 +186,9 @@ TEST_F(IFMapVmUuidMapperTest, SubscribeThenConfig) {
 }
 
 // Receive config first, then vm-sub, then vm-unsub
-TEST_F(IFMapVmUuidMapperTest, CfgSubUnsub) {
-    string content = 
-        FileRead("controller/src/ifmap/testdata/cli1_vn1_vm3_add.xml");
+TEST_P(IFMapVmUuidMapperTestWithParam1, CfgSubUnsub) {
+    string filename = GetParam();
+    string content = FileRead(filename);
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -255,7 +260,7 @@ TEST_F(IFMapVmUuidMapperTest, CfgSubUnsub) {
 
 // Receive vm-sub first, then config
 // Receive vm-sub first, then config, then vm-unsub
-TEST_F(IFMapVmUuidMapperTest, SubscribeConfigUnsub) {
+TEST_P(IFMapVmUuidMapperTestWithParam1, SubscribeConfigUnsub) {
     EXPECT_FALSE(vm_uuid_mapper_->VmNodeExists(
         "2d308482-c7b3-4e05-af14-e732b7b50117"));
     EXPECT_FALSE(vm_uuid_mapper_->VmNodeExists(
@@ -289,8 +294,8 @@ TEST_F(IFMapVmUuidMapperTest, SubscribeConfigUnsub) {
     EXPECT_EQ(vm_uuid_mapper_->NodeUuidMapCount(), 0);
     EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 3);
 
-    string content = 
-        FileRead("controller/src/ifmap/testdata/cli1_vn1_vm3_add.xml");
+    string filename = GetParam();
+    string content = FileRead(filename);
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -331,9 +336,10 @@ TEST_F(IFMapVmUuidMapperTest, SubscribeConfigUnsub) {
 }
 
 // Receive vm-sub first, then vm-unsub - no config received
-TEST_F(IFMapVmUuidMapperTest, SubUnsub) {
+TEST_P(IFMapVmUuidMapperTestWithParam1, SubUnsub) {
             
     // Data based on src/ifmap/testdata/cli1_vn1_vm3_add.xml
+    // and src/ifmap/testdata/cli1_vn1_vm3_add_vmname.xml
 
     // VM Subscribe
     IFMapClientMock 
@@ -377,9 +383,26 @@ TEST_F(IFMapVmUuidMapperTest, SubUnsub) {
     EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
 }
 
+INSTANTIATE_TEST_CASE_P(UuidMapper, IFMapVmUuidMapperTestWithParam1,
+    ::testing::Values(
+        "controller/src/ifmap/testdata/cli1_vn1_vm3_add.xml",
+        "controller/src/ifmap/testdata/cli1_vn1_vm3_add_vmname.xml"
+        ));
+
+struct ConfigFileNames {
+    string AddConfigFileName;
+    string DeleteConfigFileName;
+};
+
+class IFMapVmUuidMapperTestWithParam2
+    : public IFMapVmUuidMapperTest,
+      public ::testing::WithParamInterface<ConfigFileNames> {
+};
+
 // Receive config-add then config-delete - no sub/unsub received
-TEST_F(IFMapVmUuidMapperTest, CfgaddCfgdel) {
-    string content = FileRead("controller/src/ifmap/testdata/vr_3vm_add.xml");
+TEST_P(IFMapVmUuidMapperTestWithParam2, CfgaddCfgdel) {
+    ConfigFileNames config_files = GetParam();
+    string content = FileRead(config_files.AddConfigFileName);
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -405,7 +428,7 @@ TEST_F(IFMapVmUuidMapperTest, CfgaddCfgdel) {
     EXPECT_EQ(vm_uuid_mapper_->NodeUuidMapCount(), 3);
     EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
 
-    content = FileRead("controller/src/ifmap/testdata/vr_3vm_delete.xml");
+    content = FileRead(config_files.DeleteConfigFileName);
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -424,7 +447,7 @@ TEST_F(IFMapVmUuidMapperTest, CfgaddCfgdel) {
     EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
 }
 
-TEST_F(IFMapVmUuidMapperTest, SubCfgaddCfgdelUnsub) {
+TEST_P(IFMapVmUuidMapperTestWithParam2, SubCfgaddCfgdelUnsub) {
 
     IFMapClientMock 
         c1("default-global-system-config:a1s27.contrail.juniper.net");
@@ -448,7 +471,8 @@ TEST_F(IFMapVmUuidMapperTest, SubCfgaddCfgdelUnsub) {
     TASK_UTIL_EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 3);
 
     // Config adds
-    string content = FileRead("controller/src/ifmap/testdata/vr_3vm_add.xml");
+    ConfigFileNames config_files = GetParam();
+    string content = FileRead(config_files.AddConfigFileName);
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -469,7 +493,7 @@ TEST_F(IFMapVmUuidMapperTest, SubCfgaddCfgdelUnsub) {
     c1.PrintLinks();
 
     // Config deletes
-    content = FileRead("controller/src/ifmap/testdata/vr_3vm_delete.xml");
+    content = FileRead(config_files.DeleteConfigFileName);
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -519,13 +543,14 @@ TEST_F(IFMapVmUuidMapperTest, SubCfgaddCfgdelUnsub) {
     TASK_UTIL_EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
 }
 
-TEST_F(IFMapVmUuidMapperTest, CfgaddSubUnsubCfgdel) {
+TEST_P(IFMapVmUuidMapperTestWithParam2, CfgaddSubUnsubCfgdel) {
     IFMapClientMock 
         c1("default-global-system-config:a1s27.contrail.juniper.net");
     server_.AddClient(&c1);
 
     // Config adds
-    string content = FileRead("controller/src/ifmap/testdata/vr_3vm_add.xml");
+    ConfigFileNames config_files = GetParam();
+    string content = FileRead(config_files.AddConfigFileName);
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -642,7 +667,7 @@ TEST_F(IFMapVmUuidMapperTest, CfgaddSubUnsubCfgdel) {
     c1.PrintLinks();
 
     // Config deletes
-    content = FileRead("controller/src/ifmap/testdata/vr_3vm_delete.xml");
+    content = FileRead(config_files.DeleteConfigFileName);
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -665,13 +690,14 @@ TEST_F(IFMapVmUuidMapperTest, CfgaddSubUnsubCfgdel) {
     c1.PrintLinks();
 }
 
-TEST_F(IFMapVmUuidMapperTest, CfgaddSubCfgdelUnsub) {
+TEST_P(IFMapVmUuidMapperTestWithParam2, CfgaddSubCfgdelUnsub) {
     IFMapClientMock 
         c1("default-global-system-config:a1s27.contrail.juniper.net");
     server_.AddClient(&c1);
 
     // Config adds
-    string content = FileRead("controller/src/ifmap/testdata/vr_3vm_add.xml");
+    ConfigFileNames config_files = GetParam();
+    string content = FileRead(config_files.AddConfigFileName);
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -737,7 +763,7 @@ TEST_F(IFMapVmUuidMapperTest, CfgaddSubCfgdelUnsub) {
     c1.PrintLinks();
 
     // Config deletes
-    content = FileRead("controller/src/ifmap/testdata/vr_3vm_delete.xml");
+    content = FileRead(config_files.DeleteConfigFileName);
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();

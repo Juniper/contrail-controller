@@ -69,14 +69,12 @@ void ControlNode::SetDefaultSchedulingPolicy() {
 
     // TODO: There should be exclusion between Reader and StateMachine
     // tasks with the same index only (vs all indices).
-    TaskPolicy exclude_io = boost::assign::list_of
+    TaskPolicy sm_task_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("io::ReaderTask")));
-
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::StateMachine"),
-                            exclude_io);
-
+                            sm_task_policy);
     scheduler->SetPolicy(scheduler->GetTaskId("xmpp::StateMachine"),
-                            exclude_io);
+                            sm_task_policy);
 
     TaskPolicy peer_membership_policy =
         boost::assign::list_of

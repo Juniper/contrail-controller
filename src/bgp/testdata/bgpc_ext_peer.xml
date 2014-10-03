@@ -9,6 +9,7 @@
             <session to='_JNPR_Peer_'>
                 <address-families>
                     <family>inet-vpn</family>
+                    <family>erm-vpn</family>
                 </address-families>
             </session>
         </bgp-router>
@@ -21,6 +22,7 @@
             <session to='Contrail'>
                 <address-families>
                     <family>inet-vpn</family>
+                    <family>erm-vpn</family>
                 </address-families>
             </session>
         </bgp-router>

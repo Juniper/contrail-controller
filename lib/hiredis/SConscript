@@ -30,7 +30,9 @@ lib = env.Library('hiredis',
                    boostasio_obj,
                    'base64.cpp']
                   )
-env.Depends(lib, '#/build/include/boost')
+
+if not env.UseSystemBoost():
+    env.Depends(lib, '#/build/include/boost')
 
 env.Install('#/build/lib/', 'libhiredis.a')
 env.Install('#/build/include/hiredis', hiredis_path + '/hiredis.h')

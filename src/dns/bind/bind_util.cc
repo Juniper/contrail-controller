@@ -54,7 +54,7 @@ DnsResponseMap g_dns_response_map = map_list_of<uint16_t, std::string>
                                 (22, "Bad truncation")
                                 (4095, "Invalid response code");
 
-std::string DnsItem::ToString() {
+std::string DnsItem::ToString() const {
     return BindUtil::DnsClass(eclass) + "/" +
            BindUtil::DnsType(type) + "/" + name + "/" + data + ";";
 }   
@@ -294,7 +294,7 @@ uint8_t *BindUtil::ReadAnswerEntry(uint8_t *buf, uint8_t *ptr, DnsItem &item) {
     return ptr;
 }
 
-int BindUtil::ParseDnsQuery(uint8_t *buf, std::vector<DnsItem> &items) {
+int BindUtil::ParseDnsQuery(uint8_t *buf, DnsItems &items) {
     dnshdr *dns = (dnshdr *) buf;
     uint16_t ques_rrcount = ntohs(dns->ques_rrcount);
 
@@ -310,10 +310,8 @@ int BindUtil::ParseDnsQuery(uint8_t *buf, std::vector<DnsItem> &items) {
 }
 
 void BindUtil::ParseDnsQuery(uint8_t *buf, uint16_t &xid, dns_flags &flags,
-                             std::vector<DnsItem> &ques,
-                             std::vector<DnsItem> &ans,
-                             std::vector<DnsItem> &auth,
-                             std::vector<DnsItem> &add) {
+                             DnsItems &ques, DnsItems &ans,
+                             DnsItems &auth, DnsItems &add) {
     dnshdr *dns = (dnshdr *) buf;
     xid = ntohs(dns->xid);
     flags = dns->flags;
@@ -415,7 +413,7 @@ void BindUtil::BuildDnsHeader(dnshdr *dns, uint16_t xid, DnsReq req,
 
 int BindUtil::BuildDnsQuery(uint8_t *buf, uint16_t xid, 
                             const std::string &domain,
-                            const std::vector<DnsItem> &items) {
+                            const DnsItems &items) {
     dnshdr *dns = (dnshdr *) buf;
     BuildDnsHeader(dns, xid, DNS_QUERY_REQUEST, DNS_OPCODE_QUERY, 
                    1, 0, 0, items.size());
@@ -424,9 +422,9 @@ int BindUtil::BuildDnsQuery(uint8_t *buf, uint16_t xid,
     // TODO : can be optimised to reuse any names using offsets
     uint16_t len = sizeof(dnshdr);
     uint8_t *ques = (uint8_t *) (dns + 1);
-    for (unsigned int i = 0; i < items.size(); ++i) {
-        ques = AddQuestionSection(ques, items[i].name, items[i].type, 
-                                  items[i].eclass, len);
+    for (DnsItems::const_iterator it = items.begin(); it != items.end(); ++it) {
+        ques = AddQuestionSection(ques, (*it).name, (*it).type,
+                                  (*it).eclass, len);
     }
 
     std::string view = "view=" + domain;

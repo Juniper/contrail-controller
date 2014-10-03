@@ -3,7 +3,7 @@
 #
 
 define nh_entry_format
-    set $__nh = (NextHop *) ((size_t)($Xnode) - (size_t)&(NextHop::node_))
+    set $__nh = (NextHop *) ((size_t)($Xnode) - (size_t)&(((NextHop*)0)->node_))
     printf "%p    type=%-4d    flags=%-4d    ref=%-4d    valid=%-4d    policy=%-4d\n", $__nh, $__nh->type_,\
            $__nh->flags, $__nh->refcount_->rep->value, $__nh->valid_, $__nh->policy_
 end
@@ -13,7 +13,7 @@ define dump_nh_entries
 end
 
 define intf_entry_format
-   set $__intf = (Interface *)((size_t)($Xnode) - (size_t)&(Interface::node_))
+   set $__intf = (Interface *)((size_t)($Xnode) - (size_t)&(((Interface*)0)->node_))
    printf "%p    %-20s    flags=%-4d   ref=%-4d\n", $__intf, $__intf->name_._M_dataplus._M_p,\
            $__intf->flags, $__intf->refcount_->rep->value
 end
@@ -23,7 +23,7 @@ define dump_intf_entries
 end
 
 define mpls_entry_format
-    set $__mpls = (MplsLabel *)((size_t)($Xnode) - (size_t)&(MplsLabel::node_))
+    set $__mpls = (MplsLabel *)((size_t)($Xnode) - (size_t)&(((MplsLabel*)0)->node_))
     printf "%p    label=%-4x   nh=%p\n", $__mpls, $__mpls->label_, $__mpls->nh_.px
 end
   
@@ -32,7 +32,7 @@ define dump_mpls_entries
 end
 
 define uc_route_entry_format
-    set $__rt = (Inet4UnicastRouteEntry*)((size_t)($Xnode) - (size_t)&(Route::node_))
+    set $__rt = (InetUnicastRouteEntry*)((size_t)($Xnode) - (size_t)&(Route::node_))
     set $__ip = $__rt->addr_.addr_.s_addr
     printf "%p  %d.%d.%d.%d/%d\t\t flags=%d\n", $__rt, ($__ip & 0xff),\
                                    ($__ip >> 8 & 0xff), ($__ip >> 16 & 0xff),\
@@ -122,7 +122,7 @@ document dump_route_paths
 end
 
 define vrf_entry_format
-    set $__vrf = (VrfEntry *)((size_t)($Xnode) - (size_t)&(VrfEntry::node_))
+    set $__vrf = (VrfEntry *)((size_t)($Xnode) - (size_t)&(((VrfEntry *)0)->node_))
     printf "%p    %-20s    idx=%-4d    ref_count=%-4d   flags=%-4d rt_db=%p mcrt_db=%p layer2_db=%p\n", $__vrf,\
            $__vrf->name_._M_dataplus._M_p, $__vrf->id_, $__vrf->refcount_->rep->value,\
            $__vrf->flags, $__vrf->rt_table_db_[0], $__vrf->rt_table_db_[1], \
@@ -134,7 +134,7 @@ define dump_vrf_entries
 end
 
 define vn_entry_format
-    set $__vn = (VnEntry *)((size_t)($Xnode) - (size_t)&(VnEntry::node_))
+    set $__vn = (VnEntry *)((size_t)($Xnode) - (size_t)&(((VnEntry*)0)->node_))
     printf "%p    %-20s  %-20s\n", $__vn, $__vn->name_._M_dataplus._M_p,\
                                    $__vn->uuid_->data
 end
@@ -144,7 +144,7 @@ define dump_vn_entries
 end
 
 define vm_entry_format
-    set $__vm = (VmEntry *)((size_t)($Xnode) - (size_t)&(VmEntry::node_))
+    set $__vm = (VmEntry *)((size_t)($Xnode) - (size_t)&((VmEntry*)0)->node_)
     printf "%p    %-20s\n", $__vm, $__vm->uuid_->data
 end
 
@@ -162,7 +162,7 @@ define dump_vxlan_entries
 end
  
 define mirror_entry_format
-    set $__mirror = (MirrorEntry *)((size_t)($Xnode) - (size_t)&(MirrorEntry::node_))
+    set $__mirror = (MirrorEntry *)((size_t)($Xnode) - (size_t)&(((MirrorEntry*)0)->node_))
     set $__sip = $__mirror->sip_.addr_.s_addr
     set $__dip = $__mirror->dip_.addr_.s_addr
     printf "%p   %d.%d.%d.%d:%d   %d.%d.%d.%d:%d nh=%p\n", $__mirror,\
@@ -314,12 +314,12 @@ end
 define kintf_entry_format
     set $__kintf = (InterfaceKSyncEntry *)((size_t)$Xnode - (size_t)&(KSyncEntry::node_))
     printf"%p    idx=%-5d   name=%-20s   ", $__kintf, $__kintf->index_,\
-                                                  $__kintf->ifname_._M_dataplus._M_p
+                                                  $__kintf->interface_name_._M_dataplus._M_p
     print $__kintf->state_
 end
 
 define dump_ksync_intf_entries
-   pksync_entries InterfaceKSyncObject::singleton_ kintf_entry_format
+   pksync_entries Agent::singleton_->ksync_->interface_ksync_obj_.px kintf_entry_format
 end
 
 define dump_ksync_route_objects
@@ -426,3 +426,26 @@ end
 define dump_ksync_vxlan_entries
     pksync_entries VxLanKSyncObject::singleton_ kvxlan_entry_format
 end
+
+
+define service_instance_entry_format
+    set $__svi = (ServiceInstance *)((size_t)($Xnode) - (size_t)&(ServiceInstance::node_))
+    set $__prop = $__svi->properties_
+    printf "%p Uuid:%-20s ServiceType:%d VirtualisationType:%d VmiInside:%-20s VmiOutside:%-20s MacIn:%s MacOut:%s IpIn:%s IpOut:%s IpLenIn:%d IpLenOut:%d IfCount:%d LbPool:%-20s",
+       $__svi, $__prop.instance_id->data, $__prop.service_type, $__prop.virtualization_type, $__prop.vmi_inside->data, $__prop.vmi_outside->data, $__prop.mac_addr_inside, $__prop.mac_addr_outside,
+       $__prop.ip_addr_inside, $__prop.ip_addr_outside, $__prop.ip_prefix_len_inside, $__prop.ip_prefix_len_outside, $__prop.interface_count, $__prop.pool_id->data
+end
+
+define dump_service_instance_entries
+   if $argc != 1
+       help dump_service_instance_entries
+   else
+       pdb_table_entries $arg0 service_instance_entry_format
+   end
+end
+
+document dump_service_instance_entries
+     Prints all service instance entries
+     Syntax: dump_service_instance_entries <table>: Prints all service instance entries
+end
+

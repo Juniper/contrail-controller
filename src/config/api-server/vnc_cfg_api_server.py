@@ -11,7 +11,9 @@ monkey.patch_all()
 from gevent import hub
 
 import sys
+import re
 import logging
+import logging.config
 import signal
 import os
 import socket
@@ -21,6 +23,8 @@ import copy
 import argparse
 import ConfigParser
 from pprint import pformat
+import cgitb
+from cStringIO import StringIO
 #import GreenletProfiler
 
 import logging
@@ -44,19 +48,20 @@ threading._DummyThread._Thread__stop = lambda x: 42
 CONFIG_VERSION = '1.0'
 
 import bottle
+from bottle import request
 
 import vnc_cfg_types
 from vnc_cfg_ifmap import VncDbClient
 
+from cfgm_common import ignore_exceptions
 from cfgm_common.uve.vnc_api.ttypes import VncApiCommon, VncApiReadLog,\
     VncApiConfigLog, VncApiError
-from cfgm_common.uve.virtual_machine.ttypes import VMLog
 from cfgm_common.uve.virtual_network.ttypes import UveVirtualNetworkConfig,\
-    UveVirtualNetworkConfigTrace, VnPolicy, VNLog
-from cfgm_common.uve.vrouter.ttypes import VRLog
+    UveVirtualNetworkConfigTrace
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeNames, INSTANCE_ID_DEFAULT
 from provision_defaults import Provision
+from vnc_quota import *
 from gen.resource_xsd import *
 from gen.resource_common import *
 from gen.resource_server import *
@@ -65,6 +70,7 @@ import cfgm_common
 from cfgm_common.rest import LinkObject
 from cfgm_common.exceptions import *
 from cfgm_common.vnc_extensions import ExtensionManager, ApiHookManager
+import gen.resource_xsd
 import vnc_addr_mgmt
 import vnc_auth
 import vnc_auth_keystone
@@ -76,9 +82,15 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 import discoveryclient.client as client
 #from gen_py.vnc_api.ttypes import *
 import netifaces
+from pysandesh.connection_info import ConnectionState
+from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
+    NodeStatus
+
+from sandesh.traces.ttypes import RestApiTrace
 
 _WEB_HOST = '0.0.0.0'
 _WEB_PORT = 8082
+_ADMIN_PORT = 8095
 
 _ACTION_RESOURCES = [
     {'uri': '/ref-update', 'link_name': 'ref-update',
@@ -101,6 +113,12 @@ _ACTION_RESOURCES = [
     {'uri': '/stop-profile', 'link_name': 'stop-profile',
      'method_name': 'stop_profile'},
 ]
+
+
+@bottle.error(400)
+def error_400(err):
+    return err.body
+# end error_400
 
 
 @bottle.error(403)
@@ -133,6 +151,52 @@ def error_503(err):
 # end error_503
 
 
+# Masking of password from openstack/common/log.py
+_SANITIZE_KEYS = ['adminPass', 'admin_pass', 'password', 'admin_password']
+
+# NOTE(ldbragst): Let's build a list of regex objects using the list of
+# _SANITIZE_KEYS we already have. This way, we only have to add the new key
+# to the list of _SANITIZE_KEYS and we can generate regular expressions
+# for XML and JSON automatically.
+_SANITIZE_PATTERNS = []
+_FORMAT_PATTERNS = [r'(%(key)s\s*[=]\s*[\"\']).*?([\"\'])',
+                    r'(<%(key)s>).*?(</%(key)s>)',
+                    r'([\"\']%(key)s[\"\']\s*:\s*[\"\']).*?([\"\'])',
+                    r'([\'"].*?%(key)s[\'"]\s*:\s*u?[\'"]).*?([\'"])']
+
+for key in _SANITIZE_KEYS:
+    for pattern in _FORMAT_PATTERNS:
+        reg_ex = re.compile(pattern % {'key': key}, re.DOTALL)
+        _SANITIZE_PATTERNS.append(reg_ex)
+
+def mask_password(message, secret="***"):
+    """Replace password with 'secret' in message.
+    :param message: The string which includes security information.
+    :param secret: value with which to replace passwords.
+    :returns: The unicode value of message with the password fields masked.
+
+    For example:
+
+    >>> mask_password("'adminPass' : 'aaaaa'")
+    "'adminPass' : '***'"
+    >>> mask_password("'admin_pass' : 'aaaaa'")
+    "'admin_pass' : '***'"
+    >>> mask_password('"password" : "aaaaa"')
+    '"password" : "***"'
+    >>> mask_password("'original_password' : 'aaaaa'")
+    "'original_password' : '***'"
+    >>> mask_password("u'original_password' :   u'aaaaa'")
+    "u'original_password' :   u'***'"
+    """
+    if not any(key in message for key in _SANITIZE_KEYS):
+        return message
+
+    secret = r'\g<1>' + secret + r'\g<2>'
+    for pattern in _SANITIZE_PATTERNS:
+        message = re.sub(pattern, secret, message)
+    return message
+
+
 class VncApiServer(VncApiServerGen):
 
     """
@@ -143,7 +207,7 @@ class VncApiServer(VncApiServerGen):
         bottle.route('/', 'GET', obj.homepage_http_get)
         for act_res in _ACTION_RESOURCES:
             method = getattr(obj, act_res['method_name'])
-            bottle.route(act_res['uri'], 'POST', method)
+            obj.route(act_res['uri'], 'POST', method)
         return obj
     # end __new__
 
@@ -156,7 +220,10 @@ class VncApiServer(VncApiServerGen):
         self._parse_args(args_str)
 
         # set python logging level from logging_level cmdline arg
-        logging.basicConfig(level = getattr(logging, self._args.logging_level))
+        if not self._args.logging_conf:
+            logging.basicConfig(level = getattr(logging, self._args.logging_level))
+        else:
+            logging.config.fileConfig(self._args.logging_conf)
 
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
@@ -173,12 +240,18 @@ class VncApiServer(VncApiServerGen):
         self._post_common = self._http_post_common
 
         # Type overrides from generated code
+        self._resource_classes['global-system-config'] = \
+            vnc_cfg_types.GlobalSystemConfigServer
         self._resource_classes['floating-ip'] = vnc_cfg_types.FloatingIpServer
         self._resource_classes['instance-ip'] = vnc_cfg_types.InstanceIpServer
+        self._resource_classes['logical-router'] = vnc_cfg_types.LogicalRouterServer
+        self._resource_classes['security-group'] = vnc_cfg_types.SecurityGroupServer
         self._resource_classes['virtual-machine-interface'] = \
             vnc_cfg_types.VirtualMachineInterfaceServer
         self._resource_classes['virtual-network'] = \
             vnc_cfg_types.VirtualNetworkServer
+        self._resource_classes['network-policy'] = \
+            vnc_cfg_types.NetworkPolicyServer
         self._resource_classes['network-ipam'] = \
             vnc_cfg_types.NetworkIpamServer
         self._resource_classes['virtual-DNS'] = vnc_cfg_types.VirtualDnsServer
@@ -194,6 +267,8 @@ class VncApiServer(VncApiServerGen):
         self._resource_classes[
             'floating-ip-pool'].generate_default_instance = False
         self._resource_classes['instance-ip'].generate_default_instance = False
+        self._resource_classes['logical-router'].generate_default_instance = False
+        self._resource_classes['security-group'].generate_default_instance = False
         self._resource_classes[
             'virtual-machine'].generate_default_instance = False
         self._resource_classes[
@@ -207,6 +282,14 @@ class VncApiServer(VncApiServerGen):
         self._resource_classes['virtual-DNS'].generate_default_instance = False
         self._resource_classes[
             'global-vrouter-config'].generate_default_instance = False
+        self._resource_classes[
+            'loadbalancer-pool'].generate_default_instance = False
+        self._resource_classes[
+            'loadbalancer-member'].generate_default_instance = False
+        self._resource_classes[
+            'loadbalancer-healthmonitor'].generate_default_instance = False
+        self._resource_classes[
+            'virtual-ip'].generate_default_instance = False
 
         for act_res in _ACTION_RESOURCES:
             link = LinkObject('action', self._base_url, act_res['uri'],
@@ -264,18 +347,31 @@ class VncApiServer(VncApiServerGen):
             instance_id = self._args.worker_id
         else:
             instance_id = INSTANCE_ID_DEFAULT
-        self._sandesh.init_generator(module_name, socket.gethostname(),
+        hostname = socket.gethostname()
+        self._sandesh.init_generator(module_name, hostname,
                                      node_type_name, instance_id,
                                      self._args.collectors, 
                                      'vnc_api_server_context',
                                      int(self._args.http_server_port),
-                                     ['cfgm_common', 'sandesh'], self._disc)
+                                     ['cfgm_common'], self._disc)
         self._sandesh.trace_buffer_create(name="VncCfgTraceBuf", size=1000)
+        self._sandesh.trace_buffer_create(name="RestApiTraceBuf", size=1000)
+        self._sandesh.trace_buffer_create(name="DBRequestTraceBuf", size=1000)
+        self._sandesh.trace_buffer_create(name="MessageBusNotifyTraceBuf",
+                                          size=1000)
+        self._sandesh.trace_buffer_create(name="IfmapTraceBuf", size=1000)
+
         self._sandesh.set_logging_params(
             enable_local_log=self._args.log_local,
             category=self._args.log_category,
             level=self._args.log_level,
-            file=self._args.log_file)
+            file=self._args.log_file,
+            enable_syslog=self._args.use_syslog,
+            syslog_facility=self._args.syslog_facility)
+        ConnectionState.init(self._sandesh, hostname, module_name,
+                instance_id,
+                staticmethod(ConnectionState.get_process_state_cb),
+                NodeStatusUVE, NodeStatus)
 
         # Load extensions
         self._extension_mgrs = {}
@@ -283,6 +379,8 @@ class VncApiServer(VncApiServerGen):
 
         # Address Management interface
         addr_mgmt = vnc_addr_mgmt.AddrMgmt(self)
+        vnc_cfg_types.LogicalRouterServer.addr_mgmt = addr_mgmt
+        vnc_cfg_types.SecurityGroupServer.addr_mgmt = addr_mgmt
         vnc_cfg_types.VirtualMachineInterfaceServer.addr_mgmt = addr_mgmt
         vnc_cfg_types.FloatingIpServer.addr_mgmt = addr_mgmt
         vnc_cfg_types.InstanceIpServer.addr_mgmt = addr_mgmt
@@ -311,18 +409,6 @@ class VncApiServer(VncApiServerGen):
             self._db_connect(self._args.reset_config)
             self._db_init_entries()
 
-        # recreate subnet operating state from DB
-        (ok, vn_fq_names_uuids) = self._db_conn.dbe_list('virtual-network')
-        for vn_fq_name, vn_uuid in vn_fq_names_uuids:
-            try:
-                (ok, vn_dict) = self._db_conn.dbe_read(
-                    'virtual-network', {'uuid': vn_uuid})
-                if ok:
-                    self._addr_mgmt.net_create(vn_dict)
-            except Exception as e:
-                # TODO log
-                pass
-
         # Cpuinfo interface
         sysinfo_req = True
         config_node_ip = self.get_server_ip()
@@ -333,7 +419,68 @@ class VncApiServer(VncApiServerGen):
 
     # end __init__
 
+    @ignore_exceptions
+    def _generate_rest_api_request_trace(self):
+        method = bottle.request.method.upper()
+        if method == 'GET':
+            return None
+
+        req_id = bottle.request.headers.get('X-Request-Id',
+                                            'req-%s' %(str(uuid.uuid4())))
+        gevent.getcurrent().trace_request_id = req_id
+        url = bottle.request.url
+        if method == 'DELETE':
+            req_data = ''
+        else:
+            try:
+                req_data = json.dumps(bottle.request.json)
+            except Exception as e:
+                req_data = '%s: Invalid request body' %(e)
+        rest_trace = RestApiTrace(request_id=req_id)
+        rest_trace.url = url
+        rest_trace.method = method
+        rest_trace.request_data = req_data
+        return rest_trace
+    # end _generate_rest_api_request_trace
+
+    @ignore_exceptions
+    def _generate_rest_api_response_trace(self, rest_trace, response):
+        if not rest_trace:
+            return
+
+        rest_trace.status = bottle.response.status
+        rest_trace.response_body = json.dumps(response)
+        rest_trace.trace_msg(name='RestApiTraceBuf', sandesh=self._sandesh)
+    # end _generate_rest_api_response_trace
+
     # Public Methods
+    def route(self, uri, method, handler):
+        def handler_trap_exception(*args, **kwargs):
+            trace = self._generate_rest_api_request_trace()
+            try:
+                response = handler(*args, **kwargs)
+                self._generate_rest_api_response_trace(trace, response)
+                return response
+            except Exception as e:
+                if trace:
+                    trace.trace_msg(name='RestApiTraceBuf',
+                        sandesh=self._sandesh)
+                # don't log details of bottle.abort i.e handled error cases
+                if not isinstance(e, bottle.HTTPError):
+                    string_buf = StringIO()
+                    cgitb.Hook(
+                        file=string_buf,
+                        format="text",
+                        ).handle(sys.exc_info())
+                    err_msg = mask_password(string_buf.getvalue())
+                    logger.error("Exception in REST api handler:\n%s" %(err_msg))
+                    self.config_log_error(err_msg)
+
+                raise
+
+        bottle.route(uri, method, handler_trap_exception)
+    # end route
+
     def get_args(self):
         return self._args
     # end get_args
@@ -406,7 +553,7 @@ class VncApiServer(VncApiServerGen):
             try:
                 ref_uuid = self._db_conn.fq_name_to_uuid(ref_type, ref_fq_name)
             except NoIdError:
-                bottle.abort(404, 'Name ' + pformat(fq_name) + ' not found')
+                bottle.abort(404, 'Name ' + pformat(ref_fq_name) + ' not found')
 
         # type-specific hook
         r_class = self._resource_classes.get(obj_type)
@@ -415,17 +562,49 @@ class VncApiServer(VncApiServerGen):
                 fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
             except NoIdError:
                 bottle.abort(404, 'UUID ' + obj_uuid + ' not found')
-            obj_dict = {ref_type+'_refs': [{'to':ref_fq_name, 'uuid': ref_uuid, 'attr':attr}]}
+            (read_ok, read_result) = self._db_conn.dbe_read(obj_type, request.json)
+            if not read_ok:
+                (code, msg) = read_result
+                self.config_object_error(obj_uuid, None, obj_type, 'ref_update', msg)
+                bottle.abort(code, msg)
+
+            obj_dict = read_result
+            if operation == 'ADD':
+                if ref_type+'_refs' not in obj_dict:
+                    obj_dict[ref_type+'_refs'] = []
+                obj_dict[ref_type+'_refs'].append({'to':ref_fq_name, 'uuid': ref_uuid, 'attr':attr})
+            elif operation == 'DELETE':
+                for old_ref in obj_dict.get(ref_type+'_refs', []):
+                    if old_ref['to'] == ref_fq_name or old_ref['uuid'] == ref_uuid:
+                        obj_dict[ref_type+'_refs'].remove(old_ref)
+                        break
+            else:
+                msg = 'Unknown operation ' + operation
+                self.config_object_error(obj_uuid, None, obj_type, 'ref_update', msg)
+                bottle.abort(409, msg)
+
             (ok, put_result) = r_class.http_put(obj_uuid, fq_name, obj_dict, self._db_conn)
             if not ok:
                 (code, msg) = put_result
-                self.config_object_error(id, None, obj_type, 'ref_update', msg)
-                abort(code, msg)
+                self.config_object_error(obj_uuid, None, obj_type, 'ref_update', msg)
+                bottle.abort(code, msg)
         obj_type = obj_type.replace('-', '_')
         try:
             id = self._db_conn.ref_update(obj_type, obj_uuid, ref_type, ref_uuid, {'attr': attr}, operation)
         except NoIdError:
             bottle.abort(404, 'uuid ' + obj_uuid + ' not found')
+        apiConfig = VncApiCommon()
+        apiConfig.object_type = obj_type.replace('-', '_')
+        fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
+        apiConfig.identifier_name=':'.join(fq_name)
+        apiConfig.identifier_uuid = obj_uuid
+        apiConfig.operation = 'ref-update'
+        apiConfig.body = str(request.json)
+
+        self._set_api_audit_info(apiConfig)
+        log = VncApiConfigLog(api_log=apiConfig, sandesh=self._sandesh)
+        log.send(sandesh=self._sandesh)
+
         return {'uuid': id}
     # end ref_update_id_http_post
 
@@ -444,8 +623,13 @@ class VncApiServer(VncApiServerGen):
 
     def id_to_fq_name_http_post(self):
         self._post_common(bottle.request, None, None)
-        fq_name = self._db_conn.uuid_to_fq_name(bottle.request.json['uuid'])
-        obj_type = self._db_conn.uuid_to_obj_type(bottle.request.json['uuid'])
+        try:
+            obj_uuid = bottle.request.json['uuid']
+            fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
+        except NoIdError:
+            bottle.abort(404, 'UUID ' + obj_uuid + ' not found')
+
+        obj_type = self._db_conn.uuid_to_obj_type(obj_uuid)
         return {'fq_name': fq_name, 'type': obj_type}
     # end id_to_fq_name_http_post
 
@@ -533,17 +717,24 @@ class VncApiServer(VncApiServerGen):
                                          --http_server_port 8090
                                          --listen_ip_addr 127.0.0.1
                                          --listen_port 8082
+                                         --admin_port 8095
                                          --log_local
                                          --log_level SYS_DEBUG
                                          --logging_level DEBUG
+                                         --logging_conf <logger-conf-file>
                                          --log_category test
                                          --log_file <stdout>
+                                         --use_syslog
+                                         --syslog_facility LOG_USER
                                          --disc_server_ip 127.0.0.1
                                          --disc_server_port 5998
                                          --worker_id 1
+                                         --rabbit_max_pending_updates 4096
+                                         --cluster_id <testbed-name>
                                          [--auth keystone]
                                          [--ifmap_server_loc
                                           /home/contrail/source/ifmap-server/]
+                                         [--default_encoding ascii ]
         '''
 
         # Source any specified config/ini file
@@ -559,7 +750,8 @@ class VncApiServer(VncApiServerGen):
             'wipe_config': False,
             'listen_ip_addr': _WEB_HOST,
             'listen_port': _WEB_PORT,
-            'ifmap_server_ip': _WEB_HOST,
+            'admin_port': _ADMIN_PORT,
+            'ifmap_server_ip': '127.0.0.1',
             'ifmap_server_port': "8443",
             'collectors': None,
             'http_server_port': '8084',
@@ -567,16 +759,22 @@ class VncApiServer(VncApiServerGen):
             'log_level': SandeshLevel.SYS_DEBUG,
             'log_category': '',
             'log_file': Sandesh._DEFAULT_LOG_FILE,
+            'use_syslog': False,
+            'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
             'logging_level': 'WARN',
+            'logging_conf': '',
             'multi_tenancy': False,
             'disc_server_ip': None,
-            'disc_server_port': None,
+            'disc_server_port': '5998',
             'zk_server_ip': '127.0.0.1:2181',
             'worker_id': '0',
             'rabbit_server': 'localhost',
+            'rabbit_port': '5672',
             'rabbit_user': 'guest',
             'rabbit_password': 'guest',
             'rabbit_vhost': None,
+            'rabbit_max_pending_updates': '4096',
+            'cluster_id': '',
         }
         # ssl options
         secopts = {
@@ -594,6 +792,7 @@ class VncApiServer(VncApiServerGen):
             'admin_user': '',
             'admin_password': '',
             'admin_tenant_name': '',
+            'insecure': True
         }
 
         config = None
@@ -610,6 +809,16 @@ class VncApiServer(VncApiServerGen):
                     secopts.update(dict(config.items("SECURITY")))
             if 'KEYSTONE' in config.sections():
                 ksopts.update(dict(config.items("KEYSTONE")))
+            if 'QUOTA' in config.sections():
+                for (k, v) in config.items("QUOTA"):
+                    try:
+                        if str(k) != 'admin_token':
+                            QuotaHelper.default_quota[str(k)] = int(v)
+                    except ValueError:
+                        pass
+            if 'default_encoding' in config.options('DEFAULTS'):
+                default_encoding = config.get('DEFAULTS', 'default_encoding')
+                gen.resource_xsd.ExternalEncoding = default_encoding
 
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
@@ -663,6 +872,10 @@ class VncApiServer(VncApiServerGen):
             "--listen_port",
             help="Port to provide service on, default %s" % (_WEB_PORT))
         parser.add_argument(
+            "--admin_port",
+            help="Port with local auth for admin access, default %s"
+                  % (_ADMIN_PORT))
+        parser.add_argument(
             "--collectors",
             help="List of VNC collectors in ip:port format",
             nargs="+")
@@ -683,11 +896,19 @@ class VncApiServer(VncApiServerGen):
             help=("Log level for python logging: DEBUG, INFO, WARN, ERROR default: %s"
                   % defaults['logging_level']))
         parser.add_argument(
+            "--logging_conf",
+            help=("Optional logging configuration file, default: None"))
+        parser.add_argument(
             "--log_category",
             help="Category filter for local logging of sandesh messages")
         parser.add_argument(
             "--log_file",
             help="Filename for the logs to be written to")
+        parser.add_argument("--use_syslog",
+            action="store_true",
+            help="Use syslog for logging")
+        parser.add_argument("--syslog_facility",
+            help="Syslog facility to receive log lines")
         parser.add_argument(
             "--multi_tenancy", action="store_true",
             help="Validate resource permissions (implies token validation)")
@@ -701,6 +922,9 @@ class VncApiServer(VncApiServerGen):
             "--rabbit_server",
             help="Rabbitmq server address")
         parser.add_argument(
+            "--rabbit_port",
+            help="Rabbitmq server port")
+        parser.add_argument(
             "--rabbit_user",
             help="Username for rabbit")
         parser.add_argument(
@@ -709,6 +933,12 @@ class VncApiServer(VncApiServerGen):
         parser.add_argument(
             "--rabbit_password",
             help="password for rabbit")
+        parser.add_argument(
+            "--rabbit_max_pending_updates",
+            help="Max updates before stateful changes disallowed")
+        parser.add_argument(
+            "--cluster_id",
+            help="Used for database keyspace separation")
         self._args = parser.parse_args(remaining_argv)
         self._args.config_sections = config
         if type(self._args.cassandra_server_list) is str:
@@ -747,7 +977,7 @@ class VncApiServer(VncApiServerGen):
                 api_server_port=self._args.listen_port,
                 conf_sections=conf_sections)
         except Exception as e:
-            pass
+            logger.error("Exception in loading of extensions:\n%s" %(str(e)))
     # end _load_extensions
 
     def _db_connect(self, reset_config):
@@ -761,16 +991,16 @@ class VncApiServer(VncApiServerGen):
         ifmap_loc = self._args.ifmap_server_loc
         zk_server = self._args.zk_server_ip
         rabbit_server = self._args.rabbit_server
+        rabbit_port = self._args.rabbit_port
         rabbit_user = self._args.rabbit_user
         rabbit_password = self._args.rabbit_password
         rabbit_vhost = self._args.rabbit_vhost
 
 
         db_conn = VncDbClient(self, ifmap_ip, ifmap_port, user, passwd,
-                              cass_server_list,
-                              rabbit_server, rabbit_user, rabbit_password, 
-                              rabbit_vhost, reset_config, ifmap_loc,
-                              zk_server)
+                              cass_server_list, rabbit_server, rabbit_port,
+                              rabbit_user, rabbit_password, rabbit_vhost,
+                              reset_config, ifmap_loc, zk_server, self._args.cluster_id)
         self._db_conn = db_conn
     # end _db_connect
 
@@ -787,10 +1017,9 @@ class VncApiServer(VncApiServerGen):
 
         # Start from default and update from obj_dict
         req_id_perms = obj_dict['id_perms']
-        if 'enable' in req_id_perms:
-            new_id_perms['enable'] = req_id_perms['enable']
-        if 'description' in req_id_perms:
-            new_id_perms['description'] = req_id_perms['description']
+        for key in ('enable', 'description', 'user_visible'):
+            if key in req_id_perms:
+                new_id_perms[key] = req_id_perms[key]
         # TODO handle perms present in req_id_perms
 
         obj_dict['id_perms'] = new_id_perms
@@ -820,14 +1049,14 @@ class VncApiServer(VncApiServerGen):
 
         self._db_conn.db_resync()
         try:
-            self._extension_mgrs['resync'].map(self._resync_projects)
+            self._extension_mgrs['resync'].map(self._resync_domains_projects)
         except Exception as e:
             pass
     # end _db_init_entries
 
-    def _resync_projects(self, ext):
-        ext.obj.resync_projects()
-    # end _resync_projects
+    def _resync_domains_projects(self, ext):
+        ext.obj.resync_domains_projects()
+    # end _resync_domains_projects
 
     def _create_singleton_entry(self, singleton_obj):
         s_obj = singleton_obj
@@ -883,28 +1112,17 @@ class VncApiServer(VncApiServerGen):
 
     def config_object_error(self, id, fq_name_str, obj_type,
                             operation, err_str):
-        apiConfig = VncApiCommon(identifier_uuid=str(id))
-        apiConfig.operation = operation
-        apiConfig.object_type = obj_type
+        apiConfig = VncApiCommon()
+        if obj_type is not None:
+            apiConfig.object_type = obj_type.replace('-', '_')
         apiConfig.identifier_name = fq_name_str
+        apiConfig.identifier_uuid = id
+        apiConfig.operation = operation
         if err_str:
             apiConfig.error = "%s:%s" % (obj_type, err_str)
-        uveLog = None
+        self._set_api_audit_info(apiConfig)
 
-        if obj_type == "virtual_machine" or obj_type == "virtual-machine":
-            log = VMLog(api_log=apiConfig, sandesh=self._sandesh)
-        elif obj_type == "virtual_network" or obj_type == "virtual-network":
-            vn_log = UveVirtualNetworkConfig(name=str(id))
-            uveLog = UveVirtualNetworkConfigTrace(
-                data=vn_log, sandesh=self._sandesh)
-            log = VNLog(api_log=apiConfig, sandesh=self._sandesh)
-        elif obj_type == "virtual_router" or obj_type == "virtual-router":
-            log = VRLog(api_log=apiConfig, sandesh=self._sandesh)
-        else:
-            log = VncApiConfigLog(api_log=apiConfig, sandesh=self._sandesh)
-
-        if uveLog:
-            uveLog.send(sandesh=self._sandesh)
+        log = VncApiConfigLog(api_log=apiConfig, sandesh=self._sandesh)
         log.send(sandesh=self._sandesh)
     # end config_object_error
 
@@ -927,6 +1145,20 @@ class VncApiServer(VncApiServerGen):
                                  vnp_name=pol_name)
             vn_log.attached_policies.append(vn_policy)
     # end add_virtual_network_refs
+
+    def _set_api_audit_info(self, apiConfig):
+        apiConfig.url = request.url
+        apiConfig.remote_ip = request.headers.get('Host')
+        useragent = request.headers.get('X-Contrail-Useragent')
+        if not useragent:
+            useragent = request.headers.get('User-Agent')
+        apiConfig.useragent = useragent
+        apiConfig.user = request.headers.get('X-User-Name')
+        apiConfig.project = request.headers.get('X-Project-Name')
+        apiConfig.domain = request.headers.get('X-Domain-Name')
+        if int(request.headers.get('Content-Length', 0)) > 0:
+            apiConfig.body = str(request.json)
+    # end _set_api_audit_info
 
     # uuid is parent's for collections
     def _http_get_common(self, request, uuid=None):
@@ -951,6 +1183,14 @@ class VncApiServer(VncApiServerGen):
         if not self._db_conn._zk_db.is_connected():
             return (False,
                     (503, "Not connected to zookeeper. Not able to perform requested action"))
+
+        # If there are too many pending updates to rabbit, do not allow
+        # operations that cause state change
+        npending = self._db_conn.dbe_oper_publish_pending()
+        if (npending >= int(self._args.rabbit_max_pending_updates)):
+            err_str = str(MaxRabbitPendingError(npending))
+            return (False, (500, err_str))
+
         if obj_dict:
             fq_name_str = ":".join(obj_fq_name)
 
@@ -970,35 +1210,13 @@ class VncApiServer(VncApiServerGen):
                                            persist=False)
 
             apiConfig = VncApiCommon()
-            apiConfig.operation = 'put'
-            apiConfig.url = request.url
-            apiConfig.identifier_uuid = obj_uuid
-            # TODO should be from x-auth-token
-            apiConfig.user = ''
-            apiConfig.object_type = obj_type
+            apiConfig.object_type = obj_type.replace('-', '_')
             apiConfig.identifier_name = fq_name_str
-            apiConfig.body = str(request.json)
-            uveLog = None
-
-            if ((obj_type == "virtual_machine") or
-                    (obj_type == "virtual-machine")):
-                log = VMLog(api_log=apiConfig, sandesh=self._sandesh)
-            elif ((obj_type == "virtual_network") or
-                  (obj_type == "virtual-network")):
-                vn_log = UveVirtualNetworkConfig(name=fq_name_str)
-                self.add_virtual_network_refs(vn_log, obj_dict)
-                uveLog = UveVirtualNetworkConfigTrace(data=vn_log,
-                                                      sandesh=self._sandesh)
-                log = VNLog(api_log=apiConfig, sandesh=self._sandesh)
-            elif ((obj_type == "virtual_router") or
-                  (obj_type == "virtual-router")):
-                log = VRLog(api_log=apiConfig, sandesh=self._sandesh)
-            else:
-                log = VncApiConfigLog(api_log=apiConfig,
-                                      sandesh=self._sandesh)
-
-            if uveLog:
-                uveLog.send(sandesh=self._sandesh)
+            apiConfig.identifier_uuid = obj_uuid
+            apiConfig.operation = 'put'
+            self._set_api_audit_info(apiConfig)
+            log = VncApiConfigLog(api_log=apiConfig,
+                    sandesh=self._sandesh)
             log.send(sandesh=self._sandesh)
 
         # TODO check api + resource perms etc.
@@ -1016,31 +1234,22 @@ class VncApiServer(VncApiServerGen):
         if not self._db_conn._zk_db.is_connected():
             return (False,
                     (503, "Not connected to zookeeper. Not able to perform requested action"))
+
+        # If there are too many pending updates to rabbit, do not allow
+        # operations that cause state change
+        npending = self._db_conn.dbe_oper_publish_pending()
+        if (npending >= int(self._args.rabbit_max_pending_updates)):
+            err_str = str(MaxRabbitPendingError(npending))
+            return (False, (500, err_str))
+
         fq_name_str = ":".join(self._db_conn.uuid_to_fq_name(uuid))
-        apiConfig = VncApiCommon(identifier_name=fq_name_str)
+        apiConfig = VncApiCommon()
+        apiConfig.object_type=obj_type.replace('-', '_')
+        apiConfig.identifier_name=fq_name_str
+        apiConfig.identifier_uuid = uuid
         apiConfig.operation = 'delete'
-        apiConfig.url = request.url
-        uuid_str = str(uuid)
-        apiConfig.identifier_uuid = uuid_str
-        apiConfig.object_type = obj_type
-        apiConfig.identifier_name = fq_name_str
-        uveLog = None
-
-        if obj_type == "virtual_machine" or obj_type == "virtual-machine":
-            log = VMLog(api_log=apiConfig, sandesh=self._sandesh)
-        elif obj_type == "virtual_network" or obj_type == "virtual-network":
-            vn_log = UveVirtualNetworkConfig(name=fq_name_str)
-            vn_log.deleted = True
-            uveLog = UveVirtualNetworkConfigTrace(data=vn_log,
-                                                  sandesh=self._sandesh)
-            log = VNLog(api_log=apiConfig, sandesh=self._sandesh)
-        elif obj_type == "virtual_router" or obj_type == "virtual-router":
-            log = VRLog(api_log=apiConfig, sandesh=self._sandesh)
-        else:
-            log = VncApiConfigLog(api_log=apiConfig, sandesh=self._sandesh)
-
-        if uveLog:
-            uveLog.send(sandesh=self._sandesh)
+        self._set_api_audit_info(apiConfig)
+        log = VncApiConfigLog(api_log=apiConfig, sandesh=self._sandesh)
         log.send(sandesh=self._sandesh)
 
         # TODO check api + resource perms etc.
@@ -1073,6 +1282,13 @@ class VncApiServer(VncApiServerGen):
             # TODO check api + resource perms etc.
             return (True, None)
 
+        # If there are too many pending updates to rabbit, do not allow
+        # operations that cause state change
+        npending = self._db_conn.dbe_oper_publish_pending()
+        if (npending >= int(self._args.rabbit_max_pending_updates)):
+            err_str = str(MaxRabbitPendingError(npending))
+            return (False, (500, err_str))
+
         # Fail if object exists already
         try:
             obj_uuid = self._db_conn.fq_name_to_uuid(
@@ -1090,35 +1306,30 @@ class VncApiServer(VncApiServerGen):
 
         uuid_in_req = obj_dict.get('uuid', None)
 
+        # Set the display name
+        if (('display_name' not in obj_dict) or
+            (obj_dict['display_name'] is None)):
+            obj_dict['display_name'] = obj_dict['fq_name'][-1]
+
         fq_name_str = ":".join(obj_dict['fq_name'])
-        apiConfig = VncApiCommon(identifier_name=fq_name_str)
-        apiConfig.object_type = obj_type
+        apiConfig = VncApiCommon()
+        apiConfig.object_type = obj_type.replace('-', '_')
+        apiConfig.identifier_name=fq_name_str
+        apiConfig.identifier_uuid = uuid_in_req
         apiConfig.operation = 'post'
-        apiConfig.url = request.url
-        apiConfig.object_type = obj_type
         apiConfig.body = str(request.json)
         if uuid_in_req:
+            try:
+                fq_name = self._db_conn.uuid_to_fq_name(uuid_in_req)
+                bottle.abort(
+                    409, uuid_in_req + ' already exists with fq_name: ' +
+                    pformat(fq_name))
+            except NoIdError:
+                pass
             apiConfig.identifier_uuid = uuid_in_req
-        # TODO should be from x-auth-token
-        apiConfig.user = ''
-        uveLog = None
 
-        if obj_type == "virtual_machine" or obj_type == "virtual-machine":
-            log = VMLog(api_log=apiConfig, sandesh=self._sandesh)
-        elif obj_type == "virtual_network" or obj_type == "virtual-network":
-            vn_log = UveVirtualNetworkConfig(name=fq_name_str,
-                                             attached_policies=[])
-            self.add_virtual_network_refs(vn_log, obj_dict)
-            uveLog = UveVirtualNetworkConfigTrace(data=vn_log,
-                                                  sandesh=self._sandesh)
-            log = VNLog(api_log=apiConfig, sandesh=self._sandesh)
-        elif obj_type == "virtual_router" or obj_type == "virtual-router":
-            log = VRLog(api_log=apiConfig, sandesh=self._sandesh)
-        else:
-            log = VncApiConfigLog(api_log=apiConfig, sandesh=self._sandesh)
-
-        if uveLog:
-            uveLog.send(sandesh=self._sandesh)
+        self._set_api_audit_info(apiConfig)
+        log = VncApiConfigLog(api_log=apiConfig, sandesh=self._sandesh)
         log.send(sandesh=self._sandesh)
 
         return (True, uuid_in_req)
@@ -1160,6 +1371,8 @@ class VncApiServer(VncApiServerGen):
                 vn_fq_name, subnet, count)
         except vnc_addr_mgmt.AddrMgmtSubnetUndefined as e:
             bottle.abort(404, str(e))
+        except vnc_addr_mgmt.AddrMgmtSubnetExhausted as e:
+            bottle.abort(409, str(e))
 
         return result
     # end vn_ip_alloc_http_post
@@ -1252,9 +1465,13 @@ class VncApiServer(VncApiServerGen):
 
 # end class VncApiServer
 
-
+server = None
 def main(args_str=None):
     vnc_api_server = VncApiServer(args_str)
+    # set module var for uses with import e.g unit test
+    global server
+    server = vnc_api_server
+
     pipe_start_app = vnc_api_server.get_pipe_start_app()
 
     server_ip = vnc_api_server.get_listen_ip()

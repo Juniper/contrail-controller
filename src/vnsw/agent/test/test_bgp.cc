@@ -66,7 +66,7 @@ TEST_F(VmPortTest, XmppConnection) {
     VrfAddReq("vrf2");
     VnAddReq(2, "vn2", 0, "vrf2");
 
-    AgentXmppChannel *peer = Agent::GetInstance()->GetAgentXmppChannel(0);
+    AgentXmppChannel *peer = Agent::GetInstance()->controller_xmpp_channel(0);
     WAIT_FOR(1000, 1000, (peer->GetXmppChannel()->GetPeerState() == xmps::READY));
     ASSERT_TRUE(peer->GetXmppChannel()->GetPeerState() == xmps::READY);
 
@@ -82,14 +82,14 @@ TEST_F(VmPortTest, XmppConnection) {
     Ip4Address addr = Ip4Address::from_string("1.1.1.1");
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(RouteFind("vrf1", addr, 32));
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
     EXPECT_TRUE(rt->dest_vn_name() == "vn1");
 
     WAIT_FOR(2000, 1000, (AgentStats::GetInstance()->xmpp_in_msgs(0) == 2));
     ASSERT_TRUE(AgentStats::GetInstance()->xmpp_in_msgs(0) == 2);
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("vrf2", addr, 32));
-    Inet4UnicastRouteEntry *rt2 = RouteGet("vrf2", addr, 32);
+    InetUnicastRouteEntry *rt2 = RouteGet("vrf2", addr, 32);
     WAIT_FOR(100, 10000, (rt2->GetActivePath() != NULL));
     WAIT_FOR(100, 10000, rt2->dest_vn_name().size() > 0);
     EXPECT_STREQ(rt2->dest_vn_name().c_str(), "vn1");
@@ -115,7 +115,7 @@ TEST_F(VmPortTest, XmppConnection) {
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
-    Agent::GetInstance()->SetXmppServer("127.0.0.1", 0);
+    Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
 
     Agent::GetInstance()->controller()->Connect();
 

@@ -13,8 +13,9 @@
 #include "bgp/bgp_route.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/bgp_table.h"
-#include "bgp/inetmcast/inetmcast_route.h"
-#include "bgp/enet/enet_route.h"
+#include "bgp/extended-community/mac_mobility.h"
+#include "bgp/ermvpn/ermvpn_route.h"
+#include "bgp/evpn/evpn_route.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/security_group/security_group.h"
 #include "net/bgp_af.h"
@@ -31,6 +32,7 @@ public:
     BgpXmppMessage(const BgpTable *table, const RibOutAttr *roattr)
         : table_(table),
           is_reachable_(roattr->IsReachable()),
+          sequence_number_(0),
           virtual_network_("unresolved") {
     }
     virtual ~BgpXmppMessage() { }
@@ -42,9 +44,11 @@ public:
 private:
     void EncodeNextHop(const BgpRoute *route, RibOutAttr::NextHop nexthop,
                        autogen::ItemType &item);
-    void AddInetReach(const BgpRoute *route, const RibOutAttr *roattr);
-    void AddInetUnreach(const BgpRoute *route);
+    void AddIpReach(const BgpRoute *route, const RibOutAttr *roattr);
+    void AddIpUnreach(const BgpRoute *route);
     bool AddInetRoute(const BgpRoute *route, const RibOutAttr *roattr);
+
+    bool AddInet6Route(const BgpRoute *route, const RibOutAttr *roattr);
 
     void EncodeEnetNextHop(const BgpRoute *route, RibOutAttr::NextHop nexthop,
                            autogen::EnetItemType &item);
@@ -67,6 +71,10 @@ private:
                 SecurityGroup security_group(*iter);
                 security_group_list_.push_back(security_group.security_group_id());
             }
+            if (ExtCommunity::is_mac_mobility(*iter)) {
+                MacMobility mm(*iter);
+                sequence_number_ = mm.sequence_number();
+            }
             if (ExtCommunity::is_origin_vn(*iter)) {
                 OriginVn origin_vn(*iter);
                 const RoutingInstanceMgr *manager =
@@ -81,6 +89,7 @@ private:
     bool is_reachable_;
     xml_document xdoc_;
     xml_node xitems_;
+    uint32_t sequence_number_;
     std::string virtual_network_;
     std::vector<int> security_group_list_;
     string repr_;
@@ -103,17 +112,20 @@ void BgpXmppMessage::Start(const RibOutAttr *roattr, const BgpRoute *route) {
         const BgpAttr *attr = roattr->attr();
         ProcessExtCommunity(attr->ext_community());
     }
-    
+
     stringstream ss;
-    ss << route->Afi() << "/" << int(route->Safi()) << "/" <<
+    ss << route->Afi() << "/" << int(route->XmppSafi()) << "/" <<
           table_->routing_instance()->name();
     std::string node(ss.str());
-    if (table_->family() == Address::INETMCAST) {
+    if (table_->family() == Address::ERMVPN) {
         xitems_.append_attribute("node") = node.c_str();
         AddMcastRoute(route, roattr);
-    } else if (table_->family() == Address::ENET) {
+    } else if (table_->family() == Address::EVPN) {
         xitems_.append_attribute("node") = node.c_str();
         AddEnetRoute(route, roattr);
+    } else if (table_->family() == Address::INET6) {
+        xitems_.append_attribute("node") = node.c_str();
+        AddInet6Route(route, roattr);
     } else {
         xitems_.append_attribute("node") = node.c_str();
         AddInetRoute(route, roattr);
@@ -121,10 +133,12 @@ void BgpXmppMessage::Start(const RibOutAttr *roattr, const BgpRoute *route) {
 }
 
 bool BgpXmppMessage::AddRoute(const BgpRoute *route, const RibOutAttr *roattr) {
-    if (table_->family() == Address::INETMCAST) {
+    if (table_->family() == Address::ERMVPN) {
         return AddMcastRoute(route, roattr);
-    } else if (table_->family() == Address::ENET) {
+    } else if (table_->family() == Address::EVPN) {
         return AddEnetRoute(route, roattr);
+    } else if (table_->family() == Address::INET6) {
+        return AddInet6Route(route, roattr);
     } else {
         return AddInetRoute(route, roattr);
     }
@@ -135,28 +149,33 @@ void BgpXmppMessage::EncodeNextHop(const BgpRoute *route,
                                    autogen::ItemType &item) {
     autogen::NextHopType item_nexthop;
 
-    item_nexthop.af = route->Afi();
+    item_nexthop.af = route->NexthopAfi();
     item_nexthop.address = nexthop.address().to_v4().to_string();
     item_nexthop.label = nexthop.label();
     if (nexthop.encap().empty()) {
         // If encap list is empty, routes from non-control-node, 
         // use mpls over gre as default encap
-        item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.push_back(std::string("gre"));
+        item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.
+            push_back(std::string("gre"));
     } else {
-        item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation= nexthop.encap();
+        item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation =
+            nexthop.encap();
     }
 
     item.entry.next_hops.next_hop.push_back(item_nexthop);
 }
 
-void BgpXmppMessage::AddInetReach(const BgpRoute *route, const RibOutAttr *roattr) {
+void BgpXmppMessage::AddIpReach(const BgpRoute *route,
+                                const RibOutAttr *roattr) {
     autogen::ItemType item;
 
     item.entry.nlri.af = route->Afi();
-    item.entry.nlri.safi = route->Safi();
+    item.entry.nlri.safi = route->XmppSafi();
     item.entry.nlri.address = route->ToString();
     item.entry.version = 1;
     item.entry.virtual_network = virtual_network_;
+    item.entry.local_preference = roattr->attr()->local_pref();
+    item.entry.sequence_number = sequence_number_;
 
     assert(!roattr->nexthop_list().empty());
 
@@ -177,18 +196,31 @@ void BgpXmppMessage::AddInetReach(const BgpRoute *route, const RibOutAttr *roatt
     item.Encode(&node);
 }
 
-void BgpXmppMessage::AddInetUnreach(const BgpRoute *route) {
+void BgpXmppMessage::AddIpUnreach(const BgpRoute *route) {
     xml_node node = xitems_.append_child("retract");
     node.append_attribute("id") = route->ToXmppIdString().c_str();
 }
 
-bool BgpXmppMessage::AddInetRoute(const BgpRoute *route, const RibOutAttr *roattr) {
+bool BgpXmppMessage::AddInetRoute(const BgpRoute *route,
+                                  const RibOutAttr *roattr) {
     if (is_reachable_) {
         num_reach_route_++;
-        AddInetReach(route, roattr);
+        AddIpReach(route, roattr);
     } else {
         num_unreach_route_++;
-        AddInetUnreach(route);
+        AddIpUnreach(route);
+    }
+    return true;
+}
+
+bool BgpXmppMessage::AddInet6Route(const BgpRoute *route,
+                                   const RibOutAttr *roattr) {
+    if (is_reachable_) {
+        num_reach_route_++;
+        AddIpReach(route, roattr);
+    } else {
+        num_unreach_route_++;
+        AddIpUnreach(route);
     }
     return true;
 }
@@ -215,15 +247,31 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route, const RibOutAttr *roatt
 
     autogen::EnetItemType item;
     item.entry.nlri.af = route->Afi();
-    item.entry.nlri.safi = route->Safi();
+    item.entry.nlri.safi = route->XmppSafi();
 
-    EnetRoute *enet_route =
-        static_cast<EnetRoute *>(const_cast<BgpRoute *>(route));
-    item.entry.nlri.mac = enet_route->GetPrefix().mac_addr().ToString();
-    item.entry.nlri.address =  enet_route->GetPrefix().ip_prefix().ToString();
+    EvpnRoute *evpn_route =
+        static_cast<EvpnRoute *>(const_cast<BgpRoute *>(route));
+    const EvpnPrefix &evpn_prefix = evpn_route->GetPrefix();
+    item.entry.nlri.ethernet_tag = evpn_prefix.tag();
+    item.entry.nlri.mac = evpn_prefix.mac_addr().ToString();
+    item.entry.nlri.address = evpn_prefix.ip_address().to_string() + "/" +
+        integerToString(evpn_prefix.ip_address_length());
     item.entry.virtual_network = virtual_network_;
 
-    assert(!roattr->nexthop_list().empty());
+    const BgpOList *olist = roattr->attr()->olist().get();
+    assert((olist == NULL) != roattr->nexthop_list().empty());
+
+    if (olist) {
+        BOOST_FOREACH(const BgpOListElem &elem, olist->elements) {
+            autogen::EnetNextHopType nh;
+            nh.af = BgpAf::IPv4;
+            nh.address = elem.address.to_string();
+            nh.label = elem.label;
+            nh.tunnel_encapsulation_list.tunnel_encapsulation = elem.encap;
+            item.entry.olist.next_hop.push_back(nh);
+        }
+    }
+
     BOOST_FOREACH(RibOutAttr::NextHop nexthop, roattr->nexthop_list()) {
         EncodeEnetNextHop(route, nexthop, item);
     }
@@ -253,26 +301,20 @@ void BgpXmppMessage::AddMcastReach(const BgpRoute *route, const RibOutAttr *roat
 
     autogen::McastItemType item;
     item.entry.nlri.af = route->Afi();
-    item.entry.nlri.safi = route->Safi();
+    item.entry.nlri.safi = route->XmppSafi();
 
-    InetMcastRoute *mcast_route =
-        static_cast<InetMcastRoute *>(const_cast<BgpRoute *>(route));
-    item.entry.nlri.group = mcast_route->GetPrefix().group().to_string();
-    item.entry.nlri.source =  mcast_route->GetPrefix().source().to_string();
+    ErmVpnRoute *ermvpn_route =
+        static_cast<ErmVpnRoute *>(const_cast<BgpRoute *>(route));
+    item.entry.nlri.group = ermvpn_route->GetPrefix().group().to_string();
+    item.entry.nlri.source =  ermvpn_route->GetPrefix().source().to_string();
     item.entry.nlri.source_label = roattr->label();
 
-    BgpOList *olist = roattr->attr()->olist().get();
-    std::vector<BgpOListElem>::const_iterator iterator;
-    for (iterator = olist->elements.begin();
-         iterator != olist->elements.end(); ++iterator) {
-        BgpOListElem elem = static_cast<BgpOListElem>(*iterator);
-
+    const BgpOList *olist = roattr->attr()->olist().get();
+    BOOST_FOREACH(const BgpOListElem &elem, olist->elements) {
         autogen::McastNextHopType nh;
         nh.af = BgpAf::IPv4;
         nh.address = elem.address.to_string();
-        stringstream label;
-        label << elem.label;
-        nh.label = label.str();
+        nh.label = integerToString(elem.label);
         nh.tunnel_encapsulation_list.tunnel_encapsulation = elem.encap;
         item.entry.olist.next_hop.push_back(nh);
     }

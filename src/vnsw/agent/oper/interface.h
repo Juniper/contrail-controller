@@ -10,7 +10,11 @@
 // Interface class
 /////////////////////////////////////////////////////////////////////////////
 
+#include <cmn/agent_cmn.h>
+#include <cmn/index_vector.h>
+
 struct InterfaceData;
+class VmInterface;
 
 class Interface : AgentRefCount<Interface>, public AgentDBEntry {
 public:
@@ -92,6 +96,8 @@ public:
     const std::string &name() const {return name_;}
     VrfEntry *vrf() const {return vrf_.get();}
     bool ipv4_active() const {return ipv4_active_;}
+    bool ipv6_active() const {return ipv6_active_;}
+    bool ip_active(Address::Family family) const;
     bool l2_active() const {return l2_active_;}
     const uint32_t id() const {return id_;}
     bool dhcp_enabled() const {return dhcp_enabled_;}
@@ -99,10 +105,13 @@ public:
     uint32_t label() const {return label_;}
     bool IsL2LabelValid(uint32_t label) const { return (label_ == label);}
     uint32_t os_index() const {return os_index_;}
-    const ether_addr &mac() const {return mac_;}
+    const MacAddress &mac() const {return mac_;}
     bool os_oper_state() const { return os_oper_state_; }
+    bool admin_state() const { return admin_state_; }
     // Used only for test code
     void set_test_oper_state(bool val) { test_oper_state_ = val; }
+    void set_flow_key_nh(const NextHop *nh) { flow_key_nh_ = nh;}
+    const NextHop* flow_key_nh() const {return flow_key_nh_.get();}
 
 protected:
     void SetItfSandeshData(ItfSandeshData &data) const;
@@ -114,15 +123,22 @@ protected:
     uint32_t label_;
     uint32_t l2_label_;
     bool ipv4_active_;
+    bool ipv6_active_;
     bool l2_active_;
     size_t id_;
     bool dhcp_enabled_;
     bool dns_enabled_;
-    struct ether_addr mac_;
+    MacAddress mac_;
     size_t os_index_;
     bool os_oper_state_;
+    bool admin_state_;
     // Used only for test code
     bool test_oper_state_;
+    //Reference to nexthop, whose index gets used as key in
+    //flow lookup for traffic ingressing from this interface
+    //packet interface and layer2 interface will not have this
+    //reference set.
+    NextHopConstRef flow_key_nh_;
 
 private:
     friend class InterfaceTable;
@@ -130,7 +146,7 @@ private:
     DISALLOW_COPY_AND_ASSIGN(Interface);
 };
 
-// Common key for all interfaces. 
+// Common key for all interfaces.
 struct InterfaceKey : public AgentKey {
     InterfaceKey(const InterfaceKey &rhs) {
         type_ = rhs.type_;
@@ -151,15 +167,23 @@ struct InterfaceKey : public AgentKey {
         name_ = name;
     }
 
-    bool Compare(const InterfaceKey &rhs) const {
-        if (type_ != rhs.type_)
-            return false;
+    bool IsLess(const InterfaceKey &rhs) const {
+        if (type_ != rhs.type_) {
+            return type_ < rhs.type_;
+        }
 
-        if (uuid_ != rhs.uuid_)
-            return false;
+        if (uuid_ != rhs.uuid_) {
+            return uuid_ < rhs.uuid_;
+        }
 
-        return (name_ == rhs.name_);
+        return name_ < rhs.name_;
+    }
 
+    bool IsEqual(const InterfaceKey &rhs) const {
+        if ((IsLess(rhs) == false) && (rhs.IsLess(*this) == false)) {
+            return true;
+        }
+        return false;
     }
 
     // Virtual methods for interface keys
@@ -204,6 +228,11 @@ public:
 
     typedef std::map<const std::string, DhcpSnoopEntry> DhcpSnoopMap;
     typedef std::map<const std::string, DhcpSnoopEntry>::iterator DhcpSnoopIterator;
+    // DNS module is optional. Callback function to keep DNS entry for
+    // floating ip in-sync. This callback is defined to avoid linking error
+    // when DNS is not enabled
+    typedef boost::function<void(VmInterface *, const VnEntry *,
+                                 const Ip4Address &, bool)> UpdateFloatingIpFn;
 
     InterfaceTable(DB *db, const std::string &name) :
         AgentDBTable(db, name), operdb_(NULL), agent_(NULL),
@@ -256,13 +285,17 @@ public:
     void AuditDhcpSnoopTable();
     void DhcpSnoopSetConfigSeen(const std::string &ifname);
 
+    void set_update_floatingip_cb(UpdateFloatingIpFn fn);
+    const UpdateFloatingIpFn &update_floatingip_cb() const;
+
     // TODO : to remove this
     static InterfaceTable *GetInstance() { return interface_table_; }
     Agent *agent() const { return agent_; }
     OperDB *operdb() const { return operdb_; }
 
 private:
-    bool L2VmInterfaceWalk(DBTablePartBase *partition, DBEntryBase *entry);
+    bool L2VmInterfaceWalk(DBTablePartBase *partition,
+                           DBEntryBase *entry);
     void VmInterfaceWalkDone(DBTableBase *partition);
 
     static InterfaceTable *interface_table_;
@@ -274,6 +307,7 @@ private:
     // ASIO context. Lock used to synchronize
     tbb::mutex dhcp_snoop_mutex_;
     DhcpSnoopMap dhcp_snoop_map_;
+    UpdateFloatingIpFn update_floatingip_cb_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceTable);
 };
 

@@ -13,6 +13,7 @@
 #include <db/db_table_partition.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
+#include <ksync/ksync_netlink.h>
 #include "oper/vrf_assign.h"
 
 class VrfAssignKSyncObject;
@@ -25,9 +26,8 @@ public:
     virtual ~VrfAssignKSyncEntry();
 
     uint16_t vlan_tag() const {return vlan_tag_;};
-    InterfaceKSyncEntry *interface() const {
-        return static_cast<InterfaceKSyncEntry *>(interface_.get());
-    }
+    InterfaceKSyncEntry *interface() const;
+    NHKSyncEntry *nh() const;
     KSyncDBObject *GetObject();
 
     virtual bool IsLess(const KSyncEntry &rhs) const;
@@ -43,6 +43,7 @@ private:
     KSyncEntryPtr interface_;
     uint16_t vlan_tag_;
     uint16_t vrf_id_;
+    KSyncEntryPtr nh_;
     DISALLOW_COPY_AND_ASSIGN(VrfAssignKSyncEntry);
 };
 

@@ -6,9 +6,6 @@
 #define vnsw_agent_interface_cfg_listener_hpp
 
 #include <cmn/agent_cmn.h>
-#include <oper/vn.h>
-#include <cfg/cfg_interface.h>
-#include <cfg/cfg_init.h>
 
 using namespace boost::uuids;
 

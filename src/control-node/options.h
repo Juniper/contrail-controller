@@ -29,6 +29,8 @@ public:
     const long log_file_size() const { return log_file_size_; }
     const std::string log_level() const { return log_level_; }
     const bool log_local() const { return log_local_; }
+    const bool use_syslog() const { return use_syslog_; }
+    const std::string syslog_facility() const { return syslog_facility_; }
     const std::string ifmap_server_url() const { return ifmap_server_url_; }
     const std::string ifmap_password() const { return ifmap_password_; }
     const std::string ifmap_user() const { return ifmap_user_; }
@@ -42,6 +44,14 @@ private:
     template <typename ValueType>
     void GetOptValue(const boost::program_options::variables_map &var_map,
                      ValueType &var, std::string val);
+    // Implementation overloads
+    template <typename ValueType>
+    void GetOptValueImpl(const boost::program_options::variables_map &var_map,
+                         ValueType &var, std::string val, ValueType*);
+    template <typename ElementType>
+    void GetOptValueImpl(const boost::program_options::variables_map &var_map,
+                         std::vector<ElementType> &var, std::string val,
+                         std::vector<ElementType> *);
     bool Process(int argc, char *argv[],
                  boost::program_options::options_description &cmdline_options);
     void Initialize(EventManager &evm,
@@ -63,6 +73,8 @@ private:
     long log_file_size_;
     std::string log_level_;
     bool log_local_;
+    bool use_syslog_;
+    std::string syslog_facility_;
     std::string ifmap_server_url_;
     std::string ifmap_password_;
     std::string ifmap_user_;

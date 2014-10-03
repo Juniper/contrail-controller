@@ -1,0 +1,25 @@
+/*
+ * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+ */
+
+//
+// uflow.sandesh 
+//
+
+struct UFlowSample {
+    1: u64 pifindex
+    2: string sip
+    3: string dip
+    4: u16 sport
+    5: u16 dport
+    6: u16 protocol
+    7: u16 vlan
+    8: string flowtype
+    9: string otherinfo
+}
+
+struct UFlowData {
+    1: string name (key="ObjectPRouterIP")
+    2: optional bool deleted
+    3: optional list<UFlowSample> flow (tags="name:.pifindex, .sip, .dip, .protocol:.sport, .protocol:.dport, .vlan")
+}

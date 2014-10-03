@@ -54,9 +54,9 @@ public:
     void MergeFinal(const std::vector<boost::shared_ptr<MapBufT> >& inputs,
         MapBufT& output);
 
-    static QEOpServerProxy::VarType Parse(int sidx, 
+    static QEOpServerProxy::AggOper ParseAgg(
             const std::string& vname,
-            std::string& sfield, QEOpServerProxy::AggOper& agg);
+            std::string& sfield);
 
     static bool Jsonify(const std::map<std::string, StatVal>&, 
             const QEOpServerProxy::AggRowT&, std::string& jstr);
@@ -71,14 +71,19 @@ private:
             const QEOpServerProxy::AggRowT& narows,
             MapBufT& output);
 
+    bool isStatic_;
     bool status_;
 
     AnalyticsQuery * const main_query;
     const std::vector<std::string> select_fields_;
 
-	// If T= is in the SELECT, this gives the timeperiod
+    // If T= is in the SELECT, this gives the timeperiod
     uint32_t ts_period_;
     bool isT_;
+
+    // Is CLASS(T) or CLASS(T=) in the SELECT Clause 
+    bool isTC_;
+    bool isTBC_;
 
     // This is the column name corresponding to the COUNT select field.
     // It will be empty if the SELECT did not have COUNT.
@@ -96,6 +101,7 @@ private:
 
     // This is the set of columns that require aggregation.
     std::set<std::string> sum_cols_;
+    std::set<std::string> class_cols_;
 
 };
 #endif

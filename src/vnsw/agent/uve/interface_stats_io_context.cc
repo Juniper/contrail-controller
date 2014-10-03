@@ -20,11 +20,17 @@ void InterfaceStatsIoContext::Handler() {
     AgentStatsSandeshContext *ctx = static_cast<AgentStatsSandeshContext *>
                                                                         (ctx_);
     AgentStatsCollector *collector = ctx->collector();
-    collector->SendStats();
-    /* Reset the marker for query during next timer interval, if there is
-     * no additional records for the current query */
+    /* (1) Reset the marker for query during next timer interval, if there is
+     *     no additional records for the current query
+     * (2) If there are additional interfaces to be queried, send DUMP request
+     *     for those as well
+     * (3) Send UVE for stats info only when we have queried and obtained
+     *     results for all interfaces. */
     if (!ctx->MoreData()) {
         ctx->set_marker_id(-1);
+        collector->SendStats();
+    } else {
+        collector->SendInterfaceBulkGet();
     }
 }
 

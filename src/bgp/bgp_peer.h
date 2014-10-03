@@ -161,6 +161,7 @@ public:
     virtual IPeerClose *peer_close();
     virtual IPeerDebugStats *peer_stats();
     void ManagedDelete();
+    void RetryDelete();
     LifetimeActor *deleter();
     void Initialize();
 
@@ -174,6 +175,7 @@ public:
     void inc_rx_keepalive();
     void inc_rx_update();
     void inc_rx_notification();
+
     void inc_rx_route_update();
     void inc_rx_route_reach();
     void inc_rx_route_unreach();
@@ -183,22 +185,36 @@ public:
     size_t get_rx_notification();
     size_t get_tr_keepalive();
 
+    void inc_connect_error();
+    void inc_connect_timer_expired();
+    void inc_hold_timer_expired();
+    void inc_open_error();
+    void inc_update_error();
+    size_t get_connect_error();
+    size_t get_connect_timer_expired();
+    size_t get_hold_timer_expired();
+    size_t get_open_error();
+    size_t get_update_error();
+
     static void FillBgpNeighborDebugState(BgpNeighborResp &resp, const IPeerDebugStats *peer);
 
     bool ResumeClose();
     void MembershipRequestCallback(IPeer *ipeer, BgpTable *table, bool start);
 
-    virtual void UpdateRefCount(int count) { refcount_ += count; }
+    virtual void UpdateRefCount(int count) const { refcount_ += count; }
     virtual tbb::atomic<int> GetRefCount() const { return refcount_; }
 
     bool IsControlNode() const { return control_node_; }
     void RegisterToVpnTables(bool established);
 
+    StateMachine *state_machine() { return state_machine_.get(); }
+    const StateMachine *state_machine() const { return state_machine_.get(); }
+
 private:
     friend class BgpConfigTest;
     friend class BgpPeerTest;
     friend class BgpServerUnitTest;
-    friend class StateMachineTest;
+    friend class StateMachineUnitTest;
 
     class DeleteActor;
     class PeerClose;
@@ -226,7 +242,6 @@ private:
     void PostCloseRelease();
     void CustomClose();
 
-    StateMachine *state_machine() { return state_machine_.get(); }
     std::string BytesToHexString(const u_int8_t *msg, size_t size);
 
     BgpServer *server_;
@@ -269,19 +284,22 @@ private:
     boost::scoped_ptr<StateMachine> state_machine_;
     uint32_t membership_req_pending_;
     bool defer_close_;
+    bool vpn_tables_registered_;
     std::vector<BgpProto::OpenMessage::Capability *> capabilities_;
     as_t local_as_;
     as_t peer_as_;
     uint32_t remote_bgp_id_;
     uint32_t local_bgp_id_;
     AddressFamilyList family_;
+    std::vector<std::string> configured_families_;
+    std::vector<std::string> negotiated_families_;
     BgpProto::BgpPeerType peer_type_;
     RibExportPolicy policy_;
     boost::scoped_ptr<PeerClose> peer_close_;
     boost::scoped_ptr<PeerStats> peer_stats_;
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<BgpPeer> instance_delete_ref_;
-    tbb::atomic<int> refcount_;
+    mutable tbb::atomic<int> refcount_;
     uint32_t flap_count_;
     uint64_t last_flap_;
 

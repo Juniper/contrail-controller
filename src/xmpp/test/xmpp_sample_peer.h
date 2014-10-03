@@ -23,9 +23,7 @@ public:
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize);
     virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg);
     XmppChannel *GetXmppChannel() { return channel_; }
-    void SetXmppChannel(XmppChannel *ch) { 
-        channel_ = ch;
-    }
+
 protected:
     virtual void WriteReadyCb(const boost::system::error_code &ec);
 

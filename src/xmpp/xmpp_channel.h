@@ -56,7 +56,6 @@ public:
     virtual xmps::PeerState GetPeerState() const = 0;
     virtual std::string FromString() const = 0;
     virtual const XmppConnection *connection() const = 0;
-    virtual void XmppChannelCleanup() = 0;
 };
 
 #endif // __XMPP_CHANNEL_INTERFACE_H__

@@ -43,9 +43,11 @@ class BgpProvisioner(object):
 
     def add_bgp_router(self, router_type, router_name, router_ip, router_asn):
         if router_type == 'contrail':
-            bgp_addr_fams = AddressFamilies(['route-target', 'inet-vpn', 'e-vpn'])
+            bgp_addr_fams = AddressFamilies(['route-target', 'inet-vpn',
+                                             'e-vpn', 'erm-vpn', 'inet6-vpn'])
         else:
-            bgp_addr_fams = AddressFamilies(['route-target', 'inet-vpn'])
+            bgp_addr_fams = AddressFamilies(['route-target', 'inet-vpn', 'e-vpn',
+                                             'inet6-vpn'])
         bgp_sess_attrs = [
             BgpSessionAttributes(address_families=bgp_addr_fams)]
         bgp_sessions = [BgpSession(attributes=bgp_sess_attrs)]
@@ -151,7 +153,12 @@ class BgpProvisioner(object):
                                                    rt_inst_fq_name[:-1])
             return
 
-        net_obj.get_route_target_list().get_route_target().remove(rtgt_val)
+        route_targets = net_obj.get_route_target_list()
+        route_targets.delete_route_target(rtgt_val)
+        if route_targets.get_route_target():
+            net_obj.set_route_target_list(route_targets)
+        else:
+            net_obj.set_route_target_list(None)
         vnc_lib.virtual_network_update(net_obj)
 
     # end del_route_target

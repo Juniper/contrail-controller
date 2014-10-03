@@ -18,7 +18,7 @@
 #include <uve/agent_stats_collector.h>
 #include <uve/vn_uve_table.h>
 #include <uve/vm_uve_table.h>
-#include <cmn/agent_param.h>
+#include <init/agent_param.h>
 #include <uve/interface_stats_io_context.h>
 #include <uve/vrf_stats_io_context.h>
 #include <uve/drop_stats_io_context.h>
@@ -191,7 +191,7 @@ bool AgentStatsCollector::Run() {
 }
 
 void AgentStatsCollector::SendStats() {
-    agent_->uve()->vn_uve_table()->SendVnStats();
+    agent_->uve()->vn_uve_table()->SendVnStats(false);
     agent_->uve()->vm_uve_table()->SendVmStats();
 }
 
@@ -280,17 +280,41 @@ void AgentStatsCollector::VrfNotify(DBTablePartBase *part, DBEntryBase *e) {
 }
 
 void AgentStatsCollector::RegisterDBClients() {
-    InterfaceTable *intf_table = agent_->GetInterfaceTable();
+    InterfaceTable *intf_table = agent_->interface_table();
     intf_listener_id_ = intf_table->Register
         (boost::bind(&AgentStatsCollector::InterfaceNotify, this, _1, _2));
 
-    VrfTable *vrf_table = agent_->GetVrfTable();
+    VrfTable *vrf_table = agent_->vrf_table();
     vrf_listener_id_ = vrf_table->Register
         (boost::bind(&AgentStatsCollector::VrfNotify, this, _1, _2));
 }
 
 void AgentStatsCollector::Shutdown(void) {
-    agent_->GetVrfTable()->Unregister(vrf_listener_id_);
-    agent_->GetInterfaceTable()->Unregister(intf_listener_id_);
+    agent_->vrf_table()->Unregister(vrf_listener_id_);
+    agent_->interface_table()->Unregister(intf_listener_id_);
+    StatsCollector::Shutdown();
+}
+
+void AgentStatsCollector::InterfaceStats::UpdateStats
+    (uint64_t in_b, uint64_t in_p, uint64_t out_b, uint64_t out_p) {
+    in_bytes = in_b;
+    in_pkts = in_p;
+    out_bytes = out_b;
+    out_pkts = out_p;
+}
+
+void AgentStatsCollector::InterfaceStats::UpdatePrevStats() {
+    prev_in_bytes = in_bytes;
+    prev_in_pkts = in_pkts;
+    prev_out_bytes = out_bytes;
+    prev_out_pkts = out_pkts;
+}
+
+void AgentStatsCollector::InterfaceStats::GetDiffStats
+    (uint64_t *in_b, uint64_t *in_p, uint64_t *out_b, uint64_t *out_p) {
+    *in_b = in_bytes - prev_in_bytes;
+    *in_p = in_pkts - prev_in_pkts;
+    *out_b = out_bytes - prev_out_bytes;
+    *out_p = out_pkts - prev_out_pkts;
 }
 

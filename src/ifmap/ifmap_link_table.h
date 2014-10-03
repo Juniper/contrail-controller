@@ -33,7 +33,6 @@ public:
     void AddLink(DBGraphBase::edge_descriptor edge, IFMapNode *left,
                  IFMapNode *right, const std::string &metadata,
                  uint64_t sequence_number, const IFMapOrigin &origin);
-    void DeleteLink(DBGraphEdge *edge);
     void DeleteLink(DBGraphEdge *edge, IFMapNode *lhs, IFMapNode *rhs);
     void DeleteLink(IFMapNode *lhs, IFMapNode *rhs, const IFMapOrigin &origin);
 
@@ -44,6 +43,9 @@ public:
     static DBTable *CreateTable(DB *db, const std::string &name,
                                 DBGraph *graph);
     IFMapLink *FindLink(DBGraphBase::edge_descriptor edge);
+
+protected:
+    void DeleteLink(DBGraphEdge *edge);
 
 private:
     DBGraph *graph_;

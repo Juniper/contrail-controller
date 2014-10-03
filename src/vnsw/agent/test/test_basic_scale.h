@@ -40,30 +40,6 @@ void SetWalkerYield(int yield) {
     putenv(iterations_env);
 }
 
-void WaitForIdle2(int wait_seconds = 30) {
-    static const int kTimeoutUsecs = 1000;
-    static int envWaitTime;
-
-    if (!envWaitTime) {
-        if (getenv("WAIT_FOR_IDLE")) {
-            envWaitTime = atoi(getenv("WAIT_FOR_IDLE"));
-        } else {
-            envWaitTime = wait_seconds;
-        }
-    }
-
-    if (envWaitTime > wait_seconds) wait_seconds = envWaitTime;
-
-    TaskScheduler *scheduler = TaskScheduler::GetInstance();
-    for (int i = 0; i < ((wait_seconds * 1000000)/kTimeoutUsecs); i++) {
-        if (scheduler->IsEmpty()) {
-            return;
-        }
-        usleep(kTimeoutUsecs);
-    }
-    EXPECT_TRUE(scheduler->IsEmpty());
-}
-
 xml_node MessageHeader(xml_document *xdoc, std::string vrf) {
     xml_node msg = xdoc->append_child("message");
     msg.append_attribute("type") = "set";
@@ -132,15 +108,15 @@ void InitXmppServers() {
 
     for (int i = 0; i < num_ctrl_peers; i++) {
         addr = IncrementIpAddress(addr);
-        Agent::GetInstance()->SetXmppServer(addr.to_string(), i);
+        Agent::GetInstance()->set_controller_ifmap_xmpp_server(addr.to_string(), i);
     }
 }
 
 class AgentBgpXmppPeerTest : public AgentXmppChannel {
 public:
-    AgentBgpXmppPeerTest(XmppChannel *channel, std::string xs, 
+    AgentBgpXmppPeerTest(std::string xs,
                          std::string lr, uint8_t xs_idx) :
-        AgentXmppChannel(Agent::GetInstance(), channel, xs, lr, xs_idx), 
+        AgentXmppChannel(Agent::GetInstance(), xs, lr, xs_idx),
         rx_count_(0), rx_channel_event_queue_(
             TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"), 0,
             boost::bind(&AgentBgpXmppPeerTest::ProcessChannelEvent, this, _1)) {
@@ -269,7 +245,7 @@ public:
         if (remote) {
             item_nexthop.address = "127.127.127.127";
         } else {
-            item_nexthop.address = Agent::GetInstance()->GetRouterId().to_string();
+            item_nexthop.address = Agent::GetInstance()->router_id().to_string();
         }
         item_nexthop.label = label;
 
@@ -288,14 +264,65 @@ public:
         SendDocument(xdoc);
     }
 
-    void SendL2RouteMessage(std::string vrf, std::string mac_string, std::string address, int label, 
-                            const char *vn = "vn1", bool is_vxlan = false) {
+    void SendL2FloodRouteMessage(std::string vrf, std::string mac_string, std::string address,
+                                 int label, const char *vn = "vn1", bool is_vxlan = false) {
         xml_document xdoc;
         xml_node xitems = L2MessageHeader(&xdoc, vrf);
 
         autogen::EnetNextHopType item_nexthop;
         item_nexthop.af = 1;
-        item_nexthop.address = Agent::GetInstance()->GetRouterId().to_string();
+        item_nexthop.address = Agent::GetInstance()->router_id().to_string();
+        item_nexthop.label = label;
+        if (is_vxlan) {
+            item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.push_back("vxlan");
+        } else {
+            item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.push_back("gre");
+            item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.push_back("udp");
+        }
+
+        autogen::EnetNextHopType item_nexthop_1;
+        item_nexthop_1.af = 1;
+        item_nexthop_1.address = Agent::GetInstance()->router_id().to_string();
+        item_nexthop_1.label = label + 1;
+        if (is_vxlan) {
+            item_nexthop_1.tunnel_encapsulation_list.tunnel_encapsulation.push_back("vxlan");
+        } else {
+            item_nexthop_1.tunnel_encapsulation_list.tunnel_encapsulation.push_back("gre");
+            item_nexthop_1.tunnel_encapsulation_list.tunnel_encapsulation.push_back("udp");
+        }
+
+        autogen::EnetItemType item;
+        item.entry.nlri.af = 25;
+        item.entry.nlri.safi = 242;
+        item.entry.nlri.mac = mac_string.c_str();
+        item.entry.nlri.address = address.c_str();
+
+        item.entry.olist.next_hop.push_back(item_nexthop);
+        item.entry.olist.next_hop.push_back(item_nexthop_1);
+
+        xml_node node = xitems.append_child("item");
+        stringstream ss;
+        ss << mac_string.c_str() << "," << address.c_str();
+        string node_str(ss.str());
+        node.append_attribute("id") = node_str.c_str();
+        item.Encode(&node);
+
+        SendDocument(xdoc);
+    }
+
+    void SendL2RouteMessage(std::string vrf, std::string mac_string, std::string address, int label,
+                            const char *vn = "vn1", bool is_vxlan = false) {
+        if (mac_string == "ff:ff:ff:ff:ff:ff") {
+            SendL2FloodRouteMessage(vrf, mac_string, address, label, vn, is_vxlan);
+            return;
+        }
+
+        xml_document xdoc;
+        xml_node xitems = L2MessageHeader(&xdoc, vrf);
+
+        autogen::EnetNextHopType item_nexthop;
+        item_nexthop.af = 1;
+        item_nexthop.address = Agent::GetInstance()->router_id().to_string();
         item_nexthop.label = label;
         if (is_vxlan) {
             item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.push_back("vxlan");
@@ -314,7 +341,7 @@ public:
 
         xml_node node = xitems.append_child("item");
         stringstream ss;
-        ss << mac_string.c_str() << "," << address.c_str(); 
+        ss << mac_string.c_str() << "," << address.c_str();
         string node_str(ss.str());
         node.append_attribute("id") = node_str.c_str();
         item.Encode(&node);
@@ -549,7 +576,7 @@ protected:
         client->WaitForIdle();
 
         for (int i = 0; i < num_ctrl_peers; i++) {
-            Agent::GetInstance()->SetAgentXmppChannel(NULL, i);
+            Agent::GetInstance()->set_controller_xmpp_channel(NULL, i);
             xc[i]->ConfigUpdate(new XmppConfigData());
             client->WaitForIdle(5);
             xs[i]->Shutdown();
@@ -633,13 +660,14 @@ protected:
             xc[i]->ConfigUpdate(xmppc_cfg[i]);
             cchannel[i] = xc[i]->FindChannel(XmppInit::kControlNodeJID);
             //New bgp peer from agent
-            bgp_peer[i].reset(new AgentBgpXmppPeerTest(cchannel[i],
-                                  Agent::GetInstance()->GetXmppServer(i),
-                                  Agent::GetInstance()->GetAgentMcastLabelRange(i), i));
+            bgp_peer[i].reset(new AgentBgpXmppPeerTest(
+                                  Agent::GetInstance()->controller_ifmap_xmpp_server(i),
+                                  Agent::GetInstance()->multicast_label_range(i), i));
+            bgp_peer[i].get()->RegisterXmppChannel(cchannel[i]);
             xc[i]->RegisterConnectionEvent(xmps::BGP,
                            boost::bind(&AgentBgpXmppPeerTest::HandleXmppChannelEvent, 
                                        bgp_peer[i].get(), _2));
-            Agent::GetInstance()->SetAgentXmppChannel(bgp_peer[i].get(), i);
+            Agent::GetInstance()->set_controller_xmpp_channel(bgp_peer[i].get(), i);
 
             // server connection
             VerifyConnections(i);
@@ -679,7 +707,7 @@ protected:
         }
         //Create vn,vrf,vm,vm-port and route entry in vrf1 
         CreateVmportEnv(input, (intf_id - 1));
-        WAIT_FOR(10000, 10000, (agent_->GetInterfaceTable()->Size() == 
+        WAIT_FOR(10000, 10000, (agent_->interface_table()->Size() == 
                                 ((num_vns * num_vms_per_vn) + 3)));
         VerifyVmPortActive(true);
         VerifyRoutes(false);
@@ -701,7 +729,7 @@ protected:
         char vrf_name[80];
         PortInfo *del_input = NULL;
         int input_id = 0;
-        int intf_count = agent_->GetInterfaceTable()->Size();
+        int intf_count = agent_->interface_table()->Size();
         for (int vn_cnt = 1; vn_cnt <= num_vns; vn_cnt++) {
             for (int j = 0; j < num_vms_per_vn; j++) {
                 del_input = &input[input_id];
@@ -712,7 +740,7 @@ protected:
             WAIT_FOR(10000, 10000, !VnFind(vn_cnt));
             WAIT_FOR(10000, 10000, !VrfFind(vrf_name));
         }
-        WAIT_FOR(10000, 10000, (agent_->GetInterfaceTable()->Size() == 3));
+        WAIT_FOR(10000, 10000, (agent_->interface_table()->Size() == 3));
         VerifyRoutes(true);
         VerifyVmPortActive(false);
         TaskScheduler::GetInstance()->Stop();
@@ -720,55 +748,46 @@ protected:
         agent_->controller()->multicast_cleanup_timer().cleanup_timer_->Fire();
         TaskScheduler::GetInstance()->Start();
         client->WaitForIdle();
-        WAIT_FOR(10000, 10000, (Agent::GetInstance()->GetVrfTable()->Size() == 1));
-        WAIT_FOR(1000, 1000, (Agent::GetInstance()->GetVnTable()->Size() == 0));
+        WAIT_FOR(10000, 10000, (Agent::GetInstance()->vrf_table()->Size() == 1));
+        WAIT_FOR(1000, 1000, (Agent::GetInstance()->vn_table()->Size() == 0));
     }
 
     void VerifyRoutes(bool deleted) {
         int intf_id = 1;
-        struct ether_addr *flood_mac = 
-            (struct ether_addr *)malloc(sizeof(struct ether_addr));
-        stringstream flood_mac_str;
-        flood_mac_str << "ff:ff:ff:ff:ff:ff";
-        memcpy (flood_mac, ether_aton(flood_mac_str.str().c_str()), 
-                sizeof(struct ether_addr));
-        struct ether_addr *local_vm_mac = 
-            (struct ether_addr *)malloc(sizeof(struct ether_addr));
+        MacAddress flood_mac = MacAddress::BroadcastMac();
+        MacAddress local_vm_mac;
         for (int vn_cnt = 1; vn_cnt <= num_vns; vn_cnt++) {
             stringstream ip_addr;
             ip_addr << vn_cnt << ".1.1.0";
-            Ip4Address addr = 
+            Ip4Address addr =
                 IncrementIpAddress(Ip4Address::from_string(ip_addr.str()));
             stringstream name;
             name << "vrf" << intf_id;
             for (int vm_cnt = 0; vm_cnt < num_vms_per_vn; vm_cnt++) {
                 stringstream mac;
-                mac << "00:00:00:00:" << std::hex << vn_cnt << ":" << 
+                mac << "00:00:00:00:" << std::hex << vn_cnt << ":" <<
                     std::hex << (vm_cnt + 1);
-                memcpy (local_vm_mac, ether_aton(mac.str().c_str()), 
-                        sizeof(struct ether_addr));
+                local_vm_mac = MacAddress::FromString(mac.str());
                 if (deleted) {
                     WAIT_FOR(1000, 10000, !(RouteFind(name.str(), addr.to_string(), 32)));
-                    WAIT_FOR(1000, 10000, !(L2RouteFind(name.str(), *local_vm_mac)));
+                    WAIT_FOR(1000, 10000, !(L2RouteFind(name.str(), local_vm_mac)));
                 } else {
                     WAIT_FOR(1000, 10000, (RouteFind(name.str(), addr.to_string(), 32)));
-                    WAIT_FOR(1000, 10000, (L2RouteFind(name.str(), *local_vm_mac)));
+                    WAIT_FOR(1000, 10000, (L2RouteFind(name.str(), local_vm_mac)));
                 }
                 addr = IncrementIpAddress(addr);
             }
             if (deleted) {
-                WAIT_FOR(1000, 10000, !(MCRouteFind(name.str(), 
+                WAIT_FOR(1000, 10000, !(MCRouteFind(name.str(),
                                                    Ip4Address::from_string("255.255.255.255"))));
-                WAIT_FOR(1000, 10000, !(L2RouteFind(name.str(), *flood_mac)));
+                WAIT_FOR(1000, 10000, !(L2RouteFind(name.str(), flood_mac)));
             } else {
-                WAIT_FOR(1000, 10000, (MCRouteFind(name.str(), 
+                WAIT_FOR(1000, 10000, (MCRouteFind(name.str(),
                                                   Ip4Address::from_string("255.255.255.255"))));
-                WAIT_FOR(1000, 10000, (L2RouteFind(name.str(), *flood_mac)));
+                WAIT_FOR(1000, 10000, (L2RouteFind(name.str(), flood_mac)));
             }
             intf_id++;
         }
-        delete flood_mac;
-        delete local_vm_mac;
     }
 
     void XmppConnectionSetUp() {

@@ -34,9 +34,6 @@ public:
     // Allocate an IFMapNode.
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *key) const;
 
-    // Allocate an IFMapObject
-    virtual IFMapObject *AllocObject() = 0;
-
     // Process a DB add/change/delete request. Requests consist of 1 or 2
     // identifiers plus associated metadata.
     virtual void Input(DBTablePartition *partition, DBClient *client,

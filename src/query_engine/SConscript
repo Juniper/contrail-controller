@@ -18,6 +18,7 @@ env.Prepend(LIBS=[  'gendb',
                     'cdb',
                     'cpuinfo',
                     'ds',
+                    'io',
                     'sandesh',
                     'http',
                     'httpc',
@@ -27,6 +28,7 @@ env.Prepend(LIBS=[  'gendb',
                     'curl',
                     'thrift',
                     'hiredis',
+                    'process_info',
                     'io',
                     'base',
                     'sandeshvns',
@@ -66,21 +68,19 @@ RedisConn_obj = env.Object('redis_connection.o', '../analytics/redis_connection.
 
 # copied from analytics SConscript
 env_excep = env.Clone()
-while env_excep['CCFLAGS'].count('-fno-exceptions') > 0:
-        env_excep['CCFLAGS'].remove('-fno-exceptions')
+env_excep.CppEnableExceptions()
 
 env_noWerror = env.Clone()
 while env_noWerror['CCFLAGS'].count('-Werror') > 0:
     env_noWerror['CCFLAGS'].remove('-Werror')
 
 env_noWerror_excep = env_noWerror.Clone()
-while env_noWerror_excep['CCFLAGS'].count('-fno-exceptions') > 0:
-    env_noWerror_excep['CCFLAGS'].remove('-fno-exceptions')
+env_noWerror_excep.CppEnableExceptions()
 
-env.Install('', '../analytics/analytics_cpuinfo.sandesh') 
+env.Install('', '../analytics/analytics.sandesh') 
 # Generate the source files
 SandeshGenFiles  = env.SandeshGenCpp('qe.sandesh')
-SandeshGenFiles += env.SandeshGenOnlyCpp('analytics_cpuinfo.sandesh')
+SandeshGenFiles += env.SandeshGenOnlyCpp('analytics.sandesh')
 SandeshGenFiles += env.SandeshGenOnlyCpp('../sandesh/common/query.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 
@@ -88,14 +88,9 @@ SandeshGenObjs = env.Object(SandeshGenSrcs)
 env['QE_SANDESH_GEN_OBJS'] = SandeshGenObjs
 
 buildinfo_dep_libs = [
-    '../../lib/libboost_program_options.a',
-    '../../lib/libboost_regex.a',
-    '../../lib/libboost_system.a', 
-    '../../lib/libcurl.a',
     '../../lib/libhiredis.a',
     '../../lib/libhttp.a',
     '../../lib/libhttp_parser.a',
-    '../../lib/liblog4cplus.a',
     '../../lib/libsandesh.a', 
     '../../lib/libsandeshvns.a', 
     '../../lib/libthrift.a', 
@@ -105,9 +100,6 @@ buildinfo_dep_libs = [
     '../gendb/libgendb.a',
     '../io/libio.a',
 ]
-
-if sys.platform != 'darwin':
-    buildinfo_dep_libs += [ '../../lib/libtbb_debug.so.2' ]
 
 qed_sources = [
     'QEOpServerProxy.cc',
@@ -123,6 +115,7 @@ qed_except_sources = [
     'select_fs_query.cc',
     'set_operation.cc',
     'stats_select.cc',
+    'stats_query.cc',
     'where_query.cc',
 ]
 
@@ -144,8 +137,6 @@ qed = env.Program(
         SandeshGenObjs +  RedisConn_obj +
         ['../analytics/vizd_table_desc.o', 'rac_alloc.cc', '../analytics/viz_constants.o']
         )
-
-env.Alias('install', env.InstallAs(env['INSTALL_BIN'] + '/query_engine', qed))
 
 if env['OPT'] == 'coverage':
     env.AppendUnique(CCFLAGS='-g')
@@ -173,6 +164,7 @@ env.Default(qed)
 
 test_suite = env.SConscript('test/SConscript', exports='QueryEnv', duplicate = 0)
 
+# Please update sandesh/common/vns.sandesh on process name change
 env.Alias('install',
         env.InstallAs(env['INSTALL_BIN'] + '/contrail-query-engine', qed))
 env.Alias('install', env.Install(env['INSTALL_CONF'],

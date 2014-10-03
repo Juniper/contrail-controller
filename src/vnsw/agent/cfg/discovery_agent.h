@@ -5,7 +5,7 @@
 #ifndef __VNSW_DISCOVERY_AGENT_HPP__
 #define __VNSW_DISCOVERY_AGENT_HPP__
 
-#include <discovery_client.h>
+#include <discovery/client/discovery_client.h>
 
 class AgentParam;
 class AgentConfig;

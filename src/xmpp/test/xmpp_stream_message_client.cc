@@ -38,7 +38,7 @@ using namespace std;
 class XmppMockClientConnection;
 class XmppMockClientConnection : public XmppClientConnection {
 public:
-    XmppMockClientConnection(TcpServer *server, const XmppChannelConfig *config, bool send_write_doc=false)
+    XmppMockClientConnection(XmppClient *server, const XmppChannelConfig *config, bool send_write_doc=false)
         : XmppClientConnection(server, config),
                                open_count(0), send_bad_open(true), send_write_doc(send_write_doc) {}
     virtual bool IsClient() const { return true; }
@@ -130,7 +130,7 @@ protected:
         TcpServerManager::DeleteServer(b_);
         b_ = NULL;
 
-        init_->Reset();
+        init_->Reset(true);
         evm_->Shutdown();
         if (thread_.get() != NULL) {
             thread_->Join();
@@ -153,8 +153,7 @@ protected:
     }
 
     void AddClientChannel(XmppMockClientConnection *connection) {
-        boost::asio::ip::tcp::endpoint ep = connection->endpoint();
-        b_->connection_map_.insert(ep, connection);
+        b_->InsertConnection(connection);
     }
 
     void SetupConnection() {

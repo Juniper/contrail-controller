@@ -5,27 +5,31 @@
 #ifndef vnsw_agent_vrf_hpp
 #define vnsw_agent_vrf_hpp
 
-#include <boost/scoped_ptr.hpp>
-#include <db/db_table_walker.h>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include <cmn/agent_cmn.h>
 #include <cmn/index_vector.h>
-#include <oper/peer.h>
+#include <cmn/agent.h>
 #include <oper/agent_types.h>
 
 using namespace std;
 class LifetimeActor;
 class LifetimeManager;
 class ComponentNHData;
+class AgentRouteWalker;
 
 struct VrfKey : public AgentKey {
     VrfKey(const string &name) : AgentKey(), name_(name) { };
     virtual ~VrfKey() { };
 
     void Init(const string &vrf_name) {name_ = vrf_name;};
-    bool Compare(const VrfKey &rhs) const {
-        return name_ == rhs.name_;
+    bool IsLess(const VrfKey &rhs) const {
+        return name_ < rhs.name_;
+    }
+
+    bool IsEqual(const VrfKey &rhs) const {
+        if ((IsLess(rhs) == false) && (rhs.IsLess(*this) == false)) {
+            return true;
+        }
+        return false;
     }
 
     string name_;
@@ -70,8 +74,9 @@ public:
     }
 
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
-    Inet4UnicastRouteEntry *GetUcRoute(const Ip4Address &addr) const;
-    Inet4UnicastRouteEntry *GetUcRoute(const Inet4UnicastRouteEntry &rt_key) const;
+    InetUnicastRouteEntry *GetUcRoute(const Ip4Address &addr) const;
+    InetUnicastRouteEntry *GetUcRoute(const InetUnicastRouteEntry &rt_key) const;
+    InetUnicastRouteEntry *GetUcRoute(const Ip6Address &addr) const;
 
     LifetimeActor *deleter();
     void SendObjectLog(AgentLogEvent::type event) const;
@@ -89,9 +94,10 @@ public:
     bool FindNH(const Ip4Address &ip, uint8_t plen,
                 const ComponentNHData &nh_data);
 
-    AgentRouteTable *GetInet4UnicastRouteTable() const;
+    InetUnicastAgentRouteTable *GetInet4UnicastRouteTable() const;
     AgentRouteTable *GetInet4MulticastRouteTable() const;
     AgentRouteTable *GetLayer2RouteTable() const;
+    InetUnicastAgentRouteTable *GetInet6UnicastRouteTable() const;
     AgentRouteTable *GetRouteTable(uint8_t table_type) const;
 private:
     friend class VrfTable;
@@ -118,7 +124,7 @@ public:
 
     VrfTable(DB *db, const std::string &name) :
         AgentDBTable(db, name), db_(db),
-        walkid_(DBTableWalker::kInvalidWalkerId) { };
+        walkid_(DBTableWalker::kInvalidWalkerId), shutdown_walk_(NULL) { };
     virtual ~VrfTable() { };
 
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
@@ -153,10 +159,13 @@ public:
 
     virtual bool CanNotify(IFMapNode *dbe);
     
-    AgentRouteTable *GetInet4UnicastRouteTable(const std::string &vrf_name);
+    InetUnicastAgentRouteTable *GetInet4UnicastRouteTable
+        (const std::string &vrf_name);
     AgentRouteTable *GetInet4MulticastRouteTable(const std::string &vrf_name);
     AgentRouteTable *GetLayer2RouteTable(const std::string &vrf_name);
     AgentRouteTable *GetRouteTable(const string &vrf_name, uint8_t table_type);
+    InetUnicastAgentRouteTable *GetInet6UnicastRouteTable
+        (const std::string &vrf_name);
     bool IsStaticVrf(const std::string &vrf_name) const {
         if (static_vrf_set_.find(vrf_name) != static_vrf_set_.end()) {
             return true;
@@ -164,6 +173,10 @@ public:
         return false;
     }
 
+    void DeleteRoutes();
+    void Shutdown();
+    void reset_shutdown_walk() { shutdown_walk_ = NULL; }
+    AgentRouteWalker *shutdown_walk() const { return shutdown_walk_; }
 private:
     friend class VrfEntry;
 
@@ -174,6 +187,7 @@ private:
     VrfDbTree dbtree_[Agent::ROUTE_TABLE_MAX];
     DBTableWalker::WalkId walkid_;
     std::set<std::string> static_vrf_set_;
+    AgentRouteWalker *shutdown_walk_;
     DISALLOW_COPY_AND_ASSIGN(VrfTable);
 };
 

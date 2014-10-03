@@ -14,6 +14,7 @@
 
 #include <base/logging.h>
 #include <io/event_manager.h>
+#include <base/connection_info.h>
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_message_builder.h>
@@ -22,6 +23,7 @@
 #include "vizd_table_desc.h"
 #include "collector.h"
 #include "db_handler.h"
+#include "parser_util.h"
 
 #define DB_LOG(_Level, _Msg)                                                   \
     do {                                                                       \
@@ -35,16 +37,21 @@
         }                                                                      \
     } while (false)
 
+using std::pair;
 using std::string;
 using boost::system::error_code;
 using namespace pugi;
+using process::ConnectionState;
+using process::ConnectionType;
+using process::ConnectionStatus;
 
 DbHandler::DbHandler(EventManager *evm,
         GenDb::GenDbIf::DbErrorHandler err_handler,
-        std::string cassandra_ip, unsigned short cassandra_port,
+        const std::vector<std::string> &cassandra_ips,
+        const std::vector<int> &cassandra_ports,
         int analytics_ttl, std::string name) :
     dbif_(GenDb::GenDbIf::GenDbIfImpl(err_handler,
-          cassandra_ip, cassandra_port, analytics_ttl*3600, name, false)),
+          cassandra_ips, cassandra_ports, analytics_ttl*3600, name, false)),
     name_(name),
     drop_level_(SandeshLevel::INVALID) {
         error_code error;
@@ -56,6 +63,14 @@ DbHandler::DbHandler(GenDb::GenDbIf *dbif) :
 }
 
 DbHandler::~DbHandler() {
+}
+
+std::string DbHandler::GetHost() const {
+    return dbif_->Db_GetHost();
+}
+
+int DbHandler::GetPort() const {
+    return dbif_->Db_GetPort();
 }
 
 bool DbHandler::DropMessage(const SandeshHeader &header,
@@ -89,6 +104,14 @@ bool DbHandler::CreateTables() {
 
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_flow_tables.begin();
             it != vizd_flow_tables.end(); it++) {
+        if (!dbif_->Db_AddColumnfamily(*it)) {
+            DB_LOG(ERROR, it->cfname_ << " FAILED");
+            return false;
+        }
+    }
+
+    for (std::vector<GenDb::NewCf>::const_iterator it = vizd_stat_tables.begin();
+            it != vizd_stat_tables.end(); it++) {
         if (!dbif_->Db_AddColumnfamily(*it)) {
             DB_LOG(ERROR, it->cfname_ << " FAILED");
             return false;
@@ -140,6 +163,13 @@ bool DbHandler::CreateTables() {
 
 void DbHandler::UnInit(int instance) {
     dbif_->Db_Uninit("analytics::DbHandler", instance);
+    dbif_->Db_SetInitDone(false);
+}
+
+// The caller *SHOULD* ensure that UnInit() is not called from another
+// task that can be executed in parallel.
+void DbHandler::UnInitUnlocked(int instance) {
+    dbif_->Db_UninitUnlocked("analytics::DbHandler", instance);
     dbif_->Db_SetInitDone(false);
 }
 
@@ -199,24 +229,15 @@ bool DbHandler::Setup(int instance) {
             return false;
         }
     }
-    /* setup ObjectTable */
-    if (!dbif_->Db_UseColumnfamily(
-                (GenDb::NewCf(g_viz_constants.OBJECT_TABLE,
-                              boost::assign::list_of
-                              (GenDb::DbDataType::Unsigned32Type)
-                              (GenDb::DbDataType::Unsigned8Type)
-                              (GenDb::DbDataType::AsciiType),
-                              boost::assign::list_of
-                              (GenDb::DbDataType::AsciiType)
-                              (GenDb::DbDataType::Unsigned32Type),
-                              boost::assign::list_of
-                              (GenDb::DbDataType::LexicalUUIDType))))) {
-        DB_LOG(ERROR, g_viz_constants.OBJECT_TABLE << 
-               ": Db_UseColumnfamily FAILED");
-        return false;
-    }
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_flow_tables.begin();
             it != vizd_flow_tables.end(); it++) {
+        if (!dbif_->Db_UseColumnfamily(*it)) {
+            DB_LOG(ERROR, it->cfname_ << ": Db_UseColumnfamily FAILED");
+            return false;
+        }
+    }
+    for (std::vector<GenDb::NewCf>::const_iterator it = vizd_stat_tables.begin();
+            it != vizd_stat_tables.end(); it++) {
         if (!dbif_->Db_UseColumnfamily(*it)) {
             DB_LOG(ERROR, it->cfname_ << ": Db_UseColumnfamily FAILED");
             return false;
@@ -259,7 +280,8 @@ bool DbHandler::AllowMessageTableInsert(const SandeshHeader &header) {
 bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
         const SandeshHeader& header,
         const std::string& message_type,
-        const boost::uuids::uuid& unm) {
+        const boost::uuids::uuid& unm,
+        const std::string keyword) {
     std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
     col_list->cfname_ = cfname;
     // Rowkey
@@ -276,6 +298,11 @@ bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
     } else if (cfname == g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE) {
         rowkey.push_back(message_type);
     } else if (cfname == g_viz_constants.MESSAGE_TABLE_TIMESTAMP) {
+    } else if (cfname == g_viz_constants.MESSAGE_TABLE_KEYWORD) {
+        if (keyword.length())
+            rowkey.push_back(keyword);
+        else
+            return false;
     } else {
         DB_LOG(ERROR, "Unknown table: " << cfname << ", message: "
                 << message_type << ", message UUID: " << unm);
@@ -384,11 +411,42 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
 
     MessageTableOnlyInsert(vmsgp);
 
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_SOURCE, header, message_type, vmsgp->unm);
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MODULE_ID, header, message_type, vmsgp->unm);
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_CATEGORY, header, message_type, vmsgp->unm);
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE, header, message_type, vmsgp->unm);
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_TIMESTAMP, header, message_type, vmsgp->unm);
+    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_SOURCE, header,
+            message_type, vmsgp->unm, "");
+    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MODULE_ID, header,
+            message_type, vmsgp->unm, "");
+    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_CATEGORY, header,
+            message_type, vmsgp->unm, "");
+    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE, header,
+            message_type, vmsgp->unm, "");
+    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_TIMESTAMP, header,
+            message_type, vmsgp->unm, "");
+
+    const SandeshType::type &stype(header.get_Type());
+    std::string s;
+
+    if (stype == SandeshType::SYSTEM) {
+        const SandeshXMLMessage *sxmsg =
+            static_cast<const SandeshXMLMessage *>(vmsgp->msg);
+        const pugi::xml_node &parent(sxmsg->GetMessageNode());
+        s = LineParser::GetXmlString(parent);
+    } else if (!vmsgp->keyword_doc_.empty()) {
+        s = std::string(vmsgp->keyword_doc_);
+    }
+    if (!s.empty()) {
+        LineParser::WordListType words = LineParser::ParseDoc(s.begin(),
+                s.end());
+        LineParser::RemoveStopWords(&words);
+        for (LineParser::WordListType::iterator i = words.begin();
+                i != words.end(); i++) {
+            // tableinsert@{(t2,*i), (t1,header.get_Source())} -> vmsgp->unm
+            bool r = MessageIndexTableInsert(
+                    g_viz_constants.MESSAGE_TABLE_KEYWORD, header,
+                    message_type, vmsgp->unm, *i);
+            if (!r)
+                DB_LOG(ERROR, "Failed to parse:" << s);
+        }
+    }
     /*
      * Insert the message types in the stat table
      * Construct the atttributes,attrib_tags beofore inserting
@@ -508,8 +566,148 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
         
 }
 
+bool DbHandler::StatTableWrite(uint32_t t2,
+        const std::string& statName, const std::string& statAttr,
+        const std::pair<std::string,DbHandler::Var>& ptag,
+        const std::pair<std::string,DbHandler::Var>& stag,
+        uint32_t t1, const boost::uuids::uuid& unm,
+        const std::string& jsonline) {
 
-void DbHandler::StatTableInsert(uint64_t ts, 
+    uint8_t part = 0;
+    string cfname;
+    const DbHandler::Var& pv = ptag.second;
+    const DbHandler::Var& sv = stag.second;
+    GenDb::DbDataValue pg,sg;
+
+    switch (pv.type) {
+        case DbHandler::STRING : {
+                pg = pv.str;
+                if (sv.type==DbHandler::STRING) {
+                    cfname = g_viz_constants.STATS_TABLE_BY_STR_STR_TAG;
+                    sg = sv.str;
+                } else if (sv.type==DbHandler::UINT64) {
+                    cfname = g_viz_constants.STATS_TABLE_BY_STR_U64_TAG;
+                    sg = sv.num;
+                } else if (sv.type==DbHandler::INVALID) {
+                    cfname = g_viz_constants.STATS_TABLE_BY_STR_TAG;
+                } else {
+                    return false;
+                }
+            }
+            break;
+        case DbHandler::UINT64 : {
+                pg = pv.num;
+                if (sv.type==DbHandler::STRING) {
+                    cfname = g_viz_constants.STATS_TABLE_BY_U64_STR_TAG;
+                    sg = sv.str;
+                } else if (sv.type==DbHandler::UINT64) {
+                    cfname = g_viz_constants.STATS_TABLE_BY_U64_U64_TAG;
+                    sg = sv.num;
+                } else if (sv.type==DbHandler::INVALID) {
+                    cfname = g_viz_constants.STATS_TABLE_BY_U64_TAG;
+                } else {
+                    return false;
+                }
+            }
+            break;
+        case DbHandler::DOUBLE : {
+                pg = pv.dbl;
+                if (sv.type==DbHandler::INVALID) {
+                    cfname = g_viz_constants.STATS_TABLE_BY_DBL_TAG;
+                } else {
+                    return false;
+                }
+            }
+            break;
+        default:
+            return false;
+    }
+
+    std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
+    col_list->cfname_ = cfname;
+    
+    GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
+    if (sv.type==DbHandler::INVALID) {
+        rowkey.reserve(5);
+        rowkey.push_back(t2);
+        rowkey.push_back(part);
+        rowkey.push_back(statName);
+        rowkey.push_back(statAttr);
+        rowkey.push_back(ptag.first);
+    } else {
+        rowkey.reserve(6);
+        rowkey.push_back(t2);
+        rowkey.push_back(part);
+        rowkey.push_back(statName);
+        rowkey.push_back(statAttr);
+        rowkey.push_back(ptag.first);
+        rowkey.push_back(stag.first);
+    }
+
+    GenDb::NewColVec& columns = col_list->columns_;
+
+    GenDb::DbDataValueVec *col_name(new GenDb::DbDataValueVec);
+    if (sv.type==DbHandler::INVALID) {
+        col_name->reserve(3);
+        col_name->push_back(pg);
+        col_name->push_back(t1);
+        col_name->push_back(unm);
+    } else {
+        col_name->reserve(4);
+        col_name->push_back(pg);
+        col_name->push_back(sg);
+        col_name->push_back(t1);
+        col_name->push_back(unm);
+    }
+
+    GenDb::DbDataValueVec *col_value(new GenDb::DbDataValueVec(1, jsonline));
+    GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value));
+    columns.push_back(col);
+
+    if (!dbif_->Db_AddColumn(col_list)) {
+        DB_LOG(ERROR, "Addition of " << statName <<
+                ", " << statAttr <<  " tag " << ptag.first <<
+                ":" << stag.first << " into table " <<
+                cfname <<" FAILED");
+        return false;
+    } else {
+        return true;
+    }
+}
+
+// This returns a list of select terms to use for full aggregation
+// for the given row
+std::vector<std::string>
+DbHandler::StatTableSelectStr(
+        const std::string& statName, const std::string& statAttr,
+        const AttribMap & attribs) {
+    std::vector<std::string> aggstr;
+    aggstr.push_back(string("COUNT(") + statAttr + string(")"));
+    for (AttribMap::const_iterator it = attribs.begin();
+            it != attribs.end(); it++) {
+        switch (it->second.type) {
+            case STRING: {
+                    aggstr.push_back(statAttr + "." + it->first);
+                }
+                break;
+            case UINT64: {
+                    aggstr.push_back(string("SUM(") + statAttr + "." + it->first + string(")"));
+                }
+                break;
+            case DOUBLE: {
+                    aggstr.push_back(string("SUM(") + statAttr + "." + it->first + string(")"));
+                }
+                break;                
+            default:
+                continue;
+        }
+    }
+    return aggstr;
+}
+
+// This function writes Stats samples to the DB.
+void
+DbHandler::StatTableInsert(uint64_t ts, 
         const std::string& statName,
         const std::string& statAttr,
         const TagMap & attribs_tag,
@@ -534,29 +732,39 @@ void DbHandler::StatTableInsert(uint64_t ts,
     rapidjson::Document dd;
     dd.SetObject();
 
+    AttribMap attribs_buf;
     for (AttribMap::const_iterator it = attribs.begin();
             it != attribs.end(); it++) {
         switch (it->second.type) {
             case STRING: {
                     rapidjson::Value val(rapidjson::kStringType);
+                    std::string nm = it->first + std::string("|s");
+                    pair<AttribMap::iterator,bool> rt = 
+                        attribs_buf.insert(make_pair(nm, it->second));
                     val.SetString(it->second.str.c_str());
-                    dd.AddMember(it->first.c_str(), val, dd.GetAllocator());
+                    dd.AddMember(rt.first->first.c_str(), val, dd.GetAllocator());
                 }
                 break;
             case UINT64: {
                     rapidjson::Value val(rapidjson::kNumberType);
+                    std::string nm = it->first + std::string("|n");
+                    pair<AttribMap::iterator,bool> rt = 
+                        attribs_buf.insert(make_pair(nm, it->second));
                     val.SetUint64(it->second.num);
-                    dd.AddMember(it->first.c_str(), val, dd.GetAllocator());
+                    dd.AddMember(rt.first->first.c_str(), val, dd.GetAllocator());
                 }
                 break;
             case DOUBLE: {
                     rapidjson::Value val(rapidjson::kNumberType);
+                    std::string nm = it->first + std::string("|d");
+                    pair<AttribMap::iterator,bool> rt = 
+                        attribs_buf.insert(make_pair(nm, it->second));
                     val.SetDouble(it->second.dbl);
-                    dd.AddMember(it->first.c_str(), val, dd.GetAllocator());                    
+                    dd.AddMember(rt.first->first.c_str(), val, dd.GetAllocator());
                 }
                 break;                
             default:
-                assert(0);                                
+                continue;
         }
     }
 
@@ -565,65 +773,31 @@ void DbHandler::StatTableInsert(uint64_t ts,
     dd.Accept(writer);
     string jsonline(sb.GetString());
 
+    uint32_t t1;
+    if ( statName.compare("FieldNames") != 0) {
+	t1 = (uint32_t)(temp_u64& g_viz_constants.RowTimeInMask);
+    } else {
+	t1 = 0;
+    }
+
     for (TagMap::const_iterator it = attribs_tag.begin();
             it != attribs_tag.end(); it++) {
+
+        pair<string,DbHandler::Var> ptag;
+        ptag.first = it->first;
+        ptag.second = it->second.first;
         if (it->second.second.empty()) {
-
-            std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
-
-            GenDb::DbDataValue pv;
-            std::string cfname;
-
-            if (it->second.first.type == UINT64) {
-                cfname = col_list->cfname_ = 
-                    g_viz_constants.STATS_TABLE_BY_U64_STR_TAG;
-                pv = it->second.first.num;
-            } else if (it->second.first.type == DOUBLE) {
-                cfname = col_list->cfname_ = 
-                    g_viz_constants.STATS_TABLE_BY_DBL_STR_TAG;
-                pv = it->second.first.dbl;
-            } else {
-                cfname = col_list->cfname_ = 
-                    g_viz_constants.STATS_TABLE_BY_STR_STR_TAG;
-                pv = it->second.first.str;
-            }
-
-            GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
-            rowkey.reserve(4);
-            rowkey.push_back(temp_u32);
-            rowkey.push_back(statName);
-            rowkey.push_back(statAttr);
-            rowkey.push_back(it->first);
-
-            GenDb::NewColVec& columns = col_list->columns_;
-
-            GenDb::DbDataValueVec *col_name(new GenDb::DbDataValueVec);
-            col_name->reserve(4);
-            col_name->push_back(pv);
-            col_name->push_back(string());
-            if ( statName.compare("FieldNames") != 0) {
-                col_name->push_back((uint32_t)
-                    (temp_u64& g_viz_constants.RowTimeInMask));
-            } else {
-		//Make t2 0 for 
-                col_name->push_back((uint32_t)0);
-            }
-	    
-            col_name->push_back(unm);
-            GenDb::DbDataValueVec *col_value(new GenDb::DbDataValueVec(1, jsonline));
-            GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value));
-            columns.push_back(col);
-
-            if (!dbif_->Db_AddColumn(col_list)) {
-                DB_LOG(ERROR, "Addition of " << statName <<
-                        ", " << statAttr << " attrib " << it->first << " into table "
-                        << cfname << " FAILED");
-            }
-
+            pair<string,DbHandler::Var> stag;
+            StatTableWrite(temp_u32, statName, statAttr,
+                                ptag, stag, t1, unm, jsonline);
         } else {
-            // TODO: add support for suffix tagging
-            assert(0);
+            for (AttribMap::const_iterator jt = it->second.second.begin();
+                    jt != it->second.second.end(); jt++) {
+                StatTableWrite(temp_u32, statName, statAttr,
+                                    ptag, *jt, t1, unm, jsonline);
+            }
         }
+
     }
 
 }
@@ -658,7 +832,13 @@ static const std::vector<FlowRecordFields::type> FlowRecordTableColumns =
     (FlowRecordFields::FLOWREC_BYTES)
     (FlowRecordFields::FLOWREC_PACKETS)
     (FlowRecordFields::FLOWREC_DATA_SAMPLE)
-    (FlowRecordFields::FLOWREC_ACTION);
+    (FlowRecordFields::FLOWREC_ACTION)
+    (FlowRecordFields::FLOWREC_SG_RULE_UUID)
+    (FlowRecordFields::FLOWREC_NW_ACE_UUID)
+    (FlowRecordFields::FLOWREC_VROUTER_IP)
+    (FlowRecordFields::FLOWREC_OTHER_VROUTER_IP)
+    (FlowRecordFields::FLOWREC_UNDERLAY_PROTO)
+    (FlowRecordFields::FLOWREC_UNDERLAY_SPORT);
 
 static void PopulateFlowRecordTableColumns(
     const std::vector<FlowRecordFields::type> &frvt,
@@ -877,7 +1057,15 @@ bool FlowDataIpv4ObjectWalker<T>::for_each(pugi::xml_node& node) {
         case GenDb::DbDataType::LexicalUUIDType:
         case GenDb::DbDataType::TimeUUIDType:
             {
-                values_[ftinfo.get<0>()] = s_gen_(node.child_value());
+                std::stringstream ss;
+                ss << node.child_value();
+                boost::uuids::uuid u;
+                ss >> u;
+                if (ss.fail()) {
+                    LOG(ERROR, "FlowRecordTable: " << col_name << ": (" << 
+                        node.child_value() << ") INVALID");
+                }     
+                values_[ftinfo.get<0>()] = u;
                 break;
             }
         case GenDb::DbDataType::AsciiType:
@@ -900,8 +1088,7 @@ bool DbHandler::FlowTableInsert(const pugi::xml_node &parent,
     const SandeshHeader& header) {
     // Traverse and populate the flow entry values
     FlowValueArray flow_entry_values;
-    FlowDataIpv4ObjectWalker<FlowValueArray> flow_msg_walker(flow_entry_values,
-        s_gen_);
+    FlowDataIpv4ObjectWalker<FlowValueArray> flow_msg_walker(flow_entry_values);
     pugi::xml_node &mnode = const_cast<pugi::xml_node &>(parent);
     if (!mnode.traverse(flow_msg_walker)) {
         VIZD_ASSERT(0);
@@ -945,4 +1132,165 @@ bool DbHandler::FlowTableInsert(const pugi::xml_node &parent,
        }
     }
     return true;
+}
+
+bool DbHandler::UnderlayFlowSampleInsert(const UFlowData& flow_data,
+                                         uint64_t timestamp) {
+    const std::vector<UFlowSample>& flow = flow_data.get_flow();
+    for (std::vector<UFlowSample>::const_iterator it = flow.begin();
+         it != flow.end(); ++it) {
+        // Add all attributes
+        DbHandler::AttribMap amap;
+        DbHandler::Var name(flow_data.get_name());
+        amap.insert(std::make_pair("name", name));
+        DbHandler::Var pifindex = it->get_pifindex();
+        amap.insert(std::make_pair("flow.pifindex", pifindex));
+        DbHandler::Var sip = it->get_sip();
+        amap.insert(std::make_pair("flow.sip", sip));
+        DbHandler::Var dip = it->get_dip();
+        amap.insert(std::make_pair("flow.dip", dip));
+        DbHandler::Var sport = static_cast<uint64_t>(it->get_sport());
+        amap.insert(std::make_pair("flow.sport", sport));
+        DbHandler::Var dport = static_cast<uint64_t>(it->get_dport());
+        amap.insert(std::make_pair("flow.dport", dport));
+        DbHandler::Var protocol = static_cast<uint64_t>(it->get_protocol());
+        amap.insert(std::make_pair("flow.protocol", protocol));
+        // Add tag -> name
+        DbHandler::TagMap tmap_name;
+        DbHandler::AttribMap amap_name;
+        tmap_name.insert(std::make_pair("name",
+                std::make_pair(name, amap_name)));
+        StatTableInsert(timestamp, "UFlowData", "flow", tmap_name, amap);
+        // Add tag -> name:.pifindex
+        DbHandler::TagMap tmap_name_pifindex;
+        DbHandler::AttribMap amap_name_pifindex;
+        amap_name_pifindex.insert(std::make_pair("flow.pifindex", pifindex));
+        tmap_name_pifindex.insert(std::make_pair("name", std::make_pair(name,
+                amap_name_pifindex)));
+        StatTableInsert(timestamp, "UFlowData", "flow", tmap_name_pifindex,
+                amap);
+        // Add tag -> .sip
+        DbHandler::TagMap tmap_sip;
+        DbHandler::AttribMap amap_sip;
+        tmap_sip.insert(std::make_pair("flow.sip", std::make_pair(sip,
+                amap_sip)));
+        StatTableInsert(timestamp, "UFlowData", "flow", tmap_sip, amap);
+        // Add tag -> .dip
+        DbHandler::TagMap tmap_dip;
+        DbHandler::AttribMap amap_dip;
+        tmap_sip.insert(std::make_pair("flow.dip", std::make_pair(dip,
+                amap_dip)));
+        StatTableInsert(timestamp, "UFlowData", "flow", tmap_dip, amap);
+        // Add tag -> .protocol:.sport
+        DbHandler::TagMap tmap_protocol_sport;
+        DbHandler::AttribMap amap_protocol_sport;
+        amap_protocol_sport.insert(std::make_pair("flow.sport", sport));
+        tmap_protocol_sport.insert(std::make_pair("flow.protocol",
+                std::make_pair(protocol, amap_protocol_sport)));
+        StatTableInsert(timestamp, "UFlowData", "flow", tmap_protocol_sport,
+                amap);
+        // Add tag -> .protocol:.dport
+        DbHandler::TagMap tmap_protocol_dport;
+        DbHandler::AttribMap amap_protocol_dport;
+        amap_protocol_dport.insert(std::make_pair("flow.dport", dport));
+        tmap_protocol_dport.insert(std::make_pair("flow.protocol",
+                std::make_pair(protocol, amap_protocol_dport)));
+        StatTableInsert(timestamp, "UFlowData", "flow", tmap_protocol_dport,
+                amap);
+    }
+    return true;
+}
+
+DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
+    const std::string &db_name, int db_task_instance,
+    const std::string &timer_task_name,
+    DbHandlerInitializer::InitializeDoneCb callback,
+    const std::vector<std::string> &cassandra_ips,
+    const std::vector<int> &cassandra_ports, int analytics_ttl) :
+    db_name_(db_name),
+    db_task_instance_(db_task_instance),
+    db_handler_(new DbHandler(evm,
+        boost::bind(&DbHandlerInitializer::ScheduleInit, this),
+        cassandra_ips, cassandra_ports, analytics_ttl, db_name)),
+    callback_(callback),
+    db_init_timer_(TimerManager::CreateTimer(*evm->io_service(),
+        db_name + " Db Init Timer",
+        TaskScheduler::GetInstance()->GetTaskId(timer_task_name))) {
+}
+
+DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
+    const std::string &db_name, int db_task_instance,
+    const std::string &timer_task_name,
+    DbHandlerInitializer::InitializeDoneCb callback, DbHandler *db_handler) :
+    db_name_(db_name),
+    db_task_instance_(db_task_instance),
+    db_handler_(db_handler),
+    callback_(callback),
+    db_init_timer_(TimerManager::CreateTimer(*evm->io_service(),
+        db_name + " Db Init Timer",
+        TaskScheduler::GetInstance()->GetTaskId(timer_task_name))) {
+}
+
+DbHandlerInitializer::~DbHandlerInitializer() {
+}
+
+bool DbHandlerInitializer::Initialize() {
+    boost::system::error_code ec;
+    if (!db_handler_->Init(true, db_task_instance_)) {
+        // Update connection info
+        boost::asio::ip::address db_addr(boost::asio::ip::address::from_string(
+            db_handler_->GetHost(), ec));
+        boost::asio::ip::tcp::endpoint db_endpoint(db_addr, db_handler_->GetPort());
+        ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
+            db_name_, ConnectionStatus::DOWN, db_endpoint, std::string());
+        LOG(DEBUG, db_name_ << ": Db Initialization FAILED");
+        ScheduleInit();
+        return false;
+    }
+    // Update connection info
+    boost::asio::ip::address db_addr(boost::asio::ip::address::from_string(
+        db_handler_->GetHost(), ec));
+    boost::asio::ip::tcp::endpoint db_endpoint(db_addr, db_handler_->GetPort());
+    ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
+        db_name_, ConnectionStatus::UP, db_endpoint, std::string());
+
+    if (callback_) {
+       callback_();
+    }
+
+    LOG(DEBUG, db_name_ << ": Db Initialization DONE");
+    return true;
+}
+
+DbHandler* DbHandlerInitializer::GetDbHandler() const {
+    return db_handler_.get();
+}
+
+void DbHandlerInitializer::Shutdown() {
+    TimerManager::DeleteTimer(db_init_timer_);
+    db_init_timer_ = NULL;
+    db_handler_->UnInit(true);
+}
+
+bool DbHandlerInitializer::InitTimerExpired() {
+    // Start the timer again if initialization is not done
+    bool done = Initialize();
+    return !done;
+}
+
+void DbHandlerInitializer::InitTimerErrorHandler(string error_name,
+    string error_message) {
+    LOG(ERROR, db_name_ << ": " << error_name << " " << error_message);
+}
+
+void DbHandlerInitializer::StartInitTimer() {
+    db_init_timer_->Start(kInitRetryInterval,
+        boost::bind(&DbHandlerInitializer::InitTimerExpired, this),
+        boost::bind(&DbHandlerInitializer::InitTimerErrorHandler, this,
+                    _1, _2));
+}
+
+void DbHandlerInitializer::ScheduleInit() {
+    db_handler_->UnInitUnlocked(db_task_instance_);
+    StartInitTimer();
 }

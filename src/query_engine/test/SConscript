@@ -8,11 +8,8 @@ Import('QueryEnv')
 
 env = QueryEnv.Clone()
 
-env.Append(LIBS=['gunit', 'io', 'sandesh', 'http', 'sandeshvns', 'io', 'base',
-                 'http_parser', 'curl', 'boost_filesystem',
-                 'boost_program_options', 'pugixml', 'rt',
-                 'sandesh', 'sandeshvns',
-                 'libsandeshflow', 'hiredis', 'thrift', 'task_test'])
+env.Append(LIBS=['gunit', 'task_test'])
+env.Prepend(LIBS=['libsandeshflow'])
 env.Append(LIBPATH=['#/build/lib', Dir(env['TOP']).abspath + '/base/test/'])
 env.Append(CPPPATH = ['#/'+Dir('.').path ,
                       env['TOP'],
@@ -23,8 +20,7 @@ while env_noWerror['CCFLAGS'].count('-Werror') > 0:
     env_noWerror['CCFLAGS'].remove('-Werror')
 
 env_noWerror_excep = env_noWerror.Clone()
-while env_noWerror_excep['CCFLAGS'].count('-fno-exceptions') > 0:
-    env_noWerror_excep['CCFLAGS'].remove('-fno-exceptions')
+env_noWerror_excep.CppEnableExceptions()
 
 RedisConn_obj = env.Object('redis_connection.o', '../../analytics/redis_connection.cc')
 Analytics_obj = env.Object('vizd_table_desc.o', '../../analytics/vizd_table_desc.cc')
@@ -69,6 +65,7 @@ select_fs_query_test = env.UnitTest('select_fs_query_test',
                                      '../select.o',
                                      '../select_fs_query.o',
                                      '../stats_select.o',
+                                     '../stats_query.o',
                                      '../post_processing.o',
                                      '../QEOpServerProxy.o'])
 

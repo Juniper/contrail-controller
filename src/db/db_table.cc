@@ -5,15 +5,18 @@
 #include <vector>
 #include <tbb/spin_rw_mutex.h>
 
+#include <boost/bind.hpp>
 #include <boost/dynamic_bitset.hpp>
 #include <boost/type_traits.hpp>
 
 #include "base/compiler.h"
 #include "base/logging.h"
+#include "base/task_annotations.h"
 #include "db/db.h"
 #include "db/db_partition.h"
 #include "db/db_table.h"
 #include "db/db_table_partition.h"
+#include "db/db_table_walker.h"
 
 class DBEntry;
 class DBEntryBase;
@@ -136,7 +139,9 @@ bool DBTableBase::HasListeners() const {
 ///////////////////////////////////////////////////////////
 // Implementation of DBTable methods
 ///////////////////////////////////////////////////////////
-DBTable::DBTable(DB *db, const string &name) : DBTableBase(db, name) {
+DBTable::DBTable(DB *db, const string &name)
+    : DBTableBase(db, name),
+      walk_id_(DBTableWalker::kInvalidWalkerId) {
 }
 
 DBTable::~DBTable() {
@@ -240,4 +245,56 @@ void DBTable::Input(DBTablePartition *tbl_partition, DBClient *client,
             tbl_partition->Delete(entry);
         }
     }
+}
+
+void DBTable::DBStateClear(DBTable *table, ListenerId id) {
+    DBEntryBase *next = NULL;
+
+    for (int i = 0; i < table->PartitionCount(); ++i) {
+        DBTablePartition *partition = static_cast<DBTablePartition *>(
+            table->GetTablePartition(i));
+
+        for (DBEntryBase *entry = partition->GetFirst(); entry; entry = next) {
+            next = partition->GetNext(entry);
+            DBState *state = entry->GetState(table, id);
+            if (state) {
+                entry->ClearState(table, id);
+                delete state;
+            }
+        }
+    }
+}
+
+//
+// Callback for table walk triggered by NotifyAllEntries.
+//
+bool DBTable::WalkCallback(DBTablePartBase *tpart, DBEntryBase *entry) {
+    tpart->Notify(entry);
+    return true;
+}
+
+//
+// Callback for completion of table walk triggered by NotifyAllEntries.
+//
+void DBTable::WalkCompleteCallback(DBTableBase *tbl_base) {
+    walk_id_ = DBTableWalker::kInvalidWalkerId;
+}
+
+//
+// Concurrency: called from task that's mutually exclusive with db::DBTable.
+//
+// Trigger notification of all entries to all listeners.
+// Should be used sparingly e.g. to handle significant configuration change.
+//
+// Cancel any outstanding walk and start a new one.  The walk callback just
+// turns around and puts the DBentryBase on the change list.
+//
+void DBTable::NotifyAllEntries() {
+    CHECK_CONCURRENCY("bgp::Config");
+
+    DBTableWalker *walker = database()->GetWalker();
+    if (walk_id_ != DBTableWalker::kInvalidWalkerId)
+        walker->WalkCancel(walk_id_);
+    walk_id_= walker->WalkTable(this, NULL, DBTable::WalkCallback,
+        boost::bind(&DBTable::WalkCompleteCallback, this, _1));
 }

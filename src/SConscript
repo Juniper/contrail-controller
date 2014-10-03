@@ -30,24 +30,26 @@ subdirs = [
            'route',
            'sandesh',
            'schema',
+           'storage',
            'xml',
-           'xmpp'
+           'xmpp',
            ]
 
 if sys.platform != 'darwin':
     subdirs += ['ksync']
 
-if sys.platform != 'darwin':
-    subdirs += ['docs']
-
 include = ['#/controller/src', '#/build/include', '#controller/lib']
 
 libpath = ['#/build/lib']
 
-libs = ['boost_system', 'tbb_debug', 'log4cplus', 'pthread']
-
+libs = ['boost_system', 'log4cplus', 'pthread']
 
 common = DefaultEnvironment().Clone()
+
+if common['OPT'] == 'production':
+    libs.append('tbb')
+else:
+    libs.append('tbb_debug')
 
 common.Append(LIBPATH = libpath)
 common.Prepend(LIBS = libs)
@@ -59,9 +61,6 @@ if not sys.platform.startswith('darwin'):
 common.Append(CPPPATH = include)
 
 BuildEnv = common.Clone()
-
-# Disable exceptions
-# BuildEnv.Append(CCFLAGS = '-fno-exceptions')
 
 if sys.platform.startswith('linux'):
     BuildEnv.Append(CCFLAGS = ['-DLINUX'])

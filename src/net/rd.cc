@@ -9,7 +9,7 @@
 
 using namespace std;
 
-RouteDistinguisher RouteDistinguisher::null_rd;
+RouteDistinguisher RouteDistinguisher::kZeroRd;
 
 RouteDistinguisher::RouteDistinguisher() {
     memset(data_, 0, kSize);
@@ -53,7 +53,7 @@ RouteDistinguisher RouteDistinguisher::FromString(
         if (errorp != NULL) {
             *errorp = make_error_code(boost::system::errc::invalid_argument);
         }
-        return RouteDistinguisher::null_rd;
+        return RouteDistinguisher::kZeroRd;
     }
 
     boost::system::error_code ec;
@@ -61,14 +61,15 @@ RouteDistinguisher RouteDistinguisher::FromString(
     Ip4Address addr = Ip4Address::from_string(first, ec);
     int offset;
     char *endptr;
+    long asn = -1;
     if (ec.value() != 0) {
         //Not an IP address. Try ASN
-        long asn = strtol(first.c_str(), &endptr, 10);
-        if (asn == 0 || asn >= 65535 || *endptr != '\0') {
+        asn = strtol(first.c_str(), &endptr, 10);
+        if (asn >= 65535 || *endptr != '\0') {
             if (errorp != NULL) {
                 *errorp = make_error_code(boost::system::errc::invalid_argument);
             }
-            return RouteDistinguisher::null_rd;
+            return RouteDistinguisher::kZeroRd;
         }
 
         put_value(rd.data_, 2, 0);
@@ -86,7 +87,15 @@ RouteDistinguisher RouteDistinguisher::FromString(
         if (errorp != NULL) {
             *errorp = make_error_code(boost::system::errc::invalid_argument);
         }
-        return RouteDistinguisher::null_rd;
+        return RouteDistinguisher::kZeroRd;
+    }
+
+    // ASN 0 is not allowed if the assigned number is not 0.
+    if (asn == 0 && value != 0) {
+        if (errorp != NULL) {
+            *errorp = make_error_code(boost::system::errc::invalid_argument);
+        }
+        return RouteDistinguisher::kZeroRd;
     }
 
     // Check assigned number for type 0.
@@ -94,7 +103,7 @@ RouteDistinguisher RouteDistinguisher::FromString(
         if (errorp != NULL) {
             *errorp = make_error_code(boost::system::errc::invalid_argument);
         }
-        return RouteDistinguisher::null_rd;
+        return RouteDistinguisher::kZeroRd;
     }
 
     // Check assigned number for type 1.
@@ -102,7 +111,7 @@ RouteDistinguisher RouteDistinguisher::FromString(
         if (errorp != NULL) {
             *errorp = make_error_code(boost::system::errc::invalid_argument);
         }
-        return RouteDistinguisher::null_rd;
+        return RouteDistinguisher::kZeroRd;
     }
 
     put_value(rd.data_ + offset, 8 - offset, value);

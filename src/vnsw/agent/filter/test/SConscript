@@ -5,11 +5,12 @@
 # -*- mode: python; -*-
 # filter/test directory
 
+import re
 Import('AgentEnv')
 env = AgentEnv.Clone()
-import sys
 
-env.Prepend(LIBS=['gunit'])
+AgentEnv.MakeTestEnv(env)
+
 #acl_entry_test = env.Program('acl_entry_test',
 #                             ['acl_entry_test.cc'])
 #
@@ -24,4 +25,14 @@ env.Prepend(LIBS=['gunit'])
 
 #test = env.TestSuite('agent-test', test_suite)
 #env.Alias('controller/src/vnsw/agent/filter:test', test)
+
+filter_flaky_test_suite = []
+acl_entry_test = AgentEnv.MakeTestCmd(env, 'acl_entry_test', filter_flaky_test_suite)
+acl_test = AgentEnv.MakeTestCmd(env, 'acl_test', filter_flaky_test_suite)
+acl_change_test = AgentEnv.MakeTestCmd(env, 'acl_change_test', filter_flaky_test_suite)
+#policy_test = AgentEnv.MakeTestCmd(env, 'policy_test', filter_flaky_test_suite)
+
+flaky_test = env.TestSuite('agent-flaky-test', filter_flaky_test_suite)
+env.Alias('controller/src/vnsw/agent/filter:flaky_test', flaky_test)
+
 #Return('test_suite')

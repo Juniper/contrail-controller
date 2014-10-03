@@ -15,6 +15,19 @@ public:
     ~TaskTrigger();
     void Set();
     void Reset();
+    // For Test only
+    void set_disable() {
+        bool current = disabled_.fetch_and_store(true);
+        assert(!current);
+    }
+    void set_enable() {
+        bool current = disabled_.fetch_and_store(false);
+        assert(current);
+        Set();
+    }
+    bool disabled() {
+        return disabled_;
+    }
 
 private:
     class WorkerTask;
@@ -23,6 +36,7 @@ private:
     int task_id_;
     int task_instance_;
     tbb::atomic<bool> trigger_;
+    tbb::atomic<bool> disabled_;
 };
 
 #endif /* defined(__ctrlplane__task_trigger__) */

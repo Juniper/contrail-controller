@@ -23,14 +23,15 @@ static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
 static void NovaIntfAdd(int id, const char *name, const char *addr,
                         const char *mac) {
     IpAddress ip = Ip4Address::from_string(addr);
-    VmInterface::Add(Agent::GetInstance()->GetInterfaceTable(),
+    VmInterface::Add(Agent::GetInstance()->interface_table(),
                      MakeUuid(id), name, ip.to_v4(), mac, "",
                      MakeUuid(kProjectUuid),
-                     VmInterface::kInvalidVlanId, Agent::NullString());
+                     VmInterface::kInvalidVlanId, Agent::NullString(),
+                     Ip6Address());
 }
 
 static void NovaDel(int id) {
-    VmInterface::Delete(Agent::GetInstance()->GetInterfaceTable(),
+    VmInterface::Delete(Agent::GetInstance()->interface_table(),
                         MakeUuid(id));
 }
 
@@ -57,7 +58,7 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm, std::string
     cfg_data->vm_uuid_ = vm_uuid;
     cfg_data->floating_ip_list_ = list;
     req.data.reset(cfg_data);
-    Agent::GetInstance()->GetInterfaceTable()->Enqueue(&req);
+    Agent::GetInstance()->interface_table()->Enqueue(&req);
 }
 
 struct PortInfo input1[] = {
@@ -71,9 +72,15 @@ public:
         CreateVmportEnv(input1, 1);
         client->WaitForIdle();
         EXPECT_TRUE(VmPortActive(1));
+        VmInterface *interface = static_cast<VmInterface *>(VmPortGet(1));
+        MacAddress mac;
+        VlanNH::CreateReq(interface->GetUuid(), 1, "vrf1", mac, mac);
+        client->WaitForIdle();
     }
 
     virtual void TearDown() {
+        VmInterface *interface = static_cast<VmInterface *>(VmPortGet(1));
+        VlanNH::DeleteReq(interface->GetUuid(), 1);
         DeleteVmportEnv(input1, 1, true);
         client->WaitForIdle();
         EXPECT_FALSE(VmPortActive(1));
@@ -131,16 +138,17 @@ TEST_F(VrfAssignTest, Check_key_manipulations) {
     EXPECT_TRUE(interface != NULL);
     //Verify key
     VrfAssign *vrf_assign = VrfAssignTable::FindVlanReq(MakeUuid(1), 1);
+    DBEntryBase::KeyPtr tmp_key = vrf_assign->GetDBRequestKey();
     VrfAssign::VrfAssignKey *key = 
-        static_cast<VrfAssign::VrfAssignKey *>(vrf_assign->GetDBRequestKey().release());
+        static_cast<VrfAssign::VrfAssignKey *>(tmp_key.get());
     VlanVrfAssign *vlan_vrf_assign = static_cast<VlanVrfAssign *>(vrf_assign);
     EXPECT_TRUE(key != NULL);
     EXPECT_TRUE(key->vlan_tag_ == 1);
     EXPECT_TRUE(key->intf_uuid_ == MakeUuid(1));
     EXPECT_TRUE(key->type_ == VrfAssign::VLAN);
-    VrfAssign::VrfAssignKey *new_key = new VrfAssign::VrfAssignKey();
+    std::auto_ptr<VrfAssign::VrfAssignKey> new_key(new VrfAssign::VrfAssignKey());
     new_key->VlanInit(MakeUuid(1), 2); 
-    vlan_vrf_assign->SetKey(new_key);
+    vlan_vrf_assign->SetKey(new_key.get());
     EXPECT_TRUE(vlan_vrf_assign->GetVlanTag() == 2);
     vrf_assign->SetKey(key);
     EXPECT_TRUE(vlan_vrf_assign->GetVlanTag() == 1);
@@ -155,6 +163,7 @@ int main(int argc, char **argv) {
     client = TestInit(init_file, ksync_init);
 
     int ret = RUN_ALL_TESTS();
-    usleep(10000);
+    TestShutdown();
+    delete client;
     return ret;
 }

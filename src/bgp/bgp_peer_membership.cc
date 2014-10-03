@@ -746,6 +746,7 @@ void PeerRibMembershipManager::FillRoutingInstanceInfo(
     }
 
     inst.set_name(table->name());
+    inst.set_deleted(table->IsDeleted());
     if (peers.size()) inst.set_peers(peers);
 }
 
@@ -761,6 +762,7 @@ IPeerRib *PeerRibMembershipManager::IPeerRibFind(IPeer *ipeer,
 
 void PeerRibMembershipManager::FillPeerMembershipInfo(const IPeer *peer,
         BgpNeighborResp &resp) {
+    assert(resp.get_routing_tables().size() == 0);
     IPeer *nc_peer = const_cast<IPeer *>(peer);
 
     SchedulingGroupManager *sg_mgr = server_->scheduling_group_manager();
@@ -776,8 +778,7 @@ void PeerRibMembershipManager::FillPeerMembershipInfo(const IPeer *peer,
         if ((*it)->ipeer() != peer) break;
         BgpNeighborRoutingTable table;
         table.set_name((*it)->table()->name());
-
-        //TODO: Fill the rest of the fields
+        table.set_current_state("subscribed");
         table_list.push_back(table);
     }
     if (table_list.size()) resp.set_routing_tables(table_list);

@@ -20,7 +20,6 @@ class FlowStatsCollector : public StatsCollector {
 public:
     static const uint64_t FlowAgeTime = 1000000 * 180;
     static const uint32_t FlowCountPerPass = 200;
-    static const uint32_t FlowStatsInterval = (1000); // time in milliseconds
     static const uint32_t FlowStatsMinInterval = (100); // time in milliseconds
     static const uint32_t MaxFlows= (256 * 1024); // time in milliseconds
 
@@ -30,21 +29,30 @@ public:
     virtual ~FlowStatsCollector();
 
     uint64_t flow_age_time_intvl() { return flow_age_time_intvl_; }
+    uint32_t flow_age_time_intvl_in_secs() {
+        return flow_age_time_intvl_/(1000 * 1000);
+    }
     void UpdateFlowMultiplier();
     bool Run();
     void UpdateFlowAgeTime(uint64_t usecs) { 
         flow_age_time_intvl_ = usecs; 
         UpdateFlowMultiplier();
     }
-    static void FlowExport(FlowEntry *flow, uint64_t diff_bytes, 
-                           uint64_t diff_pkts);
+    void UpdateFlowAgeTimeInSecs(uint32_t secs) {
+        UpdateFlowAgeTime(secs * 1000 * 1000);
+    }
+
+    void FlowExport(FlowEntry *flow, uint64_t diff_bytes,
+                    uint64_t diff_pkts);
     void UpdateFlowStats(FlowEntry *flow, uint64_t &diff_bytes, 
                          uint64_t &diff_pkts);
+    void Shutdown();
 private:
     uint64_t GetFlowStats(const uint16_t &oflow_data, const uint32_t &data);
     bool ShouldBeAged(FlowStats *stats, const vr_flow_entry *k_flow,
                       uint64_t curr_time);
-    static void SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow);
+    void SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow);
+    void SetUnderlayInfo(FlowEntry *flow, FlowDataIpv4 &s_flow);
     uint64_t GetUpdatedFlowPackets(const FlowStats *stats, uint64_t k_flow_pkts);
     uint64_t GetUpdatedFlowBytes(const FlowStats *stats, uint64_t k_flow_bytes);
     AgentUve *agent_uve_;

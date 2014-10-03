@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <netinet/in.h>
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_interface.h>
 #include <oper/operdb_init.h>
@@ -13,8 +14,8 @@
 #include <base/task.h>
 #include <io/event_manager.h>
 #include <base/util.h>
-#include <ifmap_agent_parser.h>
-#include <ifmap_agent_table.h>
+#include <ifmap/ifmap_agent_parser.h>
+#include <ifmap/ifmap_agent_table.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
 #include <oper/interface_common.h>
@@ -70,8 +71,8 @@ public:
         client->WaitForIdle();
         //We don't reset bitmaps on removal of flows
         //EXPECT_TRUE(ValidateVrouter(0xFF, 0xFFFF, 0xFFFF));
-        LOG(DEBUG, "Vrf table size " << Agent::GetInstance()->GetVrfTable()->Size());
-        WAIT_FOR(1000, 1000, (Agent::GetInstance()->GetVrfTable()->Size() == 1));
+        LOG(DEBUG, "Vrf table size " << Agent::GetInstance()->vrf_table()->Size());
+        WAIT_FOR(1000, 1000, (Agent::GetInstance()->vrf_table()->Size() == 1));
     }
 
     bool ValidateBmap(const PortBucketBitmap &port, uint8_t proto,
@@ -250,13 +251,10 @@ public:
         const VnEntry *vn = intf->vn();
         SecurityGroupList empty_sg_id_l;
 
-        boost::shared_ptr<PktInfo> pkt_info(new PktInfo(NULL, 0));
+        boost::shared_ptr<PktInfo> pkt_info(new PktInfo(Agent::GetInstance(),
+                                                        100, 0, 0));
         PktFlowInfo info(pkt_info, Agent::GetInstance()->pkt()->flow_table());
         PktInfo *pkt = pkt_info.get();
-        info.source_vn = &vn->GetName();
-        info.dest_vn = dest_vn;
-        info.source_sg_id_l = &empty_sg_id_l;
-        info.dest_sg_id_l = &empty_sg_id_l;
 
         PktControlInfo ctrl;
         ctrl.vn_ = vn;
@@ -270,7 +268,7 @@ protected:
 };
 
 TEST_F(UvePortBitmapTest, PortBitmap_1) {
-    FlowKey key(0, 0, 0, IPPROTO_TCP, 1, 1);
+    FlowKey key(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 1, 1);
     FlowEntry flow(key);
     MakeFlow(&flow, 1, &dest_vn_name);
     Agent::GetInstance()->uve()->NewFlow(&flow);
@@ -281,7 +279,7 @@ TEST_F(UvePortBitmapTest, PortBitmap_1) {
 }
 
 TEST_F(UvePortBitmapTest, PortBitmap_2) {
-    FlowKey key(0, 0, 0, IPPROTO_TCP, 1, 1);
+    FlowKey key(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 1, 1);
     FlowEntry flow(key);
     MakeFlow(&flow, 1, &dest_vn_name);
     Agent::GetInstance()->uve()->NewFlow(&flow);
@@ -295,13 +293,13 @@ TEST_F(UvePortBitmapTest, PortBitmap_2) {
 }
 
 TEST_F(UvePortBitmapTest, PortBitmap_3) {
-    FlowKey key1(0, 0, 0, IPPROTO_TCP, 1, 1);
+    FlowKey key1(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 1, 1);
     FlowEntry flow1(key1);
     MakeFlow(&flow1, 1, &dest_vn_name);
     Agent::GetInstance()->uve()->NewFlow(&flow1);
     EXPECT_TRUE(ValidateFlow(&flow1));
 
-    FlowKey key2(0, 0, 0, IPPROTO_TCP, 2, 2);
+    FlowKey key2(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 2, 2);
     FlowEntry flow2(key2);
     MakeFlow(&flow2, 2, &dest_vn_name);
     Agent::GetInstance()->uve()->NewFlow(&flow2);
@@ -317,13 +315,13 @@ TEST_F(UvePortBitmapTest, PortBitmap_3) {
 }
 
 TEST_F(UvePortBitmapTest, PortBitmap_4) {
-    FlowKey key1(0, 0, 0, IPPROTO_TCP, 1, 1);
+    FlowKey key1(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 1, 1);
     FlowEntry flow1(key1);
     MakeFlow(&flow1, 1, &dest_vn_name);
     Agent::GetInstance()->uve()->NewFlow(&flow1);
     EXPECT_TRUE(ValidateFlow(&flow1));
 
-    FlowKey key2(0, 0, 0, IPPROTO_TCP, 257, 257);
+    FlowKey key2(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 257, 257);
     FlowEntry flow2(key2);
     MakeFlow(&flow2, 2, &dest_vn_name);
     Agent::GetInstance()->uve()->NewFlow(&flow2);
@@ -343,7 +341,7 @@ int main(int argc, char **argv) {
     client = TestInit(init_file, ksync_init);
     int ret = RUN_ALL_TESTS();
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (Agent::GetInstance()->GetVrfTable()->Size() == 1));
+    WAIT_FOR(1000, 1000, (Agent::GetInstance()->vrf_table()->Size() == 1));
     TestShutdown();
     delete client;
     return ret;

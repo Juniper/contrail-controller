@@ -11,10 +11,11 @@
 #include <boost/function.hpp>
 #include <boost/system/error_code.hpp>
 
-#include "xmpp/xmpp_channel.h"
-#include "cmn/agent_cmn.h"
+#include <xmpp/xmpp_channel.h>
+#include <cmn/agent_cmn.h>
 
 class XmppChannel;
+class AgentXmppChannel;
 
 class AgentIfMapXmppChannel {
 public:

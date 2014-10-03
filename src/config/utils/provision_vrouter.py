@@ -21,16 +21,22 @@ class VrouterProvisioner(object):
         self._parse_args(args_str)
 
         connected = False
+        tries = 0
         while not connected:
             try:
                 self._vnc_lib = VncApi(
                     self._args.admin_user, self._args.admin_password,
                     self._args.admin_tenant_name,
                     self._args.api_server_ip,
-                    self._args.api_server_port, '/')
+                    self._args.api_server_port, '/',
+                    auth_host=self._args.openstack_ip)
                 connected = True
             except ResourceExhaustionError: # haproxy throws 503
-                time.sleep(3)
+                if tries < 10:
+                    tries += 1
+                    time.sleep(3)
+                else:
+                    raise
 
         gsc_obj = self._vnc_lib.global_system_config_read(
             fq_name=['default-global-system-config'])
@@ -101,13 +107,13 @@ class VrouterProvisioner(object):
         parser.set_defaults(**defaults)
 
         parser.add_argument(
-            "--host_name", help="hostname name of compute-node")
-        parser.add_argument("--host_ip", help="IP address of compute-node")
+            "--host_name", help="hostname name of compute-node", required=True)
+        parser.add_argument("--host_ip", help="IP address of compute-node", required=True)
         parser.add_argument(
             "--control_names",
             help="List of control-node names compute node connects to")
         parser.add_argument(
-            "--api_server_ip", help="IP address of api server")
+            "--api_server_ip", help="IP address of api server", required=True)
         parser.add_argument("--api_server_port", help="Port of api server")
         parser.add_argument(
             "--oper", default='add',
@@ -118,6 +124,8 @@ class VrouterProvisioner(object):
             "--admin_password", help="Password of keystone admin user")
         parser.add_argument(
             "--admin_tenant_name", help="Tenamt name for keystone admin user")
+        parser.add_argument(
+            "--openstack_ip", help="IP address of openstack node")
 
         self._args = parser.parse_args(remaining_argv)
 

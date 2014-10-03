@@ -2,38 +2,9 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <netinet/ip.h>
-#include <netinet/tcp.h>
-#include <boost/uuid/string_generator.hpp>
-
-#include <io/event_manager.h>
-#include <base/task.h>
-
 #include <cmn/agent_cmn.h>
 
-#include "oper/operdb_init.h"
-#include "controller/controller_init.h"
-#include "pkt/pkt_init.h"
-#include "services/services_init.h"
-#include "ksync/ksync_init.h"
-
-#include "oper/interface_common.h"
-#include "oper/nexthop.h"
-#include "route/route.h"
-#include "oper/vrf.h"
-#include "oper/mpls.h"
-#include "oper/vm.h"
-#include "oper/vn.h"
-#include "pkt/pkt_handler.h"
-
-#include "vr_interface.h"
-#include "vr_types.h"
-
 #include "test/test_cmn_util.h"
-#include "test/pkt_gen.h"
-#include <controller/controller_vrf_export.h>
 
 void RouterIdDepInit(Agent *agent) {
 }
@@ -58,12 +29,21 @@ public:
     }
 
     virtual void TearDown() {
+        InterfaceEvent(false, "vnet1", 0);
+        InterfaceEvent(false, "vnet2", 0);
         DeleteVmportEnv(input, 2, true, 1);
         client->WaitForIdle();
+        EXPECT_EQ(0, vnswif_->GetHostInterfaceCount());
+        WAIT_FOR(1000, 100, (VmPortFindRetDel(1) == false));
+        WAIT_FOR(1000, 100, (VmPortFindRetDel(2) == false));
     }
 
     void SetSeen(const string &ifname, bool oper) {
         vnswif_->SetSeen(agent_->vhost_interface_name(), true);
+    }
+
+    void ResetSeen(const string &ifname) {
+        vnswif_->ResetSeen(agent_->vhost_interface_name(), true);
     }
 
     void InterfaceEvent(bool add, const string &ifname, uint32_t flags) {
@@ -137,7 +117,7 @@ TEST_F(TestVnswIf, intf_delete) {
 
 // Validate that link-local address is added back if route deleted from kernel
 TEST_F(TestVnswIf, host_route_del) {
-    uint32_t count = vnswif_->netlink_ll_add_count();
+    uint32_t count = vnswif_->ll_add_count();
     VnswInterfaceListener::Event *event = 
         new VnswInterfaceListener::Event(VnswInterfaceListener::Event::DEL_ROUTE,
                                          vnet1_->mdata_ip_addr(), 32, "",
@@ -146,7 +126,7 @@ TEST_F(TestVnswIf, host_route_del) {
                                          0);
     vnswif_->Enqueue(event);
     client->WaitForIdle();
-    WAIT_FOR(1000, 100, (vnswif_->netlink_ll_add_count() > count));
+    WAIT_FOR(1000, 100, (vnswif_->ll_add_count() > count));
 }
 
 // On link flap of vhost, all link-local must be written again
@@ -158,14 +138,18 @@ TEST_F(TestVnswIf, vhost_link_flap) {
     InterfaceEvent(true, agent_->vhost_interface_name(), 0);
 
     // bring up link of vhost0
-    uint32_t count = vnswif_->netlink_ll_add_count();
+    uint32_t count = vnswif_->ll_add_count();
 
     // Set link-state up
     InterfaceEvent(true, agent_->vhost_interface_name(),
                    (IFF_UP|IFF_RUNNING));
 
     // Ensure routes are synced to host
-    WAIT_FOR(1000, 100, (vnswif_->netlink_ll_add_count() >= (count + 2)));
+    WAIT_FOR(1000, 100, (vnswif_->ll_add_count() >= (count + 2)));
+
+    InterfaceEvent(false, agent_->vhost_interface_name(), 0);
+    ResetSeen(agent_->vhost_interface_name());
+    client->WaitForIdle();
 }
 
 // Interface inactive when seen by oper only
@@ -192,6 +176,9 @@ TEST_F(TestVnswIf, inactive_1) {
 
 // vhost-ip address update
 TEST_F(TestVnswIf, vhost_addr_1) {
+    SetSeen(agent_->vhost_interface_name(), true);
+    client->WaitForIdle();
+
     VnswInterfaceListener::HostInterfaceEntry *entry =
         vnswif_->GetHostInterfaceEntry(agent_->vhost_interface_name());
     EXPECT_TRUE(entry != NULL);
@@ -234,6 +221,10 @@ TEST_F(TestVnswIf, vhost_addr_1) {
 
     // Ensure there is no change vhost-ip
     EXPECT_STREQ(vhost->ip_addr().to_string().c_str(), vhost_ip.c_str());
+
+    InterfaceEvent(false, agent_->vhost_interface_name(), 0);
+    ResetSeen(agent_->vhost_interface_name());
+    client->WaitForIdle();
 }
 
 // vhost-ip address update
@@ -278,7 +269,7 @@ TEST_F(TestVnswIf, EcmpActivateDeactivate_1) {
 
     client->Reset();
     // Create ports with ECMP
-    CreateVmportEnv(input, 3);
+    CreateVmportWithEcmp(input, 3);
     client->WaitForIdle();
     client->WaitForIdle();
     // Ensure all interface are active
@@ -292,7 +283,7 @@ TEST_F(TestVnswIf, EcmpActivateDeactivate_1) {
 
     // Ensure ECMP is created
     Ip4Address ip = Ip4Address::from_string("1.1.1.10");
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
     EXPECT_TRUE(rt != NULL);
 
     const CompositeNH *nh;
@@ -304,6 +295,7 @@ TEST_F(TestVnswIf, EcmpActivateDeactivate_1) {
     InterfaceEvent(true, "vnet1", 0);
     WAIT_FOR(100, 100, (VmPortActive(input, 0) == false));
     client->WaitForIdle();
+    nh = dynamic_cast<const CompositeNH *>(rt->GetActiveNextHop());
     EXPECT_EQ(nh->ActiveComponentNHCount(), 2);
 
     // Set oper-state of vnet2 down. We should have non-ECMP route
@@ -335,6 +327,7 @@ TEST_F(TestVnswIf, EcmpActivateDeactivate_1) {
 
     //Clean up
     DeleteVmportEnv(input, 3, true);
+    InterfaceEvent(false, "vnet3", 0);
     client->WaitForIdle();
 }
 
@@ -343,12 +336,12 @@ TEST_F(TestVnswIf, linklocal_1) {
     EXPECT_TRUE(vnswif_->IsValidLinkLocalAddress(vnet1_->mdata_ip_addr()));
     EXPECT_TRUE(vnswif_->IsValidLinkLocalAddress(vnet2_->mdata_ip_addr()));
 
-    uint32_t count = vnswif_->netlink_ll_add_count();
+    uint32_t count = vnswif_->ll_add_count();
     // Delete mdata-ip. agent should add it again
     RouteEvent(false, "vnet1", vnet1_->mdata_ip_addr(), 32, 
                VnswInterfaceListener::kVnswRtmProto);
     client->WaitForIdle();
-    WAIT_FOR(1000, 100, (vnswif_->netlink_ll_add_count() >= (count + 1)));
+    WAIT_FOR(1000, 100, (vnswif_->ll_add_count() >= (count + 1)));
 }
 
 // Agent deletes a link-local route from kernel if its not valid address
@@ -356,12 +349,12 @@ TEST_F(TestVnswIf, linklocal_2) {
     EXPECT_TRUE(vnswif_->IsValidLinkLocalAddress(vnet1_->mdata_ip_addr()));
     EXPECT_TRUE(vnswif_->IsValidLinkLocalAddress(vnet2_->mdata_ip_addr()));
 
-    uint32_t count = vnswif_->netlink_ll_del_count();
+    uint32_t count = vnswif_->ll_del_count();
     // Add a dummy route with kVnswRtmProto as protocol. Agent should delete it
     RouteEvent(true, "vnet1", Ip4Address::from_string("169.254.1.1"), 32, 
                VnswInterfaceListener::kVnswRtmProto);
     client->WaitForIdle();
-    WAIT_FOR(1000, 100, (vnswif_->netlink_ll_del_count() >= (count + 1)));
+    WAIT_FOR(1000, 100, (vnswif_->ll_del_count() >= (count + 1)));
 }
 
 int main(int argc, char *argv[]) {
@@ -369,7 +362,7 @@ int main(int argc, char *argv[]) {
 
     client = TestInit(init_file, ksync_init);
     Agent::GetInstance()->ksync()->VnswInterfaceListenerInit();
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1"));
+    Agent::GetInstance()->set_router_id(Ip4Address::from_string("10.1.1.1"));
 
     int ret = RUN_ALL_TESTS();
     TestShutdown();

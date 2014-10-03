@@ -17,28 +17,18 @@
 #include "base/util.h"
 #include "bgp/bgp_common.h"
 #include "ifmap/ifmap_node_proxy.h"
+#include "ifmap/ifmap_config_listener.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 
 class BgpConfigListener;
+typedef struct IFMapConfigListener::ConfigDelta BgpConfigDelta;
 class BgpConfigManager;
 class BgpInstanceConfig;
 class BgpPeeringConfig;
 class BgpServer;
 class DB;
 class DBGraph;
-
-typedef boost::shared_ptr<IFMapNodeProxy> IFMapNodeRef;
-
-struct BgpConfigDelta {
-    BgpConfigDelta();
-    BgpConfigDelta(const BgpConfigDelta &rhs);
-    ~BgpConfigDelta();
-    std::string id_type;
-    std::string id_name;
-    IFMapNodeRef node;
-    IFMapObjectRef obj;
-};
 
 //
 // BgpNeighborConfig represents a single session between the local bgp-router
@@ -251,16 +241,20 @@ private:
 // BgpInstanceConfig is deleted only when all references to it are gone. The
 // IFMapNode for the routing-instance must be deleted, any BgpProtcolConfig
 // for the local bgp-router in the routing-instance must be deleted and all
-// the BgpNeighborConfigs in the routing-instance must be deleted.
+// the BgpNeighborConfigs and BgpPeeringConfigs in the routing-instance must
+// be deleted.
 //
 // The protocol_ field is a pointer to the BgpProtocolConfig object for the
 // local bgp-router object, if any, in the routing-instance.
 // The NeighborMap keeps pointers to all the BgpNeighborConfig objects in a
 // BgpInstanceConfig.
+// The PeeringMap keeps pointers to all the BgpPeeringConfig objects in the
+// BgpInstanceConfig.
 //
 class BgpInstanceConfig {
 public:
     typedef std::map<std::string, BgpNeighborConfig *> NeighborMap;
+    typedef std::map<std::string, BgpPeeringConfig *> PeeringMap;
     typedef std::set<std::string> RouteTargetList;
 
     explicit BgpInstanceConfig(const std::string &name);
@@ -292,6 +286,9 @@ public:
         return neighbors_;
     }
 
+    void AddPeering(BgpPeeringConfig *peering);
+    void DeletePeering(BgpPeeringConfig *peering);
+
     const std::string &virtual_network() const { return virtual_network_; }
     int virtual_network_index() const { return virtual_network_index_; }
 
@@ -310,6 +307,7 @@ private:
     IFMapNodeProxy node_proxy_;
     boost::scoped_ptr<BgpProtocolConfig> protocol_;
     NeighborMap neighbors_;
+    PeeringMap peerings_;
 
     RouteTargetList import_list_;
     RouteTargetList export_list_;
@@ -375,7 +373,7 @@ private:
 // registered Observers. The BgpServer::ConfigUpdater is the only client that
 // registers observers.
 //
-class BgpConfigManager {
+class BgpConfigManager : public IFMapConfigListener::ConfigManager {
 public:
     static const char *kMasterInstance;
     static const int kDefaultPort;
@@ -402,7 +400,7 @@ public:
     };
 
     BgpConfigManager(BgpServer *server);
-    ~BgpConfigManager();
+    virtual ~BgpConfigManager();
 
     void Initialize(DB *db, DBGraph *db_graph, const std::string &localname);
     void Terminate();

@@ -3,36 +3,21 @@
 #
 
 # -*- mode: python; -*-
-
+import re
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-def MapBuildDir(list):
-    return map(lambda x: '#/' + Dir('..').path + '/../../' + x, list)
+AgentEnv.MakeTestEnv(env)
 
-# test specific modifications
-env.Append(LIBPATH = MapBuildDir(['agent/test']))
-env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/test')
-env.Prepend(LIBS=['gunit'])
+diag_test_suite = []
+test_ping = AgentEnv.MakeTestCmd(env, 'test_ping', diag_test_suite)
 
-cflags = env['CCFLAGS']
-cflags.append(['-Wno-return-type', '-Wno-unused-function'])
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-    env.Replace(CCFLAGS = cflags)
+test = env.TestSuite('agent-test', diag_test_suite)
+env.Alias('agent:diag', test)
+env.Alias('controller/src/vnsw/agent/diag:test', test)
 
-import sys
-if sys.platform != 'darwin':
-    env.Prepend(LIBS=['agent_test'])
-    env.Append(LIBS=['agent_test_buildinfo'])
+diag_flaky_test_suite = []
+flaky_test = env.TestSuite('agent-flaky-test', diag_flaky_test_suite)
+env.Alias('controller/src/vnsw/agent/diag:flaky_test', flaky_test)
 
-    test_ping = env.Program(target = 'test_ping', source = ['test_ping.cc'])
-    env.Alias('agent:test_ping', test_ping)
-
-    diag_test_suite = [
-                        test_ping,
-                      ]
-    test = env.TestSuite('agent-test', diag_test_suite)
-    env.Alias('controller/src/vnsw/agent/diag:test', test)
-    Return('diag_test_suite')
-
+Return('diag_test_suite')

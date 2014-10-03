@@ -84,11 +84,9 @@ public:
     const RTargetDepRouteList &DepRouteList() const;
 
     const InterestedPeerList &PeerList() const;
-    void GetInterestedPeers(std::set<const BgpPeer *> &peer_set) const;
     const RtGroupInterestedPeerSet& GetInterestedPeers() const;
     void AddInterestedPeer(const BgpPeer *peer, RTargetRoute *rt);
     void RemoveInterestedPeer(const BgpPeer *peer, RTargetRoute *rt);
-    bool IsPeerInterested(const BgpPeer *peer) const;
     bool peer_list_empty() const;
 
 private:

@@ -11,8 +11,10 @@ local function sub_del(_values)
         if string.byte(val,1) ~= 60 then
             local descs = cjson.decode(val)
             for k,desc in pairs(descs) do
-                redis.call('del',desc.href)
-                redis.log(redis.LOG_NOTICE,"Deleting for "..desc.href)
+                if desc.href ~= nil then
+                    redis.call('del',desc.href)
+                    redis.log(redis.LOG_NOTICE,"Deleting for "..desc.href)
+                end
             end
             redis.call('hdel', _values, attr)
         end 
@@ -23,6 +25,7 @@ end
 local sm = ARGV[1]..":"..ARGV[2]..":"..ARGV[3]..":"..ARGV[4]
 local typ = ARGV[5]
 local key = ARGV[6]
+local db = tonumber(ARGV[7])
 
 local _del = KEYS[1]
 local _values = KEYS[2]
@@ -32,6 +35,7 @@ local _table = KEYS[5]
 local _deleted = KEYS[6]
 
 redis.log(redis.LOG_NOTICE,"DelUVE on "..sm.." for "..key)
+redis.call('select',db)
 sub_del(_values)
 redis.call('rename', _values, _del)
 redis.call('zrem', _uves, key)

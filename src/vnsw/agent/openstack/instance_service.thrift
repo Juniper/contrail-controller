@@ -1,7 +1,15 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
+
+namespace java net.juniper.contrail.contrail_vrouter_api
+
 typedef list<i16> tuuid
+
+enum PortTypes {
+    NovaVMPort,
+    NameSpacePort,
+}
 
 struct Port {
     1:required tuuid port_id,
@@ -15,6 +23,8 @@ struct Port {
     9:optional string host; 
    10:optional tuuid vm_project_id; 
    11:optional i16 vlan_id; 
+   12:optional i16 port_type;
+   13:optional string ip6_address;
 }
 
 typedef list<Port> PortList

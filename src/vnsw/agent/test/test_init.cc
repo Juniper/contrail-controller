@@ -12,13 +12,12 @@
 #include <boost/functional/factory.hpp>
 #include <cmn/agent_factory.h>
 
-static AgentTestInit *agent_init;
 namespace opt = boost::program_options;
 
 pthread_t asio_thread;
 
 void *asio_poll(void *arg){
-    Agent::GetInstance()->GetEventManager()->Run();
+    Agent::GetInstance()->event_manager()->Run();
     return NULL;
 }
 
@@ -37,11 +36,6 @@ void AsioStop() {
     pthread_join(asio_thread, NULL);
 }
 
-static void InitTestFactory() {
-    AgentObjectFactory::Register<AgentUve>(boost::factory<AgentUveTest *>());
-    AgentObjectFactory::Register<KSync>(boost::factory<KSyncTest *>());
-}
-
 void WaitForInitDone(Agent *agent) {
     WAIT_FOR(100000, 1000, agent->init_done());
     bool done = agent->init_done();
@@ -49,35 +43,32 @@ void WaitForInitDone(Agent *agent) {
     if (done == false) {
         exit(-1);
     }
+    client->WaitForIdle(15);
 }
 
 TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
                      bool services_init, bool uve_init,
                      int agent_stats_interval, int flow_stats_interval,
-                     bool asio, bool ksync_sync_mode) {
-    TestClient *client = new TestClient();
-    agent_init = new AgentTestInit(client);
-    client->set_init(agent_init);
+                     bool asio, bool ksync_sync_mode,
+                     int vrouter_stats_interval) {
 
+    TestClient *client = new TestClient(new TestAgentInit());
+    TestAgentInit *init = client->agent_init();
+    Agent *agent = client->agent();
+
+    AgentParam *param = client->param();
+    init->set_agent_param(param);
     // Read agent parameters from config file and arguments
-    Agent *agent = agent_init->agent();
-    AgentParam *param = agent_init->param();
-    TestAgentInit *init = agent_init->init();
-    client->set_agent_init(init);
-
-    opt::variables_map var_map;
-    param->Init(init_file, "test", var_map);
+    init->ProcessOptions(init_file, "test");
     param->set_agent_stats_interval(agent_stats_interval);
     param->set_flow_stats_interval(flow_stats_interval);
+    param->set_vrouter_stats_interval(vrouter_stats_interval);
 
     // Initialize the agent-init control class
-    int sandesh_port = 0;
+    int introspect_port = 0;
     Sandesh::InitGeneratorTest("VNSWAgent", "Agent", "Test", "Test",
-                               Agent::GetInstance()->GetEventManager(),
-                               sandesh_port, NULL);
+                               agent->event_manager(), introspect_port, NULL);
 
-    InitTestFactory();
-    init->Init(param, agent, var_map);
     init->set_ksync_enable(ksync_init);
     init->set_packet_enable(true);
     init->set_services_enable(services_init);
@@ -91,7 +82,6 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
     agent->set_ksync_sync_mode(ksync_sync_mode);
 
     // Initialize agent and kick start initialization
-    agent->CopyConfig(param);
     init->Start();
 
     WaitForInitDone(agent);
@@ -107,97 +97,39 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
 
     if (init_file == NULL) {
         agent->set_vhost_interface_name("vhost0");
-        InetInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+        InetInterface::CreateReq(agent->interface_table(),
                                  "vhost0", InetInterface::VHOST,
-                                 Agent::GetInstance()->GetDefaultVrf(),
-                                 Ip4Address(0), 0, Ip4Address(0), "");
+                                 agent->fabric_vrf_name(),
+                                 Ip4Address(0), 0, Ip4Address(0), param->eth_port(), "");
         boost::system::error_code ec;
-        Agent::GetInstance()->SetRouterId
+        agent->set_router_id
             (Ip4Address::from_string("10.1.1.1", ec));
         //Add a receive router
-        agent->GetDefaultInet4UnicastRouteTable()->AddVHostRecvRoute
-            (Agent::GetInstance()->local_peer(),
-             Agent::GetInstance()->GetDefaultVrf(), "vhost0",
-             Agent::GetInstance()->GetRouterId(), 32, "", false);
+        agent->fabric_inet4_unicast_table()->AddVHostRecvRoute
+            (agent->local_peer(),
+             agent->fabric_vrf_name(), "vhost0",
+             agent->router_id(), 32, "", false);
     }
 
     return client;
 }
 
-TestClient *StatsTestInit() {
-    TestClient *client = new TestClient();
-    agent_init = new AgentTestInit(client);
-    client->set_init(agent_init);
-    Agent *agent = agent_init->agent();
-    AgentParam *param = agent_init->param();
-    TestAgentInit *init = agent_init->init();
-    client->set_agent_init(init);
-
-    // Read agent parameters from config file and arguments
-    opt::variables_map var_map;
-    param->Init("controller/src/vnsw/agent/test/vnswa_cfg.ini", "test", var_map);
-
-    // Initialize the agent-init control class
-    int sandesh_port = 0;
-    Sandesh::InitGeneratorTest("VNSWAgent", "Agent", "Test", "Test",
-                               Agent::GetInstance()->GetEventManager(),
-                               sandesh_port, NULL);
-
-    InitTestFactory();
-    init->Init(param, agent, var_map);
-    init->set_ksync_enable(true);
-    init->set_packet_enable(true);
-    init->set_services_enable(true);
-    init->set_create_vhost(false);
-    init->set_uve_enable(false);
-    init->set_vgw_enable(false);
-    init->set_router_id_dep_enable(false);
-    param->set_test_mode(true);
-
-    // Initialize agent and kick start initialization
-    agent->CopyConfig(param);
-    init->Start();
-
-    WaitForInitDone(agent);
-
-    AsioRun();
-
-    sleep(1);
-    Agent::GetInstance()->set_vhost_interface_name("vhost0");
-    InetInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
-                             "vhost0", InetInterface::VHOST,
-                             Agent::GetInstance()->GetDefaultVrf(),
-                             Ip4Address(0), 0, Ip4Address(0), "");
-
-    boost::system::error_code ec;
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1", ec));
-
-    // Wait for host and vhost interface creation
-    client->WaitForIdle();
-
-    return client;
-}
-
 TestClient *VGwInit(const string &init_file, bool ksync_init) {
-    TestClient *client = new TestClient();
-    agent_init = new AgentTestInit(client);
-    client->set_init(agent_init);
-    Agent *agent = agent_init->agent();
-    AgentParam *param = agent_init->param();
-    TestAgentInit *init = agent_init->init();
-    client->set_agent_init(init);
+    TestClient *client = new TestClient(new TestAgentInit());
 
-    // Read agent parameters from config file and arguments
-    opt::variables_map var_map;
-    param->Init(init_file, "test", var_map);
+    TestAgentInit *init = client->agent_init();
+    Agent *agent = client->agent();
 
     // Initialize the agent-init control class
     Sandesh::InitGeneratorTest("VNSWAgent", "Agent", "Test", "Test",
-                               Agent::GetInstance()->GetEventManager(),
+                               agent->event_manager(),
                                0, NULL);
 
-    InitTestFactory();
-    init->Init(param, agent, var_map);
+    // Read agent parameters from config file and arguments
+    AgentParam *param(client->param());
+    init->set_agent_param(param);
+    init->ProcessOptions(init_file, "test");
+
     init->set_ksync_enable(ksync_init);
     init->set_packet_enable(true);
     init->set_services_enable(true);
@@ -209,8 +141,7 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
         param->set_test_mode(true);
     }
 
-    // Initialize agent and kick start initialization
-    agent->CopyConfig(param);
+    // kick start initialization
     init->Start();
 
     WaitForInitDone(agent);
@@ -221,13 +152,13 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
     AsioRun();
 
     usleep(100);
-    Agent::GetInstance()->set_vhost_interface_name("vhost0");
-    InetInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
-                             "vhost0", InetInterface::VHOST,
-                             Agent::GetInstance()->GetDefaultVrf(),
-                             Ip4Address(0), 0, Ip4Address(0), "");
+    agent->set_vhost_interface_name("vhost0");
+    InetInterface::CreateReq(agent->interface_table(), "vhost0",
+                             InetInterface::VHOST, agent->fabric_vrf_name(),
+                             Ip4Address(0), 0, Ip4Address(0), param->eth_port(),
+                             "");
     boost::system::error_code ec;
-    Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1", ec));
+    agent->set_router_id(Ip4Address::from_string("10.1.1.1", ec));
 
     // Wait for host and vhost interface creation
     client->WaitForIdle();
@@ -235,109 +166,24 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
     return client;
 }
 
-static bool WaitForDbCount(DBTableBase *table, uint32_t count, int msec) {
-    int i = 0;
-
-    msec = msec * 1000;
-    while ((table->Size() > count)  && (i < msec)) {
-        usleep(1000);
-        i += 1000;
-    }
-
-    return (table->Size() == count);
-}
-
-static bool WaitForDbFree(const string &name, int msec) {
-    int i = 0;
-
-    msec = msec * 1000;
-    while (i < msec) {
-        if (Agent::GetInstance()->GetDB()->FindTable(name) == NULL) {
-            break;
-        }
-
-        usleep(1000);
-        i += 1000;
-    }
-
-    return (Agent::GetInstance()->GetDB()->FindTable(name) == NULL);
-}
-
-void TestClient::Shutdown() {
-    agent_init_->Shutdown();
-    Agent::GetInstance()->uve()->Shutdown();
-    KSyncTest *ksync = static_cast<KSyncTest *>(Agent::GetInstance()->ksync());
-    ksync->NetlinkShutdownTest();
-    Agent::GetInstance()->ksync()->Shutdown();
-    Agent::GetInstance()->pkt()->Shutdown();  
-    Agent::GetInstance()->services()->Shutdown();
-    MulticastHandler::Shutdown();
-    Agent::GetInstance()->oper_db()->Shutdown();
-    Agent::GetInstance()->GetDB()->Clear();
-    Agent::GetInstance()->GetDB()->ClearFactoryRegistry();
+void ShutdownAgentController(Agent *agent) {
+    TaskScheduler::GetInstance()->Stop();
+    agent->controller()->multicast_cleanup_timer().cleanup_timer_->Fire();
+    agent->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
+    agent->controller()->config_cleanup_timer().cleanup_timer_->Fire();
+    TaskScheduler::GetInstance()->Start();
+    client->WaitForIdle();
+    agent->controller()->Cleanup();
+    client->WaitForIdle();
+    agent->set_controller_ifmap_xmpp_client(NULL, 0);
+    agent->set_controller_ifmap_xmpp_init(NULL, 0);
+    agent->set_controller_ifmap_xmpp_client(NULL, 1);
+    agent->set_controller_ifmap_xmpp_init(NULL, 1);
 }
 
 void TestShutdown() {
-    client->WaitForIdle();
-
-    Agent::GetInstance()->controller()->DisConnect();
-    client->WaitForIdle();
-
-    if (Agent::GetInstance()->vgw()) {
-        Agent::GetInstance()->vgw()->Shutdown();
-    }
-
-    client->agent_init()->DeleteRoutes();
-    client->WaitForIdle();
-
-    client->agent_init()->DeleteInterfaces();
-    client->WaitForIdle();
-
-    client->agent_init()->DeleteVrfs();
-    client->WaitForIdle();
-
-    client->agent_init()->DeleteNextHops();
-    client->WaitForIdle();
-
-    WaitForDbCount(Agent::GetInstance()->GetInterfaceTable(), 0, 100);
-    EXPECT_EQ(0U, Agent::GetInstance()->GetInterfaceTable()->Size());
-
-    WaitForDbCount(Agent::GetInstance()->GetVrfTable(), 0, 100);
-    EXPECT_EQ(0U, Agent::GetInstance()->GetVrfTable()->Size());
-
-    WaitForDbCount(Agent::GetInstance()->GetNextHopTable(), 0, 100);
-    EXPECT_EQ(0U, Agent::GetInstance()->GetNextHopTable()->Size());
-
-    WaitForDbFree(Agent::GetInstance()->GetDefaultVrf(), 100);
-    assert(Agent::GetInstance()->GetDB()->FindTable(Agent::GetInstance()->GetDefaultVrf()) == NULL);
-
-    WaitForDbCount(Agent::GetInstance()->GetVmTable(), 0, 100);
-    EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
-
-    WaitForDbCount(Agent::GetInstance()->GetVnTable(), 0, 100);
-    EXPECT_EQ(0U, Agent::GetInstance()->GetVnTable()->Size());
-
-    WaitForDbCount(Agent::GetInstance()->GetMplsTable(), 0, 100);
-    EXPECT_EQ(0U, Agent::GetInstance()->GetMplsTable()->Size());
-
-    WaitForDbCount(Agent::GetInstance()->GetIntfCfgTable(), 0, 100);
-    EXPECT_EQ(0U, Agent::GetInstance()->GetIntfCfgTable()->Size());
-
-    WaitForDbCount(Agent::GetInstance()->GetAclTable(), 0, 100);
-    EXPECT_EQ(0U, Agent::GetInstance()->GetAclTable()->Size());
-    client->WaitForIdle();
-
-    agent_init->Shutdown();
-    client->WaitForIdle();
-
-    Sandesh::Uninit();
-    client->WaitForIdle();
-
-    Agent::GetInstance()->GetEventManager()->Shutdown();
-    AsioStop();
-    TaskScheduler::GetInstance()->Terminate();
-
+    TestAgentInit *init = client->agent_init();
+    init->Shutdown();
     AgentStats::GetInstance()->Shutdown();
-    Agent::GetInstance()->Shutdown();
-    delete agent_init;
+    AsioStop();
 }

@@ -53,12 +53,19 @@ XmppInit::~XmppInit() {
         TcpServerManager::DeleteServer(g_server_);
         g_server_ = NULL;
     }
+
+    if (cfg_) {
+        delete cfg_;
+        cfg_ = NULL;
+    }
 }
 
-void XmppInit::Reset() {
+void XmppInit::Reset(bool keep_config) {
     g_server_ = NULL;
     g_client_ = NULL;
-    cfg_ = NULL;
+    if (!keep_config) {
+        cfg_ = NULL;
+    }
 }
 
 void XmppInit::InitClient(XmppClient *client) {

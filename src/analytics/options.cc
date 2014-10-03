@@ -32,7 +32,7 @@ bool Options::Parse(EventManager &evm, int argc, char *argv[]) {
 
 // Initialize collector's command line option tags with appropriate default
 // values. Options can from a config file as well. By default, we read
-// options from /etc/contrail/collector.conf
+// options from /etc/contrail/contrail-collector.conf
 void Options::Initialize(EventManager &evm,
                          opt::options_description &cmdline_options) {
     boost::system::error_code error;
@@ -44,16 +44,18 @@ void Options::Initialize(EventManager &evm,
     // Command line only options.
     generic.add_options()
         ("conf_file", opt::value<string>()->default_value(
-                                            "/etc/contrail/collector.conf"),
+                                            "/etc/contrail/contrail-collector.conf"),
              "Configuration file")
          ("help", "help message")
         ("version", "Display version information")
     ;
 
-    uint16_t default_redis_port = ContrailPorts::RedisUvePort;
-    uint16_t default_collector_port = ContrailPorts::CollectorPort;
-    uint16_t default_http_server_port = ContrailPorts::HttpPortCollector;
-    uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort;
+    uint16_t default_redis_port = ContrailPorts::RedisUvePort();
+    uint16_t default_collector_port = ContrailPorts::CollectorPort();
+    uint16_t default_collector_protobuf_port =
+        ContrailPorts::CollectorProtobufPort();
+    uint16_t default_http_server_port = ContrailPorts::HttpPortCollector();
+    uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
 
     vector<string> default_cassandra_server_list;
     default_cassandra_server_list.push_back("127.0.0.1:9160");
@@ -67,6 +69,10 @@ void Options::Initialize(EventManager &evm,
         ("COLLECTOR.server",
              opt::value<string>()->default_value("0.0.0.0"),
              "IP address of sandesh collector server")
+        ("COLLECTOR.protobuf_port",
+            opt::value<uint16_t>()->default_value(
+                default_collector_protobuf_port),
+         "Listener port of Google Protocol Buffer collector server")
 
         ("DEFAULT.analytics_data_ttl",
              opt::value<int>()->default_value(ANALYTICS_DATA_TTL_DEFAULT),
@@ -100,8 +106,14 @@ void Options::Initialize(EventManager &evm,
              "Severity level for local logging of sandesh messages")
         ("DEFAULT.log_local", opt::bool_switch(&log_local_),
              "Enable local logging of sandesh messages")
-        ("DEFAULT.syslog_port", opt::value<uint16_t>()->default_value(0),
-             "Syslog listener port")
+        ("DEFAULT.use_syslog", opt::bool_switch(&use_syslog_),
+             "Enable logging to syslog")
+        ("DEFAULT.syslog_facility", opt::value<string>()->default_value("LOG_LOCAL0"),
+             "Syslog facility to receive log lines")
+        ("DEFAULT.syslog_port", opt::value<int>()->default_value(-1),
+             "Syslog listener port (< 0 will disable the syslog)")
+        ("DEFAULT.sflow_port", opt::value<int>()->default_value(-1),
+             "sFlow listener port (< 0 will disable sFlow Collector)")
         ("DEFAULT.test_mode", opt::bool_switch(&test_mode_),
              "Enable collector to run in test-mode")
 
@@ -125,10 +137,56 @@ void Options::Initialize(EventManager &evm,
 template <typename ValueType>
 void Options::GetOptValue(const boost::program_options::variables_map &var_map,
                           ValueType &var, std::string val) {
+    GetOptValueImpl(var_map, var, val, static_cast<ValueType *>(0));
+}
 
+template <typename ValueType>
+void Options::GetOptValueImpl(
+    const boost::program_options::variables_map &var_map,
+    ValueType &var, std::string val, ValueType*) {
     // Check if the value is present.
     if (var_map.count(val)) {
         var = var_map[val].as<ValueType>();
+    }
+}
+
+template <typename ValueType>
+bool Options::GetOptValueIfNotDefaulted(
+    const boost::program_options::variables_map &var_map,
+    ValueType &var, std::string val) {
+    return GetOptValueIfNotDefaultedImpl(var_map, var, val,
+        static_cast<ValueType *>(0));
+}
+
+template <typename ValueType>
+bool Options::GetOptValueIfNotDefaultedImpl(
+    const boost::program_options::variables_map &var_map,
+    ValueType &var, std::string val, ValueType*) {
+    // Check if the value is present.
+    if (var_map.count(val) && !var_map[val].defaulted()) {
+        var = var_map[val].as<ValueType>();
+        return true;
+    }
+    return false;
+}
+
+template <typename ElementType>
+void Options::GetOptValueImpl(
+    const boost::program_options::variables_map &var_map,
+    std::vector<ElementType> &var, std::string val, std::vector<ElementType>*) {
+    // Check if the value is present.
+    if (var_map.count(val)) {
+        std::vector<ElementType> tmp(
+            var_map[val].as<std::vector<ElementType> >());
+        // Now split the individual elements
+        for (typename std::vector<ElementType>::const_iterator it = 
+                 tmp.begin();
+             it != tmp.end(); it++) {
+            std::stringstream ss(*it);
+            std::copy(istream_iterator<ElementType>(ss),
+                istream_iterator<ElementType>(),
+                std::back_inserter(var));
+        }
     }
 }
 
@@ -167,6 +225,12 @@ void Options::Process(int argc, char *argv[],
     // Retrieve the options.
     GetOptValue<uint16_t>(var_map, collector_port_, "COLLECTOR.port");
     GetOptValue<string>(var_map, collector_server_, "COLLECTOR.server");
+    if (GetOptValueIfNotDefaulted<uint16_t>(var_map, collector_protobuf_port_,
+            "COLLECTOR.protobuf_port")) {
+        collector_protobuf_port_configured_ = true;
+    } else {
+        collector_protobuf_port_configured_ = false;
+    }
     GetOptValue<int>(var_map, analytics_data_ttl_,
                      "DEFAULT.analytics_data_ttl");
 
@@ -182,7 +246,10 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<int>(var_map, log_files_count_, "DEFAULT.log_files_count");
     GetOptValue<long>(var_map, log_file_size_, "DEFAULT.log_file_size");
     GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");
-    GetOptValue<uint16_t>(var_map, syslog_port_, "DEFAULT.syslog_port");
+    GetOptValue<bool>(var_map, use_syslog_, "DEFAULT.use_syslog");
+    GetOptValue<string>(var_map, syslog_facility_, "DEFAULT.syslog_facility");
+    GetOptValue<int>(var_map, syslog_port_, "DEFAULT.syslog_port");
+    GetOptValue<int>(var_map, sflow_port_, "DEFAULT.sflow_port");
 
     GetOptValue<uint16_t>(var_map, discovery_port_, "DISCOVERY.port");
     GetOptValue<string>(var_map, discovery_server_, "DISCOVERY.server");

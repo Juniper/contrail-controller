@@ -3,21 +3,29 @@
  */
 
 // global_vrouter.cc - operational data for global vrouter configuration
-
 #include <boost/foreach.hpp>
+#include <base/util.h>
 #include <cmn/agent_cmn.h>
-#include <cmn/agent_param.h>
+#include <route/route.h>
+
 #include <vnc_cfg_types.h>
+#include <agent_types.h>
 #include <ifmap/ifmap_link.h>
-#include <oper/mirror_table.h>
+
+#include <oper/operdb_init.h>
+#include <oper/peer.h>
+#include <oper/vrf.h>
+#include <oper/interface_common.h>
 #include <oper/nexthop.h>
 #include <oper/vn.h>
-#include <oper/vrf.h>
+#include <oper/mirror_table.h>
+#include <oper/vxlan.h>
+#include <oper/mpls.h>
 #include <oper/route_common.h>
-#include <oper/operdb_init.h>
-#include <oper/global_vrouter.h>
+
+#include <oper/agent_route_walker.h>
 #include <oper/agent_route_encap.h>
-#include <base/util.h>
+#include <oper/global_vrouter.h>
 
 const std::string GlobalVrouter::kMetadataService = "metadata";
 
@@ -68,7 +76,8 @@ public:
     static const uint32_t kDnsTimeout = 15 * 60 * 1000; // fifteen minutes
 
     FabricDnsResolver(GlobalVrouter *vrouter, boost::asio::io_service &io)
-        : global_vrouter_(vrouter), io_(io) {
+        : request_count_(0), response_count_(0), global_vrouter_(vrouter),
+        io_(io) {
         // start timer to re-resolve the DNS names to IP addresses
         timer_ = TimerManager::CreateTimer(io_, "DnsHandlerTimer");
         timer_->Start(kDnsTimeout,
@@ -132,6 +141,10 @@ public:
         return false;
     }
 
+    uint64_t PendingRequests() const {
+        return request_count_ - response_count_;
+    }
+
 private:
     typedef std::map<std::string, std::vector<Ip4Address> > ResolveMap;
     typedef std::pair<std::string, std::vector<Ip4Address> > ResolvePair;
@@ -143,6 +156,7 @@ private:
             boost_udp::resolver::query(boost_udp::v4(), name, "domain"),
             boost::bind(&GlobalVrouter::FabricDnsResolver::ResolveHandler, this,
                         _1, _2, name, resolver));
+        request_count_++;
     }
 
     // called in asio context, handle resolve response 
@@ -165,12 +179,15 @@ private:
             }
             global_vrouter_->LinkLocalRouteUpdate(addr_it->second);
         }
+        response_count_++;
         delete resolver;
     }
 
     Timer *timer_;
     tbb::mutex mutex_;
     ResolveMap address_map_;
+    uint64_t request_count_;
+    uint64_t response_count_;
     GlobalVrouter *global_vrouter_;
     boost::asio::io_service &io_;
 };
@@ -184,7 +201,11 @@ public:
     LinkLocalRouteManager(GlobalVrouter *vrouter) 
         : global_vrouter_(vrouter), vn_id_(DBTableBase::kInvalidId) {}
 
-    virtual ~LinkLocalRouteManager() { DeleteDBClients(); }
+    virtual ~LinkLocalRouteManager() {
+        DeleteDBClients();
+        ipfabric_address_list_.clear();
+        linklocal_address_list_.clear();
+    }
 
     void CreateDBClients();
     void DeleteDBClients();
@@ -204,22 +225,27 @@ private:
 };
 
 void GlobalVrouter::LinkLocalRouteManager::CreateDBClients() {
-    vn_id_ = global_vrouter_->oper_db()->agent()->GetVnTable()->Register(
+    vn_id_ = global_vrouter_->oper_db()->agent()->vn_table()->Register(
              boost::bind(&GlobalVrouter::LinkLocalRouteManager::VnNotify,
                          this, _1, _2));
 }
 
 void GlobalVrouter::LinkLocalRouteManager::DeleteDBClients() {
-    global_vrouter_->oper_db()->agent()->GetVnTable()->Unregister(vn_id_);
+    global_vrouter_->oper_db()->agent()->vn_table()->Unregister(vn_id_);
 }
 
 void GlobalVrouter::LinkLocalRouteManager::AddArpRoute(const Ip4Address &srv) {
-    if (!ipfabric_address_list_.insert(srv).second)
-        return;
+    std::set<Ip4Address>::iterator it;
+    std::pair<std::set<Ip4Address>::iterator, bool> ret;
 
-    Inet4UnicastAgentRouteTable::CheckAndAddArpReq(global_vrouter_->oper_db()->
-                                                   agent()->GetDefaultVrf(),
-                                                   srv);
+    ret = ipfabric_address_list_.insert(srv);
+    if (ret.second == false) {
+        return;
+    }
+
+    InetUnicastAgentRouteTable::CheckAndAddArpReq(global_vrouter_->oper_db()->
+                                                  agent()->fabric_vrf_name(),
+                                                  srv);
 }
 
 // Walk thru all the VNs
@@ -234,7 +260,7 @@ void GlobalVrouter::LinkLocalRouteManager::UpdateAllVns(
     }
 
     Agent *agent = global_vrouter_->oper_db()->agent();
-    DBTableWalker *walker = agent->GetDB()->GetWalker();
+    DBTableWalker *walker = agent->db()->GetWalker();
     walker->WalkTable(VnTable::GetInstance(), NULL,
       boost::bind(&GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk,
                   this, _2, key, is_add),
@@ -258,16 +284,15 @@ bool GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk(
 
     Agent *agent = global_vrouter_->oper_db()->agent();
     // Do not create the routes for the default VRF
-    if (agent->GetDefaultVrf() == vrf_entry->GetName()) {
+    if (agent->fabric_vrf_name() == vrf_entry->GetName()) {
         return true;
     }
 
-    Inet4UnicastAgentRouteTable *rt_table =
-        static_cast<Inet4UnicastAgentRouteTable *>(vrf_entry->
-            GetInet4UnicastRouteTable());
+    InetUnicastAgentRouteTable *rt_table =
+        vrf_entry->GetInet4UnicastRouteTable();
 
     if (is_add) {
-        if (vn_entry->Ipv4Forwarding()) {
+        if (vn_entry->layer3_forwarding()) {
             rt_table->AddVHostRecvRoute(agent->link_local_peer(),
                                         vrf_entry->GetName(),
                                         agent->vhost_interface_name(),
@@ -277,7 +302,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk(
         }
     } else {
         rt_table->DeleteReq(agent->link_local_peer(), vrf_entry->GetName(),
-                            key.linklocal_service_ip, 32);
+                            key.linklocal_service_ip, 32, NULL);
     }
     return true;
 }
@@ -291,21 +316,20 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
     VnEntry *vn_entry = static_cast<VnEntry *>(entry);
     VrfEntry *vrf_entry = vn_entry->GetVrf();
     Agent *agent = global_vrouter_->oper_db()->agent();
-    if (vn_entry->IsDeleted() || !vn_entry->Ipv4Forwarding() || !vrf_entry) {
+    if (vn_entry->IsDeleted() || !vn_entry->layer3_forwarding() || !vrf_entry) {
         LinkLocalDBState *state = static_cast<LinkLocalDBState *> 
             (vn_entry->GetState(partition->parent(), vn_id_));
         if (!state)
             return true;
-        Inet4UnicastAgentRouteTable *rt_table =
-            static_cast<Inet4UnicastAgentRouteTable *>
-            (state->vrf_->GetInet4UnicastRouteTable());
+        InetUnicastAgentRouteTable *rt_table =
+            state->vrf_->GetInet4UnicastRouteTable();
         const GlobalVrouter::LinkLocalServicesMap &services =
                    global_vrouter_->linklocal_services_map();
         for (GlobalVrouter::LinkLocalServicesMap::const_iterator it =
              services.begin(); it != services.end(); ++it) {
             rt_table->DeleteReq(agent->link_local_peer(),
                                 state->vrf_->GetName(),
-                                it->first.linklocal_service_ip, 32);
+                                it->first.linklocal_service_ip, 32, NULL);
         }
         vn_entry->ClearState(partition->parent(), vn_id_);
         delete state;
@@ -313,18 +337,17 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
     }
 
     // Do not create the routes for the default VRF
-    if (agent->GetDefaultVrf() == vrf_entry->GetName()) {
+    if (agent->fabric_vrf_name() == vrf_entry->GetName()) {
         return true;
     }
 
-    if (vn_entry->Ipv4Forwarding()) {
+    if (vn_entry->layer3_forwarding()) {
         if (vn_entry->GetState(partition->parent(), vn_id_))
             return true;
         LinkLocalDBState *state = new LinkLocalDBState(vrf_entry);
         vn_entry->SetState(partition->parent(), vn_id_, state);
-        Inet4UnicastAgentRouteTable *rt_table =
-            static_cast<Inet4UnicastAgentRouteTable *>
-            (vrf_entry->GetInet4UnicastRouteTable());
+        InetUnicastAgentRouteTable *rt_table =
+            vrf_entry->GetInet4UnicastRouteTable();
 
         const GlobalVrouter::LinkLocalServicesMap &services =
                    global_vrouter_->linklocal_services_map();
@@ -347,11 +370,15 @@ GlobalVrouter::GlobalVrouter(OperDB *oper)
     : oper_(oper), linklocal_services_map_(),
       linklocal_route_mgr_(new LinkLocalRouteManager(this)),
       fabric_dns_resolver_(new FabricDnsResolver(this,
-                           *(oper->agent()->GetEventManager()->io_service()))),
+                           *(oper->agent()->event_manager()->io_service()))),
       agent_route_encap_update_walker_(new AgentRouteEncap(oper->agent())) {
 }
 
 GlobalVrouter::~GlobalVrouter() {
+}
+
+uint64_t GlobalVrouter::PendingFabricDnsRequests() const {
+    return fabric_dns_resolver_.get()->PendingRequests();
 }
 
 void GlobalVrouter::CreateDBClients() {
@@ -381,9 +408,7 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
         oper_->agent()->vxlan_network_identifier_mode()) {
         oper_->agent()->set_vxlan_network_identifier_mode(
                         cfg_vxlan_network_identifier_mode);
-        oper_->agent()->GetVnTable()->UpdateVxLanNetworkIdentifierMode();
-        oper_->agent()->GetInterfaceTable()->
-                        UpdateVxLanNetworkIdentifierMode();
+        oper_->agent()->vn_table()->UpdateVxLanNetworkIdentifierMode();
     }
 
     if (encap_changed) {
@@ -397,7 +422,7 @@ bool GlobalVrouter::FindLinkLocalService(const std::string &service_name,
                                          Ip4Address *service_ip,
                                          uint16_t *service_port,
                                          Ip4Address *fabric_ip,
-                                         uint16_t *fabric_port) {
+                                         uint16_t *fabric_port) const {
     std::string name = boost::to_lower_copy(service_name);
 
     for (GlobalVrouter::LinkLocalServicesMap::const_iterator it =
@@ -426,8 +451,8 @@ bool GlobalVrouter::FindLinkLocalService(const Ip4Address &service_ip,
                                          uint16_t service_port,
                                          std::string *service_name,
                                          Ip4Address *fabric_ip,
-                                         uint16_t *fabric_port) {
-    LinkLocalServicesMap::iterator it =
+                                         uint16_t *fabric_port) const {
+    LinkLocalServicesMap::const_iterator it =
         linklocal_services_map_.find(LinkLocalServiceKey(service_ip,
                                                          service_port));
     if (it == linklocal_services_map_.end()) {
@@ -442,8 +467,8 @@ bool GlobalVrouter::FindLinkLocalService(const Ip4Address &service_ip,
                                      &metadata_fabric_ip,
                                      &metadata_fabric_port) &&
                 service_ip == metadata_service_ip) {
-                *fabric_port = oper_->agent()->GetMetadataServerPort();
-                *fabric_ip = oper_->agent()->GetRouterId();
+                *fabric_port = oper_->agent()->metadata_server_port();
+                *fabric_ip = oper_->agent()->router_id();
                 return true;
             }
         }
@@ -454,8 +479,8 @@ bool GlobalVrouter::FindLinkLocalService(const Ip4Address &service_ip,
     *service_name = it->second.linklocal_service_name;
     if (*service_name == GlobalVrouter::kMetadataService) {
         // for metadata, return vhost0 ip and HTTP proxy port
-        *fabric_port = oper_->agent()->GetMetadataServerPort();
-        *fabric_ip = oper_->agent()->GetRouterId();
+        *fabric_port = oper_->agent()->metadata_server_port();
+        *fabric_ip = oper_->agent()->router_id();
         return true;
     }
 
@@ -470,6 +495,41 @@ bool GlobalVrouter::FindLinkLocalService(const Ip4Address &service_ip,
                it->second.ipfabric_dns_service_name, fabric_ip);
     }
     return false;
+}
+
+// Get link local services, for a given service name
+bool GlobalVrouter::FindLinkLocalService(const std::string &service_name,
+                                         std::set<Ip4Address> *service_ip
+                                        ) const {
+    if (service_name.empty())
+        return false;
+
+    std::string name = boost::to_lower_copy(service_name);
+    for (GlobalVrouter::LinkLocalServicesMap::const_iterator it =
+         linklocal_services_map_.begin();
+         it != linklocal_services_map_.end(); ++it) {
+        if (it->second.linklocal_service_name == name) {
+            service_ip->insert(it->first.linklocal_service_ip);
+        }
+    }
+
+    return (service_ip->size() > 0);
+}
+
+// Get link local services info for a given linklocal service <ip>
+bool GlobalVrouter::FindLinkLocalService(const Ip4Address &service_ip,
+                                         std::set<std::string> *service_names
+                                        ) const {
+    LinkLocalServicesMap::const_iterator it =
+        linklocal_services_map_.lower_bound(LinkLocalServiceKey(service_ip, 0));
+
+    while (it != linklocal_services_map_.end() &&
+           it->first.linklocal_service_ip == service_ip) {
+        service_names->insert(it->second.linklocal_service_name);
+        it++;
+    }
+
+    return (service_names->size() > 0);
 }
 
 // Handle changes to link local service configuration

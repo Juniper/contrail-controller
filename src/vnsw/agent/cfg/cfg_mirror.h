@@ -5,12 +5,14 @@
 #ifndef __AGENT_MIRROR_CFG_H__
 #define __AGENT_MIRROR_CFG_H__
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
-#include <cmn/agent_cmn.h>
-#include <oper/agent_types.h>
 #include <map>
+#include <cmn/agent_cmn.h>
+#include <cmn/agent.h>
+#include <agent_types.h>
 
+using namespace boost::uuids;
+
+class MirrorCfgDisplayResp;
 struct MirrorCfgKey {
     std::string handle;
 };

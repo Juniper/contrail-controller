@@ -7,7 +7,6 @@
 
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/monotonic_deadline_timer.hpp>
 #include <boost/asio/strand.hpp>
 
 #ifdef __clang__
@@ -26,7 +25,7 @@
 
 class IFMapStateMachine;
 class IFMapManager;
-class Timer;
+class TimerImpl;
 class IFMapPeerTimedoutEntries;
 
 class IFMapChannel {
@@ -160,9 +159,6 @@ public:
 
     void GetTimedoutEntries(IFMapPeerTimedoutEntries *entries);
 
-    // temp instrumentation. Remove asap.
-    std::string ArcSocketReadHandleRequest(int bytes_to_read, size_t *bytes);
-
     const std::string &get_host() { return host_; }
     const std::string &get_port() { return port_; }
     void SetHostPort(const std::string &host, const std::string &port) {
@@ -173,8 +169,8 @@ public:
                                      const std::string &port);
 
 private:
-    // 75 seconds i.e. 60 + (3*5)s
-    static const int kSessionKeepaliveIdleTime = 60; // in seconds
+    // 45 seconds i.e. 30 + (3*5)s
+    static const int kSessionKeepaliveIdleTime = 30; // in seconds
     static const int kSessionKeepaliveInterval = 3; // in seconds
     static const int kSessionKeepaliveProbes = 5; // count
 
@@ -197,7 +193,7 @@ private:
     SslStream *GetSocket(ResponseState response_state);
     ProcCompleteMsgCb GetCallback(ResponseState response_state);
     void CloseSockets(const boost::system::error_code& error,
-                     boost::asio::monotonic_deadline_timer *socket_close_timer);
+                      TimerImpl *socket_close_timer);
     void SetArcSocketOptions();
     std::string timeout_to_string(uint64_t timeout);
     void set_connection_status(ConnectionStatus status);
@@ -240,15 +236,11 @@ private:
     boost::asio::ip::tcp::endpoint endpoint_;
     TimedoutMap timedout_map_;
 
-    // temp instrumentation. Remove asap.
     std::string GetSizeAsString(size_t stream_sz, std::string log) {
         std::ostringstream ss;
         ss << stream_sz << log;
         return ss.str();
     }
-    boost::asio::streambuf temp_reply_;
-    std::ostringstream temp_reply_ss_;
-    std::string temp_reply_str_;
 };
 
 #endif /* __IFMAP_CHANNEL_H__ */

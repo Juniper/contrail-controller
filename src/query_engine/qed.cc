@@ -15,13 +15,14 @@
 #include "base/task.h"
 #include "base/task_trigger.h"
 #include "base/timer.h"
+#include "base/connection_info.h"
 #include "io/event_manager.h"
 #include "QEOpServerProxy.h"
 #include <boost/bind.hpp>
 #include <boost/assign/list_of.hpp>
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>
-#include "analytics_cpuinfo_types.h"
+#include "analytics_types.h"
 #include "query_engine/options.h"
 #include "query.h"
 #include <base/misc_utils.h>
@@ -36,6 +37,8 @@ using boost::assign::list_of;
 using boost::system::error_code;
 using namespace boost::asio;
 using namespace std;
+using process::ConnectionStateManager;
+using process::GetProcessStateCb;
 // This is to force qed to wait for a gdbattach
 // before proceeding.
 // It will make it easier to debug qed during systest
@@ -143,19 +146,17 @@ main(int argc, char *argv[]) {
         usleep(1000);
     }
 
-    if (options.log_file() == "<stdout>") {
-        LoggingInit();
-    } else {
-        LoggingInit(options.log_file(), options.log_file_size(),
-                    options.log_files_count());
-    }
+    Module::type module = Module::QUERY_ENGINE;
+    string module_name = g_vns_constants.ModuleNames.find(module)->second;
+
+    LoggingInit(options.log_file(), options.log_file_size(),
+                options.log_files_count(), options.use_syslog(),
+                options.syslog_facility(), module_name);
 
     error_code error;
     DiscoveryServiceClient *ds_client = NULL;
     ip::tcp::endpoint dss_ep;
     Sandesh::CollectorSubFn csf = 0;
-    Module::type module = Module::QUERY_ENGINE;
-    string module_name = g_vns_constants.ModuleNames.find(module)->second;
     if (!options.discovery_server().empty()) {
         error_code error;
         dss_ep.address(
@@ -204,19 +205,31 @@ main(int argc, char *argv[]) {
         SetLoggingDisabled(true);
     }
 
-    string cassandra_server = options.cassandra_server_list()[0];
-    typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
-    boost::char_separator<char> sep(":");
-    tokenizer tokens(cassandra_server, sep);
-    tokenizer::iterator it = tokens.begin();
-    std::string cassandra_ip(*it);
-    ++it;
-    std::string port(*it);
-    int cassandra_port;
-    stringToInteger(port, cassandra_port);
+    vector<string> cassandra_servers(options.cassandra_server_list());
+    vector<string> cassandra_ips;
+    vector<int> cassandra_ports;
+    for (vector<string>::const_iterator it = cassandra_servers.begin();
+         it != cassandra_servers.end(); it++) {
+        string cassandra_server(*it);
+        typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
+        boost::char_separator<char> sep(":");
+        tokenizer tokens(cassandra_server, sep);
+        tokenizer::iterator tit = tokens.begin();
+        string cassandra_ip(*tit);
+        cassandra_ips.push_back(cassandra_ip);
+        ++tit;
+        string port(*tit);
+        int cassandra_port;
+        stringToInteger(port, cassandra_port);
+        cassandra_ports.push_back(cassandra_port);
+    }
+    ostringstream css;
+    copy(cassandra_servers.begin(), cassandra_servers.end(),
+         ostream_iterator<string>(css, " "));
+    LOG(INFO, "Cassandra Servers: " << css.str());
 
     QueryEngine *qe;
-    if (cassandra_port == 0) {
+    if (cassandra_ports.size() == 1 && cassandra_ports[0] == 0) {
         qe = new QueryEngine(&evm,
             options.redis_server(),
             options.redis_port(),
@@ -225,8 +238,8 @@ main(int argc, char *argv[]) {
             options.analytics_data_ttl());
     } else {
         qe = new QueryEngine(&evm,
-            cassandra_ip,
-            cassandra_port,
+            cassandra_ips,
+            cassandra_ports,
             options.redis_server(),
             options.redis_port(),
             options.max_tasks(),
@@ -237,6 +250,15 @@ main(int argc, char *argv[]) {
     (void) qe;
 
     CpuLoadData::Init();
+    // Determine if the number of connections is expected:
+    // 1. Collector client
+    // 2. Redis
+    // 3. Cassandra
+    ConnectionStateManager<NodeStatusUVE, NodeStatus>::
+        GetInstance()->Init(*evm.io_service(),
+            options.hostname(), module_name,
+            Sandesh::instance_id(),
+            boost::bind(&GetProcessStateCb, _1, _2, _3, 3));
     qe_info_trigger =
         new TaskTrigger(boost::bind(&QEInfoLogger, options.hostname()),
                     TaskScheduler::GetInstance()->GetTaskId("qe::Stats"), 0);
@@ -255,6 +277,8 @@ main(int argc, char *argv[]) {
     WaitForIdle();
     delete qe;
     Sandesh::Uninit();
+    ConnectionStateManager<NodeStatusUVE, NodeStatus>::
+        GetInstance()->Shutdown();
     WaitForIdle();
     return 0;
 }

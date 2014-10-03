@@ -10,17 +10,20 @@
 #include <net/ethernet.h>
 #include <net/address.h>
 #include <netinet/ether.h>
+
 #include <base/lifetime.h>
 #include <base/patricia.h>
 #include <base/task_annotations.h>
+
 #include <cmn/agent_cmn.h>
+#include <cmn/agent.h>
+#include <agent_types.h>
 #include <route/route.h>
 #include <route/table.h>
 
 #include <oper/interface_common.h>
 #include <oper/nexthop.h>
 #include <oper/peer.h>
-#include <oper/mpls.h>
 #include <oper/agent_types.h>
 #include <oper/multicast.h>
 #include <controller/controller_peer.h>
@@ -28,6 +31,7 @@
 
 class AgentRoute;
 class AgentPath;
+class Peer;
 
 struct AgentRouteKey : public AgentKey {
     AgentRouteKey(const Peer *peer, const std::string &vrf_name) : 
@@ -38,9 +42,11 @@ struct AgentRouteKey : public AgentKey {
     virtual std::string ToString() const = 0;
     virtual AgentRoute *AllocRouteEntry(VrfEntry *vrf,
                                         bool is_multicast) const = 0;
+    virtual AgentRouteKey *Clone() const = 0;
 
     const std::string &vrf_name() const { return vrf_name_; }
     const Peer *peer() const { return peer_; }
+    void set_peer(Peer *peer) {peer_ = peer;}
 
     const Peer *peer_;
     std::string vrf_name_;
@@ -48,14 +54,23 @@ struct AgentRouteKey : public AgentKey {
 };
 
 struct AgentRouteData : public AgentData {
-    AgentRouteData(bool is_multicast) : is_multicast_(is_multicast) { }
+    enum Type {
+        ADD_DEL_CHANGE,
+        ROUTE_PREFERENCE_CHANGE,
+    };
+    AgentRouteData(bool is_multicast) : type_(ADD_DEL_CHANGE),
+    is_multicast_(is_multicast) { }
+    AgentRouteData(Type type, bool is_multicast):
+        type_(type), is_multicast_(is_multicast) { }
     virtual ~AgentRouteData() { }
 
     virtual std::string ToString() const = 0;
     virtual bool AddChangePath(Agent *agent, AgentPath *path) = 0;
+    virtual bool IsPeerValid() const {return true;}
 
     bool is_multicast() const {return is_multicast_;}
 
+    Type type_;
     bool is_multicast_;
     DISALLOW_COPY_AND_ASSIGN(AgentRouteData);
 };
@@ -121,9 +136,9 @@ public:
     }
 
     Agent *agent() const { return agent_; }
-    const std::string &vrf_name() const { return vrf_entry_->GetName();};
+    const std::string &vrf_name() const;
     uint32_t vrf_id() const {return vrf_id_;}
-    VrfEntry *vrf_entry() const {return vrf_entry_.get();}
+    VrfEntry *vrf_entry() const;
     AgentRoute *FindActiveEntry(const AgentRouteKey *key);
 
     // Set VRF for the route-table
@@ -136,7 +151,7 @@ public:
     // Lifetime actor routines
     LifetimeActor *deleter();
     void ManagedDelete();
-    void MayResumeDelete(bool is_empty);
+    virtual void RetryDelete();
 
     // Process DBRequest inline
     void Process(DBRequest &req);
@@ -145,7 +160,8 @@ public:
     static bool PathSelection(const Path &path1, const Path &path2);
     static const std::string &GetSuffix(Agent::RouteTableType type);
     void DeletePathFromPeer(DBTablePartBase *part, AgentRoute *rt,
-                            const Peer *peer);
+                            AgentPath *path);
+                            //const Peer *peer);
     //Stale path handling
     void StalePathFromPeer(DBTablePartBase *part, AgentRoute *rt,
                            const Peer *peer);
@@ -201,8 +217,11 @@ public:
     virtual bool DBEntrySandesh(Sandesh *sresp, bool stale) const = 0;
     virtual std::string ToString() const = 0;
     virtual const std::string GetAddressString() const = 0;
-    virtual bool EcmpAddPath(AgentPath *path) {return false;}
-    virtual bool EcmpDeletePath(AgentPath *path) {return false;}
+    virtual bool ReComputePathDeletion(AgentPath *path) {return false;}
+    virtual bool ReComputePathAdd(AgentPath *path) {return false;}
+    virtual uint32_t GetActiveLabel() const;
+    virtual AgentPath *FindPathUsingKey(const AgentRouteKey *key);
+    virtual void DeletePath(const AgentRouteKey *key);
 
     // Accessor functions
     bool is_multicast() const {return is_multicast_;}
@@ -213,14 +232,12 @@ public:
     AgentPath *FindPath(const Peer *peer) const;
     const AgentPath *GetActivePath() const;
     const NextHop *GetActiveNextHop() const; 
-    uint32_t GetMplsLabel() const; 
     const std::string &dest_vn_name() const;
     bool IsRPFInvalid() const;
 
     void EnqueueRouteResync() const;
     void ResyncTunnelNextHop();
     bool HasUnresolvedPath();
-    bool CanDissociate() const;
     bool Sync(void);
     void SquashStalePaths(const AgentPath *path);
 
@@ -230,11 +247,13 @@ public:
     bool IsTunnelNHListEmpty() { return tunnel_nh_list_.empty(); }
 
     void FillTrace(RouteInfo &route, Trace event, const AgentPath *path);
+    bool WaitForTraffic() const;
 protected:
     void SetVrf(VrfEntryRef vrf) { vrf_ = vrf; }
     void RemovePathInternal(AgentPath *path);
     void RemovePath(AgentPath *path);
     void InsertPath(const AgentPath *path);
+    void DeletePathInternal(AgentPath *path);
 
 private:
     friend class AgentRouteTable;
@@ -257,10 +276,11 @@ extern SandeshTraceBufferPtr AgentDBwalkTraceBuf;
     obj::TraceMsg(AgentDBwalkTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__); \
 } while (0);
 
-#define AGENT_ROUTE_LOG(oper, route, vrf, peer)\
+#define GETPEERNAME(peer) (peer)? peer->GetName() : ""
+#define AGENT_ROUTE_LOG(oper, route, vrf, peer_name)\
 do {\
     AgentRouteLog::Send("Agent", SandeshLevel::SYS_INFO, __FILE__, __LINE__,\
-                   oper, route, vrf, (peer)? peer->GetName():" ");\
+                   oper, route, vrf, peer_name);\
 } while(false);\
 
 #endif

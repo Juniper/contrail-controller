@@ -4,27 +4,18 @@
 
 # -*- mode: python; -*-
 
+import sys
+if sys.platform == 'darwin':
+    Return()
+
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-import sys
-if sys.platform != 'darwin':
-    SandeshGenFiles = env.SandeshGenCpp('diag.sandesh')
-    SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+SandeshGenFiles = env.SandeshGenCpp('diag.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
 
-    except_env = AgentEnv.Clone()
-    cflags = except_env['CCFLAGS']
-    if '-fno-exceptions' in cflags:
-        cflags.remove('-fno-exceptions')
-        except_env.Replace(CCFLAGS = cflags)
-
-    sandesh_objs = []
-    for src in SandeshGenSrcs:
-        objname = src.replace('.cpp', '.o')
-        obj = except_env.Object(objname, src)
-        sandesh_objs.append(obj)
-
-    libdiag = env.Library('diag',
+libdiag = env.Library('diag',
                    sandesh_objs +
                    [
                     'diag.cc',

@@ -5,23 +5,29 @@
 #ifndef __AGENT_ACL_N_H__
 #define __AGENT_ACL_N_H__
 
-#include "filter/traffic_action.h"
-#include <filter/acl_entry_match.h>
-#include "filter/acl_entry_spec.h"
-#include "filter/acl_entry.h"
-
 #include <boost/intrusive/list.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/intrusive_ptr.hpp>
 #include <tbb/atomic.h>
-#include <cmn/agent_cmn.h>
-#include <oper/agent_types.h>
+
+#include <filter/traffic_action.h>
+#include <filter/acl_entry_match.h>
+#include <filter/acl_entry_spec.h>
+#include <filter/acl_entry.h>
 
 struct FlowKey;
 
 using namespace boost::uuids;
 class VnEntry;
 class Interface;
+
+struct FlowPolicyInfo {
+    std::string uuid;
+    bool drop;
+    bool terminal;
+    bool other;
+    FlowPolicyInfo(const std::string &u);
+};
 
 struct FlowAction {
     FlowAction(): 
@@ -39,7 +45,7 @@ struct FlowAction {
 };
 
 struct MatchAclParams {
-    MatchAclParams(): acl(NULL), ace_id_list(), terminal_rule(false) {};
+    MatchAclParams(): acl(NULL), ace_id_list(), terminal_rule(false) {}
     ~MatchAclParams() { };
 
     AclDBEntryConstRef acl;
@@ -102,8 +108,10 @@ public:
     bool GetDynamicAcl () const {return dynamic_acl_;};
 
     // Packet Match
-    bool PacketMatch(const PacketHeader &packet_header, 
-		     MatchAclParams &m_acl) const;
+    bool PacketMatch(const PacketHeader &packet_header, MatchAclParams &m_acl,
+                     FlowPolicyInfo *info) const;
+    bool Changed(const AclEntries &new_acl_entries) const;
+    uint32_t ace_count() const { return acl_entries_.size();}
 private:
     friend class AclTable;
     uuid uuid_;
@@ -116,6 +124,14 @@ private:
 class AclTable : public AgentDBTable {
 public:
     typedef std::map<std::string, TrafficAction::Action> TrafficActionMap;
+    // Packet module is optional. Callback function to update the flow stats
+    // for ACL. The callback is defined to avoid linking error
+    // when flow is not enabled
+    typedef boost::function<void(const AclDBEntry *acl, AclFlowCountResp &data,
+                                 int ace_id)> FlowAceSandeshDataFn;
+    typedef boost::function<void(const AclDBEntry *acl, AclFlowResp &data,
+                                 const int last_count)> FlowAclSandeshDataFn;
+
     AclTable(DB *db, const std::string &name) : AgentDBTable(db, name) { }
     virtual ~AclTable() { }
     void GetTables(DB *db) { };
@@ -136,12 +152,16 @@ public:
                                 const std::string ctx, const int last_count);
     static void AclFlowCountResponse(const std::string acl_uuid_str, 
                                      const std::string ctx, int ace_id);
+    void set_ace_flow_sandesh_data_cb(FlowAceSandeshDataFn fn);
+    void set_acl_flow_sandesh_data_cb(FlowAclSandeshDataFn fn);
 private:
     static const AclDBEntry* GetAclDBEntry(const std::string uuid_str, 
                                            const std::string ctx,
                                            SandeshResponse *resp);
     void ActionInit();
     TrafficActionMap ta_map_;
+    FlowAceSandeshDataFn flow_ace_sandesh_data_cb_;
+    FlowAclSandeshDataFn flow_acl_sandesh_data_cb_;
     DISALLOW_COPY_AND_ASSIGN(AclTable);
 };
 

@@ -17,38 +17,89 @@ from gevent.coros import BoundedSemaphore
 
 import uuid
 
+LOG_DIR = '/var/log/contrail/'
 
 class IndexAllocator(object):
 
-    def __init__(self, zookeeper_client, path, size, start_idx=0, reverse=False):
+    def __init__(self, zookeeper_client, path, size=0, start_idx=0, 
+                 reverse=False,alloc_list=None, max_alloc=0):
+        if alloc_list is None:
+            self._alloc_list = [{'start':start_idx, 'end':start_idx+size}]
+        else:
+            sorted_alloc_list = sorted(alloc_list, key=lambda k: k['start'])
+            self._alloc_list = sorted_alloc_list
+
+        alloc_count = len(self._alloc_list)
+        total_size = 0
+        start_idx = self._alloc_list[0]['start']
+        size = 0
+
+        #check for overlap in alloc_list --TODO
+        for alloc_idx in range (0, alloc_count -1):
+            idx_start_addr = self._alloc_list[alloc_idx]['start']
+            idx_end_addr = self._alloc_list[alloc_idx]['end']
+            next_start_addr = self._alloc_list[alloc_idx+1]['start']
+            if next_start_addr <= idx_end_addr:
+                raise Exception()
+            size += idx_end_addr - idx_start_addr + 1
+        size += self._alloc_list[alloc_count-1]['end'] - self._alloc_list[alloc_count-1]['start'] + 1
+
+        self._size = size
+        self._start_idx = start_idx
+        if max_alloc == 0:
+            self._max_alloc = self._size
+        else:
+            self._max_alloc = max_alloc
+
         self._zookeeper_client = zookeeper_client
         self._path = path
-        self._start_idx = start_idx
-        self._size = size
         self._in_use = bitarray('0')
         self._reverse = reverse
         for idx in self._zookeeper_client.get_children(path):
             idx_int = self._get_bit_from_zk_index(int(idx))
-            self._set_in_use(idx_int)
+            if idx_int >= 0:
+                self._set_in_use(idx_int)
         # end for idx
     # end __init__
 
     def _get_zk_index_from_bit(self, idx):
+        size = idx
         if self._reverse:
-            return self._start_idx + self._size - idx
+            for alloc in reversed(self._alloc_list):
+                size -= alloc['end'] - alloc['start'] + 1
+                if size < 0:
+                   return alloc['start']-size - 1
         else:
-            return self._start_idx + idx
+            for alloc in self._alloc_list:
+                size -= alloc['end'] - alloc['start'] + 1
+                if size < 0:
+                   return alloc['end']+size + 1
+
+        raise Exception()
     # end _get_zk_index
 
     def _get_bit_from_zk_index(self, idx):
+        size = 0
         if self._reverse:
-            return self._size - idx + self._start_idx
+            for alloc in reversed(self._alloc_list):
+                if alloc['start'] <= idx <= alloc['end']:
+                    return alloc['end'] - idx + size
+                size += alloc['end'] - alloc['start'] + 1
+            pass
         else:
-            return idx - self._start_idx
+            for alloc in self._alloc_list:
+                if alloc['start'] <= idx <= alloc['end']:
+                    return idx - alloc['start'] + size
+                size += alloc['end'] - alloc['start'] + 1
+        return -1
     # end _get_bit_from_zk_index
 
     def _set_in_use(self, idx):
-        # set idx bit to 1, extend the _in_use if needed
+        # if the index is higher than _max_alloc, do not use the bitarray, in
+        # order to reduce the size of the bitarray. Otherwise, set the bit
+        # corresponding to idx to 1 and extend the _in_use bitarray if needed
+        if idx > self._max_alloc:
+            return
         if idx >= self._in_use.length():
             temp = bitarray(idx - self._in_use.length())
             temp.setall(0)
@@ -61,7 +112,7 @@ class IndexAllocator(object):
     def alloc(self, value=None):
         if self._in_use.all():
             idx = self._in_use.length()
-            if idx > self._size:
+            if idx > self._max_alloc:
                 raise ResourceExhaustionError()
             self._in_use.append(1)
         else:
@@ -79,16 +130,17 @@ class IndexAllocator(object):
     # end alloc
 
     def reserve(self, idx, value=None):
-        if idx > (self._start_idx + self._size):
-            return None
+        bit_idx = self._get_bit_from_zk_index(idx)
+        if bit_idx < 0:
+            return None  
         try:
             # Create a node at path and return its integer value
             id_str = "%(#)010d" % {'#': idx}
             self._zookeeper_client.create_node(self._path + id_str, value)
-            self._set_in_use(self._get_bit_from_zk_index(idx))
+            self._set_in_use(bit_idx)
             return idx
         except ResourceExistsError:
-            self._set_in_use(self._get_bit_from_zk_index(idx))
+            self._set_in_use(bit_idx) 
             return None
     # end reserve
 
@@ -96,7 +148,7 @@ class IndexAllocator(object):
         id_str = "%(#)010d" % {'#': idx}
         self._zookeeper_client.delete_node(self._path + id_str)
         bit_idx = self._get_bit_from_zk_index(idx)
-        if bit_idx < self._in_use.length():
+        if 0 <= bit_idx < self._in_use.length():
             self._in_use[bit_idx] = 0
     # end delete
 
@@ -104,7 +156,9 @@ class IndexAllocator(object):
         id_str = "%(#)010d" % {'#': idx}
         id_val = self._zookeeper_client.read_node(self._path+id_str)
         if id_val is not None:
-            self._set_in_use(self._get_bit_from_zk_index(idx))
+            bit_idx = self._get_bit_from_zk_index(idx)
+            if bit_idx >= 0:
+                self._set_in_use(bit_idx)
         return id_val
     # end read
 
@@ -114,7 +168,11 @@ class IndexAllocator(object):
 
     @classmethod
     def delete_all(cls, zookeeper_client, path):
-        zookeeper_client.delete_node(path, recursive=True)
+        try:
+            zookeeper_client.delete_node(path, recursive=True)
+        except kazoo.exceptions.NotEmptyError:
+            #TODO: Add retries for NotEmptyError
+            zookeeper_client.syslog("NotEmptyError while deleting %s" % path)
     # end delete_all
 
 #end class IndexAllocator
@@ -127,9 +185,9 @@ class ZookeeperClient(object):
         logger = logging.getLogger(module)
         logger.setLevel(logging.INFO)
         try:
-            handler = logging.handlers.RotatingFileHandler('/var/log/contrail/' + module + '-zk.log', maxBytes=10*1024*1024, backupCount=5)
+            handler = logging.handlers.RotatingFileHandler(LOG_DIR + module + '-zk.log', maxBytes=10*1024*1024, backupCount=5)
         except IOError:
-            print "Cannot open log file in /var/log/contrail/"
+            print "Cannot open log file in %s" %(LOG_DIR)
         else:
             log_format = logging.Formatter('%(asctime)s [%(name)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
             handler.setFormatter(log_format)
@@ -145,9 +203,14 @@ class ZookeeperClient(object):
         self._zk_client.add_listener(self._zk_listener)
         self._logger = logger
         self._election = None
+        self._server_list = server_list
         # KazooRetry to retry keeper CRUD operations
         self._retry = KazooRetry(max_tries=None)
+
+        self._sandesh_connection_info_update(status='INIT', message='')
+
         self.connect()
+
     # end __init__
 
     # start 
@@ -159,12 +222,21 @@ class ZookeeperClient(object):
             except gevent.event.Timeout as e:
                 self.syslog(
                     'Failed to connect with Zookeeper -will retry in a second')
+                # Update connection info
+                self._sandesh_connection_info_update(status='DOWN',
+                                                     message=str(e))
                 gevent.sleep(1)
             # Zookeeper is also throwing exception due to delay in master election
             except Exception as e:
                 self.syslog('%s -will retry in a second' % (str(e)))
+                # Update connection info
+                self._sandesh_connection_info_update(status='DOWN',
+                                                     message=str(e))
                 gevent.sleep(1)
         self.syslog('Connected to ZooKeeper!')
+                # Update connection info
+        self._sandesh_connection_info_update(status='UP', message='')
+
     # end
 
     def is_connected(self):
@@ -181,11 +253,18 @@ class ZookeeperClient(object):
         if state == KazooState.CONNECTED:
             if self._election:
                 self._election.cancel()
+            # Update connection info
+            self._sandesh_connection_info_update(status='UP', message='')
         elif state == KazooState.LOST:
             # Lost the session with ZooKeeper Server
             # Best of option we have is to exit the process and restart all 
             # over again
             os._exit(2)
+        elif state == KazooState.SUSPENDED:
+            # Update connection info
+            self._sandesh_connection_info_update(status='INIT',
+                message = 'Connection to zookeeper lost. Retrying')
+
     # end
 
     def _zk_election_callback(self, func, *args, **kwargs):
@@ -219,7 +298,7 @@ class ZookeeperClient(object):
             retry(self._zk_client.delete, path, recursive=recursive)
         except kazoo.exceptions.NoNodeError:
             pass
-        except Exeception as e:
+        except Exception as e:
             raise e
     # end delete_node
 
@@ -239,5 +318,15 @@ class ZookeeperClient(object):
         except Exception:
             return []
     # end read_node
+
+    def _sandesh_connection_info_update(self, status, message):
+        from pysandesh.connection_info import ConnectionState
+        from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
+            ConnectionType
+        ConnectionState.update(conn_type = ConnectionType.ZOOKEEPER,
+                name = 'Zookeeper', status = getattr(ConnectionStatus, status),
+                message = message,
+                server_addrs = self._server_list.split(','))
+    # end _sandesh_connection_info_update
 
 # end class ZookeeperClient

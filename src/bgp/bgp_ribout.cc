@@ -53,8 +53,9 @@ bool RibExportPolicy::operator<(const RibExportPolicy &rhs) const {
     return false;
 }
 
-RibOutAttr::RibOutAttr(const BgpAttr *attr, uint32_t label) : attr_out_(attr) {
-    if (attr) {
+RibOutAttr::RibOutAttr(const BgpAttr *attr, uint32_t label, bool include_nh)
+    : attr_out_(attr) {
+    if (attr && include_nh) {
         nexthop_list_.push_back(
                 NextHop(attr->nexthop(), label, attr->ext_community()));
     }

@@ -6,6 +6,7 @@
         <neighbor name="_A_Peer">
             <ip-address>127.0.0.1</ip-address>
             <family>inet-vpn</family>
+            <family>erm-vpn</family>
             <port>%(port)d</port>
 	    <peer-id>1</peer-id>
             <remote-as>100</remote-as>

@@ -273,17 +273,6 @@ bool VnUveEntry::UveVnVrfStatsChanged(const vector<UveVrfStats> &vlist) const {
     return false;
 }
 
-bool VnUveEntry::UveInterVnStatsChanged(const vector<InterVnStats> &new_list) 
-                                        const {
-    if (!uve_info_.__isset.vn_stats) {
-        return true;
-    }
-    if (new_list != uve_info_.get_vn_stats()) {
-        return true;
-    }
-    return false;
-}
-
 bool VnUveEntry::UveInterVnInStatsChanged(const vector<UveInterVnStats> 
                                           &new_list) const {
     if (!uve_info_.__isset.in_stats) {
@@ -383,7 +372,7 @@ bool VnUveEntry::PopulateInterVnStats(UveVirtualNetworkAgent &s_vn) {
 
             InterVnStats diff_stats;
             diff_stats.set_other_vn(stats->dst_vn_);
-            diff_stats.set_vrouter(agent_->GetHostName());
+            diff_stats.set_vrouter(agent_->host_name());
             diff_stats.set_in_tpkts(stats->in_pkts_ - stats->prev_in_pkts_);
             diff_stats.set_in_bytes(stats->in_bytes_ - stats->prev_in_bytes_);
             diff_stats.set_out_tpkts(stats->out_pkts_ - stats->prev_out_pkts_);
@@ -413,11 +402,8 @@ bool VnUveEntry::PopulateInterVnStats(UveVirtualNetworkAgent &s_vn) {
         }
     }
     if (!vn_stats_list.empty()) {
-        if (UveInterVnStatsChanged(vn_stats_list)) {
-            s_vn.set_vn_stats(vn_stats_list);
-            uve_info_.set_vn_stats(vn_stats_list);
-            changed = true;
-        }
+        s_vn.set_vn_stats(vn_stats_list);
+        changed = true;
     }
     return changed;
 }
@@ -517,7 +503,8 @@ bool VnUveEntry::FrameVnMsg(const VnEntry *vn, UveVirtualNetworkAgent &uve) {
 }
 
 bool VnUveEntry::FrameVnStatsMsg(const VnEntry *vn, 
-                                 UveVirtualNetworkAgent &uve) {
+                                 UveVirtualNetworkAgent &uve,
+                                 bool only_vrf_stats) {
     bool changed = false;
     uve.set_name(vn->GetName());
 
@@ -525,6 +512,14 @@ bool VnUveEntry::FrameVnStatsMsg(const VnEntry *vn,
     uint64_t in_bytes = 0;
     uint64_t out_pkts = 0;
     uint64_t out_bytes = 0;
+
+    if (UpdateVrfStats(vn, uve)) {
+        changed = true;
+    }
+
+    if (only_vrf_stats) {
+        return changed;
+    }
 
     int fip_count = 0;
     InterfaceSet::iterator it = interface_tree_.begin();
@@ -633,9 +628,6 @@ bool VnUveEntry::FrameVnStatsMsg(const VnEntry *vn,
         changed = true;
     }
 
-    if (UpdateVrfStats(vn, uve)) {
-        changed = true;
-    }
     return changed;
 }
 

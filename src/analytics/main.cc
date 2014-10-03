@@ -7,7 +7,7 @@
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/program_options.hpp>
 #include <boost/tokenizer.hpp>
-
+#include <malloc.h>
 #include "analytics/options.h"
 #include "analytics/viz_constants.h"
 #include "base/cpuinfo.h"
@@ -17,6 +17,7 @@
 #include "base/task.h"
 #include "base/task_trigger.h"
 #include "base/timer.h"
+#include "base/connection_info.h"
 #include "io/event_manager.h"
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
@@ -27,7 +28,7 @@
 #include "viz_sandesh.h"
 #include "ruleeng.h"
 #include "viz_types.h"
-#include "analytics_cpuinfo_types.h"
+#include "analytics_types.h"
 #include "generator.h"
 #include "Thrift.h"
 #include <base/misc_utils.h>
@@ -38,10 +39,12 @@
 using namespace std;
 using namespace boost::asio::ip;
 namespace opt = boost::program_options;
+using process::ConnectionStateManager;
+using process::GetProcessStateCb;
 
 static TaskTrigger *collector_info_trigger;
 static Timer *collector_info_log_timer;
-static EventManager evm;
+static EventManager * a_evm = NULL; 
 
 bool CollectorInfoLogTimer() {
     collector_info_trigger->Set();
@@ -119,10 +122,10 @@ bool CollectorSummaryLogger(Collector *collector, const string & hostname,
     state.set_generator_infos(infos);
 
     // Get socket stats
-    TcpServerSocketStats rx_stats;
+    SocketIOStats rx_stats;
     collector->GetRxSocketStats(rx_stats);
     state.set_rx_socket_stats(rx_stats);
-    TcpServerSocketStats tx_stats;
+    SocketIOStats tx_stats;
     collector->GetTxSocketStats(tx_stats);
     state.set_tx_socket_stats(tx_stats);
 
@@ -170,10 +173,16 @@ void CollectorShutdown() {
     shutdown_ = true;
 
     // Shutdown event manager first to stop all IO activities.
-    evm.Shutdown();
+    a_evm->Shutdown();
 }
 
 static void terminate(int param) {
+    // Shutdown can result in a malloc-detected error
+    // Taking a stack trace during this error can result in 
+    // the process not terminating correctly
+    // using mallopt in this way ensures that we get a core,
+    // but we don't print a stack trace
+    mallopt(M_CHECK_ACTION, 2);
     CollectorShutdown();
 }
 
@@ -190,19 +199,21 @@ static void ShutdownServers(VizCollector *viz_collector,
     // Shutdown discovery client first
     ShutdownDiscoveryClient(client);
 
+    Sandesh::Uninit();
+
     viz_collector->Shutdown();
 
     TimerManager::DeleteTimer(collector_info_log_timer);
     delete collector_info_trigger;
 
-    VizCollector::WaitForIdle();
-    Sandesh::Uninit();
+    ConnectionStateManager<NodeStatusUVE, NodeStatus>::
+        GetInstance()->Shutdown();
     VizCollector::WaitForIdle();
 }
 
 static bool OptionsParse(Options &options, int argc, char *argv[]) {
     try {
-        options.Parse(evm, argc, argv);
+        options.Parse(*a_evm, argc, argv);
         return true;
     } catch (boost::program_options::error &e) {
         cout << "Error " << e.what() << endl;
@@ -220,6 +231,8 @@ volatile int gdbhelper = 1;
 
 int main(int argc, char *argv[])
 {
+    a_evm = new EventManager();
+
     Options options;
 
     if (!OptionsParse(options, argc, argv)) {
@@ -231,36 +244,56 @@ int main(int argc, char *argv[])
     }
 
     Collector::SetProgramName(argv[0]);
-    if (options.log_file() == "<stdout>") {
-        LoggingInit();
-    } else {
-        LoggingInit(options.log_file(), options.log_file_size(),
-                    options.log_files_count());
-    }
+    Module::type module = Module::COLLECTOR;
+    std::string module_id(g_vns_constants.ModuleNames.find(module)->second);
+    LoggingInit(options.log_file(), options.log_file_size(),
+                options.log_files_count(), options.use_syslog(),
+                options.syslog_facility(), module_id);
 
-    string cassandra_server = options.cassandra_server_list()[0];
-    typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
-    boost::char_separator<char> sep(":");
-    tokenizer tokens(cassandra_server, sep);
-    tokenizer::iterator it = tokens.begin();
-    std::string cassandra_ip(*it);
-    ++it;
-    std::string port(*it);
-    int cassandra_port;
-    stringToInteger(port, cassandra_port);
+    vector<string> cassandra_servers(options.cassandra_server_list());
+    vector<string> cassandra_ips;
+    vector<int> cassandra_ports;
+    for (vector<string>::const_iterator it = cassandra_servers.begin();
+         it != cassandra_servers.end(); it++) {
+        string cassandra_server(*it);
+        typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
+        boost::char_separator<char> sep(":");
+        tokenizer tokens(cassandra_server, sep);
+        tokenizer::iterator tit = tokens.begin();
+        string cassandra_ip(*tit);
+        cassandra_ips.push_back(cassandra_ip);
+        ++tit;
+        string port(*tit);
+        int cassandra_port;
+        stringToInteger(port, cassandra_port);
+        cassandra_ports.push_back(cassandra_port);
+    }
 
     LOG(INFO, "COLLECTOR LISTEN PORT: " << options.collector_port());
     LOG(INFO, "COLLECTOR REDIS UVE PORT: " << options.redis_port());
-    LOG(INFO, "COLLECTOR CASSANDRA SERVER: " << cassandra_ip);
-    LOG(INFO, "COLLECTOR CASSANDRA PORT: " << cassandra_port);
+    ostringstream css;
+    copy(cassandra_servers.begin(), cassandra_servers.end(),
+         ostream_iterator<string>(css, " "));
+    LOG(INFO, "COLLECTOR CASSANDRA SERVERS: " << css.str());
+    LOG(INFO, "COLLECTOR SYSLOG LISTEN PORT: " << options.syslog_port());
+    LOG(INFO, "COLLECTOR SFLOW LISTEN PORT: " << options.sflow_port());
+    uint16_t protobuf_port(0);
+    bool protobuf_server_enabled =
+        options.collector_protobuf_port(&protobuf_port);
+    if (protobuf_server_enabled) {
+        LOG(INFO, "COLLECTOR PROTOBUF LISTEN PORT: " << protobuf_port);
+    }
 
-    VizCollector analytics(&evm,
+    VizCollector analytics(a_evm,
             options.collector_port(),
-            cassandra_ip,
-            cassandra_port,
+            protobuf_server_enabled,
+            protobuf_port,
+            cassandra_ips,
+            cassandra_ports,
             string("127.0.0.1"),
             options.redis_port(),
             options.syslog_port(),
+            options.sflow_port(),
             options.dup(),
             options.analytics_data_ttl());
 
@@ -279,15 +312,15 @@ int main(int argc, char *argv[])
     analytics.Init();
 
     VizSandeshContext vsc(&analytics);
-    Module::type module = Module::COLLECTOR;
     NodeType::type node_type =
         g_vns_constants.Module2NodeType.find(module)->second;
+    std::string instance_id(g_vns_constants.INSTANCE_ID_DEFAULT);
     Sandesh::InitCollector(
-            g_vns_constants.ModuleNames.find(module)->second,
+            module_id,
             analytics.name(),
             g_vns_constants.NodeTypeNames.find(node_type)->second,
-            g_vns_constants.INSTANCE_ID_DEFAULT, 
-            &evm, "127.0.0.1", options.collector_port(),
+            instance_id, 
+            a_evm, "127.0.0.1", options.collector_port(),
             options.http_server_port(), &vsc);
 
     Sandesh::SetLoggingParams(options.log_local(), options.log_category(),
@@ -308,7 +341,7 @@ int main(int argc, char *argv[])
         dss_ep.port(options.discovery_port());
         string sname = 
             g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second;
-        ds_client = new DiscoveryServiceClient(&evm, dss_ep, sname);
+        ds_client = new DiscoveryServiceClient(a_evm, dss_ep, sname);
         ds_client->Init();
         Collector::SetDiscoveryServiceClient(ds_client);
 
@@ -324,17 +357,31 @@ int main(int argc, char *argv[])
     }
              
     CpuLoadData::Init();
+    // Determine if the number of connections is expected:
+    // 1. Collector client
+    // 2. Redis From
+    // 3. Redis To
+    // 4. Discovery Collector Publish
+    // 5. Database global
+    // 6. Database protobuf if enabled
+    ConnectionStateManager<NodeStatusUVE, NodeStatus>::
+        GetInstance()->Init(*a_evm->io_service(),
+            analytics.name(), module_id, instance_id,
+            boost::bind(&GetProcessStateCb, _1, _2, _3,
+            protobuf_server_enabled ? 6 : 5));
     collector_info_trigger =
         new TaskTrigger(boost::bind(&CollectorInfoLogger, vsc),
                     TaskScheduler::GetInstance()->GetTaskId("vizd::Stats"), 0);
-    collector_info_log_timer = TimerManager::CreateTimer(*evm.io_service(),
+    collector_info_log_timer = TimerManager::CreateTimer(*a_evm->io_service(),
         "Collector Info log timer",
         TaskScheduler::GetInstance()->GetTaskId("vizd::Stats"), 0);
     collector_info_log_timer->Start(5*1000, boost::bind(&CollectorInfoLogTimer), NULL);
     signal(SIGTERM, terminate);
-    evm.Run();
+    a_evm->Run();
 
     ShutdownServers(&analytics, ds_client);
+
+    delete a_evm;
 
     return 0;
 }

@@ -32,6 +32,9 @@ using namespace boost::asio;
 using namespace boost;
 using namespace std;
 
+int StateMachineTest::hold_time_msecs_ = 0;
+int StateMachineTest::keepalive_time_msecs_ = 0;
+
 //
 // This is a static data structure that maps client tcp end points to configured
 // bgp peers. Using this, we can form multiple bgp peering sessions between
@@ -78,21 +81,17 @@ void BgpServerTest::PostShutdown() {
     config_db_->Clear();
 }
 
-void BgpServerTest::Shutdown() {
-
-    //
-    // Wait for all pending events to get processed
-    //
+void BgpServerTest::Shutdown(bool verify) {
     task_util::WaitForIdle();
-
     BgpServer::Shutdown();
+    if (verify)
+        VerifyShutdown();
+}
 
-    //
-    // Wait for server close process to complete
-    //
+void BgpServerTest::VerifyShutdown() const {
     task_util::WaitForIdle();
     TASK_UTIL_ASSERT_EQ(0, routing_instance_mgr()->count());
-    TASK_UTIL_ASSERT_EQ(static_cast<BgpSessionManager *>(NULL), session_mgr_);
+    TASK_UTIL_ASSERT_TRUE(session_mgr_ == NULL);
 }
 
 BgpServerTest::~BgpServerTest() {
@@ -187,16 +186,6 @@ string BgpPeerTest::ToString() const {
         out << ")";
     }
     return out.str();
-}
-
-void BgpPeerTest::StartKeepaliveTimerUnlocked() {
-    int holdtime = state_machine_->hold_time();
-    if (holdtime <= 0)
-        return;
-
-    keepalive_timer_->Start(10,
-        boost::bind(&BgpPeer::KeepaliveTimerExpired, this),
-        boost::bind(&BgpPeer::KeepaliveTimerErrorHandler, this, _1, _2));
 }
 
 //
@@ -386,7 +375,7 @@ BgpNeighborConfig::BgpNeighborConfig(const BgpInstanceConfig *instance,
                                      const string &remote_name,
                                      const string &local_name,
                                      const autogen::BgpRouter *router)
-        : instance_(instance), name_(remote_name) {
+        : instance_(instance), name_(remote_name), local_as_(0) {
     const autogen::BgpRouterParams &params = router->parameters();
     peer_config_ = params;
 }

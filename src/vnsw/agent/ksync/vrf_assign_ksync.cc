@@ -12,12 +12,14 @@
 #include <ksync/ksync_index.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
+#include <ksync/ksync_netlink.h>
 #include <ksync/ksync_sock.h>
 #include "oper/interface_common.h"
 #include "oper/vrf.h"
 #include "oper/vrf_assign.h"
 #include "oper/mirror_table.h"
 #include "ksync/interface_ksync.h"
+#include "ksync/nexthop_ksync.h"
 #include "ksync/vrf_assign_ksync.h"
 #include "ksync_init.h"
 
@@ -25,7 +27,8 @@ VrfAssignKSyncEntry::VrfAssignKSyncEntry(VrfAssignKSyncObject* obj,
                                          const VrfAssignKSyncEntry *entry, 
                                          uint32_t index) :
     KSyncNetlinkDBEntry(index), ksync_obj_(obj), interface_(entry->interface_),
-    vlan_tag_(entry->vlan_tag_), vrf_id_(entry->vrf_id_) {
+    vlan_tag_(entry->vlan_tag_), vrf_id_(entry->vrf_id_),
+    nh_(entry->nh_) {
 }
 
 VrfAssignKSyncEntry::VrfAssignKSyncEntry(VrfAssignKSyncObject* obj,
@@ -84,7 +87,7 @@ std::string VrfAssignKSyncEntry::ToString() const {
 
     s << " Tag : " << vlan_tag();
     const VrfEntry* vrf =
-        ksync_obj_->ksync()->agent()->GetVrfTable()->FindVrfFromId(vrf_id_);
+        ksync_obj_->ksync()->agent()->vrf_table()->FindVrfFromId(vrf_id_);
     if (vrf) {
         s << " Vrf : " << vrf->GetName();
     }
@@ -108,7 +111,25 @@ bool VrfAssignKSyncEntry::Sync(DBEntry *e) {
         ret = true;
     }
 
+    const VlanVrfAssign *vlan = static_cast<const VlanVrfAssign *>(vassign);
+    vlan_tag_ = vlan->GetVlanTag();
+    NHKSyncObject *nh_object =
+        ksync_obj_->ksync()->nh_ksync_obj();
+    NHKSyncEntry nh(nh_object, vlan->nh());
+    if (nh_ != static_cast<NHKSyncEntry*>(nh_object->GetReference(&nh))) {
+        nh_ = static_cast<NHKSyncEntry*>(nh_object->GetReference(&nh));
+        ret = true;
+    }
+
     return ret;
+}
+
+InterfaceKSyncEntry *VrfAssignKSyncEntry::interface() const {
+    return static_cast<InterfaceKSyncEntry *>(interface_.get());
+}
+
+NHKSyncEntry *VrfAssignKSyncEntry::nh() const {
+    return static_cast<NHKSyncEntry *>(nh_.get());
 }
 
 int VrfAssignKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
@@ -120,6 +141,7 @@ int VrfAssignKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     encoder.set_var_vif_index(intf->interface_id());
     encoder.set_var_vlan_id(vlan_tag_);
     encoder.set_var_vif_vrf(vrf_id_);
+    encoder.set_var_nh_id(nh()->nh_id());
     encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
     LOG(DEBUG, "VRF Assign for Interface <" << intf->interface_name() << 
         "> Tag <" << vlan_tag() << "> Vrf <" << vrf_id_ << ">");
@@ -145,6 +167,10 @@ KSyncEntry *VrfAssignKSyncEntry::UnresolvedReference() {
     if (!intf->IsResolved()) {
         return intf;
     }
+    NHKSyncEntry *ksync_nh = nh();
+    if (!ksync_nh->IsResolved()) {
+        return ksync_nh;
+    }
     return NULL;
 }
 
@@ -156,7 +182,7 @@ VrfAssignKSyncObject::~VrfAssignKSyncObject() {
 }
 
 void VrfAssignKSyncObject::RegisterDBClients() {
-    RegisterDb(ksync_->agent()->GetVrfAssignTable());
+    RegisterDb(ksync_->agent()->vrf_assign_table());
 }
 
 KSyncEntry *VrfAssignKSyncObject::Alloc(const KSyncEntry *ke, uint32_t index) {

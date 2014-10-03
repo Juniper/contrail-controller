@@ -15,6 +15,7 @@
 #include "io/event_manager.h"
 #include "io/tcp_server.h"
 #include "io/tcp_message_write.h"
+#include "io/io_utils.h"
 #include "io/io_log.h"
 
 using namespace boost::asio;
@@ -201,7 +202,7 @@ void TcpSession::ConnectFailed() {
 }
 
 // Requires: lock must not be held
-void TcpSession::CloseInternal(bool callObserver) {
+void TcpSession::CloseInternal(bool call_observer, bool notify_server) {
     tbb::mutex::scoped_lock lock(mutex_);
 
     if (socket_.get() != NULL && !closed_) {
@@ -219,14 +220,16 @@ void TcpSession::CloseInternal(bool callObserver) {
     TcpSessionPtr session = TcpSessionPtr(this);
     lock.release();
 
-    {
+    if (call_observer) {
         tbb::mutex::scoped_lock obs_lock(obs_mutex_);
-        if (callObserver == true && observer_) {
-            observer_(session.get(), CLOSE);
+        if (observer_) {
+            observer_(this, CLOSE);
         }
     }
 
-    server_->OnSessionClose(session.get());
+    if (notify_server) {
+        server_->OnSessionClose(this);
+    }
 }
 
 void TcpSession::Close() {
@@ -618,7 +621,7 @@ boost::system::error_code TcpSession::SetSocketOptions() {
         //
         // Set socket send and receive buffer size
         //
-        // XXX Currently, used only under test environments to trigger partial
+        // Currently used only under test environments to trigger partial
         // sends more deterministically
         //
         socket_base::send_buffer_size send_buffer_size_option(sz);
@@ -641,11 +644,11 @@ boost::system::error_code TcpSession::SetSocketOptions() {
     return ec;
 }
 
-void TcpSession::GetRxSocketStats(TcpServerSocketStats &socket_stats) const {
+void TcpSession::GetRxSocketStats(SocketIOStats &socket_stats) const {
     stats_.GetRxStats(socket_stats);
 }
 
-void TcpSession::GetTxSocketStats(TcpServerSocketStats &socket_stats) const {
+void TcpSession::GetTxSocketStats(SocketIOStats &socket_stats) const {
     stats_.GetTxStats(socket_stats);
 }
 

@@ -29,10 +29,10 @@ public:
                            const Ip4Address &addr,
                            bool policy);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
-    static void AddMulticastRoute(const string &vrf_name, 
-                                  const string &vn_name,
+    static void AddMulticastRoute(const string &vn_name, const string &vrf_name,
                                   const Ip4Address &src_addr,
-                                  const Ip4Address &grp_addr);
+                                  const Ip4Address &grp_addr,
+                                  ComponentNHKeyList &component_nh_key_list);
     static void DeleteMulticastRoute(const string &vrf_name, 
                                      const Ip4Address &src_addr,
                                      const Ip4Address &grp_addr); 
@@ -78,17 +78,17 @@ class Inet4MulticastRouteKey : public AgentRouteKey {
 public:
     Inet4MulticastRouteKey(const string &vrf_name,const Ip4Address &dip, 
                            const Ip4Address &sip) :
-        AgentRouteKey(Agent::GetInstance()->local_vm_peer(), vrf_name),
+        AgentRouteKey(Agent::GetInstance()->multicast_peer(), vrf_name),
         dip_(dip), sip_(sip) {
     }
     Inet4MulticastRouteKey(const string &vrf_name, const Ip4Address &dip) :
-        AgentRouteKey(Agent::GetInstance()->local_vm_peer(), vrf_name),
+        AgentRouteKey(Agent::GetInstance()->multicast_peer(), vrf_name),
         dip_(dip) { 
         boost::system::error_code ec;
         sip_ =  IpAddress::from_string("0.0.0.0", ec).to_v4();
     }
     Inet4MulticastRouteKey(const string &vrf_name) : 
-        AgentRouteKey(Agent::GetInstance()->local_vm_peer(), vrf_name) { 
+        AgentRouteKey(Agent::GetInstance()->multicast_peer(), vrf_name) {
             boost::system::error_code ec;
             dip_ =  IpAddress::from_string("255.255.255.255", ec).to_v4();
             sip_ =  IpAddress::from_string("0.0.0.0", ec).to_v4();
@@ -98,7 +98,8 @@ public:
     virtual Agent::RouteTableType GetRouteTableType() {
        return Agent::INET4_MULTICAST;
     }
-    virtual string ToString() const { return ("Inet4MulticastRouteKey"); }
+    virtual AgentRouteKey *Clone() const;
+    virtual string ToString() const;
 
     const Ip4Address &dest_ip_addr() const {return dip_;}
     const Ip4Address &src_ip_addr() const {return sip_;}

@@ -29,10 +29,19 @@ import socket
 import struct
 import errno
 import copy
+import datetime
+import pycassa
+from analytics_db import AnalyticsDb
 
+from pycassa.pool import ConnectionPool
+from pycassa.columnfamily import ColumnFamily
+from pysandesh.util import UTCTimestampUsec
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_session import SandeshWriter
 from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
+from pysandesh.connection_info import ConnectionState
+from pysandesh.gen_py.process_info.ttypes import ConnectionType,\
+    ConnectionStatus
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
      ModuleCategoryMap, Module2NodeType, NodeTypeNames, ModuleIds,\
@@ -43,12 +52,13 @@ from sandesh.viz.constants import _TABLES, _OBJECT_TABLES,\
     STAT_TIME_FIELD, STAT_TIMEBIN_FIELD, STAT_UUID_FIELD, \
     STAT_SOURCE_FIELD, SOURCE, MODULE
 from sandesh.viz.constants import *
-from sandesh.analytics_cpuinfo.ttypes import *
-from sandesh.analytics_cpuinfo.cpuinfo.ttypes import ProcessCpuInfo
+from sandesh.analytics.ttypes import *
+from sandesh.analytics.cpuinfo.ttypes import ProcessCpuInfo
 from sandesh.discovery.ttypes import CollectorTrace
 from opserver_util import OpServerUtils
 from cpuinfo import CpuInfoData
 from sandesh_req_impl import OpserverSandeshReqImpl
+from sandesh.analytics_database.ttypes import *
 
 _ERRORS = {
     errno.EBADMSG: 400,
@@ -189,9 +199,19 @@ def redis_query_result(host, port, qid):
     try:
         status = redis_query_status(host, port, qid)
     except redis.exceptions.ConnectionError:
+        # Update connection info
+        ConnectionState.update(conn_type = ConnectionType.REDIS,
+            name = 'Query', status = ConnectionStatus.DOWN,
+            message = 'Query[%s] result : Connection Error' % (qid),
+            server_addrs = ['%s:%d' % (host, port)]) 
         yield bottle.HTTPError(_ERRORS[errno.EIO],
                 'Failure in connection to the query DB')
     except Exception as e:
+        # Update connection info
+        ConnectionState.update(conn_type = ConnectionType.REDIS,
+            name = 'Query', status = ConnectionStatus.DOWN,
+            message = 'Query[%s] result : Exception: %s' % (qid, str(e)),
+            server_addrs = ['%s:%d' % (host, port)])
         self._logger.error("Exception: %s" % e)
         yield bottle.HTTPError(_ERRORS[errno.EIO], 'Error: %s' % e)
     else:
@@ -205,6 +225,12 @@ def redis_query_result(host, port, qid):
                     yield gen
         else:
             yield {}
+    # Update connection info
+    ConnectionState.update(conn_type = ConnectionType.REDIS,
+        message = 'Query[%s] result' % (qid),
+        status = ConnectionStatus.UP,
+        server_addrs = ['%s:%d' % (host, port)],
+        name = 'Query')
     return
 # end redis_query_result
 
@@ -268,6 +294,12 @@ class OpStateServer(object):
             try:
                 redis_inst.publish('analytics', redis_msg)
             except redis.exceptions.ConnectionError:
+                # Update connection info
+                ConnectionState.update(conn_type = ConnectionType.REDIS,
+                    name = 'UVE', status = ConnectionStatus.DOWN,
+                    message = 'Connection Error',
+                    server_addrs = ['%s:%d' % (redis_server[0], \
+                        redis_server[1])])
                 self._logger.error('No Connection to Redis [%s:%d].'
                                    'Failed to publish message.' \
                                    % (redis_server[0], redis_server[1]))
@@ -298,9 +330,11 @@ class OpServer(object):
         * ``/analytics/query/<queryId>``
         * ``/analytics/query/<queryId>/chunk-final/<chunkId>``
         * ``/analytics/send-tracebuffer/<source>/<module>/<name>``
+        * ``/analytics/operation/analytics-data-start-time``
 
     The supported **POST** APIs are:
         * ``/analytics/query``:
+        * ``/analytics/operation/database-purge``:
     """
 
     def __new__(cls, *args, **kwargs):
@@ -343,6 +377,10 @@ class OpServer(object):
                      'GET', obj.query_chunk_get)
         bottle.route('/analytics/queries', 'GET', obj.show_queries)
         bottle.route('/analytics/tables', 'GET', obj.tables_process)
+        bottle.route('/analytics/operation/database-purge',
+                     'POST', obj.process_purge_request)
+        bottle.route('/analytics/operation/analytics-data-start-time',
+                     'GET', obj._get_analytics_data_start_time)
         bottle.route('/analytics/table/<table>', 'GET', obj.table_process)
         bottle.route(
             '/analytics/table/<table>/schema', 'GET', obj.table_schema_process)
@@ -395,7 +433,7 @@ class OpServer(object):
     def __init__(self):
         self._args = None
         self._parse_args()
-
+ 
         self._homepage_links = []
         self._homepage_links.append(
             LinkObject('documentation', '/documentation/index.html'))
@@ -423,7 +461,13 @@ class OpServer(object):
             enable_local_log=self._args.log_local,
             category=self._args.log_category,
             level=self._args.log_level,
-            file=self._args.log_file)
+            file=self._args.log_file,
+            enable_syslog=self._args.use_syslog,
+            syslog_facility=self._args.syslog_facility)
+        ConnectionState.init(sandesh_global, self._hostname, self._moduleid,
+            self._instance_id,
+            staticmethod(ConnectionState.get_process_state_cb),
+            NodeStatusUVE, NodeStatus)
         
         # Trace buffer list
         self.trace_buf = [
@@ -488,31 +532,46 @@ class OpServer(object):
             stat_id = t.stat_type + "." + t.stat_attr
             scols = []
 
-            keyln = query_column(name=STAT_OBJECTID_FIELD, datatype='string', index=True)
+            keyln = stat_query_column(name=STAT_SOURCE_FIELD, datatype='string', index=True)
             scols.append(keyln)
 
-            keyln = query_column(name=STAT_SOURCE_FIELD, datatype='string', index=True)
-            scols.append(keyln)
-
-            tln = query_column(name=STAT_TIME_FIELD, datatype='int', index=False)
+            tln = stat_query_column(name=STAT_TIME_FIELD, datatype='int', index=False)
             scols.append(tln)
 
-            teln = query_column(name=STAT_TIMEBIN_FIELD, datatype='int', index=False)
+            tcln = stat_query_column(name="CLASS(" + STAT_TIME_FIELD + ")", 
+                     datatype='int', index=False)
+            scols.append(tcln)
+
+            teln = stat_query_column(name=STAT_TIMEBIN_FIELD, datatype='int', index=False)
             scols.append(teln)
 
-            uln = query_column(name=STAT_UUID_FIELD, datatype='uuid', index=False)
+            tecln = stat_query_column(name="CLASS(" + STAT_TIMEBIN_FIELD+ ")", 
+                     datatype='int', index=False)
+            scols.append(tecln)
+
+            uln = stat_query_column(name=STAT_UUID_FIELD, datatype='uuid', index=False)
             scols.append(uln)
 
-            cln = query_column(name="COUNT(" + t.stat_attr + ")",
+            cln = stat_query_column(name="COUNT(" + t.stat_attr + ")",
                     datatype='int', index=False)
             scols.append(cln)
 
+            isname = False
             for aln in t.attributes:
+                if aln.name==STAT_OBJECTID_FIELD:
+                    isname = True
                 scols.append(aln)
                 if aln.datatype in ['int','double']:
-                    sln = query_column(name= "SUM(" + aln.name + ")",
+                    sln = stat_query_column(name= "SUM(" + aln.name + ")",
                             datatype=aln.datatype, index=False)
                     scols.append(sln)
+                    scln = stat_query_column(name= "CLASS(" + aln.name + ")",
+                            datatype=aln.datatype, index=False)
+                    scols.append(scln)
+
+            if not isname: 
+                keyln = stat_query_column(name=STAT_OBJECTID_FIELD, datatype='string', index=True)
+                scols.append(keyln)
 
             sch = query_schema_type(type='STAT', columns=scols)
 
@@ -522,6 +581,9 @@ class OpServer(object):
                 schema = sch,
                 columnvalues = [STAT_OBJECTID_FIELD, SOURCE])
             self._VIRTUAL_TABLES.append(stt)
+
+        self._analytics_db = AnalyticsDb(self._logger, self._args.cassandra_server_list)
+        self._db_purge_running = False
 
         bottle.route('/', 'GET', self.homepage_http_get)
         bottle.route('/analytics', 'GET', self.analytics_http_get)
@@ -559,6 +621,10 @@ class OpServer(object):
                      'GET', self.query_chunk_get)
         bottle.route('/analytics/queries', 'GET', self.show_queries)
         bottle.route('/analytics/tables', 'GET', self.tables_process)
+        bottle.route('/analytics/operation/database-purge',
+                     'POST', self.process_purge_request)
+        bottle.route('/analytics/operation/analytics-data-start-time',
+	             'GET', self._get_analytics_data_start_time)
         bottle.route('/analytics/table/<table>', 'GET', self.table_process)
         bottle.route('/analytics/table/<table>/schema',
                      'GET', self.table_schema_process)
@@ -585,9 +651,10 @@ class OpServer(object):
     def _parse_args(self, args_str=' '.join(sys.argv[1:])):
         '''
         Eg. python opserver.py --host_ip 127.0.0.1
-                               --redis_server_port 6381
-                               --redis_query_port 6380
+                               --redis_server_port 6379
+                               --redis_query_port 6379
                                --collectors 127.0.0.1:8086
+                               --cassandra_server_list 127.0.0.1:9160
                                --http_server_port 8090
                                --rest_api_port 8081
                                --rest_api_ip 0.0.0.0
@@ -595,8 +662,10 @@ class OpServer(object):
                                --log_level SYS_DEBUG
                                --log_category test
                                --log_file <stdout>
+                               --use_syslog
+                               --syslog_facility LOG_USER
                                --worker_id 0
-                               --redis_uve_list 127.0.0.1:6381
+                               --redis_uve_list 127.0.0.1:6379
         '''
         # Source any specified config/ini file
         # Turn off help, so we print all options in response to -h
@@ -609,6 +678,7 @@ class OpServer(object):
         defaults = {
             'host_ip'            : "127.0.0.1",
             'collectors'         : ['127.0.0.1:8086'],
+            'cassandra_server_list' : ['127.0.0.1:9160'],
             'http_server_port'   : 8090,
             'rest_api_port'      : 8081,
             'rest_api_ip'        : '0.0.0.0',
@@ -616,12 +686,14 @@ class OpServer(object):
             'log_level'          : 'SYS_DEBUG',
             'log_category'       : '',
             'log_file'           : Sandesh._DEFAULT_LOG_FILE,
+            'use_syslog'         : False,
+            'syslog_facility'    : Sandesh._DEFAULT_SYSLOG_FACILITY,
             'dup'                : False,
-            'redis_uve_list'     : ['127.0.0.1:6381']
+            'redis_uve_list'     : ['127.0.0.1:6379']
         }
         redis_opts = {
-            'redis_server_port'  : 6381,
-            'redis_query_port'   : 6380,
+            'redis_server_port'  : 6379,
+            'redis_query_port'   : 6379,
         }
         disc_opts = {
             'disc_server_ip'     : None,
@@ -680,6 +752,11 @@ class OpServer(object):
             help="Category filter for local logging of sandesh messages")
         parser.add_argument("--log_file",
             help="Filename for the logs to be written to")
+        parser.add_argument("--use_syslog",
+            action="store_true",
+            help="Use syslog for logging")
+        parser.add_argument("--syslog_facility",
+            help="Syslog facility to receive log lines")
         parser.add_argument("--disc_server_ip",
             help="Discovery Server IP address")
         parser.add_argument("--disc_server_port",
@@ -693,12 +770,17 @@ class OpServer(object):
         parser.add_argument(
             "--worker_id",
             help="Worker Id")
+        parser.add_argument("--cassandra_server_list",
+            help="List of cassandra_server_ip in ip:port format",
+            nargs="+")
 
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
         if type(self._args.redis_uve_list) is str:
             self._args.redis_uve_list = self._args.redis_uve_list.split()
+        if type(self._args.cassandra_server_list) is str:
+            self._args.cassandra_server_list = self._args.cassandra_server_list.split()
     # end _parse_args
 
     def get_args(self):
@@ -735,7 +817,7 @@ class OpServer(object):
 
     def documentation_http_get(self, filename):
         return bottle.static_file(
-            filename, root='/usr/share/doc/python-vnc_opserver/html')
+            filename, root='/usr/share/doc/contrail-analytics-api/html')
     # end documentation_http_get
 
     def _http_get_common(self, request):
@@ -776,9 +858,21 @@ class OpServer(object):
                                       port=int(self._args.redis_query_port),
                                       qid=qid)
         except redis.exceptions.ConnectionError:
+            # Update connection info
+            ConnectionState.update(conn_type = ConnectionType.REDIS,
+                name = 'Query', status = ConnectionStatus.DOWN,
+                message = 'Query[%s] status : Connection Error' % (qid),
+                server_addrs = ['%s:%s' % (redis_query_ip, \
+                    str(self._args.redis_query_port))])
             return bottle.HTTPError(_ERRORS[errno.EIO],
                     'Failure in connection to the query DB')
         except Exception as e:
+            # Update connection info
+            ConnectionState.update(conn_type = ConnectionType.REDIS,
+                name = 'Query', status = ConnectionStatus.DOWN,
+                message = 'Query[%s] status : Exception %s' % (qid, str(e)),
+                server_addrs = ['%s:%s' % (redis_query_ip, \
+                    str(self._args.redis_query_port))])
             self._logger.error("Exception: %s" % e)
             return bottle.HTTPError(_ERRORS[errno.EIO], 'Error: %s' % e)
         else:
@@ -809,9 +903,23 @@ class OpServer(object):
                 except StopIteration:
                     done = True
         except redis.exceptions.ConnectionError:
+            # Update connection info
+            ConnectionState.update(conn_type = ConnectionType.REDIS,
+                name = 'Query', status = ConnectionStatus.DOWN,
+                message = 'Query [%s] chunk #%d : Connection Error' % \
+                    (qid, chunk_id),
+                server_addrs = ['%s:%s' % (redis_query_ip, \
+                    str(self._args.redis_query_port))])
             yield bottle.HTTPError(_ERRORS[errno.EIO],
                     'Failure in connection to the query DB')
         except Exception as e:
+            # Update connection info
+            ConnectionState.update(conn_type = ConnectionType.REDIS,
+                name = 'Query', status = ConnectionStatus.DOWN,
+                message = 'Query [%s] chunk #%d : Exception %s' % \
+                    (qid, chunk_id, str(e)),
+                server_addrs = ['%s:%s' % (redis_query_ip, \
+                    str(self._args.redis_query_port))])
             self._logger.error("Exception: %s" % str(e))
             yield bottle.HTTPError(_ERRORS[errno.ENOENT], 'Error: %s' % e)
         else:
@@ -840,35 +948,58 @@ class OpServer(object):
                 if self._VIRTUAL_TABLES[i].name == tabl:
                     tabn = i
 
+            if (tabn is not None):
+                tabtypes = {}
+                for cols in self._VIRTUAL_TABLES[tabn].schema.columns:
+                    if cols.datatype in ['long', 'int']:
+                        tabtypes[cols.name] = 'int'
+                    elif cols.datatype in ['ipv4']:
+                        tabtypes[cols.name] = 'ipv4'
+                    else:
+                        tabtypes[cols.name] = 'string'
+
+                self._logger.info(str(tabtypes))
+
             if (tabn is None):
-                reply = bottle.HTTPError(_ERRORS[errno.ENOENT], 
-                            'Table %s not found' % tabl)
-                yield reply
-                return
-
-            tabtypes = {}
-            for cols in self._VIRTUAL_TABLES[tabn].schema.columns:
-                if cols.datatype in ['long', 'int']:
-                    tabtypes[cols.name] = 'int'
-                elif cols.datatype in ['ipv4']:
-                    tabtypes[cols.name] = 'ipv4'
+                if not tabl.startswith("StatTable."):
+                    reply = bottle.HTTPError(_ERRORS[errno.ENOENT], 
+                                'Table %s not found' % tabl)
+                    yield reply
+                    return
                 else:
-                    tabtypes[cols.name] = 'string'
+                    self._logger.info("Schema not known for dynamic table %s" % tabl)
 
-            self._logger.info(str(tabtypes))
             prg = redis_query_start('127.0.0.1',
                                     int(self._args.redis_query_port),
                                     qid, request.json)
             if prg is None:
+                # Update connection info
+                ConnectionState.update(conn_type = ConnectionType.REDIS,
+                    name = 'Query', status = ConnectionStatus.DOWN,
+                    message = 'Query[%s] Query Engine not responding' % qid,
+                    server_addrs = ['127.0.0.1' + ':' + 
+                        str(self._args.redis_query_port)])  
                 self._logger.error('QE Not Responding')
                 yield bottle.HTTPError(_ERRORS[errno.EBUSY], 
                         'Query Engine is not responding')
                 return
 
         except redis.exceptions.ConnectionError:
+            # Update connection info
+            ConnectionState.update(conn_type = ConnectionType.REDIS,
+                name = 'Query', status = ConnectionStatus.DOWN,
+                message = 'Query[%s] Connection Error' % (qid),
+                server_addrs = ['127.0.0.1' + ':' + 
+                    str(self._args.redis_query_port)])  
             yield bottle.HTTPError(_ERRORS[errno.EIO],
                     'Failure in connection to the query DB')
         except Exception as e:
+            # Update connection info
+            ConnectionState.update(conn_type = ConnectionType.REDIS,
+                name = 'Query', status = ConnectionStatus.DOWN,
+                message = 'Query[%s] Exception: %s' % (qid, str(e)),
+                server_addrs = ['127.0.0.1' + ':' + 
+                    str(self._args.redis_query_port)])  
             self._logger.error("Exception: %s" % str(e))
             yield bottle.HTTPError(_ERRORS[errno.EIO],
                     'Error: %s' % e)
@@ -953,13 +1084,32 @@ class OpServer(object):
             '''
 
         except redis.exceptions.ConnectionError:
+            # Update connection info
+            ConnectionState.update(conn_type = ConnectionType.REDIS,
+                name = 'Query', status = ConnectionStatus.DOWN,
+                message = 'Sync Query[%s] Connection Error' % qid,
+                server_addrs = ['127.0.0.1' + ':' + 
+                    str(self._args.redis_query_port)])  
             yield bottle.HTTPError(_ERRORS[errno.EIO],
                     'Failure in connection to the query DB')
         except Exception as e:
+            # Update connection info
+            ConnectionState.update(conn_type = ConnectionType.REDIS,
+                name = 'Query', status = ConnectionStatus.DOWN,
+                message = 'Sync Query[%s] Exception: %s' % (qid, str(e)),
+                server_addrs = ['127.0.0.1' + ':' + 
+                    str(self._args.redis_query_port)])  
             self._logger.error("Exception: %s" % str(e))
             yield bottle.HTTPError(_ERRORS[errno.EIO], 
                     'Error: %s' % e)
         else:
+            # Update connection info
+            ConnectionState.update(conn_type = ConnectionType.REDIS,
+                name = 'Query', status = ConnectionStatus.UP,
+                message = 'Sync Query[%s] at %s' % \
+                    (qid, datetime.datetime.now().isoformat()),
+                server_addrs = ['127.0.0.1' + ':' + 
+                    str(self._args.redis_query_port)]) 
             self._logger.info(
                 "Query Result available at time %d" % time.time())
         return
@@ -1026,9 +1176,21 @@ class OpServer(object):
             queries['abandoned_queries'] = abandoned_queries_info
             queries['error_queries'] = error_queries_info
         except redis.exceptions.ConnectionError:
+            # Update connection info
+            ConnectionState.update(conn_type = ConnectionType.REDIS,
+                name = 'Query', status = ConnectionStatus.DOWN,
+                message = 'Show queries : Connection Error',
+                server_addrs = ['127.0.0.1' + ':' + 
+                    str(self._args.redis_query_port)])  
             return bottle.HTTPError(_ERRORS[errno.EIO],
                     'Failure in connection to the query DB')
         except Exception as err:
+            # Update connection info
+            ConnectionState.update(conn_type = ConnectionType.REDIS,
+                name = 'Query', status = ConnectionStatus.DOWN,
+                message = 'Show queries : Exception %s' % str(err),
+                server_addrs = ['127.0.0.1' + ':' + 
+                    str(self._args.redis_query_port)])  
             self._logger.error("Exception in show queries: %s" % str(err))
             return bottle.HTTPError(_ERRORS[errno.EIO], 'Error: %s' % err)
         else:
@@ -1314,6 +1476,65 @@ class OpServer(object):
         return json.dumps(json_links)
     # end tables_process
 
+    def process_purge_request(self):
+        self._post_common(bottle.request, None)
+
+        purge_input= None
+        for key, value in bottle.request.json.iteritems():
+            if (key == "purge_input"):
+                if( (type(value) is int) and (value <= 100) ):
+                    purge_input = value
+                else:
+                    return bottle.HTTPError(_ERRORS[errno.EINVALID],
+                           'INVALID purge_input')
+            else:
+                return bottle.HTTPError(_ERRORS[errno.EINVALID],
+                    'purge_input not specified')
+
+        purge_request_ip, = struct.unpack('>I', socket.inet_pton(
+                                        socket.AF_INET, self._args.host_ip))
+        purge_id = str(uuid.uuid1(purge_request_ip))
+        self._logger.info("Purge id is:" + str(purge_id))
+
+        if (self._db_purge_running == True):
+            self._logger.error('Purge id %s WARNING: Database Purge Operation is already running' % str(purge_id))
+            return bottle.HTTPError(_ERRORS[errno.EBUSY],
+                        'WARNING: Database Purge Operation Purge is already running')
+
+        gevent.spawn(self.db_purge_operation, purge_input, purge_id)
+        response = {'status': 'started', 'purge_id': purge_id}
+        return bottle.HTTPResponse(json.dumps(response), 200, {'Content-type': 'application/json'})
+    # end process_purge_request
+
+    def db_purge_operation(self, purge_input, purge_id):
+        self._logger.info("purge_id %s START Purging!" % str(purge_id))
+        self._db_purge_running = True
+        purge_stat = DatabasePurgeStats()
+        purge_stat.request_time = UTCTimestampUsec()
+        purge_info = DatabasePurgeInfo()
+        self._analytics_db.number_of_purge_requests += 1
+        purge_info.number_of_purge_requests = self._analytics_db.number_of_purge_requests
+        total_rows_deleted = self._analytics_db.db_purge(purge_input, purge_id)
+        end_time = UTCTimestampUsec()
+        duration = end_time - purge_stat.request_time
+        purge_stat.purge_id = purge_id
+        purge_stat.rows_deleted = total_rows_deleted
+        purge_stat.duration = duration
+        purge_info.name  = self._hostname
+        purge_info.stats = [purge_stat]
+        purge_data = DatabasePurge(data=purge_info)
+        purge_data.send()
+
+        self._logger.info("purge_id %s purging DONE" % str(purge_id))
+        self._db_purge_running = False
+        #end db_purge_operation
+
+    def _get_analytics_data_start_time(self):
+        analytics_start_time = self._analytics_db._get_analytics_start_time()
+        response = {'analytics_data_start_time': analytics_start_time}
+        return bottle.HTTPResponse(json.dumps(response), 200, {'Content-type': 'application/json'})
+    # end _get_analytics_data_start_time
+
     def table_process(self, table):
         (ok, result) = self._get_common(bottle.request)
         if not ok:
@@ -1378,7 +1599,7 @@ class OpServer(object):
             moduleids = []
             for redis_uve in self.redis_uve_list:
                 redish = redis.StrictRedis(
-                    db=0,
+                    db=1,
                     host=redis_uve[0],
                     port=redis_uve[1])
                 try:
@@ -1502,7 +1723,7 @@ class OpServer(object):
                         disc_trace.collectors = []
                         for collector in collectors:
                             self.redis_uve_list.append((collector['ip-address'], 
-                                                       6381))
+                                                       self._args.redis_server_port))
                             disc_trace.collectors.append(collector['ip-address'])
                         disc_trace.trace_msg(name='DiscoveryMsg')
                         self._uve_server.update_redis_uve_list(self.redis_uve_list)
@@ -1519,7 +1740,7 @@ def main():
         gevent.spawn(opserver.start_webserver),
         gevent.spawn(opserver.cpu_info_logger),
         gevent.spawn(opserver.start_uve_server),
-        gevent.spawn(opserver.poll_collector_list)
+        gevent.spawn(opserver.poll_collector_list),
     ])
 
 if __name__ == '__main__':

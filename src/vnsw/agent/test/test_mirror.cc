@@ -32,13 +32,15 @@ static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
 
 class MirrorTableTest : public ::testing::Test {
 protected:
-    MirrorTableTest(): count_(entry_count) {
+    MirrorTableTest(): count_(entry_count),
+   agent_(Agent::GetInstance()), nh_count_(0) {
     }
 
     virtual void SetUp() {
         client->Reset();
-        PhysicalInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
-                                eth_itf, Agent::GetInstance()->GetDefaultVrf());
+        nh_count_ = agent_->nexthop_table()->Size();
+        PhysicalInterface::CreateReq(agent_->interface_table(),
+                                eth_itf, agent_->fabric_vrf_name(), false);
         fabric_gw_ip_ = Ip4Address::from_string("10.1.1.254");
         uint16_t sport = 10000;
         unsigned long ip = 0x0a010102;
@@ -51,13 +53,15 @@ protected:
     }
 
     virtual void TearDown() {
+        WAIT_FOR(1000, 1000, agent_->nexthop_table()->Size() == nh_count_);
+        WAIT_FOR(1000, 1000, agent_->vrf_table()->Size() == 1);
     }
 
     void AddAllMirrorEntry() {
         for (int i = 0; i < count_; i++) {
             std::stringstream str;
             str << analyzer << i;
-            MirrorTable::AddMirrorEntry(str.str(), Agent::GetInstance()->GetDefaultVrf(), sip_[i], sport_[i], dip_[i], dport_[i]);
+            MirrorTable::AddMirrorEntry(str.str(), agent_->fabric_vrf_name(), sip_[i], sport_[i], dip_[i], dport_[i]);
         }
         client->WaitForIdle();
     }
@@ -81,10 +85,10 @@ protected:
 
     void DelAllArpEntry() {
         for (int i = 0; i < count_; i++) {
-            Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(
-                                                         Agent::GetInstance()->local_peer(),
-                                                         Agent::GetInstance()->GetDefaultVrf(),
-                                                         dip_[i], 32);
+            agent_->fabric_inet4_unicast_table()->DeleteReq(
+                                                         agent_->local_peer(),
+                                                         agent_->fabric_vrf_name(),
+                                                         dip_[i], 32, NULL);
         }
         client->WaitForIdle();
     }
@@ -93,20 +97,20 @@ protected:
         std::stringstream str;
         str << analyzer << i;
         MirrorEntryKey key(str.str());
-        return (Agent::GetInstance()->GetMirrorTable()->FindActiveEntry(&key) != NULL);
+        return (agent_->mirror_table()->FindActiveEntry(&key) != NULL);
     }
 
     bool MirrorNHFind(int i) {
-        MirrorNHKey key(Agent::GetInstance()->GetDefaultVrf(), sip_[i], sport_[i], dip_[i],
+        MirrorNHKey key(agent_->fabric_vrf_name(), sip_[i], sport_[i], dip_[i],
                         dport_[i]);
-        return (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key) != NULL);
+        return (agent_->nexthop_table()->FindActiveEntry(&key) != NULL);
     }
 
     MirrorEntry *GetMirrorEntry(int i) {
         std::stringstream str;
         str << analyzer << i;
         MirrorEntryKey key(str.str());
-        return static_cast<MirrorEntry *>(Agent::GetInstance()->GetMirrorTable()->FindActiveEntry(&key));
+        return static_cast<MirrorEntry *>(agent_->mirror_table()->FindActiveEntry(&key));
     }
 
     int count_;
@@ -115,6 +119,8 @@ protected:
     std::vector<Ip4Address> sip_;
     std::vector<Ip4Address> dip_;
     Ip4Address fabric_gw_ip_;
+    Agent *agent_;
+    uint32_t nh_count_;
 };
 
 TEST_F(MirrorTableTest, MirrorEntryAddDel_1) {
@@ -210,20 +216,21 @@ TEST_F(MirrorTableTest, MirrorEntryAddDel_2) {
     for (int i = 0; i < count_; i++) {
         EXPECT_FALSE(MirrorNHFind(i));
     }
+    DelAllArpEntry();
 }
 
 TEST_F(MirrorTableTest, MirrorEntryAddDel_3) {
-    Ip4Address vhost_ip(Agent::GetInstance()->GetRouterId());
+    Ip4Address vhost_ip(agent_->router_id());
     //Add mirror entry pointing to same vhost IP
     std::stringstream str;
     str << analyzer;
-    MirrorTable::AddMirrorEntry(analyzer, Agent::GetInstance()->GetDefaultVrf(), 
+    MirrorTable::AddMirrorEntry(analyzer, agent_->fabric_vrf_name(), 
                                 vhost_ip, 0x1, vhost_ip, 0x2);
     client->WaitForIdle();
     //Mirror NH would point to a route, whose nexthop would be RCV NH
     MirrorEntryKey key(analyzer);
     const MirrorEntry *mirr_entry = static_cast<const MirrorEntry *>
-                                    (Agent::GetInstance()->GetMirrorTable()->FindActiveEntry(&key));
+                                    (agent_->mirror_table()->FindActiveEntry(&key));
     EXPECT_TRUE(mirr_entry != NULL);
     const MirrorNH *mirr_nh = static_cast<const MirrorNH *>(mirr_entry->GetNH());
     //Make sure mirror nh internally points to receive router
@@ -233,22 +240,22 @@ TEST_F(MirrorTableTest, MirrorEntryAddDel_3) {
     MirrorTable::DelMirrorEntry(analyzer);
     client->WaitForIdle();
     mirr_entry = static_cast<const MirrorEntry *>
-                 (Agent::GetInstance()->GetMirrorTable()->FindActiveEntry(&key));
+                 (agent_->mirror_table()->FindActiveEntry(&key));
     EXPECT_TRUE(mirr_entry == NULL);
 }
  
 TEST_F(MirrorTableTest, MirrorEntryAddDel_4) {
-    Ip4Address vhost_ip(Agent::GetInstance()->GetRouterId());
+    Ip4Address vhost_ip(agent_->router_id());
     Ip4Address remote_server = Ip4Address::from_string("1.1.1.1");
     //Add mirror entry pointing to same vhost IP
     std::string ana = analyzer + "r";
-    MirrorTable::AddMirrorEntry(ana, Agent::GetInstance()->GetDefaultVrf(),
+    MirrorTable::AddMirrorEntry(ana, agent_->fabric_vrf_name(),
                                 vhost_ip, 0x1, remote_server, 0x2);
     client->WaitForIdle();
     //Mirror NH would point to a gateway route
     MirrorEntryKey key(ana);
     const MirrorEntry *mirr_entry = static_cast<const MirrorEntry *>
-                                    (Agent::GetInstance()->GetMirrorTable()->FindActiveEntry(&key));
+                                    (agent_->mirror_table()->FindActiveEntry(&key));
     EXPECT_TRUE(mirr_entry != NULL);
     const MirrorNH *mirr_nh = static_cast<const MirrorNH *>(mirr_entry->GetNH());
     //Gateway route not resolved, hence mirror entry would 
@@ -271,7 +278,7 @@ TEST_F(MirrorTableTest, MirrorEntryAddDel_4) {
     MirrorTable::DelMirrorEntry(ana);
     client->WaitForIdle();
     mirr_entry = static_cast<const MirrorEntry *>
-                 (Agent::GetInstance()->GetMirrorTable()->FindActiveEntry(&key));
+                 (agent_->mirror_table()->FindActiveEntry(&key));
     EXPECT_TRUE(mirr_entry == NULL);
     client->WaitForIdle();
     usleep(1000);
@@ -283,11 +290,11 @@ int main(int argc, char *argv[]) {
 
     entry_count = 10;
     client = TestInit(init_file, ksync_init, true, false);
-    if (vm.count("config")) {
-        eth_itf = Agent::GetInstance()->GetIpFabricItfName();
-    } else {
-        eth_itf = "eth0";
-    }
+    eth_itf = Agent::GetInstance()->fabric_interface_name();
 
-    return RUN_ALL_TESTS();
+    int ret = RUN_ALL_TESTS();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
+    return ret;
 }

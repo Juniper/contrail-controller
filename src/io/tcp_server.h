@@ -14,10 +14,12 @@
 #include <tbb/compat/condition_variable>
 
 #include "base/util.h"
+#include "io/server_manager.h"
+#include "io/io_utils.h"
 
 class EventManager;
 class TcpSession;
-class TcpServerSocketStats;
+class SocketIOStats;
 
 class TcpServer {
 public:
@@ -53,28 +55,7 @@ public:
     virtual bool DisableSandeshLogMessages() { return false; }
 
     int GetPort() const;
-
-    struct SocketStats {
-        SocketStats() {
-            read_calls = 0;
-            read_bytes = 0;
-            write_calls = 0;
-            write_bytes = 0;
-            write_blocked = 0;
-            write_blocked_duration_usecs = 0;
-        }
-
-        void GetRxStats(TcpServerSocketStats &socket_stats) const;
-        void GetTxStats(TcpServerSocketStats &socket_stats) const;
-
-        tbb::atomic<uint64_t> read_calls;
-        tbb::atomic<uint64_t> read_bytes;
-        tbb::atomic<uint64_t> write_calls;
-        tbb::atomic<uint64_t> write_bytes;
-        tbb::atomic<uint64_t> write_blocked;
-        tbb::atomic<uint64_t> write_blocked_duration_usecs;
-    };
-    const SocketStats &GetSocketStats() const { return stats_; }
+    const io::SocketStats &GetSocketStats() const { return stats_; }
 
     //
     // Return the number of tcp sessions in the map
@@ -95,8 +76,8 @@ public:
     // wait until the server has deleted all sessions.
     void WaitForEmpty();
 
-    void GetRxSocketStats(TcpServerSocketStats &socket_stats) const;
-    void GetTxSocketStats(TcpServerSocketStats &socket_stats) const;
+    void GetRxSocketStats(SocketIOStats &socket_stats) const;
+    void GetTxSocketStats(SocketIOStats &socket_stats) const;
 
 protected:
     // Create a session object.
@@ -106,8 +87,8 @@ protected:
     // Passively accepted a new session. Returns true if the session is
     // accepted, false otherwise.
     //
-    // XXX If the session is not accepted, tcp_server.cc shall delete the
-    // newly created session.
+    // If the session is not accepted, tcp_server.cc deletes the newly
+    // created session.
     //
     virtual bool AcceptSession(TcpSession *session);
 
@@ -135,6 +116,9 @@ private:
     typedef std::set<TcpSessionPtr, TcpSessionPtrCmp> SessionSet;
     typedef std::multimap<Endpoint, TcpSession *> SessionMap;
 
+    void InsertSessionToMap(Endpoint remote, TcpSession *session);
+    bool RemoveSessionFromMap(Endpoint remote, TcpSession *session);
+
     // Called by the asio service.
     void AcceptHandlerInternal(TcpServerPtr server,
              const boost::system::error_code &error);
@@ -148,7 +132,7 @@ private:
     void OnSessionClose(TcpSession *session);
     void SetName(Endpoint local_endpoint);
 
-    SocketStats stats_;
+    io::SocketStats stats_;
     EventManager *evm_;
     // mutex protects the session maps
     mutable tbb::mutex mutex_;
@@ -164,6 +148,8 @@ private:
     DISALLOW_COPY_AND_ASSIGN(TcpServer);
 };
 
+typedef boost::intrusive_ptr<TcpServer> TcpServerPtr;
+
 inline void intrusive_ptr_add_ref(TcpServer *server) {
     server->refcount_.fetch_and_increment();
 }
@@ -175,35 +161,14 @@ inline void intrusive_ptr_release(TcpServer *server) {
     }
 }
 
-//
-// TcpServerManager is the place holder for all the TcpServer objects
-// instantiated in the life time of a process
-//
-// TcpServer objects are help in ServerSet until all the cleanup is complete
-// and only then should they be deleted via DeleteServer() API
-//
-// Since TcpServer objects are also held by boost::asio routines, they are
-// protected using intrusive pointers
-// 
-// This is similar to how TcpSession objects are managed via TcpSessionPtr
-//
 class TcpServerManager {
 public:
     static void AddServer(TcpServer *server);
     static void DeleteServer(TcpServer *server);
+    static size_t GetServerCount();
 
 private:
-    typedef boost::intrusive_ptr<TcpServer> TcpServerPtr;
-    struct TcpServerPtrCmp {
-        bool operator()(const TcpServerPtr &lhs,
-                        const TcpServerPtr &rhs) const {
-            return lhs.get() < rhs.get();
-        }
-    };
-    typedef std::set<TcpServerPtr, TcpServerPtrCmp> ServerSet;
-
-    static tbb::mutex mutex_;
-    static ServerSet server_ref_;
+    static ServerManager<TcpServer, TcpServerPtr> impl_;
 };
 
 #endif // __TCPSERVER_H__

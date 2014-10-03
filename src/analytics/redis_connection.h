@@ -70,6 +70,7 @@ public:
     uint64_t CallbackFailed() { return callbackFailed_; }
     uint64_t CallbackSucceeded() { return callbackSucceeded_; }
 
+    boost::asio::ip::tcp::endpoint Endpoint() const { return endpoint_; }
 private:
     enum RedisState {
         REDIS_ASYNC_CONNECTION_INIT      = 0,
@@ -125,5 +126,7 @@ private:
 
     static RAC_CbFnsMap rac_cb_fns_map_;
     static tbb::mutex rac_cb_fns_map_mutex_;
+
+    boost::asio::ip::tcp::endpoint endpoint_;
 };
 #endif

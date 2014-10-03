@@ -31,6 +31,8 @@
 
 using tbb::mutex;
 
+const CurlErrorCategory curl_error_category;
+
 /* boost::asio related objects
  * using global variables for simplicity
  */
@@ -96,9 +98,10 @@ static void check_multi_info(GlobalInfo *g)
       curl_easy_getinfo(easy, CURLINFO_PRIVATE, &conn);
       curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &eff_url);
 
-      boost::system::error_code error(res, boost::system::system_category());
+      boost::system::error_code error(res, curl_error_category);
       std::string empty_str("");
-      conn->connection->HttpClientCb()(empty_str, error);
+      if (conn->connection->HttpClientCb() != NULL)
+          conn->connection->HttpClientCb()(empty_str, error);
     }
   }
 }
@@ -141,13 +144,19 @@ static void event_cb(GlobalInfo *g, TcpSessionPtr session, int action,
 }
 
 /* Called by asio when our timeout expires */
-void timer_cb(GlobalInfo *g)
+bool timer_cb(GlobalInfo *g)
 {
     CURLMcode rc;
     rc = curl_multi_socket_action(g->multi, CURL_SOCKET_TIMEOUT, 0, &g->still_running);
-
     mcode_or_die("timer_cb: curl_multi_socket_action", rc);
+
+    // When timeout happens, call multi_perform to check if we still have
+    // pending handles; if yes, continue running the timer
+    rc = curl_multi_perform(g->multi, &g->still_running);
+    mcode_or_die("timer_cb: curl_multi_perform", rc);
+
     check_multi_info(g);
+    return (g->still_running > 0);
 }
 
 /* Clean up any data */
@@ -245,18 +254,21 @@ static size_t write_cb(void *ptr, size_t size, size_t nmemb, void *data)
 static size_t read_cb(void *ptr, size_t size, size_t nmemb, void *data)
 {
   HttpConnection *conn = static_cast<HttpConnection *>(data);
-  const std::string str = conn->GetData();
+  ConnInfo *curl_handle = conn->curl_handle();
+  char *str = curl_handle->post;
 
   size_t maxb = size*nmemb;
   size_t offset = conn->GetOffset();
-  size_t datasize = str.length() - offset;
+  size_t datasize = 0;
+  if (curl_handle->post_len > offset)
+      datasize = curl_handle->post_len - offset;
 
   if (maxb >= datasize) {
-      memcpy(ptr, str.data() + offset, datasize);
+      memcpy(ptr, str + offset, datasize);
       conn->UpdateOffset(datasize);
-      return str.length();
+      return datasize;
   } else {
-      memcpy(ptr, str.data() + offset, maxb);
+      memcpy(ptr, str + offset, maxb);
       conn->UpdateOffset(maxb);
       return maxb;
   }
@@ -288,10 +300,12 @@ static curl_socket_t opensocket(void *data,
   if (purpose == CURLSOCKTYPE_IPCXN && address->family == AF_INET)
   {
       HttpClientSession *session = conn->CreateSession();
-      sockfd = session->socket()->native_handle();
-      socket_map.insert(std::pair<curl_socket_t, HttpClientSession *>(sockfd, 
-                  static_cast<HttpClientSession *>(session)));
-      conn->set_session(session);
+      if (session) {
+          sockfd = session->socket()->native_handle();
+          socket_map.insert(std::pair<curl_socket_t, HttpClientSession *>(
+                  sockfd, static_cast<HttpClientSession *>(session)));
+          conn->set_session(session);
+      }
   }
 
 
@@ -307,6 +321,29 @@ static int closesocket(void *clientp, curl_socket_t item)
   }
 
   return 0;
+}
+
+static int send_perform(ConnInfo *conn, GlobalInfo *g) {
+    // add the handle
+    CURLMcode m_rc = curl_multi_add_handle(g->multi, conn->easy);
+    if (m_rc != CURLM_OK)
+        return m_rc;
+
+    // start sending data rightaway; use timer to re-invoke multi_perform
+    int counter = 0;
+    CURLMcode rc = curl_multi_perform(g->multi, &counter);
+    if (rc == CURLM_OK && counter <= 0) {
+        // send done; invoke callback to indicate this
+        if (conn->connection && conn->connection->session()) {
+            const boost::system::error_code ec;
+            event_cb(g, TcpSessionPtr(conn->connection->session()), 0, ec, 0);
+        }
+    } else {
+        // start timer and check for send completion on timeout
+        g->client->StartTimer(HttpClient::kDefaultTimeout);
+    }
+
+    return rc;
 }
 
 void del_conn(HttpConnection *connection, GlobalInfo *g) {
@@ -339,9 +376,8 @@ ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g,
 
   conn->easy = curl_easy_init();
 
-  if ( !conn->easy )
-  {
-    exit(2);
+  if ( !conn->easy ) {
+    return NULL;
   }
   conn->global = g;
   curl_easy_setopt(conn->easy, CURLOPT_FOLLOWLOCATION, 1L);
@@ -386,12 +422,22 @@ void set_header_options(ConnInfo *conn, const char *options) {
     curl_easy_setopt(conn->easy, CURLOPT_HTTPHEADER, conn->headers);
 }
 
-void set_put_string(ConnInfo *conn, const char *post) { 
-    conn->headers = curl_slist_append(conn->headers, "Content-Type: application/xml");
-    curl_easy_setopt(conn->easy, CURLOPT_HTTPHEADER, conn->headers);
-    
-    conn->post = strdup(post);
+void set_post_string(ConnInfo *conn, const char *post, uint32_t len) {
+    conn->post = (char *) malloc(len);
+    memcpy(conn->post, post, len);
+    conn->post_len = len;
+    curl_easy_setopt(conn->easy, CURLOPT_POST, 1);
     curl_easy_setopt(conn->easy, CURLOPT_POSTFIELDS, conn->post);
+    curl_easy_setopt(conn->easy, CURLOPT_POSTFIELDSIZE_LARGE, (curl_off_t)len);
+}
+
+void set_put_string(ConnInfo *conn, const char *put, uint32_t len) {
+    conn->post = (char *) malloc(len);
+    memcpy(conn->post, put, len);
+    conn->post_len = len;
+    curl_easy_setopt(conn->easy, CURLOPT_UPLOAD, 1);
+    curl_easy_setopt(conn->easy, CURLOPT_PUT, 1);
+    curl_easy_setopt(conn->easy, CURLOPT_POSTFIELDSIZE_LARGE, (curl_off_t)len);
 }
 
 int http_get(ConnInfo *conn, GlobalInfo *g) {
@@ -399,7 +445,22 @@ int http_get(ConnInfo *conn, GlobalInfo *g) {
     return (int)rc;
 }
 
+int http_head(ConnInfo *conn, GlobalInfo *g) {
+    curl_easy_setopt(conn->easy, CURLOPT_CUSTOMREQUEST, "HEAD");
+    CURLMcode rc = curl_multi_add_handle(g->multi, conn->easy);
+    return (int)rc;
+}
+
 int http_put(ConnInfo *conn, GlobalInfo *g) {
+    return send_perform(conn, g);
+}
+
+int http_post(ConnInfo *conn, GlobalInfo *g) {
+    return send_perform(conn, g);
+}
+
+int http_delete(ConnInfo *conn, GlobalInfo *g) {
+    curl_easy_setopt(conn->easy, CURLOPT_CUSTOMREQUEST, "DELETE");
     CURLMcode rc = curl_multi_add_handle(g->multi, conn->easy);
     return (int)rc;
 }

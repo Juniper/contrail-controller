@@ -7,6 +7,8 @@
 
 #include <boost/scoped_array.hpp>
 
+class AgentHdr;
+
 class PktTrace {
 public:
     static const std::size_t kPktMaxTraceSize = 512;  // number of bytes stored
@@ -25,11 +27,8 @@ public:
         uint8_t pkt[kPktMaxTraceSize];
 
         Pkt() : dir(Invalid), len(0) {}
-        void Copy(Direction d, std::size_t l, uint8_t *msg, std::size_t pkt_trace_size) {
-            dir = d;
-            len = l;
-            memcpy(pkt, msg, std::min(l, pkt_trace_size));
-        }
+        void Copy(Direction d, std::size_t l, uint8_t *msg,
+                  std::size_t pkt_trace_size, const AgentHdr *hdr);
     };
 
     typedef boost::function<void(PktTrace::Pkt &)> Cb;
@@ -40,14 +39,8 @@ public:
     }
     virtual ~PktTrace() {}
 
-    void AddPktTrace(Direction dir, std::size_t len, uint8_t *msg) {
-        if (num_buffers_) {
-            end_ = (end_ + 1) % num_buffers_;
-            pkt_buffer_[end_].Copy(dir, len, msg, pkt_trace_size_);
-            count_ = std::min((count_ + 1), (uint32_t) num_buffers_);
-        }
-    }
-
+    void AddPktTrace(Direction dir, std::size_t len, uint8_t *msg,
+                     const AgentHdr *hdr);
     void Clear() {
         count_ = 0;
         end_ = -1;

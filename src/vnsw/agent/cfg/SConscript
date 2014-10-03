@@ -5,35 +5,17 @@
 # -*- mode: python; -*-
 
 import os
+import sys
 
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-except_env = env.Clone()
-cflags = except_env['CCFLAGS']
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-    except_env.Replace(CCFLAGS = cflags)
-
-import sys
-
 SandeshGenFiles = env.SandeshGenCpp('cfg.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
-sandesh_objs = []
-for src in SandeshGenSrcs:                    
-    objname = src.replace('.cpp', '.o')
-    obj = except_env.Object(objname, src)
-    sandesh_objs.append(obj)
+sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
 
-except_files = [
-                'cfg_init.cc'
-                ]
-
-except_objs = []
-for except_src in except_files:
-    objname = except_src.replace('.cc', '.o')
-    obj = except_env.Object(objname, except_src)
-    except_objs.append(obj)
+except_files = [ 'cfg_init.cc' ]
+except_objs = AgentEnv.BuildExceptionCcObj(env, except_files)
 
 libcfg = env.Library('cfg',
                      except_objs +

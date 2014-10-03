@@ -54,7 +54,7 @@ std::string MirrorKSyncEntry::ToString() const {
 
     s << "Mirror Entry : " << dip_.to_string() << ":" << dport_;
     const VrfEntry* vrf =
-        ksync_obj_->ksync()->agent()->GetVrfTable()->FindVrfFromId(vrf_id_);
+        ksync_obj_->ksync()->agent()->vrf_table()->FindVrfFromId(vrf_id_);
     if (vrf) {
         s << " Vrf : " << vrf->GetName();
     }
@@ -89,10 +89,10 @@ int MirrorKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     encoder.set_h_op(op);
     encoder.set_mirr_index(GetIndex());
     encoder.set_mirr_rid(0);
-    encoder.set_mirr_nhid(nh_entry->GetIndex());
+    encoder.set_mirr_nhid(nh_entry->nh_id());
     encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
     LOG(DEBUG, "Mirror index " << GetIndex() << " nhid " 
-            << nh_entry->GetIndex());
+            << nh_entry->nh_id());
     return encode_len;
 }
 
@@ -126,7 +126,7 @@ MirrorKSyncObject::~MirrorKSyncObject() {
 }
 
 void MirrorKSyncObject::RegisterDBClients() {
-    RegisterDb(ksync_->agent()->GetMirrorTable());
+    RegisterDb(ksync_->agent()->mirror_table());
 }
 
 KSyncEntry *MirrorKSyncObject::Alloc(const KSyncEntry *entry, uint32_t index) {

@@ -89,17 +89,6 @@ const RtGroup::InterestedPeerList &RtGroup::PeerList() const {
     return peer_list_;
 }
 
-bool RtGroup::IsPeerInterested(const BgpPeer *peer) const {
-    return (peer_list_.find(peer) != peer_list_.end());
-}
-
-void RtGroup::GetInterestedPeers(std::set<const BgpPeer *> &peer_set) const {
-    for (RtGroup::InterestedPeerList::const_iterator it = peer_list_.begin(); 
-         it != peer_list_.end(); it++) {
-        peer_set.insert(it->first);
-    }
-}
-
 const RtGroupInterestedPeerSet& RtGroup::GetInterestedPeers() const {
     return interested_peers_;
 }
@@ -110,6 +99,7 @@ void RtGroup::AddInterestedPeer(const BgpPeer *peer, RTargetRoute *rt) {
         it = peer_list_.insert(peer_list_.begin(), 
                                std::pair<const BgpPeer *, 
                                RTargetRouteList>(peer, RTargetRouteList()));
+        assert(peer->GetIndex() >= 0);
         interested_peers_.set(peer->GetIndex());
     }
     it->second.insert(rt);
@@ -121,6 +111,7 @@ void RtGroup::RemoveInterestedPeer(const BgpPeer *peer, RTargetRoute *rt) {
     it->second.erase(rt);
     if (it->second.empty()) {
         peer_list_.erase(peer);
+        assert(peer->GetIndex() >= 0);
         interested_peers_.reset(peer->GetIndex());
     }
 }

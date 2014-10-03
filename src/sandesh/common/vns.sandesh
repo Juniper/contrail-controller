@@ -1,12 +1,114 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
- 
+
 /*
  * vns.sandesh
  *
  * VNS Definitions
  */
+
+// Service names
+const string SERVICE_VROUTER_AGENT = "contrail-vrouter-agent"
+const string SERVICE_CONTROL_NODE = "contrail-control"
+const string SERVICE_DNSD = "contrail-dns"
+const string SERVICE_API_SERVER = "contrail-api:0"
+const string SERVICE_SCHEMA_TRANSFORMER = "contrail-schema"
+const string SERVICE_SVC_MONITOR = "contrail-svc-monitor"
+const string SERVICE_COLLECTOR = "contrail-collector"
+const string SERVICE_QUERY_ENGINE = "contrail-query-engine"
+const string SERVICE_OPSERVER = "contrail-analytics-api"
+const string SERVICE_DISCOVERY = "contrail-discovery:0"
+const string SERVICE_STORAGE_STATS_MGR = "contrail-storage-stats"
+
+// NodeMgr names
+const string SERVICE_COMPUTE_NODE_MGR = "contrail-vrouter-nodemgr"
+const string SERVICE_CONTROL_NODE_MGR = "contrail-control-nodemgr"
+const string SERVICE_ANALYTICS_NODE_MGR = "contrail-analytics-nodemgr"
+const string SERVICE_CONFIG_NODE_MGR = "contrail-config-nodemgr"
+const string SERVICE_DATABASE_NODE_MGR = "contrail-database-nodemgr"
+
+// Supervisor names
+const string SERVICE_ANALYTICS_SUPERVISOR = "supervisor-analytics"
+const string SERVICE_CONTROL_SUPERVISOR = "supervisor-control"
+const string SERVICE_CONFIG_SUPERVISOR = "supervisor-config"
+const string SERVICE_COMPUTE_SUPERVISOR = "supervisor-vrouter"
+const string SERVICE_DATABASE_SUPERVISOR = "supervisor-database"
+const string SERVICE_WEBUI_SUPERVISOR = "supervisor-webui"
+
+// Http Server (Introspect) Ports
+const u16 HttpPortConfigNodemgr = 8100
+const u16 HttpPortControlNodemgr = 8101
+const u16 HttpPortVRouterNodemgr = 8102
+const u16 HttpPortDatabaseNodemgr = 8103
+const u16 HttpPortAnalyticsNodemgr = 8104
+const u16 HttpPortStorageStatsmgr = 8105
+
+const u16 HttpPortControl = 8083
+const u16 HttpPortApiServer = 8084
+const u16 HttpPortAgent = 8085
+const u16 HttpPortSchemaTransformer = 8087
+const u16 HttpPortSvcMonitor = 8088
+const u16 HttpPortCollector = 8089
+const u16 HttpPortOpserver = 8090
+const u16 HttpPortQueryEngine = 8091
+const u16 HttpPortDns = 8092
+
+// Supervisord control ports
+const u16 AnalyticsSupervisorPort = 9002
+const u16 ControlSupervisorPort = 9003
+const u16 ConfigSupervisorPort = 9004
+const u16 VRouterSupervisorPort = 9005
+const u16 DatabaseSupervisorPort = 9007
+const u16 WebuiSupervisorPort = 9008
+
+// Daemon ports
+const u16 DnsServerPort = 53
+const u16 ControlBgpPort = 179
+const u16 ControlXmppPort = 5269
+const u16 DiscoveryServerPort = 5998
+const u16 RedisQueryPort = 6379
+const u16 RedisUvePort = 6379
+const u16 RedisWebuiPort = 6383
+const u16 WebConsolePort = 8080
+const u16 OpServerPort = 8081
+const u16 ApiServerPort = 8082
+const u16 CollectorPort = 8086
+const u16 CollectorProtobufPort = 3333
+const u16 DnsXmppPort = 8093
+const u16 DnsRndcPort = 8094
+const u16 ApiServerOpenPort = 8095
+const u16 AnalyzerUdpPort = 8099
+const u16 NovaVifVrouterAgentPort = 9090
+
+const map<string, u16> ServiceHttpPortMap = {
+    SERVICE_VROUTER_AGENT : HttpPortAgent,
+    SERVICE_CONTROL_NODE : HttpPortControl,
+    SERVICE_COLLECTOR : HttpPortCollector,
+    SERVICE_QUERY_ENGINE : HttpPortQueryEngine,
+    SERVICE_OPSERVER : HttpPortOpserver,
+    SERVICE_DNSD : HttpPortDns,
+    SERVICE_API_SERVER : HttpPortApiServer,
+    SERVICE_SCHEMA_TRANSFORMER : HttpPortSchemaTransformer,
+    SERVICE_SVC_MONITOR : HttpPortSvcMonitor,
+    SERVICE_CONFIG_NODE_MGR : HttpPortConfigNodemgr,
+    SERVICE_ANALYTICS_NODE_MGR : HttpPortAnalyticsNodemgr,
+    SERVICE_COMPUTE_NODE_MGR : HttpPortVRouterNodemgr,
+    SERVICE_CONTROL_NODE_MGR : HttpPortControlNodemgr,
+    SERVICE_DATABASE_NODE_MGR : HttpPortDatabaseNodemgr,
+    SERVICE_STORAGE_STATS_MGR : HttpPortStorageStatsmgr,
+}
+
+const list<string> NodeUVEImplementedServices = [
+    SERVICE_VROUTER_AGENT,
+    SERVICE_CONTROL_NODE,
+    SERVICE_COLLECTOR,
+    SERVICE_QUERY_ENGINE,
+    SERVICE_OPSERVER,
+    SERVICE_API_SERVER,
+    SERVICE_SCHEMA_TRANSFORMER,
+    SERVICE_SVC_MONITOR,
+]
 
 enum Module {
     CONTROL_NODE,
@@ -26,52 +128,76 @@ enum Module {
     CONFIG_NODE_MGR,
     DATABASE_NODE_MGR,
     WEBUI_NODE_MGR,
-    COMPUTE_NODE_MGR,    
+    COMPUTE_NODE_MGR,
+    STORAGE_STATS_MGR,
     MAX_MODULE,
 }
 
+const string MODULE_CONTROL_NODE_NAME = "ControlNode"
+const string MODULE_VROUTER_AGENT_NAME = "VRouterAgent"
+const string MODULE_API_SERVER_NAME = "ApiServer"
+const string MODULE_SCHEMA_TRANSFORMER_NAME = "Schema"
+const string MODULE_OPSERVER_NAME = "OpServer"
+const string MODULE_COLLECTOR_NAME = "Collector"
+const string MODULE_QUERY_ENGINE_NAME = "QueryEngine"
+const string MODULE_SVC_MONITOR_NAME = "ServiceMonitor"
+const string MODULE_DNS_NAME = "DnsAgent"
+const string MODULE_DISCOVERY_SERVICE_NAME = "DiscoveryService"
+const string MODULE_IFMAP_SERVER_NAME = "IfmapServer"
+const string MODULE_XMPP_SERVER_NAME = "XmppServer"
+const string MODULE_ANALYTICS_NODE_MGR_NAME = "Contrail-Analytics-Nodemgr"
+const string MODULE_CONTROL_NODE_MGR_NAME = "Contrail-Control-Nodemgr"
+const string MODULE_CONFIG_NODE_MGR_NAME = "Contrail-Config-Nodemgr"
+const string MODULE_DATABASE_NODE_MGR_NAME = "Contrail-Database-Nodemgr"
+const string MODULE_WEBUI_NODE_MGR_NAME = "Contrail-WebUI-Nodemgr"
+const string MODULE_COMPUTE_NODE_MGR_NAME = "Contrail-Vrouter-Nodemgr"
+const string MODULE_STORAGE_STATS_MGR_NAME = "Storage-Stats-mgr"
+
 const map<Module, string> ModuleNames = {
-    Module.CONTROL_NODE       : "ControlNode",
-    Module.VROUTER_AGENT      : "VRouterAgent",
-    Module.API_SERVER         : "ApiServer",
-    Module.SCHEMA_TRANSFORMER : "Schema",
-    Module.OPSERVER           : "OpServer",
-    Module.COLLECTOR          : "Collector",
-    Module.QUERY_ENGINE       : "QueryEngine",
-    Module.SVC_MONITOR        : "ServiceMonitor"
-    Module.DNS                : "DnsAgent",
-    Module.DISCOVERY_SERVICE  : "DiscoveryService"
-    Module.IFMAP_SERVER       : "IfmapServer",
-    Module.XMPP_SERVER        : "XmppServer",
-    Module.ANALYTICS_NODE_MGR : "Contrail-Analytics-Nodemgr",
-    Module.CONTROL_NODE_MGR   : "Contrail-Control-Nodemgr",
-    Module.CONFIG_NODE_MGR    : "Contrail-Config-Nodemgr",
-    Module.DATABASE_NODE_MGR  : "Contrail-Database-Nodemgr",
-    Module.WEBUI_NODE_MGR     : "Contrail-WebUI-Nodemgr",
-    Module.COMPUTE_NODE_MGR   : "Contrail-Vrouter-Nodemgr",
+    Module.CONTROL_NODE       : MODULE_CONTROL_NODE_NAME,
+    Module.VROUTER_AGENT      : MODULE_VROUTER_AGENT_NAME,
+    Module.API_SERVER         : MODULE_API_SERVER_NAME,
+    Module.SCHEMA_TRANSFORMER : MODULE_SCHEMA_TRANSFORMER_NAME,
+    Module.OPSERVER           : MODULE_OPSERVER_NAME,
+    Module.COLLECTOR          : MODULE_COLLECTOR_NAME,
+    Module.QUERY_ENGINE       : MODULE_QUERY_ENGINE_NAME,
+    Module.SVC_MONITOR        : MODULE_SVC_MONITOR_NAME,
+    Module.DNS                : MODULE_DNS_NAME,
+    Module.DISCOVERY_SERVICE  : MODULE_DISCOVERY_SERVICE_NAME,
+    Module.IFMAP_SERVER       : MODULE_IFMAP_SERVER_NAME,
+    Module.XMPP_SERVER        : MODULE_XMPP_SERVER_NAME,
+    Module.ANALYTICS_NODE_MGR : MODULE_ANALYTICS_NODE_MGR_NAME,
+    Module.CONTROL_NODE_MGR   : MODULE_CONTROL_NODE_MGR_NAME,
+    Module.CONFIG_NODE_MGR    : MODULE_CONFIG_NODE_MGR_NAME,
+    Module.DATABASE_NODE_MGR  : MODULE_DATABASE_NODE_MGR_NAME,
+    Module.WEBUI_NODE_MGR     : MODULE_WEBUI_NODE_MGR_NAME,
+    Module.COMPUTE_NODE_MGR   : MODULE_COMPUTE_NODE_MGR_NAME,
+    Module.STORAGE_STATS_MGR  : MODULE_STORAGE_STATS_MGR_NAME,
 }
 
 const map<string, Module> ModuleIds = {
-    "ControlNode"           : Module.CONTROL_NODE,
-    "VRouterAgent"          : Module.VROUTER_AGENT,
-    "ApiServer"             : Module.API_SERVER,
-    "Schema"                : Module.SCHEMA_TRANSFORMER,
-    "OpServer"              : Module.OPSERVER,
-    "Collector"             : Module.COLLECTOR,
-    "QueryEngine"           : Module.QUERY_ENGINE,
-    "ServiceMonitor"        : Module.SVC_MONITOR,
-    "DnsAgent"              : Module.DNS,
-    "DiscoveryService"      : Module.DISCOVERY_SERVICE
-    "IfmapServer"           : Module.IFMAP_SERVER,
-    "XmppServer"            : Module.XMPP_SERVER,
-    "Contrail-Analytics-Nodemgr" : Module.ANALYTICS_NODE_MGR,
-    "Contrail-Control-Nodemgr"   : Module.CONTROL_NODE_MGR,
-    "Contrail-Config-Nodemgr"    : Module.CONFIG_NODE_MGR,
-    "Contrail-Database-Nodemgr"  : Module.DATABASE_NODE_MGR,
-    "Contrail-WebUI-Nodemgr"     : Module.WEBUI_NODE_MGR,
-    "Contrail-Vrouter-Nodemgr"   : Module.COMPUTE_NODE_MGR,
+    MODULE_CONTROL_NODE_NAME           : Module.CONTROL_NODE,
+    MODULE_VROUTER_AGENT_NAME          : Module.VROUTER_AGENT,
+    MODULE_API_SERVER_NAME             : Module.API_SERVER,
+    MODULE_SCHEMA_TRANSFORMER_NAME     : Module.SCHEMA_TRANSFORMER,
+    MODULE_OPSERVER_NAME               : Module.OPSERVER,
+    MODULE_COLLECTOR_NAME              : Module.COLLECTOR,
+    MODULE_QUERY_ENGINE_NAME           : Module.QUERY_ENGINE,
+    MODULE_SVC_MONITOR_NAME            : Module.SVC_MONITOR,
+    MODULE_DNS_NAME                    : Module.DNS,
+    MODULE_DISCOVERY_SERVICE_NAME      : Module.DISCOVERY_SERVICE
+    MODULE_IFMAP_SERVER_NAME           : Module.IFMAP_SERVER,
+    MODULE_XMPP_SERVER_NAME            : Module.XMPP_SERVER,
+    MODULE_ANALYTICS_NODE_MGR_NAME     : Module.ANALYTICS_NODE_MGR,
+    MODULE_CONTROL_NODE_MGR_NAME       : Module.CONTROL_NODE_MGR,
+    MODULE_CONFIG_NODE_MGR_NAME        : Module.CONFIG_NODE_MGR,
+    MODULE_DATABASE_NODE_MGR_NAME      : Module.DATABASE_NODE_MGR,
+    MODULE_WEBUI_NODE_MGR_NAME         : Module.WEBUI_NODE_MGR,
+    MODULE_COMPUTE_NODE_MGR_NAME       : Module.COMPUTE_NODE_MGR,
+    MODULE_STORAGE_STATS_MGR_NAME      : Module.STORAGE_STATS_MGR,
 }
 
+// Supervisor names
 enum NodeType {
     INVALID,
     CONFIG,
@@ -113,6 +239,7 @@ const map <Module, NodeType> Module2NodeType = {
     Module.DATABASE_NODE_MGR  : NodeType.DATABASE,
     Module.WEBUI_NODE_MGR     : NodeType.WEBUI,
     Module.COMPUTE_NODE_MGR   : NodeType.COMPUTE,
+    Module.STORAGE_STATS_MGR  : NodeType.COMPUTE,
 }
 
 const string INSTANCE_ID_DEFAULT = "0"

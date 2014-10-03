@@ -25,6 +25,9 @@ from vnc_api.gen.vnc_api_client_gen import *
 import pycassa
 from pycassa.system_manager import *
 
+# Global variables
+vnc = None
+outfile = None
 """
     Input is list of tuple dictionary <type, name, value, prop, refs>
     type  := project, domain ...
@@ -328,31 +331,37 @@ class VncViewer():
         self._db_conn = db_conn
     # end db_connect
 
-vnc_viewer = VncViewer()
-vnc_viewer.parse_args()
-vnc_viewer.db_connect()
+def main():
+    vnc_viewer = VncViewer()
+    vnc_viewer.parse_args()
+    vnc_viewer.db_connect()
 
-#vnc = VncApi('admin', 'contrail123', 'admin', '127.0.0.1', '8082')
-vnc = VncApiClientGen(obj_serializer=None)
-outfile = file("debug.txt", "w")
+    #vnc = VncApi('admin', 'contrail123', 'admin', '127.0.0.1', '8082')
+    global vnc
+    global outfile
+    vnc = VncApiClientGen(obj_serializer=None)
+    outfile = file("debug.txt", "w")
 
-""" sample search metas
- srch_meta = 'contrail:config-root-domain' (retunn only domains)
- srch_meta = ' or '.join(['contrail:config-root-domain',
-             'contrail:config-root-virtual-router']) (domain or virtual-router)
- srch_meta = 'contrail:config-root-domain or
-              contrail:config-root-virtual-router' (same as above)
- srch_meta = 'contrail:domain-project' (search all projects)
- srch_meta = None (search everything)
-"""
+    """ sample search metas
+     srch_meta = 'contrail:config-root-domain' (retunn only domains)
+     srch_meta = ' or '.join(['contrail:config-root-domain',
+                 'contrail:config-root-virtual-router']) (domain or virtual-router)
+     srch_meta = 'contrail:config-root-domain or
+                  contrail:config-root-virtual-router' (same as above)
+     srch_meta = 'contrail:domain-project' (search all projects)
+     srch_meta = None (search everything)
+    """
 
-srch_meta = None
-result_meta = 'all'
-soap_result = vnc_viewer._db_conn.ifmap_read(
-    'contrail:config-root:root', srch_meta, result_meta)
-config = parse_config(soap_result)
-if vnc_viewer.start_node is None:
-    node = config[0]['value']
-else:
-    node = find_node_in_tree(vnc_viewer.start_node, config)
-mypretty(node, verbose=vnc_viewer.verbose)
+    srch_meta = None
+    result_meta = 'all'
+    soap_result = vnc_viewer._db_conn.ifmap_read(
+        'contrail:config-root:root', srch_meta, result_meta)
+    config = parse_config(soap_result)
+    if vnc_viewer.start_node is None:
+        node = config[0]['value']
+    else:
+        node = find_node_in_tree(vnc_viewer.start_node, config)
+    mypretty(node, verbose=vnc_viewer.verbose)
+
+if __name__ == '__main__':
+    main()

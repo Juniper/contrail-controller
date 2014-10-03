@@ -1,0 +1,42 @@
+/*
+ * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+ */
+
+//
+//  database.sandesh
+//
+
+include "base/sandesh/process_info.sandesh"
+
+struct DatabaseUsageStats {
+    1: u64                                 disk_space_used_1k
+    2: u64                                 disk_space_available_1k
+    3: u64                                 analytics_db_size_1k
+}
+
+struct DatabaseUsageInfo {
+    1: string                              name (key="ObjectDatabaseInfo")
+    2: optional bool                       deleted
+    3: DatabaseUsageStats                  database_usage
+    4: optional list<DatabaseUsageStats>   database_usage_stats (tags="")
+}
+
+//DatabaseUsageStat uve will be sent by Database-nodemgr
+uve sandesh DatabaseUsage {
+    1: DatabaseUsageInfo                   data
+}
+
+struct NodeStatus {
+    1: string name (key="ObjectDatabaseInfo")
+    2: optional bool deleted
+    3: optional string status
+    // Sent by process
+    4: optional list<process_info.ProcessStatus> process_status (aggtype="union")
+    // Sent by node manager
+    5: optional list<process_info.ProcessInfo> process_info (aggtype="union")
+    6: optional string description
+}
+
+uve sandesh NodeStatusUVE {
+    1: NodeStatus data
+}

@@ -5,8 +5,9 @@
 #ifndef vnsw_agent_route_encap_hpp
 #define vnsw_agent_route_encap_hpp
 
-#include "cmn/agent_cmn.h"
-#include "oper/agent_route_walker.h"
+#include <cmn/agent_cmn.h>
+#include <cmn/agent.h>
+#include <oper/agent_route_walker.h>
 
 class AgentRouteEncap : public AgentRouteWalker {
 public:    

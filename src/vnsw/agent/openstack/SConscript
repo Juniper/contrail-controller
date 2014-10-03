@@ -13,15 +13,10 @@ import os
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
+env = AgentEnv.RemoveExceptionFlag(env)
 env.AppendUnique(CCFLAGS='-Wno-reorder')
 env.AppendUnique(CCFLAGS='-Wno-return-type')
 env.AppendUnique(CCFLAGS='-Wno-unused-variable')
-
-cflags = env['CCFLAGS']
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-    cflags.append('-Wno-return-type')
-    env.Replace(CCFLAGS = cflags)
 
 targets = env.ThriftGenCpp('instance_service.thrift', True)
 lib_srcs = env.ExtractCpp(targets)

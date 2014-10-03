@@ -168,10 +168,10 @@ public:
     TaskEntry *QueryTaskEntry(int task_id, int instance_id);
     void OnTaskExit(Task *task);
 
-    void Stop();        // Stop scheduling of all tasks
-    void Start();       // Start scheduling of all tasks
-    void Print();       // Debug print routine
-    bool IsEmpty();     // Returns true if there are no tasks enqueued and/or running
+    void Stop();                              // Stop scheduling of all tasks
+    void Start();                             // Start scheduling of all tasks
+    void Print();                             // Debug print routine
+    bool IsEmpty(bool running_only = false);  // Returns true if there are no tasks running and/or enqueued
 
     void Terminate();
 

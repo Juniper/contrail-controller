@@ -7,9 +7,10 @@
 
 #include "base/parse_object.h"
 #include <stdio.h>
+
 using namespace std;
 
-TunnelEncap::TunnelEncap(std::string encap) {
+TunnelEncap::TunnelEncap(string encap) {
     TunnelEncapType::Encap id = TunnelEncapType::TunnelEncapFromString(encap);
     if (id == TunnelEncapType::UNSPEC) return;
     data_[0] = 0x03;
@@ -33,20 +34,19 @@ TunnelEncap::TunnelEncap(const bytes_type &data) {
 
 TunnelEncapType::Encap TunnelEncap::tunnel_encap() const {
     uint8_t data[TunnelEncap::kSize];
-    std::string encap = "unspecified";
+    string encap = "unspecified";
 
     copy(data_.begin(), data_.end(), &data[0]);
     if (data[0] == 0x03 && data[1] == 0x0c) {
         uint16_t num = get_value(data + 6, 2);
         encap = 
-            TunnelEncapType::TunnelEncapToString((TunnelEncapType::Encap)num);
+            TunnelEncapType::TunnelEncapToString((TunnelEncapType::Encap) num);
     }
     return TunnelEncapType::TunnelEncapFromString(encap);
 }
 
-std::string TunnelEncap::ToString() {
-    std::stringstream out;
-    out << "tunnel encap: " 
-        << TunnelEncapType::TunnelEncapToString(tunnel_encap());
-    return out.str();
+string TunnelEncap::ToString() {
+    string str("encapsulation:");
+    str += TunnelEncapType::TunnelEncapToString(tunnel_encap());
+    return str;
 }

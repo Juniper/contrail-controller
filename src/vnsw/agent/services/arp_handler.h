@@ -19,15 +19,15 @@ public:
     virtual ~ArpHandler();
 
     bool Run();
-    void SendArp(uint16_t op, const unsigned char *smac, in_addr_t sip, 
-                 unsigned const char *tmac, in_addr_t tip, 
+    void SendArp(uint16_t op, const MacAddress &smac, in_addr_t sip,
+                 const MacAddress &tmac, in_addr_t tip,
                  uint16_t itf, uint16_t vrf);
 
 private:
     bool HandlePacket();
     bool HandleMessage();
     void EntryDelete(ArpKey &key);
-    uint16_t ArpHdr(const unsigned char *, in_addr_t, const unsigned char *, 
+    uint16_t ArpHdr(const MacAddress &, in_addr_t, const MacAddress &,
                     in_addr_t, uint16_t);
 
     ether_arp *arp_;

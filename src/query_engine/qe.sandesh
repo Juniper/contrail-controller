@@ -41,3 +41,23 @@ request sandesh TraceEnable {
     1: bool enable;
     2: string TraceType;
 }
+
+struct StatTest {
+    1: string s1
+    2: u64    i1
+    3: double d1
+    4: string s2
+    5: u64    i2
+    6: double d2
+}
+
+struct StatTestState {
+    1: string name (key="ObjectCollectorInfo")
+    2: optional bool deleted
+    3: optional list<StatTest> st (tags=".i1:.i2,.s2,.d1,l1,name:.s1")
+    4: optional string l1
+}
+
+uve sandesh StatTestTrace {
+    1: StatTestState data
+}

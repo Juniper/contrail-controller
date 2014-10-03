@@ -4,6 +4,8 @@
 
 #include "vr_defs.h"
 #include "oper/route_common.h"
+#include "oper/operdb_init.h"
+#include "oper/path_preference.h"
 #include "pkt/pkt_init.h"
 #include "services/arp_proto.h"
 #include "services/services_init.h"
@@ -19,8 +21,10 @@ ArpHandler::~ArpHandler() {
 
 bool ArpHandler::Run() {
     // Process ARP only when the IP Fabric interface is configured
-    if (agent()->GetArpProto()->ip_fabric_interface() == NULL)
+    if (agent()->GetArpProto()->ip_fabric_interface() == NULL) {
+        delete pkt_info_->ipc;
         return true;
+    }
 
     switch(pkt_info_->type) {
         case PktType::MESSAGE:
@@ -35,13 +39,13 @@ bool ArpHandler::HandlePacket() {
     ArpProto *arp_proto = agent()->GetArpProto();
     uint16_t arp_cmd;
     if (pkt_info_->ip) {
-        arp_tpa_ = ntohl(pkt_info_->ip->daddr);
+        arp_tpa_ = ntohl(pkt_info_->ip->ip_dst.s_addr);
         arp_cmd = ARPOP_REQUEST;
     } else if (pkt_info_->arp) {
         arp_ = pkt_info_->arp;
-        if ((ntohs(arp_->ea_hdr.ar_hrd) != ARPHRD_ETHER) || 
-            (ntohs(arp_->ea_hdr.ar_pro) != 0x800) ||
-            (arp_->ea_hdr.ar_hln != ETH_ALEN) || 
+        if ((ntohs(arp_->ea_hdr.ar_hrd) != ARPHRD_ETHER) ||
+            (ntohs(arp_->ea_hdr.ar_pro) != ETHERTYPE_IP) ||
+            (arp_->ea_hdr.ar_hln != ETHER_ADDR_LEN) ||
             (arp_->ea_hdr.ar_pln != IPv4_ALEN)) {
             arp_proto->IncrementStatsInvalidPackets();
             ARP_TRACE(Error, "Received Invalid ARP packet");
@@ -62,7 +66,7 @@ bool ArpHandler::HandlePacket() {
             arp_tpa_ = spa;
         
         // if it is our own, ignore
-        if (arp_tpa_ == agent()->GetRouterId().to_ulong()) {
+        if (arp_tpa_ == agent()->router_id().to_ulong()) {
             arp_proto->IncrementStatsGratuitous();
             return true;
         }
@@ -77,7 +81,7 @@ bool ArpHandler::HandlePacket() {
     }
 
     const Interface *itf =
-        agent()->GetInterfaceTable()->FindInterface(GetInterfaceIndex());
+        agent()->interface_table()->FindInterface(GetInterfaceIndex());
     if (!itf || !itf->IsActive()) {
         arp_proto->IncrementStatsInvalidInterface();
         ARP_TRACE(Error, "Received ARP packet from invalid / inactive interface");
@@ -85,7 +89,7 @@ bool ArpHandler::HandlePacket() {
     }
     if (itf->type() == Interface::VM_INTERFACE) {
         const VmInterface *vm_itf = static_cast<const VmInterface *>(itf);
-        if (!vm_itf->ipv4_forwarding()) {
+        if (!vm_itf->layer3_forwarding()) {
             ARP_TRACE(Error, "Received ARP packet on ipv4 disabled interface");
             return true;
         }
@@ -110,7 +114,7 @@ bool ArpHandler::HandlePacket() {
 
     //Look for subnet broadcast
     AgentRoute *route = 
-        static_cast<Inet4UnicastAgentRouteTable *>(vrf->
+        static_cast<InetUnicastAgentRouteTable *>(vrf->
             GetInet4UnicastRouteTable())->FindLPM(arp_addr);
     if (route) {
         if (route->is_multicast()) {
@@ -133,8 +137,6 @@ bool ArpHandler::HandlePacket() {
             } else {
                 entry = new ArpEntry(io_, this, key, ArpEntry::INITING);
                 arp_proto->AddArpEntry(entry);
-                delete[] pkt_info_->pkt;
-                pkt_info_->pkt = NULL;
                 entry->HandleArpRequest();
                 return false;
             }
@@ -142,15 +144,22 @@ bool ArpHandler::HandlePacket() {
 
         case ARPOP_REPLY:  {
             arp_proto->IncrementStatsArpReplies();
-            if (entry) {
-                entry->HandleArpReply(arp_->arp_sha);
+            if (itf->type() == Interface::VM_INTERFACE) {
+                uint32_t ip;
+                memcpy(&ip, arp_->arp_spa, sizeof(ip));
+                ip = ntohl(ip);
+                //Enqueue a request to trigger state machine
+                agent()->oper_db()->route_preference_module()->
+                    EnqueueTrafficSeen(Ip4Address(ip), 32, itf->id(),
+                                       vrf->vrf_id());
+                return true;
+            } else if(entry) {
+                entry->HandleArpReply(MacAddress(arp_->arp_sha));
                 return true;
             } else {
                 entry = new ArpEntry(io_, this, key, ArpEntry::INITING);
                 arp_proto->AddArpEntry(entry);
-                entry->HandleArpReply(arp_->arp_sha);
-                delete[] pkt_info_->pkt;
-                pkt_info_->pkt = NULL;
+                entry->HandleArpReply(MacAddress(arp_->arp_sha));
                 arp_ = NULL;
                 return false;
             }
@@ -158,15 +167,22 @@ bool ArpHandler::HandlePacket() {
 
         case GRATUITOUS_ARP: {
             arp_proto->IncrementStatsGratuitous();
-            if (entry) {
-                entry->HandleArpReply(arp_->arp_sha);
+            if (itf->type() == Interface::VM_INTERFACE) {
+                uint32_t ip;
+                memcpy(&ip, arp_->arp_spa, sizeof(ip));
+                ip = ntohl(ip);
+                //Enqueue a request to trigger state machine
+                agent()->oper_db()->route_preference_module()->
+                    EnqueueTrafficSeen(Ip4Address(ip), 32, itf->id(),
+                                       vrf->vrf_id());
+                return true;
+            } else if (entry) {
+                entry->HandleArpReply(MacAddress(arp_->arp_sha));
                 return true;
             } else {
                 entry = new ArpEntry(io_, this, key, ArpEntry::INITING);
-                entry->HandleArpReply(arp_->arp_sha);
+                entry->HandleArpReply(MacAddress(arp_->arp_sha));
                 arp_proto->AddArpEntry(entry);
-                delete[] pkt_info_->pkt;
-                pkt_info_->pkt = NULL;
                 arp_ = NULL;
                 return false;
             }
@@ -251,35 +267,40 @@ void ArpHandler::EntryDelete(ArpKey &key) {
     }
 }
 
-uint16_t ArpHandler::ArpHdr(const unsigned char *smac, in_addr_t sip, 
-         const unsigned char *tmac, in_addr_t tip, uint16_t op) {
+uint16_t ArpHandler::ArpHdr(const MacAddress &smac, in_addr_t sip,
+         const MacAddress &tmac, in_addr_t tip, uint16_t op) {
     arp_->ea_hdr.ar_hrd = htons(ARPHRD_ETHER);
     arp_->ea_hdr.ar_pro = htons(0x800);
-    arp_->ea_hdr.ar_hln = ETH_ALEN;
+    arp_->ea_hdr.ar_hln = ETHER_ADDR_LEN;
     arp_->ea_hdr.ar_pln = IPv4_ALEN;
     arp_->ea_hdr.ar_op = htons(op);
-    memcpy(arp_->arp_sha, smac, ETHER_ADDR_LEN);
+    smac.ToArray(arp_->arp_sha, sizeof(arp_->arp_sha));
     sip = htonl(sip);
     memcpy(arp_->arp_spa, &sip, sizeof(in_addr_t));
-    memcpy(arp_->arp_tha, tmac, ETHER_ADDR_LEN);
+    tmac.ToArray(arp_->arp_tha, sizeof(arp_->arp_tha));
     tip = htonl(tip);
     memcpy(arp_->arp_tpa, &tip, sizeof(in_addr_t));
     return sizeof(ether_arp);
 }
 
-void ArpHandler::SendArp(uint16_t op, const unsigned char *smac, in_addr_t sip, 
-                         const unsigned char *tmac, in_addr_t tip, 
+void ArpHandler::SendArp(uint16_t op, const MacAddress &smac, in_addr_t sip,
+                         const MacAddress &tmac, in_addr_t tip,
                          uint16_t itf, uint16_t vrf) {
-    pkt_info_->pkt = new uint8_t[MIN_ETH_PKT_LEN + IPC_HDR_LEN];
-    uint8_t *buf = pkt_info_->pkt;
-    memset(buf, 0, MIN_ETH_PKT_LEN + IPC_HDR_LEN);
-    pkt_info_->eth = (ethhdr *) (buf + sizeof(ethhdr) + sizeof(agent_hdr));
+
+    if (pkt_info_->packet_buffer() == NULL) {
+        pkt_info_->AllocPacketBuffer(agent(), PktHandler::ARP, MIN_ETH_PKT_LEN,
+                                     0);
+    }
+
+    uint8_t *buf = pkt_info_->packet_buffer()->data();
+    memset(buf, 0, pkt_info_->packet_buffer()->data_len());
+    pkt_info_->eth = (struct ether_header *)buf;
     arp_ = pkt_info_->arp = (ether_arp *) (pkt_info_->eth + 1);
     arp_tpa_ = tip;
 
-    const unsigned char bcast_mac[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
     ArpHdr(smac, sip, tmac, tip, op);
-    EthHdr(smac, bcast_mac, 0x806);
+    EthHdr(smac, MacAddress::BroadcastMac(), ETHERTYPE_ARP);
+    pkt_info_->set_len(sizeof(struct ether_header) + sizeof(ether_arp));
 
-    Send(sizeof(ethhdr) + sizeof(ether_arp), itf, vrf, AGENT_CMD_SWITCH, PktHandler::ARP);
+    Send(itf, vrf, AgentHdr::TX_SWITCH, PktHandler::ARP);
 }

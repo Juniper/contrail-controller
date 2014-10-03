@@ -17,8 +17,6 @@
 #include <controller/controller_init.h>
 #include <controller/controller_vrf_export.h>
 #include <pkt/pkt_init.h>
-#include <pkt/tap_interface.h>
-#include <pkt/test_tap_interface.h>
 #include <services/services_init.h>
 #include <ksync/ksync_init.h>
 #include <openstack/instance_service_server.h>
@@ -46,12 +44,12 @@ public:
     };
 
     IcmpTest() : itf_count_(0), icmp_seq_(0) {
-        rid_ = Agent::GetInstance()->GetInterfaceTable()->Register(
+        rid_ = Agent::GetInstance()->interface_table()->Register(
                 boost::bind(&IcmpTest::ItfUpdate, this, _2));
     }
 
     ~IcmpTest() {
-        Agent::GetInstance()->GetInterfaceTable()->Unregister(rid_);
+        Agent::GetInstance()->interface_table()->Unregister(rid_);
     }
 
     void ItfUpdate(DBEntryBase *entry) {
@@ -83,7 +81,7 @@ public:
 
     std::size_t GetItfId(int index) { 
         tbb::mutex::scoped_lock lock(mutex_);
-        return itf_id_[index]; 
+        return itf_id_[index];
     }
 
     void CheckSandeshResponse(Sandesh *sandesh, int count) {
@@ -100,56 +98,57 @@ public:
 
     void SendIcmp(short ifindex, uint32_t dest_ip, IcmpError error = NO_ERROR) {
         int len = 512;
-        boost::scoped_array<uint8_t> buf(new uint8_t[len]);
-        memset(buf.get(), 0, len);
+        uint8_t *buf = new uint8_t[len];
+        memset(buf, 0, len);
 
-        ethhdr *eth = (ethhdr *)buf.get();
-        eth->h_dest[5] = 1;
-        eth->h_source[5] = 2;
-        eth->h_proto = htons(0x800);
+        struct ether_header *eth = (struct ether_header *)buf;
+        eth->ether_dhost[5] = 1;
+        eth->ether_shost[5] = 2;
+        eth->ether_type = htons(0x800);
 
         agent_hdr *agent = (agent_hdr *)(eth + 1);
         agent->hdr_ifindex = htons(ifindex);
         agent->hdr_vrf = htons(0);
-        agent->hdr_cmd = htons(AGENT_TRAP_NEXTHOP);
+        agent->hdr_cmd = htons(AgentHdr::TRAP_NEXTHOP);
 
-        eth = (ethhdr *) (agent + 1);
-        memcpy(eth->h_dest, dest_mac, MAC_LEN);
-        memcpy(eth->h_source, src_mac, MAC_LEN);
-        eth->h_proto = htons(0x800);
+        eth = (struct ether_header *) (agent + 1);
+        memcpy(eth->ether_dhost, dest_mac, MAC_LEN);
+        memcpy(eth->ether_shost, src_mac, MAC_LEN);
+        eth->ether_type = htons(0x800);
 
-        iphdr *ip = (iphdr *) (eth + 1);
-        ip->ihl = 5;
-        ip->version = 4;
-        ip->tos = 0;
-        ip->id = 0;
-        ip->frag_off = 0;
-        ip->ttl = 16;
-        ip->protocol = IPPROTO_ICMP;
-        ip->check = 0;
-        ip->saddr = 0;
-        ip->daddr = htonl(dest_ip);
+        struct ip *ip = (struct ip *) (eth + 1);
+        ip->ip_hl = 5;
+        ip->ip_v = 4;
+        ip->ip_tos = 0;
+        ip->ip_id = 0;
+        ip->ip_off = 0;
+        ip->ip_ttl = 16;
+        ip->ip_p = IPPROTO_ICMP;
+        ip->ip_sum = 0;
+        ip->ip_src.s_addr = 0;
+        ip->ip_dst.s_addr = htonl(dest_ip);
 
-        icmphdr *icmp = (icmphdr *) (ip + 1);
+        struct icmp *icmp = (struct icmp *) (ip + 1);
         if (error == TYPE_ERROR)
-            icmp->type = ICMP_ECHOREPLY;
+            icmp->icmp_type = ICMP_ECHOREPLY;
         else
-            icmp->type = ICMP_ECHO;
-        icmp->code = 0;
-        icmp->checksum = 0;
-        icmp->un.echo.id = 0x1234;
-        icmp->un.echo.sequence = icmp_seq_++;
+            icmp->icmp_type = ICMP_ECHO;
+        icmp->icmp_code = 0;
+        icmp->icmp_cksum = 0;
+        icmp->icmp_id = 0x1234;
+        icmp->icmp_seq = icmp_seq_++;
         if (error == CHECKSUM_ERROR)
-            icmp->checksum = 0;
+            icmp->icmp_cksum = 0;
         else
-            icmp->checksum = IpUtils::IPChecksum((uint16_t *)icmp, 64);
+            icmp->icmp_cksum = IpUtils::IPChecksum((uint16_t *)icmp, 64);
         len = 64;
 
-        ip->tot_len = htons(len + sizeof(iphdr));
-        len += sizeof(iphdr) + sizeof(ethhdr) + IPC_HDR_LEN;
-        TestTapInterface *tap = (TestTapInterface *)
-            (Agent::GetInstance()->pkt()->pkt_handler()->tap_interface());
-        tap->GetTestPktHandler()->TestPktSend(buf.get(), len);
+        ip->ip_len = htons(len + sizeof(struct ip));
+        len += sizeof(struct ip) + sizeof(struct ether_header) +
+            Agent::GetInstance()->pkt()->pkt_handler()->EncapHeaderLen();
+        TestPkt0Interface *tap = (TestPkt0Interface *)
+                (Agent::GetInstance()->pkt()->control_interface());
+        tap->TxPacket(buf, len);
     }
 
 private:
@@ -165,7 +164,7 @@ public:
     AsioRunEvent() : Task(75) { };
     virtual  ~AsioRunEvent() { };
     bool Run() {
-        Agent::GetInstance()->GetEventManager()->Run();
+        Agent::GetInstance()->event_manager()->Run();
         return true;
     }
 };
@@ -178,21 +177,21 @@ TEST_F(IcmpTest, IcmpPingTest) {
     IcmpProto::IcmpStats stats;
 
     IpamInfo ipam_info[] = {
-        {"1.2.3.128", 27, "1.2.3.129"},
-        {"7.8.9.0", 24, "7.8.9.12"},
-        {"1.1.1.0", 24, "1.1.1.200"},
+        {"1.2.3.128", 27, "1.2.3.129", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
+        {"1.1.1.0", 24, "1.1.1.200", true},
     };
 
     IpamInfo ipam_updated_info[] = {
-        {"4.2.3.128", 24, "4.2.3.254"},
-        {"1.1.1.0", 24, "1.1.1.254"},
-        {"7.8.9.0", 24, "7.8.9.12"},
+        {"4.2.3.128", 24, "4.2.3.254", true},
+        {"1.1.1.0", 24, "1.1.1.254", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
     };
 
-    CreateVmportEnv(input, 2, 0); 
+    CreateVmportEnv(input, 2, 0);
     client->WaitForIdle();
     client->Reset();
-    AddIPAM("vn1", ipam_info, 3); 
+    AddIPAM("vn1", ipam_info, 3);
     client->WaitForIdle();
 
     ClearAllInfo *clear_req1 = new ClearAllInfo();
@@ -339,7 +338,7 @@ TEST_F(IcmpTest, IcmpErrorTest) {
     IcmpProto::IcmpStats stats;
 
     IpamInfo ipam_info[] = {
-        {"1.1.1.0", 24, "1.1.1.200"},
+        {"1.1.1.0", 24, "1.1.1.200", true},
     };
 
     CreateVmportEnv(input, 1, 0); 
@@ -397,7 +396,8 @@ int main(int argc, char *argv[]) {
     client->WaitForIdle();
 
     int ret = RUN_ALL_TESTS();
-    //TestShutdown();
+    client->WaitForIdle();
+    TestShutdown();
     delete client;
     return ret;
 }

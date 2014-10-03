@@ -5,8 +5,9 @@
 #ifndef vnsw_agent_mirror_table_hpp
 #define vnsw_agent_mirror_table_hpp
 
-#include <boost/asio.hpp>
-#include <oper/nexthop.h>
+#include <cmn/agent_cmn.h>
+#include <cmn/agent.h>
+#include <agent_types.h>
 
 struct MirrorEntryKey : public AgentKey {
     MirrorEntryKey(const std::string analyzer_name)
@@ -47,14 +48,14 @@ public:
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
     void set_mirror_entrySandeshData(MirrorEntrySandeshData &data) const;
 
-    uint32_t vrf_id() const {return vrf_ ? vrf_->vrf_id() : uint32_t(-1);}
-    const VrfEntry *GetVrf() const {return vrf_ ? vrf_.get() : NULL;};
-    const std::string GetAnalyzerName() const {return analyzer_name_;};
-    const Ip4Address *GetSip() const {return &sip_;};
-    uint16_t GetSPort() const {return sport_;};
-    const Ip4Address *GetDip() const {return &dip_;};
-    uint16_t GetDPort() const {return dport_;};
-    const NextHop *GetNH() const {return nh_.get();};
+    uint32_t vrf_id() const;
+    const VrfEntry *GetVrf() const;
+    const std::string GetAnalyzerName() const {return analyzer_name_;}
+    const Ip4Address *GetSip() const {return &sip_;}
+    uint16_t GetSPort() const {return sport_;}
+    const Ip4Address *GetDip() const {return &dip_;}
+    uint16_t GetDPort() const {return dport_;}
+    const NextHop *GetNH() const {return nh_.get();}
 
 private:
     std::string analyzer_name_;
@@ -72,21 +73,15 @@ public:
     const static unsigned bufLen = 512;
     MirrorTable(DB *db, const std::string &name) : AgentDBTable(db, name) {
     }
-    virtual ~MirrorTable() { 
-        boost::system::error_code err;
-        udp_sock_->close(err);
-        delete udp_sock_;
-    }
+    virtual ~MirrorTable();
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
-    virtual size_t Hash(const DBEntry *entry) const {return 0;};
-    virtual size_t Hash(const DBRequestKey *key) const {return 0;};
+    virtual size_t Hash(const DBEntry *entry) const {return 0;}
+    virtual size_t Hash(const DBRequestKey *key) const {return 0;}
 
     virtual DBEntry *Add(const DBRequest *req);
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);
-    virtual void Delete(DBEntry *entry, const DBRequest *req) { };
-    VrfEntry *FindVrfEntry(const string &vrf_name) const {
-        return Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
-    };
+    virtual void Delete(DBEntry *entry, const DBRequest *req) { }
+    VrfEntry *FindVrfEntry(const std::string &vrf_name) const;
     static void AddMirrorEntry(const std::string &analyzer_name,
                                const std::string &vrf_name,
                                const Ip4Address &sip, uint16_t sport, 
@@ -94,12 +89,12 @@ public:
     static void DelMirrorEntry(const std::string &analyzer_name);
     virtual void OnZeroRefcount(AgentDBEntry *e);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
-    static MirrorTable *GetInstance() {return mirror_table_;};
+    static MirrorTable *GetInstance() {return mirror_table_;}
     void MirrorSockInit(void);
     void ReadHandler(const boost::system::error_code& error, size_t bytes);
 
 private:
-    boost::asio::ip::udp::socket *udp_sock_;
+    std::auto_ptr<boost::asio::ip::udp::socket> udp_sock_;
     static MirrorTable *mirror_table_;
     char rx_buff_[bufLen];
 };

@@ -23,7 +23,7 @@ Ping::Ping(const PingReq *ping_req,DiagTable *diag_table):
     dip_(Ip4Address::from_string(ping_req->get_dest_ip(), ec_)),
     proto_(ping_req->get_protocol()), sport_(ping_req->get_source_port()),
     dport_(ping_req->get_dest_port()), data_len_(ping_req->get_packet_size()),
-    vrf_name_(ping_req->get_vrf_name()), context_(ping_req->context()), 
+    vrf_name_(ping_req->get_vrf_name()), context_(ping_req->context()),
     pkt_lost_count_(0) {
 
 }
@@ -43,25 +43,25 @@ DiagPktHandler*
 Ping::CreateTcpPkt(Agent *agent) {
     //Allocate buffer to hold packet
     len_ = KPingTcpHdr + data_len_;
-    uint8_t *msg = new uint8_t[len_];
+    boost::shared_ptr<PktInfo> pkt_info(new PktInfo(agent, len_,
+                                                    PktHandler::DIAG, 0));
+    uint8_t *msg = pkt_info->packet_buffer()->data();
     memset(msg, 0, len_);
 
     AgentDiagPktData *ad = (AgentDiagPktData *)(msg + KPingTcpHdr);
     FillAgentHeader(ad);
-
-    boost::shared_ptr<PktInfo> pkt_info(new PktInfo(msg, len_));
     DiagPktHandler *pkt_handler = new DiagPktHandler(diag_table_->agent(), pkt_info,
-                                   *(diag_table_->agent()->GetEventManager())->io_service());
+                                   *(diag_table_->agent()->event_manager())->io_service());
 
     //Update pointers to ethernet header, ip header and l4 header
     pkt_info->UpdateHeaderPtr();
-    pkt_handler->TcpHdr(htonl(sip_.to_ulong()), sport_,  htonl(dip_.to_ulong()), 
+    pkt_handler->TcpHdr(htonl(sip_.to_ulong()), sport_,  htonl(dip_.to_ulong()),
                         dport_, false, rand(), data_len_ + sizeof(tcphdr));
-    pkt_handler->IpHdr(data_len_ + sizeof(tcphdr) + sizeof(iphdr), 
-                       ntohl(sip_.to_ulong()), ntohl(dip_.to_ulong()), 
+    pkt_handler->IpHdr(data_len_ + sizeof(tcphdr) + sizeof(struct ip),
+                       ntohl(sip_.to_ulong()), ntohl(dip_.to_ulong()),
                        IPPROTO_TCP);
-    pkt_handler->EthHdr(agent->vhost_interface()->mac().ether_addr_octet,
-                        agent->vrrp_mac(), IP_PROTOCOL);
+    pkt_handler->EthHdr(agent->vhost_interface()->mac(),
+                        agent->vrrp_mac(), ETHERTYPE_IP);
 
     return pkt_handler;
 }
@@ -70,25 +70,26 @@ DiagPktHandler*
 Ping::CreateUdpPkt(Agent *agent) {
     //Allocate buffer to hold packet
     len_ = KPingUdpHdr + data_len_;
-    uint8_t *msg = new uint8_t[len_];
+    boost::shared_ptr<PktInfo> pkt_info(new PktInfo(agent, len_,
+                                                    PktHandler::DIAG, 0));
+    uint8_t *msg = pkt_info->packet_buffer()->data();
     memset(msg, 0, len_);
 
     AgentDiagPktData *ad = (AgentDiagPktData *)(msg + KPingUdpHdr);
     FillAgentHeader(ad);
 
-    boost::shared_ptr<PktInfo> pkt_info(new PktInfo(msg, len_));
     DiagPktHandler *pkt_handler = new DiagPktHandler(diag_table_->agent(), pkt_info,
-                                    *(diag_table_->agent()->GetEventManager())->io_service());
+                                    *(diag_table_->agent()->event_manager())->io_service());
 
     //Update pointers to ethernet header, ip header and l4 header
     pkt_info->UpdateHeaderPtr();
     pkt_handler->UdpHdr(data_len_+ sizeof(udphdr), sip_.to_ulong(), sport_,
                         dip_.to_ulong(), dport_);
-    pkt_handler->IpHdr(data_len_ + sizeof(udphdr) + sizeof(iphdr), 
-                       ntohl(sip_.to_ulong()), ntohl(dip_.to_ulong()), 
+    pkt_handler->IpHdr(data_len_ + sizeof(udphdr) + sizeof(struct ip),
+                       ntohl(sip_.to_ulong()), ntohl(dip_.to_ulong()),
                        IPPROTO_UDP);
-    pkt_handler->EthHdr(agent->vhost_interface()->mac().ether_addr_octet,
-                        agent->vrrp_mac(), IP_PROTOCOL);
+    pkt_handler->EthHdr(agent->vhost_interface()->mac(),
+                        agent->vrrp_mac(), ETHERTYPE_IP);
 
     return pkt_handler;
 }
@@ -97,7 +98,7 @@ void Ping::SendRequest() {
     Agent *agent = Agent::GetInstance();
     DiagPktHandler *pkt_handler = NULL;
     //Increment the attempt count
-    seq_no_++; 
+    seq_no_++;
     switch(proto_) {
     case IPPROTO_TCP:
         pkt_handler = CreateTcpPkt(agent);
@@ -108,9 +109,8 @@ void Ping::SendRequest() {
         break;
     }
 
-    Inet4UnicastAgentRouteTable *table = NULL;
-    table = static_cast<Inet4UnicastAgentRouteTable *>
-        (agent->GetVrfTable()->GetInet4UnicastRouteTable(vrf_name_));
+    InetUnicastAgentRouteTable *table =
+        agent->vrf_table()->GetInet4UnicastRouteTable(vrf_name_);
     AgentRoute *rt = table->FindRoute(sip_);
     if (!rt) {
         delete pkt_handler;
@@ -128,11 +128,11 @@ void Ping::SendRequest() {
     intf_nh = static_cast<const InterfaceNH *>(nh);
 
     uint32_t intf_id = intf_nh->GetInterface()->id();
-    uint32_t vrf_id = diag_table_->agent()->GetVrfTable()->FindVrfFromName(vrf_name_)->vrf_id();
+    uint32_t vrf_id = diag_table_->agent()->vrf_table()->FindVrfFromName(vrf_name_)->vrf_id();
     //Send request out
     pkt_handler->SetDiagChkSum();
-    pkt_handler->Send(len_ - IPC_HDR_LEN, intf_id, vrf_id, 
-                      AGENT_CMD_ROUTE, PktHandler::DIAG);
+    pkt_handler->pkt_info()->set_len(len_);
+    pkt_handler->Send(intf_id, vrf_id, AgentHdr::TX_ROUTE, PktHandler::DIAG);
     delete pkt_handler;
     return;
 }
@@ -227,16 +227,15 @@ void PingReq::HandleRequest() const {
         goto error;
     }
 
-    if (Agent::GetInstance()->GetVrfTable()->FindVrfFromName(get_vrf_name()) == NULL) {
+    if (Agent::GetInstance()->vrf_table()->FindVrfFromName(get_vrf_name()) == NULL) {
         err_str = "Invalid VRF";
         goto error;
     }
 
     const NextHop *nh = NULL;
     Agent *agent = Agent::GetInstance();
-    Inet4UnicastAgentRouteTable *table = NULL;
-    table = static_cast<Inet4UnicastAgentRouteTable *>
-        (agent->GetVrfTable()->GetInet4UnicastRouteTable(get_vrf_name()));
+    InetUnicastAgentRouteTable *table =
+        agent->vrf_table()->GetInet4UnicastRouteTable(get_vrf_name());
     AgentRoute *rt = table->FindRoute(sip);
     if (rt) {
         nh = rt->GetActiveNextHop();

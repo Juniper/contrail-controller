@@ -14,9 +14,9 @@ import sys
 import argparse
 import json
 import datetime
-import opserver.sandesh.viz.constants as VizConstants
-from opserver.sandesh.viz.ttypes import FlowRecordFields
-from opserver.opserver_util import OpServerUtils
+import sandesh.viz.constants as VizConstants
+from sandesh.viz.ttypes import FlowRecordFields
+from opserver_util import OpServerUtils
 
 class FlowQuerier(object):
 
@@ -46,13 +46,25 @@ class FlowQuerier(object):
             FlowRecordFields.FLOWREC_DIRECTION_ING]
         self._ACTION = VizConstants.FlowRecordNames[
             FlowRecordFields.FLOWREC_ACTION]
+        self._SG_RULE_UUID = VizConstants.FlowRecordNames[
+            FlowRecordFields.FLOWREC_SG_RULE_UUID]
+        self._NW_ACE_UUID = VizConstants.FlowRecordNames[
+            FlowRecordFields.FLOWREC_NW_ACE_UUID]
+        self._VROUTER_IP = VizConstants.FlowRecordNames[
+            FlowRecordFields.FLOWREC_VROUTER_IP]
+        self._OTHER_VROUTER_IP = VizConstants.FlowRecordNames[
+            FlowRecordFields.FLOWREC_OTHER_VROUTER_IP]
+        self._UNDERLAY_PROTO = VizConstants.FlowRecordNames[
+            FlowRecordFields.FLOWREC_UNDERLAY_PROTO]
+        self._UNDERLAY_SPORT = VizConstants.FlowRecordNames[
+            FlowRecordFields.FLOWREC_UNDERLAY_SPORT]
     # end __init__
 
     # Public functions
     def parse_args(self):
         """
-        Eg. python flow.py --opserver-ip 127.0.0.1
-                          --opserver-port 8081
+        Eg. python flow.py --analytics-api-ip 127.0.0.1
+                          --analytics-api-port 8081
                           --vrouter a6s23
                           --source-vn default-domain:default-project:vn1
                           --destination-vn default-domain:default-project:vn2
@@ -63,11 +75,14 @@ class FlowQuerier(object):
                           --destination-port 80
                           --action drop
                           --direction ingress
+                          --vrouter-ip 172.16.0.1
+                          --other-vrouter-ip 172.32.0.1
+                          --tunnel-info
                           [--start-time now-10m --end-time now] | --last 10m
         """
         defaults = {
-            'opserver_ip': '127.0.0.1',
-            'opserver_port': '8081',
+            'analytics_api_ip': '127.0.0.1',
+            'analytics_api_port': '8081',
             'start_time': 'now-10m',
             'end_time': 'now',
             'direction' : 'ingress',
@@ -76,8 +91,10 @@ class FlowQuerier(object):
         parser = argparse.ArgumentParser(
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         parser.set_defaults(**defaults)
-        parser.add_argument("--opserver-ip", help="IP address of OpServer")
-        parser.add_argument("--opserver-port", help="Port of OpServer")
+        parser.add_argument("--analytics-api-ip",
+            help="IP address of Analytics API Server")
+        parser.add_argument("--analytics-api-port",
+            help="Port of Analytics API Server")
         parser.add_argument(
             "--start-time", help="Flow record start time (format now-10m, now-1h)")
         parser.add_argument("--end-time", help="Flow record end time")
@@ -100,33 +117,24 @@ class FlowQuerier(object):
         parser.add_argument("--action", help="Flow records with action")
         parser.add_argument("--direction", help="Flow direction",
             choices=['ingress', 'egress'])
+        parser.add_argument("--vrouter-ip",
+            help="Flow records from vrouter IP address")
+        parser.add_argument("--other-vrouter-ip",
+            help="Flow records to vrouter IP address")
+        parser.add_argument("--tunnel-info", action="store_true",
+            help="Show flow tunnel information")
         parser.add_argument(
             "--verbose", action="store_true", help="Show internal information")        
         self._args = parser.parse_args()
 
-        # Validate start-time and end-time
-        if self._args.last is not None:
-            self._args.last = '-' + self._args.last
-            self._start_time = OpServerUtils.convert_to_utc_timestamp_usec(
-                self._args.last)
-            self._end_time = OpServerUtils.convert_to_utc_timestamp_usec('now')
-        else:
-            try:
-                if (self._args.start_time.isdigit() and
-                        self._args.end_time.isdigit()):
-                    self._start_time = int(self._args.start_time)
-                    self._end_time = int(self._args.end_time)
-                else:
-                    self._start_time =\
-                        OpServerUtils.convert_to_utc_timestamp_usec(
-                            self._args.start_time)
-                    self._end_time =\
-                        OpServerUtils.convert_to_utc_timestamp_usec(
-                            self._args.end_time)
-            except:
-                print 'Incorrect start-time (%s) or end-time (%s) format' %\
-                    (self._args.start_time, self._args.end_time)
-                return -1
+        try:
+            self._start_time, self._end_time = \
+                OpServerUtils.parse_start_end_time(
+                    start_time = self._args.start_time,
+                    end_time = self._args.end_time,
+                    last = self._args.last)
+        except:
+            return -1
 
         # Validate flow arguments
         if self._args.source_ip is not None and self._args.source_vn is None:
@@ -171,12 +179,10 @@ class FlowQuerier(object):
 
     # Public functions
     def query(self):
-        start_time, end_time = OpServerUtils.get_start_end_time(
-            self._start_time,
-            self._end_time)
+        start_time, end_time = self._start_time, self._end_time
         flow_url = OpServerUtils.opserver_query_url(
-            self._args.opserver_ip,
-            self._args.opserver_port)
+            self._args.analytics_api_ip,
+            self._args.analytics_api_port)
         where = []
         filter = []
         if self._args.vrouter is not None:
@@ -242,6 +248,20 @@ class FlowQuerier(object):
                 op=OpServerUtils.MatchOp.EQUAL)
             filter.append(action_match.__dict__)
 
+        if self._args.vrouter_ip is not None:
+            vrouter_ip_match = OpServerUtils.Match(
+                name=self._VROUTER_IP,
+                value=self._args.vrouter_ip,
+                op=OpServerUtils.MatchOp.EQUAL)
+            filter.append(vrouter_ip_match.__dict__)
+
+        if self._args.other_vrouter_ip is not None:
+            other_vrouter_ip_match = OpServerUtils.Match(
+                name=self._OTHER_VROUTER_IP,
+                value=self._args.other_vrouter_ip,
+                op=OpServerUtils.MatchOp.EQUAL)
+            filter.append(other_vrouter_ip_match.__dict__)
+
         # Flow Record Table Query
         table = VizConstants.FLOW_TABLE
         if len(where) == 0:
@@ -265,7 +285,14 @@ class FlowQuerier(object):
             self._DIRECTION,
             VizConstants.FLOW_TABLE_AGG_BYTES,
             VizConstants.FLOW_TABLE_AGG_PKTS,
+            self._SG_RULE_UUID,
+            self._NW_ACE_UUID,
+            self._VROUTER_IP,
+            self._OTHER_VROUTER_IP,
         ]
+        if self._args.tunnel_info:
+            select_list.append(self._UNDERLAY_PROTO)
+            select_list.append(self._UNDERLAY_SPORT)
 
         if len(filter) == 0:
             filter = None
@@ -288,7 +315,7 @@ class FlowQuerier(object):
             resp = json.loads(resp)
             qid = resp['href'].rsplit('/', 1)[1]
             result = OpServerUtils.get_query_result(
-                self._args.opserver_ip, self._args.opserver_port, qid)
+                self._args.analytics_api_ip, self._args.analytics_api_port, qid)
         return result
     # end query
 
@@ -404,13 +431,50 @@ class FlowQuerier(object):
                 agg_pkts = int(flow_dict[VizConstants.FLOW_TABLE_AGG_PKTS])
             else:
                 agg_pkts = 'Agg Packets: NA'
-            print '{0}({1}) {2} [{3} -- {4}] {5} '\
-                '{6}:{7}:{8} ---> {9}:{10}:{11} [{12} P ({13} B)]'\
-                ' : {14}'.format(
-               vrouter, direction, action, setup_ts, teardown_ts,
+            # SG rule UUID
+            if self._SG_RULE_UUID in flow_dict:
+                sg_rule_uuid = flow_dict[self._SG_RULE_UUID]
+            else:
+                sg_rule_uuid = None
+            # NW ACE UUID
+            if self._NW_ACE_UUID in flow_dict:
+                nw_ace_uuid = flow_dict[self._NW_ACE_UUID]
+            else:
+                nw_ace_uuid = None
+            # VRouter IP
+            if self._VROUTER_IP in flow_dict:
+                vrouter_ip = '/' + flow_dict[self._VROUTER_IP]
+            else:
+                vrouter_ip = ''
+            # Other VRouter IP
+            if self._OTHER_VROUTER_IP in flow_dict:
+                other_vrouter_ip = ' [DST-VR:' + flow_dict[self._OTHER_VROUTER_IP] + ']'
+            else:
+                other_vrouter_ip = ''
+            # Underlay info
+            if self._UNDERLAY_PROTO in flow_dict:
+                tunnel_proto = 'T:' + OpServerUtils.tunnel_type_to_str(flow_dict[self._UNDERLAY_PROTO])
+            else:
+                tunnel_proto = None
+            if self._UNDERLAY_SPORT in flow_dict:
+                tunnel_sport = 'Src Port:' + str(flow_dict[self._UNDERLAY_SPORT]) + ' '
+                if tunnel_proto:
+                    tunnel_info = tunnel_proto + '/' + tunnel_sport
+                else:
+                    tunnel_info = tunnel_sport
+            else:
+                tunnel_sport = None
+                if tunnel_proto:
+                    tunnel_info = tunnel_proto
+                else:
+                    tunnel_info = ''
+            print '[SRC-VR:{0}{1}] {2} {3} ({4} -- {5}) {6} '\
+                '{7}:{8}:{9} ---> {10}:{11}:{12}{13} <{14} P ({15} B)>'\
+                ' : SG:{16} ACL:{17} {18}{19}'.format(
+               vrouter, vrouter_ip, direction, action, setup_ts, teardown_ts,
                protocol, source_vn, source_ip, source_port, destination_vn,
-               destination_ip, destination_port, agg_pkts, agg_bytes,
-               flow_uuid)
+               destination_ip, destination_port, other_vrouter_ip, agg_pkts,
+               agg_bytes, sg_rule_uuid, nw_ace_uuid, tunnel_info, flow_uuid)
     # end display
 
 # end class FlowQuerier

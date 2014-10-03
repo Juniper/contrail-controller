@@ -31,24 +31,36 @@ env.Install(env['TOP_LIB'], libsandeshvns)
 env.Install(env['TOP_INCLUDE'] + '/sandesh/common', SandeshGenHdrs)
 
 # Generate the Python source files
-SandeshGenPyFiles = env.SandeshGenPy('flow.sandesh')
+flow_pkg = env.SandeshGenPy('flow.sandesh', 'sandesh_common/', False)
+vns_pkg = env.SandeshGenPy('vns.sandesh', 'sandesh_common/', False)
+query_pkg = env.SandeshGenPy('query.sandesh', 'sandesh_common/', False)
 
-gen_vns_files = env.SandeshGenPy('vns.sandesh')
-setup_files = env.Install('sandesh_common/vns', gen_vns_files)
-gen_init = env.Command('sandesh_common/__init__.py', None,
-                       'mkdir -p sandesh_common; touch $TARGET')
-env.Depends(setup_files, gen_vns_files)
+local_sources = [ 'setup.py' ]
+local_sources_rules = []
+for file in local_sources:
+    local_sources_rules.append(env.Install('', '#controller/src/sandesh/common/' + file))
 
-env.Install('.', '#controller/src/sandesh/common/setup.py')
+init_sources = [ '__init__.py' ]
+init_sources_rules = []
+for file in init_sources:
+    init_sources_rules.append(env.Install('sandesh_common/', '#controller/src/sandesh/common/' + file))
+
+sdist_depends = [local_sources_rules, init_sources_rules,
+                 flow_pkg, vns_pkg, query_pkg]
+
 sdist_gen = env.Command('dist/sandesh-common-0.1dev.tar.gz',
-                        ['setup.py'] + setup_files + gen_init,
-                        '(cd %s; python setup.py sdist)' % Dir('.').path)
+                        'setup.py', 'python setup.py sdist',
+                        chdir=Dir('.'))
+
+# install everything before building distribution
+env.Depends(sdist_gen, sdist_depends)
 
 env.Default(sdist_gen)
 
 if 'install' in BUILD_TARGETS:
-    install_cmd = env.Command(None, ['setup.py'] + setup_files + gen_init,
+    install_cmd = env.Command(None, 'setup.py',
                               'python setup.py install %s' %
                               env['PYTHON_INSTALL_OPT'],
                               chdir = 1)
+    env.Depends(install_cmd, sdist_depends)
     env.Alias('install', install_cmd)

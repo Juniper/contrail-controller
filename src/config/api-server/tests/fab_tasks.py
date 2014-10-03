@@ -43,6 +43,8 @@ def setup_venv(build_top = "../../../../../build"):
             local("pip install netifaces")
             local("pip install requests==2.0.0")
             local("pip install kazoo")
+            local("pip install kombu")
+            local("pip install bottle")
             pyver = "%s.%s" % (sys.version_info[0], sys.version_info[1])
             # 2.6 requirements
             local("pip install ordereddict")

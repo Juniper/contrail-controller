@@ -14,10 +14,10 @@ import sys
 import argparse
 import json
 import datetime
-from opserver.opserver_util import OpServerUtils
+from opserver_util import OpServerUtils
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames
-import opserver.sandesh.viz.constants as VizConstants
+import sandesh.viz.constants as VizConstants
 from pysandesh.gen_py.sandesh.ttypes import SandeshType, SandeshLevel
 
 STAT_TABLE_LIST = [xx.stat_type + "." + xx.stat_attr for xx in VizConstants._STAT_TABLES]
@@ -32,8 +32,8 @@ class StatQuerier(object):
     # Public functions
     def parse_args(self):
         """ 
-        Eg. python stats.py --opserver-ip 127.0.0.1
-                          --opserver-port 8081
+        Eg. python stats.py --analytics-api-ip 127.0.0.1
+                          --analytics-api-port 8081
                           --table AnalyticsCpuState.cpu_info
                           --where name=a6s40 cpu_info.module_id=Collector
                           --select "T=60 SUM(cpu_info.cpu_share)"
@@ -43,8 +43,8 @@ class StatQuerier(object):
             python stats.py --table AnalyticsCpuState.cpu_info
         """
         defaults = {
-            'opserver_ip': '127.0.0.1',
-            'opserver_port': '8081',
+            'analytics_api_ip': '127.0.0.1',
+            'analytics_api_port': '8081',
             'start_time': 'now-10m',
             'end_time': 'now',
             'select' : [],
@@ -55,8 +55,8 @@ class StatQuerier(object):
         parser = argparse.ArgumentParser(
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         parser.set_defaults(**defaults)
-        parser.add_argument("--opserver-ip", help="IP address of OpServer")
-        parser.add_argument("--opserver-port", help="Port of OpServer")
+        parser.add_argument("--analytics-api-ip", help="IP address of Analytics API Server")
+        parser.add_argument("--analytics-api-port", help="Port of Analytcis API Server")
         parser.add_argument(
             "--start-time", help="Logs start time (format now-10m, now-1h)")
         parser.add_argument("--end-time", help="Logs end time")
@@ -65,6 +65,8 @@ class StatQuerier(object):
         parser.add_argument(
             "--table", help="StatTable to query", choices=STAT_TABLE_LIST)
         parser.add_argument(
+            "--dtable", help="Dynamic StatTable to query")
+        parser.add_argument(
             "--select", help="List of Select Terms", nargs='+')
         parser.add_argument(
             "--where", help="List of Where Terms to be ANDed", nargs='+')
@@ -72,42 +74,34 @@ class StatQuerier(object):
             "--sort", help="List of Sort Terms", nargs='+')
         self._args = parser.parse_args()
 
-        if self._args.table is None:
+        if self._args.table is None and self._args.dtable is None:
             return -1
 
-        if self._args.last is not None:
-            self._args.last = '-' + self._args.last
-            self._start_time = OpServerUtils.convert_to_utc_timestamp_usec(
-                self._args.last)
-            self._end_time = OpServerUtils.convert_to_utc_timestamp_usec('now')
-        else:
-            try:
-                if (self._args.start_time.isdigit() and
-                        self._args.end_time.isdigit()):
-                    self._start_time = int(self._args.start_time)
-                    self._end_time = int(self._args.end_time)
-                else:
-                    self._start_time =\
-                        OpServerUtils.convert_to_utc_timestamp_usec(
-                            self._args.start_time)
-                    self._end_time =\
-                        OpServerUtils.convert_to_utc_timestamp_usec(
-                            self._args.end_time)
-            except:
-                print 'Incorrect start-time (%s) or end-time (%s) format' %\
-                    (self._args.start_time, self._args.end_time)
-                return -1
+        try:
+            self._start_time, self._end_time = \
+                OpServerUtils.parse_start_end_time(
+                    start_time = self._args.start_time,
+                    end_time = self._args.end_time,
+                    last = self._args.last)
+        except:
+            return -1
+
         return 0
     # end parse_args
 
     # Public functions
-    def query(self,schema):
+    def query(self):
         query_url = OpServerUtils.opserver_query_url(
-            self._args.opserver_ip,
-            self._args.opserver_port)
-        
+            self._args.analytics_api_ip,
+            self._args.analytics_api_port)
+
+        if self._args.dtable is not None:
+            rtable = self._args.dtable
+        else:
+            rtable = self._args.table
+ 
         query_dict = OpServerUtils.get_query_dict(
-                "StatTable." + self._args.table, str(self._start_time), str(self._end_time),
+                "StatTable." + rtable, str(self._start_time), str(self._end_time),
                 select_fields = self._args.select,
                 where_clause = "AND".join(self._args.where),
                 sort_fields = self._args.sort)
@@ -139,19 +133,25 @@ def main():
     if querier.parse_args() != 0:
         return
 
-    tab_url = "http://" + querier._args.opserver_ip + ":" + querier._args.opserver_port +\
-        "/analytics/table/StatTable." + querier._args.table
-    schematxt = OpServerUtils.get_url_http(tab_url + "/schema")
-    schema = json.loads(schematxt.text)['columns']
-    if len(querier._args.select)==0: 
+
+    if len(querier._args.select)==0 and querier._args.dtable is None: 
+        tab_url = "http://" + querier._args.analytics_api_ip + ":" +\
+            querier._args.analytics_api_port +\
+            "/analytics/table/StatTable." + querier._args.table
+        schematxt = OpServerUtils.get_url_http(tab_url + "/schema")
+        schema = json.loads(schematxt.text)['columns']
         for pp in schema:
+            if pp.has_key('suffixes') and pp['suffixes']:
+                des = "%s %s" % (pp['name'],str(pp['suffixes']))
+            else:
+                des = "%s" % pp['name']
             if pp['index']:
                 valuetxt = OpServerUtils.get_url_http(tab_url + "/column-values/" + pp['name'])
-                print "%s : %s %s" % (pp['name'],pp['datatype'], valuetxt.text)
+                print "%s : %s %s" % (des,pp['datatype'], valuetxt.text)
             else:
-                print "%s : %s" % (pp['name'],pp['datatype'])
+                print "%s : %s" % (des,pp['datatype'])
     else:
-        result = querier.query(schema)
+        result = querier.query()
         querier.display(result)
 # end main
 

@@ -11,6 +11,7 @@
 
 #include <cmn/agent_cmn.h>
 #include <cfg/cfg_init.h>
+#include <cfg/cfg_listener.h>
 #include <oper/sg.h>
 #include <filter/acl.h>
 
@@ -73,13 +74,13 @@ bool SgTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
     SgData *data = static_cast<SgData *>(req->data.get());
     
     AclKey key(data->egress_acl_id_);
-    AclDBEntry *acl = static_cast<AclDBEntry *>(Agent::GetInstance()->GetAclTable()->FindActiveEntry(&key));
+    AclDBEntry *acl = static_cast<AclDBEntry *>(Agent::GetInstance()->acl_table()->FindActiveEntry(&key));
     if (sg->egress_acl_ != acl) {
         sg->egress_acl_ = acl;
         ret = true;
     }
     key = AclKey(data->ingress_acl_id_);
-    acl = static_cast<AclDBEntry *>(Agent::GetInstance()->GetAclTable()->FindActiveEntry(&key));
+    acl = static_cast<AclDBEntry *>(Agent::GetInstance()->acl_table()->FindActiveEntry(&key));
     if (sg->ingress_acl_ != acl) {
         sg->ingress_acl_ = acl;
         ret = true;
@@ -115,6 +116,10 @@ bool SgTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         uint32_t sg_id;
         stringToInteger(cfg->id(), sg_id);
+        if (sg_id == SgTable::kInvalidSgId) {
+            OPER_TRACE(Sg, "Ignore SG id 0", UuidToString(u));
+            return false;
+        }
         uuid egress_acl_uuid = nil_uuid();
         uuid ingress_acl_uuid = nil_uuid();
         IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
@@ -145,7 +150,7 @@ bool SgTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     }
     req.key.reset(key);
     req.data.reset(data);
-    Agent::GetInstance()->GetSgTable()->Enqueue(&req);
+    Agent::GetInstance()->sg_table()->Enqueue(&req);
 
     if (node->IsDeleted()) {
         return false;
@@ -164,8 +169,8 @@ bool SgTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         if (adj_node->GetObject() == NULL) {
             continue;
         }
-        if (Agent::GetInstance()->GetInterfaceTable()->IFNodeToReq(adj_node, req)) {
-            Agent::GetInstance()->GetInterfaceTable()->Enqueue(&req);
+        if (Agent::GetInstance()->interface_table()->IFNodeToReq(adj_node, req)) {
+            Agent::GetInstance()->interface_table()->Enqueue(&req);
         }
     }
     return false;

@@ -164,6 +164,29 @@ void KState::NHMsgHandler(vr_nexthop_req *r) {
     UpdateContext(reinterpret_cast<void *>(r->get_nhr_id()));
 }
 
+const std::string KState::PrefixToString(const std::vector<int8_t> &prefix) {
+
+    int size = prefix.size();
+    string str = "unknown";
+    if (size <= 4) {
+        boost::array<unsigned char, 4> bytes = { {0, 0, 0, 0} };
+        for (int i = 0; i < size; i++) {
+            bytes[i] = prefix.at(i);
+        }
+        Ip4Address addr4(bytes);
+        str = addr4.to_string();
+    } else {
+        boost::array<unsigned char, 16> bytes =
+        { {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0} };
+        for (int i = 0; i < size; i++) {
+            bytes[i] = prefix.at(i);
+        }
+        Ip6Address addr6(bytes);
+        str = addr6.to_string();
+    }
+    return str;
+}
+
 void KState::RouteMsgHandler(vr_route_req *r) {
 
     KRouteInfo data;
@@ -177,8 +200,7 @@ void KState::RouteMsgHandler(vr_route_req *r) {
     
     data.set_vrf_id(r->get_rtr_vrf_id());
     data.set_family(rst->FamilyToString(r->get_rtr_family()));
-    Ip4Address addr((uint32_t)r->get_rtr_prefix());
-    data.set_prefix(addr.to_string());
+    data.set_prefix(PrefixToString(r->get_rtr_prefix()));
     data.set_prefix_len(r->get_rtr_prefix_len());
     data.set_rid(r->get_rtr_rid());
     data.set_label_flags(rst->LabelFlagsToString(

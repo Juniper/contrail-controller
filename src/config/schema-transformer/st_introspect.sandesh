@@ -42,3 +42,24 @@ request sandesh RoutintInstanceList {
     1: string vn_name;
     2: string ri_name;
 }
+
+struct ServiceChain {
+    1: string sc_name;
+    2: string left_virtual_network;
+    3: string right_virtual_network;
+    4: string direction;
+    5: string src_ports;
+    6: string dst_ports;
+    7: list<string> service_list;
+    8: bool nat_service;
+    9: string protocol;
+    10: bool created;
+}
+
+response sandesh ServiceChainListResp {
+    1: list<ServiceChain> service_chains;
+}
+
+request sandesh ServiceChainList {
+    1: string sc_name;
+}

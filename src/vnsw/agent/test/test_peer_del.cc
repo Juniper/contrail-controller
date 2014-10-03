@@ -13,8 +13,8 @@
 #include <base/task.h>
 #include <io/event_manager.h>
 #include <base/util.h>
-#include <ifmap_agent_parser.h>
-#include <ifmap_agent_table.h>
+#include <ifmap/ifmap_agent_parser.h>
+#include <ifmap/ifmap_agent_table.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
 #include <oper/interface_common.h>
@@ -57,12 +57,12 @@ public:
     }
 
     void AddRt(Peer *peer, std::string &vrf_name, IpAddress &sip,
-               IpAddress &dip, int label, Inet4UnicastAgentRouteTable *table) {
+               IpAddress &dip, int label, InetUnicastAgentRouteTable *table) {
         Ip4Address s = sip.to_v4();
         Ip4Address d = dip.to_v4();
-        table->AddRemoteVmRouteReq(peer, vrf_name, s, 32, d, 
-                                   TunnelType::AllType(), label, "",
-                                   SecurityGroupList());
+        Inet4TunnelRouteAdd(peer, vrf_name, s, 32, d, 
+                            TunnelType::AllType(), label, "",
+                            SecurityGroupList(), PathPreference());
     }
 };
 
@@ -76,20 +76,23 @@ TEST_F(AgentPeerDelete, peer_test_1) {
     ip6 = IpAddress::from_string("67.25.2.1");
 
     BgpPeer *peer1, *peer2; 
-    AgentXmppChannel *channel;
+    AgentXmppChannel *channel1, *channel2;
     XmppChannelMock xmpp_channel;
-    channel = new AgentXmppChannel(Agent::GetInstance(), &xmpp_channel, 
-                                   "XMPP Server", "", 0);
-    peer1 = new BgpPeer(Ip4Address(1), "BGP Peer 1", channel, -1);
-    peer2 = new BgpPeer(Ip4Address(2), "BGP Peer 2", channel, -1);
-
-    //Vrf-Table Listeners
-    int id_peer1 = Agent::GetInstance()->GetVrfTable()->Register(boost::bind(&AgentPeerDelete::VrfCreated, 
-                                                  this, _1, _2, peer1));
-    int id_peer2 = Agent::GetInstance()->GetVrfTable()->Register(boost::bind(&AgentPeerDelete::VrfCreated, 
-                                                  this, _1, _2, peer2));
-    peer1->SetVrfListenerId(id_peer1);
-    peer2->SetVrfListenerId(id_peer2);
+    Agent::GetInstance()->set_controller_ifmap_xmpp_server("0.0.0.1", 0);
+    Agent::GetInstance()->set_controller_ifmap_xmpp_server("0.0.0.2", 1);
+    channel1 = new AgentXmppChannel(Agent::GetInstance(),
+                                   "XMPP Server 1", "", 0);
+    channel1->RegisterXmppChannel(&xmpp_channel);
+    channel2 = new AgentXmppChannel(Agent::GetInstance(),
+                                   "XMPP Server 2", "", 1);
+    channel2->RegisterXmppChannel(&xmpp_channel);
+    AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel1,
+                                                        xmps::READY);
+    AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel2,
+                                                        xmps::READY);
+    client->WaitForIdle();
+    peer1 = channel1->bgp_peer_id();
+    peer2 = channel2->bgp_peer_id();
 
     std::string vrf1_name("test_vrf1"), vrf2_name("test_vrf2");
     AddVrf("test_vrf1");
@@ -99,11 +102,9 @@ TEST_F(AgentPeerDelete, peer_test_1) {
     VrfEntryRef vrf1 = VrfGet("test_vrf1");
     VrfEntryRef vrf2 = VrfGet("test_vrf2");
 
-    Inet4UnicastAgentRouteTable *rt_table1, *rt_table2;
-    rt_table1 = static_cast<Inet4UnicastAgentRouteTable *>
-        (vrf1->GetInet4UnicastRouteTable());
-    rt_table2 = static_cast<Inet4UnicastAgentRouteTable *>
-        (vrf2->GetInet4UnicastRouteTable());
+    InetUnicastAgentRouteTable *rt_table1, *rt_table2;
+    rt_table1 = vrf1->GetInet4UnicastRouteTable();
+    rt_table2 = vrf2->GetInet4UnicastRouteTable();
     std::size_t old_rt1_entries, old_rt2_entries;
     old_rt1_entries = rt_table1->Size();
     old_rt2_entries = rt_table2->Size();
@@ -131,22 +132,55 @@ TEST_F(AgentPeerDelete, peer_test_1) {
     DelVrf("test_vrf2");
     client->WaitForIdle();
 
-    Agent::GetInstance()->GetVrfTable()->Unregister(id_peer1);
-    Agent::GetInstance()->GetVrfTable()->Unregister(id_peer2);
+    AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel1,
+                                                        xmps::NOT_READY);
+    AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel2,
+                                                        xmps::NOT_READY);
+    TaskScheduler::GetInstance()->Stop();
+    Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->
+        Fire();
+    Agent::GetInstance()->controller()->multicast_cleanup_timer().cleanup_timer_->
+        Fire();
+    Agent::GetInstance()->controller()->config_cleanup_timer().cleanup_timer_->
+        Fire();
+    TaskScheduler::GetInstance()->Start();
+    client->WaitForIdle();
+    Agent::GetInstance()->controller()->Cleanup();
     client->WaitForIdle();
 
-    delete static_cast<Peer *>(peer1);
-    delete static_cast<Peer *>(peer2);
-    delete channel;
+
+    delete channel1;
+    delete channel2;
 
     peer1 = NULL;
     peer2 = NULL;
-    channel = NULL;
+    channel1 = NULL;
+    channel2 = NULL;
 
     client->WaitForIdle();
 }
 
 TEST_F(AgentPeerDelete, DeletePeerOnDeletedVrf) {
+    XmppChannelMock xmpp_channel;
+    BgpPeer *peer1, *peer2; 
+    AgentXmppChannel *channel1;
+    AgentXmppChannel *channel2;
+    Agent::GetInstance()->set_controller_ifmap_xmpp_server("0.0.0.1", 0);
+    Agent::GetInstance()->set_controller_ifmap_xmpp_server("0.0.0.2", 1);
+    channel1 = new AgentXmppChannel(Agent::GetInstance(),
+                                   "XMPP Server 1", "", 0);
+    channel1->RegisterXmppChannel(&xmpp_channel);
+    channel2 = new AgentXmppChannel(Agent::GetInstance(),
+                                   "XMPP Server 2", "", 1);
+    channel2->RegisterXmppChannel(&xmpp_channel);
+    AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel1,
+                                                        xmps::READY);
+    AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel2,
+                                                        xmps::READY);
+    client->WaitForIdle();
+    peer1 = channel1->bgp_peer_id();
+    peer2 = channel2->bgp_peer_id();
+
     IpAddress ip1, ip2, fabric_ip1, fabric_ip2;
     std::string vrf_name("test_vrf3");
 
@@ -158,26 +192,9 @@ TEST_F(AgentPeerDelete, DeletePeerOnDeletedVrf) {
     AddVrf("test_vrf3");
     client->WaitForIdle();
 
-    XmppChannelMock xmpp_channel;
-    AgentXmppChannel *channel;
-    channel = new AgentXmppChannel(Agent::GetInstance(), &xmpp_channel, 
-                                   "XMPP Server", "", 0);
-    BgpPeer *peer1, *peer2; 
-    peer1 = new BgpPeer(Ip4Address(1), "BGP Peer 1", channel, -1);
-    peer2 = new BgpPeer(Ip4Address(2), "BGP Peer 2", channel, -1);
-
-    //Vrf-Table Listeners
-    int id_peer1 = Agent::GetInstance()->GetVrfTable()->Register(boost::bind(&AgentPeerDelete::VrfCreated, 
-                                                  this, _1, _2, peer1));
-    int id_peer2 = Agent::GetInstance()->GetVrfTable()->Register(boost::bind(&AgentPeerDelete::VrfCreated, 
-                                                  this, _1, _2, peer2));
-    peer1->SetVrfListenerId(id_peer1);
-    peer2->SetVrfListenerId(id_peer2);
-
     VrfEntryRef vrf = VrfGet("test_vrf3");
-    Inet4UnicastAgentRouteTable *rt_table =
-        static_cast<Inet4UnicastAgentRouteTable *>
-        (vrf->GetInet4UnicastRouteTable());
+    InetUnicastAgentRouteTable *rt_table =
+        vrf->GetInet4UnicastRouteTable();
 
     AddRt(peer1, vrf_name, ip1, fabric_ip1, 99, rt_table);
     AddRt(peer1, vrf_name, ip2, fabric_ip2, 75, rt_table);
@@ -194,20 +211,31 @@ TEST_F(AgentPeerDelete, DeletePeerOnDeletedVrf) {
                          this));
     client->WaitForIdle();
 
-    Agent::GetInstance()->GetVrfTable()->Unregister(id_peer1);
-    Agent::GetInstance()->GetVrfTable()->Unregister(id_peer2);
+    AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel1,
+                                                        xmps::NOT_READY);
+    AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel2,
+                                                        xmps::NOT_READY);
+    client->WaitForIdle();
+    TaskScheduler::GetInstance()->Stop();
+    Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->
+        Fire();
+    Agent::GetInstance()->controller()->multicast_cleanup_timer().cleanup_timer_->
+        Fire();
+    Agent::GetInstance()->controller()->config_cleanup_timer().cleanup_timer_->
+        Fire();
+    TaskScheduler::GetInstance()->Start();
+    client->WaitForIdle();
+    Agent::GetInstance()->controller()->Cleanup();
     client->WaitForIdle();
 
-    delete static_cast<Peer *>(peer1);
-    client->WaitForIdle();
-    delete static_cast<Peer *>(peer2);
-    client->WaitForIdle();
-    delete channel;
+    delete channel1;
+    delete channel2;
     client->WaitForIdle();
 
     peer1 = NULL;
     peer2 = NULL;
-    channel = NULL;
+    channel1 = NULL;
+    channel2 = NULL;
 }
 
 int main(int argc, char *argv[]) {

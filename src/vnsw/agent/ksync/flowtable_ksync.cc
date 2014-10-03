@@ -15,7 +15,9 @@
 #include <ksync/ksync_index.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
+#include <ksync/ksync_netlink.h>
 #include <ksync/ksync_sock.h>
+#include <ksync/ksync_netlink.h>
 #include <ksync/ksync_types.h>
 #include <ksync/agent_ksync_types.h>
 #include <ksync/interface_ksync.h>
@@ -32,15 +34,61 @@
 
 #include <pkt/flow_proto.h>
 #include <oper/agent_types.h>
+#include <services/services_init.h>
+#include <services/icmp_error_proto.h>
 #include <uve/stats_collector.h>
+
+static uint16_t GetDropReason(uint16_t dr) {
+    switch (dr) {
+    case FlowEntry::SHORT_UNAVIALABLE_INTERFACE:
+        return VR_FLOW_DR_UNAVIALABLE_INTF;
+    case FlowEntry::SHORT_IPV4_FWD_DIS:
+        return VR_FLOW_DR_IPv4_FWD_DIS;
+    case FlowEntry::SHORT_UNAVIALABLE_VRF:
+        return VR_FLOW_DR_UNAVAILABLE_VRF;
+    case FlowEntry::SHORT_NO_SRC_ROUTE:
+        return VR_FLOW_DR_NO_SRC_ROUTE;
+    case FlowEntry::SHORT_NO_DST_ROUTE:
+        return VR_FLOW_DR_NO_DST_ROUTE;
+    case FlowEntry::SHORT_AUDIT_ENTRY:
+        return VR_FLOW_DR_AUDIT_ENTRY;
+    case FlowEntry::SHORT_VRF_CHANGE:
+        return VR_FLOW_DR_VRF_CHANGE;
+    case FlowEntry::SHORT_NO_REVERSE_FLOW:
+        return VR_FLOW_DR_NO_REVERSE_FLOW;
+    case FlowEntry::SHORT_REVERSE_FLOW_CHANGE:
+        return VR_FLOW_DR_REVERSE_FLOW_CHANGE;
+    case FlowEntry::SHORT_NAT_CHANGE:
+        return VR_FLOW_DR_NAT_CHANGE;
+    case FlowEntry::SHORT_FLOW_LIMIT:
+        return VR_FLOW_DR_FLOW_LIMIT;
+    case FlowEntry::SHORT_LINKLOCAL_SRC_NAT:
+        return VR_FLOW_DR_LINKLOCAL_SRC_NAT;
+    case FlowEntry::DROP_POLICY:
+        return VR_FLOW_DR_POLICY;
+    case FlowEntry::DROP_OUT_POLICY:
+        return VR_FLOW_DR_OUT_POLICY;
+    case FlowEntry::DROP_SG:
+        return VR_FLOW_DR_SG;
+    case FlowEntry::DROP_OUT_SG:
+        return VR_FLOW_DR_OUT_SG;
+    case FlowEntry::DROP_REVERSE_SG:
+        return VR_FLOW_DR_REVERSE_SG;
+    case FlowEntry::DROP_REVERSE_OUT_SG:
+        return VR_FLOW_DR_REVERSE_OUT_SG;
+    default:
+        break;
+    }
+    return VR_FLOW_DR_UNKNOWN;
+}
 
 FlowTableKSyncEntry::FlowTableKSyncEntry(FlowTableKSyncObject *obj, 
                                          FlowEntryPtr fe, uint32_t hash_id)
     : flow_entry_(fe), hash_id_(hash_id), 
     old_reverse_flow_id_(FlowEntry::kInvalidFlowHandle), old_action_(0), 
     old_component_nh_idx_(0xFFFF), old_first_mirror_index_(0xFFFF), 
-    old_second_mirror_index_(0xFFFF), trap_flow_(false), ecmp_(false), nh_(NULL),
-    ksync_obj_(obj) {
+    old_second_mirror_index_(0xFFFF), trap_flow_(false), old_drop_reason_(0),
+    ecmp_(false), nh_(NULL), ksync_obj_(obj) {
 }
 
 FlowTableKSyncEntry::~FlowTableKSyncEntry() {
@@ -53,7 +101,7 @@ KSyncObject *FlowTableKSyncEntry::GetObject() {
 void FlowTableKSyncEntry::SetPcapData(FlowEntryPtr fe, 
                                       std::vector<int8_t> &data) {
     data.clear();
-    uint32_t addr = ksync_obj_->ksync()->agent()->GetRouterId().to_ulong();
+    uint32_t addr = ksync_obj_->ksync()->agent()->router_id().to_ulong();
     data.push_back(FlowEntry::PCAP_CAPTURE_HOST);
     data.push_back(0x4);
     data.push_back(((addr >> 24) & 0xFF));
@@ -90,34 +138,42 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     int encode_len;
     int error;
     uint16_t action = 0;
+    uint16_t drop_reason = VR_FLOW_DR_UNKNOWN;
     FlowEntry *rev_flow = flow_entry_->reverse_flow_entry();
-
-    //If action is NAT and reverse flow entry is not valid
-    //then we should wait for the reverse flow to be programmed
-    if ((flow_entry_->is_flags_set(FlowEntry::NatFlow) ||
-         flow_entry_->is_flags_set(FlowEntry::EcmpFlow)) &&
-        rev_flow && rev_flow->flow_handle() == FlowEntry::kInvalidFlowHandle) {
-        return 0;
-    }
 
     req.set_fr_op(flow_op::FLOW_SET);
     req.set_fr_rid(0);
-    req.set_fr_index(flow_entry_->flow_handle());
+    req.set_fr_index(hash_id_);
     const FlowKey *fe_key = &flow_entry_->key();
-    req.set_fr_flow_sip(htonl(fe_key->src.ipv4));
-    req.set_fr_flow_dip(htonl(fe_key->dst.ipv4));
+    if (flow_entry_->key().family == Address::INET) {
+        req.set_fr_flow_sip(htonl(fe_key->src_addr.to_v4().to_ulong()));
+        req.set_fr_flow_dip(htonl(fe_key->dst_addr.to_v4().to_ulong()));
+    } else {
+        // TODO : IPV6
+        req.set_fr_flow_sip(0);
+        req.set_fr_flow_dip(0);
+    }
     req.set_fr_flow_proto(fe_key->protocol);
     req.set_fr_flow_sport(htons(fe_key->src_port));
     req.set_fr_flow_dport(htons(fe_key->dst_port));
-    req.set_fr_flow_vrf(fe_key->vrf);
+    req.set_fr_flow_nh_id(fe_key->nh);
+    req.set_fr_flow_vrf(flow_entry_->data().vrf);
     uint16_t flags = 0;
 
     if (op == sandesh_op::DELETE) {
-        if (flow_entry_->flow_handle() == FlowEntry::kInvalidFlowHandle) {
+        if (hash_id_ == FlowEntry::kInvalidFlowHandle) {
             return 0;
         }
         req.set_fr_flags(0);
     } else {
+        //If action is NAT and reverse flow entry is not valid
+        //then we should wait for the reverse flow to be programmed
+        if ((flow_entry_->is_flags_set(FlowEntry::NatFlow) ||
+             flow_entry_->is_flags_set(FlowEntry::EcmpFlow)) &&
+            rev_flow && rev_flow->flow_handle() == FlowEntry::kInvalidFlowHandle) {
+            return 0;
+        }
+
         flags = VR_FLOW_FLAG_ACTIVE;
         uint32_t fe_action = flow_entry_->match_p().action_info.action;
         if ((fe_action) & (1 << TrafficAction::PASS)) {
@@ -126,6 +182,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         
         if ((fe_action) & (1 << TrafficAction::DROP)) {
             action = VR_FLOW_ACTION_DROP;
+            drop_reason = GetDropReason(flow_entry_->data().drop_reason);
         }
 
         if (action == VR_FLOW_ACTION_FORWARD &&
@@ -174,9 +231,9 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             }
             req.set_fr_mir_vrf(flow_entry_->data().mirror_vrf); 
             req.set_fr_mir_sip(htonl(ksync_obj_->ksync()->agent()->
-                                     GetRouterId().to_ulong()));
+                                     router_id().to_ulong()));
             req.set_fr_mir_sport(htons(ksync_obj_->ksync()->agent()->
-                                                            GetMirrorPort()));
+                                                            mirror_port()));
             std::vector<int8_t> pcap_data;
             SetPcapData(flow_entry_, pcap_data);
             req.set_fr_pcap_meta_data(pcap_data);
@@ -185,7 +242,8 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         req.set_fr_ftable_size(0);
         req.set_fr_ecmp_nh_index(flow_entry_->data().component_nh_idx);
 
-        if (flow_entry_->is_flags_set(FlowEntry::EcmpFlow)) {
+        if (flow_entry_->is_flags_set(FlowEntry::EcmpFlow) &&
+            flow_entry_->reverse_flow_entry() != NULL) {
             flags |= VR_RFLOW_VALID; 
             FlowEntry *rev_flow = flow_entry_->reverse_flow_entry();
             req.set_fr_rindex(rev_flow->flow_handle());
@@ -196,10 +254,10 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             FlowEntry *nat_flow = flow_entry_->reverse_flow_entry();
             const FlowKey *nat_key = &nat_flow->key();
 
-            if (flow_entry_->key().src.ipv4 != nat_key->dst.ipv4) {
+            if (flow_entry_->key().src_addr != nat_key->dst_addr) {
                 flags |= VR_FLOW_FLAG_SNAT;
             }
-            if (flow_entry_->key().dst.ipv4 != nat_key->src.ipv4) {
+            if (flow_entry_->key().dst_addr != nat_key->src_addr) {
                 flags |= VR_FLOW_FLAG_DNAT;
             }
 
@@ -229,7 +287,9 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         }
 
         if (nh_) {
-            req.set_fr_src_nh_index(nh_->GetIndex());
+            const NHKSyncEntry *ksync_nh =
+                static_cast<const NHKSyncEntry *>(nh_.get());
+            req.set_fr_src_nh_index(ksync_nh->nh_id());
         } else {
             //Set to discard
             req.set_fr_src_nh_index(0);
@@ -237,6 +297,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
         req.set_fr_flags(flags);
         req.set_fr_action(action);
+        req.set_fr_drop_reason(drop_reason);
     }
 
     encode_len = req.WriteBinary((uint8_t *)buf, buf_len, &error);
@@ -246,11 +307,6 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 bool FlowTableKSyncEntry::Sync() {
     bool changed = false;
     
-    if (hash_id_ != flow_entry_->flow_handle()) {
-        hash_id_ = flow_entry_->flow_handle();
-        changed = true;
-    }
-
     FlowEntry *rev_flow = flow_entry_->reverse_flow_entry();   
     if (rev_flow) {
         if (old_reverse_flow_id_ != rev_flow->flow_handle()) {
@@ -264,6 +320,10 @@ bool FlowTableKSyncEntry::Sync() {
         changed = true;
     }
 
+    if (flow_entry_->data().drop_reason != old_drop_reason_) {
+        old_drop_reason_ = flow_entry_->data().drop_reason;
+        changed = true;
+    }
     if (flow_entry_->data().component_nh_idx != old_component_nh_idx_) {
         old_component_nh_idx_ = flow_entry_->data().component_nh_idx;
         changed = true;
@@ -384,11 +444,11 @@ int FlowTableKSyncEntry::DeleteMsg(char *buf, int buf_len) {
 std::string FlowTableKSyncEntry::ToString() const {
     std::ostringstream str;
     const FlowKey *fe_key = &flow_entry_->key();
-    Ip4Address sip(fe_key->src.ipv4);
-    Ip4Address dip(fe_key->dst.ipv4);
-    str << "Flow : " << hash_id_ << " with Source IP: " << sip.to_string()
-        << " Source port: " << fe_key->src_port << " Destination IP: "
-        << dip.to_string() << " Destination port: " << fe_key->dst_port
+    str << "Flow : " << hash_id_
+        << " with Source IP: " << fe_key->src_addr.to_string()
+        << " Source port: " << fe_key->src_port
+        << " Destination IP: " << fe_key->dst_addr.to_string()
+        << " Destination port: " << fe_key->dst_port
         << " Protocol "<< fe_key->protocol;
     return str.str();
 }
@@ -396,6 +456,15 @@ std::string FlowTableKSyncEntry::ToString() const {
 bool FlowTableKSyncEntry::IsLess(const KSyncEntry &rhs) const {
     const FlowTableKSyncEntry &entry = static_cast
         <const FlowTableKSyncEntry &>(rhs);
+    /*
+     * Ksync Flow Table should have the same key as vrouter flow table,
+     * so that all the flow entries present in vrouter can be represented
+     * in Ksync. This will also ensure that the index change for a flow
+     * entry will be sync'ed appropriately in vrouter.
+     */
+    if (hash_id_ != entry.hash_id_) {
+        return hash_id_ < entry.hash_id_;
+    }
     return flow_entry_ < entry.flow_entry_;
 }
 
@@ -413,7 +482,7 @@ void FlowTableKSyncEntry::ErrorHandler(int err, uint32_t seq_no) const {
 FlowTableKSyncObject::FlowTableKSyncObject(KSync *ksync) : 
     KSyncObject(), ksync_(ksync), audit_flow_idx_(0),
     audit_timer_(TimerManager::CreateTimer
-                 (*(ksync_->agent()->GetEventManager())->io_service(),
+                 (*(ksync_->agent()->event_manager())->io_service(),
                   "Flow Audit Timer",
                   TaskScheduler::GetInstance()->GetTaskId
                   ("Agent::StatsCollector"),
@@ -423,7 +492,7 @@ FlowTableKSyncObject::FlowTableKSyncObject(KSync *ksync) :
 FlowTableKSyncObject::FlowTableKSyncObject(KSync *ksync, int max_index) :
     KSyncObject(max_index), ksync_(ksync), audit_flow_idx_(0),
     audit_timer_(TimerManager::CreateTimer
-                 (*(ksync_->agent()->GetEventManager())->io_service(),
+                 (*(ksync_->agent()->event_manager())->io_service(),
                   "Flow Audit Timer",
                   TaskScheduler::GetInstance()->GetTaskId
                   ("Agent::StatsCollector"),
@@ -465,17 +534,18 @@ const vr_flow_entry *FlowTableKSyncObject::GetKernelFlowEntry
     return NULL;
 }
 
-bool FlowTableKSyncObject::GetFlowKey(uint32_t index, FlowKey &key) {
+bool FlowTableKSyncObject::GetFlowKey(uint32_t index, FlowKey *key) {
     const vr_flow_entry *kflow = GetKernelFlowEntry(index, false);
     if (!kflow) {
         return false;
     }
-    key.vrf = kflow->fe_key.key_vrf_id;
-    key.src.ipv4 = ntohl(kflow->fe_key.key_src_ip);
-    key.dst.ipv4 = ntohl(kflow->fe_key.key_dest_ip);
-    key.src_port = ntohs(kflow->fe_key.key_src_port);
-    key.dst_port = ntohs(kflow->fe_key.key_dst_port);
-    key.protocol = kflow->fe_key.key_proto;
+    key->nh = kflow->fe_key.key_nh_id;
+    // TODO : IPv6
+    key->src_addr = Ip4Address(ntohl(kflow->fe_key.key_src_ip));
+    key->dst_addr = Ip4Address(ntohl(kflow->fe_key.key_dest_ip));
+    key->src_port = ntohs(kflow->fe_key.key_src_port);
+    key->dst_port = ntohs(kflow->fe_key.key_dst_port);
+    key->protocol = kflow->fe_key.key_proto;
     return true;
 }
 
@@ -512,9 +582,10 @@ bool FlowTableKSyncObject::AuditProcess() {
 
         vflow_entry = GetKernelFlowEntry(flow_idx, false);
         if (vflow_entry && vflow_entry->fe_action == VR_FLOW_ACTION_HOLD) {
-            FlowKey key(vflow_entry->fe_key.key_vrf_id, 
-                        ntohl(vflow_entry->fe_key.key_src_ip), 
-                        ntohl(vflow_entry->fe_key.key_dest_ip),
+            // TODO : IPv6
+            FlowKey key(vflow_entry->fe_key.key_nh_id,
+                        Ip4Address(ntohl(vflow_entry->fe_key.key_src_ip)),
+                        Ip4Address(ntohl(vflow_entry->fe_key.key_dest_ip)),
                         vflow_entry->fe_key.key_proto,
                         ntohs(vflow_entry->fe_key.key_src_port),
                         ntohs(vflow_entry->fe_key.key_dst_port));
@@ -631,7 +702,15 @@ void FlowTableKSyncObject::MapFlowMem() {
     audit_yield_ = AuditYield;
     audit_timeout_ = AuditTimeout;
     audit_timer_->Start(AuditTimeout,
-                        boost::bind(&FlowTableKSyncObject::AuditProcess, 
+                        boost::bind(&FlowTableKSyncObject::AuditProcess,
                                     this));
     return;
+}
+
+void FlowTableKSyncObject::Init() {
+    IcmpErrorProto *proto = NULL;
+
+    proto = ksync()->agent()->services()->icmp_error_proto();
+    proto->Register(boost::bind(&FlowTableKSyncObject::GetFlowKey, this, _1,
+                                _2));
 }

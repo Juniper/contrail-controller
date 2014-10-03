@@ -16,20 +16,20 @@ VnUveTable::~VnUveTable() {
 }
 
 void VnUveTable::RegisterDBClients() {
-    VnTable *vn_table = agent_->GetVnTable();
+    VnTable *vn_table = agent_->vn_table();
     vn_listener_id_ = vn_table->Register
                   (boost::bind(&VnUveTable::VnNotify, this, _1, _2));
 
-    InterfaceTable *intf_table = agent_->GetInterfaceTable();
+    InterfaceTable *intf_table = agent_->interface_table();
     intf_listener_id_ = intf_table->Register
                   (boost::bind(&VnUveTable::InterfaceNotify, this, _1, _2));
-    Add(*FlowHandler::UnknownVn());
-    Add(*FlowHandler::LinkLocalVn());
+    Add(FlowHandler::UnknownVn());
+    Add(FlowHandler::LinkLocalVn());
 }
 
 void VnUveTable::Shutdown(void) {
-    agent_->GetVnTable()->Unregister(vn_listener_id_);
-    agent_->GetInterfaceTable()->Unregister(intf_listener_id_);
+    agent_->vn_table()->Unregister(vn_listener_id_);
+    agent_->interface_table()->Unregister(intf_listener_id_);
 }
 
 void VnUveTable::DispatchVnMsg(const UveVirtualNetworkAgent &uve) {
@@ -51,27 +51,27 @@ bool VnUveTable::SendUnresolvedVnMsg(const string &vn_name,
 
     AgentStatsCollector *collector = agent_->uve()->agent_stats_collector();
     /* Send Nameless VrfStats as part of Unknown VN */
-    if (vn_name.compare(*FlowHandler::UnknownVn()) == 0) {
+    if (vn_name.compare(FlowHandler::UnknownVn()) == 0) {
         changed = entry->FillVrfStats(collector->GetNamelessVrfId(), uve);
     }
 
     return changed;
 }
 
-void VnUveTable::SendVnStats(void) {
+void VnUveTable::SendVnStats(bool only_vrf_stats) {
     UveVnMap::const_iterator it = uve_vn_map_.begin();
     while (it != uve_vn_map_.end()) {
         const VnUveEntry *entry = it->second.get();
         if (entry->vn()) {
-            SendVnStatsMsg(entry->vn());
+            SendVnStatsMsg(entry->vn(), only_vrf_stats);
         }
         ++it;
     }
     UveVirtualNetworkAgent uve1, uve2;
-    if (SendUnresolvedVnMsg(*FlowHandler::UnknownVn(), uve1)) {
+    if (SendUnresolvedVnMsg(FlowHandler::UnknownVn(), uve1)) {
         DispatchVnMsg(uve1);
     }
-    if (SendUnresolvedVnMsg(*FlowHandler::LinkLocalVn(), uve1)) {
+    if (SendUnresolvedVnMsg(FlowHandler::LinkLocalVn(), uve1)) {
         DispatchVnMsg(uve2);
     }
 }
@@ -101,14 +101,14 @@ void VnUveTable::SendVnMsg(const VnEntry *vn) {
     }
 }
 
-void VnUveTable::SendVnStatsMsg(const VnEntry *vn) {
+void VnUveTable::SendVnStatsMsg(const VnEntry *vn, bool only_vrf_stats) {
     VnUveEntry* entry = UveEntryFromVn(vn);
     if (entry == NULL) {
         return;
     }
     UveVirtualNetworkAgent uve;
 
-    bool send = entry->FrameVnStatsMsg(vn, uve);
+    bool send = entry->FrameVnStatsMsg(vn, uve, only_vrf_stats);
     if (send) {
         DispatchVnMsg(uve);
     }
@@ -135,8 +135,10 @@ VnUveEntry* VnUveTable::Add(const VnEntry *vn) {
     pair<UveVnMap::iterator, bool> ret;
     ret = uve_vn_map_.insert(UveVnPair(vn->GetName(), uve));
     UveVnMap::iterator it = ret.first;
+    VnUveEntry* entry = it->second.get();
+    entry->set_vn(vn);
 
-    return it->second.get();
+    return entry;
 }
 
 void VnUveTable::Add(const string &vn) {
@@ -299,9 +301,9 @@ void VnUveTable::UpdateInterVnStats(const FlowEntry *fe, uint64_t bytes,
     string src_vn = fe->data().source_vn, dst_vn = fe->data().dest_vn;
 
     if (!fe->data().source_vn.length())
-        src_vn = *FlowHandler::UnknownVn();
+        src_vn = FlowHandler::UnknownVn();
     if (!fe->data().dest_vn.length())
-        dst_vn = *FlowHandler::UnknownVn();
+        dst_vn = FlowHandler::UnknownVn();
 
     /* When packet is going from src_vn to dst_vn it should be interpreted 
      * as ingress to vrouter and hence in-stats for src_vn w.r.t. dst_vn

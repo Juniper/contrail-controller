@@ -11,7 +11,6 @@ ArpEntry::ArpEntry(boost::asio::io_service &io, ArpHandler *handler,
                    ArpKey &key, State state)
     : key_(key), state_(state), retry_count_(0), handler_(handler),
       arp_timer_(NULL) {
-    memset(mac_address_, 0, ETH_ALEN);
     arp_timer_ = TimerManager::CreateTimer(io, "Arp Entry timer",
                  TaskScheduler::GetInstance()->GetTaskId("Agent::Services"),
                  PktHandler::ARP);
@@ -35,13 +34,13 @@ bool ArpEntry::HandleArpRequest() {
     return true;
 }
 
-void ArpEntry::HandleArpReply(uint8_t *mac) {
+void ArpEntry::HandleArpReply(const MacAddress &mac) {
     if ((state_ == ArpEntry::RESOLVING) || (state_ == ArpEntry::ACTIVE) ||
         (state_ == ArpEntry::INITING) || (state_ == ArpEntry::RERESOLVING)) {
         ArpProto *arp_proto = handler_->agent()->GetArpProto();
         arp_timer_->Cancel();
         retry_count_ = 0;
-        memcpy(mac_address_, mac, ETHER_ADDR_LEN);
+        mac_address_ = mac;
         if (state_ == ArpEntry::RESOLVING)
             arp_proto->IncrementStatsResolved();
         state_ = ArpEntry::ACTIVE;
@@ -78,7 +77,7 @@ bool ArpEntry::AgingExpiry() {
     Ip4Address ip(key_.ip);
     const string& vrf_name = key_.vrf->GetName();
     ArpNHKey nh_key(vrf_name, ip);
-    ArpNH *arp_nh = static_cast<ArpNH *>(handler_->agent()->GetNextHopTable()->
+    ArpNH *arp_nh = static_cast<ArpNH *>(handler_->agent()->nexthop_table()->
                                          FindActiveEntry(&nh_key));
     if (!arp_nh) {
         // do not re-resolve if Arp NH doesnt exist
@@ -90,14 +89,13 @@ bool ArpEntry::AgingExpiry() {
 }
 
 void ArpEntry::SendGratuitousArp() {
-    const unsigned char zero_mac[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     Agent *agent = handler_->agent();
     ArpProto *arp_proto = agent->GetArpProto();
-    if (agent->GetRouterIdConfigured()) {
+    if (agent->router_id_configured()) {
         handler_->SendArp(ARPOP_REQUEST, arp_proto->ip_fabric_interface_mac(),
-                          agent->GetRouterId().to_ulong(), zero_mac,
-                          agent->GetRouterId().to_ulong(),
-                          arp_proto->ip_fabric_interface_index(), 
+                          agent->router_id().to_ulong(), MacAddress(),
+                          agent->router_id().to_ulong(),
+                          arp_proto->ip_fabric_interface_index(),
                           key_.vrf->vrf_id());
     }
 
@@ -117,31 +115,30 @@ bool ArpEntry::IsResolved() {
 
 void ArpEntry::StartTimer(uint32_t timeout, uint32_t mtype) {
     arp_timer_->Cancel();
-    arp_timer_->Start(timeout, boost::bind(&ArpProto::TimerExpiry, 
+    arp_timer_->Start(timeout, boost::bind(&ArpProto::TimerExpiry,
                                            handler_->agent()->GetArpProto(),
-                                           key_, mtype)); 
+                                           key_, mtype));
 }
 
 void ArpEntry::SendArpRequest() {
-    const unsigned char zero_mac[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     Agent *agent = handler_->agent();
     ArpProto *arp_proto = agent->GetArpProto();
     uint16_t itf_index = arp_proto->ip_fabric_interface_index();
-    const unsigned char *smac = arp_proto->ip_fabric_interface_mac();
-    Ip4Address ip = agent->GetRouterId();
+    Ip4Address ip = agent->router_id();
 
     VrfEntry *vrf =
-        agent->GetVrfTable()->FindVrfFromName(agent->GetDefaultVrf());
+        agent->vrf_table()->FindVrfFromName(agent->fabric_vrf_name());
     if (vrf) {
-        handler_->SendArp(ARPOP_REQUEST, smac, ip.to_ulong(), 
-                          zero_mac, key_.ip, itf_index, vrf->vrf_id());
+        handler_->SendArp(ARPOP_REQUEST, arp_proto->ip_fabric_interface_mac(),
+                          ip.to_ulong(), MacAddress(), key_.ip, itf_index,
+                          vrf->vrf_id());
     }
 
     StartTimer(arp_proto->retry_timeout(), ArpProto::RETRY_TIMER_EXPIRED);
 }
 
 void ArpEntry::AddArpRoute(bool resolved) {
-    if (key_.vrf->GetName() == handler_->agent()->GetLinkLocalVrfName()) {
+    if (key_.vrf->GetName() == handler_->agent()->linklocal_vrf_name()) {
         // Do not squash existing route entry.
         // should be smarter and not replace an existing route.
         return;
@@ -150,48 +147,42 @@ void ArpEntry::AddArpRoute(bool resolved) {
     Ip4Address ip(key_.ip);
     const string& vrf_name = key_.vrf->GetName();
     ArpNHKey nh_key(vrf_name, ip);
-    ArpNH *arp_nh = static_cast<ArpNH *>(handler_->agent()->GetNextHopTable()->
+    ArpNH *arp_nh = static_cast<ArpNH *>(handler_->agent()->nexthop_table()->
                                          FindActiveEntry(&nh_key));
 
-    struct ether_addr mac;
-    memcpy(mac.ether_addr_octet, mac_address_, ETH_ALEN);
-    if (arp_nh && arp_nh->GetResolveState() && 
-        memcmp(&mac, arp_nh->GetMac(), sizeof(mac)) == 0) {
+    MacAddress mac = mac_address_;
+    if (arp_nh && arp_nh->GetResolveState() &&
+        mac.CompareTo(arp_nh->GetMac()) == 0) {
         // MAC address unchanged, ignore
         return;
     }
 
-    stringstream mac_string;
-    mac_string << ether_ntoa((struct ether_addr *)&mac);
-    ARP_TRACE(Trace, "Add", ip.to_string(), vrf_name, mac_string.str());
+    ARP_TRACE(Trace, "Add", ip.to_string(), vrf_name, mac.ToString());
 
     Interface *itf = handler_->agent()->GetArpProto()->ip_fabric_interface();
-    handler_->agent()->GetDefaultInet4UnicastRouteTable()->ArpRoute(
+    handler_->agent()->fabric_inet4_unicast_table()->ArpRoute(
                        DBRequest::DB_ENTRY_ADD_CHANGE, ip, mac,
                        vrf_name, *itf, resolved, 32);
 }
 
 bool ArpEntry::DeleteArpRoute() {
-    if (key_.vrf->GetName() == handler_->agent()->GetLinkLocalVrfName()) {
+    if (key_.vrf->GetName() == handler_->agent()->linklocal_vrf_name()) {
         return true;
     }
 
     Ip4Address ip(key_.ip);
     const string& vrf_name = key_.vrf->GetName();
     ArpNHKey nh_key(vrf_name, ip);
-    ArpNH *arp_nh = static_cast<ArpNH *>(handler_->agent()->GetNextHopTable()->
+    ArpNH *arp_nh = static_cast<ArpNH *>(handler_->agent()->nexthop_table()->
                                          FindActiveEntry(&nh_key));
     if (!arp_nh)
         return true;
 
-    struct ether_addr mac;
-    memcpy(mac.ether_addr_octet, mac_address_, ETH_ALEN);
-    stringstream mac_string;
-    mac_string << ether_ntoa((struct ether_addr *)&mac);
-    ARP_TRACE(Trace, "Delete", ip.to_string(), vrf_name, mac_string.str());
+    MacAddress mac = mac_address_;
+    ARP_TRACE(Trace, "Delete", ip.to_string(), vrf_name, mac.ToString());
 
     Interface *itf = handler_->agent()->GetArpProto()->ip_fabric_interface();
-    handler_->agent()->GetDefaultInet4UnicastRouteTable()->ArpRoute(
+    handler_->agent()->fabric_inet4_unicast_table()->ArpRoute(
                        DBRequest::DB_ENTRY_DELETE, ip, mac, vrf_name,
                        *itf, false, 32);
     return false;

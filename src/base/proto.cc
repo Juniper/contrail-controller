@@ -13,11 +13,12 @@ namespace detail {
 }
 
 struct ParseContext::StackFrame {
-    StackFrame() : offset(0), lensize(0), size(-1) {
+    StackFrame() : offset(0), lensize(0), size(-1), total_size(-1) {
     }
     int offset; // offset of the data pointer at present
     int lensize; //size of the length of the current element being parsed
     size_t size;
+    size_t total_size;
     std::auto_ptr<ParseObject> data;
 };
 
@@ -72,7 +73,9 @@ void ParseContext::SwapData(ParseObject *obj) {
     if (!stack_.empty() && obj) {
         StackFrame *frame = stack_.back();
         frame->data.reset(obj);
-    } else delete obj;
+    } else {
+        delete obj;
+    }
 }
 
 ParseObject *ParseContext::data() {
@@ -82,7 +85,7 @@ ParseObject *ParseContext::data() {
     StackFrame *current = stack_.back();
     return current->data.get();
 }
-    
+
 void ParseContext::advance(int delta) {
     if (!stack_.empty()) {
         stack_.back()->offset += delta;
@@ -120,6 +123,21 @@ size_t ParseContext::size() const {
     return current->size;
 }
 
+void ParseContext::set_total_size() {
+    if (!stack_.empty()) {
+        StackFrame *current = stack_.back();
+        current->total_size = current->size;
+    }
+}
+
+size_t ParseContext::total_size() const {
+    if (stack_.empty()) {
+        return -1;
+    }
+    StackFrame *current = stack_.back();
+    return current->total_size >= 0 ? current->total_size : current->size;
+}
+
 void ParseContext::SetError(int error, int subcode, std::string type,
                             const uint8_t *data, int data_size) {
     if (error_context_.error_code) {
@@ -144,8 +162,10 @@ struct EncodeContext::StackFrame {
 
 EncodeContext::EncodeContext() {
 }
+
 EncodeContext::~EncodeContext() {
 }
+
 void EncodeContext::Push() {
     StackFrame *frame = new StackFrame();
     stack_.push_back(frame);
@@ -160,6 +180,7 @@ void EncodeContext::Pop(bool callback) {
             (cb)(this);
         }
     }
+
     int p_offset = frame->offset;
     stack_.pop_back();                  // deletes frame
     if (!stack_.empty()) {
@@ -184,8 +205,8 @@ int EncodeContext::length() const {
 void EncodeContext::AddCallback(CallbackType cb, uint8_t *data,
                                 int element_size) {
     StackFrame *top = &(stack_.back());
-    top->callbacks.push_back(boost::bind(cb, _1, data, top->offset,
-                                         element_size));
+    top->callbacks.push_back(
+        boost::bind(cb, _1, data, top->offset, element_size));
 }
 
 void EncodeOffsets::SaveOffset(std::string key, int offset) {
@@ -199,7 +220,7 @@ void EncodeOffsets::SaveOffset(std::string key, int offset) {
 void EncodeContext::SaveOffset(std::string key) {
     int length = 0;
     for (boost::ptr_vector<StackFrame>::iterator it = stack_.begin();
-            it != stack_.end(); ++it) {
+         it != stack_.end(); ++it) {
         length += it->offset;
     }
     PROTO_DEBUG("Saving Offset for " << key << " at " << length);
@@ -208,6 +229,7 @@ void EncodeContext::SaveOffset(std::string key) {
 
 int EncodeOffsets::FindOffset(const char *key) {
     std::map<std::string, int>::iterator it = offsets_.find(std::string(key));
-    if (it == offsets_.end()) return -1;
+    if (it == offsets_.end())
+        return -1;
     return it->second;
 }

@@ -93,7 +93,7 @@ void IFMapMessage::EncodeLink(const IFMapUpdate *update) {
 
     IFMapNode::EncodeNode(link->left_id(), &link_node);
     IFMapNode::EncodeNode(link->right_id(), &link_node);
-    //link->EncodeLinkInfo(&link_node);
+    link->EncodeLinkInfo(&link_node);
 
     node_count_++;
 }

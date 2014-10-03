@@ -20,7 +20,8 @@ logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s %(levelname)s %(message)s')
 
 cassandra_version = '1.2.11'
-cassandra_url = '/tmp/apache-cassandra-'+cassandra_version+'-bin.tar.gz'
+cassandra_bdir = '/tmp/cache/' + os.environ['USER'] + '/systemless_test'
+cassandra_url = cassandra_bdir + '/apache-cassandra-'+cassandra_version+'-bin.tar.gz'
 
 def start_cassandra(cport, sport_arg=None):
     '''
@@ -28,9 +29,12 @@ def start_cassandra(cport, sport_arg=None):
     Arguments:
         cport : An unused TCP port for Cassandra to use as the client port
     '''
-    cassandra_download = 'curl -o ' +\
-        cassandra_url + ' -s -m 120 http://archive.apache.org/dist/cassandra/'+\
+    if not os.path.exists(cassandra_bdir):
+        output,_ = call_command_("mkdir " + cassandra_bdir)
+
+    cassandra_download = 'wget -P ' + cassandra_bdir + ' http://archive.apache.org/dist/cassandra/'+\
         cassandra_version+'/apache-cassandra-'+cassandra_version+'-bin.tar.gz'
+
     if not os.path.exists(cassandra_url):
         process = subprocess.Popen(cassandra_download.split(' '))
         process.wait()

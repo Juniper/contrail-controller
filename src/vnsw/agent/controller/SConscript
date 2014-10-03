@@ -9,15 +9,7 @@ env = AgentEnv.Clone()
 import sys
 SandeshGenFiles = env.SandeshGenCpp('controller.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
-
-except_env = AgentEnv.Clone()
-cflags = except_env['CCFLAGS']
-
-sandesh_objs = []
-for src in SandeshGenSrcs:                    
-    objname = src.replace('.cpp', '.o')
-    obj = env.Object(objname, src)
-    sandesh_objs.append(obj)
+sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
 
 vnswctrl = env.Library('vnswctrl',
                        sandesh_objs +
@@ -27,6 +19,7 @@ vnswctrl = env.Library('vnswctrl',
                           'controller_export.cc',
                           'controller_ifmap.cc',
                           'controller_peer.cc',
+                          'controller_route_path.cc',
                           'controller_route_walker.cc',
                           'controller_vrf_export.cc',
                           'controller_dns.cc',

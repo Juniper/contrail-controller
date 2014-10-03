@@ -251,11 +251,8 @@ void IFMapServerTable::Input(DBTablePartition *partition, DBClient *client,
         if (request->oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
             IFMapIdentifier *identifier = LocateIdentifier(first, data->origin,
                                                            key->id_seq_num);
-            lchanged |= identifier->SetProperty(data->metadata,
-                                                data->content.get());
-            if (lchanged) {
-                partition->Change(first);
-            }
+            identifier->SetProperty(data->metadata, data->content.get());
+            partition->Change(first);
         } else {
             IFMapIdentifier *identifier = static_cast<IFMapIdentifier *>(
                     first->Find(data->origin));

@@ -1,8 +1,40 @@
 # -*- mode: python; -*-
+import platform
+from distutils.version import LooseVersion
 
-subdirs = ['boost', 'gperftools', 'gunit', 'http_parser', 'log4cplus', 'tbb',
-           'hiredis', 'thrift', 'pugixml', 'curl-7.24.0', 'libxml2', 
-           'rapidjson', 'bind']
+subdirs = [
+    'bind',
+    'gunit',
+    'hiredis',
+    'http_parser',
+    'pugixml',
+    'rapidjson',
+    'thrift',
+]
+
+(distname, version, _) = platform.dist()
+if distname == 'Ubuntu' and LooseVersion(version) >= LooseVersion('14.04'):
+    pass
+elif distname == 'centos' and LooseVersion(version) >= LooseVersion('7.0'):
+    subdirs += [
+        'gperftools',
+        'log4cplus',
+    ]
+else:
+    subdirs += [
+        'boost',
+        'curl-7.24.0',
+        'gperftools',
+        'libxml2',
+        'log4cplus',
+        'tbb',
+        'icu',
+    ]
+
+if platform.system() == 'FreeBSD':
+    subdirs += [
+        'icu',
+    ]
 
 for dir in subdirs:
     SConscript(dirs = dir, variant_dir = '#/build/third_party/' + dir)

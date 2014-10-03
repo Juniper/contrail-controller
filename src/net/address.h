@@ -16,6 +16,11 @@ typedef boost::asio::ip::address_v6 Ip6Address;
 
 class Address {
 public:
+    static const uint8_t kMaxV4Bytes = 4;
+    static const uint8_t kMaxV4PrefixLen = 32;
+    static const uint8_t kMaxV6Bytes = 16;
+    static const uint8_t kMaxV6PrefixLen = 128;
+
     enum Family {
         UNSPEC = 0,
         INET = 1,
@@ -29,6 +34,7 @@ public:
         INET6MCAST = 9,
         ENET = 10,
         EVPN = 11,
+        ERMVPN = 12,
     };
 
     Address();
@@ -36,12 +42,16 @@ public:
     static Family FamilyFromString(std::string family);
     static std::string FamilyToString(Family fmly);
     static Family FamilyFromRoutingTableName(std::string name);
+    static std::string FamilyToTableString(Family family);
+    static Ip4Address V4FromV4MappedV6(const Ip6Address &v6_address);
 
 private:
-    IpAddress addr_;    
+    IpAddress addr_;
 };
 
 boost::system::error_code Ip4PrefixParse(const std::string &str,
                                          Ip4Address *addr, int *plen);
+boost::system::error_code Inet6PrefixParse(const std::string &str,
+                                           Ip6Address *addr, int *plen);
 
 #endif

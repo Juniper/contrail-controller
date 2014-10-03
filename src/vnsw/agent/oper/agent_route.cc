@@ -1,21 +1,26 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
-
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/lexical_cast.hpp>
 
 #include <cmn/agent_cmn.h>
 #include <route/route.h>
 
-#include <cmn/agent_cmn.h>
-#include <oper/route_common.h>
+#include <vnc_cfg_types.h>
+#include <agent_types.h>
+
+#include <oper/peer.h>
 #include <oper/vrf.h>
+#include <oper/interface_common.h>
+#include <oper/nexthop.h>
 #include <oper/tunnel_nh.h>
-#include <oper/mpls.h>
+#include <oper/vn.h>
 #include <oper/mirror_table.h>
-#include <controller/controller_export.h>
-#include <oper/agent_sandesh.h>
+#include <oper/vxlan.h>
+#include <oper/mpls.h>
+#include <oper/route_common.h>
+#include <oper/multicast.h>
 
 using namespace std;
 using namespace boost::asio;
@@ -26,7 +31,7 @@ SandeshTraceBufferPtr AgentDBwalkTraceBuf(SandeshTraceBufferCreate(
 class AgentRouteTable::DeleteActor : public LifetimeActor {
   public:
     DeleteActor(AgentRouteTable *rt_table) : 
-        LifetimeActor(rt_table->agent()->GetLifetimeManager()), 
+        LifetimeActor(rt_table->agent()->lifetime_manager()), 
         table_(rt_table) { 
     }
     virtual ~DeleteActor() { 
@@ -70,6 +75,7 @@ const string &AgentRouteTable::GetSuffix(Agent::RouteTableType type) {
     static const string uc_suffix(".uc.route.0");
     static const string mc_suffix(".mc.route.0");
     static const string l2_suffix(".l2.route.0");
+    static const string uc_inet6_suffix(".uc.route6.0");
 
     switch (type) {
     case Agent::INET4_UNICAST:
@@ -78,6 +84,8 @@ const string &AgentRouteTable::GetSuffix(Agent::RouteTableType type) {
         return mc_suffix;
     case Agent::LAYER2:
         return l2_suffix;
+    case Agent::INET6_UNICAST:
+        return uc_inet6_suffix;
     default:
         return Agent::NullString();
     }
@@ -97,7 +105,7 @@ auto_ptr<DBEntry> AgentRouteTable::AllocEntry(const DBRequestKey *k) const {
     const AgentRouteKey *key = static_cast<const AgentRouteKey*>(k);
     VrfKey vrf_key(key->vrf_name());
     VrfEntry *vrf = 
-        static_cast<VrfEntry *>(agent_->GetVrfTable()->Find(&vrf_key, true));
+        static_cast<VrfEntry *>(agent_->vrf_table()->Find(&vrf_key, true));
     AgentRoute *route = 
         static_cast<AgentRoute *>(key->AllocRouteEntry(vrf, false));
     return auto_ptr<DBEntry>(static_cast<DBEntry *>(route));
@@ -106,16 +114,16 @@ auto_ptr<DBEntry> AgentRouteTable::AllocEntry(const DBRequestKey *k) const {
 // Delete all paths from BGP Peer. Delete route if no path left
 bool AgentRouteTable::DeleteAllBgpPath(DBTablePartBase *part,
                                        DBEntryBase *entry) {
-    AgentRoute *route = static_cast<Inet4UnicastRouteEntry *>(entry);
+    AgentRoute *route = static_cast<InetUnicastRouteEntry *>(entry);
     if (route && !route->IsDeleted()) {
         for(Route::PathList::iterator it = route->GetPathList().begin();
             it != route->GetPathList().end();) {
-            const AgentPath *path =
-                static_cast<const AgentPath *>(it.operator->());
+            AgentPath *path =
+                static_cast<AgentPath *>(it.operator->());
             const Peer *peer = path->peer();
             it++;
             if (peer && peer->GetType() == Peer::BGP_PEER) {
-                DeletePathFromPeer(part, route, path->peer());
+                DeletePathFromPeer(part, route, path);
             }
         }
     }
@@ -143,7 +151,8 @@ bool AgentRouteTable::PathSelection(const Path &path1, const Path &path2) {
     if (l_path.is_stale() != r_path.is_stale()) {
         return (l_path.is_stale() < r_path.is_stale());
     }
-    return l_path.peer()->IsLess(r_path.peer());
+
+    return l_path.IsLess(r_path);
 }
 
 // Re-evaluate all unresolved NH. Flush and enqueue RESYNC for all NH in the 
@@ -202,13 +211,11 @@ void AgentRouteTable::RemoveUnresolvedRoute(const AgentRoute *rt) {
 // LOCAL_VM peer path. But, controller-peer needs to know deletion of 
 // LOCAL_VM path to retract the route.  So, force notify deletion of any path.
 void AgentRouteTable::DeletePathFromPeer(DBTablePartBase *part,
-                                         AgentRoute *rt, const Peer *peer) {
+                                         AgentRoute *rt,
+                                         AgentPath *path) {
     if (rt == NULL) {
         return;
     }
-
-    // Find path for the peer
-    AgentPath *path = rt->FindPath(peer);
 
     RouteInfo rt_info;
     rt->FillTrace(rt_info, AgentRoute::DELETE_PATH, path);
@@ -218,6 +225,9 @@ void AgentRouteTable::DeletePathFromPeer(DBTablePartBase *part,
         return;
     }
 
+    const Peer *peer = path->peer();
+    //Recompute paths since one is going off before deleting.
+    rt->ReComputePathDeletion(path);
     // Remove path from the route
     rt->RemovePath(path);
     // Local path(non BGP type) is going away and so will route.
@@ -264,7 +274,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
     bool notify = false;
     bool route_added = false;
 
-    VrfEntry *vrf = agent_->GetVrfTable()->FindVrfFromName(key->vrf_name());
+    VrfEntry *vrf = agent_->vrf_table()->FindVrfFromName(key->vrf_name());
     // Ignore request if VRF not found. Note, we process the DELETE
     // request even if VRF is in deleted state
     if (vrf == NULL) {
@@ -291,6 +301,12 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
     AgentPath *path = NULL;
     AgentRoute *rt = static_cast<AgentRoute *>(part->Find(key));
 
+    if (data && data->IsPeerValid() == false) {
+        AGENT_ROUTE_LOG("Invalid/Inactive Peer ", key->ToString(), vrf_name(),
+                        "");
+        return;
+    }
+
     if (req->oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
         // Ignore ADD_CHANGE if received on deleted VRF
         if(vrf->IsDeleted()) {
@@ -298,10 +314,19 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
         }
 
         if (key->sub_op_ == AgentKey::RESYNC) {
-            // Ignore RESYNC if received on non-existing or deleted route entry
             if (rt && (rt->IsDeleted() == false)) {
-                rt->Sync();
-                notify = true;
+                if (data &&
+                    data->type_ == AgentRouteData::ROUTE_PREFERENCE_CHANGE) {
+                    //Resync operation changes preference, sequence number and
+                    //wait for traffic flag for a path
+                    path = rt->FindPath(key->peer());
+                    notify = data->AddChangePath(agent_, path);
+                } else {
+                    //Ignore RESYNC if received on non-existing
+                    //or deleted route entry
+                    rt->Sync();
+                    notify = true;
+                }
             }
         } else if (key->sub_op_ == AgentKey::ADD_DEL_CHANGE) {
             // Renew the route if its in deleted state
@@ -329,10 +354,10 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
                 OPER_TRACE(Route, rt_info);
                 route_added = true;
                 AGENT_ROUTE_LOG("Added route", rt->ToString(), vrf_name(),
-                                key->peer());
+                                GETPEERNAME(key->peer()));
             } else {
                 // RT present. Check if path is also present by peer
-                path = rt->FindPath(key->peer());
+                path = rt->FindPathUsingKey(key);
             }
 
             // Allocate path if not yet present
@@ -348,13 +373,20 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
             } else {
                 // Let path know of route change and update itself
                 path->set_is_stale(false);
+                bool ecmp = path->path_preference().ecmp();
                 notify = data->AddChangePath(agent_, path);
+                //If a path transition from ECMP to non ECMP
+                //remote the path from ecmp peer
+                if (ecmp && ecmp != path->path_preference().ecmp()) {
+                    rt->ReComputePathDeletion(path);
+                }
+
                 RouteInfo rt_info;
 
                 rt->FillTrace(rt_info, AgentRoute::CHANGE_PATH, path);
                 OPER_TRACE(Route, rt_info);
                 AGENT_ROUTE_LOG("Path change", rt->ToString(), vrf_name(),
-                                key->peer());
+                                GETPEERNAME(key->peer()));
             }
 
             if (path->RouteNeedsSync()) 
@@ -365,9 +397,9 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
                 EvaluateUnresolvedNH();
             }
 
-            // ECMP path are managed by route module. Update ECMP path with 
-            // addition of new path
-            if (rt->EcmpAddPath(path)) {
+            //Used for routes which have use more than one peer information
+            //to compute the nexthops.
+            if (rt->ReComputePathAdd(path)) {
                 notify = true;
             }
         } else {
@@ -375,7 +407,8 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
         }
     } else if (req->oper == DBRequest::DB_ENTRY_DELETE) {
         assert (key->sub_op_ == AgentKey::ADD_DEL_CHANGE);
-        DeletePathFromPeer(part, rt, key->peer());
+        if (rt)
+            rt->DeletePath(key);
     } else {
         assert(0);
     }
@@ -390,6 +423,10 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
 
     //Route changed, trigger change on dependent routes
     if (notify) {
+        const Path *prev_front = rt->front();
+        if (prev_front) {
+            rt->Sort(&AgentRouteTable::PathSelection, prev_front);
+        }
         part->Notify(rt);
         rt->UpdateDependantRoutes();
         rt->ResyncTunnelNextHop();
@@ -402,7 +439,7 @@ LifetimeActor *AgentRouteTable::deleter() {
 
 //Delete all the routes
 void AgentRouteTable::ManagedDelete() {
-    DBTableWalker *walker = agent_->GetDB()->GetWalker();
+    DBTableWalker *walker = agent_->db()->GetWalker();
     RouteTableWalkerState *state = new RouteTableWalkerState(deleter());
     walker->WalkTable(this, NULL, 
          boost::bind(&AgentRouteTable::DelExplicitRouteWalkerCb, this, _1, _2),
@@ -410,17 +447,11 @@ void AgentRouteTable::ManagedDelete() {
     deleter_->Delete();
 }
 
-// If the table has entries, deletion cannot be resumed
-void AgentRouteTable::MayResumeDelete(bool is_empty) {
+void AgentRouteTable::RetryDelete() {
     if (!deleter()->IsDeleted()) {
         return;
     }
-
-    if (!is_empty) {
-        return;
-    }
-
-    agent_->GetLifetimeManager()->Enqueue(deleter());
+    deleter()->RetryDelete();
 }
 
 // Find entry not in deleted state
@@ -432,7 +463,15 @@ AgentRoute *AgentRouteTable::FindActiveEntry(const AgentRouteKey *key) {
     return entry;
 }
 
-uint32_t AgentRoute::GetMplsLabel() const { 
+const std::string &AgentRouteTable::vrf_name() const {
+    return vrf_entry_->GetName();
+}
+
+VrfEntry *AgentRouteTable::vrf_entry() const {
+    return vrf_entry_.get();
+}
+
+uint32_t AgentRoute::GetActiveLabel() const {
     return GetActivePath()->label();
 };
 
@@ -462,9 +501,6 @@ void AgentRoute::InsertPath(const AgentPath *path) {
 void AgentRoute::RemovePathInternal(AgentPath *path) {
     remove(path);
     path->clear_sg_list();
-    // ECMP path are managed by route module. Update ECMP path with this path
-    // delete
-    EcmpDeletePath(path);
 }
 
 void AgentRoute::RemovePath(AgentPath *path) {
@@ -479,13 +515,30 @@ AgentPath *AgentRoute::FindLocalVmPortPath() const {
     for(Route::PathList::const_iterator it = GetPathList().begin(); 
         it != GetPathList().end(); it++) {
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
+        if (path->peer() == NULL) {
+            continue;
+        }
         if (path->peer()->GetType() == Peer::ECMP_PEER ||
-            path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER ||
-            path->peer()->GetType() == Peer::VGW_PEER) {
+            path->peer()->GetType() == Peer::VGW_PEER ||
+            path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER) {
             return const_cast<AgentPath *>(path);
         }
     }
     return NULL;
+}
+
+void AgentRoute::DeletePathInternal(AgentPath *path) {
+    AgentRouteTable *table = static_cast<AgentRouteTable *>(get_table());
+    table->DeletePathFromPeer(get_table_partition(), this, path);
+}
+
+void AgentRoute::DeletePath(const AgentRouteKey *key) {
+    AgentPath *peer_path = FindPath(key->peer());
+    DeletePathInternal(peer_path);
+}
+
+AgentPath *AgentRoute::FindPathUsingKey(const AgentRouteKey *key) {
+    return FindPath(key->peer());
 }
 
 AgentPath *AgentRoute::FindPath(const Peer *peer) const {
@@ -535,39 +588,6 @@ bool AgentRoute::IsRPFInvalid() const {
     }
 
     return path->is_subnet_discard();
-}
-
-// This is for handling shared tree across different multicast routes,
-// Unsubscribe shud be sent when all routes using tree are gone. Similarly
-// subscription should be sent only for first route.
-// Currently shared tree is only used for flood multicast.
-// TODO: Move this to controller code
-bool AgentRoute::CanDissociate() const {
-    bool can_dissociate = IsDeleted();
-    if (is_multicast()) {
-        const NextHop *nh = GetActiveNextHop();
-        const CompositeNH *cnh = static_cast<const CompositeNH *>(nh);
-        if (cnh && cnh->ComponentNHCount() == 0) 
-            return true;
-        if (GetTableType() == Agent::LAYER2) {
-            const MulticastGroupObject *obj = 
-                MulticastHandler::GetInstance()->
-                FindFloodGroupObject(vrf()->GetName());
-            if (obj) {
-                can_dissociate &= !obj->Ipv4Forwarding();
-            }
-        }
-
-        if (GetTableType() == Agent::INET4_MULTICAST) {
-            const MulticastGroupObject *obj = 
-                MulticastHandler::GetInstance()->
-                FindFloodGroupObject(vrf()->GetName());
-            if (obj) {
-                can_dissociate &= !obj->layer2_forwarding();
-            }
-        }
-    }
-    return can_dissociate;
 }
 
 // If a direct route has changed, invoke a change on tunnel NH dependent on it
@@ -634,6 +654,17 @@ bool AgentRoute::Sync(void) {
         }
     }
     return ret;
+}
+
+bool AgentRoute::WaitForTraffic() const {
+    for(Route::PathList::const_iterator it = GetPathList().begin();
+        it != GetPathList().end(); it++) {
+        const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
+        if (path->path_preference().wait_for_traffic() == true) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void AgentRouteTable::StalePathFromPeer(DBTablePartBase *part, AgentRoute *rt,

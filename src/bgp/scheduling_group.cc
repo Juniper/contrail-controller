@@ -786,8 +786,6 @@ void SchedulingGroup::RibOutActive(RibOut *ribout, int queue_id) {
 void SchedulingGroup::SendReady(IPeerUpdate *peer) {
     CHECK_CONCURRENCY("bgp::SendReadyTask");
 
-    BGP_LOG_SCHEDULING_GROUP(peer, ": RX send-ready");
-
     // Nothing to do if the IPeerUpdate's already in that state.
     PeerState *ps = peer_state_imap_.Find(peer);
     if (ps->send_ready()) {
@@ -795,7 +793,6 @@ void SchedulingGroup::SendReady(IPeerUpdate *peer) {
     }
 
     // Create and enqueue new WorkPeer entry.
-    BGP_LOG_SCHEDULING_GROUP(peer, ": send-ready");
     ps->set_send_ready(true);
     WorkPeerEnqueue(peer);
 }
@@ -921,7 +918,6 @@ void SchedulingGroup::SetSendBlocked(const RibOut *ribout, RibState *rs,
          bit = blocked.find_next(bit)) {
         IPeerUpdate *peer = ribout->GetPeer(bit);
         PeerState *ps = peer_state_imap_.Find(peer);
-        BGP_LOG_SCHEDULING_GROUP(peer, ": send-blocked");
         ps->SetQueueActive(rs->index(), queue_id);
         ps->clear_sync();
         ps->set_send_ready(false);
@@ -1122,8 +1118,6 @@ void SchedulingGroup::UpdatePeer(IPeerUpdate *peer) {
     }
 
     // Mark the peer as being in sync across all tables.
-    BGP_LOG_SCHEDULING_GROUP(peer,
-                                     "Peer " <<  ps->index() << ": in-sync");
     ps->SetSync();
 
     // Mark all RibStates for the peer as being in sync. This triggers a tail
@@ -1185,7 +1179,8 @@ bool SchedulingGroup::CheckInvariants() const {
 //
 template<>
 struct WorkQueueDelete<IPeerUpdate *> {
-    void operator()(WorkQueue<IPeerUpdate *>::Queue &queue) { }
+    void operator()(WorkQueue<IPeerUpdate *>::Queue &queue,
+                    bool delete_entry) { }
 };
 
 //

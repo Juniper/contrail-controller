@@ -7,6 +7,7 @@
 
 #include "base/logging.h"
 #include "base/task_annotations.h"
+#include "base/timer_impl.h"
 #include "base/test/task_test_util.h"
 #include "db/db.h"
 #include "db/db_graph.h"
@@ -88,8 +89,8 @@ protected:
                         boost::system::system_category()),
             connect_failure_count_(0) {
         ifmap_manager_.SetChannel(mock_channel_);
-        ifmap_manager_.state_machine()->set_connect_wait_interval_ms(5);
-        ifmap_manager_.state_machine()->set_response_wait_interval_ms(30);
+        ifmap_manager_.state_machine()->set_max_connect_wait_interval_ms(5);
+        ifmap_manager_.state_machine()->set_max_response_wait_interval_ms(30);
     }
 
     void Start(const std::string &host, const std::string &port) {
@@ -107,8 +108,9 @@ protected:
 
     void EventWaitMs(int ms_timeout) {
         bool is_expired = false;
-        boost::asio::monotonic_deadline_timer timer(*(evm_.io_service()));
-        timer.expires_from_now(boost::posix_time::milliseconds(ms_timeout));
+        boost::system::error_code ec;
+        TimerImpl timer(*(evm_.io_service()));
+        timer.expires_from_now(ms_timeout, ec);
         timer.async_wait(boost::bind(&IFMapStateMachineTest::on_timeout,
                          boost::asio::placeholders::error, &is_expired));
         while (!is_expired) {
@@ -322,7 +324,7 @@ TEST_F(IFMapStateMachineTest, ReadPollRespError) {
 TEST_F(IFMapStateMachineTest, SevenSsrcConnectErrors) {
 
     // Set the response time to a very high value so that we dont run into it.
-    state_machine()->set_response_wait_interval_ms(1000);
+    state_machine()->set_max_response_wait_interval_ms(1000);
 
     // 1 regular, 7 connect failures
     EXPECT_CALL(*mock_channel(), DoResolve())

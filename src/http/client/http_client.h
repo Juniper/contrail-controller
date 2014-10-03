@@ -14,6 +14,7 @@
 #include "base/timer.h"
 #include "io/tcp_server.h"
 #include "io/tcp_session.h"
+#include "http_parser/http_parser.h"
 
 class LifetimeActor;
 class LifetimeManager;
@@ -35,6 +36,7 @@ class HttpClientSession : public TcpSession {
 public:
     typedef boost::function<void(HttpClientSession *session,
                                  TcpSession::Event event)> SessionEventCb;
+    typedef boost::intrusive_ptr<TcpSession> TcpSessionPtr;
 
     HttpClientSession(HttpClient *client, Socket *socket);
     virtual ~HttpClientSession() { assert(delete_called_ != 0xdeadbeaf); delete_called_ = 0xdeadbeaf; }
@@ -47,6 +49,7 @@ public:
 
 private:
     void OnEvent(TcpSession *session, Event event);
+    void OnEventInternal(TcpSessionPtr session, Event event);
     HttpConnection *connection_;
     uint32_t delete_called_;
     tbb::mutex mutex_;
@@ -63,12 +66,24 @@ public:
     int Initialize();
 
     typedef boost::function<void(std::string &, boost::system::error_code &)> HttpCb;
-    int HttpPut(std::string &put_string, std::string &path, HttpCb);
-    int HttpPut(std::string &put_string, std::string &path,
-                bool header, bool timeout, std::string &hdr_options, HttpCb cb);
-    int HttpGet(std::string &path, HttpCb);
-    int HttpGet(std::string &path, bool header, bool timeout,
-                std::string &hdr_options, HttpCb cb);
+
+    int HttpPut(const std::string &put_string, const std::string &path, HttpCb);
+    int HttpPut(const std::string &put_string, const std::string &path,
+                bool header, bool timeout,
+                std::vector<std::string> &hdr_options, HttpCb cb);
+    int HttpPost(const std::string &post_string, const std::string &path, HttpCb);
+    int HttpPost(const std::string &post_string, const std::string &path,
+                 bool header, bool timeout,
+                 std::vector<std::string> &hdr_options, HttpCb cb);
+    int HttpGet(const std::string &path, HttpCb);
+    int HttpGet(const std::string &path, bool header, bool timeout,
+                std::vector<std::string> &hdr_options, HttpCb cb);
+    int HttpHead(const std::string &path, bool header, bool timeout,
+                 std::vector<std::string> &hdr_options, HttpCb cb);
+    int HttpDelete(const std::string &path, HttpCb);
+    int HttpDelete(const std::string &path, bool header, bool timeout,
+                   std::vector<std::string> &hdr_options, HttpCb cb);
+    void ClearCallback();
 
     struct _ConnInfo *curl_handle() { return curl_handle_; }
     HttpClient *client() { return client_; }
@@ -89,10 +104,11 @@ public:
 
 private:
     std::string make_url(std::string &path);
-    void HttpPutInternal(std::string put_string, std::string path,
-                         bool header, bool timeout, std::string hdr_option, HttpCb);
-    void HttpGetInternal(std::string path, bool header, bool timeout,
-                         std::string hdr_option, HttpCb);
+
+    void HttpProcessInternal(const std::string body, std::string path,
+                             bool header, bool timeout,
+                             std::vector<std::string> hdr_options,
+                             HttpCb, http_method);
 
     // key = endpoint_ + id_ 
     boost::asio::ip::tcp::endpoint endpoint_;
@@ -112,6 +128,8 @@ private:
 // Http Client class
 class HttpClient : public TcpServer {
 public:
+    static const uint32_t kDefaultTimeout = 1;  // one millisec
+
     explicit HttpClient(EventManager *evm);
     virtual ~HttpClient();
 

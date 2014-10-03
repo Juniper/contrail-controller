@@ -23,6 +23,7 @@
 #include <tbb/atomic.h>
 #include <tbb/mutex.h>
 #include <base/util.h>
+#include <net/address.h>
 #include <cmn/agent_cmn.h>
 #include <oper/mirror_table.h>
 #include <filter/traffic_action.h>
@@ -38,6 +39,7 @@
 #include <oper/interface_common.h>
 #include <oper/nexthop.h>
 #include <oper/route_common.h>
+#include <sandesh/common/flow_types.h>
 
 class FlowStatsCollector;
 class PktSandeshFlow;
@@ -57,117 +59,126 @@ class NhListener;
 class NhState;
 typedef boost::intrusive_ptr<FlowEntry> FlowEntryPtr;
 typedef boost::intrusive_ptr<const NhState> NhStatePtr;
+
 struct RouteFlowKey {
-    RouteFlowKey() : vrf(0), plen(0) { ip.ipv4 = 0; }
-    RouteFlowKey(uint32_t v, uint32_t ipv4, uint8_t prefix) : 
-        vrf(v), plen(prefix) { 
-        ip.ipv4 = GetPrefix(ipv4, prefix);
-    }
-    ~RouteFlowKey() {}
-    static int32_t GetPrefix(uint32_t ip, uint8_t plen) {
-        //Mask prefix
-        uint8_t host = 32;
-        uint32_t mask = (0xFFFFFFFF << (host - plen));
-        return (ip & mask);
+    RouteFlowKey(uint32_t v, const Ip4Address &ipv4, uint8_t p) :
+        vrf(v), family(Address::INET), plen(p) {
+        ip = GetIp4SubnetAddress(ipv4, plen);
     }
 
+    RouteFlowKey(uint32_t v, const Ip6Address &ipv6, uint8_t p) :
+        vrf(v), family(Address::INET6), plen(p) {
+        assert(0);
+    }
+
+    RouteFlowKey(uint32_t v, const IpAddress &ip_p, uint8_t p) :
+        vrf(v), plen(p) {
+        if (ip_p.is_v4()) {
+            family = Address::INET;
+            ip = GetIp4SubnetAddress(ip_p.to_v4(), plen);
+        } else if (ip_p.is_v6()) {
+            family = Address::INET6;
+            ip = GetIp6SubnetAddress(ip_p.to_v6(), plen);
+        } else {
+            assert(0);
+        }
+    }
+
+    virtual ~RouteFlowKey() {}
+
+    bool IsLess(const RouteFlowKey &rhs) const;
+
     uint32_t vrf;
-    union {
-        uint32_t ipv4;
-    } ip;
+    Address::Family family; // address family
+    IpAddress ip;
     uint8_t plen;
 };
 
 struct RouteFlowKeyCmp {
-    bool operator()(const RouteFlowKey &lhs, const RouteFlowKey &rhs) {
-        if (lhs.vrf != rhs.vrf) {
-            return lhs.vrf < rhs.vrf;
-        }
-        if (lhs.ip.ipv4 != rhs.ip.ipv4) {
-            return lhs.ip.ipv4 < rhs.ip.ipv4;
-        }
-        return lhs.plen < rhs.plen;
+    bool operator()(const RouteFlowKey &lhs,
+                    const RouteFlowKey &rhs) const {
+        return lhs.IsLess(rhs);
     }
 };
 
 struct FlowKey {
     FlowKey() :
-        vrf(0), src_port(0), dst_port(0), protocol(0) {
-        src.ipv4 = 0;
-        dst.ipv4 = 0;
+        family(Address::UNSPEC), nh(0), src_addr(Ip4Address(0)),
+        dst_addr(Ip4Address(0)), protocol(0),
+        src_port(0), dst_port(0){
     }
 
-    FlowKey(uint32_t vrf_p, uint32_t sip_p, uint32_t dip_p, uint8_t proto_p,
-            uint16_t sport_p, uint16_t dport_p) 
-        : vrf(vrf_p), src_port(sport_p), dst_port(dport_p), protocol(proto_p) {
-        src.ipv4 = sip_p;
-        dst.ipv4 = dip_p;
+    FlowKey(uint32_t nh_p, const Ip4Address &sip_p, const Ip4Address &dip_p,
+            uint8_t proto_p, uint16_t sport_p, uint16_t dport_p)
+        : family(Address::INET), nh(nh_p), src_addr(sip_p), dst_addr(dip_p),
+        protocol(proto_p), src_port(sport_p), dst_port(dport_p) {
+    }
+
+    FlowKey(uint32_t nh_p, const IpAddress &sip_p, const IpAddress &dip_p,
+            uint8_t proto_p, uint16_t sport_p, uint16_t dport_p)
+        : family(sip_p.is_v4() ? Address::INET : Address::INET6), nh(nh_p),
+        src_addr(sip_p), dst_addr(dip_p), protocol(proto_p), src_port(sport_p),
+        dst_port(dport_p) {
     }
 
     FlowKey(const FlowKey &key) : 
-        vrf(key.vrf), src_port(key.src_port), dst_port(key.dst_port),
-        protocol(key.protocol) {
-        src.ipv4 = key.src.ipv4;
-        dst.ipv4 = key.dst.ipv4;
+        family(key.family), nh(key.nh), src_addr(key.src_addr),
+        dst_addr(key.dst_addr), protocol(key.protocol), src_port(key.src_port),
+        dst_port(key.dst_port) {
     }
 
-    uint32_t vrf;
-    union {
-        uint32_t ipv4;
-    } src;
-    union {
-        uint32_t ipv4;
-    } dst;
-    uint16_t src_port;
-    uint16_t dst_port;
-    uint8_t protocol;
-    bool CompareKey(const FlowKey &key) {
-        return (key.vrf == vrf &&
-                key.src.ipv4 == src.ipv4 &&
-                key.dst.ipv4 == dst.ipv4 &&
-                key.src_port == src_port &&
-                key.dst_port == dst_port &&
-                key.protocol == protocol);
+    bool IsLess(const FlowKey &key) const {
+        if (family != key.family)
+            return family < key.family;
+
+        if (nh != key.nh)
+            return nh < key.nh;
+
+        if (src_addr != key.src_addr)
+            return src_addr < key.src_addr;
+
+        if (dst_addr != key.dst_addr)
+            return dst_addr < key.dst_addr;
+
+        if (protocol != key.protocol)
+            return protocol < key.protocol;
+
+        if (src_port != key.src_port)
+            return src_port < key.src_port;
+
+        return dst_port < key.dst_port;
     }
+
     void Reset() {
-        vrf = -1;
-        src.ipv4 = -1;
-        dst.ipv4 = -1;
+        family = Address::UNSPEC;
+        nh = -1;
+        src_addr = Ip4Address(0);
+        dst_addr = Ip4Address(0);
+        protocol = -1;
         src_port = -1;
         dst_port = -1;
-        protocol = -1;
     }
+
+    Address::Family family;
+    uint32_t nh;
+    IpAddress src_addr;
+    IpAddress dst_addr;
+    uint8_t protocol;
+    uint16_t src_port;
+    uint16_t dst_port;
 };
 
-struct FlowKeyCmp {
+struct Inet4FlowKeyCmp {
     bool operator()(const FlowKey &lhs, const FlowKey &rhs) {
-
-        if (lhs.vrf != rhs.vrf) {
-            return lhs.vrf < rhs.vrf;
-        }
-
-        if (lhs.src.ipv4 != rhs.src.ipv4) {
-            return lhs.src.ipv4 < rhs.src.ipv4;
-        }
-
-        if (lhs.dst.ipv4 != rhs.dst.ipv4) {
-            return lhs.dst.ipv4 < rhs.dst.ipv4;
-        }
-
-        if (lhs.protocol != rhs.protocol) {
-            return lhs.protocol < rhs.protocol;
-        }
-
-        if (lhs.src_port != rhs.src_port) {
-            return lhs.src_port < rhs.src_port;
-        }
-        return lhs.dst_port < rhs.dst_port;
+        const FlowKey &lhs_base = static_cast<const FlowKey &>(lhs);
+        return lhs_base.IsLess(rhs);
     }
 };
 
 struct FlowStats {
     FlowStats() : setup_time(0), teardown_time(0), last_modified_time(0),
-        bytes(0), packets(0), intf_in(0), exported(false) {}
+        bytes(0), packets(0), intf_in(0), exported(false), fip(0),
+        fip_vm_port_id(Interface::kInvalidIndex) {}
 
     uint64_t setup_time;
     uint64_t teardown_time;
@@ -176,6 +187,9 @@ struct FlowStats {
     uint64_t packets;
     uint32_t intf_in;
     bool exported;
+    // Following fields are required for FIP stats accounting
+    uint32_t fip;
+    uint32_t fip_vm_port_id;
 };
 
 typedef std::list<MatchAclParams> MatchAclParamsList;
@@ -236,9 +250,11 @@ struct FlowData {
         flow_source_vrf(VrfEntry::kInvalidIndex),
         flow_dest_vrf(VrfEntry::kInvalidIndex), match_p(), vn_entry(NULL),
         intf_entry(NULL), in_vm_entry(NULL), out_vm_entry(NULL),
+        vrf(VrfEntry::kInvalidIndex),
         mirror_vrf(VrfEntry::kInvalidIndex), dest_vrf(),
         component_nh_idx((uint32_t)CompositeNH::kInvalidComponentNHIdx),
-        nh_state_(NULL), source_plen(0), dest_plen(0) {}
+        nh_state_(NULL), source_plen(0), dest_plen(0), drop_reason(0),
+        vrf_assign_evaluated(false) {}
 
     std::string source_vn;
     std::string dest_vn;
@@ -252,6 +268,7 @@ struct FlowData {
     InterfaceConstRef intf_entry;
     VmEntryConstRef in_vm_entry;
     VmEntryConstRef out_vm_entry;
+    uint32_t vrf;
     uint32_t mirror_vrf;
 
     uint16_t dest_vrf;
@@ -262,12 +279,52 @@ struct FlowData {
     NhStatePtr nh_state_;
     uint8_t source_plen;
     uint8_t dest_plen;
+    uint16_t drop_reason;
+    bool vrf_assign_evaluated;
 };
 
 class FlowEntry {
-  public:
+    public:
+    enum FlowShortReason {
+        SHORT_UNKNOWN = 0,
+        SHORT_UNAVIALABLE_INTERFACE,
+        SHORT_IPV4_FWD_DIS,
+        SHORT_UNAVIALABLE_VRF,
+        SHORT_NO_SRC_ROUTE,
+        SHORT_NO_DST_ROUTE,
+        SHORT_AUDIT_ENTRY,
+        SHORT_VRF_CHANGE,
+        SHORT_NO_REVERSE_FLOW,
+        SHORT_REVERSE_FLOW_CHANGE,
+        SHORT_NAT_CHANGE,
+        SHORT_FLOW_LIMIT,
+        SHORT_LINKLOCAL_SRC_NAT,
+        SHORT_FAILED_VROUTER_INSTALL,
+        SHORT_MAX
+    };
+
+    enum FlowDropReason {
+        DROP_UNKNOWN = 0,
+        DROP_POLICY = SHORT_MAX,
+        DROP_OUT_POLICY,
+        DROP_SG,
+        DROP_OUT_SG,
+        DROP_REVERSE_SG,
+        DROP_REVERSE_OUT_SG
+    };
+
+    enum FlowPolicyState {
+        NOT_EVALUATED,
+        IMPLICIT_ALLOW, /* Due to No Acl rules */
+        IMPLICIT_DENY,
+        DEFAULT_GW_ICMP_OR_DNS, /* DNS/ICMP pkt to/from default gateway */
+        LINKLOCAL_FLOW, /* No policy applied for linklocal flow */
+        MULTICAST_FLOW /* No policy applied for multicast flow */
+    };
+
     static const uint32_t kInvalidFlowHandle=0xFFFFFFFF;
     static const uint8_t kMaxMirrorsPerFlow=0x2;
+    static const std::map<FlowPolicyState, const char*> FlowPolicyStateStr;
 
     // Don't go beyond PCAP_END, pcap type is one byte
     enum PcapType {
@@ -300,9 +357,9 @@ class FlowEntry {
     };
 
     bool ActionRecompute();
-    void UpdateKSync();
+    void UpdateKSync(const FlowTable* table);
     int GetRefCount() { return refcount_; }
-    void MakeShortFlow();
+    void MakeShortFlow(FlowShortReason reason);
     const FlowStats &stats() const { return stats_;}
     const FlowKey &key() const { return key_;}
     FlowData &data() { return data_;}
@@ -310,7 +367,7 @@ class FlowEntry {
     const uuid &flow_uuid() const { return flow_uuid_; }
     const uuid &egress_uuid() const { return egress_uuid_; }
     uint32_t flow_handle() const { return flow_handle_; }
-    void set_flow_handle(uint32_t flow_handle) { flow_handle_ = flow_handle; }
+    void set_flow_handle(uint32_t flow_handle, const FlowTable* table);
     FlowEntry * reverse_flow_entry() { return reverse_flow_entry_.get(); }
     const FlowEntry * reverse_flow_entry() const { return reverse_flow_entry_.get(); }
     void set_reverse_flow_entry(FlowEntry *reverse_flow_entry) {
@@ -329,6 +386,7 @@ class FlowEntry {
     void GetPolicyInfo(const VnEntry *vn);
     void SetMirrorVrf(const uint32_t id) {data_.mirror_vrf = id;}
     void SetMirrorVrfFromAction();
+    void SetVrfAssignEntry();
 
     void GetPolicy(const VnEntry *vn);
     void GetNonLocalFlowSgList(const VmInterface *vm_port);
@@ -342,7 +400,7 @@ class FlowEntry {
     void GetVrfAssignAcl();
     uint32_t MatchAcl(const PacketHeader &hdr,
                       MatchAclParamsList &acl, bool add_implicit_deny,
-                      bool add_implicit_allow);
+                      bool add_implicit_allow, FlowPolicyInfo *info);
     void ResetPolicy();
     void ResetStats();
     void set_deleted(bool deleted) { deleted_ = deleted; }
@@ -369,14 +427,28 @@ class FlowEntry {
     int linklocal_src_port_fd() const { return linklocal_src_port_fd_; }
     const std::string& acl_assigned_vrf() const;
     uint32_t acl_assigned_vrf_index() const;
+    uint32_t reverse_flow_fip() const;
+    uint32_t reverse_flow_vmport_id() const;
+    void UpdateFipStatsInfo(uint32_t fip, uint32_t id);
+    const std::string &sg_rule_uuid() const { return sg_rule_uuid_; }
+    const std::string &nw_ace_uuid() const { return nw_ace_uuid_; }
+    const std::string &peer_vrouter() const { return peer_vrouter_; }
+    TunnelType tunnel_type() const { return tunnel_type_; }
+    uint16_t underlay_source_port() const { return underlay_source_port_; }
+    void set_underlay_source_port(uint16_t port) {
+        underlay_source_port_ = port;
+    }
+    uint16_t short_flow_reason() const { return short_flow_reason_; }
 private:
     friend class FlowTable;
     friend class FlowStatsCollector;
     friend void intrusive_ptr_add_ref(FlowEntry *fe);
     friend void intrusive_ptr_release(FlowEntry *fe);
-    bool SetRpfNH(const Inet4UnicastRouteEntry *rt);
+    bool SetRpfNH(const AgentRoute *rt);
     bool InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
                      const PktControlInfo *rev_ctrl);
+    void GetSourceRouteInfo(const InetUnicastRouteEntry *rt);
+    void GetDestRouteInfo(const InetUnicastRouteEntry *rt);
 
     FlowKey key_;
     FlowData data_;
@@ -390,10 +462,20 @@ private:
     static tbb::atomic<int> alloc_count_;
     bool deleted_;
     uint32_t flags_;
+    uint16_t short_flow_reason_;
     // linklocal port - used as nat src port, agent locally binds to this port
     uint16_t linklocal_src_port_;
     // fd of the socket used to locally bind in case of linklocal
     int linklocal_src_port_fd_;
+    std::string sg_rule_uuid_;
+    std::string nw_ace_uuid_;
+    //IP address of the src vrouter for egress flows and dst vrouter for
+    //ingress flows. Used only during flow-export
+    std::string peer_vrouter_;
+    //Underlay IP protocol type. Used only during flow-export
+    TunnelType tunnel_type_;
+    //Underlay source port. 0 for local flows. Used during flow-export
+    uint16_t underlay_source_port_;
     // atomic refcount
     tbb::atomic<int> refcount_;
 };
@@ -410,7 +492,7 @@ struct FlowEntryCmp {
 class FlowTable {
 public:
     static const int MaxResponses = 100;
-    typedef std::map<FlowKey, FlowEntry *, FlowKeyCmp> FlowEntryMap;
+    typedef std::map<FlowKey, FlowEntry *, Inet4FlowKeyCmp> FlowEntryMap;
 
     typedef std::map<int, int> AceIdFlowCntMap;
     typedef std::set<FlowEntryPtr, FlowEntryCmp> FlowEntryTree;
@@ -464,6 +546,7 @@ public:
     virtual ~FlowTable();
     
     void Init();
+    void InitDone();
     void Shutdown();
 
     FlowEntry *Allocate(const FlowKey &key);
@@ -500,8 +583,10 @@ public:
     }
 
     DBTableBase::ListenerId nh_listener_id();
-    Inet4UnicastRouteEntry * GetUcRoute(const VrfEntry *entry, const Ip4Address &addr);
-
+    AgentRoute *GetUcRoute(const VrfEntry *entry, const IpAddress &addr);
+    static const SecurityGroupList &default_sg_list() {return default_sg_list_;}
+    bool ValidFlowMove(const FlowEntry *new_flow,
+                       const FlowEntry *old_flow) const;
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;
     friend class FetchFlowRecord;
@@ -509,6 +594,8 @@ public:
     friend class NhState;
     friend void intrusive_ptr_release(FlowEntry *fe);
 private:
+    static SecurityGroupList default_sg_list_;
+
     Agent *agent_;
     FlowEntryMap flow_entry_map_;
 
@@ -528,7 +615,8 @@ private:
     DBTableBase::ListenerId vrf_listener_id_;
     NhListener *nh_listener_;
 
-    Inet4UnicastRouteEntry route_key_;
+    InetUnicastRouteEntry inet4_route_key_;
+    InetUnicastRouteEntry inet6_route_key_;
 
     void AclNotify(DBTablePartBase *part, DBEntryBase *e);
     void IntfNotify(DBTablePartBase *part, DBEntryBase *e);
@@ -543,7 +631,7 @@ private:
     void ResyncRouteFlows(RouteFlowKey &key, SecurityGroupList &sg_l);
     void ResyncAFlow(FlowEntry *fe);
     void ResyncVmPortFlows(const VmInterface *intf);
-    void ResyncRpfNH(const RouteFlowKey &key, const Inet4UnicastRouteEntry *rt);
+    void ResyncRpfNH(const RouteFlowKey &key, const AgentRoute *rt);
     void DeleteRouteFlows(const RouteFlowKey &key);
 
     void DeleteFlowInfo(FlowEntry *fe);
@@ -598,19 +686,20 @@ public:
         const NextHop* local_nh_;
     };
 
-    Inet4RouteUpdate(Inet4UnicastAgentRouteTable *rt_table);
+    Inet4RouteUpdate(InetUnicastAgentRouteTable *rt_table);
     Inet4RouteUpdate();
     ~Inet4RouteUpdate();
     void ManagedDelete();
-    static Inet4RouteUpdate *UnicastInit(Inet4UnicastAgentRouteTable *table);
+    static Inet4RouteUpdate *UnicastInit(InetUnicastAgentRouteTable *table);
     void Unregister();
     bool DeleteState(DBTablePartBase *partition, DBEntryBase *entry);
     static void WalkDone(DBTableBase *partition, Inet4RouteUpdate *rt);
 private:
-    DBTableBase::ListenerId id_;
-    Inet4UnicastAgentRouteTable *rt_table_;
-    bool marked_delete_;
     void UnicastNotify(DBTablePartBase *partition, DBEntryBase *e);
+
+    DBTableBase::ListenerId id_;
+    InetUnicastAgentRouteTable *rt_table_;
+    bool marked_delete_;
     LifetimeRef<Inet4RouteUpdate> table_delete_ref_;
 };
 
@@ -644,11 +733,11 @@ inline void intrusive_ptr_release(const NhState *nh_state) {
 class NhListener {
 public:
     NhListener() {
-        id_ = Agent::GetInstance()->GetNextHopTable()->
+        id_ = Agent::GetInstance()->nexthop_table()->
               Register(boost::bind(&NhListener::Notify, this, _1, _2));
     }
     ~NhListener() {
-        Agent::GetInstance()->GetNextHopTable()->Unregister(id_);
+        Agent::GetInstance()->nexthop_table()->Unregister(id_);
     }
     void Notify(DBTablePartBase *part, DBEntryBase *e);
     DBTableBase::ListenerId id() {

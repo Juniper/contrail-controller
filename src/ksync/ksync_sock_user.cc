@@ -573,7 +573,7 @@ void KSyncSockTypeMap::SetFlowEntry(vr_flow_req *req, bool set) {
     f->fe_key.key_dest_ip = req->get_fr_flow_dip();
     f->fe_key.key_src_port = req->get_fr_flow_sport();
     f->fe_key.key_dst_port = req->get_fr_flow_dport();
-    f->fe_key.key_vrf_id = req->get_fr_flow_vrf();
+    f->fe_key.key_nh_id = req->get_fr_flow_nh_id();
     f->fe_key.key_proto = req->get_fr_flow_proto();
 }
 
@@ -1007,7 +1007,9 @@ void MockDumpHandlerBase::SendDumpResponse(uint32_t seq_num, Sandesh *from_req) 
     unsigned int resp_code = 0;
 
     if (KSyncSockTypeMap::error_code()) {
-        KSyncSockTypeMap::SimulateResponse(seq_num, -KSyncSockTypeMap::error_code(), 0);
+        int ret_code = -KSyncSockTypeMap::error_code();
+        ret_code &= ~VR_MESSAGE_DUMP_INCOMPLETE;
+        KSyncSockTypeMap::SimulateResponse(seq_num, ret_code, 0);
         return;
     } 
     Sandesh *req = GetFirst(from_req);
@@ -1303,14 +1305,15 @@ Sandesh* RouteDumpHandler::GetFirst(Sandesh *from_req) {
     vr_route_req *orig_req, key;
     orig_req = static_cast<vr_route_req *>(from_req);
 
-    if (orig_req->get_rtr_marker()) {
+    if (orig_req->get_rtr_marker().size()) {
         key.set_rtr_vrf_id(orig_req->get_rtr_vrf_id());
         key.set_rtr_prefix(orig_req->get_rtr_marker());
         key.set_rtr_prefix_len(orig_req->get_rtr_marker_plen());
         it = sock->rt_tree.upper_bound(key);
     } else {
+        std::vector<int8_t> rtr_prefix;
         key.set_rtr_vrf_id(orig_req->get_rtr_vrf_id());
-        key.set_rtr_prefix(0);
+        key.set_rtr_prefix(rtr_prefix);
         key.set_rtr_prefix_len(0);
         it = sock->rt_tree.lower_bound(key);
     }

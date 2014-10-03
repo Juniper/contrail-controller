@@ -38,7 +38,7 @@ public:
         XmppSamplePeer(channel) , count_(0) {
     }
 
-    ~XmppBgpMockPeer() { SetXmppChannel(NULL); }
+    ~XmppBgpMockPeer() { }
 
     virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
         count_++;
@@ -52,7 +52,7 @@ private:
 
 class XmppMockConnection : public XmppClientConnection {
 public:
-    XmppMockConnection(TcpServer *server, const XmppChannelConfig *config)
+    XmppMockConnection(XmppClient *server, const XmppChannelConfig *config)
         : XmppClientConnection(server, config), byte_count(0), msg_count(0) {}
     virtual void ReceiveMsg(XmppSession *session, const string &str) {
         byte_count += str.size();
@@ -161,21 +161,20 @@ protected:
         // server channels
         TASK_UTIL_EXPECT_TRUE(
                 (sconnection_ = a_->FindConnection(SUB_ADDR)) != NULL);
+
         // Check for server, client connection is established. Wait upto 1 sec
         TASK_UTIL_EXPECT_TRUE(
                 sconnection_->GetStateMcState() == xmsm::ESTABLISHED);
-        bgp_server_peer_.reset(new XmppBgpMockPeer(sconnection_->ChannelMux()));
-
         TASK_UTIL_EXPECT_TRUE(
                 cconnection_->GetStateMcState() == xmsm::ESTABLISHED); 
         cconnection_->ResetStats();
+        bgp_server_peer_ = new XmppBgpMockPeer(sconnection_->ChannelMux());
     }
 
     void TearDownConnection() {
-        
+        delete bgp_server_peer_;
         cconnection_->ManagedDelete();
         task_util::WaitForIdle();
-
         cconnection_ = NULL;
         sconnection_ = NULL;
     }
@@ -202,7 +201,7 @@ protected:
         return 0;
     }
 
-    boost::scoped_ptr<XmppBgpMockPeer> bgp_server_peer_;
+    XmppBgpMockPeer *bgp_server_peer_;
     XmppConnection *sconnection_;
     XmppMockConnection *cconnection_;
     auto_ptr<EventManager> evm_;
@@ -213,8 +212,7 @@ protected:
 
 
 void XmppSessionTest::AddClientChannel(XmppMockConnection *connection) {
-    boost::asio::ip::tcp::endpoint ep = connection->endpoint();
-    b_->connection_map_.insert(ep, connection);
+    b_->InsertConnection(connection);
 }
 
 namespace {

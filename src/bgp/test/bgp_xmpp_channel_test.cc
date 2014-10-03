@@ -55,7 +55,6 @@ public:
     xmps::PeerState GetPeerState() const { return xmps::READY; }
     std::string FromString() const  { return string("fake-from"); }
     const XmppConnection *connection() const { return NULL; }
-    MOCK_METHOD0(XmppChannelCleanup,void());
 
     virtual std::string LastStateName() const {
         return "";
@@ -394,12 +393,12 @@ TEST_F(BgpXmppChannelTest, Connection) {
         static_cast<PeerRibMembershipManagerTest *>(server_->membership_mgr());
     EXPECT_FALSE(mock_manager == NULL);
     EXPECT_CALL(*mock_manager, Register(_, _, _, _,_))
-        .Times(3)
+        .Times(4)
         .WillRepeatedly(Invoke(mock_manager,
                          &PeerRibMembershipManagerTest::MockRegister))
         ;
     EXPECT_CALL(*mock_manager, Unregister(_, _, _))
-        .Times(3)
+        .Times(4)
         .WillRepeatedly(Invoke(mock_manager,
                          &PeerRibMembershipManagerTest::MockUnregister))
         ;

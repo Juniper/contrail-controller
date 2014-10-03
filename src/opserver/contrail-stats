@@ -2,7 +2,7 @@
 
 source /opt/contrail/analytics-venv/bin/activate
 
-python /opt/contrail/utils/stats.py $*
+python /opt/contrail/analytics-venv/lib/python2.7/site-packages/opserver/stats.py $*
 ret=$?
 
 deactivate

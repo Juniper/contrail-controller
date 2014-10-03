@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <net/address.h>
 
 #include <boost/intrusive_ptr.hpp>
 #include <boost/bind.hpp>
@@ -20,23 +21,29 @@
 #include <tbb/mutex.h>
 
 #include <io/event_manager.h>
-#include <base/logging.h>
-#include <base/task_annotations.h>
-#include <net/address.h>
 #include <db/db.h>
 #include <db/db_entry.h>
 #include <db/db_table.h>
+#include <db/db_table_partition.h>
+#include <db/db_table_walker.h>
+
+#include <base/logging.h>
 #include <base/task.h>
 #include <base/task_trigger.h>
-#include <cmn/agent_db.h>
+#include <base/task_annotations.h>
+#include <base/dependency.h>
+#include <base/lifetime.h>
+
 #include <ifmap/ifmap_agent_parser.h>
 #include <ifmap/ifmap_agent_table.h>
-#include <cfg/cfg_listener.h>
-#include <io/event_manager.h>
+
+#include <sandesh/sandesh.h>
+#include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh_trace.h>
 #include <sandesh/common/vns_constants.h>
 
 #include <cmn/agent.h>
+#include <cmn/agent_db.h>
 
 static inline bool UnregisterDBTable(DBTable *table, 
                                      DBTableBase::ListenerId id) {

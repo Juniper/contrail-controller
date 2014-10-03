@@ -63,10 +63,10 @@ protected:
         client->Reset();
         thread_ = new ServerThread(&evm_);
         bgp_peer1 = new test::ControlNodeMock(&evm_, "127.0.0.1");
-        Agent::GetInstance()->SetXmppServer("127.0.0.1", 0);
-        Agent::GetInstance()->SetXmppPort(bgp_peer1->GetServerPort(), 0);
-        Agent::GetInstance()->SetDnsXmppServer("", 0);
-        Agent::GetInstance()->SetDnsXmppPort(bgp_peer1->GetServerPort(), 0);
+        Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
+        Agent::GetInstance()->set_controller_ifmap_xmpp_port(bgp_peer1->GetServerPort(), 0);
+        Agent::GetInstance()->set_dns_server("", 0);
+        Agent::GetInstance()->set_dns_server_port(bgp_peer1->GetServerPort(), 0);
         RouterIdDepInit(Agent::GetInstance());
         thread_->Start();
         WAIT_FOR(100, 10000, (bgp_peer1->IsEstablished() == true));
@@ -84,6 +84,7 @@ protected:
             Agent::GetInstance()->controller()->Cleanup();
             client->WaitForIdle();
         }
+        Agent::GetInstance()->controller()->config_cleanup_timer().cleanup_timer_->Cancel();
 
         bgp_peer1->Shutdown();
         client->WaitForIdle();
@@ -194,13 +195,13 @@ TEST_F(VrfTest, VrfAddDelWithNoRoutes_1) {
 }
 
 TEST_F(VrfTest, CheckDefaultVrfDelete) {
-    AddVrf(Agent::GetInstance()->GetDefaultVrf().c_str());
+    AddVrf(Agent::GetInstance()->fabric_vrf_name().c_str());
     client->WaitForIdle();
-    EXPECT_TRUE(VrfFind(Agent::GetInstance()->GetDefaultVrf().c_str()));
+    EXPECT_TRUE(VrfFind(Agent::GetInstance()->fabric_vrf_name().c_str()));
 
-    DelVrf(Agent::GetInstance()->GetDefaultVrf().c_str());
+    DelVrf(Agent::GetInstance()->fabric_vrf_name().c_str());
     client->WaitForIdle();
-    EXPECT_TRUE(VrfFind(Agent::GetInstance()->GetDefaultVrf().c_str()));
+    EXPECT_TRUE(VrfFind(Agent::GetInstance()->fabric_vrf_name().c_str()));
 }
 
 TEST_F(VrfTest, CheckTableDeleteAndEntryDelete) {
@@ -217,7 +218,7 @@ TEST_F(VrfTest, CheckTableDeleteAndEntryDelete) {
     DelVrf("vrf1");
     client->WaitForIdle();
     VrfKey key("vrf1");
-    EXPECT_TRUE(Agent::GetInstance()->GetVrfTable()->Find(&key, true));
+    EXPECT_TRUE(Agent::GetInstance()->vrf_table()->Find(&key, true));
     EXPECT_TRUE(DBTableFind("vrf1.uc.route.0"));
 
     //Release pending reference on vrf
@@ -240,7 +241,7 @@ TEST_F(VrfTest, CheckVrfReuse) {
     DelVrf("vrf1");
     client->WaitForIdle();
     VrfKey key("vrf1");
-    vrf = static_cast<VrfEntry *>(Agent::GetInstance()->GetVrfTable()->Find(&key, true));
+    vrf = static_cast<VrfEntry *>(Agent::GetInstance()->vrf_table()->Find(&key, true));
     EXPECT_TRUE(vrf->IsDeleted());
     EXPECT_TRUE(DBTableFind("vrf1.uc.route.0"));
 
@@ -311,31 +312,35 @@ TEST_F(VrfTest, FloatingIpRouteWithdraw) {
     CreateVmportFIpEnv(input, 2);
     client->WaitForIdle();
     EXPECT_TRUE(client->VrfNotifyWait(2));
-    EXPECT_TRUE(DBTableFind("vn1:vn1.uc.route.0"));
-    EXPECT_TRUE(RouteFind("vn1:vn1", vm1_ip, 32));
+    EXPECT_TRUE(DBTableFind("default-project:vn1:vn1.uc.route.0"));
+    EXPECT_TRUE(RouteFind("default-project:vn1:vn1", vm1_ip, 32));
 
-    EXPECT_TRUE(DBTableFind("vn2:vn2.uc.route.0"));
-    EXPECT_TRUE(RouteFind("vn2:vn2", vm2_ip, 32));
+    EXPECT_TRUE(DBTableFind("default-project:vn2:vn2.uc.route.0"));
+    EXPECT_TRUE(RouteFind("default-project:vn2:vn2", vm2_ip, 32));
 
     //Add floating IP for vm2 to talk to vm1
     AddFloatingIpPool("fip-pool1", 1);
     AddFloatingIp("fip1", 1, "2.1.1.100");
     AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
-    AddLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn1");
+    AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn1");
     client->WaitForIdle();
     AddLink("virtual-machine-interface", "vnet2", "floating-ip", "fip1");
     client->WaitForIdle();
     Ip4Address floating_ip = Ip4Address::from_string("2.1.1.100");
-    EXPECT_TRUE(RouteFind("vn1:vn1", floating_ip, 32));
-    WAIT_FOR(100, 10000, PathCount("vn1:vn1", floating_ip, 32) == 2);
+    EXPECT_TRUE(RouteFind("default-project:vn1:vn1", floating_ip, 32));
+    WAIT_FOR(100, 10000,
+             PathCount("default-project:vn1:vn1", floating_ip, 32) == 2);
 
     //Delete floating IP and expect route to get deleted
     DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
-    DelLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn1");
+    DelLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn1");
     DelLink("virtual-machine-interface", "vnet2", "floating-ip", "fip1");
     DelFloatingIp("fip1");
     client->WaitForIdle();
-    WAIT_FOR(100, 1000, RouteFind("vn1:vn1", floating_ip, 32) == false);
+    WAIT_FOR(100, 1000,
+             RouteFind("default-project:vn1:vn1",floating_ip, 32) == false);
     DeleteVmportFIpEnv(input, 2, true);
     client->WaitForIdle();
 }
@@ -344,5 +349,9 @@ int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, false, true, false);
 
-    return RUN_ALL_TESTS();
+    int ret = RUN_ALL_TESTS();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
+    return ret;
 }

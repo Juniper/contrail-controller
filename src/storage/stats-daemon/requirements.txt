@@ -1,0 +1,8 @@
+bitarray
+bottle
+gevent
+geventhttpclient
+psutil
+sandesh_common
+sandesh
+discoveryclient

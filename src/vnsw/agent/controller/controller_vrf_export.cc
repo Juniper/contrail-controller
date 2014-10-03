@@ -5,14 +5,17 @@
 #include <boost/uuid/uuid_io.hpp>
 
 #include <cmn/agent_cmn.h>
+#include <oper/route_common.h>
+#include <oper/agent_route_walker.h>
+#include <oper/vrf.h>
+#include <oper/mirror_table.h>
+
 #include <controller/controller_export.h>
 #include <controller/controller_vrf_export.h>
 #include <controller/controller_route_walker.h>
-#include <oper/vrf.h>
-#include <oper/mirror_table.h>
 #include <controller/controller_peer.h>
-#include "controller/controller_init.h"
-#include "controller/controller_types.h"
+#include <controller/controller_init.h>
+#include <controller/controller_types.h>
 
 VrfExport::State::State() : DBState(), exported_(false), 
     force_chg_(false), rt_export_() {
@@ -60,9 +63,10 @@ void VrfExport::Notify(AgentXmppChannel *bgp_xmpp_peer,
         state->force_chg_ = true;
         vrf->SetState(partition->parent(), id, state);
 
-        if (vrf->GetName().compare(bgp_xmpp_peer->agent()->GetDefaultVrf()) != 0) {
+        if (vrf->GetName().compare(bgp_xmpp_peer->agent()->fabric_vrf_name()) != 0) {
             // Dont export routes belonging to Fabric VRF table
-            for (table_type = 0; table_type < Agent::ROUTE_TABLE_MAX;
+            for (table_type = (Agent::INVALID + 1);
+                 table_type < Agent::ROUTE_TABLE_MAX;
                  table_type++)
             {
                 state->rt_export_[table_type] = 
@@ -83,7 +87,7 @@ void VrfExport::Notify(AgentXmppChannel *bgp_xmpp_peer,
             state->exported_ = true; 
             if (state->force_chg_ == true) {
                 if (vrf->GetName().compare(bgp_xmpp_peer->agent()->
-                                           GetDefaultVrf()) != 0) {
+                                           fabric_vrf_name()) != 0) {
                     bgp_peer->route_walker()->StartRouteWalk(vrf);
                 }
             }

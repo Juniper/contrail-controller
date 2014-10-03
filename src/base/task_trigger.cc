@@ -12,6 +12,10 @@ public:
         : Task(parent->task_id_, parent->task_instance_), parent_(parent) {
     }
     bool Run() {
+        if (parent_->disabled()) {
+            parent_->Reset();
+            return true;
+        }
         bool done = (parent_->func_)();
         if (done) {
             parent_->Reset();
@@ -25,6 +29,7 @@ private:
 TaskTrigger::TaskTrigger(FunctionPtr func, int task_id, int task_instance)
     : func_(func), task_id_(task_id), task_instance_(task_instance) {
     trigger_ = false;
+    disabled_ = false;
 }
 
 TaskTrigger::~TaskTrigger() {

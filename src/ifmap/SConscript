@@ -6,17 +6,14 @@
 Import('BuildEnv')
 
 env = BuildEnv.Clone()
-env.AppendUnique(CCFLAGS='-fno-exceptions')
+env.CppDisableExceptions()
 
 env.Append(CPPPATH = env['TOP'])
 env.Append(CPPPATH = env['TOP'] + '/discovery/client')
 env.Prepend(LIBS=['ds', 'sandesh', 'http', 'http_parser', 'curl', 'io', 'base'])
 
 except_env = BuildEnv.Clone()
-cflags = except_env['CCFLAGS']
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-except_env.Replace(CCFLAGS = cflags)
+except_env.CppEnableExceptions()
 except_env.Append(CPPPATH = env['TOP'])
 
 SandeshGenFiles = env.SandeshGenCpp('ifmap_server_show.sandesh')
@@ -37,7 +34,8 @@ AgentSandeshGenFiles  = env.SandeshGenCpp('ifmap_agent.sandesh')
 AgentSandeshGenSrcs = env.ExtractCpp(AgentSandeshGenFiles)
 
 libifmap_common = env.Library('ifmap_common',
-                              ['ifmap_table.cc',
+                              ['ifmap_dependency_tracker.cc',
+                               'ifmap_table.cc',
                                'ifmap_link.cc',
                                'ifmap_link_table.cc',
                                'ifmap_node.cc',
@@ -47,6 +45,7 @@ libifmap_common = env.Library('ifmap_common',
 # control-node
 libifmap = env.Library('ifmap_server',
                        ['ifmap_client.cc',
+                        'ifmap_config_listener.cc',
                         'ifmap_encoder.cc',
                         'ifmap_exporter.cc',
                         'ifmap_factory.cc',

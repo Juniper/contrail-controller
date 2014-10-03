@@ -61,6 +61,8 @@ public:
 protected:
     VrouterStatsAgent prev_stats_;
     uint8_t bandwidth_count_;
+    uint8_t cpu_stats_count_;
+    L4PortBitmap port_bitmap_;
 private:
     //The following Dispatch functions are not made const function because
     //in derived class they need to be non-const
@@ -76,28 +78,27 @@ private:
     void InitPrevStats() const;
     void FetchDropStats(AgentDropStats &ds) const;
     bool SetVrouterPortBitmap(VrouterStatsAgent &vr_stats);
-    uint8_t CalculateBandwitdh(uint64_t bytes, int speed_mbps, 
+    uint8_t CalculateBandwitdh(uint64_t bytes, int speed_mbps,
                                int diff_seconds) const;
-    uint8_t GetBandwidthUsage(AgentStatsCollector::InterfaceStats *s, 
+    uint8_t GetBandwidthUsage(AgentStatsCollector::InterfaceStats *s,
                               bool dir_in, int mins) const;
     bool BuildPhysicalInterfaceBandwidth(std::vector<AgentIfBandwidth> &list,
                                          uint8_t mins) const;
-    std::string GetMacAddress(const ether_addr &mac) const;
+    std::string GetMacAddress(const MacAddress &mac) const;
     bool BuildPhysicalInterfaceList(std::vector<AgentIfStats> &list) const;
     void BuildXmppStatsList(std::vector<AgentXmppStats> &list) const;
     void SendVrouterUve();
     void BuildAndSendComputeCpuStateMsg(const CpuLoadInfo &info);
-    void SubnetToStringList(VirtualGatewayConfig::SubnetList &l1, 
+    void SubnetToStringList(VirtualGatewayConfig::SubnetList &l1,
                             std::vector<std::string> &l2);
     void BuildAgentConfig(VrouterAgent &vrouter_agent);
-    
+
     Agent *agent_;
     PhysicalInterfaceSet phy_intf_set_;
     DBTableBase::ListenerId vn_listener_id_;
     DBTableBase::ListenerId vm_listener_id_;
     DBTableBase::ListenerId intf_listener_id_;
     VrouterAgent prev_vrouter_;
-    L4PortBitmap port_bitmap_;
     uint64_t start_time_;
     DISALLOW_COPY_AND_ASSIGN(VrouterUveEntry);
 };

@@ -22,7 +22,7 @@ using namespace std;
 
 int HttpSession::req_handler_task_id_ = -1;
 HttpSession::map_type * HttpSession::context_map_ = 0;
-tbb::mutex HttpSession::mutex_;
+tbb::mutex HttpSession::map_mutex_;
 tbb::atomic<long> HttpSession::task_count_;
 
 // Input processing context
@@ -109,6 +109,9 @@ private:
 
     static int OnBody(struct http_parser *parser,
               const char *loc, size_t length) {
+        RequestBuilder *builder =
+            reinterpret_cast<RequestBuilder *>(parser->data);
+        builder->request_->SetBody(loc, length);
         return 0;
     }
 
@@ -170,7 +173,6 @@ public:
     // Retrieve a request item from the queue. Return true if the queue
     // is empty _after_ the pop, false otherwise.
     bool FromQ(HttpRequest *& r) {
-        tbb::mutex::scoped_lock lock(HttpSession::mutex_);
         session_->request_queue_.try_pop(r);
         return session_->request_queue_.empty();
     }
@@ -187,6 +189,9 @@ public:
             HTTP_SYS_LOG("HttpSession", SandeshLevel::UT_INFO,
                          "URL is " + request->ToString());
             if (request->ToString().empty()) {
+                if (session_->event_cb_ && !session_->event_cb_.empty()) {
+                    session_->event_cb_(session_.get(), request->Event());
+                }
                 del_session = true;
                 session_->set_observer(NULL);
                 session_->Close();
@@ -228,7 +233,6 @@ HttpSession::HttpSession(HttpServer *server, Socket *socket)
 }
 
 HttpSession::~HttpSession() {
-    tbb::mutex::scoped_lock lock(mutex_);
     HttpRequest *request = NULL;
     while (request_queue_.try_pop(request)) {
         delete request;
@@ -236,9 +240,9 @@ HttpSession::~HttpSession() {
 }
 
 void HttpSession::AcceptSession() {
-    tbb::mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(map_mutex_);
     context_str_ = "http%" + ToString();
-    GetMap()->insert(std::make_pair(context_str_, this));
+    GetMap()->insert(std::make_pair(context_str_, HttpSessionPtr(this)));
     HTTP_SYS_LOG("HttpSession", SandeshLevel::UT_INFO,
         "Created Session " + context_str_);
 }
@@ -256,7 +260,7 @@ void HttpSession::OnSessionEvent(TcpSession *session,
     switch (event) {
     case TcpSession::CLOSE:
         {
-            tbb::mutex::scoped_lock lock(mutex_);
+            tbb::mutex::scoped_lock lock(map_mutex_);
             if (GetMap()->erase(h_session->context_str_)) {
                 HTTP_SYS_LOG("HttpSession", SandeshLevel::UT_INFO,
                     "Removed Session " + h_session->context_str_);
@@ -264,10 +268,12 @@ void HttpSession::OnSessionEvent(TcpSession *session,
                 HTTP_SYS_LOG("HttpSession", SandeshLevel::UT_INFO,
                     "Not Removed Session " + h_session->context_str_);                
             }
+            lock.release();
             h_session->context_str_ = "";
             HttpRequest *request = new HttpRequest();
             string nourl = "";
             request->SetUrl(&nourl);
+            request->SetEvent(event);
             was_empty = request_queue_.empty();
             request_queue_.push(request);
         }
@@ -282,10 +288,6 @@ void HttpSession::OnSessionEvent(TcpSession *session,
         HttpSession::task_count_++;
         scheduler->Enqueue(task);
     }
-
-    if (event_cb_ && !event_cb_.empty()) {
-        event_cb_(h_session, event);
-    }
 }
 
 void HttpSession::OnRead(Buffer buffer) {
@@ -294,8 +296,6 @@ void HttpSession::OnRead(Buffer buffer) {
     std::stringstream msg;
     bool was_empty = false;
     {
-        tbb::mutex::scoped_lock lock(mutex_);
-
         msg << "HttpSession::Read " << size << " bytes";
         HTTP_SYS_LOG("HttpSession", SandeshLevel::UT_DEBUG, msg.str());
 

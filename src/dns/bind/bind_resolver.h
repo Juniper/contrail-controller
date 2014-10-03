@@ -17,14 +17,22 @@ public:
     static const int max_pkt_size = 1024;
     static const uint8_t max_dns_servers = 2;
 
+    struct DnsServer {
+        DnsServer (const std::string &ip, uint16_t port)
+            : ip_(ip), port_(port) {}
+
+        std::string ip_;
+        uint16_t port_;
+    };
+
     BindResolver(boost::asio::io_service &io, 
-                std::vector<std::string> &dns_servers, Callback cb);
+                 const std::vector<DnsServer> &dns_servers, Callback cb);
     virtual ~BindResolver();
-    void SetupResolver(const std::string &server, uint8_t idx);
+    void SetupResolver(const DnsServer &server, uint8_t idx);
     bool DnsSend(uint8_t *pkt, unsigned int dns_srv_index, std::size_t len);
 
     static void Init(boost::asio::io_service &io,
-                     std::vector<std::string> &dns_servers, Callback cb);
+                     const std::vector<DnsServer> &dns_servers, Callback cb);
     static void Shutdown();
     static BindResolver *Resolver() { return resolver_; }
 

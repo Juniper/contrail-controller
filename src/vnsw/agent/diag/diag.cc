@@ -20,7 +20,7 @@ const std::string KDiagName("DiagTimeoutHandler");
 
 DiagEntry::DiagEntry(int timeout, int count,DiagTable *diag_table):
     diag_table_(diag_table) , timeout_(timeout), 
-    timer_(TimerManager::CreateTimer(*(diag_table->agent()->GetEventManager())->io_service(), 
+    timer_(TimerManager::CreateTimer(*(diag_table->agent()->event_manager())->io_service(), 
     "DiagTimeoutHandler")), count_(count), seq_no_(0) {
 }
 
@@ -83,7 +83,7 @@ bool DiagTable::Process(DiagEntryOp *op) {
 
 DiagTable::DiagTable(Agent *agent):agent_(agent) {
     diag_proto_.reset(
-        new DiagProto(agent, *(agent->GetEventManager())->io_service()));
+        new DiagProto(agent, *(agent->event_manager())->io_service()));
     entry_op_queue_ = new WorkQueue<DiagEntryOp *>
                     (TaskScheduler::GetInstance()->GetTaskId("Agent::Diag"), 0,
                      boost::bind(&DiagTable::Process, this, _1));

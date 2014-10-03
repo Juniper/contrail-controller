@@ -28,7 +28,13 @@ fi
 
 echo "Package                                Version                        Build-ID | Repo | RPM Name"
 echo "-------------------------------------- ------------------------------ ----------------------------------"
-for i in `cat $CONTRAILRPMS`; do
+if [  "$#" -ne 0 ]; then
+    pkg_list=$*
+else
+    pkg_list=`cat $CONTRAILRPMS`
+fi
+
+for i in $pkg_list; do
   #j=$i; v="N/A"; r="N/A"
   j=""; v="", r=""
   #read j v r <<< `grep "^$i\." $TMPFILE`

@@ -21,6 +21,7 @@ public:
     const std::string hostname() const { return hostname_; }
     const std::string host_ip() const { return host_ip_; }
     const uint16_t http_server_port() const { return http_server_port_; }
+    const uint16_t dns_server_port() const { return dns_server_port_; }
     const std::string log_category() const { return log_category_; }
     const bool log_disable() const { return log_disable_; }
     const std::string log_file() const { return log_file_; }
@@ -28,6 +29,8 @@ public:
     const long log_file_size() const { return log_file_size_; }
     const std::string log_level() const { return log_level_; }
     const bool log_local() const { return log_local_; }
+    const bool use_syslog() const { return use_syslog_; }
+    const std::string syslog_facility() const { return syslog_facility_; }
     const std::string ifmap_server_url() const { return ifmap_server_url_; }
     const std::string ifmap_password() const { return ifmap_password_; }
     const std::string ifmap_user() const { return ifmap_user_; }
@@ -40,6 +43,14 @@ private:
     template <typename ValueType>
     void GetOptValue(const boost::program_options::variables_map &var_map,
                      ValueType &var, std::string val);
+    // Implementation overloads
+    template <typename ValueType>
+    void GetOptValueImpl(const boost::program_options::variables_map &var_map,
+                         ValueType &var, std::string val, ValueType*);
+    template <typename ElementType>
+    void GetOptValueImpl(const boost::program_options::variables_map &var_map,
+                         std::vector<ElementType> &var, std::string val,
+                         std::vector<ElementType> *);
     void Process(int argc, char *argv[],
             boost::program_options::options_description &cmdline_options);
     void Initialize(EventManager &evm,
@@ -53,6 +64,7 @@ private:
     std::string hostname_;
     std::string host_ip_;
     uint16_t http_server_port_;
+    uint16_t dns_server_port_;
     std::string log_category_;
     bool log_disable_;
     std::string log_file_;
@@ -60,6 +72,8 @@ private:
     long log_file_size_;
     std::string log_level_;
     bool log_local_;
+    bool use_syslog_;
+    std::string syslog_facility_;
     std::string ifmap_server_url_;
     std::string ifmap_password_;
     std::string ifmap_user_;

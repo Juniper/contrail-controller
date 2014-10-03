@@ -13,6 +13,7 @@
 
 extern std::vector<GenDb::NewCf> vizd_tables;
 extern std::vector<GenDb::NewCf> vizd_flow_tables;
+extern std::vector<GenDb::NewCf> vizd_stat_tables;
 
 typedef boost::tuple<FlowRecordFields::type, GenDb::DbDataType::type> FlowTypeInfo;
 typedef std::map<std::string, FlowTypeInfo> FlowTypeMap;

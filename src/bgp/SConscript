@@ -12,7 +12,7 @@ def MapBuildDir(list):
 
 env = BuildEnv.Clone()
 
-env.AppendUnique(CCFLAGS='-fno-exceptions')
+env.CppDisableExceptions()
 
 # Generate the source files
 SandeshGenFiles  = env.SandeshGenCpp('bgp_peer.sandesh')
@@ -33,13 +33,16 @@ libbgp = env.Library('bgp',
                      SandeshGenSrcs +
                      ['bgp_aspath.cc',
                       'bgp_attr.cc',
+                      'bgp_attr_base.cc',
                       'bgp_condition_listener.cc',
                       'bgp_config.cc',
                       'bgp_config_listener.cc',
                       'bgp_config_parser.cc',
                       'bgp_debug.cc',
+                      'bgp_evpn.cc',
                       'bgp_export.cc',
                       'bgp_factory.cc',
+                      'bgp_lifetime.cc',
                       'bgp_log.cc',
                       'bgp_message_builder.cc',
                       'bgp_multicast.cc',
@@ -68,12 +71,14 @@ libbgp = env.Library('bgp',
                       'xmpp_message_builder.cc'
                       ])
 
-test_suite = env.SConscript('enet/SConscript', exports='BuildEnv',
+test_suite = env.SConscript('ermvpn/SConscript', exports='BuildEnv',
                             duplicate = 0)
 test_suite += env.SConscript('evpn/SConscript', exports='BuildEnv',
                              duplicate = 0)
 env.SConscript('inet/SConscript', exports='BuildEnv', duplicate = 0)
-test_suite += env.SConscript('inetmcast/SConscript', exports='BuildEnv',
+test_suite += env.SConscript('inet6/SConscript', exports='BuildEnv',
+                             duplicate = 0)
+test_suite += env.SConscript('inet6vpn/SConscript', exports='BuildEnv',
                              duplicate = 0)
 test_suite += env.SConscript('l3vpn/SConscript', exports='BuildEnv',
                              duplicate = 0)
@@ -84,6 +89,8 @@ test_suite += env.SConscript('rtarget/SConscript', exports='BuildEnv',
                              duplicate = 0)
 env.SConscript('security_group/SConscript', exports='BuildEnv', duplicate = 0)
 test_suite += env.SConscript('tunnel_encap/SConscript', exports='BuildEnv',
+                             duplicate = 0)
+test_suite += env.SConscript('extended-community/SConscript', exports='BuildEnv',
                              duplicate = 0)
 
 test_suite += env.SConscript('test/SConscript',

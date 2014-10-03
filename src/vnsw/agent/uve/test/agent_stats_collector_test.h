@@ -8,6 +8,7 @@
 #include <ksync/ksync_index.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
+#include <ksync/ksync_netlink.h>
 #include <ksync/ksync_sock.h>
 
 #include <cmn/agent_cmn.h>
@@ -31,6 +32,7 @@ public:
 
     IoContext *AllocateIoContext(char* buf, uint32_t buf_len,
                                  StatsType type, uint32_t seq);
+    void Test_DeleteVrfStatsEntry(int vrf_id);
     int interface_stats_responses_;
     int vrf_stats_responses_;
     int drop_stats_responses_;

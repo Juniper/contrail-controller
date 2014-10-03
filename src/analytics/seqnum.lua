@@ -3,6 +3,8 @@
 --
 
 redis.log(redis.LOG_NOTICE,"GetSeq for "..ARGV[1]..":"..ARGV[2]..":"..ARGV[3]..":"..ARGV[4])
+local db = tonumber(ARGV[5])
+redis.call('select',db)
 local typ = redis.call('smembers',"TYPES:"..ARGV[1]..":"..ARGV[2]..":"..ARGV[3]..":"..ARGV[4])
 local res = {}
 for k,v in pairs(typ) do

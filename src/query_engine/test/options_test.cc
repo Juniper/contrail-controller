@@ -17,10 +17,10 @@
 using namespace std;
 using namespace boost::asio::ip;
 
-static uint16_t default_redis_port = ContrailPorts::RedisQueryEnginePort;
-static uint16_t default_collector_port = ContrailPorts::CollectorPort;
-static uint16_t default_http_server_port = ContrailPorts::HttpPortQueryEngine;
-static uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort;
+static uint16_t default_redis_port = ContrailPorts::RedisQueryPort();
+static uint16_t default_collector_port = ContrailPorts::CollectorPort();
+static uint16_t default_http_server_port = ContrailPorts::HttpPortQueryEngine();
+static uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
 
 class OptionsTest : public ::testing::Test {
 protected:
@@ -32,6 +32,10 @@ protected:
         host_ip_ = GetHostIp(evm_.io_service(), hostname_);
         default_cassandra_server_list_.push_back("127.0.0.1:9160");
         default_collector_server_list_.push_back("127.0.0.1:8086");
+    }
+
+    virtual void TearDown() {
+        remove("./options_test_query_engine.conf");
     }
 
     EventManager evm_;
@@ -56,7 +60,7 @@ TEST_F(OptionsTest, NoArguments) {
                      options_.collector_server_list());
     EXPECT_EQ(options_.redis_server(), "127.0.0.1");
     EXPECT_EQ(options_.redis_port(), default_redis_port);
-    EXPECT_EQ(options_.config_file(), "/etc/contrail/query-engine.conf");
+    EXPECT_EQ(options_.config_file(), "/etc/contrail/contrail-query-engine.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
@@ -80,7 +84,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     int argc = 2;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=controller/src/analytics/query-engine.conf";
+    char argv_1[] = "--conf_file=controller/src/query_engine/contrail-query-engine.conf";
     argv[0] = argv_0;
     argv[1] = argv_1;
 
@@ -93,7 +97,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.redis_server(), "127.0.0.1");
     EXPECT_EQ(options_.redis_port(), default_redis_port);
     EXPECT_EQ(options_.config_file(),
-              "controller/src/analytics/query-engine.conf");
+              "controller/src/query_engine/contrail-query-engine.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
@@ -101,11 +105,11 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.http_server_port(), default_http_server_port);
     EXPECT_EQ(options_.log_category(), "");
     EXPECT_EQ(options_.log_disable(), false);
-    EXPECT_EQ(options_.log_file(), "<stdout>");
+    EXPECT_EQ(options_.log_file(), "/var/log/contrail/contrail-query-engine.log");
     EXPECT_EQ(options_.log_files_count(), 10);
     EXPECT_EQ(options_.log_file_size(), 1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
-    EXPECT_EQ(options_.log_local(), false);
+    EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.analytics_data_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
     EXPECT_EQ(options_.start_time(), 0);
     EXPECT_EQ(options_.max_tasks(), 16);
@@ -117,7 +121,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     int argc = 3;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=controller/src/analytics/query-engine.conf";
+    char argv_1[] = "--conf_file=controller/src/query_engine/contrail-query-engine.conf";
     char argv_2[] = "--DEFAULT.log_file=test.log";
     argv[0] = argv_0;
     argv[1] = argv_1;
@@ -132,7 +136,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.redis_server(), "127.0.0.1");
     EXPECT_EQ(options_.redis_port(), default_redis_port);
     EXPECT_EQ(options_.config_file(),
-              "controller/src/analytics/query-engine.conf");
+              "controller/src/query_engine/contrail-query-engine.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
@@ -144,7 +148,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.log_files_count(), 10);
     EXPECT_EQ(options_.log_file_size(), 1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
-    EXPECT_EQ(options_.log_local(), false);
+    EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.analytics_data_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
     EXPECT_EQ(options_.start_time(), 0);
     EXPECT_EQ(options_.max_tasks(), 16);
@@ -156,7 +160,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     int argc = 3;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=controller/src/analytics/query-engine.conf";
+    char argv_1[] = "--conf_file=controller/src/query_engine/contrail-query-engine.conf";
     char argv_2[] = "--DEFAULT.test_mode";
     argv[0] = argv_0;
     argv[1] = argv_1;
@@ -171,7 +175,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.redis_server(), "127.0.0.1");
     EXPECT_EQ(options_.redis_port(), default_redis_port);
     EXPECT_EQ(options_.config_file(),
-              "controller/src/analytics/query-engine.conf");
+              "controller/src/query_engine/contrail-query-engine.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
@@ -179,11 +183,11 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.http_server_port(), default_http_server_port);
     EXPECT_EQ(options_.log_category(), "");
     EXPECT_EQ(options_.log_disable(), false);
-    EXPECT_EQ(options_.log_file(), "<stdout>");
+    EXPECT_EQ(options_.log_file(), "/var/log/contrail/contrail-query-engine.log");
     EXPECT_EQ(options_.log_files_count(), 10);
     EXPECT_EQ(options_.log_file_size(), 1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
-    EXPECT_EQ(options_.log_local(), false);
+    EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.analytics_data_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
     EXPECT_EQ(options_.start_time(), 0);
     EXPECT_EQ(options_.max_tasks(), 16);
@@ -225,14 +229,14 @@ TEST_F(OptionsTest, CustomConfigFile) {
     ;
 
     ofstream config_file;
-    config_file.open("/tmp/options_test_query_engine.conf");
+    config_file.open("./options_test_query_engine.conf");
     config_file << config;
     config_file.close();
 
     int argc = 2;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=/tmp/options_test_query_engine.conf";
+    char argv_1[] = "--conf_file=./options_test_query_engine.conf";
     argv[0] = argv_0;
     argv[1] = argv_1;
 
@@ -255,7 +259,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.redis_server(), "1.2.3.4");
     EXPECT_EQ(options_.redis_port(), 200);
     EXPECT_EQ(options_.config_file(),
-              "/tmp/options_test_query_engine.conf");
+              "./options_test_query_engine.conf");
     EXPECT_EQ(options_.discovery_server(), "1.0.0.1");
     EXPECT_EQ(options_.discovery_port(), 100);
     EXPECT_EQ(options_.hostname(), "test");
@@ -310,14 +314,14 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     ;
 
     ofstream config_file;
-    config_file.open("/tmp/options_test_query_engine.conf");
+    config_file.open("./options_test_query_engine.conf");
     config_file << config;
     config_file.close();
 
     int argc = 15;
     char *argv[argc];
     char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=/tmp/options_test_query_engine.conf";
+    char argv_1[] = "--conf_file=./options_test_query_engine.conf";
     char argv_2[] = "--DEFAULT.log_file=new_test.log";
     char argv_3[] = "--DEFAULT.log_local";
     char argv_4[] = "--DEFAULT.log_disable";
@@ -364,7 +368,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.redis_server(), "1.2.3.4");
     EXPECT_EQ(options_.redis_port(), 200);
     EXPECT_EQ(options_.config_file(),
-              "/tmp/options_test_query_engine.conf");
+              "./options_test_query_engine.conf");
     EXPECT_EQ(options_.discovery_server(), "1.0.0.1");
     EXPECT_EQ(options_.discovery_port(), 100);
     EXPECT_EQ(options_.hostname(), "test");
@@ -382,6 +386,29 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.max_tasks(), 900);
     EXPECT_EQ(options_.max_slice(), 800);
     EXPECT_EQ(options_.test_mode(), true);
+}
+
+TEST_F(OptionsTest, MultitokenVector) {
+    int argc = 3;
+    char *argv[argc];
+    char argv_0[] = "options_test";
+    char argv_1[] = "--DEFAULT.collectors=10.10.10.1:100 20.20.20.2:200";
+    char argv_2[] = "--DEFAULT.cassandra_server_list=30.30.30.3:300";
+    argv[0] = argv_0;
+    argv[1] = argv_1;
+    argv[2] = argv_2;
+
+    options_.Parse(evm_, argc, argv);
+
+    vector<string> collector_server_list;
+    collector_server_list.push_back("10.10.10.1:100");
+    collector_server_list.push_back("20.20.20.2:200");
+    vector<string> cassandra_server_list;
+    cassandra_server_list.push_back("30.30.30.3:300");
+    TASK_UTIL_EXPECT_VECTOR_EQ(options_.collector_server_list(),
+                     collector_server_list);
+    TASK_UTIL_EXPECT_VECTOR_EQ(options_.cassandra_server_list(),
+                     cassandra_server_list);
 }
 
 int main(int argc, char **argv) {

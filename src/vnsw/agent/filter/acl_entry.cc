@@ -3,13 +3,25 @@
  */
 
 #include <vector>
+
+#include <boost/cast.hpp>
+
+#include <base/util.h>
+#include <base/logging.h>
+#include <net/address.h>
+
+#include <cmn/agent_cmn.h>
+#include <vnc_cfg_types.h>
+#include <agent_types.h>
+
+#include <filter/traffic_action.h>
+#include <filter/acl_entry_match.h>
 #include <filter/acl_entry.h>
 #include <filter/acl_entry_spec.h>
 #include <filter/packet_header.h>
-#include <oper/mirror_table.h>
-#include "base/logging.h"
+#include <filter/acl.h>
 
-#include <boost/cast.hpp>
+#include <oper/mirror_table.h>
 
 AclEntry::ActionList AclEntry::kEmptyActionList;
 
@@ -32,6 +44,7 @@ AclEntry::~AclEntry() {
 void AclEntry::PopulateAclEntry(const AclEntrySpec &acl_entry_spec)
 {
     id_ = acl_entry_spec.id;
+    uuid_ = acl_entry_spec.rule_uuid;
 
     if (acl_entry_spec.src_addr_type == AddressMatch::IP_ADDR) {
         AddressMatch *src_addr = new AddressMatch();
@@ -171,6 +184,8 @@ void AclEntry::SetAclEntrySandeshData(AclEntrySandeshData &data) const {
 
     // AclEntry ID
     data.ace_id = integerToString(id_);
+    // UUID
+    data.uuid = uuid_;
 }
 
 bool AclEntry::IsTerminal() const
@@ -179,6 +194,50 @@ bool AclEntry::IsTerminal() const
         return true;
     }
     return false;
+}
+
+bool AclEntry::operator==(const AclEntry &rhs) const {
+    if (id_ != rhs.id_) {
+        return false;
+    }
+
+    if (type_ != rhs.type_) {
+        return false;
+    }
+
+   std::vector<AclEntryMatch *>::const_iterator it = matches_.begin();
+   std::vector<AclEntryMatch *>::const_iterator rhs_it = rhs.matches_.begin();
+   while (it != matches_.end() &&
+          rhs_it != rhs.matches_.end()) {
+       if (**it == **rhs_it) {
+           it++;
+           rhs_it++;
+           continue;
+       }
+       return false;
+   }
+
+   if (it != matches_.end() || rhs_it != rhs.matches_.end()) {
+       return false;
+   }
+
+   ActionList::const_iterator action_it = actions_.begin();
+   ActionList::const_iterator rhs_action_it = rhs.actions_.begin();
+   while (action_it != actions_.end() &&
+          rhs_action_it != rhs.actions_.end()) {
+       if (**action_it == **rhs_action_it) {
+           action_it++;
+           rhs_action_it++;
+           continue;
+       }
+       return false;
+   }
+
+   if (action_it != actions_.end() || rhs_action_it != rhs.actions_.end()) {
+       return false;
+   }
+
+   return true;
 }
 
 void AddressMatch::SetIPAddress(const IpAddress &ip, const IpAddress &mask)
@@ -241,22 +300,39 @@ bool AddressMatch::SGMatch(const SecurityGroupList &sg_l, int id) const
     return false;
 }
 
+static bool SubnetMatch(const IpAddress &ip, const IpAddress &mask,
+                        const IpAddress &data) {
+    if (data.is_v4() && ip.is_v4()) {
+        if((mask.to_v4().to_ulong() & data.to_v4().to_ulong()) ==
+           ip.to_v4().to_ulong()) {
+            return true;
+        }
+        return false;
+    }
+
+    if (data.is_v6() && ip.is_v6()) {
+        const Ip6Address &ip6 = ip.to_v6();
+        const Ip6Address &data6 = data.to_v6();
+        const Ip6Address &mask6 = mask.to_v6();
+        for (int i = 0; i < 16; i++) {
+            if ((data6.to_bytes()[i] & mask6.to_bytes()[i])
+                != ip6.to_bytes()[i])
+                return false;
+        }
+        return true;
+    }
+
+    return false;
+}
+
 bool AddressMatch::Match(const PacketHeader *pheader) const
 {
-    
     if (policy_id_s_.compare("any") == 0) {
         return true;
     }
     if (src_) {
         if (addr_type_ == IP_ADDR) {
-            if (ip_addr_.is_v4()) {
-                if((ip_mask_.to_v4().to_ulong() & pheader->src_ip) == 
-                   ip_addr_.to_v4().to_ulong()) {
-                    return true;
-                } else {
-                    return false;
-                }
-            }
+            return SubnetMatch(ip_addr_, ip_mask_, pheader->src_ip);
         } else if (addr_type_ == NETWORK_ID) {
             if (pheader->src_policy_id && policy_id_s_.compare(*pheader->src_policy_id) == 0) {
                 return true;
@@ -268,14 +344,7 @@ bool AddressMatch::Match(const PacketHeader *pheader) const
         }
     } else { 
         if (addr_type_ == IP_ADDR) {
-            if (ip_addr_.is_v4()) {
-                if((ip_mask_.to_v4().to_ulong() & pheader->dst_ip) == 
-                   ip_addr_.to_v4().to_ulong()) {
-                    return true;
-                } else {
-                    return false;
-                }
-            }
+            return SubnetMatch(ip_addr_, ip_mask_, pheader->dst_ip);
         } else if (addr_type_ == NETWORK_ID) {
             if (pheader->dst_policy_id && policy_id_s_.compare(*pheader->dst_policy_id) == 0) {
                 return true;
@@ -284,6 +353,38 @@ bool AddressMatch::Match(const PacketHeader *pheader) const
             }
         } else if (addr_type_ == SG) {
             return SGMatch(pheader->dst_sg_id_l, sg_id_);
+        }
+    }
+    return false;
+}
+
+bool AddressMatch::Compare(const AclEntryMatch &rhs) const {
+    const AddressMatch &rhs_address_match =
+        static_cast<const AddressMatch &>(rhs);
+    if (addr_type_ != rhs_address_match.addr_type_) {
+        return false;
+    }
+
+    if (src_ != rhs_address_match.src_) {
+        return false;
+    }
+
+    if (addr_type_ == IP_ADDR) {
+        if (ip_addr_ == rhs_address_match.ip_addr_ &&
+            ip_mask_ == rhs_address_match.ip_mask_) {
+            return true;
+        }
+    }
+
+    if (addr_type_ == NETWORK_ID) {
+        if (policy_id_s_ == rhs_address_match.policy_id_s_) {
+            return true;
+        }
+    }
+
+    if (addr_type_ == SG) {
+        if (sg_id_ == rhs_address_match.sg_id_) {
+            return true;
         }
     }
     return false;
@@ -329,6 +430,28 @@ void ProtocolMatch::SetProtocolRange(const uint16_t min_protocol,
     protocol_ranges_.push_back(*protocol_range);
 }
 
+bool ProtocolMatch::Compare(const AclEntryMatch &rhs) const {
+    const ProtocolMatch &rhs_port_match =
+        static_cast<const ProtocolMatch &>(rhs);
+    RangeSList::const_iterator it = protocol_ranges_.begin();
+    RangeSList::const_iterator rhs_it =
+        rhs_port_match.protocol_ranges_.begin();
+    while (it != protocol_ranges_.end() &&
+            rhs_it !=  rhs_port_match.protocol_ranges_.end()) {
+        if (*it == *rhs_it) {
+            it++;
+            rhs_it++;
+            continue;
+        }
+        return false;
+    }
+    if (it == protocol_ranges_.end() &&
+        rhs_it == rhs_port_match.protocol_ranges_.end()) {
+        return true;
+    }
+    return false;
+}
+
 bool ProtocolMatch::Match(const PacketHeader *packet_header) const
 {
     for (RangeSList::const_iterator it = protocol_ranges_.begin(); 
@@ -359,6 +482,26 @@ void PortMatch::SetPortRange(const uint16_t min_port, const uint16_t max_port)
 {
     Range *port_range = new Range(min_port, max_port);
     port_ranges_.push_back(*port_range);
+}
+
+bool PortMatch::Compare(const AclEntryMatch &rhs) const {
+    const PortMatch &rhs_port_match = static_cast<const PortMatch &>(rhs);
+    RangeSList::const_iterator it = port_ranges_.begin();
+    RangeSList::const_iterator rhs_it = rhs_port_match.port_ranges_.begin();
+    while (it != port_ranges_.end() ||
+            rhs_it !=  rhs_port_match.port_ranges_.end()) {
+        if (*it == *rhs_it) {
+            it++;
+            rhs_it++;
+            continue;
+        }
+        return false;
+    }
+    if (it == port_ranges_.end() &&
+            rhs_it == rhs_port_match.port_ranges_.end()) {
+        return true;
+    }
+    return false;
 }
 
 bool SrcPortMatch::Match(const PacketHeader *packet_header) const

@@ -91,10 +91,10 @@ protected:
         EXPECT_TRUE(VmPortPolicyEnable(input, 0));
         EXPECT_TRUE(VmPortPolicyEnable(input, 1));
         EXPECT_TRUE(VmPortPolicyEnable(input, 2));
-        EXPECT_EQ(6U, agent()->GetInterfaceTable()->Size());
-        EXPECT_EQ(3U, agent()->GetVmTable()->Size());
-        EXPECT_EQ(vn_count, agent()->GetVnTable()->Size());
-        EXPECT_EQ(3U, agent()->GetIntfCfgTable()->Size());
+        EXPECT_EQ(6U, agent()->interface_table()->Size());
+        EXPECT_EQ(3U, agent()->vm_table()->Size());
+        EXPECT_EQ(vn_count, agent()->vn_table()->Size());
+        EXPECT_EQ(3U, agent()->interface_config_table()->Size());
 
         flow0 = VmInterfaceGet(input[0].intf_id);
         assert(flow0);
@@ -108,7 +108,7 @@ protected:
         Ip4Address gw_ip = Ip4Address::from_string("11.1.1.254");
         //Add a gateway route pointing to pkt0
         VrfEntry *vrf = VrfGet("vrf5");
-        static_cast<Inet4UnicastAgentRouteTable *>(
+        static_cast<InetUnicastAgentRouteTable *>(
                 vrf->GetInet4UnicastRouteTable())->AddHostRoute("vrf5",
                 gw_ip, 32, "vn5");
         client->WaitForIdle();
@@ -119,8 +119,8 @@ protected:
         client->Reset();
         VrfEntry *vrf = VrfGet("vrf5");
         Ip4Address gw_ip = Ip4Address::from_string("11.1.1.254");
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(
-            Agent::GetInstance()->local_peer(), "vrf5", gw_ip, 32);
+        Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(
+            Agent::GetInstance()->local_peer(), "vrf5", gw_ip, 32, NULL);
         client->WaitForIdle();
         DeleteVmportEnv(input, 3, true, 1);
         client->WaitForIdle(3);
@@ -128,11 +128,11 @@ protected:
         EXPECT_FALSE(VmPortFind(input, 0));
         EXPECT_FALSE(VmPortFind(input, 1));
         EXPECT_FALSE(VmPortFind(input, 2));
-        EXPECT_EQ(3U, agent()->GetInterfaceTable()->Size());
+        EXPECT_EQ(3U, agent()->interface_table()->Size());
 
-        EXPECT_EQ(0U, agent()->GetVmTable()->Size());
-        EXPECT_EQ(0U, agent()->GetVnTable()->Size());
-        EXPECT_EQ(0U, agent()->GetAclTable()->Size());
+        EXPECT_EQ(0U, agent()->vm_table()->Size());
+        EXPECT_EQ(0U, agent()->vn_table()->Size());
+        EXPECT_EQ(0U, agent()->acl_table()->Size());
         DeleteBgpPeer(peer_);
     }
 
@@ -151,7 +151,7 @@ TEST_F(FlowRpfTest, Flow_rpf_failure_missing_route) {
 
     TestFlow flow[] = {
         {
-            TestFlowPkt(remote_vm1_ip, vm2_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, remote_vm1_ip, vm2_ip, 1, 0, 0, "vrf5", 
                     flow0->id()),
             {}
         }
@@ -161,11 +161,13 @@ TEST_F(FlowRpfTest, Flow_rpf_failure_missing_route) {
     client->WaitForIdle();
 
     uint32_t vrf_id = VrfGet("vrf5")->vrf_id();
-    FlowEntry *fe = FlowGet(vrf_id, remote_vm1_ip, vm2_ip, 1, 0, 0);
+    FlowEntry *fe = FlowGet(vrf_id, remote_vm1_ip, vm2_ip, 1, 0, 0,
+                            flow0->flow_key_nh()->id());
 
     EXPECT_TRUE(fe != NULL);
     if (fe != NULL) {
         WAIT_FOR(1000, 500, (fe->is_flags_set(FlowEntry::ShortFlow) == true));
+        EXPECT_TRUE(fe->short_flow_reason() == FlowEntry::SHORT_NO_SRC_ROUTE);
         uint32_t fe_action = fe->match_p().action_info.action;
         EXPECT_TRUE(((fe_action) & (1 << TrafficAction::DROP)) != 0);
     }
@@ -181,14 +183,14 @@ TEST_F(FlowRpfTest, Flow_rpf_failure_subnet_discard_route) {
     EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
 
     IpamInfo ipam_info[] = {
-        {"11.1.1.0", 24, "11.1.1.200"},
+        {"11.1.1.0", 24, "11.1.1.200", true},
     };
     AddIPAM("vn5", ipam_info, 1);
     client->WaitForIdle();
 
     TestFlow flow[] = {
         {
-            TestFlowPkt(vn5_unused_ip, vm2_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vn5_unused_ip, vm2_ip, 1, 0, 0, "vrf5", 
                     flow0->id()),
             {}
         }
@@ -198,11 +200,13 @@ TEST_F(FlowRpfTest, Flow_rpf_failure_subnet_discard_route) {
     client->WaitForIdle();
 
     uint32_t vrf_id = VrfGet("vrf5")->vrf_id();
-    FlowEntry *fe = FlowGet(vrf_id, vn5_unused_ip, vm2_ip, 1, 0, 0);
+    FlowEntry *fe = FlowGet(vrf_id, vn5_unused_ip, vm2_ip, 1, 0, 0,
+                           flow0->flow_key_nh()->id());
 
     EXPECT_TRUE(fe != NULL);
     if (fe != NULL) {
         WAIT_FOR(1000, 500, (fe->is_flags_set(FlowEntry::ShortFlow) == true));
+        EXPECT_TRUE(fe->short_flow_reason() == FlowEntry::SHORT_NO_SRC_ROUTE);
         uint32_t fe_action = fe->match_p().action_info.action;
         EXPECT_TRUE(((fe_action) & (1 << TrafficAction::DROP)) != 0);
     }
@@ -225,7 +229,7 @@ TEST_F(FlowRpfTest, Flow_rpf_failure_invalid_source) {
 
     TestFlow flow[] = {
         {
-            TestFlowPkt(vm3_ip, vm2_ip, 1, 0, 0, "vrf5", 
+            TestFlowPkt(Address::INET, vm3_ip, vm2_ip, 1, 0, 0, "vrf5", 
                     flow0->id()),
             {}
         }
@@ -235,7 +239,8 @@ TEST_F(FlowRpfTest, Flow_rpf_failure_invalid_source) {
     client->WaitForIdle();
 
     uint32_t vrf_id = VrfGet("vrf5")->vrf_id();
-    FlowEntry *fe = FlowGet(vrf_id, vm3_ip, vm2_ip, 1, 0, 0);
+    FlowEntry *fe = FlowGet(vrf_id, vm3_ip, vm2_ip, 1, 0, 0,
+                            flow0->flow_key_nh()->id());
 
     EXPECT_TRUE(fe != NULL);
     if (fe != NULL) {
@@ -265,7 +270,8 @@ int main(int argc, char *argv[]) {
     FlowRpfTest::TestSetup(ksync_init);
     int ret = RUN_ALL_TESTS();
     usleep(1000);
-    Agent::GetInstance()->GetEventManager()->Shutdown();
+    Agent::GetInstance()->event_manager()->Shutdown();
     AsioStop();
+    TaskScheduler::GetInstance()->Terminate();
     return ret;
 }
