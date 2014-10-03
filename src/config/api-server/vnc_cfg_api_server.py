@@ -399,6 +399,15 @@ class VncApiServer(VncApiServerGen):
         self._pipe_start_app = auth_svc.get_middleware_app()
         if not self._pipe_start_app:
             self._pipe_start_app = bottle.app()
+            # When the multi tenancy is disable, add 'admin' role into the
+            # header for all requests to see all resources
+            @self._pipe_start_app.hook('before_request')
+            @bottle.hook('before_request')
+            def set_admin_role(*args, **kwargs):
+                if bottle.request.app != self._pipe_start_app:
+                    return
+                bottle.request.environ['HTTP_X_ROLE'] = 'admin'
+
         self._auth_svc = auth_svc
 
         # API/Permissions check
