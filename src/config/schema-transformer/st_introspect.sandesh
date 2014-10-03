@@ -51,7 +51,6 @@ struct ServiceChain {
     5: string src_ports;
     6: string dst_ports;
     7: list<string> service_list;
-    8: bool nat_service;
     9: string protocol;
     10: bool created;
 }
