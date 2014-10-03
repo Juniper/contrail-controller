@@ -116,7 +116,12 @@ class IntrospectUtil(object):
         url = self._mk_url_str(path)
         try:
             resp = requests.get(url, timeout=0.5)
-            return etree.fromstring(resp.text)
+            if resp.status_code == requests.codes.ok:
+                return etree.fromstring(resp.text)
+            else:
+                if self._debug:
+                    print 'URL: %s : HTTP error: %s' % (url, str(resp.status_code))
+                return None
         except requests.ConnectionError, e:
             if self._debug:
                 print 'URL: %s : Socket Connection error : %s' % (url, str(e))
