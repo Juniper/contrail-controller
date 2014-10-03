@@ -20,6 +20,8 @@ try:
 except Exception:
     pass
 
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+
 # Open port for access to API server for trouble shooting
 
 class LocalAuth(object):
