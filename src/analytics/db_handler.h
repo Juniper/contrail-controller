@@ -95,11 +95,14 @@ public:
         const boost::uuids::uuid& unm, const std::string keyword);
     virtual void MessageTableInsert(const VizMsg *vmsgp);
     void MessageTableOnlyInsert(const VizMsg *vmsgp);
-
+    void FieldNamesTableInsert(const std::string& table_name,
+        const std::string& field_name, const std::string& field_val,
+        uint64_t timestamp);
     void GetRuleMap(RuleMap& rulemap);
 
     void ObjectTableInsert(const std::string &table, const std::string &rowkey,
-        uint64_t &timestamp, const boost::uuids::uuid& unm);
+        uint64_t &timestamp, const boost::uuids::uuid& unm,
+        const VizMsg *vmsgp);
 
     static std::vector<std::string> StatTableSelectStr(
             const std::string& statName, const std::string& statAttr,
