@@ -16,6 +16,7 @@
 #include "oper/loadbalancer.h"
 #include "oper/loadbalancer_haproxy.h"
 #include "oper/loadbalancer_properties.h"
+#include "oper/vm.h"
 #include "cmn/agent_signal.h"
 #include "agent.h"
 
@@ -35,6 +36,7 @@ public:
     void CleanStaleEntries() {
         namespace fs = boost::filesystem;
 
+        //Read all the Namepaces in the system
         fs::path ns(agent_->oper_db()->namespace_manager()->
                         namespace_store_path_);
         if ( !fs::exists(ns) || !fs::is_directory(ns)) {
@@ -46,34 +48,65 @@ public:
         boost::char_separator<char> colon_sep(":");
         fs::directory_iterator end_iter;
         for(fs::directory_iterator iter(ns); iter != end_iter; iter++) {
+
+            // Get to the name of namespace by removing complete path
             tokenizer tokens(iter->path().string(), slash_sep);
             std::string ns_name;
-            std::size_t vrouter_found;
             for(tokenizer::iterator it=tokens.begin(); it!=tokens.end(); it++){
                 ns_name = *it;
             }
+
+            //We are interested only in namespaces starting with a given
+            //prefix
+            std::size_t vrouter_found;
             vrouter_found = ns_name.find(namespace_prefix);
             if (vrouter_found == std::string::npos) {
                 continue;
             }
+
+            //Remove the standard prefix
             ns_name.replace(vrouter_found, strlen(namespace_prefix), "");
 
+            //Namespace might have a ":". Extract both left and right of
+            //":" Left of ":" is the VM uuid. If not found in Agent's VM
+            //DB, it can be deleted
             tokenizer tok(ns_name, colon_sep);
-            boost::uuids::uuid si_uuid = StringToUuid(*tok.begin());
-            ServiceInstanceKey key(si_uuid);
-            if (agent_->service_instance_table()->Find(&key, true)) {
+            boost::uuids::uuid vm_uuid = StringToUuid(*tok.begin());
+            VmKey key(vm_uuid);
+            if (agent_->vm_table()->Find(&key, true)) {
                 continue;
             }
 
             ServiceInstance::Properties prop;
+            prop.instance_id = vm_uuid;
             prop.service_type = ServiceInstance::SourceNAT;
             tokenizer::iterator next_tok = ++(tok.begin());
+            //Loadbalancer namespace
             if (next_tok != tok.end()) {
                 prop.pool_id = StringToUuid(*next_tok);
                 prop.service_type = ServiceInstance::LoadBalancer;
             }
 
-            agent_->oper_db()->namespace_manager()->StopStaleNetNS(si_uuid, prop);
+            //Delete Namespace
+            agent_->oper_db()->namespace_manager()->StopStaleNetNS(prop);
+
+            //If Loadbalncer, delete the config files as well
+            if (prop.service_type == ServiceInstance::LoadBalancer) {
+
+                std::stringstream cfg_dir_path;
+                cfg_dir_path <<
+                    agent_->oper_db()->namespace_manager()->
+                    loadbalancer_config_path_ << prop.pool_id;
+
+                boost::system::error_code error;
+                if (fs::exists(cfg_dir_path.str())) {
+                    fs::remove_all(cfg_dir_path.str(), error);
+                    if (error) {
+                        LOG(ERROR, "Stale Haproxy cfg fle delete error"
+                                    << error.message());
+                    }
+                }
+            }
         }
     }
 
@@ -446,7 +479,7 @@ void NamespaceManager::StartNetNS(ServiceInstance *svc_instance,
 
     const ServiceInstance::Properties &props = svc_instance->properties();
     cmd_str << " " << props.ServiceTypeString();
-    cmd_str << " " << UuidToString(svc_instance->uuid());
+    cmd_str << " " << UuidToString(props.instance_id);
     cmd_str << " " << UuidToString(props.vmi_inside);
     cmd_str << " " << UuidToString(props.vmi_outside);
 
@@ -484,7 +517,7 @@ void NamespaceManager::StartNetNS(ServiceInstance *svc_instance,
                                       this, _1, _2));
 
     RegisterSvcInstance(task, svc_instance);
-    Enqueue(task, svc_instance->uuid());
+    Enqueue(task, props.instance_id);
 
     LOG(DEBUG, "NetNS run command queued: " << task->cmd());
 }
@@ -520,7 +553,7 @@ void NamespaceManager::StopNetNS(ServiceInstance *svc_instance,
     }
 
     cmd_str << " " << props.ServiceTypeString();
-    cmd_str << " " << UuidToString(svc_instance->uuid());
+    cmd_str << " " << UuidToString(props.instance_id);
     cmd_str << " " << UuidToString(props.vmi_inside);
     cmd_str << " " << UuidToString(props.vmi_outside);
     if (props.service_type == ServiceInstance::LoadBalancer) {
@@ -531,14 +564,13 @@ void NamespaceManager::StopNetNS(ServiceInstance *svc_instance,
 
     NamespaceTask *task = new NamespaceTask(cmd_str.str(), Stop,
             agent_->event_manager());
-    Enqueue(task, svc_instance->uuid());
+    Enqueue(task, props.instance_id);
 
     RegisterSvcInstance(task, svc_instance);
     LOG(DEBUG, "NetNS run command queued: " << task->cmd());
 }
 
-void NamespaceManager::StopStaleNetNS(boost::uuids::uuid service_instance_uuid,
-                                      ServiceInstance::Properties &props) {
+void NamespaceManager::StopStaleNetNS(ServiceInstance::Properties &props) {
     std::stringstream cmd_str;
 
     if (agent_->oper_db()->namespace_manager()->netns_cmd_.length() == 0) {
@@ -548,7 +580,7 @@ void NamespaceManager::StopStaleNetNS(boost::uuids::uuid service_instance_uuid,
 
 
     cmd_str << " " << props.ServiceTypeString();
-    cmd_str << " " << service_instance_uuid;
+    cmd_str << " " << UuidToString(props.instance_id);
     cmd_str << " " << UuidToString(boost::uuids::nil_uuid());
     cmd_str << " " << UuidToString(boost::uuids::nil_uuid());
     if (props.service_type == ServiceInstance::LoadBalancer) {
@@ -560,7 +592,7 @@ void NamespaceManager::StopStaleNetNS(boost::uuids::uuid service_instance_uuid,
     NamespaceTask *task = new NamespaceTask(cmd_str.str(), Stop,
                                 agent_->event_manager());
     agent_->oper_db()->namespace_manager()->Enqueue(task,
-                                                    service_instance_uuid);
+                                                    props.instance_id);
 
     LOG(DEBUG, "NetNS stale run command queued: " << task->cmd());
 }
@@ -680,6 +712,10 @@ bool NamespaceManager::StaleTimeout() {
     stale_cleaner_->CleanStaleEntries();
     stale_cleaner_.reset(NULL);
     return false;
+}
+
+void NamespaceManager::SetNamespaceStorePath(std::string path) {
+    namespace_store_path_ = path;
 }
 
 /*
