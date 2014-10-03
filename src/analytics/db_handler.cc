@@ -447,6 +447,28 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
                 DB_LOG(ERROR, "Failed to parse:" << s);
         }
     }
+
+    /*
+     * Insert the message types,module_id in the stat table
+     * Construct the atttributes,attrib_tags beofore inserting
+     * to the StatTableInsert
+     */
+    uint64_t temp_u64;
+    temp_u64 = header.get_Timestamp();
+    if ((stype == SandeshType::SYSLOG) || (stype ==SandeshType::SYSTEM) ) {
+	    //Insert only if sandesh type is a SYSTEM LOG or SYSLOG 
+	    //Insert into the FieldNames stats table entries for Messagetype and Module ID
+	    std::string name_val = string(g_viz_constants.COLLECTOR_GLOBAL_TABLE);
+	    FieldNamesTableInsert(name_val, string(":Messagetype"), string(message_type), temp_u64);
+	    FieldNamesTableInsert(name_val, string(":ModuleId"), string(header.get_Module()), temp_u64);
+    }
+}
+
+/*
+ * This function takes field name and field value as arguments and inserts
+ * into the FieldNames stats table
+ */
+void DbHandler::FieldNamesTableInsert(std::string table_prefix, std::string field_name, std::string field_val, uint64_t temp_u64) {
     /*
      * Insert the message types in the stat table
      * Construct the atttributes,attrib_tags beofore inserting
@@ -457,9 +479,8 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp) {
     DbHandler::AttribMap amap;
     DbHandler::Var pv;
     DbHandler::AttribMap attribs;
-    std::string name_val = string(g_viz_constants.COLLECTOR_GLOBAL_TABLE);
-    name_val.append(":Messagetype");
-    pv = name_val;
+    table_prefix.append(field_name);
+    pv = table_prefix;
     tmap.insert(make_pair("name", make_pair(pv, amap)));
     attribs.insert(make_pair(string("name"), pv));
     string sattrname("fields.value");
@@ -489,7 +510,7 @@ void DbHandler::GetRuleMap(RuleMap& rulemap) {
  *  value: uuid (of the corresponding global message)
  */
 void DbHandler::ObjectTableInsert(const std::string &table, const std::string &objectkey_str,
-        uint64_t &timestamp, const boost::uuids::uuid& unm) {
+        uint64_t &timestamp, const boost::uuids::uuid& unm, const VizMsg *vmsgp) {
     uint32_t T2(timestamp >> g_viz_constants.RowTimeInBits);
     uint32_t T1(timestamp & g_viz_constants.RowTimeInMask);
 
@@ -544,24 +565,17 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
 	/*
 	 * Inserting into the stat table
 	 */
-	DbHandler::TagMap tmap;
-	DbHandler::AttribMap amap;
-	DbHandler::Var pv;
-	DbHandler::AttribMap attribs;
+	uint64_t temp_u64;
+	const SandeshHeader &header(vmsgp->msg->GetHeader());
+	temp_u64 = header.get_Timestamp();
+	const std::string &message_type(vmsgp->msg->GetMessageType());
+        //Insert only if sandesh type is a SYSTEM LOG or SYSLOG
+        //Insert into the FieldNames stats table entries for Messagetype and Module ID
 	std::string name_val = string(table);
-	name_val.append(":Objecttype");
-	pv = name_val;
-	tmap.insert(make_pair("name", make_pair(pv, amap)));
-	attribs.insert(make_pair(string("name"), pv));
-	string sattrname("fields.value");
-	pv = string(objectkey_str);
-	attribs.insert(make_pair(sattrname,pv));
-        
-        pv = string(col_name_);
-        tmap.insert(make_pair("Source",make_pair(pv,amap)));
-        attribs.insert(make_pair(string("Source"),pv));
+	FieldNamesTableInsert(name_val , string(":Objecttype"),string(objectkey_str),temp_u64);
+	FieldNamesTableInsert(name_val, string(":Messagetype"),message_type,temp_u64);
+	FieldNamesTableInsert(name_val, string(":ModuleId"),string(header.get_Module()),temp_u64);
 
-	StatTableInsert(timestamp, "FieldNames","fields",tmap,attribs);
     }
         
 }
