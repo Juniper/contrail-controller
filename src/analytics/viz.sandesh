@@ -602,6 +602,25 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'database_usage_stats.analytics_db_size_1k',    'datatype' : 'int', 'index' : false},
         ]
     },
+    {
+      'display_name' : 'Underlay Flow Information',
+      'stat_type' : 'UFlowData'
+      'stat_attr' : 'flow',
+      'obj_table' : 'NONE',
+      'attributes': [
+          { 'name' : 'name', 'datatype' : 'string','index' : true, 'suffixes': ['flow.pifindex']},
+          { 'name' : 'flow.pifindex', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'flow.sport', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'flow.dport', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'flow.protocol', 'datatype' : 'int', 'index' : true, 'suffixes': ['flow.sport', 'flow.dport']},
+          { 'name' : 'flow.sip', 'datatype' : 'string', 'index' : false},
+          { 'name' : 'flow.dip', 'datatype' : 'string', 'index' : false},
+          { 'name' : 'flow.vlan', 'datatype' : 'string', 'index' : true},
+          { 'name' : 'flow.flowtype', 'datatype' : 'string', 'index' : false},
+          { 'name' : 'flow.otherinfo', 'datatype' : 'string', 'index' : false},
+        ]
+    },
+  
 ]
 
 const list<query_table> _TABLES = [

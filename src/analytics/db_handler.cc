@@ -1155,6 +1155,8 @@ bool DbHandler::UnderlayFlowSampleInsert(const UFlowData& flow_data,
         amap.insert(std::make_pair("flow.dport", dport));
         DbHandler::Var protocol = static_cast<uint64_t>(it->get_protocol());
         amap.insert(std::make_pair("flow.protocol", protocol));
+        DbHandler::Var ft = it->get_flowtype();
+        amap.insert(std::make_pair("flow.flowtype", ft));
         // Add tag -> name
         DbHandler::TagMap tmap_name;
         DbHandler::AttribMap amap_name;
