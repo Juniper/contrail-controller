@@ -20,21 +20,24 @@ RouteDistinguisher::RouteDistinguisher(const uint8_t *data) {
 }
 
 RouteDistinguisher::RouteDistinguisher(uint32_t address, uint16_t vrf_id) {
-    data_[0] = 0;
-    data_[1] = 0x1; // Type 1
+    put_value(data_, 2, TypeIpAddressBased);
     put_value(data_ + 2, 4, address);
     put_value(data_ + 6, 2, vrf_id);
 }
 
+uint32_t RouteDistinguisher::GetAddress() const {
+    return (Type() == TypeIpAddressBased ? get_value(data_ + 2, 4) : 0);
+}
+
 std::string RouteDistinguisher::ToString() const {
     uint16_t rd_type = get_value(data_, 2);
-    if (rd_type == 0) {
+    if (rd_type == Type2ByteASBased) {
         char temp[50];
         uint16_t asn = get_value(data_ + 2, 2);
         uint32_t value = get_value(data_ + 4, 4);
         snprintf(temp, sizeof(temp), "%u:%u", asn, value);
         return std::string(temp);
-    } else if (rd_type == 1) {
+    } else if (rd_type == TypeIpAddressBased) {
         Ip4Address ip(get_value(data_ + 2, 4));
         uint16_t value = get_value(data_ + 6, 2);
         char temp[20];
