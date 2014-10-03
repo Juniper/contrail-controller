@@ -140,11 +140,8 @@ class VncIfmapClient(VncIfmapClientGen):
         if ifmap_srv_loc:
             self._launch_mapserver(ifmap_srv_ip, ifmap_srv_port, ifmap_srv_loc)
 
-        # Cache of metas populated in ifmap server. Useful in update to find
-        # what things to remove in ifmap server
-        self._id_to_metas = {}
-        self.accumulator = None
-        self.accumulated_request_len = 0
+        self._reset_cache_and_accumulator()
+
         # Set the signal handler
         signal.signal(signal.SIGUSR2, self.handler)
 
@@ -182,6 +179,15 @@ class VncIfmapClient(VncIfmapClientGen):
         mapclient.set_session_id(newSessionResult(result).get_session_id())
         mapclient.set_publisher_id(newSessionResult(result).get_publisher_id())
     # end _init_conn
+
+    def _reset_cache_and_accumulator(self):
+        # Cache of metas populated in ifmap server. Useful in update to find
+        # what things to remove in ifmap server
+        self._id_to_metas = {}
+        self.accumulator = None
+        self.accumulated_request_len = 0
+    # end _reset_cache_and_accumulator
+
 
     def _publish_config_root(self):
         # config-root
@@ -319,8 +325,12 @@ class VncIfmapClient(VncIfmapClientGen):
                     trace_msg(trace, 'IfmapTraceBuf', self._sandesh, error_msg=log_str)
                 self.config_log(log_str, level=SandeshLevel.SYS_ERR)
                 self._conn_state = ConnectionStatus.DOWN
+                ConnectionState.update(conn_type=ConnectionType.IFMAP,
+                               name='IfMap', status=ConnectionStatus.DOWN, message='',
+                               server_addrs=["%s:%s" % (self._ifmap_srv_ip, self._ifmap_srv_port)])
 
                 # this will block till connection is re-established
+                self._reset_cache_and_accumulator()
                 self._init_conn()
                 self._publish_config_root()
                 self._db_client_mgr.db_resync()
