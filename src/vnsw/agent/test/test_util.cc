@@ -2990,3 +2990,9 @@ void FlushEvpnNextHop(BgpPeer *peer, std::string vrf_name,
                                         ControllerPeerPath::kInvalidPeerIdentifier);
     client->WaitForIdle();
 }
+
+Layer2RouteEntry *GetL2FloodRoute(const std::string &vrf_name) {
+    MacAddress broadcast_mac("ff:ff:ff:ff:ff:ff");
+    Layer2RouteEntry *rt = L2RouteGet("vrf1", broadcast_mac);
+    return rt;
+}
