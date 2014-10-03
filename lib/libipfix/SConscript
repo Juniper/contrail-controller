@@ -1,0 +1,14 @@
+# -*- mode: python; -*-
+
+vpath = '#/third_party/libipfix_releases-arrabiata_100224'
+
+env = DefaultEnvironment()
+
+cmd = ('(cd ' + str(Dir(vpath)) + '; configure --prefix=' + Dir('#build').abspath + '; make; make install)')
+
+products = [ str(File('#build/lib/libipfix.a')),
+             str(File('#build/include/ipfix.h')) ]
+
+libipfix = env.Command('Makefile', str(Dir(vpath)), cmd)
+
+env.SideEffect(products, libipfix)
