@@ -13,6 +13,11 @@ public:
     static const size_t kSize = 8;
     static RouteDistinguisher null_rd;
 
+    enum RDType {
+        Type2ByteASBased = 0,
+        TypeIpAddressBased = 1,
+    };
+
     RouteDistinguisher();
 
     explicit RouteDistinguisher(const uint8_t *data);
@@ -24,6 +29,7 @@ public:
 
     bool IsNull() { return CompareTo(RouteDistinguisher::null_rd) == 0; }
     uint16_t Type() { return get_value(data_, 2); }
+    uint32_t GetAddress() const;
 
     int CompareTo(const RouteDistinguisher &rhs) const;
     bool operator==(const RouteDistinguisher &rhs) const {
