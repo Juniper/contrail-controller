@@ -54,6 +54,9 @@ class LocalAuth(object):
             if (not self._conf_info.get('admin_user') == user or
                 not self._conf_info.get('admin_password') == passwd):
                 bottle.abort(401, 'Authentication check failed')
+
+            # Add admin role to the request
+            bottle.request.environ['HTTP_X_API_ROLE'] = 'admin'
     # end __init__
 
     def start_http_server(self):

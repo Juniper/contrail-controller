@@ -3842,7 +3842,8 @@ def run_schema_transformer(args):
         try:
             _vnc_lib = VncApi(
                 args.admin_user, args.admin_password, args.admin_tenant_name,
-                args.api_server_ip, args.api_server_port)
+                args.api_server_ip, args.api_server_port,
+                user_info={'user': args.admin_user, 'role': 'admin'})
             connected = True
             connection_state_update(ConnectionStatus.UP)
         except requests.exceptions.ConnectionError as e:

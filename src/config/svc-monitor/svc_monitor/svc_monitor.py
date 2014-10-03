@@ -786,7 +786,8 @@ def run_svc_monitor(args=None):
         try:
             vnc_api = VncApi(
                 args.admin_user, args.admin_password, args.admin_tenant_name,
-                args.api_server_ip, args.api_server_port)
+                args.api_server_ip, args.api_server_port,
+                user_info={'user': args.admin_user, 'role': 'admin'})
             connected = True
             monitor.logger.api_conn_status_update(ConnectionStatus.UP)
         except requests.exceptions.ConnectionError as e:
