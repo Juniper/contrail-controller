@@ -21,6 +21,10 @@ class VncPermissions(object):
         return self._server_mgr._args.multi_tenancy
     # end
 
+    def validate_user_visible_perm(self, id_perms, is_admin):
+        return id_perms['user_visible'] is not False or is_admin
+    # end
+
     def validate_perms(self, request, uuid, mode=PERMS_R):
         # retrieve object and permissions
         try:
@@ -51,11 +55,15 @@ class VncPermissions(object):
         mode_mask = mode | mode << 3 | mode << 6
         ok = is_admin or (mask & perms & mode_mask)
 
+        if ok and mode == PERMS_W:
+            ok = self.validate_user_visible_perm(id_perms, is_admin)
+
         msg = '%s %s %s admin=%s, mode=%03o mask=%03o %s/"%s", \
-            perms=%03o (%s/%s)' \
+            perms=%03o (%s/%s), user_visible=%s' \
             % ('+++' if ok else '---', self.mode_str[mode], uuid,
                'yes' if is_admin else 'no', mode_mask, mask,
-               user, string.join(roles, ','), perms, owner, group)
+               user, string.join(roles, ','), perms, owner, group,
+               id_perms['user_visible'])
         self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
 
         return (True, '') if ok else (False, err_msg)
