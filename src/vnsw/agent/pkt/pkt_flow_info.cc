@@ -637,10 +637,22 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
     FlowTable *ftable = Agent::GetInstance()->pkt()->flow_table();
     in->vn_ = NULL;
     if (nat_done == false) {
+        if (in->rt_ != NULL) {
+            flow_source_plen_map[in->rt_->vrf_id()] = RouteToPrefixLen(in->rt_);
+        }
         in->rt_ = ftable->GetUcRoute(it->vrf_.get(), pkt->ip_saddr);
+        if (in->rt_ == NULL) {
+            flow_source_plen_map[it->vrf_.get()->vrf_id()] = 0;
+        }
         nat_dest_vrf = it->vrf_.get()->vrf_id();
     }
+    if (out->rt_ != NULL) {
+        flow_dest_plen_map[out->rt_->vrf_id()] = RouteToPrefixLen(out->rt_);
+    }
     out->rt_ = ftable->GetUcRoute(it->vrf_.get(), pkt->ip_daddr);
+    if (out->rt_ == NULL) {
+        flow_dest_plen_map[it->vrf_.get()->vrf_id()] = 0;
+    }
     out->vn_ = it->vn_.get();
     dest_vrf = out->intf_->vrf()->vrf_id();
 
@@ -689,6 +701,7 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
         const AgentRoute *rt_match = ftable->GetUcRoute(it->vrf_.get(),
                 pkt->ip_daddr);
         if (rt_match == NULL) {
+            flow_dest_plen_map[it->vrf_.get()->vrf_id()] = 0;
             continue;
         }
         uint8_t out_rt_plen = RouteToPrefixLen(out->rt_);
@@ -712,9 +725,14 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
         }
 
         if (change) {
+            if (out->rt_ != NULL) {
+                flow_dest_plen_map[out->rt_->vrf_id()] = RouteToPrefixLen(out->rt_);
+            }
             out->rt_ = rt_match;
             fip_it = it;
             change = false;
+        } else {
+            flow_dest_plen_map[rt_match->vrf_id()] = RouteToPrefixLen(rt_match);
         }
     }
 
@@ -728,8 +746,12 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
 
     // Floating-ip found. We will change src-ip to floating-ip. Recompute route
     // for new source-ip. All policy decisions will be based on this new route
+    if (in->rt_ != NULL) {
+        flow_source_plen_map[in->rt_->vrf_id()] = RouteToPrefixLen(in->rt_);
+    }
     in->rt_ = ftable->GetUcRoute(fip_it->vrf_.get(), fip_it->floating_ip_);
     if (in->rt_ == NULL) {
+        flow_source_plen_map[fip_it->vrf_.get()->vrf_id()] = 0;
         return;
     }
 
@@ -839,9 +861,21 @@ void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
             (Agent::GetInstance()->vrf_table()->FindActiveEntry(&key));
         out->vrf_ = vrf;
         if (vrf) {
+            if (out->rt_ != NULL) {
+                flow_dest_plen_map[out->rt_->vrf_id()] = RouteToPrefixLen(out->rt_);
+            }
             out->rt_ = vrf->GetUcRoute(pkt->ip_daddr.to_v4());
+            if (out->rt_ == NULL) {
+                flow_dest_plen_map[vrf->vrf_id()] = 0;
+            }
             if (vm_intf->vrf_assign_acl()) {
+                if (in->rt_ != NULL) {
+                    flow_source_plen_map[in->rt_->vrf_id()] = RouteToPrefixLen(in->rt_);
+                }
                 in->rt_ = vrf->GetUcRoute(pkt->ip_saddr.to_v4());
+                if (in->rt_ == NULL) {
+                    flow_source_plen_map[vrf->vrf_id()] = 0;
+                }
             }
         }
     }
@@ -1048,7 +1082,16 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
                       PktControlInfo *out) {
     FlowKey key(in->nh_, pkt->ip_saddr, pkt->ip_daddr, pkt->ip_proto,
                 pkt->sport, pkt->dport);
-    FlowEntryPtr flow(Agent::GetInstance()->pkt()->flow_table()->Allocate(key));
+    FlowEntryPtr flow;
+    if (pkt->type != PktType::MESSAGE) {
+        flow = Agent::GetInstance()->pkt()->flow_table()->Allocate(key);
+    } else {
+        flow = Agent::GetInstance()->pkt()->flow_table()->Find(key);
+        if (flow.get() == NULL || flow->deleted()) {
+            return;
+        }
+        Agent::GetInstance()->pkt()->flow_table()->DeleteFlowInfo(flow.get());
+    }
 
     if (pkt->family == Address::INET) {
         Ip4Address v4_src = pkt->ip_saddr.to_v4();

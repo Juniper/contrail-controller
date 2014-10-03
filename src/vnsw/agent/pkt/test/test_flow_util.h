@@ -176,11 +176,17 @@ public:
             assert(0);
         }
         if (allow_wait_for_idle_) {
-            client->WaitForIdle(3);
-        } else {
-            WAIT_FOR(1000, 3000, FlowGet(vrf_, sip_, dip_, proto_,
-                        sport_, dport_, nh_id_) != NULL);
+            client->WaitForIdle();
         }
+        int count = 0;
+        while (count < 3000) {
+            FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_, nh_id_);
+            if (fe != NULL && fe->deleted() != true)
+                break;
+            usleep(1000);
+            count++;
+        }
+        EXPECT_TRUE(count < 3000);
         //Get flow 
         FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_,
                                 nh_id_);
@@ -202,16 +208,18 @@ public:
             return;
         }
 
-        Agent::GetInstance()->pkt()->flow_table()->Delete(key, true);
-        if (allow_wait_for_idle_) {
-            client->WaitForIdle();
-            EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Find(key) == NULL);
-        } else {
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        FlowDeleteTask * task = new FlowDeleteTask(key);
+        scheduler->Enqueue(task);
+        int count = 0;
+        while (count < 3000) {
             FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_, nh_id_);
-            if (fe == NULL)
-                return;
-            EXPECT_TRUE(fe->deleted() == true);
+            if (fe == NULL || fe->deleted() == true)
+                break;
+            usleep(1000);
+            count++;
         }
+        EXPECT_TRUE(count < 3000);
     };
 
     const FlowEntry *FlowFetch() {
@@ -224,6 +232,19 @@ public:
     }
 
 private:
+    class FlowDeleteTask : public Task {
+    public:
+        FlowDeleteTask(const FlowKey &key) :
+        Task(TaskScheduler::GetInstance()->GetTaskId("Agent::FlowHandler"), -1),
+        key_(key) {}
+        virtual bool Run() {
+            Agent::GetInstance()->pkt()->flow_table()->Delete(key_, true);
+            return true;
+        }
+    private:
+        FlowKey key_;
+    };
+
     Address::Family family_;
     std::string    sip_;
     std::string    dip_;
