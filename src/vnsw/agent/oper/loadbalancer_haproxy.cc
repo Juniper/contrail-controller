@@ -77,6 +77,17 @@ void LoadbalancerHaproxy::GenerateDefaults(
     *out << endl;
 }
 
+void LoadbalancerHaproxy::GenerateListen(
+    ostream *out, const LoadbalancerProperties &props) const {
+
+    *out << "listen contrail-config-stats :5937" << endl;
+    *out << string(4, ' ') << "mode http" << endl;
+    *out << string(4, ' ') << "stats enable" << endl;
+    *out << string(4, ' ') << "stats uri /" << endl;
+    *out << string(4, ' ') << "stats auth haproxy:contrail123" << endl;
+    *out << endl;
+}
+
 /*
  * frontend vip_id
  *     bind address:port
@@ -174,6 +185,7 @@ void LoadbalancerHaproxy::GenerateConfig(
 
     GenerateGlobal(&fs, props);
     GenerateDefaults(&fs, props);
+    GenerateListen(&fs, props);
     GenerateFrontend(&fs, pool_id, props);
     GenerateBackend(&fs, pool_id, props);
     fs.close();
