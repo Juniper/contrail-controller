@@ -510,7 +510,7 @@ class VirtualNetworkST(DictST):
 
     def set_properties(self, properties):
         if properties:
-            new_extend = properties.extend_to_external_routers
+            new_extend = False #properties.extend_to_external_routers
         else:
             new_extend = False
         if self.extend != new_extend:
