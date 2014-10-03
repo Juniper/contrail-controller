@@ -2,6 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <inttypes.h>
+#include "bgp/bgp_attr.h"
 #include "bgp/bgp_attr.h"
 #include "base/util.h"
 #include "bgp/bgp_proto.h"
@@ -483,7 +485,7 @@ void BgpAttrParams::ToCanonical(BgpAttr *attr) {
 
 std::string BgpAttrParams::ToString() const {
     char repr[80];
-    snprintf(repr, sizeof(repr), "Params <subcode: %d> : 0x%016lx",
+    snprintf(repr, sizeof(repr), "Params <subcode: %d> : 0x%016"PRIx64"",
              subcode, params);
     return std::string(repr);
 }
