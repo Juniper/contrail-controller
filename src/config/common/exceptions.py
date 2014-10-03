@@ -8,6 +8,16 @@ class VncError(Exception):
     pass
 # end class VncError
 
+class TimeOutError(VncError):
+    def __init__(self, code):
+        self._reason_code = code
+    # end __init__
+
+    def __str__(self):
+        return 'Timed out due to: %s' % (str(self._reason_code))
+    # end __str__
+# end class TimeOutError
+
 
 class NoIdError(VncError):
 
