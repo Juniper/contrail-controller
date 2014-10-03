@@ -104,6 +104,16 @@ class AuthPostKeystone(object):
 
         if 'HTTP_X_API_ROLE' in env:
             env['HTTP_X_ROLE'] = env['HTTP_X_API_ROLE']
+
+        # only allow admin access when MT is on
+        roles = []
+        if 'HTTP_X_ROLE' in env:
+            roles = env['HTTP_X_ROLE'].split(',')
+        if not 'admin' in [x.lower() for x in roles]:
+            resp = auth_token.MiniResp('Permission Denied', env)
+            start_response('403 Permission Denied', resp.headers)
+            return resp.body
+
         return self.app(env, start_response)
 
 
