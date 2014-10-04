@@ -84,7 +84,13 @@ if 'install' in BUILD_TARGETS:
     env.Depends(install_cmd, sdist_depends)
     env.Alias('install', install_cmd)
 
-env.Alias('install', env.Install(env['INSTALL_CONF'], 'contrail-discovery.conf'))
+env.Alias('install', 
+    env.Install(env['INSTALL_CONF'], 'contrail-discovery.conf'))
+env.Alias('install', env.InstallAs(
+    env['INSTALL_INITD'] + 
+    '/contrail-discovery', 'contrail-discovery.initd.supervisord'))
+env.Alias('install', env.Install(env['INSTALL_CONF']+ 
+    '/supervisord_config_files', 'contrail-discovery.ini'))
 
 subdirs = [
            'client'

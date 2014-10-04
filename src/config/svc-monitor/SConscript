@@ -77,4 +77,7 @@ if 'install' in BUILD_TARGETS:
     env.Alias('install', install_cmd)
 
 env.Alias('install', env.Install(env['INSTALL_CONF'], 'svc-monitor.conf'))
-
+env.Alias('install', env.InstallAs( env['INSTALL_INITD'] +
+    '/contrail-svc-monitor', 'contrail-svc-monitor.initd.supervisord'))
+env.Alias('install', env.Install(env['INSTALL_CONF']+ 
+    '/supervisord_config_files', 'contrail-svc-monitor.ini')) 
