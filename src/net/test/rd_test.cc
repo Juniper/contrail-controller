@@ -58,6 +58,7 @@ TEST_F(RouteDistinguisherTest, ByteArrayType1_1) {
     EXPECT_FALSE(rd.IsZero());
     EXPECT_EQ(1, rd.Type());
     EXPECT_EQ("10.1.1.1:4660", rd.ToString());
+    EXPECT_EQ(rd, RouteDistinguisher(rd.GetAddress(), 4660));
 }
 
 TEST_F(RouteDistinguisherTest, ByteArrayType1_2) {
@@ -66,6 +67,7 @@ TEST_F(RouteDistinguisherTest, ByteArrayType1_2) {
     EXPECT_FALSE(rd.IsZero());
     EXPECT_EQ(1, rd.Type());
     EXPECT_EQ("10.1.1.1:17185", rd.ToString());
+    EXPECT_EQ(rd, RouteDistinguisher(rd.GetAddress(), 17185));
 }
 
 TEST_F(RouteDistinguisherTest, ByteArrayType1_3) {
@@ -74,6 +76,7 @@ TEST_F(RouteDistinguisherTest, ByteArrayType1_3) {
     EXPECT_FALSE(rd.IsZero());
     EXPECT_EQ(1, rd.Type());
     EXPECT_EQ("10.1.1.1:0", rd.ToString());
+    EXPECT_EQ(rd, RouteDistinguisher(rd.GetAddress(), 0));
 }
 
 TEST_F(RouteDistinguisherTest, ByteArrayType1_4) {
@@ -82,6 +85,7 @@ TEST_F(RouteDistinguisherTest, ByteArrayType1_4) {
     EXPECT_FALSE(rd.IsZero());
     EXPECT_EQ(1, rd.Type());
     EXPECT_EQ("10.1.1.1:65535", rd.ToString());
+    EXPECT_EQ(rd, RouteDistinguisher(rd.GetAddress(), 65535));
 }
 
 TEST_F(RouteDistinguisherTest, FromStringType0_0) {
@@ -137,6 +141,7 @@ TEST_F(RouteDistinguisherTest, FromStringType1_1) {
     EXPECT_FALSE(rd.IsZero());
     EXPECT_EQ(1, rd.Type());
     EXPECT_EQ("10.1.1.1:4660", rd.ToString());
+    EXPECT_EQ(rd, RouteDistinguisher(rd.GetAddress(), 4660));
 }
 
 TEST_F(RouteDistinguisherTest, FromStringType1_2) {
@@ -146,6 +151,7 @@ TEST_F(RouteDistinguisherTest, FromStringType1_2) {
     EXPECT_FALSE(rd.IsZero());
     EXPECT_EQ(1, rd.Type());
     EXPECT_EQ("10.1.1.1:17185", rd.ToString());
+    EXPECT_EQ(rd, RouteDistinguisher(rd.GetAddress(), 17185));
 }
 
 TEST_F(RouteDistinguisherTest, FromStringType1_3) {
@@ -155,6 +161,7 @@ TEST_F(RouteDistinguisherTest, FromStringType1_3) {
     EXPECT_FALSE(rd.IsZero());
     EXPECT_EQ(1, rd.Type());
     EXPECT_EQ("10.1.1.1:0", rd.ToString());
+    EXPECT_EQ(rd, RouteDistinguisher(rd.GetAddress(), 0));
 }
 
 TEST_F(RouteDistinguisherTest, FromStringType1_4) {
@@ -164,6 +171,7 @@ TEST_F(RouteDistinguisherTest, FromStringType1_4) {
     EXPECT_FALSE(rd.IsZero());
     EXPECT_EQ(1, rd.Type());
     EXPECT_EQ("10.1.1.1:65535", rd.ToString());
+    EXPECT_EQ(rd, RouteDistinguisher(rd.GetAddress(), 65535));
 }
 
 // Does not contain a colon.
