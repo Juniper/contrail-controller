@@ -561,6 +561,37 @@ TEST_F(NamespaceManagerTest, LoadbalancerConfig) {
     EXPECT_TRUE(old_time <= new_time);
 }
 
+TEST_F(NamespaceManagerTest, NamespaceStaleCleanup) {
+    agent_->oper_db()->namespace_manager()->Initialize(agent_->db(),
+            agent_->agent_signal(), "/bin/true", 1, 10);
+
+    boost::uuids::random_generator gen;
+    std::string vm_uuid = UuidToString(gen());
+    std::string lb_uuid = UuidToString(gen());
+    std::string store_path = "/tmp/lb/";
+
+    agent_->oper_db()->namespace_manager()->SetNamespaceStorePath(store_path);
+    store_path +=  ("vrouter-" + vm_uuid + ":" + lb_uuid);
+    boost::system::error_code error;
+    if (!boost::filesystem::exists(store_path, error)) {
+        boost::filesystem::create_directories(store_path, error);
+    }
+    store_path  = loadbalancer_config_path() + lb_uuid;
+
+    if (!boost::filesystem::exists(store_path, error)) {
+        boost::filesystem::create_directories(store_path, error);
+    }
+    EXPECT_EQ(1, boost::filesystem::exists(store_path));
+
+    agent_->oper_db()->namespace_manager()->StaleTimeout();
+    task_util::WaitForIdle();
+    EXPECT_EQ(0, boost::filesystem::exists(store_path));
+
+
+    store_path = "/tmp/lb/" + ("vrouter-" + vm_uuid + ":" + lb_uuid);
+    boost::filesystem::remove_all(store_path.c_str(), error);
+}
+
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);

@@ -80,6 +80,7 @@ class NamespaceManager {
     const LoadbalancerHaproxy &haproxy() const { return *(haproxy_.get()); }
     void SetStaleTimerInterval(int minutes);
     int StaleTimerInterval() { return stale_timer_interval_;}
+    void SetNamespaceStorePath(std::string path);
 
  private:
     friend class NamespaceManagerTest;
@@ -92,8 +93,7 @@ class NamespaceManager {
     void StartNetNS(ServiceInstance *svc_instance, NamespaceState *state,
                     bool update);
     void StopNetNS(ServiceInstance *svc_instance, NamespaceState *state);
-    void StopStaleNetNS(boost::uuids::uuid service_instance_uuid,
-                        ServiceInstance::Properties &props);
+    void StopStaleNetNS(ServiceInstance::Properties &props);
     void OnError(NamespaceTask *task, const std::string errors);
     void RegisterSvcInstance(NamespaceTask *task,
                              ServiceInstance *svc_instance);
