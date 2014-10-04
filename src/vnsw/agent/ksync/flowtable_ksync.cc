@@ -270,6 +270,9 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                     flags |= VR_FLOW_FLAG_DPAT;
                 }
             }
+            if (nat_flow->is_flags_set(FlowEntry::LinkLocalBindLocalSrcPort)) {
+                flags |= VR_FLOW_FLAG_LINK_LOCAL;
+            }
 
             flags |= VR_FLOW_FLAG_VRFT;
             req.set_fr_flow_dvrf(flow_entry_->data().dest_vrf);
