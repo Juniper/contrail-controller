@@ -53,7 +53,8 @@ void LogicalPortEntry::SetKey(const DBRequestKey *key) {
     uuid_ = k->uuid_;
 }
 
-bool LogicalPortEntry::CopyBase(const LogicalPortData *data) {
+bool LogicalPortEntry::CopyBase(LogicalPortTable *table,
+                                const LogicalPortData *data) {
     bool ret = false;
 
     if (name_ == data->name_) {
@@ -61,7 +62,6 @@ bool LogicalPortEntry::CopyBase(const LogicalPortData *data) {
         ret = true;
     }
 
-    LogicalPortTable *table = static_cast<LogicalPortTable*>(get_table());
     PhysicalPortEntry *phy_port =
         table->physical_port_table()->Find(data->physical_port_);
     if (phy_port != physical_port_.get()) {
@@ -69,7 +69,7 @@ bool LogicalPortEntry::CopyBase(const LogicalPortData *data) {
         ret = true;
     }
 
-    if (Copy(data) == true) {
+    if (Copy(table, data) == true) {
         ret = true;
     }
 
@@ -89,7 +89,7 @@ DBEntry *LogicalPortTable::Add(const DBRequest *req) {
     LogicalPortKey *key = static_cast<LogicalPortKey *>(req->key.get());
     LogicalPortData *data = static_cast<LogicalPortData *>(req->data.get());
     LogicalPortEntry *entry = key->AllocEntry(this);
-    entry->CopyBase(data);
+    entry->CopyBase(this, data);
     entry->SendObjectLog(AgentLogEvent::ADD);
     return entry;
 }
@@ -97,7 +97,7 @@ DBEntry *LogicalPortTable::Add(const DBRequest *req) {
 bool LogicalPortTable::OnChange(DBEntry *e, const DBRequest *req) {
     LogicalPortEntry *entry = static_cast<LogicalPortEntry *>(e);
     LogicalPortData *data = static_cast<LogicalPortData *>(req->data.get());
-    bool ret = entry->CopyBase(data);
+    bool ret = entry->CopyBase(this, data);
     entry->SendObjectLog(AgentLogEvent::CHANGE);
     return ret;
 }
@@ -279,7 +279,8 @@ DBEntryBase::KeyPtr VlanLogicalPortEntry::GetDBRequestKey() const {
     return DBEntryBase::KeyPtr(key);
 }
 
-bool VlanLogicalPortEntry::Copy(const LogicalPortData *d) {
+bool VlanLogicalPortEntry::Copy(LogicalPortTable *table,
+                                const LogicalPortData *d) {
     bool ret = false;
     const VlanLogicalPortData *data =
         static_cast<const VlanLogicalPortData *>(d);
@@ -306,6 +307,7 @@ DBEntryBase::KeyPtr DefaultLogicalPortEntry::GetDBRequestKey() const {
     return DBEntryBase::KeyPtr(key);
 }
 
-bool DefaultLogicalPortEntry::Copy(const LogicalPortData *data) {
+bool DefaultLogicalPortEntry::Copy(LogicalPortTable *table,
+                                   const LogicalPortData *data) {
     return false;
 }

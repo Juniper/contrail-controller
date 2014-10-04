@@ -47,7 +47,7 @@ AgentUtXmlNode *CreateNode(const string &type, const string &name,
         return new AgentUtXmlVm(name, id, node, test_case);
     if (type == "virtual-machine-interface" || type == "vm-interface"
         || type == "vmi")
-        return new AgentUtXmlVm(name, id, node, test_case);
+        return new AgentUtXmlVmInterface(name, id, node, test_case);
     if (type == "ethernet-interface" || type == "eth-port")
         return new AgentUtXmlEthInterface(name, id, node, test_case);
     if (type == "routing-instance" || type == "vrf")

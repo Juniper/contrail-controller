@@ -49,7 +49,8 @@ void PhysicalPortEntry::SetKey(const DBRequestKey *key) {
     uuid_ = k->uuid_;
 }
 
-bool PhysicalPortEntry::Copy(const PhysicalPortData *data) {
+bool PhysicalPortEntry::Copy(PhysicalPortTable *table,
+                             const PhysicalPortData *data) {
     bool ret = false;
 
     if (name_ == data->name_) {
@@ -57,7 +58,6 @@ bool PhysicalPortEntry::Copy(const PhysicalPortData *data) {
         ret = true;
     }
 
-    PhysicalPortTable *table = static_cast<PhysicalPortTable*>(get_table());
     PhysicalDeviceEntry *dev = table->device_table()->Find(data->device_);
     if (dev != device_.get()) {
         device_.reset(dev);
@@ -81,7 +81,7 @@ DBEntry *PhysicalPortTable::Add(const DBRequest *req) {
     PhysicalPortKey *key = static_cast<PhysicalPortKey *>(req->key.get());
     PhysicalPortData *data = static_cast<PhysicalPortData *>(req->data.get());
     PhysicalPortEntry *dev = new PhysicalPortEntry(key->uuid_);
-    dev->Copy(data);
+    dev->Copy(this, data);
     dev->SendObjectLog(AgentLogEvent::ADD);
     return dev;
 }
@@ -89,7 +89,7 @@ DBEntry *PhysicalPortTable::Add(const DBRequest *req) {
 bool PhysicalPortTable::OnChange(DBEntry *entry, const DBRequest *req) {
     PhysicalPortEntry *dev = static_cast<PhysicalPortEntry *>(entry);
     PhysicalPortData *data = static_cast<PhysicalPortData *>(req->data.get());
-    bool ret = dev->Copy(data);
+    bool ret = dev->Copy(this, data);
     dev->SendObjectLog(AgentLogEvent::CHANGE);
     return ret;
 }

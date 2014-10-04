@@ -46,7 +46,7 @@ class PhysicalPortEntry : AgentRefCount<PhysicalPortEntry>, public AgentDBEntry{
     const std::string &name() const { return name_; }
     PhysicalDeviceEntry *device() const { return device_.get(); }
 
-    bool Copy(const PhysicalPortData *data);
+    bool Copy(PhysicalPortTable *table, const PhysicalPortData *data);
 
     void SendObjectLog(AgentLogEvent::type event) const;
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;

@@ -592,6 +592,8 @@ TestClient *TestInit(const char *init_file = NULL, bool ksync_init = false,
 
 TestClient *VGwInit(const string &init_file, bool ksync_init);
 void TestShutdown();
+void WaitForInitDone(Agent *agent);
+void AsioRun();
 
 extern TestClient *client;
 

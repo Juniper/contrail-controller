@@ -53,10 +53,9 @@ void PhysicalDeviceVnEntry::SetKey(const DBRequestKey *k) {
     vn_uuid_ = key->vn_uuid_;
 }
 
-bool PhysicalDeviceVnEntry::Copy(const PhysicalDeviceVnData *data) {
+bool PhysicalDeviceVnEntry::Copy(PhysicalDeviceVnTable *table,
+                                 const PhysicalDeviceVnData *data) {
     bool ret = false;
-    PhysicalDeviceVnTable *table =
-        static_cast<PhysicalDeviceVnTable*>(get_table());
 
     PhysicalDeviceEntry *dev =
         table->physical_device_table()->Find(device_uuid_);
@@ -95,7 +94,7 @@ DBEntry *PhysicalDeviceVnTable::Add(const DBRequest *req) {
 
     PhysicalDeviceVnEntry *entry = new PhysicalDeviceVnEntry(key->device_uuid_,
                                                              key->vn_uuid_);
-    entry->Copy(data);
+    entry->Copy(this, data);
     entry->SendObjectLog(AgentLogEvent::ADD);
     return entry;
 }
@@ -104,7 +103,7 @@ bool PhysicalDeviceVnTable::OnChange(DBEntry *e, const DBRequest *req) {
     PhysicalDeviceVnEntry *entry = static_cast<PhysicalDeviceVnEntry *>(e);
     PhysicalDeviceVnData *data =
         static_cast<PhysicalDeviceVnData *>(req->data.get());
-    bool ret = entry->Copy(data);
+    bool ret = entry->Copy(this, data);
     entry->SendObjectLog(AgentLogEvent::CHANGE);
     return ret;
 }
@@ -162,7 +161,7 @@ void PhysicalDeviceVnTable::ConfigUpdate(IFMapNode *node) {
             continue;
         }
 
-        if (strcmp(node->table()->Typename(), "virtual-network") != 0) {
+        if (strcmp(adj_node->table()->Typename(), "virtual-network") != 0) {
             continue;
         }
         autogen::VirtualNetwork *vn = static_cast <autogen::VirtualNetwork *>
@@ -188,11 +187,11 @@ void PhysicalDeviceVnTable::ConfigUpdate(IFMapNode *node) {
     while (it != config_tree_.end()){
         ConfigIterator del_it = it++;
         if (del_it->second < config_version_) {
-            config_tree_.erase(del_it);
             DBRequest req(DBRequest::DB_ENTRY_DELETE);
-            req.key.reset(new PhysicalDeviceVnKey(it->first.device_uuid_,
-                                                  it->first.vn_uuid_));
+            req.key.reset(new PhysicalDeviceVnKey(del_it->first.device_uuid_,
+                                                  del_it->first.vn_uuid_));
             Enqueue(&req);
+            config_tree_.erase(del_it);
         }
     }
 }

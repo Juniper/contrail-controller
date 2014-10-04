@@ -149,7 +149,10 @@ AgentUtXmlValidationNode::~AgentUtXmlValidationNode() {
 bool AgentUtXmlValidationNode::ReadCmnXml() {
     std::string str;
     if (GetStringAttribute(node_, "present", &str)) {
-        present_ = true;
+        if (str == "no")
+            present_ = false;
+        else
+            present_ = true;
     }
 
     if (GetStringAttribute(node_, "deleted", &str)) {
