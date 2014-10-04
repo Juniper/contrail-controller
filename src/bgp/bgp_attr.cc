@@ -483,8 +483,8 @@ void BgpAttrParams::ToCanonical(BgpAttr *attr) {
 
 std::string BgpAttrParams::ToString() const {
     char repr[80];
-    snprintf(repr, sizeof(repr), "Params <subcode: %d> : 0x%016llx",
-             subcode, (unsigned long long)params);
+    snprintf(repr, sizeof(repr), "Params <subcode: %d> : 0x%016jx",
+             subcode, params);
     return std::string(repr);
 }
 
