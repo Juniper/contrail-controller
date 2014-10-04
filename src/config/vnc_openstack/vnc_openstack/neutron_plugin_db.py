@@ -1136,8 +1136,8 @@ class DBInterface(object):
                                            sequence=SequenceType(seq, 0)))
                 seq = seq + 1
 
-        if 'vpc:route_table' in network_q:
-            rt_fq_name = network_q['vpc:route_table']
+        if 'contrail:route_table' in network_q:
+            rt_fq_name = network_q['contrail:route_table']
             if rt_fq_name:
                 try:
                     rt_obj = self._vnc_lib.route_table_read(fq_name=rt_fq_name)
@@ -1192,7 +1192,7 @@ class DBInterface(object):
 
         rt_refs = net_obj.get_route_table_refs()
         if rt_refs:
-            extra_dict['vpc:route_table'] = \
+            extra_dict['contrail:route_table'] = \
                 [rt_ref['to'] for rt_ref in rt_refs]
 
         ipam_refs = net_obj.get_network_ipam_refs()
@@ -1503,7 +1503,7 @@ class DBInterface(object):
                 port_obj = self._virtual_machine_interface_read(port_id=port_id)
                 if context and not context['is_admin']:
                     port_tenant_id = self._get_obj_tenant_id('port', port_id)
-                    if port_tenant_id != context['tenant']:
+                    if port_tenant_id.replace('-', '') != context['tenant']:
                         raise NoIdError(port_id)
             except NoIdError:
                 self._raise_contrail_exception('PortNotFound',
