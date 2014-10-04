@@ -191,7 +191,6 @@ void PhysicalDeviceVnTable::ConfigUpdate(IFMapNode *node) {
             req.key.reset(new PhysicalDeviceVnKey(del_it->first.device_uuid_,
                                                   del_it->first.vn_uuid_));
             Enqueue(&req);
-
             config_tree_.erase(del_it);
         }
     }
