@@ -55,7 +55,7 @@ class PhysicalDeviceVnEntry : AgentRefCount<PhysicalDeviceVnEntry>,
     const boost::uuids::uuid &vn_uuid() const { return vn_uuid_; }
     VnEntry *vn() const { return vn_.get(); }
 
-    bool Copy(const PhysicalDeviceVnData *data);
+    bool Copy(PhysicalDeviceVnTable *table, const PhysicalDeviceVnData *data);
     void SendObjectLog(AgentLogEvent::type event) const;
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
 

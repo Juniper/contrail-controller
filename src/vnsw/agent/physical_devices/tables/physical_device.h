@@ -11,7 +11,7 @@ class IFMapDependencyManager;
 
 namespace AGENT {
 struct PhysicalDeviceKey : public AgentKey {
-    explicit PhysicalDeviceKey(boost::uuids::uuid id) :
+    explicit PhysicalDeviceKey(const boost::uuids::uuid &id) :
         AgentKey(), uuid_(id) { }
     virtual ~PhysicalDeviceKey() { }
 
