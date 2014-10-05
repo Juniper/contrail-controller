@@ -506,7 +506,6 @@ TEST_F(EcmpTest, EcmpTest_10) {
     const CompositeNH *composite_nh = static_cast<const CompositeNH *>(
                                           rt->GetActiveNextHop());
     ComponentNHKeyList comp_nh_list = composite_nh->component_nh_key_list();
-    std::reverse(comp_nh_list.begin(), comp_nh_list.end());
     AddRemoteEcmpRoute("vrf9", "2.1.1.1", 32, "vn2", 0, comp_nh_list);
     AddLocalVmRoute("vrf2", "9.1.1.1", 32, "vn9", 9);
     client->WaitForIdle();
@@ -606,7 +605,6 @@ TEST_F(EcmpTest, EcmpTest_11) {
     const CompositeNH *composite_nh = static_cast<const CompositeNH *>(
                                           rt->GetActiveNextHop());
     ComponentNHKeyList comp_nh_list = composite_nh->component_nh_key_list();
-    std::reverse(comp_nh_list.begin(), comp_nh_list.end());
     AddRemoteEcmpRoute("vrf9", "3.1.1.100", 32, "default-project:vn3", 0,
                        comp_nh_list);
     AddLocalVmRoute("default-project:vn3:vn3", "9.1.1.1", 32, "vn9", 9);
