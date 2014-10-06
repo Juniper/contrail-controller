@@ -14,4 +14,6 @@ libbgp_inet = env.Library('bgp_inet',
                         'inet_table.cc'
                         ])
 
-#env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
+inet_unit_tests = env.SConscript('test/SConscript', exports='BuildEnv',
+                                 duplicate = 0)
+Return('inet_unit_tests')
