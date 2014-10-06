@@ -1485,6 +1485,40 @@ TEST_F(RouteTest, SubnetGwForRoute_1) {
     EXPECT_TRUE(VrfFind("vrf1", true) == false);
 }
 
+//Enqueue a pth preference change for
+//non existent path and make sure, path change is not
+//notified
+TEST_F(RouteTest, PathPreference_1) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    Peer peer(Peer::LOCAL_VM_PORT_PEER, "test_peer");
+    Ip4Address ip = Ip4Address::from_string("1.1.1.10");
+    //Enqueue path change for non existent path
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    InetUnicastRouteKey *rt_key =
+        new InetUnicastRouteKey(&peer, "vrf1", ip, 32);
+    rt_key->sub_op_ = AgentKey::RESYNC;
+    req.key.reset(rt_key);
+    req.data.reset(new PathPreferenceData(PathPreference()));
+    AgentRouteTable *table =
+        agent_->vrf_table()->GetInet4UnicastRouteTable("vrf1");
+    table->Enqueue(&req);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(RouteFind("vrf1", ip, 32) == true);
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    //Make sure vrf and all routes are deleted
+    EXPECT_TRUE(VrfFind("vrf1", true) == NULL);
+}
+
 int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     GETUSERARGS();
