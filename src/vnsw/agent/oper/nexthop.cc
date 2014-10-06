@@ -1120,6 +1120,21 @@ bool CompositeNH::CanAdd() const {
     return true;
 }
 
+const NextHop* CompositeNH::GetLocalNextHop() const {
+    ComponentNHList::const_iterator comp_nh_it =
+        component_nh_list_.begin();
+    for(;comp_nh_it != component_nh_list_.end(); comp_nh_it++) {
+        if ((*comp_nh_it) == NULL) {
+            continue;
+        }
+
+        if ((*comp_nh_it)->nh()->GetType() != NextHop::TUNNEL) {
+            return (*comp_nh_it)->nh();
+        }
+    }
+    return NULL;
+}
+
 NextHop *CompositeNHKey::AllocEntry() const {
     VrfEntry *vrf = static_cast<VrfEntry *>
         (Agent::GetInstance()->vrf_table()->Find(&vrf_key_, true));

@@ -564,6 +564,13 @@ const NextHop* InetUnicastRouteEntry::GetLocalNextHop() const {
             }
         }
     }
+
+    const NextHop *nh = GetActiveNextHop();
+    if (nh->GetType() == NextHop::COMPOSITE) {
+        const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
+        //Get the local composite NH
+        return comp_nh->GetLocalNextHop();
+    }
     return NULL;
 }
 
