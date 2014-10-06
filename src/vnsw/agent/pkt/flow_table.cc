@@ -2935,5 +2935,5 @@ bool RouteFlowKey::IsLess(const RouteFlowKey &rhs) const {
     if (ip != rhs.ip)
         return ip < rhs.ip;
 
-    return plen < rhs.vrf;
+    return plen < rhs.plen;
 }

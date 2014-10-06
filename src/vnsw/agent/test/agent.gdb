@@ -123,10 +123,10 @@ end
 
 define vrf_entry_format
     set $__vrf = (VrfEntry *)((size_t)($Xnode) - (size_t)&(((VrfEntry *)0)->node_))
-    printf "%p    %-20s    idx=%-4d    ref_count=%-4d   flags=%-4d rt_db=%p mcrt_db=%p layer2_db=%p\n", $__vrf,\
+    printf "%p    %-20s    idx=%-4d    ref_count=%-4d   flags=%-4d rt_db=%p mcrt_db=%p layer2_db=%p v6_rt_db=%p\n", $__vrf,\
            $__vrf->name_._M_dataplus._M_p, $__vrf->id_, $__vrf->refcount_->rep->value,\
-           $__vrf->flags, $__vrf->rt_table_db_[0], $__vrf->rt_table_db_[1], \
-           $__vrf->rt_table_db_[2]
+           $__vrf->flags, $__vrf->rt_table_db_[Agent::INET4_UNICAST], $__vrf->rt_table_db_[Agent::INET4_MULTICAST], \
+           $__vrf->rt_table_db_[Agent::LAYER2], $__vrf->rt_table_db_[Agent::INET6_UNICAST],
 end
 
 define dump_vrf_entries
@@ -360,7 +360,7 @@ define kflow_entry_format
 end
 
 define dump_ksync_flow_entries
-   pksync_entries FlowTableKSyncObject::singleton_ kflow_entry_format
+   pksync_entries Agent::singleton_->ksync_->flowtable_ksync_obj_.px kflow_entry_format
 end
 
 define kmirror_entry_format
