@@ -620,6 +620,10 @@ bool PathPreferenceData::AddChangePath(Agent *agent, AgentPath *path) {
     bool ret = false;
     //ECMP flag will not be changed by path preference module,
     //hence retain value in path
+    if (!path) {
+        return ret;
+    }
+
     path_preference_.set_ecmp(path->path_preference().ecmp());
     if (path &&
         path->path_preference() != path_preference_) {
