@@ -265,7 +265,7 @@ static inline boost::asio::ip::address_v4 GetIp4SubnetAddress(
     }
 
     boost::asio::ip::address_v4 subnet(ip_prefix.to_ulong() & 
-                                       (0xFFFFFFFF << (32 - plen)));
+                                       (~((1UL << (32 - plen)) - 1)));
     return subnet;
 }
 
