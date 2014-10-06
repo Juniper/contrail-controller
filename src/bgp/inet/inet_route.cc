@@ -12,7 +12,7 @@ using std::vector;
 
 int Ip4Prefix::FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
                                Ip4Prefix *prefix) {
-    if (proto_prefix.prefixlen > Address::kMaxV4PrefixLen)
+    if (proto_prefix.prefix.size() > Address::kMaxV4Bytes)
         return -1;
     prefix->prefixlen_ = proto_prefix.prefixlen;
     Ip4Address::bytes_type bt = { { 0 } };

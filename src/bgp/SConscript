@@ -75,7 +75,8 @@ test_suite = env.SConscript('ermvpn/SConscript', exports='BuildEnv',
                             duplicate = 0)
 test_suite += env.SConscript('evpn/SConscript', exports='BuildEnv',
                              duplicate = 0)
-env.SConscript('inet/SConscript', exports='BuildEnv', duplicate = 0)
+test_suite += env.SConscript('inet/SConscript', exports='BuildEnv',
+                             duplicate = 0)
 test_suite += env.SConscript('inet6/SConscript', exports='BuildEnv',
                              duplicate = 0)
 test_suite += env.SConscript('inet6vpn/SConscript', exports='BuildEnv',
