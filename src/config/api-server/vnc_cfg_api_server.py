@@ -1018,16 +1018,12 @@ class VncApiServer(VncApiServerGen):
         """
         new_id_perms = self._get_default_id_perms(obj_type)
 
-        if (('id_perms' not in obj_dict) or
-                (obj_dict['id_perms'] is None)):
-            obj_dict['id_perms'] = new_id_perms
-            return
-
         # Start from default and update from obj_dict
-        req_id_perms = obj_dict['id_perms']
-        for key in ('enable', 'description', 'user_visible'):
-            if key in req_id_perms:
-                new_id_perms[key] = req_id_perms[key]
+        if 'id_perms' in obj_dict:
+            req_id_perms = obj_dict['id_perms']
+            for key in ('enable', 'description', 'user_visible'):
+                if key in req_id_perms:
+                    new_id_perms[key] = req_id_perms[key]
         # TODO handle perms present in req_id_perms
 
         obj_dict['id_perms'] = new_id_perms
