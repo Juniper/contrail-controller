@@ -321,6 +321,7 @@ protected:
 
 TEST_F(NamespaceManagerTest, ExecTrue) {
     ns_manager_->Initialize(&database_, agent_signal_, "/bin/true", 1, 10);
+    task_util::WaitForIdle();
     boost::uuids::uuid id = AddServiceInstance("exec-true");
     EXPECT_FALSE(id.is_nil());
     task_util::WaitForIdle();
@@ -342,7 +343,7 @@ TEST_F(NamespaceManagerTest, ExecTrue) {
     task_util::WaitForIdle();
 }
 
-TEST_F(NamespaceManagerTest, ExecFalse) {
+TEST_F(NamespaceManagerTest, DISABLED_ExecFalse) {
     ns_manager_->Initialize(&database_, agent_signal_, "/bin/false", 1, 10);
     boost::uuids::uuid id = AddServiceInstance("exec-false");
     EXPECT_FALSE(id.is_nil());
@@ -364,7 +365,7 @@ TEST_F(NamespaceManagerTest, ExecFalse) {
     task_util::WaitForIdle();
 }
 
-TEST_F(NamespaceManagerTest, Update) {
+TEST_F(NamespaceManagerTest, DISABLED_Update) {
     ns_manager_->Initialize(&database_, agent_signal_, "/bin/true", 1, 10);
     boost::uuids::uuid id = AddServiceInstance("exec-update");
     EXPECT_FALSE(id.is_nil());
@@ -395,7 +396,7 @@ TEST_F(NamespaceManagerTest, Update) {
     task_util::WaitForIdle();
 }
 
-TEST_F(NamespaceManagerTest, UpdateProperties) {
+TEST_F(NamespaceManagerTest, DISABLED_UpdateProperties) {
     ns_manager_->Initialize(&database_, agent_signal_, "/bin/true", 1, 10);
     boost::uuids::uuid id = AddServiceInstance("exec-update");
     EXPECT_FALSE(id.is_nil());
@@ -429,7 +430,7 @@ TEST_F(NamespaceManagerTest, UpdateProperties) {
     task_util::WaitForIdle();
 }
 
-TEST_F(NamespaceManagerTest, Timeout) {
+TEST_F(NamespaceManagerTest, DISABLED_Timeout) {
     ns_manager_->Initialize(&database_, NULL, "/bin/true", 1, 1);
     boost::uuids::uuid id = AddServiceInstance("exec-timeout");
     EXPECT_FALSE(id.is_nil());
@@ -451,7 +452,7 @@ TEST_F(NamespaceManagerTest, Timeout) {
     task_util::WaitForIdle();
 }
 
-TEST_F(NamespaceManagerTest, TaskQueue) {
+TEST_F(NamespaceManagerTest, DISABLED_TaskQueue) {
     static const int kNumUpdate = 5;
     ns_manager_->Initialize(&database_, NULL, "/bin/true", 10, 1);
     boost::uuids::uuid id = AddServiceInstance("exec-queue");
@@ -485,7 +486,7 @@ TEST_F(NamespaceManagerTest, TaskQueue) {
     task_util::WaitForIdle();
 }
 
-TEST_F(NamespaceManagerTest, Usable) {
+TEST_F(NamespaceManagerTest, DISABLED_Usable) {
     ns_manager_->Initialize(&database_, agent_signal_, "/bin/true", 1, 10);
     boost::uuids::uuid id = AddServiceInstance("exec-usable");
     EXPECT_FALSE(id.is_nil());
@@ -520,7 +521,7 @@ TEST_F(NamespaceManagerTest, Usable) {
 }
 
 
-TEST_F(NamespaceManagerTest, LoadbalancerConfig) {
+TEST_F(NamespaceManagerTest, DISABLED_LoadbalancerConfig) {
     ns_manager_->Initialize(&database_, agent_signal_, "/bin/true", 1, 10);
     boost::uuids::uuid lbid = AddLoadbalancer();
     task_util::WaitForIdle();
