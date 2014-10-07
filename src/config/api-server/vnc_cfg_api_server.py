@@ -351,7 +351,7 @@ class VncApiServer(VncApiServerGen):
         hostname = socket.gethostname()
         self._sandesh.init_generator(module_name, hostname,
                                      node_type_name, instance_id,
-                                     self._args.collectors, 
+                                     self._args.collectors,
                                      'vnc_api_server_context',
                                      int(self._args.http_server_port),
                                      ['cfgm_common'], self._disc)
@@ -423,7 +423,7 @@ class VncApiServer(VncApiServerGen):
         sysinfo_req = True
         config_node_ip = self.get_server_ip()
         cpu_info = vnc_cpu_info.CpuInfo(
-            self._sandesh.module(), self._sandesh.instance_id(), sysinfo_req, 
+            self._sandesh.module(), self._sandesh.instance_id(), sysinfo_req,
             self._sandesh, 60, config_node_ip)
         self._cpu_info = cpu_info
 
@@ -1019,21 +1019,46 @@ class VncApiServer(VncApiServerGen):
         """
         Called at resource creation to ensure that id_perms is present in obj
         """
-        new_id_perms = self._get_default_id_perms(obj_type)
+        # retrieve object and permissions
+        id_perms = self._get_default_id_perms(obj_type)
+
+        try:
+            obj_uuid = obj_dict['uuid']
+        except KeyError as e:
+            obj_uuid = None
 
         if (('id_perms' not in obj_dict) or
                 (obj_dict['id_perms'] is None)):
-            obj_dict['id_perms'] = new_id_perms
-            return
+            if obj_uuid is None:
+                obj_dict['id_perms'] = id_perms
+                return
+
+            try:
+                obj_dict['id_perms'] = self._db_conn.uuid_to_obj_perms(obj_uuid)
+            except NoIdError:
+                obj_dict['id_perms'] = id_perms
+                return
+
+        # retrieve the previous version of the id_perms
+        # from the database and update the id_perms with
+        # them.
+        if 'uuid' in obj_dict['id_perms'] and obj_dict['id_perms']['uuid']:
+            try:
+                old_id_perms = self._db_conn.uuid_to_obj_perms(obj_uuid)
+                for field, value in old_id_perms.items():
+                    if value is not None:
+                        id_perms[field] = value
+            except NoIdError:
+                pass
 
         # Start from default and update from obj_dict
         req_id_perms = obj_dict['id_perms']
         for key in ('enable', 'description', 'user_visible'):
             if key in req_id_perms:
-                new_id_perms[key] = req_id_perms[key]
+                id_perms[key] = req_id_perms[key]
         # TODO handle perms present in req_id_perms
 
-        obj_dict['id_perms'] = new_id_perms
+        obj_dict['id_perms'] = id_perms
     # end _ensure_id_perms_present
 
     def _get_default_id_perms(self, obj_type):
@@ -1220,6 +1245,13 @@ class VncApiServer(VncApiServerGen):
                                            uuid.UUID(obj_uuid),
                                            persist=False)
 
+            # TODO remove this when the generator will be adapted to
+            # be consistent with the post method
+            obj_type = obj_type.replace('_', '-')
+
+            # Ensure object has at least default permissions set
+            self._ensure_id_perms_present(obj_type, obj_dict)
+
             apiConfig = VncApiCommon()
             apiConfig.object_type = obj_type.replace('-', '_')
             apiConfig.identifier_name = fq_name_str
@@ -1330,7 +1362,7 @@ class VncApiServer(VncApiServerGen):
         except NoIdError:
             pass
 
-        # Ensure object has atleast default permissions set
+        # Ensure object has at least default permissions set
         self._ensure_id_perms_present(obj_type, obj_dict)
 
         # TODO check api + resource perms etc.
