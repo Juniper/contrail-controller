@@ -395,7 +395,7 @@ class SvcMonitor(object):
             return
 
         #update static routes
-        self._update_static_routes(si_obj)
+        self.vm_manager.update_static_routes(si_obj)
 
     def _addmsg_project_virtual_network(self, idents):
         vn_fq_str = idents['virtual-network']
@@ -491,33 +491,6 @@ class SvcMonitor(object):
             # end for meta
         # end for result_type
     # end process_poll_result
-
-    def _update_static_routes(self, si_obj):
-        # get service instance interface list
-        si_props = si_obj.get_service_instance_properties()
-        si_if_list = si_props.get_interface_list()
-        if not si_if_list:
-            return
-
-        for idx in range(0, len(si_if_list)):
-            si_if = si_if_list[idx]
-            static_routes = si_if.get_static_routes()
-            if not static_routes:
-                static_routes = {'route':[]}
-
-            # update static routes
-            try:
-                domain_name, proj_name = si_obj.get_parent_fq_name()
-                rt_name = si_obj.uuid + ' ' + str(idx)
-                rt_fq_name = [domain_name, proj_name, rt_name]
-                rt_obj = self._vnc_lib.interface_route_table_read(
-                    fq_name=rt_fq_name)
-                rt_obj.set_interface_route_table_routes(static_routes)
-                self._vnc_lib.interface_route_table_update(rt_obj)
-            except NoIdError:
-                pass
-    # end _update_static_routes
-
 # end class svc_monitor
 
 
