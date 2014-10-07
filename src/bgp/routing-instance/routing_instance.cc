@@ -435,6 +435,7 @@ RoutingInstance::RoutingInstance(std::string name, BgpServer *server,
                                  const BgpInstanceConfig *config)
     : name_(name), index_(-1), mgr_(mgr), config_(config),
       is_default_(false), virtual_network_index_(0),
+      virtual_network_allow_transit_(false),
       deleter_(new DeleteActor(server, this)),
       manager_delete_ref_(this, mgr->deleter()) {
       peer_manager_.reset(BgpObjectFactory::Create<PeerManager>(this));
@@ -449,6 +450,7 @@ void RoutingInstance::ProcessConfig(BgpServer *server) {
     // Initialize virtual network info.
     virtual_network_ = config_->virtual_network();
     virtual_network_index_ = config_->virtual_network_index();
+    virtual_network_allow_transit_ = config_->virtual_network_allow_transit();
 
     std::vector<std::string> import_rt, export_rt;
     BOOST_FOREACH(string irt, config_->import_list()) {
@@ -518,9 +520,24 @@ void RoutingInstance::UpdateConfig(BgpServer *server,
     // new object.
     config_ = cfg;
 
+    // Figure out if there's a significant configuration change that requires
+    // notifying routes to all listeners.
+    bool notify_routes = false;
+    if (virtual_network_allow_transit_ != cfg->virtual_network_allow_transit())
+        notify_routes = true;
+
+    // Trigger notification of all routes in each table.
+    if (notify_routes) {
+        BOOST_FOREACH(RouteTableList::value_type &entry, vrf_tables_) {
+            BgpTable *table = entry.second;
+            table->NotifyAllEntries();
+        }
+    }
+
     // Update virtual network info.
     virtual_network_ = cfg->virtual_network();
     virtual_network_index_ = cfg->virtual_network_index();
+    virtual_network_allow_transit_ = cfg->virtual_network_allow_transit();
 
     // Master routing instance doesn't have import & export list
     // Master instance imports and exports all RT
@@ -734,6 +751,10 @@ int RoutingInstance::virtual_network_index() const {
     return virtual_network_index_;
 }
 
+bool RoutingInstance::virtual_network_allow_transit() const {
+    return virtual_network_allow_transit_;
+}
+
 BgpServer *RoutingInstance::server() {
     return mgr_->server();
 }
@@ -833,7 +854,7 @@ BgpTable *RoutingInstance::VrfTableCreate(BgpServer *server,
 }
 
 void RoutingInstance::AddTable(BgpTable *tbl) {
-    vrf_table_.insert(std::make_pair(tbl->name(), tbl));
+    vrf_tables_.insert(std::make_pair(tbl->name(), tbl));
     tbl->set_routing_instance(this);
     RoutingInstanceInfo info = GetDataCollection("Add");
     info.set_family(Address::FamilyToString(tbl->family()));
@@ -843,7 +864,7 @@ void RoutingInstance::AddTable(BgpTable *tbl) {
 void RoutingInstance::RemoveTable(BgpTable *tbl) {
     RoutingInstanceInfo info = GetDataCollection("Remove");
     info.set_family(Address::FamilyToString(tbl->family()));
-    vrf_table_.erase(tbl->name());
+    vrf_tables_.erase(tbl->name());
     ROUTING_INSTANCE_COLLECTOR_INFO(info);
 }
 
