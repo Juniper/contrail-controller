@@ -69,7 +69,8 @@ const string QUERY_QID_OBJECT       = "ObjectQueryQid"
 const string CONFIG_OBJECT_TABLE    = "ConfigObjectTable"
 const string POOL_TABLE             = "ObjectPoolTable"
 const string OSD_TABLE              = "ObjectOsdTable"
-const string DISK_TABLE            = "ObjectDiskTable"
+const string DISK_TABLE             = "ObjectDiskTable"
+const string IPMI_TABLE             = "ObjectServerTable"
 
 const string VN_DISPLAY_NAME        = "Virtual Network"
 const string VM_DISPLAY_NAME        = "Virtual Machine"
@@ -92,6 +93,7 @@ const string CONFIG_OBJECT_DISPLAY_NAME    = "Config Object Table"
 const string STORAGE_POOL_DISPLAY_NAME     = "Storage Pool"
 const string STORAGE_OSD_DISPLAY_NAME      = "Storage Device"
 const string STORAGE_DISK_DISPLAY_NAME     = "Storage RawDisk"
+const string IPMI_STATS_DISPLAY_NAME       = "Ipmi Info"
 
 const string SYSTEM_LOG             = "SystemLog"
 const string OBJECT_LOG             = "ObjectLog"
@@ -226,6 +228,7 @@ const map<string, string> UVE_MAP = {
     "storage-pool" : POOL_TABLE,
     "storage-osd" : OSD_TABLE,
     "storage-disk" : DISK_TABLE,
+    "ipmi-stats" : IPMI_TABLE,
 }
 
 struct objtable_info {
@@ -314,6 +317,9 @@ const map<string, objtable_info> _OBJECT_TABLES = {
     }
     DISK_TABLE          : {
         'objtable_display_name' : STORAGE_DISK_DISPLAY_NAME
+    }
+    IPMI_TABLE          : {
+        'objtable_display_name' : IPMI_STATS_DISPLAY_NAME
     }
 }
 
@@ -477,6 +483,18 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
+      'display_name' : 'Ipmi Stats Info',
+      'stat_type' : 'SMIpmiInfo',
+      'stat_attr' : 'sensor_stats',
+      'obj_table' : IPMI_TABLE,
+      'attributes': [
+          { 'name' : 'sensor_stats.sensor',  'datatype' : 'string',    'index' : true},
+          { 'name' : 'sensor_stats.status', 'datatype': 'string', 'index' : false},
+          { 'name' : 'sensor_stats.reading', 'datatype': 'string', 'index' : true},
+        ]
+    },
+    {
+
       'display_name' : 'Sandesh Information',
       'stat_type' : 'SandeshMessageStat',
       'stat_attr' : 'msg_info',
