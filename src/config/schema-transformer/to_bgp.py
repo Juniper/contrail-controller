@@ -1377,6 +1377,8 @@ class RoutingInstanceST(object):
     # end update_route_target_list
 
     def delete(self, vn_obj=None):
+        # refresh the ri object because it could have changed
+        self.obj = _vnc_lib.routing_instance_read(id=self.obj.uuid)
         rtgt_list = self.obj.get_route_target_refs()
         ri_fq_name_str = self.obj.get_fq_name_str()
         rt_cf = VirtualNetworkST._rt_cf
@@ -1396,8 +1398,6 @@ class RoutingInstanceST(object):
             uve_msg = UveServiceChain(data=uve, sandesh=_sandesh)
             uve_msg.send(sandesh=_sandesh)
 
-        # refresh the ri object because it could have changed
-        self.obj = _vnc_lib.routing_instance_read(id=self.obj.uuid)
         vmi_refs = self.obj.get_virtual_machine_interface_back_refs()
         for vmi in vmi_refs or []:
             try:
