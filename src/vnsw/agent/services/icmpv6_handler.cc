@@ -191,12 +191,12 @@ void Icmpv6Handler::SendPingResponse() {
     icmp_->icmp6_cksum =
         Icmpv6Csum(pkt_info_->ip_daddr.to_v6().to_bytes().data(),
                    pkt_info_->ip_saddr.to_v6().to_bytes().data(),
-                   icmp_, pkt_info_->ip6->ip6_plen);
+                   icmp_, ntohs(pkt_info_->ip6->ip6_plen));
     SendIcmpv6Response(pkt_info_->GetAgentHdr().ifindex, pkt_info_->vrf,
                        pkt_info_->ip_daddr.to_v6().to_bytes().data(),
                        pkt_info_->ip_saddr.to_v6().to_bytes().data(),
                        MacAddress(pkt_info_->eth->ether_shost),
-                       pkt_info_->ip6->ip6_plen);
+                       ntohs(pkt_info_->ip6->ip6_plen));
 }
 
 void Icmpv6Handler::SendIcmpv6Response(uint16_t ifindex, uint16_t vrfindex,

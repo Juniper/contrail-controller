@@ -878,17 +878,21 @@ void ClearAllInfo::HandleRequest() const {
     Agent *agent = Agent::GetInstance();
     PktHandler *pkt_handler = agent->pkt()->pkt_handler();
     pkt_handler->PktTraceClear(PktHandler::DHCP);
+    pkt_handler->PktTraceClear(PktHandler::DHCPV6);
     pkt_handler->PktTraceClear(PktHandler::ARP);
     pkt_handler->PktTraceClear(PktHandler::DNS);
     pkt_handler->PktTraceClear(PktHandler::ICMP);
+    pkt_handler->PktTraceClear(PktHandler::ICMPV6);
     pkt_handler->PktTraceClear(PktHandler::FLOW);
     pkt_handler->PktTraceClear(PktHandler::DIAG);
     pkt_handler->PktTraceClear(PktHandler::INVALID);
     pkt_handler->ClearStats();
     agent->GetDhcpProto()->ClearStats();
+    agent->dhcpv6_proto()->ClearStats();
     agent->GetArpProto()->ClearStats();
     agent->GetDnsProto()->ClearStats();
     agent->GetIcmpProto()->ClearStats();
+    agent->icmpv6_proto()->ClearStats();
     agent->services()->metadataproxy()->ClearStats();
 
     PktErrorResp *resp = new PktErrorResp();
