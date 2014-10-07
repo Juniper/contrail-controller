@@ -38,7 +38,8 @@ class NamespaceManager {
     enum ChldEventType {
         SigChldEvent = 1,
         OnErrorEvent,
-        OnTaskTimeoutEvent
+        OnTaskTimeoutEvent,
+        OnLockTaskQueues
     };
 
     struct NamespaceManagerChildEvent {
@@ -60,6 +61,11 @@ class NamespaceManager {
          * OnTimeout
          */
         NamespaceTaskQueue *task_queue;
+
+        /*
+         * OnLockTaskQueues
+         */
+        bool lock_task_queues;
     };
 
     static const int kTimeoutDefault = 30;
@@ -83,6 +89,7 @@ class NamespaceManager {
                         pid_t pid, int status);
     void RegisterSigHandler();
     void InitSigHandler(AgentSignal *signal);
+    void CleanNetNS();
     void StartNetNS(ServiceInstance *svc_instance, NamespaceState *state,
                     bool update);
     void StopNetNS(ServiceInstance *svc_instance, NamespaceState *state);
@@ -112,6 +119,7 @@ class NamespaceManager {
     void SigChlgEventHandler(NamespaceManagerChildEvent event);
     void OnErrorEventHandler(NamespaceManagerChildEvent event);
     void OnTaskTimeoutEventHandler(NamespaceManagerChildEvent event);
+    void OnTaskLockEventHandler(NamespaceManagerChildEvent event);
 
     /*
      * Clear all the state entries. Used only at process shutdown.
@@ -136,6 +144,9 @@ class NamespaceManager {
     std::string netns_cmd_;
     int netns_timeout_;
     WorkQueue<NamespaceManagerChildEvent> work_queue_;
+
+    NamespaceTaskQueue *clean_task_queue_;
+    bool lock_task_queues_;
 
     std::vector<NamespaceTaskQueue *> task_queues_;
     std::map<boost::uuids::uuid, ServiceInstance *> task_svc_instances_;
