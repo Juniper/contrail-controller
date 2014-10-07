@@ -68,6 +68,12 @@ class InstanceManager(object):
         instance_name = "__".join(proj_fq_name + [name])
         return instance_name
 
+    def _get_if_route_table_name(self, if_type, si_obj):
+        domain_name, proj_name = si_obj.get_parent_fq_name()
+        rt_name = si_obj.uuid + ' ' + if_type
+        rt_fq_name = [domain_name, proj_name, rt_name]
+        return rt_fq_name
+
     def _set_vm_db_info(self, inst_count, instance_name, vm_uuid,
                         state, vrouter=None, local_preference=None):
         if not vrouter:
@@ -108,9 +114,8 @@ class InstanceManager(object):
             static_routes = {'route':[]}
 
         try:
-            domain_name, proj_name = proj_obj.get_fq_name()
-            rt_name = si_obj.uuid + ' ' + nic['type']
-            rt_fq_name = [domain_name, proj_name, rt_name]
+            rt_fq_name = self._get_if_route_table_name(
+                nic['type'], si_obj)
             rt_obj = self._vnc_lib.interface_route_table_read(
                 fq_name=rt_fq_name)
             rt_obj.set_interface_route_table_routes(static_routes)
@@ -522,6 +527,37 @@ class VirtualMachineManager(InstanceManager):
             n_client = self._novaclient_get(proj_name, True)
             oper_func = getattr(n_client, oper)
             return oper_func(**kwargs)
+
+    def update_static_routes(self, si_obj):
+        # get service instance interface list
+        si_props = si_obj.get_service_instance_properties()
+        si_if_list = si_props.get_interface_list()
+        if not si_if_list:
+            return
+
+        st_list = si_obj.get_service_template_refs()
+        fq_name = st_list[0]['to']
+        st_obj = self._vnc_lib.service_template_read(fq_name=fq_name)
+        st_props = st_obj.get_service_template_properties()
+        st_if_list = st_props.get_interface_type()
+
+        for idx in range(0, len(si_if_list)):
+            si_if = si_if_list[idx]
+            static_routes = si_if.get_static_routes()
+            if not static_routes:
+                static_routes = {'route':[]}
+
+            # update static routes
+            try:
+                rt_fq_name = self._get_if_route_table_name(
+                    st_if_list[idx].get_service_interface_type(),
+                    si_obj)
+                rt_obj = self._vnc_lib.interface_route_table_read(
+                    fq_name=rt_fq_name)
+                rt_obj.set_interface_route_table_routes(static_routes)
+                self._vnc_lib.interface_route_table_update(rt_obj)
+            except NoIdError:
+                pass
 
 
 class NetworkNamespaceManager(InstanceManager):
