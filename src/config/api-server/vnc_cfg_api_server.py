@@ -348,7 +348,7 @@ class VncApiServer(VncApiServerGen):
         hostname = socket.gethostname()
         self._sandesh.init_generator(module_name, hostname,
                                      node_type_name, instance_id,
-                                     self._args.collectors, 
+                                     self._args.collectors,
                                      'vnc_api_server_context',
                                      int(self._args.http_server_port),
                                      ['cfgm_common'], self._disc)
@@ -420,7 +420,7 @@ class VncApiServer(VncApiServerGen):
         sysinfo_req = True
         config_node_ip = self.get_server_ip()
         cpu_info = vnc_cpu_info.CpuInfo(
-            self._sandesh.module(), self._sandesh.instance_id(), sysinfo_req, 
+            self._sandesh.module(), self._sandesh.instance_id(), sysinfo_req,
             self._sandesh, 60, config_node_ip)
         self._cpu_info = cpu_info
 
@@ -1217,6 +1217,13 @@ class VncApiServer(VncApiServerGen):
                                            uuid.UUID(obj_uuid),
                                            persist=False)
 
+            # TODO remove this when the generator will be adapted to
+            # be consistent with the post method
+            obj_type = obj_type.replace('_', '-')
+
+            # Ensure object has at least default permissions set
+            self._ensure_id_perms_present(obj_type, obj_dict)
+
             apiConfig = VncApiCommon()
             apiConfig.object_type = obj_type.replace('-', '_')
             apiConfig.identifier_name = fq_name_str
@@ -1307,7 +1314,7 @@ class VncApiServer(VncApiServerGen):
         except NoIdError:
             pass
 
-        # Ensure object has atleast default permissions set
+        # Ensure object has at least default permissions set
         self._ensure_id_perms_present(obj_type, obj_dict)
 
         # TODO check api + resource perms etc.
