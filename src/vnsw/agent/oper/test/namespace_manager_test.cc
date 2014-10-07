@@ -321,6 +321,7 @@ protected:
 
 TEST_F(NamespaceManagerTest, ExecTrue) {
     ns_manager_->Initialize(&database_, agent_signal_, "/bin/true", 1, 10);
+    task_util::WaitForIdle();
     boost::uuids::uuid id = AddServiceInstance("exec-true");
     EXPECT_FALSE(id.is_nil());
     task_util::WaitForIdle();

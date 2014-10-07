@@ -26,11 +26,15 @@ __docformat__ = "restructuredtext en"
 
 import argparse
 import netaddr
+import re
 import sys
 import uuid
 
 from contrail_vrouter_api.vrouter_api import ContrailVRouterApi
 from linux import ip_lib
+
+
+NETNS_PREFIX = 'vrouter-'
 
 
 def validate_uuid(val):
@@ -44,7 +48,6 @@ def validate_uuid(val):
 class NetnsManager(object):
     SNAT_RT_TABLES_ID = 42
     DEV_NAME_LEN = 14
-    NETNS_PREFIX = 'vrouter-'
     LEFT_DEV_PREFIX = 'int-'
     RIGH_DEV_PREFIX = 'gw-'
     TAP_PREFIX = 'veth'
@@ -53,7 +56,7 @@ class NetnsManager(object):
     def __init__(self, vm_uuid, nic_left, nic_right, root_helper='sudo',
             cfg_file=None, update=False):
         self.vm_uuid = vm_uuid
-        self.namespace = self.NETNS_PREFIX + self.vm_uuid
+        self.namespace = NETNS_PREFIX + self.vm_uuid
         self.nic_left = nic_left
         self.nic_right = nic_right
         self.root_helper = root_helper
@@ -201,6 +204,11 @@ class VRouterNetns(object):
     SOURCE_NAT = 'source-nat'
     LOAD_BALANCER = 'load-balancer'
     SERVICE_TYPES = [SOURCE_NAT, LOAD_BALANCER]
+    HEX_ELEM = '[0-9A-Fa-f]'
+    UUID_PATTERN = '-'.join([HEX_ELEM + '{8}', HEX_ELEM + '{4}',
+                            HEX_ELEM + '{4}', HEX_ELEM + '{4}',
+                            HEX_ELEM + '{12}'])
+    NS_MANGLING_PATTERN = ('%s%s' % (NETNS_PREFIX, self.UUID_PATTERN))
 
     def __init__(self, args_str=None):
         self.args = None
@@ -227,6 +235,9 @@ class VRouterNetns(object):
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
         subparsers = parser.add_subparsers()
+
+        clean_parser = subparsers.add_parser('clean')
+        create_parser.set_defaults(func=self.clean)
 
         create_parser = subparsers.add_parser('create')
         create_parser.add_argument(
@@ -290,6 +301,23 @@ class VRouterNetns(object):
         destroy_parser.set_defaults(func=self.destroy)
 
         self.args = parser.parse_args(remaining_argv)
+
+    def clean(self):
+        candidates = [ns for ns in
+                      ip_lib.IPWrapper.get_namespaces(self.args.root_helper)
+                      if re.match(NS_MANGLING_PATTERN, ns)]
+
+        if candidates:
+            time.sleep(2)
+            for namespace in candidates:
+                try:
+                    ip = ip_lib.IPWrapper(self.args.root_helper, namespace)
+                    for device in ip.get_devices(exclude_loopback=True):
+                        unplug_device(conf, device)
+                    ip.garbage_collect_namespace()
+                except Exception:
+                    raise ValueError('Error unable to destroy namespace: %s'),
+                                     namespace)
 
     def create(self):
         netns_name = validate_uuid(self.args.vm_id)

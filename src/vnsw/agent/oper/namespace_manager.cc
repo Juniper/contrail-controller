@@ -30,6 +30,7 @@ NamespaceManager::NamespaceManager(EventManager *evm)
           netns_timeout_(-1),
           work_queue_(TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0,
                       boost::bind(&NamespaceManager::DequeueEvent, this, _1)),
+          clean_task_queue_(NULL), lock_task_queues_(false),
           loadbalancer_config_path_(loadbalancer_config_path_default),
           haproxy_(new LoadbalancerHaproxy()) {
 }
@@ -69,6 +70,8 @@ void NamespaceManager::Initialize(DB *database, AgentSignal *signal,
         netns_timeout_ = netns_timeout;
     }
 
+    CleanNetNS();
+
     int workers = kWorkersDefault;
     if (netns_workers > 0) {
        workers = netns_workers;
@@ -100,27 +103,46 @@ void NamespaceManager::OnTaskTimeoutEventHandler(NamespaceManagerChildEvent even
 
 void NamespaceManager::SigChlgEventHandler(NamespaceManagerChildEvent event) {
     /*
-      * check the head of each taskqueue in order to check whether there is
-      * a task with the corresponding pid, if present dequeue it.
-      */
-     for (std::vector<NamespaceTaskQueue *>::iterator iter = task_queues_.begin();
-              iter != task_queues_.end(); ++iter) {
-         NamespaceTaskQueue *task_queue = *iter;
-         if (!task_queue->Empty()) {
-             NamespaceTask *task = task_queue->Front();
-             if (task->pid() == event.pid) {
-                 UpdateStateStatusType(task, event.status);
+     * Check if the event correspond to the clean task, clear it and unlock
+     * taskqueue if it's the case.
+     */
+    if (!clean_task_queue_->Empty()) {
+        NamespaceTask *task = clean_task_queue_->Front();
+        if (task->pid() == event.pid) {
+            clean_task_queue_->Clear();
+            delete clean_task_queue_;
 
-                 task_queue->Pop();
-                 delete task;
+            NamespaceManagerChildEvent event;
+            event.type = OnLockTaskQueues;
+            event.lock_task_queues = false;
+            work_queue_.Enqueue(event);
+            ScheduleNextTasks();
+            return;
+        }
+    }
 
-                 task_queue->StopTimer();
+    /*
+     * check the head of each taskqueue in order to check whether there is
+     * a task with the corresponding pid, if present dequeue it.
+     */
+    for (std::vector<NamespaceTaskQueue *>::iterator iter = task_queues_.begin();
+          iter != task_queues_.end(); ++iter) {
+        NamespaceTaskQueue *task_queue = *iter;
+        if (!task_queue->Empty()) {
+            NamespaceTask *task = task_queue->Front();
+            if (task->pid() == event.pid) {
+                UpdateStateStatusType(task, event.status);
 
-                 ScheduleNextTask(task_queue);
-                 return;
-             }
-         }
-     }
+                task_queue->Pop();
+                delete task;
+
+                task_queue->StopTimer();
+
+                ScheduleNextTask(task_queue);
+                return;
+            }
+        }
+    }
 }
 
 void NamespaceManager::OnErrorEventHandler(NamespaceManagerChildEvent event) {
@@ -135,6 +157,10 @@ void NamespaceManager::OnErrorEventHandler(NamespaceManagerChildEvent event) {
     }
 }
 
+void NamespaceManager::OnTaskLockEventHandler(NamespaceManagerChildEvent event) {
+    lock_task_queues_ = event.lock_task_queues;
+}
+
 bool NamespaceManager::DequeueEvent(NamespaceManagerChildEvent event) {
     if (event.type == SigChldEvent) {
         SigChlgEventHandler(event);
@@ -142,6 +168,8 @@ bool NamespaceManager::DequeueEvent(NamespaceManagerChildEvent event) {
         OnErrorEventHandler(event);
     } else if (event.type == OnTaskTimeoutEvent) {
         OnTaskTimeoutEventHandler(event);
+    } else if (event.type == OnLockTaskQueues) {
+        OnTaskLockEventHandler(event);
     }
 
     return true;
@@ -263,6 +291,11 @@ NamespaceTaskQueue *NamespaceManager::GetTaskQueue(
 
 bool NamespaceManager::StartTask(NamespaceTaskQueue *task_queue,
                                  NamespaceTask *task) {
+    if (lock_task_queues_ && task_queue != clean_task_queue_) {
+        /* Cannot run task during the clean task */
+        return false;
+    }
+
     pid_t pid = task->Run();
     NamespaceState *state = GetState(task);
     if (state != NULL) {
@@ -322,6 +355,13 @@ void NamespaceManager::ScheduleNextTask(NamespaceTaskQueue *task_queue) {
     }
 }
 
+void NamespaceManager::ScheduleNextTasks() {
+    for (std::vector<NamespaceTaskQueue *>::iterator iter = task_queues_.begin();
+         iter != task_queues_.end(); ++iter) {
+        ScheduleNextTask(*iter);
+    }
+}
+
 ServiceInstance *NamespaceManager::GetSvcInstance(
     const boost::uuids::uuid &uuid) const {
     std::map<boost::uuids::uuid, ServiceInstance*>::const_iterator iter =
@@ -363,6 +403,28 @@ void NamespaceManager::UnregisterSvcInstance(ServiceInstance *svc_instance) {
         }
     }
 }
+
+void NamespaceManager::CleanNetNS() {
+    std::stringstream cmd_str;
+
+    if (netns_cmd_.length() == 0) {
+        return;
+    }
+    cmd_str << netns_cmd_ << " clean";
+
+    NamespaceTask *task = new NamespaceTask(cmd_str.str(), Start, evm_);
+
+    clean_task_queue_ = new NamespaceTaskQueue(evm_);
+    assert(clean_task_queue_);
+    clean_task_queue_->set_on_timeout_cb(
+                           boost::bind(&NamespaceManager::OnTaskTimeout,
+                                       this, _1));
+    lock_task_queues_ = true;
+    clean_task_queue_->Push(task);
+    ScheduleNextTask(clean_task_queue_);
+    LOG(DEBUG, "NetNS run command queued: " << task->cmd());
+}
+
 
 void NamespaceManager::StartNetNS(ServiceInstance *svc_instance,
                                   NamespaceState *state, bool update) {
