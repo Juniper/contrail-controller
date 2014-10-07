@@ -351,7 +351,7 @@ class VncApiServer(VncApiServerGen):
         hostname = socket.gethostname()
         self._sandesh.init_generator(module_name, hostname,
                                      node_type_name, instance_id,
-                                     self._args.collectors, 
+                                     self._args.collectors,
                                      'vnc_api_server_context',
                                      int(self._args.http_server_port),
                                      ['cfgm_common'], self._disc)
@@ -423,7 +423,7 @@ class VncApiServer(VncApiServerGen):
         sysinfo_req = True
         config_node_ip = self.get_server_ip()
         cpu_info = vnc_cpu_info.CpuInfo(
-            self._sandesh.module(), self._sandesh.instance_id(), sysinfo_req, 
+            self._sandesh.module(), self._sandesh.instance_id(), sysinfo_req,
             self._sandesh, 60, config_node_ip)
         self._cpu_info = cpu_info
 
@@ -1015,35 +1015,6 @@ class VncApiServer(VncApiServerGen):
         self._db_conn = db_conn
     # end _db_connect
 
-    def _ensure_id_perms_present(self, obj_type, obj_dict):
-        """
-        Called at resource creation to ensure that id_perms is present in obj
-        """
-        new_id_perms = self._get_default_id_perms(obj_type)
-
-        if (('id_perms' not in obj_dict) or
-                (obj_dict['id_perms'] is None)):
-            obj_dict['id_perms'] = new_id_perms
-            return
-
-        # Start from default and update from obj_dict
-        req_id_perms = obj_dict['id_perms']
-        for key in ('enable', 'description', 'user_visible'):
-            if key in req_id_perms:
-                new_id_perms[key] = req_id_perms[key]
-        # TODO handle perms present in req_id_perms
-
-        obj_dict['id_perms'] = new_id_perms
-    # end _ensure_id_perms_present
-
-    def _get_default_id_perms(self, obj_type):
-        id_perms = copy.deepcopy(Provision.defaults.perms[obj_type])
-        id_perms_json = json.dumps(id_perms, default=lambda o: dict((k, v)
-                                   for k, v in o.__dict__.iteritems()))
-        id_perms_dict = json.loads(id_perms_json)
-        return id_perms_dict
-    # end _get_default_id_perms
-
     def _db_init_entries(self):
         # create singleton defaults if they don't exist already in db
         glb_sys_cfg = self._create_singleton_entry(
@@ -1220,6 +1191,13 @@ class VncApiServer(VncApiServerGen):
                                            uuid.UUID(obj_uuid),
                                            persist=False)
 
+            # TODO remove this when the generator will be adapted to
+            # be consistent with the post method
+            obj_type = obj_type.replace('_', '-')
+
+            # Ensure object has at least default permissions set
+            self._permissions.ensure_id_perms_present(obj_type, obj_dict)
+
             apiConfig = VncApiCommon()
             apiConfig.object_type = obj_type.replace('-', '_')
             apiConfig.identifier_name = fq_name_str
@@ -1330,8 +1308,8 @@ class VncApiServer(VncApiServerGen):
         except NoIdError:
             pass
 
-        # Ensure object has atleast default permissions set
-        self._ensure_id_perms_present(obj_type, obj_dict)
+        # Ensure object has at least default permissions set
+        self._permissions.ensure_id_perms_present(obj_type, obj_dict)
 
         # TODO check api + resource perms etc.
 

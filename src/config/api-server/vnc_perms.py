@@ -1,6 +1,7 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+import copy
 import sys
 import json
 import string
@@ -24,6 +25,49 @@ class VncPermissions(object):
     def validate_user_visible_perm(self, id_perms, is_admin):
         return id_perms['user_visible'] is not False or is_admin
     # end
+
+    def ensure_id_perms_present(self, obj_type, obj_dict):
+        """
+        Called at resource creation to ensure that id_perms is present in obj
+        """
+        # retrieve object and permissions
+        id_perms = self._get_default_id_perms(obj_type)
+
+        if (('id_perms' not in obj_dict) or
+                (obj_dict['id_perms'] is None)):
+            obj_dict['id_perms'] = id_perms
+            return
+
+        # retrieve the previous version of the id_perms
+        # from the database and update the id_perms with
+        # them.
+        if 'uuid' in obj_dict['id_perms'] and obj_dict['id_perms']['uuid']:
+            try:
+                old_id_perms = self._server_mgr._db_conn.uuid_to_obj_perms(
+                    obj_dict['id_perms']['uuid'])
+                for field, value in old_id_perms.items():
+                    if value is not None:
+                        id_perms[field] = value
+            except NoIdError:
+                pass
+
+        # Start from default and update from obj_dict
+        req_id_perms = obj_dict['id_perms']
+        for key in ('enable', 'description', 'user_visible'):
+            if key in req_id_perms:
+                id_perms[key] = req_id_perms[key]
+        # TODO handle perms present in req_id_perms
+
+        obj_dict['id_perms'] = id_perms
+    # end _ensure_id_perms_present
+
+    def _get_default_id_perms(self, obj_type):
+        id_perms = copy.deepcopy(Provision.defaults.perms[obj_type])
+        id_perms_json = json.dumps(id_perms, default=lambda o: dict((k, v)
+                                   for k, v in o.__dict__.iteritems()))
+        id_perms_dict = json.loads(id_perms_json)
+        return id_perms_dict
+    # end _get_default_id_perms
 
     def validate_perms(self, request, uuid, mode=PERMS_R):
         # retrieve object and permissions
