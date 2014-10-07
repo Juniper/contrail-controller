@@ -151,7 +151,8 @@ bool ServiceChain::Match(BgpServer *server, BgpTable *table,
                !connected_table_unregistered() &&
                is_connected_route(route)) {
         if (!deleted) {
-            if (route->BestPath() == NULL || !route->BestPath()->IsFeasible()) {
+            if (!route->IsValid() ||
+                route->BestPath()->GetSource() != BgpPath::BGP_XMPP) {
                 deleted = true;
             }
         }
