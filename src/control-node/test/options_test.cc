@@ -463,6 +463,12 @@ TEST_F(OptionsTest, MultitokenVector) {
                      collector_server_list);
 }
 
+TEST_F(OptionsTest, UnresolvableHostName) {
+    hostname_ = "uresolvable_host";
+    host_ip_ = GetHostIp(evm_.io_service(), hostname_);
+    EXPECT_EQ("", host_ip_);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     int result = RUN_ALL_TESTS();
