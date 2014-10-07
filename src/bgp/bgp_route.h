@@ -53,9 +53,11 @@ public:
 
     virtual void BuildProtoPrefix(BgpProtoPrefix *prefix,
                                   const BgpAttr *attr = NULL,
-                                  uint32_t label = 0) const = 0;
+                                  uint32_t label = 0) const {
+    }
     virtual void BuildBgpProtoNextHop(std::vector<uint8_t> &nh,
-                                      IpAddress nexthop) const = 0;
+                                      IpAddress nexthop) const {
+    }
 
     // number of paths
     size_t count() const;

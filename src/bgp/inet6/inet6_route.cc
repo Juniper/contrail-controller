@@ -12,14 +12,6 @@ using std::copy;
 using std::string;
 using std::vector;
 
-Inet6Prefix::Inet6Prefix(const BgpProtoPrefix &prefix)
-        : prefixlen_(prefix.prefixlen) {
-    assert(prefix.prefixlen <= kMaxV6PrefixLen);
-    Ip6Address::bytes_type bt = { { 0 } };
-    copy(prefix.prefix.begin(), prefix.prefix.end(), bt.begin());
-    ip6_addr_ = Ip6Address(bt);
-}
-
 string Inet6Prefix::ToString() const {
     string repr(ip6_addr().to_string());
     repr.append("/" + integerToString(prefixlen()));
@@ -114,25 +106,6 @@ void Inet6Route::SetKey(const DBRequestKey *reqkey) {
     const Inet6Table::RequestKey *key =
         static_cast<const Inet6Table::RequestKey *>(reqkey);
     prefix_ = key->prefix;
-}
-
-// attr and label unused
-void Inet6Route::BuildProtoPrefix(BgpProtoPrefix *prefix,
-                                  const BgpAttr *attr,
-                                  uint32_t label) const {
-    prefix->prefixlen = prefix_.prefixlen();
-    prefix->prefix.clear();
-    const Ip6Address::bytes_type &addr_bytes = prefix_.ip6_addr().to_bytes();
-    int num_bytes = (prefix->prefixlen + 7) / 8;
-    copy(addr_bytes.begin(), addr_bytes.begin() + num_bytes,
-         back_inserter(prefix->prefix));
-}
-
-void Inet6Route::BuildBgpProtoNextHop(vector<uint8_t> &dest_nh,
-                                      IpAddress src_nh) const {
-    dest_nh.resize(sizeof(Ip6Address::bytes_type));
-    const Ip6Address::bytes_type &addr_bytes = src_nh.to_v6().to_bytes();
-    copy(addr_bytes.begin(), addr_bytes.end(), dest_nh.begin());
 }
 
 // Routines for class Inet6Masks

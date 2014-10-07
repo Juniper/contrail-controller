@@ -97,10 +97,6 @@ public:
     virtual void SetKey(const DBRequestKey *key) { }
     virtual KeyPtr GetDBRequestKey() const { return KeyPtr(NULL); }
     virtual bool IsLess(const DBEntry &rhs) const { return true; }
-    virtual void BuildProtoPrefix(BgpProtoPrefix *prefix,
-        const BgpAttr *attr = NULL, uint32_t label = 0) const { }
-    virtual void BuildBgpProtoNextHop(std::vector<uint8_t> &nh,
-                                      IpAddress nexthop) const { }
     virtual u_int16_t Afi() const { return 0; }
     virtual u_int8_t Safi() const { return 0; }
 };

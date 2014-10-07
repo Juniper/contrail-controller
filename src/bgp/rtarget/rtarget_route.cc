@@ -5,7 +5,9 @@
 #include "bgp/rtarget/rtarget_route.h"
 #include "bgp/rtarget/rtarget_table.h"
 
-using namespace std;
+using std::copy;
+using std::string;
+using std::vector;
 
 RTargetRoute::RTargetRoute(const RTargetPrefix &prefix)
     : prefix_(prefix) {
@@ -32,11 +34,11 @@ void RTargetRoute::BuildProtoPrefix(BgpProtoPrefix *prefix,
     prefix_.BuildProtoPrefix(prefix);
 }
 
-void RTargetRoute::BuildBgpProtoNextHop(std::vector<uint8_t> &nh, 
+void RTargetRoute::BuildBgpProtoNextHop(vector<uint8_t> &nh,
                                         IpAddress nexthop) const {
     nh.resize(4);
     const Ip4Address::bytes_type &addr_bytes = nexthop.to_v4().to_bytes();
-    std::copy(addr_bytes.begin(), addr_bytes.end(), nh.begin());
+    copy(addr_bytes.begin(), addr_bytes.end(), nh.begin());
 }
 
 DBEntryBase::KeyPtr RTargetRoute::GetDBRequestKey() const {
