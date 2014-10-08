@@ -27,6 +27,8 @@ import bottle
 bottle.catchall=False
 
 import inspect
+import novaclient
+import novaclient.client
 
 def lineno():
     """Returns the current line number in our program."""
@@ -276,6 +278,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         self._api_svr_app = TestApp(bottle.app(), extra_environ=extra_env)
         self._vnc_lib = VncApi('u', 'p', api_server_host=self._api_server_ip,
                                api_server_port=self._api_server_port)
+        self._vnc_lib._headers['X-Role'] = 'admin'
 
         self._api_server_session = requests.Session()
         adapter = requests.adapters.HTTPAdapter()

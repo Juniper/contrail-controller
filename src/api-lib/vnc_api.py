@@ -369,6 +369,8 @@ class VncApi(VncApiClientGen):
             elif status == 503 or status == 504:
                 time.sleep(1)
                 continue
+            elif status == 400:
+                raise BadRequest(status, content)
             else:  # Unknown Error
                 raise HttpError(status, content)
         # end while True
