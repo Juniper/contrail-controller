@@ -478,7 +478,7 @@ void AgentXmppChannel::ReceiveV4V6Update(XmlPugi *pugi) {
                             "Error parsing v6 route address");
                     return;
                 }
-                AddInet6Route(vrf_name, prefix_addr, prefix_len, item);
+                AddRoute(vrf_name, prefix_addr, prefix_len, item);
             } else {
                 CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
                                  "Error updating route, Unknown IP family");
@@ -720,10 +720,18 @@ void AgentXmppChannel::AddEvpnRoute(std::string vrf_name,
     }
 }
 
-void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
+void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
                                       uint32_t prefix_len, ItemType *item) {
-    InetUnicastAgentRouteTable *rt_table =
-        agent_->vrf_table()->GetInet4UnicastRouteTable(vrf_name);
+    InetUnicastAgentRouteTable *rt_table = NULL;
+
+    if (prefix_addr.is_v4()) {
+        rt_table = agent_->vrf_table()->GetInet4UnicastRouteTable(vrf_name);
+    } else if (prefix_addr.is_v6()) {
+        rt_table = agent_->vrf_table()->GetInet6UnicastRouteTable(vrf_name);
+    }
+    if (rt_table == NULL) {
+        return;
+    }
 
     boost::system::error_code ec;
     string nexthop_addr = item->entry.next_hops.next_hop[0].address;
@@ -790,6 +798,12 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
                                              prefix_addr, prefix_len,
                                              static_cast<LocalVmRoute *>(local_vm_route));
             } else if (interface->type() == Interface::INET) {
+
+                if (!prefix_addr.is_v4()) {
+                    CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                    "MPLS label inet interface type not supported for non IPv4");
+                    return;
+                }
                 InetInterfaceKey intf_key(interface->name());
                 ControllerInetInterfaceRoute *inet_interface_route =
                     new ControllerInetInterfaceRoute(intf_key, label,
@@ -798,7 +812,7 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
                                                      unicast_sequence_number(),
                                                      this);
                 rt_table->AddInetInterfaceRouteReq(bgp_peer, vrf_name,
-                                                prefix_addr, prefix_len,
+                                                prefix_addr.to_v4(), prefix_len,
                                                 inet_interface_route);
             } else {
                 // Unsupported scenario
@@ -811,6 +825,11 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
             }
 
         case NextHop::VLAN: {
+            if (!prefix_addr.is_v4()) {
+                 CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                                  "VLAN NH not supported for non IPv4");
+                 return;
+            }
             const VlanNH *vlan_nh = static_cast<const VlanNH *>(nh);
             VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE,
                                     vlan_nh->GetIfUuid(), "");
@@ -822,12 +841,17 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
                                           path_preference,
                                           unicast_sequence_number(),
                                           this);
-            rt_table->AddVlanNHRouteReq(bgp_peer, vrf_name, prefix_addr,
+            rt_table->AddVlanNHRouteReq(bgp_peer, vrf_name, prefix_addr.to_v4(),
                                         prefix_len, data);
             break;
             }
         case NextHop::COMPOSITE: {
-            AddEcmpRoute(vrf_name, prefix_addr, prefix_len, item);
+            if (!prefix_addr.is_v4()) {
+                 CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                                  "Composite NH not supported for non IPv4");
+                 return;
+            }
+            AddEcmpRoute(vrf_name, prefix_addr.to_v4(), prefix_len, item);
             break;
             }
 
@@ -838,142 +862,17 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
     }
 }
 
-void AgentXmppChannel::AddRemoteInet6Route(string vrf_name, 
-         Ip6Address prefix_addr, uint32_t prefix_len, ItemType *item) { 
-
-    InetUnicastAgentRouteTable *rt_table =
-        agent_->vrf_table()->GetInet6UnicastRouteTable(vrf_name);
-
-    boost::system::error_code ec; 
-    string nexthop_addr = item->entry.next_hops.next_hop[0].address;
-    uint32_t label = item->entry.next_hops.next_hop[0].label;
-    IpAddress addr = IpAddress::from_string(nexthop_addr, ec);
-    TunnelType::TypeBmap encap = GetTypeBitmap
-        (item->entry.next_hops.next_hop[0].tunnel_encapsulation_list);
-
-    if (ec.value() != 0) {
-        CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                         "Error parsing nexthop ip address on adding v6 route");
-        return;
-    }
-
-    PathPreference::Preference preference = PathPreference::LOW;
-    if (item->entry.local_preference == PathPreference::HIGH) {
-        preference = PathPreference::HIGH;
-    }
-    PathPreference path_preference(item->entry.sequence_number, preference,
-                                   false, false);
-
-    CONTROLLER_TRACE(RouteImport, GetBgpPeerName(), vrf_name, 
-                     prefix_addr.to_string(), prefix_len, 
-                     addr.to_v4().to_string(), label, 
-                     item->entry.virtual_network);
-
-    if (agent_->router_id() != addr.to_v4()) {
-        ControllerVmRoute *data =
-            ControllerVmRoute::MakeControllerVmRoute(bgp_peer_id(),
-                               agent_->fabric_vrf_name(), agent_->router_id(),
-                               vrf_name, addr.to_v4(), encap, label,
-                               item->entry.virtual_network ,
-                               item->entry.security_group_list.security_group,
-                               path_preference);
-        rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name, prefix_addr,
-                                      prefix_len, data);
-        return;
-    }
-
-    MplsLabel *mpls = agent_->mpls_table()->FindMplsLabel(label);
-    if (mpls != NULL) {
-        const NextHop *nh = mpls->nexthop();
-        switch(nh->GetType()) {
-        case NextHop::INTERFACE: {
-            const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
-            const Interface *interface = intf_nh->GetInterface();
-            if (interface == NULL) {
-                break;
-            }
-
-            VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE,
-                                    intf_nh->GetIfUuid(), "");
-            BgpPeer *bgp_peer = bgp_peer_id();
-            if (interface->type() == Interface::VM_INTERFACE) {
-                ControllerLocalVmRoute *local_vm_route =
-                    new ControllerLocalVmRoute(intf_key, label,
-                                               VxLanTable::kInvalidvxlan_id, false,
-                                               item->entry.virtual_network,
-                                               InterfaceNHFlags::INET4,
-                                               item->entry.security_group_list.security_group,
-                                               path_preference,
-                                               unicast_sequence_number(),
-                                               this);
-                rt_table->AddLocalVmRouteReq(bgp_peer, vrf_name,
-                                             prefix_addr, prefix_len,
-                                             static_cast<LocalVmRoute *>(local_vm_route));
-                /*rt_table->AddLocalVmRouteReq(bgp_peer_id(), vrf_name, prefix_addr,
-                                             prefix_len, intf_nh->GetIfUuid(),
-                                             item->entry.virtual_network, label,
-                                             item->entry.security_group_list.security_group,
-                                             false, path_preference);*/
-            } else if (interface->type() == Interface::INET) {
-                CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                                 "MPLS label inet interface type, not supported for V6");
-                break;
-#if 0
-                rt_table->AddInetInterfaceRoute(bgp_peer_id(), vrf_name,
-                                                 prefix_addr, prefix_len,
-                                                 interface->name(),
-                                                 label,
-                                                 item->entry.virtual_network);
-#endif
-            } else {
-                // Unsupported scenario
-                CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                                 "MPLS label points to invalid interface type");
-                break;
-            }
-
-            break;
-            }
-
-#if 0
-        case NextHop::VLAN: {
-            const VlanNH *vlan_nh = static_cast<const VlanNH *>(nh);
-            rt_table->AddVlanNHRouteReq(bgp_peer_id(), vrf_name, prefix_addr,
-                                        prefix_len, vlan_nh->GetIfUuid(),
-                                        vlan_nh->GetVlanTag(), label,
-                                        item->entry.virtual_network,
-                                        item->entry.security_group_list.security_group);
-            break;
-            }
-        case NextHop::COMPOSITE: {
-            AddEcmpRoute(vrf_name, prefix_addr, prefix_len, item);
-            break;
-            }
-#endif
-
-        default:
-            CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                             "MPLS label points to invalid NH");
-        }
-    }
-}
-
-void AgentXmppChannel::AddRoute(string vrf_name, Ip4Address prefix_addr,
+void AgentXmppChannel::AddRoute(string vrf_name, IpAddress prefix_addr,
                                 uint32_t prefix_len, ItemType *item) {
     if (item->entry.next_hops.next_hop.size() > 1) {
-        AddEcmpRoute(vrf_name, prefix_addr, prefix_len, item);
+        if (!prefix_addr.is_v4()) {
+            CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                             "Multiple NH not supported for non IPv4");
+            return;
+        }
+        AddEcmpRoute(vrf_name, prefix_addr.to_v4(), prefix_len, item);
     } else {
         AddRemoteRoute(vrf_name, prefix_addr, prefix_len, item);
-    }
-}
-
-void AgentXmppChannel::AddInet6Route(string vrf_name, Ip6Address prefix_addr, 
-                                     uint32_t prefix_len, ItemType *item) {
-    if (item->entry.next_hops.next_hop.size() > 1) {
-        CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                         "Multiple NH for ipv6 not supported");
-    } else {
-        AddRemoteInet6Route(vrf_name, prefix_addr, prefix_len, item);
     }
 }
 

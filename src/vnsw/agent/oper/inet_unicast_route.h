@@ -15,7 +15,7 @@ class InetInterfaceRoute;
 class InetUnicastRouteKey : public AgentRouteKey {
 public:
     InetUnicastRouteKey(const Peer *peer, const string &vrf_name,
-                         const IpAddress &dip, uint8_t plen) :
+                        const IpAddress &dip, uint8_t plen) :
         AgentRouteKey(peer, vrf_name), dip_(dip), plen_(plen) { }
     virtual ~InetUnicastRouteKey() { }
 
