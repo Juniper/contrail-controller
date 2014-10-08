@@ -36,6 +36,9 @@
 #include <discovery/client/discovery_client.h>
 #include "boost/python.hpp"
 
+#include "analytics/stream_manager.h"
+#include "analytics/stream_handler_factory.h"
+
 using namespace std;
 using namespace boost::asio::ip;
 namespace opt = boost::program_options;
@@ -331,6 +334,16 @@ int main(int argc, char *argv[])
     // XXX Disable logging -- for test purposes only
     if (options.log_disable()) {
         SetLoggingDisabled(true);
+    }
+
+    {
+        using analytics::StreamHandlerFactory;
+        using analytics::OutputStreamManager;
+        StreamHandlerFactory::set_event_manager(a_evm);
+        OutputStreamManager &stream_manager =
+            vsc.Analytics()->GetCollector()->GetOutputStreamManager();
+        OutputStreamManager::INIConfigReader stream_config_reader(&stream_manager);
+        stream_config_reader.Configure(options.streaming_server_config_dir());
     }
 
     //Publish services to Discovery Service Servee
