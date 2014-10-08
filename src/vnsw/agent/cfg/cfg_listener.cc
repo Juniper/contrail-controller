@@ -409,7 +409,7 @@ IFMapNode *CfgListener::FindAdjacentIFMapNode(const Agent *agent,
             continue;
         }
 
-        if (strcmp(node->table()->Typename(), type) == 0) {
+        if (strcmp(adj_node->table()->Typename(), type) == 0) {
             return adj_node;
         }
     }

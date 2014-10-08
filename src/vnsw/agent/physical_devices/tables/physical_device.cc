@@ -72,17 +72,17 @@ void PhysicalDeviceEntry::SetKey(const DBRequestKey *key) {
 bool PhysicalDeviceEntry::Copy(const PhysicalDeviceData *data) {
     bool ret = false;
 
-    if (name_ == data->name_) {
+    if (name_ != data->name_) {
         name_ = data->name_;
         ret = true;
     }
 
-    if (vendor_ == data->vendor_) {
+    if (vendor_ != data->vendor_) {
         vendor_ = data->vendor_;
         ret = true;
     }
 
-    if (ip_ == data->ip_) {
+    if (ip_ != data->ip_) {
         ip_ = data->ip_;
         ret = true;
     }
