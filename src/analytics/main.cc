@@ -36,6 +36,9 @@
 #include <discovery/client/discovery_client.h>
 #include "boost/python.hpp"
 
+#include "analytics/stream_handler.h"
+#include "analytics/tcp_output_stream.h"
+
 using namespace std;
 using namespace boost::asio::ip;
 namespace opt = boost::program_options;
@@ -332,6 +335,14 @@ int main(int argc, char *argv[])
     if (options.log_disable()) {
         SetLoggingDisabled(true);
     }
+
+    boost::asio::ip::tcp::endpoint test_fluentd(
+        boost::asio::ip::address::from_string("127.0.0.1"), 50000);
+
+    analytics::OutputStreamHandler *tcp_os =
+        new analytics::TCPOutputStream(a_evm, test_fluentd);
+
+    vsc.Analytics()->GetCollector()->GetOutputStreamManager().addHandler(tcp_os);
 
     //Publish services to Discovery Service Servee
     DiscoveryServiceClient *ds_client = NULL;

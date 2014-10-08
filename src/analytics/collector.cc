@@ -71,7 +71,8 @@ Collector::Collector(EventManager *evm, short server_port,
         analytics_ttl_(analytics_ttl),
         db_task_id_(TaskScheduler::GetInstance()->GetTaskId(kDbTask)),
         db_queue_wm_info_(kDbQueueWaterMarkInfo),
-        sm_queue_wm_info_(kSmQueueWaterMarkInfo) {
+        sm_queue_wm_info_(kSmQueueWaterMarkInfo),
+        output_stream_mgr_("analytics::collector::output_stream_mgr") {
 
     if (!task_policy_set_) {
         TaskPolicy db_task_policy = boost::assign::list_of
@@ -157,6 +158,9 @@ bool Collector::ReceiveResourceUpdate(SandeshSession *session,
 
 bool Collector::ReceiveSandeshMsg(SandeshSession *session,
                                   const SandeshMessage *msg, bool rsc) {
+    output_stream_mgr_.append(
+        static_cast<const SandeshXMLMessage *>(msg)->GetMessageNode());
+
     boost::uuids::uuid unm(umn_gen_());
 
     VizMsg vmsg(msg, unm);
