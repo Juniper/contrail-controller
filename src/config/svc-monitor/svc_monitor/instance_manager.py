@@ -486,20 +486,48 @@ class VirtualMachineManager(InstanceManager):
 
     def delete_service(self, vm_uuid, proj_name=None):
         try:
+            self._vnc_lib.virtual_machine_delete(id=vm_uuid)
+        except (NoIdError, RefsExistError):
+            pass
+
+        try:
             self.novaclient_oper('servers', 'find', proj_name,
                 id=vm_uuid).delete()
         except nc_exc.NotFound:
             raise KeyError
 
     def check_service(self, si_obj, proj_name=None):
+        status = 'ACTIVE'
+        vm_list = {}
         vm_back_refs = si_obj.get_virtual_machine_back_refs()
         for vm_back_ref in vm_back_refs or []:
-            status = self.novaclient_oper('servers', 'find', proj_name,
-                id=vm_back_ref['uuid']).status
-            if status == 'ERROR':
-                return status
+            try:
+                vm = self.novaclient_oper('servers', 'find', proj_name,
+                    id=vm_back_ref['uuid'])
+                vm_list[vm.name] = vm
+            except nc_exc.NotFound:
+                self._vnc_lib.virtual_machine_delete(id=vm_back_ref['uuid'])
+            except (NoIdError, RefsExistError):
+                pass
 
-        return 'ACTIVE'
+        si_props = si_obj.get_service_instance_properties()
+        max_instances = si_props.get_scale_out().get_max_instances()
+        if max_instances > len(vm_list):
+            return 'ERROR'
+        elif max_instances < len(vm_list):
+            for vm_name, vm_info in vm_list.iteritems():
+                self.delete_service(vm_info.id, proj_name)
+            return 'ERROR'
+
+        for inst_count in range(0, max_instances):
+            instance_name = self._get_instance_name(si_obj, inst_count)
+            if instance_name not in vm_list.keys():
+                status = 'ERROR'
+            elif vm_list[instance_name].status == 'ERROR':
+                self.delete_service(vm_list[instance_name].id, proj_name)
+                status = 'ERROR'
+
+        return status
 
     def _novaclient_get(self, proj_name, reauthenticate=False):
         # return cache copy when reauthenticate is not requested
