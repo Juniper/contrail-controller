@@ -32,6 +32,7 @@
 #include "generator.h"
 #include <string>
 #include "collector_uve_types.h"
+#include "stream_handler.h"
 
 class DbHandler;
 class Ruleeng;
@@ -163,6 +164,8 @@ private:
     static const int kDefaultSessionBufferSize = 16 * 1024;
 
     static DiscoveryServiceClient *ds_client_;
+
+    analytics::OutputStreamManager output_stream_mgr_;
 
     DISALLOW_COPY_AND_ASSIGN(Collector);
 };
