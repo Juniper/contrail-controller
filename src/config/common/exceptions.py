@@ -19,6 +19,18 @@ class TimeOutError(VncError):
 # end class TimeOutError
 
 
+class BadRequest(Exception):
+    def __init__(self, status_code, content):
+        self.status_code = status_code
+        self.content = content
+    # end __init__
+
+    def __str__(self):
+        return 'HTTP Status: %s Content: %s' % (self.status_code, self.content)
+    # end __str__
+# end class BadRequest
+
+
 class NoIdError(VncError):
 
     def __init__(self, unknown_id):
