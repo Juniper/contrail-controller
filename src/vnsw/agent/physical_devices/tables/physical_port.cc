@@ -53,7 +53,7 @@ bool PhysicalPortEntry::Copy(PhysicalPortTable *table,
                              const PhysicalPortData *data) {
     bool ret = false;
 
-    if (name_ == data->name_) {
+    if (name_ != data->name_) {
         name_ = data->name_;
         ret = true;
     }

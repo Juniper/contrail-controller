@@ -57,7 +57,7 @@ bool LogicalPortEntry::CopyBase(LogicalPortTable *table,
                                 const LogicalPortData *data) {
     bool ret = false;
 
-    if (name_ == data->name_) {
+    if (name_ != data->name_) {
         name_ = data->name_;
         ret = true;
     }
@@ -194,7 +194,7 @@ class LogicalPortSandesh : public AgentSandesh {
  private:
     DBTable *AgentGetTable() {
         return static_cast<DBTable *>
-            (Agent::GetInstance()->device_manager()->physical_port_table());
+            (Agent::GetInstance()->device_manager()->logical_port_table());
     }
     void Alloc() {
         resp_ = new SandeshLogicalPortListResp();
