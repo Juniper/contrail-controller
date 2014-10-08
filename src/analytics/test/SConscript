@@ -40,6 +40,16 @@ vizd_flow_test = env.Program('vizd_flow_test',
                              )
 env.Alias('src/analytics:vizd_flow_test', vizd_flow_test)
 
+xml_output_stream_test = env.Program('xml_output_stream_test',
+                                     SandeshGenObjs +
+                                     ['../tcp_output_stream.o',
+                                      '../xml_output_stream.o',
+                                      '../stream_manager.o',
+                                      '../stream_handler_factory.o',
+                                      '../stream_handler.o'] +
+                                     ['xml_output_stream_test.cc'])
+env.Alias('src/analytics:xml_output_stream_test', xml_output_stream_test)
+
 stat_walker_test = env.UnitTest('stat_walker_test',
                               ['stat_walker_test.cc',
                                '../stat_walker.o'])
