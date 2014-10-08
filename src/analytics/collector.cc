@@ -157,6 +157,8 @@ bool Collector::ReceiveResourceUpdate(SandeshSession *session,
 
 bool Collector::ReceiveSandeshMsg(SandeshSession *session,
                                   const SandeshMessage *msg, bool rsc) {
+    output_stream_mgr_.append(static_cast<const SandeshXMLMessage *>(msg));
+
     boost::uuids::uuid unm(umn_gen_());
 
     VizMsg vmsg(msg, unm);
