@@ -2021,9 +2021,9 @@ void VmInterface::CopySgIdList(SecurityGroupList *sg_id_list) const {
 
 //Add a route for VM port
 //If ECMP route, add new composite NH and mpls label for same
-void VmInterface::AddRoute(const std::string &vrf_name, const Ip4Address &addr,
+void VmInterface::AddRoute(const std::string &vrf_name, const IpAddress &addr,
                            uint32_t plen, const std::string &dest_vn,
-                           bool policy, bool ecmp, const Ip4Address &gw_ip) {
+                           bool policy, bool ecmp, const IpAddress &gw_ip) {
     SecurityGroupList sg_id_list;
     CopySgIdList(&sg_id_list);
     PathPreference path_preference;
@@ -2033,44 +2033,18 @@ void VmInterface::AddRoute(const std::string &vrf_name, const Ip4Address &addr,
     }
 
     InetUnicastAgentRouteTable::AddLocalVmRoute(peer_.get(), vrf_name, addr,
-                                                 plen, GetUuid(),
-                                                 dest_vn, label_,
-                                                 sg_id_list, false,
-                                                 path_preference, gw_ip);
-
+                                                plen, GetUuid(),
+                                                dest_vn, label_,
+                                                sg_id_list, false,
+                                                path_preference, gw_ip);
     return;
 }
 
 void VmInterface::DeleteRoute(const std::string &vrf_name,
-                              const Ip4Address &addr, uint32_t plen) {
+                              const IpAddress &addr, uint32_t plen) {
     InetUnicastAgentRouteTable::Delete(peer_.get(), vrf_name, addr, plen);
     return;
 }
-
-//Add a route for VM port
-//If ECMP route, add new composite NH and mpls label for same
-void VmInterface::AddRoute6(const std::string &vrf_name, const Ip6Address &addr,
-                            uint32_t plen, const std::string &vn) {
-    SecurityGroupList sg_id_list;
-    CopySgIdList(&sg_id_list);
-    PathPreference path_preference;
-    InetUnicastAgentRouteTable::AddLocalVmRoute(peer_.get(), vrf_name, addr,
-                                                plen, GetUuid(),
-                                                vn, label_,
-                                                sg_id_list, false,
-                                                path_preference,
-                                                Ip6Address());
-
-    return;
-}
-
-void VmInterface::DeleteRoute6(const std::string &vrf_name,
-                               const Ip6Address &addr, uint32_t plen) {
-    InetUnicastAgentRouteTable::Delete(peer_.get(), vrf_name, addr, plen);
-    return;
-}
-
-
 
 void VmInterface::UpdateL3Services(bool dhcp, bool dns) {
     dhcp_enabled_ = dhcp;
@@ -2199,8 +2173,8 @@ void VmInterface::FloatingIp::Activate(VmInterface *interface,
                                           floating_ip_.to_v4(), false);
         }
     } else if (floating_ip_.is_v6()) {
-        interface->AddRoute6(vrf_.get()->GetName(), floating_ip_.to_v6(), 128,
-                             vn_->GetName());
+        interface->AddRoute(vrf_.get()->GetName(), floating_ip_.to_v6(), 128,
+                            vn_->GetName(), true, false, Ip6Address());
         //TODO:: callback for DNS handling
     }
 
@@ -2212,7 +2186,7 @@ void VmInterface::FloatingIp::DeActivate(VmInterface *interface) const {
         return;
 
     if (floating_ip_.is_v4()) {
-        interface->DeleteRoute(vrf_.get()->GetName(), floating_ip_.to_v4(), 32);
+        interface->DeleteRoute(vrf_.get()->GetName(), floating_ip_, 32);
         InterfaceTable *table =
             static_cast<InterfaceTable *>(interface->get_table());
         if (table->update_floatingip_cb().empty() == false) {
@@ -2220,8 +2194,7 @@ void VmInterface::FloatingIp::DeActivate(VmInterface *interface) const {
                                           floating_ip_.to_v4(), true);
         }
     } else if (floating_ip_.is_v6()) {
-        interface->DeleteRoute6(vrf_.get()->GetName(), floating_ip_.to_v6(),
-                                128);
+        interface->DeleteRoute(vrf_.get()->GetName(), floating_ip_, 128);
         //TODO:: callback for DNS handling
     }
     vrf_ = NULL;
@@ -2290,6 +2263,7 @@ bool VmInterface::StaticRoute::IsLess(const StaticRoute *rhs) const {
 void VmInterface::StaticRoute::Activate(VmInterface *interface,
                                         bool force_update,
                                         bool policy_change) const {
+    bool ecmp = false;
     if (installed_ && force_update == false && policy_change == false)
         return;
 
@@ -2298,23 +2272,15 @@ void VmInterface::StaticRoute::Activate(VmInterface *interface,
     }
 
     if (installed_ == true && policy_change) {
-        if (addr_.is_v4()) {
-            InetUnicastAgentRouteTable::ReEvaluatePaths(vrf_, addr_.to_v4(),
-                                                        plen_);
-        } else {
-            InetUnicastAgentRouteTable::ReEvaluatePaths(vrf_, addr_.to_v6(),
-                                                        plen_);
-        }
+        InetUnicastAgentRouteTable::ReEvaluatePaths(vrf_, addr_, plen_);
     } else if (installed_ == false || force_update) {
         if (addr_.is_v4()) {
-            interface->AddRoute(vrf_, addr_.to_v4(), plen_,
-                                interface->vn_->GetName(),
-                                interface->policy_enabled(),
-                                interface->ecmp(), Ip4Address(0));
-        } else {
-            interface->AddRoute6(vrf_, addr_.to_v6(), plen_,
-                                 interface->vn()->GetName());
+            ecmp = interface->ecmp();
         }
+        interface->AddRoute(vrf_, addr_, plen_,
+                            interface->vn_->GetName(),
+                            interface->policy_enabled(),
+                            ecmp, IpAddress());
     }
 
     installed_ = true;
@@ -2323,11 +2289,7 @@ void VmInterface::StaticRoute::Activate(VmInterface *interface,
 void VmInterface::StaticRoute::DeActivate(VmInterface *interface) const {
     if (installed_ == false)
         return;
-    if (addr_.is_v4()) {
-        interface->DeleteRoute(vrf_, addr_.to_v4(), plen_);
-    } else {
-        interface->DeleteRoute6(vrf_, addr_.to_v6(), plen_);
-    }
+    interface->DeleteRoute(vrf_, addr_, plen_);
     installed_ = false;
 }
 

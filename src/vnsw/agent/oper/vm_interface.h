@@ -397,15 +397,11 @@ private:
     bool IsL2Active() const;
     bool PolicyEnabled() const;
     void UpdateL3Services(bool dhcp, bool dns);
-    void AddRoute(const std::string &vrf_name, const Ip4Address &ip,
+    void AddRoute(const std::string &vrf_name, const IpAddress &ip,
                   uint32_t plen, const std::string &vn_name, bool policy,
-                  bool ecmp, const Ip4Address &gw_ip);
-    void DeleteRoute(const std::string &vrf_name, const Ip4Address &ip,
+                  bool ecmp, const IpAddress &gw_ip);
+    void DeleteRoute(const std::string &vrf_name, const IpAddress &ip,
                      uint32_t plen);
-    void AddRoute6(const std::string &vrf_name, const Ip6Address &ip,
-                   uint32_t plen, const std::string &vn);
-    void DeleteRoute6(const std::string &vrf_name, const Ip6Address &ip,
-                      uint32_t plen);
     void ServiceVlanAdd(ServiceVlan &entry);
     void ServiceVlanDel(ServiceVlan &entry);
     void ServiceVlanRouteAdd(const ServiceVlan &entry);

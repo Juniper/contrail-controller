@@ -74,9 +74,8 @@ public:
     }
 
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
-    InetUnicastRouteEntry *GetUcRoute(const Ip4Address &addr) const;
+    InetUnicastRouteEntry *GetUcRoute(const IpAddress &addr) const;
     InetUnicastRouteEntry *GetUcRoute(const InetUnicastRouteEntry &rt_key) const;
-    InetUnicastRouteEntry *GetUcRoute(const Ip6Address &addr) const;
 
     LifetimeActor *deleter();
     void SendObjectLog(AgentLogEvent::type event) const;
