@@ -103,7 +103,6 @@ private:
 
 class VrfKSyncObject {
 public:
-    typedef std::map<uint32_t, RouteKSyncObject *> VrfRtObjectMap;
     struct VrfState : DBState {
         VrfState() : DBState(), seen_(false) {};
         bool seen_;
@@ -120,14 +119,9 @@ public:
     void AddToVrfMap(uint32_t vrf_id, RouteKSyncObject *,
                      unsigned int table_id);
     void DelFromVrfMap(RouteKSyncObject *);
-    RouteKSyncObject *GetRouteKSyncObject(uint32_t vrf_id,
-                                          uint32_t table_id) const;
 private:
     KSync *ksync_;
     DBTableBase::ListenerId vrf_listener_id_;
-    VrfRtObjectMap vrf_ucrt_object_map_;
-    VrfRtObjectMap vrf_mcrt_object_map_;
-    VrfRtObjectMap vrf_l2rt_object_map_;
     DISALLOW_COPY_AND_ASSIGN(VrfKSyncObject);
 };
 

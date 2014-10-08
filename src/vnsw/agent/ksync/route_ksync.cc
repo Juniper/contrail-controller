@@ -92,9 +92,6 @@ RouteKSyncEntry::~RouteKSyncEntry() {
 }
 
 KSyncDBObject *RouteKSyncEntry::GetObject() {
-    /*return static_cast<KSyncDBObject*>
-        (VrfKSyncObject::GetKSyncObject()->GetRouteKSyncObject(vrf_id_,
-                                                               rt_type_));*/
     return ksync_obj_;
 }
 
@@ -452,7 +449,6 @@ KSyncEntry *RouteKSyncObject::DBToKSyncEntry(const DBEntry *e) {
 void RouteKSyncObject::Unregister() {
     if (IsEmpty() == true && marked_delete_ == true) {
         KSYNC_TRACE(Trace, "Destroying ksync object: " + rt_table_->name());
-        ksync_->vrf_ksync_obj()->DelFromVrfMap(this);
         KSyncObjectManager::Unregister(this);
     }
 }
@@ -465,77 +461,6 @@ void RouteKSyncObject::ManagedDelete() {
 void RouteKSyncObject::EmptyTable() {
     if (marked_delete_ == true) {
         Unregister();
-    }
-}
-
-RouteKSyncObject *VrfKSyncObject::GetRouteKSyncObject(uint32_t vrf_id,
-                                                      uint32_t table) const {
-    VrfRtObjectMap::const_iterator it;
-
-    switch (table) {
-      case RT_UCAST: {
-          it = vrf_ucrt_object_map_.find(vrf_id);
-          if (it != vrf_ucrt_object_map_.end()) {
-              return it->second;
-          }          
-          break;    
-      }
-      case RT_MCAST: {
-          it = vrf_mcrt_object_map_.find(vrf_id);
-          if (it != vrf_mcrt_object_map_.end()) {
-              return it->second;
-          }          
-          break;
-      }
-      case RT_LAYER2: {
-          it = vrf_l2rt_object_map_.find(vrf_id);
-          if (it != vrf_l2rt_object_map_.end()) {
-              return it->second;
-          }          
-          break;
-      }
-      default: {
-          assert(0);
-      }
-    }
-    return NULL;
-}
-
-void VrfKSyncObject::AddToVrfMap(uint32_t vrf_id, RouteKSyncObject *rt,
-                                 unsigned int table) {
-    if (table == RT_UCAST) {
-        vrf_ucrt_object_map_.insert(make_pair(vrf_id, rt));
-    } else if (table == RT_MCAST) {
-        vrf_mcrt_object_map_.insert(make_pair(vrf_id, rt));
-    } else if (table == RT_LAYER2) {
-        vrf_l2rt_object_map_.insert(make_pair(vrf_id, rt));
-    }
-}
-
-void VrfKSyncObject::DelFromVrfMap(RouteKSyncObject *rt) {
-    VrfRtObjectMap::iterator it;
-    for (it = vrf_ucrt_object_map_.begin(); it != vrf_ucrt_object_map_.end(); 
-        ++it) {
-        if (it->second == rt) {
-            vrf_ucrt_object_map_.erase(it);
-            return;
-        }
-    }
-
-    for (it = vrf_mcrt_object_map_.begin(); it != vrf_mcrt_object_map_.end(); 
-        ++it) {
-        if (it->second == rt) {
-            vrf_mcrt_object_map_.erase(it);
-            return;
-        }
-    }
-
-    for (it = vrf_l2rt_object_map_.begin(); it != vrf_l2rt_object_map_.end(); 
-        ++it) {
-        if (it->second == rt) {
-            vrf_l2rt_object_map_.erase(it);
-            return;
-        }
     }
 }
 
@@ -560,24 +485,17 @@ void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
         // Get Inet4 Route table and register with KSync
         AgentRouteTable *rt_table = static_cast<AgentRouteTable *>(vrf->
                           GetInet4UnicastRouteTable());
-
-        // Register route-table with KSync
-        RouteKSyncObject *ksync = new RouteKSyncObject(ksync_, rt_table);
-        AddToVrfMap(vrf->vrf_id(), ksync, RT_UCAST);
+        new RouteKSyncObject(ksync_, rt_table);
 
         // Get Inet6 Route table and register with KSync
         rt_table = static_cast<AgentRouteTable *>(vrf->
                           GetInet6UnicastRouteTable());
+        new RouteKSyncObject(ksync_, rt_table);
 
-        // Register route-table with KSync
-        ksync = new RouteKSyncObject(ksync_, rt_table);
-        //AddToVrfMap(vrf->vrf_id(), ksync, RT_UCAST);
-
+        // Get Layer 2 Route table and register with KSync
         rt_table = static_cast<AgentRouteTable *>(vrf->
                           GetLayer2RouteTable());
-
-        ksync = new RouteKSyncObject(ksync_, rt_table);
-        AddToVrfMap(vrf->vrf_id(), ksync, RT_LAYER2);
+        new RouteKSyncObject(ksync_, rt_table);
 
         //Now for multicast table. Ksync object for multicast table is 
         //not maintained in vrf list
@@ -585,8 +503,7 @@ void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
         //in MC so just use the UC object for time being.
         rt_table = static_cast<AgentRouteTable *>(vrf->
                           GetInet4MulticastRouteTable());
-        ksync = new RouteKSyncObject(ksync_, rt_table);
-        AddToVrfMap(vrf->vrf_id(), ksync, RT_MCAST);
+        new RouteKSyncObject(ksync_, rt_table);
     }
 }
 
