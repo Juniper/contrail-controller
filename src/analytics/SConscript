@@ -126,7 +126,7 @@ vizd_sources = ['viz_collector.cc', 'ruleeng.cc', 'collector.cc',
                 'redis_connection.cc', 'redis_processor_vizd.cc',
                 'options.cc', 'stat_walker.cc', 'protobuf_collector.cc',
                 'protobuf_server.cc', 'sflow_generator.cc', 'sflow_collector.cc',
-                'sflow_parser.cc']
+                'sflow_parser.cc', 'stream_manager.cc', 'stream_handler.cc', 'tcp_output_stream.cc']
 
 RedisLuaBuild(AnalyticsEnv, 'seqnum')
 RedisLuaBuild(AnalyticsEnv, 'delrequest')
