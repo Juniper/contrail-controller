@@ -123,7 +123,7 @@ class InstanceManager(object):
             proj_obj = self._vnc_lib.project_read(
                 fq_name=si_obj.get_parent_fq_name())
             rt_obj = InterfaceRouteTable(
-                name=rt_name,
+                name=rt_fq_name[-1],
                 parent_obj=proj_obj,
                 interface_route_table_routes=static_routes)
             self._vnc_lib.interface_route_table_create(rt_obj)
@@ -486,20 +486,56 @@ class VirtualMachineManager(InstanceManager):
 
     def delete_service(self, vm_uuid, proj_name=None):
         try:
+            self._vnc_lib.virtual_machine_delete(id=vm_uuid)
+        except (NoIdError, RefsExistError):
+            pass
+
+        try:
             self.novaclient_oper('servers', 'find', proj_name,
                 id=vm_uuid).delete()
         except nc_exc.NotFound:
             raise KeyError
 
     def check_service(self, si_obj, proj_name=None):
+        status = 'ACTIVE'
+        vm_list = {}
         vm_back_refs = si_obj.get_virtual_machine_back_refs()
         for vm_back_ref in vm_back_refs or []:
-            status = self.novaclient_oper('servers', 'find', proj_name,
-                id=vm_back_ref['uuid']).status
-            if status == 'ERROR':
-                return status
+            try:
+                vm = self.novaclient_oper('servers', 'find', proj_name,
+                    id=vm_back_ref['uuid'])
+                vm_list[vm.name] = vm
+            except nc_exc.NotFound:
+                self._vnc_lib.virtual_machine_delete(id=vm_back_ref['uuid'])
+            except (NoIdError, RefsExistError):
+                pass
 
-        return 'ACTIVE'
+        # check status of VMs
+        si_props = si_obj.get_service_instance_properties()
+        max_instances = si_props.get_scale_out().get_max_instances()
+        for inst_count in range(0, max_instances):
+            instance_name = self._get_instance_name(si_obj, inst_count)
+            if instance_name not in vm_list.keys():
+                status = 'ERROR'
+            elif vm_list[instance_name].status == 'ERROR':
+                try:
+                    self.delete_service(vm_list[instance_name].id, proj_name)
+                except KeyError:
+                    pass
+                status = 'ERROR'
+
+        # check change in instance count
+        if vm_back_refs and (max_instances > len(vm_back_refs)):
+            status = 'ERROR'
+        elif vm_back_refs and (max_instances < len(vm_back_refs)):
+            for vm_back_ref in vm_back_refs:
+                try:
+                    self.delete_service(vm_back_ref['uuid'], proj_name)
+                except KeyError:
+                    pass
+            status = 'ERROR'
+
+        return status
 
     def _novaclient_get(self, proj_name, reauthenticate=False):
         # return cache copy when reauthenticate is not requested
