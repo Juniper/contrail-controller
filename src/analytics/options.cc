@@ -124,6 +124,9 @@ void Options::Initialize(EventManager &evm,
              "ipfix listener UDP port (< 0 will disable ipfix Collector)")
         ("DEFAULT.test_mode", opt::bool_switch(&test_mode_),
              "Enable collector to run in test-mode")
+        ("DEFAULT.streaming_server_config_dir",
+            opt::value<string>()->default_value("/etc/contrail/logstreams"),
+            "Streaming server configuration directory")
 
         ("DISCOVERY.port", opt::value<uint16_t>()->default_value(
                                                        default_discovery_port),
@@ -189,7 +192,7 @@ void Options::GetOptValueImpl(
         std::vector<ElementType> tmp(
             var_map[val].as<std::vector<ElementType> >());
         // Now split the individual elements
-        for (typename std::vector<ElementType>::const_iterator it = 
+        for (typename std::vector<ElementType>::const_iterator it =
                  tmp.begin();
              it != tmp.end(); it++) {
             std::stringstream ss(*it);
@@ -261,6 +264,8 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<int>(var_map, syslog_port_, "DEFAULT.syslog_port");
     GetOptValue<int>(var_map, sflow_port_, "DEFAULT.sflow_port");
     GetOptValue<int>(var_map, ipfix_port_, "DEFAULT.ipfix_port");
+    GetOptValue<string>(var_map, streaming_server_config_dir_,
+        "DEFAULT.streaming_server_config_dir");
 
     GetOptValue<uint16_t>(var_map, discovery_port_, "DISCOVERY.port");
     GetOptValue<string>(var_map, discovery_server_, "DISCOVERY.server");
