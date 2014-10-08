@@ -33,6 +33,7 @@
 #include <string>
 #include "collector_uve_types.h"
 #include "db_handler.h"
+#include "stream_manager.h"
 
 class DbHandler;
 class OpServerProxy;
@@ -107,6 +108,10 @@ public:
         return ds_client_;
     }
 
+    analytics::OutputStreamManager &GetOutputStreamManager() {
+	return output_stream_mgr_;
+    }
+
 protected:
     virtual TcpSession *AllocSession(Socket *socket);
     virtual void DisconnectSession(SandeshSession *session);
@@ -160,6 +165,8 @@ private:
     static const int kDefaultSessionBufferSize = 16 * 1024;
 
     static DiscoveryServiceClient *ds_client_;
+
+    analytics::OutputStreamManager output_stream_mgr_;
 
     DISALLOW_COPY_AND_ASSIGN(Collector);
 };
