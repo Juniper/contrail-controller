@@ -7,6 +7,7 @@
 
 import os
 import sys
+import re
 
 Import('BuildEnv')
 AnalyticsEnv = BuildEnv.Clone()
@@ -133,6 +134,20 @@ vizd_sources = ['viz_collector.cc', 'ruleeng.cc', 'collector.cc',
                 'sflow.cc',
                 'sflow_generator.cc', 'sflow_collector.cc',
                 'sflow_parser.cc', 'ipfix_collector.cc']
+logstream_sources = ['stream_manager.cc',
+    'stream_handler.cc',
+    'tcp_output_stream.cc',
+    'stream_handler_factory.cc',
+    'xml_output_stream.cc']
+
+logstream_env = AnalyticsEnv.Clone()
+# for libboost-filesystem and boost::property_tree; dropping these would
+# needlessly complicate the codebase. Any possible exception is catched
+# in this compilation unit.
+logstream_env.AppendUnique(CCFLAGS='-fexceptions')
+logstream_objs = [
+    logstream_env.Object(re.sub('(.*)cc$','\\1o', file), file)
+    for file in logstream_sources]
 
 RedisLuaBuild(AnalyticsEnv, 'seqnum')
 RedisLuaBuild(AnalyticsEnv, 'delrequest')
@@ -164,6 +179,7 @@ vizd = AnalyticsEnv.Program(target = 'vizd',
         OpServerProxy_obj,
         syslog_collector_obj,
         parser_util_obj,
+        logstream_objs
         ])
 AnalyticsEnv.Alias('src/analytics:vizd', vizd)
 AnalyticsEnv.Default(vizd)
@@ -224,10 +240,10 @@ AnalyticsEnv.Alias('install', AnalyticsEnv.InstallAs(
 AnalyticsEnv.Alias('install', AnalyticsEnv.Install(
             AnalyticsEnv['INSTALL_CONF'], 'supervisord_analytics.conf'))
 AnalyticsEnv.Alias('install', AnalyticsEnv.Install(
-            AnalyticsEnv['INSTALL_CONF'] + 
+            AnalyticsEnv['INSTALL_CONF'] +
             '/supervisord_analytics_files', 'contrail-analytics.rules'))
 AnalyticsEnv.Alias('install', AnalyticsEnv.Install(
-            AnalyticsEnv['INSTALL_CONF'] + 
+            AnalyticsEnv['INSTALL_CONF'] +
             '/supervisord_analytics_files', 'contrail-collector.ini'))
 
 AnalyticsEnv.SConscript(dirs=['contrail-snmp-collector'],

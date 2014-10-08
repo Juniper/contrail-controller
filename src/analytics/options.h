@@ -26,6 +26,7 @@ public:
         return collector_protobuf_port_configured_;
     }
     const std::string config_file() const { return config_file_; };
+    const std::string streaming_server_config_dir() const { return streaming_server_config_dir_; }
     const std::string discovery_server() const { return discovery_server_; }
     const uint16_t discovery_port() const { return discovery_port_; }
     const std::string redis_server() const { return redis_server_; }
@@ -84,6 +85,7 @@ private:
     uint16_t collector_protobuf_port_;
     bool collector_protobuf_port_configured_;
     std::string config_file_;
+    std::string streaming_server_config_dir_;
     std::string discovery_server_;
     uint16_t discovery_port_;
     std::string redis_server_;
