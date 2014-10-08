@@ -133,8 +133,13 @@ void VrfEntry::SetKey(const DBRequestKey *key) {
     name_ = k->name_;
 }
 
-InetUnicastRouteEntry *VrfEntry::GetUcRoute(const Ip4Address &addr) const {
-    InetUnicastAgentRouteTable *table = GetInet4UnicastRouteTable();
+InetUnicastRouteEntry *VrfEntry::GetUcRoute(const IpAddress &addr) const {
+    InetUnicastAgentRouteTable *table = NULL;
+    if (addr.is_v4()) {
+        table = GetInet4UnicastRouteTable();
+    } else if (addr.is_v6()) {
+        table = GetInet6UnicastRouteTable();
+    }
     if (table == NULL)
         return NULL;
 
@@ -153,14 +158,6 @@ InetUnicastRouteEntry *VrfEntry::GetUcRoute(const InetUnicastRouteEntry &rt_key)
         return NULL;
 
     return table->FindLPM(rt_key);
-}
-
-InetUnicastRouteEntry *VrfEntry::GetUcRoute(const Ip6Address &addr) const {
-    InetUnicastAgentRouteTable *table = GetInet6UnicastRouteTable();
-    if (table == NULL)
-        return NULL;
-
-    return table->FindLPM(addr);
 }
 
 LifetimeActor *VrfEntry::deleter() {
