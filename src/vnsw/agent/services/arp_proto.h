@@ -183,4 +183,26 @@ public:
     bool deleted;
     friend class ArpProto;
 };
+
+class ArpDBState : public DBState {
+public:
+    static const uint32_t kMaxRetry = 10;
+    static const uint32_t kTimeout = 1000;
+    typedef std::map<uint32_t, uint32_t> WaitForTrafficIntfMap;
+
+    ArpDBState(ArpVrfState *vrf_state, uint32_t vrf_id,
+               IpAddress vm_ip_addr);
+    ~ArpDBState();
+    bool SendArpRequest();
+    void SendArpRequestForAllIntf(const InetUnicastRouteEntry *route);
+    void StartTimer();
+
+private:
+    ArpVrfState *vrf_state_;
+    Timer *arp_req_timer_;
+    uint32_t vrf_id_;
+    IpAddress vm_ip_;
+    IpAddress gw_ip_;
+    WaitForTrafficIntfMap wait_for_traffic_map_;
+};
 #endif // vnsw_agent_arp_proto_hpp
