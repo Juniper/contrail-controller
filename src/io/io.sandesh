@@ -60,6 +60,14 @@ struct SocketIOStats {
     7: u64 errors;
 }
 
+struct SocketEndpointMessageStats {
+    1: string endpoint_name;
+    2: u64 messages;
+    3: u64 bytes;
+    4: u64 errors;
+    5: u64 last_timestamp;
+}
+
 trace sandesh UdpMessageTrace {
     1: string Direction;
     2: string Message;

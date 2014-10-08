@@ -5,10 +5,15 @@
 #ifndef ANALYTICS_PROTOBUF_SERVER_H_
 #define ANALYTICS_PROTOBUF_SERVER_H_
 
+#include <vector>
+
 #include <boost/system/error_code.hpp>
 #include <boost/asio/ip/udp.hpp>
 
 #include <analytics/stat_walker.h>
+
+class SocketIOStats;
+class SocketEndpointMessageStats;
 
 namespace protobuf {
 
@@ -24,6 +29,9 @@ class ProtobufServer {
     void Shutdown();
     boost::asio::ip::udp::endpoint GetLocalEndpoint(
         boost::system::error_code *ec);
+    void GetStatistics(std::vector<SocketIOStats> *v_tx_stats,
+        std::vector<SocketIOStats> *v_rx_stats,
+        std::vector<SocketEndpointMessageStats> *v_rx_msg_stats);
 
  private:
     class ProtobufServerImpl;

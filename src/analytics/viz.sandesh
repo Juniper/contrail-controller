@@ -602,6 +602,49 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'database_usage_stats.analytics_db_size_1k',    'datatype' : 'int', 'index' : false},
         ]
     },
+    {
+      'display_name' : 'Analytics Protobuf Collector Transmit Socket Statistics',
+      'stat_type' : 'ProtobufCollectorStats'
+      'stat_attr' : 'tx_socket_stats',
+      'obj_table' : COLLECTOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'tx_socket_stats.bytes',                    'datatype' : 'long',   'index' : false},
+          { 'name' : 'tx_socket_stats.calls',                    'datatype' : 'long',   'index' : false},
+          { 'name' : 'tx_socket_stats.average_bytes',            'datatype' : 'double', 'index' : false},
+          { 'name' : 'tx_socket_stats.blocked_duration',         'datatype' : 'string', 'index' : false},
+          { 'name' : 'tx_socket_stats.blocked_count',            'datatype' : 'long',   'index' : false},
+          { 'name' : 'tx_socket_stats.average_blocked_duration', 'datatype' : 'string', 'index' : false},
+          { 'name' : 'tx_socket_stats.errors',                   'datatype' : 'long',   'index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Analytics Protobuf Collector Receive Socket Statistics',
+      'stat_type' : 'ProtobufCollectorStats'
+      'stat_attr' : 'rx_socket_stats',
+      'obj_table' : COLLECTOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'rx_socket_stats.bytes',                    'datatype' : 'long',   'index' : false},
+          { 'name' : 'rx_socket_stats.calls',                    'datatype' : 'long',   'index' : false},
+          { 'name' : 'rx_socket_stats.average_bytes',            'datatype' : 'double', 'index' : false},
+          { 'name' : 'rx_socket_stats.blocked_duration',         'datatype' : 'string', 'index' : false},
+          { 'name' : 'rx_socket_stats.blocked_count',            'datatype' : 'long',   'index' : false},
+          { 'name' : 'rx_socket_stats.average_blocked_duration', 'datatype' : 'string', 'index' : false},
+          { 'name' : 'rx_socket_stats.errors',                   'datatype' : 'long',   'index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Analytics Protobuf Collector Receive Message Statistics',
+      'stat_type' : 'ProtobufCollectorStats'
+      'stat_attr' : 'rx_message_stats',
+      'obj_table' : COLLECTOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'rx_message_stats.endpoint_name',  'datatype' : 'string', 'index' : true},
+          { 'name' : 'rx_message_stats.messages',       'datatype' : 'long',   'index' : false},
+          { 'name' : 'rx_message_stats.bytes',          'datatype' : 'long',   'index' : false},
+          { 'name' : 'rx_message_stats.errors',         'datatype' : 'long',   'index' : false},
+          { 'name' : 'rx_message_stats.last_timestamp', 'datatype' : 'long',   'index' : false},
+        ]
+    },
 ]
 
 const list<query_table> _TABLES = [
