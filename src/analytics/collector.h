@@ -32,6 +32,7 @@
 #include "generator.h"
 #include <string>
 #include "collector_uve_types.h"
+#include "stream_manager.h"
 
 class DbHandler;
 class Ruleeng;
@@ -47,8 +48,8 @@ public:
 
     Collector(EventManager *evm, short server_port,
               DbHandler *db_handler, Ruleeng *ruleeng,
-              std::vector<std::string> cassandra_ips = 
-                  boost::assign::list_of("127.0.0.1"), 
+              std::vector<std::string> cassandra_ips =
+                  boost::assign::list_of("127.0.0.1"),
               std::vector<int> cassandra_ports =
                   boost::assign::list_of(9160), int analytics_ttl=7);
     virtual ~Collector();
@@ -110,6 +111,10 @@ public:
         return ds_client_;
     }
 
+    analytics::OutputStreamManager &GetOutputStreamManager() {
+	return output_stream_mgr_;
+    }
+
 protected:
     virtual TcpSession *AllocSession(Socket *socket);
     virtual void DisconnectSession(SandeshSession *session);
@@ -163,6 +168,8 @@ private:
     static const int kDefaultSessionBufferSize = 16 * 1024;
 
     static DiscoveryServiceClient *ds_client_;
+
+    analytics::OutputStreamManager output_stream_mgr_;
 
     DISALLOW_COPY_AND_ASSIGN(Collector);
 };

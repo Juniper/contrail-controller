@@ -36,6 +36,9 @@
 #include <discovery/client/discovery_client.h>
 #include "boost/python.hpp"
 
+#include "analytics/stream_manager.h"
+#include "analytics/stream_handler_factory.h"
+
 using namespace std;
 using namespace boost::asio::ip;
 namespace opt = boost::program_options;
@@ -44,7 +47,7 @@ using process::GetProcessStateCb;
 
 static TaskTrigger *collector_info_trigger;
 static Timer *collector_info_log_timer;
-static EventManager * a_evm = NULL; 
+static EventManager * a_evm = NULL;
 
 bool CollectorInfoLogTimer() {
     collector_info_trigger->Set();
@@ -180,7 +183,7 @@ void CollectorShutdown() {
 
 static void terminate(int param) {
     // Shutdown can result in a malloc-detected error
-    // Taking a stack trace during this error can result in 
+    // Taking a stack trace during this error can result in
     // the process not terminating correctly
     // using mallopt in this way ensures that we get a core,
     // but we don't print a stack trace
@@ -321,7 +324,7 @@ int main(int argc, char *argv[])
             module_id,
             analytics.name(),
             g_vns_constants.NodeTypeNames.find(node_type)->second,
-            instance_id, 
+            instance_id,
             a_evm, "127.0.0.1", options.collector_port(),
             options.http_server_port(), &vsc);
 
@@ -331,6 +334,16 @@ int main(int argc, char *argv[])
     // XXX Disable logging -- for test purposes only
     if (options.log_disable()) {
         SetLoggingDisabled(true);
+    }
+
+    {
+        using analytics::StreamHandlerFactory;
+        using analytics::OutputStreamManager;
+        StreamHandlerFactory::set_event_manager(a_evm);
+        OutputStreamManager &stream_manager =
+            vsc.Analytics()->GetCollector()->GetOutputStreamManager();
+        OutputStreamManager::INIConfigReader stream_config_reader(&stream_manager);
+        stream_config_reader.Configure(options.streaming_server_config_dir());
     }
 
     //Publish services to Discovery Service Servee
@@ -358,7 +371,7 @@ int main(int argc, char *argv[])
         pub_msg = pub_ss.str();
         ds_client->Publish(service_name, pub_msg);
     }
-             
+
     CpuLoadData::Init();
     // Determine if the number of connections is expected:
     // 1. Collector client

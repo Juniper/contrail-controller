@@ -157,6 +157,8 @@ bool Collector::ReceiveResourceUpdate(SandeshSession *session,
 
 bool Collector::ReceiveSandeshMsg(SandeshSession *session,
                                   const SandeshMessage *msg, bool rsc) {
+    output_stream_mgr_.append(static_cast<const SandeshXMLMessage *>(msg));
+
     boost::uuids::uuid unm(umn_gen_());
 
     VizMsg vmsg(msg, unm);
@@ -248,7 +250,7 @@ bool Collector::ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
             << " Session:" << vsession->ToString());
     vsession->set_generator(gen);
     lock.release();
-    
+
     std::vector<UVETypeInfo> vu;
     std::map<std::string, int32_t> seqReply;
     bool retc = osp_->GetSeq(snh->get_source(), snh->get_node_type_name(),
@@ -306,7 +308,7 @@ void Collector::GetGeneratorStats(vector<SandeshMessageStat> &smslist,
             continue;
         }
         // Sandesh message info
-        vector<SandeshMessageInfo> smi;       
+        vector<SandeshMessageInfo> smi;
         gen->GetStatistics(smi);
         SandeshMessageStat sms;
         sms.set_name(gen->ToString());
@@ -321,7 +323,7 @@ void Collector::GetGeneratorStats(vector<SandeshMessageStat> &smslist,
         GeneratorDbStats gdbstats;
         gdbstats.set_name(gen->ToString());
         gdbstats.set_table_info(vdbti);
-        gdbstats.set_errors(vdbe); 
+        gdbstats.set_errors(vdbe);
         gdbslist.push_back(gdbstats);
     }
 }
@@ -467,7 +469,7 @@ void Collector::SetQueueWaterMarkInfo(QueueType::type type,
 void Collector::SetDbQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm) {
     SetQueueWaterMarkInfo(QueueType::Db, wm);
 }
-    
+
 void Collector::SetSmQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm) {
     SetQueueWaterMarkInfo(QueueType::Sm, wm);
 }
@@ -481,7 +483,7 @@ void Collector::ResetQueueWaterMarkInfo(QueueType::type type) {
             gen->ResetDbQueueWaterMarkInfo();
         } else if (type == QueueType::Sm) {
             gen->ResetSmQueueWaterMarkInfo();
-        } 
+        }
     }
     if (type == QueueType::Db) {
         db_queue_wm_info_.clear();
@@ -493,7 +495,7 @@ void Collector::ResetQueueWaterMarkInfo(QueueType::type type) {
 void Collector::ResetDbQueueWaterMarkInfo() {
     ResetQueueWaterMarkInfo(QueueType::Db);
 }
-    
+
 void Collector::ResetSmQueueWaterMarkInfo() {
     ResetQueueWaterMarkInfo(QueueType::Sm);
 }
@@ -576,7 +578,7 @@ static void SendQueueParamsError(std::string estr, const std::string &context) {
 
 static Collector* ExtractCollectorFromRequest(SandeshContext *vscontext,
     const std::string &context) {
-    VizSandeshContext *vsc = 
+    VizSandeshContext *vsc =
             dynamic_cast<VizSandeshContext *>(vscontext);
     if (!vsc) {
         SendQueueParamsError("Sandesh client context NOT PRESENT",
@@ -661,29 +663,29 @@ void DbQueueParamsStatus::HandleRequest() const {
 void SmQueueParamsStatus::HandleRequest() const {
     Collector *collector = ExtractCollectorFromRequest(client_context(),
         context());
-    SendQueueParamsResponse(Collector::QueueType::Sm, collector, context()); 
+    SendQueueParamsResponse(Collector::QueueType::Sm, collector, context());
 }
 
-void DiscoveryClientSubscriberStatsReq::HandleRequest() const { 
+void DiscoveryClientSubscriberStatsReq::HandleRequest() const {
 
-    DiscoveryClientSubscriberStatsResponse *resp = 
-        new DiscoveryClientSubscriberStatsResponse(); 
+    DiscoveryClientSubscriberStatsResponse *resp =
+        new DiscoveryClientSubscriberStatsResponse();
     resp->set_context(context());
 
-    resp->set_more(false); 
-    resp->Response(); 
+    resp->set_more(false);
+    resp->Response();
 }
 
-void DiscoveryClientPublisherStatsReq::HandleRequest() const {  
+void DiscoveryClientPublisherStatsReq::HandleRequest() const {
 
-    DiscoveryClientPublisherStatsResponse *resp = 
+    DiscoveryClientPublisherStatsResponse *resp =
         new DiscoveryClientPublisherStatsResponse();
     resp->set_context(context());
 
     std::vector<DiscoveryClientPublisherStats> stats_list;
     DiscoveryServiceClient *ds = Collector::GetCollectorDiscoveryServiceClient();
-    if (ds) {   
-        ds->FillDiscoveryServicePublisherStats(stats_list);  
+    if (ds) {
+        ds->FillDiscoveryServicePublisherStats(stats_list);
     }
 
     resp->set_publisher(stats_list);
