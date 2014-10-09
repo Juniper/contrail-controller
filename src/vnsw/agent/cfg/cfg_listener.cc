@@ -396,3 +396,23 @@ void CfgListener::Unregister(std::string type) {
         cfg_listener_id_map_.erase(iter);
     }
 }
+
+IFMapNode *CfgListener::FindAdjacentIFMapNode(const Agent *agent,
+                                              IFMapNode *node,
+                                              const char *type) {
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+    for (DBGraphVertex::adjacency_iterator iter =
+         node->begin(table->GetGraph());
+         iter != node->end(table->GetGraph()); ++iter) {
+        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
+        if (SkipNode(adj_node)) {
+            continue;
+        }
+
+        if (strcmp(adj_node->table()->Typename(), type) == 0) {
+            return adj_node;
+        }
+    }
+
+    return NULL;
+}

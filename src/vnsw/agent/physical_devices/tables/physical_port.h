@@ -8,6 +8,8 @@
 #include <physical_devices/tables/physical_device.h>
 #include <string>
 
+class IFMapDependencyManager;
+
 namespace AGENT {
 struct PhysicalPortKey : public AgentKey {
     explicit PhysicalPortKey(const boost::uuids::uuid &id) :
@@ -44,7 +46,7 @@ class PhysicalPortEntry : AgentRefCount<PhysicalPortEntry>, public AgentDBEntry{
     const std::string &name() const { return name_; }
     PhysicalDeviceEntry *device() const { return device_.get(); }
 
-    bool Copy(const PhysicalPortData *data);
+    bool Copy(PhysicalPortTable *table, const PhysicalPortData *data);
 
     void SendObjectLog(AgentLogEvent::type event) const;
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
@@ -75,7 +77,8 @@ class PhysicalPortTable : public AgentDBTable {
     PhysicalDeviceTable *device_table() const { return device_table_; }
     PhysicalPortEntry *Find(const boost::uuids::uuid &u);
 
-    void RegisterDBClients();
+    void ConfigEventHandler(DBEntry *entry);
+    void RegisterDBClients(IFMapDependencyManager *dep);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 
  private:

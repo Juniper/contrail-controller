@@ -2,10 +2,12 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <db/db.h>
 #include <cmn/agent_factory.h>
 #include <cmn/agent_cmn.h>
 #include <init/agent_param.h>
-#include <db/db.h>
+#include <oper/operdb_init.h>
+#include <oper/ifmap_dependency_manager.h>
 
 #include <physical_devices/tables/device_manager.h>
 #include <physical_devices/tables/physical_device.h>
@@ -13,6 +15,8 @@
 #include <physical_devices/tables/logical_port.h>
 #include <physical_devices/tables/physical_device_vn.h>
 
+using boost::assign::map_list_of;
+using boost::assign::list_of;
 using AGENT::PhysicalDeviceTable;
 using AGENT::PhysicalPortTable;
 using AGENT::LogicalPortTable;
@@ -51,8 +55,30 @@ void PhysicalDeviceManager::CreateDBTables(DB *db) {
 }
 
 void PhysicalDeviceManager::RegisterDBClients() {
-    physical_port_table_->RegisterDBClients();
-    physical_device_vn_table_->RegisterDBClients();
+    typedef IFMapDependencyTracker::PropagateList PropagateList;
+    typedef IFMapDependencyTracker::ReactionMap ReactionMap;
+
+    IFMapDependencyManager *mgr = agent_->oper_db()->dependency_manager();
+
+    ReactionMap device_react = map_list_of<std::string, PropagateList>
+        ("virtual-network", list_of("self"))
+        ("self", list_of("self"));
+    mgr->RegisterReactionMap("physical-router", device_react);
+
+    ReactionMap physical_port_react = map_list_of<std::string, PropagateList>
+        ("physical-router", list_of("self"))
+        ("self", list_of("self"));
+    mgr->RegisterReactionMap("physical-interface", physical_port_react);
+
+    ReactionMap logical_port_react = map_list_of<std::string, PropagateList>
+        ("physical-interface", list_of("self"))
+        ("self", list_of("self"));
+    mgr->RegisterReactionMap("logical-interface", logical_port_react);
+
+    device_table_->RegisterDBClients(mgr);
+    physical_port_table_->RegisterDBClients(mgr);
+    logical_port_table_->RegisterDBClients(mgr);
+    physical_device_vn_table_->RegisterDBClients(mgr);
 }
 
 void PhysicalDeviceManager::Init() {

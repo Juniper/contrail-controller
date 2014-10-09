@@ -7,7 +7,11 @@
 #include <cmn/agent_cmn.h>
 
 #include <ifmap/ifmap_node.h>
+#include <cfg/cfg_init.h>
+#include <cfg/cfg_listener.h>
 #include <oper/agent_sandesh.h>
+#include <oper/ifmap_dependency_manager.h>
+
 #include <physical_devices/tables/physical_devices_types.h>
 #include <physical_devices/tables/device_manager.h>
 #include <physical_devices/tables/physical_device.h>
@@ -23,6 +27,9 @@ using AGENT::PhysicalPortData;
 
 using std::string;
 
+/////////////////////////////////////////////////////////////////////////////
+// PhysicalPortEntry routines
+/////////////////////////////////////////////////////////////////////////////
 bool PhysicalPortEntry::IsLess(const DBEntry &rhs) const {
     const PhysicalPortEntry &a = static_cast<const PhysicalPortEntry &>(rhs);
     return (uuid_ < a.uuid_);
@@ -42,15 +49,15 @@ void PhysicalPortEntry::SetKey(const DBRequestKey *key) {
     uuid_ = k->uuid_;
 }
 
-bool PhysicalPortEntry::Copy(const PhysicalPortData *data) {
+bool PhysicalPortEntry::Copy(PhysicalPortTable *table,
+                             const PhysicalPortData *data) {
     bool ret = false;
 
-    if (name_ == data->name_) {
+    if (name_ != data->name_) {
         name_ = data->name_;
         ret = true;
     }
 
-    PhysicalPortTable *table = static_cast<PhysicalPortTable*>(get_table());
     PhysicalDeviceEntry *dev = table->device_table()->Find(data->device_);
     if (dev != device_.get()) {
         device_.reset(dev);
@@ -60,6 +67,9 @@ bool PhysicalPortEntry::Copy(const PhysicalPortData *data) {
     return ret;
 }
 
+/////////////////////////////////////////////////////////////////////////////
+// PhysicalPortTable routines
+/////////////////////////////////////////////////////////////////////////////
 std::auto_ptr<DBEntry> PhysicalPortTable::AllocEntry(const DBRequestKey *k)
     const {
     const PhysicalPortKey *key = static_cast<const PhysicalPortKey *>(k);
@@ -71,7 +81,7 @@ DBEntry *PhysicalPortTable::Add(const DBRequest *req) {
     PhysicalPortKey *key = static_cast<PhysicalPortKey *>(req->key.get());
     PhysicalPortData *data = static_cast<PhysicalPortData *>(req->data.get());
     PhysicalPortEntry *dev = new PhysicalPortEntry(key->uuid_);
-    dev->Copy(data);
+    dev->Copy(this, data);
     dev->SendObjectLog(AgentLogEvent::ADD);
     return dev;
 }
@@ -79,7 +89,7 @@ DBEntry *PhysicalPortTable::Add(const DBRequest *req) {
 bool PhysicalPortTable::OnChange(DBEntry *entry, const DBRequest *req) {
     PhysicalPortEntry *dev = static_cast<PhysicalPortEntry *>(entry);
     PhysicalPortData *data = static_cast<PhysicalPortData *>(req->data.get());
-    bool ret = dev->Copy(data);
+    bool ret = dev->Copy(this, data);
     dev->SendObjectLog(AgentLogEvent::CHANGE);
     return ret;
 }
@@ -90,41 +100,71 @@ void PhysicalPortTable::Delete(DBEntry *entry, const DBRequest *req) {
     return;
 }
 
+PhysicalPortEntry *PhysicalPortTable::Find(const boost::uuids::uuid &u) {
+    PhysicalPortKey key(u);
+    return static_cast<PhysicalPortEntry *>(FindActiveEntry(&key));
+}
+
 DBTableBase *PhysicalPortTable::CreateTable(DB *db, const std::string &name) {
     PhysicalPortTable *table = new PhysicalPortTable(db, name);
     table->Init();
     return table;
 }
 
-void PhysicalPortTable::RegisterDBClients() {
+/////////////////////////////////////////////////////////////////////////////
+// Config handling routines
+/////////////////////////////////////////////////////////////////////////////
+void PhysicalPortTable::ConfigEventHandler(DBEntry *entry) {
+}
+
+void PhysicalPortTable::RegisterDBClients(IFMapDependencyManager *dep) {
     device_table_ = agent()->device_manager()->device_table();
+    dep->Register("physical-interface",
+                  boost::bind(&PhysicalPortTable::ConfigEventHandler, this,
+                              _1));
+    agent()->cfg()->Register("physical-interface", this,
+                             autogen::PhysicalInterface::ID_PERMS);
+}
+
+static PhysicalPortKey *BuildKey(const autogen::PhysicalInterface *port) {
+    autogen::IdPermsType id_perms = port->id_perms();
+    boost::uuids::uuid u;
+    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+    return new PhysicalPortKey(u);
+}
+
+static PhysicalPortData *BuildData(const Agent *agent, IFMapNode *node,
+                                   const autogen::PhysicalInterface *port) {
+    boost::uuids::uuid dev_uuid;
+    // Find link with physical-router adjacency
+    IFMapNode *adj_node = NULL;
+    adj_node = agent->cfg_listener()->FindAdjacentIFMapNode(agent, node,
+                                                            "physical-router");
+    if (adj_node) {
+        autogen::PhysicalRouter *router =
+            static_cast<autogen::PhysicalRouter *>(adj_node->GetObject());
+        autogen::IdPermsType id_perms = router->id_perms();
+        CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                   dev_uuid);
+    }
+
+    return new PhysicalPortData(node->name(), dev_uuid);
 }
 
 bool PhysicalPortTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
-    autogen::VirtualMachine *cfg = static_cast <autogen::VirtualMachine *>
-        (node->GetObject());
-    assert(cfg);
-    autogen::IdPermsType id_perms = cfg->id_perms();
-    boost::uuids::uuid u;
-    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+    autogen::PhysicalInterface *port =
+        static_cast <autogen::PhysicalInterface *>(node->GetObject());
+    assert(port);
 
-    PhysicalPortKey *key = new PhysicalPortKey(u);
-    PhysicalPortData *data = NULL;
+    req.key.reset(BuildKey(port));
     if (node->IsDeleted()) {
         req.oper = DBRequest::DB_ENTRY_DELETE;
-    } else {
-        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        boost::uuids::uuid dev;
-        data = new PhysicalPortData(node->name(), dev);
+        return true;
     }
-    req.key.reset(key);
-    req.data.reset(data);
-    return true;
-}
 
-PhysicalPortEntry *PhysicalPortTable::Find(const boost::uuids::uuid &u) {
-    PhysicalPortKey key(u);
-    return static_cast<PhysicalPortEntry *>(FindActiveEntry(&key));
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.data.reset(BuildData(agent(), node, port));
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////////////

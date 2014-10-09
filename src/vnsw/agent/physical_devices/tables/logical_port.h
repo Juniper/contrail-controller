@@ -8,6 +8,8 @@
 #include <physical_devices/tables/physical_port.h>
 #include <string>
 
+class IFMapDependencyManager;
+
 namespace AGENT {
 struct LogicalPortKey;
 struct LogicalPortData;
@@ -34,8 +36,8 @@ class LogicalPortEntry : AgentRefCount<LogicalPortEntry>, public AgentDBEntry {
     const std::string &name() const { return name_; }
     PhysicalPortEntry *physical_port() const { return physical_port_.get(); }
 
-    bool CopyBase(const LogicalPortData *data);
-    virtual bool Copy(const LogicalPortData *data) = 0;
+    bool CopyBase(LogicalPortTable *table, const LogicalPortData *data);
+    virtual bool Copy(LogicalPortTable *table, const LogicalPortData *data) = 0;
 
     void SendObjectLog(AgentLogEvent::type event) const;
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
@@ -66,7 +68,9 @@ class LogicalPortTable : public AgentDBTable {
     PhysicalPortTable *physical_port_table() const {
         return physical_port_table_;
     }
-    void RegisterDBClients();
+
+    void ConfigEventHandler(DBEntry *entry);
+    void RegisterDBClients(IFMapDependencyManager *dep);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 
  private:
@@ -121,7 +125,7 @@ class VlanLogicalPortEntry : public LogicalPortEntry {
     virtual DBEntryBase::KeyPtr GetDBRequestKey() const;
 
     uint16_t vlan() const { return vlan_; }
-    bool Copy(const LogicalPortData *data);
+    bool Copy(LogicalPortTable *table, const LogicalPortData *data);
 
  private:
     uint16_t vlan_;
@@ -151,8 +155,7 @@ class DefaultLogicalPortEntry : public LogicalPortEntry {
     virtual ~DefaultLogicalPortEntry() { }
     virtual DBEntryBase::KeyPtr GetDBRequestKey() const;
 
-
-    bool Copy(const LogicalPortData *data);
+    bool Copy(LogicalPortTable *table, const LogicalPortData *data);
 
  private:
     DISALLOW_COPY_AND_ASSIGN(DefaultLogicalPortEntry);

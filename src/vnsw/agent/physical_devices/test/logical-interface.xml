@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<test_suite name="flow">
+<test name="test1">
+    <physical-router uuid="1" name="router-1"/>
+    <physical-interface uuid="1" name="p-intf-1" device="router-1" />
+    <logical-interface uuid="1" name="l-intf-1" port="p-intf-1" />
+    <validate name="validate-1">
+        <logical-interface name="l-intf-1" uuid="1" present="1" />
+    </validate>
+
+    <physical-router uuid="1" name="router-1" del="1"/>
+    <physical-interface uuid="1" name="p-intf-1" del="1"/>
+    <logical-interface uuid="1" name="l-intf-1" del="1"/>
+    <validate name="validate-1">
+        <physical-router name="router-1" uuid="1" present="no" />
+        <physical-interface name="p-intf-1" uuid="1" present="no" />
+        <logical-interface name="l-intf-1" uuid="1" present="no" />
+    </validate>
+    <link left="physical-interface" left-name="p-intf-1"
+           right="logical-interface" right-name="l-intf-1" del="1"/>
+    <link left="physical-interface" left-name="intf-1"
+           right="physical-router" right-name="router-1" del="1"/>
+</test>
+
+<test name="test2">
+    <physical-router uuid="1" name="router-1"/>
+    <physical-interface uuid="1" name="p-intf-1" device="router-1" />
+    <logical-interface uuid="1" name="l-intf-1" port="p-intf-1" />
+    <validate name="validate-1">
+        <logical-interface name="l-intf-1" uuid="1" present="1" />
+    </validate>
+
+    <link left="physical-interface" left-name="p-intf-1"
+           right="logical-interface" right-name="l-intf-1" del="1"/>
+    <link left="physical-interface" left-name="intf-1"
+           right="physical-router" right-name="router-1" del="1"/>
+    <physical-router uuid="1" name="router-1" del="1"/>
+    <physical-interface uuid="1" name="p-intf-1" del="1"/>
+    <logical-interface uuid="1" name="l-intf-1" del="1"/>
+    <validate name="validate-1">
+        <physical-router name="router-1" uuid="1" present="no" />
+        <physical-interface name="p-intf-1" uuid="1" present="no" />
+        <logical-interface name="l-intf-1" uuid="1" present="no" />
+    </validate>
+</test>
+</test_suite>

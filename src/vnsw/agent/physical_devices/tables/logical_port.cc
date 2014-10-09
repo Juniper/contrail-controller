@@ -7,7 +7,10 @@
 #include <cmn/agent_cmn.h>
 
 #include <ifmap/ifmap_node.h>
+#include <cfg/cfg_init.h>
+#include <cfg/cfg_listener.h>
 #include <oper/agent_sandesh.h>
+#include <oper/ifmap_dependency_manager.h>
 
 #include <physical_devices/tables/physical_devices_types.h>
 #include <physical_devices/tables/device_manager.h>
@@ -33,6 +36,9 @@ using std::string;
 using std::auto_ptr;
 using boost::uuids::uuid;
 
+/////////////////////////////////////////////////////////////////////////////
+// LogicalPortEntry routines
+/////////////////////////////////////////////////////////////////////////////
 bool LogicalPortEntry::IsLess(const DBEntry &rhs) const {
     const LogicalPortEntry &a = static_cast<const LogicalPortEntry &>(rhs);
     return (uuid_ < a.uuid_);
@@ -47,15 +53,15 @@ void LogicalPortEntry::SetKey(const DBRequestKey *key) {
     uuid_ = k->uuid_;
 }
 
-bool LogicalPortEntry::CopyBase(const LogicalPortData *data) {
+bool LogicalPortEntry::CopyBase(LogicalPortTable *table,
+                                const LogicalPortData *data) {
     bool ret = false;
 
-    if (name_ == data->name_) {
+    if (name_ != data->name_) {
         name_ = data->name_;
         ret = true;
     }
 
-    LogicalPortTable *table = static_cast<LogicalPortTable*>(get_table());
     PhysicalPortEntry *phy_port =
         table->physical_port_table()->Find(data->physical_port_);
     if (phy_port != physical_port_.get()) {
@@ -63,13 +69,16 @@ bool LogicalPortEntry::CopyBase(const LogicalPortData *data) {
         ret = true;
     }
 
-    if (Copy(data) == true) {
+    if (Copy(table, data) == true) {
         ret = true;
     }
 
     return ret;
 }
 
+/////////////////////////////////////////////////////////////////////////////
+// LogicalPortTable routines
+/////////////////////////////////////////////////////////////////////////////
 std::auto_ptr<DBEntry> LogicalPortTable::AllocEntry(const DBRequestKey *k)
     const {
     const LogicalPortKey *key = static_cast<const LogicalPortKey *>(k);
@@ -80,7 +89,7 @@ DBEntry *LogicalPortTable::Add(const DBRequest *req) {
     LogicalPortKey *key = static_cast<LogicalPortKey *>(req->key.get());
     LogicalPortData *data = static_cast<LogicalPortData *>(req->data.get());
     LogicalPortEntry *entry = key->AllocEntry(this);
-    entry->CopyBase(data);
+    entry->CopyBase(this, data);
     entry->SendObjectLog(AgentLogEvent::ADD);
     return entry;
 }
@@ -88,7 +97,7 @@ DBEntry *LogicalPortTable::Add(const DBRequest *req) {
 bool LogicalPortTable::OnChange(DBEntry *e, const DBRequest *req) {
     LogicalPortEntry *entry = static_cast<LogicalPortEntry *>(e);
     LogicalPortData *data = static_cast<LogicalPortData *>(req->data.get());
-    bool ret = entry->CopyBase(data);
+    bool ret = entry->CopyBase(this, data);
     entry->SendObjectLog(AgentLogEvent::CHANGE);
     return ret;
 }
@@ -105,30 +114,72 @@ DBTableBase *LogicalPortTable::CreateTable(DB *db, const std::string &name) {
     return table;
 }
 
-void LogicalPortTable::RegisterDBClients() {
+/////////////////////////////////////////////////////////////////////////////
+// Config handling routines
+/////////////////////////////////////////////////////////////////////////////
+void LogicalPortTable::ConfigEventHandler(DBEntry *entry) {
+}
+
+void LogicalPortTable::RegisterDBClients(IFMapDependencyManager *dep) {
     physical_port_table_ = agent()->device_manager()->physical_port_table();
+    dep->Register("logical-interface",
+                  boost::bind(&LogicalPortTable::ConfigEventHandler, this,
+                              _1));
+    agent()->cfg()->Register("logical-interface", this,
+                             autogen::LogicalInterface::ID_PERMS);
+}
+
+static LogicalPortKey *BuildKey(const autogen::LogicalInterface *port) {
+    autogen::IdPermsType id_perms = port->id_perms();
+    boost::uuids::uuid u;
+    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+    return new DefaultLogicalPortKey(u);
+}
+
+static LogicalPortData *BuildData(const Agent *agent, IFMapNode *node,
+                                  const autogen::LogicalInterface *port) {
+    // Find link with physical-interface adjacency
+    boost::uuids::uuid physical_port_uuid;
+    IFMapNode *adj_node = NULL;
+    adj_node = agent->cfg_listener()->FindAdjacentIFMapNode
+        (agent, node, "physical-interface");
+    if (adj_node) {
+        autogen::PhysicalInterface *physical_port =
+            static_cast<autogen::PhysicalInterface *>(adj_node->GetObject());
+        autogen::IdPermsType id_perms = physical_port->id_perms();
+        CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                   physical_port_uuid);
+    }
+
+    // Find link with virtual-machine-interface adjacency
+    boost::uuids::uuid vmi_uuid;
+    adj_node = agent->cfg_listener()->FindAdjacentIFMapNode
+        (agent, node, "virtual-machine-interface");
+    if (adj_node) {
+        autogen::VirtualMachineInterface *vmi =
+            static_cast<autogen::VirtualMachineInterface *>
+            (adj_node->GetObject());
+        autogen::IdPermsType id_perms = vmi->id_perms();
+        CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                   vmi_uuid);
+    }
+
+    return new LogicalPortData(node->name(), physical_port_uuid, vmi_uuid);
 }
 
 bool LogicalPortTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
-    autogen::VirtualMachine *cfg = static_cast <autogen::VirtualMachine *>
-        (node->GetObject());
-    assert(cfg);
-    autogen::IdPermsType id_perms = cfg->id_perms();
-    boost::uuids::uuid u;
-    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+    autogen::LogicalInterface *port =
+        static_cast <autogen::LogicalInterface *>(node->GetObject());
+    assert(port);
 
-    LogicalPortKey *key = NULL;
-    LogicalPortData *data = NULL;
+    req.key.reset(BuildKey(port));
     if (node->IsDeleted()) {
         req.oper = DBRequest::DB_ENTRY_DELETE;
-    } else {
-        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        boost::uuids::uuid physical_port;
-        boost::uuids::uuid vif;
-        data = new LogicalPortData(node->name(), physical_port, vif);
+        return true;
     }
-    req.key.reset(key);
-    req.data.reset(data);
+
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.data.reset(BuildData(agent(), node, port));
     return true;
 }
 
@@ -143,7 +194,7 @@ class LogicalPortSandesh : public AgentSandesh {
  private:
     DBTable *AgentGetTable() {
         return static_cast<DBTable *>
-            (Agent::GetInstance()->device_manager()->physical_port_table());
+            (Agent::GetInstance()->device_manager()->logical_port_table());
     }
     void Alloc() {
         resp_ = new SandeshLogicalPortListResp();
@@ -215,7 +266,7 @@ void LogicalPortEntry::SendObjectLog(AgentLogEvent::type event) const {
 }
 
 //////////////////////////////////////////////////////////////////////////////
-//
+// VlanLogicalPort routines
 //////////////////////////////////////////////////////////////////////////////
 LogicalPortEntry *VlanLogicalPortKey::AllocEntry(const LogicalPortTable *table)
     const {
@@ -228,7 +279,8 @@ DBEntryBase::KeyPtr VlanLogicalPortEntry::GetDBRequestKey() const {
     return DBEntryBase::KeyPtr(key);
 }
 
-bool VlanLogicalPortEntry::Copy(const LogicalPortData *d) {
+bool VlanLogicalPortEntry::Copy(LogicalPortTable *table,
+                                const LogicalPortData *d) {
     bool ret = false;
     const VlanLogicalPortData *data =
         static_cast<const VlanLogicalPortData *>(d);
@@ -242,7 +294,7 @@ bool VlanLogicalPortEntry::Copy(const LogicalPortData *d) {
 }
 
 //////////////////////////////////////////////////////////////////////////////
-//
+// DefaultLogicalPort routines
 //////////////////////////////////////////////////////////////////////////////
 LogicalPortEntry *DefaultLogicalPortKey::AllocEntry
     (const LogicalPortTable *table) const {
@@ -255,6 +307,7 @@ DBEntryBase::KeyPtr DefaultLogicalPortEntry::GetDBRequestKey() const {
     return DBEntryBase::KeyPtr(key);
 }
 
-bool DefaultLogicalPortEntry::Copy(const LogicalPortData *data) {
+bool DefaultLogicalPortEntry::Copy(LogicalPortTable *table,
+                                   const LogicalPortData *data) {
     return false;
 }

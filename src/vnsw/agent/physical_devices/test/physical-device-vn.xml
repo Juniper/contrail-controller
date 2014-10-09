@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<test_suite name="flow">
+<test name="test1">
+    <physical-router uuid="1" name="router-1"/>
+    <virtual-network uuid="1" name="vn-1"/>
+    <validate name="validate-1">
+        <physical-router name="router-1" uuid="1" present="1" />
+        <virtual-network name="vn-1" uuid="1" present="1" />
+    </validate>
+
+    <link left="physical-router" left-name="router-1"
+          right="virtual-network" right-name="vn-1"/>
+    <validate name="validate-2">
+        <physical-router-vn name="router-vn-1" uuid="1" device="1" vn="1"
+        present="1" />
+    </validate>
+
+    <link left="physical-router" left-name="router-1"
+          right="virtual-network" right-name="vn-1" del="1" />
+    <validate name="validate-1">
+        <physical-router-vn name="router-vn-1" uuid="1" router="1" vn="1"
+         present="no" />
+    </validate>
+    <physical-router uuid="1" name="router-1" del="1"/>
+    <virtual-network uuid="1" name="vn-1" del="1"/>
+    <validate name="validate-1">
+        <physical-router name="router-1" uuid="1" present="no" />
+        <virtual-network name="vn-1" uuid="1" present="no" />
+    </validate>
+</test>
+</test_suite>

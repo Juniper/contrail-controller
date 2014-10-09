@@ -11,6 +11,7 @@
 
 #include "db/db_entry.h"
 #include "db/db_table.h"
+#include "ifmap/ifmap_dependency_tracker.h"
 
 class DB;
 class DBGraph;
@@ -35,6 +36,11 @@ public:
      */
     void Terminate();
 
+    /*
+     * Register reactor-map for an IFMap node
+     */
+    void RegisterReactionMap(const char *node_name,
+                             const IFMapDependencyTracker::ReactionMap &react);
     /*
      * Associate an IFMapNode with an object in the operational database.
      */

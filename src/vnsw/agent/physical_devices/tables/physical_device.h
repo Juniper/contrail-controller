@@ -7,9 +7,11 @@
 #include <physical_devices/tables/device_manager.h>
 #include <string>
 
+class IFMapDependencyManager;
+
 namespace AGENT {
 struct PhysicalDeviceKey : public AgentKey {
-    explicit PhysicalDeviceKey(boost::uuids::uuid id) :
+    explicit PhysicalDeviceKey(const boost::uuids::uuid &id) :
         AgentKey(), uuid_(id) { }
     virtual ~PhysicalDeviceKey() { }
 
@@ -86,6 +88,8 @@ class PhysicalDeviceTable : public AgentDBTable {
 
     PhysicalDeviceEntry *Find(const boost::uuids::uuid &u);
 
+    void ConfigEventHandler(DBEntry *entry);
+    void RegisterDBClients(IFMapDependencyManager *dep);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 
  private:
