@@ -2,7 +2,7 @@ import sys
 sys.path.append("../common/tests")
 from test_utils import *
 import test_common
-sys.path.insert(0, '../../../../build/debug/config/schema-transformer/')
+sys.path.insert(0, '../../../../build/production/config/schema-transformer/')
 
 from vnc_api.vnc_api import *
 import uuid
