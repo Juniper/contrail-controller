@@ -545,6 +545,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Property('plugin-tuning', 'global-system-config') -->
 
+<xsd:element name="ibgp-auto-mesh" type="xsd:boolean"/>
+<!-- Automatically create an iBGP mesh if set to True -->
+<!--#IFMAP-SEMANTICS-IDL
+     Property('ibgp-auto-mesh', 'global-system-config') -->
+
 <xsd:element name="global-system-config-bgp-router"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('global-system-config-bgp-router', 
