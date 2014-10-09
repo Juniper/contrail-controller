@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include "test/test_cmn_util.h"
 #include "test_pkt_util.h"
 #include "pkt/flow_proto.h"
@@ -16,14 +17,14 @@ void RouterIdDepInit(Agent *agent) {
 class FlowTest : public ::testing::Test {
     virtual void SetUp() {
         client->WaitForIdle();
-        WAIT_FOR(1000, 100, 
+        WAIT_FOR(1000, 100,
                  (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
     }
 
     virtual void TearDown() {
         client->EnqueueFlowFlush();
         client->WaitForIdle();
-        WAIT_FOR(1000, 100, 
+        WAIT_FOR(1000, 100,
                  (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
     }
 };

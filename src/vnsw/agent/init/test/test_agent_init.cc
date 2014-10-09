@@ -2,53 +2,14 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/time.h>
+#include "base/os.h"
 #include <sys/resource.h>
-
-#include <boost/uuid/string_generator.hpp>
-#include <boost/program_options.hpp>
-#include <boost/asio/ip/address.hpp>
-#include <base/logging.h>
-#include <base/contrail_ports.h>
 
 #include "testing/gunit.h"
 #include "test/test_cmn_util.h"
 
-#include <pugixml/pugixml.hpp>
-
-#include <base/task.h>
-#include <io/event_manager.h>
-#include <sandesh/common/vns_types.h>
-#include <sandesh/common/vns_constants.h>
-#include <base/misc_utils.h>
 #include <base/test/task_test_util.h>
-#include <cmn/agent_cmn.h>
-
 #include <cfg/cfg_init.h>
-#include <cfg/cfg_mirror.h>
-#include <cfg/discovery_agent.h>
-
-#include <init/agent_param.h>
-
-#include <oper/operdb_init.h>
-#include <oper/vrf.h>
-#include <oper/multicast.h>
-#include <oper/mirror_table.h>
-#include <controller/controller_init.h>
-#include <controller/controller_vrf_export.h>
-#include <pkt/pkt_init.h>
-#include <services/services_init.h>
-#include <uve/agent_uve.h>
-#include <ksync/ksync_init.h>
-#include <kstate/kstate.h>
-#include <pkt/proto.h>
-#include <pkt/proto_handler.h>
-#include <diag/diag.h>
-#include <vgw/cfg_vgw.h>
-#include <vgw/vgw.h>
-#include <uve/agent_uve.h>
 
 namespace opt = boost::program_options;
 

@@ -1,3 +1,4 @@
+#include "base/os.h"
 #include "test/test_xmpp_v6.cc"
 
 int main(int argc, char **argv) {
@@ -6,7 +7,7 @@ int main(int argc, char **argv) {
     Agent::GetInstance()->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
     Agent::GetInstance()->SetAgentMcastLabelRange(0);
 
-    LoggingInit(); 
+    LoggingInit();
     Sandesh::SetLocalLogging(true);
     Sandesh::SetLoggingLevel(SandeshLevel::UT_DEBUG);
 

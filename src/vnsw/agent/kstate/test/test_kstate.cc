@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include "test/test_init.h"
 #include "test/test_cmn_util.h"
 #include "kstate/test/test_kstate.h"
@@ -23,7 +24,7 @@
 
 #define MAX_VNET 1
 int fd_table[MAX_VNET];
-#define MAX_TEST_FD 5 
+#define MAX_TEST_FD 5
 #define MAX_TEST_MPLS 10
 int test_fd[MAX_TEST_FD];
 
@@ -79,7 +80,7 @@ public:
             client->WaitForIdle(2);
         }
     }
-    
+
     void WaitForVrf(struct PortInfo *input, int idx, bool created) {
         char vrf_name[80];
         sprintf(vrf_name, "vrf%d", input[idx].vn_id);

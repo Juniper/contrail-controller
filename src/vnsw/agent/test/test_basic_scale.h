@@ -1,7 +1,6 @@
 /*
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
-
 #include "testing/gunit.h"
 
 #include <pugixml/pugixml.hpp>
@@ -19,9 +18,9 @@
 
 #include "controller/controller_init.h"
 #include "controller/controller_ifmap.h"
-#include "controller/controller_peer.h" 
+#include "controller/controller_peer.h"
 
-#define MAX_CHANNEL 10 
+#define MAX_CHANNEL 10
 #define MAX_CONTROL_PEER 2
 #define MAX_INTERFACES 250
 #define DEFAULT_WALKER_YIELD 1024
@@ -43,7 +42,7 @@ void SetWalkerYield(int yield) {
 xml_node MessageHeader(xml_document *xdoc, std::string vrf) {
     xml_node msg = xdoc->append_child("message");
     msg.append_attribute("type") = "set";
-    msg.append_attribute("from") = XmppInit::kAgentNodeJID; 
+    msg.append_attribute("from") = XmppInit::kAgentNodeJID;
     string str(XmppInit::kControlNodeJID);
     str += "/";
     str += XmppInit::kBgpPeer;
@@ -61,7 +60,7 @@ xml_node MessageHeader(xml_document *xdoc, std::string vrf) {
 xml_node MulticastMessageHeader(xml_document *xdoc, std::string vrf) {
     xml_node msg = xdoc->append_child("message");
     msg.append_attribute("type") = "set";
-    msg.append_attribute("from") = XmppInit::kAgentNodeJID; 
+    msg.append_attribute("from") = XmppInit::kAgentNodeJID;
     string str(XmppInit::kControlNodeJID);
     str += "/";
     str += XmppInit::kBgpPeer;

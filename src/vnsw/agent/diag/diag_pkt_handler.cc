@@ -2,6 +2,7 @@
  *  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  *   */
 
+#include "base/os.h"
 #include <map>
 #include "vr_defs.h"
 #include "base/timer.h"
@@ -77,25 +78,23 @@ void DiagPktHandler::TcpHdr(in_addr_t src, uint16_t sport, in_addr_t dst,
                             uint16_t dport, bool is_syn, uint32_t seq_no,
                             uint16_t len) {
     struct tcphdr *tcp = pkt_info_->transp.tcp;
-    tcp->source = htons(sport);
-    tcp->dest = htons(dport);
+    tcp->th_sport = htons(sport);
+    tcp->th_dport = htons(dport);
 
     if (is_syn) {
-        tcp->syn = 1;
-        tcp->ack = 0;
+        tcp->th_flags &= ~TH_ACK;
     } else {
         //If not sync, by default we are sending an ack
-        tcp->ack = 1;
-        tcp->syn = 0;
+        tcp->th_flags &= ~TH_SYN;
     }
 
-    tcp->seq = htons(seq_no);
-    tcp->ack_seq = htons(seq_no + 1);
+    tcp->th_seq = htons(seq_no);
+    tcp->th_ack = htons(seq_no + 1);
     //Just a random number;
-    tcp->window = htons(1000);
-    tcp->doff = 5;
-    tcp->check = 0;
-    tcp->check = TcpCsum(src, dst, len, tcp);
+    tcp->th_win = htons(1000);
+    tcp->th_off = 5;
+    tcp->th_sum = 0;
+    tcp->th_sum = TcpCsum(src, dst, len, tcp);
 }
 
 uint16_t DiagPktHandler::TcpCsum(in_addr_t src, in_addr_t dest, uint16_t len,
@@ -109,16 +108,17 @@ uint16_t DiagPktHandler::TcpCsum(in_addr_t src, in_addr_t dest, uint16_t len,
 void DiagPktHandler::SwapL4() {
     if (pkt_info_->ip_proto == IPPROTO_TCP) {
         tcphdr *tcp = pkt_info_->transp.tcp;
-        TcpHdr(htonl(pkt_info_->ip_daddr.to_v4().to_ulong()), ntohs(tcp->dest),
+        TcpHdr(htonl(pkt_info_->ip_daddr.to_v4().to_ulong()),
+               ntohs(tcp->th_dport),
                htonl(pkt_info_->ip_saddr.to_v4().to_ulong()),
-               ntohs(tcp->source), false, ntohs(tcp->ack_seq),
+               ntohs(tcp->th_sport), false, ntohs(tcp->th_ack),
                ntohs(pkt_info_->ip->ip_len) - sizeof(struct ip));
 
     } else if(pkt_info_->ip_proto == IPPROTO_UDP) {
         udphdr *udp = pkt_info_->transp.udp;
-        UdpHdr(ntohs(udp->len), pkt_info_->ip_daddr.to_v4().to_ulong(),
-               ntohs(udp->dest), pkt_info_->ip_saddr.to_v4().to_ulong(),
-               ntohs(udp->source));
+        UdpHdr(ntohs(udp->uh_ulen), pkt_info_->ip_daddr.to_v4().to_ulong(),
+               ntohs(udp->uh_dport), pkt_info_->ip_saddr.to_v4().to_ulong(),
+               ntohs(udp->uh_sport));
     }
 }
 

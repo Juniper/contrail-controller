@@ -5,6 +5,7 @@
 //  Created by Praveen K V
 //  Copyright (c) 2012 Contrail Systems. All rights reserved.
 //
+#include "base/os.h"
 #include <base/logging.h>
 #include <io/event_manager.h>
 #include <tbb/task.h>

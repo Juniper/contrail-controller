@@ -2,11 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <sys/socket.h>
-#include <linux/netlink.h>
-#include <net/if.h>
-#include <linux/if_tun.h>
-#include <linux/if_packet.h>
+#include "base/os.h"
 
 #include "testing/gunit.h"
 
@@ -37,8 +33,8 @@
 #include "openstack/instance_service_server.h"
 #include "test_cmn_util.h"
 #include "vr_types.h"
-#include <controller/controller_export.h> 
-#include <ksync/ksync_sock_user.h> 
+#include <controller/controller_export.h>
+#include <ksync/ksync_sock_user.h>
 
 #define VRF_VHOST "vrf-vhost"
 #define VRF_LL "vrf-ll"
