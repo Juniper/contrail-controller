@@ -157,7 +157,7 @@ uint16_t Icmpv6Handler::FillRouterAdvertisement(uint8_t *buf, uint8_t *src,
     agent()->vrrp_mac().ToArray(buf + offset + 2, ETHER_ADDR_LEN);
 
     // add prefix information
-    offset += sizeof(nd_opt_hdr) + ETH_ALEN;
+    offset += sizeof(nd_opt_hdr) + ETHER_ADDR_LEN;
     nd_opt_prefix_info *prefix_info = (nd_opt_prefix_info *)(buf + offset);
     prefix_info->nd_opt_pi_type = ND_OPT_PREFIX_INFORMATION;
     prefix_info->nd_opt_pi_len = 4;

@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include "testing/gunit.h"
 
 #include <netinet/if_ether.h>
@@ -29,11 +30,10 @@
 #include <services/services_sandesh.h>
 #include "vr_types.h"
 
-#define MAC_LEN 6
 #define MAX_WAIT_COUNT 60
 #define BUF_SIZE 8192
-char src_mac[MAC_LEN] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
-char dest_mac[MAC_LEN] = { 0x00, 0x11, 0x12, 0x13, 0x14, 0x15 };
+char src_mac[ETHER_ADDR_LEN] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
+char dest_mac[ETHER_ADDR_LEN] = { 0x00, 0x11, 0x12, 0x13, 0x14, 0x15 };
 
 class IcmpTest : public ::testing::Test {
 public:
@@ -112,8 +112,8 @@ public:
         agent->hdr_cmd = htons(AgentHdr::TRAP_NEXTHOP);
 
         eth = (struct ether_header *) (agent + 1);
-        memcpy(eth->ether_dhost, dest_mac, MAC_LEN);
-        memcpy(eth->ether_shost, src_mac, MAC_LEN);
+        memcpy(eth->ether_dhost, dest_mac, ETHER_ADDR_LEN);
+        memcpy(eth->ether_shost, src_mac, ETHER_ADDR_LEN);
         eth->ether_type = htons(0x800);
 
         struct ip *ip = (struct ip *) (eth + 1);

@@ -5,14 +5,14 @@
 #include "kstate.h"
 #include "nh_kstate.h"
 #include "vr_nexthop.h"
-#include <linux/if_ether.h>
+#include <net/ethernet.h>
 #include <iomanip>
 #include <sstream>
 
 using namespace std;
 
-NHKState::NHKState(KNHResp *obj, const std::string &resp_ctx, 
-                   vr_nexthop_req &req, int id) 
+NHKState::NHKState(KNHResp *obj, const std::string &resp_ctx,
+                   vr_nexthop_req &req, int id)
     : KState(resp_ctx, obj) {
 
     req.set_nhr_id(id);

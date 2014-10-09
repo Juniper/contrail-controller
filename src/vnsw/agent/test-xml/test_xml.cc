@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
+#include "base/os.h"
 #include <iostream>
 #include <fstream>
 #include <pugixml/pugixml.hpp>

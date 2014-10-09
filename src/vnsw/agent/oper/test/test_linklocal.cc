@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include "testing/gunit.h"
 
 #include <base/logging.h>
@@ -16,10 +17,10 @@
 #define MAX_COUNT 100
 #define VHOST_IP "10.1.2.1"
 
-std::string linklocal_name[] = 
+std::string linklocal_name[] =
     { "metadata", "myservice", "testservice", "newservice", "experimental" };
 
-std::string linklocal_ip[] = 
+std::string linklocal_ip[] =
     { "169.254.169.254", "169.254.1.1", "169.254.10.20",
       "169.254.20.30", "169.254.30.40" };
 
@@ -29,7 +30,7 @@ std::string fabric_dns_name[] =
     { "localhost", "www.juniper.net", "www.google.com",
       "www.cnn.com", "github.com" };
 
-std::string fabric_ip[] = 
+std::string fabric_ip[] =
     { "10.1.2.3", "10.1.2.4", "10.1.2.5", "10.1.2.6", "10.1.2.7" };
 
 uint16_t fabric_port[] = { 8775, 8080, 9000, 12345, 8000 };

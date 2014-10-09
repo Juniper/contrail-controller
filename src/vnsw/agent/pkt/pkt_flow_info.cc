@@ -2,10 +2,10 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+
+#include "base/os.h"
 #include <arpa/inet.h>
 #include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <netinet/udp.h>
 
 #include "route/route.h"
 
