@@ -33,6 +33,8 @@ import com.vmware.vim25.VirtualMachinePowerState;
 import com.vmware.vim25.VirtualMachineRuntimeInfo;
 import com.vmware.vim25.VmwareDistributedVirtualSwitchPvlanSpec;
 import com.vmware.vim25.VmwareDistributedVirtualSwitchVlanSpec;
+import com.vmware.vim25.VMwareDVSConfigInfo;
+import com.vmware.vim25.VMwareDVSPvlanMapEntry;
 import com.vmware.vim25.mo.Datacenter;
 import com.vmware.vim25.mo.DistributedVirtualPortgroup;
 import com.vmware.vim25.mo.Folder;
@@ -95,7 +97,7 @@ public class VCenterDB {
         return null;
     }
     
-    private static int getVlanId(String dvPgName, DVPortSetting portSetting) {
+    private static short getIsolatedVlanId(String dvPgName, DVPortSetting portSetting) {
         if (portSetting instanceof VMwareDVSPortSetting) {
             VMwareDVSPortSetting vPortSetting = 
                     (VMwareDVSPortSetting) portSetting;
@@ -104,7 +106,7 @@ public class VCenterDB {
             if (vlanSpec instanceof VmwareDistributedVirtualSwitchPvlanSpec) {
                 VmwareDistributedVirtualSwitchPvlanSpec pvlanSpec = 
                         (VmwareDistributedVirtualSwitchPvlanSpec) vlanSpec;
-                return pvlanSpec.getPvlanId();
+                return (short)pvlanSpec.getPvlanId();
             } else {
                 s_logger.error("dvPg: " + dvPgName + 
                         " port setting: " +  vPortSetting + 
@@ -353,10 +355,36 @@ public class VCenterDB {
                     "configured");
             return null;
         }
+
+        // Extract private vlan entries for the virtual switch
+        VMwareDVSConfigInfo dvsConfigInfo = (VMwareDVSConfigInfo) contrailDvs.getConfig();
+        if (dvsConfigInfo == null) {
+            s_logger.error("dvSwitch: " + contrailDvSwitchName +
+                    " Datacenter: " + contrailDC.getName() + " ConfigInfo " +
+                    "is empty");
+            return null;
+        }
+
+        if (!(dvsConfigInfo instanceof VMwareDVSConfigInfo)) {
+            s_logger.error("dvSwitch: " + contrailDvSwitchName +
+                    " Datacenter: " + contrailDC.getName() + " ConfigInfo " +
+                    "isn't instanceof VMwareDVSConfigInfo");
+            return null;
+        }
+
+        VMwareDVSPvlanMapEntry[] pvlanMapArray = dvsConfigInfo.getPvlanConfig();
+        if (pvlanMapArray == null) {
+            s_logger.error("dvSwitch: " + contrailDvSwitchName +
+                    " Datacenter: " + contrailDC.getName() + " Private VLAN NOT" +
+                    "configured");
+            return null;
+        }
+
         // Populate VMware Virtual Network Info
         SortedMap<String, VmwareVirtualNetworkInfo> vnInfos =
                 new TreeMap<String, VmwareVirtualNetworkInfo>();
         for (DistributedVirtualPortgroup dvPg : dvPgs) {
+            s_logger.info("dvPg: " + dvPg.getName());
             // Extract dvPg configuration info and port setting
             DVPortgroupConfigInfo configInfo = dvPg.getConfig();
             DVPortSetting portSetting = configInfo.getDefaultPortConfig();
@@ -367,19 +395,36 @@ public class VCenterDB {
             // Find associated IP Pool
             IpPool ipPool = getIpPool(dvPg, ipPools);
             if (ipPool == null) {
+                s_logger.info("no ip pool is associated to dvPg: " + dvPg.getName());
                 continue;
             }
             byte[] vnKeyBytes = dvPg.getKey().getBytes();
             String vnUuid = UUID.nameUUIDFromBytes(vnKeyBytes).toString();
             String vnName = dvPg.getName();
+            s_logger.info("VN name: " + vnName);
             IpPoolIpPoolConfigInfo ipConfigInfo = ipPool.getIpv4Config();
-            // Find associated VLAN Id
-            int vlanId = getVlanId(dvPg.getName(), portSetting);
+
+            // Find associated isolated secondary VLAN Id
+            short isolatedVlanId = getIsolatedVlanId(dvPg.getName(), portSetting);
+
+            // Find primaryVLAN corresponsing to isolated secondary VLAN
+            short primaryVlanId = 0;
+            for (short i=0; i < pvlanMapArray.length; i++) {
+
+                if ((short)pvlanMapArray[i].getSecondaryVlanId() != isolatedVlanId)
+                    continue;
+                if (!pvlanMapArray[i].getPvlanType().equals("isolated"))
+                    continue;
+                s_logger.info("    PvlanType = " + pvlanMapArray[i].getPvlanType() + " PrimaryVLAN = " + pvlanMapArray[i].getPrimaryVlanId() + " IsolatedVLAN = " + pvlanMapArray[i].getSecondaryVlanId());
+                primaryVlanId = (short)pvlanMapArray[i].getPrimaryVlanId();
+            }
+
             // Populate associated VMs
             SortedMap<String, VmwareVirtualMachineInfo> vmInfo = 
                     populateVirtualMachineInfo(dvPg);
             VmwareVirtualNetworkInfo vnInfo = new
-                    VmwareVirtualNetworkInfo(vnName, vlanId, vmInfo,
+                    VmwareVirtualNetworkInfo(vnName, isolatedVlanId, 
+                            primaryVlanId, vmInfo,
                             ipConfigInfo.getSubnetAddress(),
                             ipConfigInfo.getNetmask(),
                             ipConfigInfo.getGateway());

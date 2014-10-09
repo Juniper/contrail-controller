@@ -5,9 +5,8 @@ package net.juniper.contrail.api;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Iterator;
 import java.io.Serializable;
-
-import com.google.common.collect.ImmutableList;
 
 public abstract class ApiObjectBase implements Serializable {
     private String name;
@@ -64,7 +63,16 @@ public abstract class ApiObjectBase implements Serializable {
     }
     
     public List<String> getQualifiedName() {
-	return ImmutableList.copyOf(fq_name);
+        return fqNameToList();
+    }
+
+    public List<String> fqNameToList() {
+        List<String> lst = new ArrayList<String>();
+        Iterator<String> iterator = fq_name.iterator();
+        while (iterator.hasNext()) {
+	    lst.add(iterator.next());
+        }
+        return lst;
     }
 
     public abstract String getType();
