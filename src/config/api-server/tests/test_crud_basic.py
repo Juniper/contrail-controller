@@ -642,7 +642,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
 
             logger.info("Creating objects to hit max rabbit pending.")
             # every create updates project quota
-            test_objs = self._create_test_objects(count=max_pend_upd/2+1)
+            test_objs = self._create_test_objects(count=max_pend_upd)
 
             def asserts_on_max_pending():
                 self.assertEqual(e.status_code, 500)
@@ -738,6 +738,102 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         print top_elem[0][0][-1].text
         self.assertThat(top_elem[0][0][-1].text, Contains('delete'))
         self.assertThat(top_elem[0][0][-1].text, Contains(test_obj.name))
+
+    def test_dup_create_with_same_uuid(self):
+        dom_name = self.id() + '-domain'
+        logger.info('Creating Domain %s', dom_name)
+        domain_obj = Domain(dom_name)
+        self._vnc_lib.domain_create(domain_obj)
+
+        project_name = self.id() + '-project'
+        logger.info('Creating Project %s', project_name)
+        orig_project_obj = Project(project_name, domain_obj)
+        self._vnc_lib.project_create(orig_project_obj)
+ 
+        logger.info('Creating Dup Project in default domain with same uuid')
+        dup_project_obj = Project(project_name)
+        dup_project_obj.uuid = orig_project_obj.uuid
+        with ExpectedException(RefsExistError) as e:
+            self._vnc_lib.project_create(dup_project_obj)
+
+    def test_put_on_wrong_type(self):
+        vn_name = self.id()+'-vn'
+        vn_obj = VirtualNetwork(vn_name)
+        self._add_detail('Creating network with name %s' %(vn_name))
+        self._vnc_lib.virtual_network_create(vn_obj)
+        listen_port = self._api_server._args.listen_port
+        uri = '/network-ipam/%s' %(vn_obj.uuid)
+        self._add_detail('Trying to update uuid as network-ipam, expecting 404')
+        code, msg = self._http_put(uri, json.dumps({'network-ipam': {'display_name': 'foobar'}}))
+        self.assertThat(code, Equals(404))
+
+        self._add_detail('Updating display_name as network, expecting success')
+        uri = '/virtual-network/%s' %(vn_obj.uuid)
+        code, msg = self._http_put(uri, json.dumps({'virtual-network': {'display_name': 'foobar'}}))
+        self.assertThat(code, Equals(200))
+        rb_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+        self.assertThat(rb_obj.display_name, Equals('foobar'))
+
+    def test_floatingip_as_instanceip(self):
+        ipam_fixt = self.useFixture(NetworkIpamTestFixtureGen(self._vnc_lib))
+
+        project_fixt = self.useFixture(ProjectTestFixtureGen(self._vnc_lib, 'default-project'))
+
+        subnet_vnc = IpamSubnetType(subnet=SubnetType('1.1.1.0', 24))
+        vnsn_data = VnSubnetsType([subnet_vnc])
+        logger.info("Creating a virtual network")
+        logger.info("Creating subnet 1.1.1.0/24")
+        vn_fixt = self.useFixture(VirtualNetworkTestFixtureGen(self._vnc_lib,
+                  network_ipam_ref_infos=[(ipam_fixt.getObj(), vnsn_data)]))
+        vn_fixt.getObj().set_router_external(True)
+        self._vnc_lib.virtual_network_update(vn_fixt.getObj())
+
+        logger.info("Fetching floating-ip-pool")
+        fip_pool_fixt = self.useFixture(
+            FloatingIpPoolTestFixtureGen(self._vnc_lib, 'floating-ip-pool',
+                                         parent_fixt=vn_fixt))
+
+        logger.info("Creating auto-alloc floating-ip")
+        fip_fixt = self.useFixture(
+            FloatingIpTestFixtureGen(
+                self._vnc_lib, 'fip1', parent_fixt=fip_pool_fixt,
+                project_refs=[project_fixt.getObj()]))
+        ip_allocated = fip_fixt.getObj().floating_ip_address
+
+        logger.info("Creating auto-alloc instance-ip, expecting an error")
+        with self.assertRaises(cfgm_common.exceptions.PermissionDenied):
+            iip_fixt = self.useFixture(
+                InstanceIpTestFixtureGen(
+                    self._vnc_lib, 'iip1', auto_prop_val=False,
+                    instance_ip_address=ip_allocated,
+                    virtual_network_refs=[vn_fixt.getObj()]))
+    # end test_floatingip_as_instanceip
+
+    def test_name_with_blacklist_char(self):
+        vn_name = self.id()+'-vn<1>'
+        vn_obj = VirtualNetwork(vn_name)
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.virtual_network_create(vn_obj)
+
+        vn_name = self.id()+'-vn'
+        vn_obj = VirtualNetwork(vn_name)
+        self._vnc_lib.virtual_network_create(vn_obj)
+        self.assertTill(self.ifmap_has_ident, obj=vn_obj)
+
+        rt_name = self.id()+'-route-target<1>'
+        rt_obj = RouteTarget(rt_name)
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.route_target_create(rt_obj)
+
+        rt_name = self.id()+'-route-target:1'
+        rt_obj = RouteTarget(rt_name)
+        self._vnc_lib.route_target_create(rt_obj)
+        self.assertTill(self.ifmap_has_ident, obj=rt_obj)
+
+        self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
+        self._vnc_lib.route_target_delete(id=rt_obj.uuid)
+    # end test_name_with_blacklist_char
+
 # end class TestVncCfgApiServer
 
 class TestLocalAuth(test_case.ApiServerTestCase):

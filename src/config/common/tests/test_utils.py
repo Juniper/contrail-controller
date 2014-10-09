@@ -35,6 +35,22 @@ from novaclient import exceptions as nc_exc
 def stub(*args, **kwargs):
     pass
 
+class FakeApiConfigLog(object):
+    _all_logs = []
+    send = stub
+    def __init__(self, *args, **kwargs):
+        FakeApiConfigLog._all_logs.append(kwargs['api_log'])
+
+    @classmethod
+    def _print(cls):
+        for log in cls._all_logs:
+            x = copy.deepcopy(log.__dict__)
+            #body = x.pop('body')
+            #pprint(json.loads(body))
+            pprint(x)
+            print "\n"
+# class FakeApiConfigLog
+
 
 class CassandraCFs(object):
     _all_cfs = {}
