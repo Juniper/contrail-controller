@@ -2,6 +2,11 @@
 // Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 //
 
+#include <sandesh/sandesh_types.h>
+#include <sandesh/sandesh.h>
+#include <io/io_types.h>
+
+#include "analytics/collector_uve_types.h"
 #include "analytics/db_handler.h"
 #include "analytics/protobuf_collector.h"
 
@@ -35,4 +40,17 @@ void ProtobufCollector::Shutdown() {
 
 void ProtobufCollector::DbInitializeCb() {
     server_->Initialize();
+}
+
+void ProtobufCollector::SendStatistics(const std::string &name) {
+    ProtobufCollectorStats stats;
+    stats.set_name(name);
+    std::vector<SocketIOStats> v_tx_stats;
+    std::vector<SocketIOStats> v_rx_stats;
+    std::vector<SocketEndpointMessageStats> v_rx_msg_stats;
+    server_->GetStatistics(&v_tx_stats, &v_rx_stats, &v_rx_msg_stats);
+    stats.set_tx_socket_stats(v_tx_stats);
+    stats.set_rx_socket_stats(v_rx_stats);
+    stats.set_rx_message_stats(v_rx_msg_stats);
+    ProtobufCollectorStatsUve::Send(stats);
 }

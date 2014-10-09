@@ -140,6 +140,8 @@ bool CollectorInfoLogger(VizSandeshContext &ctx) {
     CollectorSummaryLogger(analytics->GetCollector(), analytics->name(),
             analytics->GetOsp());
 
+    analytics->SendProtobufCollectorStatistics();
+
     vector<ModuleServerState> sinfos;
     analytics->GetCollector()->GetGeneratorUVEInfo(sinfos);
     for (uint i = 0; i < sinfos.size(); i++) {

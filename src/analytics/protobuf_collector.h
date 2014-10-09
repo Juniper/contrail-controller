@@ -21,6 +21,7 @@ class ProtobufCollector {
     virtual ~ProtobufCollector();
     bool Initialize();
     void Shutdown();
+    void SendStatistics(const std::string &name);
 
  private:
     void DbInitializeCb();

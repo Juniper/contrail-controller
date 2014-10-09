@@ -98,6 +98,18 @@ struct CollectorStats {
     5: u64                                 sandesh_type_mismatch_error
 }
 
+struct ProtobufCollectorStats {
+    1: string                                       name (key="ObjectCollectorInfo")
+    2: optional bool                                deleted
+    3: optional list<io.SocketIOStats>              rx_socket_stats (tags="")
+    4: optional list<io.SocketIOStats>              tx_socket_stats (tags="")
+    5: optional list<io.SocketEndpointMessageStats> rx_message_stats (tags=".endpoint_name")
+}
+
+uve sandesh ProtobufCollectorStatsUve {
+    1: ProtobufCollectorStats                       data
+}
+
 request sandesh ShowCollectorServerReq {
 }
 

@@ -13,9 +13,13 @@
 #include <google/protobuf/message.h>
 #include <google/protobuf/dynamic_message.h>
 
+#include <sandesh/sandesh_types.h>
+#include <sandesh/sandesh.h>
+
 #include <base/logging.h>
 #include <base/test/task_test_util.h>
 #include <io/test/event_manager_test.h>
+#include <io/io_types.h>
 #include <io/udp_server.h>
 
 #include "analytics/db_handler.h"
@@ -451,6 +455,34 @@ TEST_F(ProtobufServerTest, Basic) {
     client_->Send(snd, server_endpoint);
     TASK_UTIL_EXPECT_EQ(client_->GetTxPackets(), 1);
     TASK_UTIL_EXPECT_VECTOR_EQ(stats_tester_.match_, match_);
+    // Compare statistics
+    std::vector<SocketIOStats> va_rx_stats, va_tx_stats;
+    std::vector<SocketEndpointMessageStats> va_rx_msg_stats;
+    server_->GetStatistics(&va_tx_stats, &va_rx_stats, &va_rx_msg_stats);
+    EXPECT_EQ(1, va_tx_stats.size());
+    EXPECT_EQ(1, va_rx_stats.size());
+    EXPECT_EQ(1, va_rx_msg_stats.size());
+    const SocketIOStats &a_rx_io_stats(va_rx_stats[0]);
+    EXPECT_EQ(1, a_rx_io_stats.get_calls());
+    EXPECT_EQ(serialized_sdm_data_size, a_rx_io_stats.get_bytes());
+    EXPECT_EQ(serialized_sdm_data_size, a_rx_io_stats.get_average_bytes());
+    const SocketIOStats &a_tx_io_stats(va_tx_stats[0]);
+    EXPECT_EQ(0, a_tx_io_stats.get_calls());
+    EXPECT_EQ(0, a_tx_io_stats.get_bytes());
+    EXPECT_EQ(0, a_tx_io_stats.get_average_bytes());
+    const SocketEndpointMessageStats &a_rx_msg_stats(va_rx_msg_stats[0]);
+    boost::asio::ip::udp::endpoint client_endpoint =
+        client_->GetLocalEndpoint(&ec);
+    EXPECT_TRUE(ec == 0);
+    boost::asio::ip::address local_client_addr =
+        boost::asio::ip::address::from_string("127.0.0.1", ec);
+    EXPECT_TRUE(ec == 0);
+    client_endpoint.address(local_client_addr);
+    std::stringstream ss;
+    ss << client_endpoint;
+    EXPECT_EQ(ss.str(), a_rx_msg_stats.get_endpoint_name());
+    EXPECT_EQ(1, a_rx_msg_stats.get_messages());
+    EXPECT_EQ(serialized_sdm_data_size, a_rx_msg_stats.get_bytes());
 }
 
 }  // namespace
