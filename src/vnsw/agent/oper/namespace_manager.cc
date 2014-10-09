@@ -559,7 +559,7 @@ void NamespaceManager::StopNetNS(ServiceInstance *svc_instance,
     if (props.service_type == ServiceInstance::LoadBalancer) {
         cmd_str << " --cfg-file " << loadbalancer_config_path_ <<
             props.pool_id << "/etc/haproxy/haproxy.cfg";
-        cmd_str << " pool-id " << props.pool_id;
+        cmd_str << " --pool-id " << props.pool_id;
     }
 
     NamespaceTask *task = new NamespaceTask(cmd_str.str(), Stop,
