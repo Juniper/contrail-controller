@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include <netinet/in.h>
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_interface.h>

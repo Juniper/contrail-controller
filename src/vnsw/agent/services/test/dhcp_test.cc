@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include "testing/gunit.h"
 
 #include <netinet/if_ether.h>
@@ -26,7 +27,6 @@
 #include <services/services_sandesh.h>
 #include "vr_types.h"
 
-#define MAC_LEN 6
 #define CLIENT_REQ_IP "1.2.3.4"
 #define CLIENT_REQ_PREFIX "1.2.3.0"
 #define CLIENT_REQ_GW "1.2.3.1"
@@ -238,13 +238,13 @@ public:
 
         udphdr *udp = (udphdr *) (ip + 1);
         if (response) {
-            udp->source = htons(DHCP_SERVER_PORT);
-            udp->dest = htons(DHCP_SERVER_PORT);
+            udp->uh_sport = htons(DHCP_SERVER_PORT);
+            udp->uh_dport = htons(DHCP_SERVER_PORT);
         } else {
-            udp->source = htons(DHCP_CLIENT_PORT);
-            udp->dest = htons(DHCP_SERVER_PORT);
+            udp->uh_sport = htons(DHCP_CLIENT_PORT);
+            udp->uh_dport = htons(DHCP_SERVER_PORT);
         }
-        udp->check = 0;
+        udp->uh_sum = 0;
 
         dhcphdr *dhcp = (dhcphdr *) (udp + 1);
         if (response) {
@@ -272,7 +272,7 @@ public:
             memcpy(dhcp->options, "1234", 4);
         }
 
-        udp->len = htons(len);
+        udp->uh_ulen = htons(len);
         ip->ip_len = htons(len + sizeof(struct ip));
         len += sizeof(struct ip) + sizeof(struct ether_header) +
                 Agent::GetInstance()->pkt()->pkt_handler()->EncapHeaderLen();

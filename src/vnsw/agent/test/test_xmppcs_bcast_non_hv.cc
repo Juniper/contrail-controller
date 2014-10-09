@@ -1,3 +1,4 @@
+#include "base/os.h"
 #include "test/test_xmppcs_bcast.cc"
 
 int main(int argc, char **argv) {

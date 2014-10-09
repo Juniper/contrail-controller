@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include "vr_defs.h"
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_types.h>
