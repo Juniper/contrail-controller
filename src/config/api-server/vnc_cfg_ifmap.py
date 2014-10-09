@@ -42,6 +42,8 @@ from cfgm_common.ifmap.response import Response, newSessionResult
 from cfgm_common.ifmap.metadata import Metadata
 from cfgm_common import obj_to_json
 from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
+from cfgm_common.vnc_cassandra import VncCassandraClient
+from cfgm_common.vnc_kombu import VncKombuClient
 
 import copy
 import json
@@ -53,10 +55,7 @@ import pycassa.cassandra.ttypes
 from pycassa.system_manager import *
 from datetime import datetime
 from pycassa.util import *
-from pycassa.pool import AllServersUnavailable
 
-import amqp.exceptions
-import kombu
 import signal, os
 
 
@@ -609,201 +608,25 @@ class Imid(ImidGen):
 # end class Imid
 
 
-class VncCassandraClient(VncCassandraClientGen):
-    # Name to ID mapping keyspace + tables
-    _UUID_KEYSPACE_NAME = 'config_db_uuid'
-
-    # TODO describe layout
-    _OBJ_UUID_CF_NAME = 'obj_uuid_table'
-
-    # TODO describe layout
-    _OBJ_FQ_NAME_CF_NAME = 'obj_fq_name_table'
-
-    # has obj uuid as rowkey;  ascii as column type; <fq_name>, <ifmap_id>
-    # <obj_json> <child_cf_col_name> as column values
-    _UUID_CF_NAME = 'uuid_table'
-
-    # has type:fq_name as rowkey; ascii as column type; <obj uuid> <ifmap_id>
-    # as column values
-    _FQ_NAME_CF_NAME = 'fq_name_table'
-
-    # has ifmap_id as rowkey; ascii as column type
-    # <obj uuid>, <fq_name> as column values
-    # ifmap_id itself is contrail:<type>:<fq-name delimited by ':'>
-    _IFMAP_ID_CF_NAME = 'ifmap_id_table'
-
-    # has obj uuid:<child-type> as rowkey; timeuuid column type; <child obj
-    # uuid> as column values
-    _CHILDREN_CF_NAME = 'children_table'
-
-    _SUBNET_CF_NAME = 'subnet_bitmask_table'
-
-    # Useragent datastore keyspace + tables (used by quantum plugin currently)
+class VncServerCassandraClient(VncCassandraClient):
+    # Useragent datastore keyspace + tables (used by neutron plugin currently)
     _USERAGENT_KEYSPACE_NAME = 'useragent'
     _USERAGENT_KV_CF_NAME = 'useragent_keyval_table'
 
     def __init__(self, db_client_mgr, cass_srv_list, reset_config, db_prefix):
-        super(VncCassandraClient, self).__init__()
         self._db_client_mgr = db_client_mgr
-        self._reset_config = reset_config
-        self._cache_uuid_to_fq_name = {}
-        if db_prefix:
-            self._db_prefix = '%s_' %(db_prefix)
-        else:
-            self._db_prefix = ''
-        self._server_list = cass_srv_list
-        self._conn_state = ConnectionStatus.INIT
-        self._cassandra_init(cass_srv_list)
+        keyspaces = {
+            self._USERAGENT_KEYSPACE_NAME: [(self._USERAGENT_KV_CF_NAME, None)]
+        }
+        super(VncServerCassandraClient, self).__init__(
+            cass_srv_list, reset_config, db_prefix,keyspaces, self.config_log,
+            db_client_mgr.generate_url)
+        self._useragent_kv_cf = self._cf_dict[self._USERAGENT_KV_CF_NAME]
     # end __init__
 
     def config_log(self, msg, level):
         self._db_client_mgr.config_log(msg, level)
     # end config_log
-
-    def _handle_exceptions(self, func):
-        def wrapper(*args, **kwargs):
-            try:
-                if self._conn_state != ConnectionStatus.UP:
-                    # will set conn_state to UP if successful
-                    self._cassandra_init_conn_pools()
-
-                return func(*args, **kwargs)
-            except AllServersUnavailable:
-                if self._conn_state != ConnectionStatus.DOWN:
-                    ConnectionState.update(conn_type = ConnectionType.DATABASE,
-                        name = 'Cassandra', status = ConnectionStatus.DOWN,
-                        message = '', server_addrs = self._server_list)
-                    msg = 'Cassandra connection down. Exception in %s' \
-                          %(str(func))
-                    self.config_log(msg, level=SandeshLevel.SYS_ERR)
-
-                self._conn_state = ConnectionStatus.DOWN
-                raise
-
-        return wrapper
-    # end _handle_exceptions
-
-    # Helper routines for cassandra
-    def _cassandra_init(self, server_list):
-        # 1. Ensure keyspace and schema/CFs exist
-        # 2. Read in persisted data and publish to ifmap server
-
-        ConnectionState.update(conn_type = ConnectionType.DATABASE,
-            name = 'Cassandra', status = ConnectionStatus.INIT, message = '',
-            server_addrs = server_list)
-
-        pycassa.ColumnFamily.get = self._handle_exceptions(pycassa.ColumnFamily.get)
-        pycassa.ColumnFamily.multiget = self._handle_exceptions(pycassa.ColumnFamily.multiget)
-        pycassa.ColumnFamily.xget = self._handle_exceptions(pycassa.ColumnFamily.xget)
-        pycassa.ColumnFamily.get_range = self._handle_exceptions(pycassa.ColumnFamily.get_range)
-        pycassa.ColumnFamily.insert = self._handle_exceptions(pycassa.ColumnFamily.insert)
-        pycassa.ColumnFamily.remove = self._handle_exceptions(pycassa.ColumnFamily.remove)
-        pycassa.batch.Mutator.send = self._handle_exceptions(pycassa.batch.Mutator.send)
-        self._uuid_ks_name = '%s%s' %(self._db_prefix, VncCassandraClient._UUID_KEYSPACE_NAME)
-        obj_uuid_cf_info = (VncCassandraClient._OBJ_UUID_CF_NAME, None)
-        obj_fq_name_cf_info = (VncCassandraClient._OBJ_FQ_NAME_CF_NAME, None)
-        uuid_cf_info = (VncCassandraClient._UUID_CF_NAME, None)
-        fq_name_cf_info = (VncCassandraClient._FQ_NAME_CF_NAME, None)
-        ifmap_id_cf_info = (VncCassandraClient._IFMAP_ID_CF_NAME, None)
-        subnet_cf_info = (VncCassandraClient._SUBNET_CF_NAME, None)
-        children_cf_info = (
-            VncCassandraClient._CHILDREN_CF_NAME, TIME_UUID_TYPE)
-        self._cassandra_ensure_keyspace(
-            server_list, self._uuid_ks_name,
-            [obj_uuid_cf_info, obj_fq_name_cf_info,
-             uuid_cf_info, fq_name_cf_info, ifmap_id_cf_info,
-             subnet_cf_info, children_cf_info])
-
-        self._useragent_ks_name = '%s%s' %(self._db_prefix, VncCassandraClient._USERAGENT_KEYSPACE_NAME)
-        useragent_kv_cf_info = (VncCassandraClient._USERAGENT_KV_CF_NAME, None)
-        self._cassandra_ensure_keyspace(server_list, self._useragent_ks_name,
-                                        [useragent_kv_cf_info])
-
-        self._cassandra_init_conn_pools()
-    # end _cassandra_init
-
-    def _cassandra_ensure_keyspace(self, server_list,
-                                   keyspace_name, cf_info_list):
-        # Retry till cassandra is up
-        server_idx = 0
-        num_dbnodes = len(server_list)
-        connected = False
-        while not connected:
-            try:
-                cass_server = server_list[server_idx]
-                sys_mgr = SystemManager(cass_server)
-                connected = True
-            except Exception as e:
-                # TODO do only for
-                # thrift.transport.TTransport.TTransportException
-                server_idx = (server_idx + 1) % num_dbnodes
-                time.sleep(3)
-
-        if self._reset_config:
-            try:
-                sys_mgr.drop_keyspace(keyspace_name)
-            except pycassa.cassandra.ttypes.InvalidRequestException as e:
-                # TODO verify only EEXISTS
-                self.config_log("Warning! " + str(e), level=SandeshLevel.SYS_WARN)
-
-        try:
-            sys_mgr.create_keyspace(keyspace_name, SIMPLE_STRATEGY,
-                                    {'replication_factor': str(num_dbnodes)})
-        except pycassa.cassandra.ttypes.InvalidRequestException as e:
-            # TODO verify only EEXISTS
-            self.config_log("Warning! " + str(e), level=SandeshLevel.SYS_WARN)
-
-        for cf_info in cf_info_list:
-            try:
-                (cf_name, comparator_type) = cf_info
-                if comparator_type:
-                    sys_mgr.create_column_family(
-                        keyspace_name, cf_name,
-                        comparator_type=comparator_type)
-                else:
-                    sys_mgr.create_column_family(keyspace_name, cf_name)
-            except pycassa.cassandra.ttypes.InvalidRequestException as e:
-                # TODO verify only EEXISTS
-                self.config_log("Warning! " + str(e), level=SandeshLevel.SYS_WARN)
-    # end _cassandra_ensure_keyspace
-
-    def _cassandra_init_conn_pools(self):
-        uuid_pool = pycassa.ConnectionPool(
-            self._uuid_ks_name, self._server_list, max_overflow=-1,
-            use_threadlocal=True, prefill=True, pool_size=20, pool_timeout=120,
-            max_retries=-1, timeout=5)
-        useragent_pool = pycassa.ConnectionPool(
-            self._useragent_ks_name, self._server_list, max_overflow=-1,
-            use_threadlocal=True, prefill=True, pool_size=20, pool_timeout=120,
-            max_retries=-1, timeout=5)
-
-        rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
-        wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
-        self._obj_uuid_cf = pycassa.ColumnFamily(
-            uuid_pool, VncCassandraClient._OBJ_UUID_CF_NAME,
-            read_consistency_level = rd_consistency,
-            write_consistency_level = wr_consistency)
-        self._obj_fq_name_cf = pycassa.ColumnFamily(
-            uuid_pool, VncCassandraClient._OBJ_FQ_NAME_CF_NAME,
-            read_consistency_level = rd_consistency,
-            write_consistency_level = wr_consistency)
-
-        self._useragent_kv_cf = pycassa.ColumnFamily(
-            useragent_pool, VncCassandraClient._USERAGENT_KV_CF_NAME,
-            read_consistency_level = rd_consistency,
-            write_consistency_level = wr_consistency)
-        self._subnet_cf = pycassa.ColumnFamily(
-            uuid_pool, VncCassandraClient._SUBNET_CF_NAME,
-            read_consistency_level = rd_consistency,
-            write_consistency_level = wr_consistency)
-
-        ConnectionState.update(conn_type = ConnectionType.DATABASE,
-            name = 'Cassandra', status = ConnectionStatus.UP, message = '',
-            server_addrs = self._server_list)
-        self._conn_state = ConnectionStatus.UP
-        msg = 'Cassandra connection ESTABLISHED'
-        self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
-    # end _cassandra_init_conn_pools
 
     def create(self, method_name, *args, **kwargs):
         method = getattr(self, '_cassandra_%s_create' % (method_name))
@@ -870,21 +693,6 @@ class VncCassandraClient(VncCassandraClientGen):
         bch.insert(child_uuid, parent_col)
     # end _create_child
 
-    def _read_child(self, result, obj_uuid, child_type,
-                    child_uuid, child_tstamp):
-        if '%ss' % (child_type) not in result:
-            result['%ss' % (child_type)] = []
-
-        child_info = {}
-        child_info['to'] = self.uuid_to_fq_name(child_uuid)
-        child_info['href'] = self._db_client_mgr.generate_url(
-            child_type, child_uuid)
-        child_info['uuid'] = child_uuid
-        child_info['tstamp'] = child_tstamp
-
-        result['%ss' % (child_type)].append(child_info)
-    # end _read_child
-
     def _delete_child(self, bch, parent_type, parent_uuid,
                       child_type, child_uuid):
         child_col = {'children:%s:%s' %
@@ -907,53 +715,6 @@ class VncCassandraClient(VncCassandraClientGen):
                 ref_uuid, {'backref:%s:%s' %
                       (obj_type, obj_uuid): json.dumps(ref_data)})
     # end _create_ref
-
-    def _read_ref(self, result, obj_uuid, ref_type, ref_uuid, ref_data_json):
-        if '%s_refs' % (ref_type) not in result:
-            result['%s_refs' % (ref_type)] = []
-
-        ref_data = json.loads(ref_data_json)
-        ref_info = {}
-        try:
-            ref_info['to'] = self.uuid_to_fq_name(ref_uuid)
-        except NoIdError as e:
-            ref_info['to'] = ['ERROR']
-
-        if ref_data:
-            try:
-                ref_info['attr'] = ref_data['attr']
-            except KeyError:
-                # TODO remove backward compat old format had attr directly
-                ref_info['attr'] = ref_data
-
-        ref_info['href'] = self._db_client_mgr.generate_url(
-            ref_type, ref_uuid)
-        ref_info['uuid'] = ref_uuid
-
-        result['%s_refs' % (ref_type)].append(ref_info)
-    # end _read_ref
-
-    def _read_back_ref(self, result, obj_uuid, back_ref_type,
-                       back_ref_uuid, back_ref_data_json):
-        if '%s_back_refs' % (back_ref_type) not in result:
-            result['%s_back_refs' % (back_ref_type)] = []
-
-        back_ref_info = {}
-        back_ref_info['to'] = self.uuid_to_fq_name(back_ref_uuid)
-        back_ref_data = json.loads(back_ref_data_json)
-        if back_ref_data:
-            try:
-                back_ref_info['attr'] = back_ref_data['attr']
-            except KeyError:
-                # TODO remove backward compat old format had attr directly
-                back_ref_info['attr'] = back_ref_data
-
-        back_ref_info['href'] = self._db_client_mgr.generate_url(
-            back_ref_type, back_ref_uuid)
-        back_ref_info['uuid'] = back_ref_uuid
-
-        result['%s_back_refs' % (back_ref_type)].append(back_ref_info)
-    # end _read_back_ref
 
     def _update_ref(self, bch, obj_type, obj_uuid, ref_type,
                     old_ref_uuid, new_ref_infos):
@@ -1022,69 +783,12 @@ class VncCassandraClient(VncCassandraClientGen):
             return False
     # end is_latest
 
-    def cache_uuid_to_fq_name_add(self, id, fq_name):
-        self._cache_uuid_to_fq_name[id] = fq_name
-    # end cache_uuid_to_fq_name_add
-
-    def cache_uuid_to_fq_name_del(self, id):
-        try:
-            del self._cache_uuid_to_fq_name[id]
-        except KeyError:
-            pass
-    # end cache_uuid_to_fq_name_del
-
     def update_last_modified(self, bch, obj_uuid, id_perms=None):
         if id_perms is None:
             id_perms = json.loads(self._obj_uuid_cf.get(obj_uuid, ['prop:id_perms'])['prop:id_perms'])
         id_perms['last_modified'] = datetime.datetime.utcnow().isoformat()
         self._update_prop(bch, obj_uuid, 'id_perms', {'id_perms': id_perms})
     # end update_last_modified
-
-    def uuid_to_fq_name(self, id):
-        try:
-            #TODO remove from cache on delete_notify
-            return self._cache_uuid_to_fq_name[id]
-        except KeyError:
-            try:
-                fq_name_json = self._obj_uuid_cf.get(
-                    id, columns=['fq_name'])['fq_name']
-            except pycassa.NotFoundException:
-                raise NoIdError(id)
-
-            fq_name = json.loads(fq_name_json)
-            self.cache_uuid_to_fq_name_add(id, fq_name)
-            return fq_name
-    # end uuid_to_fq_name
-
-    def uuid_to_obj_type(self, id):
-        try:
-            type_json = self._obj_uuid_cf.get(id, columns=['type'])['type']
-        except pycassa.NotFoundException:
-            raise NoIdError(id)
-        return json.loads(type_json)
-    # end uuid_to_fq_name
-
-    def fq_name_to_uuid(self, obj_type, fq_name):
-        method_name = obj_type.replace('-', '_')
-        fq_name_str = ':'.join(fq_name)
-        col_start = '%s:' % (fq_name_str)
-        col_fin = '%s;' % (fq_name_str)
-        try:
-            col_info_iter = self._obj_fq_name_cf.xget(
-                method_name, column_start=col_start, column_finish=col_fin)
-        except pycassa.NotFoundException:
-            raise NoIdError('%s %s' % (obj_type, fq_name))
-
-        col_infos = list(col_info_iter)
-
-        if len(col_infos) == 0:
-            raise NoIdError('%s %s' % (obj_type, fq_name))
-
-        for (col_name, col_val) in col_infos:
-            obj_uuid = col_name.split(':')[-1]
-
-        return obj_uuid
-    # end fq_name_to_uuid
 
     def uuid_to_obj_dict(self, id):
         try:
@@ -1127,34 +831,6 @@ class VncCassandraClient(VncCassandraClientGen):
         self._useragent_kv_cf.remove(key)
     # end useragent_kv_delete
 
-    def subnet_add_cols(self, subnet_fq_name, col_dict):
-        self._subnet_cf.insert(subnet_fq_name, col_dict)
-    # end subnet_add_cols
-
-    def subnet_delete_cols(self, subnet_fq_name, col_names):
-        self._subnet_cf.remove(subnet_fq_name, col_names)
-    # end subnet_delete_cols
-
-    def subnet_retrieve(self, subnet_fq_name):
-        try:
-            cols_iter = self._subnet_cf.xget(subnet_fq_name)
-        except pycassa.NotFoundException:
-            # ok to fail as not all subnets will have in-use addresses
-            return None
-
-        cols_dict = dict((k, v) for k, v in cols_iter)
-
-        return cols_dict
-    # end subnet_retrieve
-
-    def subnet_delete(self, subnet_fq_name):
-        try:
-            self._subnet_cf.remove(subnet_fq_name)
-        except pycassa.NotFoundException:
-            # ok to fail as not all subnets will have bitmask allocated
-            return None
-    # end subnet_delete
-
     def walk(self, fn):
         walk_results = []
         for obj_uuid, _ in self._obj_uuid_cf.get_range():
@@ -1169,81 +845,20 @@ class VncCassandraClient(VncCassandraClientGen):
 # end class VncCassandraClient
 
 
-class VncKombuClient(object):
-    def _init_server_conn(self, rabbit_ip, rabbit_port, rabbit_user, rabbit_password, rabbit_vhost,
-                          delete_old_q=False):
-        while True:
-            try:
-                self._conn = kombu.Connection(hostname=rabbit_ip,
-                                              port=rabbit_port,
-                                              userid=rabbit_user,
-                                              password=rabbit_password,
-                                              virtual_host=rabbit_vhost)
+class VncServerKombuClient(VncKombuClient):
+    def __init__(self, db_client_mgr, rabbit_ip, rabbit_port, ifmap_db,
+                 rabbit_user, rabbit_password, rabbit_vhost):
+        listen_port = db_client_mgr.get_server_port()
+        q_name = 'vnc_config.%s-%s' %(socket.gethostname(), listen_port)
+        super(VncServerKombuClient, self).__init__(
+            rabbit_ip, rabbit_port, rabbit_user, rabbit_password, rabbit_vhost,
+            q_name, self._dbe_subscribe_callback, self.config_log)
 
-                ConnectionState.update(conn_type = ConnectionType.DATABASE,
-                    name = 'RabbitMQ', status = ConnectionStatus.UP,
-                    message = '',
-                    server_addrs = ["%s:%s" % (rabbit_ip, rabbit_port)])
-                self._conn_state = ConnectionStatus.UP
-                msg = 'RabbitMQ connection ESTABLISHED'
-                self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
-
-                if delete_old_q:
-                    bound_q = self._update_queue_obj(self._conn.channel())
-                    try:
-                        bound_q.delete()
-                    except amqp.exceptions.ChannelError as e:
-                        msg = "Unable to delete the old amqp Q: %s" % str(e)
-                        self.config_log(msg, level=SandeshLevel.SYS_ERR)
-
-                self._obj_update_q = self._conn.SimpleQueue(self._update_queue_obj)
-
-                old_subscribe_greenlet = self._dbe_oper_subscribe_greenlet
-                self._dbe_oper_subscribe_greenlet = gevent.spawn(self._dbe_oper_subscribe)
-                if old_subscribe_greenlet:
-                    old_subscribe_greenlet.kill()
-
-                break
-            except Exception as e:
-                if self._conn_state != ConnectionStatus.DOWN:
-                    msg = "RabbitMQ connection down: %s" %(str(e))
-                    self.config_log(msg, level=SandeshLevel.SYS_ERR)
-
-                ConnectionState.update(conn_type = ConnectionType.DATABASE,
-                                       name = 'RabbitMQ', status = ConnectionStatus.DOWN,
-                                       message = '',
-                                       server_addrs = ["%s:%s" % (rabbit_ip, rabbit_port)])
-                self._conn_state = ConnectionStatus.DOWN
-                time.sleep(2)
-    # end _init_server_conn
-
-    def __init__(self, db_client_mgr, rabbit_ip, rabbit_port, ifmap_db, rabbit_user, rabbit_password, rabbit_vhost):
         self._db_client_mgr = db_client_mgr
         self._sandesh = db_client_mgr._sandesh
         self._ifmap_db = ifmap_db
-        self._rabbit_ip = rabbit_ip
-        self._rabbit_port = rabbit_port
-        self._rabbit_user = rabbit_user
-        self._rabbit_password = rabbit_password
-        self._rabbit_vhost = rabbit_vhost
-
-        obj_upd_exchange = kombu.Exchange('vnc_config.object-update', 'fanout',
-                                          durable=False)
-
-        listen_port = self._db_client_mgr.get_server_port()
-        q_name = 'vnc_config.%s-%s' %(socket.gethostname(), listen_port)
-        self._update_queue_obj = kombu.Queue(q_name, obj_upd_exchange)
-
         self._publish_queue = Queue()
         self._dbe_publish_greenlet = gevent.spawn(self._dbe_oper_publish)
-        self._dbe_oper_subscribe_greenlet = None
-
-        ConnectionState.update(conn_type = ConnectionType.DATABASE,
-                               name = 'RabbitMQ', status = ConnectionStatus.INIT, message = '',
-                               server_addrs = ["%s:%s" % (rabbit_ip, rabbit_port)])
-        self._conn_state = ConnectionStatus.INIT
-        self._init_server_conn(self._rabbit_ip, self._rabbit_port, self._rabbit_user, self._rabbit_password, self._rabbit_vhost,
-                               delete_old_q=True)
     # end __init__
 
     def config_log(self, msg, level):
@@ -1257,6 +872,7 @@ class VncKombuClient(object):
     # end _obj_update_q_put
 
     def _dbe_oper_publish(self):
+        self._db_client_mgr.wait_for_resync_done()
         while True:
             try:
                 message = self._publish_queue.get()
@@ -1268,8 +884,7 @@ class VncKombuClient(object):
                         log_str = "Disconnected from rabbitmq. Reinitializing connection: %s" % str(e)
                         self.config_log(log_str, level=SandeshLevel.SYS_WARN)
                         time.sleep(1)
-                        self._init_server_conn(self._rabbit_ip, self._rabbit_port,
-                            self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
+                        self.connect()
             except Exception as e:
                 log_str = "Unknown exception in _dbe_oper_publish greenlet" + str(e)
                 self.config_log(log_str, level=SandeshLevel.SYS_ERR)
@@ -1293,56 +908,30 @@ class VncKombuClient(object):
         return notify_trace
     # end _generate_msgbus_notify_trace
 
-    def _dbe_oper_subscribe(self):
-        msg = "Running greenlet _dbe_oper_subscribe"
-        self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
+    def _dbe_subscribe_callback(self, oper_info):
         self._db_client_mgr.wait_for_resync_done()
+        try:
+            msg = "Notification Message: %s" %(pformat(oper_info))
+            self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+            trace = self._generate_msgbus_notify_trace(oper_info)
 
-        with self._conn.SimpleQueue(self._update_queue_obj) as queue:
-            while True:
-                try:
-                    message = queue.get()
-                except Exception as e:
-                    msg = "Disconnected from rabbitmq. Reinitializing connection: %s" % str(e)
-                    self.config_log(msg, level=SandeshLevel.SYS_WARN)
-                    self._init_server_conn(self._rabbit_ip, self._rabbit_port, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
-                    # never reached
-                    continue
+            if oper_info['oper'] == 'CREATE':
+                self._dbe_create_notification(oper_info)
+            if oper_info['oper'] == 'UPDATE':
+                self._dbe_update_notification(oper_info)
+            elif oper_info['oper'] == 'DELETE':
+                self._dbe_delete_notification(oper_info)
 
-                trace = None
-                try:
-                    oper_info = message.payload
-
-                    msg = "Notification Message: %s" %(pformat(oper_info))
-                    self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
-                    trace = self._generate_msgbus_notify_trace(oper_info)
-
-                    if oper_info['oper'] == 'CREATE':
-                        self._dbe_create_notification(oper_info)
-                    if oper_info['oper'] == 'UPDATE':
-                        self._dbe_update_notification(oper_info)
-                    elif oper_info['oper'] == 'DELETE':
-                        self._dbe_delete_notification(oper_info)
-
-                    trace_msg(trace, 'MessageBusNotifyTraceBuf', self._sandesh)
-                except Exception as e:
-                    string_buf = cStringIO.StringIO()
-                    cgitb.Hook(file=string_buf, format="text").handle(sys.exc_info())
-                    errmsg = string_buf.getvalue()
-                    self.config_log(string_buf.getvalue(),
-                        level=SandeshLevel.SYS_ERR)
-                    trace_msg(trace, name='MessageBusNotifyTraceBuf',
+            trace_msg(trace, 'MessageBusNotifyTraceBuf', self._sandesh)
+        except Exception as e:
+            string_buf = cStringIO.StringIO()
+            cgitb.Hook(file=string_buf, format="text").handle(sys.exc_info())
+            errmsg = string_buf.getvalue()
+            self.config_log(string_buf.getvalue(),
+                level=SandeshLevel.SYS_ERR)
+            trace_msg(trace, name='MessageBusNotifyTraceBuf',
                               sandesh=self._sandesh, error_msg=errmsg)
-                finally:
-                    try:
-                        message.ack()
-                    except Exception as e:
-                        msg = "Disconnected from rabbitmq. Reinitializing connection: %s" % str(e)
-                        self.config_log(msg, level=SandeshLevel.SYS_WARN)
-                        self._init_server_conn(self._rabbit_ip, self._rabbit_port, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
-                        # never reached
-
-    #end _dbe_oper_subscribe
+    #end _dbe_subscribe_callback
 
     def dbe_create_publish(self, obj_type, obj_ids, obj_dict):
         req_id = get_trace_id()
@@ -1574,20 +1163,18 @@ class VncDbClient(object):
         msg = "Connecting to cassandra on %s" % (cass_srv_list,)
         self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
-        self._cassandra_db = VncCassandraClient(
+        self._cassandra_db = VncServerCassandraClient(
             self, cass_srv_list, reset_config, db_prefix)
-
-        msg = "Connecting to rabbitmq on %s:%s user %s" \
-              % (rabbit_server, rabbit_port, rabbit_user)
-        self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
-        self._msgbus = VncKombuClient(self, rabbit_server, rabbit_port, self._ifmap_db,
-                                      rabbit_user, rabbit_password,
-                                      rabbit_vhost)
 
         msg = "Connecting to zookeeper on %s" % (zk_server_ip)
         self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
         self._zk_db = VncZkClient(api_svr_mgr._args.worker_id, zk_server_ip,
                                   reset_config, db_prefix, self.config_log)
+
+        self._msgbus = VncServerKombuClient(self, rabbit_server,
+                                            rabbit_port, self._ifmap_db,
+                                            rabbit_user, rabbit_password,
+                                            rabbit_vhost)
     # end __init__
 
     def _update_default_quota(self):
@@ -1715,9 +1302,7 @@ class VncDbClient(object):
         obj_type = None
         try:
             obj_type = json.loads(obj_cols['type'])
-            method = getattr(self._cassandra_db,
-                             "_cassandra_%s_read" % (obj_type))
-            (ok, obj_dicts) = method([obj_uuid])
+            (ok, obj_dicts) = self._cassandra_db.read(obj_type, [obj_uuid])
             obj_dict = obj_dicts[0]
 
             # TODO remove backward compat (use RT instead of VN->LR ref)
@@ -1761,9 +1346,7 @@ class VncDbClient(object):
         obj_type = None
         try:
             obj_type = json.loads(obj_cols['type'])
-            method = getattr(self._cassandra_db,
-                             "_cassandra_%s_read" % (obj_type))
-            (ok, obj_dict) = method([obj_uuid])
+            (ok, obj_dict) = self._cassandra_db.read(obj_type, [obj_uuid])
         except Exception as e:
             return {'uuid': obj_uuid, 'type': obj_type, 'error': str(e)}
     # end _dbe_check
@@ -1772,9 +1355,7 @@ class VncDbClient(object):
         obj_type = None
         try:
             obj_type = json.loads(obj_cols['type'])
-            method = getattr(self._cassandra_db,
-                             "_cassandra_%s_read" % (obj_type))
-            (ok, obj_dict) = method([obj_uuid])
+            (ok, obj_dict) = self._cassandra_db.read(obj_type, [obj_uuid])
             result_dict = obj_dict[0]
             result_dict['type'] = obj_type
             result_dict['uuid'] = obj_uuid
