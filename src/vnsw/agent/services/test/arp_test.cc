@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include "testing/gunit.h"
 
 #include <netinet/if_ether.h>
@@ -29,7 +30,6 @@
 #include <services/services_sandesh.h>
 #include "oper/path_preference.h"
 
-#define MAC_LEN 6
 #define GRAT_IP "4.5.6.7"
 #define DIFF_NET_IP "3.2.6.9"
 #define MAX_WAIT_COUNT 50

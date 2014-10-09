@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include "vr_defs.h"
 #include "pkt/proto_handler.h"
 #include "pkt/pkt_init.h"
@@ -115,10 +116,10 @@ void ProtoHandler::Ip6Hdr(ip6_hdr *ip, uint16_t plen, uint8_t next_header,
 
 void ProtoHandler::FillUdpHdr(udphdr *udp, uint16_t len,
                               uint16_t src_port, uint16_t dest_port) {
-    udp->source = htons(src_port);
-    udp->dest = htons(dest_port);
-    udp->len = htons(len);
-    udp->check = 0;
+    udp->uh_sport = htons(src_port);
+    udp->uh_dport = htons(dest_port);
+    udp->uh_ulen = htons(len);
+    udp->uh_sum = 0;
 }
 
 uint16_t ProtoHandler::UdpHdr(udphdr *udp, uint16_t buf_len, uint16_t len,
@@ -166,7 +167,7 @@ void ProtoHandler::UdpHdr(uint16_t len, const uint8_t *src, uint16_t src_port,
                           const uint8_t *dest, uint16_t dest_port,
                           uint8_t next_hdr) {
     FillUdpHdr(pkt_info_->transp.udp, len, src_port, dest_port);
-    pkt_info_->transp.udp->check = Ipv6Csum(src, dest, len, next_hdr,
+    pkt_info_->transp.udp->uh_sum = Ipv6Csum(src, dest, len, next_hdr,
                                             (uint16_t *)pkt_info_->transp.udp);
 }
 

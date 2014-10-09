@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include "testing/gunit.h"
 
 #include <pugixml/pugixml.hpp>
@@ -39,7 +40,7 @@
 
 #include "xml/xml_pugi.h"
 
-#include "controller/controller_ifmap.h" 
+#include "controller/controller_ifmap.h"
 
 using namespace pugi;
 const char *init_file_local;

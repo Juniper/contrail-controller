@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include <netinet/icmp6.h>
 #include <boost/assign/list_of.hpp>
 #include <pkt/pkt_handler.h>
@@ -383,13 +384,13 @@ void ServicesSandesh::FillIcmpv6Hdr(icmp6_hdr *icmp, Icmpv6Hdr &resp,
 }
 
 void ServicesSandesh::FillUdpHdr(udphdr *udp, UdpHdr &resp) {
-    resp.src_port = ntohs(udp->source);
-    resp.dest_port = ntohs(udp->dest);
-    resp.length = ntohs(udp->len);
-    resp.csum = IntToHexString(ntohs(udp->check));
+    resp.src_port = ntohs(udp->uh_sport);
+    resp.dest_port = ntohs(udp->uh_dport);
+    resp.length = ntohs(udp->uh_ulen);
+    resp.csum = IntToHexString(ntohs(udp->uh_sum));
 }
 
-std::string 
+std::string
 ServicesSandesh::FillOptionString(char *data, int32_t len, std::string msg) {
     std::string str;
     if (len > 0)
@@ -397,7 +398,7 @@ ServicesSandesh::FillOptionString(char *data, int32_t len, std::string msg) {
     return (msg + str + "; ");
 }
 
-std::string 
+std::string
 ServicesSandesh::FillOptionInteger(uint32_t data, std::string msg) {
     std::stringstream str;
     str << msg << data << "; ";

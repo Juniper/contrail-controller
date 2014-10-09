@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include <cmn/agent_cmn.h>
 
 #include "test/test_cmn_util.h"

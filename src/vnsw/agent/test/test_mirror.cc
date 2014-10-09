@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include "testing/gunit.h"
 #include <base/logging.h>
 #include <io/event_manager.h>
@@ -16,7 +17,7 @@
 #include "oper/mirror_table.h"
 #include "test_cmn_util.h"
 #include "vr_types.h"
-#include <boost/assign/list_of.hpp> 
+#include <boost/assign/list_of.hpp>
 
 using namespace boost::assign;
 std::string eth_itf;

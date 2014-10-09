@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include <boost/assign/list_of.hpp>
 
 #include <cfg/cfg_init.h>
@@ -37,7 +38,7 @@ static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
 }
 
 class CfgTest : public ::testing::Test {
-public:    
+public:
     CfgTest() : default_tunnel_type_(TunnelType::MPLS_GRE) { };
     ~CfgTest() { };
 

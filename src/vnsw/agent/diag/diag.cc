@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include <map>
 #include "vr_defs.h"
 #include "base/timer.h"
@@ -19,7 +20,7 @@ const std::string KDiagName("DiagTimeoutHandler");
 ////////////////////////////////////////////////////////////////////////////////
 
 DiagEntry::DiagEntry(int timeout, int count,DiagTable *diag_table):
-    diag_table_(diag_table) , timeout_(timeout), 
+    diag_table_(diag_table) , timeout_(timeout),
     timer_(TimerManager::CreateTimer(*(diag_table->agent()->event_manager())->io_service(), 
     "DiagTimeoutHandler")), count_(count), seq_no_(0) {
 }

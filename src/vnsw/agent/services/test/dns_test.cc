@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include "testing/gunit.h"
 
 #include <netinet/if_ether.h>
@@ -27,12 +28,11 @@
 #include <controller/controller_dns.h>
 #include "vr_types.h"
 
-#define MAC_LEN 6
 #define DNS_CLIENT_PORT 9999
 #define MAX_WAIT_COUNT 5000
 #define BUF_SIZE 8192
-char src_mac[MAC_LEN] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
-char dest_mac[MAC_LEN] = { 0x00, 0x11, 0x12, 0x13, 0x14, 0x15 };
+char src_mac[ETHER_ADDR_LEN] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
+char dest_mac[ETHER_ADDR_LEN] = { 0x00, 0x11, 0x12, 0x13, 0x14, 0x15 };
 ulong src_ip = 1234;
 ulong dest_ip = 5678;
 short ifindex = 1;
@@ -224,8 +224,8 @@ public:
         agent->hdr_cmd = htons(AgentHdr::TRAP_NEXTHOP);
 
         eth = (struct ether_header *) (agent + 1);
-        memcpy(eth->ether_dhost, dest_mac, MAC_LEN);
-        memcpy(eth->ether_shost, src_mac, MAC_LEN);
+        memcpy(eth->ether_dhost, dest_mac, ETHER_ADDR_LEN);
+        memcpy(eth->ether_shost, src_mac, ETHER_ADDR_LEN);
         eth->ether_type = htons(0x800);
 
         struct ip *ip = (struct ip *) (eth + 1);
@@ -241,9 +241,9 @@ public:
         ip->ip_dst.s_addr = htonl(dest_ip);
 
         udphdr *udp = (udphdr *) (ip + 1);
-        udp->source = htons(DNS_CLIENT_PORT);
-        udp->dest = htons(DNS_SERVER_PORT);
-        udp->check = 0;
+        udp->uh_sport = htons(DNS_CLIENT_PORT);
+        udp->uh_dport = htons(DNS_SERVER_PORT);
+        udp->uh_sum = 0;
 
         dnshdr *dns = (dnshdr *) (udp + 1);
         if (type == DNS_OPCODE_QUERY) {
@@ -257,7 +257,7 @@ public:
             assert(0);
 
         len += sizeof(udphdr);
-        udp->len = htons(len);
+        udp->uh_ulen = htons(len);
         ip->ip_len = htons(len + sizeof(struct ip));
 
         len += sizeof(struct ip) + sizeof(struct ether_header) + Agent::GetInstance()->pkt()->pkt_handler()->EncapHeaderLen();

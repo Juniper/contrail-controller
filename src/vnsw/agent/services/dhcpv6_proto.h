@@ -26,7 +26,7 @@ public:
     struct Duid {
         uint16_t type;
         uint16_t hw_type;
-        uint8_t mac[ETH_ALEN];
+        uint8_t mac[ETHER_ADDR_LEN];
     };
 
     struct DhcpStats {

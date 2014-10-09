@@ -2,13 +2,13 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include "test/test_cmn_util.h"
 #include "test_pkt_util.h"
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
-#include <netinet/tcp.h>
 #include <cmn/agent_cmn.h>
 
 void MakeIpPacket(PktGen *pkt, int ifindex, const char *sip,

@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include <boost/assign/list_of.hpp>
 #include <base/logging.h>
 #include <io/event_manager.h>
@@ -1516,7 +1517,7 @@ TEST_F(RouteTest, PathPreference_1) {
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
     //Make sure vrf and all routes are deleted
-    EXPECT_TRUE(VrfFind("vrf1", true) == NULL);
+    EXPECT_TRUE(VrfFind("vrf1", true) == false);
 }
 
 int main(int argc, char *argv[]) {

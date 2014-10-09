@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
+#include "base/os.h"
 #include <vr_defs.h>
 #include <cmn/agent_cmn.h>
 #include <oper/interface_common.h>
@@ -108,12 +109,12 @@ bool IcmpErrorHandler::SendIcmpError(VmInterface *intf) {
         ip->ip_sum = Csum((uint16_t *)data, ip_hlen, 0);
         if (ip->ip_p == IPPROTO_UDP) {
             udphdr *udp = (udphdr *)(data + ip_hlen);
-            udp->source = ntohs(key.src_port);
-            udp->dest = ntohs(key.dst_port);
+            udp->uh_sport = ntohs(key.src_port);
+            udp->uh_dport = ntohs(key.dst_port);
         } else if (ip->ip_p == IPPROTO_TCP) {
             tcphdr *tcp = (tcphdr *)(data + ip_hlen);
-            tcp->source = ntohs(key.src_port);
-            tcp->dest = ntohs(key.dst_port);
+            tcp->th_sport = ntohs(key.src_port);
+            tcp->th_dport = ntohs(key.dst_port);
         }
     }
     memcpy(ptr + len, data, data_len);

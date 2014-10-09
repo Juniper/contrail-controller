@@ -6,8 +6,6 @@
 #define vnsw_agent_test_pkt_gen_h
 
 #include <netinet/ip.h>
-#include <netinet/tcp.h>
-#include <netinet/udp.h>
 #include <netinet/ether.h>
 #include <linux/if_ether.h>
 #include <netinet/ip_icmp.h>
@@ -143,24 +141,17 @@ public:
     unsigned char *GetPacket() const { return (unsigned char *)&pkt; }
 private:
     void Init(uint16_t sport, uint16_t dport) {
-        pkt.tcp.source = htons(sport);
-        pkt.tcp.dest = htons(dport);
-        pkt.tcp.seq = htonl(1);
-        pkt.tcp.ack_seq = htonl(0);
+        pkt.tcp.th_sport = htons(sport);
+        pkt.tcp.th_dport = htons(dport);
+        pkt.tcp.th_seq = htonl(1);
+        pkt.tcp.th_ack = htonl(0);
 
-        pkt.tcp.doff = 5;
-        pkt.tcp.fin = 0;
-        pkt.tcp.syn = 0;
-        pkt.tcp.rst = 0;
-        pkt.tcp.psh= 0;
-        pkt.tcp.ack = 0;
-        pkt.tcp.urg = 0;
-        pkt.tcp.res1 = 0;
-        pkt.tcp.res2 = 0;
+        pkt.tcp.th_off = 5;
+        pkt.tcp.th_flags = 0;
 
-        pkt.tcp.window = htons(0);
-        pkt.tcp.check = htons(0);
-        pkt.tcp.urg_ptr = htons(0);
+        pkt.tcp.th_win = htons(0);
+        pkt.tcp.th_sum = htons(0);
+        pkt.tcp.th_urp = htons(0);
     }
     struct tcp_packet pkt;
 };
@@ -177,10 +168,10 @@ public:
     unsigned char *GetPacket() const { return (unsigned char *)&pkt; }
 private:
     void Init(uint16_t sport, uint16_t dport) {
-        pkt.udp.source = htons(sport);
-        pkt.udp.dest = htons(dport);
-        pkt.udp.len = htons(sizeof(pkt.payload));
-        pkt.udp.check = htons(0); //ignoring checksum for now.
+        pkt.udp.uh_sport = htons(sport);
+        pkt.udp.uh_dport = htons(dport);
+        pkt.udp.uh_ulen = htons(sizeof(pkt.payload));
+        pkt.udp.uh_sum = htons(0); //ignoring checksum for now.
     }
     struct udp_packet pkt;
 };
@@ -235,24 +226,17 @@ public:
     unsigned char *GetPacket() const { return (unsigned char *)&pkt; }
 private:
     void Init(uint16_t sport, uint16_t dport) {
-        pkt.tcp.source = htons(sport);
-        pkt.tcp.dest = htons(dport);
-        pkt.tcp.seq = htonl(1);
-        pkt.tcp.ack_seq = htonl(0);
+        pkt.tcp.th_sport = htons(sport);
+        pkt.tcp.th_dport = htons(dport);
+        pkt.tcp.th_seq = htonl(1);
+        pkt.tcp.th_ack = htonl(0);
 
-        pkt.tcp.doff = 5;
-        pkt.tcp.fin = 0;
-        pkt.tcp.syn = 0;
-        pkt.tcp.rst = 0;
-        pkt.tcp.psh= 0;
-        pkt.tcp.ack = 0;
-        pkt.tcp.urg = 0;
-        pkt.tcp.res1 = 0;
-        pkt.tcp.res2 = 0;
+        pkt.tcp.th_off = 5;
+        pkt.tcp.th_flags = 0;
 
-        pkt.tcp.window = htons(0);
-        pkt.tcp.check = htons(0);
-        pkt.tcp.urg_ptr = htons(0);
+        pkt.tcp.th_win = htons(0);
+        pkt.tcp.th_sum = htons(0);
+        pkt.tcp.th_urp = htons(0);
     }
     struct tcp6_packet pkt;
 };
@@ -269,10 +253,10 @@ public:
     unsigned char *GetPacket() const { return (unsigned char *)&pkt; }
 private:
     void Init(uint16_t sport, uint16_t dport) {
-        pkt.udp.source = htons(sport);
-        pkt.udp.dest = htons(dport);
-        pkt.udp.len = htons(sizeof(pkt.payload));
-        pkt.udp.check = htons(0); //ignoring checksum for now.
+        pkt.udp.uh_sport = htons(sport);
+        pkt.udp.uh_dport = htons(dport);
+        pkt.udp.uh_ulen = htons(sizeof(pkt.payload));
+        pkt.udp.uh_sum = htons(0); //ignoring checksum for now.
 
     }
     struct udp6_packet pkt;
@@ -337,19 +321,17 @@ public:
 
     void AddUdpHdr(uint16_t sport, uint16_t dport, int plen) {
         struct udphdr *udp = (struct udphdr *)(buff + len);
-        udp->dest = htons(dport);
-        udp->source = htons(sport);
+        udp->uh_dport = htons(dport);
+        udp->uh_sport = htons(sport);
         len += sizeof(udphdr) + len;
     };
 
     void AddTcpHdr(uint16_t sport, uint16_t dport, bool syn, bool fin, bool ack,
                    int plen) {
         struct tcphdr *tcp = (struct tcphdr *)(buff + len);
-        tcp->dest = htons(dport);
-        tcp->source = htons(sport);
-        tcp->fin = fin;
-        tcp->syn = syn;
-        tcp->ack = ack;
+        tcp->th_dport = htons(dport);
+        tcp->th_sport = htons(sport);
+        tcp->th_flags = (fin ? TH_FIN : 0) | (syn ? TH_SYN : 0) | (ack ? TH_ACK : 0);
         len += sizeof(tcphdr) + len;
     };
 
