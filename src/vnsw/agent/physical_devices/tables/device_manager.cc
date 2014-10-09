@@ -71,7 +71,7 @@ void PhysicalDeviceManager::RegisterDBClients() {
     mgr->RegisterReactionMap("physical-interface", physical_port_react);
 
     ReactionMap logical_port_react = map_list_of<std::string, PropagateList>
-        ("phyiscal-interface", list_of("self"))
+        ("physical-interface", list_of("self"))
         ("self", list_of("self"));
     mgr->RegisterReactionMap("logical-interface", logical_port_react);
 
