@@ -163,6 +163,10 @@ static bool ParseTags(const string& tstr, const string& node,
         vector<pair<string,string> > * doubletag) {
     size_t pos;
     size_t npos = 0;
+
+    // If the tags string is empty, there's nothing to parse
+    if (tstr.empty()) return true;
+
     do {
         if (npos)
             pos = npos+1;
