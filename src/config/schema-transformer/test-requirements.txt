@@ -9,10 +9,10 @@ kazoo
 ncclient
 jsonpickle
 ../../../../third_party/ifmap-python-client
-../../../../build/debug/config/common/dist/cfgm_common-0.1dev.tar.gz
-../../../../build/debug/api-lib/dist/vnc_api-0.1dev.tar.gz
-../../../../build/debug/discovery/client/dist/discoveryclient-0.1dev.tar.gz
-../../../../build/debug/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz
-../../../../build/debug/sandesh/common/dist/sandesh-common-0.1dev.tar.gz
-../../../../build/debug/config/api-server/dist/vnc_cfg_api_server-0.1dev.tar.gz
+../../../../build/production/config/common/dist/cfgm_common-0.1dev.tar.gz
+../../../../build/production/api-lib/dist/vnc_api-0.1dev.tar.gz
+../../../../build/production/discovery/client/dist/discoveryclient-0.1dev.tar.gz
+../../../../build/production/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz
+../../../../build/production/sandesh/common/dist/sandesh-common-0.1dev.tar.gz
+../../../../build/production/config/api-server/dist/vnc_cfg_api_server-0.1dev.tar.gz
 ../../../../build/noarch/config/svc-monitor

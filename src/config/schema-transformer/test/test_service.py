@@ -45,6 +45,35 @@ def retries(max_tries, delay=1, backoff=2, exceptions=(Exception,), hook=None):
 class TestPolicy(test_case.STTestCase):
 
     @retries(5, hook=retry_exc_handler)
+    def check_service_chain_prefix_match(self, fq_name, prefix):
+        ri = self._vnc_lib.routing_instance_read(fq_name)
+        sci = ri.get_service_chain_information()
+        if sci is None:
+            print "retrying ... ", test_common.lineno()
+            raise NoIdError
+        self.assertEqual(sci.prefix[0], prefix)
+
+    @retries(5, hook=retry_exc_handler)
+    def check_ri_rt_state_vn_policy(self, fq_name, to_fq_name):
+        ri = self._vnc_lib.routing_instance_read(fq_name)
+        rt_refs = ri.get_route_target_refs()
+        if not rt_refs:
+            print "retrying ... ", test_common.lineno()
+            raise NoIdError
+
+        found = False
+        for rt_ref in rt_refs:
+            rt_obj = self._vnc_lib.route_target_read(id=rt_ref['uuid'])
+            ri_refs = rt_obj.get_routing_instance_back_refs()
+            for ri_ref in ri_refs:
+                if ri_ref['to'] == to_fq_name:
+                    found = True
+                    break
+            if found == True:
+                break
+        self.assertTrue(found)
+
+    @retries(5, hook=retry_exc_handler)
     def check_ri_state_vn_policy(self, fq_name, to_fq_name):
         ri = self._vnc_lib.routing_instance_read(fq_name)
         ri_refs = ri.get_routing_instance_refs()
@@ -118,7 +147,6 @@ class TestPolicy(test_case.STTestCase):
         vn1_uuid = self._vnc_lib.virtual_network_create(vn1_obj)
         vn2_uuid = self._vnc_lib.virtual_network_create(vn2_obj)
 
-        #import pdb; pdb.set_trace()
         for obj in [vn1_obj, vn2_obj]:
             ident_name = self.get_obj_imid(obj)
             gevent.sleep(2)
@@ -376,36 +404,25 @@ class TestPolicy(test_case.STTestCase):
             self.assertTrue(False)
 
         try:
-            self.check_ri_state_vn_policy(fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'],
+            self.check_ri_rt_state_vn_policy(fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'],
                                        to_fq_name=[u'default-domain', u'default-project', u'vn1', sc_ri_name])
         except NoIdError, e:
             print "failed : routing instance state is not correct... ", test_common.lineno()
             self.assertTrue(False)
 
-        while True:
-            try:
-                test_common.FakeApiConfigLog._print()
-                ri = self._vnc_lib.routing_instance_read(
-                    fq_name=[u'default-domain', u'default-project', u'vn2', sc_ri_name])
-            except NoIdError:
-                gevent.sleep(2)
-                print "retrying ... ", test_common.lineno()
-                continue
-            ri_refs = ri.get_routing_instance_refs()
-            if ri_refs:
-                self.assertEqual(
-                    ri_refs[0]['to'],
-                    [u'default-domain', u'default-project', u'vn2', u'vn2'])
-                sci = ri.get_service_chain_information()
-                if sci is None:
-                    print "retrying ... ", test_common.lineno()
-                    gevent.sleep(2)
-                    continue
-                self.assertEqual(sci.prefix[0], '10.0.0.0/24')
-                break
-            print "retrying ... ", test_common.lineno()
-            gevent.sleep(2)
-        # end while True
+        try:
+            self.check_ri_rt_state_vn_policy(fq_name=[u'default-domain', u'default-project', 'vn2', sc_ri_name],
+                                       to_fq_name=[u'default-domain', u'default-project', u'vn2', u'vn2'])
+        except NoIdError, e:
+            print "failed : routing instance state is not correct... ", test_common.lineno()
+            self.assertTrue(False)
+
+        try:
+            self.check_service_chain_prefix_match(fq_name=[u'default-domain', u'default-project', 'vn2', sc_ri_name],
+                                       prefix='10.0.0.0/24')
+        except NoIdError, e:
+            print "failed : routing instance state is not correct... ", test_common.lineno()
+            self.assertTrue(False)
 
         vn1_obj.del_network_policy(np)
         vn2_obj.del_network_policy(np)
