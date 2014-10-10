@@ -452,7 +452,7 @@ std::string FlowTableKSyncEntry::ToString() const {
         << " Source port: " << fe_key->src_port
         << " Destination IP: " << fe_key->dst_addr.to_string()
         << " Destination port: " << fe_key->dst_port
-        << " Protocol "<< fe_key->protocol;
+        << " Protocol "<< (uint16_t)fe_key->protocol;
     return str.str();
 }
 
