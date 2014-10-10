@@ -525,9 +525,16 @@ public:
     const std::string &discovery_client_name() const {
         return discovery_client_name_;
     }
-
-    void set_discovery_client_name(const std::string &name) {
+    void set_discovery_client_name( const std::string &name) {
         discovery_client_name_ = name;
+    }
+
+    const std::string &agent_name() const {
+        return agent_name_;
+    }
+
+    void set_agent_name(const std::string &name) {
+        agent_name_ = name;
     }
 
     const std::string &instance_id() const { return instance_id_; }
@@ -828,6 +835,7 @@ private:
     uint32_t dss_port_;
     int dss_xs_instances_;
     std::string discovery_client_name_;
+    std::string agent_name_;
     std::string label_range_[MAX_XMPP_SERVERS];
     std::string ip_fabric_intf_name_;
     std::string vhost_interface_name_;

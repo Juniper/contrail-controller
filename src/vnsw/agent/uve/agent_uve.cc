@@ -71,7 +71,7 @@ void AgentUve::Init() {
     connection_state_manager_ =
         ConnectionStateManager<NodeStatusUVE, NodeStatus>::
             GetInstance();
-    connection_state_manager_->Init(io, agent_->params()->host_name(),
+    connection_state_manager_->Init(io, agent_->agent_name(),
             module_id, instance_id,
             boost::bind(&AgentUve::VrouterAgentProcessState,
                         this, _1, _2, _3));

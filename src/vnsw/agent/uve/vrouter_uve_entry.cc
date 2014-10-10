@@ -66,7 +66,7 @@ void VrouterUveEntry::DispatchComputeCpuStateMsg(const ComputeCpuState &ccs) {
 
 void VrouterUveEntry::VmWalkDone(DBTableBase *base, StringVectorPtr list) {
     VrouterAgent vrouter_agent;
-    vrouter_agent.set_name(agent_->host_name());
+    vrouter_agent.set_name(agent_->agent_name());
     vrouter_agent.set_virtual_machine_list(*(list.get()));
     DispatchVrouterMsg(vrouter_agent);
 }
@@ -116,7 +116,7 @@ void VrouterUveEntry::VmNotify(DBTablePartBase *partition, DBEntryBase *e) {
 
 void VrouterUveEntry::VnWalkDone(DBTableBase *base, StringVectorPtr list) {
     VrouterAgent vrouter_agent;
-    vrouter_agent.set_name(agent_->host_name());
+    vrouter_agent.set_name(agent_->agent_name());
     vrouter_agent.set_connected_networks(*(list.get()));
     DispatchVrouterMsg(vrouter_agent);
 }
@@ -166,7 +166,7 @@ void VrouterUveEntry::InterfaceWalkDone(DBTableBase *base,
                                         StringVectorPtr err_if_list,
                                         StringVectorPtr nova_if_list) {
     VrouterAgent vrouter_agent;
-    vrouter_agent.set_name(agent_->host_name());
+    vrouter_agent.set_name(agent_->agent_name());
     vrouter_agent.set_interface_list(*(if_list.get()));
     vrouter_agent.set_error_intf_list(*(err_if_list.get()));
     vrouter_agent.set_no_config_intf_list(*(nova_if_list.get()));
@@ -278,7 +278,7 @@ void VrouterUveEntry::BuildAndSendComputeCpuStateMsg(const CpuLoadInfo &info) {
     VrouterCpuInfo ainfo;
     vector<VrouterCpuInfo> aciv;
 
-    astate.set_name(agent_->host_name());
+    astate.set_name(agent_->agent_name());
     ainfo.set_cpu_share(info.get_cpu_share());
     ainfo.set_mem_virt(info.get_meminfo().get_virt());
     ainfo.set_used_sys_mem(info.get_sys_mem_info().get_used());
@@ -295,7 +295,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
 
     SendVrouterUve();
 
-    stats.set_name(agent_->host_name());
+    stats.set_name(agent_->agent_name());
 
     if (prev_stats_.get_in_tpkts() != 
         agent_->stats()->in_pkts() || first) {
@@ -607,7 +607,7 @@ void VrouterUveEntry::SendVrouterUve() {
     VrouterAgent vrouter_agent;
     bool changed = false;
     static bool first = true, build_info = false;
-    vrouter_agent.set_name(agent_->host_name());
+    vrouter_agent.set_name(agent_->agent_name());
     Ip4Address rid = agent_->router_id();
     vector<string> ip_list;
     vector<string> dns_list;

@@ -62,6 +62,11 @@ string TorAgentInit::ModuleName() {
     return "TorAgent-" + InstanceId();
 }
 
+string TorAgentInit::AgentName() {
+    TorAgentParam *param = dynamic_cast<TorAgentParam *>(agent_param());
+    return param->host_name() + "-" + InstanceId();
+}
+
 void TorAgentInit::FactoryInit() {
 }
 
