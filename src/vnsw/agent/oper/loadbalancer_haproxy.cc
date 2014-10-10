@@ -8,15 +8,17 @@
 #include <fstream>
 #include <boost/assign/list_of.hpp>
 #include "base/logging.h"
+#include "agent.h"
+#include "init/agent_param.h"
 
 #include "loadbalancer_properties.h"
 
 using namespace std;
 using boost::assign::map_list_of;
 
-LoadbalancerHaproxy::LoadbalancerHaproxy()
+LoadbalancerHaproxy::LoadbalancerHaproxy(Agent *agent)
         : protocol_default_("tcp"),
-          balance_default_("roundrobin") {
+          balance_default_("roundrobin"), agent_(agent) {
     protocol_map_ = map_list_of
             ("TCP", "tcp")
             ("HTTP", "http")
@@ -25,9 +27,6 @@ LoadbalancerHaproxy::LoadbalancerHaproxy()
             ("ROUND_ROBIN", "roundrobin")
             ("LEAST_CONNECTIONS", "leastconn")
             ("SOURCE_IP", "source");
-}
-
-LoadbalancerHaproxy::~LoadbalancerHaproxy() {
 }
 
 const string &LoadbalancerHaproxy::ProtocolMap(const string &proto) const {
@@ -78,6 +77,17 @@ void LoadbalancerHaproxy::GenerateDefaults(
     *out << endl;
 }
 
+void LoadbalancerHaproxy::GenerateListen(
+    ostream *out, const LoadbalancerProperties &props) const {
+
+    *out << "listen contrail-config-stats :5937" << endl;
+    *out << string(4, ' ') << "mode http" << endl;
+    *out << string(4, ' ') << "stats enable" << endl;
+    *out << string(4, ' ') << "stats uri /" << endl;
+    *out << string(4, ' ') << "stats auth haproxy:contrail123" << endl;
+    *out << endl;
+}
+
 /*
  * frontend vip_id
  *     bind address:port
@@ -91,7 +101,13 @@ void LoadbalancerHaproxy::GenerateFrontend(
     *out << "frontend " << props.vip_uuid() << endl;
     const autogen::VirtualIpType &vip = props.vip_properties();
     *out << string(4, ' ')
-         << "bind " << vip.address << ":" << vip.protocol_port << endl;
+         << "bind " << vip.address << ":" << vip.protocol_port;
+    if (vip.protocol_port ==  LB_HAPROXY_SSL_PORT) {
+        *out << " ssl crt " <<
+            agent_->params()->si_haproxy_ssl_cert_path();
+    }
+    *out << endl;
+
     *out << string(4, ' ')
          << "mode " << ProtocolMap(vip.protocol) << endl;
     *out << string(4, ' ')
@@ -121,6 +137,28 @@ void LoadbalancerHaproxy::GenerateBackend(
     *out << string(4, ' ')
          << "balance " << BalanceMap(pool.loadbalancer_method) << endl;
 
+
+    int timeout = 0, max_retries = 0;
+    if (props.healthmonitors().size()) {
+        const autogen::LoadbalancerHealthmonitorType &hm =
+            props.healthmonitors().begin()->second;
+        timeout = hm.timeout * 1000; //In milliseconds
+        max_retries = hm.max_retries;
+        if (!hm.url_path.empty()) {
+            *out << string(4, ' ')
+                 << "option httpchk ";
+            if (!hm.http_method.empty()) {
+                *out << hm.http_method;
+            }
+            *out << " " << hm.url_path << endl;
+        }
+        if (!hm.expected_codes.empty()) {
+            *out << string(4, ' ')
+                 << "http-check expect status "
+                 << hm.expected_codes << endl;
+        }
+    }
+
     for (LoadbalancerProperties::MemberMap::const_iterator iter =
                  props.members().begin();
          iter != props.members().end(); ++iter) {
@@ -129,6 +167,10 @@ void LoadbalancerHaproxy::GenerateBackend(
              << "server " << iter->first << " " << member.address
              << ":" << member.protocol_port
              << " weight " << member.weight;
+        if (timeout) {
+            *out << " check inter " << timeout << " rise 1 fall "
+                 << max_retries;
+        }
         *out << endl;
     }
 }
@@ -143,6 +185,7 @@ void LoadbalancerHaproxy::GenerateConfig(
 
     GenerateGlobal(&fs, props);
     GenerateDefaults(&fs, props);
+    GenerateListen(&fs, props);
     GenerateFrontend(&fs, pool_id, props);
     GenerateBackend(&fs, pool_id, props);
     fs.close();

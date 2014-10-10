@@ -163,8 +163,10 @@ void IFMapDependencyManager::Initialize() {
     policy->insert(make_pair("network-ipam", react_ipam));
 
     ReactionMap react_lb_pool = map_list_of<string, PropagateList>
-            ("loadbalancer-pool-loadbalancer-healthmonitor", list_of("self"))
-            ("loadbalancer-pool-loadbalancer-member", list_of("self"))
+            ("loadbalancer-pool-loadbalancer-healthmonitor",
+             list_of("self")("loadbalancer-pool-service-instance"))
+            ("loadbalancer-pool-loadbalancer-member",
+             list_of("self")("loadbalancer-pool-service-instance"))
             ("self", list_of("self")("loadbalancer-pool-service-instance"))
             ("virtual-ip-loadbalancer-pool", list_of("self"));
     policy->insert(make_pair("loadbalancer-pool", react_lb_pool));

@@ -20,6 +20,7 @@ class LoadbalancerHaproxy;
 class NamespaceState;
 class NamespaceTask;
 class NamespaceTaskQueue;
+class Agent;
 
 /*
  * Starts and stops network namespaces corresponding to service-instances.
@@ -53,7 +54,7 @@ class NamespaceManager {
         /*
          * OnError variables
          */
-        boost::uuids::uuid task_uuid;
+        NamespaceTask *task;
         std::string errors;
 
         /*
@@ -65,7 +66,7 @@ class NamespaceManager {
     static const int kTimeoutDefault = 30;
     static const int kWorkersDefault = 1;
 
-    NamespaceManager(EventManager *evm);
+    NamespaceManager(Agent *);
     ~NamespaceManager();
 
     void Initialize(DB *database, AgentSignal *signal,
@@ -75,9 +76,15 @@ class NamespaceManager {
     bool DequeueEvent(NamespaceManagerChildEvent event);
 
     NamespaceState *GetState(ServiceInstance *) const;
+    bool StaleTimeout();
+    const LoadbalancerHaproxy &haproxy() const { return *(haproxy_.get()); }
+    void SetStaleTimerInterval(int minutes);
+    int StaleTimerInterval() { return stale_timer_interval_;}
+    void SetNamespaceStorePath(std::string path);
 
  private:
     friend class NamespaceManagerTest;
+    class NamespaceStaleCleaner;
 
     void HandleSigChild(const boost::system::error_code& error, int sig,
                         pid_t pid, int status);
@@ -86,12 +93,13 @@ class NamespaceManager {
     void StartNetNS(ServiceInstance *svc_instance, NamespaceState *state,
                     bool update);
     void StopNetNS(ServiceInstance *svc_instance, NamespaceState *state);
-    void OnError(const boost::uuids::uuid &uuid, const std::string errors);
+    void StopStaleNetNS(ServiceInstance::Properties &props);
+    void OnError(NamespaceTask *task, const std::string errors);
     void RegisterSvcInstance(NamespaceTask *task,
                              ServiceInstance *svc_instance);
     void UnregisterSvcInstance(ServiceInstance *svc_instance);
     ServiceInstance *UnregisterSvcInstance(NamespaceTask *task);
-    ServiceInstance *GetSvcInstance(const boost::uuids::uuid &uuid) const;
+    ServiceInstance *GetSvcInstance(NamespaceTask *task) const;
 
     NamespaceTaskQueue *GetTaskQueue(const std::string &str);
     void Enqueue(NamespaceTask *task, const boost::uuids::uuid &uuid);
@@ -128,20 +136,22 @@ class NamespaceManager {
      */
     void LoadbalancerObserver(DBTablePartBase *db_part, DBEntryBase *entry);
 
-    EventManager *evm_;
-    DBTableBase *si_table_;
     DBTableBase::ListenerId si_listener_;
-    DBTableBase *lb_table_;
     DBTableBase::ListenerId lb_listener_;
     std::string netns_cmd_;
     int netns_timeout_;
     WorkQueue<NamespaceManagerChildEvent> work_queue_;
 
     std::vector<NamespaceTaskQueue *> task_queues_;
-    std::map<boost::uuids::uuid, ServiceInstance *> task_svc_instances_;
+    std::map<NamespaceTask *, ServiceInstance *> task_svc_instances_;
     std::map<std::string, int> last_cmd_types_;
     std::string loadbalancer_config_path_;
+    std::string namespace_store_path_;
+    int stale_timer_interval_;
     std::auto_ptr<LoadbalancerHaproxy> haproxy_;
+    Timer *stale_timer_;
+    std::auto_ptr<NamespaceStaleCleaner> stale_cleaner_;
+    Agent *agent_;
 
     DISALLOW_COPY_AND_ASSIGN(NamespaceManager);
 };
@@ -219,7 +229,7 @@ class NamespaceState : public DBState {
 class NamespaceTask {
  public:
     static const size_t kBufLen = 4098;
-    typedef boost::function<void(boost::uuids::uuid uuid, const std::string errors)> OnErrorCallback;
+    typedef boost::function<void(NamespaceTask *task, const std::string errors)> OnErrorCallback;
 
     NamespaceTask(const std::string &cmd, int cmd_type, EventManager *evm);
 
@@ -248,12 +258,7 @@ class NamespaceTask {
 
     int cmd_type() const { return cmd_type_; }
 
-    const boost::uuids::uuid &uuid() const {
-        return uuid_;
-    }
-
  private:
-    boost::uuids::uuid uuid_;
     const std::string cmd_;
 
     boost::asio::posix::stream_descriptor errors_;
