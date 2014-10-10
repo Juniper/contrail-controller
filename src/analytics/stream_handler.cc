@@ -7,6 +7,7 @@
 #include <tbb/mutex.h>
 #include <tbb/reader_writer_lock.h>
 #include <boost/bind.hpp>
+// replace with std::vector later
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <pugixml/pugixml.hpp>
 
@@ -26,6 +27,10 @@ OutputStreamManager::OutputStreamManager(const char *task_name)
     // should be made after output_workqueue_.Enqueue().
     output_workqueue_.SetStartRunnerFunc(
       boost::bind(&OutputStreamManager::isInitialized, this));
+}
+
+OutputStreamManager::~OutputStreamManager() {
+    // notify handlers
 }
 
 void OutputStreamManager::addHandler(OutputStreamHandler *ptr) {

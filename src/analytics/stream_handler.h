@@ -15,7 +15,7 @@ namespace analytics {
    public:
     // The handler should be asynchronous.
     virtual bool appendMessage(const pugi::xml_node &) = 0;
-    virtual ~OutputStreamHandler();
+    virtual ~OutputStreamHandler() {};
   };
 
   class OutputStreamManager {

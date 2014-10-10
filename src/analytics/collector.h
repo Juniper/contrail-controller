@@ -111,6 +111,10 @@ public:
         return ds_client_;
     }
 
+    analytics::OutputStreamManager &GetOutputStreamManager() {
+	return output_stream_mgr_;
+    }
+
 protected:
     virtual TcpSession *AllocSession(Socket *socket);
     virtual void DisconnectSession(SandeshSession *session);
