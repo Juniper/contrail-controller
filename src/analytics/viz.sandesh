@@ -645,6 +645,18 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'rx_message_stats.last_timestamp', 'datatype' : 'long',   'index' : false},
         ]
     },
+    {
+      'display_name' : 'Physical Router Linecard Heap Usage',
+      'stat_type' : 'PFEHeapInfo'
+      'stat_attr' : 'heap_info',
+      'obj_table' : 'NONE',
+      'attributes': [
+          { 'name' : 'heap_info.name',        'datatype' : 'string', 'index' : true},
+          { 'name' : 'heap_info.size',        'datatype' : 'long',   'index' : false},
+          { 'name' : 'heap_info.allocated',   'datatype' : 'long',   'index' : false},
+          { 'name' : 'heap_info.utilization', 'datatype' : 'int',    'index' : false},
+        ]
+    },
 ]
 
 const list<query_table> _TABLES = [

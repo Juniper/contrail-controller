@@ -266,60 +266,59 @@ public:
 vector<ArgSet> PopulateTestMessageStatsInfo() {
     vector<ArgSet> av;
     ArgSet a1;
-    a1.statAttr = string("TestMessage");
+    a1.statAttr = string("tm_inner");
     a1.attribs = map_list_of
-        ("TestMessage.tm_name", DbHandler::Var("TestMessage"))
-        ("TestMessage.tm_status", DbHandler::Var("Test"))
-        ("TestMessage.tm_counter", DbHandler::Var((uint64_t)3));
+        ("Source", DbHandler::Var("127.0.0.1"))
+        ("tm_name", DbHandler::Var("TestMessage"))
+        ("tm_status", DbHandler::Var("Test"))
+        ("tm_counter", DbHandler::Var((uint64_t)3))
+        ("tm_inner.tm_inner_name",
+         DbHandler::Var("TestMessageInner1"))
+        ("tm_inner.tm_inner_status",
+         DbHandler::Var((uint64_t)1))
+        ("tm_inner.tm_inner_counter",
+         DbHandler::Var((uint64_t)1));
 
     DbHandler::AttribMap sm;
-    a1.attribs_tag.insert(make_pair("TestMessage.tm_name", make_pair(
+    a1.attribs_tag.insert(make_pair("Source", make_pair(
+        DbHandler::Var("127.0.0.1"), sm)));
+    a1.attribs_tag.insert(make_pair("tm_name", make_pair(
         DbHandler::Var("TestMessage"), sm)));
-    a1.attribs_tag.insert(make_pair("TestMessage.tm_status", make_pair(
+    a1.attribs_tag.insert(make_pair("tm_status", make_pair(
         DbHandler::Var("Test"), sm)));
+    a1.attribs_tag.insert(make_pair("tm_counter", make_pair(
+        DbHandler::Var((uint64_t)3), sm)));
+    a1.attribs_tag.insert(make_pair("tm_inner.tm_inner_name",
+        make_pair(
+            DbHandler::Var("TestMessageInner1"), sm)));
     av.push_back(a1);
 
     ArgSet a2;
-    a2.statAttr = string("TestMessage.tm_inner");
+    a2.statAttr = string("tm_inner");
     a2.attribs = map_list_of
-        ("TestMessage.tm_name", DbHandler::Var("TestMessage"))
-        ("TestMessage.tm_status", DbHandler::Var("Test"))
-        ("TestMessage.tm_inner.tm_inner_name",
-         DbHandler::Var("TestMessageInner1"))
-        ("TestMessage.tm_inner.tm_inner_status",
-         DbHandler::Var((uint64_t)1))
-        ("TestMessage.tm_inner.tm_inner_counter",
-         DbHandler::Var((uint64_t)1));
-
-    a2.attribs_tag.insert(make_pair("TestMessage.tm_name", make_pair(
-        DbHandler::Var("TestMessage"), sm)));
-    a2.attribs_tag.insert(make_pair("TestMessage.tm_status", make_pair(
-        DbHandler::Var("Test"), sm)));
-    a2.attribs_tag.insert(make_pair("TestMessage.tm_inner.tm_inner_name",
-        make_pair(
-            DbHandler::Var("TestMessageInner1"), sm)));
-    av.push_back(a2);
-
-    ArgSet a3;
-    a3.statAttr = string("TestMessage.tm_inner");
-    a3.attribs = map_list_of
-        ("TestMessage.tm_name", DbHandler::Var("TestMessage"))
-        ("TestMessage.tm_status", DbHandler::Var("Test"))
-        ("TestMessage.tm_inner.tm_inner_name",
+        ("Source", DbHandler::Var("127.0.0.1"))
+        ("tm_name", DbHandler::Var("TestMessage"))
+        ("tm_status", DbHandler::Var("Test"))
+        ("tm_counter", DbHandler::Var((uint64_t)3))
+        ("tm_inner.tm_inner_name",
          DbHandler::Var("TestMessageInner2"))
-        ("TestMessage.tm_inner.tm_inner_status",
+        ("tm_inner.tm_inner_status",
          DbHandler::Var((uint64_t)2))
-        ("TestMessage.tm_inner.tm_inner_counter",
+        ("tm_inner.tm_inner_counter",
          DbHandler::Var((uint64_t)2));
 
-    a3.attribs_tag.insert(make_pair("TestMessage.tm_name", make_pair(
+    a2.attribs_tag.insert(make_pair("Source", make_pair(
+        DbHandler::Var("127.0.0.1"), sm)));
+    a2.attribs_tag.insert(make_pair("tm_name", make_pair(
         DbHandler::Var("TestMessage"), sm)));
-    a3.attribs_tag.insert(make_pair("TestMessage.tm_status", make_pair(
+    a2.attribs_tag.insert(make_pair("tm_status", make_pair(
         DbHandler::Var("Test"), sm)));
-    a3.attribs_tag.insert(make_pair("TestMessage.tm_inner.tm_inner_name",
+    a2.attribs_tag.insert(make_pair("tm_counter", make_pair(
+        DbHandler::Var((uint64_t)3), sm)));
+    a2.attribs_tag.insert(make_pair("tm_inner.tm_inner_name",
         make_pair(
             DbHandler::Var("TestMessageInner2"), sm)));
-    av.push_back(a3);
+    av.push_back(a2);
     return av;
 }
 
@@ -349,7 +348,11 @@ TEST_F(ProtobufStatWalkerTest, Basic) {
     ASSERT_TRUE(success);
     ASSERT_TRUE(msg != NULL);
 
-    protobuf::impl::ProcessProtobufMessage(*msg, timestamp,
+    boost::system::error_code ec;
+    boost::asio::ip::address raddr(
+        boost::asio::ip::address::from_string("127.0.0.1", ec));
+    boost::asio::ip::udp::endpoint rep(raddr, 0);
+    protobuf::impl::ProcessProtobufMessage(*msg, timestamp, rep,
         boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5));
     delete msg;
 }
