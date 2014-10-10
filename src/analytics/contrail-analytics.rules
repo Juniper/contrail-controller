@@ -2,6 +2,6 @@
         {"processname": "contrail-query-engine", "process_state": "PROCESS_STATE_FATAL", "action": "service contrail-analytics-api stop"},
         {"processname": "contrail-collector", "process_state": "PROCESS_STATE_STOPPED", "action": "redis-cli -n 1 eval \"redis.call('flushdb'); redis.log(redis.LOG_NOTICE,'EV_STOP - Nodemgr Flushing Redis UVE')\" 0"},
         {"processname": "contrail-collector", "process_state": "PROCESS_STATE_EXITED", "action": "redis-cli -n 1 eval \"redis.call('flushdb'); redis.log(redis.LOG_NOTICE,'EV_EXITED - Nodemgr Flushing Redis UVE')\" 0"},
-        {"processname": "contrail-collector", "process_state": "PROCESS_STATE_FATAL", "action": "redis-cli -n 1 eval \"redis.call('flushdb'); redis.log(redis.LOG_NOTICE,'EV_FATAL - Nodemgr Flushing Redis UVE')\" 0"},
+        {"processname": "contrail-collector", "process_state": "PROCESS_STATE_FATAL", "action": "redis-cli -n 1 eval \"redis.call('flushdb'); redis.log(redis.LOG_NOTICE,'EV_FATAL - Nodemgr Flushing Redis UVE')\" 0"}
     ]
 }
