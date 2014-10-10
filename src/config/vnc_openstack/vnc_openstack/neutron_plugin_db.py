@@ -307,7 +307,7 @@ class DBInterface(object):
             obj.name += '-' + obj.uuid
             obj.fq_name[-1] += '-' + obj.uuid
             obj_uuid = create_method(obj)
-        except PermissionDenied as e:
+        except (PermissionDenied, BadRequest) as e:
             self._raise_contrail_exception('BadRequest',
                 resource=resource_type, msg=str(e))
 

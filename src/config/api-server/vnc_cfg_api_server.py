@@ -202,6 +202,8 @@ class VncApiServer(VncApiServerGen):
     """
     This is the manager class co-ordinating all classes present in the package
     """
+    _INVALID_NAME_CHARS = set('<>:')
+
     def __new__(cls, *args, **kwargs):
         obj = super(VncApiServer, cls).__new__(cls, *args, **kwargs)
         bottle.route('/', 'GET', obj.homepage_http_get)
@@ -235,6 +237,7 @@ class VncApiServer(VncApiServerGen):
         self._get_common = self._http_get_common
         self._put_common = self._http_put_common
         self._delete_common = self._http_delete_common
+        self._post_validate = self._http_post_validate
         self._post_common = self._http_post_common
 
         # Type overrides from generated code
@@ -1279,6 +1282,26 @@ class VncApiServer(VncApiServerGen):
             return (True, '')
         return self._permissions.check_perms_write(request, parent_uuid)
     # end _http_delete_common
+
+    def _http_post_validate(self, obj_type=None, obj_dict=None):
+        if not obj_dict:
+            return
+
+        def _check_field_present(fname):
+            fval = obj_dict.get(fname)
+            if not fval:
+                bottle.abort(400, "Bad Request, no %s in POST body" %(fname))
+            return fval
+        fq_name = _check_field_present('fq_name')
+        if obj_type[:].replace('-','_') == 'route_target':
+            invalid_chars = self._INVALID_NAME_CHARS - set(':')
+        else:
+            invalid_chars = self._INVALID_NAME_CHARS
+        if any((c in invalid_chars) for c in fq_name[-1]):
+            bottle.abort(400,
+                "Bad Request, name has one of invalid chars %s"
+                %(invalid_chars))
+    # end _http_post_validate
 
     def _http_post_common(self, request, obj_type, obj_dict):
         # If not connected to zookeeper do not allow operations that
