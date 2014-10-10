@@ -462,6 +462,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType> 
 
+<xsd:simpleType name="creatorType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="vcenter-plugin"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+
 <xsd:complexType name="IdPermsType">
     <xsd:all>
         <xsd:element name="permissions"   type="PermType"/>
@@ -471,6 +477,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="last-modified" type="xsd:dateTime"/>
         <xsd:element name="description"   type="xsd:string"/>
         <xsd:element name="user-visible"  type="xsd:boolean" default="true"/>
+        <xsd:element name="creator"       type="creatorType"/>
     </xsd:all>
 </xsd:complexType> 
 
