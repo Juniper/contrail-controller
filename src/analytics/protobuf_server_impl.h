@@ -30,7 +30,9 @@ class ProtobufReader {
 };
 
 void ProcessProtobufMessage(const ::google::protobuf::Message& message,
-    const uint64_t &timestamp, StatWalker::StatTableInsertFn stat_db_callback);
+    const uint64_t &timestamp,
+    const boost::asio::ip::udp::endpoint &remote_endpoint,
+    StatWalker::StatTableInsertFn stat_db_callback);
 
 }  // namespace impl
 }  // namespace protobuf

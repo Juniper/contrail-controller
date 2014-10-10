@@ -2,6 +2,7 @@
 // Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 //
 
+#include <utility>
 #include <string>
 #include <vector>
 #include <boost/asio/buffer.hpp>
@@ -31,6 +32,8 @@ using ::google::protobuf::DescriptorPool;
 using ::google::protobuf::DynamicMessageFactory;
 using ::google::protobuf::Message;
 using ::google::protobuf::Reflection;
+
+using std::make_pair;
 
 namespace protobuf {
 
@@ -88,64 +91,76 @@ bool ProtobufReader::ParseSelfDescribingMessage(const uint8_t *data,
     return true;
 }
 
-void PopulateProtobufStats(const Message& message,
-    const std::string &stat_attr_name, StatWalker *stat_walker) {
+void PopulateProtobufTopLevelTags(const Message& message,
+    const boost::asio::ip::udp::endpoint &remote_endpoint,
+    StatWalker::TagMap *top_tags) {
+    // Insert the remote endpoint address as a tag
+    boost::asio::ip::address remote_address(remote_endpoint.address());
+    boost::system::error_code ec;
+    const std::string saddr(remote_address.to_string(ec));
+    if (ec) {
+        LOG(ERROR, "Remote endpoint: " << remote_endpoint <<
+            " address to string FAILED: " << ec);
+    }
+    StatWalker::TagVal tvalue;
+    tvalue.val = saddr;
+    top_tags->insert(make_pair("Source", tvalue));
+    // At the top level all elemental fields are inserted into the tag map
     const Reflection *reflection(message.GetReflection());
-    DbHandler::AttribMap attribs;
-    StatWalker::TagMap tags;
     std::vector<const FieldDescriptor*> fields;
     reflection->ListFields(message, &fields);
     for (size_t i = 0; i < fields.size(); i++) {
-        // Gather attributes and tags at this level
+        // Gather tags
         const FieldDescriptor *field(fields[i]);
         const FieldDescriptor::CppType ftype(field->cpp_type());
         const std::string &fname(field->name());
         switch (ftype) {
           case FieldDescriptor::CPPTYPE_INT32: {
-            // Insert into the attribute map
-            DbHandler::Var avalue(static_cast<uint64_t>(
-                reflection->GetInt32(message, field)));
-            attribs.insert(make_pair(fname, avalue));
+            StatWalker::TagVal tvalue;
+            tvalue.val = static_cast<uint64_t>(
+                reflection->GetInt32(message, field));
+            top_tags->insert(make_pair(fname, tvalue));
             break;
           }
           case FieldDescriptor::CPPTYPE_INT64: {
-            // Insert into the attribute map
-            DbHandler::Var avalue(static_cast<uint64_t>(
-                reflection->GetInt64(message, field)));
-            attribs.insert(make_pair(fname, avalue));
+            StatWalker::TagVal tvalue;
+            tvalue.val = static_cast<uint64_t>(
+                reflection->GetInt64(message, field));
+            top_tags->insert(make_pair(fname, tvalue));
             break;
           }
           case FieldDescriptor::CPPTYPE_UINT32: {
-            // Insert into the attribute map
-            DbHandler::Var avalue(static_cast<uint64_t>(
-                reflection->GetUInt32(message, field)));
-            attribs.insert(make_pair(fname, avalue));
+            StatWalker::TagVal tvalue;
+            tvalue.val = static_cast<uint64_t>(
+                reflection->GetUInt32(message, field));
+            top_tags->insert(make_pair(fname, tvalue));
             break;
           }
           case FieldDescriptor::CPPTYPE_UINT64: {
-            // Insert into the attribute map
-            DbHandler::Var avalue(reflection->GetUInt64(message, field));
-            attribs.insert(make_pair(field->name(), avalue));
+            StatWalker::TagVal tvalue;
+            tvalue.val = static_cast<uint64_t>(
+                reflection->GetUInt64(message, field));
+            top_tags->insert(make_pair(fname, tvalue));
             break;
           }
           case FieldDescriptor::CPPTYPE_DOUBLE: {
-            // Insert into the attribute map
-            DbHandler::Var avalue(reflection->GetDouble(message, field));
-            attribs.insert(make_pair(fname, avalue));
+            StatWalker::TagVal tvalue;
+            tvalue.val = reflection->GetDouble(message, field);
+            top_tags->insert(make_pair(fname, tvalue));
             break;
           }
           case FieldDescriptor::CPPTYPE_FLOAT: {
-            // Insert into the attribute map
-            DbHandler::Var avalue(static_cast<double>(
-                reflection->GetFloat(message, field)));
-            attribs.insert(make_pair(fname, avalue));
+            StatWalker::TagVal tvalue;
+            tvalue.val = static_cast<double>(
+                reflection->GetFloat(message, field));
+            top_tags->insert(make_pair(fname, tvalue));
             break;
           }
           case FieldDescriptor::CPPTYPE_BOOL: {
-            // Insert into the attribute map
-            DbHandler::Var avalue(static_cast<uint64_t>(
-                reflection->GetBool(message, field)));
-            attribs.insert(make_pair(fname, avalue));
+            StatWalker::TagVal tvalue;
+            tvalue.val = static_cast<uint64_t>(
+                reflection->GetBool(message, field));
+            top_tags->insert(make_pair(fname, tvalue));
             break;
           }
           case FieldDescriptor::CPPTYPE_ENUM: {
@@ -154,14 +169,9 @@ void PopulateProtobufStats(const Message& message,
             break;
           }
           case FieldDescriptor::CPPTYPE_STRING: {
-            // Insert into the attribute map
-            const std::string &svalue(reflection->GetString(message, field));
-            DbHandler::Var avalue(svalue);
-            attribs.insert(make_pair(fname, avalue));
-            // Insert into the tag map
             StatWalker::TagVal tvalue;
-            tvalue.val = svalue;
-            tags.insert(make_pair(fname, tvalue));
+            tvalue.val = reflection->GetString(message, field);
+            top_tags->insert(make_pair(fname, tvalue));
             break;
           }
           case FieldDescriptor::CPPTYPE_MESSAGE: {
@@ -173,8 +183,102 @@ void PopulateProtobufStats(const Message& message,
           }
         }
     }
-    // Push the stats at this level
-    stat_walker->Push(stat_attr_name, tags, attribs);
+}
+
+void PopulateProtobufStats(const Message& message,
+    const std::string &stat_attr_name, StatWalker *stat_walker) {
+    // At the top level the stat walker already has the tags so
+    // we need to skip going through the elemental types and
+    // creating the tag and attribtute maps. At lower levels,
+    // only strings are inserted into the tag map
+    bool top_level(stat_attr_name.empty());
+    const Reflection *reflection(message.GetReflection());
+    DbHandler::AttribMap attribs;
+    StatWalker::TagMap tags;
+    std::vector<const FieldDescriptor*> fields;
+    reflection->ListFields(message, &fields);
+    if (!top_level) {
+        for (size_t i = 0; i < fields.size(); i++) {
+            // Gather attributes and tags at this level
+            const FieldDescriptor *field(fields[i]);
+            const FieldDescriptor::CppType ftype(field->cpp_type());
+            const std::string &fname(field->name());
+            switch (ftype) {
+              case FieldDescriptor::CPPTYPE_INT32: {
+                // Insert into the attribute map
+                DbHandler::Var avalue(static_cast<uint64_t>(
+                    reflection->GetInt32(message, field)));
+                attribs.insert(make_pair(fname, avalue));
+                break;
+              }
+              case FieldDescriptor::CPPTYPE_INT64: {
+                // Insert into the attribute map
+                DbHandler::Var avalue(static_cast<uint64_t>(
+                    reflection->GetInt64(message, field)));
+                attribs.insert(make_pair(fname, avalue));
+                break;
+              }
+              case FieldDescriptor::CPPTYPE_UINT32: {
+                // Insert into the attribute map
+                DbHandler::Var avalue(static_cast<uint64_t>(
+                    reflection->GetUInt32(message, field)));
+                attribs.insert(make_pair(fname, avalue));
+                break;
+              }
+              case FieldDescriptor::CPPTYPE_UINT64: {
+                // Insert into the attribute map
+                DbHandler::Var avalue(reflection->GetUInt64(message, field));
+                attribs.insert(make_pair(fname, avalue));
+                break;
+              }
+              case FieldDescriptor::CPPTYPE_DOUBLE: {
+                // Insert into the attribute map
+                DbHandler::Var avalue(reflection->GetDouble(message, field));
+                attribs.insert(make_pair(fname, avalue));
+                break;
+              }
+              case FieldDescriptor::CPPTYPE_FLOAT: {
+                // Insert into the attribute map
+                DbHandler::Var avalue(static_cast<double>(
+                    reflection->GetFloat(message, field)));
+                attribs.insert(make_pair(fname, avalue));
+                break;
+              }
+              case FieldDescriptor::CPPTYPE_BOOL: {
+                // Insert into the attribute map
+                DbHandler::Var avalue(static_cast<uint64_t>(
+                    reflection->GetBool(message, field)));
+                attribs.insert(make_pair(fname, avalue));
+                break;
+              }
+              case FieldDescriptor::CPPTYPE_ENUM: {
+                // XXX - Implement
+                assert(0);
+                break;
+              }
+              case FieldDescriptor::CPPTYPE_STRING: {
+                const std::string &svalue(reflection->GetString(message, field));
+                // Insert into the attribute map
+                DbHandler::Var avalue(svalue);
+                attribs.insert(make_pair(fname, avalue));
+                // Insert into the tag map
+                StatWalker::TagVal tvalue;
+                tvalue.val = svalue;
+                tags.insert(make_pair(fname, tvalue));
+                break;
+              }
+              case FieldDescriptor::CPPTYPE_MESSAGE: {
+                break;
+              }
+              default: {
+                LOG(ERROR, "Unknown protobuf field type: " << ftype);
+                break;
+              }
+            }
+        }
+        // Push the stats at this level
+        stat_walker->Push(stat_attr_name, tags, attribs);
+    }
     // Perform traversal of children
     for (size_t i = 0; i < fields.size(); i++) {
         const FieldDescriptor* field(fields[i]);
@@ -202,15 +306,20 @@ void PopulateProtobufStats(const Message& message,
         }
     }
     // Pop the stats at this level
-    stat_walker->Pop();
+    if (!top_level) {
+        stat_walker->Pop();
+    }
 }
 
 void ProcessProtobufMessage(const Message& message,
-    const uint64_t &timestamp, StatWalker::StatTableInsertFn stat_db_callback) {
+    const uint64_t &timestamp,
+    const boost::asio::ip::udp::endpoint &remote_endpoint,
+    StatWalker::StatTableInsertFn stat_db_callback) {
     const std::string &message_name(message.GetTypeName());
-    StatWalker::TagMap tags;
-    StatWalker stat_walker(stat_db_callback, timestamp, message_name, tags);
-    PopulateProtobufStats(message, message_name, &stat_walker);
+    StatWalker::TagMap top_tags;
+    PopulateProtobufTopLevelTags(message, remote_endpoint, &top_tags);
+    StatWalker stat_walker(stat_db_callback, timestamp, message_name, top_tags);
+    PopulateProtobufStats(message, std::string(), &stat_walker);
 }
 
 }  // namespace impl
@@ -291,7 +400,7 @@ class ProtobufServer::ProtobufServerImpl {
                 return;
             }
             protobuf::impl::ProcessProtobufMessage(*message, timestamp,
-                stat_db_callback_);
+                remote_endpoint, stat_db_callback_);
             msg_stats_.UpdateRx(remote_endpoint, recv_buffer_size);
             delete message;
             DeallocateBuffer(recv_buffer);
