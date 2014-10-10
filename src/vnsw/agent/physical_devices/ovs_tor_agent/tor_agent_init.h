@@ -27,6 +27,7 @@ class TorAgentInit : public AgentInit {
 
     virtual std::string InstanceId();
     virtual std::string ModuleName();
+    virtual std::string AgentName();
     // Initialization virtual methods
     void FactoryInit();
     void CreateDBTables();
