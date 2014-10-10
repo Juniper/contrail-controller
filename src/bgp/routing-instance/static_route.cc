@@ -118,10 +118,6 @@ public:
         return rtarget_list_;
     }
 
-    RouteTargetList *rtarget_list() {
-        return &rtarget_list_;
-    }
-
     void UpdateRtargetList(const std::vector<std::string> &rtargets) {
         rtarget_list_.clear();
         for(std::vector<std::string>::const_iterator it = rtargets.begin();
@@ -174,7 +170,7 @@ private:
 
     ExtCommunityPtr ExtCommunityRouteTargetList(const BgpAttr *attr) const {
         ExtCommunity::ExtCommunityList export_list;
-        for (RouteTargetList::iterator it = rtarget_list().begin();
+        for (RouteTargetList::const_iterator it = rtarget_list().begin();
              it != rtarget_list().end(); it++) {
             export_list.push_back(it->GetExtCommunity());
         }
@@ -732,9 +728,13 @@ class ShowStaticRouteHandler {
 public:
     static void FillStaticRoutesInfo(std::vector<StaticRouteEntriesInfo> &list,
                                      RoutingInstance *ri) {
+        if (!ri->static_route_mgr())
+            return;
+        if (ri->static_route_mgr()->static_route_map().empty())
+            return;
+
         StaticRouteEntriesInfo info;
         info.set_ri_name(ri->name());
-        if (!ri->static_route_mgr()) return;
         for (StaticRouteMgr::StaticRouteMap::const_iterator it = 
              ri->static_route_mgr()->static_route_map().begin(); 
              it != ri->static_route_mgr()->static_route_map().end(); it++) {
@@ -746,17 +746,26 @@ public:
             InetRoute rt_key(match->static_route_prefix());
             BgpRoute *static_rt = 
                 static_cast<BgpRoute *>(bgptable->Find(&rt_key));
-            if (static_rt)
+            if (static_rt) {
                 static_info.set_static_rt(true);
-            else
+            } else {
                 static_info.set_static_rt(false);
+            }
 
             NexthopRouteInfo nexthop_info;
             nexthop_info.set_nexthop(match->nexthop().to_string());
             if (match->nexthop_route()) 
                 nexthop_info.set_nexthop_rt(match->nexthop_route()->ToString());
-
             static_info.set_nexthop(nexthop_info);
+
+            std::vector<std::string> route_target_list;
+            for (StaticRoute::RouteTargetList::const_iterator rtit =
+                 match->rtarget_list().begin();
+                 rtit != match->rtarget_list().end(); ++rtit) {
+                route_target_list.push_back(rtit->ToString());
+            }
+            static_info.set_route_target_list(route_target_list);
+
             info.static_route_list.push_back(static_info);
         }
         list.push_back(info);
