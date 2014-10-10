@@ -525,7 +525,7 @@ public:
     const std::string &discovery_client_name() const {
         return discovery_client_name_;
     }
-    void set_discovery_client_name( const std::string &name) {
+    void set_discovery_client_name(const std::string &name) {
         discovery_client_name_ = name;
     }
 
