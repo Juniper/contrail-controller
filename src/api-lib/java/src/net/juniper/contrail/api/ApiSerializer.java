@@ -37,7 +37,7 @@ public class ApiSerializer {
     static Gson getDeserializer() {
         GsonBuilder builder = new GsonBuilder();
         // Do not attempt to deserialize ApiObjectBase.parent
-        return builder.excludeFieldsWithModifiers().create();
+        return builder.excludeFieldsWithModifiers().setDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS").create();
     }
     
     static private Gson getSerializer() {
