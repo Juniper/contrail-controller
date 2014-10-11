@@ -63,8 +63,10 @@ public:
     const StaticRouteMap &static_route_map() const {
         return static_route_map_;
     }
+
 private:
     friend class StaticRouteTest;
+
     RoutingInstance *instance_;
     StaticRouteMap  static_route_map_;
     void DisableQueue() { static_route_queue_->set_disable(true); }
