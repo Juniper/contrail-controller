@@ -481,3 +481,14 @@ void Agent::set_oper_db(OperDB *oper_db) {
 DomainConfig *Agent::domain_config_table() const {
     return oper_db_->domain_config_table();
 }
+
+bool Agent::isVmwareMode() const {
+    return params_->isVmwareMode();
+}
+
+bool Agent::isVmwareVcenterMode() const {
+    if (isVmwareMode() == false)
+        return false;
+
+    return params_->isVmwareVcenterMode();
+}

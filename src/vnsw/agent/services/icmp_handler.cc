@@ -73,7 +73,7 @@ void IcmpHandler::SendResponse(VmInterface *vm_intf) {
     len += EthHdr(ptr + len, buf_len - len,
                   agent()->vhost_interface()->mac(),
                   MacAddress(pkt_info_->eth->ether_shost),
-                  ETHERTYPE_IP, vm_intf->vlan_id());
+                  ETHERTYPE_IP, vm_intf->tx_vlan_id());
 
     uint16_t ip_len = sizeof(struct ip) + icmp_len_;
 

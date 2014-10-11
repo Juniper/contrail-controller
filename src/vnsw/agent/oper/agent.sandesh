@@ -66,6 +66,9 @@ struct ItfSandeshData {
    34: optional string ip6_addr;
    35: optional string ip6_active;
    36: i32 local_preference;
+   37: i16 tx_vlan_id;
+   38: i16 rx_vlan_id;
+   39: string parent_interface;
 }
 
 struct VnIpamData {

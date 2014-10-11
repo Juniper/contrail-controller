@@ -696,6 +696,9 @@ public:
     AgentParam *params() const { return params_; }
 
     bool isXenMode();
+    // Agent param accessor functions
+    bool isVmwareMode() const;
+    bool isVmwareVcenterMode() const;
     void SetAgentTaskPolicy();
     void CopyConfig(AgentParam *params);
 

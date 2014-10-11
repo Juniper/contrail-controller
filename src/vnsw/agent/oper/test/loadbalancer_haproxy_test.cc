@@ -1,3 +1,4 @@
+#include "base/os.h"
 #include "oper/loadbalancer_haproxy.h"
 #include "oper/operdb_init.h"
 #include "oper/namespace_manager.h"

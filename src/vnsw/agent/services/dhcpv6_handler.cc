@@ -598,9 +598,9 @@ uint16_t Dhcpv6Handler::FillDhcpResponse(const MacAddress &dest_mac,
     pkt_info_->eth = (struct ether_header *)(pkt_info_->pkt);
     EthHdr(agent()->vhost_interface()->mac(), dest_mac, ETHERTYPE_IPV6);
     uint16_t header_len = sizeof(struct ether_header);
-    if (vm_itf_->vlan_id() != VmInterface::kInvalidVlanId) {
+    if (vm_itf_->tx_vlan_id() != VmInterface::kInvalidVlanId) {
         // cfi and priority are zero
-        VlanHdr(pkt_info_->pkt + 12, vm_itf_->vlan_id());
+        VlanHdr(pkt_info_->pkt + 12, vm_itf_->tx_vlan_id());
         header_len += sizeof(vlanhdr);
     }
 

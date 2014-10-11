@@ -260,8 +260,9 @@ public:
     VmInterface(const boost::uuids::uuid &uuid, const std::string &name,
                 const Ip4Address &addr, const std::string &mac,
                 const std::string &vm_name,
-                const boost::uuids::uuid &vm_project_uuid, uint16_t vlan_id,
-                Interface *parent, const Ip6Address &addr6);
+                const boost::uuids::uuid &vm_project_uuid, uint16_t tx_vlan_id,
+                uint16_t rx_vlan_id, Interface *parent,
+                const Ip6Address &addr6);
     virtual ~VmInterface();
 
     virtual bool CmpInterface(const DBEntry &rhs) const;
@@ -297,8 +298,9 @@ public:
     const std::string &vm_name() const { return vm_name_; }
     const boost::uuids::uuid &vm_project_uuid() const { return vm_project_uuid_; }
     const std::string &cfg_name() const { return cfg_name_; }
-    uint16_t vlan_id() const { return vlan_id_; }
     Preference local_preference() const { return local_preference_; }
+    uint16_t tx_vlan_id() const { return tx_vlan_id_; }
+    uint16_t rx_vlan_id() const { return rx_vlan_id_; }
     const Interface *parent() const { return parent_.get(); }
     bool ecmp() const { return ecmp_;}
     const OperDhcpOptions &oper_dhcp_options() const { return oper_dhcp_options_; }
@@ -370,8 +372,8 @@ public:
                     const std::string &os_name, const Ip4Address &addr,
                     const std::string &mac, const std::string &vn_name,
                     const boost::uuids::uuid &vm_project_uuid,
-                    uint16_t vlan_id_, const std::string &parent,
-                    const Ip6Address &ipv6);
+                    uint16_t tx_vlan_id, uint16_t rx_vlan_id,
+                    const std::string &parent, const Ip6Address &ipv6);
     // Del a vm-interface
     static void Delete(InterfaceTable *table,
                        const boost::uuids::uuid &intf_uuid);
@@ -528,7 +530,8 @@ private:
     bool mac_set_;
     bool ecmp_;
     // VLAN Tag and the parent interface when VLAN is enabled
-    uint16_t vlan_id_;
+    uint16_t tx_vlan_id_;
+    uint16_t rx_vlan_id_;
     InterfaceRef parent_;
     Preference local_preference_;
     // DHCP options defined for the interface
@@ -604,11 +607,11 @@ struct VmInterfaceAddData : public VmInterfaceData {
                        const std::string &vm_mac,
                        const std::string &vm_name,
                        const boost::uuids::uuid &vm_project_uuid,
-                       const uint16_t vlan_id, const std::string &parent,
-                       const Ip6Address &ip6_addr) :
+                       const uint16_t tx_vlan_id, const uint16_t rx_vlan_id,
+                       const std::string &parent, const Ip6Address &ip6_addr) :
         VmInterfaceData(ADD_DEL_CHANGE), ip_addr_(ip_addr), ip6_addr_(ip6_addr),
         vm_mac_(vm_mac), vm_name_(vm_name), vm_project_uuid_(vm_project_uuid), 
-        vlan_id_(vlan_id), parent_(parent) {
+        tx_vlan_id_(tx_vlan_id), rx_vlan_id_(rx_vlan_id), parent_(parent) {
     }
 
     virtual ~VmInterfaceAddData() { }
@@ -618,7 +621,8 @@ struct VmInterfaceAddData : public VmInterfaceData {
     std::string vm_mac_;
     std::string vm_name_;
     boost::uuids::uuid vm_project_uuid_;
-    uint16_t vlan_id_;
+    uint16_t tx_vlan_id_;
+    uint16_t rx_vlan_id_;
     std::string parent_;
 };
 

@@ -87,7 +87,7 @@ bool IcmpErrorHandler::SendIcmpError(VmInterface *intf) {
     len += EthHdr(ptr + len, buf_len - len,
                   agent()->vhost_interface()->mac(),
                   MacAddress(pkt_info_->eth->ether_shost),
-                  ETHERTYPE_IP, intf->vlan_id());
+                  ETHERTYPE_IP, intf->tx_vlan_id());
 
     uint16_t ip_len = sizeof(struct ip) + sizeof(struct icmp) + data_len;
     len += IpHdr(ptr + len, buf_len - len, ip_len,

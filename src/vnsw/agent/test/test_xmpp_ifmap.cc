@@ -157,7 +157,7 @@ protected:
         IpAddress ip = Ip4Address::from_string(addr, ec);
         data->Init(nil_uuid(), nil_uuid(), nil_uuid(), name, ip.to_v4(),
                    Ip6Address(), mac, "", VmInterface::kInvalidVlanId,
-                   CfgIntEntry::CfgIntVMPort, 0);
+                   VmInterface::kInvalidVlanId, CfgIntEntry::CfgIntVMPort, 0);
 
         DBRequest req;
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;

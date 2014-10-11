@@ -48,6 +48,7 @@ public:
             return parent->mac();
         }
     }
+    const MacAddress &smac() const {return smac_;}
 
     uint32_t interface_id() const {return interface_id_;}
     const string &interface_name() const {return interface_name_;}
@@ -80,6 +81,7 @@ private:
     bool l2_active_;
     bool layer2_forwarding_;
     MacAddress mac_;
+    MacAddress smac_;
     Interface::MirrorDirection mirror_direction_;
     int network_id_;
     size_t os_index_;
@@ -87,7 +89,8 @@ private:
     bool policy_enabled_;
     InetInterface::SubType sub_type_;
     Interface::Type type_;
-    uint16_t vlan_id_;
+    uint16_t rx_vlan_id_;
+    uint16_t tx_vlan_id_;
     uint32_t vrf_id_;
     bool persistent_;
     KSyncEntryPtr xconnect_;

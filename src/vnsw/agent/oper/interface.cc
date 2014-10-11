@@ -760,6 +760,12 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         data.set_vm_name(vintf->vm_name());
         data.set_vm_project_uuid(UuidToString(vintf->vm_project_uuid()));
         data.set_local_preference(vintf->local_preference());
+
+        data.set_tx_vlan_id(vintf->tx_vlan_id());
+        data.set_rx_vlan_id(vintf->rx_vlan_id());
+        if (vintf->parent()) {
+            data.set_parent_interface(vintf->parent()->name());
+        }
         break;
     }
     case Interface::INET:
