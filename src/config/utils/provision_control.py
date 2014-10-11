@@ -28,6 +28,7 @@ class ControlProvisioner(object):
             gsc_obj = self._vnc_lib.global_system_config_read(
                   fq_name=['default-global-system-config'])
             gsc_obj.set_autonomous_system(self._args.router_asn)
+            gsc_obj.set_ibgp_auto_mesh(True)
             self._vnc_lib.global_system_config_update(gsc_obj)
             return 
 
