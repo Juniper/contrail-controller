@@ -36,7 +36,8 @@ public:
     const Ip6Address &ip6_addr() const {return ip6_addr_;};
     const std::string &GetMacAddr() const {return mac_addr_;};
     const std::string &vm_name() const {return vm_name_;};
-    uint16_t vlan_id() const {return vlan_id_;};
+    uint16_t tx_vlan_id() const {return tx_vlan_id_;};
+    uint16_t rx_vlan_id() const {return rx_vlan_id_;};
     CfgIntType port_type() const {return port_type_;};
     const int32_t &GetVersion() const {return version_;};
     void SetVersion(int32_t version) {version_ = version;};
@@ -53,7 +54,10 @@ private:
     Ip6Address ip6_addr_;
     std::string mac_addr_;
     std::string vm_name_;
-    uint16_t vlan_id_;
+    // VLAN-ID on packet tx
+    uint16_t tx_vlan_id_;
+    // VLAN-ID on packet rx
+    uint16_t rx_vlan_id_;
     CfgIntType port_type_;
     int32_t version_;
 };
@@ -70,7 +74,8 @@ struct CfgIntData : public DBRequestData {
               const boost::uuids::uuid &vm_project_id,
               const std::string &tname, const IpAddress &ip,
               const Ip6Address &ip6, const std::string &mac,
-              const std::string &vm_name, uint16_t vlan_id,
+              const std::string &vm_name,
+              uint16_t tx_vlan_id, uint16_t rx_vlan_id,
               const CfgIntEntry::CfgIntType port_type, const int32_t version);
     boost::uuids::uuid vm_id_;
     boost::uuids::uuid vn_id_;
@@ -80,7 +85,10 @@ struct CfgIntData : public DBRequestData {
     Ip6Address ip6_addr_;
     std::string mac_addr_;
     std::string vm_name_;
-    uint16_t vlan_id_;
+    // VLAN-ID on packet tx
+    uint16_t tx_vlan_id_;
+    // VLAN-ID on packet rx
+    uint16_t rx_vlan_id_;
     CfgIntEntry::CfgIntType port_type_;
     int32_t version_;
 };

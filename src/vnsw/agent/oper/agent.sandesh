@@ -65,6 +65,9 @@ struct ItfSandeshData {
    33: optional list<StaticRouteSandesh> allowed_address_pair_list;
    34: optional string ip6_addr;
    35: optional string ip6_active;
+   36: i16 tx_vlan_id;
+   37: i16 rx_vlan_id;
+   38: string parent_interface;
 }
 
 struct VnIpamData {

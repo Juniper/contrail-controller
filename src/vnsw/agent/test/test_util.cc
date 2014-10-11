@@ -371,7 +371,8 @@ void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
         ip6 = Ip6Address::from_string(ip6addr, ec);
     } 
     data->Init(MakeUuid(vm_id), MakeUuid(vn_id), MakeUuid(project_id),
-               name, ip, ip6, mac, vm_name, vlan, CfgIntEntry::CfgIntVMPort, 0);
+               name, ip, ip6, mac, vm_name, vlan, vlan,
+               CfgIntEntry::CfgIntVMPort, 0);
 
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;

@@ -71,7 +71,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
         // VmInterface can potentially have vlan-tags. Get tag in such case
         if (if_nh->GetInterface()->type() == Interface::VM_INTERFACE) {
             vlan_tag_ = (static_cast<const VmInterface *>
-                         (if_nh->GetInterface()))->vlan_id();
+                         (if_nh->GetInterface()))->tx_vlan_id();
         }
         break;
     }
@@ -424,7 +424,7 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
         if (intf_nh->GetInterface()->type() == Interface::VM_INTERFACE) {
             vlan_tag = vlan_tag_;
             vlan_tag_ = (static_cast<const VmInterface *>
-                         (intf_nh->GetInterface()))->vlan_id();
+                         (intf_nh->GetInterface()))->tx_vlan_id();
             ret = vlan_tag != vlan_tag_;
         }
         break;
