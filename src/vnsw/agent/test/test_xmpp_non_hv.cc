@@ -1,3 +1,4 @@
+#include "base/os.h"
 #include "test/test_xmpp.cc"
 
 

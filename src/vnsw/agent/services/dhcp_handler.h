@@ -273,7 +273,7 @@ public:
 
         uint32_t  xid;
         uint16_t  flags;
-        uint8_t   mac_addr[ETH_ALEN];
+        uint8_t   mac_addr[ETHER_ADDR_LEN];
         in_addr_t ip_addr;
     };
 

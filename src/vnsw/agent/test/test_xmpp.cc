@@ -6,30 +6,13 @@
 #include <string>
 #include <base/logging.h>
 #include <boost/bind.hpp>
-#include <tbb/task.h>
-#include <base/task.h>
 #include "io/test/event_manager_test.h"
 #include <net/bgp_af.h>
 
 #include <cmn/agent_cmn.h>
 #include "base/test/task_test_util.h"
 
-#include "cfg/cfg_init.h"
-#include "cfg/cfg_interface.h"
 #include "oper/operdb_init.h"
-#include "controller/controller_init.h"
-#include "controller/controller_ifmap.h"
-#include "pkt/pkt_init.h"
-#include "services/services_init.h"
-#include "ksync/ksync_init.h"
-#include "oper/interface_common.h"
-#include "oper/nexthop.h"
-#include "route/route.h"
-#include "oper/vrf.h"
-#include "oper/mpls.h"
-#include "oper/vm.h"
-#include "oper/vn.h"
-#include "oper/peer.h"
 #include "openstack/instance_service_server.h"
 #include "test_cmn_util.h"
 #include "xmpp/xmpp_init.h"

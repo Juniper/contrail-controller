@@ -2,6 +2,7 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <net/if.h>

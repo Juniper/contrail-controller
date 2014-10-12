@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include "test/test_setup.h"
 #include "ksync/ksync_sock_user.h"
 #include "cmn/agent_cmn.h"
@@ -22,14 +23,14 @@ class AclFlowTest : public ::testing::Test {
 protected:
 };
 
-static void TxIpPacket(int ifindex, const char *sip, const char *dip, 
+static void TxIpPacket(int ifindex, const char *sip, const char *dip,
 			  int proto, int hash_id) {
     PktGen *pkt = new PktGen();
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS, hash_id);
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddIpHdr(sip, dip, proto);
-    
+
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
     client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
@@ -38,7 +39,7 @@ static void TxIpPacket(int ifindex, const char *sip, const char *dip,
 }
 
 
-bool TrafficActionCheck(TrafficAction::Action act, 
+bool TrafficActionCheck(TrafficAction::Action act,
                        int32_t vr_flow_action) {
     switch (act) {
         case TrafficAction::DENY:

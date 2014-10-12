@@ -1,3 +1,4 @@
+#include "base/os.h"
 #include <iostream>
 #include <boost/program_options.hpp>
 #include <testing/gunit.h>
