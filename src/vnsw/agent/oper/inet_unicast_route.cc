@@ -951,7 +951,7 @@ InetUnicastAgentRouteTable::AddSubnetBroadcastRoute(const Peer *peer,
                                               TunnelType::AllType(),
                                               nh_req);
     req.data.reset(data);
-    InetUnicastTableEnqueue(Agent::GetInstance(), &req);
+    InetUnicastTableEnqueue(Agent::GetInstance(), vrf_name, &req);
 }
 
 void 

@@ -186,6 +186,13 @@ public:
                                 bool force_policy,
                                 const PathPreference &path_preference,
                                 const IpAddress &subnet_gw_ip);
+    static void AddSubnetBroadcastRoute(const Peer *peer,
+                                        const string &vrf_name,
+                                        const IpAddress &src_addr,
+                                        const IpAddress &grp_addr,
+                                        const string &vn_name,
+                                        ComponentNHKeyList
+                                        &component_nh_key_list);
     static void AddRemoteVmRouteReq(const Peer *peer, const string &vm_vrf,
                                     const IpAddress &vm_addr,uint8_t plen,
                                     AgentRouteData *data);
