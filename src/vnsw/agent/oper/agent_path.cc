@@ -414,6 +414,7 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
         path->set_path_preference(path_preference_);
         ret = true;
     }
+
     if (path->peer() && path->peer()->GetType() == Peer::BGP_PEER) {
         //Copy entire path preference for BGP peer path,
         //since allowed-address pair config doesn't modify

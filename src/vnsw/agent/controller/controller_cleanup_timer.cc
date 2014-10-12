@@ -14,6 +14,8 @@
 #include "oper/peer.h"
 #include "oper/mirror_table.h"
 #include "oper/multicast.h"
+#include "oper/operdb_init.h"
+#include "oper/namespace_manager.h"
 #include "controller/controller_types.h"
 #include "controller/controller_init.h"
 #include "controller/controller_cleanup_timer.h"
@@ -162,4 +164,5 @@ void ConfigCleanupTimer::TimerExpirationDone() {
             ifmap_active_xmpp_server_index())->GetSeqNumber();
 
     agent_->ifmap_stale_cleaner()->StaleTimeout(seq);
+    agent_->oper_db()->namespace_manager()->StaleTimeout();
 }

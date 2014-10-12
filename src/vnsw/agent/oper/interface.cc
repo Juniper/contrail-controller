@@ -759,6 +759,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         data.set_sg_uuid_list(intf_sg_uuid_l);
         data.set_vm_name(vintf->vm_name());
         data.set_vm_project_uuid(UuidToString(vintf->vm_project_uuid()));
+        data.set_local_preference(vintf->local_preference());
         break;
     }
     case Interface::INET:

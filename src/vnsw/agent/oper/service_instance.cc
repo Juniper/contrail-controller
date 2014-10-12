@@ -67,7 +67,7 @@ private:
     static StrTypeToIntMap InitServiceTypeMap() {
         StrTypeToIntMap types;
         types.insert(StrTypeToIntPair("source-nat", ServiceInstance::SourceNAT));
-        types.insert(StrTypeToIntPair("load-balancer", ServiceInstance::LoadBalancer));
+        types.insert(StrTypeToIntPair("loadbalancer", ServiceInstance::LoadBalancer));
 
         return types;
     };
@@ -139,6 +139,7 @@ static IFMapNode *FindNetwork(DBGraph *graph, IFMapNode *vmi_node) {
     return NULL;
 }
 
+
 static std::string FindInterfaceIp(DBGraph *graph, IFMapNode *vmi_node) {
     for (DBGraphVertex::adjacency_iterator iter = vmi_node->begin(graph);
              iter != vmi_node->end(graph); ++iter) {
@@ -177,19 +178,16 @@ static void FindAndSetInterfaces(
     const autogen::ServiceInstanceType &si_properties =
             svc_instance->properties();
 
-    properties->interface_count = 0;
     /*
      * The outside virtual-network is always specified (by the
      * process that creates the service-instance).
-     */
-    if (si_properties.right_virtual_network.length()) {
-        properties->interface_count += 1;
-    }
-    /*
      * The inside virtual-network is optional for loadbalancer.
      */
-    if (si_properties.left_virtual_network.length()) {
-        properties->interface_count += 1;
+    properties->interface_count = si_properties.interface_list.size();
+    std::string right_netname = si_properties.interface_list[0].virtual_network;
+    std::string left_netname = "None";
+    if (properties->interface_count == 2) {
+        left_netname = si_properties.interface_list[1].virtual_network;
     }
 
     /*
@@ -211,11 +209,11 @@ static void FindAndSetInterfaces(
         }
 
         std::string netname = vn_node->name();
-        if (netname == si_properties.left_virtual_network) {
+        if (netname == left_netname) {
             properties->vmi_inside = IdPermsGetUuid(vmi->id_perms());
             properties->mac_addr_inside = vmi->mac_addresses().at(0);
             properties->ip_addr_inside = FindInterfaceIp(graph, adj);
-        } else if (netname == si_properties.right_virtual_network) {
+        } else if (netname == right_netname) {
             properties->vmi_outside = IdPermsGetUuid(vmi->id_perms());
             properties->mac_addr_outside = vmi->mac_addresses().at(0);
             properties->ip_addr_outside = FindInterfaceIp(graph, adj);
@@ -231,13 +229,15 @@ static void FindAndSetInterfaces(
         const autogen::VnSubnetsType &subnets = ipam->data();
         for (unsigned int i = 0; i < subnets.ipam_subnets.size(); ++i) {
             int prefix_len = subnets.ipam_subnets[i].subnet.ip_prefix_len;
-            if (netname == si_properties.left_virtual_network &&
+            if (netname == left_netname &&
                 SubNetContainsIpv4(subnets.ipam_subnets[i],
                         properties->ip_addr_inside)) {
                 properties->ip_prefix_len_inside = prefix_len;
-            } else if (netname == si_properties.right_virtual_network &&
+            } else if (netname == right_netname &&
                        SubNetContainsIpv4(subnets.ipam_subnets[i],
                                 properties->ip_addr_outside)) {
+                properties->gw_ip =
+                        subnets.ipam_subnets[i].default_gateway;
                 properties->ip_prefix_len_outside = prefix_len;
             }
         }
@@ -305,6 +305,7 @@ void ServiceInstance::Properties::Clear() {
     mac_addr_outside.empty();
     ip_addr_inside.empty();
     ip_addr_outside.empty();
+    gw_ip.empty();
     ip_prefix_len_inside = -1;
     ip_prefix_len_outside = -1;
     interface_count = 0;
@@ -364,7 +365,17 @@ int ServiceInstance::Properties::CompareTo(const Properties &rhs) const {
     if (cmp != 0) {
         return cmp;
     }
+
+    cmp = compare(gw_ip, rhs.gw_ip);
+    if (cmp != 0) {
+        return cmp;
+    }
+
     cmp = compare(pool_id, rhs.pool_id);
+    if (cmp == 0) {
+        if (!pool_id.is_nil())
+            return !cmp;
+    }
     return cmp;
 }
 
@@ -407,6 +418,10 @@ std::string ServiceInstance::Properties::DiffString(
     if (compare(pool_id, rhs.pool_id)) {
         ss << " pool_id: -" << pool_id << " +" << rhs.pool_id;
     }
+
+    if (compare(gw_ip, rhs.gw_ip)) {
+        ss << " gw_ip: -" << gw_ip << " +" << rhs.gw_ip;
+    }
     return ss.str();
 }
 
@@ -420,15 +435,17 @@ bool ServiceInstance::Properties::Usable() const {
     }
 
     if (service_type == SourceNAT || interface_count == 2) {
-        bool inside = (!vmi_inside.is_nil() &&
+        bool outside = (!vmi_inside.is_nil() &&
                        !ip_addr_inside.empty() &&
                        (ip_prefix_len_inside >= 0));
-        if (!inside) {
+        if (!outside) {
             return false;
         }
     }
 
     if (service_type == LoadBalancer) {
+        if (gw_ip.empty())
+            return false;
         return (!pool_id.is_nil());
     }
 
@@ -505,29 +522,7 @@ bool ServiceInstance::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
         state_data.set_errors(state->errors());
         state_data.set_pid(state->pid());
         state_data.set_status(state->status());
-
-        switch (state->status_type()) {
-            case NamespaceState::Error:
-                state_data.set_status_type("Error");
-                break;
-            case NamespaceState::Started:
-                state_data.set_status_type("Started");
-                break;
-            case NamespaceState::Starting:
-                state_data.set_status_type("Starting");
-                break;
-            case NamespaceState::Stopped:
-                state_data.set_status_type("Stopped");
-                break;
-            case NamespaceState::Stopping:
-                state_data.set_status_type("Stopping");
-                break;
-            case NamespaceState::Timeout:
-                state_data.set_status_type("Timeout");
-                break;
-            default:
-                state_data.set_status_type("");
-        }
+        state_data.set_status_type(state->status_type());
 
         data.set_ns_state(state_data);
     }
@@ -617,11 +612,20 @@ void ServiceInstanceTable::Delete(DBEntry *entry, const DBRequest *request) {
 
 bool ServiceInstanceTable::OnChange(DBEntry *entry, const DBRequest *request) {
     ServiceInstance *svc_instance = static_cast<ServiceInstance *>(entry);
-
+    /*
+     * FIX(safchain), get OnChange with another object than ServiceInstanceUpdate
+     * when restarting agent with a registered instance
+     */
     if (dynamic_cast<ServiceInstanceUpdate*>(request->data.get()) != NULL) {
         ServiceInstanceUpdate *data =
                 static_cast<ServiceInstanceUpdate *>(request->data.get());
         svc_instance->set_properties(data->properties());
+    } else if (dynamic_cast<ServiceInstanceCreate*>(request->data.get()) != NULL) {
+        ServiceInstance::Properties properties;
+        properties.Clear();
+        assert(graph_);
+        svc_instance->CalculateProperties(graph_, &properties);
+        svc_instance->set_properties(properties);
     }
     return true;
 }

@@ -8,12 +8,14 @@
 #include <boost/uuid/uuid.hpp>
 #include "base/util.h"
 
+#define LB_HAPROXY_SSL_PORT 443
+
 class LoadbalancerProperties;
+class Agent;
 
 class LoadbalancerHaproxy {
 public:
-    LoadbalancerHaproxy();
-    virtual ~LoadbalancerHaproxy();
+    LoadbalancerHaproxy(Agent *);
 
     void GenerateConfig(const std::string &filename,
                         const boost::uuids::uuid &pool_id,
@@ -23,6 +25,8 @@ private:
     void GenerateGlobal(std::ostream *out,
                         const LoadbalancerProperties &props) const;
     void GenerateDefaults(std::ostream *out,
+                          const LoadbalancerProperties &props) const;
+    void GenerateListen(std::ostream *out,
                           const LoadbalancerProperties &props) const;
     void GenerateFrontend(std::ostream *out,
                           const boost::uuids::uuid &pool_id,
@@ -38,6 +42,7 @@ private:
     std::map<std::string, std::string> balance_map_;
     std::string protocol_default_;
     std::string balance_default_;
+    Agent *agent_;
 
     DISALLOW_COPY_AND_ASSIGN(LoadbalancerHaproxy);
 };

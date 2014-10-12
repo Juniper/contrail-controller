@@ -65,6 +65,7 @@ struct ItfSandeshData {
    33: optional list<StaticRouteSandesh> allowed_address_pair_list;
    34: optional string ip6_addr;
    35: optional string ip6_active;
+   36: i32 local_preference;
 }
 
 struct VnIpamData {
@@ -190,7 +191,7 @@ struct NamespaceStateSandeshData {
     1: i32 pid;
     2: i32 status;
     3: string cmd; 
-    4: string status_type;
+    4: i32 status_type;
     5: optional string errors;
 }
 
@@ -504,6 +505,29 @@ struct ServiceInstanceSandeshData {
     5: string vmi_inside;
     6: string vmi_outside;
     7: NamespaceStateSandeshData ns_state;      // NamespaceState
+}
+
+struct LoadBalancerSandeshData {
+    1: string uuid;
+    2: string vip_address;
+    4: i32 port;
+    5: string mode;
+    6: string balance;
+    7: i32 inter;
+    8: i32 fall;
+    9: i32 rise;
+   10: string expected_codes;
+   11: string http_method;
+   12: string url_path;
+   13: list<string> member_list;
+}
+
+request sandesh LoadBalancerReq {
+    1: string uuid;
+}
+
+response sandesh LoadBalancerResp {
+    1: list<LoadBalancerSandeshData> load_balancer_list;
 }
 
 struct AceIdFlowCnt {

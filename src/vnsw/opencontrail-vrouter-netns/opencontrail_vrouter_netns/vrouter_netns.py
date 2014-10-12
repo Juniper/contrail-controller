@@ -22,12 +22,14 @@ Script to start or destroy a Linux network namespace plug
 between two virtual networks. Such that an application can
 be executed under the context of a virtualized network.
 """
+from __future__ import print_function
 __docformat__ = "restructuredtext en"
 
 import argparse
 import netaddr
 import sys
 import uuid
+import subprocess
 
 from contrail_vrouter_api.vrouter_api import ContrailVRouterApi
 from linux import ip_lib
@@ -49,23 +51,29 @@ class NetnsManager(object):
     RIGH_DEV_PREFIX = 'gw-'
     TAP_PREFIX = 'veth'
     PORT_TYPE = 'NameSpacePort'
+    LBAAS_PROCESS = 'haproxy'
 
     def __init__(self, vm_uuid, nic_left, nic_right, root_helper='sudo',
-            cfg_file=None, update=False):
+            cfg_file=None, update=False, pool_id=None, gw_ip=None):
         self.vm_uuid = vm_uuid
         self.namespace = self.NETNS_PREFIX + self.vm_uuid
+        if pool_id:
+            self.namespace = self.namespace + ":" + pool_id;
         self.nic_left = nic_left
         self.nic_right = nic_right
         self.root_helper = root_helper
-        self.nic_left['name'] = (self.LEFT_DEV_PREFIX +
+        if self.nic_left:
+            self.nic_left['name'] = (self.LEFT_DEV_PREFIX +
                                  self.nic_left['uuid'])[:self.DEV_NAME_LEN]
-        self.nic_right['name'] = (self.RIGH_DEV_PREFIX +
-                                  self.nic_right['uuid'])[:self.DEV_NAME_LEN]
+        if self.nic_right:
+            self.nic_right['name'] = (self.RIGH_DEV_PREFIX +
+                                      self.nic_right['uuid'])[:self.DEV_NAME_LEN]
         self.ip_ns = ip_lib.IPWrapper(root_helper=self.root_helper,
                                       namespace=self.namespace)
         self.vrouter_client = ContrailVRouterApi()
         self.cfg_file = cfg_file
         self.update = update
+        self.gw_ip = gw_ip
 
     def _get_tap_name(self, uuid_str):
             return (self.TAP_PREFIX + uuid_str)[:self.DEV_NAME_LEN]
@@ -77,11 +85,10 @@ class NetnsManager(object):
         ip = ip_lib.IPWrapper(self.root_helper)
         ip.ensure_namespace(self.namespace)
 
-        if not self.nic_left or not self.nic_right:
-            raise ValueError('Need left and right interfaces to create a '
-                             'network namespace')
-        for nic in [self.nic_left, self.nic_right]:
-            self._create_interfaces(ip, nic)
+        if self.nic_left:
+            self._create_interfaces(ip, self.nic_left)
+        if self.nic_right:
+            self._create_interfaces(ip, self.nic_right)
 
     def set_snat(self):
         if not self.ip_ns.netns.exists(self.namespace):
@@ -107,15 +114,58 @@ class NetnsManager(object):
         self.ip_ns.netns.execute(['ip', 'rule', 'add', 'iif',
                                   str(self.nic_right['name']), 'table',
                                   self.SNAT_RT_TABLES_ID])
+    def _get_lbaas_pid(self):
+        cmd = """ps aux | grep  \'%(process)s -f %(file)s\' | grep -v grep 
+              """ % {'process':self.LBAAS_PROCESS, 'file':self.cfg_file}
+        try:
+            s = subprocess.check_output(cmd, shell=True)
+        except subprocess.CalledProcessError:
+            return None
+        words = s.split()
+        pid = int(words[1])
+        return pid
+
 
     def set_lbaas(self):
         if not self.ip_ns.netns.exists(self.namespace):
             raise ValueError('Need to create the network namespace before set '
                              'up the lbaas')
+        pid_file = self.cfg_file + ".pid"
+        pid = self._get_lbaas_pid()
         if (self.update is False):
-            pid_file = self.cfg_file + ".pid"
-            self.ip_ns.netns.execute(['haproxy', '-f', self.cfg_file, '-D',
+            if pid is not None:
+                self.release_lbaas()
+
+            self.ip_ns.netns.execute([self.LBAAS_PROCESS, '-f', self.cfg_file, '-D',
                                     '-p', pid_file])
+            self.ip_ns.netns.execute(['route', 'add', 'default', 'gw', self.gw_ip])
+        else:
+            if pid is not None:
+                self.ip_ns.netns.execute([self.LBAAS_PROCESS, '-f', self.cfg_file, '-D', '-p', pid_file, '-sf', pid])
+            else:
+                print ("No old Haproxy process to Update for %s" %(self.cfg_file), file=sys.stderr)
+        try:
+            self.ip_ns.netns.execute(['route', 'add', 'default', 'gw', self.gw_ip])
+        except RuntimeError:
+            pass
+
+    def release_lbaas(self):
+        if not self.ip_ns.netns.exists(self.namespace):
+            raise ValueError('Need to create the network namespace before '
+                             'relasing lbaas')
+        pid = self._get_lbaas_pid()
+        if pid is not None:
+            cmd = """kill -9 %(pid)s""" % {'pid':pid}
+            try:
+                s = subprocess.check_output(cmd, shell=True)
+                print ("Haproxy process with pid %d config file %s killed" %(pid, self.cfg_file), file=sys.stderr)
+            except subprocess.CalledProcessError:
+                print ("SIGKILL Error for pid %d %s" %(pid, self.cfg_file), file=sys.stderr)
+        try:
+            self.ip_ns.netns.execute(['route', 'del', 'default'])
+        except RuntimeError:
+            pass
+        
 
     def destroy(self):
         if not self.ip_ns.netns.exists(self.namespace):
@@ -129,22 +179,24 @@ class NetnsManager(object):
         self.ip_ns.netns.delete(self.namespace)
 
     def plug_namespace_interface(self):
-        if not self.nic_left or not self.nic_right:
-            raise ValueError('Need left and right interfaces to plug a '
+        if not self.nic_right:
+            raise ValueError('Need right interface to plug a '
                              'network namespace onto vrouter')
-        self._add_port_to_agent(self.nic_left,
+        if self.nic_left:
+            self._add_port_to_agent(self.nic_left,
                                 display_name='NetNS %s left interface' %
                                 self.vm_uuid)
-        self._add_port_to_agent(self.nic_right,
+
+        if self.nic_right:
+            self._add_port_to_agent(self.nic_right,
                                 display_name='NetNS %s right interface' %
                                 self.vm_uuid)
 
     def unplug_namespace_interface(self):
-        if not self.nic_left or not self.nic_right:
-            raise ValueError('Need left and right interfaces to unplug a '
-                             'network namespace onto vrouter')
-        for nic in [self.nic_left, self.nic_right]:
-            self._delete_port_to_agent(nic)
+        if self.nic_left:
+            self._delete_port_to_agent(self.nic_left)
+        if self.nic_right:
+            self._delete_port_to_agent(self.nic_right)
 
     def _create_interfaces(self, ip, nic):
         if ip_lib.device_exists(nic['name'],
@@ -199,7 +251,7 @@ class VRouterNetns(object):
     """
 
     SOURCE_NAT = 'source-nat'
-    LOAD_BALANCER = 'load-balancer'
+    LOAD_BALANCER = 'loadbalancer'
     SERVICE_TYPES = [SOURCE_NAT, LOAD_BALANCER]
 
     def __init__(self, args_str=None):
@@ -270,7 +322,15 @@ class VRouterNetns(object):
         create_parser.add_argument(
             "--cfg-file",
             default=None,
-            help=("config file for lbaas"))
+            help=("Config file for lbaas"))
+        create_parser.add_argument(
+            "--gw-ip",
+            default=None,
+            help=("Gateway IP for Virtual Network"))
+        create_parser.add_argument(
+            "--pool-id",
+            default=None,
+            help=("Loadbalancer Pool"))
         create_parser.set_defaults(func=self.create)
 
         destroy_parser = subparsers.add_parser('destroy')
@@ -287,6 +347,14 @@ class VRouterNetns(object):
         destroy_parser.add_argument(
             "vmi_right_id",
             help="Right virtual machine interface UUID")
+        destroy_parser.add_argument(
+            "--cfg-file",
+            default=None,
+            help=("config file for lbaas"))
+        destroy_parser.add_argument(
+            "--pool-id",
+            default=None,
+            help=("Loadbalancer Pool"))
         destroy_parser.set_defaults(func=self.destroy)
 
         self.args = parser.parse_args(remaining_argv)
@@ -295,40 +363,46 @@ class VRouterNetns(object):
         netns_name = validate_uuid(self.args.vm_id)
 
         nic_left = {}
-        nic_left['uuid'] = validate_uuid(self.args.vmi_left_id)
-        if self.args.vmi_left_mac:
-            nic_left['mac'] = netaddr.EUI(self.args.vmi_left_mac,
+        if uuid.UUID(self.args.vmi_left_id).int:
+            nic_left['uuid'] = validate_uuid(self.args.vmi_left_id)
+            if self.args.vmi_left_mac:
+                nic_left['mac'] = netaddr.EUI(self.args.vmi_left_mac,
                                           dialect=netaddr.mac_unix)
-        else:
-            nic_left['mac'] = None
-        if self.args.vmi_left_ip:
-            nic_left['ip'] = netaddr.IPNetwork(self.args.vmi_left_ip)
-        else:
-            nic_left['ip'] = None
+            else:
+                nic_left['mac'] = None
+            if self.args.vmi_left_ip:
+                nic_left['ip'] = netaddr.IPNetwork(self.args.vmi_left_ip)
+            else:
+                nic_left['ip'] = None
 
         nic_right = {}
-        nic_right['uuid'] = validate_uuid(self.args.vmi_right_id)
-        if self.args.vmi_right_mac:
-            nic_right['mac'] = netaddr.EUI(self.args.vmi_right_mac,
+        if uuid.UUID(self.args.vmi_right_id).int:
+            nic_right['uuid'] = validate_uuid(self.args.vmi_right_id)
+            if self.args.vmi_right_mac:
+                nic_right['mac'] = netaddr.EUI(self.args.vmi_right_mac,
                                            dialect=netaddr.mac_unix)
-        else:
-            nic_right['mac'] = None
-        if self.args.vmi_right_ip:
-            nic_right['ip'] = netaddr.IPNetwork(self.args.vmi_right_ip)
-        else:
-            nic_right['ip'] = None
+            else:
+                nic_right['mac'] = None
+            if self.args.vmi_right_ip:
+                nic_right['ip'] = netaddr.IPNetwork(self.args.vmi_right_ip)
+            else:
+                nic_right['ip'] = None
 
         netns_mgr = NetnsManager(netns_name, nic_left, nic_right,
                                  root_helper=self.args.root_helper,
                                  cfg_file=self.args.cfg_file,
-                                 update=self.args.update)
+                                 update=self.args.update, gw_ip=self.args.gw_ip,
+                                 pool_id=self.args.pool_id)
 
-        if netns_mgr.is_netns_already_exists():
-            # If the netns already exists, destroy it to be sure to set it
-            # with new parameters like another external network
-            netns_mgr.unplug_namespace_interface()
-            netns_mgr.destroy()
-        netns_mgr.create()
+        if (self.args.update is False):
+            if netns_mgr.is_netns_already_exists():
+                # If the netns already exists, destroy it to be sure to set it
+                # with new parameters like another external network
+                if self.args.service_type == self.LOAD_BALANCER:
+                    netns_mgr.release_lbaas()
+                netns_mgr.unplug_namespace_interface()
+                netns_mgr.destroy()
+            netns_mgr.create()
 
         if self.args.service_type == self.SOURCE_NAT:
             netns_mgr.set_snat()
@@ -343,18 +417,24 @@ class VRouterNetns(object):
 
     def destroy(self):
         netns_name = validate_uuid(self.args.vm_id)
-        nic_left = {'uuid': validate_uuid(self.args.vmi_left_id)}
-        nic_right = {'uuid': validate_uuid(self.args.vmi_right_id)}
+        nic_left = {}
+        if uuid.UUID(self.args.vmi_left_id).int:
+            nic_left = {'uuid': validate_uuid(self.args.vmi_left_id)}
+        nic_right = {}
+        if uuid.UUID(self.args.vmi_right_id).int:
+            nic_right = {'uuid': validate_uuid(self.args.vmi_right_id)}
 
         netns_mgr = NetnsManager(netns_name, nic_left, nic_right,
-                                 root_helper=self.args.root_helper)
+                                 root_helper=self.args.root_helper,
+                                 cfg_file=self.args.cfg_file, gw_ip=None,
+                                 pool_id=self.args.pool_id)
 
         netns_mgr.unplug_namespace_interface()
-
         if self.args.service_type == self.SOURCE_NAT:
             netns_mgr.destroy()
         elif self.args.service_type == self.LOAD_BALANCER:
-            raise NotImplementedError('I need to be implemented!')
+            netns_mgr.release_lbaas()
+            netns_mgr.destroy()
         else:
             msg = ('The %s service type is not supported' %
                    self.args.service_type)
