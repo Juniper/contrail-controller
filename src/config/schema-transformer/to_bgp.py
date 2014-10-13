@@ -1876,7 +1876,7 @@ class AclRuleListST(object):
 
 class BgpRouterST(DictST):
     _dict = {}
-
+    _ibgp_auto_mesh = None
     def __init__(self, name):
         self.name = name
         self.config = None
@@ -1887,6 +1887,12 @@ class BgpRouterST(DictST):
         self.asn = None
         self.prouter = None
         self.identifier = None
+
+        if self._ibgp_auto_mesh is None:
+            gsc = _vnc_lib.global_system_config_read(
+                fq_name=['default-global-system-config'])
+            self._ibgp_auto_mesh = gsc.get_ibgp_auto_mesh()
+
     # end __init__
 
     @classmethod
@@ -1914,7 +1920,20 @@ class BgpRouterST(DictST):
         self.update_peering()
     # end update_autonomous_system
 
+    @classmethod
+    def update_ibgp_auto_mesh(cls, value):
+        if cls._ibgp_auto_mesh == value:
+            return
+        cls._ibgp_auto_mesh = value
+        if not value:
+            return
+        for router in cls._dict.values():
+            router.update_peering()
+    # end update_ibgp_auto_mesh
+
     def update_peering(self):
+        if not self._ibgp_auto_mesh:
+            return
         my_asn = int(VirtualNetworkST.get_autonomous_system())
         if self.asn != my_asn:
             return
@@ -1948,7 +1967,6 @@ class BgpRouterST(DictST):
             except NoIdError as e:
                 _sandesh._logger.debug("NoIdError while updating bgp router "
                                        "%s: %s", self.name, str(e))
-                obj.del_bgp_router(router_obj)
     # end update_peering
 
     def set_config(self, params):
@@ -2846,6 +2864,11 @@ class SchemaTransformer(object):
         asn = meta.text
         VirtualNetworkST.update_autonomous_system(asn)
     # end add_autonomous_system
+
+    def add_ibgp_auto_mesh(self, idents, meta):
+        value = meta.text
+        BgpRouterST.update_ibgp_auto_mesh(value.lower()=="true")
+    # end add_ibgp_auto_mesh
 
     def add_project_virtual_network(self, idents, meta):
         # New virtual network
