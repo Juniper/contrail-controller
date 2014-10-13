@@ -24,6 +24,7 @@ subdirs = [
            'http',
            'io',
            'ifmap',
+           'server-manager',
            'net',
            'query_engine',
            'opserver',

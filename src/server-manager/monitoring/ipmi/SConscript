@@ -1,0 +1,40 @@
+# -*- mode: python; -*-
+
+import os
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+sources = [
+    'MANIFEST.in',
+    'setup.py'
+    ]
+
+setup_sources_rules = []
+for file in sources:
+    setup_sources_rules.append(env.Install("", "#controller/src/server-manager/monitoring/ipmi/" + file))
+
+monitoring_pkg = env.SandeshGenPy(
+    'ipmi.sandesh',
+    'ipmi/', False)
+
+print sources
+
+sdist_depends = []
+sdist_depends.extend(setup_sources_rules)
+sdist_depends.extend(monitoring_pkg)
+sdist_gen = env.Command('dist',
+                         'setup.py',
+                         'python setup.py sdist',
+                         chdir=1)
+
+env.Depends(sdist_gen, sdist_depends)
+env.Default(sdist_gen)
+env.Alias('ipmi:sdist', sdist_gen)
+
+
+if 'install_ipmistats' in BUILD_TARGETS:
+    env.Alias('install_ipmistats',
+              env.Command(None, sources,
+                          'python setup.py install %s' %
+                          env['PYTHON_INSTALL_OPT'],
+                          chdir=1))
