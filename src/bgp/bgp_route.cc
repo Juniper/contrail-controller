@@ -24,6 +24,7 @@ BgpRoute::BgpRoute() {
 }
 
 BgpRoute::~BgpRoute() {
+    assert(GetPathList().empty());
 }
 
 //
@@ -38,6 +39,7 @@ const BgpPath *BgpRoute::BestPath() const {
 // Insert given path and redo path selection.
 //
 void BgpRoute::InsertPath(BgpPath *path) {
+    assert(!IsDeleted());
     const Path *prev_front = front();
 
     insert(path);
