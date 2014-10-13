@@ -30,6 +30,7 @@ subdirs = [
            'route',
            'sandesh',
            'schema',
+           'server-manager',
            'storage',
            'xml',
            'xmpp',

@@ -1,0 +1,16 @@
+struct IpmiSensor {
+    1: string sensor;
+    2: string status;
+    3: string reading;
+}
+
+struct SMIpmiInfo {
+    1: string name               (key="ObjectServerTable")
+    2: optional bool             deleted
+    3: optional list<IpmiSensor> sensor_stats (tags=".sensor,.reading")
+    4: optional list<IpmiSensor> sensor_state
+}
+
+uve sandesh SMIpmiInfoTrace {
+    1: SMIpmiInfo             data
+}

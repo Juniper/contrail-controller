@@ -1,0 +1,25 @@
+# -*- mode: python; -*-
+
+import os
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+sources = [
+    'MANIFEST.in',
+    'setup.py'
+    ]
+
+setup_sources_rules = []
+for file in sources:
+    setup_sources_rules.append(env.Install("", "#controller/src/server-manager/monitoring/ipmi/" + file))
+
+sources += env.SandeshGenPy(
+    'ipmi.sandesh',
+    'contrail_sm_monitoring/', False)
+
+if 'install_contrail_sm_monitoring' in BUILD_TARGETS:
+    install_cmd = env.Command(None, sources,
+                              'python setup.py install %s' %
+                              env['PYTHON_INSTALL_OPT'],
+                              chdir=1)
+    env.Alias('install_contrail_sm_monitoring', install_cmd)
