@@ -1892,6 +1892,8 @@ class BgpRouterST(DictST):
             gsc = _vnc_lib.global_system_config_read(
                 fq_name=['default-global-system-config'])
             self._ibgp_auto_mesh = gsc.get_ibgp_auto_mesh()
+            if self._ibgp_auto_mesh is None:
+                self._ibgp_auto_mesh = True
 
     # end __init__
 
