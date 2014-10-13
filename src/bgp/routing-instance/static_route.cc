@@ -752,11 +752,12 @@ public:
                 static_info.set_static_rt(false);
             }
 
-            NexthopRouteInfo nexthop_info;
-            nexthop_info.set_nexthop(match->nexthop().to_string());
-            if (match->nexthop_route()) 
-                nexthop_info.set_nexthop_rt(match->nexthop_route()->ToString());
-            static_info.set_nexthop(nexthop_info);
+            static_info.set_nexthop(match->nexthop().to_string());
+            if (match->nexthop_route()) {
+                ShowRouteBrief show_route;
+                match->nexthop_route()->FillRouteInfo(bgptable, &show_route);
+                static_info.set_nexthop_rt(show_route);
+            }
 
             std::vector<std::string> route_target_list;
             for (StaticRoute::RouteTargetList::const_iterator rtit =

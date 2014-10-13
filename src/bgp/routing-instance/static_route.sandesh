@@ -1,17 +1,15 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
-
-struct NexthopRouteInfo {
-    1: string nexthop;
-    2: string nexthop_rt;
-}
+ 
+include "bgp/bgp_peer.sandesh"
 
 struct StaticRouteInfo {
     1: string prefix;
     2: bool static_rt;
-    3: NexthopRouteInfo nexthop;
-    4: list<string> route_target_list;
+    3: string nexthop;
+    4: bgp_peer.ShowRouteBrief nexthop_rt;
+    5: list<string> route_target_list;
 }
 
 struct StaticRouteEntriesInfo {
