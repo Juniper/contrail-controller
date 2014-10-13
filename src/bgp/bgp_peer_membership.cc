@@ -338,6 +338,58 @@ PeerRibMembershipManager::~PeerRibMembershipManager() {
     delete event_queue_;
 }
 
+int PeerRibMembershipManager::RegisterPeerRegistrationCallback(
+    PeerRegistrationCallback callback) {
+    tbb::mutex::scoped_lock lock(registration_mutex_);
+
+    size_t id = registration_bmap_.find_first();
+    if (id == registration_bmap_.npos) {
+        id = registration_callbacks_.size();
+        registration_callbacks_.push_back(callback);
+    } else {
+        registration_bmap_.reset(id);
+        if (registration_bmap_.none()) {
+            registration_bmap_.clear();
+        }
+        registration_callbacks_[id] = callback;
+    }
+    return id;
+}
+
+void PeerRibMembershipManager::UnregisterPeerRegistrationCallback(int id) {
+    tbb::mutex::scoped_lock lock(registration_mutex_);
+
+    registration_callbacks_[id] = NULL;
+    if ((size_t) id == registration_callbacks_.size() - 1) {
+        while (!registration_callbacks_.empty() &&
+               registration_callbacks_.back() == NULL) {
+            registration_callbacks_.pop_back();
+        }
+        if (registration_bmap_.size() > registration_callbacks_.size()) {
+            registration_bmap_.resize(registration_callbacks_.size());
+        }
+    } else {
+        if ((size_t) id >= registration_bmap_.size()) {
+            registration_bmap_.resize(id + 1);
+        }
+        registration_bmap_.set(id);
+    }
+}
+
+void PeerRibMembershipManager::NotifyPeerRegistration(IPeer *ipeer,
+    BgpTable *table, bool unregister) {
+    tbb::mutex::scoped_lock lock(registration_mutex_);
+
+    for (PeerRegistrationListenerList::iterator iter =
+         registration_callbacks_.begin();
+         iter != registration_callbacks_.end(); ++iter) {
+        if (*iter != NULL) {
+            PeerRegistrationCallback callback = *iter;
+            (callback)(ipeer, table, unregister);
+        }
+    }
+}
+
 //
 // Concurrency: Runs in the context of the BGP peer membership task.
 //
@@ -760,6 +812,16 @@ IPeerRib *PeerRibMembershipManager::IPeerRibFind(IPeer *ipeer,
     return (iter != peer_rib_set_.end() ? *iter : NULL);
 }
 
+//
+// Return the instance-id of the IPeer for the BgpTable.
+//
+int PeerRibMembershipManager::GetRegistrationId(const IPeer *ipeer,
+                                                BgpTable *table) {
+    assert(ipeer->IsXmppPeer());
+    IPeerRib *peer_rib = IPeerRibFind(const_cast<IPeer *>(ipeer), table);
+    return (peer_rib ? peer_rib->instance_id() : -1);
+}
+
 void PeerRibMembershipManager::FillPeerMembershipInfo(const IPeer *peer,
         BgpNeighborResp &resp) {
     assert(resp.get_routing_tables().size() == 0);
@@ -803,6 +865,7 @@ IPeerRib *PeerRibMembershipManager::IPeerRibInsert(IPeer *ipeer,
     rib_peer_map_.insert(std::make_pair(table, ipeer));
     peer_rib_map_.insert(std::make_pair(ipeer, peer_rib));
     peer_rib_set_.insert(peer_rib);
+    NotifyPeerRegistration(ipeer, table, false);
     return peer_rib;
 }
 
@@ -810,6 +873,7 @@ IPeerRib *PeerRibMembershipManager::IPeerRibInsert(IPeer *ipeer,
 // Remove the IPeerRib from the set.
 //
 void PeerRibMembershipManager::IPeerRibRemove(IPeerRib *peer_rib) {
+    NotifyPeerRegistration(peer_rib->ipeer(), peer_rib->table(), true);
     peer_rib_set_.erase(peer_rib);
     for (RibPeerMap::iterator it = rib_peer_map_.find(peer_rib->table());
          it != rib_peer_map_.end(); it++) {

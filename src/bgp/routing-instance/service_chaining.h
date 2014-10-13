@@ -61,13 +61,10 @@ public:
 
     void set_connected_route(BgpRoute *connected) {
         connected_route_ = connected;
+        connected_path_ids_.clear();
 
-        if (!connected_route_) {
-            connected_path_ids_.clear();
+        if (!connected_route_)
             return;
-        }
-
-        assert(connected_path_ids_.empty());
 
         for (Route::PathList::iterator it = connected->GetPathList().begin();
              it != connected->GetPathList().end(); it++) {
@@ -107,10 +104,13 @@ public:
         return connected_route_;
     }
 
-    ConnectedPathIdList *ConnectedPathIds() { return &connected_path_ids_; }
+    const ConnectedPathIdList &ConnectedPathIds() {
+        return connected_path_ids_;
+    }
 
-    void AddServiceChainRoute(Ip4Prefix prefix, InetRoute *orig_route, 
-                              ConnectedPathIdList *list, bool aggregate);
+    void AddServiceChainRoute(Ip4Prefix prefix, const InetRoute *orig_route,
+                              const ConnectedPathIdList &old_path_ids,
+                              bool aggregate);
     void RemoveServiceChainRoute(Ip4Prefix prefix, bool aggregate);
 
     bool add_more_specific(Ip4Prefix aggregate, BgpRoute *more_specific) {
@@ -244,6 +244,7 @@ struct ServiceChainRequest {
         CONNECTED_ROUTE_DELETE,
         EXT_CONNECT_ROUTE_ADD_CHG,
         EXT_CONNECT_ROUTE_DELETE,
+        UPDATE_ALL_ROUTES,
         STOP_CHAIN_DONE,
         SHOW_SERVICE_CHAIN,
         SHOW_PENDING_CHAIN
@@ -320,6 +321,7 @@ public:
     bool IsQueueEmpty() const { return process_queue_->IsQueueEmpty(); }
 
     ServiceChain *FindServiceChain(const std::string &src);
+    ServiceChain *FindServiceChain(RoutingInstance *rtinstance);
 
     bool aggregate_host_route() const {
         return aggregate_host_route_;
@@ -336,8 +338,12 @@ private:
     // of this task. This task has exclusion with db::DBTable task.
     static int service_chain_task_id_;
 
+    void PeerRegistrationCallback(IPeer *peer, BgpTable *table,
+                                  bool unregister);
+
     ServiceChainMap chain_set_;
     int id_;
+    int registration_id_;
     UnresolvedServiceChainList pending_chain_;
     BgpServer *server_;
 

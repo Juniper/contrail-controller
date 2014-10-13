@@ -15,6 +15,7 @@
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_path.h"
 #include "bgp/bgp_peer.h"
+#include "bgp/bgp_peer_membership.h"
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_server.h"
@@ -247,13 +248,14 @@ void ServiceChain::RemoveServiceChainRoute(Ip4Prefix prefix, bool aggregate) {
     if (!service_chain_route || service_chain_route->IsDeleted())
         return;
 
-    for (ConnectedPathIdList::iterator it = ConnectedPathIds()->begin();
-         it != ConnectedPathIds()->end(); it++) {
-        service_chain_route->RemovePath(BgpPath::ServiceChain, NULL, *it);
+    for (ConnectedPathIdList::const_iterator it = ConnectedPathIds().begin();
+         it != ConnectedPathIds().end(); ++it) {
+        uint32_t path_id = *it;
+        service_chain_route->RemovePath(BgpPath::ServiceChain, NULL, path_id);
         BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
             "Removed " << (aggregate ? "Aggregate" : "ExtConnected") <<
             " ServiceChain path " << service_chain_route->ToString() <<
-            " path_id " << BgpPath::PathIdString(*it) <<
+            " path_id " << BgpPath::PathIdString(path_id) <<
             " in table " << bgptable->name());
     }
 
@@ -265,8 +267,9 @@ void ServiceChain::RemoveServiceChainRoute(Ip4Prefix prefix, bool aggregate) {
 }
 
 // AddServiceChainRoute
-void ServiceChain::AddServiceChainRoute(Ip4Prefix prefix, InetRoute *orig_route,
-        ConnectedPathIdList *old_path_ids, bool aggregate) {
+void ServiceChain::AddServiceChainRoute(Ip4Prefix prefix,
+    const InetRoute *orig_route, const ConnectedPathIdList &old_path_ids,
+    bool aggregate) {
     CHECK_CONCURRENCY("bgp::ServiceChain");
 
     BgpTable *bgptable = src_table();
@@ -307,13 +310,16 @@ void ServiceChain::AddServiceChainRoute(Ip4Prefix prefix, InetRoute *orig_route,
 
     BgpAttrDB *attr_db = src_->server()->attr_db();
     ExtCommunityDB *extcomm_db = src_->server()->extcomm_db();
+    PeerRibMembershipManager *membership_mgr = src_->server()->membership_mgr();
+    ConnectedPathIdList new_path_ids;
     for (Route::PathList::iterator it = 
          connected_route()->GetPathList().begin();
-         it != connected_route()->GetPathList().end(); it++) {
+         it != connected_route()->GetPathList().end(); ++it) {
         BgpPath *connected_path = static_cast<BgpPath *>(it.operator->());
 
         // Infeasible paths are not considered
-        if (!connected_path->IsFeasible()) break;
+        if (!connected_path->IsFeasible())
+            break;
 
         // take snapshot of all ECMP paths
         if (connected_route()->BestPath()->PathCompare(*connected_path, true)) 
@@ -345,6 +351,22 @@ void ServiceChain::AddServiceChainRoute(Ip4Prefix prefix, InetRoute *orig_route,
         BgpAttrPtr new_attr = attr_db->ReplaceExtCommunityAndLocate(
             attr, new_ext_community);
 
+        // If the connected path is learnt via XMPP, construct RD based on
+        // the id registered with source table instead of connected table.
+        // This allows chaining of multiple in-network service instances
+        // that are on the same compute node.
+        const IPeer *peer = connected_path->GetPeer();
+        if (src_ != connected_ && peer && peer->IsXmppPeer()) {
+            int id = membership_mgr->GetRegistrationId(peer, bgptable);
+            if (id < 0)
+                continue;
+            RouteDistinguisher connected_rd = attr->source_rd();
+            if (connected_rd.Type() != RouteDistinguisher::TypeIpAddressBased)
+                continue;
+            RouteDistinguisher rd(connected_rd.GetAddress(), id);
+            new_attr = attr_db->ReplaceSourceRdAndLocate(new_attr.get(), rd);
+        }
+
         // Replace the source rd if the connected path is a secondary path
         // of a primary path in the l3vpn table. Use the RD of the primary.
         if (connected_path->IsReplicated()) {
@@ -366,15 +388,20 @@ void ServiceChain::AddServiceChainRoute(Ip4Prefix prefix, InetRoute *orig_route,
             service_chain_route->FindPath(BgpPath::ServiceChain, NULL,
                                           path_id);
         bool is_stale = false;
+        bool path_updated = false;
         if (existing_path != NULL) {
-            if ((new_attr.get() != existing_path->GetAttr()) || 
-                (connected_path->GetLabel() != existing_path->GetLabel())) {
-                // Update Attributes and notify (if needed)
-                is_stale = existing_path->IsStale();
-                service_chain_route->RemovePath(BgpPath::ServiceChain, NULL,
-                                                path_id);
-            } else 
+            // Existing path can be reused.
+            if ((new_attr.get() == existing_path->GetAttr()) &&
+                (connected_path->GetLabel() == existing_path->GetLabel())) {
+                new_path_ids.insert(path_id);
                 continue;
+            }
+
+            // Remove existing path, new path will be added below.
+            path_updated = true;
+            is_stale = existing_path->IsStale();
+            service_chain_route->RemovePath(
+                BgpPath::ServiceChain, NULL, path_id);
         }
 
         BgpPath *new_path = 
@@ -383,31 +410,37 @@ void ServiceChain::AddServiceChainRoute(Ip4Prefix prefix, InetRoute *orig_route,
         if (is_stale) 
             new_path->SetStale();
 
+        new_path_ids.insert(path_id);
         service_chain_route->InsertPath(new_path);
         partition->Notify(service_chain_route);
 
         BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
-            "Added " << (aggregate ? "Aggregate" : "ExtConnected") <<
+            (path_updated ? "Updated " : "Added ") <<
+            (aggregate ? "Aggregate" : "ExtConnected") <<
             " ServiceChain path " << service_chain_route->ToString() <<
             " path_id " << BgpPath::PathIdString(path_id) <<
             " in table " << bgptable->name());
     }
 
-    if (!old_path_ids) return;
-
-    for (ConnectedPathIdList::iterator it = old_path_ids->begin();
-         it != old_path_ids->end(); it++) {
-        if (ConnectedPathIds()->find(*it) != ConnectedPathIds()->end())
+    // Remove stale paths.
+    for (ConnectedPathIdList::const_iterator it = old_path_ids.begin();
+         it != old_path_ids.end(); ++it) {
+        uint32_t path_id = *it;
+        if (new_path_ids.find(path_id) != new_path_ids.end())
             continue;
-        service_chain_route->RemovePath(BgpPath::ServiceChain, NULL, *it);
+        service_chain_route->RemovePath(BgpPath::ServiceChain, NULL, path_id);
         partition->Notify(service_chain_route);
 
         BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
             "Removed " << (aggregate ? "Aggregate" : "ExtConnected") <<
             " ServiceChain path " << service_chain_route->ToString() <<
-            " path_id " << BgpPath::PathIdString(*it) <<
+            " path_id " << BgpPath::PathIdString(path_id) <<
             " in table " << bgptable->name());
     }
+
+    // Delete the route if there's no paths.
+    if (!service_chain_route->BestPath())
+        partition->Delete(service_chain_route);
 }
 
 static void RemoveMatchState(BgpConditionListener *listener, ServiceChain *info,
@@ -493,8 +526,9 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
             if (info->add_more_specific(aggregate_match, route) && 
                 info->connected_route_valid()) {
                 // Add the aggregate route
+                ServiceChain::ConnectedPathIdList path_ids;
                 info->AddServiceChainRoute(
-                    aggregate_match, NULL, NULL, true);
+                    aggregate_match, NULL, path_ids, true);
             }
             break;
         }
@@ -517,11 +551,10 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
             if (state->deleted()) {
                 state->reset_deleted();
             }
-            // Store the old path list
-            ServiceChain::ConnectedPathIdList path_ids;
-            path_ids.swap(*(info->ConnectedPathIds()));
 
-            // Populate the ConnectedPathId
+            // Store the old path id list and populate the new one.
+            ServiceChain::ConnectedPathIdList path_ids =
+                info->ConnectedPathIds();
             info->set_connected_route(route);
 
             ServiceChain::PrefixToRouteListMap *vnprefix_list = 
@@ -531,8 +564,7 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
                 // Add aggregate route.. Or if the route exists
                 // sync the path and purge old paths
                 if (!it->second.empty())
-                    info->AddServiceChainRoute(
-                        it->first, NULL, &path_ids, true);
+                    info->AddServiceChainRoute(it->first, NULL, path_ids, true);
             }
 
             for (ServiceChain::ExtConnectRouteList::iterator it = 
@@ -541,7 +573,7 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
                 // Add ServiceChain route for external connecting route
                 InetRoute *ext_route = static_cast<InetRoute *>(*it);
                 info->AddServiceChainRoute(
-                    ext_route->GetPrefix(), ext_route, &path_ids, false);
+                    ext_route->GetPrefix(), ext_route, path_ids, false);
             }
             break;
         }
@@ -574,8 +606,9 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
             info->ext_connecting_routes()->insert(route);
             if (info->connected_route_valid()) { 
                 InetRoute *ext_route = dynamic_cast<InetRoute *>(route);
+                ServiceChain::ConnectedPathIdList path_ids;
                 info->AddServiceChainRoute(
-                    ext_route->GetPrefix(), ext_route, NULL, false);
+                    ext_route->GetPrefix(), ext_route, path_ids, false);
             }
             break;
         }
@@ -587,7 +620,38 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
             }
             RemoveMatchState(listener, info, table, route, state);
             break;
-         }
+        }
+        case ServiceChainRequest::UPDATE_ALL_ROUTES: {
+            if (info->dest_table_unregistered())
+                break;
+            if (info->connected_table_unregistered())
+                break;
+            if (!info->connected_route())
+                break;
+
+            ServiceChain::ConnectedPathIdList path_ids =
+                info->ConnectedPathIds();
+            ServiceChain::PrefixToRouteListMap *vnprefix_list =
+                info->prefix_to_route_list_map();
+            for (ServiceChain::PrefixToRouteListMap::iterator it =
+                 vnprefix_list->begin(); it != vnprefix_list->end(); it++) {
+                // Add aggregate route.. Or if the route exists
+                // sync the path and purge old paths
+                if (!it->second.empty())
+                    info->AddServiceChainRoute(
+                        it->first, NULL, path_ids, true);
+            }
+
+            for (ServiceChain::ExtConnectRouteList::iterator it =
+                 info->ext_connecting_routes()->begin();
+                 it != info->ext_connecting_routes()->end(); it++) {
+                // Add ServiceChain route for external connecting route
+                InetRoute *ext_route = static_cast<InetRoute *>(*it);
+                info->AddServiceChainRoute(
+                    ext_route->GetPrefix(), ext_route, path_ids, false);
+            }
+            break;
+        }
         case ServiceChainRequest::STOP_CHAIN_DONE: {
             if (table == info->connected_table()) {
                 info->set_connected_table_unregistered();
@@ -697,11 +761,17 @@ ServiceChainMgr::ServiceChainMgr(BgpServer *server) : server_(server),
 
     id_ = server->routing_instance_mgr()->RegisterInstanceOpCallback(
         boost::bind(&ServiceChainMgr::RoutingInstanceCallback, this, _1, _2));
+
+    PeerRibMembershipManager *membership_mgr = server->membership_mgr();
+    registration_id_ = membership_mgr->RegisterPeerRegistrationCallback(
+        boost::bind(&ServiceChainMgr::PeerRegistrationCallback, this, _1, _2, _3));
 }
 
 ServiceChainMgr::~ServiceChainMgr() {
     delete process_queue_;
     server()->routing_instance_mgr()->UnregisterInstanceOpCallback(id_);
+    PeerRibMembershipManager *membership_mgr = server()->membership_mgr();
+    membership_mgr->UnregisterPeerRegistrationCallback(registration_id_);
 }
 
 void ServiceChainMgr::Enqueue(ServiceChainRequest *req) { 
@@ -856,6 +926,26 @@ void ServiceChainMgr::StopServiceChain(RoutingInstance *src) {
                                                          callback);
 }
 
+void ServiceChainMgr::PeerRegistrationCallback(IPeer *peer, BgpTable *table,
+                                               bool unregister) {
+    CHECK_CONCURRENCY("bgp::PeerMembership");
+
+    // Bail if it's not an XMPP peer.
+    if (!peer->IsXmppPeer())
+        return;
+
+    // Bail if there's no service chain for the instance.
+    ServiceChain *chain = FindServiceChain(table->routing_instance());
+    if (!chain)
+        return;
+
+    // Post event to ServiceChain task to update all routes.
+    ServiceChainRequest *req =
+        new ServiceChainRequest(ServiceChainRequest::UPDATE_ALL_ROUTES, NULL,
+                                NULL, Ip4Prefix(), ServiceChainPtr(chain));
+    Enqueue(req);
+}
+
 void ServiceChain::FillServiceChainInfo(ShowServicechainInfo &info) const {
     info.set_src_rt_instance(src_routing_instance()->name());
     info.set_connected_rt_instance(connected_routing_instance()->name());
@@ -958,6 +1048,14 @@ ServiceChain *ServiceChainMgr::FindServiceChain(const std::string &src) {
     if (!rtinstance) return NULL;
     ServiceChainMap::iterator it = chain_set_.find(rtinstance);
     if (it == chain_set_.end()) return NULL;
+    ServiceChain *chain = static_cast<ServiceChain *>(it->second.get());
+    return chain;
+}
+
+ServiceChain *ServiceChainMgr::FindServiceChain(RoutingInstance *rtinstance) {
+    ServiceChainMap::iterator it = chain_set_.find(rtinstance);
+    if (it == chain_set_.end())
+        return NULL;
     ServiceChain *chain = static_cast<ServiceChain *>(it->second.get());
     return chain;
 }
