@@ -162,6 +162,7 @@ def setup_extra_flexmock(mocks):
 # end setup_extra_flexmock
 
 def setup_common_flexmock():
+    flexmock(cfgm_common.vnc_cpu_info.CpuInfo, __init__=stub)
     flexmock(novaclient.client, Client=FakeNovaClient.initialize)
     flexmock(ifmap_client.client, __init__=FakeIfmapClient.initialize,
              call=FakeIfmapClient.call,
