@@ -7,6 +7,8 @@
 
 #include <map>
 
+#include <tbb/atomic.h>
+
 #include "db/db_table.h"
 
 #include <boost/intrusive/list.hpp>
@@ -23,6 +25,7 @@ public:
     typedef std::auto_ptr<DBRequestKey> KeyPtr;
 
     DBEntryBase() : tpart_(NULL), flags(0), last_change_at_(UTCTimestampUsec()) {
+        onremoveq_ = false;
     }
     virtual ~DBEntryBase() { }
     virtual std::string ToString() const = 0;
@@ -46,9 +49,13 @@ public:
     void clear_onlist() { flags &= ~Onlist; }
     bool is_onlist() { return (flags & Onlist); }
 
-    void SetOnRemoveQ() { flags |= OnRemoveQ; }
-    void ClearOnRemoveQ() { flags &= ~OnRemoveQ; }
-    bool IsOnRemoveQ() { return (flags & OnRemoveQ); }
+    void SetOnRemoveQ() {
+        onremoveq_.fetch_and_store(true);
+    }
+    bool IsOnRemoveQ() { return (onremoveq_); }
+    void ClearOnRemoveQ() {
+        onremoveq_.fetch_and_store(false);
+    }
 
     //member hook in change list
     boost::intrusive::list_member_hook<> chg_list_;
@@ -65,12 +72,12 @@ private:
     enum DbEntryFlags {
         Onlist       = 1 << 0,
         DeleteMarked = 1 << 1,
-        OnRemoveQ    = 1 << 2,
     };
     typedef std::map<ListenerId, DBState *> StateMap;
     DBTablePartBase *tpart_;
     StateMap state_;
     uint8_t flags;
+    tbb::atomic<bool> onremoveq_;
     uint64_t last_change_at_; // time at which entry was last 'changed'
     DISALLOW_COPY_AND_ASSIGN(DBEntryBase);
 };
