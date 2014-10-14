@@ -71,9 +71,18 @@ void IcmpHandler::SendResponse() {
     len += sizeof(iphdr);
     IpHdr(len, htonl(pkt_info_->ip_daddr), 
           htonl(pkt_info_->ip_saddr), IPPROTO_ICMP);
-    EthHdr(agent()->vhost_interface()->mac().ether_addr_octet,
-           pkt_info_->eth->h_source, IP_PROTOCOL);
-    len += sizeof(ethhdr);
+
+    uint16_t l2_len = EthHdr((char *)pkt_info_->eth, pkt_info_->len,
+                             GetInterfaceIndex(),
+                             agent()->vhost_interface()->mac().ether_addr_octet,
+                             pkt_info_->eth->h_source, IP_PROTOCOL);
+    // Drop if not enough space to add L2 Header
+    if (((char *)pkt_info_->ip - (char *)pkt_info_->eth) < l2_len) {
+        agent()->GetIcmpProto()->IncrStatsDrop();
+        return;
+    }
+
+    len += l2_len;
 
     Send(len, GetInterfaceIndex(), pkt_info_->vrf,
          AGENT_CMD_SWITCH, PktHandler::ICMP);

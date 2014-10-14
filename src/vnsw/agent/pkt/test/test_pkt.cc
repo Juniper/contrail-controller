@@ -27,6 +27,7 @@
 #include "oper/vm.h"
 #include "oper/vn.h"
 #include "pkt/pkt_handler.h"
+#include "services/arp_proto.h"
 
 #include "vr_interface.h"
 #include "vr_types.h"
@@ -37,6 +38,10 @@
 
 void RouterIdDepInit(Agent *agent) {
 }
+
+struct PortInfo input[] = {
+    {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+};
 
 class PktTest : public ::testing::Test {
 public:
@@ -49,9 +54,33 @@ public:
         EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
     }
 
+
+    void SetUp() {
+        agent_ = Agent::GetInstance();
+        uint8_t *buff = new uint8_t[1024];
+        pkt_info_.reset(new PktInfo(buff, 0, 1024));
+        handler_.reset(new ArpHandler(agent_, pkt_info_,
+                                     *(agent_->event_manager()->io_service())));
+
+        client->Reset();
+        CreateVmportEnv(input, 1, 1);
+        client->WaitForIdle();
+
+        EXPECT_TRUE(VmPortActive(input, 0));
+        EXPECT_TRUE(VmPortPolicyEnable(input, 0));
+    }
+
     void TearDown() {
         FlushFlowTable();
+        client->WaitForIdle();
+        DeleteVmportEnv(input, 1, true, 1);
+        client->WaitForIdle();
+        WAIT_FOR(1000, 1000, (VmPortGet(1) == NULL));
     }
+
+    Agent *agent_;
+    boost::shared_ptr<ArpHandler> handler_;
+    boost::shared_ptr<PktInfo> pkt_info_;
 };
 
 static void MakeIpPacket(PktGen *pkt, int ifindex, const char *sip,
@@ -147,6 +176,67 @@ TEST_F(PktTest, FlowAdd_1) {
     DeleteVmportEnv(input, 1, true, 1);
 }
 
+TEST_F(PktTest, tx_no_vlan_1) {
+    int len;
+
+    char *buff = (char *)pkt_info_->pkt;
+    uint16_t *data_p = (uint16_t *)buff;
+    pkt_info_->eth = (struct ethhdr *) buff;
+
+    unsigned char bcast_mac[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+    len = handler_->EthHdr(buff, MIN_ETH_PKT_LEN, bcast_mac, bcast_mac,
+                         ETHERTYPE_ARP, VmInterface::kInvalidVlanId);
+    EXPECT_TRUE(len == 14);
+    EXPECT_TRUE(*(data_p + 6) == htons(ETHERTYPE_ARP));
+
+    VmInterface *intf = VmInterfaceGet(input[0].intf_id);
+    len = handler_->EthHdr(buff, MIN_ETH_PKT_LEN, intf, bcast_mac, bcast_mac,
+                         ETHERTYPE_ARP);
+    EXPECT_TRUE(len == 14);
+    EXPECT_TRUE(*(data_p + 6) == htons(ETHERTYPE_ARP));
+
+    len = handler_->EthHdr(buff, MIN_ETH_PKT_LEN, agent_->vhost_interface(),
+                        bcast_mac, bcast_mac, ETHERTYPE_ARP);
+    EXPECT_TRUE(len == 14);
+    EXPECT_TRUE(*(data_p + 6) == htons(ETHERTYPE_ARP));
+}
+
+TEST_F(PktTest, tx_vlan_1) {
+    int len;
+
+    char *buff = (char *)pkt_info_->pkt;
+    uint16_t *data_p = (uint16_t *)buff;
+    pkt_info_->eth = (struct ethhdr *) buff;
+
+    unsigned char bcast_mac[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+    len = handler_->EthHdr(buff, MIN_ETH_PKT_LEN, bcast_mac, bcast_mac,
+                           ETHERTYPE_ARP, 1);
+    EXPECT_TRUE(len == 18);
+    EXPECT_TRUE(*(data_p + 6) == htons(ETH_P_8021Q));
+    EXPECT_TRUE(*(data_p + 8) == htons(ETHERTYPE_ARP));
+
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, MakeUuid(2),
+                                     "vm-itf-2"));
+    req.data.reset(new VmInterfaceAddData(Ip4Address::from_string("1.1.1.2"),
+                                          "00:00:00:00:00:01",
+                                          "vm-1", MakeUuid(1), 1, "vnet0"));
+    agent_->interface_table()->Enqueue(&req);
+    client->WaitForIdle();
+
+    VmInterface *intf = VmInterfaceGet(2);
+    len = handler_->EthHdr(buff, MIN_ETH_PKT_LEN, intf, bcast_mac, bcast_mac,
+                         ETHERTYPE_ARP);
+    EXPECT_TRUE(len == 18);
+    EXPECT_TRUE(*(data_p + 6) == htons(ETH_P_8021Q));
+    EXPECT_TRUE(*(data_p + 8) == htons(ETHERTYPE_ARP));
+
+    DBRequest req1(DBRequest::DB_ENTRY_DELETE);
+    req1.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, MakeUuid(2),
+                                     "vm-itf-2"));
+    agent_->interface_table()->Enqueue(&req1);
+    client->WaitForIdle();
+}
 
 int main(int argc, char *argv[]) {
     GETUSERARGS();
