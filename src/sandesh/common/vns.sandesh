@@ -15,6 +15,7 @@ const string SERVICE_DNSD = "contrail-dns"
 const string SERVICE_API_SERVER = "contrail-api:0"
 const string SERVICE_SCHEMA_TRANSFORMER = "contrail-schema"
 const string SERVICE_SVC_MONITOR = "contrail-svc-monitor"
+const string SERVICE_PRC_MANAGER = "contrail-prc-manager"
 const string SERVICE_COLLECTOR = "contrail-collector"
 const string SERVICE_QUERY_ENGINE = "contrail-query-engine"
 const string SERVICE_OPSERVER = "contrail-analytics-api"
@@ -49,6 +50,7 @@ const u16 HttpPortApiServer = 8084
 const u16 HttpPortAgent = 8085
 const u16 HttpPortSchemaTransformer = 8087
 const u16 HttpPortSvcMonitor = 8088
+const u16 HttpPortPrcManager = 8096
 const u16 HttpPortCollector = 8089
 const u16 HttpPortOpserver = 8090
 const u16 HttpPortQueryEngine = 8091
@@ -91,6 +93,7 @@ const map<string, u16> ServiceHttpPortMap = {
     SERVICE_API_SERVER : HttpPortApiServer,
     SERVICE_SCHEMA_TRANSFORMER : HttpPortSchemaTransformer,
     SERVICE_SVC_MONITOR : HttpPortSvcMonitor,
+    SERVICE_PRC_MANAGER : HttpPortPrcManager,
     SERVICE_CONFIG_NODE_MGR : HttpPortConfigNodemgr,
     SERVICE_ANALYTICS_NODE_MGR : HttpPortAnalyticsNodemgr,
     SERVICE_COMPUTE_NODE_MGR : HttpPortVRouterNodemgr,
@@ -108,6 +111,7 @@ const list<string> NodeUVEImplementedServices = [
     SERVICE_API_SERVER,
     SERVICE_SCHEMA_TRANSFORMER,
     SERVICE_SVC_MONITOR,
+    SERVICE_PRC_MANAGER,
 ]
 
 enum Module {
@@ -119,6 +123,7 @@ enum Module {
     COLLECTOR,
     QUERY_ENGINE,
     SVC_MONITOR,
+    PRC_MANAGER,
     DNS,
     DISCOVERY_SERVICE,
     IFMAP_SERVER,
@@ -141,6 +146,7 @@ const string MODULE_OPSERVER_NAME = "OpServer"
 const string MODULE_COLLECTOR_NAME = "Collector"
 const string MODULE_QUERY_ENGINE_NAME = "QueryEngine"
 const string MODULE_SVC_MONITOR_NAME = "ServiceMonitor"
+const string MODULE_PRC_MANAGER_NAME = "PrcManager"
 const string MODULE_DNS_NAME = "DnsAgent"
 const string MODULE_DISCOVERY_SERVICE_NAME = "DiscoveryService"
 const string MODULE_IFMAP_SERVER_NAME = "IfmapServer"
@@ -162,6 +168,7 @@ const map<Module, string> ModuleNames = {
     Module.COLLECTOR          : MODULE_COLLECTOR_NAME,
     Module.QUERY_ENGINE       : MODULE_QUERY_ENGINE_NAME,
     Module.SVC_MONITOR        : MODULE_SVC_MONITOR_NAME,
+    Module.PRC_MANAGER        : MODULE_PRC_MANAGER_NAME,
     Module.DNS                : MODULE_DNS_NAME,
     Module.DISCOVERY_SERVICE  : MODULE_DISCOVERY_SERVICE_NAME,
     Module.IFMAP_SERVER       : MODULE_IFMAP_SERVER_NAME,
@@ -184,6 +191,7 @@ const map<string, Module> ModuleIds = {
     MODULE_COLLECTOR_NAME              : Module.COLLECTOR,
     MODULE_QUERY_ENGINE_NAME           : Module.QUERY_ENGINE,
     MODULE_SVC_MONITOR_NAME            : Module.SVC_MONITOR,
+    MODULE_PRC_MANAGER_NAME            : Module.PRC_MANAGER,
     MODULE_DNS_NAME                    : Module.DNS,
     MODULE_DISCOVERY_SERVICE_NAME      : Module.DISCOVERY_SERVICE
     MODULE_IFMAP_SERVER_NAME           : Module.IFMAP_SERVER,
@@ -229,6 +237,7 @@ const map <Module, NodeType> Module2NodeType = {
     Module.COLLECTOR          : NodeType.ANALYTICS,
     Module.QUERY_ENGINE       : NodeType.ANALYTICS,
     Module.SVC_MONITOR        : NodeType.CONFIG,
+    Module.PRC_MANAGER        : NodeType.CONFIG,
     Module.DNS                : NodeType.CONTROL,
     Module.DISCOVERY_SERVICE  : NodeType.CONFIG,
     Module.IFMAP_SERVER       : NodeType.CONFIG,
@@ -315,11 +324,13 @@ const map<Module, list<Category>> ModuleCategoryMap = {
     Module.QUERY_ENGINE       : [Category.DEFAULT,
                                 ],
     Module.SVC_MONITOR        : [Category.DEFAULT,
-                                ], 
+                                ],
+    Module.PRC_MANAGER        : [Category.DEFAULT,
+                                ],
     Module.DNS                : [Category.DEFAULT,
                                  Category.DNSAGENT,
-                                ], 
+                                ],
     Module.DISCOVERY_SERVICE  : [Category.DEFAULT,
                                  Category.DISCOVERY,
-                                ], 
+                                ],
 }
