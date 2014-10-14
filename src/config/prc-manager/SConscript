@@ -1,0 +1,50 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+#
+Import('CfgmEnv')
+env = CfgmEnv.Clone()
+
+setup_sources = ['setup.py', 'MANIFEST.in', ]
+
+
+setup_sources_rules = []
+for file in setup_sources:
+    setup_sources_rules.append(
+        env.Install(Dir('.'), "#controller/src/config/prc-manager/" + file))
+
+local_sources = ['prc_manager/__init__.py', 'iprc_manager/prc_manager.py', ]
+
+local_sources_rules = []
+for file in local_sources:
+    local_sources_rules.append(
+        env.Install("prc_manager",
+                    "#controller/src/config/prc_manager/" + file))
+
+prcm_introspect_pkg = env.SandeshGenPy('prcm_introspect.sandesh',
+                                       'prc_manager/sandesh/', False)
+
+sdist_depends = []
+sdist_depends.extend(setup_sources_rules)
+sdist_depends.extend(local_sources_rules)
+sdist_depends.extend(prcm_introspect_pkg)
+sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
+
+env.Depends(sdist_gen, sdist_depends)
+env.Default(sdist_gen)
+
+if 'install' in BUILD_TARGETS:
+    install_cmd = env.Command(None, 'setup.py',
+                              'python setup.py install %s' %
+                              env['PYTHON_INSTALL_OPT'],
+                              chdir=1)
+    env.Depends(install_cmd, sdist_depends)
+    env.Alias('install', install_cmd)
+
+env.Alias('install', env.Install(env['INSTALL_CONF'],
+          'contrail-prc-manager.conf'))
+env.Alias('install', env.InstallAs(env['INSTALL_INITD'] +
+          '/contrail-prc-manager', 'contrail-prc-manager.initd.supervisord'))
+env.Alias('install', env.Install(env['INSTALL_CONF'] +
+          '/supervisord_config_files', 'contrail-prc-manager.ini'))
