@@ -751,7 +751,7 @@ class VncApiServer(VncApiServerGen):
         # Turn off help, so we print all options in response to -h
         conf_parser = argparse.ArgumentParser(add_help=False)
 
-        conf_parser.add_argument("-c", "--conf_file",
+        conf_parser.add_argument("-c", "--conf_file", action='append',
                                  help="Specify config file", metavar="FILE")
         args, remaining_argv = conf_parser.parse_known_args(args_str.split())
 
@@ -808,7 +808,7 @@ class VncApiServer(VncApiServerGen):
         config = None
         if args.conf_file:
             config = ConfigParser.SafeConfigParser({'admin_token': None})
-            config.read([args.conf_file])
+            config.read(args.conf_file)
             defaults.update(dict(config.items("DEFAULTS")))
             if 'multi_tenancy' in config.options('DEFAULTS'):
                 defaults['multi_tenancy'] = config.getboolean(

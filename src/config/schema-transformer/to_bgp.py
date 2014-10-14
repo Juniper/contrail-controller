@@ -3727,7 +3727,7 @@ def parse_args(args_str):
     # Turn off help, so we      all options in response to -h
     conf_parser = argparse.ArgumentParser(add_help=False)
 
-    conf_parser.add_argument("-c", "--conf_file",
+    conf_parser.add_argument("-c", "--conf_file", action='append',
                              help="Specify config file", metavar="FILE")
     args, remaining_argv = conf_parser.parse_known_args(args_str.split())
 
@@ -3768,7 +3768,7 @@ def parse_args(args_str):
 
     if args.conf_file:
         config = ConfigParser.SafeConfigParser()
-        config.read([args.conf_file])
+        config.read(args.conf_file)
         defaults.update(dict(config.items("DEFAULTS")))
         if ('SECURITY' in config.sections() and
                 'use_certs' in config.options('SECURITY')):
