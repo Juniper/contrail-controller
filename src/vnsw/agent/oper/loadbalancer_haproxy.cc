@@ -158,6 +158,21 @@ void LoadbalancerHaproxy::GenerateBackend(
                  << hm.expected_codes << endl;
         }
     }
+    const autogen::VirtualIpType &vip = props.vip_properties();
+    if (vip.persistence_type == "HTTP_COOKIE") {
+        *out << string(4, ' ') << "cookie SRV insert indirect nocache"
+             << endl;
+    }
+    if (vip.persistence_type == "SOURCE_IP") {
+        *out << string(4, ' ') << "stick-table type ip size 10k"
+             << endl;
+        *out << string(4, ' ') << "stick on src" << endl;
+    }
+    if (vip.persistence_type == "APP_COOKIE" &&
+            !vip.persistence_cookie_name.empty()) {
+        *out << string(4, ' ') << "appsession " <<
+            vip.persistence_cookie_name << " len 56 timeout 3h" << endl;
+    }
 
     for (LoadbalancerProperties::MemberMap::const_iterator iter =
                  props.members().begin();
