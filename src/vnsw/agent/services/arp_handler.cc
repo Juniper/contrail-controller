@@ -292,16 +292,20 @@ uint16_t ArpHandler::ArpHdr(const unsigned char *smac, in_addr_t sip,
 void ArpHandler::SendArp(uint16_t op, const unsigned char *smac, in_addr_t sip, 
                          const unsigned char *tmac, in_addr_t tip, 
                          uint16_t itf, uint16_t vrf) {
-    pkt_info_->pkt = new uint8_t[MIN_ETH_PKT_LEN + IPC_HDR_LEN];
+    uint16_t buff_len = MIN_ETH_PKT_LEN + IPC_HDR_LEN;
+    pkt_info_->pkt = new uint8_t[buff_len];
     uint8_t *buf = pkt_info_->pkt;
-    memset(buf, 0, MIN_ETH_PKT_LEN + IPC_HDR_LEN);
-    pkt_info_->eth = (ethhdr *) (buf + sizeof(ethhdr) + sizeof(agent_hdr));
-    arp_ = pkt_info_->arp = (ether_arp *) (pkt_info_->eth + 1);
-    arp_tpa_ = tip;
+    memset(buf, 0, buff_len);
+    pkt_info_->eth = (ethhdr *) (buf + IPC_HDR_LEN);
 
     const unsigned char bcast_mac[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-    ArpHdr(smac, sip, tmac, tip, op);
-    EthHdr(smac, bcast_mac, 0x806);
+    int eth_len = EthHdr((char *)buf, buff_len - IPC_HDR_LEN, itf, smac,
+                         bcast_mac, 0x806);
 
-    Send(sizeof(ethhdr) + sizeof(ether_arp), itf, vrf, AGENT_CMD_SWITCH, PktHandler::ARP);
+    arp_ = pkt_info_->arp = (ether_arp *) ((char *)pkt_info_->eth + eth_len);
+    arp_tpa_ = tip;
+
+    ArpHdr(smac, sip, tmac, tip, op);
+
+    Send(eth_len + sizeof(ether_arp), itf, vrf, AGENT_CMD_SWITCH, PktHandler::ARP);
 }
