@@ -2720,9 +2720,8 @@ class DBInterface(object):
         if not si_obj:
             si_obj = ServiceInstance(si_name, parent_obj=project_obj)
             si_created = True
-        #TODO(ethuleau): For the fail-over SNAT set scale out to 2
         si_prop_obj = ServiceInstanceType(
-            scale_out=ServiceScaleOutType(max_instances=1,
+            scale_out=ServiceScaleOutType(max_instances=2,
                                           auto_scale=True),
             auto_policy=True)
 
