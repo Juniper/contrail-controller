@@ -1133,10 +1133,10 @@ bool FlowEntry::FlowSrcMatch(const RouteFlowKey &route_key) const {
         return false;
 
     if (key_.family == Address::INET) {
-        return GetIp4SubnetAddress(key_.src_addr.to_v4(),
+        return Address::GetIp4SubnetAddress(key_.src_addr.to_v4(),
                                    data_.source_plen) == route_key.ip;
     } else {
-        return (GetIp6SubnetAddress(key_.src_addr.to_v6(),
+        return (Address::GetIp6SubnetAddress(key_.src_addr.to_v6(),
                                     data_.source_plen) == route_key.ip);
     }
 }
@@ -1147,10 +1147,10 @@ bool FlowEntry::FlowDestMatch(const RouteFlowKey &route_key) const {
         key_.family != route_key.family)
         return false;
     if (key_.family == Address::INET) {
-        return GetIp4SubnetAddress(key_.dst_addr.to_v4(),
+        return Address::GetIp4SubnetAddress(key_.dst_addr.to_v4(),
                                    data_.dest_plen) == route_key.ip;
     } else {
-        return (GetIp6SubnetAddress(key_.dst_addr.to_v6(),
+        return (Address::GetIp6SubnetAddress(key_.dst_addr.to_v6(),
                                     data_.dest_plen) == route_key.ip);
     }
 }
