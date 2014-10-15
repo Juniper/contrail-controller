@@ -2,7 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <netinet/ether.h>
+#include <sys/types.h>
+#include <net/ethernet.h>
 #include <boost/uuid/uuid_io.hpp>
 
 #include "base/logging.h"

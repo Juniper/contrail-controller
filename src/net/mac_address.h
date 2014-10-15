@@ -22,7 +22,8 @@ public:
         addr_ = *a;
     }
 
-    MacAddress(uint a, uint b, uint c, uint d, uint e, uint f);
+    MacAddress(unsigned int a, unsigned int b, unsigned int c, 
+               unsigned int d, unsigned int e, unsigned int f);
 
     explicit MacAddress(const std::string &s,
                         boost::system::error_code *error = NULL);

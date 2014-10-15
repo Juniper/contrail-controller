@@ -17,14 +17,13 @@ class Pkt0Interface: public VrouterControlInterface {
 public:
     Pkt0Interface(const std::string &name, boost::asio::io_service *io);
     virtual ~Pkt0Interface();
-
+    
     void InitControlInterface();
     void IoShutdownControlInterface();
     void ShutdownControlInterface();
-
+    
     const std::string &Name() const { return name_; }
     int Send(uint8_t *buff, uint16_t buff_len, const PacketBufferPtr &pkt);
-
     const unsigned char *mac_address() const { return mac_address_; }
 protected:
     void AsyncRead();
@@ -36,10 +35,10 @@ protected:
     int tap_fd_;
     unsigned char mac_address_[ETHER_ADDR_LEN];
     boost::asio::posix::stream_descriptor input_;
-
+    
     uint8_t *read_buff_;
     PktHandler *pkt_handler_;
     DISALLOW_COPY_AND_ASSIGN(Pkt0Interface);
 };
 
-#endif // vnsw_agent_pkt_contrail_pkt0_interface_hpp
+#endif // vnsw_agent_contrail_pkt0_interface_hpp

@@ -30,7 +30,8 @@ bool MacAddress::IsBroadcast() const {
     return CompareTo(BroadcastMac()) == 0;
 }
 
-MacAddress::MacAddress(uint a, uint b, uint c, uint d, uint e, uint f) {
+MacAddress::MacAddress(unsigned int a, unsigned int b, unsigned int c,
+                       unsigned int d, unsigned int e, unsigned int f) {
     u_int8_t *p = (u_int8_t *)&addr_;
 
     p[0] = a; p[1] = b; p[2] = c; p[3] = d; p[4] = e; p[5] = f;

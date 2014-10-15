@@ -6,7 +6,6 @@
 #include <string.h>
 
 #include <net/if.h>
-#include <linux/if_tun.h>
 
 #include <boost/asio.hpp>
 #include <db/db_entry.h>
@@ -31,6 +30,7 @@
 #include "pkt/pkt_handler.h"
 #include "ksync/nexthop_ksync.h"
 #include "ksync/mirror_ksync.h"
+#include "vnswif_listener.h"
 #include "ksync/ksync_init.h"
 
 // Name of clone device for creating tap interface

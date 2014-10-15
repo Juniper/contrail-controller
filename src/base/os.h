@@ -17,9 +17,12 @@
 #  define UNDEF___FAVOR_BSD
 #  define __FAVOR_BSD
 # endif
+#endif
+
 # include <netinet/tcp.h>
 # include <netinet/udp.h>
 
+#if defined(__linux__)
 # if defined(UNDEF__FEATURES_H)
 #  undef UNDEF__FATURES_H
 #  undef _FEATURES_H
@@ -31,6 +34,20 @@
 # if defined(UNDEF___FAVOR_BSD)
 #  undef UNDEF___FAVOR_BSD
 #  undef __FAVOR_BSD
+# endif
+#endif
+
+#if defined(__FreeBSD__)
+# if !defined(_KERNEL)
+#  define UNDEF__KERNEL
+#  define _KERNEL
+# endif
+
+# include <sys/types.h>
+# include <netinet/in.h>
+
+# if defined(UNDEF__KERNEL)
+#  undef _KERNEL
 # endif
 #endif
 

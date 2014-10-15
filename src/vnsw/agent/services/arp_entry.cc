@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include "services/arp_proto.h"
 #include "services/services_sandesh.h"
 #include "services/services_init.h"

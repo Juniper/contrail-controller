@@ -9,7 +9,11 @@
 #include <string.h>
 #include <map>
 #ifndef __APPLE__
+#if defined(__linux__)
 #include <byteswap.h>
+#elif defined(__FreeBSD)
+#include <sys/endian.h>
+#endif
 #endif
 
 #ifdef __LITTLE_ENDIAN__
