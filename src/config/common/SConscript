@@ -30,6 +30,8 @@ local_sources = [
                   'vnc_extensions.py',
                   'importutils.py',
                   'analytics_client.py',
+                  'vnc_cassandra.py',
+                  'vnc_kombu.py'
                  ]
 local_sources_rules = []
 for file in local_sources:
