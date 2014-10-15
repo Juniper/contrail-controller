@@ -237,7 +237,11 @@ class DBInterface(object):
             rules.add_policy_rule(sg_rule)
 
         sg_vnc.set_security_group_entries(rules)
-        self._vnc_lib.security_group_update(sg_vnc)
+        try:
+            self._vnc_lib.security_group_update(sg_vnc)
+        except PermissionDenied as e:
+            self._raise_contrail_exception('BadRequest',
+                resource=resource_type, msg=str(e))
         return
     #end _security_group_rule_create
 
