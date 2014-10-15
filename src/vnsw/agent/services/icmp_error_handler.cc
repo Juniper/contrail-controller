@@ -95,8 +95,8 @@ bool IcmpErrorHandler::SendIcmpError(VmInterface *intf) {
             htonl(src_ip), IPPROTO_ICMP);
 
     char *icmp = ptr + len;
-    len += IcmpHdr(ptr + len, buf_len - len, ICMP_DEST_UNREACH,
-                   ICMP_FRAG_NEEDED, 0, pkt_info_->agent_hdr.mtu);
+    len += IcmpHdr(ptr + len, buf_len - len, ICMP_UNREACH,
+                   ICMP_UNREACH_NEEDFRAG, 0, pkt_info_->agent_hdr.mtu);
 
     if (pkt_info_->agent_hdr.flow_index != (uint32_t)-1) {
         // Its possible that user payload has gone thru NAT processing already.

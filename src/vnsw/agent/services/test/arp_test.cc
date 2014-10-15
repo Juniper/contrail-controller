@@ -5,6 +5,7 @@
 #include "base/os.h"
 #include "testing/gunit.h"
 
+#include <sys/socket.h>
 #include <netinet/if_ether.h>
 #include <boost/uuid/string_generator.hpp>
 #include <base/logging.h>
@@ -37,7 +38,7 @@ short req_ifindex = 1, reply_ifindex = 1;
 MacAddress src_mac(0x00, 0x01, 0x02, 0x03, 0x04, 0x05);
 MacAddress dest_mac(0x00, 0x01, 0x02, 0x03, 0x04, 0x05);
 MacAddress mac(0x00, 0x05, 0x07, 0x09, 0x0a, 0x0b);
-ulong src_ip, dest_ip, target_ip, gw_ip, bcast_ip, static_ip;
+unsigned long src_ip, dest_ip, target_ip, gw_ip, bcast_ip, static_ip;
 
 class ArpTest : public ::testing::Test {
 public:

@@ -5,6 +5,8 @@
 #include "base/os.h"
 #include "testing/gunit.h"
 
+#include <sys/types.h>
+#include <sys/socket.h>
 #include <netinet/if_ether.h>
 #include <netinet/ip6.h>
 #include <netinet/icmp6.h>

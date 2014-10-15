@@ -3,10 +3,6 @@
  */
 
 #include <net/if.h>
-#include <linux/netlink.h>
-#include <linux/rtnetlink.h>
-#include <linux/genetlink.h>
-#include <linux/if_tun.h>
 
 #include <uve/agent_stats_sandesh_context.h>
 #include <uve/agent_stats_collector.h>

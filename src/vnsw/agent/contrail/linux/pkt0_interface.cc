@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
+ 
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
@@ -20,7 +21,7 @@
 #include "sandesh/sandesh_trace.h"
 #include "pkt/pkt_types.h"
 #include "pkt/pkt_init.h"
-#include "pkt0_interface.h"
+#include "../pkt0_interface.h"
 
 #define TUN_INTF_CLONE_DEV "/dev/net/tun"
 
@@ -31,17 +32,6 @@ do {                                                                     \
 
 ///////////////////////////////////////////////////////////////////////////////
 
-Pkt0Interface::Pkt0Interface(const std::string &name,
-                             boost::asio::io_service *io) :
-    name_(name), tap_fd_(-1), input_(*io), read_buff_(NULL), pkt_handler_(NULL) {
-    memset(mac_address_, 0, sizeof(mac_address_));
-}
-
-Pkt0Interface::~Pkt0Interface() {
-    if (read_buff_) {
-        delete [] read_buff_;
-    }
-}
 
 void Pkt0Interface::InitControlInterface() {
     pkt_handler()->agent()->set_pkt_interface_name(name_);
@@ -136,64 +126,3 @@ void Pkt0Interface::InitControlInterface() {
     AsyncRead();
 }
 
-void Pkt0Interface::IoShutdownControlInterface() {
-    boost::system::error_code ec;
-    input_.close(ec);
-    tap_fd_ = -1;
-}
-
-void Pkt0Interface::ShutdownControlInterface() {
-}
-
-void Pkt0Interface::WriteHandler(const boost::system::error_code &error,
-                                 std::size_t length, PacketBufferPtr pkt,
-                                 uint8_t *buff) {
-    if (error)
-        TAP_TRACE(Err,
-                  "Packet Tap Error <" + error.message() + "> sending packet");
-    delete [] buff;
-}
-
-int Pkt0Interface::Send(uint8_t *buff, uint16_t buff_len,
-                        const PacketBufferPtr &pkt) {
-    std::vector<boost::asio::const_buffer> buff_list;
-    buff_list.push_back(boost::asio::buffer(buff, buff_len));
-    buff_list.push_back(boost::asio::buffer(pkt->data(), pkt->data_len()));
-
-    input_.async_write_some(buff_list,
-                            boost::bind(&Pkt0Interface::WriteHandler, this,
-                                        boost::asio::placeholders::error,
-                                        boost::asio::placeholders::bytes_transferred,
-                                        pkt, buff));
-    return (buff_len + pkt->data_len());
-}
-
-void Pkt0Interface::AsyncRead() {
-    read_buff_ = new uint8_t[kMaxPacketSize];
-    input_.async_read_some(
-            boost::asio::buffer(read_buff_, kMaxPacketSize),
-            boost::bind(&Pkt0Interface::ReadHandler, this,
-                        boost::asio::placeholders::error,
-                        boost::asio::placeholders::bytes_transferred));
-}
-
-void Pkt0Interface::ReadHandler(const boost::system::error_code &error,
-                              std::size_t length) {
-    if (error) {
-        TAP_TRACE(Err,
-                  "Packet Tap Error <" + error.message() + "> reading packet");
-        if (error == boost::system::errc::operation_canceled) {
-            return;
-        }
-    }
-
-    if (!error) {
-        Agent *agent = pkt_handler()->agent();
-        PacketBufferPtr pkt(agent->pkt()->packet_buffer_manager()->Allocate
-            (PktHandler::RX_PACKET, read_buff_, kMaxPacketSize, 0, length,
-             0));
-        VrouterControlInterface::Process(pkt);
-    }
-
-    AsyncRead();
-}
