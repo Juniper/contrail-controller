@@ -8,6 +8,7 @@
 #include <sandesh/sandesh_trace.h>
 #include <pkt/proto.h>
 #include <services/icmp_error_proto.h>
+#include <services/arp_proto.h>
 
 class MetadataProxy;
 
@@ -31,6 +32,9 @@ public:
     void IoShutdown();
     IcmpErrorProto *icmp_error_proto() const {
         return icmp_error_proto_.get();
+    }
+    ArpProto *arp_proto() const {
+        return arp_proto_.get();
     }
 
 private:

@@ -731,34 +731,65 @@ DnsHandler::Resolve(dns_flags flags, const DnsItems &ques, DnsItems &ans,
 }
 
 void DnsHandler::SendDnsResponse() {
-    MacAddress dest_mac(pkt_info_->eth->ether_shost);
+    PktInfo in_pkt_info = *pkt_info_.get();
 
+    uint16_t buff_len = in_pkt_info.packet_buffer()->buffer_len();
+    pkt_info_->AllocPacketBuffer(agent(), PktHandler::DNS, buff_len, 0);
+    char *buff = (char *)pkt_info_->packet_buffer()->data();
+    memset(buff, 0, buff_len);
+    pkt_info_->vrf = in_pkt_info.vrf;
+
+    uint16_t eth_type = ETHERTYPE_IP;
+    if (in_pkt_info.ip == NULL)
+        eth_type = ETHERTYPE_IPV6;
+
+    MacAddress dest_mac(in_pkt_info.eth->ether_shost);
+    pkt_info_->eth = (struct ether_header *)(buff);
+    uint16_t eth_len = 0;
+    eth_len += EthHdr(buff, buff_len, in_pkt_info.GetAgentHdr().ifindex,
+                      agent()->vhost_interface()->mac(), dest_mac, eth_type);
+
+    uint16_t data_len = dns_resp_size_;
     // fill in the response
-    dns_resp_size_ += sizeof(udphdr);
-    if (pkt_info_->ip) {
+    if (in_pkt_info.ip) {
         // IPv4 request
-        in_addr_t src_ip = pkt_info_->ip->ip_dst.s_addr;
-        in_addr_t dest_ip = pkt_info_->ip->ip_src.s_addr;
-        UdpHdr(dns_resp_size_, src_ip, DNS_SERVER_PORT,
-               dest_ip, ntohs(pkt_info_->transp.udp->uh_sport));
-        dns_resp_size_ += sizeof(struct ip);
-        IpHdr(dns_resp_size_, src_ip, dest_ip, IPPROTO_UDP);
-        EthHdr(agent()->vhost_interface()->mac(), dest_mac,
-               ETHERTYPE_IP);
+        in_addr_t src_ip = in_pkt_info.ip->ip_dst.s_addr;
+        in_addr_t dest_ip = in_pkt_info.ip->ip_src.s_addr;
+
+        pkt_info_->ip = (struct ip *)(buff + eth_len);
+        pkt_info_->transp.udp = (struct udphdr *)
+            ((uint8_t *)pkt_info_->ip + sizeof(struct ip));
+
+        data_len += sizeof(udphdr);
+        UdpHdr(data_len, src_ip, DNS_SERVER_PORT,
+               dest_ip, ntohs(in_pkt_info.transp.udp->uh_sport));
+        data_len += sizeof(struct ip);
+        IpHdr(data_len, src_ip, dest_ip, IPPROTO_UDP);
+
     } else {
         // IPv6 request
-        Ip6Address src_ip = pkt_info_->ip_daddr.to_v6();
-        Ip6Address dest_ip = pkt_info_->ip_saddr.to_v6();
-        UdpHdr(dns_resp_size_, src_ip.to_bytes().data(), DNS_SERVER_PORT,
-               dest_ip.to_bytes().data(), ntohs(pkt_info_->transp.udp->uh_sport),
-               IPPROTO_UDP);
-        Ip6Hdr(pkt_info_->ip6, dns_resp_size_, IPPROTO_UDP, 64,
+        Ip6Address src_ip = in_pkt_info.ip_daddr.to_v6();
+        Ip6Address dest_ip = in_pkt_info.ip_saddr.to_v6();
+
+        pkt_info_->ip6 = (struct ip6_hdr *)(buff + eth_len);
+        pkt_info_->transp.udp = (struct udphdr *)
+            ((uint8_t *)pkt_info_->ip6 + sizeof(struct ip6_hdr));
+
+        data_len += sizeof(udphdr);
+        UdpHdr(data_len, src_ip.to_bytes().data(),
+               DNS_SERVER_PORT, dest_ip.to_bytes().data(),
+               ntohs(in_pkt_info.transp.udp->uh_sport), IPPROTO_UDP);
+
+        data_len += sizeof(struct ip6_hdr);
+        Ip6Hdr(pkt_info_->ip6, data_len, IPPROTO_UDP, 64,
                src_ip.to_bytes().data(), dest_ip.to_bytes().data());
-        dns_resp_size_ += sizeof(ip6_hdr);
-        EthHdr(agent()->vhost_interface()->mac(), dest_mac,
-               ETHERTYPE_IPV6);
     }
-    dns_resp_size_ += sizeof(struct ether_header);
+
+    memcpy(((char *)pkt_info_->transp.udp + sizeof(udphdr)),
+           ((char *)in_pkt_info.transp.udp + sizeof(udphdr)),
+           dns_resp_size_);
+
+    dns_resp_size_ += data_len + eth_len;
     pkt_info_->set_len(dns_resp_size_);
 
     PacketInterfaceKey key(nil_uuid(), agent()->pkt_interface_name());
