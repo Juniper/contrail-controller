@@ -1682,17 +1682,23 @@ class VncDbClient(object):
         return False
     # end match_uuid
 
-    def _update_subnet_uuid(self, vn_dict):
-        vn_uuid = vn_dict['uuid']
+    def update_subnet_uuid(self, vn_dict, do_update=False):
+        vn_uuid = vn_dict.get('uuid')
 
-        def _get_subnet_key(subnet):
+        def _read_subnet_uuid(subnet):
+            if vn_uuid is None:
+                return None
             pfx = subnet['subnet']['ip_prefix']
             pfx_len = subnet['subnet']['ip_prefix_len']
 
             network = IPNetwork('%s/%s' % (pfx, pfx_len))
-            return '%s %s/%s' % (vn_uuid, str(network.ip), pfx_len)
+            subnet_key = '%s %s/%s' % (vn_uuid, str(network.ip), pfx_len)
+            try:
+                return self.useragent_kv_retrieve(subnet_key)
+            except NoUserAgentKey:
+                return None
 
-        ipam_refs = vn_dict['network_ipam_refs']
+        ipam_refs = vn_dict.get('network_ipam_refs', [])
         updated = False
         for ipam in ipam_refs:
             vnsn = ipam['attr']
@@ -1701,15 +1707,15 @@ class VncDbClient(object):
                 if subnet.get('subnet_uuid'):
                     continue
 
-                subnet_key = _get_subnet_key(subnet)
-                subnet_uuid = self.useragent_kv_retrieve(subnet_key)
+                subnet_uuid = _read_subnet_uuid(subnet) or str(uuid.uuid4())
                 subnet['subnet_uuid'] = subnet_uuid
                 if not updated:
                     updated = True
 
-        if updated:
-            self._cassandra_db._cassandra_virtual_network_update(vn_uuid, vn_dict)
-    # end _update_subnet_uuid
+        if updated and do_update:
+            self._cassandra_db._cassandra_virtual_network_update(vn_uuid,
+                                                                 vn_dict)
+    # end update_subnet_uuid
 
     def _dbe_resync(self, obj_uuid, obj_cols):
         obj_type = None
@@ -1730,7 +1736,7 @@ class VncDbClient(object):
 
             if (obj_type == 'virtual_network' and
                 'network_ipam_refs' in obj_dict):
-                self._update_subnet_uuid(obj_dict)
+                self.update_subnet_uuid(obj_dict, do_update=True)
         except Exception as e:
             self.config_object_error(
                 obj_uuid, None, obj_type, 'dbe_resync:cassandra_read', str(e))
