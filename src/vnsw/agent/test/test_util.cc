@@ -58,7 +58,7 @@ void AddXmlTail(char *buff, int &len) {
 void AddLinkString(char *buff, int &len, const char *node_name1,
                    const char *name1, const char *node_name2,
                    const char *name2) {
-    sprintf(buff + len, 
+    sprintf(buff + len,
             "       <link>\n"
             "           <node type=\"%s\">\n"
             "               <name>%s</name>\n"
@@ -74,7 +74,7 @@ void AddLinkString(char *buff, int &len, const char *node_name1,
 void DelLinkString(char *buff, int &len, const char *node_name1,
                    const char *name1, const char *node_name2,
                    const char *name2) {
-    sprintf(buff + len, 
+    sprintf(buff + len,
             "       <link>\n"
             "           <node type=\"%s\">\n"
             "               <name>%s</name>\n"
@@ -89,7 +89,7 @@ void DelLinkString(char *buff, int &len, const char *node_name1,
 void AddNodeString(char *buff, int &len, const char *node_name,
                    const char *name, int id, const char *attr,
                    bool admin_state) {
-    sprintf(buff + len, 
+    sprintf(buff + len,
             "       <node type=\"%s\">\n"
             "           <name>%s</name>\n"
             "           <id-perms>\n"
@@ -114,7 +114,7 @@ void AddNodeString(char *buff, int &len, const char *node_name,
 
 void AddNodeString(char *buff, int &len, const char *node_name,
                    const char *name, int id) {
-    sprintf(buff + len, 
+    sprintf(buff + len,
             "       <node type=\"%s\">\n"
             "           <name>%s</name>\n"
             "           <id-perms>\n"
@@ -144,7 +144,7 @@ void AddNodeString(char *buff, int &len, const char *node_name,
         strcpy(status_str, "false");
     }
 
-    sprintf(buff + len, 
+    sprintf(buff + len,
             "       <node type=\"%s\">\n"
             "           <name>%s</name>\n"
             "           <id-perms>\n"
@@ -226,7 +226,7 @@ void AddVmPortVrfNodeString(char *buff, int &len, const char *name, int id) {
 
 void DelNodeString(char *buff, int &len, const char *node_name,
                    const char *name) {
-    sprintf(buff + len, 
+    sprintf(buff + len,
             "       <node type=\"%s\">\n"
             "           <name>%s</name>\n"
             "       </node>\n", node_name, name);
@@ -303,7 +303,7 @@ void AddNodeByStatus(const char *node_name, const char *name, int id, bool statu
 }
 
 // admin_state is true by default
-void AddNode(const char *node_name, const char *name, int id, 
+void AddNode(const char *node_name, const char *name, int id,
                     const char *attr, bool admin_state) {
     char buff[10240];
     int len = 0;
@@ -370,7 +370,7 @@ void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
     Ip6Address ip6 = Ip6Address();
     if (!ip6addr.empty()) {
         ip6 = Ip6Address::from_string(ip6addr, ec);
-    } 
+    }
     data->Init(MakeUuid(vm_id), MakeUuid(vn_id), MakeUuid(project_id),
                name, ip, ip6, mac, vm_name, vlan, vlan,
                CfgIntEntry::CfgIntVMPort, 0);
@@ -384,7 +384,7 @@ void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
 }
 
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
-                int vm_id, int vn_id, const string &mac, 
+                int vm_id, int vn_id, const string &mac,
                 const string ip6addr) {
     IntfCfgAdd(intf_id, name, ipaddr, vm_id, vn_id, mac,
                VmInterface::kInvalidVlanId, ip6addr);
@@ -608,13 +608,13 @@ bool VmPortGetStats(PortInfo *input, int id, uint32_t & bytes, uint32_t & pkts) 
 }
 
 bool VrfStatsMatch(int vrf_id, std::string vrf_name, bool stats_match,
-                   uint64_t discards, uint64_t resolves, uint64_t receives, 
-                   uint64_t udp_tunnels, uint64_t udp_mpls_tunnels, 
-                   uint64_t gre_mpls_tunnels, uint64_t ecmp_composites, 
+                   uint64_t discards, uint64_t resolves, uint64_t receives,
+                   uint64_t udp_tunnels, uint64_t udp_mpls_tunnels,
+                   uint64_t gre_mpls_tunnels, uint64_t ecmp_composites,
                    uint64_t fabric_composites, uint64_t l2_mcast_composites,
                    uint64_t l3_mcast_composites, uint64_t multi_proto_composites,
                    uint64_t encaps, uint64_t l2_encaps) {
-    const AgentStatsCollector::VrfStats *st = 
+    const AgentStatsCollector::VrfStats *st =
                         Agent::GetInstance()->uve()->agent_stats_collector()->GetVrfStats(vrf_id);
     if (st == NULL) {
         return false;
@@ -623,13 +623,13 @@ bool VrfStatsMatch(int vrf_id, std::string vrf_name, bool stats_match,
     if (vrf_name.compare(st->name) != 0) {
         return false;
     }
-   
+
     if (!stats_match) {
         return true;
     }
 
-    if (st->discards == discards && st->resolves == resolves && 
-        st->receives == receives && st->udp_tunnels == udp_tunnels && 
+    if (st->discards == discards && st->resolves == resolves &&
+        st->receives == receives && st->udp_tunnels == udp_tunnels &&
         st->udp_mpls_tunnels == udp_mpls_tunnels &&
         st->gre_mpls_tunnels == gre_mpls_tunnels &&
         st->ecmp_composites == ecmp_composites &&
@@ -642,32 +642,32 @@ bool VrfStatsMatch(int vrf_id, std::string vrf_name, bool stats_match,
     }
     LOG(DEBUG, "discards " << st->discards << " resolves " << st->resolves <<
         " receives " << st->receives << " udp tunnels " << st->udp_tunnels <<
-        " udp mpls tunnels " << st->udp_mpls_tunnels << 
-        " udp gre tunnels " << st->gre_mpls_tunnels << 
-        " ecmp composites " << st->ecmp_composites << 
-        " fabric composites " << st->fabric_composites << 
-        " l2 composites " << st->l2_mcast_composites << 
-        " l3 composites " << st->l3_mcast_composites << 
-        " multi proto composites " << st->multi_proto_composites << 
+        " udp mpls tunnels " << st->udp_mpls_tunnels <<
+        " udp gre tunnels " << st->gre_mpls_tunnels <<
+        " ecmp composites " << st->ecmp_composites <<
+        " fabric composites " << st->fabric_composites <<
+        " l2 composites " << st->l2_mcast_composites <<
+        " l3 composites " << st->l3_mcast_composites <<
+        " multi proto composites " << st->multi_proto_composites <<
         " encaps " << st->encaps << " l2 encals " << st->l2_encaps);
     return false;
 }
 
-bool VrfStatsMatchPrev(int vrf_id, uint64_t discards, uint64_t resolves, 
-                   uint64_t receives, uint64_t udp_tunnels, 
-                   uint64_t udp_mpls_tunnels, uint64_t gre_mpls_tunnels, 
-                   uint64_t ecmp_composites, uint64_t fabric_composites, 
-                   uint64_t l2_mcast_composites, uint64_t l3_mcast_composites, 
-                   uint64_t multi_proto_composites, uint64_t encaps, 
+bool VrfStatsMatchPrev(int vrf_id, uint64_t discards, uint64_t resolves,
+                   uint64_t receives, uint64_t udp_tunnels,
+                   uint64_t udp_mpls_tunnels, uint64_t gre_mpls_tunnels,
+                   uint64_t ecmp_composites, uint64_t fabric_composites,
+                   uint64_t l2_mcast_composites, uint64_t l3_mcast_composites,
+                   uint64_t multi_proto_composites, uint64_t encaps,
                    uint64_t l2_encaps) {
-    const AgentStatsCollector::VrfStats *st = 
+    const AgentStatsCollector::VrfStats *st =
                         Agent::GetInstance()->uve()->agent_stats_collector()->GetVrfStats(vrf_id);
     if (st == NULL) {
         return false;
     }
 
-    if (st->prev_discards == discards && st->prev_resolves == resolves && 
-        st->prev_receives == receives && st->prev_udp_tunnels == udp_tunnels && 
+    if (st->prev_discards == discards && st->prev_resolves == resolves &&
+        st->prev_receives == receives && st->prev_udp_tunnels == udp_tunnels &&
         st->prev_udp_mpls_tunnels == udp_mpls_tunnels &&
         st->prev_gre_mpls_tunnels == gre_mpls_tunnels &&
         st->prev_ecmp_composites == ecmp_composites &&
@@ -680,13 +680,13 @@ bool VrfStatsMatchPrev(int vrf_id, uint64_t discards, uint64_t resolves,
     }
     LOG(DEBUG, "discards " << st->prev_discards << " resolves " << st->prev_resolves <<
         " receives " << st->prev_receives << " udp tunnels " << st->prev_udp_tunnels <<
-        " udp mpls tunnels " << st->prev_udp_mpls_tunnels << 
-        " udp gre tunnels " << st->prev_gre_mpls_tunnels << 
-        " ecmp composites " << st->prev_ecmp_composites << 
-        " fabric composites " << st->prev_fabric_composites << 
-        " l2 composites " << st->prev_l2_mcast_composites << 
-        " l3 composites " << st->prev_l3_mcast_composites << 
-        " multi proto composites " << st->prev_multi_proto_composites << 
+        " udp mpls tunnels " << st->prev_udp_mpls_tunnels <<
+        " udp gre tunnels " << st->prev_gre_mpls_tunnels <<
+        " ecmp composites " << st->prev_ecmp_composites <<
+        " fabric composites " << st->prev_fabric_composites <<
+        " l2 composites " << st->prev_l2_mcast_composites <<
+        " l3 composites " << st->prev_l3_mcast_composites <<
+        " multi proto composites " << st->prev_multi_proto_composites <<
         " encaps " << st->prev_encaps << " l2 encals " << st->prev_l2_encaps);
     return false;
 }
@@ -737,7 +737,7 @@ bool VmPortStatsMatch(Interface *intf, uint32_t ibytes, uint32_t ipkts,
     if (st == NULL)
         return false;
 
-    if (st->in_pkts == ipkts && st->in_bytes == ibytes && 
+    if (st->in_pkts == ipkts && st->in_bytes == ibytes &&
         st->out_pkts == opkts && st->out_bytes == obytes) {
         return true;
     }
@@ -832,11 +832,14 @@ bool DBTableFind(const string &table_name) {
 }
 
 void DeleteTap(int fd) {
+//XXX Missing FreeBSD implementation
+#if defined(__linux__)
     if (ioctl(fd, TUNSETPERSIST, 0) < 0) {
         LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
             "> making tap interface persistent");
         assert(0);
     }
+#endif
 }
 
 void DeleteTapIntf(const int fd[], int count) {
@@ -846,6 +849,8 @@ void DeleteTapIntf(const int fd[], int count) {
 }
 
 int CreateTap(const char *name) {
+//XXX Missing FreeBSD support
+#if defined(__linux__)
     int fd;
     struct ifreq ifr;
 
@@ -870,18 +875,26 @@ int CreateTap(const char *name) {
         assert(0);
     }
     return fd;
+#else
+    return 0;
+#endif
 }
 
 void CreateTapIntf(const char *name, int count) {
+//XXX missing FreeBSD support
+#if defined(__linux__)
     char ifname[IF_NAMESIZE];
 
     for (int i = 0; i < count; i++) {
         snprintf(ifname, IF_NAMESIZE, "%s%d", name, i);
         CreateTap(ifname);
     }
+#endif
 }
 
 void CreateTapInterfaces(const char *name, int count, int *fd) {
+//XXX Missing FreeBSD support
+#if defined(__linux__)
     char ifname[IF_NAMESIZE];
     int raw;
     struct ifreq ifr;
@@ -889,9 +902,9 @@ void CreateTapInterfaces(const char *name, int count, int *fd) {
     for (int i = 0; i < count; i++) {
         snprintf(ifname, IF_NAMESIZE, "%s%d", name, i);
         fd[i] = CreateTap(ifname);
-        
+
         if ((raw = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
-                LOG(ERROR, "Error <" << errno << ": " << strerror(errno) << 
+                LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
                                 "> creating socket");
                 assert(0);
         }
@@ -918,19 +931,19 @@ void CreateTapInterfaces(const char *name, int count, int *fd) {
         memset(&ifr, 0, sizeof(ifr));
         strncpy(ifr.ifr_name, ifname, IF_NAMESIZE);
         if (ioctl(raw, SIOCGIFFLAGS, (void *)&ifr) < 0) {
-                LOG(ERROR, "Error <" << errno << ": " << strerror(errno) << 
+                LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
                                 "> getting socket flags");
                 assert(0);
         }
 
         ifr.ifr_flags |= IFF_UP;
         if (ioctl(raw, SIOCSIFFLAGS, (void *)&ifr) < 0) {
-                LOG(ERROR, "Error <" << errno << ": " << strerror(errno) << 
+                LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
                                 "> setting socket flags");
                 assert(0);
         }
     }
-
+#endif
 }
 
 void VnAddReq(int id, const char *name) {
@@ -945,7 +958,7 @@ void VnAddReq(int id, const char *name) {
 void VnAddReq(int id, const char *name, int acl_id) {
     std::vector<VnIpam> ipam;
     VnData::VnIpamDataMap vn_ipam_data;
-    Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name, 
+    Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name,
                                               MakeUuid(acl_id),
                                               name, ipam, vn_ipam_data, id,
                                               true);
@@ -955,7 +968,7 @@ void VnAddReq(int id, const char *name, int acl_id) {
 void VnAddReq(int id, const char *name, int acl_id, const char *vrf_name) {
     std::vector<VnIpam> ipam;
     VnData::VnIpamDataMap vn_ipam_data;
-    Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name, 
+    Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name,
                                               MakeUuid(acl_id), vrf_name, ipam,
                                               vn_ipam_data, id, true);
     usleep(1000);
@@ -964,7 +977,7 @@ void VnAddReq(int id, const char *name, int acl_id, const char *vrf_name) {
 void VnAddReq(int id, const char *name, const char *vrf_name) {
     std::vector<VnIpam> ipam;
     VnData::VnIpamDataMap vn_ipam_data;
-    Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name, nil_uuid(), 
+    Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name, nil_uuid(),
                                               vrf_name, ipam, vn_ipam_data, id,
                                               true);
     usleep(1000);
@@ -1211,7 +1224,7 @@ Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const Ip4Address &g
         return NULL;
 
     Inet4MulticastRouteKey key(vrf_name, grp_addr);
-    Inet4MulticastRouteEntry *route = 
+    Inet4MulticastRouteEntry *route =
         static_cast<Inet4MulticastRouteEntry *>
         (static_cast<Inet4MulticastAgentRouteTable *>(vrf->
              GetInet4MulticastRouteTable())->FindActiveEntry(&key));
@@ -1224,7 +1237,7 @@ Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const string &grp_a
         return NULL;
 
     Inet4MulticastRouteKey key(vrf_name, Ip4Address::from_string(grp_addr));
-    Inet4MulticastRouteEntry *route = 
+    Inet4MulticastRouteEntry *route =
         static_cast<Inet4MulticastRouteEntry *>
         (static_cast<Inet4MulticastAgentRouteTable *>(vrf->
              GetInet4MulticastRouteTable())->FindActiveEntry(&key));
@@ -1232,7 +1245,7 @@ Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const string &grp_a
 }
 
 bool TunnelNHFind(const Ip4Address &server_ip, bool policy, TunnelType::Type type) {
-    TunnelNHKey key(Agent::GetInstance()->fabric_vrf_name(), 
+    TunnelNHKey key(Agent::GetInstance()->fabric_vrf_name(),
                     Agent::GetInstance()->router_id(), server_ip,
                     policy, type);
     NextHop *nh = static_cast<NextHop *>(Agent::GetInstance()->nexthop_table()->FindActiveEntry(&key));
@@ -1443,15 +1456,15 @@ void DelPort(const char *name) {
     DelNode("virtual-machine-interface", name);
 }
 
-void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *rt, 
+void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *rt,
                             int count) {
     std::ostringstream o_str;
 
     for (int i = 0; i < count; i++) {
-        o_str << "<route>\n" 
-              << "<prefix>\n" << rt->addr_.to_string() 
+        o_str << "<route>\n"
+              << "<prefix>\n" << rt->addr_.to_string()
               << "/" << rt->plen_ << " \n"  << "</prefix>\n"
-              << "<next-hop>\" \"</next-hop>\n" 
+              << "<next-hop>\" \"</next-hop>\n"
               << "<next-hop-type>\" \"</next-hop-type>\n"
               << "</route>\n";
         rt++;
@@ -1468,7 +1481,7 @@ static string AddAclXmlString(const char *node_name, const char *name, int id,
                               const char *src_vn, const char *dest_vn,
                               const char *action, std::string vrf_assign) {
     char buff[10240];
-    sprintf(buff, 
+    sprintf(buff,
             "<?xml version=\"1.0\"?>\n"
             "<config>\n"
             "   <update>\n"
@@ -1648,8 +1661,8 @@ void AddIPAM(const char *name, IpamInfo *ipam, int ipam_size, const char *ipam_a
     char ipam_name[128];
     int len = 0;
 
-    sprintf(node_name, "default-network-ipam,%s", name); 
-    sprintf(ipam_name, "default-network-ipam"); 
+    sprintf(node_name, "default-network-ipam,%s", name);
+    sprintf(ipam_name, "default-network-ipam");
     AddXmlHdr(buff, len);
     if (ipam_attr) {
         AddNodeString(buff, len, "network-ipam", ipam_name, 1, ipam_attr);
@@ -1679,8 +1692,8 @@ void DelIPAM(const char *name, const char *vdns_name) {
     char ipam_name[128];
     int len = 0;
 
-    sprintf(node_name, "default-network-ipam,%s", name); 
-    sprintf(ipam_name, "default-network-ipam"); 
+    sprintf(node_name, "default-network-ipam,%s", name);
+    sprintf(ipam_name, "default-network-ipam");
     DelXmlHdr(buff, len);
     DelLinkString(buff, len, "virtual-network", name,
                  "virtual-network-network-ipam", node_name);
@@ -1826,7 +1839,7 @@ void send_icmp(int fd, uint8_t smac, uint8_t dmac, uint32_t sip, uint32_t dip) {
     IcmpPacket icmp(dummy_smac, dummy_dmac, sip, dip);
     int ret = write(fd, icmp.GetPacket(), sizeof(icmp_packet));
     LOG(DEBUG, "Written " << ret << " bytes to fd " << fd);
-    if (ret < 0) 
+    if (ret < 0)
 	{
 	    LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
 	        "> writing");
@@ -1860,7 +1873,7 @@ bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts) {
     key.nh = id;
     key.src_addr = IpAddress(Ip4Address(input[id].sip));
     key.dst_addr = IpAddress(Ip4Address(input[id].dip));
-    key.protocol = IPPROTO_ICMP; 
+    key.protocol = IPPROTO_ICMP;
     key.family = key.src_addr.is_v4() ? Address::INET : Address::INET6;
 
     FlowEntry *fe = Agent::GetInstance()->pkt()->flow_table()->Find(key);
@@ -1888,7 +1901,7 @@ void DeleteVmportFIpEnv(struct PortInfo *input, int count, int del_vn, int acl_i
     if (acl_id) {
         sprintf(acl_name, "acl%d", acl_id);
     }
-   
+
     for (int i = 0; i < count; i++) {
         if (vn)
             strncpy(vn_name, vn, MAX_TESTNAME_LEN);
@@ -1969,7 +1982,7 @@ void DeleteVmportEnv(struct PortInfo *input, int count, int del_vn, int acl_id,
     if (acl_id) {
         sprintf(acl_name, "acl%d", acl_id);
     }
-   
+
     for (int i = 0; i < count; i++) {
         if (vn)
             strncpy(vn_name, vn, MAX_TESTNAME_LEN);
@@ -2049,7 +2062,7 @@ void DeleteVmportEnv(struct PortInfo *input, int count, int del_vn, int acl_id,
     }
 }
 
-void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id, 
+void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id,
                         const char *vn, const char *vrf) {
     char vn_name[MAX_TESTNAME_LEN];
     char vm_name[MAX_TESTNAME_LEN];
@@ -2061,7 +2074,7 @@ void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id,
         sprintf(acl_name, "acl%d", acl_id);
         AddAcl(acl_name, acl_id);
     }
- 
+
     for (int i = 0; i < count; i++) {
         if (vn)
             strncpy(vn_name, vn, MAX_TESTNAME_LEN);
@@ -2079,7 +2092,7 @@ void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id,
         AddVm(vm_name, input[i].vm_id);
         AddVmPortVrf(input[i].name, "", 0);
 
-        //AddNode("virtual-machine-interface-routing-instance", input[i].name, 
+        //AddNode("virtual-machine-interface-routing-instance", input[i].name,
         //        input[i].intf_id);
         IntfCfgAdd(input, i);
         AddPort(input[i].name, input[i].intf_id);
@@ -2102,7 +2115,7 @@ void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id,
     }
 }
 
-void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id, 
+void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id,
                      const char *vn, const char *vrf,
                      const char *vm_interface_attr,
                      bool l2_vn, bool with_ip, bool ecmp,
@@ -2122,7 +2135,7 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id,
         sprintf(acl_name, "acl%d", acl_id);
         AddAcl(acl_name, acl_id);
     }
- 
+
     for (int i = 0; i < count; i++) {
         if (vn)
             strncpy(vn_name, vn, MAX_TESTNAME_LEN);
@@ -2141,7 +2154,7 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id,
         AddVm(vm_name, input[i].vm_id);
         AddVmPortVrf(input[i].name, "", 0);
 
-        //AddNode("virtual-machine-interface-routing-instance", input[i].name, 
+        //AddNode("virtual-machine-interface-routing-instance", input[i].name,
         //        input[i].intf_id);
         IntfCfgAdd(input, i);
         AddPort(input[i].name, input[i].intf_id, vm_interface_attr);
@@ -2183,13 +2196,13 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id,
     }
 }
 
-void CreateVmportEnvWithoutIp(struct PortInfo *input, int count, int acl_id, 
+void CreateVmportEnvWithoutIp(struct PortInfo *input, int count, int acl_id,
                               const char *vn, const char *vrf) {
     CreateVmportEnvInternal(input, count, acl_id, vn, vrf, NULL, false, false,
                             false, true);
 }
 
-void CreateVmportEnv(struct PortInfo *input, int count, int acl_id, 
+void CreateVmportEnv(struct PortInfo *input, int count, int acl_id,
                      const char *vn, const char *vrf,
                      const char *vm_interface_attr,
                      bool vn_admin_state) {
@@ -2198,7 +2211,7 @@ void CreateVmportEnv(struct PortInfo *input, int count, int acl_id,
                             vn_admin_state);
 }
 
-void CreateL2VmportEnv(struct PortInfo *input, int count, int acl_id, 
+void CreateL2VmportEnv(struct PortInfo *input, int count, int acl_id,
                      const char *vn, const char *vrf) {
     CreateVmportEnvInternal(input, count, acl_id, vn, vrf, NULL, true,
                             true, false, true);
@@ -2384,7 +2397,7 @@ FlowEntry* FlowGet(int nh_id, std::string sip, std::string dip, uint8_t proto,
     return FlowGet(0, sip, dip, proto, sport, dport, nh_id);
 }
 
-bool FlowGet(int vrf_id, const char *sip, const char *dip, uint8_t proto, 
+bool FlowGet(int vrf_id, const char *sip, const char *dip, uint8_t proto,
              uint16_t sport, uint16_t dport, bool short_flow, int hash_id,
              int reverse_hash_id, int nh_id, int reverse_nh_id) {
     FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
@@ -2552,7 +2565,7 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
 
 bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
              uint8_t proto, uint16_t sport, uint16_t dport, bool rflow,
-             std::string svn, std::string dvn, uint32_t hash_id, bool fwd, 
+             std::string svn, std::string dvn, uint32_t hash_id, bool fwd,
              bool nat, int nh_id, int rev_nh_id) {
 
     bool flow_fwd = false;
@@ -2597,7 +2610,7 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
 }
 
 bool FlowStatsMatch(const string &vrf_name, const char *sip,
-                    const char *dip, uint8_t proto, uint16_t sport, 
+                    const char *dip, uint8_t proto, uint16_t sport,
                     uint16_t dport, uint64_t pkts, uint64_t bytes, int nh_id) {
 
     FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
@@ -2735,7 +2748,7 @@ int MplsToVrfId(int label) {
         const NextHop *nh = mpls->nexthop();
         if (nh->GetType() == NextHop::INTERFACE) {
             const InterfaceNH *nh1 = static_cast<const InterfaceNH *>(nh);
-            const VmInterface *intf = 
+            const VmInterface *intf =
                 static_cast<const VmInterface *>(nh1->GetInterface());
             if (intf && intf->vrf()) {
                 vrf = intf->vrf()->vrf_id();
@@ -2758,8 +2771,8 @@ int MplsToVrfId(int label) {
 }
 
 PktGen *TxMplsPacketUtil(int ifindex, const char *out_sip,
-                            const char *out_dip, uint32_t label, 
-                            const char *sip, const char *dip, 
+                            const char *out_dip, uint32_t label,
+                            const char *sip, const char *dip,
                             int proto, int hash_idx) {
     PktGen *pkt = new PktGen();
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
@@ -2783,8 +2796,8 @@ PktGen *TxMplsPacketUtil(int ifindex, const char *out_sip,
 }
 
 PktGen *TxMplsTcpPacketUtil(int ifindex, const char *out_sip,
-                            const char *out_dip, uint32_t label, 
-                            const char *sip, const char *dip, 
+                            const char *out_dip, uint32_t label,
+                            const char *sip, const char *dip,
                             int sport, int dport, int hash_idx) {
     PktGen *pkt = new PktGen();
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
@@ -2939,7 +2952,7 @@ BgpPeer *CreateBgpPeer(const Ip4Address &addr, std::string name) {
     XmppChannelMock *xmpp_channel = new XmppChannelMock();
     AgentXmppChannel *channel;
     Agent::GetInstance()->set_controller_ifmap_xmpp_server(addr.to_string(), 0);
-    
+
     channel = new AgentXmppChannel(Agent::GetInstance(),
                                    "XMPP Server", "", 0);
     channel->RegisterXmppChannel(xmpp_channel);

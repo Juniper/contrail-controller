@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include "pkt/proto.h"
 #include "pkt/proto_handler.h"
 #include "pkt/pkt_init.h"

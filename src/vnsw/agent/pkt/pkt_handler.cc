@@ -3,6 +3,7 @@
  */
 
 #include "base/os.h"
+#include <sys/types.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/ip6.h>
