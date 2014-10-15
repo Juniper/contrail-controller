@@ -64,13 +64,13 @@ struct VnIpam {
     }
     Ip4Address GetSubnetAddress() const {
         if (ip_prefix.is_v4()) {
-            return GetIp4SubnetAddress(ip_prefix.to_v4(), plen);
+            return Address::GetIp4SubnetAddress(ip_prefix.to_v4(), plen);
         }
         return Ip4Address(0);
     }
     Ip6Address GetV6SubnetAddress() const {
         if (ip_prefix.is_v6()) {
-            return GetIp6SubnetAddress(ip_prefix.to_v6(), plen);
+            return Address::GetIp6SubnetAddress(ip_prefix.to_v6(), plen);
         }
         return Ip6Address();
     }

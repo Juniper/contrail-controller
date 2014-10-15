@@ -71,7 +71,7 @@ struct RouteFlowKey {
 
     RouteFlowKey(uint32_t v, const Ip4Address &ipv4, uint8_t p) :
         vrf(v), family(Address::INET), plen(p) {
-        ip = GetIp4SubnetAddress(ipv4, plen);
+        ip = Address::GetIp4SubnetAddress(ipv4, plen);
     }
 
     RouteFlowKey(uint32_t v, const Ip6Address &ipv6, uint8_t p) :
@@ -83,10 +83,10 @@ struct RouteFlowKey {
         vrf(v), plen(p) {
         if (ip_p.is_v4()) {
             family = Address::INET;
-            ip = GetIp4SubnetAddress(ip_p.to_v4(), plen);
+            ip = Address::GetIp4SubnetAddress(ip_p.to_v4(), plen);
         } else if (ip_p.is_v6()) {
             family = Address::INET6;
-            ip = GetIp6SubnetAddress(ip_p.to_v6(), plen);
+            ip = Address::GetIp6SubnetAddress(ip_p.to_v6(), plen);
         } else {
             assert(0);
         }

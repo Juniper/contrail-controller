@@ -44,6 +44,10 @@ public:
     static Family FamilyFromRoutingTableName(std::string name);
     static std::string FamilyToTableString(Family family);
     static Ip4Address V4FromV4MappedV6(const Ip6Address &v6_address);
+    static Ip4Address GetIp4SubnetAddress(const Ip4Address &prefix,
+                                          uint16_t plen);
+    static Ip6Address GetIp6SubnetAddress(const Ip6Address &prefix,
+                                          uint16_t plen);
 
 private:
     IpAddress addr_;
