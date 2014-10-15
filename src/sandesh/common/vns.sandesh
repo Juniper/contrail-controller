@@ -35,6 +35,7 @@ const string SERVICE_CONFIG_SUPERVISOR = "supervisor-config"
 const string SERVICE_COMPUTE_SUPERVISOR = "supervisor-vrouter"
 const string SERVICE_DATABASE_SUPERVISOR = "supervisor-database"
 const string SERVICE_WEBUI_SUPERVISOR = "supervisor-webui"
+const string SERVICE_SUPPORT_SUPERVISOR = "supervisor-support-service"
 
 // Http Server (Introspect) Ports
 const u16 HttpPortConfigNodemgr = 8100
@@ -61,6 +62,7 @@ const u16 ConfigSupervisorPort = 9004
 const u16 VRouterSupervisorPort = 9005
 const u16 DatabaseSupervisorPort = 9007
 const u16 WebuiSupervisorPort = 9008
+const u16 SupportServiceSupervisorPort = 9011
 
 // Daemon ports
 const u16 DnsServerPort = 53
@@ -97,6 +99,7 @@ const map<string, u16> ServiceHttpPortMap = {
     SERVICE_CONTROL_NODE_MGR : HttpPortControlNodemgr,
     SERVICE_DATABASE_NODE_MGR : HttpPortDatabaseNodemgr,
     SERVICE_STORAGE_STATS_MGR : HttpPortStorageStatsmgr,
+    SERVICE_SUPPORT_SUPERVISOR : SupportServiceSupervisorPort,
 }
 
 const list<string> NodeUVEImplementedServices = [
