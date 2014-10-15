@@ -630,7 +630,7 @@ void DhcpHandler::UpdateDnsServer() {
 }
 
 void DhcpHandler::WriteOption82(DhcpOptions *opt, uint16_t *optlen) {
-    optlen += 2;
+    *optlen += 2;
     opt->code = DHCP_OPTION_82;
     opt->len = sizeof(uint32_t) + 2 + sizeof(VmInterface *) + 2;
     DhcpOptions *subopt = reinterpret_cast<DhcpOptions *>(opt->data);
@@ -679,9 +679,14 @@ bool DhcpHandler::CreateRelayPacket() {
     pkt_info_->pkt = new uint8_t[DHCP_PKT_SIZE];
     memset(pkt_info_->pkt, 0, DHCP_PKT_SIZE);
     pkt_info_->vrf = in_pkt_info.vrf;
-    pkt_info_->eth =
-        (ethhdr *)(pkt_info_->pkt + sizeof(ethhdr) + sizeof(agent_hdr));
-    pkt_info_->ip = (iphdr *)(pkt_info_->eth + 1);
+    pkt_info_->eth = (ethhdr *)(pkt_info_->pkt + IPC_HDR_LEN);
+
+    uint16_t ifindex = agent()->GetDhcpProto()->ip_fabric_interface_index();
+    uint16_t eth_len = EthHdr((char *)pkt_info_->eth, DHCP_PKT_SIZE, ifindex,
+                             agent()->GetDhcpProto()->ip_fabric_interface_mac(),
+                             in_pkt_info.eth->h_dest, 0x800);
+
+    pkt_info_->ip = (iphdr *)((char *)pkt_info_->eth + eth_len);
     pkt_info_->transp.udp = (udphdr *)(pkt_info_->ip + 1);
     dhcphdr *dhcp = (dhcphdr *)(pkt_info_->transp.udp + 1);
 
@@ -742,9 +747,7 @@ bool DhcpHandler::CreateRelayPacket() {
     pkt_info_->len += sizeof(iphdr);
     IpHdr(pkt_info_->len, htonl(agent()->router_id().to_ulong()),
           0xFFFFFFFF, IPPROTO_UDP);
-    EthHdr(agent()->GetDhcpProto()->ip_fabric_interface_mac(),
-           in_pkt_info.eth->h_dest, 0x800);
-    pkt_info_->len += sizeof(ethhdr);
+    pkt_info_->len += eth_len;
     return true;
 }
 
@@ -754,7 +757,13 @@ bool DhcpHandler::CreateRelayResponsePacket() {
     memset(pkt_info_->pkt, 0, DHCP_PKT_SIZE);
     pkt_info_->vrf = vm_itf_->vrf()->vrf_id();
     pkt_info_->eth = (ethhdr *)(pkt_info_->pkt + sizeof(ethhdr) + sizeof(agent_hdr));
-    pkt_info_->ip = (iphdr *)(pkt_info_->eth + 1);
+
+    uint16_t eth_len = EthHdr((char *)pkt_info_->eth, DHCP_PKT_SIZE,
+                             vm_itf_index_,
+                             agent()->pkt()->pkt_handler()->mac_address(),
+                             dhcp_->chaddr, 0x800);
+
+    pkt_info_->ip = (iphdr *)((char *)pkt_info_->eth + eth_len);
     pkt_info_->transp.udp = (udphdr *)(pkt_info_->ip + 1);
     dhcphdr *dhcp = (dhcphdr *)(pkt_info_->transp.udp + 1);
 
@@ -808,8 +817,7 @@ bool DhcpHandler::CreateRelayResponsePacket() {
     pkt_info_->len += sizeof(iphdr);
     IpHdr(pkt_info_->len, htonl(agent()->router_id().to_ulong()),
           0xFFFFFFFF, IPPROTO_UDP);
-    EthHdr(agent()->pkt()->pkt_handler()->mac_address(), dhcp->chaddr, 0x800);
-    pkt_info_->len += sizeof(ethhdr);
+    pkt_info_->len += eth_len;
     return true;
 }
 
@@ -1482,15 +1490,13 @@ uint16_t DhcpHandler::FillDhcpResponse(unsigned char *dest_mac,
                                        in_addr_t src_ip, in_addr_t dest_ip,
                                        in_addr_t siaddr, in_addr_t yiaddr) {
     pkt_info_->eth = (ethhdr *)(pkt_info_->pkt + IPC_HDR_LEN);
-    EthHdr(agent()->pkt()->pkt_handler()->mac_address(), dest_mac, 0x800);
-    uint16_t header_len = sizeof(ethhdr);
-    if (vm_itf_->vlan_id() != VmInterface::kInvalidVlanId) {
-        // cfi and priority are zero
-        VlanHdr(pkt_info_->pkt + IPC_HDR_LEN + 12, vm_itf_->vlan_id());
-        header_len += sizeof(vlanhdr);
-    }
 
-    pkt_info_->ip = (iphdr *)(pkt_info_->pkt + IPC_HDR_LEN + header_len);
+    uint16_t eth_len = EthHdr((char *)pkt_info_->eth, DHCP_PKT_SIZE,
+                              GetInterfaceIndex(),
+                              agent()->pkt()->pkt_handler()->mac_address(),
+                              dest_mac, 0x800);
+
+    pkt_info_->ip = (iphdr *)((char *)pkt_info_->eth + eth_len);
     pkt_info_->transp.udp = (udphdr *)(pkt_info_->ip + 1);
     dhcphdr *dhcp = (dhcphdr *)(pkt_info_->transp.udp + 1);
     dhcp_ = dhcp;
@@ -1501,7 +1507,7 @@ uint16_t DhcpHandler::FillDhcpResponse(unsigned char *dest_mac,
     len += sizeof(iphdr);
     IpHdr(len, src_ip, dest_ip, IPPROTO_UDP);
 
-    return len + header_len;
+    return len + eth_len;
 }
 
 void DhcpHandler::SendDhcpResponse() {

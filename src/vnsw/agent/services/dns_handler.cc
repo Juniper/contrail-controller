@@ -737,9 +737,17 @@ void DnsHandler::SendDnsResponse() {
            dest_ip, ntohs(pkt_info_->transp.udp->source));
     dns_resp_size_ += sizeof(iphdr);
     IpHdr(dns_resp_size_, src_ip, dest_ip, IPPROTO_UDP);
-    EthHdr(agent()->vhost_interface()->mac().ether_addr_octet, dest_mac,
-           IP_PROTOCOL);
-    dns_resp_size_ += sizeof(ethhdr);
+    uint16_t l2_len = EthHdr((char *)pkt_info_->eth, pkt_info_->len,
+                             pkt_info_->GetAgentHdr().ifindex,
+                             agent()->vhost_interface()->mac().ether_addr_octet,
+                             dest_mac, IP_PROTOCOL);
+    // Drop if not enough space to add L2 Header
+    if (((char *)pkt_info_->ip - (char *)pkt_info_->eth) < l2_len) {
+        agent()->GetDnsProto()->IncrStatsDrop();
+        return;
+    }
+
+    dns_resp_size_ += l2_len;
 
     PacketInterfaceKey key(nil_uuid(), agent()->pkt_interface_name());
     Interface *pkt_itf = static_cast<Interface *>

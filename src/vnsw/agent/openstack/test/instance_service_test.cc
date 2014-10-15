@@ -318,6 +318,7 @@ TEST_F(NovaInfoClientServerTest, StaleTimer) {
     EXPECT_EQ(cfg_entry2->port_type(), CfgIntEntry::CfgIntNameSpacePort);
 
     DelVmPort(client_service, 1);
+    delete st;
     TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->interface_config_table()->Size());
 }
 
