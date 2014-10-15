@@ -521,11 +521,9 @@ class DiscoveryServer():
         # send short ttl if no publishers
         pubs = self._db_conn.lookup_service(service_type) or []
         pubs_active = [item for item in pubs if not self.service_expired(item)]
-        if len(pubs_active) == 0:
-            ttl_short = self.get_service_config(service_type, 'ttl_short')
-            if ttl_short:
-                ttl = self.get_ttl_short( client_id, service_type, ttl_short)
-                self._debug['ttl_short'] += 1
+        if len(pubs_active) < count:
+            ttl = randint(1, 32)
+            self._debug['ttl_short'] += 1
 
         self.syslog(
             'subscribe: service type=%s, client=%s:%s, ttl=%d, asked=%d pubs=%d/%d, subs=%d'
