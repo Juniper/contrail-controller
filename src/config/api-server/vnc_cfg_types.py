@@ -367,17 +367,6 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
     # end _check_route_targets
 
     @classmethod
-    def _check_and_create_subnet_uuid(cls, vn_dict):
-        ipam_refs = vn_dict.get('network_ipam_refs', [])
-        for ipam in ipam_refs:
-            vnsn = ipam['attr']
-            subnets = vnsn['ipam_subnets']
-            for subnet in subnets:
-                if not subnet.get('subnet_uuid'):
-                    subnet['subnet_uuid'] = str(uuid.uuid4())
-    # end _check_and_create_subnet_uuid
-
-    @classmethod
     def http_post_collection(cls, tenant_name, obj_dict, db_conn):
         try:
             fq_name = obj_dict['fq_name']
@@ -396,7 +385,7 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
             if not ok:
                 return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
 
-        cls._check_and_create_subnet_uuid(obj_dict)
+        db_conn.update_subnet_uuid(obj_dict)
 
         (ok, error) =  cls._check_route_targets(obj_dict, db_conn)
         if not ok:
@@ -453,7 +442,7 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
         except Exception as e:
             return (False, (500, str(e)))
 
-        cls._check_and_create_subnet_uuid(obj_dict)
+        db_conn.update_subnet_uuid(obj_dict)
 
         (ok, error) =  cls._check_route_targets(obj_dict, db_conn)
         if not ok:
