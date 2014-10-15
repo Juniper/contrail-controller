@@ -1007,6 +1007,15 @@ void FlowEntry::UpdateFipStatsInfo(uint32_t fip, uint32_t id) {
     stats_.fip_vm_port_id = id;
 }
 
+bool FlowEntry::set_pending_recompute(bool value) {
+    if (data_.pending_recompute != value) {
+        data_.pending_recompute = value;
+        return true;
+    }
+
+    return false;
+}
+
 void FlowEntry::set_flow_handle(uint32_t flow_handle, const FlowTable* table) {
     /* trigger update KSync on flow handle change */
     if (flow_handle_ != flow_handle) {
@@ -1384,8 +1393,12 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
 
     data_.flow_source_vrf = info->flow_source_vrf;
     data_.flow_dest_vrf = info->flow_dest_vrf;
+    data_.flow_source_plen_map = info->flow_source_plen_map;
+    data_.flow_dest_plen_map = info->flow_dest_plen_map;
     data_.dest_vrf = info->dest_vrf;
     data_.vrf = pkt->vrf;
+    data_.if_index_info = pkt->agent_hdr.ifindex;
+    data_.tunnel_info = pkt->tunnel;
 
     if (info->ecmp) {
         set_flags(FlowEntry::EcmpFlow);
@@ -1440,6 +1453,8 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info,
 
     data_.flow_source_vrf = info->flow_dest_vrf;
     data_.flow_dest_vrf = info->flow_source_vrf;
+    data_.flow_source_plen_map = info->flow_dest_plen_map;
+    data_.flow_dest_plen_map = info->flow_source_plen_map;
     data_.dest_vrf = info->nat_dest_vrf;
     data_.vrf = info->dest_vrf;
     if (info->ecmp) {
@@ -1866,6 +1881,8 @@ void Inet4RouteUpdate::UnicastNotify(DBTablePartBase *partition, DBEntryBase *e)
 {
     InetUnicastRouteEntry *route = static_cast<InetUnicastRouteEntry *>(e);
     State *state = static_cast<State *>(e->GetState(partition->parent(), id_));
+    Agent *agent =
+      (static_cast<InetUnicastAgentRouteTable *>(route->get_table()))->agent();
 
     if (route->is_multicast()) {
         return;
@@ -1899,6 +1916,12 @@ void Inet4RouteUpdate::UnicastNotify(DBTablePartBase *partition, DBEntryBase *e)
     if (state == NULL) {
         state  = new State();
         route->SetState(partition->parent(), id_, state);
+        // Find the RouteFlowInfo for the covering route and trigger flow
+        // re-compute to use more specific route. use (prefix_len -1) in LPM
+        // to get covering route.
+        RouteFlowInfo rt_key(route->vrf()->vrf_id(), route->addr(),
+                             route->plen() - 1);
+        agent->pkt()->flow_table()->FlowReCompute(rt_key);
     }
 
     RouteFlowKey skey(route->vrf()->vrf_id(), route->addr(), route->plen());
@@ -2007,12 +2030,13 @@ void FlowTable::ResyncAclFlows(const AclDBEntry *acl)
 }
 
 void FlowTable::ResyncRpfNH(const RouteFlowKey &key, const AgentRoute *rt) {
-    RouteFlowTree::iterator rf_it;
-    rf_it = route_flow_tree_.find(key);
-    if (rf_it == route_flow_tree_.end()) {
+    RouteFlowInfo *rt_info;
+    RouteFlowInfo rt_key(key);
+    rt_info = route_flow_tree_.Find(&rt_key);
+    if (rt_info == NULL) {
         return;
     }
-    FlowEntryTree fet = rf_it->second->fet;
+    FlowEntryTree fet = rt_info->fet;
     FlowEntryTree::iterator fet_it, it;
     it = fet.begin();
     while (it != fet.end()) {
@@ -2031,15 +2055,44 @@ void FlowTable::ResyncRpfNH(const RouteFlowKey &key, const AgentRoute *rt) {
     }
 }
 
+void FlowTable::FlowReComputeInternal(RouteFlowInfo *rt_info) {
+    if (rt_info == NULL) {
+        return;
+    }
+    FlowEntryTree fet = rt_info->fet;
+    FlowEntryTree::iterator it;
+    it = fet.begin();
+    for (;it != fet.end(); ++it) {
+        FlowEntry *fe = (*it).get();
+        if (fe->is_flags_set(FlowEntry::ShortFlow)) {
+            continue;
+        }
+        if (fe->is_flags_set(FlowEntry::ReverseFlow)) {
+            /* for reverse flow trigger a re-eval on its forward flow */
+            fe = fe->reverse_flow_entry();
+        }
+        if (fe->set_pending_recompute(true)) {
+            agent_->pkt()->pkt_handler()->SendMessage(PktHandler::FLOW,
+                    new FlowTaskMsg(fe));
+        }
+    }
+}
+
+void FlowTable::FlowReCompute(const RouteFlowInfo &rt_key) {
+    RouteFlowInfo *rt_info = route_flow_tree_.LPMFind(&rt_key);
+    FlowReComputeInternal(rt_info);
+}
+
 void FlowTable::ResyncRouteFlows(RouteFlowKey &key,
                                  SecurityGroupList &sg_l)
 {
-    RouteFlowTree::iterator rf_it;
-    rf_it = route_flow_tree_.find(key);
-    if (rf_it == route_flow_tree_.end()) {
+    RouteFlowInfo *rt_info;
+    RouteFlowInfo rt_key(key);
+    rt_info = route_flow_tree_.Find(&rt_key);
+    if (rt_info == NULL) {
         return;
     }
-    FlowEntryTree fet = rf_it->second->fet;
+    FlowEntryTree fet = rt_info->fet;
     FlowEntryTree::iterator fet_it, it;
     it = fet.begin();
     while (it != fet.end()) {
@@ -2125,20 +2178,11 @@ void FlowTable::ResyncVmPortFlows(const VmInterface *intf) {
 
 void FlowTable::DeleteRouteFlows(const RouteFlowKey &key)
 {
-    RouteFlowTree::iterator rf_it;
-    rf_it = route_flow_tree_.find(key);
-    if (rf_it == route_flow_tree_.end()) {
-        return;
-    }
+    RouteFlowInfo rt_key(key);
+    RouteFlowInfo *rt_info = route_flow_tree_.Find(&rt_key);
     FLOW_TRACE(ModuleInfo, "Delete Route flows");
-    FlowEntryTree fet = rf_it->second->fet;
-    FlowEntryTree::iterator fet_it, it;
-    it = fet.begin();
-    while (it != fet.end()) {
-        fet_it = it++;
-        FlowEntry *fe = (*fet_it).get();
-        Delete(fe->key(), true);
-    }
+    // On Route Delete trigger flow re-compute to use less specific route.
+    FlowReComputeInternal(rt_info);
 }
 
 void FlowTable::DeleteFlowInfo(FlowEntry *fe) 
@@ -2287,32 +2331,38 @@ void FlowTable::DeleteVmFlowInfo(FlowEntry *fe, const VmEntry *vm) {
     }
 }
 
+void FlowTable::DeleteRouteFlowInfoInternal(FlowEntry *fe, RouteFlowKey &key) {
+    RouteFlowInfo *rt_info;
+    RouteFlowInfo rt_key(key);
+    rt_info = route_flow_tree_.Find(&rt_key);
+    if (rt_info != NULL) {
+        rt_info->fet.erase(fe);
+        if (rt_info->fet.empty()) {
+            route_flow_tree_.Remove(rt_info);
+            delete rt_info;
+        }
+    }
+}
+
 void FlowTable::DeleteRouteFlowInfo (FlowEntry *fe)
 {
-    RouteFlowTree::iterator rf_it;
     RouteFlowKey skey(fe->data().flow_source_vrf,
                       fe->key().src_addr, fe->data().source_plen);
-    rf_it = route_flow_tree_.find(skey);
-    RouteFlowInfo *route_flow_info;
-    if (rf_it != route_flow_tree_.end()) {
-        route_flow_info = rf_it->second;
-        route_flow_info->fet.erase(fe);
-        if (route_flow_info->fet.empty()) {
-            delete route_flow_info;
-            route_flow_tree_.erase(rf_it);
-        }
+    DeleteRouteFlowInfoInternal(fe, skey);
+    std::map<int, int>::iterator it;
+    for (it = fe->data().flow_source_plen_map.begin();
+         it != fe->data().flow_source_plen_map.end(); ++it) {
+        RouteFlowKey skey_dep(it->first, fe->key().src_addr, it->second);
+        DeleteRouteFlowInfoInternal(fe, skey_dep);
     }
    
     RouteFlowKey dkey(fe->data().flow_dest_vrf, fe->key().dst_addr,
                       fe->data().dest_plen);
-    rf_it = route_flow_tree_.find(dkey);
-    if (rf_it != route_flow_tree_.end()) {
-        route_flow_info = rf_it->second;
-        route_flow_info->fet.erase(fe);
-        if (route_flow_info->fet.empty()) {
-            delete route_flow_info;
-            route_flow_tree_.erase(rf_it);
-        }
+    DeleteRouteFlowInfoInternal(fe, dkey);
+    for (it = fe->data().flow_dest_plen_map.begin();
+         it != fe->data().flow_dest_plen_map.end(); ++it) {
+        RouteFlowKey dkey_dep(it->first, fe->key().dst_addr, it->second);
+        DeleteRouteFlowInfoInternal(fe, dkey_dep);
     }
 }
 
@@ -2522,7 +2572,7 @@ void FlowTable::AddVnFlowInfo (FlowEntry *fe)
     } else {
         vn_flow_info = it->second;
         /* fe can already exist. In that case it won't be inserted */
-        pair<FlowTable::FlowEntryTree::iterator, bool> ret = 
+        pair<FlowEntryTree::iterator, bool> ret =
                                             vn_flow_info->fet.insert(fe);
         if (ret.second) {
             IncrVnFlowCounter(vn_flow_info, fe);
@@ -2564,36 +2614,42 @@ uint32_t FlowTable::VmLinkLocalFlowCount(const VmEntry *vm) {
     return 0;
 }
 
+void FlowTable::AddRouteFlowInfoInternal (FlowEntry *fe, RouteFlowKey &key) {
+    RouteFlowInfo *rt_info;
+    RouteFlowInfo rt_key(key);
+    rt_info = route_flow_tree_.Find(&rt_key);
+    if (rt_info == NULL) {
+        rt_info = new RouteFlowInfo(key);
+        rt_info->fet.insert(fe);
+        route_flow_tree_.Insert(rt_info);
+    } else {
+        rt_info->fet.insert(fe);
+    }
+}
+
 void FlowTable::AddRouteFlowInfo (FlowEntry *fe)
 {
-    RouteFlowTree::iterator it;
-    RouteFlowInfo *route_flow_info;
     if (fe->data().flow_source_vrf != VrfEntry::kInvalidIndex) {
         RouteFlowKey skey(fe->data().flow_source_vrf, fe->key().src_addr,
                           fe->data().source_plen);
-        it = route_flow_tree_.find(skey);
-        if (it == route_flow_tree_.end()) {
-            route_flow_info = new RouteFlowInfo();
-            route_flow_info->fet.insert(fe);
-            route_flow_tree_.insert(RouteFlowPair(skey, route_flow_info));
-        } else {
-            route_flow_info = it->second;
-            route_flow_info->fet.insert(fe);
-        }
+        AddRouteFlowInfoInternal(fe, skey);
+    }
+    std::map<int, int>::iterator it;
+    for (it = fe->data().flow_source_plen_map.begin();
+         it != fe->data().flow_source_plen_map.end(); ++it) {
+        RouteFlowKey skey_dep(it->first, fe->key().src_addr, it->second);
+        AddRouteFlowInfoInternal(fe, skey_dep);
     }
 
     if (fe->data().flow_dest_vrf != VrfEntry::kInvalidIndex) {
         RouteFlowKey dkey(fe->data().flow_dest_vrf, fe->key().dst_addr,
                           fe->data().dest_plen);
-        it = route_flow_tree_.find(dkey);
-        if (it == route_flow_tree_.end()) {
-            route_flow_info = new RouteFlowInfo();
-            route_flow_info->fet.insert(fe);
-            route_flow_tree_.insert(RouteFlowPair(dkey, route_flow_info));
-        } else {
-            route_flow_info = it->second;
-            route_flow_info->fet.insert(fe);
-        }
+        AddRouteFlowInfoInternal(fe, dkey);
+    }
+    for (it = fe->data().flow_dest_plen_map.begin();
+         it != fe->data().flow_dest_plen_map.end(); ++it) {
+        RouteFlowKey dkey_dep(it->first, fe->key().dst_addr, it->second);
+        AddRouteFlowInfoInternal(fe, dkey_dep);
     }
 }
 
@@ -2916,15 +2972,3 @@ FlowTable::~FlowTable() {
     delete nh_listener_;
 }
 
-bool RouteFlowKey::IsLess(const RouteFlowKey &rhs) const {
-    if (vrf != rhs.vrf)
-        return vrf < rhs.vrf;
-
-    if (family != rhs.family)
-        return family < rhs.family;
-
-    if (ip != rhs.ip)
-        return ip < rhs.ip;
-
-    return plen < rhs.plen;
-}

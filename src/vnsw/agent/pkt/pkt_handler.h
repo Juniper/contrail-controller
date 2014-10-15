@@ -39,7 +39,7 @@ class PacketBuffer;
 
 struct InterTaskMsg {
     InterTaskMsg(uint16_t command): cmd(command) {}
-    ~InterTaskMsg() {}
+    virtual ~InterTaskMsg() {}
 
     uint16_t cmd;
 };
