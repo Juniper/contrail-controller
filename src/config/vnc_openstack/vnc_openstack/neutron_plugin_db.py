@@ -501,7 +501,11 @@ class DBInterface(object):
             rules.add_policy_rule(sg_rule)
 
         sg_vnc.set_security_group_entries(rules)
-        self._vnc_lib.security_group_update(sg_vnc)
+        try:
+            self._vnc_lib.security_group_update(sg_vnc)
+        except PermissionDenied as e:
+            exc_info = {'type': 'BadRequest', 'message': str(e)}
+            bottle.abort(400, json.dumps(exc_info))
         return
     #end _security_group_rule_create
 
