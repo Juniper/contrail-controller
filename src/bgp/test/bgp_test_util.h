@@ -11,8 +11,10 @@
 
 namespace bgp_util {
 std::string NetworkConfigGenerate(
-                const std::vector<std::string> &instance_names,
-                const std::multimap<std::string, std::string> &connections);
+    const std::vector<std::string> &instance_names,
+    const std::multimap<std::string, std::string> &connections,
+    const std::vector<std::string> &networks = std::vector<std::string>(),
+    const std::vector<int> &network_ids = std::vector<int>());
 }
 
 #endif
