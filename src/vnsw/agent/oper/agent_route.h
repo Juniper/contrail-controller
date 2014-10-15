@@ -9,7 +9,6 @@
 #include <sys/socket.h>
 #include <net/ethernet.h>
 #include <net/address.h>
-#include <netinet/ether.h>
 
 #include <base/lifetime.h>
 #include <base/patricia.h>

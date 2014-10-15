@@ -2,11 +2,13 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <asm/types.h>
-#include <sys/socket.h>
+#include <sys/types.h>
+#if defined(__linux__)
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <linux/sockios.h>
+#endif
+#include <sys/socket.h>
 
 #include <boost/bind.hpp>
 

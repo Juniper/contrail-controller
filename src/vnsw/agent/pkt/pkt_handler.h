@@ -6,6 +6,7 @@
 #define vnsw_agent_pkt_handler_hpp
 
 #include <net/if.h>
+#include <sys/socket.h>
 #include <netinet/if_ether.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
