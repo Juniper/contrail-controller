@@ -5,6 +5,7 @@
 #include "base/os.h"
 #include "testing/gunit.h"
 
+#include <sys/socket.h>
 #include <netinet/if_ether.h>
 #include <boost/uuid/string_generator.hpp>
 #include <boost/scoped_array.hpp>

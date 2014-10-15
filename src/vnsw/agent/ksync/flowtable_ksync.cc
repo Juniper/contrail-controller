@@ -3,11 +3,14 @@
  */
 
 #include <sys/socket.h>
+#if defined(__linux__)
 #include <linux/netlink.h>
-#include <linux/rtnetlink.h>
+#elif defined(__FreeBSD__)
+#include "vr_os.h"
+#endif
 #include <fcntl.h>
 #include <sys/mman.h>
-#include <asm/types.h>
+#include <sys/types.h>
 
 #include <boost/asio.hpp>
 
@@ -30,6 +33,7 @@
 #include <vr_flow.h>
 #include <vr_genetlink.h>
 #include <ksync/ksync_sock_user.h>
+#include "vnswif_listener.h"
 #include <ksync/ksync_init.h>
 
 #include <pkt/flow_proto.h>

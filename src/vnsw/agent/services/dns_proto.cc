@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <sys/types.h>
 #include "oper/interface_common.h"
 #include "services/dns_proto.h"
 #include "bind/bind_resolver.h"

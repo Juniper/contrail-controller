@@ -5,9 +5,9 @@
 #ifndef vnsw_agent_test_pkt_gen_h
 #define vnsw_agent_test_pkt_gen_h
 
+#include "base/os.h"
 #include <netinet/ip.h>
-#include <netinet/ether.h>
-#include <linux/if_ether.h>
+#include <net/ethernet.h>
 #include <netinet/ip_icmp.h>
 
 #include <pkt/pkt_handler.h>
@@ -136,7 +136,7 @@ public:
         Init(sp, dp);
         len = sizeof(pkt.ip) + sizeof(pkt.tcp) + sizeof(pkt.payload);
         IpUtils::IpInit(&pkt.ip, IPPROTO_TCP, len, sip, dip);
-        IpUtils::EthInit(&pkt.eth, ETH_P_IP);
+        IpUtils::EthInit(&pkt.eth, ETHERTYPE_IP);
     }
     unsigned char *GetPacket() const { return (unsigned char *)&pkt; }
 private:
@@ -163,7 +163,7 @@ public:
         Init(sp, dp);
         len = sizeof(pkt.ip) + sizeof(pkt.udp) + sizeof(pkt.payload);
         IpUtils::IpInit(&pkt.ip, IPPROTO_UDP, len, sip, dip);
-        IpUtils::EthInit(&pkt.eth, ETH_P_IP);
+        IpUtils::EthInit(&pkt.eth, ETHERTYPE_IP);
     }
     unsigned char *GetPacket() const { return (unsigned char *)&pkt; }
 private:
@@ -181,7 +181,7 @@ public:
     ArpPacket(uint16_t arpop, uint8_t smac, uint32_t sip, uint32_t tip) {
         memset(&pkt, 0, sizeof(struct ether_arp));
         pkt.ea_hdr.ar_hrd = ARPHRD_ETHER;
-        pkt.ea_hdr.ar_pro = ETH_P_IP;
+        pkt.ea_hdr.ar_pro = ETHERTYPE_IP;
         pkt.ea_hdr.ar_hln = 6;
         pkt.ea_hdr.ar_pln = 4;
         pkt.ea_hdr.ar_op = arpop;
@@ -202,7 +202,7 @@ public:
         uint16_t len;
         len = sizeof(pkt.ip) + sizeof(pkt.icmp);
         IpUtils::IpInit(&(pkt.ip), IPPROTO_ICMP, len, sip, dip);
-        IpUtils::EthInit(&(pkt.eth), smac, dmac, ETH_P_IP);
+        IpUtils::EthInit(&(pkt.eth), smac, dmac, ETHERTYPE_IP);
         pkt.icmp.icmp_type = ICMP_ECHO;
         pkt.icmp.icmp_code = 0;
         pkt.icmp.icmp_cksum = IpUtils::IPChecksum((uint16_t *)&pkt.icmp, sizeof(icmp_packet));
@@ -221,7 +221,7 @@ public:
         Init(sp, dp);
         len = sizeof(pkt.ip) + sizeof(pkt.tcp) + sizeof(pkt.payload);
         IpUtils::Ip6Init(&pkt.ip, IPPROTO_TCP, len, sip, dip);
-        IpUtils::EthInit(&pkt.eth, ETH_P_IPV6);
+        IpUtils::EthInit(&pkt.eth, ETHERTYPE_IPV6);
     }
     unsigned char *GetPacket() const { return (unsigned char *)&pkt; }
 private:
@@ -248,7 +248,7 @@ public:
         Init(sp, dp);
         len = sizeof(pkt.ip) + sizeof(pkt.udp) + sizeof(pkt.payload);
         IpUtils::Ip6Init(&pkt.ip, IPPROTO_UDP, len, sip, dip);
-        IpUtils::EthInit(&pkt.eth, ETH_P_IPV6);
+        IpUtils::EthInit(&pkt.eth, ETHERTYPE_IPV6);
     }
     unsigned char *GetPacket() const { return (unsigned char *)&pkt; }
 private:
@@ -268,7 +268,7 @@ public:
         uint16_t len;
         len = sizeof(pkt.ip) + sizeof(pkt.icmp);
         IpUtils::Ip6Init(&(pkt.ip), IPPROTO_ICMPV6, len, sip, dip);
-        IpUtils::EthInit(&(pkt.eth), smac, dmac, ETH_P_IPV6);
+        IpUtils::EthInit(&(pkt.eth), smac, dmac, ETHERTYPE_IPV6);
         pkt.icmp.icmp_type = ICMP_ECHO;
         pkt.icmp.icmp_code = 0;
         pkt.icmp.icmp_cksum = IpUtils::IPChecksum((uint16_t *)&pkt.icmp, sizeof(icmp_packet));

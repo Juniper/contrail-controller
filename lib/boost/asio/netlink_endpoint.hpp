@@ -12,6 +12,9 @@
 
 #include <boost/asio/detail/config.hpp>
 #include <boost/asio/detail/push_options.hpp>
+#if defined(__linux__)
+#include <linux/netlink.h>
+#endif
 
 namespace boost {
 namespace asio {
@@ -43,7 +46,11 @@ public:
   /// Default constructor.
   basic_endpoint() {
       memset(&impl_, 0, sizeof(impl_));
+#if defined(__linux__)
       sa.nl_family = AF_NETLINK;
+#elif defined(__FreeBSD__)
+      sa.sa_family = AF_VENDOR00;
+#endif
   }
 
   data_type *data() {
@@ -55,7 +62,7 @@ public:
   }
 
   std::size_t size() const {
-      return sizeof(struct sockaddr_nl);
+      return sizeof(sa);
   }
 
   /// The protocol associated with the endpoint.
@@ -67,7 +74,11 @@ private:
   // The underlying NETLINK domain endpoint.
   union {
       data_type impl_;
+#if defined(__linux__)
       struct sockaddr_nl sa;
+#elif defined(__FreeBSD__)
+      struct sockaddr sa;
+#endif
   };
 };
 

@@ -6,6 +6,7 @@
 #define vnsw_agent_interface_common_hpp
 
 #include <vector>
+#include <sys/types.h>
 #include <net/ethernet.h>
 #include <cmn/agent_cmn.h>
 #include <cmn/agent.h>
