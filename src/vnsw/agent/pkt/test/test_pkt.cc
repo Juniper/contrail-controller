@@ -38,6 +38,10 @@
 void RouterIdDepInit(Agent *agent) {
 }
 
+struct PortInfo input[] = {
+    {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+};
+
 class PktTest : public ::testing::Test {
 public:
     void CheckSandeshResponse(Sandesh *sandesh) {
@@ -49,9 +53,31 @@ public:
         EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
     }
 
+    void SetUp() {
+        agent_ = client->agent();
+        pkt_info_.reset(new PktInfo(agent_, 1024, PktHandler::ARP, 0));
+        handler_.reset(new ArpHandler(agent_, pkt_info_,
+                                     *(agent_->event_manager()->io_service())));
+
+        client->Reset();
+        CreateVmportEnv(input, 1, 1);
+        client->WaitForIdle();
+
+        EXPECT_TRUE(VmPortActive(input, 0));
+        EXPECT_TRUE(VmPortPolicyEnable(input, 0));
+    }
+
     void TearDown() {
         FlushFlowTable();
+        client->WaitForIdle();
+        DeleteVmportEnv(input, 1, true, 1);
+        client->WaitForIdle();
+        WAIT_FOR(1000, 1000, (VmPortGet(1) == NULL));
     }
+
+    Agent *agent_;
+    boost::shared_ptr<ArpHandler> handler_;
+    boost::shared_ptr<PktInfo> pkt_info_;
 };
 
 static void MakeIpPacket(PktGen *pkt, int ifindex, const char *sip,
@@ -145,6 +171,76 @@ TEST_F(PktTest, FlowAdd_1) {
     DeleteVmportEnv(input, 1, true, 1);
 }
 
+TEST_F(PktTest, tx_no_vlan_1) {
+    int len;
+    PktInfo pkt_info(agent_, 1024, PktHandler::ARP, 0);
+
+    char *buff = (char *)pkt_info.pkt;
+    uint16_t *data_p = (uint16_t *)buff;
+    pkt_info.eth = (struct ether_header *) buff;
+
+    len = handler_->EthHdr(buff, ARP_TX_BUFF_LEN, MacAddress::BroadcastMac(),
+                         MacAddress::BroadcastMac(), ETHERTYPE_ARP,
+                         VmInterface::kInvalidVlanId);
+    EXPECT_TRUE(len == 14);
+    EXPECT_TRUE(pkt_info.eth->ether_type == htons(ETHERTYPE_ARP));
+    EXPECT_TRUE(*(data_p + 6) == htons(ETHERTYPE_ARP));
+
+    VmInterface *intf = VmInterfaceGet(input[0].intf_id);
+    len = handler_->EthHdr(buff, ARP_TX_BUFF_LEN, intf,
+                         MacAddress::BroadcastMac(), MacAddress::BroadcastMac(),
+                         ETHERTYPE_ARP);
+    EXPECT_TRUE(len == 14);
+    EXPECT_TRUE(pkt_info.eth->ether_type == htons(ETHERTYPE_ARP));
+    EXPECT_TRUE(*(data_p + 6) == htons(ETHERTYPE_ARP));
+
+    len = handler_->EthHdr(buff, ARP_TX_BUFF_LEN, agent_->vhost_interface(),
+                        MacAddress::BroadcastMac(), MacAddress::BroadcastMac(),
+                        ETHERTYPE_ARP);
+    EXPECT_TRUE(len == 14);
+    EXPECT_TRUE(pkt_info.eth->ether_type == htons(ETHERTYPE_ARP));
+    EXPECT_TRUE(*(data_p + 6) == htons(ETHERTYPE_ARP));
+}
+
+TEST_F(PktTest, tx_vlan_1) {
+    int len;
+    PktInfo pkt_info(agent_, 1024, PktHandler::ARP, 0);
+
+    pkt_info.AllocPacketBuffer(agent_, PktHandler::ARP, ARP_TX_BUFF_LEN, 0);
+    char *buff = (char *)pkt_info.pkt;
+    uint16_t *data_p = (uint16_t *)buff;
+    pkt_info.eth = (struct ether_header *) buff;
+
+    len = handler_->EthHdr(buff, ARP_TX_BUFF_LEN, MacAddress::BroadcastMac(),
+                           MacAddress::BroadcastMac(), ETHERTYPE_ARP, 1);
+    EXPECT_TRUE(len == 18);
+    EXPECT_TRUE(*(data_p + 6) == htons(ETH_P_8021Q));
+    EXPECT_TRUE(*(data_p + 8) == htons(ETHERTYPE_ARP));
+
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, MakeUuid(2),
+                                     "vm-itf-2"));
+    req.data.reset(new VmInterfaceAddData(Ip4Address::from_string("1.1.1.2"),
+                                          "00:00:00:00:00:01",
+                                          "vm-1", MakeUuid(1), 1, 2, "vnet0",
+                                          Ip6Address()));
+    agent_->interface_table()->Enqueue(&req);
+    client->WaitForIdle();
+
+    VmInterface *intf = VmInterfaceGet(2);
+    len = handler_->EthHdr(buff, ARP_TX_BUFF_LEN, intf,
+                         MacAddress::BroadcastMac(), MacAddress::BroadcastMac(),
+                         ETHERTYPE_ARP);
+    EXPECT_TRUE(len == 18);
+    EXPECT_TRUE(*(data_p + 6) == htons(ETH_P_8021Q));
+    EXPECT_TRUE(*(data_p + 8) == htons(ETHERTYPE_ARP));
+
+    DBRequest req1(DBRequest::DB_ENTRY_DELETE);
+    req1.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, MakeUuid(2),
+                                     "vm-itf-2"));
+    agent_->interface_table()->Enqueue(&req1);
+    client->WaitForIdle();
+}
 
 int main(int argc, char *argv[]) {
     GETUSERARGS();
