@@ -131,8 +131,11 @@ bool ServiceChain::Match(BgpServer *server, BgpTable *table,
                         deleted = true;
 
                     int vn_index = GetOriginVnIndex(route);
+                    int src_vn_index = src_->virtual_network_index();
                     int dest_vn_index = dest_->virtual_network_index();
                     if (!vn_index || dest_vn_index != vn_index) {
+                        if (src_vn_index == vn_index)
+                            deleted = true;
                         if (!dest_->virtual_network_allow_transit())
                             deleted = true;
                         if (!dest_vn_index)
