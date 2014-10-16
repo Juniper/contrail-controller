@@ -2266,16 +2266,17 @@ class VirtualMachineInterfaceST(DictST):
     # end set_interface_mirror
     
     def set_virtual_network(self, vn_name):
-        self.virtual_network = vn_name
-        virtual_network = VirtualNetworkST.locate(vn_name)
-        if virtual_network is None:
-            return
         try:
             if_obj = _vnc_lib.virtual_machine_interface_read(
                 fq_name_str=self.name)
         except NoIdError:
             _sandesh._logger.debug("NoIdError while reading interface " +
                                    self.name)
+            self.delete(self.name)
+            return
+        self.virtual_network = vn_name
+        virtual_network = VirtualNetworkST.locate(vn_name)
+        if virtual_network is None:
             return
         ri = virtual_network.get_primary_routing_instance().obj
         refs = if_obj.get_routing_instance_refs()
@@ -2294,19 +2295,20 @@ class VirtualMachineInterfaceST(DictST):
     #end set_virtual_network
     
     def process_analyzer(self):
-        if self.interface_mirror is None or self.virtual_network is None:
-            return
-        vn = VirtualNetworkST.get(self.virtual_network)
-        if vn is None:
-            return
-        
         try:
             if_obj = _vnc_lib.virtual_machine_interface_read(
                 fq_name_str=self.name)
         except NoIdError:
             _sandesh._logger.debug("NoIdError while reading interface " +
                                    self.name)
+            self.delete(self.name)
             return
+        if self.interface_mirror is None or self.virtual_network is None:
+            return
+        vn = VirtualNetworkST.get(self.virtual_network)
+        if vn is None:
+            return
+
         vn.process_analyzer(self.interface_mirror)
         vmi_props = if_obj.get_virtual_machine_interface_properties()
         if vmi_props is None:
@@ -2329,19 +2331,20 @@ class VirtualMachineInterfaceST(DictST):
 
     def rebake(self):
         network_set = set()
-        if self.virtual_network in VirtualNetworkST:
-            network_set.add(self.virtual_network)
-        # if this interface is left or right interface of a service instance,
-        # then get all policies that refer to that service instance and
-        # return all networks that refer to those policies
-        if self.service_interface_type not in ['left', 'right']:
-            return network_set
         try:
             vmi_obj = _vnc_lib.virtual_machine_interface_read(
                 fq_name_str=self.name)
         except NoIdError:
             _sandesh._logger.debug("NoIdError while reading interface %s",
                                    self.name)
+            self.delete(self.name)
+            return network_set
+        if self.virtual_network in VirtualNetworkST:
+            network_set.add(self.virtual_network)
+        # if this interface is left or right interface of a service instance,
+        # then get all policies that refer to that service instance and
+        # return all networks that refer to those policies
+        if self.service_interface_type not in ['left', 'right']:
             return network_set
         vm_id = get_vm_id_from_interface(vmi_obj)
         if vm_id is None:
@@ -2381,6 +2384,16 @@ class VirtualMachineInterfaceST(DictST):
     # end rebake
 
     def recreate_vrf_assign_table(self):
+        try:
+            vmi_obj = _vnc_lib.virtual_machine_interface_read(
+                fq_name_str=self.name)
+        except NoIdError as e:
+            _sandesh._logger.debug(
+                "NoIdError while reading virtual machine interface %s: %s",
+                self.name, str(e))
+            self.delete(self.name)
+            return
+
         if self.service_interface_type not in ['left', 'right']:
             return
         vn = VirtualNetworkST.get(self.virtual_network)
@@ -2388,6 +2401,7 @@ class VirtualMachineInterfaceST(DictST):
             return
 
         vrf_table = VrfAssignTableType()
+        deleted_instance_ip = set()
         for ip in self.instance_ip_set:
             try:
                 ip_obj = _vnc_lib.instance_ip_read(fq_name_str=ip)
@@ -2395,6 +2409,7 @@ class VirtualMachineInterfaceST(DictST):
                 _sandesh._logger.debug(
                     "NoIdError while reading ip address for interface %s: %s",
                     self.name, str(e))
+                deleted_instance_ip.add(ip)
                 continue
 
             address = AddressType(subnet=SubnetType(
@@ -2406,15 +2421,7 @@ class VirtualMachineInterfaceST(DictST):
                                          routing_instance=ri_name,
                                          ignore_acl=False)
             vrf_table.add_vrf_assign_rule(vrf_rule)
-
-        try:
-            vmi_obj = _vnc_lib.virtual_machine_interface_read(
-                fq_name_str=self.name)
-        except NoIdError as e:
-            _sandesh._logger.debug(
-                "NoIdError while reading virtual machine interface %s: %s",
-                self.name, str(e))
-            return
+        self.instance_ip_set -= deleted_instance_ip
 
         vm_id = get_vm_id_from_interface(vmi_obj)
         if vm_id is None:
@@ -2881,6 +2888,11 @@ class SchemaTransformer(object):
             vmi.set_interface_mirror(prop.get_interface_mirror())
     # end add_virtual_machine_interface_properties
 
+    def delete_virtual_machine_interface_virtual_machine(self, idents, meta):
+        vmi_name = idents['virtual-machine-interface']
+        VirtualMachineInterfaceST.delete(vmi_name)
+    # end delete_virtual_machine_interface_virtual_machine
+
     def add_virtual_machine_service_instance(self, idents, meta):
         si_name = idents['service-instance']
         for sc in ServiceChain._dict.values():
@@ -3148,6 +3160,7 @@ class SchemaTransformer(object):
     # end delete_project_logical_router
 
     def process_poll_result(self, poll_result_str):
+        something_done = False
         result_list = parse_poll_result(poll_result_str)
         self.current_network_set = set()
 
@@ -3165,12 +3178,17 @@ class SchemaTransformer(object):
                 except AttributeError:
                     pass
                 else:
+                    something_done = True
                     _sandesh._logger.debug("%s %s/%s/%s. Calling '%s'.",
                                            result_type.split('Result')[0].title(),
                                            meta_name, idents, meta, funcname)
                     func(idents, meta)
             # end for meta
         # end for result_type
+
+        if not something_done:
+            _sandesh._logger.debug("Process IF-MAP: Nothing was done, skip.")
+            return
 
         # Second pass to construct ACL entries and connectivity table
         for network_name in self.current_network_set:
