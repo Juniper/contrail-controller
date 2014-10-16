@@ -902,6 +902,15 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('instance-ip-virtual-machine-interface',
           'instance-ip', 'virtual-machine-interface', ['ref']) -->
 
+<xsd:element name="interface-subnet" type="ifmap:IdentityType"/>
+<xsd:element name="interface-subnet-ip-prefix" type="SubnetType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('interface-subnet-ip-prefix', 'interface-subnet') -->
+<xsd:element name="interface-subnet-virtual-machine-interface"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('interface-subnet-virtual-machine-interface',
+          'interface-subnet', 'virtual-machine-interface', ['ref']) -->
+
 <xsd:element name="floating-ip-pool" type="ifmap:IdentityType"/>
 <xsd:element name="floating-ip-pool-prefixes" type="FloatingIpPoolType"/>
 <!--#IFMAP-SEMANTICS-IDL 
