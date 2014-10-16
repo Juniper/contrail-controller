@@ -35,6 +35,7 @@ setup(
             'contrail-logs = opserver.log:main',
             'contrail-stats = opserver.stats:main',
             'contrail-flows = opserver.flow:main',
+            'contrail-logs-api-audit = opserver.api_log:main',
         ],
     },
 )
