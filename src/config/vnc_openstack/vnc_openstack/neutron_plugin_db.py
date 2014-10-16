@@ -822,11 +822,7 @@ class DBInterface(object):
                     cidr = '%s/%s' % (subnet_vnc.subnet.get_ip_prefix(),
                                       subnet_vnc.subnet.get_ip_prefix_len())
                     if IPAddress(ip_addr) in IPSet([cidr]):
-                        subnet_key = self._subnet_vnc_get_key(subnet_vnc,
-                                                              net_obj.uuid)
-                        subnet_id = self._subnet_vnc_read_or_create_mapping(
-                                key=subnet_key)
-
+                        subnet_id = subnet_vnc.subnet_uuid
                         return subnet_id
         return None
     #end _ip_address_to_subnet_id
