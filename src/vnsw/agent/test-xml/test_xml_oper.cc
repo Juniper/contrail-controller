@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
+#include <base/os.h>
 #include <iostream>
 #include <fstream>
 #include <pugixml/pugixml.hpp>
@@ -55,7 +56,7 @@ AgentUtXmlNode *CreateNode(const string &type, const string &name,
     if (type == "access-control-list" || type == "acl")
         return new AgentUtXmlAcl(name, id, node, test_case);
     if (type == "virtual-machine-interface-routing-instance" ||
-        type == "vm-vrf")
+        type == "vmi-vrf")
         return new AgentUtXmlVmiVrf(name, id, node, test_case);
 }
 
@@ -81,7 +82,7 @@ void AgentUtXmlOperInit(AgentUtXmlTest *test) {
 
     test->AddConfigEntry("virtual-machine-interface-routing-instance",
                          CreateNode);
-    test->AddConfigEntry("vm-vrf", CreateNode);
+    test->AddConfigEntry("vmi-vrf", CreateNode);
 
     test->AddValidateEntry("virtual-network", CreateValidateNode);
     test->AddValidateEntry("vn", CreateValidateNode);

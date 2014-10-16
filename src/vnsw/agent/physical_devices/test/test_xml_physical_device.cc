@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
+#include <base/os.h>
 #include <iostream>
 #include <fstream>
 #include <pugixml/pugixml.hpp>
@@ -181,6 +182,7 @@ bool AgentUtXmlLogicalInterface::ReadXml() {
         return false;
 
     GetStringAttribute(node(), "port", &port_name_);
+    GetStringAttribute(node(), "vmi", &vmi_name_);
     return true;
 }
 
@@ -194,6 +196,10 @@ bool AgentUtXmlLogicalInterface::ToXml(xml_node *parent) {
                     port_name_);
     }
 
+    if (vmi_name_ != "") {
+        LinkXmlNode(parent, NodeType(), name(), "virtual-machine-interface",
+                    vmi_name_);
+    }
     return true;
 }
 
@@ -299,7 +305,7 @@ const string AgentUtXmlPhysicalInterfaceValidate::ToString() {
 AgentUtXmlLogicalInterfaceValidate::AgentUtXmlLogicalInterfaceValidate
     (const string &name, const uuid &id, const xml_node &node) :
     AgentUtXmlValidationNode(name, node), id_(id), physical_port_uuid_(),
-    device_uuid_(), vlan_() {
+    device_uuid_(), vmi_uuid_(), vlan_() {
 }
 
 AgentUtXmlLogicalInterfaceValidate::~AgentUtXmlLogicalInterfaceValidate() {
@@ -313,6 +319,12 @@ bool AgentUtXmlLogicalInterfaceValidate::ReadXml() {
     GetUintAttribute(node(), "port", &id);
     if (id) {
         physical_port_uuid_ = MakeUuid(id);
+    }
+
+    id = 0;
+    GetUintAttribute(node(), "vmi", &id);
+    if (id) {
+        vmi_uuid_ = MakeUuid(id);
     }
 
     GetUintAttribute(node(), "vlan", &vlan_);
@@ -346,6 +358,14 @@ bool AgentUtXmlLogicalInterfaceValidate::Validate() {
     if (physical_port_uuid_ != nil_uuid()) {
         PhysicalPortEntry *physical_port = port->physical_port();
         if (physical_port->uuid() != physical_port_uuid_)
+            return false;
+    }
+
+    if (vmi_uuid_ != nil_uuid()) {
+        Interface *vmi = port->vm_interface();
+        if (vmi == NULL)
+            return false;
+        if (vmi->GetUuid() != vmi_uuid_)
             return false;
     }
 

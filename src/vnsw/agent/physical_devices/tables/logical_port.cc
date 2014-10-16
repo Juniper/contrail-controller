@@ -11,6 +11,7 @@
 #include <cfg/cfg_listener.h>
 #include <oper/agent_sandesh.h>
 #include <oper/ifmap_dependency_manager.h>
+#include <oper/interface_common.h>
 
 #include <physical_devices/tables/physical_devices_types.h>
 #include <physical_devices/tables/device_manager.h>
@@ -69,11 +70,25 @@ bool LogicalPortEntry::CopyBase(LogicalPortTable *table,
         ret = true;
     }
 
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, data->vm_interface_, "");
+    Interface *interface = static_cast<Interface *>
+        (table->agent()->interface_table()->FindActiveEntry(&key));
+    if (interface && interface->type() != Interface::VM_INTERFACE)
+        interface = NULL;
+    if (interface != vm_interface_.get()) {
+        vm_interface_.reset(interface);
+        ret = true;
+    }
+
     if (Copy(table, data) == true) {
         ret = true;
     }
 
     return ret;
+}
+
+VmInterface *LogicalPortEntry::vm_interface() const {
+    return static_cast<VmInterface *>(vm_interface_.get());
 }
 
 /////////////////////////////////////////////////////////////////////////////
