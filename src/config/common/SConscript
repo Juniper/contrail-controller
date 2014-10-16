@@ -11,6 +11,7 @@ env = CfgmEnv.Clone()
 setup_sources = [
            'setup.py',
            'requirements.txt',
+           'test-requirements.txt',
            'MANIFEST.in',
           ]
 
