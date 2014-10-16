@@ -30,5 +30,5 @@ setup(
     long_description="VNC Configuration Common Utils",
     install_requires=requirements('requirements.txt'),
     tests_require=requirements('test-requirements.txt'),
-    test_suite='tests.test_suite',
+    test_suite='cfgm_common.tests.test_suite',
 )
