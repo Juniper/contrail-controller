@@ -839,10 +839,11 @@ bool AgentPath::ReorderCompositeNH(Agent *agent,
          //Get mpls label allocated for this composite NH
          MplsLabel *mpls = agent->mpls_table()->
              FindMplsLabel(component_nh_key->label());
-         if (!mpls) {
+         if (!mpls ||
+              mpls->nexthop()->GetType() != NextHop::COMPOSITE) {
              //If a mpls label is deleted,
              //wait for bgp to update latest list
-             local_ecmp_mpls_label_.reset(mpls);
+             local_ecmp_mpls_label_.reset(NULL);
              return false;
          }
          local_ecmp_mpls_label_.reset(mpls);
