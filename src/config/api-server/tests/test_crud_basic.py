@@ -266,10 +266,6 @@ class TestNetAddrAlloc(object):
         # gevent.joinall([self._api_svr])
     # end tearDown
 
-    def assertThat(self, *args):
-        super(TestNetAddrAlloc, self).assertThat(*args)
-    # end assertThat
-
     def test_ip_alloc_on_net(self):
         # create subnet on default-virtual-network, auto allocate ip
         ipam_fixt = self.useFixture(NetworkIpamTestFixtureGen(self._vnc_lib))
@@ -422,7 +418,6 @@ class TestNetAddrAlloc(object):
     #end test_alloc_with_subnet_id
 
 # end class TestNetAddrAlloc
-
 
 class DemoFixture(object):
 #class DemoFixture(fixtures.Fixture):
@@ -850,7 +845,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         ip_allocated = fip_fixt.getObj().floating_ip_address
 
         logger.info("Creating auto-alloc instance-ip, expecting an error")
-        with self.assertRaises(cfgm_common.exceptions.PermissionDenied):
+        with ExpectedException(PermissionDenied) as e:
             iip_fixt = self.useFixture(
                 InstanceIpTestFixtureGen(
                     self._vnc_lib, 'iip1', auto_prop_val=False,
