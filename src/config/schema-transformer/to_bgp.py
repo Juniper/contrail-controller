@@ -2455,6 +2455,7 @@ class VirtualMachineInterfaceST(DictST):
             return
 
         vrf_table = VrfAssignTableType()
+        deleted_instance_ip = set()
         for ip in self.instance_ip_set:
             try:
                 ip_obj = _vnc_lib.instance_ip_read(fq_name_str=ip)
@@ -2462,6 +2463,7 @@ class VirtualMachineInterfaceST(DictST):
                 _sandesh._logger.debug(
                     "NoIdError while reading ip address for interface %s: %s",
                     self.name, str(e))
+                deleted_instance_ip.add(ip)
                 continue
 
             address = AddressType(subnet=SubnetType(
@@ -2473,6 +2475,7 @@ class VirtualMachineInterfaceST(DictST):
                                          routing_instance=ri_name,
                                          ignore_acl=False)
             vrf_table.add_vrf_assign_rule(vrf_rule)
+        self.instance_ip_set -= deleted_instance_ip
 
         try:
             vmi_obj = _vnc_lib.virtual_machine_interface_read(
@@ -2481,6 +2484,7 @@ class VirtualMachineInterfaceST(DictST):
             _sandesh._logger.debug(
                 "NoIdError while reading virtual machine interface %s: %s",
                 self.name, str(e))
+            self.delete(self.name)
             return
 
         vm_id = get_vm_id_from_interface(vmi_obj)
@@ -2993,6 +2997,11 @@ class SchemaTransformer(object):
             vmi.set_interface_mirror(prop.get_interface_mirror())
     # end add_virtual_machine_interface_properties
 
+    def delete_virtual_machine_interface_virtual_machine(self, idents, meta):
+        vmi_name = idents['virtual-machine-interface']
+        VirtualMachineInterfaceST.delete(vmi_name)
+    # end delete_virtual_machine_interface_virtual_machine
+
     def add_virtual_machine_service_instance(self, idents, meta):
         si_name = idents['service-instance']
         for sc in ServiceChain._dict.values():
@@ -3269,6 +3278,7 @@ class SchemaTransformer(object):
     # end process_stale_objects
 
     def process_poll_result(self, poll_result_str):
+        something_done = False
         result_list = parse_poll_result(poll_result_str)
         self.current_network_set = set()
 
@@ -3289,12 +3299,17 @@ class SchemaTransformer(object):
                 except AttributeError:
                     pass
                 else:
+                    something_done = True
                     _sandesh._logger.debug("%s %s/%s/%s. Calling '%s'.",
                                            result_type.split('Result')[0].title(),
                                            meta_name, idents, meta, funcname)
                     func(idents, meta)
             # end for meta
         # end for result_type
+
+        if not something_done:
+            _sandesh._logger.debug("Process IF-MAP: Nothing was done, skip.")
+            return
 
         # Second pass to construct ACL entries and connectivity table
         for network_name in self.current_network_set:
