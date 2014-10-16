@@ -325,7 +325,7 @@ class VncApi(VncApiClientGen):
     #end _read_args_to_id
 
     def _request_server(self, op, url, data=None, retry_on_error=True,
-                        retry_after_authn=False, retry_count=10):
+                        retry_after_authn=False, retry_count=30):
         retried = 0
         while True:
             try:
