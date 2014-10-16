@@ -124,7 +124,7 @@ bool AgentUtXmlValidate::ToXml(xml_node *parent) {
 }
 
 bool AgentUtXmlValidate::Run() {
-    cout << "Running validation" << endl;
+    cout << "Running validation" << " <" << name() << ">" << endl;
     for (AgentUtXmlValidationList::iterator it = node_list_.begin();
          it != node_list_.end(); it++) {
         TestClient::WaitForIdle();

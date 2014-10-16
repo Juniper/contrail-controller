@@ -10,6 +10,8 @@
 
 class IFMapDependencyManager;
 
+class VmInterface;
+
 namespace AGENT {
 struct LogicalPortKey;
 struct LogicalPortData;
@@ -22,7 +24,7 @@ class LogicalPortEntry : AgentRefCount<LogicalPortEntry>, public AgentDBEntry {
     };
 
     explicit LogicalPortEntry(const boost::uuids::uuid &id) :
-        uuid_(id), name_(), physical_port_() { }
+        uuid_(id), name_(), physical_port_(), vm_interface_() { }
     virtual ~LogicalPortEntry() { }
 
     virtual bool IsLess(const DBEntry &rhs) const;
@@ -35,6 +37,7 @@ class LogicalPortEntry : AgentRefCount<LogicalPortEntry>, public AgentDBEntry {
     const boost::uuids::uuid &uuid() const { return uuid_; }
     const std::string &name() const { return name_; }
     PhysicalPortEntry *physical_port() const { return physical_port_.get(); }
+    VmInterface *vm_interface() const;
 
     bool CopyBase(LogicalPortTable *table, const LogicalPortData *data);
     virtual bool Copy(LogicalPortTable *table, const LogicalPortData *data) = 0;
@@ -47,6 +50,7 @@ class LogicalPortEntry : AgentRefCount<LogicalPortEntry>, public AgentDBEntry {
     boost::uuids::uuid uuid_;
     std::string name_;
     PhysicalPortEntryRef physical_port_;
+    InterfaceRef vm_interface_;
     DISALLOW_COPY_AND_ASSIGN(LogicalPortEntry);
 };
 
@@ -92,12 +96,12 @@ struct LogicalPortKey : public AgentKey {
 struct LogicalPortData : public AgentData {
     LogicalPortData(const std::string &name, const boost::uuids::uuid &port,
                     const boost::uuids::uuid &vif) :
-        name_(name), physical_port_(port), vif_(vif) { }
+        name_(name), physical_port_(port), vm_interface_(vif) { }
     virtual ~LogicalPortData() { }
 
     std::string name_;
     boost::uuids::uuid physical_port_;
-    boost::uuids::uuid vif_;
+    boost::uuids::uuid vm_interface_;
 };
 
 struct VlanLogicalPortKey : public LogicalPortKey {

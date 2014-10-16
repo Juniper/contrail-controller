@@ -58,6 +58,7 @@ public:
 
 private:
     std::string port_name_;
+    std::string vmi_name_;
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -106,6 +107,7 @@ private:
     const boost::uuids::uuid id_;
     boost::uuids::uuid physical_port_uuid_;
     boost::uuids::uuid device_uuid_;
+    boost::uuids::uuid vmi_uuid_;
     uint16_t vlan_;
 };
 

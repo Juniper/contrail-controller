@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<test_suite name="flow">
+<test_suite name="physical-device-vn">
 <test name="test1">
     <physical-router uuid="1" name="router-1"/>
     <virtual-network uuid="1" name="vn-1"/>

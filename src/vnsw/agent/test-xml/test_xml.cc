@@ -231,7 +231,23 @@ static bool CheckConfigNode(const string &node_name, const xml_node &node,
         return false;
     }
 
-    xml_attribute attr = node.attribute("uuid");
+    xml_attribute attr = node.attribute("name");
+    if (!attr) {
+        cout << "Attribute \"name\" not found for " << node_name
+            << ". Skipping..." << endl;
+        return false;;
+    }
+
+    *name = attr.as_string();
+    if (*name == "") {
+        cout << "Invalid \"name\" for " << node_name << " Skipping" << endl;
+        return false;
+    }
+
+    if (node_name == "validate")
+        return false;
+
+    attr = node.attribute("uuid");
     if (!attr) {
         cout << "Attribute \"uuid\" not found for " << node_name
             << ". Skipping..." << endl;
@@ -245,19 +261,6 @@ static bool CheckConfigNode(const string &node_name, const xml_node &node,
     }
 
     *id = MakeUuid(x);
-
-    attr = node.attribute("name");
-    if (!attr) {
-        cout << "Attribute \"name\" not found for " << node_name
-            << ". Skipping..." << endl;
-        return false;;
-    }
-
-    *name = attr.as_string();
-    if (*name == "") {
-        cout << "Invalid \"name\" for " << node_name << " Skipping" << endl;
-        return false;
-    }
 
     return true;
 }
@@ -296,7 +299,7 @@ bool AgentUtXmlTestCase::ReadXml() {
             test_->GetConfigCreateFn(node.name());
         if (CheckConfigNode(node.name(), node, &id, &name) == true) {
             if (fn.empty() == false)
-            cfg = fn(node.name(), name, id, node, this);
+                cfg = fn(node.name(), name, id, node, this);
         }
 
         if (strcmp(node.name(), "link") == 0) {
