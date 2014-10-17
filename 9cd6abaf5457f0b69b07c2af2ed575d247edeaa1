@@ -1,0 +1,10 @@
+Code-Review+1: opencontrail-admin <ci-admin@opencontrail.org>
+Verified+2: opencontrail-admin <ci-admin@opencontrail.org>
+Verified+2: Zuul <zuul@lists.opencontrail.org>
+Approved+1: Nipa Kumar <nipak@juniper.net>
+Code-Review+2: Nipa Kumar <nipak@juniper.net>
+Submitted-by: Zuul <zuul@lists.opencontrail.org>
+Submitted-at: Thu, 16 Oct 2014 21:31:29 -0700
+Reviewed-on: https://review.opencontrail.org/3830
+Project: Juniper/contrail-controller
+Branch: refs/heads/R1.10
