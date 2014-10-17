@@ -63,6 +63,7 @@ void FlowStatsCollector::UpdateFlowMultiplier() {
 void FlowStatsCollector::SetUnderlayInfo(FlowEntry *flow,
                                          FlowDataIpv4 &s_flow) {
     string rid = agent_uve_->agent()->router_id().to_string();
+    uint16_t underlay_src_port = 0;
     if (flow->is_flags_set(FlowEntry::LocalFlow)) {
         s_flow.set_vrouter_ip(rid);
         s_flow.set_other_vrouter_ip(rid);
@@ -74,7 +75,10 @@ void FlowStatsCollector::SetUnderlayInfo(FlowEntry *flow,
     } else {
         s_flow.set_vrouter_ip(rid);
         s_flow.set_other_vrouter_ip(flow->peer_vrouter());
-        s_flow.set_underlay_source_port(flow->underlay_source_port());
+        if (flow->tunnel_type().GetType() != TunnelType::MPLS_GRE) {
+            underlay_src_port = flow->underlay_source_port();
+        }
+        s_flow.set_underlay_source_port(underlay_src_port);
     }
     s_flow.set_underlay_proto(flow->tunnel_type().GetType());
 }
@@ -174,13 +178,13 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
          */
         s_flow.set_direction_ing(1);
         SourceIpOverride(flow, s_flow);
-        FLOW_DATA_IPV4_OBJECT_LOG("", level, s_flow);
+        DispatchFlowMsg(level, s_flow);
         s_flow.set_direction_ing(0);
         //Export local flow of egress direction with a different UUID even when
         //the flow is same. Required for analytics module to query flows
         //irrespective of direction.
         s_flow.set_flowuuid(to_string(flow->egress_uuid()));
-        FLOW_DATA_IPV4_OBJECT_LOG("", level, s_flow);
+        DispatchFlowMsg(level, s_flow);
     } else {
         if (flow->is_flags_set(FlowEntry::IngressDir)) {
             s_flow.set_direction_ing(1);
@@ -188,9 +192,14 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
         } else {
             s_flow.set_direction_ing(0);
         }
-        FLOW_DATA_IPV4_OBJECT_LOG("", level, s_flow);
+        DispatchFlowMsg(level, s_flow);
     }
 
+}
+
+void FlowStatsCollector::DispatchFlowMsg(SandeshLevel::type level,
+                                         FlowDataIpv4 &flow) {
+    FLOW_DATA_IPV4_OBJECT_LOG("", level, flow);
 }
 
 bool FlowStatsCollector::ShouldBeAged(FlowStats *stats,

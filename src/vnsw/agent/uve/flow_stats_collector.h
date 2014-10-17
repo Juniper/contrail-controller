@@ -46,6 +46,7 @@ public:
                     uint64_t diff_pkts);
     void UpdateFlowStats(FlowEntry *flow, uint64_t &diff_bytes, 
                          uint64_t &diff_pkts);
+    virtual void DispatchFlowMsg(SandeshLevel::type level, FlowDataIpv4 &flow);
     void Shutdown();
 private:
     uint64_t GetFlowStats(const uint16_t &oflow_data, const uint32_t &data);

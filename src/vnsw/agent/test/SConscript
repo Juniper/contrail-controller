@@ -37,6 +37,7 @@ test_lib_srcs = ['test_agent_init.cc',
                  '../ksync/test/ksync_test.cc',
                  '../uve/test/agent_uve_test.cc',
                  '../uve/test/agent_stats_collector_test.cc',
+                 '../uve/test/flow_stats_collector_test.cc',
                  '../uve/test/vm_uve_table_test.cc',
                  '../uve/test/vn_uve_table_test.cc',
                  '../uve/test/vrouter_uve_entry_test.cc']
