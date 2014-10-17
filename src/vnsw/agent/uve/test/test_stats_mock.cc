@@ -11,6 +11,7 @@
 #include <uve/test/vn_uve_table_test.h>
 #include "ksync/ksync_sock_user.h"
 #include <uve/test/agent_stats_collector_test.h>
+#include <uve/test/flow_stats_collector_test.h>
 #include "uve/test/test_uve_util.h"
 #include "pkt/test/test_flow_util.h"
 
@@ -935,6 +936,66 @@ TEST_F(StatsTestMock, Underlay_2) {
     EXPECT_EQ(rfe->tunnel_type().GetType(), TunnelType::MPLS_GRE);
     EXPECT_EQ(rfe->underlay_source_port(), 0);
 
+    DeleteFlow(flow, 1);
+    client->WaitForIdle();
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    //Remove remote VM routes
+    util_.DeleteRemoteRoute("vrf5", remote_vm4_ip, peer_);
+    client->WaitForIdle();
+}
+
+//Flow underlay source port verification for non-local flow
+TEST_F(StatsTestMock, Underlay_3) {
+    /* Add remote VN route to vrf5 */
+    util_.CreateRemoteRoute("vrf5", remote_vm4_ip, remote_router_ip, 8, "vn3",
+                            peer_);
+
+    TestFlow flow[] = {
+        //Send an ICMP flow from remote VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(Address::INET, remote_vm4_ip, "1.1.1.1", 1, 0, 0, "vrf5",
+                        remote_router_ip, 16),
+            {
+                new VerifyVn("vn3", "vn5"),
+            }
+        }
+    };
+    CreateFlow(flow, 1);
+    client->WaitForIdle();
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    const FlowEntry *fe = flow[0].pkt_.FlowFetch();
+    const FlowEntry *rfe = fe->reverse_flow_entry();
+
+    //Change the underlay source port
+    KSyncSockTypeMap::SetUnderlaySourcePort(fe->flow_handle(), 1234);
+    KSyncSockTypeMap::SetUnderlaySourcePort(rfe->flow_handle(), 5678);
+
+    //Increment flow stats to ensure that when flow_stats_collector is
+    //invoked, the dispatch of flow log message happens
+    KSyncSockTypeMap::IncrFlowStats(fe->flow_handle(), 1, 30);
+
+    //Invoke FlowStatsCollector to update the stats
+    util_.EnqueueFlowStatsCollectorTask();
+    client->WaitForIdle(10);
+
+    //Verify underlay source port for forward flow
+    EXPECT_EQ(fe->tunnel_type().GetType(), TunnelType::MPLS_GRE);
+    EXPECT_EQ(fe->underlay_source_port(), 1234);
+
+    //Verify underlay source port for reverse flow
+    EXPECT_EQ(rfe->tunnel_type().GetType(), TunnelType::MPLS_GRE);
+    EXPECT_EQ(rfe->underlay_source_port(), 5678);
+
+    //Since encap type is MPLS_GRE verify that exported flow has
+    //0 as underlay source port
+    FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>
+        (Agent::GetInstance()->uve()->flow_stats_collector());
+    FlowDataIpv4 flow_log = f->last_sent_flow_log();
+    EXPECT_EQ(flow_log.get_underlay_source_port(), 0);
+
+    //cleanup
     DeleteFlow(flow, 1);
     client->WaitForIdle();
     EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());

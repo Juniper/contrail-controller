@@ -585,6 +585,13 @@ void KSyncSockTypeMap::IncrFlowStats(int idx, int pkts, int bytes) {
     }
 }
 
+void KSyncSockTypeMap::SetUnderlaySourcePort(int idx, int port) {
+    vr_flow_entry *f = &flow_table_[idx];
+    if (f->fe_flags & VR_FLOW_FLAG_ACTIVE) {
+        f->fe_udp_src_port = port;
+    }
+}
+
 void KSyncSockTypeMap::SetOFlowStats(int idx, uint8_t pkts, uint16_t bytes) {
     vr_flow_entry *f = &flow_table_[idx];
     if (f->fe_flags & VR_FLOW_FLAG_ACTIVE) {
