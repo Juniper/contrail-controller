@@ -14,13 +14,13 @@ for file in setup_sources:
     setup_sources_rules.append(
         env.Install(Dir('.'), "#controller/src/config/prc-manager/" + file))
 
-local_sources = ['prc_manager/__init__.py', 'iprc_manager/prc_manager.py', ]
+local_sources = ['prc_manager/__init__.py', 'prc_manager/prc_manager.py', ]
 
 local_sources_rules = []
 for file in local_sources:
     local_sources_rules.append(
         env.Install("prc_manager",
-                    "#controller/src/config/prc_manager/" + file))
+                    "#controller/src/config/prc-manager/" + file))
 
 prcm_introspect_pkg = env.SandeshGenPy('prcm_introspect.sandesh',
                                        'prc_manager/sandesh/', False)

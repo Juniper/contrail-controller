@@ -8,7 +8,7 @@ setup(
     version='0.1dev',
     packages=['prc_manager',
               'prc_manager.sandesh',
-              'prc_manager.sandesh.prc_introspect',
+              'prc_manager.sandesh.prcm_introspect',
               ],
     package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,
