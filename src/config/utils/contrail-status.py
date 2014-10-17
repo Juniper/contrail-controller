@@ -323,6 +323,9 @@ def supervisor_status(nodetype, debug):
     elif nodetype == 'webui':
         print "== Contrail Web UI =="
         check_status('supervisor-webui', debug)
+    elif nodetype == 'support-service':
+        print "== Contrail Support Services =="
+        check_status('supervisor-support-service', debug)
 
 def package_installed(pkg):
     if distribution == 'debian':
@@ -379,6 +382,9 @@ def main():
 
     if database:
         supervisor_status('database', options.debug)
+
+    if capi:
+        supervisor_status('support-service', options.debug)
 
     if len(glob.glob('/var/crashes/core.*')) != 0:
         print "========Run time service failures============="
