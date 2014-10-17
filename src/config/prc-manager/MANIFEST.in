@@ -1,2 +1,0 @@
-recursive-include prc_manager/uve *.html *.xml *.css
-recursive-include prc_manager/sandesh *.html *.xml *.css

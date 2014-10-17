@@ -43,7 +43,7 @@ class PrcManager(object):
             module_name, hostname, node_type_name, instance_id,
             self._args.collectors, 'to_bgp_context',
             int(args.http_server_port),
-            ['cfgm_common', 'prc_manager.sandesh'], self._disc)
+            ['cfgm_common', 'device_manager.sandesh'], self._disc)
         _sandesh.set_logging_params(enable_local_log=args.log_local,
                                     category=args.log_category,
                                     level=args.log_level,
@@ -61,7 +61,7 @@ class PrcManager(object):
         rabbit_password = self._args.rabbit_password
         rabbit_vhost = self._args.rabbit_vhost
 
-        q_name = 'prc_manager.%s' % (socket.gethostname())
+        q_name = 'device_manager.%s' % (socket.gethostname())
         self._vnc_kombu = VncKombuClient(rabbit_server, rabbit_port,
                                          rabbit_user, rabbit_password,
                                          rabbit_vhost, q_name,
@@ -102,7 +102,7 @@ class PrcManager(object):
 
 def parse_args(args_str):
     '''
-    Eg. python prc_manager.py  --rabbit_server localhost
+    Eg. python device_manager.py  --rabbit_server localhost
                          -- rabbit_port 5672
                          -- rabbit_user guest
                          -- rabbit_password guest
@@ -268,15 +268,15 @@ def main(args_str=None):
     else:
         client_pfx = ''
         zk_path_pfx = ''
-    _zookeeper_client = ZookeeperClient(client_pfx+"prc-manager",
+    _zookeeper_client = ZookeeperClient(client_pfx+"device-manager",
                                         args.zk_server_ip)
-    _zookeeper_client.master_election(zk_path_pfx+"/prc-manager",
-                                      os.getpid(), run_prc_manager,
+    _zookeeper_client.master_election(zk_path_pfx+"/device-manager",
+                                      os.getpid(), run_device_manager,
                                       args)
 # end main
 
 
-def run_prc_manager(args):
+def run_device_manager(args):
     global _vnc_lib
 
     def connection_state_update(status, message=None):
@@ -304,8 +304,8 @@ def run_prc_manager(args):
         except ResourceExhaustionError:  # haproxy throws 503
             time.sleep(3)
 
-    prc_manager = PrcManager(args)
-# end run_prc_manager
+    device_manager = PrcManager(args)
+# end run_device_manager
 
 
 def server_main():
