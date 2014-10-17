@@ -85,7 +85,7 @@ struct MulticastCleanupTimer : public CleanupTimer {
 };
 
 struct ConfigCleanupTimer : public CleanupTimer {
-    static const int timeout_ = (15 * 60 * 1000); // In milli seconds
+    static const int timeout_ = (15 * 60 * 1000); // In milli seconds5
     ConfigCleanupTimer(Agent *agent)
         : CleanupTimer(agent, "Agent Stale cleanup timer",
                        timeout_) { }

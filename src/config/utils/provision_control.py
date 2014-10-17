@@ -28,7 +28,8 @@ class ControlProvisioner(object):
             gsc_obj = self._vnc_lib.global_system_config_read(
                   fq_name=['default-global-system-config'])
             gsc_obj.set_autonomous_system(self._args.router_asn)
-            gsc_obj.set_ibgp_auto_mesh(True)
+            if self._args.ibgp_auto_mesh is not None:
+                gsc_obj.set_ibgp_auto_mesh(self._args.ibgp_auto_mesh)
             self._vnc_lib.global_system_config_update(gsc_obj)
             return 
 
@@ -53,6 +54,7 @@ class ControlProvisioner(object):
         Eg. python provision_control.py --host_name a3s30.contrail.juniper.net
                                         --host_ip 10.1.1.1
                                         --router_asn 64512
+                                        --ibgp_auto_mesh|--no_ibgp_auto_mesh
                                         --api_server_ip 127.0.0.1
                                         --api_server_port 8082
                                         --oper <add | del>
@@ -68,6 +70,7 @@ class ControlProvisioner(object):
 
         defaults = {
             'router_asn': '64512',
+            'ibgp_auto_mesh': None,
             'api_server_ip': '127.0.0.1',
             'api_server_port': '8082',
             'oper': None,
@@ -98,6 +101,10 @@ class ControlProvisioner(object):
         parser.add_argument("--host_ip", help="IP address of control-node")
         parser.add_argument(
             "--router_asn", help="AS Number the control-node is in", required=True)
+        parser.add_argument(
+            "--ibgp_auto_mesh", help="Create iBGP mesh automatically", dest='ibgp_auto_mesh', action='store_true')
+        parser.add_argument(
+            "--no_ibgp_auto_mesh", help="Don't create iBGP mesh automatically", dest='ibgp_auto_mesh', action='store_false')
         parser.add_argument(
             "--api_server_ip", help="IP address of api server", required=True)
         parser.add_argument("--api_server_port", help="Port of api server", required=True)

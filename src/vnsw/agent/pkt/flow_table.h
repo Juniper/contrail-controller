@@ -50,7 +50,6 @@ struct IntfFlowInfo;
 struct VmFlowInfo;
 struct RouteFlowKey;
 struct RouteFlowInfo;
-struct RouteFlowKeyCmp;
 class Inet4RouteUpdate;
 class FlowEntry;
 class FlowTable;
@@ -60,7 +59,16 @@ class NhState;
 typedef boost::intrusive_ptr<FlowEntry> FlowEntryPtr;
 typedef boost::intrusive_ptr<const NhState> NhStatePtr;
 
+struct FlowTaskMsg : public InterTaskMsg {
+    FlowTaskMsg(FlowEntry * fe) : InterTaskMsg(0), fe_ptr(fe) {}
+    ~FlowTaskMsg() {}
+
+    FlowEntryPtr fe_ptr;
+};
+
 struct RouteFlowKey {
+    RouteFlowKey() : vrf(-1), family(Address::INET), plen(0) {}
+
     RouteFlowKey(uint32_t v, const Ip4Address &ipv4, uint8_t p) :
         vrf(v), family(Address::INET), plen(p) {
         ip = GetIp4SubnetAddress(ipv4, plen);
@@ -86,19 +94,10 @@ struct RouteFlowKey {
 
     virtual ~RouteFlowKey() {}
 
-    bool IsLess(const RouteFlowKey &rhs) const;
-
     uint32_t vrf;
     Address::Family family; // address family
     IpAddress ip;
     uint8_t plen;
-};
-
-struct RouteFlowKeyCmp {
-    bool operator()(const RouteFlowKey &lhs,
-                    const RouteFlowKey &rhs) const {
-        return lhs.IsLess(rhs);
-    }
 };
 
 struct FlowKey {
@@ -254,7 +253,7 @@ struct FlowData {
         mirror_vrf(VrfEntry::kInvalidIndex), dest_vrf(),
         component_nh_idx((uint32_t)CompositeNH::kInvalidComponentNHIdx),
         nh_state_(NULL), source_plen(0), dest_plen(0), drop_reason(0),
-        vrf_assign_evaluated(false) {}
+        vrf_assign_evaluated(false), pending_recompute(false) {}
 
     std::string source_vn;
     std::string dest_vn;
@@ -281,6 +280,14 @@ struct FlowData {
     uint8_t dest_plen;
     uint16_t drop_reason;
     bool vrf_assign_evaluated;
+    bool pending_recompute;
+    uint16_t            if_index_info;
+    TunnelInfo          tunnel_info;
+    // map for references to the routes which were ignored due to more specific
+    // route this will be used to trigger flow re-compute to use more specific
+    // on route add. key for the map is vrf and data is prefix length
+    FlowRouteRefMap     flow_source_plen_map;
+    FlowRouteRefMap     flow_dest_plen_map;
 };
 
 class FlowEntry {
@@ -439,6 +446,7 @@ class FlowEntry {
         underlay_source_port_ = port;
     }
     uint16_t short_flow_reason() const { return short_flow_reason_; }
+    bool set_pending_recompute(bool value);
 private:
     friend class FlowTable;
     friend class FlowStatsCollector;
@@ -489,13 +497,53 @@ struct FlowEntryCmp {
     }
 };
 
+typedef std::set<FlowEntryPtr, FlowEntryCmp> FlowEntryTree;
+
+struct RouteFlowInfo {
+    RouteFlowInfo() {}
+    RouteFlowInfo(const RouteFlowKey &r_key) : key(r_key) {}
+    RouteFlowInfo(uint32_t v, const IpAddress &ip_p, uint8_t p) :
+        key(v, ip_p, p) {}
+    ~RouteFlowInfo() {}
+
+    class KeyCmp {
+    public:
+        static std::size_t Length(const RouteFlowInfo *route_info) {
+            return (sizeof(route_info->key.vrf) + sizeof(route_info->key.family)
+                    + route_info->key.plen);
+        }
+
+        static char ByteValue(const RouteFlowInfo *route_info, std::size_t idx) {
+            const char *ch;
+            std::size_t i = idx;
+            if (i < sizeof(route_info->key.vrf)) {
+                ch = (const char *)&route_info->key.vrf;
+                return ch[sizeof(route_info->key.vrf) - i - 1];
+            }
+            i -= sizeof(route_info->key.vrf);
+            if (i < sizeof(route_info->key.family)) {
+                ch = (const char *)&route_info->key.family;
+                return ch[sizeof(route_info->key.family) - i - 1];
+            }
+            i -= sizeof(route_info->key.family);
+            if (route_info->key.family == Address::INET) {
+                return route_info->key.ip.to_v4().to_bytes()[i];
+            }
+            return route_info->key.ip.to_v6().to_bytes()[i];
+        }
+    };
+
+    RouteFlowKey key;
+    FlowEntryTree fet;
+    Patricia::Node node;
+};
+
 class FlowTable {
 public:
     static const int MaxResponses = 100;
     typedef std::map<FlowKey, FlowEntry *, Inet4FlowKeyCmp> FlowEntryMap;
 
     typedef std::map<int, int> AceIdFlowCntMap;
-    typedef std::set<FlowEntryPtr, FlowEntryCmp> FlowEntryTree;
     typedef std::map<const AclDBEntry *, AclFlowInfo *> AclFlowTree;
     typedef std::pair<const AclDBEntry *, AclFlowInfo *> AclFlowPair;
 
@@ -509,8 +557,7 @@ public:
     typedef std::map<const VmEntry *, VmFlowInfo *> VmFlowTree;
     typedef std::pair<const VmEntry *, VmFlowInfo *> VmFlowPair;
 
-    typedef std::map<RouteFlowKey, RouteFlowInfo *, RouteFlowKeyCmp> RouteFlowTree;
-    typedef std::pair<RouteFlowKey, RouteFlowInfo *> RouteFlowPair;
+    typedef Patricia::Tree<RouteFlowInfo, &RouteFlowInfo::node, RouteFlowInfo::KeyCmp> RouteFlowTree;
 
     struct VnFlowHandlerState : public DBState {
         AclDBEntryConstRef acl_;
@@ -592,6 +639,7 @@ public:
     friend class FetchFlowRecord;
     friend class Inet4RouteUpdate;
     friend class NhState;
+    friend class PktFlowInfo;
     friend void intrusive_ptr_release(FlowEntry *fe);
 private:
     static SecurityGroupList default_sg_list_;
@@ -628,6 +676,8 @@ private:
     void IncrVnFlowCounter(VnFlowInfo *vn_flow_info, const FlowEntry *fe);
     void DecrVnFlowCounter(VnFlowInfo *vn_flow_info, const FlowEntry *fe);
     void ResyncVnFlows(const VnEntry *vn);
+    void FlowReCompute(const RouteFlowInfo &rt_key);
+    void FlowReComputeInternal(RouteFlowInfo *rt_info);
     void ResyncRouteFlows(RouteFlowKey &key, SecurityGroupList &sg_l);
     void ResyncAFlow(FlowEntry *fe);
     void ResyncVmPortFlows(const VmInterface *intf);
@@ -639,6 +689,7 @@ private:
     void DeleteVmFlowInfo(FlowEntry *fe);
     void DeleteVmFlowInfo(FlowEntry *fe, const VmEntry *vm);
     void DeleteIntfFlowInfo(FlowEntry *fe);
+    void DeleteRouteFlowInfoInternal(FlowEntry *fe, RouteFlowKey &key);
     void DeleteRouteFlowInfo(FlowEntry *fe);
     void DeleteAclFlowInfo(const AclDBEntry *acl, FlowEntry* flow, const AclEntryIDList &id_list);
 
@@ -653,6 +704,7 @@ private:
     void AddVnFlowInfo(FlowEntry *fe);
     void AddVmFlowInfo(FlowEntry *fe);
     void AddVmFlowInfo(FlowEntry *fe, const VmEntry *vm);
+    void AddRouteFlowInfoInternal(FlowEntry *fe, RouteFlowKey &key);
     void AddRouteFlowInfo(FlowEntry *fe);
 
     void DeleteAclFlows(const AclDBEntry *acl);
@@ -750,7 +802,7 @@ private:
 struct AclFlowInfo {
     AclFlowInfo() : flow_count(0), flow_miss(0) { }
     ~AclFlowInfo() { }
-    FlowTable::FlowEntryTree fet;
+    FlowEntryTree fet;
     FlowTable::AceIdFlowCntMap aceid_cnt_map;
     void AddAclEntryIDFlowCnt(AclEntryIDList &idlist);
     void RemoveAclEntryIDFlowCnt(AclEntryIDList &idlist);
@@ -764,7 +816,7 @@ struct VnFlowInfo {
     ~VnFlowInfo() {}
 
     VnEntryConstRef vn_entry;
-    FlowTable::FlowEntryTree fet;
+    FlowEntryTree fet;
     uint32_t ingress_flow_count;
     uint32_t egress_flow_count;
 };
@@ -774,7 +826,7 @@ struct IntfFlowInfo {
     ~IntfFlowInfo() {}
 
     InterfaceConstRef intf_entry;
-    FlowTable::FlowEntryTree fet;
+    FlowEntryTree fet;
 };
 
 struct VmFlowInfo {
@@ -782,14 +834,8 @@ struct VmFlowInfo {
     ~VmFlowInfo() {}
 
     VmEntryConstRef vm_entry;
-    FlowTable::FlowEntryTree fet;
+    FlowEntryTree fet;
     uint32_t linklocal_flow_count;
-};
-
-struct RouteFlowInfo {
-    RouteFlowInfo() {}
-    ~RouteFlowInfo() {}
-    FlowTable::FlowEntryTree fet;
 };
 
 extern SandeshTraceBufferPtr FlowTraceBuf;

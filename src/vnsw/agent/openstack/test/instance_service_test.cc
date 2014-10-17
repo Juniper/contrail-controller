@@ -201,7 +201,8 @@ TEST_F(NovaInfoServerTest, IntrospecPortAdd) {
     req->set_vn_uuid(std::string("00000000-0000-0000-0000-000000000001"));
     req->set_mac_address(std::string("00:00:00:00:00:1"));
     req->set_vm_name(std::string("vm1"));
-    req->set_vlan_id(100);
+    req->set_rx_vlan_id(100);
+    req->set_tx_vlan_id(100);
     req->set_vm_project_uuid("00000000-0000-0000-0000-000000000001");
     port_resp_done = false;
     Sandesh::set_response_callback(boost::bind(PortReqResponse, _1, std::string("Success")));

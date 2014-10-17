@@ -108,6 +108,9 @@ class ContrailVRouterApi(object):
         if 'ip6_address' in kwargs:
             data.ip6_address = kwargs['ip6_address']
 
+        if 'vlan' in kwargs:
+            data.vlan_id = kwargs['vlan']
+
         data.validate()
 
         if self._client is None:

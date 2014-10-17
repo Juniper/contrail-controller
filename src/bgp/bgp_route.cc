@@ -24,6 +24,7 @@ BgpRoute::BgpRoute() {
 }
 
 BgpRoute::~BgpRoute() {
+    assert(GetPathList().empty());
 }
 
 //
@@ -38,6 +39,7 @@ const BgpPath *BgpRoute::BestPath() const {
 // Insert given path and redo path selection.
 //
 void BgpRoute::InsertPath(BgpPath *path) {
+    assert(!IsDeleted());
     const Path *prev_front = front();
 
     insert(path);
@@ -224,6 +226,39 @@ bool BgpRoute::RemoveSecondaryPath(const BgpRoute *src_rt,
 
 size_t BgpRoute::count() const {
     return GetPathList().size();
+}
+
+void BgpRoute::FillRouteInfo(BgpTable *table, ShowRouteBrief *show_route) {
+    show_route->set_prefix(ToString());
+    std::vector<ShowRoutePathBrief> show_route_paths;
+    for (Route::PathList::const_iterator it = GetPathList().begin();
+        it != GetPathList().end(); ++it) {
+        const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
+        ShowRoutePathBrief srp;
+        const IPeer *peer = path->GetPeer();
+        if (peer) {
+            srp.set_source(peer->ToString());
+        }
+
+        if (path->GetSource() == BgpPath::BGP_XMPP) {
+            if (peer) {
+                srp.set_protocol(peer->IsXmppPeer() ? "XMPP" : "BGP");
+            } else {
+                srp.set_protocol("Local");
+            }
+        } else if (path->GetSource() == BgpPath::ServiceChain) {
+            srp.set_protocol("ServiceChain");
+        } else if (path->GetSource() == BgpPath::StaticRoute) {
+            srp.set_protocol("StaticRoute");
+        }
+
+        const BgpAttr *attr = path->GetAttr();
+        srp.set_local_preference(attr->local_pref());
+        srp.set_next_hop(attr->nexthop().to_string());
+        srp.set_label(path->GetLabel());
+        show_route_paths.push_back(srp);
+    }
+    show_route->set_paths(show_route_paths);
 }
 
 void BgpRoute::FillRouteInfo(BgpTable *table, ShowRoute *show_route) {

@@ -47,7 +47,8 @@ class VncProvisioner(object):
             fq_name=['default-global-system-config'])
 
         gsc_obj.set_autonomous_system(prov_info['bgp-asn'])
-        gsc_obj.set_ibgp_auto_mesh(True)
+        if 'ibgp-auto-mesh' in prov_info:
+            gsc_obj.set_ibgp_auto_mesh(prov_infoi['ibgp-auto-mesh'])
         vnc_lib.global_system_config_update(gsc_obj)
         self._global_system_config_obj = gsc_obj
 

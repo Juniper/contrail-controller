@@ -404,6 +404,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:all>
         <xsd:element name="subnet" type="SubnetType"/>
         <xsd:element name="default-gateway" type="IpAddressType"/>
+        <xsd:element name="dns-server-address" type="IpAddressType"/>
         <xsd:element name="subnet-uuid" type="xsd:string"/>
         <xsd:element name="enable-dhcp" type="xsd:boolean" default="true"/>
         <xsd:element name="dns-nameservers" type="xsd:string" maxOccurs="unbounded"/>
@@ -994,6 +995,44 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
           'physical-router', 'logical-interface', ['has']);
      Link('physical-interface-logical-interface',
           'physical-interface', 'logical-interface', ['has']) -->
+
+<xsd:element name="logical-interface-vlan-tag" type="xsd:integer"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('logical-interface-vlan-tag', 'logical-interface') -->
+
+<xsd:simpleType name="LogicalInterfaceType">
+     <xsd:restriction base='xsd:string'>
+         <xsd:enumeration value='l2'/>
+         <xsd:enumeration value='l3'/>
+     </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:element name="logical-interface-type" type="LogicalInterfaceType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('logical-interface-type', 'logical-interface') -->
+
+<xsd:element name="physical-router-management-ip" type="smi:IpAddress"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('physical-router-management-ip', 'physical-router') -->
+
+<xsd:element name="physical-router-dataplane-ip" type="smi:IpAddress"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('physical-router-dataplane-ip', 'physical-router') -->
+
+<xsd:element name="physical-router-vendor-name" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('physical-router-vendor-name', 'physical-router') -->
+
+<xsd:complexType name="UserCredentials">
+    <xsd:all>
+        <xsd:element name="username" type="xsd:string"/>
+        <xsd:element name="password" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:element name="physical-router-user-credentials" type="UserCredentials" maxOccurs="unbounded"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('physical-router-user-credentials', 'physical-router') -->
 
 <xsd:element name="logical-interface-virtual-machine-interface"/>
 <!--#IFMAP-SEMANTICS-IDL

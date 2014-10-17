@@ -822,11 +822,7 @@ class DBInterface(object):
                     cidr = '%s/%s' % (subnet_vnc.subnet.get_ip_prefix(),
                                       subnet_vnc.subnet.get_ip_prefix_len())
                     if IPAddress(ip_addr) in IPSet([cidr]):
-                        subnet_key = self._subnet_vnc_get_key(subnet_vnc,
-                                                              net_obj.uuid)
-                        subnet_id = self._subnet_vnc_read_or_create_mapping(
-                                key=subnet_key)
-
+                        subnet_id = subnet_vnc.subnet_uuid
                         return subnet_id
         return None
     #end _ip_address_to_subnet_id
@@ -2720,9 +2716,8 @@ class DBInterface(object):
         if not si_obj:
             si_obj = ServiceInstance(si_name, parent_obj=project_obj)
             si_created = True
-        #TODO(ethuleau): For the fail-over SNAT set scale out to 2
         si_prop_obj = ServiceInstanceType(
-            scale_out=ServiceScaleOutType(max_instances=1,
+            scale_out=ServiceScaleOutType(max_instances=2,
                                           auto_scale=True),
             auto_policy=True)
 

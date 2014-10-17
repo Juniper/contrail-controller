@@ -131,7 +131,8 @@ class InstanceManager(object):
         return rt_obj
 
     def _create_svc_vm_port(self, nic, instance_name, st_obj, si_obj,
-                            local_preference=None, user_visible=None):
+                            local_preference=None, user_visible=None,
+                            ha_mode=None):
         # get virtual network
         try:
             vn_obj = self._vnc_lib.virtual_network_read(id=nic['net-id'])
@@ -227,10 +228,12 @@ class InstanceManager(object):
                 iip_update = False
 
         if iip_update:
-            if max_instances > 1:
-                iip_obj.set_instance_ip_mode(u'active-active');
+            if ha_mode:
+                iip_obj.set_instance_ip_mode(ha_mode)
+            elif max_instances > 1:
+                iip_obj.set_instance_ip_mode(u'active-active')
             else:
-                iip_obj.set_instance_ip_mode(u'active-standby');
+                iip_obj.set_instance_ip_mode(u'active-standby')
 
             iip_obj.add_virtual_machine_interface(vmi_obj)
             self._vnc_lib.instance_ip_update(iip_obj)
@@ -655,7 +658,9 @@ class NetworkNamespaceManager(InstanceManager):
                 else:
                     user_visible = False
                 vmi_obj = self._create_svc_vm_port(nic, instance_name, st_obj,
-                    si_obj, int(local_preference), user_visible)
+                    si_obj, local_preference=int(local_preference),
+                    user_visible=user_visible,
+                    ha_mode=si_props.get_ha_mode())
                 if vmi_obj.get_virtual_machine_refs() is None:
                     vmi_obj.set_virtual_machine(vm_obj)
                     self._vnc_lib.virtual_machine_interface_update(vmi_obj)

@@ -9,7 +9,7 @@ message SelfDescribingMessage {
   required uint64 timestamp = 1;
 
   // Set of .proto files which define the type.
-  required google.protobuf.FileDescriptorSet proto_files = 2;
+  optional google.protobuf.FileDescriptorSet proto_files = 2;
 
   // Name of the message type.  Must be defined by one of the files in
   // proto_files.

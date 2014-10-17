@@ -286,6 +286,25 @@ protected:
         validate_done_ = true;
     }
 
+    static void ValidateShowRouteSummarySandeshResponse(Sandesh *sandesh,
+        vector<int> &result, int called_from_line) {
+        ShowRouteSummaryResp *resp =
+            dynamic_cast<ShowRouteSummaryResp *>(sandesh);
+        EXPECT_NE((ShowRouteSummaryResp *)NULL, resp);
+
+        EXPECT_EQ(result.size(), resp->get_tables().size());
+
+        cout << "From line number: " << called_from_line << endl;
+        cout << "*****************************************************" << endl;
+        for (size_t i = 0; i < resp->get_tables().size(); i++) {
+            EXPECT_EQ(result[i], resp->get_tables()[i].prefixes);
+            cout << resp->get_tables()[i].routing_table_name << " ";
+            cout << resp->get_tables()[i].prefixes << endl;
+        }
+        cout << "*****************************************************" << endl;
+        validate_done_ = true;
+    }
+
     static void ValidateShowRouteVrfSandeshResponse(Sandesh *sandesh,
         const string vrf, const char *prefix, int called_from_line) {
         ShowRouteVrfResp *resp = dynamic_cast<ShowRouteVrfResp *>(sandesh);
@@ -342,6 +361,16 @@ TEST_F(ShowRouteTest1, Basic) {
     validate_done_ = false;
     show_req->HandleRequest();
     show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    result = list_of(3)(3)(3)(3);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRouteSummarySandeshResponse, _1, result, __LINE__));
+    ShowRouteSummaryReq *show_summary_req = new ShowRouteSummaryReq;
+    validate_done_ = false;
+    show_summary_req->HandleRequest();
+    show_summary_req->Release();
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(true, validate_done_);
 

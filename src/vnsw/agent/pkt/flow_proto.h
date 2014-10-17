@@ -29,7 +29,8 @@ public:
     }
 
     bool Validate(PktInfo *msg) {
-        if (msg->ip == NULL && msg->ip6 == NULL) {
+        if (msg->ip == NULL && msg->ip6 == NULL &&
+            msg->type != PktType::MESSAGE) {
             FLOW_TRACE(DetailErr, msg->agent_hdr.cmd_param,
                        msg->agent_hdr.ifindex, msg->agent_hdr.vrf,
                        msg->ether_type, 0,

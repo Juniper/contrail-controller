@@ -521,11 +521,9 @@ class DiscoveryServer():
         # send short ttl if no publishers
         pubs = self._db_conn.lookup_service(service_type) or []
         pubs_active = [item for item in pubs if not self.service_expired(item)]
-        if len(pubs_active) == 0:
-            ttl_short = self.get_service_config(service_type, 'ttl_short')
-            if ttl_short:
-                ttl = self.get_ttl_short( client_id, service_type, ttl_short)
-                self._debug['ttl_short'] += 1
+        if len(pubs_active) < count:
+            ttl = randint(1, 32)
+            self._debug['ttl_short'] += 1
 
         self.syslog(
             'subscribe: service type=%s, client=%s:%s, ttl=%d, asked=%d pubs=%d/%d, subs=%d'
@@ -914,7 +912,7 @@ def parse_args(args_str):
     # Source any specified config/ini file
     # Turn off help, so we print all options in response to -h
     conf_parser = argparse.ArgumentParser(add_help=False)
-    conf_parser.add_argument("-c", "--conf_file",
+    conf_parser.add_argument("-c", "--conf_file", action='append',
                              help="Specify config file", metavar="FILE")
     args, remaining_argv = conf_parser.parse_known_args(args_str.split())
 
@@ -957,7 +955,7 @@ def parse_args(args_str):
 
     if args.conf_file:
         config = ConfigParser.SafeConfigParser()
-        config.read([args.conf_file])
+        config.read(args.conf_file)
         defaults.update(dict(config.items("DEFAULTS")))
         for section in config.sections():
             if section == "DEFAULTS":

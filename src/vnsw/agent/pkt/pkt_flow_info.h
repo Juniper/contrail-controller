@@ -15,6 +15,8 @@ class AgentRoute;
 struct PktInfo;
 struct MatchPolicy;
 
+typedef map<int, int> FlowRouteRefMap;
+
 struct PktControlInfo {
     PktControlInfo() : 
         vrf_(NULL), intf_(NULL), rt_(NULL), vn_(NULL), vm_(NULL), 
@@ -79,6 +81,8 @@ public:
                             const PktControlInfo *in, const PktControlInfo *o);
 
 public:
+    void UpdateRoute(const AgentRoute **rt, const VrfEntry *vrf,
+                     const IpAddress &addr, FlowRouteRefMap &ref_map);
     uint8_t RouteToPrefixLen(const AgentRoute *route);
 
     Address::Family     family;
@@ -87,6 +91,11 @@ public:
 
     uint32_t            flow_source_vrf;
     uint32_t            flow_dest_vrf;
+    // map for references to the routes which were ignored due to more specific
+    // route this will be used to trigger flow re-compute to use more specific
+    // on route add. key for the map is vrf and data is prefix length
+    FlowRouteRefMap     flow_source_plen_map;
+    FlowRouteRefMap     flow_dest_plen_map;
 
     // NAT addresses
     bool                nat_done;
@@ -128,6 +137,9 @@ public:
     uint16_t            short_flow_reason;
     std::string         peer_vrouter;
     TunnelType          tunnel_type;
+
+    // flow entry obtained from flow IPC, which requires recomputation.
+    FlowEntry           *flow_entry;
 };
 
 #endif // __agent_pkt_flow_info_h_

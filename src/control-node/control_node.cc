@@ -51,6 +51,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     TaskPolicy mutual_exc_service_chain;
     const char *svc_chain_exclusion_task_ids[] = {
         "bgp::Config",
+        "bgp::PeerMembership",
         "bgp::ServiceChain",
         "bgp::StaticRoute",
         "db::DBTable",
@@ -62,7 +63,6 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     }
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::ServiceChain"),
                             mutual_exc_service_chain);
-
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::StaticRoute"),
                             mutual_exc_service_chain);
 
@@ -80,10 +80,11 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
         (TaskExclusion(scheduler->GetTaskId("bgp::SendTask")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ServiceChain")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ShowCommand")))
         (TaskExclusion(scheduler->GetTaskId("bgp::StateMachine")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::StaticRoute")))
         (TaskExclusion(scheduler->GetTaskId("xmpp::StateMachine")));
-
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::PeerMembership"),
                             peer_membership_policy);
 
@@ -99,8 +100,6 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("bgp::StateMachine")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RTFilter")))
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")));
-
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::RTFilter"),
                             rtfilter_task_policy);
 }
-

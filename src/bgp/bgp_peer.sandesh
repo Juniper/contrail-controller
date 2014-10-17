@@ -101,6 +101,19 @@ response sandesh ClearBgpNeighborResp {
     1: bool success;
 }
 
+struct ShowRoutePathBrief {
+    1: string protocol;
+    2: u32 local_preference;
+    3: string source;
+    4: string next_hop;
+    5: u32 label;
+}
+
+struct ShowRouteBrief {
+    1: string prefix;
+    2: list<ShowRoutePathBrief> paths;
+}
+
 struct ShowRoutePath {
     1: string protocol;
     2: u32 preference;
@@ -160,6 +173,28 @@ request sandesh ShowRouteReq {
     7: u32 count;
 
     8: bool longer_match;
+}
+
+struct ShowRouteTableSummary {
+    1: string routing_table_name (link="ShowRouteReq");
+    2: bool deleted;
+    3: u64 prefixes;
+    4: u64 paths;
+    5: u64 primary_paths;
+    6: u64 secondary_paths;
+    7: u64 infeasible_paths;
+    8: u64 walk_requests;
+    9: u64 walk_completes;
+    10: u64 walk_cancels;
+    11: u64 pending_updates;
+    12: u64 markers;
+}
+
+response sandesh ShowRouteSummaryResp {
+    1: list<ShowRouteTableSummary> tables;
+}
+
+request sandesh ShowRouteSummaryReq {
 }
 
 //

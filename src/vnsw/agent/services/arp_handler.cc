@@ -288,19 +288,21 @@ void ArpHandler::SendArp(uint16_t op, const MacAddress &smac, in_addr_t sip,
                          uint16_t itf, uint16_t vrf) {
 
     if (pkt_info_->packet_buffer() == NULL) {
-        pkt_info_->AllocPacketBuffer(agent(), PktHandler::ARP, MIN_ETH_PKT_LEN,
+        pkt_info_->AllocPacketBuffer(agent(), PktHandler::ARP, ARP_TX_BUFF_LEN,
                                      0);
     }
 
-    uint8_t *buf = pkt_info_->packet_buffer()->data();
+    char *buf = (char *)pkt_info_->packet_buffer()->data();
     memset(buf, 0, pkt_info_->packet_buffer()->data_len());
     pkt_info_->eth = (struct ether_header *)buf;
-    arp_ = pkt_info_->arp = (ether_arp *) (pkt_info_->eth + 1);
+    int l2_len = EthHdr(buf, pkt_info_->packet_buffer()->data_len(),
+                        itf, smac, MacAddress::BroadcastMac(), ETHERTYPE_ARP);
+
+    arp_ = pkt_info_->arp = (ether_arp *) (buf + l2_len);
     arp_tpa_ = tip;
 
     ArpHdr(smac, sip, tmac, tip, op);
-    EthHdr(smac, MacAddress::BroadcastMac(), ETHERTYPE_ARP);
-    pkt_info_->set_len(sizeof(struct ether_header) + sizeof(ether_arp));
+    pkt_info_->set_len(l2_len + sizeof(ether_arp));
 
     Send(itf, vrf, AgentHdr::TX_SWITCH, PktHandler::ARP);
 }
