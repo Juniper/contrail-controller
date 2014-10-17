@@ -63,6 +63,7 @@ void FlowStatsCollector::UpdateFlowMultiplier() {
 void FlowStatsCollector::SetUnderlayInfo(FlowEntry *flow,
                                          FlowDataIpv4 &s_flow) {
     string rid = agent_uve_->agent()->router_id().to_string();
+    uint16_t underlay_src_port = 0;
     if (flow->is_flags_set(FlowEntry::LocalFlow)) {
         s_flow.set_vrouter_ip(rid);
         s_flow.set_other_vrouter_ip(rid);
@@ -74,7 +75,10 @@ void FlowStatsCollector::SetUnderlayInfo(FlowEntry *flow,
     } else {
         s_flow.set_vrouter_ip(rid);
         s_flow.set_other_vrouter_ip(flow->peer_vrouter());
-        s_flow.set_underlay_source_port(flow->underlay_source_port());
+        if (flow->tunnel_type().GetType() != TunnelType::MPLS_GRE) {
+            underlay_src_port = flow->underlay_source_port();
+        }
+        s_flow.set_underlay_source_port(underlay_src_port);
     }
     s_flow.set_underlay_proto(flow->tunnel_type().GetType());
 }
