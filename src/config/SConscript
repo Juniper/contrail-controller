@@ -19,6 +19,7 @@ CfgmEnv = BuildEnv.Clone()
 subdirs=[
     'api-server',
     'common',
+    'device-manager',
     'schema-transformer',
     'test',
     'utils',
