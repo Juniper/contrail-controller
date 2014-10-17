@@ -48,6 +48,26 @@ public:
                          0) {
     }
 
+    void CheckArpSandeshResponse(Sandesh *sandesh) {
+        if (memcmp(sandesh->Name(), "ArpPktSandesh",
+                   strlen("ArpPktSandesh")) == 0) {
+            ArpPktSandesh *arp_pkt = (ArpPktSandesh *)sandesh;
+            ArpPkt pkt = (arp_pkt->get_pkt_list())[0];
+            if (pkt.agent_hdr.cmd != "switch" ||
+                pkt.agent_hdr.ifindex != 0 ||
+                pkt.mac_hdr.dest_mac != "ff:ff:ff:ff:ff:ff" ||
+                pkt.arp_hdr.htype != "ethernet" ||
+                pkt.arp_hdr.protocol != "ip" ||
+                pkt.arp_hdr.hw_size != 6 ||
+                pkt.arp_hdr.prot_size != 4 ||
+                pkt.arp_hdr.opcode != "request" ||
+                pkt.arp_hdr.sender_ip != "10.1.1.1" ||
+                pkt.arp_hdr.target_ip != "10.1.1.3") {
+                assert(0);
+            }
+        }
+    }
+
     void CheckSandeshResponse(Sandesh *sandesh) {
     }
 
@@ -301,7 +321,7 @@ TEST_F(ArpTest, ArpReqTest) {
     EXPECT_FALSE(FindArpRoute(ntohl(inet_addr("1.1.1.2")), Agent::GetInstance()->fabric_vrf_name()));
     ArpInfo *sand = new ArpInfo();
     Sandesh::set_response_callback(boost::bind(
-        &ArpTest::CheckSandeshResponse, this, _1));
+        &ArpTest::CheckArpSandeshResponse, this, _1));
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();

@@ -299,7 +299,7 @@ void ArpHandler::SendArp(uint16_t op, const unsigned char *smac, in_addr_t sip,
     pkt_info_->eth = (ethhdr *) (buf + IPC_HDR_LEN);
 
     const unsigned char bcast_mac[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-    int eth_len = EthHdr((char *)buf, buff_len - IPC_HDR_LEN, itf, smac,
+    int eth_len = EthHdr((char *)pkt_info_->eth, buff_len - IPC_HDR_LEN, itf, smac,
                          bcast_mac, 0x806);
 
     arp_ = pkt_info_->arp = (ether_arp *) ((char *)pkt_info_->eth + eth_len);
