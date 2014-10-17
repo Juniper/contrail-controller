@@ -21,6 +21,7 @@ from neutron.api.v2 import attributes as attr
 
 from cfgm_common import exceptions as vnc_exc
 from vnc_api.vnc_api import *
+from vnc_api.common import SG_NO_RULE_FQ_NAME, SG_NO_RULE_NAME
 
 _DEFAULT_HEADERS = {
     'Content-type': 'application/json; charset="UTF-8"', }
@@ -1622,6 +1623,31 @@ class DBInterface(object):
                 except RefsExistError:
                     pass
 
+    def _create_no_rule_sg(self):
+        domain_obj = Domain(SG_NO_RULE_FQ_NAME[0])
+        proj_obj = Project(SG_NO_RULE_FQ_NAME[1], domain_obj)
+        proj = self._vnc_lib.project_read(fq_name=SG_NO_RULE_FQ_NAME[:2])
+        sg_rules = PolicyEntriesType([])
+        id_perms = IdPermsType(enable=True,
+                               description="Security group with no rules",
+                               user_visible=False)
+        sg_obj = SecurityGroup(name=SG_NO_RULE_NAME,
+                               parent_obj=proj_obj,
+                               security_group_entries=sg_rules,
+                               id_perms=id_perms)
+        sg_uuid = self._vnc_lib.security_group_create(sg_obj)
+        return self._vnc_lib.security_group_read(id=sg_uuid)
+    # end _create_no_rule_sg
+
+    def _get_no_rule_security_group(self, proj_obj):
+        try:
+            sg_obj = self._vnc_lib.security_group_read(fq_name=SG_NO_RULE_FQ_NAME)
+        except NoIdError:
+            sg_obj = self._create_no_rule_sg()
+
+        return sg_obj
+    # end _get_no_rule_security_group
+
     def _port_neutron_to_vnc(self, port_q, net_obj, oper):
         if oper == CREATE:
             project_id = str(uuid.UUID(port_q['tenant_id']))
@@ -1647,6 +1673,7 @@ class DBInterface(object):
                 port_obj.add_security_group(sg_obj)
         else:  # READ/UPDATE/DELETE
             port_obj = self._virtual_machine_interface_read(port_id=port_q['id'])
+            proj_obj = self._project_read(proj_id=port_obj.parent_uuid)
 
         if 'name' in port_q and port_q['name']:
             port_obj.display_name = port_q['name']
@@ -1663,6 +1690,12 @@ class DBInterface(object):
             for sg_id in port_q.get('security_groups') or []:
                 # TODO optimize to not read sg (only uuid/fqn needed)
                 sg_obj = self._vnc_lib.security_group_read(id=sg_id)
+                port_obj.add_security_group(sg_obj)
+
+            # When there is no-security-group for a port,the internal
+            # no_rule group should be used.
+            if not port_q['security_groups']:
+                sg_obj = self._get_no_rule_security_group(proj_obj)
                 port_obj.add_security_group(sg_obj)
 
         id_perms = port_obj.get_id_perms()
