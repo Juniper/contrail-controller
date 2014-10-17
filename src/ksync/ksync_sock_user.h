@@ -186,6 +186,7 @@ public:
     static void IncrFlowStats(int idx, int pkts, int bytes);
     static void SetOFlowStats(int idx, uint8_t pkts, uint16_t bytes);
     static void FlowNatResponse(uint32_t seq_num, vr_flow_req *req);
+    static void SetUnderlaySourcePort(int idx, int port);
     friend class MockDumpHandlerBase;
     friend class RouteDumpHandler;
     friend class VrfAssignDumpHandler;
