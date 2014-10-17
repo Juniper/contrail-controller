@@ -404,6 +404,11 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                                      (int8_t *)mac + mac.size());
         encoder.set_vifr_mac(intf_mac);
 
+        if (ksync_obj_->ksync()->agent()->isVmwareVcenterMode()) {
+            encoder.set_vifr_src_mac(std::vector<int8_t>
+                                     ((const int8_t *)smac(),
+                                      (const int8_t *)smac() + smac().size()));
+        }
         break;
     }
 
@@ -477,8 +482,6 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
     encoder.set_vifr_mac(std::vector<int8_t>((const int8_t *)mac(),
                                              (const int8_t *)mac() + mac().size()));
-    encoder.set_vifr_src_mac(std::vector<int8_t>((const int8_t *)smac(),
-                                                 (const int8_t *)smac() + smac().size()));
     encoder.set_vifr_flags(flags);
 
     encoder.set_vifr_vrf(vrf_id_);

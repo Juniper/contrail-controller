@@ -98,7 +98,7 @@ bool ArpDBState::SendArpRequest() {
 
     bool ret = false;
     boost::shared_ptr<PktInfo> pkt(new PktInfo(vrf_state_->agent,
-                                               MIN_ETH_PKT_LEN,
+                                               ARP_TX_BUFF_LEN,
                                                PktHandler::ARP, 0));
     ArpHandler arp_handler(vrf_state_->agent, pkt,
             *(vrf_state_->agent->event_manager()->io_service()));
