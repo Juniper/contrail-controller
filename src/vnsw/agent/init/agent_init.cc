@@ -71,7 +71,7 @@ int AgentInit::Start() {
     agent_->set_task_scheduler(TaskScheduler::GetInstance());
     string module_name = ModuleName();
     agent_->set_discovery_client_name(module_name);
-    agent_->set_agent_name(module_name);
+    agent_->set_agent_name(AgentName());
     agent_->set_instance_id(InstanceId());
 
     // Copy tunable parameters into agent_

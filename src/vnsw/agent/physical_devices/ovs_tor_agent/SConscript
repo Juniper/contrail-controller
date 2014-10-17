@@ -29,6 +29,7 @@ env.AppendUnique(CCFLAGS='-Wno-return-type')
 tor_agent = env.Program(target = 'tor_agent',
                         source = [
                                   'buildinfo.cc',
+                                  'ovs_peer.cc',
                                   'tor_agent_param.cc',
                                   'tor_agent_init.cc',
                                   'main.cc',

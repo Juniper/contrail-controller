@@ -242,7 +242,6 @@ public:
         return xmpp_control_node_connection_name_prefix_;
     }
 
-    const std::string &host_name() const {return host_name_; }
     const std::string &program_name() const {return prog_name_;}
     const std::string &config_file() const {return config_file_;}
     const std::string &log_file() const {return log_file_;}
@@ -529,6 +528,7 @@ public:
         discovery_client_name_ = name;
     }
 
+    const std::string &host_name() const {return host_name_; }
     const std::string &agent_name() const {
         return agent_name_;
     }
@@ -786,7 +786,11 @@ private:
     AgentXmppChannel *cn_mcast_builder_;
     DiscoveryServiceClient *ds_client_;
     uint16_t metadata_server_port_;
+    // Host name of node running the daemon
     std::string host_name_;
+    // Unique name of the agent. When multiple instances are running, it will 
+    // use instance-id to make unique name
+    std::string agent_name_;
     std::string prog_name_;
     int introspect_port_;
     std::string instance_id_;
@@ -835,7 +839,6 @@ private:
     uint32_t dss_port_;
     int dss_xs_instances_;
     std::string discovery_client_name_;
-    std::string agent_name_;
     std::string label_range_[MAX_XMPP_SERVERS];
     std::string ip_fabric_intf_name_;
     std::string vhost_interface_name_;

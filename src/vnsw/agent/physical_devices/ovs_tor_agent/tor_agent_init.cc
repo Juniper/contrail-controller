@@ -29,6 +29,7 @@
 
 #include <physical_devices/ovs_tor_agent/tor_agent_init.h>
 #include <physical_devices/ovs_tor_agent/tor_agent_param.h>
+#include <physical_devices/ovs_tor_agent/ovs_peer.h>
 
 #include <string>
 
@@ -70,6 +71,10 @@ string TorAgentInit::AgentName() {
 void TorAgentInit::FactoryInit() {
 }
 
+void TorAgentInit::CreatePeers() {
+    ovs_peer_manager_.reset(new OvsPeerManager());
+}
+
 void TorAgentInit::CreateModules() {
     device_manager_.reset(new PhysicalDeviceManager(agent()));
     agent()->set_device_manager(device_manager_.get());
@@ -96,4 +101,15 @@ void TorAgentInit::ConnectToController() {
  ****************************************************************************/
 void TorAgentInit::WaitForIdle() {
     sleep(5);
+}
+
+/****************************************************************************
+ * Access routines
+ ****************************************************************************/
+PhysicalDeviceManager *TorAgentInit::device_manager() const {
+    return device_manager_.get();
+}
+
+OvsPeerManager *TorAgentInit::ovs_peer_manager() const {
+    return ovs_peer_manager_.get();
 }
