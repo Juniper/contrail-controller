@@ -8,7 +8,7 @@ setup(
     version='0.1dev',
     packages=['device_manager',
               'device_manager.sandesh',
-              'device_manager.sandesh.device_introspect',
+              'device_manager.sandesh.dm_introspect',
               ],
     package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,
