@@ -425,6 +425,10 @@ class DiscoveryServer():
             }
             self._db_conn.insert_service(service_type, sig, entry)
 
+        # handle upgrade
+        if 'sequence' not in entry:
+            entry['sequence'] = str(int(time.time())) + socket.gethostname()
+
         entry['info'] = info
         entry['admin_state'] = 'up'
         entry['heartbeat'] = int(time.time())
