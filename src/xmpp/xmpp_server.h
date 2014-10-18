@@ -64,8 +64,10 @@ public:
     size_t ConnectionCount() const;
 
     const XmppConnectionEndpoint *FindConnectionEndpoint(
-        Ip4Address address) const;
-    XmppConnectionEndpoint *LocateConnectionEndpoint(Ip4Address address);
+        const std::string &endpoint_name) const;
+    XmppConnectionEndpoint *LocateConnectionEndpoint(
+        XmppServerConnection *connection);
+    void ReleaseConnectionEndpoint(XmppServerConnection *connection);
 
 protected:
     virtual TcpSession *AllocSession(Socket *socket);
@@ -79,7 +81,7 @@ private:
 
     typedef std::map<Endpoint, XmppServerConnection *> ConnectionMap;
     typedef std::set<XmppServerConnection *> ConnectionSet;
-    typedef std::map<Ip4Address, XmppConnectionEndpoint *> ConnectionEndpointMap;
+    typedef std::map<std::string, XmppConnectionEndpoint *> ConnectionEndpointMap;
     typedef std::map<xmps::PeerId, ConnectionEventCb> ConnectionEventCbMap;
 
     bool DequeueConnection(XmppServerConnection *connection);
@@ -88,8 +90,10 @@ private:
 
     ConnectionMap connection_map_;
     ConnectionSet deleted_connection_set_;
-    ConnectionEndpointMap connection_endpoint_map_;
     void *bgp_server_;
+
+    tbb::mutex endpoint_map_mutex_;
+    ConnectionEndpointMap connection_endpoint_map_;
 
     tbb::mutex deletion_mutex_;
     boost::scoped_ptr<LifetimeManager> lifetime_manager_;

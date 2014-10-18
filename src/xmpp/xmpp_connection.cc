@@ -23,6 +23,7 @@
 #include "sandesh/sandesh_trace.h"
 #include "sandesh/common/vns_types.h"
 #include "sandesh/common/vns_constants.h"
+#include "sandesh/xmpp_client_server_sandesh_types.h"
 #include "sandesh/xmpp_message_sandesh_types.h"
 #include "sandesh/xmpp_state_machine_sandesh_types.h"
 #include "sandesh/xmpp_trace_sandesh_types.h"
@@ -34,10 +35,10 @@ using boost::system::error_code;
 XmppConnection::XmppConnection(TcpServer *server, 
                                const XmppChannelConfig *config)
     : server_(server),
+      session_(NULL),
       endpoint_(config->endpoint),
       local_endpoint_(config->local_endpoint),
       config_(NULL),
-      session_(NULL),
       keepalive_timer_(TimerManager::CreateTimer(
                            *server->event_manager()->io_service(),
                            "Xmpp keepalive timer")),
@@ -305,8 +306,16 @@ void XmppConnection::inc_connect_error() {
     error_stats_.connect_error++;
 }
 
+void XmppConnection::inc_session_close() {
+    error_stats_.session_close++;
+}
+
 size_t XmppConnection::get_connect_error() {
     return error_stats_.connect_error;
+}
+
+size_t XmppConnection::get_session_close() {
+    return error_stats_.session_close;
 }
 
 void XmppConnection::ReceiveMsg(XmppSession *session, const string &msg) {
@@ -417,9 +426,16 @@ public:
         // the XmppServer connection count doesn't temporarily become 0. This
         // is friendly to tests that wait for the XmppServer connection count
         // to become 0.
+        //
+        // Breaking association with the XmppConnectionEndpoint here allows
+        // a new XmppServerConnection with the same Endpoint to come up. We
+        // may end up leaking memory if current XmppServerConnection doesn't
+        // get cleaned up completely, but we at least prevent the other end
+        // from getting stuck forever.
         else if (!parent_->duplicate()) {
             server_->InsertDeletedConnection(parent_);
             server_->RemoveConnection(parent_);
+            server_->ReleaseConnectionEndpoint(parent_);
         }
 
         if (parent_->session() || server_->IsPeerCloseGraceful()) {
@@ -458,12 +474,11 @@ XmppServerConnection::XmppServerConnection(XmppServer *server,
     : XmppConnection(server, config), 
       duplicate_(false),
       on_work_queue_(false),
+      conn_endpoint_(NULL),
       deleter_(new DeleteActor(server, this)),
       server_delete_ref_(this, server->deleter()) {
     assert(!config->ClientOnly());
     XMPP_INFO(XmppConnectionCreate, "Server", FromString(), ToString());
-    conn_endpoint_ =
-        server->LocateConnectionEndpoint(endpoint().address().to_v4());
 }
 
 XmppServerConnection::~XmppServerConnection() {
@@ -471,6 +486,23 @@ XmppServerConnection::~XmppServerConnection() {
 
     XMPP_INFO(XmppConnectionDelete, "Server", FromString(), ToString());
     server()->RemoveDeletedConnection(this);
+}
+
+bool XmppServerConnection::EndpointNameIsUnique() {
+    // Bail if we've been deleted.
+    if (IsDeleted())
+        return false;
+
+    // Nothing to check if we already have a XmppConnectionEndpoint.
+    if (conn_endpoint_)
+        return true;
+
+    // Associate with a XmppConnectionEndpoint and handle the case where we
+    // already have another XmppConnection from the same Endpoint. Note that
+    // the XmppConnection is not marked duplicate since it's already on the
+    // ConnectionMap.
+    conn_endpoint_ = server()->LocateConnectionEndpoint(this);
+    return (conn_endpoint_ ? true : false);
 }
 
 void XmppServerConnection::ManagedDelete() {
@@ -506,7 +538,8 @@ const LifetimeActor *XmppServerConnection::deleter() const {
 }
 
 void XmppServerConnection::set_close_reason(const string &close_reason) {
-    conn_endpoint_->set_close_reason(close_reason);
+    if (conn_endpoint_)
+        conn_endpoint_->set_close_reason(close_reason);
 
     if (!logUVE())
         return;
@@ -518,10 +551,12 @@ void XmppServerConnection::set_close_reason(const string &close_reason) {
 }
 
 uint32_t XmppServerConnection::flap_count() const {
-    return conn_endpoint_->flap_count();
+    return conn_endpoint_ ? conn_endpoint_->flap_count() : 0;
 }
 
 void XmppServerConnection::increment_flap_count() {
+    if (!conn_endpoint_)
+        return;
     conn_endpoint_->increment_flap_count();
 
     if (!logUVE())
@@ -537,7 +572,7 @@ void XmppServerConnection::increment_flap_count() {
 }
 
 const std::string XmppServerConnection::last_flap_at() const {
-    return conn_endpoint_->last_flap_at();
+    return conn_endpoint_ ? conn_endpoint_->last_flap_at() : "";
 }
 
 class XmppClientConnection::DeleteActor : public LifetimeActor {
@@ -660,8 +695,8 @@ const std::string XmppClientConnection::last_flap_at() const {
     return last_flap_ ? integerToString(UTCUsecToPTime(last_flap_)) : "";
 }
 
-XmppConnectionEndpoint::XmppConnectionEndpoint(Ip4Address address)
-    : address_(address), flap_count_(0), last_flap_(0) {
+XmppConnectionEndpoint::XmppConnectionEndpoint(const string &client)
+    : client_(client), flap_count_(0), last_flap_(0), connection_(NULL) {
 }
 
 void XmppConnectionEndpoint::set_close_reason(const string &close_reason) {
@@ -683,4 +718,18 @@ uint64_t XmppConnectionEndpoint::last_flap() const {
 
 const std::string XmppConnectionEndpoint::last_flap_at() const {
     return last_flap_ ? integerToString(UTCUsecToPTime(last_flap_)) : "";
+}
+
+XmppConnection *XmppConnectionEndpoint::connection() {
+    return connection_;
+}
+
+void XmppConnectionEndpoint::set_connection(XmppConnection *connection) {
+    assert(!connection_);
+    connection_ = connection;
+}
+
+void XmppConnectionEndpoint::reset_connection() {
+    assert(connection_);
+    connection_ = NULL;
 }
