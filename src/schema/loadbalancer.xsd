@@ -56,6 +56,11 @@
      Link('loadbalancer-pool-service-instance',
           'loadbalancer-pool', 'service-instance', ['ref']) -->
 
+<xsd:element name="loadbalancer-pool-virtual-machine-interface"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('loadbalancer-pool-virtual-machine-interface',
+          'loadbalancer-pool', 'virtual-machine-interface', ['ref']) -->
+
 <xsd:element name="loadbalancer-pool-properties" type="LoadbalancerPoolType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('loadbalancer-pool-properties', 'loadbalancer-pool') -->
