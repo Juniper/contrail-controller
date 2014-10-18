@@ -61,9 +61,8 @@ private:
         const std::vector<process::ConnectionInfo> &c,
         process::ProcessState::type &state, std::string &message);
     uint8_t ExpectedConnections(uint8_t &num_c_nodes, uint8_t &num_d_servers);
-    void UpdateState(const process::ConnectionInfo &info, 
-                      process::ProcessState::type &c,
-                      std::string &message);
+    void UpdateMessage(const process::ConnectionInfo &info,
+                       std::string &message);
 
     static AgentUve *singleton_;
     Agent *agent_;
