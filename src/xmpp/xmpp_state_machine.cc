@@ -293,10 +293,13 @@ struct Active : public sc::state<Active, XmppStateMachine> {
         if (event.session != state_machine->session()) {
             return discard_event();
         }
-        SM_LOG(state_machine, "EvXmppOpen in (Active) State");
-        XmppConnection *connection = state_machine->connection();
-        TcpSession *session = state_machine->session();
         state_machine->AssignSession();
+        XmppConnection *connection = state_machine->connection();
+        if (!connection->EndpointNameIsUnique()) {
+            return discard_event();
+        }
+        SM_LOG(state_machine, "EvXmppOpen in (Active) State");
+        TcpSession *session = state_machine->session();
         state_machine->CancelOpenTimer();
         state_machine->StartHoldTimer();
         connection->SendOpenConfirm(session);
@@ -1036,6 +1039,7 @@ void XmppStateMachine::OnSessionEvent(
                     "Event: Tcp Connection Closed ",
                     this->connection()->endpoint().address().to_string());
         Enqueue(xmsm::EvTcpClose(static_cast<XmppSession *>(session)));
+        connection_->inc_session_close();
         break;
     default:
         XMPP_WARNING(XmppUnknownEvent, this->ChannelType(), event);
@@ -1211,8 +1215,7 @@ void XmppStateMachine::set_last_event(const std::string &event) {
 
 //
 // Enqueue an event to xmpp state machine.
-//
-// Retrun false if the event is not enqueued
+// Return false if the event is not enqueued.
 //
 bool XmppStateMachine::Enqueue(const sc::event_base &event) {
     if (!deleted_) {

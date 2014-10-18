@@ -836,6 +836,12 @@ size_t NetworkAgentMock::get_connect_error() {
     return (connection ? connection->get_connect_error() : 0);
 }
 
+size_t NetworkAgentMock::get_session_close() {
+    XmppConnection *connection =
+        client_->FindConnection("network-control@contrailsystems.com");
+    return (connection ? connection->get_session_close() : 0);
+}
+
 uint32_t NetworkAgentMock::flap_count() {
     XmppConnection *connection =
         client_->FindConnection("network-control@contrailsystems.com");
