@@ -91,6 +91,7 @@ public:
     virtual void ToString(std::string *str);
 
 private:
+    std::string vn_name_;
 };
 
 class AgentUtXmlVmiVrf : public AgentUtXmlConfig {
@@ -235,6 +236,7 @@ public:
     virtual bool Validate();
     virtual const std::string ToString();
 private:
+    std::string vn_name_;
 };
 
 class AgentUtXmlAclValidate : public AgentUtXmlValidationNode {

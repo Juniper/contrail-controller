@@ -266,7 +266,7 @@ void Agent::InitCollector() {
         g_vns_constants.Module2NodeType.find(module)->second;
     if (params_->collector_server_list().size() != 0) {
         Sandesh::InitGenerator(discovery_client_name_,
-                agent_name_,
+                host_name(),
                 g_vns_constants.NodeTypeNames.find(node_type)->second,
                 instance_id_,
                 event_manager(),
@@ -275,7 +275,7 @@ void Agent::InitCollector() {
                 NULL);
     } else {
         Sandesh::InitGenerator(discovery_client_name_,
-                agent_name_,
+                host_name(),
                 g_vns_constants.NodeTypeNames.find(node_type)->second,
                 instance_id_,
                 event_manager(),
@@ -344,7 +344,7 @@ Agent::Agent() :
     params_(NULL), event_mgr_(NULL), agent_xmpp_channel_(),
     ifmap_channel_(), xmpp_client_(), xmpp_init_(), dns_xmpp_channel_(),
     dns_xmpp_client_(), dns_xmpp_init_(), agent_stale_cleaner_(NULL),
-    cn_mcast_builder_(NULL), ds_client_(NULL), host_name_(""),
+    cn_mcast_builder_(NULL), ds_client_(NULL), host_name_(""), agent_name_(""),
     prog_name_(""), introspect_port_(0),
     instance_id_(g_vns_constants.INSTANCE_ID_DEFAULT), db_(NULL),
     task_scheduler_(NULL), agent_init_(NULL), intf_table_(NULL),
@@ -356,7 +356,7 @@ Agent::Agent() :
     gateway_id_(0), xs_cfg_addr_(""), xs_idx_(0), xs_addr_(), xs_port_(),
     xs_stime_(), xs_dns_idx_(0), dns_addr_(), dns_port_(),
     dss_addr_(""), dss_port_(0), dss_xs_instances_(0),
-    discovery_client_name_(), agent_name_(),
+    discovery_client_name_(),
     label_range_(), ip_fabric_intf_name_(""), vhost_interface_name_(""),
     pkt_interface_name_("pkt0"), cfg_listener_(NULL), arp_proto_(NULL),
     dhcp_proto_(NULL), dns_proto_(NULL), icmp_proto_(NULL),

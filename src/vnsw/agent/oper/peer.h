@@ -39,7 +39,8 @@ public:
         LOCAL_VM_PORT_PEER,
         NOVA_PEER,
         VGW_PEER,
-        MULTICAST_FABRIC_TREE_BUILDER
+        MULTICAST_FABRIC_TREE_BUILDER,
+        OVS_PEER
     };
 
     Peer(Type type, const std::string &name);

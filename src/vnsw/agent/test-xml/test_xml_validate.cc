@@ -159,6 +159,10 @@ bool AgentUtXmlValidationNode::ReadCmnXml() {
        delete_marked_ = true;
     }
 
+    if (GetStringAttribute(node_, "del", &str)) {
+       delete_marked_ = true;
+    }
+
     if (GetUintAttribute(node_, "id", &id_) == false)
         GetUintAttribute(node_, "uuid", &id_);
 

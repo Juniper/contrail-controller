@@ -41,10 +41,12 @@ struct VrfData : public AgentData {
         GwVrf     = 1 << 1,     // GW configured for this VRF
     };
 
-    VrfData(uint32_t flags) : AgentData(), flags_(flags) {}
+    VrfData(uint32_t flags, boost::uuids::uuid vn_uuid) :
+        AgentData(), flags_(flags), vn_uuid_(vn_uuid) {}
     virtual ~VrfData() {}
 
     uint32_t flags_;
+    boost::uuids::uuid vn_uuid_;
 };
 
 class VrfEntry : AgentRefCount<VrfEntry>, public AgentDBEntry {
@@ -62,6 +64,7 @@ public:
 
     const uint32_t vrf_id() const {return id_;};
     const string &GetName() const {return name_;};
+    VnEntry *vn() const { return vn_.get(); }
 
     uint32_t GetRefCount() const {
         return AgentRefCount<VrfEntry>::GetRefCount();
@@ -104,6 +107,7 @@ private:
     string name_;
     uint32_t id_;
     uint32_t flags_;
+    VnEntryRef vn_;
     DBTableWalker::WalkId walkid_;
     boost::scoped_ptr<DeleteActor> deleter_;
     AgentRouteTable *rt_table_db_[Agent::ROUTE_TABLE_MAX];

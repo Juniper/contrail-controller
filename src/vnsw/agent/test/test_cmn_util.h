@@ -62,7 +62,7 @@ NextHop *InetInterfaceNHGet(NextHopTable *table, const char *ifname,
 NextHop *ReceiveNHGet(NextHopTable *table, const char *ifname, bool policy);
 bool VrfFind(const char *name);
 bool VrfFind(const char *name, bool ret_del);
-VrfEntry *VrfGet(const char *name);
+VrfEntry *VrfGet(const char *name, bool ret_del=false);
 bool VnFind(int id);
 VnEntry *VnGet(int id);
 bool AclFind(int id);
