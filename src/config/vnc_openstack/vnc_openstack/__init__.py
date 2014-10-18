@@ -7,11 +7,9 @@ import json
 import uuid
 import gevent
 import requests
-import cgitb
 import copy
 import bottle
 import logging
-import logging.handlers
 import Queue
 import ConfigParser
 import keystoneclient.v2_0.client as keystone
@@ -22,8 +20,6 @@ try:
 except ImportError:
     from common import vnc_plugin_base
 from vnc_api import vnc_api
-from vnc_api.gen.resource_xsd import *
-
 from vnc_api.gen.resource_xsd import *
 from vnc_api.gen.resource_common import *
 
@@ -110,23 +106,8 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         self._vnc_project_ids = set()
 
         # logging
-        self._log_file_name = '/var/log/contrail/vnc_openstack.err'
-        self._tmp_file_name = '/var/log/contrail/vnc_openstack.tmp'
         self._vnc_os_logger = logging.getLogger(__name__)
         self._vnc_os_logger.setLevel(logging.ERROR)
-        # Add the log message handler to the logger
-        try:
-            handler = logging.handlers.RotatingFileHandler(self._log_file_name,
-                                                           maxBytes=1024,
-                                                           backupCount=5)
-        except IOError:
-            self._log_file_name = './vnc_openstack.err'
-            self._tmp_file_name = './vnc_openstack.tmp'
-            handler = logging.handlers.RotatingFileHandler(self._log_file_name,
-                                                           maxBytes=1024,
-                                                           backupCount=5)
-
-        self._vnc_os_logger.addHandler(handler)
         self.q = Queue.Queue(maxsize=Q_MAX_ITEMS)
     #end __init__
 
@@ -206,12 +187,8 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         except vnc_api.NoIdError:
             pass
         except Exception as e:
-            cgitb.Hook(
-                format="text",
-                file=open(self._tmp_file_name,
-                          'w')).handle(sys.exc_info())
-            fhandle = open(self._tmp_file_name)
-            self._vnc_os_logger.error("%s" % fhandle.read())
+            self._vnc_os_logger.error("Failed to delete project %s: %s" %
+                                      (project_id, e))
             self._failed_project_dels.add(project_id)
     # _ksv2_del_project_from_vnc
 
@@ -321,12 +298,8 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         except vnc_api.NoIdError:
             pass
         except Exception as e:
-            cgitb.Hook(
-                format="text",
-                file=open(self._tmp_file_name,
-                          'w')).handle(sys.exc_info())
-            fhandle = open(self._tmp_file_name)
-            self._vnc_os_logger.error("%s" % fhandle.read())
+            self._vnc_os_logger.error("Failed to delete project %s: %s" %
+                                      (project_id, e))
             self._failed_project_dels.add(project_id)
     # _ksv3_del_project_from_vnc
 
@@ -369,12 +342,8 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         except vnc_api.NoIdError:
             pass
         except Exception as e:
-            cgitb.Hook(
-                format="text",
-                file=open(self._tmp_file_name,
-                          'w')).handle(sys.exc_info())
-            fhandle = open(self._tmp_file_name)
-            self._vnc_os_logger.error("%s" % fhandle.read())
+            self._vnc_os_logger.error("Failed to delete domain %s: %s" %
+                                      (domain_id, e))
             self._failed_domain_dels.add(domain_id)
     # _del_domain_from_vnc
 
@@ -482,12 +451,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                                  if proj['fq_name'] != default_proj_fq_name])
             self._vnc_project_ids = vnc_project_ids
         except Exception as e:
-            cgitb.Hook(
-                format="text",
-                file=open(self._tmp_file_name,
-                          'w')).handle(sys.exc_info())
-            fhandle = open(self._tmp_file_name)
-            self._vnc_os_logger.error("%s" % fhandle.read())
+            self._vnc_os_logger.error("Connection to API server failed: %s" % e)
 
         while True:
             # Get domains/projects from Keystone and audit with api-server
@@ -497,13 +461,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                     continue
             except Exception as e:
                 self._ks = None
-                cgitb.Hook(
-                    format="text",
-                    file=open(self._tmp_file_name,
-                              'w')).handle(sys.exc_info())
-                fhandle = open(self._tmp_file_name)
-                self._vnc_os_logger.error("%s" % fhandle.read())
-                gevent.sleep(2)
+                self._vnc_os_logger.error("Failed to resync domains: %s" % e)
 
             try:
                 retry = self._resync_all_projects()
@@ -511,13 +469,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                     continue
             except Exception as e:
                 self._ks = None
-                cgitb.Hook(
-                    format="text",
-                    file=open(self._tmp_file_name,
-                              'w')).handle(sys.exc_info())
-                fhandle = open(self._tmp_file_name)
-                self._vnc_os_logger.error("%s" % fhandle.read())
-                gevent.sleep(2)
+                self._vnc_os_logger.error("Failed to resync projects: %s" % e)
 
             gevent.sleep(self._resync_interval_secs)
 
