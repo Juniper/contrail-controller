@@ -373,6 +373,11 @@ void VnTable::Delete(DBEntry *entry, const DBRequest *req) {
     vn->SendObjectLog(AgentLogEvent::DELETE);
 }
 
+VnEntry *VnTable::Find(const boost::uuids::uuid &u) {
+    VnKey key(u);
+    return static_cast<VnEntry *>(FindActiveEntry(&key));
+}
+
 DBTableBase *VnTable::CreateTable(DB *db, const std::string &name) {
     vn_table_ = new VnTable(db, name);
     vn_table_->Init();
@@ -613,11 +618,6 @@ void VnTable::DelVn(const uuid &vn_uuid) {
     req.key.reset(key);
     req.data.reset(NULL);
     Enqueue(&req);
-}
-
-VnEntry *VnTable::Find(const uuid &vn_uuid) {
-    VnKey key(vn_uuid);
-    return static_cast<VnEntry *>(FindActiveEntry(&key));
 }
 
 void VnTable::IpamVnSync(IFMapNode *node) {

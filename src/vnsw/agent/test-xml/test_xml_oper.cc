@@ -22,20 +22,20 @@ using namespace AgentUtXmlUtils;
 AgentUtXmlValidationNode *CreateValidateNode(const string &type,
                                              const string &name, const uuid &id,
                                              const xml_node &node) {
-    if (name == "virtual-network" || name == "vn")
+    if (type == "virtual-network" || type == "vn")
         return new AgentUtXmlVnValidate(name, id, node);
-    if (name == "virtual-machine" || name == "vm")
+    if (type == "virtual-machine" || type == "vm")
         return new AgentUtXmlVmValidate(name, id, node);
-    if (name == "virtual-machine-interface" || name == "vm-interface"
-        || name == "vmi")
+    if (type == "virtual-machine-interface" || type == "vm-interface"
+        || type == "vmi")
         return new AgentUtXmlVmInterfaceValidate(name, id, node);
-    if (name == "ethernet-interface" || name == "eth-port")
+    if (type == "ethernet-interface" || type == "eth-port")
         return new AgentUtXmlEthInterfaceValidate(name, id, node);
-    if (name == "flow")
+    if (type == "flow")
         return new AgentUtXmlFlowValidate(name, node);
-    if (name == "routing-instance" || name == "vrf")
+    if (type == "routing-instance" || type == "vrf")
         return new AgentUtXmlVrfValidate(name, node);
-    if (name == "access-control-list" || name == "acl")
+    if (type == "access-control-list" || type == "acl")
         return new AgentUtXmlAclValidate(name, node);
 }
 
@@ -317,13 +317,20 @@ AgentUtXmlVrf::~AgentUtXmlVrf() {
 
 
 bool AgentUtXmlVrf::ReadXml() {
-    return AgentUtXmlConfig::ReadXml();
+    if (AgentUtXmlConfig::ReadXml() == false)
+        return false;
+
+    GetStringAttribute(node(), "vn", &vn_name_);
+    return true;
 }
 
 bool AgentUtXmlVrf::ToXml(xml_node *parent) {
     xml_node n = AddXmlNodeWithAttr(parent, NodeType().c_str());
     AddXmlNodeWithValue(&n, "name", name());
     AddIdPerms(&n);
+    if (vn_name_ != "") {
+        LinkXmlNode(parent, NodeType(), name(), "virtual-network", vn_name_);
+    }
     return true;
 }
 
@@ -687,15 +694,39 @@ AgentUtXmlVrfValidate::~AgentUtXmlVrfValidate() {
 }
 
 bool AgentUtXmlVrfValidate::ReadXml() {
+    GetStringAttribute(node(), "vn", &vn_name_);
     return true;
 }
 
 bool AgentUtXmlVrfValidate::Validate() {
-    if (present()) {
-        return VrfFind(name().c_str());
-    } else {
-        return !VrfFind(name().c_str());
+    VrfEntry *vrf = VrfGet(name().c_str(), true);
+
+    if (present() && (vrf == NULL)) {
+        return false;
+    } else if (!present() && (vrf != NULL)) {
+        return false;
     }
+
+    if (vrf == NULL)
+        return true;
+
+    if (delete_marked()) {
+        if (vrf->IsDeleted() == false)
+            return false;
+    }
+
+    if (vn_name_ == "") {
+        return true;
+    }
+
+    if (vn_name_ == "nil" || vn_name_ == "NIL") {
+        return (vrf->vn() == NULL);
+    }
+
+    if (vrf->vn() == NULL)
+        return false;
+
+    return (vrf->vn()->GetName() == vn_name_);
 }
 
 const string AgentUtXmlVrfValidate::ToString() {

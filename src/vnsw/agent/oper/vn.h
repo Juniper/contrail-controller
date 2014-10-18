@@ -20,6 +20,8 @@ namespace autogen {
     struct VirtualDnsType;
 }
 
+bool IsVRFServiceChainingInstance(const std::string &vn_name,
+                                  const std::string &vrf_name);
 class VmInterface;
 
 struct VnIpam {
