@@ -1116,9 +1116,35 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 </xsd:simpleType>
 
 <xsd:simpleType name="ServiceVirtualizationType" default="virtual-machine">
+    <xsd:annotation>
+      <xsd:documentation>
+        ServiceVirtualizationType defines how a service instance is
+        managed.
+        * virtual-machine instances are managed by openstack nova.
+        * network-namespace instances are scheduled by service-monitor
+        into a functioning virtual-router in the cluster.
+        * vrouter-instance type instance are scheduled in a specific
+        virtual-router according to the virtual-router-id parameter in
+        the service instance.
+      </xsd:documentation>
+    </xsd:annotation>
     <xsd:restriction base="xsd:string">
         <xsd:enumeration value="virtual-machine"/>
         <xsd:enumeration value="network-namespace"/>
+        <xsd:enumeration value="vrouter-instance"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name='VRouterInstanceType'>
+    <xsd:annotation>
+        <xsd:documentation>
+	  For vrouter managed instances, this indicates the mechanism used
+	  to manage the instance.
+	</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base='xsd:string'>
+        <xsd:enumeration value='libvirt-qemu'/>
+	<xsd:enumeration value='docker'/>
     </xsd:restriction>
 </xsd:simpleType>
 
@@ -1133,6 +1159,15 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='ordered-interfaces' type='xsd:boolean' default='false'/>
         <xsd:element name='service-virtualization-type' type='ServiceVirtualizationType'/>
         <xsd:element name='availability-zone-enable' type='xsd:boolean' default='false'/>
+	<xsd:element name='vrouter-instance-type' type='VRouterInstanceType'/>
+        <xsd:element name='instance-data' type='xsd:string'>
+          <xsd:annotation>
+            <xsd:documentation>
+              Opaque string (typically in json format) used to spawn a
+              vrouter-instance.
+            </xsd:documentation>
+          </xsd:annotation>
+        </xsd:element>
     </xsd:sequence>
 </xsd:complexType>
 
@@ -1148,6 +1183,14 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='interface-list' type='ServiceInstanceInterfaceType' maxOccurs='unbounded'/>
         <xsd:element name='scale-out' type='ServiceScaleOutType'/>
         <xsd:element name="ha-mode" type="AddressMode"/>
+        <xsd:element name='virtual-router-id' type='xsd:string'>
+          <xsd:annotation>
+            <xsd:documentation>
+              The uuid of a virtual-router object in which to spawn a
+              service-instance of type vrouter-instance.
+            </xsd:documentation>
+          </xsd:annotation>
+        </xsd:element>
     </xsd:sequence>
 </xsd:complexType>
 
