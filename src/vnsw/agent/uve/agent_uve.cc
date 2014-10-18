@@ -104,11 +104,17 @@ uint8_t AgentUve::ExpectedConnections(uint8_t &num_control_nodes,
     return count;
 }
 
-void AgentUve::UpdateState(const ConnectionInfo &cinfo,
-                            ProcessState::type &pstate,
-                            std::string &message) {
-    pstate = ProcessState::NON_FUNCTIONAL;
-    message = cinfo.get_type() + " connection is down";
+void AgentUve::UpdateMessage(const ConnectionInfo &cinfo,
+                             std::string &message) {
+    if (message.empty()) {
+        message = cinfo.get_type();
+    } else {
+        message += ", " + cinfo.get_type();
+    }
+    const std::string &name(cinfo.get_name());
+    if (!name.empty()) {
+        message += ":" + name;
+    }
 }
 
 void AgentUve::VrouterAgentProcessState
@@ -127,6 +133,7 @@ void AgentUve::VrouterAgentProcessState
     }
     std::string cup(g_process_info_constants.ConnectionStatusNames.
         find(ConnectionStatus::UP)->second);
+    bool is_cup = true;
     // Iterate to determine process connectivity status
     for (std::vector<ConnectionInfo>::const_iterator it = cinfos.begin();
          it != cinfos.end(); it++) {
@@ -137,23 +144,31 @@ void AgentUve::VrouterAgentProcessState
                 agent_->xmpp_control_node_prefix()) == 0) {
                 down_control_nodes++;
                 if (num_control_nodes == down_control_nodes) {
-                    UpdateState(cinfo, pstate, message);
-                    return;
+                    is_cup = false;
+                    UpdateMessage(cinfo, message);
+                    continue;
                 }
             } else if (cinfo.get_name().compare(0, 11,
                 agent_->xmpp_dns_server_prefix()) == 0) {
                 down_dns_servers++;
                 if (num_dns_servers == down_dns_servers) {
-                    UpdateState(cinfo, pstate, message);
-                    return;
+                    is_cup = false;
+                    UpdateMessage(cinfo, message);
+                    continue;
                 }
             } else {
-                UpdateState(cinfo, pstate, message);
-                return;
+                is_cup = false;
+                UpdateMessage(cinfo, message);
+                continue;
             }
         }
     }
-    pstate = ProcessState::FUNCTIONAL;
+    if (is_cup) {
+        pstate = ProcessState::FUNCTIONAL;
+    } else {
+        pstate = ProcessState::NON_FUNCTIONAL;
+        message += " connection down";
+    }
     return;
 }
 

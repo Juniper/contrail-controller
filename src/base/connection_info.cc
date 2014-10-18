@@ -89,19 +89,32 @@ void GetProcessStateCb(const std::vector<ConnectionInfo> &cinfos,
     }
     std::string cup(g_process_info_constants.ConnectionStatusNames.
                     find(ConnectionStatus::UP)->second);
+    bool is_cup = true;
     // Iterate to determine process connectivity status
     for (std::vector<ConnectionInfo>::const_iterator it = cinfos.begin();
          it != cinfos.end(); it++) {
         const ConnectionInfo &cinfo(*it);
         const std::string &conn_status(cinfo.get_status());
         if (conn_status != cup) {
-            state = ProcessState::NON_FUNCTIONAL;
-            message = cinfo.get_type() + ":" + cinfo.get_name();
-            return;
+            is_cup = false;
+            if (message.empty()) {
+                message = cinfo.get_type();
+            } else {
+                message += ", " + cinfo.get_type();
+            }
+            const std::string &name(cinfo.get_name());
+            if (!name.empty()) {
+                message += ":" + name;
+            }
         }
     }
     // All critical connections are in good condition.
-    state = ProcessState::FUNCTIONAL;
+    if (is_cup) {
+        state = ProcessState::FUNCTIONAL;
+    } else {
+        state = ProcessState::NON_FUNCTIONAL;
+        message += " connection down";
+    }
     return;
 }
 
