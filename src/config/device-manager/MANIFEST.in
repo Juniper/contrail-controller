@@ -1,0 +1,2 @@
+recursive-include device_manager/uve *.html *.xml *.css
+recursive-include device_manager/sandesh *.html *.xml *.css

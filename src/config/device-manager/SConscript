@@ -12,23 +12,23 @@ setup_sources = ['setup.py', 'MANIFEST.in', ]
 setup_sources_rules = []
 for file in setup_sources:
     setup_sources_rules.append(
-        env.Install(Dir('.'), "#controller/src/config/prc-manager/" + file))
+        env.Install(Dir('.'), "#controller/src/config/device-manager/" + file))
 
-local_sources = ['prc_manager/__init__.py', 'iprc_manager/prc_manager.py', ]
+local_sources = ['device_manager/__init__.py', 'idevice_manager/device_manager.py', ]
 
 local_sources_rules = []
 for file in local_sources:
     local_sources_rules.append(
-        env.Install("prc_manager",
-                    "#controller/src/config/prc_manager/" + file))
+        env.Install("device_manager",
+                    "#controller/src/config/device_manager/" + file))
 
-prcm_introspect_pkg = env.SandeshGenPy('prcm_introspect.sandesh',
-                                       'prc_manager/sandesh/', False)
+dm_introspect_pkg = env.SandeshGenPy('dm_introspect.sandesh',
+                                       'device_manager/sandesh/', False)
 
 sdist_depends = []
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
-sdist_depends.extend(prcm_introspect_pkg)
+sdist_depends.extend(dm_introspect_pkg)
 sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
 
 env.Depends(sdist_gen, sdist_depends)
@@ -43,8 +43,8 @@ if 'install' in BUILD_TARGETS:
     env.Alias('install', install_cmd)
 
 env.Alias('install', env.Install(env['INSTALL_CONF'],
-          'contrail-prc-manager.conf'))
+          'contrail-device-manager.conf'))
 env.Alias('install', env.InstallAs(env['INSTALL_INITD'] +
-          '/contrail-prc-manager', 'contrail-prc-manager.initd.supervisord'))
+          '/contrail-device-manager', 'contrail-device-manager.initd.supervisord'))
 env.Alias('install', env.Install(env['INSTALL_CONF'] +
-          '/supervisord_config_files', 'contrail-prc-manager.ini'))
+          '/supervisord_config_files', 'contrail-device-manager.ini'))
