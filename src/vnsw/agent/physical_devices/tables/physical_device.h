@@ -20,14 +20,16 @@ struct PhysicalDeviceKey : public AgentKey {
 
 struct PhysicalDeviceData : public AgentData {
     PhysicalDeviceData(const std::string &name, const std::string &vendor,
-                    const IpAddress &ip, const std::string &protocol) :
+                    const IpAddress &ip, const IpAddress &mgmt_ip,
+                    const std::string &protocol) :
         AgentData(), name_(name), vendor_(vendor), ip_(ip),
-        protocol_(protocol) { }
+        management_ip_(mgmt_ip), protocol_(protocol) { }
     virtual ~PhysicalDeviceData() { }
 
     std::string name_;
     std::string vendor_;
     IpAddress ip_;
+    IpAddress management_ip_;
     std::string protocol_;
 };
 
@@ -56,6 +58,7 @@ class PhysicalDeviceEntry : AgentRefCount<PhysicalDeviceEntry>,
     const std::string &name() const { return name_; }
     const std::string &vendor() const { return vendor_; }
     const IpAddress &ip() const { return ip_; }
+    const IpAddress &management_ip() const { return management_ip_; }
     ManagementProtocol protocol() const { return protocol_; }
 
     void SendObjectLog(AgentLogEvent::type event) const;
@@ -67,6 +70,7 @@ class PhysicalDeviceEntry : AgentRefCount<PhysicalDeviceEntry>,
     std::string name_;
     std::string vendor_;
     IpAddress ip_;
+    IpAddress management_ip_;
     ManagementProtocol protocol_;
     DISALLOW_COPY_AND_ASSIGN(PhysicalDeviceEntry);
 };
