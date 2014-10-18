@@ -258,20 +258,20 @@ class QueryEngine(object):
                              stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE,
                              preexec_fn = AnalyticsFixture.enable_core)
-        self._logger.info('Setting up QueryEngine: %s' % ' '.join(args))
+        self._logger.info('Setting up Contrail-Query-Engine: %s' % ' '.join(args))
     # end start
 
     def stop(self):
         if self._instance is not None:
-            self._logger.info('Shutting down QueryEngine: 127.0.0.1:%d'
+            self._logger.info('Shutting down Contrail-Query-Engine: 127.0.0.1:%d'
                               % (self.listen_port))
             self._instance.terminate()
             (qe_out, qe_err) = self._instance.communicate()
             rcode = self._instance.returncode
             if rcode != 0:
-                self._logger.info('QueryEngine returned %d' % rcode)
-                self._logger.info('QueryEngine terminated stdout: %s' % qe_out)
-                self._logger.info('QueryEngine terminated stderr: %s' % qe_err)
+                self._logger.info('Contrail-Query-Engine returned %d' % rcode)
+                self._logger.info('Contrail-Query-Engine terminated stdout: %s' % qe_out)
+                self._logger.info('Contrail-Query-Engine terminated stderr: %s' % qe_err)
             subprocess.call(['rm', self._log_file])
             assert(rcode == 0)
             self._instance = None
@@ -484,7 +484,7 @@ class AnalyticsFixture(fixtures.Fixture):
         # only one moduleid: Collector
         if (not((len(moduleids) == 1))):
             return False
-        if (not ("Collector" in moduleids)):
+        if (not ("Contrail-Collector" in moduleids)):
             return False
         return True
 
@@ -515,16 +515,16 @@ class AnalyticsFixture(fixtures.Fixture):
     def verify_message_table_moduleid(self):
         self.logger.info("verify_message_table_moduleid")
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
-        # query for QueryEngine logs
+        # query for Contrail-Query-Engine logs
         res_qe = vns.post_query('MessageTable',
                                 start_time='-10m', end_time='now',
                                 select_fields=["Type", "Messagetype"],
-                                where_clause="ModuleId = QueryEngine")
+                                where_clause="ModuleId = Contrail-Query-Engine")
         # query for Collector logs
         res_c = vns.post_query('MessageTable',
                                start_time='-10m', end_time='now',
                                select_fields=["Type", "Messagetype"],
-                               where_clause="ModuleId = Collector")
+                               where_clause="ModuleId = Contrail-Collector")
         if (res_qe == []) or (res_c == []):
             return False
         assert(len(res_qe) > 0)
@@ -535,7 +535,7 @@ class AnalyticsFixture(fixtures.Fixture):
     def verify_message_table_where_or(self):
         self.logger.info("verify_message_table_where_or")
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
-        where_clause1 = "ModuleId = QueryEngine"
+        where_clause1 = "ModuleId = Contrail-Query-Engine"
         where_clause2 = str("Source =" + socket.gethostname())
         res = vns.post_query(
             'MessageTable',
@@ -548,7 +548,7 @@ class AnalyticsFixture(fixtures.Fixture):
             assert(len(res) > 0)
             moduleids = list(set(x['ModuleId'] for x in res))
             self.logger.info(str(moduleids))
-            if ('Collector' in moduleids) and ('QueryEngine' in moduleids):
+            if ('Contrail-Collector' in moduleids) and ('Contrail-Query-Engine' in moduleids):
                 return True
             else:
                 return False
@@ -557,7 +557,7 @@ class AnalyticsFixture(fixtures.Fixture):
     def verify_message_table_where_and(self):
         self.logger.info("verify_message_table_where_and")
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
-        where_clause1 = "ModuleId = QueryEngine"
+        where_clause1 = "ModuleId = Contrail-Query-Engine"
         where_clause2 = str("Source =" + socket.gethostname())
         res = vns.post_query(
             'MessageTable',
@@ -570,7 +570,7 @@ class AnalyticsFixture(fixtures.Fixture):
             assert(len(res) > 0)
             moduleids = list(set(x['ModuleId'] for x in res))
             self.logger.info(str(moduleids))
-            if len(moduleids) == 1:  # 1 moduleid: QueryEngine
+            if len(moduleids) == 1:  # 1 moduleid: Contrail-Query-Engine
                 return True
             else:
                 return False
@@ -579,21 +579,21 @@ class AnalyticsFixture(fixtures.Fixture):
     def verify_message_table_filter(self):
         self.logger.info("verify_message_table_where_filter")
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
-        where_clause1 = "ModuleId = QueryEngine"
+        where_clause1 = "ModuleId = Contrail-Query-Engine"
         where_clause2 = str("Source =" + socket.gethostname())
         res = vns.post_query('MessageTable',
                              start_time='-10m', end_time='now',
                              select_fields=["ModuleId"],
                              where_clause=str(
                                  where_clause1 + " OR  " + where_clause2),
-                             filter="ModuleId = QueryEngine")
+                             filter="ModuleId = Contrail-Query-Engine")
         if res == []:
             return False
         else:
             assert(len(res) > 0)
             moduleids = list(set(x['ModuleId'] for x in res))
             self.logger.info(str(moduleids))
-            if len(moduleids) != 1:  # 1 moduleid: Collector
+            if len(moduleids) != 1:  # 1 moduleid: Contrail-Collector
                 return False
 
         res1 = vns.post_query('MessageTable',
@@ -601,7 +601,7 @@ class AnalyticsFixture(fixtures.Fixture):
                               select_fields=["ModuleId"],
                               where_clause=str(
                                   where_clause1 + " AND  " + where_clause2),
-                              filter="ModuleId = Collector")
+                              filter="ModuleId = Contrail-Collector")
         self.logger.info(str(res1))
         if res1 != []:
             return False
@@ -615,7 +615,7 @@ class AnalyticsFixture(fixtures.Fixture):
                 start_time='now-10m',
                 end_time='now',
                 select_fields=["ModuleId"],
-                filter=[[{"name": "ModuleId", "value": "Collector", "op": 1}]])
+                filter=[[{"name": "ModuleId", "value": "Contrail-Collector", "op": 1}]])
         json_qstr = json.dumps(a_query.__dict__)
         res = vns.post_query_json(json_qstr)
         if res == []:
@@ -624,13 +624,13 @@ class AnalyticsFixture(fixtures.Fixture):
             assert(len(res) > 0)
             moduleids = list(set(x['ModuleId'] for x in res))
             self.logger.info(str(moduleids))
-            assert(len(moduleids) == 1 and "Collector" in moduleids)
+            assert(len(moduleids) == 1 and "Contrail-Collector" in moduleids)
 
         a_query = Query(table="MessageTable",
                 start_time='now-10m',
                 end_time='now',
                 select_fields=["ModuleId"],
-                filter=[[{"name": "ModuleId", "value": "Collector", "op": 1}], [{"name": "ModuleId", "value": "OpServer", "op": 1}]])
+                filter=[[{"name": "ModuleId", "value": "Contrail-Collector", "op": 1}], [{"name": "ModuleId", "value": "Contrail-Analytics-Api", "op": 1}]])
         json_qstr = json.dumps(a_query.__dict__)
         res = vns.post_query_json(json_qstr)
         if res == []:
@@ -639,7 +639,7 @@ class AnalyticsFixture(fixtures.Fixture):
             assert(len(res) > 0)
             moduleids = list(set(x['ModuleId'] for x in res))
             self.logger.info(str(moduleids))
-            assert(len(moduleids) == 2 and "Collector" in moduleids and "OpServer" in moduleids)  # 1 moduleid: Collector || OpServer
+            assert(len(moduleids) == 2 and "Contrail-Collector" in moduleids and "Contrail-Analytics-Api" in moduleids)  # 1 moduleid: Contrail-Collector || Contrail-Analytics-Api
                 
         return True
 
@@ -647,10 +647,10 @@ class AnalyticsFixture(fixtures.Fixture):
     def verify_message_table_sort(self):
         self.logger.info("verify_message_table_sort:Ascending Sort")
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
-        where_clause1 = "ModuleId = QueryEngine"
+        where_clause1 = "ModuleId = Contrail-Query-Engine"
         where_clause2 = str("Source =" + socket.gethostname())
 
-        exp_moduleids = ['Collector', 'OpServer', 'QueryEngine']
+        exp_moduleids = ['Contrail-Analytics-Api', 'Contrail-Collector', 'Contrail-Query-Engine']
 
         # Ascending sort
         res = vns.post_query('MessageTable',
@@ -716,8 +716,8 @@ class AnalyticsFixture(fixtures.Fixture):
                 if x['ModuleId'] not in moduleids:
                     moduleids.append(x['ModuleId'])
             self.logger.info(str(moduleids))
-            if len(moduleids) == 1:  # 2 moduleids: Collector/QueryEngine
-                if moduleids[0] != 'Collector':
+            if len(moduleids) == 1:  # 2 moduleids: Contrail-Collector/Contrail-Query-Engine
+                if moduleids[0] != 'Contrail-Analytics-Api':
                     return False
                 return True
             else:
@@ -1590,7 +1590,7 @@ class AnalyticsFixture(fixtures.Fixture):
         # ObjectTable query with ModuleId specified in where clause
         self.logger.info('ObjectTable query with ModuleId in where clause')
         object_id = object_id = self.collectors[0].hostname 
-        module = 'Collector'
+        module = 'Contrail-Collector'
         where_obj_id = 'ObjectId = %s' % object_id
         where_mod = 'ModuleId = %s' % module
         res = vns.post_query('ObjectCollectorInfo',
