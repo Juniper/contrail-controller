@@ -1,0 +1,41 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import sys
+if sys.platform == 'darwin':
+    Return()
+
+import re
+import time
+import subprocess
+
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+env.Append(LIBPATH = [ '../tables' ])
+env.Prepend(LIBS = [ 'vnswinit' ])
+env.Append(LIBS = [ 'physical_devices' ])
+
+env.GenerateBuildInfoCode(
+    target='buildinfo.cc',
+    source = ['main.cc'],
+    path=str(Dir('.').abspath))
+
+env = AgentEnv.RemoveExceptionFlag(env)
+env.AppendUnique(CCFLAGS='-Wno-reorder')
+env.AppendUnique(CCFLAGS='-Wno-return-type')
+
+tor_agent = env.Program(target = 'tor_agent',
+                        source = [
+                                  'buildinfo.cc',
+                                  'tor_agent_param.cc',
+                                  'tor_agent_init.cc',
+                                  'main.cc',
+                                 ])
+
+env.Alias('agent:tor_agent', tor_agent)
+
+# Local Variables:
+# mode: python
+# End:

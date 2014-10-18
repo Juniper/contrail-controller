@@ -1,0 +1,26 @@
+#
+# Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+import sys
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+SandeshGenFiles = env.SandeshGenCpp('physical_devices.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
+
+physical_devices = env.Library('physical_devices',
+                               sandesh_objs +
+                               [
+                                   'physical_device.cc',
+                                   'physical_device_vn.cc',
+                                   'physical_port.cc',
+                                   'logical_port.cc',
+                                   'device_manager.cc'
+                               ])
+subdirs = ['test']
+for dir in subdirs:
+    env.SConscript(dir + '/SConscript', exports='AgentEnv', duplicate=0)
