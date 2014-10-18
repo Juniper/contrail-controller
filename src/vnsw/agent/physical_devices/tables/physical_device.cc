@@ -87,6 +87,11 @@ bool PhysicalDeviceEntry::Copy(const PhysicalDeviceData *data) {
         ret = true;
     }
 
+    if (management_ip_ != data->management_ip_) {
+        management_ip_ = data->management_ip_;
+        ret = true;
+    }
+
     ManagementProtocol proto = FromString(data->protocol_);
     if (protocol_ != proto) {
         protocol_ = proto;
@@ -166,9 +171,11 @@ static PhysicalDeviceKey *BuildKey(const autogen::PhysicalRouter *router) {
 static PhysicalDeviceData *BuildData(const IFMapNode *node,
                                      const autogen::PhysicalRouter *router) {
     boost::system::error_code ec;
-    IpAddress ip = IpAddress::from_string("1.1.1.1", ec);
+    IpAddress ip = IpAddress::from_string(router->dataplane_ip(), ec);
+    IpAddress mip = IpAddress::from_string(router->management_ip(), ec);
     assert(!ec);
-    return new PhysicalDeviceData(node->name(), "Juniper", ip, "ovs");
+    return new PhysicalDeviceData(node->name(), router->vendor_name(),
+                                  ip, mip, "ovs");
 }
 
 bool PhysicalDeviceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
