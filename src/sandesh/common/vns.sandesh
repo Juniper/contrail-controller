@@ -52,7 +52,7 @@ const u16 HttpPortApiServer = 8084
 const u16 HttpPortAgent = 8085
 const u16 HttpPortSchemaTransformer = 8087
 const u16 HttpPortSvcMonitor = 8088
-const u16 HttpPortPrcManager = 8096
+const u16 HttpPortDeviceManager = 8096
 const u16 HttpPortCollector = 8089
 const u16 HttpPortOpserver = 8090
 const u16 HttpPortQueryEngine = 8091
@@ -95,7 +95,7 @@ const map<string, u16> ServiceHttpPortMap = {
     SERVICE_API_SERVER : HttpPortApiServer,
     SERVICE_SCHEMA_TRANSFORMER : HttpPortSchemaTransformer,
     SERVICE_SVC_MONITOR : HttpPortSvcMonitor,
-    SERVICE_DEVICE_MANAGER : HttpPortPrcManager,
+    SERVICE_DEVICE_MANAGER : HttpPortDeviceManager,
     SERVICE_CONFIG_NODE_MGR : HttpPortConfigNodemgr,
     SERVICE_ANALYTICS_NODE_MGR : HttpPortAnalyticsNodemgr,
     SERVICE_COMPUTE_NODE_MGR : HttpPortVRouterNodemgr,
@@ -150,7 +150,7 @@ const string MODULE_OPSERVER_NAME = SERVICE_OPSERVER
 const string MODULE_COLLECTOR_NAME = SERVICE_COLLECTOR
 const string MODULE_QUERY_ENGINE_NAME = SERVICE_QUERY_ENGINE
 const string MODULE_SVC_MONITOR_NAME = SERVICE_SVC_MONITOR
-const string MODULE_DEVICE_MANAGER_NAME = "PrcManager"
+const string MODULE_DEVICE_MANAGER_NAME = "DeviceManager"
 const string MODULE_DNS_NAME = "contrail-dns"
 const string MODULE_DISCOVERY_SERVICE_NAME = "contrail-discovery"
 const string MODULE_IFMAP_SERVER_NAME = "IfmapServer"
