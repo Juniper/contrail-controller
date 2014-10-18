@@ -103,6 +103,45 @@ void intrusive_ptr_add_ref(const AclDBEntry* p);
 //class SecurityGroup;
 typedef std::vector<int> SecurityGroupList;
 
+namespace AGENT {
+class PhysicalDeviceTable;
+class PhysicalDeviceEntry;
+
+class PhysicalPortTable;
+class PhysicalPortEntry;
+
+class LogicalPortTable;
+class LogicalPortEntry;
+
+class PhysicalDeviceVnTable;
+class PhysicalDeviceVnEntry;
+}
+
+typedef boost::intrusive_ptr<AGENT::PhysicalDeviceEntry> PhysicalDeviceEntryRef;
+typedef boost::intrusive_ptr<const AGENT::PhysicalDeviceEntry>
+    PhysicalDeviceEntryConstRef;
+void intrusive_ptr_release(const AGENT::PhysicalDeviceEntry* p);
+void intrusive_ptr_add_ref(const AGENT::PhysicalDeviceEntry* p);
+
+typedef boost::intrusive_ptr<AGENT::PhysicalPortEntry> PhysicalPortEntryRef;
+typedef boost::intrusive_ptr<const AGENT::PhysicalPortEntry>
+    PhysicalPortEntryConstRef;
+void intrusive_ptr_release(const AGENT::PhysicalPortEntry* p);
+void intrusive_ptr_add_ref(const AGENT::PhysicalPortEntry* p);
+
+typedef boost::intrusive_ptr<AGENT::LogicalPortEntry> LogicalPortEntryRef;
+typedef boost::intrusive_ptr<const AGENT::LogicalPortEntry>
+    LogicalPortEntryConstRef;
+void intrusive_ptr_release(const AGENT::LogicalPortEntry* p);
+void intrusive_ptr_add_ref(const AGENT::LogicalPortEntry* p);
+
+typedef boost::intrusive_ptr<AGENT::PhysicalDeviceVnEntry>
+    PhysicalDeviceVnEntryRef;
+typedef boost::intrusive_ptr<const AGENT::PhysicalDeviceVnEntry>
+    PhysicalDeviceVnEntryConstRef;
+void intrusive_ptr_release(const AGENT::PhysicalDeviceVnEntry* p);
+void intrusive_ptr_add_ref(const AGENT::PhysicalDeviceVnEntry* p);
+
 class AgentDBTable;
 class InterfaceTable;
 class NextHopTable;
@@ -151,6 +190,7 @@ class VNController;
 class AgentSignal;
 class ServiceInstanceTable;
 class LoadbalancerTable;
+class PhysicalDeviceManager;
 class Agent;
 
 extern void RouterIdDepInit(Agent *agent);
@@ -485,9 +525,16 @@ public:
     const std::string &discovery_client_name() const {
         return discovery_client_name_;
     }
-
     void set_discovery_client_name(const std::string &name) {
         discovery_client_name_ = name;
+    }
+
+    const std::string &agent_name() const {
+        return agent_name_;
+    }
+
+    void set_agent_name(const std::string &name) {
+        agent_name_ = name;
     }
 
     const std::string &instance_id() const { return instance_id_; }
@@ -621,6 +668,9 @@ public:
     VNController *controller() const;
     void set_controller(VNController *val);
 
+    PhysicalDeviceManager *device_manager() const;
+    void set_device_manager(PhysicalDeviceManager *dev_mgmt);
+
     // Miscellaneous
     EventManager *event_manager() const {return event_mgr_;}
     void set_event_manager(EventManager *evm) {
@@ -725,6 +775,7 @@ private:
     OperDB *oper_db_;
     DiagTable *diag_table_;
     VNController *controller_;
+    PhysicalDeviceManager *device_manager_;
 
     EventManager *event_mgr_;
     AgentXmppChannel *agent_xmpp_channel_[MAX_XMPP_SERVERS];
@@ -787,6 +838,7 @@ private:
     uint32_t dss_port_;
     int dss_xs_instances_;
     std::string discovery_client_name_;
+    std::string agent_name_;
     std::string label_range_[MAX_XMPP_SERVERS];
     std::string ip_fabric_intf_name_;
     std::string vhost_interface_name_;

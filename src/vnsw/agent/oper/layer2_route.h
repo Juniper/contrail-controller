@@ -60,6 +60,7 @@ public:
                                         uint32_t label,
                                         int vxlan_id,
                                         uint32_t ethernet_tag,
+                                        uint32_t tunnel_type,
                                         Composite::Type type,
                                         ComponentNHKeyList
                                         &component_nh_key_list);

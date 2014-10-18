@@ -25,7 +25,8 @@ public:
         MODE_INVALID,
         MODE_KVM,
         MODE_XEN,
-        MODE_VMWARE
+        MODE_VMWARE,
+        MODE_TOR_AGENT
     };
 
     enum VmwareMode {

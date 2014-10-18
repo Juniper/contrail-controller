@@ -111,7 +111,7 @@ void DiscoveryAgentClient::DiscoverServices() {
                 std::vector<std::string> list;
                 list.clear();
                 Sandesh::InitGenerator(subscriber_name,
-                                       Agent::GetInstance()->host_name(),
+                                       Agent::GetInstance()->agent_name(),
                                        node_type_name,
                                        agent->instance_id(),
                                        agent->event_manager(),

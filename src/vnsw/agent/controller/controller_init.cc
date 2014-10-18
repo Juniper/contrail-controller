@@ -72,7 +72,7 @@ void VNController::XmppServerConnect() {
             XmppChannelConfig *xmpp_cfg = new XmppChannelConfig(true);
             xmpp_cfg->ToAddr = XmppInit::kControlNodeJID;
             boost::system::error_code ec;
-            xmpp_cfg->FromAddr = agent_->host_name();
+            xmpp_cfg->FromAddr = agent_->agent_name();
             xmpp_cfg->NodeAddr = XmppInit::kPubSubNS; 
             xmpp_cfg->endpoint.address(
                 ip::address::from_string(agent_->controller_ifmap_xmpp_server(count), ec));
@@ -140,7 +140,7 @@ void VNController::DnsXmppServerConnect() {
             //XmppChannelConfig xmpp_cfg_dns(true);
             xmpp_cfg_dns->ToAddr = XmppInit::kDnsNodeJID;
             boost::system::error_code ec;
-            xmpp_cfg_dns->FromAddr = agent_->host_name() + "/dns";
+            xmpp_cfg_dns->FromAddr = agent_->agent_name() + "/dns";
             xmpp_cfg_dns->NodeAddr = "";
             xmpp_cfg_dns->endpoint.address(
                      ip::address::from_string(agent_->dns_server(count), ec));

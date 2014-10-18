@@ -159,10 +159,9 @@ bool VmUveEntry::FrameVmMsg(const VmEntry* vm, UveVirtualMachineAgent *uve) {
         changed = true;
     }
 
-    string hostname = agent_->host_name();
-    if (UveVmVRouterChanged(hostname)) {
-        uve->set_vrouter(hostname);
-        uve_info_.set_vrouter(hostname);
+    if (UveVmVRouterChanged(agent_->agent_name())) {
+        uve->set_vrouter(agent_->agent_name());
+        uve_info_.set_vrouter(agent_->agent_name());
         changed = true;
     }
 

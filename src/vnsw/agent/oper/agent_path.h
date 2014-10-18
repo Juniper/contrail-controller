@@ -342,9 +342,10 @@ private:
 class MulticastRoute : public AgentRouteData {
 public:
     MulticastRoute(const string &vn_name, uint32_t label,
-                   int vxlan_id, DBRequest &nh_req):
+                   int vxlan_id, uint32_t tunnel_type,
+                   DBRequest &nh_req):
     AgentRouteData(true), vn_name_(vn_name),
-    label_(label), vxlan_id_(vxlan_id) {
+    label_(label), vxlan_id_(vxlan_id), tunnel_type_(tunnel_type) {
         composite_nh_req_.Swap(&nh_req);
     }
     virtual ~MulticastRoute() { }
@@ -364,6 +365,7 @@ private:
     string vn_name_;
     uint32_t label_;
     uint32_t vxlan_id_;
+    uint32_t tunnel_type_;
     DBRequest composite_nh_req_;
     DISALLOW_COPY_AND_ASSIGN(MulticastRoute);
 };

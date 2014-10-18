@@ -4,6 +4,7 @@
 #include <testing/gunit.h>
 #include <test/test_cmn_util.h>
 #include "test_xml.h"
+#include "test_xml_oper.h"
 
 using namespace std;
 namespace opt = boost::program_options;
@@ -34,6 +35,7 @@ TEST_F(TestDummy, test_1) {
     char test_file[1024];
 
     AgentUtXmlTest test("controller/src/vnsw/agent/test-xml/dummy.xml");
+    AgentUtXmlOperInit(&test);
     if (test.Load() == true) {
         test.ReadXml();
 
