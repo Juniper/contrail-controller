@@ -62,7 +62,7 @@ class ServicePolicyCmd(object):
         }
 
 	if not args.conf_file:
-            args.conf_file = '/etc/contrail/svc-monitor.conf'
+            args.conf_file = '/etc/contrail/contrail-svc-monitor.conf'
 
         config = ConfigParser.SafeConfigParser()
         ret = config.read([args.conf_file])
