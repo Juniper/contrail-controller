@@ -253,25 +253,25 @@ def get_svc_uve_status(svc_name, debug):
     # Get the HTTP server (introspect) port for the service
     http_server_port = get_http_server_port(svc_name, debug)
     if http_server_port == -1:
-        return None
+        return None, None
     # Now check the NodeStatus UVE
     svc_introspect = IntrospectUtil('localhost', http_server_port, debug)
     node_status = svc_introspect.get_uve('NodeStatus')
     if node_status is None:
         if debug:
             print '{0}: NodeStatusUVE not found'.format(svc_name)
-        return None
+        return None, None
     if 'process_status' not in node_status:
         if debug:
             print '{0}: ProcessStatus not present in NodeStatusUVE'.format(
                 svc_name)
-        return None
+        return None, None
     process_status_info = node_status['process_status']
     if len(process_status_info) == 0:
         if debug:
             print '{0}: Empty ProcessStatus in NodeStatusUVE'.format(svc_name)
-        return None
-    return process_status_info[0]['state']
+        return None, None
+    return process_status_info[0]['state'], process_status_info[0]['description']
 
 def check_svc_status(service_name, debug):
     cmd = 'supervisorctl -s unix:///tmp/' + service_name.replace('-', 'd_') + '.sock' + ' status'
@@ -291,12 +291,14 @@ def check_svc_status(service_name, debug):
                 svc_status = supervisor_svc_info[1]
                 # Extract UVE state only for running processes
                 if svc_name in NodeUVEImplementedServices and svc_status == 'active':
-                    svc_uve_status = get_svc_uve_status(svc_name, debug)
+                    svc_uve_status, svc_uve_description = get_svc_uve_status(svc_name, debug)
                     if svc_uve_status is not None:
                         if svc_uve_status == 'Non-Functional':
                             svc_status = 'initializing'
                     else:
                         svc_status = 'initializing'
+                    if svc_uve_description is not None and svc_uve_description is not '':
+                        svc_status = svc_status + ' (' + svc_uve_description + ')'
                 print '{0:<30}{1:<20}'.format(svc_name, svc_status)
         print
 
