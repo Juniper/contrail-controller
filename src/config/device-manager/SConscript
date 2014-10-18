@@ -14,7 +14,13 @@ for file in setup_sources:
     setup_sources_rules.append(
         env.Install(Dir('.'), "#controller/src/config/device-manager/" + file))
 
-local_sources = ['device_manager/__init__.py', 'device_manager/device_manager.py', ]
+local_sources = [
+    'device_manager/__init__.py',
+    'device_manager/device_manager.py',
+    'device_manager/db.py',
+    'device_manager/physical_router_config.py',
+    'device_manager/dependency_tracker.py',
+]
 
 local_sources_rules = []
 for file in local_sources:

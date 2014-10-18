@@ -6,9 +6,20 @@
 This file contains implementation of managing physical router configuration
 """
 
+# Import kazoo.client before monkey patching
+from cfgm_common.zkclient import ZookeeperClient
+from gevent import monkey
+monkey.patch_all()
 from cfgm_common.vnc_cassandra import VncCassandraClient
 from cfgm_common.vnc_kombu import VncKombuClient
 import cgitb
+import sys
+import argparse
+import requests
+import ConfigParser
+import socket
+import time
+from pprint import pformat
 
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
@@ -17,10 +28,20 @@ from cfgm_common.uve.virtual_network.ttypes import *
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType, \
     NodeTypeNames, INSTANCE_ID_DEFAULT
+from pysandesh.connection_info import ConnectionState
+from pysandesh.gen_py.process_info.ttypes import ConnectionType, \
+    ConnectionStatus
 import discoveryclient.client as client
+from vnc_api.common.exceptions import ResourceExhaustionError
+from vnc_api.vnc_api import VncApi
+from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
+    NodeStatus
+from db import DBBase, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM, \
+    LogicalInterfaceDM, VirtualMachineInterfaceDM, VirtualNetworkDM
+from dependency_tracker import DependencyTracker
 
 
-class PrcManager(object):
+class DeviceManager(object):
     def __init__(self, args=None):
         self._args = args
 
@@ -30,36 +51,56 @@ class PrcManager(object):
             self._disc = client.DiscoveryClient(
                 self._args.disc_server_ip,
                 self._args.disc_server_port,
-                ModuleNames[Module.PRC_MANAGER])
+                ModuleNames[Module.DEVICE_MANAGER])
 
         self._sandesh = Sandesh()
-        module = Module.PRC_MANAGER
+        module = Module.DEVICE_MANAGER
         module_name = ModuleNames[module]
         node_type = Module2NodeType[module]
         node_type_name = NodeTypeNames[node_type]
         instance_id = INSTANCE_ID_DEFAULT
         hostname = socket.gethostname()
-        _sandesh.init_generator(
+        self._sandesh.init_generator(
             module_name, hostname, node_type_name, instance_id,
             self._args.collectors, 'to_bgp_context',
             int(args.http_server_port),
             ['cfgm_common', 'device_manager.sandesh'], self._disc)
-        _sandesh.set_logging_params(enable_local_log=args.log_local,
-                                    category=args.log_category,
-                                    level=args.log_level,
-                                    file=args.log_file,
-                                    enable_syslog=args.use_syslog,
-                                    syslog_facility=args.syslog_facility)
+        self._sandesh.set_logging_params(enable_local_log=args.log_local,
+                                         category=args.log_category,
+                                         level=args.log_level,
+                                         file=args.log_file,
+                                         enable_syslog=args.use_syslog,
+                                         syslog_facility=args.syslog_facility)
         ConnectionState.init(
-            _sandesh, hostname, module_name, instance_id,
+            self._sandesh, hostname, module_name, instance_id,
             staticmethod(ConnectionState.get_process_state_cb),
             NodeStatusUVE, NodeStatus)
+
+        # Retry till API server is up
+        connected = False
+        self.connection_state_update(ConnectionStatus.INIT)
+        while not connected:
+            try:
+                self._vnc_lib = VncApi(
+                    args.admin_user, args.admin_password,
+                    args.admin_tenant_name, args.api_server_ip,
+                    args.api_server_port)
+                connected = True
+                self.connection_state_update(ConnectionStatus.UP)
+            except requests.exceptions.ConnectionError as e:
+                # Update connection info
+                self.connection_state_update(ConnectionStatus.DOWN, str(e))
+                time.sleep(3)
+            except ResourceExhaustionError:  # haproxy throws 503
+                time.sleep(3)
 
         rabbit_server = self._args.rabbit_server
         rabbit_port = self._args.rabbit_port
         rabbit_user = self._args.rabbit_user
         rabbit_password = self._args.rabbit_password
         rabbit_vhost = self._args.rabbit_vhost
+
+        self._db_resync_done = gevent.event.Event()
 
         q_name = 'device_manager.%s' % (socket.gethostname())
         self._vnc_kombu = VncKombuClient(rabbit_server, rabbit_port,
@@ -73,30 +114,117 @@ class PrcManager(object):
         self._cassandra = VncCassandraClient(cass_server_list, reset_config,
                                              self._args.cluster_id, None,
                                              self.config_log)
-        self._vnc_kombu.connect(delete_old_q=True)
+
+        DBBase._device_manager = self
+        ok, pr_list = self._cassandra._cassandra_physical_router_list(None,
+                                                                      None,
+                                                                      None)
+        if not ok:
+            self.config_log('physical router list returned error: %s' %
+                            pr_list)
+        else:
+            vn_set = set()
+            for fq_name, uuid in pr_list:
+                pr = PhysicalRouterDM.locate(uuid)
+                if pr.bgp_router:
+                    bgpr = BgpRouterDM.locate(pr.bgp_router)
+                vn_set |= pr.virtual_networks
+                li_set = pr.logical_interfaces
+                for pi_id in pr.physical_interfaces:
+                    pi = PhysicalInterfaceDM.locate(pi_id)
+                    if pi:
+                        li_set |= pi.logical_interfaces
+                vmi_set = set()
+                for li_id in li_set:
+                    li = LogicalInterfaceDM.locate(li_id)
+                    if li and li.virtual_machine_interface:
+                        vmi_set |= set([li.virtual_machine_interface])
+                for vmi_id in vmi_set:
+                    vmi = VirtualMachineInterfaceDM.locate(vmi_id)
+                    if vmi:
+                        vn_set |= vmi.virtual_networks
+
+            for vn_id in vn_set:
+                vn = VirtualNetworkDM.locate(vn_id)
+
+            for pr in PhysicalRouterDM.values():
+                pr.push_config()
+
+        self._db_resync_done.set()
+        while 1:
+            self._vnc_kombu._subscribe_greenlet.join()
+            # In case _subscribe_greenlet dies for some reason, it will be
+            # respawned. sleep for 1 second to wait for it to be respawned
+            time.sleep(1)
     # end __init__
+
+    def connection_state_update(self, status, message=None):
+        ConnectionState.update(
+            conn_type=ConnectionType.APISERVER, name='ApiServer',
+            status=status, message=message or '',
+            server_addrs=['%s:%s' % (self._args.api_server_ip,
+                                     self._args.api_server_port)])
+    # end connection_state_update
 
     def config_log(self, msg, level):
         self._sandesh.logger().log(SandeshLogger.get_py_logger_level(level),
                                    msg)
 
     def _vnc_subscribe_callback(self, oper_info):
+        self._db_resync_done.wait()
         try:
             msg = "Notification Message: %s" % (pformat(oper_info))
             self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
+            obj_type = oper_info['type'].replace('-', '_')
+            obj_class = DBBase._OBJ_TYPE_MAP.get(obj_type)
+            if obj_class is None:
+                return
 
             if oper_info['oper'] == 'CREATE':
-                self._dbe_create_notification(oper_info)
-            if oper_info['oper'] == 'UPDATE':
-                self._dbe_update_notification(oper_info)
+                obj_dict = oper_info['obj_dict']
+                obj_id = obj_dict['uuid']
+                obj = obj_class.locate(obj_id, obj_dict)
+                dependency_tracker = DependencyTracker(DBBase._OBJ_TYPE_MAP)
+                dependency_tracker.evaluate(obj_type, obj)
+            elif oper_info['oper'] == 'UPDATE':
+                obj_id = oper_info['uuid']
+                obj = obj_class.get(obj_id)
+                dependency_tracker = DependencyTracker(DBBase._OBJ_TYPE_MAP)
+                if obj is not None:
+                    dependency_tracker.evaluate(obj_type, obj)
+                else:
+                    obj = obj_class.locate(obj_id)
+                obj.update()
+                dependency_tracker.evaluate(obj_type, obj)
             elif oper_info['oper'] == 'DELETE':
-                self._dbe_delete_notification(oper_info)
+                obj_id = oper_info['uuid']
+                obj = obj_class.get(obj_id)
+                if obj is None:
+                    return
+                dependency_tracker = DependencyTracker(DBBase._OBJ_TYPE_MAP)
+                dependency_tracker.evaluate(obj_type, obj)
+                obj_class.delete(obj_id)
+            else:
+                # unknown operation
+                self.config_log('Unknown operation %s' % oper_info['oper'],
+                                level=SandeshLevel.SYS_ERR)
+                return
+
+            if obj is None:
+                self.config_log('Error while accessing %s uuid %s' % (
+                                obj_type, obj_id))
+                return
 
         except Exception:
             string_buf = cStringIO.StringIO()
             cgitb.Hook(file=string_buf, format="text").handle(sys.exc_info())
-            self.config_log(string_buf.getvalue(),
-                            level=SandeshLevel.SYS_ERR)
+            self.config_log(string_buf.getvalue(), level=SandeshLevel.SYS_ERR)
+
+        for pr_id in dependency_tracker.resources.get('physical_router', []):
+            pr = PhysicalRouterDM.get(pr_id)
+            if pr is not None:
+                pr.push_config()
+
     # end _vnc_subscribe_callback
 
 
@@ -147,7 +275,7 @@ def parse_args(args_str):
         'collectors': None,
         'disc_server_ip': None,
         'disc_server_port': None,
-        'http_server_port': '8087',
+        'http_server_port': '8096',
         'log_local': False,
         'log_level': SandeshLevel.SYS_DEBUG,
         'log_category': '',
@@ -194,15 +322,6 @@ def parse_args(args_str):
     defaults.update(ksopts)
     parser.set_defaults(**defaults)
 
-    parser.add_argument(
-        "--ifmap_server_ip", help="IP address of ifmap server")
-    parser.add_argument("--ifmap_server_port", help="Port of ifmap server")
-
-    # TODO should be from certificate
-    parser.add_argument("--ifmap_username",
-                        help="Username known to ifmap server")
-    parser.add_argument("--ifmap_password",
-                        help="Password known to ifmap server")
     parser.add_argument(
         "--cassandra_server_list",
         help="List of cassandra servers in IP Address:Port format",
@@ -277,34 +396,7 @@ def main(args_str=None):
 
 
 def run_device_manager(args):
-    global _vnc_lib
-
-    def connection_state_update(status, message=None):
-        ConnectionState.update(
-            conn_type=ConnectionType.APISERVER, name='ApiServer',
-            status=status, message=message or '',
-            server_addrs=['%s:%s' % (args.api_server_ip,
-                                     args.api_server_port)])
-    # end connection_state_update
-
-    # Retry till API server is up
-    connected = False
-    connection_state_update(ConnectionStatus.INIT)
-    while not connected:
-        try:
-            _vnc_lib = VncApi(
-                args.admin_user, args.admin_password, args.admin_tenant_name,
-                args.api_server_ip, args.api_server_port)
-            connected = True
-            connection_state_update(ConnectionStatus.UP)
-        except requests.exceptions.ConnectionError as e:
-            # Update connection info
-            connection_state_update(ConnectionStatus.DOWN, str(e))
-            time.sleep(3)
-        except ResourceExhaustionError:  # haproxy throws 503
-            time.sleep(3)
-
-    device_manager = PrcManager(args)
+    device_manager = DeviceManager(args)
 # end run_device_manager
 
 
