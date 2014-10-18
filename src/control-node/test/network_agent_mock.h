@@ -412,6 +412,7 @@ public:
     bool ProcessRequest(Request *request);
 
     size_t get_connect_error();
+    size_t get_session_close();
     uint32_t flap_count();
 
     boost::scoped_ptr<InstanceMgr<RouteEntry> > route_mgr_;

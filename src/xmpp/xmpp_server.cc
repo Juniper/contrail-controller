@@ -296,19 +296,13 @@ void XmppServer::InsertConnection(XmppServerConnection *connection) {
 //
 XmppServerConnection *XmppServer::CreateConnection(XmppSession *session) {
     XmppServerConnection  *connection;
-    ip::tcp::endpoint remote_endpoint;
 
-    remote_endpoint.address(session->remote_endpoint().address());
-    remote_endpoint.port(0);
-
-    // Create a connection.
     XmppChannelConfig cfg(false);
-    cfg.endpoint = remote_endpoint;
-    cfg.FromAddr = this->ServerAddr();
-    cfg.logUVE = this->log_uve_;
+    cfg.endpoint = session->remote_endpoint();
+    cfg.FromAddr = server_addr_;
+    cfg.logUVE = log_uve_;
 
-    XMPP_DEBUG(XmppCreateConnection,
-               session->remote_endpoint().address().to_string());
+    XMPP_DEBUG(XmppCreateConnection, session->ToString());
     connection = XmppObjectFactory::Create<XmppServerConnection>(this, &cfg);
 
     return connection;
@@ -326,6 +320,8 @@ bool XmppServer::DequeueConnection(XmppServerConnection *connection) {
     CHECK_CONCURRENCY("bgp::Config"); 
     connection->clear_on_work_queue();
 
+    // This happens if the XmppServer got deleted while the XmppConnnection
+    // was on the WorkQueue.
     if (connection->IsDeleted()) {
         connection->RetryDelete();
         return true;
@@ -333,51 +329,23 @@ bool XmppServer::DequeueConnection(XmppServerConnection *connection) {
 
     XmppSession *session = connection->session();
     connection->set_session(NULL);
-
-    Endpoint remote_endpoint;
-    remote_endpoint.address(session->remote_endpoint().address());
-    remote_endpoint.port(0);
-
+    Endpoint remote_endpoint = session->remote_endpoint();
     XmppServerConnection *old_connection = FindConnection(remote_endpoint);
-    if (old_connection == NULL) {
+
+    // Close as duplicate if we have a connection from the same Endpoint.
+    // Otherwise go ahead and insert into the ConnectionMap. We may find
+    // it has a conflicting Endpoint name and decide to terminate it when
+    // we process the Open message.
+    if (old_connection) {
+        XMPP_DEBUG(XmppCreateConnection, "Close duplicate connection " +
+            session->ToString());
+        DeleteSession(session);
+        connection->set_duplicate();
+        connection->ManagedDelete();
+        InsertDeletedConnection(connection);
+    } else {
         InsertConnection(connection);
         connection->AcceptSession(session);
-    } else {
-        if (!IsPeerCloseGraceful()) {
-
-            // Delete the newly created connection and session.
-            XMPP_DEBUG(XmppCreateConnection, "Close duplicate connection " +
-                       session->ToString());
-            DeleteSession(session);
-            connection->set_duplicate();
-            connection->ManagedDelete();
-            InsertDeletedConnection(connection);
-
-        } else {
-
-            connection->ManagedDelete();
-            InsertDeletedConnection(connection);
-
-            // TODO GR case: associate the new session
-            // ShutdownPending() is set in bgp::config task context via LTM
-            // TCP Close event enqueues an event to xmpp::StateMachine task, which
-            // may have not yet run, which enqueues event to LTM to set the
-            // ShutdownPending() flag. 
-            // In such a case  where xmpp::StateMachine task did not
-            // run, connection->ShutdownPending() will not be set.
-            // 
-            // Hence ShutdownPending() should be set in ioReader task on
-            // TCP close event and also while calling XmppServer Shutdown()
-            // Also appropriately take care of asserts in bgp_xmpp_channel.cc
-            // for ReceiveUpdate
-            //
-            connection = old_connection;
-            if (connection->session()) {
-                DeleteSession(connection->session());
-            }
-            connection->Initialize();
-            connection->AcceptSession(session);
-        }
     }
 
     return true;
@@ -418,23 +386,52 @@ void XmppServer::RemoveDeletedConnection(XmppServerConnection *connection) {
 }
 
 const XmppConnectionEndpoint *XmppServer::FindConnectionEndpoint(
-    Ip4Address address) const {
+    const string &endpoint_name) const {
     ConnectionEndpointMap::const_iterator loc =
-        connection_endpoint_map_.find(address);
+        connection_endpoint_map_.find(endpoint_name);
     return (loc != connection_endpoint_map_.end() ? loc->second : NULL);
 }
 
+//
+// Find or create an XmppConnectionEndpoint for the Endpoint of the given
+// XmppConnnection. If XmppConnectionEndpoint is already associated with a
+// XmppConnection, return NULL to indicate that the XmppConnection should
+// be terminated. Otherwise, associate it with the given XmppConnection.
+//
 XmppConnectionEndpoint *XmppServer::LocateConnectionEndpoint(
-    Ip4Address address) {
-    ConnectionEndpointMap::iterator loc =
-        connection_endpoint_map_.find(address);
-    if (loc != connection_endpoint_map_.end())
-        return loc->second;
+    XmppServerConnection *connection) {
+    tbb::mutex::scoped_lock lock(endpoint_map_mutex_);
 
-    XmppConnectionEndpoint *conn_endpoint = new XmppConnectionEndpoint(address);
-    bool result;
-    tie(loc, result) =
-        connection_endpoint_map_.insert(make_pair(address, conn_endpoint));
-    assert(result);
+    const string &endpoint_name = connection->ToString();
+    XmppConnectionEndpoint *conn_endpoint;
+    ConnectionEndpointMap::iterator loc =
+        connection_endpoint_map_.find(endpoint_name);
+    if (loc == connection_endpoint_map_.end()) {
+        conn_endpoint = new XmppConnectionEndpoint(endpoint_name);
+        bool result;
+        tie(loc, result) = connection_endpoint_map_.insert(
+            make_pair(endpoint_name, conn_endpoint));
+        assert(result);
+    } else {
+        conn_endpoint = loc->second;
+    }
+
+    if (conn_endpoint->connection())
+        return NULL;
+    conn_endpoint->set_connection(connection);
     return conn_endpoint;
+}
+
+//
+// Remove association of the given XmppConnectionEndpoint with XmppConnection.
+// This method is provided just to make things symmetrical - the caller could
+// simply have called XmppConnectionEndpoint::reset_connection directly.
+//
+void XmppServer::ReleaseConnectionEndpoint(XmppServerConnection *connection) {
+    tbb::mutex::scoped_lock lock(endpoint_map_mutex_);
+
+    if (!connection->conn_endpoint())
+        return;
+    assert(connection->conn_endpoint()->connection() == connection);
+    connection->conn_endpoint()->reset_connection();
 }
