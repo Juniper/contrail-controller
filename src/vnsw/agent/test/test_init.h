@@ -155,6 +155,11 @@ struct TestIp4Prefix {
     int plen_;
 };
 
+struct TestIp6Prefix {
+    Ip6Address addr_;
+    int plen_;
+};
+
 class TestClient {
 public:
     TestClient(TestAgentInit *init) :
