@@ -483,9 +483,7 @@ private:
     void UpdateServiceVlan(bool force_update, bool policy_change);
     void DeleteServiceVlan();
     void UpdateStaticRoute(bool force_update, bool policy_change);
-    void UpdateStaticRoute6(bool force_update, bool policy_change);
     void DeleteStaticRoute();
-    void DeleteStaticRoute6();
     void UpdateAllowedAddressPair(bool force_update, bool policy_change);
     void DeleteAllowedAddressPair();
     void UpdateSecurityGroup();

@@ -36,11 +36,13 @@
 #include "oper/vn.h"
 #include "filter/acl.h"
 #include "openstack/instance_service_server.h"
+#include "test/test_init.h"
 #include "test_cmn_util.h"
 #include "vr_types.h"
 #include <controller/controller_export.h> 
 #include <ksync/ksync_sock_user.h> 
 #include <boost/assign/list_of.hpp>
+#include "oper/path_preference.h"
 
 void RouterIdDepInit(Agent *agent) {
 }
@@ -208,6 +210,126 @@ TEST_F(Ipv6Test, v6_subnet_gw_route) {
     client->WaitForIdle();
     DeleteVmportEnv(input, 1, 1, 0, NULL, NULL, true, true);
     client->WaitForIdle();
+}
+
+//Add and delete v4 and v6 static routes on a single interface
+TEST_F(Ipv6Test, IntfStaticRoute_1) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1, "fd11::2"},
+    };
+
+    CreateV6VmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    WAIT_FOR(100, 1000, (VmPortActive(input, 0)) == true);
+    WAIT_FOR(100, 1000, (VmPortV6Active(input, 0)) == true);
+
+    //Add a static route
+    struct TestIp4Prefix static_route[] = {
+        { Ip4Address::from_string("24.1.1.0"), 24},
+        { Ip4Address::from_string("16.1.1.0"), 16},
+    };
+    AddInterfaceRouteTable("static_route", 1, static_route, 2);
+
+    //Add a v6 static route
+    struct TestIp6Prefix static_route6[] = {
+        { Ip6Address::from_string("fd12::2"), 120},
+    };
+    AddInterfaceRouteTableV6("static_route6", 2, static_route6, 1);
+
+    AddLink("virtual-machine-interface", "vnet1",
+            "interface-route-table", "static_route");
+    AddLink("virtual-machine-interface", "vnet1",
+            "interface-route-table", "static_route6");
+    client->WaitForIdle();
+    EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_,
+                static_route[0].plen_));
+    EXPECT_TRUE(RouteFind("vrf1", static_route[1].addr_,
+                static_route[1].plen_));
+    EXPECT_TRUE(RouteFindV6("vrf1", static_route6[0].addr_,
+                static_route6[0].plen_));
+
+    //Delete the link between interface and route table
+    DelLink("virtual-machine-interface", "vnet1",
+            "interface-route-table", "static_route");
+    DelLink("virtual-machine-interface", "vnet1",
+            "interface-route-table", "static_route6");
+    client->WaitForIdle();
+    EXPECT_FALSE(RouteFind("vrf1", static_route[0].addr_,
+                static_route[0].plen_));
+    EXPECT_FALSE(RouteFind("vrf1", static_route[1].addr_,
+                static_route[1].plen_));
+    EXPECT_FALSE(RouteFindV6("vrf1", static_route6[0].addr_,
+                static_route6[0].plen_));
+
+    DeleteVmportEnv(input, 1, 1, 0, NULL, NULL, true, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+}
+
+//Add and delete static route. Verify that dependent_route_list maintained by
+//path_preference_module per interface has only v4 routes and does not include
+//v6 routes
+TEST_F(Ipv6Test, IntfStaticRoute_2) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1, "fd11::2"},
+    };
+
+    CreateV6VmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    WAIT_FOR(100, 1000, (VmPortActive(input, 0)) == true);
+    WAIT_FOR(100, 1000, (VmPortV6Active(input, 0)) == true);
+
+    //Add a static route
+    struct TestIp4Prefix static_route[] = {
+        { Ip4Address::from_string("24.1.1.0"), 24},
+        { Ip4Address::from_string("16.1.1.0"), 16},
+    };
+    AddInterfaceRouteTable("static_route", 1, static_route, 2);
+
+    //Add a v6 static route
+    struct TestIp6Prefix static_route6[] = {
+        { Ip6Address::from_string("fd12::2"), 120},
+    };
+    AddInterfaceRouteTableV6("static_route6", 2, static_route6, 1);
+
+    AddLink("virtual-machine-interface", "vnet1",
+            "interface-route-table", "static_route");
+    AddLink("virtual-machine-interface", "vnet1",
+            "interface-route-table", "static_route6");
+    client->WaitForIdle();
+    EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_,
+                static_route[0].plen_));
+    EXPECT_TRUE(RouteFind("vrf1", static_route[1].addr_,
+                static_route[1].plen_));
+    EXPECT_TRUE(RouteFindV6("vrf1", static_route6[0].addr_,
+                static_route6[0].plen_));
+
+    VmInterface *vmi = VmInterfaceGet(1);
+    const PathPreferenceIntfState *cintf_state =
+        static_cast<const PathPreferenceIntfState *>(
+        vmi->GetState(Agent::GetInstance()->interface_table(),
+                      Agent::GetInstance()->oper_db()->
+                      route_preference_module()->intf_id()));
+    EXPECT_EQ(2U, cintf_state->DependentRouteListSize());
+
+    //Delete the link between interface and route table
+    DelLink("virtual-machine-interface", "vnet1",
+            "interface-route-table", "static_route");
+    DelLink("virtual-machine-interface", "vnet1",
+            "interface-route-table", "static_route6");
+    client->WaitForIdle();
+    EXPECT_FALSE(RouteFind("vrf1", static_route[0].addr_,
+                static_route[0].plen_));
+    EXPECT_FALSE(RouteFind("vrf1", static_route[1].addr_,
+                static_route[1].plen_));
+    EXPECT_FALSE(RouteFindV6("vrf1", static_route6[0].addr_,
+                static_route6[0].plen_));
+
+    DeleteVmportEnv(input, 1, 1, 0, NULL, NULL, true, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
 }
 
 int main(int argc, char **argv) {
