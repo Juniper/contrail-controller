@@ -274,7 +274,10 @@ def get_svc_uve_status(svc_name, debug):
     return process_status_info[0]['state']
 
 def check_svc_status(service_name, debug):
-    cmd = 'supervisorctl -s unix:///tmp/' + service_name.replace('supervisor-', 'supervisord_') + '.sock' + ' status'
+    service_sock = service_name.replace('-', '_')
+    service_sock = service_sock.replace('supervisor_', 'supervisord_') + '.sock'
+    cmd = 'supervisorctl -s unix:///tmp/' + service_sock + ' status'
+
     cmdout = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE).communicate()[0]
     if cmdout.find('refused connection') == -1:
         cmdout = cmdout.replace('   STARTING', 'initializing')
