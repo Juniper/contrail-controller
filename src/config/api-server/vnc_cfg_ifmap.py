@@ -1564,7 +1564,7 @@ class VncDbClient(object):
 
             if (obj_type == 'virtual_network' and
                 'network_ipam_refs' in obj_dict):
-                self._update_subnet_uuid(obj_dict, do_update=True)
+                self.update_subnet_uuid(obj_dict, do_update=True)
         except Exception as e:
             self.config_object_error(
                 obj_uuid, None, obj_type, 'dbe_resync:cassandra_read', str(e))
