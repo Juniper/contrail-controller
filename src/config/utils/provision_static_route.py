@@ -11,6 +11,7 @@ from vnc_api.vnc_api import *
 from vnc_api.gen.resource_xsd import RouteType
 from vnc_api.gen.resource_xsd import RouteTableType
 from vnc_api.gen.resource_client import InterfaceRouteTable
+from netaddr import IPNetwork
 
 
 class StaticRouteProvisioner(object):
@@ -30,7 +31,22 @@ class StaticRouteProvisioner(object):
         prefix = self._args.prefix
         vmi_id_got = self._args.virtual_machine_interface_id
         route_table_name = self._args.route_table_name
-        route_table_family = self._args.route_table_family
+
+        try:
+            ip_nw = IPNetwork(prefix)
+        except AddrFormatError:
+            print 'Invalid ip address format'
+            sys.exit(1)
+
+        if ip_nw.ip.version is 4:
+            route_table_name = route_table_name + 'v4'
+            route_table_family = 'v4'
+        elif ip_nw.ip.version is 6:
+            route_table_name = route_table_name + 'v6'
+            route_table_family = 'v6'
+        else:
+            print 'Invalid ip prefix'
+            sys.exit(1) 
         
         project_fq_name_str = 'default-domain:'+ self._args.tenant_name
         project_fq_name = project_fq_name_str.split(':')
@@ -120,7 +136,6 @@ class StaticRouteProvisioner(object):
                                         --prefix 2.2.2.0/24
                                         --virtual_machine_interface_id 242717c9-8e78-4c67-94a8-5fbef1f2f096 
                                         --route_table_name "MyRouteTable" 
-                                        --route_table_family "v4"
                                         --tenant_name "admin"
                                         --oper <add | del>
         '''
@@ -139,7 +154,6 @@ class StaticRouteProvisioner(object):
             'oper': 'add',
             'control_names': [],
             'route_table_name': 'CustomRouteTable',
-            'route_table_family': 'v4',
         }
         ksopts = {
             'user': 'user1',
@@ -178,15 +192,13 @@ class StaticRouteProvisioner(object):
         parser.add_argument(
             "--virtual_machine_interface_id", help="Next hop which is the UUID of the VMI(aka port-id)")
         parser.add_argument(
-            "--tenant_name", help="Tenamt name for keystone admin user")
+            "--tenant_name", help="Tenant name for keystone admin user")
         parser.add_argument(
             "--user", help="Name of keystone admin user")
         parser.add_argument(
             "--password", help="Password of keystone admin user")
         parser.add_argument(
             "--route_table_name", help="Route Table name. Default : CustomRouteTable")
-        parser.add_argument(
-            "--route_table_family", help="Route Table family, v4 or v6. Default : v4")
 
         self._args = parser.parse_args(remaining_argv)
 
