@@ -768,8 +768,7 @@ protected:
             if (!ExtCommunity::is_tunnel_encap(comm))
                 continue;
             TunnelEncap encap(comm);
-
-            list.insert(TunnelEncapType::TunnelEncapToString(encap.tunnel_encap()));
+            list.insert(encap.ToXmppString());
         }
         return list;
     }

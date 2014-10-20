@@ -6,41 +6,74 @@
 #include "net/tunnel_encap_type.h"
 #include <boost/assign/list_of.hpp>
 
-using namespace std;
+using std::map;
+using std::string;
 
 TunnelEncapType::TunnelEncapType() {
 }
 
-static const std::map<string, TunnelEncapType::Encap>  
+static const map<string, TunnelEncapType::Encap>
     fromString = boost::assign::map_list_of
         ("unspecified", TunnelEncapType::UNSPEC) 
         ("gre", TunnelEncapType::MPLS_O_GRE) 
+        ("vxlan", TunnelEncapType::VXLAN)
+        ("nvgre", TunnelEncapType::NVGRE)
+        ("mpls", TunnelEncapType::MPLS)
+        ("vxlan-gpe", TunnelEncapType::VXLAN_GPE)
         ("udp", TunnelEncapType::MPLS_O_UDP) 
-        ("vxlan", TunnelEncapType::VXLAN); 
+        ("udp-contrail", TunnelEncapType::MPLS_O_UDP_CONTRAIL)
+        ("vxlan-contrail", TunnelEncapType::VXLAN_CONTRAIL);
 
-static const std::map<TunnelEncapType::Encap, string>  
+static const map<TunnelEncapType::Encap, string>
     toString = boost::assign::map_list_of
-        (TunnelEncapType::UNSPEC, "unspecified") 
-        (TunnelEncapType::MPLS_O_GRE, "gre") 
-        (TunnelEncapType::MPLS_O_UDP, "udp") 
-        (TunnelEncapType::VXLAN, "vxlan");
+        (TunnelEncapType::UNSPEC, "unspecified")
+        (TunnelEncapType::MPLS_O_GRE, "gre")
+        (TunnelEncapType::VXLAN, "vxlan")
+        (TunnelEncapType::NVGRE, "nvgre")
+        (TunnelEncapType::MPLS, "mpls")
+        (TunnelEncapType::VXLAN_GPE, "vxlan-gpe")
+        (TunnelEncapType::MPLS_O_UDP, "udp")
+        (TunnelEncapType::MPLS_O_UDP_CONTRAIL, "udp-contrail")
+        (TunnelEncapType::VXLAN_CONTRAIL, "vxlan-contrail");
 
-TunnelEncapType::Encap 
-TunnelEncapType::TunnelEncapFromString(const std::string &encap) {
-    std::map<string, TunnelEncapType::Encap>::const_iterator it = fromString.find(encap);
-    if (it == fromString.end()) {
-        return TunnelEncapType::UNSPEC;
-    } else {
-        return it->second;
-    }
+static const map<TunnelEncapType::Encap, string>
+    toXmppString = boost::assign::map_list_of
+        (TunnelEncapType::UNSPEC, "unspecified")
+        (TunnelEncapType::MPLS_O_GRE, "gre")
+        (TunnelEncapType::VXLAN, "vxlan")
+        (TunnelEncapType::NVGRE, "nvgre")
+        (TunnelEncapType::MPLS, "mpls")
+        (TunnelEncapType::VXLAN_GPE, "vxlan-gpe")
+        (TunnelEncapType::MPLS_O_UDP, "udp")
+        (TunnelEncapType::MPLS_O_UDP_CONTRAIL, "udp")
+        (TunnelEncapType::VXLAN_CONTRAIL, "vxlan");
+
+bool TunnelEncapType::TunnelEncapIsValid(uint16_t value) {
+    TunnelEncapType::Encap encap = static_cast<TunnelEncapType::Encap>(value);
+    map<TunnelEncapType::Encap, string>::const_iterator it =
+        toXmppString.find(encap);
+    return (it == toXmppString.end() ? false : true);
 }
 
-const std::string &TunnelEncapType::TunnelEncapToString(TunnelEncapType::Encap encap) {
-    std::map<TunnelEncapType::Encap, string>::const_iterator it = toString.find(encap);
+TunnelEncapType::Encap TunnelEncapType::TunnelEncapFromString(
+    const string &encap) {
+    map<string, TunnelEncapType::Encap>::const_iterator it =
+        fromString.find(encap);
+    return (it == fromString.end() ? TunnelEncapType::UNSPEC : it->second);
+}
+
+const string &TunnelEncapType::TunnelEncapToString(
+    TunnelEncapType::Encap encap) {
     static string unspecified("unspecified");
-    if (it == toString.end()) {
-        return unspecified;
-    } else {
-        return it->second;
-    }
+    map<TunnelEncapType::Encap, string>::const_iterator it =
+        toString.find(encap);
+    return (it == toString.end() ? unspecified : it->second);
+}
+
+const string &TunnelEncapType::TunnelEncapToXmppString(
+    TunnelEncapType::Encap encap) {
+    static string unspecified("unspecified");
+    map<TunnelEncapType::Encap, string>::const_iterator it =
+        toXmppString.find(encap);
+    return (it == toXmppString.end() ? unspecified : it->second);
 }

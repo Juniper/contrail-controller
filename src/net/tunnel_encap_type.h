@@ -5,6 +5,7 @@
 #ifndef ctrlplane_tunnelencaptype_h
 #define ctrlplane_tunnelencaptype_h
 
+#include <stdint.h>
 #include <string>
 
 class TunnelEncapType {
@@ -12,15 +13,23 @@ public:
     enum Encap {
         UNSPEC = 0,
         MPLS_O_GRE = 2,
-        MPLS_O_UDP = 37001,
-        VXLAN = 37002,
+        VXLAN = 8,
+        NVGRE = 9,
+        MPLS = 10,
+        VXLAN_GPE = 12,
+        MPLS_O_UDP = 13,
+        MPLS_O_UDP_CONTRAIL = 37001,
+        VXLAN_CONTRAIL = 37002,
     };
 
     TunnelEncapType();
 
-    static TunnelEncapType::Encap TunnelEncapFromString(const std::string &encap);
+    static bool TunnelEncapIsValid(uint16_t value);
+    static TunnelEncapType::Encap TunnelEncapFromString(
+        const std::string &encap);
     static const std::string &TunnelEncapToString(TunnelEncapType::Encap encap);
-
-private:
+    static const std::string &TunnelEncapToXmppString(
+        TunnelEncapType::Encap encap);
 };
+
 #endif
