@@ -2,10 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/routing-instance/service_chaining.h"
-#include "bgp/routing-instance/routing_instance.h"
-#include "bgp/routing-instance/routepath_replicator.h"
-
 #include <fstream>
 #include <algorithm>
 
@@ -15,7 +11,6 @@
 #include <pugixml/pugixml.hpp>
 
 #include "base/test/task_test_util.h"
-#include "bgp/bgp_config.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_sandesh.h"
@@ -24,6 +19,9 @@
 #include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/origin-vn/origin_vn.h"
+#include "bgp/routing-instance/service_chaining.h"
+#include "bgp/routing-instance/routing_instance.h"
+#include "bgp/routing-instance/routepath_replicator.h"
 #include "bgp/security_group/security_group.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "bgp/test/bgp_test_util.h"
@@ -38,19 +36,32 @@
 #include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"
 
-using namespace std;
 using boost::assign::list_of;
 using boost::assign::map_list_of;
-using namespace pugi;
+using pugi::xml_document;
+using pugi::xml_node;
+using pugi::xml_parse_result;
+using std::auto_ptr;
+using std::cout;
+using std::endl;
+using std::ifstream;
+using std::istreambuf_iterator;
+using std::istringstream;
+using std::multimap;
+using std::set;
+using std::sort;
+using std::string;
+using std::stringstream;
+using std::vector;
 
 class BgpPeerMock : public IPeer {
 public:
     BgpPeerMock(const Ip4Address &address) : address_(address) { }
     virtual ~BgpPeerMock() { }
-    virtual std::string ToString() const {
+    virtual string ToString() const {
         return address_.to_string();
     }
-    virtual std::string ToUVEKey() const {
+    virtual string ToUVEKey() const {
         return address_.to_string();
     }
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) {
@@ -77,7 +88,7 @@ public:
     virtual uint32_t bgp_identifier() const {
         return htonl(address_.to_ulong());
     }
-    virtual const std::string GetStateName() const {
+    virtual const string GetStateName() const {
         return "";
     }
     virtual void UpdateRefCount(int count) const { }
@@ -103,11 +114,17 @@ protected:
         bgp_schema_Server_ModuleInit(&config_db_, &config_graph_);
         vnc_cfg_Server_ModuleInit(&config_db_, &config_graph_);
     }
+
     ~ServiceChainTest() {
         STLDeleteValues(&peers_);
     }
 
     virtual void SetUp() {
+        CreatePeer("192.168.0.1");
+        CreatePeer("192.168.0.2");
+        CreatePeer("192.168.0.3");
+        CreatePeer("192.168.0.4");
+
         IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
         bgp_schema_ParserInit(parser);
         vnc_cfg_ParserInit(parser);
@@ -135,6 +152,18 @@ protected:
         task_util::WaitForIdle();
     }
 
+    string ParseConfigFile(const string &filename) {
+        string content = FileRead(filename);
+        parser_.Parse(content);
+        task_util::WaitForIdle();
+        return content;
+    }
+
+    void ParseConfigString(const string &content) {
+        parser_.Parse(content);
+        task_util::WaitForIdle();
+    }
+
     void VerifyNetworkConfig(const vector<string> &instance_names) {
         for (vector<string>::const_iterator iter = instance_names.begin();
              iter != instance_names.end(); ++iter) {
@@ -146,6 +175,12 @@ protected:
         }
     }
 
+    void CreatePeer(const string &address) {
+        boost::system::error_code ec;
+        peers_.push_back(new BgpPeerMock(Ip4Address::from_string(address, ec)));
+        assert(ec.value() == 0);
+    }
+
     void DisableServiceChainQ() {
         bgp_server_->service_chain_mgr()->DisableQueue();
     }
@@ -153,13 +188,14 @@ protected:
     void EnableServiceChainQ() {
         bgp_server_->service_chain_mgr()->EnableQueue();
     }
+
     void AddInetRoute(IPeer *peer, const string &instance_name,
                       const string &prefix, int localpref, 
-                      std::vector<uint32_t> commlist = std::vector<uint32_t>(),
-                      std::vector<uint32_t> sglist = std::vector<uint32_t>(),
-                      std::set<string> encap = std::set<string>(),
-                      string nexthop="7.8.9.1", 
-                      uint32_t flags=0, int label=0) {
+                      vector<uint32_t> commlist = vector<uint32_t>(),
+                      vector<uint32_t> sglist = vector<uint32_t>(),
+                      set<string> encap = set<string>(),
+                      string nexthop = "7.8.9.1",
+                      uint32_t flags = 0, int label = 0) {
         boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
@@ -184,12 +220,12 @@ protected:
         }
 
         ExtCommunitySpec ext_comm;
-        for(std::vector<uint32_t>::iterator it = sglist.begin(); 
+        for (vector<uint32_t>::iterator it = sglist.begin();
             it != sglist.end(); it++) {
             SecurityGroup sgid(0, *it);
             ext_comm.communities.push_back(sgid.GetExtCommunityValue());
         }
-        for(std::set<string>::iterator it = encap.begin(); 
+        for (set<string>::iterator it = encap.begin();
             it != encap.end(); it++) {
             TunnelEncap tunnel_encap(*it);
             ext_comm.communities.push_back(tunnel_encap.GetExtCommunityValue());
@@ -228,10 +264,10 @@ protected:
 
     void AddInetVpnRoute(IPeer *peer, const string &instance_name,
                          const string &prefix, int localpref,
-                         std::vector<uint32_t> sglist = std::vector<uint32_t>(),
-                         std::set<string> encap = std::set<string>(),
-                         string nexthop="7.8.9.1",
-                         uint32_t flags=0, int label=0) {
+                         vector<uint32_t> sglist = vector<uint32_t>(),
+                         set<string> encap = set<string>(),
+                         string nexthop = "7.8.9.1",
+                         uint32_t flags = 0, int label = 0) {
         BgpTable *table = static_cast<BgpTable *>(
             bgp_server_->database()->FindTable(instance_name + ".inet.0"));
         ASSERT_TRUE(table != NULL);
@@ -269,12 +305,12 @@ protected:
         uint64_t extcomm_value = get_value(target.GetExtCommunity().begin(), 8);
         ExtCommunitySpec extcomm_spec;
         extcomm_spec.communities.push_back(extcomm_value);
-        for(std::vector<uint32_t>::iterator it = sglist.begin(); 
+        for (vector<uint32_t>::iterator it = sglist.begin();
             it != sglist.end(); it++) {
             SecurityGroup sgid(0, *it);
             extcomm_spec.communities.push_back(sgid.GetExtCommunityValue());
         }
-        for(std::set<string>::iterator it = encap.begin(); 
+        for (set<string>::iterator it = encap.begin();
             it != encap.end(); it++) {
             TunnelEncap tunnel_encap(*it);
             extcomm_spec.communities.push_back(tunnel_encap.GetExtCommunityValue());
@@ -296,8 +332,8 @@ protected:
 
     void AddInetVpnRoute(IPeer *peer, const vector<string> &instance_names,
                          const string &prefix, int localpref,
-                         string nexthop="7.8.9.1",
-                         uint32_t flags=0, int label=0) {
+                         string nexthop = "7.8.9.1",
+                         uint32_t flags = 0, int label = 0) {
         RoutingInstance *rtinstance =
             ri_mgr_->GetRoutingInstance(instance_names[0]);
         ASSERT_TRUE(rtinstance != NULL);
@@ -379,10 +415,10 @@ protected:
     }
 
     void AddConnectedRoute(IPeer *peer, const string &prefix,
-                   int localpref, string nexthop="7.8.9.1",
-                   uint32_t flags=0, int label=0,
-                   std::vector<uint32_t> sglist = std::vector<uint32_t>(),
-                   std::set<string> encap = std::set<string>()) {
+                   int localpref, string nexthop = "7.8.9.1",
+                   uint32_t flags = 0, int label = 0,
+                   vector<uint32_t> sglist = vector<uint32_t>(),
+                   set<string> encap = set<string>()) {
         string connected_table = service_is_transparent_ ? "blue-i1" : "blue";
         if (connected_rt_is_inetvpn_) {
             AddInetVpnRoute(peer, connected_table, prefix,
@@ -391,13 +427,14 @@ protected:
             AddInetRoute(peer, connected_table, prefix, localpref,
                 vector<uint32_t>(), sglist, encap, nexthop, flags, label);
         }
+        task_util::WaitForIdle();
     }
 
     void AddConnectedRoute(int chain_idx, IPeer *peer, const string &prefix,
-                   int localpref, string nexthop="7.8.9.1",
-                   uint32_t flags=0, int label=0,
-                   std::vector<uint32_t> sglist = std::vector<uint32_t>(),
-                   std::set<string> encap = std::set<string>()) {
+                   int localpref, string nexthop = "7.8.9.1",
+                   uint32_t flags = 0, int label = 0,
+                   vector<uint32_t> sglist = vector<uint32_t>(),
+                   set<string> encap = set<string>()) {
         assert(1 <= chain_idx && chain_idx <= 3);
         string connected_table;
         if (chain_idx == 1) {
@@ -414,6 +451,7 @@ protected:
             AddInetRoute(peer, connected_table, prefix, localpref,
                 vector<uint32_t>(), sglist, encap, nexthop, flags, label);
         }
+        task_util::WaitForIdle();
     }
 
     void DeleteConnectedRoute(IPeer *peer, const string &prefix) {
@@ -423,6 +461,7 @@ protected:
         } else {
             DeleteInetRoute(peer, connected_table, prefix);
         }
+        task_util::WaitForIdle();
     }
 
     void DeleteConnectedRoute(int chain_idx, IPeer *peer, const string &prefix) {
@@ -440,6 +479,7 @@ protected:
         } else {
             DeleteInetRoute(peer, connected_table, prefix);
         }
+        task_util::WaitForIdle();
     }
 
     int RouteCount(const string &instance_name) const {
@@ -483,6 +523,141 @@ protected:
         TASK_UTIL_EXPECT_TRUE(InetRouteLookup(instance, prefix) == NULL);
     }
 
+    void VerifyInetRouteIsDeleted(const string &instance,
+                                  const string &prefix) {
+        TASK_UTIL_EXPECT_TRUE(InetRouteLookup(instance, prefix) != NULL);
+        BgpRoute *rt = InetRouteLookup(instance, prefix);
+        TASK_UTIL_EXPECT_TRUE(rt->IsDeleted());
+    }
+
+    bool MatchInetPathAttributes(const BgpPath *path,
+        const string &path_id, const string &origin_vn, int label,
+        const vector<uint32_t> sg_ids, const set<string> tunnel_encaps) {
+        BgpAttrPtr attr = path->GetAttr();
+        if (attr->nexthop().to_v4().to_string() != path_id)
+            return false;
+        if (GetOriginVnFromRoute(path) != origin_vn)
+            return false;
+        if (label && path->GetLabel() != label)
+            return false;
+        if (sg_ids.size()) {
+            vector<uint32_t> path_sg_ids = GetSGIDListFromRoute(path);
+            if (path_sg_ids.size() != sg_ids.size())
+                return false;
+            for (vector<uint32_t>::const_iterator
+                it1 = path_sg_ids.begin(), it2 = sg_ids.begin();
+                it1 != path_sg_ids.end() && it2 != sg_ids.end();
+                ++it1, ++it2) {
+                if (*it1 != *it2)
+                    return false;
+            }
+        }
+        if (tunnel_encaps.size()) {
+            set<string> path_tunnel_encaps = GetTunnelEncapListFromRoute(path);
+            if (path_tunnel_encaps != tunnel_encaps)
+                return false;
+        }
+
+        return true;
+    }
+
+    bool CheckInetPathAttributes(const string &instance, const string &prefix,
+        const string &path_id, const string &origin_vn, int label,
+        const vector<uint32_t> sg_ids, const set<string> tunnel_encaps) {
+        task_util::TaskSchedulerLock lock;
+        BgpRoute *route = InetRouteLookup(instance, prefix);
+        if (!route)
+            return false;
+        for (Route::PathList::iterator it = route->GetPathList().begin();
+             it != route->GetPathList().end(); ++it) {
+            const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
+            if (BgpPath::PathIdString(path->GetPathId()) != path_id)
+                continue;
+            if (MatchInetPathAttributes(
+                path, path_id, origin_vn, label, sg_ids, tunnel_encaps)) {
+                return true;
+            }
+            return false;
+        }
+
+        return false;
+    }
+
+    void VerifyInetPathAttributes(const string &instance,
+        const string &prefix, const string &path_id, const string &origin_vn,
+        const set<string> tunnel_encaps) {
+        task_util::WaitForIdle();
+        TASK_UTIL_EXPECT_TRUE(CheckInetPathAttributes(instance, prefix,
+            path_id, origin_vn, 0, vector<uint32_t>(), tunnel_encaps));
+    }
+
+    bool CheckInetRouteAttributes(const string &instance, const string &prefix,
+        const vector<string> &path_ids, const string &origin_vn, int label,
+        const vector<uint32_t> sg_ids, const set<string> tunnel_encaps) {
+        task_util::TaskSchedulerLock lock;
+        BgpRoute *route = InetRouteLookup(instance, prefix);
+        if (!route)
+            return false;
+        if (route->count() != path_ids.size())
+            return false;
+        for (Route::PathList::iterator it = route->GetPathList().begin();
+             it != route->GetPathList().end(); ++it) {
+            bool found = false;
+            const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
+            BOOST_FOREACH(const string &path_id, path_ids) {
+                if (BgpPath::PathIdString(path->GetPathId()) != path_id)
+                    continue;
+                found = true;
+                if (MatchInetPathAttributes(
+                    path, path_id, origin_vn, label, sg_ids, tunnel_encaps)) {
+                    break;
+                }
+                return false;
+            }
+            if (!found)
+                return false;
+        }
+
+        return true;
+    }
+
+    void VerifyInetRouteAttributes(const string &instance,
+        const string &prefix, const string &path_id, const string &origin_vn,
+        int label = 0) {
+        task_util::WaitForIdle();
+        vector<string> path_ids = list_of(path_id);
+        TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
+            instance, prefix, path_ids, origin_vn, label, vector<uint32_t>(),
+            set<string>()));
+    }
+
+    void VerifyInetRouteAttributes(const string &instance, const string &prefix,
+        const vector<string> &path_ids, const string &origin_vn) {
+        task_util::WaitForIdle();
+        TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
+            instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
+            set<string>()));
+    }
+
+    void VerifyInetRouteAttributes(const string &instance,
+        const string &prefix, const string &path_id, const string &origin_vn,
+        const vector<uint32_t> sg_ids) {
+        task_util::WaitForIdle();
+        vector<string> path_ids = list_of(path_id);
+        TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
+            instance, prefix, path_ids, origin_vn, 0, sg_ids, set<string>()));
+    }
+
+    void VerifyInetRouteAttributes(const string &instance,
+        const string &prefix, const string &path_id, const string &origin_vn,
+        const set<string> tunnel_encaps) {
+        task_util::WaitForIdle();
+        vector<string> path_ids = list_of(path_id);
+        TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
+            instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
+            tunnel_encaps));
+    }
+
     string FileRead(const string &filename) {
         ifstream file(filename.c_str());
         string content((istreambuf_iterator<char>(file)),
@@ -494,15 +669,13 @@ protected:
         stringstream target;
         target << "target:64496:" << 100;
 
-        BGP_DEBUG_UT("ADD routing instance " << name << " Route Target " << target.str());
         ifmap_test_util::IFMapMsgLink(&config_db_,
                                       "routing-instance", name,
                                       "route-target", target.str(),
                                       "instance-target");
-        TASK_UTIL_EXPECT_NE(static_cast<RoutingInstance *>(NULL),
-                            bgp_server_->routing_instance_mgr()->GetRoutingInstance(name));
-
-        BGP_DEBUG_UT("ADD connection " << name << "<->" << connection); 
+        task_util::WaitForIdle();
+        RoutingInstanceMgr *rim = bgp_server_->routing_instance_mgr();
+        TASK_UTIL_EXPECT_TRUE(rim->GetRoutingInstance(name) != NULL);
         ifmap_test_util::IFMapMsgLink(&config_db_,
                                       "routing-instance", name,
                                       "routing-instance", connection,
@@ -515,10 +688,7 @@ protected:
                                         "routing-instance", name,
                                         "routing-instance", connection,
                                         "connection");
-        //
-        // Cache a copy of the export route-targets before the instance is
-        // deleted
-        //
+        // Cache copy of export route-targets before instance is deleted
         RoutingInstance *rti =
             bgp_server_->routing_instance_mgr()->GetRoutingInstance(name);
         const RoutingInstance::RouteTargetList
@@ -529,6 +699,7 @@ protected:
                                             "route-target", tgt.ToString(),
                                             "instance-target");
         }
+        task_util::WaitForIdle();
     }
 
     void AddConnection(const string &instance1, const string &instance2) {
@@ -539,11 +710,12 @@ protected:
         task_util::WaitForIdle();
     }
 
-    std::auto_ptr<autogen::ServiceChainInfo> 
-        GetChainConfig(std::string filename) {
-        std::auto_ptr<autogen::ServiceChainInfo> 
+    auto_ptr<autogen::ServiceChainInfo>
+        GetChainConfig(string filename) {
+        auto_ptr<autogen::ServiceChainInfo>
             params (new autogen::ServiceChainInfo());
         string content = FileRead(filename);
+        EXPECT_FALSE(content.empty());
         istringstream sstream(content);
         xml_document xdoc;
         xml_parse_result result = xdoc.load(sstream);
@@ -557,10 +729,24 @@ protected:
         return params;
     }
 
-    std::vector<uint32_t> GetSGIDListFromRoute(const BgpPath *path) {
+    void SetServiceChainInformation(const string &instance,
+        const string &filename) {
+        auto_ptr<autogen::ServiceChainInfo> params = GetChainConfig(filename);
+        ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
+            instance, "service-chain-information", params.release(), 0);
+        task_util::WaitForIdle();
+    }
+
+    void ClearServiceChainInformation(const string &instance) {
+        ifmap_test_util::IFMapMsgPropertyDelete(&config_db_, "routing-instance",
+            instance, "service-chain-information");
+        task_util::WaitForIdle();
+    }
+
+    vector<uint32_t> GetSGIDListFromRoute(const BgpPath *path) {
         const ExtCommunity *ext_comm = path->GetAttr()->ext_community();
         assert(ext_comm);
-        std::vector<uint32_t> list;
+        vector<uint32_t> list;
         BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
                       ext_comm->communities()) {
             if (!ExtCommunity::is_security_group(comm))
@@ -569,14 +755,14 @@ protected:
 
             list.push_back(security_group.security_group_id());
         }
-        std::sort(list.begin(), list.end());
+        sort(list.begin(), list.end());
         return list;
     }
 
-    std::set<std::string> GetTunnelEncapListFromRoute(const BgpPath *path) {
+    set<string> GetTunnelEncapListFromRoute(const BgpPath *path) {
         const ExtCommunity *ext_comm = path->GetAttr()->ext_community();
         assert(ext_comm);
-        std::set<std::string> list;
+        set<string> list;
         BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
                       ext_comm->communities()) {
             if (!ExtCommunity::is_tunnel_encap(comm))
@@ -588,7 +774,7 @@ protected:
         return list;
     }
 
-    std::string GetOriginVnFromRoute(const BgpPath *path) {
+    string GetOriginVnFromRoute(const BgpPath *path) {
         const ExtCommunity *ext_comm = path->GetAttr()->ext_community();
         assert(ext_comm);
         BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
@@ -602,7 +788,7 @@ protected:
     }
 
     static void ValidateShowServiceChainResponse(Sandesh *sandesh, 
-                                                 vector<std::string> &result) {
+                                                 vector<string> &result) {
         ShowServiceChainResp *resp = 
             dynamic_cast<ShowServiceChainResp *>(sandesh);
         TASK_UTIL_EXPECT_NE((ShowServiceChainResp *)NULL, resp);
@@ -622,7 +808,7 @@ protected:
     }
 
     static void ValidateShowPendingServiceChainResponse(Sandesh *sandesh, 
-                                                 vector<std::string> &result) {
+                                                 vector<string> &result) {
         ShowPendingServiceChainResp *resp = 
             dynamic_cast<ShowPendingServiceChainResp *>(sandesh);
         TASK_UTIL_EXPECT_NE((ShowPendingServiceChainResp *)NULL, resp);
@@ -633,7 +819,7 @@ protected:
     }
 
 
-    void VerifyServiceChainSandesh(std::vector<std::string> result) {
+    void VerifyServiceChainSandesh(vector<string> result) {
         BgpSandeshContext sandesh_context;
         sandesh_context.bgp_server = bgp_server_.get();
         sandesh_context.xmpp_peer_manager = NULL;
@@ -647,7 +833,7 @@ protected:
         TASK_UTIL_EXPECT_EQ(1, validate_done_);
     }
 
-    void VerifyPendingServiceChainSandesh(std::vector<std::string> pending) {
+    void VerifyPendingServiceChainSandesh(vector<string> pending) {
         BgpSandeshContext sandesh_context;
         sandesh_context.bgp_server = bgp_server_.get();
         sandesh_context.xmpp_peer_manager = NULL;
@@ -700,49 +886,27 @@ TEST_P(ServiceChainParamTest, Basic) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add More specific
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.0/24");
 
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
-
-    BgpRoute *aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-    TASK_UTIL_EXPECT_TRUE(aggregate_rt->BestPath() != NULL);
-    const BgpPath *aggregate_path = aggregate_rt->BestPath();
-    BgpAttrPtr attr = aggregate_path->GetAttr();
-    EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.4.5", "red");
 
     // Delete More specific
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
-    task_util::WaitForIdle();
 
     // Delete connected route
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 TEST_P(ServiceChainParamTest, MoreSpecificAddDelete) {
@@ -752,67 +916,43 @@ TEST_P(ServiceChainParamTest, MoreSpecificAddDelete) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add More specific
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.0/24");
 
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
 
     // Delete More specific
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.0/24");
 
     // Add different more specific
     AddInetRoute(NULL, "red", "192.168.1.34/32", 100);
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
 
     // Add different more specific
     AddInetRoute(NULL, "red", "192.168.2.34/32", 100);
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.2.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
 
     // Delete More specific & connected
     DeleteInetRoute(NULL, "red", "192.168.2.34/32");
     DeleteInetRoute(NULL, "red", "192.168.1.34/32");
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 TEST_P(ServiceChainParamTest, ConnectedAddDelete) {
@@ -822,49 +962,31 @@ TEST_P(ServiceChainParamTest, ConnectedAddDelete) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add More specific & connected
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
 
     // Delete connected route
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.0/24");
 
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
 
     // Delete More specific & connected
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 
@@ -875,64 +997,38 @@ TEST_P(ServiceChainParamTest, DeleteConnected) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add More specific & connected
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
 
-    LOG(DEBUG, "XXXXXX -- Delete the connected route 1.1.2.3/32 --- XXXXXX");
     // Delete connected route
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.0/24");
 
-    LOG(DEBUG, "XXXXXX -- Add more specific route 192.168.2.1/32 --- XXXXXX");
     AddInetRoute(NULL, "red", "192.168.2.1/32", 100);
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.2.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.0/24");
+    VerifyInetRouteNoExists("blue", "192.168.2.0/24");
 
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
+
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.2.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteExists("blue", "192.168.2.0/24");
 
     // Delete More specific & connected
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
     DeleteInetRoute(NULL, "red", "192.168.2.1/32");
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 TEST_P(ServiceChainParamTest, StopServiceChain) {
@@ -942,40 +1038,24 @@ TEST_P(ServiceChainParamTest, StopServiceChain) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add More specific & connected
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
 
-    ifmap_test_util::IFMapMsgPropertyDelete(&config_db_, "routing-instance", 
-                                            "blue-i1", 
-                                            "service-chain-information");
-    task_util::WaitForIdle();
+    ClearServiceChainInformation("blue-i1");
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.0/24");
 
     // Delete More specific & connected
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 TEST_P(ServiceChainParamTest, ServiceChainWithExistingRouteEntries) {
@@ -995,43 +1075,19 @@ TEST_P(ServiceChainParamTest, ServiceChainWithExistingRouteEntries) {
     AddInetRoute(NULL, "red", "192.168.2.3/32", 100);
     AddInetRoute(NULL, "red", "192.168.2.4/32", 100);
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteExists("blue", "192.168.2.0/24");
+
+    ClearServiceChainInformation("blue-i1");
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.2.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
-
-    ifmap_test_util::IFMapMsgPropertyDelete(&config_db_, "routing-instance", 
-                                            "blue-i1", 
-                                            "service-chain-information");
-    task_util::WaitForIdle();
-
-    // Check for aggregated route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
-
-    // Check for aggregated route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.2.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.0/24");
+    VerifyInetRouteNoExists("blue", "192.168.1.0/24");
 
     // Delete More specific & connected
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
@@ -1043,7 +1099,6 @@ TEST_P(ServiceChainParamTest, ServiceChainWithExistingRouteEntries) {
     DeleteInetRoute(NULL, "red", "192.168.2.3/32");
     DeleteInetRoute(NULL, "red", "192.168.2.4/32");
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 TEST_P(ServiceChainParamTest, UpdateNexthop) {
@@ -1053,63 +1108,26 @@ TEST_P(ServiceChainParamTest, UpdateNexthop) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add More specific & Connected
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
-
-    BgpRoute *aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-    TASK_UTIL_EXPECT_TRUE(aggregate_rt->BestPath() != NULL);
-    const BgpPath *aggregate_path = aggregate_rt->BestPath();
-    BgpAttrPtr attr = aggregate_path->GetAttr();
-    EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.4.5", "red");
 
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "3.4.5.6");
-    task_util::WaitForIdle();
 
-    int count = 0;
-    while(1) {
-        // Check for aggregated route
-        TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                                 NULL, 1000, 10000, 
-                                 "Wait for Aggregate route in blue..");
-
-        BgpRoute *aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-        TASK_UTIL_EXPECT_TRUE(aggregate_rt->BestPath() != NULL);
-        const BgpPath *aggregate_path = aggregate_rt->BestPath();
-        BgpAttrPtr attr = aggregate_path->GetAttr();
-        if (attr->nexthop().to_v4().to_string() == "3.4.5.6") {
-            break;
-        }
-        if (count++ == 100) {
-            EXPECT_EQ(attr->nexthop().to_v4().to_string(), "3.4.5.6");
-            EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
-            break;
-        }
-    }
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "3.4.5.6", "red");
 
     // Delete More specific & connected
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 
@@ -1120,57 +1138,26 @@ TEST_P(ServiceChainParamTest, UpdateLabel) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add More specific & Connected
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5", 0, 16);
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
-
-    BgpRoute *aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-    const BgpPath *aggregate_path = aggregate_rt->BestPath();
-    EXPECT_EQ(aggregate_path->GetLabel(), 16);
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.4.5", "red", 16);
 
     // Add Connected with updated label
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5", 0, 32);
-    task_util::WaitForIdle();
 
-    int count = 0;
-    while(1) {
-        // Check for aggregated route
-        TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                                 NULL, 1000, 10000, 
-                                 "Wait for Aggregate route in blue..");
-
-        BgpRoute *aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-        const BgpPath *aggregate_path = aggregate_rt->BestPath();
-        if (aggregate_path->GetLabel() == 32) {
-            break;
-        }
-        if (count++ == 100) {
-            EXPECT_EQ(aggregate_path->GetLabel(), 32);
-            break;
-        }
-    }
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.4.5", "red", 32);
 
     // Delete More specific & connected
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 TEST_P(ServiceChainParamTest, DeleteRoutingInstance) {
@@ -1180,34 +1167,21 @@ TEST_P(ServiceChainParamTest, DeleteRoutingInstance) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add More specific & Connected
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
 
     RemoveRoutingInstance("blue-i1", "blue");
-    task_util::WaitForIdle();
 
     // Delete More specific & connected
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 
@@ -1218,25 +1192,14 @@ TEST_P(ServiceChainParamTest, PendingChain) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.0/24");
 
     VerifyPendingServiceChainSandesh(list_of("blue-i1"));
 
@@ -1250,14 +1213,11 @@ TEST_P(ServiceChainParamTest, PendingChain) {
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
 
     // Delete More specific & connected
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 TEST_P(ServiceChainParamTest, UnresolvedPendingChain) {
@@ -1267,31 +1227,18 @@ TEST_P(ServiceChainParamTest, UnresolvedPendingChain) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
     VerifyPendingServiceChainSandesh(list_of("blue-i1"));
 
-    ifmap_test_util::IFMapMsgPropertyDelete(&config_db_, "routing-instance", 
-                                            "blue-i1", 
-                                            "service-chain-information");
-    task_util::WaitForIdle();
+    ClearServiceChainInformation("blue-i1");
 
     // Delete connected
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 TEST_P(ServiceChainParamTest, UpdateChain) {
@@ -1301,54 +1248,28 @@ TEST_P(ServiceChainParamTest, UpdateChain) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_3.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_3.xml");
 
     // Add More specific
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
-    task_util::WaitForIdle();
     AddInetRoute(NULL, "red", "192.169.2.1/32", 100);
-    task_util::WaitForIdle();
 
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.169.2.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteExists("blue", "192.169.2.0/24");
 
     VerifyServiceChainSandesh(list_of("blue-i1"));
 
-    params = GetChainConfig("controller/src/bgp/testdata/service_chain_2.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_2.xml");
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.0.0/16"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.169.2.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteExists("blue", "192.168.0.0/16");
+    VerifyInetRouteExists("blue", "192.169.2.0/24");
 
     VerifyServiceChainSandesh(list_of("blue-i1"));
 
@@ -1356,7 +1277,6 @@ TEST_P(ServiceChainParamTest, UpdateChain) {
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
     DeleteInetRoute(NULL, "red", "192.169.2.1/32");
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 TEST_P(ServiceChainParamTest, PeerUpdate) {
@@ -1366,76 +1286,34 @@ TEST_P(ServiceChainParamTest, PeerUpdate) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    boost::system::error_code ec;
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.3", ec)));
-
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add More specific
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
-    task_util::WaitForIdle();
 
     // Add Connected
     AddConnectedRoute(peers_[0], "1.1.2.3/32", 90, "2.3.0.5");
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
-
-    BgpRoute *aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-    TASK_UTIL_EXPECT_TRUE(aggregate_rt->BestPath() != NULL);
-    const BgpPath *aggregate_path = aggregate_rt->BestPath();
-    EXPECT_EQ(aggregate_rt->count(), 1);
-    EXPECT_EQ("2.3.0.5", BgpPath::PathIdString(aggregate_path->GetPathId()));
-    BgpAttrPtr attr = aggregate_path->GetAttr();
-    EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.0.5");
-    EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.0.5", "red");
 
     AddConnectedRoute(peers_[1], "1.1.2.3/32", 100, "2.3.1.5");
-    task_util::WaitForIdle();
-    aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-    EXPECT_EQ(aggregate_rt->count(), 1);
-    aggregate_path = aggregate_rt->BestPath();
-    EXPECT_EQ("2.3.1.5", BgpPath::PathIdString(aggregate_path->GetPathId()));
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.1.5", "red");
 
     AddConnectedRoute(peers_[2], "1.1.2.3/32", 95, "2.3.2.5");
-    task_util::WaitForIdle();
-    aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-    EXPECT_EQ(aggregate_rt->count(), 1);
-    aggregate_path = aggregate_rt->BestPath();
-    EXPECT_EQ("2.3.1.5", BgpPath::PathIdString(aggregate_path->GetPathId()));
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.1.5", "red");
 
     DeleteConnectedRoute(peers_[1], "1.1.2.3/32");
-    task_util::WaitForIdle();
-    aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-    EXPECT_EQ(aggregate_rt->count(), 1);
-    aggregate_path = aggregate_rt->BestPath();
-    EXPECT_EQ("2.3.2.5", BgpPath::PathIdString(aggregate_path->GetPathId()));
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.2.5", "red");
 
     // Delete More specific
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
-    task_util::WaitForIdle();
 
     // Delete connected route
     DeleteConnectedRoute(peers_[0], "1.1.2.3/32");
     DeleteConnectedRoute(peers_[2], "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 //
@@ -1456,107 +1334,46 @@ TEST_P(ServiceChainParamTest, DuplicateForwardingPaths) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    boost::system::error_code ec;
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
-
-    std::auto_ptr<autogen::ServiceChainInfo> params =
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
-                                         "blue-i1",
-                                         "service-chain-information",
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add More specific
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
-    task_util::WaitForIdle();
 
     // Add Ext connect route
     AddInetRoute(NULL, "red", "10.1.1.0/24", 100);
-    task_util::WaitForIdle();
 
     // Add Connected with duplicate forwarding information
     AddConnectedRoute(peers_[0], "1.1.2.3/32", 100, "2.3.4.5");
     AddConnectedRoute(peers_[1], "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000,
-                             "Wait for Aggregate route in blue..");
-
-    BgpRoute *aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-    TASK_UTIL_EXPECT_TRUE(aggregate_rt->BestPath() != NULL);
-    const BgpPath *aggregate_path = aggregate_rt->BestPath();
-    EXPECT_EQ("2.3.4.5", BgpPath::PathIdString(aggregate_path->GetPathId()));
-    EXPECT_EQ(aggregate_rt->count(), 1);
-    BgpAttrPtr attr = aggregate_path->GetAttr();
-    EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.4.5", "red");
 
     // Check for ExtConnect route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
-                             NULL, 1000, 10000,
-                             "Wait for ExtConnect route in blue..");
-
-    BgpRoute *ext_rt = InetRouteLookup("blue", "10.1.1.0/24");
-    TASK_UTIL_EXPECT_TRUE(ext_rt->BestPath() != NULL);
-    const BgpPath *ext_path = ext_rt->BestPath();
-    EXPECT_EQ("2.3.4.5", BgpPath::PathIdString(ext_path->GetPathId()));
-    EXPECT_EQ(ext_rt->count(), 1);
-    attr = ext_path->GetAttr();
-    EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
+    VerifyInetRouteExists("blue", "10.1.1.0/24");
+    VerifyInetRouteAttributes("blue", "10.1.1.0/24", "2.3.4.5", "red");
 
     // Delete connected route from peers_[0]
     DeleteConnectedRoute(peers_[0], "1.1.2.3/32");
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000,
-                             "Wait for Aggregate route in blue..");
-
-    aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-    TASK_UTIL_EXPECT_TRUE(aggregate_rt->BestPath() != NULL);
-    aggregate_path = aggregate_rt->BestPath();
-    EXPECT_EQ("2.3.4.5", BgpPath::PathIdString(aggregate_path->GetPathId()));
-    EXPECT_EQ(aggregate_rt->count(), 1);
-    attr = aggregate_path->GetAttr();
-    EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.4.5", "red");
 
     // Check for ExtConnect route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
-                             NULL, 1000, 10000,
-                             "Wait for ExtConnect route in blue..");
-
-    ext_rt = InetRouteLookup("blue", "10.1.1.0/24");
-    TASK_UTIL_EXPECT_TRUE(ext_rt->BestPath() != NULL);
-    ext_path = ext_rt->BestPath();
-    EXPECT_EQ("2.3.4.5", BgpPath::PathIdString(ext_path->GetPathId()));
-    EXPECT_EQ(ext_rt->count(), 1);
-    attr = ext_path->GetAttr();
-    EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
+    VerifyInetRouteExists("blue", "10.1.1.0/24");
+    VerifyInetRouteAttributes("blue", "10.1.1.0/24", "2.3.4.5", "red");
 
     // Delete More specific
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
-    task_util::WaitForIdle();
 
     // Delete Ext connect route
     DeleteInetRoute(NULL, "red", "10.1.1.0/24");
-    task_util::WaitForIdle();
 
     // Delete connected route
     DeleteConnectedRoute(peers_[1], "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 TEST_P(ServiceChainParamTest, EcmpPaths) {
@@ -1566,84 +1383,32 @@ TEST_P(ServiceChainParamTest, EcmpPaths) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    boost::system::error_code ec;
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
-
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add More specific
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
-    task_util::WaitForIdle();
 
     // Add Connected
     AddConnectedRoute(peers_[0], "1.1.2.3/32", 100, "2.3.0.5");
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
-
-    BgpRoute *aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-    TASK_UTIL_EXPECT_TRUE(aggregate_rt->BestPath() != NULL);
-    const BgpPath *aggregate_path = aggregate_rt->BestPath();
-    EXPECT_EQ("2.3.0.5", BgpPath::PathIdString(aggregate_path->GetPathId()));
-    EXPECT_EQ(aggregate_rt->count(), 1);
-    BgpAttrPtr attr = aggregate_path->GetAttr();
-    EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.0.5");
-    EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.0.5", "red");
 
     AddConnectedRoute(peers_[1], "1.1.2.3/32", 100, "2.3.1.5");
-    task_util::WaitForIdle();
-    aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
 
-    TASK_UTIL_WAIT_EQ_NO_MSG(aggregate_rt->count(), 2, 1000, 10000, 
-                             "Wait for all paths in Aggregate route ..");
-    EXPECT_EQ(aggregate_rt->count(), 2);
-
-    std::string path_ids[] = {"2.3.0.5", "2.3.1.5"};
-    for (Route::PathList::iterator it = aggregate_rt->GetPathList().begin(); 
-         it != aggregate_rt->GetPathList().end(); it++) {
-        bool found = false;
-        BOOST_FOREACH(std::string path_id, path_ids) {
-            BgpPath *path = static_cast<BgpPath *>(it.operator->());
-            if (BgpPath::PathIdString(path->GetPathId()) == path_id) {
-                found = true;
-                break;
-            }
-        }
-        EXPECT_TRUE(found);
-    }
+    vector<string> path_ids = list_of("2.3.0.5")("2.3.1.5");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", path_ids, "red");
 
     DeleteConnectedRoute(peers_[1], "1.1.2.3/32");
-    task_util::WaitForIdle();
-    aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-    EXPECT_EQ(aggregate_rt->count(), 1);
-    for (Route::PathList::iterator it = aggregate_rt->GetPathList().begin(); 
-         it != aggregate_rt->GetPathList().end(); it++) {
-        BgpPath *path = static_cast<BgpPath *>(it.operator->());
-        ASSERT_TRUE(BgpPath::PathIdString(path->GetPathId()) != "2.3.1.5");
-    }
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.0.5", "red");
 
     // Delete More specific
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
-    task_util::WaitForIdle();
 
     // Delete connected route
     DeleteConnectedRoute(peers_[0], "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 TEST_P(ServiceChainParamTest, EcmpPathUpdate) {
@@ -1653,68 +1418,22 @@ TEST_P(ServiceChainParamTest, EcmpPathUpdate) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    boost::system::error_code ec;
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
-
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add More specific
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
     AddConnectedRoute(peers_[0], "1.1.2.3/32", 100, "2.3.0.5");
     AddConnectedRoute(peers_[1], "1.1.2.3/32", 100, "2.3.1.5");
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    vector<string> path_ids = list_of("2.3.0.5")("2.3.1.5");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", path_ids, "red");
 
-    BgpRoute *aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-    TASK_UTIL_WAIT_EQ_NO_MSG(aggregate_rt->count(), 2, 1000, 10000, 
-                             "Wait for all paths in Aggregate route ..");
-    EXPECT_EQ(aggregate_rt->count(), 2);
-
-    for (Route::PathList::iterator it = aggregate_rt->GetPathList().begin(); 
-         it != aggregate_rt->GetPathList().end(); it++) {
-        BgpPath *path = static_cast<BgpPath *>(it.operator->());
-        BgpAttrPtr attr = path->GetAttr();
-        if (BgpPath::PathIdString(path->GetPathId()) == "2.3.0.5") {
-            EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.0.5");
-        } else if (BgpPath::PathIdString(path->GetPathId()) == "2.3.1.5") {
-            EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.1.5");
-        }
-        EXPECT_EQ(GetOriginVnFromRoute(path), "red");
-    }
     AddConnectedRoute(peers_[1], "1.1.2.3/32", 100, "2.3.1.8");
-    task_util::WaitForIdle();
-
-    aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-    TASK_UTIL_WAIT_EQ_NO_MSG(aggregate_rt->count(), 2, 1000, 10000, 
-                             "Wait for all paths in Aggregate route ..");
-    EXPECT_EQ(aggregate_rt->count(), 2);
-    for (Route::PathList::iterator it = aggregate_rt->GetPathList().begin(); 
-         it != aggregate_rt->GetPathList().end(); it++) {
-        BgpPath *path = static_cast<BgpPath *>(it.operator->());
-        BgpAttrPtr attr = path->GetAttr();
-        if (BgpPath::PathIdString(path->GetPathId()) == "2.3.0.5") {
-            EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.0.5");
-        } else if (BgpPath::PathIdString(path->GetPathId()) == "2.3.1.8") {
-            EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.1.8");
-        }
-        EXPECT_EQ(GetOriginVnFromRoute(path), "red");
-    }
+    path_ids = list_of("2.3.0.5")("2.3.1.8");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", path_ids, "red");
 
     // Delete More specific
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
@@ -1722,171 +1441,89 @@ TEST_P(ServiceChainParamTest, EcmpPathUpdate) {
     // Delete connected route
     DeleteConnectedRoute(peers_[0], "1.1.2.3/32");
     DeleteConnectedRoute(peers_[1], "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
-TEST_P(ServiceChainParamTest, N_ECMP_PATHADD) {
+TEST_P(ServiceChainParamTest, EcmpPathAdd) {
     vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    boost::system::error_code ec;
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.3", ec)));
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.4", ec)));
-
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add More specific
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
     AddConnectedRoute(peers_[0], "1.1.2.3/32", 100, "2.3.0.5");
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.0.5", "red");
 
-    BgpRoute *aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-    EXPECT_EQ(aggregate_rt->count(), 1);
-
-    TaskScheduler *scheduler = TaskScheduler::GetInstance();
-    scheduler->Stop();
+    DisableServiceChainQ();
     DeleteConnectedRoute(peers_[0], "1.1.2.3/32");
     AddConnectedRoute(peers_[1], "1.1.2.3/32", 100, "2.3.1.5");
     AddConnectedRoute(peers_[2], "1.1.2.3/32", 100, "2.3.2.5");
     AddConnectedRoute(peers_[3], "1.1.2.3/32", 100, "2.3.3.5");
-    scheduler->Start();
-    task_util::WaitForIdle();
+    EnableServiceChainQ();
 
-    // Check for aggregated route count
-    TASK_UTIL_WAIT_EQ_NO_MSG(aggregate_rt->count(), 3, 1000, 10000, 
-                             "Wait for all paths in Aggregate route ..");
-    EXPECT_EQ(aggregate_rt->count(), 3);
-    for (Route::PathList::iterator it = aggregate_rt->GetPathList().begin(); 
-         it != aggregate_rt->GetPathList().end(); it++) {
-        BgpPath *path = static_cast<BgpPath *>(it.operator->());
-        BgpAttrPtr attr = path->GetAttr();
-        assert(path->GetPeer() != peers_[0]);
+    vector<string> path_ids = list_of("2.3.1.5")("2.3.2.5")("2.3.3.5");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", path_ids, "red");
 
-        if (BgpPath::PathIdString(path->GetPathId()) == "2.3.1.5") {
-            EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.1.5");
-        } else if (BgpPath::PathIdString(path->GetPathId()) == "2.3.2.5") {
-            EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.2.5");
-        } else if (BgpPath::PathIdString(path->GetPathId()) == "2.3.3.5") {
-            EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.3.5");
-        }
-        EXPECT_EQ(GetOriginVnFromRoute(path), "red");
-    }
-
-    scheduler->Stop();
+    DisableServiceChainQ();
     DeleteConnectedRoute(peers_[1], "1.1.2.3/32");
     DeleteConnectedRoute(peers_[2], "1.1.2.3/32");
     DeleteConnectedRoute(peers_[3], "1.1.2.3/32");
     AddConnectedRoute(peers_[0], "1.1.2.3/32", 100, "2.3.0.5",
-                 BgpPath::AsPathLooped);
-    scheduler->Start();
-    task_util::WaitForIdle();
+        BgpPath::AsPathLooped);
+    EnableServiceChainQ();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.0/24");
 
     // Delete More specific
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
     // Delete connected route
     DeleteConnectedRoute(peers_[0], "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
-TEST_P(ServiceChainParamTest, N_ECMP_PATHDEL) {
+TEST_P(ServiceChainParamTest, EcmpPathDelete) {
     vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    boost::system::error_code ec;
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.3", ec)));
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.4", ec)));
-
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add More specific
-    TaskScheduler *scheduler = TaskScheduler::GetInstance();
-    scheduler->Stop();
+    DisableServiceChainQ();
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
     AddConnectedRoute(peers_[0], "1.1.2.3/32", 100, "2.3.0.5");
     AddConnectedRoute(peers_[1], "1.1.2.3/32", 100, "2.3.1.5");
     AddConnectedRoute(peers_[2], "1.1.2.3/32", 100, "2.3.2.5");
     AddConnectedRoute(peers_[3], "1.1.2.3/32",  90, "2.3.3.5");
-    scheduler->Start();
+    EnableServiceChainQ();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    vector<string> path_ids = list_of("2.3.0.5")("2.3.1.5")("2.3.2.5");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", path_ids, "red");
 
-    BgpRoute *aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-    TASK_UTIL_WAIT_EQ_NO_MSG(aggregate_rt->count(), 3, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
-    EXPECT_EQ(aggregate_rt->count(), 3);
-
-    scheduler->Stop();
+    DisableServiceChainQ();
     DeleteConnectedRoute(peers_[0], "1.1.2.3/32");
     DeleteConnectedRoute(peers_[1], "1.1.2.3/32");
     DeleteConnectedRoute(peers_[2], "1.1.2.3/32");
-    scheduler->Start();
-    task_util::WaitForIdle();
+    EnableServiceChainQ();
 
-    TASK_UTIL_WAIT_EQ_NO_MSG(aggregate_rt->count(), 1, 1000, 10000, 
-                             "Wait for all paths in Aggregate route ..");
-
-    TASK_UTIL_EXPECT_TRUE(aggregate_rt->BestPath() != NULL);
-    const BgpPath *aggregate_path = aggregate_rt->BestPath();
-    EXPECT_EQ("2.3.3.5", BgpPath::PathIdString(aggregate_path->GetPathId()));
-    EXPECT_EQ(aggregate_rt->count(), 1);
-    BgpAttrPtr attr = aggregate_path->GetAttr();
-    EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.3.5");
-    EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.3.5", "red");
 
     // Delete More specific
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
     // Delete connected route
     DeleteConnectedRoute(peers_[3], "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 //
@@ -1905,152 +1542,54 @@ TEST_P(ServiceChainParamTest, EcmpWithDuplicateForwardingPaths) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    boost::system::error_code ec;
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.3", ec)));
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.4", ec)));
-
-    std::auto_ptr<autogen::ServiceChainInfo> params =
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
-                                         "blue-i1",
-                                         "service-chain-information",
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add More specific
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
-    task_util::WaitForIdle();
 
     // Add Ext connect route
     AddInetRoute(NULL, "red", "10.1.1.0/24", 100);
-    task_util::WaitForIdle();
 
     // Add Connected with duplicate forwarding information F1
     AddConnectedRoute(peers_[0], "1.1.2.3/32", 100, "2.3.4.5");
     AddConnectedRoute(peers_[1], "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
     // Add Connected with duplicate forwarding information F2
     AddConnectedRoute(peers_[2], "1.1.2.3/32", 100, "2.3.4.6");
     AddConnectedRoute(peers_[3], "1.1.2.3/32", 100, "2.3.4.6");
-    task_util::WaitForIdle();
-
-    std::string path_ids[] = {"2.3.4.5", "2.3.4.6"};
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000,
-                             "Wait for Aggregate route in blue..");
-    BgpRoute *aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-    EXPECT_EQ(aggregate_rt->count(), 2);
-    for (Route::PathList::iterator it = aggregate_rt->GetPathList().begin();
-         it != aggregate_rt->GetPathList().end(); it++) {
-        BgpPath *aggregate_path = static_cast<BgpPath *>(it.operator->());
-        bool found = false;
-        BOOST_FOREACH(std::string path_id, path_ids) {
-            if (BgpPath::PathIdString(aggregate_path->GetPathId()) == path_id) {
-                BgpAttrPtr attr = aggregate_path->GetAttr();
-                EXPECT_EQ(attr->nexthop().to_v4().to_string(), path_id);
-                EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
-                found = true;
-                break;
-            }
-        }
-        EXPECT_TRUE(found);
-    }
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    vector<string> path_ids = list_of("2.3.4.5")("2.3.4.6");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", path_ids, "red");
 
     // Check for ExtConnect route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
-                             NULL, 1000, 10000,
-                             "Wait for ExtConnect route in blue..");
-    BgpRoute *ext_rt = InetRouteLookup("blue", "10.1.1.0/24");
-    EXPECT_EQ(ext_rt->count(), 2);
-    for (Route::PathList::iterator it = ext_rt->GetPathList().begin();
-         it != ext_rt->GetPathList().end(); it++) {
-        BgpPath *ext_path = static_cast<BgpPath *>(it.operator->());
-        bool found = false;
-        BOOST_FOREACH(std::string path_id, path_ids) {
-            if (BgpPath::PathIdString(ext_path->GetPathId()) == path_id) {
-                BgpAttrPtr attr = ext_path->GetAttr();
-                EXPECT_EQ(attr->nexthop().to_v4().to_string(), path_id);
-                EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
-                found = true;
-                break;
-            }
-        }
-        EXPECT_TRUE(found);
-    }
+    VerifyInetRouteExists("blue", "10.1.1.0/24");
+    VerifyInetRouteAttributes("blue", "10.1.1.0/24", path_ids, "red");
 
     // Delete connected routes from peers_[0] and peers_[2]
     DeleteConnectedRoute(peers_[0], "1.1.2.3/32");
     DeleteConnectedRoute(peers_[2], "1.1.2.3/32");
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000,
-                             "Wait for Aggregate route in blue..");
-    aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-    EXPECT_EQ(aggregate_rt->count(), 2);
-    for (Route::PathList::iterator it = aggregate_rt->GetPathList().begin();
-         it != aggregate_rt->GetPathList().end(); it++) {
-        BgpPath *aggregate_path = static_cast<BgpPath *>(it.operator->());
-        bool found = false;
-        BOOST_FOREACH(std::string path_id, path_ids) {
-            if (BgpPath::PathIdString(aggregate_path->GetPathId()) == path_id) {
-                BgpAttrPtr attr = aggregate_path->GetAttr();
-                EXPECT_EQ(attr->nexthop().to_v4().to_string(), path_id);
-                EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
-                found = true;
-                break;
-            }
-        }
-        EXPECT_TRUE(found);
-    }
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    path_ids = list_of("2.3.4.5")("2.3.4.6");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", path_ids, "red");
 
     // Check for ExtConnect route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
-                             NULL, 1000, 10000,
-                             "Wait for ExtConnect route in blue..");
-    ext_rt = InetRouteLookup("blue", "10.1.1.0/24");
-    EXPECT_EQ(ext_rt->count(), 2);
-    for (Route::PathList::iterator it = ext_rt->GetPathList().begin();
-         it != ext_rt->GetPathList().end(); it++) {
-        BgpPath *ext_path = static_cast<BgpPath *>(it.operator->());
-        bool found = false;
-        BOOST_FOREACH(std::string path_id, path_ids) {
-            if (BgpPath::PathIdString(ext_path->GetPathId()) == path_id) {
-                BgpAttrPtr attr = ext_path->GetAttr();
-                EXPECT_EQ(attr->nexthop().to_v4().to_string(), path_id);
-                EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
-                found = true;
-                break;
-            }
-        }
-        EXPECT_TRUE(found);
-    }
+    VerifyInetRouteExists("blue", "10.1.1.0/24");
+    VerifyInetRouteAttributes("blue", "10.1.1.0/24", path_ids, "red");
 
     // Delete More specific
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
-    task_util::WaitForIdle();
 
     // Delete Ext connect route
     DeleteInetRoute(NULL, "red", "10.1.1.0/24");
-    task_util::WaitForIdle();
 
     // Delete connected routes
     DeleteConnectedRoute(peers_[1], "1.1.2.3/32");
     DeleteConnectedRoute(peers_[3], "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 //
@@ -2067,52 +1606,29 @@ TEST_P(ServiceChainParamTest, IgnoreAggregateRoute) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
     // Add MX leaked route
     AddInetRoute(NULL, "red", "192.168.1.0/24", 100);
-    task_util::WaitForIdle();
 
     // Check for absence of ExtConnect route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Ext connect route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.0/24");
 
     // Add more specific
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
-    task_util::WaitForIdle();
 
     // Check for Aggregate route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate connect route in blue..");
-
-    BgpRoute *aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-    TASK_UTIL_EXPECT_TRUE(aggregate_rt->BestPath() != NULL);
-    const BgpPath *aggregate_path = aggregate_rt->BestPath();
-    EXPECT_EQ("2.3.4.5", BgpPath::PathIdString(aggregate_path->GetPathId()));
-    BgpAttrPtr attr = aggregate_path->GetAttr();
-    EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.4.5", "red");
 
     // Delete MX leaked, More specific and connected route
     DeleteInetRoute(NULL, "red", "192.168.1.0/24");
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 //
@@ -2132,86 +1648,53 @@ TEST_P(ServiceChainParamTest, ExtConnectRoute) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add Ext connect route
     AddInetRoute(NULL, "red", "10.1.1.0/24", 100);
-    task_util::WaitForIdle();
 
     // Check for ExtConnect route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Ext connect route in blue..");
+    VerifyInetRouteNoExists("blue", "10.1.1.0/24");
+
     // Check for Aggregate route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate connect route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.0/24");
 
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
     // Check for ExtConnect route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
+    VerifyInetRouteExists("blue", "10.1.1.0/24");
+
     // Check for absence Aggregate route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate connect route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.0/24");
 
     // Delete Connected route
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 
     // Check for ExtConnect route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Ext connect route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.0/24");
     // Check for Aggregate route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate connect route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.0/24");
 
     // Add more specific
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
-    task_util::WaitForIdle();
 
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
  
     // Check for Aggregate route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate connect route in blue..");
-    // Check for ExtConnect route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.4.5", "red");
 
-    BgpRoute *ext_rt = InetRouteLookup("blue", "10.1.1.0/24");
-    TASK_UTIL_EXPECT_TRUE(ext_rt->BestPath() != NULL);
-    const BgpPath *ext_path = ext_rt->BestPath();
-    EXPECT_EQ("2.3.4.5", BgpPath::PathIdString(ext_path->GetPathId()));
-    BgpAttrPtr attr = ext_path->GetAttr();
-    EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
+    // Check for ExtConnect route
+    VerifyInetRouteExists("blue", "10.1.1.0/24");
+    VerifyInetRouteAttributes("blue", "10.1.1.0/24", "2.3.4.5", "red");
 
     // Delete ExtRoute, More specific and connected route
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
     DeleteInetRoute(NULL, "red", "10.1.1.0/24");
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 //
@@ -2231,61 +1714,35 @@ TEST_P(ServiceChainParamTest, ExtConnectRouteNoAdvertiseCommunity) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    std::auto_ptr<autogen::ServiceChainInfo> params =
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
-                                         "blue-i1",
-                                         "service-chain-information",
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add Ext connect route
     AddInetRoute(NULL, "red", "10.1.1.0/24", 100);
-    task_util::WaitForIdle();
 
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
     // Check for ExtConnect route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
-                             NULL, 1000, 10000,
-                             "Wait for ExtConnect route in blue..");
+    VerifyInetRouteExists("blue", "10.1.1.0/24");
 
     // Change Ext connect route to have NO_ADVERTISE community
-    std::vector<uint32_t> commlist = list_of(Community::NoAdvertise);
+    vector<uint32_t> commlist = list_of(Community::NoAdvertise);
     AddInetRoute(NULL, "red", "10.1.1.0/24", 100, commlist);
-    task_util::WaitForIdle();
 
     // Check for ExtConnect route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
-                             NULL, 1000, 10000,
-                             "Wait for Ext connect route in blue..");
+    VerifyInetRouteNoExists("blue", "10.1.1.0/24");
 
     // Change Ext connect route to not have NO_ADVERTISE community
     AddInetRoute(NULL, "red", "10.1.1.0/24", 100);
-    task_util::WaitForIdle();
 
     // Check for ExtConnect route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
-                             NULL, 1000, 10000,
-                             "Wait for ExtConnect route in blue..");
-
-    BgpRoute *ext_rt = InetRouteLookup("blue", "10.1.1.0/24");
-    TASK_UTIL_EXPECT_TRUE(ext_rt->BestPath() != NULL);
-    const BgpPath *ext_path = ext_rt->BestPath();
-    EXPECT_EQ("2.3.4.5", BgpPath::PathIdString(ext_path->GetPathId()));
-    BgpAttrPtr attr = ext_path->GetAttr();
-    EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
+    VerifyInetRouteExists("blue", "10.1.1.0/24");
+    VerifyInetRouteAttributes("blue", "10.1.1.0/24", "2.3.4.5", "red");
 
     // Delete ExtRoute and connected route
     DeleteInetRoute(NULL, "red", "10.1.1.0/24");
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 //
@@ -2306,62 +1763,37 @@ TEST_P(ServiceChainParamTest, ExtConnectRouteOriginVnOnly) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    std::auto_ptr<autogen::ServiceChainInfo> params =
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
-                                         "blue-i1",
-                                         "service-chain-information",
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
     // Add more specific
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
-    task_util::WaitForIdle();
 
     // Add Ext connect route
     AddInetRoute(NULL, "red", "10.1.1.0/24", 100);
-    task_util::WaitForIdle();
 
     // Add route to green VN which gets imported into red
     AddInetRoute(NULL, "green", "20.1.1.0/24", 100);
-    task_util::WaitForIdle();
 
     // Check for Aggregate route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000,
-                             "Wait for Aggregate connect route in blue..");
-    // Check for ExtConnect route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
-                             NULL, 1000, 10000,
-                             "Wait for ExtConnect route in blue..");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.4.5", "red");
 
-    // Verify ExtConnect route attributes
-    BgpRoute *ext_rt = InetRouteLookup("blue", "10.1.1.0/24");
-    TASK_UTIL_EXPECT_TRUE(ext_rt->BestPath() != NULL);
-    const BgpPath *ext_path = ext_rt->BestPath();
-    EXPECT_EQ("2.3.4.5", BgpPath::PathIdString(ext_path->GetPathId()));
-    BgpAttrPtr attr = ext_path->GetAttr();
-    EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
+    // Check for ExtConnect route
+    VerifyInetRouteExists("blue", "10.1.1.0/24");
+    VerifyInetRouteAttributes("blue", "10.1.1.0/24", "2.3.4.5", "red");
 
     // Check for non-OriginVn route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "20.1.1.0/24"),
-                             NULL, 1000, 10000,
-                             "Wait for non-origin vn route in blue..");
+    VerifyInetRouteNoExists("blue", "20.1.1.0/24");
 
     // Delete ExtRoute, More specific, non-OriginVn and connected route
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
     DeleteInetRoute(NULL, "red", "10.1.1.0/24");
     DeleteInetRoute(NULL, "green", "20.1.1.0/24");
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 //
@@ -2382,49 +1814,26 @@ TEST_P(ServiceChainParamTest, ExtConnectRouteOriginVnUnresolved1) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    std::auto_ptr<autogen::ServiceChainInfo> params =
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
-                                         "blue-i1",
-                                         "service-chain-information",
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
     // Add Ext connect route with targets of both red and green.
     vector<string> instances = list_of("red")("green");
     AddInetVpnRoute(NULL, instances, "10.1.1.0/24", 100);
-    task_util::WaitForIdle();
 
     // Verify that MX leaked route is present in red
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("red", "10.1.1.0/24"),
-                             NULL, 1000, 10000,
-                             "Wait for MX leaked route in red..");
+    VerifyInetRouteExists("red", "10.1.1.0/24");
 
     // Verify that ExtConnect route is present in blue
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
-                             NULL, 1000, 10000,
-                             "Wait for ExtConnect route in blue..");
-
-    // Verify ExtConnect route attributes
-    BgpRoute *ext_rt = InetRouteLookup("blue", "10.1.1.0/24");
-    TASK_UTIL_EXPECT_TRUE(ext_rt->BestPath() != NULL);
-    const BgpPath *ext_path = ext_rt->BestPath();
-    EXPECT_EQ("2.3.4.5", BgpPath::PathIdString(ext_path->GetPathId()));
-    BgpAttrPtr attr = ext_path->GetAttr();
-    EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
+    VerifyInetRouteExists("blue", "10.1.1.0/24");
+    VerifyInetRouteAttributes("blue", "10.1.1.0/24", "2.3.4.5", "red");
 
     // Delete ExtRoute and connected route
     DeleteInetVpnRoute(NULL, "red", "10.1.1.0/24");
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 //
@@ -2445,40 +1854,25 @@ TEST_P(ServiceChainParamTest, ExtConnectRouteOriginVnUnresolved2) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    std::auto_ptr<autogen::ServiceChainInfo> params =
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
-                                         "blue-i1",
-                                         "service-chain-information",
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
     // Add Ext connect route with targets of green and yellow.
     vector<string> instances = list_of("green")("yellow");
     AddInetVpnRoute(NULL, instances, "10.1.1.0/24", 100);
-    task_util::WaitForIdle();
 
     // Verify that MX leaked route is present in red
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("red", "10.1.1.0/24"),
-                             NULL, 1000, 10000,
-                             "Wait for MX leaked route in red..");
+    VerifyInetRouteExists("red", "10.1.1.0/24");
 
     // Verify that ExtConnect route is not present in blue
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
-                             NULL, 1000, 10000,
-                             "Wait for ExtConnect route in blue..");
+    VerifyInetRouteNoExists("blue", "10.1.1.0/24");
 
     // Delete ExtRoute and connected route
     DeleteInetVpnRoute(NULL, "green", "10.1.1.0/24");
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 //
@@ -2495,59 +1889,34 @@ TEST_P(ServiceChainParamTest, ExtConnectRouteCoveringSubnetPrefix) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add Ext connect route.. Say MX leaks /16 route
     AddInetRoute(NULL, "red", "192.168.0.0/16", 100);
-    task_util::WaitForIdle();
 
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
-    task_util::WaitForIdle();
 
     // Check for ExtConnect route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.0.0/16"),
-                             NULL, 1000, 10000, 
-                             "Wait for Ext connect route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.0.0/16");
     // Check for Aggregate route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate connect route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.0/24");
 
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
     // Check for ExtConnect route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.0.0/16"),
-                             NULL, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
-    // Check for Aggregate route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate connect route in blue..");
+    VerifyInetRouteExists("blue", "192.168.0.0/16");
+    VerifyInetRouteAttributes("blue", "192.168.0.0/16", "2.3.4.5", "red");
 
-    BgpRoute *ext_rt = InetRouteLookup("blue", "192.168.0.0/16");
-    TASK_UTIL_EXPECT_TRUE(ext_rt->BestPath() != NULL);
-    const BgpPath *ext_path = ext_rt->BestPath();
-    EXPECT_EQ("2.3.4.5", BgpPath::PathIdString(ext_path->GetPathId()));
-    BgpAttrPtr attr = ext_path->GetAttr();
-    EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
+    // Check for Aggregate route
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.4.5", "red");
 
     // Delete ExtRoute, More specific and connected route
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
     DeleteInetRoute(NULL, "red", "192.168.0.0/16");
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 //
@@ -2564,51 +1933,34 @@ TEST_P(ServiceChainParamTest, ExtConnectRouteWithinSubnetPrefix) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add Ext connect route.. Say MX leaks /30 route
     AddInetRoute(NULL, "red", "192.168.1.252/30", 100);
-    task_util::WaitForIdle();
 
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
-    task_util::WaitForIdle();
 
     // Check for ExtConnect route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.252/30"),
-                             NULL, 1000, 10000, 
-                             "Wait for Ext connect route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.252/30");
+
     // Check for Aggregate route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate connect route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.0/24");
 
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
     // Check for ExtConnect route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.252/30"),
-                             NULL, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.252/30");
+
     // Check for Aggregate route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate connect route in blue..");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.4.5", "red");
 
     // Delete ExtRoute, More specific and connected route
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
     DeleteInetRoute(NULL, "red", "192.168.1.252/30");
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 //
@@ -2639,127 +1991,75 @@ TEST_P(ServiceChainParamTest, ExtConnectRouteServiceChainUpdate) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add Ext connect route.. Say MX leaks /30 route
     AddInetRoute(NULL, "red", "192.168.1.252/30", 100);
-    task_util::WaitForIdle();
 
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
-    task_util::WaitForIdle();
 
     // Check for ExtConnect route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.252/30"),
-                             NULL, 1000, 10000, 
-                             "Wait for Ext connect route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.252/30");
+
     // Check for Aggregate route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate connect route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.0/24");
 
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
     // Check for ExtConnect route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.252/30"),
-                             NULL, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.252/30");
+
     // Check for Aggregate route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate connect route in blue..");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
 
-    params = GetChainConfig("controller/src/bgp/testdata/service_chain_4.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_4.xml");
 
     // Check for ExtConnect route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.252/30"),
-                             NULL, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.1/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
+    VerifyInetRouteExists("blue", "192.168.1.252/30");
+    VerifyInetRouteExists("blue", "192.168.1.1/32");
+
     // Check for Aggregate route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate connect route in blue..");
+    VerifyInetRouteNoExists("blue", "10.1.1.0/24");
+
     // Check for Previous Aggregate route
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate connect route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.0/24");
 
     // Add Ext connect route.. Say MX leaks /16 route
     AddInetRoute(NULL, "red", "192.168.0.0/16", 100);
-    task_util::WaitForIdle();
 
     // Check for ExtConnect route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.0.0/16"),
-                             NULL, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
+    VerifyInetRouteExists("blue", "192.168.0.0/16");
 
     // Add more specific for new subnet prefix 
     AddInetRoute(NULL, "red", "10.1.1.1/32", 100);
-    task_util::WaitForIdle();
 
     // Check for Aggregate route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate connect route in blue..");
+    VerifyInetRouteExists("blue", "10.1.1.0/24");
 
-    params = GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Check for ext connect route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.1/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for Ext connect route in blue..");
-    // Check for ExtConnect route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.0.0/16"),
-                             NULL, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
+    VerifyInetRouteExists("blue", "10.1.1.1/32");
+    VerifyInetRouteExists("blue", "192.168.0.0/16"),
+
     // Check for new Aggregate route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+
     // Check for removal of ExtConnect route it is now more specific
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.252/30"),
-                             NULL, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.252/30");
+
     // Check for removal of ExtConnect route it is now more specific
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.1/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.1/32");
 
     DeleteInetRoute(NULL, "red", "192.168.1.252/30");
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
     DeleteInetRoute(NULL, "red", "192.168.0.0/16");
     DeleteInetRoute(NULL, "red", "10.1.1.1/32");
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 TEST_P(ServiceChainParamTest, ExtConnectedEcmpPaths) {
@@ -2769,79 +2069,32 @@ TEST_P(ServiceChainParamTest, ExtConnectedEcmpPaths) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    boost::system::error_code ec;
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
-
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add MX leaked route 
     AddInetRoute(NULL, "red", "10.10.1.0/24", 100);
-    task_util::WaitForIdle();
 
     // Add Connected
     AddConnectedRoute(peers_[0], "1.1.2.3/32", 100, "2.3.0.5");
-    task_util::WaitForIdle();
 
     // Check for external connected route 
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.10.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for External connecting route in blue..");
+    VerifyInetRouteExists("blue", "10.10.1.0/24");
+    VerifyInetRouteAttributes("blue", "10.10.1.0/24", "2.3.0.5", "red");
 
-    BgpRoute *ext_rt = InetRouteLookup("blue", "10.10.1.0/24");
-    TASK_UTIL_EXPECT_TRUE(ext_rt->BestPath() != NULL);
-    const BgpPath *ext_path = ext_rt->BestPath();
-    EXPECT_EQ("2.3.0.5", BgpPath::PathIdString(ext_path->GetPathId()));
-    BgpAttrPtr attr = ext_path->GetAttr();
-    EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.0.5");
-    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
-
+    // Add Connected
     AddConnectedRoute(peers_[1], "1.1.2.3/32", 100, "2.3.1.5");
-    task_util::WaitForIdle();
-
-    ext_rt = InetRouteLookup("blue", "10.10.1.0/24");
-    std::string path_ids[] = {"2.3.0.5", "2.3.1.5"};
-    for (Route::PathList::iterator it = ext_rt->GetPathList().begin();
-         it != ext_rt->GetPathList().end(); it++) {
-        bool found = false;
-        BOOST_FOREACH(std::string path_id, path_ids) {
-            BgpPath *path = static_cast<BgpPath *>(it.operator->());
-            if (BgpPath::PathIdString(path->GetPathId()) == path_id) {
-                found = true;
-                break;
-            }
-        }
-        EXPECT_TRUE(found);
-    }
+    vector<string> path_ids = list_of("2.3.0.5")("2.3.1.5");
+    VerifyInetRouteAttributes("blue", "10.10.1.0/24", path_ids, "red");
 
     DeleteConnectedRoute(peers_[1], "1.1.2.3/32");
-    task_util::WaitForIdle();
+    VerifyInetRouteAttributes("blue", "10.10.1.0/24", "2.3.0.5", "red");
 
-    ext_rt = InetRouteLookup("blue", "10.10.1.0/24");
-    for (Route::PathList::iterator it = ext_rt->GetPathList().begin();
-         it != ext_rt->GetPathList().end(); it++) {
-        BgpPath *path = static_cast<BgpPath *>(it.operator->());
-        ASSERT_TRUE(BgpPath::PathIdString(path->GetPathId()) != "2.3.1.5");
-    }
-    
     // Delete MX route
     DeleteInetRoute(NULL, "red", "10.10.1.0/24");
-    task_util::WaitForIdle();
 
     // Delete connected route
     DeleteConnectedRoute(peers_[0], "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 
@@ -2852,108 +2105,57 @@ TEST_P(ServiceChainParamTest, ExtConnectedMoreSpecificEcmpPaths) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    boost::system::error_code ec;
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
-
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add Ext connect route
     AddInetRoute(NULL, "red", "10.1.1.0/24", 100);
-    task_util::WaitForIdle();
 
     // Add Connected
     AddConnectedRoute(peers_[0], "1.1.2.3/32", 100, "2.3.0.5");
-    task_util::WaitForIdle();
 
     // Add more specific
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
-    task_util::WaitForIdle();
 
     // Check for Aggregate route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate connect route in blue..");
-    // Check for ExtConnect route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.0.5", "red");
 
-    BgpRoute *ext_rt = InetRouteLookup("blue", "10.1.1.0/24");
-    BgpRoute *aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-    EXPECT_EQ(aggregate_rt->count(), 1);
-    EXPECT_EQ(ext_rt->count(), 1);
-    const BgpPath *aggregate_path = aggregate_rt->BestPath();
-    EXPECT_EQ("2.3.0.5", BgpPath::PathIdString(aggregate_path->GetPathId()));
-    const BgpPath *ext_path = ext_rt->BestPath();
-    EXPECT_EQ("2.3.0.5", BgpPath::PathIdString(ext_path->GetPathId()));
+    // Check for ExtConnect route
+    VerifyInetRouteExists("blue", "10.1.1.0/24");
+    VerifyInetRouteAttributes("blue", "10.1.1.0/24", "2.3.0.5", "red");
 
     // Connected path is infeasible
     AddConnectedRoute(peers_[0], "1.1.2.3/32", 100, "2.3.0.5",
-                 BgpPath::AsPathLooped);
-    task_util::WaitForIdle();
+        BgpPath::AsPathLooped);
 
     // Verify that Aggregate route and ExtConnect route is gone
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate connect route in blue..");
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
+    VerifyInetRouteNoExists("blue", "192.168.1.0/24");
+    VerifyInetRouteNoExists("blue", "10.1.1.0/24");
 
     // Connected path again from two peers
     AddConnectedRoute(peers_[0], "1.1.2.3/32", 100, "2.3.0.5");
     AddConnectedRoute(peers_[1], "1.1.2.3/32", 100, "2.3.1.5");
-    task_util::WaitForIdle();
 
     // Check for Aggregate & ExtConnect route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate connect route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
-
-    ext_rt = InetRouteLookup("blue", "10.1.1.0/24");
-    aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-    TASK_UTIL_WAIT_EQ_NO_MSG(aggregate_rt->count(), 2, 1000, 10000, 
-                             "Wait for all paths in Aggregate route ..");
-    EXPECT_EQ(aggregate_rt->count(), 2);
-    TASK_UTIL_WAIT_EQ_NO_MSG(ext_rt->count(), 2, 1000, 10000, 
-                             "Wait for all paths in Service Chain route ..");
-    EXPECT_EQ(ext_rt->count(), 2);
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteExists("blue", "10.1.1.0/24");
+    vector<string> path_ids = list_of("2.3.0.5")("2.3.1.5");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", path_ids, "red");
+    VerifyInetRouteAttributes("blue", "10.1.1.0/24", path_ids, "red");
 
     // Connected path is infeasible
     AddConnectedRoute(peers_[0], "1.1.2.3/32", 100, "2.3.0.5",
-                 BgpPath::AsPathLooped);
-    task_util::WaitForIdle();
+        BgpPath::AsPathLooped);
 
-    ext_rt = InetRouteLookup("blue", "10.1.1.0/24");
-    aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-    EXPECT_EQ(aggregate_rt->count(), 1);
-    EXPECT_EQ(ext_rt->count(), 1);
-    aggregate_path = aggregate_rt->BestPath();
-    EXPECT_EQ("2.3.1.5", BgpPath::PathIdString(aggregate_path->GetPathId()));
-    ext_path = ext_rt->BestPath();
-    EXPECT_EQ("2.3.1.5", BgpPath::PathIdString(ext_path->GetPathId()));
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.1.5", "red");
+    VerifyInetRouteAttributes("blue", "10.1.1.0/24", "2.3.1.5", "red");
 
     // Delete ExtRoute, More specific and connected route
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
     DeleteInetRoute(NULL, "red", "10.1.1.0/24");
     DeleteConnectedRoute(peers_[0], "1.1.2.3/32");
     DeleteConnectedRoute(peers_[1], "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 TEST_P(ServiceChainParamTest, ServiceChainRouteSGID) {
@@ -2964,105 +2166,46 @@ TEST_P(ServiceChainParamTest, ServiceChainRouteSGID) {
     VerifyNetworkConfig(instance_names);
 
     bgp_server_->service_chain_mgr()->set_aggregate_host_route(false);
-    boost::system::error_code ec;
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
-
-    std::vector<uint32_t> sgid_list_more_specific_1 = list_of(1)(2)(3)(4);
-    std::vector<uint32_t> sgid_list_more_specific_2 = list_of(5)(6)(7)(8);
-    std::vector<uint32_t> sgid_list_connected = list_of(9)(10)(11)(12);
-    std::vector<uint32_t> sgid_list_ext = list_of(13)(14)(15)(16);
+    vector<uint32_t> sgid_list_more_specific_1 = list_of(1)(2)(3)(4);
+    vector<uint32_t> sgid_list_more_specific_2 = list_of(5)(6)(7)(8);
+    vector<uint32_t> sgid_list_connected = list_of(9)(10)(11)(12);
+    vector<uint32_t> sgid_list_ext = list_of(13)(14)(15)(16);
 
     // Add Ext connect route
     AddInetRoute(NULL, "red", "10.1.1.0/24", 100, vector<uint32_t>(),
         sgid_list_ext);
-    task_util::WaitForIdle();
 
     // Add Connected
     AddConnectedRoute(peers_[0], "1.1.2.3/32", 100, "2.3.0.5", 0, 0, 
                       sgid_list_connected);
-    task_util::WaitForIdle();
 
     // Add more specific
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100, vector<uint32_t>(),
         sgid_list_more_specific_1);
-    task_util::WaitForIdle();
-
     AddInetRoute(NULL, "red", "192.168.1.2/32", 100, vector<uint32_t>(),
         sgid_list_more_specific_2);
-    task_util::WaitForIdle();
 
-    // Check for More specific routes leaked in src rtinstance
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.1/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.2/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
+    // Check for More specific routes leaked in src instance
+    VerifyInetRouteExists("blue", "192.168.1.1/32");
+    VerifyInetRouteAttributes(
+        "blue", "192.168.1.1/32", "2.3.0.5", "red", sgid_list_more_specific_1);
+    VerifyInetRouteExists("blue", "192.168.1.2/32");
+    VerifyInetRouteAttributes(
+        "blue", "192.168.1.2/32", "2.3.0.5", "red", sgid_list_more_specific_2);
+
     // Check for ExtConnect route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
-
-    BgpRoute *ext_rt = InetRouteLookup("blue", "10.1.1.0/24");
-    BgpRoute *leak_rt_1 = InetRouteLookup("blue", "192.168.1.1/32");
-    BgpRoute *leak_rt_2 = InetRouteLookup("blue", "192.168.1.2/32");
-
-    EXPECT_EQ(leak_rt_1->count(), 1);
-    EXPECT_EQ(leak_rt_2->count(), 1);
-    EXPECT_EQ(ext_rt->count(), 1);
-
-    const BgpPath *leak_path = leak_rt_1->BestPath();
-    EXPECT_EQ("2.3.0.5", BgpPath::PathIdString(leak_path->GetPathId()));
-    std::vector<uint32_t> list = GetSGIDListFromRoute(leak_path);
-    EXPECT_EQ(list.size(), 4);
-    for(std::vector<uint32_t>::iterator it1 = list.begin(), 
-        it2=sgid_list_more_specific_1.begin();
-        it1 != list.end() && it2 != sgid_list_more_specific_1.end(); 
-        it1++, it2++)
-        EXPECT_EQ(*it1, *it2);
-    EXPECT_EQ(GetOriginVnFromRoute(leak_path), "red");
-
-    leak_path = leak_rt_2->BestPath();
-    EXPECT_EQ("2.3.0.5", BgpPath::PathIdString(leak_path->GetPathId()));
-    list = GetSGIDListFromRoute(leak_path);
-    EXPECT_EQ(list.size(), 4);
-    for(std::vector<uint32_t>::iterator it1 = list.begin(), 
-        it2=sgid_list_more_specific_2.begin();
-        it1 != list.end() && it2 != sgid_list_more_specific_2.end(); 
-        it1++, it2++)
-        EXPECT_EQ(*it1, *it2);
-    EXPECT_EQ(GetOriginVnFromRoute(leak_path), "red");
-
-    const BgpPath *ext_path = ext_rt->BestPath();
-    EXPECT_EQ("2.3.0.5", BgpPath::PathIdString(ext_path->GetPathId()));
-    list = GetSGIDListFromRoute(ext_path);
-    EXPECT_EQ(list.size(), 4);
-    for(std::vector<uint32_t>::iterator it1 = list.begin(), 
-        it2=sgid_list_ext.begin();
-        it1 != list.end() && it2 != sgid_list_ext.end(); it1++, it2++)
-        EXPECT_EQ(*it1, *it2);
-    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
+    VerifyInetRouteExists("blue", "10.1.1.0/24");
+    VerifyInetRouteAttributes(
+        "blue", "10.1.1.0/24", "2.3.0.5", "red", sgid_list_ext);
 
     // Delete ExtRoute, More specific and connected route
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
     DeleteInetRoute(NULL, "red", "192.168.1.2/32");
     DeleteInetRoute(NULL, "red", "10.1.1.0/24");
     DeleteConnectedRoute(peers_[0], "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 TEST_P(ServiceChainParamTest, ServiceChainRouteUpdateSGID) {
@@ -3073,174 +2216,73 @@ TEST_P(ServiceChainParamTest, ServiceChainRouteUpdateSGID) {
     VerifyNetworkConfig(instance_names);
 
     bgp_server_->service_chain_mgr()->set_aggregate_host_route(false);
-    boost::system::error_code ec;
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
-
-    std::vector<uint32_t> sgid_list_more_specific_1 = list_of(1)(2)(3)(4);
-    std::vector<uint32_t> sgid_list_more_specific_2 = list_of(5)(6)(7)(8);
-    std::vector<uint32_t> sgid_list_connected = list_of(9)(10)(11)(12);
-    std::vector<uint32_t> sgid_list_ext = list_of(13)(14)(15)(16);
+    vector<uint32_t> sgid_list_more_specific_1 = list_of(1)(2)(3)(4);
+    vector<uint32_t> sgid_list_more_specific_2 = list_of(5)(6)(7)(8);
+    vector<uint32_t> sgid_list_connected = list_of(9)(10)(11)(12);
+    vector<uint32_t> sgid_list_ext = list_of(13)(14)(15)(16);
 
     // Add Ext connect route
     AddInetRoute(NULL, "red", "10.1.1.0/24", 100, vector<uint32_t>(),
         sgid_list_ext);
-    task_util::WaitForIdle();
 
     // Add Connected
     AddConnectedRoute(peers_[0], "1.1.2.3/32", 100, "2.3.0.5", 0, 0, 
                       sgid_list_connected);
-    task_util::WaitForIdle();
 
     // Add more specific
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100, vector<uint32_t>(),
         sgid_list_more_specific_1);
-    task_util::WaitForIdle();
-
     AddInetRoute(NULL, "red", "192.168.1.2/32", 100, vector<uint32_t>(),
         sgid_list_more_specific_2);
-    task_util::WaitForIdle();
 
-    // Check for More specific routes leaked in src rtinstance
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.1/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.2/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
+    // Check for More specific routes leaked in src instance
+    VerifyInetRouteExists("blue", "192.168.1.1/32");
+    VerifyInetRouteAttributes(
+        "blue", "192.168.1.1/32", "2.3.0.5", "red", sgid_list_more_specific_1);
+    VerifyInetRouteExists("blue", "192.168.1.2/32");
+    VerifyInetRouteAttributes(
+        "blue", "192.168.1.2/32", "2.3.0.5", "red", sgid_list_more_specific_2);
+
     // Check for ExtConnect route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
-
-    BgpRoute *ext_rt = InetRouteLookup("blue", "10.1.1.0/24");
-    BgpRoute *leak_rt_1 = InetRouteLookup("blue", "192.168.1.1/32");
-    BgpRoute *leak_rt_2 = InetRouteLookup("blue", "192.168.1.2/32");
-
-    EXPECT_EQ(leak_rt_1->count(), 1);
-    EXPECT_EQ(leak_rt_2->count(), 1);
-    EXPECT_EQ(ext_rt->count(), 1);
-
-    const BgpPath *leak_path = leak_rt_1->BestPath();
-    EXPECT_EQ("2.3.0.5", BgpPath::PathIdString(leak_path->GetPathId()));
-    std::vector<uint32_t> list = GetSGIDListFromRoute(leak_path);
-    EXPECT_EQ(list.size(), 4);
-    for(std::vector<uint32_t>::iterator it1 = list.begin(), 
-        it2=sgid_list_more_specific_1.begin();
-        it1 != list.end() && it2 != sgid_list_more_specific_1.end(); 
-        it1++, it2++)
-        EXPECT_EQ(*it1, *it2);
-    EXPECT_EQ(GetOriginVnFromRoute(leak_path), "red");
-
-    leak_path = leak_rt_2->BestPath();
-    EXPECT_EQ("2.3.0.5", BgpPath::PathIdString(leak_path->GetPathId()));
-    list = GetSGIDListFromRoute(leak_path);
-    EXPECT_EQ(list.size(), 4);
-    for(std::vector<uint32_t>::iterator it1 = list.begin(), 
-        it2=sgid_list_more_specific_2.begin();
-        it1 != list.end() && it2 != sgid_list_more_specific_2.end(); 
-        it1++, it2++)
-        EXPECT_EQ(*it1, *it2);
-    EXPECT_EQ(GetOriginVnFromRoute(leak_path), "red");
-
-    const BgpPath *ext_path = ext_rt->BestPath();
-    EXPECT_EQ("2.3.0.5", BgpPath::PathIdString(ext_path->GetPathId()));
-    list = GetSGIDListFromRoute(ext_path);
-    EXPECT_EQ(list.size(), 4);
-    for(std::vector<uint32_t>::iterator it1 = list.begin(), 
-        it2=sgid_list_ext.begin();
-        it1 != list.end() && it2 != sgid_list_ext.end(); it1++, it2++)
-        EXPECT_EQ(*it1, *it2);
-    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
+    VerifyInetRouteExists("blue", "10.1.1.0/24");
+    VerifyInetRouteAttributes(
+        "blue", "10.1.1.0/24", "2.3.0.5", "red", sgid_list_ext);
 
     // Update Ext connect route with different SGID list
     AddInetRoute(NULL, "red", "10.1.1.0/24", 100, vector<uint32_t>(),
         sgid_list_more_specific_1);
-    task_util::WaitForIdle();
 
     // Add Connected
     AddConnectedRoute(peers_[0], "1.1.2.3/32", 100, "2.3.0.5", 0, 0, 
                       sgid_list_more_specific_2);
-    task_util::WaitForIdle();
 
     // Add more specific
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100, vector<uint32_t>(),
         sgid_list_ext);
-    task_util::WaitForIdle();
-
     AddInetRoute(NULL, "red", "192.168.1.2/32", 100, vector<uint32_t>(),
         sgid_list_connected);
-    task_util::WaitForIdle();
 
     // Check for More specific routes leaked in src rtinstance
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.1/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.2/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for route in blue..");
+    VerifyInetRouteExists("blue", "192.168.1.1/32");
+    VerifyInetRouteAttributes(
+        "blue", "192.168.1.1/32", "2.3.0.5", "red", sgid_list_ext);
+    VerifyInetRouteExists("blue", "192.168.1.2/32");
+    VerifyInetRouteAttributes(
+        "blue", "192.168.1.2/32", "2.3.0.5", "red", sgid_list_connected);
+
     // Check for ExtConnect route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
-
-    ext_rt = InetRouteLookup("blue", "10.1.1.0/24");
-    leak_rt_1 = InetRouteLookup("blue", "192.168.1.1/32");
-    leak_rt_2 = InetRouteLookup("blue", "192.168.1.2/32");
-
-    EXPECT_EQ(leak_rt_1->count(), 1);
-    EXPECT_EQ(leak_rt_2->count(), 1);
-    EXPECT_EQ(ext_rt->count(), 1);
-
-    leak_path = leak_rt_1->BestPath();
-    list = GetSGIDListFromRoute(leak_path);
-    EXPECT_EQ(list.size(), 4);
-    for(std::vector<uint32_t>::iterator it1 = list.begin(), 
-        it2=sgid_list_ext.begin();
-        it1 != list.end() && it2 != sgid_list_ext.end(); 
-        it1++, it2++)
-        EXPECT_EQ(*it1, *it2);
-    EXPECT_EQ(GetOriginVnFromRoute(leak_path), "red");
-
-    leak_path = leak_rt_2->BestPath();
-    list = GetSGIDListFromRoute(leak_path);
-    EXPECT_EQ(list.size(), 4);
-    for(std::vector<uint32_t>::iterator it1 = list.begin(), 
-        it2=sgid_list_connected.begin();
-        it1 != list.end() && it2 != sgid_list_connected.end(); 
-        it1++, it2++)
-        EXPECT_EQ(*it1, *it2);
-    EXPECT_EQ(GetOriginVnFromRoute(leak_path), "red");
-
-    ext_path = ext_rt->BestPath();
-    EXPECT_EQ("2.3.0.5", BgpPath::PathIdString(ext_path->GetPathId()));
-    list = GetSGIDListFromRoute(ext_path);
-    EXPECT_EQ(list.size(), 4);
-    for(std::vector<uint32_t>::iterator it1 = list.begin(), 
-        it2=sgid_list_more_specific_1.begin();
-        it1 != list.end() && it2 != sgid_list_more_specific_1.end(); it1++, it2++)
-        EXPECT_EQ(*it1, *it2);
-    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
+    VerifyInetRouteExists("blue", "10.1.1.0/24");
+    VerifyInetRouteAttributes(
+        "blue", "10.1.1.0/24", "2.3.0.5", "red", sgid_list_more_specific_1);
 
     // Delete ExtRoute, More specific and connected route
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
     DeleteInetRoute(NULL, "red", "192.168.1.2/32");
     DeleteInetRoute(NULL, "red", "10.1.1.0/24");
     DeleteConnectedRoute(peers_[0], "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 TEST_P(ServiceChainParamTest, ValidateTunnelEncapAggregate) {
@@ -3250,72 +2292,39 @@ TEST_P(ServiceChainParamTest, ValidateTunnelEncapAggregate) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
-
-    set<string> encap_more_specific = list_of("udp");
     // Add More specific
+    set<string> encap_more_specific = list_of("udp");
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100, vector<uint32_t>(),
         vector<uint32_t>(), encap_more_specific);
-    task_util::WaitForIdle();
 
+    // Add Connected
     set<string> encap = list_of("vxlan");
-    // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5", 0, 0, 
                       vector<uint32_t>(), encap);
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteAttributes(
+        "blue", "192.168.1.0/24", "2.3.4.5", "red", encap);
 
-    BgpRoute *aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-    TASK_UTIL_EXPECT_TRUE(aggregate_rt->BestPath() != NULL);
-    const BgpPath *aggregate_path = aggregate_rt->BestPath();
-    set<string> list = GetTunnelEncapListFromRoute(aggregate_path);
-    EXPECT_EQ(list, encap);
-
-    BgpAttrPtr attr = aggregate_path->GetAttr();
-    EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
-
+    // Add Connected
     encap = list_of("gre");
-    // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5", 0, 0, 
                       vector<uint32_t>(), encap);
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
-
-    aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-    TASK_UTIL_EXPECT_TRUE(aggregate_rt->BestPath() != NULL);
-    aggregate_path = aggregate_rt->BestPath();
-    list = GetTunnelEncapListFromRoute(aggregate_path);
-    EXPECT_EQ(list, encap);
-
-    attr = aggregate_path->GetAttr();
-    EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteAttributes(
+        "blue", "192.168.1.0/24", "2.3.4.5", "red", encap);
 
     // Delete More specific
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
-    task_util::WaitForIdle();
 
     // Delete connected route
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 TEST_P(ServiceChainParamTest, ValidateTunnelEncapExtRoute) {
@@ -3325,72 +2334,37 @@ TEST_P(ServiceChainParamTest, ValidateTunnelEncapExtRoute) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add Ext connect route
     set<string> encap_ext = list_of("vxlan");
     AddInetRoute(NULL, "red", "10.1.1.0/24", 100, vector<uint32_t>(),
         vector<uint32_t>(), encap_ext);
-    task_util::WaitForIdle();
 
     // Add Connected
     set<string> encap = list_of("gre");
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5", 0, 0, 
                       vector<uint32_t>(), encap);
-    task_util::WaitForIdle();
 
     // Check for service Chain router
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Service Chain route in blue..");
+    VerifyInetRouteExists("blue", "10.1.1.0/24");
+    VerifyInetRouteAttributes("blue", "10.1.1.0/24", "2.3.4.5", "red", encap);
 
-    BgpRoute *ext_rt = InetRouteLookup("blue", "10.1.1.0/24");
-    TASK_UTIL_EXPECT_TRUE(ext_rt->BestPath() != NULL);
-    const BgpPath *ext_path = ext_rt->BestPath();
-    set<string> list = GetTunnelEncapListFromRoute(ext_path);
-    EXPECT_EQ(list, encap);
-
-    BgpAttrPtr attr = ext_path->GetAttr();
-    EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
-
-    encap = list_of("udp");
     // Add Connected
+    encap = list_of("udp");
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5", 0, 0, 
                       vector<uint32_t>(), encap);
-    task_util::WaitForIdle();
+    VerifyInetRouteAttributes("blue", "10.1.1.0/24", "2.3.4.5", "red", encap);
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Service Chain route in blue..");
-
-    ext_rt = InetRouteLookup("blue", "10.1.1.0/24");
-    TASK_UTIL_EXPECT_TRUE(ext_rt->BestPath() != NULL);
-    ext_path = ext_rt->BestPath();
-    list = GetTunnelEncapListFromRoute(ext_path);
-    EXPECT_EQ(list, encap);
-
-    attr = ext_path->GetAttr();
-    EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
+    VerifyInetRouteExists("blue", "10.1.1.0/24");
 
     // Delete ext connected route
     DeleteInetRoute(NULL, "red", "10.1.1.0/24");
-    task_util::WaitForIdle();
 
     // Delete connected route
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 TEST_P(ServiceChainParamTest, MultiPathTunnelEncap) {
@@ -3398,28 +2372,9 @@ TEST_P(ServiceChainParamTest, MultiPathTunnelEncap) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
 
-    boost::system::error_code ec;
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.3", ec)));
-    peers_.push_back(
-        new BgpPeerMock(Ip4Address::from_string("192.168.0.4", ec)));
-
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add More specific
     set<string> encap_1 = list_of("gre");
@@ -3429,119 +2384,70 @@ TEST_P(ServiceChainParamTest, MultiPathTunnelEncap) {
     AddConnectedRoute(peers_[0], "1.1.2.3/32", 100, "2.3.1.5", 0, 0, vector<uint32_t>(), encap_1);
     AddConnectedRoute(peers_[1], "1.1.2.3/32", 100, "2.3.2.5", 0, 0, vector<uint32_t>(), encap_2);
     AddConnectedRoute(peers_[2], "1.1.2.3/32", 100, "2.3.3.5", 0, 0, vector<uint32_t>(), encap_3);
-    task_util::WaitForIdle();
 
     // Check for aggregated route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.168.1.0/24"),
-                             NULL, 1000, 10000, 
-                             "Wait for Aggregate route in blue..");
-
-    BgpRoute *aggregate_rt = InetRouteLookup("blue", "192.168.1.0/24");
-    EXPECT_EQ(aggregate_rt->count(), 3);
-
-    // Check for aggregated route count
-    TASK_UTIL_WAIT_EQ_NO_MSG(aggregate_rt->count(), 3, 1000, 10000, 
-                             "Wait for all paths in Aggregate route ..");
-    EXPECT_EQ(aggregate_rt->count(), 3);
-    for (Route::PathList::iterator it = aggregate_rt->GetPathList().begin(); 
-         it != aggregate_rt->GetPathList().end(); it++) {
-        BgpPath *path = static_cast<BgpPath *>(it.operator->());
-        set<string> list = GetTunnelEncapListFromRoute(path);
-        BgpAttrPtr attr = path->GetAttr();
-        if (BgpPath::PathIdString(path->GetPathId()) == "2.3.1.5") {
-            EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.1.5");
-            EXPECT_EQ(list, encap_1);
-        } else if (BgpPath::PathIdString(path->GetPathId()) == "2.3.2.5") {
-            EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.2.5");
-            EXPECT_EQ(list, encap_2);
-        } else if (BgpPath::PathIdString(path->GetPathId()) == "2.3.3.5") {
-            EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.3.5");
-            EXPECT_EQ(list, encap_3);
-        }
-        EXPECT_EQ(GetOriginVnFromRoute(path), "red");
-    }
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    vector<string> path_ids = list_of("2.3.1.5")("2.3.2.5")("2.3.3.5");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", path_ids, "red");
+    VerifyInetPathAttributes(
+        "blue", "192.168.1.0/24", "2.3.1.5", "red", encap_1);
+    VerifyInetPathAttributes(
+        "blue", "192.168.1.0/24", "2.3.2.5", "red", encap_2);
+    VerifyInetPathAttributes(
+        "blue", "192.168.1.0/24", "2.3.3.5", "red", encap_3);
 
     // Delete More specific
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
+
     // Delete connected route
     DeleteConnectedRoute(peers_[0], "1.1.2.3/32");
     DeleteConnectedRoute(peers_[1], "1.1.2.3/32");
     DeleteConnectedRoute(peers_[2], "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
-
 
 TEST_P(ServiceChainParamTest, DeleteConnectedWithExtConnectRoute) {
     vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
 
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
-
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
     // Add Ext connect route
     AddInetRoute(NULL, "red", "10.1.1.1/32", 100);
     AddInetRoute(NULL, "red", "10.1.1.2/32", 100);
     AddInetRoute(NULL, "red", "10.1.1.3/32", 100);
-    task_util::WaitForIdle();
 
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
     // Check for ExtConnect route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.1/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.2/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
+    VerifyInetRouteExists("blue", "10.1.1.1/32");
+    VerifyInetRouteExists("blue", "10.1.1.2/32");
+    VerifyInetRouteExists("blue", "10.1.1.3/32");
 
     DisableServiceChainQ();
     AddConnectedRoute(NULL, "1.1.2.3/32", 200, "2.3.4.5");
     DeleteInetRoute(NULL, "red", "10.1.1.1/32");
 
-    BgpRoute *ext_rt = InetRouteLookup("red", "10.1.1.1/32");
-    TASK_UTIL_WAIT_EQ_NO_MSG(ext_rt->IsDeleted(),
-                             true, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
+    VerifyInetRouteIsDeleted("red", "10.1.1.1/32");
+
     // Check for ExtConnect route
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.1/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.2/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
-    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.3/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
+    VerifyInetRouteExists("blue", "10.1.1.1/32");
+    VerifyInetRouteExists("blue", "10.1.1.2/32");
+    VerifyInetRouteExists("blue", "10.1.1.3/32");
 
     EnableServiceChainQ();
 
     TASK_UTIL_EXPECT_TRUE(bgp_server_->service_chain_mgr()->IsQueueEmpty());
 
-    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "10.1.1.1/32"),
-                             NULL, 1000, 10000, 
-                             "Wait for ExtConnect route in blue..");
+    VerifyInetRouteNoExists("blue", "10.1.1.1/32");
 
     // Delete ExtRoute, More specific and connected route
     DeleteInetRoute(NULL, "red", "10.1.1.2/32");
     DeleteInetRoute(NULL, "red", "10.1.1.3/32");
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
-    task_util::WaitForIdle();
 }
 
 TEST_P(ServiceChainParamTest, DeleteEntryReuse) {
@@ -3549,74 +2455,54 @@ TEST_P(ServiceChainParamTest, DeleteEntryReuse) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
 
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
-
-    std::vector<string> routes_to_play = list_of("10.1.1.1/32")("10.1.1.2/32")("10.1.1.3/32");
+    vector<string> routes_to_play =
+        list_of("10.1.1.1/32")("10.1.1.2/32")("10.1.1.3/32");
     // Add Ext connect route
-    for (std::vector<string>::iterator it = routes_to_play.begin();
+    for (vector<string>::iterator it = routes_to_play.begin();
          it != routes_to_play.end(); it++)
         AddInetRoute(NULL, "red", *it, 100);
-    task_util::WaitForIdle();
 
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
     // Check for ExtConnect route
-    for (std::vector<string>::iterator it = routes_to_play.begin();
+    for (vector<string>::iterator it = routes_to_play.begin();
          it != routes_to_play.end(); it++) {
-        TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", *it),
-                                 NULL, 1000, 10000, 
-                                 "Wait for ExtConnect route in blue..");
+        VerifyInetRouteExists("blue", *it);
     }
     DisableServiceChainQ();
-    for (std::vector<string>::iterator it = routes_to_play.begin();
+    for (vector<string>::iterator it = routes_to_play.begin();
          it != routes_to_play.end(); it++)
         DeleteInetRoute(NULL, "red", *it);
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
 
-    for (std::vector<string>::iterator it = routes_to_play.begin();
+    for (vector<string>::iterator it = routes_to_play.begin();
          it != routes_to_play.end(); it++) {
-        BgpRoute *ext_rt = InetRouteLookup("red", *it);
-        TASK_UTIL_WAIT_EQ_NO_MSG(ext_rt->IsDeleted(),
-                                 true, 1000, 10000, 
-                                 "Wait for delete marking of ExtConnect route in red..");
+        VerifyInetRouteIsDeleted("red", *it);
     }
 
-    for (std::vector<string>::iterator it = routes_to_play.begin();
+    for (vector<string>::iterator it = routes_to_play.begin();
          it != routes_to_play.end(); it++)
         AddInetRoute(NULL, "red", *it, 100);
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
 
 
-    for (std::vector<string>::iterator it = routes_to_play.begin();
+    for (vector<string>::iterator it = routes_to_play.begin();
          it != routes_to_play.end(); it++)
         DeleteInetRoute(NULL, "red", *it);
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
 
-    for (std::vector<string>::iterator it = routes_to_play.begin();
+    for (vector<string>::iterator it = routes_to_play.begin();
          it != routes_to_play.end(); it++) {
-        BgpRoute *ext_rt = InetRouteLookup("red", *it);
-        TASK_UTIL_WAIT_EQ_NO_MSG(ext_rt->IsDeleted(),
-                                 true, 1000, 10000, 
-                                 "Wait for delete marking of ExtConnect route in red..");
+        VerifyInetRouteIsDeleted("red", *it);
     }
 
     EnableServiceChainQ();
     TASK_UTIL_EXPECT_TRUE(bgp_server_->service_chain_mgr()->IsQueueEmpty());
-
-    task_util::WaitForIdle();
 }
 
 TEST_P(ServiceChainParamTest, EntryAfterStop) {
@@ -3624,20 +2510,11 @@ TEST_P(ServiceChainParamTest, EntryAfterStop) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
 
-    std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
 
-    // Service Chain Info
-    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
-                                         "blue-i1", 
-                                         "service-chain-information", 
-                                         params.release(),
-                                         0);
-    task_util::WaitForIdle();
-
-    std::vector<string> routes_to_play;
+    vector<string> routes_to_play;
     // Add Ext connect route
     for (int i = 0; i < 255; i++) {
         stringstream route;
@@ -3645,27 +2522,22 @@ TEST_P(ServiceChainParamTest, EntryAfterStop) {
         routes_to_play.push_back(route.str());
     }
 
-    for (std::vector<string>::iterator it = routes_to_play.begin();
+    for (vector<string>::iterator it = routes_to_play.begin();
          it != routes_to_play.end(); it++)
         AddInetRoute(NULL, "red", *it, 100);
-    task_util::WaitForIdle();
 
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
-    task_util::WaitForIdle();
 
     // Check for ExtConnect route
-    for (std::vector<string>::iterator it = routes_to_play.begin();
+    for (vector<string>::iterator it = routes_to_play.begin();
          it != routes_to_play.end(); it++) {
-        TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", *it),
-                                 NULL, 1000, 10000, 
-                                 "Wait for ExtConnect route in blue..");
+        VerifyInetRouteExists("blue", *it);
     }
     DisableServiceChainQ();
 
-    ifmap_test_util::IFMapMsgPropertyDelete(&config_db_, "routing-instance", 
-                                            "blue-i1", 
-                                            "service-chain-information");
+    ClearServiceChainInformation("blue-i1");
+
     // Add more Ext connect route
     for (int i = 0; i < 255; i++) {
         stringstream route;
@@ -3673,7 +2545,7 @@ TEST_P(ServiceChainParamTest, EntryAfterStop) {
         routes_to_play.push_back(route.str());
     }
 
-    for (std::vector<string>::iterator it = routes_to_play.begin();
+    for (vector<string>::iterator it = routes_to_play.begin();
          it != routes_to_play.end(); it++)
         AddInetRoute(NULL, "red", *it, 200);
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
@@ -3681,34 +2553,26 @@ TEST_P(ServiceChainParamTest, EntryAfterStop) {
     EnableServiceChainQ();
     TASK_UTIL_EXPECT_TRUE(bgp_server_->service_chain_mgr()->IsQueueEmpty());
 
-    for (std::vector<string>::iterator it = routes_to_play.begin();
+    for (vector<string>::iterator it = routes_to_play.begin();
          it != routes_to_play.end(); it++)
         DeleteInetRoute(NULL, "red", *it);
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
 
-    TASK_UTIL_WAIT_EQ_NO_MSG(RouteCount("red"),
-                             0, 1000, 10000, 
-                             "Wait for route in red to be deleted..");
-    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, RouteCount("red"));
 }
 
 //
 // Instances are (blue)(blue-i1)(core-i2)(core)(core-i3)(red-i4)(red)
 //
 TEST_P(ServiceChainParamTest, TransitNetworkRemoteVMRoutes) {
-    string content =
-        FileRead("controller/src/bgp/testdata/service_chain_test_1.xml");
-    parser_.Parse(content);
-    task_util::WaitForIdle();
+    ParseConfigFile("controller/src/bgp/testdata/service_chain_test_1.xml");
     AddConnection("blue", "blue-i1");
     AddConnection("core", "core-i3");
-    task_util::WaitForIdle();
 
     // Add more specific routes to red
     AddInetRoute(NULL, "red", "192.168.3.101/32", 100);
     AddInetRoute(NULL, "red", "192.168.3.102/32", 100);
     AddInetRoute(NULL, "red", "192.168.3.103/32", 100);
-    task_util::WaitForIdle();
 
     // Add Connected routes for the 2 chains
     AddConnectedRoute(1, NULL, "192.168.1.253/32", 100, "20.1.1.1");
@@ -3724,26 +2588,20 @@ TEST_P(ServiceChainParamTest, TransitNetworkRemoteVMRoutes) {
     DeleteInetRoute(NULL, "red", "192.168.3.103/32");
     DeleteConnectedRoute(1, NULL, "192.168.1.253/32");
     DeleteConnectedRoute(2, NULL, "192.168.2.253/32");
-    task_util::WaitForIdle();
 }
 
 //
 // Instances are (blue)(blue-i1)(core-i2)(core)(core-i3)(red-i4)(red)
 //
 TEST_P(ServiceChainParamTest, TransitNetworkLocalVMRoutes) {
-    string content =
-        FileRead("controller/src/bgp/testdata/service_chain_test_1.xml");
-    parser_.Parse(content);
-    task_util::WaitForIdle();
+    ParseConfigFile("controller/src/bgp/testdata/service_chain_test_1.xml");
     AddConnection("blue", "blue-i1");
     AddConnection("core", "core-i3");
-    task_util::WaitForIdle();
 
     // Add more specific routes to core
     AddInetRoute(NULL, "core", "192.168.2.101/32", 100);
     AddInetRoute(NULL, "core", "192.168.2.102/32", 100);
     AddInetRoute(NULL, "core", "192.168.2.103/32", 100);
-    task_util::WaitForIdle();
 
     // Add Connected routes for the blue-core chain
     AddConnectedRoute(1, NULL, "192.168.1.253/32", 100, "20.1.1.1");
@@ -3757,26 +2615,20 @@ TEST_P(ServiceChainParamTest, TransitNetworkLocalVMRoutes) {
     DeleteInetRoute(NULL, "core", "192.168.2.102/32");
     DeleteInetRoute(NULL, "core", "192.168.2.103/32");
     DeleteConnectedRoute(1, NULL, "192.168.1.253/32");
-    task_util::WaitForIdle();
 }
 
 //
 // Instances are (blue)(blue-i1)(core-i2)(core)(core-i3)(red-i4)(red)
 //
 TEST_P(ServiceChainParamTest, TransitNetworkRemoteExtConnectRoute) {
-    string content =
-        FileRead("controller/src/bgp/testdata/service_chain_test_1.xml");
-    parser_.Parse(content);
-    task_util::WaitForIdle();
+    ParseConfigFile("controller/src/bgp/testdata/service_chain_test_1.xml");
     AddConnection("blue", "blue-i1");
     AddConnection("core", "core-i3");
-    task_util::WaitForIdle();
 
     // Add Ext connect routes to red
     AddInetRoute(NULL, "red", "10.1.3.1/32", 100);
     AddInetRoute(NULL, "red", "10.1.3.2/32", 100);
     AddInetRoute(NULL, "red", "10.1.3.3/32", 100);
-    task_util::WaitForIdle();
 
     // Add Connected routes for the 2 chains.
     AddConnectedRoute(1, NULL, "192.168.1.253/32", 100, "20.1.1.1");
@@ -3797,23 +2649,17 @@ TEST_P(ServiceChainParamTest, TransitNetworkRemoteExtConnectRoute) {
     DeleteInetRoute(NULL, "red", "10.1.3.3/32");
     DeleteConnectedRoute(1, NULL, "192.168.1.253/32");
     DeleteConnectedRoute(2, NULL, "192.168.2.253/32");
-    task_util::WaitForIdle();
 }
 
 TEST_P(ServiceChainParamTest, TransitNetworkLocalExtConnectRoute) {
-    string content =
-        FileRead("controller/src/bgp/testdata/service_chain_test_1.xml");
-    parser_.Parse(content);
-    task_util::WaitForIdle();
+    ParseConfigFile("controller/src/bgp/testdata/service_chain_test_1.xml");
     AddConnection("blue", "blue-i1");
     AddConnection("core", "core-i3");
-    task_util::WaitForIdle();
 
     // Add Ext connect routes to core
     AddInetRoute(NULL, "core", "10.1.2.1/32", 100);
     AddInetRoute(NULL, "core", "10.1.2.2/32", 100);
     AddInetRoute(NULL, "core", "10.1.2.3/32", 100);
-    task_util::WaitForIdle();
 
     // Add Connected routes for the blue-core chain
     AddConnectedRoute(1, NULL, "192.168.1.253/32", 100, "20.1.1.1");
@@ -3832,30 +2678,23 @@ TEST_P(ServiceChainParamTest, TransitNetworkLocalExtConnectRoute) {
     DeleteInetRoute(NULL, "core", "10.1.2.2/32");
     DeleteInetRoute(NULL, "core", "10.1.2.3/32");
     DeleteConnectedRoute(1, NULL, "192.168.1.253/32");
-    task_util::WaitForIdle();
 }
 
 //
 // Instances are (blue)(blue-i1)(core-i2)(core)(core-i3)(red-i4)(red)
 //
 TEST_P(ServiceChainParamTest, TransitNetworkAddDeleteConnectedRoute1) {
-    string content =
-        FileRead("controller/src/bgp/testdata/service_chain_test_1.xml");
-    parser_.Parse(content);
-    task_util::WaitForIdle();
+    ParseConfigFile("controller/src/bgp/testdata/service_chain_test_1.xml");
     AddConnection("blue", "blue-i1");
     AddConnection("core", "core-i3");
-    task_util::WaitForIdle();
 
     // Add more specific routes to red
     AddInetRoute(NULL, "red", "192.168.3.101/32", 100);
     AddInetRoute(NULL, "red", "192.168.3.102/32", 100);
-    task_util::WaitForIdle();
 
     // Add Ext connect routes to red
     AddInetRoute(NULL, "red", "10.1.3.1/32", 100);
     AddInetRoute(NULL, "red", "10.1.3.2/32", 100);
-    task_util::WaitForIdle();
 
     // Add Connected routes for the 2 chains
     AddConnectedRoute(1, NULL, "192.168.1.253/32", 100, "20.1.1.1");
@@ -3903,30 +2742,23 @@ TEST_P(ServiceChainParamTest, TransitNetworkAddDeleteConnectedRoute1) {
     DeleteInetRoute(NULL, "red", "10.1.3.2/32");
     DeleteConnectedRoute(1, NULL, "192.168.1.253/32");
     DeleteConnectedRoute(2, NULL, "192.168.2.253/32");
-    task_util::WaitForIdle();
 }
 
 //
 // Instances are (blue)(blue-i1)(core-i2)(core)(core-i3)(red-i4)(red)
 //
 TEST_P(ServiceChainParamTest, TransitNetworkAddDeleteConnectedRoute2) {
-    string content =
-        FileRead("controller/src/bgp/testdata/service_chain_test_1.xml");
-    parser_.Parse(content);
-    task_util::WaitForIdle();
+    ParseConfigFile("controller/src/bgp/testdata/service_chain_test_1.xml");
     AddConnection("blue", "blue-i1");
     AddConnection("core", "core-i3");
-    task_util::WaitForIdle();
 
     // Add more specific routes to red
     AddInetRoute(NULL, "red", "192.168.3.101/32", 100);
     AddInetRoute(NULL, "red", "192.168.3.102/32", 100);
-    task_util::WaitForIdle();
 
     // Add Ext connect routes to red
     AddInetRoute(NULL, "red", "10.1.3.1/32", 100);
     AddInetRoute(NULL, "red", "10.1.3.2/32", 100);
-    task_util::WaitForIdle();
 
     // Add Connected routes for the 2 chains
     AddConnectedRoute(1, NULL, "192.168.1.253/32", 100, "20.1.1.1");
@@ -3974,7 +2806,6 @@ TEST_P(ServiceChainParamTest, TransitNetworkAddDeleteConnectedRoute2) {
     DeleteInetRoute(NULL, "red", "10.1.3.2/32");
     DeleteConnectedRoute(1, NULL, "192.168.1.253/32");
     DeleteConnectedRoute(2, NULL, "192.168.2.253/32");
-    task_util::WaitForIdle();
 }
 
 //
@@ -3982,22 +2813,17 @@ TEST_P(ServiceChainParamTest, TransitNetworkAddDeleteConnectedRoute2) {
 //
 TEST_P(ServiceChainParamTest, TransitNetworkToggleAllowTransit) {
     string content =
-        FileRead("controller/src/bgp/testdata/service_chain_test_1.xml");
-    parser_.Parse(content);
-    task_util::WaitForIdle();
+        ParseConfigFile("controller/src/bgp/testdata/service_chain_test_1.xml");
     AddConnection("blue", "blue-i1");
     AddConnection("core", "core-i3");
-    task_util::WaitForIdle();
 
     // Add more specific routes to red
     AddInetRoute(NULL, "red", "192.168.3.101/32", 100);
     AddInetRoute(NULL, "red", "192.168.3.102/32", 100);
-    task_util::WaitForIdle();
 
     // Add Ext connect routes to red
     AddInetRoute(NULL, "red", "10.1.3.1/32", 100);
     AddInetRoute(NULL, "red", "10.1.3.2/32", 100);
-    task_util::WaitForIdle();
 
     // Add Connected routes for the 2 chains
     AddConnectedRoute(1, NULL, "192.168.1.253/32", 100, "20.1.1.1");
@@ -4019,8 +2845,7 @@ TEST_P(ServiceChainParamTest, TransitNetworkToggleAllowTransit) {
     boost::replace_all(content,
         "<allow-transit>true</allow-transit>",
         "<allow-transit>false</allow-transit>");
-    parser_.Parse(content);
-    task_util::WaitForIdle();
+    ParseConfigString(content);
 
     // Check for Aggregate route in blue
     VerifyInetRouteNoExists("blue", "192.168.3.0/24");
@@ -4033,8 +2858,7 @@ TEST_P(ServiceChainParamTest, TransitNetworkToggleAllowTransit) {
     boost::replace_all(content,
         "<allow-transit>false</allow-transit>",
         "<allow-transit>true</allow-transit>");
-    parser_.Parse(content);
-    task_util::WaitForIdle();
+    ParseConfigString(content);
 
     // Check for Aggregate route in blue
     aggregate_rt = VerifyInetRouteExists("blue", "192.168.3.0/24");
@@ -4053,7 +2877,6 @@ TEST_P(ServiceChainParamTest, TransitNetworkToggleAllowTransit) {
     DeleteInetRoute(NULL, "red", "10.1.3.2/32");
     DeleteConnectedRoute(1, NULL, "192.168.1.253/32");
     DeleteConnectedRoute(2, NULL, "192.168.2.253/32");
-    task_util::WaitForIdle();
 }
 
 //
@@ -4061,28 +2884,22 @@ TEST_P(ServiceChainParamTest, TransitNetworkToggleAllowTransit) {
 //                                             (core-i5)(green-i6)(green)
 //
 TEST_P(ServiceChainParamTest, TransitNetworkMultipleNetworks) {
-    string content =
-        FileRead("controller/src/bgp/testdata/service_chain_test_2.xml");
-    parser_.Parse(content);
-    task_util::WaitForIdle();
+    ParseConfigFile("controller/src/bgp/testdata/service_chain_test_2.xml");
     AddConnection("blue", "blue-i1");
     AddConnection("core", "core-i3");
     AddConnection("core", "core-i5");
-    task_util::WaitForIdle();
 
     // Add more specific routes to red and green
     AddInetRoute(NULL, "red", "192.168.3.101/32", 100);
     AddInetRoute(NULL, "red", "192.168.3.102/32", 100);
     AddInetRoute(NULL, "green", "192.168.4.101/32", 100);
     AddInetRoute(NULL, "green", "192.168.4.102/32", 100);
-    task_util::WaitForIdle();
 
     // Add Ext connect routes to red and green
     AddInetRoute(NULL, "red", "10.1.3.1/32", 100);
     AddInetRoute(NULL, "red", "10.1.3.2/32", 100);
     AddInetRoute(NULL, "green", "10.1.4.1/32", 100);
     AddInetRoute(NULL, "green", "10.1.4.2/32", 100);
-    task_util::WaitForIdle();
 
     // Add Connected routes for the 3 chains
     AddConnectedRoute(1, NULL, "192.168.1.253/32", 100, "20.1.1.1");
@@ -4119,7 +2936,6 @@ TEST_P(ServiceChainParamTest, TransitNetworkMultipleNetworks) {
     DeleteConnectedRoute(1, NULL, "192.168.1.253/32");
     DeleteConnectedRoute(2, NULL, "192.168.2.253/32");
     DeleteConnectedRoute(3, NULL, "192.168.2.252/32");
-    task_util::WaitForIdle();
 }
 
 INSTANTIATE_TEST_CASE_P(Instance, ServiceChainParamTest,
