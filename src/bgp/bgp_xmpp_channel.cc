@@ -842,10 +842,16 @@ void BgpXmppChannel::ProcessMcastItem(std::string vrf_name,
              item.entry.next_hops.next_hop[0].tunnel_encapsulation_list.end();
              it++) {
              TunnelEncap tun_encap(*it);
-             if (tun_encap.tunnel_encap() != TunnelEncapType::UNSPEC) {
-                 no_valid_tunnel_encap = false;
-                 ext.communities.push_back(tun_encap.GetExtCommunityValue());
-             }
+             if (tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
+                 continue;
+             no_valid_tunnel_encap = false;
+             ext.communities.push_back(tun_encap.GetExtCommunityValue());
+
+             string alt_encap_string = *it + "-contrail";
+             TunnelEncap alt_tun_encap(alt_encap_string);
+             if (alt_tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
+                 continue;
+             ext.communities.push_back(alt_tun_encap.GetExtCommunityValue());
         }
 
         // If all of the tunnel encaps published by the agent is invalid,
@@ -1049,13 +1055,26 @@ void BgpXmppChannel::ProcessItem(string vrf_name,
                      item.entry.next_hops.next_hop[i].tunnel_encapsulation_list.end();
                      it++) {
                     TunnelEncap tun_encap(*it);
-                    if (tun_encap.tunnel_encap() != TunnelEncapType::UNSPEC) {
-                        no_valid_tunnel_encap = false;
-                        if (i == 0) {
-                            ext.communities.push_back(tun_encap.GetExtCommunityValue());
-                        }
-                        nexthop.tunnel_encapsulations_.push_back(tun_encap.GetExtCommunity());
+                    if (tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
+                        continue;
+                    no_valid_tunnel_encap = false;
+                    if (i == 0) {
+                        ext.communities.push_back(
+                            tun_encap.GetExtCommunityValue());
                     }
+                    nexthop.tunnel_encapsulations_.push_back(
+                        tun_encap.GetExtCommunity());
+
+                    string alt_encap_string = *it + "-contrail";
+                    TunnelEncap alt_tun_encap(alt_encap_string);
+                    if (alt_tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
+                        continue;
+                    if (i == 0) {
+                        ext.communities.push_back(
+                            alt_tun_encap.GetExtCommunityValue());
+                    }
+                    nexthop.tunnel_encapsulations_.push_back(
+                        alt_tun_encap.GetExtCommunity());
                 }
 
                 // If all of the tunnel encaps published by the agent are
@@ -1289,15 +1308,26 @@ void BgpXmppChannel::ProcessInet6Item(string vrf_name,
                                         tunnel_encapsulation_list.end();
                      ++it) {
                     TunnelEncap tun_encap(*it);
-                    if (tun_encap.tunnel_encap() != TunnelEncapType::UNSPEC) {
-                        no_valid_tunnel_encap = false;
-                        if (i == 0) {
-                            ext.communities.push_back(
-                                tun_encap.GetExtCommunityValue());
-                        }
-                        nexthop.tunnel_encapsulations_.push_back(
-                            tun_encap.GetExtCommunity());
+                    if (tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
+                        continue;
+                    no_valid_tunnel_encap = false;
+                    if (i == 0) {
+                        ext.communities.push_back(
+                            tun_encap.GetExtCommunityValue());
                     }
+                    nexthop.tunnel_encapsulations_.push_back(
+                        tun_encap.GetExtCommunity());
+
+                    string alt_encap_string = *it + "-contrail";
+                    TunnelEncap alt_tun_encap(alt_encap_string);
+                    if (alt_tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
+                        continue;
+                    if (i == 0) {
+                        ext.communities.push_back(
+                            alt_tun_encap.GetExtCommunityValue());
+                    }
+                    nexthop.tunnel_encapsulations_.push_back(
+                        alt_tun_encap.GetExtCommunity());
                 }
 
                 // If all of the tunnel encaps published by the agent are 
@@ -1549,14 +1579,28 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
                      item.entry.next_hops.next_hop[i].tunnel_encapsulation_list.end();
                      it++) {
                     TunnelEncap tun_encap(*it);
-                    if (tun_encap.tunnel_encap() != TunnelEncapType::UNSPEC) {
-                        no_valid_tunnel_encap = false;
-                        if (i == 0) {
-                            ext.communities.push_back(tun_encap.GetExtCommunityValue());
-                        }
-                        nexthop.tunnel_encapsulations_.push_back(tun_encap.GetExtCommunity());
+                    if (tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
+                        continue;
+                    no_valid_tunnel_encap = false;
+                    if (i == 0) {
+                        ext.communities.push_back(
+                            tun_encap.GetExtCommunityValue());
                     }
+                    nexthop.tunnel_encapsulations_.push_back(
+                        tun_encap.GetExtCommunity());
+
+                    string alt_encap_string = *it + "-contrail";
+                    TunnelEncap alt_tun_encap(alt_encap_string);
+                    if (alt_tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
+                        continue;
+                    if (i == 0) {
+                        ext.communities.push_back(
+                            alt_tun_encap.GetExtCommunityValue());
+                    }
+                    nexthop.tunnel_encapsulations_.push_back(
+                        alt_tun_encap.GetExtCommunity());
                 }
+
                 //
                 // If all of the tunnel encaps published by the agent is invalid,
                 // mark the path as infeasible

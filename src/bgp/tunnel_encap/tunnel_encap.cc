@@ -2,13 +2,15 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <sstream>
 #include "bgp/tunnel_encap/tunnel_encap.h"
 
-#include "base/parse_object.h"
-#include <stdio.h>
+#include <sstream>
 
-using namespace std;
+#include <stdio.h>
+#include "base/parse_object.h"
+
+using std::copy;
+using std::string;
 
 TunnelEncap::TunnelEncap(string encap) {
     TunnelEncapType::Encap id = TunnelEncapType::TunnelEncapFromString(encap);
@@ -33,20 +35,22 @@ TunnelEncap::TunnelEncap(const bytes_type &data) {
 }
 
 TunnelEncapType::Encap TunnelEncap::tunnel_encap() const {
-    uint8_t data[TunnelEncap::kSize];
-    string encap = "unspecified";
-
-    copy(data_.begin(), data_.end(), &data[0]);
-    if (data[0] == 0x03 && data[1] == 0x0c) {
-        uint16_t num = get_value(data + 6, 2);
-        encap = 
-            TunnelEncapType::TunnelEncapToString((TunnelEncapType::Encap) num);
+    if (data_[0] != 0x03 || data_[1] != 0x0c)
+        return TunnelEncapType::UNSPEC;
+    uint16_t value = get_value(&data_[6], 2);
+    if (TunnelEncapType::TunnelEncapIsValid(value)) {
+        return static_cast<TunnelEncapType::Encap>(value);
+    } else {
+        return TunnelEncapType::UNSPEC;
     }
-    return TunnelEncapType::TunnelEncapFromString(encap);
 }
 
 string TunnelEncap::ToString() {
     string str("encapsulation:");
     str += TunnelEncapType::TunnelEncapToString(tunnel_encap());
     return str;
+}
+
+string TunnelEncap::ToXmppString() {
+    return TunnelEncapType::TunnelEncapToXmppString(tunnel_encap());
 }

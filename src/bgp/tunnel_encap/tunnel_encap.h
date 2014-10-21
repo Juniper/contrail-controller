@@ -31,6 +31,7 @@ public:
         return get_value(data_.begin(), 8);
     }
     std::string ToString();
+    std::string ToXmppString();
 
 private:
     bytes_type data_;

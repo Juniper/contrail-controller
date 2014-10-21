@@ -166,13 +166,15 @@ std::vector<std::string> ExtCommunity::GetTunnelEncap() const {
         if (!ExtCommunity::is_tunnel_encap(*iter))
             continue;
         TunnelEncap encap(*iter);
-        TunnelEncapType::Encap id = encap.tunnel_encap();
-        if (id == TunnelEncapType::UNSPEC)
+        if (encap.tunnel_encap() == TunnelEncapType::UNSPEC)
             continue;
-        encap_list.push_back(TunnelEncapType::TunnelEncapToString(id));
+        encap_list.push_back(encap.ToXmppString());
     }
 
     std::sort(encap_list.begin(), encap_list.end());
+    std::vector<std::string>::iterator encap_iter =
+        std::unique(encap_list.begin(), encap_list.end());
+    encap_list.erase(encap_iter, encap_list.end());
     return encap_list;
 }
 
