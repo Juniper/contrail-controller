@@ -288,7 +288,7 @@ class VirtualNetworkST(DictST):
                 cls._vn_id_allocator.delete(props.network_id - 1)
             for policy in NetworkPolicyST.values():
                 if name in policy.analyzer_vn_set:
-                    analyzer_vn_set |= policy.network_back_ref
+                    analyzer_vn_set |= policy.networks_back_ref
                     policy.analyzer_vn_set.discard(name)
             del cls._dict[name]
             vn.uve_send(deleted=True)
