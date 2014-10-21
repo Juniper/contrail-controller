@@ -231,7 +231,10 @@ class OpServerUtils(object):
                 yield {}
                 return
             status = json.loads(resp.text)
-            if status['progress'] != 100:
+            if status['progress'] < 0:
+                print 'Error in query processing'
+                return
+            elif status['progress'] != 100:
                 if time_out is not None:
                     if time_left > 0:
                         time_left -= sleep_interval
