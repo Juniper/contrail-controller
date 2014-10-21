@@ -102,6 +102,7 @@ public:
 
     const BgpPeerKey &peer_key() const { return peer_key_; }
     const std::string &peer_name() const { return peer_name_; }
+    const std::string &peer_basename() const { return peer_basename_; }
 
     StateMachine::State GetState() const;
     virtual const std::string GetStateName() const;
@@ -249,6 +250,7 @@ private:
     RoutingInstance *rtinstance_;
     BgpPeerKey peer_key_;
     std::string peer_name_;
+    std::string peer_basename_;
     const BgpNeighborConfig *config_;
     // Global peer index
     int index_;

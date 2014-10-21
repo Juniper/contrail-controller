@@ -54,6 +54,7 @@ public:
 
 private:
     friend class PeerManagerTest;
+    friend class BgpServerTest;
 
     void InsertPeerByKey(BgpPeerKey key, BgpPeer *peer);
     void RemovePeerByKey(BgpPeerKey key, BgpPeer *peer);

@@ -304,6 +304,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           rtinstance_(instance),
           peer_key_(config),
           peer_name_(config->name()),
+          peer_basename_(peer_name_.substr(rtinstance_->name().size() + 1)),
           config_(config),
           index_(server->RegisterPeer(this)),
           trigger_(boost::bind(&BgpPeer::ResumeClose, this),
@@ -1584,7 +1585,7 @@ void BgpPeer::FillBgpNeighborDebugState(BgpNeighborResp &resp,
 
 void BgpPeer::FillNeighborInfo(std::vector<BgpNeighborResp> &nbr_list) const {
     BgpNeighborResp nbr;
-    nbr.set_peer(peer_name_.substr(rtinstance_->name().size() + 1));
+    nbr.set_peer(peer_basename_);
     nbr.set_peer_address(peer_key_.endpoint.address().to_string());
     nbr.set_deleted(IsDeleted());
     nbr.set_peer_asn(peer_as());
