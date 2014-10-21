@@ -46,7 +46,7 @@ libs = ['boost_system', 'log4cplus', 'pthread']
 
 common = DefaultEnvironment().Clone()
 
-if common['OPT'] == 'production':
+if common['OPT'] == 'production' or common.UseSystemTBB():
     libs.append('tbb')
 else:
     libs.append('tbb_debug')
