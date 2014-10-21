@@ -9,6 +9,7 @@ import gevent
 import requests
 import cgitb
 import copy
+from cStringIO import StringIO
 import bottle
 import logging
 import logging.handlers
@@ -21,9 +22,9 @@ try:
     from cfgm_common import vnc_plugin_base
 except ImportError:
     from common import vnc_plugin_base
+from pysandesh.sandesh_base import *
+from pysandesh.sandesh_logger import *
 from vnc_api import vnc_api
-from vnc_api.gen.resource_xsd import *
-
 from vnc_api.gen.resource_xsd import *
 from vnc_api.gen.resource_common import *
 
@@ -59,11 +60,15 @@ def fill_keystone_opts(obj, conf_sections):
         obj._auth_port = conf_sections.get('KEYSTONE', 'auth_port')
         obj._auth_url = "%s://%s:%s/v2.0" % (obj._auth_proto, obj._auth_host,
                                              obj._auth_port)
+    try:
+        obj._err_file = conf_sections.get('DEFAULTS', 'trace_file')
+    except ConfigParser.NoOptionError:
+        obj._err_file = '/var/log/contrail/vnc_openstack.err'
 
 
 openstack_driver = None
 class OpenstackDriver(vnc_plugin_base.Resync):
-    def __init__(self, api_server_ip, api_server_port, conf_sections):
+    def __init__(self, api_server_ip, api_server_port, conf_sections, sandesh):
         global openstack_driver
         openstack_driver = self
         if api_server_ip == '0.0.0.0':
@@ -110,25 +115,26 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         self._vnc_project_ids = set()
 
         # logging
-        self._log_file_name = '/var/log/contrail/vnc_openstack.err'
-        self._tmp_file_name = '/var/log/contrail/vnc_openstack.tmp'
+        self._sandesh_logger = sandesh.logger()
         self._vnc_os_logger = logging.getLogger(__name__)
         self._vnc_os_logger.setLevel(logging.ERROR)
         # Add the log message handler to the logger
         try:
-            handler = logging.handlers.RotatingFileHandler(self._log_file_name,
-                                                           maxBytes=1024,
-                                                           backupCount=5)
+            with open(self._err_file, 'a'):
+                handler = logging.handlers.RotatingFileHandler(
+                    self._err_file, maxBytes=64*1024, backupCount=5)
+                self._vnc_os_logger.addHandler(handler)
         except IOError:
-            self._log_file_name = './vnc_openstack.err'
-            self._tmp_file_name = './vnc_openstack.tmp'
-            handler = logging.handlers.RotatingFileHandler(self._log_file_name,
-                                                           maxBytes=1024,
-                                                           backupCount=5)
-
-        self._vnc_os_logger.addHandler(handler)
+            self._sandesh_logger.error("Failed to open trace file %s" %
+                                       self._err_file)
         self.q = Queue.Queue(maxsize=Q_MAX_ITEMS)
     #end __init__
+
+    def _cgitb_error_log(self):
+        tmp_file = StringIO()
+        cgitb.Hook(format="text", file=tmp_file).handle(sys.exc_info())
+        self._vnc_os_logger.error("%s" % tmp_file.getvalue())
+        tmp_file.close()
 
     def __call__(self):
         pass
@@ -206,12 +212,9 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         except vnc_api.NoIdError:
             pass
         except Exception as e:
-            cgitb.Hook(
-                format="text",
-                file=open(self._tmp_file_name,
-                          'w')).handle(sys.exc_info())
-            fhandle = open(self._tmp_file_name)
-            self._vnc_os_logger.error("%s" % fhandle.read())
+            self._cgitb_error_log()
+            self._sandesh_logger.error("Failed to delete project %s: %s" %
+                                       (project_id, e))
             self._failed_project_dels.add(project_id)
     # _ksv2_del_project_from_vnc
 
@@ -321,12 +324,9 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         except vnc_api.NoIdError:
             pass
         except Exception as e:
-            cgitb.Hook(
-                format="text",
-                file=open(self._tmp_file_name,
-                          'w')).handle(sys.exc_info())
-            fhandle = open(self._tmp_file_name)
-            self._vnc_os_logger.error("%s" % fhandle.read())
+            self._cgitb_error_log()
+            self._sandesh_logger.error("Failed to delete project %s "
+                                       "from vnc: %s" % (project_id, e))
             self._failed_project_dels.add(project_id)
     # _ksv3_del_project_from_vnc
 
@@ -369,12 +369,9 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         except vnc_api.NoIdError:
             pass
         except Exception as e:
-            cgitb.Hook(
-                format="text",
-                file=open(self._tmp_file_name,
-                          'w')).handle(sys.exc_info())
-            fhandle = open(self._tmp_file_name)
-            self._vnc_os_logger.error("%s" % fhandle.read())
+            self._sandesh_logger.error("Failed to delete domain %s "
+                                       "from vnc: %s" % (domain_id, e))
+            self._cgitb_error_log()
             self._failed_domain_dels.add(domain_id)
     # _del_domain_from_vnc
 
@@ -482,12 +479,9 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                                  if proj['fq_name'] != default_proj_fq_name])
             self._vnc_project_ids = vnc_project_ids
         except Exception as e:
-            cgitb.Hook(
-                format="text",
-                file=open(self._tmp_file_name,
-                          'w')).handle(sys.exc_info())
-            fhandle = open(self._tmp_file_name)
-            self._vnc_os_logger.error("%s" % fhandle.read())
+            self._cgitb_error_log()
+            self._sandesh_logger.error(
+                "Connection to API server failed: %s" %  e)
 
         while True:
             # Get domains/projects from Keystone and audit with api-server
@@ -497,13 +491,9 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                     continue
             except Exception as e:
                 self._ks = None
-                cgitb.Hook(
-                    format="text",
-                    file=open(self._tmp_file_name,
-                              'w')).handle(sys.exc_info())
-                fhandle = open(self._tmp_file_name)
-                self._vnc_os_logger.error("%s" % fhandle.read())
-                gevent.sleep(2)
+                self._cgitb_error_log()
+                self._sandesh_logger.error(
+                    "Failed to resync domains: %s" %  e)
 
             try:
                 retry = self._resync_all_projects()
@@ -511,13 +501,9 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                     continue
             except Exception as e:
                 self._ks = None
-                cgitb.Hook(
-                    format="text",
-                    file=open(self._tmp_file_name,
-                              'w')).handle(sys.exc_info())
-                fhandle = open(self._tmp_file_name)
-                self._vnc_os_logger.error("%s" % fhandle.read())
-                gevent.sleep(2)
+                self._cgitb_error_log()
+                self._sandesh_logger.error(
+                    "Failed to resync projects: %s" %  e)
 
             gevent.sleep(self._resync_interval_secs)
 
@@ -566,7 +552,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
 
 
 class ResourceApiDriver(vnc_plugin_base.ResourceApi):
-    def __init__(self, api_server_ip, api_server_port, conf_sections):
+    def __init__(self, api_server_ip, api_server_port, conf_sections, sandesh):
         if api_server_ip == '0.0.0.0':
             self._vnc_api_ip = '127.0.0.1'
         else:
@@ -698,9 +684,9 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
 # end class ResourceApiDriver
 
 class NeutronApiDriver(vnc_plugin_base.NeutronApi):
-    def __init__(self, api_server_ip, api_server_port, conf_sections):
+    def __init__(self, api_server_ip, api_server_port, conf_sections, sandesh):
         self._npi = npi.NeutronPluginInterface(api_server_ip, api_server_port,
-                                               conf_sections)
+                                               conf_sections, sandesh)
 
         # Bottle callbacks for network operations
         bottle.route('/neutron/network',
