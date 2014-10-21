@@ -17,7 +17,7 @@ import time
 class ServiceMonitorDB(object):
 
     _KEYSPACE = 'svc_monitor_keyspace'
-    _SVC_SI_CF = 'svc_si_table'
+    _SVC_SI_CF = 'service_instance_table'
 
     def __init__(self, args=None):
         self._args = args
