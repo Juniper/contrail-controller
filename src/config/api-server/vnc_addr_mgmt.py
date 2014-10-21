@@ -15,6 +15,8 @@ except:
     #python2.6
     from ordereddict import OrderedDict
 
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+
 class AddrMgmtError(Exception):
     pass
 # end class AddrMgmtError
