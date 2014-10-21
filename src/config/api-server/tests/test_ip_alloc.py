@@ -101,21 +101,32 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ip_obj2.set_virtual_network(net_obj)
         port_id1 = self._vnc_lib.virtual_machine_interface_create(port_obj1)
 
-        'print Allocting an IP4 address for first VM'
+        print 'Allocating an IP4 address for first VM'
         ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1)
         ip_obj1 = self._vnc_lib.instance_ip_read(id=ip_id1)
         ip_addr1 = ip_obj1.get_instance_ip_address()
-        print 'got v4 IP Address for first instance', ip_addr1
+        print '  got v4 IP Address for first instance', ip_addr1
         if ip_addr1 != '11.1.1.253':
             print 'Allocation failed, expected v4 IP Address 11.1.1.253'
 
-        'print Allocting an IP6 address for first VM'
+        print 'Allocating an IP6 address for first VM'
         ip_id2 = self._vnc_lib.instance_ip_create(ip_obj2)
         ip_obj2 = self._vnc_lib.instance_ip_read(id=ip_id2)
         ip_addr2 = ip_obj2.get_instance_ip_address()
-        print 'got v6 IP Address for first instance', ip_addr2
+        print '  got v6 IP Address for first instance', ip_addr2
         if ip_addr2 != 'fd14::fd':
             print 'Allocation failed, expected v6 IP Address fd14::fd'
+
+        # Read gateway ip address 
+        print 'Read default gateway ip address' 
+        ipam_refs = net_obj.get_network_ipam_refs()
+        for ipam_ref in ipam_refs:
+            subnets = ipam_ref['attr'].get_ipam_subnets()
+            for subnet in subnets:
+                print 'Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(), 
+                        subnet.subnet.get_ip_prefix_len(),
+                        subnet.get_default_gateway())
+
 
         #cleanup
         print 'Cleaning up'
@@ -196,7 +207,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ip_obj2.set_virtual_network(net_obj)
         port_id1 = self._vnc_lib.virtual_machine_interface_create(port_obj1)
 
-        'print Allocating an IP4 address for first VM'
+        print 'Allocating an IP4 address for first VM'
         ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1)
         ip_obj1 = self._vnc_lib.instance_ip_read(id=ip_id1)
         ip_addr1 = ip_obj1.get_instance_ip_address()
@@ -204,7 +215,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         if ip_addr1 != '11.1.1.20':
             print 'Allocation failed, expected v4 IP Address 11.1.1.20'
         
-        'print Allocting an IP6 address for first VM'
+        print 'Allocating an IP6 address for first VM'
         ip_id2 = self._vnc_lib.instance_ip_create(ip_obj2)
         ip_obj2 = self._vnc_lib.instance_ip_read(id=ip_id2)
         ip_addr2 = ip_obj2.get_instance_ip_address()
@@ -212,9 +223,20 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         if ip_addr2 != 'fd14::30':
             print 'Allocation failed, expected v6 IP Address fd14::30'
 
+        # Read gateway ip address 
+        print 'Read default gateway ip address' 
+        ipam_refs = net_obj.get_network_ipam_refs()
+        for ipam_ref in ipam_refs:
+            subnets = ipam_ref['attr'].get_ipam_subnets()
+            for subnet in subnets:
+                print 'Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(), 
+                        subnet.subnet.get_ip_prefix_len(),
+                        subnet.get_default_gateway())
+
+
         #cleanup
         print 'Cleaning up'
-        #cleanup subnet and allocation pools
+        #cleanup subnet and allocation pools 
         self._vnc_lib.instance_ip_delete(id=ip_id1)
         self._vnc_lib.instance_ip_delete(id=ip_id2)
         self._vnc_lib.virtual_machine_interface_delete(id=port_obj1.uuid)
@@ -224,6 +246,73 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.project_delete(id=project.uuid)
         self._vnc_lib.domain_delete(id=domain.uuid)
     #end
+
+    def test_subnet_gateway_ip_alloc(self):
+        print 'test ip allocation'
+
+        # Create Domain
+        domain = Domain('my-v4-v6-domain')
+        self._vnc_lib.domain_create(domain)
+        print 'Created domain '
+
+        # Create Project
+        project = Project('my-v4-v6-proj', domain)
+        self._vnc_lib.project_create(project)
+        print 'Created Project'
+
+        # Create NetworkIpam
+        ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
+        self._vnc_lib.network_ipam_create(ipam)
+        print 'Created network ipam'
+
+        ipam = self._vnc_lib.network_ipam_read(fq_name=['my-v4-v6-domain', 'my-v4-v6-proj',
+                                                        'default-network-ipam'])
+        print 'Read network ipam'
+
+        # Create subnets
+        alloc_pool_list = []
+        alloc_pool_list.append(AllocationPoolType(start='11.1.1.20', end='11.1.1.25'))
+        ipam_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24),
+                                    allocation_pools=alloc_pool_list,
+                                    addr_from_start=True)
+        alloc_pool_list_v6 = []
+        alloc_pool_list_v6.append(AllocationPoolType(start='fd14::30', end='fd14::40'))
+        ipam_sn_v6 = IpamSubnetType(subnet=SubnetType('fd14::', 120),
+                                    allocation_pools=alloc_pool_list_v6,
+                                    addr_from_start=True)
+
+        # Create VN
+        vn = VirtualNetwork('my-v4-v6-vn', project)
+        vn.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4, ipam_sn_v6]))
+        self._vnc_lib.virtual_network_create(vn)
+        print 'Created Virtual Network object', vn.uuid
+        net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
+
+        # Read gateway ip address 
+        print 'Read default gateway ip address' 
+        ipam_refs = net_obj.get_network_ipam_refs()
+        for ipam_ref in ipam_refs:
+            subnets = ipam_ref['attr'].get_ipam_subnets()
+            for subnet in subnets:
+                print 'Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(), 
+                        subnet.subnet.get_ip_prefix_len(),
+                        subnet.get_default_gateway())
+                if subnet.subnet.get_ip_prefix() == '11.1.1.0':
+                    if subnet.get_default_gateway() != '11.1.1.1':
+                        print ' Failure, expected gateway ip address 11.1.1.1'
+                if subnet.subnet.get_ip_prefix() == 'fd14::':
+                    if subnet.get_default_gateway() != 'fd14::1':
+                        print ' Failure, expected gateway ip address fd14::1'
+
+
+        #cleanup
+        print 'Cleaning up'
+        self._vnc_lib.virtual_network_delete(id=vn.uuid)
+        self._vnc_lib.network_ipam_delete(id=ipam.uuid)
+        self._vnc_lib.project_delete(id=project.uuid)
+        self._vnc_lib.domain_delete(id=domain.uuid)
+    #end
+
 
 
 #end class TestIpAlloc
