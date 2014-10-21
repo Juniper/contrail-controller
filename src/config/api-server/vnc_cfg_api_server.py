@@ -1015,7 +1015,7 @@ class VncApiServer(VncApiServerGen):
         self._db_conn = db_conn
     # end _db_connect
 
-    def _ensure_id_perms_present(self, obj_type, obj_dict):
+    def _ensure_id_perms_present(self, obj_type, obj_dict, update=False):
         """
         Called at resource creation to ensure that id_perms is present in obj
         """
@@ -1050,9 +1050,15 @@ class VncApiServer(VncApiServerGen):
             except NoIdError:
                 pass
 
+        # not all fields can be updated
+        if update:
+            field_list = ['enable', 'description']
+        else:
+            field_list = ['enable', 'description', 'user_visible']
+
         # Start from default and update from obj_dict
         req_id_perms = obj_dict['id_perms']
-        for key in ('enable', 'description', 'user_visible'):
+        for key in field_list:
             if key in req_id_perms:
                 id_perms[key] = req_id_perms[key]
         # TODO handle perms present in req_id_perms
@@ -1249,7 +1255,7 @@ class VncApiServer(VncApiServerGen):
             obj_type = obj_type.replace('_', '-')
 
             # Ensure object has at least default permissions set
-            self._ensure_id_perms_present(obj_type, obj_dict)
+            self._ensure_id_perms_present(obj_type, obj_dict, update=True)
 
             apiConfig = VncApiCommon()
             apiConfig.object_type = obj_type.replace('-', '_')
