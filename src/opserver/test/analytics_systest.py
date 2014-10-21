@@ -85,7 +85,6 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
             AnalyticsFixture(logging,
                              builddir, 0))
         assert vizd_obj.verify_on_setup()
-        assert vizd_obj.verify_collector_obj_count()
 
         return True
     # end test_00_nocassandra
