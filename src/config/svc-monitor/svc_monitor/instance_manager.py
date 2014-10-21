@@ -194,6 +194,9 @@ class InstanceManager(object):
 
         if vmi_create:
             self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+            # read back the id perms
+            vmi_obj = self._vnc_lib.virtual_machine_interface_read(
+                id=vmi_obj.uuid)
         elif vmi_updated:
             self._vnc_lib.virtual_machine_interface_update(vmi_obj)
 
