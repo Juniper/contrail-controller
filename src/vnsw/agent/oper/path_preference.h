@@ -105,9 +105,10 @@ struct PathPreferenceIntfState : public DBState {
     void Notify();
     void Insert(RouteAddrList &rt, bool traffic_seen);
     void DeleteOldEntries();
-    void UpdateDependentRoute(std::string vrf_name, IpAddress ip,
+    void UpdateDependentRoute(std::string vrf_name, Ip4Address ip,
                               uint32_t plen, bool traffic_seen,
                               PathPreferenceModule *path_preference_module);
+    uint32_t DependentRouteListSize() const { return dependent_rt_.size(); }
 private:
     const VmInterface *intf_;
     RouteAddrList instance_ip_;
@@ -151,6 +152,7 @@ public:
     bool DequeueEvent(PathPreferenceEventContainer e);
     Agent *agent() { return agent_;}
     DBTableBase::ListenerId vrf_id() const { return vrf_id_;}
+    DBTableBase::ListenerId intf_id() const { return intf_id_;}
 private:
     Agent *agent_;
     DBTableBase::ListenerId vrf_id_;

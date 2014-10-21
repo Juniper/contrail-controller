@@ -1462,6 +1462,28 @@ void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *rt,
     AddNode("interface-route-table", name, id, buff);
 }
 
+void AddInterfaceRouteTableV6(const char *name, int id, TestIp6Prefix *rt,
+                              int count) {
+    std::ostringstream o_str;
+
+    for (int i = 0; i < count; i++) {
+        o_str << "<route>\n"
+              << "<prefix>\n" << rt->addr_.to_string()
+              << "/" << rt->plen_ << " \n"  << "</prefix>\n"
+              << "<next-hop>\" \"</next-hop>\n"
+              << "<next-hop-type>\" \"</next-hop-type>\n"
+              << "</route>\n";
+        rt++;
+    }
+
+    char buff[10240];
+    sprintf(buff, "<interface-route-table-family>v6</interface-route-table-family>\n"
+                  "<interface-route-table-routes>\n"
+                  "%s"
+                  "</interface-route-table-routes>\n", o_str.str().c_str());
+    AddNode("interface-route-table", name, id, buff);
+}
+
 static string AddAclXmlString(const char *node_name, const char *name, int id,
                               const char *src_vn, const char *dest_vn,
                               const char *action, std::string vrf_assign) {
