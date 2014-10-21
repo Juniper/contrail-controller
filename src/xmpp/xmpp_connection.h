@@ -37,9 +37,10 @@ public:
     };
 
     struct ErrorStats {
-        ErrorStats() : connect_error(0) {
+        ErrorStats() : connect_error(0), session_close(0) {
         }
         uint32_t connect_error;
+        uint32_t session_close;
     };
 
     XmppConnection(TcpServer *server, const XmppChannelConfig *config);
@@ -50,6 +51,7 @@ public:
     // Invoked from XmppServer when a session is accepted.
     virtual bool AcceptSession(XmppSession *session);
     virtual void ReceiveMsg(XmppSession *session, const std::string &); 
+    virtual bool EndpointNameIsUnique() { return true; }
 
     virtual boost::asio::ip::tcp::endpoint endpoint() const;
     virtual boost::asio::ip::tcp::endpoint local_endpoint() const;
@@ -180,10 +182,13 @@ public:
     XmppStateMachine *state_machine();
 
     void inc_connect_error();
+    void inc_session_close();
     size_t get_connect_error();
+    size_t get_session_close();
 
 protected:
     TcpServer *server_;
+    XmppSession *session_;
     const XmppStateMachine *state_machine() const;
 
 private:
@@ -199,7 +204,6 @@ private:
 
     // Protection for session_ and keepalive_timer_
     tbb::spin_mutex spin_mutex_;
-    XmppSession *session_;
     Timer *keepalive_timer_;
 
     bool log_uve_;
@@ -223,7 +227,9 @@ class XmppServerConnection : public XmppConnection {
 public:
     XmppServerConnection(XmppServer *server, const XmppChannelConfig *config);
     virtual ~XmppServerConnection();
+
     virtual bool IsClient() const;
+    virtual bool EndpointNameIsUnique();
     virtual void ManagedDelete();
     virtual void RetryDelete();
     virtual LifetimeActor *deleter();
@@ -243,14 +249,16 @@ public:
     void set_on_work_queue() { on_work_queue_ = true; }
     void clear_on_work_queue() { on_work_queue_ = false; }
 
+    XmppConnectionEndpoint *conn_endpoint() { return conn_endpoint_; }
+
 private:
     class DeleteActor;
 
     bool duplicate_;
     bool on_work_queue_;
+    XmppConnectionEndpoint *conn_endpoint_;
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<XmppServerConnection> server_delete_ref_;
-    XmppConnectionEndpoint *conn_endpoint_;
 };
 
 class XmppClientConnection : public XmppConnection {
@@ -282,19 +290,23 @@ private:
 
 class XmppConnectionEndpoint {
 public:
-    XmppConnectionEndpoint(Ip4Address address);
+    XmppConnectionEndpoint(const std::string &client);
 
     void set_close_reason(const std::string &close_reason);
     uint32_t flap_count() const;
     void increment_flap_count();
     uint64_t last_flap() const;
     const std::string last_flap_at() const;
+    XmppConnection *connection();
+    void set_connection(XmppConnection *connection);
+    void reset_connection();
 
 private:
-    Ip4Address address_;
+    std::string client_;
     std::string close_reason_;
     uint32_t flap_count_;
     uint64_t last_flap_;
+    XmppConnection *connection_;
 };
 
 #endif // __XMPP_CHANNEL_H__
