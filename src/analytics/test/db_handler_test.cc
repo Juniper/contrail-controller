@@ -213,6 +213,7 @@ TEST_F(DbHandlerTest, MessageTableInsertTest) {
     hdr.set_InstanceId("Test");
     hdr.set_NodeType("Test");
     hdr.set_Timestamp(UTCTimestampUsec());
+    hdr.set_Type(SandeshType::SYSTEM);
     std::string xmlmessage = "<SandeshAsyncTest2 type=\"sandesh\"><file type=\"string\" identifier=\"-32768\">src/analytics/test/viz_collector_test.cc</file><line type=\"i32\" identifier=\"-32767\">80</line><f1 type=\"struct\" identifier=\"1\"><SAT2_struct><f1 type=\"string\" identifier=\"1\">sat2string101</f1><f2 type=\"i32\" identifier=\"2\">101</f2></SAT2_struct></f1><f2 type=\"i32\" identifier=\"2\">101</f2></SandeshAsyncTest2>";
 
     SandeshXMLMessageTest *msg = dynamic_cast<SandeshXMLMessageTest *>(
@@ -244,7 +245,7 @@ TEST_F(DbHandlerTest, MessageTableInsertTest) {
         (GenDb::NewCol(g_viz_constants.VERSION,
             static_cast<uint32_t>(0)))
         (GenDb::NewCol(g_viz_constants.SANDESH_TYPE,
-            static_cast<uint8_t>(0)))
+            static_cast<uint8_t>(SandeshType::SYSTEM)))
         (GenDb::NewCol(g_viz_constants.DATA, xmlmessage));
 
     EXPECT_CALL(*dbif_mock(),
@@ -331,10 +332,20 @@ TEST_F(DbHandlerTest, MessageTableInsertTest) {
     EXPECT_CALL(*dbif_mock(),
             Db_AddColumnProxy(
                 Pointee(
+                    AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.MESSAGE_TABLE_KEYWORD),
+                        _,
+                        Field(&GenDb::ColList::columns_,
+                            idx_expected_vector)))))
+        .Times(2)
+        .WillRepeatedly(Return(true));
+
+    EXPECT_CALL(*dbif_mock(),
+            Db_AddColumnProxy(
+                Pointee(
                     AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_TAG),
                         _,
                         _))))
-        .Times(2)
+        .Times(4)
         .WillRepeatedly(Return(true));
 
     db_handler()->MessageTableInsert(&vmsgp);
@@ -350,6 +361,13 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
     boost::uuids::uuid unm(rgen_());
     std::string table("ObjectTableInsertTest");
     std::string rowkey_str("ObjectTableInsertTestRowkey");
+    std::string xmlmessage = "<VNSwitchErrorMsgObject type=\"sandesh\"><length type=\"i32\">0000000020</length><field1 type=\"string\">field1_value</field1><field2 type=\"struct\"><field21 type=\"i16\">21</field21><field22 type=\"string\">string22</field22></field2><field3 type=\"i32\">3</field3></VNSwitchErrorMsgObject>";
+    SandeshXMLMessageTest *msg = dynamic_cast<SandeshXMLMessageTest *>(
+        builder_->Create(
+            reinterpret_cast<const uint8_t *>(xmlmessage.c_str()),
+            xmlmessage.size()));
+    msg->SetHeader(hdr);
+    VizMsg vmsgp(msg, unm);
 
       {
         DbDataValueVec *colname(new DbDataValueVec());
@@ -425,8 +443,8 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
                     Pointee(
                         AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_TAG),
                             Field(&GenDb::ColList::rowkey_, rowkey),_))))
-            .Times(1)
-            .WillOnce(Return(true));
+            .Times(3)
+            .WillRepeatedly(Return(true));
       }
 
       {
@@ -454,12 +472,13 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
                     Pointee(
                         AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_TAG),
                             Field(&GenDb::ColList::rowkey_, rowkey),_))))
-            .Times(1)
-            .WillOnce(Return(true));
+            .Times(3)
+            .WillRepeatedly(Return(true));
       }
 
-    
-    db_handler()->ObjectTableInsert(table, rowkey_str, timestamp, unm);
+    db_handler()->ObjectTableInsert(table, rowkey_str, timestamp, unm, &vmsgp);
+    vmsgp.msg = NULL;
+    delete msg;
 }
 
 TEST_F(DbHandlerTest, FlowTableInsertTest) {
