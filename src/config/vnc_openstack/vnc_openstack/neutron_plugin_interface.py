@@ -13,11 +13,11 @@ import sys
 import string
 import ConfigParser
 
+from pysandesh.sandesh_base import *
+from pysandesh.sandesh_logger import *
 from vnc_api import vnc_api
 from neutron_plugin_db import DBInterface
 
-
-LOG = logging.getLogger(__name__)
 
 @bottle.error(400)
 def error_400(err):
@@ -37,7 +37,7 @@ class NeutronPluginInterface(object):
     An instance of this class receives requests from Contrail Neutron Plugin
     """
 
-    def __init__(self, api_server_ip, api_server_port, conf_sections):
+    def __init__(self, api_server_ip, api_server_port, conf_sections, sandesh):
         self._vnc_api_ip = api_server_ip
         self._vnc_api_port = api_server_port
         self._config_sections = conf_sections
@@ -70,6 +70,9 @@ class NeutronPluginInterface(object):
 
         self._cfgdb = None
         self._cfgdb_map = {}
+
+        global LOG
+        LOG = sandesh.logger()
 
     def _connect_to_db(self):
         """

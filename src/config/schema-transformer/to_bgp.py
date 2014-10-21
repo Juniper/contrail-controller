@@ -3679,11 +3679,12 @@ def launch_arc(transformer, ssrc_mapc):
                     format="text",
                     ).handle(sys.exc_info())
                 try:
-                    with open('/var/log/contrail/schema.err', 'a') as err_file:
+                    with open(transformer._args.trace_file, 'a') as err_file:
                         err_file.write(string_buf.getvalue())
                 except IOError:
-                    with open('./schema.err', 'a') as err_file:
-                        err_file.write(string_buf.getvalue())
+                    transformer._sandesh._logger.debug(
+                        "Failed to open trace file %s: %s" %
+                        (transformer._args.trace_file, IOError))
                 if type(e) == InvalidSessionID:
                     return
                 raise e
@@ -3717,6 +3718,7 @@ def parse_args(args_str):
                          --log_level SYS_DEBUG
                          --log_category test
                          --log_file <stdout>
+                         --trace_file /var/log/contrail/schema.err
                          --use_syslog
                          --syslog_facility LOG_USER
                          --cluster_id <testbed-name>
@@ -3749,6 +3751,7 @@ def parse_args(args_str):
         'log_level': SandeshLevel.SYS_DEBUG,
         'log_category': '',
         'log_file': Sandesh._DEFAULT_LOG_FILE,
+        'trace_file': '/var/log/contrail/schema.err',
         'use_syslog': False,
         'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
         'cluster_id': '',
@@ -3832,6 +3835,8 @@ def parse_args(args_str):
         help="Category filter for local logging of sandesh messages")
     parser.add_argument("--log_file",
                         help="Filename for the logs to be written to")
+    parser.add_argument("--trace_file", help="Filename for the error "
+                        "backtraces to be written to")
     parser.add_argument("--use_syslog", action="store_true",
                         help="Use syslog for logging")
     parser.add_argument("--syslog_facility",

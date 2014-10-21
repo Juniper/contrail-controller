@@ -734,6 +734,7 @@ class VncApiServer(VncApiServerGen):
                                          --logging_conf <logger-conf-file>
                                          --log_category test
                                          --log_file <stdout>
+                                         --trace_file /var/log/contrail/vnc_openstack.err
                                          --use_syslog
                                          --syslog_facility LOG_USER
                                          --disc_server_ip 127.0.0.1
@@ -769,6 +770,7 @@ class VncApiServer(VncApiServerGen):
             'log_level': SandeshLevel.SYS_NOTICE,
             'log_category': '',
             'log_file': Sandesh._DEFAULT_LOG_FILE,
+            'trace_file': '/var/log/contrail/vnc_openstack.err',
             'use_syslog': False,
             'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
             'logging_level': 'WARN',
@@ -914,6 +916,9 @@ class VncApiServer(VncApiServerGen):
         parser.add_argument(
             "--log_file",
             help="Filename for the logs to be written to")
+        parser.add_argument(
+            "--trace_file", default='/var/log/contrail/vnc_openstack.err',
+            help="Filename for the errors backtraces to be written to")
         parser.add_argument("--use_syslog",
             action="store_true",
             help="Use syslog for logging")
@@ -975,17 +980,17 @@ class VncApiServer(VncApiServerGen):
             self._extension_mgrs['resync'] = ExtensionManager(
                 'vnc_cfg_api.resync', api_server_ip=self._args.listen_ip_addr,
                 api_server_port=self._args.listen_port,
-                conf_sections=conf_sections)
+                conf_sections=conf_sections, sandesh=self._sandesh)
             self._extension_mgrs['resourceApi'] = ExtensionManager(
                 'vnc_cfg_api.resourceApi',
                 api_server_ip=self._args.listen_ip_addr,
                 api_server_port=self._args.listen_port,
-                conf_sections=conf_sections)
+                conf_sections=conf_sections, sandesh=self._sandesh)
             self._extension_mgrs['neutronApi'] = ExtensionManager(
                 'vnc_cfg_api.neutronApi',
                 api_server_ip=self._args.listen_ip_addr,
                 api_server_port=self._args.listen_port,
-                conf_sections=conf_sections)
+                conf_sections=conf_sections, sandesh=self._sandesh)
         except Exception as e:
             self.config_log("Exception in extension load: %s" %(str(e)),
                 level=SandeshLevel.SYS_ERR)
