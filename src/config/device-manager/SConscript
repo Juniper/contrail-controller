@@ -14,13 +14,13 @@ for file in setup_sources:
     setup_sources_rules.append(
         env.Install(Dir('.'), "#controller/src/config/device-manager/" + file))
 
-local_sources = ['device_manager/__init__.py', 'idevice_manager/device_manager.py', ]
+local_sources = ['device_manager/__init__.py', 'device_manager/device_manager.py', ]
 
 local_sources_rules = []
 for file in local_sources:
     local_sources_rules.append(
         env.Install("device_manager",
-                    "#controller/src/config/device_manager/" + file))
+                    "#controller/src/config/device-manager/" + file))
 
 dm_introspect_pkg = env.SandeshGenPy('dm_introspect.sandesh',
                                        'device_manager/sandesh/', False)
