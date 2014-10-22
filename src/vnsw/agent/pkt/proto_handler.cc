@@ -52,7 +52,7 @@ int ProtoHandler::EthHdr(char *buff, uint16_t len, const MacAddress &src,
 
     uint16_t *ptr = (uint16_t *) (buff + ETHER_ADDR_LEN * 2);
     if (vlan_id != VmInterface::kInvalidVlanId) {
-        *ptr = htons(ETH_P_8021Q);
+        *ptr = htons(ETHERTYPE_VLAN);
         ptr++;
         *ptr = htons(vlan_id & 0xFFF);
         ptr++;
@@ -171,7 +171,7 @@ uint16_t ProtoHandler::IcmpHdr(char *buff, uint16_t buf_len, uint8_t type,
 
     hdr->icmp_type = type;
     hdr->icmp_code = code;
-    assert(type == ICMP_DEST_UNREACH);
+    assert(type == ICMP_UNREACH);
     hdr->icmp_nextmtu = htons(word2);
     hdr->icmp_cksum = 0;
     return sizeof(struct icmp);

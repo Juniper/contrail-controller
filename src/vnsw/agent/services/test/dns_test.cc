@@ -5,6 +5,7 @@
 #include "base/os.h"
 #include "testing/gunit.h"
 
+#include <sys/socket.h>
 #include <netinet/if_ether.h>
 #include <boost/uuid/string_generator.hpp>
 #include <base/logging.h>
@@ -33,8 +34,8 @@
 #define BUF_SIZE 8192
 char src_mac[ETHER_ADDR_LEN] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
 char dest_mac[ETHER_ADDR_LEN] = { 0x00, 0x11, 0x12, 0x13, 0x14, 0x15 };
-ulong src_ip = 1234;
-ulong dest_ip = 5678;
+unsigned long src_ip = 1234;
+unsigned long dest_ip = 5678;
 short ifindex = 1;
 
 #define MAX_ITEMS 5
