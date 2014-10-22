@@ -364,8 +364,12 @@ class SvcMonitor(object):
     def _delmsg_virtual_machine_interface_route_table(self, idents):
         rt_fq_str = idents['interface-route-table']
 
-        rt_obj = self._vnc_lib.interface_route_table_read(
-            fq_name_str=rt_fq_str)
+        try:
+            rt_obj = self._vnc_lib.interface_route_table_read(
+                fq_name_str=rt_fq_str)
+        except NoIdError:
+            return
+
         vmi_list = rt_obj.get_virtual_machine_interface_back_refs()
         if vmi_list is None:
             self._vnc_lib.interface_route_table_delete(id=rt_obj.uuid)
