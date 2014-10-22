@@ -486,6 +486,14 @@ DomainConfig *Agent::domain_config_table() const {
     return oper_db_->domain_config_table();
 }
 
+PhysicalDeviceManager *Agent::device_manager() const {
+    return device_manager_;
+}
+
+void Agent::set_device_manager(PhysicalDeviceManager *dev_mgmt) {
+    device_manager_ = dev_mgmt;
+}
+
 bool Agent::isVmwareMode() const {
     return params_->isVmwareMode();
 }
@@ -495,12 +503,4 @@ bool Agent::isVmwareVcenterMode() const {
         return false;
 
     return params_->isVmwareVcenterMode();
-}
-
-PhysicalDeviceManager *Agent::device_manager() const {
-    return device_manager_;
-}
-
-void Agent::set_device_manager(PhysicalDeviceManager *dev_mgmt) {
-    device_manager_ = dev_mgmt;
 }

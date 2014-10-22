@@ -86,7 +86,7 @@ private:
 public:
     AgentUtXmlTestCase(const std::string &name, const pugi::xml_node &node,
                        AgentUtXmlTest *test);
-    ~AgentUtXmlTestCase();
+    virtual ~AgentUtXmlTestCase();
     AgentUtXmlTest *test() { return test_; }
 
     virtual bool ReadXml();
@@ -139,7 +139,7 @@ private:
 class AgentUtXmlLink : public AgentUtXmlNode {
 public:
     AgentUtXmlLink(const pugi::xml_node &node, AgentUtXmlTestCase *test_case);
-    ~AgentUtXmlLink();
+    virtual ~AgentUtXmlLink();
 
     virtual bool ReadXml();
     virtual bool ToXml(pugi::xml_node *parent);
@@ -184,7 +184,7 @@ class AgentUtXmlPacket : public AgentUtXmlNode {
 public:
     AgentUtXmlPacket(const std::string &name, const pugi::xml_node &node,
                      AgentUtXmlTestCase *test_case);
-    ~AgentUtXmlPacket();
+    virtual ~AgentUtXmlPacket();
 
     virtual bool ReadXml();
     virtual bool ToXml(pugi::xml_node *parent);
