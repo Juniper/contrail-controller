@@ -165,7 +165,16 @@ class OpenstackDriver(vnc_plugin_base.Resync):
     # end _ksv2_projects_list
 
     def _ksv2_project_get(self, id):
-        return {'name': self._ks.tenants.get(id).name}
+        # Note: under certain circumstances (if it has been initailized
+        # before endpoints are populated in keystone) keystoneclient may
+        # be valid to list projects, but not to read them. As it won't
+        # be reset by resync_all_projects, it is reseted on error here.
+        try:
+            return {'name': self._ks.tenants.get(id).name}
+        except Exception as e:
+            self._ks = None
+            self._get_keystone_conn()
+            return {'name': self._ks.tenants.get(id).name}
     # end _ksv2_project_get
 
     def _ksv2_sync_project_to_vnc(self, id=None):
