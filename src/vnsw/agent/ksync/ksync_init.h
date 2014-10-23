@@ -13,7 +13,8 @@
 #include <ksync/vxlan_ksync.h>
 #include <ksync/vrf_assign_ksync.h>
 #include <ksync/interface_scan.h>
-#include "vnswif_listener.h"
+#include "ksync/vnswif_listener.h"
+
 
 class KSync {
 public:
@@ -45,7 +46,7 @@ public:
     InterfaceKScan *interface_scanner() const {
         return interface_scanner_.get();
     }
-    VnswInterfaceListener *vnsw_interface_listner() const  {
+    VnswInterfaceListenerBase *vnsw_interface_listner() const  {
         return vnsw_interface_listner_.get();
     }
 protected:
@@ -59,7 +60,7 @@ protected:
     boost::scoped_ptr<VxLanKSyncObject> vxlan_ksync_obj_;
     boost::scoped_ptr<VrfAssignKSyncObject> vrf_assign_ksync_obj_;
     boost::scoped_ptr<InterfaceKScan> interface_scanner_;
-    boost::scoped_ptr<VnswInterfaceListener> vnsw_interface_listner_;
+    boost::scoped_ptr<VnswInterfaceListenerBase> vnsw_interface_listner_;
 private:
     void InitFlowMem();
     void NetlinkInit();

@@ -14,7 +14,7 @@
 #include <oper/mirror_table.h>
 #include <ksync/ksync_index.h>
 #include <ksync/interface_ksync.h>
-#include "ksync/vnswif_listener_base.h"
+#include "ksync/vnswif_listener.h"
 
 extern void RouterIdDepInit(Agent *agent);
 
