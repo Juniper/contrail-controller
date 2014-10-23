@@ -917,7 +917,7 @@ class VncApiServer(VncApiServerGen):
             "--log_file",
             help="Filename for the logs to be written to")
         parser.add_argument(
-            "--trace_file", default='/var/log/contrail/vnc_openstack.err',
+            "--trace_file",
             help="Filename for the errors backtraces to be written to")
         parser.add_argument("--use_syslog",
             action="store_true",

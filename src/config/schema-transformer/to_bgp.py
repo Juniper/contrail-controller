@@ -3682,7 +3682,7 @@ def launch_arc(transformer, ssrc_mapc):
                     with open(transformer._args.trace_file, 'a') as err_file:
                         err_file.write(string_buf.getvalue())
                 except IOError:
-                    transformer._sandesh._logger.debug(
+                    _sandesh._logger.debug(
                         "Failed to open trace file %s: %s" %
                         (transformer._args.trace_file, IOError))
                 if type(e) == InvalidSessionID:
