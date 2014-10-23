@@ -46,6 +46,14 @@ public:
     BgpPath(PathSource src, const BgpAttrPtr attr,
             uint32_t flags = 0, uint32_t label = 0);
 
+    bool IsVrfOriginated() const {
+        if (IsReplicated())
+            return false;
+        if (source_ != BGP_XMPP && source_ != Local)
+            return false;
+        return true;
+    }
+
     const IPeer *GetPeer() const {
         return peer_;
     }

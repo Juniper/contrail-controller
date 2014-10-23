@@ -74,10 +74,13 @@ ServiceChain::CompareServiceChainCfg(const autogen::ServiceChainInfo &cfg) {
     return true;
 }
 
-static int GetOriginVnIndex(const BgpRoute *route) {
+static int GetOriginVnIndex(const BgpTable *table, const BgpRoute *route) {
     const BgpPath *path = route->BestPath();
     if (!path)
         return 0;
+
+    if (path->IsVrfOriginated())
+        return table->routing_instance()->virtual_network_index();
 
     const BgpAttr *attr = path->GetAttr();
     const ExtCommunity *ext_community = attr->ext_community();
@@ -131,7 +134,7 @@ bool ServiceChain::Match(BgpServer *server, BgpTable *table,
                     if (comm && comm->ContainsValue(Community::NoAdvertise))
                         deleted = true;
 
-                    int vn_index = GetOriginVnIndex(route);
+                    int vn_index = GetOriginVnIndex(table, route);
                     int src_vn_index = src_->virtual_network_index();
                     int dest_vn_index = dest_->virtual_network_index();
                     if (!vn_index || dest_vn_index != vn_index) {

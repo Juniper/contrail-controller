@@ -53,6 +53,36 @@ static const char *config_2_control_nodes = "\
 </config>\
 ";
 
+static const char *config_2_control_nodes_no_vn_info = "\
+<config>\
+    <bgp-router name=\'X\'>\
+        <identifier>192.168.0.1</identifier>\
+        <address>127.0.0.1</address>\
+        <port>%d</port>\
+        <session to=\'Y\'>\
+            <address-families>\
+                <family>route-target</family>\
+                <family>inet-vpn</family>\
+            </address-families>\
+        </session>\
+    </bgp-router>\
+    <bgp-router name=\'Y\'>\
+        <identifier>192.168.0.2</identifier>\
+        <address>127.0.0.2</address>\
+        <port>%d</port>\
+        <session to=\'X\'>\
+            <address-families>\
+                <family>route-target</family>\
+                <family>inet-vpn</family>\
+            </address-families>\
+        </session>\
+    </bgp-router>\
+    <routing-instance name='blue'>\
+        <vrf-target>target:1:1</vrf-target>\
+    </routing-instance>\
+</config>\
+";
+
 //
 // Control Nodes X and Y.
 // Agents A and B.
@@ -137,13 +167,16 @@ protected:
     }
 
     bool CheckRoute(test::NetworkAgentMockPtr agent, string net,
-        string prefix, string nexthop, int local_pref, const string &encap) {
+        string prefix, string nexthop, int local_pref, const string &encap,
+        const string &origin_vn) {
         const autogen::ItemType *rt = agent->RouteLookup(net, prefix);
         if (!rt)
             return false;
         if (rt->entry.next_hops.next_hop[0].address != nexthop)
             return false;
         if (rt->entry.local_preference != local_pref)
+            return false;
+        if (!origin_vn.empty() && rt->entry.virtual_network != origin_vn)
             return false;
 
         autogen::TunnelEncapsulationListType rt_encap =
@@ -155,9 +188,9 @@ protected:
 
     void VerifyRouteExists(test::NetworkAgentMockPtr agent, string net,
         string prefix, string nexthop, int local_pref,
-        const string &encap = string()) {
-        TASK_UTIL_EXPECT_TRUE(
-            CheckRoute(agent, net, prefix, nexthop, local_pref, encap));
+        const string &encap = string(), const string &origin_vn = string()) {
+        TASK_UTIL_EXPECT_TRUE(CheckRoute(
+            agent, net, prefix, nexthop, local_pref, encap, origin_vn));
     }
 
     void VerifyRouteNoExists(test::NetworkAgentMockPtr agent, string net,
@@ -371,6 +404,60 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, TunnelEncap) {
     // Verify that route is deleted at agents A and B.
     VerifyRouteNoExists(agent_a_, "blue", route_a.str());
     VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+TEST_F(BgpXmppInetvpn2ControlNodeTest, VirtualNetworkIndexChange) {
+    Configure(config_2_control_nodes_no_vn_info);
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+
+    // Add route from agent A.
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    test::NextHops next_hops;
+    test::NextHop next_hop("192.168.1.1", 0, "udp");
+    next_hops.push_back(next_hop);
+    agent_a_->AddRoute("blue", route_a.str(), next_hops, 100);
+    task_util::WaitForIdle();
+
+    // Verify the origin VN on agents A and B.
+    VerifyRouteExists(
+        agent_a_, "blue", route_a.str(), "192.168.1.1", 100, "udp", "blue");
+    VerifyRouteExists(
+        agent_b_, "blue", route_a.str(), "192.168.1.1", 100, "udp", "unresolved");
+
+    // Update the config to include VN index.
+    Configure(config_2_control_nodes);
+    task_util::WaitForIdle();
+
+    // Verify the origin VN on agents A and B.
+    VerifyRouteExists(
+        agent_a_, "blue", route_a.str(), "192.168.1.1", 100, "udp", "blue");
+    VerifyRouteExists(
+        agent_b_, "blue", route_a.str(), "192.168.1.1", 100, "udp", "blue");
+
+    // Delete route from agent A.
+    agent_a_->DeleteRoute("blue", route_a.str());
+    task_util::WaitForIdle();
 
     // Close the sessions.
     agent_a_->SessionDown();
