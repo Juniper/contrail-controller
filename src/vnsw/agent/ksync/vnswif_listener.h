@@ -173,4 +173,10 @@ protected:
     DISALLOW_COPY_AND_ASSIGN(VnswInterfaceListenerBase);
 };
 
+#if defined (__linux__)
+#include "linux/vnswif_listener.h"
+#elif defined (__FreeBSD__)
+#include "freebsd/vnswif_listener.h"
+#endif
+
 #endif

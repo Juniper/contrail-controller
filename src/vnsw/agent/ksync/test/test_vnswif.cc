@@ -7,6 +7,8 @@
 
 #include "test/test_cmn_util.h"
 
+#include "ksync/vnswif_listener.h"
+
 void RouterIdDepInit(Agent *agent) {
 }
 
