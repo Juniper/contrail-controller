@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <vector>
+#include "net/address.h"
 
 #define DISALLOW_COPY_AND_ASSIGN(_Class) \
 	_Class(const _Class &);				\
@@ -144,76 +145,6 @@ private:
     T *ptr_;
 };
 
-static inline boost::asio::ip::address_v6 GetIp6SubnetAddress
-    (const boost::asio::ip::address_v6 &ip_prefix, uint8_t plen) {
-    if (plen == 0) {
-        return boost::asio::ip::address_v6();
-    }
-
-    if (plen == 128) {
-        return ip_prefix;
-    }
-
-    uint16_t ip6[8], in_ip6[8];
-    unsigned char bytes[16];
-
-    inet_pton(AF_INET6, ip_prefix.to_string().c_str(), ip6);
-
-    for(int i = 0; i < 8; i++) {
-        in_ip6[i] = ntohs(ip6[i]);
-    }
-
-    int index = (int) (plen / 16);
-    int remain_mask = plen % 16;
-
-    switch(remain_mask){
-        case 0:in_ip6[index++] = 0; break;
-        case 1:in_ip6[index++]&=0x8000; break;
-        case 2:in_ip6[index++]&=0xc000; break;
-        case 3:in_ip6[index++]&=0xe000; break;
-        case 4:in_ip6[index++]&=0xf000; break;
-
-        case 5:in_ip6[index++]&=0xf800; break;
-        case 6:in_ip6[index++]&=0xfc00; break;
-        case 7:in_ip6[index++]&=0xfe00; break;
-        case 8:in_ip6[index++]&=0xff00; break;
-
-        case  9:in_ip6[index++]&=0xff80; break;
-        case 10:in_ip6[index++]&=0xffc0; break;
-        case 11:in_ip6[index++]&=0xffe0; break;
-        case 12:in_ip6[index++]&=0xfff0; break;
-
-        case 13:in_ip6[index++]&=0xfff8; break;
-        case 14:in_ip6[index++]&=0xfffc; break;
-        case 15:in_ip6[index++]&=0xfffe; break;
-    }
-
-    for (int i = index; i < 8; i++){
-       in_ip6[i] = 0;
-    }
-
-    for(int i = 0; i < 8; i++){
-       ip6[i] = htons(in_ip6[i]);
-    } 
-    memcpy(bytes, ip6, sizeof(ip6));
-    boost::array<uint8_t, 16> to_bytes;
-    for (int i = 0; i < 16; i++) {
-        to_bytes.at(i) = bytes[i];
-    }
-    return boost::asio::ip::address_v6(to_bytes);
-}
-
-static inline bool IsIp6SubnetMember(const boost::asio::ip::address_v6 &ip,
-                                     const boost::asio::ip::address_v6 &subnet,
-                                     uint8_t plen) {
-    boost::asio::ip::address_v6 mask = GetIp6SubnetAddress(subnet, plen);
-    for (int i = 0; i < 16; i++) {
-        if ((ip.to_bytes()[i] & mask.to_bytes()[i]) != mask.to_bytes()[i])
-            return false;
-    }
-    return true;
-}
-
 /* timestamp - returns usec since epoch */
 static inline uint64_t UTCTimestampUsec() {
     struct timespec ts;
@@ -258,23 +189,33 @@ static inline boost::uuids::uuid StringToUuid(const std::string &str)
     return u;
 }
 
-static inline boost::asio::ip::address_v4 GetIp4SubnetAddress(
-              const boost::asio::ip::address_v4 &ip_prefix, uint16_t plen) {
-    if (plen == 0) {
-        return boost::asio::ip::address_v4(0);
-    }
-
-    boost::asio::ip::address_v4 subnet(ip_prefix.to_ulong() & 
-                                       (~((1UL << (32 - plen)) - 1)));
-    return subnet;
+/* Returns true if the given IPv4 address is member of the IPv4 subnet
+ * indicated by IPv4 address and prefix length. Otherwise returns false.
+ * We convert both the input IPv4 addresses to their subnet addresses and
+ * then compare with each other to conclude whether the IPv4 address is
+ * member of the subnet or not.
+ */
+static inline bool IsIp4SubnetMember(const Ip4Address &ip,
+        const Ip4Address &prefix_ip, uint16_t plen) {
+    Ip4Address prefix = Address::GetIp4SubnetAddress(prefix_ip, plen);
+    return ((prefix.to_ulong() | ~(0xFFFFFFFF << (32 - plen))) ==
+            (ip.to_ulong() | ~(0xFFFFFFFF << (32 - plen))));
 }
 
-static inline bool IsIp4SubnetMember(
-              const boost::asio::ip::address_v4 &ip,
-              const boost::asio::ip::address_v4 &prefix_ip, uint16_t plen) {
-    boost::asio::ip::address_v4 prefix = GetIp4SubnetAddress(prefix_ip, plen);
-    return ((prefix.to_ulong() | ~(0xFFFFFFFF << (32 - plen))) ==
-                (ip.to_ulong() | ~(0xFFFFFFFF << (32 - plen))));
+/* Returns true if the given IPv6 address is member of the IPv6 subnet
+ * indicated by IPv6 address and prefix length. Otherwise returns false.
+ * We do byte by byte comparison of IPv6 subnet address with bitwise AND of
+ * IPv6 address and subnet address to decide whether an IPv6 address belongs to
+ * its subnet.
+ */
+static inline bool IsIp6SubnetMember(const Ip6Address &ip,
+        const Ip6Address &subnet, uint8_t plen) {
+    Ip6Address mask = Address::GetIp6SubnetAddress(subnet, plen);
+    for (int i = 0; i < 16; ++i) {
+        if ((ip.to_bytes()[i] & mask.to_bytes()[i]) != mask.to_bytes()[i])
+            return false;
+    }
+    return true;
 }
 
 static inline boost::asio::ip::address_v4 GetIp4SubnetBroadcastAddress(

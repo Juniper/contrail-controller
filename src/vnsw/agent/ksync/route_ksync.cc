@@ -361,12 +361,10 @@ int RouteKSyncEntry::DeleteMsg(char *buf, int buf_len) {
     for (int plen = (prefix_len() - 1); plen >= 0; plen--) {
 
         if (addr_.is_v4()) {
-            uint32_t mask = plen ? (0xFFFFFFFF << (32 - plen)) : 0;
-            Ip4Address v4 = addr_.to_v4();
-            Ip4Address addr = boost::asio::ip::address_v4(v4.to_ulong() & mask);
+            Ip4Address addr = Address::GetIp4SubnetAddress(addr_.to_v4(), plen);
             key.set_ip(addr);
         } else if (addr_.is_v6()) {
-            Ip6Address addr = GetIp6SubnetAddress(addr_.to_v6(), plen);
+            Ip6Address addr = Address::GetIp6SubnetAddress(addr_.to_v6(), plen);
             key.set_ip(addr);
         }
 

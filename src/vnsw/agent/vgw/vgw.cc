@@ -163,8 +163,8 @@ VirtualGateway::SubnetUpdate(const std::string &vrf,
                              const VirtualGatewayConfig::SubnetList &add_list,
                              const VirtualGatewayConfig::SubnetList &del_list) {
     for (uint32_t idx = 0; idx < add_list.size(); idx++) {
-        Ip4Address addr = GetIp4SubnetAddress(add_list[idx].ip_,
-                                              add_list[idx].plen_);
+        Ip4Address addr = Address::GetIp4SubnetAddress(add_list[idx].ip_,
+                                                       add_list[idx].plen_);
         rt_table->AddVHostRecvRouteReq(agent_->vgw_peer(),
                                        agent_->fabric_vrf_name(),
                                        agent_->vhost_interface_name(),
@@ -172,8 +172,8 @@ VirtualGateway::SubnetUpdate(const std::string &vrf,
                                        vrf, false);
     }
     for (uint32_t idx = 0; idx < del_list.size(); idx++) {
-        Ip4Address addr = GetIp4SubnetAddress(del_list[idx].ip_,
-                                              del_list[idx].plen_);
+        Ip4Address addr = Address::GetIp4SubnetAddress(del_list[idx].ip_,
+                                                       del_list[idx].plen_);
         rt_table->DeleteReq(agent_->vgw_peer(), agent_->fabric_vrf_name(),
                             addr, del_list[idx].plen_, NULL);
     }
@@ -216,14 +216,14 @@ VirtualGateway::RouteUpdate(const VirtualGatewayConfig &vgw,
     }
     // remove old routes, add new routes
     for (uint32_t idx = 0; idx < del_list.size(); idx++) {
-        Ip4Address addr = GetIp4SubnetAddress(del_list[idx].ip_,
-                                              del_list[idx].plen_);
+        Ip4Address addr = Address::GetIp4SubnetAddress(del_list[idx].ip_,
+                                                       del_list[idx].plen_);
         rt_table->DeleteReq(agent_->vgw_peer(), vgw.vrf_name(),
                             addr, del_list[idx].plen_, NULL);
     }
     for (uint32_t idx = 0; idx < add_list.size(); idx++) {
-        Ip4Address addr = GetIp4SubnetAddress(add_list[idx].ip_,
-                                              add_list[idx].plen_);
+        Ip4Address addr = Address::GetIp4SubnetAddress(add_list[idx].ip_,
+                                                       add_list[idx].plen_);
         rt_table->AddInetInterfaceRouteReq(agent_->vgw_peer(),
                                            vgw.vrf_name(), addr,
                                            add_list[idx].plen_,
