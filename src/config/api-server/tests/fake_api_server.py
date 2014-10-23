@@ -12,7 +12,7 @@ from flexmock import flexmock, Mock
 
 import sys
 sys.path.append("../common/tests")
-from test_utils import *
+from test_utils import * 
 import test_common
 
 logger = logging.getLogger(__name__)
@@ -70,7 +70,7 @@ def main(args_str=None):
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
 
-    test_common.setup_flexmock()
+    test_common.setup_common_flexmock()
     if not args.listen_ip:
         api_server_ip = socket.gethostbyname(socket.gethostname())
     else:
@@ -82,8 +82,8 @@ def main(args_str=None):
         api_server_port = args.listen_port
     http_server_port = get_free_port()
 
-    api_srv = gevent.spawn(test_common.launch_api_server, api_server_ip,
-                           api_server_port, http_server_port)
+    api_srv = gevent.spawn(test_common.launch_default_config_api_server, api_server_ip,
+                           api_server_port, http_server_port, get_free_port())
     gevent.joinall([api_srv])
 
 # end main

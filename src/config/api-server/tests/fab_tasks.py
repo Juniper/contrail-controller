@@ -45,6 +45,8 @@ def setup_venv(build_top = "../../../../../build"):
             local("pip install kazoo")
             local("pip install kombu")
             local("pip install bottle")
+            local("pip install coverage")
+            local("pip install webtest")
             pyver = "%s.%s" % (sys.version_info[0], sys.version_info[1])
             # 2.6 requirements
             local("pip install ordereddict")
@@ -52,8 +54,13 @@ def setup_venv(build_top = "../../../../../build"):
                 local("pip install importlib")
 
             local(
-                "cp ../../../../../controller/src/config/api-server/tests/"
+                "cp ../../../../../controller/src/config/common/tests/"
                 "test_common.py lib/python%s/site-packages/"
+                "vnc_cfg_api_server/" %
+                (pyver))
+            local(
+                "cp ../../../../../controller/src/config/common/tests/"
+                "test_utils.py lib/python%s/site-packages/"
                 "vnc_cfg_api_server/" %
                 (pyver))
 #end setup_venv

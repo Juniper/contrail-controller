@@ -126,6 +126,25 @@ def launch_api_server(listen_ip, listen_port, http_server_port, admin_port,
         vnc_cfg_api_server.main(args_str)
 #end launch_api_server
 
+def launch_default_config_api_server(listen_ip, listen_port, http_server_port, admin_port):
+    args_str = ""
+    args_str = args_str + "--listen_ip_addr %s " % (listen_ip)
+    args_str = args_str + "--listen_port %s " % (listen_port)
+    args_str = args_str + "--http_server_port %s " % (http_server_port)
+    args_str = args_str + "--admin_port %s " % (admin_port) 
+    args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
+    args_str = args_str + "--log_file api_server_sandesh.log "
+#    args_str = args_str + "--conf_file %s " % "contrail-api.conf"
+#    args_str = args_str + "--logging_conf %s " % "contrail-api.conf"
+
+    import cgitb
+    cgitb.enable(format='text')
+
+    vnc_cfg_api_server.main(args_str)
+#end launch_api_server
+
+
+
 def launch_svc_monitor(api_server_ip, api_server_port):
     import svc_monitor
     if not hasattr(svc_monitor, 'main'):
