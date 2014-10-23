@@ -123,7 +123,7 @@ class InstanceManager(object):
             proj_obj = self._vnc_lib.project_read(
                 fq_name=si_obj.get_parent_fq_name())
             rt_obj = InterfaceRouteTable(
-                name=rt_name,
+                name=rt_fq_name[-1],
                 parent_obj=proj_obj,
                 interface_route_table_routes=static_routes)
             self._vnc_lib.interface_route_table_create(rt_obj)
@@ -131,7 +131,8 @@ class InstanceManager(object):
         return rt_obj
 
     def _create_svc_vm_port(self, nic, instance_name, st_obj, si_obj,
-                            local_preference=None, user_visible=None):
+                            local_preference=None, user_visible=None,
+                            ha_mode=None):
         # get virtual network
         try:
             vn_obj = self._vnc_lib.virtual_network_read(id=nic['net-id'])
@@ -227,10 +228,12 @@ class InstanceManager(object):
                 iip_update = False
 
         if iip_update:
-            if max_instances > 1:
-                iip_obj.set_instance_ip_mode(u'active-active');
+            if ha_mode:
+                iip_obj.set_instance_ip_mode(ha_mode)
+            elif max_instances > 1:
+                iip_obj.set_instance_ip_mode(u'active-active')
             else:
-                iip_obj.set_instance_ip_mode(u'active-standby');
+                iip_obj.set_instance_ip_mode(u'active-standby')
 
             iip_obj.add_virtual_machine_interface(vmi_obj)
             self._vnc_lib.instance_ip_update(iip_obj)
@@ -486,20 +489,56 @@ class VirtualMachineManager(InstanceManager):
 
     def delete_service(self, vm_uuid, proj_name=None):
         try:
+            self._vnc_lib.virtual_machine_delete(id=vm_uuid)
+        except (NoIdError, RefsExistError):
+            pass
+
+        try:
             self.novaclient_oper('servers', 'find', proj_name,
                 id=vm_uuid).delete()
         except nc_exc.NotFound:
             raise KeyError
 
     def check_service(self, si_obj, proj_name=None):
+        status = 'ACTIVE'
+        vm_list = {}
         vm_back_refs = si_obj.get_virtual_machine_back_refs()
         for vm_back_ref in vm_back_refs or []:
-            status = self.novaclient_oper('servers', 'find', proj_name,
-                id=vm_back_ref['uuid']).status
-            if status == 'ERROR':
-                return status
+            try:
+                vm = self.novaclient_oper('servers', 'find', proj_name,
+                    id=vm_back_ref['uuid'])
+                vm_list[vm.name] = vm
+            except nc_exc.NotFound:
+                self._vnc_lib.virtual_machine_delete(id=vm_back_ref['uuid'])
+            except (NoIdError, RefsExistError):
+                pass
 
-        return 'ACTIVE'
+        # check status of VMs
+        si_props = si_obj.get_service_instance_properties()
+        max_instances = si_props.get_scale_out().get_max_instances()
+        for inst_count in range(0, max_instances):
+            instance_name = self._get_instance_name(si_obj, inst_count)
+            if instance_name not in vm_list.keys():
+                status = 'ERROR'
+            elif vm_list[instance_name].status == 'ERROR':
+                try:
+                    self.delete_service(vm_list[instance_name].id, proj_name)
+                except KeyError:
+                    pass
+                status = 'ERROR'
+
+        # check change in instance count
+        if vm_back_refs and (max_instances > len(vm_back_refs)):
+            status = 'ERROR'
+        elif vm_back_refs and (max_instances < len(vm_back_refs)):
+            for vm_back_ref in vm_back_refs:
+                try:
+                    self.delete_service(vm_back_ref['uuid'], proj_name)
+                except KeyError:
+                    pass
+            status = 'ERROR'
+
+        return status
 
     def _novaclient_get(self, proj_name, reauthenticate=False):
         # return cache copy when reauthenticate is not requested
@@ -615,11 +654,14 @@ class NetworkNamespaceManager(InstanceManager):
                 if (st_props.get_service_type() ==
                         svc_info.get_lb_service_type()):
                     if nic['type'] == svc_info.get_right_if_str():
-                        user_visible = False
-                else:
-                    user_visible = False
+                        user_visible = True
+                elif nic['type'] == svc_info.get_left_if_str():
+                    user_visible = True
+
                 vmi_obj = self._create_svc_vm_port(nic, instance_name, st_obj,
-                    si_obj, int(local_preference), user_visible)
+                    si_obj, local_preference=int(local_preference),
+                    user_visible=user_visible,
+                    ha_mode=si_props.get_ha_mode())
                 if vmi_obj.get_virtual_machine_refs() is None:
                     vmi_obj.set_virtual_machine(vm_obj)
                     self._vnc_lib.virtual_machine_interface_update(vmi_obj)
@@ -640,7 +682,7 @@ class NetworkNamespaceManager(InstanceManager):
                     self.logger.log("Info: VRouter %s updated with VM %s" %
                         (':'.join(chosen_vr_fq_name), instance_name))
             else:
-                vrouter_name = vrouter_back_refs[0]['to'][-1]
+                vrouter_name = vrouter_back_refs[0]['to'][1]
                 state = 'active'
 
             vm_db_entry = self._set_vm_db_info(inst_count, instance_name,
@@ -726,7 +768,7 @@ class NetworkNamespaceManager(InstanceManager):
         except NoIdError:
             snat_cidr = svc_info.get_snat_left_subnet()
             vn_id = self._create_svc_vn(vn_name, snat_cidr, proj_obj,
-                                        user_visible=False)
+                                        user_visible=True)
 
         if vn_fq_name_str != ':'.join(vn_fq_name):
             left_if = ServiceInstanceInterfaceType(
