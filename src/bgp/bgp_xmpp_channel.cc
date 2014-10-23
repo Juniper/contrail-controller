@@ -29,7 +29,6 @@
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/evpn/evpn_table.h"
 #include "bgp/ipeer.h"
-#include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/rtarget/rtarget_prefix.h"
 #include "bgp/rtarget/rtarget_table.h"
@@ -1121,14 +1120,6 @@ void BgpXmppChannel::ProcessItem(string vrf_name,
             ext.communities.push_back(mm.GetExtCommunityValue());
         }
 
-        if (rt_instance) {
-            OriginVn origin_vn(bgp_server_->autonomous_system(),
-                rt_instance->virtual_network_index());
-            ext.communities.push_back(origin_vn.GetExtCommunityValue());
-        }
-
-        // We may have extended communities for tunnel encapsulation, security
-        // groups and origin vn.
         if (!ext.communities.empty())
             attrs.push_back(&ext);
 
@@ -1374,14 +1365,6 @@ void BgpXmppChannel::ProcessInet6Item(string vrf_name,
             ext.communities.push_back(mm.GetExtCommunityValue());
         }
 
-        if (rt_instance) {
-            OriginVn origin_vn(bgp_server_->autonomous_system(),
-                rt_instance->virtual_network_index());
-            ext.communities.push_back(origin_vn.GetExtCommunityValue());
-        }
-
-        // We may have extended communities for tunnel encapsulation, security
-        // groups and origin vn.
         if (!ext.communities.empty()) {
             attrs.push_back(&ext);
         }
@@ -1628,12 +1611,6 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
             RouteDistinguisher(nh_address.to_v4().to_ulong(), instance_id));
         attrs.push_back(&source_rd);
 
-        if (rt_instance) {
-            OriginVn origin_vn(bgp_server_->autonomous_system(),
-                rt_instance->virtual_network_index());
-            ext.communities.push_back(origin_vn.GetExtCommunityValue());
-        }
-
         if (!ext.communities.empty())
             attrs.push_back(&ext);
 
@@ -1692,26 +1669,6 @@ void BgpXmppChannel::DequeueRequest(const string &table_name,
                      BGP_PEER_DIR_NA, "Peer:" << peer_->ToString()
                          << " not subscribed to instance " << table->name());
         return;
-    }
-
-    if (request->oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
-        // In cases where RoutingInstance is not yet created when RouteAdd
-        // request is received from agent, the origin_vn is not set in the
-        // DBRequest. Fill the origin_vn info in the route attribute.
-        BgpTable::RequestData *data =
-            static_cast<BgpTable::RequestData *>(request->data.get());
-        BgpAttrPtr attr =  data->attrs();
-        RoutingInstance *rt_instance = table->routing_instance();
-        assert(rt_instance);
-        OriginVn origin_vn(bgp_server_->autonomous_system(),
-            rt_instance->virtual_network_index());
-        ExtCommunityPtr ext_community =
-            bgp_server_->extcomm_db()->ReplaceOriginVnAndLocate(
-                attr->ext_community(), origin_vn.GetExtCommunity());
-        BgpAttrPtr new_attr =
-            bgp_server_->attr_db()->ReplaceExtCommunityAndLocate(
-                attr.get(), ext_community);
-        data->set_attrs(new_attr);
     }
 
     table->Enqueue(ptr.get());
