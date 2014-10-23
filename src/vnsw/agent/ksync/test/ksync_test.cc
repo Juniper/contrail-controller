@@ -34,7 +34,7 @@
 #include "ksync/mirror_ksync.h"
 #include "ksync/vrf_assign_ksync.h"
 #include "ksync/vxlan_ksync.h"
-#include "vnswif_listener.h"
+#include "ksync/vnswif_listener.h"
 #include "ksync/sandesh_ksync.h"
 #include "ksync/test/ksync_test.h"
 

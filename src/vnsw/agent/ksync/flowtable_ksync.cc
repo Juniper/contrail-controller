@@ -33,7 +33,7 @@
 #include <vr_flow.h>
 #include <vr_genetlink.h>
 #include <ksync/ksync_sock_user.h>
-#include "vnswif_listener.h"
+#include "ksync/vnswif_listener.h"
 #include <ksync/ksync_init.h>
 
 #include <pkt/flow_proto.h>

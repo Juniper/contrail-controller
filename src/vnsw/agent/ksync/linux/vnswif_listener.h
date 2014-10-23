@@ -9,15 +9,15 @@
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/asio.hpp>
-#include "ksync/vnswif_listener_base.h"
+#include "ksync/vnswif_listener.h"
 
 namespace local = boost::asio::local;
 
-class VnswInterfaceListenerLinux : public VnswInterfaceListenerBase {
+class VnswInterfaceListener : public VnswInterfaceListenerBase {
 
 public:
-    VnswInterfaceListenerLinux(Agent *agent);
-    virtual ~VnswInterfaceListenerLinux();
+    VnswInterfaceListener(Agent *agent);
+    virtual ~VnswInterfaceListener();
 
 private:
     friend class TestVnswIf;
@@ -39,9 +39,8 @@ private:
     Event *HandleNetlinkIntfMsg(struct nlmsghdr *);
     Event *HandleNetlinkAddrMsg(struct nlmsghdr *);
 
-    DISALLOW_COPY_AND_ASSIGN(VnswInterfaceListenerLinux);
+    DISALLOW_COPY_AND_ASSIGN(VnswInterfaceListener);
 };
 
-typedef VnswInterfaceListenerLinux VnswInterfaceListener;
 
 #endif
