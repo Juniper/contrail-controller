@@ -16,6 +16,7 @@ import logging.handlers
 import Queue
 import ConfigParser
 import keystoneclient.v2_0.client as keystone
+import keystoneclient.openstack.common.apiclient.exceptions as ks_exceptions
 
 import cfgm_common
 try:
@@ -184,9 +185,25 @@ class OpenstackDriver(vnc_plugin_base.Resync):
     # end _ksv2_project_get
 
     def _ksv2_sync_project_to_vnc(self, id=None):
-        self._get_keystone_conn()
-        self._get_vnc_conn()
-        ks_project = self._ks_project_get(id=id.replace('-', ''))
+        # EndpointNotFound could happen if API server starts before 
+        # keystone and session gets established before endpoint are
+        # configured in keystone
+        while True:
+            self._get_keystone_conn()
+            self._get_vnc_conn()
+            try:
+                ks_project = self._ks_project_get(id=id.replace('-', ''))
+                break
+            except ks_exceptions.EndpointNotFound:
+                self._ks = None
+            except Exception as e:
+                cgitb.Hook(
+                    format="text",
+                    file=open(self._tmp_file_name,
+                          'w')).handle(sys.exc_info())
+                fhandle = open(self._tmp_file_name)
+                self._vnc_os_logger.error("%s" % fhandle.read())
+                break
         display_name = ks_project['name']
 
         # if earlier project exists with same name but diff id,
