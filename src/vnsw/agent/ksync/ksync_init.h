@@ -13,7 +13,8 @@
 #include <ksync/vxlan_ksync.h>
 #include <ksync/vrf_assign_ksync.h>
 #include <ksync/interface_scan.h>
-#include "vnswif_listener.h"
+#include "ksync/vnswif_listener.h"
+
 
 class KSync {
 public:
