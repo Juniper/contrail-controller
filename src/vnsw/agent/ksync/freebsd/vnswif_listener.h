@@ -9,12 +9,12 @@
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/asio.hpp>
-#include "ksync/vnswif_listener_base.h"
+#include "ksync/vnswif_listener.h"
 
-class VnswInterfaceListenerFreeBSD : public VnswInterfaceListenerBase {
+class VnswInterfaceListener : public VnswInterfaceListenerBase {
 public:
-    VnswInterfaceListenerFreeBSD(Agent *agent);
-    virtual ~VnswInterfaceListenerFreeBSD();
+    VnswInterfaceListener(Agent *agent);
+    virtual ~VnswInterfaceListener();
 
 private:
     friend class TestVnswIf;
@@ -48,9 +48,8 @@ private:
     int pid_;
     int fib_;
 
-    DISALLOW_COPY_AND_ASSIGN(VnswInterfaceListenerFreeBSD);
+    DISALLOW_COPY_AND_ASSIGN(VnswInterfaceListener);
 };
 
-typedef VnswInterfaceListenerFreeBSD VnswInterfaceListener;
 
 #endif
