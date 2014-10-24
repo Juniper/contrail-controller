@@ -49,9 +49,9 @@ import com.vmware.vim25.mo.VmwareDistributedVirtualSwitch;
 public class VCenterDB {
     private static final Logger s_logger =
             Logger.getLogger(VCenterDB.class);
-    private static final String contrailDvSwitchName = "dvSwitch";
-    private static final String contrailDataCenterName = "Datacenter";
     private static final String contrailVRouterVmNamePrefix = "contrailVM";
+    private final String contrailDvSwitchName;
+    private final String contrailDataCenterName;
     private final String vcenterUrl;
     private final String vcenterUsername;
     private final String vcenterPassword;
@@ -62,10 +62,13 @@ public class VCenterDB {
     private IpPoolManager ipPoolManager;
     
     public VCenterDB(String vcenterUrl, String vcenterUsername,
-            String vcenterPassword) {
-        this.vcenterUrl = vcenterUrl;
-        this.vcenterUsername = vcenterUsername;
-        this.vcenterPassword = vcenterPassword;
+                     String vcenterPassword, String contrailDcName,
+                     String contrailDvsName) {
+        this.vcenterUrl             = vcenterUrl;
+        this.vcenterUsername        = vcenterUsername;
+        this.vcenterPassword        = vcenterPassword;
+        this.contrailDataCenterName = contrailDcName;
+        this.contrailDvSwitchName   = contrailDvsName;
     }
     
     public void Initialize() throws Exception {
