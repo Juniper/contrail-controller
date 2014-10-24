@@ -29,6 +29,7 @@ import net.juniper.contrail.api.types.VirtualMachineInterface;
 import net.juniper.contrail.api.types.VirtualNetwork;
 import net.juniper.contrail.api.types.VnSubnetsType;
 import net.juniper.contrail.api.types.Project;
+import net.juniper.contrail.api.types.IdPermsType;
 import net.juniper.contrail.contrail_vrouter_api.ContrailVRouterApi;
 
 public class VncDB {
@@ -42,10 +43,12 @@ public class VncDB {
     private ApiConnector apiConnector;
     private Project vCenterProject;
     private NetworkIpam vCenterIpam;
+    private IdPermsType vCenterIdPerms;
 
     public static final String VNC_ROOT_DOMAIN     = "default-domain";
     public static final String VNC_VCENTER_PROJECT = "vCenter";
     public static final String VNC_VCENTER_IPAM    = "vCenter-ipam";
+    public static final String VNC_VCENTER_PLUGIN  = "vcenter-plugin";
     
     public VncDB(String apiServerAddress, int apiServerPort) {
         this.apiServerAddress = apiServerAddress;
@@ -57,6 +60,11 @@ public class VncDB {
         apiConnector = ApiConnectorFactory.build(apiServerAddress,
                 apiServerPort);
 
+        // Create global id-perms object.
+        vCenterIdPerms = new IdPermsType();
+        vCenterIdPerms.setCreator("vcenter-plugin");
+        vCenterIdPerms.setEnable(true);
+
         // Check if Vmware Project exists on VNC. If not, create one.
         vCenterProject = (Project) apiConnector.findByFQN(Project.class, 
                                         VNC_ROOT_DOMAIN + ":" + VNC_VCENTER_PROJECT);
@@ -64,6 +72,7 @@ public class VncDB {
             s_logger.info(" vCenter project not present, creating ");
             vCenterProject = new Project();
             vCenterProject.setName("vCenter");
+            vCenterProject.setIdPerms(vCenterIdPerms);
             if (!apiConnector.create(vCenterProject)) {
               s_logger.error("Unable to create project: " + vCenterProject.getName());
             }
@@ -71,14 +80,15 @@ public class VncDB {
             s_logger.info(" vCenter project present, continue ");
         }
 
-        // Check if VMWare vCenter-ipam exist on VNC. If not, create one.
-        vCenterIpam = (NetworkIpam) apiConnector.findByFQN(Project.class, 
+        // Check if VMWare vCenter-ipam exists on VNC. If not, create one.
+        vCenterIpam = (NetworkIpam) apiConnector.findByFQN(NetworkIpam.class,
                        VNC_ROOT_DOMAIN + ":" + VNC_VCENTER_PROJECT + ":" + VNC_VCENTER_IPAM);
         if (vCenterIpam == null) {
             s_logger.info(" vCenter Ipam not present, creating ...");
             vCenterIpam = new NetworkIpam();
             vCenterIpam.setParent(vCenterProject);
             vCenterIpam.setName("vCenter-ipam");
+            vCenterIpam.setIdPerms(vCenterIdPerms);
             if (!apiConnector.create(vCenterIpam)) {
               s_logger.error("Unable to create Ipam: " + vCenterIpam.getName());
             }
@@ -221,10 +231,12 @@ public class VncDB {
         VirtualMachine vm = new VirtualMachine();
         vm.setName(vmUuid);
         vm.setUuid(vmUuid);
+
         // Encode VRouter IP address in display name
         if (vrouterIpAddress != null) {
             vm.setDisplayName(vrouterIpAddress);
         }
+        vm.setIdPerms(vCenterIdPerms);
         apiConnector.create(vm);
         apiConnector.read(vm);
 
@@ -241,6 +253,7 @@ public class VncDB {
         MacAddressesType macAddrType = new MacAddressesType();
         macAddrType.addMacAddress(macAddress);
         vmInterface.setMacAddresses(macAddrType);
+        vmInterface.setIdPerms(vCenterIdPerms);
         apiConnector.create(vmInterface);
         String vmInterfaceUuid = apiConnector.findByName(
                 VirtualMachineInterface.class, vm, vmInterface.getName());
@@ -257,6 +270,7 @@ public class VncDB {
         instanceIp.setName(instIpUuid);
         instanceIp.setVirtualNetwork(network);
         instanceIp.setVirtualMachineInterface(vmInterface);
+        instanceIp.setIdPerms(vCenterIdPerms);
         apiConnector.create(instanceIp);
 
         // Read back to get assigned IP address
@@ -391,6 +405,7 @@ public class VncDB {
         vn.setName(vnName);
         vn.setDisplayName(vnName);
         vn.setUuid(vnUuid);
+        vn.setIdPerms(vCenterIdPerms);
         vn.setParent(vCenterProject);
         String ipamUuid = apiConnector.findByName(NetworkIpam.class, null, 
                 "default-network-ipam");
@@ -446,7 +461,6 @@ public class VncDB {
         // Ignore default, fabric, and link-local networks
         if (name.equals("__link_local__") || 
                 name.equals("default-virtual-network") || 
-                name.equals("public") || 
                 name.equals("ip-fabric")) {
             return true;
         }
@@ -480,6 +494,12 @@ public class VncDB {
             if (doIgnoreVirtualNetwork(vnName)) {
                 continue;
             }
+            // Ignore Vnc VNs where creator isn't "vcenter-plugin"
+            if ((network.getIdPerms().getCreator() == null)  ||
+                !(network.getIdPerms().getCreator().equals(VNC_VCENTER_PLUGIN))) {
+                continue;
+            }
+
             // Extract virtual machine interfaces
             List<ObjectReference<ApiPropertyBase>> vmInterfaceRefs = 
                     network.getVirtualMachineInterfaceBackRefs();
@@ -496,6 +516,10 @@ public class VncDB {
                                 VirtualMachineInterface.class,
                                 vmInterfaceRef.getUuid());
                 apiConnector.read(vmInterface);
+                // Ignore Vnc VMInterfaces where "creator" isn't "vcenter-plugin"
+                if (!vmInterface.getIdPerms().getCreator().equals(VNC_VCENTER_PLUGIN)) {
+                    continue;
+                }
                 //String vmUuid = vmInterface.getParentUuid();
                 List<ObjectReference<ApiPropertyBase>> vmRefs = vmInterface.getVirtualMachine();
                 if (vmRefs == null || vmRefs.size() == 0) {
@@ -511,6 +535,11 @@ public class VncDB {
                 VirtualMachine vm = (VirtualMachine) apiConnector.findById(
                         VirtualMachine.class, vmRef.getUuid());
                 apiConnector.read(vm);
+                // Ignore Vnc VMs where creator isn't "vcenter-plugin"
+                if (!vm.getIdPerms().getCreator().equals(VNC_VCENTER_PLUGIN)) {
+                    continue;
+                }
+
                 VncVirtualMachineInfo vmInfo = new VncVirtualMachineInfo(
                         vm, vmInterface);
                 vmInfos.put(vm.getUuid(), vmInfo);

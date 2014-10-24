@@ -191,6 +191,8 @@ class GeneratedsSuper(object):
             return 'udp'
         elif "route_target" in name:
             return '192.168.1.42/32''192.168.1.42/32'
+        elif "creator" in name:
+            return 'test'
         else:
             return 'test-' + name
 

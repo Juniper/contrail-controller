@@ -1061,7 +1061,7 @@ class VncApiServer(VncApiServerGen):
         if obj_uuid:
             field_list = ['enable', 'description']
         else:
-            field_list = ['enable', 'description', 'user_visible']
+            field_list = ['enable', 'description', 'user_visible', 'creator']
 
         # Start from default and update from obj_dict
         req_id_perms = obj_dict['id_perms']
