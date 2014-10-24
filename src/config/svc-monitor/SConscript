@@ -16,6 +16,7 @@ sources = [
     'svc_monitor/__init__.py',
     'svc_monitor/svc_monitor.py',
     'svc_monitor/instance_manager.py',
+    'svc_monitor/vrouter_instance_manager.py',
     'svc_monitor/db.py',
     'svc_monitor/logger.py',
     'svc_monitor/scheduler/__init__.py',
