@@ -14,7 +14,7 @@
 #include <init/agent_param.h>
 #include <oper/agent_sandesh.h>
 #include <oper/agent_types.h>
-#include <oper/namespace_manager.h>
+#include "oper/instance_manager.h"
 
 using boost::uuids::uuid;
 
@@ -511,10 +511,10 @@ bool ServiceInstance::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     DBTableBase *si_table = agent->db()->FindTable("db.service-instance.0");
     assert(si_table);
 
-    NamespaceManager *manager = agent->oper_db()->namespace_manager();
+    InstanceManager *manager = agent->oper_db()->instance_manager();
     assert(manager);
 
-    NamespaceState *state = manager->GetState(const_cast<ServiceInstance *>(this));
+    InstanceState *state = manager->GetState(const_cast<ServiceInstance *>(this));
     if (state != NULL) {
         NamespaceStateSandeshData state_data;
 

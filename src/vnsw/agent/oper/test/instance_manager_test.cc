@@ -2,27 +2,28 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "base/os.h"
-#include "oper/namespace_manager.h"
+#include "oper/instance_manager.h"
 
 #include <cstdlib>
 #include <boost/filesystem.hpp>
 #include <boost/uuid/random_generator.hpp>
 
-#include "base/test/task_test_util.h"
 #include "base/logging.h"
+#include "base/os.h"
+#include "base/test/task_test_util.h"
 #include "db/db_graph.h"
 #include "db/test/db_test_util.h"
 #include "ifmap/ifmap_agent_table.h"
 #include "ifmap/ifmap_node.h"
 #include "ifmap/test/ifmap_test_util.h"
 #include "oper/ifmap_dependency_manager.h"
-#include "oper/service_instance.h"
+#include "oper/instance_task.h"
 #include "oper/loadbalancer.h"
 #include "oper/operdb_init.h"
+#include "oper/service_instance.h"
 #include "schema/vnc_cfg_types.h"
-#include "testing/gunit.h"
 #include "test/test_init.h"
+#include "testing/gunit.h"
 
 using namespace std;
 class Agent;
@@ -36,13 +37,13 @@ static boost::uuids::uuid IdPermsGetUuid(const autogen::IdPermsType &id) {
     return uuid;
 }
 
-class NamespaceManagerTest : public ::testing::Test {
+class InstanceManagerTest : public ::testing::Test {
 public:
-    bool IsExpectedStatusType(NamespaceState *state, int expected) {
+    bool IsExpectedStatusType(InstanceState *state, int expected) {
         return state->status_type() == expected;
     }
 
-    bool IsUpdateCommand(NamespaceState *state) {
+    bool IsUpdateCommand(InstanceState *state) {
         return string::npos != state->cmd().find("--update");
     }
 
@@ -54,7 +55,7 @@ public:
 protected:
     static const int kTimeoutSeconds = 15;
 
-    NamespaceManagerTest()
+    InstanceManagerTest()
           : agent_(new Agent),
             agent_config_(new AgentConfig(agent_.get())) {
         agent_->set_cfg(agent_config_.get());
@@ -62,10 +63,10 @@ protected:
         agent_->set_oper_db(oper_db_.get());
         stringstream ss;
         ss << "/tmp/" << getpid() << "/";
-        agent_->oper_db()-> namespace_manager()->loadbalancer_config_path_ = ss.str();
+        agent_->oper_db()-> instance_manager()->loadbalancer_config_path_ = ss.str();
     }
 
-    ~NamespaceManagerTest() {
+    ~InstanceManagerTest() {
     }
 
     virtual void TearDown() {
@@ -95,7 +96,9 @@ protected:
         agent_config_->RegisterDBClients(db);
         oper_db_->RegisterDBClients();
         agent_config_->Init();
-        oper_db_->Init();
+        // Different test cases initialize the instance_manager with
+        // different parameters so we avoid called OperDB::Init().
+        oper_db_->dependency_manager()->Initialize();
     }
 
 
@@ -249,15 +252,15 @@ protected:
         return svc_instance;
     }
 
-    NamespaceState *ServiceInstanceState(boost::uuids::uuid id) {
+    InstanceState *ServiceInstanceState(boost::uuids::uuid id) {
         ServiceInstance *svc_instance = GetServiceInstance(id);
         if (svc_instance == NULL) {
             return NULL;
         }
-        return agent_->oper_db()->namespace_manager()->GetState(svc_instance);
+        return agent_->oper_db()->instance_manager()->GetState(svc_instance);
     }
 
-    NamespaceTaskQueue *GetTaskQueue(boost::uuids::uuid id) {
+    InstanceTaskQueue *GetTaskQueue(boost::uuids::uuid id) {
         ServiceInstance *svc_instance = GetServiceInstance(id);
         if (svc_instance == NULL) {
             return NULL;
@@ -265,12 +268,12 @@ protected:
 
         stringstream ss;
         ss << svc_instance->properties().instance_id;
-        return agent_->oper_db()->namespace_manager()->GetTaskQueue(ss.str());
+        return agent_->oper_db()->instance_manager()->GetTaskQueue(ss.str());
     }
 
     void TriggerSigChild(pid_t pid, int status) {
         boost::system::error_code ec;
-        agent_->oper_db()->namespace_manager()->HandleSigChild(ec, SIGCHLD, pid, status);
+        agent_->oper_db()->instance_manager()->HandleSigChild(ec, SIGCHLD, pid, status);
     }
 
     void NotifyChange(boost::uuids::uuid id) {
@@ -308,7 +311,7 @@ protected:
     }
 
     const std::string &loadbalancer_config_path() const {
-        return agent_->oper_db()->namespace_manager()->loadbalancer_config_path_;
+        return agent_->oper_db()->instance_manager()->loadbalancer_config_path_;
     }
 protected:
     std::auto_ptr<Agent> agent_;
@@ -316,75 +319,75 @@ protected:
     std::auto_ptr<OperDB> oper_db_;
 };
 
-TEST_F(NamespaceManagerTest, ExecTrue) {
-    agent_->oper_db()->namespace_manager()->Initialize(agent_->db(),
+TEST_F(InstanceManagerTest, ExecTrue) {
+    agent_->oper_db()->instance_manager()->Initialize(agent_->db(),
             agent_->agent_signal(), "/bin/true", 1, 10);
     boost::uuids::uuid id = AddServiceInstance("exec-true");
     EXPECT_FALSE(id.is_nil());
     task_util::WaitForIdle();
-    NamespaceState *ns_state = ServiceInstanceState(id);
+    InstanceState *ns_state = ServiceInstanceState(id);
     ASSERT_TRUE(ns_state != NULL);
 
     EXPECT_EQ(0, ns_state->status());
-    EXPECT_EQ(NamespaceState::Starting, ns_state->status_type());
+    EXPECT_EQ(InstanceState::Starting, ns_state->status_type());
     EXPECT_NE(0, ns_state->pid());
 
     task_util::WaitForCondition(agent_->event_manager(),
-            boost::bind(&NamespaceManagerTest::IsExpectedStatusType, this, ns_state, NamespaceState::Started),
+            boost::bind(&InstanceManagerTest::IsExpectedStatusType, this, ns_state, InstanceState::Started),
             kTimeoutSeconds);
 
-    EXPECT_EQ(NamespaceState::Started, ns_state->status_type());
+    EXPECT_EQ(InstanceState::Started, ns_state->status_type());
     EXPECT_EQ(0, ns_state->status());
 
     MarkServiceInstanceAsDeleted(id);
     task_util::WaitForIdle();
 }
 
-TEST_F(NamespaceManagerTest, ExecFalse) {
-    agent_->oper_db()->namespace_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/false", 1, 10);
+TEST_F(InstanceManagerTest, ExecFalse) {
+    agent_->oper_db()->instance_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/false", 1, 10);
     boost::uuids::uuid id = AddServiceInstance("exec-false");
     EXPECT_FALSE(id.is_nil());
     task_util::WaitForIdle();
-    NamespaceState *ns_state = ServiceInstanceState(id);
+    InstanceState *ns_state = ServiceInstanceState(id);
     ASSERT_TRUE(ns_state != NULL);
 
     EXPECT_EQ(0, ns_state->status());
-    EXPECT_EQ(NamespaceState::Starting, ns_state->status_type());
+    EXPECT_EQ(InstanceState::Starting, ns_state->status_type());
 
     task_util::WaitForCondition(agent_->event_manager(),
-            boost::bind(&NamespaceManagerTest::IsExpectedStatusType, this, ns_state, NamespaceState::Error),
+            boost::bind(&InstanceManagerTest::IsExpectedStatusType, this, ns_state, InstanceState::Error),
             kTimeoutSeconds);
 
-    EXPECT_EQ(NamespaceState::Error, ns_state->status_type());
+    EXPECT_EQ(InstanceState::Error, ns_state->status_type());
     EXPECT_NE(0, ns_state->status());
 
     MarkServiceInstanceAsDeleted(id);
     task_util::WaitForIdle();
 }
 
-TEST_F(NamespaceManagerTest, Update) {
-    agent_->oper_db()->namespace_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/true", 1, 10);
+TEST_F(InstanceManagerTest, Update) {
+    agent_->oper_db()->instance_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/true", 1, 10);
     boost::uuids::uuid id = AddServiceInstance("exec-update");
     EXPECT_FALSE(id.is_nil());
     task_util::WaitForIdle();
-    NamespaceState *ns_state = ServiceInstanceState(id);
+    InstanceState *ns_state = ServiceInstanceState(id);
     ASSERT_TRUE(ns_state != NULL);
 
     EXPECT_EQ(0, ns_state->status());
-    EXPECT_EQ(NamespaceState::Starting, ns_state->status_type());
+    EXPECT_EQ(InstanceState::Starting, ns_state->status_type());
 
     task_util::WaitForCondition(agent_->event_manager(),
-            boost::bind(&NamespaceManagerTest::IsExpectedStatusType, this, ns_state, NamespaceState::Started),
+            boost::bind(&InstanceManagerTest::IsExpectedStatusType, this, ns_state, InstanceState::Started),
             kTimeoutSeconds);
 
-    EXPECT_EQ(NamespaceState::Started, ns_state->status_type());
+    EXPECT_EQ(InstanceState::Started, ns_state->status_type());
     EXPECT_EQ(0, ns_state->status());
 
     bool updated = UpdateProperties(id, true);
     EXPECT_EQ(true, updated);
 
     task_util::WaitForCondition(agent_->event_manager(),
-            boost::bind(&NamespaceManagerTest::IsUpdateCommand, this, ns_state),
+            boost::bind(&InstanceManagerTest::IsUpdateCommand, this, ns_state),
             kTimeoutSeconds);
 
     EXPECT_TRUE(IsUpdateCommand(ns_state));
@@ -393,74 +396,79 @@ TEST_F(NamespaceManagerTest, Update) {
     task_util::WaitForIdle();
 }
 
-TEST_F(NamespaceManagerTest, UpdateProperties) {
-    agent_->oper_db()->namespace_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/true", 1, 10);
+TEST_F(InstanceManagerTest, UpdateProperties) {
+    agent_->oper_db()->instance_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/true", 1, 10);
     boost::uuids::uuid id = AddServiceInstance("exec-update");
     EXPECT_FALSE(id.is_nil());
     task_util::WaitForIdle();
-    NamespaceState *ns_state = ServiceInstanceState(id);
+    InstanceState *ns_state = ServiceInstanceState(id);
     ASSERT_TRUE(ns_state != NULL);
 
     EXPECT_EQ(0, ns_state->status());
-    EXPECT_EQ(NamespaceState::Starting, ns_state->status_type());
+    EXPECT_EQ(InstanceState::Starting, ns_state->status_type());
 
     task_util::WaitForCondition(agent_->event_manager(),
-            boost::bind(&NamespaceManagerTest::IsExpectedStatusType, this, ns_state, NamespaceState::Started),
+            boost::bind(&InstanceManagerTest::IsExpectedStatusType, this, ns_state, InstanceState::Started),
             kTimeoutSeconds);
 
-    EXPECT_EQ(NamespaceState::Started, ns_state->status_type());
+    EXPECT_EQ(InstanceState::Started, ns_state->status_type());
     EXPECT_EQ(0, ns_state->status());
 
     NotifyChange(id);
     task_util::WaitForIdle();
 
-    EXPECT_NE(NamespaceState::Starting, ns_state->status_type());
+    EXPECT_NE(InstanceState::Starting, ns_state->status_type());
 
     bool updated = UpdateProperties(id, true);
     EXPECT_EQ(true, updated);
 
     task_util::WaitForCondition(agent_->event_manager(),
-            boost::bind(&NamespaceManagerTest::IsExpectedStatusType, this, ns_state, NamespaceState::Starting),
+            boost::bind(&InstanceManagerTest::IsExpectedStatusType, this, ns_state, InstanceState::Starting),
             kTimeoutSeconds);
 
     MarkServiceInstanceAsDeleted(id);
     task_util::WaitForIdle();
 }
 
-TEST_F(NamespaceManagerTest, Timeout) {
+/**
+ * Timeout test works by not plugin in the signal manager and receiving
+ * SIGCHLD rather than by executing a sleep.
+ */
+TEST_F(InstanceManagerTest, Timeout) {
 
-    agent_->oper_db()->namespace_manager()->Initialize(agent_->db(), NULL, "/bin/true", 1, 1);
+    agent_->oper_db()->instance_manager()->Initialize(
+        agent_->db(), NULL, "/bin/true", 1, 1);
     boost::uuids::uuid id = AddServiceInstance("exec-timeout");
     EXPECT_FALSE(id.is_nil());
     task_util::WaitForIdle();
-    NamespaceState *ns_state = ServiceInstanceState(id);
+    InstanceState *ns_state = ServiceInstanceState(id);
     ASSERT_TRUE(ns_state != NULL);
 
     EXPECT_EQ(0, ns_state->status());
-    EXPECT_EQ(NamespaceState::Starting, ns_state->status_type());
+    EXPECT_EQ(InstanceState::Starting, ns_state->status_type());
 
     time_t now = time(NULL);
     task_util::WaitForCondition(agent_->event_manager(),
-            boost::bind(&NamespaceManagerTest::WaitForAWhile, this, now + 5),
+            boost::bind(&InstanceManagerTest::WaitForAWhile, this, now + 5),
             kTimeoutSeconds);
 
-    EXPECT_EQ(NamespaceState::Timeout, ns_state->status_type());
+    EXPECT_EQ(InstanceState::Timeout, ns_state->status_type());
 
     MarkServiceInstanceAsDeleted(id);
     task_util::WaitForIdle();
 }
-TEST_F(NamespaceManagerTest, TaskQueue) {
+TEST_F(InstanceManagerTest, TaskQueue) {
     static const int kNumUpdate = 5;
-    agent_->oper_db()->namespace_manager()->Initialize(agent_->db(), NULL, "/bin/true", 10, 1);
+    agent_->oper_db()->instance_manager()->Initialize(agent_->db(), NULL, "/bin/true", 10, 1);
     boost::uuids::uuid id = AddServiceInstance("exec-queue");
     EXPECT_FALSE(id.is_nil());
     task_util::WaitForIdle();
-    NamespaceState *ns_state = ServiceInstanceState(id);
+    InstanceState *ns_state = ServiceInstanceState(id);
     ASSERT_TRUE(ns_state != NULL);
 
     EXPECT_EQ(0, ns_state->status());
-    EXPECT_EQ(NamespaceState::Starting, ns_state->status_type());
-    NamespaceTaskQueue *queue = GetTaskQueue(id);
+    EXPECT_EQ(InstanceState::Starting, ns_state->status_type());
+    InstanceTaskQueue *queue = GetTaskQueue(id);
 
     EXPECT_EQ(1, queue->Size());
 
@@ -483,42 +491,42 @@ TEST_F(NamespaceManagerTest, TaskQueue) {
     task_util::WaitForIdle();
 }
 
-TEST_F(NamespaceManagerTest, Usable) {
-    agent_->oper_db()->namespace_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/true", 1, 10);
+TEST_F(InstanceManagerTest, Usable) {
+    agent_->oper_db()->instance_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/true", 1, 10);
     boost::uuids::uuid id = AddServiceInstance("exec-usable");
     EXPECT_FALSE(id.is_nil());
     task_util::WaitForIdle();
-    NamespaceState *ns_state = ServiceInstanceState(id);
+    InstanceState *ns_state = ServiceInstanceState(id);
     ASSERT_TRUE(ns_state != NULL);
 
     EXPECT_EQ(0, ns_state->status());
-    EXPECT_EQ(NamespaceState::Starting, ns_state->status_type());
+    EXPECT_EQ(InstanceState::Starting, ns_state->status_type());
 
     task_util::WaitForCondition(agent_->event_manager(),
-            boost::bind(&NamespaceManagerTest::IsExpectedStatusType, this, ns_state, NamespaceState::Started),
+            boost::bind(&InstanceManagerTest::IsExpectedStatusType, this, ns_state, InstanceState::Started),
             kTimeoutSeconds);
 
-    EXPECT_EQ(NamespaceState::Started, ns_state->status_type());
+    EXPECT_EQ(InstanceState::Started, ns_state->status_type());
     EXPECT_EQ(0, ns_state->status());
 
     NotifyChange(id);
     task_util::WaitForIdle();
 
-    EXPECT_NE(NamespaceState::Starting, ns_state->status_type());
+    EXPECT_NE(InstanceState::Starting, ns_state->status_type());
 
     bool updated = UpdateProperties(id, false);
     EXPECT_EQ(true, updated);
 
     task_util::WaitForCondition(agent_->event_manager(),
-            boost::bind(&NamespaceManagerTest::IsExpectedStatusType, this, ns_state, NamespaceState::Stopped),
+            boost::bind(&InstanceManagerTest::IsExpectedStatusType, this, ns_state, InstanceState::Stopped),
             kTimeoutSeconds);
 
     MarkServiceInstanceAsDeleted(id);
     task_util::WaitForIdle();
 }
 
-TEST_F(NamespaceManagerTest, LoadbalancerConfig) {
-    agent_->oper_db()->namespace_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/true", 1, 10);
+TEST_F(InstanceManagerTest, LoadbalancerConfig) {
+    agent_->oper_db()->instance_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/true", 1, 10);
 
     boost::uuids::random_generator gen;
     std::string pool_name(UuidToString(gen()));
@@ -562,8 +570,8 @@ TEST_F(NamespaceManagerTest, LoadbalancerConfig) {
     EXPECT_TRUE(old_time <= new_time);
 }
 
-TEST_F(NamespaceManagerTest, NamespaceStaleCleanup) {
-    agent_->oper_db()->namespace_manager()->Initialize(agent_->db(),
+TEST_F(InstanceManagerTest, InstanceStaleCleanup) {
+    agent_->oper_db()->instance_manager()->Initialize(agent_->db(),
             agent_->agent_signal(), "/bin/true", 1, 10);
 
     boost::uuids::random_generator gen;
@@ -571,7 +579,7 @@ TEST_F(NamespaceManagerTest, NamespaceStaleCleanup) {
     std::string lb_uuid = UuidToString(gen());
     std::string store_path = "/tmp/lb/";
 
-    agent_->oper_db()->namespace_manager()->SetNamespaceStorePath(store_path);
+    agent_->oper_db()->instance_manager()->SetNamespaceStorePath(store_path);
     store_path +=  ("vrouter-" + vm_uuid + ":" + lb_uuid);
     boost::system::error_code error;
     if (!boost::filesystem::exists(store_path, error)) {
@@ -584,7 +592,7 @@ TEST_F(NamespaceManagerTest, NamespaceStaleCleanup) {
     }
     EXPECT_EQ(1, boost::filesystem::exists(store_path));
 
-    agent_->oper_db()->namespace_manager()->StaleTimeout();
+    agent_->oper_db()->instance_manager()->StaleTimeout();
     task_util::WaitForIdle();
     EXPECT_EQ(0, boost::filesystem::exists(store_path));
 
@@ -595,6 +603,7 @@ TEST_F(NamespaceManagerTest, NamespaceStaleCleanup) {
 
 
 int main(int argc, char **argv) {
+    LoggingInit();
     ::testing::InitGoogleTest(&argc, argv);
 
     int result = RUN_ALL_TESTS();
