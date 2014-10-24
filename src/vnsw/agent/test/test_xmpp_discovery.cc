@@ -122,15 +122,29 @@ protected:
     AgentXmppUnitTest() : thread_(&evm_), agent_(Agent::GetInstance()) {}
  
     virtual void SetUp() {
+
+        //TestInit initilaizes xmpp connection to 127.0.0.1, so disconnect that
+        //and again spawn a new one. Its required since the receive path
+        //is overridden by mock class.
+        //TODO later use the agent initializer 
+        Agent::GetInstance()->controller()->Cleanup(); 
+        client->WaitForIdle();
+        Agent::GetInstance()->controller()->DisConnect();
+        client->WaitForIdle();
+
         xs1 = new XmppServer(&evm_, XmppInit::kControlNodeJID);
         xs2 = new XmppServer(&evm_, XmppInit::kControlNodeJID);
         xs3 = new XmppServer(&evm_, XmppInit::kControlNodeJID);
         xs4 = new XmppServer(&evm_, XmppInit::kControlNodeJID);
+        xs5 = new XmppServer(&evm_, XmppInit::kControlNodeJID);
+        xs6 = new XmppServer(&evm_, XmppInit::kControlNodeJID);
 
         xs1->Initialize(0, false);
         xs2->Initialize(0, false);
         xs3->Initialize(0, false);
         xs4->Initialize(0, false);
+        xs5->Initialize(0, false);
+        xs6->Initialize(0, false);
         
         thread_.Start();
     }
@@ -150,6 +164,8 @@ protected:
         TcpServerManager::DeleteServer(xs2);
         TcpServerManager::DeleteServer(xs3);
         TcpServerManager::DeleteServer(xs4);
+        TcpServerManager::DeleteServer(xs5);
+        TcpServerManager::DeleteServer(xs6);
 
         evm_.Shutdown();
         thread_.Join();
@@ -184,6 +200,18 @@ protected:
 	xs4->RegisterConnectionEvent(xmps::BGP,
 	    boost::bind(&ControlNodeMockBgpXmppPeer::HandleXmppChannelEvent, 
                         mock_peer4.get(), _1, _2));
+
+        //Create control-node bgp mock peer 
+        mock_peer5.reset(new ControlNodeMockBgpXmppPeer());
+	xs5->RegisterConnectionEvent(xmps::BGP,
+	    boost::bind(&ControlNodeMockBgpXmppPeer::HandleXmppChannelEvent, 
+                        mock_peer5.get(), _1, _2));
+
+        //Create control-node bgp mock peer 
+        mock_peer6.reset(new ControlNodeMockBgpXmppPeer());
+	xs6->RegisterConnectionEvent(xmps::BGP,
+	    boost::bind(&ControlNodeMockBgpXmppPeer::HandleXmppChannelEvent, 
+                        mock_peer6.get(), _1, _2));
     }
 
     EventManager evm_;
@@ -193,11 +221,15 @@ protected:
     XmppServer *xs2;
     XmppServer *xs3;
     XmppServer *xs4;
+    XmppServer *xs5;
+    XmppServer *xs6;
 
     auto_ptr<ControlNodeMockBgpXmppPeer> mock_peer1;
     auto_ptr<ControlNodeMockBgpXmppPeer> mock_peer2;
     auto_ptr<ControlNodeMockBgpXmppPeer> mock_peer3;
     auto_ptr<ControlNodeMockBgpXmppPeer> mock_peer4;
+    auto_ptr<ControlNodeMockBgpXmppPeer> mock_peer5;
+    auto_ptr<ControlNodeMockBgpXmppPeer> mock_peer6;
     Agent *agent_;
 };
 
@@ -224,13 +256,15 @@ TEST_F(AgentXmppUnitTest, XmppConnection_Discovery) {
     //wait for connection establishment
     EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(0) == xs1->GetPort()); 
     WAIT_FOR(1000, 10000, 
-             agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState() == xmps::READY); 
+        agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState()
+        == xmps::READY); 
     client->WaitForIdle();
 
     //Bring down Xmpp Server 
     xs1->Shutdown();
     WAIT_FOR(1000, 10000, 
-             agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState() == xmps::NOT_READY);
+        agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState()
+        == xmps::NOT_READY);
 
     //Discovery indicating new Xmpp Server 
     ds_response.clear();
@@ -244,13 +278,15 @@ TEST_F(AgentXmppUnitTest, XmppConnection_Discovery) {
     //wait for connection establishment
     EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(1) == xs2->GetPort()); 
     WAIT_FOR(1000, 10000, 
-             agent_->controller_xmpp_channel(1)->GetXmppChannel()->GetPeerState() == xmps::READY); 
+        agent_->controller_xmpp_channel(1)->GetXmppChannel()->GetPeerState() 
+        == xmps::READY); 
     client->WaitForIdle();
 
     //Bring down Xmpp Server
     xs2->Shutdown();
     WAIT_FOR(1000, 10000, 
-             agent_->controller_xmpp_channel(1)->GetXmppChannel()->GetPeerState() == xmps::NOT_READY);
+        agent_->controller_xmpp_channel(1)->GetXmppChannel()->GetPeerState() 
+        == xmps::NOT_READY);
 
     //Discovery indicating new Xmpp Server
     ds_response.clear();
@@ -264,7 +300,8 @@ TEST_F(AgentXmppUnitTest, XmppConnection_Discovery) {
     //wait for connection establishment
     EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(0) == xs3->GetPort()); 
     WAIT_FOR(1000, 10000, 
-             agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState() == xmps::READY); 
+        agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState() 
+        == xmps::READY); 
     // Wait until older XmppClient, XmppChannel is cleaned
     client->WaitForIdle();
 
@@ -283,11 +320,13 @@ TEST_F(AgentXmppUnitTest, XmppConnection_Discovery) {
     //wait for connection establishment
     EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(0) == xs3->GetPort()); 
     WAIT_FOR(1000, 10000, 
-             agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState() == xmps::READY); 
+        agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState() 
+        == xmps::READY); 
 
     EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(1) == xs4->GetPort()); 
     WAIT_FOR(1000, 10000, 
-             agent_->controller_xmpp_channel(1)->GetXmppChannel()->GetPeerState() == xmps::READY); 
+        agent_->controller_xmpp_channel(1)->GetXmppChannel()->GetPeerState() 
+        == xmps::READY); 
     // Wait until older XmppClient, XmppChannel is cleaned
     client->WaitForIdle();
 
@@ -296,23 +335,44 @@ TEST_F(AgentXmppUnitTest, XmppConnection_Discovery) {
 
     xs4->Shutdown();
     client->WaitForIdle();
+
+    //Discovery indicating new Xmpp Server
+    ds_response.clear();
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.5"));
+    resp.ep.port(xs5->GetPort());
+    ds_response.push_back(resp);
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.6"));
+    resp.ep.port(xs6->GetPort());
+    ds_response.push_back(resp);
+
+    agent_->controller()->ApplyDiscoveryXmppServices(ds_response);
+    client->WaitForIdle();
+
+    //wait for connection establishment
+    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(0) == xs5->GetPort()); 
+    WAIT_FOR(1000, 10000, 
+        agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState() 
+        == xmps::READY); 
+
+    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(1) == xs6->GetPort()); 
+    WAIT_FOR(1000, 10000, 
+        agent_->controller_xmpp_channel(1)->GetXmppChannel()->GetPeerState() 
+        == xmps::READY); 
+    // Wait until older XmppClient, XmppChannel is cleaned
+    client->WaitForIdle();
+
+    xs5->Shutdown();
+    client->WaitForIdle();
+
+    xs6->Shutdown();
+    client->WaitForIdle();
 }
 
 }
 
 int main(int argc, char **argv) {
     GETUSERARGS();
-   
-    LoggingInit();
-    Sandesh::SetLocalLogging(true);
-    Sandesh::SetLoggingLevel(SandeshLevel::UT_DEBUG);
-
     client = TestInit(init_file, ksync_init);
-    Agent::GetInstance()->set_controller_ifmap_xmpp_server("", 0);  
-    Agent::GetInstance()->set_controller_ifmap_xmpp_server("", 1);  
-
-    Agent::GetInstance()->set_dns_server("", 0);  
-    Agent::GetInstance()->set_dns_server("", 1);  
 
     int ret = RUN_ALL_TESTS();
 
