@@ -45,11 +45,11 @@ env.Alias('agent:ifmap_dependency_manager_test',
           ifmap_dependency_manager_test)
 oper_flaky_test_suite.append(ifmap_dependency_manager_test)
 
-namespace_manager_test = env.UnitTest(
-    'namespace_manager_test',
-    ['namespace_manager_test.cc'])
-env.Alias('agent:namespace_manager_test', namespace_manager_test)
-oper_flaky_test_suite.append(namespace_manager_test)
+instance_manager_test = env.UnitTest(
+    'instance_manager_test',
+    ['instance_manager_test.cc'])
+env.Alias('agent:instance_manager_test', instance_manager_test)
+oper_test_suite.append(instance_manager_test)
 
 loadbalancer_test = env.UnitTest(
     'loadbalancer_test',
