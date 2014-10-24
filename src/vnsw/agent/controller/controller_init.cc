@@ -332,8 +332,9 @@ void VNController::ApplyDiscoveryXmppServices(std::vector<DSResponse> resp) {
                 agent_->set_controller_ifmap_xmpp_port(dr.ep.port(), 1);
                 CONTROLLER_TRACE(DiscoveryConnection, "Set Xmpp Channel[1] = ", 
                                  dr.ep.address().to_string(), ""); 
-            } else if (agent_->controller_xmpp_channel(0)->GetXmppChannel()->
-                       GetPeerState() == xmps::NOT_READY) {
+            } else if (agent_->controller_xmpp_channel(0) &&
+                       (agent_->controller_xmpp_channel(0)->GetXmppChannel()->
+                        GetPeerState() == xmps::NOT_READY)) {
 
                 DisConnectControllerIfmapServer(0);
 
@@ -342,8 +343,9 @@ void VNController::ApplyDiscoveryXmppServices(std::vector<DSResponse> resp) {
                 agent_->set_controller_ifmap_xmpp_server(dr.ep.address().to_string(),0);
                 agent_->set_controller_ifmap_xmpp_port(dr.ep.port(), 0);
 
-            } else if (agent_->controller_xmpp_channel(1)->GetXmppChannel()->
-                       GetPeerState() == xmps::NOT_READY) {
+            } else if (agent_->controller_xmpp_channel(1) && 
+                       (agent_->controller_xmpp_channel(1)->GetXmppChannel()->
+                        GetPeerState() == xmps::NOT_READY)) {
 
                 DisConnectControllerIfmapServer(1);
 
@@ -430,8 +432,9 @@ void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
                 agent_->set_dns_server_port(dr.ep.port(), 1);
                 CONTROLLER_TRACE(DiscoveryConnection, "Set Dns Xmpp Channel[1] = ", 
                                  dr.ep.address().to_string(), integerToString(dr.ep.port())); 
-            } else if (agent_->dns_xmpp_channel(0)->GetXmppChannel()->GetPeerState() 
-                       == xmps::NOT_READY) {
+            } else if (agent_->dns_xmpp_channel(0) &&
+                       (agent_->dns_xmpp_channel(0)->GetXmppChannel()->GetPeerState() 
+                        == xmps::NOT_READY)) {
 
                 DisConnectDnsServer(0);
 
@@ -441,8 +444,9 @@ void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
                 agent_->set_dns_server(dr.ep.address().to_string(), 0);
                 agent_->set_dns_server_port(dr.ep.port(), 0);
 
-            } else if (agent_->dns_xmpp_channel(1)->GetXmppChannel()->GetPeerState() 
-                       == xmps::NOT_READY) {
+            } else if (agent_->dns_xmpp_channel(1) && 
+                       (agent_->dns_xmpp_channel(1)->GetXmppChannel()->GetPeerState() 
+                        == xmps::NOT_READY)) {
 
                 DisConnectDnsServer(1);
 
