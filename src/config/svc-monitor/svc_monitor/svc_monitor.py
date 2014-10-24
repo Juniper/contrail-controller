@@ -46,6 +46,7 @@ from instance_manager import InstanceManager
 # zookeeper client connection
 _zookeeper_client = None
 
+
 class SvcMonitor(object):
 
     """
@@ -105,6 +106,14 @@ class SvcMonitor(object):
                                       svc_mode='in-network-nat',
                                       hypervisor_type='network-namespace',
                                       scaling=True)
+        self._create_default_template('docker-template', 'firewall',
+                                      svc_mode='transparent',
+                                      image_name="ubuntu",
+                                      hypervisor_type='vrouter-instance',
+                                      vrouter_instance_type='docker',
+                                      instance_data={
+                                          "command": "/bin/bash"
+                                      })
 
         # load vrouter scheduler
         self.vrouter_scheduler = importutils.import_object(
@@ -124,11 +133,18 @@ class SvcMonitor(object):
             self._vnc_lib, self.db, self.logger,
             self.vrouter_scheduler, self._args)
 
+        # load a vrouter instance manager
+        self.vrouter_manager = importutils.import_object(
+            'svc_monitor.vrouter_instance_manager.VRouterInstanceManager',
+            self._vnc_lib, self.db, self.logger,
+            self.vrouter_scheduler, self._args)
 
     # create service template
     def _create_default_template(self, st_name, svc_type, svc_mode=None,
                                  hypervisor_type='virtual-machine',
-                                 image_name=None, flavor=None, scaling=False):
+                                 image_name=None, flavor=None, scaling=False,
+                                 vrouter_instance_type=None,
+                                 instance_data=None):
         domain_name = 'default-domain'
         domain_fq_name = [domain_name]
         st_fq_name = [domain_name, st_name]
@@ -167,6 +183,13 @@ class SvcMonitor(object):
             if_type = ServiceTemplateInterfaceType(shared_ip=itf[1])
             if_type.set_service_interface_type(itf[0])
             svc_properties.add_interface_type(if_type)
+
+        if vrouter_instance_type is not None:
+            svc_properties.set_vrouter_instance_type(vrouter_instance_type)
+
+        if instance_data is not None:
+            svc_properties.set_instance_data(
+                json.dumps(instance_data, separators=(',', ':')))
 
         try:
             st_obj.set_service_template_properties(svc_properties)
@@ -273,10 +296,15 @@ class SvcMonitor(object):
             self.logger.log("Cannot find service template associated to "
                              "service instance %s" % si_obj.get_fq_name_str())
         virt_type = self._get_virtualization_type(st_props)
+
         if virt_type == 'virtual-machine':
             self.vm_manager.create_service(st_obj, si_obj)
         elif virt_type == 'network-namespace':
             self.netns_manager.create_service(st_obj, si_obj)
+        elif virt_type == 'vrouter-instance':
+            self.vrouter_manager.create_service(st_obj, si_obj)
+        else:
+            self.logger.log("Unkown virtualization type: %s" % virt_type)
 
     def _delete_svc_instance(self, vm_uuid, proj_name,
                              si_fq_str=None, virt_type=None):
@@ -350,6 +378,8 @@ class SvcMonitor(object):
             status = self.vm_manager.check_service(si_obj, proj_name)
         elif si_info['instance_type'] == 'network-namespace':
             status = self.netns_manager.check_service(si_obj)
+        elif si_info['instance_type'] == 'vrouter-instance':
+            status = self.vrouter_manager.check_service(si_obj)
 
         return status 
 
@@ -379,6 +409,8 @@ class SvcMonitor(object):
             si_obj = self._vnc_lib.service_instance_read(
                 fq_name_str=si_fq_str)
         except NoIdError:
+            self.logger.log("No template or service instance with ids: %s, %s"
+                            % (st_fq_str, si_fq_str))
             return
 
         #launch VMs
