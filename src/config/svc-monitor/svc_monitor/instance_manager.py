@@ -313,7 +313,7 @@ class InstanceManager(object):
                 and si_if_list and (len(si_if_list) != len(st_if_list)):
             self.logger.log("Error: IF mismatch template %s instance %s" %
                              (len(st_if_list), len(si_if_list)))
-            return
+            return []
 
         # check and create virtual networks
         nics = []
@@ -600,6 +600,137 @@ class VirtualMachineManager(InstanceManager):
                 self._vnc_lib.interface_route_table_update(rt_obj)
             except NoIdError:
                 pass
+
+
+class VRouterInstanceManager(InstanceManager):
+    def create_service(self, st_obj, si_obj):
+        si_props = si_obj.get_service_instance_properties()
+        st_props = st_obj.get_service_template_properties()
+        if st_props is None:
+            self.logger.log("Cannot find service template associated to "
+                            "service instance %s" % si_obj.get_fq_name_str())
+            return
+
+        # populate nic information
+        nics = self._get_nic_info(si_obj, si_props, st_props)
+
+        # this type can have only one instance
+        instance_name = self._get_instance_name(si_obj, 0)
+        try:
+            vm_obj = self._vnc_lib.virtual_machine_read(
+                fq_name=[instance_name])
+            self.logger.log("Info: VM %s already exists" % instance_name)
+        except NoIdError:
+            vm_obj = VirtualMachine(instance_name)
+            self._vnc_lib.virtual_machine_create(vm_obj)
+            self.logger.log("Info: VM %s created" % instance_name)
+
+        si_refs = vm_obj.get_service_instance_refs()
+        if (si_refs is None) or (si_refs[0]['to'][0] == 'ERROR'):
+            vm_obj.set_service_instance(si_obj)
+            self._vnc_lib.virtual_machine_update(vm_obj)
+            self.logger.log("Info: VM %s updated with SI %s" %
+                            (instance_name, si_obj.get_fq_name_str()))
+
+        # Create virtual machine interfaces with an IP on networks
+        for nic in nics:
+            user_visible = True
+            if (st_props.get_service_type() ==
+                    svc_info.get_lb_service_type()):
+                if nic['type'] == svc_info.get_right_if_str():
+                    user_visible = False
+            else:
+                user_visible = False
+            vmi_obj = self._create_svc_vm_port(
+                nic, instance_name, st_obj,
+                si_obj, user_visible=user_visible)
+            if vmi_obj.get_virtual_machine_refs() is None:
+                vmi_obj.set_virtual_machine(vm_obj)
+                self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+                self.logger.log("Info: VMI %s updated with VM %s" %
+                                (vmi_obj.get_fq_name_str(), instance_name))
+
+        # Associate instance on the scheduled vrouter
+        vrouter_name = None
+        state = 'pending'
+        vrouter_back_refs = vm_obj.get_virtual_router_back_refs()
+        if vrouter_back_refs is None:
+            vr_id = si_obj.get_virtual_router_id()
+            chosen_vr_fq_name = self._vnc_lib.virtual_router_read(
+                id=vr_id)['fq_name']
+            if chosen_vr_fq_name:
+                vrouter_name = chosen_vr_fq_name[-1]
+                state = 'active'
+                self.logger.log("Info: VRouter %s updated with VM %s" %
+                                (':'.join(chosen_vr_fq_name), instance_name))
+        else:
+            vrouter_name = vrouter_back_refs[0]['to'][-1]
+            state = 'active'
+
+        vm_db_entry = self._set_vm_db_info(1, instance_name,
+                                           vm_obj.uuid, state, vrouter_name)
+        self.db.service_instance_insert(si_obj.get_fq_name_str(),
+                                        vm_db_entry)
+
+        # uve trace
+        self.logger.uve_svc_instance(si_obj.get_fq_name_str(),
+                                     status='CREATE',
+                                     vms=[{'uuid': vm_obj.uuid,
+                                           'vr_name': vrouter_name}],
+                                     st_name=st_obj.get_fq_name_str())
+
+    def delete_service(self, vm_uuid, proj_name=None):
+        try:
+            vm_obj = self._vnc_lib.virtual_machine_read(id=vm_uuid)
+        except NoIdError:
+            raise KeyError
+        for vmi in vm_obj.get_virtual_machine_interface_back_refs() or []:
+            vmi_obj = self._vnc_lib.virtual_machine_interface_read(
+                id=vmi['uuid'])
+            for ip in vmi_obj.get_instance_ip_back_refs() or []:
+                iip_obj = self._vnc_lib.instance_ip_read(id=ip['uuid'])
+                iip_obj.del_virtual_machine_interface(vmi_obj)
+                vmi_refs = iip_obj.get_virtual_machine_interface_refs()
+                if not vmi_refs:
+                    self._vnc_lib.instance_ip_delete(id=ip['uuid'])
+                else:
+                    self._vnc_lib.instance_ip_update(iip_obj)
+            self._vnc_lib.virtual_machine_interface_delete(id=vmi['uuid'])
+        for vr in vm_obj.get_virtual_router_back_refs() or []:
+            vr_obj = self._vnc_lib.virtual_router_read(id=vr['uuid'])
+            vr_obj.del_virtual_machine(vm_obj)
+            self._vnc_lib.virtual_router_update(vr_obj)
+            self.logger.log("UPDATE: Svc VM %s deleted from VR %s" %
+                (vm_obj.get_fq_name_str(), vr_obj.get_fq_name_str()))
+        self._vnc_lib.virtual_machine_delete(id=vm_obj.uuid)
+
+    def check_service(self, si_obj, proj_name=None):
+        vm_back_refs = si_obj.get_virtual_machine_back_refs()
+        if not vm_back_refs:
+            return 'ERROR'
+
+        for vm_back_ref in vm_back_refs:
+            try:
+                vm_obj = self._vnc_lib.virtual_machine_read(id=vm_back_ref['uuid'])
+            except NoIdError:
+                return 'ERROR'
+
+            vr_back_refs = vm_obj.get_virtual_router_back_refs()
+            if not vr_back_refs:
+                return 'ERROR'
+
+            try:
+                vr_obj = self._vnc_lib.virtual_router_read(
+                    id=vr_back_refs[0]['uuid'])
+            except NoIdError:
+                return 'ERROR'
+
+            if not self.vrouter_scheduler.vrouter_running(vr_obj.name):
+                vr_obj.del_virtual_machine(vm_obj)
+                self._vnc_lib.virtual_router_update(vr_obj)
+                return 'ERROR'
+
+        return 'ACTIVE'
 
 
 class NetworkNamespaceManager(InstanceManager):

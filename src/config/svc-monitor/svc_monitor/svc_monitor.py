@@ -46,6 +46,7 @@ from instance_manager import InstanceManager
 # zookeeper client connection
 _zookeeper_client = None
 
+
 class SvcMonitor(object):
 
     """
@@ -105,6 +106,9 @@ class SvcMonitor(object):
                                       svc_mode='in-network-nat',
                                       hypervisor_type='network-namespace',
                                       scaling=True)
+        self._create_default_template('docker-template', 'analyzer',
+                                      svc_mode='in-network',
+                                      hypervisor_type='vrouter-instance')
 
         # load vrouter scheduler
         self.vrouter_scheduler = importutils.import_object(
@@ -124,6 +128,11 @@ class SvcMonitor(object):
             self._vnc_lib, self.db, self.logger,
             self.vrouter_scheduler, self._args)
 
+        # load a vrouter instance manager
+        self.vrouter_manager = importutils.import_object(
+            'svc_monitor.instance_manager.VRouterInstanceManager',
+            self._vnc_lib, self.db, self.logger,
+            self.vrouter_scheduler, self._args)
 
     # create service template
     def _create_default_template(self, st_name, svc_type, svc_mode=None,
@@ -277,6 +286,8 @@ class SvcMonitor(object):
             self.vm_manager.create_service(st_obj, si_obj)
         elif virt_type == 'network-namespace':
             self.netns_manager.create_service(st_obj, si_obj)
+        elif virt_type == 'vrouter-instance':
+            self.vrouter_manager.create_service(st_obj, si_obj)
 
     def _delete_svc_instance(self, vm_uuid, proj_name,
                              si_fq_str=None, virt_type=None):
@@ -350,6 +361,8 @@ class SvcMonitor(object):
             status = self.vm_manager.check_service(si_obj, proj_name)
         elif si_info['instance_type'] == 'network-namespace':
             status = self.netns_manager.check_service(si_obj)
+        elif si_info['instance_type'] == 'vrouter-instance':
+            status = self.vrouter_manager.check_service(si_obj)
 
         return status 
 
