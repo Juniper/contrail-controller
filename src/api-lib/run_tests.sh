@@ -6,6 +6,7 @@ function usage {
   echo "Usage: $0 [OPTION]..."
   echo "Run Contrail's test suite(s)"
   echo ""
+  echo "  -b, --build-top             Top of scons build variant dir. e.g. SB_TOP/build/debug"
   echo "  -V, --virtual-env           Always use virtualenv.  Install automatically if not present"
   echo "  -N, --no-virtual-env        Don't use virtualenv.  Run tests in local environment"
   echo "  -s, --no-site-packages      Isolate the virtualenv from the global Python environment"
@@ -37,6 +38,10 @@ function process_options {
   while [ $i -le $# ]; do
     case "${!i}" in
       -h|--help) usage;;
+      -b|--build-top)
+        (( i++ ))
+        build_top=${!i}
+        ;;
       -V|--virtual-env) always_venv=1; never_venv=0;;
       -N|--no-virtual-env) always_venv=0; never_venv=1;;
       -s|--no-site-packages) no_site_packages=1;;
@@ -69,6 +74,7 @@ function process_options {
   done
 }
 
+build_top=${build_top:-$(pwd)/../../../build/debug}
 tool_path=${tools_path:-$(pwd)}
 venv_path=${venv_path:-$(pwd)}
 venv_dir=${venv_name:-.venv}
@@ -78,6 +84,7 @@ never_venv=0
 force=0
 no_site_packages=0
 installvenvopts=
+installvenvopts="${installvenvopts} --find-links ${build_top}/config/common/dist"
 testrargs=
 testropts=
 wrapper=""
@@ -101,7 +108,7 @@ export tools_dir
 export venv=${venv_path}/${venv_dir}
 
 if [ $no_site_packages -eq 1 ]; then
-  installvenvopts="--no-site-packages"
+  installvenvopts="${installvenvopts} --no-site-packages"
 fi
 
 function run_tests {
