@@ -103,10 +103,10 @@ bool VmTable::OnChange(DBEntry *entry, const DBRequest *req) {
     return false;
 }
 
-void VmTable::Delete(DBEntry *entry, const DBRequest *req) {
+bool VmTable::Delete(DBEntry *entry, const DBRequest *req) {
     VmEntry *vm = static_cast<VmEntry *>(entry);
     vm->SendObjectLog(AgentLogEvent::DELETE);
-    return;
+    return true;
 }
 
 DBTableBase *VmTable::CreateTable(DB *db, const std::string &name) {

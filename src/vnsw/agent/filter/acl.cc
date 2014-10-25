@@ -164,10 +164,11 @@ bool AclTable::OnChange(DBEntry *entry, const DBRequest *req) {
     return changed;
 }
 
-void AclTable::Delete(DBEntry *entry, const DBRequest *req) {
+bool AclTable::Delete(DBEntry *entry, const DBRequest *req) {
     AclDBEntry *acl = static_cast<AclDBEntry *>(entry);
     ACL_TRACE(Info, "Delete " + UuidToString(acl->GetUuid()));
     acl->DeleteAllAclEntries();
+    return true;
 }
 
 void AclTable::ActionInit() {

@@ -604,10 +604,11 @@ DBEntry *ServiceInstanceTable::Add(const DBRequest *request) {
     return svc_instance;
 }
 
-void ServiceInstanceTable::Delete(DBEntry *entry, const DBRequest *request) {
+bool ServiceInstanceTable::Delete(DBEntry *entry, const DBRequest *request) {
     ServiceInstance *svc_instance  = static_cast<ServiceInstance *>(entry);
     assert(dependency_manager_);
     dependency_manager_->ResetObject(svc_instance->node());
+    return true;
 }
 
 bool ServiceInstanceTable::OnChange(DBEntry *entry, const DBRequest *request) {
