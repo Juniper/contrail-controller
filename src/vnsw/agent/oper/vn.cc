@@ -367,10 +367,11 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
     return ret;
 }
 
-void VnTable::Delete(DBEntry *entry, const DBRequest *req) {
+bool VnTable::Delete(DBEntry *entry, const DBRequest *req) {
     VnEntry *vn = static_cast<VnEntry *>(entry);
     DeleteAllIpamRoutes(vn);
     vn->SendObjectLog(AgentLogEvent::DELETE);
+    return true;
 }
 
 DBTableBase *VnTable::CreateTable(DB *db, const std::string &name) {

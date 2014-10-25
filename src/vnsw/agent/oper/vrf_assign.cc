@@ -67,9 +67,6 @@ bool VrfAssignTable::OnChange(DBEntry *entry, const DBRequest *req) {
     return (static_cast<VrfAssign *>(entry))->Change(req);
 }
 
-void VrfAssignTable::Delete(DBEntry *entry, const DBRequest *req) {
-}
-
 DBTableBase *VrfAssignTable::CreateTable(DB *db, const string &name) {
     vrf_assign_table_ = new VrfAssignTable(db, name);
     vrf_assign_table_->Init();

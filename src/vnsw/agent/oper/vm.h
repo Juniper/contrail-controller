@@ -68,7 +68,7 @@ public:
 
     virtual DBEntry *Add(const DBRequest *req);
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);
-    virtual void Delete(DBEntry *entry, const DBRequest *req);
+    virtual bool Delete(DBEntry *entry, const DBRequest *req);
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);

@@ -126,7 +126,7 @@ DBEntry *CfgIntTable::Add(const DBRequest *req) {
     return cfg_int;
 }
 
-void CfgIntTable::Delete(DBEntry *entry, const DBRequest *req) {
+bool CfgIntTable::Delete(DBEntry *entry, const DBRequest *req) {
     CfgIntEntry *cfg = static_cast<CfgIntEntry *>(entry);
 
     CFG_TRACE(IntfTrace, cfg->GetIfname(), 
@@ -144,7 +144,7 @@ void CfgIntTable::Delete(DBEntry *entry, const DBRequest *req) {
 
     assert(it != uuid_tree_.end());
     uuid_tree_.erase(it);
-    return;
+    return true;
 }
 
 DBTableBase *CfgIntTable::CreateTable(DB *db, const std::string &name) {
