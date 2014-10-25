@@ -142,25 +142,25 @@ enum Module {
     MAX_MODULE,
 }
 
-const string MODULE_CONTROL_NODE_NAME = "Contrail-Control"
-const string MODULE_VROUTER_AGENT_NAME = "Contrail-Vrouter-Agent"
-const string MODULE_API_SERVER_NAME = "Contrail-Api"
-const string MODULE_SCHEMA_TRANSFORMER_NAME = "Contrail-Schema"
-const string MODULE_OPSERVER_NAME = "Contrail-Analytics-Api"
-const string MODULE_COLLECTOR_NAME = "Contrail-Collector"
-const string MODULE_QUERY_ENGINE_NAME = "Contrail-Query-Engine"
-const string MODULE_SVC_MONITOR_NAME = "Contrail-Svc-Monitor"
+const string MODULE_CONTROL_NODE_NAME = SERVICE_CONTROL_NODE
+const string MODULE_VROUTER_AGENT_NAME = SERVICE_VROUTER_AGENT
+const string MODULE_API_SERVER_NAME = "contrail-api"
+const string MODULE_SCHEMA_TRANSFORMER_NAME = SERVICE_SCHEMA_TRANSFORMER
+const string MODULE_OPSERVER_NAME = SERVICE_OPSERVER
+const string MODULE_COLLECTOR_NAME = SERVICE_COLLECTOR
+const string MODULE_QUERY_ENGINE_NAME = SERVICE_QUERY_ENGINE
+const string MODULE_SVC_MONITOR_NAME = SERVICE_SVC_MONITOR
 const string MODULE_DEVICE_MANAGER_NAME = "PrcManager"
 const string MODULE_DNS_NAME = "DnsAgent"
-const string MODULE_DISCOVERY_SERVICE_NAME = "Contrail-Discovery"
+const string MODULE_DISCOVERY_SERVICE_NAME = SERVICE_DISCOVERY
 const string MODULE_IFMAP_SERVER_NAME = "IfmapServer"
 const string MODULE_XMPP_SERVER_NAME = "XmppServer"
-const string MODULE_ANALYTICS_NODE_MGR_NAME = "Contrail-Analytics-Nodemgr"
-const string MODULE_CONTROL_NODE_MGR_NAME = "Contrail-Control-Nodemgr"
-const string MODULE_CONFIG_NODE_MGR_NAME = "Contrail-Config-Nodemgr"
-const string MODULE_DATABASE_NODE_MGR_NAME = "Contrail-Database-Nodemgr"
+const string MODULE_ANALYTICS_NODE_MGR_NAME = SERVICE_ANALYTICS_NODE_MGR
+const string MODULE_CONTROL_NODE_MGR_NAME = SERVICE_CONTROL_NODE_MGR
+const string MODULE_CONFIG_NODE_MGR_NAME = SERVICE_CONFIG_NODE_MGR
+const string MODULE_DATABASE_NODE_MGR_NAME = SERVICE_DATABASE_NODE_MGR
 const string MODULE_WEBUI_NODE_MGR_NAME = "Contrail-WebUI-Nodemgr"
-const string MODULE_COMPUTE_NODE_MGR_NAME = "Contrail-Vrouter-Nodemgr"
+const string MODULE_COMPUTE_NODE_MGR_NAME = SERVICE_COMPUTE_NODE_MGR
 const string MODULE_STORAGE_STATS_MGR_NAME = "Storage-Stats-mgr"
 const string MODULE_IPMI_STATS_MGR_NAME = "Ipmi-Stats-mgr"
 

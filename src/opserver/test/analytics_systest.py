@@ -158,7 +158,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_on_setup()
         collectors = [vizd_obj.get_collector()]
         generator_obj = self.useFixture(
-            GeneratorFixture("Contrail-Vrouter-Agent", collectors,
+            GeneratorFixture("contrail-vrouter-agent", collectors,
                              logging, vizd_obj.get_opserver_port()))
         assert generator_obj.verify_on_setup()
         generator_obj.send_vm_uve(vm_id='abcd',
@@ -209,13 +209,13 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_collector_obj_count()
         collectors = [vizd_obj.get_collector()]
         generator_obj = self.useFixture(
-            GeneratorFixture("Contrail-Vrouter-Agent", collectors,
+            GeneratorFixture("contrail-vrouter-agent", collectors,
                              logging, vizd_obj.get_opserver_port(),
                              start_time))
         assert generator_obj.verify_on_setup()
         generator_obj.generate_flow_samples()
         generator_obj1 = self.useFixture(
-            GeneratorFixture("Contrail-Vrouter-Agent", collectors,
+            GeneratorFixture("contrail-vrouter-agent", collectors,
                              logging, vizd_obj.get_opserver_port(),
                              start_time, hostname=socket.gethostname() + "dup"))
         assert generator_obj1.verify_on_setup()
@@ -228,7 +228,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_04_flow_query 
 
-    #@unittest.skip('Skipping Contrail-Collector HA test')
+    #@unittest.skip('Skipping contrail-collector HA test')
     def test_05_collector_ha(self):
         logging.info('*** test_05_collector_ha ***')
         if AnalyticsTest._check_skip_test() is True:
@@ -241,31 +241,31 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                              collector_ha_test=True))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
-        # Contrail-Analytics-Api and Contrail-Query-Engine are started with collectors[0] as 
+        # contrail-analytics-api and contrail-query-engine are started with collectors[0] as 
         # primary and collectors[1] as secondary
-        exp_genlist = ['Contrail-Collector', 'Contrail-Analytics-Api', 'Contrail-Query-Engine']
+        exp_genlist = ['contrail-collector', 'contrail-analytics-api', 'contrail-query-engine']
         assert vizd_obj.verify_generator_list(vizd_obj.collectors[0], 
                                               exp_genlist)
-        # start the Contrail-Vrouter-Agent with collectors[1] as primary and 
+        # start the contrail-vrouter-agent with collectors[1] as primary and 
         # collectors[0] as secondary 
         collectors = [vizd_obj.collectors[1].get_addr(), 
                       vizd_obj.collectors[0].get_addr()]
         vr_agent = self.useFixture(
-            GeneratorFixture("Contrail-Vrouter-Agent", collectors,
+            GeneratorFixture("contrail-vrouter-agent", collectors,
                              logging, vizd_obj.get_opserver_port()))
         assert vr_agent.verify_on_setup()
-        exp_genlist = ['Contrail-Collector', 'Contrail-Vrouter-Agent']
+        exp_genlist = ['contrail-collector', 'contrail-vrouter-agent']
         assert vizd_obj.verify_generator_list(vizd_obj.collectors[1], 
                                               exp_genlist)
-        # stop collectors[0] and verify that Contrail-Analytics-Api and QE switch 
+        # stop collectors[0] and verify that contrail-analytics-api and QE switch 
         # from primary to secondary collector
         vizd_obj.collectors[0].stop()
-        exp_genlist = ['Contrail-Collector', 'Contrail-Vrouter-Agent', 'Contrail-Analytics-Api', 'Contrail-Query-Engine']
+        exp_genlist = ['contrail-collector', 'contrail-vrouter-agent', 'contrail-analytics-api', 'contrail-query-engine']
         assert vizd_obj.verify_generator_list(vizd_obj.collectors[1], 
                                               exp_genlist)
         # start collectors[0]
         vizd_obj.collectors[0].start()
-        exp_genlist = ['Contrail-Collector']
+        exp_genlist = ['contrail-collector']
         assert vizd_obj.verify_generator_list(vizd_obj.collectors[0],
                                               exp_genlist)
         # verify that the old UVEs are flushed from redis when collector restarts
@@ -274,11 +274,11 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                                 vizd_obj.collectors[0].get_redis_uve(),
                                 exp_genlist)
 
-        # stop collectors[1] and verify that Contrail-Analytics-Api and QE switch 
-        # from secondary to primary and Contrail-Vrouter-Agent from primary to
+        # stop collectors[1] and verify that contrail-analytics-api and QE switch 
+        # from secondary to primary and contrail-vrouter-agent from primary to
         # secondary
         vizd_obj.collectors[1].stop()
-        exp_genlist = ['Contrail-Collector', 'Contrail-Vrouter-Agent', 'Contrail-Analytics-Api', 'Contrail-Query-Engine']
+        exp_genlist = ['contrail-collector', 'contrail-vrouter-agent', 'contrail-analytics-api', 'contrail-query-engine']
         assert vizd_obj.verify_generator_list(vizd_obj.collectors[0],
                                               exp_genlist)
         # verify the generator list in redis
@@ -293,7 +293,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         # stop Opserver and QE 
         vizd_obj.opserver.stop()
         vizd_obj.query_engine.stop()
-        exp_genlist = ['Contrail-Collector', 'Contrail-Vrouter-Agent']
+        exp_genlist = ['contrail-collector', 'contrail-vrouter-agent']
         assert vizd_obj.verify_generator_list(vizd_obj.collectors[0],
                                               exp_genlist)
 
@@ -318,7 +318,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         vizd_obj.query_engine.set_secondary_collector(
                             vizd_obj.collectors[0].get_addr())
         vizd_obj.query_engine.start()
-        exp_genlist = ['Contrail-Collector', 'Contrail-Vrouter-Agent', 'Contrail-Analytics-Api', 'Contrail-Query-Engine']
+        exp_genlist = ['contrail-collector', 'contrail-vrouter-agent', 'contrail-analytics-api', 'contrail-query-engine']
         assert vizd_obj.verify_generator_list(vizd_obj.collectors[0],
                                               exp_genlist)
         # stop the collectors[0] - both collectors[0] and collectors[1] are down
@@ -333,7 +333,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         vr_agent.send_vm_uve(vm_id='abcd-1234-efgh-5678',
                              num_vm_ifs=5, msg_count=5) 
         vizd_obj.collectors[1].start()
-        exp_genlist = ['Contrail-Collector', 'Contrail-Vrouter-Agent', 'Contrail-Analytics-Api', 'Contrail-Query-Engine']
+        exp_genlist = ['contrail-collector', 'contrail-vrouter-agent', 'contrail-analytics-api', 'contrail-query-engine']
         assert vizd_obj.verify_generator_list(vizd_obj.collectors[1],
                                               exp_genlist)
         assert vr_agent.verify_vm_uve(vm_id='abcd-1234-efgh-5678',
@@ -366,7 +366,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_collector_obj_count()
         collectors = [vizd_obj.get_collector()]
         generator_obj = self.useFixture(
-            GeneratorFixture("Contrail-Vrouter-Agent", collectors,
+            GeneratorFixture("contrail-vrouter-agent", collectors,
                              logging, vizd_obj.get_opserver_port(),
                              start_time))
         assert generator_obj.verify_on_setup()
@@ -421,7 +421,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                              collector_ha_test=True))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
-        # Make sure the Contrail-Collector is connected to the redis-uve before 
+        # Make sure the contrail-collector is connected to the redis-uve before 
         # sending the trace buffer request
         assert vizd_obj.verify_collector_redis_uve_connection(
                                     vizd_obj.collectors[0])
@@ -437,7 +437,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert not vizd_obj.verify_tracebuffer_in_analytics_db(
                         vizd_obj.collectors[1].hostname,
                         ModuleNames[Module.COLLECTOR], 'UveTrace')
-        # Make sure the Contrail-Collector is connected to the redis-uve before 
+        # Make sure the contrail-collector is connected to the redis-uve before 
         # sending the trace buffer request
         assert vizd_obj.verify_collector_redis_uve_connection(
                                     vizd_obj.collectors[1])
@@ -466,10 +466,10 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                              collector_ha_test=True))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
-        exp_genlist1 = ['Contrail-Collector', 'Contrail-Analytics-Api', 'Contrail-Query-Engine']
+        exp_genlist1 = ['contrail-collector', 'contrail-analytics-api', 'contrail-query-engine']
         assert vizd_obj.verify_generator_list(vizd_obj.collectors[0], 
                                               exp_genlist1)
-        exp_genlist2 = ['Contrail-Collector'] 
+        exp_genlist2 = ['contrail-collector'] 
         assert vizd_obj.verify_generator_list(vizd_obj.collectors[1], 
                                               exp_genlist2)
         exp_src_list = [col.hostname for col in vizd_obj.collectors]
@@ -501,9 +501,9 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                             vizd_obj.opserver)
         # verify redis-uve list
         host = socket.gethostname()
-        gen_list = [host+':Analytics:Contrail-Collector:0',
-                    host+':Analytics:Contrail-Query-Engine:0',
-                    host+':Analytics:Contrail-Analytics-Api:0']
+        gen_list = [host+':Analytics:contrail-collector:0',
+                    host+':Analytics:contrail-query-engine:0',
+                    host+':Analytics:contrail-analytics-api:0']
         assert vizd_obj.verify_generator_uve_list(gen_list)
         # stop redis-uve
         vizd_obj.redis_uves[0].stop()
@@ -511,7 +511,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                             vizd_obj.collectors[0], False)
         assert vizd_obj.verify_opserver_redis_uve_connection(
                             vizd_obj.opserver, False)
-        # start redis-uve and verify that Contrail-Collector and Opserver are 
+        # start redis-uve and verify that contrail-collector and Opserver are 
         # connected to the redis-uve
         vizd_obj.redis_uves[0].start()
         assert vizd_obj.verify_collector_redis_uve_connection(
@@ -545,7 +545,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_collector_obj_count()
         collectors = [vizd_obj.get_collector()]
         generator_obj = self.useFixture(
-            GeneratorFixture("Contrail-Vrouter-Agent", collectors,
+            GeneratorFixture("contrail-vrouter-agent", collectors,
                              logging, vizd_obj.get_opserver_port(),
                              start_time))
         assert generator_obj.verify_on_setup()
