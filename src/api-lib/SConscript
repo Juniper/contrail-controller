@@ -115,7 +115,7 @@ test_cmd = env.Command('test.log', 'setup.py',
           chdir=top_dir)
 
 
-test_depends = ['/config/common/',]
+test_depends = ['/config/common/dist/cfgm_common-0.1dev.tar.gz']
 env.Depends(test_cmd, [env['TOP']+x for x in test_depends])
 
 env.Alias('flaky-test', test_cmd)

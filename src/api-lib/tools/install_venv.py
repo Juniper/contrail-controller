@@ -68,7 +68,7 @@ def main(argv):
     install.check_python_version()
     install.check_dependencies()
     install.create_virtualenv(no_site_packages=options.no_site_packages)
-    install.install_dependencies()
+    install.install_dependencies(find_links=options.find_links)
     print_help(venv, root)
 
 if __name__ == '__main__':
