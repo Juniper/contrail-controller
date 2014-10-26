@@ -218,9 +218,9 @@ TEST_F(DBTest, SkipDelete) {
     // Entry should not be deleted
     delReq.key.reset(new VlanTableReqKey(1, false));
     delReq.oper = DBRequest::DB_ENTRY_DELETE;
+    uint32_t count = itbl->del_req_count();
     itbl->Enqueue(&delReq);
     // Wait till Delete() is invoked
-    uint32_t count = itbl->del_req_count();
     TASK_UTIL_EXPECT_EQ(count + 1, itbl->del_req_count());
     // DBEntry should not be deleted
     TASK_UTIL_EXPECT_EQ(1, itbl->Size());
