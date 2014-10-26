@@ -11,11 +11,17 @@ env.Append(LIBPATH = env['TOP'] + '/bgp/extended-community')
 
 env.Prepend(LIBS = ['gunit', 'extended_community', 'boost_regex'])
 
-mac_mobility_test = env.UnitTest('mac_mobility_test', ['mac_mobility_test.cc'])
+mac_mobility_test = env.UnitTest('mac_mobility_test',
+                                 ['mac_mobility_test.cc'])
 env.Alias('src/bgp/extended-community:mac_mobility_test', mac_mobility_test)
+
+site_of_origin_test = env.UnitTest('site_of_origin_test',
+                                   ['site_of_origin_test.cc'])
+env.Alias('src/bgp/extended-community:site_of_origin_test', site_of_origin_test)
 
 test_suite = [
     mac_mobility_test,
+    site_of_origin_test,
 ]
 
 test = env.TestSuite('bgp-test', test_suite)

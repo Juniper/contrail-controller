@@ -16,6 +16,7 @@
 #include "bgp/bgp_sandesh.h"
 #include "bgp/community.h"
 #include "bgp/inet/inet_table.h"
+#include "bgp/extended-community/site_of_origin.h"
 #include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/origin-vn/origin_vn.h"
@@ -194,6 +195,7 @@ protected:
                       vector<uint32_t> commlist = vector<uint32_t>(),
                       vector<uint32_t> sglist = vector<uint32_t>(),
                       set<string> encap = set<string>(),
+                      const SiteOfOrigin &soo = SiteOfOrigin(),
                       string nexthop = "7.8.9.1",
                       uint32_t flags = 0, int label = 0) {
         boost::system::error_code error;
@@ -230,6 +232,8 @@ protected:
             TunnelEncap tunnel_encap(*it);
             ext_comm.communities.push_back(tunnel_encap.GetExtCommunityValue());
         }
+        if (!soo.IsNull())
+            ext_comm.communities.push_back(soo.GetExtCommunityValue());
         attr_spec.push_back(&ext_comm);
 
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
@@ -239,6 +243,13 @@ protected:
             bgp_server_->database()->FindTable(instance_name + ".inet.0"));
         ASSERT_TRUE(table != NULL);
         table->Enqueue(&request);
+    }
+
+    void AddInetRoute(IPeer *peer, const string &instance_name,
+                      const string &prefix, int localpref,
+                      const SiteOfOrigin &soo) {
+        AddInetRoute(peer, instance_name, prefix, localpref,
+            vector<uint32_t>(), vector<uint32_t>(), set<string>(), soo);
     }
 
     void DeleteInetRoute(IPeer *peer, const string &instance_name,
@@ -417,11 +428,12 @@ protected:
                    set<string> encap = set<string>()) {
         string connected_table = service_is_transparent_ ? "blue-i1" : "blue";
         if (connected_rt_is_inetvpn_) {
-            AddInetVpnRoute(peer, connected_table, prefix,
-                    localpref, sglist, encap, nexthop, flags, label);
+            AddInetVpnRoute(peer, connected_table, prefix, localpref,
+                sglist, encap, nexthop, flags, label);
         } else {
             AddInetRoute(peer, connected_table, prefix, localpref,
-                vector<uint32_t>(), sglist, encap, nexthop, flags, label);
+                vector<uint32_t>(), sglist, encap, SiteOfOrigin(), nexthop,
+                flags, label);
         }
         task_util::WaitForIdle();
     }
@@ -445,7 +457,8 @@ protected:
                     localpref, sglist, encap, nexthop, flags, label);
         } else {
             AddInetRoute(peer, connected_table, prefix, localpref,
-                vector<uint32_t>(), sglist, encap, nexthop, flags, label);
+                vector<uint32_t>(), sglist, encap, SiteOfOrigin(), nexthop,
+                flags, label);
         }
         task_util::WaitForIdle();
     }
@@ -528,7 +541,8 @@ protected:
 
     bool MatchInetPathAttributes(const BgpPath *path,
         const string &path_id, const string &origin_vn, int label,
-        const vector<uint32_t> sg_ids, const set<string> tunnel_encaps) {
+        const vector<uint32_t> sg_ids, const set<string> tunnel_encaps,
+        const SiteOfOrigin &soo) {
         BgpAttrPtr attr = path->GetAttr();
         if (attr->nexthop().to_v4().to_string() != path_id)
             return false;
@@ -553,13 +567,19 @@ protected:
             if (path_tunnel_encaps != tunnel_encaps)
                 return false;
         }
+        if (!soo.IsNull()) {
+            SiteOfOrigin path_soo = GetSiteOfOriginFromRoute(path);
+            if (path_soo != soo)
+                return false;
+        }
 
         return true;
     }
 
     bool CheckInetPathAttributes(const string &instance, const string &prefix,
         const string &path_id, const string &origin_vn, int label,
-        const vector<uint32_t> sg_ids, const set<string> tunnel_encaps) {
+        const vector<uint32_t> sg_ids, const set<string> tunnel_encaps,
+        const SiteOfOrigin &soo) {
         task_util::TaskSchedulerLock lock;
         BgpRoute *route = InetRouteLookup(instance, prefix);
         if (!route)
@@ -570,7 +590,7 @@ protected:
             if (BgpPath::PathIdString(path->GetPathId()) != path_id)
                 continue;
             if (MatchInetPathAttributes(
-                path, path_id, origin_vn, label, sg_ids, tunnel_encaps)) {
+                path, path_id, origin_vn, label, sg_ids, tunnel_encaps, soo)) {
                 return true;
             }
             return false;
@@ -584,12 +604,14 @@ protected:
         const set<string> tunnel_encaps) {
         task_util::WaitForIdle();
         TASK_UTIL_EXPECT_TRUE(CheckInetPathAttributes(instance, prefix,
-            path_id, origin_vn, 0, vector<uint32_t>(), tunnel_encaps));
+            path_id, origin_vn, 0, vector<uint32_t>(), tunnel_encaps,
+            SiteOfOrigin()));
     }
 
     bool CheckInetRouteAttributes(const string &instance, const string &prefix,
         const vector<string> &path_ids, const string &origin_vn, int label,
-        const vector<uint32_t> sg_ids, const set<string> tunnel_encaps) {
+        const vector<uint32_t> sg_ids, const set<string> tunnel_encap,
+        const SiteOfOrigin &soo) {
         task_util::TaskSchedulerLock lock;
         BgpRoute *route = InetRouteLookup(instance, prefix);
         if (!route)
@@ -604,8 +626,8 @@ protected:
                 if (BgpPath::PathIdString(path->GetPathId()) != path_id)
                     continue;
                 found = true;
-                if (MatchInetPathAttributes(
-                    path, path_id, origin_vn, label, sg_ids, tunnel_encaps)) {
+                if (MatchInetPathAttributes(path, path_id, origin_vn, label,
+                    sg_ids, tunnel_encap, soo)) {
                     break;
                 }
                 return false;
@@ -624,7 +646,7 @@ protected:
         vector<string> path_ids = list_of(path_id);
         TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
             instance, prefix, path_ids, origin_vn, label, vector<uint32_t>(),
-            set<string>()));
+            set<string>(), SiteOfOrigin()));
     }
 
     void VerifyInetRouteAttributes(const string &instance, const string &prefix,
@@ -632,7 +654,7 @@ protected:
         task_util::WaitForIdle();
         TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
-            set<string>()));
+            set<string>(), SiteOfOrigin()));
     }
 
     void VerifyInetRouteAttributes(const string &instance,
@@ -641,7 +663,8 @@ protected:
         task_util::WaitForIdle();
         vector<string> path_ids = list_of(path_id);
         TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
-            instance, prefix, path_ids, origin_vn, 0, sg_ids, set<string>()));
+            instance, prefix, path_ids, origin_vn, 0, sg_ids, set<string>(),
+            SiteOfOrigin()));
     }
 
     void VerifyInetRouteAttributes(const string &instance,
@@ -651,7 +674,17 @@ protected:
         vector<string> path_ids = list_of(path_id);
         TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
-            tunnel_encaps));
+            tunnel_encaps, SiteOfOrigin()));
+    }
+
+    void VerifyInetRouteAttributes(const string &instance,
+        const string &prefix, const string &path_id, const string &origin_vn,
+        const SiteOfOrigin &soo) {
+        task_util::WaitForIdle();
+        vector<string> path_ids = list_of(path_id);
+        TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
+            instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
+            set<string>(), soo));
     }
 
     string FileRead(const string &filename) {
@@ -780,6 +813,19 @@ protected:
             return ri_mgr_->GetVirtualNetworkByVnIndex(origin_vn.vn_index());
         }
         return "unresolved";
+    }
+
+    SiteOfOrigin GetSiteOfOriginFromRoute(const BgpPath *path) {
+        const ExtCommunity *ext_comm = path->GetAttr()->ext_community();
+        assert(ext_comm);
+        BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
+                      ext_comm->communities()) {
+            if (!ExtCommunity::is_site_of_origin(comm))
+                continue;
+            SiteOfOrigin soo(comm);
+            return soo;
+        }
+        return SiteOfOrigin();
     }
 
     static void ValidateShowServiceChainResponse(Sandesh *sandesh, 
@@ -2398,6 +2444,45 @@ TEST_P(ServiceChainParamTest, MultiPathTunnelEncap) {
     DeleteConnectedRoute(peers_[0], "1.1.2.3/32");
     DeleteConnectedRoute(peers_[1], "1.1.2.3/32");
     DeleteConnectedRoute(peers_[2], "1.1.2.3/32");
+}
+
+TEST_P(ServiceChainParamTest, ValidateSiteOfOriginExtRoute) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    NetworkConfig(instance_names, connections);
+    VerifyNetworkConfig(instance_names);
+
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
+
+    // Add Ext connect route
+    SiteOfOrigin soo1 = SiteOfOrigin::FromString("soo:65001:100");
+    AddInetRoute(NULL, "red", "10.1.1.0/24", 100, soo1);
+
+    // Check for service chain route
+    VerifyInetRouteNoExists("blue", "10.1.1.0/24");
+
+    // Add Connected
+    AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
+
+    // Check for service chain route
+    VerifyInetRouteExists("blue", "10.1.1.0/24");
+    VerifyInetRouteAttributes("blue", "10.1.1.0/24", "2.3.4.5", "red", soo1);
+
+    // Update Ext connect route
+    SiteOfOrigin soo2 = SiteOfOrigin::FromString("soo:65001:200");
+    AddInetRoute(NULL, "red", "10.1.1.0/24", 100, soo2);
+
+    // Check for service chain route
+    VerifyInetRouteExists("blue", "10.1.1.0/24");
+    VerifyInetRouteAttributes("blue", "10.1.1.0/24", "2.3.4.5", "red", soo2);
+
+    // Delete Ext connect route
+    DeleteInetRoute(NULL, "red", "10.1.1.0/24");
+
+    // Delete connected route
+    DeleteConnectedRoute(NULL, "1.1.2.3/32");
 }
 
 TEST_P(ServiceChainParamTest, DeleteConnectedWithExtConnectRoute) {

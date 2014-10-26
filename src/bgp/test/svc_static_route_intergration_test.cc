@@ -23,6 +23,7 @@
 #include "bgp/bgp_xmpp_channel.h"
 #include "bgp/community.h"
 #include "bgp/bgp_factory.h"
+#include "bgp/extended-community/site_of_origin.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/l3vpn/inetvpn_table.h"
@@ -524,6 +525,7 @@ protected:
                       const string &prefix, int localpref, 
                       vector<uint32_t> sglist = vector<uint32_t>(),
                       set<string> encap = set<string>(),
+                      const SiteOfOrigin &soo = SiteOfOrigin(),
                       string nexthop="7.8.9.1", 
                       uint32_t flags=0, int label=303) {
         boost::system::error_code error;
@@ -554,6 +556,8 @@ protected:
             TunnelEncap tunnel_encap(*it);
             ext_comm.communities.push_back(tunnel_encap.GetExtCommunityValue());
         }
+        if (!soo.IsNull())
+            ext_comm.communities.push_back(soo.GetExtCommunityValue());
         attr_spec.push_back(&ext_comm);
 
         BgpAttrPtr attr = server->attr_db()->Locate(attr_spec);
@@ -564,6 +568,14 @@ protected:
         ASSERT_TRUE(table != NULL);
         table->Enqueue(&request);
         task_util::WaitForIdle();
+    }
+
+    void AddInetRoute(BgpServerTest *server, IPeer *peer,
+                      const string &instance_name,
+                      const string &prefix, int localpref,
+                      const SiteOfOrigin &soo) {
+        AddInetRoute(server, peer, instance_name, prefix, localpref,
+            vector<uint32_t>(), set<string>(), soo);
     }
 
     void DeleteInetRoute(BgpServerTest *server, IPeer *peer,
@@ -618,7 +630,7 @@ protected:
             AddInetRoute(mx_.get(), NULL, "blue", prefix, 100);
             if (ecmp)
                 AddInetRoute(mx_.get(), NULL, "ecmp", prefix, 100,
-                             vector<uint32_t>(), set<string>(),
+                             vector<uint32_t>(), set<string>(), SiteOfOrigin(),
                              "1.2.2.1");
         } else {
             agent_a_1_->AddRoute(connected_table_, prefix, nexthop1, 100);
@@ -679,10 +691,17 @@ protected:
         string nexthop;
         set<string> encaps;
         string origin_vn;
+        SiteOfOrigin soo;
         PathVerify(string path_id, string path_src, string nexthop, 
                    set<string> encaps, string origin_vn)
             : path_id(path_id), path_src(path_src), nexthop(nexthop),
               encaps(encaps), origin_vn(origin_vn) {
+        }
+        PathVerify(string path_id, string path_src, string nexthop,
+                   set<string> encaps, string origin_vn,
+                   const SiteOfOrigin &soo)
+            : path_id(path_id), path_src(path_src), nexthop(nexthop),
+              encaps(encaps), origin_vn(origin_vn), soo(soo) {
         }
     };
 
@@ -708,6 +727,7 @@ protected:
             if (attr->nexthop().to_v4().to_string() != vit->nexthop) return false;
             if (list != vit->encaps) return false;
             if (GetOriginVnFromRoute(server, path) != vit->origin_vn) return false;
+            if (!vit->soo.IsNull() && GetSiteOfOriginFromRoute(path) != vit->soo) return false;
         }
 
         return true;
@@ -838,6 +858,19 @@ protected:
                 origin_vn.vn_index());
         }
         return "unresolved";
+    }
+
+    SiteOfOrigin GetSiteOfOriginFromRoute(const BgpPath *path) {
+        const ExtCommunity *ext_comm = path->GetAttr()->ext_community();
+        assert(ext_comm);
+        BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
+                      ext_comm->communities()) {
+            if (!ExtCommunity::is_site_of_origin(comm))
+                continue;
+            SiteOfOrigin soo(comm);
+            return soo;
+        }
+        return SiteOfOrigin();
     }
 
     EventManager evm_;
@@ -1008,6 +1041,61 @@ TEST_P(ServiceIntergrationParamTest, ExtRoute) {
         PathVerify verify_2("99.99.99.99", "SericeChain", "99.99.99.99", list_of  ("gre"), "red");
         PathVerify verify_3("88.88.88.88", "BGP_XMPP", "88.88.88.88", list_of  ("gre"), "red");
         PathVerify verify_4("99.99.99.99", "BGP_XMPP", "99.99.99.99", list_of  ("gre"), "red");
+        path_list.push_back(verify_1);
+        path_list.push_back(verify_2);
+        path_list.push_back(verify_3);
+        path_list.push_back(verify_4);
+    }
+
+    // Check for ServiceChain route
+    VerifyServiceChainRoute(cn1_.get(), "10.1.1.0/24", path_list);
+    VerifyServiceChainRoute(cn2_.get(), "10.1.1.0/24", path_list);
+
+    DeleteInetRoute(mx_.get(), NULL, "public", "10.1.1.0/24");
+
+    DeleteConnectedRoute(true);
+}
+
+TEST_P(ServiceIntergrationParamTest, SiteOfOrigin) {
+    // Not applicable
+    aggregate_enable_ = false;
+
+    // Add external route from MX to dest routing instance
+    SiteOfOrigin soo = SiteOfOrigin::FromString("soo:65001:100");
+    AddInetRoute(mx_.get(), NULL, "public", "10.1.1.0/24", 100, soo);
+    task_util::WaitForIdle();
+
+    // Add Connected route
+    AddConnectedRoute(true);
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_TRUE(cn1_.get()->service_chain_mgr()->IsQueueEmpty());
+    TASK_UTIL_EXPECT_TRUE(cn2_.get()->service_chain_mgr()->IsQueueEmpty());
+
+    vector<PathVerify> path_list;
+
+    if (mx_push_connected_) {
+        PathVerify verify_1(
+            "1.2.2.1", "SericeChain", "1.2.2.1", set<string>(), "red", soo);
+        PathVerify verify_2(
+            "7.8.9.1", "SericeChain", "7.8.9.1", set<string>(), "red", soo);
+        PathVerify verify_3(
+            "1.2.2.1", "BGP_XMPP", "1.2.2.1", set<string>(), "red", soo);
+        PathVerify verify_4(
+            "7.8.9.1", "BGP_XMPP", "7.8.9.1", set<string>(), "red", soo);
+        path_list.push_back(verify_1);
+        path_list.push_back(verify_2);
+        path_list.push_back(verify_3);
+        path_list.push_back(verify_4);
+    } else {
+        PathVerify verify_1(
+            "88.88.88.88", "SericeChain", "88.88.88.88", list_of("gre"), "red", soo);
+        PathVerify verify_2(
+            "99.99.99.99", "SericeChain", "99.99.99.99", list_of("gre"), "red", soo);
+        PathVerify verify_3(
+            "88.88.88.88", "BGP_XMPP", "88.88.88.88", list_of("gre"), "red", soo);
+        PathVerify verify_4(
+            "99.99.99.99", "BGP_XMPP", "99.99.99.99", list_of("gre"), "red", soo);
         path_list.push_back(verify_1);
         path_list.push_back(verify_2);
         path_list.push_back(verify_3);

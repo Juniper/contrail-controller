@@ -20,6 +20,7 @@
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_table.h"
+#include "bgp/extended-community/site_of_origin.h"
 #include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routing_instance.h"
@@ -296,6 +297,7 @@ void ServiceChain::AddServiceChainRoute(Ip4Prefix prefix,
     BgpServer *server = dest_routing_instance()->server();
     OriginVn origin_vn(server->autonomous_system(), vn_index);
 
+    SiteOfOrigin soo;
     ExtCommunity::ExtCommunityList sgid_list;
     if (orig_route) {
         const BgpPath *orig_path = orig_route->BestPath();
@@ -310,6 +312,8 @@ void ServiceChain::AddServiceChainRoute(Ip4Prefix prefix,
                           ext_community->communities()) {
                 if (ExtCommunity::is_security_group(comm))
                     sgid_list.push_back(comm);
+                if (ExtCommunity::is_site_of_origin(comm) && soo.IsNull())
+                    soo = SiteOfOrigin(comm);
             }
         }
     }
@@ -348,6 +352,15 @@ void ServiceChain::AddServiceChainRoute(Ip4Prefix prefix,
         // Replace the SGID list with the list from the original route.
         new_ext_community = extcomm_db->ReplaceSGIDListAndLocate(
             new_ext_community.get(), sgid_list);
+
+        // Replace SiteOfOrigin with value from original route if any.
+        if (soo.IsNull()) {
+            new_ext_community = extcomm_db->RemoveSiteOfOriginAndLocate(
+                new_ext_community.get());
+        } else {
+            new_ext_community = extcomm_db->ReplaceSiteOfOriginAndLocate(
+                new_ext_community.get(), soo.GetExtCommunity());
+        }
 
         // Replace the OriginVn with the value from the original route
         // or the value associated with the dest routing instance.
