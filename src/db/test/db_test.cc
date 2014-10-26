@@ -21,8 +21,10 @@
 class VlanTable;
 
 struct VlanTableReqKey : public DBRequestKey {
-    VlanTableReqKey(unsigned short tag) : tag(tag) {}
+    VlanTableReqKey(unsigned short tag) : tag(tag), del(true) {}
+    VlanTableReqKey(unsigned short tag, bool del) : tag(tag), del(del) {}
     unsigned short tag;
+    bool del;
 };
 
 struct VlanTableReqData : public DBRequestData {
@@ -80,6 +82,8 @@ public:
     VlanTable(DB *db) : DBTable(db, "__vlan__.0") { };
     ~VlanTable() { };
 
+    uint32_t del_req_count() const { return del_req_count_; }
+
     // Alloc a derived DBEntry
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *key) const {
         const VlanTableReqKey *vkey = static_cast<const VlanTableReqKey *>(key);
@@ -114,7 +118,12 @@ public:
         return true;
     };
 
-    virtual void Delete(DBEntry *entry, const DBRequest *req) { };
+    virtual bool Delete(DBEntry *entry, const DBRequest *req) {
+        del_req_count_++;
+        const VlanTableReqKey *key = static_cast<const VlanTableReqKey *>
+            (req->key.get());
+        return key->del;
+    }
 
     Vlan *Find(VlanTableReqKey *key) {
         Vlan vlan(key->tag);
@@ -127,6 +136,7 @@ public:
         return table;
     }
 
+    uint32_t del_req_count_;
     DISALLOW_COPY_AND_ASSIGN(VlanTable);
 };
 
@@ -183,6 +193,43 @@ TEST_F(DBTest, NotifyAllEntries) {
         itbl->Enqueue(&delReq);
     }
     TASK_UTIL_EXPECT_EQ(num_entries, del_notification);
+
+    // Unregister client
+    itbl->Unregister(tid_);
+}
+
+TEST_F(DBTest, SkipDelete) {
+    // Register client for notification
+    tid_ = itbl->Register(boost::bind(&DBTest::DBTestListener, this, _1, _2));
+    TASK_UTIL_EXPECT_EQ(tid_, 0);
+    EXPECT_EQ(0, itbl->Size());
+
+    DBRequest addReq;
+    DBRequest delReq;
+
+    // Add one entry
+    addReq.key.reset(new VlanTableReqKey(1));
+    addReq.data.reset(new VlanTableReqData("DB Test Vlan"));
+    addReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    itbl->Enqueue(&addReq);
+    TASK_UTIL_EXPECT_EQ(1, itbl->Size());
+
+    // Enqueue request to delete. The Delete() API returns false
+    // Entry should not be deleted
+    delReq.key.reset(new VlanTableReqKey(1, false));
+    delReq.oper = DBRequest::DB_ENTRY_DELETE;
+    itbl->Enqueue(&delReq);
+    // Wait till Delete() is invoked
+    uint32_t count = itbl->del_req_count();
+    TASK_UTIL_EXPECT_EQ(count + 1, itbl->del_req_count());
+    // DBEntry should not be deleted
+    TASK_UTIL_EXPECT_EQ(1, itbl->Size());
+
+    // Delete all entries
+    delReq.key.reset(new VlanTableReqKey(1, true));
+    delReq.oper = DBRequest::DB_ENTRY_DELETE;
+    itbl->Enqueue(&delReq);
+    TASK_UTIL_EXPECT_EQ(0, itbl->Size());
 
     // Unregister client
     itbl->Unregister(tid_);

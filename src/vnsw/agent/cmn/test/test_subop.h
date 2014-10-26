@@ -75,7 +75,7 @@ public:
 
     DBEntry *Add(const DBRequest *req);
     bool OnChange(DBEntry *entry, const DBRequest *req);
-    void Delete(DBEntry *entry, const DBRequest *req);
+    bool Delete(DBEntry *entry, const DBRequest *req);
 
     bool Resync(DBEntry *entry, DBRequest *req);
     bool Delete(DBRequest *req);

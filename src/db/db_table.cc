@@ -171,7 +171,8 @@ bool DBTable::OnChange(DBEntry *entry, const DBRequest *req) {
     return true;
 }
 
-void DBTable::Delete(DBEntry *entry, const DBRequest *req) {
+bool DBTable::Delete(DBEntry *entry, const DBRequest *req) {
+    return true;
 }
 
 int DBTable::PartitionCount() const {
@@ -241,8 +242,9 @@ void DBTable::Input(DBTablePartition *tbl_partition, DBClient *client,
         }
     } else {
         if (entry) {
-            Delete(entry, req);
-            tbl_partition->Delete(entry);
+            if (Delete(entry, req)) {
+                tbl_partition->Delete(entry);
+            }
         }
     }
 }

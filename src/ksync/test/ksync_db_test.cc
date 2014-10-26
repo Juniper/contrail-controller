@@ -92,8 +92,8 @@ public:
         return true;
     }
 
-    virtual void Delete(DBEntry *entry, const DBRequest *req) {
-        return;
+    virtual bool Delete(DBEntry *entry, const DBRequest *req) {
+        return true;
     }
 
     static VlanTable *CreateTable(DB *db, const string &name) {

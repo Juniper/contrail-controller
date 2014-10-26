@@ -140,7 +140,7 @@ public:
 
     virtual DBEntry *Add(const DBRequest *req);
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);
-    virtual void Delete(DBEntry *entry, const DBRequest *req);
+    virtual bool Delete(DBEntry *entry, const DBRequest *req);
 
     // Allocate and Free label from the label_table
     uint32_t AllocLabel() {return label_table_.Insert(NULL);};

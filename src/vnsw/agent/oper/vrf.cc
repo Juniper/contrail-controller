@@ -298,11 +298,12 @@ bool VrfTable::OnChange(DBEntry *entry, const DBRequest *req) {
     return false;
 }
 
-void VrfTable::Delete(DBEntry *entry, const DBRequest *req) {
+bool VrfTable::Delete(DBEntry *entry, const DBRequest *req) {
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
     vrf->deleter_->Delete();
     vrf->StartDeleteTimer();
     vrf->SendObjectLog(AgentLogEvent::DELETE_TRIGGER);
+    return true;
 }
 
 void VrfTable::VrfReuse(const std::string  name) {

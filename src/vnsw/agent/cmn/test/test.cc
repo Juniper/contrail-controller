@@ -82,8 +82,9 @@ bool TableA::OnChange(DBEntry *entry, const DBRequest *req) {
     return ret;
 }
 
-void TableA::Delete(DBEntry *entry, const DBRequest *req) {
+bool TableA::Delete(DBEntry *entry, const DBRequest *req) {
     del_count_++;
+    return true;
 }
 
 DBTableBase *TableA::CreateTable(DB *db, const std::string &name) {
@@ -128,8 +129,9 @@ bool TableB::OnChange(DBEntry *entry, const DBRequest *req) {
     return ret;
 }
 
-void TableB::Delete(DBEntry *entry, const DBRequest *req) {
+bool TableB::Delete(DBEntry *entry, const DBRequest *req) {
     del_count_++;
+    return true;
 }
 
 DBTableBase *TableB::CreateTable(DB *db, const std::string &name) {

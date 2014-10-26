@@ -112,10 +112,11 @@ bool InterfaceTable::Resync(DBEntry *entry, DBRequest *req) {
     return intf->Resync(vm_data);
 }
 
-void InterfaceTable::Delete(DBEntry *entry, const DBRequest *req) {
+bool InterfaceTable::Delete(DBEntry *entry, const DBRequest *req) {
     Interface *intf = static_cast<Interface *>(entry);
     intf->Delete();
     intf->SendTrace(Interface::DELETE);
+    return true;
 }
 
 VrfEntry *InterfaceTable::FindVrfRef(const string &name) const {

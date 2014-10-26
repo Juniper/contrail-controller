@@ -88,9 +88,10 @@ bool SgTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
     return ret;
 }
 
-void SgTable::Delete(DBEntry *entry, const DBRequest *req) {
+bool SgTable::Delete(DBEntry *entry, const DBRequest *req) {
     SgEntry *sg = static_cast<SgEntry *>(entry);
     sg->SendObjectLog(AgentLogEvent::DELETE);
+    return true;
 }
 
 DBTableBase *SgTable::CreateTable(DB *db, const std::string &name) {
