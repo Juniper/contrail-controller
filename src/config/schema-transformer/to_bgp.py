@@ -125,7 +125,7 @@ class DictST(object):
             try:
                 cls._dict[name] = cls(name, *args)
             except NoIdError as e:
-                _sandesh._logger.debug("Exception %s while creating %s for %s",
+                _sandesh._logger.error("Exception %s while creating %s for %s",
                                        e, cls.__name__, name)
                 return None
         return cls._dict[name]
@@ -179,10 +179,10 @@ def _access_control_list_update(acl_obj, name, obj, entries):
         try:
             _vnc_lib.access_control_list_create(acl_obj)
             return acl_obj
-        except HttpError as he:
-            _sandesh._logger.debug(
-                "HTTP error while creating acl %s for %s: %d, %s",
-                name, obj.get_fq_name_str(), he.status_code, he.content)
+        except BadRequest as e:
+            _sandesh._logger.error(
+                "Bad request while creating acl %s for %s: %s",
+                name, obj.get_fq_name_str(), str(e))
         return None
     else:
         if entries is None:
@@ -197,11 +197,11 @@ def _access_control_list_update(acl_obj, name, obj, entries):
         try:
             _vnc_lib.access_control_list_update(acl_obj)
         except HttpError as he:
-            _sandesh._logger.debug(
+            _sandesh._logger.error(
                 "HTTP error while updating acl %s for %s: %d, %s",
                 name, obj.get_fq_name_str(), he.status_code, he.content)
         except NoIdError:
-            _sandesh._logger.debug("NoIdError while updating acl %s for %s",
+            _sandesh._logger.error("NoIdError while updating acl %s for %s",
                                    name, obj.get_fq_name_str())
     return acl_obj
 # end _access_control_list_update
@@ -365,7 +365,7 @@ class VirtualNetworkST(DictST):
             attrib = VirtualNetworkPolicyType(SequenceType(sys.maxint,
                                                            sys.maxint))
         if attrib.sequence is None:
-            _sandesh._logger.debug("Cannot assign policy %s to %s: sequence "
+            _sandesh._logger.error("Cannot assign policy %s to %s: sequence "
                                    "number is not available", policy_name,
                                    self.name)
             return
@@ -448,7 +448,7 @@ class VirtualNetworkST(DictST):
                 sc_ip_address = _vnc_lib.virtual_network_ip_alloc(
                     self.obj, count=1)[0]
             except (NoIdError, RefsExistError) as e:
-                _sandesh._logger.debug(
+                _sandesh._logger.error(
                     "Error while allocating ip in network %s: %s", self.name,
                     str(e))
                 return None
@@ -544,7 +544,7 @@ class VirtualNetworkST(DictST):
             self.rinst[rinst_name] = rinst
             return rinst
         except NoIdError:
-            _sandesh._logger.debug(
+            _sandesh._logger.error(
                 "Cannot read routing instance %s", rinst_fq_name_str)
             return None
     # end locate_routing_instance_no_target
@@ -594,7 +594,7 @@ class VirtualNetworkST(DictST):
                 rinst_obj.set_route_target(rtgt_obj, inst_tgt_data)
                 _vnc_lib.routing_instance_create(rinst_obj)
         except HttpError as he:
-            _sandesh._logger.debug(
+            _sandesh._logger.error(
                 "HTTP error while creating routing instance: %d, %s",
                 he.status_code, he.content)
             return None
@@ -688,27 +688,27 @@ class VirtualNetworkST(DictST):
             if si_props is None:
                 return None
         except NoIdError:
-            _sandesh._logger.debug("Cannot read service instance %s", next_hop)
+            _sandesh._logger.error("Cannot read service instance %s", next_hop)
             return None
         if not si_props.auto_policy:
-            _sandesh._logger.debug("%s: route table next hop must be service "
+            _sandesh._logger.error("%s: route table next hop must be service "
                                    "instance with auto policy", self.name)
             return None
         left_vn_str, right_vn_str = get_si_vns(si, si_props)
         if (not left_vn_str or not right_vn_str):
-            _sandesh._logger.debug("%s: route table next hop service instance "
+            _sandesh._logger.error("%s: route table next hop service instance "
                                    "must have left and right virtual networks",
                                    self.name)
             return None
         left_vn = VirtualNetworkST.get(left_vn_str)
         if left_vn is None:
-            _sandesh._logger.debug("Virtual network %s not present",
+            _sandesh._logger.error("Virtual network %s not present",
                                    left_vn_str)
             return None
         sc = ServiceChain.find(left_vn_str, right_vn_str, '<>',
                                [PortType(0, -1)], [PortType(0, -1)], 'any')
         if sc is None:
-            _sandesh._logger.debug("Service chain between %s and %s not "
+            _sandesh._logger.error("Service chain between %s and %s not "
                                    "present", left_vn_str, right_vn_str)
             return None
         left_ri_name = left_vn.get_service_name(sc.name, next_hop)
@@ -719,12 +719,12 @@ class VirtualNetworkST(DictST):
         self.route_table[prefix] = next_hop
         left_ri = self._get_routing_instance_from_route(next_hop)
         if left_ri is None:
-            _sandesh._logger.debug(
+            _sandesh._logger.error(
                 "left routing instance is none for %s", next_hop)
             return
         service_info = left_ri.obj.get_service_chain_information()
         if service_info is None:
-            _sandesh._logger.debug(
+            _sandesh._logger.error(
                 "Service chain info not found for %s", left_ri.name)
             return
         sc_address = service_info.get_service_chain_address()
@@ -887,14 +887,14 @@ class VirtualNetworkST(DictST):
             if ip:
                 action.mirror_to.set_analyzer_ip_address(ip)
             if vn_analyzer:
-                _sandesh._logger.debug("Mirror: adding connection from %s-%s",
+                _sandesh._logger.error("Mirror: adding connection from %s-%s",
                                        self.name, vn_analyzer)
                 self.add_connection(vn_analyzer)
                 if vn_analyzer in VirtualNetworkST:
-                    _sandesh._logger.debug("Mirror: adding reverse connection")
+                    _sandesh._logger.error("Mirror: adding reverse connection")
                     VirtualNetworkST.get(vn_analyzer).add_connection(self.name)
             else:
-                _sandesh._logger.debug("Mirror: %s: no analyzer vn for %s",
+                _sandesh._logger.error("Mirror: %s: no analyzer vn for %s",
                                        self.name, analyzer_name)
         except NoIdError:
             return
@@ -946,7 +946,7 @@ class VirtualNetworkST(DictST):
                         daddr_match.network_policy = None
                         daddr_match.virtual_network = self.name
                     else:
-                        _sandesh._logger.debug("network policy rule attached to %s"
+                        _sandesh._logger.error("network policy rule attached to %s"
                                                "has src = %s, dst = %s. Ignored.",
                                                self.name, svn or spol, dvn or dpol)
                         continue
@@ -958,12 +958,12 @@ class VirtualNetworkST(DictST):
                         daddr_match.network_policy = None
                         saddr_match.virtual_network = self.name
                     else:
-                        _sandesh._logger.debug("network policy rule attached to %s"
+                        _sandesh._logger.error("network policy rule attached to %s"
                                                "has src = %s, dst = %s. Ignored.",
                                                self.name, svn or spol, dvn or dpol)
                         continue
                 else:
-                    _sandesh._logger.debug("network policy rule attached to %s"
+                    _sandesh._logger.error("network policy rule attached to %s"
                                            "has svn = %s, dvn = %s. Ignored.",
                                            self.name, svn, dvn)
                     continue
@@ -971,12 +971,12 @@ class VirtualNetworkST(DictST):
                 service_list = None
                 if prule.action_list and prule.action_list.apply_service != []:
                     if remote_network_name == self.name:
-                        _sandesh._logger.debug("Service chain source and dest "
+                        _sandesh._logger.error("Service chain source and dest "
                                                "vn are same: %s", self.name)
                         continue
                     remote_vn = VirtualNetworkST.get(remote_network_name)
                     if remote_vn is None:
-                        _sandesh._logger.debug(
+                        _sandesh._logger.error(
                             "Network %s not found while apply service chain "
                             "to network %s", remote_network_name, self.name)
                         continue
@@ -1014,7 +1014,7 @@ class VirtualNetworkST(DictST):
                         if saddr_match.network_policy:
                             pol = NetworkPolicyST.get(saddr_match.network_policy)
                             if not pol:
-                                _sandesh._logger.debug(
+                                _sandesh._logger.error(
                                     "Policy %s not found while applying policy "
                                     "to network %s", saddr_match.network_policy,
                                      self.name)
@@ -1027,7 +1027,7 @@ class VirtualNetworkST(DictST):
                         if daddr_match.network_policy:
                             pol = NetworkPolicyST.get(daddr_match.network_policy)
                             if not pol:
-                                _sandesh._logger.debug(
+                                _sandesh._logger.error(
                                     "Policy %s not found while applying policy "
                                     "to network %s", daddr_match.network_policy,
                                      self.name)
@@ -1544,7 +1544,7 @@ class ServiceChain(DictST):
         vn2_obj = VirtualNetworkST.locate(self.right_vn)
         #sc_ip_address = vn1_obj.allocate_service_chain_ip(sc_name)
         if not vn1_obj or not vn2_obj:
-            _sandesh._logger.debug(
+            _sandesh._logger.error(
                 "service chain %s: vn1_obj or vn2_obj is None", self.name)
             return None
 
@@ -1557,7 +1557,7 @@ class ServiceChain(DictST):
             service_ri1 = vn1_obj.locate_routing_instance(
                 service_name1, self.name)
             if service_ri1 is None:
-                _sandesh._logger.debug("service chain %s: service_ri1 is None",
+                _sandesh._logger.error("service chain %s: service_ri1 is None",
                                        self.name)
                 return None
 
@@ -1566,7 +1566,7 @@ class ServiceChain(DictST):
             service_ri2 = vn2_obj.locate_routing_instance(
                 service_name2, self.name)
             if service_ri2 is None:
-                _sandesh._logger.debug(
+                _sandesh._logger.error(
                     "service chain %s: service_ri2 is None", self.name)
                 return None
 
@@ -1581,20 +1581,20 @@ class ServiceChain(DictST):
                 service_instance = _vnc_lib.service_instance_read(
                     fq_name_str=service)
             except NoIdError:
-                _sandesh._logger.debug("service chain %s: NoIdError while "
+                _sandesh._logger.error("service chain %s: NoIdError while "
                                        "reading service_instance", self.name)
                 return None
 
             try:
                 si_refs = service_instance.get_service_template_refs()
                 if not si_refs:
-                    _sandesh._logger.debug(
+                    _sandesh._logger.error(
                         "service chain %s: si_refs is None", self.name)
                     return None
                 service_template = _vnc_lib.service_template_read(
                     id=si_refs[0]['uuid'])
             except NoIdError:
-                _sandesh._logger.debug("service chain %s: NoIdError while "
+                _sandesh._logger.error("service chain %s: NoIdError while "
                                        "reading service template", self.name)
                 return None
 
@@ -1610,7 +1610,7 @@ class ServiceChain(DictST):
                 nat_service = True
             else:
                 transparent = True
-            _sandesh._logger.debug("service chain %s: creating %s chain",
+            _sandesh._logger.error("service chain %s: creating %s chain",
                                    self.name, mode)
 
             if transparent:
@@ -1627,7 +1627,7 @@ class ServiceChain(DictST):
                 try:
                     vm_refs = service_instance.get_virtual_machine_back_refs()
                 except NoIdError:
-                    _sandesh._logger.debug("service chain %s: NoIdError on "
+                    _sandesh._logger.error("service chain %s: NoIdError on "
                                            "service_instance, disappear?",
                                            self.name)
                     return None
@@ -1743,12 +1743,12 @@ class ServiceChain(DictST):
                     ip_obj = _vnc_lib.instance_ip_read(fq_name_str=ip_ref)
                     break
                 except NoIdError as e:
-                    _sandesh._logger.debug(
+                    _sandesh._logger.error(
                         "NoIdError while reading ip address for interface "
                         "%s: %s", if_obj.get_fq_name_str(), str(e))
                     return False
             else:
-                _sandesh._logger.debug(
+                _sandesh._logger.error(
                         "No ip address found for interface " + if_obj.name)
                 return False
 
@@ -1942,7 +1942,7 @@ class BgpRouterST(DictST):
         try:
             obj = _vnc_lib.bgp_router_read(fq_name_str=self.name)
         except NoIdError as e:
-            _sandesh._logger.debug("NoIdError while reading bgp router "
+            _sandesh._logger.error("NoIdError while reading bgp router "
                                    "%s: %s", self.name, str(e))
             return
 
@@ -1967,7 +1967,7 @@ class BgpRouterST(DictST):
             try:
                 _vnc_lib.bgp_router_update(obj)
             except NoIdError as e:
-                _sandesh._logger.debug("NoIdError while updating bgp router "
+                _sandesh._logger.error("NoIdError while updating bgp router "
                                        "%s: %s", self.name, str(e))
     # end update_peering
 
@@ -2120,7 +2120,7 @@ class BgpRouterST(DictST):
                     default_operation=default_operation)
                 m.commit()
         except Exception as e:
-            _sandesh._logger.debug("Router %s: %s" % (self.address, e.message))
+            _sandesh._logger.error("Router %s: %s" % (self.address, e.message))
 
 # end class BgpRouterST
 
@@ -2337,7 +2337,7 @@ class VirtualMachineInterfaceST(DictST):
             if_obj = _vnc_lib.virtual_machine_interface_read(
                 fq_name_str=self.name)
         except NoIdError:
-            _sandesh._logger.debug("NoIdError while reading interface " +
+            _sandesh._logger.error("NoIdError while reading interface " +
                                    self.name)
             self.delete(self.name)
             return
@@ -2353,7 +2353,7 @@ class VirtualMachineInterfaceST(DictST):
             try:
                 _vnc_lib.virtual_machine_interface_update(if_obj)
             except NoIdError:
-                _sandesh._logger.debug("NoIdError while updating interface " +
+                _sandesh._logger.error("NoIdError while updating interface " +
                                        self.name)
 
         for lr in LogicalRouterST.values():
@@ -2366,7 +2366,7 @@ class VirtualMachineInterfaceST(DictST):
             if_obj = _vnc_lib.virtual_machine_interface_read(
                 fq_name_str=self.name)
         except NoIdError:
-            _sandesh._logger.debug("NoIdError while reading interface " +
+            _sandesh._logger.error("NoIdError while reading interface " +
                                    self.name)
             self.delete(self.name)
             return
@@ -2392,7 +2392,7 @@ class VirtualMachineInterfaceST(DictST):
         try:
             _vnc_lib.virtual_machine_interface_update(if_obj)
         except NoIdError:
-            _sandesh._logger.debug("NoIdError while updating interface " +
+            _sandesh._logger.error("NoIdError while updating interface " +
                                    self.name)
     # end process_analyzer
 
@@ -2402,7 +2402,7 @@ class VirtualMachineInterfaceST(DictST):
             vmi_obj = _vnc_lib.virtual_machine_interface_read(
                 fq_name_str=self.name)
         except NoIdError:
-            _sandesh._logger.debug("NoIdError while reading interface %s",
+            _sandesh._logger.error("NoIdError while reading interface %s",
                                    self.name)
             self.delete(self.name)
             return network_set
@@ -2419,7 +2419,7 @@ class VirtualMachineInterfaceST(DictST):
         try:
             vm_obj = _vnc_lib.virtual_machine_read(id=vm_id)
         except NoIdError:
-            _sandesh._logger.debug("NoIdError while reading virtual machine " +
+            _sandesh._logger.error("NoIdError while reading virtual machine " +
                                    vm_id)
             return network_set
         vm_si_refs = vm_obj.get_service_instance_refs()
@@ -2429,7 +2429,7 @@ class VirtualMachineInterfaceST(DictST):
         try:
             si_obj = _vnc_lib.service_instance_read(id=service_instance['uuid'])
         except NoIdError:
-            _sandesh._logger.debug("NoIdError while reading service instance "
+            _sandesh._logger.error("NoIdError while reading service instance "
                                    + service_instance['uuid'])
             return network_set
         si_name = si_obj.get_fq_name_str()
@@ -2455,7 +2455,7 @@ class VirtualMachineInterfaceST(DictST):
             vmi_obj = _vnc_lib.virtual_machine_interface_read(
                 fq_name_str=self.name)
         except NoIdError as e:
-            _sandesh._logger.debug(
+            _sandesh._logger.error(
                 "NoIdError while reading virtual machine interface %s: %s",
                 self.name, str(e))
             self.delete(self.name)
@@ -2473,7 +2473,7 @@ class VirtualMachineInterfaceST(DictST):
             try:
                 ip_obj = _vnc_lib.instance_ip_read(fq_name_str=ip)
             except NoIdError as e:
-                _sandesh._logger.debug(
+                _sandesh._logger.error(
                     "NoIdError while reading ip address for interface %s: %s",
                     self.name, str(e))
                 deleted_instance_ip.add(ip)
@@ -2492,12 +2492,12 @@ class VirtualMachineInterfaceST(DictST):
 
         vm_id = get_vm_id_from_interface(vmi_obj)
         if vm_id is None:
-            _sandesh._logger.debug("vm id is None for interface %s", self.name)
+            _sandesh._logger.error("vm id is None for interface %s", self.name)
             return
         try:
             vm_obj = _vnc_lib.virtual_machine_read(id=vm_id)
         except NoIdError as e:
-            _sandesh._logger.debug(
+            _sandesh._logger.error(
                 "NoIdError while reading virtual machine %s: %s",
                 vm_id, str(e))
             return
@@ -2507,7 +2507,7 @@ class VirtualMachineInterfaceST(DictST):
         try:
             si_obj = _vnc_lib.service_instance_read(id=vm_si_refs[0]['uuid'])
         except NoIdError:
-            _sandesh._logger.debug("NoIdError while reading service instance "
+            _sandesh._logger.error("NoIdError while reading service instance "
                                    + vm_si_refs[0]['uuid'])
             return
 
@@ -2518,7 +2518,7 @@ class VirtualMachineInterfaceST(DictST):
         try:
             st_obj = _vnc_lib.service_template_read(id=st_refs[0]['uuid'])
         except NoIdError:
-            _sandesh._logger.debug("NoIdError while reading service instance "
+            _sandesh._logger.error("NoIdError while reading service instance "
                                    + st_refs[0]['uuid'])
             return
 
@@ -2669,7 +2669,7 @@ class LogicalRouterST(DictST):
             obj.set_route_target(rtgt_obj)
             _vnc_lib.logical_router_update(obj)
         except NoIdError:
-            _sandesh._logger.debug(
+            _sandesh._logger.error(
                 "NoIdError while accessing logical router %s" % self.name)
         for vn in self.virtual_networks:
             vn_obj = VirtualNetworkST.get(vn)
@@ -2907,7 +2907,7 @@ class SchemaTransformer(object):
             # For compatibility, ignore if we can't build. In 1.0, we allowed
             # security group with direction set to '<', but it is not allowed
             # any more
-            _sandesh._logger.debug("%s: Cannot read security group entries",
+            _sandesh._logger.error("%s: Cannot read security group entries",
                                    si_name)
             return
         if sg:
@@ -2954,7 +2954,7 @@ class SchemaTransformer(object):
         ipam_name = idents['network-ipam']
         virtual_network = VirtualNetworkST.locate(network_name)
         if virtual_network is None:
-            _sandesh._logger.debug("Cannot read virtual network %s",
+            _sandesh._logger.error("Cannot read virtual network %s",
                                    network_name)
             return
         subnet = VnSubnetsType()
@@ -3135,13 +3135,13 @@ class SchemaTransformer(object):
         try:
             si = _vnc_lib.service_instance_read(fq_name_str=si_name)
         except NoIdError:
-            _sandesh._logger.debug("NoIdError while reading service "
+            _sandesh._logger.error("NoIdError while reading service "
                                    "instance %s", si_name)
             return
         si_props = si.get_service_instance_properties()
         left_vn_str, right_vn_str = get_si_vns(si, si_props)
         if (not left_vn_str or not right_vn_str):
-            _sandesh._logger.debug(
+            _sandesh._logger.error(
                 "%s: route table next hop service instance must "
                 "have left and right virtual networks", si_name)
             self.delete_service_instance_properties(idents, meta)
@@ -3700,7 +3700,7 @@ def launch_arc(transformer, ssrc_mapc):
                     with open(transformer._args.trace_file, 'a') as err_file:
                         err_file.write(string_buf.getvalue())
                 except IOError:
-                    _sandesh._logger.debug(
+                    _sandesh._logger.error(
                         "Failed to open trace file %s: %s" %
                         (transformer._args.trace_file, IOError))
                 if type(e) == InvalidSessionID:
