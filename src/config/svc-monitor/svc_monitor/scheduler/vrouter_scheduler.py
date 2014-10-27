@@ -94,7 +94,7 @@ class VRouterScheduler(object):
             return False
 
         for process in vrouter_status['NodeStatus']['process_status']:
-            if (process['module_id'] == 'VRouterAgent' and
+            if (process['module_id'] == 'contrail-vrouter-agent' and
                 int(process['instance_id']) == 0 and
                 process['state'] == 'Functional'):
                 return True
