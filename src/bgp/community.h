@@ -170,13 +170,33 @@ public:
         return (val[0] == 0x80) && (val[1] == 0x71);
     }
 
+    static bool is_default_gateway(const ExtCommunityValue &val) {
+        //
+        // Default Gateway extended community
+        //
+        return (val[0] == 0x06) && (val[1] == 0x0d);
+    }
+
+    static bool is_es_import(const ExtCommunityValue &val) {
+        //
+        // ES Import extended community
+        //
+        return (val[0] == 0x06) && (val[1] == 0x02);
+    }
+
+    static bool is_esi_label(const ExtCommunityValue &val) {
+        //
+        // ESI Label extended community
+        //
+        return (val[0] == 0x06) && (val[1] == 0x01);
+    }
+
     static bool is_mac_mobility(const ExtCommunityValue &val) {
         //
         // MAC Mobility extended community
         //
         return (val[0] == 0x06) && (val[1] == 0x00);
     }
-
 
     static bool is_route_target(const ExtCommunityValue &val) {
         //

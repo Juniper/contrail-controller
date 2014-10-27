@@ -9,7 +9,10 @@ Import('BuildEnv')
 env = BuildEnv.Clone()
 
 libextended_community = env.Library('extended_community',
-                                    ['mac_mobility.cc',
+                                    ['default_gateway.cc',
+                                     'es_import.cc',
+                                     'esi_label.cc',
+                                     'mac_mobility.cc',
                                      'site_of_origin.cc'])
 
 extended_community_test_cases = env.SConscript('test/SConscript', exports='BuildEnv',
