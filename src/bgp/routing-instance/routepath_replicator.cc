@@ -478,6 +478,15 @@ bool RoutePathReplicator::BgpTableListener(DBTablePartBase *root,
 
         if (super_set.empty()) continue;
 
+        // Add OriginVn when replicating self-originated routes from a VRF.
+        if (!rtinstance->IsDefaultRoutingInstance() &&
+            path->IsVrfOriginated() && rtinstance->virtual_network_index()) {
+            vn_index = rtinstance->virtual_network_index();
+            OriginVn origin_vn(server_->autonomous_system(), vn_index);
+            extcomm_ptr = server_->extcomm_db()->ReplaceOriginVnAndLocate(
+                extcomm_ptr.get(), origin_vn.GetExtCommunity());
+        }
+
         // To all destination tables.. call replicate
         BOOST_FOREACH(BgpTable *dest, super_set) {
             // same as source table... skip

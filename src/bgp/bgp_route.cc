@@ -262,7 +262,8 @@ void BgpRoute::FillRouteInfo(BgpTable *table, ShowRouteBrief *show_route) {
 }
 
 void BgpRoute::FillRouteInfo(BgpTable *table, ShowRoute *show_route) {
-    const RoutingInstanceMgr *ri_mgr = table->routing_instance()->manager();
+    const RoutingInstance *ri = table->routing_instance();
+    const RoutingInstanceMgr *ri_mgr = ri->manager();
 
     show_route->set_prefix(ToString());
     show_route->set_last_modified(integerToString(UTCUsecToPTime(last_change_at())));
@@ -348,6 +349,9 @@ void BgpRoute::FillRouteInfo(BgpTable *table, ShowRoute *show_route) {
                     srp.communities.push_back(std::string(temp));
                 }
             }
+        }
+        if (!table->IsVpnTable() && path->IsVrfOriginated()) {
+            srp.set_origin_vn(ri->GetVirtualNetworkName());
         }
         show_route_paths.push_back(srp);
     }

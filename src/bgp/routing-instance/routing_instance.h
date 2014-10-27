@@ -94,9 +94,8 @@ public:
         return is_default_;
     }
 
-    const std::string &name() const {
-        return name_;
-    }
+    const std::string &name() const { return name_; }
+    const std::string GetVirtualNetworkName() const;
 
     const BgpInstanceConfig *config() const { return config_; }
     const std::string virtual_network() const;

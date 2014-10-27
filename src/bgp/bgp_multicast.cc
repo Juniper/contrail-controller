@@ -227,18 +227,12 @@ void McastForwarder::AddGlobalTreeRoute() {
 
     // Build the attributes.  Need to go through the tree links to build the
     // EdgeForwardingSpec.
-    const RoutingInstance *rt_instance = table->routing_instance();
     BgpServer *server = table->routing_instance()->server();
     BgpAttrSpec attr_spec;
     BgpAttrNextHop nexthop(server->bgp_identifier());
     attr_spec.push_back(&nexthop);
     BgpAttrSourceRd source_rd(sg_entry_->GetSourceRd());
     attr_spec.push_back(&source_rd);
-    ExtCommunitySpec extcomm_spec;
-    OriginVn origin_vn(server->autonomous_system(),
-        rt_instance->virtual_network_index());
-    extcomm_spec.communities.push_back(origin_vn.GetExtCommunityValue());
-    attr_spec.push_back(&extcomm_spec);
     EdgeForwardingSpec efspec;
     for (McastForwarderList::const_iterator it = tree_links_.begin();
          it != tree_links_.end(); ++it) {
