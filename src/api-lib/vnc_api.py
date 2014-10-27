@@ -177,9 +177,15 @@ class VncApi(VncApiClientGen):
 
         self._create_api_server_session()
 
-        homepage = self._request_server(rest.OP_GET, self._base_url,
-                                        retry_on_error=False)
-        self._cfg_root_url = self._parse_homepage(homepage)
+        try:
+            homepage = self._request_server(rest.OP_GET, self._base_url,
+                                            retry_on_error=False)
+            self._cfg_root_url = self._parse_homepage(homepage)
+        except ServiceUnavailableError as e:
+            # Ignore http.code 503 here.
+            # _request_server will reconnect during requests
+            logger = logging.getLogger(__name__)
+            logger.warn("Exception: %s", str(e))
     #end __init__
 
     def _obj_serializer_diff(self, obj):
@@ -373,7 +379,7 @@ class VncApi(VncApiClientGen):
             elif status == 503:
                 retried += 1
                 if retried >= retry_count:
-                    raise TimeOutError('Service Unavailable Timeout 503')
+                    raise ServiceUnavailableError('Service Unavailable Timeout 503')
 
                 time.sleep(1)
                 continue
