@@ -13,6 +13,8 @@ env = AgentEnv.Clone()
 cflags = env['CCFLAGS']
 cflags.append('-Wno-return-type')
 cflags.append('-fexceptions')
+cflags.append('-Wno-unused-variable')
+
 
 ##########################################################################
 # Rules to generate buildinfo.cc
@@ -91,11 +93,19 @@ env.Prepend(LINKFLAGS = ['-Wl,--whole-archive', '-rdynamic', '-lkstate',
 
 #Add -Wno-return-type to ignore errors from thrift generated code in
 #InstanceService.h
+if sys.platform.startswith('freebsd'):
+    platform_dependent = 'freebsd/pkt0_interface.cc'
+elif sys.platform.startswith('linux'):
+    platform_dependent = 'linux/pkt0_interface.cc'
+
+
 contrail_vrouter_agent = env.Program(target = 'contrail-vrouter-agent',
                      source = ['buildinfo.cc',
                                'contrail_agent_init.cc',
                                'main.cc',
-                                'pkt0_interface.cc'])
+                               'pkt0_interface_base.cc',
+                                platform_dependent])
+
 env.Alias('agent:contrail-vrouter-agent', contrail_vrouter_agent)
 env.Default(contrail_vrouter_agent)
 

@@ -5,24 +5,30 @@
 #include "bgp/routing-instance/rtarget_group.h"
 
 #include "bgp/bgp_route.h"
+#include "bgp/routing-instance/rtarget_group_types.h"
 #include "bgp/rtarget/rtarget_route.h"
 
+using std::pair;
+using std::string;
+using std::vector;
 
 RtGroup::RtGroup(const RouteTarget &rt) 
     : rt_(rt), dep_(RtGroup::RTargetDepRouteList(DB::PartitionCount())) {
-    }
+}
 
 const RtGroup::RTargetDepRouteList &RtGroup::DepRouteList() const {
     return dep_;
 }
 
-const RtGroup::RtGroupMemberList RtGroup::GetImportTables(Address::Family family) const {
+const RtGroup::RtGroupMemberList RtGroup::GetImportTables(
+    Address::Family family) const {
     RtGroupMembers::const_iterator loc = import_.find(family);
     if (loc == import_.end()) return RtGroup::RtGroupMemberList();
     return loc->second;
 }
 
-const RtGroup::RtGroupMemberList RtGroup::GetExportTables(Address::Family family) const {
+const RtGroup::RtGroupMemberList RtGroup::GetExportTables(
+    Address::Family family) const {
     RtGroupMembers::const_iterator loc = export_.find(family);
     if (loc == export_.end()) return RtGroup::RtGroupMemberList();
     return loc->second;
@@ -85,10 +91,6 @@ bool RtGroup::RouteDepListEmpty() {
     return true;
 }
 
-const RtGroup::InterestedPeerList &RtGroup::PeerList() const {
-    return peer_list_;
-}
-
 const RtGroupInterestedPeerSet& RtGroup::GetInterestedPeers() const {
     return interested_peers_;
 }
@@ -97,8 +99,7 @@ void RtGroup::AddInterestedPeer(const BgpPeer *peer, RTargetRoute *rt) {
     RtGroup::InterestedPeerList::iterator it = peer_list_.find(peer);
     if (it == peer_list_.end()) {
         it = peer_list_.insert(peer_list_.begin(), 
-                               std::pair<const BgpPeer *, 
-                               RTargetRouteList>(peer, RTargetRouteList()));
+            pair<const BgpPeer *, RTargetRouteList>(peer, RTargetRouteList()));
         assert(peer->GetIndex() >= 0);
         interested_peers_.set(peer->GetIndex());
     }
@@ -116,6 +117,79 @@ void RtGroup::RemoveInterestedPeer(const BgpPeer *peer, RTargetRoute *rt) {
     }
 }
 
+bool RtGroup::HasInterestedPeer(const string &name) const {
+    BOOST_FOREACH(const InterestedPeerList::value_type &peer, peer_list_) {
+        if (peer.first->peer_basename() == name)
+            return true;
+    }
+    return false;
+}
+
 bool RtGroup::peer_list_empty() const {
     return peer_list_.empty();
+}
+
+void RtGroup::FillMemberTables(const RtGroupMembers &rt_members,
+    vector<MemberTableList> *member_list) const {
+    BOOST_FOREACH(const RtGroupMembers::value_type &rt_tables, rt_members) {
+        MemberTableList member;
+        vector<string> table_names;
+        BOOST_FOREACH(BgpTable *table, rt_tables.second) {
+            table_names.push_back(table->name());
+        }
+        member.set_family(Address::FamilyToString(rt_tables.first));
+        member.set_tables(table_names);
+        member_list->push_back(member);
+    }
+}
+
+void RtGroup::FillInterestedPeers(vector<string> *interested_peers) const {
+    BOOST_FOREACH(const InterestedPeerList::value_type &peer, peer_list_) {
+        interested_peers->push_back(peer.first->peer_basename());
+    }
+}
+
+void RtGroup::FillDependentRoutes(vector<string> *rtlist) const {
+    for (RTargetDepRouteList::const_iterator dep_it = dep_.begin();
+         dep_it != dep_.end(); ++dep_it) {
+        for (RouteList::const_iterator dep_rt_it = dep_it->begin();
+             dep_rt_it != dep_it->end(); ++dep_rt_it) {
+            rtlist->push_back((*dep_rt_it)->ToString());
+        }
+    }
+}
+
+void RtGroup::FillShowInfoCommon(ShowRtGroupInfo *info,
+    bool fill_peers, bool fill_routes) const {
+    info->set_rtarget(rt_.ToString());
+
+    vector<MemberTableList> import_members;
+    FillMemberTables(import_, &import_members);
+    info->set_import_members(import_members);
+    vector<MemberTableList> export_members;
+    FillMemberTables(export_, &export_members);
+    info->set_export_members(export_members);
+
+    if (fill_peers) {
+        vector<string> interested_peers;
+        FillInterestedPeers(&interested_peers);
+        info->set_peers_interested(interested_peers);
+    }
+    if (fill_routes) {
+        vector<string> rtlist;
+        FillDependentRoutes(&rtlist);
+        info->set_dep_route(rtlist);
+    }
+}
+
+void RtGroup::FillShowInfo(ShowRtGroupInfo *info) const {
+    FillShowInfoCommon(info, true, true);
+}
+
+void RtGroup::FillShowSummaryInfo(ShowRtGroupInfo *info) const {
+    FillShowInfoCommon(info, true, false);
+}
+
+void RtGroup::FillShowPeerInfo(ShowRtGroupInfo *info) const {
+    FillShowInfoCommon(info, false, true);
 }

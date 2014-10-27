@@ -194,10 +194,11 @@ DBEntry *LoadbalancerTable::Add(const DBRequest *request) {
     return loadbalancer;
 }
 
-void LoadbalancerTable::Delete(DBEntry *entry, const DBRequest *request) {
+bool LoadbalancerTable::Delete(DBEntry *entry, const DBRequest *request) {
     Loadbalancer *loadbalancer  = static_cast<Loadbalancer *>(entry);
     assert(dependency_manager_);
     dependency_manager_->ResetObject(loadbalancer->node());
+    return true;
 }
 
 bool LoadbalancerTable::OnChange(DBEntry *entry, const DBRequest *request) {

@@ -32,8 +32,7 @@ public:
     BgpXmppMessage(const BgpTable *table, const RibOutAttr *roattr)
         : table_(table),
           is_reachable_(roattr->IsReachable()),
-          sequence_number_(0),
-          virtual_network_("unresolved") {
+          sequence_number_(0) {
     }
     virtual ~BgpXmppMessage() { }
     void Start(const RibOutAttr *roattr, const BgpRoute *route);
@@ -84,6 +83,7 @@ private:
             }
         }
     }
+    string GetVirtualNetwork(const BgpRoute *route) const;
 
     const BgpTable *table_;
     bool is_reachable_;
@@ -96,6 +96,7 @@ private:
     string repr_new_;
     size_t repr_part1_;
     size_t repr_part2_;
+
     DISALLOW_COPY_AND_ASSIGN(BgpXmppMessage);
 };
 
@@ -173,7 +174,7 @@ void BgpXmppMessage::AddIpReach(const BgpRoute *route,
     item.entry.nlri.safi = route->XmppSafi();
     item.entry.nlri.address = route->ToString();
     item.entry.version = 1;
-    item.entry.virtual_network = virtual_network_;
+    item.entry.virtual_network = GetVirtualNetwork(route);
     item.entry.local_preference = roattr->attr()->local_pref();
     item.entry.sequence_number = sequence_number_;
 
@@ -256,7 +257,7 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route, const RibOutAttr *roatt
     item.entry.nlri.mac = evpn_prefix.mac_addr().ToString();
     item.entry.nlri.address = evpn_prefix.ip_address().to_string() + "/" +
         integerToString(evpn_prefix.ip_address_length());
-    item.entry.virtual_network = virtual_network_;
+    item.entry.virtual_network = GetVirtualNetwork(route);
 
     const BgpOList *olist = roattr->attr()->olist().get();
     assert((olist == NULL) != roattr->nexthop_list().empty());
@@ -369,6 +370,18 @@ const uint8_t *BgpXmppMessage::GetData(IPeerUpdate *peer, size_t *lenp) {
 
     *lenp = repr_.size();
     return reinterpret_cast<const uint8_t *>(repr_.c_str());
+}
+
+string BgpXmppMessage::GetVirtualNetwork(const BgpRoute *route) const {
+    if (!is_reachable_)
+        return "unresolved";
+    if (!virtual_network_.empty())
+        return virtual_network_;
+
+    const BgpPath *path = route->BestPath();
+    if (path && path->IsVrfOriginated())
+        return table_->routing_instance()->GetVirtualNetworkName();
+    return "unresolved";
 }
 
 Message *BgpXmppMessageBuilder::Create(const BgpTable *table,

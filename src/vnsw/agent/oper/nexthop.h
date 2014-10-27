@@ -1285,10 +1285,11 @@ public:
         return ret;
     }
 
-    virtual void Delete(DBEntry *entry, const DBRequest *req) {
+    virtual bool Delete(DBEntry *entry, const DBRequest *req) {
         NextHop *nh = static_cast<NextHop *>(entry);
         nh->Delete(req);
         nh->SendObjectLog(AgentLogEvent::DELETE);
+        return true;
     }
 
     static void Delete(NextHopKey *key) {

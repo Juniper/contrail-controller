@@ -38,7 +38,10 @@ class NeutronPluginInterface(object):
     """
 
     def __init__(self, api_server_ip, api_server_port, conf_sections, sandesh):
-        self._vnc_api_ip = api_server_ip
+        if api_server_ip == '0.0.0.0':
+            self._vnc_api_ip = '127.0.0.1'
+        else:
+            self._vnc_api_ip = api_server_ip
         self._vnc_api_port = api_server_port
         self._config_sections = conf_sections
         self._auth_user = conf_sections.get('KEYSTONE', 'admin_user')

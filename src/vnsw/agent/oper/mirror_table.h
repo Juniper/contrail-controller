@@ -36,7 +36,6 @@ public:
 
     virtual bool IsLess(const DBEntry &rhs) const;
     virtual bool Change(const DBRequest *req) {return false;};
-    virtual void Delete(const DBRequest *req) {};
 
     virtual void SetKey(const DBRequestKey *key);
     virtual KeyPtr GetDBRequestKey() const;
@@ -80,7 +79,7 @@ public:
 
     virtual DBEntry *Add(const DBRequest *req);
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);
-    virtual void Delete(DBEntry *entry, const DBRequest *req) { }
+    virtual bool Delete(DBEntry *entry, const DBRequest *request) { return true; }
     VrfEntry *FindVrfEntry(const std::string &vrf_name) const;
     static void AddMirrorEntry(const std::string &analyzer_name,
                                const std::string &vrf_name,

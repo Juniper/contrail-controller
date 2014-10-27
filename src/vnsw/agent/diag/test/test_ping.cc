@@ -4,6 +4,7 @@
 
 #include "base/os.h"
 #include "testing/gunit.h"
+#include <sys/socket.h>
 #include <netinet/if_ether.h>
 #include <base/logging.h>
 #include <io/event_manager.h>

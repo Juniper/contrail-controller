@@ -7,7 +7,7 @@
 
 #include <vector>
 #include <stdint.h>
-#include <netinet/ether.h>
+#include <net/ethernet.h>
 #include <boost/intrusive_ptr.hpp>
 #include <cmn/agent_cmn.h>
 #include <base/connection_info.h>

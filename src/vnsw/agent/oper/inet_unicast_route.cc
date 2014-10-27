@@ -179,9 +179,9 @@ InetUnicastRouteEntry::InetUnicastRouteEntry(VrfEntry *vrf,
                                              bool is_multicast) :
     AgentRoute(vrf, is_multicast), plen_(plen) {
     if (addr.is_v4()) {
-        addr_ = GetIp4SubnetAddress(addr.to_v4(), plen);
+        addr_ = Address::GetIp4SubnetAddress(addr.to_v4(), plen);
     } else {
-        addr_ = GetIp6SubnetAddress(addr.to_v6(), plen);
+        addr_ = Address::GetIp6SubnetAddress(addr.to_v6(), plen);
     }
 }
 
@@ -1150,8 +1150,8 @@ void InetUnicastAgentRouteTable::AddDropRoute(const string &vm_vrf,
     Agent *agent = Agent::GetInstance();
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new InetUnicastRouteKey(agent->local_peer(), vm_vrf,
-                                           GetIp4SubnetAddress(addr, plen),
-                                           plen));
+                                      Address::GetIp4SubnetAddress(addr, plen),
+                                      plen));
     req.data.reset(new DropRoute(vn_name));
     Inet4UnicastTableEnqueue(agent, &req);
 }
@@ -1160,7 +1160,7 @@ void InetUnicastAgentRouteTable::DelVHostSubnetRecvRoute(const string &vm_vrf,
                                                          const Ip4Address &addr,
                                                          uint8_t plen) {
     DeleteReq(Agent::GetInstance()->local_peer(), vm_vrf,
-              GetIp4SubnetAddress(addr, plen), 32, NULL);
+              Address::GetIp4SubnetAddress(addr, plen), 32, NULL);
 }
 
 static void AddGatewayRouteInternal(DBRequest *req, const string &vrf_name,

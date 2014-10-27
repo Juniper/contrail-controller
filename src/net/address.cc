@@ -146,6 +146,120 @@ boost::system::error_code Inet6PrefixParse(const string &str, Ip6Address *addr,
     return err;
 }
 
+/* Returns IPv4 subnet address for a given IPv4 address and prefix length. The
+ * IPv4 address and prefix lengths are converted to u32 numbers and then bitwise
+ * AND operation is performed between those 2 numbers and the resulting u32
+ * number is converted to IPv4Address object and returned. If prefix length is 0
+ * then 0 is converted to IPv4Address object and returned.
+ */
+Ip4Address Address::GetIp4SubnetAddress(const Ip4Address &prefix, uint16_t plen) {
+    if (plen == 0) {
+        return boost::asio::ip::address_v4(0);
+    }
+
+    Ip4Address subnet(prefix.to_ulong() & (0xFFFFFFFF << (32 - plen)));
+    return subnet;
+}
+
+/* Returns IPv6 subnet address for a given IPv6 address and prefix length. The
+ * input IPv6 address is first converted into an array of 8 two byte integers.
+ * Based on prefix length we first figure out the array index position from
+ * where the masking of bits needs to start. Once the array index is found we
+ * have 16 possible bit positions from where masking has to start. For each of
+ * the 16 positions we have a unique 16 byte constant that we use to mask the
+ * two byte integer. Once the array position is appropriately masked we mask
+ * the rest of two byte integers till the array ends. The resulting array is
+ * converted to IPv6 object and returned. If the prefix length is 0 then we
+ * return an IPv6 object constructed using its default constructors which
+ * assumes all bits as 0s.
+ */
+Ip6Address Address::GetIp6SubnetAddress(const Ip6Address &prefix, uint16_t plen) {
+    if (plen == 0) {
+        return boost::asio::ip::address_v6();
+    }
+
+    if (plen == 128) {
+        return prefix;
+    }
+
+    uint16_t ip6[8], in_ip6[8];
+    unsigned char bytes[16];
+
+    inet_pton(AF_INET6, prefix.to_string().c_str(), ip6);
+
+    for (int i = 0; i < 8; ++i) {
+        in_ip6[i] = ntohs(ip6[i]);
+    }
+
+    int index = (int) (plen / 16);
+    int remain_mask = plen % 16;
+
+    switch (remain_mask) {
+        case 0:
+            in_ip6[index++] = 0;
+            break;
+        case 1:
+            in_ip6[index++] &= 0x8000;
+            break;
+        case 2:
+            in_ip6[index++] &= 0xc000;
+            break;
+        case 3:
+            in_ip6[index++] &= 0xe000;
+            break;
+        case 4:
+            in_ip6[index++] &= 0xf000;
+            break;
+        case 5:
+            in_ip6[index++] &= 0xf800;
+            break;
+        case 6:
+            in_ip6[index++] &= 0xfc00;
+            break;
+        case 7:
+            in_ip6[index++] &= 0xfe00;
+            break;
+        case 8:
+            in_ip6[index++] &= 0xff00;
+            break;
+        case  9:
+            in_ip6[index++] &= 0xff80;
+            break;
+        case 10:
+            in_ip6[index++] &= 0xffc0;
+            break;
+        case 11:
+            in_ip6[index++] &= 0xffe0;
+            break;
+        case 12:
+            in_ip6[index++] &= 0xfff0;
+            break;
+        case 13:
+            in_ip6[index++] &= 0xfff8;
+            break;
+        case 14:
+            in_ip6[index++] &= 0xfffc;
+            break;
+        case 15:
+            in_ip6[index++] &= 0xfffe;
+            break;
+    }
+
+    for (int i = index; i < 8; ++i) {
+        in_ip6[i] = 0;
+    }
+
+    for (int i = 0; i < 8; ++i) {
+        ip6[i] = htons(in_ip6[i]);
+    }
+    memcpy(bytes, ip6, sizeof(ip6));
+    boost::array<uint8_t, 16> to_bytes;
+    for (int i = 0; i < 16; ++i) {
+        to_bytes.at(i) = bytes[i];
+    }
+    return boost::asio::ip::address_v6(to_bytes);
+}
+
 // Ip6Address.to_v4() has exceptions. Plus, we dont have a to_v4() version
 // without exceptions that takes an boost::error_code.
 // If the v6-address is v4_mapped, return the ipv4 equivalent address. Else

@@ -52,70 +52,72 @@ bool RTargetGroupMgr::RequestHandler(RtGroupMgrReq *req) {
     CHECK_CONCURRENCY("bgp::RTFilter");
 
     switch (req->type_) {
-        case RtGroupMgrReq::SHOW_RTGROUP: {
-            ShowRtGroupResp *resp = 
-                static_cast<ShowRtGroupResp *>(req->snh_resp_);
-            std::vector<ShowRtGroupInfo> rtgroup_info_list;
-            for (RtGroupMap::iterator it = rtgroup_map_.begin(); 
+    case RtGroupMgrReq::SHOW_RTGROUP: {
+        ShowRtGroupResp *snh_resp =
+            static_cast<ShowRtGroupResp *>(req->snh_resp_);
+        std::vector<ShowRtGroupInfo> rtgroup_info_list;
+        if (req->param_.empty()) {
+            for (RtGroupMap::const_iterator it = rtgroup_map_.begin();
                  it != rtgroup_map_.end(); it++) {
                 ShowRtGroupInfo info;
-                RtGroup *rtgroup = it->second;
-                info.set_rtarget(rtgroup->rt().ToString());
-                std::vector<MemberTableList> export_members;
-                BOOST_FOREACH(const RtGroup::RtGroupMembers::value_type &tables,
-                              rtgroup->GetExportMembers()) {
-                    MemberTableList member;
-                    std::vector<std::string> export_tables;
-                    BOOST_FOREACH(BgpTable *table, tables.second)
-                        export_tables.push_back(table->name());
-                    member.set_family(
-                                      Address::FamilyToString(tables.first));
-                    member.set_tables(export_tables);
-                    export_members.push_back(member);
-                }
-                info.set_export_members(export_members);
-
-                std::vector<MemberTableList> import_members;
-                BOOST_FOREACH(const RtGroup::RtGroupMembers::value_type &tables,
-                              rtgroup->GetImportMembers()) {
-                    MemberTableList member;
-                    std::vector<std::string> import_tables;
-                    BOOST_FOREACH(BgpTable *table, tables.second)
-                        import_tables.push_back(table->name());
-                    member.set_tables(import_tables);
-                    member.set_family(
-                                      Address::FamilyToString(tables.first));
-                    import_members.push_back(member);
-                }
-                info.set_import_members(import_members);
-
-                const RtGroup::RTargetDepRouteList &dep_rt_list = 
-                    rtgroup->DepRouteList();
-                std::vector<std::string> rtlist;
-                for (RtGroup::RTargetDepRouteList::const_iterator dep_it = 
-                     dep_rt_list.begin(); dep_it != dep_rt_list.end(); 
-                     dep_it++) {
-                    for (RtGroup::RouteList::const_iterator dep_rt_it = 
-                         dep_it->begin(); dep_rt_it != dep_it->end(); 
-                         dep_rt_it++) {
-                        rtlist.push_back((*dep_rt_it)->ToString());
-                    }
-                }
-                info.set_dep_route(rtlist);
-
-                std::vector<std::string> interested_peers;
-                BOOST_FOREACH(const RtGroup::InterestedPeerList::value_type 
-                              &peers, rtgroup->PeerList())
-                    interested_peers.push_back(peers.first->peer_name());
-                info.set_peers_interested(interested_peers);
+                const RtGroup *rtgroup = it->second;
+                rtgroup->FillShowInfo(&info);
                 rtgroup_info_list.push_back(info);
             }
-            resp->set_rtgroup_list(rtgroup_info_list);
-
-            resp->Response();
-            break;
+        } else {
+            RouteTarget rtarget = RouteTarget::FromString(req->param_);
+            RtGroupMap::const_iterator it = rtgroup_map_.find(rtarget);
+            if (it != rtgroup_map_.end()) {
+                ShowRtGroupInfo info;
+                const RtGroup *rtgroup = it->second;
+                rtgroup->FillShowInfo(&info);
+                rtgroup_info_list.push_back(info);
+            }
         }
+
+        snh_resp->set_rtgroup_list(rtgroup_info_list);
+        snh_resp->Response();
+        break;
     }
+    case RtGroupMgrReq::SHOW_RTGROUP_PEER: {
+        ShowRtGroupPeerResp *snh_resp =
+            static_cast<ShowRtGroupPeerResp *>(req->snh_resp_);
+        std::vector<ShowRtGroupInfo> rtgroup_info_list;
+        for (RtGroupMap::iterator it = rtgroup_map_.begin();
+             it != rtgroup_map_.end(); it++) {
+            ShowRtGroupInfo info;
+            RtGroup *rtgroup = it->second;
+            if (!rtgroup->HasInterestedPeer(req->param_))
+                continue;
+            rtgroup->FillShowPeerInfo(&info);
+            rtgroup_info_list.push_back(info);
+        }
+
+        snh_resp->set_rtgroup_list(rtgroup_info_list);
+        snh_resp->Response();
+        break;
+    }
+    case RtGroupMgrReq::SHOW_RTGROUP_SUMMARY: {
+        ShowRtGroupSummaryResp *snh_resp =
+            static_cast<ShowRtGroupSummaryResp *>(req->snh_resp_);
+        std::vector<ShowRtGroupInfo> rtgroup_info_list;
+        for (RtGroupMap::iterator it = rtgroup_map_.begin();
+             it != rtgroup_map_.end(); it++) {
+            ShowRtGroupInfo info;
+            RtGroup *rtgroup = it->second;
+            rtgroup->FillShowSummaryInfo(&info);
+            rtgroup_info_list.push_back(info);
+        }
+
+        snh_resp->set_rtgroup_list(rtgroup_info_list);
+        snh_resp->Response();
+        break;
+    }
+    default: {
+        break;
+    }
+    }
+
     delete req;
     return true;
 }
@@ -129,8 +131,28 @@ void ShowRtGroupReq::HandleRequest() const {
     RTargetGroupMgr *mgr =  bsc->bgp_server->rtarget_group_mgr();
     ShowRtGroupResp *resp = new ShowRtGroupResp;
     resp->set_context(context());
-    RtGroupMgrReq  *req = 
-        new RtGroupMgrReq(RtGroupMgrReq::SHOW_RTGROUP, resp);
+    RtGroupMgrReq  *req =
+        new RtGroupMgrReq(RtGroupMgrReq::SHOW_RTGROUP, resp, get_rtarget());
+    mgr->Enqueue(req);
+}
+
+void ShowRtGroupPeerReq::HandleRequest() const {
+    BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(client_context());
+    RTargetGroupMgr *mgr =  bsc->bgp_server->rtarget_group_mgr();
+    ShowRtGroupPeerResp *resp = new ShowRtGroupPeerResp;
+    resp->set_context(context());
+    RtGroupMgrReq  *req =
+        new RtGroupMgrReq(RtGroupMgrReq::SHOW_RTGROUP_PEER, resp, get_peer());
+    mgr->Enqueue(req);
+}
+
+void ShowRtGroupSummaryReq::HandleRequest() const {
+    BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(client_context());
+    RTargetGroupMgr *mgr =  bsc->bgp_server->rtarget_group_mgr();
+    ShowRtGroupSummaryResp *resp = new ShowRtGroupSummaryResp;
+    resp->set_context(context());
+    RtGroupMgrReq  *req =
+        new RtGroupMgrReq(RtGroupMgrReq::SHOW_RTGROUP_SUMMARY, resp);
     mgr->Enqueue(req);
 }
 

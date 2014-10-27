@@ -15,7 +15,7 @@ from cfgm_common.zkclient import ZookeeperClient
 import requests
 import ConfigParser
 import cgitb
-from cStringIO import StringIO
+import cStringIO
 import argparse
 import socket
 
@@ -539,7 +539,7 @@ def launch_timer(monitor):
             cgitb_error_log(monitor)
 
 def cgitb_error_log(monitor):
-    tmp_file = StringIO()
+    tmp_file = cStringIO.StringIO()
     cgitb.Hook(format="text", file=tmp_file).handle(sys.exc_info())
     monitor._svc_err_logger.error("%s" % tmp_file.getvalue())
     tmp_file.close()

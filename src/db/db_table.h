@@ -141,7 +141,7 @@ public:
     // notified of the change
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);
     // Delete hook for user function
-    virtual void Delete(DBEntry *entry, const DBRequest *req);
+    virtual bool Delete(DBEntry *entry, const DBRequest *req);
 
     // Suspended deletion resume hook for user function
     virtual void RetryDelete() { }

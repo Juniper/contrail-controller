@@ -21,6 +21,7 @@ const string SERVICE_QUERY_ENGINE = "contrail-query-engine"
 const string SERVICE_OPSERVER = "contrail-analytics-api"
 const string SERVICE_DISCOVERY = "contrail-discovery:0"
 const string SERVICE_STORAGE_STATS_MGR = "contrail-storage-stats"
+const string SERVICE_IPMI_STATS_MGR = "contrail-ipmi-stats"
 
 // NodeMgr names
 const string SERVICE_COMPUTE_NODE_MGR = "contrail-vrouter-nodemgr"
@@ -44,6 +45,7 @@ const u16 HttpPortVRouterNodemgr = 8102
 const u16 HttpPortDatabaseNodemgr = 8103
 const u16 HttpPortAnalyticsNodemgr = 8104
 const u16 HttpPortStorageStatsmgr = 8105
+const u16 HttpPortIpmiStatsmgr = 8106
 
 const u16 HttpPortControl = 8083
 const u16 HttpPortApiServer = 8084
@@ -100,6 +102,7 @@ const map<string, u16> ServiceHttpPortMap = {
     SERVICE_CONTROL_NODE_MGR : HttpPortControlNodemgr,
     SERVICE_DATABASE_NODE_MGR : HttpPortDatabaseNodemgr,
     SERVICE_STORAGE_STATS_MGR : HttpPortStorageStatsmgr,
+    SERVICE_IPMI_STATS_MGR : HttpPortIpmiStatsmgr,
 }
 
 const list<string> NodeUVEImplementedServices = [
@@ -135,29 +138,31 @@ enum Module {
     WEBUI_NODE_MGR,
     COMPUTE_NODE_MGR,
     STORAGE_STATS_MGR,
+    IPMI_STATS_MGR,
     MAX_MODULE,
 }
 
-const string MODULE_CONTROL_NODE_NAME = "Contrail-Control"
-const string MODULE_VROUTER_AGENT_NAME = "Contrail-Vrouter-Agent"
-const string MODULE_API_SERVER_NAME = "Contrail-Api"
-const string MODULE_SCHEMA_TRANSFORMER_NAME = "Contrail-Schema"
-const string MODULE_OPSERVER_NAME = "Contrail-Analytics-Api"
-const string MODULE_COLLECTOR_NAME = "Contrail-Collector"
-const string MODULE_QUERY_ENGINE_NAME = "Contrail-Query-Engine"
-const string MODULE_SVC_MONITOR_NAME = "Contrail-Svc-Monitor"
+const string MODULE_CONTROL_NODE_NAME = SERVICE_CONTROL_NODE
+const string MODULE_VROUTER_AGENT_NAME = SERVICE_VROUTER_AGENT
+const string MODULE_API_SERVER_NAME = "contrail-api"
+const string MODULE_SCHEMA_TRANSFORMER_NAME = SERVICE_SCHEMA_TRANSFORMER
+const string MODULE_OPSERVER_NAME = SERVICE_OPSERVER
+const string MODULE_COLLECTOR_NAME = SERVICE_COLLECTOR
+const string MODULE_QUERY_ENGINE_NAME = SERVICE_QUERY_ENGINE
+const string MODULE_SVC_MONITOR_NAME = SERVICE_SVC_MONITOR
 const string MODULE_DEVICE_MANAGER_NAME = "PrcManager"
 const string MODULE_DNS_NAME = "DnsAgent"
-const string MODULE_DISCOVERY_SERVICE_NAME = "Contrail-Discovery"
+const string MODULE_DISCOVERY_SERVICE_NAME = SERVICE_DISCOVERY
 const string MODULE_IFMAP_SERVER_NAME = "IfmapServer"
 const string MODULE_XMPP_SERVER_NAME = "XmppServer"
-const string MODULE_ANALYTICS_NODE_MGR_NAME = "Contrail-Analytics-Nodemgr"
-const string MODULE_CONTROL_NODE_MGR_NAME = "Contrail-Control-Nodemgr"
-const string MODULE_CONFIG_NODE_MGR_NAME = "Contrail-Config-Nodemgr"
-const string MODULE_DATABASE_NODE_MGR_NAME = "Contrail-Database-Nodemgr"
+const string MODULE_ANALYTICS_NODE_MGR_NAME = SERVICE_ANALYTICS_NODE_MGR
+const string MODULE_CONTROL_NODE_MGR_NAME = SERVICE_CONTROL_NODE_MGR
+const string MODULE_CONFIG_NODE_MGR_NAME = SERVICE_CONFIG_NODE_MGR
+const string MODULE_DATABASE_NODE_MGR_NAME = SERVICE_DATABASE_NODE_MGR
 const string MODULE_WEBUI_NODE_MGR_NAME = "Contrail-WebUI-Nodemgr"
-const string MODULE_COMPUTE_NODE_MGR_NAME = "Contrail-Vrouter-Nodemgr"
+const string MODULE_COMPUTE_NODE_MGR_NAME = SERVICE_COMPUTE_NODE_MGR
 const string MODULE_STORAGE_STATS_MGR_NAME = "Storage-Stats-mgr"
+const string MODULE_IPMI_STATS_MGR_NAME = "Ipmi-Stats-mgr"
 
 const map<Module, string> ModuleNames = {
     Module.CONTROL_NODE       : MODULE_CONTROL_NODE_NAME,
@@ -180,6 +185,7 @@ const map<Module, string> ModuleNames = {
     Module.WEBUI_NODE_MGR     : MODULE_WEBUI_NODE_MGR_NAME,
     Module.COMPUTE_NODE_MGR   : MODULE_COMPUTE_NODE_MGR_NAME,
     Module.STORAGE_STATS_MGR  : MODULE_STORAGE_STATS_MGR_NAME,
+    Module.IPMI_STATS_MGR     : MODULE_IPMI_STATS_MGR_NAME,
 }
 
 const map<string, Module> ModuleIds = {
@@ -203,6 +209,7 @@ const map<string, Module> ModuleIds = {
     MODULE_WEBUI_NODE_MGR_NAME         : Module.WEBUI_NODE_MGR,
     MODULE_COMPUTE_NODE_MGR_NAME       : Module.COMPUTE_NODE_MGR,
     MODULE_STORAGE_STATS_MGR_NAME      : Module.STORAGE_STATS_MGR,
+    MODULE_IPMI_STATS_MGR_NAME         : Module.IPMI_STATS_MGR,
 }
 
 // Supervisor names
@@ -215,6 +222,7 @@ enum NodeType {
     WEBUI,
     DATABASE,
     OPENSTACK,
+    SERVERMGR,
 }
 
 const map<NodeType, string> NodeTypeNames = {
@@ -226,6 +234,7 @@ const map<NodeType, string> NodeTypeNames = {
     NodeType.WEBUI           : "WebUI",
     NodeType.DATABASE        : "Database",
     NodeType.OPENSTACK       : "OpenStack",
+    NodeType.SERVERMGR       : "ServerMgr",
 }
 
 const map <Module, NodeType> Module2NodeType = {
@@ -249,6 +258,7 @@ const map <Module, NodeType> Module2NodeType = {
     Module.WEBUI_NODE_MGR     : NodeType.WEBUI,
     Module.COMPUTE_NODE_MGR   : NodeType.COMPUTE,
     Module.STORAGE_STATS_MGR  : NodeType.COMPUTE,
+    Module.IPMI_STATS_MGR     : NodeType.SERVERMGR,
 }
 
 const string INSTANCE_ID_DEFAULT = "0"

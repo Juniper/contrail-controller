@@ -96,13 +96,18 @@ private:
 struct RtGroupMgrReq {
     enum RequestType {
         SHOW_RTGROUP,
+        SHOW_RTGROUP_PEER,
+        SHOW_RTGROUP_SUMMARY,
     };
 
-    RtGroupMgrReq(RequestType type, SandeshResponse *resp) 
-        : type_(type), snh_resp_(resp) {
+    RtGroupMgrReq(RequestType type, SandeshResponse *resp,
+        const std::string &param = std::string())
+        : type_(type), snh_resp_(resp), param_(param) {
     }
+
     RequestType type_;
     SandeshResponse *snh_resp_;
+    std::string param_;
 
     DISALLOW_COPY_AND_ASSIGN(RtGroupMgrReq);
 };

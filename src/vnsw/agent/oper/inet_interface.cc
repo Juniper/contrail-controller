@@ -2,7 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <netinet/ether.h>
+#include <sys/types.h>
+#include <net/ethernet.h>
 #include <boost/uuid/uuid_io.hpp>
 
 #include "base/logging.h"
@@ -124,7 +125,7 @@ void InetInterface::DeActivateSimpleGateway() {
     Agent *agent = table->agent();
 
     // Delete routes
-    Ip4Address addr = GetIp4SubnetAddress(ip_addr_, plen_);
+    Ip4Address addr = Address::GetIp4SubnetAddress(ip_addr_, plen_);
     uc_rt_table->DeleteReq(agent->local_vm_peer(), agent->fabric_vrf_name(),
                            addr, plen_, NULL);
 
@@ -175,7 +176,7 @@ static void AddHostRoutes(Agent *agent, InetUnicastAgentRouteTable *table,
                                    32, vn_name, false);
 
     table->AddResolveRoute(vrf->GetName(),
-                           GetIp4SubnetAddress(addr, plen), plen);
+                           Address::GetIp4SubnetAddress(addr, plen), plen);
 }
 
 static void DeleteHostRoutes(Agent *agent, InetUnicastAgentRouteTable *table,
@@ -183,7 +184,7 @@ static void DeleteHostRoutes(Agent *agent, InetUnicastAgentRouteTable *table,
                              int plen) {
     table->Delete(agent->local_peer(), vrf->GetName(), addr, 32);
     table->Delete(agent->local_peer(), vrf->GetName(),
-                  GetIp4SubnetAddress(addr, plen), plen);
+                  Address::GetIp4SubnetAddress(addr, plen), plen);
     table->Delete(agent->local_peer(), vrf->GetName(),
                   GetIp4SubnetBroadcastAddress(addr, plen), 32);
 }

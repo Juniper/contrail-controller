@@ -89,7 +89,7 @@ public:
 
     virtual DBEntry *Add(const DBRequest *req);
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);
-    virtual void Delete(DBEntry *entry, const DBRequest *req);
+    virtual bool Delete(DBEntry *entry, const DBRequest *req);
 
     EntryB *FindBRef(const EntryKey &key) const;
 
@@ -161,7 +161,7 @@ public:
 
     virtual DBEntry *Add(const DBRequest *req);
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);
-    virtual void Delete(DBEntry *entry, const DBRequest *req);
+    virtual bool Delete(DBEntry *entry, const DBRequest *req);
 
     EntryA *FindA(const EntryKey &key) const;
 
@@ -221,8 +221,9 @@ public:
         return true;
     }
 
-    virtual void Delete(DBEntry *entry, const DBRequest *req) {
+    virtual bool Delete(DBEntry *entry, const DBRequest *req) {
         ref = NULL;
+        return true;
     }
 
     static DBTableBase *CreateTable(DB *db, const std::string &name) {

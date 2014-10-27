@@ -2,7 +2,9 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  sact*/
 
-#include <netinet/ether.h>
+#include "base/os.h"
+#include <sys/types.h>
+#include <net/ethernet.h>
 #include <boost/uuid/uuid_io.hpp>
 #include <tbb/mutex.h>
 
@@ -110,10 +112,11 @@ bool InterfaceTable::Resync(DBEntry *entry, DBRequest *req) {
     return intf->Resync(vm_data);
 }
 
-void InterfaceTable::Delete(DBEntry *entry, const DBRequest *req) {
+bool InterfaceTable::Delete(DBEntry *entry, const DBRequest *req) {
     Interface *intf = static_cast<Interface *>(entry);
     intf->Delete();
     intf->SendTrace(Interface::DELETE);
+    return true;
 }
 
 VrfEntry *InterfaceTable::FindVrfRef(const string &name) const {
@@ -279,7 +282,12 @@ void Interface::GetOsParams(Agent *agent) {
     }
     close(fd);
 
+#if defined(__linux__)
     mac_ = ifr.ifr_hwaddr;
+#elif defined(__FreeBSD__)
+    mac_ = ifr.ifr_addr;
+#endif
+
     if (os_index_ == kInvalidIndex) {
         int idx = if_nametoindex(name_.c_str());
         if (idx)

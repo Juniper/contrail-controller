@@ -230,10 +230,6 @@ protected:
             TunnelEncap tunnel_encap(*it);
             ext_comm.communities.push_back(tunnel_encap.GetExtCommunityValue());
         }
-        const RoutingInstance *rti = ri_mgr_->GetRoutingInstance(instance_name);
-        TASK_UTIL_EXPECT_NE(0, rti->virtual_network_index());
-        OriginVn origin_vn(0, rti->virtual_network_index());
-        ext_comm.communities.push_back(origin_vn.GetExtCommunityValue());
         attr_spec.push_back(&ext_comm);
 
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);

@@ -335,6 +335,12 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           flap_count_(0),
           last_flap_(0) {
 
+    if (peer_name_.find(rtinstance_->name()) == 0) {
+        peer_basename_ = peer_name_.substr(rtinstance_->name().size() + 1);
+    } else {
+        peer_basename_ = peer_name_;
+    }
+
     boost::system::error_code ec;
     Ip4Address id = Ip4Address::from_string(config->local_identifier(), ec);
     local_bgp_id_ = id.to_ulong();
@@ -1584,7 +1590,7 @@ void BgpPeer::FillBgpNeighborDebugState(BgpNeighborResp &resp,
 
 void BgpPeer::FillNeighborInfo(std::vector<BgpNeighborResp> &nbr_list) const {
     BgpNeighborResp nbr;
-    nbr.set_peer(peer_name_.substr(rtinstance_->name().size() + 1));
+    nbr.set_peer(peer_basename_);
     nbr.set_peer_address(peer_key_.endpoint.address().to_string());
     nbr.set_deleted(IsDeleted());
     nbr.set_peer_asn(peer_as());
