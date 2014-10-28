@@ -3344,7 +3344,7 @@ class DBInterface(object):
         # determine creation of v4 and v6 ip object
         ip_obj_v4_create = False
         ip_obj_v6_create = False
-        ipam_refs = net_obj.get_network_ipam_refs()
+        ipam_refs = net_obj.get_network_ipam_refs() or []
         for ipam_ref in ipam_refs:
             subnet_vncs = ipam_ref['attr'].get_ipam_subnets()
             for subnet_vnc in subnet_vncs:
