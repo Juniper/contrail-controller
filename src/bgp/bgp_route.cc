@@ -14,6 +14,7 @@
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_table.h"
 #include "bgp/extended-community/mac_mobility.h"
+#include "bgp/extended-community/site_of_origin.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/security_group/security_group.h"
@@ -332,6 +333,9 @@ void BgpRoute::FillRouteInfo(BgpTable *table, ShowRoute *show_route) {
                 } else if (ExtCommunity::is_security_group(*it)) {
                     SecurityGroup sg(*it);
                     srp.communities.push_back(sg.ToString());
+                } else if (ExtCommunity::is_route_target(*it)) {
+                    SiteOfOrigin soo(*it);
+                    srp.communities.push_back(soo.ToString());
                 } else if (ExtCommunity::is_tunnel_encap(*it)) {
                     TunnelEncap encap(*it);
                     srp.communities.push_back(encap.ToString());
