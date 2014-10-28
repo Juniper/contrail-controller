@@ -15,6 +15,7 @@ utils_scripts = [
   'provision.py',
   'service-policy.py',
   'chmod.py',
+  'contrail',
   'contrail-version',
   'contrail-status.py',
   'demo_cfg.py',
