@@ -120,7 +120,6 @@ public:
     void Shutdown();
 
     void Publish(std::string serviceName, std::string &msg);
-    void Publish(std::string serviceName);
     void PublishResponseHandler(std::string &msg, boost::system::error_code, 
                                 std::string serviceName, HttpConnection *);
     void WithdrawPublish(std::string serviceName);
@@ -128,7 +127,6 @@ public:
     typedef boost::function<void(std::vector<DSResponse>)> ServiceHandler;
     void Subscribe(std::string serviceName, 
                    uint8_t numbOfInstances, ServiceHandler);
-    void Subscribe(std::string serviceName, uint8_t numbOfInstances);
     void SubscribeResponseHandler(std::string &msg, boost::system::error_code &, 
                                   std::string serviceName, HttpConnection *);
 
@@ -161,6 +159,8 @@ public:
     PublishResponseMap publish_response_map_;
 
 private:
+    friend struct DSResponseHeader;
+    friend struct DSPublishResponse;
 
     //Build and send http post message
     void SendHttpPostMessage(std::string, std::string, std::string);
@@ -175,7 +175,9 @@ private:
     EventManager *evm_;
     boost::asio::ip::tcp::endpoint ds_endpoint_;
 
+    void Publish(std::string serviceName);
     void WithdrawPublishInternal(std::string serviceName);
+    void Subscribe(std::string serviceName, uint8_t numbOfInstances);
     void UnsubscribeInternal(std::string serviceName);
 
     bool DequeueEvent(EnqueuedCb);
