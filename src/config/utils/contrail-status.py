@@ -353,6 +353,7 @@ def main():
     capi = package_installed('contrail-config')
     cwebui = package_installed('contrail-web-core')
     database = package_installed('contrail-openstack-database')
+    storage = package_installed('contrail-storage')
 
     vr = False
     lsmodout = subprocess.Popen('lsmod', stdout=subprocess.PIPE).communicate()[0]
@@ -381,6 +382,10 @@ def main():
 
     if database:
         supervisor_status('database', options.debug)
+
+    if storage:
+        print "== Contrail Storage =="
+        check_svc('contrail-storage-stats')
 
     if len(glob.glob('/var/crashes/core.*')) != 0:
         print "========Run time service failures============="

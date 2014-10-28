@@ -28,6 +28,10 @@ struct OsdStats {
     6: u64 op_w_latency;
 }
 
+systemlog sandesh StorageStatsDaemonLog {
+    1: string message;
+}
+
 struct ComputeStorageOsdState {
     1: string status;
 }
