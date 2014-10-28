@@ -1484,7 +1484,8 @@ class DBInterface(object):
         rtr_q_dict['gw_port_id'] = None
 
         ext_net_uuid = self._get_external_gateway_info(rtr_obj)
-        rtr_q_dict['external_gateway_info'] = ext_net_uuid
+        rtr_q_dict['external_gateway_info'] = {'network_id': ext_net_uuid,
+                                               'enable_snat': True}
 
         if self._contrail_extensions_enabled:
             rtr_q_dict.update(extra_dict)
