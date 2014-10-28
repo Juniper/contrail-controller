@@ -63,14 +63,7 @@ public:
 
     RtGroup(const RouteTarget &rt);
     const RouteTarget &rt();
-    bool empty(Address::Family family) const;
-
-    const RtGroupMembers &GetImportMembers() {
-        return import_;
-    }
-    const RtGroupMembers &GetExportMembers() {
-        return export_;
-    }
+    bool MayDelete() const;
 
     const RtGroupMemberList GetImportTables(Address::Family family) const;
     const RtGroupMemberList GetExportTables(Address::Family family) const;
@@ -79,17 +72,19 @@ public:
     bool AddExportTable(Address::Family family, BgpTable *tbl);
     bool RemoveImportTable(Address::Family family, BgpTable *tbl);
     bool RemoveExportTable(Address::Family family, BgpTable *tbl);
+    bool HasImportExportTables(Address::Family family) const;
+    bool HasImportExportTables() const;
 
     void AddDepRoute(int part_id, BgpRoute *rt);
     void RemoveDepRoute(int part_id, BgpRoute *rt);
-    bool RouteDepListEmpty();
-    const RTargetDepRouteList &DepRouteList() const;
+    void NotifyDepRoutes(int part_id);
+    bool HasDepRoutes() const;
 
     const RtGroupInterestedPeerSet &GetInterestedPeers() const;
     void AddInterestedPeer(const BgpPeer *peer, RTargetRoute *rt);
     void RemoveInterestedPeer(const BgpPeer *peer, RTargetRoute *rt);
+    bool HasInterestedPeers() const;
     bool HasInterestedPeer(const std::string &name) const;
-    bool peer_list_empty() const;
 
     void FillShowInfo(ShowRtGroupInfo *info) const;
     void FillShowPeerInfo(ShowRtGroupInfo *info) const;

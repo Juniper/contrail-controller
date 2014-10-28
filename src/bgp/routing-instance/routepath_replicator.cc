@@ -276,7 +276,7 @@ void RoutePathReplicator::Leave(BgpTable *table, const RouteTarget &rt,
                 }
             }
         }
-    } else if (group->empty(family())) {
+    } else if (!group->HasImportExportTables(family())) {
         // Delete the group if no tables are import/export this group
         server()->rtarget_group_mgr()->RemoveRtGroup(rt);
     }
