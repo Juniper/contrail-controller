@@ -121,7 +121,10 @@ class EventManager:
             if diff.seconds > 3:
                 os.kill(p.pid, signal.SIGKILL)
                 os.waitpid(-1, os.WNOHANG)
-                syslog.syslog("command:" + cmd + " --> hanged")
+                message = "command:" + cmd + " ---> hanged"
+                ssdlog = StorageStatsDaemonLog(message = message)
+                self.call_send(ssdlog)
+                #syslog.syslog("command:" + cmd + " --> hanged")
                 return None
         return p.stdout.read()
 
@@ -655,7 +658,11 @@ def parse_args(args_str):
     defaults = {
         'disc_server_ip': '127.0.0.1',
         'disc_server_port': 5998,
-        'node_type': 'storage-compute'
+        'node_type': 'storage-compute',
+        'log_local': False,
+        'log_level': 'SYS_DEBUG',
+        'log_category': '',
+        'log_file': Sandesh._DEFAULT_LOG_FILE
     }
 
     if args.conf_file:
@@ -680,8 +687,16 @@ def parse_args(args_str):
                         help="IP address of the discovery server")
     parser.add_argument("--disc_server_port",
                         help="Port of the discovery server")
+    parser.add_argument("--log_local", action="store_true",
+                        help="Enable local logging of sandesh messages")
     parser.add_argument("--node_type",
                         help="node type of the storage")
+    parser.add_argument("--log_level",
+                        help="Severity level for local logging of sandesh messages")
+    parser.add_argument("--log_category",
+                        help="Category filter for local logging of sandesh messages")
+    parser.add_argument("--log_file",
+                        help="Filename for the logs to be written to")
 
     args = parser.parse_args(remaining_argv)
     return args
@@ -693,14 +708,6 @@ def main(args_str=None):
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
 
-    # dump the read values
-    sys.stderr.write("node_type: " + args.node_type + "\n")
-    sys.stderr.write("Discovery ip: " + args.disc_server_ip + "\n")
-    sys.stderr.write("Discovery port: " + str(args.disc_server_port) + "\n")
-
-    #syslog logging
-    syslog.openlog(logoption=syslog.LOG_PID)
-    # create event manager
     prog = EventManager(args.node_type)
 
     collector_addr = []
@@ -729,7 +736,14 @@ def main(args_str=None):
             HttpPortStorageStatsmgr,
             ['stats_daemon.sandesh.storage'],
             _disc)
+
+        sandesh_global.set_logging_params(
+            enable_local_log=args.log_local,
+            category=args.log_category,
+            level=args.log_level,
+            file=args.log_file)
     gevent.joinall([gevent.spawn(prog.runforever, sandesh_global)])
+
 
 if __name__ == '__main__':
     main()
