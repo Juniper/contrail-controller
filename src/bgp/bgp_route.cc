@@ -13,6 +13,9 @@
 #include "bgp/bgp_path.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_table.h"
+#include "bgp/extended-community/default_gateway.h"
+#include "bgp/extended-community/es_import.h"
+#include "bgp/extended-community/esi_label.h"
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/extended-community/site_of_origin.h"
 #include "bgp/origin-vn/origin_vn.h"
@@ -320,6 +323,15 @@ void BgpRoute::FillRouteInfo(BgpTable *table, ShowRoute *show_route) {
                 if (ExtCommunity::is_route_target(*it)) {
                     RouteTarget rt(*it);
                     srp.communities.push_back(rt.ToString());
+                } else if (ExtCommunity::is_default_gateway(*it)) {
+                    DefaultGateway dgw(*it);
+                    srp.communities.push_back(dgw.ToString());
+                } else if (ExtCommunity::is_es_import(*it)) {
+                    EsImport es_import(*it);
+                    srp.communities.push_back(es_import.ToString());
+                } else if (ExtCommunity::is_esi_label(*it)) {
+                    EsiLabel esi_label(*it);
+                    srp.communities.push_back(esi_label.ToString());
                 } else if (ExtCommunity::is_mac_mobility(*it)) {
                     MacMobility mm(*it);
                     srp.communities.push_back(mm.ToString());
