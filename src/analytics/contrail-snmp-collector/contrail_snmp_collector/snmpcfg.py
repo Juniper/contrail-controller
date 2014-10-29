@@ -51,7 +51,7 @@ PrivProto = AES
 PrivPass = foo
 SecName = snmpuser
 # Mibs default to all, to get a subset
-Mibs = LldpTable, ArpTable 
+Mibs = LldpTable, ArpTable
 
         '''
         # Source any specified config/ini file
@@ -76,6 +76,11 @@ Mibs = LldpTable, ArpTable
             'http_server_port': 5920,
             'file'            : 'devices.ini',
         }
+        ksopts = {
+            'admin_user': 'user1',
+            'admin_password': 'password1',
+            'admin_tenant_name': 'default-domain'
+        }
 
         config = None
         if args.conf_file:
@@ -83,6 +88,8 @@ Mibs = LldpTable, ArpTable
             config.optionxform = str
             config.read([args.conf_file])
             defaults.update(dict(config.items("DEFAULTS")))
+            if 'KEYSTONE' in config.sections():
+                ksopts.update(dict(config.items("KEYSTONE")))
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
         parser = argparse.ArgumentParser(
@@ -93,6 +100,7 @@ Mibs = LldpTable, ArpTable
             # Don't mess with format of description
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
+        defaults.update(ksopts)
         parser.set_defaults(**defaults)
         parser.add_argument("--collectors",
             help="List of Collector IP addresses in ip:port format",
@@ -103,10 +111,10 @@ Mibs = LldpTable, ArpTable
         parser.add_argument("--log_local", action="store_true",
             help="Enable local logging of sandesh messages")
         parser.add_argument(
-            "--log_category", 
+            "--log_category",
             help="Category filter for local logging of sandesh messages")
         parser.add_argument(
-            "--log_level",  
+            "--log_level",
             help="Severity level for local logging of sandesh messages")
         parser.add_argument("--use_syslog",
             action="store_true",
@@ -117,50 +125,31 @@ Mibs = LldpTable, ArpTable
             help="Time between snmp poll")
         parser.add_argument("--http_server_port", type=int,
             help="introspect server port")
+        parser.add_argument("--admin_user",
+                            help="Name of keystone admin user")
+        parser.add_argument("--admin_password",
+                            help="Password of keystone admin user")
+        parser.add_argument("--admin_tenant_name",
+                            help="Tenant name for keystone admin user")
         group = parser.add_mutually_exclusive_group(required=True)
         group.add_argument("--file",
             help="where to look for snmp credentials")
-        group.add_argument("--api_serever",
+        group.add_argument("--api_server",
             help="ip:port of api-server for snmp credentials")
-        group.add_argument("--discovery_serever",
+        group.add_argument("--discovery_server",
             help="ip:port of dicovery to get api-sever snmp credentials")
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
-        if self._args.file:
-            devcfg = ConfigParser.SafeConfigParser()
-            devcfg.optionxform = str
-            devcfg.read([self._args.file])
-            for dev in devcfg.sections():
-                nd = dict(devcfg.items(dev))
-                mibs = self._mklist(self._get_and_remove_key(nd, 
-                            'Mibs', []))
-                flow_export_source_ip = self._get_and_remove_key(nd, 
-                        'FlowExportSourceIp')
-                self._devices.append(DeviceConfig(dev, nd, mibs,
-                            flow_export_source_ip))
         self._args.config_sections = config
 
-    def _get_and_remove_key(self, data_dict, key, default=None):
-        val = default
-        if key in data_dict:
-            val = data_dict[key]
-            del data_dict[key]
-        return val
-
-
-
-    def _pat(self):
-        if self.__pat is None:
-           self.__pat = re.compile(', *| +')
-        return self.__pat
-
-    def _mklist(self, s):
-        if isinstance(s, str):
-            return self._pat().split(s)
-        return s
-
     def devices(self):
+        if self._args.file:
+            self._devices = DeviceConfig.fom_file(self._args.file)
+        if self._args.api_server:
+            self._devices = DeviceConfig.fom_api_server(self._args.api_server,
+                    self._args.admin_user, self._args.admin_password,
+                    self._args.admin_tenant_name)
         for d in self._devices:
             yield d
 

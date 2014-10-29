@@ -1059,6 +1059,32 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('physical-router-user-credentials', 'physical-router') -->
 
+<xsd:complexType name="SNMPCredentials">
+    <xsd:all>
+        <xsd:element name="version" type='xsd:integer' default='2'/>
+        <xsd:element name="local-port" type='xsd:integer'/>
+        <xsd:element name="retries" type='xsd:integer'/>
+        <xsd:element name="timeout" type='xsd:integer'/>
+        <xsd:element name="v2-community" type='xsd:string'/>
+        <xsd:element name="v3-security-name" type='xsd:string'/>
+        <xsd:element name="v3-security-level" type='xsd:string'/>
+        <xsd:element name="v3-security-engine-id" type='xsd:string'/>
+        <xsd:element name="v3-context" type='xsd:string'/>
+        <xsd:element name="v3-context-engine-id" type='xsd:string'/>
+        <xsd:element name="v3-authentication-protocol" type='xsd:string'/>
+        <xsd:element name="v3-authentication-password" type='xsd:string'/>
+        <xsd:element name="v3-privacy-protocol" type='xsd:string'/>
+        <xsd:element name="v3-privacy-password" type='xsd:string'/>
+        <xsd:element name="v3-engine-id" type='xsd:string'/>
+        <xsd:element name="v3-engine-boots" type='xsd:integer'/>
+        <xsd:element name="v3-engine-time" type='xsd:integer'/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:element name="physical-router-snmp-credentials" type='SNMPCredentials'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('physical-router-snmp-credentials', 'physical-router') -->
+
 <xsd:element name="logical-interface-virtual-machine-interface"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('logical-interface-virtual-machine-interface',

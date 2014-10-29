@@ -1,4 +1,5 @@
 import pprint, socket, copy
+import datetime
 from pysandesh.sandesh_base import *
 from pysandesh.connection_info import ConnectionState
 from gen_py.prouter.ttypes import ArpTable, IfTable, IfXTable, IfStats, \
@@ -52,7 +53,7 @@ class SnmpUve(object):
             elif 'ifName' in ife:
                 ifname = ife['ifName']
             else:
-                print 'Err: ', ife.keys()
+                print str(datetime.datetime.now()),'Err: ', ife.keys(), pname
                 continue
 
             if ifname not in diffs:
@@ -99,7 +100,7 @@ class SnmpUve(object):
                 globals(), locals())
 
     def make_uve(self, data):
-        print 'Building UVE:', data['name']
+        # print 'Building UVE:', data['name']
         if 'arpTable' in data:
             data['arpTable'] = map(lambda x: ArpTable(**x),
                     data['arpTable'])
@@ -168,6 +169,6 @@ class SnmpUve(object):
         return PRouterUVE(data=PRouterEntry(**data))
 
     def send_uve(self, uve):
-        print 'Sending UVE:', uve.data.name
+        # print 'Sending UVE:', uve.data.name
         uve.send()
 
