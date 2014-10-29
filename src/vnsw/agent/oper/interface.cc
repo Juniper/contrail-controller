@@ -377,9 +377,11 @@ void PacketInterface::Delete(InterfaceTable *table, const std::string &ifname) {
 // Ethernet Interface routines
 /////////////////////////////////////////////////////////////////////////////
 PhysicalInterface::PhysicalInterface(const std::string &name, VrfEntry *vrf,
-                                     bool persistent) :
+                                     SubType subtype) :
     Interface(Interface::PHYSICAL, nil_uuid(), name, vrf),
-    persistent_(persistent) {
+    persistent_(false), subtype_(subtype) {
+    if (subtype_ == VMWARE)
+        persistent_ = true;
 }
 
 PhysicalInterface::~PhysicalInterface() {
@@ -398,18 +400,18 @@ DBEntryBase::KeyPtr PhysicalInterface::GetDBRequestKey() const {
 
 // Enqueue DBRequest to create a Host Interface
 void PhysicalInterface::CreateReq(InterfaceTable *table, const string &ifname,
-                                  const string &vrf_name, bool persistent) {
+                                  const string &vrf_name, SubType subtype) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new PhysicalInterfaceKey(ifname));
-    req.data.reset(new PhysicalInterfaceData(vrf_name, persistent));
+    req.data.reset(new PhysicalInterfaceData(vrf_name, subtype));
     table->Enqueue(&req);
 }
 
 void PhysicalInterface::Create(InterfaceTable *table, const string &ifname,
-                               const string &vrf_name, bool persistent) {
+                               const string &vrf_name, SubType subtype) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new PhysicalInterfaceKey(ifname));
-    req.data.reset(new PhysicalInterfaceData(vrf_name, persistent));
+    req.data.reset(new PhysicalInterfaceData(vrf_name, subtype));
     table->Process(req);
 }
 
@@ -437,7 +439,7 @@ PhysicalInterfaceKey::~PhysicalInterfaceKey() {
 }
 
 Interface *PhysicalInterfaceKey::AllocEntry(const InterfaceTable *table) const {
-    return new PhysicalInterface(name_, NULL, false);
+    return new PhysicalInterface(name_, NULL, PhysicalInterface::INVALID);
 }
 
 Interface *PhysicalInterfaceKey::AllocEntry(const InterfaceTable *table,
@@ -451,7 +453,38 @@ Interface *PhysicalInterfaceKey::AllocEntry(const InterfaceTable *table,
     const PhysicalInterfaceData *phy_data =
         static_cast<const PhysicalInterfaceData *>(data);
 
-    return new PhysicalInterface(name_, vrf, phy_data->persistent_);
+    return new PhysicalInterface(name_, vrf, phy_data->subtype_);
+}
+
+void PhysicalInterface::PostAdd() {
+    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+
+    if (subtype_ != VMWARE || table->agent()->test_mode()) {
+        return;
+    }
+
+    int fd = socket(AF_LOCAL, SOCK_STREAM, 0);
+    assert(fd >= 0);
+
+    struct ifreq ifr;
+    memset(&ifr, 0, sizeof(ifr));
+    strncpy(ifr.ifr_name, name_.c_str(), IF_NAMESIZE);
+    if (ioctl(fd, SIOCGIFFLAGS, (void *)&ifr) < 0) {
+        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
+            "> setting promiscuous flag for interface <" << name_ << ">");
+        close(fd);
+        return;
+    }
+
+    ifr.ifr_flags |= IFF_PROMISC;
+    if (ioctl(fd, SIOCSIFFLAGS, (void *)&ifr) < 0) {
+        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
+            "> setting promiscuous flag for interface <" << name_ << ">");
+        close(fd);
+        return;
+    }
+
+    close(fd);
 }
 
 InterfaceKey *PhysicalInterfaceKey::Clone() const {
@@ -459,8 +492,8 @@ InterfaceKey *PhysicalInterfaceKey::Clone() const {
 }
 
 PhysicalInterfaceData::PhysicalInterfaceData(const std::string &vrf_name,
-                                             bool persistent)
-    : InterfaceData(), persistent_(persistent) {
+                                             PhysicalInterface::SubType subtype)
+    : InterfaceData(), subtype_(subtype) {
     EthInit(vrf_name);
 }
 

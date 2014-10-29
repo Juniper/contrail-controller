@@ -54,13 +54,16 @@ void DoInterfaceSandesh(std::string name) {
 }
 
 class CfgTest : public ::testing::Test {
+public:
     virtual void SetUp() {
+        agent_ = Agent::GetInstance();
     }
 
     virtual void TearDown() {
         EXPECT_EQ(0U, Agent::GetInstance()->acl_table()->Size());
     }
 
+    Agent *agent_;
 };
 
 TEST_F(CfgTest, AddDelVmPortNoVn_1) {
@@ -1190,14 +1193,27 @@ TEST_F(CfgTest, Basic_1) {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 5, 5},
     };
 
+    PhysicalInterfaceKey key(eth_intf);
+    PhysicalInterface *phy_intf = NULL;
+
     client->Reset();
     PhysicalInterface::CreateReq(Agent::GetInstance()->interface_table(),
-                            eth_intf, vrf_name, false);
+                            eth_intf, vrf_name, PhysicalInterface::FABRIC);
     client->WaitForIdle();
+    phy_intf = static_cast<PhysicalInterface *>
+        (agent_->interface_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(phy_intf == NULL);
+
     PhysicalInterface::CreateReq(Agent::GetInstance()->interface_table(),
                             eth_intf, Agent::GetInstance()->fabric_vrf_name(),
-                            false);
+                            PhysicalInterface::FABRIC);
     client->WaitForIdle();
+
+    phy_intf = static_cast<PhysicalInterface *>
+        (agent_->interface_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(phy_intf->persistent() == false);
+    EXPECT_TRUE(phy_intf->subtype() == PhysicalInterface::FABRIC);
+
     InetInterface::CreateReq(Agent::GetInstance()->interface_table(),
                              "vhost10", InetInterface::VHOST,
                              Agent::GetInstance()->fabric_vrf_name(),

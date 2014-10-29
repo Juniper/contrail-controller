@@ -121,7 +121,8 @@ void ContrailInitCommon::CreateInterfaces() {
     InterfaceTable *table = agent()->interface_table();
 
     PhysicalInterface::Create(table, agent_param()->eth_port(),
-                              agent()->fabric_vrf_name(), false);
+                              agent()->fabric_vrf_name(),
+                              PhysicalInterface::FABRIC);
     InetInterface::Create(table, agent_param()->vhost_name(),
                           InetInterface::VHOST, agent()->fabric_vrf_name(),
                           agent_param()->vhost_addr(),
@@ -133,7 +134,8 @@ void ContrailInitCommon::CreateInterfaces() {
     if (agent_param()->isVmwareMode()) {
         PhysicalInterface::Create(agent()->interface_table(),
                                   agent_param()->vmware_physical_port(),
-                                  agent()->fabric_vrf_name(), true);
+                                  agent()->fabric_vrf_name(),
+                                  PhysicalInterface::VMWARE);
     }
 
     InetInterfaceKey key(agent()->vhost_interface_name());
