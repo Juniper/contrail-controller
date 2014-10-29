@@ -90,7 +90,7 @@ sdist_depends.extend(doc_sources_rules)
 sdist_depends.extend(sandesh_trace_pkg)
 
 # TODO: deprecate
-sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
+sdist_gen = env.Command('dist/vnc_cfg_api_server-0.1dev.tar.gz', 'setup.py', 'python setup.py sdist', chdir=Dir('.'))
 
 env.Default(sdist_gen)
 
@@ -129,15 +129,15 @@ if buildspace_link:
 else:
     top_dir = Dir('.')
 
-test_cmd = env.Command('test.log', 'setup.py',
+test_cmd = env.Command('test.log', sdist_gen,
           'python setup.py run_tests 2>&1 | tee test.log',
           chdir=top_dir)
 
-test_depends = ['/config/common/dist',
-                '/api-lib/dist/',
-                '/discovery/client/dist',
-                '/tools/sandesh/library/python/dist/',
-                '/sandesh/common/dist',]
+test_depends = ['/config/common/dist/cfgm_common-0.1dev.tar.gz',
+                '/api-lib/dist/vnc_api-0.1dev.tar.gz',
+                '/discovery/client/dist/discoveryclient-0.1dev.tar.gz',
+                '/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz',
+                '/sandesh/common/dist/sandesh-common-0.1dev.tar.gz',]
 env.Depends(test_cmd, [env['TOP']+x for x in test_depends])
 
 env.Alias('flaky-test', test_cmd)

@@ -1,3 +1,8 @@
+cfgm_common
+vnc_api
+discoveryclient
+sandesh
+sandesh-common
 lxml>=2.3.3
 gevent
 geventhttpclient==1.0a
@@ -6,7 +11,9 @@ netaddr>=0.7.5
 bitarray>=0.8.0
 psutil>=0.4.1
 python-novaclient
+python-keystoneclient
 kombu
 netifaces
 bottle
 stevedore
+kazoo
