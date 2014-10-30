@@ -51,7 +51,7 @@ void VNController::XmppServerConnect() {
             if (ch) {
                 // Channel is created, do not disturb
                 CONTROLLER_TRACE(DiscoveryConnection, "XMPP Server",
-                                 ch->controller_ifmap_xmpp_server(), 
+                                 ch->GetXmppServer(), 
                                  "is already present, ignore discovery response");
                 count++;
                 continue; 
@@ -119,7 +119,7 @@ void VNController::DnsXmppServerConnect() {
             if (ch) {
                 // Channel is up and running, do not disturb
                 CONTROLLER_TRACE(DiscoveryConnection, "DNS Server",
-                                 ch->controller_ifmap_xmpp_server(), 
+                                 ch->GetXmppServer(), 
                                  "is already present, ignore discovery response");
                 count++;
                 continue; 
@@ -246,7 +246,7 @@ AgentXmppChannel *VNController::FindAgentXmppChannel(
     uint8_t count = 0;
     while (count < MAX_XMPP_SERVERS) {
         AgentXmppChannel *ch = agent_->controller_xmpp_channel(count);
-        if (ch && (ch->controller_ifmap_xmpp_server().compare(server_ip) == 0)) {
+        if (ch && (ch->GetXmppServer().compare(server_ip) == 0)) {
             return ch; 
         }
         count++;
@@ -314,11 +314,11 @@ void VNController::ApplyDiscoveryXmppServices(std::vector<DSResponse> resp) {
             if (chnl->GetXmppChannel() &&
                 chnl->GetXmppChannel()->GetPeerState() == xmps::READY) {
                 CONTROLLER_TRACE(DiscoveryConnection, "XMPP Server",
-                                 chnl->controller_ifmap_xmpp_server(), "is UP and running, ignore");
+                                 chnl->GetXmppServer(), "is UP and running, ignore");
                 continue;
             } else { 
                 CONTROLLER_TRACE(DiscoveryConnection, "XMPP Server",
-                                 chnl->controller_ifmap_xmpp_server(), "is NOT_READY, ignore");
+                                 chnl->GetXmppServer(), "is NOT_READY, ignore");
                 continue;
             } 
 
@@ -367,7 +367,7 @@ AgentDnsXmppChannel *VNController::FindAgentDnsXmppChannel(
     uint8_t count = 0;
     while (count < MAX_XMPP_SERVERS) {
         AgentDnsXmppChannel *ch = agent_->dns_xmpp_channel(count);
-        if (ch && (ch->controller_ifmap_xmpp_server().compare(server_ip) == 0)) {
+        if (ch && (ch->GetXmppServer().compare(server_ip) == 0)) {
             return ch; 
         }
         count++;
@@ -414,11 +414,11 @@ void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
             if (chnl->GetXmppChannel() &&
                 chnl->GetXmppChannel()->GetPeerState() == xmps::READY) {
                 CONTROLLER_TRACE(DiscoveryConnection, "DNS Server",
-                                 chnl->controller_ifmap_xmpp_server(), "is UP and running, ignore");
+                                 chnl->GetXmppServer(), "is UP and running, ignore");
                 continue;
             } else { 
                 CONTROLLER_TRACE(DiscoveryConnection, "DNS Server",
-                                 chnl->controller_ifmap_xmpp_server(), "is NOT_READY, ignore");
+                                 chnl->GetXmppServer(), "is NOT_READY, ignore");
                 continue;
             } 
 
@@ -533,7 +533,7 @@ void VNController::ControllerPeerHeadlessAgentDelDone(BgpPeer *bgp_peer) {
  * Iterates through all decommisioned peers and issues 
  * delete peer walk for each one with peer as self
  */
-bool VNController::UnicastCleanupTimerExpired() {
+void VNController::UnicastCleanupTimerExpired() {
     for (BgpPeerIterator it  = decommissioned_peer_list_.begin(); 
          it != decommissioned_peer_list_.end(); ++it) {
         BgpPeer *bgp_peer = static_cast<BgpPeer *>((*it).get());
@@ -541,8 +541,6 @@ bool VNController::UnicastCleanupTimerExpired() {
             boost::bind(&VNController::ControllerPeerHeadlessAgentDelDone, 
                         this, bgp_peer));
     }
-
-    return false;
 }
 
 void VNController::StartUnicastCleanupTimer(
@@ -559,9 +557,8 @@ void VNController::StartUnicastCleanupTimer(
 // Multicast info is maintained using sequence number and not peer,
 // so on expiration of timer send the sequence number specified at start of
 // timer. 
-bool VNController::MulticastCleanupTimerExpired(uint64_t peer_sequence) {
+void VNController::MulticastCleanupTimerExpired(uint64_t peer_sequence) {
     MulticastHandler::GetInstance()->FlushPeerInfo(peer_sequence);
-    return false;
 }
 
 void VNController::StartMulticastCleanupTimer(

@@ -26,7 +26,7 @@
 CleanupTimer::CleanupTimer(Agent *agent, const std::string &timer_name,
                            uint32_t default_stale_timer_interval)
     : agent_(agent), extension_interval_(0), last_restart_time_(0),
-    agent_xmpp_channel_(NULL), running_(false), timer_name_(timer_name),
+    xmpp_server_(""), timer_name_(timer_name),
     stale_timer_interval_(default_stale_timer_interval) {
     cleanup_timer_ = 
         TimerManager::CreateTimer(*(agent->event_manager()->
@@ -37,15 +37,15 @@ CleanupTimer::CleanupTimer(Agent *agent, const std::string &timer_name,
 
 CleanupTimer::~CleanupTimer() {
     //Delete timer
-    if (cleanup_timer_)
+    if (cleanup_timer_) {
         TimerManager::DeleteTimer(cleanup_timer_);
+    }
 }
 
 bool CleanupTimer::Cancel() {
     CONTROLLER_TRACE(Timer, "Cleanup ", timer_name(), "");
-    agent_xmpp_channel_ = NULL;
     last_restart_time_ = 0;
-    running_ = false;
+    xmpp_server_.clear();
 
     if (cleanup_timer_ == NULL) {
         CONTROLLER_TRACE(Timer, "No Cleanup timer", timer_name(), ""); 
@@ -56,40 +56,38 @@ bool CleanupTimer::Cancel() {
 }
 
 // Evaluate if timer needs to be extended.
-// Ignore reschedule if channel sent is same as the one which started the timer.
+// Ignore reschedule if XmppServer sent is same as the one which started the timer.
 // If its in running state set the extension value
-void CleanupTimer::RescheduleTimer(AgentXmppChannel *agent_xmpp_channel) {
-    assert(agent_xmpp_channel);
-    if (agent_xmpp_channel_ == agent_xmpp_channel)
+void CleanupTimer::SetRescheduleTime(AgentXmppChannel *agent_xmpp_channel) {
+    if (xmpp_server_.compare(agent_xmpp_channel->GetXmppServer()) == 0) {
         return;
+    }
 
-    if (running_) { 
+    if (cleanup_timer_->running()) { 
         extension_interval_ = GetTimerExtensionValue(agent_xmpp_channel);
         CONTROLLER_TRACE(Timer, "Reschedule", timer_name(), 
-                         agent_xmpp_channel->GetBgpPeerName()); 
+                         agent_xmpp_channel->GetXmppServer()); 
     }
 }
 
-// If timer is running then ievaluate reschedule. However if channel sent is
-// NULL then its a request to Cancel the timer.
+// If timer is running then evaluate reschedule.
 // If timer was not running start the timer.
-// Set the last_restart_time and update the owner of timer with sent channel
+// Set the last_restart_time and update the owner of the timer with XmppServer
 void CleanupTimer::Start(AgentXmppChannel *agent_xmpp_channel) {
-    assert(agent_xmpp_channel);
-    if (running_) {
+    if (cleanup_timer_->running()) {
         // Headless mode - reschedule instead of cancel and return, no need to
         // start again.
         // Non headless mode - Cancel and then start 
         if (agent_xmpp_channel->agent()->headless_agent_mode()) {
-            RescheduleTimer(agent_xmpp_channel);
+            SetRescheduleTime(agent_xmpp_channel);
             last_restart_time_ = UTCTimestampUsec();
-            agent_xmpp_channel_ = agent_xmpp_channel;
+            xmpp_server_.clear();
+            xmpp_server_ = agent_xmpp_channel->GetXmppServer();
             return;
         } else {
             if (cleanup_timer_->Cancel() == false) {
                 CONTROLLER_TRACE(Timer, "Cancel during restart of timer failed",
-                                 timer_name(), agent_xmpp_channel->
-                                 GetBgpPeerName()); 
+                    timer_name(), agent_xmpp_channel->GetXmppServer());
             }
         }
     } 
@@ -98,12 +96,11 @@ void CleanupTimer::Start(AgentXmppChannel *agent_xmpp_channel) {
     cleanup_timer_->Start(GetTimerInterval(),
                           boost::bind(&CleanupTimer::TimerExpiredCallback, 
                                       this));
-    running_ = true;
     CONTROLLER_TRACE(Timer, "Start", timer_name(), 
-                     agent_xmpp_channel->GetBgpPeerName()); 
+                     agent_xmpp_channel->GetXmppServer()); 
 
     last_restart_time_ = UTCTimestampUsec();
-    agent_xmpp_channel_ = agent_xmpp_channel;
+    xmpp_server_ = agent_xmpp_channel->GetXmppServer();
 }
 
 // Start the timer again if extension interval is not zero.
@@ -114,25 +111,24 @@ bool CleanupTimer::TimerExpiredCallback() {
         // Restart the timer for postpone_interval specified.
         if (cleanup_timer_->Reschedule(extension_interval_) == false) {
             CONTROLLER_TRACE(Timer, "Reschedule failed", timer_name(), 
-              agent_xmpp_channel_ ? agent_xmpp_channel_->GetBgpPeerName() : "");
+                             xmpp_server_);
         }
 
         //Reset extension interval 
         extension_interval_ = 0;
         CONTROLLER_TRACE(Timer, "Reschedule on timer expiration", timer_name(), 
-              agent_xmpp_channel_ ? agent_xmpp_channel_->GetBgpPeerName() : "");
-        return true;
+                         xmpp_server_);
+        return false;
     } 
     
     TimerExpirationDone();
     CONTROLLER_TRACE(Timer, "Called Timer Expiration Routine", timer_name(), 
-             agent_xmpp_channel_ ? agent_xmpp_channel_->GetBgpPeerName() : "");
+                     xmpp_server_);
 
     //Reset all parameters
     extension_interval_ = 0;
-    agent_xmpp_channel_ = NULL;
-    running_ = false;
-    return true;
+    xmpp_server_.clear();
+    return false;
 }
 
 // If timer is in running state 
