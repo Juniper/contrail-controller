@@ -65,8 +65,8 @@ class InstanceManager {
     ~InstanceManager();
 
     void Initialize(DB *database, AgentSignal *signal,
-                    const std::string &netns_cmd, const int netns_workers,
-                    const int netns_timeout);
+                    const std::string &netns_cmd, const std::string &docker_cmd,
+		    		const int netns_workers, const int netns_timeout);
     void Terminate();
     bool DequeueEvent(InstanceManagerChildEvent event);
 
@@ -85,10 +85,22 @@ class InstanceManager {
                         pid_t pid, int status);
     void RegisterSigHandler();
     void InitSigHandler(AgentSignal *signal);
+
+    void StartServiceInstance(ServiceInstance *svc_instance,
+                              InstanceState *state, bool update);
+    void StopServiceInstance(ServiceInstance *svc_instance,
+                             InstanceState *state);
+
     void StartNetNS(ServiceInstance *svc_instance, InstanceState *state,
                     bool update);
     void StopNetNS(ServiceInstance *svc_instance, InstanceState *state);
     void StopStaleNetNS(ServiceInstance::Properties &props);
+
+    void StartDocker(ServiceInstance *svc_instance, InstanceState *state,
+                     bool update);
+    void StopDocker(ServiceInstance *svc_instance, InstanceState *state);
+
+
     void OnError(InstanceTask *task, const std::string errors);
     void RegisterSvcInstance(InstanceTask *task,
                              ServiceInstance *svc_instance);
@@ -134,6 +146,7 @@ class InstanceManager {
     DBTableBase::ListenerId si_listener_;
     DBTableBase::ListenerId lb_listener_;
     std::string netns_cmd_;
+    std::string docker_cmd_;
     int netns_timeout_;
     WorkQueue<InstanceManagerChildEvent> work_queue_;
 
