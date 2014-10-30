@@ -3648,10 +3648,10 @@ class DBInterface(object):
         return self._security_group_vnc_to_neutron(sg_obj)
     #end security_group_read
 
-    def security_group_delete(self, sg_id):
+    def security_group_delete(self, context, sg_id):
         try:
             sg_obj = self._vnc_lib.security_group_read(id=sg_id)
-            if sg_obj.name == 'default':
+            if sg_obj.name == 'default' and not context['is_admin']:
                 self._raise_contrail_exception(
                     'SecurityGroupCannotRemoveDefault')
         except NoIdError:
