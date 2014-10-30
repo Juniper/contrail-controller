@@ -57,12 +57,16 @@ public:
     static int StrVirtualizationTypeToInt(const std::string &type);
     static const std::string &IntVirtualizationTypeToStr(
         const ServiceInstance::VirtualizationType &type);
+    static int StrVRouterInstanceTypeToInt(const std::string &type);
+    static const std::string &IntVRouterInstanceTypeToStr(
+        const ServiceInstance::VRouterInstanceType &type);
 
 private:
     typedef std::map<std::string, int> StrTypeToIntMap;
     typedef std::pair<std::string, int> StrTypeToIntPair;
     static StrTypeToIntMap service_type_map_;
     static StrTypeToIntMap virtualization_type_map_;
+    static StrTypeToIntMap vrouter_instance_type_map_;
 
     static StrTypeToIntMap InitServiceTypeMap() {
         StrTypeToIntMap types;
@@ -76,7 +80,15 @@ private:
         StrTypeToIntMap types;
         types.insert(StrTypeToIntPair("virtual-machine", ServiceInstance::VirtualMachine));
         types.insert(StrTypeToIntPair("network-namespace", ServiceInstance::NetworkNamespace));
+        types.insert(StrTypeToIntPair("vrouter-instance", ServiceInstance::VRouterInstance));
 
+        return types;
+    };
+
+    static StrTypeToIntMap InitVRouterInstanceTypeMap() {
+        StrTypeToIntMap types;
+        types.insert(StrTypeToIntPair("libvirt-qemu", ServiceInstance::KVM));
+        types.insert(StrTypeToIntPair("docker", ServiceInstance::Docker));
         return types;
     };
 };
@@ -175,22 +187,12 @@ static void FindAndSetInterfaces(
     autogen::ServiceInstance *svc_instance,
     ServiceInstance::Properties *properties) {
 
-    const autogen::ServiceInstanceType &si_properties =
-            svc_instance->properties();
-
     /*
      * The outside virtual-network is always specified (by the
      * process that creates the service-instance).
      * The inside virtual-network is optional for loadbalancer.
-     */
-    properties->interface_count = si_properties.interface_list.size();
-    std::string right_netname = si_properties.interface_list[0].virtual_network;
-    std::string left_netname = "None";
-    if (properties->interface_count == 2) {
-        left_netname = si_properties.interface_list[1].virtual_network;
-    }
-
-    /*
+     * For VRouter instance there can be up to 3 interfaces.
+     * TODO: support more than 3 interfaces for VRouter instances.
      * Lookup for VMI nodes
      */
     for (DBGraphVertex::adjacency_iterator iter = vm_node->begin(graph);
@@ -203,20 +205,28 @@ static void FindAndSetInterfaces(
                 static_cast<autogen::VirtualMachineInterface *>(
                     adj->GetObject());
 
+        const autogen::VirtualMachineInterfacePropertiesType &vmi_props =
+                vmi->properties();
+
         IFMapNode *vn_node = FindNetwork(graph, adj);
         if (vn_node == NULL) {
             continue;
         }
 
-        std::string netname = vn_node->name();
-        if (netname == left_netname) {
+        if(vmi_props.service_interface_type == "left") {
             properties->vmi_inside = IdPermsGetUuid(vmi->id_perms());
             properties->mac_addr_inside = vmi->mac_addresses().at(0);
             properties->ip_addr_inside = FindInterfaceIp(graph, adj);
-        } else if (netname == right_netname) {
+        }
+        else if(vmi_props.service_interface_type == "right") {
             properties->vmi_outside = IdPermsGetUuid(vmi->id_perms());
             properties->mac_addr_outside = vmi->mac_addresses().at(0);
             properties->ip_addr_outside = FindInterfaceIp(graph, adj);
+        }
+        else if(vmi_props.service_interface_type == "management") {
+            properties->vmi_management = IdPermsGetUuid(vmi->id_perms());
+            properties->mac_addr_management = vmi->mac_addresses().at(0);
+            properties->ip_addr_management = FindInterfaceIp(graph, adj);
         }
 
         IFMapNode *ipam_node = FindNetworkSubnets(graph, vn_node);
@@ -228,17 +238,22 @@ static void FindAndSetInterfaces(
             static_cast<autogen::VirtualNetworkNetworkIpam *> (ipam_node->GetObject());
         const autogen::VnSubnetsType &subnets = ipam->data();
         for (unsigned int i = 0; i < subnets.ipam_subnets.size(); ++i) {
+
             int prefix_len = subnets.ipam_subnets[i].subnet.ip_prefix_len;
-            if (netname == left_netname &&
+
+            if (vmi_props.service_interface_type == "left" &&
                 SubNetContainsIpv4(subnets.ipam_subnets[i],
                         properties->ip_addr_inside)) {
                 properties->ip_prefix_len_inside = prefix_len;
-            } else if (netname == right_netname &&
+            } else if (vmi_props.service_interface_type == "right" &&
                        SubNetContainsIpv4(subnets.ipam_subnets[i],
                                 properties->ip_addr_outside)) {
-                properties->gw_ip =
-                        subnets.ipam_subnets[i].default_gateway;
+                properties->gw_ip = subnets.ipam_subnets[i].default_gateway;
                 properties->ip_prefix_len_outside = prefix_len;
+            } else if (vmi_props.service_interface_type == "management" &&
+                SubNetContainsIpv4(subnets.ipam_subnets[i],
+                        properties->ip_addr_management)) {
+                properties->ip_prefix_len_management = prefix_len;
             }
         }
     }
@@ -277,6 +292,13 @@ static void FindAndSetTypes(DBGraph *graph, IFMapNode *si_node,
     properties->virtualization_type =
             ServiceInstanceTypesMapping::StrVirtualizationTypeToInt(
                 svc_template_props.service_virtualization_type);
+
+    properties->vrouter_instance_type =
+            ServiceInstanceTypesMapping::StrVRouterInstanceTypeToInt(
+                svc_template_props.vrouter_instance_type);
+
+    properties->image_name = svc_template_props.image_name;
+    properties->instance_data = svc_template_props.instance_data;
 }
 
 static void FindAndSetLoadbalancer(DBGraph *graph, IFMapNode *node,
@@ -298,17 +320,33 @@ static void FindAndSetLoadbalancer(DBGraph *graph, IFMapNode *node,
 void ServiceInstance::Properties::Clear() {
     service_type = 0;
     virtualization_type = 0;
+    vrouter_instance_type = 0;
+
     instance_id = boost::uuids::nil_uuid();
+
     vmi_inside = boost::uuids::nil_uuid();
     vmi_outside = boost::uuids::nil_uuid();
-    mac_addr_inside.empty();
-    mac_addr_outside.empty();
-    ip_addr_inside.empty();
-    ip_addr_outside.empty();
-    gw_ip.empty();
+    vmi_management = boost::uuids::nil_uuid();
+
+    mac_addr_inside.clear();
+    mac_addr_outside.clear();
+    mac_addr_management.clear();
+
+    ip_addr_inside.clear();
+    ip_addr_outside.clear();
+    ip_addr_management.clear();
+
+    gw_ip.clear();
+    image_name.clear();
+
     ip_prefix_len_inside = -1;
     ip_prefix_len_outside = -1;
+    ip_prefix_len_management = -1;
+
     interface_count = 0;
+
+    instance_data.clear();
+    
     pool_id = boost::uuids::nil_uuid();
 }
 
@@ -326,6 +364,10 @@ static int compare(const Type &lhs, const Type &rhs) {
 int ServiceInstance::Properties::CompareTo(const Properties &rhs) const {
     int cmp = 0;
     cmp = compare(service_type, rhs.service_type);
+    if (cmp != 0) {
+        return cmp;
+    }
+    cmp = compare(vrouter_instance_type, rhs.vrouter_instance_type);
     if (cmp != 0) {
         return cmp;
     }
@@ -370,6 +412,15 @@ int ServiceInstance::Properties::CompareTo(const Properties &rhs) const {
     if (cmp != 0) {
         return cmp;
     }
+    cmp = compare(image_name, rhs.image_name);
+    if (cmp != 0) {
+        return cmp;
+    }
+
+    cmp = compare(instance_data, rhs.instance_data);
+    if (cmp != 0) {
+        return cmp;
+    }
 
     cmp = compare(pool_id, rhs.pool_id);
     if (cmp == 0) {
@@ -389,6 +440,10 @@ std::string ServiceInstance::Properties::DiffString(
     if (compare(virtualization_type, rhs.virtualization_type)) {
         ss << " virtualization: -" << virtualization_type
            << " +" << rhs.virtualization_type;
+    }
+    if (compare(vrouter_instance_type, rhs.vrouter_instance_type)) {
+        ss << " vrouter-instance-type: -" << vrouter_instance_type
+           << " +" << rhs.vrouter_instance_type;
     }
     if (compare(instance_id, rhs.instance_id)) {
         ss << " id: -" << instance_id << " +" << rhs.instance_id;
@@ -422,12 +477,26 @@ std::string ServiceInstance::Properties::DiffString(
     if (compare(gw_ip, rhs.gw_ip)) {
         ss << " gw_ip: -" << gw_ip << " +" << rhs.gw_ip;
     }
+    if (compare(image_name, rhs.image_name)) {
+        ss << " image: -" << image_name << " +" << rhs.image_name;
+    }
+    if (compare(instance_data, rhs.instance_data)) {
+        ss << " image: -" << instance_data << " +" << rhs.instance_data;
+    }
     return ss.str();
 }
 
 bool ServiceInstance::Properties::Usable() const {
-    bool common = (!instance_id.is_nil() &&
-                   !vmi_outside.is_nil() &&
+    if (instance_id.is_nil()) {
+        return false;
+    }
+
+    if (virtualization_type == ServiceInstance::VRouterInstance) {
+        //TODO: investigate for docker
+        return true;
+    }
+
+    bool common = (!vmi_outside.is_nil() &&
                    !ip_addr_outside.empty() &&
                    (ip_prefix_len_outside >= 0));
     if (!common) {
@@ -554,7 +623,7 @@ void ServiceInstance::CalculateProperties(
      * The vrouter agent is only interest in the properties of service
      * instances that are implemented as a network-namespace.
      */
-    if (properties->virtualization_type != NetworkNamespace) {
+    if (properties->virtualization_type != NetworkNamespace && properties->virtualization_type != VRouterInstance) {
         return;
     }
 
@@ -698,6 +767,8 @@ ServiceInstanceTypesMapping::StrTypeToIntMap
 ServiceInstanceTypesMapping::service_type_map_ = InitServiceTypeMap();
 ServiceInstanceTypesMapping::StrTypeToIntMap
 ServiceInstanceTypesMapping::virtualization_type_map_ = InitVirtualizationTypeMap();
+ServiceInstanceTypesMapping::StrTypeToIntMap
+ServiceInstanceTypesMapping::vrouter_instance_type_map_ = InitVRouterInstanceTypeMap();
 const std::string ServiceInstanceTypesMapping::kOtherType = "Other";
 
 int ServiceInstanceTypesMapping::StrServiceTypeToInt(const std::string &type) {
@@ -717,6 +788,16 @@ int ServiceInstanceTypesMapping::StrVirtualizationTypeToInt(
     return 0;
 }
 
+int ServiceInstanceTypesMapping::StrVRouterInstanceTypeToInt(
+        const std::string &type) {
+    StrTypeToIntMap::const_iterator it = vrouter_instance_type_map_.find(type);
+    if (it != vrouter_instance_type_map_.end()) {
+        return it->second;
+    }
+    LOG(ERROR, "Unkown type: " << type);
+    return 0;
+}
+
 const std::string &ServiceInstanceTypesMapping::IntServiceTypeToStr(
     const ServiceInstance::ServiceType &type) {
     for (StrTypeToIntMap::const_iterator it = service_type_map_.begin();
@@ -731,6 +812,17 @@ const std::string &ServiceInstanceTypesMapping::IntServiceTypeToStr(
 const std::string &ServiceInstanceTypesMapping::IntVirtualizationTypeToStr(
     const ServiceInstance::VirtualizationType &type) {
     for (StrTypeToIntMap::const_iterator it = virtualization_type_map_.begin();
+         it != virtualization_type_map_.end(); ++it) {
+        if (it->second == type) {
+            return it->first;
+        }
+    }
+    return kOtherType;
+}
+
+const std::string &ServiceInstanceTypesMapping::IntVRouterInstanceTypeToStr(
+    const ServiceInstance::VRouterInstanceType &type) {
+    for (StrTypeToIntMap::const_iterator it = vrouter_instance_type_map_.begin();
          it != virtualization_type_map_.end(); ++it) {
         if (it->second == type) {
             return it->first;

@@ -11,7 +11,7 @@
 
 class DBGraph;
 class IFMapDependencyManager;
-class NamespaceManager;
+class InstanceManager;
 
 class ServiceInstanceKey : public AgentKey {
   public:
@@ -37,6 +37,11 @@ public:
     enum VirtualizationType {
         VirtualMachine  = 1,
         NetworkNamespace,
+        VRouterInstance
+    };
+    enum VRouterInstanceType {
+        KVM = 1,
+        Docker
     };
 
     /*
@@ -54,6 +59,7 @@ public:
         /* template parameters */
         int service_type;
         int virtualization_type;
+        int vrouter_instance_type;
 
         /* virtual machine */
         boost::uuids::uuid instance_id;
@@ -61,18 +67,26 @@ public:
         /* interfaces */
         boost::uuids::uuid vmi_inside;
         boost::uuids::uuid vmi_outside;
+        boost::uuids::uuid vmi_management;
 
         std::string mac_addr_inside;
         std::string mac_addr_outside;
+        std::string mac_addr_management;
 
         std::string ip_addr_inside;
         std::string ip_addr_outside;
+        std::string ip_addr_management;
+
         std::string gw_ip;
+        std::string image_name;
 
         int ip_prefix_len_inside;
         int ip_prefix_len_outside;
-        // number of interfaces: 1 - outside; 2 - inside + outside.
+        int ip_prefix_len_management;
+
         int interface_count;
+
+        std::string instance_data;
 
         // loadbalancer-pool uuid
         boost::uuids::uuid pool_id;

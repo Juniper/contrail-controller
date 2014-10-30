@@ -9,6 +9,7 @@
 #include "cmn/agent_signal.h"
 #include "db/db_table.h"
 #include "oper/service_instance.h"
+#include "oper/instance_manager_adapter.h"
 
 class Agent;
 class DB;
@@ -65,8 +66,8 @@ class InstanceManager {
     ~InstanceManager();
 
     void Initialize(DB *database, AgentSignal *signal,
-                    const std::string &netns_cmd, const int netns_workers,
-                    const int netns_timeout);
+                    const std::string &netns_cmd, const std::string &docker_cmd,
+                    const int netns_workers, const int netns_timeout);
     void Terminate();
     bool DequeueEvent(InstanceManagerChildEvent event);
 
@@ -85,10 +86,15 @@ class InstanceManager {
                         pid_t pid, int status);
     void RegisterSigHandler();
     void InitSigHandler(AgentSignal *signal);
-    void StartNetNS(ServiceInstance *svc_instance, InstanceState *state,
-                    bool update);
-    void StopNetNS(ServiceInstance *svc_instance, InstanceState *state);
+
+    InstanceManagerAdapter* FindApplicableAdapter(const ServiceInstance::Properties &props);
+    void StartServiceInstance(ServiceInstance *svc_instance,
+                              InstanceState *state, bool update);
+    void StopServiceInstance(ServiceInstance *svc_instance,
+                             InstanceState *state);
+
     void StopStaleNetNS(ServiceInstance::Properties &props);
+
     void OnError(InstanceTask *task, const std::string errors);
     void RegisterSvcInstance(InstanceTask *task,
                              ServiceInstance *svc_instance);
@@ -147,6 +153,8 @@ class InstanceManager {
     Timer *stale_timer_;
     std::auto_ptr<NamespaceStaleCleaner> stale_cleaner_;
     Agent *agent_;
+
+    std::vector<InstanceManagerAdapter *> adapters_;
 
     DISALLOW_COPY_AND_ASSIGN(InstanceManager);
 };

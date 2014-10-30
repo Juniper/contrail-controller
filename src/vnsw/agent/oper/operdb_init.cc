@@ -154,15 +154,17 @@ void OperDB::Init() {
 
     // Unit tests may not initialize the agent configuration parameters.
     std::string netns_cmd;
+    std::string docker_cmd;
     int netns_workers = -1;
     int netns_timeout = -1;
     if (agent_->params()) {
         netns_cmd = agent_->params()->si_netns_command();
+        docker_cmd = agent_->params()->si_docker_command();
         netns_workers = agent_->params()->si_netns_workers();
         netns_timeout = agent_->params()->si_netns_timeout();
     }
     instance_manager_->Initialize(agent_->db(), agent_->agent_signal(),
-                                  netns_cmd, netns_workers, netns_timeout);
+                                   netns_cmd, docker_cmd, netns_workers, netns_timeout);
 }
 
 void OperDB::RegisterDBClients() {

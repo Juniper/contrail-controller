@@ -51,6 +51,7 @@ class NetnsManagerTest(unittest.TestCase):
         self.netns_mgr._add_port_to_agent(NIC1)
         kwargs = {}
         kwargs['ip_address'] = str(NIC1['ip'].ip)
+        kwargs['port_type'] = 'NameSpacePort'
         self.netns_mgr.vrouter_client.add_port.assert_called_with(
             'fake_vm_uuid', NIC1['uuid'], 'tap1234', str(NIC1['mac']),
             **kwargs)
