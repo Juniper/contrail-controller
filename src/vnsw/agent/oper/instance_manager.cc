@@ -138,6 +138,7 @@ InstanceManager::InstanceManager(Agent *agent)
 
 void InstanceManager::Initialize(DB *database, AgentSignal *signal,
                                  const std::string &netns_cmd,
+                                 const std::string &docker_cmd,
                                  const int netns_workers,
                                  const int netns_timeout) {
     if (signal) {
@@ -155,9 +156,14 @@ void InstanceManager::Initialize(DB *database, AgentSignal *signal,
         boost::bind(&InstanceManager::EventObserver, this, _1, _2));
 
     netns_cmd_ = netns_cmd;
+    docker_cmd_ = docker_cmd;
     if (netns_cmd_.length() == 0) {
         LOG(ERROR, "NetNS path for network namespace command not specified "
                    "in the config file, the namespaces won't be started");
+    }
+    if (docker_cmd_.length() == 0) {
+        LOG(ERROR, "Path for Docker starter command not specified "
+                   "in the config file, the Docker instances won't be started");
     }
 
     netns_timeout_ = kTimeoutDefault;
@@ -470,6 +476,143 @@ void InstanceManager::UnregisterSvcInstance(ServiceInstance *svc_instance) {
     }
 }
 
+
+void InstanceManager::StartServiceInstance(ServiceInstance *svc_instance,
+                                 InstanceState *state, bool update) {
+    const ServiceInstance::Properties &props = svc_instance->properties();
+    if (props.virtualization_type == ServiceInstance::NetworkNamespace) {
+        StartNetNS(svc_instance, state, update);
+    }
+    else if (props.virtualization_type == ServiceInstance::VRouterInstance) {
+        if (props.vrouter_instance_type == ServiceInstance::Docker) {
+            StartDocker(svc_instance, state, update);
+        } else {
+            LOG(ERROR, "Unknown VRouter Instance type: " << props.vrouter_instance_type);
+        }
+    } else {
+        LOG(ERROR, "Unknown virtualization type: " << props.virtualization_type);
+    }
+}
+
+
+void InstanceManager::StopServiceInstance(ServiceInstance *svc_instance,
+                                InstanceState *state) {
+    const ServiceInstance::Properties &props = svc_instance->properties();
+    if (props.virtualization_type == ServiceInstance::NetworkNamespace) {
+        StopNetNS(svc_instance, state);
+    }
+    else if (props.virtualization_type == ServiceInstance::VRouterInstance) {
+        if (props.vrouter_instance_type == ServiceInstance::Docker) {
+            StopDocker(svc_instance, state);
+        }
+    }
+}
+
+
+void InstanceManager::StartDocker(ServiceInstance *svc_instance,
+                                 InstanceState *state, bool update) {
+    if (docker_cmd_.length() == 0) {
+        return;
+    }
+    const ServiceInstance::Properties &props = svc_instance->properties();
+    std::stringstream cmd_str;
+    cmd_str << "sudo " << docker_cmd_ << " create";
+    cmd_str << " " << UuidToString(props.instance_id);
+	cmd_str << " --image " << props.image_name;
+
+	if (props.vmi_inside != boost::uuids::nil_uuid()) {
+        cmd_str << " --vmi-left-id " << UuidToString(props.vmi_inside);
+        if (props.ip_prefix_len_inside != -1)  {
+            cmd_str << " --vmi-left-ip " << props.ip_addr_inside << "/";
+            cmd_str << props.ip_prefix_len_inside;
+        } else {
+            cmd_str << " --vmi-left-ip 0.0.0.0/0";
+        }
+        if (!props.mac_addr_inside.empty()) {
+            cmd_str << " --vmi-left-mac " << props.mac_addr_inside;
+        } else {
+            cmd_str << " --vmi-left-mac 00:00:00:00:00:00";
+        }
+	}
+	if (props.vmi_outside != boost::uuids::nil_uuid()) {
+        cmd_str << " --vmi-right-id " << UuidToString(props.vmi_outside);
+        if (props.ip_prefix_len_outside != -1)  {
+            cmd_str << " --vmi-right-ip " << props.ip_addr_outside << "/";
+            cmd_str << props.ip_prefix_len_outside;
+        } else {
+            cmd_str << " --vmi-right-ip 0.0.0.0/0";
+        }
+        if (!props.mac_addr_outside.empty()) {
+            cmd_str << " --vmi-right-mac " << props.mac_addr_outside;
+        } else {
+            cmd_str << " --vmi-right-mac 00:00:00:00:00:00";
+        }
+	}
+	if (props.vmi_management != boost::uuids::nil_uuid()) {
+        cmd_str << " --vmi-management-id " << UuidToString(props.vmi_management);
+        if (props.ip_prefix_len_management != -1)  {
+            cmd_str << " --vmi-management-ip " << props.ip_addr_management << "/";
+            cmd_str << props.ip_prefix_len_management;
+        } else {
+            cmd_str << " --vmi-management-ip 0.0.0.0/0";
+        }
+        if (!props.mac_addr_management.empty()) {
+            cmd_str << " --vmi-management-mac " << props.mac_addr_management;
+        } else {
+            cmd_str << " --vmi-management-mac 00:00:00:00:00:00";
+        }
+	}
+
+	if (!props.instance_data.empty()) {
+	    cmd_str << " --instance-data " << props.instance_data;
+	}
+
+	if (update) {
+        cmd_str << " --update";
+    }
+
+    state->set_properties(props);
+
+    InstanceTask *task = new InstanceTask(cmd_str.str(), Start,
+            agent_->event_manager());
+    task->set_on_error_cb(boost::bind(&InstanceManager::OnError,
+                                      this, _1, _2));
+
+    RegisterSvcInstance(task, svc_instance);
+    Enqueue(task, props.instance_id);
+
+    LOG(DEBUG, "Docker run command queued: " << task->cmd());
+}
+
+
+void InstanceManager::StopDocker(ServiceInstance *svc_instance,
+                                InstanceState *state) {
+    if (docker_cmd_.length() == 0) {
+        return;
+    }
+    const ServiceInstance::Properties &props = svc_instance->properties();
+    std::stringstream cmd_str;
+	cmd_str << "sudo " << docker_cmd_ << " destroy";
+    cmd_str << " " << UuidToString(props.instance_id);
+
+    if (props.vmi_inside != boost::uuids::nil_uuid()) {
+        cmd_str << " --vmi-left-id " << UuidToString(props.vmi_inside);
+    }
+    if (props.vmi_outside != boost::uuids::nil_uuid()) {
+        cmd_str << " --vmi-right-id " << UuidToString(props.vmi_outside);
+    }
+    if (props.vmi_management != boost::uuids::nil_uuid()) {
+        cmd_str << " --vmi-management-id " << UuidToString(props.vmi_management);
+    }
+
+    InstanceTask *task = new InstanceTask(cmd_str.str(), Stop,
+            agent_->event_manager());
+    Enqueue(task, props.instance_id);
+
+    RegisterSvcInstance(task, svc_instance);
+    LOG(DEBUG, "Docker run command queued: " << task->cmd());
+}
+
 void InstanceManager::StartNetNS(ServiceInstance *svc_instance,
                                  InstanceState *state, bool update) {
     std::stringstream cmd_str;
@@ -639,7 +782,7 @@ void InstanceManager::EventObserver(
         UnregisterSvcInstance(svc_instance);
         if (state) {
             if (GetLastCmdType(svc_instance) == Start) {
-                StopNetNS(svc_instance, state);
+                StopServiceInstance(svc_instance, state);
             }
 
             ClearState(svc_instance);
@@ -656,14 +799,14 @@ void InstanceManager::EventObserver(
         LOG(DEBUG, "NetNS event notification for uuid: " << svc_instance->ToString()
             << (usable ? " usable" : " not usable"));
         if (!usable && GetLastCmdType(svc_instance) == Start) {
-            StopNetNS(svc_instance, state);
+            StopServiceInstance(svc_instance, state);
             SetLastCmdType(svc_instance, Stop);
         } else if (usable) {
             if (GetLastCmdType(svc_instance) == Start && state->properties().CompareTo(
                             svc_instance->properties()) != 0) {
-                StartNetNS(svc_instance, state, true);
+                StartServiceInstance(svc_instance, state, true);
             } else if (GetLastCmdType(svc_instance) != Start) {
-                StartNetNS(svc_instance, state, false);
+                StartServiceInstance(svc_instance, state, false);
                 SetLastCmdType(svc_instance, Start);
             }
         }

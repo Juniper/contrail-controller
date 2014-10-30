@@ -1,3 +1,4 @@
 eventlet
 netaddr
 contrail-vrouter-api
+docker-py
