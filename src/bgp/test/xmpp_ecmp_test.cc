@@ -628,7 +628,7 @@ void XmppEcmpTest::DeleteRoutesAndVerify(bool flap) {
     // Bring down agent_a or agent_a's routes.
     if (!flap) {
         if (inet_) {
-            agent_a_->DeleteRoute(net_1_, "10.0.1.1/32", nexthops_a);
+            agent_a_->DeleteRoute(net_1_, "10.0.1.1/32");
         }
         if (enet_) {
             agent_a_->DeleteEnetRoute(net_1_, "aa:00:00:00:00:0a,10.0.1.1/32",
@@ -654,7 +654,7 @@ void XmppEcmpTest::DeleteRoutesAndVerify(bool flap) {
     // Bring down agent_b or agent_b's routes.
     if (!flap) {
         if (inet_) {
-            agent_b_->DeleteRoute(net_2_, "10.0.1.1/32", nexthops_b);
+            agent_b_->DeleteRoute(net_2_, "10.0.1.1/32");
         }
         if (enet_) {
             agent_b_->DeleteEnetRoute(net_2_, "aa:00:00:00:00:0a,10.0.1.1/32",
@@ -679,7 +679,7 @@ void XmppEcmpTest::DeleteRoutesAndVerify(bool flap) {
     // Bring down agent_c or agent_c's routes.
     if (!flap) {
         if (inet_) {
-            agent_c_->DeleteRoute(net_1_, "10.0.1.1/32", nexthops_c);
+            agent_c_->DeleteRoute(net_1_, "10.0.1.1/32");
         }
         if (enet_) {
             agent_c_->DeleteEnetRoute(net_1_, "aa:00:00:00:00:0a,10.0.1.1/32",
@@ -703,7 +703,7 @@ void XmppEcmpTest::DeleteRoutesAndVerify(bool flap) {
     // Bring down agent_d or agent_d's routes.
     if (!flap) {
         if (inet_) {
-            agent_d_->DeleteRoute(net_2_, "10.0.1.1/32", nexthops_d);
+            agent_d_->DeleteRoute(net_2_, "10.0.1.1/32");
         }
         if (enet_) {
             agent_d_->DeleteEnetRoute(net_2_, "aa:00:00:00:00:0a,10.0.1.1/32",
