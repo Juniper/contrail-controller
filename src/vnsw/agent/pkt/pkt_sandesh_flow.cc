@@ -282,6 +282,7 @@ bool PktSandeshFlow::SetFlowKey(string key) {
 
     // TODO : IPv6
     error_code ec;
+    flow_iteration_key_.family = Address::INET;
     flow_iteration_key_.src_addr = Ip4Address::from_string(sip.c_str(), ec);
     flow_iteration_key_.dst_addr = Ip4Address::from_string(dip.c_str(), ec);
     flow_iteration_key_.protocol = proto;
