@@ -14,7 +14,7 @@ import requests
 from StringIO import StringIO
 from lxml import etree
 from sandesh_common.vns.constants import ServiceHttpPortMap, \
-    SupervisorPortMap, NodeUVEImplementedServices
+    NodeUVEImplementedServices
 
 try:
     subprocess.check_call(["dpkg-vendor", "--derives-from", "debian"])
@@ -268,8 +268,14 @@ def get_svc_uve_status(svc_name, debug):
         return None
     return process_status_info[0]['state']
 
-def check_svc_status(server_port, debug):
-    cmd = 'supervisorctl -s http://localhost:' + str(server_port) + ' status'
+def check_svc_status(service_name, debug):
+    if service_name == 'supervisord-contrail-database':
+        sock_file_name = 'supervisord_database.sock'
+    elif service_name == 'supervisor-support-service':
+        sock_file_name = 'supervisord_support_service.sock'
+    else:
+        sock_file_name = service_name.replace('-', 'd_') + '.sock'
+    cmd = 'supervisorctl -s unix:///tmp/' + sock_file_name + ' status'
     cmdout = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE).communicate()[0]
     if cmdout.find('refused connection') == -1:
         cmdout = cmdout.replace('   STARTING', 'initializing')
@@ -278,7 +284,7 @@ def check_svc_status(server_port, debug):
         cmdout = cmdout.replace('   FATAL', 'failed')
         cmdoutlist = cmdout.split('\n')
         if debug:
-            print '%s: %s' % (str(server_port), cmdoutlist)
+            print '%s: %s' % (str(service_name), cmdoutlist)
         for supervisor_svc_info_cmdout in cmdoutlist:
             supervisor_svc_info = supervisor_svc_info_cmdout.split()
             if len(supervisor_svc_info) >= 2:
@@ -297,9 +303,7 @@ def check_svc_status(server_port, debug):
 
 def check_status(svc_name, debug):
     check_svc(svc_name)
-    if svc_name in SupervisorPortMap:
-        svc_sup_port = SupervisorPortMap[svc_name]
-        check_svc_status(svc_sup_port, debug)
+    check_svc_status(svc_name, debug)
 
 def supervisor_status(nodetype, debug):
     if nodetype == 'compute':
