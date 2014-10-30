@@ -20,6 +20,7 @@
 #include "oper/operdb_init.h"
 #include "oper/service_instance.h"
 #include "oper/vm.h"
+#include "oper/instance_manager_adapter.h"
 
 using boost::uuids::uuid;
 
@@ -117,6 +118,11 @@ private:
 
 InstanceManager::~InstanceManager() {
     TimerManager::DeleteTimer(stale_timer_);
+    for (std::vector<InstanceManagerAdapter *>::iterator iter = adapters_.begin();
+         iter != adapters_.end(); ++iter) {
+        delete *iter;
+    }
+    adapters_.clear();
 }
 
 InstanceManager::InstanceManager(Agent *agent)
@@ -138,6 +144,7 @@ InstanceManager::InstanceManager(Agent *agent)
 
 void InstanceManager::Initialize(DB *database, AgentSignal *signal,
                                  const std::string &netns_cmd,
+                                 const std::string &docker_cmd,
                                  const int netns_workers,
                                  const int netns_timeout) {
     if (signal) {
@@ -159,6 +166,13 @@ void InstanceManager::Initialize(DB *database, AgentSignal *signal,
         LOG(ERROR, "NetNS path for network namespace command not specified "
                    "in the config file, the namespaces won't be started");
     }
+    if (docker_cmd.length() == 0) {
+        LOG(ERROR, "Path for Docker starter command not specified "
+                   "in the config file, the Docker instances won't be started");
+    }
+    adapters_.push_back(new DockerInstanceAdapter(docker_cmd, agent_));
+    adapters_.push_back(new NetNSInstanceAdapter(netns_cmd,
+                        loadbalancer_config_path_, agent_));
 
     netns_timeout_ = kTimeoutDefault;
     if (netns_timeout >= 1) {
@@ -470,58 +484,54 @@ void InstanceManager::UnregisterSvcInstance(ServiceInstance *svc_instance) {
     }
 }
 
-void InstanceManager::StartNetNS(ServiceInstance *svc_instance,
+InstanceManagerAdapter* InstanceManager::FindApplicableAdapter(const ServiceInstance::Properties &props) {
+    for (std::vector<InstanceManagerAdapter *>::iterator iter = adapters_.begin();
+         iter != adapters_.end(); ++iter) {
+         InstanceManagerAdapter *adapter = *iter;
+        if (adapter != NULL && adapter->isApplicable(props)) {
+            return adapter;
+        }
+    }
+    return NULL;
+}
+
+void InstanceManager::StartServiceInstance(ServiceInstance *svc_instance,
                                  InstanceState *state, bool update) {
-    std::stringstream cmd_str;
-
-    if (netns_cmd_.length() == 0) {
-        return;
-    }
-    cmd_str << netns_cmd_ << " create";
-
     const ServiceInstance::Properties &props = svc_instance->properties();
-    cmd_str << " " << props.ServiceTypeString();
-    cmd_str << " " << UuidToString(props.instance_id);
-    cmd_str << " " << UuidToString(props.vmi_inside);
-    cmd_str << " " << UuidToString(props.vmi_outside);
+    InstanceManagerAdapter *adapter = this->FindApplicableAdapter(props);
+    if (adapter != NULL) {
+        InstanceTask *task = adapter->CreateStartTask(props, update);
+        if (task != NULL) {
+            state->set_properties(props);
+            RegisterSvcInstance(task, svc_instance);
+            Enqueue(task, props.instance_id);
 
-    if (props.ip_prefix_len_inside != -1)  {
-        cmd_str << " --vmi-left-ip " << props.ip_addr_inside << "/";
-        cmd_str << props.ip_prefix_len_inside;
+            LOG(DEBUG, "Service run command queued: " << task->cmd());
+        } else {
+            LOG(ERROR, "Error creating task!");
+        }
     } else {
-        cmd_str << " --vmi-left-ip 0.0.0.0/0";
+        LOG(ERROR, "Unknown virtualization type: " << props.virtualization_type);
     }
-    cmd_str << " --vmi-right-ip " << props.ip_addr_outside << "/";
-    cmd_str << props.ip_prefix_len_outside;
+}
 
-    if (!props.mac_addr_inside.empty()) {
-        cmd_str << " --vmi-left-mac " << props.mac_addr_inside;
+
+void InstanceManager::StopServiceInstance(ServiceInstance *svc_instance,
+                                InstanceState *state) {
+    const ServiceInstance::Properties &props = state->properties();
+    InstanceManagerAdapter *adapter = this->FindApplicableAdapter(props);
+    if (adapter != NULL) {
+        InstanceTask *task = adapter->CreateStopTask(props);
+        if (task != NULL) {
+            RegisterSvcInstance(task, svc_instance);
+            Enqueue(task, props.instance_id);
+            LOG(DEBUG, "Service stop command queued: " << task->cmd());
+        } else {
+            LOG(ERROR, "Error creating task!");
+        }
     } else {
-        cmd_str << " --vmi-left-mac 00:00:00:00:00:00";
+        LOG(ERROR, "Unknown virtualization type: " << props.virtualization_type);
     }
-    cmd_str << " --vmi-right-mac " << props.mac_addr_outside;
-
-    if (props.service_type == ServiceInstance::LoadBalancer) {
-        cmd_str << " --cfg-file " << loadbalancer_config_path_ <<
-            props.pool_id << "/etc/haproxy/haproxy.cfg";
-        cmd_str << " --pool-id " << props.pool_id;
-        cmd_str << " --gw-ip " << props.gw_ip;
-    }
-
-    if (update) {
-        cmd_str << " --update";
-    }
-    state->set_properties(props);
-
-    InstanceTask *task = new InstanceTask(cmd_str.str(), Start,
-            agent_->event_manager());
-    task->set_on_error_cb(boost::bind(&InstanceManager::OnError,
-                                      this, _1, _2));
-
-    RegisterSvcInstance(task, svc_instance);
-    Enqueue(task, props.instance_id);
-
-    LOG(DEBUG, "NetNS run command queued: " << task->cmd());
 }
 
 void InstanceManager::OnError(InstanceTask *task,
@@ -533,43 +543,6 @@ void InstanceManager::OnError(InstanceTask *task,
     event.errors = errors;
 
     work_queue_.Enqueue(event);
-}
-
-void InstanceManager::StopNetNS(ServiceInstance *svc_instance,
-                                InstanceState *state) {
-    std::stringstream cmd_str;
-
-    if (netns_cmd_.length() == 0) {
-        return;
-    }
-    cmd_str << netns_cmd_ << " destroy";
-
-    const ServiceInstance::Properties &props = state->properties();
-    if (props.instance_id.is_nil() ||
-        props.vmi_outside.is_nil()) {
-        return;
-    }
-
-    if (props.interface_count == 2 && props.vmi_inside.is_nil()) {
-        return;
-    }
-
-    cmd_str << " " << props.ServiceTypeString();
-    cmd_str << " " << UuidToString(props.instance_id);
-    cmd_str << " " << UuidToString(props.vmi_inside);
-    cmd_str << " " << UuidToString(props.vmi_outside);
-    if (props.service_type == ServiceInstance::LoadBalancer) {
-        cmd_str << " --cfg-file " << loadbalancer_config_path_ <<
-            props.pool_id << "/etc/haproxy/haproxy.cfg";
-        cmd_str << " --pool-id " << props.pool_id;
-    }
-
-    InstanceTask *task = new InstanceTask(cmd_str.str(), Stop,
-            agent_->event_manager());
-    Enqueue(task, props.instance_id);
-
-    RegisterSvcInstance(task, svc_instance);
-    LOG(DEBUG, "NetNS run command queued: " << task->cmd());
 }
 
 void InstanceManager::StopStaleNetNS(ServiceInstance::Properties &props) {
@@ -639,7 +612,7 @@ void InstanceManager::EventObserver(
         UnregisterSvcInstance(svc_instance);
         if (state) {
             if (GetLastCmdType(svc_instance) == Start) {
-                StopNetNS(svc_instance, state);
+                StopServiceInstance(svc_instance, state);
             }
 
             ClearState(svc_instance);
@@ -656,14 +629,15 @@ void InstanceManager::EventObserver(
         LOG(DEBUG, "NetNS event notification for uuid: " << svc_instance->ToString()
             << (usable ? " usable" : " not usable"));
         if (!usable && GetLastCmdType(svc_instance) == Start) {
-            StopNetNS(svc_instance, state);
+            LOG(DEBUG, "Stopping service instance!");
+            StopServiceInstance(svc_instance, state);
             SetLastCmdType(svc_instance, Stop);
         } else if (usable) {
             if (GetLastCmdType(svc_instance) == Start && state->properties().CompareTo(
                             svc_instance->properties()) != 0) {
-                StartNetNS(svc_instance, state, true);
+                StartServiceInstance(svc_instance, state, true);
             } else if (GetLastCmdType(svc_instance) != Start) {
-                StartNetNS(svc_instance, state, false);
+                StartServiceInstance(svc_instance, state, false);
                 SetLastCmdType(svc_instance, Start);
             }
         }
