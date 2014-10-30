@@ -78,8 +78,8 @@ class ContrailVRouterApi(object):
         else:
             ip_address = '0.0.0.0'
 
-        if 'network_uuid' in kwargs:
-            network_uuid = self._uuid_string_to_hex(kwargs['network_uuid'])
+        if 'vn_id' in kwargs:
+            network_uuid = self._uuid_string_to_hex(kwargs['vn_id'])
         else:
             network_uuid = [0] * 16
 
