@@ -92,6 +92,7 @@ public:
     bool headless_mode() const {return headless_mode_;}
     bool simulate_evpn_tor() const {return simulate_evpn_tor_;}
     std::string si_netns_command() const {return si_netns_command_;}
+    std::string si_docker_command() const {return si_docker_command_;}
     const int si_netns_workers() const {return si_netns_workers_;}
     const int si_netns_timeout() const {return si_netns_timeout_;}
     std::string si_haproxy_ssl_cert_path() const {
@@ -282,6 +283,7 @@ private:
     //simulated compute node behaves as bare metal.
     bool simulate_evpn_tor_;
     std::string si_netns_command_;
+    std::string si_docker_command_;
     int si_netns_workers_;
     int si_netns_timeout_;
     std::string si_haproxy_ssl_cert_path_;
