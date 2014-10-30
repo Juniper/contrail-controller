@@ -53,21 +53,28 @@ class NetnsManager(object):
     PORT_TYPE = 'NameSpacePort'
     LBAAS_PROCESS = 'haproxy'
 
-    def __init__(self, vm_uuid, nic_left, nic_right, root_helper='sudo',
-            cfg_file=None, update=False, pool_id=None, gw_ip=None):
+    def __init__(self, vm_uuid, nic_left, nic_right, other_nics=None,
+                 root_helper='sudo', cfg_file=None, update=False,
+                 pool_id=None, gw_ip=None, namespace_name=None):
         self.vm_uuid = vm_uuid
-        self.namespace = self.NETNS_PREFIX + self.vm_uuid
+        if namespace_name is None:
+            self.namespace = self.NETNS_PREFIX + self.vm_uuid
+        else:
+            self.namespace = namespace_name
         if pool_id:
-            self.namespace = self.namespace + ":" + pool_id;
+            self.namespace = self.namespace + ":" + pool_id
         self.nic_left = nic_left
         self.nic_right = nic_right
         self.root_helper = root_helper
+        self.nics = other_nics or []
         if self.nic_left:
             self.nic_left['name'] = (self.LEFT_DEV_PREFIX +
                                  self.nic_left['uuid'])[:self.DEV_NAME_LEN]
+            self.nics.append(self.nic_left)
         if self.nic_right:
             self.nic_right['name'] = (self.RIGH_DEV_PREFIX +
                                       self.nic_right['uuid'])[:self.DEV_NAME_LEN]
+            self.nics.append(self.nic_right)
         self.ip_ns = ip_lib.IPWrapper(root_helper=self.root_helper,
                                       namespace=self.namespace)
         self.vrouter_client = ContrailVRouterApi()
@@ -84,11 +91,8 @@ class NetnsManager(object):
     def create(self):
         ip = ip_lib.IPWrapper(self.root_helper)
         ip.ensure_namespace(self.namespace)
-
-        if self.nic_left:
-            self._create_interfaces(ip, self.nic_left)
-        if self.nic_right:
-            self._create_interfaces(ip, self.nic_right)
+        for nic in self.nics:
+            self._create_interfaces(ip, nic)
 
     def set_snat(self):
         if not self.ip_ns.netns.exists(self.namespace):
@@ -114,6 +118,7 @@ class NetnsManager(object):
         self.ip_ns.netns.execute(['ip', 'rule', 'add', 'iif',
                                   str(self.nic_right['name']), 'table',
                                   self.SNAT_RT_TABLES_ID])
+
     def _get_lbaas_pid(self):
         cmd = """ps aux | grep  \'%(process)s -f %(file)s\' | grep -v grep 
               """ % {'process':self.LBAAS_PROCESS, 'file':self.cfg_file}
@@ -124,7 +129,6 @@ class NetnsManager(object):
         words = s.split()
         pid = int(words[1])
         return pid
-
 
     def set_lbaas(self):
         if not self.ip_ns.netns.exists(self.namespace):
@@ -165,7 +169,6 @@ class NetnsManager(object):
             self.ip_ns.netns.execute(['route', 'del', 'default'])
         except RuntimeError:
             pass
-        
 
     def destroy(self):
         if not self.ip_ns.netns.exists(self.namespace):
@@ -179,24 +182,14 @@ class NetnsManager(object):
         self.ip_ns.netns.delete(self.namespace)
 
     def plug_namespace_interface(self):
-        if not self.nic_right:
-            raise ValueError('Need right interface to plug a '
-                             'network namespace onto vrouter')
-        if self.nic_left:
-            self._add_port_to_agent(self.nic_left,
-                                display_name='NetNS %s left interface' %
-                                self.vm_uuid)
-
-        if self.nic_right:
-            self._add_port_to_agent(self.nic_right,
-                                display_name='NetNS %s right interface' %
-                                self.vm_uuid)
+        for nic in self.nics:
+            self._add_port_to_agent(nic,
+                                    display_name='NetNS %s %s interface'
+                                                 % (self.vm_uuid, nic['name']))
 
     def unplug_namespace_interface(self):
-        if self.nic_left:
-            self._delete_port_to_agent(self.nic_left)
-        if self.nic_right:
-            self._delete_port_to_agent(self.nic_right)
+        for nic in self.nics:
+            self._delete_port_to_agent(nic)
 
     def _create_interfaces(self, ip, nic):
         if ip_lib.device_exists(nic['name'],
@@ -241,9 +234,9 @@ class NetnsManager(object):
             raise ValueError('Cannot add interface %s on the vrouter' %
                              nic['uuid'])
 
-
     def _delete_port_to_agent(self, nic):
         self.vrouter_client.delete_port(nic['uuid'])
+
 
 class VRouterNetns(object):
     """Create or destroy a Linux network namespace plug
