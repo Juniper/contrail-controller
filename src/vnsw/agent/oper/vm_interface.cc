@@ -52,7 +52,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     vm_project_uuid_(nil_uuid()), vxlan_id_(0), layer2_forwarding_(true),
     layer3_forwarding_(true), mac_set_(false), ecmp_(false),
     tx_vlan_id_(kInvalidVlanId), rx_vlan_id_(kInvalidVlanId), parent_(NULL),
-    oper_dhcp_options_(),
+    local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
     sg_list_(), floating_ip_list_(), service_vlan_list_(), static_route_list_(),
     allowed_address_pair_list_(), vrf_assign_rule_list_(),
     vrf_assign_acl_(NULL), vm_ip_gw_addr_(0), vm_ip6_gw_addr_() {
@@ -77,7 +77,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     vm_project_uuid_(vm_project_uuid), vxlan_id_(0),
     layer2_forwarding_(true), layer3_forwarding_(true), mac_set_(false),
     ecmp_(false), tx_vlan_id_(tx_vlan_id), rx_vlan_id_(rx_vlan_id),
-    parent_(parent), oper_dhcp_options_(),
+    parent_(parent), local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
     sg_list_(), floating_ip_list_(), service_vlan_list_(), static_route_list_(),
     allowed_address_pair_list_(), vrf_assign_rule_list_(),
     vrf_assign_acl_(NULL) {

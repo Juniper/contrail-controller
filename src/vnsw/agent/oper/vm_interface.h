@@ -654,7 +654,8 @@ struct VmInterfaceConfigData : public VmInterfaceData {
         vm_uuid_(), vm_name_(), vn_uuid_(), vrf_name_(""), fabric_port_(true),
         need_linklocal_ip_(false), layer2_forwarding_(true),
         layer3_forwarding_(true), mirror_enable_(false), ecmp_(false),
-        dhcp_enable_(true), analyzer_name_(""), oper_dhcp_options_(),
+        dhcp_enable_(true), analyzer_name_(""),
+        local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
         mirror_direction_(Interface::UNKNOWN), sg_list_(),
         floating_ip_list_(), service_vlan_list_(), static_route_list_(),
         allowed_address_pair_list_() {
