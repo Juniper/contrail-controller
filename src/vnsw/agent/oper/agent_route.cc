@@ -125,6 +125,9 @@ bool AgentRouteTable::DeleteAllBgpPath(DBTablePartBase *part,
             if (peer && peer->GetType() == Peer::BGP_PEER) {
                 DeletePathFromPeer(part, route, path);
             }
+            if (peer && peer->GetType() == Peer::MULTICAST_FABRIC_TREE_BUILDER) {
+                DeletePathFromPeer(part, route, path);
+            }
         }
     }
     return true;
