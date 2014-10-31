@@ -123,14 +123,39 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
                 CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
                                  "EVPN Delete Node id:" + id);
 
-                char *mac_str =
-                    strtok_r(const_cast<char *>(id.c_str()), "-", &saveptr);
+                char buff[id.length() + 1];
+                uint16_t offset = 0;
+                strcpy(buff, id.c_str());
+
+                char *mac_str = strtok_r(buff + offset, "-", &saveptr);
                 uint32_t ethernet_tag = 0;
-                if (strlen(saveptr) != 0) {
+                //retract id expected are:
+                //00:00:00:01:01:01,1.1.1.1 - Mac and IP
+                //10-00:00:00:01:01:01,1.1.1.1 - Ehernet tag, mac, ip.
+                //In case of not finding pattern "-" whole string will be
+                //returned in mac_str. So dont use it for ethernet_tag.
+                //Check for string length of saveptr to know if string was
+                //tokenised.
+                if ((strlen(saveptr) != 0) && mac_str) {
                     ethernet_tag = atoi(mac_str);
-                    mac_str = saveptr;
+                    offset += strlen(mac_str) + 1;
                 }
-                MacAddress mac(mac_str);
+
+                mac_str = strtok_r(buff + offset, ",", &saveptr);
+                if (mac_str == NULL) {
+                    CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                                     "Error parsing MAC from retract-id: " +id);
+                    continue;
+                }
+
+                boost::system::error_code ec;
+                MacAddress mac(mac_str, &ec);
+                if (ec) {
+                    CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                                     "Error decoding MAC from retract-id: "+id);
+                    continue;
+                }
+
                 if (mac == MacAddress::BroadcastMac()) {
                     //Deletes the peer path for all boradcast and
                     //traverses the subnet route in VRF to issue delete of peer
