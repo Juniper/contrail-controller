@@ -63,6 +63,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     tx_vlan_id_(entry->tx_vlan_id_),
     vrf_id_(entry->vrf_id_),
     persistent_(entry->persistent_),
+    subtype_(entry->subtype_),
     xconnect_(entry->xconnect_) {
 }
 
@@ -94,6 +95,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     tx_vlan_id_(VmInterface::kInvalidVlanId),
     vrf_id_(intf->vrf_id()),
     persistent_(false),
+    subtype_(PhysicalInterface::INVALID),
     xconnect_(NULL) {
 
     if (intf->flow_key_nh()) {
@@ -287,6 +289,7 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
         dmac = intf->mac();
         PhysicalInterface *phy_intf = static_cast<PhysicalInterface *>(intf);
         persistent_ = phy_intf->persistent();
+        subtype_ = phy_intf->subtype();
         break;
     }
     case Interface::INET:
@@ -417,6 +420,10 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         flags |= VIF_FLAG_L3_ENABLED;
         if (!persistent_) {
             flags |= VIF_FLAG_VHOST_PHYS;
+        }
+
+        if (subtype_ == PhysicalInterface::VMWARE) {
+            flags |= VIF_FLAG_PROMISCOUS;
         }
         break;
     }

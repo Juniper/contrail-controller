@@ -63,6 +63,7 @@ TEST_F(VmwareTest, VmwarePhysicalPort_1) {
     PhysicalInterface *phy_intf =
         static_cast<PhysicalInterface *>(intf);
     EXPECT_TRUE(phy_intf->persistent() == true);
+    EXPECT_TRUE(phy_intf->subtype() == PhysicalInterface::VMWARE);
 
     PhysicalInterfaceKey key1(agent->fabric_interface_name());
     intf = static_cast<Interface *>
