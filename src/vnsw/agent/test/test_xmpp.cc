@@ -485,7 +485,7 @@ TEST_F(AgentXmppUnitTest, Connection) {
     InetUnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
     EXPECT_STREQ(rt->dest_vn_name().c_str(), "vn1");
 
-    MacAddress mac("00:00:00:01:01:01");
+    MacAddress mac("0:0:0:1:1:1");
     EXPECT_TRUE(L2RouteFind("vrf1", mac));
 
     // Send route, back to vrf1
