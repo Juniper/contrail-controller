@@ -177,9 +177,15 @@ class VncApi(VncApiClientGen):
 
         self._create_api_server_session()
 
-        homepage = self._request_server(rest.OP_GET, self._base_url,
-                                        retry_on_error=False)
-        self._cfg_root_url = self._parse_homepage(homepage)
+        try:
+            homepage = self._request(rest.OP_GET, self._base_url,
+                                     retry_on_error=False)
+            self._cfg_root_url = self._parse_homepage(homepage)
+        except ServiceUnavailableError as e:
+            # Ignore http.code 503 here.
+            # _request_server will reconnect during requests
+            logger = logging.getLogger(__name__)
+            logger.warn("Exception: %s", str(e))
     #end __init__
 
     def _obj_serializer_diff(self, obj):
@@ -326,6 +332,17 @@ class VncApi(VncApiClientGen):
 
     def _request_server(self, op, url, data=None, retry_on_error=True,
                         retry_after_authn=False, retry_count=30):
+        if not hasattr(self, '_cfg_root_url'):
+            homepage = self._request(rest.OP_GET, self._base_url,
+                                     retry_on_error=False)
+            self._cfg_root_url = self._parse_homepage(homepage)
+
+        return self._request(op, url, data=data, retry_on_error=retry_on_error,
+                      retry_after_authn=retry_after_authn,
+                      retry_count=retry_count)
+
+    def _request(self, op, url, data=None, retry_on_error=True,
+                 retry_after_authn=False, retry_count=30):
         retried = 0
         while True:
             try:
@@ -358,7 +375,7 @@ class VncApi(VncApiClientGen):
             if ((status == 401) and (not self._auth_token_input) and (not retry_after_authn)):
                 self._headers = self._authenticate(content, self._headers)
                 # Recursive call after authentication (max 1 level)
-                content = self._request_server(op, url, data=data, retry_after_authn=True)
+                content = self._request(op, url, data=data, retry_after_authn=True)
      
                 return content
             elif status == 404:
@@ -373,7 +390,7 @@ class VncApi(VncApiClientGen):
             elif status == 503:
                 retried += 1
                 if retried >= retry_count:
-                    raise TimeOutError('Service Unavailable Timeout 503')
+                    raise ServiceUnavailableError('Service Unavailable Timeout 503')
 
                 time.sleep(1)
                 continue
