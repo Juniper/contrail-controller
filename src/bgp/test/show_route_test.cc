@@ -286,6 +286,30 @@ protected:
         validate_done_ = true;
     }
 
+    static void ValidateShowRouteSandeshResponse(Sandesh *sandesh,
+        vector<int> &result, int called_from_line, string next_batch) {
+        ShowRouteResp *resp = dynamic_cast<ShowRouteResp *>(sandesh);
+        EXPECT_NE((ShowRouteResp *)NULL, resp);
+
+        EXPECT_EQ(result.size(), resp->get_tables().size());
+        size_t retval = next_batch.compare(resp->get_next_batch());
+        EXPECT_EQ(retval, 0);
+
+        cout << "From line number: " << called_from_line << endl;
+        cout << "*****************************************************" << endl;
+        for (size_t i = 0; i < resp->get_tables().size(); i++) {
+            EXPECT_EQ(result[i], resp->get_tables()[i].routes.size());
+            cout << resp->get_tables()[i].routing_instance << " "
+                 << resp->get_tables()[i].routing_table_name << endl;
+            for (size_t j = 0; j < resp->get_tables()[i].routes.size(); j++) {
+                cout << resp->get_tables()[i].routes[j].prefix << " "
+                     << resp->get_tables()[i].routes[j].paths.size() << endl;
+            }
+        }
+        cout << "*****************************************************" << endl;
+        validate_done_ = true;
+    }
+
     static void ValidateShowRouteSummarySandeshResponse(Sandesh *sandesh,
         vector<int> &result, int called_from_line) {
         ShowRouteSummaryResp *resp =
@@ -1057,6 +1081,675 @@ TEST_F(ShowRouteTest2, StartPrefix12) {
         show_req->Release();
         TASK_UTIL_EXPECT_EQ(true, validate_done_);
     }
+}
+
+class ShowRouteTest3 : public ShowRouteTestBase {
+protected:
+    // This value is the same as ShowRouteHandler::kMaxCount and indicates the
+    // maximum number of routes that will be returned. Its not used but is here
+    // just for reference.
+    static const uint32_t kMaxCount = 100;
+    virtual void SetUp() {
+        ShowRouteTestBase::SetUp();
+        Configure();
+        task_util::WaitForIdle();
+        sandesh_context.bgp_server = a_.get();
+        sandesh_context.set_unit_test_mode(true);
+        Sandesh::set_client_context(&sandesh_context);
+    }
+
+    virtual void TearDown() {
+        task_util::WaitForIdle();
+        ShowRouteTestBase::TearDown();
+    }
+    BgpSandeshContext sandesh_context;
+};
+
+TEST_F(ShowRouteTest3, PageLimit1) {
+
+    // Add kMaxCount routes.
+    std::string plen = "/24";
+    in_addr src;
+    int ip1 = 0x01020000;
+    for (int i = 0; i < 100; ++i) {
+        src.s_addr = htonl(ip1 | i);
+        string ip = string(inet_ntoa(src)) + plen;
+        AddInetRoute(ip, peers_[0], "red");
+    }
+    // Add another route with prefix that will make it the last route so that
+    // its easy to verify.
+    AddInetRoute("10.1.1.0/24", peers_[0], "red");
+
+    // (kMaxCount+1) routes. Read should return the first kMaxCount entries.
+    ShowRouteReq *show_req = new ShowRouteReq;
+    vector<int> result = list_of(100);
+    string next_batch = "||||||red||red.inet.0||10.1.1.0/24||0||false";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_start_routing_instance("red");
+    show_req->set_start_routing_table("red.inet.0");
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    DeleteInetRoute("10.1.1.0/24", peers_[0], 100, "red");
+    for (int i = 99; i >= 0; --i) {
+        src.s_addr = htonl(ip1 | i);
+        string ip = string(inet_ntoa(src)) + plen;
+        DeleteInetRoute(ip, peers_[0], i, "red");
+    }
+}
+
+TEST_F(ShowRouteTest3, PageLimit2) {
+
+    // Add (< kMaxCount) routes
+    std::string plen = "/24";
+    std::string ip = "1.2.3.";
+    for (int host = 0; host < 50; ++host) {
+        std::ostringstream repr;
+        repr << ip << host << plen;
+        AddInetRoute(repr.str(), peers_[0], "red");
+    }
+
+    // Should get back all the routes.
+    ShowRouteReq *show_req = new ShowRouteReq;
+    vector<int> result = list_of(50);
+    string next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_start_routing_instance("red");
+    show_req->set_start_routing_table("red.inet.0");
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    for (int host = 0; host < 50; ++host) {
+        std::ostringstream repr;
+        repr << ip << host << plen;
+        DeleteInetRoute(repr.str(), peers_[0], (49 - host), "red");
+    }
+}
+
+TEST_F(ShowRouteTest3, PageLimit3) {
+
+    // Add equal number of routes in blue and red so that their total is
+    // kMaxCount.
+    std::string plen = "/24";
+    std::string ip = "1.2.3.";
+    for (int host = 0; host < 50; ++host) {
+        std::ostringstream repr;
+        repr << ip << host << plen;
+        AddInetRoute(repr.str(), peers_[0], "blue");
+        AddInetRoute(repr.str(), peers_[0], "red");
+    }
+
+    // Should get back all routes for both instances since: 
+    // total_routes == kMaxCount.
+    ShowRouteReq *show_req = new ShowRouteReq;
+    vector<int> result = list_of(50)(50);
+    string next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_start_routing_instance("blue");
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    for (int host = 0; host < 50; ++host) {
+        std::ostringstream repr;
+        repr << ip << host << plen;
+        DeleteInetRoute(repr.str(), peers_[0], (49 - host), "blue");
+        DeleteInetRoute(repr.str(), peers_[0], (49 - host), "red");
+    }
+}
+
+TEST_F(ShowRouteTest3, PageLimit4) {
+
+    // Add equal number of routes in blue and red so that their total is
+    // greater than kMaxCount.
+    std::string plen = "/24";
+    std::string ip = "1.2.3.";
+    for (int host = 0; host < 90; ++host) {
+        std::ostringstream repr;
+        repr << ip << host << plen;
+        AddInetRoute(repr.str(), peers_[0], "blue");
+        AddInetRoute(repr.str(), peers_[0], "red");
+    }
+
+    // Ask to start with 'blue'. We should get back 90 blue and 10 red routes
+    // for a total of kMaxCount.
+    ShowRouteReq *show_req = new ShowRouteReq;
+    vector<int> result = list_of(90)(10);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
+    show_req->set_start_routing_instance("blue");
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for 40 routes. We should get back 40 since its less than kMaxCount.
+    show_req = new ShowRouteReq;
+    result = list_of(40);
+    string next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_count(40);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for all 180 routes. We should get back kMaxCount. The return count
+    // in next_batch should have 80.
+    show_req = new ShowRouteReq;
+    result = list_of(90)(10);
+    next_batch = "||||||red||red.inet.0||1.2.3.18/24||80||false";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_count(180);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for 95 routes. We should get back 90 blue and 5 red routes for a
+    // total of kMaxCount.
+    show_req = new ShowRouteReq;
+    result = list_of(90)(5);
+    next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_count(95);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for 89 routes. We should only get back 89 blue routes and no red
+    // routes.
+    show_req = new ShowRouteReq;
+    result = list_of(89);
+    next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_count(89);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for 91 routes. We should get back 90 blue and 1 red route.
+    show_req = new ShowRouteReq;
+    result = list_of(90)(1);
+    next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_count(91);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    for (int host = 89; host >= 0; --host) {
+        std::ostringstream repr;
+        repr << ip << host << plen;
+        DeleteInetRoute(repr.str(), peers_[0], host, "blue");
+        DeleteInetRoute(repr.str(), peers_[0], host, "red");
+    }
+}
+
+TEST_F(ShowRouteTest3, PageLimit5) {
+
+    // Add equal number of routes in blue and red so that their total is
+    // greater than kMaxCount i.e. 80 each in blue and red.
+    // Total 80 - 2 subnets, 10.10.1 and 10.10.2, each with 40 addresses.
+    std::string ip = "10.10.";
+    std::string plen = "/24";
+    for (int subnet = 1; subnet < 3; ++subnet) {
+        for (int host = 0; host < 40; ++host) {
+            std::ostringstream repr;
+            repr << ip << subnet << "." << host << plen;
+            AddInetRoute(repr.str(), peers_[0], "blue");
+            AddInetRoute(repr.str(), peers_[0], "red");
+        }
+    }
+
+    // Ask for only blue instance. We should get back all 80 blue routes since
+    // its less than kMaxCount.
+    ShowRouteReq *show_req = new ShowRouteReq;
+    vector<int> result = list_of(80);
+    string next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_routing_instance("blue");
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for only red instance. We should get back all 80 red routes since
+    // its less than kMaxCount.
+    show_req = new ShowRouteReq;
+    result = list_of(80);
+    next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_routing_instance("red");
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for routes only in blue.inet.0. We should get back all 80 routes.
+    show_req = new ShowRouteReq;
+    result = list_of(80);
+    next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_routing_table("blue.inet.0");
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for routes only in red.inet.0. We should get back all 80 routes.
+    show_req = new ShowRouteReq;
+    result = list_of(80);
+    next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_routing_table("red.inet.0");
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for a specific prefix that exists in both 'blue' and 'red'. We
+    // should get back exactly 2 routes.
+    show_req = new ShowRouteReq;
+    result = list_of(1)(1);
+    next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_prefix("10.10.1.5/24");
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for routes with 'longer match' in blue. We should get back all blue
+    // routes since all the routes match the filter.
+    show_req = new ShowRouteReq;
+    result = list_of(80);
+    next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_routing_instance("blue");
+    show_req->set_prefix("10.10.0.0/16");
+    show_req->set_longer_match(true);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for routes with 'longer match' in red. We should get back all red
+    // routes since all the routes match the filter.
+    show_req = new ShowRouteReq;
+    result = list_of(80);
+    next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_routing_instance("red");
+    show_req->set_prefix("10.10.0.0/16");
+    show_req->set_longer_match(true);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for 8 routes with 'longer match' in blue. We should get back 8 blue
+    // routes.
+    show_req = new ShowRouteReq;
+    result = list_of(8);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
+    show_req->set_routing_instance("blue");
+    show_req->set_prefix("10.10.0.0/16");
+    show_req->set_longer_match(true);
+    show_req->set_count(8);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for 15 routes with 'longer match' in red. We should get back 15 red
+    // routes.
+    show_req = new ShowRouteReq;
+    result = list_of(15);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
+    show_req->set_routing_instance("red");
+    show_req->set_prefix("10.10.0.0/16");
+    show_req->set_longer_match(true);
+    show_req->set_count(15);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for routes with 'longer match'. Since all routes match this filter,
+    // we should get back 80 blue and 20 red routes.
+    show_req = new ShowRouteReq;
+    result = list_of(80)(20);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
+    show_req->set_prefix("10.10.0.0/16");
+    show_req->set_longer_match(true);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for routes with 'longer match'. Each instance has 40 routes with
+    // this filter. We should get back 40 blue and 40 red routes.
+    show_req = new ShowRouteReq;
+    result = list_of(40)(40);
+    next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_prefix("10.10.1.0/24");
+    show_req->set_longer_match(true);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for routes with 'longer match'. Each instance has 40 routes with
+    // this filter. Although we are asking for 81 routes, we should get back 
+    // 80 routes, 40 blue and 40 red routes.
+    show_req = new ShowRouteReq;
+    result = list_of(40)(40);
+    next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_prefix("10.10.1.0/24");
+    show_req->set_longer_match(true);
+    show_req->set_count(81);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for routes with 'longer match' only in 'blue'. Each instance has 40
+    // routes with this filter. We should get back only 40 blue routes.
+    show_req = new ShowRouteReq;
+    result = list_of(40);
+    next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_routing_instance("blue");
+    show_req->set_prefix("10.10.2.0/24");
+    show_req->set_longer_match(true);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for routes with 'longer match' only in 'red'. Each instance has 40
+    // routes with this filter. We should get back only 40 red routes.
+    show_req = new ShowRouteReq;
+    result = list_of(40);
+    next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_routing_instance("red");
+    show_req->set_prefix("10.10.1.0/24");
+    show_req->set_longer_match(true);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for routes with 'longer match' only in 'blue'. Each instance has 40
+    // routes with this filter. But, we should get back only 30 blue routes.
+    show_req = new ShowRouteReq;
+    result = list_of(30);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
+    show_req->set_routing_instance("blue");
+    show_req->set_prefix("10.10.1.0/24");
+    show_req->set_longer_match(true);
+    show_req->set_count(30);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for routes with 'longer match' only in 'red'. Each instance has 40
+    // routes with this filter. But, we should get back only 25 red routes.
+    show_req = new ShowRouteReq;
+    result = list_of(25);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
+    show_req->set_routing_instance("red");
+    show_req->set_prefix("10.10.2.0/24");
+    show_req->set_longer_match(true);
+    show_req->set_count(25);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for 65 routes with 'longer match' in all instances. Each instance
+    // has 40 routes with this filter. We should get back all 40 blue routes
+    // and 25 red routes matching the filter.
+    show_req = new ShowRouteReq;
+    result = list_of(40)(25);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
+    show_req->set_prefix("10.10.2.0/24");
+    show_req->set_longer_match(true);
+    show_req->set_count(65);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for routes with 'longer match' only in 'blue'. Each instance has 40
+    // routes with this filter. Although we are asking for 90, we should get
+    // back 40 blue routes.
+    show_req = new ShowRouteReq;
+    result = list_of(40);
+    next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_routing_instance("blue");
+    show_req->set_prefix("10.10.2.0/24");
+    show_req->set_longer_match(true);
+    show_req->set_count(90);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for routes with 'longer match' only in 'red'. Each instance has 40
+    // routes with this filter. Although we are asking for 45, we should get
+    // back 40 red routes.
+    show_req = new ShowRouteReq;
+    result = list_of(40);
+    next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_routing_instance("red");
+    show_req->set_prefix("10.10.1.0/24");
+    show_req->set_longer_match(true);
+    show_req->set_count(45);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Ask for 80 routes. We will collect 81 i.e collect the first red route
+    // too. But, we should pop it off and not send it back. So, we should get
+    // routes from only one instance.
+    // The next request extends this by 1 and we should get the first red route
+    // too.
+    show_req = new ShowRouteReq;
+    result = list_of(80);
+    next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_count(80);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Should get back the first red route too.
+    show_req = new ShowRouteReq;
+    result = list_of(80)(1);
+    next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_count(81);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    int cnt = 79;
+    for (int subnet = 2; subnet >= 1; --subnet) {
+        for (int host = 39; host >= 0; --host) {
+            std::ostringstream repr;
+            repr << ip << subnet << "." << host << plen;
+            DeleteInetRoute(repr.str(), peers_[0], cnt, "blue");
+            DeleteInetRoute(repr.str(), peers_[0], cnt, "red");
+            --cnt;
+        }
+    }
+}
+
+TEST_F(ShowRouteTest3, PageLimit6) {
+
+    std::string plen = "/24";
+    std::string ip = "1.2.3.";
+    for (int host = 0; host < 100; ++host) {
+        std::ostringstream repr;
+        repr << ip << host << plen;
+        AddInetRoute(repr.str(), peers_[0], "blue");
+        AddInetRoute(repr.str(), peers_[0], "red");
+    }
+
+    // Even though we ask for 200 entries, we will get back only kMaxCount.
+    ShowRouteReq *show_req = new ShowRouteReq;
+    vector<int> result = list_of(100);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
+    show_req->set_start_routing_instance("blue");
+    show_req->set_count(200);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    for (int host = 99; host >= 0; --host) {
+        std::ostringstream repr;
+        repr << ip << host << plen;
+        DeleteInetRoute(repr.str(), peers_[0], host, "blue");
+        DeleteInetRoute(repr.str(), peers_[0], host, "red");
+    }
+}
+
+// Test the value of 'next_batch' in the response.
+TEST_F(ShowRouteTest3, PageLimit7) {
+
+    AddInetRoute("10.1.1.0/24", peers_[0], "blue");
+    AddInetRoute("20.1.1.0/24", peers_[0], "blue");
+    AddInetRoute("30.1.1.0/24", peers_[0], "blue");
+    AddInetRoute("40.1.1.0/24", peers_[0], "blue");
+    AddInetRoute("50.1.1.0/24", peers_[0], "red");
+    AddInetRoute("60.1.1.0/24", peers_[0], "red");
+    AddInetRoute("70.1.1.0/24", peers_[0], "red");
+    AddInetRoute("80.1.1.0/24", peers_[0], "red");
+
+    // Request only the first route; next_batch should be the second route.
+    ShowRouteReq *show_req = new ShowRouteReq;
+    vector<int> result = list_of(1);
+    // xxx string next_batch = "||||||blue||blue.inet.0||20.1.1.0/24||1||false";
+    string next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_count(1);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Number requested is at the border of 'blue' and 'red'. next_batch should
+    // be the first route in 'red'.
+    show_req = new ShowRouteReq;
+    result = list_of(4);
+    next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_count(4);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Number requested is in the middle of the second instance i.e. 'red'.
+    // next_batch should be the third route in 'red'.
+    show_req = new ShowRouteReq;
+    result = list_of(4)(2);
+    next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_count(6);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Number requested is at the end of the second instance, 'red'.
+    // 'next_batch' should be empty.
+    show_req = new ShowRouteReq;
+    result = list_of(4)(4);
+    next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_count(8);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    // Number requested is greater than total number of routes.
+    // 'next_batch' should be empty.
+    show_req = new ShowRouteReq;
+    result = list_of(4)(4);
+    next_batch = "";
+    Sandesh::set_response_callback(boost::bind(
+        ValidateShowRouteSandeshResponse, _1, result, __LINE__, next_batch));
+    show_req->set_count(9);
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    DeleteInetRoute("10.1.1.0/24", peers_[0], 3, "blue");
+    DeleteInetRoute("20.1.1.0/24", peers_[0], 2, "blue");
+    DeleteInetRoute("30.1.1.0/24", peers_[0], 1, "blue");
+    DeleteInetRoute("40.1.1.0/24", peers_[0], 0, "blue");
+
+    DeleteInetRoute("50.1.1.0/24", peers_[0], 3, "red");
+    DeleteInetRoute("60.1.1.0/24", peers_[0], 2, "red");
+    DeleteInetRoute("70.1.1.0/24", peers_[0], 1, "red");
+    DeleteInetRoute("80.1.1.0/24", peers_[0], 0, "red");
 }
 
 class ShowRouteVrfTest : public ShowRouteTest2 {
