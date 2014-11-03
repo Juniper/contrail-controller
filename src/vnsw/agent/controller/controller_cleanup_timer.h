@@ -15,13 +15,7 @@ class AgentXmppChannel;
  * Cleanup Timer 
  * Used to manage timers required for removing stale entries for config and
  * routes received from control nodes.
- * Functionalities provided are - start, cancel, reschedule
- * Also derived structs need to implement the extension intervals for
- * rescheduling. 
- * Rescheduling is not done via cancel and start, but rather timer is restarted 
- * when it expires for the remaining timer interval.
- * Timer expired callback is done on expiration(as expected) and when
- * extension_interval is zero.
+ * Functionalities provided are - start, cancel, 
  *
  * Current derivatives of cleanup_timer are - unicast, multicast and config.
  *
@@ -33,7 +27,6 @@ struct CleanupTimer {
 
     void Start(AgentXmppChannel *agent_xmpp_channel);
     bool Cancel();
-    void RescheduleTimer(AgentXmppChannel *agent_xmpp_channel);
     bool TimerExpiredCallback();
     const std::string& timer_name() const {return timer_name_;}
 
@@ -49,10 +42,8 @@ struct CleanupTimer {
 
     Agent *agent_;
     Timer *cleanup_timer_;
-    uint64_t extension_interval_;
     uint64_t last_restart_time_;
-    AgentXmppChannel *agent_xmpp_channel_;
-    bool running_;
+    std::string xmpp_server_;
     std::string timer_name_;
     uint32_t stale_timer_interval_;
 };
@@ -87,7 +78,7 @@ struct MulticastCleanupTimer : public CleanupTimer {
 struct ConfigCleanupTimer : public CleanupTimer {
     static const int timeout_ = (15 * 60 * 1000); // In milli seconds5
     ConfigCleanupTimer(Agent *agent)
-        : CleanupTimer(agent, "Agent Stale cleanup timer",
+        : CleanupTimer(agent, "Agent Config Stale cleanup timer",
                        timeout_) { }
     virtual ~ConfigCleanupTimer() { }
 

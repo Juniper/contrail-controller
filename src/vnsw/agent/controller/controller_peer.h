@@ -104,7 +104,7 @@ public:
     void DeCommissionBgpPeer();
     void RegisterXmppChannel(XmppChannel *channel);
 
-    std::string controller_ifmap_xmpp_server() { return xmpp_server_; }
+    std::string GetXmppServer() { return xmpp_server_; }
     uint8_t GetXmppServerIdx() { return xs_idx_; }
     std::string GetMcastLabelRange() { return label_range_; }
 
