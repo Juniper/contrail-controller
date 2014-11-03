@@ -41,9 +41,15 @@ using namespace std;
 struct ShowRouteData : public RequestPipeline::InstData {
     vector<ShowRouteTable> route_table_list;
 };
+    
+const string kShowRouteIterSeparator = "||";
 
 class ShowRouteHandler {
 public:
+    // kMaxCount can be a function of 'count' field in ShowRouteReq
+    static const uint32_t kMaxCount = 1000;
+    static uint32_t GetMaxCount() { return kMaxCount; }
+
     struct ShowRouteData : public RequestPipeline::InstData {
         vector<ShowRouteTable> route_table_list;
     };
@@ -52,12 +58,11 @@ public:
         req_(req), inst_id_(inst_id) {}
 
     // Search for interesting prefixes in a given table for specified partition
-    void BuildShowRouteTable(BgpTable *table,
-            vector<ShowRoute> &route_list,
-            int count) {
+    void BuildShowRouteTable(BgpTable *table, vector<ShowRoute> &route_list,
+                             int count) {
         DBTablePartition *partition =
             static_cast<DBTablePartition *>(table->GetTablePartition(inst_id_));
-        BgpRoute *route;
+        BgpRoute *route = NULL;
 
         bool exact_lookup = false;
         if (!req_->get_prefix().empty() && !req_->get_longer_match()) {
@@ -65,13 +70,14 @@ public:
             auto_ptr<DBEntry> key = table->AllocEntryStr(req_->get_prefix());
             route = static_cast<BgpRoute *>(partition->Find(key.get()));
         } else if (table->name() == req_->get_start_routing_table()) {
-            auto_ptr<DBEntry> key = table->AllocEntryStr(req_->get_start_prefix());
+            auto_ptr<DBEntry> key =
+                table->AllocEntryStr(req_->get_start_prefix());
             route = static_cast<BgpRoute *>(partition->lower_bound(key.get()));
         } else {
             route = static_cast<BgpRoute *>(partition->GetFirst());
         }
         for (int i = 0; route && (!count || i < count);
-             route = static_cast<BgpRoute *>(partition->GetNext(route)), i++) {
+             route = static_cast<BgpRoute *>(partition->GetNext(route)), ++i) {
             if (!MatchPrefix(req_->get_prefix(), route,
                              req_->get_longer_match()))
                 continue;
@@ -103,28 +109,105 @@ public:
         return static_cast<RequestPipeline::InstData *>(new ShowRouteData);
     }
 
+    static bool CallbackS1Common(const ShowRouteReq *req, int inst_id,
+                                 ShowRouteData* mydata);
+    static bool CallbackS2Common(const ShowRouteReq *req,
+                                 const RequestPipeline::PipeSpec ps);
+
     static bool CallbackS1(const Sandesh *sr,
             const RequestPipeline::PipeSpec ps,
-            int stage, int instNum,
-            RequestPipeline::InstData *data);
+            int stage, int instNum, RequestPipeline::InstData *data);
     static bool CallbackS2(const Sandesh *sr,
             const RequestPipeline::PipeSpec ps,
-            int stage, int instNum,
+            int stage, int instNum, RequestPipeline::InstData *data);
+
+    static bool CallbackS1Iterate(const Sandesh *sr,
+            const RequestPipeline::PipeSpec ps, int stage, int instNum,
             RequestPipeline::InstData *data);
+    static bool CallbackS2Iterate(const Sandesh *sr,
+            const RequestPipeline::PipeSpec ps, int stage, int instNum,
+            RequestPipeline::InstData *data);
+
+    static string SaveContextAndPopLast(const ShowRouteReq *req,
+            vector<ShowRouteTable> *route_table_list);
+    static void ConvertReqIterateToReq(const ShowRouteReqIterate *req,
+                                       ShowRouteReq *new_req);
+    static uint32_t GetMaxRouteCount(const ShowRouteReq *req);
+
 private:
     const ShowRouteReq *req_;
     int inst_id_;
 };
 
-bool ShowRouteHandler::CallbackS1(const Sandesh *sr,
-            const RequestPipeline::PipeSpec ps,
-            int stage, int instNum,
-            RequestPipeline::InstData *data) {
-    ShowRouteData* mydata = static_cast<ShowRouteData*>(data);
-    int inst_id = ps.stages_[stage].instances_[instNum];
-    const ShowRouteReq *req = static_cast<const ShowRouteReq *>(ps.snhRequest_.get());
+uint32_t ShowRouteHandler::GetMaxRouteCount(const ShowRouteReq *req) {
+    uint32_t max_count = req->get_count() + 1;
+    if (!req->get_count() ||
+        (req->get_count() > ShowRouteHandler::GetMaxCount())) {
+        // Set the count to our default if input is zero or too high
+        max_count = ShowRouteHandler::GetMaxCount() + 1;
+    }
+    return max_count;
+}
+
+// Get the information from req and fill into new_req
+void ShowRouteHandler::ConvertReqIterateToReq(const ShowRouteReqIterate *req,
+                                              ShowRouteReq *new_req) {
+    // Format of route_info:
+    // UserRI||UserRT||UserPfx||NextRI||NextRT||NextPfx||count||longer_match
+    //
+    // User* values were entered by the user and Next* values indicate 'where'
+    // we need to start this iteration.
+    string route_info = req->get_route_info();
+    size_t sep_size = kShowRouteIterSeparator.size();
+
+    size_t pos1 = route_info.find(kShowRouteIterSeparator);
+    string user_ri = route_info.substr(0, pos1);
+
+    size_t pos2 = route_info.find(kShowRouteIterSeparator, (pos1 + sep_size));
+    string user_rt = route_info.substr((pos1 + sep_size),
+                                       pos2 - (pos1 + sep_size));
+
+    size_t pos3 = route_info.find(kShowRouteIterSeparator, (pos2 + sep_size));
+    string user_prefix = route_info.substr((pos2 + sep_size),
+                                           pos3 - (pos2 + sep_size));
+
+    size_t pos4 = route_info.find(kShowRouteIterSeparator, (pos3 + sep_size));
+    string next_ri = route_info.substr((pos3 + sep_size),
+                                       pos4 - (pos3 + sep_size));
+
+    size_t pos5 = route_info.find(kShowRouteIterSeparator, (pos4 + sep_size));
+    string next_rt = route_info.substr((pos4 + sep_size),
+                                       pos5 - (pos4 + sep_size));
+
+    size_t pos6 = route_info.find(kShowRouteIterSeparator, (pos5 + sep_size));
+    string next_prefix = route_info.substr((pos5 + sep_size),
+                                           pos6 - (pos5 + sep_size));
+
+    size_t pos7 = route_info.find(kShowRouteIterSeparator, (pos6 + sep_size));
+    string count_str = route_info.substr((pos6 + sep_size),
+                                         pos7 - (pos6 + sep_size));
+
+    string longer_match = route_info.substr(pos7 + sep_size);
+
+    new_req->set_routing_instance(user_ri);
+    new_req->set_routing_table(user_rt);
+    new_req->set_prefix(user_prefix);
+    new_req->set_start_routing_instance(next_ri);
+    new_req->set_start_routing_table(next_rt);
+    new_req->set_start_prefix(next_prefix);
+    new_req->set_count(atoi(count_str.c_str()));
+    new_req->set_longer_match(StringToBool(longer_match));
+    // Set the context from the original request
+    new_req->set_context(req->context());
+}
+
+bool ShowRouteHandler::CallbackS1Common(const ShowRouteReq *req, int inst_id,
+                                        ShowRouteData* mydata) {
+    uint32_t max_count = ShowRouteHandler::GetMaxRouteCount(req);
+
     ShowRouteHandler handler(req, inst_id);
-    BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(req->client_context());
+    BgpSandeshContext *bsc =
+        static_cast<BgpSandeshContext *>(req->client_context());
     RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
 
     string exact_routing_table = req->get_routing_table();
@@ -146,17 +229,21 @@ bool ShowRouteHandler::CallbackS1(const Sandesh *sr,
         rim->name_lower_bound(start_routing_instance);
     uint32_t count = 0;
     while (i != rim->name_end()) {
-        if (!handler.match(exact_routing_instance, i->first))
+        if (!handler.match(exact_routing_instance, i->first)) {
             break;
+        }
         RoutingInstance::RouteTableList::const_iterator j;
-        if (req->get_start_routing_instance() == i->first)
-            j = i->second->GetTables().lower_bound(req->get_start_routing_table());
-        else
+        if (req->get_start_routing_instance() == i->first) {
+            j = i->second->GetTables().
+                                lower_bound(req->get_start_routing_table());
+        } else {
             j = i->second->GetTables().begin();
-        for (;j != i->second->GetTables().end(); j++) {
+        }
+        for (; j != i->second->GetTables().end(); ++j) {
             BgpTable *table = j->second;
-            if (!handler.match(req->get_routing_table(), table->name()))
+            if (!handler.match(req->get_routing_table(), table->name())) {
                 continue;
+            }
             ShowRouteTable srt;
             srt.set_routing_instance(i->first);
             srt.set_routing_table_name(table->name());
@@ -171,24 +258,56 @@ bool ShowRouteHandler::CallbackS1(const Sandesh *sr,
 
             vector<ShowRoute> route_list;
             handler.BuildShowRouteTable(table, route_list,
-                req->get_count() ? req->get_count() - count : 0);
+                                        max_count ? max_count - count : 0);
             if (route_list.size()) {
                 srt.set_routes(route_list);
                 mydata->route_table_list.push_back(srt);
             }
             count += route_list.size();
-            if (req->get_count() && count >= req->get_count()) break;
+            if (count >= max_count) {
+                break;
+            }
         }
-        if (req->get_count() && count >= req->get_count()) break;
+        if (count >= max_count) {
+            break;
+        }
 
         i++;
     }
+
     return true;
+}
+
+bool ShowRouteHandler::CallbackS1(const Sandesh *sr,
+            const RequestPipeline::PipeSpec ps,
+            int stage, int instNum, RequestPipeline::InstData *data) {
+    ShowRouteData* mydata = static_cast<ShowRouteData*>(data);
+    int inst_id = ps.stages_[stage].instances_[instNum];
+    const ShowRouteReq *req =
+        static_cast<const ShowRouteReq *>(ps.snhRequest_.get());
+
+    return CallbackS1Common(req, inst_id, mydata);
+}
+
+bool ShowRouteHandler::CallbackS1Iterate(const Sandesh *sr,
+            const RequestPipeline::PipeSpec ps,
+            int stage, int instNum, RequestPipeline::InstData *data) {
+    ShowRouteData* mydata = static_cast<ShowRouteData*>(data);
+    int inst_id = ps.stages_[stage].instances_[instNum];
+    const ShowRouteReqIterate *req_iterate =
+        static_cast<const ShowRouteReqIterate *>(ps.snhRequest_.get());
+
+    ShowRouteReq *req = new ShowRouteReq;
+    ConvertReqIterateToReq(req_iterate, req);
+    bool retval = CallbackS1Common(req, inst_id, mydata);
+    req->Release();
+    return retval;
 }
 
 bool ShowRoute::operator<(const ShowRoute &rhs) const {
     return prefix < rhs.prefix;
 }
+
 bool ShowRouteTable::operator<(const ShowRouteTable &rhs) const {
     if (routing_instance < rhs.routing_instance) return true;
     if (routing_instance == rhs.routing_instance)
@@ -199,7 +318,8 @@ bool ShowRouteTable::operator<(const ShowRouteTable &rhs) const {
 template <class T>
 void MergeSort(vector<T> &result, vector<const vector<T> *> &input, int limit);
 
-int MergeValues(ShowRoute &result, vector<const ShowRoute *> &input, int limit) {
+int MergeValues(ShowRoute &result, vector<const ShowRoute *> &input,
+                int limit) {
     assert(input.size() == 1);
     result = *input[0];
     return 1;
@@ -218,7 +338,7 @@ int MergeValues(ShowRouteTable &result, vector<const ShowRouteTable *> &input,
     result.paths = input[0]->paths;
 
     int count = 0;
-    for (size_t i = 0; i < input.size(); i++) {
+    for (size_t i = 0; i < input.size(); ++i) {
         if (input[i]->routes.size())
             list.push_back(&input[i]->routes);
     }
@@ -237,10 +357,9 @@ void MergeSort(vector<T> &result, vector<const vector<T> *> &input, int limit) {
     while (limit == 0 || count < limit) {
         size_t best_index = size;
         const T *best = NULL;
-        for (size_t i = 0; i < size; i++) {
+        for (size_t i = 0; i < size; ++i) {
             if (index[i] == input[i]->size()) continue;
-            if (best == NULL ||
-                input[i]->at(index[i]) < *best) {
+            if (best == NULL || input[i]->at(index[i]) < *best) {
                 best = &input[i]->at(index[i]);
                 best_index = i;
                 continue;
@@ -249,7 +368,7 @@ void MergeSort(vector<T> &result, vector<const vector<T> *> &input, int limit) {
         if (best_index >= size) break;
         T table;
         vector<const T *> list;
-        for (size_t j = best_index; j < size; j++) {
+        for (size_t j = best_index; j < size; ++j) {
             if (index[j] == input[j]->size()) continue;
             if (input[j]->at(index[j]) < *best ||
                 *best < input[j]->at(index[j]))
@@ -260,28 +379,108 @@ void MergeSort(vector<T> &result, vector<const vector<T> *> &input, int limit) {
         count += MergeValues(table, list, limit ? limit - count : 0);
         result.push_back(table);
     }
-
 }
 
-bool ShowRouteHandler::CallbackS2(const Sandesh *sr,
-            const RequestPipeline::PipeSpec ps,
-            int stage, int instNum,
-            RequestPipeline::InstData *data) {
-    const ShowRouteReq *req = static_cast<const ShowRouteReq *>(ps.snhRequest_.get());
+string ShowRouteHandler::SaveContextAndPopLast(const ShowRouteReq *req,
+        vector<ShowRouteTable> *route_table_list) {
+
+    // If there are no output results for the input parameters, we dont need to
+    // save anything since there will be no subsequent iteration and there is
+    // nothing to pop off.
+    if (route_table_list->empty()) {
+        return string("");
+    }
+
+    // Get the total number of routes that we have collected in this iteration
+    // after the mergesort.
+    uint32_t total_count = 0;
+    for (size_t i = 0; i < route_table_list->size(); ++i) {
+        total_count += route_table_list->at(i).routes.size();
+    }
+
+    ShowRouteTable *last_route_table =
+        &route_table_list->at(route_table_list->size() - 1);
+    string next_batch;
+
+    // We always attempt to read one extra entry (GetMaxRouteCount adds 1).
+    // 1. If total_count is equal to GetMaxRouteCount(), we have atleast one
+    // entry for the next round i.e. we are not done and we need to init
+    // next_batch with the right values from the extra entry and we also need to
+    // pop off the extra entry.
+    // 2. If total_count is less than GetMaxRouteCount(), there are no more
+    // entries matching the input criteria and we are done.
+    // 3. total_count will never be greater than GetMaxRouteCount() since the
+    // mergesort has already trimmed the list to GetMaxRouteCount()
+    if (total_count == ShowRouteHandler::GetMaxRouteCount(req)) {
+        ShowRoute last_route =
+            last_route_table->routes.at(last_route_table->routes.size() - 1);
+        next_batch =
+            req->get_routing_instance() + kShowRouteIterSeparator +
+            req->get_routing_table() + kShowRouteIterSeparator +
+            req->get_prefix() + kShowRouteIterSeparator +
+            last_route_table->get_routing_instance() + kShowRouteIterSeparator +
+            last_route_table->get_routing_table_name() +
+                                                       kShowRouteIterSeparator +
+            last_route.get_prefix() + kShowRouteIterSeparator +
+            integerToString(req->get_count()) + kShowRouteIterSeparator +
+            BoolToString(req->get_longer_match());
+
+        // Pop off the last entry only after we have captured its values in
+        // 'next_batch' above.
+        last_route_table->routes.pop_back();
+        if (last_route_table->routes.empty()) {
+            route_table_list->pop_back();
+        }
+    }
+
+    return next_batch;
+}
+
+bool ShowRouteHandler::CallbackS2Common(const ShowRouteReq *req,
+                                        const RequestPipeline::PipeSpec ps) {
     const RequestPipeline::StageData *sd = ps.GetStageData(0);
-    ShowRouteResp *resp = new ShowRouteResp;
     vector<ShowRouteTable> route_table_list;
     vector<const vector<ShowRouteTable> *> table_lists;
-    for (size_t i = 0; i < sd->size(); i++) {
-        const ShowRouteData &old_data = static_cast<const ShowRouteData &>(sd->at(i));
-        if (old_data.route_table_list.size())
+    for (size_t i = 0; i < sd->size(); ++i) {
+        const ShowRouteData &old_data =
+            static_cast<const ShowRouteData &>(sd->at(i));
+        if (old_data.route_table_list.size()) {
             table_lists.push_back(&old_data.route_table_list);
+        }
     }
-    MergeSort(route_table_list, table_lists, req->get_count());
+    MergeSort(route_table_list, table_lists,
+              ShowRouteHandler::GetMaxRouteCount(req));
+
+    ShowRouteResp *resp = new ShowRouteResp;
+    string next_batch = SaveContextAndPopLast(req, &route_table_list);
+    resp->set_next_batch(next_batch);
+    // Save the table in the message *after* popping the last entry above.
     resp->set_tables(route_table_list);
     resp->set_context(req->context());
     resp->Response();
     return true;
+}
+
+bool ShowRouteHandler::CallbackS2(const Sandesh *sr,
+        const RequestPipeline::PipeSpec ps, int stage, int instNum,
+        RequestPipeline::InstData *data) {
+    const ShowRouteReq *req =
+        static_cast<const ShowRouteReq *>(ps.snhRequest_.get());
+
+    return CallbackS2Common(req, ps);
+}
+
+bool ShowRouteHandler::CallbackS2Iterate(const Sandesh *sr,
+        const RequestPipeline::PipeSpec ps, int stage, int instNum,
+        RequestPipeline::InstData *data) {
+    const ShowRouteReqIterate *req_iterate =
+        static_cast<const ShowRouteReqIterate *>(ps.snhRequest_.get());
+
+    ShowRouteReq *req = new ShowRouteReq;
+    ConvertReqIterateToReq(req_iterate, req);
+    bool retval = CallbackS2Common(req, ps);
+    req->Release();
+    return retval;
 }
 
 // handler for 'show route'
@@ -292,17 +491,14 @@ void ShowRouteReq::HandleRequest() const {
 
     // Request pipeline has 2 stages. In first stage, we spawn one task per
     // partition and generate the list of routes. In second stage, we look
-    // at the generated list and merge it so that we can send it out
-    //
-    // In future, we can enhance it to have many stages and send partial output
-    // after every second stage
+    // at the generated list and merge it so that we can send it back.
     RequestPipeline::StageSpec s1, s2;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     s1.taskId_ = scheduler->GetTaskId("db::DBTable");
     s1.allocFn_ = ShowRouteHandler::CreateData;
 
     s1.cbFn_ = ShowRouteHandler::CallbackS1;
-    for (int i = 0; i < bsc->bgp_server->database()->PartitionCount(); i++) {
+    for (int i = 0; i < bsc->bgp_server->database()->PartitionCount(); ++i) {
         s1.instances_.push_back(i);
     }
 
@@ -327,8 +523,10 @@ bool ShowRouteSummaryHandler::CallbackS1(const Sandesh *sr,
             const RequestPipeline::PipeSpec ps,
             int stage, int instNum,
             RequestPipeline::InstData *data) {
-    const ShowRouteSummaryReq *req = static_cast<const ShowRouteSummaryReq *>(ps.snhRequest_.get());
-    BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(req->client_context());
+    const ShowRouteSummaryReq *req =
+        static_cast<const ShowRouteSummaryReq *>(ps.snhRequest_.get());
+    BgpSandeshContext *bsc =
+        static_cast<BgpSandeshContext *>(req->client_context());
     RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
 
     vector<ShowRouteTableSummary> table_list;
@@ -382,6 +580,34 @@ void ShowRouteSummaryReq::HandleRequest() const {
     RequestPipeline rp(ps);
 }
 
+// handler for 'show route' that shows batches of routes, iteratively
+void ShowRouteReqIterate::HandleRequest() const {
+    BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(client_context());
+
+    RequestPipeline::PipeSpec ps(this);
+
+    // Request pipeline has 2 stages. In first stage, we spawn one task per
+    // partition and generate the list of routes. In second stage, we look
+    // at the generated list and merge it so that we can send it back.
+    RequestPipeline::StageSpec s1, s2;
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+
+    s1.taskId_ = scheduler->GetTaskId("db::DBTable");
+    s1.allocFn_ = ShowRouteHandler::CreateData;
+    s1.cbFn_ = ShowRouteHandler::CallbackS1Iterate;
+    for (int i = 0; i < bsc->bgp_server->database()->PartitionCount(); ++i) {
+        s1.instances_.push_back(i);
+    }
+
+    s2.taskId_ = scheduler->GetTaskId("bgp::ShowCommand");
+    s2.allocFn_ = ShowRouteHandler::CreateData;
+    s2.cbFn_ = ShowRouteHandler::CallbackS2Iterate;
+    s2.instances_.push_back(0);
+
+    ps.stages_= list_of(s1)(s2);
+    RequestPipeline rp(ps);
+}
+
 class ShowNeighborHandler {
 public:
     struct ShowNeighborData : public RequestPipeline::InstData {
@@ -403,23 +629,27 @@ public:
         switch (stage) {
         case 0:
         case 2:
-            return static_cast<RequestPipeline::InstData *>(new ShowNeighborData);
+            return static_cast<RequestPipeline::InstData *>
+                (new ShowNeighborData);
         case 1:
-            return static_cast<RequestPipeline::InstData *>(new ShowNeighborDataS2);
+            return static_cast<RequestPipeline::InstData *>
+                (new ShowNeighborDataS2);
         default:
             return NULL;
         }
     }
-    static void FillNeighborStats(ShowNeighborDataS2 *data, BgpTable *table, int inst_id) {
+    static void FillNeighborStats(ShowNeighborDataS2 *data, BgpTable *table,
+                                  int inst_id) {
         DBTablePartition *partition =
             static_cast<DBTablePartition *>(table->GetTablePartition(inst_id));
         BgpRoute *route = static_cast<BgpRoute *>(partition->GetFirst());
         ShowNeighborDataS2Key key;
         key.table = table->name();
-        for (; route; route = static_cast<BgpRoute *>(partition->GetNext(route))) {
+        for (; route;
+             route = static_cast<BgpRoute *>(partition->GetNext(route))) {
             Route::PathList &plist = route->GetPathList();
             Route::PathList::iterator it = plist.begin();
-            for (; it != plist.end(); it++) {
+            for (; it != plist.end(); ++it) {
                 BgpPath *path = static_cast<BgpPath *>(it.operator->());
                 // If paths are added with Peer as NULL(e.g. aggregate route)
                 if (path->GetPeer() == NULL) continue;
@@ -427,27 +657,28 @@ public:
                 BgpNeighborRoutingTable &nt = data->peers[key];
                 nt.received_prefixes++;
                 if (path->IsFeasible()) nt.accepted_prefixes++;
-                if (route->BestPath()->GetPeer() == path->GetPeer()) nt.active_prefixes++;
+                if (route->BestPath()->GetPeer() == path->GetPeer()) {
+                    nt.active_prefixes++;
+                }
             }
         }
     }
-    static void FillXmppNeighborInfo(vector<BgpNeighborResp> *, BgpServer *, BgpXmppChannel *);
+    static void FillXmppNeighborInfo(vector<BgpNeighborResp> *, BgpServer *,
+                                     BgpXmppChannel *);
     static bool CallbackS1(const Sandesh *sr,
-            const RequestPipeline::PipeSpec ps,
-            int stage, int instNum,
-            RequestPipeline::InstData *data);
+                           const RequestPipeline::PipeSpec ps, int stage,
+                           int instNum, RequestPipeline::InstData *data);
     static bool CallbackS2(const Sandesh *sr,
-            const RequestPipeline::PipeSpec ps,
-            int stage, int instNum,
-            RequestPipeline::InstData *data);
+                           const RequestPipeline::PipeSpec ps, int stage,
+                           int instNum, RequestPipeline::InstData *data);
     static bool CallbackS3(const Sandesh *sr,
-            const RequestPipeline::PipeSpec ps,
-            int stage, int instNum,
-            RequestPipeline::InstData *data);
+                           const RequestPipeline::PipeSpec ps, int stage,
+                           int instNum, RequestPipeline::InstData *data);
 };
 
 void ShowNeighborHandler::FillXmppNeighborInfo(
-        vector<BgpNeighborResp> *nbr_list, BgpServer *bgp_server, BgpXmppChannel *bx_channel) {
+        vector<BgpNeighborResp> *nbr_list, BgpServer *bgp_server,
+        BgpXmppChannel *bx_channel) {
     BgpNeighborResp resp;
     resp.set_peer(bx_channel->ToString());
     resp.set_peer_address(bx_channel->remote_endpoint().address().to_string());
@@ -476,8 +707,10 @@ bool ShowNeighborHandler::CallbackS1(const Sandesh *sr,
             int stage, int instNum,
             RequestPipeline::InstData * data) {
     ShowNeighborData* mydata = static_cast<ShowNeighborData*>(data);
-    const BgpNeighborReq *req = static_cast<const BgpNeighborReq *>(ps.snhRequest_.get());
-    BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(req->client_context());
+    const BgpNeighborReq *req =
+        static_cast<const BgpNeighborReq *>(ps.snhRequest_.get());
+    BgpSandeshContext *bsc =
+        static_cast<BgpSandeshContext *>(req->client_context());
     RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
     if (req->get_domain() != "") {
         RoutingInstance *ri = rim->GetRoutingInstance(req->get_domain());
@@ -486,14 +719,14 @@ bool ShowNeighborHandler::CallbackS1(const Sandesh *sr,
                 req->get_ip_address());
     } else {
         RoutingInstanceMgr::RoutingInstanceIterator it = rim->begin();
-        for (;it != rim->end(); it++) {
+        for (;it != rim->end(); ++it) {
             it->peer_manager()->FillBgpNeighborInfo(mydata->nbr_list,
                 req->get_ip_address());
         }
     }
 
-    bsc->xmpp_peer_manager->VisitChannels(boost::bind(FillXmppNeighborInfo,
-                                                      &mydata->nbr_list, bsc->bgp_server, _1));
+    bsc->xmpp_peer_manager->VisitChannels(boost::bind(
+        FillXmppNeighborInfo, &mydata->nbr_list, bsc->bgp_server, _1));
 
     return true;
 }
@@ -504,14 +737,16 @@ bool ShowNeighborHandler::CallbackS2(const Sandesh *sr,
             RequestPipeline::InstData *data) {
     ShowNeighborDataS2* mydata = static_cast<ShowNeighborDataS2*>(data);
     int inst_id = ps.stages_[stage].instances_[instNum];
-    const BgpNeighborReq *req = static_cast<const BgpNeighborReq *>(ps.snhRequest_.get());
-    BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(req->client_context());
+    const BgpNeighborReq *req =
+        static_cast<const BgpNeighborReq *>(ps.snhRequest_.get());
+    BgpSandeshContext *bsc =
+        static_cast<BgpSandeshContext *>(req->client_context());
     RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
     RoutingInstanceMgr::NameIterator i = rim->name_begin();
-    for (;i != rim->name_end(); i++) {
+    for (;i != rim->name_end(); ++i) {
         RoutingInstance::RouteTableList::const_iterator j =
                 i->second->GetTables().begin();
-        for (;j != i->second->GetTables().end(); j++) {
+        for (;j != i->second->GetTables().end(); ++j) {
             FillNeighborStats(mydata, j->second, inst_id);
         }
     }
@@ -522,21 +757,25 @@ bool ShowNeighborHandler::CallbackS3(const Sandesh *sr,
             const RequestPipeline::PipeSpec ps,
             int stage, int instNum,
             RequestPipeline::InstData *data) {
-    const BgpNeighborReq *req = static_cast<const BgpNeighborReq *>(ps.snhRequest_.get());
-    const RequestPipeline::StageData *sd[2] = { ps.GetStageData(0), ps.GetStageData(1) };
-    const ShowNeighborData &nbrs =  static_cast<const ShowNeighborData &>(sd[0]->at(0));
+    const BgpNeighborReq *req =
+        static_cast<const BgpNeighborReq *>(ps.snhRequest_.get());
+    const RequestPipeline::StageData *sd[2] =
+        { ps.GetStageData(0), ps.GetStageData(1) };
+    const ShowNeighborData &nbrs =
+        static_cast<const ShowNeighborData &>(sd[0]->at(0));
 
     vector<BgpNeighborResp> nbr_list = nbrs.nbr_list;
 
-    for (size_t i = 0; i < nbrs.nbr_list.size(); i++) {
+    for (size_t i = 0; i < nbrs.nbr_list.size(); ++i) {
         ShowNeighborDataS2Key key;
         key.peer = nbrs.nbr_list[i].peer;
-        for (size_t j = 0; j < nbrs.nbr_list[i].routing_tables.size(); j++) {
+        for (size_t j = 0; j < nbrs.nbr_list[i].routing_tables.size(); ++j) {
             key.table = nbrs.nbr_list[i].routing_tables[j].name;
-            for (size_t k = 0; k < sd[1]->size(); k++) {
+            for (size_t k = 0; k < sd[1]->size(); ++k) {
                 const ShowNeighborDataS2 &stats_data =
                         static_cast<const ShowNeighborDataS2 &>(sd[1]->at(k));
-                ShowNeighborDataS2::Map::const_iterator it = stats_data.peers.find(key);
+                ShowNeighborDataS2::Map::const_iterator it =
+                        stats_data.peers.find(key);
                 if (it == stats_data.peers.end()) continue;
                 nbr_list[i].routing_tables[j].active_prefixes +=
                         it->second.active_prefixes;
