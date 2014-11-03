@@ -1681,6 +1681,9 @@ bool BgpXmppChannel::ResumeClose() {
 
 void BgpXmppChannel::RegisterTable(BgpTable *table, int instance_id) {
     PeerRibMembershipManager *mgr = bgp_server_->membership_mgr();
+    BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_DEBUG,
+                 BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                 "Register to table " << table->name());
     mgr->Register(peer_.get(), table, bgp_policy_, instance_id,
             boost::bind(&BgpXmppChannel::MembershipRequestCallback,
                     this, _1, _2));
@@ -1688,6 +1691,9 @@ void BgpXmppChannel::RegisterTable(BgpTable *table, int instance_id) {
 
 void BgpXmppChannel::UnregisterTable(BgpTable *table) {
     PeerRibMembershipManager *mgr = bgp_server_->membership_mgr();
+    BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_DEBUG,
+                 BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                 "Unregister to table " << table->name());
     mgr->Unregister(peer_.get(), table,
             boost::bind(&BgpXmppChannel::MembershipRequestCallback,
                     this, _1, _2));

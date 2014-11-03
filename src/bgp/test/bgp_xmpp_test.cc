@@ -9,6 +9,7 @@
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
+#include "bgp/bgp_peer_membership.h"
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
@@ -524,6 +525,11 @@ TEST_F(BgpXmppUnitTest, Connection) {
     WAIT_EQ(8, bgp_channel_manager_->channel_->Count());
     BGP_DEBUG_UT("Received unsubscribe message 3 at Server \n ");
 
+    // Wait for all unsubscribe requests to get processed
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(a_->membership_mgr()->IsQueueEmpty());
+    TASK_UTIL_EXPECT_TRUE(b_->membership_mgr()->IsQueueEmpty());
+
     // show route
     cout << "ValidateShowRouteResponse for empty tables:" << endl;
     result.resize(0);
@@ -584,7 +590,7 @@ TEST_F(BgpXmppUnitTest, ShowXmppServer) {
     memcpy(buf, data.data(), data.size());
     xmpp_cchannel_->Peer()->SendUpdate(buf, data.size());
     BGP_DEBUG_UT("Sent bytes: " << data.size());
-    WAIT_EQ(1, bgp_channel_manager_->channel_->Count());
+    WAIT_EQ(2, bgp_channel_manager_->channel_->Count());
     BGP_DEBUG_UT("Received unsubscribe message 1 at Server");
 
     BgpSandeshContext sandesh_context;
