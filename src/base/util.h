@@ -300,6 +300,24 @@ static inline std::string GetHostIp(boost::asio::io_service *io_service,
     return iter != end ? iter->endpoint().address().to_string() : "";
 }
 
+static inline std::string BoolToString(const bool &val) {
+    if (val) {
+        return "true";
+    } else {
+        return "false";
+    }
+}
+
+static inline bool StringToBool(const std::string &in_string) {
+    if (in_string.compare("true") == 0) {
+        return true;
+    }
+    if (in_string.compare("false") == 0) {
+        return false;
+    }
+    return false;
+}
+
 // Writes a number into a string
 template <typename NumberType>
 static inline const std::string integerToString(const NumberType &num) {
