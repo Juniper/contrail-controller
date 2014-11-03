@@ -577,8 +577,8 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
  
     AgentXmppChannel *ch = Agent::GetInstance()->mulitcast_builder();
     EXPECT_TRUE(ch != NULL);
-    EXPECT_TRUE(ch->controller_ifmap_xmpp_server().size() != 0);
-    EXPECT_STREQ(ch->controller_ifmap_xmpp_server().c_str(), "127.0.0.1");
+    EXPECT_TRUE(ch->GetXmppServer().size() != 0);
+    EXPECT_STREQ(ch->GetXmppServer().c_str(), "127.0.0.1");
 
     //bring-down the channel, which is the elected
     //multicast tree builder (i.e 127.0.0.1)
@@ -589,8 +589,8 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
 
     ch = Agent::GetInstance()->mulitcast_builder();
     EXPECT_TRUE(ch != NULL);
-    EXPECT_TRUE(ch->controller_ifmap_xmpp_server().size() != 0);
-    EXPECT_STREQ(ch->controller_ifmap_xmpp_server().c_str(), "127.0.0.2");
+    EXPECT_TRUE(ch->GetXmppServer().size() != 0);
+    EXPECT_STREQ(ch->GetXmppServer().c_str(), "127.0.0.2");
 
     //ensure route learnt via control-node is cleaned/updated 
     Layer2RouteEntry *rt_m = GetL2FloodRoute("vrf1");
@@ -625,8 +625,8 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
 
     ch = Agent::GetInstance()->mulitcast_builder();
     EXPECT_TRUE(ch != NULL);
-    EXPECT_TRUE(ch->controller_ifmap_xmpp_server().size() != 0);
-    EXPECT_STREQ(ch->controller_ifmap_xmpp_server().c_str(), "127.0.0.1");
+    EXPECT_TRUE(ch->GetXmppServer().size() != 0);
+    EXPECT_STREQ(ch->GetXmppServer().c_str(), "127.0.0.1");
 
     //expect dissociate to the older peer, 127.0.0.2
     if (Agent::GetInstance()->headless_agent_mode()) {
@@ -649,8 +649,8 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
     //multicast builder should be unchanged
     ch = Agent::GetInstance()->mulitcast_builder();
     EXPECT_TRUE(ch != NULL);
-    EXPECT_TRUE(ch->controller_ifmap_xmpp_server().size() != 0);
-    EXPECT_STREQ(ch->controller_ifmap_xmpp_server().c_str(), "127.0.0.1");
+    EXPECT_TRUE(ch->GetXmppServer().size() != 0);
+    EXPECT_STREQ(ch->GetXmppServer().c_str(), "127.0.0.1");
 
     //expect no messages except config subscribe
     //control-node as 127.0.0.2 came up first
@@ -666,8 +666,8 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
     //multicast builder should be unchanged
     ch = Agent::GetInstance()->mulitcast_builder();
     EXPECT_TRUE(ch != NULL);
-    EXPECT_TRUE(ch->controller_ifmap_xmpp_server().size() != 0);
-    EXPECT_STREQ(ch->controller_ifmap_xmpp_server().c_str(), "127.0.0.1");
+    EXPECT_TRUE(ch->GetXmppServer().size() != 0);
+    EXPECT_STREQ(ch->GetXmppServer().c_str(), "127.0.0.1");
 
     //expect subscribe + 2VM routes
     if (Agent::GetInstance()->headless_agent_mode()) {
