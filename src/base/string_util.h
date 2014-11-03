@@ -150,4 +150,22 @@ static inline boost::uuids::uuid StringToUuid(const std::string &str)
     return u;
 }
 
+static inline std::string BoolToString(const bool &val) {
+    if (val) {
+        return "true";
+    } else {
+        return "false";
+    }
+}
+
+static inline bool StringToBool(const std::string &in_string) {
+    if (in_string.compare("true") == 0) {
+        return true;
+    }
+    if (in_string.compare("false") == 0) {
+        return false;
+    }
+    return false;
+}
+
 #endif  // BASE_STRING_UTIL_H__
