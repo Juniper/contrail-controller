@@ -7,6 +7,7 @@
 #include <boost/assign/list_of.hpp>
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/array.hpp>
+#include <boost/functional/hash.hpp>
 
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
@@ -24,6 +25,7 @@
 #include "collector.h"
 #include "db_handler.h"
 #include "parser_util.h"
+#include <sstream>
 
 #define DB_LOG(_Level, _Msg)                                                   \
     do {                                                                       \
@@ -752,6 +754,22 @@ DbHandler::StatTableInsert(uint64_t ts,
                         attribs_buf.insert(make_pair(nm, it->second));
                     val.SetString(it->second.str.c_str());
                     dd.AddMember(rt.first->first.c_str(), val, dd.GetAllocator());
+                    string field_name = it->first;
+                    if (field_name.compare("fields.value") == 0) {
+                        if (statName.compare("FieldNames") == 0) {
+                           //Make uuid a fn of the field.values
+                           boost::hash<std::string> string_hash;
+                           boost::uuids::string_generator gen;
+                           std::size_t str_hash = 
+                               string_hash(it->second.str.c_str());   
+                           std::stringstream ss;
+                           ss << str_hash;
+                           std::string uuid_str = ss.str();
+                           uuid_str.resize(32,'f');
+                           unm = gen(uuid_str);
+ 
+                        }
+                    }
                 }
                 break;
             case UINT64: {
