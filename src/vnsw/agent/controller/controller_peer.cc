@@ -1100,7 +1100,7 @@ bool AgentXmppChannel::IsBgpPeerActive(AgentXmppChannel *peer) {
 bool AgentXmppChannel::SetConfigPeer(AgentXmppChannel *peer) {
     Agent *agent = peer->agent();
     if (AgentXmppChannel::ControllerSendCfgSubscribe(peer)) {
-        agent->set_ifmap_active_xmpp_server(peer->controller_ifmap_xmpp_server(),
+        agent->set_ifmap_active_xmpp_server(peer->GetXmppServer(),
                                 peer->GetXmppServerIdx());
         //Generate a new sequence number for the configuration
         AgentIfMapXmppChannel::NewSeqNumber();
@@ -1195,7 +1195,7 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
         peer->CreateBgpPeer();
         agent->set_controller_xmpp_channel_setup_time(UTCTimestampUsec(), peer->
                                             GetXmppServerIdx());
-        CONTROLLER_TRACE(Session, peer->controller_ifmap_xmpp_server(), "READY",
+        CONTROLLER_TRACE(Session, peer->GetXmppServer(), "READY",
                          "NULL", "BGP peer ready.");
         if ((agent->controller()->ActiveXmppConnectionCount() == 1) &&
             headless_mode) {
@@ -1208,7 +1208,7 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
             if (headless_mode) {
                 CleanConfigStale(peer);
             }
-            CONTROLLER_TRACE(Session, peer->controller_ifmap_xmpp_server(), "READY",
+            CONTROLLER_TRACE(Session, peer->GetXmppServer(), "READY",
                              "NULL", "BGP peer set as config server.");
         }
 
@@ -1222,9 +1222,9 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
         if (agent_mcast_builder && (agent_mcast_builder != peer)) {
             // Check whether new peer can be a potential mcast builder
             boost::system::error_code ec;
-            IpAddress ip1 = ip::address::from_string(peer->controller_ifmap_xmpp_server(),ec);
+            IpAddress ip1 = ip::address::from_string(peer->GetXmppServer(),ec);
             IpAddress ip2 = ip::address::from_string(agent_mcast_builder->
-                                                     controller_ifmap_xmpp_server(),ec);
+                                                     GetXmppServer(),ec);
             if (ip1.to_v4().to_ulong() < ip2.to_v4().to_ulong()) {
                 change_agent_mcast_builder = true;
                 // Walk route-tables and send dissociate to older peer
@@ -1238,7 +1238,7 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
             //Since this is first time mcast peer so old and new peer are same
             AgentXmppChannel::SetMulticastPeer(peer, peer);
             CleanMulticastStale(peer);
-            CONTROLLER_TRACE(Session, peer->controller_ifmap_xmpp_server(), "READY",
+            CONTROLLER_TRACE(Session, peer->GetXmppServer(), "READY",
                              agent->mulitcast_builder()->
                              GetBgpPeerName(), "Peer elected Mcast builder");
         }
@@ -1270,7 +1270,7 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
         // Add BgpPeer to global decommissioned list
         peer->DeCommissionBgpPeer();
 
-        CONTROLLER_TRACE(Session, peer->controller_ifmap_xmpp_server(), "NOT_READY",
+        CONTROLLER_TRACE(Session, peer->GetXmppServer(), "NOT_READY",
                          "NULL", "BGP peer decommissioned for xmpp channel.");
 
         // Remove all unicast peer paths(in non headless mode) and cancel stale
@@ -1281,7 +1281,7 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
         AgentXmppChannel *agent_mcast_builder =
             agent->mulitcast_builder();
         bool peer_is_config_server = (agent->ifmap_active_xmpp_server().compare(peer->
-                                             controller_ifmap_xmpp_server()) == 0);
+                                             GetXmppServer()) == 0);
         bool peer_is_agent_mcast_builder = (agent_mcast_builder == peer);
 
         // Switch-over Config Control-node
@@ -1294,7 +1294,7 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
             if (IsBgpPeerActive(new_cfg_peer) &&
                 AgentXmppChannel::SetConfigPeer(new_cfg_peer)) {
                 AgentXmppChannel::CleanConfigStale(new_cfg_peer);
-                CONTROLLER_TRACE(Session, new_cfg_peer->controller_ifmap_xmpp_server(),
+                CONTROLLER_TRACE(Session, new_cfg_peer->GetXmppServer(),
                                  "NOT_READY", "NULL", "BGP peer selected as" 
                                  "config peer on decommission of old config "
                                  "peer.");
@@ -1332,7 +1332,7 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
 
             if (!evaluate_new_mcast_builder) {
                 new_mcast_builder = NULL;
-                CONTROLLER_TRACE(Session, peer->controller_ifmap_xmpp_server(), "NOT_READY",
+                CONTROLLER_TRACE(Session, peer->GetXmppServer(), "NOT_READY",
                                  "NULL", "No elected Multicast Tree Builder");
             }
             AgentXmppChannel::SetMulticastPeer(peer, new_mcast_builder);
@@ -1346,7 +1346,7 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
                 //the new multicast tree builder
                 new_mcast_builder->bgp_peer_id()->
                     PeerNotifyMulticastRoutes(true);
-                CONTROLLER_TRACE(Session, peer->controller_ifmap_xmpp_server(), "NOT_READY",
+                CONTROLLER_TRACE(Session, peer->GetXmppServer(), "NOT_READY",
                                  agent->mulitcast_builder()->
                                  GetBgpPeerName(),
                                  "Peer elected Multicast Tree Builder");

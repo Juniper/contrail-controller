@@ -586,9 +586,6 @@ TEST_F(AgentBasicScaleTest, unicast_cleanup_timer_1) {
     EXPECT_TRUE(stale_timeout_interval != 0);
     EXPECT_TRUE(Agent::GetInstance()->controller()->
                 unicast_cleanup_timer().cleanup_timer_->running() == false);
-    AgentXmppChannel *ch = Agent::GetInstance()->controller()->
-       unicast_cleanup_timer().agent_xmpp_channel_;
-    EXPECT_TRUE(ch == NULL);
 
     //Bring up the channel
     bgp_peer[0].get()->HandleXmppChannelEvent(xmps::READY);
@@ -599,9 +596,6 @@ TEST_F(AgentBasicScaleTest, unicast_cleanup_timer_1) {
     EXPECT_TRUE(stale_timeout_interval != 0);
     EXPECT_TRUE(Agent::GetInstance()->controller()->
                 unicast_cleanup_timer().cleanup_timer_->running() == true);
-    ch = Agent::GetInstance()->controller()->
-       unicast_cleanup_timer().agent_xmpp_channel_;
-    EXPECT_TRUE(ch != NULL);
 
     bgp_peer[1].get()->HandleXmppChannelEvent(xmps::READY);
     client->WaitForIdle();
@@ -611,9 +605,6 @@ TEST_F(AgentBasicScaleTest, unicast_cleanup_timer_1) {
     EXPECT_TRUE(stale_timeout_interval != 0);
     EXPECT_TRUE(Agent::GetInstance()->controller()->
                 unicast_cleanup_timer().cleanup_timer_->running() == true);
-    AgentXmppChannel *ch_2 = Agent::GetInstance()->controller()->
-       unicast_cleanup_timer().agent_xmpp_channel_;
-    EXPECT_TRUE(ch == ch_2);
 
     //Flap the second channel
     bgp_peer[1].get()->HandleXmppChannelEvent(xmps::NOT_READY);
@@ -623,11 +614,8 @@ TEST_F(AgentBasicScaleTest, unicast_cleanup_timer_1) {
     bgp_peer[1].get()->HandleXmppChannelEvent(xmps::READY);
     client->WaitForIdle();
     EXPECT_TRUE(CountStalePath(rt) == 1);
-    ch_2 = Agent::GetInstance()->controller()->
-       unicast_cleanup_timer().agent_xmpp_channel_;
     EXPECT_TRUE(Agent::GetInstance()->controller()->
                 unicast_cleanup_timer().cleanup_timer_->running() == true);
-    EXPECT_TRUE(ch == ch_2);
 
     //Delete vm-port and route entry in vrf1
     DeleteVmPortEnvironment();
@@ -673,9 +661,6 @@ TEST_F(AgentBasicScaleTest, unicast_cleanup_timer_2) {
     uint32_t stale_timeout_interval = Agent::GetInstance()->controller()->
         unicast_cleanup_timer().stale_timer_interval();
     EXPECT_TRUE(stale_timeout_interval != 0);
-    AgentXmppChannel *ch = Agent::GetInstance()->controller()->
-       unicast_cleanup_timer().agent_xmpp_channel_;
-    EXPECT_TRUE(ch == NULL);
 
     //Bring up the channel
     bgp_peer[0].get()->HandleXmppChannelEvent(xmps::READY);
@@ -684,9 +669,6 @@ TEST_F(AgentBasicScaleTest, unicast_cleanup_timer_2) {
     stale_timeout_interval = Agent::GetInstance()->controller()->
         unicast_cleanup_timer().stale_timer_interval();
     EXPECT_TRUE(stale_timeout_interval != 0);
-    ch = Agent::GetInstance()->controller()->
-       unicast_cleanup_timer().agent_xmpp_channel_;
-    EXPECT_TRUE(ch != NULL);
     EXPECT_TRUE(Agent::GetInstance()->controller()->
                 unicast_cleanup_timer().cleanup_timer_->running() == true);
 
@@ -696,9 +678,6 @@ TEST_F(AgentBasicScaleTest, unicast_cleanup_timer_2) {
     stale_timeout_interval = Agent::GetInstance()->controller()->
         unicast_cleanup_timer().stale_timer_interval();
     EXPECT_TRUE(stale_timeout_interval != 0);
-    AgentXmppChannel *ch_2 = Agent::GetInstance()->controller()->
-       unicast_cleanup_timer().agent_xmpp_channel_;
-    EXPECT_TRUE(ch == ch_2);
     EXPECT_TRUE(Agent::GetInstance()->controller()->
                 unicast_cleanup_timer().cleanup_timer_->running() == true);
 
@@ -706,9 +685,6 @@ TEST_F(AgentBasicScaleTest, unicast_cleanup_timer_2) {
     bgp_peer[0].get()->HandleXmppChannelEvent(xmps::NOT_READY);
     client->WaitForIdle();
     EXPECT_TRUE(CountStalePath(rt) == 1);
-    ch_2 = Agent::GetInstance()->controller()->
-       unicast_cleanup_timer().agent_xmpp_channel_;
-    EXPECT_TRUE(ch != ch_2);
     EXPECT_TRUE(Agent::GetInstance()->controller()->
                 unicast_cleanup_timer().cleanup_timer_->running() == true);
 
