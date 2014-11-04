@@ -17,6 +17,7 @@
 #include <sstream>
 #include <fstream>
 #include <uve/agent_uve.h>
+#include <uve/vm_uve_table.h>
 
 using namespace boost::uuids;
 using namespace boost::asio;
@@ -48,7 +49,9 @@ void VmStat::ReadData(const boost::system::error_code &ec,
         //Enqueue a request to process data
         VmStatData *vm_stat_data = new VmStatData(this);
 
-        agent_->uve()->vm_uve_table()->EnqueueVmStatData(vm_stat_data);
+        VmUveTable *vmt = static_cast<VmUveTable *>
+            (agent_->uve()->vm_uve_table());
+        vmt->EnqueueVmStatData(vm_stat_data);
     } else {
         bzero(rx_buff_, sizeof(rx_buff_));
         async_read(input_, boost::asio::buffer(rx_buff_, kBufLen),
@@ -127,7 +130,9 @@ void VmStat::ReadCpuStat() {
         }
     }
 
-    uint32_t num_of_cpu = agent_->uve()->vrouter_uve_entry()->GetCpuCount();
+    VrouterUveEntry *vre = static_cast<VrouterUveEntry *>
+        (agent_->uve()->vrouter_uve_entry());
+    uint32_t num_of_cpu = vre->GetCpuCount();
     if (num_of_cpu == 0) {
         GetVcpuStat();
         return;
@@ -251,7 +256,9 @@ void VmStat::ReadMemStat() {
     //simple and hence we sending current value in separate UVE.
     VirtualMachineStats vm_agent;
     if (BuildVmStatsMsg(&vm_agent)) {
-        agent_->uve()->vm_uve_table()->DispatchVmStatsMsg(vm_agent);
+        VmUveTable *vmt = static_cast<VmUveTable *>
+            (agent_->uve()->vm_uve_table());
+        vmt->DispatchVmStatsMsg(vm_agent);
     }
     UveVirtualMachineAgent vm_msg;
     if (BuildVmMsg(&vm_msg)) {

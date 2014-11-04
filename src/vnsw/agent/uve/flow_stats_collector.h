@@ -25,7 +25,7 @@ public:
 
     FlowStatsCollector(boost::asio::io_service &io, int intvl,
                        uint32_t flow_cache_timeout,
-                       AgentUve *uve);
+                       AgentUveBase *uve);
     virtual ~FlowStatsCollector();
 
     uint64_t flow_age_time_intvl() { return flow_age_time_intvl_; }
@@ -56,7 +56,7 @@ private:
     void SetUnderlayInfo(FlowEntry *flow, FlowDataIpv4 &s_flow);
     uint64_t GetUpdatedFlowPackets(const FlowStats *stats, uint64_t k_flow_pkts);
     uint64_t GetUpdatedFlowBytes(const FlowStats *stats, uint64_t k_flow_bytes);
-    AgentUve *agent_uve_;
+    AgentUveBase *agent_uve_;
     FlowKey flow_iteration_key_;
     uint64_t flow_age_time_intvl_;
     uint32_t flow_count_per_pass_;

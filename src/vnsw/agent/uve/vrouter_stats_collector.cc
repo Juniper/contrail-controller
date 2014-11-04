@@ -10,7 +10,7 @@
 #include <uve/vrouter_uve_entry.h>
 
 VrouterStatsCollector::VrouterStatsCollector(boost::asio::io_service &io,
-                                             AgentUve *uve) :
+                                             AgentUveBase *uve) :
     StatsCollector(TaskScheduler::GetInstance()->GetTaskId("Agent::Uve"), 
                    0, io, uve->agent()->params()->vrouter_stats_interval(),
                    "Vrouter stats collector"),
@@ -22,7 +22,9 @@ VrouterStatsCollector::~VrouterStatsCollector() {
 
 bool VrouterStatsCollector::Run() {
     run_counter_++;
-    agent_uve_->vrouter_uve_entry()->SendVrouterMsg();
+    VrouterUveEntry *vre = static_cast<VrouterUveEntry *>
+        (agent_uve_->vrouter_uve_entry());
+    vre->SendVrouterMsg();
     return true;
 }
 

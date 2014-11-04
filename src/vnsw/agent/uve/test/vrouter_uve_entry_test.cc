@@ -57,8 +57,9 @@ void VrouterUveEntryTest::DispatchComputeCpuStateMsg
 void VrouterUveEntryTest::DispatchVrouterMsg(const VrouterAgent &uve) {
     vrouter_msg_count_++;
     last_sent_vrouter_ = uve;
+    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
     if (!first_uve_dispatched_ &&
-        (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ == 1)) {
+        (u->vrouter_stats_collector()->run_counter_ == 1)) {
         first_uve_dispatched_ = true;
         first_vrouter_uve_ = uve;
     }

@@ -33,7 +33,7 @@ void ContrailAgentInit::ProcessOptions
  * Initialization routines
 ****************************************************************************/
 void ContrailAgentInit::FactoryInit() {
-    AgentObjectFactory::Register<AgentUve>(boost::factory<AgentUve *>());
+    AgentObjectFactory::Register<AgentUveBase>(boost::factory<AgentUve *>());
     AgentObjectFactory::Register<KSync>(boost::factory<KSync *>());
 }
 
@@ -44,8 +44,8 @@ void ContrailAgentInit::CreateModules() {
                                   agent()->event_manager()->io_service()));
     agent()->pkt()->set_control_interface(pkt0_.get());
 
-    uve_.reset(AgentObjectFactory::Create<AgentUve>
-               (agent(), AgentUve::kBandwidthInterval));
+    uve_.reset(AgentObjectFactory::Create<AgentUveBase>
+               (agent(), AgentUveBase::kBandwidthInterval));
     agent()->set_uve(uve_.get());
 
     ksync_.reset(AgentObjectFactory::Create<KSync>(agent()));

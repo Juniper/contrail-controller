@@ -14,7 +14,7 @@
 #include <uve/test/agent_stats_collector_test.h>
 #include <uve/test/flow_stats_collector_test.h>
 
-AgentUveTest::AgentUveTest(Agent *agent, uint64_t intvl) 
+AgentUveBaseTest::AgentUveBaseTest(Agent *agent, uint64_t intvl)
     : AgentUve(agent, intvl) {
     vn_uve_table_.reset(new VnUveTableTest(agent)); 
     vm_uve_table_.reset(new VmUveTableTest(agent));
@@ -29,6 +29,6 @@ AgentUveTest::AgentUveTest(Agent *agent, uint64_t intvl)
                                 this));
 }
 
-AgentUveTest::~AgentUveTest() {
+AgentUveBaseTest::~AgentUveBaseTest() {
 }
 

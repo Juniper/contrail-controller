@@ -178,7 +178,7 @@ AgentEnv.AppendUnique(CONTRAIL_LIBS = [
     'agent_services',
     'diag',
     'pkt',
-    'agentuve',
+    'statsuve',
     'vnswksync',
     'ksyncnl',
     'kstate',

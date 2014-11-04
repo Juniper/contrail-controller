@@ -7,11 +7,11 @@
 
 #include <uve/agent_uve.h>
 
-class AgentUveTest : public AgentUve {
+class AgentUveBaseTest : public AgentUve {
 public:
-    AgentUveTest(Agent *agent, uint64_t intvl);
-    virtual ~AgentUveTest();
+    AgentUveBaseTest(Agent *agent, uint64_t intvl);
+    virtual ~AgentUveBaseTest();
 private:
-    DISALLOW_COPY_AND_ASSIGN(AgentUveTest);
+    DISALLOW_COPY_AND_ASSIGN(AgentUveBaseTest);
 };
 #endif //vnsw_agent_uve_test_h

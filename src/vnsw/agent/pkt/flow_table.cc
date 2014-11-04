@@ -813,8 +813,9 @@ void FlowEntry::UpdateKSync(const FlowTable* table) {
          * Do not export stats on flow creation, it will be exported
          * while updating stats
          */
-        FlowStatsCollector *fec = table->agent()->uve()->
-                                    flow_stats_collector();
+        AgentUveBase *uve = table->agent()->uve();
+        AgentUve *f_uve = static_cast<AgentUve *>(uve);
+        FlowStatsCollector *fec = f_uve->flow_stats_collector();
         fec->FlowExport(this, 0, 0);
     }
     FlowTableKSyncObject *ksync_obj = 
@@ -1533,7 +1534,8 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
     FlowTableKSyncObject *ksync_obj = 
         agent_->ksync()->flowtable_ksync_obj();
 
-    FlowStatsCollector *fec = agent_->uve()->flow_stats_collector();
+    AgentUve *f_uve = static_cast<AgentUve *>(agent_->uve());
+    FlowStatsCollector *fec = f_uve->flow_stats_collector();
     uint64_t diff_bytes, diff_packets;
     fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
 
@@ -2187,7 +2189,8 @@ void FlowTable::DeleteRouteFlows(const RouteFlowKey &key)
 
 void FlowTable::DeleteFlowInfo(FlowEntry *fe) 
 {
-    agent_->uve()->DeleteFlow(fe);
+    AgentUve *f_uve = static_cast<AgentUve *>(agent_->uve());
+    f_uve->DeleteFlow(fe);
     // Remove from AclFlowTree
     // Go to all matched ACL list and remove from all acls
     std::list<MatchAclParams>::const_iterator acl_it;
@@ -2368,7 +2371,8 @@ void FlowTable::DeleteRouteFlowInfo (FlowEntry *fe)
 
 void FlowTable::AddFlowInfo(FlowEntry *fe)
 {
-    agent_->uve()->NewFlow(fe);
+    AgentUve *f_uve = static_cast<AgentUve *>(agent_->uve());
+    f_uve->NewFlow(fe);
     // Add AclFlowTree
     AddAclFlowInfo(fe);
     // Add IntfFlowTree

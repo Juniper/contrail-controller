@@ -474,13 +474,13 @@ TEST_F(UveVnUveTest, FlowCount_1) {
     EXPECT_EQ(4U, in_count);
     EXPECT_EQ(4U, out_count);
     UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn5");
-    Agent::GetInstance()->uve()->vn_uve_table()->SendVnStats(false);
+    vnut->SendVnStats(false);
     EXPECT_EQ(4U, uve1->get_ingress_flow_count());
     EXPECT_EQ(4U, uve1->get_egress_flow_count());
 
     DeleteFlow(flow, 1);
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
-    Agent::GetInstance()->uve()->vn_uve_table()->SendVnStats(false);
+    vnut->SendVnStats(false);
     EXPECT_EQ(2U, uve1->get_ingress_flow_count());
     EXPECT_EQ(2U, uve1->get_egress_flow_count());
 
@@ -536,7 +536,7 @@ TEST_F(UveVnUveTest, FlowCount_2) {
     EXPECT_EQ(2U, out_count);
 
     //Trigger VN UVE send
-    Agent::GetInstance()->uve()->vn_uve_table()->SendVnStats(false);
+    vnut->SendVnStats(false);
 
     //Verfiy ingress and egress flow counts for local VN "vn5"
     UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn5");
@@ -552,7 +552,8 @@ TEST_F(UveVnUveTest, FlowCount_2) {
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Trigger VN UVE send
-    Agent::GetInstance()->uve()->vn_uve_table()->SendVnStats(false);
+    vnut->SendVnStats(false);
+
     //Verfiy ingress and egress flow counts in VN UVEs
     EXPECT_EQ(1U, uve1->get_ingress_flow_count());
     EXPECT_EQ(1U, uve1->get_egress_flow_count());
@@ -622,7 +623,7 @@ TEST_F(UveVnUveTest, FipCount) {
     EXPECT_TRUE(VmPortActive(input, 0));
 
     //Trigger VN UVE send
-    Agent::GetInstance()->uve()->vn_uve_table()->SendVnStats(false);
+    vnut->SendVnStats(false);
 
     //Verify UVE 
     UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn1");
@@ -654,7 +655,7 @@ TEST_F(UveVnUveTest, FipCount) {
     WAIT_FOR(1000, 500, ((VmPortFloatingIpCount(1, 1) == true)));
 
     //Trigger VN UVE send
-    Agent::GetInstance()->uve()->vn_uve_table()->SendVnStats(false);
+    vnut->SendVnStats(false);
     client->WaitForIdle();
 
     //Verify UVE 
@@ -667,7 +668,7 @@ TEST_F(UveVnUveTest, FipCount) {
     client->WaitForIdle(3);
 
     //Trigger VN UVE send
-    Agent::GetInstance()->uve()->vn_uve_table()->SendVnStats(false);
+    vnut->SendVnStats(false);
     client->WaitForIdle();
 
     //Verify UVE 
@@ -680,7 +681,7 @@ TEST_F(UveVnUveTest, FipCount) {
     client->WaitForIdle();
 
     //Trigger VN UVE send
-    Agent::GetInstance()->uve()->vn_uve_table()->SendVnStats(false);
+    vnut->SendVnStats(false);
 
     //Verify UVE 
     EXPECT_EQ(1, uve1->get_associated_fip_count());
@@ -692,7 +693,7 @@ TEST_F(UveVnUveTest, FipCount) {
     client->WaitForIdle();
 
     //Trigger VN UVE send
-    Agent::GetInstance()->uve()->vn_uve_table()->SendVnStats(false);
+    vnut->SendVnStats(false);
 
     //Verify UVE 
     EXPECT_EQ(0, uve1->get_associated_fip_count());
@@ -763,7 +764,7 @@ TEST_F(UveVnUveTest, VnVrfAssoDisassoc_1) {
     EXPECT_EQ(1U, vnut->send_count());
 
     //Trigger send of VN stats
-    Agent::GetInstance()->uve()->vn_uve_table()->SendVnStats(false);
+    vnut->SendVnStats(false);
 
     //Verify vrf stats list in UVE
     UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn3");
@@ -775,7 +776,7 @@ TEST_F(UveVnUveTest, VnVrfAssoDisassoc_1) {
     client->WaitForIdle();
 
     //Trigger send of VN stats
-    Agent::GetInstance()->uve()->vn_uve_table()->SendVnStats(false);
+    vnut->SendVnStats(false);
 
     //Verify vrf stats list in UVE
     EXPECT_EQ(1U, uve1->get_vrf_stats_list().size()); 
@@ -785,7 +786,7 @@ TEST_F(UveVnUveTest, VnVrfAssoDisassoc_1) {
     client->WaitForIdle();
 
     //Trigger send of VN stats
-    Agent::GetInstance()->uve()->vn_uve_table()->SendVnStats(false);
+    vnut->SendVnStats(false);
 
     //Verify vrf stats list in UVE
     EXPECT_EQ(0U, uve1->get_vrf_stats_list().size()); 
@@ -795,7 +796,7 @@ TEST_F(UveVnUveTest, VnVrfAssoDisassoc_1) {
     client->WaitForIdle();
 
     //Trigger send of VN stats
-    Agent::GetInstance()->uve()->vn_uve_table()->SendVnStats(false);
+    vnut->SendVnStats(false);
 
     //Verify vrf stats list in UVE
     EXPECT_EQ(1U, uve1->get_vrf_stats_list().size()); 
@@ -935,8 +936,9 @@ TEST_F(UveVnUveTest, VnThroughput) {
     EXPECT_EQ((size + 30), Agent::GetInstance()->interface_config_table()->
                                                  Size());
 
+    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
     AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
-        (Agent::GetInstance()->uve()->agent_stats_collector());
+        (u->agent_stats_collector());
     collector->Run();
     client->WaitForIdle();
     for (int i = 0; i < 30; i++) {

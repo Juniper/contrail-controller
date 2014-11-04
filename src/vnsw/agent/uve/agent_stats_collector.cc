@@ -191,8 +191,13 @@ bool AgentStatsCollector::Run() {
 }
 
 void AgentStatsCollector::SendStats() {
-    agent_->uve()->vn_uve_table()->SendVnStats(false);
-    agent_->uve()->vm_uve_table()->SendVmStats();
+    VnUveTable *vnt = static_cast<VnUveTable *>
+        (agent_->uve()->vn_uve_table());
+    vnt->SendVnStats(false);
+
+    VmUveTable *vmt = static_cast<VmUveTable *>
+        (agent_->uve()->vm_uve_table());
+    vmt->SendVmStats();
 }
 
 AgentStatsCollector::InterfaceStats *AgentStatsCollector::GetInterfaceStats

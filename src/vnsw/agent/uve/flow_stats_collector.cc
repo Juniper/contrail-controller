@@ -18,13 +18,14 @@
 #include <uve/agent_uve.h>
 #include <uve/flow_stats_collector.h>
 #include <uve/vn_uve_table.h>
+#include <uve/vm_uve_table.h>
 #include <algorithm>
 #include <pkt/flow_proto.h>
 #include <ksync/ksync_init.h>
 
 FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
                                        uint32_t flow_cache_timeout,
-                                       AgentUve *uve) :
+                                       AgentUveBase *uve) :
         StatsCollector(TaskScheduler::GetInstance()->GetTaskId
                        ("Agent::StatsCollector"),
                        StatsCollector::FlowStatsCollector, 
@@ -369,10 +370,12 @@ bool FlowStatsCollector::Run() {
                 diff_bytes = bytes - stats->bytes;
                 diff_pkts = packets - stats->packets;
                 //Update Inter-VN stats
-                VnUveTable *vn_table = agent_uve_->vn_uve_table();
+                VnUveTable *vn_table = static_cast<VnUveTable *>
+                    (agent_uve_->vn_uve_table());
                 vn_table->UpdateInterVnStats(entry, diff_bytes, diff_pkts);
                 //Update Floating-IP stats
-                VmUveTable *vm_table = agent_uve_->vm_uve_table();
+                VmUveTable *vm_table = static_cast<VmUveTable *>
+                    (agent_uve_->vm_uve_table());
                 vm_table->UpdateFloatingIpStats(entry, diff_bytes, diff_pkts);
                 stats->bytes = bytes;
                 stats->packets = packets;
