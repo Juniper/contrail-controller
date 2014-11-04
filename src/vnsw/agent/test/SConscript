@@ -29,10 +29,16 @@ env.Append(LIBS = [
         'dbtest',
         'task_test',
         ])
+        
+if sys.platform.startswith('freebsd'):
+    platform_dependent = 'freebsd/test_util_tap.cc'
+elif sys.platform.startswith('linux'):
+    platform_dependent = 'linux/test_util_tap.cc'
 
 test_lib_srcs = ['test_agent_init.cc',
                  'test_init.cc',
                  'test_util.cc',
+                 platform_dependent,
                  '../pkt/test/test_pkt_util.cc',
                  '../ksync/test/ksync_test.cc',
                  '../uve/test/agent_uve_test.cc',
