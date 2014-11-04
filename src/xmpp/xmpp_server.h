@@ -18,6 +18,7 @@
 
 class LifetimeActor;
 class LifetimeManager;
+class ShowXmppConnection;
 class TcpSession;
 class XmppConnectionEndpoint;
 class XmppServerConnection;
@@ -68,6 +69,9 @@ public:
     XmppConnectionEndpoint *LocateConnectionEndpoint(
         XmppServerConnection *connection);
     void ReleaseConnectionEndpoint(XmppServerConnection *connection);
+
+    void FillShowConnections(
+        std::vector<ShowXmppConnection> *show_connection_list) const;
 
 protected:
     virtual TcpSession *AllocSession(Socket *socket);

@@ -25,6 +25,7 @@
 #include "sandesh/common/vns_constants.h"
 #include "sandesh/xmpp_client_server_sandesh_types.h"
 #include "sandesh/xmpp_message_sandesh_types.h"
+#include "sandesh/xmpp_server_types.h"
 #include "sandesh/xmpp_state_machine_sandesh_types.h"
 #include "sandesh/xmpp_trace_sandesh_types.h"
 #include "sandesh/xmpp_peer_info_types.h"
@@ -113,6 +114,18 @@ boost::asio::ip::tcp::endpoint XmppConnection::endpoint() const {
 
 boost::asio::ip::tcp::endpoint XmppConnection::local_endpoint() const {
     return local_endpoint_;
+}
+
+string XmppConnection::endpoint_string() const {
+    ostringstream oss;
+    oss << endpoint_;
+    return oss.str();
+}
+
+string XmppConnection::local_endpoint_string() const {
+    ostringstream oss;
+    oss << local_endpoint_;
+    return oss.str();
 }
 
 string XmppConnection::FromString() const {
@@ -283,6 +296,10 @@ XmppStateMachine *XmppConnection::state_machine() {
 
 const XmppStateMachine *XmppConnection::state_machine() const {
     return state_machine_.get();
+}
+
+const XmppChannelMux *XmppConnection::channel_mux() const {
+    return mux_.get();
 }
 
 void XmppConnection::IncProtoStats(unsigned int type) {
@@ -573,6 +590,19 @@ void XmppServerConnection::increment_flap_count() {
 
 const std::string XmppServerConnection::last_flap_at() const {
     return conn_endpoint_ ? conn_endpoint_->last_flap_at() : "";
+}
+
+void XmppServerConnection::FillShowInfo(
+    ShowXmppConnection *show_connection) const {
+    show_connection->set_name(ToString());
+    show_connection->set_deleted(IsDeleted());
+    show_connection->set_remote_endpoint(endpoint_string());
+    show_connection->set_local_endpoint(local_endpoint_string());
+    show_connection->set_state(StateName());
+    show_connection->set_last_event(LastEvent());
+    show_connection->set_last_state(LastStateName());
+    show_connection->set_last_state_at(LastStateChangeAt());
+    show_connection->set_receivers(channel_mux()->GetReceiverList());
 }
 
 class XmppClientConnection::DeleteActor : public LifetimeActor {
