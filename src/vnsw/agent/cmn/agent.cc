@@ -430,11 +430,11 @@ void Agent::set_ksync(KSync *ksync) {
     ksync_ = ksync;
 }
 
-AgentUve *Agent::uve() const {
+AgentUveBase *Agent::uve() const {
     return uve_;
 }
 
-void Agent::set_uve(AgentUve *uve) {
+void Agent::set_uve(AgentUveBase *uve) {
     uve_ = uve;
 }
 

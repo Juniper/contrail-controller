@@ -63,7 +63,7 @@ private:
 
     std::auto_ptr<AgentStats> stats_;
     std::auto_ptr<KSync> ksync_;
-    std::auto_ptr<AgentUve> uve_;
+    std::auto_ptr<AgentUveBase> uve_;
 
     std::auto_ptr<DiagTable> diag_table_;
     std::auto_ptr<ServicesModule> services_;

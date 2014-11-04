@@ -17,15 +17,16 @@
 #include <sstream>
 #include <fstream>
 #include <uve/agent_uve.h>
+#include <uve/vm_uve_table.h>
 
 using namespace boost::uuids;
 using namespace boost::asio;
 
 VmStat::VmStat(Agent *agent, const uuid &vm_uuid):
-    agent_(agent), vm_uuid_(vm_uuid), mem_usage_(0), 
-    virt_memory_(0), virt_memory_peak_(0), vm_memory_quota_(0), 
-    prev_cpu_stat_(0), cpu_usage_(0), prev_cpu_snapshot_time_(0), 
-    prev_vcpu_snapshot_time_(0), 
+    agent_(agent), vm_uuid_(vm_uuid), mem_usage_(0),
+    virt_memory_(0), virt_memory_peak_(0), vm_memory_quota_(0),
+    prev_cpu_stat_(0), cpu_usage_(0), prev_cpu_snapshot_time_(0),
+    prev_vcpu_snapshot_time_(0),
     input_(*(agent_->event_manager()->io_service())),
     timer_(TimerManager::CreateTimer(*(agent_->event_manager())->io_service(),
     "VmStatTimer")), marked_delete_(false), pid_(0), retry_(0) {
@@ -39,8 +40,8 @@ void VmStat::ReadData(const boost::system::error_code &ec,
                       size_t read_bytes, DoneCb &cb) {
     if (read_bytes) {
         data_<< rx_buff_;
-    } 
-    
+    }
+
     if (ec) {
         boost::system::error_code close_ec;
         input_.close(close_ec);
@@ -48,7 +49,9 @@ void VmStat::ReadData(const boost::system::error_code &ec,
         //Enqueue a request to process data
         VmStatData *vm_stat_data = new VmStatData(this);
 
-        agent_->uve()->vm_uve_table()->EnqueueVmStatData(vm_stat_data);
+        VmUveTable *vmt = static_cast<VmUveTable *>
+            (agent_->uve()->vm_uve_table());
+        vmt->EnqueueVmStatData(vm_stat_data);
     } else {
         bzero(rx_buff_, sizeof(rx_buff_));
         async_read(input_, boost::asio::buffer(rx_buff_, kBufLen),
@@ -127,7 +130,9 @@ void VmStat::ReadCpuStat() {
         }
     }
 
-    uint32_t num_of_cpu = agent_->uve()->vrouter_uve_entry()->GetCpuCount();
+    VrouterUveEntry *vre = static_cast<VrouterUveEntry *>
+        (agent_->uve()->vrouter_uve_entry());
+    uint32_t num_of_cpu = vre->GetCpuCount();
     if (num_of_cpu == 0) {
         GetVcpuStat();
         return;
@@ -174,7 +179,7 @@ void VmStat::ReadVcpuStat() {
 
         if (tmp == "time:") {
             double usage = 0;
-            data_ >> usage; 
+            data_ >> usage;
             vcpu_usage.push_back(usage);
         }
     }
@@ -224,8 +229,8 @@ void VmStat::ReadMemStat() {
             }
             if (line.find("VmRSS") != std::string::npos) {
                 std::stringstream vm(line);
-                std::string tmp; 
-                vm >> tmp; 
+                std::string tmp;
+                vm >> tmp;
                 vm >> mem_usage_;
                 rss = true;
             }
@@ -236,8 +241,8 @@ void VmStat::ReadMemStat() {
             }
             if (rss && vmsize && peak)
                 break;
-        }          
-    }    
+        }
+    }
 
     data_.str(" ");
     data_.clear();
@@ -251,13 +256,15 @@ void VmStat::ReadMemStat() {
     //simple and hence we sending current value in separate UVE.
     VirtualMachineStats vm_agent;
     if (BuildVmStatsMsg(&vm_agent)) {
-        agent_->uve()->vm_uve_table()->DispatchVmStatsMsg(vm_agent);
+        VmUveTable *vmt = static_cast<VmUveTable *>
+            (agent_->uve()->vm_uve_table());
+        vmt->DispatchVmStatsMsg(vm_agent);
     }
     UveVirtualMachineAgent vm_msg;
     if (BuildVmMsg(&vm_msg)) {
         agent_->uve()->vm_uve_table()->DispatchVmMsg(vm_msg);
     }
-    StartTimer();    
+    StartTimer();
 }
 
 bool VmStat::BuildVmStatsMsg(VirtualMachineStats *uve) {
@@ -348,7 +355,7 @@ void VmStat::ReadPid() {
         data_ >> tmp;
         if (tmp.find("qemu") != std::string::npos ||
                tmp.find("kvm") != std::string::npos) {
-            //Copy PID 
+            //Copy PID
             pid_ = pid;
             break;
         }
@@ -357,7 +364,7 @@ void VmStat::ReadPid() {
     }
 
     data_.str(" ");
-    data_.clear();      
+    data_.clear();
     if (pid_) {
         //Successfully read pid of process, collect other data
         GetMemoryQuota();
@@ -384,7 +391,7 @@ void VmStat::Start() {
 void VmStat::Stop() {
     marked_delete_ = true;
     if (timer_->running() || retry_ == kRetryCount) {
-        //If timer is fired, then we are in middle of 
+        //If timer is fired, then we are in middle of
         //vm stat collection, in such case dont delete the vm stat
         //entry as asio may be using it
         delete this;

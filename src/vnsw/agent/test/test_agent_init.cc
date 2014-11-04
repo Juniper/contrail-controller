@@ -51,7 +51,7 @@ void TestAgentInit::ProcessOptions
  * Initialization routines
  ***************************************************************************/
 void TestAgentInit::FactoryInit() {
-    AgentObjectFactory::Register<AgentUve>(boost::factory<AgentUveTest *>());
+    AgentObjectFactory::Register<AgentUveBase>(boost::factory<AgentUveBaseTest *>());
     AgentObjectFactory::Register<KSync>(boost::factory<KSyncTest *>());
 }
 
@@ -64,8 +64,8 @@ void TestAgentInit::CreateModules() {
                 *agent()->event_manager()->io_service()));
     agent()->pkt()->set_control_interface(pkt0_.get());
 
-    uve_.reset(AgentObjectFactory::Create<AgentUve>
-               (agent(), AgentUve::kBandwidthInterval));
+    uve_.reset(AgentObjectFactory::Create<AgentUveBase>
+               (agent(), AgentUveBase::kBandwidthInterval));
     agent()->set_uve(uve_.get());
 
     ksync_.reset(AgentObjectFactory::Create<KSync>(agent()));

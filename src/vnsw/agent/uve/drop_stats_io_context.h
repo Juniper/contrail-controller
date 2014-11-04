@@ -9,8 +9,8 @@
 
 class DropStatsIoContext: public IoContext {
 public:
-    DropStatsIoContext(int msg_len, char *msg, uint32_t seqno, 
-                       AgentStatsSandeshContext *ctx, 
+    DropStatsIoContext(int msg_len, char *msg, uint32_t seqno,
+                       AgentStatsSandeshContext *ctx,
                        IoContext::IoContextWorkQId id);
     virtual ~DropStatsIoContext();
     virtual void Handler();

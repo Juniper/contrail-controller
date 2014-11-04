@@ -4,12 +4,11 @@
 
 #include <oper/interface_common.h>
 #include <uve/vm_uve_table.h>
+#include <uve/vm_uve_entry.h>
 #include <uve/agent_uve.h>
 
 VmUveTable::VmUveTable(Agent *agent)
-    : uve_vm_map_(), agent_(agent), 
-      intf_listener_id_(DBTableBase::kInvalidId),
-      vm_listener_id_(DBTableBase::kInvalidId) {
+    : VmUveTableBase(agent) {
     event_queue_.reset(new WorkQueue<VmStatData *>
             (TaskScheduler::GetInstance()->GetTaskId("Agent::Uve"), 0,
              boost::bind(&VmUveTable::Process, this, _1)));
@@ -18,260 +17,17 @@ VmUveTable::VmUveTable(Agent *agent)
 VmUveTable::~VmUveTable() {
 }
 
-VmUveEntry* VmUveTable::Add(const VmEntry *vm, bool vm_notify) {
-    VmUveEntryPtr uve = Allocate(vm);
-    pair<UveVmMap::iterator, bool> ret;
-    ret = uve_vm_map_.insert(UveVmPair(vm, uve));
-    UveVmMap::iterator it = ret.first;
-    VmUveEntry* entry = it->second.get();
-    if (!entry->add_by_vm_notify()) {
-        entry->set_add_by_vm_notify(vm_notify);
-    }
-    return entry;
-}
-
-void VmUveTable::Delete(const VmEntry *vm) {
-    UveVmMap::iterator it = uve_vm_map_.find(vm);
-    if (it == uve_vm_map_.end()) {
-        return;
-    }
-
-    UveVirtualMachineAgent uve;
-    VirtualMachineStats stats_uve;
-    BuildVmDeleteMsg(vm, &uve, &stats_uve);
-
-    DispatchVmMsg(uve);
-    DispatchVmStatsMsg(stats_uve);
-
-    uve_vm_map_.erase(it);
-}
-
-VmUveTable::VmUveEntryPtr VmUveTable::Allocate(const VmEntry *vm) {
-    VmUveEntryPtr uve(new VmUveEntry(agent_));
-    return uve;
-}
-
-VmUveEntry* VmUveTable::UveEntryFromVm(const VmEntry *vm) {
-    UveVmMap::iterator it = uve_vm_map_.find(vm);
-    if (it == uve_vm_map_.end()) {
-        return NULL;
-    }
-    return it->second.get();
-}
-
-void VmUveTable::BuildVmDeleteMsg(const VmEntry *vm, 
-                                  UveVirtualMachineAgent *uve,
-                                  VirtualMachineStats *stats_uve) {
-    bool stats_uve_changed = false;
-    VmUveEntry* entry = UveEntryFromVm(vm);
-    if (entry == NULL) {
-        return;
-    }
-    uve->set_name(vm->GetCfgName());
-    uve->set_deleted(true);
-    stats_uve->set_name(vm->GetCfgName());
-    stats_uve->set_deleted(true);
-    entry->FrameVmStatsMsg(vm, uve, stats_uve, &stats_uve_changed);
-    entry->FrameVmMsg(vm, uve);
-}
-
-void VmUveTable::DispatchVmMsg(const UveVirtualMachineAgent &uve) {
-    UveVirtualMachineAgentTrace::Send(uve);
-}
-
-void VmUveTable::DispatchVmStatsMsg(const VirtualMachineStats &uve) {
-    VirtualMachineStatsTrace::Send(uve);
-}
-
-void VmUveTable::SendVmMsg(const VmEntry *vm) {
-    VmUveEntry* entry = UveEntryFromVm(vm);
-    if (entry == NULL) {
-        return;
-    }
-    UveVirtualMachineAgent uve;
-
-    bool send = entry->FrameVmMsg(vm, &uve);
-    if (send) {
-        DispatchVmMsg(uve);
-    }
-}
-
-void VmUveTable::SendVmStatsMsg(const VmEntry *vm) {
-    VmUveEntry* entry = UveEntryFromVm(vm);
-    if (entry == NULL) {
-        return;
-    }
-    UveVirtualMachineAgent uve;
-    VirtualMachineStats stats_uve;
-    bool stats_uve_send = false;
-
-    /* Two VM UVEs will be sent for all VM stats. VirtualMachineStats will
-     * have VM stats and UveVirtualMachineAgent will have port bitmap for VM
-     * and all its containing interfaces */
-    bool send = entry->FrameVmStatsMsg(vm, &uve, &stats_uve, &stats_uve_send);
-    if (send) {
-        DispatchVmMsg(uve);
-    }
-    if (stats_uve_send) {
-        DispatchVmStatsMsg(stats_uve);
-    }
-}
-
-void VmUveTable::InterfaceAddHandler(const VmEntry* vm, const Interface* itf,
-                                  const VmInterface::FloatingIpSet &old_list) {
-    VmUveEntry *vm_uve_entry = Add(vm, false);
-
-    vm_uve_entry->InterfaceAdd(itf, old_list);
-    SendVmMsg(vm);
-}
-
-void VmUveTable::InterfaceDeleteHandler(const VmEntry* vm, 
-                                        const Interface* intf) {
-    VmUveEntry* entry = UveEntryFromVm(vm);
-    if (entry == NULL) {
-        return;
-    }
-
-    entry->InterfaceDelete(intf);
-    SendVmMsg(vm);
-    if (!entry->add_by_vm_notify()) {
-        Delete(vm);
-    }
-}
-
-void VmUveTable::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e) {
-    const VmInterface *vm_port = dynamic_cast<const VmInterface*>(e);
-    if (vm_port == NULL) {
-        return;
-    }
-
-    VmUveInterfaceState *state = static_cast<VmUveInterfaceState *>
-                      (e->GetState(partition->parent(), intf_listener_id_));
-    if (e->IsDeleted() || ((vm_port->vm() == NULL))) {
-        if (state) {
-            VmKey key(state->vm_uuid_);
-            const VmEntry *vm = static_cast<VmEntry *>(agent_->vm_table()
-                    ->FindActiveEntry(&key));
-            /* If vm is marked for delete or if vm is deleted, required
-             * UVEs will be sent as part of Vm Delete Notification */
-            if (vm != NULL) {
-                InterfaceDeleteHandler(vm, vm_port);
-                state->fip_list_.clear();
-            }
-            if (e->IsDeleted()) {
-                e->ClearState(partition->parent(), intf_listener_id_);
-                delete state;
-            }
-        }
-    } else {
-        const VmEntry *vm = vm_port->vm();
-        VmInterface::FloatingIpSet old_list;
-
-        if (!state) {
-            state = new VmUveInterfaceState(vm->GetUuid(), 
-                                            vm_port->floating_ip_list().list_);
-            e->SetState(partition->parent(), intf_listener_id_, state);
-        } else {
-            old_list = state->fip_list_;
-            state->fip_list_ = vm_port->floating_ip_list().list_;
-        }
-        /* Change of VM in a given VM interface is not supported now */
-        if (vm->GetUuid() != state->vm_uuid_) {
-            assert(0);
-        }
-        InterfaceAddHandler(vm, vm_port, old_list);
-    }
-}
-
-void VmUveTable::VmNotify(DBTablePartBase *partition, DBEntryBase *e) {
-    const VmEntry *vm = static_cast<const VmEntry *>(e);
-
-    VmUveVmState *state = static_cast<VmUveVmState *>
-        (e->GetState(partition->parent(), vm_listener_id_));
-
-    if (e->IsDeleted()) {
-        if (state) {
-            Delete(vm);
-
-            VmStatCollectionStop(state);
-
-            e->ClearState(partition->parent(), vm_listener_id_);
-            delete state;
-        }
-        return;
-    }
-
-    if (!state) {
-        state = new VmUveVmState();
-        e->SetState(partition->parent(), vm_listener_id_, state);
-
-        Add(vm, true);
-
-        VmStatCollectionStart(state, vm);
-    }
-    SendVmMsg(vm);
-}
-
-void VmUveTable::VmStatCollectionStart(VmUveVmState *state, const VmEntry *vm) {
-    //Create object to poll for VM stats
-    VmStat *stat = new VmStat(agent_, vm->GetUuid());
-    stat->Start();
-    state->stat_ = stat;
-}
-
-void VmUveTable::VmStatCollectionStop(VmUveVmState *state) {
-    state->stat_->Stop();
-    state->stat_ = NULL;
-}
-
-void VmUveTable::RegisterDBClients() {
-    InterfaceTable *intf_table = agent_->interface_table();
-    intf_listener_id_ = intf_table->Register
-                  (boost::bind(&VmUveTable::InterfaceNotify, this, _1, _2));
-
-    VmTable *vm_table = agent_->vm_table();
-    vm_listener_id_ = vm_table->Register
-        (boost::bind(&VmUveTable::VmNotify, this, _1, _2));
-}
-
-void VmUveTable::Shutdown(void) {
-    agent_->vm_table()->Unregister(vm_listener_id_);
-    agent_->interface_table()->Unregister(intf_listener_id_);
-}
-
-void VmUveTable::SendVmStats(void) {
-    UveVmMap::iterator it = uve_vm_map_.begin();
-    while (it != uve_vm_map_.end()) {
-        SendVmStatsMsg(it->first);
-        it++;
-    }
-}
-
-void VmUveTable::UpdateBitmap(const VmEntry* vm, uint8_t proto, uint16_t sport,
-                              uint16_t dport) {
+void VmUveTable::UpdateBitmap(const VmEntry* vm, uint8_t proto,
+                                  uint16_t sport, uint16_t dport) {
     UveVmMap::iterator it = uve_vm_map_.find(vm);
     if (it != uve_vm_map_.end()) {
-        VmUveEntry *entry = it->second.get();
+        VmUveEntry *entry = static_cast<VmUveEntry *>(it->second.get());
         entry->UpdatePortBitmap(proto, sport, dport);
     }
 }
 
-void VmUveTable::EnqueueVmStatData(VmStatData *data) {
-    event_queue_->Enqueue(data);
-}
-
-bool VmUveTable::Process(VmStatData* vm_stat_data) {
-    if (vm_stat_data->vm_stat()->marked_delete()) {
-        delete vm_stat_data->vm_stat();
-    } else {
-        vm_stat_data->vm_stat()->ProcessData();
-    }
-    delete vm_stat_data;
-    return true;
-}
-
-void VmUveTable::UpdateFloatingIpStats(const FlowEntry *flow, uint64_t bytes,
-                                       uint64_t pkts) {
+void VmUveTable::UpdateFloatingIpStats(const FlowEntry *flow,
+                                       uint64_t bytes, uint64_t pkts) {
     VmUveEntry::FipInfo fip_info;
 
     /* Ignore Non-Floating-IP flow */
@@ -330,5 +86,88 @@ VmUveEntry *VmUveTable::InterfaceIdToVmUveEntry(uint32_t id) {
         return NULL;
     }
 
-    return it->second.get();
+    return static_cast<VmUveEntry *>(it->second.get());
+}
+
+VmUveTableBase::VmUveEntryPtr VmUveTable::Allocate(const VmEntry *vm) {
+    VmUveEntryPtr uve(new VmUveEntry(agent_));
+    return uve;
+}
+
+void VmUveTable::SendVmStatsMsg(const VmEntry *vm) {
+    VmUveEntry* entry = static_cast<VmUveEntry*>(UveEntryFromVm(vm));
+    if (entry == NULL) {
+        return;
+    }
+    UveVirtualMachineAgent uve;
+    VirtualMachineStats stats_uve;
+    bool stats_uve_send = false;
+
+    /* Two VM UVEs will be sent for all VM stats. VirtualMachineStats will
+     * have VM stats and UveVirtualMachineAgent will have port bitmap for VM
+     * and all its containing interfaces */
+    bool send = entry->FrameVmStatsMsg(vm, &uve, &stats_uve, &stats_uve_send);
+    if (send) {
+        DispatchVmMsg(uve);
+    }
+    if (stats_uve_send) {
+        DispatchVmStatsMsg(stats_uve);
+    }
+}
+
+void VmUveTable::VmStatCollectionStart(VmUveVmState *state, const VmEntry *vm) {
+    //Create object to poll for VM stats
+    VmStat *stat = new VmStat(agent_, vm->GetUuid());
+    stat->Start();
+    state->stat_ = stat;
+}
+
+void VmUveTable::VmStatCollectionStop(VmUveVmState *state) {
+    state->stat_->Stop();
+    state->stat_ = NULL;
+}
+
+void VmUveTable::EnqueueVmStatData(VmStatData *data) {
+    event_queue_->Enqueue(data);
+}
+
+bool VmUveTable::Process(VmStatData* vm_stat_data) {
+    if (vm_stat_data->vm_stat()->marked_delete()) {
+        delete vm_stat_data->vm_stat();
+    } else {
+        vm_stat_data->vm_stat()->ProcessData();
+    }
+    delete vm_stat_data;
+    return true;
+}
+
+void VmUveTable::DispatchVmStatsMsg(const VirtualMachineStats &uve) {
+    VirtualMachineStatsTrace::Send(uve);
+}
+
+void VmUveTable::SendVmDeleteMsg(const VmEntry *vm) {
+    bool stats_uve_changed = false;
+    UveVirtualMachineAgent uve;
+    VirtualMachineStats stats_uve;
+    VmUveEntry* entry = static_cast<VmUveEntry*>(UveEntryFromVm(vm));
+    if (entry == NULL) {
+        return;
+    }
+    uve.set_name(vm->GetCfgName());
+    uve.set_deleted(true);
+    stats_uve.set_name(vm->GetCfgName());
+    stats_uve.set_deleted(true);
+    entry->FrameVmStatsMsg(vm, &uve, &stats_uve, &stats_uve_changed);
+    entry->FrameVmMsg(vm, &uve);
+
+    DispatchVmMsg(uve);
+    DispatchVmStatsMsg(stats_uve);
+}
+
+void VmUveTable::SendVmStats(void) {
+    UveVmMap::iterator it = uve_vm_map_.begin();
+    while (it != uve_vm_map_.end()) {
+        SendVmStatsMsg(it->first);
+        it++;
+    }
 }

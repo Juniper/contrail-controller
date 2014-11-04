@@ -27,11 +27,11 @@
 AgentStatsCollector::AgentStatsCollector
     (boost::asio::io_service &io, Agent* agent)
     : StatsCollector(TaskScheduler::GetInstance()->
-                     GetTaskId("Agent::StatsCollector"), 
-                     StatsCollector::AgentStatsCollector, 
-                     io, agent->params()->agent_stats_interval(), 
-                     "Agent Stats collector"), 
-    vrf_listener_id_(DBTableBase::kInvalidId), 
+                     GetTaskId("Agent::StatsCollector"),
+                     StatsCollector::AgentStatsCollector,
+                     io, agent->params()->agent_stats_interval(),
+                     "Agent Stats collector"),
+    vrf_listener_id_(DBTableBase::kInvalidId),
     intf_listener_id_(DBTableBase::kInvalidId), agent_(agent) {
     AddNamelessVrfStatsEntry();
     intf_stats_sandesh_ctx_.reset(new AgentStatsSandeshContext(this));
@@ -85,18 +85,18 @@ IoContext *AgentStatsCollector::AllocateIoContext(char* buf, uint32_t buf_len,
                                                   StatsType type, uint32_t seq) {
     switch (type) {
         case InterfaceStatsType:
-            return (new InterfaceStatsIoContext(buf_len, buf, seq, 
-                                         intf_stats_sandesh_ctx_.get(), 
+            return (new InterfaceStatsIoContext(buf_len, buf, seq,
+                                         intf_stats_sandesh_ctx_.get(),
                                          IoContext::UVE_Q_ID));
             break;
        case VrfStatsType:
-            return (new VrfStatsIoContext(buf_len, buf, seq, 
-                                        vrf_stats_sandesh_ctx_.get(), 
+            return (new VrfStatsIoContext(buf_len, buf, seq,
+                                        vrf_stats_sandesh_ctx_.get(),
                                         IoContext::UVE_Q_ID));
             break;
        case DropStatsType:
-            return (new DropStatsIoContext(buf_len, buf, seq, 
-                                         drop_stats_sandesh_ctx_.get(), 
+            return (new DropStatsIoContext(buf_len, buf, seq,
+                                         drop_stats_sandesh_ctx_.get(),
                                          IoContext::UVE_Q_ID));
             break;
        default:
@@ -104,14 +104,14 @@ IoContext *AgentStatsCollector::AllocateIoContext(char* buf, uint32_t buf_len,
     }
 }
 
-void AgentStatsCollector::SendAsync(char* buf, uint32_t buf_len, 
+void AgentStatsCollector::SendAsync(char* buf, uint32_t buf_len,
                                     StatsType type) {
     KSyncSock   *sock = KSyncSock::Get(0);
     uint32_t seq = sock->AllocSeqNo(true);
 
     IoContext *ioc = AllocateIoContext(buf, buf_len, type, seq);
     if (ioc) {
-        sock->GenericSend(ioc); 
+        sock->GenericSend(ioc);
     }
 }
 
@@ -152,7 +152,7 @@ void AgentStatsCollector::AddUpdateVrfStatsEntry(const VrfEntry *vrf) {
         stats.name = vrf->GetName();
         vrf_stats_tree_.insert(VrfStatsPair(vrf->vrf_id(), stats));
     } else {
-        /* Vrf could be deleted in agent oper DB but not in Kernel. To handle 
+        /* Vrf could be deleted in agent oper DB but not in Kernel. To handle
          * this case we maintain vrfstats object in AgentStatsCollector even
          * when vrf is absent in agent oper DB.  Since vrf could get deleted and
          * re-added we need to update the name in vrfstats object.
@@ -191,8 +191,13 @@ bool AgentStatsCollector::Run() {
 }
 
 void AgentStatsCollector::SendStats() {
-    agent_->uve()->vn_uve_table()->SendVnStats(false);
-    agent_->uve()->vm_uve_table()->SendVmStats();
+    VnUveTable *vnt = static_cast<VnUveTable *>
+        (agent_->uve()->vn_uve_table());
+    vnt->SendVnStats(false);
+
+    VmUveTable *vmt = static_cast<VmUveTable *>
+        (agent_->uve()->vm_uve_table());
+    vmt->SendVmStats();
 }
 
 AgentStatsCollector::InterfaceStats *AgentStatsCollector::GetInterfaceStats
@@ -217,7 +222,7 @@ AgentStatsCollector::VrfStats *AgentStatsCollector::GetVrfStats(int vrf_id) {
     return &it->second;
 }
 
-void AgentStatsCollector::InterfaceNotify(DBTablePartBase *part, 
+void AgentStatsCollector::InterfaceNotify(DBTablePartBase *part,
                                           DBEntryBase *e) {
     const Interface *intf = static_cast<const Interface *>(e);
     bool set_state = false, reset_state = false;

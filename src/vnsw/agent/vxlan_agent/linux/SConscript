@@ -13,7 +13,7 @@ import subprocess
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-env.Prepend(LIBS = [ 'vnswinit' ])
+env.Prepend(LIBS = [ 'uve', 'vnswinit' ])
 
 env.GenerateBuildInfoCode(
     target='buildinfo.cc',

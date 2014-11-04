@@ -18,7 +18,7 @@ class AgentParam;
 class AgentConfig;
 class AgentStats;
 class KSync;
-class AgentUve;
+class AgentUveBase;
 class PktModule;
 class VirtualGateway;
 class ServicesModule;
@@ -600,8 +600,8 @@ public:
     KSync *ksync() const;
     void set_ksync(KSync *ksync);
 
-    AgentUve *uve() const;
-    void set_uve(AgentUve *uve);
+    AgentUveBase *uve() const;
+    void set_uve(AgentUveBase *uve);
 
     PktModule *pkt() const;
     void set_pkt(PktModule *pkt);
@@ -718,7 +718,7 @@ private:
     AgentConfig *cfg_;
     AgentStats *stats_;
     KSync *ksync_;
-    AgentUve *uve_;
+    AgentUveBase *uve_;
     PktModule *pkt_;
     ServicesModule *services_;
     VirtualGateway *vgw_;

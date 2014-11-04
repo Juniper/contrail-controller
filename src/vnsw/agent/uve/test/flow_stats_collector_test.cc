@@ -25,7 +25,7 @@
 
 FlowStatsCollectorTest::FlowStatsCollectorTest(boost::asio::io_service &io, int intvl,
                                            uint32_t flow_cache_timeout,
-                                           AgentUve *uve) :
+                                           AgentUveBase *uve) :
     FlowStatsCollector(io, intvl, flow_cache_timeout, uve) {
 }
 

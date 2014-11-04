@@ -72,7 +72,7 @@ buildinfo_dep_libs += MapBuildAgentLib([
     'oper/libvnswoperdb.a',
     'pkt/libpkt.a', 'diag/libdiag.a',
     'services/libagent_services.a',
-    'uve/libagentuve.a'
+    'uve/libstatsuve.a'
 ])
 
 env.GenerateBuildInfoCode(

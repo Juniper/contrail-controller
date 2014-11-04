@@ -10,7 +10,7 @@
 #include <cmn/agent_cmn.h>
 
 class Agent;
-class AgentUve;
+class AgentUveBase;
 class KSync;
 class DB;
 class DBGraph;
@@ -19,7 +19,7 @@ class InstanceManager;
 
 class AgentObjectFactory : public Factory<AgentObjectFactory> {
     FACTORY_TYPE_N1(AgentObjectFactory, KSync, Agent *);
-    FACTORY_TYPE_N2(AgentObjectFactory, AgentUve, Agent *, uint64_t);
+    FACTORY_TYPE_N2(AgentObjectFactory, AgentUveBase, Agent *, uint64_t);
     FACTORY_TYPE_N1(AgentObjectFactory, AgentSignal, EventManager *);
     FACTORY_TYPE_N2(AgentObjectFactory, IFMapDependencyManager, DB *,
                     DBGraph *);
