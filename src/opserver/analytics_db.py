@@ -19,32 +19,34 @@ class AnalyticsDb(object):
     def __init__(self, logger, cassandra_server_list):
         self._logger = logger
         self._cassandra_server_list = cassandra_server_list
-        self._sysm = None
         self._pool = None
         self.connect_db()
-        self._sysm = self._get_sysm()
         self.number_of_purge_requests = 0
     # end __init__
 
     def connect_db(self):
         try:
-            self._pool = pycassa.ConnectionPool(COLLECTOR_KEYSPACE,
+            self._pool = ConnectionPool(COLLECTOR_KEYSPACE,
                           server_list=self._cassandra_server_list, timeout=None)
-            self._logger.info("Connection to AnalyticsDb is Established!")
+            if (self._pool == None):
+                self._logger.error('AnalyticsDb is not reachable.')
+                return -1
         except Exception as e:
             self._logger.error("Exception: Failure in connection to AnalyticsDb %s" % e)
+            return -1
+        return None
     # end connect_db
 
     def _get_sysm(self):
-        try:
-            for server_and_port in self._cassandra_server_list:
-                _sysm = pycassa.system_manager.SystemManager(server_and_port)
-                if (_sysm is not None):
-                    break
-        except Exception as e:
-            self._logger.error("Exception: SystemManager failed %s" % e)
-        else:
-            return _sysm
+        for server_and_port in self._cassandra_server_list:
+            try:
+                sysm = pycassa.system_manager.SystemManager(server_and_port)
+            except Exception as e:
+                self._logger.error("Exception: SystemManager failed %s" % e)
+                continue
+            else:
+                return sysm
+        return None
     # end _get_sysm
 
     def _get_analytics_start_time(self):
@@ -53,7 +55,7 @@ class AnalyticsDb(object):
             row = col_family.get(SYSTEM_OBJECT_ANALYTICS, columns=[SYSTEM_OBJECT_START_TIME])
         except Exception as e:
             self._logger.error("Exception: analytics_start_time Failure %s" % e)
-            return None
+            return -1
         else:
             return row[SYSTEM_OBJECT_START_TIME]
     # end _get_analytics_start_time
@@ -65,15 +67,21 @@ class AnalyticsDb(object):
                     {SYSTEM_OBJECT_START_TIME: start_time})
         except Exception as e:
             self._logger.error("Exception: update_analytics_start_time Connection Failure %s" % e)
+            return -1
+        return None
     # end _update_analytics_start_time
 
     def purge_old_data(self, purge_time, purge_id):
         total_rows_deleted = 0 # total number of rows deleted
         try:
-            table_list = self._sysm.get_keyspace_column_families(COLLECTOR_KEYSPACE)
+            sysm = self._get_sysm()
+            if (sysm == None):
+                self._logger.error('SystemManager Value is None')
+                return -1
+            table_list = sysm.get_keyspace_column_families(COLLECTOR_KEYSPACE)
         except Exception as e:
-            self._logger.error("Exception: Purge_id %s Failed to get Analytics Column families%s" % (purge_id, e))
-            return 0
+            self._logger.error("Exception: Purge_id %s Failed to get Analytics Column families %s" % (purge_id, e))
+            return -1
         excluded_table_list = ['MessageTable', 'FlowRecordTable', 'MessageTableTimestamp', 'SystemObjectTable']
         for table in table_list:
             # purge from index tables
@@ -82,9 +90,12 @@ class AnalyticsDb(object):
                 per_table_deleted = 0 # total number of rows deleted from each table
                 try:
                     cf = pycassa.ColumnFamily(self._pool, table)
+                    if (cf == None):
+                        self._logger.error('ColumnFamily is empty')
+                        continue
                 except Exception as e:
                     self._logger.error("purge_id %s Failure in fetching the columnfamily %s" % e)
-                    continue
+                    return -1
                 b = cf.batch()
                 try:
                     for key, cols in cf.get_range():
@@ -109,9 +120,12 @@ class AnalyticsDb(object):
         if (purge_input != None):
             current_time = UTCTimestampUsec()
             analytics_start_time = float(self._get_analytics_start_time())
+            if (analytics_start_time == None):
+                self._logger.error("Analytics start time is None")
+                return None
             purge_time = analytics_start_time + (float((purge_input)*(float(current_time) - analytics_start_time)))/100
             total_rows_deleted = self.purge_old_data(purge_time, purge_id)
-            if (total_rows_deleted != 0):
+            if (total_rows_deleted != -1):
                 self._update_analytics_start_time(int(purge_time))
         return total_rows_deleted
     # end db_purge

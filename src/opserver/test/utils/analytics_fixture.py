@@ -167,6 +167,8 @@ class OpServer(object):
                 '--redis_server_port', str(self._redis_port),
                 '--redis_query_port', 
                 str(self.analytics_fixture.redis_uves[0].port),
+                '--cassandra_server_list', '127.0.0.1:' +
+                str(self.analytics_fixture.cassandra_port),
                 '--http_server_port', str(self.http_port),
                 '--log_file', self._log_file,
                 '--rest_api_port', str(self.listen_port)]
@@ -1567,6 +1569,43 @@ class AnalyticsFixture(fixtures.Fixture):
         assert(len(res)>0)
         return True
     # end verify_where_query
+
+    @retry(delay=1, tries=5)
+    def verify_database_purge(self, start_time, end_time):
+        self.logger.info('Verify database purge');
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port);
+        query = Query(table='ObjectCollectorInfo',
+                             start_time=start_time, end_time=end_time,
+                             select_fields=['ObjectLog'])
+        json_qstr = json.dumps(query.__dict__)
+        res = vns.post_query_json(json_qstr)
+        self.logger.info("log before purging: %s" % res)
+        if not res:
+            return False
+        else:
+            assert(len(res) > 0)
+        json_qstr = json.dumps({'purge_input': 100})
+        res = vns.post_purge_query_json(json_qstr)
+        assert(res == 'started')
+        return True
+    # end verify_database_purge
+
+    @retry(delay=60, tries=5)
+    def verify_purge_query(self, start_time, end_time):
+        self.logger.info('verify_purge_query')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        query = Query(table='ObjectCollectorInfo',
+                             start_time=start_time, end_time=end_time,
+                             select_fields=['ObjectLog'])
+        json_qstr = json.dumps(query.__dict__)
+        res = vns.post_query_json(json_qstr)
+        self.logger.info("log after purging: %s" % res)
+        if res != []:
+            return False
+        else:
+            assert(len(res) == 0)
+        return True
+    # end verify_purge_query
 
     @retry(delay=1, tries=5)
     def verify_object_table_query(self):

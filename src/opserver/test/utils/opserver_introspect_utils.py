@@ -92,6 +92,25 @@ class VerificationOpsSrv (VerificationUtilBase):
         finally:
             return res        
 
+    def post_purge_query_json(self, json_str, sync=True):
+        '''
+        this module is to support raw purge query given in json format
+        '''
+        res = None
+        try:
+            flows_url = OpServerUtils.opserver_database_purge_query_url(self._ip, str(self._port))
+            print flows_url
+            print "query is: ", json_str
+            res = []
+            resp = OpServerUtils.post_url_http(flows_url, json_str, sync)
+            if resp is not None:
+                res = json.loads(resp)
+                res = res['status']
+        except Exception as e:
+            print str(e)
+        finally:
+            return res
+
     def post_query(self, table, start_time=None, end_time=None,
                    select_fields=None, where_clause=None,
                    sort_fields=None, sort=None, limit=None,
