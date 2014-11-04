@@ -12,6 +12,8 @@ import gevent
 from uve.cfgm_cpuinfo.ttypes import *
 from uve.cfgm_cpuinfo.cpuinfo.ttypes import *
 from buildinfo import build_info
+from sandesh_common.vns.ttypes import Module
+from sandesh_common.vns.constants import ModuleNames
 
 # CpuInfo object for config-node
 
@@ -157,15 +159,15 @@ class CpuInfo(object):
             if self._build_change:
                 cfgm_cpu_uve.build_info = self._curr_build_info
 
-        if (self._module_id == "ApiServer"):
+        if (self._module_id == ModuleNames[Module.API_SERVER]):
             cfgm_cpu_uve.api_server_mem_virt = mod_cpu.cpu_info.meminfo.virt
             cfgm_cpu_uve.api_server_cpu_share = self._cpu_share
 
-        if (self._module_id == "Schema"):
+        if (self._module_id == ModuleNames[Module.SCHEMA]):
             cfgm_cpu_uve.schema_xmer_mem_virt = mod_cpu.cpu_info.meminfo.virt
             cfgm_cpu_uve.schema_xmer_cpu_share = self._cpu_share
 
-        if (self._module_id == "ServiceMonitor"):
+        if (self._module_id == ModuleNames[Module.SVC_MONITOR]):
             cfgm_cpu_uve.service_monitor_mem_virt =\
                 mod_cpu.cpu_info.meminfo.virt
             cfgm_cpu_uve.service_monitor_cpu_share = self._cpu_share

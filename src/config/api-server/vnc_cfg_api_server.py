@@ -59,7 +59,10 @@ from cfgm_common.uve.vnc_api.ttypes import VncApiCommon, VncApiReadLog,\
 from cfgm_common.uve.virtual_network.ttypes import UveVirtualNetworkConfig,\
     UveVirtualNetworkConfigTrace
 from sandesh_common.vns.ttypes import Module, NodeType
-from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeNames, INSTANCE_ID_DEFAULT
+from sandesh_common.vns.constants import ModuleNames, Module2NodeType,\
+    NodeTypeNames, INSTANCE_ID_DEFAULT, API_SERVER_DISCOVERY_SERVICE_NAME,\
+    IFMAP_SERVER_DISCOVERY_SERVICE_NAME
+
 from provision_defaults import Provision
 from vnc_quota import *
 from gen.resource_xsd import *
@@ -1509,7 +1512,7 @@ class VncApiServer(VncApiServerGen):
             'port': self._args.listen_port,
         }
         self.api_server_task = self._disc.publish(
-            ModuleNames[Module.API_SERVER], data)
+            API_SERVER_DISCOVERY_SERVICE_NAME, data)
 
         # publish ifmap server
         data = {
@@ -1517,7 +1520,7 @@ class VncApiServer(VncApiServerGen):
             'port': self._args.ifmap_server_port,
         }
         self.ifmap_task = self._disc.publish(
-            ModuleNames[Module.IFMAP_SERVER], data)
+            IFMAP_SERVER_DISCOVERY_SERVICE_NAME, data)
     # end
 
 # end class VncApiServer

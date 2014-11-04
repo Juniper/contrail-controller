@@ -107,11 +107,6 @@ struct DSPublishResponse {
 typedef boost::function<void()> EnqueuedCb;
 class DiscoveryServiceClient {
 public:
-    static const char *IFMapService;
-    static const char *XmppService;
-    static const char *CollectorService;
-    static const char *DNSService;
-
     DiscoveryServiceClient(EventManager *evm, boost::asio::ip::tcp::endpoint,
                            std::string client_name);
     virtual ~DiscoveryServiceClient();
