@@ -27,10 +27,6 @@ using process::ConnectionState;
 using process::ConnectionType;
 using process::ConnectionStatus;
 
-const char *DiscoveryServiceClient::XmppService = "xmpp-server";
-const char *DiscoveryServiceClient::CollectorService = "collector-server";
-const char *DiscoveryServiceClient::DNSService = "dns-server";
-
 SandeshTraceBufferPtr DiscoveryClientTraceBuf(SandeshTraceBufferCreate(
     "DiscoveryClient", 1000));
 

@@ -28,8 +28,6 @@ PeerIFMapServerFinder::PeerIFMapServerFinder(IFMapManager *ifmap_manager,
         current_peer_ = static_peer_;
         init_done_ = true;
     } else if (DSExists()) {
-        service_name_ = 
-            (g_vns_constants.ModuleNames.find(Module::IFMAP_SERVER))->second;
         PeerIFMapDSSubscribe();
     }
 }
@@ -53,6 +51,7 @@ void PeerIFMapServerFinder::PeerIFMapDSSubscribe() {
 
     if (DSExists()) {
         uint8_t num_instances = 2;
+        service_name_ = g_vns_constants.IFMAP_SERVER_DISCOVERY_SERVICE_NAME;
         ds_client_->Subscribe(service_name_, num_instances,
             boost::bind(&PeerIFMapServerFinder::ProcPeerIFMapDSResp, this, _1));
     }
