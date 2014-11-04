@@ -3359,7 +3359,15 @@ class DBInterface(object):
         port_id = self._resource_create('virtual_machine_interface', port_obj)
         try:
             if 'fixed_ips' in port_q:
-                self._port_create_instance_ip(net_obj, port_obj, port_q)
+                if 'fixed_ips' in port_q:
+                    for fixed_ip in port_q.get('fixed_ips', []):
+                        if 'ip_address' in fixed_ip:
+                            if (IPAddress(fixed_ip['ip_address']).version == 4):
+                                self._port_create_instance_ip(net_obj, port_obj,
+                                                      port_q, ip_family="v4")
+                            if (IPAddress(fixed_ip['ip_address']).version == 6):
+                                self._port_create_instance_ip(net_obj, port_obj,
+                                                      port_q, ip_family="v6")
             elif net_obj.get_network_ipam_refs():
                 if (ip_obj_v4_create is True):
                     self._port_create_instance_ip(net_obj, port_obj,
