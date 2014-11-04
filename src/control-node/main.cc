@@ -484,6 +484,7 @@ int main(int argc, char *argv[]) {
     xmpp_cfg.FromAddr = XmppInit::kControlNodeJID;
     init.AddXmppChannelConfig(&xmpp_cfg);
     init.InitServer(xmpp_server, options.xmpp_port(), true);
+    sandesh_context.xmpp_server = xmpp_server;
 
     // Register XMPP channel peers 
     boost::scoped_ptr<BgpXmppChannelManager> bgp_peer_manager(

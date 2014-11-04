@@ -30,6 +30,7 @@ xmpp_init = except_env.Object('xmpp_init.o', 'xmpp_init.cc')
 
 libxmpp = env.Library('xmpp',
                      [
+                      'xmpp_channel.cc',
                       'xmpp_config.cc',
                       'xmpp_connection.cc',
                       'xmpp_factory.cc',

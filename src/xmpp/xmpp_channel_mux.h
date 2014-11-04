@@ -22,6 +22,7 @@ public:
     virtual void RegisterReceive(xmps::PeerId, ReceiveCb);
     virtual void UnRegisterReceive(xmps::PeerId);
     size_t ReceiverCount() const;
+    std::vector<std::string> GetReceiverList() const;
 
     virtual std::string ToString() const;
     virtual std::string StateName() const;

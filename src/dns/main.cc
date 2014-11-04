@@ -161,6 +161,7 @@ int main(int argc, char *argv[]) {
     parser.Parse(FileRead(options.config_file()));
 
     DnsAgentXmppManager::Init();
+    sandesh_context.xmpp_server = Dns::GetXmppServer();
     start_time = UTCTimestampUsec();
     dns_info_trigger =
             new TaskTrigger(boost::bind(&DnsInfoLogger),

@@ -6,12 +6,20 @@
 #define BGP_SANDESH_H_
 
 #include <sandesh/sandesh.h>
+#include "xmpp/xmpp_sandesh.h"
 
 class BgpServer;
 class BgpXmppChannelManager;
 class IFMapServer;
 
-struct BgpSandeshContext : public SandeshContext {
+struct BgpSandeshContext : public XmppSandeshContext {
+    BgpSandeshContext()
+        : XmppSandeshContext(),
+          bgp_server(NULL),
+          xmpp_peer_manager(NULL),
+          ifmap_server(NULL) {
+    }
+
     BgpServer *bgp_server;
     BgpXmppChannelManager *xmpp_peer_manager;
     IFMapServer *ifmap_server;

@@ -17,6 +17,7 @@
 #include "xmpp/xmpp_session.h"
 
 class LifetimeActor;
+class ShowXmppConnection;
 class TcpServer;
 class TcpSession;
 class XmppChannelConfig;
@@ -55,6 +56,8 @@ public:
 
     virtual boost::asio::ip::tcp::endpoint endpoint() const;
     virtual boost::asio::ip::tcp::endpoint local_endpoint() const;
+    std::string endpoint_string() const;
+    std::string local_endpoint_string() const;
     TcpServer *server() { return server_; }
     XmppSession *CreateSession();
 
@@ -97,7 +100,6 @@ public:
     virtual LifetimeManager *lifetime_manager() = 0;
     xmsm::XmState GetStateMcState() const;
 
-    std::string StateName() const { return state_machine_->StateName(); }
     bool IsActiveChannel() const {
         return state_machine_->IsActiveChannel();
     }
@@ -137,15 +139,19 @@ public:
         return state_machine_->hold_time();
     }
 
-    const std::string LastStateName() const {
+    std::string StateName() const {
+        return state_machine_->StateName();
+    }
+
+    std::string LastStateName() const {
         return state_machine_->LastStateName();
     }
 
-    const std::string LastStateChangeAt() const {
+    std::string LastStateChangeAt() const {
         return state_machine_->LastStateChangeAt();
     }
 
-    const std::string LastEvent() const {
+    std::string LastEvent() const {
         return state_machine_->last_event();
     }
 
@@ -190,6 +196,7 @@ protected:
     TcpServer *server_;
     XmppSession *session_;
     const XmppStateMachine *state_machine() const;
+    const XmppChannelMux *channel_mux() const;
 
 private:
     bool KeepAliveTimerExpired();
@@ -250,6 +257,7 @@ public:
     void clear_on_work_queue() { on_work_queue_ = false; }
 
     XmppConnectionEndpoint *conn_endpoint() { return conn_endpoint_; }
+    void FillShowInfo(ShowXmppConnection *show_connection) const;
 
 private:
     class DeleteActor;

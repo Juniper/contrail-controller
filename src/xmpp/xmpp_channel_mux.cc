@@ -3,6 +3,9 @@
  */
 
 #include "xmpp/xmpp_channel_mux.h"
+
+#include <boost/foreach.hpp>
+
 #include "xmpp/xmpp_init.h"
 #include "xmpp/xmpp_connection.h"
 
@@ -62,6 +65,14 @@ void XmppChannelMux::UnRegisterReceive(xmps::PeerId id) {
 
 size_t XmppChannelMux::ReceiverCount() const {
     return rxmap_.size();
+}
+
+vector<string> XmppChannelMux::GetReceiverList() const {
+    vector<string> receivers;
+    BOOST_FOREACH(const ReceiveCbMap::value_type &value, rxmap_) {
+        receivers.push_back(xmps::PeerIdToName(value.first));
+    }
+    return receivers;
 }
 
 //
