@@ -22,6 +22,7 @@ import random
 import six
 
 from cfgm_common import analytics_client
+from sandesh_common.vns import constants
 from vnc_api.vnc_api import NoIdError
 
 @six.add_metaclass(abc.ABCMeta)
@@ -94,7 +95,7 @@ class VRouterScheduler(object):
             return False
 
         for process in vrouter_status['NodeStatus']['process_status']:
-            if (process['module_id'] == 'VRouterAgent' and
+            if (process['module_id'] == constants.MODULE_VROUTER_AGENT_NAME and
                 int(process['instance_id']) == 0 and
                 process['state'] == 'Functional'):
                 return True

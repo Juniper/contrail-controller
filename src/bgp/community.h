@@ -151,6 +151,7 @@ public:
     bool ContainsOriginVn(const ExtCommunityValue &val) const;
     void RemoveRTarget();
     void RemoveSGID();
+    void RemoveSiteOfOrigin();
     void RemoveOriginVn();
     void RemoveTunnelEncapsulation();
 
@@ -169,13 +170,33 @@ public:
         return (val[0] == 0x80) && (val[1] == 0x71);
     }
 
+    static bool is_default_gateway(const ExtCommunityValue &val) {
+        //
+        // Default Gateway extended community
+        //
+        return (val[0] == 0x06) && (val[1] == 0x0d);
+    }
+
+    static bool is_es_import(const ExtCommunityValue &val) {
+        //
+        // ES Import extended community
+        //
+        return (val[0] == 0x06) && (val[1] == 0x02);
+    }
+
+    static bool is_esi_label(const ExtCommunityValue &val) {
+        //
+        // ESI Label extended community
+        //
+        return (val[0] == 0x06) && (val[1] == 0x01);
+    }
+
     static bool is_mac_mobility(const ExtCommunityValue &val) {
         //
         // MAC Mobility extended community
         //
         return (val[0] == 0x06) && (val[1] == 0x00);
     }
-
 
     static bool is_route_target(const ExtCommunityValue &val) {
         //
@@ -194,6 +215,17 @@ public:
         // 2 Octet AS specific extended community
         //
         return (val[0] == 0x80) && (val[1] == 0x4);
+    }
+
+    static bool is_site_of_origin(const ExtCommunityValue &val) {
+        //
+        // Site of Origin / Route Origin extended community
+        // 1. 2 Octet AS specific extended community
+        // 2. IPv4 Address specific extended community
+        // 3. 4 Octet AS specific extended community Route Target
+        //
+        return ((val[0] == 0x00 || val[0] == 0x02 || val[0] ==  0x01) &&
+                (val[1] == 0x3));
     }
 
     static bool is_tunnel_encap(const ExtCommunityValue &val) {
@@ -262,6 +294,9 @@ public:
             const ExtCommunity::ExtCommunityList &export_list);
     ExtCommunityPtr ReplaceSGIDListAndLocate(const ExtCommunity *src,
             const ExtCommunity::ExtCommunityList &sgid_list);
+    ExtCommunityPtr RemoveSiteOfOriginAndLocate(const ExtCommunity *src);
+    ExtCommunityPtr ReplaceSiteOfOriginAndLocate(const ExtCommunity *src,
+            const ExtCommunity::ExtCommunityValue &soo);
     ExtCommunityPtr RemoveOriginVnAndLocate(const ExtCommunity *src);
     ExtCommunityPtr ReplaceOriginVnAndLocate(const ExtCommunity *src,
             const ExtCommunity::ExtCommunityValue &origin_vn);

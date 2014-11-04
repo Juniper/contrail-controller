@@ -63,12 +63,15 @@ private:
         if (ext_community == NULL)
             return;
 
+        as_t local_as_number =  table_->server()->autonomous_system();
         for (ExtCommunity::ExtCommunityList::const_iterator iter =
              ext_community->communities().begin();
              iter != ext_community->communities().end(); ++iter) {
             if (ExtCommunity::is_security_group(*iter)) {
-                SecurityGroup security_group(*iter);
-                security_group_list_.push_back(security_group.security_group_id());
+                SecurityGroup sg(*iter);
+                if (sg.as_number() != local_as_number && !sg.IsGlobal())
+                    continue;
+                security_group_list_.push_back(sg.security_group_id());
             }
             if (ExtCommunity::is_mac_mobility(*iter)) {
                 MacMobility mm(*iter);

@@ -774,6 +774,10 @@ BgpServer *RoutingInstance::server() {
     return mgr_->server();
 }
 
+const BgpServer *RoutingInstance::server() const {
+    return mgr_->server();
+}
+
 void RoutingInstance::ClearFamilyRouteTarget(Address::Family vrf_family,
                                              Address::Family vpn_family) {
     BgpTable *table = GetTable(vrf_family);

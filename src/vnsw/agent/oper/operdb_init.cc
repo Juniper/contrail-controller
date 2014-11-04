@@ -31,7 +31,7 @@
 #include <filter/acl.h>
 #include <oper/ifmap_dependency_manager.h>
 #include <base/task_trigger.h>
-#include <oper/namespace_manager.h>
+#include <oper/instance_manager.h>
 #include <oper/loadbalancer.h>
 
 SandeshTraceBufferPtr OperDBTraceBuf(SandeshTraceBufferCreate("Oper DB", 5000));
@@ -161,8 +161,8 @@ void OperDB::Init() {
         netns_workers = agent_->params()->si_netns_workers();
         netns_timeout = agent_->params()->si_netns_timeout();
     }
-    namespace_manager_->Initialize(agent_->db(), agent_->agent_signal(),
-                                   netns_cmd, netns_workers, netns_timeout);
+    instance_manager_->Initialize(agent_->db(), agent_->agent_signal(),
+                                  netns_cmd, netns_workers, netns_timeout);
 }
 
 void OperDB::RegisterDBClients() {
@@ -175,15 +175,15 @@ OperDB::OperDB(Agent *agent)
           dependency_manager_(
               AgentObjectFactory::Create<IFMapDependencyManager>(
                   agent->db(), agent->cfg()->cfg_graph())),
-          namespace_manager_(
-              AgentObjectFactory::Create<NamespaceManager>(agent)) {
+          instance_manager_(
+              AgentObjectFactory::Create<InstanceManager>(agent)) {
 }
 
 OperDB::~OperDB() {
 }
 
 void OperDB::Shutdown() {
-    namespace_manager_->Terminate();
+    instance_manager_->Terminate();
     dependency_manager_->Terminate();
     global_vrouter_.reset();
 

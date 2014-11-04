@@ -21,6 +21,7 @@ from neutron.api.v2 import attributes as attr
 
 from cfgm_common import exceptions as vnc_exc
 from vnc_api.vnc_api import *
+from vnc_api.common import SG_NO_RULE_FQ_NAME, SG_NO_RULE_NAME
 
 _DEFAULT_HEADERS = {
     'Content-type': 'application/json; charset="UTF-8"', }
@@ -1484,7 +1485,11 @@ class DBInterface(object):
         rtr_q_dict['gw_port_id'] = None
 
         ext_net_uuid = self._get_external_gateway_info(rtr_obj)
-        rtr_q_dict['external_gateway_info'] = ext_net_uuid
+        if not ext_net_uuid:
+            rtr_q_dict['external_gateway_info'] = None
+        else:
+            rtr_q_dict['external_gateway_info'] = {'network_id': ext_net_uuid,
+                                                   'enable_snat': True}
 
         if self._contrail_extensions_enabled:
             rtr_q_dict.update(extra_dict)
@@ -1628,6 +1633,30 @@ class DBInterface(object):
                 except RefsExistError:
                     pass
 
+    def _create_no_rule_sg(self):
+        domain_obj = Domain(SG_NO_RULE_FQ_NAME[0])
+        proj_obj = Project(SG_NO_RULE_FQ_NAME[1], domain_obj)
+        sg_rules = PolicyEntriesType()
+        id_perms = IdPermsType(enable=True,
+                               description="Security group with no rules",
+                               user_visible=False)
+        sg_obj = SecurityGroup(name=SG_NO_RULE_NAME,
+                               parent_obj=proj_obj,
+                               security_group_entries=sg_rules,
+                               id_perms=id_perms)
+        sg_uuid = self._vnc_lib.security_group_create(sg_obj)
+        return sg_obj
+    # end _create_no_rule_sg
+
+    def _get_no_rule_security_group(self):
+        try:
+            sg_obj = self._vnc_lib.security_group_read(fq_name=SG_NO_RULE_FQ_NAME)
+        except NoIdError:
+            sg_obj = self._create_no_rule_sg()
+
+        return sg_obj
+    # end _get_no_rule_security_group
+
     def _port_neutron_to_vnc(self, port_q, net_obj, oper):
         if oper == CREATE:
             project_id = str(uuid.UUID(port_q['tenant_id']))
@@ -1670,6 +1699,12 @@ class DBInterface(object):
             for sg_id in port_q.get('security_groups') or []:
                 # TODO optimize to not read sg (only uuid/fqn needed)
                 sg_obj = self._vnc_lib.security_group_read(id=sg_id)
+                port_obj.add_security_group(sg_obj)
+
+            # When there is no-security-group for a port,the internal
+            # no_rule group should be used.
+            if not port_q['security_groups']:
+                sg_obj = self._get_no_rule_security_group()
                 port_obj.add_security_group(sg_obj)
 
         id_perms = port_obj.get_id_perms()
@@ -3309,7 +3344,7 @@ class DBInterface(object):
         # determine creation of v4 and v6 ip object
         ip_obj_v4_create = False
         ip_obj_v6_create = False
-        ipam_refs = net_obj.get_network_ipam_refs()
+        ipam_refs = net_obj.get_network_ipam_refs() or []
         for ipam_ref in ipam_refs:
             subnet_vncs = ipam_ref['attr'].get_ipam_subnets()
             for subnet_vnc in subnet_vncs:
@@ -3613,10 +3648,10 @@ class DBInterface(object):
         return self._security_group_vnc_to_neutron(sg_obj)
     #end security_group_read
 
-    def security_group_delete(self, sg_id):
+    def security_group_delete(self, context, sg_id):
         try:
             sg_obj = self._vnc_lib.security_group_read(id=sg_id)
-            if sg_obj.name == 'default':
+            if sg_obj.name == 'default' and not context['is_admin']:
                 self._raise_contrail_exception(
                     'SecurityGroupCannotRemoveDefault')
         except NoIdError:

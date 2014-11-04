@@ -105,24 +105,28 @@ class InstallVenv(object):
             print("venv already exists...")
             pass
 
-    def pip_install(self, *args):
+    def pip_install(self, find_links, *args):
         tdir = '/tmp/cache/%s/config_test' %(os.environ.get('USER', 'pip'))
-        self.run_command(['tools/with_venv.sh',
+        find_links_str = ' '.join('--find-links file://'+x for x in find_links)
+        cmd_array = ['tools/with_venv.sh',
                          'python', '.venv/bin/pip', 'install', 
                          '--download-cache=%s' %(tdir),
-                         '--upgrade'] + list(args),
+                         '--upgrade']
+        for link in find_links:
+            cmd_array.extend(['--find-links', 'file://'+link])
+        self.run_command(cmd_array + list(args),
                          redirect_output=False)
 
-    def install_dependencies(self):
+    def install_dependencies(self, find_links):
         print('Installing dependencies with pip (this can take a while)...')
 
         # First things first, make sure our venv has the latest pip and
         # setuptools and pbr
-        self.pip_install('pip>=1.4')
-        self.pip_install('setuptools')
-        self.pip_install('pbr')
+        self.pip_install(find_links, 'pip>=1.4')
+        self.pip_install(find_links, 'setuptools')
+        self.pip_install(find_links, 'pbr')
 
-        self.pip_install('-r', self.requirements, '-r', self.test_requirements)
+        self.pip_install(find_links, '-r', self.requirements, '-r', self.test_requirements, '--pre')
 
     def parse_args(self, argv):
         """Parses command-line arguments."""
@@ -131,6 +135,9 @@ class InstallVenv(object):
                           action='store_true',
                           help="Do not inherit packages from global Python "
                                "install")
+        parser.add_option('-f', '--find-links',
+                          action='append',
+                          help="Build generation directory ")
         return parser.parse_args(argv[1:])[0]
 
 

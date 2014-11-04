@@ -209,10 +209,10 @@ class VCenterMonitorTask implements Runnable {
     private VncDB vncDB;
     
     public VCenterMonitorTask(String vcenterURL, String vcenterUsername,
-            String vcenterPassword, String apiServerIpAddress, 
-            int apiServerPort) throws Exception {
+            String vcenterPassword, String vcenterDcName, String vcenterDvsName,
+            String apiServerIpAddress, int apiServerPort ) throws Exception {
         vcenterDB = new VCenterDB(vcenterURL, vcenterUsername,
-                vcenterPassword);
+                vcenterPassword, vcenterDcName, vcenterDvsName);
         vncDB = new VncDB(apiServerIpAddress, apiServerPort);
         // Initialize the databases
         vcenterDB.Initialize();
@@ -406,12 +406,14 @@ public class VCenterMonitor {
     private static ScheduledExecutorService scheduledTaskExecutor = 
             Executors.newScheduledThreadPool(1);
     private static Logger s_logger = Logger.getLogger(VCenterMonitor.class);
-    private static String _configurationFile = "vcenter_monitor.properties";
-    private static String _vcenterURL = "https://10.84.24.111/sdk";
-    private static String _vcenterUsername = "admin";
-    private static String _vcenterPassword = "Contrail123!";
-    private static String _apiServerAddress = "10.84.13.23";
-    private static int _apiServerPort = 8082;
+    private static String _configurationFile = "vcenter-plugin.properties";
+    private static String _vcenterURL        = "https://10.84.24.111/sdk";
+    private static String _vcenterUsername   = "admin";
+    private static String _vcenterPassword   = "Contrail123!";
+    private static String _vcenterDcName     = "Datacenter";
+    private static String _vcenterDvsName    = "dvSwitch";
+    private static String _apiServerAddress  = "10.84.13.23";
+    private static int _apiServerPort        = 8082;
     
     private static boolean configure() {
 
@@ -430,6 +432,8 @@ public class VCenterMonitor {
                 _vcenterURL = configProps.getProperty("vcenter.url");
                 _vcenterUsername = configProps.getProperty("vcenter.username");
                 _vcenterPassword = configProps.getProperty("vcenter.password");
+                _vcenterDcName = configProps.getProperty("vcenter.datacenter");
+                _vcenterDvsName = configProps.getProperty("vcenter.dvswitch");
                 _apiServerAddress = configProps.getProperty("api.hostname");
                 String portStr = configProps.getProperty("api.port");
                 if (portStr != null && portStr.length() > 0) {
@@ -453,8 +457,8 @@ public class VCenterMonitor {
         s_logger.debug("Config params  vcenter url: " + _vcenterURL + ", _vcenterUsername: " + _vcenterUsername + ", api server: " + _apiServerAddress);
         // Launch the periodic VCenterMonitorTask
         VCenterMonitorTask monitorTask = new VCenterMonitorTask(_vcenterURL, 
-                _vcenterUsername, _vcenterPassword, _apiServerAddress,
-                _apiServerPort);
+                _vcenterUsername, _vcenterPassword, _vcenterDcName,
+                _vcenterDvsName, _apiServerAddress, _apiServerPort);
         scheduledTaskExecutor.scheduleWithFixedDelay(monitorTask, 0, 30,
                 TimeUnit.SECONDS);
         Runtime.getRuntime().addShutdownHook(

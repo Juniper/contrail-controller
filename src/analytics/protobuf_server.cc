@@ -11,6 +11,7 @@
 #include <google/protobuf/descriptor.pb.h>
 #include <google/protobuf/message.h>
 #include <google/protobuf/dynamic_message.h>
+#include <google/protobuf/stubs/common.h>
 
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
@@ -27,6 +28,7 @@ using ::google::protobuf::FileDescriptorSet;
 using ::google::protobuf::FileDescriptor;
 using ::google::protobuf::FileDescriptorProto;
 using ::google::protobuf::FieldDescriptor;
+using ::google::protobuf::EnumValueDescriptor;
 using ::google::protobuf::Descriptor;
 using ::google::protobuf::DescriptorPool;
 using ::google::protobuf::DynamicMessageFactory;
@@ -164,8 +166,11 @@ void PopulateProtobufTopLevelTags(const Message& message,
             break;
           }
           case FieldDescriptor::CPPTYPE_ENUM: {
-            // XXX - Implement
-            assert(0);
+            const EnumValueDescriptor *edesc(reflection->GetEnum(message,
+                field));
+            StatWalker::TagVal tvalue;
+            tvalue.val = edesc->name();
+            top_tags->insert(make_pair(fname, tvalue));
             break;
           }
           case FieldDescriptor::CPPTYPE_STRING: {
@@ -252,8 +257,16 @@ void PopulateProtobufStats(const Message& message,
                 break;
               }
               case FieldDescriptor::CPPTYPE_ENUM: {
-                // XXX - Implement
-                assert(0);
+                const EnumValueDescriptor *edesc(reflection->GetEnum(message,
+                    field));
+                const std::string &svalue(edesc->name());
+                // Insert into the attribute map
+                DbHandler::Var avalue(svalue);
+                attribs.insert(make_pair(fname, avalue));
+                // Insert into the tag map
+                StatWalker::TagVal tvalue;
+                tvalue.val = svalue;
+                tags.insert(make_pair(fname, tvalue));
                 break;
               }
               case FieldDescriptor::CPPTYPE_STRING: {
@@ -528,8 +541,42 @@ class ProtobufServer::ProtobufServerImpl {
     ProtobufUdpServer *udp_server_;
 };
 
+
+static log4cplus::LogLevel Protobuf2log4Level(
+    google::protobuf::LogLevel glevel) {
+    switch (glevel) {
+      case google::protobuf::LOGLEVEL_INFO:
+          return log4cplus::INFO_LOG_LEVEL;
+      case google::protobuf::LOGLEVEL_WARNING:
+          return log4cplus::WARN_LOG_LEVEL;
+      case google::protobuf::LOGLEVEL_ERROR:
+          return log4cplus::ERROR_LOG_LEVEL;
+      case google::protobuf::LOGLEVEL_FATAL:
+          return log4cplus::FATAL_LOG_LEVEL;
+      default:
+          return log4cplus::ALL_LOG_LEVEL;
+    }
+}
+
+static void ProtobufLibraryLog(google::protobuf::LogLevel level,
+    const char* filename, int line, const std::string& message) {
+    if (LoggingDisabled()) {
+        return;
+    }
+    log4cplus::LogLevel log4level(Protobuf2log4Level(level));
+    log4cplus::Logger logger(log4cplus::Logger::getRoot());
+    if (logger.isEnabledFor(log4level)) {
+        log4cplus::tostringstream buf;
+        buf << "ProtobufLibrary: " << filename << ":" << line << "] " <<
+            message;
+        logger.forcedLog(log4level, buf.str());
+    }
+}
+
 ProtobufServer::ProtobufServer(EventManager *evm,
     uint16_t udp_server_port, StatWalker::StatTableInsertFn stat_db_fn) {
+    GOOGLE_PROTOBUF_VERIFY_VERSION;
+    google::protobuf::SetLogHandler(&ProtobufLibraryLog);
     impl_ = new ProtobufServerImpl(evm, udp_server_port, stat_db_fn);
 }
 
@@ -538,6 +585,7 @@ ProtobufServer::~ProtobufServer() {
         delete impl_;
         impl_ = NULL;
     }
+    google::protobuf::ShutdownProtobufLibrary();
 }
 
 bool ProtobufServer::Initialize() {

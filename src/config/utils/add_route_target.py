@@ -97,9 +97,7 @@ class MxProvisioner(object):
 
 
 def main(args_str=None):
-    at = MxProvisioner(args_str)
-    at._args.func()
-
+    MxProvisioner(args_str)
 # end main
 
 if __name__ == "__main__":

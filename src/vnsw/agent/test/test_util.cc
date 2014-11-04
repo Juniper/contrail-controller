@@ -7,7 +7,6 @@
 #include "test/test_init.h"
 #include "oper/mirror_table.h"
 #include "uve/test/vn_uve_table_test.h"
-#include "uve/test/vn_uve_table_test.h"
 
 #define MAX_TESTNAME_LEN 80
 
@@ -2464,7 +2463,7 @@ bool FlowGet(int vrf_id, const char *sip, const char *dip, uint8_t proto,
         if (entry->is_flags_set(FlowEntry::NatFlow) == true)
             ret = false;
 
-        if (reverse_nh_id != rev->key().nh)
+        if ((uint32_t)reverse_nh_id != rev->key().nh)
             ret = false;
 
         EXPECT_EQ(entry->key().protocol, rev->key().protocol);

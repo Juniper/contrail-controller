@@ -13,24 +13,24 @@ using std::string;
 using std::vector;
 
 RtGroup::RtGroup(const RouteTarget &rt) 
-    : rt_(rt), dep_(RtGroup::RTargetDepRouteList(DB::PartitionCount())) {
+    : rt_(rt), dep_(RTargetDepRouteList(DB::PartitionCount())) {
 }
 
-const RtGroup::RTargetDepRouteList &RtGroup::DepRouteList() const {
-    return dep_;
+bool RtGroup::MayDelete() const {
+    return !HasImportExportTables() && !HasInterestedPeers() && !HasDepRoutes();
 }
 
 const RtGroup::RtGroupMemberList RtGroup::GetImportTables(
     Address::Family family) const {
     RtGroupMembers::const_iterator loc = import_.find(family);
-    if (loc == import_.end()) return RtGroup::RtGroupMemberList();
+    if (loc == import_.end()) return RtGroupMemberList();
     return loc->second;
 }
 
 const RtGroup::RtGroupMemberList RtGroup::GetExportTables(
     Address::Family family) const {
     RtGroupMembers::const_iterator loc = export_.find(family);
-    if (loc == export_.end()) return RtGroup::RtGroupMemberList();
+    if (loc == export_.end()) return RtGroupMemberList();
     return loc->second;
 }
 
@@ -56,7 +56,7 @@ bool RtGroup::RemoveExportTable(Address::Family family, BgpTable *tbl) {
     return export_[family].empty();
 }
 
-bool RtGroup::empty(Address::Family family) const {
+bool RtGroup::HasImportExportTables(Address::Family family) const {
     RtGroupMembers::const_iterator it_import = import_.find(family);
     RtGroupMembers::const_iterator it_export = export_.find(family);
     bool import_empty = true;
@@ -67,6 +67,18 @@ bool RtGroup::empty(Address::Family family) const {
         export_empty = it_export->second.empty();
 
     return (import_empty && export_empty);
+}
+
+bool RtGroup::HasImportExportTables() const {
+    BOOST_FOREACH(const RtGroupMembers::value_type &family_members, import_) {
+        if (!family_members.second.empty())
+            return true;
+    }
+    BOOST_FOREACH(const RtGroupMembers::value_type &family_members, export_) {
+        if (!family_members.second.empty())
+            return true;
+    }
+    return false;
 }
 
 const RouteTarget &RtGroup::rt() {
@@ -81,14 +93,21 @@ void RtGroup::RemoveDepRoute(int part_id, BgpRoute *rt) {
     dep_[part_id].erase(rt);
 }
 
-bool RtGroup::RouteDepListEmpty() {
-    for (RtGroup::RTargetDepRouteList::const_iterator it = dep_.begin(); 
+void RtGroup::NotifyDepRoutes(int part_id) {
+    BOOST_FOREACH(BgpRoute *route, dep_[part_id]) {
+        DBTablePartBase *dbpart = route->get_table_partition();
+        dbpart->Notify(route);
+    }
+}
+
+bool RtGroup::HasDepRoutes() const {
+    for (RTargetDepRouteList::const_iterator it = dep_.begin();
          it != dep_.end(); it++) {
         if (!it->empty()) {
-            return false;
+            return true;
         }
     }
-    return true;
+    return false;
 }
 
 const RtGroupInterestedPeerSet& RtGroup::GetInterestedPeers() const {
@@ -96,7 +115,7 @@ const RtGroupInterestedPeerSet& RtGroup::GetInterestedPeers() const {
 }
 
 void RtGroup::AddInterestedPeer(const BgpPeer *peer, RTargetRoute *rt) {
-    RtGroup::InterestedPeerList::iterator it = peer_list_.find(peer);
+    InterestedPeerList::iterator it = peer_list_.find(peer);
     if (it == peer_list_.end()) {
         it = peer_list_.insert(peer_list_.begin(), 
             pair<const BgpPeer *, RTargetRouteList>(peer, RTargetRouteList()));
@@ -107,7 +126,7 @@ void RtGroup::AddInterestedPeer(const BgpPeer *peer, RTargetRoute *rt) {
 }
 
 void RtGroup::RemoveInterestedPeer(const BgpPeer *peer, RTargetRoute *rt) {
-    RtGroup::InterestedPeerList::iterator it = peer_list_.find(peer);
+    InterestedPeerList::iterator it = peer_list_.find(peer);
     if (it == peer_list_.end()) return;
     it->second.erase(rt);
     if (it->second.empty()) {
@@ -117,16 +136,16 @@ void RtGroup::RemoveInterestedPeer(const BgpPeer *peer, RTargetRoute *rt) {
     }
 }
 
+bool RtGroup::HasInterestedPeers() const {
+    return !peer_list_.empty();
+}
+
 bool RtGroup::HasInterestedPeer(const string &name) const {
     BOOST_FOREACH(const InterestedPeerList::value_type &peer, peer_list_) {
         if (peer.first->peer_basename() == name)
             return true;
     }
     return false;
-}
-
-bool RtGroup::peer_list_empty() const {
-    return peer_list_.empty();
 }
 
 void RtGroup::FillMemberTables(const RtGroupMembers &rt_members,

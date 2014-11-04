@@ -4,5 +4,3 @@ flexmock
 coverage
 pyaml
 httpretty
-../config/common/dist/cfgm_common-0.1dev.tar.gz
-dist/vnc_api-0.1dev.tar.gz

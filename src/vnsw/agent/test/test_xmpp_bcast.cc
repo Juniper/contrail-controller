@@ -128,9 +128,9 @@ public:
                             autogen::EnetItemType enet_item;
                             enet_item.Clear();
                             if (enet_item.XmlParse(item)) {
-                                if (enet_item.entry.nlri.mac == "0:0:0:1:1:1")
+                                if (enet_item.entry.nlri.mac == "00:00:00:01:01:01")
                                     l2_route_1_seen_ = true;
-                                if (enet_item.entry.nlri.mac == "0:0:0:2:2:2")
+                                if (enet_item.entry.nlri.mac == "00:00:00:02:02:02")
                                     l2_route_2_seen_ = true;
                                 if (enet_item.entry.nlri.mac ==
                                     "ff:ff:ff:ff:ff:ff")
@@ -730,8 +730,9 @@ protected:
         client->WaitForIdle();
         client->Reset();
         DeleteVmportEnv(input, 2, 1, 0);
-        WAIT_FOR(1000, 1000,
+        WAIT_FOR(1000, 10000,
                  (Agent::GetInstance()->vrf_table()->Size() == 1));
+        cout << "XMPP BCAST " << Agent::GetInstance()->vrf_table()->Size() << endl;
 
 #if 0
         TaskScheduler::GetInstance()->Stop();
@@ -1366,13 +1367,14 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
     SendBcastRouteMessage(mock_peer.get(), "vrf1",
 			  "255.255.255.255", alloc_label+1,  
                           "127.0.0.1", alloc_label + 17);
+    // Bcast Route with updated olist
+    WAIT_FOR(1000, 10000, (bgp_peer.get()->Count() == 4));
+    WAIT_FOR(1000, 10000, (client->CompositeNHCount() == 3));
+
     nh = const_cast<NextHop *>(rt_m->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     cnh = static_cast<CompositeNH *>(nh);
-    // Bcast Route with updated olist 
-    WAIT_FOR(1000, 10000, (bgp_peer.get()->Count() == 4));
-    WAIT_FOR(1000, 10000, (client->CompositeNHCount() == 5));
     client->CompositeNHWait(11);
     client->MplsWait(5);
 
@@ -1512,6 +1514,53 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change_with_same_label) {
 
     IntfCfgDel(input, 0);
     IntfCfgDel(input, 1);
+    client->WaitForIdle(5);
+
+    xc->ConfigUpdate(new XmppConfigData());
+    client->WaitForIdle(5);
+}
+
+/*
+ * Add VRF, Add VM and then send fabric olist for multicast route.
+ * Now delete VRF and VM. This should delete multicast route without
+ * any retract message from control.
+ */
+TEST_F(AgentXmppUnitTest, multicast_fabric_path_delete_on_vrf_delete) {
+    client->Reset();
+    client->WaitForIdle();
+
+    XmppConnectionSetUp(true);
+
+    int alloc_label = GetStartLabel();
+    //Verify all-broadcast
+    Layer2RouteEntry *rt_m = GetL2FloodRoute("vrf1");
+    ASSERT_TRUE(rt_m != NULL);
+    NextHop *nh = const_cast<NextHop *>(rt_m->GetActiveNextHop());
+    ASSERT_TRUE(nh != NULL);
+    ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
+
+    //Send fabric tree, and dont delete
+    SendBcastRouteMessage(mock_peer.get(), "vrf1",
+			  "255.255.255.255", alloc_label,
+                          "127.0.0.1",
+                          alloc_label + 1,
+                          alloc_label + 2);
+    WAIT_FOR(1000, 10000, (rt_m->GetPathList().size() == 3));
+
+    IntfCfgDel(input, 0);
+    client->WaitForIdle();
+    IntfCfgDel(input, 1);
+    client->WaitForIdle();
+    VrfDelReq("vrf1");
+    client->WaitForIdle();
+
+    //Flood route should be deleted bcoz all local VM are gone,
+    //VRF is marked for delete and should have internally
+    //triggered deletion of paths by external peers.
+    rt_m = GetL2FloodRoute("vrf1");
+    ASSERT_TRUE(rt_m == NULL);
+
+    XmppSubnetTearDown();
     client->WaitForIdle(5);
 
     xc->ConfigUpdate(new XmppConfigData());

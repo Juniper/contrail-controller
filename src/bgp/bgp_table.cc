@@ -85,6 +85,10 @@ BgpServer *BgpTable::server() {
     return rtinstance_->server();
 }
 
+const BgpServer *BgpTable::server() const {
+    return rtinstance_->server();
+}
+
 //
 // Find the RibOut for the given RibExportPolicy.
 //

@@ -8,14 +8,36 @@ Import('BuildEnv')
 env = BuildEnv.Clone()
 
 env.Append(LIBPATH = env['TOP'] + '/bgp/extended-community')
+env.Append(LIBPATH = env['TOP'] + '/net')
 
-env.Prepend(LIBS = ['gunit', 'extended_community', 'boost_regex'])
+env.Prepend(LIBS = ['gunit', 'extended_community', 'boost_regex', 'net'])
 
-mac_mobility_test = env.UnitTest('mac_mobility_test', ['mac_mobility_test.cc'])
+default_gateway_test = env.UnitTest('default_gateway_test',
+                                    ['default_gateway_test.cc'])
+env.Alias('src/bgp/extended-community:default_gateway_test', default_gateway_test)
+
+es_import_test = env.UnitTest('es_import_test',
+                              ['es_import_test.cc'])
+env.Alias('src/bgp/extended-community:es_import_test', es_import_test)
+
+esi_label_test = env.UnitTest('esi_label_test',
+                              ['esi_label_test.cc'])
+env.Alias('src/bgp/extended-community:esi_label_test', esi_label_test)
+
+mac_mobility_test = env.UnitTest('mac_mobility_test',
+                                 ['mac_mobility_test.cc'])
 env.Alias('src/bgp/extended-community:mac_mobility_test', mac_mobility_test)
 
+site_of_origin_test = env.UnitTest('site_of_origin_test',
+                                   ['site_of_origin_test.cc'])
+env.Alias('src/bgp/extended-community:site_of_origin_test', site_of_origin_test)
+
 test_suite = [
+    default_gateway_test,
+    es_import_test,
+    esi_label_test,
     mac_mobility_test,
+    site_of_origin_test,
 ]
 
 test = env.TestSuite('bgp-test', test_suite)

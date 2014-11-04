@@ -6,6 +6,7 @@ message TestMessageInner {
     required string tm_inner_name = 1;
     optional int32 tm_inner_status = 2;
     optional int32 tm_inner_counter = 3;
+    optional TestMessage.TestMessageEnum tm_inner_enum = 4;
 }
 
 message TestMessage {
@@ -13,4 +14,9 @@ message TestMessage {
     optional string tm_status = 2;
     optional int32 tm_counter = 3;
     repeated TestMessageInner tm_inner = 4;
+    enum TestMessageEnum {
+        GOOD = 1;
+        BAD = 2;
+    }
+    optional TestMessageEnum tm_enum = 5;
 }

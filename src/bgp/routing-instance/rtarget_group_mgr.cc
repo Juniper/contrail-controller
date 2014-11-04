@@ -268,12 +268,7 @@ bool RTargetGroupMgr::ProcessRouteTargetList(int part_id) {
         RtGroup *rtgroup = GetRtGroup(rtarget);
         if (!rtgroup)
             continue;
-        const RtGroup::RTargetDepRouteList &dep_rt_list =
-            rtgroup->DepRouteList();
-        BOOST_FOREACH(BgpRoute *route, dep_rt_list[part_id]) {
-            DBTablePartBase *dbpart = route->get_table_partition();
-            dbpart->Notify(route);
-        }
+        rtgroup->NotifyDepRoutes(part_id);
     }
 
     rtarget_trigger_lists_[part_id].clear();
@@ -615,32 +610,11 @@ void RTargetGroupMgr::UnregisterTables() {
 bool RTargetGroupMgr::ProcessRtGroupList() {
     CHECK_CONCURRENCY("bgp::RTFilter");
     BOOST_FOREACH(RtGroup *rtgroup, rtgroup_remove_list_) {
-        bool members_empty = true;
-        BOOST_FOREACH(const RtGroup::RtGroupMembers::value_type &family_members, 
-                      rtgroup->GetImportMembers()) {
-            if (!family_members.second.empty()) {
-                members_empty = false;
-                break;
-            }
-        }
-        if (!members_empty) continue;
-
-        members_empty = true;
-        BOOST_FOREACH(const RtGroup::RtGroupMembers::value_type &family_members, 
-                      rtgroup->GetExportMembers()) {
-            if (!family_members.second.empty()) {
-                members_empty = false;
-                break;
-            }
-        }
-        if (!members_empty) continue;
-
-        if (rtgroup->RouteDepListEmpty() && rtgroup->peer_list_empty()) {
-            RouteTarget rt = rtgroup->rt();
-            rtgroup_map_.erase(rt);
-        }
+        if (!rtgroup->MayDelete())
+            continue;
+        RouteTarget rt = rtgroup->rt();
+        rtgroup_map_.erase(rt);
     }
-
     rtgroup_remove_list_.clear();
 
     if (rtgroup_map_.empty()) UnregisterTables();

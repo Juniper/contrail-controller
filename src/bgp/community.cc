@@ -137,6 +137,17 @@ void ExtCommunity::RemoveSGID() {
     }
 }
 
+void ExtCommunity::RemoveSiteOfOrigin() {
+    for (ExtCommunityList::iterator it = communities_.begin();
+         it != communities_.end(); ) {
+        if (ExtCommunity::is_site_of_origin(*it)) {
+            it = communities_.erase(it);
+        } else {
+            it++;
+        }
+    }
+}
+
 void ExtCommunity::RemoveOriginVn() {
     for (ExtCommunityList::iterator it = communities_.begin();
          it != communities_.end(); ) {
@@ -241,6 +252,34 @@ ExtCommunityPtr ExtCommunityDB::ReplaceSGIDListAndLocate(const ExtCommunity *src
 
     clone->RemoveSGID();
     clone->Append(sgid_list);
+    return Locate(clone);
+}
+
+ExtCommunityPtr ExtCommunityDB::RemoveSiteOfOriginAndLocate(
+        const ExtCommunity *src) {
+    ExtCommunity *clone;
+    if (src) {
+        clone = new ExtCommunity(*src);
+    } else {
+        clone = new ExtCommunity(this);
+    }
+
+    clone->RemoveSiteOfOrigin();
+    return Locate(clone);
+}
+
+ExtCommunityPtr ExtCommunityDB::ReplaceSiteOfOriginAndLocate(
+        const ExtCommunity *src,
+        const ExtCommunity::ExtCommunityValue &soo) {
+    ExtCommunity *clone;
+    if (src) {
+        clone = new ExtCommunity(*src);
+    } else {
+        clone = new ExtCommunity(this);
+    }
+
+    clone->RemoveSiteOfOrigin();
+    clone->Append(soo);
     return Locate(clone);
 }
 

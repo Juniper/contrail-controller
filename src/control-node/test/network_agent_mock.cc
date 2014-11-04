@@ -5,6 +5,7 @@
 #include "network_agent_mock.h"
 
 #include <boost/algorithm/string.hpp>
+#include <boost/assign/list_of.hpp>
 #include <boost/foreach.hpp>
 
 #include "base/logging.h"
@@ -26,6 +27,7 @@
 using namespace std;
 using namespace pugi;
 using boost::asio::ip::address;
+using boost::assign::list_of;
 
 namespace test {
 
@@ -252,48 +254,45 @@ XmppDocumentMock::XmppDocumentMock(const std::string &hostname)
 } 
 
 pugi::xml_document *XmppDocumentMock::RouteAddXmlDoc(
-        const std::string &network, const std::string &prefix, 
-        NextHops nexthops, int local_pref) {
-    return RouteAddDeleteXmlDoc(network, prefix, true, nexthops, local_pref);
+        const std::string &network, const std::string &prefix,
+        const NextHops &nexthops, const RouteAttributes &attributes) {
+    return RouteAddDeleteXmlDoc(network, prefix, true, nexthops, attributes);
 }
 
 pugi::xml_document *XmppDocumentMock::RouteDeleteXmlDoc(
-        const std::string &network, const std::string &prefix,
-        NextHops nexthops) {
-    return RouteAddDeleteXmlDoc(network, prefix, false, nexthops);
+        const std::string &network, const std::string &prefix) {
+    return RouteAddDeleteXmlDoc(network, prefix, false);
 }
 
 pugi::xml_document *XmppDocumentMock::Inet6RouteAddXmlDoc(
         const std::string &network, const std::string &prefix,
-        NextHops nexthops, const RouteAttributes &attributes) {
+        const NextHops &nexthops, const RouteAttributes &attributes) {
     return Inet6RouteAddDeleteXmlDoc(network, prefix, ADD, nexthops,
                                      attributes);
 }
 
 pugi::xml_document *XmppDocumentMock::Inet6RouteChangeXmlDoc(
         const std::string &network, const std::string &prefix,
-        NextHops nexthops, const RouteAttributes &attributes) {
+        const NextHops &nexthops, const RouteAttributes &attributes) {
     return Inet6RouteAddDeleteXmlDoc(network, prefix, CHANGE, nexthops,
                                      attributes);
 }
 
 pugi::xml_document *XmppDocumentMock::Inet6RouteDeleteXmlDoc(
-        const std::string &network, const std::string &prefix,
-        NextHops nexthops, const RouteAttributes &attributes) {
-    return Inet6RouteAddDeleteXmlDoc(network, prefix, DELETE, nexthops,
-                                     attributes);
+        const std::string &network, const std::string &prefix) {
+    return Inet6RouteAddDeleteXmlDoc(network, prefix, DELETE);
 }
 
 pugi::xml_document *XmppDocumentMock::RouteEnetAddXmlDoc(
         const std::string &network, const std::string &prefix,
         NextHops nexthops, const RouteParams *params) {
-    return RouteEnetAddDeleteXmlDoc(network, prefix, nexthops, params, true);
+    return RouteEnetAddDeleteXmlDoc(network, prefix, true, nexthops, params);
 }
 
 pugi::xml_document *XmppDocumentMock::RouteEnetDeleteXmlDoc(
         const std::string &network, const std::string &prefix,
         NextHops nexthops) {
-    return RouteEnetAddDeleteXmlDoc(network, prefix, nexthops, NULL, false);
+    return RouteEnetAddDeleteXmlDoc(network, prefix, false);
 }
 
 pugi::xml_document *XmppDocumentMock::RouteMcastAddXmlDoc(
@@ -301,12 +300,12 @@ pugi::xml_document *XmppDocumentMock::RouteMcastAddXmlDoc(
         const std::string &nexthop, const std::string &label_range,
         const std::string &encap) {
     return RouteMcastAddDeleteXmlDoc(
-            network, sg, nexthop, label_range, encap, true);
+            network, sg, true, nexthop, label_range, encap);
 }
 
 pugi::xml_document *XmppDocumentMock::RouteMcastDeleteXmlDoc(
         const std::string &network, const std::string &sg) {
-    return RouteMcastAddDeleteXmlDoc(network, sg, "", "", "", false);
+    return RouteMcastAddDeleteXmlDoc(network, sg, false);
 }
 
 
@@ -348,7 +347,7 @@ pugi::xml_document *XmppDocumentMock::SubUnsubXmlDoc(
 
 pugi::xml_document *XmppDocumentMock::RouteAddDeleteXmlDoc(
         const std::string &network, const std::string &prefix, bool add,
-        NextHops nexthops, int local_pref) {
+        const NextHops &nexthops, const RouteAttributes &attributes) {
     xdoc_->reset();
     xml_node pubsub = PubSubHeader(kNetworkServiceJID);
     xml_node pub = pubsub.append_child("publish");
@@ -361,25 +360,37 @@ pugi::xml_document *XmppDocumentMock::RouteAddDeleteXmlDoc(
     rt_entry.entry.nlri.af = BgpAf::IPv4;
     rt_entry.entry.nlri.safi = BgpAf::Unicast;
     rt_entry.entry.nlri.address = prefix;
-    rt_entry.entry.security_group_list.security_group.push_back(101);
-    rt_entry.entry.local_preference = local_pref;
 
-    if (nexthops.empty()) {
-        NextHop nexthop = NextHop(localaddr(), 0);
-        nexthop.tunnel_encapsulations_.push_back("gre");
-        nexthops.push_back(nexthop);
-    }
+    if (add) {
+        rt_entry.entry.local_preference = attributes.local_pref;
+        rt_entry.entry.sequence_number = attributes.sequence;
+        if (attributes.sgids.size()) {
+            rt_entry.entry.security_group_list.security_group = attributes.sgids;
+        } else {
+            rt_entry.entry.security_group_list.security_group.push_back(101);
+        }
 
-    BOOST_FOREACH(NextHop nexthop, nexthops) {
-        autogen::NextHopType item_nexthop;
-
-        item_nexthop.af = BgpAf::IPv4;
-        assert(!nexthop.address_.empty());
-        item_nexthop.address = nexthop.address_;
-        item_nexthop.label = add ? (nexthop.label_ ?: label_alloc_++) :
-                                   0xFFFFF;
-        item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation = nexthop.tunnel_encapsulations_;
-        rt_entry.entry.next_hops.next_hop.push_back(item_nexthop);
+        if (nexthops.empty()) {
+            autogen::NextHopType item_nexthop;
+            item_nexthop.af = BgpAf::IPv4;
+            item_nexthop.address = localaddr();
+            item_nexthop.label = label_alloc_++;
+            item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation =
+                list_of("gre");
+            rt_entry.entry.next_hops.next_hop.push_back(item_nexthop);
+        } else {
+            BOOST_FOREACH(const NextHop &nexthop, nexthops) {
+                autogen::NextHopType item_nexthop;
+                item_nexthop.af = BgpAf::IPv4;
+                assert(!nexthop.address_.empty());
+                item_nexthop.address = nexthop.address_;
+                item_nexthop.label =
+                    nexthop.label_ ? nexthop.label_ : label_alloc_++;
+                item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation =
+                    nexthop.tunnel_encapsulations_;
+                rt_entry.entry.next_hops.next_hop.push_back(item_nexthop);
+            }
+        }
     }
 
     xml_node item = pub.append_child("item");
@@ -395,7 +406,7 @@ pugi::xml_document *XmppDocumentMock::RouteAddDeleteXmlDoc(
 
 pugi::xml_document *XmppDocumentMock::Inet6RouteAddDeleteXmlDoc(
         const std::string &network, const std::string &prefix, Oper oper,
-        NextHops nexthops, const RouteAttributes &attributes) {
+        const NextHops &nexthops, const RouteAttributes &attributes) {
     xdoc_->reset();
     xml_node pubsub = PubSubHeader(kNetworkServiceJID);
     xml_node pub = pubsub.append_child("publish");
@@ -408,45 +419,51 @@ pugi::xml_document *XmppDocumentMock::Inet6RouteAddDeleteXmlDoc(
     rt_entry.entry.nlri.af = BgpAf::IPv6;
     rt_entry.entry.nlri.safi = BgpAf::Unicast;
     rt_entry.entry.nlri.address = prefix;
-    rt_entry.entry.local_preference = attributes.local_pref;
-    rt_entry.entry.sequence_number = attributes.sequence;
-    if (attributes.sgids.size()) {
-        rt_entry.entry.security_group_list.security_group = attributes.sgids;
-    } else {
-        rt_entry.entry.security_group_list.security_group.push_back(101);
-    }
 
-    if (nexthops.empty()) {
-        NextHop nexthop = NextHop(localaddr(), 0);
-        nexthop.tunnel_encapsulations_.push_back("gre");
-        nexthops.push_back(nexthop);
-    }
-
-    BOOST_FOREACH(NextHop nexthop, nexthops) {
-        autogen::NextHopType item_nexthop;
-
-        item_nexthop.af = BgpAf::IPv4;
-        assert(!nexthop.address_.empty());
-        item_nexthop.address = nexthop.address_;
-        if (oper == ADD) {
-            item_nexthop.label = (nexthop.label_ ?: ++label_alloc_);
-        } else if (oper == CHANGE) {
-            item_nexthop.label = label_alloc_;
-        } else if (oper == DELETE) {
-            item_nexthop.label = 0xFFFFF;
+    if (oper == ADD || oper == CHANGE) {
+        rt_entry.entry.local_preference = attributes.local_pref;
+        rt_entry.entry.sequence_number = attributes.sequence;
+        if (attributes.sgids.size()) {
+            rt_entry.entry.security_group_list.security_group =
+                attributes.sgids;
+        } else {
+            rt_entry.entry.security_group_list.security_group.push_back(101);
         }
-        item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation = 
-            nexthop.tunnel_encapsulations_;
-        if (nexthop.tunnel_encapsulations_[0] == "all_ipv6") {
+
+        if (nexthops.empty()) {
+            autogen::NextHopType item_nexthop;
+            item_nexthop.af = BgpAf::IPv4;
+            item_nexthop.address = localaddr();
+            item_nexthop.label = label_alloc_++;
             item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.
                 push_back("gre");
-            item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.
-                push_back("udp");
+            rt_entry.entry.next_hops.next_hop.push_back(item_nexthop);
         } else {
-            item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.
-                push_back(nexthop.tunnel_encapsulations_[0]);
+            BOOST_FOREACH(NextHop nexthop, nexthops) {
+                autogen::NextHopType item_nexthop;
+
+                item_nexthop.af = BgpAf::IPv4;
+                assert(!nexthop.address_.empty());
+                item_nexthop.address = nexthop.address_;
+                if (oper == ADD) {
+                    item_nexthop.label = (nexthop.label_ ?: label_alloc_++);
+                } else {
+                    item_nexthop.label = label_alloc_;
+                }
+                item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation =
+                    nexthop.tunnel_encapsulations_;
+                if (nexthop.tunnel_encapsulations_[0] == "all_ipv6") {
+                    item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.
+                    push_back("gre");
+                    item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.
+                    push_back("udp");
+                } else {
+                    item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.
+                    push_back(nexthop.tunnel_encapsulations_[0]);
+                }
+                rt_entry.entry.next_hops.next_hop.push_back(item_nexthop);
+            }
         }
-        rt_entry.entry.next_hops.next_hop.push_back(item_nexthop);
     }
 
     xml_node item = pub.append_child("item");
@@ -517,8 +534,8 @@ pugi::xml_document *XmppDocumentMock::Inet6RouteAddBogusXmlDoc(
 }
 
 pugi::xml_document *XmppDocumentMock::RouteEnetAddDeleteXmlDoc(
-        const std::string &network, const std::string &prefix,
-        NextHops nexthops, const RouteParams *params, bool add) {
+        const std::string &network, const std::string &prefix, bool add,
+        const NextHops &nexthops, const RouteParams *params) {
     xdoc_->reset();
     xml_node pubsub = PubSubHeader(kNetworkServiceJID);
     xml_node pub = pubsub.append_child("publish");
@@ -563,26 +580,32 @@ pugi::xml_document *XmppDocumentMock::RouteEnetAddDeleteXmlDoc(
     rt_entry.entry.nlri.mac = std::string(mac) ;
     rt_entry.entry.nlri.address = address ? string(address) : string();
 
-    if (nexthops.empty()) {
-        NextHop nexthop = NextHop(localaddr(), 0);
-        nexthop.tunnel_encapsulations_.push_back("gre");
-        nexthops.push_back(nexthop);
-    }
+    if (add) {
+        if (nexthops.empty()) {
+            autogen::EnetNextHopType item_nexthop;
+            item_nexthop.af = BgpAf::IPv4;
+            item_nexthop.address = localaddr();
+            item_nexthop.label = label_alloc_++;
+            item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation =
+                list_of("gre");
+            rt_entry.entry.next_hops.next_hop.push_back(item_nexthop);
+        } else {
+            BOOST_FOREACH(NextHop nexthop, nexthops) {
+                autogen::EnetNextHopType item_nexthop;
+                item_nexthop.af = BgpAf::IPv4;
+                item_nexthop.address = nexthop.address_;
+                item_nexthop.label =
+                    nexthop.label_ ? nexthop.label_ : label_alloc_++;
+                item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation =
+                    nexthop.tunnel_encapsulations_;
+                rt_entry.entry.next_hops.next_hop.push_back(item_nexthop);
+            }
+        }
 
-    BOOST_FOREACH(NextHop nexthop, nexthops) {
-        autogen::EnetNextHopType item_nexthop;
-
-        item_nexthop.af = BgpAf::IPv4;
-        item_nexthop.address = nexthop.address_;
-        item_nexthop.label = add ? (nexthop.label_ ?: label_alloc_++) :
-                                   0xFFFFF;
-        item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation = nexthop.tunnel_encapsulations_;
-        rt_entry.entry.next_hops.next_hop.push_back(item_nexthop);
-    }
-
-    if (params) {
-        if (params->edge_replication_not_supported)
-            rt_entry.entry.edge_replication_not_supported = true;
+        if (params) {
+            if (params->edge_replication_not_supported)
+                rt_entry.entry.edge_replication_not_supported = true;
+        }
     }
 
     xml_node item = pub.append_child("item");
@@ -597,9 +620,9 @@ pugi::xml_document *XmppDocumentMock::RouteEnetAddDeleteXmlDoc(
 }
 
 pugi::xml_document *XmppDocumentMock::RouteMcastAddDeleteXmlDoc(
-        const std::string &network, const std::string &sg, 
+        const std::string &network, const std::string &sg, bool add,
         const std::string &nexthop, const std::string &lrange,
-        const std::string &encap, bool add) {
+        const std::string &encap) {
     xdoc_->reset();
     string sg_save(sg.c_str());
     xml_node pubsub = PubSubHeader(kNetworkServiceJID);
@@ -893,47 +916,42 @@ void NetworkAgentMock::AddRoute(const string &network_name,
                                 const string &prefix, const string nexthop,
                                 int local_pref) {
     NextHops nexthops;
-
     if (!nexthop.empty()) {
         nexthops.push_back(NextHop(nexthop, 0));
     }
+    RouteAttributes attributes(local_pref);
 
     AgentPeer *peer = GetAgent();
     xml_document *xdoc =
-        impl_->RouteAddXmlDoc(network_name, prefix, nexthops, local_pref);
-
-    peer->SendDocument(xdoc);
-}
-
-void NetworkAgentMock::DeleteRoute(const string &network_name,
-                                   const string &prefix, const string nexthop) {
-    NextHops nexthops;
-
-    if (!nexthop.empty()) {
-        nexthops.push_back(NextHop(nexthop, 0));
-    }
-
-    AgentPeer *peer = GetAgent();
-    xml_document *xdoc = impl_->RouteDeleteXmlDoc(network_name, prefix,
-                                                  nexthops);
+        impl_->RouteAddXmlDoc(network_name, prefix, nexthops, attributes);
     peer->SendDocument(xdoc);
 }
 
 void NetworkAgentMock::AddRoute(const string &network_name,
-                                const string &prefix, NextHops nexthops,
+                                const string &prefix,
+                                const NextHops &nexthops,
                                 int local_pref) {
+    RouteAttributes attributes(local_pref);
     AgentPeer *peer = GetAgent();
     xml_document *xdoc =
-        impl_->RouteAddXmlDoc(network_name, prefix, nexthops, local_pref);
+        impl_->RouteAddXmlDoc(network_name, prefix, nexthops, attributes);
+    peer->SendDocument(xdoc);
+}
 
+void NetworkAgentMock::AddRoute(const string &network_name,
+                                const string &prefix,
+                                const NextHops &nexthops,
+                                const RouteAttributes &attributes) {
+    AgentPeer *peer = GetAgent();
+    xml_document *xdoc =
+        impl_->RouteAddXmlDoc(network_name, prefix, nexthops, attributes);
     peer->SendDocument(xdoc);
 }
 
 void NetworkAgentMock::DeleteRoute(const string &network_name,
-                                   const string &prefix, NextHops nexthops) {
+                                   const string &prefix) {
     AgentPeer *peer = GetAgent();
-    xml_document *xdoc = impl_->RouteDeleteXmlDoc(network_name, prefix,
-                                                  nexthops);
+    xml_document *xdoc = impl_->RouteDeleteXmlDoc(network_name, prefix);
     peer->SendDocument(xdoc);
 }
 
@@ -956,15 +974,9 @@ void NetworkAgentMock::ChangeInet6Route(const string &network,
 }
 
 void NetworkAgentMock::DeleteInet6Route(const string &network,
-        const string &prefix, const string &nexthop,
-        const RouteAttributes &attributes) {
-    NextHops nexthops;
-    if (!nexthop.empty()) {
-        nexthops.push_back(NextHop(nexthop, 0));
-    }
+        const string &prefix) {
     AgentPeer *peer = GetAgent();
-    xml_document *xdoc = impl_->Inet6RouteDeleteXmlDoc(network, prefix,
-                                                       nexthops, attributes);
+    xml_document *xdoc = impl_->Inet6RouteDeleteXmlDoc(network, prefix);
     peer->SendDocument(xdoc);
 }
 
@@ -989,16 +1001,6 @@ void NetworkAgentMock::AddEnetRoute(const string &network_name,
     AddEnetRoute(network_name, prefix, nexthops, params);
 }
 
-void NetworkAgentMock::DeleteEnetRoute(const string &network_name,
-        const string &prefix, const string nexthop) {
-    NextHops nexthops;
-
-    if (!nexthop.empty()) {
-        nexthops.push_back(NextHop(nexthop, 0));
-    }
-    DeleteEnetRoute(network_name, prefix, nexthops);
-}
-
 void NetworkAgentMock::AddEnetRoute(const string &network_name,
         const string &prefix, NextHops nexthops, const RouteParams *params) {
     AgentPeer *peer = GetAgent();
@@ -1009,10 +1011,10 @@ void NetworkAgentMock::AddEnetRoute(const string &network_name,
 }
 
 void NetworkAgentMock::DeleteEnetRoute(const string &network_name,
-        const string &prefix, NextHops nexthops) {
+        const string &prefix) {
     AgentPeer *peer = GetAgent();
     xml_document *xdoc =
-        impl_->RouteEnetDeleteXmlDoc(network_name, prefix, nexthops);
+        impl_->RouteEnetDeleteXmlDoc(network_name, prefix);
     peer->SendDocument(xdoc);
 }
 

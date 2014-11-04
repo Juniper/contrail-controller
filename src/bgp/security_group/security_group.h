@@ -9,16 +9,21 @@
 #include <boost/system/error_code.hpp>
 
 #include "base/parse_object.h"
+#include "bgp/bgp_common.h"
 
 class SecurityGroup {
 public:
     static const int kSize = 8;
+    static const uint32_t kMinGlobalId = 1000000;
+    static const uint32_t kMaxGlobalId = 1999999;
     typedef boost::array<uint8_t, kSize> bytes_type;
 
-    SecurityGroup(int asn, uint32_t id);
+    SecurityGroup(as_t asn, uint32_t id);
     explicit SecurityGroup(const bytes_type &data);
 
+    as_t as_number() const;
     uint32_t security_group_id() const;
+    bool IsGlobal() const;
 
     const bytes_type &GetExtCommunity() const {
         return data_;
@@ -28,6 +33,7 @@ public:
         return get_value(data_.begin(), 8);
     }
     std::string ToString();
+
 private:
     bytes_type data_;
 };

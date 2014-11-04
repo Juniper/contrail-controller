@@ -13,12 +13,18 @@
 #include "bgp/bgp_path.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_table.h"
+#include "bgp/extended-community/default_gateway.h"
+#include "bgp/extended-community/es_import.h"
+#include "bgp/extended-community/esi_label.h"
 #include "bgp/extended-community/mac_mobility.h"
+#include "bgp/extended-community/site_of_origin.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/security_group/security_group.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
 
+using std::string;
+using std::vector;
 
 BgpRoute::BgpRoute() {
 }
@@ -228,9 +234,10 @@ size_t BgpRoute::count() const {
     return GetPathList().size();
 }
 
-void BgpRoute::FillRouteInfo(BgpTable *table, ShowRouteBrief *show_route) {
+void BgpRoute::FillRouteInfo(const BgpTable *table,
+    ShowRouteBrief *show_route) const {
     show_route->set_prefix(ToString());
-    std::vector<ShowRoutePathBrief> show_route_paths;
+    vector<ShowRoutePathBrief> show_route_paths;
     for (Route::PathList::const_iterator it = GetPathList().begin();
         it != GetPathList().end(); ++it) {
         const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
@@ -261,14 +268,69 @@ void BgpRoute::FillRouteInfo(BgpTable *table, ShowRouteBrief *show_route) {
     show_route->set_paths(show_route_paths);
 }
 
-void BgpRoute::FillRouteInfo(BgpTable *table, ShowRoute *show_route) {
+static void FillRoutePathExtCommunityInfo(const BgpTable *table,
+    const ExtCommunity *extcomm,
+    ShowRoutePath *show_path) {
     const RoutingInstance *ri = table->routing_instance();
     const RoutingInstanceMgr *ri_mgr = ri->manager();
 
-    show_route->set_prefix(ToString());
-    show_route->set_last_modified(integerToString(UTCUsecToPTime(last_change_at())));
+    const ExtCommunity::ExtCommunityList &v = extcomm->communities();
+    for (ExtCommunity::ExtCommunityList::const_iterator it = v.begin();
+        it != v.end(); ++it) {
+        if (ExtCommunity::is_route_target(*it)) {
+            RouteTarget rt(*it);
+            show_path->communities.push_back(rt.ToString());
+        } else if (ExtCommunity::is_default_gateway(*it)) {
+            DefaultGateway dgw(*it);
+            show_path->communities.push_back(dgw.ToString());
+        } else if (ExtCommunity::is_es_import(*it)) {
+            EsImport es_import(*it);
+            show_path->communities.push_back(es_import.ToString());
+        } else if (ExtCommunity::is_esi_label(*it)) {
+            EsiLabel esi_label(*it);
+            show_path->communities.push_back(esi_label.ToString());
+        } else if (ExtCommunity::is_mac_mobility(*it)) {
+            MacMobility mm(*it);
+            show_path->communities.push_back(mm.ToString());
+            show_path->set_sequence_no(mm.ToString());
+        } else if (ExtCommunity::is_origin_vn(*it)) {
+            OriginVn origin_vn(*it);
+            show_path->communities.push_back(origin_vn.ToString());
+            int vn_index = origin_vn.vn_index();
+            show_path->set_origin_vn(
+                ri_mgr->GetVirtualNetworkByVnIndex(vn_index));
+        } else if (ExtCommunity::is_security_group(*it)) {
+            SecurityGroup sg(*it);
+            show_path->communities.push_back(sg.ToString());
+        } else if (ExtCommunity::is_route_target(*it)) {
+            SiteOfOrigin soo(*it);
+            show_path->communities.push_back(soo.ToString());
+        } else if (ExtCommunity::is_tunnel_encap(*it)) {
+            TunnelEncap encap(*it);
+            show_path->communities.push_back(encap.ToString());
+            TunnelEncapType::Encap id = encap.tunnel_encap();
+            show_path->tunnel_encap.push_back(
+                TunnelEncapType::TunnelEncapToString(id));
+        } else {
+            char temp[50];
+            int len = snprintf(temp, sizeof(temp), "ext community: ");
+            for (size_t i=0; i < it->size(); i++) {
+                len += snprintf(temp+len, sizeof(temp) - len, "%02x", (*it)[i]);
+            }
+            show_path->communities.push_back(string(temp));
+        }
+    }
+}
 
-    std::vector<ShowRoutePath> show_route_paths;
+void BgpRoute::FillRouteInfo(const BgpTable *table,
+    ShowRoute *show_route) const {
+    const RoutingInstance *ri = table->routing_instance();
+
+    show_route->set_prefix(ToString());
+    show_route->set_last_modified(
+        integerToString(UTCUsecToPTime(last_change_at())));
+
+    vector<ShowRoutePath> show_route_paths;
     for(Route::PathList::const_iterator it = GetPathList().begin();
         it != GetPathList().end(); it++) {
         const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
@@ -296,7 +358,8 @@ void BgpRoute::FillRouteInfo(BgpTable *table, ShowRoute *show_route) {
         srp.set_next_hop(attr->nexthop().to_string());
         srp.set_label(path->GetLabel());
         srp.set_flags(path->GetFlags());
-        srp.set_last_modified(integerToString(UTCUsecToPTime(path->time_stamp_usecs())));
+        srp.set_last_modified(
+            integerToString(UTCUsecToPTime(path->time_stamp_usecs())));
         if (path->IsReplicated()) {
             const BgpSecondaryPath *replicated;
             replicated = static_cast<const BgpSecondaryPath *>(path);
@@ -311,44 +374,7 @@ void BgpRoute::FillRouteInfo(BgpTable *table, ShowRoute *show_route) {
             srp.communities.push_back(comm.ToString());
         }
         if (attr->ext_community()) {
-            ExtCommunitySpec ext_comm;
-            const ExtCommunity::ExtCommunityList &v =
-                attr->ext_community()->communities();
-            for (ExtCommunity::ExtCommunityList::const_iterator it = v.begin();
-                 it != v.end(); ++it) {
-                if (ExtCommunity::is_route_target(*it)) {
-                    RouteTarget rt(*it);
-                    srp.communities.push_back(rt.ToString());
-                } else if (ExtCommunity::is_mac_mobility(*it)) {
-                    MacMobility mm(*it);
-                    srp.communities.push_back(mm.ToString());
-                    srp.set_sequence_no(mm.ToString());
-                } else if (ExtCommunity::is_origin_vn(*it)) {
-                    OriginVn origin_vn(*it);
-                    srp.communities.push_back(origin_vn.ToString());
-                    int vn_index = origin_vn.vn_index();
-                    srp.set_origin_vn(
-                                  ri_mgr->GetVirtualNetworkByVnIndex(vn_index));
-                } else if (ExtCommunity::is_security_group(*it)) {
-                    SecurityGroup sg(*it);
-                    srp.communities.push_back(sg.ToString());
-                } else if (ExtCommunity::is_tunnel_encap(*it)) {
-                    TunnelEncap encap(*it);
-                    srp.communities.push_back(encap.ToString());
-                    TunnelEncapType::Encap id = encap.tunnel_encap();
-                    srp.tunnel_encap.push_back(
-                               TunnelEncapType::TunnelEncapToString(id));
-                } else {
-                    char temp[50];
-                    int len = snprintf(temp, sizeof(temp), "ext community: ");
-
-                    for (size_t i=0; i < it->size(); i++) {
-                        len += snprintf(temp+len, sizeof(temp) - len, "%02x",
-                                        (*it)[i]);
-                    }
-                    srp.communities.push_back(std::string(temp));
-                }
-            }
+            FillRoutePathExtCommunityInfo(table, attr->ext_community(), &srp);
         }
         if (!table->IsVpnTable() && path->IsVrfOriginated()) {
             srp.set_origin_vn(ri->GetVirtualNetworkName());

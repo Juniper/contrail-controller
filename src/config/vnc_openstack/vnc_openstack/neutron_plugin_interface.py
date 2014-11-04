@@ -632,7 +632,7 @@ class NeutronPluginInterface(object):
 
         try:
             cfgdb = self._get_user_cfgdb(context)
-            cfgdb.security_group_delete(sg['id'])
+            cfgdb.security_group_delete(context, sg['id'])
             LOG.debug("plugin_delete_sec_group(): " + pformat(sg['id']))
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())

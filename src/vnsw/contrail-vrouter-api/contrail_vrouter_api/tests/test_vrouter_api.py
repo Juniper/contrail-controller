@@ -90,7 +90,7 @@ class VRouterApiTest(unittest.TestCase):
         project_id = uuid.uuid1().hex
         self._api.add_port(str(uuid.uuid1()), str(vif_uuid), 'tapX',
                            'aa:bb:cc:ee:ff:00',
-                           network_uuid=str(network_uuid),
+                           vn_id=str(network_uuid),
                            vm_project_id=project_id)
         self.assertTrue(mock_client.AddPort.called)
         port = self._api._ports[vif_uuid]

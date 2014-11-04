@@ -371,10 +371,6 @@ void DiscoveryServiceClient::Publish(std::string serviceName) {
         DSPublishResponse *resp = loc->second;
         resp->pub_sent_++; 
         SendHttpPostMessage(resp->publish_hdr_, serviceName, resp->publish_msg_);
-        // Update connection info
-        ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
-            serviceName, ConnectionStatus::INIT, ds_endpoint_,
-            "Publish");
 
         DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, resp->publish_hdr_, 
                                serviceName, resp->publish_msg_);
@@ -469,10 +465,6 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName, uint8_t numbOfIn
         DSResponseHeader *resp = loc->second;
         resp->sub_sent_++;
         SendHttpPostMessage("subscribe", serviceName, resp->subscribe_msg_);
-        // Update connection info
-        ConnectionState::GetInstance()->Update(ConnectionType::DISCOVERY,
-            serviceName, ConnectionStatus::INIT, ds_endpoint_,
-            "Subscribe");
     }
 }
 

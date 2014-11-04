@@ -28,7 +28,7 @@ public:
     PathPreference(uint32_t sequence, Preference preference,
         bool wait_for_traffic, bool ecmp): sequence_(sequence),
         preference_(preference), wait_for_traffic_(wait_for_traffic),
-        ecmp_(ecmp) {}
+        ecmp_(ecmp), static_preference_(false) {}
     uint32_t sequence() const { return sequence_;}
     Preference preference() const { return preference_;}
     bool wait_for_traffic() const {

@@ -38,7 +38,9 @@ namespace {
 class ProtobufReaderTest : public ::testing::Test {
 };
 
-bool VerifyTestMessageInner(const Message &inner_msg, int expected_status) {
+bool VerifyTestMessageInner(const Message &inner_msg, int expected_status,
+    TestMessage::TestMessageEnum expected_enum,
+    const char *expected_enum_name) {
     // Descriptor
     const Descriptor *inner_msg_desc = inner_msg.GetDescriptor();
     const FieldDescriptor* tm_inner_name_field =
@@ -62,6 +64,13 @@ bool VerifyTestMessageInner(const Message &inner_msg, int expected_status) {
     EXPECT_TRUE(tm_inner_counter_field->label() ==
         FieldDescriptor::LABEL_OPTIONAL);
     EXPECT_TRUE(tm_inner_counter_field->number() == 3);
+    const FieldDescriptor* tm_inner_enum_field =
+        inner_msg_desc->FindFieldByName("tm_inner_enum");
+    EXPECT_TRUE(tm_inner_enum_field != NULL);
+    EXPECT_TRUE(tm_inner_enum_field->type() == FieldDescriptor::TYPE_ENUM);
+    EXPECT_TRUE(tm_inner_enum_field->label() ==
+        FieldDescriptor::LABEL_OPTIONAL);
+    EXPECT_TRUE(tm_inner_enum_field->number() == 4);
     // Reflection
     const Reflection *inner_reflection = inner_msg.GetReflection();
     std::string tm_inner_name("TestMessageInner");
@@ -73,6 +82,11 @@ bool VerifyTestMessageInner(const Message &inner_msg, int expected_status) {
         inner_msg, tm_inner_status_field) == expected_status);
     EXPECT_TRUE(inner_reflection->GetInt32(
         inner_msg, tm_inner_counter_field) == expected_status);
+    const EnumValueDescriptor *edesc(inner_reflection->GetEnum(
+        inner_msg, tm_inner_enum_field));
+    EXPECT_TRUE(edesc != NULL);
+    EXPECT_STREQ(edesc->name().c_str(), expected_enum_name);
+    EXPECT_EQ(TestMessage::TestMessageEnum(edesc->number()), expected_enum);
     return true;
 }
 
@@ -83,15 +97,18 @@ void CreateAndSerializeTestMessage(uint8_t *output, size_t size,
     test_message.set_tm_name("TestMessage");
     test_message.set_tm_status("Test");
     test_message.set_tm_counter(3);
+    test_message.set_tm_enum(TestMessage::GOOD);
     TestMessageInner *test_message_inner = test_message.add_tm_inner();
     ASSERT_TRUE(test_message_inner != NULL);
     test_message_inner->set_tm_inner_name("TestMessageInner1");
     test_message_inner->set_tm_inner_status(1);
     test_message_inner->set_tm_inner_counter(1);
+    test_message_inner->set_tm_inner_enum(TestMessage::GOOD);
     test_message_inner = test_message.add_tm_inner();
     test_message_inner->set_tm_inner_name("TestMessageInner2");
     test_message_inner->set_tm_inner_status(2);
     test_message_inner->set_tm_inner_counter(2);
+    test_message_inner->set_tm_inner_enum(TestMessage::BAD);
 
     int test_message_size = test_message.ByteSize();
     ASSERT_GE(size, test_message_size);
@@ -165,6 +182,12 @@ TEST_F(ProtobufReaderTest, Parse) {
     EXPECT_TRUE(tm_counter_field->type() == FieldDescriptor::TYPE_INT32);
     EXPECT_TRUE(tm_counter_field->label() == FieldDescriptor::LABEL_OPTIONAL);
     EXPECT_TRUE(tm_counter_field->number() == 3);
+    const FieldDescriptor* tm_enum_field =
+        mdesc->FindFieldByName("tm_enum");
+    ASSERT_TRUE(tm_enum_field != NULL);
+    EXPECT_TRUE(tm_enum_field->type() == FieldDescriptor::TYPE_ENUM);
+    EXPECT_TRUE(tm_enum_field->label() == FieldDescriptor::LABEL_OPTIONAL);
+    EXPECT_TRUE(tm_enum_field->number() == 5);
     // Inner Message
     const FieldDescriptor* tm_inner_field = mdesc->FindFieldByName("tm_inner");
     ASSERT_TRUE(tm_inner_field != NULL);
@@ -194,18 +217,33 @@ TEST_F(ProtobufReaderTest, Parse) {
     EXPECT_TRUE(tm_inner_counter_field->label() ==
         FieldDescriptor::LABEL_OPTIONAL);
     EXPECT_TRUE(tm_inner_counter_field->number() == 3);
+    const FieldDescriptor* tm_inner_enum_field =
+        imdesc->FindFieldByName("tm_inner_enum");
+    ASSERT_TRUE(tm_inner_enum_field != NULL);
+    EXPECT_TRUE(tm_inner_enum_field->type() == FieldDescriptor::TYPE_ENUM);
+    EXPECT_TRUE(tm_inner_enum_field->label() ==
+        FieldDescriptor::LABEL_OPTIONAL);
+    EXPECT_TRUE(tm_inner_enum_field->number() == 4);
     // Use the reflection interface to examine the contents.
     const Reflection* reflection = msg->GetReflection();
     EXPECT_TRUE(reflection->GetString(*msg, tm_name_field) == "TestMessage");
     EXPECT_TRUE(reflection->GetString(*msg, tm_status_field) == "Test");
     EXPECT_TRUE(reflection->GetInt32(*msg, tm_counter_field) == 3);
+    const EnumValueDescriptor *edesc(reflection->GetEnum(*msg, tm_enum_field));
+    EXPECT_TRUE(edesc != NULL);
+    EXPECT_STREQ(edesc->name().c_str(), "GOOD");
+    EXPECT_EQ(TestMessage::TestMessageEnum(edesc->number()),
+        TestMessage::GOOD);
     EXPECT_TRUE(reflection->FieldSize(*msg, tm_inner_field) == 2);
     const Message &inner_msg1(
         reflection->GetRepeatedMessage(*msg, tm_inner_field, 0));
-    EXPECT_TRUE(VerifyTestMessageInner(inner_msg1, 1));
+    EXPECT_TRUE(VerifyTestMessageInner(inner_msg1, 1,
+        TestMessage::GOOD, "GOOD"));
     const Message &inner_msg2(
         reflection->GetRepeatedMessage(*msg, tm_inner_field, 1));
-    EXPECT_TRUE(VerifyTestMessageInner(inner_msg2, 2));
+    EXPECT_TRUE(VerifyTestMessageInner(inner_msg2, 2,
+        TestMessage::BAD, "BAD"));
+
     delete msg;
 }
 
@@ -272,12 +310,11 @@ vector<ArgSet> PopulateTestMessageStatsInfo() {
         ("tm_name", DbHandler::Var("TestMessage"))
         ("tm_status", DbHandler::Var("Test"))
         ("tm_counter", DbHandler::Var((uint64_t)3))
-        ("tm_inner.tm_inner_name",
-         DbHandler::Var("TestMessageInner1"))
-        ("tm_inner.tm_inner_status",
-         DbHandler::Var((uint64_t)1))
-        ("tm_inner.tm_inner_counter",
-         DbHandler::Var((uint64_t)1));
+        ("tm_enum", DbHandler::Var("GOOD"))
+        ("tm_inner.tm_inner_name", DbHandler::Var("TestMessageInner1"))
+        ("tm_inner.tm_inner_status", DbHandler::Var((uint64_t)1))
+        ("tm_inner.tm_inner_counter", DbHandler::Var((uint64_t)1))
+        ("tm_inner.tm_inner_enum", DbHandler::Var("GOOD"));
 
     DbHandler::AttribMap sm;
     a1.attribs_tag.insert(make_pair("Source", make_pair(
@@ -288,9 +325,12 @@ vector<ArgSet> PopulateTestMessageStatsInfo() {
         DbHandler::Var("Test"), sm)));
     a1.attribs_tag.insert(make_pair("tm_counter", make_pair(
         DbHandler::Var((uint64_t)3), sm)));
+    a1.attribs_tag.insert(make_pair("tm_enum", make_pair(
+        DbHandler::Var("GOOD"), sm)));
     a1.attribs_tag.insert(make_pair("tm_inner.tm_inner_name",
-        make_pair(
-            DbHandler::Var("TestMessageInner1"), sm)));
+        make_pair(DbHandler::Var("TestMessageInner1"), sm)));
+    a1.attribs_tag.insert(make_pair("tm_inner.tm_inner_enum",
+        make_pair(DbHandler::Var("GOOD"), sm)));
     av.push_back(a1);
 
     ArgSet a2;
@@ -300,12 +340,11 @@ vector<ArgSet> PopulateTestMessageStatsInfo() {
         ("tm_name", DbHandler::Var("TestMessage"))
         ("tm_status", DbHandler::Var("Test"))
         ("tm_counter", DbHandler::Var((uint64_t)3))
-        ("tm_inner.tm_inner_name",
-         DbHandler::Var("TestMessageInner2"))
-        ("tm_inner.tm_inner_status",
-         DbHandler::Var((uint64_t)2))
-        ("tm_inner.tm_inner_counter",
-         DbHandler::Var((uint64_t)2));
+        ("tm_enum", DbHandler::Var("GOOD"))
+        ("tm_inner.tm_inner_name", DbHandler::Var("TestMessageInner2"))
+        ("tm_inner.tm_inner_status", DbHandler::Var((uint64_t)2))
+        ("tm_inner.tm_inner_counter", DbHandler::Var((uint64_t)2))
+        ("tm_inner.tm_inner_enum", DbHandler::Var("BAD"));
 
     a2.attribs_tag.insert(make_pair("Source", make_pair(
         DbHandler::Var("127.0.0.1"), sm)));
@@ -315,9 +354,12 @@ vector<ArgSet> PopulateTestMessageStatsInfo() {
         DbHandler::Var("Test"), sm)));
     a2.attribs_tag.insert(make_pair("tm_counter", make_pair(
         DbHandler::Var((uint64_t)3), sm)));
+    a2.attribs_tag.insert(make_pair("tm_enum", make_pair(
+        DbHandler::Var("GOOD"), sm)));
     a2.attribs_tag.insert(make_pair("tm_inner.tm_inner_name",
-        make_pair(
-            DbHandler::Var("TestMessageInner2"), sm)));
+        make_pair(DbHandler::Var("TestMessageInner2"), sm)));
+    a2.attribs_tag.insert(make_pair("tm_inner.tm_inner_enum",
+        make_pair(DbHandler::Var("BAD"), sm)));
     av.push_back(a2);
     return av;
 }

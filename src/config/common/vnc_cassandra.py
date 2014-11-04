@@ -39,7 +39,10 @@ class VncCassandraClient(VncCassandraClientGen):
         self._server_list = server_list
         self._conn_state = ConnectionStatus.INIT
         self._logger = logger
-        self._generate_url = generate_url
+
+        # if no generate_url is specified, use a dummy function that always
+        # returns an empty string
+        self._generate_url = generate_url or (lambda x,y: '')
         self._cf_dict = {}
         self._keyspaces = {
             self._UUID_KEYSPACE_NAME: [(self._OBJ_UUID_CF_NAME, None),
@@ -232,8 +235,7 @@ class VncCassandraClient(VncCassandraClientGen):
 
         child_info = {}
         child_info['to'] = self.uuid_to_fq_name(child_uuid)
-        if self._generate_url:
-            child_info['href'] = self._generate_url(child_type, child_uuid)
+        child_info['href'] = self._generate_url(child_type, child_uuid)
         child_info['uuid'] = child_uuid
         child_info['tstamp'] = child_tstamp
 
@@ -258,8 +260,7 @@ class VncCassandraClient(VncCassandraClientGen):
                 # TODO remove backward compat old format had attr directly
                 ref_info['attr'] = ref_data
 
-        if self._generate_url:
-            ref_info['href'] = self._generate_url(ref_type, ref_uuid)
+        ref_info['href'] = self._generate_url(ref_type, ref_uuid)
         ref_info['uuid'] = ref_uuid
 
         result['%s_refs' % (ref_type)].append(ref_info)
@@ -280,8 +281,7 @@ class VncCassandraClient(VncCassandraClientGen):
                 # TODO remove backward compat old format had attr directly
                 back_ref_info['attr'] = back_ref_data
 
-        if self._generate_url:
-            back_ref_info['href'] = self._generate_url(back_ref_type, back_ref_uuid)
+        back_ref_info['href'] = self._generate_url(back_ref_type, back_ref_uuid)
         back_ref_info['uuid'] = back_ref_uuid
 
         result['%s_back_refs' % (back_ref_type)].append(back_ref_info)
