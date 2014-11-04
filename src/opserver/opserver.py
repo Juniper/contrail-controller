@@ -60,6 +60,7 @@ from opserver_util import OpServerUtils
 from cpuinfo import CpuInfoData
 from sandesh_req_impl import OpserverSandeshReqImpl
 from sandesh.analytics_database.ttypes import *
+from sandesh.analytics_database.constants import PurgeStatusString
 
 _ERRORS = {
     errno.EBADMSG: 400,
@@ -1480,45 +1481,71 @@ class OpServer(object):
     def process_purge_request(self):
         self._post_common(bottle.request, None)
 
+        if ("application/json" not in bottle.request.headers['Content-Type']):
+            self._logger.error('Content-type is not JSON')
+            response = {
+                'status': 'failed', 'reason': 'Content-type is not JSON'}
+            return bottle.HTTPResponse(
+                json.dumps(response), _ERRORS[errno.EBADMSG],
+                {'Content-type': 'application/json'})
+
         purge_input= None
-        for key, value in bottle.request.json.iteritems():
-            if (key == "purge_input"):
-                if( (type(value) is int) and (value <= 100) ):
-                    purge_input = value
-                else:
-                    return bottle.HTTPError(_ERRORS[errno.EINVALID],
-                           'INVALID purge_input')
+        if ("purge_input" in bottle.request.json.keys()):
+            value = bottle.request.json["purge_input"]
+            if( (type(value) is int) and (value <= 100) and (value > 0)):
+                purge_input = value
             else:
-                return bottle.HTTPError(_ERRORS[errno.EINVALID],
-                    'purge_input not specified')
+                response = {
+                    'status': 'failed', 'reason': 'INVALID purge_input'}
+                return bottle.HTTPResponse(
+                    json.dumps(response), _ERRORS[errno.EBADMSG],
+                    {'Content-type': 'application/json'})
+        else:
+            response = {
+                'status': 'failed', 'reason': 'purge_input not specified'}
+            return bottle.HTTPResponse(
+                json.dumps(response), _ERRORS[errno.EBADMSG],
+                {'Content-type': 'application/json'})
+
+        if (self._db_purge_running == True):
+            self._logger.error(
+                'WARNING: Database Purge Operation is already running')
+            response = {'status': 'failed', 'reason':
+                        'Database Purge Operation is already running'}
+            return bottle.HTTPResponse(
+                json.dumps(response), _ERRORS[errno.EBUSY],
+                {'Content-type': 'application/json'})
 
         purge_request_ip, = struct.unpack('>I', socket.inet_pton(
                                         socket.AF_INET, self._args.host_ip))
         purge_id = str(uuid.uuid1(purge_request_ip))
         self._logger.info("Purge id is:" + str(purge_id))
 
-        if (self._db_purge_running == True):
-            self._logger.error('Purge id %s WARNING: Database Purge Operation is already running' % str(purge_id))
-            return bottle.HTTPError(_ERRORS[errno.EBUSY],
-                        'WARNING: Database Purge Operation Purge is already running')
-
         gevent.spawn(self.db_purge_operation, purge_input, purge_id)
+        self._db_purge_running = True
         response = {'status': 'started', 'purge_id': purge_id}
-        return bottle.HTTPResponse(json.dumps(response), 200, {'Content-type': 'application/json'})
+        return bottle.HTTPResponse(
+            json.dumps(response), 200, {'Content-type': 'application/json'})
     # end process_purge_request
 
     def db_purge_operation(self, purge_input, purge_id):
         self._logger.info("purge_id %s START Purging!" % str(purge_id))
-        self._db_purge_running = True
         purge_stat = DatabasePurgeStats()
         purge_stat.request_time = UTCTimestampUsec()
         purge_info = DatabasePurgeInfo()
         self._analytics_db.number_of_purge_requests += 1
-        purge_info.number_of_purge_requests = self._analytics_db.number_of_purge_requests
+        purge_info.number_of_purge_requests = \
+            self._analytics_db.number_of_purge_requests
         total_rows_deleted = self._analytics_db.db_purge(purge_input, purge_id)
         end_time = UTCTimestampUsec()
         duration = end_time - purge_stat.request_time
         purge_stat.purge_id = purge_id
+        if (total_rows_deleted < 0):
+            purge_stat.purge_status = PurgeStatusString[PurgeStatus.FAILURE]
+            self._logger.info("purge_id %s purging Failed" % str(purge_id))
+        else:
+            purge_stat.purge_status = PurgeStatusString[PurgeStatus.SUCCESS]
+            self._logger.info("purge_id %s purging DONE" % str(purge_id))
         purge_stat.rows_deleted = total_rows_deleted
         purge_stat.duration = duration
         purge_info.name  = self._hostname
@@ -1526,14 +1553,14 @@ class OpServer(object):
         purge_data = DatabasePurge(data=purge_info)
         purge_data.send()
 
-        self._logger.info("purge_id %s purging DONE" % str(purge_id))
         self._db_purge_running = False
         #end db_purge_operation
 
     def _get_analytics_data_start_time(self):
         analytics_start_time = self._analytics_db._get_analytics_start_time()
         response = {'analytics_data_start_time': analytics_start_time}
-        return bottle.HTTPResponse(json.dumps(response), 200, {'Content-type': 'application/json'})
+        return bottle.HTTPResponse(
+            json.dumps(response), 200, {'Content-type': 'application/json'})
     # end _get_analytics_data_start_time
 
     def table_process(self, table):
