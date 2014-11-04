@@ -159,7 +159,7 @@ class InstanceManager(object):
             if user_visible is not None:
                 id_perms = IdPermsType(enable=True, user_visible=user_visible)
                 vmi_obj.set_id_perms(id_perms)
-            vmi_created = True
+            vmi_create = True
 
         # set vn, itf_type, sg and static routes
         if vmi_obj.get_virtual_network_refs() is None:
