@@ -344,3 +344,10 @@ const map<Module, list<Category>> ModuleCategoryMap = {
                                  Category.DISCOVERY,
                                 ],
 }
+
+const string COLLECTOR_DISCOVERY_SERVICE_NAME = "Collector"
+const string API_SERVER_DISCOVERY_SERVICE_NAME = "ApiServer"
+const string ANALYTICS_API_SERVER_DISCOVERY_SERVICE_NAME = "OpServer"
+const string IFMAP_SERVER_DISCOVERY_SERVICE_NAME = "IfmapServer"
+const string XMPP_SERVER_DISCOVERY_SERVICE_NAME = "xmpp-server"
+const string DNS_SERVER_DISCOVERY_SERVICE_NAME = "dns-server"

@@ -54,7 +54,8 @@ void DiscoveryAgentClient::DiscoverController() {
             xs_instances = 2;
         }
 
-        ds_client->Subscribe(DiscoveryServiceClient::XmppService, xs_instances,
+        ds_client->Subscribe(
+            g_vns_constants.XMPP_SERVER_DISCOVERY_SERVICE_NAME, xs_instances,
             boost::bind(&DiscoveryAgentClient::DiscoverySubscribeXmppHandler,
                          this, _1)); 
     }    
@@ -72,7 +73,8 @@ void DiscoveryAgentClient::DiscoverDNS() {
             dns_instances = 2;
         }
 
-        ds_client->Subscribe(DiscoveryServiceClient::DNSService, dns_instances,
+        ds_client->Subscribe(
+            g_vns_constants.DNS_SERVER_DISCOVERY_SERVICE_NAME, dns_instances,
             boost::bind(&DiscoveryAgentClient::DiscoverySubscribeDNSHandler, 
                         this, _1)); 
     }    
