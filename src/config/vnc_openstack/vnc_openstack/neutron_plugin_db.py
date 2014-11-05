@@ -3317,8 +3317,14 @@ class DBInterface(object):
         for fixed_ip in fixed_ips:
             try:
                 ip_addr = fixed_ip.get('ip_address')
+                if ip_addr is not None:
+                    if (IPAddress(fixed_ip['ip_address']).version == 4):
+                        ip_family="v4"
+                    elif (IPAddress(fixed_ip['ip_address']).version == 6):
+                        ip_family="v6"
                 subnet_id = fixed_ip.get('subnet_id')
-                ip_id = self._create_instance_ip(net_obj, port_obj, ip_addr, subnet_id, ip_family)
+                ip_id = self._create_instance_ip(net_obj, port_obj, ip_addr,
+                                                 subnet_id, ip_family)
                 created_iip_ids.append(ip_id)
             except vnc_exc.HttpError as e:
                 # Resources are not available
