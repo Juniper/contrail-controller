@@ -120,8 +120,9 @@ public class VncDB {
         //}
         // Extract VRouter IP address from display name
         String vrouterIpAddress = vm.getDisplayName();
-        s_logger.info("Delete virtual machine interface: " + 
-                vmInterface.getName());
+        String vmInterfaceName = vmInterface.getName();
+        String vmInterfaceDisplayName = vmInterface.getDisplayName();
+        s_logger.info("Delete virtual machine interface: " + vmInterfaceName);
         String vmInterfaceUuid = vmInterface.getUuid();
         apiConnector.delete(VirtualMachineInterface.class,
                 vmInterfaceUuid);
@@ -142,7 +143,17 @@ public class VncDB {
                     vrouterApiPort, false);
             vrouterApiMap.put(vrouterIpAddress, vrouterApi);
         }
-        vrouterApi.DeletePort(UUID.fromString(vmInterfaceUuid));
+        boolean ret = vrouterApi.DeletePort(UUID.fromString(vmInterfaceUuid));
+        if ( ret == true) {
+            s_logger.debug("VRouterAPi Delete Port success - port name: "
+                          + vmInterfaceName + "(" + vmInterfaceDisplayName + ")");
+        } else {
+            // log failure but don't worry. Periodic KeepAlive task will
+            // attempt to connect to vRouter Agent and ports that are not
+            // replayed by client(plugin) will be deleted by vRouter Agent.
+            s_logger.debug("VRouterAPi Delete Port failure - port name: "
+                          + vmInterfaceName + "(" + vmInterfaceDisplayName + ")");
+        }
     }
 
     public void DeleteVirtualMachine(VncVirtualMachineInfo vmInfo) 
@@ -281,7 +292,95 @@ public class VncDB {
             e.printStackTrace();
         }
     }
-    
+
+    public void syncAddPortPerVirtualMachine(String vnUuid, String vmUuid,
+            String macAddress, String vmName, String vrouterIpAddress,
+            String hostName, short isolatedVlanId, short primaryVlanId) throws IOException {
+        s_logger.info("syncAddPortPerVirtualMachine : " + vmUuid
+                      + ", vrouterIpAddress: " + vrouterIpAddress
+                      + ", vlan: " + isolatedVlanId + "/" + primaryVlanId);
+
+        // Virtual network
+        VirtualNetwork network = (VirtualNetwork) apiConnector.findById(
+                VirtualNetwork.class, vnUuid);
+
+        // Virtual machine
+        VirtualMachine vm = (VirtualMachine) apiConnector.findById(
+                VirtualMachine.class, vmUuid);
+
+        // Virtual machine interface
+        List<ObjectReference<ApiPropertyBase>> vmInterfaceRefs =
+                vm.getVirtualMachineInterfaceBackRefs();
+        VirtualMachineInterface vmInterface = null;
+        for (ObjectReference<ApiPropertyBase> vmInterfaceRef :
+                Utils.safe(vmInterfaceRefs)) {
+            vmInterface = (VirtualMachineInterface)
+                    apiConnector.findById(VirtualMachineInterface.class,
+                            vmInterfaceRef.getUuid());
+        }
+
+        if (vmInterface == null) {
+            s_logger.info("Virtual machine: " + vmName
+                          + " has no network interface");
+            return;
+        }
+
+        // Instance Ip
+        // Read back to get assigned IP address
+        List<ObjectReference<ApiPropertyBase>> instanceIpBackRefs =
+                vmInterface.getInstanceIpBackRefs();
+        InstanceIp instanceIp = null;
+        for (ObjectReference<ApiPropertyBase> instanceIpRef :
+                Utils.safe(instanceIpBackRefs)) {
+            instanceIp = (InstanceIp)
+                    apiConnector.findById(InstanceIp.class,
+                            instanceIpRef.getUuid());
+        }
+
+        if (instanceIp == null) {
+            s_logger.info("Virtual machine interface: " + vmInterface.getName()
+                          + " has no ip address");
+            return;
+        }
+
+        String vmIpAddress = instanceIp.getAddress();
+
+        // Plug notification to vrouter
+        if (vrouterIpAddress == null) {
+            s_logger.info("Virtual machine: " + vmName + " host: " + hostName
+                + " create notification NOT sent");
+            return;
+        }
+        try {
+            ContrailVRouterApi vrouterApi = vrouterApiMap.get(vrouterIpAddress);
+            if (vrouterApi == null) {
+                   vrouterApi = new ContrailVRouterApi(
+                         InetAddress.getByName(vrouterIpAddress),
+                         vrouterApiPort, false);
+                   vrouterApiMap.put(vrouterIpAddress, vrouterApi);
+            }
+            boolean ret = vrouterApi.AddPort(UUID.fromString(vmInterface.getUuid()),
+                               UUID.fromString(vmUuid), vmInterface.getName(),
+                               InetAddress.getByName(vmIpAddress),
+                               Utils.parseMacAddress(macAddress),
+                               UUID.fromString(vnUuid), isolatedVlanId, primaryVlanId);
+            if ( ret == true) {
+                s_logger.debug("VRouterAPi Add Port success - port name: "
+                                + vmInterface.getName()
+                                + "(" + vmInterface.getDisplayName() + ")");
+            } else {
+                // log failure but don't worry. Periodic KeepAlive task will
+                // attempt to connect to vRouter Agent and replay AddPorts.
+                s_logger.debug("VRouterAPi Add Port failed - port name: "
+                                + vmInterface.getName()
+                                + "(" + vmInterface.getDisplayName() + ")");
+            }
+        }catch(Throwable e) {
+            s_logger.error("Exception : " + e);
+            e.printStackTrace();
+        }
+    }
+
     public void CreateVirtualNetwork(String vnUuid, String vnName,
             String subnetAddr, String subnetMask, String gatewayAddr, 
             short isolatedVlanId, short primaryVlanId,
@@ -301,10 +400,11 @@ public class VncDB {
         String cidr = subnetUtils.getInfo().getCidrSignature();
         VnSubnetsType subnet = new VnSubnetsType();
         String[] addr_pair = cidr.split("\\/");
-        /*subnet.addIpamSubnets(new SubnetType(addr_pair[0], 
-                Integer.parseInt(addr_pair[1])), gatewayAddr,
-                UUID.randomUUID().toString());*/
-        subnet.addIpamSubnets(new VnSubnetsType.IpamSubnetType(new SubnetType(addr_pair[0], Integer.parseInt(addr_pair[1])), gatewayAddr, UUID.randomUUID().toString(), true, null, null, false, null, null, vn.getName() + "-subnet"));
+        subnet.addIpamSubnets(new VnSubnetsType.IpamSubnetType(
+                                   new SubnetType(addr_pair[0],
+                                       Integer.parseInt(addr_pair[1])), gatewayAddr,
+                                       null, UUID.randomUUID().toString(), true, null,
+                                       null, false, null, null, vn.getName() + "-subnet"));
 
         vn.setNetworkIpam(vCenterIpam, subnet);
         apiConnector.create(vn); 
@@ -423,5 +523,16 @@ public class VncDB {
             s_logger.info("NO virtual networks found");
         }
         return vnInfos;
+    }
+
+    // KeepAlive with all active vRouter Agent Connections.
+    public void vrouterAgentPeriodicConnectionCheck() {
+        for (String vrouterIpAddress : vrouterApiMap.keySet()) {
+            ContrailVRouterApi vrouterApi = vrouterApiMap.get(vrouterIpAddress);
+            // run Keep Alive with vRouter Agent.
+            if (vrouterApi != null) {
+              vrouterApi.PeriodicConnectionCheck();
+            }
+        }
     }
 }

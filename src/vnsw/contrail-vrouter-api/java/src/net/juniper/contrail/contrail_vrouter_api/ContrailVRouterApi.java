@@ -77,8 +77,8 @@ public class ContrailVRouterApi {
             return null;
         }
         TProtocol protocol = new TBinaryProtocol(transport);
-        InstanceService.Iface iface = (InstanceService.Iface)ReconnectingThriftClient.wrap(
-                new InstanceService.Client(protocol));
+        InstanceService.Iface iface = (InstanceService.Iface)
+                                       new InstanceService.Client(protocol);
         return iface;
     }
 
@@ -138,7 +138,7 @@ public class ContrailVRouterApi {
      * @param mac_address      MAC address of the VIF
      * @param network_uuid     UUID of the associated virtual network
      */
-    public void AddPort(UUID vif_uuid, UUID vm_uuid, String interface_name,
+    public boolean AddPort(UUID vif_uuid, UUID vm_uuid, String interface_name,
             InetAddress interface_ip, byte[] mac_address, UUID network_uuid, short vlanId, short primaryVlanId) {
         Port aport = new Port(UUIDToArray(vif_uuid), UUIDToArray(vm_uuid),
                 interface_name, interface_ip.getHostAddress(),
@@ -151,7 +151,7 @@ public class ContrailVRouterApi {
                 s_logger.error(rpc_address + ":" + rpc_port + 
                         " AddPort: " + vif_uuid + "(" + interface_name +
                         ") FAILED"); 
-                return;
+                return false;
             }
         } else {
             List<Port> aports = new ArrayList<Port>();
@@ -163,8 +163,10 @@ public class ContrailVRouterApi {
                         " AddPort: " + vif_uuid + "(" +
                         interface_name + ") TException: " + te.getMessage());
                 client = null;
+                return false;
             }
-        }	
+        }
+        return true;
     }
 
     /**
@@ -173,13 +175,13 @@ public class ContrailVRouterApi {
      *   
      * @param vif_uuid  UUID of the VIF/Port
      */
-    public void DeletePort(UUID vif_uuid) {
+    public boolean DeletePort(UUID vif_uuid) {
         ports.remove(vif_uuid);
         if (client == null) {
             if (!CreateAndResynchronizeRpcClient()) {
                 s_logger.error(rpc_address + ":" + rpc_port + 
                         " DeletePort: " + vif_uuid + " FAILED");
-                return;
+                return false;
             }
         } else {
             try {
@@ -189,8 +191,10 @@ public class ContrailVRouterApi {
                         " AddPort: " + vif_uuid + 
                         " TException: " + te.getMessage());
                 client = null;
+                return false;
             }
         }
+        return true;
     }
 
     /**
