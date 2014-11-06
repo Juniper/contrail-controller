@@ -147,7 +147,10 @@ public:
      */
     virtual void Clear();
 
-    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req) {assert(0);};
+    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req) {
+        assert(0);
+        return false;
+    }
     virtual DBTablePartition *AllocPartition(int index) {
         return new AgentDBTablePartition(this, index);
     };

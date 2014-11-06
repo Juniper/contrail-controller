@@ -517,6 +517,7 @@ int IFMapChannel::ReadSubscribeResponseStr() {
     } else {
         assert(0);
     }
+    return 0;
 }
 
 // Will run in the context of the main task
@@ -603,6 +604,7 @@ int IFMapChannel::ReadPollResponse() {
     } else {
         assert(0);
     }
+    return 0;
 }
 
 // Will run in the context of the main task
@@ -696,6 +698,7 @@ IFMapChannel::SslStream *IFMapChannel::GetSocket(ResponseState response_state) {
     default:
         assert(0);
     }
+    return NULL;
 }
 
 IFMapChannel::ProcCompleteMsgCb IFMapChannel::GetCallback(
@@ -713,6 +716,7 @@ IFMapChannel::ProcCompleteMsgCb IFMapChannel::GetCallback(
     default:
         assert(0);
     }
+    return NULL;
 }
 
 // Get the TCP layer and set the keepalive options on it
