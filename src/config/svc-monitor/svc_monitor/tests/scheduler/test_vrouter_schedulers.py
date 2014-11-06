@@ -21,6 +21,7 @@ import mock
 import unittest
 
 import cfgm_common.analytics_client as analytics
+from sandesh_common.vns import constants
 import svc_monitor.scheduler.vrouter_scheduler as scheduler
 from vnc_api.vnc_api import VirtualRouter, VirtualMachine
 
@@ -30,7 +31,7 @@ RUNNING_VROUTER_UVES_STATUS = {
         "process_status": [
             {
                 "instance_id": "0",
-                "module_id": "VRouterAgent",
+                "module_id": constants.MODULE_VROUTER_AGENT_NAME,
                 "state": "Functional",
                 "connection_infos": [
                     {
@@ -63,7 +64,7 @@ NON_RUNNING_VROUTER_UVES_STATUS_1 = {
         "process_status": [
             {
                 "instance_id": "2",
-                "module_id": "VRouterAgent",
+                "module_id": constants.MODULE_VROUTER_AGENT_NAME,
                 "state": "Functional",
                 "connection_infos": [
                     {
@@ -129,7 +130,7 @@ NON_RUNNING_VROUTER_UVES_STATUS_3 = {
         "process_status": [
             {
                 "instance_id": "0",
-                "module_id": "VRouterAgent",
+                "module_id": constants.MODULE_VROUTER_AGENT_NAME,
                 "state": "Non-functional",
                 "connection_infos": [
                     {
@@ -159,6 +160,36 @@ NON_RUNNING_VROUTER_UVES_STATUS_3 = {
 
 NON_RUNNING_VROUTER_UVES_STATUS_4 = {}
 
+VROUTER_LIST = {
+    "virtual-routers": [
+        {
+            "href": "http://127.0.0.1:8082/virtual-router/uuid1",
+            "fq_name": [
+                "default-global-system-config",
+                "vrouter1"
+            ],
+            "uuid": "uuid1"
+        },
+        {
+            "href": "http://127.0.0.1:8082/virtual-router/uuid2",
+            "fq_name": [
+                "default-global-system-config",
+                "vrouter2"
+            ],
+            "uuid": "uuid2"
+        },
+        {
+            "href": "http://127.0.0.1:8082/virtual-router/uuid3",
+            "fq_name": [
+                "default-global-system-config",
+                "vrouter3"
+            ],
+            "uuid": "uuid3"
+        }
+    ]
+}
+
+
 class TestRandomScheduler(unittest.TestCase):
 
     def setUp(self):
@@ -180,35 +211,6 @@ class TestRandomScheduler(unittest.TestCase):
         super(TestRandomScheduler, self).tearDown()
 
     def test_get_candidates(self):
-        VROUTER_LIST = {
-                "virtual-routers": [
-                    {
-                        "href": "http://127.0.0.1:8082/virtual-router/uuid1",
-                        "fq_name": [
-                            "default-global-system-config",
-                            "vrouter1"
-                        ],
-                        "uuid": "uuid1"
-                    },
-                    {
-                        "href": "http://127.0.0.1:8082/virtual-router/uuid2",
-                        "fq_name": [
-                            "default-global-system-config",
-                            "vrouter2"
-                        ],
-                        "uuid": "uuid2"
-                    },
-                    {
-                        "href": "http://127.0.0.1:8082/virtual-router/uuid3",
-                        "fq_name": [
-                            "default-global-system-config",
-                            "vrouter3"
-                        ],
-                        "uuid": "uuid3"
-                    }
-                ]
-            }
-
         self.vnc_mock.virtual_routers_list.return_value = VROUTER_LIST
 
         self.analytics_mock.side_effect = [RUNNING_VROUTER_UVES_STATUS,
@@ -217,20 +219,34 @@ class TestRandomScheduler(unittest.TestCase):
 
         vr_obj = VirtualRouter()
         vr_obj.get_virtual_machine_refs = mock.MagicMock(
-            return_value=[{'uuid': 'fake_uuid'}])
+            return_value=[{'uuid': 'fake_vm_uuid1'}])
         self.vnc_mock.virtual_router_read.return_value = vr_obj
 
         vm_obj_1 = VirtualMachine()
         vm_obj_1.get_service_instance_refs = mock.MagicMock(
-            return_value=[{'uuid': 'fake_uuid'}])
+            return_value=[{'uuid': 'fake_si_uuid1'}])
         vm_obj_2 = VirtualMachine()
         vm_obj_2.get_service_instance_refs = mock.MagicMock(
-            return_value=[{'uuid': 'fake_si_uuid'}])
+            return_value=[{'uuid': 'fake_si_uuid2'}])
         self.vnc_mock.virtual_machine_read.side_effect = [vm_obj_1, vm_obj_2]
 
+        # Test the vrouters seected does not already have a VM of the same SI
+        # schedule on it.
+        expected_result = [["default-global-system-config", "vrouter3"]]
+        self.assertEqual(self.scheduler._get_candidates('fake_si_uuid1',
+                                                        'fake_vm_uuid2'),
+                         expected_result)
+
+        self.analytics_mock.side_effect = [RUNNING_VROUTER_UVES_STATUS,
+                                           NON_RUNNING_VROUTER_UVES_STATUS_3,
+                                           RUNNING_VROUTER_UVES_STATUS]
+        self.vnc_mock.virtual_machine_read.side_effect = [vm_obj_1, vm_obj_2]
+
+        # Test the same vrouter is return if the VM is already scheduled on
+        # a running vrouter
         expected_result = [["default-global-system-config", "vrouter1"]]
-        self.assertEqual(self.scheduler._get_candidates('fake_si_uuid',
-                                                        'fake_uuid'),
+        self.assertEqual(self.scheduler._get_candidates('fake_si_uuid1',
+                                                        'fake_vm_uuid1'),
                          expected_result)
 
     def test_vrouter_running(self):
