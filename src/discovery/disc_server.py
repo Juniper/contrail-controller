@@ -27,7 +27,7 @@ import datetime
 import argparse
 import ConfigParser
 from pprint import pformat
-from random import randint
+import random
 
 import bottle
 
@@ -72,7 +72,6 @@ class DiscoveryServer():
             'policy_fi': 0,
             'db_upd_hb': 0,
             'throttle_subs':0,
-            '503': 0,
         }
         self._ts_use = 1
         self.short_ttl_map = {}
@@ -333,7 +332,6 @@ class DiscoveryServer():
             try:
                 return func(*args,**kwargs)
             except disc_exceptions.ServiceUnavailable:
-                self._debug['503'] += 1
                 bottle.abort(503, 'Service Unavailable')
             except Exception as e:
                 raise
@@ -452,6 +450,24 @@ class DiscoveryServer():
         return response
     # end api_publish
 
+    # randomize services with same in_use count to handle requests arriving
+    # at the same time
+    def disco_shuffle(self, list):
+        if list is None or len(list) == 0:
+            return list
+        master_list = []
+        working_list = []
+        previous_use_count = list[0]['in_use']
+        list.append({'in_use': -1}) 
+        for item in list:
+            if item['in_use'] != previous_use_count:
+                random.shuffle(working_list)
+                master_list.extend(working_list)
+                working_list = []
+            working_list.append(item)
+            previous_use_count = item['in_use']
+        return master_list
+
     # round-robin
     def service_list_round_robin(self, pubs):
         self._debug['policy_rr'] += 1
@@ -461,7 +477,8 @@ class DiscoveryServer():
     # load-balance
     def service_list_load_balance(self, pubs):
         self._debug['policy_lb'] += 1
-        return sorted(pubs, key=lambda service: service['in_use'])
+        temp = sorted(pubs, key=lambda service: service['in_use'])
+        return self.disco_shuffle(temp)
     # end
 
     # master election
@@ -470,7 +487,7 @@ class DiscoveryServer():
         return sorted(pubs, key=lambda service: service['sequence'])
     # end
 
-    def service_list(self, service_type, pubs):
+    def service_list(self, service_type, pubs, count):
         policy = self.get_service_config(service_type, 'policy') or 'load-balance'
 
         if policy == 'load-balance':
@@ -480,7 +497,11 @@ class DiscoveryServer():
         else:
             f = self.service_list_round_robin
 
-        return f(pubs)
+        list = f(pubs)
+        list = list[:min(count, len(pubs))]
+        if policy != 'fixed':
+             random.shuffle(list)
+        return list
     # end
 
     @db_error_handler
@@ -505,7 +526,7 @@ class DiscoveryServer():
 
         assigned_sid = set()
         r = []
-        ttl = randint(self._args.ttl_min, self._args.ttl_max)
+        ttl = random.randint(self._args.ttl_min, self._args.ttl_max)
 
         # check client entry and any existing subscriptions
         cl_entry, subs = self._db_conn.lookup_client(service_type, client_id)
@@ -526,7 +547,7 @@ class DiscoveryServer():
         pubs = self._db_conn.lookup_service(service_type) or []
         pubs_active = [item for item in pubs if not self.service_expired(item)]
         if len(pubs_active) < count:
-            ttl = randint(1, 32)
+            ttl = random.randint(1, 32)
             self._debug['ttl_short'] += 1
 
         self.syslog(
@@ -554,18 +575,13 @@ class DiscoveryServer():
                     return response
 
 
-        # find least loaded instances
-        pubs = self.service_list(service_type, pubs_active)
+        # skip duplicates from existing assignments
+	pubs = [entry for entry in pubs_active if not entry['service_id'] in assigned_sid]
 
-        # prepare response - send all if count 0
+        # find instances based on policy (lb, rr, fixed ...)
+        pubs = self.service_list(service_type, pubs, count)
+
         for entry in pubs:
-
-            # skip duplicates - could happen if some publishers have quit and
-            # we have already picked up others from cached information above
-            if entry['service_id'] in assigned_sid:
-                continue
-            assigned_sid.add(entry['service_id'])
-
             result = entry['info']
             r.append(result)
 
@@ -576,15 +592,12 @@ class DiscoveryServer():
             self._db_conn.insert_client(
                 service_type, entry['service_id'], client_id, result, ttl)
 
-            # update publisher entry
+            # update publisher TS for round-robin algorithm
             entry['ts_use'] = self._ts_use
             self._ts_use += 1
             self._db_conn.update_service(
                 service_type, entry['service_id'], entry)
 
-            count -= 1
-            if count == 0:
-                break
 
         response = {'ttl': ttl, service_type: r}
         if ctype == 'application/xml':
