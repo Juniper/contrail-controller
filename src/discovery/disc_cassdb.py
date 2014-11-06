@@ -274,7 +274,9 @@ class DiscoveryCassendraClient():
         col_name = ('client', client_id, )
         try:
             subs = self._disco_cf.get(service_type, column_start = col_name,
-                column_finish = col_name)
+                column_finish = col_name, include_timestamp = True)
+            # sort columns by timestamp (subs is array of (col_name, (value, timestamp)))
+            subs = sorted(subs, key=lambda entry: entry[1][1])
             # col_name = client, cliend_id, service_id
             for col_name, col_val in subs.items():
                 foo, client_id, service_id = col_name
