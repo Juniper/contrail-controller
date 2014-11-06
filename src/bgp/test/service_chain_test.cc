@@ -542,7 +542,7 @@ protected:
     bool MatchInetPathAttributes(const BgpPath *path,
         const string &path_id, const string &origin_vn, int label,
         const vector<uint32_t> sg_ids, const set<string> tunnel_encaps,
-        const SiteOfOrigin &soo) {
+        const SiteOfOrigin &soo, const vector<uint32_t> &commlist) {
         BgpAttrPtr attr = path->GetAttr();
         if (attr->nexthop().to_v4().to_string() != path_id)
             return false;
@@ -573,13 +573,17 @@ protected:
                 return false;
         }
 
+        vector<uint32_t> path_commlist = GetCommunityListFromRoute(path);
+        if (path_commlist != commlist)
+            return false;
+
         return true;
     }
 
     bool CheckInetPathAttributes(const string &instance, const string &prefix,
         const string &path_id, const string &origin_vn, int label,
         const vector<uint32_t> sg_ids, const set<string> tunnel_encaps,
-        const SiteOfOrigin &soo) {
+        const SiteOfOrigin &soo, const vector<uint32_t> &commlist) {
         task_util::TaskSchedulerLock lock;
         BgpRoute *route = InetRouteLookup(instance, prefix);
         if (!route)
@@ -589,8 +593,8 @@ protected:
             const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
             if (BgpPath::PathIdString(path->GetPathId()) != path_id)
                 continue;
-            if (MatchInetPathAttributes(
-                path, path_id, origin_vn, label, sg_ids, tunnel_encaps, soo)) {
+            if (MatchInetPathAttributes(path, path_id, origin_vn, label,
+                sg_ids, tunnel_encaps, soo, commlist)) {
                 return true;
             }
             return false;
@@ -605,13 +609,13 @@ protected:
         task_util::WaitForIdle();
         TASK_UTIL_EXPECT_TRUE(CheckInetPathAttributes(instance, prefix,
             path_id, origin_vn, 0, vector<uint32_t>(), tunnel_encaps,
-            SiteOfOrigin()));
+            SiteOfOrigin(), vector<uint32_t>()));
     }
 
     bool CheckInetRouteAttributes(const string &instance, const string &prefix,
         const vector<string> &path_ids, const string &origin_vn, int label,
         const vector<uint32_t> sg_ids, const set<string> tunnel_encap,
-        const SiteOfOrigin &soo) {
+        const SiteOfOrigin &soo, const vector<uint32_t> &commlist) {
         task_util::TaskSchedulerLock lock;
         BgpRoute *route = InetRouteLookup(instance, prefix);
         if (!route)
@@ -627,7 +631,7 @@ protected:
                     continue;
                 found = true;
                 if (MatchInetPathAttributes(path, path_id, origin_vn, label,
-                    sg_ids, tunnel_encap, soo)) {
+                    sg_ids, tunnel_encap, soo, commlist)) {
                     break;
                 }
                 return false;
@@ -646,7 +650,7 @@ protected:
         vector<string> path_ids = list_of(path_id);
         TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
             instance, prefix, path_ids, origin_vn, label, vector<uint32_t>(),
-            set<string>(), SiteOfOrigin()));
+            set<string>(), SiteOfOrigin(), vector<uint32_t>()));
     }
 
     void VerifyInetRouteAttributes(const string &instance, const string &prefix,
@@ -654,7 +658,7 @@ protected:
         task_util::WaitForIdle();
         TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
-            set<string>(), SiteOfOrigin()));
+            set<string>(), SiteOfOrigin(), vector<uint32_t>()));
     }
 
     void VerifyInetRouteAttributes(const string &instance,
@@ -664,7 +668,7 @@ protected:
         vector<string> path_ids = list_of(path_id);
         TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, sg_ids, set<string>(),
-            SiteOfOrigin()));
+            SiteOfOrigin(), vector<uint32_t>()));
     }
 
     void VerifyInetRouteAttributes(const string &instance,
@@ -674,7 +678,7 @@ protected:
         vector<string> path_ids = list_of(path_id);
         TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
-            tunnel_encaps, SiteOfOrigin()));
+            tunnel_encaps, SiteOfOrigin(), vector<uint32_t>()));
     }
 
     void VerifyInetRouteAttributes(const string &instance,
@@ -684,7 +688,17 @@ protected:
         vector<string> path_ids = list_of(path_id);
         TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
-            set<string>(), soo));
+            set<string>(), soo, vector<uint32_t>()));
+    }
+
+    void VerifyInetRouteAttributes(const string &instance,
+        const string &prefix, const string &path_id, const string &origin_vn,
+        const CommunitySpec &commspec) {
+        task_util::WaitForIdle();
+        vector<string> path_ids = list_of(path_id);
+        TASK_UTIL_EXPECT_TRUE(CheckInetRouteAttributes(
+            instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
+            set<string>(), SiteOfOrigin(), commspec.communities));
     }
 
     string FileRead(const string &filename) {
@@ -826,6 +840,13 @@ protected:
             return soo;
         }
         return SiteOfOrigin();
+    }
+
+    vector<uint32_t> GetCommunityListFromRoute(const BgpPath *path) {
+        const Community *comm = path->GetAttr()->community();
+        vector<uint32_t> list = comm ? comm->communities() : vector<uint32_t>();
+        sort(list.begin(), list.end());
+        return list;
     }
 
     static void ValidateShowServiceChainResponse(Sandesh *sandesh, 
@@ -2482,6 +2503,60 @@ TEST_P(ServiceChainParamTest, ValidateSiteOfOriginExtRoute) {
     DeleteInetRoute(NULL, "red", "10.1.1.0/24");
 
     // Delete connected route
+    DeleteConnectedRoute(NULL, "1.1.2.3/32");
+}
+
+//
+// 1. Create Service Chain with 192.168.1.0/24 as vn subnet
+// 2. Add MX leaked route 10.1.1.0/24
+// 3. Add connected route
+// 4. Verify that ext connect route 10.1.1.0/24 is added
+// 5. Change ext connected route to have some communities
+// 6. Verify that service chain route has communities
+// 7. Change ext connected route to not have communities
+// 8. Verify that service chain route doesn't have communities
+//
+TEST_P(ServiceChainParamTest, ValidateCommunityExtRoute) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    NetworkConfig(instance_names, connections);
+    VerifyNetworkConfig(instance_names);
+
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
+
+    // Add Ext connect route
+    AddInetRoute(NULL, "red", "10.1.1.0/24", 100);
+
+    // Add Connected
+    AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
+
+    // Check for ExtConnect route
+    VerifyInetRouteExists("blue", "10.1.1.0/24");
+
+    // Change Ext connect route to have some communities.
+    vector<uint32_t> commlist = list_of(0xFFFFAA01)(0xFFFFAA02)(0xFFFFAA03);
+    AddInetRoute(NULL, "red", "10.1.1.0/24", 100, commlist);
+
+    // Check for ExtConnect route
+    CommunitySpec commspec;
+    commspec.communities = commlist;
+    VerifyInetRouteExists("blue", "10.1.1.0/24");
+    VerifyInetRouteAttributes(
+        "blue", "10.1.1.0/24", "2.3.4.5", "red", commspec);
+
+    // Change Ext connect route to not have communities.
+    AddInetRoute(NULL, "red", "10.1.1.0/24", 100);
+
+    // Check for ExtConnect route
+    commspec.communities.clear();
+    VerifyInetRouteExists("blue", "10.1.1.0/24");
+    VerifyInetRouteAttributes(
+        "blue", "10.1.1.0/24", "2.3.4.5", "red", commspec);
+
+    // Delete ExtRoute and connected route
+    DeleteInetRoute(NULL, "red", "10.1.1.0/24");
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
 }
 
