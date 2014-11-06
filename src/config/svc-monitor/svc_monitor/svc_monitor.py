@@ -34,6 +34,8 @@ from pysandesh.sandesh_base import Sandesh
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.gen_py.process_info.ttypes import ConnectionType, \
     ConnectionStatus
+from sandesh_common.vns.ttypes import Module
+from sandesh_common.vns.constants import ModuleNames
 
 from vnc_api.vnc_api import *
 
@@ -63,7 +65,7 @@ class SvcMonitor(object):
         if self._args.disc_server_ip and self._args.disc_server_port:
             self._disc = client.DiscoveryClient(self._args.disc_server_ip,
                                                 self._args.disc_server_port,
-                                                client_type='Service Monitor')
+                                                ModuleNames[Module.SVC_MONITOR])
 
         # initialize logger
         self.logger = ServiceMonitorLogger(self.db, self._disc, args)
