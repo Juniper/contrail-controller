@@ -274,7 +274,9 @@ def get_svc_uve_status(svc_name, debug):
     return process_status_info[0]['state'], process_status_info[0]['description']
 
 def check_svc_status(service_name, debug):
-    cmd = 'supervisorctl -s unix:///tmp/' + service_name.replace('-', 'd_') + '.sock' + ' status'
+    service_sock = service_name.replace('-', '_')
+    service_sock = service_sock.replace('supervisor_', 'supervisord_') + '.sock'
+    cmd = 'supervisorctl -s unix:///tmp/' + service_sock + ' status'
     cmdout = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE).communicate()[0]
     if cmdout.find('refused connection') == -1:
         cmdout = cmdout.replace('   STARTING', 'initializing')
@@ -325,6 +327,9 @@ def supervisor_status(nodetype, debug):
     elif nodetype == 'webui':
         print "== Contrail Web UI =="
         check_status('supervisor-webui', debug)
+    elif nodetype == 'support-service':
+        print "== Contrail Support Services =="
+        check_status('supervisor-support-service', debug)
 
 def package_installed(pkg):
     if distribution == 'debian':
@@ -382,6 +387,9 @@ def main():
 
     if database:
         supervisor_status('database', options.debug)
+
+     if capi:
+        supervisor_status('support-service', options.debug)
 
     if storage:
         print "== Contrail Storage =="
