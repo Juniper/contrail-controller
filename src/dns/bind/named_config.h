@@ -45,13 +45,9 @@ public:
     typedef std::map<std::string, std::string> ZoneViewMap;
     typedef std::pair<std::string, std::string> ZoneViewPair;
 
-    static const char NamedConfigFile[];
-    static const char NamedLogFile[];
-    static const char RndcSecret[];
     static const std::string NamedZoneFileSuffix;
     static const std::string NamedZoneNSPrefix;
     static const std::string NamedZoneMXPrefix;
-    static const char ZoneFileDirectory[];
     static const char pid_file_name[];
     static const int NameWidth = 30;
     static const int NumberWidth = 10;
@@ -66,16 +62,25 @@ public:
         static const int Minimum = 86400;
     };
 
-    NamedConfig() : file_(), named_conf_file_(NamedConfigFile), 
-                    zone_file_dir_(ZoneFileDirectory), reset_flag_(false),
-                    all_zone_files_(false) {}
-    NamedConfig(const char *conf_file, const char *zone_dir) : file_(), 
-                named_conf_file_(conf_file), zone_file_dir_(zone_dir),
-                reset_flag_(false), all_zone_files_(false) {}
+    NamedConfig(const std::string& named_config_dir,
+                const std::string& named_config_file,
+                const std::string& named_log_file,
+                const std::string& rndc_config_file,
+                const std::string& rndc_secret) :
+        file_(), named_log_file_(named_log_file), rndc_secret_(rndc_secret),
+        reset_flag_(false), all_zone_files_(false) {
+            named_config_dir_ = named_config_dir + "/";
+            named_config_file_ = named_config_dir_ + named_config_file;
+            rndc_config_file_ = named_config_dir_ + rndc_config_file;
+    }
 
     virtual ~NamedConfig() { singleton_ = NULL; }
     static NamedConfig *GetNamedConfigObject() { return singleton_; }
-    static void Init();
+    static void Init(const std::string& named_config_dir,
+                     const std::string& named_config_file,
+                     const std::string& named_log_file,
+                     const std::string& rndc_config_file,
+                     const std::string& rndc_secret);
     static void Shutdown();
     void Reset();
     virtual void AddView(const VirtualDnsConfig *vdns);
@@ -93,10 +98,11 @@ public:
                                         const std::string &name);
     virtual std::string GetResolveFile() { return "/etc/resolv.conf"; }
     std::string GetPidFilePath();
-    std::string GetConfFilePath() const { return named_conf_file_; }
-    std::string GetZoneDir() const { return zone_file_dir_; }
+    const std::string &named_config_dir() const { return named_config_dir_; }
+    const std::string &named_config_file() const { return named_config_file_; }
 
 protected:
+    void CreateRndcConf();
     void CreateNamedConf(const VirtualDnsConfig *updated_vdns);
     void WriteOptionsConfig();
     void WriteRndcConfig();
@@ -114,8 +120,11 @@ protected:
     void GetDefaultForwarders();
 
     std::ofstream file_;
-    std::string named_conf_file_;
-    std::string zone_file_dir_;
+    std::string named_config_file_;
+    std::string named_config_dir_;
+    std::string named_log_file_;
+    std::string rndc_config_file_;
+    std::string rndc_secret_;
     std::string default_forwarders_;
     bool reset_flag_;
     bool all_zone_files_;

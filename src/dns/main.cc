@@ -156,7 +156,12 @@ int main(int argc, char *argv[]) {
 
     DnsManager dns_manager;
     Dns::SetDnsManager(&dns_manager);
-    dns_manager.Initialize(&config_db, &config_graph);
+    dns_manager.Initialize(&config_db, &config_graph,
+                           options.named_config_dir(),
+                           options.named_config_file(),
+                           options.named_log_file(),
+                           options.rndc_config_file(),
+                           options.rndc_secret());
     DnsConfigParser parser(&config_db);
     parser.Parse(FileRead(options.config_file()));
 
