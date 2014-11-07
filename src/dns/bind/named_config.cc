@@ -18,19 +18,20 @@
 
 using namespace std;
 
-const char NamedConfig::NamedConfigFile[] = "/etc/contrail/dns/named.conf";
-const char NamedConfig::NamedLogFile[] = "/var/log/named/bind.log";
-const char NamedConfig::RndcSecret[] = "xvysmOR8lnUQRBcunkC6vg==";
 NamedConfig *NamedConfig::singleton_;
 const string NamedConfig::NamedZoneFileSuffix = "zone";
 const string NamedConfig::NamedZoneNSPrefix = "contrail-ns";
 const string NamedConfig::NamedZoneMXPrefix = "contrail-mx";
-const char NamedConfig::ZoneFileDirectory[] = "/etc/contrail/dns/";
 const char NamedConfig::pid_file_name[] = "named.pid";
 
-void NamedConfig::Init() {
+void NamedConfig::Init(const std::string& named_config_dir,
+                       const std::string& named_config_file,
+                       const std::string& named_log_file,
+                       const std::string& rndc_config_file,
+                       const std::string& rndc_secret) {
     assert(singleton_ == NULL);
-    singleton_ = new NamedConfig();
+    singleton_ = new NamedConfig(named_config_dir, named_config_file,
+                                 named_log_file, rndc_config_file, rndc_secret);
     singleton_->Reset();
 }
 
@@ -42,12 +43,13 @@ void NamedConfig::Shutdown() {
 // Reset bind config 
 void NamedConfig::Reset() {
     reset_flag_ = true;
+    CreateRndcConf();
     UpdateNamedConf();
-    DIR *dir = opendir(ZoneFileDirectory);
+    DIR *dir = opendir(named_config_dir_.c_str());
     if (dir) {
         struct dirent *file;
         while ((file = readdir(dir)) != NULL) {
-            std::string str(ZoneFileDirectory);
+            std::string str(named_config_dir_);
             str.append(file->d_name);
             if (str.find(".zone") != std::string::npos) {
                 remove(str.c_str());
@@ -123,7 +125,7 @@ void NamedConfig::UpdateNamedConf(const VirtualDnsConfig *updated_vdns) {
     // rndc_reconfig();
     // TODO: convert this to a call to rndc library
     std::stringstream str;
-    str << "/usr/bin/rndc -c /etc/contrail/dns/rndc.conf -p ";
+    str << "/usr/bin/rndc -c " << rndc_config_file_ << " -p ";
     str << ContrailPorts::DnsRndc();
     str << " reconfig";
     int res = system(str.str().c_str());
@@ -134,7 +136,7 @@ void NamedConfig::UpdateNamedConf(const VirtualDnsConfig *updated_vdns) {
 
 void NamedConfig::CreateNamedConf(const VirtualDnsConfig *updated_vdns) {
      GetDefaultForwarders();
-     file_.open(named_conf_file_.c_str());
+     file_.open(named_config_file_.c_str());
     
      WriteOptionsConfig();
      WriteRndcConfig();
@@ -145,10 +147,28 @@ void NamedConfig::CreateNamedConf(const VirtualDnsConfig *updated_vdns) {
      file_.close();
 }
 
+void NamedConfig::CreateRndcConf() {
+     file_.open(rndc_config_file_.c_str());
+
+     file_ << "key \"rndc-key\" {" << endl;
+     file_ << "    algorithm hmac-md5;" << endl;
+     file_ << "    secret \"" << rndc_secret_ << "\";" << endl;
+     file_ << "};" << endl << endl;
+
+     file_ << "options {" << endl;
+     file_ << "    default-key \"rndc-key\";" << endl;
+     file_ << "    default-server 127.0.0.1;" << endl;
+     file_ << "    default-port " << ContrailPorts::DnsRndc() << ";" << endl;
+     file_ << "};" << endl << endl;
+
+     file_.flush();
+     file_.close();
+}
+
 void NamedConfig::WriteOptionsConfig() {
     file_ << "options {" << endl;
-    file_ << "    directory \"" << zone_file_dir_ << "\";" << endl;
-    file_ << "    managed-keys-directory \"" << zone_file_dir_ << "\";" << endl;
+    file_ << "    directory \"" << named_config_dir_ << "\";" << endl;
+    file_ << "    managed-keys-directory \"" << named_config_dir_ << "\";" << endl;
     file_ << "    empty-zones-enable no;" << endl;
     file_ << "    pid-file \"" << GetPidFilePath() << "\";" << endl;
     file_ << "    listen-on port " << Dns::GetDnsPort() << " { any; };" << endl;
@@ -161,7 +181,7 @@ void NamedConfig::WriteOptionsConfig() {
 void NamedConfig::WriteRndcConfig() {
     file_ << "key \"rndc-key\" {" << endl;
     file_ << "    algorithm hmac-md5;" << endl;
-    file_ << "    secret \"" << RndcSecret << "\";" << endl;
+    file_ << "    secret \"" << rndc_secret_ << "\";" << endl;
     file_ << "};" << endl << endl;
 
 
@@ -174,7 +194,7 @@ void NamedConfig::WriteRndcConfig() {
 void NamedConfig::WriteLoggingConfig() {
     file_ << "logging {" << endl;
     file_ << "    channel debug_log {" << endl;
-    file_ << "        file \"" << NamedLogFile << "\" versions 3 size 5m;" << endl;
+    file_ << "        file \"" << named_log_file_ << "\" versions 3 size 5m;" << endl;
     file_ << "        severity debug;" << endl;
     file_ << "        print-time yes;" << endl;
     file_ << "        print-severity yes;" << endl;
@@ -309,11 +329,11 @@ string NamedConfig::GetZoneFileName(const string &vdns, const string &name) {
 }
 
 string NamedConfig::GetZoneFilePath(const string &vdns, const string &name) {
-    return (zone_file_dir_ + GetZoneFileName(vdns, name));
+    return (named_config_dir_ + GetZoneFileName(vdns, name));
 }
 
 string NamedConfig::GetPidFilePath() {
-    return (zone_file_dir_ + pid_file_name);
+    return (named_config_dir_ + pid_file_name);
 }
 
 string NamedConfig::GetZoneNSName(const string domain_name) {
