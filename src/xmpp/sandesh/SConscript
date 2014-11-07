@@ -10,6 +10,7 @@ XmppSandeshFiles  += env.SandeshGenCpp('xmpp_state_machine_sandesh.sandesh')
 XmppSandeshFiles  += env.SandeshGenCpp('xmpp_trace_sandesh.sandesh')
 XmppSandeshFiles  += env.SandeshGenCpp('xmpp_message_sandesh.sandesh')
 XmppSandeshFiles  += env.SandeshGenCpp('xmpp_peer_info.sandesh')
+XmppSandeshFiles  += env.SandeshGenCpp('xmpp_server.sandesh')
 
 XmppSandeshFilesSrc = env.ExtractCpp(XmppSandeshFiles)
 

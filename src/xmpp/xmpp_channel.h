@@ -24,6 +24,8 @@ namespace xmps {
         DNS = 3,
         OTHER = 4 
     } PeerId;
+
+    std::string PeerIdToName(PeerId id);
 }
 
 class XmppChannel {
