@@ -456,6 +456,7 @@ int main(int argc, char *argv[]) {
     ControlNode::SetTestMode(options.test_mode());
 
     boost::scoped_ptr<BgpServer> bgp_server(new BgpServer(&evm));
+    sandesh_context.test_mode = ControlNode::GetTestMode();
     sandesh_context.bgp_server = bgp_server.get();
 
     DB config_db;

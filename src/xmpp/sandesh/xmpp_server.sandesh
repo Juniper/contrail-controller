@@ -20,3 +20,11 @@ response sandesh ShowXmppConnectionResp {
 
 request sandesh ShowXmppConnectionReq {
 }
+
+response sandesh ClearXmppConnectionResp {
+    1: bool success;
+}
+
+request sandesh ClearXmppConnectionReq {
+    1: string hostname_or_all;
+}

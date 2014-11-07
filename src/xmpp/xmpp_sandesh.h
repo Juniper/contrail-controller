@@ -10,10 +10,11 @@
 class XmppServer;
 
 struct XmppSandeshContext : public SandeshContext {
-    XmppSandeshContext() : xmpp_server(NULL) {
+    XmppSandeshContext() : xmpp_server(NULL), test_mode(false) {
     }
 
     XmppServer *xmpp_server;
+    bool test_mode;
 };
 
 #endif /* XMPP_SANDESH_H_ */
