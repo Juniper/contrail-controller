@@ -299,14 +299,17 @@ void ServiceChain::AddServiceChainRoute(Ip4Prefix prefix,
 
     SiteOfOrigin soo;
     ExtCommunity::ExtCommunityList sgid_list;
+    const Community *orig_community = NULL;
     if (orig_route) {
         const BgpPath *orig_path = orig_route->BestPath();
         const BgpAttr *orig_attr = NULL;
         const ExtCommunity *ext_community = NULL;
         if (orig_path)
             orig_attr = orig_path->GetAttr();
-        if (orig_attr)
+        if (orig_attr) {
+            orig_community = orig_attr->community();
             ext_community = orig_attr->ext_community();
+        }
         if (ext_community) {
             BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
                           ext_community->communities()) {
@@ -367,8 +370,13 @@ void ServiceChain::AddServiceChainRoute(Ip4Prefix prefix,
         new_ext_community = extcomm_db->ReplaceOriginVnAndLocate(
             new_ext_community.get(), origin_vn.GetExtCommunity());
 
+        // Replace extended community and community values.
         BgpAttrPtr new_attr = attr_db->ReplaceExtCommunityAndLocate(
             attr, new_ext_community);
+        if (orig_community) {
+            new_attr = attr_db->ReplaceCommunityAndLocate(new_attr.get(),
+                orig_community);
+        }
 
         // If the connected path is learnt via XMPP, construct RD based on
         // the id registered with source table instead of connected table.
