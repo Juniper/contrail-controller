@@ -14,7 +14,7 @@
 #include <pkt/agent_stats.h>
 #include <pkt/pkt_init.h>
 #include <pkt/flow_table.h>
-#include <uve/agent_uve.h>
+#include <uve/agent_uve_base.h>
 
 AgentStats *AgentStats::singleton_;
 

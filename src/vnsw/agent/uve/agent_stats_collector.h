@@ -18,10 +18,10 @@
 
 //Defines the functionality to periodically poll interface, vrf and drop
 //statistics from vrouter and updates its data-structures with this
-//information. Stats collection request runs in the context of 
-//"Agent::StatsCollector" which has exclusion with "db::DBTable", 
+//information. Stats collection request runs in the context of
+//"Agent::StatsCollector" which has exclusion with "db::DBTable",
 //"Agent::FlowHandler", "sandesh::RecvQueue", "bgp::Config" & "Agent::KSync"
-//Stats collection response runs in the context of "Agent::Uve" which has 
+//Stats collection response runs in the context of "Agent::Uve" which has
 //exclusion with "db::DBTable"
 class AgentStatsCollector : public StatsCollector {
 public:
@@ -57,20 +57,20 @@ public:
         uint64_t stats_time;
     };
     struct VrfStats {
-        VrfStats() : name(""), discards(0), resolves(0), receives(0), 
+        VrfStats() : name(""), discards(0), resolves(0), receives(0),
                      udp_tunnels(0), udp_mpls_tunnels(0), gre_mpls_tunnels(0),
-                     ecmp_composites(0), l3_mcast_composites(0), 
+                     ecmp_composites(0), l3_mcast_composites(0),
                      l2_mcast_composites(0), fabric_composites(0),
                      multi_proto_composites(0), encaps(0), l2_encaps(0),
-                     prev_discards(0), prev_resolves(0), prev_receives(0), 
-                     prev_udp_tunnels(0), prev_udp_mpls_tunnels(0), 
+                     prev_discards(0), prev_resolves(0), prev_receives(0),
+                     prev_udp_tunnels(0), prev_udp_mpls_tunnels(0),
                      prev_gre_mpls_tunnels(0), prev_encaps(0),
-                     prev_ecmp_composites(0), prev_l3_mcast_composites(0), 
+                     prev_ecmp_composites(0), prev_l3_mcast_composites(0),
                      prev_l2_mcast_composites(0), prev_fabric_composites(0),
                      prev_multi_proto_composites(0), prev_l2_encaps(0),
-                     k_discards(0), k_resolves(0), k_receives(0), 
+                     k_discards(0), k_resolves(0), k_receives(0),
                      k_gre_mpls_tunnels(0), k_encaps(0),
-                     k_ecmp_composites(0), k_l3_mcast_composites(0), 
+                     k_ecmp_composites(0), k_l3_mcast_composites(0),
                      k_l2_mcast_composites(0), k_fabric_composites(0),
                      k_multi_proto_composites(0), k_l2_encaps(0) {};
         std::string name;

@@ -28,7 +28,7 @@ const VnUveEntry* VnUveTableTest::GetVnUveEntry(const string &vn) {
     }
 
     VnUveEntryPtr vn_uve_entry(it->second);
-    return vn_uve_entry.get();
+    return static_cast<VnUveEntry*>(vn_uve_entry.get());
 }
 
 int VnUveTableTest::GetVnUveInterfaceCount(const std::string &vn) {

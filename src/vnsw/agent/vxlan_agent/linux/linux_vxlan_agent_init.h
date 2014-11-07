@@ -11,6 +11,7 @@
 class Agent;
 class AgentParam;
 class KSyncVxlan;
+class AgentUveBase;
 
 // The class to drive agent initialization.
 // Defines control parameters used to enable/disable agent features
@@ -33,10 +34,12 @@ public:
 
     // Shutdown virtual methods
     void KSyncShutdown();
+    void UveShutdown();
     void WaitForIdle();
 
 private:
     std::auto_ptr<KSyncVxlan> ksync_vxlan_;
+    std::auto_ptr<AgentUveBase> uve_;
     DISALLOW_COPY_AND_ASSIGN(LinuxVxlanAgentInit);
 };
 

@@ -12,8 +12,10 @@ public:
         count_(count) {
     }
     virtual bool Run() {
-        for (int i = 0; i < count_; i++)
-            Agent::GetInstance()->uve()->agent_stats_collector()->Run();
+        for (int i = 0; i < count_; i++) {
+            AgentUve *uve = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+            uve->agent_stats_collector()->Run();
+        }
         return true;
     }
 private:
@@ -27,7 +29,8 @@ public:
                 StatsCollector::FlowStatsCollector) {
     }
     virtual bool Run() {
-        Agent::GetInstance()->uve()->flow_stats_collector()->Run();
+        AgentUve *uve = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+        uve->flow_stats_collector()->Run();
     }
 };
 
@@ -38,8 +41,9 @@ public:
         count_(count) {
     }
     virtual bool Run() {
+        AgentUve *uve = static_cast<AgentUve *>(Agent::GetInstance()->uve());
         for (int i = 0; i < count_; i++)
-            Agent::GetInstance()->uve()->vrouter_stats_collector()->Run();
+            uve->vrouter_stats_collector()->Run();
         return true;
     }
 private:

@@ -263,6 +263,17 @@ public:
 
         flow->InitFwdFlow(&info, pkt, &ctrl, &ctrl);
     }
+    void NewFlow(FlowEntry *f) {
+        AgentUveBase *uve = Agent::GetInstance()->uve();
+        AgentUve *f_uve = static_cast<AgentUve *>(uve);
+        f_uve->NewFlow(f);;
+    }
+
+    void DeleteFlow(FlowEntry *f) {
+        AgentUveBase *uve = Agent::GetInstance()->uve();
+        AgentUve *f_uve = static_cast<AgentUve *>(uve);
+        f_uve->DeleteFlow(f);;
+    }
 
 protected:
     VrouterUveEntryTest *uve;
@@ -272,9 +283,9 @@ TEST_F(UvePortBitmapTest, PortBitmap_1) {
     FlowKey key(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 1, 1);
     FlowEntry flow(key);
     MakeFlow(&flow, 1, &dest_vn_name);
-    Agent::GetInstance()->uve()->NewFlow(&flow);
+    NewFlow(&flow);
     EXPECT_TRUE(ValidateFlow(&flow));
-    Agent::GetInstance()->uve()->DeleteFlow(&flow);
+    DeleteFlow(&flow);
     EXPECT_TRUE(ValidateFlow(&flow));
     client->WaitForIdle();
 }
@@ -283,12 +294,12 @@ TEST_F(UvePortBitmapTest, PortBitmap_2) {
     FlowKey key(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 1, 1);
     FlowEntry flow(key);
     MakeFlow(&flow, 1, &dest_vn_name);
-    Agent::GetInstance()->uve()->NewFlow(&flow);
-    Agent::GetInstance()->uve()->NewFlow(&flow);
+    NewFlow(&flow);
+    NewFlow(&flow);
     EXPECT_TRUE(ValidateFlow(&flow));
-    Agent::GetInstance()->uve()->DeleteFlow(&flow);
+    DeleteFlow(&flow);
     EXPECT_TRUE(ValidateFlow(&flow));
-    Agent::GetInstance()->uve()->DeleteFlow(&flow);
+    DeleteFlow(&flow);
     EXPECT_TRUE(ValidateFlow(&flow));
     client->WaitForIdle();
 }
@@ -297,19 +308,19 @@ TEST_F(UvePortBitmapTest, PortBitmap_3) {
     FlowKey key1(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 1, 1);
     FlowEntry flow1(key1);
     MakeFlow(&flow1, 1, &dest_vn_name);
-    Agent::GetInstance()->uve()->NewFlow(&flow1);
+    NewFlow(&flow1);
     EXPECT_TRUE(ValidateFlow(&flow1));
 
     FlowKey key2(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 2, 2);
     FlowEntry flow2(key2);
     MakeFlow(&flow2, 2, &dest_vn_name);
-    Agent::GetInstance()->uve()->NewFlow(&flow2);
+    NewFlow(&flow2);
     EXPECT_TRUE(ValidateFlow(&flow2));
 
-    Agent::GetInstance()->uve()->DeleteFlow(&flow1);
+    DeleteFlow(&flow1);
     EXPECT_TRUE(ValidateFlow(&flow1));
     EXPECT_TRUE(ValidateFlow(&flow2));
-    Agent::GetInstance()->uve()->DeleteFlow(&flow2);
+    DeleteFlow(&flow2);
     EXPECT_TRUE(ValidateFlow(&flow1));
     EXPECT_TRUE(ValidateFlow(&flow2));
     client->WaitForIdle();
@@ -319,19 +330,19 @@ TEST_F(UvePortBitmapTest, PortBitmap_4) {
     FlowKey key1(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 1, 1);
     FlowEntry flow1(key1);
     MakeFlow(&flow1, 1, &dest_vn_name);
-    Agent::GetInstance()->uve()->NewFlow(&flow1);
+    NewFlow(&flow1);
     EXPECT_TRUE(ValidateFlow(&flow1));
 
     FlowKey key2(0, Ip4Address(0), Ip4Address(0), IPPROTO_TCP, 257, 257);
     FlowEntry flow2(key2);
     MakeFlow(&flow2, 2, &dest_vn_name);
-    Agent::GetInstance()->uve()->NewFlow(&flow2);
+    NewFlow(&flow2);
     EXPECT_TRUE(ValidateFlow(&flow2));
 
-    Agent::GetInstance()->uve()->DeleteFlow(&flow1);
+    DeleteFlow(&flow1);
     EXPECT_TRUE(ValidateFlow(&flow1));
     EXPECT_TRUE(ValidateFlow(&flow2));
-    Agent::GetInstance()->uve()->DeleteFlow(&flow2);
+    DeleteFlow(&flow2);
     EXPECT_TRUE(ValidateFlow(&flow1));
     EXPECT_TRUE(ValidateFlow(&flow2));
     client->WaitForIdle();

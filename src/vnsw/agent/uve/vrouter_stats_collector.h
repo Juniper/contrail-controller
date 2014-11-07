@@ -13,13 +13,13 @@
 //Runs in the context of "Agent::Uve" which has exclusion with "db::DBTable"
 class VrouterStatsCollector : public StatsCollector {
 public:
-    VrouterStatsCollector(boost::asio::io_service &io, AgentUve *uve);
+    VrouterStatsCollector(boost::asio::io_service &io, AgentUveBase *uve);
     virtual ~VrouterStatsCollector();
 
     bool Run();
     void Shutdown();
 private:
-    AgentUve *agent_uve_;
+    AgentUveBase *agent_uve_;
     DISALLOW_COPY_AND_ASSIGN(VrouterStatsCollector);
 };
 

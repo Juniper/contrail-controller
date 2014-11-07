@@ -19,7 +19,7 @@ public:
         AgentStatsCollector,
     };
 
-    StatsCollector(int task_id, int32_t instance, boost::asio::io_service &io, 
+    StatsCollector(int task_id, int32_t instance, boost::asio::io_service &io,
                    int exp, std::string timer_name) : run_counter_(0),
                    timer_(TimerManager::CreateTimer(io, timer_name.c_str(),
                           task_id, instance)),
@@ -27,11 +27,11 @@ public:
                           boost::bind(&StatsCollector::RestartTimer, this),
                           task_id, instance)),
                    expiry_time_(exp) {
-        timer_->Start(expiry_time_, 
+        timer_->Start(expiry_time_,
                       boost::bind(&StatsCollector::TimerExpiry, this));
     };
 
-    virtual ~StatsCollector() { 
+    virtual ~StatsCollector() {
         Shutdown();
         timer_restart_trigger_->Reset();
         delete timer_restart_trigger_;
@@ -59,7 +59,7 @@ public:
 private:
     bool RestartTimer() {
         timer_->Cancel();
-        timer_->Start(expiry_time_, 
+        timer_->Start(expiry_time_,
                       boost::bind(&StatsCollector::TimerExpiry, this));
         return true;
     }

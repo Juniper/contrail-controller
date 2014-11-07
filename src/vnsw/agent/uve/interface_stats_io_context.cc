@@ -6,8 +6,8 @@
 #include <uve/agent_stats_collector.h>
 #include <ksync/ksync_types.h>
 
-InterfaceStatsIoContext::InterfaceStatsIoContext(int msg_len, char *msg, 
-                                                 uint32_t seqno, 
+InterfaceStatsIoContext::InterfaceStatsIoContext(int msg_len, char *msg,
+                                                 uint32_t seqno,
                                                  AgentStatsSandeshContext *ctx,
                                                  IoContext::IoContextWorkQId id)
     : IoContext(msg, msg_len, seqno, ctx, id) {

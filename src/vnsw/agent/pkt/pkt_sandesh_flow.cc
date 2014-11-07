@@ -391,8 +391,10 @@ void FetchFlowRecord::HandleRequest() const {
 // Sandesh interface to modify flow aging interval
 // Intended for use in testing only
 void FlowAgeTimeReq::HandleRequest() const {
-    FlowStatsCollector *collector =
-        Agent::GetInstance()->uve()->flow_stats_collector();
+    AgentUveBase *uve = Agent::GetInstance()->uve();
+    AgentUve *f_uve = static_cast<AgentUve *>(uve);
+
+    FlowStatsCollector *collector = f_uve->flow_stats_collector();
 
     FlowAgeTimeResp *resp = new FlowAgeTimeResp();
     resp->set_old_age_time(collector->flow_age_time_intvl_in_secs());

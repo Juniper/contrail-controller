@@ -34,7 +34,7 @@ public:
     TestPkt0Interface *pkt0() const { return pkt0_.get(); }
 private:
     std::auto_ptr<KSync> ksync_;
-    std::auto_ptr<AgentUve> uve_;
+    std::auto_ptr<AgentUveBase> uve_;
     std::auto_ptr<TestPkt0Interface> pkt0_;
 
     DISALLOW_COPY_AND_ASSIGN(TestAgentInit);

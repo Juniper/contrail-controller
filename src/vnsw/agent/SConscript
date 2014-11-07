@@ -143,6 +143,7 @@ env.Prepend(LIBS = [
     'ksync',
     'nova_ins',
     'nova_ins_thrift',
+    'uve',
     'vgw',
 ])
 
@@ -178,7 +179,7 @@ AgentEnv.AppendUnique(CONTRAIL_LIBS = [
     'agent_services',
     'diag',
     'pkt',
-    'agentuve',
+    'statsuve',
     'vnswksync',
     'ksyncnl',
     'kstate',
