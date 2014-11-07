@@ -18,6 +18,11 @@ public:
     const std::string config_file() const { return config_file_; };
     const std::string discovery_server() const { return discovery_server_; }
     const uint16_t discovery_port() const { return discovery_port_; }
+    const std::string & named_config_file() const { return named_config_file_; }
+    const std::string & named_config_dir() const { return named_config_dir_; }
+    const std::string & named_log_file() const { return named_log_file_; }
+    const std::string & rndc_config_file() const { return rndc_config_file_; }
+    const std::string & rndc_secret() const { return rndc_secret_; }
     const std::string hostname() const { return hostname_; }
     const std::string host_ip() const { return host_ip_; }
     const uint16_t http_server_port() const { return http_server_port_; }
@@ -61,6 +66,13 @@ private:
     std::string config_file_;
     std::string discovery_server_;
     uint16_t discovery_port_;
+
+    std::string named_config_file_;
+    std::string named_config_dir_;
+    std::string named_log_file_;
+    std::string rndc_config_file_;
+    std::string rndc_secret_;
+
     std::string hostname_;
     std::string host_ip_;
     uint16_t http_server_port_;
