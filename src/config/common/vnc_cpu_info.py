@@ -129,10 +129,10 @@ class CpuInfo(object):
         if self._sysinfo:
             # populate system memory details
             mod_cpu.cpu_info.sys_mem_info = SysMemInfo()
-            mod_cpu.cpu_info.sys_mem_info.total = self._phymem_usage[0] / 1000
-            mod_cpu.cpu_info.sys_mem_info.used = self._phymem_usage[1] / 1000
-            mod_cpu.cpu_info.sys_mem_info.free = self._phymem_usage[2] / 1000
-            mod_cpu.cpu_info.sys_mem_info.buffers = self._phymem_buffers / 1000
+            mod_cpu.cpu_info.sys_mem_info.total = self._phymem_usage[0] / 1024
+            mod_cpu.cpu_info.sys_mem_info.used = self._phymem_usage[1] / 1024
+            mod_cpu.cpu_info.sys_mem_info.free = self._phymem_usage[2] / 1024
+            mod_cpu.cpu_info.sys_mem_info.buffers = self._phymem_buffers / 1024
 
             # populate CPU Load avg
             mod_cpu.cpu_info.cpuload = CpuLoadAvg()
@@ -142,9 +142,9 @@ class CpuInfo(object):
 
         # populate Virtual Memory details
         mod_cpu.cpu_info.meminfo = MemInfo()
-        mod_cpu.cpu_info.meminfo.virt = self._vms / 1000
-        mod_cpu.cpu_info.meminfo.peakvirt = self._pvms / 1000
-        mod_cpu.cpu_info.meminfo.res = self._rss / 1000
+        mod_cpu.cpu_info.meminfo.virt = self._vms / 1024
+        mod_cpu.cpu_info.meminfo.peakvirt = self._pvms / 1024
+        mod_cpu.cpu_info.meminfo.res = self._rss / 1024
 
         # populate cpu_share, which is calibrated with num_cpu
         mod_cpu.cpu_info.cpu_share = self._cpu_share
