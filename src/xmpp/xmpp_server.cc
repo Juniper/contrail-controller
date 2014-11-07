@@ -490,3 +490,53 @@ void ShowXmppConnectionReq::HandleRequest() const {
     ps.stages_.push_back(s1);
     RequestPipeline rp(ps);
 }
+
+class ClearXmppConnectionHandler {
+public:
+    static bool CallbackS1(const Sandesh *sr,
+        const RequestPipeline::PipeSpec ps, int stage, int instNum,
+        RequestPipeline::InstData *data) {
+
+        const ClearXmppConnectionReq *req =
+            static_cast<const ClearXmppConnectionReq *>(ps.snhRequest_.get());
+        XmppSandeshContext *xsc =
+            dynamic_cast<XmppSandeshContext *>(req->client_context());
+        XmppServer *server = xsc->xmpp_server;
+
+        ClearXmppConnectionResp *resp = new ClearXmppConnectionResp;
+        if (!xsc->test_mode) {
+            resp->set_success(false);
+        } else if (req->get_hostname_or_all() != "all") {
+            if (server->ClearConnection(req->get_hostname_or_all())) {
+                resp->set_success(true);
+            } else {
+                resp->set_success(false);
+            }
+        } else {
+            if (server->ConnectionCount()) {
+                server->ClearAllConnections();
+                resp->set_success(true);
+            } else {
+                resp->set_success(false);
+            }
+        }
+
+        resp->set_context(req->context());
+        resp->Response();
+        return true;
+    }
+};
+
+void ClearXmppConnectionReq::HandleRequest() const {
+
+    // config task is used to create and delete connection objects.
+    // hence use the same task to find the connection
+    RequestPipeline::StageSpec s1;
+    s1.taskId_ = TaskScheduler::GetInstance()->GetTaskId("bgp::Config");
+    s1.instances_.push_back(0);
+    s1.cbFn_ = ClearXmppConnectionHandler::CallbackS1;
+
+    RequestPipeline::PipeSpec ps(this);
+    ps.stages_.push_back(s1);
+    RequestPipeline rp(ps);
+}
