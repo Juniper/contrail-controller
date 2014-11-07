@@ -362,7 +362,9 @@ void DeleteAllFlowRecords::HandleRequest() const {
 void FetchFlowRecord::HandleRequest() const {
     FlowKey key;
     key.nh = get_nh();
+    // TODO : IPv6 handling required.
     error_code ec;
+    key.family = Address::INET;
     key.src_addr = Ip4Address::from_string(get_sip(), ec);
     key.dst_addr = Ip4Address::from_string(get_dip(), ec);
     key.src_port = (unsigned)get_src_port();
