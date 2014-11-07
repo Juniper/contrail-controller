@@ -71,6 +71,19 @@ void Options::Initialize(EventManager &evm,
              opt::value<string>()->default_value("dns_config.xml"),
              "DNS Configuration file")
 
+        ("DEFAULT.named_config_file",
+             opt::value<string>()->default_value("named.conf"),
+             "Named Configuration file")
+        ("DEFAULT.named_config_directory",
+             opt::value<string>()->default_value("/etc/contrail/dns"),
+             "Named Configuration directory")
+        ("DEFAULT.named_log_file",
+             opt::value<string>()->default_value("/var/log/named/bind.log"),
+             "Named log file")
+        ("DEFAULT.rndc_secret",
+             opt::value<string>()->default_value("xvysmOR8lnUQRBcunkC6vg=="),
+             "RNDC secret")
+
         ("DEFAULT.hostip", opt::value<string>()->default_value(host_ip),
              "IP address of DNS Server")
         ("DEFAULT.hostname", opt::value<string>()->default_value(hostname),
@@ -205,6 +218,13 @@ void Options::Process(int argc, char *argv[],
         !collector_server_list_[0].compare(default_collector_server_list_[0])) {
         collectors_configured_ = false;
     }
+
+    GetOptValue<string>(var_map, named_config_file_,
+                        "DEFAULT.named_config_file");
+    GetOptValue<string>(var_map, named_config_dir_,
+                        "DEFAULT.named_config_directory");
+    GetOptValue<string>(var_map, named_log_file_, "DEFAULT.named_log_file");
+    GetOptValue<string>(var_map, rndc_secret_, "DEFAULT.rndc_secret");
 
     GetOptValue<string>(var_map, host_ip_, "DEFAULT.hostip");
     GetOptValue<string>(var_map, hostname_, "DEFAULT.hostname");

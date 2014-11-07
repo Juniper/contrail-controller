@@ -41,11 +41,12 @@ static string FileRead(const string &filename) {
 
 class NamedConfigTest : public NamedConfig {
 public:
-    NamedConfigTest(const char *conf_file, const char *zone_dir) : 
-                    NamedConfig(conf_file, zone_dir) {}
+    NamedConfigTest(const std::string &conf_dir, const std::string &conf_file) :
+                    NamedConfig(conf_dir, conf_file, "/var/log/named/bind.log",
+                                "xvysmOR8lnUQRBcunkC6vg==") {}
     static void Init() {
         assert(singleton_ == NULL);
-        singleton_ = new NamedConfigTest("./named.conf", "./");
+        singleton_ = new NamedConfigTest(".", "named.conf");
         singleton_->Reset();
     }
     static void Shutdown() {

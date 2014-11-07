@@ -52,6 +52,10 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.config_file(), "/etc/contrail/dns.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
+    EXPECT_EQ(options_.named_config_file(), "named.conf");
+    EXPECT_EQ(options_.named_config_dir(), "/etc/contrail/dns");
+    EXPECT_EQ(options_.named_log_file(), "/var/log/named/bind.log");
+    EXPECT_EQ(options_.rndc_secret(), "xvysmOR8lnUQRBcunkC6vg==");
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
     EXPECT_EQ(options_.http_server_port(), default_http_server_port);
@@ -87,6 +91,10 @@ TEST_F(OptionsTest, DefaultConfFile) {
               "controller/src/dns/dns.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
+    EXPECT_EQ(options_.named_config_file(), "named.conf");
+    EXPECT_EQ(options_.named_config_dir(), "/etc/contrail/dns");
+    EXPECT_EQ(options_.named_log_file(), "/var/log/named/bind.log");
+    EXPECT_EQ(options_.rndc_secret(), "secret==$");
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
     EXPECT_EQ(options_.http_server_port(), default_http_server_port);
@@ -106,14 +114,16 @@ TEST_F(OptionsTest, DefaultConfFile) {
 }
 
 TEST_F(OptionsTest, OverrideStringFromCommandLine) {
-    int argc = 3;
+    int argc = 4;
     char *argv[argc];
     char argv_0[] = "dns_options_test";
     char argv_1[] = "--conf_file=controller/src/dns/dns.conf";
     char argv_2[] = "--DEFAULT.log_file=test.log";
+    char argv_3[] = "--DEFAULT.rndc_secret=secret123";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
+    argv[3] = argv_3;
 
     options_.Parse(evm_, argc, argv);
 
@@ -122,6 +132,10 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.dns_config_file(), "dns_config.xml");
     EXPECT_EQ(options_.config_file(),
               "controller/src/dns/dns.conf");
+    EXPECT_EQ(options_.named_config_file(), "named.conf");
+    EXPECT_EQ(options_.named_config_dir(), "/etc/contrail/dns");
+    EXPECT_EQ(options_.named_log_file(), "/var/log/named/bind.log");
+    EXPECT_EQ(options_.rndc_secret(), "secret123");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
@@ -186,6 +200,10 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "collectors=20.20.20.2:200\n"
         "collectors=30.30.30.3:300\n"
         "dns_config_file=test.xml\n"
+        "named_config_file=named.test\n"
+        "named_config_directory=/var/log/dns\n"
+        "named_log_file=/etc/contrail/dns/named.log\n"
+        "rndc_secret=abcd123\n"
         "hostip=1.2.3.4\n"
         "hostname=test\n"
         "http_server_port=800\n"
@@ -234,6 +252,10 @@ TEST_F(OptionsTest, CustomConfigFile) {
               "./dns_options_test_config_file.conf");
     EXPECT_EQ(options_.discovery_server(), "1.0.0.1");
     EXPECT_EQ(options_.discovery_port(), 100);
+    EXPECT_EQ(options_.named_config_file(), "named.test");
+    EXPECT_EQ(options_.named_config_dir(), "/var/log/dns");
+    EXPECT_EQ(options_.named_log_file(), "/etc/contrail/dns/named.log");
+    EXPECT_EQ(options_.rndc_secret(), "abcd123");
     EXPECT_EQ(options_.hostname(), "test");
     EXPECT_EQ(options_.host_ip(), "1.2.3.4");
     EXPECT_EQ(options_.http_server_port(), 800);
@@ -260,6 +282,10 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "collectors=20.20.20.2:200\n"
         "collectors=30.30.30.3:300\n"
         "dns_config_file=test.xml\n"
+        "named_config_file=named.test\n"
+        "named_config_directory=/var/log/dns\n"
+        "named_log_file=/etc/contrail/dns/named.log\n"
+        "rndc_secret=abcd123\n"
         "hostip=1.2.3.4\n"
         "hostname=test\n"
         "http_server_port=800\n"
@@ -288,7 +314,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     config_file << config;
     config_file.close();
 
-    int argc = 7;
+    int argc = 9;
     char *argv[argc];
     char argv_0[] = "dns_options_test";
     char argv_1[] = "--conf_file=./dns_options_test_config_file.conf";
@@ -297,6 +323,8 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     char argv_4[] = "--DEFAULT.collectors=11.10.10.1:100";
     char argv_5[] = "--DEFAULT.collectors=21.20.20.2:200";
     char argv_6[] = "--DEFAULT.collectors=31.30.30.3:300";
+    char argv_7[] = "--DEFAULT.named_config_directory=/etc/contrail/dns/test";
+    char argv_8[] = "--DEFAULT.rndc_secret=new-secret-123";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -304,6 +332,8 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     argv[4] = argv_4;
     argv[5] = argv_5;
     argv[6] = argv_6;
+    argv[7] = argv_7;
+    argv[8] = argv_8;
 
     options_.Parse(evm_, argc, argv);
 
@@ -316,6 +346,10 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.dns_config_file(), "test.xml");
     EXPECT_EQ(options_.config_file(),
               "./dns_options_test_config_file.conf");
+    EXPECT_EQ(options_.named_config_file(), "named.test");
+    EXPECT_EQ(options_.named_config_dir(), "/etc/contrail/dns/test");
+    EXPECT_EQ(options_.named_log_file(), "/etc/contrail/dns/named.log");
+    EXPECT_EQ(options_.rndc_secret(), "new-secret-123");
     EXPECT_EQ(options_.discovery_server(), "1.0.0.1");
     EXPECT_EQ(options_.discovery_port(), 100);
     EXPECT_EQ(options_.hostname(), "test");
