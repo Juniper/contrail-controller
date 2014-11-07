@@ -33,11 +33,17 @@ void VmUveEntryBase::InterfaceAdd(const Interface *intf,
     VmInterface::FloatingIpSet::const_iterator old_it = old_list.begin();
     while (old_it != old_list.end()) {
         VmInterface::FloatingIp fip = *old_it;
+        ++old_it;
+        /* Skip entries which are not installed as they wouldn't have been
+         * added
+         */
+        if (!fip.installed_) {
+            continue;
+        }
         VmInterface::FloatingIpSet::const_iterator new_it = new_list.find(fip);
         if (new_it == new_list.end()) {
             ientry->RemoveFloatingIp(fip);
         }
-        ++old_it;
     }
 }
 
