@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <vector>
+#include "net/address.h"
 
 #define DISALLOW_COPY_AND_ASSIGN(_Class) \
 	_Class(const _Class &);				\
@@ -227,6 +228,17 @@ static inline bool ValidateIPAddressString(std::string ip_address_str,
     }
 
     return true;
+}
+
+static inline IpAddress PrefixToIpNetmask(uint32_t prefix_len) {
+    uint32_t mask;
+
+    if (prefix_len == 0) {
+        mask = 0;
+    } else {
+        mask = (~((1 << (32 - prefix_len)) - 1));
+    }
+    return IpAddress(Ip4Address(mask));
 }
 
 static inline uint32_t NetmaskToPrefix(uint32_t netmask) {
