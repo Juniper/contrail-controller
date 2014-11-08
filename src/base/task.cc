@@ -234,10 +234,12 @@ tbb::task *TaskImpl::execute() {
         // information from the core.
         static std::string what = e.what();
 
-        LOG(DEBUG, "!!!! ERROR !!!! Task caught fatal exception: " << what);
+        LOG(DEBUG, "!!!! ERROR !!!! Task caught fatal exception: " << what
+            << " TaskImpl: " << this);
         assert(0);
     } catch (...) {
-        LOG(DEBUG, "!!!! ERROR !!!! Task caught fatal unknown exception");
+        LOG(DEBUG, "!!!! ERROR !!!! Task caught fatal unknown exception"
+            << " TaskImpl: " << this);
         assert(0);
     }
 
