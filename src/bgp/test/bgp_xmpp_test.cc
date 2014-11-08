@@ -436,12 +436,62 @@ TEST_F(BgpXmppUnitTest, Connection) {
     req->Release();
     WAIT_EQ(true, validate_done_);
 
+    // show specific instance
+    cout << "ValidateRoutingInstanceResponse:" << endl;
+    Sandesh::set_client_context(&sandesh_context);
+    result = list_of(6);
+    Sandesh::set_response_callback(boost::bind(ValidateRoutingInstanceResponse,
+                                   _1, result));
+    req = new ShowRoutingInstanceReq;
+    req->set_name(BgpConfigManager::kMasterInstance);
+    validate_done_ = false;
+    req->HandleRequest();
+    req->Release();
+    WAIT_EQ(true, validate_done_);
+
+    // show non-existent instance
+    cout << "ValidateRoutingInstanceResponse:" << endl;
+    Sandesh::set_client_context(&sandesh_context);
+    result.clear();
+    Sandesh::set_response_callback(boost::bind(ValidateRoutingInstanceResponse,
+                                   _1, result));
+    req = new ShowRoutingInstanceReq;
+    req->set_name("xyz");
+    validate_done_ = false;
+    req->HandleRequest();
+    req->Release();
+    WAIT_EQ(true, validate_done_);
+
     // show neighbor
     cout << "ValidateNeighborResponse:" << endl;
     result = list_of(2)(9); // inet, ermvpn, enet, inet6
     Sandesh::set_response_callback(boost::bind(ValidateNeighborResponse,
                                    _1, result));
     BgpNeighborReq *nbr_req = new BgpNeighborReq;
+    validate_done_ = false;
+    nbr_req->HandleRequest();
+    nbr_req->Release();
+    WAIT_EQ(true, validate_done_);
+
+    // show neighbor for specific instance
+    cout << "ValidateNeighborResponse:" << endl;
+    result = list_of(2)(9);
+    Sandesh::set_response_callback(boost::bind(ValidateNeighborResponse,
+                                   _1, result));
+    nbr_req = new BgpNeighborReq;
+    nbr_req->set_domain(BgpConfigManager::kMasterInstance);
+    validate_done_ = false;
+    nbr_req->HandleRequest();
+    nbr_req->Release();
+    WAIT_EQ(true, validate_done_);
+
+    // show neighbor for non-existent instance shows only xmpp neighbors
+    cout << "ValidateNeighborResponse:" << endl;
+    result = list_of(9);
+    Sandesh::set_response_callback(boost::bind(ValidateNeighborResponse,
+                                   _1, result));
+    nbr_req = new BgpNeighborReq;
+    nbr_req->set_domain("xyz");
     validate_done_ = false;
     nbr_req->HandleRequest();
     nbr_req->Release();
