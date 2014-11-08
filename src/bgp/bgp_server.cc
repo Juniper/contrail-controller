@@ -391,5 +391,3 @@ void BgpServer::NotifyASNUpdate(as_t asn) {
         }
     }
 }
-
-
