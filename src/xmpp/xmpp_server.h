@@ -19,6 +19,7 @@
 class LifetimeActor;
 class LifetimeManager;
 class ShowXmppConnection;
+class ShowXmppServerResp;
 class TcpSession;
 class XmppConnectionEndpoint;
 class XmppServerConnection;
@@ -72,6 +73,7 @@ public:
 
     void FillShowConnections(
         std::vector<ShowXmppConnection> *show_connection_list) const;
+    void FillShowServer(ShowXmppServerResp *resp) const;
 
 protected:
     virtual TcpSession *AllocSession(Socket *socket);
@@ -94,7 +96,7 @@ private:
 
     ConnectionMap connection_map_;
     ConnectionSet deleted_connection_set_;
-    void *bgp_server_;
+    size_t max_connections_;
 
     tbb::mutex endpoint_map_mutex_;
     ConnectionEndpointMap connection_endpoint_map_;

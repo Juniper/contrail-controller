@@ -389,11 +389,3 @@ response sandesh ShowBgpServerResp {
     1: io.SocketIOStats rx_socket_stats;
     2: io.SocketIOStats tx_socket_stats;
 }
-
-request sandesh ShowXmppServerReq {
-}
-
-response sandesh ShowXmppServerResp {
-    1: io.SocketIOStats rx_socket_stats;
-    2: io.SocketIOStats tx_socket_stats;
-}

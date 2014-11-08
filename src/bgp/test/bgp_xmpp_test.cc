@@ -16,6 +16,7 @@
 #include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
 #include "io/test/event_manager_test.h"
+#include "sandesh/xmpp_server_types.h"
 #include "testing/gunit.h"
 #include "xmpp/xmpp_client.h"
 #include "xmpp/xmpp_factory.h"
@@ -276,6 +277,10 @@ protected:
              << " average bytes=" << rx_stats.average_bytes << endl;
         cout << "TX: calls=" << tx_stats.calls << " bytes=" << tx_stats.bytes
              << " average bytes=" << tx_stats.average_bytes << endl;
+        cout << "Current connections: " <<
+            resp->get_current_connections() << endl;
+        cout << "Maximum connections: " <<
+            resp->get_max_connections() << endl;
         cout << "****************************************************" << endl;
         cout << endl;
 
@@ -594,8 +599,7 @@ TEST_F(BgpXmppUnitTest, ShowXmppServer) {
     BGP_DEBUG_UT("Received unsubscribe message 1 at Server");
 
     BgpSandeshContext sandesh_context;
-    sandesh_context.bgp_server = a_.get();
-    sandesh_context.xmpp_peer_manager = bgp_channel_manager_;
+    sandesh_context.xmpp_server = xs_a_;
     Sandesh::set_client_context(&sandesh_context);
     Sandesh::set_response_callback(
         boost::bind(ValidateShowXmppServerResponse, _1));

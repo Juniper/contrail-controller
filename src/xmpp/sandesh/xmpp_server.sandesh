@@ -1,6 +1,18 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
+ 
+include "io/io.sandesh"
+
+response sandesh ShowXmppServerResp {
+    3: u32 current_connections;
+    4: u32 max_connections;
+    1: io.SocketIOStats rx_socket_stats;
+    2: io.SocketIOStats tx_socket_stats;
+}
+
+request sandesh ShowXmppServerReq {
+}
 
 struct ShowXmppConnection {
     1: string name;
