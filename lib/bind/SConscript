@@ -15,9 +15,10 @@ products = [ str(File('#/build/lib/librndc' + env['LIBSUFFIX'])),
              str(File('#/build/lib/libdns' + env['LIBSUFFIX'])),
              str(Dir('#build/include/isc'))]
 binproducts = [ str(File('#/build/sbin/named')),
-                str(File('#/build/sbin/rndc'))]
+                str(File('#/build/sbin/rndc')),
+                str(File('#/build/sbin/rndc-confgen')) ]
 
-confs = [ 'rndc.conf', 'named.conf' ]
+confs = [ 'rndc.conf', 'named.conf', 'COPYRIGHT' ]
 
 bind_cfg = env.Command('config.status', str(Dir(vpath)), cmd)
 env.SideEffect(products + binproducts, bind_cfg)
