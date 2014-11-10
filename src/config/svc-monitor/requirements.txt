@@ -2,4 +2,7 @@ gevent
 # kazoo <-- putting deps on zope.interface >= 3.8.0
 pycassa
 python-novaclient
-requests
+six >= 1.7.0	# python-novaclient dependency
+requests>=2.4.0
+stevedore>=1.0.0
+

@@ -110,6 +110,8 @@ class VirtualMachineManager(InstanceManager):
         for inst_count in range(0, max_instances):
             instance_name = self._get_instance_name(si_obj, inst_count)
             si_info = self.db.service_instance_get(si_obj.get_fq_name_str())
+            if not si_info:
+                si_info = {}
             prefix = self.db.get_vm_db_prefix(inst_count)
             if prefix + 'name' not in si_info.keys():
                 vm = self._create_svc_vm(instance_name, image_name, nics,
