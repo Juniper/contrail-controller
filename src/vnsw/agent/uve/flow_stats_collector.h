@@ -13,8 +13,8 @@
 
 //Defines the functionality to periodically read flow stats from
 //shared memory (between agent and Kernel) and export this stats info to
-//collector. Also responsible for aging of flow entries. Runs in the context 
-//of "Agent::StatsCollector" which has exclusion with "db::DBTable", 
+//collector. Also responsible for aging of flow entries. Runs in the context
+//of "Agent::StatsCollector" which has exclusion with "db::DBTable",
 //"Agent::FlowHandler", "sandesh::RecvQueue", "bgp::Config" & "Agent::KSync"
 class FlowStatsCollector : public StatsCollector {
 public:
@@ -25,7 +25,7 @@ public:
 
     FlowStatsCollector(boost::asio::io_service &io, int intvl,
                        uint32_t flow_cache_timeout,
-                       AgentUve *uve);
+                       AgentUveBase *uve);
     virtual ~FlowStatsCollector();
 
     uint64_t flow_age_time_intvl() { return flow_age_time_intvl_; }
@@ -34,8 +34,8 @@ public:
     }
     void UpdateFlowMultiplier();
     bool Run();
-    void UpdateFlowAgeTime(uint64_t usecs) { 
-        flow_age_time_intvl_ = usecs; 
+    void UpdateFlowAgeTime(uint64_t usecs) {
+        flow_age_time_intvl_ = usecs;
         UpdateFlowMultiplier();
     }
     void UpdateFlowAgeTimeInSecs(uint32_t secs) {
@@ -44,7 +44,7 @@ public:
 
     void FlowExport(FlowEntry *flow, uint64_t diff_bytes,
                     uint64_t diff_pkts);
-    void UpdateFlowStats(FlowEntry *flow, uint64_t &diff_bytes, 
+    void UpdateFlowStats(FlowEntry *flow, uint64_t &diff_bytes,
                          uint64_t &diff_pkts);
     virtual void DispatchFlowMsg(SandeshLevel::type level, FlowDataIpv4 &flow);
     void Shutdown();
@@ -56,7 +56,7 @@ private:
     void SetUnderlayInfo(FlowEntry *flow, FlowDataIpv4 &s_flow);
     uint64_t GetUpdatedFlowPackets(const FlowStats *stats, uint64_t k_flow_pkts);
     uint64_t GetUpdatedFlowBytes(const FlowStats *stats, uint64_t k_flow_bytes);
-    AgentUve *agent_uve_;
+    AgentUveBase *agent_uve_;
     FlowKey flow_iteration_key_;
     uint64_t flow_age_time_intvl_;
     uint32_t flow_count_per_pass_;

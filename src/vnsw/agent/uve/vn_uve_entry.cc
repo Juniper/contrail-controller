@@ -5,52 +5,17 @@
 #include <uve/vn_uve_entry.h>
 #include <uve/agent_uve.h>
 
-VnUveEntry::VnUveEntry(Agent *agent, const VnEntry *vn) 
-    : agent_(agent), vn_(vn), port_bitmap_(), uve_info_(), 
-      interface_tree_(), vm_tree_(), inter_vn_stats_(), mutex_(), 
-      prev_stats_update_time_(0), prev_in_bytes_(0), prev_out_bytes_(0) { 
+VnUveEntry::VnUveEntry(Agent *agent, const VnEntry *vn)
+    : VnUveEntryBase(agent, vn), port_bitmap_(), inter_vn_stats_(), mutex_(),
+      prev_stats_update_time_(0), prev_in_bytes_(0), prev_out_bytes_(0) {
 }
 
-VnUveEntry::VnUveEntry(Agent *agent) 
-    : agent_(agent), vn_(NULL), port_bitmap_(), 
-      uve_info_(), interface_tree_(),  vm_tree_(), 
-      prev_stats_update_time_(0), prev_in_bytes_(0), 
-      prev_out_bytes_(0) { 
+VnUveEntry::VnUveEntry(Agent *agent)
+    : VnUveEntryBase(agent, NULL), port_bitmap_(), inter_vn_stats_(), mutex_(),
+      prev_stats_update_time_(0), prev_in_bytes_(0), prev_out_bytes_(0) {
 }
 
 VnUveEntry::~VnUveEntry() {
-}
-
-void VnUveEntry::VmAdd(const string &vm) {
-    if (vm != agent_->NullString()) {
-        VmSet::iterator it = vm_tree_.find(vm);
-        if (it == vm_tree_.end()) {
-            vm_tree_.insert(vm);
-        }
-    }
-}
-
-void VnUveEntry::VmDelete(const string &vm) {
-    if (vm != agent_->NullString()) {
-        VmSet::iterator vm_it = vm_tree_.find(vm);
-        if (vm_it != vm_tree_.end()) {
-            vm_tree_.erase(vm_it);
-        }
-    }
-}
-
-void VnUveEntry::InterfaceAdd(const Interface *intf) {
-    InterfaceSet::iterator it = interface_tree_.find(intf);
-    if (it == interface_tree_.end()) {
-        interface_tree_.insert(intf);
-    }
-}
-
-void VnUveEntry::InterfaceDelete(const Interface *intf) {
-    InterfaceSet::iterator intf_it = interface_tree_.find(intf);
-    if (intf_it != interface_tree_.end()) {
-        interface_tree_.erase(intf_it);
-    }
 }
 
 void VnUveEntry::UpdatePortBitmap(uint8_t proto, uint16_t sport,
@@ -58,7 +23,7 @@ void VnUveEntry::UpdatePortBitmap(uint8_t proto, uint16_t sport,
     port_bitmap_.AddPort(proto, sport, dport);
 }
 
-void VnUveEntry::UpdateInterVnStats(const string &dst_vn, uint64_t bytes, 
+void VnUveEntry::UpdateInterVnStats(const string &dst_vn, uint64_t bytes,
                                     uint64_t pkts, bool outgoing) {
     tbb::mutex::scoped_lock lock(mutex_);
     VnStatsPtr key(new VnStats(dst_vn, 0, 0, false));
@@ -90,41 +55,6 @@ void VnUveEntry::ClearInterVnStats() {
     }
 }
 
-bool VnUveEntry::BuildInterfaceVmList(UveVirtualNetworkAgent &s_vn) {
-    bool changed = false;
-
-    s_vn.set_name(vn_->GetName());
-    vector<string> vm_list;
-
-    VmSet::iterator vm_it = vm_tree_.begin();
-    while (vm_it != vm_tree_.end()) {
-        vm_list.push_back(*vm_it);
-        ++vm_it;
-    }
-    if (UveVnVmListChanged(vm_list)) {
-        s_vn.set_virtualmachine_list(vm_list);
-        uve_info_.set_virtualmachine_list(vm_list);
-        changed = true;
-    }
-
-    vector<string> intf_list;
-    InterfaceSet::iterator intf_it = interface_tree_.begin();
-    while (intf_it != interface_tree_.end()) {
-        const Interface *intf = *intf_it;
-        const VmInterface *vm_port = 
-            static_cast<const VmInterface *>(intf);
-        intf_list.push_back(vm_port->cfg_name());
-        intf_it++;
-    }
-    if (UveVnInterfaceListChanged(intf_list)) {
-        s_vn.set_interface_list(intf_list);
-        uve_info_.set_interface_list(intf_list);
-        changed = true;
-    }
-   
-    return changed;
-}
-
 bool VnUveEntry::SetVnPortBitmap(UveVirtualNetworkAgent &uve) {
     bool changed = false;
 
@@ -154,57 +84,6 @@ bool VnUveEntry::SetVnPortBitmap(UveVirtualNetworkAgent &uve) {
     return changed;
 }
 
-bool VnUveEntry::UveVnAclChanged(const string &name) const { 
-    if (!uve_info_.__isset.acl) {
-        return true;
-    }
-    if (name.compare(uve_info_.get_acl()) != 0) {
-        return true;
-    }
-    return false;
-}
-
-bool VnUveEntry::UveVnMirrorAclChanged(const string &name) const  {
-    if (!uve_info_.__isset.mirror_acl) {
-        return true;
-    }
-    if (name.compare(uve_info_.get_mirror_acl()) != 0) {
-        return true;
-    }
-    return false;
-}
-
-bool VnUveEntry::UveVnInterfaceListChanged(const vector<string> &new_list) 
-                                           const {
-    if (!uve_info_.__isset.interface_list) {
-        return true;
-    }
-    if (new_list != uve_info_.get_interface_list()) {
-        return true;
-    }
-    return false;
-}
-
-bool VnUveEntry::UveVnVmListChanged(const vector<string> &new_list) const {
-    if (!uve_info_.__isset.virtualmachine_list) {
-        return true;
-    }
-    if (new_list != uve_info_.get_virtualmachine_list()) {
-        return true;
-    }
-    return false;
-}
-
-bool VnUveEntry::UveVnAclRuleCountChanged(int32_t size) const {
-    if (!uve_info_.__isset.total_acl_rules) {
-        return true;
-    }
-    if (size != uve_info_.get_total_acl_rules()) {
-        return true;
-    }
-    return false;
-}
-
 bool VnUveEntry::UveVnFipCountChanged(int32_t size) const {
     if (!uve_info_.__isset.associated_fip_count) {
         return true;
@@ -215,7 +94,7 @@ bool VnUveEntry::UveVnFipCountChanged(int32_t size) const {
     return false;
 }
 
-bool VnUveEntry::UveVnInterfaceInStatsChanged(uint64_t bytes, uint64_t pkts) 
+bool VnUveEntry::UveVnInterfaceInStatsChanged(uint64_t bytes, uint64_t pkts)
                                               const {
     if (!uve_info_.__isset.in_bytes || !uve_info_.__isset.in_tpkts) {
         return true;
@@ -229,7 +108,7 @@ bool VnUveEntry::UveVnInterfaceInStatsChanged(uint64_t bytes, uint64_t pkts)
     return false;
 }
 
-bool VnUveEntry::UveVnInterfaceOutStatsChanged(uint64_t bytes, uint64_t pkts) 
+bool VnUveEntry::UveVnInterfaceOutStatsChanged(uint64_t bytes, uint64_t pkts)
                                                const {
     if (!uve_info_.__isset.out_bytes || !uve_info_.__isset.out_tpkts) {
         return true;
@@ -273,7 +152,7 @@ bool VnUveEntry::UveVnVrfStatsChanged(const vector<UveVrfStats> &vlist) const {
     return false;
 }
 
-bool VnUveEntry::UveInterVnInStatsChanged(const vector<UveInterVnStats> 
+bool VnUveEntry::UveInterVnInStatsChanged(const vector<UveInterVnStats>
                                           &new_list) const {
     if (!uve_info_.__isset.in_stats) {
         return true;
@@ -284,7 +163,7 @@ bool VnUveEntry::UveInterVnInStatsChanged(const vector<UveInterVnStats>
     return false;
 }
 
-bool VnUveEntry::UveVnInFlowCountChanged(uint32_t size) { 
+bool VnUveEntry::UveVnInFlowCountChanged(uint32_t size) {
     if (!uve_info_.__isset.ingress_flow_count) {
         return true;
     }
@@ -304,7 +183,7 @@ bool VnUveEntry::UveVnOutFlowCountChanged(uint32_t size) {
     return false;
 }
 
-bool VnUveEntry::UveInterVnOutStatsChanged(const vector<UveInterVnStats> 
+bool VnUveEntry::UveInterVnOutStatsChanged(const vector<UveInterVnStats>
                                            &new_list) const {
     if (!uve_info_.__isset.out_stats) {
         return true;
@@ -315,7 +194,7 @@ bool VnUveEntry::UveInterVnOutStatsChanged(const vector<UveInterVnStats>
     return false;
 }
 
-bool VnUveEntry::UpdateVnFlowCount(const VnEntry *vn, 
+bool VnUveEntry::UpdateVnFlowCount(const VnEntry *vn,
                                    UveVirtualNetworkAgent &s_vn) {
     bool changed = false;
     uint32_t in_count, out_count;
@@ -347,10 +226,10 @@ bool VnUveEntry::PopulateInterVnStats(UveVirtualNetworkAgent &s_vn) {
     /* Aggregate/total current stats are sent in the following fields */
     vector<UveInterVnStats> in_list;
     vector<UveInterVnStats> out_list;
-    /* Only diff since previous dispatch, is sent as part of the following 
+    /* Only diff since previous dispatch, is sent as part of the following
      * list */
     vector<InterVnStats> vn_stats_list;
-   
+
     {
         tbb::mutex::scoped_lock lock(mutex_);
         VnStatsSet::iterator it = inter_vn_stats_.begin();
@@ -376,7 +255,7 @@ bool VnUveEntry::PopulateInterVnStats(UveVirtualNetworkAgent &s_vn) {
             diff_stats.set_in_tpkts(stats->in_pkts_ - stats->prev_in_pkts_);
             diff_stats.set_in_bytes(stats->in_bytes_ - stats->prev_in_bytes_);
             diff_stats.set_out_tpkts(stats->out_pkts_ - stats->prev_out_pkts_);
-            diff_stats.set_out_bytes(stats->out_bytes_ - 
+            diff_stats.set_out_bytes(stats->out_bytes_ -
                                      stats->prev_out_bytes_);
             vn_stats_list.push_back(diff_stats);
 
@@ -413,8 +292,9 @@ bool VnUveEntry::FillVrfStats(int vrf_id, UveVirtualNetworkAgent &s_vn) {
     UveVrfStats vrf_stats;
     vector<UveVrfStats> vlist;
 
-    AgentStatsCollector::VrfStats *s = 
-        agent_->uve()->agent_stats_collector()->GetVrfStats(vrf_id);
+    AgentUve *uve = static_cast<AgentUve *>(agent_->uve());
+    AgentStatsCollector::VrfStats *s =
+        uve->agent_stats_collector()->GetVrfStats(vrf_id);
     if (s != NULL) {
         vrf_stats.set_name(s->name);
         vrf_stats.set_discards(s->discards);
@@ -440,7 +320,7 @@ bool VnUveEntry::FillVrfStats(int vrf_id, UveVirtualNetworkAgent &s_vn) {
     return changed;
 }
 
-bool VnUveEntry::UpdateVrfStats(const VnEntry *vn, 
+bool VnUveEntry::UpdateVrfStats(const VnEntry *vn,
                                 UveVirtualNetworkAgent &s_vn) {
     bool changed = false;
     VrfEntry *vrf = vn->GetVrf();
@@ -458,51 +338,7 @@ bool VnUveEntry::UpdateVrfStats(const VnEntry *vn,
     return changed;
 }
 
-bool VnUveEntry::FrameVnMsg(const VnEntry *vn, UveVirtualNetworkAgent &uve) {
-    bool changed = false;
-    uve.set_name(vn->GetName());
-    
-    string acl_name;
-    int acl_rule_count;
-    if (vn->GetAcl()) {
-        acl_name = vn->GetAcl()->GetName();
-        acl_rule_count = vn->GetAcl()->Size();
-    } else {
-        acl_name = agent_->NullString();
-        acl_rule_count = 0;
-    }
-
-    if (UveVnAclChanged(acl_name)) {  
-        uve.set_acl(acl_name);
-        uve_info_.set_acl(acl_name);
-        changed = true;
-    }
-    
-    if (UveVnAclRuleCountChanged(acl_rule_count)) {
-        uve.set_total_acl_rules(acl_rule_count);
-        uve_info_.set_total_acl_rules(acl_rule_count);
-        changed = true;
-    }
-
-    if (vn->GetMirrorCfgAcl()) {
-        acl_name = vn->GetMirrorCfgAcl()->GetName();
-    } else {
-        acl_name = agent_->NullString();
-    }
-    if (UveVnMirrorAclChanged(acl_name)) {
-        uve.set_mirror_acl(acl_name);
-        uve_info_.set_mirror_acl(acl_name);
-        changed = true;
-    }
-
-    if (SetVnPortBitmap(uve)) {
-        changed = true;
-    }
-
-    return changed;
-}
-
-bool VnUveEntry::FrameVnStatsMsg(const VnEntry *vn, 
+bool VnUveEntry::FrameVnStatsMsg(const VnEntry *vn,
                                  UveVirtualNetworkAgent &uve,
                                  bool only_vrf_stats) {
     bool changed = false;
@@ -530,8 +366,9 @@ bool VnUveEntry::FrameVnStatsMsg(const VnEntry *vn,
         const VmInterface *vm_port = static_cast<const VmInterface *>(intf);
         fip_count += vm_port->GetFloatingIpCount();
 
-        const AgentStatsCollector::InterfaceStats *s = 
-            agent_->uve()->agent_stats_collector()->GetInterfaceStats(intf);
+        AgentUve *uve = static_cast<AgentUve *>(agent_->uve());
+        const AgentStatsCollector::InterfaceStats *s =
+            uve->agent_stats_collector()->GetInterfaceStats(intf);
         if (s == NULL) {
             continue;
         }
@@ -540,7 +377,7 @@ bool VnUveEntry::FrameVnStatsMsg(const VnEntry *vn,
         out_pkts += s->out_pkts;
         out_bytes += s->out_bytes;
     }
-    
+
     uint64_t diff_in_bytes = 0;
     if (UveVnInterfaceInStatsChanged(in_bytes, in_pkts)) {
         uve.set_in_tpkts(in_pkts);
@@ -630,14 +467,3 @@ bool VnUveEntry::FrameVnStatsMsg(const VnEntry *vn,
 
     return changed;
 }
-
-void VnUveEntry::GetInStats(uint64_t *in_bytes, uint64_t *in_pkts) const {
-    *in_bytes = uve_info_.get_in_bytes();
-    *in_pkts = uve_info_.get_in_tpkts();
-}
-
-void VnUveEntry::GetOutStats(uint64_t *out_bytes, uint64_t *out_pkts) const {
-    *out_bytes = uve_info_.get_out_bytes();
-    *out_pkts = uve_info_.get_out_tpkts();
-}
-

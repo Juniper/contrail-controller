@@ -72,29 +72,47 @@ SandeshGenFiles += env.SandeshGenCpp('vrouter.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('virtual_machine.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('virtual_network.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('acl.sandesh')
-SandeshGenFiles += env.SandeshGenCpp('stats_interval.sandesh')
 
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 SandeshGenObjs = env.Object(SandeshGenSrcs)
 
-libagentuve = env.Library('agentuve',
-                         SandeshGenObjs +
-                         ['agent_stats_collector.cc',
+StatsSandeshGenFiles = env.SandeshGenCpp('stats_interval.sandesh')
+StatsSandeshGenSrcs = env.ExtractCpp(StatsSandeshGenFiles)
+StatsSandeshGenObjs = env.Object(StatsSandeshGenSrcs)
+
+cmn_uve_files = [
+]
+
+libuve = env.Library('uve',
+                     SandeshGenObjs +
+                     [
+                     'agent_uve_base.cc',
+                     'l4_port_bitmap.cc',
+                     'vm_uve_entry_base.cc',
+                     'vm_uve_table_base.cc',
+                     'vn_uve_entry_base.cc',
+                     'vn_uve_table_base.cc',
+                     'vrouter_uve_entry_base.cc'
+                     ])
+
+libstatsuve = env.Library('statsuve',
+                         StatsSandeshGenObjs +
+                         [
+                          'agent_stats_collector.cc',
                           'agent_stats_sandesh_context.cc',
+                          'agent_uve.cc',
                           'drop_stats_io_context.cc',
                           'flow_stats_collector.cc',
-                          'l4_port_bitmap.cc',
                           'interface_stats_io_context.cc',
-                          'agent_uve.cc',
+                          'vm_stat.cc',
                           'vm_uve_entry.cc',
                           'vm_uve_table.cc',
-                          'vm_stat.cc',
                           'vn_uve_entry.cc',
                           'vn_uve_table.cc',
                           'vrf_stats_io_context.cc',
-                          'vrouter_stats_collector.cc',
                           'vrouter_uve_entry.cc',
-                          ])
+                          'vrouter_stats_collector.cc',
+                         ])
 
 Import('BuildEnv')
 mockEnv = BuildEnv.Clone()

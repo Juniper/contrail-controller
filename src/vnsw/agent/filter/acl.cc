@@ -199,13 +199,6 @@ DBTableBase *AclTable::CreateTable(DB *db, const std::string &name) {
     return acl_table_;
 }
 
-static inline IpAddress MaskToPrefix(int prefix_len) {
-    if (prefix_len == 0 )
-        return (IpAddress(Ip4Address(~((unsigned int) -1))));
-    else
-        return (IpAddress(Ip4Address(~((1 << (32 - prefix_len)) - 1))));
-}
-
 static void AclEntryObjectTrace(AclEntrySandeshData &ace_sandesh, AclEntrySpec &ace_spec)
 {
     ace_sandesh.set_ace_id(integerToString(ace_spec.id));
@@ -738,7 +731,7 @@ bool AclEntrySpec::Populate(const MatchConditionType *match_condition) {
             return false;
         }
         src_ip_plen = st.ip_prefix_len;
-        src_ip_mask = MaskToPrefix(st.ip_prefix_len);
+        src_ip_mask = PrefixToIpNetmask(st.ip_prefix_len);
         src_addr_type = AddressMatch::IP_ADDR;
     } else if (match_condition->src_address.virtual_network.size()) {
         std::string nt;
@@ -766,7 +759,7 @@ bool AclEntrySpec::Populate(const MatchConditionType *match_condition) {
             return false;
         }
         dst_ip_plen = st.ip_prefix_len;
-        dst_ip_mask = MaskToPrefix(st.ip_prefix_len);
+        dst_ip_mask = PrefixToIpNetmask(st.ip_prefix_len);
         dst_addr_type = AddressMatch::IP_ADDR;
     } else if (match_condition->dst_address.virtual_network.size()) {
         std::string nt;

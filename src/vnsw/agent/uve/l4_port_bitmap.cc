@@ -20,7 +20,7 @@
 #include <oper/vn.h>
 #include <oper/mirror_table.h>
 #include <cmn/agent_cmn.h>
-#include <uve/agent_uve.h>
+#include <uve/agent_uve_base.h>
 #include "pkt/flow_proto.h"
 
 using namespace std;
@@ -28,7 +28,7 @@ using namespace std;
 ////////////////////////////////////////////////////////////////////////////
 // Routines to manage the L4 Port Bitmaps
 ////////////////////////////////////////////////////////////////////////////
-L4PortBitmap::L4PortBitmap() 
+L4PortBitmap::L4PortBitmap()
     : tcp_sport_(), tcp_dport_(), udp_sport_(), udp_dport_() {
 }
 

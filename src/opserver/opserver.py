@@ -45,7 +45,8 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionType,\
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
      ModuleCategoryMap, Module2NodeType, NodeTypeNames, ModuleIds,\
-     INSTANCE_ID_DEFAULT
+     INSTANCE_ID_DEFAULT, COLLECTOR_DISCOVERY_SERVICE_NAME,\
+     ANALYTICS_API_SERVER_DISCOVERY_SERVICE_NAME
 from sandesh.viz.constants import _TABLES, _OBJECT_TABLES,\
     _OBJECT_TABLE_SCHEMA, _OBJECT_TABLE_COLUMN_VALUES, \
     _STAT_TABLES, STAT_OBJECTID_FIELD, STAT_VT_PREFIX, \
@@ -427,7 +428,7 @@ class OpServer(object):
         self._logger.info("Disc Publish to %s : %d - %s"
                           % (self._args.disc_server_ip,
                              self._args.disc_server_port, str(data)))
-        self.disc.publish(self._moduleid, data)
+        self.disc.publish(ANALYTICS_API_SERVER_DISCOVERY_SERVICE_NAME, data)
     # end
 
     def __init__(self):
@@ -1712,7 +1713,7 @@ class OpServer(object):
                 self.redis_uve_list = []
                 try:
                     sub_obj = \
-                        self.disc.subscribe(ModuleNames[Module.COLLECTOR], 0)
+                        self.disc.subscribe(COLLECTOR_DISCOVERY_SERVICE_NAME, 0)
                     collectors = sub_obj.info 
                 except Exception as e:
                     self._logger.error('Failed to get collector-list from ' \

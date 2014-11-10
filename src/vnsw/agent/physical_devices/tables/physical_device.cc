@@ -130,10 +130,10 @@ bool PhysicalDeviceTable::OnChange(DBEntry *entry, const DBRequest *req) {
     return ret;
 }
 
-void PhysicalDeviceTable::Delete(DBEntry *entry, const DBRequest *req) {
+bool PhysicalDeviceTable::Delete(DBEntry *entry, const DBRequest *req) {
     PhysicalDeviceEntry *dev = static_cast<PhysicalDeviceEntry *>(entry);
     dev->SendObjectLog(AgentLogEvent::DELETE);
-    return;
+    return true;
 }
 
 PhysicalDeviceEntry *PhysicalDeviceTable::Find(const boost::uuids::uuid &u) {

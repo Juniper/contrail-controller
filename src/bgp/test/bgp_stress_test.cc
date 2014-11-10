@@ -1679,6 +1679,12 @@ void BgpStressTest::DeleteXmppRoute(int instance_id, int agent_id,
     xmpp_agents_[agent_id]->DeleteMcastRoute(GetInstanceName(instance_id),
                         "1/8/" + mcast_prefix.ip4_addr().to_string() +
                         "," + prefix.ToString());
+    if (!d_no_inet6_routes_) {
+        Inet6Prefix prefix6 = CreateAgentInet6Prefix(agent_id, instance_id,
+                                                     route_id);
+        xmpp_agents_[agent_id]->DeleteInet6Route(GetInstanceName(instance_id),
+                                                 prefix6.ToString());
+    }
 }
 
 void BgpStressTest::DeleteXmppRoute(vector<int> instance_ids,

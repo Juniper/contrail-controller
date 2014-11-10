@@ -8,29 +8,19 @@
 #include <oper/interface_common.h>
 #include <oper/interface.h>
 
-#include "vr_genetlink.h"
-#include "nl_util.h"
-
 #include <uve/stats_collector.h>
 #include <uve/agent_uve.h>
 #include <uve/stats_interval_types.h>
 #include <init/agent_param.h>
 #include <oper/mirror_table.h>
 #include <uve/vrouter_stats_collector.h>
+#include <uve/agent_uve.h>
+#include <uve/vm_uve_table.h>
+#include <uve/vn_uve_table.h>
+#include <uve/vrouter_uve_entry.h>
 
-using process::ConnectionInfo;
-using process::ProcessState;
-using process::ConnectionStatus;
-using process::ConnectionState;
-using process::ConnectionStateManager;
-using process::g_process_info_constants;
-
-AgentUve *AgentUve::singleton_;
-
-AgentUve::AgentUve(Agent *agent, uint64_t intvl) 
-    : vn_uve_table_(new VnUveTable(agent)), 
-      vm_uve_table_(new VmUveTable(agent)), 
-      vrouter_uve_entry_(new VrouterUveEntry(agent)),
+AgentUve::AgentUve(Agent *agent, uint64_t intvl)
+    : AgentUveBase(agent, intvl),
       agent_stats_collector_(new AgentStatsCollector(
                                  *(agent->event_manager()->io_service()),
                                  agent)),
@@ -39,143 +29,28 @@ AgentUve::AgentUve(Agent *agent, uint64_t intvl)
                                  agent->params()->flow_stats_interval(),
                                  agent->params()->flow_cache_timeout(),
                                  this)),
-      agent_(agent), bandwidth_intvl_(intvl),
       vrouter_stats_collector_(new VrouterStatsCollector(
                                    *(agent->event_manager()->io_service()),
                                    this)) {
-    singleton_ = this;
+      //Override vm_uve_table_ to point to derived class object
+      vn_uve_table_.reset(new VnUveTable(agent));
+      vm_uve_table_.reset(new VmUveTable(agent));
+      vrouter_uve_entry_.reset(new VrouterUveEntry(agent));
 }
 
 AgentUve::~AgentUve() {
 }
 
 void AgentUve::Shutdown() {
+    AgentUveBase::Shutdown();
     agent_stats_collector_->Shutdown();
-    vn_uve_table_.get()->Shutdown();
-    vm_uve_table_.get()->Shutdown();
-    vrouter_uve_entry_.get()->Shutdown();
-    connection_state_manager_->Shutdown();
     flow_stats_collector_->Shutdown();
     vrouter_stats_collector_->Shutdown();
 }
 
-void AgentUve::Init() {
-    std::string module_id(agent_->discovery_client_name());
-    std::string instance_id(agent_->instance_id());
-    EventManager *evm = agent_->event_manager();
-    boost::asio::io_service &io = *evm->io_service();
-
-    CpuLoadData::Init();
-    agent_->set_connection_state(ConnectionState::GetInstance());
-    connection_state_manager_ =
-        ConnectionStateManager<NodeStatusUVE, NodeStatus>::
-            GetInstance();
-    connection_state_manager_->Init(io, agent_->host_name(),
-            module_id, instance_id,
-            boost::bind(&AgentUve::VrouterAgentProcessState,
-                        this, _1, _2, _3));
-}
-
-uint8_t AgentUve::ExpectedConnections(uint8_t &num_control_nodes,
-                                      uint8_t &num_dns_servers) {
-    uint8_t count = 0;
-
-    /* If Discovery server is configured, increment the count to
-     * 3 for 3 possible discovery services */
-    if (!agent_->discovery_server().empty()) {
-        // Discovery:Collector
-        // Discovery:dns-server
-        // Discovery:xmpp-server
-        count += 3;
-    }
-    for (int i = 0; i < MAX_XMPP_SERVERS; i++) {
-        if (!agent_->controller_ifmap_xmpp_server(i).empty()) {
-            num_control_nodes++;
-            count++;
-        }
-        if (!agent_->dns_server(i).empty()) {
-            num_dns_servers++;
-            count++;
-        }
-    }
-    //Increment 1 for collector service
-    count++;
-    return count;
-}
-
-void AgentUve::UpdateMessage(const ConnectionInfo &cinfo,
-                             std::string &message) {
-    if (message.empty()) {
-        message = cinfo.get_type();
-    } else {
-        message += ", " + cinfo.get_type();
-    }
-    const std::string &name(cinfo.get_name());
-    if (!name.empty()) {
-        message += ":" + name;
-    }
-}
-
-void AgentUve::VrouterAgentProcessState
-    (const std::vector<ConnectionInfo> &cinfos,
-     ProcessState::type &pstate, std::string &message) {
-    size_t num_conns(cinfos.size());
-    uint8_t num_control_nodes = 0, num_dns_servers = 0;
-    uint8_t down_control_nodes = 0, down_dns_servers = 0;
-    uint8_t expected_conns = ExpectedConnections(num_control_nodes,
-                                                 num_dns_servers);
-    if (num_conns != expected_conns) {
-        pstate = ProcessState::NON_FUNCTIONAL;
-        message = "Number of connections:" + integerToString(num_conns) +
-            ", Expected: " + integerToString(expected_conns);
-        return;
-    }
-    std::string cup(g_process_info_constants.ConnectionStatusNames.
-        find(ConnectionStatus::UP)->second);
-    bool is_cup = true;
-    // Iterate to determine process connectivity status
-    for (std::vector<ConnectionInfo>::const_iterator it = cinfos.begin();
-         it != cinfos.end(); it++) {
-        const ConnectionInfo &cinfo(*it);
-        const std::string &conn_status(cinfo.get_status());
-        if (conn_status != cup) {
-            if (cinfo.get_name().compare(0, 13,
-                agent_->xmpp_control_node_prefix()) == 0) {
-                down_control_nodes++;
-                if (num_control_nodes == down_control_nodes) {
-                    is_cup = false;
-                    UpdateMessage(cinfo, message);
-                    continue;
-                }
-            } else if (cinfo.get_name().compare(0, 11,
-                agent_->xmpp_dns_server_prefix()) == 0) {
-                down_dns_servers++;
-                if (num_dns_servers == down_dns_servers) {
-                    is_cup = false;
-                    UpdateMessage(cinfo, message);
-                    continue;
-                }
-            } else {
-                is_cup = false;
-                UpdateMessage(cinfo, message);
-                continue;
-            }
-        }
-    }
-    if (is_cup) {
-        pstate = ProcessState::FUNCTIONAL;
-    } else {
-        pstate = ProcessState::NON_FUNCTIONAL;
-        message += " connection down";
-    }
-    return;
-}
-
 void AgentUve::RegisterDBClients() {
+    AgentUveBase::RegisterDBClients();
     agent_stats_collector_->RegisterDBClients();
-    vn_uve_table_.get()->RegisterDBClients();
-    vm_uve_table_.get()->RegisterDBClients();
-    vrouter_uve_entry_.get()->RegisterDBClients();
 }
 
 void AgentUve::NewFlow(const FlowEntry *flow) {
@@ -184,15 +59,16 @@ void AgentUve::NewFlow(const FlowEntry *flow) {
     uint16_t dport = flow->key().dst_port;
 
     // Update vrouter port bitmap
-    vrouter_uve_entry_.get()->UpdateBitmap(proto, sport, dport);
+    VrouterUveEntry *vre = static_cast<VrouterUveEntry *>(
+        vrouter_uve_entry_.get());
+    vre->UpdateBitmap(proto, sport, dport);
 
     // Update source-vn port bitmap
-    vn_uve_table_.get()->UpdateBitmap(flow->data().source_vn, 
-                                      proto, sport, dport);
+    VnUveTable *vnte = static_cast<VnUveTable *>(vn_uve_table_.get());
+    vnte->UpdateBitmap(flow->data().source_vn, proto, sport, dport);
 
     // Update dest-vn port bitmap
-    vn_uve_table_.get()->UpdateBitmap(flow->data().dest_vn, 
-                                      proto, sport, dport);
+    vnte->UpdateBitmap(flow->data().dest_vn, proto, sport, dport);
 
     const Interface *intf = flow->data().intf_entry.get();
 
@@ -206,19 +82,22 @@ void AgentUve::NewFlow(const FlowEntry *flow) {
     }
 
     // update vm and interface (all interfaces of vm) bitmap
-    vm_uve_table_.get()->UpdateBitmap(vm, proto, sport, dport);
+    VmUveTable *vmt = static_cast<VmUveTable *>(vm_uve_table_.get());
+    vmt->UpdateBitmap(vm, proto, sport, dport);
 }
 
 void AgentUve::DeleteFlow(const FlowEntry *flow) {
-    /* We need not reset bitmaps on flow deletion. We will have to 
+    /* We need not reset bitmaps on flow deletion. We will have to
      * provide introspect to reset this */
 }
 
 void SetFlowStatsInterval_InSeconds::HandleRequest() const {
     SandeshResponse *resp;
     if (get_interval() > 0) {
-        AgentUve::GetInstance()->flow_stats_collector()->
-            set_expiry_time(get_interval() * 1000);
+        AgentUveBase *uve = Agent::GetInstance()->uve();
+        AgentUve *f_uve = static_cast<AgentUve *>(uve);
+        FlowStatsCollector *fec = f_uve->flow_stats_collector();
+        fec->set_expiry_time(get_interval() * 1000);
         resp = new StatsCfgResp();
     } else {
         resp = new StatsCfgErrResp();
@@ -232,8 +111,9 @@ void SetFlowStatsInterval_InSeconds::HandleRequest() const {
 void SetAgentStatsInterval_InSeconds::HandleRequest() const {
     SandeshResponse *resp;
     if (get_interval() > 0) {
-        AgentUve::GetInstance()->agent_stats_collector()->
-            set_expiry_time(get_interval() * 1000);
+        AgentUve *uve = static_cast<AgentUve *>
+            (AgentUveBase::GetInstance());
+        uve->agent_stats_collector()->set_expiry_time(get_interval() * 1000);
         resp = new StatsCfgResp();
     } else {
         resp = new StatsCfgErrResp();
@@ -246,11 +126,11 @@ void SetAgentStatsInterval_InSeconds::HandleRequest() const {
 
 void GetStatsInterval::HandleRequest() const {
     StatsIntervalResp_InSeconds *resp = new StatsIntervalResp_InSeconds();
-    resp->set_agent_stats_interval((AgentUve::GetInstance()->
-                                    agent_stats_collector()->
+    AgentUve *uve = static_cast<AgentUve *>
+            (AgentUveBase::GetInstance());
+    resp->set_agent_stats_interval((uve->agent_stats_collector()->
                                     expiry_time())/1000);
-    resp->set_flow_stats_interval((AgentUve::GetInstance()->
-                                   flow_stats_collector()->
+    resp->set_flow_stats_interval((uve->flow_stats_collector()->
                                    expiry_time())/1000);
     resp->set_context(context());
     resp->Response();

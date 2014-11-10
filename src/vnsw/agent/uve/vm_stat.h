@@ -40,7 +40,7 @@ private:
     void GetCpuStat();
     void GetVcpuStat();
     void GetMemStat();
-    void ReadData(const boost::system::error_code &ec, size_t read_bytes, 
+    void ReadData(const boost::system::error_code &ec, size_t read_bytes,
                   DoneCb &cb);
     void ExecCmd(std::string cmd, DoneCb cb);
     void StartTimer();

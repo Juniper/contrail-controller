@@ -341,21 +341,22 @@ int main(int argc, char *argv[])
         dss_ep.address(address::from_string(options.discovery_server(),
                        error));
         dss_ep.port(options.discovery_port());
-        string sname = 
+        string client_name =
             g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second;
-        ds_client = new DiscoveryServiceClient(a_evm, dss_ep, sname);
+        ds_client = new DiscoveryServiceClient(a_evm, dss_ep, client_name);
         ds_client->Init();
         Collector::SetDiscoveryServiceClient(ds_client);
 
         // Get local ip address
         Collector::SetSelfIp(options.host_ip());
+        string service_name = g_vns_constants.COLLECTOR_DISCOVERY_SERVICE_NAME;
         stringstream pub_ss;
-        pub_ss << "<" << sname << "><ip-address>" << options.host_ip() <<
+        pub_ss << "<" << service_name << "><ip-address>" << options.host_ip() <<
                   "</ip-address><port>" << options.collector_port() <<
-                  "</port></" << sname << ">";
+                  "</port></" << service_name << ">";
         std::string pub_msg;
         pub_msg = pub_ss.str();
-        ds_client->Publish(DiscoveryServiceClient::CollectorService, pub_msg);
+        ds_client->Publish(service_name, pub_msg);
     }
              
     CpuLoadData::Init();

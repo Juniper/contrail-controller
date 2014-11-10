@@ -9,8 +9,8 @@
 
 class InterfaceStatsIoContext: public IoContext {
 public:
-    InterfaceStatsIoContext(int msg_len, char *msg, uint32_t seqno, 
-                       AgentStatsSandeshContext *ctx, 
+    InterfaceStatsIoContext(int msg_len, char *msg, uint32_t seqno,
+                       AgentStatsSandeshContext *ctx,
                        IoContext::IoContextWorkQId id);
     virtual ~InterfaceStatsIoContext();
     virtual void Handler();

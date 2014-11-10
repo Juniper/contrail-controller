@@ -456,6 +456,7 @@ int main(int argc, char *argv[]) {
     ControlNode::SetTestMode(options.test_mode());
 
     boost::scoped_ptr<BgpServer> bgp_server(new BgpServer(&evm));
+    sandesh_context.test_mode = ControlNode::GetTestMode();
     sandesh_context.bgp_server = bgp_server.get();
 
     DB config_db;
@@ -484,6 +485,7 @@ int main(int argc, char *argv[]) {
     xmpp_cfg.FromAddr = XmppInit::kControlNodeJID;
     init.AddXmppChannelConfig(&xmpp_cfg);
     init.InitServer(xmpp_server, options.xmpp_port(), true);
+    sandesh_context.xmpp_server = xmpp_server;
 
     // Register XMPP channel peers 
     boost::scoped_ptr<BgpXmppChannelManager> bgp_peer_manager(
@@ -509,12 +511,14 @@ int main(int argc, char *argv[]) {
         ControlNode::SetSelfIp(options.host_ip());
         if (!options.host_ip().empty()) {
             stringstream pub_ss;
-            pub_ss << "<xmpp-server><ip-address>" << options.host_ip() <<
+            const std::string &sname(
+                g_vns_constants.XMPP_SERVER_DISCOVERY_SERVICE_NAME);
+            pub_ss << "<" << sname << "><ip-address>" << options.host_ip() <<
                       "</ip-address><port>" << options.xmpp_port() <<
-                      "</port></xmpp-server>";
+                      "</port></" << sname << ">";
             string pub_msg;
             pub_msg = pub_ss.str();
-            ds_client->Publish(DiscoveryServiceClient::XmppService, pub_msg);
+            ds_client->Publish(sname, pub_msg);
         }
 
         // subscribe to collector service if not configured

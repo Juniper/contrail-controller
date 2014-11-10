@@ -706,12 +706,10 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             }
             case Composite::L3COMP: {
                 flags |= NH_FLAG_MCAST;
-                flags |= NH_FLAG_COMPOSITE_L3;
                 break;
             }
             case Composite::MULTIPROTO: {
                 encoder.set_nhr_family(AF_UNSPEC);
-                flags |= NH_FLAG_COMPOSITE_MULTI_PROTO;
                 break;
             }
             case Composite::ECMP:

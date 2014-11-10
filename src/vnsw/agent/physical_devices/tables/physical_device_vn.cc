@@ -108,10 +108,10 @@ bool PhysicalDeviceVnTable::OnChange(DBEntry *e, const DBRequest *req) {
     return ret;
 }
 
-void PhysicalDeviceVnTable::Delete(DBEntry *e, const DBRequest *req) {
+bool PhysicalDeviceVnTable::Delete(DBEntry *e, const DBRequest *req) {
     PhysicalDeviceVnEntry *entry = static_cast<PhysicalDeviceVnEntry *>(e);
     entry->SendObjectLog(AgentLogEvent::DELETE);
-    return;
+    return true;
 }
 
 DBTableBase *PhysicalDeviceVnTable::CreateTable(DB *db,

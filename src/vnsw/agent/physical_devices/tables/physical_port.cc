@@ -94,10 +94,10 @@ bool PhysicalPortTable::OnChange(DBEntry *entry, const DBRequest *req) {
     return ret;
 }
 
-void PhysicalPortTable::Delete(DBEntry *entry, const DBRequest *req) {
+bool PhysicalPortTable::Delete(DBEntry *entry, const DBRequest *req) {
     PhysicalPortEntry *dev = static_cast<PhysicalPortEntry *>(entry);
     dev->SendObjectLog(AgentLogEvent::DELETE);
-    return;
+    return true;
 }
 
 PhysicalPortEntry *PhysicalPortTable::Find(const boost::uuids::uuid &u) {

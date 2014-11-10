@@ -127,9 +127,9 @@ protected:
         //and again spawn a new one. Its required since the receive path
         //is overridden by mock class.
         //TODO later use the agent initializer 
-        Agent::GetInstance()->controller()->Cleanup(); 
+        agent_->controller()->Cleanup(); 
         client->WaitForIdle();
-        Agent::GetInstance()->controller()->DisConnect();
+        agent_->controller()->DisConnect();
         client->WaitForIdle();
 
         xs1 = new XmppServer(&evm_, XmppInit::kControlNodeJID);
@@ -175,7 +175,7 @@ protected:
     void XmppServerConnectionInit() {
 
         //Init VNController for running tests
-        Agent::GetInstance()->controller()->Connect();
+        agent_->controller()->Connect();
 
         //Create control-node bgp mock peer 
         mock_peer1.reset(new ControlNodeMockBgpXmppPeer());
@@ -362,23 +362,20 @@ TEST_F(AgentXmppUnitTest, XmppConnection_Discovery) {
     client->WaitForIdle();
 
     xs5->Shutdown();
+    EXPECT_TRUE(agent_->controller()->config_cleanup_timer().
+                cleanup_timer_->running() == true);
+    if (agent_->headless_agent_mode()) {
+        EXPECT_TRUE(agent_->controller()->unicast_cleanup_timer().
+                cleanup_timer_->running() == true);
+        EXPECT_TRUE(agent_->controller()->multicast_cleanup_timer().
+                cleanup_timer_->running() == true);
+    }
     client->WaitForIdle();
+
+    //TODO Ensure timers are not running and have expired
 
     xs6->Shutdown();
     client->WaitForIdle();
 }
 
 }
-
-int main(int argc, char **argv) {
-    GETUSERARGS();
-    client = TestInit(init_file, ksync_init);
-
-    int ret = RUN_ALL_TESTS();
-
-    TestShutdown();
-    delete client;
-    return ret; 
-}
-
-

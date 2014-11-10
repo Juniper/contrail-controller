@@ -117,10 +117,10 @@ bool LogicalPortTable::OnChange(DBEntry *e, const DBRequest *req) {
     return ret;
 }
 
-void LogicalPortTable::Delete(DBEntry *e, const DBRequest *req) {
+bool LogicalPortTable::Delete(DBEntry *e, const DBRequest *req) {
     LogicalPortEntry *entry = static_cast<LogicalPortEntry *>(e);
     entry->SendObjectLog(AgentLogEvent::DELETE);
-    return;
+    return true;
 }
 
 DBTableBase *LogicalPortTable::CreateTable(DB *db, const std::string &name) {

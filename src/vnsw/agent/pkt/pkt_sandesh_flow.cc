@@ -362,7 +362,9 @@ void DeleteAllFlowRecords::HandleRequest() const {
 void FetchFlowRecord::HandleRequest() const {
     FlowKey key;
     key.nh = get_nh();
+    // TODO : IPv6 handling required.
     error_code ec;
+    key.family = Address::INET;
     key.src_addr = Ip4Address::from_string(get_sip(), ec);
     key.dst_addr = Ip4Address::from_string(get_dip(), ec);
     key.src_port = (unsigned)get_src_port();
@@ -391,8 +393,10 @@ void FetchFlowRecord::HandleRequest() const {
 // Sandesh interface to modify flow aging interval
 // Intended for use in testing only
 void FlowAgeTimeReq::HandleRequest() const {
-    FlowStatsCollector *collector =
-        Agent::GetInstance()->uve()->flow_stats_collector();
+    AgentUveBase *uve = Agent::GetInstance()->uve();
+    AgentUve *f_uve = static_cast<AgentUve *>(uve);
+
+    FlowStatsCollector *collector = f_uve->flow_stats_collector();
 
     FlowAgeTimeResp *resp = new FlowAgeTimeResp();
     resp->set_old_age_time(collector->flow_age_time_intvl_in_secs());

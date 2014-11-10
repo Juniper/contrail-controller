@@ -603,7 +603,10 @@ bool VmPortGetStats(PortInfo *input, int id, uint32_t & bytes, uint32_t & pkts) 
     if (intf == NULL)
         return false;
 
-    const AgentStatsCollector::InterfaceStats *st = AgentUve::GetInstance()->agent_stats_collector()->GetInterfaceStats(intf);
+    AgentUve *uve = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
+        (uve->agent_stats_collector());
+    const AgentStatsCollector::InterfaceStats *st = collector->GetInterfaceStats(intf);
     if (st == NULL)
         return false;
 
@@ -619,8 +622,10 @@ bool VrfStatsMatch(int vrf_id, std::string vrf_name, bool stats_match,
                    uint64_t fabric_composites, uint64_t l2_mcast_composites,
                    uint64_t l3_mcast_composites, uint64_t multi_proto_composites,
                    uint64_t encaps, uint64_t l2_encaps) {
-    const AgentStatsCollector::VrfStats *st =
-                        Agent::GetInstance()->uve()->agent_stats_collector()->GetVrfStats(vrf_id);
+    AgentUve *uve = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
+        (uve->agent_stats_collector());
+    const AgentStatsCollector::VrfStats *st = collector->GetVrfStats(vrf_id);
     if (st == NULL) {
         return false;
     }
@@ -665,8 +670,10 @@ bool VrfStatsMatchPrev(int vrf_id, uint64_t discards, uint64_t resolves,
                    uint64_t l2_mcast_composites, uint64_t l3_mcast_composites,
                    uint64_t multi_proto_composites, uint64_t encaps,
                    uint64_t l2_encaps) {
-    const AgentStatsCollector::VrfStats *st =
-                        Agent::GetInstance()->uve()->agent_stats_collector()->GetVrfStats(vrf_id);
+    AgentUve *uve = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
+        (uve->agent_stats_collector());
+    const AgentStatsCollector::VrfStats *st = collector->GetVrfStats(vrf_id);
     if (st == NULL) {
         return false;
     }
@@ -726,7 +733,8 @@ bool VmPortStats(PortInfo *input, int id, uint32_t bytes, uint32_t pkts) {
     if (intf == NULL)
         return false;
 
-    const AgentStatsCollector::InterfaceStats *st = AgentUve::GetInstance()->agent_stats_collector()->GetInterfaceStats(intf);
+    AgentUve *uve = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    const AgentStatsCollector::InterfaceStats *st = uve->agent_stats_collector()->GetInterfaceStats(intf);
     if (st == NULL)
         return false;
 
@@ -737,7 +745,8 @@ bool VmPortStats(PortInfo *input, int id, uint32_t bytes, uint32_t pkts) {
 
 bool VmPortStatsMatch(Interface *intf, uint32_t ibytes, uint32_t ipkts,
                       uint32_t obytes, uint32_t opkts) {
-    const AgentStatsCollector::InterfaceStats *st = AgentUve::GetInstance()->agent_stats_collector()->GetInterfaceStats(intf);
+    AgentUve *uve = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    const AgentStatsCollector::InterfaceStats *st = uve->agent_stats_collector()->GetInterfaceStats(intf);
     EXPECT_TRUE(st != NULL);
     if (st == NULL)
         return false;
@@ -834,121 +843,6 @@ bool VmPortPolicyDisable(PortInfo *input, int id) {
 
 bool DBTableFind(const string &table_name) {
    return (Agent::GetInstance()->db()->FindTable(table_name) != NULL);
-}
-
-void DeleteTap(int fd) {
-//XXX Missing FreeBSD implementation
-#if defined(__linux__)
-    if (ioctl(fd, TUNSETPERSIST, 0) < 0) {
-        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
-            "> making tap interface persistent");
-        assert(0);
-    }
-#endif
-}
-
-void DeleteTapIntf(const int fd[], int count) {
-    for (int i = 0; i < count; i++) {
-        DeleteTap(fd[i]);
-    }
-}
-
-int CreateTap(const char *name) {
-//XXX Missing FreeBSD support
-#if defined(__linux__)
-    int fd;
-    struct ifreq ifr;
-
-    if ((fd = open(TUN_INTF_CLONE_DEV, O_RDWR)) < 0) {
-        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
-            "> opening tap-device");
-        assert(0);
-    }
-
-    memset(&ifr, 0, sizeof(ifr));
-    ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
-    strncpy(ifr.ifr_name, name, IF_NAMESIZE);
-    if (ioctl(fd, TUNSETIFF, (void *)&ifr) < 0) {
-        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
-            "> creating " << name << "tap-device");
-        assert(0);
-    }
-
-    if (ioctl(fd, TUNSETPERSIST, 1) < 0) {
-        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
-            "> making tap interface persistent");
-        assert(0);
-    }
-    return fd;
-#else
-    return 0;
-#endif
-}
-
-void CreateTapIntf(const char *name, int count) {
-//XXX missing FreeBSD support
-#if defined(__linux__)
-    char ifname[IF_NAMESIZE];
-
-    for (int i = 0; i < count; i++) {
-        snprintf(ifname, IF_NAMESIZE, "%s%d", name, i);
-        CreateTap(ifname);
-    }
-#endif
-}
-
-void CreateTapInterfaces(const char *name, int count, int *fd) {
-//XXX Missing FreeBSD support
-#if defined(__linux__)
-    char ifname[IF_NAMESIZE];
-    int raw;
-    struct ifreq ifr;
-
-    for (int i = 0; i < count; i++) {
-        snprintf(ifname, IF_NAMESIZE, "%s%d", name, i);
-        fd[i] = CreateTap(ifname);
-
-        if ((raw = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
-                LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
-                                "> creating socket");
-                assert(0);
-        }
-
-        memset(&ifr, 0, sizeof(ifr));
-        strncpy(ifr.ifr_name, ifname, IF_NAMESIZE);
-        if (ioctl(raw, SIOCGIFINDEX, (void *)&ifr) < 0) {
-                LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
-                                "> getting ifindex of the tap interface");
-                assert(0);
-        }
-
-        struct sockaddr_ll sll;
-        memset(&sll, 0, sizeof(struct sockaddr_ll));
-        sll.sll_family = AF_PACKET;
-        sll.sll_ifindex = ifr.ifr_ifindex;
-        sll.sll_protocol = htons(ETH_P_ALL);
-        if (bind(raw, (struct sockaddr *)&sll, sizeof(struct sockaddr_ll)) < 0) {
-                LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
-                                "> binding the socket to the tap interface");
-                assert(0);
-        }
-
-        memset(&ifr, 0, sizeof(ifr));
-        strncpy(ifr.ifr_name, ifname, IF_NAMESIZE);
-        if (ioctl(raw, SIOCGIFFLAGS, (void *)&ifr) < 0) {
-                LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
-                                "> getting socket flags");
-                assert(0);
-        }
-
-        ifr.ifr_flags |= IFF_UP;
-        if (ioctl(raw, SIOCSIFFLAGS, (void *)&ifr) < 0) {
-                LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
-                                "> setting socket flags");
-                assert(0);
-        }
-    }
-#endif
 }
 
 void VnAddReq(int id, const char *name) {

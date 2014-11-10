@@ -71,7 +71,7 @@ class PhysicalPortTable : public AgentDBTable {
 
     virtual DBEntry *Add(const DBRequest *req);
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);
-    virtual void Delete(DBEntry *entry, const DBRequest *req);
+    virtual bool Delete(DBEntry *entry, const DBRequest *req);
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
 
     PhysicalDeviceTable *device_table() const { return device_table_; }

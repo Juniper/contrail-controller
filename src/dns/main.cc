@@ -161,6 +161,7 @@ int main(int argc, char *argv[]) {
     parser.Parse(FileRead(options.config_file()));
 
     DnsAgentXmppManager::Init();
+    sandesh_context.xmpp_server = Dns::GetXmppServer();
     start_time = UTCTimestampUsec();
     dns_info_trigger =
             new TaskTrigger(boost::bind(&DnsInfoLogger),
@@ -188,12 +189,14 @@ int main(int argc, char *argv[]) {
 
         if (!options.host_ip().empty()) {
             stringstream pub_ss;
-            pub_ss << "<dns-server><ip-address>" << options.host_ip() <<
+            const std::string &sname(
+                g_vns_constants.DNS_SERVER_DISCOVERY_SERVICE_NAME);
+            pub_ss << "<" << sname << "><ip-address>" << options.host_ip() <<
                       "</ip-address><port>" << options.dns_server_port() <<
-                      "</port></dns-server>";
+                      "</port></" << sname << ">";
             std::string pub_msg;
             pub_msg = pub_ss.str();
-            ds_client->Publish(DiscoveryServiceClient::DNSService, pub_msg);
+            ds_client->Publish(sname, pub_msg);
         }
 
         //subscribe to collector service if not configured

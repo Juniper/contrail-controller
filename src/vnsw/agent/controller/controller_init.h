@@ -53,17 +53,18 @@ public:
 
     //Unicast timer related routines
     void StartUnicastCleanupTimer(AgentXmppChannel *agent_xmpp_channel);
-    bool UnicastCleanupTimerExpired();
+    void UnicastCleanupTimerExpired();
     CleanupTimer &unicast_cleanup_timer() {return unicast_cleanup_timer_;}
     void ControllerPeerHeadlessAgentDelDone(BgpPeer *peer);
 
     //Multicast timer
     void StartMulticastCleanupTimer(AgentXmppChannel *agent_xmpp_channel);
-    bool MulticastCleanupTimerExpired(uint64_t peer_sequence);
+    void MulticastCleanupTimerExpired(uint64_t peer_sequence);
     CleanupTimer &multicast_cleanup_timer() {return multicast_cleanup_timer_;}
 
     AgentIfMapVmExport *agent_ifmap_vm_export() const {
-        return agent_ifmap_vm_export_.get();}
+        return agent_ifmap_vm_export_.get();
+    }
     void StartConfigCleanupTimer(AgentXmppChannel *agent_xmpp_channel);
     CleanupTimer &config_cleanup_timer() {return config_cleanup_timer_;}
 

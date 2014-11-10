@@ -140,7 +140,9 @@ public:
     FlowAge() : Task((TaskScheduler::GetInstance()->GetTaskId("FlowAge")), 0) {
     }
     virtual bool Run() {
-        Agent::GetInstance()->uve()->flow_stats_collector()->Run();
+        AgentUveBase *uve = Agent::GetInstance()->uve();
+        AgentUve *f_uve = static_cast<AgentUve *>(uve);
+        f_uve->flow_stats_collector()->Run();
         return true;
     }
 };
@@ -281,8 +283,9 @@ public:
     void IfStatsTimerWait(int count) {
         int i = 0;
 
+        AgentUve *uve = static_cast<AgentUve *>(Agent::GetInstance()->uve());
         AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
-            (Agent::GetInstance()->uve()->agent_stats_collector());
+            (uve->agent_stats_collector());
         while (collector->interface_stats_responses_ < count) {
             if (i++ < 1000) {
                 usleep(1000);
@@ -297,8 +300,9 @@ public:
     void VrfStatsTimerWait(int count) {
         int i = 0;
 
+        AgentUve *uve = static_cast<AgentUve *>(Agent::GetInstance()->uve());
         AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
-            (Agent::GetInstance()->uve()->agent_stats_collector());
+            (uve->agent_stats_collector());
         while (collector->vrf_stats_responses_ <= count) {
             if (i++ < 1000) {
                 usleep(1000);
@@ -313,8 +317,9 @@ public:
     void DropStatsTimerWait(int count) {
         int i = 0;
 
+        AgentUve *uve = static_cast<AgentUve *>(Agent::GetInstance()->uve());
         AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
-            (Agent::GetInstance()->uve()->agent_stats_collector());
+            (uve->agent_stats_collector());
         while(collector->drop_stats_responses_ <= count) {
             if (i++ < 1000) {
                 usleep(1000);

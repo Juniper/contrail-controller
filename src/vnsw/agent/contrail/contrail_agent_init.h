@@ -37,7 +37,7 @@ public:
 
 private:
     std::auto_ptr<KSync> ksync_;
-    std::auto_ptr<AgentUve> uve_;
+    std::auto_ptr<AgentUveBase> uve_;
     std::auto_ptr<Pkt0Interface> pkt0_;
 
     DISALLOW_COPY_AND_ASSIGN(ContrailAgentInit);

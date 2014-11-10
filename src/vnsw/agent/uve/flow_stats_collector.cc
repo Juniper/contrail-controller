@@ -18,17 +18,18 @@
 #include <uve/agent_uve.h>
 #include <uve/flow_stats_collector.h>
 #include <uve/vn_uve_table.h>
+#include <uve/vm_uve_table.h>
 #include <algorithm>
 #include <pkt/flow_proto.h>
 #include <ksync/ksync_init.h>
 
 FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
                                        uint32_t flow_cache_timeout,
-                                       AgentUve *uve) :
+                                       AgentUveBase *uve) :
         StatsCollector(TaskScheduler::GetInstance()->GetTaskId
                        ("Agent::StatsCollector"),
-                       StatsCollector::FlowStatsCollector, 
-                       io, intvl, "Flow stats collector"), 
+                       StatsCollector::FlowStatsCollector,
+                       io, intvl, "Flow stats collector"),
         agent_uve_(uve) {
         flow_iteration_key_.Reset();
         flow_default_interval_ = intvl;
@@ -42,7 +43,7 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
         UpdateFlowMultiplier();
 }
 
-FlowStatsCollector::~FlowStatsCollector() { 
+FlowStatsCollector::~FlowStatsCollector() {
 }
 
 void FlowStatsCollector::Shutdown() {
@@ -55,7 +56,7 @@ void FlowStatsCollector::UpdateFlowMultiplier() {
         age_time_millisec = 1;
     }
     uint64_t default_age_time_millisec = FlowAgeTime / 1000;
-    uint64_t max_flows = (MaxFlows * age_time_millisec) / 
+    uint64_t max_flows = (MaxFlows * age_time_millisec) /
                                             default_age_time_millisec;
     flow_multiplier_ = (max_flows * FlowStatsMinInterval)/age_time_millisec;
 }
@@ -84,7 +85,7 @@ void FlowStatsCollector::SetUnderlayInfo(FlowEntry *flow,
 }
 
 /* For ingress flows, change the SIP as Nat-IP instead of Native IP */
-void FlowStatsCollector::SourceIpOverride(FlowEntry *flow, 
+void FlowStatsCollector::SourceIpOverride(FlowEntry *flow,
                                           FlowDataIpv4 &s_flow) {
     FlowEntry *rev_flow = flow->reverse_flow_entry();
     if (flow->is_flags_set(FlowEntry::NatFlow) && s_flow.get_direction_ing() &&
@@ -101,7 +102,7 @@ void FlowStatsCollector::SourceIpOverride(FlowEntry *flow,
     }
 }
 
-void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes, 
+void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
                                     uint64_t diff_pkts) {
     FlowDataIpv4   s_flow;
     SandeshLevel::type level = SandeshLevel::SYS_DEBUG;
@@ -145,7 +146,7 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
         s_flow.set_reverse_uuid(to_string(rev_flow->flow_uuid()));
     }
 
-    // Flow setup(first) and teardown(last) messages are sent with higher 
+    // Flow setup(first) and teardown(last) messages are sent with higher
     // priority.
     if (!stats.exported) {
         s_flow.set_setup_time(stats.setup_time);
@@ -161,8 +162,8 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
     if (stats.teardown_time) {
         s_flow.set_teardown_time(stats.teardown_time);
         //Teardown time will be set in flow only when flow is deleted.
-        //We need to reset the exported flag when flow is getting deleted to 
-        //handle flow entry reuse case (Flow add request coming for flows 
+        //We need to reset the exported flag when flow is getting deleted to
+        //handle flow entry reuse case (Flow add request coming for flows
         //marked as deleted)
         stats.exported = false;
         level = SandeshLevel::SYS_ERR;
@@ -208,10 +209,10 @@ bool FlowStatsCollector::ShouldBeAged(FlowStats *stats,
     if (k_flow != NULL) {
         uint64_t k_flow_bytes, bytes;
 
-        k_flow_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow, 
+        k_flow_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow,
                                     k_flow->fe_stats.flow_bytes);
-        bytes = 0x0000ffffffffffffULL & stats->bytes; 
-        /* Don't account for agent overflow bits while comparing change in 
+        bytes = 0x0000ffffffffffffULL & stats->bytes;
+        /* Don't account for agent overflow bits while comparing change in
          * stats */
         if (bytes < k_flow_bytes) {
             return false;
@@ -225,14 +226,14 @@ bool FlowStatsCollector::ShouldBeAged(FlowStats *stats,
     return true;
 }
 
-uint64_t FlowStatsCollector::GetFlowStats(const uint16_t &oflow_data, 
+uint64_t FlowStatsCollector::GetFlowStats(const uint16_t &oflow_data,
                                           const uint32_t &data) {
     uint64_t flow_stats = (uint64_t) oflow_data << (sizeof(uint32_t) * 8);
     flow_stats |= data;
     return flow_stats;
 }
 
-uint64_t FlowStatsCollector::GetUpdatedFlowBytes(const FlowStats *stats, 
+uint64_t FlowStatsCollector::GetUpdatedFlowBytes(const FlowStats *stats,
                                                  uint64_t k_flow_bytes) {
     uint64_t oflow_bytes = 0xffff000000000000ULL & stats->bytes;
     uint64_t old_bytes = 0x0000ffffffffffffULL & stats->bytes;
@@ -242,7 +243,7 @@ uint64_t FlowStatsCollector::GetUpdatedFlowBytes(const FlowStats *stats,
     return (oflow_bytes |= k_flow_bytes);
 }
 
-uint64_t FlowStatsCollector::GetUpdatedFlowPackets(const FlowStats *stats, 
+uint64_t FlowStatsCollector::GetUpdatedFlowPackets(const FlowStats *stats,
                                                    uint64_t k_flow_pkts) {
     uint64_t oflow_pkts = 0xffffff0000000000ULL & stats->packets;
     uint64_t old_pkts = 0x000000ffffffffffULL & stats->packets;
@@ -256,14 +257,14 @@ void FlowStatsCollector::UpdateFlowStats(FlowEntry *flow, uint64_t &diff_bytes,
                                          uint64_t &diff_packets) {
     FlowTableKSyncObject *ksync_obj = Agent::GetInstance()->ksync()->
                                          flowtable_ksync_obj();
-    
+
     const vr_flow_entry *k_flow = ksync_obj->GetKernelFlowEntry
         (flow->flow_handle(), false);
     if (k_flow) {
         uint64_t k_bytes, k_packets, bytes, packets;
-        k_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow, 
+        k_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow,
                                k_flow->fe_stats.flow_bytes);
-        k_packets = GetFlowStats(k_flow->fe_stats.flow_packets_oflow, 
+        k_packets = GetFlowStats(k_flow->fe_stats.flow_packets_oflow,
                                  k_flow->fe_stats.flow_packets);
         FlowStats *stats = &(flow->stats_);
         bytes = GetUpdatedFlowBytes(stats, k_bytes);
@@ -286,7 +287,7 @@ bool FlowStatsCollector::Run() {
     bool key_updation_reqd = true, deleted;
     uint64_t diff_bytes, diff_pkts;
     FlowTable *flow_obj = Agent::GetInstance()->pkt()->flow_table();
-  
+
     run_counter_++;
     if (!flow_obj->Size()) {
         return true;
@@ -296,7 +297,7 @@ bool FlowStatsCollector::Run() {
     if (it == flow_obj->flow_entry_map_.end()) {
         it = flow_obj->flow_entry_map_.begin();
     }
-    FlowTableKSyncObject *ksync_obj = 
+    FlowTableKSyncObject *ksync_obj =
         Agent::GetInstance()->ksync()->flowtable_ksync_obj();
 
     while (it != flow_obj->flow_entry_map_.end()) {
@@ -305,7 +306,7 @@ bool FlowStatsCollector::Run() {
         it++;
         assert(entry);
         deleted = false;
-        
+
         if (entry->deleted()) {
             continue;
         }
@@ -321,7 +322,7 @@ bool FlowStatsCollector::Run() {
                 const vr_flow_entry *k_flow_rev;
                 k_flow_rev = ksync_obj->GetKernelFlowEntry
                     (reverse_flow->flow_handle(), false);
-                if (ShouldBeAged(&(reverse_flow->stats_), k_flow_rev, 
+                if (ShouldBeAged(&(reverse_flow->stats_), k_flow_rev,
                                  curr_time)) {
                     deleted = true;
                 }
@@ -349,7 +350,7 @@ bool FlowStatsCollector::Run() {
 
         if (deleted == false && k_flow) {
             uint64_t k_bytes, bytes;
-            k_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow, 
+            k_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow,
                                    k_flow->fe_stats.flow_bytes);
             bytes = 0x0000ffffffffffffULL & stats->bytes;
             /* Always copy udp source port even though vrouter does not change
@@ -357,22 +358,24 @@ bool FlowStatsCollector::Run() {
              * whenever flow action changes. To keep agent independent of this,
              * always copy UDP source port */
             entry->set_underlay_source_port(k_flow->fe_udp_src_port);
-            /* Don't account for agent overflow bits while comparing change in 
+            /* Don't account for agent overflow bits while comparing change in
              * stats */
             if (bytes != k_bytes) {
                 uint64_t packets, k_packets;
-                
-                k_packets = GetFlowStats(k_flow->fe_stats.flow_packets_oflow, 
+
+                k_packets = GetFlowStats(k_flow->fe_stats.flow_packets_oflow,
                                          k_flow->fe_stats.flow_packets);
                 bytes = GetUpdatedFlowBytes(stats, k_bytes);
                 packets = GetUpdatedFlowPackets(stats, k_packets);
                 diff_bytes = bytes - stats->bytes;
                 diff_pkts = packets - stats->packets;
                 //Update Inter-VN stats
-                VnUveTable *vn_table = agent_uve_->vn_uve_table();
+                VnUveTable *vn_table = static_cast<VnUveTable *>
+                    (agent_uve_->vn_uve_table());
                 vn_table->UpdateInterVnStats(entry, diff_bytes, diff_pkts);
                 //Update Floating-IP stats
-                VmUveTable *vm_table = agent_uve_->vm_uve_table();
+                VmUveTable *vm_table = static_cast<VmUveTable *>
+                    (agent_uve_->vm_uve_table());
                 vm_table->UpdateFloatingIpStats(entry, diff_bytes, diff_pkts);
                 stats->bytes = bytes;
                 stats->packets = packets;
@@ -406,7 +409,7 @@ bool FlowStatsCollector::Run() {
             break;
         }
     }
-    
+
     if (count == flow_count_per_pass_) {
         if (it != flow_obj->flow_entry_map_.end()) {
             key_updation_reqd = false;
@@ -417,7 +420,7 @@ bool FlowStatsCollector::Run() {
     if (key_updation_reqd) {
         flow_iteration_key_.Reset();
     }
-    /* Update the flow_timer_interval and flow_count_per_pass_ based on 
+    /* Update the flow_timer_interval and flow_count_per_pass_ based on
      * total flows that we have
      */
     uint32_t total_flows = flow_obj->Size();

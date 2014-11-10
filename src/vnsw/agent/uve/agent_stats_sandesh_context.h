@@ -55,8 +55,8 @@ public:
     virtual void VrfStatsMsgHandler(vr_vrf_stats_req *req);
     virtual void DropStatsMsgHandler(vr_drop_stats_req *req);
     /* Vr-response is expected from kernel and mock code.
-     * For each dump response we get vr_response with negative 
-     * value for errors and positive value (indicating number of 
+     * For each dump response we get vr_response with negative
+     * value for errors and positive value (indicating number of
      * entries being sent) for success.
      */
     virtual int VrResponseMsgHandler(vr_response *r);

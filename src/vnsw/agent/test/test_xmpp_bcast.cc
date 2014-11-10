@@ -797,7 +797,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_VmDeActivate) {
     XmppConnectionSetUp(true);
 
     EXPECT_TRUE(Agent::GetInstance()->mulitcast_builder() != NULL);
-    EXPECT_STREQ(Agent::GetInstance()->mulitcast_builder()->controller_ifmap_xmpp_server().c_str(),
+    EXPECT_STREQ(Agent::GetInstance()->mulitcast_builder()->GetXmppServer().c_str(),
                  "127.0.0.1");
 
     //Delete vm-port and route entry in vrf1
@@ -861,8 +861,7 @@ TEST_F(AgentXmppUnitTest, DISABLED_L2OnlyBcast_Test_SessionDownUp) {
     XmppConnectionSetUp(false);
 
     EXPECT_TRUE(Agent::GetInstance()->mulitcast_builder() != NULL);
-    EXPECT_STREQ(Agent::GetInstance()->mulitcast_builder()->
-                 controller_ifmap_xmpp_server().c_str(),
+    EXPECT_STREQ(Agent::GetInstance()->mulitcast_builder()->GetXmppServer().c_str(),
                  "127.0.0.1");
 
     //bring-down the channel
@@ -893,8 +892,7 @@ TEST_F(AgentXmppUnitTest, DISABLED_L2OnlyBcast_Test_SessionDownUp) {
     client->WaitForIdle();
 
     EXPECT_TRUE(Agent::GetInstance()->mulitcast_builder() != NULL);
-    EXPECT_STREQ(Agent::GetInstance()->mulitcast_builder()->
-                 controller_ifmap_xmpp_server().c_str(),
+    EXPECT_STREQ(Agent::GetInstance()->mulitcast_builder()->GetXmppServer().c_str(),
                  "127.0.0.1");
 
     WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 12));
@@ -971,7 +969,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_SessionDownUp) {
     XmppConnectionSetUp(true);
 
     EXPECT_TRUE(Agent::GetInstance()->mulitcast_builder() != NULL);
-    EXPECT_STREQ(Agent::GetInstance()->mulitcast_builder()->controller_ifmap_xmpp_server().c_str(),
+    EXPECT_STREQ(Agent::GetInstance()->mulitcast_builder()->GetXmppServer().c_str(),
                  "127.0.0.1");
 
     //bring-down the channel
@@ -1015,7 +1013,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_SessionDownUp) {
     client->WaitForIdle();
 
     EXPECT_TRUE(Agent::GetInstance()->mulitcast_builder() != NULL);
-    EXPECT_STREQ(Agent::GetInstance()->mulitcast_builder()->controller_ifmap_xmpp_server().c_str(),
+    EXPECT_STREQ(Agent::GetInstance()->mulitcast_builder()->GetXmppServer().c_str(),
                  "127.0.0.1");
 
     // expect subscribe message <default,vrf> + 2 VM routes+ subnet bcast +
@@ -1094,8 +1092,8 @@ TEST_F(AgentXmppUnitTest, Test_mcast_peer_identifier) {
     XmppConnectionSetUp(true);
 
     EXPECT_TRUE(Agent::GetInstance()->mulitcast_builder() != NULL);
-    EXPECT_STREQ(Agent::GetInstance()->mulitcast_builder()->
-                 controller_ifmap_xmpp_server().c_str(), "127.0.0.1");
+    EXPECT_STREQ(Agent::GetInstance()->mulitcast_builder()->GetXmppServer().c_str(),
+                 "127.0.0.1");
 
 	IpamInfo ipam_info[] = {
 	    {"1.1.1.0", 24, "1.1.1.200", true}
@@ -1659,8 +1657,8 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_sessiondown_after_vn_vrf_link_del) {
     XmppConnectionSetUp(true);
 
     EXPECT_TRUE(Agent::GetInstance()->mulitcast_builder() != NULL);
-    EXPECT_STREQ(Agent::GetInstance()->mulitcast_builder()->
-                 controller_ifmap_xmpp_server().c_str(), "127.0.0.1");
+    EXPECT_STREQ(Agent::GetInstance()->mulitcast_builder()->GetXmppServer().c_str(),
+                 "127.0.0.1");
 
 	IpamInfo ipam_info[] = {
 	    {"1.1.1.0", 24, "1.1.1.200", true}

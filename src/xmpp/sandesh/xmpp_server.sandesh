@@ -1,0 +1,30 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+struct ShowXmppConnection {
+    1: string name;
+    2: bool deleted;
+    3: string remote_endpoint;
+    4: string local_endpoint;
+    5: string state;
+    6: string last_event;
+    7: string last_state;
+    8: string last_state_at;
+    9: list<string> receivers;
+}
+
+response sandesh ShowXmppConnectionResp {
+    1: list<ShowXmppConnection> connections;
+}
+
+request sandesh ShowXmppConnectionReq {
+}
+
+response sandesh ClearXmppConnectionResp {
+    1: bool success;
+}
+
+request sandesh ClearXmppConnectionReq {
+    1: string hostname_or_all;
+}
