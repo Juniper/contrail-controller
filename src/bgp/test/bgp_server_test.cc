@@ -73,7 +73,6 @@ protected:
     static void ValidateShowBgpServerResponse(Sandesh *sandesh);
 
     BgpServerUnitTest() : a_session_manager_(NULL), b_session_manager_(NULL) {
-        ControlNode::SetTestMode(true);
         a_asn_update_notification_cnt_ = 0;
         b_asn_update_notification_cnt_ = 0;
         a_old_as_ = 0;
@@ -1898,6 +1897,7 @@ TEST_F(BgpServerUnitTest, ClearNeighbor1) {
         BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
         BgpSandeshContext sandesh_context;
+        sandesh_context.test_mode = true;
         sandesh_context.bgp_server = a_.get();
         Sandesh::set_client_context(&sandesh_context);
         Sandesh::set_response_callback(
@@ -1969,6 +1969,7 @@ TEST_F(BgpServerUnitTest, ClearNeighbor2) {
         BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
         BgpSandeshContext sandesh_context;
+        sandesh_context.test_mode = true;
         sandesh_context.bgp_server = a_.get();
         Sandesh::set_client_context(&sandesh_context);
         Sandesh::set_response_callback(
@@ -2040,6 +2041,7 @@ TEST_F(BgpServerUnitTest, ClearNeighbor3) {
         BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
         BgpSandeshContext sandesh_context;
+        sandesh_context.test_mode = true;
         sandesh_context.bgp_server = a_.get();
         Sandesh::set_client_context(&sandesh_context);
         Sandesh::set_response_callback(
@@ -2105,6 +2107,7 @@ TEST_F(BgpServerUnitTest, ClearNeighbor4) {
     // Attempt to clear neighbor(s) with an empty name.
     //
     BgpSandeshContext sandesh_context;
+    sandesh_context.test_mode = true;
     sandesh_context.bgp_server = a_.get();
     Sandesh::set_client_context(&sandesh_context);
     Sandesh::set_response_callback(
@@ -2116,6 +2119,76 @@ TEST_F(BgpServerUnitTest, ClearNeighbor4) {
     clear_req->Release();
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(validate_done_);
+
+    //
+    // Make sure that the peers are still up
+    //
+    VerifyPeers(peer_count);
+
+    //
+    // Make sure that the peers did not flap
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_EQ(peer_a->flap_count(), flap_count_a[j]);
+        TASK_UTIL_EXPECT_EQ(peer_b->flap_count(), flap_count_b[j]);
+    }
+}
+
+TEST_F(BgpServerUnitTest, ClearNeighbor5) {
+    int peer_count = 3;
+
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11");
+    VerifyPeers(peer_count);
+
+    vector<uint32_t> flap_count_a;
+    vector<uint32_t> flap_count_b;
+
+    //
+    // Note down the current flap count
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        flap_count_a.push_back(peer_a->flap_count());
+        flap_count_b.push_back(peer_b->flap_count());
+    }
+
+
+    //
+    // Attempt to clear neighbor(s) without enabling test mode
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpSandeshContext sandesh_context;
+        sandesh_context.test_mode = false;
+        sandesh_context.bgp_server = a_.get();
+        Sandesh::set_client_context(&sandesh_context);
+        Sandesh::set_response_callback(
+            boost::bind(ValidateClearBgpNeighborResponse, _1, false));
+        ClearBgpNeighborReq *clear_req = new ClearBgpNeighborReq;
+        validate_done_ = false;
+        clear_req->set_name(peer_a->peer_name());
+        clear_req->HandleRequest();
+        clear_req->Release();
+        task_util::WaitForIdle();
+        TASK_UTIL_EXPECT_TRUE(validate_done_);
+    }
 
     //
     // Make sure that the peers are still up
