@@ -20,7 +20,9 @@
             "controller/src/api-lib",
             "controller/src/config"
         ],
-        "scons_test_targets" : [ ],
+        "scons_test_targets" : [
+	    "controller/src/config/svc_monitor:test"
+	],
         "misc_test_targets" : [ ]
     },
     "contrail-control" : {
