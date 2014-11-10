@@ -43,6 +43,7 @@
 #include <ksync/ksync_sock_user.h> 
 #include <boost/assign/list_of.hpp>
 #include "oper/path_preference.h"
+#include "services/icmpv6_proto.h"
 
 void RouterIdDepInit(Agent *agent) {
 }
@@ -330,6 +331,34 @@ TEST_F(Ipv6Test, IntfStaticRoute_2) {
     DeleteVmportEnv(input, 1, 1, 0, NULL, NULL, true, true);
     client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(1));
+}
+
+TEST_F(Ipv6Test, VnNotifyRoutes_1) {
+    client->Reset();
+    VrfAddReq("vrf1");
+    client->WaitForIdle();
+    EXPECT_TRUE(client->VrfNotifyWait(1));
+
+    client->Reset();
+    VnAddReq(1, "vn1", 0, "vrf1");
+    client->WaitForIdle();
+    EXPECT_TRUE(client->VnNotifyWait(1));
+
+    boost::system::error_code ec;
+    Ip6Address addr1 = Ip6Address::from_string(IPV6_ALL_ROUTERS_ADDRESS, ec);
+    EXPECT_TRUE(RouteFindV6("vrf1", addr1, 128));
+    Ip6Address addr2 = Ip6Address::from_string(PKT0_LINKLOCAL_ADDRESS, ec);
+    EXPECT_TRUE(RouteFindV6("vrf1", addr2, 128));
+
+    //cleanup
+    client->Reset();
+    VnDelReq(1);
+    VrfDelReq("vrf1");
+    client->WaitForIdle();
+    EXPECT_FALSE(VnFind(1));
+    EXPECT_FALSE(VrfFind("vrf1"));
+    EXPECT_FALSE(RouteFindV6("vrf1", addr1, 128));
+    EXPECT_FALSE(RouteFindV6("vrf1", addr2, 128));
 }
 
 int main(int argc, char **argv) {
