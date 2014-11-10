@@ -1,13 +1,15 @@
 struct IpmiSensor {
     1: string sensor;
     2: string status;
-    3: string reading;
+    3: u64 reading;
+    4: string unit;
+    5: string sensor_type;
 }
 
 struct SMIpmiInfo {
     1: string name               (key="ObjectServerTable")
     2: optional bool             deleted
-    3: optional list<IpmiSensor> sensor_stats (tags=".sensor,.reading")
+    3: optional list<IpmiSensor> sensor_stats (tags=".sensor,.sensor_type")
     4: optional list<IpmiSensor> sensor_state
 }
 

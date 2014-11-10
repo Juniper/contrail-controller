@@ -498,7 +498,9 @@ const list<stat_table> _STAT_TABLES  = [
       'attributes': [
           { 'name' : 'sensor_stats.sensor',  'datatype' : 'string',    'index' : true},
           { 'name' : 'sensor_stats.status', 'datatype': 'string', 'index' : false},
-          { 'name' : 'sensor_stats.reading', 'datatype': 'string', 'index' : true},
+          { 'name' : 'sensor_stats.reading', 'datatype': 'long', 'index' : false},
+          { 'name' : 'sensor_stats.unit', 'datatype': 'string', 'index' : false},
+          { 'name' : 'sensor_stats.sensor_type', 'datatype': 'string', 'index' : true},
         ]
     },
     {
