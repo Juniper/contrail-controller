@@ -1694,6 +1694,39 @@ TEST_P(ServiceChainParamTest, IgnoreAggregateRoute) {
 }
 
 //
+// 0. Disable aggregation
+// 1. Create Service Chain with 192.168.1.0/24 as vn subnet
+// 2. Add connected route
+// 3. Add MX leaked route 192.168.1.0/24
+// 4. Verify that ext connect route 192.168.1.0/24 is added
+//
+TEST_P(ServiceChainParamTest, ValidateAggregateRoute) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    NetworkConfig(instance_names, connections);
+    VerifyNetworkConfig(instance_names);
+
+    bgp_server_->service_chain_mgr()->set_aggregate_host_route(false);
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
+
+    // Add Connected
+    AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
+
+    // Add MX leaked route
+    AddInetRoute(NULL, "red", "192.168.1.0/24", 100);
+
+    // Check for Aggregate route
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.4.5", "red");
+
+    // Delete MX leaked and connected route
+    DeleteInetRoute(NULL, "red", "192.168.1.0/24");
+    DeleteConnectedRoute(NULL, "1.1.2.3/32");
+}
+
+//
 // 1. Create Service Chain with 192.168.1.0/24 as vn subnet
 // 2. Add MX leaked route 10.1.1.0/24
 // 3. Add connected route

@@ -114,7 +114,7 @@ bool ServiceChain::Match(BgpServer *server, BgpTable *table,
         if (is_connected_route(route)) {
             return false;
         }
-        if (is_aggregate(route)) {
+        if (aggregate_enable() && is_aggregate(route)) {
             return false;
         }
         if (aggregate_enable() && is_more_specific(route, &aggregate_match)) {
