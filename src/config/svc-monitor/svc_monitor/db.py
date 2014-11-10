@@ -21,6 +21,7 @@ class ServiceMonitorDB(object):
 
     def __init__(self, args=None):
         self._args = args
+        self._svc_si_cf = {}
 
         if args.cluster_id:
             self._keyspace = '%s_%s' % (args.cluster_id,
