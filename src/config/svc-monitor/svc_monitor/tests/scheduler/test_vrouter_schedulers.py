@@ -202,8 +202,9 @@ class TestRandomScheduler(unittest.TestCase):
             mock.patch('cfgm_common.analytics_client.Client.request')
         self.analytics_mock = self.analytics_patch.start()
 
-        self.scheduler = \
-            scheduler.RandomScheduler(self.vnc_mock, mock.MagicMock())
+        self.scheduler = scheduler.RandomScheduler(
+            self.vnc_mock, mock.MagicMock(),
+            mock.MagicMock(netns_availability_zone=False))
 
     def tearDown(self):
         self.analytics_patch.stop()
