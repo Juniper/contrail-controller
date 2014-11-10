@@ -258,18 +258,34 @@ AgentPath *Layer2RouteEntry::FindPathUsingKey(const AgentRouteKey *key) {
     return NULL;
 }
 
-void Layer2RouteEntry::DeletePath(const AgentRouteKey *key) {
+void Layer2RouteEntry::DeletePath(const AgentRouteKey *key, bool force_delete) {
     const Layer2RouteKey *l2_rt_key =
         static_cast<const Layer2RouteKey *>(key);
     Route::PathList::iterator it;
     for (it = GetPathList().begin(); it != GetPathList().end();
          it++) {
         AgentPath *path = static_cast<AgentPath *>(it.operator->());
-        if (key->peer() == path->peer() &&
-            ((path->peer()->GetType() != Peer::BGP_PEER) ||
-            (path->vxlan_id() == l2_rt_key->ethernet_tag()))) {
-            DeletePathInternal(path);
-            return;
+        bool delete_path = false;
+        if (key->peer() == path->peer()) {
+            if (path->peer()->GetType() != Peer::BGP_PEER) {
+                delete_path = true;
+            } else if (force_delete || (path->vxlan_id() ==
+                                      l2_rt_key->ethernet_tag())) {
+                //There are two ways to receive delete of BGP peer path in
+                //l2 route.
+                //First is via withdraw meesage from control node in which
+                //force_delete will be false and vxlan_id will be matched to
+                //decide. 
+                //Second can be via route walkers where on peer going down or
+                //vrf delete, paths from BGP peer should be deleted irrespective
+                //of vxlan_id. 
+                delete_path = true;
+            }
+
+            if (delete_path) {
+                DeletePathInternal(path);
+                return;
+            }
         }
     }
 }
