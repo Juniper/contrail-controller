@@ -96,9 +96,21 @@ class SvcMonitorInitTest(unittest.TestCase):
                 self._svc_monitor.\
                     _addmsg_service_instance_service_template(identities)
 
-                svc_insert.assert_called_with(
-                    'default-domain:default-project:test-instance',
-                    {'vm0-state': 'pending', 'vm0-preference': '0',
-                     'vm0-uuid': 'ccc', 'vm0-vrouter': 'None',
-                     'vm0-name': 'default-domain__default-project__bbb__1'})
-
+                expected = [
+                    mock.call('default-domain:default-project:test-instance',
+                              {'instance_type': 'virtual-machine',
+                              'state': 'config_complete',
+                              'uuid': 'bbb'}),
+                    mock.call('default-domain:default-project:test-instance',
+                              {'max-instances': '1',
+                              'state': 'launching'}),
+                    mock.call('default-domain:default-project:test-instance',
+                              {'vm0-state': 'pending',
+                              'vm0-preference': '0',
+                              'vm0-uuid': 'ccc',
+                              'vm0-vrouter': 'None',
+                              'vm0-name': 'default-domain__default-project__test-instance__1'}),
+                    mock.call('default-domain:default-project:test-instance',
+                              {'state': 'active'})
+                ]
+                svc_insert.assert_has_calls(expected)
