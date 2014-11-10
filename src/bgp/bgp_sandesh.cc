@@ -717,7 +717,9 @@ bool ClearBgpNeighborHandler::CallbackS1(
     BgpPeer *peer = bsc->bgp_server->FindPeer(req->get_name());
 
     ClearBgpNeighborResp *resp = new ClearBgpNeighborResp;
-    if (peer) {
+    if (!bsc->test_mode) {
+        resp->set_success(false);
+    } else if (peer) {
         peer->Clear(BgpProto::Notification::AdminReset);
         resp->set_success(true);
     } else {
@@ -731,14 +733,6 @@ bool ClearBgpNeighborHandler::CallbackS1(
 
 // handler for 'clear bgp neighbor'
 void ClearBgpNeighborReq::HandleRequest() const {
-
-    if (ControlNode::GetTestMode() == false) {
-        ClearBgpNeighborResp *resp = new ClearBgpNeighborResp;
-        resp->set_context(context());
-        resp->set_more(false);
-        resp->Response();
-        return;
-    }
 
     // Use config task since neighbors are added/deleted under that task.
     // to compute the number of neighbors.
