@@ -413,7 +413,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
     } else if (req->oper == DBRequest::DB_ENTRY_DELETE) {
         assert (key->sub_op_ == AgentKey::ADD_DEL_CHANGE);
         if (rt)
-            rt->DeletePath(key);
+            rt->DeletePath(key, false);
     } else {
         assert(0);
     }
@@ -537,7 +537,7 @@ void AgentRoute::DeletePathInternal(AgentPath *path) {
     table->DeletePathFromPeer(get_table_partition(), this, path);
 }
 
-void AgentRoute::DeletePath(const AgentRouteKey *key) {
+void AgentRoute::DeletePath(const AgentRouteKey *key, bool delete_all) {
     AgentPath *peer_path = FindPath(key->peer());
     DeletePathInternal(peer_path);
 }

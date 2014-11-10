@@ -258,18 +258,26 @@ AgentPath *Layer2RouteEntry::FindPathUsingKey(const AgentRouteKey *key) {
     return NULL;
 }
 
-void Layer2RouteEntry::DeletePath(const AgentRouteKey *key) {
+void Layer2RouteEntry::DeletePath(const AgentRouteKey *key, bool delete_all) {
     const Layer2RouteKey *l2_rt_key =
         static_cast<const Layer2RouteKey *>(key);
     Route::PathList::iterator it;
     for (it = GetPathList().begin(); it != GetPathList().end();
          it++) {
         AgentPath *path = static_cast<AgentPath *>(it.operator->());
-        if (key->peer() == path->peer() &&
-            ((path->peer()->GetType() != Peer::BGP_PEER) ||
-            (path->vxlan_id() == l2_rt_key->ethernet_tag()))) {
-            DeletePathInternal(path);
-            return;
+        bool delete_path = false;
+        if (key->peer() == path->peer()) {
+            if (path->peer()->GetType() != Peer::BGP_PEER) {
+                delete_path = true;
+            } else if (delete_all || (path->vxlan_id() ==
+                                      l2_rt_key->ethernet_tag())) {
+                delete_path = true;
+            }
+
+            if (delete_path) {
+                DeletePathInternal(path);
+                return;
+            }
         }
     }
 }

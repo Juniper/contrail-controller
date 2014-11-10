@@ -115,7 +115,7 @@ public:
     virtual uint32_t GetActiveLabel() const;
     virtual bool ReComputePathDeletion(AgentPath *path);
     virtual bool ReComputePathAdd(AgentPath *path);
-    virtual void DeletePath(const AgentRouteKey *key);
+    virtual void DeletePath(const AgentRouteKey *key, bool delete_all);
     virtual AgentPath *FindPathUsingKey(const AgentRouteKey *key);
 
     const MacAddress &GetAddress() const {return mac_;}
