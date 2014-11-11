@@ -163,7 +163,7 @@ class CpuInfo(object):
             cfgm_cpu_uve.api_server_mem_virt = mod_cpu.cpu_info.meminfo.virt
             cfgm_cpu_uve.api_server_cpu_share = self._cpu_share
 
-        if (self._module_id == ModuleNames[Module.SCHEMA]):
+        if (self._module_id == ModuleNames[Module.SCHEMA_TRANSFORMER]):
             cfgm_cpu_uve.schema_xmer_mem_virt = mod_cpu.cpu_info.meminfo.virt
             cfgm_cpu_uve.schema_xmer_cpu_share = self._cpu_share
 
