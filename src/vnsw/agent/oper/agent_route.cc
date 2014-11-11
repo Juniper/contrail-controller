@@ -413,7 +413,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
     } else if (req->oper == DBRequest::DB_ENTRY_DELETE) {
         assert (key->sub_op_ == AgentKey::ADD_DEL_CHANGE);
         if (rt)
-            rt->DeletePath(key);
+            rt->DeletePath(key, false);
     } else {
         assert(0);
     }
@@ -537,7 +537,14 @@ void AgentRoute::DeletePathInternal(AgentPath *path) {
     table->DeletePathFromPeer(get_table_partition(), this, path);
 }
 
-void AgentRoute::DeletePath(const AgentRouteKey *key) {
+//Deletes the path created by peer in key.
+//Ideally only peer match is required in path however for few cases
+//more than peer comparision be required.
+//force_delete is used to specify if only peer check needs to be done or
+//extra checks other than peer check has to be done.
+//
+//Explicit route walker used for deleting paths will set force_delete as true.
+void AgentRoute::DeletePath(const AgentRouteKey *key, bool force_delete) {
     AgentPath *peer_path = FindPath(key->peer());
     DeletePathInternal(peer_path);
 }
