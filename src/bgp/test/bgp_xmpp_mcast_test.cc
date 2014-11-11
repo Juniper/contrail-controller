@@ -52,6 +52,52 @@ protected:
         validate_done_ = 1;
     }
 
+    static void ValidateShowManagerMulticastResponse(Sandesh *sandesh,
+        vector<string> &result) {
+        ShowMulticastManagerResp *resp =
+            dynamic_cast<ShowMulticastManagerResp *>(sandesh);
+        EXPECT_NE((ShowMulticastManagerResp *)NULL, resp);
+
+        TASK_UTIL_EXPECT_EQ(result.size(), resp->get_managers().size());
+        cout << "*******************************************************"<<endl;
+        for (size_t i = 0; i < resp->get_managers().size(); ++i) {
+            cout << resp->get_managers()[i].log() << endl;
+            bool found = false;
+            BOOST_FOREACH(const string &manager_name, result) {
+                if (resp->get_managers()[i].get_name() == manager_name) {
+                    found = true;
+                    break;
+                }
+            }
+            EXPECT_TRUE(found);
+        }
+        cout << "*******************************************************"<<endl;
+        validate_done_ = 1;
+    }
+
+    static void ValidateShowManagerMulticastDetailResponse(Sandesh *sandesh,
+        vector<string> &result) {
+        ShowMulticastManagerDetailResp *resp =
+            dynamic_cast<ShowMulticastManagerDetailResp *>(sandesh);
+        EXPECT_NE((ShowMulticastManagerDetailResp *)NULL, resp);
+
+        TASK_UTIL_EXPECT_EQ(result.size(), resp->get_trees().size());
+        cout << "*******************************************************"<<endl;
+        for (size_t i = 0; i < resp->get_trees().size(); ++i) {
+            cout << resp->get_trees()[i].log() << endl;
+            bool found = false;
+            BOOST_FOREACH(const string &group, result) {
+                if (resp->get_trees()[i].get_group() == group) {
+                    found = true;
+                    break;
+                }
+            }
+            EXPECT_TRUE(found);
+        }
+        cout << "*******************************************************"<<endl;
+        validate_done_ = 1;
+    }
+
     BgpXmppMcastTest() : thread_(&evm_), xs_x_(NULL) { }
 
     virtual void SetUp() {
@@ -636,7 +682,7 @@ TEST_F(BgpXmppMcastMultiAgentTest, Leave) {
     task_util::WaitForIdle();
 };
 
-TEST_F(BgpXmppMcastMultiAgentTest, Introspect) {
+TEST_F(BgpXmppMcastMultiAgentTest, ValidateShowRoute) {
     const char *mroute = "225.0.0.1,90.1.1.1";
 
     // Add mcast route for all agents.
@@ -709,6 +755,85 @@ TEST_F(BgpXmppMcastMultiAgentTest, Introspect) {
     show_req = new ShowRouteReq;
     show_req->set_routing_table("blue.ermvpn.0");
     validate_done_ = 0;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, validate_done_);
+};
+
+TEST_F(BgpXmppMcastMultiAgentTest, ValidateShowMulticastManager) {
+    Subscribe("pink", 2);
+
+    const char *mroute = "225.0.0.1,90.1.1.1";
+    const char *networks[] = { "blue", "pink" };
+
+    // Add mcast routes for all agents.
+    BOOST_FOREACH(const char *net, networks) {
+        agent_xa_->AddMcastRoute(net, mroute, "10.1.1.1", "10000-19999");
+        agent_xb_->AddMcastRoute(net, mroute, "10.1.1.2", "20000-29999");
+        agent_xc_->AddMcastRoute(net, mroute, "10.1.1.3", "30000-39999");
+        task_util::WaitForIdle();
+    }
+
+    // Verify that all agents have the routes.
+    TASK_UTIL_EXPECT_EQ(2, agent_xa_->McastRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_xb_->McastRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_xc_->McastRouteCount());
+
+    // Verify multicast manager via sandesh.
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = bs_x_.get();
+    sandesh_context.xmpp_peer_manager = bcm_x_.get();
+    Sandesh::set_client_context(&sandesh_context);
+    vector<string> result = list_of("blue.ermvpn.0")("pink.ermvpn.0");
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowManagerMulticastResponse, _1, result));
+    ShowMulticastManagerReq *show_req = new ShowMulticastManagerReq;
+    validate_done_ = 0;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, validate_done_);
+};
+
+TEST_F(BgpXmppMcastMultiAgentTest, ValidateShowMulticastManagerDetail) {
+    const char *mroutes[] = { "225.0.0.1,90.1.1.1", "225.0.0.2,90.1.1.1" };
+
+    // Add mcast routes for all agents.
+    BOOST_FOREACH(const char *mroute, mroutes) {
+        agent_xa_->AddMcastRoute("blue", mroute, "10.1.1.1", "10000-19999");
+        agent_xb_->AddMcastRoute("blue", mroute, "10.1.1.2", "20000-29999");
+        agent_xc_->AddMcastRoute("blue", mroute, "10.1.1.3", "30000-39999");
+        task_util::WaitForIdle();
+    }
+
+    // Verify that all agents have the routes.
+    TASK_UTIL_EXPECT_EQ(2, agent_xa_->McastRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_xb_->McastRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_xc_->McastRouteCount());
+
+    // Verify multicast manager detail via sandesh.
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = bs_x_.get();
+    sandesh_context.xmpp_peer_manager = bcm_x_.get();
+    Sandesh::set_client_context(&sandesh_context);
+    vector<string> result = list_of("225.0.0.1")("225.0.0.2");
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowManagerMulticastDetailResponse, _1, result));
+    ShowMulticastManagerDetailReq *show_req = new ShowMulticastManagerDetailReq;
+    validate_done_ = 0;
+    show_req->set_name("blue.ermvpn.0");
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, validate_done_);
+
+    result.clear();
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowManagerMulticastDetailResponse, _1, result));
+    show_req = new ShowMulticastManagerDetailReq;
+    validate_done_ = 0;
+    show_req->set_name("pink.ermvpn.0");
     show_req->HandleRequest();
     show_req->Release();
     task_util::WaitForIdle();
