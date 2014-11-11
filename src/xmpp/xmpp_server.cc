@@ -63,6 +63,7 @@ XmppServer::XmppServer(EventManager *evm, const string &server_addr)
 
 XmppServer::XmppServer(EventManager *evm) 
     : TcpServer(evm),
+      max_connections_(0),
       lifetime_manager_(new LifetimeManager(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)), 
@@ -288,6 +289,7 @@ void XmppServer::InsertConnection(XmppServerConnection *connection) {
     bool result;
     tie(loc, result) = connection_map_.insert(make_pair(endpoint, connection));
     assert(result);
+    max_connections_ = max(max_connections_, connection_map_.size());
 }
 
 //
@@ -456,6 +458,16 @@ void XmppServer::FillShowConnections(
     }
 }
 
+void XmppServer::FillShowServer(ShowXmppServerResp *resp) const {
+    SocketIOStats peer_socket_stats;
+    GetRxSocketStats(peer_socket_stats);
+    resp->set_rx_socket_stats(peer_socket_stats);
+    GetTxSocketStats(peer_socket_stats);
+    resp->set_tx_socket_stats(peer_socket_stats);
+    resp->set_current_connections(connection_map_.size());
+    resp->set_max_connections(max_connections_);
+}
+
 class ShowXmppConnectionHandler {
 public:
     static bool CallbackS1(const Sandesh *sr,
@@ -537,6 +549,35 @@ void ClearXmppConnectionReq::HandleRequest() const {
     s1.cbFn_ = ClearXmppConnectionHandler::CallbackS1;
 
     RequestPipeline::PipeSpec ps(this);
+    ps.stages_.push_back(s1);
+    RequestPipeline rp(ps);
+}
+
+class ShowXmppServerHandler {
+public:
+    static bool CallbackS1(const Sandesh *sr,
+            const RequestPipeline::PipeSpec ps, int stage, int instNum,
+            RequestPipeline::InstData *data) {
+        const ShowXmppServerReq *req =
+            static_cast<const ShowXmppServerReq *>(ps.snhRequest_.get());
+        XmppSandeshContext *xsc =
+            dynamic_cast<XmppSandeshContext *>(req->client_context());
+
+        ShowXmppServerResp *resp = new ShowXmppServerResp;
+        xsc->xmpp_server->FillShowServer(resp);
+        resp->set_context(req->context());
+        resp->Response();
+        return true;
+    }
+};
+
+void ShowXmppServerReq::HandleRequest() const {
+    RequestPipeline::PipeSpec ps(this);
+    RequestPipeline::StageSpec s1;
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    s1.taskId_ = scheduler->GetTaskId("bgp::ShowCommand");
+    s1.cbFn_ = ShowXmppServerHandler::CallbackS1;
+    s1.instances_.push_back(0);
     ps.stages_.push_back(s1);
     RequestPipeline rp(ps);
 }
