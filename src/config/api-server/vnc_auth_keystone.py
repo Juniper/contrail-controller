@@ -178,8 +178,9 @@ class AuthServiceKeystone(object):
                 self._auth_token = self._auth_middleware.get_admin_token()
                 return self.json_request(method, path, retry_after_authn=True)
             except Exception as e:
-                self._server_mgr.config_log_error(
-                    "Error in getting admin token from keystone: " + str(e))
+                self._server_mgr.config_log(
+                    "Error in getting admin token from keystone: " + str(e),
+                    level=SandeshLevel.SYS_WARN)
                 return {}
 
         return data if status_code == 200 else {}
