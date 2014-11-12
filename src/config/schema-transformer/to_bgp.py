@@ -1951,15 +1951,13 @@ class BgpRouterST(DictST):
                 continue
             if router.asn != my_asn:
                 continue
-            if router.vendor not in ['contrail', None]:
-                continue
             router_fq_name = router.name.split(':')
             if (router_fq_name in
                     [ref['to'] for ref in (obj.get_bgp_router_refs() or [])]):
                 continue
             router_obj = BgpRouter()
             router_obj.fq_name = router_fq_name
-            af = AddressFamilies(family=['inet-vpn'])
+            af = AddressFamilies(family=[])
             bsa = BgpSessionAttributes(address_families=af)
             session = BgpSession(attributes=[bsa])
             attr = BgpPeeringAttributes(session=[session])
