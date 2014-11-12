@@ -892,6 +892,8 @@ public:
         for (RoutingInstanceMgr::NameIterator it = rim->name_begin();
              it != rim->name_end(); it++) {
             RoutingInstance *ri = it->second;
+            if (ri->IsDefaultRoutingInstance())
+                continue;
             ErmVpnTable *table =
                 static_cast<ErmVpnTable *>(ri->GetTable(Address::ERMVPN));
             if (table)
@@ -934,6 +936,8 @@ public:
         for (RoutingInstanceMgr::NameIterator it = rim->name_begin();
              it != rim->name_end(); it++) {
             RoutingInstance *ri = it->second;
+            if (ri->IsDefaultRoutingInstance())
+                continue;
             ErmVpnTable *table =
                 static_cast<ErmVpnTable *>(ri->GetTable(Address::ERMVPN));
             if (table)
