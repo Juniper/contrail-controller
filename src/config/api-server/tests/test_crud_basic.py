@@ -630,8 +630,7 @@ class TestListUpdate(test_case.ApiServerTestCase):
 class TestCrud(test_case.ApiServerTestCase):
     def test_create(self):
         test_obj = self._create_test_object()
-        ident_name = self.get_obj_imid(test_obj)
-        self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
+        self.assertTill(self.ifmap_has_ident, obj=test_obj)
 
 class TestVncCfgApiServer(test_case.ApiServerTestCase):
     def test_fq_name_to_id_http_post(self):
@@ -730,12 +729,12 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             raise Exception("fake vn read exception")
 
         try:
-            orig_config_log_error = api_server.config_log_error
-            api_server.config_log_error = exception_on_log_error
+            orig_config_log = api_server.config_log
+            api_server.config_log = exception_on_log_error
             with ExpectedException(NoIdError):
                 self._vnc_lib.virtual_network_read(fq_name=['foo', 'bar', 'baz'])
         finally:
-            api_server.config_log_error = orig_config_log_error
+            api_server.config_log = orig_config_log
 
         try:
             orig_vn_read = api_server._db_conn._cassandra_db._cassandra_virtual_network_read
@@ -899,6 +898,9 @@ class TestLocalAuth(test_case.ApiServerTestCase):
                 self._app = app
             # end __init__
             def __call__(self, env, start_response):
+                # in multi-tenancy mode only admin role admitted
+                # by api-server till full rbac support
+                env['HTTP_X_ROLE'] = 'admin'
                 return self._app(env, start_response)
             # end __call__
             def get_admin_token(self):
