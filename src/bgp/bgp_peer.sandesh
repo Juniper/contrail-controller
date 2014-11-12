@@ -229,6 +229,7 @@ struct ShowRoutingInstance {
     1: string name (link="ShowRoutingInstanceReq"); // Routing instance name
     3: string virtual_network;                      // Virtual network
     6: i32 vn_index;                                // Virtual network index
+    8: i32 vxlan_id;                                // VXLAN Identifier
     7: bool deleted;                                // Deletion in progress
     4: list<string> import_target;                  // Import Route targets
     5: list<string> export_target;                  // Export Route targets
@@ -297,6 +298,7 @@ struct ShowBgpInstanceConfig {
     1: string name;
     2: string virtual_network;
     7: i32 virtual_network_index;
+    8: i32 vxlan_id;
     3: list<string> import_target;
     4: list<string> export_target;
     5: ShowBgpServiceChainConfig service_chain_info;
