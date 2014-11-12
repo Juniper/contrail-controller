@@ -423,6 +423,13 @@ class DBInterface(object):
         self._vnc_lib.instance_ip_delete(id=instance_ip_id)
     #end _instance_ip_delete
 
+    def _virtual_machine_list(self, back_ref_id=None, obj_uuids=None, fields=None):
+        vm_objs = self._vnc_lib.virtual_machines_list(detail=True,
+                                                   back_ref_id=back_ref_id,
+                                                   obj_uuids=obj_uuids,
+                                                   fields=fields)
+        return vm_objs
+    #end _virtual_machine_list
     def _instance_ip_list(self, back_ref_id=None, obj_uuids=None, fields=None):
         iip_objs = self._vnc_lib.instance_ips_list(detail=True,
                                                    back_ref_id=back_ref_id,
@@ -643,11 +650,12 @@ class DBInterface(object):
         return resp_dict['floating-ip-pools']
     #end _fip_pool_list_network
 
-    def _port_list(self, net_objs, port_objs, iip_objs):
+    def _port_list(self, net_objs, port_objs, iip_objs, vm_objs):
         ret_q_ports = []
 
         memo_req = {'networks': {},
                     'subnets': {},
+                    'virtual-machines': {},
                     'instance-ips': {}}
 
         for net_obj in net_objs:
@@ -659,6 +667,10 @@ class DBInterface(object):
         for iip_obj in iip_objs:
             # dictionary of iip_uuid to iip_obj
             memo_req['instance-ips'][iip_obj.uuid] = iip_obj
+
+        for vm_obj in vm_objs:
+            # dictionary of vm_uuid to vm_obj
+            memo_req['virtual-machines'][vm_obj.uuid] = vm_obj
 
         for port_obj in port_objs:
             port_info = self._port_vnc_to_neutron(port_obj, memo_req)
@@ -678,8 +690,9 @@ class DBInterface(object):
         net_ids = [net_obj.uuid for net_obj in net_objs]
         port_objs = self._virtual_machine_interface_list(back_ref_id=net_ids)
         iip_objs = self._instance_ip_list(back_ref_id=net_ids)
+        vm_objs = self._virtual_machine_list()
 
-        return self._port_list(net_objs, port_objs, iip_objs)
+        return self._port_list(net_objs, port_objs, iip_objs, vm_objs)
     #end _port_list_network
 
     # find port ids on a given project
@@ -691,7 +704,8 @@ class DBInterface(object):
                 return len(port_objs)
 
             iip_objs = self._instance_ip_list()
-            return self._port_list([], port_objs, iip_objs)
+            vm_objs = self._virtual_machine_list()
+            return self._port_list([], port_objs, iip_objs, vm_objs)
         else:
             if count:
                 ret_val = 0
@@ -713,7 +727,8 @@ class DBInterface(object):
             net_ids = [net_obj.uuid for net_obj in net_objs]
             port_objs = self._virtual_machine_interface_list(back_ref_id=net_ids)
             iip_objs = self._instance_ip_list(back_ref_id=net_ids)
-            return self._port_list(net_objs, port_objs, iip_objs)
+            vm_objs = self._virtual_machine_list()
+            return self._port_list(net_objs, port_objs, iip_objs, vm_objs)
     #end _port_list_project
 
     # Returns True if
@@ -1799,12 +1814,21 @@ class DBInterface(object):
         return port_obj
     #end _port_neutron_to_vnc
 
-    def _gw_port_vnc_to_neutron(self, port_obj):
+    def _gw_port_vnc_to_neutron(self, port_obj, port_req_memo):
         vm_refs = port_obj.get_virtual_machine_refs()
+        vm_uuid = vm_refs[0]['uuid']
+        vm_obj = None
         try:
-            vm_obj = self._vnc_lib.virtual_machine_read(id=vm_refs[0]['uuid'])
-        except NoIdError:
-            return None
+            vm_obj = port_req_memo['virtual-machines'][vm_uuid]
+        except KeyError:
+            pass
+
+        if vm_obj is None:
+            try:
+                vm_obj = self._vnc_lib.virtual_machine_read(id=vm_uuid)
+            except NoIdError:
+                return None
+            port_req_memo['virtual-machines'][vm_uuid] = vm_obj 
 
         si_refs = vm_obj.get_service_instance_refs()
         if not si_refs:
@@ -1848,6 +1872,8 @@ class DBInterface(object):
             port_req_memo['networks'] = {}
         if 'subnets' not in port_req_memo:
             port_req_memo['subnets'] = {}
+        if 'virtual-machines' not in port_req_memo:
+            port_req_memo['virtual-machines'] = {}
 
         try:
             net_obj = port_req_memo['networks'][net_id]
@@ -1930,7 +1956,7 @@ class DBInterface(object):
         elif port_obj.parent_type == 'virtual-machine':
             port_q_dict['device_id'] = port_obj.parent_name
         elif port_obj.get_virtual_machine_refs() is not None:
-            rtr_uuid = self._gw_port_vnc_to_neutron(port_obj)
+            rtr_uuid = self._gw_port_vnc_to_neutron(port_obj, port_req_memo)
             if rtr_uuid:
                 port_q_dict['device_id'] = rtr_uuid
                 port_q_dict['device_owner'] = constants.DEVICE_OWNER_ROUTER_GW
@@ -3519,18 +3545,20 @@ class DBInterface(object):
                 else:
                     all_port_gevent = gevent.spawn(self._virtual_machine_interface_list)
                 port_iip_gevent = gevent.spawn(self._instance_ip_list)
+                port_vm_gevent = gevent.spawn(self._virtual_machine_list)
                 port_net_gevent = gevent.spawn(self._virtual_network_list,
                                                parent_id=project_id,
                                                detail=True)
 
-                gevent.joinall([all_port_gevent, port_iip_gevent, port_net_gevent])
+                gevent.joinall([all_port_gevent, port_iip_gevent, port_net_gevent, port_vm_gevent])
 
                 all_port_objs = all_port_gevent.value
                 port_iip_objs = port_iip_gevent.value
                 port_net_objs = port_net_gevent.value
+                port_vm_objs = port_vm_gevent.value
 
                 ret_q_ports = self._port_list(port_net_objs, all_port_objs,
-                                              port_iip_objs)
+                                              port_iip_objs, port_vm_objs)
 
             elif 'tenant_id' in filters:
                 all_project_ids = self._validate_project_ids(context,
