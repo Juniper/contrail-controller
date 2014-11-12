@@ -874,7 +874,7 @@ class AddrMgmt(object):
 
     def ip_free_notify(self, ip_addr, vn_fq_name):
         vn_fq_name_str = ':'.join(vn_fq_name)
-        for subnet_name in self._subnet_objs[vn_fq_name_str]:
+        for subnet_name in self._subnet_objs.get(vn_fq_name_str) or []:
             subnet_obj = self._subnet_objs[vn_fq_name_str][subnet_name]
             if Subnet.ip_belongs_to(IPNetwork(subnet_name),
                                     IPAddress(ip_addr)):
