@@ -3450,12 +3450,12 @@ class DBInterface(object):
                     id=iip_back_ref['uuid'])
 
                 # in case of shared ip only delete the link to the VMI
-                if len(iip_obj.name.split(' ')) > 1:
-                    iip_obj.del_virtual_machine_interface(port_obj)
-                    self._instance_ip_update(iip_obj)
-                else:
+                iip_obj.del_virtual_machine_interface(port_obj)
+                if not iip_obj.get_virtual_machine_interface_refs():
                     self._instance_ip_delete(
                         instance_ip_id=iip_back_ref['uuid'])
+                else:
+                    self._instance_ip_update(iip_obj)
 
         # disassociate any floating IP used by instance
         fip_back_refs = getattr(port_obj, 'floating_ip_back_refs', None)

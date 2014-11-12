@@ -125,7 +125,7 @@ class SvcMonitor(object):
 
         # load virtual machine instance manager
         self.vm_manager = importutils.import_object(
-            'svc_monitor.instance_manager.VirtualMachineManager',
+            'svc_monitor.virtual_machine_manager.VirtualMachineManager',
             self._vnc_lib, self.db, self.logger,
             self.vrouter_scheduler, self._args)
 

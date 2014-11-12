@@ -384,6 +384,8 @@ class VncIfmapClient(VncIfmapClientGen):
 
         # del meta,id2 from cache and del id if this was last meta
         def _id_to_metas_delete(id1, id2, meta_name):
+            if id1 not in self._id_to_metas:
+                return
             if meta_name not in self._id_to_metas[id1]:
                 return
             if not self._id_to_metas[id1][meta_name]:
