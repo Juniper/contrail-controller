@@ -784,6 +784,7 @@ public:
             inst.set_name(ri->name());
             inst.set_virtual_network(ri->virtual_network());
             inst.set_vn_index(ri->virtual_network_index());
+            inst.set_vxlan_id(ri->vxlan_id());
             inst.set_deleted(ri->deleted());
             std::vector<std::string> import_rt;
             BOOST_FOREACH(RouteTarget rt, ri->GetImportList()) {
@@ -1232,6 +1233,7 @@ public:
             inst.set_name(loc->second->name());
             inst.set_virtual_network(loc->second->virtual_network());
             inst.set_virtual_network_index(loc->second->virtual_network_index());
+            inst.set_vxlan_id(loc->second->vxlan_id());
 
             std::vector<std::string> import_list;
             BOOST_FOREACH(std::string rt, loc->second->import_list()) {
