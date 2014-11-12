@@ -167,6 +167,8 @@ class OpServer(object):
                 '--redis_server_port', str(self._redis_port),
                 '--redis_query_port', 
                 str(self.analytics_fixture.redis_uves[0].port),
+                '--cassandra_server_list', '127.0.0.1:' +
+                str(self.analytics_fixture.cassandra_port),
                 '--http_server_port', str(self.http_port),
                 '--log_file', self._log_file,
                 '--rest_api_port', str(self.listen_port)]
@@ -1567,6 +1569,49 @@ class AnalyticsFixture(fixtures.Fixture):
         assert(len(res)>0)
         return True
     # end verify_where_query
+
+    def verify_collector_object_log(self, start_time, end_time):
+        self.logger.info('verify_collector_object_log')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port);
+        query = Query(table='ObjectCollectorInfo',
+                             start_time=start_time, end_time=end_time,
+                             select_fields=['ObjectLog'])
+        json_qstr = json.dumps(query.__dict__)
+        res = vns.post_query_json(json_qstr)
+        self.logger.info("collector object log: %s" % res)
+        return res
+    # end verify_collector_object_log
+
+    @retry(delay=1, tries=5)
+    def verify_collector_object_log_before_purge(self, start_time, end_time):
+        self.logger.info('verify_collector_object_log_before_purge')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port);
+        res = self.verify_collector_object_log(start_time, end_time)
+        self.logger.info("collector object log before purging: %s" % res)
+        if not res:
+            return False
+        return True
+        # end verify_collector_object_log_before_purge
+
+    def verify_database_purge_query(self, start_time, end_time):
+        self.logger.info('verify database purge query');
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port);
+        json_qstr = json.dumps({'purge_input': 100})
+        res = vns.post_purge_query_json(json_qstr)
+        assert(res == 'started')
+        return True
+    # end verify_database_purge_query
+
+    @retry(delay=2, tries=20)
+    def verify_collector_object_log_after_purge(self, start_time, end_time):
+        self.logger.info('verify_collector_object_log_after_purge')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        res = self.verify_collector_object_log(start_time, end_time)
+        self.logger.info("collector object log after purging: %s" % res)
+        if res != []:
+            return False
+        return True
+    # end verify_collector_object_log_after_purge
 
     @retry(delay=1, tries=5)
     def verify_object_table_query(self):

@@ -17,6 +17,7 @@ local_sources = [
                  'uveserver_test.py',
                  'analytics_systest.py',
                  'analytics_statstest.py',
+                 'analytics_db_test.py',
 #                 'analytics_perftest.py',
                  ]
 local_sources_rules = []
