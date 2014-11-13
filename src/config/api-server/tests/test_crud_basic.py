@@ -853,11 +853,12 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
     # end test_floatingip_as_instanceip
 
     def test_name_with_blacklist_char(self):
-        vn_name = self.id()+'-vn<1>'
-        vn_obj = VirtualNetwork(vn_name)
-        self._add_detail('Creating network with name %s expecting failure' %(vn_name))
-        with ExpectedException(BadRequest) as e:
-            self._vnc_lib.virtual_network_create(vn_obj)
+        for suffix in [chr(0x07), '-vn<1', '-vn>1', '-vn"1', '-vn&1']:
+            vn_name = self.id()+suffix
+            vn_obj = VirtualNetwork(vn_name)
+            self._add_detail('Creating network with name %s expecting failure' %(vn_name))
+            with ExpectedException(BadRequest) as e:
+                self._vnc_lib.virtual_network_create(vn_obj)
 
         vn_name = self.id()+'-vn'
         vn_obj = VirtualNetwork(vn_name)
