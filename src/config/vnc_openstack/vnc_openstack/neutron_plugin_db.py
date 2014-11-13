@@ -1068,7 +1068,10 @@ class DBInterface(object):
             memo_req['instance-ips'][iip_obj.uuid] = iip_obj
 
         for port_obj in port_objs:
-            port_info = self._port_vnc_to_neutron(port_obj, memo_req)
+            try:
+                port_info = self._port_vnc_to_neutron(port_obj, memo_req)
+            except NoIdError:
+                continue
             ret_q_ports.append(port_info)
 
         return ret_q_ports
