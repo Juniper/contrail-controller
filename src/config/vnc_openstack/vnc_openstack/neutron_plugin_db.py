@@ -165,6 +165,7 @@ class DBInterface(object):
         def_rule['remote_ip_prefix'] = '0.0.0.0/0'
         def_rule['remote_group_id'] = None
         def_rule['protocol'] = 'any'
+        def_rule['ethertype'] = 'IPv4'
         rule = self._security_group_rule_neutron_to_vnc(def_rule, CREATE)
         self._security_group_rule_create(sg_obj.uuid, rule)
 
@@ -176,6 +177,7 @@ class DBInterface(object):
         def_rule['remote_ip_prefix'] = '0.0.0.0/0'
         def_rule['remote_group_id'] = None
         def_rule['protocol'] = 'any'
+        def_rule['ethertype'] = 'IPv4'
         rule = self._security_group_rule_neutron_to_vnc(def_rule, CREATE)
         self._security_group_rule_create(sg_obj.uuid, rule)
     #end _ensure_default_security_group_exists
@@ -1056,7 +1058,7 @@ class DBInterface(object):
         sgr_q_dict['id'] = sg_rule.get_rule_uuid()
         sgr_q_dict['tenant_id'] = sg_obj.parent_uuid.replace('-', '')
         sgr_q_dict['security_group_id'] = sg_obj.uuid
-        sgr_q_dict['ethertype'] = 'IPv4'
+        sgr_q_dict['ethertype'] = sg_rule.get_ethertype()
         sgr_q_dict['direction'] = direction
         sgr_q_dict['protocol'] = sg_rule.get_protocol()
         sgr_q_dict['port_range_min'] = sg_rule.get_dst_ports()[0].\
@@ -1101,10 +1103,15 @@ class DBInterface(object):
             if not sgr_q['protocol']:
                 sgr_q['protocol'] = 'any'
 
+            if not sgr_q['remote_ip_prefix'] and not sgr_q['remote_group_id']:
+                if not sgr_q['ethertype']:
+                    sgr_q['ethertype'] = 'IPv4'
+
             sgr_uuid = str(uuid.uuid4())
 
             rule = PolicyRuleType(rule_uuid=sgr_uuid, direction=dir,
                                   protocol=sgr_q['protocol'],
+                                  ethertype=sgr_q['ethertype'],
                                   src_addresses=local,
                                   src_ports=[PortType(0, 65535)],
                                   dst_addresses=remote,
@@ -3656,6 +3663,7 @@ class DBInterface(object):
         def_rule['remote_ip_prefix'] = '0.0.0.0/0'
         def_rule['remote_group_id'] = None
         def_rule['protocol'] = 'any'
+        def_rule['ethertype'] = 'IPv4'
         rule = self._security_group_rule_neutron_to_vnc(def_rule, CREATE)
         self._security_group_rule_create(sg_uuid, rule)
 
