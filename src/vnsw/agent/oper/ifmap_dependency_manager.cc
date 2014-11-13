@@ -184,6 +184,19 @@ void IFMapDependencyManager::Initialize() {
     policy->insert(make_pair("loadbalancer-healthmonitor", react_lb_healthmon));
 }
 
+void IFMapDependencyManager::RegisterReactionMap
+(const char *node_name, const IFMapDependencyTracker::ReactionMap &react) {
+    // Register to the IFMap table
+    IFMapTable *table = IFMapTable::FindTable(database_, node_name);
+    assert(table);
+    DBTable::ListenerId id = table->Register
+        (boost::bind(&IFMapDependencyManager::NodeObserver, this, _1, _2));
+    table_map_.insert(make_pair(table->name(), id));
+
+    // Add Policy
+    tracker_->policy_map()->insert(make_pair(node_name, react));
+}
+
 void IFMapDependencyManager::Terminate() {
     for (TableMap::iterator iter = table_map_.begin();
          iter != table_map_.end(); ++iter) {

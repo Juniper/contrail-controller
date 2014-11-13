@@ -149,6 +149,7 @@ void Layer2AgentRouteTable::AddLayer2BroadcastRoute(const Peer *peer,
                                                     uint32_t label,
                                                     int vxlan_id,
                                                     uint32_t ethernet_tag,
+                                                    uint32_t tunnel_type,
                                                     COMPOSITETYPE type,
                                                     ComponentNHKeyList
                                                     &component_nh_key_list) {
@@ -169,7 +170,8 @@ void Layer2AgentRouteTable::AddLayer2BroadcastRoute(const Peer *peer,
     req.key.reset(new Layer2RouteKey(peer, vrf_name, ethernet_tag));
     req.data.reset(new MulticastRoute(vn_name, label,
                                       ((peer->GetType() == Peer::BGP_PEER) ?
-                                      ethernet_tag : vxlan_id), nh_req));
+                                      ethernet_tag : vxlan_id), tunnel_type,
+                                      nh_req));
     Layer2TableEnqueue(Agent::GetInstance(), &req);
 }
 

@@ -32,6 +32,8 @@
 
 #include <cmn/agent_factory.h>
 
+using namespace AGENT;
+
 const std::string Agent::null_string_ = "";
 const std::string Agent::fabric_vn_name_ =
     "default-domain:default-project:ip-fabric";
@@ -208,6 +210,7 @@ void Agent::CopyConfig(AgentParam *params) {
     vhost_interface_name_ = params_->vhost_name();
     ip_fabric_intf_name_ = params_->eth_port();
     host_name_ = params_->host_name();
+    agent_name_ = params_->host_name();
     prog_name_ = params_->program_name();
     introspect_port_ = params_->http_server_port();
     prefix_len_ = params_->vhost_plen();
@@ -263,7 +266,7 @@ void Agent::InitCollector() {
         g_vns_constants.Module2NodeType.find(module)->second;
     if (params_->collector_server_list().size() != 0) {
         Sandesh::InitGenerator(discovery_client_name_,
-                params_->host_name(),
+                host_name(),
                 g_vns_constants.NodeTypeNames.find(node_type)->second,
                 instance_id_,
                 event_manager(),
@@ -272,7 +275,7 @@ void Agent::InitCollector() {
                 NULL);
     } else {
         Sandesh::InitGenerator(discovery_client_name_,
-                params_->host_name(),
+                host_name(),
                 g_vns_constants.NodeTypeNames.find(node_type)->second,
                 instance_id_,
                 event_manager(),
@@ -341,7 +344,7 @@ Agent::Agent() :
     params_(NULL), event_mgr_(NULL), agent_xmpp_channel_(),
     ifmap_channel_(), xmpp_client_(), xmpp_init_(), dns_xmpp_channel_(),
     dns_xmpp_client_(), dns_xmpp_init_(), agent_stale_cleaner_(NULL),
-    cn_mcast_builder_(NULL), ds_client_(NULL), host_name_(""),
+    cn_mcast_builder_(NULL), ds_client_(NULL), host_name_(""), agent_name_(""),
     prog_name_(""), introspect_port_(0),
     instance_id_(g_vns_constants.INSTANCE_ID_DEFAULT), db_(NULL),
     task_scheduler_(NULL), agent_init_(NULL), intf_table_(NULL),
@@ -352,7 +355,8 @@ Agent::Agent() :
     intf_cfg_table_(NULL), router_id_(0), prefix_len_(0), 
     gateway_id_(0), xs_cfg_addr_(""), xs_idx_(0), xs_addr_(), xs_port_(),
     xs_stime_(), xs_dns_idx_(0), dns_addr_(), dns_port_(),
-    dss_addr_(""), dss_port_(0), dss_xs_instances_(0), discovery_client_name_(),
+    dss_addr_(""), dss_port_(0), dss_xs_instances_(0),
+    discovery_client_name_(),
     label_range_(), ip_fabric_intf_name_(""), vhost_interface_name_(""),
     pkt_interface_name_("pkt0"), cfg_listener_(NULL), arp_proto_(NULL),
     dhcp_proto_(NULL), dns_proto_(NULL), icmp_proto_(NULL),
@@ -480,6 +484,14 @@ void Agent::set_oper_db(OperDB *oper_db) {
 
 DomainConfig *Agent::domain_config_table() const {
     return oper_db_->domain_config_table();
+}
+
+PhysicalDeviceManager *Agent::device_manager() const {
+    return device_manager_;
+}
+
+void Agent::set_device_manager(PhysicalDeviceManager *dev_mgmt) {
+    device_manager_ = dev_mgmt;
 }
 
 bool Agent::isVmwareMode() const {

@@ -10,6 +10,10 @@ env = AgentEnv.Clone()
 # test specific modifications
 AgentEnv.MakeTestEnv(env)
 
+env.Append(LIBPATH = env['TOP'] + '/vnsw/agent/test-xml')
+env.Append(LIBS = 'agent_test_xml')
+env.Append(LIBS = 'agent_oper_test_xml')
+
 oper_test_suite = []
 oper_flaky_test_suite = []
 
@@ -22,6 +26,13 @@ test_fabric_interface = AgentEnv.MakeTestCmd(env, 'test_fabric_interface',
                                              oper_flaky_test_suite)
 test_aap = AgentEnv.MakeTestCmd(env, 'test_aap', oper_flaky_test_suite)
 test_ipv6 = AgentEnv.MakeTestCmd(env, 'test_ipv6', oper_test_suite)
+test_oper_xml = AgentEnv.MakeTestCmdSrc(env, 'test_oper_xml',
+                                        [
+                                         'test_oper_xml.cc',
+                                         '../../pkt/test/test_pkt_util.o'
+                                        ],
+                                        oper_test_suite)
+
 env.Alias('agent:test_ipv6', test_ipv6)
 
 env.Append(LIBPATH = [

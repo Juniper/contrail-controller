@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<test_suite name="physical-device">
+<test name="test1">
+    <physical-router uuid="1" name="router-1"/>
+    <physical-router uuid="2" name="router-2"/>
+    <validate name="validate-1">
+        <physical-router name="router-1" uuid="1" present="1" />
+        <physical-router name="router-2" uuid="2" present="1" />
+    </validate>
+    <physical-router uuid="1" name="router-1" del="1"/>
+    <physical-router uuid="2" name="router-2" del="1"/>
+    <validate name="validate-1">
+        <physical-router name="router-1" uuid="1" present="no" />
+        <physical-router name="router-2" uuid="2" present="no" />
+    </validate>
+</test>
+</test_suite>

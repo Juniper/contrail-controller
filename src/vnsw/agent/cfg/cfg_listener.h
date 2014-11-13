@@ -63,6 +63,9 @@ public:
     bool CanUseNode(IFMapNode *node, IFMapAgentTable *table);
     bool SkipNode(IFMapNode *node);
     bool SkipNode(IFMapNode *node, IFMapAgentTable *table);
+
+    IFMapNode *FindAdjacentIFMapNode(const Agent *agent, IFMapNode *node,
+                                     const char *name);
 private:
     void UpdateSeenState(DBTableBase *table, DBEntryBase *dbe,
                          CfgDBState *state, DBTableBase::ListenerId id);

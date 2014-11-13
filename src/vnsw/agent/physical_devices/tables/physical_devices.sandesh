@@ -1,0 +1,145 @@
+/*
+ * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+ */
+
+/****************************************************************************
+  Sandesh definitions for PhysicalDevice
+ ****************************************************************************/
+struct SandeshDevice {
+    1: string uuid;
+    2: string name;
+    3: string vendor;
+    4: string ip_address;
+    5: string management_protocol;
+}
+
+response sandesh SandeshDeviceListResp {
+    1: list<SandeshDevice> device_list;
+}
+
+request sandesh SandeshDeviceReq {
+    1: string name;
+}
+
+struct DeviceObjectLogInfo {
+    1: string event;
+    2: string uuid;
+    3: i32 ref_count;
+    4: string name;
+    5: string vendor;
+    6: string ip_address;
+    7: string management_protocol;
+}
+
+objectlog sandesh DeviceObjectLog {
+    1: DeviceObjectLogInfo device;
+}
+
+/****************************************************************************
+  Sandesh definitions for PhysicalPort
+ ****************************************************************************/
+struct PhysicalPortObjectLogInfo {
+    1: string event;
+    2: string uuid;
+    3: i32 ref_count;
+    4: string name;
+    5: string device;
+}
+
+objectlog sandesh PhysicalPortObjectLog {
+    1: PhysicalPortObjectLogInfo port;
+}
+
+struct SandeshPhysicalPort {
+    1: string uuid;
+    2: string name;
+    3: string device;
+}
+
+response sandesh SandeshPhysicalPortListResp {
+    1: list<SandeshPhysicalPort> port_list;
+}
+
+request sandesh SandeshPhysicalPortReq {
+    1: string device;
+    2: string name;
+}
+
+/****************************************************************************
+  Sandesh definitions for LogicalPort
+ ****************************************************************************/
+struct SandeshLogicalPort {
+    1: string uuid;
+    2: string name;
+    3: string physical_port;
+}
+
+response sandesh SandeshLogicalPortListResp {
+    1: list<SandeshLogicalPort> port_list;
+}
+
+request sandesh SandeshLogicalPortReq {
+    1: string port;
+    2: string name;
+}
+
+struct LogicalPortObjectLogInfo {
+    1: string event;
+    2: string uuid;
+    3: i32 ref_count;
+    4: string name;
+    5: string physical_port;
+}
+
+objectlog sandesh LogicalPortObjectLog {
+    1: LogicalPortObjectLogInfo port;
+}
+
+/****************************************************************************
+  Sandesh definitions for PhysicalDeviceVn
+ ****************************************************************************/
+/* Oper table */
+struct SandeshPhysicalDeviceVn {
+    1: string device_uuid;
+    2: string vn_uuid;
+    3: string device;
+    4: string vn;
+}
+
+response sandesh SandeshPhysicalDeviceVnListResp {
+    1: list<SandeshPhysicalDeviceVn> port_list;
+}
+
+request sandesh SandeshPhysicalDeviceVnReq {
+    1: string device;
+}
+
+/* Config tree */
+struct SandeshConfigPhysicalDeviceVn {
+    1: string device_uuid;
+    2: string vn_uuid;
+    3: i32 version;
+}
+
+response sandesh SandeshConfigPhysicalDeviceVnListResp {
+    1: i32 config_version;
+    2: list<SandeshConfigPhysicalDeviceVn> port_list;
+}
+
+request sandesh SandeshConfigPhysicalDeviceVnReq {
+    1: string device;
+}
+
+/* Sandesh log */
+struct PhysicalDeviceVnObjectLogInfo {
+    1: string event;
+    2: string device_uuid;
+    3: string vn_uuid;
+    4: i32 ref_count;
+    5: string device;
+    6: string vn;
+}
+
+objectlog sandesh PhysicalDeviceVnObjectLog {
+    1: PhysicalDeviceVnObjectLogInfo port;
+}
