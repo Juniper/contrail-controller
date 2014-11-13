@@ -9,8 +9,6 @@
 #include <uve/agent_stats_collector.h>
 #include <uve/flow_stats_collector.h>
 
-class VrouterStatsCollector;
-
 //The class to drive UVE module initialization for agent
 //Defines objects required for statistics collection from vrouter and
 //objects required for sending UVE information to collector.
@@ -30,14 +28,10 @@ public:
     AgentStatsCollector *agent_stats_collector() const {
         return agent_stats_collector_.get();
     }
-    VrouterStatsCollector *vrouter_stats_collector() const {
-        return vrouter_stats_collector_.get();
-    }
 
 protected:
     boost::scoped_ptr<AgentStatsCollector> agent_stats_collector_;
     boost::scoped_ptr<FlowStatsCollector> flow_stats_collector_;
-    boost::scoped_ptr<VrouterStatsCollector> vrouter_stats_collector_;
 
 private:
     DISALLOW_COPY_AND_ASSIGN(AgentUve);

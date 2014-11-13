@@ -15,20 +15,14 @@ public:
     virtual ~VrouterUveEntry();
     L4PortBitmap port_bitmap() { return port_bitmap_; }
 
-    bool SendVrouterMsg();
+    virtual bool SendVrouterMsg();
     void UpdateBitmap(uint8_t proto, uint16_t sport, uint16_t dport);
     uint32_t GetCpuCount();
 
 protected:
-    VrouterStatsAgent prev_stats_;
     uint8_t bandwidth_count_;
-    uint8_t cpu_stats_count_;
     L4PortBitmap port_bitmap_;
 private:
-    //The following Dispatch functions are not made const function because
-    //in derived class they need to be non-const
-    virtual void DispatchVrouterStatsMsg(const VrouterStatsAgent &uve);
-    virtual void DispatchComputeCpuStateMsg(const ComputeCpuState &ccs);
     void InitPrevStats() const;
     void FetchDropStats(AgentDropStats &ds) const;
     bool SetVrouterPortBitmap(VrouterStatsAgent &vr_stats);
@@ -41,7 +35,6 @@ private:
     bool BuildPhysicalInterfaceList(std::vector<AgentIfStats> &list) const;
     std::string GetMacAddress(const MacAddress &mac) const;
     void BuildXmppStatsList(std::vector<AgentXmppStats> &list) const;
-    void BuildAndSendComputeCpuStateMsg(const CpuLoadInfo &info);
 
     uint64_t start_time_;
     DISALLOW_COPY_AND_ASSIGN(VrouterUveEntry);

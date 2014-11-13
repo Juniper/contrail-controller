@@ -16,6 +16,7 @@
 #include <uve/stats_interval_types.h>
 #include <init/agent_param.h>
 #include <oper/mirror_table.h>
+#include <uve/vrouter_stats_collector.h>
 
 using process::ConnectionInfo;
 using process::ProcessState;
@@ -30,7 +31,10 @@ AgentUveBase::AgentUveBase(Agent *agent, uint64_t intvl)
     : vn_uve_table_(new VnUveTableBase(agent)),
       vm_uve_table_(new VmUveTableBase(agent)),
       vrouter_uve_entry_(new VrouterUveEntryBase(agent)),
-      agent_(agent), bandwidth_intvl_(intvl) {
+      agent_(agent), bandwidth_intvl_(intvl),
+      vrouter_stats_collector_(new VrouterStatsCollector(
+                                   *(agent->event_manager()->io_service()),
+                                   this)) {
     singleton_ = this;
 }
 

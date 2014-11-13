@@ -11,6 +11,8 @@
 #include <uve/vrouter_uve_entry_base.h>
 #include <boost/scoped_ptr.hpp>
 
+class VrouterStatsCollector;
+
 //The class to drive UVE module initialization for agent.
 //Defines objects required for statistics collection from vrouter and
 //objects required for sending UVE information to collector.
@@ -27,6 +29,9 @@ public:
     Agent* agent() const { return agent_; }
     VrouterUveEntryBase* vrouter_uve_entry() const {
         return vrouter_uve_entry_.get();
+    }
+    VrouterStatsCollector *vrouter_stats_collector() const {
+        return vrouter_stats_collector_.get();
     }
 
     void Init();
@@ -51,6 +56,8 @@ private:
     process::ConnectionStateManager<NodeStatusUVE, NodeStatus>
         *connection_state_manager_;
     DISALLOW_COPY_AND_ASSIGN(AgentUveBase);
+protected:
+    boost::scoped_ptr<VrouterStatsCollector> vrouter_stats_collector_;
 };
 
 #endif //vnsw_agent_uve_base_h

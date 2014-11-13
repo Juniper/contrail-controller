@@ -28,10 +28,7 @@ AgentUve::AgentUve(Agent *agent, uint64_t intvl)
                                  *(agent->event_manager()->io_service()),
                                  agent->params()->flow_stats_interval(),
                                  agent->params()->flow_cache_timeout(),
-                                 this)),
-      vrouter_stats_collector_(new VrouterStatsCollector(
-                                   *(agent->event_manager()->io_service()),
-                                   this)) {
+                                 this)) {
       //Override vm_uve_table_ to point to derived class object
       vn_uve_table_.reset(new VnUveTable(agent));
       vm_uve_table_.reset(new VmUveTable(agent));

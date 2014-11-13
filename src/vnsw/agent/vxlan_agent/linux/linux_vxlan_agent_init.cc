@@ -75,10 +75,12 @@ void LinuxVxlanAgentInit::CreateModules() {
 
 void LinuxVxlanAgentInit::RegisterDBClients() {
     ksync_vxlan_->RegisterDBClients(agent()->db());
+    uve_->RegisterDBClients();
 }
 
 void LinuxVxlanAgentInit::InitModules() {
     ksync_vxlan_->Init();
+    uve_->Init();
 }
 
 void LinuxVxlanAgentInit::ConnectToController() {

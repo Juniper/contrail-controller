@@ -92,6 +92,7 @@ libuve = env.Library('uve',
                      'vm_uve_table_base.cc',
                      'vn_uve_entry_base.cc',
                      'vn_uve_table_base.cc',
+                     'vrouter_stats_collector.cc',
                      'vrouter_uve_entry_base.cc'
                      ])
 
@@ -111,7 +112,6 @@ libstatsuve = env.Library('statsuve',
                           'vn_uve_table.cc',
                           'vrf_stats_io_context.cc',
                           'vrouter_uve_entry.cc',
-                          'vrouter_stats_collector.cc',
                          ])
 
 Import('BuildEnv')

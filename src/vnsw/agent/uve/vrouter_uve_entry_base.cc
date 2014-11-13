@@ -22,7 +22,8 @@
 using namespace std;
 
 VrouterUveEntryBase::VrouterUveEntryBase(Agent *agent)
-    : agent_(agent), phy_intf_set_(), vn_listener_id_(DBTableBase::kInvalidId),
+    : agent_(agent), phy_intf_set_(), prev_stats_(), cpu_stats_count_(0),
+      vn_listener_id_(DBTableBase::kInvalidId),
       vm_listener_id_(DBTableBase::kInvalidId),
       intf_listener_id_(DBTableBase::kInvalidId), prev_vrouter_() {
 }
@@ -362,7 +363,7 @@ void VrouterUveEntryBase::BuildAgentConfig(VrouterAgent &vrouter_agent) {
 }
 
 
-void VrouterUveEntryBase::SendVrouterUve() {
+bool VrouterUveEntryBase::SendVrouterMsg() {
     VrouterAgent vrouter_agent;
     bool changed = false;
     static bool first = true, build_info = false;
@@ -478,8 +479,61 @@ void VrouterUveEntryBase::SendVrouterUve() {
     if (changed) {
         DispatchVrouterMsg(vrouter_agent);
     }
+
+
+
+    VrouterStatsAgent stats;
+    cpu_stats_count_++;
+    if ((cpu_stats_count_ % 6) == 0) {
+        static bool cpu_first = true;
+        CpuLoadInfo cpu_load_info;
+        CpuLoadData::FillCpuInfo(cpu_load_info, true);
+        if (prev_stats_.get_cpu_info() != cpu_load_info || cpu_first) {
+            stats.set_cpu_info(cpu_load_info);
+            prev_stats_.set_cpu_info(cpu_load_info);
+            changed = true;
+            cpu_first = false;
+        }
+        //Cpu and mem stats needs to be sent always regardless of whether stats
+        //have changed since last send
+        stats.set_cpu_share(cpu_load_info.get_cpu_share());
+        stats.set_virt_mem(cpu_load_info.get_meminfo().get_virt());
+        stats.set_used_sys_mem(cpu_load_info.get_sys_mem_info().get_used());
+        stats.set_one_min_avg_cpuload(
+                cpu_load_info.get_cpuload().get_one_min_avg());
+        DispatchVrouterStatsMsg(stats);
+
+        //Stats oracle interface for cpu and mem stats. Needs to be sent
+        //always regardless of whether the stats have changed since last send
+        BuildAndSendComputeCpuStateMsg(cpu_load_info);
+        cpu_stats_count_ = 0;
+    }
+    return changed;
 }
 
 string VrouterUveEntryBase::GetMacAddress(const MacAddress &mac) const {
     return mac.ToString();
+}
+
+void VrouterUveEntryBase::DispatchVrouterStatsMsg(const VrouterStatsAgent &uve) {
+    VrouterStats::Send(uve);
+}
+
+void VrouterUveEntryBase::DispatchComputeCpuStateMsg(const ComputeCpuState &ccs) {
+    ComputeCpuStateTrace::Send(ccs);
+}
+
+void VrouterUveEntryBase::BuildAndSendComputeCpuStateMsg(const CpuLoadInfo &info) {
+    ComputeCpuState astate;
+    VrouterCpuInfo ainfo;
+    vector<VrouterCpuInfo> aciv;
+
+    astate.set_name(agent_->host_name());
+    ainfo.set_cpu_share(info.get_cpu_share());
+    ainfo.set_mem_virt(info.get_meminfo().get_virt());
+    ainfo.set_used_sys_mem(info.get_sys_mem_info().get_used());
+    ainfo.set_one_min_cpuload(info.get_cpuload().get_one_min_avg());
+    aciv.push_back(ainfo);
+    astate.set_cpu_info(aciv);
+    DispatchComputeCpuStateMsg(astate);
 }

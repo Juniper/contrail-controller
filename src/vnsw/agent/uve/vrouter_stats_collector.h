@@ -7,7 +7,7 @@
 
 #include <cmn/agent_cmn.h>
 #include <uve/stats_collector.h>
-#include <uve/agent_uve.h>
+#include <uve/agent_uve_base.h>
 
 //Defines functionality to periodically export VRouter UVEs to collector.
 //Runs in the context of "Agent::Uve" which has exclusion with "db::DBTable"

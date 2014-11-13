@@ -23,35 +23,11 @@
 using namespace std;
 
 VrouterUveEntry::VrouterUveEntry(Agent *agent)
-    : VrouterUveEntryBase(agent), prev_stats_(), bandwidth_count_(0),
-      cpu_stats_count_(0), port_bitmap_() {
+    : VrouterUveEntryBase(agent), bandwidth_count_(0), port_bitmap_() {
     start_time_ = UTCTimestampUsec();
 }
 
 VrouterUveEntry::~VrouterUveEntry() {
-}
-
-void VrouterUveEntry::DispatchVrouterStatsMsg(const VrouterStatsAgent &uve) {
-    VrouterStats::Send(uve);
-}
-
-void VrouterUveEntry::DispatchComputeCpuStateMsg(const ComputeCpuState &ccs) {
-    ComputeCpuStateTrace::Send(ccs);
-}
-
-void VrouterUveEntry::BuildAndSendComputeCpuStateMsg(const CpuLoadInfo &info) {
-    ComputeCpuState astate;
-    VrouterCpuInfo ainfo;
-    vector<VrouterCpuInfo> aciv;
-
-    astate.set_name(agent_->host_name());
-    ainfo.set_cpu_share(info.get_cpu_share());
-    ainfo.set_mem_virt(info.get_meminfo().get_virt());
-    ainfo.set_used_sys_mem(info.get_sys_mem_info().get_used());
-    ainfo.set_one_min_cpuload(info.get_cpuload().get_one_min_avg());
-    aciv.push_back(ainfo);
-    astate.set_cpu_info(aciv);
-    DispatchComputeCpuStateMsg(astate);
 }
 
 bool VrouterUveEntry::SendVrouterMsg() {
@@ -59,7 +35,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
     bool change = false;
     VrouterStatsAgent stats;
 
-    SendVrouterUve();
+    VrouterUveEntryBase::SendVrouterMsg();
 
     stats.set_name(agent_->host_name());
 
@@ -144,30 +120,6 @@ bool VrouterUveEntry::SendVrouterMsg() {
         change = true;
     }
 
-    cpu_stats_count_++;
-    if ((cpu_stats_count_ % 6) == 0) {
-        static bool cpu_first = true;
-        CpuLoadInfo cpu_load_info;
-        CpuLoadData::FillCpuInfo(cpu_load_info, true);
-        if (prev_stats_.get_cpu_info() != cpu_load_info || cpu_first) {
-            stats.set_cpu_info(cpu_load_info);
-            prev_stats_.set_cpu_info(cpu_load_info);
-            change = true;
-            cpu_first = false;
-        }
-        //Cpu and mem stats needs to be sent always regardless of whether stats
-        //have changed since last send
-        stats.set_cpu_share(cpu_load_info.get_cpu_share());
-        stats.set_virt_mem(cpu_load_info.get_meminfo().get_virt());
-        stats.set_used_sys_mem(cpu_load_info.get_sys_mem_info().get_used());
-        stats.set_one_min_avg_cpuload(
-                cpu_load_info.get_cpuload().get_one_min_avg());
-
-        //Stats oracle interface for cpu and mem stats. Needs to be sent
-        //always regardless of whether the stats have changed since last send
-        BuildAndSendComputeCpuStateMsg(cpu_load_info);
-        cpu_stats_count_ = 0;
-    }
     vector<AgentIfStats> phy_if_list;
     BuildPhysicalInterfaceList(phy_if_list);
     if (prev_stats_.get_phy_if_stats_list() != phy_if_list) {

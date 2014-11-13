@@ -55,14 +55,22 @@ public:
     void InterfaceWalkDone(DBTableBase *base, StringVectorPtr if_l,
                            StringVectorPtr err_if_l,
                            StringVectorPtr nova_if_l);
+    virtual bool SendVrouterMsg();
 protected:
-    void SendVrouterUve();
     Agent *agent_;
     PhysicalInterfaceSet phy_intf_set_;
+    VrouterStatsAgent prev_stats_;
+    uint8_t cpu_stats_count_;
+
+    //The following Dispatch functions are not made const function because
+    //in derived class they need to be non-const
+    virtual void DispatchVrouterStatsMsg(const VrouterStatsAgent &uve);
+    virtual void DispatchComputeCpuStateMsg(const ComputeCpuState &ccs);
 private:
     //The following Dispatch functions are not made const function because
     //in derived class they need to be non-const
     virtual void DispatchVrouterMsg(const VrouterAgent &uve);
+    void BuildAndSendComputeCpuStateMsg(const CpuLoadInfo &info);
     void InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e);
     void VmNotify(DBTablePartBase *partition, DBEntryBase *e);
     void VnNotify(DBTablePartBase *partition, DBEntryBase *e);
