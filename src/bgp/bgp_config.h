@@ -294,6 +294,7 @@ public:
     bool virtual_network_allow_transit() const {
         return virtual_network_allow_transit_;
     }
+    int vxlan_id() const { return vxlan_id_; }
 
     IFMapNode *node() { return node_proxy_.node(); }
     const std::string &name() const { return name_; }
@@ -317,6 +318,7 @@ private:
     std::string virtual_network_;
     int virtual_network_index_;
     bool virtual_network_allow_transit_;
+    int vxlan_id_;
 
     boost::intrusive_ptr<const autogen::RoutingInstance> instance_config_;
 

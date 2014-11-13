@@ -436,6 +436,7 @@ RoutingInstance::RoutingInstance(std::string name, BgpServer *server,
     : name_(name), index_(-1), mgr_(mgr), config_(config),
       is_default_(false), virtual_network_index_(0),
       virtual_network_allow_transit_(false),
+      vxlan_id_(0),
       deleter_(new DeleteActor(server, this)),
       manager_delete_ref_(this, mgr->deleter()) {
       peer_manager_.reset(BgpObjectFactory::Create<PeerManager>(this));
@@ -451,6 +452,7 @@ void RoutingInstance::ProcessConfig(BgpServer *server) {
     virtual_network_ = config_->virtual_network();
     virtual_network_index_ = config_->virtual_network_index();
     virtual_network_allow_transit_ = config_->virtual_network_allow_transit();
+    vxlan_id_ = config_->vxlan_id();
 
     std::vector<std::string> import_rt, export_rt;
     BOOST_FOREACH(string irt, config_->import_list()) {
@@ -542,6 +544,7 @@ void RoutingInstance::UpdateConfig(BgpServer *server,
     virtual_network_ = cfg->virtual_network();
     virtual_network_index_ = cfg->virtual_network_index();
     virtual_network_allow_transit_ = cfg->virtual_network_allow_transit();
+    vxlan_id_ = cfg->vxlan_id();
 
     // Master routing instance doesn't have import & export list
     // Master instance imports and exports all RT
@@ -768,6 +771,10 @@ int RoutingInstance::virtual_network_index() const {
 
 bool RoutingInstance::virtual_network_allow_transit() const {
     return virtual_network_allow_transit_;
+}
+
+int RoutingInstance::vxlan_id() const {
+    return vxlan_id_;
 }
 
 BgpServer *RoutingInstance::server() {

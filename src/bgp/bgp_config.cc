@@ -415,7 +415,8 @@ BgpInstanceConfig::BgpInstanceConfig(const string &name)
     : name_(name),
       protocol_(NULL),
       virtual_network_index_(0),
-      virtual_network_allow_transit_(false) {
+      virtual_network_allow_transit_(false),
+      vxlan_id_(0) {
 }
 
 //
@@ -520,6 +521,26 @@ static bool GetVirtualNetworkAllowTransit(DBGraph *graph, IFMapNode *node) {
 }
 
 //
+// Get the vxlan id for a virtual-network.  The input IFMapNode represents
+// the virtual-network.
+//
+// The vxlan_network_identifier is 0 when automatic mode is in use. In that
+// case, the network_id is used as vxlan id.
+//
+static int GetVirtualNetworkVxlanId(DBGraph *graph, IFMapNode *node) {
+    const autogen::VirtualNetwork *vn =
+        static_cast<autogen::VirtualNetwork *>(node->GetObject());
+    if (vn && vn->IsPropertySet(autogen::VirtualNetwork::PROPERTIES)) {
+        if (vn->properties().vxlan_network_identifier) {
+            return vn->properties().vxlan_network_identifier;
+        } else {
+            return vn->properties().network_id;
+        }
+    }
+    return 0;
+}
+
+//
 // Update BgpInstanceConfig based on a new autogen::RoutingInstance object.
 //
 // Rebuild the import and export route target lists and update the virtual
@@ -569,6 +590,7 @@ void BgpInstanceConfig::Update(BgpConfigManager *manager,
             virtual_network_index_ = GetVirtualNetworkIndex(graph, adj);
             virtual_network_allow_transit_ =
                 GetVirtualNetworkAllowTransit(graph, adj);
+            vxlan_id_ = GetVirtualNetworkVxlanId(graph, adj);
         }
     }
 

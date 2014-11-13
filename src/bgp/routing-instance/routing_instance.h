@@ -101,6 +101,7 @@ public:
     const std::string virtual_network() const;
     int virtual_network_index() const;
     bool virtual_network_allow_transit() const;
+    int vxlan_id() const;
 
     const RoutingInstanceMgr *manager() const { return mgr_; }
     RoutingInstanceInfo GetDataCollection(const char *operation);
@@ -140,6 +141,7 @@ private:
     std::string virtual_network_;
     int virtual_network_index_;
     bool virtual_network_allow_transit_;
+    int vxlan_id_;
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<RoutingInstance> manager_delete_ref_;
     boost::scoped_ptr<StaticRouteMgr> static_route_mgr_;
