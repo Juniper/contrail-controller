@@ -1,32 +1,5 @@
-#
-# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
-#
-
 import sys
 import re
-
-IP_FABRIC_VN_FQ_NAME = ['default-domain', 'default-project', 'ip-fabric']
-IP_FABRIC_RI_FQ_NAME = IP_FABRIC_VN_FQ_NAME + ['__default__']
-LINK_LOCAL_VN_FQ_NAME = ['default-domain', 'default-project', '__link_local__']
-LINK_LOCAL_RI_FQ_NAME = LINK_LOCAL_VN_FQ_NAME + ['__link_local__']
-
-BGP_RTGT_MIN_ID = 8000000
-def obj_to_json(obj):
-    return dict((k, v) for k, v in obj.__dict__.iteritems())
-#end obj_to_json
-
-def json_to_obj(obj):
-    pass
-#end json_to_obj
-
-def ignore_exceptions(func):
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except Exception as e:
-            return None
-    return wrapper
-# end ignore_exceptions
 
 _illegal_unichrs = [(0x00, 0x08), (0x0B, 0x0C), (0x0E, 0x1F),
                         (0x7F, 0x84), (0x86, 0x9F),
@@ -44,3 +17,34 @@ if sys.maxunicode >= 0x10000:  # not narrow build
 _illegal_ranges = ["%s-%s" % (unichr(low), unichr(high))
                    for (low, high) in _illegal_unichrs]
 illegal_xml_chars_RE = re.compile(u'[%s]' % u''.join(_illegal_ranges))
+
+INVALID_NAME_CHARS = set('<>&":')
+
+def validate_mandatory_fields(obj_uuid, obj_cols):
+    for fname in ['fq_name', 'type', 'prop:id_perms']:
+        fval = obj_cols.get(fname)
+        if not fval:
+            raise Exception("*** Error, no %s. Row: %s Columns: %s" %(fname, obj_uuid, str(obj_cols)))
+
+for row, cols in OBJ_UUID_TABLE.get_range():
+    try:
+        validate_mandatory_fields(row, cols)
+    except Exception as e:
+        print str(e)
+        continue
+
+    fq_name = cols['fq_name']
+    if illegal_xml_chars_RE.search(fq_name[-1]):
+        print "*** Error, illegal xml char in name %s" %(fq_name[-1])
+        continue
+
+        if obj_type[:].replace('-','_') == 'route_target':
+            invalid_chars = INVALID_NAME_CHARS - set(':')
+        else:
+            invalid_chars = INVALID_NAME_CHARS
+
+        if any((c in invalid_chars) for c in fq_name[-1]):
+            print "*** Error, restricted xml characters %s in name %s" %(str(invalid_chars), fq_name[-1])
+            continue
+
+exit()

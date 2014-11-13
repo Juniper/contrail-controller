@@ -57,6 +57,7 @@ from cfgm_common.uve.vnc_api.ttypes import VncApiCommon, VncApiReadLog,\
     VncApiConfigLog, VncApiError
 from cfgm_common.uve.virtual_network.ttypes import UveVirtualNetworkConfig,\
     UveVirtualNetworkConfigTrace
+from cfgm_common import illegal_xml_chars_RE
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeNames, INSTANCE_ID_DEFAULT
 from provision_defaults import Provision
@@ -201,7 +202,7 @@ class VncApiServer(VncApiServerGen):
     """
     This is the manager class co-ordinating all classes present in the package
     """
-    _INVALID_NAME_CHARS = set('<>:')
+    _INVALID_NAME_CHARS = set('<>&":')
 
     def __new__(cls, *args, **kwargs):
         obj = super(VncApiServer, cls).__new__(cls, *args, **kwargs)
@@ -1322,6 +1323,11 @@ class VncApiServer(VncApiServerGen):
                 bottle.abort(400, "Bad Request, no %s in POST body" %(fname))
             return fval
         fq_name = _check_field_present('fq_name')
+
+        # well-formed name checks
+        if illegal_xml_chars_RE.search(fq_name[-1]):
+            bottle.abort(400,
+                "Bad Request, name has xml reserved characters")
         if obj_type[:].replace('-','_') == 'route_target':
             invalid_chars = self._INVALID_NAME_CHARS - set(':')
         else:
