@@ -1377,7 +1377,7 @@ TEST_F(BgpConfigManagerTest, ShowNeighbors) {
     TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
 }
 
-TEST_F(BgpConfigManagerTest, ShowPeerings) {
+TEST_F(BgpConfigManagerTest, ShowPeerings1) {
     string content = FileRead("controller/src/bgp/testdata/config_test_27.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
@@ -1402,6 +1402,51 @@ TEST_F(BgpConfigManagerTest, ShowPeerings) {
         peering.set_neighbor_count(config->size());
         peering_list.push_back(peering);
     }
+
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowPeeringResponse, _1, peering_list));
+
+    ShowBgpPeeringConfigReq *show_req = new ShowBgpPeeringConfigReq;
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done_);
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, config_manager_->config().instances().size());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+TEST_F(BgpConfigManagerTest, ShowPeerings2) {
+    char full_name[1024];
+    snprintf(full_name, sizeof(full_name), "attr(%s:%s,%s:%s)",
+        BgpConfigManager::kMasterInstance, "local",
+        BgpConfigManager::kMasterInstance, "remote");
+
+    bitset<8> session_mask(7);
+    string content = GeneratePeeringConfig(session_mask);
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, GetPeeringCount());
+    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(full_name) != NULL);
+    const BgpPeeringConfig *config = FindPeeringConfig(full_name);
+    TASK_UTIL_EXPECT_EQ(session_mask.count(), config->size());
+    VerifyBgpSessions(config, session_mask);
+
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = &server_;
+    Sandesh::set_client_context(&sandesh_context);
+
+    ShowBgpPeeringConfig peering;
+    peering.set_name(config->name());
+    peering.set_instance_name(BgpConfigManager::kMasterInstance);
+    peering.set_neighbor_count(config->size());
+    vector<ShowBgpPeeringConfig> peering_list;
+    peering_list.push_back(peering);
 
     Sandesh::set_response_callback(
         boost::bind(ValidateShowPeeringResponse, _1, peering_list));
