@@ -39,7 +39,10 @@ utils_scripts = [
   'del_projects.py',
   'net_policy_join.py',
   'provision_mx.py',
-  'service-instance.py']
+  'service-instance.py',
+  'config_db_obj_name_validate.sh',
+  'config_db_obj_name_validate.py',
+]
 
 for utils in utils_scripts:
   env.Alias('install',env.Install(env['INSTALL_EXAMPLE'], utils))
