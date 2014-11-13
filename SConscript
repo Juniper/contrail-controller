@@ -23,6 +23,8 @@ env.Alias('controller/test', [
     'controller/src/query_engine:test',
     'controller/src/schema:test',
     'controller/src/xmpp:test',
+    'controller/src/api-lib:test',
+    'controller/src/config/api-server:test',
 ])
 
 env.Alias('controller/flaky-test', [
@@ -38,8 +40,6 @@ env.Alias('controller/flaky-test', [
     'controller/src/ifmap:flaky-test',
     'controller/src/io:flaky-test',
     'controller/src/xmpp:flaky-test',
-    'controller/src/api-lib:flaky-test',
-    'controller/src/config/api-server:flaky-test',
     'controller/src/config/schema-transformer:flaky-test',
 ])
 
