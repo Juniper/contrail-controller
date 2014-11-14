@@ -107,6 +107,7 @@ def launch_api_server(listen_ip, listen_port, http_server_port, admin_port,
     args_str = args_str + "--http_server_port %s " % (http_server_port)
     args_str = args_str + "--admin_port %s " % (admin_port)
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
+    args_str = args_str + "--log_local "
     args_str = args_str + "--log_file api_server_sandesh.log "
 
     import cgitb
@@ -137,6 +138,7 @@ def launch_svc_monitor(api_server_ip, api_server_port):
     args_str = args_str + "--ifmap_username api-server "
     args_str = args_str + "--ifmap_password api-server "
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
+    args_str = args_str + "--log_local "
     args_str = args_str + "--log_file svc_monitor.log "
 
     svc_monitor.main(args_str)
@@ -152,9 +154,26 @@ def launch_schema_transformer(api_server_ip, api_server_port):
     args_str = args_str + "--api_server_port %s " % (api_server_port)
     args_str = args_str + "--http_server_port %s " % (get_free_port())
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
+    args_str = args_str + "--log_local "
     args_str = args_str + "--log_file schema_transformer.log "
+    args_str = args_str + "--trace_file schema_transformer.err "
     to_bgp.main(args_str)
 # end launch_schema_transformer
+
+def launch_device_manager(api_server_ip, api_server_port):
+    import device_manager
+    if not hasattr(device_manager, 'main'):
+        from device_manager import device_manager
+    args_str = ""
+    args_str = args_str + "--api_server_ip %s " % (api_server_ip)
+    args_str = args_str + "--api_server_port %s " % (api_server_port)
+    args_str = args_str + "--http_server_port %s " % (get_free_port())
+    args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
+    args_str = args_str + "--log_local "
+    args_str = args_str + "--log_file device_manager.log "
+    device_manager.main(args_str)
+# end launch_device_manager
+
 
 def setup_extra_flexmock(mocks):
     for (cls, method_name, val) in mocks:
