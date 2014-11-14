@@ -724,6 +724,19 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
 
         finally:
             api_server._db_conn._msgbus._obj_update_q.put = orig_rabbitq_put
+
+    def test_err_on_ifmap_publish(self):
+        api_server = test_common.vnc_cfg_api_server.server
+        orig_call_async_result = api_server._db_conn._ifmap_db._mapclient.call_async_result
+        def err_call_async_result(*args, **kwargs):
+            # restore orig method and return error to check handling
+            api_server._db_conn._ifmap_db._mapclient.call_async_result = orig_call_async_result
+            publish_err_xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><ns3:Envelope xmlns:ns2="http://www.trustedcomputinggroup.org/2010/IFMAP/2" xmlns:ns3="http://www.w3.org/2003/05/soap-envelope"><ns3:Body><ns2:response><errorResult errorCode="AccessDenied"><errorString>Existing SSRC</errorString></errorResult></ns2:response></ns3:Body></ns3:Envelope>'
+            return publish_err_xml
+
+        api_server._db_conn._ifmap_db._mapclient.call_async_result = err_call_async_result
+        test_obj = self._create_test_object()
+        self.assertTill(self.ifmap_has_ident, obj=test_obj)
  
     def test_handle_trap_on_exception(self):
         api_server = test_common.vnc_cfg_api_server.server

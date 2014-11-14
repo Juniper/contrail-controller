@@ -263,15 +263,49 @@ class VncIfmapClient(VncIfmapClientGen):
     # end _generate_ifmap_trace
 
     def _publish_with_trace(self, oper, oper_body, async):
-        trace = self._generate_ifmap_trace(oper, oper_body)
-        if async:
-            method = getattr(self._mapclient, 'call_async_result')
-        else:
-            method = getattr(self._mapclient, 'call')
+        # safety check, if we proceed ifmap-server reports error
+        # asking for update|delete in publish
+        if not oper_body:
+            return
 
+        trace = self._generate_ifmap_trace(oper, oper_body)
         try:
-            sess_id = self._mapclient.get_session_id()
-            method('publish', PublishRequest(sess_id, oper_body))
+            not_published = True
+            retry_count = 0
+            while not_published:
+                sess_id = self._mapclient.get_session_id()
+                if async:
+                    method = getattr(self._mapclient, 'call_async_result')
+                else:
+                    method = getattr(self._mapclient, 'call')
+                req_xml = PublishRequest(sess_id, oper_body)
+                resp_xml = method('publish', req_xml)
+                resp_doc = etree.parse(StringIO.StringIO(resp_xml))
+                err_codes = resp_doc.xpath('/env:Envelope/env:Body/ifmap:response/errorResult/@errorCode',
+                                           namespaces=self._NAMESPACES)
+                if err_codes:
+                    if retry_count == 0:
+                        log_str = 'Error publishing to ifmap, req: %s, resp: %s' \
+                                  %(req_xml, resp_xml)
+                        self._db_client_mgr.config_log_error(log_str)
+
+                    retry_count = retry_count + 1
+                    result = self._mapclient.call('newSession',
+                                                  NewSessionRequest())
+                    sess_id = newSessionResult(result).get_session_id()
+                    pub_id = newSessionResult(result).get_publisher_id()
+                    self._mapclient.set_session_id(sess_id)
+                    self._mapclient.set_publisher_id(pub_id)
+                else: # successful publish
+                    not_published = False
+                    break
+            # end while not_published
+
+            if retry_count:
+                log_str = 'Success publishing to ifmap after %d tries' \
+                          %(retry_count)
+                self._db_client_mgr.config_log_error(log_str)
+
             trace_msg(trace, 'IfmapTraceBuf', self._sandesh)
         except Exception as e:
             trace_msg(trace, 'IfmapTraceBuf', self._sandesh, error_msg=str(e))
