@@ -47,6 +47,10 @@ local _s_3600 = KEYS[7]
 local _s_3600p = KEYS[8]
 
 redis.call('select',db)
+local ism = redis.call('sismember', 'NGENERATORS', sm)
+if ism == 0 then
+    return false
+end
 redis.call('sadd',_types,typ)
 redis.call('sadd',_origins,sm..":"..typ)
 redis.call('sadd',_table,key..':'..sm..":"..typ)
