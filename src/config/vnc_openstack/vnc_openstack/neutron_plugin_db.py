@@ -2342,6 +2342,16 @@ class DBInterface(object):
     #end network_list
 
     def network_count(self, filters=None):
+        # If there are no filters or just tenant_id in filters,
+        # the network_count can be obtained directly, thereby
+        # optimizing this call
+        if not filters or \
+           len(filters.keys()) is 1 and 'tenant_id' in filters:
+            project_ids = filters.get('tenant_id')
+            count = lambda pid: self._network_list_project(pid, count=True)['virtual-networks']['count']
+            ret = [count(pid) for pid in project_ids] if project_ids else [count(None)]
+            return sum(ret)
+
         nets_info = self.network_list(filters=filters)
         return len(nets_info)
     #end network_count
