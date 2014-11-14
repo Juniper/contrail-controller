@@ -84,7 +84,11 @@ class FakeCF(object):
     def __init__(*args, **kwargs):
         self = args[0]
         self._name = args[3]
-        self._rows = OrderedDict({})
+        try:
+            old_cf = CassandraCFs.get_cf(self._name)
+            self._rows = old_cf._rows
+        except KeyError:
+            self._rows = OrderedDict({})
         self.column_validators = {}
         CassandraCFs.add_cf(self._name, self)
     # end __init__
@@ -550,7 +554,6 @@ class FakeKombu(object):
     # end Exchange
 
     class Queue(object):
-        _sync_q = gevent.queue.Queue()
 
         class Message(object):
             def __init__(self, msg_dict):
@@ -564,6 +567,7 @@ class FakeKombu(object):
         # end class Message
 
         def __init__(self, entity, q_name, q_exchange):
+            self._sync_q = gevent.queue.Queue()
             self._name = q_name
             self._exchange = q_exchange
             FakeKombu._queues[q_name] = self
@@ -579,7 +583,8 @@ class FakeKombu(object):
 
         def put(self, msg_dict, serializer):
             msg_obj = self.Message(msg_dict)
-            self._sync_q.put(msg_obj)
+            for q in FakeKombu._queues.values():
+                q._sync_q.put(copy.deepcopy(msg_obj))
         # end put
 
         def get(self):
@@ -899,3 +904,20 @@ class ZookeeperClientMock(object):
 # end Class ZookeeperClientMock
 
   
+class FakeNetconfManager(object):
+    configs = []
+    __init__ = stub
+
+    def __enter__(self):
+        return self
+    __exit__ = stub
+
+    def edit_config(self, target, config, test_option, default_operation):
+        self.configs.append(config)
+        return
+
+    commit = stub
+# end FakeNetconfManager
+
+def fake_netconf_connect(*args, **kwargs):
+    return FakeNetconfManager(args, kwargs)
