@@ -1278,9 +1278,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Link('virtual-machine-interface-route-table',
           'virtual-machine-interface', 'interface-route-table', ['ref']) -->
-<xsd:element name="interface-route-table-family" type="IpAddressFamilyType"/>
-<!--#IFMAP-SEMANTICS-IDL 
-     Property('interface-route-table-family', 'interface-route-table') -->
 <xsd:element name="interface-route-table-routes" type="RouteTableType"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('interface-route-table-routes', 'interface-route-table') -->
