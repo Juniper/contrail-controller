@@ -17,7 +17,7 @@ setup_sources = [
 setup_sources_rules = []
 for file in setup_sources:
     setup_sources_rules.append(
-        OpEnv.Install("", '#controller/src/opserver/' + file))
+        OpEnv.Install(Dir("."), '#controller/src/opserver/' + file))
 
 local_sources = [
            '__init__.py',
@@ -36,7 +36,7 @@ local_sources = [
 
 local_sources_rules = []
 for file in local_sources:
-    local_sources_rules.append(OpEnv.Install("opserver", file))
+    local_sources_rules.append(OpEnv.Install(Dir("opserver"), file))
     
 viz_pkg = OpEnv.SandeshGenPy('#controller/src/analytics/viz.sandesh', 'opserver/sandesh/', False)
 analytics_pkg = OpEnv.SandeshGenPy('#controller/src/analytics/analytics.sandesh', 'opserver/sandesh/', False) 
@@ -50,16 +50,16 @@ sdist_depends = [setup_sources_rules, local_sources_rules,
                  viz_pkg, analytics_pkg, cpu_info_pkg, redis_pkg,
                  process_info_pkg, discovery_pkg, analytics_database_pkg]
 
-sdist_gen = OpEnv.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
+cd_cmd = 'cd ' + Dir('.').path + ' && '
+sdist_gen = OpEnv.Command('dist', 'setup.py', cd_cmd + 'python setup.py sdist')
 # install everything before building distribution
 OpEnv.Depends(sdist_gen, sdist_depends)
 
 if 'install' in BUILD_TARGETS:
     install_cmd = OpEnv.Command(None,
                                 'setup.py',
-                                'python setup.py install %s' %
-                                OpEnv['PYTHON_INSTALL_OPT'],
-                                chdir = 1)
+                                cd_cmd + 'python setup.py install %s' %
+                                OpEnv['PYTHON_INSTALL_OPT'])
     OpEnv.Depends(install_cmd, sdist_depends)
     OpEnv.Alias('install', install_cmd)
 

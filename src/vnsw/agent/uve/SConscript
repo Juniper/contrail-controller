@@ -1,8 +1,8 @@
+# -*- mode: python; -*-
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-# -*- mode: python; -*-
 
 import sys
 Import('AgentEnv')
@@ -60,7 +60,9 @@ sdist_depends.extend(port_bmap_pkg)
 sdist_depends.extend(sandesh_init_rules)
 sdist_depends.extend(build_info_rules)
 sdist_depends.extend(flow_pkg)
-sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
+
+cd_cmd = 'cd ' + Dir('.').path + ' && '
+sdist_gen = env.Command('dist', 'setup.py', cd_cmd + 'python setup.py sdist')
 
 env.Depends(sdist_gen, sdist_depends)
 env.Default(sdist_gen)

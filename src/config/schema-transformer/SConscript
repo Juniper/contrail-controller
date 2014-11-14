@@ -37,20 +37,21 @@ for file in local_sources:
 
 st_introspect_pkg = env.SandeshGenPy('st_introspect.sandesh', 'schema_transformer/sandesh/', False)
 
+cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_depends = []
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(st_introspect_pkg)
-sdist_gen = env.Command('dist/schema_transformer-0.1dev.tar.gz', 'setup.py', 'python setup.py sdist', chdir=Dir('.'))
+sdist_gen = env.Command('dist/schema_transformer-0.1dev.tar.gz', 'setup.py',
+                        cd_cmd + 'python setup.py sdist')
 
 env.Depends(sdist_gen, sdist_depends)
 env.Default(sdist_gen)
 
 if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None, 'setup.py',
-                              'python setup.py install %s' %
-                              env['PYTHON_INSTALL_OPT'],
-                              chdir = 1)
+                              cd_cmd + 'python setup.py install %s' %
+                              env['PYTHON_INSTALL_OPT'])
     env.Depends(install_cmd, sdist_depends)
     env.Alias('install', install_cmd)
 
@@ -71,8 +72,7 @@ else:
     top_dir = Dir('.')
 
 test_cmd = env.Command('test.log', sdist_gen,
-          'python setup.py run_tests 2>&1 | tee test.log',
-          chdir=top_dir)
+          'cd ' + Dir(top_dir).path + ' && python setup.py run_tests 2>&1 | tee test.log')
 
 test_depends = ['/config/common/dist/cfgm_common-0.1dev.tar.gz',
                 '/api-lib/dist/vnc_api-0.1dev.tar.gz',

@@ -1,3 +1,4 @@
+# -*- mode: python; -*-
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -5,6 +6,8 @@ import os
 
 Import('BuildEnv')
 env = BuildEnv.Clone()
+
+cd_cmd = 'cd ' + Dir('.').path + ' && '
 
 autogen_infra_sources = [
                  '#/tools/generateds/generateDS.py',
@@ -80,7 +83,7 @@ sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(common_sources_rules)
 sdist_gen = env.Command('dist/vnc_api-0.1dev.tar.gz',
-                        'setup.py', 'python setup.py sdist', chdir=Dir('.'))
+                        'setup.py', cd_cmd + 'python setup.py sdist')
 
 env.Default(sdist_gen)
 
@@ -93,9 +96,8 @@ env.Depends(sdist_gen, sdist_depends)
 
 if 'install' in BUILD_TARGETS:
    install_cmd = env.Command(None, 'setup.py',
-                             'python setup.py install %s' %
-                             env['PYTHON_INSTALL_OPT'],
-                             chdir = 1)		 
+                             cd_cmd + 'python setup.py install %s' %
+                             env['PYTHON_INSTALL_OPT'])
    env.Depends(install_cmd, sdist_depends)
    env.Alias('install', install_cmd)
 
@@ -111,9 +113,7 @@ else:
     top_dir = Dir('.')
 
 test_cmd = env.Command('test.log', sdist_gen,
-          'python setup.py run_tests 2>&1 | tee test.log',
-          chdir=top_dir)
-
+          'cd ' + Dir(top_dir).path + ' && python setup.py run_tests 2>&1 | tee test.log')
 
 test_depends = ['/config/common/dist/cfgm_common-0.1dev.tar.gz']
 env.Depends(test_cmd, [env['TOP']+x for x in test_depends])

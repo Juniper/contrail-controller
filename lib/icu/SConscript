@@ -1,3 +1,4 @@
+# -*- mode: python; -*-
 # Copyright (c) 2014 Semihalf.
 # All rights reserved.
 #
@@ -24,11 +25,12 @@
 
 import sys
 
-src_path = '#/third_party/icu/source'
-
 env = DefaultEnvironment().Clone()
 
-configure_command = str(Dir(src_path)) + '/configure --prefix=' + \
+src_path = Dir('#/third_party/icu/source').abspath
+cd_cmd = 'cd ' + Dir('.').path + ' && '
+
+configure_command = cd_cmd + src_path + '/configure --prefix=' + \
     str(Dir('#/build'))
 
 if sys.platform.startswith('freebsd'):
@@ -36,9 +38,9 @@ if sys.platform.startswith('freebsd'):
     # libraries libsupc++ vs libcxxrt)
     env['ENV']['CC'] = 'gcc'
     env['ENV']['CXX'] = 'g++'
-    make_command = 'gmake clean && gmake && gmake install'
+    make_command = cd_cmd + 'gmake clean && gmake && gmake install'
 else:
-    make_command = 'make clean && make && make install'
+    make_command = cd_cmd + 'make clean && make && make install'
 
 targets = [
     '#/build/lib/libicui18n' + env['LIBSUFFIX'],
@@ -48,6 +50,5 @@ targets = [
 
 build_command = ';'.join([configure_command, make_command])
 
-configure = env.Command('source/config.status', str(Dir(src_path)),
-                        build_command, chdir=1)
+configure = env.Command('source/config.status', src_path, build_command)
 env.SideEffect(targets, configure)

@@ -38,19 +38,19 @@ query_pkg = env.SandeshGenPy('query.sandesh', 'sandesh_common/', False)
 local_sources = [ 'setup.py' ]
 local_sources_rules = []
 for file in local_sources:
-    local_sources_rules.append(env.Install('', '#controller/src/sandesh/common/' + file))
+    local_sources_rules.append(env.Install(Dir('.'), '#controller/src/sandesh/common/' + file))
 
 init_sources = [ '__init__.py' ]
 init_sources_rules = []
 for file in init_sources:
-    init_sources_rules.append(env.Install('sandesh_common/', '#controller/src/sandesh/common/' + file))
+    init_sources_rules.append(env.Install(Dir('sandesh_common'), '#controller/src/sandesh/common/' + file))
 
 sdist_depends = [local_sources_rules, init_sources_rules,
                  flow_pkg, vns_pkg, query_pkg]
 
+cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_gen = env.Command('dist/sandesh-common-0.1dev.tar.gz',
-                        'setup.py', 'python setup.py sdist',
-                        chdir=Dir('.'))
+                        'setup.py', cd_cmd + 'python setup.py sdist')
 
 # install everything before building distribution
 env.Depends(sdist_gen, sdist_depends)
@@ -59,8 +59,7 @@ env.Default(sdist_gen)
 
 if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None, 'setup.py',
-                              'python setup.py install %s' %
-                              env['PYTHON_INSTALL_OPT'],
-                              chdir = 1)
+                              cd_cmd + 'python setup.py install %s' %
+                              env['PYTHON_INSTALL_OPT'])
     env.Depends(install_cmd, sdist_depends)
     env.Alias('install', install_cmd)

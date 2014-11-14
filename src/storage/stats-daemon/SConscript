@@ -52,15 +52,14 @@ def GeneratePyTestSetup(env, targets, source):
 env.Append(BUILDERS = {'PythonTestSetup': GeneratePyTestSetup})
 test_sources += env.PythonTestSetup(source=packages)
 
+cd_cmd = 'cd ' + Dir('.').path + ' && '
 test = env.Command(None, test_sources,
-                   'python setup.py test',
-                   chdir=1)
+                   cd_cmd + 'python setup.py test')
 env.Alias('controller/src/storage/stats_daemon:test', test)
 
 if 'install_stats_daemon' in BUILD_TARGETS:
     env.Alias('install_stats_daemon',
               env.Command(None, sources,
-                          'python setup.py install %s' %
-                          env['PYTHON_INSTALL_OPT'],
-                          chdir=1))
+                          cd_cmd + 'python setup.py install %s' %
+                          env['PYTHON_INSTALL_OPT']))
 env.Alias('install_stats_daemon', env.Install(env['INSTALL_CONF'], 'stats-daemon.conf'))
