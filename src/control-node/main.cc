@@ -559,6 +559,7 @@ int main(int argc, char *argv[]) {
 
     CpuLoadData::Init();
     start_time = UTCTimestampUsec();
+
     // Determine if the number of connections is as expected. At the moment, we
     // consider connections to collector, discovery server and IFMap (irond)
     // servers as critical to the normal functionality of control-node.

@@ -31,8 +31,12 @@ uve sandesh BGPRouterInfo {
     1: BgpRouterState data;
 }
 
-// This causes control-node process to gracefully shutdown (and possibly restart)
-request sandesh ShutdownControlNode {
+response sandesh ShutdownControlNodeResp {
+    1: bool success;
+}
+
+// Gracefully shutdown (and possibly restart) control-node process
+request sandesh ShutdownControlNodeReq {
 }
 
 struct ControlCpuState {
