@@ -1,7 +1,9 @@
 #include "base/os.h"
+#include "base/logging.h"
+#include <boost/filesystem.hpp>
 #include "oper/loadbalancer_haproxy.h"
 #include "oper/operdb_init.h"
-#include "oper/namespace_manager.h"
+#include "oper/instance_manager.h"
 
 #include <cstdlib>
 #include <boost/uuid/random_generator.hpp>
@@ -52,10 +54,16 @@ TEST_F(LoadbalancerHaproxyTest, GenerateConfig) {
     member.protocol_port = 80;
     member.weight = 10;
     props.members()->insert(std::make_pair(gen(), member));
-    
-    std::stringstream ss;
-    ss << "/tmp/" << getpid() << ".conf";
-    Agent::GetInstance()->oper_db()->namespace_manager()->haproxy().GenerateConfig(ss.str(), pool_id, props);
+
+    stringstream ss;
+    boost::filesystem::path curr_dir(boost::filesystem::current_path());
+    ss << curr_dir.string() << "/" << getpid() << ".conf";
+    Agent::GetInstance()->oper_db()->instance_manager()->haproxy().GenerateConfig(ss.str(), pool_id, props);
+    boost::system::error_code error;
+    boost::filesystem::remove_all(ss.str(), error);
+    if (error) {
+        LOG(ERROR, "Error: " << error.message() << "in removing the file" );
+    }
 }
 
 int main(int argc, char **argv) {
@@ -65,5 +73,9 @@ int main(int argc, char **argv) {
 
     LoggingInit();
     int result = RUN_ALL_TESTS();
+    TestShutdown();
+    client->WaitForIdle();
+    delete client;
+
     return result;
 }

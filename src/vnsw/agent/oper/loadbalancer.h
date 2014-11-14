@@ -30,6 +30,7 @@ public:
     typedef LoadbalancerProperties Properties;
 
     Loadbalancer();
+    ~Loadbalancer();
     virtual bool IsLess(const DBEntry &rhs) const;
     virtual std::string ToString() const;
     virtual void SetKey(const DBRequestKey *key);
@@ -65,6 +66,7 @@ private:
 class LoadbalancerTable : public AgentDBTable {
 public:
     LoadbalancerTable(DB *db, const std::string &name);
+    ~LoadbalancerTable();
 
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *key) const;
 
@@ -87,6 +89,7 @@ public:
      * Convert the ifmap node to a (key,data) pair stored in the database.
      */
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
+    virtual void Clear();
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 
