@@ -2348,7 +2348,33 @@ class DBInterface(object):
         return ret_list
     #end network_list
 
+    def _resource_count_opt(self, resource, filters=None):
+        if filters and ('tenant_id' not in filters or len(filters.keys()) > 1):
+            return None
+
+        project_ids = filters.get('tenant_id') if filters else None
+        if not isinstance(project_ids, list):
+            project_ids = [project_ids]
+
+        hres = resource.replace("_", "-")
+        if resource == "floating_ips":
+            count = lambda pid: self._vnc_lib. \
+                floating_ips_list(back_ref_id=pid, count=True)[hres]['count']
+        else:
+            meth = getattr(self._vnc_lib, resource + "_list")
+            count = lambda pid: meth(parent_id=pid, count=True)[hres]['count']
+
+        ret = [count(pid) for pid in project_ids] if project_ids \
+            else [count(None)]
+        return sum(ret)
+
+    # end _resource_count_opt
+
     def network_count(self, filters=None):
+        count = self._resource_count_opt("virtual_networks", filters)
+        if count is not None:
+            return count
+
         nets_info = self.network_list(filters=filters)
         return len(nets_info)
     #end network_count
@@ -2693,6 +2719,10 @@ class DBInterface(object):
     #end ipam_list
 
     def ipam_count(self, filters=None):
+        count = self._resource_count_opt("network_ipams", filters)
+        if count is not None:
+            return count
+
         ipam_info = self.ipam_list(filters=filters)
         return len(ipam_info)
     #end ipam_count
@@ -2767,6 +2797,10 @@ class DBInterface(object):
     #end policy_list
 
     def policy_count(self, filters=None):
+        count = self._resource_count_opt("network_policys", filters)
+        if count is not None:
+            return count
+
         policy_info = self.policy_list(filters=filters)
         return len(policy_info)
     #end policy_count
@@ -3092,6 +3126,10 @@ class DBInterface(object):
     #end router_list
 
     def router_count(self, filters=None):
+        count = self._resource_count_opt("logical_routers", filters)
+        if count is not None:
+            return count
+
         rtrs_info = self.router_list(filters=filters)
         return len(rtrs_info)
     #end router_count
@@ -3318,6 +3356,10 @@ class DBInterface(object):
     #end floatingip_list
 
     def floatingip_count(self, context, filters=None):
+        count = self._resource_count_opt("floating_ips", filters)
+        if count is not None:
+            return count
+
         floatingip_info = self.floatingip_list(context, filters)
         return len(floatingip_info)
     #end floatingip_count
@@ -3634,6 +3676,10 @@ class DBInterface(object):
     #end port_list
 
     def port_count(self, filters=None):
+        count = self._resource_count_opt("virtual_machine_interfaces", filters)
+        if count is not None:
+            return count
+
         if (filters.get('device_owner') == 'network:dhcp' or
             'network:dhcp' in filters.get('device_owner', [])):
             return 0
