@@ -301,18 +301,51 @@ class VncIfmapClient(VncIfmapClientGen):
     # end publish_accumulated
 
     def _publish_to_ifmap(self, oper, oper_body, async, do_trace=True):
+        # safety check, if we proceed ifmap-server reports error
+        # asking for update|delete in publish
+        if not oper_body:
+            return
 
         if do_trace:
             trace = self._generate_ifmap_trace(oper, oper_body)
 
-        if async:
-            method = getattr(self._mapclient, 'call_async_result')
-        else:
-            method = getattr(self._mapclient, 'call')
-
         try:
-            sess_id = self._mapclient.get_session_id()
-            method('publish', PublishRequest(sess_id, oper_body))
+            not_published = True
+            retry_count = 0
+            while not_published:
+                sess_id = self._mapclient.get_session_id()
+                if async:
+                    method = getattr(self._mapclient, 'call_async_result')
+                else:
+                    method = getattr(self._mapclient, 'call')
+                req_xml = PublishRequest(sess_id, oper_body)
+                resp_xml = method('publish', req_xml)
+                resp_doc = etree.parse(StringIO.StringIO(resp_xml))
+                err_codes = resp_doc.xpath('/env:Envelope/env:Body/ifmap:response/errorResult/@errorCode',
+                                           namespaces=self._NAMESPACES)
+                if err_codes:
+                    if retry_count == 0:
+                        log_str = 'Error publishing to ifmap, req: %s, resp: %s' \
+                                  %(req_xml, resp_xml)
+                        self.config_log(log_str, level=SandeshLevel.SYS_ERR)
+
+                    retry_count = retry_count + 1
+                    result = self._mapclient.call('newSession',
+                                                  NewSessionRequest())
+                    sess_id = newSessionResult(result).get_session_id()
+                    pub_id = newSessionResult(result).get_publisher_id()
+                    self._mapclient.set_session_id(sess_id)
+                    self._mapclient.set_publisher_id(pub_id)
+                else: # successful publish
+                    not_published = False
+                    break
+            # end while not_published
+
+            if retry_count:
+                log_str = 'Success publishing to ifmap after %d tries' \
+                          %(retry_count)
+                self.config_log(log_str, level=SandeshLevel.SYS_ERR)
+
             if do_trace:
                 trace_msg(trace, 'IfmapTraceBuf', self._sandesh)
         except Exception as e:
