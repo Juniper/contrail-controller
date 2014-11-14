@@ -2343,6 +2343,14 @@ class SchemaTransformer(object):
     _SERVICE_CHAIN_UUID_CF = 'service_chain_uuid_table'
     _zk_path_prefix = ''
 
+    @classmethod
+    def get_db_info(cls):
+        db_info = [(cls._KEYSPACE, [cls._RT_CF, cls._SC_IP_CF,
+                                    cls._SERVICE_CHAIN_CF,
+                                    cls._SERVICE_CHAIN_UUID_CF])]
+        return db_info
+    # end get_db_info
+
     def __init__(self, args=None):
         global _sandesh
         self._args = args

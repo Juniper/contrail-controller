@@ -648,6 +648,13 @@ class VncServerCassandraClient(VncCassandraClient):
     _USERAGENT_KEYSPACE_NAME = 'useragent'
     _USERAGENT_KV_CF_NAME = 'useragent_keyval_table'
 
+    @classmethod
+    def get_db_info(cls):
+        db_info = VncCassandraClient.get_db_info() + \
+                  [(cls._USERAGENT_KEYSPACE_NAME, [cls._USERAGENT_KV_CF_NAME])]
+        return db_info
+    # end get_db_info
+
     def __init__(self, db_client_mgr, cass_srv_list, reset_config, db_prefix):
         self._db_client_mgr = db_client_mgr
         keyspaces = {
