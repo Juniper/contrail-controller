@@ -130,11 +130,12 @@ class TestPolicy(test_case.STTestCase):
     @retries(5, hook=retry_exc_handler)
     def check_acl_match_dst_cidr(self, fq_name, ip_prefix, ip_len):
         acl = self._vnc_lib.access_control_list_read(fq_name)
-        for rule in acl.get_access_control_list_entries().get_acl_rule():
-            if rule.match_condition.dst_address.subnet.ip_prefix == ip_prefix:
-                if rule.match_condition.dst_address.subnet.ip_prefix_len == ip_len:
-                    return
-        raise Exception
+        if (rule.match_condition.dst_address.subnet is not None and
+            rule.match_condition.dst_address.subnet.ip_prefix == ip_prefix and
+            rule.match_condition.dst_address.subnet.ip_prefix_len == ip_len):
+                return
+        raise Exception('prefix %s/%d not found in ACL rules for %s' %
+                        (ip_prefix, ip_len, fq_name))
 
     def test_basic_policy(self):
         vn1_name = 'vn1'
@@ -571,11 +572,20 @@ class TestPolicy(test_case.STTestCase):
                   "direction": "<>",
                   "src-port": "any",
                   "src": {"type": "vn", "value": vn1},
+                  "dst": {"type": "cidr", "value": "10.2.1.1/32"},
+                  "dst-port": "any",
+                  "action": "deny"
+                 }
+        rule2 = { "protocol": "icmp",
+                  "direction": "<>",
+                  "src-port": "any",
+                  "src": {"type": "vn", "value": vn1},
                   "dst": {"type": "cidr", "value": "10.2.1.2/32"},
                   "dst-port": "any",
                   "action": "deny"
                  }
         rules.append(rule1)
+        rules.append(rule2)
 
         np = self.create_network_policy_with_multiple_rules(rules)
         seq = SequenceType(1, 1)
@@ -585,6 +595,7 @@ class TestPolicy(test_case.STTestCase):
 
         for obj in [vn1]:
             ident_name = self.get_obj_imid(obj)
+            gevent.sleep(2)
             ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
 
         try:
@@ -595,7 +606,12 @@ class TestPolicy(test_case.STTestCase):
             self.assertTrue(False)
 
         try:
-            self.check_acl_match_dst_cidr(fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'], ip_prefix="10.2.1.2", ip_len=32)
+            self.check_acl_match_dst_cidr(
+                fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'],
+                ip_prefix="10.2.1.1", ip_len=32)
+            self.check_acl_match_dst_cidr(
+                fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'],
+                ip_prefix="10.2.1.2", ip_len=32)
         except NoIdError, e:
             print "failed : acl match cidr... ", test_common.lineno()
             self.assertTrue(False)
