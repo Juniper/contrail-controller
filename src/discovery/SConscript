@@ -58,12 +58,13 @@ for file in local_sources:
 
 introspect_pkg = env.SandeshGenPy('discovery_introspect.sandesh', 'discovery/sandesh/', False)
 
+cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_depends = [generated_rule]
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(introspect_pkg)
 
-sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
+sdist_gen = env.Command('dist', 'setup.py', cd_cmd + 'python setup.py sdist')
 
 env.Default(sdist_gen)
 
@@ -78,9 +79,8 @@ env.Alias('src/discovery:discovery', sdist_gen)
 
 if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None, 'setup.py',
-                              'python setup.py install %s' %
-                              env['PYTHON_INSTALL_OPT'],
-                              chdir = 1)
+                              cd_cmd + 'python setup.py install %s' %
+                              env['PYTHON_INSTALL_OPT'])
     env.Depends(install_cmd, sdist_depends)
     env.Alias('install', install_cmd)
 

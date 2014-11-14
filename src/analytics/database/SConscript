@@ -30,7 +30,8 @@ process_info_pkg = DatabaseEnv.SandeshGenPy('#/controller/src/base/sandesh/proce
 DatabaseEnv.Depends(process_info_pkg, database_pkg)
 
 sdist_depends = [setup_sources_rules, local_sources_rules, database_pkg, process_info_pkg]
-sdist_gen = DatabaseEnv.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
+sdist_gen = DatabaseEnv.Command('dist', 'setup.py',
+                                'cd ' + Dir('.').path + ' && python setup.py sdist')
 DatabaseEnv.Depends(sdist_gen, sdist_depends)
 DatabaseEnv.Default(sdist_gen)
 

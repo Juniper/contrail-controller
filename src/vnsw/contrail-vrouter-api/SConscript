@@ -26,10 +26,10 @@ sources += env.ThriftGenPy(
     '#controller/src/vnsw/agent/openstack/instance_service.thrift',
     'contrail_vrouter_api')
 
+cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_gen = env.Command('dist/contrail-vrouter-api-1.0.tar.gz',
                         sources,
-                        'python setup.py sdist',
-                        chdir=Dir('.'))
+                        cd_cmd + 'python setup.py sdist')
 
 env.Alias('controller/src/vnsw/contrail_vrouter_api:sdist', sdist_gen)
 
@@ -60,14 +60,13 @@ env.Append(BUILDERS = {'PythonTestSetup': GeneratePyTestSetup})
 test_sources += env.PythonTestSetup(source=packages)
 
 test = env.Command(None, test_sources,
-                   'python setup.py test',
-                   chdir=1)
+                   cd_cmd + 'python setup.py test')
+
 
 env.Alias('controller/src/vnsw/contrail_vrouter_api:test', test)
 
 if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None, sources,
-                              'python setup.py install %s' %
-                              env['PYTHON_INSTALL_OPT'],
-                              chdir = 1)
+                              cd_cmd + 'python setup.py install %s' %
+                              env['PYTHON_INSTALL_OPT'])
     env.Alias('install', install_cmd)

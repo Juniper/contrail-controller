@@ -1,8 +1,7 @@
+# -*- mode: python; -*-
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
-
-# -*- mode: python; -*-
 
 Import('BuildEnv')
 import sys
@@ -27,7 +26,7 @@ setup_sources = [
 
 setup_sources_rules = []
 for file in setup_sources:
-    setup_sources_rules.append(env.Install("", "#controller/src/control-node/sandesh/" + file))
+    setup_sources_rules.append(env.Install(Dir("."), "#controller/src/control-node/sandesh/" + file))
 
 # Generate the sandesh UVE source files
 control_node_pkg  = env.SandeshGenPy('sandesh/control_node.sandesh', 'control_node/', False)
@@ -44,6 +43,7 @@ def BuildInfoAction(target, source, env):
     
 build_info_rules = [env.Command(target='buildinfo.py', source = None, action=BuildInfoAction)]
 
+cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_depends = []
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(control_node_pkg)
@@ -51,7 +51,7 @@ sdist_depends.extend(cpu_info_pkg)
 sdist_depends.extend(ifmap_pkg)
 sdist_depends.extend(process_info_pkg)
 sdist_depends.extend(build_info_rules)
-sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
+sdist_gen = env.Command('dist', File('setup.py'), cd_cmd + 'python setup.py sdist')
 
 env.Depends(sdist_gen, sdist_depends)
 env.Default(sdist_gen)

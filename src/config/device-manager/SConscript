@@ -25,20 +25,20 @@ for file in local_sources:
 dm_introspect_pkg = env.SandeshGenPy('dm_introspect.sandesh',
                                        'device_manager/sandesh/', False)
 
+cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_depends = []
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(dm_introspect_pkg)
-sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
+sdist_gen = env.Command('dist', 'setup.py', cd_cmd + 'python setup.py sdist')
 
 env.Depends(sdist_gen, sdist_depends)
 env.Default(sdist_gen)
 
 if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None, 'setup.py',
-                              'python setup.py install %s' %
-                              env['PYTHON_INSTALL_OPT'],
-                              chdir=1)
+                              cd_cmd + 'python setup.py install %s' %
+                              env['PYTHON_INSTALL_OPT'])
     env.Depends(install_cmd, sdist_depends)
     env.Alias('install', install_cmd)
 
