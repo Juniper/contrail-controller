@@ -56,6 +56,7 @@ class LoadbalancerTest : public ::testing::Test {
         assert(link_table);
         link_table->Clear();
 
+        loadbalancer_table_->Clear();
         db_util::Clear(&database_);
         DB::ClearFactoryRegistry();
     }

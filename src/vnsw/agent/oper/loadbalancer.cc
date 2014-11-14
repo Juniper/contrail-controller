@@ -33,6 +33,11 @@ class LoadbalancerData : public AgentData {
 Loadbalancer::Loadbalancer() {
 }
 
+Loadbalancer::~Loadbalancer() {
+}
+
+
+
 bool Loadbalancer::IsLess(const DBEntry &rhs) const {
     const Loadbalancer &lb = static_cast<const Loadbalancer &>(rhs);
     return uuid_ < lb.uuid_;
@@ -174,6 +179,25 @@ LoadbalancerTable::LoadbalancerTable(DB *db, const std::string &name)
         : AgentDBTable(db, name),
           graph_(NULL), dependency_manager_(NULL) {
 }
+
+LoadbalancerTable::~LoadbalancerTable() {
+}
+
+#if 0
+void LoadbalancerTable::Clear() {
+
+    DBEntry *db, *db_next;
+    DBTablePartition *partition = static_cast<DBTablePartition *>(
+                    GetTablePartition(0));
+    for (db = partition->GetFirst(); db!= NULL; db = db_next) {
+        db_next = partition->GetNext(db);
+        if (db->IsDeleted()) {
+            continue;
+        }
+        partition->Delete(db);
+    }
+}
+#endif
 
 std::auto_ptr<DBEntry> LoadbalancerTable::AllocEntry(
     const DBRequestKey *key) const {

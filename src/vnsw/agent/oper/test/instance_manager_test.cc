@@ -62,7 +62,8 @@ protected:
         oper_db_.reset(new OperDB(agent_.get()));
         agent_->set_oper_db(oper_db_.get());
         stringstream ss;
-        ss << "/tmp/" << getpid() << "/";
+        boost::filesystem::path curr_dir(boost::filesystem::current_path());
+        ss << curr_dir.string() << "/" << getpid() << "/";
         agent_->oper_db()-> instance_manager()->loadbalancer_config_path_ = ss.str();
     }
 
@@ -577,18 +578,28 @@ TEST_F(InstanceManagerTest, InstanceStaleCleanup) {
     boost::uuids::random_generator gen;
     std::string vm_uuid = UuidToString(gen());
     std::string lb_uuid = UuidToString(gen());
-    std::string store_path = "/tmp/lb/";
 
-    agent_->oper_db()->instance_manager()->SetNamespaceStorePath(store_path);
+    boost::filesystem::path curr_dir (boost::filesystem::current_path());
+    stringstream ss;
+    ss << curr_dir.string() << "/" << getpid() << "/";
+    string store_path = ss.str();
+
+    agent_->oper_db()->instance_manager()->SetNamespaceStorePath(store_path.c_str());
     store_path +=  ("vrouter-" + vm_uuid + ":" + lb_uuid);
     boost::system::error_code error;
     if (!boost::filesystem::exists(store_path, error)) {
         boost::filesystem::create_directories(store_path, error);
+        if (error) {
+            LOG(ERROR, "Error : " << error.message() << "in creating directory");
+        }
     }
     store_path  = loadbalancer_config_path() + lb_uuid;
 
     if (!boost::filesystem::exists(store_path, error)) {
         boost::filesystem::create_directories(store_path, error);
+        if (error) {
+            LOG(ERROR, "Error : " << error.message() << "in creating directory");
+        }
     }
     EXPECT_EQ(1, boost::filesystem::exists(store_path));
 
@@ -596,9 +607,10 @@ TEST_F(InstanceManagerTest, InstanceStaleCleanup) {
     task_util::WaitForIdle();
     EXPECT_EQ(0, boost::filesystem::exists(store_path));
 
-
-    store_path = "/tmp/lb/" + ("vrouter-" + vm_uuid + ":" + lb_uuid);
-    boost::filesystem::remove_all(store_path.c_str(), error);
+    boost::filesystem::remove_all(ss.str(), error);
+    if (error) {
+        LOG(ERROR, "Error : " << error.message() << "in removing directory");
+    }
 }
 
 
