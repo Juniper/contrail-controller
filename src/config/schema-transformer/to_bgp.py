@@ -1841,21 +1841,28 @@ class AclRuleListST(object):
 
     # for types that have start and end integer
     @staticmethod
-    def _range_is_subset(lhs, rhs):
+    def _port_is_subset(lhs, rhs):
         return (lhs.start_port >= rhs.start_port and
                (rhs.end_port == -1 or lhs.end_port <= rhs.end_port))
+
+    @staticmethod
+    def _address_is_subset(lhs, rhs):
+        if rhs.subnet is None and lhs.subnet is None:
+            return rhs.virtual_network in [lhs.virtual_network, 'any']
+        if rhs.subnet is not None and lhs.subnet is not None:
+            return (rhs.subnet.ip_prefix == lhs.subnet.ip_prefix and
+                    rhs.subnet.ip_prefix_len <= lhs.subnet.ip_prefix_len)
+        return False
 
     def _rule_is_subset(self, rule):
         for elem in self._list:
             lhs = rule.match_condition
             rhs = elem.match_condition
-            if (self._range_is_subset(lhs.src_port, rhs.src_port) and
-                self._range_is_subset(lhs.dst_port, rhs.dst_port) and
+            if (self._port_is_subset(lhs.src_port, rhs.src_port) and
+                self._port_is_subset(lhs.dst_port, rhs.dst_port) and
                 rhs.protocol in [lhs.protocol, 'any'] and
-                (rhs.src_address.virtual_network in
-                    [lhs.src_address.virtual_network, 'any']) and
-                (rhs.dst_address.virtual_network in
-                    [lhs.dst_address.virtual_network, 'any'])):
+                self._address_is_subset(lhs.src_address, rhs.src_address) and
+                self._address_is_subset(lhs.dst_address, rhs.dst_address)):
 
                 if not self.dynamic:
                     return True
