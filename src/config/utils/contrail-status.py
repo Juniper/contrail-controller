@@ -388,7 +388,7 @@ def main():
     if database:
         supervisor_status('database', options.debug)
 
-     if capi:
+    if capi:
         supervisor_status('support-service', options.debug)
 
     if storage:
