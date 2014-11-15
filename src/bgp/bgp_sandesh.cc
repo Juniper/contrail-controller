@@ -431,7 +431,8 @@ public:
             }
         }
     }
-    static void FillXmppNeighborInfo(vector<BgpNeighborResp> *, BgpServer *, BgpXmppChannel *);
+    static void FillXmppNeighborInfo(vector<BgpNeighborResp> *, BgpServer *,
+        const string &neighbor, BgpXmppChannel *);
     static bool CallbackS1(const Sandesh *sr,
             const RequestPipeline::PipeSpec ps,
             int stage, int instNum,
@@ -447,7 +448,12 @@ public:
 };
 
 void ShowNeighborHandler::FillXmppNeighborInfo(
-        vector<BgpNeighborResp> *nbr_list, BgpServer *bgp_server, BgpXmppChannel *bx_channel) {
+        vector<BgpNeighborResp> *nbr_list, BgpServer *bgp_server,
+        const string &neighbor, BgpXmppChannel *bx_channel) {
+    if (!neighbor.empty() && bx_channel->ToString() != neighbor &&
+        bx_channel->remote_endpoint().address().to_string() != neighbor) {
+        return;
+    }
     BgpNeighborResp resp;
     resp.set_peer(bx_channel->ToString());
     resp.set_peer_address(bx_channel->remote_endpoint().address().to_string());
@@ -476,24 +482,26 @@ bool ShowNeighborHandler::CallbackS1(const Sandesh *sr,
             int stage, int instNum,
             RequestPipeline::InstData * data) {
     ShowNeighborData* mydata = static_cast<ShowNeighborData*>(data);
-    const BgpNeighborReq *req = static_cast<const BgpNeighborReq *>(ps.snhRequest_.get());
-    BgpSandeshContext *bsc = static_cast<BgpSandeshContext *>(req->client_context());
+    const BgpNeighborReq *req =
+        static_cast<const BgpNeighborReq *>(ps.snhRequest_.get());
+    BgpSandeshContext *bsc =
+        static_cast<BgpSandeshContext *>(req->client_context());
     RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
     if (req->get_domain() != "") {
         RoutingInstance *ri = rim->GetRoutingInstance(req->get_domain());
         if (ri)
             ri->peer_manager()->FillBgpNeighborInfo(mydata->nbr_list,
-                req->get_ip_address());
+                req->get_neighbor());
     } else {
         RoutingInstanceMgr::RoutingInstanceIterator it = rim->begin();
         for (;it != rim->end(); it++) {
             it->peer_manager()->FillBgpNeighborInfo(mydata->nbr_list,
-                req->get_ip_address());
+                req->get_neighbor());
         }
     }
 
     bsc->xmpp_peer_manager->VisitChannels(boost::bind(FillXmppNeighborInfo,
-                                                      &mydata->nbr_list, bsc->bgp_server, _1));
+        &mydata->nbr_list, bsc->bgp_server, req->get_neighbor(), _1));
 
     return true;
 }

@@ -340,7 +340,7 @@ const char *BgpXmppUnitTest::config_tmpl = "\
     <bgp-router name=\'B\'>\
         <identifier>192.168.0.2</identifier>\
         <autonomous-system>64512</autonomous-system>\
-        <address>127.0.0.1</address>\
+        <address>127.0.0.2</address>\
         <port>%d</port>\
         <session to=\'A\'>\
             <address-families>\
@@ -528,6 +528,42 @@ TEST_F(BgpXmppUnitTest, Connection) {
                                    _1, result));
     nbr_req = new BgpNeighborReq;
     nbr_req->set_domain("xyz");
+    validate_done_ = false;
+    nbr_req->HandleRequest();
+    nbr_req->Release();
+    WAIT_EQ(true, validate_done_);
+
+    // show neighbor for given name
+    cout << "ValidateNeighborResponse for agent@vnsw.contrailsystems.com:" << endl;
+    result = list_of(9);
+    Sandesh::set_response_callback(boost::bind(ValidateNeighborResponse,
+                                   _1, result));
+    nbr_req = new BgpNeighborReq;
+    nbr_req->set_neighbor("agent@vnsw.contrailsystems.com");
+    validate_done_ = false;
+    nbr_req->HandleRequest();
+    nbr_req->Release();
+    WAIT_EQ(true, validate_done_);
+
+    // show neighbor for given name
+    cout << "ValidateNeighborResponse for 127.0.0.1:" << endl;
+    result = list_of(9);
+    Sandesh::set_response_callback(boost::bind(ValidateNeighborResponse,
+                                   _1, result));
+    nbr_req = new BgpNeighborReq;
+    nbr_req->set_neighbor("agent@vnsw.contrailsystems.com");
+    validate_done_ = false;
+    nbr_req->HandleRequest();
+    nbr_req->Release();
+    WAIT_EQ(true, validate_done_);
+
+    // show neighbor for given address
+    cout << "ValidateNeighborResponse for 127.0.0.2:" << endl;
+    result = list_of(2);
+    Sandesh::set_response_callback(boost::bind(ValidateNeighborResponse,
+                                   _1, result));
+    nbr_req = new BgpNeighborReq;
+    nbr_req->set_neighbor("127.0.0.2");
     validate_done_ = false;
     nbr_req->HandleRequest();
     nbr_req->Release();
