@@ -477,11 +477,11 @@ public:
             static_cast<const ShowXmppConnectionReq *>(ps.snhRequest_.get());
         XmppSandeshContext *xsc =
             dynamic_cast<XmppSandeshContext *>(req->client_context());
-        const XmppServer *xmpp_server = xsc->xmpp_server;
 
         ShowXmppConnectionResp *resp = new ShowXmppConnectionResp;
         vector<ShowXmppConnection> connections;
-        xmpp_server->FillShowConnections(&connections);
+        if (xsc)
+            xsc->xmpp_server->FillShowConnections(&connections);
         resp->set_connections(connections);
         resp->set_context(req->context());
         resp->Response();
@@ -513,20 +513,19 @@ public:
             static_cast<const ClearXmppConnectionReq *>(ps.snhRequest_.get());
         XmppSandeshContext *xsc =
             dynamic_cast<XmppSandeshContext *>(req->client_context());
-        XmppServer *server = xsc->xmpp_server;
 
         ClearXmppConnectionResp *resp = new ClearXmppConnectionResp;
-        if (!xsc->test_mode) {
+        if (!xsc || !xsc->test_mode) {
             resp->set_success(false);
         } else if (req->get_hostname_or_all() != "all") {
-            if (server->ClearConnection(req->get_hostname_or_all())) {
+            if (xsc->xmpp_server->ClearConnection(req->get_hostname_or_all())) {
                 resp->set_success(true);
             } else {
                 resp->set_success(false);
             }
         } else {
-            if (server->ConnectionCount()) {
-                server->ClearAllConnections();
+            if (xsc->xmpp_server->ConnectionCount()) {
+                xsc->xmpp_server->ClearAllConnections();
                 resp->set_success(true);
             } else {
                 resp->set_success(false);
@@ -564,7 +563,8 @@ public:
             dynamic_cast<XmppSandeshContext *>(req->client_context());
 
         ShowXmppServerResp *resp = new ShowXmppServerResp;
-        xsc->xmpp_server->FillShowServer(resp);
+        if (xsc)
+            xsc->xmpp_server->FillShowServer(resp);
         resp->set_context(req->context());
         resp->Response();
         return true;
