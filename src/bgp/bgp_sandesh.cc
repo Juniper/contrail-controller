@@ -850,6 +850,69 @@ void ShowRoutingInstanceReq::HandleRequest() const {
     RequestPipeline rp(ps);
 }
 
+class ShowRoutingInstanceSummaryHandler {
+public:
+    static void FillRoutingInstanceInfo(
+        vector<ShowRoutingInstance> *ri_list, const RoutingInstance &ri);
+    static bool CallbackS1(const Sandesh *sr,
+        const RequestPipeline::PipeSpec ps,
+        int stage, int instNum, RequestPipeline::InstData *data);
+};
+
+void ShowRoutingInstanceSummaryHandler::FillRoutingInstanceInfo(
+    vector<ShowRoutingInstance> *ri_list, const RoutingInstance &ri) {
+    ShowRoutingInstance inst;
+    inst.set_name(ri.name());
+    inst.set_virtual_network(ri.virtual_network());
+    inst.set_vn_index(ri.virtual_network_index());
+    inst.set_vxlan_id(ri.vxlan_id());
+    inst.set_deleted(ri.deleted());
+    vector<string> import_rt;
+    BOOST_FOREACH(RouteTarget rt, ri.GetImportList()) {
+        import_rt.push_back(rt.ToString());
+    }
+    inst.set_import_target(import_rt);
+    vector<string> export_rt;
+    BOOST_FOREACH(RouteTarget rt, ri.GetExportList()) {
+        export_rt.push_back(rt.ToString());
+    }
+    inst.set_export_target(export_rt);
+    ri_list->push_back(inst);
+}
+
+bool ShowRoutingInstanceSummaryHandler::CallbackS1(const Sandesh *sr,
+    const RequestPipeline::PipeSpec ps, int stage, int instNum,
+    RequestPipeline::InstData *data) {
+    const ShowRoutingInstanceSummaryReq *req =
+        static_cast<const ShowRoutingInstanceSummaryReq *>(ps.snhRequest_.get());
+    BgpSandeshContext *bsc =
+        static_cast<BgpSandeshContext *>(req->client_context());
+    RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
+    vector<ShowRoutingInstance> ri_list;
+    for (RoutingInstanceMgr::RoutingInstanceIterator it = rim->begin();
+        it != rim->end(); ++it) {
+        FillRoutingInstanceInfo(&ri_list, *it);
+    }
+
+    ShowRoutingInstanceSummaryResp *resp = new ShowRoutingInstanceSummaryResp;
+    resp->set_instances(ri_list);
+    resp->set_context(req->context());
+    resp->Response();
+    return true;
+}
+
+void ShowRoutingInstanceSummaryReq::HandleRequest() const {
+    RequestPipeline::PipeSpec ps(this);
+    RequestPipeline::StageSpec s1;
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+
+    s1.taskId_ = scheduler->GetTaskId("bgp::ShowCommand");
+    s1.cbFn_ = ShowRoutingInstanceSummaryHandler::CallbackS1;
+    s1.instances_.push_back(0);
+    ps.stages_ = list_of(s1);
+    RequestPipeline rp(ps);
+}
+
 class ShowMulticastManagerHandler {
 public:
     struct MulticastManagerDataKey {
