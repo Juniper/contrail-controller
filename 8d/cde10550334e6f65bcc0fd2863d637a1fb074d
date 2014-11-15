@@ -1,0 +1,10 @@
+Code-Review+1: opencontrail-admin <ci-admin@opencontrail.org>
+Verified+2: opencontrail-admin <ci-admin@opencontrail.org>
+Verified+2: Zuul <zuul@lists.opencontrail.org>
+Approved+1: Ignatious Johnson Christopher <ijohnson@juniper.net>
+Code-Review+2: Ignatious Johnson Christopher <ijohnson@juniper.net>
+Submitted-by: Zuul <zuul@lists.opencontrail.org>
+Submitted-at: Fri, 14 Nov 2014 17:04:22 -0800
+Reviewed-on: https://review.opencontrail.org/4379
+Project: Juniper/contrail-controller
+Branch: refs/heads/master
