@@ -1907,10 +1907,10 @@ class BgpRouterST(DictST):
             return
         bgp_router_obj = _vnc_lib.bgp_router_read(fq_name_str=self.name)
         params = bgp_router_obj.get_bgp_router_parameters()
-        params.autonomous_system = my_asn
+        params.autonomous_system = int(asn)
         bgp_router_obj.set_bgp_router_parameters(params)
         _vnc_lib.bgp_router_update(bgp_router_obj)
-        self.asn = my_asn
+        self.asn = int(asn)
         self.update_peering()
     # end update_autonomous_system
 
