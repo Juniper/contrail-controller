@@ -52,10 +52,10 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.config_file(), "/etc/contrail/dns.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
-    EXPECT_EQ(options_.named_config_file(), "named.conf");
+    EXPECT_EQ(options_.named_config_file(), "contrail-named.conf");
     EXPECT_EQ(options_.named_config_dir(), "/etc/contrail/dns");
-    EXPECT_EQ(options_.named_log_file(), "/var/log/named/bind.log");
-    EXPECT_EQ(options_.rndc_config_file(), "rndc.conf");
+    EXPECT_EQ(options_.named_log_file(), "/var/log/contrail/contrail-named.log");
+    EXPECT_EQ(options_.rndc_config_file(), "contrail-rndc.conf");
     EXPECT_EQ(options_.rndc_secret(), "xvysmOR8lnUQRBcunkC6vg==");
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
@@ -92,10 +92,10 @@ TEST_F(OptionsTest, DefaultConfFile) {
               "controller/src/dns/dns.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
-    EXPECT_EQ(options_.named_config_file(), "named.conf");
+    EXPECT_EQ(options_.named_config_file(), "contrail-named.conf");
     EXPECT_EQ(options_.named_config_dir(), "/etc/contrail/dns");
-    EXPECT_EQ(options_.named_log_file(), "/var/log/named/bind.log");
-    EXPECT_EQ(options_.rndc_config_file(), "rndc.conf");
+    EXPECT_EQ(options_.named_log_file(), "/var/log/contrail/contrail-named.log");
+    EXPECT_EQ(options_.rndc_config_file(), "contrail-rndc.conf");
     EXPECT_EQ(options_.rndc_secret(), "secret==$");
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
@@ -136,9 +136,9 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.dns_config_file(), "dns_config.xml");
     EXPECT_EQ(options_.config_file(),
               "controller/src/dns/dns.conf");
-    EXPECT_EQ(options_.named_config_file(), "named.conf");
+    EXPECT_EQ(options_.named_config_file(), "contrail-named.conf");
     EXPECT_EQ(options_.named_config_dir(), "/etc/contrail/dns");
-    EXPECT_EQ(options_.named_log_file(), "/var/log/named/bind.log");
+    EXPECT_EQ(options_.named_log_file(), "/var/log/contrail/contrail-named.log");
     EXPECT_EQ(options_.rndc_config_file(), "test.rndc");
     EXPECT_EQ(options_.rndc_secret(), "secret123");
     EXPECT_EQ(options_.discovery_server(), "");

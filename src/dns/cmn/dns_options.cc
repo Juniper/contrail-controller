@@ -72,16 +72,16 @@ void Options::Initialize(EventManager &evm,
              "DNS Configuration file")
 
         ("DEFAULT.named_config_file",
-             opt::value<string>()->default_value("named.conf"),
+             opt::value<string>()->default_value("contrail-named.conf"),
              "Named Configuration file")
         ("DEFAULT.named_config_directory",
              opt::value<string>()->default_value("/etc/contrail/dns"),
              "Named Configuration directory")
         ("DEFAULT.named_log_file",
-             opt::value<string>()->default_value("/var/log/named/bind.log"),
+             opt::value<string>()->default_value("/var/log/contrail/contrail-named.log"),
              "Named log file")
         ("DEFAULT.rndc_config_file",
-             opt::value<string>()->default_value("rndc.conf"),
+             opt::value<string>()->default_value("contrail-rndc.conf"),
              "Rndc Configuration file")
         ("DEFAULT.rndc_secret",
              opt::value<string>()->default_value("xvysmOR8lnUQRBcunkC6vg=="),
