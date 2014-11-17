@@ -25,6 +25,7 @@ subdirs=[
     'utils',
     'uve',
     'vnc_openstack',
+    'vcenter-monitor/java',
 ]
 
 CfgmEnv.SConscript(dirs=subdirs, exports='CfgmEnv', duplicate = 0)

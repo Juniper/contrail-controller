@@ -13,6 +13,7 @@ import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
+import java.lang.reflect.Modifier;
 
 public class ApiSerializer {
     private static class ReferenceSerializer implements JsonSerializer<ObjectReference<? extends ApiPropertyBase>> {
@@ -37,7 +38,7 @@ public class ApiSerializer {
     static Gson getDeserializer() {
         GsonBuilder builder = new GsonBuilder();
         // Do not attempt to deserialize ApiObjectBase.parent
-        return builder.excludeFieldsWithModifiers().create();
+        return builder.excludeFieldsWithModifiers(Modifier.VOLATILE).setDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS").create();
     }
     
     static private Gson getSerializer() {

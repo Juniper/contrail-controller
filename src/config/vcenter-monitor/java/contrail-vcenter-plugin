@@ -1,0 +1,4 @@
+#!/bin/sh
+
+cd /usr/share/contrail-vcenter-plugin
+java -cp ./juniper-contrail-vcenter.jar:./juniper-contrail-api.jar:./juniper-contrail-vijava.jar:./juniper-contrail-vrouter-api.jar:/usr/share/java/log4j-1.2.jar:/usr/share/java/dom4j.jar:httpcore.jar:gson.jar:/usr/share/java/guava.jar:/usr/share/java/commons-lang.jar:/usr/share/java/commons-exec.jar:httpclient.jar:/usr/share/java/commons-net.jar:thrift.jar:/usr/share/java/slf4j-api.jar:/usr/share/java/slf4j-simple.jar net.juniper.contrail.vcenter.VCenterMonitor > /var/log/contrail/contrail-vcenter-plugin.log 2>&1

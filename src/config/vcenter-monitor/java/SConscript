@@ -1,0 +1,31 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+import os
+import re
+import subprocess
+import sys
+
+Import('CfgmEnv')
+env = CfgmEnv.Clone()
+
+mvn_target = env.build_maven('#build/debug/config/vcenter-monitor/java/target/juniper-contrail-vcenter-1.0.jar', 
+                             source = ['#controller/src/config/vcenter-monitor/java/src/net/juniper/contrail/vcenter'], 
+                             path=Dir('#controller/src/config/vcenter-monitor/java'))
+env.Alias('vcenter-plugin', mvn_target)
+env.Default(mvn_target)
+
+env.Requires(mvn_target, 'vijava')
+env.Requires(mvn_target, 'api-lib-java')
+env.Requires(mvn_target, 'contrail-vrouter-api-java')
+
+env.Alias('install', env.InstallAs(env['INSTALL_INITD'] + 
+    '/contrail-vcenter-plugin', 'contrail-vcenter-plugin.initd.supervisord'))
+env.Alias('install', env.Install(env['INSTALL_CONF']+ 
+    '/supervisord_config_files', 'contrail-vcenter-plugin.ini'))
+env.Alias('install', env.Install(env['INSTALL_BIN'], 'contrail-vcenter-plugin'))
+env.Alias('install', env.InstallAs(env['INSTALL_SHARE'] + '/contrail-vcenter-plugin/juniper-contrail-vcenter.jar',
+                '#build/debug/config/vcenter-monitor/java/target/juniper-contrail-vcenter-1.0.jar'))

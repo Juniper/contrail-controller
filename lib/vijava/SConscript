@@ -1,0 +1,22 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+import os
+import re
+import subprocess
+import sys
+
+env = DefaultEnvironment().Clone()
+
+mvn_target = env.build_maven('#build/third_party/vijava/target/juniper-contrail-vijava-1.0.jar', 
+                             source ='#third_party/vijava', path=Dir('#controller/lib/vijava'))
+env.Alias('vijava', mvn_target)
+env.Default(mvn_target)
+
+if 'install' in BUILD_TARGETS:
+    env.Alias('install', 
+        env.InstallAs(env['INSTALL_SHARE'] + '/contrail-vcenter-plugin/juniper-contrail-vijava.jar',
+                      '#build/third_party/vijava/target/juniper-contrail-vijava-1.0.jar'))
