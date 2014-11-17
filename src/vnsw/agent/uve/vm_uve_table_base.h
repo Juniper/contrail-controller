@@ -59,6 +59,7 @@ protected:
     Agent *agent_;
 private:
     virtual VmUveEntryPtr Allocate(const VmEntry *vm);
+    const VmEntry *VmUuidToVm(const boost::uuids::uuid u);
     void InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e);
     void VmNotify(DBTablePartBase *partition, DBEntryBase *e);
     void InterfaceAddHandler(const VmEntry* vm, const Interface* intf,

@@ -480,9 +480,8 @@ bool VrouterUveEntryBase::SendVrouterMsg() {
         DispatchVrouterMsg(vrouter_agent);
     }
 
-
-
     VrouterStatsAgent stats;
+    stats.set_name(agent_->host_name());
     cpu_stats_count_++;
     if ((cpu_stats_count_ % 6) == 0) {
         static bool cpu_first = true;

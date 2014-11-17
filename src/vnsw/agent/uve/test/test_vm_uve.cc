@@ -1171,6 +1171,93 @@ TEST_F(UveVmUveTest, VmUVE_Name_1) {
     RemoveFipConfig();
 }
 
+/* Change the VM associated with a VMI to a different VM
+ * Verify that the old and new VM UVEs have correct interfaces
+ */
+TEST_F(UveVmUveTest, VmChangeOnVMI) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    VmUveTableTest *vmut = static_cast<VmUveTableTest *>
+        (Agent::GetInstance()->uve()->vm_uve_table());
+    //Add VN
+    util_.VnAdd(input[0].vn_id);
+    // Nova Port add message
+    util_.NovaPortAdd(&input[0]);
+    // Config Port add
+    util_.ConfigPortAdd(&input[0]);
+    //Verify that the port is inactive
+    EXPECT_TRUE(VmPortInactive(input, 0));
+
+    util_.VmAdd(input[0].vm_id);
+    util_.VrfAdd(input[0].vn_id);
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
+    AddLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
+    AddLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    AddVmPortVrf("vnet1", "", 0);
+    client->WaitForIdle();
+    AddInstanceIp("instance0", input[0].vm_id, input[0].addr);
+    AddLink("virtual-machine-interface", input[0].name,
+            "instance-ip", "instance0");
+    AddLink("virtual-machine-interface-routing-instance", "vnet1",
+            "routing-instance", "vrf1");
+    client->WaitForIdle(3);
+    AddLink("virtual-machine-interface-routing-instance", "vnet1",
+            "virtual-machine-interface", "vnet1");
+    client->WaitForIdle(3);
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    //Verify UVE
+    VmEntry *vm = VmGet(1);
+    UveVirtualMachineAgent *uve1 = vmut->VmUveObject(vm);
+    EXPECT_EQ(1U, uve1->get_interface_list().size());
+
+    //Disassociate VMI from VM
+    DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
+    util_.VmAdd(2);
+    AddLink("virtual-machine", "vm2", "virtual-machine-interface", "vnet1");
+    client->WaitForIdle(3);
+
+    //Verify UVE
+    uve1 = vmut->VmUveObject(vm);
+    EXPECT_EQ(0U, uve1->get_interface_list().size());
+    VmEntry *vm2 = VmGet(2);
+    UveVirtualMachineAgent *uve2 = vmut->VmUveObject(vm2);
+    EXPECT_EQ(1U, uve2->get_interface_list().size());
+
+    //cleanup
+    DelLink("virtual-machine", "vm2", "virtual-machine-interface", "vnet1");
+    DelLink("virtual-machine-interface-routing-instance", "vnet1",
+            "routing-instance", "vrf1");
+    DelLink("virtual-machine-interface-routing-instance", "vnet1",
+            "virtual-machine-interface", "vnet1");
+    DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    DelLink("virtual-machine-interface", input[0].name,
+            "instance-ip", "instance0");
+    DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle(3);
+
+    DelNode("virtual-machine-interface-routing-instance", "vnet1");
+    client->WaitForIdle(3);
+    DelNode("virtual-machine", "vm1");
+    DelNode("routing-instance", "vrf1");
+    client->WaitForIdle(3);
+    DelNode("virtual-machine-interface", "vnet1");
+    DelInstanceIp("instance0");
+    client->WaitForIdle(3);
+    IntfCfgDel(input, 0);
+    util_.VnDelete(input[0].vn_id);
+    client->WaitForIdle(3);
+
+    //clear counters at the end of test case
+    client->Reset();
+    vmut->ClearCount();
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, true, false, true,

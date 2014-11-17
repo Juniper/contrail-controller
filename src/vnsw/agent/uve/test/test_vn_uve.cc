@@ -479,7 +479,8 @@ TEST_F(UveVnUveTest, FlowCount_1) {
     EXPECT_EQ(4U, uve1->get_egress_flow_count());
 
     DeleteFlow(flow, 1);
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    WAIT_FOR(1000, 500,
+             ((Agent::GetInstance()->pkt()->flow_table()->Size() == 2U)));
     vnut->SendVnStats(false);
     EXPECT_EQ(2U, uve1->get_ingress_flow_count());
     EXPECT_EQ(2U, uve1->get_egress_flow_count());
@@ -549,7 +550,8 @@ TEST_F(UveVnUveTest, FlowCount_2) {
 
     //Delete a flow
     DeleteFlow(flow, 1);
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    WAIT_FOR(1000, 500,
+             ((Agent::GetInstance()->pkt()->flow_table()->Size() == 2U)));
 
     //Trigger VN UVE send
     vnut->SendVnStats(false);
