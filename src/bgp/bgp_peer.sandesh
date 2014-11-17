@@ -43,41 +43,48 @@ struct BgpNeighborRoutingTable {
 }
 
 struct BgpNeighborResp {
-    1: string peer;             // Peer name
-    2: string peer_address (link="BgpNeighborReq");
+    1: string peer (link="BgpNeighborReq"); // Peer name
     36: bool deleted;           // Deletion in progress
+    2: string peer_address (link="BgpNeighborReq");
+    25: string peer_id;
     3: u32 peer_asn;
-    4: string local_address;    // local ip address and port
-    5: u32 local_asn;
     6: string encoding;         // BGP/XMPP
     7: string peer_type         // internal/external
     8: string state;
-    9: string send_state;       // in sync/not in sync
-    10: string last_event;
-    11: string last_state;
-    12: string last_state_at;
-    13: string last_error;
-    38: list<string> configured_address_families;
-    39: list<string> negotiated_address_families;
-    40: u32 configured_hold_time;
-    41: u32 negotiated_hold_time;
-    23: u32 flap_count;
-    24: string flap_time;
-    25: string peer_id;
+    4: string local_address;    // local ip address and port
     26: string local_id;
-    37: list<BgpNeighborRoutingInstance> routing_instances;
-    29: list<BgpNeighborRoutingTable> routing_tables;
-    30: peer_info.PeerProtoStats rx_proto_stats;
-    31: peer_info.PeerProtoStats tx_proto_stats;
-    32: peer_info.PeerUpdateStats rx_update_stats;
-    33: peer_info.PeerUpdateStats tx_update_stats;
-    34: peer_info.PeerSocketStats rx_socket_stats;
-    35: peer_info.PeerSocketStats tx_socket_stats;
-    42: peer_info.PeerRxErrorStats rx_error_stats;
+    5: u32 local_asn;
+    9: optional string send_state;       // in sync/not in sync
+    10: optional string last_event;
+    11: optional string last_state;
+    12: optional string last_state_at;
+    13: optional string last_error;
+    38: optional list<string> configured_address_families;
+    39: optional list<string> negotiated_address_families;
+    40: optional u32 configured_hold_time;
+    41: u32 negotiated_hold_time;
+    23: optional u32 flap_count;
+    24: optional string flap_time;
+    37: optional list<BgpNeighborRoutingInstance> routing_instances;
+    29: optional list<BgpNeighborRoutingTable> routing_tables;
+    30: optional peer_info.PeerProtoStats rx_proto_stats;
+    31: optional peer_info.PeerProtoStats tx_proto_stats;
+    32: optional peer_info.PeerUpdateStats rx_update_stats;
+    33: optional peer_info.PeerUpdateStats tx_update_stats;
+    34: optional peer_info.PeerSocketStats rx_socket_stats;
+    35: optional peer_info.PeerSocketStats tx_socket_stats;
+    42: optional peer_info.PeerRxErrorStats rx_error_stats;
 }
 
 response sandesh BgpNeighborListResp {
     1: list<BgpNeighborResp> neighbors;
+}
+
+response sandesh ShowBgpNeighborSummaryResp {
+    1: list<BgpNeighborResp> neighbors;
+}
+
+request sandesh ShowBgpNeighborSummaryReq {
 }
 
 request sandesh ShowNeighborStatisticsReq {

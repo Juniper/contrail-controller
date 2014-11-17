@@ -263,6 +263,24 @@ protected:
         validate_done_ = true;
     }
 
+    static void ValidateNeighborSummaryResponse(Sandesh *sandesh,
+                                                const vector<string> &result) {
+        ShowBgpNeighborSummaryResp *resp =
+                dynamic_cast<ShowBgpNeighborSummaryResp *>(sandesh);
+        TASK_UTIL_EXPECT_TRUE(resp != NULL);
+        TASK_UTIL_EXPECT_EQ(result.size(), resp->get_neighbors().size());
+
+        cout << "*******************************************************"<<endl;
+        for (size_t i = 0; i < resp->get_neighbors().size(); i++) {
+            cout << resp->get_neighbors()[i].log() << endl;
+            TASK_UTIL_EXPECT_EQ(result[i],
+                    resp->get_neighbors()[i].peer_address);
+        }
+        cout << "*******************************************************"<<endl;
+        cout << endl;
+        validate_done_ = true;
+    }
+
     static void ValidateShowRouteResponse(Sandesh *sandesh, vector<size_t> &result) {
         ShowRouteResp *resp = dynamic_cast<ShowRouteResp *>(sandesh);
         TASK_UTIL_EXPECT_NE((ShowRouteResp *)NULL, resp);
@@ -567,6 +585,17 @@ TEST_F(BgpXmppUnitTest, Connection) {
     validate_done_ = false;
     nbr_req->HandleRequest();
     nbr_req->Release();
+    WAIT_EQ(true, validate_done_);
+
+    // show neighbor summary
+    cout << "ValidateNeighborSummaryResponse:" << endl;
+    vector<string> s_result = list_of("127.0.0.2")("127.0.0.1");
+    Sandesh::set_response_callback(boost::bind(ValidateNeighborSummaryResponse,
+                                   _1, s_result));
+    ShowBgpNeighborSummaryReq *nbr_s_req = new ShowBgpNeighborSummaryReq;
+    validate_done_ = false;
+    nbr_s_req->HandleRequest();
+    nbr_s_req->Release();
     WAIT_EQ(true, validate_done_);
 
     // show route

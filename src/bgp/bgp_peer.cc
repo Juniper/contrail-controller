@@ -1588,31 +1588,34 @@ void BgpPeer::FillBgpNeighborDebugState(BgpNeighborResp &resp,
     resp.set_tx_socket_stats(peer_socket_stats);
 }
 
-void BgpPeer::FillNeighborInfo(std::vector<BgpNeighborResp> &nbr_list) const {
+void BgpPeer::FillNeighborInfo(vector<BgpNeighborResp> *nbr_list,
+    bool summary) const {
     BgpNeighborResp nbr;
     nbr.set_peer(peer_basename_);
-    nbr.set_peer_address(peer_key_.endpoint.address().to_string());
     nbr.set_deleted(IsDeleted());
-    nbr.set_peer_asn(peer_as());
-    nbr.set_local_address(server_->ToString());
-    nbr.set_local_asn(local_as());
-    nbr.set_peer_type(PeerType() == BgpProto::IBGP ? "internal" : "external");
-    nbr.set_encoding("BGP");
-    nbr.set_state(state_machine_->StateName());
+    nbr.set_peer_address(peer_key_.endpoint.address().to_string());
     nbr.set_peer_id(Ip4Address(remote_bgp_id_).to_string());
+    nbr.set_peer_asn(peer_as());
+    nbr.set_encoding("BGP");
+    nbr.set_peer_type(PeerType() == BgpProto::IBGP ? "internal" : "external");
+    nbr.set_state(state_machine_->StateName());
+    nbr.set_local_address(server_->ToString());
     nbr.set_local_id(Ip4Address(local_bgp_id_).to_string());
+    nbr.set_local_asn(local_as());
+    nbr.set_negotiated_hold_time(state_machine_->hold_time());
+
+    if (summary) {
+        nbr_list->push_back(nbr);
+        return;
+    }
+
     nbr.set_configured_address_families(configured_families_);
     nbr.set_negotiated_address_families(negotiated_families_);
     nbr.set_configured_hold_time(state_machine_->GetConfiguredHoldTime());
-    nbr.set_negotiated_hold_time(state_machine_->hold_time());
-
     FillBgpNeighborDebugState(nbr, peer_stats_.get());
-
-    // TODO: Fill the rest of the fields
     PeerRibMembershipManager *mgr = server_->membership_mgr();
     mgr->FillPeerMembershipInfo(this, nbr);
-
-    nbr_list.push_back(nbr);
+    nbr_list->push_back(nbr);
 }
 
 void BgpPeer::inc_rx_open() {
