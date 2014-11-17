@@ -395,7 +395,7 @@ class VCenterMonitorTask implements Runnable {
     public void run() {
         try {
             if (iteration == 0) {
-                // 30 sec timeout. Sync VN/VM/VMI/InstanceIp etc.
+                // 16 sec timeout. Sync VN/VM/VMI/InstanceIp etc.
                 syncVirtualNetworks();
 
                 // When syncVirtualNetwrorks is run the first time, it also does
@@ -407,7 +407,7 @@ class VCenterMonitorTask implements Runnable {
                 vncDB.vrouterAgentPeriodicConnectionCheck();
             }
             iteration++;
-            if (iteration == 16)
+            if (iteration == 8) // 16 sec for poll
                 iteration = 0;
         } catch (Exception e) {
             s_logger.error("Error while syncVirtualNetworks: " + e); 
