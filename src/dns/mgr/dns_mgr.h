@@ -45,7 +45,12 @@ public:
 
     DnsManager();
     virtual ~DnsManager();
-    void Initialize(DB *config_db, DBGraph *config_graph);
+    void Initialize(DB *config_db, DBGraph *config_graph,
+                    const std::string& named_config_dir,
+                    const std::string& named_config_file,
+                    const std::string& named_log_file,
+                    const std::string& rndc_config_file,
+                    const std::string& rndc_secret);
     void Shutdown();
     void DnsView(const DnsConfig *config, DnsConfig::DnsConfigEvent ev);
     void DnsPtrZone(const Subnet &subnet, const VirtualDnsConfig *vdns,

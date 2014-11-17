@@ -46,8 +46,14 @@ DnsManager::DnsManager()
     StartPendingTimer();
 }
 
-void DnsManager::Initialize(DB *config_db, DBGraph *config_graph) {
-    NamedConfig::Init();
+void DnsManager::Initialize(DB *config_db, DBGraph *config_graph,
+                            const std::string& named_config_dir,
+                            const std::string& named_config_file,
+                            const std::string& named_log_file,
+                            const std::string& rndc_config_file,
+                            const std::string& rndc_secret) {
+    NamedConfig::Init(named_config_dir, named_config_file,
+                      named_log_file, rndc_config_file, rndc_secret);
     // bind_status_.SetTrigger();
     config_mgr_.Initialize(config_db, config_graph);
 }
