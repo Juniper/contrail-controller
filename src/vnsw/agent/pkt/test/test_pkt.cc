@@ -35,6 +35,10 @@
 #include "test/pkt_gen.h"
 #include <controller/controller_vrf_export.h>
 
+#ifdef __FreeBSD__
+#define ETH_P_8021Q 0x8100
+#endif
+
 void RouterIdDepInit(Agent *agent) {
 }
 
