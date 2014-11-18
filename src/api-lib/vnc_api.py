@@ -76,6 +76,12 @@ class VncApi(VncApiClientGen):
     # Connection to api-server through Quantum
     _DEFAULT_WEB_PORT = 8082
     _DEFAULT_BASE_URL = "/"
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if not cls_instance:
+            cls._instance = super(vncApi, cls).__new__(*args, **kwargs)
+        return cls._instance
 
     def __init__(self, username=None, password=None, tenant_name=None,
                  api_server_host='127.0.0.1', api_server_port='8082',
@@ -187,6 +193,19 @@ class VncApi(VncApiClientGen):
             logger = logging.getLogger(__name__)
             logger.warn("Exception: %s", str(e))
     #end __init__
+
+    @classmethod
+    def ensure_connection(cls, func):
+        """Decorator to ensure connection to vnc api is established.
+        """
+        def api_connention(*args, **kwargs):
+            self = VncApi()
+            if not hasattr(self, '_cfg_root_url'):
+                homepage = self._request(rest.OP_GET, self._base_url,
+                                        retry_on_error=False)
+                self._cfg_root_url = self._parse_homepage(homepage)
+                return func(*args, **kwargs)
+        return api_connection
 
     def _obj_serializer_diff(self, obj):
         if hasattr(obj, 'serialize_to_json'):
@@ -402,6 +421,7 @@ class VncApi(VncApiClientGen):
 
     #end _request_server
 
+    @vncApi.ensure_connection
     def ref_update(self, obj_type, obj_uuid, ref_type, ref_uuid, ref_fq_name, operation, attr=None):
         if ref_type.endswith('_refs'):
             ref_type = ref_type[:-5].replace('_', '-')
@@ -425,6 +445,7 @@ class VncApi(VncApiClientGen):
         return self.fq_name_to_id(obj.get_type(), obj.get_fq_name())
     #end obj_to_id
 
+    @vncApi.ensure_connection
     def fq_name_to_id(self, obj_type, fq_name):
         json_body = json.dumps({'type': obj_type, 'fq_name': fq_name})
         uri = self._action_uri['name-to-id']
@@ -438,6 +459,7 @@ class VncApi(VncApiClientGen):
         return json.loads(content)['uuid']
     #end fq_name_to_id
 
+    @vncApi.ensure_connection
     def id_to_fq_name(self, id):
         json_body = json.dumps({'uuid': id})
         uri = self._action_uri['id-to-name']
@@ -446,6 +468,7 @@ class VncApi(VncApiClientGen):
         return json.loads(content)['fq_name']
     #end id_to_fq_name
 
+    @vncApi.ensure_connection
     def id_to_fq_name_type(self, id):
         json_body = json.dumps({'uuid': id})
         uri = self._action_uri['id-to-name']
@@ -455,6 +478,7 @@ class VncApi(VncApiClientGen):
         return (json_rsp['fq_name'], json_rsp['type'])
 
     # This is required only for helping ifmap-subscribers using rest publish
+    @vncApi.ensure_connection
     def ifmap_to_id(self, ifmap_id):
         json_body = json.dumps({'ifmap_id': ifmap_id})
         uri = self._action_uri['ifmap-to-id']
@@ -475,6 +499,7 @@ class VncApi(VncApiClientGen):
         return json.loads(self.obj_to_json(obj))
     # end obj_to_dict
 
+    @vncApi.ensure_connection
     def fetch_records(self):
         json_body = json.dumps({'fetch_records': None})
         uri = self._action_uri['fetch-records']
@@ -483,6 +508,7 @@ class VncApi(VncApiClientGen):
         return json.loads(content)['results']
     #end fetch_records
 
+    @vncApi.ensure_connection
     def restore_config(self, create, resource, json_body):
         class_name = "%s" % (CamelCase(resource))
         cls = str_to_class(class_name)
@@ -501,6 +527,7 @@ class VncApi(VncApiClientGen):
         return json.loads(content)
     #end restore_config
 
+    @vncApi.ensure_connection
     def kv_store(self, key, value):
         # TODO move oper value to common
         json_body = json.dumps({'operation': 'STORE',
@@ -510,6 +537,7 @@ class VncApi(VncApiClientGen):
         self._request_server(rest.OP_POST, uri, data=json_body)
     #end kv_store
 
+    @vncApi.ensure_connection
     def kv_retrieve(self, key=None):
         # if key is None, entire collection is retrieved, use with caution!
         # TODO move oper value to common
@@ -521,6 +549,7 @@ class VncApi(VncApiClientGen):
         return json.loads(content)['value']
     #end kv_retrieve
 
+    @vncApi.ensure_connection
     def kv_delete(self, key):
         # TODO move oper value to common
         json_body = json.dumps({'operation': 'DELETE',
@@ -531,6 +560,7 @@ class VncApi(VncApiClientGen):
 
     # reserve block of IP address from a VN
     # expected format {"subnet" : "2.1.1.0/24", "count" : 4}
+    @vncApi.ensure_connection
     def virtual_network_ip_alloc(self, vnobj, count=1, subnet=None):
         json_body = json.dumps({'count': count, 'subnet': subnet})
         uri = self._action_uri['virtual-network-ip-alloc'] % vnobj.uuid
@@ -541,6 +571,7 @@ class VncApi(VncApiClientGen):
     # free previously reserved block of IP address from a VN
     # Expected format "subnet" : "2.1.1.0/24",
     #                 "ip_addr" : ["2.1.1.239", "2.1.1.238"]
+    @vncApi.ensure_connection
     def virtual_network_ip_free(self, vnobj, ip_list, subnet=None):
         json_body = json.dumps({'ip_addr': ip_list, 'subnet': subnet})
         uri = self._action_uri['virtual-network-ip-free'] % vnobj.uuid
@@ -550,6 +581,7 @@ class VncApi(VncApiClientGen):
 
     # return no of ip instances from a given VN/Subnet
     # Expected format "subne_list" : ["2.1.1.0/24", "2.2.2.0/24"]
+    @vncApi.ensure_connection
     def virtual_network_subnet_ip_count(self, vnobj, subnet_list):
         json_body = json.dumps({'subnet_list': subnet_list})
         uri = self._action_uri['virtual-network-subnet-ip-count'] % vnobj.uuid
