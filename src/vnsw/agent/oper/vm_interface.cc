@@ -248,25 +248,22 @@ static void BuildStaticRouteList(VmInterfaceConfigData *data, IFMapNode *node) {
         IpAddress ip;
         bool add = false;
 
-        if (entry->family().compare("v6") == 0) { 
+        Ip4Address ip4;
+        ec = Ip4PrefixParse(it->prefix, &ip4, &plen);
+        if (ec.value() == 0) {
+            ip = ip4;
+            add = true;
+        } else {
             Ip6Address ip6;
             ec = Inet6PrefixParse(it->prefix, &ip6, &plen);
             if (ec.value() == 0) {
                 ip = ip6;
                 add = true;
             } else {
-                LOG(DEBUG, "Error decoding v6 Static Route address " << it->prefix);
-            }
-        } else { 
-            Ip4Address ip4;
-            ec = Ip4PrefixParse(it->prefix, &ip4, &plen);
-            if (ec.value() == 0) {
-                ip = ip4;
-                add = true;
-            } else {
-                LOG(DEBUG, "Error decoding v4 Static Route address " << it->prefix);
+                LOG(DEBUG, "Error decoding v4/v6 Static Route address " << it->prefix);
             }
         }
+ 
         if (add) {
             data->static_route_list_.list_.insert
                 (VmInterface::StaticRoute(data->vrf_name_, ip, plen));
