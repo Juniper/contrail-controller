@@ -109,28 +109,27 @@ class VirtualMachineManager(InstanceManager):
         proj_name = si_obj.get_parent_fq_name()[-1]
         max_instances = si_props.get_scale_out().get_max_instances()
         self.db.service_instance_insert(si_obj.get_fq_name_str(),
-                                        {'max-instances': str(max_instances)})
+                                        {'max-instances': str(max_instances),
+                                         'state': 'launching'})
         instances = []
         for inst_count in range(0, max_instances):
             instance_name = self._get_instance_name(si_obj, inst_count)
-            vm_exists = False
-            for vm_back_ref in vm_back_refs or []:
-                vm = self.novaclient_oper('servers', 'find', proj_name,
-                                           id=vm_back_ref['uuid'])
-                if vm and vm.name == instance_name:
-                    vm_exists = True
-                    break
-
-            if vm_exists:
-                vm_uuid = vm_back_ref['uuid']
-                state = 'active'
-            else:
+            si_info = self.db.service_instance_get(si_obj.get_fq_name_str())
+            prefix = self.db.get_vm_db_prefix(inst_count)
+            if prefix + 'name' not in si_info.keys():
                 vm = self._create_svc_vm(instance_name, image_name, nics,
                                          flavor, st_obj, si_obj, avail_zone)
-                if vm is None:
+                if not vm:
                     continue
                 vm_uuid = vm.id
                 state = 'pending'
+            else:
+                vm = self.novaclient_oper('servers', 'find', proj_name,
+                                           id=si_info[prefix + 'uuid'])
+                if not vm:
+                    continue
+                vm_uuid = si_info[prefix + 'uuid']
+                state = 'active'
 
             # store vm, instance in db; use for linking when VM is up
             vm_db_entry = self._set_vm_db_info(inst_count, instance_name,
@@ -139,36 +138,41 @@ class VirtualMachineManager(InstanceManager):
                                             vm_db_entry)
             instances.append({'uuid': vm_uuid})
 
+        self.db.service_instance_insert(si_obj.get_fq_name_str(),
+                                        {'state': 'active'})
         # uve trace
         self.logger.uve_svc_instance(si_obj.get_fq_name_str(),
             status='CREATE', vms=instances,
             st_name=st_obj.get_fq_name_str())
 
-    def delete_service(self, vm_uuid, proj_name=None):
+    def delete_service(self, si_fq_str, vm_uuid, proj_name=None):
+        self.db.remove_vm_info(si_fq_str, vm_uuid)
+
         try:
             self._vnc_lib.virtual_machine_delete(id=vm_uuid)
         except (NoIdError, RefsExistError):
             pass
 
-        vm = self.novaclient_oper('servers', 'find', proj_name, id = vm_uuid)
-        if vm:
-            vm.delete()
-        else:
+        vm = self.novaclient_oper('servers', 'find', proj_name, id=vm_uuid)
+        if not vm:
             raise KeyError
+
+        try:
+            vm.delete()
+        except Exception:
+            pass
 
     def check_service(self, si_obj, proj_name=None):
         status = 'ACTIVE'
         vm_list = {}
         vm_back_refs = si_obj.get_virtual_machine_back_refs()
         for vm_back_ref in vm_back_refs or []:
-            try:
-                vm = self.novaclient_oper('servers', 'find', proj_name,
-                    id=vm_back_ref['uuid'])
+            vm = self.novaclient_oper('servers', 'find', proj_name,
+                id=vm_back_ref['uuid'])
+            if vm:
                 vm_list[vm.name] = vm
-            except nc_exc.NotFound:
+            else:
                 self._vnc_lib.virtual_machine_delete(id=vm_back_ref['uuid'])
-            except (NoIdError, RefsExistError):
-                pass
 
         # check status of VMs
         si_props = si_obj.get_service_instance_properties()
@@ -179,7 +183,8 @@ class VirtualMachineManager(InstanceManager):
                 status = 'ERROR'
             elif vm_list[instance_name].status == 'ERROR':
                 try:
-                    self.delete_service(vm_list[instance_name].id, proj_name)
+                    self.delete_service(si_obj.get_fq_name_str(),
+                        vm_list[instance_name].id, proj_name)
                 except KeyError:
                     pass
                 status = 'ERROR'
@@ -190,7 +195,8 @@ class VirtualMachineManager(InstanceManager):
         elif vm_back_refs and (max_instances < len(vm_back_refs)):
             for vm_back_ref in vm_back_refs:
                 try:
-                    self.delete_service(vm_back_ref['uuid'], proj_name)
+                    self.delete_service(si_obj.get_fq_name_str(),
+                        vm_back_ref['uuid'], proj_name)
                 except KeyError:
                     pass
             status = 'ERROR'
@@ -232,6 +238,8 @@ class VirtualMachineManager(InstanceManager):
             self.logger.log(
                 "Error: Multiple %s %s=%s found in project %s"
                 % (resource, kwargs.keys()[0], kwargs.values()[0], proj_name))
+            return None
+        except Exception:
             return None
 
     def update_static_routes(self, si_obj):
