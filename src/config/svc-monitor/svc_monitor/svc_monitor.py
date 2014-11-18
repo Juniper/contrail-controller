@@ -268,11 +268,11 @@ class SvcMonitor(object):
         if config_complete:
             self.logger.log("SI %s info is complete" %
                              si_obj.get_fq_name_str())
-            si_entry['state'] = 'active'
+            si_entry['state'] = 'config_complete'
         else:
             self.logger.log("Warn: SI %s info is not complete" %
                              si_obj.get_fq_name_str())
-            si_entry['state'] = 'pending'
+            si_entry['state'] = 'pending_config'
 
         #insert entry
         self.db.service_instance_insert(si_obj.get_fq_name_str(), si_entry)
@@ -314,11 +314,11 @@ class SvcMonitor(object):
 
         try:
             if virt_type == svc_info.get_vm_instance_type():
-                self.vm_manager.delete_service(vm_uuid, proj_name)
+                self.vm_manager.delete_service(si_fq_str, vm_uuid, proj_name)
             elif virt_type == svc_info.get_netns_instance_type():
-                self.netns_manager.delete_service(vm_uuid)
+                self.netns_manager.delete_service(si_fq_str, vm_uuid)
             elif virt_type == 'vrouter-instance':
-                self.vrouter_manager.delete_service(vm_uuid)
+                self.vrouter_manager.delete_service(si_fq_str, vm_uuid)
         except KeyError:
             return True
 
@@ -332,9 +332,9 @@ class SvcMonitor(object):
             self.logger.log("Deleting VN %s %s" % (proj_name, vn_uuid))
             self._vnc_lib.virtual_network_delete(id=vn_uuid)
         except RefsExistError:
-            self._svc_err_logger.error("Delete failed refs exist VN %s %s" %
-                                       (proj_name, vn_uuid))
+            pass
         except NoIdError:
+            self.logger.log("Deleted VN %s %s" % (proj_name, vn_uuid))
             return True
         return False
 
@@ -363,7 +363,6 @@ class SvcMonitor(object):
                 if not self._delete_shared_vn(si_info[vn_name], proj_name):
                     cleaned_up = False
 
-        # delete shared vn and delete si info
         if cleaned_up:
             for vn_name in svc_info.get_shared_vn_list():
                 if vn_name in si_info.keys():
@@ -377,6 +376,10 @@ class SvcMonitor(object):
             # cleanup service instance
             return 'DELETE'
 
+        # check status only if service is active
+        if si_info['state'] != 'active':
+            return ''
+
         if si_info['instance_type'] == 'virtual-machine':
             proj_name = self._get_proj_name_from_si_fq_str(si_fq_name_str)
             status = self.vm_manager.check_service(si_obj, proj_name)
@@ -386,6 +389,25 @@ class SvcMonitor(object):
             status = self.vrouter_manager.check_service(si_obj)
 
         return status 
+
+    def _delmsg_virtual_machine_service_instance(self, idents):
+        vm_fq_str = idents['virtual-machine']
+        si_fq_str = idents['service-instance']
+        self.db.remove_vm_info(si_fq_str, vm_fq_str)
+
+    def _delmsg_virtual_machine_interface_virtual_network(self, idents):
+        vmi_fq_str = idents['virtual-machine-interface']
+        vn_fq_str = idents['virtual-network']
+        vn_fq_name = vn_fq_str.split(':')
+        for vn_name in svc_info.get_shared_vn_list():
+            if vn_name != vn_fq_name[2]:
+                continue
+            try:
+                vn_id = self._vnc_lib.fq_name_to_id(
+                    'virtual-network', vn_fq_name)
+            except NoIdError:
+                continue
+            self._delete_shared_vn(vn_id, vn_fq_name[1])
 
     def _delmsg_service_instance_service_template(self, idents):
         self._cleanup_si(idents['service-instance'])
@@ -399,9 +421,12 @@ class SvcMonitor(object):
         except NoIdError:
             return
 
-        vmi_list = rt_obj.get_virtual_machine_interface_back_refs()
-        if vmi_list is None:
-            self._vnc_lib.interface_route_table_delete(id=rt_obj.uuid)
+        try:
+            vmi_list = rt_obj.get_virtual_machine_interface_back_refs()
+            if vmi_list is None:
+                self._vnc_lib.interface_route_table_delete(id=rt_obj.uuid)
+        except NoIdError:
+            return
 
     def _addmsg_service_instance_service_template(self, idents):
         st_fq_str = idents['service-template']
