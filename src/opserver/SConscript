@@ -31,6 +31,7 @@ local_sources = [
            'log.py',
            'stats.py',
            'flow.py',
+           'wrapper_script/api_log.py',
           ]
 
 local_sources_rules = []
