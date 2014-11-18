@@ -4,10 +4,19 @@
 
 #include "base/os.h"
 #include <sys/socket.h>
-#include <linux/netlink.h>
+
 #include <net/if.h>
+
+#ifdef __linux__
+#include <linux/netlink.h>
 #include <linux/if_tun.h>
 #include <linux/if_packet.h>
+#endif
+
+#ifdef __FreeBSD__
+#include <sys/sockio.h>
+#include <ifaddrs.h>
+#endif
 
 #include "testing/gunit.h"
 
