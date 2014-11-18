@@ -72,16 +72,42 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
             AnalyticsFixture(logging, builddir,
                              self.__class__.redis_port,
                              self.__class__.cassandra_port))
+        self.verify_database_purge(vizd_obj)
+        return True
+    # end test_00_database_purge_query
+
+    def test_01_database_purge_query_with_redis_password(self):
+        '''
+        This test starts redis,vizd,opserver and qed
+        It uses the test class' cassandra instance
+        and checks if database purge functonality is
+        is working properly with redis password
+        '''
+        logging.info("*** test_01_database_purge_query_with_redis_password ***")
+        if AnalyticsDbTest._check_skip_test() is True:
+            return True
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging, builddir, -1,
+                             self.__class__.cassandra_port,
+                             self.__class__.redis_port, redis_password='contrail'))
+        self.verify_database_purge(vizd_obj)
+        return True
+    # end test_01_database_purge_query_with_redis_password
+
+    def verify_database_purge(self, vizd_obj):
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
         end_time = UTCTimestampUsec()
         start_time = end_time - 3600*pow(10,6)
         assert vizd_obj.verify_collector_object_log(start_time, end_time)
-        assert vizd_obj.verify_collector_object_log_before_purge(start_time, end_time)
-        assert vizd_obj.verify_database_purge_query(start_time, end_time)
-        assert vizd_obj.verify_collector_object_log_after_purge(start_time, end_time)
-        return True
-    # end test_00_database_purge_query
+        assert vizd_obj.verify_collector_object_log_before_purge(start_time,
+                   end_time)
+        assert vizd_obj.verify_database_purge_query()
+        assert vizd_obj.verify_collector_object_log_after_purge(start_time,
+                   end_time)
+        assert vizd_obj.verify_database_purge_request_limit()
+    # end verify_database_purge
 
     @staticmethod
     def get_free_port():
