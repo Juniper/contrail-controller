@@ -116,6 +116,25 @@ def redis_query_start(host, port, qid, inp):
 # end redis_query_start
 
 
+def redis_purge_query_status(redis_uve_list, host, port, purge_id, inp):
+    redish = redis.StrictRedis(db=0, host=host, port=port)
+    if (inp['purge_status'] == 'purge_completed'):
+        redish.set('purge_status', inp['purge_status'])
+        return redish.get('purge_status')
+
+    for redis_ip_port in redis_uve_list:
+        redish1 = redis.StrictRedis(db=0,
+                      host=redis_ip_port[0],
+                      port=int(redis_ip_port[1]))
+        if (inp['purge_status'] == redish1.get('purge_status') and
+            (socket.gethostname() not in socket.gethostbyaddr(redis_ip_port[0]))):
+            return "purge_stopped"
+
+    redish.set('purge_status', inp['purge_status'])
+    return redish.get('purge_status')
+# end redis_purge_query_status
+
+
 def redis_query_status(host, port, qid):
     redish = redis.StrictRedis(db=0, host=host, port=port)
     resp = {"progress": 0}
@@ -1521,11 +1540,23 @@ class OpServer(object):
         purge_id = str(uuid.uuid1(purge_request_ip))
         self._logger.info("Purge id is:" + str(purge_id))
 
-        gevent.spawn(self.db_purge_operation, purge_input, purge_id)
-        self._db_purge_running = True
-        response = {'status': 'started', 'purge_id': purge_id}
-        return bottle.HTTPResponse(
-            json.dumps(response), 200, {'Content-type': 'application/json'})
+        res = redis_purge_query_status(self.redis_uve_list,
+                                       '127.0.0.1',
+                                       int(self._args.redis_query_port),
+                                       purge_id, {'purge_status' : 'purge_started'})
+        self._logger.info("redis res is %s" % str(res))
+        if (res == 'purge_started'):
+            gevent.spawn(self.db_purge_operation, purge_input, purge_id)
+            self._db_purge_running = True
+            response = {'status': 'started', 'purge_id': purge_id}
+            return bottle.HTTPResponse(json.dumps(response), 200,
+                                       {'Content-type': 'application/json'})
+        elif (res == 'purge_stopped'):
+            response = {'status': 'failed',
+                        'reason': 'purge operation is running on other node'}
+            return bottle.HTTPResponse(json.dumps(response),
+                                       _ERRORS[errno.EBADMSG],
+                                       {'Content-type': 'application/json'})
     # end process_purge_request
 
     def db_purge_operation(self, purge_input, purge_id):
@@ -1554,7 +1585,11 @@ class OpServer(object):
         purge_data.send()
 
         self._db_purge_running = False
-        #end db_purge_operation
+        redis_purge_query_status(self.redis_uve_list,
+                                 '127.0.0.1',
+                                 int(self._args.redis_query_port),
+                                 purge_id, {'purge_status' : 'purge_completed'})
+    #end db_purge_operation
 
     def _get_analytics_data_start_time(self):
         analytics_start_time = self._analytics_db._get_analytics_start_time()
