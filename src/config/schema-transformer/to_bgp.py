@@ -1844,21 +1844,28 @@ class AclRuleListST(object):
 
     # for types that have start and end integer
     @staticmethod
-    def _range_is_subset(lhs, rhs):
+    def _port_is_subset(lhs, rhs):
         return (lhs.start_port >= rhs.start_port and
                (rhs.end_port == -1 or lhs.end_port <= rhs.end_port))
+
+    @staticmethod
+    def _address_is_subset(lhs, rhs):
+        if rhs.subnet is None and lhs.subnet is None:
+            return rhs.virtual_network in [lhs.virtual_network, 'any']
+        if rhs.subnet is not None and lhs.subnet is not None:
+            return (rhs.subnet.ip_prefix == lhs.subnet.ip_prefix and
+                    rhs.subnet.ip_prefix_len <= lhs.subnet.ip_prefix_len)
+        return False
 
     def _rule_is_subset(self, rule):
         for elem in self._list:
             lhs = rule.match_condition
             rhs = elem.match_condition
-            if (self._range_is_subset(lhs.src_port, rhs.src_port) and
-                self._range_is_subset(lhs.dst_port, rhs.dst_port) and
+            if (self._port_is_subset(lhs.src_port, rhs.src_port) and
+                self._port_is_subset(lhs.dst_port, rhs.dst_port) and
                 rhs.protocol in [lhs.protocol, 'any'] and
-                (rhs.src_address.virtual_network in
-                    [lhs.src_address.virtual_network, 'any']) and
-                (rhs.dst_address.virtual_network in
-                    [lhs.dst_address.virtual_network, 'any'])):
+                self._address_is_subset(lhs.src_address, rhs.src_address) and
+                self._address_is_subset(lhs.dst_address, rhs.dst_address)):
 
                 if not self.dynamic:
                     return True
@@ -2360,7 +2367,7 @@ class VirtualMachineInterfaceST(DictST):
         for lr in LogicalRouterST.values():
             if self.name in lr.interfaces:
                 lr.add_interface(self.name)
-    #end set_virtual_network
+    # end set_virtual_network
     
     def process_analyzer(self):
         try:
@@ -2730,8 +2737,8 @@ class SchemaTransformer(object):
             SecurityGroupST._sg_id_allocator.delete(0)
         SecurityGroupST._sg_id_allocator.reserve(0, '__reserved__')
         VirtualNetworkST._rt_allocator = IndexAllocator(
-            _zookeeper_client, self._zk_path_pfx+_BGP_RTGT_ALLOC_PATH, _BGP_RTGT_MAX_ID,
-            common.BGP_RTGT_MIN_ID)
+            _zookeeper_client, self._zk_path_pfx+_BGP_RTGT_ALLOC_PATH,
+            _BGP_RTGT_MAX_ID, common.BGP_RTGT_MIN_ID)
 
         # Initialize discovery client
         self._disc = None
@@ -2766,11 +2773,9 @@ class SchemaTransformer(object):
                                     file=args.log_file,
                                     enable_syslog=args.use_syslog,
                                     syslog_facility=args.syslog_facility)
-        ConnectionState.init(_sandesh, hostname, module_name,
-                instance_id,
+        ConnectionState.init(_sandesh, hostname, module_name, instance_id,
                 staticmethod(ConnectionState.get_process_state_cb),
                 NodeStatusUVE, NodeStatus)
-
 
         self.reinit()
         self.ifmap_search_done = False
@@ -2877,7 +2882,7 @@ class SchemaTransformer(object):
 
     def add_ibgp_auto_mesh(self, idents, meta):
         value = meta.text
-        BgpRouterST.update_ibgp_auto_mesh(value.lower()=="true")
+        BgpRouterST.update_ibgp_auto_mesh(value.lower() == "true")
     # end add_ibgp_auto_mesh
 
     def add_project_virtual_network(self, idents, meta):
@@ -3519,9 +3524,9 @@ class SchemaTransformer(object):
             try:
                 return func(*args, **kwargs)
             except AllServersUnavailable:
-                ConnectionState.update(conn_type = ConnectionType.DATABASE,
-                    name = 'Cassandra', status = ConnectionStatus.DOWN,
-                    message = '', server_addrs = self._args.cassandra_server_list)
+                ConnectionState.update(conn_type=ConnectionType.DATABASE,
+                    name='Cassandra', status=ConnectionStatus.DOWN,
+                    message='', server_addrs=self._args.cassandra_server_list)
                 raise
         return wrapper
     # end _log_exceptions
@@ -3533,9 +3538,9 @@ class SchemaTransformer(object):
         num_dbnodes = len(self._args.cassandra_server_list)
         connected = False
         # Update connection info
-        ConnectionState.update(conn_type = ConnectionType.DATABASE,
-            name = 'Database', status = ConnectionStatus.INIT,
-            message = '', server_addrs = self._args.cassandra_server_list)
+        ConnectionState.update(conn_type=ConnectionType.DATABASE,
+            name='Database', status=ConnectionStatus.INIT,
+            message='', server_addrs=self._args.cassandra_server_list)
 
         while not connected:
             try:
@@ -3544,16 +3549,16 @@ class SchemaTransformer(object):
                 connected = True
             except Exception as e:
                 # Update connection info
-                ConnectionState.update(conn_type = ConnectionType.DATABASE,
-                    name = 'Database', status = ConnectionStatus.DOWN,
-                    message = '', server_addrs = [cass_server])
+                ConnectionState.update(conn_type=ConnectionType.DATABASE,
+                    name='Database', status=ConnectionStatus.DOWN,
+                    message='', server_addrs=[cass_server])
                 server_idx = (server_idx + 1) % num_dbnodes
                 time.sleep(3)
 
-       # Update connection info
-        ConnectionState.update(conn_type = ConnectionType.DATABASE,
-            name = 'Database', status = ConnectionStatus.UP,
-            message = '', server_addrs = self._args.cassandra_server_list)
+        # Update connection info
+        ConnectionState.update(conn_type=ConnectionType.DATABASE,
+            name='Database', status=ConnectionStatus.UP,
+            message='', server_addrs=self._args.cassandra_server_list)
 
         if self._args.reset_config:
             try:
