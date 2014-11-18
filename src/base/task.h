@@ -208,6 +208,8 @@ private:
     void ClearRunningTask();
     void WaitForTerminateCompletion();
 
+    int CountThreadsPerPid(pid_t pid);
+
     TaskEntry               *stop_entry_;
 
     tbb::task_scheduler_init task_scheduler_;

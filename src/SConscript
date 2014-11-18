@@ -70,6 +70,9 @@ if sys.platform.startswith('linux'):
 elif sys.platform.startswith('darwin'):
     BuildEnv.Append(CCFLAGS = ['-DDARWIN'])
 
+if sys.platform.startswith('freebsd'):
+    BuildEnv.Prepend(LINKFLAGS = ['-lprocstat'])
+
 BuildEnv.SConscript(dirs=['vnsw'], exports='BuildEnv')
 
 for dir in subdirs:
