@@ -77,9 +77,12 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         end_time = UTCTimestampUsec()
         start_time = end_time - 3600*pow(10,6)
         assert vizd_obj.verify_collector_object_log(start_time, end_time)
-        assert vizd_obj.verify_collector_object_log_before_purge(start_time, end_time)
-        assert vizd_obj.verify_database_purge_query(start_time, end_time)
-        assert vizd_obj.verify_collector_object_log_after_purge(start_time, end_time)
+        assert vizd_obj.verify_collector_object_log_before_purge(start_time,
+                   end_time)
+        assert vizd_obj.verify_database_purge_query()
+        assert vizd_obj.verify_collector_object_log_after_purge(start_time,
+                   end_time)
+        assert vizd_obj.verify_database_purge_request_limit()
         return True
     # end test_00_database_purge_query
 
