@@ -54,6 +54,22 @@ def _read_cfg(cfg_parser, section, option, default):
 #end _read_cfg
 
 
+class UriDict(dict):
+    """Parses the homepage, if not parsed already.
+    """
+    def __init__(self, vnc_api, *args, **kwargs):
+        super(UriDict, self).__init__(*args, **kwargs)
+
+    def __getattr__(self, name):
+        if name in self:
+            return self[name]
+        else:
+            homepage = vnc_api._request(rest.OP_GET, vnc_api._base_url,
+                                        retry_on_error=False)
+            vnc_api._cfg_root_url = vnc_api._parse_homepage(homepage)
+            return self[name]
+
+
 class VncApi(VncApiClientGen):
     _DEFAULT_WEB_SERVER = "127.0.0.1"
 
@@ -151,7 +167,7 @@ class VncApi(VncApiClientGen):
         self._srv_root_url = None
 
         # Type-independent actions offered by server
-        self._action_uri = {}
+        self._action_uri = UriDict(self)
 
         self._headers = self._DEFAULT_HEADERS.copy()
         self._headers[rest.hdr_client_tenant()] = self._tenant_name
