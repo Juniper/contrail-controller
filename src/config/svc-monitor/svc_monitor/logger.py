@@ -58,7 +58,6 @@ class ServiceMonitorLogger(object):
 
 
     def log(self, log_msg):
-        self._sandesh._logger.debug("%s", log_msg)
         vn_log = sandesh.SvcMonitorLog(
             log_msg=log_msg, sandesh=self._sandesh)
         vn_log.send(sandesh=self._sandesh)
@@ -89,6 +88,8 @@ class ServiceMonitorLogger(object):
                 sandesh_vm_list = []
                 for idx in range(0, int(si.get('max-instances', '0'))):
                     prefix = self._db.get_vm_db_prefix(idx)
+                    if not (prefix + 'name') in si.keys():
+                        continue
                     vm_name = si.get(prefix + 'name', '')
                     vm_uuid = si.get(prefix + 'uuid', '')
                     vm_str = ("%s: %s" % (vm_name, vm_uuid))
