@@ -17,6 +17,13 @@
 #include <sandesh/sandesh.h>
 #include <base/sandesh/task_types.h>
 
+#if defined(__FreeBSD__)
+#include <sys/param.h>
+#include <sys/sysctl.h>
+#include <sys/user.h>
+#include <libprocstat.h>
+#endif
+
 using namespace std;
 using tbb::task;
 
@@ -648,39 +655,96 @@ TaskStats *TaskScheduler::GetTaskStats(int task_id, int instance_id) {
 }
 
 //
+// Platfrom-dependent subroutine in Linux and FreeBSD implementations,
+// used only in TaskScheduler::WaitForTerminateCompletion()
+//
 // In Linux, make sure that all the [tbb] threads launched have completely
 // exited. We do so by looking for the Threads count of this process in
 // /proc/<pid>/status
 //
-void TaskScheduler::WaitForTerminateCompletion() {
-#if !defined(__APPLE__)
+// In FreeBSD use libprocstat to check how many threads is running
+// in specific process.
+//
+int TaskScheduler::CountThreadsPerPid(pid_t pid) {
+    int threads;
+    threads = 0;
 
+#if defined(__FreeBSD__)
+    struct kinfo_proc *ki_proc;
+    struct procstat *pstat;
+    unsigned int count_procs;
+
+
+    count_procs = 0;
+
+    pstat = procstat_open_sysctl();
+    if(pstat == NULL) {
+        LOG(ERROR, "procstat_open_sysctl() failed");
+        return -1;
+    }
+
+    ki_proc = procstat_getprocs(pstat, KERN_PROC_PID, pid, &count_procs);
+    if (ki_proc == NULL) {
+        LOG(ERROR, "procstat_open_sysctl() failed");
+        return -1;
+    }
+
+    if (count_procs != 0)
+        procstat_getprocs(pstat, KERN_PROC_PID | KERN_PROC_INC_THREAD,
+                            ki_proc->ki_pid, &threads);
+
+    procstat_freeprocs(pstat, ki_proc);
+    procstat_close(pstat);
+
+#elif defined(__linux__)
+    std::ostringstream file_name;
+    std::string line;
+
+    file_name << "/proc/" << pid << "/status";
+
+    std::ifstream file(file_name.str().c_str());
+
+    if(!file) {
+        LOG(ERROR, "opening /proc failed");
+        return -1;
+    }
+
+    while (threads == 0 && file.good()) {
+        getline(file, line);
+        if (line == "Threads:\t1") threads = 1;
+    }
+    file.close();
+#else
+#error "TaskScheduler::CountThreadsPerPid() - unsupported platform."
+#endif
+
+    return threads;
+}
+
+void TaskScheduler::WaitForTerminateCompletion() {
     //
     // Wait for a bit to give a chance for all the threads to exit
     //
     usleep(1000);
 
     int count = 0;
-    std::ostringstream file_name;
-    std::string line;
+    int threadsRunning;
+    pid_t pid = getpid();
 
-    file_name << "/proc/" << getpid() << "/status";
-    bool done = false;
-
-    //
-    // Wait for all threads to terminate. Bail after a couple of minutes
-    //
     while (count++ < 12000) {
-        std::ifstream file(file_name.str().c_str());
-        while (!done && file.good()) {
-            getline(file, line);
-            if (line == "Threads:\t1") done = true;
+        threadsRunning = CountThreadsPerPid(pid);
+
+        if (threadsRunning == 1)
+            break;
+
+        if (threadsRunning == -1) {
+            LOG(ERROR, "could not check if any thread is running");
+            usleep(10000);
+            break;
         }
-        file.close();
-        if (done) break;
+
         usleep(10000);
     }
-#endif
 }
 
 void TaskScheduler::Terminate() {
