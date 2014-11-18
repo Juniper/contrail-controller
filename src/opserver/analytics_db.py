@@ -7,6 +7,7 @@
 # Implementation of database purging
 #
 
+import redis
 import pycassa
 from pycassa.pool import ConnectionPool
 from pycassa.columnfamily import ColumnFamily
@@ -16,9 +17,12 @@ from sandesh.viz.constants import *
 from pysandesh.util import UTCTimestampUsec
 
 class AnalyticsDb(object):
-    def __init__(self, logger, cassandra_server_list):
+    def __init__(self, logger, cassandra_server_list,
+                 redis_query_port, redis_password):
         self._logger = logger
         self._cassandra_server_list = cassandra_server_list
+        self._redis_query_port = redis_query_port
+        self._redis_password = redis_password
         self._pool = None
         self.connect_db()
         self.number_of_purge_requests = 0
@@ -71,7 +75,68 @@ class AnalyticsDb(object):
         return None
     # end _update_analytics_start_time
 
-    def purge_old_data(self, purge_time, purge_id):
+    def set_analytics_db_purge_status(self, purge_id, purge_input):
+        try:
+            redish = redis.StrictRedis(db=0, host='127.0.0.1',
+                     port=self._redis_query_port, password=self._redis_password)
+            redish.hset('ANALYTICS_DB_PURGE', 'status', 'running')
+            redish.hset('ANALYTICS_DB_PURGE', 'purge_input', purge_input)
+            redish.hset('ANALYTICS_DB_PURGE', 'purge_start_time',
+                        UTCTimestampUsec())
+            redish.hset('ANALYTICS_DB_PURGE', 'purge_id', purge_id)
+        except redis.exceptions.ConnectionError:
+            self._logger.error("Exception: "
+                               "Failure in connection to redis-server")
+            response = {'status': 'failed',
+                        'reason': 'Failure in connection to redis-server'}
+            return response
+        except redis.exceptions.ResponseError:
+            self._logger.error("Exception: "
+                               "Redis authentication failed")
+            response = {'status': 'failed',
+                        'reason': 'Redis authentication failed'}
+            return response
+        return None
+    # end set_analytics_db_purge_status
+
+    def delete_db_purge_status(self):
+        try:
+            redish = redis.StrictRedis(db=0, host='127.0.0.1',
+                     port=self._redis_query_port, password=self._redis_password)
+            redish.delete('ANALYTICS_DB_PURGE')
+        except redis.exceptions.ConnectionError:
+            self._logger.error("Exception: "
+                               "Failure in connection to redis-server")
+        except redis.exceptions.ResponseError:
+            self._logger.error("Exception: "
+                               "Redis authentication failed")
+    # end delete_db_purge_status
+
+    def get_analytics_db_purge_status(self, redis_list):
+        for redis_ip_port in redis_list:
+            try:
+                redish = redis.StrictRedis(redis_ip_port[0],
+                                           redis_ip_port[1], db=0,
+                                           password=self._redis_password)
+                if (redish.exists('ANALYTICS_DB_PURGE')):
+                    return redish.hgetall('ANALYTICS_DB_PURGE')
+            except redis.exceptions.ConnectionError:
+                self._logger.error("Exception: "
+                                   "Failure in connection to redis-server")
+                response = {'status': 'failed',
+                            'reason': 'Failure in connection to redis-server: '
+                                       + redis_ip_port[0]}
+                return response
+            except redis.exceptions.ResponseError:
+                self._logger.error("Exception: "
+                                   "Redis authentication failed")
+                response = {'status': 'failed',
+                            'reason': 'Redis authentication failed'}
+                return response
+        return None
+    # end get_analytics_db_purge_status
+
+    def purge_old_data(self, purge_id, purge_time):
         total_rows_deleted = 0 # total number of rows deleted
         if (self._pool == None):
             self.connect_db()
@@ -135,7 +200,7 @@ class AnalyticsDb(object):
                 return -1
             purge_time = analytics_start_time + (float((purge_input)*
                          (float(current_time) - float(analytics_start_time))))/100
-            total_rows_deleted = self.purge_old_data(purge_time, purge_id)
+            total_rows_deleted = self.purge_old_data(purge_id, purge_time)
             if (total_rows_deleted != -1):
                 self._update_analytics_start_time(int(purge_time))
         return total_rows_deleted
