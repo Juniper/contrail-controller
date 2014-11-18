@@ -11,7 +11,7 @@
 
 class DBGraph;
 class IFMapDependencyManager;
-class NamespaceManager;
+class InstanceManager;
 
 class ServiceInstanceKey : public AgentKey {
   public:

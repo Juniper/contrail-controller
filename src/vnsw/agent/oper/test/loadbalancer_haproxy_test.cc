@@ -1,7 +1,7 @@
 #include "base/os.h"
 #include "oper/loadbalancer_haproxy.h"
 #include "oper/operdb_init.h"
-#include "oper/namespace_manager.h"
+#include "oper/instance_manager.h"
 
 #include <cstdlib>
 #include <boost/uuid/random_generator.hpp>
@@ -55,7 +55,7 @@ TEST_F(LoadbalancerHaproxyTest, GenerateConfig) {
     
     std::stringstream ss;
     ss << "/tmp/" << getpid() << ".conf";
-    Agent::GetInstance()->oper_db()->namespace_manager()->haproxy().GenerateConfig(ss.str(), pool_id, props);
+    Agent::GetInstance()->oper_db()->instance_manager()->haproxy().GenerateConfig(ss.str(), pool_id, props);
 }
 
 int main(int argc, char **argv) {
