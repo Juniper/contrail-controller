@@ -1263,6 +1263,8 @@ class SecurityGroupST(DictST):
             # TODO log unknown protocol
             return (ingress_acl_rule_list, egress_acl_rule_list)
 
+        ethertype = prule.ethertype
+
         acl_rule_list = None
         for saddr in prule.src_addresses:
             saddr_match = copy.deepcopy(saddr)
@@ -1281,7 +1283,8 @@ class SecurityGroupST(DictST):
                         action = ActionListType(simple_action='pass')
                         match = MatchConditionType(arule_proto,
                                                    saddr_match, sp,
-                                                   daddr_match, dp)
+                                                   daddr_match, dp,
+                                                   ethertype)
                         acl = AclRuleType(match, action, rule_uuid)
                         acl_rule_list.append(acl)
                     # end for dp
