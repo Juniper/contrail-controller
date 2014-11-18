@@ -19,6 +19,7 @@
 
 import abc
 import six
+import uuid
 
 from cfgm_common import analytics_client
 from cfgm_common import svc_info
@@ -40,7 +41,7 @@ class InstanceManager(object):
         pass
 
     @abc.abstractmethod
-    def delete_service(self, vm_uuid, proj_name=None):
+    def delete_service(self, si_fq_str, vm_uuid, proj_name=None):
         pass
 
     @abc.abstractmethod
@@ -60,10 +61,14 @@ class InstanceManager(object):
         return sg_obj
 
     def _get_instance_name(self, si_obj, inst_count):
-        name = si_obj.uuid + '__' + str(inst_count + 1)
+        name = si_obj.name + '__' + str(inst_count + 1)
         proj_fq_name = si_obj.get_parent_fq_name()
         instance_name = "__".join(proj_fq_name + [name])
         return instance_name
+
+    def index_from_instance_name(self, instance_name):
+        instance_index = int(instance_name.split('__')[-1]) - 1
+        return instance_index
 
     def _get_if_route_table_name(self, if_type, si_obj):
         domain_name, proj_name = si_obj.get_parent_fq_name()
@@ -88,19 +93,12 @@ class InstanceManager(object):
         return vm_entry
 
     def _allocate_iip(self, proj_obj, vn_obj, iip_name):
+        iip_obj = InstanceIp(name=iip_name)
+        iip_obj.add_virtual_network(vn_obj)
         try:
+            self._vnc_lib.instance_ip_create(iip_obj)
+        except Exception as e:
             iip_obj = self._vnc_lib.instance_ip_read(fq_name=[iip_name])
-        except NoIdError:
-            iip_obj = None
-
-        # allocate ip
-        if not iip_obj:
-            iip_obj = InstanceIp(name=iip_name)
-            iip_obj.add_virtual_network(vn_obj)
-            try:
-                self._vnc_lib.instance_ip_create(iip_obj)
-            except Exception as e:
-                return None
 
         return iip_obj
 
@@ -140,23 +138,34 @@ class InstanceManager(object):
                    si_obj.get_parent_fq_name_str()))
             return
 
+        # check if port already in db
+        vmi_uuid = None
+        si_db_entry = self.db.service_instance_get(si_obj.get_fq_name_str())
+        if si_db_entry:
+            index = self.index_from_instance_name(instance_name)
+            key = self.db.get_vm_db_prefix(index) + 'if-' + nic['type']
+            if key in si_db_entry:
+                vmi_uuid = si_db_entry[key]
+
         # create or find port
-        port_name = instance_name + '-' + nic['type']
         proj_fq_name = si_obj.get_parent_fq_name()
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
-        port_fq_name = proj_fq_name + [port_name]
         vmi_create = False
         vmi_updated = False
         if_properties = None
-        try:
-            vmi_obj = self._vnc_lib.virtual_machine_interface_read(fq_name=port_fq_name)
-            if_properties = vmi_obj.get_virtual_machine_interface_properties()
-        except NoIdError:
-            vmi_obj = VirtualMachineInterface(parent_obj=proj_obj, name=port_name)
+        
+        if not vmi_uuid:
+            port_uuid = str(uuid.uuid4())
+            port_name = instance_name + '-' + nic['type'] + '-' + port_uuid
+            vmi_obj = VirtualMachineInterface(parent_obj=proj_obj,
+                name=port_name, uuid=port_uuid)
             if user_visible is not None:
                 id_perms = IdPermsType(enable=True, user_visible=user_visible)
                 vmi_obj.set_id_perms(id_perms)
             vmi_create = True
+        else:
+            vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_uuid)
+            if_properties = vmi_obj.get_virtual_machine_interface_properties()
 
         # set vn, itf_type, sg and static routes
         if vmi_obj.get_virtual_network_refs() is None:
@@ -194,6 +203,8 @@ class InstanceManager(object):
             # read back the id perms
             vmi_obj = self._vnc_lib.virtual_machine_interface_read(
                 id=vmi_obj.uuid)
+            self.db.service_instance_insert(si_obj.get_fq_name_str(),
+                                            {key:vmi_obj.uuid})
         elif vmi_updated:
             self._vnc_lib.virtual_machine_interface_update(vmi_obj)
 
@@ -201,10 +212,10 @@ class InstanceManager(object):
         if 'iip-id' in nic:
             iip_obj = self._vnc_lib.instance_ip_read(id=nic['iip-id'])
         elif nic['shared-ip']:
-            iip_name = si_obj.name + '-' + nic['type']
+            iip_name = "__".join(si_obj.fq_name) + '-' + nic['type']
             iip_obj = self._allocate_iip(proj_obj, vn_obj, iip_name)
         else:
-            iip_name = instance_name + '-' + nic['type']
+            iip_name = instance_name + '-' + nic['type'] + '-' + vmi_obj.uuid
             iip_obj = self._allocate_iip(proj_obj, vn_obj, iip_name)
 
         if not iip_obj:
@@ -364,7 +375,7 @@ class VRouterHostedManager(InstanceManager):
     def create_service(self, st_obj, si_obj):
         pass
 
-    def delete_service(self, vm_uuid, proj_name=None):
+    def delete_service(self, si_fq_str, vm_uuid, proj_name=None):
         try:
             vm_obj = self._vnc_lib.virtual_machine_read(id=vm_uuid)
         except NoIdError:
