@@ -7,6 +7,7 @@
 # Implementation of database purging
 #
 
+import redis
 import pycassa
 from pycassa.pool import ConnectionPool
 from pycassa.columnfamily import ColumnFamily
@@ -16,9 +17,11 @@ from sandesh.viz.constants import *
 from pysandesh.util import UTCTimestampUsec
 
 class AnalyticsDb(object):
-    def __init__(self, logger, cassandra_server_list):
+    def __init__(self, logger, cassandra_server_list,
+                 redis_query_port):
         self._logger = logger
         self._cassandra_server_list = cassandra_server_list
+        self._redis_query_port = redis_query_port
         self._pool = None
         self.connect_db()
         self.number_of_purge_requests = 0
@@ -70,6 +73,30 @@ class AnalyticsDb(object):
             return -1
         return None
     # end _update_analytics_start_time
+
+    def _set_analytics_db_purge_status(self, purge_id, purge_input, purge_start_time):
+        redish = redis.StrictRedis(db=0, host='127.0.0.1', port=self._redis_query_port)
+        redish.hset('ANALYTICS_DB_PURGE' + purge_id, 'purge_status', 'purge_running')
+        redish.hset('ANALYTICS_DB_PURGE' + purge_id, 'purge_start_time', purge_start_time)
+        redish.hset('ANALYTICS_DB_PURGE' + purge_id, 'purge_input', purge_input)
+        redish.lpush('ANALYTICS_DB_PURGE_ID', purge_id)
+    # end _set_analytics_db_purge_status
+
+    def _delete_db_purge_status(self, purge_id):
+        redish = redis.StrictRedis(db=0, host='127.0.0.1', port=self._redis_query_port)
+        redish.delete('ANALYTICS_DB_PURGE' + purge_id)
+        redish.delete('ANALYTICS_DB_PURGE_ID')
+    # end _delete_db_purge_status
+
+    def get_analytics_db_purge_status(self, purge_id, redis_list):
+        for redis_ip_port in redis_list:
+            redish = redis.StrictRedis(redis_ip_port[0], redis_ip_port[1], db=0)
+            res = redish.lrange('ANALYTICS_DB_PURGE_ID', 0, 0)
+            if (res != []):
+                if (redish.exists('ANALYTICS_DB_PURGE' + str(res[0]))):
+                    return 'purge_running'
+        return None
+    # end get_analytics_db_purge_status
 
     def purge_old_data(self, purge_time, purge_id):
         total_rows_deleted = 0 # total number of rows deleted
@@ -135,7 +162,9 @@ class AnalyticsDb(object):
                 return -1
             purge_time = analytics_start_time + (float((purge_input)*
                          (float(current_time) - float(analytics_start_time))))/100
+            self._set_analytics_db_purge_status(purge_id, purge_input, purge_time)
             total_rows_deleted = self.purge_old_data(purge_time, purge_id)
+            self._delete_db_purge_status(purge_id);
             if (total_rows_deleted != -1):
                 self._update_analytics_start_time(int(purge_time))
         return total_rows_deleted

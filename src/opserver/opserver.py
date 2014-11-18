@@ -586,7 +586,8 @@ class OpServer(object):
                 columnvalues = [STAT_OBJECTID_FIELD, SOURCE])
             self._VIRTUAL_TABLES.append(stt)
 
-        self._analytics_db = AnalyticsDb(self._logger, self._args.cassandra_server_list)
+        self._analytics_db = AnalyticsDb(self._logger, self._args.cassandra_server_list,
+                                 self._args.redis_query_port)
         self._db_purge_running = False
 
         bottle.route('/', 'GET', self.homepage_http_get)
@@ -1533,11 +1534,21 @@ class OpServer(object):
         purge_id = str(uuid.uuid1(purge_request_ip))
         self._logger.info("Purge id is:" + str(purge_id))
 
-        gevent.spawn(self.db_purge_operation, purge_input, purge_id)
-        self._db_purge_running = True
-        response = {'status': 'started', 'purge_id': purge_id}
-        return bottle.HTTPResponse(
-            json.dumps(response), 200, {'Content-type': 'application/json'})
+        res = self._analytics_db.get_analytics_db_purge_status(purge_id,
+                         self._state_server._redis_list)
+        self._logger.info("redis res is %s" % str(res))
+        if (res == None):
+            gevent.spawn(self.db_purge_operation, purge_input, purge_id)
+            self._db_purge_running = True
+            response = {'status': 'started', 'purge_id': purge_id}
+            return bottle.HTTPResponse(json.dumps(response), 200,
+                                   {'Content-type': 'application/json'})
+        elif(res == 'purge_running'):
+            response = {'status': 'running', 'purge_id': purge_id,
+                        'purge_input': purge_input}
+            return bottle.HTTPResponse(json.dumps(response),
+                                       _ERRORS[errno.EBADMSG],
+                                       {'Content-type': 'application/json'})
     # end process_purge_request
 
     def db_purge_operation(self, purge_input, purge_id):
@@ -1566,7 +1577,7 @@ class OpServer(object):
         purge_data.send()
 
         self._db_purge_running = False
-        #end db_purge_operation
+    #end db_purge_operation
 
     def _get_analytics_data_start_time(self):
         analytics_start_time = self._analytics_db._get_analytics_start_time()
