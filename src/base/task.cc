@@ -653,7 +653,7 @@ TaskStats *TaskScheduler::GetTaskStats(int task_id, int instance_id) {
 // /proc/<pid>/status
 //
 void TaskScheduler::WaitForTerminateCompletion() {
-#if !defined(__APPLE__)
+#if defined(__linux__)
 
     //
     // Wait for a bit to give a chance for all the threads to exit
