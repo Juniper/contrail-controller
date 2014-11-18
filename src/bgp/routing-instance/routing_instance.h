@@ -85,8 +85,8 @@ public:
     bool MayDelete() const;
     void ManagedDelete();
     LifetimeActor *deleter();
-
-    bool deleted();
+    const LifetimeActor *deleter() const;
+    bool deleted() const;
 
     void set_index(BgpServer *, int index);
     int index() const { return index_; }

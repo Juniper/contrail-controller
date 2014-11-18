@@ -233,14 +233,22 @@ struct ShowRoutingInstance {
     7: bool deleted;                                // Deletion in progress
     4: list<string> import_target;                  // Import Route targets
     5: list<string> export_target;                  // Export Route targets
-    2: list<ShowRoutingInstanceTable> tables;
+    2: optional list<ShowRoutingInstanceTable> tables;
 }
 
 response sandesh ShowRoutingInstanceResp {
     1: list<ShowRoutingInstance> instances;
 }
+
 request sandesh ShowRoutingInstanceReq {
     1: string name;
+}
+
+response sandesh ShowRoutingInstanceSummaryResp {
+    1: list<ShowRoutingInstance> instances;
+}
+
+request sandesh ShowRoutingInstanceSummaryReq {
 }
 
 struct ShowMulticastManager {

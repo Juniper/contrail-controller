@@ -746,7 +746,11 @@ LifetimeActor *RoutingInstance::deleter() {
     return deleter_.get();
 }
 
-bool RoutingInstance::deleted() {
+const LifetimeActor *RoutingInstance::deleter() const {
+    return deleter_.get();
+}
+
+bool RoutingInstance::deleted() const {
     return deleter()->IsDeleted();
 }
 
