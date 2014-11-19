@@ -2,6 +2,7 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All right reserved.
  */
 
+#include <unistd.h>
 #include "oper/instance_task.h"
 
 #include "base/logging.h"
@@ -93,6 +94,11 @@ pid_t InstanceTask::Run() {
         close(STDOUT_FILENO);
         close(STDIN_FILENO);
 
+        /* Close all the open fds before execvp */
+        int max_open_fds = sysconf(_SC_OPEN_MAX);
+        int fd;
+        for(fd = 3; fd < max_open_fds; fd++)
+            close(fd);
         execvp(c_argv[0], (char **) c_argv.data());
         perror("execvp");
 
