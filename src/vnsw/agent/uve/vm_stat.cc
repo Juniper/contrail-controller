@@ -5,6 +5,7 @@
 #include <sys/times.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <unistd.h>
 #include <uve/vm_stat.h>
 #include <uve/vm_stat_data.h>
 #include <db/db.h>
@@ -87,6 +88,12 @@ void VmStat::ExecCmd(std::string cmd, DoneCb cb) {
         dup2(out[1], STDOUT_FILENO);
         //Close out[1] as stdout is a exact replica of out[1]
         close(out[1]);
+
+        /* Close all the open fds before execvp */
+        int max_open_fds = sysconf(_SC_OPEN_MAX);
+        int fd;
+        for(fd = 3; fd < max_open_fds; fd++)
+            close(fd);
         execvp(argv[0], argv);
         perror("execvp");
         exit(127);
