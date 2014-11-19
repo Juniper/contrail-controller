@@ -553,6 +553,7 @@ class VirtualNetworkST(DictST):
         if rinst_name in self.rinst:
             return self.rinst[rinst_name]
 
+        is_default = (rinst_name == self._default_ri_name)
         alloc_new = False
         rinst_fq_name_str = '%s:%s' % (self.obj.get_fq_name_str(), rinst_name)
         old_rtgt = None
@@ -586,12 +587,14 @@ class VirtualNetworkST(DictST):
                     rinst_obj = None
                 else:
                     rinst_obj.set_route_target(rtgt_obj, inst_tgt_data)
+                    rinst_obj.set_routing_instance_is_default(is_default)
                     _vnc_lib.routing_instance_update(rinst_obj)
             except NoIdError:
                 rinst_obj = None
             if rinst_obj is None:
                 rinst_obj = RoutingInstance(rinst_name, self.obj)
                 rinst_obj.set_route_target(rtgt_obj, inst_tgt_data)
+                rinst_obj.set_routing_instance_is_default(is_default)
                 _vnc_lib.routing_instance_create(rinst_obj)
         except HttpError as he:
             _sandesh._logger.error(
