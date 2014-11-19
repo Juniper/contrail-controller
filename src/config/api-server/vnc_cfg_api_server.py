@@ -203,7 +203,7 @@ class VncApiServer(VncApiServerGen):
     """
     This is the manager class co-ordinating all classes present in the package
     """
-    _INVALID_NAME_CHARS = set('<>&":')
+    _INVALID_NAME_CHARS = set(':')
 
     def __new__(cls, *args, **kwargs):
         obj = super(VncApiServer, cls).__new__(cls, *args, **kwargs)
@@ -1328,7 +1328,7 @@ class VncApiServer(VncApiServerGen):
         # well-formed name checks
         if illegal_xml_chars_RE.search(fq_name[-1]):
             bottle.abort(400,
-                "Bad Request, name has xml reserved characters")
+                "Bad Request, name has illegal xml characters")
         if obj_type[:].replace('-','_') == 'route_target':
             invalid_chars = self._INVALID_NAME_CHARS - set(':')
         else:

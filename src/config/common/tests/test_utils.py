@@ -15,6 +15,7 @@ import errno
 import re
 import copy
 from lxml import etree
+from xml.sax.saxutils import escape, unescape
 try:
     from collections import OrderedDict
 except ImportError:
@@ -311,7 +312,7 @@ class FakeIfmapClient(object):
     def _update_publish(cls, upd_root):
         subscribe_item = etree.Element('resultItem')
         subscribe_item.extend(deepcopy(upd_root))
-        from_name = upd_root[0].attrib['name']
+        from_name = escape(upd_root[0].attrib['name'])
         if not from_name in cls._graph:
             cls._graph[from_name] = {'ident': upd_root[0], 'links': {}}
 
@@ -322,7 +323,7 @@ class FakeIfmapClient(object):
             cls._graph[from_name]['links'][link_key] = link_info
         elif len(upd_root) == 3:
             meta_name = re.sub("{.*}", "contrail:", upd_root[2][0].tag)
-            to_name = upd_root[1].attrib['name']
+            to_name = escape(upd_root[1].attrib['name'])
             link_key = '%s %s' % (meta_name, to_name)
             link_info = {'meta': upd_root[2], 'other': upd_root[1]}
             cls._graph[from_name]['links'][link_key] = link_info
@@ -347,13 +348,13 @@ class FakeIfmapClient(object):
 
     @classmethod
     def _delete_publish(cls, del_root):
-        from_name = del_root[0].attrib['name']
+        from_name = escape(del_root[0].attrib['name'])
         if 'filter' in del_root.attrib:
             meta_name = del_root.attrib['filter']
             if len(del_root) == 1:
                 link_key = meta_name
             elif len(del_root) == 2:
-                to_name = del_root[1].attrib['name']
+                to_name = escape(del_root[1].attrib['name'])
                 link_key = '%s %s' % (meta_name, to_name)
             else:
                 raise Exception("Unknown ifmap delete: %s" %
@@ -365,7 +366,7 @@ class FakeIfmapClient(object):
             if len(del_root) == 1:
                 link_keys = cls._graph[from_name]['links'].keys()
             elif len(del_root) == 2:
-                to_name = del_root[1].attrib['name']
+                to_name = escape(del_root[1].attrib['name'])
                 link_keys = []
                 if from_name in cls._graph:
                     all_link_keys = cls._graph[from_name]['links'].keys()
@@ -386,7 +387,7 @@ class FakeIfmapClient(object):
             subscribe_item.append(deepcopy(link_info['meta']))
             subscribe_result.append(subscribe_item)
             if 'other' in link_info:
-                other_name = link_info['other'].attrib['name']
+                other_name = escape(link_info['other'].attrib['name'])
                 meta_name = re.sub(
                     "{.*}", "contrail:", link_info['meta'][0].tag)
                 rev_link_key = '%s %s' % (meta_name, from_name)
