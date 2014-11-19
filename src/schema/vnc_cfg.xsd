@@ -885,9 +885,13 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 </xsd:complexType>
 <xsd:element name="virtual-machine-interface-routing-instance"
              type="PolicyBasedForwardingRuleType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('virtual-machine-interface-routing-instance',
           'virtual-machine-interface', 'bgp:routing-instance', ['ref']) -->
+
+<xsd:element name="routing-instance-default" type="xsd:boolean" default="false"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('routing-instance-default', 'bgp:routing-instance') -->
 
 <xsd:simpleType name="IpAddressFamilyType">
     <xsd:restriction base="xsd:string">
