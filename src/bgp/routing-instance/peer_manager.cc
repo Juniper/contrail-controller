@@ -224,20 +224,11 @@ BgpPeer *PeerManager::NextPeer(BgpPeerKey &peer_key) {
 }
 
 void PeerManager::FillBgpNeighborInfo(vector<BgpNeighborResp> &nbr_list,
-    string ip_address) {
-    if (!ip_address.empty()) {
-        boost::system::error_code ec;
-        boost::asio::ip::tcp::endpoint endpoint;
-        endpoint.address(
-            boost::asio::ip::address::from_string(ip_address, ec));
-        if (ec)
-            return;
-        BgpPeer *peer = PeerLookup(endpoint);
-        if (peer)
-            peer->FillNeighborInfo(nbr_list);
-    } else {
-        BgpPeerKey key = BgpPeerKey();
-        while (BgpPeer *peer = NextPeer(key)) {
+    const string &neighbor) {
+    BgpPeerKey key = BgpPeerKey();
+    while (BgpPeer *peer = NextPeer(key)) {
+        if (neighbor.empty() || peer->peer_basename() == neighbor ||
+            peer->peer_address_string() == neighbor) {
             peer->FillNeighborInfo(nbr_list);
         }
     }

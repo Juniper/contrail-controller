@@ -21,7 +21,7 @@ traceobject sandesh BgpPeerObjectTrace {
 }
 
 request sandesh BgpNeighborReq {
-    1: string ip_address;
+    1: string neighbor;
     2: string domain;
 }
 

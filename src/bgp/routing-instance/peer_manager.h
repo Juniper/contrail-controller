@@ -38,7 +38,7 @@ public:
     virtual BgpPeer *NextPeer(BgpPeerKey &key);
 
     void FillBgpNeighborInfo(std::vector<BgpNeighborResp> &nbr_list,
-                             std::string peer);
+                             const std::string &neighbor);
 
 
     size_t GetNeighborCount(std::string up_or_down);
