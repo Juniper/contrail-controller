@@ -578,9 +578,8 @@ class VncApiServer(VncApiServerGen):
                 bottle.abort(404, 'UUID ' + obj_uuid + ' not found')
             (read_ok, read_result) = self._db_conn.dbe_read(obj_type, request.json)
             if not read_ok:
-                (code, msg) = read_result
-                self.config_object_error(obj_uuid, None, obj_type, 'ref_update', msg)
-                bottle.abort(code, msg)
+                self.config_object_error(obj_uuid, None, obj_type, 'ref_update', read_result)
+                bottle.abort(404, read_result)
 
             obj_dict = read_result
             if operation == 'ADD':
