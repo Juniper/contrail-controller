@@ -139,12 +139,14 @@ public class ContrailVRouterApi {
      * @param network_uuid     UUID of the associated virtual network
      */
     public boolean AddPort(UUID vif_uuid, UUID vm_uuid, String interface_name,
-            InetAddress interface_ip, byte[] mac_address, UUID network_uuid, short vlanId, short primaryVlanId) {
+            InetAddress interface_ip, byte[] mac_address, UUID network_uuid, short vlanId, 
+            short primaryVlanId, String vm_name) {
         Port aport = new Port(UUIDToArray(vif_uuid), UUIDToArray(vm_uuid),
                 interface_name, interface_ip.getHostAddress(),
                 UUIDToArray(network_uuid), MacAddressToString(mac_address));
         aport.setVlan_id(primaryVlanId);
         aport.setIsolated_vlan_id(vlanId);
+        aport.setDisplay_name(vm_name);
         ports.put(vif_uuid, aport);
         if (client == null) {
             if (!CreateAndResynchronizeRpcClient()) {
