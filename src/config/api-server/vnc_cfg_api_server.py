@@ -206,7 +206,7 @@ class VncApiServer(VncApiServerGen):
     """
     This is the manager class co-ordinating all classes present in the package
     """
-    _INVALID_NAME_CHARS = set('<>&":')
+    _INVALID_NAME_CHARS = set(':')
 
     def __new__(cls, *args, **kwargs):
         obj = super(VncApiServer, cls).__new__(cls, *args, **kwargs)

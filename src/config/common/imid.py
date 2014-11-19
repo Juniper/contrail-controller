@@ -21,6 +21,7 @@ from ifmap.operations import PublishUpdateOperation, PublishNotifyOperation, \
 from ifmap.util import attr, link_ids
 from ifmap.response import Response, newSessionResult
 from ifmap.metadata import Metadata
+from xml.sax.saxutils import escape, unescape
 
 
 _TENANT_GRP = "(?P<tenant_uuid>.*)"
@@ -92,7 +93,7 @@ def parse_result_items(result_items, my_imid=None):
 
 def get_ifmap_id_from_fq_name(type, fq_name):
     my_fqn = ':' + ':'.join(fq_name)
-    my_imid = 'contrail:' + type + my_fqn
+    my_imid = 'contrail:' + type + escape(my_fqn)
 
     return my_imid
 # end get_ifmap_id_from_fq_name
@@ -105,7 +106,7 @@ def get_type_from_ifmap_id(ifmap_id):
 
 
 def get_fq_name_str_from_ifmap_id(ifmap_id):
-    return re.sub(r'contrail:.*?:', '', ifmap_id)
+    return re.sub(r'contrail:.*?:', '', unescape(ifmap_id))
 # end get_fq_name_str_from_ifmap_id
 
 
@@ -113,7 +114,7 @@ def get_fq_name_from_ifmap_id(ifmap_id):
     type = get_type_from_ifmap_id(ifmap_id)
     # route-target has ':' in the name, so handle it as a special case
     if type=='route-target':
-        return [':'.join(ifmap_id.split(':')[2:])]
+        return [':'.join(unescape(ifmap_id).split(':')[2:])]
     return ifmap_id.split(':')[2:]
 # end get_fq_name_from_ifmap_id
 
