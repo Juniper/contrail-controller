@@ -9,6 +9,7 @@
 #include "base/timer.h"
 #include "base/queue_task.h"
 #include "cmn/agent_signal.h"
+#include "cmn/agent_cmn.h"
 #include "db/db_entry.h"
 
 class EventManager;
