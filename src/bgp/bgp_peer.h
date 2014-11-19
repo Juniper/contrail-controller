@@ -150,7 +150,8 @@ public:
     const BgpNeighborConfig *config() const { return config_; }
 
     virtual void SetDataCollectionKey(BgpPeerInfo *peer_info) const;
-    void FillNeighborInfo(std::vector<BgpNeighborResp> &nbr_list) const;
+    void FillNeighborInfo(std::vector<BgpNeighborResp> *nbr_list,
+        bool summary) const;
 
     // thread-safe
     bool IsDeleted() const;

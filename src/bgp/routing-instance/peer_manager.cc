@@ -223,13 +223,13 @@ BgpPeer *PeerManager::NextPeer(BgpPeerKey &peer_key) {
     return NULL;
 }
 
-void PeerManager::FillBgpNeighborInfo(vector<BgpNeighborResp> &nbr_list,
-    const string &neighbor) {
+void PeerManager::FillBgpNeighborInfo(vector<BgpNeighborResp> *nbr_list,
+    const string &neighbor, bool summary) {
     BgpPeerKey key = BgpPeerKey();
     while (BgpPeer *peer = NextPeer(key)) {
         if (neighbor.empty() || peer->peer_basename() == neighbor ||
             peer->peer_address_string() == neighbor) {
-            peer->FillNeighborInfo(nbr_list);
+            peer->FillNeighborInfo(nbr_list, summary);
         }
     }
 }
