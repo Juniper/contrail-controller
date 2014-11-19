@@ -43,7 +43,7 @@ class DiscoveryCassendraClient():
         pool = pycassa.ConnectionPool(self._keyspace_name,
                                       server_list, max_overflow=10,
                                       use_threadlocal=True, prefill=True,
-                                      pool_size=10, pool_timeout=20,
+                                      pool_size=100, pool_timeout=20,
                                       max_retries=5, timeout=0.5)
         rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
         wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
@@ -88,6 +88,7 @@ class DiscoveryCassendraClient():
                 (cf_name, comparator_type, validator_type) = cf_info
                 sys_mgr.create_column_family(keyspace_name, cf_name, 
                         comparator_type = comparator_type, default_validation_class = validator_type)
+                sys_mgr.alter_column_family(keyspace_name, cf_name, gc_grace_seconds=0)
             except pycassa.cassandra.ttypes.InvalidRequestException as e:
                 # TODO verify only EEXISTS
                 print "Warning! " + str(e)
