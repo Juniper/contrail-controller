@@ -871,30 +871,37 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                     virtual_network_refs=[vn_fixt.getObj()]))
     # end test_floatingip_as_instanceip
 
-    def test_name_with_blacklist_char(self):
-        vn_name = self.id()+'-vn<1>'
+    def test_name_with_reserved_xml_char(self):
+        vn_name = self.id()+'-&vn<1>'
         vn_obj = VirtualNetwork(vn_name)
-        with ExpectedException(BadRequest) as e:
-            self._vnc_lib.virtual_network_create(vn_obj)
+        # fq_name, fq_name_str has non-escape val, ifmap-id has escaped val
+        ifmap_id = cfgm_common.imid.get_ifmap_id_from_fq_name(vn_obj.get_type(),
+                       vn_obj.get_fq_name())
+        self.assertIsNot(re.search("&amp;vn&lt;1&gt;", ifmap_id), None)
+        fq_name_str = cfgm_common.imid.get_fq_name_str_from_ifmap_id(ifmap_id)
+        self.assertIsNone(re.search("&amp;vn&lt;1&gt;", fq_name_str))
+
+        self._add_detail('Creating network with name %s expecting success' %(vn_name))
+        self._vnc_lib.virtual_network_create(vn_obj)
+        self.assertTill(self.ifmap_has_ident, obj=vn_obj)
+        ident_elem = FakeIfmapClient._graph[ifmap_id]['ident']
+        ident_str = etree.tostring(ident_elem)
+        mch = re.search("&amp;vn&lt;1&gt;", ident_str)
+        self.assertIsNot(mch, None)
+        self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
 
         vn_name = self.id()+'-vn'
         vn_obj = VirtualNetwork(vn_name)
         self._vnc_lib.virtual_network_create(vn_obj)
         self.assertTill(self.ifmap_has_ident, obj=vn_obj)
-
-        rt_name = self.id()+'-route-target<1>'
-        rt_obj = RouteTarget(rt_name)
-        with ExpectedException(BadRequest) as e:
-            self._vnc_lib.route_target_create(rt_obj)
+        self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
 
         rt_name = self.id()+'-route-target:1'
         rt_obj = RouteTarget(rt_name)
         self._vnc_lib.route_target_create(rt_obj)
         self.assertTill(self.ifmap_has_ident, obj=rt_obj)
-
-        self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
         self._vnc_lib.route_target_delete(id=rt_obj.uuid)
-    # end test_name_with_blacklist_char
+    # end test_name_with_reserved_xml_char
 
 # end class TestVncCfgApiServer
 
