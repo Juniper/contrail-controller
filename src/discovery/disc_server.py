@@ -329,7 +329,7 @@ class DiscoveryServer():
 
     # decorator to catch DB error
     def db_error_handler(func):
-        def error_handler(self, *args, **kwargs):
+        def error_handler(*args, **kwargs):
             try:
                 return func(*args,**kwargs)
             except disc_exceptions.ServiceUnavailable:
