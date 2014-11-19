@@ -55,7 +55,7 @@ void BgpAttrMultiExitDisc::ToCanonical(BgpAttr *attr) {
 
 std::string BgpAttrMultiExitDisc::ToString() const {
     char repr[80];
-    snprintf(repr, sizeof(repr), "MED <code: %d, flags: %02x> : %04x", 
+    snprintf(repr, sizeof(repr), "MED <code: %d, flags: %02x> : %d",
              code, flags, med);
     return std::string(repr);
 }
@@ -105,7 +105,7 @@ void BgpAttrAggregator::ToCanonical(BgpAttr *attr) {
 std::string BgpAttrAggregator::ToString() const {
     char repr[80];
     snprintf(repr, sizeof(repr), 
-             "Aggregator <code: %d, flags: %02x> : %02x:%04x", 
+             "Aggregator <code: %d, flags: %02x> : %d:%08x",
              code, flags, as_num, address);
     return std::string(repr);
 }
@@ -155,7 +155,7 @@ PmsiTunnelSpec::PmsiTunnelSpec()
 }
 
 PmsiTunnelSpec::PmsiTunnelSpec(const BgpAttribute &rhs)
-    : BgpAttribute(rhs) {
+    : BgpAttribute(rhs), tunnel_flags(0), tunnel_type(0), label(0) {
 }
 
 int PmsiTunnelSpec::CompareTo(const BgpAttribute &rhs_attr) const {
@@ -452,7 +452,10 @@ void BgpAttrSourceRd::ToCanonical(BgpAttr *attr) {
 }
 
 std::string BgpAttrSourceRd::ToString() const {
-    return source_rd.ToString();
+    char repr[80];
+    snprintf(repr, sizeof(repr), "SourceRd <subcode: %d> : %s",
+             subcode, source_rd.ToString().c_str());
+    return std::string(repr);
 }
 
 int BgpAttrEsi::CompareTo(const BgpAttribute &rhs_attr) const {
@@ -467,7 +470,10 @@ void BgpAttrEsi::ToCanonical(BgpAttr *attr) {
 }
 
 std::string BgpAttrEsi::ToString() const {
-    return esi.ToString();
+    char repr[80];
+    snprintf(repr, sizeof(repr), "Esi <subcode: %d> : %s",
+             subcode, esi.ToString().c_str());
+    return std::string(repr);
 }
 
 int BgpAttrParams::CompareTo(const BgpAttribute &rhs_attr) const {
@@ -489,7 +495,7 @@ std::string BgpAttrParams::ToString() const {
 }
 
 BgpAttr::BgpAttr()
-    : origin_(BgpAttrOrigin::INCOMPLETE), nexthop_(),
+    : attr_db_(NULL), origin_(BgpAttrOrigin::INCOMPLETE), nexthop_(),
       med_(0), local_pref_(0), atomic_aggregate_(false),
       aggregator_as_num_(0), params_(0) {
     refcount_ = 0;

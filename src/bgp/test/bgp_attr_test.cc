@@ -57,6 +57,50 @@ TEST_F(BgpAttrTest, UnknownCode) {
     EXPECT_EQ(1729, attr->local_pref());
 }
 
+TEST_F(BgpAttrTest, MultiExitDiscCompare) {
+    BgpAttrMultiExitDisc med1(100);
+    BgpAttrMultiExitDisc med2(200);
+    EXPECT_EQ(0, med1.CompareTo(med1));
+    EXPECT_EQ(-1, med1.CompareTo(med2));
+    EXPECT_EQ(1, med2.CompareTo(med1));
+}
+
+TEST_F(BgpAttrTest, MultiExitDiscToString) {
+    BgpAttrMultiExitDisc med(100);
+    EXPECT_EQ("MED <code: 4, flags: 80> : 100", med.ToString());
+}
+
+TEST_F(BgpAttrTest, AtomicAggregateToString) {
+    BgpAttrAtomicAggregate aa;
+    EXPECT_EQ("ATOMIC_AGGR <code: 6, flags: 40>", aa.ToString());
+}
+
+TEST_F(BgpAttrTest, AggregatorCompare1) {
+    BgpAttrAggregator agg1(100, 0x0101010a);
+    BgpAttrAggregator agg2(200, 0x0101010a);
+    EXPECT_EQ(-1, agg1.CompareTo(agg2));
+    EXPECT_EQ(1, agg2.CompareTo(agg1));
+}
+
+TEST_F(BgpAttrTest, AggregatorCompare2) {
+    BgpAttrAggregator agg1(100, 0x0101010a);
+    BgpAttrAggregator agg2(100, 0x0201010a);
+    EXPECT_EQ(-1, agg1.CompareTo(agg2));
+    EXPECT_EQ(1, agg2.CompareTo(agg1));
+}
+
+TEST_F(BgpAttrTest, AggregatorCompare3) {
+    BgpAttrAggregator agg1(100, 0x0101010a);
+    BgpAttrAggregator agg2(100, 0x0101010a);
+    EXPECT_EQ(0, agg1.CompareTo(agg2));
+    EXPECT_EQ(0, agg2.CompareTo(agg1));
+}
+
+TEST_F(BgpAttrTest, AggregatorToString) {
+    BgpAttrAggregator agg(100, 0x0101010a);
+    EXPECT_EQ("Aggregator <code: 7, flags: c0> : 100:0101010a", agg.ToString());
+}
+
 TEST_F(BgpAttrTest, AsPathCompare_Sequence) {
     AsPathSpec spec1;
     AsPathSpec::PathSegment *ps1 = new AsPathSpec::PathSegment;
@@ -343,6 +387,14 @@ TEST_F(BgpAttrTest, OriginatorId4) {
         originator_id_spec.ToString());
 }
 
+TEST_F(BgpAttrTest, OriginatorIdCompareTo) {
+    BgpAttrOriginatorId oid_spec1(0x0101010a);
+    BgpAttrOriginatorId oid_spec2(0x0201010a);
+    EXPECT_EQ(0, oid_spec1.CompareTo(oid_spec1));
+    EXPECT_NE(0, oid_spec1.CompareTo(oid_spec2));
+    EXPECT_NE(0, oid_spec2.CompareTo(oid_spec1));
+}
+
 TEST_F(BgpAttrTest, SourceRdBasic1) {
     BgpAttrSpec attr_spec;
     RouteDistinguisher rd = RouteDistinguisher::FromString("192.168.0.1:1");
@@ -389,6 +441,22 @@ TEST_F(BgpAttrTest, SourceRdBasic3) {
     ptr = attr_db_->ReplaceSourceRdAndLocate(ptr.get(), rd2);
     EXPECT_EQ(1, attr_db_->Size());
     EXPECT_EQ(rd2, ptr->source_rd());
+}
+
+TEST_F(BgpAttrTest, SourceRdCompareTo) {
+    RouteDistinguisher rd1 = RouteDistinguisher::FromString("192.168.0.1:1");
+    RouteDistinguisher rd2 = RouteDistinguisher::FromString("192.168.0.1:2");
+    BgpAttrSourceRd rd_spec1(rd1);
+    BgpAttrSourceRd rd_spec2(rd2);
+    EXPECT_EQ(0, rd_spec1.CompareTo(rd_spec1));
+    EXPECT_NE(0, rd_spec1.CompareTo(rd_spec2));
+    EXPECT_NE(0, rd_spec2.CompareTo(rd_spec1));
+}
+
+TEST_F(BgpAttrTest, SourceRdToString) {
+    RouteDistinguisher rd = RouteDistinguisher::FromString("192.168.0.1:1");
+    BgpAttrSourceRd rd_spec(rd);
+    EXPECT_EQ("SourceRd <subcode: 3> : 192.168.0.1:1", rd_spec.ToString());
 }
 
 TEST_F(BgpAttrTest, Esi1) {
@@ -442,6 +510,26 @@ TEST_F(BgpAttrTest, Esi3) {
     EXPECT_EQ(esi2, ptr->esi());
 }
 
+TEST_F(BgpAttrTest, EsiCompareTo) {
+    EthernetSegmentId esi1 =
+        EthernetSegmentId::FromString("00:01:02:03:04:05:06:07:08:01");
+    EthernetSegmentId esi2 =
+        EthernetSegmentId::FromString("00:01:02:03:04:05:06:07:08:02");
+    BgpAttrEsi esi_spec1(esi1);
+    BgpAttrEsi esi_spec2(esi2);
+    EXPECT_EQ(0, esi_spec1.CompareTo(esi_spec1));
+    EXPECT_NE(0, esi_spec1.CompareTo(esi_spec2));
+    EXPECT_NE(0, esi_spec2.CompareTo(esi_spec1));
+}
+
+TEST_F(BgpAttrTest, EsiToString) {
+    EthernetSegmentId esi =
+        EthernetSegmentId::FromString("00:01:02:03:04:05:06:07:08:01");
+    BgpAttrEsi esi_spec(esi);
+    EXPECT_EQ("Esi <subcode: 4> : 00:01:02:03:04:05:06:07:08:01",
+        esi_spec.ToString());
+}
+
 TEST_F(BgpAttrTest, Params1) {
     BgpAttrSpec attr_spec;
     uint64_t params = BgpAttrParams::EdgeReplicationNotSupported;
@@ -472,7 +560,17 @@ TEST_F(BgpAttrTest, Params2) {
     EXPECT_EQ(2, attr_db_->Size());
 }
 
-TEST_F(BgpAttrTest, BgpAttrParamsToString) {
+TEST_F(BgpAttrTest, ParamsCompareTo) {
+    uint64_t params1 = BgpAttrParams::EdgeReplicationNotSupported;
+    uint64_t params2 = 0;
+    BgpAttrParams params_spec1(params1);
+    BgpAttrParams params_spec2(params2);
+    EXPECT_EQ(0, params_spec1.CompareTo(params_spec1));
+    EXPECT_NE(0, params_spec1.CompareTo(params_spec2));
+    EXPECT_NE(0, params_spec2.CompareTo(params_spec1));
+}
+
+TEST_F(BgpAttrTest, ParamsToString) {
     uint64_t params = BgpAttrParams::EdgeReplicationNotSupported;
     BgpAttrParams params_spec(params);
     EXPECT_EQ("Params <subcode: 5> : 0x0000000000000001",
@@ -579,6 +677,14 @@ TEST_F(BgpAttrTest, PmsiTunnel6) {
     EXPECT_NE(attr1, attr2);
     EXPECT_NE(0, attr1->CompareTo(*attr2));
     EXPECT_EQ(2, attr_db_->Size());
+}
+
+TEST_F(BgpAttrTest, PmsiTunnelSpecCompareTo) {
+    PmsiTunnelSpec pmsi_spec1;
+    PmsiTunnelSpec pmsi_spec2;
+    EXPECT_EQ(0, pmsi_spec1.CompareTo(pmsi_spec1));
+    EXPECT_NE(0, pmsi_spec1.CompareTo(pmsi_spec2));
+    EXPECT_NE(0, pmsi_spec2.CompareTo(pmsi_spec1));
 }
 
 TEST_F(BgpAttrTest, PmsiTunnelSpecToString1) {
@@ -736,6 +842,14 @@ TEST_F(BgpAttrTest, EdgeDiscovery6) {
     EXPECT_NE(attr1, attr2);
     EXPECT_NE(0, attr1->CompareTo(*attr2));
     EXPECT_EQ(2, attr_db_->Size());
+}
+
+TEST_F(BgpAttrTest, EdgeDiscoveryCompareTo) {
+    EdgeDiscoverySpec edspec1;
+    EdgeDiscoverySpec edspec2;
+    EXPECT_EQ(0, edspec1.CompareTo(edspec1));
+    EXPECT_NE(0, edspec1.CompareTo(edspec2));
+    EXPECT_NE(0, edspec2.CompareTo(edspec1));
 }
 
 TEST_F(BgpAttrTest, EdgeDiscoveryToString1) {
@@ -905,6 +1019,14 @@ TEST_F(BgpAttrTest, EdgeForwarding6) {
     EXPECT_NE(attr1, attr2);
     EXPECT_NE(0, attr1->CompareTo(*attr2));
     EXPECT_EQ(2, attr_db_->Size());
+}
+
+TEST_F(BgpAttrTest, EdgeForwardingCompareTo) {
+    EdgeForwardingSpec efspec1;
+    EdgeForwardingSpec efspec2;
+    EXPECT_EQ(0, efspec1.CompareTo(efspec1));
+    EXPECT_NE(0, efspec1.CompareTo(efspec2));
+    EXPECT_NE(0, efspec2.CompareTo(efspec1));
 }
 
 TEST_F(BgpAttrTest, EdgeForwardingToString1) {
