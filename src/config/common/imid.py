@@ -21,6 +21,7 @@ from ifmap.operations import PublishUpdateOperation, PublishNotifyOperation, \
 from ifmap.util import attr, link_ids
 from ifmap.response import Response, newSessionResult
 from ifmap.metadata import Metadata
+from vnc_api.gen.generatedssuper import quote_xml, unquote_xml
 
 
 _TENANT_GRP = "(?P<tenant_uuid>.*)"

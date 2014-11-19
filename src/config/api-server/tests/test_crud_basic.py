@@ -852,35 +852,34 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                     virtual_network_refs=[vn_fixt.getObj()]))
     # end test_floatingip_as_instanceip
 
-    def test_name_with_blacklist_char(self):
-        for suffix in [chr(0x07), '-vn<1', '-vn>1', '-vn"1', '-vn&1']:
-            vn_name = self.id()+suffix
-            vn_obj = VirtualNetwork(vn_name)
-            self._add_detail('Creating network with name %s expecting failure' %(vn_name))
-            with ExpectedException(BadRequest) as e:
-                self._vnc_lib.virtual_network_create(vn_obj)
+    def test_name_with_reserved_xml_char(self):
+        vn_name = self.id()+'-&vn<1>'
+        vn_obj = VirtualNetwork(vn_name)
+        self._add_detail('Creating network with name %s expecting success' %(vn_name))
+        self._vnc_lib.virtual_network_create(vn_obj)
+        self.assertTill(self.ifmap_has_ident, obj=vn_obj)
+        ifmap_id = 'contrail:virtual-network:'+vn_obj.get_fq_name_str()
+        ident_elem = FakeIfmapClient._graph[ifmap_id]['ident']
+        ident_str = etree.tostring(ident_elem)
+        mch = re.search("&amp;vn&lt;1&gt;", ident_str)
+        self.assertIsNot(mch, None)
+
+        self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
 
         vn_name = self.id()+'-vn'
         vn_obj = VirtualNetwork(vn_name)
         self._add_detail('Creating network with name %s expecting success' %(vn_name))
         self._vnc_lib.virtual_network_create(vn_obj)
         self.assertTill(self.ifmap_has_ident, obj=vn_obj)
-
-        rt_name = self.id()+'-route-target<1>'
-        rt_obj = RouteTarget(rt_name)
-        self._add_detail('Creating network with name %s expecting failure' %(rt_name))
-        with ExpectedException(BadRequest) as e:
-            self._vnc_lib.route_target_create(rt_obj)
+        self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
 
         rt_name = self.id()+'-route-target:1'
         rt_obj = RouteTarget(rt_name)
         self._add_detail('Creating network with name %s expecting success' %(rt_name))
         self._vnc_lib.route_target_create(rt_obj)
         self.assertTill(self.ifmap_has_ident, obj=rt_obj)
-
-        self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
         self._vnc_lib.route_target_delete(id=rt_obj.uuid)
-    # end test_name_with_blacklist_char
+    # end test_name_with_reserved_xml_char
 
 # end class TestVncCfgApiServer
 

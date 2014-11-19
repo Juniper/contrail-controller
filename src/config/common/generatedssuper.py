@@ -24,6 +24,17 @@ def quote_xml(inStr):
     return s1
 
 
+def unquote_xml(inStr):
+    if not inStr:
+        return ''
+    s1 = (isinstance(inStr, basestring) and inStr or
+          '%s' % inStr)
+    s1 = s1.replace('&amp;', '&')
+    s1 = s1.replace('&lt;', '<')
+    s1 = s1.replace('&gt;', '>')
+    return s1
+
+
 def quote_attrib(inStr):
     s1 = (isinstance(inStr, basestring) and inStr or
           '%s' % inStr)
