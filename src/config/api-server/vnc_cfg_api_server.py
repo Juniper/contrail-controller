@@ -48,6 +48,7 @@ CONFIG_VERSION = '1.0'
 
 import bottle
 from bottle import request
+request.MEMFILE_MAX = 1024000
 
 import vnc_cfg_types
 from vnc_cfg_ifmap import VncDbClient
