@@ -563,12 +563,7 @@ bool MulticastRoute::AddChangePath(Agent *agent, AgentPath *path) {
             FindActiveEntry(composite_nh_req_.key.get()));
     assert(nh);
     if (nh) {
-        if (nh->GetType() == NextHop::COMPOSITE) {
-            const CompositeNH *cnh = static_cast<const CompositeNH *>(nh);
-            if (cnh->composite_nh_type() == Composite::EVPN) {
-                is_subnet_discard = true;
-            }
-        } else if (nh->GetType() == NextHop::DISCARD) {
+        if (nh->GetType() == NextHop::DISCARD) {
             is_subnet_discard = true;
         }
     }

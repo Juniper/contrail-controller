@@ -286,9 +286,9 @@ TEST_F(RouteTest, SubnetRoute_1) {
     EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
     EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
     EXPECT_TRUE(rt3->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
-    EXPECT_TRUE(rt1->IsRPFInvalid());
-    EXPECT_TRUE(rt2->IsRPFInvalid());
-    EXPECT_TRUE(rt3->IsRPFInvalid());
+    EXPECT_FALSE(rt1->IsRPFInvalid());
+    EXPECT_FALSE(rt2->IsRPFInvalid());
+    EXPECT_FALSE(rt3->IsRPFInvalid());
 
     const CompositeNH *cnh1 = static_cast<const CompositeNH *>(rt1->GetActiveNextHop());
     const CompositeNH *cnh2 = static_cast<const CompositeNH *>(rt2->GetActiveNextHop());
@@ -368,9 +368,9 @@ TEST_F(RouteTest, SubnetRoute_2) {
     EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
     EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
     EXPECT_TRUE(rt3->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
-    EXPECT_TRUE(rt1->IsRPFInvalid());
-    EXPECT_TRUE(rt2->IsRPFInvalid());
-    EXPECT_TRUE(rt3->IsRPFInvalid());
+    EXPECT_FALSE(rt1->IsRPFInvalid());
+    EXPECT_FALSE(rt2->IsRPFInvalid());
+    EXPECT_FALSE(rt3->IsRPFInvalid());
 
     FlushEvpnNextHop(peer, "vrf1", 0);
     AddIPAM("vn1", ipam_info_2, 1);
@@ -387,7 +387,7 @@ TEST_F(RouteTest, SubnetRoute_2) {
 
     FillEvpnNextHop(peer, "vrf1", 1000, TunnelType::MplsType());
     EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
-    EXPECT_TRUE(rt2->IsRPFInvalid());
+    EXPECT_FALSE(rt2->IsRPFInvalid());
 
     AddIPAM("vn1", ipam_info_3, 1);
     FlushEvpnNextHop(peer, "vrf1", 0);
