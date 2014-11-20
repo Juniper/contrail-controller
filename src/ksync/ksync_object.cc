@@ -802,7 +802,12 @@ KSyncEntry::KSyncState KSyncSM_DelPending_Ref(KSyncObject *obj,
     assert(entry->GetRefCount());
     switch (event) {
     case KSyncEntry::ADD_CHANGE_REQ:
-        state = KSyncSM_Change(obj, entry);
+        if (!entry->Seen()) {
+            // Trigger Add if entry was not seen earlier
+            state = KSyncSM_Add(obj, entry);
+        } else {
+            state = KSyncSM_Change(obj, entry);
+        }
         break;
 
     case KSyncEntry::INT_PTR_REL:

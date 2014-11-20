@@ -811,6 +811,32 @@ TEST_F(TestUT, add_defer_to_delete_ack) {
     EXPECT_EQ(Vlan::delete_count_, 1);
 }
 
+TEST_F(TestUT, add_defer_to_del_ref_pending_to_add) {
+    Vlan *vlan1 = AddVlan(0x1, 0x2, KSyncEntry::ADD_DEFER, Vlan::INIT, 0);
+    EXPECT_EQ(Vlan::add_count_, 0);
+    vlan1->all_delete_state_comp_ = false;
+
+    // Add Reference.
+    KSyncEntry::KSyncEntryPtr vlan_ref = vlan1;
+    vlan_table_->Delete(vlan1);
+
+    EXPECT_EQ(vlan1->GetState(), KSyncEntry::DEL_DEFER_REF);
+    // Request to add vlan1 again
+    ChangeVlan(vlan1, 0x2, KSyncEntry::ADD_DEFER, Vlan::INIT);
+
+    // Remove Reference.
+    vlan_ref = NULL;
+    vlan_table_->Delete(vlan1);
+    if (Vlan::free_wait_count_ == 0) {
+        EXPECT_EQ(vlan1->GetState(), KSyncEntry::DEL_ACK_WAIT);
+        EXPECT_EQ(vlan1->GetOp(), Vlan::DELETE);
+
+        vlan_table_->NetlinkAck(vlan1, KSyncEntry::DEL_ACK);
+    }
+    EXPECT_EQ(Vlan::add_count_, 0);
+    EXPECT_EQ(Vlan::delete_count_, 1);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     LoggingInit();
