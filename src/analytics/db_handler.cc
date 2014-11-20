@@ -7,6 +7,8 @@
 #include <boost/assign/list_of.hpp>
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/array.hpp>
+#include <boost/uuid/name_generator.hpp>
+#include <boost/uuid/string_generator.hpp>
 
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
@@ -725,11 +727,7 @@ DbHandler::StatTableInsert(uint64_t ts,
     uint64_t temp_u64 = ts;
     uint32_t temp_u32 = temp_u64 >> g_viz_constants.RowTimeInBits;
     boost::uuids::uuid unm;
-    if (statName.compare("FieldNames") == 0) {
-         //the unm should be fff.. for all UUID
-         boost::uuids::string_generator gen;
-	 unm = gen(std::string("ffffffffffffffffffffffffffffffff"));
-    } else {
+    if (statName.compare("FieldNames") != 0) {
          unm = umn_gen_();
     }
 
@@ -752,6 +750,14 @@ DbHandler::StatTableInsert(uint64_t ts,
                         attribs_buf.insert(make_pair(nm, it->second));
                     val.SetString(it->second.str.c_str());
                     dd.AddMember(rt.first->first.c_str(), val, dd.GetAllocator());
+                    string field_name = it->first;
+                     if (field_name.compare("fields.value") == 0) {
+                         if (statName.compare("FieldNames") == 0) {
+                             //Make uuid a fn of the field.values
+                             boost::uuids::name_generator gen(DbHandler::seed_uuid);
+                             unm = gen(it->second.str.c_str());
+                         }
+                     }
                 }
                 break;
             case UINT64: {
@@ -848,6 +854,8 @@ static const std::vector<FlowRecordFields::type> FlowRecordTableColumns =
     (FlowRecordFields::FLOWREC_OTHER_VROUTER_IP)
     (FlowRecordFields::FLOWREC_UNDERLAY_PROTO)
     (FlowRecordFields::FLOWREC_UNDERLAY_SPORT);
+
+boost::uuids::uuid DbHandler::seed_uuid = boost::uuids::string_generator()(std::string("ffffffffffffffffffffffffffffffff"));
 
 static void PopulateFlowRecordTableColumns(
     const std::vector<FlowRecordFields::type> &frvt,

@@ -9,6 +9,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/ptr_container/ptr_map.hpp>
 #include <boost/uuid/uuid.hpp>
+#include <boost/uuid/name_generator.hpp>
 
 #if __GNUC_PREREQ(4, 6)
 #pragma GCC diagnostic push
@@ -33,6 +34,7 @@
 class DbHandler {
 public:
     static const int DefaultDbTTL = 0;
+    static boost::uuids::uuid seed_uuid;
 
     typedef enum {
         INVALID = 0,
