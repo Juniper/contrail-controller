@@ -1,0 +1,25 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+import os
+import re
+import subprocess
+import sys
+Import('BuildEnv')
+
+env = BuildEnv.Clone()
+
+mvn_target = env.build_maven('#build/debug/vnsw/contrail-vrouter-api/java/target/juniper-contrail-vrouter-api-1.0.jar',
+                              source = ['#controller/src/vnsw/contrail-vrouter-api/java/src/net/juniper/contrail/contrail_vrouter_api'], 
+                              path=Dir('#controller/src/vnsw/contrail-vrouter-api/java'))
+env.Alias('contrail-vrouter-api-java', mvn_target)
+env.Default(mvn_target)
+
+env.Alias('install', 
+    env.InstallAs(env['INSTALL_SHARE'] + '/contrail-vcenter-plugin/juniper-contrail-vrouter-api.jar', 
+                     '#build/debug/vnsw/contrail-vrouter-api/java/target/juniper-contrail-vrouter-api-1.0.jar'))
+
+

@@ -1,0 +1,23 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+import os
+import re
+import subprocess
+import sys
+
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+mvn_target = env.build_maven('#build/debug/api-lib/java/target/juniper-contrail-api-1.0.jar',
+                             source ='#controller/src/api-lib/java/src/net/juniper/contrail/api', 
+                             path=Dir('#controller/src/api-lib/java'))
+env.Alias('api-lib-java', mvn_target)
+env.Default(mvn_target)
+
+env.Alias('install', 
+    env.InstallAs(env['INSTALL_SHARE'] + '/contrail-vcenter-plugin/juniper-contrail-api.jar', 
+                      '#build/debug/api-lib/java/target/juniper-contrail-api-1.0.jar'))

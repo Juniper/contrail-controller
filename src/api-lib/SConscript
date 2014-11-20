@@ -91,6 +91,8 @@ env.Depends(local_sources_rules, autogen_infra_sources)
 # install everything before building distribution
 env.Depends(sdist_gen, sdist_depends)
 
+env.SConscript(dirs=['java'], exports = 'BuildEnv')
+
 if 'install' in BUILD_TARGETS:
    install_cmd = env.Command(None, 'setup.py',
                              'python setup.py install %s' %

@@ -43,7 +43,7 @@ public abstract class ApiObjectBase implements Serializable {
 	this.name = name;
 	if (parent != null) {
 	    fq_name = new ArrayList<String>(parent.getQualifiedName());
-	    parent_type = parent.getType();
+	    parent_type = parent.getObjectType();
 	} else {
 	    fq_name = new ArrayList<String>(getDefaultParent());
 	    parent_type = getDefaultParentType();
@@ -75,7 +75,7 @@ public abstract class ApiObjectBase implements Serializable {
         return lst;
     }
 
-    public abstract String getType();
+    public abstract String getObjectType();
     public abstract List<String> getDefaultParent();
     public abstract String getDefaultParentType();
 }

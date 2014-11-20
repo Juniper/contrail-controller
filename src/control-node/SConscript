@@ -9,7 +9,6 @@ import sys
 
 def MapBuildDir(list):
     return map(lambda x: '#/' + Dir('.').path + '/../' + x, list)
-
 env = BuildEnv.Clone()
 
 libcontrol_node = env.Library('control_node', ['control_node.cc'])
@@ -212,6 +211,7 @@ env.Alias('control-node', ctrlnode)
 
 env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
 
+#import pdb; pdb.set_trace();
 # Please update sandesh/common/vns.sandesh on process name change
 env.Alias('install', env.Install(env['INSTALL_BIN'], ctrlnode))
 env.Alias('install', env.Install(env['INSTALL_CONF'], 
