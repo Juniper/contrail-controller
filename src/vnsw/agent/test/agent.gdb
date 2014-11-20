@@ -449,3 +449,24 @@ document dump_service_instance_entries
      Syntax: dump_service_instance_entries <table>: Prints all service instance entries
 end
 
+define dump_component_nh_label
+     set $__nh = (NextHop *) ((size_t)($Xnode) - (size_t)&(((NextHop*)0)->node_))
+     if $__nh->type_ == NextHop::COMPOSITE
+         set $size = $__nh->component_nh_key_list_._M_impl._M_finish - $__nh->component_nh_key_list_._M_impl._M_start
+         set $i = 0
+         while $i < $size
+            if (($__nh->component_nh_key_list_._M_impl._M_start + $i).px == 0)
+               printf "Label %d NULL, ", $i
+            else
+               printf "Label %d %u, ", $i, ($__nh->component_nh_key_list_._M_impl._M_start + $i).px->label_
+            end
+            set $i++
+         end
+         printf "\n"
+     end
+end
+
+define dump_nh_component_entries
+   pdb_table_entries Agent::singleton_.nh_table_ dump_component_nh_label
+end
+
