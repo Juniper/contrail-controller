@@ -36,13 +36,56 @@ from vnc_api.common.exceptions import ResourceExhaustionError
 from vnc_api.vnc_api import VncApi
 from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
     NodeStatus
-from db import DBBase, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM, \
+from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM, \
     LogicalInterfaceDM, VirtualMachineInterfaceDM, VirtualNetworkDM
-from dependency_tracker import DependencyTracker
+from cfgm_common.dependency_tracker import DependencyTracker
 from device_manager.sandesh.dm_introspect import ttypes as sandesh
 
 
 class DeviceManager(object):
+    _REACTION_MAP = {
+        'physical_router': {
+            'self': ['bgp_router', 'physical_interface', 'logical_interface'],
+            'bgp_router': [],
+            'physical_interface': [],
+            'logical_interface': [],
+            'virtual_network': [],
+        },
+        'bgp_router': {
+            'self': ['bgp_router', 'physical_router'],
+            'physical_router': [],
+        },
+        'physical_interface': {
+            'self': ['physical_router', 'logical_interface'],
+            'physical_router': ['logical_interface'],
+            'logical_interface': ['physical_router'],
+        },
+        'logical_interface': {
+            'self': ['physical_router', 'physical_interface',
+                     'virtual_machine_interface'],
+            'physical_interface': ['virtual_machine_interface'],
+            'virtual_machine_interface': ['physical_router',
+                                          'physical_interface'],
+            'physical_router': ['virtual_machine_interface']
+        },
+        'virtual_machine_interface': {
+            'self': ['logical_interface', 'virtual_network'],
+            'logical_interface': ['virtual_network'],
+            'virtual_network': ['logical_interface']
+        },
+        'virtual_network': {
+            'self': ['physical_router', 'virtual_machine_interface'],
+            'routing_instance': ['physical_router',
+                                 'virtual_machine_interface'],
+            'physical_router': [],
+            'virtual_machine_interface': []
+        },
+        'routing_instance': {
+            'self': ['virtual_network'],
+            'virtual_network': []
+        },
+    }
+
     def __init__(self, args=None):
         self._args = args
 
@@ -116,7 +159,7 @@ class DeviceManager(object):
                                              self._args.cluster_id, None,
                                              self.config_log)
 
-        DBBase._device_manager = self
+        DBBaseDM.init(self._sandesh.logger(), self._cassandra)
         ok, pr_list = self._cassandra._cassandra_physical_router_list()
         if not ok:
             self.config_log('physical router list returned error: %s' %
@@ -175,7 +218,7 @@ class DeviceManager(object):
             msg = "Notification Message: %s" % (pformat(oper_info))
             self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
             obj_type = oper_info['type'].replace('-', '_')
-            obj_class = DBBase._OBJ_TYPE_MAP.get(obj_type)
+            obj_class = DBBaseDM._OBJ_TYPE_MAP.get(obj_type)
             if obj_class is None:
                 return
 
@@ -183,12 +226,14 @@ class DeviceManager(object):
                 obj_dict = oper_info['obj_dict']
                 obj_id = obj_dict['uuid']
                 obj = obj_class.locate(obj_id, obj_dict)
-                dependency_tracker = DependencyTracker(DBBase._OBJ_TYPE_MAP)
+                dependency_tracker = DependencyTracker(DBBaseDM._OBJ_TYPE_MAP,
+                                                       self._REACTION_MAP)
                 dependency_tracker.evaluate(obj_type, obj)
             elif oper_info['oper'] == 'UPDATE':
                 obj_id = oper_info['uuid']
                 obj = obj_class.get(obj_id)
-                dependency_tracker = DependencyTracker(DBBase._OBJ_TYPE_MAP)
+                dependency_tracker = DependencyTracker(DBBaseDM._OBJ_TYPE_MAP,
+                                                       self._REACTION_MAP)
                 if obj is not None:
                     dependency_tracker.evaluate(obj_type, obj)
                 else:
@@ -200,7 +245,8 @@ class DeviceManager(object):
                 obj = obj_class.get(obj_id)
                 if obj is None:
                     return
-                dependency_tracker = DependencyTracker(DBBase._OBJ_TYPE_MAP)
+                dependency_tracker = DependencyTracker(DBBaseDM._OBJ_TYPE_MAP,
+                                                       self._REACTION_MAP)
                 dependency_tracker.evaluate(obj_type, obj)
                 obj_class.delete(obj_id)
             else:
