@@ -1,64 +1,114 @@
 //
-// prcm_introspect.sandesh
+// dm_introspect.sandesh
 //
-// Introspect structs for Schema Transformer
+// Introspect structs for Device Manager
 //
 // Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 //
 
-struct Acl {
-    1: string name;
-    2: bool dynamic_acl;
-}
-
-struct VirtualNetwork {
-    1: string name;
-    2: list<string> policies;
-    3: list<string> connections;
-    4: list<string> routing_instances;
-    5: string acl;
-    6: string dynamic_acl;
-}
-
-request sandesh VnList {
-    1: string vn_name;
-}
-
-response sandesh VnListResp {
-    1: list<VirtualNetwork> vn_names;
-}
-
 struct RoutingInstance {
     1: string name;
-    2: string service_chain;
-    3: list<string> connections;
+    2: string uuid;
+    3: string virtual_network (link="VirtualNetworkList");
+    4: list<string> route_targets;
 }
 
 response sandesh RoutingInstanceListResp {
     1: list<RoutingInstance> routing_instances;
 }
 
-request sandesh RoutintInstanceList {
-    1: string vn_name;
-    2: string ri_name;
+request sandesh RoutingInstanceList {
+    1: string name_or_uuid;
 }
 
-struct ServiceChain {
-    1: string sc_name;
-    2: string left_virtual_network;
-    3: string right_virtual_network;
-    4: string direction;
-    5: string src_ports;
-    6: string dst_ports;
-    7: list<string> service_list;
-    9: string protocol;
-    10: bool created;
+struct VirtualNetwork {
+    1: string name;
+    2: string uuid;
+    3: list<string> routing_instances;
+    4: list<string> virtual_machine_interfaces;
+    5: list<string> physical_routers;
 }
 
-response sandesh ServiceChainListResp {
-    1: list<ServiceChain> service_chains;
+response sandesh VirtualNetworkListResp {
+    1: list<VirtualNetwork> virtual_networks;
 }
 
-request sandesh ServiceChainList {
-    1: string sc_name;
+request sandesh VirtualNetworkList {
+    1: string name_or_uuid;
+}
+
+struct VirtualMachineInterface {
+    1: string name;
+    2: string uuid;
+    3: string logical_interface (link="LogicalInterfaceList");
+    4: string virtual_network (link="VirtualNetworkList");
+}
+
+response sandesh VirtualMachineInterfaceListResp {
+    1: list<VirtualMachineInterface> virtual_machine_interfaces;
+}
+
+request sandesh VirtualMachineInterfaceList {
+    1: string name_or_uuid;
+}
+
+struct LogicalInterface {
+    1: string name;
+    2: string uuid;
+    3: string physical_interface (link="PhysicalInterfaceList");
+    4: string virtual_machine_interface (link="VirtualMachineInterfaceList");
+}
+
+response sandesh LogicalInterfaceListResp {
+    1: list<LogicalInterface> logical_interfaces;
+}
+
+request sandesh LogicalInterfaceList {
+    1: string name_or_uuid;
+}
+
+struct PhysicalInterface {
+    1: string name;
+    2: string uuid;
+    3: string physical_router (link="PhysicalRouterList");
+    4: list<string> logical_interfaces;
+}
+
+response sandesh PhysicalInterfaceListResp {
+    1: list<PhysicalInterface> physical_interfaces;
+}
+
+request sandesh PhysicalInterfaceList {
+    1: string name_or_uuid;
+}
+struct PhysicalRouter {
+    1: string name;
+    2: string uuid;
+    3: string bgp_router (link="BgpRouterList");
+    4: list<string> physical_interfaces (link="PhysicalInterfaceList");
+    5: list<string> logical_interfaces;
+    6: list<string> virtual_networks;
+}
+
+response sandesh PhysicalRouterListResp {
+    1: list<PhysicalRouter> physical_routers;
+}
+
+request sandesh PhysicalRouterList {
+    1: string name_or_uuid;
+}
+
+struct BgpRouter {
+    1: string name;
+    2: string uuid;
+    3: list<string> peers;
+    4: string physical_router (link="PhysicalRouterList");
+}
+
+response sandesh BgpRouterListResp {
+    1: list<BgpRouter> bgp_routers;
+}
+
+request sandesh BgpRouterList {
+    1: string name_or_uuid;
 }

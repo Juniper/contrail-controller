@@ -6,7 +6,6 @@ pyaml
 python-keystoneclient
 webtest
 kazoo
-ncclient
 jsonpickle
 ../common/dist/cfgm_common-0.1dev.tar.gz
 ../../api-lib/dist/vnc_api-0.1dev.tar.gz
