@@ -48,7 +48,7 @@ public:
     }
 
     static size_t size() {
-        return sizeof(addr_);
+        return sizeof(struct ether_addr);
     }
 
     u_int8_t &operator[](size_t i) {
