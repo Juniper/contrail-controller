@@ -48,20 +48,10 @@ def retries(max_tries, delay=1, backoff=2, exceptions=(Exception,), hook=None):
 class TestDM(test_case.DMTestCase):
 
     @retries(10, hook=retry_exc_handler)
-    def check_netconf_config_mesg(self, xml_config_str):
-        self.assertEqual(FakeNetconfManager.configs[-1], xml_config_str)
+    def check_netconf_config_mesg(self, target, xml_config_str):
+        manager = fake_netconf_connect(target)
+        self.assertEqual(manager.configs[-1], xml_config_str)
             
-
-    def _get_ip_fabric_ri_obj(self):
-        vnc_lib = self._vnc_lib
-
-        # TODO pick fqname hardcode from common
-        rt_inst_obj = vnc_lib.routing_instance_read(
-            fq_name=['default-domain', 'default-project',
-                     'ip-fabric', '__default__'])
-
-        return rt_inst_obj
-    # end 
 
     def test_basic_dm(self):
         vn1_name = 'vn1'
@@ -72,25 +62,9 @@ class TestDM(test_case.DMTestCase):
         vn1_uuid = self._vnc_lib.virtual_network_create(vn1_obj)
         vn2_uuid = self._vnc_lib.virtual_network_create(vn2_obj)
 
-        bgp_router = BgpRouter('router1', parent_obj=self._get_ip_fabric_ri_obj())
-        params = BgpRouterParams()
-        params.address = '127.0.0.1'
-        params.address_families = AddressFamilies(['route-target', 'inet-vpn', 'e-vpn',
-                                             'inet6-vpn'])
-        params.autonomous_system = 64512
-        params.vendor = 'mx'
-        params.vnc_managed = True
-        bgp_router.set_bgp_router_parameters(params)
-        bgp_router_id = self._vnc_lib.bgp_router_create(bgp_router)
-
-        pr = PhysicalRouter('router1')
-        pr.physical_router_management_ip = '1.1.1.1'
-        pr.physical_router_vendor_name = 'mx'
-        uc = UserCredentials('user', 'pw')
-        pr.set_physical_router_user_credentials(uc)
-        pr.set_bgp_router(bgp_router)
+        bgp_router, pr = self.create_router('router1', '1.1.1.1')
         pr.set_virtual_network(vn1_obj)
-        pr_id = self._vnc_lib.physical_router_create(pr)
+        self._vnc_lib.physical_router_update(pr)
 
         pi = PhysicalInterface('pi1', parent_obj = pr)
         pi_id = self._vnc_lib.physical_interface_create(pi)
@@ -104,8 +78,8 @@ class TestDM(test_case.DMTestCase):
             ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
 
 
-        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><local-address>127.0.0.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><e-vpn><unicast/></e-vpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/></routing-options><routing-instances><instance operation="replace"><name>__contrail__default-domain_default-project_vn1</name><instance-type>vrf</instance-type><vrf-target><community>target:64512:8000001</community></vrf-target><vrf-table-label/></instance></routing-instances></groups><apply-groups>__contrail__</apply-groups></configuration></config>'
-        self.check_netconf_config_mesg(xml_config_str)
+        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/></routing-options><routing-instances><instance operation="replace"><name>__contrail__default-domain_default-project_vn1</name><instance-type>vrf</instance-type><vrf-target><community>target:64512:8000001</community></vrf-target><vrf-table-label/></instance></routing-instances></groups><apply-groups>__contrail__</apply-groups></configuration></config>'
+        self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
 
         self._vnc_lib.logical_interface_delete(li.get_fq_name())
         self._vnc_lib.physical_interface_delete(pi.get_fq_name())
@@ -116,7 +90,7 @@ class TestDM(test_case.DMTestCase):
         self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
 
         xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups><name operation="delete">__contrail__</name></groups></configuration></config>'
-        self.check_netconf_config_mesg(xml_config_str)
+        self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
     # end test_basic_dm
 #end
 
@@ -134,25 +108,9 @@ class TestDM(test_case.DMTestCase):
         vn1_uuid = self._vnc_lib.virtual_network_create(vn1_obj)
         vn2_uuid = self._vnc_lib.virtual_network_create(vn2_obj)
 
-        bgp_router = BgpRouter('router1', parent_obj=self._get_ip_fabric_ri_obj())
-        params = BgpRouterParams()
-        params.address = '127.0.0.1'
-        params.address_families = AddressFamilies(['route-target', 'inet-vpn', 'e-vpn',
-                                             'inet6-vpn'])
-        params.autonomous_system = 64512
-        params.vendor = 'mx'
-        params.vnc_managed = True
-        bgp_router.set_bgp_router_parameters(params)
-        bgp_router_id = self._vnc_lib.bgp_router_create(bgp_router)
-
-        pr = PhysicalRouter('router1')
-        pr.physical_router_management_ip = '1.1.1.1'
-        pr.physical_router_vendor_name = 'mx'
-        uc = UserCredentials('user', 'pw')
-        pr.set_physical_router_user_credentials(uc)
-        pr.set_bgp_router(bgp_router)
+        bgp_router, pr = self.create_router('router1', '1.1.1.1')
         pr.set_virtual_network(vn1_obj)
-        pr_id = self._vnc_lib.physical_router_create(pr)
+        self._vnc_lib.physical_router_update(pr)
 
         pi = PhysicalInterface('pi1', parent_obj = pr)
         pi_id = self._vnc_lib.physical_interface_create(pi)
@@ -173,9 +131,8 @@ class TestDM(test_case.DMTestCase):
             gevent.sleep(2)
             ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
 
-
-        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><local-address>127.0.0.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><e-vpn><unicast/></e-vpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/></routing-options><routing-instances><instance operation="replace"><name>__contrail__default-domain_default-project_vn1</name><instance-type>vrf</instance-type><interface><name>li1</name></interface><vrf-target><community>target:64512:8000001</community></vrf-target><vrf-table-label/><routing-options><static><route><name>10.0.0.0/24</name><discard/></route></static></routing-options></instance></routing-instances></groups><apply-groups>__contrail__</apply-groups></configuration></config>'
-        self.check_netconf_config_mesg(xml_config_str)
+        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/></routing-options><routing-instances><instance operation="replace"><name>__contrail__default-domain_default-project_vn1</name><instance-type>vrf</instance-type><interface><name>li1</name></interface><vrf-target><community>target:64512:8000001</community></vrf-target><vrf-table-label/><routing-options><static><route><name>10.0.0.0/24</name><discard/></route></static></routing-options></instance></routing-instances></groups><apply-groups>__contrail__</apply-groups></configuration></config>'
+        self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
 
         self._vnc_lib.logical_interface_delete(li.get_fq_name())
         self._vnc_lib.virtual_machine_interface_delete(vmi.get_fq_name())
@@ -187,6 +144,24 @@ class TestDM(test_case.DMTestCase):
         self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
 
         xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups><name operation="delete">__contrail__</name></groups></configuration></config>'
-        self.check_netconf_config_mesg(xml_config_str)
+        self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
     # end test_advance_dm
+
+    def test_bgp_peering(self):
+        bgp_router1, pr1 = self.create_router('router1', '1.1.1.1')
+        bgp_router2, pr2 = self.create_router('router2', '2.2.2.2')
+        families = AddressFamilies(['route-target', 'inet-vpn', 'e-vpn'])
+        bgp_sess_attrs = [BgpSessionAttributes(address_families=families)]
+        bgp_sessions = [BgpSession(attributes=bgp_sess_attrs)]
+        bgp_peering_attrs = BgpPeeringAttributes(session=bgp_sessions)
+        bgp_router1.add_bgp_router(bgp_router2, bgp_peering_attrs)
+        self._vnc_lib.bgp_router_update(bgp_router1)
+        gevent.sleep(2)
+        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep><neighbor><name>2.2.2.2</name><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn></family></neighbor></group></bgp></protocols><routing-options><route-distinguisher-id/></routing-options></groups><apply-groups>__contrail__</apply-groups></configuration></config>'
+        self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
+
+        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>2.2.2.2</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep><neighbor><name>1.1.1.1</name><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn></family></neighbor></group></bgp></protocols><routing-options><route-distinguisher-id/></routing-options></groups><apply-groups>__contrail__</apply-groups></configuration></config>'
+        self.check_netconf_config_mesg('2.2.2.2', xml_config_str)
+
+    # end test_bgp_peering
 #end

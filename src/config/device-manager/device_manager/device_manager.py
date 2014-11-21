@@ -53,6 +53,7 @@ class DeviceManager(object):
         },
         'bgp_router': {
             'self': ['bgp_router', 'physical_router'],
+            'bgp_router': ['physical_router'],
             'physical_router': [],
         },
         'physical_interface': {
@@ -232,14 +233,23 @@ class DeviceManager(object):
             elif oper_info['oper'] == 'UPDATE':
                 obj_id = oper_info['uuid']
                 obj = obj_class.get(obj_id)
-                dependency_tracker = DependencyTracker(DBBaseDM._OBJ_TYPE_MAP,
-                                                       self._REACTION_MAP)
+                old_dt = None
                 if obj is not None:
-                    dependency_tracker.evaluate(obj_type, obj)
+                    old_dt = DependencyTracker(
+                        DBBaseDM._OBJ_TYPE_MAP, self._REACTION_MAP)
+                    old_dt.evaluate(obj_type, obj)
                 else:
                     obj = obj_class.locate(obj_id)
                 obj.update()
+                dependency_tracker = DependencyTracker(
+                    DBBaseDM._OBJ_TYPE_MAP, self._REACTION_MAP)
                 dependency_tracker.evaluate(obj_type, obj)
+                if old_dt:
+                    for resource, ids in old_dt.resources.items():
+                        if resource not in dependency_tracker.resources:
+                            dependency_tracker.resources[resource] = ids
+                        else:
+                            dependency_tracker.resources[resource] = list(set(dependency_tracker.resources[resource]) | set(ids))
             elif oper_info['oper'] == 'DELETE':
                 obj_id = oper_info['uuid']
                 obj = obj_class.get(obj_id)

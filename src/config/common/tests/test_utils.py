@@ -906,8 +906,8 @@ class ZookeeperClientMock(object):
 
   
 class FakeNetconfManager(object):
-    configs = []
-    __init__ = stub
+    def __init__(self, *args, **kwargs):
+        self.configs = []
 
     def __enter__(self):
         return self
@@ -915,10 +915,10 @@ class FakeNetconfManager(object):
 
     def edit_config(self, target, config, test_option, default_operation):
         self.configs.append(config)
-        return
 
     commit = stub
 # end FakeNetconfManager
 
-def fake_netconf_connect(*args, **kwargs):
-    return FakeNetconfManager(args, kwargs)
+netconf_managers = {}
+def fake_netconf_connect(host, *args, **kwargs):
+    return netconf_managers.setdefault(host, FakeNetconfManager(args, kwargs))
