@@ -1685,6 +1685,27 @@ class AnalyticsFixture(fixtures.Fixture):
             return gen_list == set(exp_gen_list)
     # end verify_generator_list_in_redis
 
+    @retry(delay=1, tries=8)
+    def verify_fieldname_table(self):
+        '''
+        This function is called after entres are populated
+        in Fieldnames table near simultaneously'. Check is made
+        to ensure that the 2 entries are present in the table
+        '''
+        self.logger.info("verify_fieldname_table")
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+	self.logger.info("VerificationOpsSrv")
+        res = vns.post_query('StatTable.FieldNames.fields',
+                             start_time='-1m',
+                             end_time='now',
+                             select_fields=['fields.value'],
+                             where_clause = 'name=ObjectVNTable:Objecttype')
+        self.logger.info(str(res))
+	#Verify that 2 different n/w are present vn0 and vn1
+	assert(len(res)==2)
+        return True
+    # end verify_fieldname_table
+
     def cleanUp(self):
 
         try:

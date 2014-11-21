@@ -609,6 +609,32 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
     # end test_13_verify_syslog_table_query
 
+    #@unittest.skip('Skipping Fieldnames table test')
+    def test_14_fieldname_table(self):
+        '''
+        This test starts vizd and a python generators that simulates
+        vrouter and sends messages. It uses the test class' cassandra
+        instance.Then it checks that the Field names table got the
+        values.
+        '''
+        logging.info("*** test_14_fieldname_table ***")
+        if AnalyticsTest._check_skip_test() is True:
+            return True
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging,
+                             builddir, self.__class__.cassandra_port))
+        assert vizd_obj.verify_on_setup()
+        collectors = [vizd_obj.get_collector()]
+        generator_obj = self.useFixture(
+            GeneratorFixture("VRouterAgent", collectors,
+                             logging, vizd_obj.get_opserver_port()))
+        assert generator_obj.verify_on_setup()
+	# Sends 2 different vn uves in 1 sec spacing
+	generator_obj.generate_intervn()
+	assert vizd_obj.verify_fieldname_table()
+        return True
+    # end test_14_fieldname_table
 
     @staticmethod
     def get_free_port():
