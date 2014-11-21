@@ -321,7 +321,7 @@ protected:
 
 TEST_F(InstanceManagerTest, ExecTrue) {
     agent_->oper_db()->instance_manager()->Initialize(agent_->db(),
-            agent_->agent_signal(), "/bin/true", 1, 10);
+            agent_->agent_signal(), "/bin/true", "/bin/true", 1, 10);
     boost::uuids::uuid id = AddServiceInstance("exec-true");
     EXPECT_FALSE(id.is_nil());
     task_util::WaitForIdle();
@@ -344,7 +344,7 @@ TEST_F(InstanceManagerTest, ExecTrue) {
 }
 
 TEST_F(InstanceManagerTest, ExecFalse) {
-    agent_->oper_db()->instance_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/false", 1, 10);
+    agent_->oper_db()->instance_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/false", "/bin/false", 1, 10);
     boost::uuids::uuid id = AddServiceInstance("exec-false");
     EXPECT_FALSE(id.is_nil());
     task_util::WaitForIdle();
@@ -366,7 +366,7 @@ TEST_F(InstanceManagerTest, ExecFalse) {
 }
 
 TEST_F(InstanceManagerTest, Update) {
-    agent_->oper_db()->instance_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/true", 1, 10);
+    agent_->oper_db()->instance_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/true", "/bin/true", 1, 10);
     boost::uuids::uuid id = AddServiceInstance("exec-update");
     EXPECT_FALSE(id.is_nil());
     task_util::WaitForIdle();
@@ -397,7 +397,7 @@ TEST_F(InstanceManagerTest, Update) {
 }
 
 TEST_F(InstanceManagerTest, UpdateProperties) {
-    agent_->oper_db()->instance_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/true", 1, 10);
+    agent_->oper_db()->instance_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/true", "/bin/true", 1, 10);
     boost::uuids::uuid id = AddServiceInstance("exec-update");
     EXPECT_FALSE(id.is_nil());
     task_util::WaitForIdle();
@@ -437,7 +437,7 @@ TEST_F(InstanceManagerTest, UpdateProperties) {
 TEST_F(InstanceManagerTest, Timeout) {
 
     agent_->oper_db()->instance_manager()->Initialize(
-        agent_->db(), NULL, "/bin/true", 1, 1);
+        agent_->db(), NULL, "/bin/true", "/bin/true", 1, 1);
     boost::uuids::uuid id = AddServiceInstance("exec-timeout");
     EXPECT_FALSE(id.is_nil());
     task_util::WaitForIdle();
@@ -459,7 +459,7 @@ TEST_F(InstanceManagerTest, Timeout) {
 }
 TEST_F(InstanceManagerTest, TaskQueue) {
     static const int kNumUpdate = 5;
-    agent_->oper_db()->instance_manager()->Initialize(agent_->db(), NULL, "/bin/true", 10, 1);
+    agent_->oper_db()->instance_manager()->Initialize(agent_->db(), NULL, "/bin/true", "/bin/true", 10, 1);
     boost::uuids::uuid id = AddServiceInstance("exec-queue");
     EXPECT_FALSE(id.is_nil());
     task_util::WaitForIdle();
@@ -492,7 +492,7 @@ TEST_F(InstanceManagerTest, TaskQueue) {
 }
 
 TEST_F(InstanceManagerTest, Usable) {
-    agent_->oper_db()->instance_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/true", 1, 10);
+    agent_->oper_db()->instance_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/true", "/bin/true", 1, 10);
     boost::uuids::uuid id = AddServiceInstance("exec-usable");
     EXPECT_FALSE(id.is_nil());
     task_util::WaitForIdle();
@@ -526,7 +526,7 @@ TEST_F(InstanceManagerTest, Usable) {
 }
 
 TEST_F(InstanceManagerTest, LoadbalancerConfig) {
-    agent_->oper_db()->instance_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/true", 1, 10);
+    agent_->oper_db()->instance_manager()->Initialize(agent_->db(), agent_->agent_signal(), "/bin/true", "/bin/true", 1, 10);
 
     boost::uuids::random_generator gen;
     std::string pool_name(UuidToString(gen()));
@@ -572,7 +572,7 @@ TEST_F(InstanceManagerTest, LoadbalancerConfig) {
 
 TEST_F(InstanceManagerTest, InstanceStaleCleanup) {
     agent_->oper_db()->instance_manager()->Initialize(agent_->db(),
-            agent_->agent_signal(), "/bin/true", 1, 10);
+            agent_->agent_signal(), "/bin/true", "/bin/true", 1, 10);
 
     boost::uuids::random_generator gen;
     std::string vm_uuid = UuidToString(gen());

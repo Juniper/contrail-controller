@@ -29,7 +29,8 @@ setuptools.setup(
 
     entry_points = {
         'console_scripts': [
-            'opencontrail-vrouter-netns = opencontrail_vrouter_netns.vrouter_netns:main'
+            'opencontrail-vrouter-netns = opencontrail_vrouter_netns.vrouter_netns:main',
+            'opencontrail-vrouter-docker = opencontrail_vrouter_netns.vrouter_docker:main'
         ],
     },
 )
