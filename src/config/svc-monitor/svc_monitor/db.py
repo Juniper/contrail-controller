@@ -38,6 +38,25 @@ class ServiceMonitorDB(object):
     def get_vm_db_prefix(self, inst_count):
         return('vm' + str(inst_count) + '-')
 
+    def remove_vm_info(self, si_fq_str, vm_uuid):
+        si_info = self.service_instance_get(si_fq_str)
+        if not si_info:
+            return
+
+        prefix = None
+        for key, item in si_info.items():
+            if item == vm_uuid:
+                prefix = key.split('-')[0]
+                break
+        if not prefix:
+            return
+
+        vm_column_list = []
+        for key in si_info.keys():
+            if key.startswith(prefix):
+                vm_column_list.append(key)
+        self.service_instance_remove(si_fq_str, vm_column_list)
+
     # service instance CRUD
     def service_instance_get(self, si_fq_str):
         return self._db_get(self._svc_si_cf, si_fq_str)
