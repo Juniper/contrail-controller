@@ -57,21 +57,21 @@ for src in SandeshGenSrcs:
 
 sandesh_gen_py_gfiles = env.SandeshGenPy('discovery_client.sandesh', 'discoveryclient/sandesh/', False)
 
+cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_depends = [generated_rule]
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(sandesh_gen_py_gfiles)
 sdist_gen = env.Command('dist/discoveryclient-0.1dev.tar.gz',
-                        'setup.py', 'python setup.py sdist', chdir=Dir('.'))
+                        'setup.py', cd_cmd + 'python setup.py sdist')
 
 env.Default(sdist_gen)
 
 if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None,
                               'setup.py',
-                              'python setup.py install %s' %
-                              env['PYTHON_INSTALL_OPT'],
-                              chdir = 1)
+                              cd_cmd + 'python setup.py install %s' %
+                              env['PYTHON_INSTALL_OPT'])
     env.Depends(install_cmd, sdist_depends)
     env.Alias('install', install_cmd)
 

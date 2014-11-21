@@ -56,7 +56,7 @@ setup_sources = [
 setup_sources_rules = []
 for file in setup_sources:
     setup_sources_rules.append(
-        env.Install(Dir('.'), "#controller/src/config/api-server/" + file))
+       env.Install(Dir('.'), "#controller/src/config/api-server/" + file))
 
 local_sources = [
            '__init__.py',
@@ -89,8 +89,10 @@ sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(doc_sources_rules)
 sdist_depends.extend(sandesh_trace_pkg)
 
+cd_cmd = 'cd ' + Dir('.').path + ' && '
 # TODO: deprecate
-sdist_gen = env.Command('dist/vnc_cfg_api_server-0.1dev.tar.gz', 'setup.py', 'python setup.py sdist', chdir=Dir('.'))
+sdist_gen = env.Command('dist/vnc_cfg_api_server-0.1dev.tar.gz', 'setup.py',
+                        cd_cmd + 'python setup.py sdist')
 
 env.Default(sdist_gen)
 
@@ -104,9 +106,8 @@ env.Depends(sdist_gen, sdist_depends)
 
 if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None, 'setup.py',
-                              'python setup.py install %s' %
-                              env['PYTHON_INSTALL_OPT'],
-                              chdir = 1)
+                              cd_cmd + 'python setup.py install %s' %
+                              env['PYTHON_INSTALL_OPT'])
     env.Depends(install_cmd, sdist_gen)
     env.Alias('install', install_cmd)
 
@@ -130,8 +131,7 @@ else:
     top_dir = Dir('.')
 
 test_cmd = env.Command('test.log', sdist_gen,
-          'python setup.py run_tests 2>&1 | tee test.log',
-          chdir=top_dir)
+                       'cd ' + Dir(top_dir).path + ' && python setup.py run_tests 2>&1 | tee test.log')
 
 test_depends = ['/config/common/dist/cfgm_common-0.1dev.tar.gz',
                 '/api-lib/dist/vnc_api-0.1dev.tar.gz',
