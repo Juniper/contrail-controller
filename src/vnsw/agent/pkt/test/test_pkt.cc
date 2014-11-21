@@ -214,7 +214,7 @@ TEST_F(PktTest, tx_vlan_1) {
     len = handler_->EthHdr(buff, ARP_TX_BUFF_LEN, MacAddress::BroadcastMac(),
                            MacAddress::BroadcastMac(), ETHERTYPE_ARP, 1);
     EXPECT_TRUE(len == 18);
-    EXPECT_TRUE(*(data_p + 6) == htons(ETH_P_8021Q));
+    EXPECT_TRUE(*(data_p + 6) == htons(ETHERTYPE_VLAN));
     EXPECT_TRUE(*(data_p + 8) == htons(ETHERTYPE_ARP));
 
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
@@ -232,7 +232,7 @@ TEST_F(PktTest, tx_vlan_1) {
                          MacAddress::BroadcastMac(), MacAddress::BroadcastMac(),
                          ETHERTYPE_ARP);
     EXPECT_TRUE(len == 18);
-    EXPECT_TRUE(*(data_p + 6) == htons(ETH_P_8021Q));
+    EXPECT_TRUE(*(data_p + 6) == htons(ETHERTYPE_VLAN));
     EXPECT_TRUE(*(data_p + 8) == htons(ETHERTYPE_ARP));
 
     DBRequest req1(DBRequest::DB_ENTRY_DELETE);
