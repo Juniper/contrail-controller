@@ -10,54 +10,9 @@ from vnc_api.common.exceptions import NoIdError
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from physical_router_config import PhysicalRouterConfig
 from device_manager.sandesh.dm_introspect import ttypes as sandesh
+from cfgm_common.vnc_db import DBBase
 
-
-class DBBase(object):
-    _device_manager = None
-
-    class __metaclass__(type):
-
-        def __iter__(cls):
-            for i in cls._dict:
-                yield i
-        # end __iter__
-
-        def values(cls):
-            for i in cls._dict.values():
-                yield i
-        # end values
-
-        def items(cls):
-            for i in cls._dict.items():
-                yield i
-        # end items
-    # end __metaclass__
-
-    @classmethod
-    def get(cls, name):
-        if name in cls._dict:
-            return cls._dict[name]
-        return None
-    # end get
-
-    @classmethod
-    def locate(cls, name, *args):
-        if name not in cls._dict:
-            try:
-                cls._dict[name] = cls(name, *args)
-            except NoIdError as e:
-                cls._device_manager._sandesh._logger.debug(
-                    "Exception %s while creating %s for %s",
-                    e, cls.__name__, name)
-                return None
-        return cls._dict[name]
-    # end locate
-
-    @classmethod
-    def delete(cls, name):
-        if name in cls._dict:
-            del cls._dict[name]
-    # end delete
+class DBBaseDM(DBBase):
 
     def get_ref_uuid_from_dict(self, obj_dict, ref_name):
         if ref_name in obj_dict:
@@ -118,12 +73,11 @@ class DBBase(object):
 
     def read_obj(self, uuid, obj_type=None):
         method_name = "_cassandra_%s_read" % (obj_type or self.obj_type)
-        method = getattr(self._device_manager._cassandra, method_name)
+        method = getattr(self._cassandra, method_name)
         ok, objs = method([uuid])
         if not ok:
-            self._device_manager.config_log(
-                'Cannot read %s %s, error %s' % (obj_type, uuid, objs),
-                SandeshLevel.SYS_ERR)
+            self._logger.error(
+                'Cannot read %s %s, error %s' % (obj_type, uuid, objs))
             raise NoIdError('')
         return objs[0]
     # end read_obj
@@ -134,8 +88,7 @@ class DBBase(object):
         else:
             parent_type = obj['parent_type'].replace('-', '_')
             parent_fq_name = obj['fq_name'][:-1]
-            return self._device_manager._cassandra.fq_name_to_uuid(
-                parent_type, parent_fq_name)
+            return self._cassandra.fq_name_to_uuid(parent_type, parent_fq_name)
     # end get_parent_uuid
 
     @classmethod
@@ -149,10 +102,10 @@ class DBBase(object):
                 return obj
         return None
 
-# end DBBase
+# end DBBaseDM
 
 
-class BgpRouterDM(DBBase):
+class BgpRouterDM(DBBaseDM):
     _dict = {}
     obj_type = 'bgp_router'
 
@@ -205,7 +158,7 @@ class BgpRouterDM(DBBase):
 # end class BgpRouterDM
 
 
-class PhysicalRouterDM(DBBase):
+class PhysicalRouterDM(DBBaseDM):
     _dict = {}
     obj_type = 'physical_router'
 
@@ -215,8 +168,7 @@ class PhysicalRouterDM(DBBase):
         self.bgp_router = None
         self.update(obj_dict)
         self.config_manager = PhysicalRouterConfig(
-            self.management_ip, self.user_credentials,
-            self._device_manager._sandesh.logger())
+            self.management_ip, self.user_credentials, self._logger)
     # end __init__
 
     def update(self, obj=None):
@@ -298,7 +250,7 @@ class PhysicalRouterDM(DBBase):
 # end PhysicalRouterDM
 
 
-class PhysicalInterfaceDM(DBBase):
+class PhysicalInterfaceDM(DBBaseDM):
     _dict = {}
     obj_type = 'physical_interface'
 
@@ -331,7 +283,7 @@ class PhysicalInterfaceDM(DBBase):
 # end PhysicalInterfaceDM
 
 
-class LogicalInterfaceDM(DBBase):
+class LogicalInterfaceDM(DBBaseDM):
     _dict = {}
     obj_type = 'logical_interface'
 
@@ -378,7 +330,7 @@ class LogicalInterfaceDM(DBBase):
 # end LogicalInterfaceDM
 
 
-class VirtualMachineInterfaceDM(DBBase):
+class VirtualMachineInterfaceDM(DBBaseDM):
     _dict = {}
     obj_type = 'virtual_machine_interface'
 
@@ -409,7 +361,7 @@ class VirtualMachineInterfaceDM(DBBase):
 # end VirtualMachineInterfaceDM
 
 
-class VirtualNetworkDM(DBBase):
+class VirtualNetworkDM(DBBaseDM):
     _dict = {}
     obj_type = 'virtual_network'
 
@@ -448,7 +400,7 @@ class VirtualNetworkDM(DBBase):
 # end VirtualNetworkDM
 
 
-class RoutingInstanceDM(DBBase):
+class RoutingInstanceDM(DBBaseDM):
     _dict = {}
     obj_type = 'routing_instance'
 
@@ -485,7 +437,7 @@ class RoutingInstanceDM(DBBase):
 # end RoutingInstanceDM
 
 
-DBBase._OBJ_TYPE_MAP = {
+DBBaseDM._OBJ_TYPE_MAP = {
     'bgp_router': BgpRouterDM,
     'physical_router': PhysicalRouterDM,
     'physical_interface': PhysicalInterfaceDM,

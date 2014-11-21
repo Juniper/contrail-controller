@@ -28,7 +28,6 @@ local_sources = [
     'device_manager/device_manager.py',
     'device_manager/db.py',
     'device_manager/physical_router_config.py',
-    'device_manager/dependency_tracker.py',
 ]
 
 local_sources_rules = []
