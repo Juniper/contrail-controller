@@ -13,6 +13,14 @@ import copy
 
 
 class PhysicalRouterConfig(object):
+    # mapping from contrail family names to junos
+    _FAMILY_MAP = {
+        'route-target': '<route-target/>',
+        'inet-vpn': '<inet-vpn><unicast/></inet-vpn>',
+        'inet6-vpn': '<inet6-vpn><unicast/></inet6-vpn>',
+        'e-vpn': '<evpn><signaling/></evpn>'
+    }
+
     def __init__(self, management_ip, user_creds, logger=None):
         self.management_ip = management_ip
         self.user_creds = user_creds
@@ -89,6 +97,18 @@ class PhysicalRouterConfig(object):
         self.ri_config = ri_config
     # end add_routing_instance
 
+    def _add_family_etree(self, parent, params):
+        if params.get('address_families') is None:
+            return
+        family_etree = etree.SubElement(parent, "family")
+        for family in params['address_families'].get('family', []):
+            if family in self._FAMILY_MAP:
+                family_subtree = etree.fromstring(self._FAMILY_MAP[family])
+                family_etree.append(family_subtree)
+            else:
+                etree.SubElement(family_etree, family)
+    # end _add_family_etree
+
     def set_bgp_config(self, params):
         self.bgp_params = params
         if params['vendor'] != "mx" or not params['vnc_managed']:
@@ -99,14 +119,10 @@ class PhysicalRouterConfig(object):
         self.bgp_config = etree.Element("group", operation="replace")
         etree.SubElement(self.bgp_config, "name").text = "__contrail__"
         etree.SubElement(self.bgp_config, "type").text = "internal"
+        etree.SubElement(self.bgp_config, "multihop")
         local_address = etree.SubElement(self.bgp_config, "local-address")
         local_address.text = params['address']
-        if (params['address_families']):
-            family_etree = etree.SubElement(self.bgp_config, "family")
-            for family in params['address_families']['family']:
-                family_subtree = etree.SubElement(family_etree, family)
-                if family != 'route-target':
-                    etree.SubElement(family_subtree, "unicast")
+        self._add_family_etree(self.bgp_config, params)
         etree.SubElement(self.bgp_config, "keep").text = "all"
     # end set_bgp_config
 
@@ -145,6 +161,17 @@ class PhysicalRouterConfig(object):
         for peer, params in self.bgp_peers.items():
             nbr = etree.SubElement(group_config, "neighbor")
             etree.SubElement(nbr, "name").text = peer
+            bgp_sessions = params.get('session')
+            if bgp_sessions:
+                # for now assume only one session
+                session_attrs = bgp_sessions[0].get('attributes', [])
+                for attr in session_attrs:
+                    # For not, only consider the attribute if bgp-router is
+                    # not specified
+                    if attr.get('bgp_router') is None:
+                        self._add_family_etree(nbr, attr)
+                        break
+
         routing_options_config = etree.Element("routing-options")
         etree.SubElement(
             routing_options_config,
