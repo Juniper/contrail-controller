@@ -269,7 +269,7 @@ define pksync_entries
         help pksync_entries
     else
         # set the node equal to first node and end marker
-        set $Xtree = &((RouteKSyncObject *)$arg0)->tree_.tree_
+        set $Xtree = &((KSyncDBObject *)$arg0)->tree_.tree_
         set $Xnode = $Xtree->data_.node_plus_pred_.header_plus_size_.header_.left_
         set $Xend = &($Xtree->data_.node_plus_pred_.header_plus_size_.header_)
 
