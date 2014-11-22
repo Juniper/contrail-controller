@@ -18,8 +18,12 @@ AgentEnv.MakeTestEnv(env)
 lib_src = ['test_xml.cc', 'test_xml_validate.cc']
 env.Library('agent_test_xml', lib_src)
 
+oper_lib_src = ['test_xml_oper.cc']
+env.Library('agent_oper_test_xml', oper_lib_src)
+
 env.Append(LIBPATH = env['TOP'] + '/vnsw/agent/test-xml')
 env.Append(LIBS = 'agent_test_xml')
+env.Append(LIBS = 'agent_oper_test_xml')
 
 agent_suite = []
 flaky_agent_suite = []

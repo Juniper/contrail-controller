@@ -591,7 +591,8 @@ struct VmInterfaceData : public InterfaceData {
         OS_OPER_STATE
     };
 
-    VmInterfaceData(Type type) : InterfaceData(), type_(type) {
+    VmInterfaceData(IFMapNode *node, Type type) :
+        InterfaceData(node), type_(type) {
         VmPortInit();
     }
     virtual ~VmInterfaceData() { }
@@ -601,15 +602,16 @@ struct VmInterfaceData : public InterfaceData {
 
 // Structure used when type=ADD_DEL_CHANGE. Used for creating of Vm-Interface
 struct VmInterfaceAddData : public VmInterfaceData {
-    VmInterfaceAddData(const Ip4Address &ip_addr,
+    VmInterfaceAddData(IFMapNode *node, const Ip4Address &ip_addr,
                        const std::string &vm_mac,
                        const std::string &vm_name,
                        const boost::uuids::uuid &vm_project_uuid,
                        const uint16_t tx_vlan_id, const uint16_t rx_vlan_id,
                        const std::string &parent, const Ip6Address &ip6_addr) :
-        VmInterfaceData(ADD_DEL_CHANGE), ip_addr_(ip_addr), ip6_addr_(ip6_addr),
-        vm_mac_(vm_mac), vm_name_(vm_name), vm_project_uuid_(vm_project_uuid), 
-        tx_vlan_id_(tx_vlan_id), rx_vlan_id_(rx_vlan_id), parent_(parent) {
+        VmInterfaceData(node, ADD_DEL_CHANGE), ip_addr_(ip_addr),
+        ip6_addr_(ip6_addr), vm_mac_(vm_mac), vm_name_(vm_name),
+        vm_project_uuid_(vm_project_uuid), tx_vlan_id_(tx_vlan_id),
+        rx_vlan_id_(rx_vlan_id), parent_(parent) {
     }
 
     virtual ~VmInterfaceAddData() { }
@@ -626,20 +628,20 @@ struct VmInterfaceAddData : public VmInterfaceData {
 
 // Structure used when type=IP_ADDR. Used to update IP-Address of VM-Interface
 struct VmInterfaceIpAddressData : public VmInterfaceData {
-    VmInterfaceIpAddressData() : VmInterfaceData(IP_ADDR) { }
+    VmInterfaceIpAddressData() : VmInterfaceData(NULL, IP_ADDR) { }
     virtual ~VmInterfaceIpAddressData() { }
 };
 
 // Structure used when type=OS_OPER_STATE Used to update interface os oper-state
 struct VmInterfaceOsOperStateData : public VmInterfaceData {
-    VmInterfaceOsOperStateData() : VmInterfaceData(OS_OPER_STATE) { }
+    VmInterfaceOsOperStateData() : VmInterfaceData(NULL, OS_OPER_STATE) { }
     virtual ~VmInterfaceOsOperStateData() { }
 };
 
 // Structure used when type=MIRROR. Used to update IP-Address of VM-Interface
 struct VmInterfaceMirrorData : public VmInterfaceData {
     VmInterfaceMirrorData(bool mirror_enable, const std::string &analyzer_name):
-        VmInterfaceData(MIRROR), mirror_enable_(mirror_enable),
+        VmInterfaceData(NULL, MIRROR), mirror_enable_(mirror_enable),
         analyzer_name_(analyzer_name) {
     }
 
@@ -649,10 +651,10 @@ struct VmInterfaceMirrorData : public VmInterfaceData {
 
 // Definition for structures when request queued from IFMap config.
 struct VmInterfaceConfigData : public VmInterfaceData {
-    VmInterfaceConfigData() :
-        VmInterfaceData(CONFIG), addr_(0), ip6_addr_(), vm_mac_(""), cfg_name_(""),
-        vm_uuid_(), vm_name_(), vn_uuid_(), vrf_name_(""), fabric_port_(true),
-        need_linklocal_ip_(false), layer2_forwarding_(true),
+    VmInterfaceConfigData(IFMapNode *node) :
+        VmInterfaceData(node, CONFIG), addr_(0), ip6_addr_(), vm_mac_(""),
+        cfg_name_(""), vm_uuid_(), vm_name_(), vn_uuid_(), vrf_name_(""),
+        fabric_port_(true), need_linklocal_ip_(false), layer2_forwarding_(true),
         layer3_forwarding_(true), mirror_enable_(false), ecmp_(false),
         dhcp_enable_(true), analyzer_name_(""),
         local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
@@ -661,9 +663,9 @@ struct VmInterfaceConfigData : public VmInterfaceData {
         allowed_address_pair_list_() {
     }
 
-    VmInterfaceConfigData(const Ip4Address &addr, const std::string &mac,
-                          const std::string &vm_name) :
-        VmInterfaceData(CONFIG), addr_(addr), ip6_addr_(), vm_mac_(mac), 
+    VmInterfaceConfigData(IFMapNode *node, const Ip4Address &addr,
+                          const std::string &mac, const std::string &vm_name) :
+        VmInterfaceData(node, CONFIG), addr_(addr), ip6_addr_(), vm_mac_(mac), 
         cfg_name_(""), vm_uuid_(), vm_name_(vm_name), vn_uuid_(), vrf_name_(""),
         fabric_port_(true), need_linklocal_ip_(false), 
         layer2_forwarding_(true), layer3_forwarding_(true),
