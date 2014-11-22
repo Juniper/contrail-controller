@@ -6,7 +6,7 @@
 import argparse
 import sys
 
-import xml.etree.ElementTree as et
+import lxml.etree as et
 import StringIO
 import re
 import json
@@ -27,7 +27,7 @@ from pycassa.system_manager import *
 
 # Global variables
 vnc = None
-outfile = None
+dbg_outfile = None
 """
     Input is list of tuple dictionary <type, name, value, prop, refs>
     type  := project, domain ...
@@ -37,7 +37,7 @@ outfile = None
 """
 
 
-def mypretty(l, indent=0, verbose=0):
+def mypretty(l, indent=0, verbose=0, outfile=sys.stdout):
     l = sorted(l, key=itemgetter('type'))
     prop_fmt = '\n' + '    ' * (indent + 1)
     ref_fmt = '\n' + '    ' * indent
@@ -58,8 +58,8 @@ def mypretty(l, indent=0, verbose=0):
                 propstr2 = '\n'.join(propstr2)
                 propstr2 = propstr2.split('\n')
                 propstr2 = prop_fmt.join(propstr2)
-        print '    ' * indent + '%s = '\
-            % (i['type']) + str(i['name']) + propstr
+        outfile.write('    ' * indent + '%s = '\
+            % (i['type']) + str(i['name']) + propstr + '\n')
 
         """ Prepare reference string"""
         ref_str = []
@@ -69,12 +69,12 @@ def mypretty(l, indent=0, verbose=0):
             ref_str = ref_str.split('\n')
             ref_str = ref_fmt.join(ref_str)
             if len(ref_str) > 0:
-                print '    ' * indent + ref_str
+                outfile.write('    ' * indent + ref_str + '\n')
 
         if len(propstr2) > 0:
-            print '    ' * (indent + 1) + propstr2
+            outfile.write('    ' * (indent + 1) + propstr2 + '\n')
         if len(i['value']) > 0:
-            mypretty(i['value'], indent + 1, verbose)
+            mypretty(i['value'], indent + 1, verbose, outfile)
 # end mypretty
 
 """
@@ -118,12 +118,12 @@ def parse_config(soap_config):
         metas = r_i.find('metadata')
 
         # details
-        outfile.write('\n' + et.tostring(r_i) + '\n')
-        outfile.write('ident1 = %s\n' % (ident1))
+        dbg_outfile.write('\n' + et.tostring(r_i) + '\n')
+        dbg_outfile.write('ident1 = %s\n' % (ident1))
         if ident2:
-            outfile.write('ident2 = %s\n' % (ident2))
+            dbg_outfile.write('ident2 = %s\n' % (ident2))
         if metas is not None:
-            outfile.write('metas = %s\n' % (et.tostring(metas)))
+            dbg_outfile.write('metas = %s\n' % (et.tostring(metas)))
 
         if not re.match("^contrail:", ident1):
             continue
@@ -134,7 +134,7 @@ def parse_config(soap_config):
         id1 = ident1.split(':')
         # strip contrail, type
         id1 = id1[2:]
-        outfile.write('Ident1 type = %s, name = %s\n' % (type1, name1))
+        dbg_outfile.write('Ident1 type = %s, name = %s\n' % (type1, name1))
 
         if ident2:
             res = re.search("^contrail:([^:]+):(.*:)*(.*)$", ident2)
@@ -143,7 +143,7 @@ def parse_config(soap_config):
             id2 = ident2.split(':')
             # strip contrail, type
             id2 = id2[2:]
-            outfile.write('Ident2 type = %s, name = %s\n' % (type2, name2))
+            dbg_outfile.write('Ident2 type = %s, name = %s\n' % (type2, name2))
 
         # Traverse until name is finished
         match, node = find_node('root', config, config)
@@ -173,7 +173,7 @@ def parse_config(soap_config):
 
         for meta in metas:
             meta_name = re.sub('{.*}', '', meta.tag)
-            outfile.write('Handling meta = %s\n' % (meta_name))
+            dbg_outfile.write('Handling meta = %s\n' % (meta_name))
             if ident2:
                 if meta_name in link_name_to_xsd_type:
                     obj = eval(link_name_to_xsd_type[meta_name])()
@@ -183,10 +183,10 @@ def parse_config(soap_config):
                         default=lambda o: dict(
                             (k, v) for k,
                             v in o.__dict__.iteritems()), indent=4)
-                    outfile.write(
+                    dbg_outfile.write(
                         'Attaching Reference %s to Id %s\n'
                         % (meta_name, ident2))
-                    outfile.write('JSON %s = %s\n' % (meta_name, obj_json))
+                    dbg_outfile.write('JSON %s = %s\n' % (meta_name, obj_json))
                     match['refs'].append(
                         {'name': '%s' % (meta_name), 'value': obj_json})
             else:
@@ -198,10 +198,10 @@ def parse_config(soap_config):
                         default=lambda o: dict(
                             (k, v) for k,
                             v in o.__dict__.iteritems()), indent=4)
-                    outfile.write(
+                    dbg_outfile.write(
                         'Attaching Property %s to Id %s\n'
                         % (meta_name, ident1))
-                    outfile.write('JSON %s = %s\n' % (meta_name, obj_json))
+                    dbg_outfile.write('JSON %s = %s\n' % (meta_name, obj_json))
                     match['props'].append(
                         {'name': '%s' % (meta_name), 'value': obj_json})
 
@@ -295,6 +295,10 @@ class VncViewer():
             'ifmap_password', help="Password known to ifmap server")
         parser.add_argument('-v', type=int, default=0, choices=range(0, 3),
                             help="Turn verbosity on. Default is 0")
+        parser.add_argument('-f', '--format', default='text', choices=['text','xml'],
+                            help="Output format. Default is text/human-readable")
+        parser.add_argument('-o', '--outfile', default=sys.stdout, type=argparse.FileType('w'),
+                            help="Output file to write to. Default is stdout")
         """
         parser.add_argument('-n', '--node', default=None,
             help = "Start node (fully qualified name such as
@@ -338,9 +342,9 @@ def main():
 
     #vnc = VncApi('admin', 'contrail123', 'admin', '127.0.0.1', '8082')
     global vnc
-    global outfile
+    global dbg_outfile
     vnc = VncApiClientGen(obj_serializer=None)
-    outfile = file("debug.txt", "w")
+    dbg_outfile = file("debug.txt", "w")
 
     """ sample search metas
      srch_meta = 'contrail:config-root-domain' (retunn only domains)
@@ -356,12 +360,18 @@ def main():
     result_meta = 'all'
     soap_result = vnc_viewer._db_conn.ifmap_read(
         'contrail:config-root:root', srch_meta, result_meta)
+    if vnc_viewer._args.format == 'xml':
+        soap_doc = et.fromstring(soap_result)
+        vnc_viewer._args.outfile.write(et.tostring(soap_doc, pretty_print=True))
+        # we are done
+        return
+
     config = parse_config(soap_result)
     if vnc_viewer.start_node is None:
         node = config[0]['value']
     else:
         node = find_node_in_tree(vnc_viewer.start_node, config)
-    mypretty(node, verbose=vnc_viewer.verbose)
+    mypretty(node, verbose=vnc_viewer.verbose, outfile=vnc_viewer._args.outfile)
 
 if __name__ == '__main__':
     main()
