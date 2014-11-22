@@ -77,5 +77,6 @@ struct ProcessInfo {
     7: optional string                     last_stop_time
     8: optional string                     last_exit_time
     9: optional list<string>               core_file_list
+    10: optional list<string>              other_core_file_list
 }
 
