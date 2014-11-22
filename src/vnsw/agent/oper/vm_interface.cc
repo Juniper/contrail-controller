@@ -483,7 +483,7 @@ static void ReadDhcpEnable(Agent *agent, VmInterfaceConfigData *data,
 
 // Virtual Machine Interface is added or deleted into oper DB from Nova 
 // messages. The Config notify is used only to change interface.
-bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
+bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req) {
     // Get interface UUID
     VirtualMachineInterface *cfg = static_cast <VirtualMachineInterface *>
         (node->GetObject());

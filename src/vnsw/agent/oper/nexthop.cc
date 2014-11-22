@@ -570,6 +570,24 @@ void InterfaceNH::DeleteHostPortReq(const string &ifname) {
     NextHopTable::GetInstance()->Enqueue(&req);
 }
 
+void InterfaceNH::CreatePhysicalInterfaceNh(const string &ifname,
+                                            const MacAddress &mac) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new InterfaceNHKey(new PhysicalInterfaceKey(ifname),
+                                     false, InterfaceNHFlags::INET4));
+    req.data.reset(new InterfaceNHData(Agent::GetInstance()->fabric_vrf_name(),
+                                       mac));
+    NextHopTable::GetInstance()->Process(req);
+}
+ 
+void InterfaceNH::DeletePhysicalInterfaceNh(const string &ifname) {
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key.reset(new InterfaceNHKey(new PhysicalInterfaceKey(ifname),
+                                     false, InterfaceNHFlags::INET4));
+    req.data.reset(NULL);
+    NextHopTable::GetInstance()->Process(req);
+}
+
 void InterfaceNH::SendObjectLog(AgentLogEvent::type event) const {
     NextHopObjectLogInfo info;
 

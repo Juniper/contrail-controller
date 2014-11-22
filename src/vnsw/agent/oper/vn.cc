@@ -374,6 +374,11 @@ bool VnTable::Delete(DBEntry *entry, const DBRequest *req) {
     return true;
 }
 
+VnEntry *VnTable::Find(const boost::uuids::uuid &u) {
+        VnKey key(u);
+            return static_cast<VnEntry *>(FindActiveEntry(&key));
+}
+
 DBTableBase *VnTable::CreateTable(DB *db, const std::string &name) {
     vn_table_ = new VnTable(db, name);
     vn_table_->Init();

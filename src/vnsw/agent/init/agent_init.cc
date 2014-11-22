@@ -53,6 +53,10 @@ string AgentInit::ModuleName() {
     return g_vns_constants.ModuleNames.find(module)->second;
 }
 
+string AgentInit::AgentName() {
+    return agent_param_->agent_name();
+}
+
 string AgentInit::InstanceId() {
     return g_vns_constants.INSTANCE_ID_DEFAULT;
 }
@@ -67,6 +71,7 @@ int AgentInit::Start() {
     agent_->set_task_scheduler(TaskScheduler::GetInstance());
     string module_name = ModuleName();
     agent_->set_discovery_client_name(module_name);
+    agent_->set_agent_name(AgentName());
     agent_->set_instance_id(InstanceId());
 
     // Copy tunable parameters into agent_
