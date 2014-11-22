@@ -99,6 +99,11 @@ void AgentConfig::CreateDBTables(DB *db) {
     IFMapAgentSandeshInit(db);
 }
 
+void AgentConfig::Register(const char *node_name, AgentDBTable *table,
+                           int need_property_id) {
+    cfg_listener_->Register(node_name, table, need_property_id);
+}
+
 void AgentConfig::RegisterDBClients(DB *db) {
     cfg_listener_->Register("virtual-network", agent_->vn_table(),
                             VirtualNetwork::ID_PERMS);

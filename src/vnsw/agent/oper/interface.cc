@@ -28,6 +28,7 @@
 #include <oper/interface_common.h>
 #include <oper/vrf_assign.h>
 #include <oper/vxlan.h>
+#include <oper/ifmap_dependency_manager.h>
 
 #include <vnc_cfg_types.h>
 #include <oper/agent_sandesh.h>
@@ -38,6 +39,8 @@
 
 using namespace std;
 using namespace boost::uuids;
+using boost::assign::map_list_of;
+using boost::assign::list_of;
 
 InterfaceTable *InterfaceTable::interface_table_;
 
@@ -47,6 +50,61 @@ InterfaceTable *InterfaceTable::interface_table_;
 void InterfaceTable::Init(OperDB *oper) { 
     operdb_ = oper;
     agent_ = oper->agent();
+}
+
+void InterfaceTable::RegisterDBClients(IFMapDependencyManager *dep) {
+    typedef IFMapDependencyTracker::PropagateList PropagateList;
+    typedef IFMapDependencyTracker::ReactionMap ReactionMap;
+
+    ReactionMap physical_port_react = map_list_of<std::string, PropagateList>
+        ("self", list_of("self") ("physical-router-physical-interface"))
+        ("physical-interface-logical-interface",
+         list_of("physical-router-physical-interface"));
+    dep->RegisterReactionMap("physical-interface", physical_port_react);
+    dep->Register("physical-interface",
+                  boost::bind(&InterfaceTable::ConfigEventHandler, this, _1));
+    agent()->cfg()->Register("physical-interface", this,
+                             autogen::PhysicalInterface::ID_PERMS);
+
+    ReactionMap logical_port_react = map_list_of<std::string, PropagateList>
+        ("self", list_of("self") ("physical-interface-logical-interface"))
+        ("physical-interface-logical-interface",
+         list_of("physical-router-physical-interface"))
+        ("logical-interface-virtual-machine-interface",
+         list_of("physical-interface-logical-interface"));
+    dep->RegisterReactionMap("logical-interface", logical_port_react);
+    dep->Register("logical-interface",
+                  boost::bind(&InterfaceTable::ConfigEventHandler, this,
+                              _1));
+    agent()->cfg()->Register("logical-interface", this,
+                             autogen::LogicalInterface::ID_PERMS);
+}
+
+void InterfaceTable::ConfigEventHandler(DBEntry *entry) {
+    Interface *intf = static_cast<Interface *>(entry);
+    if (intf->ifmap_node_) {
+        DBRequest req;
+        if (IFNodeToReq(intf->ifmap_node_, req) == true) {
+            Enqueue(&req);
+        }
+    }
+    return;
+}
+
+bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
+    if (strcmp(node->table()->Typename(), "physical-interface") == 0) {
+        return PhysicalInterfaceIFNodeToReq(node, req);
+    }
+
+    if (strcmp(node->table()->Typename(), "logical-interface") == 0) {
+        return LogicalInterfaceIFNodeToReq(node, req);
+    }
+
+    if (strcmp(node->table()->Typename(), "virtual-machine-interface") == 0) {
+        return VmiIFNodeToReq(node, req);
+    }
+
+    return false;
 }
 
 std::auto_ptr<DBEntry> InterfaceTable::AllocEntry(const DBRequestKey *k) const{
@@ -70,6 +128,10 @@ DBEntry *InterfaceTable::Add(const DBRequest *req) {
     intf->GetOsParams(agent());
 
     intf->Add();
+    intf->ifmap_node_ = data->ifmap_node_;
+    if (intf->ifmap_node_) {
+        operdb_->dependency_manager()->SetObject(intf->ifmap_node_, intf);
+    }
     intf->SendTrace(Interface::ADD);
     return intf;
 }
@@ -77,6 +139,7 @@ DBEntry *InterfaceTable::Add(const DBRequest *req) {
 bool InterfaceTable::OnChange(DBEntry *entry, const DBRequest *req) {
     bool ret = false;
     InterfaceKey *key = static_cast<InterfaceKey *>(req->key.get());
+    InterfaceData *data = static_cast<InterfaceData *>(req->data.get());
 
     switch (key->type_) {
     case Interface::VM_INTERFACE: {
@@ -94,8 +157,43 @@ bool InterfaceTable::OnChange(DBEntry *entry, const DBRequest *req) {
         }
         break;
     }
+
+    case Interface::PHYSICAL: {
+        PhysicalInterface *intf = static_cast<PhysicalInterface *>(entry);
+        ret = intf->OnChange(this, static_cast<PhysicalInterfaceData *>
+                             (req->data.get()));
+        break;
+    }
+
+    case Interface::REMOTE_PHYSICAL: {
+        RemotePhysicalInterface *intf =
+            static_cast<RemotePhysicalInterface *>(entry);
+        ret = intf->OnChange(this, static_cast<RemotePhysicalInterfaceData *>
+                             (req->data.get()));
+        break;
+    }
+
+    case Interface::LOGICAL: {
+        LogicalInterface *intf = static_cast<LogicalInterface *>(entry);
+        ret = intf->OnChange(this, static_cast<LogicalInterfaceData *>
+                             (req->data.get()));
+        break;
+    }
+
     default:
         break;
+    }
+
+    if (data->ifmap_node_) {
+        Interface *intf = static_cast<Interface *>(entry);
+        IFMapDependencyManager *dep = operdb()->dependency_manager();
+        if (intf->ifmap_node_ != data->ifmap_node_) {
+            if (intf->ifmap_node_ != NULL)
+                dep->ResetObject(intf->ifmap_node_);
+            intf->ifmap_node_ = data->ifmap_node_;
+            if (intf->ifmap_node_)
+                dep->SetObject(intf->ifmap_node_, intf);
+        }
     }
 
     return ret;
@@ -104,8 +202,21 @@ bool InterfaceTable::OnChange(DBEntry *entry, const DBRequest *req) {
 // RESYNC supported only for VM_INTERFACE
 bool InterfaceTable::Resync(DBEntry *entry, DBRequest *req) {
     InterfaceKey *key = static_cast<InterfaceKey *>(req->key.get());
+    InterfaceData *data = static_cast<InterfaceData *>(req->data.get());
     if (key->type_ != Interface::VM_INTERFACE)
         return false;
+
+    if (data->ifmap_node_) {
+        Interface *intf = static_cast<Interface *>(entry);
+        IFMapDependencyManager *dep = operdb()->dependency_manager();
+        if (intf->ifmap_node_ != data->ifmap_node_) {
+            if (intf->ifmap_node_ != NULL)
+                dep->ResetObject(intf->ifmap_node_);
+            intf->ifmap_node_ = data->ifmap_node_;
+            if (intf->ifmap_node_)
+                dep->SetObject(intf->ifmap_node_, intf);
+        }
+    }
 
     VmInterfaceData *vm_data = static_cast<VmInterfaceData *>(req->data.get());
     VmInterface *intf = static_cast<VmInterface *>(entry);
@@ -115,6 +226,10 @@ bool InterfaceTable::Resync(DBEntry *entry, DBRequest *req) {
 bool InterfaceTable::Delete(DBEntry *entry, const DBRequest *req) {
     Interface *intf = static_cast<Interface *>(entry);
     intf->Delete();
+    if (intf->ifmap_node_ != NULL) {
+        operdb()->dependency_manager()->ResetObject(intf->ifmap_node_);
+        intf->ifmap_node_ = NULL;
+    }
     intf->SendTrace(Interface::DELETE);
     return true;
 }
@@ -233,7 +348,8 @@ Interface::Interface(Type type, const uuid &uuid, const string &name,
     vrf_(vrf), label_(MplsTable::kInvalidLabel),
     l2_label_(MplsTable::kInvalidLabel), ipv4_active_(true), l2_active_(true),
     id_(kInvalidIndex), dhcp_enabled_(true), dns_enabled_(true), mac_(),
-    os_index_(kInvalidIndex), admin_state_(true), test_oper_state_(true) {
+    os_index_(kInvalidIndex), admin_state_(true), test_oper_state_(true),
+    ifmap_node_(NULL) {
 }
 
 Interface::~Interface() {
@@ -372,129 +488,6 @@ void PacketInterface::Delete(InterfaceTable *table, const std::string &ifname) {
     req.key.reset(new PacketInterfaceKey(nil_uuid(), ifname));
     req.data.reset(NULL);
     table->Process(req);
-}
-/////////////////////////////////////////////////////////////////////////////
-// Ethernet Interface routines
-/////////////////////////////////////////////////////////////////////////////
-PhysicalInterface::PhysicalInterface(const std::string &name, VrfEntry *vrf,
-                                     SubType subtype) :
-    Interface(Interface::PHYSICAL, nil_uuid(), name, vrf),
-    persistent_(false), subtype_(subtype) {
-    if (subtype_ == VMWARE)
-        persistent_ = true;
-}
-
-PhysicalInterface::~PhysicalInterface() {
-}
-
-bool PhysicalInterface::CmpInterface(const DBEntry &rhs) const {
-        const PhysicalInterface &intf = 
-            static_cast<const PhysicalInterface &>(rhs);
-        return name_ < intf.name_;
-}
-
-DBEntryBase::KeyPtr PhysicalInterface::GetDBRequestKey() const {
-    InterfaceKey *key = new PhysicalInterfaceKey(name_);
-    return DBEntryBase::KeyPtr(key);
-}
-
-// Enqueue DBRequest to create a Host Interface
-void PhysicalInterface::CreateReq(InterfaceTable *table, const string &ifname,
-                                  const string &vrf_name, SubType subtype) {
-    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new PhysicalInterfaceKey(ifname));
-    req.data.reset(new PhysicalInterfaceData(vrf_name, subtype));
-    table->Enqueue(&req);
-}
-
-void PhysicalInterface::Create(InterfaceTable *table, const string &ifname,
-                               const string &vrf_name, SubType subtype) {
-    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new PhysicalInterfaceKey(ifname));
-    req.data.reset(new PhysicalInterfaceData(vrf_name, subtype));
-    table->Process(req);
-}
-
-// Enqueue DBRequest to delete a Host Interface
-void PhysicalInterface::DeleteReq(InterfaceTable *table, const string &ifname) {
-    DBRequest req(DBRequest::DB_ENTRY_DELETE);
-    req.key.reset(new PhysicalInterfaceKey(ifname));
-    req.data.reset(NULL);
-    table->Enqueue(&req);
-}
-
-void PhysicalInterface::Delete(InterfaceTable *table, const string &ifname) {
-    DBRequest req(DBRequest::DB_ENTRY_DELETE);
-    req.key.reset(new PhysicalInterfaceKey(ifname));
-    req.data.reset(NULL);
-    table->Process(req);
-}
-
-PhysicalInterfaceKey::PhysicalInterfaceKey(const std::string &name) :
-    InterfaceKey(AgentKey::ADD_DEL_CHANGE, Interface::PHYSICAL, nil_uuid(),
-                 name, false) {
-}
-
-PhysicalInterfaceKey::~PhysicalInterfaceKey() {
-}
-
-Interface *PhysicalInterfaceKey::AllocEntry(const InterfaceTable *table) const {
-    return new PhysicalInterface(name_, NULL, PhysicalInterface::INVALID);
-}
-
-Interface *PhysicalInterfaceKey::AllocEntry(const InterfaceTable *table,
-                                            const InterfaceData *data) const {
-    VrfKey key(data->vrf_name_);
-    VrfEntry *vrf = static_cast<VrfEntry *>
-        (table->agent()->vrf_table()->FindActiveEntry(&key));
-    if (vrf == NULL) {
-        return NULL;
-    }
-    const PhysicalInterfaceData *phy_data =
-        static_cast<const PhysicalInterfaceData *>(data);
-
-    return new PhysicalInterface(name_, vrf, phy_data->subtype_);
-}
-
-void PhysicalInterface::PostAdd() {
-    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
-
-    if (subtype_ != VMWARE || table->agent()->test_mode()) {
-        return;
-    }
-
-    int fd = socket(AF_LOCAL, SOCK_STREAM, 0);
-    assert(fd >= 0);
-
-    struct ifreq ifr;
-    memset(&ifr, 0, sizeof(ifr));
-    strncpy(ifr.ifr_name, name_.c_str(), IF_NAMESIZE);
-    if (ioctl(fd, SIOCGIFFLAGS, (void *)&ifr) < 0) {
-        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
-            "> setting promiscuous flag for interface <" << name_ << ">");
-        close(fd);
-        return;
-    }
-
-    ifr.ifr_flags |= IFF_PROMISC;
-    if (ioctl(fd, SIOCSIFFLAGS, (void *)&ifr) < 0) {
-        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
-            "> setting promiscuous flag for interface <" << name_ << ">");
-        close(fd);
-        return;
-    }
-
-    close(fd);
-}
-
-InterfaceKey *PhysicalInterfaceKey::Clone() const {
-    return new PhysicalInterfaceKey(*this);
-}
-
-PhysicalInterfaceData::PhysicalInterfaceData(const std::string &vrf_name,
-                                             PhysicalInterface::SubType subtype)
-    : InterfaceData(), subtype_(subtype) {
-    EthInit(vrf_name);
 }
 
 /////////////////////////////////////////////////////////////////////////////

@@ -73,6 +73,7 @@ public:
     const int xen_ll_plen() const { return xen_ll_.plen_; }
     const Ip4Address &xen_ll_gw() const { return xen_ll_.gw_; }
 
+    const std::string &agent_name() const { return agent_name_; }
     const std::string &eth_port() const { return eth_port_; }
     const Ip4Address &xmpp_server_1() const { return xmpp_server_1_; }
     const Ip4Address &xmpp_server_2() const { return xmpp_server_2_; }
@@ -234,6 +235,7 @@ private:
     bool enable_service_options_;
 
     PortInfo vhost_;
+    std::string agent_name_;
     std::string eth_port_;
     uint16_t xmpp_instance_count_;
     Ip4Address xmpp_server_1_;

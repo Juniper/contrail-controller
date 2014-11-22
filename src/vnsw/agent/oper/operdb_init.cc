@@ -33,8 +33,23 @@
 #include <base/task_trigger.h>
 #include <oper/instance_manager.h>
 #include <oper/loadbalancer.h>
+#include <oper/physical_device.h>
+#include <oper/physical_device_vn.h>
+
+using boost::assign::map_list_of;
+using boost::assign::list_of;
 
 SandeshTraceBufferPtr OperDBTraceBuf(SandeshTraceBufferCreate("Oper DB", 5000));
+
+template<typename T>
+T *DBTableCreate(DB *db, Agent *agent, OperDB *oper,
+                   const std::string &db_name) {
+    DB::RegisterFactory(db_name, &T::CreateTable);
+    T *table = static_cast<T *>(db->CreateTable(db_name));
+    assert(table);
+    table->set_agent(agent);
+    return table;
+}
 
 void OperDB::CreateDBTables(DB *db) {
     DB::RegisterFactory("db.interface.0", &InterfaceTable::CreateTable);
@@ -59,6 +74,8 @@ void OperDB::CreateDBTables(DB *db) {
                         &ServiceInstanceTable::CreateTable);
     DB::RegisterFactory("db.loadbalancer-pool.0",
                         &LoadbalancerTable::CreateTable);
+    DB::RegisterFactory("db.physical_devices.0",
+                        &PhysicalDeviceTable::CreateTable);
 
     InterfaceTable *intf_table;
     intf_table = static_cast<InterfaceTable *>(db->CreateTable("db.interface.0"));
@@ -147,6 +164,16 @@ void OperDB::CreateDBTables(DB *db) {
     agent_->set_loadbalancer_table(lb_table);
     lb_table->Initialize(agent_->cfg()->cfg_graph(),
             dependency_manager_.get());
+
+    PhysicalDeviceTable *dev_table =
+        DBTableCreate<PhysicalDeviceTable>(db, agent_, this,
+                                           "db.physical_devices.0");
+    agent_->set_physical_device_table(dev_table);
+
+    PhysicalDeviceVnTable *dev_vn_table =
+        DBTableCreate<PhysicalDeviceVnTable>(db, agent_, this,
+                                             "db.physical_device_vn.0");
+    agent_->set_physical_device_vn_table(dev_vn_table);
 }
 
 void OperDB::Init() {
@@ -168,6 +195,10 @@ void OperDB::Init() {
 }
 
 void OperDB::RegisterDBClients() {
+    IFMapDependencyManager *mgr = agent_->oper_db()->dependency_manager();
+    agent_->physical_device_table()->RegisterDBClients(mgr);
+    agent_->interface_table()->RegisterDBClients(mgr);
+
     multicast_.get()->Register();
     global_vrouter_.get()->CreateDBClients();
 }

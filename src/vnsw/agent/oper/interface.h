@@ -15,6 +15,7 @@
 
 struct InterfaceData;
 class VmInterface;
+class IFMapDependencyManager;
 
 class Interface : AgentRefCount<Interface>, public AgentDBEntry {
 public:
@@ -23,6 +24,10 @@ public:
         INVALID,
         // Represents the physical ethernet port. Can be LAG interface also
         PHYSICAL,
+        // Remote Physical interface
+        REMOTE_PHYSICAL,
+        // Logical interface
+        LOGICAL,
         // Interface in the virtual machine
         VM_INTERFACE,
         // The inet interfaces created in host-os
@@ -69,6 +74,9 @@ public:
     virtual void Add() { }
     virtual void SendTrace(Trace event) const;
     virtual void GetOsParams(Agent *agent);
+    // Callback from ifmap-dependency manager. All interfaces created from
+    // config *should* over-ride this method.
+    virtual void ConfigEventHandler(IFMapNode *node) { assert(0); }
 
     // DBEntry comparator virtual function
     bool IsLess(const DBEntry &rhs) const {
@@ -139,6 +147,7 @@ protected:
     //packet interface and layer2 interface will not have this
     //reference set.
     NextHopConstRef flow_key_nh_;
+    IFMapNode *ifmap_node_;
 
 private:
     friend class InterfaceTable;
@@ -200,15 +209,21 @@ struct InterfaceKey : public AgentKey {
 // Common data for all interfaces. The data is further derived based on type
 // of interfaces
 struct InterfaceData : public AgentData {
-    InterfaceData() : AgentData() { }
+    InterfaceData(IFMapNode *ifmap_node) :
+        AgentData(), ifmap_node_(ifmap_node) {
+    }
 
     void VmPortInit() { vrf_name_ = ""; }
     void EthInit(const std::string &vrf_name) { vrf_name_ = vrf_name; }
     void PktInit() { vrf_name_ = ""; }
     void InetInit(const std::string &vrf_name) { vrf_name_ = vrf_name; }
+    void RemotePhysicalPortInit(const std::string &vrf_name) {
+        vrf_name_ = vrf_name;
+    }
 
     // This is constant-data. Set only during create and not modified later
     std::string vrf_name_;
+    IFMapNode *ifmap_node_;
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -242,6 +257,7 @@ public:
 
     void Init(OperDB *oper);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
+    void RegisterDBClients(IFMapDependencyManager *dep);
 
     // DBTable virtual functions
     std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
@@ -254,7 +270,13 @@ public:
     bool Resync(DBEntry *entry, DBRequest *req);
 
     // Config handlers
+    bool VmiIFNodeToReq(IFMapNode *node, DBRequest &req);
+    bool PhysicalInterfaceIFNodeToReq(IFMapNode *node, DBRequest &req);
+    bool LogicalInterfaceIFNodeToReq(IFMapNode *node, DBRequest &req);
+    bool RemotePhysicalInterfaceIFNodeToReq(IFMapNode *node, DBRequest &req);
     bool IFNodeToReq(IFMapNode *node, DBRequest &req);
+    void ConfigEventHandler(DBEntry *entry);
+
     // Handle change in config VRF for the interface
     void VmInterfaceVrfSync(IFMapNode *node);
     // Handle change in VxLan Identifier mode from global-config
