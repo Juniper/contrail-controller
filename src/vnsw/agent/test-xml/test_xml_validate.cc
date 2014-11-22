@@ -16,30 +16,7 @@
 using namespace std;
 using namespace pugi;
 using namespace boost::uuids;
-
-static bool GetStringAttribute(const xml_node &node, const string &name,
-                               string *value) {
-    xml_attribute attr = node.attribute(name.c_str());
-    if (!attr) {
-        return false;;
-    }
-
-    *value = attr.as_string();
-
-    return true;
-}
-
-static bool GetUintAttribute(const xml_node &node, const string &name,
-                             uint16_t *value) {
-    xml_attribute attr = node.attribute(name.c_str());
-    if (!attr) {
-        return false;;
-    }
-
-    *value = attr.as_uint();
-
-    return true;
-}
+using namespace AgentUtXmlUtils;
 
 /////////////////////////////////////////////////////////////////////////////
 //  AgentUtXmlValidate routines
@@ -98,6 +75,10 @@ AgentUtXmlValidate::AgentUtXmlValidate(const string &name,
 }
 
 AgentUtXmlValidate::~AgentUtXmlValidate() {
+    for (AgentUtXmlValidationList::iterator i =  node_list_.begin();
+         i != node_list_.end(); i++) {
+        delete *i;
+    }
 }
 
 void AgentUtXmlValidate::ToString(string *str) {
@@ -116,36 +97,12 @@ bool AgentUtXmlValidate::ReadXml() {
         uuid id;
         string name;
         AgentUtXmlValidationNode *val = NULL;
-        if (CheckValidateNodeWithUuid("virtual-network", n, &id, &name)
-            == true) {
-            val = new AgentUtXmlVnValidate(name, id, n);
-        }
 
-        if (CheckValidateNodeWithUuid("virtual-machine", n, &id, &name)
-            == true) {
-            val = new AgentUtXmlVmValidate(name, id, n);
-        }
-
-        if (CheckValidateNodeWithUuid("virtual-machine-interface", n, &id,
-                                      &name) == true) {
-            val = new AgentUtXmlVmInterfaceValidate(name, id, n);
-        }
-
-        if (CheckValidateNodeWithUuid("ethernet-interface", n, &id, &name)
-            == true) {
-            val = new AgentUtXmlEthInterfaceValidate(name, id, n);
-        }
-
-        if (CheckValidateNode("flow", n, &name) == true) {
-            val = new AgentUtXmlFlowValidate(name, n);
-        }
-
-        if (CheckValidateNode("routing-instance", n, &name) == true) {
-            val = new AgentUtXmlVrfValidate(name, n);
-        }
-
-        if (CheckValidateNode("acl", n, &name) == true) {
-            val = new AgentUtXmlAclValidate(name, n);
+        AgentUtXmlTest::AgentUtXmlTestValidateCreateFn fn =
+            test_case()->test()->GetValidateCreateFn(n.name());
+        if (CheckValidateNodeWithUuid(n.name(), n, &id, &name) == true) {
+            if (fn.empty() == false)
+                val = fn(n.name(), name, id, n);
         }
 
         if (val != NULL) {
@@ -167,12 +124,13 @@ bool AgentUtXmlValidate::ToXml(xml_node *parent) {
 }
 
 bool AgentUtXmlValidate::Run() {
-    cout << "Running validation" << endl;
+    cout << "Running validation" << " <" << name() << ">" << endl;
     for (AgentUtXmlValidationList::iterator it = node_list_.begin();
          it != node_list_.end(); it++) {
         TestClient::WaitForIdle();
-        cout << "Validating " << (*it)->ToString() << endl;
-        WAIT_FOR(100, 1000, ((*it)->Validate() == true));
+        AgentUtXmlValidationNode *node = *it;
+        cout << "Validating " << node->ToString() << endl;
+        WAIT_FOR(1000, 1000, (node->Validate() == true));
     }
 
     return true;
@@ -192,10 +150,17 @@ AgentUtXmlValidationNode::~AgentUtXmlValidationNode() {
 bool AgentUtXmlValidationNode::ReadCmnXml() {
     std::string str;
     if (GetStringAttribute(node_, "present", &str)) {
-        present_ = true;
+        if (str == "no")
+            present_ = false;
+        else
+            present_ = true;
     }
 
     if (GetStringAttribute(node_, "deleted", &str)) {
+       delete_marked_ = true;
+    }
+
+    if (GetStringAttribute(node_, "del", &str)) {
        delete_marked_ = true;
     }
 
@@ -211,239 +176,4 @@ bool AgentUtXmlValidationNode::ReadXml() {
 
 bool AgentUtXmlValidationNode::Validate() {
     return true;
-}
-
-/////////////////////////////////////////////////////////////////////////////
-//  AgentUtXmlVnValidate routines
-/////////////////////////////////////////////////////////////////////////////
-AgentUtXmlVnValidate::AgentUtXmlVnValidate(const string &name,
-                                           const uuid &id,
-                                           const xml_node &node) :
-    AgentUtXmlValidationNode(name, node), id_(id) {
-}
-
-AgentUtXmlVnValidate::~AgentUtXmlVnValidate() {
-}
-
-bool AgentUtXmlVnValidate::ReadXml() {
-    return true;
-}
-
-bool AgentUtXmlVnValidate::Validate() {
-    if (present()) {
-        return VnFind(id());
-    } else {
-        return !VnFind(id());
-    }
-}
-
-const string AgentUtXmlVnValidate::ToString() {
-    return "virtual-network";
-}
-
-/////////////////////////////////////////////////////////////////////////////
-//  AgentUtXmlVmValidate routines
-/////////////////////////////////////////////////////////////////////////////
-AgentUtXmlVmValidate::AgentUtXmlVmValidate(const string &name,
-                                           const uuid &id,
-                                           const xml_node &node) :
-    AgentUtXmlValidationNode(name, node), id_(id) {
-}
-
-AgentUtXmlVmValidate::~AgentUtXmlVmValidate() {
-}
-
-bool AgentUtXmlVmValidate::ReadXml() {
-    return true;
-}
-
-bool AgentUtXmlVmValidate::Validate() {
-    return true;
-}
-
-const string AgentUtXmlVmValidate::ToString() {
-    return "virtual-network";
-}
-
-/////////////////////////////////////////////////////////////////////////////
-//  AgentUtXmlVmInterfaceValidate routines
-/////////////////////////////////////////////////////////////////////////////
-AgentUtXmlVmInterfaceValidate::AgentUtXmlVmInterfaceValidate(const string &name,
-                                           const uuid &id,
-                                           const xml_node &node) :
-    AgentUtXmlValidationNode(name, node), id_(id) {
-}
-
-AgentUtXmlVmInterfaceValidate::~AgentUtXmlVmInterfaceValidate() {
-}
-
-bool AgentUtXmlVmInterfaceValidate::ReadXml() {
-    return true;
-}
-
-bool AgentUtXmlVmInterfaceValidate::Validate() {
-    if (present()) {
-        return VmPortFind(id());
-    } else {
-        return !VmPortFind(id());
-    }
-
-    if (present()) {
-        return VmPortActive(id());
-    } else {
-        return !VmPortActive(id());
-    }
-
-    return true;
-}
-
-const string AgentUtXmlVmInterfaceValidate::ToString() {
-    return "virtual-machine-interface";
-}
-
-/////////////////////////////////////////////////////////////////////////////
-//  AgentUtXmlEthInterfaceValidate routines
-/////////////////////////////////////////////////////////////////////////////
-AgentUtXmlEthInterfaceValidate::AgentUtXmlEthInterfaceValidate(const string &name,
-                                           const uuid &id,
-                                           const xml_node &node) :
-    AgentUtXmlValidationNode(name, node), id_(id) {
-}
-
-AgentUtXmlEthInterfaceValidate::~AgentUtXmlEthInterfaceValidate() {
-}
-
-bool AgentUtXmlEthInterfaceValidate::ReadXml() {
-    return true;
-}
-
-bool AgentUtXmlEthInterfaceValidate::Validate() {
-    return true;
-}
-
-const string AgentUtXmlEthInterfaceValidate::ToString() {
-    return "eth-interface";
-}
-
-/////////////////////////////////////////////////////////////////////////////
-//  AgentUtXmlVrfValidate routines
-/////////////////////////////////////////////////////////////////////////////
-AgentUtXmlVrfValidate::AgentUtXmlVrfValidate(const string &name,
-                                             const xml_node &node) :
-    AgentUtXmlValidationNode(name, node) {
-}
-
-AgentUtXmlVrfValidate::~AgentUtXmlVrfValidate() {
-}
-
-bool AgentUtXmlVrfValidate::ReadXml() {
-    return true;
-}
-
-bool AgentUtXmlVrfValidate::Validate() {
-    if (present()) {
-        return VrfFind(name().c_str());
-    } else {
-        return !VrfFind(name().c_str());
-    }
-}
-
-const string AgentUtXmlVrfValidate::ToString() {
-    return "vrf";
-}
-
-/////////////////////////////////////////////////////////////////////////////
-//  AgentUtXmlAclValidate routines
-/////////////////////////////////////////////////////////////////////////////
-AgentUtXmlAclValidate::AgentUtXmlAclValidate(const string &name,
-                                             const xml_node &node) :
-    AgentUtXmlValidationNode(name, node) {
-}
-
-AgentUtXmlAclValidate::~AgentUtXmlAclValidate() {
-}
-
-bool AgentUtXmlAclValidate::ReadXml() {
-    return true;
-}
-
-bool AgentUtXmlAclValidate::Validate() {
-    if (present()) {
-        return AclFind(id());
-    } else {
-        return !AclFind(id());
-    }
-}
-
-const string AgentUtXmlAclValidate::ToString() {
-    return "access-control-list";
-}
-
-/////////////////////////////////////////////////////////////////////////////
-//  AgentUtXmlFlowValidate routines
-/////////////////////////////////////////////////////////////////////////////
-AgentUtXmlFlowValidate::AgentUtXmlFlowValidate(const string &name,
-                                               const xml_node &node) :
-    AgentUtXmlValidationNode(name, node) {
-}
-
-AgentUtXmlFlowValidate::~AgentUtXmlFlowValidate() {
-}
-
-bool AgentUtXmlFlowValidate::ReadXml() {
-    uint16_t id = 0;
-    if (GetUintAttribute(node(), "nh", &nh_id_) == false) {
-        cout << "Attribute \"nh\" not specified for Flow. Skipping" << endl;
-        return false;
-    }
-
-    if (GetStringAttribute(node(), "sip", &sip_) == false) {
-        cout << "Attribute \"sip\" not specified for Flow. Skipping" << endl;
-        return false;
-    }
-
-    if (GetStringAttribute(node(), "dip", &dip_) == false) {
-        cout << "Attribute \"dip\" not specified for Flow. Skipping" << endl;
-        return false;
-    }
-
-    if (GetStringAttribute(node(), "proto", &proto_) == false &&
-        GetUintAttribute(node(), "proto", &proto_id_) == false) {
-        cout << "Attribute \"proto\" not specified for Flow. Skipping" 
-            << endl;
-        return false;
-    }
-
-    if (proto_ == "tcp" || proto_ == "udp") {
-        if (proto_ == "tcp")
-            proto_id_ = 6;
-        else
-            proto_id_ = 17;
-        if (GetUintAttribute(node(), "sport", &sport_) == false) {
-            cout << "Attribute \"sport\" not specified for Flow. Skipping"
-                << endl;
-            return false;
-        }
-
-        if (GetUintAttribute(node(), "dport", &dport_) == false) {
-            cout << "Attribute \"dport\" not specified for Flow. Skipping"
-                << endl; return false;
-        }
-    }
-
-    return true;
-}
-
-bool AgentUtXmlFlowValidate::Validate() {
-    FlowEntry *entry = FlowGet(0, sip_, dip_, proto_id_, sport_, dport_,
-                               nh_id_);
-    if (present()) {
-        return (entry != NULL);
-    } else {
-        return (entry == NULL);
-    }
-}
-
-const string AgentUtXmlFlowValidate::ToString() {
-    return "flow";
 }

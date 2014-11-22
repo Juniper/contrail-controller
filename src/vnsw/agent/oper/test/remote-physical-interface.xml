@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<test_suite name="remote-physical-interface">
+<test name="test1">
+    <physical-router uuid="1" name="router-1"/>
+    <validate name="validate-1">
+        <physical-router name="router-1" uuid="1" present="1" />
+    </validate>
+
+    <remote-physical-interface uuid="1" name="r-intf-1" device="router-1" />
+    <validate name="validate-2">
+        <remote-physical-interface name="r-intf-1" uuid="1" present="1" />
+    </validate>
+
+    <physical-router uuid="1" name="router-1" del="1"/>
+    <remote-physical-interface uuid="1" name="r-intf-1" device="router-1"
+     del="1"/>
+    <validate name="validate-3">
+        <physical-router name="router-1" uuid="1" present="no" />
+        <remote-physical-interface name="r-intf-1" uuid="1" present="no" />
+    </validate>
+</test>
+<test name="test2">
+    <physical-router uuid="1" name="router-1"/>
+    <validate name="validate-4">
+        <physical-router name="router-1" uuid="1" present="1" />
+    </validate>
+
+    <remote-physical-interface uuid="1" name="r-intf-1" device="router-1" />
+    <validate name="validate-5">
+        <remote-physical-interface name="r-intf-1" uuid="1" present="1" />
+    </validate>
+
+    <link left="remote-physical-interface" left-name="r-intf-1"
+           right="physical-router" right-name="router-1" del="1"/>
+    <physical-router uuid="1" name="router-1" del="1"/>
+    <remote-physical-interface uuid="1" name="r-intf-1" device="router-1" del="1"/>
+    <validate name="validate-6">
+        <physical-router name="router-1" uuid="1" present="no" />
+        <remote-physical-interface name="r-intf-1" uuid="1" present="no" />
+    </validate>
+</test>
+</test_suite>

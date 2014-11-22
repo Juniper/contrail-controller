@@ -63,6 +63,20 @@ public:
     bool CanUseNode(IFMapNode *node, IFMapAgentTable *table);
     bool SkipNode(IFMapNode *node);
     bool SkipNode(IFMapNode *node, IFMapAgentTable *table);
+
+    // Callback invoked for each IFMap neighbor node
+    typedef boost::function<void(const Agent *agent, const char *name,
+                                 IFMapNode *node, AgentKey *key,
+                                 AgentData *data)>
+        IFMapNodeCb;
+    // Iterate thru all IFMap neighbor nodes and invoke callback for each
+    // neighbor of given type
+    uint32_t ForEachAdjacentIFMapNode(const Agent *agent, IFMapNode *node,
+                                      const char *name, AgentKey *key,
+                                      AgentData *data, IFMapNodeCb cb);
+
+    IFMapNode *FindAdjacentIFMapNode(const Agent *agent, IFMapNode *node,
+                                     const char *name);
 private:
     void UpdateSeenState(DBTableBase *table, DBEntryBase *dbe,
                          CfgDBState *state, DBTableBase::ListenerId id);

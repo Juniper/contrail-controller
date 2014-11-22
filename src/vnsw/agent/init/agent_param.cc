@@ -607,6 +607,7 @@ void AgentParam::ParseServiceInstanceArguments
 void AgentParam::InitFromSystem() {
     boost::system::error_code error;
     host_name_ = boost::asio::ip::host_name(error);
+    agent_name_ = host_name_;
 
     struct stat fstat;
     if (stat("/proc/xen", &fstat) == 0) {
@@ -877,8 +878,8 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         enable_vhost_options_(enable_vhost_options),
         enable_hypervisor_options_(enable_hypervisor_options),
         enable_service_options_(enable_service_options),
-        vhost_(), eth_port_(), xmpp_instance_count_(), xmpp_server_1_(),
-        xmpp_server_2_(), dns_server_1_(), dns_server_2_(),
+        vhost_(), agent_name_(), eth_port_(), xmpp_instance_count_(),
+        xmpp_server_1_(), xmpp_server_2_(), dns_server_1_(), dns_server_2_(),
         dns_port_1_(ContrailPorts::DnsServerPort()),
         dns_port_2_(ContrailPorts::DnsServerPort()),
         dss_server_(), mgmt_ip_(), mode_(MODE_KVM), xen_ll_(),

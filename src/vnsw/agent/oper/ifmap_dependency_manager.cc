@@ -141,7 +141,9 @@ void IFMapDependencyManager::Initialize() {
             ("instance-ip-virtual-machine-interface",
              list_of("virtual-machine-interface-virtual-machine"))
             ("virtual-machine-interface-virtual-network",
-             list_of("virtual-machine-interface-virtual-machine"));
+             list_of("virtual-machine-interface-virtual-machine")
+                    ("virtual-machine-interface-logical-interface")
+                    ("logical-interface-virtual-machine-interface"));
     policy->insert(make_pair("virtual-machine-interface", react_vmi));
 
     ReactionMap react_ip = map_list_of<string, PropagateList>
@@ -182,6 +184,19 @@ void IFMapDependencyManager::Initialize() {
     ReactionMap react_lb_healthmon = map_list_of<string, PropagateList>
             ("self", list_of("loadbalancer-pool-loadbalancer-healthmonitor"));
     policy->insert(make_pair("loadbalancer-healthmonitor", react_lb_healthmon));
+}
+
+void IFMapDependencyManager::RegisterReactionMap
+(const char *node_name, const IFMapDependencyTracker::ReactionMap &react) {
+    // Register to the IFMap table
+    IFMapTable *table = IFMapTable::FindTable(database_, node_name);
+    assert(table);
+    DBTable::ListenerId id = table->Register
+        (boost::bind(&IFMapDependencyManager::NodeObserver, this, _1, _2));
+    table_map_.insert(make_pair(table->name(), id));
+
+    // Add Policy
+    tracker_->policy_map()->insert(make_pair(node_name, react));
 }
 
 void IFMapDependencyManager::Terminate() {

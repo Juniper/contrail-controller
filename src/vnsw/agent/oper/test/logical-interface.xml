@@ -1,0 +1,73 @@
+<?xml version="1.0"?>
+<test_suite name="logical-interface">
+<test name="test1">
+    <physical-router uuid="1" name="router-1"/>
+    <physical-interface uuid="1" name="p-intf-1" device="router-1" />
+
+    <virtual-network uuid="1" name="vn1"/>
+    <virtual-machine uuid="1" name="vm1"/>
+    <vrf uuid="1" name="vrf1" />
+    <vmi nova="1"
+     uuid="1" name="tap1" mac="00:00:00:00:00:01" vn-name="vn1" vn-uuid="1"
+     vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.1"
+    />
+    <vmi-vrf uuid="1" name="tap1-vm1" />
+
+    <logical-interface uuid="1" name="l-intf-1" port="p-intf-1" vmi="tap1"/>
+    <validate name="validate-1">
+        <vm-interface name="tap1" uuid="1" present="1" active="1" />
+        <logical-interface name="l-intf-1" uuid="1" port="p-intf-1" vmi="1"
+         present="1" />
+    </validate>
+
+    <vmi-vrf uuid="1" name="tap1-vm1"  del="1"/>
+    <vmi nova="1"
+     uuid="1" name="tap1" mac="00:00:00:00:00:01" vn-name="vn1" vn-uuid="1"
+     vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.1"
+     del="1"/>
+    <link left="virtual-machine-interface" left-name="tap1"
+          right="virtual-machine" right-name="vm1" del="1"/>
+    <link left="virtual-machine-interface" left-name="tap1"
+          right="virtual-machine" right-name="vm1" del="1"/>
+    <virtual-network uuid="1" name="vn1" del="1"/>
+    <virtual-machine uuid="1" name="vm1" del="1"/>
+    <vrf uuid="1" name="vrf1"  del="1"/>
+
+    <physical-router uuid="1" name="router-1" del="1"/>
+    <physical-interface uuid="1" name="p-intf-1" del="1"/>
+    <logical-interface uuid="1" name="l-intf-1" del="1"/>
+    <validate name="validate-2">
+        <physical-router name="router-1" uuid="1" present="no" />
+        <physical-interface name="p-intf-1" uuid="1" present="no" />
+        <logical-interface name="l-intf-1" uuid="1" present="no" />
+    </validate>
+    <link left="physical-interface" left-name="p-intf-1"
+           right="logical-interface" right-name="l-intf-1" del="1"/>
+    <link left="physical-interface" left-name="intf-1"
+           right="physical-router" right-name="router-1" del="1"/>
+    <link left="logical-interface" left-name="l-intf-1"
+           right="virtual-machine-interface" right-name="tap1" del="1"/>
+</test>
+
+<test name="test2">
+    <physical-router uuid="1" name="router-1"/>
+    <physical-interface uuid="1" name="p-intf-1" device="router-1" />
+    <logical-interface uuid="1" name="l-intf-1" port="p-intf-1" />
+    <validate name="validate-3">
+        <logical-interface name="l-intf-1" uuid="1" present="1" />
+    </validate>
+
+    <link left="physical-interface" left-name="p-intf-1"
+           right="logical-interface" right-name="l-intf-1" del="1"/>
+    <link left="physical-interface" left-name="p-intf-1"
+           right="physical-router" right-name="router-1" del="1"/>
+    <physical-router uuid="1" name="router-1" del="1"/>
+    <physical-interface uuid="1" name="p-intf-1" del="1"/>
+    <logical-interface uuid="1" name="l-intf-1" del="1"/>
+    <validate name="validate-4">
+        <physical-router name="router-1" uuid="1" present="no" />
+        <physical-interface name="p-intf-1" uuid="1" present="no" />
+        <logical-interface name="l-intf-1" uuid="1" present="no" />
+    </validate>
+</test>
+</test_suite>

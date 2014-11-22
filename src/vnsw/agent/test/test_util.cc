@@ -419,9 +419,15 @@ bool VrfFind(const char *name) {
     return (vrf != NULL);
 }
 
-VrfEntry *VrfGet(const char *name) {
+VrfEntry *VrfGet(const char *name, bool ret_del) {
+    Agent *agent = Agent::GetInstance();
     VrfKey key(name);
-    return static_cast<VrfEntry *>(Agent::GetInstance()->vrf_table()->FindActiveEntry(&key));
+    VrfEntry *vrf =
+        static_cast<VrfEntry *>(agent->vrf_table()->Find(&key, ret_del));
+    if (vrf && (ret_del == false && vrf->IsDeleted()))
+        vrf = NULL;
+
+    return vrf;
 }
 
 bool VnFind(int id) {

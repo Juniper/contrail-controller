@@ -20,6 +20,8 @@ namespace autogen {
     struct VirtualDnsType;
 }
 
+bool IsVRFServiceChainingInstance(const std::string &vn_name,
+                                  const std::string &vrf_name);
 class VmInterface;
 
 struct VnIpam {
@@ -237,6 +239,7 @@ public:
                const VnData::VnIpamDataMap &vn_ipam_data, int vxlan_id,
                bool admin_state);
     void DelVn(const uuid &vn_uuid);
+    VnEntry *Find(const uuid &vn_uuid);
     void UpdateVxLanNetworkIdentifierMode();
     bool VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry);
     void VnEntryWalkDone(DBTableBase *partition);
