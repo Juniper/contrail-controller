@@ -295,6 +295,11 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
     case Interface::INET:
         dmac = intf->mac();
         break;
+    case Interface::LOGICAL:
+    case Interface::REMOTE_PHYSICAL:
+        dmac = intf->mac();
+        break;
+
     default:
         assert(0);
     }
@@ -376,6 +381,10 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
     // Dont send message if interface index not known
     if (IsValidOsIndex(os_index_, type_, rx_vlan_id_) == false) {
+        return 0;
+    }
+
+    if (type_ == Interface::LOGICAL || type_ == Interface::REMOTE_PHYSICAL) {
         return 0;
     }
 
@@ -573,6 +582,8 @@ KSyncEntry *InterfaceKSyncObject::DBToKSyncEntry(const DBEntry *e) {
         case Interface::VM_INTERFACE:
         case Interface::PACKET:
         case Interface::INET:
+        case Interface::LOGICAL:
+        case Interface::REMOTE_PHYSICAL:
             key = new InterfaceKSyncEntry(this, intf);
             break;
 

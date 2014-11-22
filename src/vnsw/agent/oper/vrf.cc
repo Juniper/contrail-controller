@@ -202,6 +202,11 @@ bool VrfEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
         if (flags() & VrfData::GwVrf)
             vrf_flags += "Gateway; ";
         data.set_source(vrf_flags);
+        if (vn_.get()) {
+            data.set_vn(vn_->GetName());
+        } else {
+            data.set_vn("N/A");
+        }
 
         std::vector<VrfSandeshData> &list = 
                 const_cast<std::vector<VrfSandeshData>&>(resp->get_vrf_list());
@@ -285,8 +290,8 @@ DBEntry *VrfTable::Add(const DBRequest *req) {
     vrf->id_ = index_table_.Insert(vrf);
     name_tree_.insert( VrfNamePair(key->name_, vrf));
 
+    vrf->vn_.reset(agent()->vn_table()->Find(data->vn_uuid_));
     vrf->SendObjectLog(AgentLogEvent::ADD);
-
     return vrf;
 }
 
@@ -295,11 +300,17 @@ bool VrfTable::OnChange(DBEntry *entry, const DBRequest *req) {
     VrfData *data = static_cast<VrfData *>(req->data.get());
     vrf->set_flags(data->flags_);
 
+    VnEntry *vn = agent()->vn_table()->Find(data->vn_uuid_);
+    if (vn != vrf->vn_.get()) {
+        vrf->vn_.reset(vn);
+        return true;
+    }
     return false;
 }
 
 bool VrfTable::Delete(DBEntry *entry, const DBRequest *req) {
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
+    vrf->vn_.reset(NULL);
     vrf->deleter_->Delete();
     vrf->StartDeleteTimer();
     vrf->SendObjectLog(AgentLogEvent::DELETE_TRIGGER);
@@ -396,28 +407,28 @@ AgentRouteTable *VrfTable::GetRouteTable(const string &vrf_name,
 void VrfTable::CreateVrfReq(const string &name, uint32_t flags) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VrfKey(name));
-    req.data.reset(new VrfData(flags));
+    req.data.reset(new VrfData(flags, nil_uuid()));
     Enqueue(&req);
 }
 
 void VrfTable::CreateVrf(const string &name, uint32_t flags) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VrfKey(name));
-    req.data.reset(new VrfData(flags));
+    req.data.reset(new VrfData(flags, nil_uuid()));
     Process(req);
 }
 
 void VrfTable::DeleteVrfReq(const string &name, uint32_t flags) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new VrfKey(name));
-    req.data.reset(new VrfData(flags));
+    req.data.reset(new VrfData(flags, nil_uuid()));
     Enqueue(&req);
 }
 
 void VrfTable::DeleteVrf(const string &name, uint32_t flags) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new VrfKey(name));
-    req.data.reset(new VrfData(flags));
+    req.data.reset(new VrfData(flags, nil_uuid()));
     Process(req);
 }
 
@@ -461,6 +472,7 @@ bool VrfTable::CanNotify(IFMapNode *node) {
 
 bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     VrfKey *key = new VrfKey(node->name());
+    boost::uuids::uuid vn_uuid = nil_uuid();
 
     //Trigger add or delete only for non fabric VRF
     if (node->IsDeleted()) {
@@ -491,13 +503,19 @@ bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
             if (cfg == NULL) {
                 continue;
             }
+
+            if (!IsVRFServiceChainingInstance(adj_node->name(), node->name())) {
+                autogen::IdPermsType id_perms = cfg->id_perms();
+                CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                           vn_uuid);
+            }
             autogen::VirtualNetworkType properties = cfg->properties();
         }
     }
 
     //When VRF config delete comes, first enqueue VRF delete
     //so that when link evaluation happens, all point to deleted VRF
-    VrfData *data = new VrfData(VrfData::ConfigVrf);
+    VrfData *data = new VrfData(VrfData::ConfigVrf, vn_uuid);
     req.key.reset(key);
     req.data.reset(data);
     Enqueue(&req);

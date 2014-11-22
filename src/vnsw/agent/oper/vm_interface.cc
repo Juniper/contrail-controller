@@ -483,7 +483,7 @@ static void ReadDhcpEnable(Agent *agent, VmInterfaceConfigData *data,
 
 // Virtual Machine Interface is added or deleted into oper DB from Nova 
 // messages. The Config notify is used only to change interface.
-bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
+bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req) {
     // Get interface UUID
     VirtualMachineInterface *cfg = static_cast <VirtualMachineInterface *>
         (node->GetObject());
@@ -511,7 +511,7 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     if (node->IsDeleted()) {
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, u, ""));
-        req.data.reset(new VmInterfaceConfigData());
+        req.data.reset(new VmInterfaceConfigData(NULL));
         return true;
     }
 
@@ -520,7 +520,7 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     InterfaceKey *key = new VmInterfaceKey(AgentKey::RESYNC, u, "");
 
     VmInterfaceConfigData *data;
-    data = new VmInterfaceConfigData();
+    data = new VmInterfaceConfigData(node);
 
     //Extract the local preference
     if (cfg->IsPropertySet(VirtualMachineInterface::PROPERTIES)) {
@@ -816,7 +816,7 @@ void VmInterface::Add() {
 }
 
 void VmInterface::Delete() {
-    VmInterfaceConfigData data;
+    VmInterfaceConfigData data(NULL);
     Resync(&data);
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     table->DeleteDhcpSnoopEntry(name_);
@@ -2942,8 +2942,9 @@ void VmInterface::Add(InterfaceTable *table, const uuid &intf_uuid,
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, intf_uuid,
                                      os_name));
-    req.data.reset(new VmInterfaceAddData(addr, mac, vm_name, vm_project_uuid,
-                                          tx_vlan_id, rx_vlan_id, parent, ip6));
+    req.data.reset(new VmInterfaceAddData(NULL, addr, mac, vm_name,
+                                          vm_project_uuid, tx_vlan_id,
+                                          rx_vlan_id, parent, ip6));
     table->Enqueue(&req);
 }
 

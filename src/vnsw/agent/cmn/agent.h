@@ -100,6 +100,18 @@ typedef boost::intrusive_ptr<const AclDBEntry> AclDBEntryConstRef;
 void intrusive_ptr_release(const AclDBEntry* p);
 void intrusive_ptr_add_ref(const AclDBEntry* p);
 
+class PhysicalDevice;
+typedef boost::intrusive_ptr<PhysicalDevice> PhysicalDeviceRef;
+typedef boost::intrusive_ptr<const PhysicalDevice> PhysicalDeviceConstRef;
+void intrusive_ptr_release(const PhysicalDevice *p);
+void intrusive_ptr_add_ref(const PhysicalDevice *p);
+
+class PhysicalDeviceVn;
+typedef boost::intrusive_ptr<PhysicalDeviceVn> PhysicalDeviceVnRef;
+typedef boost::intrusive_ptr<const PhysicalDeviceVn> PhysicalDeviceVnConstRef;
+void intrusive_ptr_release(const PhysicalDeviceVn *p);
+void intrusive_ptr_add_ref(const PhysicalDeviceVn *p);
+
 //class SecurityGroup;
 typedef std::vector<int> SecurityGroupList;
 
@@ -123,6 +135,8 @@ class VrfAssignTable;
 class DomainConfig;
 class VxLanTable;
 class MulticastGroupObject;
+class PhysicalDeviceTable;
+class PhysicalDeviceVnTable;
 
 class MirrorCfgTable;
 class IntfMirrorCfgTable;
@@ -203,6 +217,8 @@ public:
     }
 
     const std::string &host_name() const {return host_name_; }
+    const std::string &agent_name() const { return agent_name_; }
+    void set_agent_name(const std::string &name) { agent_name_ = name; }
     const std::string &program_name() const {return prog_name_;}
     const std::string &config_file() const {return config_file_;}
     const std::string &log_file() const {return log_file_;}
@@ -312,6 +328,20 @@ public:
     }
     void set_fabric_l2_unicast_table(RouteTable *table) {
         l2_rt_table_ = (Layer2AgentRouteTable *)table;
+    }
+
+    PhysicalDeviceTable *physical_device_table() const {
+        return physical_device_table_;
+    }
+    void set_physical_device_table(PhysicalDeviceTable *table) {
+         physical_device_table_ = table;
+    }
+
+    PhysicalDeviceVnTable *physical_device_vn_table() const {
+        return physical_device_vn_table_;
+    }
+    void set_physical_device_vn_table(PhysicalDeviceVnTable *table) {
+         physical_device_vn_table_ = table;
     }
 
     // VHOST related
@@ -515,9 +545,9 @@ public:
     void set_cn_mcast_builder(AgentXmppChannel *peer);
 
     // Fabric related
-    const std::string &fabric_vn_name() {return fabric_vn_name_;};
+    const std::string &fabric_vn_name() const {return fabric_vn_name_; }
 
-    const std::string &fabric_vrf_name() {return fabric_vrf_name_;};
+    const std::string &fabric_vrf_name() const { return fabric_vrf_name_; }
     void set_fabric_vrf_name(const std::string &name) {
         fabric_vrf_name_ = name;
     }
@@ -738,7 +768,11 @@ private:
     AgentXmppChannel *cn_mcast_builder_;
     DiscoveryServiceClient *ds_client_;
     uint16_t metadata_server_port_;
+    // Host name of node running the daemon
     std::string host_name_;
+    // Unique name of the agent. When multiple instances are running, it will
+    // use instance-id to make unique name
+    std::string agent_name_;
     std::string prog_name_;
     int introspect_port_;
     std::string instance_id_;
@@ -763,7 +797,9 @@ private:
     VxLanTable *vxlan_table_;
     ServiceInstanceTable *service_instance_table_;
     LoadbalancerTable *loadbalancer_table_;
-
+    PhysicalDeviceTable *physical_device_table_;
+    PhysicalDeviceVnTable *physical_device_vn_table_;
+ 
     // Mirror config table
     MirrorCfgTable *mirror_cfg_table_;
     // Interface Mirror config table

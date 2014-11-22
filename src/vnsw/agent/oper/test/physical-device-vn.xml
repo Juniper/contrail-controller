@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<test_suite name="physical-device-vn">
+<test name="test1">
+    <virtual-network uuid="1" name="vn-1"/>
+    <physical-interface uuid="1" name="intf-1" />
+    <logical-interface uuid="1" name="l-intf-1"/>
+    <virtual-machine uuid="1" name="vm1"/>
+    <vmi nova="1"
+     uuid="1" name="tap1" mac="00:00:00:00:00:01" vn-name="vn-1" vn-uuid="1"
+     vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.1"
+    />
+    <physical-router uuid="1" name="router-1"/>
+    <validate name="router.1">
+        <physical-router name="router-1" uuid="1" present="1" />
+    </validate>
+
+    <link left="physical-router" left-name="router-1"
+          right="physical-interface" right-name="intf-1"/>
+    <validate name="validate-2">
+        <physical-router-vn name="router-vn-1" uuid="1" device="1" vn="1"
+         present="no" />
+    </validate>
+
+    <link left="physical-interface" left-name="intf-1"
+          right="logical-interface" right-name="l-intf-1"/>
+    <validate name="validate-3">
+        <physical-router-vn name="router-vn-1" uuid="1" device="1" vn="1"
+         present="no" />
+    </validate>
+
+    <link left="logical-interface" left-name="l-intf-1"
+          right="virtual-machine-interface" right-name="tap1"/>
+    <validate name="validate-4">
+        <physical-router-vn name="router-vn-1" uuid="1" device="1" vn="1" />
+    </validate>
+
+    <link left="virtual-machine-interface" left-name="tap1"
+          right="virtual-network" right-name="vn-1" del="1"/>
+    <validate name="validate-5">
+        <physical-router-vn name="router-vn-1" uuid="1" device="1" vn="1"
+         present="no"/>
+    </validate>
+
+    <link left="virtual-machine-interface" left-name="tap1"
+          right="virtual-network" right-name="vn-1"/>
+    <validate name="validate-6">
+        <physical-router-vn name="router-vn-1" uuid="1" device="1" vn="1" />
+    </validate>
+
+    <link left="virtual-machine-interface" left-name="tap1"
+          right="virtual-network" right-name="vn-1" del="1"/>
+    <link left="logical-interface" left-name="l-intf-1"
+          right="virtual-machine-interface" right-name="tap-1" del="1"/>
+    <link left="physical-router" left-name="router-1"
+          right="physical-interface" right-name="intf-1" del="1"/>
+    <link left="physical-interface" left-name="intf-1"
+          right="logical-interface" right-name="l-intf-1" del="1"/>
+    <physical-router uuid="1" name="router-1" del="1"/>
+    <virtual-network uuid="1" name="vn-1" del="1"/>
+    <virtual-network uuid="2" name="test-vn" del="1"/>
+    <physical-interface uuid="1" name="intf-1" device="router-1"  del="1"/>
+    <logical-interface uuid="1" name="l-intf-1" port="p-intf-1" vmi="tap1" del="1"/>
+    <virtual-machine uuid="1" name="vm1" del="1"/>
+    <vmi nova="1"
+     uuid="1" name="tap1" mac="00:00:00:00:00:01" vn-name="vn1" vn-uuid="1"
+     vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.1" del="1"
+    />
+
+</test>
+</test_suite>
