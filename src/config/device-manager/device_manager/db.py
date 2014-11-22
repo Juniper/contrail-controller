@@ -9,7 +9,7 @@ configuration manager
 from vnc_api.common.exceptions import NoIdError
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from physical_router_config import PhysicalRouterConfig
-from device_manager.sandesh.dm_introspect import ttypes as sandesh
+from sandesh.dm_introspect import ttypes as sandesh
 from cfgm_common.vnc_db import DBBase
 
 class DBBaseDM(DBBase):

@@ -39,7 +39,7 @@ from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
 from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM, \
     LogicalInterfaceDM, VirtualMachineInterfaceDM, VirtualNetworkDM
 from cfgm_common.dependency_tracker import DependencyTracker
-from device_manager.sandesh.dm_introspect import ttypes as sandesh
+from sandesh.dm_introspect import ttypes as sandesh
 
 
 class DeviceManager(object):

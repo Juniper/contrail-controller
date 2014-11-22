@@ -1,7 +1,18 @@
 #
 # Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 #
-from setuptools import setup
+from setuptools import setup, find_packages, Command
+import os
+
+class RunTestsCommand(Command):
+    description = "Test command to run testr in virtualenv"
+    user_options = []
+    def initialize_options(self):
+        self.cwd = None
+    def finalize_options(self):
+        self.cwd = os.getcwd()
+    def run(self):
+        os.system('./run_tests.sh -V')
 
 setup(
     name='device_manager',
@@ -18,5 +29,8 @@ setup(
          'console_scripts' : [
              'contrail-device-manager = device_manager.device_manager:server_main',
          ],
+    },
+    cmdclass={
+       'run_tests': RunTestsCommand,
     },
 )

@@ -12,7 +12,7 @@ from flexmock import flexmock
 class DMTestCase(test_common.TestCase):
     def setUp(self):
         super(DMTestCase, self).setUp()
-        flexmock(manager, conenct=fake_netconf_connect)
+        flexmock(manager, connect=fake_netconf_connect)
         self._dm_greenlet = gevent.spawn(test_common.launch_device_manager,
             self._api_server_ip, self._api_server_port)
 
