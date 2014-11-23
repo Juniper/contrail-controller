@@ -1698,9 +1698,9 @@ void FlowTable::Init() {
 }
 
 void FlowTable::InitDone() {
-    max_vm_flows_ =
+    max_vm_flows_ = (uint32_t)
         (agent_->ksync()->flowtable_ksync_obj()->flow_table_entries_count() *
-        (uint32_t) agent_->params()->max_vm_flows()) / 100;
+         agent_->params()->max_vm_flows()) / 100;
 }
 
 void FlowTable::Shutdown() {
@@ -2962,9 +2962,9 @@ FlowTable::FlowTable(Agent *agent) :
     vrf_listener_id_(), nh_listener_(NULL),
     inet4_route_key_(NULL, Ip4Address(), 32, false),
     inet6_route_key_(NULL, Ip6Address(), 128, false) {
-    max_vm_flows_ =
+    max_vm_flows_ = (uint32_t)
         (agent->ksync()->flowtable_ksync_obj()->flow_table_entries_count() *
-        (uint32_t) agent->params()->max_vm_flows()) / 100;
+         agent->params()->max_vm_flows()) / 100;
 }
 
 FlowTable::~FlowTable() {
