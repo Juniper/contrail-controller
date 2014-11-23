@@ -31,7 +31,7 @@ bool Options::Parse(EventManager &evm, int argc, char *argv[]) {
 
 // Initialize dns's command line option tags with appropriate default
 // values. Options can from a config file as well. By default, we read
-// options from /etc/contrail/dns.conf
+// options from /etc/contrail/contrail-dns.conf
 void Options::Initialize(EventManager &evm,
                          opt::options_description &cmdline_options) {
     boost::system::error_code error;
@@ -48,7 +48,7 @@ void Options::Initialize(EventManager &evm,
     // Command line only options.
     generic.add_options()
         ("conf_file", opt::value<string>()->default_value(
-                                                    "/etc/contrail/dns.conf"),
+                                                    "/etc/contrail/contrail-dns.conf"),
              "Configuration file")
          ("help", "help message")
         ("version", "Display version information")
@@ -72,16 +72,16 @@ void Options::Initialize(EventManager &evm,
              "DNS Configuration file")
 
         ("DEFAULT.named_config_file",
-             opt::value<string>()->default_value("named.conf"),
+             opt::value<string>()->default_value("contrail-named.conf"),
              "Named Configuration file")
         ("DEFAULT.named_config_directory",
              opt::value<string>()->default_value("/etc/contrail/dns"),
              "Named Configuration directory")
         ("DEFAULT.named_log_file",
-             opt::value<string>()->default_value("/var/log/named/bind.log"),
+             opt::value<string>()->default_value("/var/log/contrail/contrail-named.log"),
              "Named log file")
         ("DEFAULT.rndc_config_file",
-             opt::value<string>()->default_value("rndc.conf"),
+             opt::value<string>()->default_value("contrail-rndc.conf"),
              "Rndc Configuration file")
         ("DEFAULT.rndc_secret",
              opt::value<string>()->default_value("xvysmOR8lnUQRBcunkC6vg=="),
