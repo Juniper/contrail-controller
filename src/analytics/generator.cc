@@ -70,7 +70,6 @@ void Generator::GetStatistics(vector<SandeshMessageInfo> &smv) {
 }
     
 bool Generator::ReceiveSandeshMsg(const VizMsg *vmsg, bool rsc) {
-    GetDbHandler()->MessageTableInsert(vmsg);
     UpdateStatistics(vmsg);
     return ProcessRules(vmsg, rsc);
 }
