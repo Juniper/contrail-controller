@@ -527,6 +527,8 @@ bool Ruleeng::rule_execute(const VizMsg *vmsgp, bool uveproc, DbHandler *db) {
     if (db->DropMessage(header, vmsgp)) {
         return true;
     }
+    // Insert into the message and message index tables
+    db->MessageTableInsert(vmsgp);
     /*
      *  We would like to execute some actions globally here, before going
      *  through the ruleeng rules

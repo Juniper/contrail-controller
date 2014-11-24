@@ -28,7 +28,6 @@
 
 #include "collector.h"
 #include "viz_collector.h"
-#include "ruleeng.h"
 #include "viz_sandesh.h"
 #include "gendb_types.h"
 
@@ -46,26 +45,30 @@ bool Collector::task_policy_set_ = false;
 const std::string Collector::kDbTask = "analytics::DbHandler";
 const std::vector<Sandesh::QueueWaterMarkInfo> Collector::kDbQueueWaterMarkInfo =
     boost::assign::tuple_list_of
+        (150000, SandeshLevel::SYS_EMERG, true)
         (100000, SandeshLevel::SYS_ERR, true)
         (50000, SandeshLevel::SYS_DEBUG, true)
+        (125000, SandeshLevel::SYS_ERR, false)
         (75000, SandeshLevel::SYS_DEBUG, false)
         (25000, SandeshLevel::INVALID, false);
 const std::vector<Sandesh::QueueWaterMarkInfo> Collector::kSmQueueWaterMarkInfo =
     boost::assign::tuple_list_of
+        (150000, SandeshLevel::SYS_EMERG, true)
         (100000, SandeshLevel::SYS_ERR, true)
         (50000, SandeshLevel::SYS_DEBUG, true)
+        (125000, SandeshLevel::SYS_ERR, false)
         (75000, SandeshLevel::SYS_DEBUG, false)
         (25000, SandeshLevel::INVALID, false);
 
 Collector::Collector(EventManager *evm, short server_port,
-        DbHandler *db_handler, Ruleeng *ruleeng,
+        DbHandler *db_handler, OpServerProxy *osp, VizCallback cb,
         std::vector<std::string> cassandra_ips,
         std::vector<int> cassandra_ports, int analytics_ttl) :
         SandeshServer(evm),
         db_handler_(db_handler),
-        osp_(ruleeng->GetOSP()),
+        osp_(osp),
         evm_(evm),
-        cb_(boost::bind(&Ruleeng::rule_execute, ruleeng, _1, _2, _3)),
+        cb_(cb),
         cassandra_ips_(cassandra_ips),
         cassandra_ports_(cassandra_ports),
         analytics_ttl_(analytics_ttl),
