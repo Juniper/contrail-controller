@@ -176,6 +176,7 @@ void DbHandler::UnInitUnlocked(int instance) {
 }
 
 bool DbHandler::Init(bool initial, int instance) {
+    SetDropLevel(0, SandeshLevel::INVALID);
     if (initial) {
         return Initialize(instance);
     } else {

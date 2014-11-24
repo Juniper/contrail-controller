@@ -34,7 +34,6 @@
 #include "collector_uve_types.h"
 
 class DbHandler;
-class Ruleeng;
 class OpServerProxy;
 class EventManager;
 class SandeshStateMachine;
@@ -46,7 +45,7 @@ public:
     typedef boost::function<bool(const VizMsg*, bool, DbHandler *)> VizCallback;
 
     Collector(EventManager *evm, short server_port,
-              DbHandler *db_handler, Ruleeng *ruleeng,
+              DbHandler *db_handler, OpServerProxy *osp, VizCallback cb,
               std::vector<std::string> cassandra_ips = 
                   boost::assign::list_of("127.0.0.1"), 
               std::vector<int> cassandra_ports =
