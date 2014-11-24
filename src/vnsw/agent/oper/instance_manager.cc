@@ -350,7 +350,10 @@ void InstanceManager::StateClear() {
 
 void InstanceManager::Terminate() {
     StateClear();
+    agent_->loadbalancer_table()->Unregister(lb_listener_);
+    agent_->loadbalancer_table()->Clear();
     agent_->service_instance_table()->Unregister(si_listener_);
+    agent_->service_instance_table()->Clear();
 
     InstanceTaskQueue *task_queue;
     for (std::vector<InstanceTaskQueue *>::iterator iter = task_queues_.begin();
