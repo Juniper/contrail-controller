@@ -4,17 +4,24 @@ import sys
 vpath = '#/third_party/bind-9.9.2-P1/'
 env = DefaultEnvironment()
 
-config_opts = '--prefix=' + str(Dir('#/build')) + ' --enable-threads' + ' --enable-fixed-rrset'
+build_dir = str(Dir('#/build'))
+config_opts = '--prefix=' + build_dir + ' --enable-threads' + ' --enable-fixed-rrset'
 
 if sys.platform.startswith('freebsd'):
     # TODO(md): There is a known bug with gsskrb5 linking on FreeBSD and libgss
     # has to be disabled for now.
     config_opts += ' --without-gssapi'
     cmd = ('(cd ' + Dir('.').abspath + '; ' + str(Dir(vpath)) +
-          '/configure' + ' ' + config_opts + '; gmake clean; gmake; gmake install)')
+           '/configure' + ' ' + config_opts + '; gmake clean; gmake; gmake install; ' +
+           'mv ' + build_dir + '/sbin/named ' + build_dir + '/sbin/contrail-named; ' +
+           'mv ' + build_dir + '/sbin/rndc ' + build_dir + '/sbin/contrail-rndc; ' +
+           'mv ' + build_dir + '/sbin/rndc-confgen ' + build_dir + '/sbin/contrail-rndc-confgen;)')
 else:
     cmd = ('(cd ' + Dir('.').abspath + '; ' + str(Dir(vpath)) +
-          '/configure' + ' ' + config_opts + '; make clean; make; make install)')
+           '/configure' + ' ' + config_opts + '; make clean; make; make install; ' +
+           'mv ' + build_dir + '/sbin/named ' + build_dir + '/sbin/contrail-named; ' +
+           'mv ' + build_dir + '/sbin/rndc ' + build_dir + '/sbin/contrail-rndc; ' +
+           'mv ' + build_dir + '/sbin/rndc-confgen ' + build_dir + '/sbin/contrail-rndc-confgen;)')
 
 products = [ str(File('#/build/lib/librndc' + env['LIBSUFFIX'])),
              str(File('#/build/lib/libisc' + env['LIBSUFFIX'])),
@@ -23,10 +30,11 @@ products = [ str(File('#/build/lib/librndc' + env['LIBSUFFIX'])),
              str(File('#/build/lib/libbind9' + env['LIBSUFFIX'])),
              str(File('#/build/lib/libdns' + env['LIBSUFFIX'])),
              str(Dir('#build/include/isc'))]
-binproducts = [ str(File('#/build/sbin/named')),
-                str(File('#/build/sbin/rndc'))]
+binproducts = [ str(File('#/build/sbin/contrail-named')),
+                str(File('#/build/sbin/contrail-rndc')),
+                str(File('#/build/sbin/contrail-rndc-confgen')) ]
 
-confs = [ 'rndc.conf', 'named.conf' ]
+confs = [ 'contrail-rndc.conf', 'contrail-named.conf', 'COPYRIGHT' ]
 
 bind_cfg = env.Command('config.status', str(Dir(vpath)), cmd)
 env.SideEffect(products + binproducts, bind_cfg)

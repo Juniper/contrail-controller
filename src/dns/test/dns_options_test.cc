@@ -49,13 +49,13 @@ TEST_F(OptionsTest, NoArguments) {
     TASK_UTIL_EXPECT_VECTOR_EQ(default_collector_server_list_,
                      options_.collector_server_list());
     EXPECT_EQ(options_.dns_config_file(), "dns_config.xml");
-    EXPECT_EQ(options_.config_file(), "/etc/contrail/dns.conf");
+    EXPECT_EQ(options_.config_file(), "/etc/contrail/contrail-dns.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
-    EXPECT_EQ(options_.named_config_file(), "named.conf");
+    EXPECT_EQ(options_.named_config_file(), "contrail-named.conf");
     EXPECT_EQ(options_.named_config_dir(), "/etc/contrail/dns");
-    EXPECT_EQ(options_.named_log_file(), "/var/log/named/bind.log");
-    EXPECT_EQ(options_.rndc_config_file(), "rndc.conf");
+    EXPECT_EQ(options_.named_log_file(), "/var/log/contrail/contrail-named.log");
+    EXPECT_EQ(options_.rndc_config_file(), "contrail-rndc.conf");
     EXPECT_EQ(options_.rndc_secret(), "xvysmOR8lnUQRBcunkC6vg==");
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
@@ -79,7 +79,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     int argc = 2;
     char *argv[argc];
     char argv_0[] = "dns_options_test";
-    char argv_1[] = "--conf_file=controller/src/dns/dns.conf";
+    char argv_1[] = "--conf_file=controller/src/dns/contrail-dns.conf";
     argv[0] = argv_0;
     argv[1] = argv_1;
 
@@ -89,13 +89,13 @@ TEST_F(OptionsTest, DefaultConfFile) {
                      options_.collector_server_list());
     EXPECT_EQ(options_.dns_config_file(), "dns_config.xml");
     EXPECT_EQ(options_.config_file(),
-              "controller/src/dns/dns.conf");
+              "controller/src/dns/contrail-dns.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
-    EXPECT_EQ(options_.named_config_file(), "named.conf");
+    EXPECT_EQ(options_.named_config_file(), "contrail-named.conf");
     EXPECT_EQ(options_.named_config_dir(), "/etc/contrail/dns");
-    EXPECT_EQ(options_.named_log_file(), "/var/log/named/bind.log");
-    EXPECT_EQ(options_.rndc_config_file(), "rndc.conf");
+    EXPECT_EQ(options_.named_log_file(), "/var/log/contrail/contrail-named.log");
+    EXPECT_EQ(options_.rndc_config_file(), "contrail-rndc.conf");
     EXPECT_EQ(options_.rndc_secret(), "secret==$");
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
@@ -119,7 +119,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     int argc = 5;
     char *argv[argc];
     char argv_0[] = "dns_options_test";
-    char argv_1[] = "--conf_file=controller/src/dns/dns.conf";
+    char argv_1[] = "--conf_file=controller/src/dns/contrail-dns.conf";
     char argv_2[] = "--DEFAULT.log_file=test.log";
     char argv_3[] = "--DEFAULT.rndc_config_file=test.rndc";
     char argv_4[] = "--DEFAULT.rndc_secret=secret123";
@@ -135,10 +135,10 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
                      options_.collector_server_list());
     EXPECT_EQ(options_.dns_config_file(), "dns_config.xml");
     EXPECT_EQ(options_.config_file(),
-              "controller/src/dns/dns.conf");
-    EXPECT_EQ(options_.named_config_file(), "named.conf");
+              "controller/src/dns/contrail-dns.conf");
+    EXPECT_EQ(options_.named_config_file(), "contrail-named.conf");
     EXPECT_EQ(options_.named_config_dir(), "/etc/contrail/dns");
-    EXPECT_EQ(options_.named_log_file(), "/var/log/named/bind.log");
+    EXPECT_EQ(options_.named_log_file(), "/var/log/contrail/contrail-named.log");
     EXPECT_EQ(options_.rndc_config_file(), "test.rndc");
     EXPECT_EQ(options_.rndc_secret(), "secret123");
     EXPECT_EQ(options_.discovery_server(), "");
@@ -165,7 +165,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     int argc = 3;
     char *argv[argc];
     char argv_0[] = "dns_options_test";
-    char argv_1[] = "--conf_file=controller/src/dns/dns.conf";
+    char argv_1[] = "--conf_file=controller/src/dns/contrail-dns.conf";
     char argv_2[] = "--DEFAULT.test_mode";
     argv[0] = argv_0;
     argv[1] = argv_1;
@@ -177,7 +177,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
                      options_.collector_server_list());
     EXPECT_EQ(options_.dns_config_file(), "dns_config.xml");
     EXPECT_EQ(options_.config_file(),
-              "controller/src/dns/dns.conf");
+              "controller/src/dns/contrail-dns.conf");
     EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
