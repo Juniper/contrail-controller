@@ -28,9 +28,10 @@ from vnc_api.vnc_api import NoIdError
 @six.add_metaclass(abc.ABCMeta)
 class VRouterScheduler(object):
 
-    def __init__(self, vnc_lib, args):
+    def __init__(self, vnc_lib, nova_client, args):
         self._vnc_lib = vnc_lib
         self._args = args
+        self._nc = nova_client
 
         # initialize analytics client
         endpoint = "http://%s:%s" % (self._args.analytics_server_ip,
@@ -57,8 +58,21 @@ class VRouterScheduler(object):
         is return in the candidates list.
         """
 
-        vrs_fq_name = [vr['fq_name'] for vr in
-                       self._vnc_lib.virtual_routers_list()['virtual-routers']
+        # if availability zone configured then use it
+        vr_list = []
+        if self._args.netns_availability_zone:
+            az_list = self._nc.oper('availability_zones', 'list',
+                                    'admin', detailed=True)
+            for az in az_list:
+                if self._args.netns_availability_zone in str(az):
+                    for host in az.hosts:
+                        vr_list.append({'fq_name':
+                            ['default-global-system-config', host]})
+        else:
+            vr_list = self._vnc_lib.virtual_routers_list()['virtual-routers']
+
+        # check if vrouters are functional
+        vrs_fq_name = [vr['fq_name'] for vr in vr_list
                        if self.vrouter_running(vr['fq_name'][-1])]
         for vr_fq_name in vrs_fq_name:
             try:

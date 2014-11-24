@@ -21,9 +21,6 @@ from cfgm_common import svc_info
 from vnc_api.vnc_api import *
 from instance_manager import InstanceManager
 
-from novaclient import client as nc
-from novaclient import exceptions as nc_exc
-
 class VirtualMachineManager(InstanceManager):
 
     def _create_svc_vm(self, instance_name, image_name, nics,
@@ -31,16 +28,14 @@ class VirtualMachineManager(InstanceManager):
 
         proj_name = si_obj.get_parent_fq_name()[-1]
         if flavor_name:
-            flavor = self.novaclient_oper('flavors', 'find', proj_name,
-                                           name=flavor_name)
+            flavor = self._nc.oper('flavors', 'find', proj_name,
+                                   name=flavor_name)
         else:
-            flavor = self.novaclient_oper('flavors', 'find', proj_name,
-                                           ram=4096)
+            flavor = self._nc.oper('flavors', 'find', proj_name, ram=4096)
         if not flavor:
             return
 
-        image = self.novaclient_oper('images', 'find', proj_name,
-                                      name=image_name)
+        image = self._nc.oper('images', 'find', proj_name, name=image_name)
         if not image:
             return
 
@@ -55,10 +50,10 @@ class VirtualMachineManager(InstanceManager):
 
         # launch vm
         self.logger.log('Launching VM : ' + instance_name)
-        nova_vm = self.novaclient_oper('servers', 'create', proj_name,
-                                        name=instance_name, image=image,
-                                        flavor=flavor, nics=nics_with_port,
-                                        availability_zone=avail_zone)
+        nova_vm = self._nc.oper('servers', 'create', proj_name,
+            name=instance_name, image=image,
+            flavor=flavor, nics=nics_with_port,
+            availability_zone=avail_zone)
         nova_vm.get()
         self.logger.log('Created VM : ' + str(nova_vm))
 
@@ -124,8 +119,8 @@ class VirtualMachineManager(InstanceManager):
                 vm_uuid = vm.id
                 state = 'pending'
             else:
-                vm = self.novaclient_oper('servers', 'find', proj_name,
-                                           id=si_info[prefix + 'uuid'])
+                vm = self._nc.oper('servers', 'find', proj_name,
+                                   id=si_info[prefix + 'uuid'])
                 if not vm:
                     continue
                 vm_uuid = si_info[prefix + 'uuid']
@@ -153,7 +148,7 @@ class VirtualMachineManager(InstanceManager):
         except (NoIdError, RefsExistError):
             pass
 
-        vm = self.novaclient_oper('servers', 'find', proj_name, id=vm_uuid)
+        vm = self._nc.oper('servers', 'find', proj_name, id=vm_uuid)
         if not vm:
             raise KeyError
 
@@ -167,8 +162,8 @@ class VirtualMachineManager(InstanceManager):
         vm_list = {}
         vm_back_refs = si_obj.get_virtual_machine_back_refs()
         for vm_back_ref in vm_back_refs or []:
-            vm = self.novaclient_oper('servers', 'find', proj_name,
-                id=vm_back_ref['uuid'])
+            vm = self._nc.oper('servers', 'find', proj_name,
+                               id=vm_back_ref['uuid'])
             if vm:
                 vm_list[vm.name] = vm
             else:
@@ -205,45 +200,6 @@ class VirtualMachineManager(InstanceManager):
             status = 'ERROR'
 
         return status
-
-    def _novaclient_get(self, proj_name, reauthenticate=False):
-        # return cache copy when reauthenticate is not requested
-        if not reauthenticate:
-            client = self._nova.get(proj_name)
-            if client is not None:
-                return client
-
-        auth_url = self._args.auth_protocol + '://' + self._args.auth_host \
-                   + ':' + self._args.auth_port + '/' + self._args.auth_version
-        self._nova[proj_name] = nc.Client(
-            '2', username=self._args.admin_user, project_id=proj_name,
-            api_key=self._args.admin_password,
-            region_name=self._args.region_name, service_type='compute',
-            auth_url=auth_url, insecure=self._args.auth_insecure)
-        return self._nova[proj_name]
-
-    def novaclient_oper(self, resource, oper, proj_name, **kwargs):
-        n_client = self._novaclient_get(proj_name)
-        try:
-            resource_obj = getattr(n_client, resource)
-            oper_func = getattr(resource_obj, oper)
-            return oper_func(**kwargs)
-        except nc_exc.Unauthorized:
-            n_client = self._novaclient_get(proj_name, True)
-            oper_func = getattr(n_client, oper)
-            return oper_func(**kwargs)
-        except nc_exc.NotFound:
-            self.logger.log(
-                "Error: %s %s=%s not found in project %s"
-                % (resource, kwargs.keys()[0], kwargs.values()[0], proj_name))
-            return None
-        except nc_exc.NoUniqueMatch:
-            self.logger.log(
-                "Error: Multiple %s %s=%s found in project %s"
-                % (resource, kwargs.keys()[0], kwargs.values()[0], proj_name))
-            return None
-        except Exception:
-            return None
 
     def update_static_routes(self, si_obj):
         # get service instance interface list
