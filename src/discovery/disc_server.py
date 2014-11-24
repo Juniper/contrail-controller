@@ -27,7 +27,7 @@ import datetime
 import argparse
 import ConfigParser
 from pprint import pformat
-from random import randint
+import random
 
 import bottle
 
@@ -452,6 +452,24 @@ class DiscoveryServer():
         return response
     # end api_publish
 
+    # randomize services with same in_use count to handle requests arriving
+    # at the same time
+    def disco_shuffle(self, list):
+        if list is None or len(list) == 0:
+            return list
+        master_list = []
+        working_list = []
+        previous_use_count = list[0]['in_use']
+        list.append({'in_use': -1}) 
+        for item in list:
+            if item['in_use'] != previous_use_count:
+                random.shuffle(working_list)
+                master_list.extend(working_list)
+                working_list = []
+            working_list.append(item)
+            previous_use_count = item['in_use']
+        return master_list
+
     # round-robin
     def service_list_round_robin(self, pubs):
         self._debug['policy_rr'] += 1
@@ -461,7 +479,8 @@ class DiscoveryServer():
     # load-balance
     def service_list_load_balance(self, pubs):
         self._debug['policy_lb'] += 1
-        return sorted(pubs, key=lambda service: service['in_use'])
+        temp = sorted(pubs, key=lambda service: service['in_use'])
+        return self.disco_shuffle(temp)
     # end
 
     # master election
@@ -505,7 +524,7 @@ class DiscoveryServer():
 
         assigned_sid = set()
         r = []
-        ttl = randint(self._args.ttl_min, self._args.ttl_max)
+        ttl = random.randint(self._args.ttl_min, self._args.ttl_max)
 
         # check client entry and any existing subscriptions
         cl_entry, subs = self._db_conn.lookup_client(service_type, client_id)
@@ -526,7 +545,7 @@ class DiscoveryServer():
         pubs = self._db_conn.lookup_service(service_type) or []
         pubs_active = [item for item in pubs if not self.service_expired(item)]
         if len(pubs_active) < count:
-            ttl = randint(1, 32)
+            ttl = random.randint(1, 32)
             self._debug['ttl_short'] += 1
 
         self.syslog(
@@ -534,12 +553,21 @@ class DiscoveryServer():
             % (service_type, client_type, client_id, ttl, count,
             len(pubs), len(pubs_active), len(subs)))
 
+        # handle query for all publishers
+        if count == 0:
+            r = [entry['info'] for entry in pubs_active]
+            response = {'ttl': ttl, service_type: r}
+            if ctype == 'application/xml':
+                response = xmltodict.unparse({'response': response})
+            return response
+
         if subs:
             plist = dict((entry['service_id'],entry) for entry in pubs_active)
             for service_id, result in subs:
                 # previously published service is gone
                 entry = plist.get(service_id, None)
                 if entry is None:
+                    self._db_conn.delete_subscription(service_type, client_id, service_id)
                     continue
                 result = entry['info']
                 self._db_conn.insert_client(
@@ -554,18 +582,14 @@ class DiscoveryServer():
                     return response
 
 
-        # find least loaded instances
-        pubs = self.service_list(service_type, pubs_active)
+        # skip duplicates from existing assignments
+	pubs = [entry for entry in pubs_active if not entry['service_id'] in assigned_sid]
 
-        # prepare response - send all if count 0
-        for entry in pubs:
+        # find instances based on policy (lb, rr, fixed ...)
+        pubs = self.service_list(service_type, pubs)
 
-            # skip duplicates - could happen if some publishers have quit and
-            # we have already picked up others from cached information above
-            if entry['service_id'] in assigned_sid:
-                continue
-            assigned_sid.add(entry['service_id'])
-
+        # take first 'count' publishers
+        for entry in pubs[:min(count, len(pubs))]:
             result = entry['info']
             r.append(result)
 
@@ -576,15 +600,12 @@ class DiscoveryServer():
             self._db_conn.insert_client(
                 service_type, entry['service_id'], client_id, result, ttl)
 
-            # update publisher entry
+            # update publisher TS for round-robin algorithm
             entry['ts_use'] = self._ts_use
             self._ts_use += 1
             self._db_conn.update_service(
                 service_type, entry['service_id'], entry)
 
-            count -= 1
-            if count == 0:
-                break
 
         response = {'ttl': ttl, service_type: r}
         if ctype == 'application/xml':
