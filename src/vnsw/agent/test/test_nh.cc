@@ -370,7 +370,7 @@ TEST_F(CfgTest, EcmpNH_2) {
         {"vnet5", 5, "1.1.1.1", "00:00:00:02:02:05", 1, 5}
     };
 
-    CreateVmportWithEcmp(input1, 1);
+    CreateVmportWithEcmp(input1, 1, 1);
     client->WaitForIdle();
     //First VM added, route points to composite NH
     Ip4Address ip = Ip4Address::from_string("1.1.1.1");
@@ -378,6 +378,7 @@ TEST_F(CfgTest, EcmpNH_2) {
     EXPECT_TRUE(rt != NULL);
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(nh->GetType() == NextHop::INTERFACE);
+    EXPECT_TRUE(nh->PolicyEnabled() == true);
 
     //Second VM added, route should point to composite NH
     CreateVmportWithEcmp(input2, 1);
@@ -386,6 +387,9 @@ TEST_F(CfgTest, EcmpNH_2) {
     EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 2);
+    const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(comp_nh->Get(0)->nh());
+    EXPECT_TRUE(intf_nh->PolicyEnabled() == false);
+    EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
 
     CreateVmportWithEcmp(input3, 1);
     client->WaitForIdle();
@@ -406,7 +410,7 @@ TEST_F(CfgTest, EcmpNH_2) {
     //Verify all the component NH have right label and nexthop
     ComponentNHList::const_iterator component_nh_it =
         comp_nh->begin();
-    const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
+    intf_nh = static_cast<const InterfaceNH *>
                                      ((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
     MplsLabel *mpls = GetActiveLabel(MplsLabel::VPORT_NH, 
@@ -1641,6 +1645,68 @@ TEST_F(CfgTest, EcmpNH_16) {
     WAIT_FOR(100, 1000, (VrfFind("vrf1") == false));
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf2"));
+}
+
+//Add a interface NH with policy
+//Add a  BGP peer route with one interface NH and one tunnel NH
+//make sure interface NH gets added without policy
+TEST_F(CfgTest, EcmpNH_17) {
+    //Add interface
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+    CreateVmportEnv(input, 1, 1);
+    client->WaitForIdle();
+
+    const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    agent_->fabric_inet4_unicast_table()->
+            AddLocalVmRouteReq(bgp_peer, "vrf1", ip, 32,
+            MakeUuid(1), "vn1", intf->label(),
+            SecurityGroupList(), false, PathPreference(), Ip4Address(0));
+    client->WaitForIdle();
+
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    EXPECT_TRUE(rt != NULL);
+    const NextHop *nh = rt->GetActiveNextHop();
+
+    Ip4Address remote_server_ip1 = Ip4Address::from_string("10.10.10.100");
+    //Create component NH list
+    //Transition remote VM route to ECMP route
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(15, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  remote_server_ip1,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    DBEntryBase::KeyPtr key = nh->GetDBRequestKey();
+    NextHopKey *nh_key = static_cast<NextHopKey *>(key.release());
+    std::auto_ptr<const NextHopKey> nh_akey(nh_key);
+    nh_key->SetPolicy(false);
+    ComponentNHKeyPtr nh_data2(new ComponentNHKey(intf->label(), nh_akey));
+
+    ComponentNHKeyList comp_nh_list;
+    //Insert new NH first and then existing route NH
+    comp_nh_list.push_back(nh_data1);
+    comp_nh_list.push_back(nh_data2);
+
+    SecurityGroupList sg_list;
+    EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip, 32,
+                        comp_nh_list, false, "vn1", sg_list, PathPreference());
+    client->WaitForIdle();
+
+    rt = RouteGet("vrf1", ip, 32);
+    EXPECT_TRUE(rt != NULL);
+    nh = rt->GetActiveNextHop();
+    EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
+    const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
+    const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(comp_nh->Get(0)->nh());
+    EXPECT_TRUE(intf_nh->PolicyEnabled() == false);
+    EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
+
+    DeleteVmportEnv(input, 1, true);
+    WAIT_FOR(100, 1000, (VrfFind("vrf1") == false));
+    client->WaitForIdle();
+    EXPECT_FALSE(RouteFind("vrf1", ip, 32));
 }
 
 TEST_F(CfgTest, TunnelType_1) {
