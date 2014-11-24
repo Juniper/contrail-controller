@@ -1773,6 +1773,7 @@ void CompositeNHKey::Reorder(Agent *agent,
     if (nh->GetType() != NextHop::COMPOSITE) {
         DBEntryBase::KeyPtr key = nh->GetDBRequestKey();
         NextHopKey *nh_key = static_cast<NextHopKey *>(key.release());
+        nh_key->SetPolicy(false);
         std::auto_ptr<const NextHopKey> nh_key_ptr(nh_key);
         //Insert exisiting nexthop at first slot
         //This ensures that old flows are not disturbed
