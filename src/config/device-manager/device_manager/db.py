@@ -7,13 +7,12 @@ This file contains implementation of data model for physical router
 configuration manager
 """
 from vnc_api.common.exceptions import NoIdError
-from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from physical_router_config import PhysicalRouterConfig
 from sandesh.dm_introspect import ttypes as sandesh
 from cfgm_common.vnc_db import DBBase
 
-class DBBaseDM(DBBase):
 
+class DBBaseDM(DBBase):
     def get_ref_uuid_from_dict(self, obj_dict, ref_name):
         if ref_name in obj_dict:
             return obj_dict[ref_name][0]['uuid']
@@ -139,6 +138,7 @@ class BgpRouterDM(DBBaseDM):
         return sandesh.BgpRouter(name=self.name, uuid=self.uuid,
                                  peers=self.bgp_routers,
                                  physical_router=self.physical_router)
+
     @classmethod
     def sandesh_request(cls, req):
         # Return the list of BGP routers
@@ -204,7 +204,7 @@ class PhysicalRouterDM(DBBaseDM):
                 peer = BgpRouterDM.get(peer_uuid)
                 if peer is None:
                     continue
-                self.config_manager.add_bgp_peer(peer.params.address, params)
+                self.config_manager.add_bgp_peer(peer.params['address'], params)
             self.config_manager.set_bgp_config(bgp_router.params)
 
         vn_dict = {}
