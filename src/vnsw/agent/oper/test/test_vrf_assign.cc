@@ -50,7 +50,7 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm, std::string
     VmInterfaceKey *key = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     req.key.reset(key);
 
-    VmInterfaceConfigData *cfg_data = new VmInterfaceConfigData();
+    VmInterfaceConfigData *cfg_data = new VmInterfaceConfigData(NULL);
     InterfaceData *data = static_cast<InterfaceData *>(cfg_data);
     data->VmPortInit();
 

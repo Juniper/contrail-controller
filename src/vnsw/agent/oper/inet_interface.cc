@@ -84,8 +84,8 @@ InetInterfaceData::InetInterfaceData(InetInterface::SubType sub_type,
                                      const Ip4Address &gw,
                                      const std::string &xconnect,
                                      const std::string vn_name) :
-    InterfaceData(), sub_type_(sub_type), ip_addr_(addr), plen_(plen), gw_(gw),
-    xconnect_(xconnect), vn_name_(vn_name) {
+    InterfaceData(NULL), sub_type_(sub_type), ip_addr_(addr), plen_(plen),
+    gw_(gw), xconnect_(xconnect), vn_name_(vn_name) {
     InetInit(vrf_name);
 }
 

@@ -19,5 +19,7 @@
 #include <oper/physical_interface.h>
 #include <oper/inet_interface.h>
 #include <oper/packet_interface.h>
+#include <oper/logical_interface.h>
+#include <oper/remote_physical_interface.h>
 
 #endif // vnsw_agent_interface_common_hpp

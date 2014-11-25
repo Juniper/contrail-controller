@@ -10,6 +10,15 @@ env = AgentEnv.Clone()
 # test specific modifications
 AgentEnv.MakeTestEnv(env)
 
+lib_src = ['test_xml_physical_device.cc']
+env.Library('agent_physical_devices_test_xml', lib_src)
+
+env.Append(LIBPATH = env['TOP'] + '/vnsw/agent/test-xml')
+env.Append(LIBPATH = env['TOP'] + '/vnsw/agent/oper/test')
+env.Append(LIBS = 'agent_test_xml')
+env.Append(LIBS = 'agent_oper_test_xml')
+env.Append(LIBS = 'agent_physical_devices_test_xml')
+
 oper_test_suite = []
 oper_flaky_test_suite = []
 
@@ -69,6 +78,14 @@ loadbalancer_haproxy_test = env.UnitTest(
     ['loadbalancer_haproxy_test.cc'])
 env.Alias('agent:loadbalancer_haproxy_test', loadbalancer_haproxy_test)
 oper_test_suite.append(loadbalancer_haproxy_test)
+
+test_physical_devices = AgentEnv.MakeTestCmdSrc(env, 'test_physical_devices',
+                                                [
+                                                'test_physical_devices.cc',
+                                                'test_xml_agent_init.cc',
+                                                '../../pkt/test/test_pkt_util.o'
+                                                ],
+                                                oper_test_suite)
 
 flaky_test = env.TestSuite('agent-flaky-test', oper_flaky_test_suite)
 env.Alias('controller/src/vnsw/agent/oper:flaky_test', flaky_test)

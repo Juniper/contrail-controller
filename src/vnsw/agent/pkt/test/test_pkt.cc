@@ -220,7 +220,8 @@ TEST_F(PktTest, tx_vlan_1) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, MakeUuid(2),
                                      "vm-itf-2"));
-    req.data.reset(new VmInterfaceAddData(Ip4Address::from_string("1.1.1.2"),
+    req.data.reset(new VmInterfaceAddData(NULL,
+                                          Ip4Address::from_string("1.1.1.2"),
                                           "00:00:00:00:00:01",
                                           "vm-1", MakeUuid(1), 1, 2, "vnet0",
                                           Ip6Address()));
