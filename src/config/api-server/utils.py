@@ -55,6 +55,7 @@ def parse_args(args_str):
         'rabbit_user': 'guest',
         'rabbit_password': 'guest',
         'rabbit_vhost': None,
+        'rabbit_ha_mode': False,
         'rabbit_max_pending_updates': '4096',
         'cluster_id': '',
     }
@@ -218,6 +219,9 @@ def parse_args(args_str):
     parser.add_argument(
         "--rabbit_password",
         help="password for rabbit")
+    parser.add_argument(
+        "--rabbit_ha_mode",
+        help="True if the rabbitmq cluster is mirroring all queue")
     parser.add_argument(
         "--rabbit_max_pending_updates",
         help="Max updates before stateful changes disallowed")
