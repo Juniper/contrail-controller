@@ -21,6 +21,7 @@ test_inet_interface = AgentEnv.MakeTestCmd(env, 'test_inet_interface',
 test_fabric_interface = AgentEnv.MakeTestCmd(env, 'test_fabric_interface',
                                              oper_test_suite)
 test_aap = AgentEnv.MakeTestCmd(env, 'test_aap', oper_test_suite)
+test_namespace_task = AgentEnv.MakeTestCmd(env, 'test_namespace_task', oper_test_suite)
 
 env.Append(LIBPATH = [
         '../../../../base/test',

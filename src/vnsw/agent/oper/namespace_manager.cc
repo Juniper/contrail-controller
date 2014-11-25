@@ -817,7 +817,8 @@ pid_t NamespaceTask::Run() {
 
         close(STDOUT_FILENO);
         close(STDIN_FILENO);
-
+        /* Close all the open fds before execvp */
+        CloseInheritedFds();
         execvp(c_argv[0], (char **) c_argv.data());
         perror("execvp");
 
