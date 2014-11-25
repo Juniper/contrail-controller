@@ -204,6 +204,8 @@ def setup_common_flexmock():
     flexmock(kombu.Connection, __new__=FakeKombu.Connection)
     flexmock(kombu.Exchange, __new__=FakeKombu.Exchange)
     flexmock(kombu.Queue, __new__=FakeKombu.Queue)
+    flexmock(kombu.Consumer, __new__=FakeKombu.Consumer)
+    flexmock(kombu.Producer, __new__=FakeKombu.Producer)
 
     flexmock(VncApiConfigLog, __new__=FakeApiConfigLog)
 #end setup_common_flexmock
