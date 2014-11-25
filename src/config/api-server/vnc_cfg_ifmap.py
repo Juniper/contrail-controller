@@ -882,7 +882,7 @@ class VncServerCassandraClient(VncCassandraClient):
 
 class VncServerKombuClient(VncKombuClient):
     def __init__(self, db_client_mgr, rabbit_ip, rabbit_port, ifmap_db,
-                 rabbit_user, rabbit_password, rabbit_vhost):
+                 rabbit_user, rabbit_password, rabbit_vhost, rabbit_ha_mode):
         self._db_client_mgr = db_client_mgr
         self._sandesh = db_client_mgr._sandesh
         self._ifmap_db = ifmap_db
@@ -890,44 +890,20 @@ class VncServerKombuClient(VncKombuClient):
         q_name = 'vnc_config.%s-%s' %(socket.gethostname(), listen_port)
         super(VncServerKombuClient, self).__init__(
             rabbit_ip, rabbit_port, rabbit_user, rabbit_password, rabbit_vhost,
-            q_name, self._dbe_subscribe_callback, self.config_log)
+            rabbit_ha_mode, q_name, self._dbe_subscribe_callback, self.config_log)
 
-        self._publish_queue = Queue()
-        self._dbe_publish_greenlet = gevent.spawn(self._dbe_oper_publish)
     # end __init__
+
+    def prepare_to_consume(self):
+        self._db_client_mgr.wait_for_resync_done()
+    # prepare_to_consume
 
     def config_log(self, msg, level):
         self._db_client_mgr.config_log(msg, level)
     # end config_log
 
-    def _obj_update_q_put(self, oper_info):
-        if self._rabbit_vhost == "__NONE__":
-            return
-        self._publish_queue.put(oper_info)
-    # end _obj_update_q_put
-
-    def _dbe_oper_publish(self):
-        self._db_client_mgr.wait_for_resync_done()
-        while True:
-            try:
-                message = self._publish_queue.get()
-                while True:
-                    try:
-                        self._obj_update_q.put(message, serializer='json')
-                        break
-                    except Exception as e:
-                        log_str = "Disconnected from rabbitmq. Reinitializing connection: %s" % str(e)
-                        self.config_log(log_str, level=SandeshLevel.SYS_WARN)
-                        time.sleep(1)
-                        self.connect()
-            except Exception as e:
-                log_str = "Unknown exception in _dbe_oper_publish greenlet" + str(e)
-                self.config_log(log_str, level=SandeshLevel.SYS_ERR)
-                time.sleep(1)
-    # end _dbe_oper_publish
-
     def dbe_oper_publish_pending(self):
-        return self._publish_queue.qsize()
+        return self.num_pending_messages()
     # end dbe_oper_publish_pending
 
     @ignore_exceptions
@@ -975,7 +951,7 @@ class VncServerKombuClient(VncKombuClient):
                      'type': obj_type,
                      'obj_dict': obj_dict}
         oper_info.update(obj_ids)
-        self._obj_update_q_put(oper_info)
+        self.publish(oper_info)
     # end dbe_create_publish
 
     def _dbe_create_notification(self, obj_info):
@@ -1001,7 +977,7 @@ class VncServerKombuClient(VncKombuClient):
     def dbe_update_publish(self, obj_type, obj_ids):
         oper_info = {'oper': 'UPDATE', 'type': obj_type}
         oper_info.update(obj_ids)
-        self._obj_update_q_put(oper_info)
+        self.publish(oper_info)
     # end dbe_update_publish
 
     def _dbe_update_notification(self, obj_info):
@@ -1032,7 +1008,7 @@ class VncServerKombuClient(VncKombuClient):
     def dbe_delete_publish(self, obj_type, obj_ids, obj_dict):
         oper_info = {'oper': 'DELETE', 'type': obj_type, 'obj_dict': obj_dict}
         oper_info.update(obj_ids)
-        self._obj_update_q_put(oper_info)
+        self.publish(oper_info)
     # end dbe_delete_publish
 
     def _dbe_delete_notification(self, obj_info):
@@ -1167,8 +1143,8 @@ class VncZkClient(object):
 class VncDbClient(object):
     def __init__(self, api_svr_mgr, ifmap_srv_ip, ifmap_srv_port, uname,
                  passwd, cass_srv_list,
-                 rabbit_server, rabbit_port, rabbit_user, rabbit_password, rabbit_vhost,
-                 reset_config=False, ifmap_srv_loc=None,
+                 rabbit_servers, rabbit_port, rabbit_user, rabbit_password, rabbit_vhost,
+                 rabbit_ha_mode, reset_config=False, ifmap_srv_loc=None,
                  zk_server_ip=None, db_prefix=''):
 
         self._api_svr_mgr = api_svr_mgr
@@ -1206,10 +1182,10 @@ class VncDbClient(object):
         self._zk_db = VncZkClient(api_svr_mgr._args.worker_id, zk_server_ip,
                                   reset_config, db_prefix, self.config_log)
 
-        self._msgbus = VncServerKombuClient(self, rabbit_server,
+        self._msgbus = VncServerKombuClient(self, rabbit_servers,
                                             rabbit_port, self._ifmap_db,
                                             rabbit_user, rabbit_password,
-                                            rabbit_vhost)
+                                            rabbit_vhost, rabbit_ha_mode)
     # end __init__
 
     def _update_default_quota(self):

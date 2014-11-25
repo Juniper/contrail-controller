@@ -567,7 +567,7 @@ class FakeKombu(object):
 
         # end class Message
 
-        def __init__(self, entity, q_name, q_exchange):
+        def __init__(self, entity, q_name, q_exchange, **kwargs):
             self._sync_q = gevent.queue.Queue()
             self._name = q_name
             self._exchange = q_exchange
