@@ -849,17 +849,18 @@ class VncApiServer(VncApiServerGen):
         redis_server_port = self._args.redis_server_port
         ifmap_loc = self._args.ifmap_server_loc
         zk_server = self._args.zk_server_ip
-        rabbit_server = self._args.rabbit_server
+        rabbit_servers = self._args.rabbit_server
         rabbit_port = self._args.rabbit_port
         rabbit_user = self._args.rabbit_user
         rabbit_password = self._args.rabbit_password
         rabbit_vhost = self._args.rabbit_vhost
-
+        rabbit_ha_mode = self._args.rabbit_ha_mode
 
         db_conn = VncDbClient(self, ifmap_ip, ifmap_port, user, passwd,
-                              cass_server_list, rabbit_server, rabbit_port,
+                              cass_server_list, rabbit_servers, rabbit_port,
                               rabbit_user, rabbit_password, rabbit_vhost,
-                              reset_config, ifmap_loc, zk_server, self._args.cluster_id)
+                              rabbit_ha_mode, reset_config, ifmap_loc,
+                              zk_server, self._args.cluster_id)
         self._db_conn = db_conn
     # end _db_connect
 
