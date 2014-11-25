@@ -72,9 +72,8 @@ if buildspace_link:
 else:
     top_dir = Dir('.')
 
-test_cmd = env.Command('test.log', 'setup.py',
-          'python setup.py run_tests 2>&1 | tee test.log',
-          chdir=top_dir)
+test_cmd = env.Command('test.log', sdist_gen,
+                       'cd ' + Dir(top_dir).path + ' && python setup.py run_tests 2>&1 | tee test.log')
 
 test_depends = ['/config/common/dist/cfgm_common-0.1dev.tar.gz',
                 '/api-lib/dist/vnc_api-0.1dev.tar.gz',
