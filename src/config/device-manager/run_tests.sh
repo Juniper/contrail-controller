@@ -73,7 +73,7 @@ function process_options {
   done
 }
 
-build_top=${build_top:-$(pwd)/../../../../build/debug}
+build_top=${build_top:-$(pwd)/../..}
 tools_path=${tools_path:-$(pwd)/../common/tests/}
 root_path=${root_path:-$(pwd)}
 venv_path=${venv_path:-$(pwd)}
