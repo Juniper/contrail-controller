@@ -9,6 +9,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <net/address.h>
+#include <unistd.h>
 
 #include <boost/intrusive_ptr.hpp>
 #include <boost/bind.hpp>
@@ -71,6 +72,13 @@ static inline void CfgUuidSet(uint64_t ms_long, uint64_t ls_long,
         u.data[15 - i] = ls_long & 0xFF;
         ls_long = ls_long >> 8;
     }
+}
+
+static inline void CloseTaskFds(void) {
+    int max_open_fds = sysconf(_SC_OPEN_MAX);
+    int fd;
+    for(fd = 3; fd < max_open_fds; fd++)
+        close(fd);
 }
 
 extern SandeshTraceBufferPtr OperDBTraceBuf;
