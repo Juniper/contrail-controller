@@ -93,6 +93,8 @@ pid_t InstanceTask::Run() {
         close(STDOUT_FILENO);
         close(STDIN_FILENO);
 
+        /* Close all the open fds before execvp */
+        CloseTaskFds();
         execvp(c_argv[0], (char **) c_argv.data());
         perror("execvp");
 
