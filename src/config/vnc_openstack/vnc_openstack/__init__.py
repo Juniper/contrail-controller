@@ -624,12 +624,26 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
         sgr_uuid = str(uuid.uuid4())
         egress_rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
                                      protocol='any',
+                                     ethertype='IPv4',
                                      src_addresses=[
                                          AddressType(security_group='local')],
                                      src_ports=[PortType(0, 65535)],
                                      dst_addresses=[
                                          AddressType(
                                              subnet=SubnetType('0.0.0.0', 0))],
+                                     dst_ports=[PortType(0, 65535)])
+        sg_rules.add_policy_rule(egress_rule)
+
+        sgr_uuid = str(uuid.uuid4())
+        egress_rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
+                                     protocol='any',
+                                     ethertype='IPv6',
+                                     src_addresses=[
+                                         AddressType(security_group='local')],
+                                     src_ports=[PortType(0, 65535)],
+                                     dst_addresses=[
+                                         AddressType(
+                                             subnet=SubnetType('::', 0))],
                                      dst_ports=[PortType(0, 65535)])
         sg_rules.add_policy_rule(egress_rule)
 
