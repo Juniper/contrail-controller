@@ -791,6 +791,7 @@ class VncApiServer(VncApiServerGen):
             'rabbit_user': 'guest',
             'rabbit_password': 'guest',
             'rabbit_vhost': None,
+            'rabbit_ha_mode': False,
             'rabbit_max_pending_updates': '4096',
             'cluster_id': '',
         }
@@ -941,7 +942,9 @@ class VncApiServer(VncApiServerGen):
             help="Ip address:port of zookeeper server")
         parser.add_argument(
             "--rabbit_server",
-            help="Rabbitmq server address")
+            help="Rabbitmq server addresses separated by comma. Format of" +
+                 " each server should be user:password@host:port, where " +
+                 " except for host, all the other variables are optional")
         parser.add_argument(
             "--rabbit_port",
             help="Rabbitmq server port")
@@ -957,6 +960,9 @@ class VncApiServer(VncApiServerGen):
         parser.add_argument(
             "--rabbit_max_pending_updates",
             help="Max updates before stateful changes disallowed")
+        parser.add_argument(
+            "--rabbit_ha_mode",
+            help="True if the rabbitmq cluster is mirroring all queue")
         parser.add_argument(
             "--cluster_id",
             help="Used for database keyspace separation")
@@ -1012,17 +1018,18 @@ class VncApiServer(VncApiServerGen):
         redis_server_port = self._args.redis_server_port
         ifmap_loc = self._args.ifmap_server_loc
         zk_server = self._args.zk_server_ip
-        rabbit_server = self._args.rabbit_server
+        rabbit_servers = self._args.rabbit_server
         rabbit_port = self._args.rabbit_port
         rabbit_user = self._args.rabbit_user
         rabbit_password = self._args.rabbit_password
         rabbit_vhost = self._args.rabbit_vhost
-
+        rabbit_ha_mode = self._args.rabbit_ha_mode
 
         db_conn = VncDbClient(self, ifmap_ip, ifmap_port, user, passwd,
-                              cass_server_list, rabbit_server, rabbit_port,
+                              cass_server_list, rabbit_servers, rabbit_port,
                               rabbit_user, rabbit_password, rabbit_vhost,
-                              reset_config, ifmap_loc, zk_server, self._args.cluster_id)
+                              rabbit_ha_mode, reset_config, ifmap_loc,
+                              zk_server, self._args.cluster_id)
         self._db_conn = db_conn
     # end _db_connect
 
