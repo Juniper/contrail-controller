@@ -24,11 +24,7 @@ class PhysicalRouterConfig(object):
     def __init__(self, management_ip, user_creds, logger=None):
         self.management_ip = management_ip
         self.user_creds = user_creds
-        self.bgp_config = None
-        self.ri_config = None
-        self.bgp_params = None
-        self.bgp_peers = {}
-        self.routing_instances = {}
+        self.reset_bgp_config()
         self._logger = logger
     # end __init__
 
@@ -69,22 +65,25 @@ class PhysicalRouterConfig(object):
                                                       e.message))
     # end send_config
 
-    def add_routing_instance(self, name, route_target, prefixes=[],
-                             interfaces=[]):
-        self.routing_instances[name] = {'route_target': route_target,
+    def add_routing_instance(self, name, import_targets, export_targets,
+                             prefixes=[], interfaces=[]):
+        self.routing_instances[name] = {'import_targets': import_targets,
+                                        'export_targets': export_targets,
                                         'prefixes': prefixes,
                                         'interfaces': interfaces}
 
         ri_config = self.ri_config or etree.Element("routing-instances")
+        policy_config = self.policy_config or etree.Element("policy-options")
         ri = etree.SubElement(ri_config, "instance", operation="replace")
-        etree.SubElement(
-            ri, "name").text = "__contrail__" + name.replace(':', '_')
+        ri_name = "__contrail__" + name.replace(':', '_')
+        etree.SubElement(ri, "name").text = ri_name
         etree.SubElement(ri, "instance-type").text = "vrf"
         for interface in interfaces:
             if_element = etree.SubElement(ri, "interface")
             etree.SubElement(if_element, "name").text = interface
+        etree.SubElement(ri, "vrf-import").text = ri_name + "-import"
+        etree.SubElement(ri, "vrf-export").text = ri_name + "-export"
         rt_element = etree.SubElement(ri, "vrf-target")
-        etree.SubElement(rt_element, "community").text = route_target
         etree.SubElement(ri, "vrf-table-label")
         if prefixes:
             ri_opt = etree.SubElement(ri, "routing-options")
@@ -93,7 +92,37 @@ class PhysicalRouterConfig(object):
                 route_config = etree.SubElement(static_config, "route")
                 etree.SubElement(route_config, "name").text = prefix
                 etree.SubElement(route_config, "discard")
+            auto_export = "<auto-export><family><inet><unicast/></inet></family></auto-export>"
+            ri_opt.append(etree.fromstring(auto_export))
 
+        # add policies for export route targets
+        ps = etree.SubElement(policy_config, "policy-statement")
+        etree.SubElement(ps, "name").text = ri_name + "-export"
+        term = etree.SubElement(ps, "term")
+        etree.SubElement(term, "name").text= "t1"
+        then = etree.SubElement(term, "then")
+        comm = etree.SubElement(then, "community")
+        etree.SubElement(comm, "add")
+        for route_target in export_targets:
+            etree.SubElement(comm, route_target)
+        etree.SubElement(then, "accept")
+
+        # add policies for import route targets
+        ps = etree.SubElement(policy_config, "policy-statement")
+        etree.SubElement(ps, "name").text = ri_name + "-import"
+        term = etree.SubElement(ps, "term")
+        etree.SubElement(term, "name").text= "t1"
+        from_ = etree.SubElement(term, "from")
+        for route_target in import_targets:
+            target_name = route_target.replace(':', '_')
+            etree.SubElement(from_, "community").text = target_name
+        then = etree.SubElement(term, "then")
+        etree.SubElement(then, "accept")
+        then = etree.SubElement(ps, "then")
+        etree.SubElement(then, "reject")
+
+        self.policy_config = policy_config
+        self.route_targets |= import_targets | export_targets
         self.ri_config = ri_config
     # end add_routing_instance
 
@@ -130,6 +159,8 @@ class PhysicalRouterConfig(object):
         self.routing_instances = {}
         self.bgp_config = None
         self.ri_config = None
+        self.policy_config = None
+        self.route_targets = set()
         self.bgp_peers = {}
     # ene reset_bgp_config
 
@@ -179,6 +210,12 @@ class PhysicalRouterConfig(object):
         config_list = [proto_config, routing_options_config]
         if self.ri_config:
             config_list.append(self.ri_config)
+        for route_target in self.route_targets:
+            comm = etree.SubElement(self.policy_config, "community")
+            etree.SubElement(comm, 'name').text = route_target.replace(':', '_')
+            etree.SubElement(comm, 'members').text = route_target
+        if self.policy_config:
+            config_list.append(self.policy_config)
         self.send_netconf(config_list)
     # end send_bgp_config
 
