@@ -16,9 +16,10 @@
 
 #include <tbb/mutex.h>
 
-#include <base/timer.h>
 #include <base/sandesh/process_info_constants.h>
 #include <base/sandesh/process_info_types.h>
+
+class ConnectionInfoTest;
 
 namespace process {
 
@@ -41,15 +42,22 @@ public:
     std::vector<ConnectionInfo> GetInfos() const;
 
 private:
+    template <typename UVEType, typename UVEDataType> friend class
+        ConnectionStateManager;
+
     typedef boost::tuple<ConnectionType::type, std::string> ConnectionInfoKey;
     typedef std::map<ConnectionInfoKey, ConnectionInfo> ConnectionInfoMap;
+    typedef boost::function<void (void)> SendUveCb;
 
+    std::vector<ConnectionInfo> GetInfosUnlocked() const;
     // Singleton
-    ConnectionState();
+    ConnectionState(SendUveCb send_uve_cb);
+    static void CreateInstance(SendUveCb send_uve_cb);
 
     static boost::scoped_ptr<ConnectionState> instance_;
     mutable tbb::mutex  mutex_;
     ConnectionInfoMap connection_map_;
+    SendUveCb send_uve_cb_;
 };
 
 // ConnectionStateManager
@@ -60,6 +68,11 @@ public:
         if (instance_ == NULL) {
             instance_.reset(
                 new ConnectionStateManager());
+            // Create ConnectionState instance and bind the send UVE function
+            assert(ConnectionState::instance_ == NULL);
+            ConnectionState::CreateInstance(boost::bind(
+                &ConnectionStateManager<UVEType, UVEDataType>::
+                    SendProcessStateUve, instance_.get(), false));
         }
         return instance_.get();
     }
@@ -67,12 +80,6 @@ public:
     void Init(boost::asio::io_service &service, const std::string &hostname,
         const std::string &module, const std::string &instance_id,
         ProcessStateFn status_cb) {
-        timer_ = TimerManager::CreateTimer(service, "Connection State Timer",
-                    TaskScheduler::GetInstance()->GetTaskId("connState::Timer"),
-                    0);
-        timer_->Start(kTimerInterval, boost::bind(
-            &ConnectionStateManager<UVEType, UVEDataType>::ConnectionStateTimerExpired,
-            this), NULL);
         data_.set_name(hostname);
         process_status_.set_module_id(module);
         process_status_.set_instance_id(instance_id);
@@ -80,25 +87,29 @@ public:
     }
 
     void Shutdown() {
-        TimerManager::DeleteTimer(timer_);
-        timer_ = NULL;       
     }
 
 private:
+    friend class ConnectionState;
+    friend class ::ConnectionInfoTest;
+
     // Singleton
     ConnectionStateManager() :
-        timer_(NULL),
         status_cb_(NULL) {
     }
 
-    bool ConnectionStateTimerExpired() {
+    void SetProcessStateCb(ProcessStateFn status_cb) {
+        status_cb_ = status_cb;
+    }
+
+    bool SendProcessStateUve(bool lock) {
         if (status_cb_.empty()) {
-            // Keep running
-            return true;
+            return false;
         }
         // Update
-        process_status_.set_connection_infos(
-            ConnectionState::GetInstance()->GetInfos());
+        process_status_.set_connection_infos(lock ?
+            ConnectionState::GetInstance()->GetInfos() :
+            ConnectionState::GetInstance()->GetInfosUnlocked());
         ProcessState::type pstate;
         std::string message;
         status_cb_(process_status_.get_connection_infos(), pstate, message);
@@ -110,14 +121,11 @@ private:
             (process_status_);
         data_.set_process_status(vps);
         UVEType::Send(data_);
-        // Keep running
         return true;
     }
 
-    static const int kTimerInterval = 60 * 1000; // 60 seconds
     static boost::scoped_ptr<ConnectionStateManager> instance_;
 
-    Timer *timer_;
     ProcessStateFn status_cb_;
     ProcessStatus process_status_;
     UVEDataType data_;

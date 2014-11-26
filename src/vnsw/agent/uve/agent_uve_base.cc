@@ -55,10 +55,10 @@ void AgentUveBase::Init() {
     boost::asio::io_service &io = *evm->io_service();
 
     CpuLoadData::Init();
-    agent_->set_connection_state(ConnectionState::GetInstance());
     connection_state_manager_ =
         ConnectionStateManager<NodeStatusUVE, NodeStatus>::
             GetInstance();
+    agent_->set_connection_state(ConnectionState::GetInstance());
     connection_state_manager_->Init(io, agent_->params()->host_name(),
             module_id, instance_id,
             boost::bind(&AgentUveBase::VrouterAgentProcessState,

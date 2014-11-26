@@ -15,12 +15,23 @@ namespace process {
 // ConnectionState
 boost::scoped_ptr<ConnectionState> ConnectionState::instance_;
 
-ConnectionState::ConnectionState() {
+ConnectionState::ConnectionState(SendUveCb send_uve_cb) :
+    send_uve_cb_(send_uve_cb) {
+}
+
+// CreateInstance should be called from ConnectionStateManager::Init()
+void ConnectionState::CreateInstance(SendUveCb send_uve_cb) {
+    // The assert is to catch errors where ConnectionState::GetInstance()
+    // is called before ConnectionStateManager::Init()
+    assert(instance_ == NULL);
+    instance_.reset(new ConnectionState(send_uve_cb));
 }
 
 ConnectionState* ConnectionState::GetInstance() {
     if (instance_ == NULL) {
-        instance_.reset(new ConnectionState());
+        // This is needed to handle unit tests that do not call
+        // ConnectionStateManager::Init()
+        instance_.reset(new ConnectionState(NULL));
     }
     return instance_.get();
 }
@@ -54,7 +65,10 @@ void ConnectionState::Update(ConnectionType::type ctype,
     } else {
         // Add
         connection_map_[key] = info;
-    }    
+    }
+    if (!send_uve_cb_.empty()) {
+        send_uve_cb_();
+    }
 }
 
 void ConnectionState::Delete(ConnectionType::type ctype,
@@ -64,16 +78,23 @@ void ConnectionState::Delete(ConnectionType::type ctype,
     // Delete
     tbb::mutex::scoped_lock lock(mutex_);
     connection_map_.erase(key);
+    if (!send_uve_cb_.empty()) {
+        send_uve_cb_();
+    }
 }
 
-std::vector<ConnectionInfo> ConnectionState::GetInfos() const {
-    tbb::mutex::scoped_lock lock(mutex_);
+std::vector<ConnectionInfo> ConnectionState::GetInfosUnlocked() const {
     std::vector<ConnectionInfo> infos;
     for (ConnectionInfoMap::const_iterator it = connection_map_.begin();
          it != connection_map_.end(); it++) {
         infos.push_back(it->second);
     }
     return infos;
+}
+
+std::vector<ConnectionInfo> ConnectionState::GetInfos() const {
+    tbb::mutex::scoped_lock lock(mutex_);
+    return GetInfosUnlocked();
 }
 
 void GetProcessStateCb(const std::vector<ConnectionInfo> &cinfos,
@@ -84,7 +105,7 @@ void GetProcessStateCb(const std::vector<ConnectionInfo> &cinfos,
     if (num_connections != expected_connections) {
         state = ProcessState::NON_FUNCTIONAL;
         message = "Number of connections:" + integerToString(num_connections) +
-                  ", Expected: " + integerToString(expected_connections);
+                  ", Expected:" + integerToString(expected_connections);
         return;
     }
     std::string cup(g_process_info_constants.ConnectionStatusNames.

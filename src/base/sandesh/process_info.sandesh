@@ -5,6 +5,7 @@
 namespace cpp process
 
 enum ConnectionType {
+    TEST,
     IFMAP,
     XMPP,
     COLLECTOR,
@@ -16,6 +17,7 @@ enum ConnectionType {
 }
 
 const map<ConnectionType, string> ConnectionTypeNames = {
+    ConnectionType.TEST : "Test",
     ConnectionType.IFMAP : "IFMap",
     ConnectionType.XMPP : "XMPP",
     ConnectionType.COLLECTOR : "Collector",

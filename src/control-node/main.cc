@@ -407,6 +407,19 @@ int main(int argc, char *argv[]) {
 
     TaskScheduler::Initialize();
     ControlNode::SetDefaultSchedulingPolicy();
+    // Determine if the number of connections is as expected. At the moment, we
+    // consider connections to collector, discovery server and IFMap (irond)
+    // servers as critical to the normal functionality of control-node.
+    //
+    // 1. Collector client
+    // 2. Discovery Server publish XmppServer
+    // 3. Discovery Server subscribe Collector
+    // 4. Discovery Server subscribe IfmapServer
+    // 5. IFMap Server (irond)
+    ConnectionStateManager<NodeStatusUVE, NodeStatus>::
+        GetInstance()->Init(*evm.io_service(), options.hostname(),
+            module_name, g_vns_constants.INSTANCE_ID_DEFAULT,
+            boost::bind(&GetProcessStateCb, _1, _2, _3, 5));
     BgpSandeshContext sandesh_context;
 
     /* If Sandesh initialization is not being done via discovery we need to
@@ -560,20 +573,6 @@ int main(int argc, char *argv[]) {
     CpuLoadData::Init();
     start_time = UTCTimestampUsec();
 
-    // Determine if the number of connections is as expected. At the moment, we
-    // consider connections to collector, discovery server and IFMap (irond)
-    // servers as critical to the normal functionality of control-node.
-    //
-    // 1. Collector client
-    // 2. Discovery Server publish XmppServer
-    // 3. Discovery Server subscribe Collector
-    // 4. Discovery Server subscribe IfmapServer
-    // 5. IFMap Server (irond)
-    ConnectionStateManager<NodeStatusUVE, NodeStatus>::
-        GetInstance()->Init(*evm.io_service(), options.hostname(),
-            g_vns_constants.ModuleNames.find(Module::CONTROL_NODE)->second,
-            Sandesh::instance_id(),
-            boost::bind(&GetProcessStateCb, _1, _2, _3, 5));
     node_info_trigger = 
         new TaskTrigger(boost::bind(&ControlNodeInfoLogger, sandesh_context),
             TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0);
