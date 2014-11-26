@@ -62,8 +62,9 @@ private:
     void SendVnMsg(const VnEntry *vn);
     void InterfaceDeleteHandler(const std::string &vm, const std::string &vn,
                                 const Interface* intf);
-    void InterfaceAddHandler(const VmEntry *vm, const VnEntry *vn,
-                             const Interface* intf);
+    void InterfaceAddHandler(const VnEntry* vn, const Interface* intf,
+                             const std::string &vm_name,
+                             VnUveInterfaceState *state);
 
     DBTableBase::ListenerId vn_listener_id_;
     DBTableBase::ListenerId intf_listener_id_;
