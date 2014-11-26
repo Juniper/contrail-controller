@@ -74,6 +74,7 @@
 
 #include "test/test_pkt0_interface.h"
 #include "test_agent_init.h"
+#include "agent_param_test.h"
 using namespace std;
 
 #define TUN_INTF_CLONE_DEV "/dev/net/tun"
@@ -567,7 +568,7 @@ public:
                                                    this, _1, _2));
     };
     TestAgentInit *agent_init() { return agent_init_.get(); }
-    AgentParam *param() { return &param_; }
+    AgentParamTest *param() { return &param_; }
     Agent *agent() { return agent_; }
 
     void Shutdown();
@@ -590,7 +591,7 @@ public:
     std::vector<const NextHop *> comp_nh_list_;
     std::auto_ptr<TestAgentInit> agent_init_;
     Agent *agent_;
-    AgentParam param_;
+    AgentParamTest param_;
 };
 
 TestClient *TestInit(const char *init_file = NULL, bool ksync_init = false, 
