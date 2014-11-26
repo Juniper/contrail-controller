@@ -10,7 +10,7 @@ from vnc_api.common.exceptions import NoIdError
 from physical_router_config import PhysicalRouterConfig
 from sandesh.dm_introspect import ttypes as sandesh
 from cfgm_common.vnc_db import DBBase
-
+import copy
 
 class DBBaseDM(DBBase):
     def get_ref_uuid_from_dict(self, obj_dict, ref_name):
@@ -235,13 +235,24 @@ class PhysicalRouterDM(DBBaseDM):
             vn_obj = VirtualNetworkDM.get(vn_id)
             if vn_obj is None:
                 continue
-            for ri in vn_obj.routing_instances:
+            for ri_id in vn_obj.routing_instances:
                 # Find the primary RI by matching the name
-                ri_obj = self.read_obj(ri, 'routing_instance')
-                if ri_obj['fq_name'][-1] == vn_obj.fq_name[-1]:
+                ri_obj = RoutingInstanceDM.get(ri_id)
+                if ri_obj is None:
+                    continue
+                if ri_obj.fq_name[-1] == vn_obj.fq_name[-1]:
                     vrf_name = ':'.join(vn_obj.fq_name)
-                    rt = ri_obj['route_target_refs'][0]['to'][0]
-                    self.config_manager.add_routing_instance(vrf_name, rt,
+                    export_set = copy.copy(ri_obj.export_targets)
+                    import_set = copy.copy(ri_obj.import_targets)
+                    for ri2_id in ri_obj.routing_instances:
+                        ri2 = RoutingInstanceDM.get(ri2_id)
+                        if ri2 is None:
+                            continue
+                        import_set |= ri2.export_targets
+                        export_set |= ri2.import_targets
+                    self.config_manager.add_routing_instance(vrf_name,
+                                                             import_set,
+                                                             export_set,
                                                              vn_obj.prefixes,
                                                              interfaces)
                     break
@@ -407,7 +418,9 @@ class RoutingInstanceDM(DBBaseDM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.virtual_network = None
-        self.route_targets = set()
+        self.import_targets = set()
+        self.export_targets = set()
+        self.routing_instances = set()
         self.update(obj_dict)
         vn = VirtualNetworkDM.get(self.virtual_network)
         if vn:
@@ -419,8 +432,19 @@ class RoutingInstanceDM(DBBaseDM):
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
         self.virtual_network = self.get_parent_uuid(obj)
-        self.route_targets = set([rt['to'][0] for rt in
-                                  obj.get('route_targets', [])])
+        self.import_targets = set()
+        self.export_targets = set()
+        for rt_ref in obj.get('route_target_refs', []):
+            rt_name = rt_ref['to'][0]
+            exim = rt_ref.get('attr').get('import_export')
+            if exim == 'export':
+                self.export_targets.add(rt_name)
+            elif exim == 'import':
+                self.import_targets.add(rt_name)
+            else:
+                self.import_targets.add(rt_name)
+                self.export_targets.add(rt_name)
+        self.update_multiple_refs('routing_instance', obj)
 
     # end update
 

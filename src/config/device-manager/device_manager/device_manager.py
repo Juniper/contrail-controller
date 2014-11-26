@@ -82,7 +82,8 @@ class DeviceManager(object):
             'virtual_machine_interface': []
         },
         'routing_instance': {
-            'self': ['virtual_network'],
+            'self': ['routing_instance', 'virtual_network'],
+            'routing_instance': ['virtual_network'],
             'virtual_network': []
         },
     }
