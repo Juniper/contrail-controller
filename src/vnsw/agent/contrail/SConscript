@@ -122,3 +122,17 @@ env.Alias('install',
         '../contrail-vrouter.initd.supervisord'))
 env.Alias('install', env.Install(env['INSTALL_CONF'], 
     '../supervisord_vrouter.conf'))
+
+env.Alias('compute-node-install', env.Install(env['INSTALL_BIN'], contrail_vrouter_agent))
+env.Alias('compute-node-install', env.Install(env['INSTALL_CONF'],
+          '../contrail-vrouter-agent.conf'))
+env.Alias('compute-node-install',
+        env.InstallAs(env['INSTALL_CONF'] +
+        '/supervisord_vrouter_files/' + 'contrail-vrouter-agent.ini',
+        '../contrail-vrouter-agent.ini'))
+env.Alias('compute-node-install',
+        env.InstallAs(env['INSTALL_INITD'] + '/contrail-vrouter-agent',
+        '../contrail-vrouter.initd.supervisord'))
+env.Alias('compute-node-install', env.Install(env['INSTALL_CONF'],
+    '../supervisord_vrouter.conf'))
+

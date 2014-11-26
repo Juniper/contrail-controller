@@ -70,3 +70,9 @@ if 'install' in BUILD_TARGETS:
                               cd_cmd + 'python setup.py install %s' %
                               env['PYTHON_INSTALL_OPT'])
     env.Alias('install', install_cmd)
+
+install_cmd = env.Command(None, sources,
+                          cd_cmd + 'python setup.py install %s' %
+                          env['PYTHON_INSTALL_OPT'])
+env.Alias('compute-node-install', install_cmd)
+
