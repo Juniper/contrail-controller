@@ -576,10 +576,9 @@ class VirtualNetworkST(DictST):
                 rinst_obj.set_route_target(rtgt_obj, inst_tgt_data)
                 rinst_obj.set_routing_instance_is_default(is_default)
                 _vnc_lib.routing_instance_create(rinst_obj)
-        except HttpError as he:
+        except (BadRequest, HttpError) as e:
             _sandesh._logger.error(
-                "HTTP error while creating routing instance: %d, %s",
-                he.status_code, he.content)
+                "Error while creating routing instance: " + str(e))
             return None
 
         if rinst_obj.name == self._default_ri_name:
