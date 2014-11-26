@@ -37,6 +37,7 @@ public:
     void Init();
     virtual void RegisterDBClients();
     static AgentUveBase *GetInstance() {return singleton_;}
+    uint8_t ExpectedConnections(uint8_t &num_c_nodes, uint8_t &num_d_servers);
 protected:
     boost::scoped_ptr<VnUveTableBase> vn_uve_table_;
     boost::scoped_ptr<VmUveTableBase> vm_uve_table_;
@@ -47,7 +48,6 @@ private:
     void VrouterAgentProcessState(
         const std::vector<process::ConnectionInfo> &c,
         process::ProcessState::type &state, std::string &message);
-    uint8_t ExpectedConnections(uint8_t &num_c_nodes, uint8_t &num_d_servers);
     void UpdateMessage(const process::ConnectionInfo &info,
                        std::string &message);
 

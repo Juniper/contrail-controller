@@ -66,16 +66,29 @@ void AgentUveBase::Init() {
 }
 
 uint8_t AgentUveBase::ExpectedConnections(uint8_t &num_control_nodes,
-                                      uint8_t &num_dns_servers) {
+                                          uint8_t &num_dns_servers) {
     uint8_t count = 0;
+    AgentParam *cfg = agent_->params();
 
-    /* If Discovery server is configured, increment the count to
-     * 3 for 3 possible discovery services */
+    /* If Discovery server is configured, increment the count by 1 for each
+     * possible discovery service if we subscribe to that service. We subscribe
+     * to a discovery service only if the service IP is not configured
+     * explicitly */
     if (!agent_->discovery_server().empty()) {
         // Discovery:Collector
+        if (cfg->collector_server_list().size() == 0) {
+            count++;
+        }
         // Discovery:dns-server
+        if (!cfg->dns_server_1().to_ulong() &&
+            !cfg->dns_server_2().to_ulong()) {
+            count++;
+        }
         // Discovery:xmpp-server
-        count += 3;
+        if (!cfg->xmpp_server_1().to_ulong() &&
+            !cfg->xmpp_server_2().to_ulong() ) {
+            count++;
+        }
     }
     for (int i = 0; i < MAX_XMPP_SERVERS; i++) {
         if (!agent_->controller_ifmap_xmpp_server(i).empty()) {
@@ -88,7 +101,10 @@ uint8_t AgentUveBase::ExpectedConnections(uint8_t &num_control_nodes,
         }
     }
     //Increment 1 for collector service
-    count++;
+    if (!agent_->discovery_server().empty() ||
+        cfg->collector_server_list().size() != 0) {
+        count++;
+    }
     return count;
 }
 

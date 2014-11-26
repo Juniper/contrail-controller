@@ -444,9 +444,73 @@ TEST_F(UveTest, SandeshTest) {
     //EXPECT_EQ(3, flow_stats_interval_);
 }
 
+/* Discovery IP and service IPs are not configured */
+TEST_F(UveTest, NodeStatus_ExpectedConnections_0) {
+    Agent *agent = Agent::GetInstance();
+    AgentUve *uve = static_cast<AgentUve *>(agent->uve());
+
+    uint8_t num_c_nodes, num_d_servers;
+    int expected_conns = uve->ExpectedConnections(num_c_nodes, num_d_servers);
+    EXPECT_EQ(expected_conns, 0);
+}
+
+/* Discovery IP is NOT configured and all service IPs are configured */
+TEST_F(UveTest, NodeStatus_ExpectedConnections_1) {
+    Agent *agent = Agent::GetInstance();
+    AgentParamTest *params = static_cast<AgentParamTest *>(agent->params());
+    AgentUve *uve = static_cast<AgentUve *>(agent->uve());
+    params->set_discovery_server("0.0.0.0");
+    params->set_xmpp_server_1("1.1.1.1");
+    params->set_xmpp_server_2("1.1.1.2");
+    params->set_dns_server_1("1.1.1.1");
+    params->set_dns_server_2("1.1.1.2");
+    params->set_collector_server_list("1.1.1.1:8086");
+    agent->CopyConfig(params);
+
+    uint8_t num_c_nodes, num_d_servers;
+    int expected_conns = uve->ExpectedConnections(num_c_nodes, num_d_servers);
+    EXPECT_EQ(expected_conns, 5);
+}
+
+/* Discovery IP is configured and none of the service IPs are configured */
+TEST_F(UveTest, NodeStatus_ExpectedConnections_2) {
+    Agent *agent = Agent::GetInstance();
+    AgentParamTest *params = static_cast<AgentParamTest *>(agent->params());
+    AgentUve *uve = static_cast<AgentUve *>(agent->uve());
+    params->set_discovery_server("1.1.1.1");
+    params->set_xmpp_server_1("0.0.0.0");
+    params->set_xmpp_server_2("0.0.0.0");
+    params->set_dns_server_1("0.0.0.0");
+    params->set_dns_server_2("0.0.0.0");
+    params->set_collector_server_list("");
+    agent->CopyConfig(params);
+
+    uint8_t num_c_nodes, num_d_servers;
+    int expected_conns = uve->ExpectedConnections(num_c_nodes, num_d_servers);
+    EXPECT_EQ(expected_conns, 8);
+}
+
+/* Both Discovery IP and service IPs are configured */
+TEST_F(UveTest, NodeStatus_ExpectedConnections_3) {
+    Agent *agent = Agent::GetInstance();
+    AgentParamTest *params = static_cast<AgentParamTest *>(agent->params());
+    AgentUve *uve = static_cast<AgentUve *>(agent->uve());
+    params->set_discovery_server("1.1.1.1");
+    params->set_xmpp_server_1("1.1.1.1");
+    params->set_xmpp_server_2("1.1.1.2");
+    params->set_dns_server_1("1.1.1.1");
+    params->set_dns_server_2("1.1.1.2");
+    params->set_collector_server_list("1.1.1.1:8086");
+    agent->CopyConfig(params);
+
+    uint8_t num_c_nodes, num_d_servers;
+    int expected_conns = uve->ExpectedConnections(num_c_nodes, num_d_servers);
+    EXPECT_EQ(expected_conns, 5);
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
-    client = TestInit(init_file, ksync_init, true, false);
+    client = TestInit("controller/src/vnsw/agent/uve/test/vnswa_cfg.ini", ksync_init, true, false);
     UveTest::TestSetup(vrf_array, 2);
 
     int ret = RUN_ALL_TESTS();
