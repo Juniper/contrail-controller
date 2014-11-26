@@ -28,12 +28,13 @@ from vnc_api.vnc_api import *
 @six.add_metaclass(abc.ABCMeta)
 class InstanceManager(object):
 
-    def __init__(self, vnc_lib, db, logger, vrouter_scheduler, args=None):
+    def __init__(self, vnc_lib, db, logger, vrouter_scheduler,
+                 nova_client, args=None):
         self.logger = logger
         self.db = db
         self._vnc_lib = vnc_lib
         self._args = args
-        self._nova = {}
+        self._nc = nova_client
         self.vrouter_scheduler = vrouter_scheduler
 
     @abc.abstractmethod
