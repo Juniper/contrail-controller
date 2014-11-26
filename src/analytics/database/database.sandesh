@@ -35,6 +35,7 @@ struct NodeStatus {
     // Sent by node manager
     5: optional list<process_info.ProcessInfo> process_info (aggtype="union")
     6: optional string description
+    7: optional list<string> all_core_file_list
 }
 
 uve sandesh NodeStatusUVE {
