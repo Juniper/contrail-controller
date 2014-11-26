@@ -386,11 +386,14 @@ class VncApi(VncApiClientGen):
             elif status == 409:
                 raise RefsExistError(content)
             elif status == 504:
+                # Request sent to API server, but no response came within 50s
                 raise TimeOutError('Gateway Timeout 504')
-            elif status == 503:
+            elif status in [502, 503]:
+                # 502: API server died after accepting request, so retry
+                # 503: no API server available even before sending the request
                 retried += 1
                 if retried >= retry_count:
-                    raise ServiceUnavailableError('Service Unavailable Timeout 503')
+                    raise ServiceUnavailableError('Service Unavailable Timeout %d' % status)
 
                 time.sleep(1)
                 continue
