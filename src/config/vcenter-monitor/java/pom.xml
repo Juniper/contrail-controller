@@ -43,6 +43,16 @@
       <artifactId>juniper-contrail-vijava</artifactId>
       <version>1.0</version>
     </dependency>
+    <dependency>
+      <groupId>org.apache.curator</groupId>
+      <artifactId>curator-framework</artifactId>
+      <version>2.7.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.curator</groupId>
+      <artifactId>curator-recipes</artifactId>
+      <version>2.7.0</version>
+    </dependency>
   </dependencies>
 
   <build>
