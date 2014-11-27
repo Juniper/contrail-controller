@@ -88,7 +88,7 @@ env.Prepend(LIBS = AgentEnv['CONTRAIL_LIBS'])
 # even though there may not be any calls requiring its presence. We need this
 # for kstate library so that the HTML file for kstate  is listed in agent
 # introspect page
-env.Prepend(LINKFLAGS = ['-Wl,--whole-archive', '-rdynamic', '-lkstate',
+env.Prepend(LINKFLAGS = ['-Wl,--whole-archive', '-rdynamic', '-lkstate', '-ldiag',
                          '-Wl,--no-whole-archive'])
 
 #Add -Wno-return-type to ignore errors from thrift generated code in

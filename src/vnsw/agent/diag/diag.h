@@ -18,10 +18,12 @@ class DiagPktHandler;
 
 class DiagEntry {
 public:
-    typedef uint32_t DiagKey;
+    typedef uint16_t DiagKey;
     typedef Timer DiagTimer;
 
-    DiagEntry(int timeout, int count, DiagTable *diag_table);
+    DiagEntry(const std::string &sip, const std::string &dip, uint8_t proto,
+              uint16_t sport, uint16_t dport, const std::string &vrf_name,
+              int timeout, int count, DiagTable *diag_table);
     virtual ~DiagEntry();
     void Init();
     virtual void SendRequest() = 0;
@@ -30,9 +32,10 @@ public:
     virtual void SendSummary() { };
     bool TimerExpiry(uint32_t seqno);
     void RestartTimer();
+    virtual bool IsDone();
     DiagKey GetKey() { return key_;};
     uint32_t GetSeqNo() {return seq_no_;};
-    uint32_t GetCount() {return count_;};
+    uint32_t GetMaxAttempts() {return max_attempts_;};
     void SetKey(DiagKey key) {key_ = key;};
     void Retry();
     bool TimerCancel() {
@@ -43,11 +46,20 @@ public:
     }
 
 protected:
+    Ip4Address sip_;
+    Ip4Address dip_;
+    uint8_t    proto_;
+    uint16_t   sport_;
+    uint16_t   dport_;
+    std::string vrf_name_;
+    boost::system::error_code ec_;
+
     DiagTable *diag_table_;
     DiagKey key_;
+
     int timeout_;
     DiagTimer *timer_;
-    uint32_t count_;
+    uint32_t max_attempts_;
     uint32_t seq_no_;
 };
 
@@ -70,8 +82,7 @@ struct DiagEntryOp {
         RETRY,
     };
 
-    DiagEntryOp(DiagEntryOp::Op op, DiagEntry *de):
-        op_(op), de_(de) {
+    DiagEntryOp(DiagEntryOp::Op op, DiagEntry *de): op_(op), de_(de) {
     }
 
     Op op_;
@@ -90,11 +101,10 @@ public:
     void Shutdown();
     void Enqueue(DiagEntryOp *op);
     bool Process(DiagEntryOp *op);
-    Agent* agent() const {
-	return agent_;
-    }
+    Agent* agent() const { return agent_; }
+
 private:
-    uint32_t index_; 
+    uint16_t index_;
     DiagEntryTree tree_;
     boost::scoped_ptr<DiagProto> diag_proto_;
     WorkQueue<DiagEntryOp *> *entry_op_queue_;

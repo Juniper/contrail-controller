@@ -19,10 +19,16 @@ const std::string KDiagName("DiagTimeoutHandler");
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DiagEntry::DiagEntry(int timeout, int count,DiagTable *diag_table):
-    diag_table_(diag_table) , timeout_(timeout),
+DiagEntry::DiagEntry(const std::string &sip, const std::string &dip,
+                     uint8_t proto, uint16_t sport, uint16_t dport,
+                     const std::string &vrf_name, int timeout,
+                     int attempts, DiagTable *diag_table) :
+    sip_(Ip4Address::from_string(sip, ec_)),
+    dip_(Ip4Address::from_string(dip, ec_)),
+    proto_(proto), sport_(sport), dport_(dport),
+    vrf_name_(vrf_name), diag_table_(diag_table), timeout_(timeout),
     timer_(TimerManager::CreateTimer(*(diag_table->agent()->event_manager())->io_service(), 
-    "DiagTimeoutHandler")), count_(count), seq_no_(0) {
+    "DiagTimeoutHandler")), max_attempts_(attempts), seq_no_(0) {
 }
 
 DiagEntry::~DiagEntry() {
@@ -43,10 +49,14 @@ void DiagEntry::RestartTimer() {
     timer_->Start(timeout_, boost::bind(&DiagEntry::TimerExpiry, this, seq_no_));
 }
 
+bool DiagEntry::IsDone() {
+    return (GetSeqNo() == GetMaxAttempts()) ? true : false;
+}
+
 bool DiagEntry::TimerExpiry( uint32_t seq_no) {
     DiagEntryOp *op;
     RequestTimedOut(seq_no);
-    if (seq_no == GetCount()) {
+    if (IsDone()) {
         op = new DiagEntryOp(DiagEntryOp::DELETE, this);
     } else {
         op = new DiagEntryOp(DiagEntryOp::RETRY, this);
@@ -89,7 +99,6 @@ DiagTable::DiagTable(Agent *agent):agent_(agent) {
                     (TaskScheduler::GetInstance()->GetTaskId("Agent::Diag"), 0,
                      boost::bind(&DiagTable::Process, this, _1));
     index_ = 1;
-    Ping::PingInit();
 }
 
 void DiagTable::Shutdown() {

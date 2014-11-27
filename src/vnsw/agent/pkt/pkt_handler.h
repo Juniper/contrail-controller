@@ -34,6 +34,8 @@
 #define IPC_HDR_LEN        (sizeof(struct ether_header) + sizeof(struct agent_hdr))
 #define IP_PROTOCOL        ETHERTYPE_IP
 #define VLAN_PROTOCOL      0x8100
+#define DEFAULT_IP_TTL     64
+#define DEFAULT_IP_ID      0
 
 struct agent_hdr;
 class PacketBuffer;
@@ -90,16 +92,29 @@ struct AgentHdr {
         TRAP_ECMP_RESOLVE = AGENT_TRAP_ECMP_RESOLVE,
         TRAP_SOURCE_MISMATCH = AGENT_TRAP_SOURCE_MISMATCH,
         TRAP_HANDLE_DF = AGENT_TRAP_HANDLE_DF,
+        TRAP_ZERO_TTL = AGENT_TRAP_ZERO_TTL,
+        TRAP_ICMP_ERROR = AGENT_TRAP_ICMP_ERROR,
         INVALID = MAX_AGENT_HDR_COMMANDS
     };
 
+    enum PktCommandParams {
+        PACKET_CMD_PARAM_CTRL = CMD_PARAM_PACKET_CTRL,
+        PACKET_CMD_PARAM_DIAG = CMD_PARAM_1_DIAG,
+        MAX_PACKET_CMD_PARAM  = MAX_CMD_PARAMS,
+    };
+
     AgentHdr() :
-        ifindex(-1), vrf(-1), cmd(-1), cmd_param(-1), nh(-1), flow_index(-1),
-        mtu(0) {}
+        ifindex(-1), vrf(-1), cmd(-1), cmd_param(-1), cmd_param_1(-1),
+        nh(-1), flow_index(-1), mtu(0) {}
 
     AgentHdr(uint16_t ifindex_p, uint16_t vrf_p, uint16_t cmd_p) :
-        ifindex(ifindex_p), vrf(vrf_p), cmd(cmd_p), cmd_param(-1), nh(-1),
-        flow_index(-1), mtu(0) {}
+        ifindex(ifindex_p), vrf(vrf_p), cmd(cmd_p), cmd_param(-1),
+        cmd_param_1(-1), nh(-1), flow_index(-1), mtu(0) {}
+
+    AgentHdr(uint16_t ifindex_p, uint16_t vrf_p, uint16_t cmd_p,
+             uint32_t param1, uint32_t param2) :
+        ifindex(ifindex_p), vrf(vrf_p), cmd(cmd_p), cmd_param(param1),
+        cmd_param_1(param2), nh(-1), flow_index(-1), mtu(0) {}
 
     ~AgentHdr() {}
 
@@ -108,6 +123,7 @@ struct AgentHdr {
     uint32_t            vrf;
     uint16_t            cmd;
     uint32_t            cmd_param;
+    uint32_t            cmd_param_1;
     uint16_t            nh;
     uint32_t            flow_index;
     uint16_t            mtu;
@@ -262,6 +278,7 @@ private:
     int ParseMPLSoGRE(PktInfo *pkt_info, uint8_t *pkt);
     int ParseMPLSoUDP(PktInfo *pkt_info, uint8_t *pkt);
     bool IsDHCPPacket(PktInfo *pkt_info);
+    bool IsDiagPacket(PktInfo *pkt_info);
 
     // handlers for each module type
     boost::array<RcvQueueFunc, MAX_MODULES> enqueue_cb_;
