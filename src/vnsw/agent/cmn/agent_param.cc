@@ -807,17 +807,18 @@ void AgentParam::set_test_mode(bool mode) {
 }
 
 AgentParam::AgentParam(Agent *agent) :
-        vhost_(), eth_port_(), xmpp_instance_count_(), xmpp_server_1_(),
-        xmpp_server_2_(), dns_server_1_(), dns_server_2_(),
+        xmpp_server_1_(), xmpp_server_2_(), dns_server_1_(), dns_server_2_(),
+        dss_server_(), collector_server_list_(),
+        vhost_(), eth_port_(), xmpp_instance_count_(),
         dns_port_1_(ContrailPorts::DnsServerPort()),
         dns_port_2_(ContrailPorts::DnsServerPort()),
-        dss_server_(), mgmt_ip_(), mode_(MODE_KVM), xen_ll_(),
+        mgmt_ip_(), mode_(MODE_KVM), xen_ll_(),
         tunnel_type_(), metadata_shared_secret_(), max_vm_flows_(),
         linklocal_system_flows_(), linklocal_vm_flows_(),
         flow_cache_timeout_(), config_file_(), program_name_(),
         log_file_(), log_local_(false), log_flow_(false),
         log_level_(), log_category_(), use_syslog_(false),
-        collector_server_list_(), http_server_port_(), host_name_(),
+        http_server_port_(), host_name_(),
         agent_stats_interval_(AgentStatsInterval),
         flow_stats_interval_(FlowStatsInterval),
         vmware_physical_port_(""), test_mode_(false), debug_(false), tree_(),

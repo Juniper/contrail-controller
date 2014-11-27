@@ -128,6 +128,13 @@ public:
     void InitVhostAndXenLLPrefix();
     void set_test_mode(bool mode);
     bool test_mode() const { return test_mode_; }
+protected:
+    Ip4Address xmpp_server_1_;
+    Ip4Address xmpp_server_2_;
+    Ip4Address dns_server_1_;
+    Ip4Address dns_server_2_;
+    Ip4Address dss_server_;
+    std::vector<std::string> collector_server_list_;
 private:
     void ComputeFlowLimits();
     void InitFromSystem();
@@ -198,13 +205,8 @@ private:
     PortInfo vhost_;
     std::string eth_port_;
     uint16_t xmpp_instance_count_;
-    Ip4Address xmpp_server_1_;
-    Ip4Address xmpp_server_2_;
-    Ip4Address dns_server_1_;
-    Ip4Address dns_server_2_;
     uint16_t dns_port_1_;
     uint16_t dns_port_2_;
-    Ip4Address dss_server_;
     Ip4Address mgmt_ip_;
     Mode mode_;
     PortInfo xen_ll_;
@@ -228,7 +230,6 @@ private:
     std::string log_category_;
     bool use_syslog_;
     std::string syslog_facility_;
-    std::vector<std::string> collector_server_list_;
     uint16_t http_server_port_;
     std::string host_name_;
     int agent_stats_interval_;

@@ -30,7 +30,8 @@ env.Append(LIBS = [
         'task_test',
         ])
 
-test_lib_srcs = ['test_agent_init.cc',
+test_lib_srcs = ['agent_param_test.cc',
+                 'test_agent_init.cc',
                  'test_init.cc', 
                  'test_util.cc',
                  '../pkt/test/test_pkt_util.cc',

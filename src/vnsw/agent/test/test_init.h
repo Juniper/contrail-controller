@@ -69,6 +69,7 @@
 #include <oper/agent_path.h>
 #include <controller/controller_route_path.h>
 
+#include "agent_param_test.h"
 #include "test_agent_init.h"
 using namespace std;
 
@@ -549,7 +550,7 @@ public:
                                                    this, _1, _2));
     };
     TestAgentInit *agent_init() { return &agent_init_; }
-    AgentParam *param() { return &param_; }
+    AgentParamTest *param() { return &param_; }
     Agent *agent() { return agent_; }
     void set_agent(Agent *agent) { agent_ = agent; }
     void delete_agent() {
@@ -577,7 +578,7 @@ public:
     std::vector<const NextHop *> comp_nh_list_;
     Agent *agent_;
     TestAgentInit agent_init_;
-    AgentParam param_;
+    AgentParamTest param_;
 };
 
 TestClient *TestInit(const char *init_file = NULL, bool ksync_init = false, 
