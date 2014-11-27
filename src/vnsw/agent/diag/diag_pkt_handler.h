@@ -29,25 +29,37 @@ struct PseudoTcpHdr {
 class DiagPktHandler : public ProtoHandler {
 public:
     DiagPktHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
-                   boost::asio::io_service &io):
-        ProtoHandler(agent, info, io), diag_table_(agent->diag_table()) {}
+                   boost::asio::io_service &io) :
+        ProtoHandler(agent, info, io), done_(false),
+        diag_table_(agent->diag_table()) {}
     virtual bool Run();
     void SetReply();
     void SetDiagChkSum();
     void Reply();
+    const std::string &GetAddress() const { return address_; }
     AgentDiagPktData* GetData() {
         return (AgentDiagPktData *)(pkt_info_->data);
     }
+    bool IsDone() const { return done_; }
+    void set_done(bool done) { done_ = done; }
     void TcpHdr(in_addr_t, uint16_t, in_addr_t, uint16_t, bool , uint32_t, uint16_t);
 
 private:
+    bool IsTraceRoutePacket();
+    bool HandleTraceRoutePacket();
+    void SendTimeExceededPacket();
+    bool HandleTraceRouteResponse();
+    bool ParseIcmpData(const uint8_t *data, uint16_t data_len,
+                       uint16_t *key);
     uint16_t TcpCsum(in_addr_t, in_addr_t, uint16_t , tcphdr *);
     void Swap();
     void SwapL4();
     void SwapIpHdr();
     void SwapEthHdr();
 
+    bool done_;
     DiagTable *diag_table_;
+    std::string address_;
 };
 
 #endif

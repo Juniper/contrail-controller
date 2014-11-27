@@ -764,7 +764,8 @@ void DnsHandler::SendDnsResponse() {
         UdpHdr(data_len, src_ip, DNS_SERVER_PORT,
                dest_ip, ntohs(in_pkt_info.transp.udp->uh_sport));
         data_len += sizeof(struct ip);
-        IpHdr(data_len, src_ip, dest_ip, IPPROTO_UDP);
+        IpHdr(data_len, src_ip, dest_ip, IPPROTO_UDP,
+              DEFAULT_IP_ID, DEFAULT_IP_TTL);
 
     } else {
         // IPv6 request

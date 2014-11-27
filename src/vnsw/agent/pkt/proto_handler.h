@@ -34,6 +34,8 @@ public:
     virtual bool Run() = 0;
 
     void Send(uint16_t, uint16_t, uint16_t, PktHandler::PktModuleName);
+    void Send(uint16_t itf, uint16_t vrf, uint16_t cmd,
+              uint32_t param1, uint32_t param2, PktHandler::PktModuleName mod);
 
     int EthHdr(const MacAddress &src, const MacAddress &dest,
                const uint16_t proto);
@@ -47,8 +49,10 @@ public:
                const uint16_t proto);
 
     void VlanHdr(uint8_t *ptr, uint16_t tci);
-    void IpHdr(uint16_t, in_addr_t, in_addr_t, uint8_t);
-    uint16_t IpHdr(char *, uint16_t, uint16_t, in_addr_t, in_addr_t, uint8_t);
+    void IpHdr(uint16_t, in_addr_t, in_addr_t, uint8_t,
+               uint16_t id, uint8_t ttl);
+    uint16_t IpHdr(char *, uint16_t, uint16_t, in_addr_t, in_addr_t,
+                   uint8_t, uint16_t id, uint8_t ttl);
     void Ip6Hdr(ip6_hdr *ip, uint16_t plen, uint8_t next_header,
                 uint8_t hlim, uint8_t *src, uint8_t *dest);
     void UdpHdr(uint16_t, in_addr_t, uint16_t, in_addr_t, uint16_t);

@@ -20,6 +20,7 @@ libdiag = env.Library('diag',
                    [
                     'diag.cc',
                     'ping.cc',
+                    'traceroute.cc',
                     'diag_pkt_handler.cc'
                    ])
 
