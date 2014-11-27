@@ -747,6 +747,10 @@ class NeutronApiDriver(vnc_plugin_base.NeutronApi):
         bottle.route('/neutron/policy',
                      'POST', self._npi.plugin_http_post_policy)
 
+        # Bottle callbacks for Qos operations
+        bottle.route('/neutron/qos',
+                     'POST', self._npi.plugin_http_post_qos)
+
         # Bottle callbacks for route-table operations
         bottle.route('/neutron/route_table',
                      'POST', self._npi.plugin_http_post_route_table)

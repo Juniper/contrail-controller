@@ -1118,6 +1118,116 @@ class NeutronPluginInterface(object):
         elif context['operation'] == 'READCOUNT':
             return self.plugin_get_policys_count(context, policy)
 
+    # Qos IP API Handling
+    def plugin_get_qos(self, context, qos):
+        """
+        Qos get request
+        """
+
+        fields = qos['fields']
+
+        try:
+            cfgdb = self._get_user_cfgdb(context)
+            pol_info = cfgdb.qos_read(qos['id'])
+            return pol_info
+        except Exception as e:
+            cgitb.Hook(format="text").handle(sys.exc_info())
+            raise e
+
+    def plugin_create_qos(self, context, qos):
+        """
+        Qos create request
+        """
+
+        try:
+            cfgdb = self._get_user_cfgdb(context)
+            pol_info = cfgdb.qos_create(qos['resource'])
+            return pol_info
+        except Exception as e:
+            cgitb.Hook(format="text").handle(sys.exc_info())
+            raise e
+
+    def plugin_update_qos(self, context, qos):
+        """
+        Qos update request
+        """
+
+        try:
+            cfgdb = self._get_user_cfgdb(context)
+            qos_info = cfgdb.qos_update(qos['id'],
+                                              qos['resource'])
+            return qos_info
+        except Exception as e:
+            cgitb.Hook(format="text").handle(sys.exc_info())
+            raise e
+
+    def plugin_delete_qos(self, context, qos):
+        """
+        Qos delete request
+        """
+
+        try:
+            cfgdb = self._get_user_cfgdb(context)
+            cfgdb.qos_delete(qos['id'])
+            LOG.debug("plugin_delete_qos(): " +
+                pformat(qos['id']))
+        except Exception as e:
+            cgitb.Hook(format="text").handle(sys.exc_info())
+            raise e
+
+    def plugin_get_qoss(self, context, qos):
+        """
+        Qoss get request
+        """
+
+        filters = qos['filters']
+        fields = qos['fields']
+
+        try:
+            cfgdb = self._get_user_cfgdb(context)
+            qoss_info = cfgdb.qos_list(context, filters)
+            return json.dumps(qoss_info)
+        except Exception as e:
+            cgitb.Hook(format="text").handle(sys.exc_info())
+            raise e
+
+    def plugin_get_qoss_count(self, context, qos):
+        """
+        Qoss count request
+        """
+
+        filters = qos['filters']
+
+        try:
+            cfgdb = self._get_user_cfgdb(context)
+            qoss_count = cfgdb.qos_count(context, filters)
+            LOG.debug("plugin_get_qoss_count(): filters: "
+                      + pformat(filters) + " data: " + str(qoss_count))
+            return {'count': qoss_count}
+        except Exception as e:
+            cgitb.Hook(format="text").handle(sys.exc_info())
+            raise e
+
+    def plugin_http_post_qos(self):
+        """
+        Bottle callback for Qos POST
+        """
+        context, qos = self._get_requests_data()
+
+        if context['operation'] == 'READ':
+            return self.plugin_get_qos(context, qos)
+        elif context['operation'] == 'CREATE':
+            return self.plugin_create_qos(context, qos)
+        elif context['operation'] == 'UPDATE':
+            return self.plugin_update_qos(context, qos)
+        elif context['operation'] == 'DELETE':
+            return self.plugin_delete_qos(context, qos)
+        elif context['operation'] == 'READALL':
+            return self.plugin_get_qoss(context, qos)
+        elif context['operation'] == 'READCOUNT':
+            return self.plugin_get_qoss_count(context, qos)
+
+
     def plugin_get_route_table(self, context, route_table):
         """
         Route table get request

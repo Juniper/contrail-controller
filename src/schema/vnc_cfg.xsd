@@ -184,6 +184,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="apply-service" type="xsd:string" maxOccurs="unbounded"/>
         <xsd:element name="mirror-to" type="MirrorActionType"/>
         <xsd:element name="assign-routing-instance" type="xsd:string"/>
+        <xsd:element name="apply-qos" type="xsd:string"/>
         <!-- More actions can come here. e.g. policer, QOS etc-->
     </xsd:all>
 </xsd:complexType>
@@ -648,6 +649,26 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Link('project-virtual-network',
           'project', 'virtual-network', ['has']) -->
+
+<xsd:element name="qos" type="ifmap:IdentityType"/>
+<xsd:element name="project-qos"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('project-qos',
+          'project', 'qos', ['has']) -->
+<xsd:element name="dscp" type="xsd:integer"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('dscp', 'qos') -->
+<xsd:element name="q802-1p" type="xsd:integer"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('q802-1p', 'qos') -->
+<xsd:element name="virtual-network-qos"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('virtual-network-qos',
+          'virtual-network', 'qos', ['ref']) -->
+<xsd:element name="virtual-machine-interface-qos"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('virtual-machine-interface-qos',
+          'virtual-machine-interface', 'qos', ['ref']) -->
 
 <xsd:simpleType name="VxlanNetworkIdentifierType">
      <xsd:restriction base="xsd:integer">

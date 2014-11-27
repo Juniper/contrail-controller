@@ -569,6 +569,17 @@ class DBInterface(object):
         return resp_dict['network-policys']
     #end _policy_list_project
 
+    def _qos_list_project(self, project_id):
+        try:
+            project_uuid = str(uuid.UUID(project_id))
+        except Exception:
+            print "Error in converting uuid %s" % (project_id)
+
+        resp_dict = self._vnc_lib.qoss_list(parent_id=project_uuid)
+
+        return resp_dict['qoss']
+    #end _qos_list_project
+
     def _logical_router_read(self, rtr_id=None, fq_name=None):
         rtr_obj = self._vnc_lib.logical_router_read(id=rtr_id, fq_name=fq_name)
         return rtr_obj
@@ -1430,6 +1441,35 @@ class DBInterface(object):
 
         return ipam_q_dict
     #end _ipam_vnc_to_neutron
+
+    def _qos_neutron_to_vnc(self, qos_q, oper):
+        qos_name = qos_q.get('name', None)
+        if oper == CREATE:
+            project_id = str(uuid.UUID(qos_q['tenant_id']))
+            project_obj = self._project_read(proj_id=project_id)
+            qos_obj = Qos(qos_name, project_obj)
+        else:  # READ/UPDATE/DELETE
+            qos_obj = self._vnc_lib.qos_read(id=qos_q['id'])
+
+        return qos_obj
+    #end _qos_neutron_to_vnc
+
+    def _qos_vnc_to_neutron(self, qos_obj):
+        qos_q_dict = self._obj_to_dict(qos_obj)
+
+        # replace field names
+        qos_q_dict['id'] = qos_q_dict.pop('uuid')
+        qos_q_dict['name'] = qos_obj.name
+        qos_q_dict['tenant_id'] = qos_obj.parent_uuid.replace('-', '')
+        net_back_refs = qos_obj.get_virtual_network_back_refs()
+        if net_back_refs:
+            qos_q_dict['nets_using'] = []
+            for net_back_ref in net_back_refs:
+                net_fq_name = net_back_ref['to']
+                qos_q_dict['nets_using'].append(net_fq_name)
+
+        return qos_q_dict
+    #end _qos_vnc_to_neutron
 
     def _policy_neutron_to_vnc(self, policy_q, oper):
         policy_name = policy_q.get('name', None)
@@ -2728,6 +2768,80 @@ class DBInterface(object):
         ipam_info = self.ipam_list(filters=filters)
         return len(ipam_info)
     #end ipam_count
+
+    # qos api handlers
+    def qos_create(self, qos_q):
+        # TODO remove below once api-server can read and create projects
+        # from keystone on startup
+        #self._ensure_project_exists(qos_q['tenant_id'])
+
+        qos_obj = self._qos_neutron_to_vnc(qos_q, CREATE)
+        try:
+            qos_uuid = self._vnc_lib.qos_create(qos_obj)
+        except RefsExistError as e:
+            self._raise_contrail_exception('BadRequest',
+                resource='qos', msg=str(e))
+        return self._qos_vnc_to_neutron(qos_obj)
+    #end qos_create
+
+    def qos_read(self, qos_id):
+        try:
+            qos_obj = self._vnc_lib.qos_read(id=qos_id)
+        except NoIdError:
+            raise qos.QosNotFound(id=qos_id)
+
+        return self._qos_vnc_to_neutron(qos_obj)
+    #end qos_read
+
+    def qos_update(self, qos_id, qos):
+        qos_q = qos 
+        qos_q['id'] = qos_id
+        qos_obj = self._qos_neutron_to_vnc(qos_q, UPDATE)
+        self._vnc_lib.network_qos_update(qos_obj)
+
+        return self._qos_vnc_to_neutron(qos_obj)
+    #end qos_update
+
+    def qos_delete(self, qos_id):
+        self._vnc_lib.network_qos_delete(id=qos_id)
+    #end qos_delete
+
+    # TODO request based on filter contents
+    def qos_list(self, context=None, filters=None):
+        ret_list = []
+
+        # collect phase
+        all_qoss = []  # all qoss in all projects
+        if filters and 'tenant_id' in filters:
+            project_ids = self._validate_project_ids(context,
+                                                     filters['tenant_id'])
+            for p_id in project_ids:
+                project_qoss = self._qos_list_project(p_id)
+                all_qoss.append(project_qoss)
+        else:  # no filters
+            dom_projects = self._project_list_domain(None)
+            for project in dom_projects:
+                proj_id = project['uuid']
+                project_qoss = self._qos_list_project(proj_id)
+                all_qoss.append(project_qoss)
+
+        # prune phase
+        for project_qoss in all_qoss:
+            for proj_qos in project_qoss:
+                # TODO implement same for name specified in filter
+                proj_qos_id = proj_qos['uuid']
+                if not self._filters_is_present(filters, 'id', proj_qos_id):
+                    continue
+                qos_info = self.qos_read(proj_qos['uuid'])
+                ret_list.append(qos_info)
+
+        return ret_list
+    #end qos_list
+
+    def qos_count(self, filters=None):
+        qos_info = self.qos_list(filters=filters)
+        return len(qos_info)
+    #end qos_count
 
     # policy api handlers
     def policy_create(self, policy_q):
