@@ -10,6 +10,7 @@
 #include <boost/uuid/uuid.hpp>
 #include "db/db_table.h"
 #include "cmn/agent_signal.h"
+#include "cmn/agent_cmn.h"
 #include "db/db_entry.h"
 #include "oper/service_instance.h"
 #include "base/queue_task.h"

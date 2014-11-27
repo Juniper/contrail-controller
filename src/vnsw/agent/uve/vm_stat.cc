@@ -84,6 +84,8 @@ void VmStat::ExecCmd(std::string cmd, DoneCb cb) {
         dup2(out[1], STDOUT_FILENO);
         //Close out[1] as stdout is a exact replica of out[1]
         close(out[1]);
+        /* Close all the open fds before execvp */
+        CloseInheritedFds();
         execvp(argv[0], argv);
         perror("execvp");
         exit(127);
