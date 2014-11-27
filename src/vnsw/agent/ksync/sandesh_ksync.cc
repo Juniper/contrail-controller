@@ -48,21 +48,15 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
         LOG(DEBUG, "Flow table size : " << r->get_fr_ftable_size());
     } else if (r->get_fr_op() == flow_op::FLOW_SET) {
         const KSyncIoContext *ioc = ksync_io_ctx();
-        // TODO : IPv6
+        IpAddress sip = VectorToIp(r->get_fr_flow_sip());
+        IpAddress dip = VectorToIp(r->get_fr_flow_dip());
         FlowKey key(r->get_fr_flow_nh_id(),
-                    Ip4Address(ntohl(r->get_fr_flow_sip())),
-                    Ip4Address(ntohl(r->get_fr_flow_dip())),
+                    sip, dip,
                     r->get_fr_flow_proto(),
                     ntohs(r->get_fr_flow_sport()),
                     ntohs(r->get_fr_flow_dport()));
         FlowEntry *entry = flow_ksync_->ksync()->agent()->pkt()->flow_table()->
                            Find(key);
-        in_addr src;
-        in_addr dst;
-        src.s_addr = r->get_fr_flow_sip();
-        dst.s_addr = r->get_fr_flow_dip();
-        string src_str = inet_ntoa(src);
-        string dst_str = inet_ntoa(dst);
 
         if (GetErrno() == EBADF) {
             string op;
@@ -74,8 +68,8 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
 
             LOG(ERROR, "Error Flow entry op = " << op
                        << " nh = " << (int) key.nh
-                       << " src = " << src_str << ":" << key.src_port
-                       << " dst = " << dst_str << ":" << key.dst_port
+                       << " src = " << sip.to_string() << ":" << key.src_port
+                       << " dst = " << dip.to_string() << ":" << key.dst_port
                        << " proto = " << (int)key.protocol
                        << " flow_handle = " << (int) r->get_fr_index());
             if (entry && (int)entry->flow_handle() == r->get_fr_index()) {

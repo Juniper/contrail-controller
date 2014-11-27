@@ -186,8 +186,10 @@ public:
 
         vr_flow_req req;
         req.set_fr_index(hash_id);
-        req.set_fr_flow_sip(inet_addr(sip));
-        req.set_fr_flow_dip(inet_addr(dip));
+        IpAddress saddr = IpAddress::from_string(sip);
+        IpAddress daddr = IpAddress::from_string(dip);
+        req.set_fr_flow_sip(ksync_obj->IpToVector(saddr, Address::INET));
+        req.set_fr_flow_dip(ksync_obj->IpToVector(daddr, Address::INET));
         req.set_fr_flow_proto(proto);
         req.set_fr_flow_sport(htons(sport));
         req.set_fr_flow_dport(htons(dport));

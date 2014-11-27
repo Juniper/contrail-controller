@@ -168,7 +168,7 @@ uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr,
     }
 
     // PASS default GW traffic, if it is ICMP or DNS
-    if ((hdr.protocol == IPPROTO_ICMP ||
+    if ((hdr.protocol == IPPROTO_ICMP || hdr.protocol == IPPROTO_ICMPV6 ||
          (hdr.protocol == IPPROTO_UDP && 
           (hdr.src_port == DNS_SERVER_PORT ||
            hdr.dst_port == DNS_SERVER_PORT))) &&
@@ -1247,10 +1247,6 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
 
 bool FlowEntry::SetRpfNH(const AgentRoute *rt) {
     const NextHop *nh = rt->GetActiveNextHop();
-    if (key_.family != Address::INET) {
-        //TODO:IPV6
-        return false;
-    }
     if (nh->GetType() == NextHop::COMPOSITE &&
         !is_flags_set(FlowEntry::LocalFlow) &&
         is_flags_set(FlowEntry::IngressDir)) {
@@ -1415,16 +1411,12 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
         set_flags(FlowEntry::Multicast);
     }
 
-    if (key_.family == Address::INET) {
-        const InetUnicastRouteEntry* inet4_rt =
-            static_cast<const InetUnicastRouteEntry*>(ctrl->rt_);
-        const InetUnicastRouteEntry* inet4_rev_rt =
-            static_cast<const InetUnicastRouteEntry*>(rev_ctrl->rt_);
-        GetSourceRouteInfo(inet4_rt);
-        GetDestRouteInfo(inet4_rev_rt);
-    } else {
-        //TODO:IPV6
-    }
+    const InetUnicastRouteEntry* rt =
+        static_cast<const InetUnicastRouteEntry*>(ctrl->rt_);
+    const InetUnicastRouteEntry* rev_rt =
+        static_cast<const InetUnicastRouteEntry*>(rev_ctrl->rt_);
+    GetSourceRouteInfo(rt);
+    GetDestRouteInfo(rev_rt);
 }
 
 void FlowEntry::InitRevFlow(const PktFlowInfo *info,
@@ -1470,16 +1462,12 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info,
         reset_flags(FlowEntry::Trap);
     }
 
-    if (key_.family == Address::INET) {
-        const InetUnicastRouteEntry* inet4_rt =
-            static_cast<const InetUnicastRouteEntry*>(ctrl->rt_);
-        const InetUnicastRouteEntry* inet4_rev_rt =
-            static_cast<const InetUnicastRouteEntry*>(rev_ctrl->rt_);
-        GetSourceRouteInfo(inet4_rt);
-        GetDestRouteInfo(inet4_rev_rt);
-    } else {
-        //TODO:IPV6
-    }
+    const InetUnicastRouteEntry* rt =
+        static_cast<const InetUnicastRouteEntry*>(ctrl->rt_);
+    const InetUnicastRouteEntry* rev_rt =
+        static_cast<const InetUnicastRouteEntry*>(rev_ctrl->rt_);
+    GetSourceRouteInfo(rt);
+    GetDestRouteInfo(rev_rt);
 }
 
 void FlowEntry::InitAuditFlow(uint32_t flow_idx) {

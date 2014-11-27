@@ -251,6 +251,89 @@ static inline IpAddress PrefixToIpNetmask(uint32_t prefix_len) {
     return IpAddress(Ip4Address(mask));
 }
 
+static inline IpAddress PrefixToIp6Netmask(uint32_t plen) {
+    boost::system::error_code ec;
+    Ip6Address all_fs = Ip6Address::from_string
+            ("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", ec);
+    if (plen == 0) {
+        return IpAddress(Ip6Address());
+    }
+
+    if (plen == 128) {
+        return IpAddress(all_fs);
+    }
+
+    uint16_t in_ip6[8];
+    unsigned char bytes[16];
+
+    inet_pton(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", in_ip6);
+
+    int index = (int) (plen / 16);
+    int remain_mask = plen % 16;
+
+    switch (remain_mask) {
+        case 0:
+            in_ip6[index++] = 0;
+            break;
+        case 1:
+            in_ip6[index++] &= 0x8000;
+            break;
+        case 2:
+            in_ip6[index++] &= 0xc000;
+            break;
+        case 3:
+            in_ip6[index++] &= 0xe000;
+            break;
+        case 4:
+            in_ip6[index++] &= 0xf000;
+            break;
+        case 5:
+            in_ip6[index++] &= 0xf800;
+            break;
+        case 6:
+            in_ip6[index++] &= 0xfc00;
+            break;
+        case 7:
+            in_ip6[index++] &= 0xfe00;
+            break;
+        case 8:
+            in_ip6[index++] &= 0xff00;
+            break;
+        case  9:
+            in_ip6[index++] &= 0xff80;
+            break;
+        case 10:
+            in_ip6[index++] &= 0xffc0;
+            break;
+        case 11:
+            in_ip6[index++] &= 0xffe0;
+            break;
+        case 12:
+            in_ip6[index++] &= 0xfff0;
+            break;
+        case 13:
+            in_ip6[index++] &= 0xfff8;
+            break;
+        case 14:
+            in_ip6[index++] &= 0xfffc;
+            break;
+        case 15:
+            in_ip6[index++] &= 0xfffe;
+            break;
+    }
+
+    for (int i = index; i < 8; ++i) {
+        in_ip6[i] = 0;
+    }
+
+    memcpy(bytes, in_ip6, sizeof(in_ip6));
+    boost::array<uint8_t, 16> to_bytes;
+    for (int i = 0; i < 16; ++i) {
+        to_bytes.at(i) = bytes[i];
+    }
+    return IpAddress(Ip6Address(to_bytes));
+}
+
 static inline uint32_t NetmaskToPrefix(uint32_t netmask) {
     uint32_t count = 0;
 
@@ -259,6 +342,47 @@ static inline uint32_t NetmaskToPrefix(uint32_t netmask) {
         netmask = (netmask - 1) & netmask;
     }
     return count;
+}
+
+static inline IpAddress VectorToIp(const std::vector<int8_t> &ip) {
+    assert(ip.size() == 16);
+    if (ip.at(15) == 0) {
+        boost::array<unsigned char, 4> bytes;
+        for (int i = 0; i < 4; i++) {
+            bytes[i] = ip.at(i);
+        }
+        Ip4Address addr(bytes);
+        return addr;
+    } else {
+        boost::array<unsigned char, 16> bytes;
+        for (int i = 0; i < 16; i++) {
+            bytes[i] = ip.at(i);
+        }
+        Ip6Address addr(bytes);
+        return addr;
+    }
+}
+
+static inline IpAddress CharArrayToIp(const unsigned char *ip, int size) {
+    if (size != 16) {
+        return IpAddress();
+    }
+    if (((uint16_t)ip[15]) == 0) {
+        boost::array<unsigned char, 4> bytes;
+        for (int i = 0; i < 4; i++) {
+            bytes[i] = ip[i];
+        }
+        Ip4Address addr(bytes);
+        return addr;
+    } else {
+        boost::array<unsigned char, 16> bytes;
+        for (int i = 0; i < 16; i++) {
+            bytes[i] = ip[i];
+        }
+        Ip6Address addr(bytes);
+        return addr;
+    }
+
 }
 
 // Validate a list of <ip-address>:<port> endpoints.
