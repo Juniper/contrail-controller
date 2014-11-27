@@ -1,27 +1,40 @@
 # -*- mode: python; -*-
 
-import sys
+import platform
 
 default = DefaultEnvironment()
 env = default.Clone()
 
-gtest_path = '#/third_party/gtest-1.6.0'
-gmock_path = '#/third_party/gmock-1.6.0'
+(distname, version, _) = platform.dist()
+if distname != 'Ubuntu' or float(version) < 14.04:
+    gtest_path = '#/third_party/gtest-1.6.0'
+    gmock_path = '#/third_party/gmock-1.6.0'
 
-include = [ gtest_path, gtest_path + '/include',
-            gmock_path, gmock_path + '/include']
+    gtest_dir = env.Install('#/build/include', gtest_path + '/include/gtest')
+    gmock_dir = env.Install('#/build/include', gmock_path + '/include/gmock')
+    gunit_h = env.Install('#/build/include/testing', 'gunit.h')
+    env.Depends(gunit_h, [gtest_dir, gmock_dir])
+else:
+    gtest_path = '/usr/src/gmock/gtest'
+    gmock_path = '/usr/src/gmock'
+
+    gtest_dir = env.Install('#/build/include', gtest_path + '/include/gtest')
+    gunit_h = env.InstallAs('#/build/include/testing/gunit.h', 'gunit_nowarn.h')
+    env.Depends(gunit_h, [gtest_dir])
+# endif
+
+include = [
+    gtest_path, gtest_path + '/include',
+    gmock_path, gmock_path + '/include'
+]
 
 env.VariantDir(Dir('.').abspath + '/gtest', gtest_path + '/src')
 env.VariantDir(Dir('.').abspath + '/gmock', gmock_path + '/src')
-
 env.Append(CPPPATH = include)
+
 lib = env.Library('gunit',
                   [Dir('.').abspath + '/gtest/gtest-all.cc',
-                   Dir('.').abspath + '/gmock/gmock-all.cc']
-                  )
+                   Dir('.').abspath + '/gmock/gmock-all.cc'])
 
 env.Install('#/build/lib', lib)
-gtest_dir = env.Install('#/build/include', gtest_path + '/include/gtest')
-gmock_dir = env.Install('#/build/include', gmock_path + '/include/gmock')
-gunit_h = env.Install('#/build/include/testing', 'gunit.h')
-env.Depends(gunit_h, [gtest_dir, gmock_dir])
+
