@@ -4,16 +4,19 @@
 """
 .. attention:: Fix the license string
 """
-import requests
-import re
-import uuid
-import json
-import time
-import socket
-import netaddr
-from netaddr import IPNetwork, IPSet, IPAddress
-import gevent
+
 import bottle
+import gevent
+import json
+import re
+import requests
+import netaddr
+import socket
+import time
+import urllib
+import uuid
+
+from netaddr import IPNetwork, IPSet, IPAddress
 
 from neutron.common import constants
 from neutron.common import exceptions
@@ -1001,7 +1004,8 @@ class DBInterface(object):
             project_obj = self._project_read(proj_id=project_id)
             id_perms = IdPermsType(enable=True,
                                    description=sg_q.get('description'))
-            sg_vnc = SecurityGroup(name=sg_q['name'],
+            sg_name = self._urllib_encode(sg_q.get('name'))
+            sg_vnc = SecurityGroup(name=sg_name,
                                    parent_obj=project_obj,
                                    id_perms=id_perms)
         else:
@@ -1123,7 +1127,7 @@ class DBInterface(object):
     #end _security_group_rule_neutron_to_vnc
 
     def _network_neutron_to_vnc(self, network_q, oper):
-        net_name = network_q.get('name', None)
+        net_name = self._urllib_encode(network_q.get('name', None))
         try:
             external_attr = network_q['router:external']
         except KeyError:
@@ -1195,14 +1199,17 @@ class DBInterface(object):
         id_perms = net_obj.get_id_perms()
         perms = id_perms.permissions
         net_q_dict['id'] = net_obj.uuid
+        
+        net_fq_name = net_obj.get_fq_name()
+        self._urllib_decode_list(net_fq_name)
 
         if not net_obj.display_name:
             # for nets created directly via vnc_api
-            net_q_dict['name'] = net_obj.get_fq_name()[-1]
+            net_q_dict['name'] = net_fq_name()[-1]
         else:
             net_q_dict['name'] = net_obj.display_name
 
-        extra_dict['contrail:fq_name'] = net_obj.get_fq_name()
+        extra_dict['contrail:fq_name'] = net_fq_name
         net_q_dict['tenant_id'] = net_obj.parent_uuid.replace('-', '')
         net_q_dict['admin_state_up'] = id_perms.enable
         if net_obj.is_shared:
@@ -1459,14 +1466,14 @@ class DBInterface(object):
         if net_back_refs:
             policy_q_dict['nets_using'] = []
             for net_back_ref in net_back_refs:
-                net_fq_name = net_back_ref['to']
+                self._urllib_decode_list(net_back_ref['to'])
                 policy_q_dict['nets_using'].append(net_fq_name)
 
         return policy_q_dict
     #end _policy_vnc_to_neutron
 
     def _router_neutron_to_vnc(self, router_q, oper):
-        rtr_name = router_q.get('name', None)
+        rtr_name = self._urllib_encode(router_q.get('name', None))
         if oper == CREATE:
             project_id = str(uuid.UUID(router_q['tenant_id']))
             project_obj = self._project_read(proj_id=project_id)
@@ -1496,11 +1503,13 @@ class DBInterface(object):
     def _router_vnc_to_neutron(self, rtr_obj, rtr_repr='SHOW'):
         rtr_q_dict = {}
         extra_dict = {}
-        extra_dict['contrail:fq_name'] = rtr_obj.get_fq_name()
+        rtr_fq_name = rtr_obj.get_fq_name()
+        self._urllib_decode_list(rtr_fq_name)
+        extra_dict['contrail:fq_name'] = rtr_fq_name
 
         rtr_q_dict['id'] = rtr_obj.uuid
         if not rtr_obj.display_name:
-            rtr_q_dict['name'] = rtr_obj.get_fq_name()[-1]
+            rtr_q_dict['name'] = rtr_fq_name[-1]
         else:
             rtr_q_dict['name'] = rtr_obj.display_name
         rtr_q_dict['tenant_id'] = rtr_obj.parent_uuid.replace('-', '')
@@ -1689,7 +1698,7 @@ class DBInterface(object):
             id_perms = IdPermsType(enable=True)
             port_uuid = str(uuid.uuid4())
             if port_q.get('name'):
-                port_name = port_q['name']
+                port_name = self._urllib_encode(port_q.get('name'))
             else:
                 port_name = port_uuid
             port_obj = VirtualMachineInterface(port_name, proj_obj,
@@ -1858,10 +1867,12 @@ class DBInterface(object):
     def _port_vnc_to_neutron(self, port_obj, port_req_memo=None):
         port_q_dict = {}
         extra_dict = {}
-        extra_dict['contrail:fq_name'] = port_obj.get_fq_name()
+        port_fq_name = port_obj.get_fq_name()
+        self._urllib_decode_list(port_fq_name)
+        extra_dict['contrail:fq_name'] = port_fq_name
         if not port_obj.display_name:
             # for ports created directly via vnc_api
-            port_q_dict['name'] = port_obj.get_fq_name()[-1]
+            port_q_dict['name'] = port_fq_name[-1]
         else:
             port_q_dict['name'] = port_obj.display_name
         port_q_dict['id'] = port_obj.uuid
@@ -2168,6 +2179,29 @@ class DBInterface(object):
                 except vnc_exc.NoIdError:
                     pass
 
+    def _urllib_encode(self, enc_str, source_encoding='utf-8'):
+        if not enc_str:
+            return
+        try:
+            enc_str.encode()
+        except (UnicodeDecodeError, UnicodeEncodeError):
+            if type(enc_str) is unicode:
+                enc_str = enc_str.encode(source_encoding)
+            enc_str = urllib.quote_plus(enc_str)
+        return enc_str
+
+    def _urllib_decode(self, dec_str, source_encoding=None):
+        if not dec_str:
+            return
+        if '%' in dec_str:
+            dec_str = urllib.unquote_plus(dec_str)
+        return dec_str
+
+    def _urllib_decode_list(self, str_list, source_encoding=None):
+        if str_list:
+            for i, str in enumerate(str_list):
+                str_list[i] = self._urllib_decode(str, source_encoding)
+            
     # public methods
     # network api handlers
     def network_create(self, network_q):
