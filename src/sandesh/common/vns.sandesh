@@ -119,6 +119,20 @@ const list<string> NodeUVEImplementedServices = [
     SERVICE_DEVICE_MANAGER,
 ]
 
+const map<string, string> ServicesDefaultConfigurationFile = {
+    SERVICE_VROUTER_AGENT : '/etc/contrail/contrail-vrouter-agent.conf',
+    SERVICE_CONTROL_NODE : '/etc/contrail/contrail-control.conf',
+    SERVICE_COLLECTOR : '/etc/contrail/contrail-collector.conf',
+    SERVICE_QUERY_ENGINE : '/etc/contrail/contrail-query-engine.conf',
+    SERVICE_OPSERVER : '/etc/contrail/contrail-analytics-api.conf',
+    SERVICE_API_SERVER : '/etc/contrail/contrail-api.conf',
+    SERVICE_SCHEMA_TRANSFORMER : '/etc/contrail/contrail-schema.conf',
+    SERVICE_SVC_MONITOR : '/etc/contrail/contrail-svc-monitor.conf',
+    SERVICE_DEVICE_MANAGER : '/etc/contrail/contrail-device-manager.conf',
+    SERVICE_DNSD : '/etc/contrail/dns.conf',
+    SERVICE_DISCOVERY : '/etc/contrail/contrail-discovery.conf',
+}
+
 enum Module {
     CONTROL_NODE,
     VROUTER_AGENT,

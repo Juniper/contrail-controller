@@ -14,7 +14,7 @@ import requests
 from StringIO import StringIO
 from lxml import etree
 from sandesh_common.vns.constants import ServiceHttpPortMap, \
-    NodeUVEImplementedServices
+    NodeUVEImplementedServices, ServicesDefaultConfigurationFile
 
 try:
     subprocess.check_call(["dpkg-vendor", "--derives-from", "debian"])
@@ -193,8 +193,11 @@ _DEFAULT_CONF_FILE_EXTENSION = '.conf'
 
 def get_http_server_port_from_conf(svc_name, debug):
     # Open and extract conf file
-    default_conf_file = _DEFAULT_CONF_FILE_DIR + svc_name + \
-        _DEFAULT_CONF_FILE_EXTENSION
+    if svc_name in ServicesDefaultConfigurationFile:
+        default_conf_file = ServicesDefaultConfigurationFile[svc_name]
+    else:
+        default_conf_file = _DEFAULT_CONF_FILE_DIR + svc_name + \
+            _DEFAULT_CONF_FILE_EXTENSION
     try:
         fp = open(default_conf_file)
     except IOError as e:
@@ -273,7 +276,7 @@ def get_svc_uve_status(svc_name, debug):
         return None, None
     return process_status_info[0]['state'], process_status_info[0]['description']
 
-def check_svc_status(service_name, debug):
+def check_svc_status(service_name, debug, detail):
     service_sock = service_name.replace('-', '_')
     service_sock = service_sock.replace('supervisor_', 'supervisord_') + '.sock'
     cmd = 'supervisorctl -s unix:///tmp/' + service_sock + ' status'
@@ -291,6 +294,7 @@ def check_svc_status(service_name, debug):
             if len(supervisor_svc_info) >= 2:
                 svc_name = supervisor_svc_info[0]
                 svc_status = supervisor_svc_info[1]
+                svc_detail_info = ' '.join(supervisor_svc_info[2:])
                 # Extract UVE state only for running processes
                 if svc_name in NodeUVEImplementedServices and svc_status == 'active':
                     svc_uve_status, svc_uve_description = get_svc_uve_status(svc_name, debug)
@@ -301,35 +305,38 @@ def check_svc_status(service_name, debug):
                         svc_status = 'initializing'
                     if svc_uve_description is not None and svc_uve_description is not '':
                         svc_status = svc_status + ' (' + svc_uve_description + ')'
-                print '{0:<30}{1:<20}'.format(svc_name, svc_status)
+                if not detail:
+                    print '{0:<30}{1:<20}'.format(svc_name, svc_status)
+                else:
+                    print '{0:<30}{1:<20}{2:<40}'.format(svc_name, svc_status, svc_detail_info)
         print
 
-def check_status(svc_name, debug):
+def check_status(svc_name, debug, detail):
     check_svc(svc_name)
-    check_svc_status(svc_name, debug)
+    check_svc_status(svc_name, debug, detail)
 
-def supervisor_status(nodetype, debug):
+def supervisor_status(nodetype, debug, detail):
     if nodetype == 'compute':
         print "== Contrail vRouter =="
-        check_status('supervisor-vrouter', debug)
+        check_status('supervisor-vrouter', debug, detail)
     elif nodetype == 'config':
         print "== Contrail Config =="
-        check_status('supervisor-config', debug)
+        check_status('supervisor-config', debug, detail)
     elif nodetype == 'control':
         print "== Contrail Control =="
-        check_status('supervisor-control', debug)
+        check_status('supervisor-control', debug, detail)
     elif nodetype == 'analytics':
         print "== Contrail Analytics =="
-        check_status('supervisor-analytics', debug)
+        check_status('supervisor-analytics', debug, detail)
     elif nodetype == 'database':
         print "== Contrail Database =="
-        check_status('supervisor-database', debug)
+        check_status('supervisor-database', debug, detail)
     elif nodetype == 'webui':
         print "== Contrail Web UI =="
-        check_status('supervisor-webui', debug)
+        check_status('supervisor-webui', debug, detail)
     elif nodetype == 'support-service':
         print "== Contrail Support Services =="
-        check_status('supervisor-support-service', debug)
+        check_status('supervisor-support-service', debug, detail)
 
 def package_installed(pkg):
     if distribution == 'debian':
@@ -368,28 +375,28 @@ def main():
     if agent:
         if not vr:
             print "vRouter is NOT PRESENT\n"
-        supervisor_status('compute', options.debug)
+        supervisor_status('compute', options.debug, options.detail)
     else:
         if vr:
             print "vRouter is PRESENT\n"
 
     if control:
-        supervisor_status('control', options.debug)
+        supervisor_status('control', options.debug, options.detail)
 
     if analytics:
-        supervisor_status('analytics', options.debug)
+        supervisor_status('analytics', options.debug, options.detail)
 
     if capi:
-        supervisor_status('config', options.debug)
+        supervisor_status('config', options.debug, options.detail)
     
     if cwebui:
-        supervisor_status('webui', options.debug)
+        supervisor_status('webui', options.debug, options.detail)
 
     if database:
-        supervisor_status('database', options.debug)
+        supervisor_status('database', options.debug, options.detail)
 
     if capi:
-        supervisor_status('support-service', options.debug)
+        supervisor_status('support-service', options.debug, options.detail)
 
     if storage:
         print "== Contrail Storage =="
