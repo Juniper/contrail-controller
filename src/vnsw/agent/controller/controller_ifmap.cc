@@ -91,14 +91,21 @@ void AgentIfMapVmExport::Notify(DBTablePartBase *partition, DBEntryBase *e) {
     AgentXmppChannel *peer = NULL;
     AgentIfMapXmppChannel *ifmap = NULL;
     struct VmExportInfo *info = NULL;
+
+    std::stringstream vmid, vmiid;
+    vmid << entry->GetVmUuid();
+    vmiid << entry->GetUuid();
+    if (entry->port_type() == CfgIntEntry::CfgIntNameSpacePort) {
+        CONTROLLER_TRACE(IFMapVmExportTrace, vmid.str(), "NameSpacePort",
+                         "Ignore Sending Subscribe/Unsubscribe");
+        return;
+    }
+
     VmMap::iterator vm_it = vm_map_.find(entry->GetVmUuid());
     if (vm_map_.end() != vm_it) {
         info = vm_it->second;
     }
 
-    std::stringstream vmid, vmiid;
-    vmid << entry->GetVmUuid();
-    vmiid << entry->GetUuid();
     if (entry->IsDeleted()) {
 
         //If delete already processed, neglect the delete
