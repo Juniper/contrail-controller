@@ -104,7 +104,7 @@ class PhysicalRouterConfig(object):
         comm = etree.SubElement(then, "community")
         etree.SubElement(comm, "add")
         for route_target in export_targets:
-            etree.SubElement(comm, route_target)
+            etree.SubElement(comm, route_target.replace(':', '_'))
         etree.SubElement(then, "accept")
 
         # add policies for import route targets
@@ -141,56 +141,69 @@ class PhysicalRouterConfig(object):
     def set_bgp_config(self, params):
         self.bgp_params = params
         if params['vendor'] != "mx" or not params['vnc_managed']:
-            if self.bgp_config:
+            if self.bgp_config_sent:
                 self.delete_bgp_config()
             return
-
-        self.bgp_config = etree.Element("group", operation="replace")
-        etree.SubElement(self.bgp_config, "name").text = "__contrail__"
-        etree.SubElement(self.bgp_config, "type").text = "internal"
-        etree.SubElement(self.bgp_config, "multihop")
-        local_address = etree.SubElement(self.bgp_config, "local-address")
-        local_address.text = params['address']
-        self._add_family_etree(self.bgp_config, params)
-        etree.SubElement(self.bgp_config, "keep").text = "all"
     # end set_bgp_config
 
+    def _get_bgp_config_xml(self, external=False):
+        if (self.bgp_params is None or self.bgp_params.get('vendor') != 'mx' or
+            not self.bgp_params.get('vnc_managed', False)):
+            return None
+        bgp_config = etree.Element("group", operation="replace")
+        if external:
+            etree.SubElement(bgp_config, "name").text = "__contrail_external__"
+            etree.SubElement(bgp_config, "type").text = "external"
+        else:
+            etree.SubElement(bgp_config, "name").text = "__contrail__"
+            etree.SubElement(bgp_config, "type").text = "internal"
+        etree.SubElement(bgp_config, "multihop")
+        local_address = etree.SubElement(bgp_config, "local-address")
+        local_address.text = self.bgp_params['address']
+        self._add_family_etree(bgp_config, self.bgp_params)
+        etree.SubElement(bgp_config, "keep").text = "all"
+        return bgp_config
+    # end _get_bgp_config_xml
+
     def reset_bgp_config(self):
+        self.bgp_config_sent = False
         self.routing_instances = {}
-        self.bgp_config = None
+        self.bgp_params = None
         self.ri_config = None
         self.policy_config = None
         self.route_targets = set()
         self.bgp_peers = {}
+        self.external_peers = {}
     # ene reset_bgp_config
 
     def delete_bgp_config(self):
-        if self.bgp_config is None:
+        if not self.bgp_config_sent:
             return
         self.reset_bgp_config()
         self.send_netconf([], default_operation="none", operation="delete")
     # end delete_config
 
-    def add_bgp_peer(self, router, params):
-        self.bgp_peers[router] = params
+    def add_bgp_peer(self, router, params, external):
+        if external:
+            self.external_peers[router] = params
+        else:
+            self.bgp_peers[router] = params
         self.send_bgp_config()
     # end add_peer
 
     def delete_bgp_peer(self, router):
         if router in self.bgp_peers:
             del self.bgp_peers[router]
-            self.send_bgp_config()
+        elif router in self.external_peers:
+            del self.external_peers[rotuer]
+        else:
+            return
+        self.send_bgp_config()
     # end delete_bgp_peer
 
-    def send_bgp_config(self):
-        if self.bgp_config is None:
-            return
-        proto_config = etree.Element("protocols")
-        group_config = copy.deepcopy(self.bgp_config)
-        bgp = etree.SubElement(proto_config, "bgp")
-        bgp.append(group_config)
-        for peer, params in self.bgp_peers.items():
-            nbr = etree.SubElement(group_config, "neighbor")
+    def _get_neighbor_config_xml(self, bgp_config, peers):
+        for peer, params in peers.items():
+            nbr = etree.SubElement(bgp_config, "neighbor")
             etree.SubElement(nbr, "name").text = peer
             bgp_sessions = params.get('session')
             if bgp_sessions:
@@ -202,11 +215,27 @@ class PhysicalRouterConfig(object):
                     if attr.get('bgp_router') is None:
                         self._add_family_etree(nbr, attr)
                         break
+    # end _get_neighbor_config_xml
+
+    def send_bgp_config(self):
+        bgp_config = self._get_bgp_config_xml()
+        if bgp_config is None:
+            return
+        proto_config = etree.Element("protocols")
+        bgp = etree.SubElement(proto_config, "bgp")
+        bgp.append(bgp_config)
+        self._get_neighbor_config_xml(bgp_config, self.bgp_peers)
+        if self.external_peers:
+            ext_grp_config = self._get_bgp_config_xml(True)
+            bgp.append(ext_grp_config)
+            self._get_neighbor_config_xml(ext_grp_config, self.external_peers)
 
         routing_options_config = etree.Element("routing-options")
         etree.SubElement(
             routing_options_config,
             "route-distinguisher-id").text = self.bgp_params['identifier']
+        etree.SubElement(routing_options_config, "autonomous-system").text = \
+            str(self.bgp_params.get('autonomous_system'))
         config_list = [proto_config, routing_options_config]
         if self.ri_config:
             config_list.append(self.ri_config)
@@ -217,6 +246,7 @@ class PhysicalRouterConfig(object):
         if self.policy_config:
             config_list.append(self.policy_config)
         self.send_netconf(config_list)
+        self.bgp_config_sent = True
     # end send_bgp_config
 
 # end PhycalRouterConfig
