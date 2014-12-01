@@ -32,6 +32,8 @@ class ContrailVRouterApi(object):
             return None
         protocol = TBinaryProtocol.TBinaryProtocol(transport)
         client = InstanceService.Client(protocol)
+        if client:
+            client.Connect()
         return client
 
     def _resynchronize(self):
@@ -55,9 +57,9 @@ class ContrailVRouterApi(object):
     def connect(self):
         if self._client is None:
             self._client = self._rpc_client_instance()
-
-        if self._client is None:
-            return False
+            if self._client is None:
+                return False
+            return True
 
         return self._client.Connect()
 
