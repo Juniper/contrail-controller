@@ -117,29 +117,33 @@ class SvcMonitor(object):
                                           "command": "/bin/bash"
                                       })
 
+        self._nova_client = importutils.import_object(
+            'svc_monitor.nova_client.ServiceMonitorNovaClient',
+            self._args)
+
         # load vrouter scheduler
         self.vrouter_scheduler = importutils.import_object(
             self._args.si_netns_scheduler_driver,
-            self._vnc_lib,
+            self._vnc_lib, self._nova_client,
             self._args)
 
         # load virtual machine instance manager
         self.vm_manager = importutils.import_object(
             'svc_monitor.virtual_machine_manager.VirtualMachineManager',
             self._vnc_lib, self.db, self.logger,
-            self.vrouter_scheduler, self._args)
+            self.vrouter_scheduler, self._nova_client, self._args)
 
         # load network namespace instance manager
         self.netns_manager = importutils.import_object(
             'svc_monitor.instance_manager.NetworkNamespaceManager',
             self._vnc_lib, self.db, self.logger,
-            self.vrouter_scheduler, self._args)
+            self.vrouter_scheduler, self._nova_client, self._args)
 
         # load a vrouter instance manager
         self.vrouter_manager = importutils.import_object(
             'svc_monitor.vrouter_instance_manager.VRouterInstanceManager',
             self._vnc_lib, self.db, self.logger,
-            self.vrouter_scheduler, self._args)
+            self.vrouter_scheduler, self._nova_client, self._args)
 
     # create service template
     def _create_default_template(self, st_name, svc_type, svc_mode=None,
@@ -314,6 +318,7 @@ class SvcMonitor(object):
 
         try:
             if virt_type == svc_info.get_vm_instance_type():
+                self.vm_manager.delete_iip(vm_uuid)
                 self.vm_manager.delete_service(si_fq_str, vm_uuid, proj_name)
             elif virt_type == svc_info.get_netns_instance_type():
                 self.netns_manager.delete_service(si_fq_str, vm_uuid)
@@ -687,6 +692,7 @@ def parse_args(args_str):
         'analytics_server_ip': '127.0.0.1',
         'analytics_server_port': '8081',
         'availability_zone': None,
+        'netns_availability_zone': None,
     }
 
     if args.conf_file:
@@ -781,6 +787,9 @@ def parse_args(args_str):
         args.region_name = None
     if args.availability_zone and args.availability_zone.lower() == 'none':
         args.availability_zone = None
+    if args.netns_availability_zone and \
+            args.netns_availability_zone.lower() == 'none':
+        args.netns_availability_zone = None
     return args
 # end parse_args
 
