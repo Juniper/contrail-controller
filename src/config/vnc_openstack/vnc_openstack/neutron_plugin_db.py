@@ -20,6 +20,7 @@ from neutron.common import exceptions
 from neutron.api.v2 import attributes as attr
 
 from cfgm_common import exceptions as vnc_exc
+from cfgm_common import vnc_unicode_utils
 from vnc_api.vnc_api import *
 from vnc_api.common import SG_NO_RULE_FQ_NAME, SG_NO_RULE_NAME
 
@@ -971,7 +972,7 @@ class DBInterface(object):
     def _security_group_vnc_to_neutron(self, sg_obj):
         sg_q_dict = {}
         extra_dict = {}
-        extra_dict['contrail:fq_name'] = sg_obj.get_fq_name()
+        extra_dict['contrail:fq_name'] = ":".join(sg_obj.get_fq_name())
 
         # replace field names
         sg_q_dict['id'] = sg_obj.uuid
@@ -1196,13 +1197,16 @@ class DBInterface(object):
         perms = id_perms.permissions
         net_q_dict['id'] = net_obj.uuid
 
+        net_fq_name = list(net_obj.get_fq_name())
+        vnc_unicode_utils.decode_str_list(net_fq_name)
+
         if not net_obj.display_name:
             # for nets created directly via vnc_api
             net_q_dict['name'] = net_obj.get_fq_name()[-1]
         else:
             net_q_dict['name'] = net_obj.display_name
 
-        extra_dict['contrail:fq_name'] = net_obj.get_fq_name()
+        extra_dict['contrail:fq_name'] = ":".join(net_fq_name)
         net_q_dict['tenant_id'] = net_obj.parent_uuid.replace('-', '')
         net_q_dict['admin_state_up'] = id_perms.enable
         if net_obj.is_shared:
@@ -1496,7 +1500,7 @@ class DBInterface(object):
     def _router_vnc_to_neutron(self, rtr_obj, rtr_repr='SHOW'):
         rtr_q_dict = {}
         extra_dict = {}
-        extra_dict['contrail:fq_name'] = rtr_obj.get_fq_name()
+        extra_dict['contrail:fq_name'] = ":".join(rtr_obj.get_fq_name())
 
         rtr_q_dict['id'] = rtr_obj.uuid
         if not rtr_obj.display_name:
@@ -1858,7 +1862,7 @@ class DBInterface(object):
     def _port_vnc_to_neutron(self, port_obj, port_req_memo=None):
         port_q_dict = {}
         extra_dict = {}
-        extra_dict['contrail:fq_name'] = port_obj.get_fq_name()
+        extra_dict['contrail:fq_name'] = ":".join(port_obj.get_fq_name())
         if not port_obj.display_name:
             # for ports created directly via vnc_api
             port_q_dict['name'] = port_obj.get_fq_name()[-1]

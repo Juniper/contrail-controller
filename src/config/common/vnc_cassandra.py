@@ -17,6 +17,8 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 import time
 import json
 
+from cfgm_common import vnc_unicode_utils
+
 class VncCassandraClient(VncCassandraClientGen):
     # Name to ID mapping keyspace + tables
     _UUID_KEYSPACE_NAME = 'config_db_uuid'
@@ -208,6 +210,8 @@ class VncCassandraClient(VncCassandraClientGen):
 
     def fq_name_to_uuid(self, obj_type, fq_name):
         method_name = obj_type.replace('-', '_')
+        vnc_unicode_utils.encode_str_list(fq_name)
+
         fq_name_str = ':'.join(fq_name)
         col_start = '%s:' % (fq_name_str)
         col_fin = '%s;' % (fq_name_str)
