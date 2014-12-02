@@ -79,7 +79,8 @@ void IcmpHandler::SendResponse(VmInterface *vm_intf) {
 
     len += IpHdr(ptr + len, buf_len - len, ip_len,
                  htonl(pkt_info_->ip_daddr.to_v4().to_ulong()),
-                 htonl(pkt_info_->ip_saddr.to_v4().to_ulong()), IPPROTO_ICMP);
+                 htonl(pkt_info_->ip_saddr.to_v4().to_ulong()),
+                 IPPROTO_ICMP, DEFAULT_IP_ID, DEFAULT_IP_TTL);
 
     // Restore the ICMP header copied earlier
     struct icmp *hdr = (struct icmp *) (ptr + len);

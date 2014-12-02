@@ -24,12 +24,18 @@ uint32_t ProtoHandler::EncapHeaderLen() const {
 // send packet to the pkt0 interface
 void ProtoHandler::Send(uint16_t itf, uint16_t vrf, uint16_t cmd,
                         PktHandler::PktModuleName mod) {
+    Send(itf, vrf, cmd, 0, 0, mod);
+}
+
+void ProtoHandler::Send(uint16_t itf, uint16_t vrf, uint16_t cmd,
+                        uint32_t param1, uint32_t param2,
+                        PktHandler::PktModuleName mod) {
     // If pkt_info_->pkt is non-NULL, pkt is freed in destructor of pkt_info_
     if (agent_->pkt()->pkt_handler() == NULL) {
         return;
     }
 
-    AgentHdr hdr(itf, vrf, cmd);
+    AgentHdr hdr(itf, vrf, cmd, param1, param2);
     agent_->pkt()->pkt_handler()->Send(hdr, pkt_info_->packet_buffer_ptr());
 }
 
@@ -96,7 +102,8 @@ void ProtoHandler::VlanHdr(uint8_t *ptr, uint16_t tci) {
 }
 
 uint16_t ProtoHandler::IpHdr(char *buff, uint16_t buf_len, uint16_t len,
-                             in_addr_t src, in_addr_t dest, uint8_t protocol) {
+                             in_addr_t src, in_addr_t dest, uint8_t protocol,
+                             uint16_t id, uint8_t ttl) {
     struct ip *ip = (struct ip *)buff;
     if (buf_len < sizeof(struct ip))
         return 0;
@@ -105,9 +112,9 @@ uint16_t ProtoHandler::IpHdr(char *buff, uint16_t buf_len, uint16_t len,
     ip->ip_v = 4;
     ip->ip_tos = 0;
     ip->ip_len = htons(len);
-    ip->ip_id = 0;
+    ip->ip_id = htons(id);
     ip->ip_off = 0;
-    ip->ip_ttl = 16;
+    ip->ip_ttl = ttl;
     ip->ip_p = protocol;
     ip->ip_sum = 0;
     ip->ip_src.s_addr = src;
@@ -118,9 +125,10 @@ uint16_t ProtoHandler::IpHdr(char *buff, uint16_t buf_len, uint16_t len,
 }
 
 void ProtoHandler::IpHdr(uint16_t len, in_addr_t src, in_addr_t dest,
-                         uint8_t protocol) {
+                         uint8_t protocol, uint16_t id, uint8_t ttl) {
 
-    IpHdr((char *)pkt_info_->ip, sizeof(struct ip), len, src, dest, protocol);
+    IpHdr((char *)pkt_info_->ip, sizeof(struct ip), len,
+          src, dest, protocol, id, ttl);
 }
 
 void ProtoHandler::Ip6Hdr(ip6_hdr *ip, uint16_t plen, uint8_t next_header,

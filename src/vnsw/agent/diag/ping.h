@@ -25,18 +25,12 @@ public:
     void FillAgentHeader(AgentDiagPktData *pkt);
     DiagPktHandler* CreateTcpPkt(Agent *agent);
     DiagPktHandler* CreateUdpPkt(Agent *agent);
-    static void PingInit();
+
     static void HandleRequest(DiagPktHandler *);
+
 private:
-    Ip4Address sip_;
-    Ip4Address dip_;
-    uint8_t    proto_;
-    uint16_t   sport_;
-    uint16_t   dport_;
     uint16_t   data_len_;
     uint16_t   len_;   //Length including tcp, ip, agent headers + outer eth
-    std::string vrf_name_;
-    boost::system::error_code ec_;
     std::string context_;
     boost::posix_time::time_duration avg_rtt_;
     uint32_t  pkt_lost_count_;

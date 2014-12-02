@@ -92,7 +92,7 @@ bool IcmpErrorHandler::SendIcmpError(VmInterface *intf) {
     uint16_t ip_len = sizeof(struct ip) + sizeof(struct icmp) + data_len;
     len += IpHdr(ptr + len, buf_len - len, ip_len,
             ipam->default_gw.to_v4().to_ulong(),
-            htonl(src_ip), IPPROTO_ICMP);
+            htonl(src_ip), IPPROTO_ICMP, DEFAULT_IP_ID, DEFAULT_IP_TTL);
 
     char *icmp = ptr + len;
     len += IcmpHdr(ptr + len, buf_len - len, ICMP_UNREACH,

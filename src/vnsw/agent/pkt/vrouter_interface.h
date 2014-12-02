@@ -21,6 +21,7 @@ public:
     VrouterControlInterface() : ControlInterface() { }
     virtual ~VrouterControlInterface() {
         vr_cmd_list_.clear();
+        vr_cmd_params_list_.clear();
         agent_cmd_list_.clear();
     }
 
@@ -40,6 +41,15 @@ public:
         vr_cmd_list_[AGENT_TRAP_SOURCE_MISMATCH] =
             AgentHdr::TRAP_SOURCE_MISMATCH;
         vr_cmd_list_[AGENT_TRAP_HANDLE_DF] = AgentHdr::TRAP_HANDLE_DF;
+        vr_cmd_list_[AGENT_TRAP_ZERO_TTL] = AgentHdr::TRAP_ZERO_TTL;
+        vr_cmd_list_[AGENT_TRAP_ICMP_ERROR] = AgentHdr::TRAP_ICMP_ERROR;
+
+        // Init and populate vector for translating command params from vrouter
+        // to agent
+        vr_cmd_params_list_.insert(vr_cmd_params_list_.begin(), MAX_CMD_PARAMS,
+                                   AgentHdr::MAX_PACKET_CMD_PARAM);
+        vr_cmd_params_list_[CMD_PARAM_PACKET_CTRL] = AgentHdr::PACKET_CMD_PARAM_CTRL;
+        vr_cmd_params_list_[CMD_PARAM_1_DIAG] = AgentHdr::PACKET_CMD_PARAM_DIAG;
 
         // Init and populate vector for translating command types from agent
         // to vrouter
@@ -110,6 +120,8 @@ public:
         vr_agent_hdr->hdr_ifindex = htons(hdr.ifindex);
         vr_agent_hdr->hdr_vrf = htons(hdr.vrf);
         vr_agent_hdr->hdr_cmd = htons(hdr.cmd);
+        vr_agent_hdr->hdr_cmd_param = htonl(hdr.cmd_param);
+        vr_agent_hdr->hdr_cmd_param_1 = htonl(hdr.cmd_param_1);
     }
 
     // Transmit packet on VrouterControlInterface.
@@ -138,12 +150,22 @@ private:
         return cmd;
     }
 
+    AgentHdr::PktCommandParams VrCmdParamtoAgentCmdParam(uint16_t param) {
+        AgentHdr::PktCommandParams cmd = AgentHdr::MAX_PACKET_CMD_PARAM;
+        if (param < vr_cmd_params_list_.size()) {
+            cmd = vr_cmd_params_list_[param];
+        }
+
+        return cmd;
+    }
+
     uint16_t AgentCmdToVrCmd(AgentHdr::PktCommand agent_cmd) {
         assert((uint32_t)agent_cmd < agent_cmd_list_.size());
         return agent_cmd_list_[agent_cmd];
     }
 
     std::vector<AgentHdr::PktCommand> vr_cmd_list_;
+    std::vector<AgentHdr::PktCommandParams> vr_cmd_params_list_;
     std::vector<uint16_t> agent_cmd_list_;
 
     DISALLOW_COPY_AND_ASSIGN(VrouterControlInterface);

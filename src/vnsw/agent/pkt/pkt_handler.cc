@@ -83,7 +83,7 @@ void PktHandler::HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff){
     agent_->stats()->incr_pkt_exceptions();
     intf = agent_->interface_table()->FindInterface(hdr.ifindex);
     if (intf == NULL) {
-        PKT_TRACE(Err, "Invalid interface index <" << hdr.ifindex << ">");
+        PKT_TRACE(Err, "Invalid interface index <" << (uint16_t) hdr.ifindex << ">");
         agent_->stats()->incr_pkt_invalid_interface();
         goto enqueue;
     }
@@ -92,7 +92,7 @@ void PktHandler::HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff){
         VmInterface *vm_itf = static_cast<VmInterface *>(intf);
         if (!vm_itf->layer3_forwarding()) {
             PKT_TRACE(Err, "ipv4 not enabled for interface index <" <<
-                      hdr.ifindex << ">");
+                      (uint16_t) hdr.ifindex << ">");
             agent_->stats()->incr_pkt_dropped();
             goto drop;
         }
@@ -143,6 +143,12 @@ void PktHandler::HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff){
     // Look for IP packets that need ARP resolution
     if (pkt_info->ip && hdr.cmd == AgentHdr::TRAP_RESOLVE) {
         mod = ARP;
+        goto enqueue;
+    }
+
+    // send time exceeded ICMP messages to diag module
+    if (IsDiagPacket(pkt_info.get())) {
+        mod = DIAG;
         goto enqueue;
     }
 
@@ -376,7 +382,8 @@ uint8_t *PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
     pkt = ParseIpPacket(pkt_info, pkt_type, pkt);
     // If tunneling is not enabled on interface or if it is a DHCP packet,
     // dont parse any further
-    if (intf->IsTunnelEnabled() == false || IsDHCPPacket(pkt_info)) {
+    if (intf->IsTunnelEnabled() == false || IsDHCPPacket(pkt_info) ||
+        IsDiagPacket(pkt_info)) {
         return pkt;
     }
 
@@ -465,6 +472,13 @@ bool PktHandler::IsDHCPPacket(PktInfo *pkt_info) {
         // we dont handle DHCPv6 coming from fabric
         return true;
     }
+    return false;
+}
+
+bool PktHandler::IsDiagPacket(PktInfo *pkt_info) {
+    if (pkt_info->agent_hdr.cmd == AgentHdr::TRAP_ZERO_TTL ||
+        pkt_info->agent_hdr.cmd == AgentHdr::TRAP_ICMP_ERROR)
+        return true;
     return false;
 }
 
