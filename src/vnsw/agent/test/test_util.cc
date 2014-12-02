@@ -1391,8 +1391,7 @@ void AddInterfaceRouteTableV6(const char *name, int id, TestIp6Prefix *rt,
     }
 
     char buff[10240];
-    sprintf(buff, "<interface-route-table-family>v6</interface-route-table-family>\n"
-                  "<interface-route-table-routes>\n"
+    sprintf(buff, "<interface-route-table-routes>\n"
                   "%s"
                   "</interface-route-table-routes>\n", o_str.str().c_str());
     AddNode("interface-route-table", name, id, buff);
