@@ -971,6 +971,11 @@ class OpServer(object):
                 else:
                     self._logger.info("Schema not known for dynamic table %s" % tabl)
 
+            if tabl == OVERLAY_TO_UNDERLAY_FLOW_MAP:
+                yield self._process_overlay_to_underlay_flowmap_query(
+                            request.json)
+                return
+
             prg = redis_query_start('127.0.0.1',
                                     int(self._args.redis_query_port),
                                     qid, request.json)
@@ -1116,6 +1121,131 @@ class OpServer(object):
                 "Query Result available at time %d" % time.time())
         return
     # end _sync_query
+
+    def _process_overlay_to_underlay_flowmap_query(self, query_json):
+        # validate query - TODO
+
+        # process where clause
+        where_or_list = query_json['where']
+        self._logger.debug('Number of OR terms in where clause: %d' \
+                           % len(where_or_list))
+        flow_record_where = []
+        for where_and_list in where_or_list:
+            flow_record_where_and_list = []
+            for and_term in where_and_list:
+                fname = OverlayToFlowRecordTableFields.get(and_term['name'])
+                if fname is None:
+                    # return error - TODO
+                    return
+                match = OpServerUtils.Match(name=fname,
+                            value=and_term['value'],
+                            op=and_term['op'])
+                flow_record_where_and_list.append(match.__dict__)
+                if and_term['suffix'] is not None:
+                    fname = OverlayToFlowRecordTableFields.get(
+                                and_term['suffix']['name'])
+                    if fname is None:
+                        # return error - TODO
+                        return
+                    match = OpServerUtils.Match(name=fname,
+                            value=and_term['suffix']['value'],
+                            op=and_term['suffix']['op'])
+                    flow_record_where_and_list.append(match.__dict__)
+            flow_record_where.append(flow_record_where_and_list)
+        
+        # populate the select list
+        flow_record_select = [
+            FlowRecordNames[FlowRecordFields.FLOWREC_VROUTER_IP],
+            FlowRecordNames[FlowRecordFields.FLOWREC_OTHER_VROUTER_IP],
+            FlowRecordNames[FlowRecordFields.FLOWREC_UNDERLAY_SPORT],
+            FlowRecordNames[FlowRecordFields.FLOWREC_UNDERLAY_PROTO]
+        ]
+
+        flow_record_query = OpServerUtils.Query(table=FLOW_TABLE,
+                                start_time=query_json['start_time'],
+                                end_time=query_json['end_time'],
+                                select_fields=flow_record_select,
+                                where=flow_record_where,
+                                dir=1)
+        self._logger.info('FlowRecordTable query: %s' % \
+                          json.dumps(flow_record_query.__dict__))
+        opserver_url = OpServerUtils.opserver_query_url(self._args.host_ip,
+                            str(self._args.rest_api_port))
+        resp = OpServerUtils.post_url_http(opserver_url,
+                    json.dumps(flow_record_query.__dict__), True)
+        try:
+            resp = json.loads(resp)
+            flow_record_data = resp['value']
+        except Exception:
+            # return error - TODO
+            return
+        self._logger.debug('FlowRecordTable query response: %s' % \
+                           str(flow_record_data))
+        if not len(flow_record_data):
+            return json.dumps(resp)
+        uflow_data_where = []
+        for row in flow_record_data:
+            uflow_data_where_and_list = []
+            ufname = FlowRecordToUFlowDataFields.get(
+                    FlowRecordNames[FlowRecordFields.FLOWREC_VROUTER_IP])
+            val = row[FlowRecordNames[FlowRecordFields.FLOWREC_VROUTER_IP]]
+            sip = OpServerUtils.Match(name=ufname, value=val,
+                    op=OpServerUtils.MatchOp.EQUAL)
+            uflow_data_where_and_list.append(sip.__dict__)
+            ufname = FlowRecordToUFlowDataFields.get(
+                    FlowRecordNames[FlowRecordFields.FLOWREC_OTHER_VROUTER_IP])
+            val = row[FlowRecordNames[FlowRecordFields.FLOWREC_OTHER_VROUTER_IP]]
+            dip = OpServerUtils.Match(name=ufname, value=val,
+                    op=OpServerUtils.MatchOp.EQUAL)
+            uflow_data_where_and_list.append(dip.__dict__)
+            ufname = FlowRecordToUFlowDataFields.get(
+                    FlowRecordNames[FlowRecordFields.FLOWREC_UNDERLAY_SPORT])
+            val = row[FlowRecordNames[FlowRecordFields.FLOWREC_UNDERLAY_SPORT]]
+            sport = OpServerUtils.Match(name=ufname, value=val,
+                    op=OpServerUtils.MatchOp.EQUAL)
+            ufname = FlowRecordToUFlowDataFields.get(
+                    FlowRecordNames[FlowRecordFields.FLOWREC_UNDERLAY_PROTO])
+            val = row[FlowRecordNames[FlowRecordFields.FLOWREC_UNDERLAY_PROTO]]
+            # get the protocol from tunnel_type
+            val = OpServerUtils.tunnel_type_to_protocol(val)
+            protocol = OpServerUtils.Match(name=ufname, value=val,
+                    op=OpServerUtils.MatchOp.EQUAL, suffix=sport)
+            uflow_data_where_and_list.append(protocol.__dict__)
+            uflow_data_where.append(uflow_data_where_and_list)
+        
+        # populate UFlowData select
+        uflow_data_select = []
+        for select in query_json['select_fields']:
+            uflow_data_select.append(UnderlayToUFlowDataFields.get(select))
+        uflow_data_query = OpServerUtils.Query(table='StatTable.UFlowData.flow',
+                                start_time=query_json['start_time'],
+                                end_time=query_json['end_time'],
+                                select_fields=uflow_data_select,
+                                where=uflow_data_where)
+        self._logger.info('UFlowData query: %s' % \
+                          json.dumps(uflow_data_query.__dict__))
+        resp = OpServerUtils.post_url_http(opserver_url,
+                    json.dumps(uflow_data_query.__dict__), True)
+        try:
+            resp = json.loads(resp)
+            uflow_data_value = resp['value']
+        except Exception:
+            # return error - TODO
+            return
+        self._logger.debug('UFlowData query response: %s' % \
+                           str(uflow_data_value))
+        # send response
+        underlay_response = {}
+        underlay_data = []
+        for row in uflow_data_value:
+            underlay_row = {}
+            for field in uflow_data_select:
+                name = UFlowDataToUnderlayFields.get(field)
+                underlay_row[name] = row[field]
+            underlay_data.append(underlay_row)
+        underlay_response['value'] = underlay_data
+        return json.dumps(underlay_response)
+    # end _process_overlay_to_underlay_flowmap_query
 
     def query_process(self):
         self._post_common(bottle.request, None)

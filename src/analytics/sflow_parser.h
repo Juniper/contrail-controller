@@ -69,6 +69,8 @@ private:
                             bool expanded);
     int ReadSFlowFlowHeader(SFlowFlowHeader& flow_header);
     // move decoding functions to a different class
+    int DecodeEthernetHeader(const uint8_t* ethh,
+                             SFlowFlowEthernetData& eth_data);
     int DecodeIpv4Header(const uint8_t* ipv4h, SFlowFlowIpData& ip_data);
     int DecodeLayer4Header(const uint8_t* l4h, SFlowFlowIpData& ip_data);
     int SkipBytes(size_t len) {

@@ -1,0 +1,185 @@
+/*
+ * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+ */
+
+namespace cpp prouter
+
+struct ArpTable {
+    1: i32 localIfIndex
+    2: string mac
+    3: string ip
+}
+
+struct IfStats {
+  1: u64 ifInUcastPkts
+  2: u64 ifInMulticastPkts
+  3: u64 ifInBroadcastPkts
+  4: u64 ifInDiscards
+  5: u64 ifInErrors
+  6: u64 ifOutUcastPkts
+  7: u64 ifOutMulticastPkts
+  8: u64 ifOutBroadcastPkts
+  9: u64 ifOutDiscards
+  10: u64 ifOutErrors
+  11: u64 ifIndex
+}
+
+struct IfXTable {
+     1: string ifAlias
+     2: i32 ifConnectorPresent
+     3: i32 ifCounterDiscontinuityTime
+     4: u64 ifHCInBroadcastPkts
+     5: u64 ifHCInMulticastPkts
+     6: u64 ifHCInOctets
+     7: u64 ifHCInUcastPkts
+     8: u64 ifHCOutBroadcastPkts
+     9: u64 ifHCOutMulticastPkts
+    10: u64 ifHCOutOctets
+    11: u64 ifHCOutUcastPkts
+    12: i32 ifHighSpeed
+    13: u64 ifInBroadcastPkts
+    14: u64 ifInMulticastPkts
+    15: i32 ifLinkUpDownTrapEnable
+    16: string ifName
+    17: u64 ifOutBroadcastPkts
+    18: u64 ifOutMulticastPkts
+    19: i32 ifPromiscuousMode
+    20: i32 ifIndex
+}
+
+struct IfTable {
+    1:  i32 ifAdminStatus
+    2:  string ifDescr
+    3:  u64 ifInDiscards
+    4:  u64 ifInErrors
+    5:  u64 ifInNUcastPkts
+    6:  u64 ifInOctets
+    7:  u64 ifInUcastPkts
+    8:  u64 ifInUnknownProtos
+    9:  u32 ifIndex
+    10: i32 ifLastChange
+    11: u32 ifMtu
+    12: i32 ifOperStatus
+    13: u64 ifOutDiscards
+    14: u64 ifOutErrors
+    15: u64 ifOutNUcastPkts
+    16: u64 ifOutOctets
+    17: u64 ifOutQLen
+    18: u64 ifOutUcastPkts
+    19: string ifPhysAddress
+    20: string ifSpecific
+    21: i32 ifSpeed
+    22: i32 ifType
+}
+
+struct IpMib {
+    1: u32 ifIndex
+    2: string ipAdEntIfIndex
+}
+
+enum LldpSystemCapabilitiesMap {
+    Other = 0
+    Repeater = 1
+    Bridge = 2
+    WlanAccessPoint = 3
+    Router = 4
+    Telephone = 5
+    DocsisCableDevice = 6
+    StationOnly = 7
+}
+
+const map<LldpSystemCapabilitiesMap, string> LldpSystemCapabilitiesMapNames = {
+    LldpSystemCapabilitiesMap.Other :"Other",
+    LldpSystemCapabilitiesMap.Repeater :"Repeater",
+    LldpSystemCapabilitiesMap.Bridge :"Bridge",
+    LldpSystemCapabilitiesMap.WlanAccessPoint :"WlanAccessPoint",
+    LldpSystemCapabilitiesMap.Router :"Router",
+    LldpSystemCapabilitiesMap.Telephone :"Telephone",
+    LldpSystemCapabilitiesMap.DocsisCableDevice :"DocsisCableDevice",
+    LldpSystemCapabilitiesMap.StationOnly :"StationOnly"
+}
+
+struct LldpLocManAddrEntry {
+    1: string lldpLocManAddr
+    2: string lldpLocManAddrOID
+    3: i32 lldpLocManAddrSubtype
+    4: i32 lldpLocManAddrOIDLen
+}
+
+struct LldpLocalSystemData {
+    1: string lldpLocChassisId
+    2: i32 lldpLocChassisIdSubtype
+    3: string lldpLocSysName
+    4: string lldpLocSysDesc
+    5: list <LldpSystemCapabilitiesMap> lldpLocSysCapEnabled
+    6: list <LldpSystemCapabilitiesMap> lldpLocSysCapSupported
+    7: LldpLocManAddrEntry lldpLocManAddrEntry
+}
+
+struct LldpRemOrgDefInfoTable {
+    1: string lldpRemOrgDefInfo
+    2: i32 lldpRemOrgDefInfoIndex
+}
+
+struct LldpRemOrgDefInfoEntry {
+    1: string lldpRemOrgDefInfoOUI
+    2: i32 lldpRemOrgDefInfoSubtype
+    3: optional list<LldpRemOrgDefInfoTable> lldpRemOrgDefInfoTable
+}
+
+struct LldpRemManAddrEntry {
+    1: string lldpRemManAddr
+    2: string lldpRemManAddrOID
+    3: i32 lldpRemManAddrIfId
+    4: i32 lldpRemManAddrIfSubtype
+    5: i32 lldpRemManAddrOIDLen
+    6: i32 lldpRemManAddrSubtype
+    7: i32 lldpRemTimeMark
+}
+
+struct LldpRemoteSystemsData {
+    1: string lldpRemChassisId
+    2: i32 lldpRemChassisIdSubtype
+    3: i32 lldpRemIndex
+    4: i32 lldpRemLocalPortNum
+    5: string lldpRemPortDesc
+    6: string lldpRemPortId
+    7: i32 lldpRemPortIdSubtype
+    8: list <LldpSystemCapabilitiesMap> lldpRemSysCapEnabled
+    9: list <LldpSystemCapabilitiesMap> lldpRemSysCapSupported
+    10: string lldpRemSysName
+    11: string lldpRemSysDesc
+    12: i32 lldpRemTimeMark
+    13: optional LldpRemOrgDefInfoEntry lldpRemOrgDefInfoEntry
+    14: optional LldpRemManAddrEntry lldpRemManAddrEntry
+}
+
+struct LldpTable {
+    1: LldpLocalSystemData lldpLocalSystemData
+    2: optional list<LldpRemoteSystemsData> lldpRemoteSystemsData
+}
+
+struct PRouterEntry {
+    1: string name (key="ObjectPRouter")
+    2: optional bool deleted
+    3: optional LldpTable lldpTable
+    4: optional list<ArpTable> arpTable
+    5: optional list<IfTable> ifTable
+    6: optional list<IfXTable> ifXTable
+    7: optional list<IfStats> ifStats (tags="name:.ifIndex")
+    8: optional list<IpMib> ipMib
+}
+
+uve sandesh PRouterUVE {
+    1: PRouterEntry data
+}
+
+struct PRouterFlowEntry {
+    1: string name (key="ObjectPRouter")
+    2: optional bool deleted
+    3: optional string flow_export_source_ip
+}
+
+uve sandesh PRouterFlowUVE {
+    1: PRouterFlowEntry data
+}

@@ -1,0 +1,87 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import sys
+
+Import('AnalyticsEnv')
+env = AnalyticsEnv.Clone()
+
+sources = [
+    'MANIFEST.in',
+    'CHANGES.txt',
+    'LICENSE.txt',
+    'README.txt',
+    'contrail-snmp-collector.conf',
+    'requirements.txt',
+    'test-requirements.txt',
+    'setup.py',
+    'contrail_snmp_collector/__init__.py',
+    'contrail_snmp_collector/main.py',
+    'contrail_snmp_collector/snmpcfg.py',
+    'contrail_snmp_collector/snmpctrlr.py',
+    'contrail_snmp_collector/snmp.py',
+    'contrail_snmp_collector/snmpuve.py',
+    'contrail_snmp_collector/device_config.py',
+    'contrail_snmp_collector/tests/__init__.py',
+    'contrail_snmp_collector/tests/snmp_test.py',
+    ]
+
+mibs = Glob('mibs/*')
+
+sources += env.SandeshGenPy('prouter.sandesh',
+        'contrail_snmp_collector/')
+
+version = '0.0.1'
+#with open("CHANGES.txt") as f:
+#    version = f.read().split(",")[0][1:]
+
+sdist_gen = env.Command('dist/contrail-snmp-collector-' \
+        + version + '.tar.gz',
+        sources, 'python setup.py sdist', chdir=Dir('.'))
+env.Alias('controller/src/analytics/contrail-snmp-collector/' + \
+        'contrail_snmp_collector:sdist', sdist_gen)
+
+def AutoGenPyTest(env, target, source):
+    with open(target[0].abspath, 'w') as f:
+        f.write("[easy_install]\nfind_links =")
+        for s in source:
+            f.write(" %s" % os.path.dirname(env.File(s).abspath))
+        f.write("\n")
+        f.flush()
+
+def TestSetupCmd(env, targets, source):
+    return env.Command(target='setup.cfg', source=source, 
+            action=AutoGenPyTest)
+
+env.Append(BUILDERS = {'PythonTestSetup': TestSetupCmd})
+
+test_sources = sources
+packages = [
+]
+
+test_sources += env.PythonTestSetup(source=packages)
+
+test = env.Command(None, test_sources, 'python setup.py test', chdir=1)
+
+env.Alias('controller/src/analytics/contrail-snmp-collector/' + \
+        'contrail_snmp_collector:test', test)
+
+if 'install' in BUILD_TARGETS:
+    install_cmd = env.Command(None, sources,
+                              'python setup.py install %s' %
+                              env['PYTHON_INSTALL_OPT'],
+                              chdir = 1)
+    env.Alias('install', install_cmd)
+env.Alias('install', env.Install(env['INSTALL_CONF'],
+            'contrail-snmp-collector.conf'))
+env.Alias('install', env.Install(env['INSTALL_DOC'] + '/../mibs/netsnmp',
+            mibs))
+env.Alias('install', env.InstallAs(
+            env['INSTALL_INITD'] + '/contrail-snmp-collector',
+            'contrail-snmp-collector.initd.supervisord'))
+env.Alias('install', env.Install(
+            env['INSTALL_CONF'] + '/supervisord_analytics_files',
+            'contrail-snmp-collector.ini'))

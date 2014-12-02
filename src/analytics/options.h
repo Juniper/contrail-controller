@@ -45,6 +45,7 @@ public:
     const int analytics_data_ttl() const { return analytics_data_ttl_; }
     const int syslog_port() const { return syslog_port_; }
     const int sflow_port() const { return sflow_port_; }
+    const int ipfix_port() const { return ipfix_port_; }
     const bool test_mode() const { return test_mode_; }
 
 private:
@@ -96,6 +97,7 @@ private:
     std::string syslog_facility_;
     int syslog_port_;
     int sflow_port_;
+    int ipfix_port_;
     bool test_mode_;
     bool dup_;
     int analytics_data_ttl_;

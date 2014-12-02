@@ -311,6 +311,17 @@ class OpServerUtils(object):
     #end tunnel_type_to_str
 
     @staticmethod
+    def tunnel_type_to_protocol(tunnel_type):
+        if tunnel_type == OpServerUtils.TunnelType.MPLS_GRE:
+            return 47
+        elif tunnel_type == OpServerUtils.TunnelType.MPLS_UDP:
+            return 17
+        elif tunnel_type == OpServerUtils.TunnelType.VXLAN:
+            return 17
+        return tunnel_type
+    # end tunnel_type_to_protocol
+
+    @staticmethod
     def ip_protocol_to_str(protocol):
         if protocol == 6:
             return "TCP"

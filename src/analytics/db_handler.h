@@ -77,7 +77,7 @@ public:
     typedef std::map<std::string, std::string> RuleMap;
 
     typedef std::map<std::string, Var > AttribMap;
-    typedef std::map<std::string, std::pair<Var, AttribMap> > TagMap;
+    typedef std::multimap<std::string, std::pair<Var, AttribMap> > TagMap;
 
     DbHandler(EventManager *evm, GenDb::GenDbIf::DbErrorHandler err_handler,
         const std::vector<std::string> &cassandra_ips,

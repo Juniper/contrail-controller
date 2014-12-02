@@ -6,6 +6,16 @@
 // uflow.sandesh 
 //
 
+enum FlowType {
+    SFLOW = 1,
+    IPFIX
+}
+
+const map<FlowType, string> FlowTypeName = {
+    FlowType.SFLOW : "SFLOW",
+    FlowType.IPFIX : "IPFIX"
+}
+
 struct UFlowSample {
     1: u64 pifindex
     2: string sip

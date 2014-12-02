@@ -45,6 +45,8 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'process_info',
         'base',
         'io',
+        'ipfix',
+        'misc',
         'sandeshvns',
         'pugixml',
         'hiredis',
@@ -126,7 +128,7 @@ vizd_sources = ['viz_collector.cc', 'ruleeng.cc', 'collector.cc',
                 'redis_connection.cc', 'redis_processor_vizd.cc',
                 'options.cc', 'stat_walker.cc', 'protobuf_collector.cc',
                 'protobuf_server.cc', 'sflow_generator.cc', 'sflow_collector.cc',
-                'sflow_parser.cc']
+                'sflow_parser.cc', 'ipfix_collector.cc']
 
 RedisLuaBuild(AnalyticsEnv, 'seqnum')
 RedisLuaBuild(AnalyticsEnv, 'delrequest')
@@ -164,6 +166,7 @@ AnalyticsEnv.Default(vizd)
 
 AnalyticsEnv.Requires(OpServerProxy_obj, '#/build/include/rapidjson')
 AnalyticsEnv.Requires(vizd, '#/build/include/boost')
+AnalyticsEnv.Requires(vizd, '#/build/include/ipfix.h')
 AnalyticsEnv.Requires(vizd, '#/build/include/thrift/Thrift.h')
 
 AnalyticsEnv.SConscript('ruleparser/SConscript', exports='AnalyticsEnv', duplicate = 0)
@@ -222,3 +225,13 @@ AnalyticsEnv.Alias('install', AnalyticsEnv.Install(
 AnalyticsEnv.Alias('install', AnalyticsEnv.Install(
             AnalyticsEnv['INSTALL_CONF'] + 
             '/supervisord_analytics_files', 'contrail-collector.ini'))
+
+AnalyticsEnv.SConscript(dirs=['contrail-snmp-collector'],
+        exports='AnalyticsEnv',
+        variant_dir=BuildEnv['TOP'] + '/contrail-snmp-collector',
+        duplicate=1)
+
+AnalyticsEnv.SConscript(dirs=['contrail-topology'],
+        exports='AnalyticsEnv',
+        variant_dir=BuildEnv['TOP'] + '/contrail-topology',
+        duplicate=1)
