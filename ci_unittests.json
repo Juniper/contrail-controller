@@ -43,10 +43,12 @@
     "contrail-vrouter" : {
         "source_directories" : [
             "controller/src/ksync",
-            "controller/src/vnsw"
+            "controller/src/vnsw",
+            "vrouter"
         ],
         "scons_test_targets" : [
-            "controller/src/agent:test"
+            "controller/src/agent:test",
+            "vrouter:test"
         ],
         "misc_test_targets" : [ ]
     },
