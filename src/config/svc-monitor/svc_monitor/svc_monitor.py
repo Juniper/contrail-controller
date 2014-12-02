@@ -318,6 +318,7 @@ class SvcMonitor(object):
 
         try:
             if virt_type == svc_info.get_vm_instance_type():
+                self.vm_manager.delete_iip(vm_uuid)
                 self.vm_manager.delete_service(si_fq_str, vm_uuid, proj_name)
             elif virt_type == svc_info.get_netns_instance_type():
                 self.netns_manager.delete_service(si_fq_str, vm_uuid)

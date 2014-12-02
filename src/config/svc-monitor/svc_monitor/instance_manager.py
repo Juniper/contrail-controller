@@ -459,7 +459,8 @@ class NetworkNamespaceManager(VRouterHostedManager):
         elif si_props.get_scale_out():
             max_instances = si_props.get_scale_out().get_max_instances()
         self.db.service_instance_insert(si_obj.get_fq_name_str(),
-                                        {'max-instances': str(max_instances)})
+                                        {'max-instances': str(max_instances),
+                                         'state': 'launching'})
 
         # Create virtual machines, associate them to the service instance and
         # schedule them to different virtual routers
@@ -536,6 +537,8 @@ class NetworkNamespaceManager(VRouterHostedManager):
                               'vr_name': vrouter_name,
                               'ha': ha})
 
+        self.db.service_instance_insert(si_obj.get_fq_name_str(),
+                                        {'state': 'active'})
         # uve trace
         self.logger.uve_svc_instance(si_obj.get_fq_name_str(),
             status='CREATE', vms=instances,
