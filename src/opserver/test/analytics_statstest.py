@@ -32,6 +32,9 @@ import pycassa
 from pycassa.pool import ConnectionPool
 from pycassa.columnfamily import ColumnFamily
 from opserver.sandesh.viz.constants import *
+from utils.opserver_introspect_utils import VerificationOpsSrv
+from utils.util import retry
+from collections import OrderedDict
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
@@ -201,6 +204,65 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
     # end test_02_overflowsamples
 
     #@unittest.skip('Get samples using StatsOracle')
+    def test_03_ipfix(self):
+        '''
+        This test starts redis,vizd,opserver and qed
+        It uses the test class' cassandra instance
+        Then it feeds IPFIX packets to the collector
+        and queries for them
+        '''
+        logging.info("*** test_03_ipfix ***")
+        if StatsTest._check_skip_test() is True:
+            return True
+        
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.bind(("", 0))
+        ipfix_port = sock.getsockname()[1]
+        sock.close()
+
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging,
+                             builddir,
+                             self.__class__.cassandra_port,
+                             ipfix_port))
+        assert vizd_obj.verify_on_setup()
+        assert vizd_obj.verify_collector_obj_count()
+        collectors = [vizd_obj.get_collector()]
+        
+        UDP_IP = "127.0.0.1"
+        f1 = open(builddir + '/opserver/test/data/ipfix_t.data')
+        sock.sendto(f1.read(), (UDP_IP, ipfix_port))
+        f2 = open(builddir + '/opserver/test/data/ipfix_d.data')
+        sock.sendto(f2.read(), (UDP_IP, ipfix_port))
+        sock.close()
+
+        logging.info("Verifying IPFIX data")
+        vns = VerificationOpsSrv('127.0.0.1', vizd_obj.get_opserver_port())
+        res = vns.post_query("StatTable.UFlowData.flow",
+            start_time="-5m", end_time="now",
+            select_fields=["name", "flow.flowtype", "flow.sip", "flow.sport"],
+            where_clause = 'name=*')
+        logging.info("Rssult: " + str(res))
+        assert(self.verify_ipfix(res))
+
+        return True
+    # end test_03_ipfix
+
+    @retry(delay=1, tries=5)
+    def verify_ipfix(self, res):
+        logging.info("Trying to verify IPFIX...")
+        if len(res)!=1:
+            assert(False)
+        uexp = {u'name': u'127.0.0.1',
+               u'flow.sport': 49152,
+               u'flow.sip': u'10.84.45.254',
+               u'flow.flowtype': u'IPFIX'}
+        exp = OrderedDict(sorted(uexp.items(), key=lambda t: t[0]))
+        rs = OrderedDict(sorted(res[0].items(), key=lambda t: t[0]))
+        assert(exp == rs)
+        return True
+
     @staticmethod
     def get_free_port():
         cs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

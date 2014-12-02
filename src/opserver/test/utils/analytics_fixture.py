@@ -99,6 +99,7 @@ class Collector(object):
             '--COLLECTOR.port', str(self.listen_port),
             '--DEFAULT.http_server_port', str(self.http_port),
             '--DEFAULT.syslog_port', str(self.syslog_port),
+            '--DEFAULT.ipfix_port', str(self.analytics_fixture.ipfix_port),
             '--COLLECTOR.protobuf_port', str(self.protobuf_port),
             '--DEFAULT.log_file', self._log_file]
         if self._is_dup is True:
@@ -304,10 +305,11 @@ class Redis(object):
 
 class AnalyticsFixture(fixtures.Fixture):
 
-    def __init__(self, logger, builddir, cassandra_port, 
+    def __init__(self, logger, builddir, cassandra_port, ipfix_port = -1,
                  noqed=False, collector_ha_test=False): 
         self.builddir = builddir
         self.cassandra_port = cassandra_port
+        self.ipfix_port = ipfix_port
         self.logger = logger
         self.noqed = noqed
         self.collector_ha_test = collector_ha_test
