@@ -231,3 +231,24 @@ class VirtualMachineManager(InstanceManager):
                 self._vnc_lib.interface_route_table_update(rt_obj)
             except NoIdError:
                 pass
+
+    def delete_iip(self, vm_uuid):
+        try:
+            vm_obj = self._vnc_lib.virtual_machine_read(id=vm_uuid)
+        except NoIdError:
+            return
+
+        vmi_back_refs = vm_obj.get_virtual_machine_interface_back_refs()
+        for vmi_back_ref in vmi_back_refs or []:
+            try:
+                vmi_obj = self._vnc_lib.virtual_machine_interface_read(
+                    id=vmi_back_ref['uuid'])
+            except NoIdError:
+                continue
+
+            iip_back_refs = vmi_obj.get_instance_ip_back_refs()
+            for iip_back_ref in iip_back_refs or []:
+                try:
+                    self._vnc_lib.instance_ip_delete(id=iip_back_ref['uuid'])
+                except (NoIdError, RefsExistError):
+                    continue
