@@ -8,6 +8,7 @@ Import('BuildEnv')
 import sys
 env = BuildEnv.Clone()
 
+env.Append(CPPPATH = [env['TOP'], env['TOP'] + '/base/sandesh'])
 env.Append(LIBPATH = env['TOP'] + '/base')
 env.Append(LIBPATH = env['TOP'] + '/base/test')
 env.Append(LIBPATH = env['TOP'] + '/io')
@@ -51,6 +52,13 @@ env.Alias('src/base:timer_test', timer_test)
 patricia_test = env.UnitTest('patricia_test', ['patricia_test.cc'])
 env.Alias('src/base:patricia_test', patricia_test)
 
+conn_info_test_gen_files = env.SandeshGenOnlyCpp('connection_info_test.sandesh')
+conn_info_test_gen_srcs = env.ExtractCpp(conn_info_test_gen_files)
+conn_info_test = env.UnitTest('conn_info_test',
+                               ['connection_info_test.cc'] + conn_info_test_gen_srcs
+                              )
+env.Alias('src/base:conn_info_test', conn_info_test)
+
 def AddLibraries(env, libs):
     for lib in libs:
         components =  lib.rsplit('/', 1)
@@ -92,6 +100,7 @@ test_suite = [
     trace_test,
     util_test,
     queue_task_test,
+    conn_info_test,
     ]
 
 test = env.TestSuite('base-test', test_suite)

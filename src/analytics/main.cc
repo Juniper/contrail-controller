@@ -248,6 +248,9 @@ int main(int argc, char *argv[])
     Collector::SetProgramName(argv[0]);
     Module::type module = Module::COLLECTOR;
     std::string module_id(g_vns_constants.ModuleNames.find(module)->second);
+    NodeType::type node_type =
+        g_vns_constants.Module2NodeType.find(module)->second;
+    std::string instance_id(g_vns_constants.INSTANCE_ID_DEFAULT);
     LoggingInit(options.log_file(), options.log_file_size(),
                 options.log_files_count(), options.use_syslog(),
                 options.syslog_facility(), module_id);
@@ -285,6 +288,25 @@ int main(int argc, char *argv[])
     if (protobuf_server_enabled) {
         LOG(INFO, "COLLECTOR PROTOBUF LISTEN PORT: " << protobuf_port);
     }
+    std::string hostname;
+    boost::system::error_code error;
+    if (options.dup()) {
+        hostname = boost::asio::ip::host_name(error) + "dup";
+    } else {
+        hostname = boost::asio::ip::host_name(error);
+    }
+    // Determine if the number of connections is expected:
+    // 1. Collector client
+    // 2. Redis From
+    // 3. Redis To
+    // 4. Discovery Collector Publish
+    // 5. Database global
+    // 6. Database protobuf if enabled
+    ConnectionStateManager<NodeStatusUVE, NodeStatus>::
+        GetInstance()->Init(*a_evm->io_service(),
+            hostname, module_id, instance_id,
+            boost::bind(&GetProcessStateCb, _1, _2, _3,
+            protobuf_server_enabled ? 6 : 5));
 
     VizCollector analytics(a_evm,
             options.collector_port(),
@@ -314,9 +336,6 @@ int main(int argc, char *argv[])
     analytics.Init();
 
     VizSandeshContext vsc(&analytics);
-    NodeType::type node_type =
-        g_vns_constants.Module2NodeType.find(module)->second;
-    std::string instance_id(g_vns_constants.INSTANCE_ID_DEFAULT);
     Sandesh::InitCollector(
             module_id,
             analytics.name(),
@@ -360,18 +379,6 @@ int main(int argc, char *argv[])
     }
              
     CpuLoadData::Init();
-    // Determine if the number of connections is expected:
-    // 1. Collector client
-    // 2. Redis From
-    // 3. Redis To
-    // 4. Discovery Collector Publish
-    // 5. Database global
-    // 6. Database protobuf if enabled
-    ConnectionStateManager<NodeStatusUVE, NodeStatus>::
-        GetInstance()->Init(*a_evm->io_service(),
-            analytics.name(), module_id, instance_id,
-            boost::bind(&GetProcessStateCb, _1, _2, _3,
-            protobuf_server_enabled ? 6 : 5));
     collector_info_trigger =
         new TaskTrigger(boost::bind(&CollectorInfoLogger, vsc),
                     TaskScheduler::GetInstance()->GetTaskId("vizd::Stats"), 0);

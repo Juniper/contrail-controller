@@ -187,11 +187,21 @@ main(int argc, char *argv[]) {
     // Initialize Sandesh
     NodeType::type node_type = 
         g_vns_constants.Module2NodeType.find(module)->second;
+    std::string instance_id(g_vns_constants.INSTANCE_ID_DEFAULT);
+    // Determine if the number of connections is expected:
+    // 1. Collector client
+    // 2. Redis
+    // 3. Cassandra
+    ConnectionStateManager<NodeStatusUVE, NodeStatus>::
+        GetInstance()->Init(*evm.io_service(),
+            options.hostname(), module_name,
+            instance_id,
+            boost::bind(&GetProcessStateCb, _1, _2, _3, 3));
     Sandesh::InitGenerator(
             module_name,
             options.hostname(),
             g_vns_constants.NodeTypeNames.find(node_type)->second,
-            g_vns_constants.INSTANCE_ID_DEFAULT,
+            instance_id,
             &evm,
             options.http_server_port(),
             csf,
@@ -250,15 +260,6 @@ main(int argc, char *argv[]) {
     (void) qe;
 
     CpuLoadData::Init();
-    // Determine if the number of connections is expected:
-    // 1. Collector client
-    // 2. Redis
-    // 3. Cassandra
-    ConnectionStateManager<NodeStatusUVE, NodeStatus>::
-        GetInstance()->Init(*evm.io_service(),
-            options.hostname(), module_name,
-            Sandesh::instance_id(),
-            boost::bind(&GetProcessStateCb, _1, _2, _3, 3));
     qe_info_trigger =
         new TaskTrigger(boost::bind(&QEInfoLogger, options.hostname()),
                     TaskScheduler::GetInstance()->GetTaskId("qe::Stats"), 0);
