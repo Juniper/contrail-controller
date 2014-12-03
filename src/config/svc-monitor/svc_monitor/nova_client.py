@@ -23,15 +23,11 @@ class ServiceMonitorNovaClient(object):
             auth_url=auth_url, insecure=self._args.auth_insecure)
         return self._nova[proj_name]
     
-    def oper(self, resource, oper, proj_name, **kwargs):
+    def _novaclient_exec(self, resource, oper, proj_name, **kwargs):
         n_client = self._novaclient_get(proj_name)
         try:
             resource_obj = getattr(n_client, resource)
             oper_func = getattr(resource_obj, oper)
-            return oper_func(**kwargs)
-        except nc_exc.Unauthorized:
-            n_client = self._novaclient_get(proj_name, True)
-            oper_func = getattr(n_client, oper)
             return oper_func(**kwargs)
         except nc_exc.NotFound:
             self.logger.log(
@@ -45,3 +41,17 @@ class ServiceMonitorNovaClient(object):
             return None
         except Exception:
             return None
+
+    def oper(self, resource, oper, proj_name, **kwargs):
+        try:
+            return self._novaclient_exec(resource, oper,
+                proj_name, **kwargs)
+        except nc_exc.Unauthorized:
+            try:
+                return self._novaclient_exec(resource, oper,
+                    proj_name, **kwargs)
+            except nc_exc.Unauthorized:
+                self.logger.log(
+                    "Error: %s %s=%s not authorized in project %s"
+                    % (resource, kwargs.keys()[0], kwargs.values()[0], proj_name))
+                return None
