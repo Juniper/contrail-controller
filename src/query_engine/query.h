@@ -831,6 +831,7 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
     bool is_valid_sort_field(const std::string& sort_field);
     std::string get_column_field_datatype(const std::string& col_field);
     virtual bool is_flow_query(); // either flow-series or flow-records query
+    virtual bool is_valid_query(const rapidjson::Value& json_select_fields);
     virtual bool is_query_parallelized() { return parallelize_query_; }
     uint64_t parse_time(const std::string& relative_time);
 

@@ -55,6 +55,8 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
     QE_PARSE_ERROR(json_select_fields.IsArray());
     QE_TRACE(DEBUG, "# of select fields is " << json_select_fields.Size());
 
+    QE_INVALIDARG_ERROR(m_query->is_valid_query(json_select_fields));
+
     if (m_query->is_stat_table_query()) {
         for (rapidjson::SizeType i = 0; i < json_select_fields.Size(); i++) {
             select_column_fields.push_back(json_select_fields[i].GetString());
