@@ -95,7 +95,9 @@ public:
                         "Updated Router ID from " <<
                         server_->bgp_identifier_.to_string() << " to " <<
                         params.identifier);
+            Ip4Address old_identifier = server_->bgp_identifier_;
             server_->bgp_identifier_ = bgp_identifier;
+            server_->NotifyIdentifierUpdate(old_identifier);
         }
 
         if (server_->autonomous_system_ != params.autonomous_system) {
@@ -346,17 +348,16 @@ void BgpServer::VisitBgpPeers(BgpServer::VisitorFn fn) const {
     }
 }
 
-int
-BgpServer::RegisterASNUpdateCallback(ASNUpdateCb callback) {
+int BgpServer::RegisterASNUpdateCallback(ASNUpdateCb callback) {
     tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
-    size_t i = bmap_.find_first();
-    if (i == bmap_.npos) {
+    size_t i = asn_bmap_.find_first();
+    if (i == asn_bmap_.npos) {
         i = asn_listeners_.size();
         asn_listeners_.push_back(callback);
     } else {
-        bmap_.reset(i);
-        if (bmap_.none()) {
-            bmap_.clear();
+        asn_bmap_.reset(i);
+        if (asn_bmap_.none()) {
+            asn_bmap_.clear();
         }
         asn_listeners_[i] = callback;
     }
@@ -370,26 +371,69 @@ void BgpServer::UnregisterASNUpdateCallback(int listener) {
         while (!asn_listeners_.empty() && asn_listeners_.back() == NULL) {
             asn_listeners_.pop_back();
         }
-        if (bmap_.size() > asn_listeners_.size()) {
-            bmap_.resize(asn_listeners_.size());
+        if (asn_bmap_.size() > asn_listeners_.size()) {
+            asn_bmap_.resize(asn_listeners_.size());
         }
     } else {
-        if ((size_t) listener >= bmap_.size()) {
-            bmap_.resize(listener + 1);
+        if ((size_t) listener >= asn_bmap_.size()) {
+            asn_bmap_.resize(listener + 1);
         }
-        bmap_.set(listener);
+        asn_bmap_.set(listener);
     }
 }
 
-void BgpServer::NotifyASNUpdate(as_t asn) {
+void BgpServer::NotifyASNUpdate(as_t old_asn) {
     tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
     for (ASNUpdateListenersList::iterator iter = asn_listeners_.begin();
          iter != asn_listeners_.end(); ++iter) {
         if (*iter != NULL) {
             ASNUpdateCb cb = *iter;
-            (cb)(asn);
+            (cb)(old_asn);
         }
     }
 }
 
+int BgpServer::RegisterIdentifierUpdateCallback(IdentifierUpdateCb callback) {
+    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
+    size_t i = id_bmap_.find_first();
+    if (i == id_bmap_.npos) {
+        i = id_listeners_.size();
+        id_listeners_.push_back(callback);
+    } else {
+        id_bmap_.reset(i);
+        if (id_bmap_.none()) {
+            id_bmap_.clear();
+        }
+        id_listeners_[i] = callback;
+    }
+    return i;
+}
 
+void BgpServer::UnregisterIdentifierUpdateCallback(int listener) {
+    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
+    id_listeners_[listener] = NULL;
+    if ((size_t) listener == id_listeners_.size() - 1) {
+        while (!id_listeners_.empty() && id_listeners_.back() == NULL) {
+            id_listeners_.pop_back();
+        }
+        if (id_bmap_.size() > id_listeners_.size()) {
+            id_bmap_.resize(id_listeners_.size());
+        }
+    } else {
+        if ((size_t) listener >= id_bmap_.size()) {
+            id_bmap_.resize(listener + 1);
+        }
+        id_bmap_.set(listener);
+    }
+}
+
+void BgpServer::NotifyIdentifierUpdate(Ip4Address old_identifier) {
+    tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
+    for (IdentifierUpdateListenersList::iterator iter = id_listeners_.begin();
+         iter != id_listeners_.end(); ++iter) {
+        if (*iter != NULL) {
+            IdentifierUpdateCb cb = *iter;
+            (cb)(old_identifier);
+        }
+    }
+}

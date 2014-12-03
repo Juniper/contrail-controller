@@ -31,7 +31,7 @@ using std::multimap;
 using std::string;
 using std::vector;
 
-static const char *config_template = "\
+static const char *config_template0 = "\
 <config>\
     <bgp-router name=\'CN1\'>\
         <identifier>192.168.0.1</identifier>\
@@ -73,6 +73,59 @@ static const char *config_template = "\
     </bgp-router>\
     <bgp-router name=\'MX\'>\
         <identifier>192.168.0.3</identifier>\
+        <autonomous-system>%d</autonomous-system>\
+        <address>127.0.0.1</address>\
+        <port>%d</port>\
+        <address-families>\
+            <family>inet-vpn</family>\
+            <family>route-target</family>\
+        </address-families>\
+    </bgp-router>\
+</config>\
+";
+
+static const char *config_template1 = "\
+<config>\
+    <bgp-router name=\'CN1\'>\
+        <identifier>192.168.1.1</identifier>\
+        <autonomous-system>%d</autonomous-system>\
+        <address>127.0.0.1</address>\
+        <port>%d</port>\
+        <address-families>\
+            <family>inet-vpn</family>\
+            <family>route-target</family>\
+        </address-families>\
+        <session to=\'CN2\'>\
+            <address-families>\
+                <family>inet-vpn</family>\
+                <family>route-target</family>\
+            </address-families>\
+        </session>\
+        <session to=\'MX\'>\
+            <address-families>\
+                <family>inet-vpn</family>\
+                <family>route-target</family>\
+            </address-families>\
+        </session>\
+    </bgp-router>\
+    <bgp-router name=\'CN2\'>\
+        <identifier>192.168.1.2</identifier>\
+        <autonomous-system>%d</autonomous-system>\
+        <address>127.0.0.1</address>\
+        <port>%d</port>\
+        <address-families>\
+            <family>inet-vpn</family>\
+            <family>route-target</family>\
+        </address-families>\
+        <session to=\'MX\'>\
+            <address-families>\
+                <family>inet-vpn</family>\
+                <family>route-target</family>\
+            </address-families>\
+        </session>\
+    </bgp-router>\
+    <bgp-router name=\'MX\'>\
+        <identifier>192.168.1.3</identifier>\
         <autonomous-system>%d</autonomous-system>\
         <address>127.0.0.1</address>\
         <port>%d</port>\
@@ -311,7 +364,7 @@ protected:
 
     void Configure(int cn1_asn, int cn2_asn, int mx_asn) {
         char config[4096];
-        snprintf(config, sizeof(config), config_template,
+        snprintf(config, sizeof(config), config_template0,
                  cn1_asn, cn1_->session_manager()->GetPort(),
                  cn2_asn, cn2_->session_manager()->GetPort(),
                  mx_asn, mx_->session_manager()->GetPort());
@@ -391,10 +444,28 @@ protected:
 
     void UpdateASN() {
         char config[4096];
-        snprintf(config, sizeof(config), config_template,
+        snprintf(config, sizeof(config), config_template0,
                  64497, cn1_->session_manager()->GetPort(),
                  64497, cn2_->session_manager()->GetPort(),
                  64497, mx_->session_manager()->GetPort());
+        cn1_->Configure(config);
+        task_util::WaitForIdle();
+        cn2_->Configure(config);
+        task_util::WaitForIdle();
+        mx_->Configure(config);
+        task_util::WaitForIdle();
+
+        VerifyAllPeerUp(cn1_.get(), 2);
+        VerifyAllPeerUp(cn2_.get(), 2);
+        VerifyAllPeerUp(mx_.get(), 2);
+    }
+
+    void UpdateIdentifier() {
+        char config[4096];
+        snprintf(config, sizeof(config), config_template1,
+                 64496, cn1_->session_manager()->GetPort(),
+                 64496, cn2_->session_manager()->GetPort(),
+                 64496, mx_->session_manager()->GetPort());
         cn1_->Configure(config);
         task_util::WaitForIdle();
         cn2_->Configure(config);
@@ -538,6 +609,25 @@ protected:
         TASK_UTIL_WAIT_NE_NO_MSG(RTargetRouteLookup(server, prefix),
             NULL, 1000, 10000, "Wait for rtarget route " << prefix);
         return RTargetRouteLookup(server, prefix);
+    }
+
+    void VerifyRTargetRouteNexthops(BgpServerTest *server,
+        const string &prefix, const vector<string> &nexthops) {
+        BgpRoute *route = VerifyRTargetRouteExists(server, prefix);
+        TASK_UTIL_EXPECT_EQ(nexthops.size(), route->count());
+        for (Route::PathList::iterator it = route->GetPathList().begin();
+             it != route->GetPathList().end(); ++it) {
+            bool found = false;
+            const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
+            const BgpAttr *attr = path->GetAttr();
+            BOOST_FOREACH(const string &nexthop, nexthops) {
+                if (attr->nexthop().to_v4().to_string() == nexthop) {
+                    found = true;
+                    break;
+                }
+            }
+            EXPECT_TRUE(found);
+        }
     }
 
     void VerifyRTargetRouteNoExists(BgpServerTest *server,
@@ -2053,6 +2143,50 @@ TEST_F(BgpXmppRTargetTest, ASNUpdate) {
     VerifyRTargetRouteNoExists(cn1_.get(), "64497:target:64496:1");
     VerifyRTargetRouteNoExists(cn2_.get(), "64497:target:64496:1");
     VerifyRTargetRouteNoExists(mx_.get(), "64497:target:64496:1");
+}
+
+//
+// Update Identifier on CNs and make sure that Nexthop in RTargetRoute prefix
+// is updated.
+//
+TEST_F(BgpXmppRTargetTest, IdentifierUpdate) {
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(mx_.get()));
+
+    agent_a_1_->Subscribe("blue", 1);
+    agent_a_2_->Subscribe("blue", 1);
+
+    vector<string> nexthops0 = list_of("192.168.0.1")("192.168.0.2");
+    VerifyRTargetRouteNexthops(cn1_.get(), "64496:target:64496:1", nexthops0);
+    VerifyRTargetRouteNexthops(cn2_.get(), "64496:target:64496:1", nexthops0);
+    VerifyRTargetRouteNexthops(mx_.get(), "64496:target:64496:1", nexthops0);
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(mx_.get()));
+
+    UpdateIdentifier();
+
+    vector<string> nexthops1 = list_of("192.168.1.1")("192.168.1.2");
+    VerifyRTargetRouteNexthops(cn1_.get(), "64496:target:64496:1", nexthops1);
+    VerifyRTargetRouteNexthops(cn2_.get(), "64496:target:64496:1", nexthops1);
+    VerifyRTargetRouteNexthops(mx_.get(), "64496:target:64496:1", nexthops1);
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(mx_.get()));
+
+    agent_a_1_->Unsubscribe("blue", -1);
+    agent_a_2_->Unsubscribe("blue", -1);
+
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(mx_.get()));
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
 }
 
 //

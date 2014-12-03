@@ -523,6 +523,33 @@ void BgpXmppChannel::ASNUpdateCallback(as_t old_asn) {
     }
 }
 
+void BgpXmppChannel::IdentifierUpdateCallback(Ip4Address old_identifier) {
+    if (routing_instances_.empty())
+        return;
+
+    RoutingInstanceMgr *instance_mgr = bgp_server_->routing_instance_mgr();
+    assert(instance_mgr);
+    RoutingInstance *master =
+        instance_mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+    assert(master);
+    BgpTable *rtarget_table = master->GetTable(Address::RTARGET);
+    assert(rtarget_table);
+
+    BgpAttrSpec attrs;
+    BgpAttrNextHop nexthop(bgp_server_->bgp_identifier());
+    attrs.push_back(&nexthop);
+    BgpAttrOrigin origin(BgpAttrOrigin::IGP);
+    attrs.push_back(&origin);
+    BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attrs);
+
+    // Update the route with new nexthop
+    for (PublishedRTargetRoutes::iterator it = rtarget_routes_.begin();
+         it != rtarget_routes_.end(); it++) {
+        RTargetRouteOp(rtarget_table, bgp_server_->autonomous_system(),
+                       it->first, attr, true);
+    }
+}
+
 void
 BgpXmppChannel::AddNewRTargetRoute(BgpTable *rtarget_table,
                                    RoutingInstance *rtinstance,
@@ -2181,6 +2208,8 @@ BgpXmppChannelManager::BgpXmppChannelManager(XmppServer *xmpp_server,
     }
     asn_listener_id_ = server->RegisterASNUpdateCallback(
         boost::bind(&BgpXmppChannelManager::ASNUpdateCallback, this, _1));
+    identifier_listener_id_ = server->RegisterIdentifierUpdateCallback(
+        boost::bind(&BgpXmppChannelManager::IdentifierUpdateCallback, this, _1));
 
     id_ = server->routing_instance_mgr()->RegisterInstanceOpCallback(
         boost::bind(&BgpXmppChannelManager::RoutingInstanceCallback, 
@@ -2211,13 +2240,18 @@ void BgpXmppChannelManager::ASNUpdateCallback(as_t old_asn) {
     xmpp_server_->ClearAllConnections();
 }
 
-void BgpXmppChannelManager::RoutingInstanceCallback(std::string vrf_name,
-                                                          int op) {
+void BgpXmppChannelManager::IdentifierUpdateCallback(
+    Ip4Address old_identifier) {
+    BOOST_FOREACH(XmppChannelMap::value_type &i, channel_map_) {
+        i.second->IdentifierUpdateCallback(old_identifier);
+    }
+}
+
+void BgpXmppChannelManager::RoutingInstanceCallback(string vrf_name, int op) {
     BOOST_FOREACH(XmppChannelMap::value_type &i, channel_map_) {
         i.second->RoutingInstanceCallback(vrf_name, op);
     }
 }
-
 
 void BgpXmppChannelManager::VisitChannels(BgpXmppChannelManager::VisitorFn fn) {
     BOOST_FOREACH(XmppChannelMap::value_type &i, channel_map_) {
@@ -2234,7 +2268,6 @@ BgpXmppChannel *BgpXmppChannelManager::FindChannel(std::string client) {
     return NULL;
 }
 
-
 BgpXmppChannel *BgpXmppChannelManager::FindChannel(
         const XmppChannel *ch) {
     XmppChannelMap::iterator it = channel_map_.find(ch);
@@ -2242,7 +2275,6 @@ BgpXmppChannel *BgpXmppChannelManager::FindChannel(
         return NULL;
     return it->second;
 }
-
 
 void BgpXmppChannelManager::RemoveChannel(XmppChannel *ch) {
     channel_map_.erase(ch);
