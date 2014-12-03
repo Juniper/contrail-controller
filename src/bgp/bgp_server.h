@@ -37,6 +37,7 @@ class ServiceChainMgr;
 class BgpServer {
 public:
     typedef boost::function<void(as_t)> ASNUpdateCb;
+    typedef boost::function<void(Ip4Address)> IdentifierUpdateCb;
     typedef boost::function<void(BgpPeer *)> VisitorFn;
     explicit BgpServer(EventManager *evm);
     virtual ~BgpServer();
@@ -121,9 +122,13 @@ public:
     }
     LifetimeActor *deleter();
     boost::asio::io_service *ioservice();
-    int RegisterASNUpdateCallback(ASNUpdateCb cb);
-    void UnregisterASNUpdateCallback(int id);
+
+    int RegisterASNUpdateCallback(ASNUpdateCb callback);
+    void UnregisterASNUpdateCallback(int listener);
     void NotifyASNUpdate(as_t old_asn);
+    int RegisterIdentifierUpdateCallback(IdentifierUpdateCb callback);
+    void UnregisterIdentifierUpdateCallback(int listener);
+    void NotifyIdentifierUpdate(Ip4Address old_identifier);
 
 private:
     class ConfigUpdater;
@@ -132,15 +137,18 @@ private:
     friend class BgpServerUnitTest;
     typedef std::map<std::string, BgpPeer *> BgpPeerList;
     typedef std::vector<ASNUpdateCb> ASNUpdateListenersList;
+    typedef std::vector<IdentifierUpdateCb> IdentifierUpdateListenersList;
 
     void RoutingInstanceMgrDeletionComplete(RoutingInstanceMgr *mgr);
 
     // base config variables
-    as_t autonomous_system_;
     tbb::spin_rw_mutex rw_mutex_;
+    as_t autonomous_system_;
     ASNUpdateListenersList asn_listeners_;
-    boost::dynamic_bitset<> bmap_;      // free list.
+    boost::dynamic_bitset<> asn_bmap_;     // free list.
     Ip4Address bgp_identifier_;
+    IdentifierUpdateListenersList id_listeners_;
+    boost::dynamic_bitset<> id_bmap_;      // free list.
     uint16_t hold_time_;
 
     DB db_;

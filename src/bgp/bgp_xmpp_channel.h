@@ -84,6 +84,7 @@ public:
     bool deleted() { return deleted_; }
     void RoutingInstanceCallback(std::string vrf_name, int op);
     void ASNUpdateCallback(as_t old_asn);
+    void IdentifierUpdateCallback(Ip4Address old_identifier);
     void FillInstanceMembershipInfo(BgpNeighborResp *resp);
     void FillTableMembershipInfo(BgpNeighborResp *resp);
 
@@ -233,6 +234,7 @@ public:
     bool IsReadyForDeletion();
     void RoutingInstanceCallback(std::string vrf_name, int op);
     void ASNUpdateCallback(as_t old_asn);
+    void IdentifierUpdateCallback(Ip4Address old_identifier);
 
     uint32_t count() const {
         return channel_map_.size();
@@ -256,6 +258,7 @@ private:
     XmppChannelMap channel_map_;
     int id_;
     int asn_listener_id_;
+    int identifier_listener_id_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpXmppChannelManager);
 };
