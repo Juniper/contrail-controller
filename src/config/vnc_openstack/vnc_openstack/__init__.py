@@ -65,6 +65,59 @@ def fill_keystone_opts(obj, conf_sections):
     except ConfigParser.NoOptionError:
         obj._err_file = '/var/log/contrail/vnc_openstack.err'
 
+def _create_default_security_group(vnc_lib, proj_obj):
+    sgr_uuid = str(uuid.uuid4())
+    ingress_rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
+                                  protocol='any',
+                                  src_addresses=[
+                                      AddressType(
+                                          security_group=proj_obj.get_fq_name_str() + ':' + 'default')],
+                                  src_ports=[PortType(0, 65535)],
+                                  dst_addresses=[
+                                      AddressType(security_group='local')],
+                                  dst_ports=[PortType(0, 65535)])
+    sg_rules = PolicyEntriesType([ingress_rule])
+
+    sgr_uuid = str(uuid.uuid4())
+    egress_rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
+                                 protocol='any',
+                                 src_addresses=[
+                                     AddressType(security_group='local')],
+                                 src_ports=[PortType(0, 65535)],
+                                 dst_addresses=[
+                                     AddressType(
+                                         subnet=SubnetType('0.0.0.0', 0))],
+                                 dst_ports=[PortType(0, 65535)],
+                                 ethertype='IPv4')
+    sg_rules.add_policy_rule(egress_rule)
+
+    sgr_uuid = str(uuid.uuid4())
+    egress_rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
+                                 protocol='any',
+                                 src_addresses=[
+                                     AddressType(security_group='local')],
+                                 src_ports=[PortType(0, 65535)],
+                                 dst_addresses=[
+                                     AddressType(
+                                         subnet=SubnetType('::', 0))],
+                                 dst_ports=[PortType(0, 65535)],
+                                 ethertype='IPv6')
+    sg_rules.add_policy_rule(egress_rule)
+
+    # create security group
+    sg_obj = vnc_api.SecurityGroup(name='default', parent_obj=proj_obj,
+                                   security_group_entries=sg_rules)
+
+    vnc_lib.security_group_create(sg_obj)
+
+
+def ensure_default_security_group(vnc_lib, proj_obj):
+    sg_groups = proj_obj.get_security_groups()
+    for sg_group in sg_groups or []:
+        if sg_group['to'][-1] == 'default':
+            return
+    _create_default_security_group(vnc_lib, proj_obj)
+
 
 openstack_driver = None
 class OpenstackDriver(vnc_plugin_base.Resync):
@@ -100,7 +153,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             self.sync_project_to_vnc = self._ksv2_sync_project_to_vnc
             self._add_project_to_vnc = self._ksv2_add_project_to_vnc
             self._del_project_from_vnc = self._ksv2_del_project_from_vnc
-        
+
         self._resync_interval_secs = 2
         self._resync_number_workers = 10 #TODO(sahid) needs to be configured by conf.
         self._ks = None
@@ -309,7 +362,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             project_name = '%s-%s' %(display_name, str(uuid.uuid4()))
         except vnc_api.NoIdError:
             project_name = display_name
-        
+
         proj_obj = vnc_api.Project(project_name, parent_obj=dom_obj)
         proj_obj.uuid = project_id
         self._vnc_lib.project_create(proj_obj)
@@ -354,7 +407,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             domain_name = '%s-%s' %(display_name, str(uuid.uuid4()))
         except vnc_api.NoIdError:
             domain_name = display_name
- 
+
         dom_obj = vnc_api.Domain(domain_name)
         dom_obj.uuid = domain_id
         self._vnc_lib.domain_create(dom_obj)
@@ -484,7 +537,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             vnc_all_projects = self._vnc_lib.projects_list()['projects']
             # remove default-domain:default-project from audit list
             default_proj_fq_name = ['default-domain', 'default-project']
-            vnc_project_ids = set([proj['uuid'] for proj in vnc_all_projects 
+            vnc_project_ids = set([proj['uuid'] for proj in vnc_all_projects
                                  if proj['fq_name'] != default_proj_fq_name])
             self._vnc_project_ids = vnc_project_ids
         except Exception as e:
@@ -609,49 +662,7 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
 
     def _create_default_security_group(self, proj_dict):
         proj_obj = vnc_api.Project.from_dict(**proj_dict)
-        sgr_uuid = str(uuid.uuid4())
-        ingress_rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
-                                      protocol='any',
-                                      src_addresses=[
-                                          AddressType(
-                                              security_group=proj_obj.get_fq_name_str() + ':' + 'default')],
-                                      src_ports=[PortType(0, 65535)],
-                                      dst_addresses=[
-                                          AddressType(security_group='local')],
-                                      dst_ports=[PortType(0, 65535)])
-        sg_rules = PolicyEntriesType([ingress_rule])
-
-        sgr_uuid = str(uuid.uuid4())
-        egress_rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
-                                     protocol='any',
-                                     src_addresses=[
-                                         AddressType(security_group='local')],
-                                     src_ports=[PortType(0, 65535)],
-                                     dst_addresses=[
-                                         AddressType(
-                                             subnet=SubnetType('0.0.0.0', 0))],
-                                     dst_ports=[PortType(0, 65535)],
-                                     ethertype='IPv4')
-        sg_rules.add_policy_rule(egress_rule)
-
-        sgr_uuid = str(uuid.uuid4())
-        egress_rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
-                                     protocol='any',
-                                     src_addresses=[
-                                         AddressType(security_group='local')],
-                                     src_ports=[PortType(0, 65535)],
-                                     dst_addresses=[
-                                         AddressType(
-                                             subnet=SubnetType('::', 0))],
-                                     dst_ports=[PortType(0, 65535)],
-                                     ethertype='IPv6')
-        sg_rules.add_policy_rule(egress_rule)
-
-        # create security group
-        sg_obj = vnc_api.SecurityGroup(name='default', parent_obj=proj_obj,
-                                       security_group_entries=sg_rules)
-
-        self._vnc_lib.security_group_create(sg_obj)
+        ensure_default_security_group(self._vnc_lib, proj_obj)
     # end _create_default_security_group
 
     def pre_domain_read(self, id):
