@@ -31,7 +31,8 @@ class ServiceMonitorNovaClient(object):
             return oper_func(**kwargs)
         except nc_exc.Unauthorized:
             n_client = self._novaclient_get(proj_name, True)
-            oper_func = getattr(n_client, oper)
+            resource_obj = getattr(n_client, resource)
+            oper_func = getattr(resource_obj, oper)
             return oper_func(**kwargs)
         except nc_exc.NotFound:
             self.logger.log(
