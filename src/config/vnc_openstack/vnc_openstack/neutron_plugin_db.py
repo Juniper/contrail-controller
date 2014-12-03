@@ -22,6 +22,7 @@ from neutron.api.v2 import attributes as attr
 from cfgm_common import exceptions as vnc_exc
 from vnc_api.vnc_api import *
 from vnc_api.common import SG_NO_RULE_FQ_NAME, SG_NO_RULE_NAME
+import vnc_openstack
 
 _DEFAULT_HEADERS = {
     'Content-type': 'application/json; charset="UTF-8"', }
@@ -144,42 +145,9 @@ class DBInterface(object):
     #end _ensure_instance_exists
 
     def _ensure_default_security_group_exists(self, proj_id):
-         # check in api server
+        proj_id = str(uuid.UUID(proj_id))
         proj_obj = self._vnc_lib.project_read(id=proj_id)
-        sg_groups = proj_obj.get_security_groups()
-        for sg_group in sg_groups or []:
-            if sg_group['to'][-1] == 'default':
-                return
-
-        # does not exist hence create and add cache
-        sg_uuid = str(uuid.uuid4())
-        sg_obj = SecurityGroup(name='default', parent_obj=proj_obj)
-        sg_obj.uuid = sg_uuid
-        self._vnc_lib.security_group_create(sg_obj)
-
-        #allow all egress traffic
-        def_rule = {}
-        def_rule['port_range_min'] = 0
-        def_rule['port_range_max'] = 65535
-        def_rule['direction'] = 'egress'
-        def_rule['remote_ip_prefix'] = '0.0.0.0/0'
-        def_rule['remote_group_id'] = None
-        def_rule['protocol'] = 'any'
-        def_rule['ethertype'] = 'IPv4'
-        rule = self._security_group_rule_neutron_to_vnc(def_rule, CREATE)
-        self._security_group_rule_create(sg_obj.uuid, rule)
-
-        #allow ingress traffic from within default security group
-        def_rule = {}
-        def_rule['port_range_min'] = 0
-        def_rule['port_range_max'] = 65535
-        def_rule['direction'] = 'ingress'
-        def_rule['remote_ip_prefix'] = '0.0.0.0/0'
-        def_rule['remote_group_id'] = None
-        def_rule['protocol'] = 'any'
-        def_rule['ethertype'] = 'IPv4'
-        rule = self._security_group_rule_neutron_to_vnc(def_rule, CREATE)
-        self._security_group_rule_create(sg_obj.uuid, rule)
+        vnc_openstack.ensure_default_security_group(self._vnc_lib, proj_obj)
     #end _ensure_default_security_group_exists
 
     def _get_obj_tenant_id(self, q_type, obj_uuid):
@@ -3705,6 +3673,12 @@ class DBInterface(object):
     # security group api handlers
     def security_group_create(self, sg_q):
         sg_obj = self._security_group_neutron_to_vnc(sg_q, CREATE)
+
+        # ensure default SG and deny create if the group name is default
+        self._ensure_default_security_group_exists(sg_q['tenant_id'])
+        if sg_q['name'] == 'default':
+            self._raise_contrail_exception("SecurityGroupAlreadyExists")
+
         sg_uuid = self._resource_create('security_group', sg_obj)
 
         #allow all egress traffic
@@ -3745,7 +3719,10 @@ class DBInterface(object):
     def security_group_delete(self, context, sg_id):
         try:
             sg_obj = self._vnc_lib.security_group_read(id=sg_id)
-            if sg_obj.name == 'default' and not context['is_admin']:
+            if sg_obj.name == 'default' and \
+               str(uuid.UUID(context['tenant_id'])) == sg_obj.parent_uuid:
+                # Deny delete if the security group name is default and
+                # the owner of the SG is deleting it.
                 self._raise_contrail_exception(
                     'SecurityGroupCannotRemoveDefault')
         except NoIdError:
@@ -3762,6 +3739,8 @@ class DBInterface(object):
         ret_list = []
 
         # collect phase
+        self._ensure_default_security_group_exists(context['tenant_id'])
+
         all_sgs = []  # all sgs in all projects
         if context and not context['is_admin']:
             project_sgs = self._security_group_list_project(str(uuid.UUID(context['tenant'])))
