@@ -113,3 +113,47 @@ class TestDbInterface(unittest.TestCase):
             lambda: [{'uuid': 'fip_port_uuid2'}]
         fip_neutron = dbi._floatingip_vnc_to_neutron(fip_obj)
         self.assertIsNone(fip_neutron['router_id'])
+
+    def test_default_security_group_delete(self):
+        dbi = MockDbInterface()
+
+        sg_obj = None
+        delete_called_for = [""]
+
+        def _sg_delete(id):
+            delete_called_for[0] = id
+
+        dbi._vnc_lib = flexmock(operational=True,
+                                security_group_read = lambda id: sg_obj,
+                                security_group_delete = _sg_delete)
+
+        # sg_delete should be called when sg_name != default
+        tenant_uuid = str(uuid.uuid4())
+        sg_uuid = str(uuid.uuid4())
+        sg_obj = flexmock(operational=True,
+                          name="non-default",
+                          parent_uuid=tenant_uuid)
+        context = {'tenant_id': tenant_uuid}
+        dbi.security_group_delete(context, sg_uuid)
+        self.assertEqual(delete_called_for[0], sg_uuid)
+
+        delete_called_for = [""]
+        sg_obj = flexmock(operational=True,
+                          name="non-default",
+                          parent_uuid=str(uuid.uuid4()))
+        dbi.security_group_delete(context, sg_uuid)
+        self.assertEqual(delete_called_for[0], sg_uuid)
+
+        delete_called_for = [""]
+        sg_obj = flexmock(operational=True,
+                          name="default",
+                          parent_uuid=str(uuid.uuid4()))
+        dbi.security_group_delete(context, sg_uuid)
+        self.assertEqual(delete_called_for[0], sg_uuid)
+
+        with self.assertRaises(Exception):
+            delete_called_for = [""]
+            sg_obj = flexmock(operational=True,
+                              name="default",
+                              parent_uuid=tenant_uuid)
+            dbi.security_group_delete(context, sg_uuid)
