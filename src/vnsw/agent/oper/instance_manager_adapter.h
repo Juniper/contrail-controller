@@ -22,40 +22,4 @@ class InstanceManagerAdapter {
     virtual bool isApplicable(const ServiceInstance::Properties &props) = 0;
 };
 
-class DockerInstanceAdapter : public InstanceManagerAdapter {
- public:
-    DockerInstanceAdapter(const std::string &docker_cmd,Agent *agent)
-                        : docker_cmd_(docker_cmd), agent_(agent) {}
-
-    InstanceTask* CreateStartTask(const ServiceInstance::Properties &props,
-        bool update);
-    InstanceTask* CreateStopTask(const ServiceInstance::Properties &props);
-    bool isApplicable(const ServiceInstance::Properties &props);
-
- private:
-    std::string docker_cmd_;
-    Agent *agent_;
-};
-
-class NetNSInstanceAdapter : public InstanceManagerAdapter {
- public:
-    NetNSInstanceAdapter(const std::string &netns_cmd,
-                         const std::string &loadbalancer_config_path,
-                         Agent *agent)
-                         : netns_cmd_(netns_cmd),
-                          loadbalancer_config_path_(loadbalancer_config_path),
-                          agent_(agent)
-                          {}
-
-    InstanceTask* CreateStartTask(const ServiceInstance::Properties &props,
-        bool update);
-    InstanceTask* CreateStopTask(const ServiceInstance::Properties &props);
-    bool isApplicable(const ServiceInstance::Properties &props);
-
- private:
-    std::string netns_cmd_;
-    std::string loadbalancer_config_path_;
-    Agent *agent_;
-};
-
 #endif

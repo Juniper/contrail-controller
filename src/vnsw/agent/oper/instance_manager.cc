@@ -20,7 +20,8 @@
 #include "oper/operdb_init.h"
 #include "oper/service_instance.h"
 #include "oper/vm.h"
-#include "oper/instance_manager_adapter.h"
+#include "oper/docker_instance_adapter.h"
+#include "oper/netns_instance_adapter.h"
 #include "base/util.h"
 
 using boost::uuids::uuid;
