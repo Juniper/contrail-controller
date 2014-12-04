@@ -45,6 +45,7 @@ protected:
     static AgentUveBase *singleton_;
 
 private:
+    friend class UveTest;
     void VrouterAgentProcessState(
         const std::vector<process::ConnectionInfo> &c,
         process::ProcessState::type &state, std::string &message);
