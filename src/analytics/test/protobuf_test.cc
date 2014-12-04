@@ -117,10 +117,24 @@ void CreateAndSerializeTestMessage(uint8_t *output, size_t size,
     ASSERT_TRUE(success);
 }
 
+// Create TestMessageSize and serialize it
+void CreateAndSerializeTestMessageSize(uint8_t *output, size_t size,
+    int *serialized_size, int test_message_data_size) {
+    TestMessageSize test_message;
+    boost::scoped_array<uint8_t> tms_data(new uint8_t[test_message_data_size]);
+    test_message.set_tms_data(tms_data.get(), test_message_data_size);
+
+    int test_message_size = test_message.ByteSize();
+    ASSERT_GE(size, test_message_size);
+    *serialized_size = test_message_size;
+    bool success = test_message.SerializeToArray(output, test_message_size);
+    ASSERT_TRUE(success);
+}
+
 // Create SelfDescribingMessage for TestMessage and serialize it
-void CreateAndSerializeSelfDescribingMessage(uint8_t *output, size_t size,
-    int *serialized_size, const char *desc_file, uint8_t *message_data,
-    size_t message_data_size) {
+void CreateAndSerializeSelfDescribingMessage(const std::string &message_name,
+    uint8_t *output, size_t size, int *serialized_size, const char *desc_file,
+    uint8_t *message_data, size_t message_data_size) {
     std::ifstream desc(desc_file,
         std::ios_base::in | std::ios_base::binary);
     ASSERT_TRUE(desc.is_open());
@@ -131,7 +145,7 @@ void CreateAndSerializeSelfDescribingMessage(uint8_t *output, size_t size,
     SelfDescribingMessage sdm_message;
     sdm_message.set_timestamp(123456789);
     sdm_message.mutable_proto_files()->CopyFrom(fds);
-    sdm_message.set_type_name("TestMessage");
+    sdm_message.set_type_name(message_name);
     sdm_message.set_message_data(message_data, message_data_size);
     int sdm_message_size = sdm_message.ByteSize();
     ASSERT_GE(size, sdm_message_size);
@@ -142,14 +156,14 @@ void CreateAndSerializeSelfDescribingMessage(uint8_t *output, size_t size,
 
 TEST_F(ProtobufReaderTest, Parse) {
     // Create TestMessage and serialize it
-    uint8_t data[512];
+    uint8_t data[1024];
     int serialized_data_size(0);
     CreateAndSerializeTestMessage(data, sizeof(data),
         &serialized_data_size);
     // Create SelfDescribingMessageTest for TestMessage and serialize it
-    uint8_t sdm_data[512];
+    uint8_t sdm_data[1024];
     int serialized_sdm_data_size(0);
-    CreateAndSerializeSelfDescribingMessage(sdm_data,
+    CreateAndSerializeSelfDescribingMessage("TestMessage", sdm_data,
         sizeof(sdm_data), &serialized_sdm_data_size, d_desc_file_.c_str(),
         data, serialized_data_size);
     // Parse the SelfDescribingMessage from sdm_data to get TestMessage
@@ -157,7 +171,7 @@ TEST_F(ProtobufReaderTest, Parse) {
     Message *msg = NULL;
     uint64_t timestamp;
     bool success = reader.ParseSelfDescribingMessage(sdm_data,
-        serialized_sdm_data_size, &timestamp, &msg);
+        serialized_sdm_data_size, &timestamp, &msg, NULL);
     ASSERT_TRUE(success);
     ASSERT_TRUE(msg != NULL);
     EXPECT_EQ(123456789, timestamp);
@@ -371,14 +385,14 @@ TEST_F(ProtobufStatWalkerTest, Basic) {
     StatCbTester ct(PopulateTestMessageStatsInfo());
 
     // Create TestMessage and serialize it
-    uint8_t data[512];
+    uint8_t data[1024];
     int serialized_data_size(0);
     CreateAndSerializeTestMessage(data, sizeof(data),
         &serialized_data_size);
     // Create SelfDescribingMessageTest for TestMessage and serialize it
-    uint8_t sdm_data[512];
+    uint8_t sdm_data[1024];
     int serialized_sdm_data_size(0);
-    CreateAndSerializeSelfDescribingMessage(sdm_data,
+    CreateAndSerializeSelfDescribingMessage("TestMessage", sdm_data,
         sizeof(sdm_data), &serialized_sdm_data_size, d_desc_file_.c_str(),
         data, serialized_data_size);
     // Parse the SelfDescribingMessage from sdm_data to get TestMessage
@@ -386,7 +400,7 @@ TEST_F(ProtobufStatWalkerTest, Basic) {
     Message *msg = NULL;
     uint64_t timestamp;
     bool success = reader.ParseSelfDescribingMessage(sdm_data,
-        serialized_sdm_data_size, &timestamp, &msg);
+        serialized_sdm_data_size, &timestamp, &msg, NULL);
     ASSERT_TRUE(success);
     ASSERT_TRUE(msg != NULL);
 
@@ -466,6 +480,12 @@ class ProtobufServerTest : public ::testing::Test {
         task_util::WaitForIdle();
     }
 
+    size_t GetServerReceivedMessageStatisticsSize() {
+        std::vector<SocketEndpointMessageStats> va_rx_msg_stats;
+        server_->GetReceivedMessageStatistics(&va_rx_msg_stats);
+        return va_rx_msg_stats.size();
+    }
+
     std::vector<bool> match_;
     StatCbTester stats_tester_;
     std::auto_ptr<ServerThread> thread_;
@@ -485,14 +505,14 @@ TEST_F(ProtobufServerTest, Basic) {
     thread_->Start();
     client_->Initialize(0);
     // Create TestMessage and serialize it
-    uint8_t data[512];
+    uint8_t data[1024];
     int serialized_data_size(0);
     CreateAndSerializeTestMessage(data, sizeof(data),
         &serialized_data_size);
     // Create SelfDescribingMessageTest for TestMessage and serialize it
-    uint8_t sdm_data[512];
+    uint8_t sdm_data[1024];
     int serialized_sdm_data_size(0);
-    CreateAndSerializeSelfDescribingMessage(sdm_data,
+    CreateAndSerializeSelfDescribingMessage("TestMessage", sdm_data,
         sizeof(sdm_data), &serialized_sdm_data_size, d_desc_file_.c_str(),
         data, serialized_data_size);
     std::string snd(reinterpret_cast<const char *>(sdm_data),
@@ -502,11 +522,9 @@ TEST_F(ProtobufServerTest, Basic) {
     TASK_UTIL_EXPECT_VECTOR_EQ(stats_tester_.match_, match_);
     // Compare statistics
     std::vector<SocketIOStats> va_rx_stats, va_tx_stats;
-    std::vector<SocketEndpointMessageStats> va_rx_msg_stats;
-    server_->GetStatistics(&va_tx_stats, &va_rx_stats, &va_rx_msg_stats);
+    server_->GetStatistics(&va_tx_stats, &va_rx_stats, NULL);
     EXPECT_EQ(1, va_tx_stats.size());
     EXPECT_EQ(1, va_rx_stats.size());
-    EXPECT_EQ(1, va_rx_msg_stats.size());
     const SocketIOStats &a_rx_io_stats(va_rx_stats[0]);
     EXPECT_EQ(1, a_rx_io_stats.get_calls());
     EXPECT_EQ(serialized_sdm_data_size, a_rx_io_stats.get_bytes());
@@ -515,6 +533,9 @@ TEST_F(ProtobufServerTest, Basic) {
     EXPECT_EQ(0, a_tx_io_stats.get_calls());
     EXPECT_EQ(0, a_tx_io_stats.get_bytes());
     EXPECT_EQ(0, a_tx_io_stats.get_average_bytes());
+    EXPECT_EQ(1, GetServerReceivedMessageStatisticsSize());
+    std::vector<SocketEndpointMessageStats> va_rx_msg_stats;
+    server_->GetReceivedMessageStatistics(&va_rx_msg_stats);
     const SocketEndpointMessageStats &a_rx_msg_stats(va_rx_msg_stats[0]);
     boost::asio::ip::udp::endpoint client_endpoint =
         client_->GetLocalEndpoint(&ec);
@@ -528,6 +549,76 @@ TEST_F(ProtobufServerTest, Basic) {
     EXPECT_EQ(ss.str(), a_rx_msg_stats.get_endpoint_name());
     EXPECT_EQ(1, a_rx_msg_stats.get_messages());
     EXPECT_EQ(serialized_sdm_data_size, a_rx_msg_stats.get_bytes());
+    EXPECT_EQ("TestMessage", a_rx_msg_stats.get_message_name());
+}
+
+class ProtobufServerSizeTest : public ::testing::Test {
+ protected:
+    virtual void SetUp() {
+        evm_.reset(new EventManager());
+        server_.reset(new protobuf::ProtobufServer(evm_.get(), 0, NULL));
+        client_ = new ProtobufMockClient(evm_.get());
+        thread_.reset(new ServerThread(evm_.get()));
+    }
+
+    virtual void TearDown() {
+        task_util::WaitForIdle();
+        evm_->Shutdown();
+        task_util::WaitForIdle();
+        client_->Shutdown();
+        task_util::WaitForIdle();
+        server_->Shutdown();
+        task_util::WaitForIdle();
+        UdpServerManager::DeleteServer(client_);
+        task_util::WaitForIdle();
+        if (thread_.get() != NULL) {
+            thread_->Join();
+        }
+        task_util::WaitForIdle();
+    }
+    uint64_t GetServerRxBytes() {
+        std::vector<SocketIOStats> va_rx_stats;
+        server_->GetStatistics(NULL, &va_rx_stats, NULL);
+        if (va_rx_stats.size()) {
+            const SocketIOStats &a_rx_stats(va_rx_stats[0]);
+            return a_rx_stats.get_bytes();
+        } else {
+            return 0;
+        }
+    }
+
+    std::auto_ptr<ServerThread> thread_;
+    std::auto_ptr<protobuf::ProtobufServer> server_;
+    ProtobufMockClient *client_;
+    std::auto_ptr<EventManager> evm_;
+};
+
+TEST_F(ProtobufServerSizeTest, MessageSize) {
+    EXPECT_TRUE(server_->Initialize());
+    task_util::WaitForIdle();
+    boost::system::error_code ec;
+    boost::asio::ip::udp::endpoint server_endpoint =
+        server_->GetLocalEndpoint(&ec);
+    EXPECT_TRUE(ec == 0);
+    LOG(ERROR, "ProtobufServer: " << server_endpoint);
+    thread_->Start();
+    client_->Initialize(0);
+    // Create TestMessageSize and serialize it
+    boost::scoped_array<uint8_t> data(new uint8_t[5120]);
+    int serialized_data_size(0);
+    CreateAndSerializeTestMessageSize(data.get(), 5120,
+        &serialized_data_size, 4096);
+    // Create SelfDescribingMessageTest for TestMessageSize and serialize it
+    boost::scoped_array<uint8_t> sdm_data(new uint8_t[5120]);
+    int serialized_sdm_data_size(0);
+    CreateAndSerializeSelfDescribingMessage("TestMessageSize", sdm_data.get(),
+        5120, &serialized_sdm_data_size, d_desc_file_.c_str(),
+        data.get(), serialized_data_size);
+    std::string snd(reinterpret_cast<const char *>(sdm_data.get()),
+        serialized_sdm_data_size);
+    client_->Send(snd, server_endpoint);
+    TASK_UTIL_EXPECT_EQ(client_->GetTxPackets(), 1);
+    TASK_UTIL_EXPECT_EQ(GetServerRxBytes(), serialized_sdm_data_size);
 }
 
 }  // namespace
