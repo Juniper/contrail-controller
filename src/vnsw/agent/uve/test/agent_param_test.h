@@ -10,9 +10,9 @@
 
 // Class handling agent configuration parameters from config file and 
 // arguments
-class AgentParamTest : public AgentParam  {
+class AgentParamTest {
 public:
-    AgentParamTest(Agent *agent);
+    AgentParamTest(AgentParam *ap);
     virtual ~AgentParamTest();
     Ip4Address StrToIp(const char *ip);
     void set_xmpp_server_1(const char*);
@@ -21,6 +21,8 @@ public:
     void set_dns_server_2(const char*);
     void set_discovery_server(const char*);
     void set_collector_server_list(const char*);
+private:
+    AgentParam *params_;
 };
 
 #endif // vnsw_agent_param_test_hpp

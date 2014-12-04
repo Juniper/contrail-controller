@@ -126,15 +126,9 @@ void AgentUveBase::VrouterAgentProcessState
      ProcessState::type &pstate, std::string &message) {
     size_t num_conns(cinfos.size());
     uint8_t num_control_nodes = 0, num_dns_servers = 0;
-    uint8_t down_control_nodes = 0, down_dns_servers = 0;
+    uint8_t down_control_nodes = 0;
     uint8_t expected_conns = ExpectedConnections(num_control_nodes,
                                                  num_dns_servers);
-    if (num_conns != expected_conns) {
-        pstate = ProcessState::NON_FUNCTIONAL;
-        message = "Number of connections:" + integerToString(num_conns) +
-            ", Expected: " + integerToString(expected_conns);
-        return;
-    }
     std::string cup(g_process_info_constants.ConnectionStatusNames.
         find(ConnectionStatus::UP)->second);
     bool is_cup = true;
@@ -147,19 +141,14 @@ void AgentUveBase::VrouterAgentProcessState
             if (cinfo.get_name().compare(0, 13,
                 agent_->xmpp_control_node_prefix()) == 0) {
                 down_control_nodes++;
-                if (num_control_nodes == down_control_nodes) {
-                    is_cup = false;
-                    UpdateMessage(cinfo, message);
-                    continue;
-                }
+                is_cup = false;
+                UpdateMessage(cinfo, message);
+                continue;
             } else if (cinfo.get_name().compare(0, 11,
                 agent_->xmpp_dns_server_prefix()) == 0) {
-                down_dns_servers++;
-                if (num_dns_servers == down_dns_servers) {
-                    is_cup = false;
-                    UpdateMessage(cinfo, message);
-                    continue;
-                }
+                is_cup = false;
+                UpdateMessage(cinfo, message);
+                continue;
             } else {
                 is_cup = false;
                 UpdateMessage(cinfo, message);
@@ -167,10 +156,17 @@ void AgentUveBase::VrouterAgentProcessState
             }
         }
     }
-    if (is_cup) {
-        pstate = ProcessState::FUNCTIONAL;
-    } else {
+    if ((num_control_nodes == 0) || (num_control_nodes == down_control_nodes)) {
         pstate = ProcessState::NON_FUNCTIONAL;
+    } else {
+        pstate = ProcessState::FUNCTIONAL;
+    }
+    if (num_conns != expected_conns) {
+        message = "Number of connections:" + integerToString(num_conns) +
+            ", Expected: " + integerToString(expected_conns);
+        return;
+    }
+    if (!is_cup) {
         message += " connection down";
     }
     return;

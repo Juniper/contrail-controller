@@ -869,8 +869,6 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
                        bool enable_vhost_options,
                        bool enable_hypervisor_options,
                        bool enable_service_options) :
-        xmpp_server_1_(), xmpp_server_2_(), dns_server_1_(), dns_server_2_(),
-        dss_server_(), collector_server_list_(),
         enable_flow_options_(enable_flow_options),
         enable_vhost_options_(enable_vhost_options),
         enable_hypervisor_options_(enable_hypervisor_options),
