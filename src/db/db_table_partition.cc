@@ -107,7 +107,12 @@ void DBTablePartition::Remove(DBEntryBase *db_entry) {
     tbb::mutex::scoped_lock lock(mutex_);
     DBEntry *entry = static_cast<DBEntry *>(db_entry);
 
-    assert(tree_.erase(*entry));
+    bool success = tree_.erase(*entry);
+    if (!success) {
+        LOG(FATAL, "ABORT: DB node erase failed for table " + parent()->name());
+        LOG(FATAL, "Invalid node " + db_entry->ToString());
+        abort();
+    }
     delete entry;
 
     // If a table is marked for deletion, then we may trigger the deletion
