@@ -216,6 +216,16 @@ struct Active : public sc::state<Active, XmppStateMachine> {
             state_machine->connection()->increment_flap_count();
         }
         if (state_machine->IsActiveChannel() ) {
+            if (state_machine->get_connect_attempts() >= 
+                XmppStateMachine::kMaxAttempts) {
+                XmppConnection *connection = state_machine->connection();
+                if (connection) {
+                    state_machine->SendConnectionInfo(
+                        "Connect failed after retries");
+                    // Notify clients if any action to be taken
+                    connection->ChannelMux()->HandleStateEvent(xmsm::ACTIVE);
+                }
+            }
             SM_LOG(state_machine, "(Xmpp Start Connect Timer)");
             state_machine->StartConnectTimer(state_machine->GetConnectTime());
         }
@@ -234,6 +244,7 @@ struct Active : public sc::state<Active, XmppStateMachine> {
             SM_LOG(state_machine, "Discard EvConnectTimerExpired in (Active) State");
             return discard_event();
         } else {
+            state_machine->SendConnectionInfo(event.Name(), "Connect");
             SM_LOG(state_machine, "EvConnectTimerExpired in (Active) State");
             return transit<Connect>();
         }
@@ -708,11 +719,12 @@ struct XmppStreamEstablished :
             return discard_event();
         }
         SM_LOG(state_machine, "EvTcpClose in (Established) State");
-        state_machine->SendConnectionInfo(event.Name());
         state_machine->ResetSession();
         if (state_machine->IsActiveChannel()) {
+            state_machine->SendConnectionInfo(event.Name(), "Active");
             return transit<Active>();
         } else {
+            state_machine->SendConnectionInfo(event.Name(), "Idle");
             return transit<Idle>();
         }
     }

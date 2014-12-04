@@ -122,6 +122,7 @@ public:
     typedef boost::function<void(std::vector<DSResponse>)> ServiceHandler;
     void Subscribe(std::string serviceName, 
                    uint8_t numbOfInstances, ServiceHandler);
+    void Subscribe(std::string serviceName, uint8_t numbOfInstances);
     void SubscribeResponseHandler(std::string &msg, boost::system::error_code &, 
                                   std::string serviceName, HttpConnection *);
 
@@ -172,7 +173,6 @@ private:
 
     void Publish(std::string serviceName);
     void WithdrawPublishInternal(std::string serviceName);
-    void Subscribe(std::string serviceName, uint8_t numbOfInstances);
     void UnsubscribeInternal(std::string serviceName);
 
     bool DequeueEvent(EnqueuedCb);

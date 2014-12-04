@@ -51,6 +51,7 @@ public:
     static const int kOpenTime = 15;         // seconds
     static const int kConnectInterval = 30;  // seconds
     static const int kHoldTime = 90;         // seconds
+    static const int kMaxAttempts = 5;
 
     XmppStateMachine(XmppConnection *connection, bool active);
     ~XmppStateMachine();
@@ -110,6 +111,7 @@ public:
 
     void connect_attempts_inc() { attempts_++; }
     void connect_attempts_clear() { attempts_ = 0; }
+    int get_connect_attempts() { return attempts_; }
 
     int hold_time() const { return hold_time_; }
     virtual int hold_time_msecs() const { return hold_time_ * 1000; }
