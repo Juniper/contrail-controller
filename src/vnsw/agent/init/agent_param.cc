@@ -537,7 +537,7 @@ void AgentParam::ParseHypervisorArguments
                    "esxi_neutron") {
             vmware_mode_ = ESXI_NEUTRON;
         } else {
-            cout << "Error in parsing arguement for HYPERVISOR.vmware_mode <" 
+            cout << "Error in parsing argument for HYPERVISOR.vmware_mode <" 
                 << var_map["HYPERVISOR.vmware_mode"].as<string>() << endl;
             return;
         }
