@@ -15,7 +15,8 @@ namespace xmps {
     typedef enum {
         UNKNOWN = 1,
         READY = 2,
-        NOT_READY = 3
+        NOT_READY = 3,
+        TIMEDOUT = 4
     } PeerState;
 
     typedef enum {
