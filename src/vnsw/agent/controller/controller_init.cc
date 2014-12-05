@@ -303,6 +303,7 @@ void VNController::DisConnectControllerIfmapServer(uint8_t idx) {
 
 void VNController::ApplyDiscoveryXmppServices(std::vector<DSResponse> resp) {
 
+    std::list<AgentXmppChannel *>AgentXmppChannelList;
     std::vector<DSResponse>::iterator iter;
     for (iter = resp.begin(); iter != resp.end(); iter++) {
         DSResponse dr = *iter;
@@ -311,6 +312,7 @@ void VNController::ApplyDiscoveryXmppServices(std::vector<DSResponse> resp) {
                          "Discovery Server Response"); 
         AgentXmppChannel *chnl = FindAgentXmppChannel(dr.ep.address().to_string());
         if (chnl) { 
+            AgentXmppChannelList.push_back(chnl); 
             if (chnl->GetXmppChannel() &&
                 chnl->GetXmppChannel()->GetPeerState() == xmps::READY) {
                 CONTROLLER_TRACE(DiscoveryConnection, "XMPP Server",
@@ -355,6 +357,29 @@ void VNController::ApplyDiscoveryXmppServices(std::vector<DSResponse> resp) {
                 agent_->set_controller_ifmap_xmpp_server(dr.ep.address().to_string(), 1);
                 agent_->set_controller_ifmap_xmpp_port(dr.ep.port(), 1);
            }
+        }
+    }
+
+    /* Remove stale Servers */
+    for (uint8_t idx = 0; idx < MAX_XMPP_SERVERS; idx++) {
+        if (agent_->controller_xmpp_channel(idx) != NULL) {
+             std::list<AgentXmppChannel *>::iterator it;
+             for (it = AgentXmppChannelList.begin();
+                  it != AgentXmppChannelList.end();  it++) {
+                 
+                 if (agent_->controller_xmpp_channel(idx) == *it) {
+                     // in the list, nothing to do
+                     break;
+                 } 
+             } 
+
+             if (it == AgentXmppChannelList.end()) {
+                 // not in list, cleanup 
+                 CONTROLLER_TRACE(DiscoveryConnection,  "Cleanup Older Xmpp ",
+                     agent_->controller_ifmap_xmpp_server(idx), ""); 
+                 DisConnectControllerIfmapServer(idx);
+                 agent_->reset_controller_ifmap_xmpp_server(idx);
+            }
         }
     }
 
@@ -403,6 +428,7 @@ void VNController::DisConnectDnsServer(uint8_t idx) {
 
 void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
 
+    std::list<AgentDnsXmppChannel *>AgentDnsXmppChannelList;
     std::vector<DSResponse>::iterator iter;
     for (iter = resp.begin(); iter != resp.end(); iter++) {
         DSResponse dr = *iter;
@@ -411,6 +437,7 @@ void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
                          "Discovery Server Response"); 
         AgentDnsXmppChannel *chnl = FindAgentDnsXmppChannel(dr.ep.address().to_string());
         if (chnl) { 
+            AgentDnsXmppChannelList.push_back(chnl);
             if (chnl->GetXmppChannel() &&
                 chnl->GetXmppChannel()->GetPeerState() == xmps::READY) {
                 CONTROLLER_TRACE(DiscoveryConnection, "DNS Server",
@@ -459,6 +486,29 @@ void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
            }
         }
     } 
+
+    /* Remove stale Servers */
+    for (uint8_t idx = 0; idx < MAX_XMPP_SERVERS; idx++) {
+        if (agent_->dns_xmpp_channel(idx) != NULL) {
+             std::list<AgentDnsXmppChannel *>::iterator it;
+             for (it = AgentDnsXmppChannelList.begin();
+                  it != AgentDnsXmppChannelList.end();  it++) {
+                 
+                 if (agent_->dns_xmpp_channel(idx) == *it) {
+                     // in the list, nothing to do
+                     break;
+                 } 
+             } 
+
+             if (it == AgentDnsXmppChannelList.end()) {
+                 // not in list, cleanup 
+                 CONTROLLER_TRACE(DiscoveryConnection,  "Cleanup Older Dns Xmpp ",
+                     agent_->dns_server(idx), ""); 
+                 DisConnectDnsServer(idx);
+                 agent_->reset_dns_server(idx);
+            }
+        }
+    }
 
     DnsXmppServerConnect();
 }
