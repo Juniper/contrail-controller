@@ -410,7 +410,9 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
 
     //If there is a transition in path from active-active to
     //ative-backup or vice-versa copy over entire path preference structure
-    if (path->path_preference().ecmp() != path_preference_.ecmp()) {
+    if (path->path_preference().ecmp() != path_preference_.ecmp() ||
+        path->path_preference().static_preference() !=
+            path_preference_.static_preference()) {
         path->set_path_preference(path_preference_);
         ret = true;
     }

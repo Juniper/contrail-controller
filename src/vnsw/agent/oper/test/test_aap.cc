@@ -212,8 +212,6 @@ TEST_F(TestAap, StateMachine_2) {
     EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
 }
 
-//Add a remote path with same preference and verify that local path
-//moves to wait for traffic state
 TEST_F(TestAap, StateMachine_3) {
     Ip4Address ip = Ip4Address::from_string("1.1.1.1");
     Ip4Address server_ip = Ip4Address::from_string("10.1.1.3");
@@ -465,6 +463,56 @@ TEST_F(TestAap, StateMachine_9) {
    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
    EXPECT_TRUE(path->path_preference().ecmp() == false);
    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+}
+
+TEST_F(TestAap, StateMachine_10) {
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    Ip4Address server_ip = Ip4Address::from_string("10.1.1.3");
+
+    PathPreference path_preference(1, PathPreference::LOW, false, false);
+    TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE);
+    Inet4TunnelRouteAdd(peer_, "vrf1", ip, 32, server_ip, bmap,
+                        16, "vn1", SecurityGroupList(), path_preference);
+    client->WaitForIdle();
+
+    VmInterface *vm_intf = VmInterfaceGet(1);
+    InetUnicastRouteEntry *rt =
+        RouteGet("vrf1", ip, 32);
+    const AgentPath *path = rt->FindPath(vm_intf->peer());
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
+
+    Agent::GetInstance()->oper_db()->route_preference_module()->
+        EnqueueTrafficSeen(ip, 32, vm_intf->id(), vm_intf->vrf()->vrf_id());
+    //Trigger change on VM interface, and verify
+    //that preference doesnt get overwritten
+    client->WaitForIdle();
+    EXPECT_TRUE(path->path_preference().sequence() == 2);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+ 
+    //Trigger change on VM interface, and verify
+    //that preference doesnt get overwritten
+    AddSg("sg1", 1);
+    AddAcl("acl1", 1);
+    AddLink("security-group", "sg1", "access-control-list", "acl1");
+    client->WaitForIdle();
+    AddLink("virtual-machine-interface", "intf1", "security-group", "sg1");
+    client->WaitForIdle();
+
+    EXPECT_TRUE(path->path_preference().sequence() == 2);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+
+    DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+    DelLink("security-group", "sg1", "access-control-list", "acl1");
+    DelAcl("acl1");
+    DelNode("security-group", "sg1");
+    client->WaitForIdle();
 }
 
 int main(int argc, char *argv[]) {
