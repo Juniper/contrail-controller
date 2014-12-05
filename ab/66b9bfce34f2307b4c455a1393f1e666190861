@@ -1,0 +1,10 @@
+Code-Review+1: opencontrail-admin <ci-admin@opencontrail.org>
+Verified+2: opencontrail-admin <ci-admin@opencontrail.org>
+Verified+2: Zuul <zuul@lists.opencontrail.org>
+Approved+1: ted ghose <rintu@hotmail.com>
+Code-Review+2: ted ghose <rintu@hotmail.com>
+Submitted-by: Zuul <zuul@lists.opencontrail.org>
+Submitted-at: Fri, 05 Dec 2014 10:52:49 -0800
+Reviewed-on: https://review.opencontrail.org/5161
+Project: Juniper/contrail-controller
+Branch: refs/heads/master
