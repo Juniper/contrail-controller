@@ -1,0 +1,34 @@
+/*
+ * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+ */
+
+namespace cpp prouter
+
+enum RemoteType {
+    VRouter = 0
+    PRouter = 1
+}
+
+const map<RemoteType, string> RemoteTypeMapNames = {
+    RemoteType.VRouter      : "VRouter",
+    RemoteType.PRouter      : "PRouter"
+}
+
+struct LinkEntry {
+    1: string remote_system_name
+    2: string local_interface_name
+    3: string remote_interface_name
+    4: RemoteType type
+    5: i32 local_interface_index
+    6: i32 remote_interface_index
+}
+
+struct PRouterLinkEntry {
+    1: string name (key="ObjectPRouter")
+    2: optional bool deleted
+    3: optional list<LinkEntry> link_table
+}
+
+uve sandesh PRouterLinkUVE {
+    1: PRouterLinkEntry data
+}

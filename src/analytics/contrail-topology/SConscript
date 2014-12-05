@@ -1,0 +1,82 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import sys
+
+Import('AnalyticsEnv')
+env = AnalyticsEnv.Clone()
+
+sources = [
+    'MANIFEST.in',
+    'CHANGES.txt',
+    'LICENSE.txt',
+    'README.txt',
+    'contrail-topology.conf',
+    'requirements.txt',
+    'test-requirements.txt',
+    'setup.py',
+    'contrail_topology/__init__.py',
+    'contrail_topology/main.py',
+    'contrail_topology/analytic_client.py',
+    'contrail_topology/controller.py',
+    'contrail_topology/config.py',
+    'contrail_topology/topology_uve.py',
+    'contrail_topology/tests/__init__.py',
+    'contrail_topology/tests/topology_test.py',
+    ]
+
+sources += env.SandeshGenPy('link.sandesh',
+        'contrail_topology/')
+
+version = '0.0.1'
+#with open("CHANGES.txt") as f:
+#    version = f.read().split(",")[0][1:]
+
+sdist_gen = env.Command('dist/contrail-topology-' \
+        + version + '.tar.gz',
+        sources, 'python setup.py sdist', chdir=Dir('.'))
+env.Alias('controller/src/analytics/contrail-topology/' + \
+        'contrail_topology:sdist', sdist_gen)
+
+def AutoGenPyTest(env, target, source):
+    with open(target[0].abspath, 'w') as f:
+        f.write("[easy_install]\nfind_links =")
+        for s in source:
+            f.write(" %s" % os.path.dirname(env.File(s).abspath))
+        f.write("\n")
+        f.flush()
+
+def TestSetupCmd(env, targets, source):
+    return env.Command(target='setup.cfg', source=source, 
+            action=AutoGenPyTest)
+
+env.Append(BUILDERS = {'PythonTestSetup': TestSetupCmd})
+
+test_sources = sources
+packages = [
+]
+
+test_sources += env.PythonTestSetup(source=packages)
+
+test = env.Command(None, test_sources, 'python setup.py test', chdir=1)
+
+env.Alias('controller/src/analytics/contrail-topology/' + \
+        'contrail_topology:test', test)
+
+if 'install' in BUILD_TARGETS:
+    install_cmd = env.Command(None, sources,
+                              'python setup.py install %s' %
+                              env['PYTHON_INSTALL_OPT'],
+                              chdir = 1)
+    env.Alias('install', install_cmd)
+env.Alias('install', env.Install(env['INSTALL_CONF'],
+            'contrail-topology.conf'))
+env.Alias('install', env.InstallAs(
+            env['INSTALL_INITD'] + '/contrail-topology',
+            'contrail-topology.initd.supervisord'))
+env.Alias('install', env.Install(
+            env['INSTALL_CONF'] + '/supervisord_analytics_files',
+            'contrail-topology.ini'))

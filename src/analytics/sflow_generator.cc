@@ -5,6 +5,7 @@
 #include "sflow_collector.h"
 #include "sflow_generator.h"
 #include "sflow_parser.h"
+#include "uflow_constants.h"
 #include "uflow_types.h"
 
 SFlowQueueEntry::SFlowQueueEntry(boost::asio::const_buffer buf, size_t len,
@@ -54,6 +55,8 @@ bool SFlowGenerator::ProcessSFlowPacket(
     LOG(DEBUG, "sFlow Packet: " << sflow_data);
     UFlowData flow_data;
     flow_data.set_name(ip_address_);
+    std::string flow_type =
+        g_uflow_constants.FlowTypeName.find(FlowType::SFLOW)->second;
     boost::ptr_vector<SFlowFlowSampleData>::const_iterator fs_it = 
         sflow_data.flow_samples.begin();
     std::vector<UFlowSample> samples;
@@ -72,6 +75,7 @@ bool SFlowGenerator::ProcessSFlowPacket(
                 sample.sport = ip_data.src_port;
                 sample.dport = ip_data.dst_port;
                 sample.protocol = ip_data.protocol;
+                sample.flowtype = flow_type;
                 samples.push_back(sample);
             }
         }

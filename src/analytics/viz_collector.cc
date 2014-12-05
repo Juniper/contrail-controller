@@ -20,6 +20,7 @@
 #include "ruleeng.h"
 #include "protobuf_collector.h"
 #include "sflow_collector.h"
+#include "ipfix_collector.h"
 
 using std::string;
 using boost::system::error_code;
@@ -30,7 +31,8 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             const std::vector<std::string> &cassandra_ips,
             const std::vector<int> &cassandra_ports,
             const std::string &redis_uve_ip, unsigned short redis_uve_port,
-            int syslog_port, int sflow_port, bool dup, int analytics_ttl) :
+            int syslog_port, int sflow_port, int ipfix_port,
+            bool dup, int analytics_ttl) :
     db_initializer_(new DbHandlerInitializer(evm, DbGlobalName(dup), -1,
         std::string("collector:DbIf"),
         boost::bind(&VizCollector::DbInitializeCb, this),
@@ -45,7 +47,9 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             boost::bind(&Ruleeng::rule_execute, ruleeng_.get(), _1, _2, _3),
             db_initializer_->GetDbHandler(), syslog_port)),
     sflow_collector_(new SFlowCollector(evm, db_initializer_->GetDbHandler(),
-        sflow_port, -1)) {
+        sflow_port, -1)),
+    ipfix_collector_(new IpfixCollector(evm, db_initializer_->GetDbHandler(),
+        string(), ipfix_port)) {
     error_code error;
     if (dup)
         name_ = boost::asio::ip::host_name(error) + "dup";
@@ -70,7 +74,7 @@ VizCollector::VizCollector(EventManager *evm, DbHandler *db_handler,
     syslog_listener_(new SyslogListeners (evm,
             boost::bind(&Ruleeng::rule_execute, ruleeng, _1, _2, _3),
             db_handler)),
-    sflow_collector_(NULL) {
+    sflow_collector_(NULL), ipfix_collector_(NULL) {
     error_code error;
     name_ = boost::asio::ip::host_name(error);
 }
@@ -133,6 +137,11 @@ void VizCollector::Shutdown() {
         WaitForIdle();
         UdpServerManager::DeleteServer(sflow_collector_);
     }
+    if (ipfix_collector_) {
+        ipfix_collector_->Shutdown();
+        WaitForIdle();
+        UdpServerManager::DeleteServer(ipfix_collector_);
+    }
 
     db_initializer_->Shutdown();
     LOG(DEBUG, __func__ << " viz_collector done");
@@ -149,6 +158,9 @@ void VizCollector::DbInitializeCb() {
     }
     if (sflow_collector_) {
         sflow_collector_->Start();
+    }
+    if (ipfix_collector_) {
+        ipfix_collector_->Start();
     }
 }
 

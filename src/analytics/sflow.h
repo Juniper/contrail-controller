@@ -5,6 +5,25 @@
 #ifndef __SFLOW_H__
 #define __SFLOW_H__
 
+struct SFlowMacaddress {
+    uint8_t addr[6];
+
+    explicit SFlowMacaddress() : addr() {
+    }
+    ~SFlowMacaddress() {
+    }
+    friend inline std::ostream& operator<<(std::ostream& out,
+                    const SFlowMacaddress& sflow_mac) {
+        std::stringstream mac_str;
+        for (int i = 0; i < 6; ++i) {
+            mac_str << std::setfill('0') << std::setw(2) << std::hex <<
+                int(sflow_mac.addr[i]) << (i < 5 ? ":":"");
+        }
+        out << mac_str.str();
+        return out;
+    }
+};
+
 enum SFlowIpaddressType {
     SFLOW_IPADDR_UNKNOWN = 0,
     SFLOW_IPADDR_V4,
@@ -131,6 +150,29 @@ enum SFlowFlowHeaderProtocol {
     SFLOW_FLOW_HEADER_IPV4 = 11
 };
 
+struct SFlowFlowEthernetData {
+    SFlowMacaddress src_mac;
+    SFlowMacaddress dst_mac;
+    uint16_t vlan_id;
+    uint16_t ether_type;
+
+    explicit SFlowFlowEthernetData()
+        : src_mac(), dst_mac(), vlan_id(), ether_type() {
+    }
+    ~SFlowFlowEthernetData() {
+    }
+    friend std::ostream& operator<<(std::ostream& out,
+                                    const SFlowFlowEthernetData eth_data) {
+        out << "== Ethernet Data ==" << std::endl;
+        out << "Source Mac: " << eth_data.src_mac << std::endl;
+        out << "Destination Mac: " << eth_data.dst_mac << std::endl;
+        out << "Vlan Id: " << eth_data.vlan_id << std::endl;
+        out << "Ether type: " << integerToHexString(eth_data.ether_type)
+            << std::endl;
+        return out;
+    }
+};
+
 struct SFlowFlowIpData {
     uint32_t length;
     uint32_t protocol;
@@ -144,6 +186,8 @@ struct SFlowFlowIpData {
     explicit SFlowFlowIpData() 
         : length(), protocol(), src_ip(), dst_ip(), src_port(),
           dst_port(), tcp_flags(), tos() {
+    }
+    ~SFlowFlowIpData() {
     }
     friend std::ostream& operator<<(std::ostream& out, 
                                     const SFlowFlowIpData& ip_data) { 
@@ -164,12 +208,15 @@ struct SFlowFlowHeader : public SFlowFlowRecord {
     uint32_t stripped;
     uint32_t header_length;
     uint8_t* header;
+    bool is_eth_data_set;
     bool is_ip_data_set;
+    SFlowFlowEthernetData decoded_eth_data;
     SFlowFlowIpData decoded_ip_data;
 
     explicit SFlowFlowHeader() 
         : protocol(), frame_length(), stripped(), header_length(),
-          header(), is_ip_data_set(), decoded_ip_data() {
+          header(), is_eth_data_set(), is_ip_data_set(),
+          decoded_eth_data(), decoded_ip_data() {
     }
     virtual ~SFlowFlowHeader() {
     }
@@ -180,6 +227,9 @@ struct SFlowFlowHeader : public SFlowFlowRecord {
         out << "Frame length: " << flow_header.frame_length << std::endl;
         out << "Stripped: " << flow_header.stripped << std::endl;
         out << "Header length: " << flow_header.header_length << std::endl;
+        if (flow_header.is_eth_data_set) {
+            out << flow_header.decoded_eth_data;
+        }
         if (flow_header.is_ip_data_set) {
             out << flow_header.decoded_ip_data;
         }

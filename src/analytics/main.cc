@@ -282,6 +282,7 @@ int main(int argc, char *argv[])
     LOG(INFO, "COLLECTOR CASSANDRA SERVERS: " << css.str());
     LOG(INFO, "COLLECTOR SYSLOG LISTEN PORT: " << options.syslog_port());
     LOG(INFO, "COLLECTOR SFLOW LISTEN PORT: " << options.sflow_port());
+    LOG(INFO, "COLLECTOR IPFIX LISTEN PORT: " << options.ipfix_port());
     uint16_t protobuf_port(0);
     bool protobuf_server_enabled =
         options.collector_protobuf_port(&protobuf_port);
@@ -318,6 +319,7 @@ int main(int argc, char *argv[])
             options.redis_port(),
             options.syslog_port(),
             options.sflow_port(),
+            options.ipfix_port(),
             options.dup(),
             options.analytics_data_ttl());
 

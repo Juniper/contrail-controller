@@ -155,6 +155,8 @@ enum Module {
     COMPUTE_NODE_MGR,
     STORAGE_STATS_MGR,
     IPMI_STATS_MGR,
+    CONTRAIL_SNMP_COLLECTOR,
+    CONTRAIL_TOPOLOGY,
     MAX_MODULE,
 }
 
@@ -179,6 +181,8 @@ const string MODULE_WEBUI_NODE_MGR_NAME = "Contrail-WebUI-Nodemgr"
 const string MODULE_COMPUTE_NODE_MGR_NAME = SERVICE_COMPUTE_NODE_MGR
 const string MODULE_STORAGE_STATS_MGR_NAME = "Storage-Stats-mgr"
 const string MODULE_IPMI_STATS_MGR_NAME = "Ipmi-Stats-mgr"
+const string MODULE_CONTRAIL_SNMP_COLLECTOR_NAME = "contrail-snmp-collector"
+const string MODULE_CONTRAIL_TOPOLOGY_NAME = "contrail-topology"
 
 const map<Module, string> ModuleNames = {
     Module.CONTROL_NODE       : MODULE_CONTROL_NODE_NAME,
@@ -202,6 +206,8 @@ const map<Module, string> ModuleNames = {
     Module.COMPUTE_NODE_MGR   : MODULE_COMPUTE_NODE_MGR_NAME,
     Module.STORAGE_STATS_MGR  : MODULE_STORAGE_STATS_MGR_NAME,
     Module.IPMI_STATS_MGR     : MODULE_IPMI_STATS_MGR_NAME,
+    Module.CONTRAIL_SNMP_COLLECTOR  : MODULE_CONTRAIL_SNMP_COLLECTOR_NAME,
+    Module.CONTRAIL_TOPOLOGY  : MODULE_CONTRAIL_TOPOLOGY_NAME,
 }
 
 const map<string, Module> ModuleIds = {
@@ -226,6 +232,8 @@ const map<string, Module> ModuleIds = {
     MODULE_COMPUTE_NODE_MGR_NAME       : Module.COMPUTE_NODE_MGR,
     MODULE_STORAGE_STATS_MGR_NAME      : Module.STORAGE_STATS_MGR,
     MODULE_IPMI_STATS_MGR_NAME         : Module.IPMI_STATS_MGR,
+    MODULE_CONTRAIL_SNMP_COLLECTOR_NAME  : Module.CONTRAIL_SNMP_COLLECTOR,
+    MODULE_CONTRAIL_TOPOLOGY_NAME      : Module.CONTRAIL_TOPOLOGY,
 }
 
 // Supervisor names
@@ -275,6 +283,8 @@ const map <Module, NodeType> Module2NodeType = {
     Module.COMPUTE_NODE_MGR   : NodeType.COMPUTE,
     Module.STORAGE_STATS_MGR  : NodeType.COMPUTE,
     Module.IPMI_STATS_MGR     : NodeType.SERVERMGR,
+    Module.CONTRAIL_SNMP_COLLECTOR : NodeType.ANALYTICS,
+    Module.CONTRAIL_TOPOLOGY  : NodeType.ANALYTICS,
 }
 
 const string INSTANCE_ID_DEFAULT = "0"
@@ -358,6 +368,10 @@ const map<Module, list<Category>> ModuleCategoryMap = {
                                 ],
     Module.DISCOVERY_SERVICE  : [Category.DEFAULT,
                                  Category.DISCOVERY,
+                                ], 
+    Module.CONTRAIL_SNMP_COLLECTOR : [Category.DEFAULT,
+                                ],
+    Module.CONTRAIL_TOPOLOGY : [Category.DEFAULT,
                                 ],
 }
 

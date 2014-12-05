@@ -2,6 +2,7 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <netinet/if_ether.h>
 #include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
 #include <netinet/tcp.h>
@@ -173,6 +174,7 @@ int SFlowParser::ReadSFlowFlowSample(SFlowFlowSampleData& flow_sample_data,
             if (SkipBytes(flow_record_len) < 0) {
                 return -1;
             }
+            LOG(DEBUG, "Skip processing of Flow Record: " << flow_record_type);
         }
     }
     return 0;
@@ -196,19 +198,65 @@ int SFlowParser::ReadSFlowFlowHeader(SFlowFlowHeader& flow_header) {
         return -1;
     }
     switch(flow_header.protocol) {
+    case SFLOW_FLOW_HEADER_ETHERNET_ISO8023: {
+        int eth_header_len = 0;
+        if ((eth_header_len = DecodeEthernetHeader(flow_header.header,
+                                 flow_header.decoded_eth_data)) < 0) {
+            return -1;
+        }
+        flow_header.is_eth_data_set = true;
+        // is this ip packet?
+        if (flow_header.decoded_eth_data.ether_type == ETHERTYPE_IP) {
+            int ip_header_len = 0;
+            const uint8_t* iph = flow_header.header + eth_header_len;
+            if ((ip_header_len = DecodeIpv4Header(iph,
+                                    flow_header.decoded_ip_data)) < 0) {
+                return -1;
+            }
+            const uint8_t* l4h = iph + ip_header_len;
+            if (DecodeLayer4Header(l4h, flow_header.decoded_ip_data) < 0) {
+                return -1;
+            }
+            flow_header.is_ip_data_set = true;
+        }
+        break;
+    }
     case SFLOW_FLOW_HEADER_IPV4: {
-        if (DecodeIpv4Header(flow_header.header,
-                             flow_header.decoded_ip_data) < 0) {
+        int ip_header_len = 0;
+        if ((ip_header_len = DecodeIpv4Header(flow_header.header,
+                             flow_header.decoded_ip_data)) < 0) {
+            return -1;
+        }
+        const uint8_t* l4h = flow_header.header + ip_header_len;
+        if (DecodeLayer4Header(l4h, flow_header.decoded_ip_data) < 0) {
             return -1;
         }
         flow_header.is_ip_data_set = true;
-    }
         break;
+    }
     default:
         LOG(DEBUG, "Skip processing of protocol header: " <<
             flow_header.protocol);
     }
     return 0;
+}
+
+int SFlowParser::DecodeEthernetHeader(const uint8_t* ethh,
+                                      SFlowFlowEthernetData& eth_data) {
+    // add sanity check
+
+    struct ether_header* eth = (struct ether_header*)ethh;
+    memcpy(&eth_data.src_mac, eth->ether_shost, 6);
+    memcpy(&eth_data.dst_mac, eth->ether_dhost, 6);
+    eth_data.ether_type = ntohs(eth->ether_type);
+    if (eth_data.ether_type == ETHERTYPE_VLAN) {
+        uint8_t *vlan_data = const_cast<uint8_t*>(ethh) + sizeof(ether_header);
+        eth_data.vlan_id = ((vlan_data[0] << 8) + vlan_data[1]) & 0x0FFF;
+        // Now, read the ether_type
+        eth_data.ether_type = ntohs(*(uint16_t*)(vlan_data + 2));
+        return sizeof(struct ether_header) + 4;
+    }
+    return sizeof(struct ether_header);
 }
 
 int SFlowParser::DecodeIpv4Header(const uint8_t* ipv4h,
@@ -223,9 +271,7 @@ int SFlowParser::DecodeIpv4Header(const uint8_t* ipv4h,
     ip_data.dst_ip.type = SFLOW_IPADDR_V4;
     memcpy(ip_data.dst_ip.address.ipv4, &ip->ip_dst.s_addr, 4);
     ip_data.tos = ntohs(ip->ip_tos);
-    const uint8_t* l4h = ipv4h + (ip->ip_hl << 2);
-    DecodeLayer4Header(l4h, ip_data);
-    return 0;
+    return (ip->ip_hl << 2);
 }
 
 int SFlowParser::DecodeLayer4Header(const uint8_t* l4h,
@@ -235,7 +281,8 @@ int SFlowParser::DecodeLayer4Header(const uint8_t* l4h,
     switch(ip_data.protocol) {
     case IPPROTO_ICMP: {
         struct icmp* icmp = (struct icmp*)l4h;
-        if (icmp->icmp_type == ICMP_ECHO || icmp->icmp_type == ICMP_ECHOREPLY) {
+        if (icmp->icmp_type == ICMP_ECHO ||
+            icmp->icmp_type == ICMP_ECHOREPLY) {
             ip_data.src_port = ntohs(icmp->icmp_id);
             ip_data.dst_port = ICMP_ECHOREPLY;
         } else {
@@ -256,6 +303,9 @@ int SFlowParser::DecodeLayer4Header(const uint8_t* l4h,
         ip_data.dst_port = ntohs(udp->dest);
         break;
     }
+    default:
+        LOG(DEBUG, "Skip processing of layer 4 protocol: " <<
+            ip_data.protocol);
     }
     return 0;
 }
