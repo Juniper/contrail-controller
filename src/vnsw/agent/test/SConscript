@@ -35,13 +35,13 @@ if sys.platform.startswith('freebsd'):
 elif sys.platform.startswith('linux'):
     platform_dependent = 'linux/test_util_tap.cc'
 
-test_lib_srcs = ['agent_param_test.cc',
-                 'test_agent_init.cc',
+test_lib_srcs = ['test_agent_init.cc',
                  'test_init.cc',
                  'test_util.cc',
                  platform_dependent,
                  '../pkt/test/test_pkt_util.cc',
                  '../ksync/test/ksync_test.cc',
+                 '../uve/test/agent_param_test.cc',
                  '../uve/test/agent_uve_test.cc',
                  '../uve/test/agent_stats_collector_test.cc',
                  '../uve/test/flow_stats_collector_test.cc',

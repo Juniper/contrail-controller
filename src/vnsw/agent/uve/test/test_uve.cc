@@ -3,6 +3,7 @@
  */
 
 #include "base/os.h"
+#include <base/connection_info.h>
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_interface.h>
 #include <oper/operdb_init.h>
@@ -30,10 +31,20 @@
 #include <uve/test/vm_uve_table_test.h>
 #include "ksync/ksync_sock_user.h"
 #include "uve/test/test_uve_util.h"
+#include "agent_param_test.h"
 
 int vrf_array[] = {1, 2};
 
 using namespace std;
+using namespace process;
+using process::g_process_info_constants;
+
+struct ConnectionInfoInput {
+    string type;
+    string name;
+    string server_addrs;
+    string status;
+};
 
 void RouterIdDepInit(Agent *agent) {
 }
@@ -46,6 +57,26 @@ public:
             sprintf(vrf_name, "vrf%d", vrf[i]);
             AddVrf(vrf_name);
         }
+    }
+
+    void BuildConnectionInfo(std::vector<ConnectionInfo> &infos,
+                             ConnectionInfoInput *input, int size) {
+        for (int i = 0; i < size; i++) {
+            ConnectionInfo info;
+            std::vector<string> addr_list;
+            info.set_type(input[i].type);
+            info.set_name(input[i].name);
+            addr_list.push_back(input[i].server_addrs);
+            info.set_server_addrs(addr_list);
+            info.set_status(input[i].status);
+            infos.push_back(info);
+        }
+    }
+
+    void GetProcessState(const std::vector<ConnectionInfo> &infos,
+                         ProcessState::type &pstate, string &msg) {
+        AgentUveBase *uve = Agent::GetInstance()->uve();
+        uve->VrouterAgentProcessState(infos, pstate, msg);
     }
 
     void SetAgentStatsIntervalReq(int interval) {
@@ -457,15 +488,15 @@ TEST_F(UveTest, NodeStatus_ExpectedConnections_0) {
 /* Discovery IP is NOT configured and all service IPs are configured */
 TEST_F(UveTest, NodeStatus_ExpectedConnections_1) {
     Agent *agent = Agent::GetInstance();
-    AgentParamTest *params = static_cast<AgentParamTest *>(agent->params());
+    AgentParamTest params(agent->params());
     AgentUve *uve = static_cast<AgentUve *>(agent->uve());
-    params->set_discovery_server("0.0.0.0");
-    params->set_xmpp_server_1("1.1.1.1");
-    params->set_xmpp_server_2("1.1.1.2");
-    params->set_dns_server_1("1.1.1.1");
-    params->set_dns_server_2("1.1.1.2");
-    params->set_collector_server_list("1.1.1.1:8086");
-    agent->CopyConfig(params);
+    params.set_discovery_server("0.0.0.0");
+    params.set_xmpp_server_1("1.1.1.1");
+    params.set_xmpp_server_2("1.1.1.2");
+    params.set_dns_server_1("1.1.1.1");
+    params.set_dns_server_2("1.1.1.2");
+    params.set_collector_server_list("1.1.1.1:8086");
+    agent->CopyConfig(agent->params());
 
     uint8_t num_c_nodes, num_d_servers;
     int expected_conns = uve->ExpectedConnections(num_c_nodes, num_d_servers);
@@ -475,15 +506,15 @@ TEST_F(UveTest, NodeStatus_ExpectedConnections_1) {
 /* Discovery IP is configured and none of the service IPs are configured */
 TEST_F(UveTest, NodeStatus_ExpectedConnections_2) {
     Agent *agent = Agent::GetInstance();
-    AgentParamTest *params = static_cast<AgentParamTest *>(agent->params());
+    AgentParamTest params(agent->params());
     AgentUve *uve = static_cast<AgentUve *>(agent->uve());
-    params->set_discovery_server("1.1.1.1");
-    params->set_xmpp_server_1("0.0.0.0");
-    params->set_xmpp_server_2("0.0.0.0");
-    params->set_dns_server_1("0.0.0.0");
-    params->set_dns_server_2("0.0.0.0");
-    params->set_collector_server_list("");
-    agent->CopyConfig(params);
+    params.set_discovery_server("1.1.1.1");
+    params.set_xmpp_server_1("0.0.0.0");
+    params.set_xmpp_server_2("0.0.0.0");
+    params.set_dns_server_1("0.0.0.0");
+    params.set_dns_server_2("0.0.0.0");
+    params.set_collector_server_list("");
+    agent->CopyConfig(agent->params());
 
     uint8_t num_c_nodes, num_d_servers;
     int expected_conns = uve->ExpectedConnections(num_c_nodes, num_d_servers);
@@ -493,19 +524,77 @@ TEST_F(UveTest, NodeStatus_ExpectedConnections_2) {
 /* Both Discovery IP and service IPs are configured */
 TEST_F(UveTest, NodeStatus_ExpectedConnections_3) {
     Agent *agent = Agent::GetInstance();
-    AgentParamTest *params = static_cast<AgentParamTest *>(agent->params());
+    AgentParamTest params(agent->params());
     AgentUve *uve = static_cast<AgentUve *>(agent->uve());
-    params->set_discovery_server("1.1.1.1");
-    params->set_xmpp_server_1("1.1.1.1");
-    params->set_xmpp_server_2("1.1.1.2");
-    params->set_dns_server_1("1.1.1.1");
-    params->set_dns_server_2("1.1.1.2");
-    params->set_collector_server_list("1.1.1.1:8086");
-    agent->CopyConfig(params);
+    params.set_discovery_server("1.1.1.1");
+    params.set_xmpp_server_1("1.1.1.1");
+    params.set_xmpp_server_2("1.1.1.2");
+    params.set_dns_server_1("1.1.1.1");
+    params.set_dns_server_2("1.1.1.2");
+    params.set_collector_server_list("1.1.1.1:8086");
+    agent->CopyConfig(agent->params());
+
 
     uint8_t num_c_nodes, num_d_servers;
     int expected_conns = uve->ExpectedConnections(num_c_nodes, num_d_servers);
     EXPECT_EQ(expected_conns, 5);
+}
+
+/* Both control-node connections up. Agent should be functional */
+TEST_F(UveTest, NodeStatus_Functional_1) {
+    ConnectionInfoInput input[] = {
+        {g_process_info_constants.ConnectionTypeNames.find(ConnectionType::XMPP)->second,
+         "control-node:1.1.1.1", "1.1.1.1:0",
+         g_process_info_constants.ConnectionStatusNames.find(ConnectionStatus::UP)->second},
+        {g_process_info_constants.ConnectionTypeNames.find(ConnectionType::XMPP)->second,
+         "control-node:1.1.1.2", "1.1.1.2:0",
+         g_process_info_constants.ConnectionStatusNames.find(ConnectionStatus::UP)->second},
+    };
+    std::vector<ConnectionInfo> cinfos;
+    ProcessState::type pstate;
+    std::string msg;
+    BuildConnectionInfo(cinfos, input, 2);
+    EXPECT_EQ(2U, cinfos.size());
+    GetProcessState(cinfos, pstate, msg);
+    EXPECT_EQ(pstate, ProcessState::FUNCTIONAL);
+}
+
+/* Only one control-node connection up. Agent should be functional */
+TEST_F(UveTest, NodeStatus_Functional_2) {
+    ConnectionInfoInput input[] = {
+        {g_process_info_constants.ConnectionTypeNames.find(ConnectionType::XMPP)->second,
+         "control-node:1.1.1.1", "1.1.1.1:0",
+         g_process_info_constants.ConnectionStatusNames.find(ConnectionStatus::DOWN)->second},
+        {g_process_info_constants.ConnectionTypeNames.find(ConnectionType::XMPP)->second,
+         "control-node:1.1.1.2", "1.1.1.2:0",
+         g_process_info_constants.ConnectionStatusNames.find(ConnectionStatus::UP)->second},
+    };
+    std::vector<ConnectionInfo> cinfos;
+    ProcessState::type pstate;
+    std::string msg;
+    BuildConnectionInfo(cinfos, input, 2);
+    EXPECT_EQ(2U, cinfos.size());
+    GetProcessState(cinfos, pstate, msg);
+    EXPECT_EQ(pstate, ProcessState::FUNCTIONAL);
+}
+
+/* Both control-node connections down. Agent should be non-functional */
+TEST_F(UveTest, NodeStatus_Functional_3) {
+    ConnectionInfoInput input[] = {
+        {g_process_info_constants.ConnectionTypeNames.find(ConnectionType::XMPP)->second,
+         "control-node:1.1.1.1", "1.1.1.1:0",
+         g_process_info_constants.ConnectionStatusNames.find(ConnectionStatus::DOWN)->second},
+        {g_process_info_constants.ConnectionTypeNames.find(ConnectionType::XMPP)->second,
+         "control-node:1.1.1.2", "1.1.1.2:0",
+         g_process_info_constants.ConnectionStatusNames.find(ConnectionStatus::DOWN)->second},
+    };
+    std::vector<ConnectionInfo> cinfos;
+    ProcessState::type pstate;
+    std::string msg;
+    BuildConnectionInfo(cinfos, input, 2);
+    EXPECT_EQ(2U, cinfos.size());
+    GetProcessState(cinfos, pstate, msg);
+    EXPECT_EQ(pstate, ProcessState::NON_FUNCTIONAL);
 }
 
 int main(int argc, char **argv) {
