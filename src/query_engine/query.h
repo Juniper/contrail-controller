@@ -5,6 +5,8 @@
 /*
  * This file details various data structures used for query 
  * engine processing
+ *
+ * =========================================================
  * 
  * Overall the data structure heirarchy is as following:
  *
@@ -29,6 +31,7 @@
  *                                          |
  *                                          | .....
  *
+ * =========================================================
  */
 #ifndef QUERY_H_
 #define QUERY_H_
