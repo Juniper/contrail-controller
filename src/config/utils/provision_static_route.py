@@ -39,16 +39,6 @@ class StaticRouteProvisioner(object):
             print 'Invalid ip address format'
             sys.exit(1)
 
-        if ip_nw.ip.version is 4:
-            route_table_name = route_table_name + 'v4'
-            route_table_family = 'v4'
-        elif ip_nw.ip.version is 6:
-            route_table_name = route_table_name + 'v6'
-            route_table_family = 'v6'
-        else:
-            print 'Invalid ip prefix'
-            sys.exit(1) 
-        
         project_fq_name_str = 'default-domain:'+ self._args.tenant_name
         project_fq_name = project_fq_name_str.split(':')
         project_obj = self._vnc_lib.project_read(fq_name=project_fq_name)
@@ -56,7 +46,6 @@ class StaticRouteProvisioner(object):
         route_table = RouteTableType(route_table_name)
         route_table.set_route([])
         intf_route_table = InterfaceRouteTable(
-                                interface_route_table_family = route_table_family,
                                 interface_route_table_routes = route_table,
                                 parent_obj=project_obj, 
                                 name=route_table_name)
