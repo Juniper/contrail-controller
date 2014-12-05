@@ -3900,7 +3900,10 @@ class DBInterface(object):
                 project_sgs = self._security_group_list_project(p_id)
                 all_sgs.append(project_sgs)
         else:  # no filters
-            all_sgs.append(self._security_group_list_project(None))
+            p_id = None
+            if context and not context['is_admin']:
+                p_id = str(uuid.UUID(context['tenant']))
+            all_sgs.append(self._security_group_list_project(p_id))
 
         # prune phase
         for project_sgs in all_sgs:
