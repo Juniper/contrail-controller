@@ -37,11 +37,15 @@ from vnc_api.vnc_api import VncApi
 from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
     NodeStatus
 from cfgm_common.vnc_db import DBBase
+import db
 from db import BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM, \
     LogicalInterfaceDM, VirtualMachineInterfaceDM, VirtualNetworkDM
 from cfgm_common.dependency_tracker import DependencyTracker
 from sandesh.dm_introspect import ttypes as sandesh
 
+global _vnc_lib
+# connection to api-server
+_vnc_lib = None
 
 class DeviceManager(object):
     _REACTION_MAP = {
@@ -91,7 +95,6 @@ class DeviceManager(object):
 
     def __init__(self, args=None):
         self._args = args
-
         # Initialize discovery client
         self._disc = None
         if self._args.disc_server_ip and self._args.disc_server_port:
@@ -123,12 +126,14 @@ class DeviceManager(object):
             staticmethod(ConnectionState.get_process_state_cb),
             NodeStatusUVE, NodeStatus)
 
+        #import pdb; pdb.set_trace()
         # Retry till API server is up
         connected = False
         self.connection_state_update(ConnectionStatus.INIT)
         while not connected:
             try:
-                self._vnc_lib = VncApi(
+                global _vnc_lib
+                _vnc_lib = VncApi(
                     args.admin_user, args.admin_password,
                     args.admin_tenant_name, args.api_server_ip,
                     args.api_server_port)
@@ -162,6 +167,7 @@ class DeviceManager(object):
                                              self._args.cluster_id, None,
                                              self.config_log)
 
+        db.vnc_lib_init()
         DBBase.init(self, self._sandesh.logger(), self._cassandra)
         ok, pr_list = self._cassandra._cassandra_physical_router_list()
         if not ok:

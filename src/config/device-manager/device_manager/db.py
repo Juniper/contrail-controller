@@ -11,6 +11,12 @@ from physical_router_config import PhysicalRouterConfig
 from sandesh.dm_introspect import ttypes as sandesh
 from cfgm_common.vnc_db import DBBase
 import copy
+import device_manager
+
+global _vnc_lib
+def vnc_lib_init():
+    global _vnc_lib
+    _vnc_lib = device_manager._vnc_lib
 
 class BgpRouterDM(DBBase):
     _dict = {}
@@ -165,6 +171,7 @@ class PhysicalRouterDM(DBBase):
                                                              import_set,
                                                              export_set,
                                                              vn_obj.prefixes,
+                                                             vn_obj.router_external,
                                                              interfaces)
                     break
         self.config_manager.send_bgp_config()
@@ -290,6 +297,7 @@ class VirtualNetworkDM(DBBase):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.physical_routers = set()
+        self.router_external = False
         self.update(obj_dict)
     # end __init__
 
@@ -298,6 +306,8 @@ class VirtualNetworkDM(DBBase):
             obj = self.read_obj(self.uuid)
         self.update_multiple_refs('physical_router', obj)
         self.fq_name = obj['fq_name']
+        vn_obj = _vnc_lib.virtual_network_read(self.fq_name)
+        self.router_external = vn_obj.get_router_external()
         self.routing_instances = set([ri['uuid'] for ri in
                                       obj.get('routing_instances', [])])
         self.virtual_machine_interfaces = set(
