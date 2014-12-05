@@ -17,7 +17,7 @@ class EnetPrefix {
 public:
     EnetPrefix() { }
     explicit EnetPrefix(const BgpProtoPrefix &prefix);
-    EnetPrefix(const MacAddress mac_addr, const Ip4Prefix ip_prefix)
+    EnetPrefix(const MacAddress &mac_addr, const Ip4Prefix ip_prefix)
         : mac_addr_(mac_addr), ip_prefix_(ip_prefix) {
     }
 
@@ -25,7 +25,7 @@ public:
             boost::system::error_code *errorp = NULL);
     std::string ToString() const;
 
-    MacAddress mac_addr() const { return mac_addr_; }
+    const MacAddress &mac_addr() const { return mac_addr_; }
     Ip4Prefix ip_prefix() const { return ip_prefix_; }
 
 private:
