@@ -37,11 +37,11 @@ from vnc_api.vnc_api import VncApi
 from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
     NodeStatus
 from cfgm_common.vnc_db import DBBase
+import db
 from db import BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM, \
     LogicalInterfaceDM, VirtualMachineInterfaceDM, VirtualNetworkDM
 from cfgm_common.dependency_tracker import DependencyTracker
 from sandesh.dm_introspect import ttypes as sandesh
-
 
 class DeviceManager(object):
     _REACTION_MAP = {
@@ -91,7 +91,6 @@ class DeviceManager(object):
 
     def __init__(self, args=None):
         self._args = args
-
         # Initialize discovery client
         self._disc = None
         if self._args.disc_server_ip and self._args.disc_server_port:
@@ -123,6 +122,7 @@ class DeviceManager(object):
             staticmethod(ConnectionState.get_process_state_cb),
             NodeStatusUVE, NodeStatus)
 
+        #import pdb; pdb.set_trace()
         # Retry till API server is up
         connected = False
         self.connection_state_update(ConnectionStatus.INIT)

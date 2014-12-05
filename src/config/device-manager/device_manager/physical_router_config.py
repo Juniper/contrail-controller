@@ -66,14 +66,16 @@ class PhysicalRouterConfig(object):
     # end send_config
 
     def add_routing_instance(self, name, import_targets, export_targets,
-                             prefixes=[], interfaces=[]):
+                             prefixes=[], router_external=False, interfaces=[]):
         self.routing_instances[name] = {'import_targets': import_targets,
                                         'export_targets': export_targets,
                                         'prefixes': prefixes,
+                                        'router_external': router_external,
                                         'interfaces': interfaces}
 
         ri_config = self.ri_config or etree.Element("routing-instances")
         policy_config = self.policy_config or etree.Element("policy-options")
+        firewall_config = None
         ri = etree.SubElement(ri_config, "instance", operation="replace")
         ri_name = "__contrail__" + name.replace(':', '_')
         etree.SubElement(ri, "name").text = ri_name
@@ -85,6 +87,7 @@ class PhysicalRouterConfig(object):
         etree.SubElement(ri, "vrf-export").text = ri_name + "-export"
         rt_element = etree.SubElement(ri, "vrf-target")
         etree.SubElement(ri, "vrf-table-label")
+        ri_opt = None
         if prefixes:
             ri_opt = etree.SubElement(ri, "routing-options")
             static_config = etree.SubElement(ri_opt, "static")
@@ -92,8 +95,18 @@ class PhysicalRouterConfig(object):
                 route_config = etree.SubElement(static_config, "route")
                 etree.SubElement(route_config, "name").text = prefix
                 etree.SubElement(route_config, "discard")
+                etree.SubElement(route_config, "inet.0")
             auto_export = "<auto-export><family><inet><unicast/></inet></family></auto-export>"
             ri_opt.append(etree.fromstring(auto_export))
+
+        if router_external:
+            if ri_opt is None:
+                ri_opt = etree.SubElement(ri, "routing-options")
+                static_config = etree.SubElement(ri_opt, "static")
+            route_config = etree.SubElement(static_config, "route")
+            etree.SubElement(route_config, "name").text = "0.0.0.0/0"
+            etree.SubElement(route_config, "next-table")
+            etree.SubElement(route_config, "inet.0")
 
         # add policies for export route targets
         ps = etree.SubElement(policy_config, "policy-statement")
@@ -121,6 +134,32 @@ class PhysicalRouterConfig(object):
         then = etree.SubElement(ps, "then")
         etree.SubElement(then, "reject")
 
+        # add firewall config for public VRF 
+        forwarding_options_config = None
+        if router_external:
+            forwarding_options_config = self.forwarding_options_config or etree.Element("forwarding-options")
+            fo = etree.SubElement(forwarding_options_config, "family")
+            etree.SubElement(fo, "name").text= "inet"
+            f = etree.SubElement(fo, "filter")
+            etree.SubElement(f, "input").text = "redirect_to_" + ri_name + "_vrf"
+
+            firewall_config = self.firewall_config or etree.Element("firewall")
+            f = etree.SubElement(firewall_config, "filter")
+            etree.SubElement(f, "name").text = "redirect_to_" + ri_name + "_vrf"
+            term = etree.SubElement(f, "term")
+            etree.SubElement(term, "name").text= "t1"
+            from_ = etree.SubElement(term, "from")
+            if prefixes:
+                etree.SubElement(from_, "destination-address").text = ';'.join(prefixes)
+            then_ = etree.SubElement(term, "then")
+            etree.SubElement(then_, "routing-instance").text = ri_name
+            term = etree.SubElement(f, "term")
+            etree.SubElement(term, "name").text= "t2"
+            then_ = etree.SubElement(term, "then")
+            etree.SubElement(then_, "accept")
+
+        self.forwarding_options_config = forwarding_options_config
+        self.firewall_config = firewall_config
         self.policy_config = policy_config
         self.route_targets |= import_targets | export_targets
         self.ri_config = ri_config
@@ -171,6 +210,8 @@ class PhysicalRouterConfig(object):
         self.bgp_params = None
         self.ri_config = None
         self.policy_config = None
+        self.firewall_config = None
+        self.forwarding_options_config = None
         self.route_targets = set()
         self.bgp_peers = {}
         self.external_peers = {}
@@ -225,7 +266,7 @@ class PhysicalRouterConfig(object):
         bgp = etree.SubElement(proto_config, "bgp")
         bgp.append(bgp_config)
         self._get_neighbor_config_xml(bgp_config, self.bgp_peers)
-        if self.external_peers:
+        if self.external_peers is not None:
             ext_grp_config = self._get_bgp_config_xml(True)
             bgp.append(ext_grp_config)
             self._get_neighbor_config_xml(ext_grp_config, self.external_peers)
@@ -237,14 +278,18 @@ class PhysicalRouterConfig(object):
         etree.SubElement(routing_options_config, "autonomous-system").text = \
             str(self.bgp_params.get('autonomous_system'))
         config_list = [proto_config, routing_options_config]
-        if self.ri_config:
+        if self.ri_config is not None:
             config_list.append(self.ri_config)
         for route_target in self.route_targets:
             comm = etree.SubElement(self.policy_config, "community")
             etree.SubElement(comm, 'name').text = route_target.replace(':', '_')
             etree.SubElement(comm, 'members').text = route_target
-        if self.policy_config:
+        if self.policy_config is not None:
             config_list.append(self.policy_config)
+        if self.firewall_config is not None:
+            config_list.append(self.firewall_config)
+        if self.forwarding_options_config is not None:
+            config_list.append(self.forwarding_options_config)
         self.send_netconf(config_list)
         self.bgp_config_sent = True
     # end send_bgp_config

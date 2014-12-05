@@ -200,4 +200,47 @@ class TestDM(test_case.DMTestCase):
 
         xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/><autonomous-system>64512</autonomous-system></routing-options><routing-instances><instance operation="replace"><name>__contrail__default-domain_default-project_vn1</name><instance-type>vrf</instance-type><vrf-import>__contrail__default-domain_default-project_vn1-import</vrf-import><vrf-export>__contrail__default-domain_default-project_vn1-export</vrf-export><vrf-target/><vrf-table-label/><routing-options><static><route><name>1.0.0.0/24</name><discard/></route></static><auto-export><family><inet><unicast/></inet></family></auto-export></routing-options></instance></routing-instances><policy-options><policy-statement><name>__contrail__default-domain_default-project_vn1-export</name><term><name>t1</name><then><community><add/><target_64512_8000001/><target_64512_8000002/></community><accept/></then></term></policy-statement><policy-statement><name>__contrail__default-domain_default-project_vn1-import</name><term><name>t1</name><from><community>target_64512_8000001</community><community>target_64512_8000002</community></from><then><accept/></then></term><then><reject/></then></policy-statement><community><name>target_64512_8000001</name><members>target:64512:8000001</members></community><community><name>target_64512_8000002</name><members>target:64512:8000002</members></community></policy-options></groups><apply-groups>__contrail__</apply-groups></configuration></config>' 
         self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
+
+    def test_public_vrf_dm(self):
+        vn1_name = 'vn1'
+        vn1_obj = VirtualNetwork(vn1_name)
+        vn1_obj.set_router_external(True)
+        ipam_obj = NetworkIpam('ipam1')
+        self._vnc_lib.network_ipam_create(ipam_obj)
+        vn1_obj.add_network_ipam(ipam_obj, VnSubnetsType(
+            [IpamSubnetType(SubnetType("192.168.7.0", 24))]))
+
+        vn1_uuid = self._vnc_lib.virtual_network_create(vn1_obj)
+
+        bgp_router, pr = self.create_router('router10', '1.1.1.1')
+        pr.set_virtual_network(vn1_obj)
+        self._vnc_lib.physical_router_update(pr)
+
+        pi = PhysicalInterface('pi1', parent_obj = pr)
+        pi_id = self._vnc_lib.physical_interface_create(pi)
+
+        li = LogicalInterface('li1', parent_obj = pi)
+        li_id = self._vnc_lib.logical_interface_create(li)
+
+        for obj in [vn1_obj]:
+            ident_name = self.get_obj_imid(obj)
+            gevent.sleep(2)
+            ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
+
+        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group><group operation="replace"><name>__contrail_external__</name><type>external</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/><autonomous-system>64512</autonomous-system></routing-options><routing-instances><instance operation="replace"><name>__contrail__default-domain_default-project_vn1</name><instance-type>vrf</instance-type><vrf-import>__contrail__default-domain_default-project_vn1-import</vrf-import><vrf-export>__contrail__default-domain_default-project_vn1-export</vrf-export><vrf-target/><vrf-table-label/><routing-options><static><route><name>192.168.7.0/24</name><discard/><inet.0/></route><route><name>0.0.0.0/0</name><next-table/><inet.0/></route></static><auto-export><family><inet><unicast/></inet></family></auto-export></routing-options></instance></routing-instances><policy-options><policy-statement><name>__contrail__default-domain_default-project_vn1-export</name><term><name>t1</name><then><community><add/><target_64512_8000001/></community><accept/></then></term></policy-statement><policy-statement><name>__contrail__default-domain_default-project_vn1-import</name><term><name>t1</name><from><community>target_64512_8000001</community></from><then><accept/></then></term><then><reject/></then></policy-statement><community><name>target_64512_8000001</name><members>target:64512:8000001</members></community></policy-options><firewall><filter><name>redirect_to___contrail__default-domain_default-project_vn1_vrf</name><term><name>t1</name><from><destination-address>192.168.7.0/24</destination-address></from><then><routing-instance>__contrail__default-domain_default-project_vn1</routing-instance></then></term><term><name>t2</name><then><accept/></then></term></filter></firewall><forwarding-options><family><name>inet</name><filter><input>redirect_to___contrail__default-domain_default-project_vn1_vrf</input></filter></family></forwarding-options></groups><apply-groups>__contrail__</apply-groups></configuration></config>'
+
+        self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
+
+        self._vnc_lib.logical_interface_delete(li.get_fq_name())
+        self._vnc_lib.physical_interface_delete(pi.get_fq_name())
+        self._vnc_lib.physical_router_delete(pr.get_fq_name())
+        self._vnc_lib.bgp_router_delete(bgp_router.get_fq_name())
+
+        self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
+
+        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups><name operation="delete">__contrail__</name></groups></configuration></config>'
+        self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
+    # end test_basic_dm
+#end
+
 #end
