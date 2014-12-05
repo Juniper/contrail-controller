@@ -338,6 +338,7 @@ public:
             case xmps::UNKNOWN: return "UNKNOWN";
             case xmps::READY: return "READY";
             case xmps::NOT_READY: return "NOT_READY";
+            case xmps::TIMEDOUT: return "TIMEDOUT";
         }
         return "UNKNOWN";
     }

@@ -20,6 +20,7 @@ public:
     void DiscoverServices();
     void DiscoverController(); //subscribe to XMPP server on controller
     void DiscoverDNS();        //subscribe to DN server
+    void ReDiscoverController(); // resubscribe to XMPP server on controller
 
     // subscribe callbacks
     void DiscoverySubscribeXmppHandler(std::vector<DSResponse> resp);
