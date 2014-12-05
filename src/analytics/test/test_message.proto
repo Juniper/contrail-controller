@@ -20,3 +20,7 @@ message TestMessage {
     }
     optional TestMessageEnum tm_enum = 5;
 }
+
+message TestMessageSize {
+    required bytes tms_data = 1;
+}

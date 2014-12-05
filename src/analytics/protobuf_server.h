@@ -32,6 +32,8 @@ class ProtobufServer {
     void GetStatistics(std::vector<SocketIOStats> *v_tx_stats,
         std::vector<SocketIOStats> *v_rx_stats,
         std::vector<SocketEndpointMessageStats> *v_rx_msg_stats);
+    void GetReceivedMessageStatistics(
+        std::vector<SocketEndpointMessageStats> *v_rx_msg_stats);
 
  private:
     class ProtobufServerImpl;

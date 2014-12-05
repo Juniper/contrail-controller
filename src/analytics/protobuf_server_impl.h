@@ -18,10 +18,13 @@ namespace impl {
 
 class ProtobufReader {
  public:
+    typedef boost::function<void(
+        const std::string &message_name)> ParseFailureCallback;
     ProtobufReader();
     virtual ~ProtobufReader();
     virtual bool ParseSelfDescribingMessage(const uint8_t *data, size_t size,
-        uint64_t *timestamp, ::google::protobuf::Message **msg);
+        uint64_t *timestamp, ::google::protobuf::Message **msg,
+        ParseFailureCallback cb);
 
  private:
     tbb::mutex mutex_;

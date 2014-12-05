@@ -103,7 +103,7 @@ struct ProtobufCollectorStats {
     2: optional bool                                deleted
     3: optional list<io.SocketIOStats>              rx_socket_stats (tags="")
     4: optional list<io.SocketIOStats>              tx_socket_stats (tags="")
-    5: optional list<io.SocketEndpointMessageStats> rx_message_stats (tags=".endpoint_name")
+    5: optional list<io.SocketEndpointMessageStats> rx_message_stats (tags=".endpoint_name,.message_name")
 }
 
 uve sandesh ProtobufCollectorStatsUve {

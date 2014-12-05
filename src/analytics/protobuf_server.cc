@@ -48,11 +48,15 @@ ProtobufReader::~ProtobufReader() {
 }
 
 bool ProtobufReader::ParseSelfDescribingMessage(const uint8_t *data,
-    size_t size, uint64_t *timestamp, Message **msg) {
+    size_t size, uint64_t *timestamp, Message **msg,
+    ParseFailureCallback parse_failure_cb) {
     // Parse the SelfDescribingMessage from data
     SelfDescribingMessage sdm_message;
     bool success = sdm_message.ParseFromArray(data, size);
     if (!success) {
+        if (!parse_failure_cb.empty()) {
+	    parse_failure_cb("Unknown");
+        }
         LOG(ERROR, "SelfDescribingMessage: Parsing FAILED");
         return false;
     }
@@ -65,6 +69,9 @@ bool ProtobufReader::ParseSelfDescribingMessage(const uint8_t *data,
         tbb::mutex::scoped_lock lock(mutex_);
         const FileDescriptor *fd(dpool_.BuildFile(fdp));
         if (fd == NULL) {
+            if (!parse_failure_cb.empty()) {
+                parse_failure_cb(msg_type);
+            }
             LOG(ERROR, "SelfDescribingMessage: " << msg_type <<
                 ": DescriptorPool BuildFile(" << i << ") FAILED");
             return false;
@@ -74,6 +81,9 @@ bool ProtobufReader::ParseSelfDescribingMessage(const uint8_t *data,
     // Extract the Descriptor
     const Descriptor *mdesc = dpool_.FindMessageTypeByName(msg_type);
     if (mdesc == NULL) {
+        if (!parse_failure_cb.empty()) {
+            parse_failure_cb(msg_type);
+        }
         LOG(ERROR, "SelfDescribingMessage: " << msg_type << ": Descriptor " <<
             " not FOUND");
         return false;
@@ -81,12 +91,18 @@ bool ProtobufReader::ParseSelfDescribingMessage(const uint8_t *data,
     // Parse the message.
     const Message* msg_proto = dmf_.GetPrototype(mdesc);
     if (msg_proto == NULL) {
+        if (!parse_failure_cb.empty()) {
+            parse_failure_cb(msg_type);
+        }
         LOG(ERROR, msg_type << ": Prototype FAILED");
         return false;
     }
     *msg = msg_proto->New();
     success = (*msg)->ParseFromString(sdm_message.message_data());
     if (!success) {
+        if (!parse_failure_cb.empty()) {
+            parse_failure_cb(msg_type);
+        }
         LOG(ERROR, msg_type << ": Parsing FAILED");
         return false;
     }
@@ -367,6 +383,11 @@ class ProtobufServer::ProtobufServerImpl {
             v_rx_msg_stats);
     }
 
+    void GetReceivedMessageStatistics(
+        std::vector<SocketEndpointMessageStats> *v_rx_msg_stats) {
+        return udp_server_->GetReceivedMessageStatistics(v_rx_msg_stats);
+    }
+
  private:
     //
     // ProtobufUdpServer
@@ -375,7 +396,7 @@ class ProtobufServer::ProtobufServerImpl {
      public:
         ProtobufUdpServer(EventManager *evm, uint16_t port,
             StatWalker::StatTableInsertFn stat_db_callback) :
-            UdpServer(evm),
+            UdpServer(evm, kBufferSize),
             port_(port),
             stat_db_callback_(stat_db_callback) {
         }
@@ -405,16 +426,18 @@ class ProtobufServer::ProtobufServerImpl {
             if (!reader_.ParseSelfDescribingMessage(
                     boost::asio::buffer_cast<const uint8_t *>(recv_buffer),
                     recv_buffer_size, &timestamp,
-                    &message)) {
+                    &message, boost::bind(&MessageStatistics::UpdateRxFail,
+                    msg_stats_, remote_endpoint, _1))) {
                 LOG(ERROR, "Reading protobuf message FAILED: " <<
                     remote_endpoint);
-                msg_stats_.UpdateRxFail(remote_endpoint);
                 DeallocateBuffer(recv_buffer);
                 return;
             }
             protobuf::impl::ProcessProtobufMessage(*message, timestamp,
                 remote_endpoint, stat_db_callback_);
-            msg_stats_.UpdateRx(remote_endpoint, recv_buffer_size);
+            const std::string &message_name(message->GetTypeName());
+            msg_stats_.UpdateRx(remote_endpoint, message_name,
+                recv_buffer_size);
             delete message;
             DeallocateBuffer(recv_buffer);
         }
@@ -422,12 +445,23 @@ class ProtobufServer::ProtobufServerImpl {
         void GetStatistics(std::vector<SocketIOStats> *v_tx_stats,
             std::vector<SocketIOStats> *v_rx_stats,
             std::vector<SocketEndpointMessageStats> *v_rx_msg_stats) {
-            SocketIOStats tx_stats;
-            GetTxSocketStats(tx_stats);
-            v_tx_stats->push_back(tx_stats);
-            SocketIOStats rx_stats;
-            GetRxSocketStats(rx_stats);
-            v_rx_stats->push_back(rx_stats);
+            if (v_tx_stats != NULL) {
+                SocketIOStats tx_stats;
+                GetTxSocketStats(tx_stats);
+                v_tx_stats->push_back(tx_stats);
+            }
+            if (v_rx_stats != NULL) {
+                SocketIOStats rx_stats;
+                GetRxSocketStats(rx_stats);
+                v_rx_stats->push_back(rx_stats);
+            }
+            if (v_rx_msg_stats != NULL) {
+                msg_stats_.GetRxDiff(v_rx_msg_stats);
+            }
+        }
+
+        void GetReceivedMessageStatistics(
+            std::vector<SocketEndpointMessageStats> *v_rx_msg_stats) {
             msg_stats_.GetRx(v_rx_msg_stats);
         }
 
@@ -439,23 +473,63 @@ class ProtobufServer::ProtobufServerImpl {
          public:
             void UpdateRx(
                 const boost::asio::ip::udp::endpoint &remote_endpoint,
+                const std::string &message_name,
                 uint64_t bytes) {
-                Update(remote_endpoint, bytes, false);
+                Update(remote_endpoint, message_name, bytes, false);
             }
             void UpdateRxFail(
-                const boost::asio::ip::udp::endpoint &remote_endpoint) {
-                Update(remote_endpoint, 0, true);
+                const boost::asio::ip::udp::endpoint &remote_endpoint,
+                const std::string &message_name) {
+                Update(remote_endpoint, message_name, 0, true);
+            }
+            void GetRxDiff(
+                std::vector<SocketEndpointMessageStats> *semsv) {
+                tbb::mutex::scoped_lock lock(mutex_);
+                // Send diffs
+                GetDiffStats<EndpointStatsMessageMap,
+                    EndpointMessageKey, MessageInfo,
+                    SocketEndpointMessageStats>(rx_stats_map_, o_rx_stats_map_,
+                    *semsv);
             }
             void GetRx(
                 std::vector<SocketEndpointMessageStats> *semsv) {
                 tbb::mutex::scoped_lock lock(mutex_);
-                // Send diffs
-                GetDiffStats<EndpointStatsMap,
-                    const boost::asio::ip::udp::endpoint, MessageInfo,
-                    SocketEndpointMessageStats>(rx_stats_map_, o_rx_stats_map_,
-                    *semsv);
+                BOOST_FOREACH(
+                    const EndpointStatsMessageMap::value_type &esmm_value,
+                    rx_stats_map_) {
+                    const EndpointMessageKey &key(esmm_value.first);
+                    const MessageInfo *msg_info(esmm_value.second);
+                    SocketEndpointMessageStats sems;
+                    msg_info->Get(key, sems);
+                    semsv->push_back(sems); 
+                }
             }
          private:
+            class MessageInfo;
+
+            void Update(const boost::asio::ip::udp::endpoint &remote_endpoint,
+                const std::string &message_name, uint64_t bytes,
+                bool is_dropped) {
+                EndpointMessageKey key(make_pair(remote_endpoint,
+                    message_name));
+                tbb::mutex::scoped_lock lock(mutex_);
+                EndpointStatsMessageMap::iterator it =
+                    rx_stats_map_.find(key);
+                if (it == rx_stats_map_.end()) {
+                    it = rx_stats_map_.insert(key,
+                        new MessageInfo).first;
+                }
+                MessageInfo *msg_info = it->second;
+                msg_info->Update(bytes, is_dropped);
+            }
+
+            typedef std::pair<boost::asio::ip::udp::endpoint,
+                std::string> EndpointMessageKey;
+            typedef boost::ptr_map<EndpointMessageKey,
+                MessageInfo> EndpointStatsMessageMap;
+            EndpointStatsMessageMap rx_stats_map_, o_rx_stats_map_;
+            tbb::mutex mutex_;
+
             //
             // MessageInfo
             //
@@ -476,11 +550,15 @@ class ProtobufServer::ProtobufServerImpl {
                     }
                     last_timestamp_ = UTCTimestampUsec();
                 }
-                void Get(const boost::asio::ip::udp::endpoint &remote_endpoint,
+                void Get(const EndpointMessageKey &key,
                     SocketEndpointMessageStats &sems) const {
+                    const boost::asio::ip::udp::endpoint remote_endpoint(
+                        key.first);
+                    const std::string &message_name(key.second);
                     std::stringstream ss;
                     ss << remote_endpoint;
                     sems.set_endpoint_name(ss.str());
+                    sems.set_message_name(message_name);
                     sems.set_messages(messages_);
                     sems.set_bytes(bytes_);
                     sems.set_errors(errors_);
@@ -510,27 +588,10 @@ class ProtobufServer::ProtobufServerImpl {
                 uint64_t errors_;
                 uint64_t last_timestamp_;
             };
-
-            void Update(const boost::asio::ip::udp::endpoint &remote_endpoint,
-                uint64_t bytes, bool is_dropped) {
-                tbb::mutex::scoped_lock lock(mutex_);
-                EndpointStatsMap::iterator it =
-                    rx_stats_map_.find(remote_endpoint);
-                if (it == rx_stats_map_.end()) {
-                    it = rx_stats_map_.insert(remote_endpoint,
-                        new MessageInfo).first;
-                }
-                MessageInfo *msg_info = it->second;
-                msg_info->Update(bytes, is_dropped);
-            }
-
-            typedef boost::ptr_map<const boost::asio::ip::udp::endpoint,
-                MessageInfo> EndpointStatsMap;
-            EndpointStatsMap rx_stats_map_, o_rx_stats_map_;
-            tbb::mutex mutex_;
         };
 
         static const int kMaxInitRetries = 5;
+        static const int kBufferSize = 32 * 1024;
 
         protobuf::impl::ProtobufReader reader_;
         uint16_t port_;
@@ -605,6 +666,11 @@ void ProtobufServer::GetStatistics(std::vector<SocketIOStats> *v_tx_stats,
     std::vector<SocketIOStats> *v_rx_stats,
     std::vector<SocketEndpointMessageStats> *v_rx_msg_stats) {
     return impl_->GetStatistics(v_tx_stats, v_rx_stats, v_rx_msg_stats);
+}
+
+void ProtobufServer::GetReceivedMessageStatistics(
+    std::vector<SocketEndpointMessageStats> *v_rx_msg_stats) {
+    return impl_->GetReceivedMessageStatistics(v_rx_msg_stats);
 }
 
 }  // namespace protobuf
