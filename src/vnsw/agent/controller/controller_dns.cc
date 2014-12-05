@@ -86,7 +86,7 @@ void AgentDnsXmppChannel::HandleXmppClientChannelEvent(AgentDnsXmppChannel *peer
         if (agent->dns_xmpp_server_index() == -1)
             agent->set_dns_xmpp_server_index(peer->xs_idx_);
         peer->dns_xmpp_event_handler_cb_(peer);
-    } else {
+    } else if (state == xmps::NOT_READY) {
         if (agent->dns_xmpp_server_index() == peer->xs_idx_) {
             agent->set_dns_xmpp_server_index(-1);
             uint8_t o_idx = ((peer->xs_idx_ == 0) ? 1 : 0);
