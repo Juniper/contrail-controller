@@ -34,7 +34,7 @@ public:
 
     RouteDistinguisher route_distinguisher() const { return rd_; }
     uint32_t tag() const { return tag_; }
-    MacAddress mac_addr() const { return mac_addr_; }
+    const MacAddress &mac_addr() const { return mac_addr_; }
     Ip4Prefix ip_prefix() const { return ip_prefix_; }
     static size_t label_offset(const BgpProtoPrefix &prefix);
 

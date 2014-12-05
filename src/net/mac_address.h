@@ -33,6 +33,7 @@ public:
 
 private:
     uint8_t data_[kSize];
+    DISALLOW_COPY_AND_ASSIGN(MacAddress);
 };
 
 #endif
