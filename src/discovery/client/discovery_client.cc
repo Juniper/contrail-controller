@@ -459,6 +459,7 @@ void DiscoveryServiceClient::Subscribe(std::string serviceName, uint8_t numbOfIn
     if (loc != service_response_map_.end()) {
 
         DSResponseHeader *resp = loc->second;
+        resp->subscribe_timer_->Cancel();
         resp->sub_sent_++;
         SendHttpPostMessage("subscribe", serviceName, resp->subscribe_msg_);
     }
