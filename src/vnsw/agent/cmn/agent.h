@@ -216,9 +216,6 @@ public:
         return xmpp_control_node_connection_name_prefix_;
     }
 
-    const std::string &host_name() const {return host_name_; }
-    const std::string &agent_name() const { return agent_name_; }
-    void set_agent_name(const std::string &name) { agent_name_ = name; }
     const std::string &program_name() const {return prog_name_;}
     const std::string &config_file() const {return config_file_;}
     const std::string &log_file() const {return log_file_;}
@@ -354,6 +351,7 @@ public:
     }
 
     Ip4Address router_id() const {return router_id_;}
+    const Ip4Address *router_ip_ptr() const {return &router_id_;}
     void set_router_id(const Ip4Address &addr) {
         router_id_ = addr;
         set_router_id_configured(true);
@@ -361,6 +359,11 @@ public:
     bool router_id_configured() { return router_id_configured_; }
     void set_router_id_configured(bool value) {
         router_id_configured_ = value;
+    }
+
+    Ip4Address compute_node_ip() const {return compute_node_ip_;}
+    void set_compute_node_ip(const Ip4Address &addr) {
+        compute_node_ip_ = addr;
     }
 
     AgentSignal *agent_signal() const { return agent_signal_.get(); }
@@ -515,9 +518,17 @@ public:
     const std::string &discovery_client_name() const {
         return discovery_client_name_;
     }
-
     void set_discovery_client_name(const std::string &name) {
         discovery_client_name_ = name;
+    }
+
+    const std::string &host_name() const {return host_name_; }
+    const std::string &agent_name() const {
+        return agent_name_;
+    }
+
+    void set_agent_name(const std::string &name) {
+        agent_name_ = name;
     }
 
     const std::string &instance_id() const { return instance_id_; }
@@ -615,6 +626,7 @@ public:
     const Peer *ecmp_peer() const {return ecmp_peer_.get();}
     const Peer *vgw_peer() const {return vgw_peer_.get();}
     const Peer *multicast_peer() const {return multicast_peer_.get();}
+    const Peer *multicast_tor_peer() const {return multicast_tor_peer_.get();}
     const Peer *multicast_tree_builder_peer() const {
         return multicast_tree_builder_peer_.get();}
 
@@ -694,6 +706,9 @@ public:
 
     bool simulate_evpn_tor() const {return simulate_evpn_tor_;}
     void set_simulate_evpn_tor(bool mode) {simulate_evpn_tor_ = mode;}
+
+    bool tsn_enabled() const {return tsn_enabled_;}
+    void set_tsn_enabled(bool val) {tsn_enabled_ = val;}
 
     IFMapAgentParser *ifmap_parser() const {return ifmap_parser_;}
     void set_ifmap_parser(IFMapAgentParser *parser) {
@@ -811,6 +826,12 @@ private:
     Ip4Address router_id_;
     uint32_t prefix_len_;
     Ip4Address gateway_id_;
+
+    // IP address on the compute node used by agent to run services such
+    // as metadata service. This is different than router_id when vhost0
+    // is un-numbered interface in host-os
+    // The compute_node_ip_ is used only in adding Flow NAT rules.
+    Ip4Address compute_node_ip_;
     std::string xs_cfg_addr_;
     int8_t xs_idx_;
     std::string xs_addr_[MAX_XMPP_SERVERS];
@@ -843,6 +864,7 @@ private:
     std::auto_ptr<Peer> ecmp_peer_;
     std::auto_ptr<Peer> vgw_peer_;
     std::auto_ptr<Peer> multicast_peer_;
+    std::auto_ptr<Peer> multicast_tor_peer_;
     std::auto_ptr<Peer> multicast_tree_builder_peer_;
 
     std::auto_ptr<AgentSignal> agent_signal_;
@@ -863,6 +885,7 @@ private:
     bool test_mode_;
     bool init_done_;
     bool simulate_evpn_tor_;
+    bool tsn_enabled_;
 
     // Flow information
     uint32_t flow_table_size_;

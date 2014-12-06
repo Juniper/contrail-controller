@@ -5,6 +5,7 @@
 #include <vr_defs.h>
 #include <cmn/agent_cmn.h>
 #include <pkt/pkt_init.h>
+#include <pkt/control_interface.h>
 #include <oper/interface_common.h>
 #include <services/icmp_proto.h>
 
@@ -65,8 +66,7 @@ void IcmpHandler::SendResponse(VmInterface *vm_intf) {
     char icmp_payload[icmp_len_];
     memcpy(icmp_payload, icmp_, icmp_len_);
 
-    // Retain the agent-header before ethernet header
-    uint16_t len = (char *)pkt_info_->eth - (char *)pkt_info_->pkt;
+    uint16_t len = 0;
 
     // Form ICMP Packet with following
     // EthHdr - IP Header - ICMP Header
@@ -93,6 +93,11 @@ void IcmpHandler::SendResponse(VmInterface *vm_intf) {
     IcmpChecksum((char *)hdr, icmp_len_);
     pkt_info_->set_len(len);
 
-    Send(GetInterfaceIndex(), pkt_info_->vrf, AgentHdr::TX_SWITCH,
-         PktHandler::ICMP);
+    uint16_t interface =
+        ((pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
+         (uint16_t)pkt_info_->agent_hdr.cmd_param : GetInterfaceIndex());
+    uint16_t command =
+        ((pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
+         AgentHdr::TX_ROUTE : AgentHdr::TX_SWITCH);
+    Send(interface, pkt_info_->vrf, command, PktHandler::ICMP);
 }

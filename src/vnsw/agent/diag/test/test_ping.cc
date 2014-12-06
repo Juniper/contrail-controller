@@ -95,7 +95,7 @@ public:
         mac.ToArray(eth->ether_shost, sizeof(eth->ether_shost));
 
         agent_hdr *agent = (agent_hdr *)(eth + 1);
-        int intf_id = ntohs(agent->hdr_ifindex);
+        std::size_t intf_id = ntohs(agent->hdr_ifindex);
         LOG(DEBUG, "Diag Callback; Agent index : " <<
             ntohs(agent->hdr_ifindex) << " Interface index : " <<
             GetItfId(0) << " " << GetItfId(1));

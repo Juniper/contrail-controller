@@ -20,8 +20,6 @@
 #include "ksync/agent_ksync_types.h"
 #include "ksync/nexthop_ksync.h"
 
-#define RT_LAYER2 2
-
 class RouteKSyncObject;
 
 class RouteKSyncEntry : public KSyncNetlinkDBEntry {
@@ -58,7 +56,7 @@ private:
     bool McIsLess(const KSyncEntry &rhs) const;
     bool L2IsLess(const KSyncEntry &rhs) const;
     RouteKSyncObject* ksync_obj_;
-    uint32_t rt_type_;
+    Agent::RouteTableType rt_type_;
     uint32_t vrf_id_;
     IpAddress addr_;
     IpAddress src_addr_;

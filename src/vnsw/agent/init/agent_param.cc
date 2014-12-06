@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/resource.h>
+#include <net/if_arp.h>
 #include <unistd.h>
 #include <iostream>
 
@@ -271,6 +272,29 @@ void AgentParam::ParseCollector() {
     }
 }
 
+void AgentParam::BuildAddressList(const string &val) {
+    compute_node_address_list_.clear();
+    if (val.empty()) {
+        return;
+    }
+
+    vector<string> tokens;
+    boost::split(tokens, val, boost::is_any_of(" "));
+    vector<string>::iterator it = tokens.begin();
+    while (it != tokens.end()) {
+        std::string str = *it;
+        ++it;
+
+        boost::algorithm::trim(str);
+        Ip4Address addr;
+        if (GetIpAddress(str, &addr)) {
+            compute_node_address_list_.push_back(addr);
+        } else {
+            LOG(ERROR, "Error in parsing address " << *it);
+        }
+    }
+}
+
 void AgentParam::ParseVirtualHost() { 
     boost::system::error_code ec;
     optional<string> opt_str;
@@ -279,7 +303,7 @@ void AgentParam::ParseVirtualHost() {
 
     if (opt_str = tree_.get_optional<string>("VIRTUAL-HOST-INTERFACE.ip")) {
         ec = Ip4PrefixParse(opt_str.get(), &vhost_.addr_, &vhost_.plen_);
-        if (ec != 0 || vhost_.plen_ >= 32) {
+        if (ec != 0 || vhost_.plen_ > 32) {
             cout << "Error in config file <" << config_file_ 
                     << ">. Error parsing vhost ip-address from <" 
                     << opt_str.get() << ">\n";
@@ -294,8 +318,13 @@ void AgentParam::ParseVirtualHost() {
         }
     }
 
-    GetValueFromTree<string>(eth_port_, 
+    GetValueFromTree<string>(eth_port_,
                              "VIRTUAL-HOST-INTERFACE.physical_interface");
+
+    if (opt_str = tree_.get_optional<string>
+        ("VIRTUAL-HOST-INTERFACE.compute_node_address")) {
+        BuildAddressList(opt_str.get());
+    }
 }
 
 void AgentParam::ParseDiscovery() {
@@ -358,6 +387,9 @@ void AgentParam::ParseDefaultSection() {
     optional<string> opt_str;
     optional<unsigned int> opt_uint;
 
+    GetValueFromTree<string>(host_name_, "DEFAULT.hostname");
+    GetValueFromTree<string>(agent_name_, "DEFAULT.agent_name");
+
     if (!GetValueFromTree<uint16_t>(http_server_port_, 
                                     "DEFAULT.http_server_port")) {
         http_server_port_ = ContrailPorts::HttpPortAgent();
@@ -372,8 +404,6 @@ void AgentParam::ParseDefaultSection() {
         flow_cache_timeout_ = Agent::kDefaultFlowCacheTimeout;
     }
     
-    GetValueFromTree<string>(host_name_, "DEFAULT.hostname");
-
     if (!GetValueFromTree<string>(log_level_, "DEFAULT.log_level")) {
         log_level_ = "SYS_DEBUG";
     }
@@ -440,6 +470,12 @@ void AgentParam::ParseFlows() {
 void AgentParam::ParseHeadlessMode() {
     if (!GetValueFromTree<bool>(headless_mode_, "DEFAULT.headless_mode")) {
         headless_mode_ = false;
+    }
+}
+
+void AgentParam::ParseTsnMode() {
+    if (!GetValueFromTree<bool>(enable_tsn_, "DEFAULT.tsn")) {
+        enable_tsn_ = false;
     }
 }
 
@@ -549,6 +585,7 @@ void AgentParam::ParseDefaultSectionArguments
     GetOptValue<uint16_t>(var_map, flow_cache_timeout_, 
                           "DEFAULT.flow_cache_timeout");
     GetOptValue<string>(var_map, host_name_, "DEFAULT.hostname");
+    GetOptValue<string>(var_map, agent_name_, "DEFAULT.agent_name");
     GetOptValue<uint16_t>(var_map, http_server_port_, 
                           "DEFAULT.http_server_port");
     GetOptValue<string>(var_map, log_category_, "DEFAULT.log_category");
@@ -589,6 +626,11 @@ void AgentParam::ParseFlowArguments
 void AgentParam::ParseHeadlessModeArguments
     (const boost::program_options::variables_map &var_map) {
     GetOptValue<bool>(var_map, headless_mode_, "DEFAULT.headless_mode");
+}
+
+void AgentParam::ParseTsnModeArguments
+    (const boost::program_options::variables_map &var_map) {
+    GetOptValue<bool>(var_map, enable_tsn_, "DEFAULT.tsn_mode");
 }
 
 void AgentParam::ParseServiceInstanceArguments
@@ -645,6 +687,7 @@ void AgentParam::InitFromConfig() {
     ParseHeadlessMode();
     ParseSimulateEvpnTor();
     ParseServiceInstance();
+    ParseTsnMode();
     cout << "Config file <" << config_file_ << "> parsing completed.\n";
     return;
 }
@@ -663,6 +706,7 @@ void AgentParam::InitFromArguments() {
     ParseMetadataProxyArguments(var_map_);
     ParseHeadlessModeArguments(var_map_);
     ParseServiceInstanceArguments(var_map_);
+    ParseTsnModeArguments(var_map_);
     return;
 }
 
@@ -720,7 +764,11 @@ void AgentParam::ComputeFlowLimits() {
     }
 }
 
-static bool ValidateInterface(bool test_mode, const std::string &ifname) {
+static bool ValidateInterface(bool test_mode, const std::string &ifname,
+                              bool *no_arp, string *eth_encap) {
+    *no_arp = false;
+    *eth_encap = "";
+
     if (test_mode) {
         return true;
     }
@@ -730,13 +778,29 @@ static bool ValidateInterface(bool test_mode, const std::string &ifname) {
     struct ifreq ifr;
     memset(&ifr, 0, sizeof(ifr));
     strncpy(ifr.ifr_name, ifname.c_str(), IF_NAMESIZE);
-    int err = ioctl(fd, SIOCGIFHWADDR, (void *)&ifr);
+    int err = ioctl(fd, SIOCGIFFLAGS, (void *)&ifr);
     close (fd);
 
     if (err < 0) {
         LOG(ERROR, "Error reading interface <" << ifname << ">. Error number "
             << errno << " : " << strerror(errno));
         return false;
+    }
+
+    if ((ifr.ifr_flags & IFF_NOARP)) {
+        *no_arp = true;
+    }
+
+    char fname[128];
+    snprintf(fname, 128, "/sys/class/net/%s/type", ifname.c_str());
+    FILE *f = fopen(fname, "r");
+    if (f) {
+        int type;
+        if (fscanf(f, "%d", &type) >= 0) {
+            if (type == ARPHRD_NONE) {
+                *eth_encap = "none";
+            }
+        }
     }
 
     return true;
@@ -749,8 +813,10 @@ int AgentParam::Validate() {
         return (EINVAL);
     }
 
+    bool no_arp;
+    string encap;
     // Check if interface is already present
-    if (ValidateInterface(test_mode_, vhost_.name_) == false) {
+    if (ValidateInterface(test_mode_, vhost_.name_, &no_arp, &encap) == false) {
         return (ENODEV);
     }
 
@@ -761,7 +827,8 @@ int AgentParam::Validate() {
     }
 
     // Check if interface is already present
-    if (ValidateInterface(test_mode_, eth_port_) == false) {
+    if (ValidateInterface(test_mode_, eth_port_, &eth_port_no_arp_,
+                          &eth_port_encap_type_) == false) {
         return (ENODEV);
     }
 
@@ -773,7 +840,8 @@ int AgentParam::Validate() {
             return (EINVAL);
         }
 
-        if (ValidateInterface(test_mode_, vmware_physical_port_) == false) {
+        if (ValidateInterface(test_mode_, vmware_physical_port_, &no_arp,
+                              &encap) == false) {
             return (ENODEV);
         }
     }
@@ -853,6 +921,17 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Vmware mode                 : Esxi_Neutron");
     }
     }
+
+    if (enable_tsn_) {
+    LOG(DEBUG, "TSN Agent mode              : Enabled");
+    }
+}
+
+void AgentParam::PostValidateLogConfig() const {
+    LOG(DEBUG, "Ethernet Port Encap Type    : " << eth_port_encap_type_);
+    if (eth_port_no_arp_) {
+    LOG(DEBUG, "Ethernet Port No-ARP        : " << "TRUE");
+    }
 }
 
 void AgentParam::set_test_mode(bool mode) {
@@ -873,12 +952,15 @@ void AgentParam::ParseArguments(int argc, char *argv[]) {
 AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
                        bool enable_vhost_options,
                        bool enable_hypervisor_options,
-                       bool enable_service_options) :
+                       bool enable_service_options,
+                       bool enable_tsn) :
         enable_flow_options_(enable_flow_options),
         enable_vhost_options_(enable_vhost_options),
         enable_hypervisor_options_(enable_hypervisor_options),
         enable_service_options_(enable_service_options),
-        vhost_(), agent_name_(), eth_port_(), xmpp_instance_count_(),
+        enable_tsn_(enable_tsn), vhost_(), agent_name_(), eth_port_(),
+        eth_port_no_arp_(false), eth_port_encap_type_(),
+        xmpp_instance_count_(),
         dns_port_1_(ContrailPorts::DnsServerPort()),
         dns_port_2_(ContrailPorts::DnsServerPort()),
         mgmt_ip_(), mode_(MODE_KVM), xen_ll_(),
@@ -928,6 +1010,8 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
          "Sandesh HTTP listener port")
         ("DEFAULT.tunnel_type", opt::value<string>()->default_value("MPLSoGRE"),
          "Tunnel Encapsulation type <MPLSoGRE|MPLSoUDP|VXLAN>")
+        ("DEFAULT.tsn_mode", opt::value<bool>(),
+         "Run compute-node in TSN mode")
         ("DISCOVERY.server", opt::value<string>(), 
          "IP address of discovery server")
         ("DISCOVERY.max_control_nodes", opt::value<uint16_t>(), 
@@ -1005,6 +1089,12 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
              "Gateway IP address for virtual host")
             ("VIRTUAL-HOST-INTERFACE.physical_interface", opt::value<string>(), 
              "Physical interface name to which virtual host interface maps to")
+            ("VIRTUAL-HOST-INTERFACE.compute_node_address",
+             opt::value<std::vector<std::string> >()->multitoken(),
+             "List of addresses on compute node")
+            ("VIRTUAL-HOST-INTERFACE.physical_port_routes",
+             opt::value<std::vector<std::string> >()->multitoken(),
+             "Static routes to be added on physical interface")
             ;
         options_.add(vhost);
     }

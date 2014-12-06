@@ -40,32 +40,37 @@ public:
 class Vlan : public DBEntry {
 public:
     struct VlanKey : public DBRequestKey {
-        VlanKey(uint16_t tag) : DBRequestKey(), tag_(tag) { };
+        VlanKey(string name, uint16_t tag) : DBRequestKey(), name_(name),
+        tag_(tag) { };
         virtual ~VlanKey() { };
 
+        string name_;
         uint16_t tag_;
     };
 
-    Vlan(uint16_t tag) : DBEntry(), tag_(tag) { };
+    Vlan(string name, uint16_t tag) : DBEntry(), name_(name), tag_(tag) { };
     virtual ~Vlan() { };
 
     bool IsLess(const DBEntry &rhs) const {
         const Vlan &vlan = static_cast<const Vlan &>(rhs);
-        return tag_ < vlan.tag_;
+        return name_ < vlan.name_;
     };
     virtual string ToString() const { return "Vlan"; };
     virtual void SetKey(const DBRequestKey *k) {
         const VlanKey *key = static_cast<const VlanKey *>(k);
+        name_ = key->name_;
         tag_ = key->tag_;
     };
 
     virtual KeyPtr GetDBRequestKey() const {
-        VlanKey *key = new VlanKey(tag_);
+        VlanKey *key = new VlanKey(name_, tag_);
         return DBEntryBase::KeyPtr(key);
     };
 
     uint16_t GetTag() const {return tag_;};
+    string name() const {return name_;}
 private:
+    string name_;
     uint16_t tag_;
     friend class VlanTable;
     DISALLOW_COPY_AND_ASSIGN(Vlan);
@@ -78,13 +83,13 @@ public:
 
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const {
         const Vlan::VlanKey *key = static_cast<const Vlan::VlanKey *>(k);
-        Vlan *vlan = new Vlan(key->tag_);
+        Vlan *vlan = new Vlan(key->name_, key->tag_);
         return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(vlan));
     }
 
     virtual DBEntry *Add(const DBRequest *req) {
         Vlan::VlanKey *key = static_cast<Vlan::VlanKey *>(req->key.get());
-        Vlan *vlan = new Vlan(key->tag_);
+        Vlan *vlan = new Vlan(key->name_, key->tag_);
         return vlan;
     }
 
@@ -251,7 +256,7 @@ KSyncDBObject *VlanKSyncEntry::GetObject() {
 TEST_F(DBKSyncTest, Basic) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req.key.reset(new Vlan::VlanKey(10));
+    req.key.reset(new Vlan::VlanKey("vlan10", 10));
     req.data.reset(NULL);
     itbl->Enqueue(&req);
 
@@ -263,7 +268,7 @@ TEST_F(DBKSyncTest, Basic) {
     EXPECT_EQ(VlanKSyncEntry::GetDelCount(), 0);
 
     req.oper = DBRequest::DB_ENTRY_DELETE;
-    req.key.reset(new Vlan::VlanKey(10));
+    req.key.reset(new Vlan::VlanKey("vlan10", 10));
     req.data.reset(NULL);
     itbl->Enqueue(&req);
 
@@ -278,12 +283,12 @@ TEST_F(DBKSyncTest, Basic) {
 TEST_F(DBKSyncTest, AddDelCompress) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req.key.reset(new Vlan::VlanKey(10));
+    req.key.reset(new Vlan::VlanKey("vlan10", 10));
     req.data.reset(NULL);
     itbl->Enqueue(&req);
 
     req.oper = DBRequest::DB_ENTRY_DELETE;
-    req.key.reset(new Vlan::VlanKey(10));
+    req.key.reset(new Vlan::VlanKey("vlan10", 10));
     req.data.reset(NULL);
     itbl->Enqueue(&req);
 
@@ -299,7 +304,7 @@ TEST_F(DBKSyncTest, AddDelCompress) {
 TEST_F(DBKSyncTest, DuplicateDelete) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req.key.reset(new Vlan::VlanKey(10));
+    req.key.reset(new Vlan::VlanKey("vlan10", 10));
     req.data.reset(NULL);
     itbl->Enqueue(&req);
 
@@ -311,13 +316,13 @@ TEST_F(DBKSyncTest, DuplicateDelete) {
     ksync_vlan = VlanKSyncObject::GetKSyncObject()->Find(&v); 
 
     req.oper = DBRequest::DB_ENTRY_DELETE;
-    req.key.reset(new Vlan::VlanKey(10));
+    req.key.reset(new Vlan::VlanKey("vlan10", 10));
     req.data.reset(NULL);
     itbl->Enqueue(&req);
     task_util::WaitForIdle();
 
     req.oper = DBRequest::DB_ENTRY_DELETE;
-    req.key.reset(new Vlan::VlanKey(10));
+    req.key.reset(new Vlan::VlanKey("vlan10", 10));
     req.data.reset(NULL);
     itbl->Enqueue(&req);
     task_util::WaitForIdle();
@@ -334,7 +339,7 @@ TEST_F(DBKSyncTest, DuplicateDelete) {
 TEST_F(DBKSyncTest, Del_Ack_Wait_to_Temp) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req.key.reset(new Vlan::VlanKey(10));
+    req.key.reset(new Vlan::VlanKey("vlan10", 10));
     req.data.reset(NULL);
     itbl->Enqueue(&req);
 
@@ -349,7 +354,7 @@ TEST_F(DBKSyncTest, Del_Ack_Wait_to_Temp) {
     k_vlan->set_no_ack_trigger(false);
     ksync_vlan = NULL;
     req.oper = DBRequest::DB_ENTRY_DELETE;
-    req.key.reset(new Vlan::VlanKey(10));
+    req.key.reset(new Vlan::VlanKey("vlan10", 10));
     req.data.reset(NULL);
     itbl->Enqueue(&req);
     task_util::WaitForIdle();
@@ -363,14 +368,14 @@ TEST_F(DBKSyncTest, Del_Ack_Wait_to_Temp) {
     k_vlan->set_no_ack_trigger(true);
 
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req.key.reset(new Vlan::VlanKey(10));
+    req.key.reset(new Vlan::VlanKey("vlan10", 10));
     req.data.reset(NULL);
     itbl->Enqueue(&req);
     task_util::WaitForIdle();
     EXPECT_EQ(ksync_vlan->GetState(), KSyncEntry::IN_SYNC);
 
     req.oper = DBRequest::DB_ENTRY_DELETE;
-    req.key.reset(new Vlan::VlanKey(10));
+    req.key.reset(new Vlan::VlanKey("vlan10", 10));
     req.data.reset(NULL);
     itbl->Enqueue(&req);
     task_util::WaitForIdle();
@@ -382,6 +387,51 @@ TEST_F(DBKSyncTest, Del_Ack_Wait_to_Temp) {
 
     EXPECT_EQ(VlanKSyncEntry::GetAddCount(), 2);
     EXPECT_EQ(VlanKSyncEntry::GetDelCount(), 2);
+}
+
+TEST_F(DBKSyncTest, KSyncEntryRenewWithNewDBEntry) {
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new Vlan::VlanKey("vlan10", 10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+
+    //Get a reference to vlan entry, to avoid deletion
+    task_util::WaitForIdle();
+    VlanKSyncEntry v(10);
+    KSyncEntry::KSyncEntryPtr ksync_vlan;
+    ksync_vlan = VlanKSyncObject::GetKSyncObject()->Find(&v);
+
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    req.key.reset(new Vlan::VlanKey("vlan10", 10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+
+    // Delete pending due to reference
+    EXPECT_EQ(ksync_vlan->GetState(), KSyncEntry::DEL_DEFER_REF);
+
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new Vlan::VlanKey("new_vlan10", 10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+
+    // Ksync should move to in sync and new db entry.
+    EXPECT_EQ(ksync_vlan->GetState(), KSyncEntry::IN_SYNC);
+    ksync_vlan = NULL;
+
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    req.key.reset(new Vlan::VlanKey("new_vlan10", 10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+
+    EXPECT_EQ(adc_notification, 2);
+    EXPECT_EQ(del_notification, 2);
+
+    EXPECT_EQ(VlanKSyncEntry::GetAddCount(), 1);
+    EXPECT_EQ(VlanKSyncEntry::GetDelCount(), 1);
 }
 
 int main(int argc, char **argv) {

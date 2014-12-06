@@ -76,6 +76,9 @@ public:
     ArpSandesh(SandeshResponse *resp) : iter_(0), resp_(resp) {};
     bool SetArpEntry(const ArpKey &key, const ArpEntry *entry); 
     void Response() { resp_->Response(); }
+    void SetInterfaceArpStatsEntry(
+        ArpProto::InterfaceArpMap::const_iterator &it,
+        std::vector<InterfaceArpStats> &list);
 
 private:
     int iter_;

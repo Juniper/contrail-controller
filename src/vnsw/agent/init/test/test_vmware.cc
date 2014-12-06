@@ -38,9 +38,9 @@ public:
     AgentParam *param;
     Agent *agent;
 
-    int intf_count_;
-    int nh_count_;
-    int vrf_count_;
+    uint32_t intf_count_;
+    uint32_t nh_count_;
+    uint32_t vrf_count_;
 
     opt::options_description desc;
     opt::variables_map var_map;

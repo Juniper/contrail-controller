@@ -293,6 +293,13 @@ public:
     static TypeBmap DefaultTypeBmap() {return (1 << DefaultType());}
     static TypeBmap VxlanType() {return (1 << VXLAN);};
     static TypeBmap MplsType() {return ((1 << MPLS_GRE) | (1 << MPLS_UDP));};
+    static TypeBmap GetTunnelBmap(TunnelType::Type type) {
+        if (type == MPLS_GRE || type == MPLS_UDP)
+            return TunnelType::MplsType();
+        if (type == VXLAN)
+            return TunnelType::VxlanType();
+        return TunnelType::AllType();
+    }
     static TypeBmap AllType() {return ((1 << MPLS_GRE) | (1 << MPLS_UDP) | 
                                        (1 << VXLAN));}
     static TypeBmap GREType() {return (1 << MPLS_GRE);}
@@ -439,6 +446,12 @@ class DiscardNHKey : public NextHopKey {
 public:
     DiscardNHKey() : NextHopKey(NextHop::DISCARD, false) { };
     virtual ~DiscardNHKey() { };
+    virtual bool NextHopKeyIsLess(const NextHopKey &rhs) const {
+        // There is single DiscardNH. There is no field to compare
+        return false;
+    }
+
+private:
 
     virtual NextHop *AllocEntry() const;
 private:
@@ -515,7 +528,7 @@ public:
     virtual void Delete(const DBRequest *req) {};
     virtual void SendObjectLog(AgentLogEvent::type event) const;
     virtual bool CanAdd() const;
-    bool NextHopIsLess(const DBEntry &rhs) const {
+    virtual bool NextHopIsLess(const DBEntry &rhs) const {
         const ReceiveNH &a = static_cast<const ReceiveNH &>(rhs);
         if (interface_.get() != a.interface_.get()) {
             return interface_.get() < a.interface_.get();
@@ -544,12 +557,15 @@ private:
 /////////////////////////////////////////////////////////////////////////////
 class ResolveNHKey : public NextHopKey {
 public:
-    ResolveNHKey() : NextHopKey(NextHop::RESOLVE, false) { };
+    ResolveNHKey(const InterfaceKey *intf_key, bool policy) :
+        NextHopKey(NextHop::RESOLVE, policy),
+        intf_key_(intf_key->Clone()) { };
     virtual ~ResolveNHKey() { };
 
     virtual NextHop *AllocEntry() const;
 private:
     friend class ResolveNH;
+    boost::scoped_ptr<const InterfaceKey> intf_key_;
     DISALLOW_COPY_AND_ASSIGN(ResolveNHKey);
 };
 
@@ -565,7 +581,8 @@ private:
 
 class ResolveNH : public NextHop {
 public:
-    ResolveNH() : NextHop(RESOLVE, true, false) { };
+    ResolveNH(const Interface *intf, bool policy) :
+        NextHop(RESOLVE, true, policy), interface_(intf) { };
     virtual ~ResolveNH() { };
 
     virtual std::string ToString() const { return "Resolve"; };
@@ -575,14 +592,26 @@ public:
     virtual void SetKey(const DBRequestKey *key) { NextHop::SetKey(key); };
     virtual bool CanAdd() const;
     virtual bool NextHopIsLess(const DBEntry &rhs) const {
-        return false;
+        const ResolveNH &a = static_cast<const ResolveNH &>(rhs);
+        if (interface_.get() != a.interface_.get()) {
+            return interface_.get() < a.interface_.get();
+        }
+
+        return policy_ < a.policy_;
     };
     virtual KeyPtr GetDBRequestKey() const {
-        return DBEntryBase::KeyPtr(new ResolveNHKey());
+        boost::scoped_ptr<InterfaceKey> intf_key(
+            static_cast<InterfaceKey *>(interface_->GetDBRequestKey().release()));
+        return DBEntryBase::KeyPtr(new ResolveNHKey(intf_key.get(), policy_));
     };
-
-    static void Create();
+    virtual bool DeleteOnZeroRefCount() const {
+        return true;
+    }
+    static void Create(const InterfaceKey *intf, bool policy);
+    static void CreateReq(const InterfaceKey *intf, bool policy);
+    const Interface* interface() const { return interface_.get();}
 private:
+    InterfaceConstRef interface_;
     DISALLOW_COPY_AND_ASSIGN(ResolveNH);
 };
 
@@ -591,8 +620,8 @@ private:
 /////////////////////////////////////////////////////////////////////////////
 class ArpNHKey : public NextHopKey {
 public:
-    ArpNHKey(const string &vrf_name, const Ip4Address &ip) :
-        NextHopKey(NextHop::ARP, false), vrf_key_(vrf_name), dip_(ip) {
+    ArpNHKey(const string &vrf_name, const Ip4Address &ip, bool policy) :
+        NextHopKey(NextHop::ARP, policy), vrf_key_(vrf_name), dip_(ip) {
     }
     virtual ~ArpNHKey() { };
 
@@ -606,8 +635,8 @@ private:
 
 class ArpNHData : public NextHopData {
 public:
-    ArpNHData() :
-        NextHopData(), intf_key_(NULL),
+    ArpNHData(InterfaceKey *intf_key) :
+        NextHopData(), intf_key_(intf_key),
         mac_(), resolved_(false), valid_(false) { };
 
     ArpNHData(const MacAddress &mac, InterfaceKey *intf_key,
@@ -851,6 +880,11 @@ public:
     }
     virtual ~VrfNHKey() { }
 
+    virtual bool NextHopKeyIsLess(const NextHopKey &rhs) const {
+        const VrfNHKey &key = static_cast<const VrfNHKey &>(rhs);
+        return vrf_key_.IsLess(key.vrf_key_);
+    }
+
     virtual NextHop *AllocEntry() const;
     virtual NextHopKey *Clone() const {
         return new VrfNHKey(vrf_key_.name_, policy_); 
@@ -1000,7 +1034,8 @@ struct Composite {
         L2INTERFACE,
         L3INTERFACE,
         LOCAL_ECMP,
-        EVPN
+        EVPN,
+        TOR
     };
 };
 
@@ -1122,6 +1157,7 @@ public:
     void CreateTunnelNH(Agent *agent);
     void CreateTunnelNHReq(Agent *agent);
     void ChangeTunnelType(TunnelType::Type tunnel_type);
+    COMPOSITETYPE composite_nh_type() const {return composite_nh_type_;}
 private:
     friend class CompositeNH;
     void ExpandLocalCompositeNH(Agent *agent);

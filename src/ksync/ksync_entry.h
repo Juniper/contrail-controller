@@ -99,6 +99,9 @@ public:
     // Returns true if entry is resolved and referring entry can be written
     bool IsResolved();
 
+    // Returns true if the entry data is resolved
+    virtual bool IsDataResolved() {return true;}
+
     // User define KSync Response handler
     virtual void Response() { };
 

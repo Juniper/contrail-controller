@@ -17,7 +17,6 @@ VrfStatsKState::VrfStatsKState(KVrfStatsResp *obj, const std::string &resp_ctx,
         req.set_h_op(sandesh_op::GET);
         req.set_vsr_vrf(id);    
         req.set_vsr_family(AF_INET);
-        req.set_vsr_type(RT_UCAST);
     } else {
         InitDumpRequest(req);
         req.set_vsr_marker(-1);
@@ -28,7 +27,6 @@ void VrfStatsKState::InitDumpRequest(vr_vrf_stats_req &req) const {
     req.set_h_op(sandesh_op::DUMP);
     req.set_vsr_rid(0);
     req.set_vsr_family(AF_INET);
-    req.set_vsr_type(RT_UCAST);
 }
 
 void VrfStatsKState::Handler() {
@@ -64,18 +62,6 @@ void VrfStatsKState::SendResponse() {
     resp->Response();
 
     response_object_ = new KVrfStatsResp();
-}
-
-const string VrfStatsKState::TypeToString(int vrf_stats_type) const {
-    unsigned short type = vrf_stats_type;
-    switch(type) {
-        case RT_UCAST:
-            return "RT_UCAST";
-        case RT_MCAST:
-            return "RT_MCAST";
-        default:
-            return "INVALID";
-    }
 }
 
 const string VrfStatsKState::FamilyToString(int vrf_family) const {

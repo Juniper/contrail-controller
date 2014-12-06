@@ -9,20 +9,46 @@
 #include "oper/route_common.h"
 
 ArpEntry::ArpEntry(boost::asio::io_service &io, ArpHandler *handler,
-                   ArpKey &key, State state)
-    : key_(key), state_(state), retry_count_(0), handler_(handler),
-      arp_timer_(NULL) {
-    arp_timer_ = TimerManager::CreateTimer(io, "Arp Entry timer",
-                 TaskScheduler::GetInstance()->GetTaskId("Agent::Services"),
-                 PktHandler::ARP);
+                   ArpKey &key, const VrfEntry *vrf, State state,
+                   const Interface *itf)
+    : io_(io), key_(key), nh_vrf_(vrf), state_(state), retry_count_(0),
+      handler_(handler), arp_timer_(NULL), interface_(itf) {
+    if (!IsDerived()) {
+        arp_timer_ = TimerManager::CreateTimer(io, "Arp Entry timer",
+                TaskScheduler::GetInstance()->GetTaskId("Agent::Services"),
+                PktHandler::ARP);
+    }
 }
 
 ArpEntry::~ArpEntry() {
-    arp_timer_->Cancel();
-    TimerManager::DeleteTimer(arp_timer_);
+    if (!IsDerived()) {
+        arp_timer_->Cancel();
+        TimerManager::DeleteTimer(arp_timer_);
+    }
+}
+
+void ArpEntry::HandleDerivedArpRequest() {
+    ArpProto *arp_proto = handler_->agent()->GetArpProto();
+    //Add ArpRoute for Derived entry
+    AddArpRoute(IsResolved());
+
+    ArpKey key(key_.ip, nh_vrf_);
+    ArpEntry *entry = arp_proto->FindArpEntry(key);
+    if (entry) {
+        entry->HandleArpRequest();
+    } else {
+        entry = new ArpEntry(io_, handler_.get(), key, nh_vrf_, ArpEntry::INITING,
+                             interface_);
+        arp_proto->AddArpEntry(entry);
+        entry->HandleArpRequest();
+    }
 }
 
 bool ArpEntry::HandleArpRequest() {
+    if (IsDerived()) {
+        HandleDerivedArpRequest();
+        return true;
+    }
     if (IsResolved())
         AddArpRoute(true);
     else {
@@ -36,14 +62,21 @@ bool ArpEntry::HandleArpRequest() {
 }
 
 void ArpEntry::HandleArpReply(const MacAddress &mac) {
+
+    if (IsDerived()) {
+        /* We don't expect ARP replies in derived Vrf */
+        return;
+    }
     if ((state_ == ArpEntry::RESOLVING) || (state_ == ArpEntry::ACTIVE) ||
         (state_ == ArpEntry::INITING) || (state_ == ArpEntry::RERESOLVING)) {
         ArpProto *arp_proto = handler_->agent()->GetArpProto();
         arp_timer_->Cancel();
         retry_count_ = 0;
         mac_address_ = mac;
-        if (state_ == ArpEntry::RESOLVING)
+        if (state_ == ArpEntry::RESOLVING) {
             arp_proto->IncrementStatsResolved();
+            arp_proto->IncrementStatsResolved(interface_->id());
+        }
         state_ = ArpEntry::ACTIVE;
         StartTimer(arp_proto->aging_timeout(), ArpProto::AGING_TIMER_EXPIRED);
         AddArpRoute(true);
@@ -77,7 +110,7 @@ bool ArpEntry::RetryExpiry() {
 bool ArpEntry::AgingExpiry() {
     Ip4Address ip(key_.ip);
     const string& vrf_name = key_.vrf->GetName();
-    ArpNHKey nh_key(vrf_name, ip);
+    ArpNHKey nh_key(vrf_name, ip, false);
     ArpNH *arp_nh = static_cast<ArpNH *>(handler_->agent()->nexthop_table()->
                                          FindActiveEntry(&nh_key));
     if (!arp_nh) {
@@ -114,25 +147,49 @@ bool ArpEntry::IsResolved() {
     return (state_ & (ArpEntry::ACTIVE | ArpEntry::RERESOLVING));
 }
 
+bool ArpEntry::IsDerived() {
+    if (key_.vrf != nh_vrf_) {
+        return true;
+    }
+    return false;
+}
+
 void ArpEntry::StartTimer(uint32_t timeout, uint32_t mtype) {
     arp_timer_->Cancel();
     arp_timer_->Start(timeout, boost::bind(&ArpProto::TimerExpiry,
                                            handler_->agent()->GetArpProto(),
-                                           key_, mtype));
+                                           key_, mtype, interface_));
 }
 
 void ArpEntry::SendArpRequest() {
+    assert(!IsDerived());
     Agent *agent = handler_->agent();
     ArpProto *arp_proto = agent->GetArpProto();
-    uint16_t itf_index = arp_proto->ip_fabric_interface_index();
-    Ip4Address ip = agent->router_id();
+    uint32_t vrf_id = VrfEntry::kInvalidIndex;
+    uint32_t intf_id = arp_proto->ip_fabric_interface_index();
+    Ip4Address ip;
+    MacAddress smac;
+    if (interface_->type() == Interface::VM_INTERFACE) {
+        const VmInterface *vmi = static_cast<const VmInterface *>(interface_);
+        ip = vmi->GetGateway();
+        vrf_id = nh_vrf_->vrf_id();
+        if (vmi->parent()) {
+            intf_id = vmi->parent()->id();
+            smac = vmi->parent()->mac();
+        }
+    } else {
+        ip = agent->router_id();
+        VrfEntry *vrf =
+            agent->vrf_table()->FindVrfFromName(agent->fabric_vrf_name());
+        if (vrf) {
+            vrf_id = vrf->vrf_id();
+        }
+        smac = interface_->mac();
+    }
 
-    VrfEntry *vrf =
-        agent->vrf_table()->FindVrfFromName(agent->fabric_vrf_name());
-    if (vrf) {
-        handler_->SendArp(ARPOP_REQUEST, arp_proto->ip_fabric_interface_mac(),
-                          ip.to_ulong(), MacAddress(), key_.ip, itf_index,
-                          vrf->vrf_id());
+    if (vrf_id != VrfEntry::kInvalidIndex) {
+        handler_->SendArp(ARPOP_REQUEST, smac, ip.to_ulong(),
+                          MacAddress(), key_.ip, intf_id, vrf_id);
     }
 
     StartTimer(arp_proto->retry_timeout(), ArpProto::RETRY_TIMER_EXPIRED);
@@ -147,7 +204,7 @@ void ArpEntry::AddArpRoute(bool resolved) {
 
     Ip4Address ip(key_.ip);
     const string& vrf_name = key_.vrf->GetName();
-    ArpNHKey nh_key(vrf_name, ip);
+    ArpNHKey nh_key(nh_vrf_->GetName(), ip, false);
     ArpNH *arp_nh = static_cast<ArpNH *>(handler_->agent()->nexthop_table()->
                                          FindActiveEntry(&nh_key));
 
@@ -155,15 +212,43 @@ void ArpEntry::AddArpRoute(bool resolved) {
     if (arp_nh && arp_nh->GetResolveState() &&
         mac.CompareTo(arp_nh->GetMac()) == 0) {
         // MAC address unchanged, ignore
-        return;
+        if (!IsDerived()) {
+            return;
+        } else {
+            /* Return if the route is already existing */
+            InetUnicastRouteKey *rt_key = new InetUnicastRouteKey(
+                    handler_->agent()->local_peer(), vrf_name, ip, 32); 
+            AgentRoute *entry = key_.vrf->GetInet4UnicastRouteTable()->
+                FindActiveEntry(rt_key);
+            delete rt_key;
+            if (entry) {
+                return;
+            }
+            resolved = true;
+        }
     }
 
     ARP_TRACE(Trace, "Add", ip.to_string(), vrf_name, mac.ToString());
+    AgentRoute *entry = key_.vrf->GetInet4UnicastRouteTable()->FindLPM(ip);
 
-    Interface *itf = handler_->agent()->GetArpProto()->ip_fabric_interface();
+    bool policy = false;
+    SecurityGroupList sg;
+    std::string vn = " ";;
+    if (entry) {
+        policy = entry->GetActiveNextHop()->PolicyEnabled();
+        sg = entry->GetActivePath()->sg_list();
+        vn = entry->GetActivePath()->dest_vn_name();
+    }
+
+    const Interface *itf = NULL;
+    if (interface_->type() == Interface::VM_INTERFACE) {
+        itf = interface_;
+    } else {
+        itf = handler_->agent()->GetArpProto()->ip_fabric_interface();
+    }
     handler_->agent()->fabric_inet4_unicast_table()->ArpRoute(
-                       DBRequest::DB_ENTRY_ADD_CHANGE, ip, mac,
-                       vrf_name, *itf, resolved, 32);
+                       DBRequest::DB_ENTRY_ADD_CHANGE, vrf_name, ip, mac,
+                       nh_vrf_->GetName(), *itf, resolved, 32, policy, vn, sg);
 }
 
 bool ArpEntry::DeleteArpRoute() {
@@ -173,7 +258,7 @@ bool ArpEntry::DeleteArpRoute() {
 
     Ip4Address ip(key_.ip);
     const string& vrf_name = key_.vrf->GetName();
-    ArpNHKey nh_key(vrf_name, ip);
+    ArpNHKey nh_key(nh_vrf_->GetName(), ip, false);
     ArpNH *arp_nh = static_cast<ArpNH *>(handler_->agent()->nexthop_table()->
                                          FindActiveEntry(&nh_key));
     if (!arp_nh)
@@ -182,9 +267,17 @@ bool ArpEntry::DeleteArpRoute() {
     MacAddress mac = mac_address_;
     ARP_TRACE(Trace, "Delete", ip.to_string(), vrf_name, mac.ToString());
 
-    Interface *itf = handler_->agent()->GetArpProto()->ip_fabric_interface();
     handler_->agent()->fabric_inet4_unicast_table()->ArpRoute(
-                       DBRequest::DB_ENTRY_DELETE, ip, mac, vrf_name,
-                       *itf, false, 32);
+                       DBRequest::DB_ENTRY_DELETE, vrf_name, ip, mac, vrf_name,
+                       *interface_, false, 32, false, " ", SecurityGroupList());
     return false;
+}
+
+void ArpEntry::Resync(bool policy, const std::string &vn,
+                      const SecurityGroupList &sg) {
+    Ip4Address ip(key_.ip);
+    handler_->agent()->fabric_inet4_unicast_table()->ArpRoute(
+                       DBRequest::DB_ENTRY_ADD_CHANGE, key_.vrf->GetName(), ip,
+                       mac_address_, nh_vrf_->GetName(), *interface_, IsResolved(),
+                       32, policy, vn, sg);
 }

@@ -61,7 +61,8 @@ bool ControllerEcmpRoute::IsPeerValid() const {
     return CheckPeerValidity(channel(), sequence_number());
 }
 
-bool ControllerEcmpRoute::AddChangePath(Agent *agent, AgentPath *path) {
+bool ControllerEcmpRoute::AddChangePath(Agent *agent, AgentPath *path,
+                                        const AgentRoute *rt) {
     CompositeNHKey *comp_key = static_cast<CompositeNHKey *>(nh_req_.key.get());
     //Reorder the component NH list, and add a reference to local composite mpls
     //label if any
@@ -100,7 +101,8 @@ bool ControllerVmRoute::IsPeerValid() const {
     return CheckPeerValidity(channel(), sequence_number());
 }
 
-bool ControllerVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
+bool ControllerVmRoute::AddChangePath(Agent *agent, AgentPath *path,
+                                      const AgentRoute *rt) {
     bool ret = false;
     NextHop *nh = NULL;
     SecurityGroupList path_sg_list;
@@ -218,5 +220,77 @@ ControllerInetInterfaceRoute::ControllerInetInterfaceRoute(const InetInterfaceKe
     sequence_number_(sequence_number), channel_(channel) { }
 
 bool ControllerInetInterfaceRoute::IsPeerValid() const {
+    return CheckPeerValidity(channel_, sequence_number_);
+}
+
+bool ClonedLocalPath::AddChangePath(Agent *agent, AgentPath *path,
+                                    const AgentRoute *rt) {
+    bool ret = false;
+
+    MplsLabel *mpls = agent->mpls_table()->FindMplsLabel(mpls_label_);
+    if (!mpls) {
+        return ret;
+    }
+
+    //Do a route lookup in native VRF
+    assert(mpls->nexthop()->GetType() == NextHop::VRF);
+    const VrfNH *vrf_nh = static_cast<const VrfNH *>(mpls->nexthop());
+    const InetUnicastRouteEntry *uc_rt =
+        static_cast<const InetUnicastRouteEntry *>(rt);
+    const AgentRoute *mpls_vrf_uc_rt =
+        vrf_nh->GetVrf()->GetUcRoute(uc_rt->addr());
+    if (mpls_vrf_uc_rt == NULL) {
+        return ret;
+    }
+    AgentPath *local_path = mpls_vrf_uc_rt->FindLocalVmPortPath();
+    if (!local_path) {
+        return ret;
+    }
+
+    if (path->dest_vn_name() != vn_) {
+        path->set_dest_vn_name(vn_);
+        ret = true;
+    }
+    path->set_unresolved(false);
+
+    if (path->sg_list() != sg_list_) {
+        path->set_sg_list(sg_list_);
+        ret = true;
+    }
+
+    path->set_tunnel_bmap(local_path->tunnel_bmap());
+    TunnelType::Type new_tunnel_type =
+        TunnelType::ComputeType(path->tunnel_bmap());
+    if (new_tunnel_type == TunnelType::VXLAN &&
+        local_path->vxlan_id() == VxLanTable::kInvalidvxlan_id) {
+        new_tunnel_type = TunnelType::ComputeType(TunnelType::MplsType());
+    }
+
+    if (path->tunnel_type() != new_tunnel_type) {
+        path->set_tunnel_type(new_tunnel_type);
+        ret = true;
+    }
+
+    // If policy force-enabled in request, enable policy
+    path->set_force_policy(local_path->force_policy());
+
+    if (path->label() != local_path->label()) {
+        path->set_label(local_path->label());
+        ret = true;
+    }
+
+    if (path->vxlan_id() != local_path->vxlan_id()) {
+        path->set_vxlan_id(local_path->vxlan_id());
+        ret = true;
+    }
+
+    NextHop *nh = const_cast<NextHop *>(local_path->nexthop(agent));
+    if (path->ChangeNH(agent, nh) == true) {
+        ret = true;
+    }
+    return ret;
+}
+
+bool ClonedLocalPath::IsPeerValid() const {
     return CheckPeerValidity(channel_, sequence_number_);
 }

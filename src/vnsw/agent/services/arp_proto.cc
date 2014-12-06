@@ -80,8 +80,10 @@ void ArpProto::VrfNotify(DBTablePartBase *part, DBEntryBase *entry) {
     }
 }
 
-ArpDBState::ArpDBState(ArpVrfState *vrf_state, uint32_t vrf_id, IpAddress ip) :
-    vrf_state_(vrf_state), arp_req_timer_(NULL), vrf_id_(vrf_id), vm_ip_(ip) {
+ArpDBState::ArpDBState(ArpVrfState *vrf_state, uint32_t vrf_id, IpAddress ip,
+                       uint8_t plen) : vrf_state_(vrf_state),
+    arp_req_timer_(NULL), vrf_id_(vrf_id), vm_ip_(ip), plen_(plen),
+    sg_list_(0), policy_(false), resolve_route_(false) {
 }
 
 ArpDBState::~ArpDBState() {
@@ -156,7 +158,6 @@ void ArpDBState::SendArpRequestForAllIntf(const InetUnicastRouteEntry *route) {
                 //Ignore non vm interface nexthop
                 continue;
             }
-
             if (path->subnet_gw_ip().is_v4() == false) {
                 continue;
             }
@@ -188,6 +189,68 @@ void ArpDBState::SendArpRequestForAllIntf(const InetUnicastRouteEntry *route) {
     }
 }
 
+void ArpDBState::UpdateArpRoutes(const InetUnicastRouteEntry *rt) {
+    int plen = rt->plen();
+    uint32_t start_ip = rt->addr().to_v4().to_ulong();
+    ArpKey start_key(start_ip, rt->vrf());
+
+    ArpProto::ArpIterator start_iter =
+        vrf_state_->arp_proto->FindUpperBoundArpEntry(start_key);
+
+    if (start_iter->first.vrf != rt->vrf()) {
+        return;
+    }
+
+
+    while (IsIp4SubnetMember(Ip4Address(start_iter->first.ip), 
+                             rt->addr().to_v4(), plen)) {
+        start_iter->second->Resync(policy_, vn_, sg_list_);
+        start_iter++;
+    }
+}
+
+void ArpDBState::Delete(const InetUnicastRouteEntry *rt) {
+    int plen = rt->plen();
+    uint32_t start_ip = rt->addr().to_v4().to_ulong();
+
+    ArpKey start_key(start_ip, rt->vrf());
+
+    ArpProto::ArpIterator start_iter =
+        vrf_state_->arp_proto->FindUpperBoundArpEntry(start_key);
+
+    if (start_iter->first.vrf != rt->vrf()) {
+        return;
+    }
+
+    while (IsIp4SubnetMember(Ip4Address(start_iter->first.ip), 
+                             rt->addr().to_v4(), plen)) {
+        ArpProto::ArpIterator tmp = start_iter++;
+        if (tmp->second->DeleteArpRoute()) {
+            vrf_state_->arp_proto->DeleteArpEntry(tmp->second);
+        }
+    }
+}
+
+void ArpDBState::Update(const InetUnicastRouteEntry *rt) {
+    if (rt->GetActiveNextHop()->GetType() == NextHop::RESOLVE) {
+        resolve_route_ = true;
+    }
+
+    bool policy = rt->GetActiveNextHop()->PolicyEnabled();
+    const SecurityGroupList sg = rt->GetActivePath()->sg_list();
+    
+
+    if (policy_ != policy || sg != sg_list_ ||
+        vn_ != rt->GetActivePath()->dest_vn_name()) {
+        policy_ = policy;
+        sg_list_ = sg;
+        vn_ = rt->GetActivePath()->dest_vn_name();
+        if (resolve_route_) {
+            UpdateArpRoutes(rt);
+        }
+    }
+}
+
 void ArpVrfState::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
     InetUnicastRouteEntry *route = static_cast<InetUnicastRouteEntry *>(entry);
 
@@ -203,13 +266,15 @@ void ArpVrfState::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
                 arp_proto->del_gratuitous_arp_entry();
             }
             entry->ClearState(part->parent(), route_table_listener_id);
+            state->Delete(route);
             delete state;
         }
         return;
     }
 
     if (!state) {
-        state = new ArpDBState(this, route->vrf_id(), route->addr());
+        state = new ArpDBState(this, route->vrf_id(), route->addr(),
+                               route->plen());
         entry->SetState(part->parent(), route_table_listener_id, state);
     }
 
@@ -218,12 +283,14 @@ void ArpVrfState::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
         arp_proto->del_gratuitous_arp_entry();
         //Send Grat ARP
         arp_proto->SendArpIpc(ArpProto::ARP_SEND_GRATUITOUS,
-                          route->addr().to_v4().to_ulong(), route->vrf());
+                              route->addr().to_v4().to_ulong(), route->vrf(),
+                              arp_proto->ip_fabric_interface());
     }
 
     //Check if there is a local VM path, if yes send a
     //ARP request, to trigger route preference state machine
     if (state && route->vrf()->GetName() != agent->fabric_vrf_name()) {
+        state->Update(route);
         state->SendArpRequestForAllIntf(route);
     }
 }
@@ -258,16 +325,26 @@ ArpVrfState::ArpVrfState(Agent *agent_ptr, ArpProto *proto, VrfEntry *vrf_entry,
 void ArpProto::InterfaceNotify(DBEntryBase *entry) {
     Interface *itf = static_cast<Interface *>(entry);
     if (entry->IsDeleted()) {
+        InterfaceArpMap::iterator it = interface_arp_map_.find(itf->id());
+        if (it != interface_arp_map_.end()) {
+            InterfaceArpInfo &intf_entry = it->second;
+            ArpKeySet::iterator key_it = intf_entry.arp_key_list.begin();
+            while (key_it != intf_entry.arp_key_list.end()) {
+                ArpKey key = *key_it;
+                ++key_it;
+                ArpIterator arp_it = arp_cache_.find(key);
+                if (arp_it != arp_cache_.end()) {
+                    ArpEntry *arp_entry = arp_it->second;
+                    if (arp_entry->DeleteArpRoute()) {
+                        DeleteArpEntry(arp_it);
+                    }
+                }
+            }
+            intf_entry.arp_key_list.clear();
+            interface_arp_map_.erase(it);
+        }
         if (itf->type() == Interface::PHYSICAL &&
             itf->name() == agent_->fabric_interface_name()) {
-            for (ArpProto::ArpIterator it = arp_cache_.begin();
-                 it != arp_cache_.end();) {
-                ArpEntry *arp_entry = it->second;
-                if (arp_entry->DeleteArpRoute()) {
-                    it = DeleteArpEntry(it);
-                } else
-                    it++;
-            }
             set_ip_fabric_interface(NULL);
             set_ip_fabric_interface_index(-1);
         }
@@ -285,6 +362,53 @@ void ArpProto::InterfaceNotify(DBEntryBase *entry) {
     }
 }
 
+ArpProto::InterfaceArpInfo& ArpProto::ArpMapIndexToEntry(uint32_t idx) {
+    InterfaceArpMap::iterator it = interface_arp_map_.find(idx);
+    if (it == interface_arp_map_.end()) {
+        InterfaceArpInfo entry;
+        std::pair<InterfaceArpMap::iterator, bool> ret;
+        ret = interface_arp_map_.insert(InterfaceArpPair(idx, entry));
+        return ret.first->second;
+    } else {
+        return it->second;
+    }
+}
+
+void ArpProto::IncrementStatsArpRequest(uint32_t idx) {
+    InterfaceArpInfo &entry = ArpMapIndexToEntry(idx);
+    entry.stats.arp_req++;
+}
+
+void ArpProto::IncrementStatsArpReply(uint32_t idx) {
+    InterfaceArpInfo &entry = ArpMapIndexToEntry(idx);
+    entry.stats.arp_replies++;
+}
+
+void ArpProto::IncrementStatsResolved(uint32_t idx) {
+    InterfaceArpInfo &entry = ArpMapIndexToEntry(idx);
+    entry.stats.resolved++;
+}
+
+uint32_t ArpProto::ArpRequestStatsCounter(uint32_t idx) {
+    InterfaceArpInfo &entry = ArpMapIndexToEntry(idx);
+    return entry.stats.arp_req;
+}
+
+uint32_t ArpProto::ArpReplyStatsCounter(uint32_t idx) {
+    InterfaceArpInfo &entry = ArpMapIndexToEntry(idx);
+    return entry.stats.arp_replies;
+}
+
+uint32_t ArpProto::ArpResolvedStatsCounter(uint32_t idx) {
+    InterfaceArpInfo &entry = ArpMapIndexToEntry(idx);
+    return entry.stats.resolved;
+}
+
+void ArpProto::ClearInterfaceArpStats(uint32_t idx) {
+    InterfaceArpInfo &entry = ArpMapIndexToEntry(idx);
+    entry.stats.Reset();
+}
+
 void ArpProto::NextHopNotify(DBEntryBase *entry) {
     NextHop *nh = static_cast<NextHop *>(entry);
 
@@ -293,10 +417,10 @@ void ArpProto::NextHopNotify(DBEntryBase *entry) {
         ArpNH *arp_nh = (static_cast<ArpNH *>(nh));
         if (arp_nh->IsDeleted()) {
             SendArpIpc(ArpProto::ARP_DELETE, arp_nh->GetIp()->to_ulong(),
-                       arp_nh->GetVrf());
+                       arp_nh->GetVrf(), arp_nh->GetInterface()); 
         } else if (arp_nh->IsValid() == false) {
             SendArpIpc(ArpProto::ARP_RESOLVE, arp_nh->GetIp()->to_ulong(),
-                       arp_nh->GetVrf());
+                       arp_nh->GetVrf(), arp_nh->GetInterface()); 
         }
         break;
     }
@@ -306,9 +430,10 @@ void ArpProto::NextHopNotify(DBEntryBase *entry) {
     }
 }
 
-bool ArpProto::TimerExpiry(ArpKey &key, uint32_t timer_type) {
+bool ArpProto::TimerExpiry(ArpKey &key, uint32_t timer_type,
+                           const Interface* itf) {
     if (arp_cache_.find(key) != arp_cache_.end())
-        SendArpIpc((ArpProto::ArpMsgType)timer_type, key);
+        SendArpIpc((ArpProto::ArpMsgType)timer_type, key, itf);
     return false;
 }
 
@@ -327,19 +452,34 @@ void ArpProto::del_gratuitous_arp_entry() {
     }
 }
 
-void ArpProto::SendArpIpc(ArpProto::ArpMsgType type, 
-                          in_addr_t ip, const VrfEntry *vrf) {
-    ArpIpc *ipc = new ArpIpc(type, ip, vrf);
+void ArpProto::SendArpIpc(ArpProto::ArpMsgType type, in_addr_t ip,
+                          const VrfEntry *vrf, const Interface* itf) {
+    ArpIpc *ipc = new ArpIpc(type, ip, vrf, itf);
     agent_->pkt()->pkt_handler()->SendMessage(PktHandler::ARP, ipc);
 }
 
-void ArpProto::SendArpIpc(ArpProto::ArpMsgType type, ArpKey &key) {
-    ArpIpc *ipc = new ArpIpc(type, key);
+void ArpProto::SendArpIpc(ArpProto::ArpMsgType type, ArpKey &key,
+                          const Interface* itf) {
+    ArpIpc *ipc = new ArpIpc(type, key, itf);
     agent_->pkt()->pkt_handler()->SendMessage(PktHandler::ARP, ipc);
 }
 
 bool ArpProto::AddArpEntry(ArpEntry *entry) {
-    return arp_cache_.insert(ArpCachePair(entry->key(), entry)).second;
+    bool ret = arp_cache_.insert(ArpCachePair(entry->key(), entry)).second;
+    uint32_t intf_id = entry->interface()->id();
+    InterfaceArpMap::iterator it = interface_arp_map_.find(intf_id);
+    if (it == interface_arp_map_.end()) {
+        InterfaceArpInfo intf_entry;
+        intf_entry.arp_key_list.insert(entry->key());
+        interface_arp_map_.insert(InterfaceArpPair(intf_id, intf_entry));
+    } else {
+        InterfaceArpInfo &intf_entry = it->second;
+        ArpKeySet::iterator key_it = intf_entry.arp_key_list.find(entry->key());
+        if (key_it == intf_entry.arp_key_list.end()) {
+            intf_entry.arp_key_list.insert(entry->key());
+        }
+    }
+    return ret;
 }
 
 bool ArpProto::DeleteArpEntry(ArpEntry *entry) {
@@ -388,4 +528,14 @@ void ArpProto::ValidateAndClearVrfState(VrfEntry *vrf) {
         vrf->ClearState(vrf->get_table_partition()->parent(),
                         vrf_table_listener_id_);
     }
+}
+
+ArpProto::ArpIterator
+ArpProto::FindUpperBoundArpEntry(const ArpKey &key) {
+        return arp_cache_.upper_bound(key);
+}
+
+ArpProto::ArpIterator
+ArpProto::FindLowerBoundArpEntry(const ArpKey &key) {
+        return arp_cache_.lower_bound(key);
 }

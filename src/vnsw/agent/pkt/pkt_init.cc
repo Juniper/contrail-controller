@@ -29,6 +29,7 @@ void PktModule::Init(bool run_with_vrouter) {
     boost::asio::io_service &io = *agent_->event_manager()->io_service();
 
     pkt_handler_.reset(new PktHandler(agent_, this));
+    pkt_handler_->RegisterDBClients();
 
     if (control_interface_) {
         control_interface_->Init(pkt_handler_.get());
@@ -50,6 +51,8 @@ void PktModule::set_control_interface(ControlInterface *intf) {
 }
 
 void PktModule::Shutdown() {
+    pkt_handler_->Shutdown();
+
     flow_proto_->Shutdown();
     flow_proto_.reset(NULL);
 

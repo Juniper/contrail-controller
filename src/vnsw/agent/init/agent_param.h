@@ -19,19 +19,22 @@ public:
     static const uint32_t kAgentStatsInterval = (30 * 1000); // time in millisecs
     static const uint32_t kFlowStatsInterval = (1000); // time in milliseconds
     static const uint32_t kVrouterStatsInterval = (30 * 1000); //time-millisecs
+    typedef std::vector<Ip4Address> AddressList;
 
     // Hypervisor mode we are working on
     enum Mode {
         MODE_INVALID,
         MODE_KVM,
         MODE_XEN,
-        MODE_VMWARE
+        MODE_VMWARE,
+        MODE_TOR_AGENT
     };
 
     enum VmwareMode {
         ESXI_NEUTRON,
         VCENTER
     };
+
 
     struct PortInfo {
         PortInfo() : 
@@ -49,7 +52,8 @@ public:
     AgentParam(Agent *agent, bool enable_flow_options = true,
                bool enable_vhost_options = true,
                bool enable_hypervisor_options = true,
-               bool enable_service_options = true);
+               bool enable_service_options = true,
+               bool enable_tsn = false);
     virtual ~AgentParam();
 
     virtual int Validate();
@@ -75,6 +79,8 @@ public:
 
     const std::string &agent_name() const { return agent_name_; }
     const std::string &eth_port() const { return eth_port_; }
+    const bool &eth_port_no_arp() const { return eth_port_no_arp_; }
+    const std::string &eth_port_encap_type() const { return eth_port_encap_type_; }
     const Ip4Address &xmpp_server_1() const { return xmpp_server_1_; }
     const Ip4Address &xmpp_server_2() const { return xmpp_server_2_; }
     const Ip4Address &dns_server_1() const { return dns_server_1_; }
@@ -142,6 +148,7 @@ public:
               const std::string &program_name);
 
     void LogConfig() const;
+    void PostValidateLogConfig() const;
     void InitVhostAndXenLLPrefix();
     void set_test_mode(bool mode);
     bool test_mode() const { return test_mode_; }
@@ -155,6 +162,13 @@ public:
     boost::program_options::options_description options() const {
         return options_;
     }
+    bool isTsnEnabled() const { return enable_tsn_; }
+
+    const AddressList &compute_node_address_list() const {
+        return compute_node_address_list_;
+    }
+    void BuildAddressList(const std::string &val);
+
 protected:
     void set_mode(Mode m) { mode_ = m; }
     virtual void InitFromSystem();
@@ -206,6 +220,7 @@ private:
     void ParseHeadlessMode();
     void ParseSimulateEvpnTor();
     void ParseServiceInstance();
+    void ParseTsnMode();
 
     void ParseCollectorArguments
         (const boost::program_options::variables_map &v);
@@ -227,6 +242,8 @@ private:
         (const boost::program_options::variables_map &v);
     void ParseServiceInstanceArguments
         (const boost::program_options::variables_map &v);
+    void ParseTsnModeArguments
+        (const boost::program_options::variables_map &v);
 
     boost::program_options::variables_map var_map_;
     boost::program_options::options_description options_;
@@ -234,10 +251,13 @@ private:
     bool enable_vhost_options_;
     bool enable_hypervisor_options_;
     bool enable_service_options_;
+    bool enable_tsn_;
 
     PortInfo vhost_;
     std::string agent_name_;
     std::string eth_port_;
+    bool eth_port_no_arp_;
+    std::string eth_port_encap_type_;
     uint16_t xmpp_instance_count_;
     Ip4Address xmpp_server_1_;
     Ip4Address xmpp_server_2_;
@@ -256,7 +276,7 @@ private:
     uint16_t linklocal_vm_flows_;
     uint16_t flow_cache_timeout_;
 
-    // Parameters configured from command linke arguments only (for now)
+    // Parameters configured from command line arguments only (for now)
     std::string config_file_;
     std::string program_name_;
     std::string log_file_;
@@ -291,6 +311,8 @@ private:
     int si_netns_timeout_;
     std::string si_haproxy_ssl_cert_path_;
     VmwareMode vmware_mode_;
+    // List of IP addresses on the compute node.
+    AddressList compute_node_address_list_;
 
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };

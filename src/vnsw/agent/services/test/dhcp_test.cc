@@ -28,6 +28,7 @@
 #include <services/services_sandesh.h>
 #include "vr_types.h"
 
+#define MAC_LEN 6
 #define CLIENT_REQ_IP "1.2.3.4"
 #define CLIENT_REQ_PREFIX "1.2.3.0"
 #define CLIENT_REQ_GW "1.2.3.1"
@@ -1311,6 +1312,109 @@ TEST_F(DhcpTest, PortSpecificDhcpOptions) {
     client->WaitForIdle();
 
     ClearPktTrace();
+    Agent::GetInstance()->GetDhcpProto()->ClearStats();
+}
+
+// Check that DHCP requests from TOR are served
+TEST_F(DhcpTest, DhcpTorRequestTest) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+        {"vnet2", 2, "1.1.1.2", "00:00:00:02:02:02", 1, 2},
+    };
+    uint8_t options[] = {
+        DHCP_OPTION_MSG_TYPE,
+        DHCP_OPTION_HOST_NAME,
+        DHCP_OPTION_DOMAIN_NAME,
+        DHCP_OPTION_END
+    };
+    DhcpProto::DhcpStats stats;
+
+    ClearPktTrace();
+    IpamInfo ipam_info[] = {
+        {"1.2.3.128", 27, "1.2.3.129", true},
+        {"7.8.9.0", 24, "7.8.9.12", true},
+        {"1.1.1.0", 24, "1.1.1.200", true},
+    };
+    char vdns_attr[] = "<virtual-DNS-data>\n <domain-name>test.contrail.juniper.net</domain-name>\n <dynamic-records-from-client>true</dynamic-records-from-client>\n <record-order>fixed</record-order>\n <default-ttl-seconds>120</default-ttl-seconds>\n </virtual-DNS-data>\n";
+    char ipam_attr[] = "<network-ipam-mgmt>\n <ipam-dns-method>virtual-dns-server</ipam-dns-method>\n <ipam-dns-server><virtual-dns-server-name>vdns1</virtual-dns-server-name></ipam-dns-server>\n </network-ipam-mgmt>\n";
+
+    CreateVmportEnv(input, 2, 0);
+    client->WaitForIdle();
+    client->Reset();
+    AddVDNS("vdns1", vdns_attr);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1");
+    client->WaitForIdle();
+
+    // use the mac address of the VM as the source MAC
+    char mac1[MAC_LEN] = { 0x00, 0x00, 0x00, 0x01, 0x01, 0x01 };
+    src_mac = MacAddress(mac1);
+
+    SendDhcp(fabric_interface_id(), 0x8000, DHCP_DISCOVER, options, 4);
+    SendDhcp(fabric_interface_id(), 0x8000, DHCP_REQUEST, options, 4);
+    int count = 0;
+    DHCP_CHECK (stats.acks < 1);
+    EXPECT_EQ(1U, stats.discover);
+    EXPECT_EQ(1U, stats.request);
+    EXPECT_EQ(1U, stats.offers);
+    EXPECT_EQ(1U, stats.acks);
+
+    char mac2[MAC_LEN] = { 0x00, 0x00, 0x00, 0x02, 0x02, 0x02 };
+    src_mac = MacAddress(mac2);
+
+    SendDhcp(fabric_interface_id(), 0x8000, DHCP_DISCOVER, options, 4);
+    SendDhcp(fabric_interface_id(), 0x8000, DHCP_REQUEST, options, 4);
+    count = 0;
+    DHCP_CHECK (stats.acks < 2);
+    EXPECT_EQ(2U, stats.discover);
+    EXPECT_EQ(2U, stats.request);
+    EXPECT_EQ(2U, stats.offers);
+    EXPECT_EQ(2U, stats.acks);
+
+    SendDhcp(fabric_interface_id(), 0x8000, DHCP_INFORM, options, 4);
+    SendDhcp(fabric_interface_id(), 0x8000, DHCP_DECLINE, options, 4);
+    count = 0;
+    DHCP_CHECK (stats.decline < 1);
+    EXPECT_EQ(2U, stats.discover);
+    EXPECT_EQ(2U, stats.request);
+    EXPECT_EQ(1U, stats.inform);
+    EXPECT_EQ(1U, stats.decline);
+    EXPECT_EQ(2U, stats.offers);
+    EXPECT_EQ(3U, stats.acks);
+
+    char mac3[MAC_LEN] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
+    src_mac = MacAddress(mac3);
+
+    SendDhcp(fabric_interface_id(), 0x8000, DHCP_DISCOVER, options, 4, true);
+    count = 0;
+    DHCP_CHECK (stats.errors < 1);
+    EXPECT_EQ(2U, stats.discover);
+    EXPECT_EQ(2U, stats.request);
+    EXPECT_EQ(1U, stats.inform);
+    EXPECT_EQ(1U, stats.decline);
+    EXPECT_EQ(2U, stats.offers);
+    EXPECT_EQ(3U, stats.acks);
+    EXPECT_EQ(1U, stats.errors);
+    client->WaitForIdle();
+
+    DhcpInfo *sand = new DhcpInfo();
+    Sandesh::set_response_callback(
+        boost::bind(&DhcpTest::CheckSandeshResponse, this, _1,
+                    true, "", DHCP_RESPONSE_STRING, false, "", true));
+    sand->HandleRequest();
+    client->WaitForIdle();
+    sand->Release();
+
+    client->Reset();
+    DelIPAM("vn1", "vdns1");
+    client->WaitForIdle();
+    DelVDNS("vdns1");
+    client->WaitForIdle();
+
+    client->Reset();
+    DeleteVmportEnv(input, 2, 1, 0);
+    client->WaitForIdle();
+
     Agent::GetInstance()->GetDhcpProto()->ClearStats();
 }
 

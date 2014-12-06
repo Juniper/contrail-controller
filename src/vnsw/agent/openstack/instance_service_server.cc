@@ -36,7 +36,7 @@
 InstanceServiceAsyncHandler::InstanceServiceAsyncHandler(Agent *agent)
     : io_service_(*(agent->event_manager()->io_service())),
       agent_(agent), version_(0), vgw_version_(0),
-      novaPeer_(new Peer(Peer::NOVA_PEER, NOVA_PEER_NAME)),
+      novaPeer_(new Peer(Peer::NOVA_PEER, NOVA_PEER_NAME, false)),
       interface_stale_cleaner_(new InterfaceConfigStaleCleaner(agent)),
       vgw_stale_cleaner_(new ConfigStaleCleaner(agent, boost::bind(
         &InstanceServiceAsyncHandler::OnVirtualGatewayStaleTimeout, this, _1))) {

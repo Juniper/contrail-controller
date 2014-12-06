@@ -636,7 +636,7 @@ TEST_F(UveVmUveTest, FipL3Disabled) {
     AddLink("virtual-machine-interface-routing-instance", "vnet1",
             "virtual-machine-interface", "vnet1");
     client->WaitForIdle(3);
-    EXPECT_TRUE(VmPortInactive(input, 0));
+    EXPECT_TRUE(VmPortActive(input, 0));
 
     //Create a VN for floating-ip
     client->Reset();

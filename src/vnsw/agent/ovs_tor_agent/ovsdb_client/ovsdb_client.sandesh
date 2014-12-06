@@ -1,0 +1,21 @@
+/*
+ * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+ */
+
+/****************************************************************************
+  Sandesh definitions for OVSDB Client
+ ****************************************************************************/
+
+struct OvsdbClientList {
+    1: string protocol;
+    2: string server;
+    3: i16 port;
+    4: list<string> sessions (link="");
+}
+
+request sandesh OvsdbClientReq {
+}
+
+request sandesh OvsdbClientSessionReq {
+}
+

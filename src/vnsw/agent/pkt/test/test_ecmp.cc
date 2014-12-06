@@ -437,11 +437,14 @@ TEST_F(EcmpTest, EcmpTest_8) {
     strcpy(remote_server_ip, "15.15.15.16");
     strcpy(remote_vm_ip, "30.30.30.1");
 
-    TxIpMplsPacket(eth_intf_id_, remote_server_ip, router_id, 16,
+    const VmInterface *vintf =
+        static_cast<const VmInterface *>(VmPortGet(1));
+    TxIpMplsPacket(eth_intf_id_, remote_server_ip, router_id, vintf->label(),
                    remote_vm_ip, vm_ip, 1, 10);
 
     client->WaitForIdle();
-    int nh_id = GetActiveLabel(MplsLabel::VPORT_NH, 16)->nexthop()->id();
+    int nh_id = GetActiveLabel(MplsLabel::VPORT_NH, vintf->label())->
+                    nexthop()->id();
     FlowEntry *entry = FlowGet(VrfGet("vrf2")->vrf_id(),
                                remote_vm_ip, vm_ip, 1, 0, 0, nh_id);
     EXPECT_TRUE(entry != NULL);

@@ -78,8 +78,12 @@ public:
         if (num_vrfs > 2) {
             VrfAddReq(vrf_name_3_.c_str());
         }
+        InetInterfaceKey vhost_intf_key(
+                Agent::GetInstance()->vhost_interface()->name());
         Agent::GetInstance()->fabric_inet4_unicast_table()->AddResolveRoute(
-                Agent::GetInstance()->fabric_vrf_name(), server_ip_, 24);
+                Agent::GetInstance()->local_peer(),
+                Agent::GetInstance()->fabric_vrf_name(), server_ip_, 24,
+                vhost_intf_key, 0, false, "", SecurityGroupList());
         client->WaitForIdle();
         client->WaitForIdle();
         if (num_vrfs > 0) {

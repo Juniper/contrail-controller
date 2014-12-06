@@ -201,6 +201,12 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
         break;
     }
 
+    case NextHop::VRF: {
+        const VrfNH *vrf_nh = static_cast<const VrfNH *>(nh);
+        out->vrf_ = vrf_nh->GetVrf();
+        break;
+    }
+
     case NextHop::TUNNEL: {
         if (pkt->family == Address::INET) {
             const InetUnicastRouteEntry *rt =
@@ -221,6 +227,28 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
         out->nh_ = nh->id();
         out->intf_ = NULL;
         break;
+    }
+
+    case NextHop::ARP: {
+        const ArpNH *arp_nh = static_cast<const ArpNH *>(nh);
+        if (in->intf_->type() == Interface::VM_INTERFACE) {
+            const VmInterface *vm_intf =
+                static_cast<const VmInterface *>(in->intf_);
+            if (vm_intf->sub_type() == VmInterface::GATEWAY) {
+                out->nh_ = arp_nh->id();
+            } else {
+                out->nh_ = arp_nh->GetInterface()->flow_key_nh()->id();
+            }
+        }
+        out->intf_ = arp_nh->GetInterface();
+        break;
+    }
+
+    case NextHop::RESOLVE: {
+         const ResolveNH *rsl_nh = static_cast<const ResolveNH *>(nh);
+         out->nh_ = rsl_nh->interface()->flow_key_nh()->id();
+         out->intf_ = rsl_nh->interface();
+         break;
     }
 
     default:
@@ -277,7 +305,7 @@ static const VnEntry *InterfaceToVn(const Interface *intf) {
 }
 
 static bool IntfHasFloatingIp(const Interface *intf, Address::Family family) {
-    if (intf->type() != Interface::VM_INTERFACE)
+    if (!intf || intf->type() != Interface::VM_INTERFACE)
         return NULL;
     return static_cast<const VmInterface *>(intf)->HasFloatingIp(family);
 }
@@ -508,6 +536,9 @@ void PktFlowInfo::LinkLocalServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
         // the packet not coming to vrouter for reverse NAT.
         // Destination would be local host (FindLinkLocalService returns this)
         nat_ip_saddr = vm_port->mdata_ip_addr();
+        // Services such as metadata will run on compute_node_ip. Set nat
+        // address to compute_node_ip
+        nat_server = Agent::GetInstance()->compute_node_ip();
         nat_sport = pkt->sport;
     } else {
         nat_ip_saddr = Agent::GetInstance()->router_id();
@@ -549,8 +580,8 @@ void PktFlowInfo::LinkLocalServiceFromHost(const PktInfo *pkt, PktControlInfo *i
         return;
     }
 
-    if ((pkt->ip_daddr.to_v4().to_ulong() != vm_port->mdata_ip_addr().to_ulong()) ||
-        (pkt->ip_saddr.to_v4().to_ulong() != Agent::GetInstance()->router_id().to_ulong())) {
+    // Check if packet is destined to metadata of interface
+    if (pkt->ip_daddr.to_v4() != vm_port->mdata_ip_addr()) {
         // Force implicit deny
         in->rt_ = NULL;
         out->rt_ = NULL;
@@ -900,7 +931,6 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
     if (out->intf_ == NULL && out->rt_) {
         RouteToOutInfo(out->rt_, pkt, this, in, out);
     }
-
     if (out->rt_) {
         const NextHop* nh = out->rt_->GetActiveNextHop();
         if (nh && nh->GetType() == NextHop::TUNNEL) {
@@ -934,6 +964,7 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
 
     UpdateRoute(&out->rt_, out->vrf_,pkt->ip_daddr, flow_dest_plen_map);
     UpdateRoute(&in->rt_, out->vrf_,pkt->ip_saddr, flow_source_plen_map);
+
     if (out->intf_) {
         out->vn_ = InterfaceToVn(out->intf_);
     }
@@ -946,6 +977,21 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
         // configured floating IP.
         if (IntfHasFloatingIp(out->intf_, pkt->family)) {
             FloatingIpDNat(pkt, in, out);
+        }
+    }
+
+    if (out->rt_) {
+        if (out->rt_->GetActiveNextHop()->GetType() == NextHop::ARP ||
+            out->rt_->GetActiveNextHop()->GetType() == NextHop::RESOLVE) {
+            //If a packet came with mpls label pointing to
+            //vrf NH, then we need to do a route lookup
+            //and set the nexthop for reverse flow properly
+            //as mpls pointed NH would not be used for reverse flow
+            if (RouteToOutInfo(out->rt_, pkt, this, in, out)) {
+                if (out->intf_) {
+                    out->vn_ = InterfaceToVn(out->intf_);
+                }
+            }
         }
     }
 
@@ -1011,7 +1057,6 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
         short_flow_reason = FlowEntry::SHORT_NO_DST_ROUTE;
         return false;
     }
-
     flow_source_vrf = static_cast<const AgentRoute *>(in->rt_)->vrf_id();
     flow_dest_vrf = out->rt_->vrf_id();
 

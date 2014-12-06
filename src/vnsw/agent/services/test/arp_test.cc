@@ -162,16 +162,19 @@ public:
     }
 
     void SendArpMessage(ArpProto::ArpMsgType type, uint32_t addr) {
+    PhysicalInterfaceKey key(Agent::GetInstance()->fabric_interface_name());
+    Interface *eth = static_cast<Interface *>
+        (Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
         ArpProto::ArpIpc *ipc = 
                 new ArpProto::ArpIpc(type, addr, 
                     Agent::GetInstance()->vrf_table()->
-                    FindVrfFromName(Agent::GetInstance()->fabric_vrf_name()));
+                    FindVrfFromName(Agent::GetInstance()->fabric_vrf_name()), eth);
         Agent::GetInstance()->pkt()->pkt_handler()->SendMessage(PktHandler::ARP, ipc);
     }
 
     bool FindArpNHEntry(uint32_t addr, const string &vrf_name, bool validate = false) {
         Ip4Address ip(addr);
-        ArpNHKey key(vrf_name, ip);
+        ArpNHKey key(vrf_name, ip, false);
         ArpNH *arp_nh = static_cast<ArpNH *>(Agent::GetInstance()->
                                              nexthop_table()->
                                              FindActiveEntry(&key));
@@ -201,10 +204,12 @@ public:
 
     void ArpNHUpdate(DBRequest::DBOperation op, in_addr_t addr) {
         Ip4Address ip(addr);
-        InetUnicastAgentRouteTable::ArpRoute(op, ip, MacAddress(),
+        InetUnicastAgentRouteTable::ArpRoute(op,
+                          Agent::GetInstance()->fabric_vrf_name(),
+                          ip, MacAddress(),
                           Agent::GetInstance()->fabric_vrf_name(),
                           *Agent::GetInstance()->GetArpProto()->ip_fabric_interface(),
-                          false, 32);
+                          false, 32, false, "", SecurityGroupList());
     }
 
     void TunnelNH(DBRequest::DBOperation op, uint32_t saddr, uint32_t daddr) {
@@ -513,7 +518,7 @@ TEST_F(ArpTest, ArpItfDeleteTest) {
     WAIT_FOR(500, 1000, (VrfFind("vrf2") == false));
 }
 #endif
-
+#if 0
 //Test to verify sending of ARP request on new interface addition
 TEST_F(ArpTest, ArpReqOnVmInterface) {
     Agent *agent = Agent::GetInstance();
@@ -638,8 +643,291 @@ TEST_F(ArpTest, ArpReqOnVmInterface_2) {
     WAIT_FOR(500, 1000, (agent->vn_table()->Size() == 0));
     WAIT_FOR(500, 1000, (VrfFind("vrf1") == false));
 }
+#endif
 
+//Test to check update on resolve route, would result
+//in arp routes also getting updated
+TEST_F(ArpTest, DISABLED_SubnetResolveWithoutPolicy) {
+  struct PortInfo input1[] = {
+        {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
 
+    client->Reset();
+    CreateVmportWithEcmp(input1, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    EXPECT_TRUE(VmPortFind(8));
+    client->Reset();
+
+    //Add a link to interface subnet and ensure resolve route is added
+    AddSubnetType("subnet", 1, "8.1.1.0", 24);
+    AddLink("virtual-machine-interface", input1[0].name,
+            "subnet", "subnet");
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    EXPECT_TRUE(RouteFind("vrf1", "8.1.1.0", 24));
+
+    Ip4Address sip = Ip4Address::from_string("8.1.1.1");
+    Ip4Address dip = Ip4Address::from_string("8.1.1.2");
+    VmInterface *vintf = VmInterfaceGet(8);
+    SendArpReq(vintf->id(), vintf->vrf()->vrf_id(), sip.to_ulong(), dip.to_ulong());
+    client->WaitForIdle();
+    WAIT_FOR(500, 1000, RouteFind("vrf1", "8.1.1.2", 32) == true);
+
+    AgentRoute *rt = RouteGet("vrf1", dip, 32);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::ARP);
+    const ArpNH *arp_nh = static_cast<const ArpNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(arp_nh->GetInterface() == vintf);
+    EXPECT_TRUE(arp_nh->PolicyEnabled() == false);
+    EXPECT_TRUE(rt->GetActivePath()->dest_vn_name() == "vn1"); 
+
+    DelLink("virtual-machine-interface", input1[0].name,
+            "subnet", "subnet");
+    client->WaitForIdle();
+    DeleteVmportEnv(input1, 1, true);
+    client->WaitForIdle();
+    WAIT_FOR(500, 1000, RouteFind("vrf1", "8.1.1.2", 32) == false);
+
+    EXPECT_FALSE(VmPortFind(8));
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
+    WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_table()->Find(&key, true)
+                == NULL));
+    client->Reset();
+}
+
+//Test to check update on resolve route, would result
+//in arp routes also getting updated
+TEST_F(ArpTest, DISABLED_SubnetResolveWithPolicy) {
+  struct PortInfo input1[] = {
+        {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    client->Reset();
+    //Create VM interface with policy
+    CreateVmportWithEcmp(input1, 1, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    EXPECT_TRUE(VmPortFind(8));
+    client->Reset();
+
+    //Add a link to interface subnet and ensure resolve route is added
+    AddSubnetType("subnet", 1, "8.1.1.0", 24);
+    AddLink("virtual-machine-interface", input1[0].name,
+            "subnet", "subnet");
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    EXPECT_TRUE(RouteFind("vrf1", "8.1.1.0", 24));
+
+    Ip4Address sip = Ip4Address::from_string("8.1.1.1");
+    Ip4Address dip = Ip4Address::from_string("8.1.1.2");
+    VmInterface *vintf = VmInterfaceGet(8);
+    SendArpReq(vintf->id(), vintf->vrf()->vrf_id(), sip.to_ulong(), dip.to_ulong());
+    client->WaitForIdle();
+    WAIT_FOR(500, 1000, RouteFind("vrf1", "8.1.1.2", 32) == true);
+
+    AgentRoute *rt = RouteGet("vrf1", dip, 32);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::ARP);
+    const ArpNH *arp_nh = static_cast<const ArpNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(arp_nh->GetInterface() == vintf);
+    EXPECT_TRUE(arp_nh->PolicyEnabled() == true);
+    EXPECT_TRUE(rt->GetActivePath()->dest_vn_name() == "vn1");
+
+    DelLink("virtual-machine-interface", input1[0].name,
+            "subnet", "subnet");
+    client->WaitForIdle();
+    DeleteVmportEnv(input1, 1, true, 1);
+    client->WaitForIdle();
+    WAIT_FOR(500, 1000, RouteFind("vrf1", "8.1.1.2", 32) == false);
+
+    EXPECT_FALSE(VmPortFind(8));
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
+    WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_table()->Find(&key, true)
+                == NULL));
+    client->Reset();
+}
+
+//Verify that ARP route gets updated with policy
+//when interface policy changes
+TEST_F(ArpTest, DISABLED_SubnetResolveWithPolicyUpdate) {
+  struct PortInfo input1[] = {
+        {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    client->Reset();
+    //Create VM interface with policy
+    CreateVmportWithEcmp(input1, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    EXPECT_TRUE(VmPortFind(8));
+    client->Reset();
+
+    //Add a link to interface subnet and ensure resolve route is added
+    AddSubnetType("subnet", 1, "8.1.1.0", 24);
+    AddLink("virtual-machine-interface", input1[0].name,
+            "subnet", "subnet");
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    EXPECT_TRUE(RouteFind("vrf1", "8.1.1.0", 24));
+
+    Ip4Address sip = Ip4Address::from_string("8.1.1.1");
+    Ip4Address dip = Ip4Address::from_string("8.1.1.2");
+    VmInterface *vintf = VmInterfaceGet(8);
+    SendArpReq(vintf->id(), vintf->vrf()->vrf_id(), sip.to_ulong(), dip.to_ulong());
+    client->WaitForIdle();
+    WAIT_FOR(500, 1000, RouteFind("vrf1", "8.1.1.2", 32) == true);
+
+    AgentRoute *rt = RouteGet("vrf1", dip, 32);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::ARP);
+    const ArpNH *arp_nh = static_cast<const ArpNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(arp_nh->GetInterface() == vintf);
+    EXPECT_TRUE(arp_nh->PolicyEnabled() == false);
+    EXPECT_TRUE(rt->GetActivePath()->dest_vn_name() == "vn1");
+
+    SendArpReply(vintf->id(), vintf->vrf()->vrf_id(),
+                 sip.to_ulong(), dip.to_ulong());
+    client->WaitForIdle();
+    WAIT_FOR(500, 1000, arp_nh->GetResolveState() == true);
+    EXPECT_TRUE(arp_nh->PolicyEnabled() == false);
+    
+    //Change policy of interface
+    AddAcl("acl1", 1);
+    AddLink("virtual-network", "vn1", "access-control-list", "acl1");
+    client->WaitForIdle();
+    arp_nh = static_cast<const ArpNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(arp_nh->PolicyEnabled() == true);
+
+    DelLink("virtual-machine-interface", input1[0].name,
+            "subnet", "subnet");
+    client->WaitForIdle();
+    WAIT_FOR(500, 1000, RouteFind("vrf1", "8.1.1.2", 32) == false);
+
+    DelAcl("acl1");
+    DelLink("virtual-network", "vn1", "access-control-list", "acl1");
+    DeleteVmportEnv(input1, 1, true);
+    client->WaitForIdle();
+    WAIT_FOR(500, 1000, RouteFind("vrf1", "8.1.1.2", 32) == false);
+
+    EXPECT_FALSE(VmPortFind(8));
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
+    WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_table()->Find(&key, true)
+                == NULL));
+    client->Reset();
+}
+
+//Test to check update on resolve route, would result
+//in arp routes also getting updated
+TEST_F(ArpTest, DISABLED_SubnetResolveWithSg) {
+  struct PortInfo input1[] = {
+        {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    client->Reset();
+    //Create VM interface with policy
+    CreateVmportWithEcmp(input1, 1, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    EXPECT_TRUE(VmPortFind(8));
+    client->Reset();
+
+    AddSg("sg1", 1);
+    AddAcl("acl1", 1);
+    AddLink("security-group", "sg1", "access-control-list", "acl1");
+    client->WaitForIdle();
+    AddLink("virtual-machine-interface", "vnet8", "security-group", "sg1");
+    //Add a link to interface subnet and ensure resolve route is added
+    AddSubnetType("subnet", 1, "8.1.1.0", 24);
+    AddLink("virtual-machine-interface", input1[0].name,
+            "subnet", "subnet");
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    EXPECT_TRUE(RouteFind("vrf1", "8.1.1.0", 24));
+
+    Ip4Address sip = Ip4Address::from_string("8.1.1.1");
+    Ip4Address dip = Ip4Address::from_string("8.1.1.2");
+    VmInterface *vintf = VmInterfaceGet(8);
+    SendArpReq(vintf->id(), vintf->vrf()->vrf_id(), sip.to_ulong(), dip.to_ulong());
+    client->WaitForIdle();
+    WAIT_FOR(500, 1000, RouteFind("vrf1", "8.1.1.2", 32) == true);
+
+    AgentRoute *rt = RouteGet("vrf1", dip, 32);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::ARP);
+    const ArpNH *arp_nh = static_cast<const ArpNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(arp_nh->GetInterface() == vintf);
+    EXPECT_TRUE(arp_nh->PolicyEnabled() == true);
+    EXPECT_TRUE(rt->GetActivePath()->dest_vn_name() == "vn1");
+    EXPECT_TRUE(rt->GetActivePath()->sg_list().size() == 1);
+
+    DelLink("virtual-machine-interface", input1[0].name,
+            "subnet", "subnet");
+    DelLink("security-group", "sg1", "access-control-list", "acl1");
+    DelAcl("acl1");
+    DelNode("security-group", "sg1");
+    client->WaitForIdle();
+    DeleteVmportEnv(input1, 1, true, 1);
+    client->WaitForIdle();
+    WAIT_FOR(500, 1000, RouteFind("vrf1", "8.1.1.2", 32) == false);
+
+    EXPECT_FALSE(VmPortFind(8));
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
+    WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_table()->Find(&key, true)
+                == NULL));
+    client->Reset();
+}
+
+TEST_F(ArpTest, IntfArpReqTest_1) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    //Create VM, VN, VRF and Vmport
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+    Interface *itf = VmPortGet(1);
+    VmInterface *vmi = static_cast<VmInterface *>(itf);
+    VrfEntry *vrf = VrfGet("vrf1");
+
+    Agent::GetInstance()->GetArpProto()->ClearInterfaceArpStats(vmi->id());
+    Ip4Address arp_tip = Ip4Address::from_string("1.1.1.2");
+    EXPECT_EQ(1U, Agent::GetInstance()->GetArpProto()->GetArpCacheSize()); // For GW
+    SendArpReq(vmi->id(), vrf->vrf_id(), vmi->ip_addr().to_ulong(), arp_tip.to_ulong());
+    WaitForCompletion(2);
+    EXPECT_TRUE(FindArpNHEntry(arp_tip.to_ulong(), "vrf1"));
+    WAIT_FOR(500, 1000, (Agent::GetInstance()->GetArpProto()->ArpRequestStatsCounter(vmi->id()) >= 1U));
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+}
+
+TEST_F(ArpTest, IntfArpReqTest_2) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    //Create VM, VN, VRF and Vmport
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+    Interface *itf = VmPortGet(1);
+    VmInterface *vmi = static_cast<VmInterface *>(itf);
+    VrfEntry *vrf = VrfGet("vrf1");
+
+    Agent::GetInstance()->GetArpProto()->ClearInterfaceArpStats(vmi->id());
+    Ip4Address arp_tip = Ip4Address::from_string("1.1.1.2");
+    EXPECT_EQ(1U, Agent::GetInstance()->GetArpProto()->GetArpCacheSize()); // For GW
+    SendArpReq(vmi->id(), vrf->vrf_id(), vmi->ip_addr().to_ulong(), arp_tip.to_ulong());
+    WaitForCompletion(2);
+    EXPECT_TRUE(FindArpNHEntry(arp_tip.to_ulong(), "vrf1"));
+    EXPECT_TRUE(FindArpRoute(arp_tip.to_ulong(), "vrf1"));
+    WAIT_FOR(500, 1000, (Agent::GetInstance()->GetArpProto()->ArpRequestStatsCounter(vmi->id()) >= 1U));
+    SendArpReply(vmi->id(), vrf->vrf_id(), vmi->ip_addr().to_ulong(), arp_tip.to_ulong());
+    client->WaitForIdle();
+    WAIT_FOR(500, 1000, (1U == Agent::GetInstance()->GetArpProto()->ArpReplyStatsCounter(vmi->id())));
+    WAIT_FOR(500, 1000, (1U == Agent::GetInstance()->GetArpProto()->ArpResolvedStatsCounter(vmi->id())));
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+}
 void RouterIdDepInit(Agent *agent) {
 }
 

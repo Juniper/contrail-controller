@@ -58,13 +58,16 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     parent_(entry->parent_),
     policy_enabled_(entry->policy_enabled_),
     sub_type_(entry->sub_type_),
+    vmi_sub_type_(entry->vmi_sub_type_),
     type_(entry->type_),
     rx_vlan_id_(entry->rx_vlan_id_),
     tx_vlan_id_(entry->tx_vlan_id_),
     vrf_id_(entry->vrf_id_),
     persistent_(entry->persistent_),
     subtype_(entry->subtype_),
-    xconnect_(entry->xconnect_) {
+    xconnect_(entry->xconnect_),
+    no_arp_(entry->no_arp_),
+    encap_type_(entry->encap_type_) {
 }
 
 InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
@@ -90,13 +93,16 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     parent_(NULL),
     policy_enabled_(false),
     sub_type_(InetInterface::VHOST),
+    vmi_sub_type_(VmInterface::NONE),
     type_(intf->type()),
     rx_vlan_id_(VmInterface::kInvalidVlanId),
     tx_vlan_id_(VmInterface::kInvalidVlanId),
     vrf_id_(intf->vrf_id()),
     persistent_(false),
     subtype_(PhysicalInterface::INVALID),
-    xconnect_(NULL) {
+    xconnect_(NULL),
+    no_arp_(false),
+    encap_type_(PhysicalInterface::ETHERNET) {
 
     if (intf->flow_key_nh()) {
         flow_key_nh_id_ = intf->flow_key_nh()->id();
@@ -115,6 +121,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
             InterfaceKSyncEntry tmp(ksync_obj_, vmitf->parent());
             parent_ = ksync_obj_->GetReference(&tmp);
         }
+        vmi_sub_type_ = vmitf->sub_type();
     } else if (type_ == Interface::INET) {
         const InetInterface *inet_intf =
         static_cast<const InetInterface *>(intf);
@@ -122,7 +129,16 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
         if (sub_type_ == InetInterface::VHOST) {
             InterfaceKSyncEntry tmp(ksync_obj_, inet_intf->xconnect());
             xconnect_ = ksync_obj_->GetReference(&tmp);
+            InterfaceKSyncEntry *xconnect = static_cast<InterfaceKSyncEntry *>
+                (xconnect_.get());
+            encap_type_ = xconnect->encap_type();
+            no_arp_ = xconnect->no_arp();
         }
+    } else if (type_ == Interface::PHYSICAL) {
+        const PhysicalInterface *physical_intf =
+            static_cast<const PhysicalInterface *>(intf);
+        encap_type_ = physical_intf->encap_type();
+        no_arp_ = physical_intf->no_arp();
     }
 }
 
@@ -171,6 +187,11 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
 
     if (intf->type() == Interface::VM_INTERFACE) {
         VmInterface *vm_port = static_cast<VmInterface *>(intf);
+        if (vmi_sub_type_ != vm_port->sub_type()) {
+            vmi_sub_type_ = vm_port->sub_type();
+            ret = true;
+        }
+
         if (dhcp_enable_ != vm_port->dhcp_enable_config()) {
             dhcp_enable_ = vm_port->dhcp_enable_config();
             ret = true;
@@ -192,6 +213,16 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
         }
         if (layer2_forwarding_ != vm_port->layer2_forwarding()) {
             layer2_forwarding_ = vm_port->layer2_forwarding();
+            ret = true;
+        }
+
+        if (rx_vlan_id_ != vm_port->rx_vlan_id()) {
+            rx_vlan_id_ = vm_port->rx_vlan_id();
+            ret = true;
+        }
+
+        if (tx_vlan_id_ != vm_port->tx_vlan_id()) {
+            tx_vlan_id_ = vm_port->tx_vlan_id();
             ret = true;
         }
 
@@ -292,9 +323,30 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
         subtype_ = phy_intf->subtype();
         break;
     }
-    case Interface::INET:
+    case Interface::INET: {
         dmac = intf->mac();
+
+        bool no_arp = false;
+        PhysicalInterface::EncapType encap = PhysicalInterface::ETHERNET;
+        InterfaceKSyncEntry *xconnect = static_cast<InterfaceKSyncEntry *>
+            (xconnect_.get());
+        if (xconnect) {
+            no_arp = xconnect->no_arp();
+            encap = xconnect->encap_type();
+        }
+
+        if (no_arp_ != no_arp) {
+            no_arp_ = no_arp;
+            ret = true;
+        }
+        if (encap_type_ != encap) {
+            encap_type_ = encap;
+            ret = true;
+        }
+
         break;
+    }
+
     case Interface::LOGICAL:
     case Interface::REMOTE_PHYSICAL:
         dmac = intf->mac();
@@ -353,9 +405,6 @@ KSyncEntry *InterfaceKSyncEntry::UnresolvedReference() {
         return NULL;
     }
 
-    if (rx_vlan_id_ == VmInterface::kInvalidVlanId)
-        return NULL;
-
     if (parent_.get() && !parent_->IsResolved()) {
         return parent_.get();
     }
@@ -392,6 +441,8 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     encoder.set_h_op(op);
     switch (type_) {
     case Interface::VM_INTERFACE: {
+        if (vmi_sub_type_ == VmInterface::TOR)
+            return 0;            
         if (dhcp_enable_) {
             flags |= VIF_FLAG_DHCP_ENABLED;
         }
@@ -399,10 +450,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             flags |= VIF_FLAG_L2_ENABLED;
         }
         MacAddress mac;
-        if (rx_vlan_id_ == VmInterface::kInvalidVlanId) {
-            mac = ksync_obj_->ksync()->agent()->vrrp_mac();
-            encoder.set_vifr_type(VIF_TYPE_VIRTUAL);
-        } else {
+        if (parent_.get() != NULL) {
             encoder.set_vifr_type(VIF_TYPE_VIRTUAL_VLAN);
             encoder.set_vifr_vlan_id(rx_vlan_id_);
             encoder.set_vifr_ovlan_id(tx_vlan_id_);
@@ -410,7 +458,9 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 (static_cast<InterfaceKSyncEntry *> (parent_.get()));
             encoder.set_vifr_parent_vif_idx(parent->interface_id());
             mac = parent->mac();
-
+        } else {
+            mac = ksync_obj_->ksync()->agent()->vrrp_mac();
+            encoder.set_vifr_type(VIF_TYPE_VIRTUAL);
         }
         std::vector<int8_t> intf_mac((int8_t *)mac,
                                      (int8_t *)mac + mac.size());
@@ -427,12 +477,16 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     case Interface::PHYSICAL: {
         encoder.set_vifr_type(VIF_TYPE_PHYSICAL);
         flags |= VIF_FLAG_L3_ENABLED;
+        flags |= VIF_FLAG_L2_ENABLED;
         if (!persistent_) {
             flags |= VIF_FLAG_VHOST_PHYS;
         }
 
         if (subtype_ == PhysicalInterface::VMWARE) {
             flags |= VIF_FLAG_PROMISCOUS;
+        }
+        if (subtype_ == PhysicalInterface::CONFIG) {
+            flags |= VIF_FLAG_NATIVE_VLAN_TAG;
         }
         break;
     }
@@ -460,6 +514,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             break;
         }
         flags |= VIF_FLAG_L3_ENABLED;
+        flags |= VIF_FLAG_L2_ENABLED;
         break;
     }
 

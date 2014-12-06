@@ -57,7 +57,8 @@ class VrfEntry::DeleteActor : public LifetimeActor {
 VrfEntry::VrfEntry(const string &name, uint32_t flags) : 
         name_(name), id_(kInvalidIndex), flags_(flags),
         walkid_(DBTableWalker::kInvalidWalkerId), deleter_(NULL),
-        rt_table_db_(), delete_timeout_timer_(NULL) { 
+        rt_table_db_(), delete_timeout_timer_(NULL),
+        table_label_(MplsTable::kInvalidLabel){
 }
 
 VrfEntry::~VrfEntry() {
@@ -86,6 +87,7 @@ void VrfEntry::PostAdd() {
     deleter_.reset(new DeleteActor(this));
     // Create the route-tables and insert them into dbtree_
     Agent::RouteTableType type = Agent::INET4_UNICAST;
+    AgentDBTable *table = static_cast<AgentDBTable *>(get_table());
     DB *db = get_table()->database();
     rt_table_db_[type] = static_cast<AgentRouteTable *>
         (db->CreateTable(name_ + AgentRouteTable::GetSuffix(type)));
@@ -113,6 +115,12 @@ void VrfEntry::PostAdd() {
     rt_table_db_[type]->SetVrf(this);
     ((VrfTable *)get_table())->dbtree_[type].insert(VrfTable::VrfDbPair(name_, 
                                                         rt_table_db_[type]));
+
+    if (table->agent()->fabric_vrf_name() != name_) {
+        set_table_label(table->agent()->mpls_table()->AllocLabel());
+        MplsTable::CreateTableLabel(table->agent(), table_label(), name_,
+                                    false);
+    }
 }
 
 bool VrfEntry::CanDelete(DBRequest *req) {
@@ -207,6 +215,7 @@ bool VrfEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
         } else {
             data.set_vn("N/A");
         }
+        data.set_table_label(table_label());
 
         std::vector<VrfSandeshData> &list = 
                 const_cast<std::vector<VrfSandeshData>&>(resp->get_vrf_list());
@@ -311,6 +320,10 @@ bool VrfTable::OnChange(DBEntry *entry, const DBRequest *req) {
 bool VrfTable::Delete(DBEntry *entry, const DBRequest *req) {
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
     vrf->vn_.reset(NULL);
+    if (vrf->table_label() != MplsTable::kInvalidLabel) {
+        MplsLabel::Delete(agent(), vrf->table_label());
+        vrf->set_table_label(MplsTable::kInvalidLabel);
+    }
     vrf->deleter_->Delete();
     vrf->StartDeleteTimer();
     vrf->SendObjectLog(AgentLogEvent::DELETE_TRIGGER);

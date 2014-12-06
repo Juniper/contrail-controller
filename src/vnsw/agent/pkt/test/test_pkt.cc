@@ -150,7 +150,8 @@ TEST_F(PktTest, FlowAdd_1) {
 
     PhysicalInterface::CreateReq(Agent::GetInstance()->interface_table(),
                             "vnet0", Agent::GetInstance()->fabric_vrf_name(),
-                             PhysicalInterface::FABRIC);
+                             PhysicalInterface::FABRIC,
+                             PhysicalInterface::ETHERNET, false);
     client->WaitForIdle();
     TxMplsPacket(2, "1.1.1.2", "10.1.1.1", 0, "2.2.2.2", "3.3.3.3", 1);
     
@@ -220,11 +221,14 @@ TEST_F(PktTest, tx_vlan_1) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, MakeUuid(2),
                                      "vm-itf-2"));
-    req.data.reset(new VmInterfaceAddData(NULL,
-                                          Ip4Address::from_string("1.1.1.2"),
-                                          "00:00:00:00:00:01",
-                                          "vm-1", MakeUuid(1), 1, 2, "vnet0",
-                                          Ip6Address()));
+    VmInterfaceConfigData *data = new VmInterfaceConfigData(NULL);
+    data->addr_ = Ip4Address::from_string("1.1.1.2");
+    data->vm_mac_ = "00:00:00:00:00:01";
+    data->cfg_name_ = "vm-1";
+    data->vm_uuid_ = MakeUuid(1);
+    data->tx_vlan_id_ = 1;
+    data->rx_vlan_id_ = 2;
+    data->ip6_addr_ = Ip6Address();
     agent_->interface_table()->Enqueue(&req);
     client->WaitForIdle();
 

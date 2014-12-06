@@ -50,7 +50,6 @@ void ContrailAgentInit::CreateModules() {
 
     ksync_.reset(AgentObjectFactory::Create<KSync>(agent()));
     agent()->set_ksync(ksync_.get());
-
 }
 
 void ContrailAgentInit::ConnectToController() {

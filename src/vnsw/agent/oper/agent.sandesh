@@ -69,6 +69,8 @@ struct ItfSandeshData {
    37: i16 tx_vlan_id;
    38: i16 rx_vlan_id;
    39: string parent_interface;
+   40: optional string subnet;
+   41: optional string sub_type;
 }
 
 struct VnIpamData {
@@ -77,6 +79,7 @@ struct VnIpamData {
     3: string gateway;
     4: string ipam_name;
     5: string dhcp_enable;
+    6: string dns_server;
 }
 
 struct VnIpamHostRoutes {
@@ -242,13 +245,14 @@ struct RouteL2SandeshData {
 }
 
 struct VrfSandeshData {
-    1: string name;                       // VRF name
+    1: string name;                           // VRF name
     2: i32 ucindex  (link="Inet4UcRouteReq"); // VRF Index INET4 UC Table
     3: i32 mcindex  (link="Inet4McRouteReq"); // VRF Index INET4 MC Table
     4: i32 l2index  (link="Layer2RouteReq"); // VRF Index L2 Table
     5: string source;                        // config or gateway
     6: i32 uc6index (link="Inet6UcRouteReq"); // VRF Index INET6 UC Table
     7: string vn (link="VnListReq");          // VN-Name
+    8: i32 table_label;                      //Label for route lookup on this vrf
 }
 
 struct MplsSandeshData {
@@ -811,6 +815,8 @@ struct VnObjectLogIpam {
     2: i32    prefix_len;
     3: optional string gateway_ip;
     4: string ipam_name;
+    5: string dhcp_enable;
+    6: string dns_server;
 }
 
 struct VnObjectLogInfo {

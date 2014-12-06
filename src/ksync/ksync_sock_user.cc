@@ -302,7 +302,6 @@ void KSyncSockTypeMap::VrfStatsAdd(int vrf_id) {
     vr_vrf_stats_req vrf_stats;
     vrf_stats.set_vsr_vrf(vrf_id);
     vrf_stats.set_vsr_family(AF_INET);
-    vrf_stats.set_vsr_type(RT_UCAST);
     vrf_stats.set_vsr_rid(0);
     vrf_stats.set_vsr_discards(0);
     vrf_stats.set_vsr_resolves(0);
@@ -312,9 +311,7 @@ void KSyncSockTypeMap::VrfStatsAdd(int vrf_id) {
     vrf_stats.set_vsr_gre_mpls_tunnels(0);
     vrf_stats.set_vsr_ecmp_composites(0);
     vrf_stats.set_vsr_fabric_composites(0);
-    vrf_stats.set_vsr_l3_mcast_composites(0);
     vrf_stats.set_vsr_l2_mcast_composites(0);
-    vrf_stats.set_vsr_multi_proto_composites(0);
     vrf_stats.set_vsr_encaps(0);
     vrf_stats.set_vsr_l2_encaps(0);
 
@@ -353,9 +350,7 @@ void KSyncSockTypeMap::VrfStatsUpdate(int vrf_id, uint64_t discards, uint64_t re
     vrf_stats.set_vsr_gre_mpls_tunnels(gre_mpls_tunnels);
     vrf_stats.set_vsr_ecmp_composites(ecmp_composites);
     vrf_stats.set_vsr_fabric_composites(fabric_composites);
-    vrf_stats.set_vsr_l3_mcast_composites(l3_mcast_composites);
     vrf_stats.set_vsr_l2_mcast_composites(l2_mcast_composites);
-    vrf_stats.set_vsr_multi_proto_composites(multi_proto_composites);
     vrf_stats.set_vsr_encaps(encaps);
     vrf_stats.set_vsr_l2_encaps(l2_encaps);
 }

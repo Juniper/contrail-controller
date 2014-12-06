@@ -71,7 +71,9 @@ void InterfaceTable::RegisterDBClients(IFMapDependencyManager *dep) {
         ("physical-interface-logical-interface",
          list_of("physical-router-physical-interface"))
         ("logical-interface-virtual-machine-interface",
-         list_of("physical-interface-logical-interface"));
+         list_of("physical-interface-logical-interface"))
+        ("logical-interface-virtual-machine-interface",
+         list_of("self"));
     dep->RegisterReactionMap("logical-interface", logical_port_react);
     dep->Register("logical-interface",
                   boost::bind(&InterfaceTable::ConfigEventHandler, this,
@@ -220,18 +222,23 @@ bool InterfaceTable::Resync(DBEntry *entry, DBRequest *req) {
 
     VmInterfaceData *vm_data = static_cast<VmInterfaceData *>(req->data.get());
     VmInterface *intf = static_cast<VmInterface *>(entry);
-    return intf->Resync(vm_data);
+    return intf->Resync(this, vm_data);
 }
 
 bool InterfaceTable::Delete(DBEntry *entry, const DBRequest *req) {
     Interface *intf = static_cast<Interface *>(entry);
-    intf->Delete();
-    if (intf->ifmap_node_ != NULL) {
-        operdb()->dependency_manager()->ResetObject(intf->ifmap_node_);
-        intf->ifmap_node_ = NULL;
+    bool ret = false;
+
+    if (intf->Delete(req)) {
+        intf->SendTrace(Interface::DELETE);
+        ret = true;
+
+        if (intf->ifmap_node_ != NULL) {
+            operdb()->dependency_manager()->ResetObject(intf->ifmap_node_);
+            intf->ifmap_node_ = NULL;
+        }
     }
-    intf->SendTrace(Interface::DELETE);
-    return true;
+    return ret;
 }
 
 VrfEntry *InterfaceTable::FindVrfRef(const string &name) const {
@@ -454,8 +461,9 @@ void PacketInterface::PostAdd() {
     InterfaceNH::CreatePacketInterfaceNh(name_);
 }
 
-void PacketInterface::Delete() {
+bool PacketInterface::Delete(const DBRequest *req) {
     flow_key_nh_= NULL;
+    return true;
 }
 
 // Enqueue DBRequest to create a Pkt Interface
@@ -657,24 +665,31 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
                 common_reason += "vn-admin-down ";
             }
 
-            if (vintf->vm() == NULL) {
-                common_reason += "vm-null ";
-            }
-
             if (vintf->vrf() == NULL) {
                 common_reason += "vrf-null ";
             }
 
-            if (vintf->os_index() == Interface::kInvalidIndex) {
+            if (vintf->subnet().is_unspecified() &&
+                vintf->os_index() == Interface::kInvalidIndex) {
                 common_reason += "no-dev ";
             }
 
-            if (vintf->os_oper_state() == false) {
-                common_reason += "os-state-down ";
+            if (vintf->NeedDevice()) {
+                if (vintf->os_index() == Interface::kInvalidIndex) {
+                    common_reason += "no-dev ";
+                }
+
+                if (vintf->os_oper_state() == false) {
+                    common_reason += "os-state-down ";
+                }
             }
 
             if (!ipv4_active_) {
-                string reason = "Inactive< " + common_reason;
+                if (vintf->layer3_forwarding() == false) {
+                    common_reason += "l3-disabled";
+                }
+
+                string reason = "L3 Inactive < " + common_reason;
                 if (vintf->ip_addr().to_ulong() == 0) {
                     reason += "no-ip-addr ";
                 }
@@ -683,7 +698,10 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             }
 
             if (!l2_active_) {
-                string reason = "Inactive L2< " + common_reason;
+                if (vintf->layer2_forwarding() == false) {
+                    common_reason += "l2-disabled";
+                }
+                string reason = "L2 Inactive < " + common_reason;
                 reason += " >";
                 data.set_l2_active(reason);
             }
@@ -799,6 +817,21 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         data.set_rx_vlan_id(vintf->rx_vlan_id());
         if (vintf->parent()) {
             data.set_parent_interface(vintf->parent()->name());
+        }
+        if (vintf->subnet().to_ulong() != 0) {
+            std::ostringstream str;
+            str << vintf->subnet().to_string() << "/"
+                << (int)vintf->subnet_plen();
+            data.set_subnet(str.str());
+        }
+        if (vintf->sub_type() == VmInterface::GATEWAY) {
+            data.set_sub_type("Gateway");
+        } else if (vintf->sub_type() == VmInterface::TOR) {
+            data.set_sub_type("TOR");
+        } else if (vintf->sub_type() == VmInterface::NOVA) {
+             data.set_sub_type("Tap");
+        } else {
+            data.set_sub_type("None");
         }
         break;
     }

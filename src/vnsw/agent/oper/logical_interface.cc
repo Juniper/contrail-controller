@@ -14,6 +14,7 @@
 #include <oper/interface_common.h>
 #include <oper/physical_device.h>
 #include <oper/logical_interface.h>
+#include <oper/vm_interface.h>
 
 #include <vector>
 #include <string>
@@ -27,7 +28,7 @@ using boost::uuids::uuid;
 /////////////////////////////////////////////////////////////////////////////
 LogicalInterface::LogicalInterface(const boost::uuids::uuid &uuid,
                                    const std::string &name) :
-    Interface(Interface::LOGICAL, uuid, name, NULL), fq_name_(),
+    Interface(Interface::LOGICAL, uuid, name, NULL), display_name_(),
     physical_interface_(), vm_interface_() {
 }
 
@@ -47,8 +48,8 @@ bool LogicalInterface::OnChange(const InterfaceTable *table,
                                 const LogicalInterfaceData *data) {
     bool ret = false;
 
-    if (fq_name_ != data->fq_name_) {
-        fq_name_ = data->fq_name_;
+    if (display_name_ != data->display_name_) {
+        display_name_ = data->display_name_;
         ret = true;
     }
 
@@ -89,8 +90,8 @@ VmInterface *LogicalInterface::vm_interface() const {
     return static_cast<VmInterface *>(vm_interface_.get());
 }
 
-PhysicalInterface *LogicalInterface::physical_interface() const {
-    return static_cast<PhysicalInterface *>(physical_interface_.get());
+Interface *LogicalInterface::physical_interface() const {
+    return static_cast<Interface *>(physical_interface_.get());
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -110,10 +111,10 @@ LogicalInterfaceKey::~LogicalInterfaceKey() {
 // LogicalInterfaceData routines
 //////////////////////////////////////////////////////////////////////////////
 LogicalInterfaceData::LogicalInterfaceData(IFMapNode *node,
-                                           const std::string &fq_name,
+                                           const std::string &display_name,
                                            const std::string &port,
                                            const boost::uuids::uuid &vif) :
-    InterfaceData(node), fq_name_(fq_name), physical_interface_(port),
+    InterfaceData(node), display_name_(display_name), physical_interface_(port),
     vm_interface_(vif) {
 }
 
@@ -182,10 +183,10 @@ InterfaceKey *VlanLogicalInterfaceKey::Clone() const {
 }
 
 VlanLogicalInterfaceData::VlanLogicalInterfaceData
-(IFMapNode *node, const std::string &fq_name,
+(IFMapNode *node, const std::string &display_name,
  const std::string &physical_interface,
  const boost::uuids::uuid &vif, uint16_t vlan) :
-    LogicalInterfaceData(node, fq_name, physical_interface, vif), vlan_(vlan) {
+    LogicalInterfaceData(node, display_name, physical_interface, vif), vlan_(vlan) {
 }
 
 VlanLogicalInterfaceData::~VlanLogicalInterfaceData() {
@@ -202,11 +203,12 @@ void VlanLogicalInterface::SetSandeshData(SandeshLogicalInterface *data) const {
 void LogicalInterface::ConfigEventHandler(IFMapNode *node) {
 }
 
-static LogicalInterfaceKey *BuildKey(const autogen::LogicalInterface *port) {
+static LogicalInterfaceKey *BuildKey(IFMapNode *node,
+                                     const autogen::LogicalInterface *port) {
     autogen::IdPermsType id_perms = port->id_perms();
     boost::uuids::uuid u;
     CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
-    return new VlanLogicalInterfaceKey(u, port->display_name());
+    return new VlanLogicalInterfaceKey(u, node->name());
 }
 
 static LogicalInterfaceData *BuildData(const Agent *agent, IFMapNode *node,
@@ -233,7 +235,7 @@ static LogicalInterfaceData *BuildData(const Agent *agent, IFMapNode *node,
                    vmi_uuid);
     }
 
-    return new VlanLogicalInterfaceData(node, node->name(), physical_interface,
+    return new VlanLogicalInterfaceData(node, port->display_name(), physical_interface,
                                         vmi_uuid, port->vlan_tag());
 }
 
@@ -243,7 +245,7 @@ bool InterfaceTable::LogicalInterfaceIFNodeToReq(IFMapNode *node,
         static_cast <autogen::LogicalInterface *>(node->GetObject());
     assert(port);
 
-    req.key.reset(BuildKey(port));
+    req.key.reset(BuildKey(node, port));
     if (node->IsDeleted()) {
         req.oper = DBRequest::DB_ENTRY_DELETE;
         return true;
@@ -260,7 +262,10 @@ bool InterfaceTable::LogicalInterfaceIFNodeToReq(IFMapNode *node,
 
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.data.reset(BuildData(agent(), node, port));
-    return true;
+
+    Enqueue(&req);
+    VmInterface::LogicalPortSync(this, node);
+    return false;
 }
 
 #if 0

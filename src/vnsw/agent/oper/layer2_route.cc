@@ -149,6 +149,7 @@ void Layer2AgentRouteTable::AddLayer2BroadcastRoute(const Peer *peer,
                                                     uint32_t label,
                                                     int vxlan_id,
                                                     uint32_t ethernet_tag,
+                                                    uint32_t tunnel_type,
                                                     COMPOSITETYPE type,
                                                     ComponentNHKeyList
                                                     &component_nh_key_list) {
@@ -169,10 +170,27 @@ void Layer2AgentRouteTable::AddLayer2BroadcastRoute(const Peer *peer,
     req.key.reset(new Layer2RouteKey(peer, vrf_name, ethernet_tag));
     req.data.reset(new MulticastRoute(vn_name, label,
                                       ((peer->GetType() == Peer::BGP_PEER) ?
-                                      ethernet_tag : vxlan_id), nh_req));
+                                      ethernet_tag : vxlan_id), tunnel_type,
+                                      nh_req));
     Layer2TableEnqueue(Agent::GetInstance(), &req);
 }
 
+void Layer2AgentRouteTable::AddLayer2ReceiveRoute(const Peer *peer,
+                                                  const string &vrf_name,
+                                                  const string &vn_name,
+                                                  const MacAddress &mac,
+                                                  const string &interface,
+                                                  bool policy) {
+    Agent *agent = Agent::GetInstance();
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new Layer2RouteKey(peer, vrf_name, mac, 0));
+
+    PacketInterfaceKey intf_key(nil_uuid(), agent->pkt_interface_name());
+    req.data.reset(new HostRoute(intf_key, vn_name));
+
+    Layer2TableEnqueue(agent, &req);
+}
 
 void Layer2AgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
                                                 const string &vrf_name,
@@ -304,151 +322,6 @@ uint32_t Layer2RouteEntry::GetActiveLabel() const {
         label = GetActivePath()->GetActiveLabel();
     }
     return label;
-}
-
-bool Layer2RouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
-    if (path->peer() == NULL) {
-        return false;
-    }
-
-    Agent *agent =
-        (static_cast<InetUnicastAgentRouteTable *> (get_table()))->agent();
-    std::vector<AgentPath *> delete_paths;
-    if (del && (path->peer() == agent->multicast_peer()))
-        return false;
-
-    //Possible paths:
-    //EVPN path - can be from multiple peers.
-    //Fabric path - from multicast builder
-    //Multicast peer
-    AgentPath *multicast_peer_path = NULL;
-    AgentPath *local_peer_path = NULL;
-    AgentPath *evpn_peer_path = NULL;
-    AgentPath *fabric_peer_path = NULL;
-
-    //Delete path label
-    if (del) {
-        MplsLabel::DeleteReq(path->label());
-    }
-
-    for (Route::PathList::iterator it = GetPathList().begin();
-        it != GetPathList().end(); it++) {
-        AgentPath *it_path =
-            static_cast<AgentPath *>(it.operator->());
-        //Handle deletions
-        if (del && (path->peer() == it_path->peer())) {
-            continue;
-        }
-
-        //Handle Add/Changes
-        if (it_path->peer() == agent->local_vm_peer()) {
-            local_peer_path = it_path;
-        } else if (it_path->peer()->GetType() == Peer::BGP_PEER) {
-            //Pick up the first peer.
-            if (evpn_peer_path == NULL)
-                evpn_peer_path = it_path;
-        } else if (it_path->peer()->GetType() ==
-                   Peer::MULTICAST_FABRIC_TREE_BUILDER) {
-            fabric_peer_path = it_path;
-        } else if (it_path->peer() == agent->multicast_peer()) {
-            multicast_peer_path = it_path;
-        }
-    }
-
-    //all paths are gone so delete multicast_peer path as well
-    if ((local_peer_path == NULL) &&
-        (evpn_peer_path == NULL) &&
-        (fabric_peer_path == NULL) &&
-        (multicast_peer_path != NULL)) {
-        RemovePath(multicast_peer_path);
-        return true;
-    }
-
-    uint32_t old_fabric_mpls_label = 0;
-    if (multicast_peer_path == NULL) {
-        multicast_peer_path = new AgentPath(agent->multicast_peer(), NULL);
-        InsertPath(multicast_peer_path);
-    } else {
-        old_fabric_mpls_label = multicast_peer_path->label();
-    }
-
-    ComponentNHKeyList component_nh_list;
-
-    if (evpn_peer_path) {
-        NextHopKey *evpn_peer_key =
-            static_cast<NextHopKey *>((evpn_peer_path->
-                        nexthop(agent)->GetDBRequestKey()).release());
-        std::auto_ptr<const NextHopKey> key2(evpn_peer_key);
-        ComponentNHKeyPtr component_nh_data2(new ComponentNHKey(0, key2));
-        component_nh_list.push_back(component_nh_data2);
-    }
-
-    if (fabric_peer_path) {
-        NextHopKey *fabric_peer_key =
-            static_cast<NextHopKey *>((fabric_peer_path->
-                        nexthop(agent)->GetDBRequestKey()).release());
-        std::auto_ptr<const NextHopKey> key3(fabric_peer_key);
-        ComponentNHKeyPtr component_nh_data3(new ComponentNHKey(0, key3));
-        component_nh_list.push_back(component_nh_data3);
-    }
-
-    if (local_peer_path) {
-        NextHopKey *local_peer_key =
-            static_cast<NextHopKey *>((local_peer_path->
-                        nexthop(agent)->GetDBRequestKey()).release());
-        std::auto_ptr<const NextHopKey> key1(local_peer_key);
-        ComponentNHKeyPtr component_nh_data1(new ComponentNHKey(0, key1));
-        component_nh_list.push_back(component_nh_data1);
-    }
-
-    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    nh_req.key.reset(new CompositeNHKey(Composite::L2COMP,
-                                        false,
-                                        component_nh_list,
-                                        vrf()->GetName()));
-    nh_req.data.reset(new CompositeNHData());
-    agent->nexthop_table()->Process(nh_req);
-    NextHop *nh = static_cast<NextHop *>(agent->nexthop_table()->
-                                 FindActiveEntry(nh_req.key.get()));
-    //NH may not get added if VRF is marked for delete. Route may be in
-    //transition of getting deleted, skip NH modification.
-    if (!nh) {
-        return false;
-    }
-
-    bool ret = MulticastRoute::CopyPathParameters(agent,
-                                      multicast_peer_path,
-                                      (local_peer_path ? local_peer_path->
-                                      dest_vn_name() : ""),
-                                      (local_peer_path ? local_peer_path->
-                                      unresolved() : false),
-                                      (local_peer_path ? local_peer_path->
-                                       vxlan_id() : 0),
-                                      (fabric_peer_path ? fabric_peer_path->
-                                       label() : 0),
-                                      TunnelType::AllType(),
-                                      false,
-                                      nh);
-
-    //Bake all MPLS label
-    if (fabric_peer_path) {
-        //Add new label
-        MplsLabel::CreateMcastLabelReq(fabric_peer_path->label(),
-                                       Composite::L2COMP,
-                                       component_nh_list,
-                                       vrf()->GetName());
-        //Delete Old label, in case label has changed for same peer.
-        if (old_fabric_mpls_label != fabric_peer_path->label()) {
-            MplsLabel::DeleteReq(old_fabric_mpls_label);
-        }
-    }
-    if (evpn_peer_path) {
-        MplsLabel::CreateMcastLabelReq(evpn_peer_path->label(),
-                                       Composite::L2COMP,
-                                       component_nh_list,
-                                       vrf()->GetName());
-    }
-    return ret;
 }
 
 string Layer2RouteEntry::ToString() const {

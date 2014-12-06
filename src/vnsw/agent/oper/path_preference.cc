@@ -732,9 +732,11 @@ void PathPreferenceModule::IntfNotify(DBTablePartBase *partition,
     PathPreferenceIntfState *intf_state =
         static_cast<PathPreferenceIntfState *>(e->GetState(partition->parent(),
                                                             intf_id_));
-    if (intf->IsDeleted() && intf_state) {
-        e->ClearState(partition->parent(), intf_id_);
-        delete intf_state;
+    if (intf->IsDeleted()) {
+        if (intf_state) {
+            e->ClearState(partition->parent(), intf_id_);
+            delete intf_state;
+        }
         return;
     }
 

@@ -28,19 +28,22 @@ struct VnIpam {
     IpAddress ip_prefix;
     uint32_t   plen;
     IpAddress default_gw;
+    // In case of TSN, we could have different addresses for default_gw & dns
+    IpAddress dns_server;
     bool       installed;    // is the route to send pkts to host installed
     bool       dhcp_enable;
     std::string ipam_name;
     OperDhcpOptions oper_dhcp_options;
 
     VnIpam(const std::string& ip, uint32_t len, const std::string& gw,
-           bool dhcp, std::string &name,
+           const std::string& dns, bool dhcp, std::string &name,
            const std::vector<autogen::DhcpOptionType> &dhcp_options,
            const std::vector<autogen::RouteType> &host_routes)
         : plen(len), installed(false), dhcp_enable(dhcp), ipam_name(name) {
         boost::system::error_code ec;
         ip_prefix = IpAddress::from_string(ip, ec);
         default_gw = IpAddress::from_string(gw, ec);
+        dns_server = IpAddress::from_string(dns, ec);
         oper_dhcp_options.set_options(dhcp_options);
         oper_dhcp_options.set_host_routes(host_routes);
     }
@@ -141,7 +144,7 @@ struct VnData : public AgentData {
 class VnEntry : AgentRefCount<VnEntry>, public AgentDBEntry {
 public:
     VnEntry(uuid id) : uuid_(id), vxlan_id_(0), vnid_(0), layer2_forwarding_(true), 
-    layer3_forwarding_(true), admin_state_(true) { }
+    layer3_forwarding_(true), admin_state_(true), table_label_(0) { }
     virtual ~VnEntry() { };
 
     virtual bool IsLess(const DBEntry &rhs) const;
@@ -211,6 +214,7 @@ private:
     bool layer3_forwarding_;
     bool admin_state_;
     VxLanIdRef vxlan_id_ref_;
+    uint32_t table_label_;
     DISALLOW_COPY_AND_ASSIGN(VnEntry);
 };
 
@@ -250,15 +254,16 @@ private:
     static VnTable *vn_table_;
     bool IpamChangeNotify(std::vector<VnIpam> &old_ipam, 
                           std::vector<VnIpam> &new_ipam, VnEntry *vn);
-    void UpdateSubnetGateway(const VnIpam &old_ipam, const VnIpam &new_ipam, 
-                             VnEntry *vn);
+    void UpdateHostRoute(const IpAddress &old_address,
+                         const IpAddress &new_address, VnEntry *vn);
     void AddIPAMRoutes(VnEntry *vn, VnIpam &ipam);
     void DelIPAMRoutes(VnEntry *vn, VnIpam &ipam);
     void DeleteAllIpamRoutes(VnEntry *vn);
     void AddSubnetRoute(VnEntry *vn, VnIpam &ipam);
     void DelSubnetRoute(VnEntry *vn, VnIpam &ipam);
-    void AddHostRouteForGw(VnEntry *vn, const VnIpam &ipam);
-    void DelHostRouteForGw(VnEntry *vn, const VnIpam &ipam);
+    bool IsGwHostRouteRequired();
+    void AddHostRoute(VnEntry *vn, const IpAddress &address);
+    void DelHostRoute(VnEntry *vn, const IpAddress &address);
     bool ChangeHandler(DBEntry *entry, const DBRequest *req);
     bool IsGatewayL2(const string &gateway) const;
     IFMapNode *FindTarget(IFMapAgentTable *table, IFMapNode *node, 

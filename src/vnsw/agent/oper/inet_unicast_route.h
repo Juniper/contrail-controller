@@ -8,6 +8,7 @@
 class VlanNhRoute;
 class LocalVmRoute;
 class InetInterfaceRoute;
+class ClonedLocalPath;
 
 //////////////////////////////////////////////////////////////////
 //  UNICAST INET
@@ -69,6 +70,7 @@ public:
     virtual bool ReComputePathAdd(AgentPath *path);
     virtual bool EcmpAddPath(AgentPath *path);
     virtual bool EcmpDeletePath(AgentPath *path);
+    virtual bool is_multicast() const;
     void AppendEcmpPath(Agent *agent, AgentPath *path);
     void DeleteComponentNH(Agent *agent, AgentPath *path);
 
@@ -156,6 +158,11 @@ public:
     InetUnicastRouteEntry *FindRoute(const IpAddress &ip) {
         return FindLPM(ip);
     }
+
+    const InetUnicastRouteEntry *GetNext(const InetUnicastRouteEntry *rt) {
+        return static_cast<const InetUnicastRouteEntry *>(tree_.FindNext(rt));
+    }
+
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static void ReEvaluatePaths(const string &vrf_name, 
                                const IpAddress &ip, uint8_t plen);
@@ -186,6 +193,13 @@ public:
                                 bool force_policy,
                                 const PathPreference &path_preference,
                                 const IpAddress &subnet_gw_ip);
+    static void AddSubnetBroadcastRoute(const Peer *peer,
+                                        const string &vrf_name,
+                                        const IpAddress &src_addr,
+                                        const IpAddress &grp_addr,
+                                        const string &vn_name,
+                                        ComponentNHKeyList
+                                        &component_nh_key_list);
     static void AddRemoteVmRouteReq(const Peer *peer, const string &vm_vrf,
                                     const IpAddress &vm_addr,uint8_t plen,
                                     AgentRouteData *data);
@@ -207,17 +221,34 @@ public:
     InetUnicastRouteEntry *FindResolveRoute(const Ip4Address &ip);
     static InetUnicastRouteEntry *FindResolveRoute(const string &vrf_name, 
                                                    const Ip4Address &ip);
-    static void CheckAndAddArpReq(const string &vrf_name, const Ip4Address &ip);
-    static void AddArpReq(const string &vrf_name, const Ip4Address &ip);
+    static void CheckAndAddArpReq(const string &vrf_name, const Ip4Address &ip,
+                                  const Interface *intf,
+                                  const std::string &vn_name,
+                                  const SecurityGroupList &sg);
+    static void AddArpReq(const string &route_vrf_name,
+                          const Ip4Address &ip,
+                          const string &nh_vrf_name,
+                          const Interface *intf,
+                          bool policy, const string &dest_vn_name,
+                          const SecurityGroupList &sg_list);
     static void ArpRoute(DBRequest::DBOperation op,
+                         const string &route_vrf_name,
                          const Ip4Address &ip,
                          const MacAddress &mac,
-                         const string &vrf_name,
+                         const string &nh_vrf_name,
                          const Interface &intf,
                          bool resolved,
-                         const uint8_t plen);
-    static void AddResolveRoute(const string &vrf_name, const Ip4Address &ip,
-                                const uint8_t plen);
+                         const uint8_t plen,
+                         bool policy,
+                         const string &dest_vn_name,
+                         const SecurityGroupList &sg_list);
+    static void AddResolveRoute(const Peer *peer,
+                                const string &vrf_name, const Ip4Address &ip,
+                                const uint8_t plen,
+                                const InterfaceKey &intf_key,
+                                const uint32_t label, bool policy,
+                                const std::string &vn_name,
+                                const SecurityGroupList &sg_list);
     void AddInetInterfaceRouteReq(const Peer *peer, const string &vm_vrf,
                                   const Ip4Address &addr, uint8_t plen,
                                   InetInterfaceRoute *data);
@@ -243,17 +274,29 @@ public:
     static void AddDropRoute(const string &vm_vrf,
                              const Ip4Address &addr, uint8_t plen,
                              const string &vn_name);
-    static void AddGatewayRoute(const string &vrf_name,
+    static void AddGatewayRoute(const Peer *peer,
+                                const string &vrf_name,
                                 const Ip4Address &dst_addr,uint8_t plen,
                                 const Ip4Address &gw_ip,
-                                const std::string &vn_name);
-    static void AddGatewayRouteReq(const string &vrf_name,
+                                const std::string &vn_name, uint32_t label,
+                                const SecurityGroupList &sg_list);
+    static void AddGatewayRouteReq(const Peer *peer,
+                                   const string &vrf_name,
                                    const Ip4Address &dst_addr,uint8_t plen,
                                    const Ip4Address &gw_ip,
-                                   const std::string &vn_name);
+                                   const std::string &vn_name, uint32_t label,
+                                   const SecurityGroupList &sg_list);
     void AddSubnetRoute(const string &vm_vrf, const IpAddress &addr,
                         uint8_t plen, const string &vn_name,
                         uint32_t vxlan_id);
+    void AddInterfaceRouteReq(Agent *agent, const Peer *peer,
+                              const string &vrf_name,
+                              const Ip4Address &ip, uint8_t plen,
+                              const Interface *interface,
+                              const std::string &vn_name);
+    void AddClonedLocalPathReq(const Peer *peer, const string &vm_vrf,
+                               const IpAddress &addr,
+                               uint8_t plen, ClonedLocalPath *data);
 
 private:
     Agent::RouteTableType type_;

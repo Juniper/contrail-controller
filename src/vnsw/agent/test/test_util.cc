@@ -180,6 +180,7 @@ void AddNodeString(char *buff, int &len, const char *nodename, const char *name,
         str << "                       <ip-prefix-len>" << ipam[i].plen << "</ip-prefix-len>\n";
         str << "                   </subnet>\n";
         str << "                   <default-gateway>" << ipam[i].gw << "</default-gateway>\n";
+        str << "                   <dns-server-address>" << ipam[i].gw << "</dns-server-address>\n";
         str << "                   <enable-dhcp>" << dhcp_enable << "</enable-dhcp>\n";
         if (add_subnet_tags)
             str <<                 add_subnet_tags << "\n";
@@ -643,10 +644,10 @@ bool VrfStatsMatch(int vrf_id, std::string vrf_name, bool stats_match,
         st->udp_mpls_tunnels == udp_mpls_tunnels &&
         st->gre_mpls_tunnels == gre_mpls_tunnels &&
         st->ecmp_composites == ecmp_composites &&
-        st->l3_mcast_composites == l3_mcast_composites &&
+        //st->l3_mcast_composites == l3_mcast_composites &&
         st->l2_mcast_composites == l2_mcast_composites &&
         st->fabric_composites == fabric_composites &&
-        st->multi_proto_composites == multi_proto_composites &&
+        //st->multi_proto_composites == multi_proto_composites &&
         st->l2_encaps == l2_encaps && st->encaps == encaps) {
         return true;
     }
@@ -683,10 +684,10 @@ bool VrfStatsMatchPrev(int vrf_id, uint64_t discards, uint64_t resolves,
         st->prev_udp_mpls_tunnels == udp_mpls_tunnels &&
         st->prev_gre_mpls_tunnels == gre_mpls_tunnels &&
         st->prev_ecmp_composites == ecmp_composites &&
-        st->prev_l3_mcast_composites == l3_mcast_composites &&
+        //st->prev_l3_mcast_composites == l3_mcast_composites &&
         st->prev_l2_mcast_composites == l2_mcast_composites &&
         st->prev_fabric_composites == fabric_composites &&
-        st->prev_multi_proto_composites == multi_proto_composites &&
+        //st->prev_multi_proto_composites == multi_proto_composites &&
         st->prev_l2_encaps == l2_encaps && st->prev_encaps == encaps) {
         return true;
     }
@@ -1267,9 +1268,10 @@ bool AddArp(const char *ip, const char *mac_str, const char *ifname) {
     intf = static_cast<Interface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     boost::system::error_code ec;
     InetUnicastAgentRouteTable::ArpRoute(DBRequest::DB_ENTRY_ADD_CHANGE,
+                              Agent::GetInstance()->fabric_vrf_name(),
                               Ip4Address::from_string(ip, ec), mac,
                               Agent::GetInstance()->fabric_vrf_name(),
-                              *intf, true, 32);
+                              *intf, true, 32, false, "", SecurityGroupList());
 
     return true;
 }
@@ -1281,8 +1283,10 @@ bool DelArp(const string &ip, const char *mac_str, const string &ifname) {
     intf = static_cast<Interface *>(Agent::GetInstance()->interface_table()->FindActiveEntry(&key));
     boost::system::error_code ec;
     InetUnicastAgentRouteTable::ArpRoute(DBRequest::DB_ENTRY_DELETE,
+                              Agent::GetInstance()->fabric_vrf_name(),
                               Ip4Address::from_string(ip, ec),
-                              mac, Agent::GetInstance()->fabric_vrf_name(), *intf, false, 32);
+                              mac, Agent::GetInstance()->fabric_vrf_name(), *intf,
+                              false, 32, false, "", SecurityGroupList());
     return true;
 }
 
@@ -1341,10 +1345,17 @@ void DelVn(const char *name) {
 }
 
 void AddPort(const char *name, int id, const char *attr) {
-    if (attr)
-        AddNode("virtual-machine-interface", name, id, attr);
-    else
-        AddNode("virtual-machine-interface", name, id);
+    std::stringstream str;
+    str << "<virtual-machine-interface-mac-addresses>" << endl;
+    str << "    <mac-address>00:00:00:00:00:" << id << "</mac-address>"
+        << endl;
+    str << "</virtual-machine-interface-mac-addresses>" << endl;
+
+    char buff[1028];
+    strcpy(buff, str.str().c_str());
+    if (attr != NULL)
+        strcat(buff, attr);
+    AddNode("virtual-machine-interface", name, id, buff);
 }
 
 void AddPortByStatus(const char *name, int id, bool admin_status) {
@@ -1555,6 +1566,16 @@ void AddActiveActiveInstanceIp(const char *name, int id, const char *addr) {
 
 void DelInstanceIp(const char *name) {
     DelNode("instance-ip", name);
+}
+
+void AddSubnetType(const char *name, int id, const char *addr, uint8_t plen) {
+
+    char buf[1024];
+    sprintf(buf, "<subnet-ip-prefix>\n"
+                 "<ip-prefix>%s</ip-prefix>\n"
+                 "<ip-prefix-len>%d</ip-prefix-len>\n"
+                 "</subnet-ip-prefix>", addr, plen);
+    AddNode("subnet", name, id, buf);
 }
 
 void AddVmPortVrf(const char *name, const string &ip, uint16_t tag) {
@@ -2683,6 +2704,9 @@ int MplsToVrfId(int label) {
             if (intf && intf->GetServiceVlanVrf(nh1->GetVlanTag())) {
                 vrf = intf->GetServiceVlanVrf(nh1->GetVlanTag())->vrf_id();
             }
+        } else if (nh->GetType() == NextHop::VRF) {
+            const VrfNH *vrf_nh = static_cast<const VrfNH *>(nh);
+            vrf = vrf_nh->GetVrf()->vrf_id();
         } else {
             assert(0);
         }
@@ -2909,20 +2933,22 @@ void DeleteBgpPeer(Peer *peer) {
 void FillEvpnNextHop(BgpPeer *peer, std::string vrf_name,
                      uint32_t label, uint32_t bmap) {
     TunnelOlist evpn_olist_map;
-    evpn_olist_map.push_back(OlistTunnelEntry(label,
+    evpn_olist_map.push_back(OlistTunnelEntry(nil_uuid(), label,
                                               IpAddress::from_string("8.8.8.8").to_v4(),
                                               bmap));
-    MulticastHandler::ModifyEvpnMembers(peer, vrf_name,
-                                        evpn_olist_map, 0);
+    Agent::GetInstance()->oper_db()->multicast()->
+        ModifyEvpnMembers(peer, vrf_name,
+                          evpn_olist_map, 0);
     client->WaitForIdle();
 }
 
 void FlushEvpnNextHop(BgpPeer *peer, std::string vrf_name,
                       uint32_t tag) {
     TunnelOlist evpn_olist_map;
-    MulticastHandler::ModifyEvpnMembers(peer, vrf_name,
-                                        evpn_olist_map, tag,
-                                        ControllerPeerPath::kInvalidPeerIdentifier);
+    Agent::GetInstance()->oper_db()->multicast()->
+        ModifyEvpnMembers(peer, vrf_name,
+                          evpn_olist_map, tag,
+                          ControllerPeerPath::kInvalidPeerIdentifier);
     client->WaitForIdle();
 }
 

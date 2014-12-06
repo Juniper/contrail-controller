@@ -67,6 +67,11 @@ bool RemotePhysicalInterface::OnChange(const InterfaceTable *table,
         ret = true;
     }
 
+    if (display_name_ != data->display_name_) {
+        display_name_ = data->display_name_;
+        ret = true;
+    }
+
     return ret;
 }
 
@@ -119,10 +124,8 @@ RemotePhysicalInterfaceData::~RemotePhysicalInterfaceData() {
 /////////////////////////////////////////////////////////////////////////////
 // Config handling routines
 /////////////////////////////////////////////////////////////////////////////
-static RemotePhysicalInterfaceKey *BuildKey
-(const autogen::PhysicalInterface *port) {
-    autogen::IdPermsType id_perms = port->id_perms();
-    return new RemotePhysicalInterfaceKey(port->display_name());
+static RemotePhysicalInterfaceKey *BuildKey(IFMapNode *node) {
+    return new RemotePhysicalInterfaceKey(node->name());
 }
 
 static RemotePhysicalInterfaceData *BuildData
@@ -150,7 +153,7 @@ bool InterfaceTable::RemotePhysicalInterfaceIFNodeToReq(IFMapNode *node,
         static_cast <autogen::PhysicalInterface *>(node->GetObject());
     assert(port);
 
-    req.key.reset(BuildKey(port));
+    req.key.reset(BuildKey(node));
     if (node->IsDeleted()) {
         req.oper = DBRequest::DB_ENTRY_DELETE;
         return true;
