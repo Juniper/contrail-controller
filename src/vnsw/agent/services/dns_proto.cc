@@ -12,6 +12,7 @@
 #include "pkt/pkt_init.h"
 #include "controller/controller_dns.h"
 #include "oper/vn.h"
+#include "oper/route_common.h"
 
 void DnsProto::Shutdown() {
 }
@@ -51,6 +52,11 @@ DnsProto::DnsProto(Agent *agent, boost::asio::io_service &io) :
                   boost::bind(&DnsProto::InterfaceNotify, this, _2));
     Vnlid_ = agent->vn_table()->Register(
                   boost::bind(&DnsProto::VnNotify, this, _2));
+    if (agent->tsn_enabled()) {
+        vrf_table_listener_id_ =
+            agent->vrf_table()->Register(boost::bind(&DnsProto::VrfNotify,
+                                                     this, _2));
+    }
     agent->domain_config_table()->RegisterIpamCb(
                   boost::bind(&DnsProto::IpamNotify, this, _1));
     agent->domain_config_table()->RegisterVdnsCb(
@@ -67,6 +73,9 @@ DnsProto::DnsProto(Agent *agent, boost::asio::io_service &io) :
 DnsProto::~DnsProto() {
     agent_->interface_table()->Unregister(lid_);
     agent_->vn_table()->Unregister(Vnlid_);
+    if (agent_->tsn_enabled()) {
+        agent_->vrf_table()->Unregister(vrf_table_listener_id_);
+    }
 }
 
 ProtoHandler *DnsProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,
@@ -186,6 +195,27 @@ void DnsProto::VnNotify(DBEntryBase *entry) {
                     fip_vdns_name, fip_vdns_type);
         CheckForFipUpdate(entry, fip_vdns_name, fip_vdns_type);
         ++it;
+    }
+}
+
+void DnsProto::VrfNotify(DBEntryBase *entry) {
+    VrfEntry *vrf = static_cast<VrfEntry *>(entry);
+    if (vrf->GetName() == agent_->fabric_vrf_name())
+        return;
+    MacAddress address(agent_->vhost_interface()->mac());
+
+    if (entry->IsDeleted()) {
+        Layer2AgentRouteTable::Delete(agent_->local_peer(), vrf->GetName(), -1,
+                                      address);
+        return;
+    }
+
+    if (vrf->vn()) {
+        Layer2AgentRouteTable::AddLayer2ReceiveRoute(agent_->local_peer(),
+                                                     vrf->GetName(),
+                                                     vrf->vn()->GetName(),
+                                                     address,
+                                                     "pkt0", true);
     }
 }
 

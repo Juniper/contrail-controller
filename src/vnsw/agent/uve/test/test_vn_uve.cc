@@ -101,9 +101,8 @@ public:
         client->Reset();
         DeleteVmportEnv(input, 2, true, 1);
         client->WaitForIdle(3);
-        client->PortDelNotifyWait(2);
-        EXPECT_FALSE(VmPortFind(input, 0));
-        EXPECT_FALSE(VmPortFind(input, 1));
+        WAIT_FOR(1000, 1000, (VmPortFind(input, 0) == false));
+        WAIT_FOR(1000, 1000, (VmPortFind(input, 1) == false));
         EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
     }
 
@@ -479,7 +478,7 @@ TEST_F(UveVnUveTest, FlowCount_1) {
     EXPECT_EQ(4U, uve1->get_egress_flow_count());
 
     DeleteFlow(flow, 1);
-    WAIT_FOR(1000, 500,
+    WAIT_FOR(1000, 1000,
              ((Agent::GetInstance()->pkt()->flow_table()->Size() == 2U)));
     vnut->SendVnStats(false);
     EXPECT_EQ(2U, uve1->get_ingress_flow_count());
@@ -507,11 +506,13 @@ TEST_F(UveVnUveTest, FlowCount_2) {
     util_.CreateRemoteRoute("vrf5", remote_vm4_ip, remote_router_ip, 8, "vn3",
                             peer_);
 
+    VmInterface *intf = VmInterfaceGet(input[0].intf_id);
+    EXPECT_TRUE(intf != NULL);
     TestFlow flow[] = {
         //Send an ICMP flow from remote VM in vn3 to local VM in vn5
         {
             TestFlowPkt(Address::INET, remote_vm4_ip, vm1_ip, 1, 0, 0, "vrf5",
-                        remote_router_ip, 16),
+                        remote_router_ip, intf->label()),
             { 
                 new VerifyVn("vn3", "vn5"),
             }
@@ -519,7 +520,7 @@ TEST_F(UveVnUveTest, FlowCount_2) {
         //Send a TCP flow from remote VM in vn3 to local VM in vn5
         {
             TestFlowPkt(Address::INET, remote_vm4_ip, vm1_ip, IPPROTO_TCP,
-                        1006, 1007, "vrf5", remote_router_ip, 16),
+                        1006, 1007, "vrf5", remote_router_ip, intf->label()),
             {
                 new VerifyVn("vn3", "vn5"),
             }
@@ -550,7 +551,7 @@ TEST_F(UveVnUveTest, FlowCount_2) {
 
     //Delete a flow
     DeleteFlow(flow, 1);
-    WAIT_FOR(1000, 500,
+    WAIT_FOR(1000, 1000,
              ((Agent::GetInstance()->pkt()->flow_table()->Size() == 2U)));
 
     //Trigger VN UVE send

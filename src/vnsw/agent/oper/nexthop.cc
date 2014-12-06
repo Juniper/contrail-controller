@@ -305,10 +305,12 @@ void ArpNH::SetKey(const DBRequestKey *k) {
 
 bool ArpNH::Change(const DBRequest *req) {
     bool ret= false;
+    const ArpNHKey *key = static_cast<const ArpNHKey *>(req->key.get());
     const ArpNHData *data = static_cast<const ArpNHData *>(req->data.get());
 
-    if (!data->valid_) {
-        return ret;
+    if (policy_ != key->policy_) {
+        policy_ = key->policy_;
+        ret = true;
     }
 
     if (valid_ != data->resolved_) {
@@ -316,16 +318,20 @@ bool ArpNH::Change(const DBRequest *req) {
         ret =  true;
     }
 
-    if (data->resolved_ != true) {
-        // If ARP is not resolved, interface and mac will be invalid
-        interface_ = NULL;
-        return ret;
-    }
-
-    Interface *interface = NextHopTable::GetInstance()->FindInterface(*data->intf_key_.get());
+    Interface *interface = NextHopTable::GetInstance()->FindInterface
+        (*data->intf_key_.get());
     if (interface_.get() != interface) {
         interface_ = interface;
         ret = true;
+    }
+
+    if (!data->valid_) {
+        return ret;
+    }
+
+    if (data->resolved_ != true) {
+        // If ARP is not resolved mac will be invalid
+        return ret;
     }
 
     if (mac_.CompareTo(data->mac_) != 0) {
@@ -341,7 +347,7 @@ const uint32_t ArpNH::vrf_id() const {
 }
 
 ArpNH::KeyPtr ArpNH::GetDBRequestKey() const {
-    NextHopKey *key = new ArpNHKey(vrf_->GetName(), ip_);
+    NextHopKey *key = new ArpNHKey(vrf_->GetName(), ip_, policy_);
     return DBEntryBase::KeyPtr(key);
 }
 
@@ -736,7 +742,14 @@ bool TunnelNH::Change(const DBRequest *req) {
         //Trigger ARP resolution
         valid = false;
         rt_table->AddUnresolvedNH(this);
-        InetUnicastAgentRouteTable::AddArpReq(GetVrf()->GetName(), dip_);
+        const ResolveNH *nh =
+            static_cast<const ResolveNH *>(rt->GetActiveNextHop());
+        InetUnicastAgentRouteTable::AddArpReq(GetVrf()->GetName(), dip_,
+                                              nh->interface()->vrf()->GetName(),
+                                              nh->interface(),
+                                              nh->PolicyEnabled(),
+                                              rt->GetActivePath()->dest_vn_name(),
+                                              rt->GetActivePath()->sg_list());
         rt = NULL;
     } else {
         valid = rt->GetActiveNextHop()->IsValid();
@@ -842,7 +855,14 @@ bool MirrorNH::Change(const DBRequest *req) {
         //Trigger ARP resolution
         valid = false;
         rt_table->AddUnresolvedNH(this);
-        InetUnicastAgentRouteTable::AddArpReq(GetVrf()->GetName(), dip_);
+        const ResolveNH *nh =
+            static_cast<const ResolveNH *>(rt->GetActiveNextHop());
+        InetUnicastAgentRouteTable::AddArpReq(GetVrf()->GetName(), dip_,
+                                              nh->interface()->vrf()->GetName(),
+                                              nh->interface(),
+                                              nh->PolicyEnabled(),
+                                              rt->GetActivePath()->dest_vn_name(),
+                                              rt->GetActivePath()->sg_list());
         rt = NULL;
     } else {
         valid = rt->GetActiveNextHop()->IsValid();
@@ -958,18 +978,27 @@ void ReceiveNH::SendObjectLog(AgentLogEvent::type event) const {
 // ResolveNH routines
 /////////////////////////////////////////////////////////////////////////////
 NextHop *ResolveNHKey::AllocEntry() const {
-    return new ResolveNH();
+    Interface *intf = static_cast<Interface *>
+        (Agent::GetInstance()->interface_table()->Find(intf_key_.get(), true));
+    return new ResolveNH(intf, policy_);
 }
 
 bool ResolveNH::CanAdd() const {
     return true;
 }
 
-void ResolveNH::Create( ) {
+void ResolveNH::Create(const InterfaceKey *intf, bool policy) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new ResolveNHKey());
+    req.key.reset(new ResolveNHKey(intf, policy));
     req.data.reset(new ResolveNHData());
     NextHopTable::GetInstance()->Process(req);
+}
+
+void ResolveNH::CreateReq(const InterfaceKey *intf, bool policy) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new ResolveNHKey(intf, policy));
+    req.data.reset(new ResolveNHData());
+    NextHopTable::GetInstance()->Enqueue(&req);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1450,6 +1479,12 @@ void CompositeNH::ChangeComponentNHKeyTunnelType(
         if ((*it)->nh_key()->GetType() == NextHop::COMPOSITE) {
             CompositeNHKey *composite_nh_key =
                 static_cast<CompositeNHKey *>((*it)->nh_key()->Clone());
+            if (composite_nh_key->composite_nh_type() == Composite::TOR) {
+                type = TunnelType::VXLAN;
+            }
+            if (composite_nh_key->composite_nh_type() == Composite::FABRIC) {
+                type = TunnelType::ComputeType(TunnelType::MplsType());
+            }
             ChangeComponentNHKeyTunnelType(
                     composite_nh_key->component_nh_key_list_, type);
             std::auto_ptr<const NextHopKey> nh_key(composite_nh_key);
@@ -1476,13 +1511,18 @@ void CompositeNH::ChangeComponentNHKeyTunnelType(
 //would call ChangeTunnelType() API which would result in recursion
 CompositeNH *CompositeNH::ChangeTunnelType(Agent *agent,
                                            TunnelType::Type type) const {
+    if (composite_nh_type_ == Composite::TOR) {
+        type = TunnelType::VXLAN;
+    }
+    if (composite_nh_type_ == Composite::FABRIC) {
+        type = TunnelType::ComputeType(TunnelType::MplsType());
+    }
     //Create all component NH with new tunnel type
     CreateComponentNH(agent, type);
 
     //Change the tunnel type of all component NH key
     ComponentNHKeyList new_component_nh_key_list = component_nh_key_list_;
     ChangeComponentNHKeyTunnelType(new_component_nh_key_list, type);
-
     //Create the new nexthop
     CompositeNHKey *comp_nh_key = new CompositeNHKey(composite_nh_type_,
                                                      policy_,
@@ -1968,6 +2008,17 @@ static void ExpandCompositeNextHop(const CompositeNH *comp_nh,
     switch (comp_nh->composite_nh_type()) {
     case Composite::EVPN: {
         comp_str << "evpn Composite"  << " sub nh count: "
+            << comp_nh->ComponentNHCount();
+        data.set_type(comp_str.str());
+        if (comp_nh->ComponentNHCount() == 0)
+            break;
+        std::vector<McastData> data_list;
+        FillComponentNextHop(comp_nh, data_list);
+        data.set_mc_list(data_list);
+        break;
+    }
+    case Composite::TOR: {
+        comp_str << "TOR Composite"  << " sub nh count: "
             << comp_nh->ComponentNHCount();
         data.set_type(comp_str.str());
         if (comp_nh->ComponentNHCount() == 0)

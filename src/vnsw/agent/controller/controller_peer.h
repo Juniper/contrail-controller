@@ -61,6 +61,7 @@ public:
     //Add to control-node
     static bool ControllerSendRouteAdd(AgentXmppChannel *peer,
                                        AgentRoute *route,
+                                       const Ip4Address *nexthop_ip,
                                        std::string vn,
                                        uint32_t label,
                                        uint32_t tunnel_bmap,
@@ -69,6 +70,7 @@ public:
                                        const PathPreference &path_preference);
     static bool ControllerSendEvpnRouteAdd(AgentXmppChannel *peer,
                                            AgentRoute *route,
+                                           const Ip4Address *nexthop_ip,
                                            std::string vn,
                                            uint32_t mpls_label,
                                            uint32_t tunnel_bmap);
@@ -127,6 +129,7 @@ public:
                                             bool associate,
                                             Agent::RouteTableType type);
     bool ControllerSendEvpnRouteCommon(AgentRoute *route,
+                                       const Ip4Address *nexthop_ip,
                                        std::string vn,
                                        uint32_t mpls_label,
                                        uint32_t tunnel_bmap,

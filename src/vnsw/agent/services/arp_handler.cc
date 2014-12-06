@@ -87,16 +87,16 @@ bool ArpHandler::HandlePacket() {
         ARP_TRACE(Error, "Received ARP packet from invalid / inactive interface");
         return true;
     }
-    if (itf->type() == Interface::VM_INTERFACE) {
-        const VmInterface *vm_itf = static_cast<const VmInterface *>(itf);
-        if (!vm_itf->layer3_forwarding()) {
-            ARP_TRACE(Error, "Received ARP packet on ipv4 disabled interface");
-            return true;
-        }
-    }
 
-    const VrfEntry *vrf = itf->vrf();
+    const VrfEntry *vrf = agent()->vrf_table()->FindVrfFromId(pkt_info_->vrf);
     if (!vrf || !vrf->IsActive()) {
+        arp_proto->IncrementStatsInvalidVrf();
+        ARP_TRACE(Error, "ARP : AgentHdr " + itf->name() +
+                         " has no / inactive VRF ");
+        return true;
+    }
+    const VrfEntry *nh_vrf = itf->vrf();
+    if (!nh_vrf || !nh_vrf->IsActive()) {
         arp_proto->IncrementStatsInvalidVrf();
         ARP_TRACE(Error, "ARP : Interface " + itf->name() +
                          " has no / inactive VRF");
@@ -123,6 +123,12 @@ bool ArpHandler::HandlePacket() {
                       arp_addr.to_string());
             return true;
         }
+        if (route->GetActiveNextHop()->GetType() == NextHop::RESOLVE) {
+            const ResolveNH *nh =
+                static_cast<const ResolveNH *>(route->GetActiveNextHop());
+            itf = nh->interface();
+            nh_vrf = itf->vrf();
+        }
     }
 
     ArpKey key(arp_tpa_, vrf);
@@ -131,11 +137,13 @@ bool ArpHandler::HandlePacket() {
     switch (arp_cmd) {
         case ARPOP_REQUEST: {
             arp_proto->IncrementStatsArpReq();
+            arp_proto->IncrementStatsArpRequest(itf->id());
             if (entry) {
                 entry->HandleArpRequest();
                 return true;
             } else {
-                entry = new ArpEntry(io_, this, key, ArpEntry::INITING);
+                entry = new ArpEntry(io_, this, key, nh_vrf, ArpEntry::INITING,
+                                     itf);
                 arp_proto->AddArpEntry(entry);
                 entry->HandleArpRequest();
                 return false;
@@ -144,6 +152,7 @@ bool ArpHandler::HandlePacket() {
 
         case ARPOP_REPLY:  {
             arp_proto->IncrementStatsArpReplies();
+            arp_proto->IncrementStatsArpReply(itf->id());
             if (itf->type() == Interface::VM_INTERFACE) {
                 uint32_t ip;
                 memcpy(&ip, arp_->arp_spa, sizeof(ip));
@@ -152,12 +161,17 @@ bool ArpHandler::HandlePacket() {
                 agent()->oper_db()->route_preference_module()->
                     EnqueueTrafficSeen(Ip4Address(ip), 32, itf->id(),
                                        vrf->vrf_id());
+                if(entry) {
+                    entry->HandleArpReply(MacAddress(arp_->arp_sha));
+                }
                 return true;
-            } else if(entry) {
+            }
+            if(entry) {
                 entry->HandleArpReply(MacAddress(arp_->arp_sha));
                 return true;
-            } else {
-                entry = new ArpEntry(io_, this, key, ArpEntry::INITING);
+            } else { 
+                entry = new ArpEntry(io_, this, key, nh_vrf, ArpEntry::INITING,
+                                     itf);
                 arp_proto->AddArpEntry(entry);
                 entry->HandleArpReply(MacAddress(arp_->arp_sha));
                 arp_ = NULL;
@@ -180,7 +194,7 @@ bool ArpHandler::HandlePacket() {
                 entry->HandleArpReply(MacAddress(arp_->arp_sha));
                 return true;
             } else {
-                entry = new ArpEntry(io_, this, key, ArpEntry::INITING);
+                entry = new ArpEntry(io_, this, key, key.vrf, ArpEntry::INITING, itf);
                 entry->HandleArpReply(MacAddress(arp_->arp_sha));
                 arp_proto->AddArpEntry(entry);
                 arp_ = NULL;
@@ -195,6 +209,13 @@ bool ArpHandler::HandlePacket() {
     }
 }
 
+/* This API is invoked from the following paths
+   - NextHop notification for ARP_NH
+   - ARP Timer expiry
+   - Sending Gratituous ARP for Receive Nexthops
+   In all these above paths we expect route_vrf and nh_vrf for ArpRoute to
+   be same
+   */
 bool ArpHandler::HandleMessage() {
     bool ret = true;
     ArpProto::ArpIpc *ipc = static_cast<ArpProto::ArpIpc *>(pkt_info_->ipc);
@@ -203,11 +224,13 @@ bool ArpHandler::HandleMessage() {
         case ArpProto::ARP_RESOLVE: {
             ArpEntry *entry = arp_proto->FindArpEntry(ipc->key);
             if (!entry) {
-                entry = new ArpEntry(io_, this, ipc->key, ArpEntry::INITING);
+                entry = new ArpEntry(io_, this, ipc->key, ipc->key.vrf,
+                                     ArpEntry::INITING, ipc->interface);
                 arp_proto->AddArpEntry(entry);
                 ret = false;
             }
             arp_proto->IncrementStatsArpReq();
+            arp_proto->IncrementStatsArpRequest(ipc->interface->id());
             entry->HandleArpRequest();
             break;
         }
@@ -215,7 +238,8 @@ bool ArpHandler::HandleMessage() {
         case ArpProto::ARP_SEND_GRATUITOUS: {
             if (!arp_proto->gratuitous_arp_entry()) {
                 arp_proto->set_gratuitous_arp_entry(
-                           new ArpEntry(io_, this, ipc->key, ArpEntry::ACTIVE));
+                           new ArpEntry(io_, this, ipc->key, ipc->key.vrf,
+                                        ArpEntry::ACTIVE, ipc->interface));
                 ret = false;
             }
             arp_proto->gratuitous_arp_entry()->SendGratuitousArp();

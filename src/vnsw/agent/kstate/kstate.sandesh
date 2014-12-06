@@ -195,11 +195,9 @@ struct KVrfStatsInfo {
    10: i64      vrf_gre_mpls_tunnels;
    11: i64      vrf_fabric_composites;
    12: i64      vrf_l2_mcast_composites;
-   13: i64      vrf_l3_mcast_composites;
-   14: i64      vrf_multi_proto_composites;
-   15: i64      vrf_ecmp_composites;
-   16: i64      vrf_encaps;
-   17: i64      vrf_vxlan_tunnels;
+   13: i64      vrf_ecmp_composites;
+   14: i64      vrf_encaps;
+   15: i64      vrf_vxlan_tunnels;
 }
 
 request sandesh KVrfStatsReq {

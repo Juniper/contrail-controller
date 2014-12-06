@@ -291,6 +291,7 @@ subdirs = [
     'ksync',
     'openstack',
     'oper',
+    'ovs_tor_agent',
     'pkt',
     'services',
     'test',

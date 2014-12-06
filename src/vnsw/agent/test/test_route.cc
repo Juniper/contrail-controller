@@ -103,7 +103,8 @@ protected:
         PhysicalInterface::CreateReq(Agent::GetInstance()->interface_table(),
                                 eth_name_,
                                 Agent::GetInstance()->fabric_vrf_name(),
-                                PhysicalInterface::FABRIC);
+                                PhysicalInterface::FABRIC,
+                                PhysicalInterface::ETHERNET, false);
         AddResolveRoute(server1_ip_, 24);
         client->WaitForIdle();
 
@@ -161,8 +162,12 @@ protected:
     }
 
     void AddResolveRoute(const Ip4Address &server_ip, uint32_t plen) {
+        InetInterfaceKey vhost_intf_key(
+                Agent::GetInstance()->vhost_interface()->name());
         Agent::GetInstance()->fabric_inet4_unicast_table()->AddResolveRoute(
-                Agent::GetInstance()->fabric_vrf_name(), server_ip, plen);
+                Agent::GetInstance()->local_peer(),
+                Agent::GetInstance()->fabric_vrf_name(), server_ip, plen,
+                vhost_intf_key, 0, false, "", SecurityGroupList());
         client->WaitForIdle();
     }
 
@@ -170,7 +175,9 @@ protected:
                          const Ip4Address &ip, int plen,
                          const Ip4Address &server) {
         Agent::GetInstance()->fabric_inet4_unicast_table()->AddGatewayRouteReq
-            (vrf_name, ip, plen, server, "");
+            (Agent::GetInstance()->local_peer(),
+             vrf_name, ip, plen, server, "", MplsTable::kInvalidLabel,
+             SecurityGroupList());
 
         client->WaitForIdle();
     }
@@ -959,7 +966,7 @@ public:
 
 class TestNhPeer : public Peer {
 public:
-    TestNhPeer() : Peer(BGP_PEER, "TestNH"), dummy_(0) { };
+    TestNhPeer() : Peer(BGP_PEER, "TestNH", false), dummy_(0) { };
     int dummy_;
 };
 
@@ -1498,7 +1505,7 @@ TEST_F(RouteTest, PathPreference_1) {
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
 
-    Peer peer(Peer::LOCAL_VM_PORT_PEER, "test_peer");
+    Peer peer(Peer::LOCAL_VM_PORT_PEER, "test_peer", true);
     Ip4Address ip = Ip4Address::from_string("1.1.1.10");
     //Enqueue path change for non existent path
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);

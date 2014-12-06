@@ -76,6 +76,13 @@ public:
         return (flags_ & flags);
     }
 
+    void set_table_label(uint32_t label) {
+        table_label_ = label;
+    }
+    uint32_t table_label() const {
+        return table_label_;
+    }
+
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
     InetUnicastRouteEntry *GetUcRoute(const IpAddress &addr) const;
     InetUnicastRouteEntry *GetUcRoute(const InetUnicastRouteEntry &rt_key) const;
@@ -112,6 +119,7 @@ private:
     boost::scoped_ptr<DeleteActor> deleter_;
     AgentRouteTable *rt_table_db_[Agent::ROUTE_TABLE_MAX];
     Timer *delete_timeout_timer_;
+    uint32_t table_label_;
     DISALLOW_COPY_AND_ASSIGN(VrfEntry);
 };
 

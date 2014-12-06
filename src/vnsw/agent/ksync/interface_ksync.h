@@ -53,6 +53,8 @@ public:
     uint32_t interface_id() const {return interface_id_;}
     const string &interface_name() const {return interface_name_;}
     bool has_service_vlan() const {return has_service_vlan_;}
+    bool no_arp() const { return no_arp_; }
+    PhysicalInterface::EncapType encap_type() const { return encap_type_; }
 
     KSyncDBObject *GetObject();
     virtual bool Sync(DBEntry *e);
@@ -88,6 +90,7 @@ private:
     KSyncEntryPtr parent_;
     bool policy_enabled_;
     InetInterface::SubType sub_type_;
+    VmInterface::SubType vmi_sub_type_;
     Interface::Type type_;
     uint16_t rx_vlan_id_;
     uint16_t tx_vlan_id_;
@@ -95,6 +98,8 @@ private:
     bool persistent_;
     PhysicalInterface::SubType subtype_;
     KSyncEntryPtr xconnect_;
+    bool no_arp_;
+    PhysicalInterface::EncapType encap_type_;
 
     DISALLOW_COPY_AND_ASSIGN(InterfaceKSyncEntry);
 };

@@ -108,6 +108,8 @@ public:
     void Delete(KSyncEntry *entry);
     // Query function. Key is in entry
     KSyncEntry *Find(const KSyncEntry *key);
+    // Get Next Function.
+    KSyncEntry *Next(const KSyncEntry *entry) const;
     // Query KSyncEntry for key in entry. Create temporary entry if not present
     KSyncEntry *GetReference(const KSyncEntry *key);
 
@@ -156,6 +158,16 @@ private:
 // Special KSyncObject for DB client
 class KSyncDBObject : public KSyncObject {
 public:
+    // Response to DB Filter API using which derived class can choose to
+    // ignore or trigger delete for some of the DB entries.
+    // This can be used where we don't want to handle certain type of OPER
+    // DB entries in KSync, using this simplifies the behaviour defination
+    // for KSync Object.
+    enum DBFilterResp {
+        DBFilterAccept,  // Accept DB Entry Add/Change for processing
+        DBFilterIgnore,  // Ignore DB Entry Add/Change
+        DBFilterDelete  // Ignore DB Entry Add/Change and clear previous state
+    };
     // Create KSyncObject. DB Table will be registered later
     KSyncDBObject();
     KSyncDBObject(int max_index);
@@ -179,6 +191,10 @@ public:
     DBTableBase *GetDBTable() { return table_; }
     DBTableBase::ListenerId GetListenerId(DBTableBase *table);
 
+    // Function to filter DB Entries to be used, default behaviour will accept
+    // All DB Entries, needs to be overriden by derived class to get desired
+    // behavior.
+    virtual DBFilterResp DBEntryFilter(const DBEntry *entry);
     // Populate Key in KSyncEntry from DB Entry.
     // Used for lookup of KSyncEntry from DBEntry
     virtual KSyncEntry *DBToKSyncEntry(const DBEntry *entry) = 0;
@@ -213,11 +229,13 @@ public:
     ~KSyncObjectManager();
     bool Process(KSyncObjectEvent *event);
     void Enqueue(KSyncObjectEvent *event);
-    static void Init();
+    KSyncEntry *default_defer_entry();
+    static KSyncObjectManager *Init();
     static void Shutdown();
     static void Unregister(KSyncObject *);
 private:
     WorkQueue<KSyncObjectEvent *> *event_queue_;
+    std::auto_ptr<KSyncEntry> default_defer_entry_;
     static KSyncObjectManager *singleton_;
 };
 

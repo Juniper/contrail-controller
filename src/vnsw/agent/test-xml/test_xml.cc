@@ -585,7 +585,6 @@ bool AgentUtXmlPacket::ReadXml() {
     GetStringAttribute(node(), "tunnel_dip", &tunnel_dip_);
     GetUintAttribute(node(), "label", (uint16_t *)&label_);
 
-    uint16_t id = 0;
     if (GetUintAttribute(node(), "id", &intf_id_) == false) {
         cout << "Attribute \"id\" not specified for Packet. Skipping"
             << endl;

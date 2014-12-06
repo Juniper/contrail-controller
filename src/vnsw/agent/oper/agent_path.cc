@@ -43,7 +43,7 @@ AgentPath::~AgentPath() {
 }
 
 uint32_t AgentPath::GetTunnelBmap() const {
-    TunnelType::Type type = TunnelType::ComputeType(TunnelType::AllType());
+    TunnelType::Type type = TunnelType::ComputeType(tunnel_bmap_);
     if ((type == (1 << TunnelType::VXLAN)) && (vxlan_id_ != 0)) {
         return (1 << TunnelType::VXLAN);
     } else {
@@ -80,15 +80,29 @@ const NextHop* AgentPath::nexthop(Agent *agent) const {
 
 bool AgentPath::ChangeNH(Agent *agent, NextHop *nh) {
     // If NH is not found, point route to discard NH
+    bool ret = false;
     if (nh == NULL) {
         nh = agent->nexthop_table()->discard_nh();
     }
 
     if (nh_ != nh) {
         nh_ = nh;
-        return true;
+        ret = true;
     }
-    return false;
+
+    if (peer_ && (peer_->GetType() == Peer::MULTICAST_PEER) &&
+        (label_ != MplsTable::kInvalidLabel)) {
+        MplsLabelKey key(MplsLabel::MCAST_NH, label_);
+        MplsLabel *mpls = static_cast<MplsLabel *>(agent->mpls_table()->
+                                                   FindActiveEntry(&key));
+        ret = agent->mpls_table()->ChangeNH(mpls, nh);
+        if (mpls) {
+            //Send notify of change
+            mpls->get_table_partition()->Notify(mpls);
+        }
+    }
+
+    return ret;
 }
 
 bool AgentPath::RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route) {
@@ -167,7 +181,10 @@ bool AgentPath::UpdateNHPolicy(Agent *agent) {
 }
 
 bool AgentPath::UpdateTunnelType(Agent *agent, const AgentRoute *sync_route) {
-    if (tunnel_type_ == TunnelType::ComputeType(tunnel_bmap_)) {
+    //Return if there is no change in tunnel type for non Composite NH.
+    //For composite NH component needs to be traversed.
+    if ((tunnel_type_ == TunnelType::ComputeType(tunnel_bmap_)) &&
+        (nh_.get() && nh_.get()->GetType() != NextHop::COMPOSITE)) {
         return false;
     }
 
@@ -244,7 +261,11 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
     if (rt == NULL || rt->plen() == 0) {
         unresolved = true;
     } else if (rt->GetActiveNextHop()->GetType() == NextHop::RESOLVE) {
-        table->AddArpReq(vrf_name_, gw_ip_);
+        const ResolveNH *nh =
+            static_cast<const ResolveNH *>(rt->GetActiveNextHop());
+        table->AddArpReq(vrf_name_, gw_ip_, nh->interface()->vrf()->GetName(),
+                         nh->interface(), nh->PolicyEnabled(), dest_vn_name_,
+                         sg_list_);
         unresolved = true;
     } else {
         unresolved = false;
@@ -278,7 +299,8 @@ bool AgentPath::IsLess(const AgentPath &r_path) const {
     return peer()->IsLess(r_path.peer());
 }
 
-bool HostRoute::AddChangePath(Agent *agent, AgentPath *path) {
+bool HostRoute::AddChangePath(Agent *agent, AgentPath *path,
+                              const AgentRoute *rt) {
     bool ret = false;
     NextHop *nh = NULL;
     InterfaceNHKey key(intf_.Clone(), false, InterfaceNHFlags::INET4);
@@ -300,7 +322,8 @@ bool HostRoute::AddChangePath(Agent *agent, AgentPath *path) {
     return ret;
 } 
 
-bool InetInterfaceRoute::AddChangePath(Agent *agent, AgentPath *path) {
+bool InetInterfaceRoute::AddChangePath(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt) {
     bool ret = false;
     NextHop *nh = NULL;
     InterfaceNHKey key(intf_.Clone(), false, InterfaceNHFlags::INET4);
@@ -329,7 +352,8 @@ bool InetInterfaceRoute::AddChangePath(Agent *agent, AgentPath *path) {
     return ret;
 }
 
-bool DropRoute::AddChangePath(Agent *agent, AgentPath *path) {
+bool DropRoute::AddChangePath(Agent *agent, AgentPath *path,
+                              const AgentRoute *rt) {
     bool ret = false;
 
     if (path->dest_vn_name() != vn_) {
@@ -346,7 +370,8 @@ bool DropRoute::AddChangePath(Agent *agent, AgentPath *path) {
     return ret;
 }
 
-bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
+bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path,
+                                 const AgentRoute *rt) {
     bool ret = false;
     NextHop *nh = NULL;
     SecurityGroupList path_sg_list;
@@ -455,7 +480,8 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
     return ret;
 }
 
-bool VlanNhRoute::AddChangePath(Agent *agent, AgentPath *path) { 
+bool VlanNhRoute::AddChangePath(Agent *agent, AgentPath *path,
+                                const AgentRoute *rt) {
     bool ret = false;
     NextHop *nh = NULL;
     SecurityGroupList path_sg_list;
@@ -506,24 +532,38 @@ bool VlanNhRoute::AddChangePath(Agent *agent, AgentPath *path) {
     return ret;
 }
 
-bool ResolveRoute::AddChangePath(Agent *agent, AgentPath *path) {
+bool ResolveRoute::AddChangePath(Agent *agent, AgentPath *path,
+                                 const AgentRoute *rt) {
     bool ret = false;
     NextHop *nh = NULL;
-    ResolveNHKey key;
+    ResolveNHKey key(intf_key_.get(), policy_);
 
     nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
     path->set_unresolved(false);
-    if (path->dest_vn_name() != agent->fabric_vn_name()) {
-        path->set_dest_vn_name(agent->fabric_vn_name());
+
+    if (path->dest_vn_name() != dest_vn_name_) {
+        path->set_dest_vn_name(dest_vn_name_);
         ret = true;
     }
+
+    if (path->label() != label_) {
+        path->set_label(label_);
+        ret = true;
+    }
+
+    if (path->sg_list() != path_sg_list_) {
+        path->set_sg_list(path_sg_list_);
+        ret = true;
+    }
+
     if (path->ChangeNH(agent, nh) == true)
         ret = true;
 
     return ret;
 }
 
-bool ReceiveRoute::AddChangePath(Agent *agent, AgentPath *path) {
+bool ReceiveRoute::AddChangePath(Agent *agent, AgentPath *path,
+                                 const AgentRoute *rt) {
     bool ret = false;
     NextHop *nh = NULL;
 
@@ -553,7 +593,8 @@ bool ReceiveRoute::AddChangePath(Agent *agent, AgentPath *path) {
     return ret;
 }
 
-bool MulticastRoute::AddChangePath(Agent *agent, AgentPath *path) {
+bool MulticastRoute::AddChangePath(Agent *agent, AgentPath *path,
+                                   const AgentRoute *rt) {
     bool ret = false;
     bool is_subnet_discard = false;
     NextHop *nh = NULL;
@@ -573,7 +614,7 @@ bool MulticastRoute::AddChangePath(Agent *agent, AgentPath *path) {
                                              false,
                                              vxlan_id_,
                                              label_,
-                                             TunnelType::AllType(),
+                                             tunnel_type_,
                                              is_subnet_discard,
                                              nh);
     return ret;
@@ -596,7 +637,7 @@ bool MulticastRoute::CopyPathParameters(Agent *agent,
     //Setting of tunnel is only for simulated TOR.
     path->set_tunnel_bmap(tunnel_type);
     TunnelType::Type new_tunnel_type =
-        TunnelType::ComputeType(TunnelType::AllType());
+        TunnelType::ComputeType(tunnel_type);
     if (new_tunnel_type == TunnelType::VXLAN &&
         vxlan_id == VxLanTable::kInvalidvxlan_id) {
         new_tunnel_type = TunnelType::ComputeType(TunnelType::MplsType());
@@ -612,7 +653,8 @@ bool MulticastRoute::CopyPathParameters(Agent *agent,
     return true;
 }
 
-bool PathPreferenceData::AddChangePath(Agent *agent, AgentPath *path) {
+bool PathPreferenceData::AddChangePath(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt) {
     bool ret = false;
     //ECMP flag will not be changed by path preference module,
     //hence retain value in path
@@ -632,7 +674,7 @@ bool PathPreferenceData::AddChangePath(Agent *agent, AgentPath *path) {
 // Subnet Route route data
 SubnetRoute::SubnetRoute(const string &vn_name,
                          uint32_t vxlan_id, DBRequest &nh_req) :
-    MulticastRoute(vn_name, 0, vxlan_id, nh_req) {
+    MulticastRoute(vn_name, 0, vxlan_id, TunnelType::AllType(), nh_req) {
         is_multicast_ = false;
 }
 
@@ -875,4 +917,12 @@ bool AgentPath::ChangeCompositeNH(Agent *agent,
         return true;
     }
     return false;
+}
+
+const Ip4Address *AgentPath::NexthopIp(Agent *agent) const {
+    if (peer_ == NULL) {
+        return agent->router_ip_ptr();
+    }
+
+    return peer_->NexthopIp(agent, this);
 }

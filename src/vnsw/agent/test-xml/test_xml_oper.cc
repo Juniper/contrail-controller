@@ -773,7 +773,6 @@ AgentUtXmlFlowValidate::~AgentUtXmlFlowValidate() {
 }
 
 bool AgentUtXmlFlowValidate::ReadXml() {
-    uint16_t id = 0;
     if (GetUintAttribute(node(), "nh", &nh_id_) == false) {
         cout << "Attribute \"nh\" not specified for Flow. Skipping" << endl;
         return false;

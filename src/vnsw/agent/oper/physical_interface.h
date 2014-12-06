@@ -21,6 +21,11 @@ public:
         INVALID
     };
 
+    enum EncapType {
+        ETHERNET,       // Ethernet with ARP
+        RAW_IP          // No L2 header. Packets sent as raw-ip
+    };
+
     PhysicalInterface(const std::string &name);
     virtual ~PhysicalInterface();
 
@@ -40,12 +45,16 @@ public:
     // Currently only vnware physical interface is persistent.
     // By default every physical interface is non-persistent.
     bool persistent() const {return persistent_;}
+    EncapType encap_type() const { return encap_type_; }
+    bool no_arp() const { return no_arp_; }
 
     // Helper functions
     static void CreateReq(InterfaceTable *table, const std::string &ifname,
-                          const std::string &vrf_name, SubType subtype);
+                          const std::string &vrf_name, SubType subtype,
+                          EncapType encap, bool no_arp);
     static void Create(InterfaceTable *table, const std::string &ifname,
-                       const std::string &vrf_name, SubType sub_type);
+                       const std::string &vrf_name, SubType sub_type,
+                       EncapType encap, bool no_arp);
     static void DeleteReq(InterfaceTable *table, const std::string &ifname);
     static void Delete(InterfaceTable *table, const std::string &ifname);
 
@@ -53,13 +62,19 @@ public:
 private:
     bool persistent_;
     SubType subtype_;
+    EncapType encap_type_;
+    bool no_arp_;
     DISALLOW_COPY_AND_ASSIGN(PhysicalInterface);
 };
 
 struct PhysicalInterfaceData : public InterfaceData {
     PhysicalInterfaceData(IFMapNode *node, const std::string &vrf_name,
-                          PhysicalInterface::SubType subtype);
+                          PhysicalInterface::SubType subtype,
+                          PhysicalInterface::EncapType encap,
+                          bool no_arp);
     PhysicalInterface::SubType subtype_;
+    PhysicalInterface::EncapType encap_type_;
+    bool no_arp_;
 };
 
 struct PhysicalInterfaceKey : public InterfaceKey {

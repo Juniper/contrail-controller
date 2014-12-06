@@ -19,30 +19,34 @@
 #define ECMP_PEER_NAME "Ecmp"
 #define VGW_PEER_NAME "Vgw"
 #define MULTICAST_PEER_NAME "Multicast"
+#define MULTICAST_TOR_PEER_NAME "Multicast TOR"
 #define MULTICAST_FABRIC_TREE_BUILDER_NAME "MulticastTreeBuilder"
 
 class AgentXmppChannel;
 class ControllerRouteWalker;
 class VrfTable;
+class AgentPath;
 
 class Peer {
 public:
     typedef std::map<std::string, Peer *> PeerMap;
     typedef std::pair<std::string, Peer *> PeerPair;
     enum Type {
-        MULTICAST_PEER,
         BGP_PEER,
         LINKLOCAL_PEER,
         ECMP_PEER,
+        LOCAL_VM_PORT_PEER,
         LOCAL_VM_PEER,
         LOCAL_PEER,
-        LOCAL_VM_PORT_PEER,
         NOVA_PEER,
         VGW_PEER,
-        MULTICAST_FABRIC_TREE_BUILDER
+        MULTICAST_PEER,
+        MULTICAST_FABRIC_TREE_BUILDER,
+        OVS_PEER,
+        MULTICAST_TOR_PEER
     };
 
-    Peer(Type type, const std::string &name);
+    Peer(Type type, const std::string &name, bool controller_export);
     virtual ~Peer();
 
     bool IsLess(const Peer *rhs) const {
@@ -53,6 +57,10 @@ public:
         return Compare(rhs);
     }
     virtual bool Compare(const Peer *rhs) const {return false;}
+    // Should we export path from this peer to controller?
+    virtual bool export_to_controller() const {return export_to_controller_;}
+    virtual const Ip4Address *NexthopIp(Agent *agent,
+                                        const AgentPath *path) const;
 
     const std::string &GetName() const { return name_; }
     const Type GetType() const { return type_; }
@@ -60,6 +68,7 @@ public:
 private:
     Type type_;
     std::string name_;
+    bool export_to_controller_;
     DISALLOW_COPY_AND_ASSIGN(Peer);
 };
 
@@ -122,7 +131,7 @@ private:
 class LocalVmPortPeer : public Peer {
 public:
     LocalVmPortPeer(const std::string &name, uint64_t handle) :
-        Peer(Peer::LOCAL_VM_PORT_PEER, name), handle_(handle) {
+        Peer(Peer::LOCAL_VM_PORT_PEER, name, true), handle_(handle) {
     }
 
     virtual ~LocalVmPortPeer() { }
@@ -141,10 +150,11 @@ private:
 // ECMP peer
 class EcmpPeer : public Peer {
 public:
-    EcmpPeer() : Peer(Peer::ECMP_PEER, "ECMP") { }
+    EcmpPeer() : Peer(Peer::ECMP_PEER, "ECMP", true) { }
     virtual ~EcmpPeer() { }
 
     bool Compare(const Peer *rhs) const { return false; }
+    bool ExportToController() const {return true;}
 private:
     DISALLOW_COPY_AND_ASSIGN(EcmpPeer);
 };

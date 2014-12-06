@@ -428,7 +428,8 @@ bool AgentUtXmlLogicalInterfaceValidate::Validate() {
         return false;
 
     if (physical_port_ != "") {
-        PhysicalInterface *physical_port = port->physical_interface();
+        PhysicalInterface *physical_port = static_cast<PhysicalInterface *>
+            (port->physical_interface());
         if (physical_port == NULL)
             return false;
         if (physical_port->name() != physical_port_)

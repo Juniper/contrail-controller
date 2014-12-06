@@ -36,9 +36,24 @@ request sandesh ShowAllInfo {
 request sandesh ClearAllInfo {
 }
 
+struct InterfaceArpStats {
+    1: u32 interface_index;
+    2: u32 arp_requests;
+    3: u32 arp_replies;
+    4: u32 arp_resolved;
+}
+
+request sandesh InterfaceArpStatsReq {
+    1: i32 interface_index = -1;
+}
+
 request sandesh PktTraceInfo {
     1: u32 num_buffers = 16;
     2: u32 flow_num_buffers = 16;
+}
+
+response sandesh InterfaceArpStatsResponse {
+    1: list<InterfaceArpStats> stats_list;
 }
 
 response sandesh PktStats {

@@ -99,10 +99,7 @@ void AgentStatsSandeshContext::VrfStatsMsgHandler(vr_vrf_stats_req *req) {
         stats->prev_gre_mpls_tunnels = req->get_vsr_gre_mpls_tunnels();
         stats->prev_ecmp_composites = req->get_vsr_ecmp_composites();
         stats->prev_l2_mcast_composites = req->get_vsr_l2_mcast_composites();
-        stats->prev_l3_mcast_composites = req->get_vsr_l3_mcast_composites();
         stats->prev_fabric_composites = req->get_vsr_fabric_composites();
-        stats->prev_multi_proto_composites =
-                                        req->get_vsr_multi_proto_composites();
         stats->prev_encaps = req->get_vsr_encaps();
         stats->prev_l2_encaps = req->get_vsr_l2_encaps();
     } else {
@@ -121,12 +118,8 @@ void AgentStatsSandeshContext::VrfStatsMsgHandler(vr_vrf_stats_req *req) {
                                  stats->prev_ecmp_composites;
         stats->l2_mcast_composites = req->get_vsr_l2_mcast_composites() -
                                      stats->prev_l2_mcast_composites;
-        stats->l3_mcast_composites = req->get_vsr_l3_mcast_composites() -
-                                     stats->prev_l3_mcast_composites;
-        stats->fabric_composites = req->get_vsr_fabric_composites() -
+        stats->fabric_composites = req->get_vsr_fabric_composites() - 
                                    stats->prev_fabric_composites;
-        stats->multi_proto_composites = req->get_vsr_multi_proto_composites() -
-                                        stats->prev_multi_proto_composites;
 
         /* Update the last read values from Kernel in the following fields.
          * This will be used to update prev_* fields on receiving vrf delete
@@ -140,11 +133,8 @@ void AgentStatsSandeshContext::VrfStatsMsgHandler(vr_vrf_stats_req *req) {
             stats->k_gre_mpls_tunnels = req->get_vsr_gre_mpls_tunnels();
             stats->k_udp_mpls_tunnels = req->get_vsr_udp_mpls_tunnels();
             stats->k_l2_mcast_composites = req->get_vsr_l2_mcast_composites();
-            stats->k_l3_mcast_composites = req->get_vsr_l3_mcast_composites();
             stats->k_ecmp_composites = req->get_vsr_ecmp_composites();
             stats->k_fabric_composites = req->get_vsr_fabric_composites();
-            stats->k_multi_proto_composites =
-                                    req->get_vsr_multi_proto_composites();
             stats->k_encaps = req->get_vsr_encaps();
             stats->k_l2_encaps = req->get_vsr_l2_encaps();
         }

@@ -60,9 +60,16 @@ public:
                                         uint32_t label,
                                         int vxlan_id,
                                         uint32_t ethernet_tag,
+                                        uint32_t tunnel_type,
                                         Composite::Type type,
                                         ComponentNHKeyList
                                         &component_nh_key_list);
+    static void AddLayer2ReceiveRoute(const Peer *peer,
+                                      const string &vrf_name,
+                                      const string &vn_name,
+                                      const MacAddress &mac,
+                                      const string &interface,
+                                      bool policy);
     static void DeleteReq(const Peer *peer, const string &vrf_name,
                           const MacAddress &mac,
                           uint32_t ethernet_tag,
@@ -123,8 +130,6 @@ public:
     const uint32_t GetVmIpPlen() const {return plen_;}
 
 private:
-    bool ReComputeMulticastPaths(AgentPath *path, bool del);
-
     MacAddress mac_;
     Ip4Address vm_ip_;
     uint32_t plen_;

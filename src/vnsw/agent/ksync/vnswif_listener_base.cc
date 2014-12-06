@@ -334,7 +334,8 @@ void VnswInterfaceListenerBase::HandleAddressEvent(const Event *event) {
     agent_->set_vhost_prefix_len(event->plen_);
     InetInterface::CreateReq(agent_->interface_table(),
                              agent_->vhost_interface_name(),
-                             InetInterface::VHOST, agent_->fabric_vrf_name(),
+                             InetInterface::VHOST,
+                             agent_->fabric_vrf_name(),
                              event->addr_, event->plen_,
                              agent_->vhost_default_gateway(),
                              Agent::NullString(), agent_->fabric_vrf_name());

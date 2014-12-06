@@ -24,6 +24,7 @@
 #include <test/test_cmn_util.h>
 #include <services/services_sandesh.h>
 #include <services/metadata_proxy.h>
+#include "pkt/test/test_pkt_util.h"
 
 #define MAX_WAIT_COUNT 5000
 #define BUF_SIZE 8192
@@ -67,6 +68,7 @@ public:
     };
 
     void SetUp() {
+        agent_ = Agent::GetInstance();
     }
 
     void TearDown() {
@@ -126,8 +128,8 @@ public:
         global_config << "<linklocal-services>\n" 
                       << "<linklocal-service-entry>\n"
 	              << "<linklocal-service-name>metadata</linklocal-service-name>\n" 
-	              << "<linklocal-service-ip></linklocal-service-ip>\n"
-	              << "<linklocal-service-port>0</linklocal-service-port>\n"
+	              << "<linklocal-service-ip>169.254.169.254</linklocal-service-ip>\n"
+	              << "<linklocal-service-port>80</linklocal-service-port>\n"
 	              << "<ip-fabric-DNS-service-name></ip-fabric-DNS-service-name>\n"
 	              << "<ip-fabric-service-port>"
                       << nova_api_proxy_->GetPort()
@@ -306,6 +308,7 @@ public:
         delete request;
     }
 
+    Agent *agent_;
 private:
     HttpServer *nova_api_proxy_;
     HttpClient *vm_http_client_;
@@ -330,6 +333,22 @@ TEST_F(MetadataTest, MetadataReqTest) {
     CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
     client->Reset();
+
+    VmInterface *intf = static_cast<VmInterface *>(VmPortGet(1));
+    TxTcpPacket(intf->id(), vm1_ip, "169.254.169.254", 1000, 80, false);
+    client->WaitForIdle();
+    FlowEntry *flow = FlowGet(0, vm1_ip, "169.254.169.254", 6, 1000, 80,
+                              intf->flow_key_nh()->id());
+    EXPECT_TRUE(flow != NULL);
+    FlowEntry *rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow != NULL);
+
+    EXPECT_TRUE(flow->key().src_addr.to_v4() ==
+                Ip4Address::from_string(vm1_ip));
+    EXPECT_TRUE(flow->key().dst_addr.to_v4() ==
+                Ip4Address::from_string("169.254.169.254"));
+    EXPECT_TRUE(rflow->key().src_addr.to_v4() == agent_->router_id());
+    EXPECT_TRUE(rflow->key().dst_addr.to_v4() == intf->mdata_ip_addr());
 
     StartHttpClient();
 
@@ -371,6 +390,69 @@ TEST_F(MetadataTest, MetadataReqTest) {
     ClearLinkLocalConfig();
     StopNovaApiProxy();
     client->WaitForIdle();
+
+    Agent::GetInstance()->services()->metadataproxy()->ClearStats();
+}
+
+TEST_F(MetadataTest, MetadataReqTest_services_ip) {
+    int count = 0;
+    MetadataProxy::MetadataStats stats;
+    struct PortInfo input[] = {
+        {"vnet1", 1, vm1_ip, "00:00:00:01:01:01", 1, 1},
+    };
+
+    // Change compute_node_ip
+    Ip4Address old_ip = agent_->compute_node_ip();
+    AgentParam param(agent_);
+    param.BuildAddressList("5.5.5.5");
+    TestAgentInit *init = static_cast<TestAgentInit *>(client->agent_init());
+    init->ProcessComputeAddress(&param);
+
+    StartNovaApiProxy();
+    SetupLinkLocalConfig();
+
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    client->Reset();
+
+    StartHttpClient();
+
+    // If the local address is not same as VM address in this request,
+    // agent will have an internal error as it cannot find the VM
+    HttpConnection *conn = SendHttpClientRequest(GET_METHOD);
+    METADATA_CHECK (stats.internal_errors < 1);
+    EXPECT_EQ(1U, stats.requests);
+    EXPECT_EQ(0U, stats.responses);
+    EXPECT_EQ(0U, stats.proxy_sessions);
+    CloseClientSession(conn);
+    client->WaitForIdle();
+
+    VmInterface *intf = static_cast<VmInterface *>(VmPortGet(1));
+    TxTcpPacket(intf->id(), vm1_ip, "169.254.169.254", 1000, 80, false);
+    client->WaitForIdle();
+    FlowEntry *flow = FlowGet(0, vm1_ip, "169.254.169.254", 6, 1000, 80,
+                              intf->flow_key_nh()->id());
+    EXPECT_TRUE(flow != NULL);
+    FlowEntry *rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow != NULL);
+
+    EXPECT_TRUE(flow->key().src_addr.to_v4() ==
+                Ip4Address::from_string(vm1_ip));
+    EXPECT_TRUE(flow->key().dst_addr.to_v4() ==
+                Ip4Address::from_string("169.254.169.254"));
+
+    EXPECT_TRUE(rflow->key().src_addr.to_v4() ==
+                Ip4Address::from_string("5.5.5.5"));
+    EXPECT_TRUE(rflow->key().dst_addr.to_v4() == intf->mdata_ip_addr());
+    client->Reset();
+    StopHttpClient();
+    DeleteVmportEnv(input, 1, 1, 0); 
+    client->WaitForIdle();
+
+    ClearLinkLocalConfig();
+    StopNovaApiProxy();
+    client->WaitForIdle();
+    agent_->set_compute_node_ip(old_ip);
 
     Agent::GetInstance()->services()->metadataproxy()->ClearStats();
 }
@@ -492,7 +574,6 @@ TEST_F(MetadataTest, MetadataNoLinkLocalTest) {
 
 // Send message and close server connection while message is going
 TEST_F(MetadataTest, MetadataCloseServerTest) {
-    int count = 0;
     MetadataProxy::MetadataStats stats;
     struct PortInfo input[] = {
         {"vnet1", 1, vm1_ip, "00:00:00:01:01:01", 1, 1},
@@ -514,7 +595,6 @@ TEST_F(MetadataTest, MetadataCloseServerTest) {
     for (int i = 0; i < 200; i++) {
         large_data.append("add more data to be sent");
     }
-    HttpConnection *conn = SendHttpClientRequest(POST_METHOD, large_data);
     // stop server
     StopNovaApiProxy();
     client->WaitForIdle();

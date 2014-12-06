@@ -478,7 +478,10 @@ bool Dhcpv6Handler::FindLeaseData() {
             if (IsIp6SubnetMember(ip, ipam[i].ip_prefix.to_v6(), 
                                   ipam[i].plen)) {
                 Ip6Address default_gw = ipam[i].default_gw.to_v6();
-                FillDhcpInfo(ip, ipam[i].plen, default_gw, default_gw);
+                Ip6Address service_address = ipam[i].dns_server.to_v6();
+                if (service_address.is_unspecified())
+                    service_address = default_gw;
+                FillDhcpInfo(ip, ipam[i].plen, default_gw, service_address);
                 return true;
             }
         }
@@ -620,10 +623,19 @@ uint16_t Dhcpv6Handler::FillDhcpResponse(const MacAddress &dest_mac,
 
 void Dhcpv6Handler::SendDhcpResponse() {
     UpdateStats();
-    FillDhcpResponse(MacAddress(pkt_info_->eth->ether_shost), config_.gw_addr.to_v6(),
+    // In TSN, the source address for DHCP response should be the address
+    // in the subnet reserved for service node. Otherwise, it will be the 
+    // GW address. dns_addr field has this address, use it as the source IP.
+    FillDhcpResponse(MacAddress(pkt_info_->eth->ether_shost),
+                     config_.dns_addr.to_v6(),
                      pkt_info_->ip_saddr.to_v6());
-    Send(GetInterfaceIndex(), pkt_info_->vrf,
-         AgentHdr::TX_SWITCH, PktHandler::DHCPV6);
+    uint16_t interface =
+        (pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
+        (uint16_t)pkt_info_->agent_hdr.cmd_param : GetInterfaceIndex();
+    uint16_t command =
+        (pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
+        (uint16_t)AgentHdr::TX_ROUTE : AgentHdr::TX_SWITCH;
+    Send(interface, pkt_info_->vrf, command, PktHandler::DHCPV6);
 }
 
 void Dhcpv6Handler::UpdateStats() {

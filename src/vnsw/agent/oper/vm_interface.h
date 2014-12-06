@@ -14,6 +14,7 @@ typedef std::vector<boost::uuids::uuid> SgUuidList;
 typedef std::vector<SgEntryRef> SgList;
 struct VmInterfaceData;
 struct VmInterfaceConfigData;
+struct VmInterfaceNovaData;
 struct VmInterfaceIpAddressData;
 struct VmInterfaceOsOperStateData;
 struct VmInterfaceMirrorData;
@@ -26,6 +27,18 @@ class LocalVmPortPeer;
 class VmInterface : public Interface {
 public:
     static const uint32_t kInvalidVlanId = 0xFFFF;
+
+    enum Configurer {
+        EXTERNAL,
+        CONFIG
+    };
+
+    enum SubType {
+        NONE,
+        TOR,
+        NOVA,
+        GATEWAY
+    };
 
     struct ListEntry {
         ListEntry() : installed_(false), del_pending_(false) { }
@@ -116,7 +129,7 @@ public:
         StaticRoute();
         StaticRoute(const StaticRoute &rhs);
         StaticRoute(const std::string &vrf, const IpAddress &addr,
-                    uint32_t plen);
+                    uint32_t plen, const IpAddress &gw);
         virtual ~StaticRoute();
 
         bool operator() (const StaticRoute &lhs, const StaticRoute &rhs) const;
@@ -128,6 +141,7 @@ public:
         mutable std::string vrf_;
         IpAddress  addr_;
         uint32_t    plen_;
+        IpAddress  gw_;
     };
     typedef std::set<StaticRoute, StaticRoute> StaticRouteSet;
 
@@ -272,7 +286,7 @@ public:
     // DBEntry vectors
     KeyPtr GetDBRequestKey() const;
     std::string ToString() const;
-    bool Resync(VmInterfaceData *data);
+    bool Resync(const InterfaceTable *table, const VmInterfaceData *data);
     bool OnChange(VmInterfaceData *data);
 
     // Accessor functions
@@ -304,6 +318,13 @@ public:
     const Interface *parent() const { return parent_.get(); }
     bool ecmp() const { return ecmp_;}
     const OperDhcpOptions &oper_dhcp_options() const { return oper_dhcp_options_; }
+    uint8_t configurer() const {return configurer_;}
+    bool IsConfigurerSet(VmInterface::Configurer type);
+    void SetConfigurer(VmInterface::Configurer type);
+    void ResetConfigurer(VmInterface::Configurer type);
+    bool CanBeDeleted() const {return (configurer_ == 0);}
+    const Ip4Address& subnet() const { return subnet_;}
+    const uint8_t subnet_plen() const { return subnet_plen_;}
 
     Interface::MirrorDirection mirror_direction() const {
         return mirror_direction_;
@@ -359,24 +380,27 @@ public:
     uint32_t GetServiceVlanLabel(const VrfEntry *vrf) const;
     uint32_t GetServiceVlanTag(const VrfEntry *vrf) const;
     const VrfEntry* GetServiceVlanVrf(uint16_t vlan_tag) const;
-    void Delete();
+    bool Delete(const DBRequest *req);
     void Add();
     bool OnResyncServiceVlan(VmInterfaceConfigData *data);
     void UpdateAllRoutes();
 
     bool IsIpv6Active() const;
+    bool NeedDevice() const;
+    VmInterface::SubType sub_type() const {return sub_type_;}
 
     // Add a vm-interface
-    static void Add(InterfaceTable *table,
-                    const boost::uuids::uuid &intf_uuid,
-                    const std::string &os_name, const Ip4Address &addr,
-                    const std::string &mac, const std::string &vn_name,
-                    const boost::uuids::uuid &vm_project_uuid,
-                    uint16_t tx_vlan_id, uint16_t rx_vlan_id,
-                    const std::string &parent, const Ip6Address &ipv6);
+    static void NovaAdd(InterfaceTable *table,
+                        const boost::uuids::uuid &intf_uuid,
+                        const std::string &os_name, const Ip4Address &addr,
+                        const std::string &mac, const std::string &vn_name,
+                        const boost::uuids::uuid &vm_project_uuid,
+                        uint16_t tx_vlan_id, uint16_t rx_vlan_id,
+                        const std::string &parent, const Ip6Address &ipv6);
     // Del a vm-interface
     static void Delete(InterfaceTable *table,
-                       const boost::uuids::uuid &intf_uuid);
+                       const boost::uuids::uuid &intf_uuid,
+                       VmInterface::Configurer configurer);
 
     // Calback from configuration
     static void InstanceIpSync(InterfaceTable *table, IFMapNode *node);
@@ -385,6 +409,9 @@ public:
     static void FloatingIpSync(InterfaceTable *table, IFMapNode *node);
     static void FloatingIpVrfSync(InterfaceTable *table, IFMapNode *node);
     static void VnSync(InterfaceTable *table, IFMapNode *node);
+    static void SubnetSync(InterfaceTable *table, IFMapNode *node);
+    static void LogicalPortSync(InterfaceTable *table, IFMapNode *node);
+    static void PhysicalPortSync(InterfaceTable *table, IFMapNode *node);
 
     void AllocL2MplsLabel(bool force_update, bool policy_change);
     void DeleteL2MplsLabel();
@@ -399,7 +426,14 @@ public:
     bool GetIpamDhcpOptions(
             std::vector<autogen::DhcpOptionType> *options, bool ipv6) const;
     const Peer *peer() const;
+    Ip4Address GetGateway() const;
 private:
+    friend struct VmInterfaceConfigData;
+    friend struct VmInterfaceNovaData;
+    friend struct VmInterfaceIpAddressData;
+    friend struct VmInterfaceOsOperStateData;
+    friend struct VmInterfaceMirrorData;
+
     bool IsActive() const;
     bool IsIpv4Active() const;
     bool IsL3Active() const;
@@ -411,6 +445,8 @@ private:
                   bool ecmp, const IpAddress &gw_ip);
     void DeleteRoute(const std::string &vrf_name, const IpAddress &ip,
                      uint32_t plen);
+    void ResolveRoute(const std::string &vrf_name, const Ip4Address &addr,
+                      uint32_t plen, const std::string &dest_vn, bool policy);
     void ServiceVlanAdd(ServiceVlan &entry);
     void ServiceVlanDel(ServiceVlan &entry);
     void ServiceVlanRouteAdd(const ServiceVlan &entry);
@@ -420,28 +456,30 @@ private:
     bool OnResyncSecurityGroupList(VmInterfaceConfigData *data,
                                    bool new_ipv4_active);
     bool OnResyncStaticRoute(VmInterfaceConfigData *data, bool new_ipv4_active);
-    bool ResyncMirror(VmInterfaceMirrorData *data);
     bool ResyncIpAddress(const VmInterfaceIpAddressData *data);
     bool ResyncOsOperState(const VmInterfaceOsOperStateData *data);
     bool ResyncConfig(VmInterfaceConfigData *data);
     bool CopyIpAddress(Ip4Address &addr);
-    bool CopyIp6Address(Ip6Address &addr);
-    bool CopyConfig(VmInterfaceConfigData *data, bool *sg_changed,
+    bool CopyIp6Address(const Ip6Address &addr);
+    bool CopyConfig(const InterfaceTable *table,
+                    const VmInterfaceConfigData *data, bool *sg_changed,
                     bool *ecmp_changed, bool *local_pref_changed);
     void ApplyConfig(bool old_ipv4_active,bool old_l2_active,  bool old_policy,
                      VrfEntry *old_vrf, const Ip4Address &old_addr,
                      int old_vxlan_id, bool old_need_linklocal_ip,
                      bool sg_changed, bool old_ipv6_active,
                      const Ip6Address &old_v6_addr, bool ecmp_changed,
-                     bool local_pref_changed);
-
+                     bool local_pref_changed, const Ip4Address &old_subnet,
+                     const uint8_t old_subnet_plen);
     void UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
                   const Ip4Address &old_addr, int old_vxlan_id,
                   bool force_update, bool policy_change, bool old_ipv6_active,
-                  const Ip6Address &old_v6_addr);
+                  const Ip6Address &old_v6_addr, const Ip4Address &subnet,
+                  const uint8_t old_subnet_plen);
     void DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
                   const Ip4Address &old_addr, bool old_need_linklocal_ip,
-                  bool old_ipv6_active, const Ip6Address &old_v6_addr);
+                  bool old_ipv6_active, const Ip6Address &old_v6_addr,
+                  const Ip4Address &old_subnet, const uint8_t old_subnet_plen);
     void UpdateL2(bool old_l2_active, VrfEntry *old_vrf, int old_vxlan_id,
                   bool force_update, bool policy_change);
     void DeleteL2(bool old_l2_active, VrfEntry *old_vrf);
@@ -474,6 +512,11 @@ private:
                                   const Ip6Address &old_addr);
     void DeleteIpv6InterfaceRoute(VrfEntry *old_vrf, 
                                   const Ip6Address &old_addr);
+    void UpdateResolveRoute(bool old_ipv4_active, bool force_update,
+                            bool policy_change, VrfEntry * old_vrf,
+                            const Ip4Address &old_addr, uint8_t old_plen);
+    void DeleteResolveRoute(VrfEntry *old_vrf,
+                            const Ip4Address &old_addr, const uint8_t old_plen);
     void DeleteInterfaceNH();
     void UpdateMetadataRoute(bool old_ipv4_active, VrfEntry *old_vrf);
     void DeleteMetadataRoute(bool old_ipv4_active, VrfEntry *old_vrf,
@@ -548,6 +591,11 @@ private:
     AclDBEntryRef vrf_assign_acl_;
     Ip4Address vm_ip_gw_addr_;
     Ip6Address vm_ip6_gw_addr_;
+    VmInterface::SubType sub_type_;
+    uint8_t configurer_;
+    IFMapNode *ifmap_node_;
+    Ip4Address subnet_;
+    uint8_t subnet_plen_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 
@@ -567,25 +615,23 @@ struct VmInterfaceKey : public InterfaceKey {
 
 /////////////////////////////////////////////////////////////////////////////
 // The base class for different type of InterfaceData used for VmInterfaces.
+//
 // Request for VM-Interface data are of 3 types
 // - ADD_DEL_CHANGE 
-//   VM Interface are not added from IFMap config messages. In case of
-//   Openstack, VM-Interfaces are added by a message from Nova.
-//   Data of type ADD_DEL_CHANGE is used when interface is created
-// - CONFIG
-//   Data dervied from the IFMap configuration
+//   Message for ADD/DEL/CHANGE of an interface
 // - MIRROR
 //   Data for mirror enable/disable
 // - IP_ADDR
 //   In one of the modes, the IP address for an interface is not got from IFMap
 //   or Nova. Agent will relay DHCP Request in such cases to IP Fabric network.
 //   The IP address learnt with DHCP in this case is confgured with this type
-//
+// - OS_OPER_STATE
+//   Update to oper state of the interface
 /////////////////////////////////////////////////////////////////////////////
 struct VmInterfaceData : public InterfaceData {
     enum Type {
-        ADD_DEL_CHANGE,
         CONFIG,
+        NOVA,
         MIRROR,
         IP_ADDR,
         OS_OPER_STATE
@@ -597,45 +643,39 @@ struct VmInterfaceData : public InterfaceData {
     }
     virtual ~VmInterfaceData() { }
 
+    virtual VmInterface *OnAdd(const InterfaceTable *table,
+                               const VmInterfaceKey *key) const {
+        return NULL;
+    }
+    virtual bool OnDelete(const InterfaceTable *table,
+                          VmInterface *entry) const {
+        return true;
+    }
+    virtual bool OnResync(const InterfaceTable *table, VmInterface *vmi,
+                          bool *sg_changed, bool *ecmp_changed,
+                          bool *local_pref_changed) const = 0;
+
     Type type_;
 };
 
-// Structure used when type=ADD_DEL_CHANGE. Used for creating of Vm-Interface
-struct VmInterfaceAddData : public VmInterfaceData {
-    VmInterfaceAddData(IFMapNode *node, const Ip4Address &ip_addr,
-                       const std::string &vm_mac,
-                       const std::string &vm_name,
-                       const boost::uuids::uuid &vm_project_uuid,
-                       const uint16_t tx_vlan_id, const uint16_t rx_vlan_id,
-                       const std::string &parent, const Ip6Address &ip6_addr) :
-        VmInterfaceData(node, ADD_DEL_CHANGE), ip_addr_(ip_addr),
-        ip6_addr_(ip6_addr), vm_mac_(vm_mac), vm_name_(vm_name),
-        vm_project_uuid_(vm_project_uuid), tx_vlan_id_(tx_vlan_id),
-        rx_vlan_id_(rx_vlan_id), parent_(parent) {
-    }
-
-    virtual ~VmInterfaceAddData() { }
-
-    Ip4Address ip_addr_;
-    Ip6Address ip6_addr_;
-    std::string vm_mac_;
-    std::string vm_name_;
-    boost::uuids::uuid vm_project_uuid_;
-    uint16_t tx_vlan_id_;
-    uint16_t rx_vlan_id_;
-    std::string parent_;
-};
-
 // Structure used when type=IP_ADDR. Used to update IP-Address of VM-Interface
+// The IP Address is picked up from the DHCP Snoop table
 struct VmInterfaceIpAddressData : public VmInterfaceData {
     VmInterfaceIpAddressData() : VmInterfaceData(NULL, IP_ADDR) { }
     virtual ~VmInterfaceIpAddressData() { }
+    virtual bool OnResync(const InterfaceTable *table, VmInterface *vmi,
+                          bool *sg_changed, bool *ecmp_changed,
+                          bool *local_pref_changed) const;
 };
 
 // Structure used when type=OS_OPER_STATE Used to update interface os oper-state
+// The current oper-state is got by querying the device
 struct VmInterfaceOsOperStateData : public VmInterfaceData {
     VmInterfaceOsOperStateData() : VmInterfaceData(NULL, OS_OPER_STATE) { }
     virtual ~VmInterfaceOsOperStateData() { }
+    virtual bool OnResync(const InterfaceTable *table, VmInterface *vmi,
+                          bool *sg_changed, bool *ecmp_changed,
+                          bool *local_pref_changed) const;
 };
 
 // Structure used when type=MIRROR. Used to update IP-Address of VM-Interface
@@ -644,6 +684,10 @@ struct VmInterfaceMirrorData : public VmInterfaceData {
         VmInterfaceData(NULL, MIRROR), mirror_enable_(mirror_enable),
         analyzer_name_(analyzer_name) {
     }
+    virtual ~VmInterfaceMirrorData() { }
+    virtual bool OnResync(const InterfaceTable *table, VmInterface *vmi,
+                          bool *sg_changed, bool *ecmp_changed,
+                          bool *local_pref_changed) const;
 
     bool mirror_enable_;
     std::string analyzer_name_;
@@ -660,23 +704,20 @@ struct VmInterfaceConfigData : public VmInterfaceData {
         local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
         mirror_direction_(Interface::UNKNOWN), sg_list_(),
         floating_ip_list_(), service_vlan_list_(), static_route_list_(),
-        allowed_address_pair_list_() {
-    }
-
-    VmInterfaceConfigData(IFMapNode *node, const Ip4Address &addr,
-                          const std::string &mac, const std::string &vm_name) :
-        VmInterfaceData(node, CONFIG), addr_(addr), ip6_addr_(), vm_mac_(mac), 
-        cfg_name_(""), vm_uuid_(), vm_name_(vm_name), vn_uuid_(), vrf_name_(""),
-        fabric_port_(true), need_linklocal_ip_(false), 
-        layer2_forwarding_(true), layer3_forwarding_(true),
-        mirror_enable_(false), ecmp_(false), dhcp_enable_(true),
-        analyzer_name_(""), local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
-        mirror_direction_(Interface::UNKNOWN), sg_list_(),
-        floating_ip_list_(), service_vlan_list_(), static_route_list_(),
-        allowed_address_pair_list_() {
+        allowed_address_pair_list_(), sub_type_(VmInterface::NONE),
+        parent_(""), ifmap_node_(NULL), subnet_(0), subnet_plen_(0),
+        rx_vlan_id_(VmInterface::kInvalidVlanId),
+        tx_vlan_id_(VmInterface::kInvalidVlanId) {
     }
 
     virtual ~VmInterfaceConfigData() { }
+    virtual VmInterface *OnAdd(const InterfaceTable *table,
+                               const VmInterfaceKey *key) const;
+    virtual bool OnDelete(const InterfaceTable *table,
+                          VmInterface *entry) const;
+    virtual bool OnResync(const InterfaceTable *table, VmInterface *vmi,
+                          bool *sg_changed, bool *ecmp_changed,
+                          bool *local_pref_changed) const;
 
     Ip4Address addr_;
     Ip6Address ip6_addr_;
@@ -708,6 +749,43 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     VmInterface::StaticRouteList static_route_list_;
     VmInterface::VrfAssignRuleList vrf_assign_rule_list_;
     VmInterface::AllowedAddressPairList allowed_address_pair_list_;
+    VmInterface::SubType sub_type_;
+    std::string parent_;
+    IFMapNode *ifmap_node_;
+    Ip4Address subnet_;
+    uint8_t subnet_plen_;
+    uint16_t rx_vlan_id_;
+    uint16_t tx_vlan_id_;
+};
+
+// Definition for structures when request queued from Nova
+struct VmInterfaceNovaData : public VmInterfaceData {
+    VmInterfaceNovaData();
+    VmInterfaceNovaData(const Ip4Address &ipv4_addr,
+                        const Ip6Address &ipv6_addr,
+                        const std::string &mac_addr,
+                        const std::string vm_name,
+                        boost::uuids::uuid vm_uuid,
+                        const std::string &parent,
+                        uint16_t tx_vlan_id,
+                        uint16_t rx_vlan_id);
+    virtual ~VmInterfaceNovaData();
+    virtual VmInterface *OnAdd(const InterfaceTable *table,
+                               const VmInterfaceKey *key) const;
+    virtual bool OnDelete(const InterfaceTable *table,
+                          VmInterface *entry) const;
+    virtual bool OnResync(const InterfaceTable *table, VmInterface *vmi,
+                          bool *sg_changed, bool *ecmp_changed,
+                          bool *local_pref_changed) const;
+
+    Ip4Address ipv4_addr_;
+    Ip6Address ipv6_addr_;
+    std::string mac_addr_;
+    std::string vm_name_;
+    boost::uuids::uuid vm_uuid_;
+    std::string parent_;
+    uint16_t tx_vlan_id_;
+    uint16_t rx_vlan_id_;
 };
 
 #endif // vnsw_agent_vm_interface_hpp

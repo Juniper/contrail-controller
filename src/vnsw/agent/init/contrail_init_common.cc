@@ -117,25 +117,63 @@ void ContrailInitCommon::CreateVrf() {
     }
 }
 
+static PhysicalInterface::EncapType ComputeEncapType(const string &encap) {
+    if (encap == "none") {
+        return PhysicalInterface::RAW_IP;
+    }
+    return PhysicalInterface::ETHERNET;
+}
+
+void ContrailInitCommon::ProcessComputeAddress(AgentParam *param) {
+    InetUnicastAgentRouteTable *rt_table =
+        agent()->fabric_inet4_unicast_table();
+
+    const AgentParam::AddressList &addr_list =
+        param->compute_node_address_list();
+    AgentParam::AddressList::const_iterator it = addr_list.begin();
+    while (it != addr_list.end()) {
+        rt_table->AddVHostRecvRouteReq(agent()->local_peer(),
+                                       agent()->fabric_vrf_name(),
+                                       param->vhost_name(), *it, 32,
+                                       agent()->fabric_vn_name(), false);
+        it++;
+    }
+
+    // If compute_node_address are specified, it will mean user wants
+    // to run services such as metadata on an IP different than vhost.
+    // Set compute_node_ip_ to vhost_addr if no compute_node_address are 
+    // specified. Else, pick first address to run in compute_node_address_list
+    //
+    // The compute_node_ip is used only in adding Flow NAT rules.
+    if (param->compute_node_address_list().size()) {
+        agent()->set_compute_node_ip(param->compute_node_address_list()[0]);
+    }
+}
+
 void ContrailInitCommon::CreateInterfaces() {
     InterfaceTable *table = agent()->interface_table();
+    PhysicalInterface::EncapType type;
 
+    type = ComputeEncapType(agent_param()->eth_port_encap_type());
     PhysicalInterface::Create(table, agent_param()->eth_port(),
                               agent()->fabric_vrf_name(),
-                              PhysicalInterface::FABRIC);
+                              PhysicalInterface::FABRIC, type,
+                              agent_param()->eth_port_no_arp());
+
     InetInterface::Create(table, agent_param()->vhost_name(),
                           InetInterface::VHOST, agent()->fabric_vrf_name(),
                           agent_param()->vhost_addr(),
                           agent_param()->vhost_plen(),
                           agent_param()->vhost_gw(),
                           agent_param()->eth_port(),
-                          agent()->fabric_vrf_name());
+                          agent()->fabric_vn_name());
     agent()->InitXenLinkLocalIntf();
     if (agent_param()->isVmwareMode()) {
         PhysicalInterface::Create(agent()->interface_table(),
                                   agent_param()->vmware_physical_port(),
                                   agent()->fabric_vrf_name(),
-                                  PhysicalInterface::VMWARE);
+                                  PhysicalInterface::VMWARE,
+                                  PhysicalInterface::ETHERNET, false);
     }
 
     InetInterfaceKey key(agent()->vhost_interface_name());
@@ -157,6 +195,8 @@ void ContrailInitCommon::CreateInterfaces() {
     if (agent()->vgw()) {
         agent()->vgw()->CreateInterfaces();
     }
+
+    ProcessComputeAddress(agent_param());
 }
 
 void ContrailInitCommon::InitDone() {

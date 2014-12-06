@@ -106,6 +106,12 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
     }
 
     case NextHop::RESOLVE: {
+        InterfaceKSyncObject *interface_object =
+            ksync_obj_->ksync()->interface_ksync_obj();
+        const ResolveNH *rsl_nh = static_cast<const ResolveNH *>(nh);
+        InterfaceKSyncEntry if_ksync(interface_object, rsl_nh->interface());
+        interface_ = interface_object->GetReference(&if_ksync);
+        vrf_id_ = rsl_nh->interface()->vrf_id();
         break;
     }
 
@@ -185,8 +191,16 @@ bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
         return type_ < entry.type_;
     }
 
-    if (type_ == NextHop::DISCARD || type_ == NextHop::RESOLVE) {
+    if (type_ == NextHop::DISCARD) {
         return false;
+    }
+
+    if (type_ == NextHop::ARP) {
+        //Policy is ignored for ARP NH
+        if (vrf_id_ != entry.vrf_id_) {
+            return vrf_id_ < entry.vrf_id_;
+        }
+        return sip_.s_addr < entry.sip_.s_addr;
     }
 
     if (policy_ != entry.policy_) {
@@ -195,13 +209,6 @@ bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
 
     if (type_ == NextHop::VRF) {
         return vrf_id_ < entry.vrf_id_;
-    }
-
-    if (type_ == NextHop::ARP) {
-        if (vrf_id_ != entry.vrf_id_) {
-            return vrf_id_ < entry.vrf_id_;
-        }
-        return sip_.s_addr < entry.sip_.s_addr;
     }
 
     if (type_ == NextHop::INTERFACE) {
@@ -214,9 +221,10 @@ bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
         return interface() < entry.interface();
     }
 
-    if (type_ == NextHop::RECEIVE) {
+    if (type_ == NextHop::RECEIVE || type_ == NextHop::RESOLVE) {
         return interface() < entry.interface();
     }
+
 
     if (type_ == NextHop::TUNNEL) {
         if (vrf_id_ != entry.vrf_id_) {
@@ -451,18 +459,21 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
 
         const TunnelNH *tun_nh = static_cast<TunnelNH *>(e);
         const NextHop *active_nh = tun_nh->GetRt()->GetActiveNextHop();
-        if (active_nh->GetType() != NextHop::ARP) {
-            valid_ = false;
-            interface_ = NULL;
-            dmac_.Zero();
-            break;
+        if (active_nh->GetType() == NextHop::ARP) {
+            const ArpNH *arp_nh = static_cast<const ArpNH *>(active_nh);
+            InterfaceKSyncObject *interface_object =
+                ksync_obj_->ksync()->interface_ksync_obj();
+            InterfaceKSyncEntry if_ksync(interface_object, arp_nh->GetInterface());
+            interface_ = interface_object->GetReference(&if_ksync);
+            dmac_ = arp_nh->GetMac();
+        } else if (active_nh->GetType() == NextHop::INTERFACE) {
+            const InterfaceNH *intf_nh = 
+                static_cast<const InterfaceNH *>(active_nh);
+            InterfaceKSyncObject *interface_object =
+                ksync_obj_->ksync()->interface_ksync_obj();
+            InterfaceKSyncEntry if_ksync(interface_object, intf_nh->GetInterface());
+            interface_ = interface_object->GetReference(&if_ksync);
         }
-        const ArpNH *arp_nh = static_cast<const ArpNH *>(active_nh);
-        InterfaceKSyncObject *interface_object =
-            ksync_obj_->ksync()->interface_ksync_obj();
-        InterfaceKSyncEntry if_ksync(interface_object, arp_nh->GetInterface());
-        interface_ = interface_object->GetReference(&if_ksync);
-        dmac_ = arp_nh->GetMac();
         break;
     }
 
@@ -622,7 +633,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             }
             encoder.set_nhr_encap_oif_id(intf_id);
 
-            SetEncap(NULL,encap);
+            SetEncap(if_ksync,encap);
             encoder.set_nhr_encap(encap);
             if (tunnel_type_.GetType() == TunnelType::MPLS_UDP) {
                 flags |= NH_FLAG_TUNNEL_UDP_MPLS;
@@ -690,6 +701,10 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 flags |= NH_FLAG_COMPOSITE_EVPN;
                 break;
             }
+            case Composite::TOR: {
+                flags |= NH_FLAG_COMPOSITE_TOR;
+                break;
+            }
             case Composite::FABRIC: {
                 flags |= NH_FLAG_COMPOSITE_FABRIC;
                 break;
@@ -702,12 +717,10 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             }
             case Composite::L3COMP: {
                 flags |= NH_FLAG_MCAST;
-                flags |= NH_FLAG_COMPOSITE_L3;
                 break;
             }
             case Composite::MULTIPROTO: {
                 encoder.set_nhr_family(AF_UNSPEC);
-                flags |= NH_FLAG_COMPOSITE_MULTI_PROTO;
                 break;
             }
             case Composite::ECMP:
@@ -945,6 +958,10 @@ void NHKSyncEntry::SetEncap(InterfaceKSyncEntry *if_ksync,
                             std::vector<int8_t> &encap) {
 
     if (is_layer2_ == true) {
+        return;
+    }
+
+    if (if_ksync && if_ksync->encap_type() == PhysicalInterface::RAW_IP) {
         return;
     }
 

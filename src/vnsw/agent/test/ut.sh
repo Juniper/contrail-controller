@@ -78,7 +78,7 @@ function run {
 TOP=$PWD
 export LD_BIND_NOW=1
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$TOP/build/lib
-export HEAPCHECK=normal
+#export HEAPCHECK=normal
 export PPROF_PATH=$TOP/build/bin/pprof
 
 mkdir -p ut

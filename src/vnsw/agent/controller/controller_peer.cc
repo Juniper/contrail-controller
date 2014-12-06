@@ -13,6 +13,7 @@
 #include "controller/controller_ifmap.h"
 #include "controller/controller_vrf_export.h"
 #include "controller/controller_init.h"
+#include "oper/operdb_init.h"
 #include "oper/vrf.h"
 #include "oper/nexthop.h"
 #include "oper/mirror_table.h"
@@ -161,9 +162,10 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
                     //traverses the subnet route in VRF to issue delete of peer
                     //for them as well.
                     TunnelOlist olist;
-                    MulticastHandler::ModifyEvpnMembers(bgp_peer_id(),
-                                                        vrf_name, olist,
-                                                        ethernet_tag,
+                    agent_->oper_db()->multicast()->
+                        ModifyEvpnMembers(bgp_peer_id(),
+                                          vrf_name, olist,
+                                          ethernet_tag,
                              ControllerPeerPath::kInvalidPeerIdentifier);
                 } else {
                     rt_table->DeleteReq(bgp_peer_id(), vrf_name, mac, ethernet_tag,
@@ -305,11 +307,11 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
                 }
 
                 //Retract with invalid identifier
-                MulticastHandler::ModifyFabricMembers(agent_->
-                                              multicast_tree_builder_peer(),
-                                              vrf, g_addr.to_v4(),
-                                              s_addr.to_v4(), 0, olist,
-                                  ControllerPeerPath::kInvalidPeerIdentifier);
+                agent_->oper_db()->multicast()->
+                    ModifyFabricMembers(agent_->multicast_tree_builder_peer(),
+                                        vrf, g_addr.to_v4(),
+                                        s_addr.to_v4(), 0, olist,
+                                        ControllerPeerPath::kInvalidPeerIdentifier);
             }
         }
         return;
@@ -380,10 +382,11 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
             nh_label >> label;
             TunnelType::TypeBmap encap =
                 GetMcastTypeBitmap(nh.tunnel_encapsulation_list);
-            olist.push_back(OlistTunnelEntry(label, addr.to_v4(), encap));
+            olist.push_back(OlistTunnelEntry(nil_uuid(), label,
+                                             addr.to_v4(), encap));
         }
 
-        MulticastHandler::ModifyFabricMembers(
+        agent_->oper_db()->multicast()->ModifyFabricMembers(
                 agent_->multicast_tree_builder_peer(),
                 vrf, g_addr.to_v4(), s_addr.to_v4(),
                 item->entry.nlri.source_label, olist,
@@ -540,6 +543,18 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, Ip4Address prefix_addr,
             MplsLabel *mpls =
                 agent_->mpls_table()->FindMplsLabel(label);
             if (mpls != NULL) {
+                if (mpls->nexthop()->GetType() == NextHop::VRF) {
+                    BgpPeer *bgp_peer = bgp_peer_id();
+                    ClonedLocalPath *data =
+                        new ClonedLocalPath(unicast_sequence_number(), this,
+                                label, item->entry.virtual_network,
+                                item->entry.security_group_list.security_group);
+                    rt_table->AddClonedLocalPathReq(bgp_peer, vrf_name,
+                            prefix_addr,
+                            prefix_len, data);
+                    return;
+                }
+
                 DBEntryBase::KeyPtr key = mpls->nexthop()->GetDBRequestKey();
                 NextHopKey *nh_key = static_cast<NextHopKey *>(key.release());
                 if (nh_key->GetType() != NextHop::COMPOSITE) {
@@ -602,15 +617,17 @@ void AgentXmppChannel::AddMulticastEvpnRoute(string vrf_name,
         int label = item->entry.olist.next_hop[i].label;
         TunnelType::TypeBmap encap = GetEnetTypeBitmap(item->
                        entry.olist.next_hop[i].tunnel_encapsulation_list);
-        olist.push_back(OlistTunnelEntry(label, addr.to_v4(), encap));
+        olist.push_back(OlistTunnelEntry(nil_uuid(), label,
+                                         addr.to_v4(), encap));
     }
 
     CONTROLLER_TRACE(Trace, GetBgpPeerName(), "Composite",
                      "add evpn multicast route");
-    MulticastHandler::ModifyEvpnMembers(bgp_peer_id(), vrf_name, olist,
-                                        item->entry.nlri.ethernet_tag,
-                                        agent_->controller()->
-                                        multicast_sequence_number());
+    agent_->oper_db()->multicast()->
+        ModifyEvpnMembers(bgp_peer_id(), vrf_name, olist,
+                          item->entry.nlri.ethernet_tag,
+                          agent_->controller()->
+                          multicast_sequence_number());
 }
 
 void AgentXmppChannel::AddEvpnRoute(std::string vrf_name,
@@ -879,6 +896,26 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
             AddEcmpRoute(vrf_name, prefix_addr.to_v4(), prefix_len, item);
             break;
             }
+        case NextHop::VRF: {
+            //In case of gateway interface with example subnet
+            //1.1.1.0/24 may be reachable on this gateway inteface,
+            //Path added by local vm peer would point to
+            //resolve NH, so that if any path hits this route, ARP resolution
+            //can begin, and the label exported for this route would point to
+            //table nexthop.
+            //Hence existing logic of picking up nexthop from mpls label to
+            //nexthop, will not work. We have added a special path where we
+            //pick nexthop from local vm path, instead of BGP
+            BgpPeer *bgp_peer = bgp_peer_id();
+            ClonedLocalPath *data =
+                new ClonedLocalPath(unicast_sequence_number(), this,
+                        label, item->entry.virtual_network,
+                        item->entry.security_group_list.security_group);
+            rt_table->AddClonedLocalPathReq(bgp_peer, vrf_name,
+                                            prefix_addr.to_v4(),
+                                            prefix_len, data);
+            break;
+        }
 
         default:
             CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
@@ -1594,6 +1631,7 @@ bool AgentXmppChannel::ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
 }
 
 bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
+                                                     const Ip4Address *nh_ip,
                                                      std::string vn,
                                                      uint32_t label,
                                                      uint32_t tunnel_bmap,
@@ -1626,11 +1664,9 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
     item.entry.nlri.address = rstr.str();
     assert(item.entry.nlri.address != "0.0.0.0");
 
-    string rtr(agent_->router_id().to_string());
-
     autogen::EnetNextHopType nh;
     nh.af = Address::INET;
-    nh.address = rtr;
+    nh.address = nh_ip->to_string();
     nh.label = label;
 
     item.entry.nlri.ethernet_tag = 0;
@@ -1825,6 +1861,7 @@ bool AgentXmppChannel::ControllerSendMcastRouteCommon(AgentRoute *route,
 
 bool AgentXmppChannel::ControllerSendEvpnRouteAdd(AgentXmppChannel *peer,
                                                   AgentRoute *route,
+                                                  const Ip4Address *nh_ip,
                                                   std::string vn,
                                                   uint32_t label,
                                                   uint32_t tunnel_bmap) {
@@ -1834,6 +1871,7 @@ bool AgentXmppChannel::ControllerSendEvpnRouteAdd(AgentXmppChannel *peer,
                      route->vrf()->GetName(),
                      route->ToString(), true, label);
     return (peer->ControllerSendEvpnRouteCommon(route,
+                                                nh_ip,
                                                 vn,
                                                 label,
                                                 tunnel_bmap,
@@ -1850,7 +1888,9 @@ bool AgentXmppChannel::ControllerSendEvpnRouteDelete(AgentXmppChannel *peer,
     CONTROLLER_TRACE(RouteExport, peer->GetBgpPeerName(),
                      route->vrf()->GetName(),
                      route->ToString(), false, label);
+    Ip4Address nh_ip = Ip4Address(0);
     return (peer->ControllerSendEvpnRouteCommon(route,
+                                                &nh_ip,
                                                 vn,
                                                 label,
                                                 tunnel_bmap,
@@ -1859,6 +1899,7 @@ bool AgentXmppChannel::ControllerSendEvpnRouteDelete(AgentXmppChannel *peer,
 
 bool AgentXmppChannel::ControllerSendRouteAdd(AgentXmppChannel *peer,
                                               AgentRoute *route,
+                                              const Ip4Address *nexthop_ip,
                                               std::string vn,
                                               uint32_t label,
                                               TunnelType::TypeBmap bmap,
@@ -1883,7 +1924,7 @@ bool AgentXmppChannel::ControllerSendRouteAdd(AgentXmppChannel *peer,
                                                    type);
     }
     if (type == Agent::LAYER2) {
-        ret = peer->ControllerSendEvpnRouteCommon(route, vn,
+        ret = peer->ControllerSendEvpnRouteCommon(route, nexthop_ip, vn,
                                                   label, bmap, true);
     }
     return ret;
@@ -1917,7 +1958,8 @@ bool AgentXmppChannel::ControllerSendRouteDelete(AgentXmppChannel *peer,
                                                        type);
     }
     if (type == Agent::LAYER2) {
-        ret = peer->ControllerSendEvpnRouteCommon(route, vn,
+        Ip4Address nh_ip(0);
+        ret = peer->ControllerSendEvpnRouteCommon(route, &nh_ip, vn,
                                                   label, bmap, false);
     }
     return ret;

@@ -26,6 +26,7 @@ public:
     typedef std::pair<ArpKey, ArpEntry *> ArpCachePair;
     typedef std::map<ArpKey, ArpEntry *>::iterator ArpIterator;
     typedef boost::function<bool(const ArpKey &, ArpEntry *)> Callback;
+    typedef std::set<ArpKey> ArpKeySet;
 
     enum ArpMsgType {
         ARP_RESOLVE,
@@ -37,12 +38,14 @@ public:
     };
 
     struct ArpIpc : InterTaskMsg {
-        ArpIpc(ArpProto::ArpMsgType msg, ArpKey &akey)
-            : InterTaskMsg(msg), key(akey) {}
-        ArpIpc(ArpProto::ArpMsgType msg, in_addr_t ip, const VrfEntry *vrf) :
-            InterTaskMsg(msg), key(ip, vrf) {}
+        ArpIpc(ArpProto::ArpMsgType msg, ArpKey &akey, const Interface* itf)
+            : InterTaskMsg(msg), key(akey), interface(itf) {}
+        ArpIpc(ArpProto::ArpMsgType msg, in_addr_t ip, const VrfEntry *vrf,
+               const Interface* itf) :
+            InterTaskMsg(msg), key(ip, vrf), interface(itf) {}
 
         ArpKey key;
+        const Interface *interface;
     };
 
     struct ArpStats {
@@ -67,19 +70,28 @@ public:
         uint32_t vm_arp_req;
     };
 
+    struct InterfaceArpInfo {
+        InterfaceArpInfo() : arp_key_list(), stats() {}
+        ArpKeySet arp_key_list;
+        ArpStats stats;
+    };
+    typedef std::map<uint32_t, InterfaceArpInfo> InterfaceArpMap;
+    typedef std::pair<uint32_t, InterfaceArpInfo> InterfaceArpPair;
+
     void Shutdown();
     ArpProto(Agent *agent, boost::asio::io_service &io, bool run_with_vrouter);
     virtual ~ArpProto();
 
     ProtoHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
                                     boost::asio::io_service &io);
-    bool TimerExpiry(ArpKey &key, uint32_t timer_type);
+    bool TimerExpiry(ArpKey &key, uint32_t timer_type, const Interface *itf);
 
     bool AddArpEntry(ArpEntry *entry);
     bool DeleteArpEntry(ArpEntry *entry);
     ArpEntry *FindArpEntry(const ArpKey &key);
     std::size_t GetArpCacheSize() { return arp_cache_.size(); }
     const ArpCache& arp_cache() { return arp_cache_; }
+    const InterfaceArpMap& interface_arp_map() { return interface_arp_map_; }
 
     Interface *ip_fabric_interface() const { return ip_fabric_interface_; }
     uint16_t ip_fabric_interface_index() const {
@@ -126,22 +138,34 @@ public:
     const ArpStats &GetStats() const { return arp_stats_; }
     void ClearStats() { arp_stats_.Reset(); }
 
+    void IncrementStatsArpRequest(uint32_t idx);
+    void IncrementStatsArpReply(uint32_t idx);
+    void IncrementStatsResolved(uint32_t idx);
+    InterfaceArpInfo& ArpMapIndexToEntry(uint32_t idx);
+    uint32_t ArpRequestStatsCounter(uint32_t idx);
+    uint32_t ArpReplyStatsCounter(uint32_t idx);
+    uint32_t ArpResolvedStatsCounter(uint32_t idx);
+    void ClearInterfaceArpStats(uint32_t idx);
+
     uint16_t max_retries() const { return max_retries_; }
     uint32_t retry_timeout() const { return retry_timeout_; }
     uint32_t aging_timeout() const { return aging_timeout_; }
     void set_max_retries(uint16_t retries) { max_retries_ = retries; }
     void set_retry_timeout(uint32_t timeout) { retry_timeout_ = timeout; }
     void set_aging_timeout(uint32_t timeout) { aging_timeout_ = timeout; }
-    void SendArpIpc(ArpProto::ArpMsgType type,
-                    in_addr_t ip, const VrfEntry *vrf);
+    void SendArpIpc(ArpProto::ArpMsgType type, in_addr_t ip,
+                    const VrfEntry *vrf, const Interface* itf);
     void ValidateAndClearVrfState(VrfEntry *vrf);
+    ArpIterator FindUpperBoundArpEntry(const ArpKey &key);
+    ArpIterator FindLowerBoundArpEntry(const ArpKey &key);
 
 private:
     void VrfNotify(DBTablePartBase *part, DBEntryBase *entry);
     void NextHopNotify(DBEntryBase *entry);
     void InterfaceNotify(DBEntryBase *entry);
     void RouteUpdate(DBTablePartBase *part, DBEntryBase *entry);
-    void SendArpIpc(ArpProto::ArpMsgType type, ArpKey &key);
+    void SendArpIpc(ArpProto::ArpMsgType type, ArpKey &key,
+                    const Interface* itf);
     ArpProto::ArpIterator DeleteArpEntry(ArpProto::ArpIterator iter);
 
     ArpCache arp_cache_;
@@ -155,6 +179,7 @@ private:
     DBTableBase::ListenerId interface_table_listener_id_;
     DBTableBase::ListenerId nexthop_table_listener_id_;
     std::map<std::string, DBTableBase::ListenerId> route_table_listener_;
+    InterfaceArpMap interface_arp_map_;
 
     uint16_t max_retries_;
     uint32_t retry_timeout_;   // milli seconds
@@ -191,18 +216,26 @@ public:
     typedef std::map<uint32_t, uint32_t> WaitForTrafficIntfMap;
 
     ArpDBState(ArpVrfState *vrf_state, uint32_t vrf_id,
-               IpAddress vm_ip_addr);
+               IpAddress vm_ip_addr, uint8_t plen);
     ~ArpDBState();
     bool SendArpRequest();
     void SendArpRequestForAllIntf(const InetUnicastRouteEntry *route);
     void StartTimer();
+    void Update(const InetUnicastRouteEntry *route);
+    void UpdateArpRoutes(const InetUnicastRouteEntry *route);
+    void Delete(const InetUnicastRouteEntry *rt);
 
 private:
     ArpVrfState *vrf_state_;
     Timer *arp_req_timer_;
     uint32_t vrf_id_;
     IpAddress vm_ip_;
+    uint8_t plen_;
     IpAddress gw_ip_;
+    SecurityGroupList sg_list_;
+    bool policy_;
+    bool resolve_route_;
+    std::string vn_;
     WaitForTrafficIntfMap wait_for_traffic_map_;
 };
 #endif // vnsw_agent_arp_proto_hpp

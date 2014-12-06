@@ -123,8 +123,11 @@ Interface *PhysicalInterfaceKey::AllocEntry(const InterfaceTable *table,
     PhysicalInterface *intf = new PhysicalInterface(name_);
     const PhysicalInterfaceData *phy_data =
         static_cast<const PhysicalInterfaceData *>(data);
+    intf->encap_type_ = phy_data->encap_type_;
+    intf->no_arp_ = phy_data->no_arp_;
     intf->subtype_ = phy_data->subtype_;
-    if (intf->subtype_ == PhysicalInterface::VMWARE) {
+    if (intf->subtype_ == PhysicalInterface::VMWARE ||
+        intf->subtype_ == PhysicalInterface::CONFIG) {
         intf->persistent_ = true;
     }
 
@@ -141,8 +144,11 @@ InterfaceKey *PhysicalInterfaceKey::Clone() const {
 /////////////////////////////////////////////////////////////////////////////
 PhysicalInterfaceData::PhysicalInterfaceData(IFMapNode *node,
                                              const string &vrf_name,
-                                             PhysicalInterface::SubType subtype)
-    : InterfaceData(node), subtype_(subtype) {
+                                             PhysicalInterface::SubType subtype,
+                                             PhysicalInterface::EncapType encap,
+                                             bool no_arp) :
+    InterfaceData(node), subtype_(subtype), encap_type_(encap),
+    no_arp_(no_arp) {
     EthInit(vrf_name);
 }
     
@@ -183,8 +189,12 @@ bool InterfaceTable::PhysicalInterfaceIFNodeToReq(IFMapNode *node,
 
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.data.reset(new PhysicalInterfaceData(node, agent()->fabric_vrf_name(),
-                                             PhysicalInterface::CONFIG));
-    return true;
+                                             PhysicalInterface::CONFIG,
+                                             PhysicalInterface::ETHERNET,
+                                             false));
+    Enqueue(&req);
+    VmInterface::PhysicalPortSync(this, node);
+    return false;
 }
 
 void PhysicalInterface::ConfigEventHandler(IFMapNode *node) {
@@ -195,18 +205,22 @@ void PhysicalInterface::ConfigEventHandler(IFMapNode *node) {
 /////////////////////////////////////////////////////////////////////////////
 // Enqueue DBRequest to create a Host Interface
 void PhysicalInterface::CreateReq(InterfaceTable *table, const string &ifname,
-                                  const string &vrf_name, SubType subtype) {
+                                  const string &vrf_name, SubType subtype,
+                                  EncapType encap, bool no_arp) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new PhysicalInterfaceKey(ifname));
-    req.data.reset(new PhysicalInterfaceData(NULL, vrf_name, subtype));
+    req.data.reset(new PhysicalInterfaceData(NULL, vrf_name, subtype, encap,
+                                             no_arp));
     table->Enqueue(&req);
 }
 
 void PhysicalInterface::Create(InterfaceTable *table, const string &ifname,
-                               const string &vrf_name, SubType subtype) {
+                               const string &vrf_name, SubType subtype,
+                               EncapType encap, bool no_arp) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new PhysicalInterfaceKey(ifname));
-    req.data.reset(new PhysicalInterfaceData(NULL, vrf_name, subtype));
+    req.data.reset(new PhysicalInterfaceData(NULL, vrf_name, subtype, encap,
+                                             no_arp));
     table->Process(req);
 }
 

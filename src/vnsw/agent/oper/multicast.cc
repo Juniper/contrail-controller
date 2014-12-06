@@ -6,6 +6,7 @@
 #include <cmn/agent_cmn.h>
 
 #include <base/logging.h>
+#include <oper/operdb_init.h>
 #include <oper/route_common.h>
 #include <oper/interface_common.h>
 #include <oper/nexthop.h>
@@ -15,6 +16,8 @@
 #include <oper/multicast.h>
 #include <oper/mirror_table.h>
 #include <oper/mpls.h>
+#include <oper/physical_device.h>
+#include <oper/physical_device_vn.h>
 #include <controller/controller_init.h>
 #include <controller/controller_route_path.h>
 
@@ -24,11 +27,34 @@
 #include <sandesh/sandesh_trace.h>
 
 using namespace std;
+using namespace boost::uuids;
+
 #define INVALID_PEER_IDENTIFIER ControllerPeerPath::kInvalidPeerIdentifier
 
 MulticastHandler *MulticastHandler::obj_;
 SandeshTraceBufferPtr MulticastTraceBuf(SandeshTraceBufferCreate("Multicast",
                                                                      1000));
+
+static Composite::Type GetCompositeTypeFromPeer(const Peer *peer) {
+    if (peer->GetType() == Peer::MULTICAST_TOR_PEER)
+        return Composite::TOR;
+    else if (peer->GetType() == Peer::BGP_PEER)
+        return Composite::EVPN;
+    else if (peer->GetType() == Peer::MULTICAST_FABRIC_TREE_BUILDER)
+        return Composite::FABRIC;
+    else
+        return Composite::L2INTERFACE;
+}
+
+static bool IsTorDeleted(const PhysicalDeviceVn *device_vn,
+                         const PhysicalDevice *physical_device,
+                         const VnEntry *vn, const VrfEntry *vrf) {
+    if (device_vn->IsDeleted() || !physical_device || !vn || !vrf)
+        return true;
+
+    return false;
+}
+
 /*
  * Registeration for notification
  * VM - Looking for local VM added 
@@ -37,16 +63,32 @@ SandeshTraceBufferPtr MulticastTraceBuf(SandeshTraceBufferCreate("Multicast",
  */
 void MulticastHandler::Register() {
     vn_listener_id_ = agent_->vn_table()->Register(
-        boost::bind(&MulticastHandler::ModifyVN, _1, _2));
+        boost::bind(&MulticastHandler::ModifyVN, this, _1, _2));
     interface_listener_id_ = agent_->interface_table()->Register(
-        boost::bind(&MulticastHandler::ModifyVmInterface, _1, _2));
+        boost::bind(&MulticastHandler::ModifyVmInterface, this, _1, _2));
+    if (agent()->tsn_enabled()) {
+        physical_device_vn_listener_id_ =
+            agent_->physical_device_vn_table()->
+            Register(boost::bind(&MulticastHandler::ModifyTor,
+                                 this, _1, _2));
+        physical_device_listener_id_ =
+            agent_->physical_device_table()->
+            Register(boost::bind(&MulticastHandler::ModifyPhysicalDevice,
+                                 this, _1, _2));
+    }
 
-    MulticastHandler::GetInstance()->GetMulticastObjList().clear();
+    GetMulticastObjList().clear();
 }
 
 void MulticastHandler::Terminate() {
     agent_->vn_table()->Unregister(vn_listener_id_);
     agent_->interface_table()->Unregister(interface_listener_id_);
+    if (agent_->tsn_enabled()) {
+        agent_->physical_device_table()->
+            Unregister(physical_device_listener_id_);
+        agent_->physical_device_vn_table()->
+            Unregister(physical_device_vn_listener_id_);
+    }
 }
 
 void MulticastHandler::AddL2BroadcastRoute(MulticastGroupObject *obj,
@@ -62,10 +104,14 @@ void MulticastHandler::AddL2BroadcastRoute(MulticastGroupObject *obj,
     //Add Layer2 FF:FF:FF:FF:FF:FF
     ComponentNHKeyList component_nh_key_list =
         GetInterfaceComponentNHKeyList(obj, InterfaceNHFlags::LAYER2);
+    if (component_nh_key_list.size() == 0)
+        return;
+    uint32_t route_tunnel_bmap = TunnelType::AllType();
     Layer2AgentRouteTable::AddLayer2BroadcastRoute(agent_->local_vm_peer(),
                                                    vrf_name, vn_name,
                                                    label, vxlan_id,
                                                    ethernet_tag,
+                                                   route_tunnel_bmap,
                                                    Composite::L2INTERFACE,
                                                    component_nh_key_list);
 }
@@ -80,6 +126,11 @@ void MulticastHandler::DeleteBroadcast(const Peer *peer,
     boost::system::error_code ec;
     MCTRACE(Log, "delete bcast route ", vrf_name, "255.255.255.255", 0);
     Layer2AgentRouteTable::DeleteBroadcastReq(peer, vrf_name, ethernet_tag);
+    ComponentNHKeyList component_nh_key_list; //dummy list
+    RebakeSubnetRoute(agent_->multicast_tor_peer(),
+                      vrf_name, 0, ethernet_tag, "",
+                      true, component_nh_key_list,
+                      GetCompositeTypeFromPeer(peer));
 }
 
 void MulticastHandler::HandleVxLanChange(const VnEntry *vn) {
@@ -91,7 +142,7 @@ void MulticastHandler::HandleVxLanChange(const VnEntry *vn) {
     if (!obj || obj->IsDeleted())
         return;
 
-    int new_vxlan_id = vn->GetVxLanId();
+    uint32_t new_vxlan_id = vn->GetVxLanId();
 
     if (new_vxlan_id != obj->vxlan_id()) {
         boost::system::error_code ec;
@@ -113,8 +164,8 @@ void MulticastHandler::HandleFamilyConfig(const VnEntry *vn)
 
     std::string vrf_name = vn->GetVrf()->GetName();
     for (std::set<MulticastGroupObject *>::iterator it =
-         MulticastHandler::GetInstance()->GetMulticastObjList().begin(); 
-         it != MulticastHandler::GetInstance()->GetMulticastObjList().end(); it++) {
+         GetMulticastObjList().begin(); it != GetMulticastObjList().end();
+         it++) {
         if (vrf_name != (*it)->vrf_name())
             continue;
 
@@ -135,9 +186,221 @@ void MulticastHandler::ModifyVN(DBTablePartBase *partition, DBEntryBase *e)
 {
     const VnEntry *vn = static_cast<const VnEntry *>(e);
 
-    MulticastHandler::GetInstance()->HandleIpam(vn);
-    MulticastHandler::GetInstance()->HandleFamilyConfig(vn);
-    MulticastHandler::GetInstance()->HandleVxLanChange(vn);
+    HandleIpam(vn);
+    HandleFamilyConfig(vn);
+    HandleTor(vn);
+    HandleVxLanChange(vn);
+}
+
+bool MulticastGroupObject::UpdateTorAddressInOlist(const uuid &device_uuid,
+                                                   const Ip4Address &ip,
+                                                   uint32_t vxlan_id) {
+    bool ret = false;
+
+    for (std::vector<OlistTunnelEntry>::iterator it = tor_olist_.begin();
+         it != tor_olist_.end(); it++) {
+        if ((*it).device_uuid_ == device_uuid) {
+            (*it).daddr_ = ip;
+            ret = true;
+        }
+        //All TOR have same vxlan in a VN.
+        if ((*it).label_ != vxlan_id) {
+            (*it).label_ = vxlan_id;
+            ret = true;
+        }
+    }
+    return ret;
+}
+
+const OlistTunnelEntry *MulticastGroupObject::FindInTorListUsingUuid
+(const uuid &device_uuid) {
+    for (std::vector<OlistTunnelEntry>::iterator it = tor_olist_.begin();
+         it != tor_olist_.end(); it++) {
+        if ((*it).device_uuid_ == device_uuid) {
+            return &(*it);
+        }
+    }
+    return NULL;
+}
+
+bool MulticastGroupObject::CanBeDeleted() const {
+    if (local_olist_.size() == 0 && tor_olist_.empty())
+        return true;
+    return false;
+}
+
+void MulticastHandler::HandleTorRoute(DBTablePartBase *partition,
+                                      DBEntryBase *entry)
+{
+    PhysicalDeviceVn *device_vn_entry =
+        static_cast<PhysicalDeviceVn *>(entry);
+    const PhysicalDevice *physical_device = device_vn_entry->device();
+    const VnEntry *device_vn = device_vn_entry->vn();
+    const uuid &device_uuid = device_vn_entry->device_uuid();
+    uint32_t vxlan_id = device_vn->GetVxLanId();
+    boost::system::error_code ec;
+    Ip4Address addr = physical_device->ip().to_v4();
+    const VrfEntry *device_vn_vrf = device_vn ? device_vn->GetVrf() : NULL;
+    bool rebake = false;
+
+    //Get the multicast object
+    MulticastGroupObject *obj = NULL;
+    if (device_vn_vrf)
+        obj = FindFloodGroupObject(device_vn_vrf->GetName());
+
+    //Find out if physical device is deleted.
+    bool del_tor_request = IsTorDeleted(device_vn_entry, physical_device,
+                                        device_vn, device_vn_vrf);
+    if (del_tor_request) {
+        MulticastDBState *state = static_cast<MulticastDBState *> 
+            (device_vn_entry->GetState(partition->parent(),
+                                       physical_device_vn_listener_id_));
+        if (!state)
+            return;
+
+        const std::string &vrf_name = state->vrf_name_;
+        const Ip4Address &device_addr = state->ip_addr_;
+        device_vn_entry->ClearState(partition->parent(),
+                                    physical_device_vn_listener_id_);
+        delete state;
+
+        //Deletion continues if vrf is known.
+        //Since there was no object, ignore physical device delete
+        if (obj == NULL)
+            return;
+        obj->DeleteFromTorList(device_uuid, device_addr, vxlan_id,
+                               TunnelType::VxlanType(), false);
+        if (obj->tor_olist().empty()) {
+            //Delete route path for TOR since olist is empty
+            Layer2AgentRouteTable::DeleteBroadcastReq(agent_->multicast_tor_peer(),
+                                                      vrf_name,
+                                                      vxlan_id);
+            ComponentNHKeyList component_nh_key_list; //dummy list
+            RebakeSubnetRoute(agent_->multicast_tor_peer(),
+                              vrf_name, 0, vxlan_id, "",
+                              true, component_nh_key_list,
+                              Composite::TOR);
+            DeleteMulticastObject(device_vn->GetVrf()->GetName(), device_addr);
+            return;
+        }
+        //Tor olist is not empty so fallback below to modify member list.
+        //Code is same for modification with add.
+        rebake = true;
+    } else {
+        if (obj == NULL) {
+            boost::system::error_code ec;
+            Ip4Address broadcast =  IpAddress::from_string("255.255.255.255",
+                                                           ec).to_v4();
+            obj = CreateMulticastGroupObject(device_vn->GetVrf()->GetName(),
+                                             broadcast,
+                                             device_vn->GetName(),
+                                             vxlan_id);
+        }
+
+        rebake = obj->AddInTorList(device_uuid, addr, vxlan_id,
+                                   TunnelType::VxlanType());
+    }
+
+    assert(obj != NULL);
+
+    //Set the state for vrf name and address
+    MulticastDBState *state = new MulticastDBState(device_vn->GetVrf()->GetName(),
+                                                   addr);
+    device_vn_entry->SetState(partition->parent(),
+                              physical_device_vn_walker_id_, state);
+
+    //rebake if VXLAN changed
+    if (vxlan_id != obj->vxlan_id()) {
+        obj->set_vxlan_id(vxlan_id);
+        rebake = true;
+    }
+
+    //rebake if physical device address changed or any of the
+    //physical device has changed vxlan
+    rebake = obj->UpdateTorAddressInOlist(device_vn_entry->device_uuid(),
+                                          addr,
+                                          vxlan_id);
+
+    if (rebake) {
+        ModifyTorMembers(agent_->multicast_tor_peer(),
+                         device_vn->GetVrf()->GetName(),
+                         obj->tor_olist(),
+                         device_vn->GetVxLanId(),
+                         1);
+    }
+}
+
+void MulticastHandler::ModifyTor(DBTablePartBase *partition, DBEntryBase *e)
+{
+    HandleTorRoute(partition, e);
+}
+
+void MulticastHandler::ModifyPhysicalDevice(DBTablePartBase *partition,
+                                            DBEntryBase *e)
+{
+    const PhysicalDevice *device = static_cast<const PhysicalDevice *>(e);
+
+    //Take IP out of it
+    const uuid &device_uuid = device->uuid();
+    const IpAddress &ip = device->ip();
+
+    UpdatePhysicalDeviceAddressMap(device_uuid, ip);
+}
+
+void MulticastHandler::UpdatePhysicalDeviceAddressMap(const uuid &device_uuid,
+                                                      const IpAddress &ip) {
+    std::map<uuid, IpAddress>::iterator it =
+        physical_device_uuid_addr_map_.find(device_uuid);
+    if ((it == physical_device_uuid_addr_map_.end()) ||
+        (it->second != ip)) {
+        physical_device_uuid_addr_map_[device_uuid] = ip;
+        HandleTor(NULL);
+    }
+}
+
+void MulticastHandler::WalkDone() {
+    if (physical_device_vn_walker_id_ != DBTableWalker::kInvalidWalkerId)
+        physical_device_vn_walker_id_ = DBTableWalker::kInvalidWalkerId;
+}
+
+bool MulticastHandler::TorWalker(DBTablePartBase *partition,
+                                 DBEntryBase *entry) {
+    HandleTorRoute(partition, entry);
+    return true;
+}
+
+void MulticastHandler::HandleTor(const VnEntry *vn) 
+{
+    if (agent_->tsn_enabled() == false) {
+        return;
+    }
+
+    if (agent_->physical_device_vn_table() == NULL) {
+        return;
+    }
+
+    DBTableWalker *walker = agent_->db()->GetWalker();
+    //cancel walk
+    if (physical_device_vn_walker_id_ != DBTableWalker::kInvalidWalkerId)
+        walker->WalkCancel(physical_device_vn_walker_id_);
+
+    DBTableWalker::WalkId walk_id = DBTableWalker::kInvalidWalkerId;
+    //Start a walk on VN table
+    walk_id = walker->WalkTable(agent_->physical_device_vn_table(), NULL,
+                      boost::bind(&MulticastHandler::TorWalker, this, _1,
+                                  _2),
+                      boost::bind(&MulticastHandler::WalkDone, this));
+    physical_device_vn_walker_id_ = walk_id;
+}
+
+MulticastGroupObject *MulticastHandler::CreateMulticastGroupObject
+(const string &vrf_name, const Ip4Address &ip_addr, const string &vn_name,
+ uint32_t vxlan_id) {
+    MulticastGroupObject *obj =
+        new MulticastGroupObject(vrf_name, ip_addr, vn_name);
+    obj->set_vxlan_id(vxlan_id);
+    AddToMulticastObjList(obj);
+    return obj;
 }
 
 void MulticastHandler::HandleIpam(const VnEntry *vn) {
@@ -185,18 +448,19 @@ void MulticastHandler::ModifyVmInterface(DBTablePartBase *partition,
         return;
     }
 
-    if (intf->IsDeleted() || (intf->l2_active() == false)) {
-        MulticastHandler::GetInstance()->DeleteVmInterface(intf);
+    vm_itf = static_cast<const VmInterface *>(intf);
+    if (vm_itf->sub_type() == VmInterface::TOR) {
+        //Ignore TOR VMI, they are not active VMI.
         return;
     }
 
-    vm_itf = static_cast<const VmInterface *>(intf);
+    if (intf->IsDeleted() || (intf->l2_active() == false)) {
+        DeleteVmInterface(intf);
+        return;
+    }
     assert(vm_itf->vn() != NULL);
 
-    MulticastHandler::GetInstance()->AddVmInterfaceInFloodGroup(
-                                     vm_itf->vrf()->GetName(),
-                                     vm_itf->GetUuid(), 
-                                     vm_itf->vn());
+    AddVmInterfaceInFloodGroup(vm_itf);
     return;
 }
 
@@ -231,9 +495,8 @@ void MulticastHandler::DeleteVmInterface(const Interface *intf)
             MCTRACE(Info, "Del route for multicast address",
                     vm_itf->ip_addr().to_string());
             //Time to delete route(for mcast address) and mpls
-            MulticastHandler::GetInstance()->
-                DeleteBroadcast(agent_->local_vm_peer(),
-                                (*it)->vrf_name_, 0);
+            DeleteBroadcast(agent_->local_vm_peer(),
+                            (*it)->vrf_name_, 0);
             /* delete mcast object */
             DeleteMulticastObject((*it)->vrf_name_, (*it)->grp_address_);
         }
@@ -246,13 +509,16 @@ void MulticastHandler::DeleteVmInterface(const Interface *intf)
 //Delete multicast object for vrf/G
 void MulticastHandler::DeleteMulticastObject(const std::string &vrf_name,
                                              const Ip4Address &grp_addr) {
-    MCTRACE(Log, "delete obj  vrf/grp/size ", vrf_name, grp_addr.to_string(),
-        this->GetMulticastObjList().size());
     for(std::set<MulticastGroupObject *>::iterator it =
         this->GetMulticastObjList().begin(); 
         it != this->GetMulticastObjList().end(); it++) {
         if (((*it)->vrf_name() == vrf_name) &&
             ((*it)->GetGroupAddress() == grp_addr)) {
+            if (!((*it)->CanBeDeleted()))
+                return;
+            MCTRACE(Log, "delete obj  vrf/grp/size ", vrf_name,
+                    grp_addr.to_string(),
+                    this->GetMulticastObjList().size());
             delete (*it);
             this->GetMulticastObjList().erase(it++);
             break;
@@ -325,12 +591,14 @@ void MulticastHandler::TriggerLocalRouteChange(MulticastGroupObject *obj,
             obj->GetGroupAddress().to_string(),
             component_nh_key_list.size());
     //Add Layer2 FF:FF:FF:FF:FF:FF, local_vm_peer
+    uint32_t route_tunnel_bmap = TunnelType::AllType();
     Layer2AgentRouteTable::AddLayer2BroadcastRoute(peer,
                                                    obj->vrf_name(),
                                                    obj->GetVnName(),
                                                    obj->evpn_mpls_label(),
                                                    obj->vxlan_id(),
                                                    0,
+                                                   route_tunnel_bmap,
                                                    Composite::L2INTERFACE,
                                                    component_nh_key_list);
 }
@@ -376,13 +644,15 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
         ComponentNHKeyList component_nh_key_list; //dummy list
         RebakeSubnetRoute(peer, vrf_name, 0, ethernet_tag,
                           obj ? obj->GetVnName() : "",
-                          true, component_nh_key_list);
+                          true, component_nh_key_list,
+                          comp_type);
         return;
     }
 
     // - Update operation with lower sequence number sent compared to
     // local identifier, ignore
-    if (peer_identifier < obj_peer_identifier) {
+    if ((peer_identifier < obj_peer_identifier) &&
+        (comp_type != Composite::TOR)) {
         return;
     }
 
@@ -399,8 +669,8 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
     for (TunnelOlist::const_iterator it = olist.begin();
          it != olist.end(); it++) {
         TunnelNHKey *key =
-            new TunnelNHKey(Agent::GetInstance()->fabric_vrf_name(),
-                            Agent::GetInstance()->router_id(),
+            new TunnelNHKey(agent_->fabric_vrf_name(),
+                            agent_->router_id(),
                             it->daddr_, false,
                             TunnelType::ComputeType(it->tunnel_bmap_));
         TunnelNHData *tnh_data = new TunnelNHData();
@@ -408,9 +678,10 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         req.key.reset(key);
         req.data.reset(tnh_data);
-        Agent::GetInstance()->nexthop_table()->Enqueue(&req);
+        agent_->nexthop_table()->Enqueue(&req);
+
         MCTRACE(Log, "Enqueue add TOR TUNNEL ",
-                Agent::GetInstance()->fabric_vrf_name(),
+                agent_->fabric_vrf_name(),
                 it->daddr_.to_string(), it->label_);
 
         ComponentNHKeyPtr component_key_ptr(new ComponentNHKey(it->label_,
@@ -426,18 +697,23 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
             component_nh_key_list.size());
 
     //Add Layer2 FF:FF:FF:FF:FF:FF$
+    uint32_t route_tunnel_bmap = TunnelType::AllType();
+    if (comp_type == Composite::TOR)
+        route_tunnel_bmap = TunnelType::VxlanType();
     Layer2AgentRouteTable::AddLayer2BroadcastRoute(peer,
                                                    obj->vrf_name(),
                                                    obj->GetVnName(),
                                                    label,
                                                    obj->vxlan_id(),
                                                    ethernet_tag,
+                                                   route_tunnel_bmap,
                                                    comp_type,
                                                    component_nh_key_list);
-    if (comp_type == Composite::EVPN) {
-        RebakeSubnetRoute(peer, obj->vrf_name(), label, obj->vxlan_id(),
-                          obj->GetVnName(), false, component_nh_key_list);
-    }
+    MCTRACE(Log, "rebake subnet peer for subnet", vrf_name,
+            "255.255.255.255", comp_type);
+    RebakeSubnetRoute(peer, obj->vrf_name(), label, obj->vxlan_id(),
+                      obj->GetVnName(), false, component_nh_key_list,
+                      comp_type);
 }
 
 void MulticastHandler::RebakeSubnetRoute(const Peer *peer,
@@ -446,12 +722,9 @@ void MulticastHandler::RebakeSubnetRoute(const Peer *peer,
                                          uint32_t vxlan_id,
                                          const std::string &vn_name,
                                          bool del_op,
-                                         const ComponentNHKeyList &comp_nh_list)
+                                         const ComponentNHKeyList &comp_nh_list,
+                                         COMPOSITETYPE comp_type)
 {
-    //Expect only to handle EVPN information.
-    if (peer->GetType() != Peer::BGP_PEER)
-        return;
-
     std::vector<VnIpam> &vrf_ipam =
         (vrf_ipam_mapping_.find(vrf_name))->second;
     for (std::vector<VnIpam>::iterator it = vrf_ipam.begin();
@@ -464,7 +737,7 @@ void MulticastHandler::RebakeSubnetRoute(const Peer *peer,
         if (del_op == false) {
             DBRequest nh_req;
             nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-            nh_req.key.reset(new CompositeNHKey(Composite::EVPN, false,
+            nh_req.key.reset(new CompositeNHKey(comp_type, false,
                                                 comp_nh_list, vrf_name));
             nh_req.data.reset(new CompositeNHData());
             //add route
@@ -482,9 +755,10 @@ void MulticastHandler::RebakeSubnetRoute(const Peer *peer,
     }
 }
 
-void MulticastHandler::AddVmInterfaceInFloodGroup(const std::string &vrf_name, 
-                                                  const uuid &intf_uuid, 
-                                                  const VnEntry *vn) {
+void MulticastHandler::AddVmInterfaceInFloodGroup(const VmInterface *vm_itf) {
+    const string vrf_name = vm_itf->vrf()->GetName();
+    const uuid intf_uuid = vm_itf->GetUuid();
+    const VnEntry *vn = vm_itf->vn();
     MulticastGroupObject *all_broadcast = NULL;
     boost::system::error_code ec;
     Ip4Address broadcast =  IpAddress::from_string("255.255.255.255",
@@ -496,13 +770,11 @@ void MulticastHandler::AddVmInterfaceInFloodGroup(const std::string &vrf_name,
     //All broadcast addition 255.255.255.255
     all_broadcast = this->FindGroupObject(vrf_name, broadcast);
     if (all_broadcast == NULL) {
-        all_broadcast = new MulticastGroupObject(vrf_name, broadcast, 
-                                                 vn_name);
-        AddToMulticastObjList(all_broadcast);
+        all_broadcast = CreateMulticastGroupObject(vrf_name, broadcast, 
+                                                   vn_name, vn->GetVxLanId());
         add_route = true;
     }
 
-    all_broadcast->set_vxlan_id(vn->GetVxLanId());
     //Modify Nexthops
     if (all_broadcast->AddLocalMember(intf_uuid) == true) {
         if (vn->layer2_forwarding()) {
@@ -518,7 +790,8 @@ void MulticastHandler::AddVmInterfaceInFloodGroup(const std::string &vrf_name,
             all_broadcast->set_vxlan_id(vn->GetVxLanId());
         } 
         all_broadcast->SetLayer2Forwarding(vn->layer2_forwarding());
-        uint32_t evpn_label = Agent::GetInstance()->mpls_table()->
+        //TODO OVS no need to alloc mpls label for OVS VMI.
+        uint32_t evpn_label = agent_->mpls_table()->
             AllocLabel();
         if (evpn_label != MplsLabel::INVALID) { 
             all_broadcast->set_evpn_mpls_label(evpn_label);
@@ -544,8 +817,7 @@ void MulticastHandler::ModifyFabricMembers(const Peer *peer,
                                            const TunnelOlist &olist,
                                            uint64_t peer_identifier)
 {
-    MulticastGroupObject *obj = 
-        MulticastHandler::GetInstance()->FindActiveGroupObject(vrf_name, grp);
+    MulticastGroupObject *obj = FindActiveGroupObject(vrf_name, grp);
     MCTRACE(Log, "XMPP call(edge replicate) multicast handler ", vrf_name,
             grp.to_string(), label);
 
@@ -559,10 +831,10 @@ void MulticastHandler::ModifyFabricMembers(const Peer *peer,
         return;
     }
 
-    MulticastHandler::GetInstance()->TriggerRemoteRouteChange(obj, peer,
-                                     vrf_name, olist, peer_identifier,
-                                     delete_op, Composite::FABRIC,
-                                     label, true, 0);
+    TriggerRemoteRouteChange(obj, peer,
+                             vrf_name, olist, peer_identifier,
+                             delete_op, Composite::FABRIC,
+                             label, true, 0);
     MCTRACE(Log, "Add fabric grp label ", vrf_name, grp.to_string(), label);
 }
 
@@ -582,8 +854,7 @@ void MulticastHandler::ModifyEvpnMembers(const Peer *peer,
 {
     boost::system::error_code ec;
     Ip4Address grp = Ip4Address::from_string("255.255.255.255", ec);
-    MulticastGroupObject *obj =
-        MulticastHandler::GetInstance()->FindActiveGroupObject(vrf_name, grp);
+    MulticastGroupObject *obj = FindActiveGroupObject(vrf_name, grp);
     MCTRACE(Log, "XMPP call(EVPN) multicast handler ", vrf_name,
             grp.to_string(), 0);
 
@@ -596,10 +867,79 @@ void MulticastHandler::ModifyEvpnMembers(const Peer *peer,
         delete_op = true;
     }
 
-    MulticastHandler::GetInstance()->TriggerRemoteRouteChange(obj, peer, vrf_name, olist,
-                                     peer_identifier, delete_op, Composite::EVPN,
-                                     obj->evpn_mpls_label(), false, ethernet_tag);
+    TriggerRemoteRouteChange(obj, peer, vrf_name, olist,
+                             peer_identifier, delete_op, Composite::EVPN,
+                             obj->evpn_mpls_label(), false, ethernet_tag);
     MCTRACE(Log, "Add EVPN TOR Olist ", vrf_name, grp.to_string(), 0);
+}
+
+void MulticastHandler::ModifyTorMembers(const Peer *peer,
+                                        const std::string &vrf_name,
+                                        const TunnelOlist &olist,
+                                        uint32_t ethernet_tag,
+                                        uint64_t peer_identifier)
+{
+    boost::system::error_code ec;
+    Ip4Address grp = Ip4Address::from_string("255.255.255.255", ec);
+    MulticastGroupObject *obj = FindActiveGroupObject(vrf_name, grp);
+    MCTRACE(Log, "TOR multicast handler ", vrf_name, grp.to_string(), 0);
+
+    if (obj == NULL) {
+        return;
+    }
+
+    bool delete_op = false;
+    if (peer_identifier == ControllerPeerPath::kInvalidPeerIdentifier) {
+        delete_op = true;
+    }
+
+    TriggerRemoteRouteChange(obj, peer, vrf_name, olist,
+                             peer_identifier, delete_op, Composite::TOR,
+                             MplsTable::kInvalidLabel, false, ethernet_tag);
+    MCTRACE(Log, "Add external TOR Olist ", vrf_name, grp.to_string(), 0);
+}
+
+const OlistTunnelEntry *MulticastGroupObject::FindInTorList
+(const uuid &device_uuid, uint32_t vxlan_id, uint32_t tunnel_bmap) {
+    for (std::vector<OlistTunnelEntry>::iterator it = tor_olist_.begin();
+         it != tor_olist_.end(); it++) {
+        if (((*it).device_uuid_ == device_uuid) &&
+            ((*it).label_ == vxlan_id) &&
+            ((*it).tunnel_bmap_ == tunnel_bmap)) {
+            return &(*it);
+        }
+    }
+    return NULL;
+}
+
+bool MulticastGroupObject::AddInTorList(const uuid &device_uuid,
+                                        const Ip4Address &ip_addr,
+                                        uint32_t vxlan_id,
+                                        uint32_t tunnel_bmap) {
+    if (FindInTorListUsingUuid(device_uuid) != NULL)
+        return false;
+
+    tor_olist_.push_back(OlistTunnelEntry(device_uuid, vxlan_id, ip_addr,
+                                          tunnel_bmap));
+    return true;
+}
+
+bool MulticastGroupObject::DeleteFromTorList(const uuid &device_uuid,
+                                             const Ip4Address &ip_addr,
+                                             uint32_t vxlan_id,
+                                             uint32_t tunnel_bmap,
+                                             bool use_uuid_only) {
+    for (std::vector<OlistTunnelEntry>::iterator it = tor_olist_.begin();
+         it != tor_olist_.end(); it++) {
+        if ((*it).device_uuid_ == device_uuid) {
+            if (use_uuid_only || (((*it).label_ == vxlan_id) &&
+                                  ((*it).tunnel_bmap_ == tunnel_bmap))) {
+                tor_olist_.erase(it);
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 // Helper to delete fabric nh
@@ -610,8 +950,7 @@ void MulticastGroupObject::FlushAllPeerInfo(const Agent *agent,
                                             uint64_t peer_identifier) {
     if ((peer_identifier != peer_identifier_) ||
         (peer_identifier == INVALID_PEER_IDENTIFIER)) {
-        MulticastHandler::GetInstance()->
-            DeleteBroadcast(peer, vrf_name_, 0);
+        agent->oper_db()->multicast()->DeleteBroadcast(peer, vrf_name_, 0);
     }
     MCTRACE(Log, "Delete broadcast route", vrf_name_,
             grp_address_.to_string(), 0);
@@ -620,7 +959,8 @@ void MulticastGroupObject::FlushAllPeerInfo(const Agent *agent,
 MulticastHandler::MulticastHandler(Agent *agent)
         : agent_(agent),
           vn_listener_id_(DBTable::kInvalidId),
-          interface_listener_id_(DBTable::kInvalidId) { 
+          interface_listener_id_(DBTable::kInvalidId),
+          physical_device_vn_walker_id_(DBTableWalker::kInvalidWalkerId) { 
     obj_ = this; 
 }
 
@@ -639,15 +979,12 @@ bool MulticastHandler::FlushPeerInfo(uint64_t peer_sequence) {
  * Shutdown for clearing all stuff related to multicast
  */
 void MulticastHandler::Shutdown() {
-    const Agent *agent = MulticastHandler::GetInstance()->agent();
     //Delete all route mpls and trigger cnh change
-
     for (std::set<MulticastGroupObject *>::iterator it =
-         MulticastHandler::GetInstance()->GetMulticastObjList().begin();
-         it != MulticastHandler::GetInstance()->GetMulticastObjList().end();
+         GetMulticastObjList().begin(); it != GetMulticastObjList().end();
          it++) {
         MulticastGroupObject *obj = (*it);
-        AgentRoute *route = Layer2AgentRouteTable::FindRoute(agent,
+        AgentRoute *route = Layer2AgentRouteTable::FindRoute(agent_,
                                                              obj->vrf_name(),
                                                              MacAddress::BroadcastMac());
         if (route == NULL)
@@ -658,7 +995,7 @@ void MulticastHandler::Shutdown() {
             const AgentPath *path =
                 static_cast<const AgentPath *>(it.operator->());
             //Delete the tunnel OLIST
-            (obj)->FlushAllPeerInfo(agent,
+            (obj)->FlushAllPeerInfo(agent_,
                                     path->peer(),
                                     INVALID_PEER_IDENTIFIER);
         }
