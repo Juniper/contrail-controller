@@ -626,6 +626,12 @@ CdbIf::CdbIf(DbErrorHandler errhandler,
     task_instance_(-1),
     prev_task_instance_(-1),
     task_instance_initialized_(false) {
+
+    // reduce connection timeout
+    boost::shared_ptr<TSocket> tsocket = 
+        boost::dynamic_pointer_cast<TSocket>(socket_);
+    tsocket->setConnTimeout(connectionTimeout);
+
     db_init_done_ = false;
 }
 
