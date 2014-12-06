@@ -283,6 +283,8 @@ private:
     mutable tbb::mutex smutex_;
     CdbIfStats stats_;
     std::vector<DbQueueWaterMarkInfo> cdbq_wm_info_;
+    // Connection timeout to a server (before moving to next server)
+    static const int connectionTimeout = 3000;
 };
 
 CdbIf::CdbIfStats::CfStats operator+(const CdbIf::CdbIfStats::CfStats &a,
