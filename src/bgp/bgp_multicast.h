@@ -104,7 +104,7 @@ public:
     Ip4Address address() const { return address_; }
     std::vector<std::string> encap() const { return encap_; }
     ErmVpnRoute *route() { return route_; }
-    RouteDistinguisher route_distinguisher() const { return rd_; }
+    const RouteDistinguisher &route_distinguisher() const { return rd_; }
     Ip4Address router_id() const { return router_id_; }
 
     bool empty() { return tree_links_.empty(); }
@@ -209,7 +209,7 @@ public:
     void ChangeForwarder(McastForwarder *forwarder);
     void DeleteForwarder(McastForwarder *forwarder);
 
-    RouteDistinguisher GetSourceRd();
+    const RouteDistinguisher &GetSourceRd() const;
     void AddLocalTreeRoute();
     void DeleteLocalTreeRoute();
     void UpdateLocalTreeRoute();
