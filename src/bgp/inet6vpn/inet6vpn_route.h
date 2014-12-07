@@ -31,7 +31,7 @@ public:
     int CompareTo(const Inet6VpnPrefix &other) const;
     bool operator==(const Inet6VpnPrefix &rhs) const;
 
-    RouteDistinguisher route_distinguisher() const { return rd_; }
+    const RouteDistinguisher &route_distinguisher() const { return rd_; }
     Ip6Address addr() const { return addr_; }
     int prefixlen() const { return prefixlen_; }
     void BuildProtoPrefix(uint32_t label, BgpProtoPrefix *prefix) const;
