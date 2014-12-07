@@ -431,7 +431,7 @@ struct BgpAttrUnknown : public BgpAttribute {
 struct BgpAttrSourceRd : public BgpAttribute {
     BgpAttrSourceRd() : BgpAttribute(0, SourceRd, 0) {}
     BgpAttrSourceRd(const BgpAttribute &rhs) : BgpAttribute(rhs) {}
-    explicit BgpAttrSourceRd(RouteDistinguisher source_rd) :
+    explicit BgpAttrSourceRd(const RouteDistinguisher &source_rd) :
             BgpAttribute(0, SourceRd, 0), source_rd(source_rd) {}
     RouteDistinguisher source_rd;
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
@@ -442,7 +442,7 @@ struct BgpAttrSourceRd : public BgpAttribute {
 struct BgpAttrEsi : public BgpAttribute {
     BgpAttrEsi() : BgpAttribute(0, Esi, 0) {}
     BgpAttrEsi(const BgpAttribute &rhs) : BgpAttribute(rhs) {}
-    explicit BgpAttrEsi(EthernetSegmentId esi) :
+    explicit BgpAttrEsi(const EthernetSegmentId &esi) :
             BgpAttribute(0, Esi, 0), esi(esi) {}
     EthernetSegmentId esi;
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
@@ -491,8 +491,10 @@ public:
     void set_originator_id(Ip4Address originator_id) {
         originator_id_ = originator_id;
     }
-    void set_source_rd(RouteDistinguisher source_rd) { source_rd_ = source_rd; }
-    void set_esi(EthernetSegmentId esi) { esi_ = esi; }
+    void set_source_rd(const RouteDistinguisher &source_rd) {
+        source_rd_ = source_rd;
+    }
+    void set_esi(const EthernetSegmentId &esi) { esi_ = esi; }
     void set_params(uint64_t params) { params_ = params; }
     void set_as_path(const AsPathSpec *spec);
     void set_community(CommunityPtr comm);
@@ -597,8 +599,9 @@ public:
     BgpAttrPtr ReplaceOriginatorIdAndLocate(const BgpAttr *attr,
                                             Ip4Address originator_id);
     BgpAttrPtr ReplaceSourceRdAndLocate(const BgpAttr *attr,
-                                        RouteDistinguisher source_rd);
-    BgpAttrPtr ReplaceEsiAndLocate(const BgpAttr *attr, EthernetSegmentId esi);
+                                        const RouteDistinguisher &source_rd);
+    BgpAttrPtr ReplaceEsiAndLocate(const BgpAttr *attr,
+                                   const EthernetSegmentId &esi);
     BgpAttrPtr ReplaceOListAndLocate(const BgpAttr *attr, BgpOListPtr olist);
     BgpAttrPtr ReplacePmsiTunnelAndLocate(const BgpAttr *attr,
                                           PmsiTunnelSpec *pmsi_spec);

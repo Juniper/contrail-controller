@@ -28,7 +28,7 @@ public:
     bool IsMoreSpecific(const InetVpnPrefix &rhs) const;
     bool operator==(const InetVpnPrefix &rhs) const;
 
-    RouteDistinguisher route_distinguisher() const { return rd_; }
+    const RouteDistinguisher &route_distinguisher() const { return rd_; }
     Ip4Address addr() const { return addr_; }
     int prefixlen() const { return prefixlen_; }
     void BuildProtoPrefix(uint32_t label, BgpProtoPrefix *prefix) const;

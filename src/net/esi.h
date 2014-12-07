@@ -5,7 +5,7 @@
 #ifndef ctrlplane_esi_h
 #define ctrlplane_esi_h
 
-#include <boost/system/error_code.hpp>
+#include "base/util.h"
 
 class EthernetSegmentId {
 public:
@@ -22,11 +22,20 @@ public:
         AS_BASED = 5
     };
 
+    std::string ToString() const;
     static EthernetSegmentId FromString(const std::string &str,
         boost::system::error_code *errorp = NULL);
 
     EthernetSegmentId();
     EthernetSegmentId(const uint8_t *data);
+    EthernetSegmentId(const EthernetSegmentId &rhs) {
+        memcpy(data_, rhs.data_, kSize);
+    }
+
+    EthernetSegmentId &operator=(const EthernetSegmentId &rhs) {
+        memcpy(data_, rhs.data_, kSize);
+        return *this;
+    }
 
     bool IsZero() const { return CompareTo(EthernetSegmentId::kZeroEsi) == 0; }
     uint8_t Type() const { return data_[0]; }
@@ -42,7 +51,6 @@ public:
         return CompareTo(rhs) > 0;
     }
 
-    std::string ToString() const;
     const uint8_t *GetData() const { return data_; }
 
 private:
