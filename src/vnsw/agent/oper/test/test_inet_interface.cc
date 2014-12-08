@@ -37,8 +37,8 @@
 #include "openstack/instance_service_server.h"
 #include "test_cmn_util.h"
 #include "vr_types.h"
-#include <controller/controller_export.h> 
-#include <ksync/ksync_sock_user.h> 
+#include <controller/controller_export.h>
+#include <ksync/ksync_sock_user.h>
 
 #define VRF_VHOST "vrf-vhost"
 #define VRF_LL "vrf-ll"
@@ -64,11 +64,11 @@ public:
         vrf_table_->CreateVrfReq(VRF_GW);
         client->WaitForIdle();
 
-        vhost_rt_table_ = static_cast<Inet4UnicastAgentRouteTable *> 
+        vhost_rt_table_ = static_cast<Inet4UnicastAgentRouteTable *>
             (vrf_table_->GetInet4UnicastRouteTable(VRF_VHOST));
-        ll_rt_table_ = static_cast<Inet4UnicastAgentRouteTable *> 
+        ll_rt_table_ = static_cast<Inet4UnicastAgentRouteTable *>
             (vrf_table_->GetInet4UnicastRouteTable(VRF_LL));
-        gw_rt_table_ = static_cast<Inet4UnicastAgentRouteTable *> 
+        gw_rt_table_ = static_cast<Inet4UnicastAgentRouteTable *>
             (vrf_table_->GetInet4UnicastRouteTable(VRF_GW));
     }
 
@@ -85,9 +85,9 @@ public:
         WAIT_FOR(100, 1000, (agent_->vn_table()->Size() == 0U));
     }
 
-    int intf_count_;
-    int nh_count_;
-    int vrf_count_;
+    unsigned int intf_count_;
+    unsigned int nh_count_;
+    unsigned int vrf_count_;
     Agent *agent_;
     InterfaceTable *interface_table_;
     NextHopTable *nh_table_;
@@ -160,7 +160,7 @@ TEST_F(InetInterfaceTest, vhost_key_manipulations) {
                  "1.1.1.1", 24, "1.1.1.254");
     client->WaitForIdle();
 
-    ReceiveNH *nh = static_cast<ReceiveNH *>(ReceiveNHGet(nh_table_, "vhost1", 
+    ReceiveNH *nh = static_cast<ReceiveNH *>(ReceiveNHGet(nh_table_, "vhost1",
                                                           false));
     EXPECT_TRUE(nh != NULL);
     DBEntryBase::KeyPtr key = nh->GetDBRequestKey();

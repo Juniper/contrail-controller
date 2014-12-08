@@ -96,7 +96,7 @@ public:
         memcpy(eth->h_source, mac, ETH_ALEN);
 
         agent_hdr *agent = (agent_hdr *)(eth + 1);
-        int intf_id = ntohs(agent->hdr_ifindex);
+        uint16_t int intf_id = ntohs(agent->hdr_ifindex);
         LOG(DEBUG, "Diag Callback; Agent index : " <<
             ntohs(agent->hdr_ifindex) << " Interface index : " <<
             GetItfId(0) << " " << GetItfId(1));
@@ -222,7 +222,7 @@ TEST_F(DiagTest, DiagReqTest) {
     EXPECT_TRUE(count() == 3);
 
     client->Reset();
-    DeleteVmportEnv(input, 2, 1, 0); 
+    DeleteVmportEnv(input, 2, 1, 0);
     client->WaitForIdle();
 }
 
