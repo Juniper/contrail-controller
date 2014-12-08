@@ -18,11 +18,11 @@ public:
     EvpnPrefix() : tag_(0) { }
     explicit EvpnPrefix(const BgpProtoPrefix &prefix);
     EvpnPrefix(const RouteDistinguisher &rd,
-        const MacAddress mac_addr, const Ip4Prefix ip_prefix)
+        const MacAddress &mac_addr, const Ip4Prefix ip_prefix)
         : rd_(rd), tag_(0), mac_addr_(mac_addr), ip_prefix_(ip_prefix) {
     }
     EvpnPrefix(const RouteDistinguisher &rd, uint32_t tag,
-        const MacAddress mac_addr, const Ip4Prefix ip_prefix)
+        const MacAddress &mac_addr, const Ip4Prefix ip_prefix)
         : rd_(rd), tag_(tag), mac_addr_(mac_addr), ip_prefix_(ip_prefix) {
     }
 
@@ -34,7 +34,7 @@ public:
 
     RouteDistinguisher route_distinguisher() const { return rd_; }
     uint32_t tag() const { return tag_; }
-    MacAddress mac_addr() const { return mac_addr_; }
+    const MacAddress &mac_addr() const { return mac_addr_; }
     Ip4Prefix ip_prefix() const { return ip_prefix_; }
     static size_t label_offset(const BgpProtoPrefix &prefix);
 
