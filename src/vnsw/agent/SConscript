@@ -133,6 +133,7 @@ env.Prepend(LIBS = [
     'boost_program_options',
     'boost_regex',
     'rt',
+    'virt'
 ])
 
 # Common agent libraries
