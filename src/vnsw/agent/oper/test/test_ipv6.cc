@@ -48,8 +48,8 @@
 #include "test/test_init.h"
 #include "test_cmn_util.h"
 #include "vr_types.h"
-#include <controller/controller_export.h> 
-#include <ksync/ksync_sock_user.h> 
+#include <controller/controller_export.h>
+#include <ksync/ksync_sock_user.h>
 #include <boost/assign/list_of.hpp>
 #include "oper/path_preference.h"
 #include "services/icmpv6_proto.h"
@@ -73,7 +73,7 @@ public:
         WAIT_FOR(100, 1000, (agent_->vn_table()->Size() == 0U));
     }
 
-    int intf_count_;
+    unsigned int intf_count_;
     Agent *agent_;
 };
 

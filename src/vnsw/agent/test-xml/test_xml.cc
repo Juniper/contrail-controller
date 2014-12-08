@@ -76,13 +76,13 @@ void LinkXmlNode(xml_node *parent, const string &ltype, const string lname,
 
     xml_node n1 = n.append_child("node");
     n1.append_attribute("type") = ltype.c_str();
-    
+
     xml_node n2 = n1.append_child("name");
     n2.append_child(pugi::node_pcdata).set_value(lname.c_str());
 
     n1 = n.append_child("node");
     n1.append_attribute("type") = rtype.c_str();
-    
+
     n2 = n1.append_child("name");
     n2.append_child(pugi::node_pcdata).set_value(rname.c_str());
 
@@ -338,7 +338,7 @@ bool AgentUtXmlTestCase::ReadXml() {
         if (cfg) {
             cfg->set_op_delete(op_delete);
         } else {
-            cout << "Unknown node name <" << node.name() << ">. Ignoring" 
+            cout << "Unknown node name <" << node.name() << ">. Ignoring"
                 << endl;
         }
         if (cfg) {
@@ -489,7 +489,7 @@ void AgentUtXmlLink::ToString(string *str) {
     stringstream s;
 
     s << "<" << l_node_ << " : " << l_name_ << "> <" << " right-node "
-        << r_node_ << " : " << r_name_ << ">" << endl; 
+        << r_node_ << " : " << r_name_ << ">" << endl;
 
     *str += s.str();
     return;
@@ -545,9 +545,9 @@ static void AddUuid(xml_node *parent, const uuid &id) {
     std::vector<uint64_t> v(id.size());
     std::copy(id.begin(), id.end(), v.begin());
 
-    uint64_t ms_val = v[7] + (v[6] << 8) + (v[5] << 16) + (v[4] << 24) + 
+    uint64_t ms_val = v[7] + (v[6] << 8) + (v[5] << 16) + (v[4] << 24) +
                    (v[3] << 32) + (v[2] << 40) + (v[1] << 48) + (v[0] << 56);
-    uint64_t ls_val = v[15] + (v[14] << 8) + (v[13] << 16) + (v[12] << 24) + 
+    uint64_t ls_val = v[15] + (v[14] << 8) + (v[13] << 16) + (v[12] << 24) +
                    (v[11] << 32) + (v[10] << 40) + (v[9] << 48) + (v[8] << 56);
     stringstream s;
     s << ms_val;
@@ -585,7 +585,6 @@ bool AgentUtXmlPacket::ReadXml() {
     GetStringAttribute(node(), "tunnel_dip", &tunnel_dip_);
     GetUintAttribute(node(), "label", (uint16_t *)&label_);
 
-    uint16_t id = 0;
     if (GetUintAttribute(node(), "id", &intf_id_) == false) {
         cout << "Attribute \"id\" not specified for Packet. Skipping"
             << endl;
@@ -610,7 +609,7 @@ bool AgentUtXmlPacket::ReadXml() {
 
     if (GetStringAttribute(node(), "proto", &proto_) == false &&
         GetUintAttribute(node(), "proto", &proto_id_) == false) {
-        cout << "Attribute \"proto\" not specified for Packet. Skipping" 
+        cout << "Attribute \"proto\" not specified for Packet. Skipping"
             << endl;
         return false;
     }
@@ -684,7 +683,7 @@ bool AgentUtXmlPacket::Run() {
             TxIp6Packet(intf_id_, sip_.c_str(), dip_.c_str(), proto_id_);
         }
     }
-    
+
     return true;
 }
 

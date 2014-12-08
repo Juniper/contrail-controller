@@ -22,7 +22,8 @@ public:
     virtual void SetUp() {
         memset(tmpfilename, 0, sizeof(tmpfilename));
         strcpy(tmpfilename, "task_fd_XXXXXX");
-        mkstemp(tmpfilename);
+        if(mkstemp(tmpfilename) == -1)
+            return;
         std::fstream testfile(tmpfilename);
         testfile << "while true; do sleep 1; done";
         testfile.close();
