@@ -584,7 +584,8 @@ TEST_F(EcmpTest, EcmpTest_10) {
     DeleteVmportEnv(input1, 1, true);
     DeleteRemoteRoute("vrf2", "9.1.1.1", 32);
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
+    WAIT_FOR(1000, 1000, (Agent::GetInstance()->pkt()->
+                         flow_table()->Size() == 0));
     EXPECT_FALSE(VrfFind("vrf9"));
 }
 
@@ -683,7 +684,7 @@ TEST_F(EcmpTest, EcmpTest_11) {
     DeleteVmportEnv(input1, 1, true);
     DeleteRemoteRoute("default-project:vn3:vn3", "9.1.1.1", 32);
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
+    WAIT_FOR(1000, 1000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0));
     EXPECT_FALSE(VrfFind("vrf9"));
 }
 
@@ -1031,6 +1032,89 @@ TEST_F(EcmpTest, EcmpTest_15) {
     EXPECT_FALSE(VrfFind("vrf9", true));
 }
 
+//In case of ECMP route leaked across VRF, there might
+//not be local VM peer path in all the VRF, in that case
+//we are picking local component NH from composite NH
+//Since those component NH are policy disabled, flow
+//calculation should pick policy enabled local NH for
+//flow key calculation. This test case verifies the same
+TEST_F(EcmpTest, EcmpTest_16) {
+    AddVrf("vrf9");
+    client->WaitForIdle();
+
+    Ip4Address remote_server_ip1 = Ip4Address::from_string("10.10.10.100");
+    //Add default route in vrf 9 pointing to remote VM
+    AddRemoteVmRoute("vrf9", "0.0.0.0", 0, "vn3");
+    AddRemoteVmRoute("vrf2", "0.0.0.0", 0, "vn3");
+    client->WaitForIdle();
+
+    VmInterface *intf = static_cast<VmInterface *>(VmPortGet(1));
+    uint32_t label = intf->label();
+    Agent *agent = Agent::GetInstance();
+    //Add a ECMP route for traffic origiator
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(label, MakeUuid(1),
+                                                  InterfaceNHFlags::INET4));
+    ComponentNHKeyPtr nh_data2(new ComponentNHKey(20, agent->fabric_vrf_name(),
+                                                  agent->router_id(),
+                                                  remote_server_ip1,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    ComponentNHKeyList comp_nh_list;
+    comp_nh_list.push_back(nh_data1);
+    comp_nh_list.push_back(nh_data2);
+    //Delete local VM peer route for 1.1.1.1 to simulate
+    //error case, local component NH would be picked from
+    //composite NH, than from local vm peer
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    agent->fabric_inet4_unicast_table()->DeleteReq(intf->peer(), "vrf2",
+                                                   ip, 32, NULL);
+    EcmpTunnelRouteAdd(bgp_peer, "vrf9", ip, 32,
+                       comp_nh_list, false, "vn3",
+                       SecurityGroupList(), PathPreference());
+    EcmpTunnelRouteAdd(bgp_peer, "vrf2", ip, 32,
+                       comp_nh_list, false, "vn2",
+                       SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
+
+    //Add a vrf assign ACL to vn1, so that traffic is forwarded via
+    //vrf 9
+    AddVrfAssignNetworkAcl("Acl", 10, "vn2", "vn3", "pass", "vrf9");
+    AddLink("virtual-network", "vn2", "access-control-list", "Acl");
+    client->WaitForIdle();
+
+    TxIpPacket(VmPortGetId(1), "1.1.1.1", "10.1.1.1", 1);
+    client->WaitForIdle();
+
+    FlowEntry *entry;
+    FlowEntry *rev_entry;
+    entry = FlowGet(VrfGet("vrf2")->vrf_id(),
+                    "1.1.1.1", "10.1.1.1", 1, 0, 0, GetFlowKeyNH(1));
+    EXPECT_TRUE(entry != NULL);
+    EXPECT_TRUE(entry->data().component_nh_idx  ==
+                CompositeNH::kInvalidComponentNHIdx);
+
+    rev_entry = FlowGet(VrfGet("vrf9")->vrf_id(),
+                       "10.1.1.1", "1.1.1.1", 1, 0, 0, GetFlowKeyNH(1));
+    EXPECT_TRUE(rev_entry != NULL);
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+
+    client->WaitForIdle();
+    DelLink("virtual-network", "vn2", "access-control-list", "Acl");
+    DelNode("access-control-list", "Acl");
+
+    DeleteRemoteRoute("vrf9", "1.1.1.1", 32);
+    DeleteRemoteRoute("vrf9", "0.0.0.0", 0);
+    DeleteRemoteRoute("vrf2", "0.0.0.0", 0);
+    client->WaitForIdle();
+    DelVrf("vrf9");
+    client->WaitForIdle();
+
+    WAIT_FOR(1000, 1000, 
+             Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
+    EXPECT_FALSE(VrfFind("vrf9", true));
+}
+
 TEST_F(EcmpTest, EcmpReEval_1) {
     TxIpPacket(VmPortGetId(1), "1.1.1.1", "2.1.1.1", 1);
     client->WaitForIdle();
@@ -1073,7 +1157,7 @@ TEST_F(EcmpTest, EcmpReEval_2) {
     Inet4TunnelRouteAdd(bgp_peer, "vrf2",remote_vm_ip, 32, 
                         remote_server_ip, TunnelType::AllType(), 16, "vn2",
                         SecurityGroupList(), PathPreference());
-
+    client->WaitForIdle();
     TxIpPacket(VmPortGetId(1), "1.1.1.1", "3.1.1.10", 1);
     client->WaitForIdle();
 
@@ -1549,9 +1633,9 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
             "virtual-machine-interface", "vnet12");
     DeleteVmportEnv(input2, 2, true);
     DelVrf("service-vrf1");
-    client->WaitForIdle(2); 
-    EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
-
+    client->WaitForIdle(2);
+    WAIT_FOR(1000, 1000, (Agent::GetInstance()->pkt()->
+                          flow_table()->Size() == 0));
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf11"));
@@ -1933,8 +2017,8 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
     DeleteVmportEnv(input2, 2, true);
     DelVrf("service-vrf1");
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
-
+    WAIT_FOR(1000, 1000, (Agent::GetInstance()->pkt()->
+                          flow_table()->Size() == 0));
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf13"));
