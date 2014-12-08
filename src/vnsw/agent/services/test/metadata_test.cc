@@ -104,9 +104,9 @@ public:
         }
     }
 
-    uint32_t GetItfCount() { 
+    uint32_t GetItfCount() {
         tbb::mutex::scoped_lock lock(mutex_);
-        return itf_count_; 
+        return itf_count_;
     }
 
     void WaitForItfUpdate(unsigned int expect_count) {
@@ -123,9 +123,9 @@ public:
 
     void SetupLinkLocalConfig() {
         std::stringstream global_config;
-        global_config << "<linklocal-services>\n" 
+        global_config << "<linklocal-services>\n"
                       << "<linklocal-service-entry>\n"
-	              << "<linklocal-service-name>metadata</linklocal-service-name>\n" 
+	              << "<linklocal-service-name>metadata</linklocal-service-name>\n"
 	              << "<linklocal-service-ip></linklocal-service-ip>\n"
 	              << "<linklocal-service-port>0</linklocal-service-port>\n"
 	              << "<ip-fabric-DNS-service-name></ip-fabric-DNS-service-name>\n"
@@ -254,7 +254,7 @@ public:
     }
 
     void StartNovaApiProxy() {
-        nova_api_proxy_ = 
+        nova_api_proxy_ =
              new HttpServer(Agent::GetInstance()->event_manager());
         nova_api_proxy_->RegisterHandler(HTTP_WILDCARD_ENTRY,
              boost::bind(&MetadataTest::HandleNovaApiRequest, this, _1, _2));
@@ -365,7 +365,7 @@ TEST_F(MetadataTest, MetadataReqTest) {
 
     client->Reset();
     StopHttpClient();
-    DeleteVmportEnv(input, 1, 1, 0); 
+    DeleteVmportEnv(input, 1, 1, 0);
     client->WaitForIdle();
 
     ClearLinkLocalConfig();
@@ -440,7 +440,7 @@ TEST_F(MetadataTest, MetadataOtherMethodsTest) {
 
     client->Reset();
     StopHttpClient();
-    DeleteVmportEnv(input, 1, 1, 0); 
+    DeleteVmportEnv(input, 1, 1, 0);
     client->WaitForIdle();
 
     ClearLinkLocalConfig();
@@ -481,7 +481,7 @@ TEST_F(MetadataTest, MetadataNoLinkLocalTest) {
 
     client->Reset();
     StopHttpClient();
-    DeleteVmportEnv(input, 1, 1, 0); 
+    DeleteVmportEnv(input, 1, 1, 0);
     client->WaitForIdle();
 
     StopNovaApiProxy();
@@ -492,7 +492,6 @@ TEST_F(MetadataTest, MetadataNoLinkLocalTest) {
 
 // Send message and close server connection while message is going
 TEST_F(MetadataTest, MetadataCloseServerTest) {
-    int count = 0;
     MetadataProxy::MetadataStats stats;
     struct PortInfo input[] = {
         {"vnet1", 1, vm1_ip, "00:00:00:01:01:01", 1, 1},
@@ -514,7 +513,7 @@ TEST_F(MetadataTest, MetadataCloseServerTest) {
     for (int i = 0; i < 200; i++) {
         large_data.append("add more data to be sent");
     }
-    HttpConnection *conn = SendHttpClientRequest(POST_METHOD, large_data);
+    SendHttpClientRequest(POST_METHOD, large_data);
     // stop server
     StopNovaApiProxy();
     client->WaitForIdle();

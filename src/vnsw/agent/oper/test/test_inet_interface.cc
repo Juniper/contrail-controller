@@ -81,9 +81,9 @@ public:
         WAIT_FOR(100, 1000, (agent_->vn_table()->Size() == 0U));
     }
 
-    int intf_count_;
-    int nh_count_;
-    int vrf_count_;
+    unsigned int intf_count_;
+    unsigned int nh_count_;
+    unsigned int vrf_count_;
     Agent *agent_;
     InterfaceTable *interface_table_;
     NextHopTable *nh_table_;
@@ -156,7 +156,7 @@ TEST_F(InetInterfaceTest, vhost_key_manipulations) {
                  "1.1.1.1", 24, "1.1.1.254");
     client->WaitForIdle();
 
-    ReceiveNH *nh = static_cast<ReceiveNH *>(ReceiveNHGet(nh_table_, "vhost1", 
+    ReceiveNH *nh = static_cast<ReceiveNH *>(ReceiveNHGet(nh_table_, "vhost1",
                                                           false));
     EXPECT_TRUE(nh != NULL);
     DBEntryBase::KeyPtr key = nh->GetDBRequestKey();
