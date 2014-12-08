@@ -133,8 +133,12 @@ void XmppChannelMux::ProcessXmppMessage(const XmppStanza::XmppMessage *msg) {
 
 void XmppChannelMux::HandleStateEvent(xmsm::XmState state) {
 
-    xmps::PeerState st = (state == xmsm::ESTABLISHED) ? 
-        xmps::READY : xmps::NOT_READY;
+    xmps::PeerState st = xmps::NOT_READY;
+    if (state == xmsm::ESTABLISHED) {
+        st = xmps::READY; 
+    } else if (state == xmsm::ACTIVE) {
+        st = xmps::TIMEDOUT;
+    }
 
     if (connection_->IsClient()) {
         XmppClient *client = static_cast<XmppClient *>(connection_->server());
