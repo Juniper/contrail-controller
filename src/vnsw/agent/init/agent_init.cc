@@ -99,12 +99,12 @@ int AgentInit::Start() {
 bool AgentInit::InitBase() {
     FactoryInit();
     InitLoggingBase();
-    InitCollectorBase();
     CreatePeersBase();
     CreateModulesBase();
     CreateDBTablesBase();
     RegisterDBClientsBase();
     InitModulesBase();
+    InitCollectorBase();
     CreateVrfBase();
     CreateNextHopsBase();
     InitDiscoveryBase();
