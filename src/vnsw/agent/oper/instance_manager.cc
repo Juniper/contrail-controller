@@ -671,7 +671,7 @@ void InstanceManager::LoadbalancerObserver(
             haproxy_->GenerateConfig(pathgen.str(), loadbalancer->uuid(),
                                      *loadbalancer->properties());
         } else {
-             boost::filesystem::remove(pathgen.str(), error);
+             boost::filesystem::remove_all(pathgen.str(), error);
              if (error) {
                  LOG(ERROR, error.message());
                  return;
