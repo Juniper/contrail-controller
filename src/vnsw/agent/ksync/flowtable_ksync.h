@@ -45,6 +45,7 @@ public:
     bool AllowDeleteStateComp() {return false;}
     virtual void ErrorHandler(int, uint32_t) const;
 private:
+
     FlowEntryPtr flow_entry_;
     uint32_t hash_id_;
     uint32_t old_hash_id_;
@@ -96,6 +97,7 @@ public:
     void Shutdown() {
         UnmapFlowMemTest();
     }
+    std::vector<int8_t> IpToVector(const IpAddress &ip, Address::Family fam);
 private:
     friend class KSyncSandeshContext;
     KSync *ksync_;

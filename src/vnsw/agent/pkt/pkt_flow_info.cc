@@ -38,11 +38,14 @@ static void LogError(const PktInfo *pkt, const char *str) {
     if (pkt->family == Address::INET) {
         FLOW_TRACE(DetailErr, pkt->agent_hdr.cmd_param, pkt->agent_hdr.ifindex,
                    pkt->agent_hdr.vrf, pkt->ip_saddr.to_v4().to_ulong(),
-                   pkt->ip_daddr.to_v4().to_ulong(), str);
+                   pkt->ip_daddr.to_v4().to_ulong(), str, 0, 0, 0,0);
     } else if (pkt->family == Address::INET6) {
-        // TODO : IPv6
+        uint64_t sip[2], dip[2];
+        Ip6AddressToU64Array(pkt->ip_saddr.to_v6(), sip, 2);
+        Ip6AddressToU64Array(pkt->ip_daddr.to_v6(), dip, 2);
         FLOW_TRACE(DetailErr, pkt->agent_hdr.cmd_param, pkt->agent_hdr.ifindex,
-                   pkt->agent_hdr.vrf, -1, -1, str);
+                   pkt->agent_hdr.vrf, -1, -1, str, sip[0], sip[1], dip[0],
+                   dip[1]);
     } else {
         assert(0);
     }
@@ -202,16 +205,12 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
     }
 
     case NextHop::TUNNEL: {
-        if (pkt->family == Address::INET) {
-            const InetUnicastRouteEntry *rt =
-                static_cast<const InetUnicastRouteEntry *>(in->rt_);
-            if (rt != NULL && rt->GetLocalNextHop()) {
-                out->nh_ = rt->GetLocalNextHop()->id();
-            } else {
-                out->nh_ = in->nh_;
-            }
+        const InetUnicastRouteEntry *rt =
+            static_cast<const InetUnicastRouteEntry *>(in->rt_);
+        if (rt != NULL && rt->GetLocalNextHop()) {
+            out->nh_ = rt->GetLocalNextHop()->id();
         } else {
-            //TODO::v6
+            out->nh_ = in->nh_;
         }
         out->intf_ = NULL;
         break;
@@ -958,9 +957,13 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
         RewritePktInfo(pkt->agent_hdr.cmd_param);
     }
 
+    bool in_intf_active = true;
     in->intf_ = InterfaceTable::GetInstance()->FindInterface(pkt->agent_hdr.ifindex);
     out->nh_ = in->nh_ = pkt->agent_hdr.nh;
-    if (in->intf_ == NULL || in->intf_->ip_active(pkt->family) == false) {
+    if (in->intf_ && in->intf_->type() == Interface::VM_INTERFACE) {
+        in_intf_active = in->intf_->ip_active(pkt->family);
+    }
+    if (in->intf_ == NULL || in_intf_active == false) {
         in->intf_ = NULL;
         LogError(pkt, "Invalid or Inactive ifindex");
         short_flow = true;
@@ -1081,7 +1084,8 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
 
     uint16_t r_sport;
     uint16_t r_dport;
-    if (pkt->ip_proto == IPPROTO_ICMP) {
+    if ((pkt->family == Address::INET && pkt->ip_proto == IPPROTO_ICMP) ||
+        (pkt->family == Address::INET6 && pkt->ip_proto == IPPROTO_ICMPV6)) {
         r_sport = pkt->sport;
         r_dport = pkt->dport;
     } else if (nat_done) {

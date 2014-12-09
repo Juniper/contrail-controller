@@ -87,7 +87,7 @@ using boost::system::error_code;
     data.set_underlay_source_port(fe->underlay_source_port())
 
 
-const std::string PktSandeshFlow::start_key = "0:0:0:0:0.0.0.0:0.0.0.0";
+const std::string PktSandeshFlow::start_key = "0-0-0-0-0.0.0.0-0.0.0.0";
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -244,47 +244,56 @@ void PktSandeshFlow::SendResponse(SandeshResponse *resp) {
 
 string PktSandeshFlow::GetFlowKey(const FlowKey &key) {
     stringstream ss;
-    ss << key.nh << ":";
+    /*ss << key.nh << ":";
     ss << key.src_port << ":";
     ss << key.dst_port << ":";
     ss << (uint16_t)key.protocol << ":";
-    ss << key.src_addr.to_string() << ":";
+    ss << key.src_addr.to_string() << ":";*/
+    ss << key.nh << kDelimiter;
+    ss << key.src_port << kDelimiter;
+    ss << key.dst_port << kDelimiter;
+    ss << (uint16_t)key.protocol << kDelimiter;
+    ss << key.src_addr.to_string() << kDelimiter;
     ss << key.dst_addr.to_string();
     return ss.str();
 }
 
 bool PktSandeshFlow::SetFlowKey(string key) {
-    size_t n = std::count(key.begin(), key.end(), ':');
+    const char ch = kDelimiter;
+    size_t n = std::count(key.begin(), key.end(), ch);
     if (n != 5) {
         return false;
     }
     stringstream ss(key);
     string item, sip, dip;
     uint32_t proto;
-    if (getline(ss, item, ':')) {
+    if (getline(ss, item, ch)) {
         istringstream(item) >> flow_iteration_key_.nh;
     }
-    if (getline(ss, item, ':')) {
+    if (getline(ss, item, ch)) {
         istringstream(item) >> flow_iteration_key_.src_port;
     }
-    if (getline(ss, item, ':')) {
+    if (getline(ss, item, ch)) {
         istringstream(item) >> flow_iteration_key_.dst_port;
     }
-    if (getline(ss, item, ':')) {
+    if (getline(ss, item, ch)) {
         istringstream(item) >> proto;
     }
-    if (getline(ss, item, ':')) {
+    if (getline(ss, item, ch)) {
         sip = item;
     }
-    if (getline(ss, item, ':')) {
+    if (getline(ss, item, ch)) {
         dip = item;
     }
 
-    // TODO : IPv6
     error_code ec;
-    flow_iteration_key_.family = Address::INET;
-    flow_iteration_key_.src_addr = Ip4Address::from_string(sip.c_str(), ec);
-    flow_iteration_key_.dst_addr = Ip4Address::from_string(dip.c_str(), ec);
+    flow_iteration_key_.src_addr = IpAddress::from_string(sip.c_str(), ec);
+    flow_iteration_key_.dst_addr = IpAddress::from_string(dip.c_str(), ec);
+    if (flow_iteration_key_.src_addr.is_v4()) {
+        flow_iteration_key_.family = Address::INET;
+    } else if (flow_iteration_key_.src_addr.is_v6()) {
+        flow_iteration_key_.family = Address::INET6;
+    }
     flow_iteration_key_.protocol = proto;
     return true;
 }
@@ -362,11 +371,14 @@ void DeleteAllFlowRecords::HandleRequest() const {
 void FetchFlowRecord::HandleRequest() const {
     FlowKey key;
     key.nh = get_nh();
-    // TODO : IPv6 handling required.
     error_code ec;
-    key.family = Address::INET;
-    key.src_addr = Ip4Address::from_string(get_sip(), ec);
-    key.dst_addr = Ip4Address::from_string(get_dip(), ec);
+    key.src_addr = IpAddress::from_string(get_sip(), ec);
+    key.dst_addr = IpAddress::from_string(get_dip(), ec);
+    if (key.src_addr.is_v4()) {
+        key.family = Address::INET;
+    } else if (key.src_addr.is_v6()) {
+        key.family = Address::INET6;
+    }
     key.src_port = (unsigned)get_src_port();
     key.dst_port = (unsigned)get_dst_port();
     key.protocol = get_protocol();

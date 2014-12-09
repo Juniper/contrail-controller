@@ -12,6 +12,7 @@
 class PktSandeshFlow : public Task {
 public:
     static const int kMaxFlowResponse = 100;
+    static const char kDelimiter = '-';
     static const std::string start_key;
 
     PktSandeshFlow(FlowRecordsResp *obj, std::string resp_ctx, std::string key);
