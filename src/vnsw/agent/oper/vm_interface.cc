@@ -1870,20 +1870,6 @@ void VmInterface::AddRoute(const std::string &vrf_name, const Ip4Address &addr,
                                                  vn_->GetName(), label_,
                                                  sg_id_list, false,
                                                  path_preference, gw_ip);
-
-     Inet4UnicastRouteKey *rt_key =
-        new Inet4UnicastRouteKey(peer_.get(), vrf_name, addr, plen);
-     rt_key->sub_op_ = AgentKey::RESYNC;
-
-     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-     req.key.reset(rt_key);
-     req.data.reset(new PathPreferenceData(path_preference));
-     AgentRouteTable *table =
-        Agent::GetInstance()->vrf_table()->GetInet4UnicastRouteTable(vrf_name);
-     if (table) {
-         table->Process(req);
-     }
-
     return;
 }
 
