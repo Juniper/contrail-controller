@@ -427,7 +427,7 @@ class ProtobufServer::ProtobufServerImpl {
                     boost::asio::buffer_cast<const uint8_t *>(recv_buffer),
                     recv_buffer_size, &timestamp,
                     &message, boost::bind(&MessageStatistics::UpdateRxFail,
-                    msg_stats_, remote_endpoint, _1))) {
+                    &msg_stats_, remote_endpoint, _1))) {
                 LOG(ERROR, "Reading protobuf message FAILED: " <<
                     remote_endpoint);
                 DeallocateBuffer(recv_buffer);

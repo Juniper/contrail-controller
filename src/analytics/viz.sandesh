@@ -772,6 +772,7 @@ const list<stat_table> _STAT_TABLES  = [
       'obj_table' : COLLECTOR_INFO_TABLE,
       'attributes': [
           { 'name' : 'rx_message_stats.endpoint_name',  'datatype' : 'string', 'index' : true},
+          { 'name' : 'rx_message_stats.message_name',   'datatype' : 'string', 'index' : true},
           { 'name' : 'rx_message_stats.messages',       'datatype' : 'long',   'index' : false},
           { 'name' : 'rx_message_stats.bytes',          'datatype' : 'long',   'index' : false},
           { 'name' : 'rx_message_stats.errors',         'datatype' : 'long',   'index' : false},
