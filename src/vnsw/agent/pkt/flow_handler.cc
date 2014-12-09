@@ -49,6 +49,7 @@ bool FlowHandler::Run() {
         pkt_info_->sport = fe->key().src_port;
         pkt_info_->dport = fe->key().dst_port;
         pkt_info_->tcp_ack = fe->is_flags_set(FlowEntry::TcpAckFlow);
+        pkt_info_->vrf = fe->data().vrf;
     }
 
     if (info.Process(pkt_info_.get(), &in, &out) == false) {

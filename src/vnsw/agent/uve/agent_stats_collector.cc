@@ -57,7 +57,6 @@ void AgentStatsCollector::SendVrfStatsBulkGet() {
     encoder.set_h_op(sandesh_op::DUMP);
     encoder.set_vsr_rid(0);
     encoder.set_vsr_family(AF_INET);
-    encoder.set_vsr_type(RT_UCAST);
     encoder.set_vsr_marker(vrf_stats_sandesh_ctx_.get()->marker_id());
     SendRequest(encoder, VrfStatsType);
 }

@@ -119,6 +119,20 @@ class AddrMgmtInvalidGatewayIp(AddrMgmtError):
 # end AddrMgmtInvalidGatewayIp
 
 
+class AddrMgmtInvalidServiceNodeIp(AddrMgmtError):
+
+    def __init__(self, subnet_val, service_address):
+        self.subnet_val = subnet_val
+        self.service_address = service_address
+    # end __init__
+
+    def __str__(self):
+        return "subnet(%s) has Invalid Service Node ip address(%s)" %\
+            (self.subnet_val, self.service_address)
+    # end __str__
+# end AddrMgmtInvalidServiceNodeIp
+
+
 class AddrMgmtInvalidDnsNameServer(AddrMgmtError):
 
     def __init__(self, subnet_val, name_server):
@@ -152,7 +166,7 @@ class Subnet(object):
     # end set_db_conn
 
     def __init__(self, name, prefix, prefix_len,
-                 gw=None, enable_dhcp=True,
+                 gw=None, service_address=None, enable_dhcp=True,
                  dns_nameservers=None,
                  alloc_pool_list=None,
                  addr_from_start=False):
@@ -184,6 +198,20 @@ class Subnet(object):
             else: 
                 gw_ip = IPAddress(network.last - 1)
 
+        # check service_address
+        if service_address:
+            try:
+                service_node_address = IPAddress(service_address)
+            except AddrFormatError:
+                raise AddrMgmtInvalidServiceNodeIp(name, service_node_address)
+
+        else:
+            # reserve a service address ip in subnet
+            if addr_from_start:
+                service_node_address = IPAddress(network.first + 2)
+            else:
+                service_node_address = IPAddress(network.last - 2)
+
         # check dns_nameservers
         for nameserver in dns_nameservers or []:
             try:
@@ -208,11 +236,12 @@ class Subnet(object):
                          'end':int(IPAddress(alloc_pool['end']))}
             alloc_int_list.append(alloc_int)
 
-        # exclude gw_ip if it is within allocation-pool
+        # exclude gw_ip, service_node_address if they are within allocation-pool
         for alloc_int in alloc_int_list:
             if alloc_int['start'] <= int(gw_ip) <= alloc_int['end']:
                 exclude.append(gw_ip)
-                break
+            if alloc_int['start'] <= int(service_node_address) <= alloc_int['end']:
+                exclude.append(service_node_address)
         self._db_conn.subnet_create_allocator(name, alloc_int_list,
                                               addr_from_start)
 
@@ -225,6 +254,7 @@ class Subnet(object):
         self._version = network.version
         self._exclude = exclude
         self.gw_ip = gw_ip
+        self.dns_server_address = service_node_address
         self._alloc_pool_list = alloc_pool_list
         self.enable_dhcp = enable_dhcp
         self.dns_nameservers = dns_nameservers 
@@ -344,6 +374,7 @@ class AddrMgmt(object):
             for ipam_subnet in ipam_subnets:
                 subnet_dict = copy.deepcopy(ipam_subnet['subnet'])
                 subnet_dict['gw'] = ipam_subnet.get('default_gateway', None)
+                subnet_dict['dns_server_address'] = ipam_subnet.get('dns_server_address', None)
                 subnet_dict['allocation_pools'] = \
                     ipam_subnet.get('allocation_pools', None)
                 subnet_dict['enable_dhcp'] = ipam_subnet.get('enable_dhcp', True)
@@ -372,6 +403,7 @@ class AddrMgmt(object):
                         subnet['ip_prefix_len'])
 
                     gateway_ip = ipam_subnet.get('default_gateway', None)
+                    service_address = ipam_subnet.get('dns_server_address', None)
                     allocation_pools = ipam_subnet.get('allocation_pools', None)
                     dhcp_config = ipam_subnet.get('enable_dhcp', True)
                     nameservers = ipam_subnet.get('dns_nameservers', None)
@@ -379,13 +411,15 @@ class AddrMgmt(object):
                     subnet_obj = Subnet(
                         '%s:%s' % (vn_fq_name_str, subnet_name),
                         subnet['ip_prefix'], str(subnet['ip_prefix_len']),
-                        gw=gateway_ip, enable_dhcp=dhcp_config,
+                        gw=gateway_ip, service_address=service_address,
+                        enable_dhcp=dhcp_config,
                         dns_nameservers=nameservers,
                         alloc_pool_list=allocation_pools,
                         addr_from_start=addr_start)
                     self._subnet_objs[vn_fq_name_str][subnet_name] = \
                          subnet_obj
                     ipam_subnet['default_gateway'] = str(subnet_obj.gw_ip)
+                    ipam_subnet['dns_server_address'] = str(subnet_obj.dns_server_address)
     # end _create_subnet_objs
 
     def config_log(self, msg, level):
@@ -436,8 +470,8 @@ class AddrMgmt(object):
 
         # check db_subnet_dicts and req_subnet_dicts  
         # following parameters are same for subnets present in both dicts
-        # 1. enable_dhcp, 2. default_gateway, 3. allocation_pool 
-        # 4 dns_nameservers
+        # 1. enable_dhcp, 2. default_gateway, 3. dns_server_address
+        # 4. allocation_pool, 5. dns_nameservers
         for key in req_subnet_dicts.keys():
             req_subnet = req_subnet_dicts[key]
             if key in db_subnet_dicts.keys():
@@ -445,6 +479,8 @@ class AddrMgmt(object):
                 if req_subnet['enable_dhcp'] is None:
                     req_subnet['enable_dhcp'] = True
                 if (req_subnet['gw'] != db_subnet['gw']):
+                    raise AddrMgmtSubnetInvalid(vn_fq_name_str, key)
+                if (req_subnet['dns_server_address'] != db_subnet['dns_server_address']):
                     raise AddrMgmtSubnetInvalid(vn_fq_name_str, key)
 
                 req_alloc_list = req_subnet['allocation_pools'] or []
@@ -641,6 +677,16 @@ class AddrMgmt(object):
                     err_msg = "gateway Ip of configured subnets conflicting " \
                         "in deciding forwarding mode for virtual network."
                     return False, err_msg
+
+                # check service address
+                service_address = ipam_subnet.get('dns_server_address', None)
+                if service_address is not None:
+                    try:
+                        service_node_address = IPAddress(service_address)
+                    except AddrFormatError:
+                        err_msg = "Invalid Dns Server Ip address:%s" \
+                            %(service_address)
+                        return False, err_msg
         return True, ""
     # end net_check_subnet
 
@@ -747,6 +793,7 @@ class AddrMgmt(object):
                                     subnet_dict['ip_prefix'],
                                     subnet_dict['ip_prefix_len'],
                                     gw=subnet_dict['gw'],
+                                    service_address=subnet_dict['dns_server_address'],
                                     enable_dhcp=subnet_dict['enable_dhcp'],
                                     dns_nameservers=subnet_dict['dns_nameservers'],
                                     alloc_pool_list=subnet_dict['allocation_pools'],
@@ -756,6 +803,8 @@ class AddrMgmt(object):
             if asked_ip_version != subnet_obj.get_version():
                 continue
             if asked_ip_addr == str(subnet_obj.gw_ip):
+                return asked_ip_addr
+            if asked_ip_addr == str(subnet_obj.dns_server_address):
                 return asked_ip_addr
             if asked_ip_addr and not subnet_obj.ip_belongs(asked_ip_addr):
                 continue
@@ -792,6 +841,7 @@ class AddrMgmt(object):
                                     subnet_dict['ip_prefix'],
                                     subnet_dict['ip_prefix_len'],
                                     gw=subnet_dict['gw'],
+                                    service_address=subnet_dict['dns_server_address'],
                                     enable_dhcp=subnet_dict['enable_dhcp'],
                                     dns_nameservers=subnet_dict['dns_nameservers'],
                                     alloc_pool_list=subnet_dict['allocation_pools'],
@@ -827,6 +877,7 @@ class AddrMgmt(object):
                                     subnet_dict['ip_prefix'],
                                     subnet_dict['ip_prefix_len'],
                                     gw=subnet_dict['gw'],
+                                    service_address=subnet_dict['dns_server_address'],
                                     enable_dhcp=subnet_dict['enable_dhcp'],
                                     dns_nameservers=subnet_dict['dns_nameservers'],
                                     alloc_pool_list=subnet_dict['allocation_pools'],
@@ -861,6 +912,7 @@ class AddrMgmt(object):
                                     subnet_dict['ip_prefix'],
                                     subnet_dict['ip_prefix_len'],
                                     gw=subnet_dict['gw'],
+                                    service_address=subnet_dict['dns_server_address'],
                                     enable_dhcp=subnet_dict['enable_dhcp'],
                                     dns_nameservers=subnet_dict['dns_nameservers'],
                                     alloc_pool_list=subnet_dict['allocation_pools'],

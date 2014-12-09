@@ -24,16 +24,16 @@ static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
 static void NovaIntfAdd(int id, const char *name, const char *addr,
                         const char *mac) {
     IpAddress ip = Ip4Address::from_string(addr);
-    VmInterface::Add(Agent::GetInstance()->interface_table(),
-                     MakeUuid(id), name, ip.to_v4(), mac, "",
-                     MakeUuid(kProjectUuid),
-                     VmInterface::kInvalidVlanId, VmInterface::kInvalidVlanId,
-                     Agent::NullString(), Ip6Address());
+    VmInterface::NovaAdd(Agent::GetInstance()->interface_table(),
+                         MakeUuid(id), name, ip.to_v4(), mac, "",
+                         MakeUuid(kProjectUuid), VmInterface::kInvalidVlanId,
+                         VmInterface::kInvalidVlanId, Agent::NullString(),
+                         Ip6Address());
 }
 
 static void NovaDel(int id) {
     VmInterface::Delete(Agent::GetInstance()->interface_table(),
-                        MakeUuid(id));
+                        MakeUuid(id), VmInterface::EXTERNAL);
 }
 
 static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm, std::string ) {

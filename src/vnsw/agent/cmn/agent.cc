@@ -208,6 +208,7 @@ void Agent::CopyConfig(AgentParam *params) {
     vhost_interface_name_ = params_->vhost_name();
     ip_fabric_intf_name_ = params_->eth_port();
     host_name_ = params_->host_name();
+    agent_name_ = params_->host_name();
     prog_name_ = params_->program_name();
     introspect_port_ = params_->http_server_port();
     prefix_len_ = params_->vhost_plen();
@@ -217,6 +218,7 @@ void Agent::CopyConfig(AgentParam *params) {
         router_id_configured_ = false;
     }
 
+    compute_node_ip_ = router_id_;
     if (params_->tunnel_type() == "MPLSoUDP")
         TunnelType::SetDefaultType(TunnelType::MPLS_UDP);
     else if (params_->tunnel_type() == "VXLAN")
@@ -228,6 +230,7 @@ void Agent::CopyConfig(AgentParam *params) {
     simulate_evpn_tor_ = params->simulate_evpn_tor();
     debug_ = params_->debug();
     test_mode_ = params_->test_mode();
+    tsn_enabled_ = params_->isTsnEnabled();
 }
 
 DiscoveryAgentClient *Agent::discovery_client() const {
@@ -263,7 +266,7 @@ void Agent::InitCollector() {
         g_vns_constants.Module2NodeType.find(module)->second;
     if (params_->collector_server_list().size() != 0) {
         Sandesh::InitGenerator(discovery_client_name_,
-                params_->host_name(),
+                host_name(),
                 g_vns_constants.NodeTypeNames.find(node_type)->second,
                 instance_id_,
                 event_manager(),
@@ -272,7 +275,7 @@ void Agent::InitCollector() {
                 NULL);
     } else {
         Sandesh::InitGenerator(discovery_client_name_,
-                params_->host_name(),
+                host_name(),
                 g_vns_constants.NodeTypeNames.find(node_type)->second,
                 instance_id_,
                 event_manager(),
@@ -326,22 +329,28 @@ void Agent::InitXenLinkLocalIntf() {
 
 void Agent::InitPeers() {
     // Create peer entries
-    local_peer_.reset(new Peer(Peer::LOCAL_PEER, LOCAL_PEER_NAME));
-    local_vm_peer_.reset(new Peer(Peer::LOCAL_VM_PEER, LOCAL_VM_PEER_NAME));
-    linklocal_peer_.reset(new Peer(Peer::LINKLOCAL_PEER, LINKLOCAL_PEER_NAME));
-    ecmp_peer_.reset(new Peer(Peer::ECMP_PEER, ECMP_PEER_NAME));
-    vgw_peer_.reset(new Peer(Peer::VGW_PEER, VGW_PEER_NAME));
-    multicast_peer_.reset(new Peer(Peer::MULTICAST_PEER, MULTICAST_PEER_NAME));
+    local_peer_.reset(new Peer(Peer::LOCAL_PEER, LOCAL_PEER_NAME, false));
+    local_vm_peer_.reset(new Peer(Peer::LOCAL_VM_PEER, LOCAL_VM_PEER_NAME,
+                                  false));
+    linklocal_peer_.reset(new Peer(Peer::LINKLOCAL_PEER, LINKLOCAL_PEER_NAME,
+                                   false));
+    ecmp_peer_.reset(new Peer(Peer::ECMP_PEER, ECMP_PEER_NAME, true));
+    vgw_peer_.reset(new Peer(Peer::VGW_PEER, VGW_PEER_NAME, true));
+    multicast_peer_.reset(new Peer(Peer::MULTICAST_PEER, MULTICAST_PEER_NAME,
+                                   false));
+    multicast_tor_peer_.reset(new Peer(Peer::MULTICAST_TOR_PEER,
+                                       MULTICAST_TOR_PEER_NAME, false));
     multicast_tree_builder_peer_.reset(
                                  new Peer(Peer::MULTICAST_FABRIC_TREE_BUILDER,
-                                          MULTICAST_FABRIC_TREE_BUILDER_NAME));
+                                          MULTICAST_FABRIC_TREE_BUILDER_NAME,
+                                          false));
 }
 
 Agent::Agent() :
     params_(NULL), event_mgr_(NULL), agent_xmpp_channel_(),
     ifmap_channel_(), xmpp_client_(), xmpp_init_(), dns_xmpp_channel_(),
     dns_xmpp_client_(), dns_xmpp_init_(), agent_stale_cleaner_(NULL),
-    cn_mcast_builder_(NULL), ds_client_(NULL), host_name_(""),
+    cn_mcast_builder_(NULL), ds_client_(NULL), host_name_(""), agent_name_(""),
     prog_name_(""), introspect_port_(0),
     instance_id_(g_vns_constants.INSTANCE_ID_DEFAULT), db_(NULL),
     task_scheduler_(NULL), agent_init_(NULL), intf_table_(NULL),
@@ -351,9 +360,11 @@ Agent::Agent() :
     physical_device_table_(NULL), physical_device_vn_table_(NULL),
     mirror_cfg_table_(NULL), intf_mirror_cfg_table_(NULL),
     intf_cfg_table_(NULL), router_id_(0), prefix_len_(0), 
-    gateway_id_(0), xs_cfg_addr_(""), xs_idx_(0), xs_addr_(), xs_port_(),
+    gateway_id_(0), compute_node_ip_(0), xs_cfg_addr_(""), xs_idx_(0),
+    xs_addr_(), xs_port_(),
     xs_stime_(), xs_dns_idx_(0), dns_addr_(), dns_port_(),
-    dss_addr_(""), dss_port_(0), dss_xs_instances_(0), discovery_client_name_(),
+    dss_addr_(""), dss_port_(0), dss_xs_instances_(0),
+    discovery_client_name_(),
     label_range_(), ip_fabric_intf_name_(""), vhost_interface_name_(""),
     pkt_interface_name_("pkt0"), cfg_listener_(NULL), arp_proto_(NULL),
     dhcp_proto_(NULL), dns_proto_(NULL), icmp_proto_(NULL),
@@ -364,7 +375,7 @@ Agent::Agent() :
     ksync_sync_mode_(true), mgmt_ip_(""),
     vxlan_network_identifier_mode_(AUTOMATIC), headless_agent_mode_(false), 
     connection_state_(NULL), debug_(false), test_mode_(false),
-    init_done_(false), simulate_evpn_tor_(false) {
+    init_done_(false), simulate_evpn_tor_(false), tsn_enabled_(false) {
 
     assert(singleton_ == NULL);
     singleton_ = this;

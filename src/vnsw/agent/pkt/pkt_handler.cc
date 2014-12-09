@@ -39,7 +39,8 @@ const std::size_t PktTrace::kPktMaxTraceSize;
 ////////////////////////////////////////////////////////////////////////////////
 
 PktHandler::PktHandler(Agent *agent, PktModule *pkt_module) :
-    stats_(), agent_(agent), pkt_module_(pkt_module) {
+    stats_(), iid_(DBTableBase::kInvalidId), agent_(agent),
+    pkt_module_(pkt_module) {
     for (int i = 0; i < MAX_MODULES; ++i) {
         if (i == PktHandler::DHCP || i == PktHandler::DHCPV6 ||
             i == PktHandler::DNS)
@@ -50,6 +51,60 @@ PktHandler::PktHandler(Agent *agent, PktModule *pkt_module) :
 }
 
 PktHandler::~PktHandler() {
+}
+
+void PktHandler::RegisterDBClients() {
+    iid_ = agent_->interface_table()->Register(
+           boost::bind(&PktHandler::InterfaceNotify, this, _2));
+}
+
+void PktHandler::Shutdown() {
+    if (iid_ != DBTableBase::kInvalidId) {
+        agent_->interface_table()->Unregister(iid_);
+        iid_ = DBTableBase::kInvalidId;
+    }
+}
+
+void PktHandler::InterfaceNotify(DBEntryBase *entry) {
+    Interface *itf = static_cast<Interface *>(entry);
+    if (itf->type() != Interface::VM_INTERFACE)
+        return;
+
+    const VmInterface *vmitf = static_cast<VmInterface *>(entry);
+    if (vmitf->vm_mac().empty())
+        return;
+
+    boost::system::error_code ec;
+    MacAddress address(vmitf->vm_mac(), &ec);
+    if (ec) {
+        return;
+    }
+
+    MacVmBindingSet::iterator it = FindMacVmBinding(address, itf);
+    if (it != mac_vm_binding_.end())
+        mac_vm_binding_.erase(it);
+
+    if (!entry->IsDeleted()) {
+        if (!vmitf->vn() || vmitf->vn()->GetVxLanId() == 0) {
+            return;
+        }
+        // assumed that VM mac does not change
+        MacVmBindingKey key(address, vmitf->vn()->GetVxLanId(), itf);
+        mac_vm_binding_.insert(key);
+    }
+}
+
+PktHandler::MacVmBindingSet::iterator
+PktHandler::FindMacVmBinding(MacAddress &address, const Interface *interface) {
+    MacVmBindingSet::iterator it =
+        mac_vm_binding_.lower_bound(MacVmBindingKey(address, 0, NULL));
+    while (it != mac_vm_binding_.end()) {
+        if (it->interface == interface)
+            return it;
+        it++;
+    }
+
+    return it;
 }
 
 void PktHandler::Register(PktModuleName type, RcvQueueFunc cb) {
@@ -81,24 +136,19 @@ void PktHandler::HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff){
 
     pkt_info->agent_hdr = hdr;
     agent_->stats()->incr_pkt_exceptions();
-    intf = agent_->interface_table()->FindInterface(hdr.ifindex);
-    if (intf == NULL) {
-        PKT_TRACE(Err, "Invalid interface index <" << (uint16_t) hdr.ifindex << ">");
-        agent_->stats()->incr_pkt_invalid_interface();
-        goto enqueue;
+    if (!IsValidInterface(hdr.ifindex, &intf)) {
+        goto drop;
     }
 
-    if (intf->type() == Interface::VM_INTERFACE) {
-        VmInterface *vm_itf = static_cast<VmInterface *>(intf);
-        if (!vm_itf->layer3_forwarding()) {
-            PKT_TRACE(Err, "ipv4 not enabled for interface index <" <<
-                      (uint16_t) hdr.ifindex << ">");
-            agent_->stats()->incr_pkt_dropped();
+    ParseUserPkt(pkt_info.get(), intf, pkt_type, pkt);
+    if (pkt_info->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) {
+        // In case of a control packet from a TOR served by us, the ifindex
+        // is modified to index of the VM interface; validate this interface.
+        if (!IsValidInterface(pkt_info->agent_hdr.ifindex, &intf)) {
             goto drop;
         }
     }
 
-    ParseUserPkt(pkt_info.get(), intf, pkt_type, pkt);
     pkt_info->vrf = pkt_info->agent_hdr.vrf;
 
     // Handle ARP packet
@@ -208,6 +258,24 @@ static bool InterestedIPv6Protocol(uint8_t proto) {
 
     return false;
 }
+
+uint8_t *PktHandler::ParseEthernetHeader(PktInfo *pkt_info,
+                                         PktType::Type &pkt_type,
+                                         uint8_t *pkt) {
+    pkt_info->eth = (struct ether_header *) pkt;
+    pkt_info->ether_type = ntohs(pkt_info->eth->ether_type);
+
+    if (pkt_info->ether_type == ETHERTYPE_VLAN) {
+        pkt = ((uint8_t *)pkt_info->eth) + sizeof(struct ether_header) + 4;
+        uint16_t *tmp = ((uint16_t *)pkt) - 1;
+        pkt_info->ether_type = ntohs(*tmp);
+    } else {
+        pkt = ((uint8_t *)pkt_info->eth) + sizeof(struct ether_header);
+    }
+
+    return pkt;
+}
+
 uint8_t *PktHandler::ParseIpPacket(PktInfo *pkt_info,
                                    PktType::Type &pkt_type, uint8_t *pkt) {
     if (pkt_info->ether_type == ETHERTYPE_IP) {
@@ -351,16 +419,7 @@ int PktHandler::ParseMPLSoUDP(PktInfo *pkt_info, uint8_t *pkt) {
 uint8_t *PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
                                   PktType::Type &pkt_type, uint8_t *pkt) {
     // get to the actual packet header
-    pkt_info->eth = (struct ether_header *) pkt;
-    pkt_info->ether_type = ntohs(pkt_info->eth->ether_type);
-
-    if (pkt_info->ether_type == ETHERTYPE_VLAN) {
-        pkt = ((uint8_t *)pkt_info->eth) + sizeof(struct ether_header) + 4;
-        uint16_t *tmp = ((uint16_t *)pkt) - 1;
-        pkt_info->ether_type = ntohs(*tmp);
-    } else {
-        pkt = ((uint8_t *)pkt_info->eth) + sizeof(struct ether_header);
-    }
+    pkt = ParseEthernetHeader(pkt_info, pkt_type, pkt);
 
     // Parse payload
     if (pkt_info->ether_type == ETHERTYPE_ARP) {
@@ -380,6 +439,12 @@ uint8_t *PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
     SetOuterIp(pkt_info, pkt);
     // IP Packets
     pkt = ParseIpPacket(pkt_info, pkt_type, pkt);
+
+    // If it is a packet from TOR that we serve, dont parse any further
+    if (IsManagedTORPacket(intf, pkt_info, pkt_type, pkt)) {
+        return pkt;
+    }
+
     // If tunneling is not enabled on interface or if it is a DHCP packet,
     // dont parse any further
     if (intf->IsTunnelEnabled() == false || IsDHCPPacket(pkt_info) ||
@@ -475,6 +540,59 @@ bool PktHandler::IsDHCPPacket(PktInfo *pkt_info) {
     return false;
 }
 
+// We can receive DHCP / DNS packets on physical port from TOR ports managed
+// by a TOR services node. Check if the source mac is the mac address of a
+// VM interface available in the node.
+bool PktHandler::IsManagedTORPacket(Interface *intf, PktInfo *pkt_info,
+                                    PktType::Type &pkt_type, uint8_t *pkt) {
+    if (intf->type() == Interface::PHYSICAL) {
+        if (pkt_type != PktType::UDP || pkt_info->dport != VXLAN_UDP_DEST_PORT)
+            return false;
+
+        // Get VXLAN id and point to original L2 frame after the VXLAN header
+        uint32_t vxlan = ntohl(*(uint32_t *)(pkt + 4)) >> 8;
+        pkt += 8;
+
+        // get to the actual packet header
+        pkt = ParseEthernetHeader(pkt_info, pkt_type, pkt);
+
+        ether_addr addr;
+        memcpy(addr.ether_addr_octet, pkt_info->eth->ether_shost, ETH_ALEN);
+        MacAddress address(addr);
+        MacVmBindingKey key(address, vxlan, NULL);
+        MacVmBindingSet::iterator it = mac_vm_binding_.find(key);
+        if (it == mac_vm_binding_.end())
+            return false;
+
+        // update agent_hdr to reflect the VM interface data
+        // cmd_param is set to physical interface id
+        pkt_info->agent_hdr.cmd = AgentHdr::TRAP_TOR_CONTROL_PKT;
+        pkt_info->agent_hdr.cmd_param = pkt_info->agent_hdr.ifindex;
+        pkt_info->agent_hdr.ifindex = it->interface->id();
+        pkt_info->agent_hdr.vrf = it->interface->vrf_id();
+
+        // Parse payload
+        if (pkt_info->ether_type == ETHERTYPE_ARP) {
+            pkt_info->arp = (ether_arp *) pkt;
+            pkt_type = PktType::ARP;
+            return true;
+        }
+
+        // Identify NON-IP Packets
+        if (pkt_info->ether_type != ETHERTYPE_IP &&
+            pkt_info->ether_type != ETHERTYPE_IPV6) {
+            pkt_info->data = pkt;
+            pkt_type = PktType::NON_IP;
+            return true;
+        }
+
+        // IP Packets
+        pkt = ParseIpPacket(pkt_info, pkt_type, pkt);
+        return true;
+    }
+    return false;
+}
+
 bool PktHandler::IsDiagPacket(PktInfo *pkt_info) {
     if (pkt_info->agent_hdr.cmd == AgentHdr::TRAP_ZERO_TTL ||
         pkt_info->agent_hdr.cmd == AgentHdr::TRAP_ICMP_ERROR)
@@ -502,20 +620,43 @@ bool PktHandler::IsGwPacket(const Interface *intf, const IpAddress &dst_ip) {
                 }
                 if (IsIp4SubnetMember(vm_intf->ip_addr(),
                                       ipam[i].ip_prefix.to_v4(), ipam[i].plen))
-                return (ipam[i].default_gw == dst_ip);
+                return (ipam[i].default_gw == dst_ip ||
+                        ipam[i].dns_server == dst_ip);
             } else {
                 if (!ipam[i].IsV6()) {
                     continue;
                 }
                 if (IsIp6SubnetMember(vm_intf->ip6_addr(),
                                       ipam[i].ip_prefix.to_v6(), ipam[i].plen))
-                    return (ipam[i].default_gw == dst_ip);
+                    return (ipam[i].default_gw == dst_ip ||
+                            ipam[i].dns_server == dst_ip);
             }
 
         }
     }
 
     return false;
+}
+
+bool PktHandler::IsValidInterface(uint16_t ifindex, Interface **interface) {
+    Interface *intf = agent_->interface_table()->FindInterface(ifindex);
+    if (intf == NULL) {
+        PKT_TRACE(Err, "Invalid interface index <" << ifindex << ">");
+        agent_->stats()->incr_pkt_invalid_interface();
+        return false;
+    }
+
+    if (intf->type() == Interface::VM_INTERFACE) {
+        VmInterface *vm_itf = static_cast<VmInterface *>(intf);
+        if (!vm_itf->layer3_forwarding()) {
+            PKT_TRACE(Err, "layer3 not enabled for interface index <" <<
+                      ifindex << ">");
+            return false;
+        }
+    }
+
+    *interface = intf;
+    return true;
 }
 
 void PktHandler::PktTraceIterate(PktModuleName mod, PktTraceCallback cb) {

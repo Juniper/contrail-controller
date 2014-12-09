@@ -1,0 +1,35 @@
+#
+# Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+import sys
+if sys.platform == 'darwin':
+    Return()
+
+import re
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+# test specific modifications
+AgentEnv.MakeTestEnv(env)
+
+env.Append(LIBPATH = ['./'])
+env.Append(LIBPATH = ['../'])
+env.Append(LIBS = [ 'control_node_mock'])
+env.Prepend(LIBS = [ 'test_ovs_agent_init'])
+env.Prepend(LIBS = [ 'ovsdbclient', 'openvswitch'])
+
+env.Library('test_ovs_agent_init', 'test_ovs_agent_init.cc')
+
+agent_suite = []
+flaky_agent_suite = []
+test_ovs_route = AgentEnv.MakeTestCmd(env, 'test_ovs_route', flaky_agent_suite)
+
+flaky_test = env.TestSuite('agent-flaky-test', flaky_agent_suite)
+env.Alias('ovsdb_client:flaky_test', flaky_test)
+
+test = env.TestSuite('agent-test', agent_suite)
+env.Alias('agent:agent_test', test)
+Return('agent_suite')

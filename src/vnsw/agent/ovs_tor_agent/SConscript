@@ -1,0 +1,50 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import sys
+if sys.platform == 'darwin':
+    Return()
+
+import re
+import time
+import subprocess
+
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+env.Append(LIBPATH = [
+                      '../tables',
+                      'ovsdb_client'
+                     ])
+env.Prepend(LIBS = [
+                    'ovsdbclient',
+                    'openvswitch',
+                    'vnswinit'
+                   ])
+
+env.Append(LIBS = ['ssl', 'crypto'])
+
+env.GenerateBuildInfoCode(
+    target='buildinfo.cc',
+    source = ['main.cc'],
+    path=str(Dir('.').abspath))
+
+env = AgentEnv.RemoveExceptionFlag(env)
+env.AppendUnique(CCFLAGS='-Wno-reorder')
+env.AppendUnique(CCFLAGS='-Wno-return-type')
+
+contrail_tor_agent = env.Program(target = 'contrail-tor-agent',
+                        source = [
+                                  'buildinfo.cc',
+                                  'main.cc',
+                                  'tor_agent_init.cc',
+                                  'tor_agent_param.cc',
+                                 ])
+
+env.Alias('agent:contrail-tor-agent', contrail_tor_agent)
+env.SConscript('ovsdb_client/SConscript', exports='AgentEnv', duplicate=0)
+
+# Local Variables:
+# mode: python
+# End:

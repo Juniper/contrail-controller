@@ -84,7 +84,8 @@ protected:
         PhysicalInterface::CreateReq(agent_->interface_table(),
                                 eth_name_,
                                 agent_->fabric_vrf_name(),
-                                PhysicalInterface::FABRIC);
+                                PhysicalInterface::FABRIC,
+                                PhysicalInterface::ETHERNET, false);
         AddResolveRoute(server1_ip_, 24);
         client->WaitForIdle();
     }
@@ -118,8 +119,11 @@ protected:
     }
 
     void AddResolveRoute(const Ip4Address &server_ip, uint32_t plen) {
+        InetInterfaceKey vhost_key(agent_->vhost_interface()->name());
         agent_->fabric_inet4_unicast_table()->AddResolveRoute(
-                agent_->fabric_vrf_name(), server_ip, plen);
+                agent_->local_peer(),
+                agent_->fabric_vrf_name(), server_ip, plen, vhost_key,
+                0, false, "", SecurityGroupList());
         client->WaitForIdle();
     }
 

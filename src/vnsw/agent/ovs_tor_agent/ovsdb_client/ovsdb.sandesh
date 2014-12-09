@@ -1,0 +1,194 @@
+/*
+ * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+ */
+
+/****************************************************************************
+  Sandesh definitions for OVSDB Client
+ ****************************************************************************/
+
+struct SandeshOvsdbClientSession {
+    1: string status;
+}
+
+struct SandeshOvsdbClient {
+    1: string protocol;
+    2: string server;
+    3: i16 port;
+    4: string tor_service_node;
+    5: list<SandeshOvsdbClientSession> sessions;
+}
+
+response sandesh OvsdbClientResp {
+    1: SandeshOvsdbClient client;
+}
+
+request sandesh OvsdbClientReq {
+}
+
+traceobject sandesh OvsdbTrace {
+    1: string log;
+}
+
+traceobject sandesh OvsdbError {
+    1: string error;
+}
+
+/****************************************************************************
+  Sandesh definitions for Physical Switch.
+ ****************************************************************************/
+
+struct OvsdbPhysicalSwitchEntry {
+    1: string state;
+    2: string name;
+    3: string tunnel_ip;
+}
+
+response sandesh OvsdbPhysicalSwitchResp {
+    1: list<OvsdbPhysicalSwitchEntry> pswitch;
+}
+
+request sandesh OvsdbPhysicalSwitchReq {
+    1: string session_remote_ip;
+    2: i16 session_remote_port;
+}
+
+struct SandeshPhysicalSwitchInfo {
+    1: string op;
+    2: string name;
+}
+
+traceobject sandesh OvsdbPhysicalSwitch {
+    1: SandeshPhysicalSwitchInfo p_switch;
+}
+
+/****************************************************************************
+  Sandesh definitions for Physical Port.
+ ****************************************************************************/
+
+struct OvsdbPhysicalPortVlanInfo {
+    1: i16 vlan;
+    2: string logical_switch;
+    3: i64 in_pkts;
+    4: i64 in_bytes;
+    5: i64 out_pkts;
+    6: i64 out_bytes;
+}
+
+struct OvsdbPhysicalPortEntry {
+    1: string state;
+    2: string name;
+    3: list<OvsdbPhysicalPortVlanInfo> vlans;
+}
+
+response sandesh OvsdbPhysicalPortResp {
+    1: list<OvsdbPhysicalPortEntry> port;
+}
+
+request sandesh OvsdbPhysicalPortReq {
+    1: string session_remote_ip;
+    2: i16 session_remote_port;
+}
+
+/****************************************************************************
+  Sandesh definitions for Logical Switch.
+ ****************************************************************************/
+
+struct OvsdbLogicalSwitchEntry {
+    1: string state;
+    2: string name;
+    3: string physical_switch;
+    4: i64 vxlan_id;
+}
+
+response sandesh OvsdbLogicalSwitchResp {
+    1: list<OvsdbLogicalSwitchEntry> lswitch;
+}
+
+request sandesh OvsdbLogicalSwitchReq {
+    1: string session_remote_ip;
+    2: i16 session_remote_port;
+}
+
+struct SandeshLogicalSwitchInfo {
+    1: string op;
+    2: string name;
+    3: u64 vxlan;
+    4: string device_name;
+}
+
+traceobject sandesh OvsdbLogicalSwitch {
+    1: SandeshLogicalSwitchInfo l_switch;
+}
+
+/****************************************************************************
+  Sandesh definitions for Vlan Port Bindings.
+ ****************************************************************************/
+
+struct OvsdbVlanPortBindingEntry {
+    1: string state;
+    2: string physical_port;
+    3: string physical_device;
+    4: string logical_switch;
+    5: u16 vlan;
+}
+
+response sandesh OvsdbVlanPortBindingResp {
+    1: list<OvsdbVlanPortBindingEntry> bindings;
+}
+
+request sandesh OvsdbVlanPortBindingReq {
+    1: string session_remote_ip;
+    2: i16 session_remote_port;
+}
+
+/****************************************************************************
+  Sandesh definitions for Unicast Mac Local.
+ ****************************************************************************/
+
+struct OvsdbUnicastMacLocalEntry {
+    1: string state;
+    2: string mac;
+    3: string logical_switch;
+    4: string dest_ip;
+}
+
+response sandesh OvsdbUnicastMacLocalResp {
+    1: list<OvsdbUnicastMacLocalEntry> macs;
+}
+
+request sandesh OvsdbUnicastMacLocalReq {
+    1: string session_remote_ip;
+    2: i16 session_remote_port;
+}
+
+/****************************************************************************
+  Sandesh definitions for Unicast Mac Remote.
+ ****************************************************************************/
+
+struct OvsdbUnicastMacRemoteEntry {
+    1: string state;
+    2: string mac;
+    3: string logical_switch;
+    4: string dest_ip;
+    5: bool self_exported;
+}
+
+response sandesh OvsdbUnicastMacRemoteResp {
+    1: list<OvsdbUnicastMacRemoteEntry> macs;
+}
+
+request sandesh OvsdbUnicastMacRemoteReq {
+    1: string session_remote_ip;
+    2: i16 session_remote_port;
+}
+struct SandeshUnicastMacRemoteInfo {
+    1: string op;
+    2: string mac;
+    3: string logical_switch;
+    4: string dest_ip;
+}
+
+traceobject sandesh OvsdbUnicastMacRemote {
+    1: SandeshUnicastMacRemoteInfo ucast_remote;
+}
+

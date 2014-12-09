@@ -22,8 +22,8 @@ public:
     };
     typedef DependencyList<AgentRoute, MplsLabel> DependentPathList;
 
-    MplsLabel(Type type, uint32_t label) :
-        type_(type), label_(label), 
+    MplsLabel(const Agent *agent, Type type, uint32_t label) :
+        agent_(agent), type_(type), label_(label), 
         free_label_(false), nh_(NULL) { }
     virtual ~MplsLabel();
 
@@ -39,24 +39,32 @@ public:
     uint32_t label() const {return label_;};
     const NextHop *nexthop() const {return nh_.get();};
 
-    static void CreateVlanNh(uint32_t label, const uuid &intf_uuid,
+    static void CreateVlanNh(const Agent *agent,
+                             uint32_t label,
+                             const uuid &intf_uuid,
                              uint16_t tag);
-    static void CreateVPortLabel(uint32_t label, const uuid &intf_uuid,
-                                 bool policy, InterfaceNHFlags::Type type);
-    static void CreateInetInterfaceLabel(uint32_t label,
-                                           const string &ifname,
-                                           bool policy,
-                                           InterfaceNHFlags::Type type);
-    static void CreateMcastLabelReq(uint32_t src_label, COMPOSITETYPE type,
+    static void CreateVPortLabel(const Agent *agent,
+                                 uint32_t label,
+                                 const uuid &intf_uuid,
+                                 bool policy,
+                                 InterfaceNHFlags::Type type);
+    static void CreateInetInterfaceLabel(const Agent *agent,
+                                         uint32_t label,
+                                         const string &ifname,
+                                         bool policy,
+                                         InterfaceNHFlags::Type type);
+    static void CreateMcastLabelReq(const Agent *agent,
+                                    uint32_t src_label,
+                                    COMPOSITETYPE type,
                                     ComponentNHKeyList &component_nh_key_list,
                                     const std::string vrf_name);
-    static void CreateEcmpLabel(uint32_t label, COMPOSITETYPE type,
+    static void CreateEcmpLabel(const Agent *agent, uint32_t label, COMPOSITETYPE type,
                                 ComponentNHKeyList &component_nh_key_list,
                                 const std::string vrf_name);
-    static void DeleteMcastLabelReq(uint32_t src_label);
+    static void DeleteMcastLabelReq(const Agent *agent, uint32_t src_label);
     // Delete MPLS Label entry
-    static void DeleteReq(uint32_t label);
-    static void Delete(uint32_t label);
+    static void DeleteReq(const Agent *agent, uint32_t label);
+    static void Delete(const Agent *agent, uint32_t label);
 
     uint32_t GetRefCount() const {
         return AgentRefCount<MplsLabel>::GetRefCount();
@@ -65,7 +73,9 @@ public:
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
     void SendObjectLog(AgentLogEvent::type event) const;
     void SyncDependentPath();
+
 private:
+    const Agent *agent_;
     Type type_;
     uint32_t label_;
     bool free_label_;
@@ -113,6 +123,9 @@ public:
         component_nh_key_list, vrf_name)) {
     }
 
+    MplsLabelData(const std::string vrf_name, bool policy) :
+        AgentData(), nh_key(new VrfNHKey(vrf_name, policy)) {
+    }
     virtual ~MplsLabelData() { 
         if (nh_key) {
             delete nh_key;
@@ -148,9 +161,14 @@ public:
     void FreeLabel(uint32_t label) {label_table_.Remove(label);};
     MplsLabel *FindMplsLabel(size_t index) {return label_table_.At(index);};
 
+    static void CreateTableLabel(const Agent *agent, uint32_t label,
+                                 const std::string &vrf_name,
+                                 bool policy);
+
     static DBTableBase *CreateTable(DB *db, const std::string &name);
-    static MplsTable *GetInstance() {return mpls_table_;};
     void Process(DBRequest &req);
+    bool ChangeNH(MplsLabel *mpls, NextHop *nh);
+
 private:
     static MplsTable *mpls_table_;
     bool ChangeHandler(MplsLabel *mpls, const DBRequest *req);

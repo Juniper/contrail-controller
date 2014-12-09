@@ -317,8 +317,6 @@ TEST_F(AclTest, Config) {
     EXPECT_EQ(action, m_acl.action_info.action);
     delete packet1;
 }
-
-
 } //namespace
 
 int main (int argc, char **argv) {

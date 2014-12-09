@@ -27,7 +27,7 @@ public:
     static void DeleteReq(InterfaceTable *table, const std::string &ifname);
     static void Delete(InterfaceTable *table, const std::string &ifname);
     void PostAdd();
-    void Delete();
+    bool Delete(const DBRequest *req);
 private:
     DISALLOW_COPY_AND_ASSIGN(PacketInterface);
 };

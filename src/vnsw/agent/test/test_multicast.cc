@@ -169,17 +169,19 @@ TEST_F(MulticastTest, McastSubnet_1) {
     EXPECT_TRUE(RouteFind("vrf1", "3.3.255.255", 32));
 
     TunnelOlist olist_map;
-    olist_map.push_back(OlistTunnelEntry(2000, 
+    olist_map.push_back(OlistTunnelEntry(nil_uuid(), 2000, 
                                          IpAddress::from_string("8.8.8.8").to_v4(),
                                          TunnelType::AllType()));
-    MulticastHandler::ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
-                                          IpAddress::from_string("1.1.1.255").to_v4(),
-                                          IpAddress::from_string("0.0.0.0").to_v4(),
-                                          1111, olist_map);
-    MulticastHandler::ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
-                                          IpAddress::from_string("255.255.255.255").to_v4(),
-                                          IpAddress::from_string("0.0.0.0").to_v4(),
-                                          1112, olist_map);
+    agent_->oper_db()->multicast()->
+        ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
+                            IpAddress::from_string("1.1.1.255").to_v4(),
+                            IpAddress::from_string("0.0.0.0").to_v4(),
+                            1111, olist_map);
+    agent_->oper_db()->multicast()->
+        ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
+                            IpAddress::from_string("255.255.255.255").to_v4(),
+                            IpAddress::from_string("0.0.0.0").to_v4(),
+                            1112, olist_map);
     AddArp("8.8.8.8", "00:00:08:08:08:08", agent_->fabric_interface_name().c_str());
     client->WaitForIdle();
 
@@ -199,19 +201,20 @@ TEST_F(MulticastTest, McastSubnet_1) {
     ASSERT_TRUE((mcobj->GetLocalOlist()).size() == 2);
 
     TunnelOlist olist_map1;
-    olist_map1.push_back(OlistTunnelEntry(7777, 
+    olist_map1.push_back(OlistTunnelEntry(nil_uuid(), 7777, 
                                           IpAddress::from_string("8.8.8.8").to_v4(),
                                           TunnelType::AllType()));
-    olist_map1.push_back(OlistTunnelEntry(9999, 
+    olist_map1.push_back(OlistTunnelEntry(nil_uuid(), 9999, 
                                           IpAddress::from_string("8.8.8.8").to_v4(),
                                           TunnelType::AllType()));
-    olist_map1.push_back(OlistTunnelEntry(8888, 
+    olist_map1.push_back(OlistTunnelEntry(nil_uuid(), 8888, 
                                           IpAddress::from_string("8.8.8.8").to_v4(),
                                           TunnelType::AllType()));
-    MulticastHandler::ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
-                                          IpAddress::from_string("3.3.255.255").to_v4(),
-                                          IpAddress::from_string("0.0.0.0").to_v4(),
-                                          2222, olist_map1);
+    agent_->oper_db()->multicast()->
+        ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
+                            IpAddress::from_string("3.3.255.255").to_v4(),
+                            IpAddress::from_string("0.0.0.0").to_v4(),
+                            2222, olist_map1);
 
     addr = Ip4Address::from_string("3.3.255.255");
     rt = RouteGet("vrf1", addr, 32);
@@ -225,16 +228,17 @@ TEST_F(MulticastTest, McastSubnet_1) {
 
     client->WaitForIdle();
     TunnelOlist olist_map2;
-    olist_map2.push_back(OlistTunnelEntry(8888, 
+    olist_map2.push_back(OlistTunnelEntry(nil_uuid(), 8888, 
                                          IpAddress::from_string("8.8.8.8").to_v4(),
                                          TunnelType::AllType()));
-    olist_map2.push_back(OlistTunnelEntry(5555, 
+    olist_map2.push_back(OlistTunnelEntry(nil_uuid(), 5555, 
                                          IpAddress::from_string("8.8.8.8").to_v4(),
                                          TunnelType::AllType()));
-    MulticastHandler::ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
-                                          IpAddress::from_string("3.3.255.255").to_v4(),
-                                          IpAddress::from_string("0.0.0.0").to_v4(),
-                                          2222, olist_map2);
+    agent_->oper_db()->multicast()->
+        ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
+                            IpAddress::from_string("3.3.255.255").to_v4(),
+                            IpAddress::from_string("0.0.0.0").to_v4(),
+                            2222, olist_map2);
     client->WaitForIdle();
     DoMulticastSandesh(1);
 
@@ -339,13 +343,14 @@ TEST_F(MulticastTest, L2Broadcast_1) {
     EXPECT_TRUE(L2RouteFind("vrf1", MacAddress::BroadcastMac()));
 
     TunnelOlist olist_map;
-    olist_map.push_back(OlistTunnelEntry(2000,
+    olist_map.push_back(OlistTunnelEntry(nil_uuid(), 2000,
                                          IpAddress::from_string("8.8.8.8").to_v4(),
                                          TunnelType::AllType()));
-    MulticastHandler::ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
-                                          IpAddress::from_string("255.255.255.255").to_v4(),
-                                          IpAddress::from_string("0.0.0.0").to_v4(),
-                                          1111, olist_map);
+    agent_->oper_db()->multicast()->
+        ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
+                            IpAddress::from_string("255.255.255.255").to_v4(),
+                            IpAddress::from_string("0.0.0.0").to_v4(),
+                            1111, olist_map);
     AddArp("8.8.8.8", "00:00:08:08:08:08",
            agent_->fabric_interface_name().c_str());
     client->WaitForIdle();
@@ -478,13 +483,14 @@ TEST_F(MulticastTest, McastSubnet_DeleteRouteOnVRFDeleteofVN) {
     WAIT_FOR(1000, 1000, (cnh->ComponentNHCount() != 0));
 
     TunnelOlist olist_map;
-    olist_map.push_back(OlistTunnelEntry(2000,
+    olist_map.push_back(OlistTunnelEntry(nil_uuid(), 2000,
                                          IpAddress::from_string("8.8.8.8").to_v4(),
                                          TunnelType::AllType()));
-    MulticastHandler::ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
-                                          IpAddress::from_string("1.1.1.255").to_v4(),
-                                          IpAddress::from_string("0.0.0.0").to_v4(),
-                                          1111, olist_map);
+    agent_->oper_db()->multicast()->
+        ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
+                            IpAddress::from_string("1.1.1.255").to_v4(),
+                            IpAddress::from_string("0.0.0.0").to_v4(),
+                            1111, olist_map);
     AddArp("8.8.8.8", "00:00:08:08:08:08", agent_->fabric_interface_name().c_str());
     client->WaitForIdle();
 
@@ -549,13 +555,14 @@ TEST_F(MulticastTest, McastSubnet_DeleteRouteOnIPAMDeleteofVN) {
 	WAIT_FOR(1000, 1000, (VmPortActive(input, 0)));
     WAIT_FOR(1000, 1000, RouteFind("vrf1", "1.1.1.255", 32));
     TunnelOlist olist_map;
-    olist_map.push_back(OlistTunnelEntry(2000, 
+    olist_map.push_back(OlistTunnelEntry(nil_uuid(), 2000, 
                                          IpAddress::from_string("8.8.8.8").to_v4(),
                                          TunnelType::AllType()));
-    MulticastHandler::ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
-                                          IpAddress::from_string("1.1.1.255").to_v4(),
-                                          IpAddress::from_string("0.0.0.0").to_v4(),
-                                          1111, olist_map);
+    agent_->oper_db()->multicast()->
+        ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
+                            IpAddress::from_string("1.1.1.255").to_v4(),
+                            IpAddress::from_string("0.0.0.0").to_v4(),
+                            1111, olist_map);
     AddArp("8.8.8.8", "00:00:08:08:08:08", agent_->fabric_interface_name().c_str());
     client->WaitForIdle();
 
@@ -640,13 +647,14 @@ TEST_F(MulticastTest, McastSubnet_DeleteCompNHThenModifyFabricList) {
     mcobj->Deleted(true);
 
     TunnelOlist olist_map;
-    olist_map.push_back(OlistTunnelEntry(2000, 
+    olist_map.push_back(OlistTunnelEntry(nil_uuid(), 2000, 
                                          IpAddress::from_string("8.8.8.8").to_v4(),
                                          TunnelType::AllType()));
-    MulticastHandler::ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
-                                          IpAddress::from_string("1.1.1.255").to_v4(),
-                                          IpAddress::from_string("0.0.0.0").to_v4(),
-                                          1111, olist_map);
+    agent_->oper_db()->multicast()->
+        ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
+                            IpAddress::from_string("1.1.1.255").to_v4(),
+                            IpAddress::from_string("0.0.0.0").to_v4(),
+                            1111, olist_map);
     AddArp("8.8.8.8", "00:00:08:08:08:08", agent_->fabric_interface_name().c_str());
     client->WaitForIdle();
 
@@ -854,13 +862,14 @@ TEST_F(MulticastTest, subnet_bcast_ipv4_vn_delete) {
     WAIT_FOR(1000, 1000, (!RouteFind("vrf1", "11.1.1.255", 32)));
 
     TunnelOlist olist_map;
-    olist_map.push_back(OlistTunnelEntry(2000,
+    olist_map.push_back(OlistTunnelEntry(nil_uuid(), 2000,
                                          IpAddress::from_string("8.8.8.8").to_v4(),
                                          TunnelType::MplsType()));
-    MulticastHandler::ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
-                                          IpAddress::from_string("11.1.1.255").to_v4(),
-                                          IpAddress::from_string("0.0.0.0").to_v4(),
-                                          1111, olist_map);
+    agent_->oper_db()->multicast()->
+        ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
+                            IpAddress::from_string("11.1.1.255").to_v4(),
+                            IpAddress::from_string("0.0.0.0").to_v4(),
+                            1111, olist_map);
     client->WaitForIdle();
 
     //Restore and cleanup
@@ -911,13 +920,14 @@ TEST_F(MulticastTest, subnet_bcast_ipv4_vn_ipam_change) {
     WAIT_FOR(1000, 1000, (!RouteFind("vrf1", "11.1.1.255", 32)));
 
     TunnelOlist olist_map;
-    olist_map.push_back(OlistTunnelEntry(2000,
+    olist_map.push_back(OlistTunnelEntry(nil_uuid(), 2000,
                                          IpAddress::from_string("8.8.8.8").to_v4(),
                                          TunnelType::MplsType()));
-    MulticastHandler::ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
-                                          IpAddress::from_string("11.1.1.255").to_v4(),
-                                          IpAddress::from_string("0.0.0.0").to_v4(),
-                                          1111, olist_map);
+    agent_->oper_db()->multicast()->
+        ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
+                            IpAddress::from_string("11.1.1.255").to_v4(),
+                            IpAddress::from_string("0.0.0.0").to_v4(),
+                            1111, olist_map);
     client->WaitForIdle();
 
     //Restore and cleanup
@@ -963,13 +973,14 @@ TEST_F(MulticastTest, subnet_bcast_ipv4_vn_vrf_link_delete) {
     WAIT_FOR(1000, 1000, (!RouteFind("vrf1", "11.1.1.255", 32)));
 
     TunnelOlist olist_map;
-    olist_map.push_back(OlistTunnelEntry(2000,
+    olist_map.push_back(OlistTunnelEntry(nil_uuid(), 2000,
                                          IpAddress::from_string("8.8.8.8").to_v4(),
                                          TunnelType::MplsType()));
-    MulticastHandler::ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
-                                          IpAddress::from_string("11.1.1.255").to_v4(),
-                                          IpAddress::from_string("0.0.0.0").to_v4(),
-                                          1111, olist_map);
+    agent_->oper_db()->multicast()->
+        ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
+                            IpAddress::from_string("11.1.1.255").to_v4(),
+                            IpAddress::from_string("0.0.0.0").to_v4(),
+                            1111, olist_map);
     client->WaitForIdle();
 
     //Restore and cleanup
@@ -1024,13 +1035,14 @@ TEST_F(MulticastTest, subnet_bcast_add_l2l3vn_and_l2vn) {
     EXPECT_TRUE(RouteFind("vrf1", "11.1.1.255", 32));
 
     TunnelOlist olist_map;
-    olist_map.push_back(OlistTunnelEntry(2000,
+    olist_map.push_back(OlistTunnelEntry(nil_uuid(), 2000,
                                          IpAddress::from_string("8.8.8.8").to_v4(),
                                          TunnelType::MplsType()));
-    MulticastHandler::ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
-                                          IpAddress::from_string("11.1.1.255").to_v4(),
-                                          IpAddress::from_string("0.0.0.0").to_v4(),
-                                          1111, olist_map);
+    agent_->oper_db()->multicast()->
+        ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
+                            IpAddress::from_string("11.1.1.255").to_v4(),
+                            IpAddress::from_string("0.0.0.0").to_v4(),
+                            1111, olist_map);
     client->WaitForIdle();
 
     //Restore and cleanup
@@ -1079,13 +1091,14 @@ TEST_F(MulticastTest, evpn_flood_l2l3_mode) {
     EXPECT_TRUE(L2RouteFind("vrf1", MacAddress::BroadcastMac()));
 
     TunnelOlist olist_map;
-    olist_map.push_back(OlistTunnelEntry(2000,
+    olist_map.push_back(OlistTunnelEntry(nil_uuid(), 2000,
                                          IpAddress::from_string("8.8.8.8").to_v4(),
                                          TunnelType::AllType()));
-    MulticastHandler::ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
-                                          IpAddress::from_string("255.255.255.255").to_v4(),
-                                          IpAddress::from_string("0.0.0.0").to_v4(),
-                                          1111, olist_map);
+    agent_->oper_db()->multicast()->
+        ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
+                            IpAddress::from_string("255.255.255.255").to_v4(),
+                            IpAddress::from_string("0.0.0.0").to_v4(),
+                            1111, olist_map);
     client->WaitForIdle();
 
     AddArp("8.8.8.8", "00:00:08:08:08:08",
@@ -1093,15 +1106,17 @@ TEST_F(MulticastTest, evpn_flood_l2l3_mode) {
     client->WaitForIdle();
 
     TunnelOlist evpn_olist_map;
-    evpn_olist_map.push_back(OlistTunnelEntry(1000,
+    evpn_olist_map.push_back(OlistTunnelEntry(nil_uuid(), 1000,
                                               IpAddress::from_string("8.8.8.8").to_v4(),
                                               TunnelType::MplsType()));
-    MulticastHandler::ModifyEvpnMembers(peer_, "vrf1",
-                                        evpn_olist_map, 0);
+    agent_->oper_db()->multicast()->
+        ModifyEvpnMembers(peer_, "vrf1",
+                          evpn_olist_map, 0);
     client->WaitForIdle();
 
-    MulticastHandler::ModifyEvpnMembers(peer_, "vrf1",
-                                        evpn_olist_map, 0);
+    agent_->oper_db()->multicast()->
+        ModifyEvpnMembers(peer_, "vrf1",
+                          evpn_olist_map, 0);
     client->WaitForIdle();
 
     Inet4MulticastRouteEntry *rt =
@@ -1209,13 +1224,14 @@ TEST_F(MulticastTest, evpn_flood_l2_mode) {
     EXPECT_FALSE(MCRouteFind("vrf1", "255.255.255.255"));
 
     TunnelOlist olist_map;
-    olist_map.push_back(OlistTunnelEntry(2000,
+    olist_map.push_back(OlistTunnelEntry(nil_uuid(), 2000,
                                          IpAddress::from_string("8.8.8.8").to_v4(),
                                          TunnelType::AllType()));
-    MulticastHandler::ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
-                                          IpAddress::from_string("255.255.255.255").to_v4(),
-                                          IpAddress::from_string("0.0.0.0").to_v4(),
-                                          1111, olist_map);
+    agent_->oper_db()->multicast()->
+        ModifyFabricMembers(agent_->multicast_tree_builder_peer(), "vrf1",
+                            IpAddress::from_string("255.255.255.255").to_v4(),
+                            IpAddress::from_string("0.0.0.0").to_v4(),
+                            1111, olist_map);
     client->WaitForIdle();
 
     AddArp("8.8.8.8", "00:00:08:08:08:08",
@@ -1223,15 +1239,15 @@ TEST_F(MulticastTest, evpn_flood_l2_mode) {
     client->WaitForIdle();
 
     TunnelOlist evpn_olist_map;
-    evpn_olist_map.push_back(OlistTunnelEntry(1000,
+    evpn_olist_map.push_back(OlistTunnelEntry(nil_uuid(), 1000,
                                               IpAddress::from_string("8.8.8.8").to_v4(),
                                               TunnelType::MplsType()));
     //Do it for non existent object, to catch any crashes
-    MulticastHandler::ModifyEvpnMembers(peer_, "vrf1",
-                                        evpn_olist_map, 0);
+    agent_->oper_db()->multicast()->ModifyEvpnMembers(peer_, "vrf1",
+                                                      evpn_olist_map, 0);
     client->WaitForIdle();
 
-    MulticastHandler::ModifyEvpnMembers(peer_, "vrf1",
+    agent_->oper_db()->multicast()->ModifyEvpnMembers(peer_, "vrf1",
                                         evpn_olist_map, 0);
     client->WaitForIdle();
 

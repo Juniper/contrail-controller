@@ -70,7 +70,7 @@ public:
 
     // virtual functions for specific interface types
     virtual bool CmpInterface(const DBEntry &rhs) const = 0;
-    virtual void Delete() { }
+    virtual bool Delete(const DBRequest *req) { return true; }
     virtual void Add() { }
     virtual void SendTrace(Trace event) const;
     virtual void GetOsParams(Agent *agent);

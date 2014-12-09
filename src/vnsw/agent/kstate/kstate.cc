@@ -301,7 +301,6 @@ void KState::VrfStatsMsgHandler(vr_vrf_stats_req *r) {
         const_cast<std::vector<KVrfStatsInfo>&>(resp->get_vrf_stats_list());
     data.set_vrf_id(r->get_vsr_vrf());
     data.set_vrf_family(state->FamilyToString(r->get_vsr_family()));
-    data.set_vrf_type(state->TypeToString(r->get_vsr_type()));
     data.set_vrf_rid(r->get_vsr_rid());
     data.set_vrf_discards(r->get_vsr_discards());
     data.set_vrf_resolves(r->get_vsr_resolves());
@@ -309,9 +308,7 @@ void KState::VrfStatsMsgHandler(vr_vrf_stats_req *r) {
     data.set_vrf_udp_tunnels(r->get_vsr_udp_tunnels());
     data.set_vrf_udp_mpls_tunnels(r->get_vsr_udp_mpls_tunnels());
     data.set_vrf_gre_mpls_tunnels(r->get_vsr_gre_mpls_tunnels());
-    data.set_vrf_l3_mcast_composites(r->get_vsr_l3_mcast_composites());
     data.set_vrf_l2_mcast_composites(r->get_vsr_l2_mcast_composites());
-    data.set_vrf_multi_proto_composites(r->get_vsr_multi_proto_composites());
     data.set_vrf_fabric_composites(r->get_vsr_fabric_composites());
     data.set_vrf_ecmp_composites(r->get_vsr_ecmp_composites());
     data.set_vrf_encaps(r->get_vsr_encaps());

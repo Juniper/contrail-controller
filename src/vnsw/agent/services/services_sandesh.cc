@@ -263,7 +263,7 @@ uint16_t ServicesSandesh::FillVrouterHdr(PktTrace::Pkt &pkt, VrouterHdr &resp) {
            { { "switch", "route", "arp", "l2-protocol", "trap-nexthop",
                "trap-resolve", "trap-flow-miss", "trap-l3-protocol",
                "trap-diag", "trap-ecmp-resolve", "trap_source_mismatch",
-               "trap-dont-fragment" } };
+               "trap-dont-fragment", "tor-control" } };
     uint8_t *ptr = pkt.pkt;
     AgentHdr *hdr = reinterpret_cast<AgentHdr *>(ptr);
     resp.ifindex = hdr->ifindex;
@@ -1087,4 +1087,39 @@ bool ArpSandesh::SetArpEntry(const ArpKey &key, const ArpEntry *entry) {
         resp_ = resp;
     }
     return true;
+}
+
+void ArpSandesh::SetInterfaceArpStatsEntry(
+    ArpProto::InterfaceArpMap::const_iterator &it,
+    std::vector<InterfaceArpStats> &list) {
+    InterfaceArpStats data;
+    data.set_interface_index(it->first);
+    data.set_arp_requests(it->second.stats.arp_req);
+    data.set_arp_replies(it->second.stats.arp_replies);
+    data.set_arp_resolved(it->second.stats.resolved);
+    list.push_back(data);
+}
+
+void InterfaceArpStatsReq::HandleRequest() const {
+    InterfaceArpStatsResponse *resp = new InterfaceArpStatsResponse();
+    resp->set_context(context());
+    ArpSandesh arp_sandesh(resp);
+    const ArpProto::InterfaceArpMap &imap =
+              (Agent::GetInstance()->GetArpProto()->interface_arp_map());
+    std::vector<InterfaceArpStats> &list =
+                const_cast<std::vector<InterfaceArpStats>&>(resp->get_stats_list());
+    if (get_interface_index() != -1) {
+        ArpProto::InterfaceArpMap::const_iterator it = imap.find
+            (get_interface_index());
+        if (it != imap.end()) {
+            arp_sandesh.SetInterfaceArpStatsEntry(it, list);
+        }
+        arp_sandesh.Response();
+        return;
+    }
+    for (ArpProto::InterfaceArpMap::const_iterator it = imap.begin();
+         it != imap.end(); it++) {
+         arp_sandesh.SetInterfaceArpStatsEntry(it, list);
+    }
+    arp_sandesh.Response();
 }

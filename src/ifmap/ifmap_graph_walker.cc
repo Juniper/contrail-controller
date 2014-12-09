@@ -244,6 +244,7 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
     traversal_white_list_->include_vertex.insert("loadbalancer-pool");
     traversal_white_list_->include_vertex.insert("loadbalancer-member");
     traversal_white_list_->include_vertex.insert("loadbalancer-healthmonitor");
+    traversal_white_list_->include_vertex.insert("subnet");
 }
 
 void IFMapGraphWalker::AddLinksToWhitelist() {
@@ -321,6 +322,8 @@ void IFMapGraphWalker::AddLinksToWhitelist() {
         "source=loadbalancer-pool,target=virtual-ip");
     traversal_white_list_->include_edge.insert(
         "source=loadbalancer-pool,target=loadbalancer-member");
+    traversal_white_list_->include_edge.insert(
+        "source=virtual-machine-interface,target=subnet");
 
     // Manually add required links not picked by the
     // IFMapGraphTraversalFilterCalculator

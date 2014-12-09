@@ -14,6 +14,7 @@
 #include <ksync/ksync_netlink.h>
 #include <ksync/ksync_sock.h>
 
+#include "cmn/agent.h"
 #include "oper/interface_common.h"
 #include "oper/nexthop.h"
 #include "oper/route_common.h"
@@ -48,14 +49,14 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
     vrf_id_(rt->vrf_id()), nh_(NULL), label_(0), proxy_arp_(false),
     tunnel_type_(TunnelType::DefaultType()), wait_for_traffic_(false) {
     boost::system::error_code ec;
-    switch (rt->GetTableType()) {
+    rt_type_ = rt->GetTableType();
+    switch (rt_type_) {
     case Agent::INET4_UNICAST: {
           const InetUnicastRouteEntry *uc_rt =
               static_cast<const InetUnicastRouteEntry *>(rt);
           addr_ = uc_rt->addr();
           src_addr_ = IpAddress::from_string("0.0.0.0", ec).to_v4();
           prefix_len_ = uc_rt->plen();
-          rt_type_ = RT_UCAST;
           break;
     }
     case Agent::INET6_UNICAST: {
@@ -64,7 +65,6 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
           addr_ = uc_rt->addr();
           src_addr_ = Ip6Address();
           prefix_len_ = uc_rt->plen();
-          rt_type_ = RT_UCAST;
           break;
     }
     case Agent::INET4_MULTICAST: {
@@ -73,14 +73,12 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
           addr_ = mc_rt->dest_ip_addr();
           src_addr_ = mc_rt->src_ip_addr();
           prefix_len_ = 32;
-          rt_type_ = RT_MCAST;
           break;
     }
     case Agent::LAYER2: {
           const Layer2RouteEntry *l2_rt =
               static_cast<const Layer2RouteEntry *>(rt);              
           mac_ = l2_rt->GetAddress();
-          rt_type_ = RT_LAYER2;
           prefix_len_ = 0;
           break;
     }
@@ -143,11 +141,12 @@ bool RouteKSyncEntry::IsLess(const KSyncEntry &rhs) const {
         return rt_type_ < entry.rt_type_;
 
     //First unicast
-    if (rt_type_ == RT_UCAST) {
+    if ((rt_type_ == Agent::INET4_UNICAST) ||
+        (rt_type_ == Agent::INET6_UNICAST)) {
         return UcIsLess(rhs);
     }
 
-    if (rt_type_ == RT_LAYER2) {
+    if (rt_type_ == Agent::LAYER2) {
         return L2IsLess(rhs);
     }
 
@@ -203,7 +202,7 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
     }
 
     //Bother for label for unicast and EVPN routes
-    if (rt_type_ == RT_UCAST || rt_type_ == RT_LAYER2) {
+    if (rt_type_ != Agent::INET4_MULTICAST) {
         uint32_t old_label = label_;
         const AgentPath *path = 
             (static_cast <InetUnicastRouteEntry *>(e))->GetActivePath();
@@ -260,25 +259,18 @@ int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
 
     encoder.set_h_op(op);
     encoder.set_rtr_rid(0);
-    encoder.set_rtr_rt_type(rt_type_);
     encoder.set_rtr_vrf_id(vrf_id_);
-    if (rt_type_ != RT_LAYER2) {
+    if (rt_type_ != Agent::LAYER2) {
         if (addr_.is_v4()) {
             encoder.set_rtr_family(AF_INET);
             boost::array<unsigned char, 4> bytes = addr_.to_v4().to_bytes();
             std::vector<int8_t> rtr_prefix(bytes.begin(), bytes.end());
             encoder.set_rtr_prefix(rtr_prefix);
-            boost::array<unsigned char, 4> src_bytes = src_addr_.to_v4().to_bytes();
-            std::vector<int8_t> rtr_src(src_bytes.begin(), src_bytes.end());
-            encoder.set_rtr_src(rtr_src);
         } else if (addr_.is_v6()) {
             encoder.set_rtr_family(AF_INET6);
             boost::array<unsigned char, 16> bytes = addr_.to_v6().to_bytes();
             std::vector<int8_t> rtr_prefix(bytes.begin(), bytes.end());
             encoder.set_rtr_prefix(rtr_prefix);
-            boost::array<unsigned char, 16> src_bytes = src_addr_.to_v6().to_bytes();
-            std::vector<int8_t> rtr_src(src_bytes.begin(), src_bytes.end());
-            encoder.set_rtr_src(rtr_src);
         }
         encoder.set_rtr_prefix_len(prefix_len_);
     } else {
@@ -291,14 +283,14 @@ int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
 
     int label = 0;
     int flags = 0;
-    if (rt_type_ == RT_UCAST || rt_type_ == RT_LAYER2) {
+    if (rt_type_ != Agent::INET4_MULTICAST) {
         if (nexthop != NULL && nexthop->type() == NextHop::TUNNEL) {
             label = label_;
             flags |= VR_RT_LABEL_VALID_FLAG;
         }
     }
 
-    if (rt_type_ == RT_LAYER2) {
+    if (rt_type_ == Agent::LAYER2) {
         flags |= 0x02;
         label = label_;
         if (nexthop != NULL && nexthop->type() == NextHop::COMPOSITE) {
@@ -353,7 +345,8 @@ int RouteKSyncEntry::DeleteMsg(char *buf, int buf_len) {
     NHKSyncEntry *ksync_nh = NULL;
 
     // IF multicast or EVPN delete unconditionally
-    if (rt_type_ == RT_MCAST || rt_type_ == RT_LAYER2) {
+    if ((rt_type_ == Agent::LAYER2) ||
+        (rt_type_ == Agent::INET4_MULTICAST)) {
         return DeleteInternal(nh(), 0, 0, false, buf, buf_len);
     }
 

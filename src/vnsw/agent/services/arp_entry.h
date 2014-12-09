@@ -29,12 +29,14 @@ public:
     };
 
     ArpEntry(boost::asio::io_service &io, ArpHandler *handler,
-             ArpKey &key, State state);
+             ArpKey &key, const VrfEntry *vrf, State state,
+             const Interface *itf);
     virtual ~ArpEntry();
 
     const ArpKey &key() const { return key_; }
     State state() const { return state_; }
     const MacAddress &mac_address() const { return mac_address_; }
+    const Interface *interface() const { return interface_; }
 
     bool HandleArpRequest();
     void HandleArpReply(const MacAddress &);
@@ -43,18 +45,24 @@ public:
     void SendGratuitousArp();
     bool DeleteArpRoute();
     bool IsResolved();
+    void Resync(bool policy, const std::string &vn, const SecurityGroupList &sg);
 
 private:
     void StartTimer(uint32_t timeout, uint32_t mtype);
     void SendArpRequest();
     void AddArpRoute(bool resolved);
+    void HandleDerivedArpRequest();
+    bool IsDerived();
 
+    boost::asio::io_service &io_;
     ArpKey key_;
+    const VrfEntry *nh_vrf_;
     MacAddress mac_address_;
     State state_;
     int retry_count_;
     boost::scoped_ptr<ArpHandler> handler_;
     Timer *arp_timer_;
+    const Interface *interface_;
     DISALLOW_COPY_AND_ASSIGN(ArpEntry);
 };
 

@@ -186,29 +186,11 @@ const string NHKState::FlagsToString(short nh_flags) const {
         }
     }
 
-    if (flags & NH_FLAG_COMPOSITE_MULTI_PROTO) {
-        if (assigned) {
-            flag_str.append("| " + multi_proto_multicast);
-        } else {
-            flag_str.assign(multi_proto_multicast);
-            assigned = true;
-        }
-    }
-
     if (flags & NH_FLAG_COMPOSITE_L2) {
         if (assigned) {
             flag_str.append("| " + l2_multicast);
         } else {
             flag_str.assign(l2_multicast);
-            assigned = true;
-        }
-    }
-
-    if (flags & NH_FLAG_COMPOSITE_L3) {
-        if (assigned) {
-            flag_str.append("| " + l3_multicast);
-        } else {
-            flag_str.assign(l3_multicast);
             assigned = true;
         }
     }

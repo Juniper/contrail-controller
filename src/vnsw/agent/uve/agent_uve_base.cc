@@ -95,7 +95,7 @@ uint8_t AgentUveBase::ExpectedConnections(uint8_t &num_control_nodes,
             num_control_nodes++;
             count++;
         }
-        if (!agent_->dns_server(i).empty()) {
+        if (agent_->services() && !agent_->dns_server(i).empty()) {
             num_dns_servers++;
             count++;
         }

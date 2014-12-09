@@ -41,7 +41,7 @@ TEST_F(AgentBasicScaleTest, Basic) {
     BuildVmPortEnvironment();
 
     //Create a walker and pass callback
-    Peer *dummy_peer = new Peer(Peer::BGP_PEER, "dummy_peer");
+    Peer *dummy_peer = new Peer(Peer::BGP_PEER, "dummy_peer", false);
     ControllerRouteWalkerTest *route_walker_test = 
         new ControllerRouteWalkerTest(dummy_peer);
     SetWalkerYield(walker_yield);
@@ -82,7 +82,7 @@ TEST_F(AgentBasicScaleTest, local_and_remote) {
                             (total_v4_routes + num_remote)));
 
     //Create a walker and pass callback
-    Peer *dummy_peer = new Peer(Peer::BGP_PEER, "dummy_peer");
+    Peer *dummy_peer = new Peer(Peer::BGP_PEER, "dummy_peer", false);
     ControllerRouteWalkerTest *route_walker_test = 
         new ControllerRouteWalkerTest(dummy_peer);
     SetWalkerYield(walker_yield);

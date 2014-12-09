@@ -57,6 +57,19 @@ KSyncEntry *KSyncObject::Find(const KSyncEntry *key) {
     return NULL;
 }
 
+KSyncEntry *KSyncObject::Next(const KSyncEntry *entry) const {
+    Tree::const_iterator it;
+    if (entry == NULL) {
+        it = tree_.begin();
+    } else {
+        it = tree_.iterator_to(*entry);
+        it++;
+    }
+    if (it != tree_.end()) {
+        return const_cast<KSyncEntry *>(it.operator->());
+    }
+    return NULL;
+}
 KSyncEntry *KSyncObject::CreateImpl(const KSyncEntry *key) {
     KSyncEntry *entry;
     if (need_index_) {
@@ -160,6 +173,11 @@ void KSyncDBObject::UnregisterDb(DBTableBase *table) {
     table_ = NULL;
 }
 
+KSyncDBObject::DBFilterResp KSyncDBObject::DBEntryFilter(const DBEntry *entry) {
+    // Default accept all
+    return DBFilterAccept;
+}
+
 void KSyncDBObject::set_test_id(DBTableBase::ListenerId id) {
     test_id_ = id;
 }
@@ -193,8 +211,15 @@ void KSyncDBObject::Notify(DBTablePartBase *partition, DBEntryBase *e) {
     assert(table_ == table);
     DBState *state = entry->GetState(table, id_);
     KSyncDBEntry *ksync = static_cast<KSyncDBEntry *>(state);
+    DBFilterResp resp = DBFilterAccept;
 
-    if (entry->IsDeleted()) {
+    // Trigger DB Filter callback only for ADD/CHANGE, since we need to handle
+    // cleanup for delete anyways.
+    if (!entry->IsDeleted()) {
+        resp = DBEntryFilter(entry);
+    }
+
+    if (entry->IsDeleted() || resp == DBFilterDelete) {
         // We may get duplicate delete notification in 
         // case of db entry reuse
         // add -> change ->delete(Notify) -> change -> delete(Notify)
@@ -204,6 +229,10 @@ void KSyncDBObject::Notify(DBTablePartBase *partition, DBEntryBase *e) {
             NotifyEvent(ksync, KSyncEntry::DEL_REQ);
         }
     } else {
+        if (resp == DBFilterIgnore) {
+            // DB filter tells us to ignore this Add/Change.
+            return;
+        }
         bool need_sync = false;
         if (ksync == NULL) {
             KSyncEntry *key, *found;
@@ -218,7 +247,20 @@ void KSyncDBObject::Notify(DBTablePartBase *partition, DBEntryBase *e) {
             }
             delete key;
             entry->SetState(table, id_, ksync);
-            assert(ksync->GetDBEntry() == NULL);
+            // Allow reuse of KSync Entry if the previous associated DB Entry
+            // is marked deleted. This can happen when Key for OPER DB entry
+            // deferes from that used in KSync Object.
+            DBEntry *old_db_entry = ksync->GetDBEntry();
+            if (old_db_entry != NULL) {
+                // cleanup previous state id the old db entry is delete marked.
+                if (old_db_entry->IsDeleted()) {
+                    CleanupOnDel(ksync);
+                } else {
+                    // something wrong! two db entry in oper db points to same
+                    // KSync entry.
+                    assert(false);
+                }
+            }
             ksync->SetDBEntry(entry);
             need_sync = true;
         }
@@ -240,6 +282,8 @@ void KSyncDBObject::Notify(DBTablePartBase *partition, DBEntryBase *e) {
 bool KSyncEntry::IsResolved() {
     KSyncObject *obj = GetObject();
     if (obj->IsIndexValid() && index_ == kInvalidIndex)
+        return false;
+    if (IsDataResolved() == false)
         return false;
     return ((state_ >= IN_SYNC) && (state_ < DEL_DEFER_SYNC));
 }
@@ -952,6 +996,7 @@ void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
             break;
 
         case KSyncEntry::SYNC_WAIT:
+            dep_reval = true;
             state = KSyncSM_SyncWait(this, entry, event);
             break;
 
@@ -1112,11 +1157,41 @@ KSyncObjectManager::~KSyncObjectManager() {
 
 SandeshTraceBufferPtr KSyncTraceBuf(SandeshTraceBufferCreate("KSync", 1000));
 
-void KSyncObjectManager::Init() {
+KSyncObjectManager *KSyncObjectManager::Init() {
     singleton_ = new KSyncObjectManager();
+    return singleton_;
 }
 
 void KSyncObjectManager::Shutdown() {
     delete singleton_;
     singleton_ = NULL;
+}
+
+// Create a dummy KSync Entry. This entry will all ways be in deferred state
+// Any back-ref added to it will never get resolved.
+// Can be used to defer an incomplete entry
+
+class KSyncDummyEntry : public KSyncEntry {
+public:
+    KSyncDummyEntry() : KSyncEntry() { }
+    virtual ~KSyncDummyEntry() { }
+    virtual bool IsLess(const KSyncEntry &rhs) const {
+        return false;
+    }
+    std::string ToString() const { return "Dummy"; }
+    bool Add() { return false;}
+    bool Change() { return false; }
+    bool Delete() { return false; }
+    KSyncObject *GetObject() { return NULL; }
+    KSyncEntry *UnresolvedReference() { return NULL; }
+    bool IsDataResolved() {return false;}
+private:
+    DISALLOW_COPY_AND_ASSIGN(KSyncDummyEntry);
+};
+
+KSyncEntry *KSyncObjectManager::default_defer_entry() {
+    if (default_defer_entry_.get() == NULL) {
+        default_defer_entry_.reset(new KSyncDummyEntry());
+    }
+    return default_defer_entry_.get();
 }

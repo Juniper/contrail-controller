@@ -549,7 +549,7 @@ bool DhcpHandler::FindLeaseData() {
     // Change client name to VM name; this is the name assigned to the VM
     config_.client_name_ = vm_itf_->vm_name();
     FindDomainName(ip);
-    if (vm_itf_->ipv4_active()) {
+    if (vm_itf_->ipv4_active() || vm_itf_->sub_type() == VmInterface::TOR) {
         if (vm_itf_->fabric_port()) {
             InetUnicastRouteEntry *rt =
                 InetUnicastAgentRouteTable::FindResolveRoute(
@@ -579,7 +579,10 @@ bool DhcpHandler::FindLeaseData() {
             if (IsIp4SubnetMember(ip, ipam[i].ip_prefix.to_v4(), 
                                   ipam[i].plen)) {
                 Ip4Address default_gw = ipam[i].default_gw.to_v4();
-                FillDhcpInfo(ip, ipam[i].plen, default_gw, default_gw);
+                Ip4Address service_address = ipam[i].dns_server.to_v4();
+                if (service_address.is_unspecified())
+                    service_address = default_gw;
+                FillDhcpInfo(ip, ipam[i].plen, default_gw, service_address);
                 return true;
             }
         }
@@ -979,7 +982,10 @@ uint16_t DhcpHandler::FillDhcpResponse(const MacAddress &dest_mac,
 void DhcpHandler::SendDhcpResponse() {
     // TODO: If giaddr is set, what to do ?
 
-    in_addr_t src_ip = htonl(config_.gw_addr.to_v4().to_ulong());
+    // In TSN, the source address for DHCP response should be the address
+    // in the subnet reserved for service node. Otherwise, it will be the 
+    // GW address. dns_addr field has this address, use it as the source IP.
+    in_addr_t src_ip = htonl(config_.dns_addr.to_v4().to_ulong());
     in_addr_t dest_ip = 0xFFFFFFFF;
     in_addr_t yiaddr = htonl(config_.ip_addr.to_v4().to_ulong());
     in_addr_t siaddr = src_ip;
@@ -1008,8 +1014,13 @@ void DhcpHandler::SendDhcpResponse() {
     UpdateStats();
 
     FillDhcpResponse(dest_mac, src_ip, dest_ip, siaddr, yiaddr);
-    Send(GetInterfaceIndex(), pkt_info_->vrf, AgentHdr::TX_SWITCH,
-         PktHandler::DHCP);
+    uint16_t interface =
+        (pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
+        (uint16_t)pkt_info_->agent_hdr.cmd_param : GetInterfaceIndex();
+    uint16_t command =
+        (pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
+        (uint16_t)AgentHdr::TX_ROUTE : AgentHdr::TX_SWITCH;
+    Send(interface, pkt_info_->vrf, command, PktHandler::DHCP);
 }
 
 // Check if the option is requested by the client or not

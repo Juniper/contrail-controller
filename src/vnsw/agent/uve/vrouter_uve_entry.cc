@@ -37,7 +37,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
 
     VrouterUveEntryBase::SendVrouterMsg();
 
-    stats.set_name(agent_->host_name());
+    stats.set_name(agent_->agent_name());
 
     if (prev_stats_.get_in_tpkts() !=
         agent_->stats()->in_pkts() || first) {

@@ -42,7 +42,7 @@ public:
 
     void PostAdd();
     bool OnChange(InetInterfaceData *data);
-    void Delete();
+    bool Delete(const DBRequest *req);
     void Activate();
     void DeActivate();
 

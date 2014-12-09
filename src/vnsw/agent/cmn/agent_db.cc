@@ -76,6 +76,7 @@ AgentDBEntry *AgentDBTable::Find(const DBRequestKey *key) {
 }
 
 void AgentDBTablePartition::Add(DBEntry *entry) {
+    entry->set_table_partition(static_cast<DBTablePartBase *>(this));
     DBTablePartition::Add(entry);
     static_cast<AgentDBEntry *>(entry)->PostAdd();
 }
@@ -147,6 +148,10 @@ void AgentDBTable::Process(DBRequest &req) {
 
 
 static bool FlushNotify(DBTablePartBase *partition, DBEntryBase *e) {
+    if (e->IsDeleted()) {
+        return true;
+    }
+
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key = e->GetDBRequestKey();
     (static_cast<AgentDBTable *>(e->get_table()))->Process(req);

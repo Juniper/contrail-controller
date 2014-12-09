@@ -207,6 +207,7 @@ public:
 private:
     void InterfaceNotify(DBEntryBase *entry);
     void VnNotify(DBEntryBase *entry);
+    void VrfNotify(DBEntryBase *entry);
     void ProcessNotify(std::string name, bool is_deleted, bool is_ipam);
     void CheckForUpdate(IpVdnsMap &ipvdns, const VmInterface *vmitf,
                         const VnEntry *vn, const Ip4Address &ip,
@@ -244,6 +245,7 @@ private:
     DnsFipSet fip_list_;
     DBTableBase::ListenerId lid_;
     DBTableBase::ListenerId Vnlid_;
+    DBTableBase::ListenerId vrf_table_listener_id_;
 
     DISALLOW_COPY_AND_ASSIGN(DnsProto);
 };
