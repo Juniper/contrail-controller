@@ -3,8 +3,9 @@ from novaclient import client as nc
 from novaclient import exceptions as nc_exc
 
 class ServiceMonitorNovaClient(object):
-    def __init__(self, args):
+    def __init__(self, args, logger):
         self._args = args
+        self.logger = logger
         self._nova = {}
 
     def _novaclient_get(self, proj_name, reauthenticate=False):

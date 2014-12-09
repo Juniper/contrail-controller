@@ -119,7 +119,7 @@ class SvcMonitor(object):
 
         self._nova_client = importutils.import_object(
             'svc_monitor.nova_client.ServiceMonitorNovaClient',
-            self._args)
+            self._args, self.logger)
 
         # load vrouter scheduler
         self.vrouter_scheduler = importutils.import_object(
