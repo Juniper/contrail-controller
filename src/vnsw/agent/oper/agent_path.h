@@ -77,6 +77,23 @@ public:
         }
         return false;
     }
+
+    //Check if any configuration values have changed
+    //ecmp flag and static preference are updated from
+    //configuration, if static preference flag is set,
+    //then preference also would be picked from configuration
+    bool ConfigChanged(PathPreference &rhs) const {
+        bool ret = false;
+        if (ecmp_ != rhs.ecmp_) {
+            ret = true;
+        } else if (static_preference_ != rhs.static_preference_) {
+            ret = true;
+        } else if (static_preference_ && preference_ != rhs.preference_) {
+            ret = true;
+        }
+        return ret;
+    }
+
 private:
     uint32_t sequence_;
     Preference preference_;

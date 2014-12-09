@@ -84,6 +84,21 @@ public:
         client->WaitForIdle();
     }
 
+    void AddStaticPreference(std::string intf_name, int intf_id,
+                             uint32_t value) {
+        std::ostringstream buf;
+        buf << "<virtual-machine-interface-properties>";
+        buf << "<local-preference>";
+        buf << value;
+        buf << "</local-preference>";
+        buf << "</virtual-machine-interface-properties>";
+        char cbuf[10000];
+        strcpy(cbuf, buf.str().c_str());
+        AddNode("virtual-machine-interface", intf_name.c_str(),
+                intf_id, cbuf);
+        client->WaitForIdle();
+    }
+
     virtual void SetUp() {
         CreateVmportEnv(input, 1);
         client->WaitForIdle();
@@ -465,6 +480,57 @@ TEST_F(TestAap, StateMachine_9) {
    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
    EXPECT_TRUE(path->path_preference().ecmp() == false);
    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+}
+
+//Verify that static preference is populated
+TEST_F(TestAap, StateMachine_10) {
+    AddStaticPreference("intf1", 1, 200);
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    EXPECT_TRUE(RouteFind("vrf1", ip, 32));
+
+    VmInterface *vm_intf = VmInterfaceGet(1);
+    InetUnicastRouteEntry *rt =
+        RouteGet("vrf1", ip, 32);
+    const AgentPath *path = rt->GetActivePath();
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
+    EXPECT_TRUE(path->path_preference().static_preference() == true);
+}
+
+//Verify that preference value change is reflected with
+//static preference change
+TEST_F(TestAap, StaticMachine_11) {
+    AddStaticPreference("intf1", 1, 100);
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    EXPECT_TRUE(RouteFind("vrf1", ip, 32));
+
+    VmInterface *vm_intf = VmInterfaceGet(1);
+    InetUnicastRouteEntry *rt =
+        RouteGet("vrf1", ip, 32);
+    const AgentPath *path = rt->GetActivePath();
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
+    EXPECT_TRUE(path->path_preference().static_preference() == true);
+
+    AddStaticPreference("intf1", 1, 200);
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
+    EXPECT_TRUE(path->path_preference().static_preference() == true);
+
+    AddStaticPreference("intf1", 1, 100);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
+
+    //Delete static interface property
+    AddNode("virtual-machine-interface", "intf1",
+            1, "");
+    client->WaitForIdle();
+    EXPECT_TRUE(path->path_preference().static_preference() == false);
 }
 
 int main(int argc, char *argv[]) {
