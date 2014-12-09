@@ -408,9 +408,16 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
         ret = true;
     }
 
-    //If there is a transition in path from active-active to
-    //ative-backup or vice-versa copy over entire path preference structure
-    if (path->path_preference().ecmp() != path_preference_.ecmp()) {
+    //Priority and sequence no of path are updated from path
+    //preference state machine
+    //Path preference value enqueued here would be copied
+    //only if
+    //1> ecmp field is set to true, meaning path would be
+    //   active-active
+    //2> static preference is set, meaning external entity
+    //   would specify the preference of this path(ex LBaaS)
+    //3> Change in priority when static preference is set
+    if (path->path_preference().ConfigChanged(path_preference_)) {
         path->set_path_preference(path_preference_);
         ret = true;
     }
