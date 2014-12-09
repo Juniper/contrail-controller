@@ -168,13 +168,6 @@ public:
                                   uint32_t label,
                                   bool fabric,
                                   uint32_t ethernet_tag);
-    void RebakeSubnetRoute(const Peer *peer,
-                           const std::string &vrf_name,
-                           uint32_t label,
-                           uint32_t vxlan_id,
-                           const std::string &vn_name,
-                           bool del_op,
-                           const ComponentNHKeyList &comp_nh_list);
     void HandleIpam(const VnEntry *vn);
     void HandleFamilyConfig(const VnEntry *vn);
     void HandleVxLanChange(const VnEntry *vn);

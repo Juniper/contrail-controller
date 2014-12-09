@@ -69,6 +69,7 @@ public:
     virtual bool ReComputePathAdd(AgentPath *path);
     virtual bool EcmpAddPath(AgentPath *path);
     virtual bool EcmpDeletePath(AgentPath *path);
+    virtual bool FloodArp() const;
     void AppendEcmpPath(Agent *agent, AgentPath *path);
     void DeleteComponentNH(Agent *agent, AgentPath *path);
 
@@ -252,8 +253,7 @@ public:
                                    const Ip4Address &gw_ip,
                                    const std::string &vn_name);
     void AddSubnetRoute(const string &vm_vrf, const IpAddress &addr,
-                        uint8_t plen, const string &vn_name,
-                        uint32_t vxlan_id);
+                        uint8_t plen);
 
 private:
     Agent::RouteTableType type_;
