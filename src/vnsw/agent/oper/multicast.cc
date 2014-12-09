@@ -373,10 +373,6 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
                 "255.255.255.255", 0);
         Layer2AgentRouteTable::DeleteBroadcastReq(peer, vrf_name,
                                                   ethernet_tag);
-        ComponentNHKeyList component_nh_key_list; //dummy list
-        RebakeSubnetRoute(peer, vrf_name, 0, ethernet_tag,
-                          obj ? obj->GetVnName() : "",
-                          true, component_nh_key_list);
         return;
     }
 
@@ -434,52 +430,6 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
                                                    ethernet_tag,
                                                    comp_type,
                                                    component_nh_key_list);
-    if (comp_type == Composite::EVPN) {
-        RebakeSubnetRoute(peer, obj->vrf_name(), label, obj->vxlan_id(),
-                          obj->GetVnName(), false, component_nh_key_list);
-    }
-}
-
-void MulticastHandler::RebakeSubnetRoute(const Peer *peer,
-                                         const std::string &vrf_name,
-                                         uint32_t label,
-                                         uint32_t vxlan_id,
-                                         const std::string &vn_name,
-                                         bool del_op,
-                                         const ComponentNHKeyList &comp_nh_list)
-{
-    //Expect only to handle EVPN information.
-    if (peer->GetType() != Peer::BGP_PEER)
-        return;
-
-    std::vector<VnIpam> &vrf_ipam =
-        (vrf_ipam_mapping_.find(vrf_name))->second;
-    for (std::vector<VnIpam>::iterator it = vrf_ipam.begin();
-         it != vrf_ipam.end(); it++) {
-        const Ip4Address &subnet_addr = (*it).GetSubnetAddress();
-        DBRequest req;
-
-        req.key.reset(new InetUnicastRouteKey(peer, vrf_name, subnet_addr,
-                                              (*it).plen));
-        if (del_op == false) {
-            DBRequest nh_req;
-            nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-            nh_req.key.reset(new CompositeNHKey(Composite::EVPN, false,
-                                                comp_nh_list, vrf_name));
-            nh_req.data.reset(new CompositeNHData());
-            //add route
-            req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-            req.data.reset(new SubnetRoute(vn_name,
-                                           vxlan_id,
-                                           nh_req));
-        } else {
-            //del route
-            req.oper = DBRequest::DB_ENTRY_DELETE;
-            req.data.reset(NULL);
-        }
-
-        agent_->fabric_inet4_unicast_table()->Enqueue(&req);
-    }
 }
 
 void MulticastHandler::AddVmInterfaceInFloodGroup(const std::string &vrf_name, 

@@ -427,7 +427,6 @@ bool Layer2RouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
                                       (fabric_peer_path ? fabric_peer_path->
                                        label() : 0),
                                       TunnelType::AllType(),
-                                      false,
                                       nh);
 
     //Bake all MPLS label

@@ -40,7 +40,7 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj,
     prefix_len_(entry->prefix_len_), nh_(entry->nh_), label_(entry->label_), 
     proxy_arp_(false), address_string_(entry->address_string_),
     tunnel_type_(entry->tunnel_type_),
-    wait_for_traffic_(entry->wait_for_traffic_) {
+    wait_for_traffic_(entry->wait_for_traffic_), flood_(false) {
 }
 
 RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
@@ -55,6 +55,7 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
           addr_ = uc_rt->addr();
           src_addr_ = IpAddress::from_string("0.0.0.0", ec).to_v4();
           prefix_len_ = uc_rt->plen();
+          flood_ = uc_rt->FloodArp();
           rt_type_ = RT_UCAST;
           break;
     }
@@ -64,6 +65,7 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
           addr_ = uc_rt->addr();
           src_addr_ = Ip6Address();
           prefix_len_ = uc_rt->plen();
+          flood_ = uc_rt->FloodArp();
           rt_type_ = RT_UCAST;
           break;
     }
@@ -311,6 +313,10 @@ int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
     }
     if (wait_for_traffic_) {
         flags |= VR_RT_ARP_TRAP_FLAG;
+    }
+    if (flood_) {
+        flags |= 0x8;
+        //flags |= VR_RT_ARP_FLOOD_FLAG;
     }
     encoder.set_rtr_label_flags(flags);
     encoder.set_rtr_label(label);
