@@ -18,6 +18,8 @@ class AnalyticApiClient(object):
         self.client.mount("https://", a)
 
     def _get_url_json(self, url):
+        if url is None:
+            return {}
         page = self.client.get(url)
         if page.status_code == 200:
             return json.loads(page.text)
@@ -28,26 +30,33 @@ class AnalyticApiClient(object):
 
     def get_base(self):
         for api in self.config.analytics_api():
-            self.base = self._get_list_2_dict(self._get_url_json(
+            try:
+                self.base = self._get_list_2_dict(self._get_url_json(
                     'http://%s/analytics' % (api)))
-            return
-        raise ConnectionError, "No contrail-analytics-api to connect"
+                return
+            except:
+                self.base = None
 
     def get_uve_url(self):
         if self.base is None:
             self.get_base()
-        return self.base['uves']
+        if self.base and 'uves' in self.base:
+            return self.base['uves']
 
-    def get_uves(self):
+    def get_uves(self, ob=None, defult=None):
         if self._uves is None:
             self._uves = self._get_list_2_dict(self._get_url_json(
                     self.get_uve_url()))
-        return self._uves
+        if ob is None:
+            return self._uves
+        if self._uves:
+            return self._uves.get(ob, defult)
+        return defult
 
     def get_vrouters(self, refresh=False):
         if self._vrouters is None or refresh:
             self._vrouters = self._get_list_2_dict(self._get_url_json(
-                    self.get_uves()['vrouters']))
+                    self.get_uves('vrouters')))
         return self._vrouters
 
     def list_vrouters(self):
@@ -60,7 +69,7 @@ class AnalyticApiClient(object):
     def get_prouters(self, refresh=False):
         if self._prouters is None or refresh:
             self._prouters = self._get_list_2_dict(self._get_url_json(
-                    self.get_uves()['prouters']))
+                    self.get_uves('prouters')))
         return self._prouters
 
     def list_prouters(self):
