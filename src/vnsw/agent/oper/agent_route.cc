@@ -375,6 +375,8 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
                 RouteInfo rt_info;
                 rt->FillTrace(rt_info, AgentRoute::ADD_PATH, path);
                 OPER_TRACE(Route, rt_info);
+                AGENT_ROUTE_LOG("Path add", rt->ToString(), vrf_name(),
+                                GETPEERNAME(key->peer()));
             } else {
                 // Let path know of route change and update itself
                 path->set_is_stale(false);
@@ -390,8 +392,6 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
 
                 rt->FillTrace(rt_info, AgentRoute::CHANGE_PATH, path);
                 OPER_TRACE(Route, rt_info);
-                AGENT_ROUTE_LOG("Path change", rt->ToString(), vrf_name(),
-                                GETPEERNAME(key->peer()));
             }
 
             if (path->RouteNeedsSync()) 
