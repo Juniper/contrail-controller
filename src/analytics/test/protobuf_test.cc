@@ -445,9 +445,9 @@ class ProtobufMockClient : public UdpServer {
     std::string snd_buf_;
 };
 
-class ProtobufServerTest : public ::testing::Test {
+class ProtobufServerStatsTest : public ::testing::Test {
  protected:
-    ProtobufServerTest() :
+    ProtobufServerStatsTest() :
         stats_tester_(PopulateTestMessageStatsInfo()) {
     }
 
@@ -494,7 +494,7 @@ class ProtobufServerTest : public ::testing::Test {
     std::auto_ptr<EventManager> evm_;
 };
 
-TEST_F(ProtobufServerTest, Basic) {
+TEST_F(ProtobufServerStatsTest, Basic) {
     EXPECT_TRUE(server_->Initialize());
     task_util::WaitForIdle();
     boost::system::error_code ec;
@@ -509,7 +509,7 @@ TEST_F(ProtobufServerTest, Basic) {
     int serialized_data_size(0);
     CreateAndSerializeTestMessage(data, sizeof(data),
         &serialized_data_size);
-    // Create SelfDescribingMessageTest for TestMessage and serialize it
+    // Create SelfDescribingMessage for TestMessage and serialize it
     uint8_t sdm_data[1024];
     int serialized_sdm_data_size(0);
     CreateAndSerializeSelfDescribingMessage("TestMessage", sdm_data,
@@ -548,11 +548,12 @@ TEST_F(ProtobufServerTest, Basic) {
     ss << client_endpoint;
     EXPECT_EQ(ss.str(), a_rx_msg_stats.get_endpoint_name());
     EXPECT_EQ(1, a_rx_msg_stats.get_messages());
+    EXPECT_EQ(0, a_rx_msg_stats.get_errors());
     EXPECT_EQ(serialized_sdm_data_size, a_rx_msg_stats.get_bytes());
     EXPECT_EQ("TestMessage", a_rx_msg_stats.get_message_name());
 }
 
-class ProtobufServerSizeTest : public ::testing::Test {
+class ProtobufServerTest : public ::testing::Test {
  protected:
     virtual void SetUp() {
         evm_.reset(new EventManager());
@@ -587,13 +588,19 @@ class ProtobufServerSizeTest : public ::testing::Test {
         }
     }
 
+    size_t GetServerReceivedMessageStatisticsSize() {
+        std::vector<SocketEndpointMessageStats> va_rx_msg_stats;
+        server_->GetReceivedMessageStatistics(&va_rx_msg_stats);
+        return va_rx_msg_stats.size();
+    }
+
     std::auto_ptr<ServerThread> thread_;
     std::auto_ptr<protobuf::ProtobufServer> server_;
     ProtobufMockClient *client_;
     std::auto_ptr<EventManager> evm_;
 };
 
-TEST_F(ProtobufServerSizeTest, MessageSize) {
+TEST_F(ProtobufServerTest, MessageSize) {
     EXPECT_TRUE(server_->Initialize());
     task_util::WaitForIdle();
     boost::system::error_code ec;
@@ -608,7 +615,7 @@ TEST_F(ProtobufServerSizeTest, MessageSize) {
     int serialized_data_size(0);
     CreateAndSerializeTestMessageSize(data.get(), 5120,
         &serialized_data_size, 4096);
-    // Create SelfDescribingMessageTest for TestMessageSize and serialize it
+    // Create SelfDescribingMessage for TestMessageSize and serialize it
     boost::scoped_array<uint8_t> sdm_data(new uint8_t[5120]);
     int serialized_sdm_data_size(0);
     CreateAndSerializeSelfDescribingMessage("TestMessageSize", sdm_data.get(),
@@ -619,8 +626,75 @@ TEST_F(ProtobufServerSizeTest, MessageSize) {
     client_->Send(snd, server_endpoint);
     TASK_UTIL_EXPECT_EQ(client_->GetTxPackets(), 1);
     TASK_UTIL_EXPECT_EQ(GetServerRxBytes(), serialized_sdm_data_size);
+    // Compare statistics
+    TASK_UTIL_EXPECT_EQ(1, GetServerReceivedMessageStatisticsSize());
+    std::vector<SocketEndpointMessageStats> va_rx_msg_stats;
+    server_->GetReceivedMessageStatistics(&va_rx_msg_stats);
+    const SocketEndpointMessageStats &a_rx_msg_stats(va_rx_msg_stats[0]);
+    boost::asio::ip::udp::endpoint client_endpoint =
+        client_->GetLocalEndpoint(&ec);
+    EXPECT_TRUE(ec == 0);
+    boost::asio::ip::address local_client_addr =
+        boost::asio::ip::address::from_string("127.0.0.1", ec);
+    EXPECT_TRUE(ec == 0);
+    client_endpoint.address(local_client_addr);
+    std::stringstream ss;
+    ss << client_endpoint;
+    EXPECT_EQ(ss.str(), a_rx_msg_stats.get_endpoint_name());
+    EXPECT_EQ(1, a_rx_msg_stats.get_messages());
+    EXPECT_EQ(0, a_rx_msg_stats.get_errors());
+    EXPECT_EQ(serialized_sdm_data_size, a_rx_msg_stats.get_bytes());
+    EXPECT_EQ("TestMessageSize", a_rx_msg_stats.get_message_name());
 }
 
+TEST_F(ProtobufServerTest, Drop) {
+    EXPECT_TRUE(server_->Initialize());
+    task_util::WaitForIdle();
+    boost::system::error_code ec;
+    boost::asio::ip::udp::endpoint server_endpoint =
+        server_->GetLocalEndpoint(&ec);
+    EXPECT_TRUE(ec == 0);
+    LOG(ERROR, "ProtobufServer: " << server_endpoint);
+    thread_->Start();
+    client_->Initialize(0);
+    // Create TestMessageSize and serialize it
+    boost::scoped_array<uint8_t> data(new uint8_t[1024]);
+    int serialized_data_size(0);
+    CreateAndSerializeTestMessageSize(data.get(), 1024,
+        &serialized_data_size, 8);
+    // Create SelfDescribingMessage for TestMessageSize with type name
+    // wrongly set to TestMessageSizeWrong and serialize it, so that the
+    // server drops it when parsing
+    boost::scoped_array<uint8_t> sdm_data(new uint8_t[1024]);
+    int serialized_sdm_data_size(0);
+    CreateAndSerializeSelfDescribingMessage("TestMessageSizeWrong",
+        sdm_data.get(), 1024, &serialized_sdm_data_size,
+        d_desc_file_.c_str(), data.get(), serialized_data_size);
+    std::string snd(reinterpret_cast<const char *>(sdm_data.get()),
+        serialized_sdm_data_size);
+    client_->Send(snd, server_endpoint);
+    TASK_UTIL_EXPECT_EQ(client_->GetTxPackets(), 1);
+    TASK_UTIL_EXPECT_EQ(GetServerRxBytes(), serialized_sdm_data_size);
+    // Compare statistics
+    TASK_UTIL_EXPECT_EQ(1, GetServerReceivedMessageStatisticsSize());
+    std::vector<SocketEndpointMessageStats> va_rx_msg_stats;
+    server_->GetReceivedMessageStatistics(&va_rx_msg_stats);
+    const SocketEndpointMessageStats &a_rx_msg_stats(va_rx_msg_stats[0]);
+    boost::asio::ip::udp::endpoint client_endpoint =
+        client_->GetLocalEndpoint(&ec);
+    EXPECT_TRUE(ec == 0);
+    boost::asio::ip::address local_client_addr =
+        boost::asio::ip::address::from_string("127.0.0.1", ec);
+    EXPECT_TRUE(ec == 0);
+    client_endpoint.address(local_client_addr);
+    std::stringstream ss;
+    ss << client_endpoint;
+    EXPECT_EQ(ss.str(), a_rx_msg_stats.get_endpoint_name());
+    EXPECT_EQ(0, a_rx_msg_stats.get_messages());
+    EXPECT_EQ(1, a_rx_msg_stats.get_errors());
+    EXPECT_EQ(0, a_rx_msg_stats.get_bytes());
+    EXPECT_EQ("TestMessageSizeWrong", a_rx_msg_stats.get_message_name());
+}
 }  // namespace
 
 int main(int argc, char **argv) {
