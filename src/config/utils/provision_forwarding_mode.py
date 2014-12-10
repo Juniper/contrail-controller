@@ -108,6 +108,12 @@ class ForwardingModeSetup(object):
         parser.add_argument("--api_server_port", help="Port of api server", required=True)
         parser.add_argument(
             "--forwarding_mode", help="l2_l3 or l2 only", required=True)
+        parser.add_argument(
+            "--admin_tenant_name", help="Tenant to create the forwarding mode")
+        parser.add_argument(
+            "--admin_user", help="Name of keystone admin user")
+        parser.add_argument(
+            "--admin_password", help="Password of keystone admin user")
 
         self._args = parser.parse_args(remaining_argv)
     # end _parse_args
