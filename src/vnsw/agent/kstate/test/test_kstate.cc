@@ -23,8 +23,8 @@
 
 #define MAX_VNET 1
 int fd_table[MAX_VNET];
-#define MAX_TEST_FD 5 
-#define MAX_TEST_MPLS 10 
+#define MAX_TEST_FD 5
+#define MAX_TEST_MPLS 10
 int test_fd[MAX_TEST_FD];
 
 TestIfKState *TestIfKState::singleton_;
@@ -79,7 +79,7 @@ public:
             client->WaitForIdle(2);
         }
     }
-    
+
     void WaitForVrf(struct PortInfo *input, int idx, bool created) {
         char vrf_name[80];
         sprintf(vrf_name, "vrf%d", input[idx].vn_id);
@@ -99,26 +99,26 @@ public:
             idx = i;
             WAIT_FOR(1000, 1000, (VmPortActive(input, idx) == true));
         }
-        WAIT_FOR(1000, 1000, (num_ports == Agent::GetInstance()->vm_table()->Size()));
+        WAIT_FOR(1000, 1000, ((unsigned int)num_ports == Agent::GetInstance()->vm_table()->Size()));
         WAIT_FOR(1000, 1000, (1 == Agent::GetInstance()->vn_table()->Size()));
         WaitForVrf(input, 0, true);
         if (if_count) {
 	    unsigned int oper_if_count = num_ports + if_count;
-            WAIT_FOR(1000, 1000, ((oper_if_count) == 
+            WAIT_FOR(1000, 1000, ((oper_if_count) ==
                                 Agent::GetInstance()->interface_table()->Size()));
         }
-        WAIT_FOR(1000, 1000, ((num_ports * 2)== 
+        WAIT_FOR(1000, 1000, ((unsigned int)(num_ports * 2)==
                             Agent::GetInstance()->mpls_table()->Size()));
         if (!ksync_init_) {
-            WAIT_FOR(1000, 1000, ((num_ports * 2)== 
+            WAIT_FOR(1000, 1000, ((num_ports * 2)==
                                  KSyncSockTypeMap::MplsCount()));
             if (if_count) {
-                WAIT_FOR(1000, 1000, ((num_ports + if_count) == 
+                WAIT_FOR(1000, 1000, ((num_ports + if_count) ==
                                     KSyncSockTypeMap::IfCount()));
             }
             if (nh_count) {
-                //5 interface nexthops get created for each interface 
-                //(l2 with policy, l2 without policy, l3 with policy, l3 
+                //5 interface nexthops get created for each interface
+                //(l2 with policy, l2 without policy, l3 with policy, l3
                 // without policy and 1 multicast - mac as all f's)
                 //plus 4 Nexthops for each VRF (1 VRF NH and
                 //2 Composite NHs(L3 composite + L2 composite)
@@ -126,7 +126,7 @@ public:
                                     KSyncSockTypeMap::NHCount()));
             }
             if (rt_count) {
-                WAIT_FOR(1000, 1000, ((rt_count + (num_ports * 2) + 1) == 
+                WAIT_FOR(1000, 1000, ((rt_count + (num_ports * 2) + 1) ==
                                     KSyncSockTypeMap::RouteCount()));
             }
         }
@@ -215,7 +215,7 @@ TEST_F(KStateTest, IfDumpTest) {
     client->KStateResponseWait(1);
     if_count = TestKStateBase::fetched_count_;
     LOG(DEBUG, "if count " << if_count);
-    
+
     CreatePorts(if_count, 0, 0);
     TestIfKState::Init(-1, true, if_count + MAX_TEST_FD);
     client->WaitForIdle();
@@ -230,7 +230,7 @@ TEST_F(KStateTest, IfGetTest) {
     client->KStateResponseWait(1);
     if_count = TestKStateBase::fetched_count_;
     LOG(DEBUG, "if count " << if_count);
-    
+
     CreatePorts(if_count, 0, 0);
     for (int i = 0; i < MAX_TEST_FD; i++) {
         TestIfKState::Init(if_count + i);
@@ -250,8 +250,8 @@ TEST_F(KStateTest, NHDumpTest) {
     int max_ports = 2;
 
     CreatePorts(0, nh_count, 0, max_ports);
-    //5 interface nexthops get created for each interface 
-    //(l2 with policy, l2 without policy, l3 with policy, l3 without policy 
+    //5 interface nexthops get created for each interface
+    //(l2 with policy, l2 without policy, l3 with policy, l3 without policy
     // and 1 multicast - mac as all f's )
     //plus 4 Nexthops for each VRF (1 VRF NH and
     //2 Composite NHs(L3 composite + L2 composite)
@@ -294,7 +294,7 @@ TEST_F(KStateTest, MplsDumpTest) {
     client->WaitForIdle();
     client->KStateResponseWait(1);
     mpls_count = TestKStateBase::fetched_count_;
-    
+
     CreatePorts(0, 0, 0);
     TestMplsKState::Init(-1, true, mpls_count + MAX_TEST_MPLS);
     client->WaitForIdle(3);
@@ -407,20 +407,20 @@ TEST_F(KStateTest, DISABLED_FlowDumpTest) {
     //Flow creation using IP packet
     TxIpPacketUtil(test0->id(), vm1_ip, vm2_ip, 0, hash_id);
     client->WaitForIdle(2);
-    EXPECT_TRUE(FlowGet("vrf3", vm1_ip, vm2_ip, 0, 0, 0, false, 
+    EXPECT_TRUE(FlowGet("vrf3", vm1_ip, vm2_ip, 0, 0, 0, false,
                         "vn3", "vn3", hash_id++,
                         test0->flow_key_nh()->id()));
 
     //Create flow in reverse direction
     TxIpPacketUtil(test1->id(), vm2_ip, vm1_ip, 0, hash_id);
     client->WaitForIdle(2);
-    EXPECT_TRUE(FlowGet("vrf3", vm2_ip, vm1_ip, 0, 0, 0, true, 
+    EXPECT_TRUE(FlowGet("vrf3", vm2_ip, vm1_ip, 0, 0, 0, true,
                         "vn3", "vn3", hash_id++,
                         test1->flow_key_nh()->id(),
                         test0->flow_key_nh()->id()));
 
     //Flow creation using TCP packet
-    TxTcpPacketUtil(test0->id(), vm1_ip, vm2_ip, 1000, 200, 
+    TxTcpPacketUtil(test0->id(), vm1_ip, vm2_ip, 1000, 200,
                     hash_id);
     client->WaitForIdle(2);
     EXPECT_TRUE(FlowGet("vrf3", vm1_ip, vm2_ip, 6, 1000, 200, false,
@@ -428,10 +428,10 @@ TEST_F(KStateTest, DISABLED_FlowDumpTest) {
                         test0->flow_key_nh()->id()));
 
     //Create flow in reverse direction and make sure it is linked to previous flow
-    TxTcpPacketUtil(test1->id(), vm2_ip, vm1_ip, 200, 1000, 
+    TxTcpPacketUtil(test1->id(), vm2_ip, vm1_ip, 200, 1000,
                     hash_id);
     client->WaitForIdle(2);
-    EXPECT_TRUE(FlowGet("vrf3", vm2_ip, vm1_ip, 6, 200, 1000, true, 
+    EXPECT_TRUE(FlowGet("vrf3", vm2_ip, vm1_ip, 6, 200, 1000, true,
                         "vn3", "vn3", hash_id++,
                         test1->flow_key_nh()->id(),
                         test0->flow_key_nh()->id()));
@@ -451,7 +451,7 @@ TEST_F(KStateTest, DISABLED_FlowDumpTest) {
 int main(int argc, char *argv[]) {
     int ret;
     GETUSERARGS();
-    
+
     /* Supported only with non-ksync mode for now */
     ksync_init = false;
 

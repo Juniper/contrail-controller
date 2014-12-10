@@ -33,9 +33,9 @@ public:
     AgentParam *param;
     Agent *agent;
 
-    int intf_count_;
-    int nh_count_;
-    int vrf_count_;
+    unsigned int intf_count_;
+    unsigned int nh_count_;
+    unsigned int vrf_count_;
 };
 
 // Validate the vmware parameters set in AgentParam

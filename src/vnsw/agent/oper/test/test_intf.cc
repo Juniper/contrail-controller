@@ -37,8 +37,8 @@
 #include "openstack/instance_service_server.h"
 #include "test_cmn_util.h"
 #include "vr_types.h"
-#include <controller/controller_export.h> 
-#include <ksync/ksync_sock_user.h> 
+#include <controller/controller_export.h>
+#include <ksync/ksync_sock_user.h>
 #include <boost/assign/list_of.hpp>
 
 using namespace boost::assign;
@@ -158,7 +158,7 @@ public:
     }
 
 
-    int intf_count;
+    unsigned int intf_count;
     Agent *agent;
 };
 
@@ -176,7 +176,7 @@ static void NovaDel(int id) {
                         MakeUuid(id));
 }
 
-static void FloatingIpAdd(VmInterface::FloatingIpList &list, const char *addr, 
+static void FloatingIpAdd(VmInterface::FloatingIpList &list, const char *addr,
                           const char *vrf) {
     IpAddress ip = Ip4Address::from_string(addr);
     list.list_.insert(VmInterface::FloatingIp(ip.to_v4(), vrf, MakeUuid(1)));
@@ -209,7 +209,7 @@ static void CreateMirror(AnalyzerInfo &analyzer_info) {
                                                            analyzer_info.dport);
 }
 
-static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm, 
+static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
                         VmInterface::FloatingIpList list, string vrf_name,
                         string ip, AnalyzerInfo &analyzer_info) {
     uuid intf_uuid = MakeUuid(id);
@@ -254,7 +254,7 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
 }
 
 
-static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm, 
+static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
                         VmInterface::FloatingIpList list, string vrf_name,
                         string ip) {
     uuid intf_uuid = MakeUuid(id);
@@ -285,7 +285,7 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
     Agent::GetInstance()->interface_table()->Enqueue(&req);
 }
 
-static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm, 
+static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
                         string vrf, string ip) {
     VmInterface::FloatingIpList list;
     CfgIntfSync(id, cfg_str, vn, vm, list, vrf, ip);
@@ -349,11 +349,11 @@ TEST_F(IntfTest, index_reuse) {
     usleep(2000);
     client->WaitForIdle();
     VmInterfaceKey key1(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
-    WAIT_FOR(100, 1000, 
-             (Agent::GetInstance()->interface_table()->Find(&key1, true) 
+    WAIT_FOR(100, 1000,
+             (Agent::GetInstance()->interface_table()->Find(&key1, true)
               == NULL));
     VmInterfaceKey key2(AgentKey::ADD_DEL_CHANGE, MakeUuid(9), "");
-    WAIT_FOR(100, 1000, 
+    WAIT_FOR(100, 1000,
              (Agent::GetInstance()->interface_table()->Find(&key2, true)
                 == NULL));
     client->Reset();
@@ -403,8 +403,8 @@ TEST_F(IntfTest, ActivateInactivate) {
     EXPECT_TRUE(VmPortFind(8));
     client->Reset();
 
-    //Delete VM, and delay deletion of nova 
-    //message (BGP connection drop case) 
+    //Delete VM, and delay deletion of nova
+    //message (BGP connection drop case)
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet8");
     DelVm("vm1");
     client->WaitForIdle();
@@ -438,7 +438,7 @@ TEST_F(IntfTest, CfgSync_NoNova_1) {
     NovaDel(1);
     EXPECT_TRUE(client->NotifyWait(1, 0, 0));
     EXPECT_FALSE(VmPortFind(1));
-    WAIT_FOR(100, 1000, 
+    WAIT_FOR(100, 1000,
              (Agent::GetInstance()->interface_table()->Size() == 3U));
 
     client->Reset();
@@ -553,7 +553,7 @@ TEST_F(IntfTest, AddDelVmPortDepOnVmVn_2_Mirror) {
     client->Reset();
     VrfAddReq("vrf2");
     VnAddReq(1, "vn1", 0, "vrf2");
-    
+
     AnalyzerInfo analyzer_info;
     analyzer_info.analyzer_name = "Analyzer1";
     analyzer_info.vrf_name = std::string();
@@ -576,7 +576,7 @@ TEST_F(IntfTest, AddDelVmPortDepOnVmVn_2_Mirror) {
     CfgIntfSync(1, "cfg-vnet1", 1, 1, list, "vrf2", "1.1.1.1", analyzer_info);
     client->WaitForIdle();
     EXPECT_EQ(VmPortGetMirrorDirection(1), Interface::MIRROR_TX);
-    
+
     client->Reset();
     VmDelReq(1);
     CfgIntfSync(1, "cfg-vnet1", 1, 1, "vrf2", "1.1.1.1");
@@ -876,7 +876,7 @@ TEST_F(IntfTest, VmPortPolicy_2) {
     EXPECT_TRUE(client->PortNotifyWait(2));
     EXPECT_FALSE(VmPortFind(1));
     EXPECT_FALSE(VmPortFind(2));
-    WAIT_FOR(100, 1000, 
+    WAIT_FOR(100, 1000,
              (Agent::GetInstance()->interface_table()->Size() == 3U));
     WAIT_FOR(100, 1000, (Agent::GetInstance()->vm_table()->Size() == 0U));
     WAIT_FOR(100, 1000, (Agent::GetInstance()->vn_table()->Size() == 1U));
@@ -916,7 +916,7 @@ TEST_F(IntfTest, VmPortFloatingIp_1) {
 
     EXPECT_TRUE(client->PortNotifyWait(1));
     EXPECT_TRUE(VmPortActive(1));
-    // Ensure 2 FIP added to intf, policy enabled on interface and 
+    // Ensure 2 FIP added to intf, policy enabled on interface and
     // FIP route exported to FIP VRF
     EXPECT_TRUE(VmPortFloatingIpCount(1, 1));
     EXPECT_TRUE(VmPortPolicyEnable(1));
@@ -1140,7 +1140,7 @@ TEST_F(IntfTest, VmPortFloatingIpDelete_1) {
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input, 0));
- 
+
     AddVn("default-project:vn2", 2);
     AddVrf("default-project:vn2:vn2", 2);
     AddLink("virtual-network", "default-project:vn2", "routing-instance",
@@ -1407,7 +1407,7 @@ TEST_F(IntfTest, IntfActivateDeactivate_2) {
 //   and verify layer2 nexthops are absent
 //2> Activate layer2 forwarding of interface by changing forward mode in VN
 //   verify layer 2 nexthop are added
-//3> Activate both layer 2 and layer 3 forwarding, and verify both layer2 and 
+//3> Activate both layer 2 and layer 3 forwarding, and verify both layer2 and
 //   layer3 nexthop are present
 //4> Delete the interface , and verify all nexthop are deleted
 TEST_F(IntfTest, IntfActivateDeactivate_3) {
@@ -1472,7 +1472,7 @@ TEST_F(IntfTest, IntfActivateDeactivate_3) {
 
 //1> Deactivate layer3 forwarding of interface by changing forward mode in VN
 //   verify layer 3 nexthop are deleted
-//2> Activate both layer 2 and layer 3 forwarding, and verify both layer2 and 
+//2> Activate both layer 2 and layer 3 forwarding, and verify both layer2 and
 //   layer3 nexthop are present
 //3> Delete the interface , and verify all nexthop are deleted
 TEST_F(IntfTest, IntfActivateDeactivate_4) {
@@ -1599,7 +1599,7 @@ TEST_F(IntfTest, VmPortServiceVlanDelete_1) {
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input, 0));
- 
+
     AddVn("vn2", 2);
     AddVrf("vrf2", 2);
     AddLink("virtual-network", "vn2", "routing-instance", "vrf2");
@@ -1903,7 +1903,7 @@ TEST_F(IntfTest, VmPortServiceVlanAdd_3) {
     EXPECT_FALSE(VrfFind("vrf2"));
 }
 
-//Add and delete static route 
+//Add and delete static route
 TEST_F(IntfTest, IntfStaticRoute) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
@@ -1924,7 +1924,7 @@ TEST_F(IntfTest, IntfStaticRoute) {
    AddLink("virtual-machine-interface", "vnet1",
            "interface-route-table", "static_route");
    client->WaitForIdle();
-   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_, 
+   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_,
                          static_route[0].plen_));
    EXPECT_TRUE(RouteFind("vrf1", static_route[1].addr_,
                          static_route[1].plen_));
@@ -1935,13 +1935,13 @@ TEST_F(IntfTest, IntfStaticRoute) {
    DelLink("virtual-machine-interface", "vnet1",
            "interface-route-table", "static_route");
    client->WaitForIdle();
-   EXPECT_FALSE(RouteFind("vrf1", static_route[0].addr_, 
+   EXPECT_FALSE(RouteFind("vrf1", static_route[0].addr_,
                           static_route[0].plen_));
-   EXPECT_FALSE(RouteFind("vrf1", static_route[1].addr_,   
+   EXPECT_FALSE(RouteFind("vrf1", static_route[1].addr_,
                           static_route[1].plen_));
    DoInterfaceSandesh("vnet1");
    client->WaitForIdle();
-   
+
    DelLink("virtual-machine-interface", "vnet1",
            "interface-route-table", "static_route");
    DeleteVmportEnv(input, 1, true);
@@ -1949,7 +1949,7 @@ TEST_F(IntfTest, IntfStaticRoute) {
    EXPECT_FALSE(VmPortFind(1));
 }
 
-//Add static route, deactivate interface and make static routes are deleted 
+//Add static route, deactivate interface and make static routes are deleted
 TEST_F(IntfTest, IntfStaticRoute_1) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
@@ -1970,7 +1970,7 @@ TEST_F(IntfTest, IntfStaticRoute_1) {
    AddLink("virtual-machine-interface", "vnet1",
            "interface-route-table", "static_route");
    client->WaitForIdle();
-   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_, 
+   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_,
                          static_route[0].plen_));
    EXPECT_TRUE(RouteFind("vrf1", static_route[1].addr_,
                          static_route[1].plen_));
@@ -1979,20 +1979,20 @@ TEST_F(IntfTest, IntfStaticRoute_1) {
    DelLink("virtual-machine-interface", "vnet1",
            "virtual-network", "vn1");
    client->WaitForIdle();
-   EXPECT_FALSE(RouteFind("vrf1", static_route[0].addr_, 
+   EXPECT_FALSE(RouteFind("vrf1", static_route[0].addr_,
                           static_route[0].plen_));
-   EXPECT_FALSE(RouteFind("vrf1", static_route[1].addr_,   
+   EXPECT_FALSE(RouteFind("vrf1", static_route[1].addr_,
                           static_route[1].plen_));
 
    //Activate interface and make sure route are added again
    AddLink("virtual-machine-interface", "vnet1",
            "virtual-network", "vn1");
    client->WaitForIdle();
-   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_, 
+   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_,
                          static_route[0].plen_));
    EXPECT_TRUE(RouteFind("vrf1", static_route[1].addr_,
                          static_route[1].plen_));
-   
+
    DelLink("virtual-machine-interface", "vnet1",
            "interface-route-table", "static_route");
    DeleteVmportEnv(input, 1, true);
@@ -2022,7 +2022,7 @@ TEST_F(IntfTest, IntfStaticRoute_2) {
    AddLink("virtual-machine-interface", "vnet1",
            "interface-route-table", "static_route");
    client->WaitForIdle();
-   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_, 
+   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_,
                          static_route[0].plen_));
    EXPECT_TRUE(RouteFind("vrf1", static_route[1].addr_,
                          static_route[1].plen_));
@@ -2032,7 +2032,7 @@ TEST_F(IntfTest, IntfStaticRoute_2) {
    //Verify all 3 routes are present
    AddInterfaceRouteTable("static_route", 1, static_route, 3);
    client->WaitForIdle();
-   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_, 
+   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_,
                          static_route[0].plen_));
    EXPECT_TRUE(RouteFind("vrf1", static_route[1].addr_,
                          static_route[1].plen_));
@@ -2070,7 +2070,7 @@ TEST_F(IntfTest, IntfStaticRoute_3) {
    AddLink("virtual-machine-interface", "vnet1",
            "interface-route-table", "static_route");
    client->WaitForIdle();
-   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_, 
+   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_,
                          static_route[0].plen_));
    const NextHop *nh;
    nh = RouteGet("vrf1", static_route[0].addr_,
@@ -2130,7 +2130,7 @@ TEST_F(IntfTest, IntfStaticRoute_4) {
    AddLink("virtual-machine-interface", "vnet1",
            "interface-route-table", "static_route");
    client->WaitForIdle();
-   EXPECT_FALSE(RouteFind("vrf1", static_route[0].addr_, 
+   EXPECT_FALSE(RouteFind("vrf1", static_route[0].addr_,
                          static_route[0].plen_));
    EXPECT_FALSE(RouteFind("vrf1", static_route[1].addr_,
                           static_route[1].plen_));
@@ -2143,7 +2143,7 @@ TEST_F(IntfTest, IntfStaticRoute_4) {
    AddPort("vnet1", 1);
    client->WaitForIdle();
    EXPECT_TRUE(VmPortActive(input, 0));
-   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_, 
+   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_,
                          static_route[0].plen_));
    EXPECT_TRUE(RouteFind("vrf1", static_route[1].addr_,
                          static_route[1].plen_));
@@ -2220,7 +2220,7 @@ TEST_F(IntfTest, vm_interface_key_verification) {
 
 TEST_F(IntfTest, packet_interface_get_key_verification) {
     PacketInterfaceKey key(nil_uuid(), "pkt0");
-    Interface *intf = 
+    Interface *intf =
         static_cast<Interface *>(agent->interface_table()->FindActiveEntry(&key));
     DBEntryBase::KeyPtr entry_key = intf->GetDBRequestKey();
     EXPECT_TRUE(entry_key.get() != NULL);
@@ -2239,7 +2239,7 @@ TEST_F(IntfTest, sandesh_vm_interface_l2_only) {
     client->Reset();
     AddL2Vn("vn1", 1);
     AddVrf("vrf1");
-    AddLink("virtual-network", "vn1", "routing-instance", "vrf1"); 
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
     client->WaitForIdle();
     CreateL2VmportEnv(input1, 1);
     client->WaitForIdle();
@@ -2252,7 +2252,7 @@ TEST_F(IntfTest, sandesh_vm_interface_l2_only) {
     client->WaitForIdle();
 
     client->Reset();
-    DeleteVmportEnv(input1, 1, true); 
+    DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(8));
 }
@@ -2274,7 +2274,7 @@ TEST_F(IntfTest, sandesh_vm_interface_without_ip) {
     client->WaitForIdle();
 
     client->Reset();
-    DeleteVmportEnv(input1, 1, true); 
+    DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(8));
 }
