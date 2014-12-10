@@ -1,0 +1,8 @@
+Verified+2: Zuul <zuul@lists.opencontrail.org>
+Approved+1: Vedamurthy Joshi <vjoshi@juniper.net>
+Code-Review+2: Vedamurthy Joshi <vjoshi@juniper.net>
+Submitted-by: Zuul <zuul@lists.opencontrail.org>
+Submitted-at: Tue, 09 Dec 2014 21:26:12 -0800
+Reviewed-on: https://review.opencontrail.org/5438
+Project: Juniper/contrail-controller
+Branch: refs/heads/master
