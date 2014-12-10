@@ -25,6 +25,8 @@ namespace opt = boost::program_options;
 
 class MockGenerator {
 public:
+    const static int kNumFlowsInIteration;
+
     MockGenerator(std::string &hostname, std::string &module_name,
                   std::string &node_type_name,
                   std::string &instance_id,
@@ -33,6 +35,7 @@ public:
                   std::vector<std::string> &collectors,
                   std::vector<uint32_t> &ip_vns,
                   int ip_start_index, int num_flows_per_vm,
+                  int num_flows_in_iteration,
                   EventManager *evm) :
         hostname_(hostname),
         module_name_(module_name),
@@ -48,6 +51,7 @@ public:
         ip_vns_(ip_vns),
         ip_start_index_(ip_start_index),
         num_flows_per_vm_(num_flows_per_vm),
+        num_flows_in_iteration_(num_flows_in_iteration),
         rgen_(std::time(0)),
         u_rgen_(&rgen_),
         evm_(evm) {
@@ -120,7 +124,7 @@ private:
                     }
                     other_vn = (other_vn + 1) % mgen_->num_vns_;
                 }
-            } 
+            }
             // Send the flows periodically
             int lflow_cnt = 0;
             for (std::vector<FlowDataIpv4>::iterator it = mgen_->flows_.begin() +
@@ -138,7 +142,7 @@ private:
                 FLOW_DATA_IPV4_OBJECT_SEND(flow_data);
                 lflow_cnt++;
                 mgen_->flow_counter_++;
-                if (lflow_cnt == mgen_->kNumFlowsInIteration) {
+                if (lflow_cnt == mgen_->num_flows_in_iteration_) {
                     return false;
                 }
             }
@@ -156,7 +160,6 @@ private:
     const static int kBytesPerPacket = 1024;
     const static int kOtherVnPktsPerSec = 1000;
     const static int kUveMsgIntvlInSec = 10; 
-    const static int kNumFlowsInIteration = 145 * 10;
     const static int kFlowMsgIntvlInSec = 1;
     const static int kFlowPktsPerSec = 100;
 
@@ -188,6 +191,7 @@ private:
     const std::vector<uint32_t> ip_vns_;
     const int ip_start_index_;
     const int num_flows_per_vm_;
+    const int num_flows_in_iteration_;
     std::vector<FlowDataIpv4> flows_;
     static int flow_counter_;
     boost::random::mt19937 rgen_;
@@ -214,6 +218,7 @@ const std::vector<int> MockGenerator::kProtocols = boost::assign::list_of
 const boost::random::uniform_int_distribution<>
     MockGenerator::dProtocols(0, MockGenerator::kProtocols.size() - 1);
 int MockGenerator::flow_counter_(0);
+const int MockGenerator::kNumFlowsInIteration(145 * 10);
 
 int main(int argc, char *argv[]) {
     opt::options_description desc("Command line options");
@@ -237,7 +242,10 @@ int main(int argc, char *argv[]) {
         ("generator_id", opt::value<int>()->default_value(0),
          "Generator Id")
         ("num_generators", opt::value<int>()->default_value(1),
-         "Number of generators");
+         "Number of generators")
+        ("num_flows_in_iteration", opt::value<int>()->default_value(
+             MockGenerator::kNumFlowsInIteration),
+         "Number of flow messages to send in one iteration");
 
     opt::variables_map var_map;
     opt::store(opt::parse_command_line(argc, argv, desc), var_map);
@@ -307,11 +315,12 @@ int main(int argc, char *argv[]) {
 
     EventManager evm;
     int num_flows_per_instance(var_map["num_flows_per_instance"].as<int>());
+    int num_flows_in_iteration(var_map["num_flows_in_iteration"].as<int>());
     std::string instance_id(integerToString(gen_id));
     MockGenerator mock_generator(hostname, moduleid, node_type_name,
         instance_id, http_server_port, start_vn, end_vn, other_vn,
         num_networks, instance_iterations, collectors, ip_vns, start_ip_index,
-        num_flows_per_instance, &evm);
+        num_flows_per_instance, num_flows_in_iteration, &evm);
     mock_generator.Run();
     evm.Run();
     return 0;
