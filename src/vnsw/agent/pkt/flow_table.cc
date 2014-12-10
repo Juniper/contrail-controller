@@ -226,8 +226,13 @@ bool FlowEntry::ActionRecompute() {
 
     action = data_.match_p.policy_action | data_.match_p.out_policy_action |
         data_.match_p.sg_action_summary |
-        data_.match_p.mirror_action | data_.match_p.out_mirror_action |
-        data_.match_p.vrf_assign_acl_action;
+        data_.match_p.mirror_action | data_.match_p.out_mirror_action;
+
+    //Only VRF assign acl, can specify action to
+    //translate VRF. VRF translate action specified
+    //by egress VN ACL or ingress VN ACL should be ignored
+    action &= ~(1 << TrafficAction::VRF_TRANSLATE);
+    action |= data_.match_p.vrf_assign_acl_action;
 
     if (action & (1 << TrafficAction::VRF_TRANSLATE) && 
         data_.match_p.action_info.vrf_translate_action_.ignore_acl() == true) {

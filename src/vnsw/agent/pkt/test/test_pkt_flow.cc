@@ -1898,6 +1898,43 @@ TEST_F(FlowTest, ICMPPortIgnoreTest) {
     EXPECT_TRUE(FlowTableWait(0));
 }
 
+//Test to make sure egress VN ACL doesnt apply VRF translate rule
+TEST_F(FlowTest, EgressVNVrfTranslate) {
+    //Leak a route for vm4 ip in vrf5
+    VmInterface *vm_intf = static_cast<VmInterface *>(VmPortGet(9));
+
+    CreateLocalRoute("vrf5", vm4_ip, vm_intf, vm_intf->label());
+    client->WaitForIdle();
+
+    AddVrfAssignNetworkAcl("Acl", 10, "any", "any", "pass", "vrf9");
+    AddLink("virtual-network", "vn3", "access-control-list", "Acl");
+    DelLink("virtual-network", "vn5", "access-control-list", "acl1");
+    client->WaitForIdle();
+
+    TestFlow flow[] = {
+        {
+        TestFlowPkt(Address::INET, vm1_ip, vm4_ip, IPPROTO_TCP, 10, 10, "vrf5",
+                flow0->id(), 1),
+        {
+            new VerifyVn("vn5", "vn3"),
+        }
+        }
+    };
+    CreateFlow(flow, 1);
+    client->WaitForIdle();
+
+    FlowEntry *fe = FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, vm4_ip,
+                            IPPROTO_TCP, 10, 10, flow0->flow_key_nh()->id());
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_FALSE(fe->match_p().action_info.action &
+                (1 << TrafficAction::VRF_TRANSLATE));
+    DeleteRoute("vrf5", vm4_ip);
+    client->WaitForIdle();
+    //Restore ACL
+    AddLink("virtual-network", "vn5", "access-control-list", "acl1");
+    client->WaitForIdle();
+}
+
 TEST_F(FlowTest, FlowOnDeletedInterface) {
     struct PortInfo input[] = {
         {"flow5", 11, "11.1.1.3", "00:00:00:01:01:01", 5, 6},
