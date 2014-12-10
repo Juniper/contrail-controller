@@ -102,10 +102,11 @@ class EtreeToDict(object):
 #end class EtreeToDict
 
 class IntrospectUtil(object):
-    def __init__(self, ip, port, debug):
+    def __init__(self, ip, port, debug, timeout):
         self._ip = ip
         self._port = port
         self._debug = debug
+        self._timeout = timeout
     #end __init__
 
     def _mk_url_str(self, path):
@@ -115,7 +116,7 @@ class IntrospectUtil(object):
     def _load(self, path):
         url = self._mk_url_str(path)
         try:
-            resp = requests.get(url, timeout=0.5)
+            resp = requests.get(url, timeout=self._timeout)
             if resp.status_code == requests.codes.ok:
                 return etree.fromstring(resp.text)
             else:
@@ -252,13 +253,14 @@ def get_http_server_port(svc_name, debug):
         http_server_port = get_default_http_server_port(svc_name, debug)
     return http_server_port
 
-def get_svc_uve_status(svc_name, debug):
+def get_svc_uve_status(svc_name, debug, timeout):
     # Get the HTTP server (introspect) port for the service
     http_server_port = get_http_server_port(svc_name, debug)
     if http_server_port == -1:
         return None, None
     # Now check the NodeStatus UVE
-    svc_introspect = IntrospectUtil('localhost', http_server_port, debug)
+    svc_introspect = IntrospectUtil('localhost', http_server_port, debug,
+                                    timeout)
     node_status = svc_introspect.get_uve('NodeStatus')
     if node_status is None:
         if debug:
@@ -276,7 +278,7 @@ def get_svc_uve_status(svc_name, debug):
         return None, None
     return process_status_info[0]['state'], process_status_info[0]['description']
 
-def check_svc_status(service_name, debug, detail):
+def check_svc_status(service_name, debug, detail, timeout):
     service_sock = service_name.replace('-', '_')
     service_sock = service_sock.replace('supervisor_', 'supervisord_') + '.sock'
     cmd = 'supervisorctl -s unix:///tmp/' + service_sock + ' status'
@@ -297,7 +299,7 @@ def check_svc_status(service_name, debug, detail):
                 svc_detail_info = ' '.join(supervisor_svc_info[2:])
                 # Extract UVE state only for running processes
                 if svc_name in NodeUVEImplementedServices and svc_status == 'active':
-                    svc_uve_status, svc_uve_description = get_svc_uve_status(svc_name, debug)
+                    svc_uve_status, svc_uve_description = get_svc_uve_status(svc_name, debug, timeout)
                     if svc_uve_status is not None:
                         if svc_uve_status == 'Non-Functional':
                             svc_status = 'initializing'
@@ -311,32 +313,32 @@ def check_svc_status(service_name, debug, detail):
                     print '{0:<30}{1:<20}{2:<40}'.format(svc_name, svc_status, svc_detail_info)
         print
 
-def check_status(svc_name, debug, detail):
+def check_status(svc_name, options):
     check_svc(svc_name)
-    check_svc_status(svc_name, debug, detail)
+    check_svc_status(svc_name, options.debug, options.detail, options.timeout)
 
-def supervisor_status(nodetype, debug, detail):
+def supervisor_status(nodetype, options):
     if nodetype == 'compute':
         print "== Contrail vRouter =="
-        check_status('supervisor-vrouter', debug, detail)
+        check_status('supervisor-vrouter', options)
     elif nodetype == 'config':
         print "== Contrail Config =="
-        check_status('supervisor-config', debug, detail)
+        check_status('supervisor-config', options)
     elif nodetype == 'control':
         print "== Contrail Control =="
-        check_status('supervisor-control', debug, detail)
+        check_status('supervisor-control', options)
     elif nodetype == 'analytics':
         print "== Contrail Analytics =="
-        check_status('supervisor-analytics', debug, detail)
+        check_status('supervisor-analytics', options)
     elif nodetype == 'database':
         print "== Contrail Database =="
-        check_status('supervisor-database', debug, detail)
+        check_status('supervisor-database', options)
     elif nodetype == 'webui':
         print "== Contrail Web UI =="
-        check_status('supervisor-webui', debug, detail)
+        check_status('supervisor-webui', options)
     elif nodetype == 'support-service':
         print "== Contrail Support Services =="
-        check_status('supervisor-support-service', debug, detail)
+        check_status('supervisor-support-service', options)
 
 def package_installed(pkg):
     if distribution == 'debian':
@@ -353,7 +355,10 @@ def main():
                       help="show detailed status")
     parser.add_option('-x', '--debug', dest='debug',
                       default=False, action='store_true',
-                      help="show contrail-status debugging information")
+                      help="show debugging information")
+    parser.add_option('-t', '--timeout', dest='timeout', type="float",
+                      default=0.5,
+                      help="timeout in seconds to use for HTTP requests to services")
     
     (options, args) = parser.parse_args()
     if args:
@@ -375,28 +380,28 @@ def main():
     if agent:
         if not vr:
             print "vRouter is NOT PRESENT\n"
-        supervisor_status('compute', options.debug, options.detail)
+        supervisor_status('compute', options)
     else:
         if vr:
             print "vRouter is PRESENT\n"
 
     if control:
-        supervisor_status('control', options.debug, options.detail)
+        supervisor_status('control', options)
 
     if analytics:
-        supervisor_status('analytics', options.debug, options.detail)
+        supervisor_status('analytics', options)
 
     if capi:
-        supervisor_status('config', options.debug, options.detail)
+        supervisor_status('config', options)
     
     if cwebui:
-        supervisor_status('webui', options.debug, options.detail)
+        supervisor_status('webui', options)
 
     if database:
-        supervisor_status('database', options.debug, options.detail)
+        supervisor_status('database', options)
 
     if capi:
-        supervisor_status('support-service', options.debug, options.detail)
+        supervisor_status('support-service', options)
 
     if storage:
         print "== Contrail Storage =="
