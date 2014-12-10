@@ -425,10 +425,8 @@ class DiscoveryServer():
                 'remote': bottle.request.environ.get('REMOTE_ADDR'),
                 'sequence': str(int(time.time())) + socket.gethostname(),
             }
-            self._db_conn.insert_service(service_type, sig, entry)
-
-        # handle upgrade
-        if 'sequence' not in entry:
+        elif 'sequence' not in entry or self.service_expired(entry):
+            # handle upgrade or republish after expiry
             entry['sequence'] = str(int(time.time())) + socket.gethostname()
 
         entry['info'] = info
