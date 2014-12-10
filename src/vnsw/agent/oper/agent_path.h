@@ -174,6 +174,7 @@ public:
     bool ChangeCompositeNH(Agent *agent, CompositeNHKey *nh);
     // Get nexthop-ip address to be used for path
     const Ip4Address *NexthopIp(Agent *agent) const;
+
 private:
     const Peer *peer_;
     // Nexthop for route. Not used for gateway routes
@@ -376,7 +377,6 @@ public:
                                    uint32_t vxlan_id,
                                    uint32_t label,
                                    uint32_t tunnel_type,
-                                   bool is_subnet_discard,
                                    NextHop *nh);
 
 private:
@@ -388,13 +388,16 @@ private:
     DISALLOW_COPY_AND_ASSIGN(MulticastRoute);
 };
 
-class SubnetRoute : public MulticastRoute {
+class SubnetRoute : public AgentRouteData {
 public:
-    SubnetRoute(const string &vn_name, uint32_t vxlan_id, DBRequest &nh_req);
+    SubnetRoute(DBRequest &nh_req);
     virtual ~SubnetRoute() {}
     virtual string ToString() const {return "subnet route";}
+    virtual bool AddChangePath(Agent *agent, AgentPath *path,
+                               const AgentRoute *rt);
 
 private:
+    DBRequest nh_req_;
     DISALLOW_COPY_AND_ASSIGN(SubnetRoute);
 };
 

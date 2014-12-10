@@ -71,6 +71,7 @@ public:
     virtual bool EcmpAddPath(AgentPath *path);
     virtual bool EcmpDeletePath(AgentPath *path);
     virtual bool is_multicast() const;
+    virtual bool FloodArp() const;
     void AppendEcmpPath(Agent *agent, AgentPath *path);
     void DeleteComponentNH(Agent *agent, AgentPath *path);
 
@@ -193,13 +194,6 @@ public:
                                 bool force_policy,
                                 const PathPreference &path_preference,
                                 const IpAddress &subnet_gw_ip);
-    static void AddSubnetBroadcastRoute(const Peer *peer,
-                                        const string &vrf_name,
-                                        const IpAddress &src_addr,
-                                        const IpAddress &grp_addr,
-                                        const string &vn_name,
-                                        ComponentNHKeyList
-                                        &component_nh_key_list);
     static void AddRemoteVmRouteReq(const Peer *peer, const string &vm_vrf,
                                     const IpAddress &vm_addr,uint8_t plen,
                                     AgentRouteData *data);
@@ -287,8 +281,7 @@ public:
                                    const std::string &vn_name, uint32_t label,
                                    const SecurityGroupList &sg_list);
     void AddSubnetRoute(const string &vm_vrf, const IpAddress &addr,
-                        uint8_t plen, const string &vn_name,
-                        uint32_t vxlan_id);
+                        uint8_t plen);
     void AddInterfaceRouteReq(Agent *agent, const Peer *peer,
                               const string &vrf_name,
                               const Ip4Address &ip, uint8_t plen,
