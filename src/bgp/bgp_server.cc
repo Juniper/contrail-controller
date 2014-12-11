@@ -8,6 +8,7 @@
 
 #include "base/logging.h"
 #include "base/task_annotations.h"
+#include "bgp/bgp_config.h"
 #include "bgp/bgp_condition_listener.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_lifetime.h"
