@@ -9,8 +9,6 @@
 #include <boost/array.hpp>
 #include <boost/system/error_code.hpp>
 
-#include "base/parse_object.h"
-
 class RouteTarget {
 public:
     static const int kSize = 8;
@@ -43,9 +41,7 @@ public:
         return data_;
     }
 
-    const uint64_t GetExtCommunityValue() const {
-        return get_value(data_.begin(), 8);
-    }
+    const uint64_t GetExtCommunityValue() const;
 
 private:
     bytes_type data_;

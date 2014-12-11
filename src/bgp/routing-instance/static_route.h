@@ -10,9 +10,11 @@
 
 #include "bgp/bgp_condition_listener.h"
 #include "bgp/inet/inet_route.h"
-#include "schema/bgp_schema_types.h"
 
 class StaticRoute;
+namespace autogen {
+class StaticRouteType;
+}
 
 typedef ConditionMatchPtr StaticRoutePtr;
 

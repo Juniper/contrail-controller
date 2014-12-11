@@ -12,6 +12,7 @@
 #include <tbb/spin_rw_mutex.h>
 
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/dynamic_bitset.hpp>
 #include <boost/intrusive_ptr.hpp>
 #include <boost/iterator/iterator_facade.hpp>
 #include <boost/scoped_ptr.hpp>
@@ -19,14 +20,8 @@
 #include "base/bitset.h"
 #include "base/index_map.h"
 #include "base/lifetime.h"
-#include "bgp/bgp_condition_listener.h"
-#include "bgp/bgp_peer_key.h"
 #include "bgp/rtarget/rtarget_address.h"
-#include "bgp/ipeer.h"
-#include "bgp/inet/inet_route.h"
 #include "net/address.h"
-#include "sandesh/sandesh_trace.h"
-#include "schema/bgp_schema_types.h"
 
 class DBTable;
 class BgpInstanceConfig;
@@ -37,6 +32,7 @@ class RouteDistinguisher;
 class RoutingInstanceMgr;
 class RoutingInstanceInfo;
 class BgpNeighborResp;
+class ExtCommunity;
 class LifetimeActor;
 class PeerManager;
 class ShowRouteTable;
