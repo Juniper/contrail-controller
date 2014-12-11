@@ -136,7 +136,6 @@ TEST_F(InetRouteTest, FromProtoPrefix1) {
     BgpProtoPrefix proto_prefix;
     route.BuildProtoPrefix(&proto_prefix, NULL, 0);
     Ip4Prefix prefix2;
-    uint32_t label;
     int result = Ip4Prefix::FromProtoPrefix(proto_prefix, &prefix2);
     EXPECT_EQ(0, result);
     EXPECT_EQ(4 * 8, proto_prefix.prefixlen);
@@ -151,7 +150,6 @@ TEST_F(InetRouteTest, FromProtoPrefix2) {
     BgpProtoPrefix proto_prefix;
     route.BuildProtoPrefix(&proto_prefix, NULL, 0);
     Ip4Prefix prefix2;
-    uint32_t label;
     int result = Ip4Prefix::FromProtoPrefix(proto_prefix, &prefix2);
     EXPECT_EQ(0, result);
     EXPECT_EQ(3 * 8, proto_prefix.prefixlen);
@@ -166,7 +164,6 @@ TEST_F(InetRouteTest, FromProtoPrefixError1) {
     BgpProtoPrefix proto_prefix;
     route.BuildProtoPrefix(&proto_prefix, NULL, 0);
     Ip4Prefix prefix2;
-    uint32_t label;
     proto_prefix.prefix.resize(5);
     int result = Ip4Prefix::FromProtoPrefix(proto_prefix, &prefix2);
     EXPECT_NE(0, result);

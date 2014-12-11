@@ -1202,7 +1202,6 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix2) {
 TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix_Error1) {
     BgpProtoPrefix proto_prefix;
     proto_prefix.type = EvpnPrefix::InclusiveMulticastRoute;
-    size_t nlri_size = EvpnPrefix::kMinInclusiveMulticastRouteSize;
 
     for (size_t nlri_size = 0;
          nlri_size < EvpnPrefix::kMinInclusiveMulticastRouteSize;
@@ -1470,7 +1469,6 @@ TEST_F(EvpnSegmentPrefixTest, FromProtoPrefix2) {
 TEST_F(EvpnSegmentPrefixTest, FromProtoPrefix_Error1) {
     BgpProtoPrefix proto_prefix;
     proto_prefix.type = EvpnPrefix::SegmentRoute;
-    size_t nlri_size = EvpnPrefix::kMinSegmentRouteSize;
 
     for (size_t nlri_size = 0;
          nlri_size < EvpnPrefix::kMinSegmentRouteSize;

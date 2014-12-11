@@ -167,7 +167,7 @@ protected:
                     vector<string> families1 = vector<string>(),
                     vector<string> families2 = vector<string>(),
                     bool delete_config = false);
-    void VerifyPeers(int peer_count, int verify_keepalives_count = 0,
+    void VerifyPeers(int peer_count, size_t verify_keepalives_count = 0,
                      uint16_t as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
                      uint16_t as_num2 = BgpConfigManager::kDefaultAutonomousSystem);
     string GetConfigStr(int peer_count,
@@ -321,7 +321,7 @@ void BgpServerUnitTest::SetupPeers(int peer_count,
 }
 
 void BgpServerUnitTest::VerifyPeers(int peer_count,
-        int verify_keepalives_count, as_t as_num1, as_t as_num2) {
+        size_t verify_keepalives_count, as_t as_num1, as_t as_num2) {
     BgpProto::BgpPeerType peer_type =
         (as_num1 == as_num2) ? BgpProto::IBGP : BgpProto::EBGP;
     const int peers = peer_count;
