@@ -15,13 +15,9 @@
 #include <boost/shared_ptr.hpp>
 
 #include "base/util.h"
-#include "base/task_annotations.h"
-#include "db/db.h"
 #include "db/db_table.h"
-#include "ifmap/ifmap_link.h"
-#include "ifmap/ifmap_node.h"
+#include "ifmap/ifmap_object.h"
 #include "ifmap/ifmap_node_proxy.h"
-#include "ifmap/ifmap_table.h"
 
 class DB;
 class DBGraph;
