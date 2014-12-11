@@ -553,6 +553,9 @@ bool FlowTableKSyncObject::GetFlowKey(uint32_t index, FlowKey *key) {
     key->src_port = ntohs(kflow->fe_key.key_src_port);
     key->dst_port = ntohs(kflow->fe_key.key_dst_port);
     key->protocol = kflow->fe_key.key_proto;
+    //TODO : Pick family from kernel flow entry, once
+    //family field is present in vr flow entry
+    key->family   = Address::INET;
     return true;
 }
 
