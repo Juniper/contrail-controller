@@ -1359,7 +1359,7 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
                          "NULL", "Connection to Xmpp Server, Timed out");
         DiscoveryAgentClient *dac = Agent::GetInstance()->discovery_client();
         if (dac) {
-            dac->DiscoverController();
+            dac->ReDiscoverController();
         }
     }
 }

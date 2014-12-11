@@ -11,6 +11,7 @@
 #include "pugixml/pugixml.hpp"
 #include "xml/xml_pugi.h"
 #include "bind/xmpp_dns_agent.h"
+#include <cfg/discovery_agent.h>
 
 using process::ConnectionState;
 using process::ConnectionType;
@@ -94,6 +95,11 @@ void AgentDnsXmppChannel::HandleXmppClientChannelEvent(AgentDnsXmppChannel *peer
             if (o_chn && o_chn->GetXmppChannel() &&
                 o_chn->GetXmppChannel()->GetPeerState() == xmps::READY)
                 agent->set_dns_xmpp_server_index(o_idx);
+        }
+    } else if (state == xmps::TIMEDOUT) {
+        DiscoveryAgentClient *dac = Agent::GetInstance()->discovery_client();
+        if (dac) {
+            dac->ReDiscoverDNS();
         }
     }
 }
