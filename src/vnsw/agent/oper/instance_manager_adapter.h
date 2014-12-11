@@ -7,39 +7,38 @@
 #include "oper/instance_task.h"
 
 class InstanceManagerAdapter {
-    public:
+ public:
     enum CmdType {
-        Start = 1,
-        Stop
+        START = 1,
+        STOP
     };
 
-    virtual InstanceTask* CreateStartTask(const ServiceInstance::Properties &props, bool update) = 0;
+    virtual ~InstanceManagerAdapter() {}
 
-    virtual InstanceTask* CreateStopTask(const ServiceInstance::Properties &props) = 0;
-
+    virtual InstanceTask* CreateStartTask(
+        const ServiceInstance::Properties &props, bool update) = 0;
+    virtual InstanceTask* CreateStopTask(
+        const ServiceInstance::Properties &props) = 0;
     virtual bool isApplicable(const ServiceInstance::Properties &props) = 0;
-
-    virtual ~InstanceManagerAdapter() { }
 };
 
 class DockerInstanceAdapter : public InstanceManagerAdapter {
-    public:
+ public:
     DockerInstanceAdapter(const std::string &docker_cmd,Agent *agent)
                         : docker_cmd_(docker_cmd), agent_(agent) {}
 
-    InstanceTask* CreateStartTask(const ServiceInstance::Properties &props, bool update);
-
+    InstanceTask* CreateStartTask(const ServiceInstance::Properties &props,
+        bool update);
     InstanceTask* CreateStopTask(const ServiceInstance::Properties &props);
-
     bool isApplicable(const ServiceInstance::Properties &props);
 
-    private:
+ private:
     std::string docker_cmd_;
     Agent *agent_;
 };
 
 class NetNSInstanceAdapter : public InstanceManagerAdapter {
-    public:
+ public:
     NetNSInstanceAdapter(const std::string &netns_cmd,
                          const std::string &loadbalancer_config_path,
                          Agent *agent)
@@ -48,13 +47,12 @@ class NetNSInstanceAdapter : public InstanceManagerAdapter {
                           agent_(agent)
                           {}
 
-    InstanceTask* CreateStartTask(const ServiceInstance::Properties &props, bool update);
-
+    InstanceTask* CreateStartTask(const ServiceInstance::Properties &props,
+        bool update);
     InstanceTask* CreateStopTask(const ServiceInstance::Properties &props);
-
     bool isApplicable(const ServiceInstance::Properties &props);
 
-    private:
+ private:
     std::string netns_cmd_;
     std::string loadbalancer_config_path_;
     Agent *agent_;
