@@ -16,6 +16,7 @@
 #include <boost/bind.hpp>
 
 #include <base/logging.h>
+#include <base/util.h>
 #include <db/db.h>
 #include <db/db_entry.h>
 #include <db/db_table.h>
@@ -564,12 +565,23 @@ void KSyncSockTypeMap::SetFlowEntry(vr_flow_req *req, bool set) {
         f->fe_stats.flow_packets = 0;
         return;
     }
-
+    
+    int family = (req->get_fr_family() == AF_INET)? Address::INET :
+        Address::INET6;
+    IpAddress sip = VectorToIp(req->get_fr_flow_sip(), family);
+    IpAddress dip = VectorToIp(req->get_fr_flow_dip(), family);
     f->fe_flags |= VR_FLOW_FLAG_ACTIVE;
     f->fe_stats.flow_bytes = 30;
     f->fe_stats.flow_packets = 1;
-    f->fe_key.key_src_ip = req->get_fr_flow_sip();
-    f->fe_key.key_dest_ip = req->get_fr_flow_dip();
+    if (sip.is_v4()) {
+        uint32_t usip = sip.to_v4().to_ulong();
+        uint32_t udip = dip.to_v4().to_ulong();
+
+        memset(f->fe_key.key_src_ip, 0, sizeof(f->fe_key.key_src_ip));
+        memset(f->fe_key.key_dest_ip, 0, sizeof(f->fe_key.key_dest_ip));
+        memcpy(f->fe_key.key_src_ip, &usip, sizeof(usip));
+        memcpy(f->fe_key.key_dest_ip, &udip, sizeof(udip));
+    }
     f->fe_key.key_src_port = req->get_fr_flow_sport();
     f->fe_key.key_dst_port = req->get_fr_flow_dport();
     f->fe_key.key_nh_id = req->get_fr_flow_nh_id();

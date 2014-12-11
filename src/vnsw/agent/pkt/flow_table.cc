@@ -168,7 +168,7 @@ uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr,
     }
 
     // PASS default GW traffic, if it is ICMP or DNS
-    if ((hdr.protocol == IPPROTO_ICMP ||
+    if ((hdr.protocol == IPPROTO_ICMP || hdr.protocol == IPPROTO_ICMPV6 ||
          (hdr.protocol == IPPROTO_UDP && 
           (hdr.src_port == DNS_SERVER_PORT ||
            hdr.dst_port == DNS_SERVER_PORT))) &&
@@ -1036,9 +1036,15 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
         info.set_source_ip(key_.src_addr.to_v4().to_ulong());
         info.set_destination_ip(key_.dst_addr.to_v4().to_ulong());
     } else {
-        // TODO : IPV6
         info.set_source_ip(0);
         info.set_destination_ip(0);
+        uint64_t sip[2], dip[2];
+        Ip6AddressToU64Array(key_.src_addr.to_v6(), sip, 2);
+        Ip6AddressToU64Array(key_.dst_addr.to_v6(), dip, 2);
+        info.set_sip_upper(sip[0]);
+        info.set_sip_lower(sip[1]);
+        info.set_dip_upper(dip[0]);
+        info.set_dip_lower(dip[1]);
     }
     info.set_source_port(key_.src_port);
     info.set_destination_port(key_.dst_port);
@@ -1252,10 +1258,6 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
 
 bool FlowEntry::SetRpfNH(const AgentRoute *rt) {
     const NextHop *nh = rt->GetActiveNextHop();
-    if (key_.family != Address::INET) {
-        //TODO:IPV6
-        return false;
-    }
     if (nh->GetType() == NextHop::COMPOSITE &&
         !is_flags_set(FlowEntry::LocalFlow) &&
         is_flags_set(FlowEntry::IngressDir)) {
@@ -1420,16 +1422,12 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
         set_flags(FlowEntry::Multicast);
     }
 
-    if (key_.family == Address::INET) {
-        const InetUnicastRouteEntry* inet4_rt =
-            static_cast<const InetUnicastRouteEntry*>(ctrl->rt_);
-        const InetUnicastRouteEntry* inet4_rev_rt =
-            static_cast<const InetUnicastRouteEntry*>(rev_ctrl->rt_);
-        GetSourceRouteInfo(inet4_rt);
-        GetDestRouteInfo(inet4_rev_rt);
-    } else {
-        //TODO:IPV6
-    }
+    const InetUnicastRouteEntry* rt =
+        static_cast<const InetUnicastRouteEntry*>(ctrl->rt_);
+    const InetUnicastRouteEntry* rev_rt =
+        static_cast<const InetUnicastRouteEntry*>(rev_ctrl->rt_);
+    GetSourceRouteInfo(rt);
+    GetDestRouteInfo(rev_rt);
 }
 
 void FlowEntry::InitRevFlow(const PktFlowInfo *info,
@@ -1475,16 +1473,12 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info,
         reset_flags(FlowEntry::Trap);
     }
 
-    if (key_.family == Address::INET) {
-        const InetUnicastRouteEntry* inet4_rt =
-            static_cast<const InetUnicastRouteEntry*>(ctrl->rt_);
-        const InetUnicastRouteEntry* inet4_rev_rt =
-            static_cast<const InetUnicastRouteEntry*>(rev_ctrl->rt_);
-        GetSourceRouteInfo(inet4_rt);
-        GetDestRouteInfo(inet4_rev_rt);
-    } else {
-        //TODO:IPV6
-    }
+    const InetUnicastRouteEntry* rt =
+        static_cast<const InetUnicastRouteEntry*>(ctrl->rt_);
+    const InetUnicastRouteEntry* rev_rt =
+        static_cast<const InetUnicastRouteEntry*>(rev_ctrl->rt_);
+    GetSourceRouteInfo(rt);
+    GetDestRouteInfo(rev_rt);
 }
 
 void FlowEntry::InitAuditFlow(uint32_t flow_idx) {
@@ -1825,23 +1819,23 @@ void FlowTable::AclNotify(DBTablePartBase *part, DBEntryBase *e)
     }
 }
 
-Inet4RouteUpdate::Inet4RouteUpdate(InetUnicastAgentRouteTable *rt_table):
+InetRouteUpdate::InetRouteUpdate(InetUnicastAgentRouteTable *rt_table):
     rt_table_(rt_table), marked_delete_(false), 
     table_delete_ref_(this, rt_table->deleter()) {
 }
 
-Inet4RouteUpdate::~Inet4RouteUpdate() {
+InetRouteUpdate::~InetRouteUpdate() {
     if (rt_table_) {
         rt_table_->Unregister(id_);
     }
     table_delete_ref_.Reset(NULL);
 }
 
-void Inet4RouteUpdate::ManagedDelete() {
+void InetRouteUpdate::ManagedDelete() {
     marked_delete_ = true;
 }
 
-bool Inet4RouteUpdate::DeleteState(DBTablePartBase *partition,
+bool InetRouteUpdate::DeleteState(DBTablePartBase *partition,
                                    DBEntryBase *entry) {
     State *state = static_cast<State *>
                           (entry->GetState(partition->parent(), id_));
@@ -1852,16 +1846,16 @@ bool Inet4RouteUpdate::DeleteState(DBTablePartBase *partition,
     return true;
 }
 
-void Inet4RouteUpdate::WalkDone(DBTableBase *partition,
-                                Inet4RouteUpdate *rt_update) {
+void InetRouteUpdate::WalkDone(DBTableBase *partition,
+                                InetRouteUpdate *rt_update) {
     delete rt_update;
 }
 
-void Inet4RouteUpdate::Unregister() {
+void InetRouteUpdate::Unregister() {
     DBTableWalker *walker = Agent::GetInstance()->db()->GetWalker();
     walker->WalkTable(rt_table_, NULL,
-                      boost::bind(&Inet4RouteUpdate::DeleteState, this, _1, _2),
-                      boost::bind(&Inet4RouteUpdate::WalkDone, _1, this));
+                      boost::bind(&InetRouteUpdate::DeleteState, this, _1, _2),
+                      boost::bind(&InetRouteUpdate::WalkDone, _1, this));
 }
 
 void NhListener::Notify(DBTablePartBase *part, DBEntryBase *e) {
@@ -1884,7 +1878,7 @@ void NhListener::Notify(DBTablePartBase *part, DBEntryBase *e) {
     return; 
 }
 
-void Inet4RouteUpdate::UnicastNotify(DBTablePartBase *partition, DBEntryBase *e)
+void InetRouteUpdate::UnicastNotify(DBTablePartBase *partition, DBEntryBase *e)
 {
     InetUnicastRouteEntry *route = static_cast<InetUnicastRouteEntry *>(e);
     State *state = static_cast<State *>(e->GetState(partition->parent(), id_));
@@ -1954,12 +1948,12 @@ void Inet4RouteUpdate::UnicastNotify(DBTablePartBase *partition, DBEntryBase *e)
     }
 }
 
-Inet4RouteUpdate *Inet4RouteUpdate::UnicastInit(
+InetRouteUpdate *InetRouteUpdate::UnicastInit(
                               InetUnicastAgentRouteTable *table)
 {
-    Inet4RouteUpdate *rt_update = new Inet4RouteUpdate(table);
+    InetRouteUpdate *rt_update = new InetRouteUpdate(table);
     rt_update->id_ = table->Register(
-        boost::bind(&Inet4RouteUpdate::UnicastNotify, rt_update, _1, _2));
+        boost::bind(&InetRouteUpdate::UnicastNotify, rt_update, _1, _2));
     return rt_update;
 }
 
@@ -1974,6 +1968,7 @@ void FlowTable::VrfNotify(DBTablePartBase *part, DBEntryBase *e)
             return;
         }
         state->inet4_unicast_update_->Unregister();
+        state->inet6_unicast_update_->Unregister();
         e->ClearState(part->parent(), vrf_listener_id_);
         delete state;
         return;
@@ -1981,9 +1976,13 @@ void FlowTable::VrfNotify(DBTablePartBase *part, DBEntryBase *e)
     if (state == NULL) {
         state = new VrfFlowHandlerState();
         state->inet4_unicast_update_ = 
-            Inet4RouteUpdate::UnicastInit(
+            InetRouteUpdate::UnicastInit(
             static_cast<InetUnicastAgentRouteTable *>(vrf->
             GetInet4UnicastRouteTable()));
+        state->inet6_unicast_update_ = 
+            InetRouteUpdate::UnicastInit(
+            static_cast<InetUnicastAgentRouteTable *>(vrf->
+            GetInet6UnicastRouteTable()));
         vrf->SetState(part->parent(), vrf_listener_id_, state);
     }
     return;

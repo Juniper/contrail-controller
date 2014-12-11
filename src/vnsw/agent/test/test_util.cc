@@ -1212,6 +1212,22 @@ bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Addre
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vrf_name, vm_ip, plen, data);
 }
 
+bool Inet6TunnelRouteAdd(const Peer *peer, const string &vm_vrf, const Ip6Address &vm_addr,
+                         uint8_t plen, const Ip4Address &server_ip, TunnelType::TypeBmap bmap,
+                         uint32_t label, const string &dest_vn_name,
+                         const SecurityGroupList &sg,
+                         const PathPreference &path_preference) {
+    ControllerVmRoute *data =
+        ControllerVmRoute::MakeControllerVmRoute(peer,
+                              Agent::GetInstance()->fabric_vrf_name(),
+                              Agent::GetInstance()->router_id(),
+                              vm_vrf, server_ip,
+                              bmap, label, dest_vn_name, sg, path_preference);
+    InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf,
+                                        vm_addr, plen, data);
+    return true;
+}
+
 bool Inet4TunnelRouteAdd(const Peer *peer, const string &vm_vrf, const Ip4Address &vm_addr,
                          uint8_t plen, const Ip4Address &server_ip, TunnelType::TypeBmap bmap,
                          uint32_t label, const string &dest_vn_name,

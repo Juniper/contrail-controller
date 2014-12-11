@@ -189,6 +189,10 @@ struct FlowInfo {
    29: optional list<u32> dest_sg_id_l;
    30: u16 nh_id;
    31: optional string vrf_assign;
+   32: optional u64 sip_upper;
+   33: optional u64 sip_lower;
+   34: optional u64 dip_upper;
+   35: optional u64 dip_lower;
 }
 
 traceobject sandesh FlowTrace {
@@ -203,6 +207,10 @@ trace sandesh FlowDetailErr {
     4: u32 sip;
     5: u32 dip;
     6: string error;
+    7: u64 sip_upper;
+    8: u64 sip_lower;
+    9: u64 dip_upper;
+   10: u64 dip_lower;
 }
 
 trace sandesh FlowErr {

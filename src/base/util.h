@@ -251,6 +251,61 @@ static inline IpAddress PrefixToIpNetmask(uint32_t prefix_len) {
     return IpAddress(Ip4Address(mask));
 }
 
+static inline IpAddress PrefixToIp6Netmask(uint32_t plen) {
+    if (plen == 0) {
+        return IpAddress(Ip6Address());
+    }
+
+    if (plen == 128) {
+        boost::system::error_code ec;
+        Ip6Address all_fs = Ip6Address::from_string
+            ("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", ec);
+        return IpAddress(all_fs);
+    }
+
+    boost::array<uint8_t, 16> bytes;
+
+    int index = (int) (plen / 8);
+    int remain_mask = plen % 8;
+
+    for (int i = 0; i < index; i++) {
+        bytes.at(i) = 0xff;
+    }
+
+    switch (remain_mask) {
+        case 0:
+            bytes.at(index++) = 0;
+            break;
+        case 1:
+            bytes.at(index++) = 0x80;
+            break;
+        case 2:
+            bytes.at(index++) = 0xc0;
+            break;
+        case 3:
+            bytes.at(index++) = 0xe0;
+            break;
+        case 4:
+            bytes.at(index++) = 0xf0;
+            break;
+        case 5:
+            bytes.at(index++) = 0xf8;
+            break;
+        case 6:
+            bytes.at(index++) = 0xfc;
+            break;
+        case 7:
+            bytes.at(index++) = 0xfe;
+            break;
+    }
+
+    for (int i = index; i < 16; ++i) {
+        bytes.at(i) = 0;
+    }
+
+    return IpAddress(Ip6Address(bytes));
+}
+
 static inline uint32_t NetmaskToPrefix(uint32_t netmask) {
     uint32_t count = 0;
 
@@ -259,6 +314,73 @@ static inline uint32_t NetmaskToPrefix(uint32_t netmask) {
         netmask = (netmask - 1) & netmask;
     }
     return count;
+}
+
+/* The sandesh data-structure used for communicating flows between agent and
+ * vrouter represents IP (both v4 and v6) as a vector of bytes. The below API
+ * is used to convert IP from vector to either Ip4Address or Ip6Address
+ * based on family. If the family is INET it is assumed that v4 IP will be
+ * present in first 4 elements of vector.
+ */
+static inline IpAddress VectorToIp(const std::vector<int8_t> &ip, int family) {
+    assert(ip.size() == 16);
+    if (family == Address::INET) {
+        boost::array<unsigned char, 4> bytes;
+        for (int i = 0; i < 4; i++) {
+            bytes[i] = ip.at(i);
+        }
+        Ip4Address addr(bytes);
+        return addr;
+    } else {
+        boost::array<unsigned char, 16> bytes;
+        for (int i = 0; i < 16; i++) {
+            bytes[i] = ip.at(i);
+        }
+        Ip6Address addr(bytes);
+        return addr;
+    }
+}
+
+/* The flow data-structure represented by vrouter has IP address as a char
+ * array of 16 bytes for both V4 and V6. The below API is used to convert
+ * IP from a char array of 16 bytes to either Ip4Address or Ip6Address
+ * based on family. If the family is INET it is assumed that v4 IP will be
+ * present in first 4 bytes of char array.
+ */
+static inline IpAddress CharArrayToIp(const unsigned char *ip, int size,
+                                      int family) {
+    if (size != 16) {
+        return IpAddress();
+    }
+    if (family == Address::INET) {
+        boost::array<unsigned char, 4> bytes;
+        for (int i = 0; i < 4; i++) {
+            bytes[i] = ip[i];
+        }
+        Ip4Address addr(bytes);
+        return addr;
+    } else {
+        boost::array<unsigned char, 16> bytes;
+        for (int i = 0; i < 16; i++) {
+            bytes[i] = ip[i];
+        }
+        Ip6Address addr(bytes);
+        return addr;
+    }
+
+}
+
+static inline void Ip6AddressToU64Array(const Ip6Address &addr, uint64_t *arr,
+                                        int size) {
+    uint32_t *words;
+    if (size != 2)
+        return;
+    words = (uint32_t *) (addr.to_bytes().c_array());
+    arr[0] = (((uint64_t)words[0] << 32) & 0xFFFFFFFF00000000U) |
+             ((uint64_t)words[1] & 0x00000000FFFFFFFFU);
+    arr[1] = (((uint64_t)words[2] << 32) & 0xFFFFFFFF00000000U) |
+             ((uint64_t)words[3] & 0x00000000FFFFFFFFU);
+
 }
 
 // Validate a list of <ip-address>:<port> endpoints.

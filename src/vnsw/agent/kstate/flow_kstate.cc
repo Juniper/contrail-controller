@@ -75,14 +75,19 @@ void FlowKState::SetFlowData(vector<KFlowInfo> &list,
                              const vr_flow_entry *k_flow, 
                              const int index) const {
     KFlowInfo data;
+    int family = (k_flow->fe_flow_family == AF_INET)? Address::INET :
+        Address::INET6;
+    IpAddress sip = CharArrayToIp(k_flow->fe_key.key_src_ip,
+                                  sizeof(k_flow->fe_key.key_src_ip), family);
+    IpAddress dip = CharArrayToIp(k_flow->fe_key.key_dest_ip,
+                                  sizeof(k_flow->fe_key.key_dest_ip), family);
+
     string action_str;
     string flag_str;
     data.set_index((unsigned int)index);
     data.set_sport((unsigned)ntohs(k_flow->fe_key.key_src_port));
     data.set_dport((unsigned)ntohs(k_flow->fe_key.key_dst_port));
-    Ip4Address sip(ntohl(k_flow->fe_key.key_src_ip));
     data.set_sip(sip.to_string());
-    Ip4Address dip(ntohl(k_flow->fe_key.key_dest_ip));
     data.set_dip(dip.to_string());
     data.set_vrf_id(k_flow->fe_vrf);
     data.set_proto(k_flow->fe_key.key_proto);

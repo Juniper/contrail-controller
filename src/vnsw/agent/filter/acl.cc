@@ -726,12 +726,12 @@ bool AclEntrySpec::Populate(const MatchConditionType *match_condition) {
             ACL_TRACE(Err, "Invalid source ip prefix");
             return false;
         }
-        if (!src_ip_addr.is_v4()) {
-            ACL_TRACE(Err, "Only ipv4 supported");
-            return false;
-        }
         src_ip_plen = st.ip_prefix_len;
-        src_ip_mask = PrefixToIpNetmask(st.ip_prefix_len);
+        if (src_ip_addr.is_v4()) {
+           src_ip_mask = PrefixToIpNetmask(st.ip_prefix_len);
+        } else{
+           src_ip_mask = PrefixToIp6Netmask(st.ip_prefix_len);
+        }
         src_addr_type = AddressMatch::IP_ADDR;
     } else if (match_condition->src_address.virtual_network.size()) {
         std::string nt;
@@ -754,12 +754,12 @@ bool AclEntrySpec::Populate(const MatchConditionType *match_condition) {
             ACL_TRACE(Err, "Invalid destination ip prefix");
             return false;
         }
-        if (!dst_ip_addr.is_v4()) {
-            ACL_TRACE(Err, "Only ipv4 supported");
-            return false;
-        }
         dst_ip_plen = st.ip_prefix_len;
-        dst_ip_mask = PrefixToIpNetmask(st.ip_prefix_len);
+        if (dst_ip_addr.is_v4()) {
+            dst_ip_mask = PrefixToIpNetmask(st.ip_prefix_len);
+        } else {
+            dst_ip_mask = PrefixToIp6Netmask(st.ip_prefix_len);
+        }
         dst_addr_type = AddressMatch::IP_ADDR;
     } else if (match_condition->dst_address.virtual_network.size()) {
         std::string nt;

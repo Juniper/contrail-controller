@@ -50,7 +50,7 @@ struct IntfFlowInfo;
 struct VmFlowInfo;
 struct RouteFlowKey;
 struct RouteFlowInfo;
-class Inet4RouteUpdate;
+class InetRouteUpdate;
 class FlowEntry;
 class FlowTable;
 class FlowTableKSyncEntry;
@@ -581,7 +581,8 @@ public:
     struct VrfFlowHandlerState : public DBState {
         VrfFlowHandlerState() {}
         virtual ~VrfFlowHandlerState() {}
-        Inet4RouteUpdate *inet4_unicast_update_;
+        InetRouteUpdate *inet4_unicast_update_;
+        InetRouteUpdate *inet6_unicast_update_;
     };
     struct RouteFlowHandlerState : public DBState {
         RouteFlowHandlerState(SecurityGroupList &sg_l) : sg_l_(sg_l) { }
@@ -637,7 +638,7 @@ public:
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;
     friend class FetchFlowRecord;
-    friend class Inet4RouteUpdate;
+    friend class InetRouteUpdate;
     friend class NhState;
     friend class PktFlowInfo;
     friend void intrusive_ptr_release(FlowEntry *fe);
@@ -730,7 +731,7 @@ inline void intrusive_ptr_release(FlowEntry *fe) {
     }
 }
 
-class Inet4RouteUpdate {
+class InetRouteUpdate {
 public:
     struct State : DBState {
         SecurityGroupList sg_l_;
@@ -738,21 +739,21 @@ public:
         const NextHop* local_nh_;
     };
 
-    Inet4RouteUpdate(InetUnicastAgentRouteTable *rt_table);
-    Inet4RouteUpdate();
-    ~Inet4RouteUpdate();
+    InetRouteUpdate(InetUnicastAgentRouteTable *rt_table);
+    InetRouteUpdate();
+    ~InetRouteUpdate();
     void ManagedDelete();
-    static Inet4RouteUpdate *UnicastInit(InetUnicastAgentRouteTable *table);
+    static InetRouteUpdate *UnicastInit(InetUnicastAgentRouteTable *table);
     void Unregister();
     bool DeleteState(DBTablePartBase *partition, DBEntryBase *entry);
-    static void WalkDone(DBTableBase *partition, Inet4RouteUpdate *rt);
+    static void WalkDone(DBTableBase *partition, InetRouteUpdate *rt);
 private:
     void UnicastNotify(DBTablePartBase *partition, DBEntryBase *e);
 
     DBTableBase::ListenerId id_;
     InetUnicastAgentRouteTable *rt_table_;
     bool marked_delete_;
-    LifetimeRef<Inet4RouteUpdate> table_delete_ref_;
+    LifetimeRef<InetRouteUpdate> table_delete_ref_;
 };
 
 class NhState : public DBState {
