@@ -159,14 +159,18 @@ class VRouterDocker(object):
 
         netns_mgr = NetnsManager(str(docker_pid), nic_left, nic_right,
                                  nic_management)
-        self._client.stop(vm_name)
-
         try:
             #It is possible that namespace does not exists
             netns_mgr.unplug_namespace_interface()
             netns_mgr.destroy()
         except ValueError:
             pass
+
+        self._client.stop(vm_name)
+
+        netns_path = "/var/run/netns/%s" % docker_pid
+        if os.path.exists(netns_path):
+            os.remove(netns_path)
 
     def create(self):
         vm_name = validate_uuid(self.args.vm_id)
@@ -177,11 +181,11 @@ class VRouterDocker(object):
             instance_data = {}
 
         try:
-            image = self._client.inspect_image(image_name)
+            self._client.inspect_image(image_name)
         except APIError as e:
             if e.response.status_code == 404:
                 self._client.pull(image_name)
-                image = self._client.inspect_image(image_name)
+                self._client.inspect_image(image_name)
             else:
                 raise
         if self.args.command is not None:
@@ -189,7 +193,8 @@ class VRouterDocker(object):
         elif "command" in instance_data:
             command = instance_data["command"]
         else:
-            command = image["ContainerConfig"]["Cmd"]
+            # use container default
+            command = None
         docker_id = None
         try:
             result = self._client.create_container(
