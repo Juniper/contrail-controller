@@ -212,7 +212,7 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
             const InetUnicastRouteEntry *rt =
                 static_cast<const InetUnicastRouteEntry *>(in->rt_);
             if (rt != NULL && rt->GetLocalNextHop()) {
-                out->nh_ = rt->GetLocalNextHop()->id();
+                out->nh_ = GetPolicyEnabledNH(rt->GetLocalNextHop())->id();
             } else {
                 out->nh_ = in->nh_;
             }
