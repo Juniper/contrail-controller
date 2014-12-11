@@ -1073,18 +1073,21 @@ bool SchedulingGroup::UpdatePeerQueue(IPeerUpdate *peer, PeerState *ps,
         RibState *rs = iter.rib_state();
         SetSendBlocked(ribout, rs, queue_id, blocked);
 
-        // Remember where to start next time if we got blocked.
-        if (!done) {
-            assert(!ps->send_ready());
+        // If the peer is still send_ready, mark the queue as inactive for
+        // the peer.  Need to check send_ready because the return value of
+        // PeerDequeue only tells that *some* peer was merged with the tail
+        // marker.
+        // If the peer got blocked, remember where to start next time and
+        // stop processing. We don't want to continue processing for other
+        // merged peers if the lead peer is blocked.  Processing for other
+        // peers will continue when their own WorkPeer items are processed.
+        if (ps->send_ready()) {
+            assert(done);
+            ps->SetQueueInactive(rs->index(), queue_id);
+        } else {
             ps->SetIteratorStart(iter.index());
             return false;
         }
-
-        // Mark the queue as inactive for the peer.  Need to check send_ready
-        // since success from PeerDequeue only means that *some* peer merged
-        // with the tail marker.
-        if (ps->send_ready())
-            ps->SetQueueInactive(rs->index(), queue_id);
     }
 
     return true;
