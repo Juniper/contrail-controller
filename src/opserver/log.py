@@ -25,6 +25,7 @@ import sandesh.viz.constants as VizConstants
 from pysandesh.gen_py.sandesh.ttypes import SandeshType, SandeshLevel
 from pysandesh.sandesh_logger import SandeshLogger
 from pysandesh.util import UTCTimestampUsec
+import commands
 
 OBJECT_TYPE_LIST = [table_info.log_query_name for table_info in \
     VizConstants._OBJECT_TABLES.values()]
@@ -115,6 +116,8 @@ class LogQuerier(object):
             type=int, default=514)
         parser.add_argument("--f", help="Tail logs from now", action="store_true")
         parser.add_argument("--keywords", help="comma seperated list of keywords")
+        parser.add_argument("--unique-message-type", \
+         help="Display list of message type", action="store_true")
         self._args = parser.parse_args()
         return 0
     # end parse_args
@@ -134,7 +137,15 @@ class LogQuerier(object):
                  invalid_combination += ", --end-time"
             print "Combination of options" + invalid_combination + " are not valid."
             return -1
-        start_time, end_time = self._start_time, self._end_time 
+        start_time, end_time = self._start_time, self._end_time
+        if self._args.unique_message_type is True:
+            command_str = ("contrail-stats --table FieldNames.fields" +
+               " --where name=MessageTable:Messagetype --select name fields.value" +
+               " --start-time " + str(start_time) +
+               " --end-time " + str(end_time))
+            res = commands.getoutput(command_str)
+            print str(res)
+            return None
         messages_url = OpServerUtils.opserver_query_url(
             self._args.analytics_api_ip,
             self._args.analytics_api_port)
