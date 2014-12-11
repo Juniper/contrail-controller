@@ -18,9 +18,10 @@ public:
     void Init(AgentParam *param);
     void Shutdown();
     void DiscoverServices();
-    void DiscoverController(); //subscribe to XMPP server on controller
-    void DiscoverDNS();        //subscribe to DN server
+    void DiscoverController();   // subscribe to XMPP server on controller
+    void DiscoverDNS();          // subscribe to DN server
     void ReDiscoverController(); // resubscribe to XMPP server on controller
+    void ReDiscoverDNS();        // resubscribe to DN server
 
     // subscribe callbacks
     void DiscoverySubscribeXmppHandler(std::vector<DSResponse> resp);
