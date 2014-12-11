@@ -119,7 +119,7 @@ public:
                                   (uint32_t)(KSyncSockTypeMap::MplsCount())));
             if (if_count) {
                 WAIT_FOR(1000, 1000, ((num_ports + if_count) ==
-                                    KSyncSockTypeMap::IfCount()));
+                                    (uint32_t)KSyncSockTypeMap::IfCount()));
             }
             if (nh_count) {
                 //5 interface nexthops get created for each interface
