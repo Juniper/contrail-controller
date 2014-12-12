@@ -30,6 +30,7 @@
 #include "net/tunnel_encap_type.h"
 #include <assert.h>
 #include <controller/controller_route_path.h>
+#include <cfg/discovery_agent.h>
 
 using namespace boost::asio;
 using namespace autogen;
@@ -1261,7 +1262,8 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
 
         if (agent->stats())
             agent->stats()->incr_xmpp_reconnects(peer->GetXmppServerIdx());
-    } else {
+    } else if (state == xmps::NOT_READY) {
+
         //Ignore duplicate not-ready messages
         if (peer->bgp_peer_id() == NULL)
             return;
@@ -1351,6 +1353,13 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
                                  GetBgpPeerName(),
                                  "Peer elected Multicast Tree Builder");
             }
+        }
+    } else if (state == xmps::TIMEDOUT) {
+        CONTROLLER_TRACE(Session, peer->GetXmppServer(), "TIMEDOUT",
+                         "NULL", "Connection to Xmpp Server, Timed out");
+        DiscoveryAgentClient *dac = Agent::GetInstance()->discovery_client();
+        if (dac) {
+            dac->DiscoverController();
         }
     }
 }
