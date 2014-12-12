@@ -567,6 +567,8 @@ static bool CopySgEntries(const VmInterface *vm_port, bool ingress_acl,
     for (VmInterface::SecurityGroupEntrySet::const_iterator it =
          vm_port->sg_list().list_.begin();
          it != vm_port->sg_list().list_.end(); ++it) {
+        if (it->sg_ == NULL)
+            continue;
         if (it->sg_->IsAclSet()) {
             ret = true;
         }
