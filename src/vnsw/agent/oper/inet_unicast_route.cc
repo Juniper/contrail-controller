@@ -416,6 +416,19 @@ bool InetUnicastRouteEntry::ReComputePathDeletion(AgentPath *path) {
     return EcmpDeletePath(path);
 }
 
+bool InetUnicastRouteEntry::FloodArp() const {
+    Agent *agent =
+        (static_cast<InetUnicastAgentRouteTable *> (get_table()))->agent();
+    const AgentPath *local_path = FindPath(agent->local_peer());
+    if (local_path && (local_path->is_subnet_discard() == false))
+        return false;
+
+    if (GetActiveNextHop()->GetType() == NextHop::RESOLVE)
+        return false;
+
+    return true;
+}
+
 // Handle add/update of a path in route. 
 // If there are more than one path of type LOCAL_VM_PORT_PEER, creates/updates
 // Composite-NH for them
@@ -1165,9 +1178,7 @@ InetUnicastAgentRouteTable::AddGatewayRouteReq(const string &vrf_name,
 void
 InetUnicastAgentRouteTable::AddSubnetRoute(const string &vrf_name,
                                            const IpAddress &dst_addr,
-                                           uint8_t plen,
-                                           const string &vn_name,
-                                           uint32_t vxlan_id) {
+                                           uint8_t plen) {
     Agent *agent_ptr = agent();
     AgentRouteTable *table = NULL;
     if (dst_addr.is_v4()) {
@@ -1202,7 +1213,7 @@ InetUnicastAgentRouteTable::AddSubnetRoute(const string &vrf_name,
             req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
             req.key.reset(new InetUnicastRouteKey(path->peer(),
                                                    vrf_name, dst_addr, plen));
-            req.data.reset(new SubnetRoute(vn_name, vxlan_id, nh_req));
+            req.data.reset(new SubnetRoute(nh_req));
             if (table) {
                 table->Process(req);
             }
@@ -1218,7 +1229,7 @@ InetUnicastAgentRouteTable::AddSubnetRoute(const string &vrf_name,
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(new InetUnicastRouteKey(agent_ptr->local_peer(),
                                             vrf_name, dst_addr, plen));
-    req.data.reset(new SubnetRoute(vn_name, vxlan_id, dscd_nh_req));
+    req.data.reset(new SubnetRoute(dscd_nh_req));
     if (table) {
         table->Process(req);
     }

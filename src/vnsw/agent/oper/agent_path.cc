@@ -562,23 +562,12 @@ bool ReceiveRoute::AddChangePath(Agent *agent, AgentPath *path) {
 
 bool MulticastRoute::AddChangePath(Agent *agent, AgentPath *path) {
     bool ret = false;
-    bool is_subnet_discard = false;
     NextHop *nh = NULL;
 
     agent->nexthop_table()->Process(composite_nh_req_);
     nh = static_cast<NextHop *>(agent->nexthop_table()->
             FindActiveEntry(composite_nh_req_.key.get()));
     assert(nh);
-    if (nh) {
-        if (nh->GetType() == NextHop::COMPOSITE) {
-            const CompositeNH *cnh = static_cast<const CompositeNH *>(nh);
-            if (cnh->composite_nh_type() == Composite::EVPN) {
-                is_subnet_discard = true;
-            }
-        } else if (nh->GetType() == NextHop::DISCARD) {
-            is_subnet_discard = true;
-        }
-    }
     ret = MulticastRoute::CopyPathParameters(agent,
                                              path,
                                              vn_name_,
@@ -586,7 +575,6 @@ bool MulticastRoute::AddChangePath(Agent *agent, AgentPath *path) {
                                              vxlan_id_,
                                              label_,
                                              TunnelType::AllType(),
-                                             is_subnet_discard,
                                              nh);
     return ret;
 }
@@ -598,7 +586,6 @@ bool MulticastRoute::CopyPathParameters(Agent *agent,
                                         uint32_t vxlan_id,
                                         uint32_t label,
                                         uint32_t tunnel_type,
-                                        bool is_subnet_discard,
                                         NextHop *nh) {
     path->set_dest_vn_name(vn_name);
     path->set_unresolved(unresolved);
@@ -618,7 +605,6 @@ bool MulticastRoute::CopyPathParameters(Agent *agent,
         path->set_tunnel_type(new_tunnel_type);
     }
 
-    path->set_is_subnet_discard(is_subnet_discard);
     path->ChangeNH(agent, nh);
 
     return true;
@@ -642,10 +628,23 @@ bool PathPreferenceData::AddChangePath(Agent *agent, AgentPath *path) {
 }
 
 // Subnet Route route data
-SubnetRoute::SubnetRoute(const string &vn_name,
-                         uint32_t vxlan_id, DBRequest &nh_req) :
-    MulticastRoute(vn_name, 0, vxlan_id, nh_req) {
-        is_multicast_ = false;
+SubnetRoute::SubnetRoute(DBRequest &nh_req) : AgentRouteData(true) {
+    nh_req_.Swap(&nh_req);
+}
+
+bool SubnetRoute::AddChangePath(Agent *agent, AgentPath *path) {
+    agent->nexthop_table()->Process(nh_req_);
+    NextHop *nh = static_cast<NextHop *>(agent->nexthop_table()->
+                                    FindActiveEntry(nh_req_.key.get()));
+    assert(nh);
+    
+    bool ret = false;
+
+    if (path->ChangeNH(agent, nh) == true) {
+        ret = true;
+    }
+    path->set_is_subnet_discard(true);
+    return ret;
 }
 
 ///////////////////////////////////////////////

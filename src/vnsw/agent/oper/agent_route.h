@@ -221,6 +221,7 @@ public:
     virtual uint32_t GetActiveLabel() const;
     virtual AgentPath *FindPathUsingKey(const AgentRouteKey *key);
     virtual void DeletePath(const AgentRouteKey *key, bool force_delete);
+    virtual bool FloodArp() const {return false;}
 
     // Accessor functions
     bool is_multicast() const {return is_multicast_;}
