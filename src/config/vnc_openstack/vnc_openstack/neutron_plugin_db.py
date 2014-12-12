@@ -1588,31 +1588,22 @@ class DBInterface(object):
         tenant_id = fip_obj.get_project_refs()[0]['uuid'].replace('-', '')
 
         port_id = None
-        fixed_ip = None
         router_id = None
         port_refs = fip_obj.get_virtual_machine_interface_refs()
         if port_refs:
             port_id = port_refs[0]['uuid']
-            internal_net_id = None
+            port_obj = self._virtual_machine_interface_read(port_id=port_id)
+            port_net_id = port_obj.get_virtual_network_refs()[0]['uuid']
             # find router_id from port
-            router_list = self._router_list_project(
-                fip_obj.get_project_refs()[0]['uuid'], detail=True)
+            router_list = self._router_list_project(tenant_id, detail=True)
             for router_obj in router_list or []:
-                for net in router_obj.get_virtual_network_refs() or []:
-                    if net['uuid'] != floating_net_id:
-                        continue
-                    for vmi in (router_obj.get_virtual_machine_interface_refs()
-                                or []):
-                        vmi_obj = self._vnc_lib.virtual_machine_interface_read(
-                                id=vmi['uuid'])
-                        if internal_net_id is None:
-                            port_obj = self._virtual_machine_interface_read(port_id=port_id)
-                            internal_net_id = port_obj.get_virtual_network_refs()[0]['uuid']
-                        if (vmi_obj.get_virtual_network_refs()[0]['uuid'] ==
-                            internal_net_id):
-                            router_id = router_obj.uuid
-                            break
-                    if router_id:
+                for vmi in (router_obj.get_virtual_machine_interface_refs()
+                            or []):
+                    vmi_obj = self._virtual_machine_interface_read(
+                        port_id=vmi['uuid'])
+                    if (vmi_obj.get_virtual_network_refs()[0]['uuid'] ==
+                        port_net_id):
+                        router_id = router_obj.uuid
                         break
                 if router_id:
                     break
