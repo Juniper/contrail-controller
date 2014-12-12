@@ -119,6 +119,13 @@ class NetnsManager(object):
                                   str(self.nic_right['name']), 'table',
                                   self.SNAT_RT_TABLES_ID])
 
+        self.ip_ns.netns.execute(['ip', 'route', 'del', 'default', 'table',
+                                 self.SNAT_RT_TABLES_ID])
+
+        self.ip_ns.netns.execute(['ip', 'route', 'add', 'default', 'table',
+                                 self.SNAT_RT_TABLES_ID, 'via',  self.gw_ip,
+                                 'dev', str(self.nic_left['name'])])
+
     def _get_lbaas_pid(self):
         cmd = """ps aux | grep  \'%(process)s -f %(file)s\' | grep -v grep 
               """ % {'process':self.LBAAS_PROCESS, 'file':self.cfg_file}
