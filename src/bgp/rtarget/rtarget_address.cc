@@ -4,6 +4,7 @@
 
 #include "bgp/rtarget/rtarget_address.h"
 
+#include "base/parse_object.h"
 #include "net/address.h"
 
 using std::copy;
@@ -17,6 +18,10 @@ RouteTarget::RouteTarget() {
 
 RouteTarget::RouteTarget(const bytes_type &data) {
     copy(data.begin(), data.end(), data_.begin());
+}
+
+const uint64_t RouteTarget::GetExtCommunityValue() const {
+        return get_value(data_.begin(), 8);
 }
 
 RouteTarget RouteTarget::FromString(const string &str, boost::system::error_code *errorp) {

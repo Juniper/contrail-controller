@@ -23,6 +23,7 @@
 #include "bgp/routing-instance/static_route_types.h"
 #include "db/db_table_partition.h"
 #include "net/address.h"
+#include "schema/bgp_schema_types.h"
 
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
