@@ -1,4 +1,5 @@
 import unittest
+import uuid
 from flexmock import flexmock
 
 from vnc_openstack import neutron_plugin_db as db
@@ -71,3 +72,44 @@ class TestDbInterface(unittest.TestCase):
         self._test_for("network_policys")
         self._test_for("network_ipams")
         self._test_for("route_tables")
+
+    def test_floating_show_router_id(self):
+        dbi = MockDbInterface()
+        vmi_obj = None
+
+        def fake_virtual_machine_read(id, fq_name=None, fields=None,
+                                      parent_id=None):
+            if id == 'fip_port_uuid1':
+                net_uuid = 'match_vn_uuid'
+            elif id == 'fip_port_uuid2':
+                net_uuid = 'miss_port_vn_uuid'
+            elif id == 'router_port_uuid':
+                net_uuid = 'match_vn_uuid'
+            return flexmock(uuid=id,
+                            get_virtual_network_refs=\
+                            lambda: [{'uuid': net_uuid}])
+
+        dbi._vnc_lib = flexmock(
+            fq_name_to_id=lambda res, name: 'fip_pool_uuid',
+            virtual_machine_interface_read=fake_virtual_machine_read,
+            logical_routers_list=lambda parent_id, detail: [
+                flexmock(uuid='router_uuid',
+                         get_virtual_machine_interface_refs=\
+                         lambda: [{'uuid': 'router_port_uuid'}])])
+
+        fip_obj = flexmock(
+            uuid = 'fip_uuid',
+            get_fq_name=lambda: ['domain', 'project', 'fip'],
+            get_project_refs=lambda: [{'uuid': str(uuid.uuid4())}],
+            get_floating_ip_address=lambda: 'fip_ip',
+            get_floating_ip_fixed_ip_address= lambda: 'fip_port_ip')
+
+        fip_obj.get_virtual_machine_interface_refs = \
+            lambda: [{'uuid': 'fip_port_uuid1'}]
+        fip_neutron = dbi._floatingip_vnc_to_neutron(fip_obj)
+        self.assertEqual(fip_neutron['router_id'], 'router_uuid')
+
+        fip_obj.get_virtual_machine_interface_refs = \
+            lambda: [{'uuid': 'fip_port_uuid2'}]
+        fip_neutron = dbi._floatingip_vnc_to_neutron(fip_obj)
+        self.assertIsNone(fip_neutron['router_id'])
