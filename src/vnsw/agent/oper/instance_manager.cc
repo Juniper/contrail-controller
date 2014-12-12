@@ -505,8 +505,8 @@ void InstanceManager::StartNetNS(ServiceInstance *svc_instance,
         cmd_str << " --cfg-file " << loadbalancer_config_path_ <<
             props.pool_id << "/etc/haproxy/haproxy.cfg";
         cmd_str << " --pool-id " << props.pool_id;
-        cmd_str << " --gw-ip " << props.gw_ip;
     }
+    cmd_str << " --gw-ip " << props.gw_ip;
 
     if (update) {
         cmd_str << " --update";
