@@ -204,7 +204,6 @@ protected:
         BgpOListPtr olist = attr->olist();
         if (olist == NULL)
             return false;
-        bool found = false;
         BOOST_FOREACH(BgpOListElem &elem, olist->elements) {
             if (peer->address() == elem.address)
                 return false;

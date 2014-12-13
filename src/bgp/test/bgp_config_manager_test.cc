@@ -130,7 +130,7 @@ protected:
 
     void VerifyBgpSessions(const BgpPeeringConfig *peering,
         const bitset<8> &session_mask) {
-        for (int idx = 0; idx < session_mask.size(); ++idx) {
+        for (size_t idx = 0; idx < session_mask.size(); ++idx) {
             if (!session_mask.test(idx))
                 continue;
             string uuid = integerToString(idx);
@@ -803,7 +803,7 @@ static string GeneratePeeringConfig(const bitset<8> &session_mask) {
     oss << "        <family>inet-vpn</family>";
     oss << "    </address-families>";
 
-    for (int idx = 0; idx < session_mask.size(); ++idx) {
+    for (size_t idx = 0; idx < session_mask.size(); ++idx) {
         if (!session_mask.test(idx))
             continue;
         oss << "<session to=\'remote:" << idx << "\'>";
@@ -821,7 +821,7 @@ static string GeneratePeeringConfig(const bitset<8> &session_mask) {
     oss << "        <family>inet-vpn</family>";
     oss << "    </address-families>";
 
-    for (int idx = 0; idx < session_mask.size(); ++idx) {
+    for (size_t idx = 0; idx < session_mask.size(); ++idx) {
         if (!session_mask.test(idx))
             continue;
         oss << "<session to=\'local:" << idx << "\'>";
