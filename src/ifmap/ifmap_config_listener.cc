@@ -6,7 +6,12 @@
 
 #include <boost/assign/list_of.hpp>
 
+#include "base/task_annotations.h"
+#include "db/db.h"
 #include "ifmap/ifmap_dependency_tracker.h"
+#include "ifmap/ifmap_link.h"
+#include "ifmap/ifmap_node.h"
+#include "ifmap/ifmap_table.h"
 
 IFMapConfigListener::ConfigDelta::ConfigDelta() {
 }

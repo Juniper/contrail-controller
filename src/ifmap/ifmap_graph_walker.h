@@ -7,7 +7,6 @@
 
 #include "base/bitset.h"
 #include "base/queue_task.h"
-#include "schema/vnc_cfg_types.h"
 
 class DBGraph;
 class DBGraphEdge;
