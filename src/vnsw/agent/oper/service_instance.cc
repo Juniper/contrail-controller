@@ -245,10 +245,13 @@ static void FindAndSetInterfaces(
                 SubNetContainsIpv4(subnets.ipam_subnets[i],
                         properties->ip_addr_inside)) {
                 properties->ip_prefix_len_inside = prefix_len;
+                if (properties->service_type == ServiceInstance::SourceNAT)
+                    properties->gw_ip = subnets.ipam_subnets[i].default_gateway;
             } else if (vmi_props.service_interface_type == "right" &&
                        SubNetContainsIpv4(subnets.ipam_subnets[i],
                                 properties->ip_addr_outside)) {
-                properties->gw_ip = subnets.ipam_subnets[i].default_gateway;
+                if (properties->service_type == ServiceInstance::LoadBalancer)
+                    properties->gw_ip = subnets.ipam_subnets[i].default_gateway;
                 properties->ip_prefix_len_outside = prefix_len;
             } else if (vmi_props.service_interface_type == "management" &&
                 SubNetContainsIpv4(subnets.ipam_subnets[i],
@@ -512,9 +515,10 @@ bool ServiceInstance::Properties::Usable() const {
         }
     }
 
+    if (gw_ip.empty())
+        return false;
+
     if (service_type == LoadBalancer) {
-        if (gw_ip.empty())
-            return false;
         return (!pool_id.is_nil());
     }
 

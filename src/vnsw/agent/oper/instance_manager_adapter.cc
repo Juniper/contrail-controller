@@ -121,12 +121,12 @@ InstanceTask* NetNSInstanceAdapter::CreateStartTask(const ServiceInstance::Prope
         cmd_str << " --vmi-left-mac 00:00:00:00:00:00";
     }
     cmd_str << " --vmi-right-mac " << props.mac_addr_outside;
+    cmd_str << " --gw-ip " << props.gw_ip;
 
     if (props.service_type == ServiceInstance::LoadBalancer) {
         cmd_str << " --cfg-file " << loadbalancer_config_path_ <<
             props.pool_id << "/etc/haproxy/haproxy.cfg";
         cmd_str << " --pool-id " << props.pool_id;
-        cmd_str << " --gw-ip " << props.gw_ip;
     }
 
     if (update) {
