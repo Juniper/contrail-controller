@@ -27,6 +27,12 @@
 #include "db/db_table_partition.h"
 #include "net/address.h"
 
+#include <sandesh/sandesh_types.h>
+#include <sandesh/sandesh.h>
+#include <sandesh/sandesh_trace.h>
+
+#include "bgp/routing-instance/service_chaining_types.h"
+
 using boost::system::error_code;
 
 int ServiceChainMgr::service_chain_task_id_ = -1;

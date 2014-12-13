@@ -13,21 +13,20 @@
 #include "base/lifetime.h"
 #include <base/queue_task.h>
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
-#include <sandesh/sandesh_trace.h>
-
 #include "bgp/bgp_condition_listener.h"
-#include "bgp/bgp_config.h"
 #include "bgp/inet/inet_route.h"
-
-#include "bgp/routing-instance/service_chaining_types.h"
 
 class BgpRoute;
 class BgpTable;
 class RoutingInstance;
 class BgpTable;
 class BgpServer;
+class SandeshResponse;
+class ShowServicechainInfo;
+
+namespace autogen {
+class ServiceChainInfo;
+}
 
 class ServiceChain : public ConditionMatch {
 public:

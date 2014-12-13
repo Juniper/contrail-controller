@@ -11,6 +11,7 @@
 #include <pugixml/pugixml.hpp>
 
 #include "base/test/task_test_util.h"
+#include "bgp/bgp_config.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_sandesh.h"
@@ -23,6 +24,7 @@
 #include "bgp/routing-instance/service_chaining.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/routepath_replicator.h"
+#include "bgp/routing-instance/service_chaining_types.h"
 #include "bgp/security_group/security_group.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "bgp/test/bgp_test_util.h"
@@ -540,7 +542,7 @@ protected:
     }
 
     bool MatchInetPathAttributes(const BgpPath *path,
-        const string &path_id, const string &origin_vn, int label,
+        const string &path_id, const string &origin_vn, uint32_t label,
         const vector<uint32_t> sg_ids, const set<string> tunnel_encaps,
         const SiteOfOrigin &soo, const vector<uint32_t> &commlist) {
         BgpAttrPtr attr = path->GetAttr();
