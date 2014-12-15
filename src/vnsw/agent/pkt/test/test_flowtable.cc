@@ -491,7 +491,7 @@ int main(int argc, char *argv[]) {
                                 FlowTableTest::eth_itf,
                                 Agent::GetInstance()->fabric_vrf_name(),
                                 PhysicalInterface::FABRIC,
-                                PhysicalInterface::ETHERNET, false);
+                                PhysicalInterface::ETHERNET, false, nil_uuid());
         client->WaitForIdle();
     }
 
