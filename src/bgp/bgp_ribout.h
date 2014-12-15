@@ -2,11 +2,15 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_bgp_ribout_h
-#define ctrlplane_bgp_ribout_h
+#ifndef SRC_BGP_BGP_RIBOUT_H_
+#define SRC_BGP_BGP_RIBOUT_H_
 
 #include <boost/scoped_ptr.hpp>
 #include <boost/intrusive/slist.hpp>
+
+#include <algorithm>
+#include <string>
+#include <vector>
 
 #include "base/bitset.h"
 #include "base/index_map.h"
@@ -36,7 +40,7 @@ class RibOutAttr {
 public:
     class NextHop {
         public:
-            NextHop(IpAddress address, uint32_t label, 
+            NextHop(IpAddress address, uint32_t label,
                     const ExtCommunity *ext_community)
                 : address_(address), label_(label) {
                 if (ext_community)
@@ -123,7 +127,7 @@ class RibPeerSet : public BitSet {
 //
 struct AdvertiseInfo {
     AdvertiseInfo() { }
-    AdvertiseInfo(const RibOutAttr *roattr) : roattr(*roattr) { }
+    explicit AdvertiseInfo(const RibOutAttr *roattr) : roattr(*roattr) { }
     AdvertiseInfo(const AdvertiseInfo &rhs)
         : bitset(rhs.bitset), roattr(rhs.roattr) {
     }
@@ -225,12 +229,12 @@ private:
 // artificially create more RibOuts than otherwise necessary. This is used
 // to achieve higher concurrency at the expense of creating more state.
 //
-struct RibExportPolicy {    
+struct RibExportPolicy {
     enum Encoding {
         BGP,
         XMPP,
     };
-    
+
     RibExportPolicy()
         : type(BgpProto::IBGP), encoding(BGP),
           as_number(0), affinity(-1), cluster_id(0) {
@@ -297,7 +301,7 @@ public:
         const RibPeerSet &peer_set_;
         size_t index_;
     };
-    
+
     RibOut(BgpTable *table, SchedulingGroupManager *mgr,
            const RibExportPolicy &policy);
     ~RibOut();
@@ -318,7 +322,7 @@ public:
     const RibPeerSet &PeerSet() const;
 
     BgpTable* table() const { return table_; }
-    
+
     const RibExportPolicy &ExportPolicy() const { return policy_; }
 
     int RouteAdvertiseCount(const BgpRoute *rt) const;
@@ -339,7 +343,7 @@ public:
 
 private:
     struct PeerState {
-        PeerState(IPeerUpdate *key) : peer(key), index(-1) {
+        explicit PeerState(IPeerUpdate *key) : peer(key), index(-1) {
         }
         void set_index(int idx) { index = idx; }
         IPeerUpdate *peer;
@@ -354,8 +358,8 @@ private:
     int listener_id_;
     boost::scoped_ptr<RibOutUpdates> updates_;
     boost::scoped_ptr<BgpExport> bgp_export_;
-    
+
     DISALLOW_COPY_AND_ASSIGN(RibOut);
 };
 
-#endif
+#endif  // SRC_BGP_BGP_RIBOUT_H_
