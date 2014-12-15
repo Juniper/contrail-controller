@@ -56,6 +56,7 @@ public:
                            StringVectorPtr err_if_l,
                            StringVectorPtr nova_if_l);
     virtual bool SendVrouterMsg();
+    void SendVrouterProuterAssociation(const std::vector<std::string> &list);
 protected:
     Agent *agent_;
     PhysicalInterfaceSet phy_intf_set_;
