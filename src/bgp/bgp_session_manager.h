@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef __BGP_SESSION_MANAGER_H__
-#define __BGP_SESSION_MANAGER_H__
+#ifndef SRC_BGP_BGP_SESSION_MANAGER_H_
+#define SRC_BGP_BGP_SESSION_MANAGER_H_
 
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/dynamic_bitset.hpp>
@@ -50,4 +50,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(BgpSessionManager);
 };
 
-#endif // __BGP_SESSION_MANAGER_H__
+#endif  // SRC_BGP_BGP_SESSION_MANAGER_H_
