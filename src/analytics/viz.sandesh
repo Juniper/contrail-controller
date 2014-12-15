@@ -792,6 +792,65 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
+      'display_name' : 'Physical Router PFE Memory Usage',
+      'stat_type' : 'npu_mem'
+      'stat_attr' : 'stats',
+      'obj_table' : 'NONE',
+      'attributes': [
+          { 'name' : 'stats.pfe_identifier',  'datatype' : 'string', 'index' : true},
+          { 'name' : 'stats.resource_name',   'datatype' : 'string', 'index' : true},
+          { 'name' : 'stats.size',            'datatype' : 'long',   'index' : false},
+          { 'name' : 'stats.allocated',       'datatype' : 'long',   'index' : false},
+          { 'name' : 'stats.utilization',     'datatype' : 'int',    'index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Physical Router Fabric Usage',
+      'stat_type' : 'fabric_message'
+      'stat_attr' : 'edges',
+      'obj_table' : 'NONE',
+      'attributes': [
+          { 'name' : 'edges.src_type',                                 'datatype' : 'string', 'index' : true},
+          { 'name' : 'edges.src_slot',                                 'datatype' : 'string', 'index' : true},
+          { 'name' : 'edges.src_pfe',                                  'datatype' : 'string', 'index' : true},
+          { 'name' : 'edges.dst_type',                                 'datatype' : 'string', 'index' : true},
+          { 'name' : 'edges.dst_slot',                                 'datatype' : 'string', 'index' : true},
+          { 'name' : 'edges.dst_pfe',                                  'datatype' : 'string', 'index' : true},
+          { 'name' : 'edges.class_stats.priority',                     'datatype' : 'string', 'index' : true},
+          { 'name' : 'edges.class_stats.transmit_counts.packets',      'datatype' : 'long',   'index' : false},
+          { 'name' : 'edges.class_stats.transmit_counts.bytes',        'datatype' : 'long',   'index' : false},
+          { 'name' : 'edges.class_stats.transmit_counts.pps',          'datatype' : 'long',   'index' : false},
+          { 'name' : 'edges.class_stats.transmit_counts.bps',          'datatype' : 'long',   'index' : false},
+          { 'name' : 'edges.class_stats.transmit_counts.drop_packets', 'datatype' : 'long',   'index' : false},
+          { 'name' : 'edges.class_stats.transmit_counts.drop_bytes',   'datatype' : 'long',   'index' : false},
+          { 'name' : 'edges.class_stats.transmit_counts.drop_pps',     'datatype' : 'long',   'index' : false},
+          { 'name' : 'edges.class_stats.transmit_counts.drop_bps',     'datatype' : 'long',   'index' : false},
+          { 'name' : 'edges.class_stats.transmit_counts.q_depth_avg',  'datatype' : 'long',   'index' : false},
+          { 'name' : 'edges.class_stats.transmit_counts.q_depth_cur',  'datatype' : 'long',   'index' : false},
+          { 'name' : 'edges.class_stats.transmit_counts.q_depth_peak', 'datatype' : 'long',   'index' : false},
+          { 'name' : 'edges.class_stats.transmit_counts.q_depth_max',  'datatype' : 'long',   'index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Physical Router LSP Statistics',
+      'stat_type' : 'g_lsp_stats'
+      'stat_attr' : 'lsp_records',
+      'obj_table' : 'NONE',
+      'attributes': [
+          { 'name' : 'system_name',                     'datatype' : 'string', 'index' : true},
+          { 'name' : 'sensor_name',                     'datatype' : 'string', 'index' : true},
+          { 'name' : 'slot',                            'datatype' : 'int',    'index' : true},
+          { 'name' : 'timestamp',                       'datatype' : 'long',   'index' : false},
+          { 'name' : 'lsp_records.name',                'datatype' : 'string', 'index' : true},
+          { 'name' : 'lsp_records.instance_identifier', 'datatype' : 'int',    'index' : false},
+          { 'name' : 'lsp_records.counter_name',        'datatype' : 'long',   'index' : true},
+          { 'name' : 'lsp_records.packets',             'datatype' : 'long',   'index' : false},
+          { 'name' : 'lsp_records.bytes',               'datatype' : 'long',   'index' : false},
+          { 'name' : 'lsp_records.packet_rates',        'datatype' : 'long',   'index' : false},
+          { 'name' : 'lsp_records.byte_rates',          'datatype' : 'long',   'index' : false},
+        ]
+    },
+    {
       'display_name' : 'Underlay Flow Information',
       'stat_type' : 'UFlowData'
       'stat_attr' : 'flow',
