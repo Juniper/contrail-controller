@@ -2,13 +2,16 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_bgp_aspath_h
-#define ctrlplane_bgp_aspath_h
+#ifndef SRC_BGP_BGP_ASPATH_H_
+#define SRC_BGP_BGP_ASPATH_H_
 
-#include <set>
-#include <vector>
 #include <boost/intrusive_ptr.hpp>
 #include <tbb/atomic.h>
+
+#include <algorithm>
+#include <set>
+#include <string>
+#include <vector>
 
 #include "bgp/bgp_attr_base.h"
 #include "bgp/bgp_common.h"
@@ -70,7 +73,9 @@ struct AsPathSpec : public BgpAttribute {
 
 class AsPath {
 public:
-    AsPath(AsPathDB *aspath_db) : aspath_db_(aspath_db) { refcount_ = 0; }
+    explicit AsPath(AsPathDB *aspath_db) : aspath_db_(aspath_db) {
+        refcount_ = 0;
+    }
     explicit AsPath(AsPathDB *aspath_db, const AsPathSpec &spec)
         : aspath_db_(aspath_db), path_(spec) {
         refcount_ = 0;
@@ -88,9 +93,11 @@ public:
         std::vector<AsPathSpec::PathSegment *>::const_iterator i;
         for (i = path_.path_segments.begin(); i < path_.path_segments.end();
                 i++) {
-            if ((*i)->path_segment_type == AsPathSpec::PathSegment::AS_SET)
+            if ((*i)->path_segment_type == AsPathSpec::PathSegment::AS_SET) {
                 count++;
-            else count += (*i)->path_segment.size();
+            } else {
+                count += (*i)->path_segment.size();
+            }
         }
         return count;
     }
@@ -156,9 +163,9 @@ struct AsPathCompare {
 class AsPathDB : public BgpPathAttributeDB<AsPath, AsPathPtr, AsPathSpec,
                                            AsPathCompare, AsPathDB> {
 public:
-    AsPathDB(BgpServer *server);
+    explicit AsPathDB(BgpServer *server);
 
 private:
 };
 
-#endif
+#endif  // SRC_BGP_BGP_ASPATH_H_

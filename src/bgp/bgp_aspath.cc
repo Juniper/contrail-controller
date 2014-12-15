@@ -9,7 +9,9 @@
 #include "base/util.h"
 #include "bgp/bgp_proto.h"
 
-using namespace std;
+using std::copy;
+using std::ostringstream;
+using std::string;
 
 int AsPathSpec::CompareTo(const BgpAttribute &rhs_attr) const {
     int ret = BgpAttribute::CompareTo(rhs_attr);
@@ -28,7 +30,7 @@ void AsPathSpec::ToCanonical(BgpAttr *attr) {
     attr->set_as_path(this);
 }
 
-std::string AsPathSpec::ToString() const {
+string AsPathSpec::ToString() const {
     ostringstream oss;
 
     for (size_t i = 0; i < path_segments.size(); i++) {
@@ -75,7 +77,7 @@ AsPathSpec *AsPathSpec::Add(as_t asn) const {
     if (last &&
         path_segments[0]->path_segment_type == PathSegment::AS_SEQUENCE &&
         path_segments[0]->path_segment.size() < 255) {
-        std::copy(path_segments[0]->path_segment.begin(),
+        copy(path_segments[0]->path_segment.begin(),
                 path_segments[0]->path_segment.end(),
                 back_inserter(ps->path_segment));
         new_spec->path_segments.push_back(ps);
