@@ -45,7 +45,7 @@ public:
 
     virtual TcpSession *CreateSession();
     virtual bool Initialize(short port);
-    virtual void Initialize(short port, bool logUVE);
+    virtual bool Initialize(short port, bool logUVE);
     void SessionShutdown();
     void Shutdown();
     void Terminate();

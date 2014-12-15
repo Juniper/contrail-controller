@@ -93,14 +93,13 @@ XmppServer::~XmppServer() {
 }
 
 bool XmppServer::Initialize(short port) {
-    TcpServer::Initialize(port);
     log_uve_ = false;
-    return true;
+    return TcpServer::Initialize(port);
 }
 
-void XmppServer::Initialize(short port, bool logUVE) {
-    TcpServer::Initialize(port);
+bool XmppServer::Initialize(short port, bool logUVE) {
     log_uve_ = logUVE;
+    return TcpServer::Initialize(port);
 }
 
 //

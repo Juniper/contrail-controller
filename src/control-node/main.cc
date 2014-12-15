@@ -489,7 +489,8 @@ int main(int argc, char *argv[]) {
     // user does not have permissions to bind to the port.
 
     LOG(DEBUG, "Starting Bgp Server at port " << options.bgp_port());
-    bgp_server->session_manager()->Initialize(options.bgp_port());
+    if (!bgp_server->session_manager()->Initialize(options.bgp_port()))
+        exit(1);
 
     XmppServer *xmpp_server = new XmppServer(&evm, options.hostname());
     XmppInit init;
@@ -497,7 +498,8 @@ int main(int argc, char *argv[]) {
     xmpp_cfg.endpoint.port(options.xmpp_port());
     xmpp_cfg.FromAddr = XmppInit::kControlNodeJID;
     init.AddXmppChannelConfig(&xmpp_cfg);
-    init.InitServer(xmpp_server, options.xmpp_port(), true);
+    if (!init.InitServer(xmpp_server, options.xmpp_port(), true))
+        exit(1);
     sandesh_context.xmpp_server = xmpp_server;
 
     // Register XMPP channel peers 
