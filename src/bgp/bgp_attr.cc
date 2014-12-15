@@ -3,6 +3,10 @@
  */
 
 #include "bgp/bgp_attr.h"
+
+#include <algorithm>
+#include <string>
+
 #include "base/util.h"
 #include "bgp/bgp_proto.h"
 
@@ -19,7 +23,7 @@ void BgpAttrOrigin::ToCanonical(BgpAttr *attr) {
 
 std::string BgpAttrOrigin::ToString() const {
     char repr[80];
-    snprintf(repr, sizeof(repr), "ORIGIN <code: %d, flags: %02x> : %02x", 
+    snprintf(repr, sizeof(repr), "ORIGIN <code: %d, flags: %02x> : %02x",
              code, flags, origin);
     return std::string(repr);
 }
@@ -38,7 +42,7 @@ void BgpAttrNextHop::ToCanonical(BgpAttr *attr) {
 
 std::string BgpAttrNextHop::ToString() const {
     char repr[80];
-    snprintf(repr, sizeof(repr), "NEXTHOP <code: %d, flags: %02x> : %04x", 
+    snprintf(repr, sizeof(repr), "NEXTHOP <code: %d, flags: %02x> : %04x",
              code, flags, nexthop);
     return std::string(repr);
 }
@@ -73,7 +77,7 @@ void BgpAttrLocalPref::ToCanonical(BgpAttr *attr) {
 
 std::string BgpAttrLocalPref::ToString() const {
     char repr[80];
-    snprintf(repr, sizeof(repr), "LOCAL_PREF <code: %d, flags: %02x> : %d", 
+    snprintf(repr, sizeof(repr), "LOCAL_PREF <code: %d, flags: %02x> : %d",
              code, flags, local_pref);
     return std::string(repr);
 }
@@ -84,7 +88,7 @@ void BgpAttrAtomicAggregate::ToCanonical(BgpAttr *attr) {
 
 std::string BgpAttrAtomicAggregate::ToString() const {
     char repr[80];
-    snprintf(repr, sizeof(repr), "ATOMIC_AGGR <code: %d, flags: %02x>", 
+    snprintf(repr, sizeof(repr), "ATOMIC_AGGR <code: %d, flags: %02x>",
              code, flags);
     return std::string(repr);
 }
@@ -104,7 +108,7 @@ void BgpAttrAggregator::ToCanonical(BgpAttr *attr) {
 
 std::string BgpAttrAggregator::ToString() const {
     char repr[80];
-    snprintf(repr, sizeof(repr), 
+    snprintf(repr, sizeof(repr),
              "Aggregator <code: %d, flags: %02x> : %d:%08x",
              code, flags, as_num, address);
     return std::string(repr);
@@ -521,7 +525,7 @@ BgpAttr::BgpAttr(BgpAttrDB *attr_db, const BgpAttrSpec &spec)
     }
 }
 
-BgpAttr::BgpAttr(const BgpAttr &rhs) 
+BgpAttr::BgpAttr(const BgpAttr &rhs)
     : attr_db_(rhs.attr_db_), origin_(rhs.origin_), nexthop_(rhs.nexthop_),
       med_(rhs.med_), local_pref_(rhs.local_pref_),
       atomic_aggregate_(rhs.atomic_aggregate_),
@@ -536,7 +540,7 @@ BgpAttr::BgpAttr(const BgpAttr &rhs)
       edge_discovery_(rhs.edge_discovery_),
       edge_forwarding_(rhs.edge_forwarding_),
       label_block_(rhs.label_block_), olist_(rhs.olist_) {
-    refcount_ = 0; 
+    refcount_ = 0;
 }
 
 void BgpAttr::set_as_path(const AsPathSpec *spec) {
@@ -597,7 +601,7 @@ void BgpAttr::set_olist(BgpOListPtr olist) {
     olist_ = olist;
 }
 
-// TODO: Return the left-most AS number in the path.
+// TODO(nsheth): Return the left-most AS number in the path.
 uint32_t BgpAttr::neighbor_as() const {
     return 0;
 }
@@ -692,7 +696,7 @@ BgpAttrPtr BgpAttrDB::ReplaceCommunityAndLocate(const BgpAttr *attr,
 }
 
 // Return a clone of attribute with updated extended community.
-BgpAttrPtr BgpAttrDB::ReplaceExtCommunityAndLocate(const BgpAttr *attr, 
+BgpAttrPtr BgpAttrDB::ReplaceExtCommunityAndLocate(const BgpAttr *attr,
                                                    ExtCommunityPtr extcomm) {
     BgpAttr *clone = new BgpAttr(*attr);
     clone->set_ext_community(extcomm);
@@ -700,7 +704,7 @@ BgpAttrPtr BgpAttrDB::ReplaceExtCommunityAndLocate(const BgpAttr *attr,
 }
 
 // Return a clone of attribute with updated local preference.
-BgpAttrPtr BgpAttrDB::ReplaceLocalPreferenceAndLocate(const BgpAttr *attr, 
+BgpAttrPtr BgpAttrDB::ReplaceLocalPreferenceAndLocate(const BgpAttr *attr,
                                                       uint32_t local_pref) {
     BgpAttr *clone = new BgpAttr(*attr);
     clone->set_local_pref(local_pref);
