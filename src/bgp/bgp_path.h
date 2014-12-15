@@ -2,8 +2,10 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_bgp_path_h
-#define ctrlplane_bgp_path_h
+#ifndef SRC_BGP_BGP_PATH_H_
+#define SRC_BGP_BGP_PATH_H_
+
+#include <string>
 
 #include "base/util.h"
 #include "route/path.h"
@@ -21,8 +23,8 @@ public:
         Stale = 1 << 2,
         NoTunnelEncap = 1 << 3,
     };
- 
-    // Ordered in the ascending order of path preference 
+
+    // Ordered in the ascending order of path preference
     enum PathSource {
         None = 0,
         BGP_XMPP = 1,
@@ -37,7 +39,7 @@ public:
     static std::string PathIdString(uint32_t path_id);
     static std::string PathSourceString(PathSource source);
 
-    BgpPath(const IPeer *peer, uint32_t path_id, PathSource src, 
+    BgpPath(const IPeer *peer, uint32_t path_id, PathSource src,
             const BgpAttrPtr ptr, uint32_t flags, uint32_t label);
     BgpPath(const IPeer *peer, PathSource src, const BgpAttrPtr attr,
             uint32_t flags, uint32_t label);
@@ -129,7 +131,7 @@ private:
 
 class BgpSecondaryPath : public BgpPath {
 public:
-    BgpSecondaryPath(const IPeer *peer, uint32_t path_id, PathSource src, 
+    BgpSecondaryPath(const IPeer *peer, uint32_t path_id, PathSource src,
                      const BgpAttrPtr attr, uint32_t flags, uint32_t label);
 
     virtual bool IsReplicated() const {
@@ -158,4 +160,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(BgpSecondaryPath);
 };
 
-#endif
+#endif  // SRC_BGP_BGP_PATH_H_

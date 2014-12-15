@@ -28,21 +28,21 @@ std::string BgpPath::PathSourceString(PathSource source) {
     return "Other";
 }
 
-BgpPath::BgpPath(const IPeer *peer, uint32_t path_id, PathSource src, 
+BgpPath::BgpPath(const IPeer *peer, uint32_t path_id, PathSource src,
                  const BgpAttrPtr ptr, uint32_t flags, uint32_t label)
-    : peer_(peer), path_id_(path_id), source_(src), attr_(ptr), 
+    : peer_(peer), path_id_(path_id), source_(src), attr_(ptr),
       flags_(flags), label_(label) {
 }
 
-BgpPath::BgpPath(const IPeer *peer, PathSource src, const BgpAttrPtr ptr, 
+BgpPath::BgpPath(const IPeer *peer, PathSource src, const BgpAttrPtr ptr,
         uint32_t flags, uint32_t label)
-    : peer_(peer), path_id_(0), source_(src), attr_(ptr), 
+    : peer_(peer), path_id_(0), source_(src), attr_(ptr),
       flags_(flags), label_(label) {
 }
 
 BgpPath::BgpPath(uint32_t path_id, PathSource src, const BgpAttrPtr ptr,
         uint32_t flags, uint32_t label)
-    : peer_(NULL), path_id_(path_id), source_(src), attr_(ptr), 
+    : peer_(NULL), path_id_(path_id), source_(src), attr_(ptr),
       flags_(flags), label_(label) {
 }
 
@@ -71,10 +71,7 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
     // Compare local_pref larger value is better, so compare in reverse order
     KEY_COMPARE(rattr->local_pref(), attr_->local_pref());
 
-    //
     // For ECMP paths, above checks should suffice
-    // TODO: Move this to add or relax other checks as appropriate
-    //
     if (allow_ecmp) return 0;
 
     KEY_COMPARE(attr_->as_path_count(), rattr->as_path_count());
