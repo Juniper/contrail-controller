@@ -29,10 +29,14 @@ using boost::uuids::uuid;
 LogicalInterface::LogicalInterface(const boost::uuids::uuid &uuid,
                                    const std::string &name) :
     Interface(Interface::LOGICAL, uuid, name, NULL), display_name_(),
-    physical_interface_(), vm_interface_() {
+    physical_interface_(), vm_interface_(), physical_device_(NULL) {
 }
 
 LogicalInterface::~LogicalInterface() {
+}
+
+PhysicalDevice *LogicalInterface::physical_device() const {
+    return physical_device_.get();
 }
 
 string LogicalInterface::ToString() const {
@@ -75,6 +79,13 @@ bool LogicalInterface::OnChange(const InterfaceTable *table,
         ret = true;
     }
 
+    PhysicalDevice *dev = table->agent()->physical_device_table()->
+                          Find(data->device_uuid_);
+    if (dev != physical_device_.get()) {
+        physical_device_.reset(dev);
+        ret = true;
+    }
+
     if (Copy(table, data) == true) {
         ret = true;
     }
@@ -113,9 +124,10 @@ LogicalInterfaceKey::~LogicalInterfaceKey() {
 LogicalInterfaceData::LogicalInterfaceData(IFMapNode *node,
                                            const std::string &display_name,
                                            const std::string &port,
-                                           const boost::uuids::uuid &vif) :
+                                           const boost::uuids::uuid &vif,
+                                           const uuid &device_uuid) :
     InterfaceData(node), display_name_(display_name), physical_interface_(port),
-    vm_interface_(vif) {
+    vm_interface_(vif), device_uuid_(device_uuid) {
 }
 
 LogicalInterfaceData::~LogicalInterfaceData() {
@@ -185,8 +197,9 @@ InterfaceKey *VlanLogicalInterfaceKey::Clone() const {
 VlanLogicalInterfaceData::VlanLogicalInterfaceData
 (IFMapNode *node, const std::string &display_name,
  const std::string &physical_interface,
- const boost::uuids::uuid &vif, uint16_t vlan) :
-    LogicalInterfaceData(node, display_name, physical_interface, vif), vlan_(vlan) {
+ const boost::uuids::uuid &vif, const boost::uuids::uuid &u, uint16_t vlan) :
+    LogicalInterfaceData(node, display_name, physical_interface, vif, u),
+    vlan_(vlan) {
 }
 
 VlanLogicalInterfaceData::~VlanLogicalInterfaceData() {
@@ -216,10 +229,20 @@ static LogicalInterfaceData *BuildData(const Agent *agent, IFMapNode *node,
     // Find link with physical-interface adjacency
     string physical_interface;
     IFMapNode *adj_node = NULL;
+    boost::uuids::uuid dev_uuid = nil_uuid();
     adj_node = agent->cfg_listener()->FindAdjacentIFMapNode
         (agent, node, "physical-interface");
     if (adj_node) {
         physical_interface = adj_node->name();
+        IFMapNode *prouter_node = agent->cfg_listener()->FindAdjacentIFMapNode
+            (agent, adj_node, "physical-router");
+        if (prouter_node) {
+            autogen::PhysicalRouter *router =
+                static_cast<autogen::PhysicalRouter *>(prouter_node->GetObject());
+            autogen::IdPermsType id_perms = router->id_perms();
+            CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                       dev_uuid);
+        }
     }
 
     // Find link with virtual-machine-interface adjacency
@@ -235,8 +258,24 @@ static LogicalInterfaceData *BuildData(const Agent *agent, IFMapNode *node,
                    vmi_uuid);
     }
 
+    adj_node = agent->cfg_listener()->FindAdjacentIFMapNode
+        (agent, node, "physical-router");
+    if (adj_node) {
+        if (dev_uuid != nil_uuid()) {
+            IFMAP_ERROR(LogicalInterfaceConfiguration,
+                "Both physical-router and physical-interface links for "
+                "interface:", node->name(),
+                "physical interface", physical_interface,
+                "prouter name", adj_node->name());
+        }
+        autogen::PhysicalRouter *router =
+            static_cast<autogen::PhysicalRouter *>(adj_node->GetObject());
+        autogen::IdPermsType id_perms = router->id_perms();
+        CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                   dev_uuid);
+    }
     return new VlanLogicalInterfaceData(node, port->display_name(), physical_interface,
-                                        vmi_uuid, port->vlan_tag());
+                                        vmi_uuid, dev_uuid, port->vlan_tag());
 }
 
 bool InterfaceTable::LogicalInterfaceIFNodeToReq(IFMapNode *node,

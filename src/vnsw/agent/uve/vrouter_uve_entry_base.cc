@@ -452,15 +452,17 @@ bool VrouterUveEntryBase::SendVrouterMsg() {
         prev_vrouter_.set_xmpp_peer_list(xmpp_list);
         changed = true;
     }
-    ip_list.push_back(rid.to_string());
-    if (!prev_vrouter_.__isset.self_ip_list ||
-        prev_vrouter_.get_self_ip_list() != ip_list) {
+    /* Self IP list should be populated only if router_id is  configured */
+    if (agent_->router_id_configured()) {
+        ip_list.push_back(rid.to_string());
+        if (!prev_vrouter_.__isset.self_ip_list ||
+                prev_vrouter_.get_self_ip_list() != ip_list) {
 
-        vrouter_agent.set_self_ip_list(ip_list);
-        prev_vrouter_.set_self_ip_list(ip_list);
-        changed = true;
+            vrouter_agent.set_self_ip_list(ip_list);
+            prev_vrouter_.set_self_ip_list(ip_list);
+            changed = true;
+        }
     }
-
 
 
     for (int idx = 0; idx < MAX_XMPP_SERVERS; idx++) {
@@ -508,6 +510,20 @@ bool VrouterUveEntryBase::SendVrouterMsg() {
         cpu_stats_count_ = 0;
     }
     return changed;
+}
+
+void VrouterUveEntryBase::SendVrouterProuterAssociation
+    (const vector<string> &list) {
+    VrouterAgent vrouter_agent;
+    vrouter_agent.set_name(agent_->agent_name());
+    if (agent_->simulate_evpn_tor()) {
+        vrouter_agent.set_tor_prouter_list(list);
+    } else if (agent_->tsn_enabled()) {
+        vrouter_agent.set_tsn_prouter_list(list);
+    } else {
+        vrouter_agent.set_embedded_prouter_list(list);
+    }
+    DispatchVrouterMsg(vrouter_agent);
 }
 
 string VrouterUveEntryBase::GetMacAddress(const MacAddress &mac) const {

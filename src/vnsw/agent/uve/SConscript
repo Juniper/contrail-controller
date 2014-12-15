@@ -74,6 +74,7 @@ SandeshGenFiles += env.SandeshGenCpp('vrouter.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('virtual_machine.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('virtual_network.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('acl.sandesh')
+SandeshGenFiles += env.SandeshGenCpp('prouter.sandesh')
 
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 SandeshGenObjs = env.Object(SandeshGenSrcs)
@@ -90,6 +91,7 @@ libuve = env.Library('uve',
                      [
                      'agent_uve_base.cc',
                      'l4_port_bitmap.cc',
+                     'prouter_uve_table.cc',
                      'vm_uve_entry_base.cc',
                      'vm_uve_table_base.cc',
                      'vn_uve_entry_base.cc',
