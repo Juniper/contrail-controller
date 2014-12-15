@@ -151,7 +151,7 @@ void ArpEntry::AddArpRoute(bool resolved) {
     ArpNH *arp_nh = static_cast<ArpNH *>(handler_->agent()->nexthop_table()->
                                          FindActiveEntry(&nh_key));
 
-    MacAddress mac = mac_address_;
+    MacAddress mac = mac_address();
     if (arp_nh && arp_nh->GetResolveState() &&
         mac.CompareTo(arp_nh->GetMac()) == 0) {
         // MAC address unchanged, ignore
@@ -179,7 +179,7 @@ bool ArpEntry::DeleteArpRoute() {
     if (!arp_nh)
         return true;
 
-    MacAddress mac = mac_address_;
+    MacAddress mac = mac_address();
     ARP_TRACE(Trace, "Delete", ip.to_string(), vrf_name, mac.ToString());
 
     Interface *itf = handler_->agent()->GetArpProto()->ip_fabric_interface();

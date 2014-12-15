@@ -8,13 +8,19 @@
 #include <sys/types.h>
 #include <net/ethernet.h>
 #include <sys/socket.h>
-#include <boost/system/error_code.hpp>
 #include <cstring>
+#include <string>
+#include "base/util.h"
 
 class MacAddress {
 public:
     MacAddress();
     explicit MacAddress(const uint8_t *data);
+
+    MacAddress(const MacAddress &rhs) {
+        addr_ = rhs.addr_;
+    }
+
     explicit MacAddress(const struct ether_addr &a) {
         addr_ = a;
      }
@@ -75,6 +81,11 @@ public:
 
     MacAddress &operator=(const struct ether_addr &ea) {
         addr_ = ea;
+        return *this;
+    }
+
+    MacAddress &operator=(const MacAddress &rhs) {
+        addr_ = rhs.addr_;
         return *this;
     }
 
@@ -148,6 +159,9 @@ public:
         return kZeroMac;
     }
 private:
+    // Delete non-const copy constructor
+    MacAddress(MacAddress &);
+
     struct ether_addr addr_;
 };
 
