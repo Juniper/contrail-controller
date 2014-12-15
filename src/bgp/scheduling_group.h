@@ -2,14 +2,15 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_scheduling_group_h
-#define ctrlplane_scheduling_group_h
+#ifndef SRC_BGP_SCHEDULING_GROUP_H_
+#define SRC_BGP_SCHEDULING_GROUP_H_
+
+#include <boost/ptr_container/ptr_list.hpp>
+#include <tbb/mutex.h>
 
 #include <list>
 #include <map>
 #include <vector>
-#include <boost/ptr_container/ptr_list.hpp>
-#include <tbb/mutex.h>
 
 #include "base/bitset.h"
 #include "base/index_map.h"
@@ -79,10 +80,10 @@ public:
     bool PeerInSync(IPeerUpdate *peer) const;
 
     // The index for a specific peer in this group.
-    int GetPeerIndex(IPeerUpdate *peer) const;
+    size_t GetPeerIndex(IPeerUpdate *peer) const;
 
     // The index for a specific ribout.
-    int GetRibOutIndex(RibOut *ribout) const;
+    size_t GetRibOutIndex(RibOut *ribout) const;
 
     // Retrieve the list of all the ribs which this peer is advertising as
     // well as its complement.
@@ -232,4 +233,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(SchedulingGroupManager);
 };
 
-#endif
+#endif  // SRC_BGP_SCHEDULING_GROUP_H_
