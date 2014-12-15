@@ -2,12 +2,15 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_bgp_route_h
-#define ctrlplane_bgp_route_h
+#ifndef SRC_BGP_BGP_ROUTE_H_
+#define SRC_BGP_BGP_ROUTE_H_
 
-#include "route/route.h"
-#include "net/address.h"
+#include <string>
+#include <vector>
+
 #include "bgp/bgp_path.h"
+#include "net/address.h"
+#include "route/route.h"
 
 class BgpAttr;
 struct BgpProtoPrefix;
@@ -68,8 +71,7 @@ public:
     void FillRouteInfo(const BgpTable *table, ShowRoute *show_route) const;
 
 private:
-
     DISALLOW_COPY_AND_ASSIGN(BgpRoute);
 };
 
-#endif
+#endif  // SRC_BGP_BGP_ROUTE_H_
