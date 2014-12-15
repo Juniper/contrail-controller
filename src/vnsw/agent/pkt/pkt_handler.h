@@ -280,7 +280,7 @@ private:
         int vxlan;
         InterfaceConstRef interface;
 
-        MacVmBindingKey(MacAddress &m, int v, InterfaceConstRef intf) :
+        MacVmBindingKey(const MacAddress &m, int v, InterfaceConstRef intf) :
             mac(m), vxlan(v), interface(intf) {}
         bool operator<(const MacVmBindingKey &rhs) const {
             if (mac != rhs.mac)
