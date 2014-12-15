@@ -25,7 +25,7 @@ using std::string;
 /////////////////////////////////////////////////////////////////////////////
 PhysicalInterface::PhysicalInterface(const std::string &name) :
     Interface(Interface::PHYSICAL, nil_uuid(), name, NULL), persistent_(false),
-    subtype_(INVALID) {
+    subtype_(INVALID), physical_device_(NULL) {
 }
 
 PhysicalInterface::~PhysicalInterface() {
@@ -55,6 +55,13 @@ bool PhysicalInterface::OnChange(const InterfaceTable *table,
         (table->agent()->vrf_table()->FindActiveEntry(&key));
     if (new_vrf != vrf_.get()) {
         vrf_.reset(new_vrf);
+        ret = true;
+    }
+
+    PhysicalDevice *dev =
+        table->agent()->physical_device_table()->Find(data->device_uuid_);
+    if (dev != physical_device_.get()) {
+        physical_device_.reset(dev);
         ret = true;
     }
 
@@ -146,20 +153,18 @@ PhysicalInterfaceData::PhysicalInterfaceData(IFMapNode *node,
                                              const string &vrf_name,
                                              PhysicalInterface::SubType subtype,
                                              PhysicalInterface::EncapType encap,
-                                             bool no_arp) :
+                                             bool no_arp,
+                                             const uuid &device_uuid) :
     InterfaceData(node), subtype_(subtype), encap_type_(encap),
-    no_arp_(no_arp) {
+    no_arp_(no_arp), device_uuid_(device_uuid) {
     EthInit(vrf_name);
 }
     
 /////////////////////////////////////////////////////////////////////////////
 // Config handling routines
 /////////////////////////////////////////////////////////////////////////////
-static PhysicalInterfaceKey *BuildKey(const autogen::PhysicalInterface *port) {
-    autogen::IdPermsType id_perms = port->id_perms();
-    boost::uuids::uuid u;
-    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
-    return new PhysicalInterfaceKey(port->display_name());
+static PhysicalInterfaceKey *BuildKey(const std::string &name) {
+    return new PhysicalInterfaceKey(name);
 }
 
 bool InterfaceTable::PhysicalInterfaceIFNodeToReq(IFMapNode *node,
@@ -181,17 +186,29 @@ bool InterfaceTable::PhysicalInterfaceIFNodeToReq(IFMapNode *node,
         return RemotePhysicalInterfaceIFNodeToReq(node, req);
     }
 
-    req.key.reset(BuildKey(port));
+    req.key.reset(BuildKey(node->name()));
     if (node->IsDeleted()) {
         req.oper = DBRequest::DB_ENTRY_DELETE;
         return true;
     }
 
+    boost::uuids::uuid dev_uuid = nil_uuid();
+    // Find link with physical-router adjacency
+    IFMapNode *adj_node = NULL;
+    adj_node = agent()->cfg_listener()->FindAdjacentIFMapNode(agent(), node,
+                                                            "physical-router");
+    if (adj_node) {
+        autogen::PhysicalRouter *router =
+            static_cast<autogen::PhysicalRouter *>(adj_node->GetObject());
+        autogen::IdPermsType id_perms = router->id_perms();
+        CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                   dev_uuid);
+    }
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.data.reset(new PhysicalInterfaceData(node, agent()->fabric_vrf_name(),
                                              PhysicalInterface::CONFIG,
                                              PhysicalInterface::ETHERNET,
-                                             false));
+                                             false, dev_uuid));
     Enqueue(&req);
     VmInterface::PhysicalPortSync(this, node);
     return false;
@@ -206,22 +223,36 @@ void PhysicalInterface::ConfigEventHandler(IFMapNode *node) {
 // Enqueue DBRequest to create a Host Interface
 void PhysicalInterface::CreateReq(InterfaceTable *table, const string &ifname,
                                   const string &vrf_name, SubType subtype,
-                                  EncapType encap, bool no_arp) {
+                                  EncapType encap, bool no_arp,
+                                  const uuid &device_uuid) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new PhysicalInterfaceKey(ifname));
     req.data.reset(new PhysicalInterfaceData(NULL, vrf_name, subtype, encap,
-                                             no_arp));
+                                             no_arp, device_uuid));
     table->Enqueue(&req);
 }
 
 void PhysicalInterface::Create(InterfaceTable *table, const string &ifname,
                                const string &vrf_name, SubType subtype,
-                               EncapType encap, bool no_arp) {
+                               EncapType encap, bool no_arp,
+                               const uuid &device_uuid) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new PhysicalInterfaceKey(ifname));
     req.data.reset(new PhysicalInterfaceData(NULL, vrf_name, subtype, encap,
-                                             no_arp));
+                                             no_arp, device_uuid));
     table->Process(req);
+}
+
+void PhysicalInterface::CreateReq(InterfaceTable *table, const string &ifname,
+                                  const string &vrf_name, SubType subtype,
+                                  EncapType encap, bool no_arp) {
+    CreateReq(table, ifname, vrf_name, subtype, encap, no_arp, nil_uuid());
+}
+
+void PhysicalInterface::Create(InterfaceTable *table, const string &ifname,
+                               const string &vrf_name, SubType subtype,
+                               EncapType encap, bool no_arp) {
+    Create(table, ifname, vrf_name, subtype, encap, no_arp, nil_uuid());
 }
 
 // Enqueue DBRequest to delete a Host Interface
