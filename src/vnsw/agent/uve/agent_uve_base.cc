@@ -31,6 +31,7 @@ AgentUveBase::AgentUveBase(Agent *agent, uint64_t intvl)
     : vn_uve_table_(new VnUveTableBase(agent)),
       vm_uve_table_(new VmUveTableBase(agent)),
       vrouter_uve_entry_(new VrouterUveEntryBase(agent)),
+      prouter_uve_table_(new ProuterUveTableBase(agent)),
       agent_(agent), bandwidth_intvl_(intvl),
       vrouter_stats_collector_(new VrouterStatsCollector(
                                    *(agent->event_manager()->io_service()),
@@ -45,6 +46,7 @@ void AgentUveBase::Shutdown() {
     vn_uve_table_.get()->Shutdown();
     vm_uve_table_.get()->Shutdown();
     vrouter_uve_entry_.get()->Shutdown();
+    prouter_uve_table_.get()->Shutdown();
     connection_state_manager_->Shutdown();
 }
 
@@ -176,5 +178,6 @@ void AgentUveBase::RegisterDBClients() {
     vn_uve_table_.get()->RegisterDBClients();
     vm_uve_table_.get()->RegisterDBClients();
     vrouter_uve_entry_.get()->RegisterDBClients();
+    prouter_uve_table_.get()->RegisterDBClients();
 }
 

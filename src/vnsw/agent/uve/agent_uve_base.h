@@ -9,6 +9,7 @@
 #include <uve/vn_uve_table_base.h>
 #include <uve/vm_uve_table_base.h>
 #include <uve/vrouter_uve_entry_base.h>
+#include <uve/prouter_uve_table_base.h>
 #include <boost/scoped_ptr.hpp>
 
 class VrouterStatsCollector;
@@ -30,6 +31,7 @@ public:
     VrouterUveEntryBase* vrouter_uve_entry() const {
         return vrouter_uve_entry_.get();
     }
+    ProuterUveTableBase* prouter_uve_table() const { return prouter_uve_table_.get(); }
     VrouterStatsCollector *vrouter_stats_collector() const {
         return vrouter_stats_collector_.get();
     }
@@ -42,6 +44,7 @@ protected:
     boost::scoped_ptr<VnUveTableBase> vn_uve_table_;
     boost::scoped_ptr<VmUveTableBase> vm_uve_table_;
     boost::scoped_ptr<VrouterUveEntryBase> vrouter_uve_entry_;
+    boost::scoped_ptr<ProuterUveTableBase> prouter_uve_table_;
     static AgentUveBase *singleton_;
 
 private:
