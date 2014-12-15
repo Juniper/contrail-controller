@@ -1578,6 +1578,41 @@ void AddSubnetType(const char *name, int id, const char *addr, uint8_t plen) {
     AddNode("subnet", name, id, buf);
 }
 
+void AddPhysicalDevice(const char *name, int id) {
+    char buf[128];
+    sprintf(buf, "<physical-router-vendor-name>Juniper</physical-router-vendor-name>"
+                 "<display-name>physicaldevice%d</display-name>", id);
+    AddNode("physical-router", name, id, buf);
+}
+
+void DeletePhysicalDevice(const char *name) {
+    DelNode("physical-router", name);
+}
+
+void AddPhysicalInterface(const char *name, int id, const char* display_name) {
+    char buf[128];
+    sprintf(buf, "<user-visible>Juniper</user-visible>"
+                 "<display-name>%s</display-name>", display_name);
+    AddNode("physical-interface", name, id, buf);
+}
+
+void DeletePhysicalInterface(const char *name) {
+    DelNode("physical-interface", name);
+}
+
+void AddLogicalInterface(const char *name, int id, const char* display_name, int vlan) {
+    char buf[1024];
+    sprintf(buf, "<logical-interface-vlan-tag>%d</logical-interface-vlan-tag>"
+                 "<logical-interface-type>l2</logical-interface-type>"
+                 "<user-visible>Juniper</user-visible>"
+                 "<display-name>%s</display-name>", vlan, display_name);
+    AddNode("logical-interface", name, id, buf);
+}
+
+void DeleteLogicalInterface(const char *name) {
+    DelNode("logical-interface", name);
+}
+
 void AddVmPortVrf(const char *name, const string &ip, uint16_t tag) {
     char buff[256];
     int len = 0;
@@ -2956,4 +2991,28 @@ Layer2RouteEntry *GetL2FloodRoute(const std::string &vrf_name) {
     MacAddress broadcast_mac("ff:ff:ff:ff:ff:ff");
     Layer2RouteEntry *rt = L2RouteGet("vrf1", broadcast_mac);
     return rt;
+}
+
+PhysicalDevice *PhysicalDeviceGet(int id) {
+    PhysicalDevice *pd;
+    PhysicalDeviceKey key(MakeUuid(id));
+    pd = static_cast<PhysicalDevice *>(Agent::GetInstance()->
+            physical_device_table()->FindActiveEntry(&key));
+    return pd;
+}
+
+PhysicalInterface *PhysicalInterfaceGet(std::string name) {
+    PhysicalInterface *intf;
+    PhysicalInterfaceKey key(name);
+    intf = static_cast<PhysicalInterface *>(Agent::GetInstance()->
+            interface_table()->FindActiveEntry(&key));
+    return intf;
+}
+
+LogicalInterface *LogicalInterfaceGet(int id, std::string name) {
+    LogicalInterface *intf;
+    VlanLogicalInterfaceKey key(MakeUuid(id), name);
+    intf = static_cast<LogicalInterface *>(Agent::GetInstance()->
+            interface_table()->FindActiveEntry(&key));
+    return intf;
 }

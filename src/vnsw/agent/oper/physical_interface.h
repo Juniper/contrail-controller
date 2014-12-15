@@ -40,6 +40,8 @@ public:
     virtual void ConfigEventHandler(IFMapNode *node);
 
     SubType subtype() const { return subtype_; }
+    PhysicalDevice *physical_device() const;
+
     // Lets kernel know if physical interface is to be kept after agent exits or
     // dies. If its true keep the interface, else remove it.
     // Currently only vnware physical interface is persistent.
@@ -51,10 +53,12 @@ public:
     // Helper functions
     static void CreateReq(InterfaceTable *table, const std::string &ifname,
                           const std::string &vrf_name, SubType subtype,
-                          EncapType encap, bool no_arp);
+                          EncapType encap, bool no_arp,
+                          const boost::uuids::uuid &device_uuid);
     static void Create(InterfaceTable *table, const std::string &ifname,
-                       const std::string &vrf_name, SubType sub_type,
-                       EncapType encap, bool no_arp);
+                       const std::string &vrf_name, SubType subtype,
+                       EncapType encap, bool no_arp,
+                       const boost::uuids::uuid &device_uuid);
     static void DeleteReq(InterfaceTable *table, const std::string &ifname);
     static void Delete(InterfaceTable *table, const std::string &ifname);
 
@@ -64,6 +68,7 @@ private:
     SubType subtype_;
     EncapType encap_type_;
     bool no_arp_;
+    PhysicalDeviceRef physical_device_;
     DISALLOW_COPY_AND_ASSIGN(PhysicalInterface);
 };
 
@@ -71,10 +76,12 @@ struct PhysicalInterfaceData : public InterfaceData {
     PhysicalInterfaceData(IFMapNode *node, const std::string &vrf_name,
                           PhysicalInterface::SubType subtype,
                           PhysicalInterface::EncapType encap,
-                          bool no_arp);
+                          bool no_arp,
+                          const boost::uuids::uuid &device_uuid);
     PhysicalInterface::SubType subtype_;
     PhysicalInterface::EncapType encap_type_;
     bool no_arp_;
+    boost::uuids::uuid device_uuid_;
 };
 
 struct PhysicalInterfaceKey : public InterfaceKey {

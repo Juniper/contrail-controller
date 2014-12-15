@@ -39,12 +39,14 @@ class LogicalInterface : public Interface {
     const std::string &display_name() const { return display_name_; }
     Interface *physical_interface() const;
     VmInterface *vm_interface() const;
+    PhysicalDevice *physical_device() const;
 
  private:
     friend class InterfaceTable;
     std::string display_name_;
     InterfaceRef physical_interface_;
     InterfaceRef vm_interface_;
+    PhysicalDeviceRef physical_device_;
     DISALLOW_COPY_AND_ASSIGN(LogicalInterface);
 };
 
@@ -58,12 +60,14 @@ struct LogicalInterfaceKey : public InterfaceKey {
 struct LogicalInterfaceData : public InterfaceData {
     LogicalInterfaceData(IFMapNode *node, const std::string &display_name,
                          const std::string &physical_interface,
-                    const boost::uuids::uuid &vif);
+                        const boost::uuids::uuid &vif,
+                        const boost::uuids::uuid &device_uuid);
     virtual ~LogicalInterfaceData();
 
     std::string display_name_;
     std::string physical_interface_;
     boost::uuids::uuid vm_interface_;
+    boost::uuids::uuid device_uuid_;
 };
 
 struct VlanLogicalInterfaceKey : public LogicalInterfaceKey {
@@ -80,7 +84,8 @@ struct VlanLogicalInterfaceKey : public LogicalInterfaceKey {
 struct VlanLogicalInterfaceData : public LogicalInterfaceData {
     VlanLogicalInterfaceData(IFMapNode *node, const std::string &display_name,
                              const std::string &physical_interface,
-                             const boost::uuids::uuid &vif, uint16_t vlan);
+                             const boost::uuids::uuid &vif,
+                             const boost::uuids::uuid &d_uuid, uint16_t vlan);
     virtual ~VlanLogicalInterfaceData();
 
     uint16_t vlan_;

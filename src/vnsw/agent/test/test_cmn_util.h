@@ -385,4 +385,14 @@ void FillEvpnNextHop(BgpPeer *peer, std::string name,
 void FlushEvpnNextHop(BgpPeer *peer, std::string name,
                       uint32_t tag);
 Layer2RouteEntry *GetL2FloodRoute(const std::string &vrf_name);
+void AddPhysicalDevice(const char *name, int id);
+void DeletePhysicalDevice(const char *name);
+void AddPhysicalInterface(const char *name, int id, const char* display_name);
+void DeletePhysicalInterface(const char *name);
+void AddLogicalInterface(const char *name, int id, const char* display_name, int vlan = 0);
+void DeleteLogicalInterface(const char *name);
+PhysicalDevice *PhysicalDeviceGet(int id);
+PhysicalInterface *PhysicalInterfaceGet(std::string name);
+LogicalInterface *LogicalInterfaceGet(int id, std::string name);
+
 #endif // vnsw_agent_test_cmn_util_h

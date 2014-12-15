@@ -29,10 +29,14 @@ using boost::uuids::uuid;
 LogicalInterface::LogicalInterface(const boost::uuids::uuid &uuid,
                                    const std::string &name) :
     Interface(Interface::LOGICAL, uuid, name, NULL), display_name_(),
-    physical_interface_(), vm_interface_() {
+    physical_interface_(), vm_interface_(), physical_device_(NULL) {
 }
 
 LogicalInterface::~LogicalInterface() {
+}
+
+PhysicalDevice *LogicalInterface::physical_device() const {
+    return physical_device_.get();
 }
 
 string LogicalInterface::ToString() const {
@@ -74,6 +78,28 @@ bool LogicalInterface::OnChange(const InterfaceTable *table,
         vm_interface_.reset(interface);
         ret = true;
     }
+   
+    PhysicalDevice *dev = NULL;
+    const Interface *itf = physical_interface_.get();
+    if (itf != NULL) {
+        if (itf->type() == Interface::REMOTE_PHYSICAL) {
+            const RemotePhysicalInterface *rpintf =
+                static_cast<const RemotePhysicalInterface *>(itf);
+            dev = rpintf->physical_device();
+        } else if (itf->type() == Interface::PHYSICAL) {
+            const PhysicalInterface *pintf =
+                static_cast<const PhysicalInterface *>(itf);
+            dev = pintf->physical_device();
+        }
+    }
+
+    if (dev == NULL) {
+        dev = table->agent()->physical_device_table()->Find(data->device_uuid_);
+    }
+    if (dev != physical_device_.get()) {
+        physical_device_.reset(dev);
+        ret = true;
+    }
 
     if (Copy(table, data) == true) {
         ret = true;
@@ -113,9 +139,10 @@ LogicalInterfaceKey::~LogicalInterfaceKey() {
 LogicalInterfaceData::LogicalInterfaceData(IFMapNode *node,
                                            const std::string &display_name,
                                            const std::string &port,
-                                           const boost::uuids::uuid &vif) :
+                                           const boost::uuids::uuid &vif,
+                                           const uuid &device_uuid) :
     InterfaceData(node), display_name_(display_name), physical_interface_(port),
-    vm_interface_(vif) {
+    vm_interface_(vif), device_uuid_(device_uuid) {
 }
 
 LogicalInterfaceData::~LogicalInterfaceData() {
@@ -185,8 +212,9 @@ InterfaceKey *VlanLogicalInterfaceKey::Clone() const {
 VlanLogicalInterfaceData::VlanLogicalInterfaceData
 (IFMapNode *node, const std::string &display_name,
  const std::string &physical_interface,
- const boost::uuids::uuid &vif, uint16_t vlan) :
-    LogicalInterfaceData(node, display_name, physical_interface, vif), vlan_(vlan) {
+ const boost::uuids::uuid &vif, const boost::uuids::uuid &u, uint16_t vlan) :
+    LogicalInterfaceData(node, display_name, physical_interface, vif, u),
+    vlan_(vlan) {
 }
 
 VlanLogicalInterfaceData::~VlanLogicalInterfaceData() {
@@ -235,8 +263,18 @@ static LogicalInterfaceData *BuildData(const Agent *agent, IFMapNode *node,
                    vmi_uuid);
     }
 
+    boost::uuids::uuid dev_uuid = nil_uuid();
+    adj_node = agent->cfg_listener()->FindAdjacentIFMapNode
+        (agent, node, "physical-router");
+    if (adj_node) {
+        autogen::PhysicalRouter *router =
+            static_cast<autogen::PhysicalRouter *>(adj_node->GetObject());
+        autogen::IdPermsType id_perms = router->id_perms();
+        CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                   dev_uuid);
+    }
     return new VlanLogicalInterfaceData(node, port->display_name(), physical_interface,
-                                        vmi_uuid, port->vlan_tag());
+                                        vmi_uuid, dev_uuid, port->vlan_tag());
 }
 
 bool InterfaceTable::LogicalInterfaceIFNodeToReq(IFMapNode *node,

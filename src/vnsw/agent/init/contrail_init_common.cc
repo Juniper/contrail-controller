@@ -158,7 +158,7 @@ void ContrailInitCommon::CreateInterfaces() {
     PhysicalInterface::Create(table, agent_param()->eth_port(),
                               agent()->fabric_vrf_name(),
                               PhysicalInterface::FABRIC, type,
-                              agent_param()->eth_port_no_arp());
+                              agent_param()->eth_port_no_arp(), nil_uuid());
 
     InetInterface::Create(table, agent_param()->vhost_name(),
                           InetInterface::VHOST, agent()->fabric_vrf_name(),
@@ -173,7 +173,8 @@ void ContrailInitCommon::CreateInterfaces() {
                                   agent_param()->vmware_physical_port(),
                                   agent()->fabric_vrf_name(),
                                   PhysicalInterface::VMWARE,
-                                  PhysicalInterface::ETHERNET, false);
+                                  PhysicalInterface::ETHERNET, false,
+                                  nil_uuid());
     }
 
     InetInterfaceKey key(agent()->vhost_interface_name());
