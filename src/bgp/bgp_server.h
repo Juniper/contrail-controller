@@ -2,14 +2,17 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef __BGP_SERVER_H__
-#define __BGP_SERVER_H__
+#ifndef SRC_BGP_BGP_SERVER_H_
+#define SRC_BGP_BGP_SERVER_H_
 
 #include <tbb/spin_rw_mutex.h>
-
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/dynamic_bitset.hpp>
 #include <boost/scoped_ptr.hpp>
+
+#include <map>
+#include <string>
+#include <vector>
 
 #include "bgp/bgp_common.h"
 #include "db/db.h"
@@ -66,7 +69,7 @@ public:
         return inst_mgr_.get();
     }
     RTargetGroupMgr *rtarget_group_mgr() { return rtarget_group_mgr_.get(); }
-    BgpConditionListener *condition_listener() { 
+    BgpConditionListener *condition_listener() {
         return condition_listener_.get();
     }
     ServiceChainMgr *service_chain_mgr() {
@@ -99,7 +102,7 @@ public:
     DB *database() { return &db_; }
     const std::string &localname() const;
     as_t autonomous_system() const { return autonomous_system_; }
-    uint32_t bgp_identifier() const { return bgp_identifier_.to_ulong(); };
+    uint32_t bgp_identifier() const { return bgp_identifier_.to_ulong(); }
     uint16_t hold_time() const { return hold_time_; }
 
     // Status
@@ -185,4 +188,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(BgpServer);
 };
 
-#endif // __BGP_SERVER_H__
+#endif  // SRC_BGP_BGP_SERVER_H_
