@@ -19,7 +19,7 @@ class ContrailVRouterApi(object):
         self._client = None
         self._ports = {}
 
-    def _rpc_client_instance(self):
+    def _rpc_client_instance(self, doconnect=False):
         """ Return an RPC client connection """
         import thrift.transport.TSocket as TSocket
         socket = TSocket.TSocket('localhost', self._server_port)
@@ -32,7 +32,7 @@ class ContrailVRouterApi(object):
             return None
         protocol = TBinaryProtocol.TBinaryProtocol(transport)
         client = InstanceService.Client(protocol)
-        if client:
+        if client and doconnect:
             client.Connect()
         return client
 
@@ -56,7 +56,7 @@ class ContrailVRouterApi(object):
 
     def connect(self):
         if self._client is None:
-            self._client = self._rpc_client_instance()
+            self._client = self._rpc_client_instance(doconnect=True)
             if self._client is None:
                 return False
             return True
@@ -113,10 +113,14 @@ class ContrailVRouterApi(object):
         if 'vlan' in kwargs:
             data.vlan_id = kwargs['vlan']
 
+        doconnect = False
+        if 'connect' in kwargs:
+            doconnect = kwargs['connect']
+
         data.validate()
 
         if self._client is None:
-            self._client = self._rpc_client_instance()
+            self._client = self._rpc_client_instance(doconnect=doconnect)
 
         if self._client is None:
             self._ports[vif_uuid] = data
@@ -133,7 +137,7 @@ class ContrailVRouterApi(object):
             raise
         return result
 
-    def delete_port(self, vif_uuid_str):
+    def delete_port(self, vif_uuid_str, doconnect=False):
         """
         Delete a port form the agent. The port is first removed from the
         internal _ports dictionary.
@@ -142,7 +146,7 @@ class ContrailVRouterApi(object):
         self._ports.pop(vif_uuid, None)
 
         if self._client is None:
-            self._client = self._rpc_client_instance()
+            self._client = self._rpc_client_instance(doconnect=doconnect)
             if self._client is None:
                 return
             self._resynchronize()
@@ -152,14 +156,14 @@ class ContrailVRouterApi(object):
         except:
             self._client = None
 
-    def periodic_connection_check(self):
+    def periodic_connection_check(self, doconnect=False):
         """
         Periodicly check if the connection to the agent is valid.
         It is the API client's resposibility to periodically invoke this
         method.
         """
         if self._client is None:
-            self._client = self._rpc_client_instance()
+            self._client = self._rpc_client_instance(doconnect=doconnect)
             if self._client is None:
                 return
             self._resynchronize()
