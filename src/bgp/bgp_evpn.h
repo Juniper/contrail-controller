@@ -2,13 +2,13 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_bgp_evpn_h
-#define ctrlplane_bgp_evpn_h
+#ifndef SRC_BGP_BGP_EVPN_H_
+#define SRC_BGP_BGP_EVPN_H_
+
+#include <boost/scoped_ptr.hpp>
 
 #include <set>
 #include <vector>
-
-#include <boost/scoped_ptr.hpp>
 
 #include "base/lifetime.h"
 #include "bgp/bgp_attr.h"
@@ -194,7 +194,7 @@ private:
 //
 class EvpnManager {
 public:
-    EvpnManager(EvpnTable *table);
+    explicit EvpnManager(EvpnTable *table);
     virtual ~EvpnManager();
 
     virtual void Initialize();
@@ -231,4 +231,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(EvpnManager);
 };
 
-#endif
+#endif  // SRC_BGP_BGP_EVPN_H_
