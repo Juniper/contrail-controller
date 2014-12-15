@@ -26,7 +26,8 @@ FACTORY_STATIC_REGISTER(BgpObjectFactory, BgpPeer, BgpPeer);
 FACTORY_STATIC_REGISTER(BgpObjectFactory, BgpSessionManager, BgpSessionManager);
 
 #include "bgp/bgp_peer_membership.h"
-FACTORY_STATIC_REGISTER(BgpObjectFactory, PeerRibMembershipManager, PeerRibMembershipManager);
+FACTORY_STATIC_REGISTER(BgpObjectFactory, PeerRibMembershipManager,
+    PeerRibMembershipManager);
 
 #include "bgp/bgp_ribout_updates.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, RibOutUpdates, RibOutUpdates);
@@ -36,7 +37,8 @@ FACTORY_STATIC_REGISTER(BgpObjectFactory, PeerManager, PeerManager);
 
 #include "bgp/routing-instance/routing_instance.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, RoutingInstance, RoutingInstance);
-FACTORY_STATIC_REGISTER(BgpObjectFactory, RoutingInstanceMgr, RoutingInstanceMgr);
+FACTORY_STATIC_REGISTER(BgpObjectFactory, RoutingInstanceMgr,
+    RoutingInstanceMgr);
 
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, RTargetGroupMgr, RTargetGroupMgr);
