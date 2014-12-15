@@ -2,23 +2,23 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_bgp_attr_h
-#define ctrlplane_bgp_attr_h
+#ifndef SRC_BGP_BGP_ATTR_H_
+#define SRC_BGP_BGP_ATTR_H_
 
-#include <set>
-#include <vector>
 #include <boost/intrusive_ptr.hpp>
 #include <tbb/atomic.h>
+
+#include <set>
+#include <string>
+#include <vector>
 
 #include "base/label_block.h"
 #include "base/parse_object.h"
 #include "base/util.h"
-
 #include "bgp/bgp_aspath.h"
 #include "bgp/bgp_attr_base.h"
 #include "bgp/bgp_server.h"
 #include "bgp/community.h"
-
 #include "net/address.h"
 #include "net/esi.h"
 #include "net/rd.h"
@@ -34,7 +34,9 @@ struct BgpAttrOrigin : public BgpAttribute {
     static const int kSize = 1;
     static const uint8_t kFlags = Transitive;
     BgpAttrOrigin() : BgpAttribute(Origin, kFlags), origin(IGP) { }
-    BgpAttrOrigin(const BgpAttribute &rhs) : BgpAttribute(rhs), origin(IGP) { }
+    explicit BgpAttrOrigin(const BgpAttribute &rhs)
+        : BgpAttribute(rhs), origin(IGP) {
+    }
     explicit BgpAttrOrigin(int origin) :
             BgpAttribute(Origin, kFlags), origin(origin) { }
     enum OriginType {
@@ -53,7 +55,9 @@ struct BgpAttrNextHop : public BgpAttribute {
     static const int kSize = 4;
     static const uint8_t kFlags = Transitive;
     BgpAttrNextHop() : BgpAttribute(NextHop, kFlags), nexthop(0) {}
-    BgpAttrNextHop(const BgpAttribute &rhs) : BgpAttribute(rhs), nexthop(0) {}
+    explicit BgpAttrNextHop(const BgpAttribute &rhs)
+        : BgpAttribute(rhs), nexthop(0) {
+    }
     explicit BgpAttrNextHop(uint32_t nexthop) :
             BgpAttribute(NextHop, kFlags), nexthop(nexthop) {}
     uint32_t nexthop;
@@ -66,7 +70,9 @@ struct BgpAttrMultiExitDisc : public BgpAttribute {
     static const int kSize = 4;
     static const uint8_t kFlags = Optional;
     BgpAttrMultiExitDisc() : BgpAttribute(MultiExitDisc, kFlags), med(0) {}
-    BgpAttrMultiExitDisc(const BgpAttribute &rhs) : BgpAttribute(rhs), med(0) {}
+    explicit BgpAttrMultiExitDisc(const BgpAttribute &rhs)
+        : BgpAttribute(rhs), med(0) {
+    }
     explicit BgpAttrMultiExitDisc(uint32_t med) :
             BgpAttribute(MultiExitDisc, kFlags), med(med) {}
     uint32_t med;
@@ -80,10 +86,12 @@ struct BgpAttrLocalPref : public BgpAttribute {
     static const int kSize = 4;
     static const uint8_t kFlags = Transitive;
     BgpAttrLocalPref() : BgpAttribute(LocalPref, kFlags), local_pref(0) {}
-    BgpAttrLocalPref(const BgpAttribute &rhs) :
-        BgpAttribute(rhs), local_pref(0) {}
-    explicit BgpAttrLocalPref(uint32_t local_pref) :
-            BgpAttribute(LocalPref, kFlags), local_pref(local_pref) {}
+    explicit BgpAttrLocalPref(const BgpAttribute &rhs)
+        : BgpAttribute(rhs), local_pref(0) {
+    }
+    explicit BgpAttrLocalPref(uint32_t local_pref)
+        : BgpAttribute(LocalPref, kFlags), local_pref(local_pref) {
+    }
     uint32_t local_pref;
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);
@@ -94,7 +102,9 @@ struct BgpAttrAtomicAggregate : public BgpAttribute {
     static const int kSize = 0;
     static const uint8_t kFlags = Transitive;
     BgpAttrAtomicAggregate() : BgpAttribute(AtomicAggregate, kFlags) {}
-    BgpAttrAtomicAggregate(const BgpAttribute &rhs) : BgpAttribute(rhs) {}
+    explicit BgpAttrAtomicAggregate(const BgpAttribute &rhs)
+        : BgpAttribute(rhs) {
+    }
     virtual void ToCanonical(BgpAttr *attr);
     virtual std::string ToString() const;
 };
@@ -102,10 +112,12 @@ struct BgpAttrAtomicAggregate : public BgpAttribute {
 struct BgpAttrAggregator : public BgpAttribute {
     static const int kSize = 6;
     static const uint8_t kFlags = Optional|Transitive;
-    BgpAttrAggregator() :
-        BgpAttribute(Aggregator, kFlags), as_num(0), address(0) {}
-    BgpAttrAggregator(const BgpAttribute &rhs) :
-        BgpAttribute(rhs), as_num(0), address(0) {}
+    BgpAttrAggregator()
+        : BgpAttribute(Aggregator, kFlags), as_num(0), address(0) {
+    }
+    explicit BgpAttrAggregator(const BgpAttribute &rhs)
+        : BgpAttribute(rhs), as_num(0), address(0) {
+    }
     explicit BgpAttrAggregator(uint32_t as_num, uint32_t address) :
         BgpAttribute(Aggregator, kFlags), as_num(as_num), address(address) {}
     as_t as_num;
@@ -118,9 +130,12 @@ struct BgpAttrAggregator : public BgpAttribute {
 struct BgpAttrOriginatorId : public BgpAttribute {
     static const int kSize = 4;
     static const uint8_t kFlags = Optional;
-    BgpAttrOriginatorId() : BgpAttribute(OriginatorId, kFlags), originator_id(0) {}
-    BgpAttrOriginatorId(const BgpAttribute &rhs)
-        : BgpAttribute(rhs), originator_id(0) {}
+    BgpAttrOriginatorId()
+        : BgpAttribute(OriginatorId, kFlags), originator_id(0) {
+    }
+    explicit BgpAttrOriginatorId(const BgpAttribute &rhs)
+        : BgpAttribute(rhs), originator_id(0) {
+    }
     explicit BgpAttrOriginatorId(uint32_t originator_id)
         : BgpAttribute(OriginatorId, kFlags), originator_id(originator_id) {}
     uint32_t originator_id;
@@ -136,9 +151,9 @@ struct BgpMpNlri : public BgpAttribute {
     BgpMpNlri() : BgpAttribute(0, ExtendedLength|kFlags), afi(0), safi(0) {}
     explicit BgpMpNlri(BgpAttribute::Code code) :
             BgpAttribute(code, ExtendedLength|kFlags), afi(0), safi(0) {}
-    explicit BgpMpNlri(BgpAttribute::Code code, u_int16_t afi, u_int8_t safi, 
-                       std::vector<uint8_t> nh) : 
-            BgpAttribute(code, ExtendedLength|kFlags), afi(afi), safi(safi), 
+    explicit BgpMpNlri(BgpAttribute::Code code, u_int16_t afi, u_int8_t safi,
+                       std::vector<uint8_t> nh) :
+            BgpAttribute(code, ExtendedLength|kFlags), afi(afi), safi(safi),
                        nexthop(nh) {}
     explicit BgpMpNlri(BgpAttribute::Code code, u_int16_t afi, u_int8_t safi) :
         BgpAttribute(code, ExtendedLength|kFlags), afi(afi), safi(safi) {
@@ -258,7 +273,7 @@ public:
     const EdgeDiscoverySpec &edge_discovery() const { return edspec_; }
 
     struct Edge {
-        Edge(const EdgeDiscoverySpec::Edge *edge_spec);
+        explicit Edge(const EdgeDiscoverySpec::Edge *edge_spec);
         Ip4Address address;
         LabelBlockPtr label_block;
     };
@@ -321,7 +336,7 @@ public:
     const EdgeForwardingSpec &edge_forwarding() const { return efspec_; }
 
     struct Edge {
-        Edge(const EdgeForwardingSpec::Edge *edge_spec);
+        explicit Edge(const EdgeForwardingSpec::Edge *edge_spec);
         Ip4Address inbound_address, outbound_address;
         uint32_t inbound_label, outbound_label;
     };
@@ -353,10 +368,11 @@ typedef boost::intrusive_ptr<EdgeForwarding> EdgeForwardingPtr;
 struct BgpAttrLabelBlock : public BgpAttribute {
     static const int kSize = 0;
     BgpAttrLabelBlock() : BgpAttribute(0, BgpAttribute::LabelBlock, 0) {}
-    BgpAttrLabelBlock(const BgpAttribute &rhs) : BgpAttribute(rhs) {}
-    BgpAttrLabelBlock(LabelBlockPtr label_block) :
-        BgpAttribute(0, BgpAttribute::LabelBlock, 0),
-        label_block(label_block) {}
+    explicit BgpAttrLabelBlock(const BgpAttribute &rhs) : BgpAttribute(rhs) {}
+    explicit BgpAttrLabelBlock(LabelBlockPtr label_block)
+        : BgpAttribute(0, BgpAttribute::LabelBlock, 0),
+          label_block(label_block) {
+    }
     LabelBlockPtr label_block;
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);
@@ -411,11 +427,13 @@ typedef boost::intrusive_ptr<BgpOList> BgpOListPtr;
 struct BgpAttrOList : public BgpAttribute {
     static const int kSize = 0;
     BgpAttrOList() : BgpAttribute(0, BgpAttribute::OList, 0) {}
-    BgpAttrOList(const BgpAttribute &rhs) : BgpAttribute(rhs) {}
-    BgpAttrOList(BgpOList *olist) :
-        BgpAttribute(0, BgpAttribute::OList, 0), olist(olist) {}
-    BgpAttrOList(BgpOListPtr olist) :
-        BgpAttribute(0, BgpAttribute::OList, 0), olist(olist) {}
+    explicit BgpAttrOList(const BgpAttribute &rhs) : BgpAttribute(rhs) {}
+    explicit BgpAttrOList(BgpOList *olist)
+        : BgpAttribute(0, BgpAttribute::OList, 0), olist(olist) {
+    }
+    explicit BgpAttrOList(BgpOListPtr olist)
+        : BgpAttribute(0, BgpAttribute::OList, 0), olist(olist) {
+    }
     BgpOListPtr olist;
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);
@@ -430,9 +448,10 @@ struct BgpAttrUnknown : public BgpAttribute {
 
 struct BgpAttrSourceRd : public BgpAttribute {
     BgpAttrSourceRd() : BgpAttribute(0, SourceRd, 0) {}
-    BgpAttrSourceRd(const BgpAttribute &rhs) : BgpAttribute(rhs) {}
-    explicit BgpAttrSourceRd(const RouteDistinguisher &source_rd) :
-            BgpAttribute(0, SourceRd, 0), source_rd(source_rd) {}
+    explicit BgpAttrSourceRd(const BgpAttribute &rhs) : BgpAttribute(rhs) {}
+    explicit BgpAttrSourceRd(const RouteDistinguisher &source_rd)
+        : BgpAttribute(0, SourceRd, 0), source_rd(source_rd) {
+    }
     RouteDistinguisher source_rd;
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);
@@ -441,9 +460,10 @@ struct BgpAttrSourceRd : public BgpAttribute {
 
 struct BgpAttrEsi : public BgpAttribute {
     BgpAttrEsi() : BgpAttribute(0, Esi, 0) {}
-    BgpAttrEsi(const BgpAttribute &rhs) : BgpAttribute(rhs) {}
-    explicit BgpAttrEsi(const EthernetSegmentId &esi) :
-            BgpAttribute(0, Esi, 0), esi(esi) {}
+    explicit BgpAttrEsi(const BgpAttribute &rhs) : BgpAttribute(rhs) {}
+    explicit BgpAttrEsi(const EthernetSegmentId &esi)
+        : BgpAttribute(0, Esi, 0), esi(esi) {
+    }
     EthernetSegmentId esi;
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);
@@ -456,7 +476,9 @@ struct BgpAttrParams : public BgpAttribute {
     };
 
     BgpAttrParams() : BgpAttribute(0, Params, 0), params(0) {}
-    BgpAttrParams(const BgpAttribute &rhs) : BgpAttribute(rhs), params(0) {}
+    explicit BgpAttrParams(const BgpAttribute &rhs)
+        : BgpAttribute(rhs), params(0) {
+    }
     explicit BgpAttrParams(uint64_t params) :
             BgpAttribute(0, Params, 0), params(params) {}
     uint64_t params;
@@ -471,8 +493,8 @@ typedef std::vector<BgpAttribute *> BgpAttrSpec;
 class BgpAttr {
 public:
     BgpAttr();
-    BgpAttr(BgpAttrDB *attr_db);
-    BgpAttr(const BgpAttr &rhs);
+    explicit BgpAttr(BgpAttrDB *attr_db);
+    explicit BgpAttr(const BgpAttr &rhs);
     BgpAttr(BgpAttrDB *attr_db, const BgpAttrSpec &spec);
     virtual ~BgpAttr() { }
 
@@ -525,8 +547,12 @@ public:
     const Community *community() const { return community_.get(); }
     const ExtCommunity *ext_community() const { return ext_community_.get(); }
     const PmsiTunnel *pmsi_tunnel() const { return pmsi_tunnel_.get(); }
-    const EdgeDiscovery *edge_discovery() const { return edge_discovery_.get(); }
-    const EdgeForwarding *edge_forwarding() const { return edge_forwarding_.get(); }
+    const EdgeDiscovery *edge_discovery() const {
+        return edge_discovery_.get();
+    }
+    const EdgeForwarding *edge_forwarding() const {
+        return edge_forwarding_.get();
+    }
     LabelBlockPtr label_block() const { return label_block_; }
     BgpOListPtr olist() const { return olist_; }
     BgpAttrDB *attr_db() const { return attr_db_; }
@@ -589,12 +615,12 @@ struct BgpAttrCompare {
 class BgpAttrDB : public BgpPathAttributeDB<BgpAttr, BgpAttrPtr, BgpAttrSpec,
                                             BgpAttrCompare, BgpAttrDB> {
 public:
-    BgpAttrDB(BgpServer *server);
+    explicit BgpAttrDB(BgpServer *server);
     BgpAttrPtr ReplaceCommunityAndLocate(const BgpAttr *attr,
                                          const Community *community);
     BgpAttrPtr ReplaceExtCommunityAndLocate(const BgpAttr *attr,
                                             ExtCommunityPtr com);
-    BgpAttrPtr ReplaceLocalPreferenceAndLocate(const BgpAttr *attr, 
+    BgpAttrPtr ReplaceLocalPreferenceAndLocate(const BgpAttr *attr,
                                                uint32_t local_pref);
     BgpAttrPtr ReplaceOriginatorIdAndLocate(const BgpAttr *attr,
                                             Ip4Address originator_id);
@@ -605,7 +631,7 @@ public:
     BgpAttrPtr ReplaceOListAndLocate(const BgpAttr *attr, BgpOListPtr olist);
     BgpAttrPtr ReplacePmsiTunnelAndLocate(const BgpAttr *attr,
                                           PmsiTunnelSpec *pmsi_spec);
-    BgpAttrPtr UpdateNexthopAndLocate(const BgpAttr *attr, uint16_t afi, 
+    BgpAttrPtr UpdateNexthopAndLocate(const BgpAttr *attr, uint16_t afi,
                                       uint8_t safi, IpAddress &addr);
     BgpServer *server() { return server_; }
 
@@ -613,4 +639,4 @@ private:
     BgpServer *server_;
 };
 
-#endif
+#endif  // SRC_BGP_BGP_ATTR_H_
