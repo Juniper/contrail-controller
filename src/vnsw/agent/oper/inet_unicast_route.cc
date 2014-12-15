@@ -420,13 +420,14 @@ bool InetUnicastRouteEntry::FloodArp() const {
     Agent *agent =
         (static_cast<InetUnicastAgentRouteTable *> (get_table()))->agent();
     const AgentPath *local_path = FindPath(agent->local_peer());
-    if (local_path && (local_path->is_subnet_discard() == false))
-        return false;
+    //Only look for subnet route programmed via IPAM(i.e. will have local path
+    //as subnet discard) and active path of that subnet route should not be
+    //resolve.
+    if (local_path && (local_path->is_subnet_discard() == true) &&
+        (GetActiveNextHop()->GetType() != NextHop::RESOLVE))
+        return true;
 
-    if (GetActiveNextHop()->GetType() == NextHop::RESOLVE)
-        return false;
-
-    return true;
+    return false;
 }
 
 // Handle add/update of a path in route. 
