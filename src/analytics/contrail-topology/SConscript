@@ -35,9 +35,10 @@ version = '0.0.1'
 #with open("CHANGES.txt") as f:
 #    version = f.read().split(",")[0][1:]
 
+cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_gen = env.Command('dist/contrail-topology-' \
         + version + '.tar.gz',
-        sources, 'python setup.py sdist', chdir=Dir('.'))
+        sources, cd_cmd + 'python setup.py sdist')
 env.Alias('controller/src/analytics/contrail-topology/' + \
         'contrail_topology:sdist', sdist_gen)
 
@@ -61,16 +62,15 @@ packages = [
 
 test_sources += env.PythonTestSetup(source=packages)
 
-test = env.Command(None, test_sources, 'python setup.py test', chdir=1)
+test = env.Command(None, test_sources, cd_cmd + 'python setup.py test')
 
 env.Alias('controller/src/analytics/contrail-topology/' + \
         'contrail_topology:test', test)
 
 if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None, sources,
-                              'python setup.py install %s' %
-                              env['PYTHON_INSTALL_OPT'],
-                              chdir = 1)
+                              cd_cmd + 'python setup.py install %s' %
+                              env['PYTHON_INSTALL_OPT'])
     env.Alias('install', install_cmd)
 env.Alias('install', env.Install(env['INSTALL_CONF'],
             'contrail-topology.conf'))
