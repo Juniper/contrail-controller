@@ -4,6 +4,8 @@
 
 #include "bgp/bgp_message_builder.h"
 
+#include <vector>
+
 #include "base/parse_object.h"
 #include "bgp/bgp_route.h"
 #include "net/bgp_af.h"
@@ -22,7 +24,8 @@ void BgpMessage::StartReach(const RibOutAttr *roattr, const BgpRoute *route) {
     update.path_attributes.push_back(origin);
 
     if ((route->Afi() == BgpAf::IPv4) && (route->Safi() == BgpAf::Unicast)) {
-        BgpAttrNextHop *nh = new BgpAttrNextHop(attr->nexthop().to_v4().to_ulong());
+        BgpAttrNextHop *nh =
+            new BgpAttrNextHop(attr->nexthop().to_v4().to_ulong());
         update.path_attributes.push_back(nh);
     }
 
@@ -99,8 +102,8 @@ void BgpMessage::StartReach(const RibOutAttr *roattr, const BgpRoute *route) {
 
     route->BuildBgpProtoNextHop(nh, attr->nexthop());
 
-    BgpMpNlri *nlri =
-        new BgpMpNlri(BgpAttribute::MPReachNlri, route->Afi(), route->Safi(), nh);
+    BgpMpNlri *nlri = new BgpMpNlri(
+        BgpAttribute::MPReachNlri, route->Afi(), route->Safi(), nh);
     update.path_attributes.push_back(nlri);
 
     if (route) {
