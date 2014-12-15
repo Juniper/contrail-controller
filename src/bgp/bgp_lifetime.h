@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_bgp_lifetime_h
-#define ctrlplane_bgp_lifetime_h
+#ifndef SRC_BGP_BGP_LIFETIME_H_
+#define SRC_BGP_BGP_LIFETIME_H_
 
 #include "base/lifetime.h"
 
@@ -21,4 +21,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(BgpLifetimeManager);
 };
 
-#endif
+#endif  // SRC_BGP_BGP_LIFETIME_H_
