@@ -993,6 +993,15 @@ systemlog sandesh InterfaceConfiguration {
     6: string compute_uuid;
 }
 
+systemlog sandesh LogicalInterfaceConfiguration {
+    1: string f1;
+    2: string logical_interface_name;
+    3: string f2
+    4: string physical_interface_name;
+    5: string f3
+    6: string prouter_name;
+}
+
 systemlog sandesh FlowLog {
     1: u32 flow_id;
     2: string message;

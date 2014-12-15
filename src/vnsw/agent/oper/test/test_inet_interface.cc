@@ -340,7 +340,7 @@ TEST_F(InetInterfaceTest, physical_eth_encap_1) {
     PhysicalInterface::CreateReq(interface_table_, "phy-1",
                                  agent_->fabric_vrf_name(),
                                  PhysicalInterface::FABRIC,
-                                 PhysicalInterface::ETHERNET, false);
+                                 PhysicalInterface::ETHERNET, false, nil_uuid());
     client->WaitForIdle();
 
     InetInterface::CreateReq(interface_table_, "vhost-1", InetInterface::VHOST,
@@ -353,7 +353,7 @@ TEST_F(InetInterfaceTest, physical_eth_encap_1) {
 
     // Cleanup config by the test
     InetTestCleanup(agent_, ip, gw, plen);
-    PhysicalInterface::DeleteReq(interface_table_, "phy-1");
+    PhysicalInterface::DeleteReq(interface_table_, string("phy-1"));
     InetInterface::DeleteReq(interface_table_, "vhost-1");
     client->WaitForIdle();
 
@@ -373,7 +373,7 @@ TEST_F(InetInterfaceTest, physical_eth_raw_ip_1) {
     PhysicalInterface::CreateReq(interface_table_, "phy-1",
                                  agent_->fabric_vrf_name(),
                                  PhysicalInterface::FABRIC,
-                                 PhysicalInterface::RAW_IP, false);
+                                 PhysicalInterface::RAW_IP, false, nil_uuid());
     client->WaitForIdle();
 
     InetInterface::CreateReq(interface_table_, "vhost-1", InetInterface::VHOST,
@@ -408,7 +408,7 @@ TEST_F(InetInterfaceTest, physical_eth_no_arp_1) {
     PhysicalInterface::CreateReq(interface_table_, "phy-1",
                                  agent_->fabric_vrf_name(),
                                  PhysicalInterface::FABRIC,
-                                 PhysicalInterface::ETHERNET, true);
+                                 PhysicalInterface::ETHERNET, true, nil_uuid());
     client->WaitForIdle();
 
     InetInterface::CreateReq(interface_table_, "vhost-1", InetInterface::VHOST,
