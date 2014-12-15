@@ -354,8 +354,8 @@ bool ShowRouteSummaryHandler::CallbackS1(const Sandesh *sr,
                 table->database()->GetWalker()->walk_complete_count());
             srt.set_walk_cancels(
                 table->database()->GetWalker()->walk_cancel_count());
-            size_t markers;
-            srt.set_pending_updates(table->GetPendingRiboutsCount(markers));
+            size_t markers = 0;
+            srt.set_pending_updates(table->GetPendingRiboutsCount(&markers));
             srt.set_markers(markers);
             table_list.push_back(srt);
         }
@@ -828,8 +828,8 @@ public:
             table->database()->GetWalker()->walk_complete_count());
         rit.set_walk_cancels(
             table->database()->GetWalker()->walk_cancel_count());
-        size_t markers;
-        rit.set_pending_updates(table->GetPendingRiboutsCount(markers));
+        size_t markers = 0;
+        rit.set_pending_updates(table->GetPendingRiboutsCount(&markers));
         rit.set_markers(markers);
         rit.prefixes = table->Size();
         rit.primary_paths = table->GetPrimaryPathCount();
