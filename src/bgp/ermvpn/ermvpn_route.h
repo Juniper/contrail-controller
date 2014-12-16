@@ -42,7 +42,7 @@ public:
     bool operator==(const ErmVpnPrefix &rhs) const;
 
     uint8_t type() const { return type_; }
-    RouteDistinguisher route_distinguisher() const { return rd_; }
+    const RouteDistinguisher &route_distinguisher() const { return rd_; }
     Ip4Address router_id() const { return router_id_; }
     Ip4Address group() const { return group_; }
     Ip4Address source() const { return source_; }

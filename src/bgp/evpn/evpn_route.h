@@ -32,7 +32,7 @@ public:
             boost::system::error_code *errorp = NULL);
     std::string ToString() const;
 
-    RouteDistinguisher route_distinguisher() const { return rd_; }
+    const RouteDistinguisher &route_distinguisher() const { return rd_; }
     uint32_t tag() const { return tag_; }
     const MacAddress &mac_addr() const { return mac_addr_; }
     Ip4Prefix ip_prefix() const { return ip_prefix_; }

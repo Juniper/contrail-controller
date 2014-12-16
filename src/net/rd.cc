@@ -25,6 +25,10 @@ RouteDistinguisher::RouteDistinguisher(uint32_t address, uint16_t vrf_id) {
     put_value(data_ + 6, 2, vrf_id);
 }
 
+uint16_t RouteDistinguisher::Type() const {
+    return get_value(data_, 2);
+}
+
 uint32_t RouteDistinguisher::GetAddress() const {
     return (Type() == TypeIpAddressBased ? get_value(data_ + 2, 4) : 0);
 }

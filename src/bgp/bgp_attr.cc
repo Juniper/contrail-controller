@@ -577,7 +577,7 @@ BgpAttrPtr BgpAttrDB::ReplaceLocalPreferenceAndLocate(const BgpAttr *attr,
 
 // Return a clone of attribute with updated source rd.
 BgpAttrPtr BgpAttrDB::ReplaceSourceRdAndLocate(const BgpAttr *attr,
-                                               RouteDistinguisher source_rd) {
+    const RouteDistinguisher &source_rd) {
     BgpAttr *clone = new BgpAttr(*attr);
     clone->set_source_rd(source_rd);
     return Locate(clone);
