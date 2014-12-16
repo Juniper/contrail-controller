@@ -469,10 +469,12 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
         } else if (active_nh->GetType() == NextHop::INTERFACE) {
             const InterfaceNH *intf_nh = 
                 static_cast<const InterfaceNH *>(active_nh);
+            const Interface *oper_intf = intf_nh->GetInterface();
             InterfaceKSyncObject *interface_object =
                 ksync_obj_->ksync()->interface_ksync_obj();
-            InterfaceKSyncEntry if_ksync(interface_object, intf_nh->GetInterface());
+            InterfaceKSyncEntry if_ksync(interface_object, oper_intf);
             interface_ = interface_object->GetReference(&if_ksync);
+            dmac_ = oper_intf->mac();
         }
         break;
     }
