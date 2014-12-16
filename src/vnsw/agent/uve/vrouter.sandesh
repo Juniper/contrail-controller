@@ -184,6 +184,7 @@ struct VrouterStatsAgent {  // Agent stats
     45: optional u32 virt_mem (aggtype="stats")
     46: optional u32 used_sys_mem (aggtype="stats")
     47: optional double one_min_avg_cpuload (aggtype="stats")
+    48: optional u32 res_mem (aggtype="stats")
 
         //Nexthop stats
     14: optional u32 nexthops; 
