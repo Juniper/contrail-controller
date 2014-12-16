@@ -10,9 +10,6 @@
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 
-using namespace std;
-using namespace boost::asio;
-
 BgpSessionManager::BgpSessionManager(EventManager *evm, BgpServer *server)
     : TcpServer(evm),
       server_(server),
@@ -79,7 +76,7 @@ TcpSession *BgpSessionManager::CreateSession() {
     Socket *socket = session->socket();
 
     boost::system::error_code ec;
-    socket->open(ip::tcp::v4(), ec);
+    socket->open(boost::asio::ip::tcp::v4(), ec);
     if (ec || (ec = session->SetSocketOptions()) || socket_open_failure()) {
         BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
             "Failed to open bgp socket, error: " << ec.message());
