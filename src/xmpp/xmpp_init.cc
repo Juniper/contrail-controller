@@ -73,9 +73,9 @@ void XmppInit::InitClient(XmppClient *client) {
     g_client_->ConfigUpdate(cfg_);
 }
 
-void XmppInit::InitServer(XmppServer *server, int port, bool logUVE) {
+bool XmppInit::InitServer(XmppServer *server, int port, bool logUVE) {
     g_server_ = server;
-    g_server_->Initialize(port, logUVE);
+    return g_server_->Initialize(port, logUVE);
 }
 
 XmppChannelConfig *XmppInit::AllocChannelConfig(

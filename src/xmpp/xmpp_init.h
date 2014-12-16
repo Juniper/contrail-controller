@@ -29,7 +29,7 @@ public:
     ~XmppInit();
     void Reset(bool keep_config = false);
     void InitClient(XmppClient *);
-    void InitServer(XmppServer *, int port, bool logUVE);
+    bool InitServer(XmppServer *, int port, bool logUVE);
 
     void AddXmppChannelConfig(XmppChannelConfig *); 
     XmppChannelConfig *AllocChannelConfig(const std::string &peer_ip, int port,
