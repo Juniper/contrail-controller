@@ -285,8 +285,8 @@ pugi::xml_document *XmppDocumentMock::Inet6RouteDeleteXmlDoc(
 
 pugi::xml_document *XmppDocumentMock::RouteEnetAddXmlDoc(
         const std::string &network, const std::string &prefix,
-        NextHops nexthops, const RouteParams *params) {
-    return RouteEnetAddDeleteXmlDoc(network, prefix, true, nexthops, params);
+        const NextHops &nexthops, const RouteAttributes &attributes) {
+    return RouteEnetAddDeleteXmlDoc(network, prefix, true, nexthops, attributes);
 }
 
 pugi::xml_document *XmppDocumentMock::RouteEnetDeleteXmlDoc(
@@ -535,12 +535,12 @@ pugi::xml_document *XmppDocumentMock::Inet6RouteAddBogusXmlDoc(
 
 pugi::xml_document *XmppDocumentMock::RouteEnetAddDeleteXmlDoc(
         const std::string &network, const std::string &prefix, bool add,
-        const NextHops &nexthops, const RouteParams *params) {
+        const NextHops &nexthops, const RouteAttributes &attributes) {
     xdoc_->reset();
     xml_node pubsub = PubSubHeader(kNetworkServiceJID);
     xml_node pub = pubsub.append_child("publish");
     stringstream node_str;
-    node_str << BgpAf::L2Vpn << "/" << BgpAf::Enet << "/" 
+    node_str << BgpAf::L2Vpn << "/" << BgpAf::Enet << "/"
              << network << "/" << prefix;
     pub.append_attribute("node") = node_str.str().c_str();
     autogen::EnetItemType rt_entry;
@@ -581,6 +581,13 @@ pugi::xml_document *XmppDocumentMock::RouteEnetAddDeleteXmlDoc(
     rt_entry.entry.nlri.address = address ? string(address) : string();
 
     if (add) {
+        if (attributes.sgids.size()) {
+            rt_entry.entry.security_group_list.security_group =
+                attributes.sgids;
+        } else {
+            rt_entry.entry.security_group_list.security_group.push_back(101);
+        }
+
         if (nexthops.empty()) {
             autogen::EnetNextHopType item_nexthop;
             item_nexthop.af = BgpAf::IPv4;
@@ -602,10 +609,8 @@ pugi::xml_document *XmppDocumentMock::RouteEnetAddDeleteXmlDoc(
             }
         }
 
-        if (params) {
-            if (params->edge_replication_not_supported)
-                rt_entry.entry.edge_replication_not_supported = true;
-        }
+        if (attributes.params.edge_replication_not_supported)
+            rt_entry.entry.edge_replication_not_supported = true;
     }
 
     xml_node item = pub.append_child("item");
@@ -1002,11 +1007,31 @@ void NetworkAgentMock::AddEnetRoute(const string &network_name,
 }
 
 void NetworkAgentMock::AddEnetRoute(const string &network_name,
-        const string &prefix, NextHops nexthops, const RouteParams *params) {
+        const string &prefix, const NextHops &nexthops,
+        const RouteParams *params) {
+    AgentPeer *peer = GetAgent();
+    RouteAttributes attributes;
+    if (params)
+        attributes = RouteAttributes(*params);
+    xml_document *xdoc =
+        impl_->RouteEnetAddXmlDoc(network_name, prefix, nexthops, attributes);
+    peer->SendDocument(xdoc);
+}
+
+void NetworkAgentMock::AddEnetRoute(const string &network_name,
+        const string &prefix, const NextHop &nexthop,
+        const RouteAttributes &attributes) {
+    NextHops nexthops;
+    nexthops.push_back(nexthop);
+    AddEnetRoute(network_name, prefix, nexthops, attributes);
+}
+
+void NetworkAgentMock::AddEnetRoute(const string &network_name,
+        const string &prefix, const NextHops &nexthops,
+        const RouteAttributes &attributes) {
     AgentPeer *peer = GetAgent();
     xml_document *xdoc =
-        impl_->RouteEnetAddXmlDoc(network_name, prefix, nexthops, params);
-
+        impl_->RouteEnetAddXmlDoc(network_name, prefix, nexthops, attributes);
     peer->SendDocument(xdoc);
 }
 

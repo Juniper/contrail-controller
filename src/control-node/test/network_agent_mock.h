@@ -40,6 +40,11 @@ enum TestErrorType {
     XML_TOKEN_ERROR,
 };
 
+struct RouteParams {
+    RouteParams() : edge_replication_not_supported(false) { };
+    bool edge_replication_not_supported;
+};
+
 struct RouteAttributes {
 public:
     static const int kDefaultLocalPref = 100;
@@ -62,6 +67,10 @@ public:
         : local_pref(kDefaultLocalPref), sequence(kDefaultSequence),
           sgids(sg) {
     }
+    RouteAttributes(const RouteParams &params)
+        : local_pref(kDefaultLocalPref), sequence(kDefaultSequence),
+          params(params) {
+    }
     void SetSg(const std::vector<int> &sg) {
         sgids = sg;
     }
@@ -71,6 +80,7 @@ public:
     uint32_t local_pref;
     uint32_t sequence;
     std::vector<int> sgids;
+    RouteParams params;
 };
 
 struct NextHop {
@@ -120,11 +130,6 @@ struct NextHop {
 
 typedef std::vector<NextHop> NextHops;
 
-struct RouteParams {
-    RouteParams() : edge_replication_not_supported(false) { };
-    bool edge_replication_not_supported;
-};
-
 class XmppDocumentMock {
 public:
     enum Oper {
@@ -158,8 +163,8 @@ public:
 
     pugi::xml_document *RouteEnetAddXmlDoc(const std::string &network,
                                            const std::string &prefix,
-                                           NextHops nexthops = NextHops(),
-                                           const RouteParams *params = NULL);
+                                           const NextHops &nexthops,
+                                           const RouteAttributes &attributes);
     pugi::xml_document *RouteEnetDeleteXmlDoc(const std::string &network,
                                               const std::string &prefix,
                                               NextHops nexthops = NextHops());
@@ -195,7 +200,7 @@ private:
     pugi::xml_document *RouteEnetAddDeleteXmlDoc(const std::string &network,
             const std::string &prefix, bool add,
             const NextHops &nexthops = NextHops(),
-            const RouteParams *params = NULL);
+            const RouteAttributes &attributes = RouteAttributes());
     pugi::xml_document *RouteMcastAddDeleteXmlDoc(const std::string &network,
             const std::string &sg, bool add,
             const std::string &nexthop = std::string(),
@@ -363,7 +368,14 @@ public:
                       const std::string nexthop = "",
                       const RouteParams *params = NULL);
     void AddEnetRoute(const std::string &network, const std::string &prefix,
-                      NextHops nexthops, const RouteParams *params = NULL);
+                      const NextHops &nexthops,
+                      const RouteParams *params = NULL);
+    void AddEnetRoute(const std::string &network, const std::string &prefix,
+                      const NextHop &nexthop,
+                      const RouteAttributes &attributes);
+    void AddEnetRoute(const std::string &network, const std::string &prefix,
+                      const NextHops &nexthops,
+                      const RouteAttributes &attributes);
     void DeleteEnetRoute(const std::string &network, const std::string &prefix);
 
     void McastSubscribe(const std::string &network, int id = -1,
