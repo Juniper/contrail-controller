@@ -451,6 +451,7 @@ TEST_F(RouteTest, LocalVmRoute_1) {
     EXPECT_TRUE(rt->dest_vn_name() == "vn1");
     EXPECT_TRUE(rt->GetActivePath()->vxlan_id() == VxLanTable::kInvalidvxlan_id);
     EXPECT_TRUE(rt->GetActivePath()->tunnel_bmap() == TunnelType::MplsType());
+    EXPECT_FALSE(rt->FloodArp());
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
 
@@ -469,6 +470,7 @@ TEST_F(RouteTest, RemoteVmRoute_1) {
     EXPECT_TRUE(rt->dest_vn_name() == vrf_name_);
     EXPECT_TRUE(rt->GetActiveLabel() == MplsTable::kStartLabel);
     EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::TUNNEL);
+    EXPECT_FALSE(rt->FloodArp());
 
     DeleteRoute(NULL, vrf_name_, remote_vm_ip_, 32);
     EXPECT_FALSE(RouteFind(vrf_name_, remote_vm_ip_, 32));
