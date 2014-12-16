@@ -16,6 +16,7 @@ class DB;
 class DBGraph;
 class IFMapDependencyManager;
 class InstanceManager;
+class NexthopManager;
 
 class AgentObjectFactory : public Factory<AgentObjectFactory> {
     FACTORY_TYPE_N1(AgentObjectFactory, KSync, Agent *);
@@ -25,6 +26,7 @@ class AgentObjectFactory : public Factory<AgentObjectFactory> {
                     DBGraph *);
     FACTORY_TYPE_N1(AgentObjectFactory, InstanceManager,
                     Agent *);
+    FACTORY_TYPE_N1(AgentObjectFactory, NexthopManager, EventManager *);
 };
 
 #endif // vnsw_agent_factory_hpp
