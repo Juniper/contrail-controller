@@ -7,6 +7,9 @@
 #include <boost/bind.hpp>
 #include <boost/iterator/iterator_facade.hpp>
 
+#include <algorithm>
+#include <utility>
+
 #include "base/logging.h"
 #include "base/task.h"
 #include "base/task_annotations.h"
@@ -17,7 +20,12 @@
 #include "bgp/bgp_ribout_updates.h"
 #include "bgp/bgp_update.h"
 
-using namespace std;
+using std::auto_ptr;
+using std::make_pair;
+using std::map;
+using std::pair;
+using std::swap;
+using std::vector;
 
 int SchedulingGroup::send_task_id_ = -1;
 
@@ -57,15 +65,15 @@ struct SchedulingGroup::PeerRibState {
 //
 class SchedulingGroup::PeerState {
 public:
-    typedef map<int, PeerRibState> Map;
+    typedef map<size_t, PeerRibState> Map;
 
     class iterator : public boost::iterator_facade<
         iterator, RibOut, boost::forward_traversal_tag> {
     public:
-        explicit iterator(const RibStateMap &indexmap, Map *map, int index)
+        explicit iterator(const RibStateMap &indexmap, Map *map, size_t index)
             : indexmap_(indexmap), map_(map), index_(index) {
         }
-        int index() const { return index_; }
+        size_t index() const { return index_; }
         RibState *rib_state() { return indexmap_.At(index_); }
         const PeerRibState &peer_rib_state() const { return (*map_)[index_]; }
 
@@ -86,7 +94,7 @@ public:
 
         const RibStateMap &indexmap_;
         Map *map_;
-        int index_;
+        size_t index_;
     };
 
     class circular_iterator : public boost::iterator_facade<
@@ -151,7 +159,7 @@ public:
 
     iterator begin(const RibStateMap &indexmap) {
         Map::const_iterator iter = rib_set_.begin();
-        int index = (iter != rib_set_.end() ? iter->first : -1);
+        size_t index = (iter != rib_set_.end() ? iter->first : -1);
         return iterator(indexmap, &rib_set_, index);
     }
     iterator end(const RibStateMap &indexmap) {
@@ -165,9 +173,9 @@ public:
         return circular_iterator(indexmap, &rib_set_, rib_iterator_, false);
     }
 
-    void SetIteratorStart(int start) { rib_iterator_ = start; }
+    void SetIteratorStart(size_t start) { rib_iterator_ = start; }
 
-    void SetQueueActive(int rib_index, int queue_id) {
+    void SetQueueActive(size_t rib_index, int queue_id) {
         CHECK_CONCURRENCY("bgp::SendTask");
         Map::iterator loc = rib_set_.find(rib_index);
         assert(loc != rib_set_.end());
@@ -177,7 +185,7 @@ public:
         }
     }
 
-    void SetQueueInactive(int rib_index, int queue_id) {
+    void SetQueueInactive(size_t rib_index, int queue_id) {
         CHECK_CONCURRENCY("bgp::SendTask", "bgp::PeerMembership");
         Map::iterator loc = rib_set_.find(rib_index);
         assert(loc != rib_set_.end());
@@ -187,7 +195,7 @@ public:
         }
     }
 
-    bool IsQueueActive(int rib_index, int queue_id) {
+    bool IsQueueActive(size_t rib_index, int queue_id) {
         CHECK_CONCURRENCY("bgp::SendTask");
         Map::iterator loc = rib_set_.find(rib_index);
         assert(loc != rib_set_.end());
@@ -196,11 +204,11 @@ public:
 
     int QueueCount(int queue_id) { return qactive_cnt_[queue_id]; }
 
-    void RibStateMove(PeerState *rhs, int index, int rhs_index) {
+    void RibStateMove(PeerState *rhs, size_t index, size_t rhs_index) {
         CHECK_CONCURRENCY("bgp::PeerMembership");
         Map::iterator loc = rhs->rib_set_.find(rhs_index);
         assert(loc != rhs->rib_set_.end());
-        pair<Map::iterator, bool> result = 
+        pair<Map::iterator, bool> result =
             rib_set_.insert(make_pair(index, loc->second));
         assert(result.second);
         for (int i = 0; i < RibOutUpdates::QCOUNT; i++) {
@@ -219,8 +227,8 @@ public:
 
     IPeerUpdate *peer() const { return key_; }
 
-    void set_index(int index) { index_ = index; }
-    int index() const { return index_; }
+    void set_index(size_t index) { index_ = index; }
+    size_t index() const { return index_; }
 
     bool in_sync() const { return in_sync_; }
     void clear_sync() { in_sync_ = false; }
@@ -240,7 +248,7 @@ public:
 
 private:
     IPeerUpdate *key_;
-    int index_;             // assigned from PeerStateMap in the group
+    size_t index_;             // assigned from PeerStateMap in the group
     Map rib_set_;           // list of RibOuts advertised by the peer.
     vector<int> qactive_cnt_;
     bool in_sync_;          // whether the peer may dequeue tail markers.
@@ -314,8 +322,8 @@ public:
         return iterator(indexmap, peer_set_, GroupPeerSet::npos);
     }
 
-    void set_index(int index) { index_ = index; }
-    int index() const { return index_; }
+    void set_index(size_t index) { index_ = index; }
+    size_t index() const { return index_; }
 
     bool empty() const { return peer_set_.none(); }
 
@@ -323,7 +331,7 @@ public:
 
 private:
     RibOut *key_;
-    int index_;
+    size_t index_;
     GroupPeerSet peer_set_;
     vector<bool> in_sync_;
 
@@ -395,7 +403,7 @@ struct SchedulingGroup::WorkBase {
         WPeer,
         WRibOut
     };
-    WorkBase(Type type) : type(type) { }
+    explicit WorkBase(Type type) : type(type) { }
     Type type;
 };
 
@@ -414,7 +422,7 @@ struct SchedulingGroup::WorkPeer : public SchedulingGroup::WorkBase {
 
 class SchedulingGroup::Worker : public Task {
 public:
-    Worker(SchedulingGroup *group)
+    explicit Worker(SchedulingGroup *group)
         : Task(send_task_id_), group_(group) {
     }
 
@@ -576,12 +584,12 @@ void SchedulingGroup::GetSubsetPeers(const RibOutList &list, GroupPeerSet *pg) {
 //
 // Get the index for an IPeerUpdate.
 //
-int SchedulingGroup::GetPeerIndex(IPeerUpdate *peer) const {
+size_t SchedulingGroup::GetPeerIndex(IPeerUpdate *peer) const {
     CHECK_CONCURRENCY("bgp::PeerMembership");
 
     PeerState *ps = peer_state_imap_.Find(peer);
     if (ps == NULL) {
-        return -1;
+        return BitSet::npos;
     }
     return ps->index();
 }
@@ -589,12 +597,12 @@ int SchedulingGroup::GetPeerIndex(IPeerUpdate *peer) const {
 //
 // Get the index for a RibOut.
 //
-int SchedulingGroup::GetRibOutIndex(RibOut *ribout) const {
+size_t SchedulingGroup::GetRibOutIndex(RibOut *ribout) const {
     CHECK_CONCURRENCY("bgp::PeerMembership");
 
     RibState *rs = rib_state_imap_.Find(ribout);
     if (rs == NULL) {
-        return -1;
+        return BitSet::npos;
     }
     return rs->index();
 }
@@ -616,7 +624,6 @@ void SchedulingGroup::Merge(SchedulingGroup *rhs) {
     // through each of them.
     rhs->GetPeerList(&plist);
     for (PeerList::iterator iter = plist.begin(); iter != plist.end(); ++iter) {
-
         // Create the PeerState in this SchedulingGroup if required and find
         // the PeerState in the old SchedulingGroup.
         PeerState *ps = peer_state_imap_.Locate(*iter);
@@ -625,7 +632,6 @@ void SchedulingGroup::Merge(SchedulingGroup *rhs) {
         // Now run through all the RibOuts in the old PeerState.
         for (PeerState::iterator ribiter = prev_ps->begin(rhs->rib_state_imap_);
              ribiter != prev_ps->end(rhs->rib_state_imap_); ++ribiter) {
-
             // Create the RibState in this SchedulingGroup if required and move
             // over state from the old RibState. Then setup linkage between the
             // RibState and the PeerState in this SchedulingGroup.
@@ -675,7 +681,6 @@ void SchedulingGroup::Split(SchedulingGroup *rhs, const RibOutList &rg1,
     // Walk through all the RibOuts in the list.
     for (RibOutList::const_iterator iter = rg2.begin(); iter != rg2.end();
          ++iter) {
-
         // Create new RibState and move over state from the old RibState.
         RibOut *ribout = *iter;
         RibState *rs = rhs->rib_state_imap_.Locate(ribout);
@@ -687,7 +692,6 @@ void SchedulingGroup::Split(SchedulingGroup *rhs, const RibOutList &rg1,
         GetRibPeerList(ribout, &plist);
         for (PeerList::const_iterator peeriter = plist.begin();
              peeriter != plist.end(); ++peeriter) {
-
             // Create the new PeerState if required and move over the non
             // RiBOut related state from the old PeerState.
             PeerState *ps = rhs->peer_state_imap_.Find(*peeriter);
@@ -1046,7 +1050,6 @@ bool SchedulingGroup::UpdatePeerQueue(IPeerUpdate *peer, PeerState *ps,
     for (PeerState::circular_iterator iter =
             ps->circular_begin(rib_state_imap_);
          iter != ps->circular_end(rib_state_imap_); ++iter) {
-
         // Skip if this queue is not active in the PeerRibState.
         if (!BitIsSet(iter.peer_rib_state().qactive, queue_id))
             continue;
@@ -1138,7 +1141,7 @@ void SchedulingGroup::UpdatePeer(IPeerUpdate *peer) {
 bool SchedulingGroup::CheckInvariants() const {
     int grp_peer_count = 0;
     int peer_grp_count = 0;
-    for (int i = 0; i < (int) rib_state_imap_.size(); i++) {
+    for (size_t i = 0; i < rib_state_imap_.size(); i++) {
         if (!rib_state_imap_.bits().test(i)) {
             continue;
         }
@@ -1152,7 +1155,7 @@ bool SchedulingGroup::CheckInvariants() const {
             grp_peer_count++;
         }
     }
-    for (int i = 0; i < (int) peer_state_imap_.size(); i++) {
+    for (size_t i = 0; i < peer_state_imap_.size(); i++) {
         if (!peer_state_imap_.bits().test(i)) {
             continue;
         }
@@ -1276,13 +1279,13 @@ void SchedulingGroupManager::Leave(RibOut *ribout, IPeerUpdate *peer) {
 
     // If there are no more peers interested in the ribout, remove the ribout
     // from the RiboutMap.
-    if (sg->GetRibOutIndex(ribout) == -1) {
+    if (sg->GetRibOutIndex(ribout) == BitSet::npos) {
         ribout_map_.erase(ribout);
     }
 
     // If there are no more ribouts that the peer is interested in, remove the
     // peer from the PeerMap.
-    if (sg->GetPeerIndex(peer) == -1) {
+    if (sg->GetPeerIndex(peer) == BitSet::npos) {
         peer_map_.erase(peer);
     }
 
