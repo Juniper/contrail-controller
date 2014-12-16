@@ -430,7 +430,7 @@ void McastSGEntry::DeleteForwarder(McastForwarder *forwarder) {
 //
 // We simply use the RD for the forest node.
 //
-RouteDistinguisher McastSGEntry::GetSourceRd() {
+const RouteDistinguisher &McastSGEntry::GetSourceRd() const {
     if (!forest_node_)
         return RouteDistinguisher::kZeroRd;
     return forest_node_->route()->GetPrefix().route_distinguisher();
