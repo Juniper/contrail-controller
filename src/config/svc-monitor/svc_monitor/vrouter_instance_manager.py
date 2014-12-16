@@ -17,6 +17,10 @@ class VRouterInstanceManager(VRouterHostedManager):
                             "service instance %s" % si_obj.get_fq_name_str())
             return
 
+        self.db.service_instance_insert(si_obj.get_fq_name_str(),
+                                        {'max-instances': str(1),
+                                         'state': 'launching'})
+
         # populate nic information
         nics = self._get_nic_info(si_obj, si_props, st_props)
 
@@ -79,7 +83,7 @@ class VRouterInstanceManager(VRouterHostedManager):
             vrouter_name = vrouter_back_refs[0]['to'][-1]
             state = 'active'
 
-        vm_db_entry = self._set_vm_db_info(1, instance_name,
+        vm_db_entry = self._set_vm_db_info(0, instance_name,
                                            vm_obj.uuid, state, vrouter_name)
         self.db.service_instance_insert(si_obj.get_fq_name_str(),
                                         vm_db_entry)
@@ -90,3 +94,4 @@ class VRouterInstanceManager(VRouterHostedManager):
                                      vms=[{'uuid': vm_obj.uuid,
                                            'vr_name': vrouter_name}],
                                      st_name=st_obj.get_fq_name_str())
+
