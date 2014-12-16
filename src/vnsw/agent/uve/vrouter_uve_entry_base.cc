@@ -500,6 +500,7 @@ bool VrouterUveEntryBase::SendVrouterMsg() {
         stats.set_used_sys_mem(cpu_load_info.get_sys_mem_info().get_used());
         stats.set_one_min_avg_cpuload(
                 cpu_load_info.get_cpuload().get_one_min_avg());
+        stats.set_res_mem(cpu_load_info.get_meminfo().get_res());
         DispatchVrouterStatsMsg(stats);
 
         //Stats oracle interface for cpu and mem stats. Needs to be sent
