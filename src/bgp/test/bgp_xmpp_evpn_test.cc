@@ -2,6 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <boost/assign/list_of.hpp>
+
 #include <sstream>
 
 #include "base/test/task_test_util.h"
@@ -17,6 +19,7 @@
 #include "xmpp/xmpp_server.h"
 
 using namespace std;
+using boost::assign::list_of;
 
 class BgpXmppChannelMock : public BgpXmppChannel {
 public:
@@ -1402,6 +1405,23 @@ protected:
         bs_y_->Configure(config);
     }
 
+    bool CheckRouteSecurityGroup(test::NetworkAgentMockPtr agent,
+        const string &network, const string &prefix, vector<int> &sg) {
+        const autogen::EnetItemType *rt =
+            agent->EnetRouteLookup(network, prefix);
+        if (!rt)
+            return false;
+        if (rt->entry.security_group_list.security_group != sg)
+            return false;
+        return true;
+    }
+
+    void VerifyRouteSecurityGroup(test::NetworkAgentMockPtr agent,
+        const string &network, const string &prefix, vector<int> &sg) {
+        TASK_UTIL_EXPECT_TRUE(
+            CheckRouteSecurityGroup(agent, network, prefix, sg));
+    }
+
     EventManager evm_;
     ServerThread thread_;
     BgpServerTestPtr bs_x_;
@@ -1527,6 +1547,80 @@ TEST_F(BgpXmppEvpnTest2, RouteAdd2) {
     TASK_UTIL_EXPECT_EQ(2, agent_a_->EnetRouteCount("blue"));
     TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount());
     TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount("blue"));
+
+    // Delete route from agent A.
+    agent_a_->DeleteEnetRoute("blue", eroute_a.str());
+    task_util::WaitForIdle();
+
+    // Delete route from agent B.
+    agent_b_->DeleteEnetRoute("blue", eroute_b.str());
+    task_util::WaitForIdle();
+
+    // Verify that there are no routes on the agents.
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount("blue"));
+    TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount("blue"));
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Routes from 2 agents are advertised to each other.
+//
+TEST_F(BgpXmppEvpnTest2, RouteAddWithSecurityGroup) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->EnetSubscribe("blue", 1);
+    agent_b_->EnetSubscribe("blue", 1);
+
+    // Add route from agent A.
+    stringstream eroute_a;
+    eroute_a << "aa:00:00:00:00:01,10.1.1.1/32";
+    vector<int> sg1 = list_of(100)(101)(102);
+    test::NextHop nexthop1("192.168.1.1");
+    test::RouteAttributes attr1(sg1);
+    agent_a_->AddEnetRoute("blue", eroute_a.str(), nexthop1, attr1);
+    task_util::WaitForIdle();
+
+    // Add route from agent B.
+    stringstream eroute_b;
+    eroute_b << "bb:00:00:00:00:01,10.1.2.1/32";
+    vector<int> sg2 = list_of(200)(201)(202);
+    test::NextHop nexthop2("192.168.1.2");
+    test::RouteAttributes attr2(sg2);
+    agent_b_->AddEnetRoute("blue", eroute_b.str(), nexthop2, attr2);
+    task_util::WaitForIdle();
+
+    // Verify that routes showed up on the agents.
+    TASK_UTIL_EXPECT_EQ(2, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_a_->EnetRouteCount("blue"));
+    TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount("blue"));
+
+    // Verify security groups on A.
+    VerifyRouteSecurityGroup(agent_a_, "blue", eroute_a.str(), sg1);
+    VerifyRouteSecurityGroup(agent_a_, "blue", eroute_b.str(), sg2);
+
+    // Verify security groups on B.
+    VerifyRouteSecurityGroup(agent_b_, "blue", eroute_a.str(), sg1);
+    VerifyRouteSecurityGroup(agent_b_, "blue", eroute_b.str(), sg2);
 
     // Delete route from agent A.
     agent_a_->DeleteEnetRoute("blue", eroute_a.str());
