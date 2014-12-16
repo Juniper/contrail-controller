@@ -34,6 +34,7 @@ from pycassa.util import *
 from vnc_api import vnc_api
 from novaclient import exceptions as nc_exc
 
+from cfgm_common.exceptions import ResourceExistsError
 
 def stub(*args, **kwargs):
     pass
@@ -811,6 +812,8 @@ class FakeKazooClient(object):
     # end __init__
 
     def create(self, path, value='', *args, **kwargs):
+        if path in self._values:
+            raise ResourceExistsError(path, str(self._values[path]))
         self._values[path] = value
     # end create
 
@@ -878,6 +881,8 @@ class ZookeeperClientMock(object):
     # end read_node
 
     def create_node(self, path, value=''):
+        if path in self._values:
+            raise ResourceExistsError(path, str(self._values[path]))
         self._values[path] = value
     # end create_node
 
