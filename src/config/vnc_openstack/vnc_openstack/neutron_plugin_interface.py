@@ -106,6 +106,7 @@ class NeutronPluginInterface(object):
                 self._vnc_api_ip, self._vnc_api_port,
                 user_info={'user_id': user_id, 'role': role},
                 list_optimization_enabled=self._list_optimization_enabled,
+                contrail_extensions_enabled=self._contrail_extensions_enabled,
                 apply_subnet_host_routes=self._sn_host_route)
             self._cfgdb_map[user_id].manager = self
 
