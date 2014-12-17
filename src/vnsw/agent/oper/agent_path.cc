@@ -35,7 +35,8 @@ AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     tunnel_type_(TunnelType::ComputeType(TunnelType::AllType())),
     vrf_name_(""), gw_ip_(0), unresolved_(true), is_stale_(false),
     is_subnet_discard_(false), dependant_rt_(rt), path_preference_(),
-    local_ecmp_mpls_label_(rt), composite_nh_key_(NULL), subnet_gw_ip_() {
+    local_ecmp_mpls_label_(rt), composite_nh_key_(NULL), subnet_gw_ip_(),
+    flood_arp_(false) {
 }
 
 AgentPath::~AgentPath() {
@@ -603,18 +604,12 @@ bool ReceiveRoute::AddChangePath(Agent *agent, AgentPath *path,
 bool MulticastRoute::AddChangePath(Agent *agent, AgentPath *path,
                                    const AgentRoute *rt) {
     bool ret = false;
-    bool is_subnet_discard = false;
     NextHop *nh = NULL;
 
     agent->nexthop_table()->Process(composite_nh_req_);
     nh = static_cast<NextHop *>(agent->nexthop_table()->
             FindActiveEntry(composite_nh_req_.key.get()));
     assert(nh);
-    if (nh) {
-        if (nh->GetType() == NextHop::DISCARD) {
-            is_subnet_discard = true;
-        }
-    }
     ret = MulticastRoute::CopyPathParameters(agent,
                                              path,
                                              vn_name_,
@@ -622,7 +617,6 @@ bool MulticastRoute::AddChangePath(Agent *agent, AgentPath *path,
                                              vxlan_id_,
                                              label_,
                                              tunnel_type_,
-                                             is_subnet_discard,
                                              nh);
     return ret;
 }
@@ -634,7 +628,6 @@ bool MulticastRoute::CopyPathParameters(Agent *agent,
                                         uint32_t vxlan_id,
                                         uint32_t label,
                                         uint32_t tunnel_type,
-                                        bool is_subnet_discard,
                                         NextHop *nh) {
     path->set_dest_vn_name(vn_name);
     path->set_unresolved(unresolved);
@@ -654,7 +647,6 @@ bool MulticastRoute::CopyPathParameters(Agent *agent,
         path->set_tunnel_type(new_tunnel_type);
     }
 
-    path->set_is_subnet_discard(is_subnet_discard);
     path->ChangeNH(agent, nh);
 
     return true;
@@ -678,11 +670,64 @@ bool PathPreferenceData::AddChangePath(Agent *agent, AgentPath *path,
     return ret;
 }
 
+bool PathPreferenceData::AddChangePathNonConst(Agent *agent, AgentPath *path,
+                                               AgentRoute *rt) {
+    return AddChangePath(agent, path, rt);
+}
+
 // Subnet Route route data
-SubnetRoute::SubnetRoute(const string &vn_name,
-                         uint32_t vxlan_id, DBRequest &nh_req) :
-    MulticastRoute(vn_name, 0, vxlan_id, TunnelType::AllType(), nh_req) {
-        is_multicast_ = false;
+SubnetRoute::SubnetRoute(DBRequest &nh_req) : AgentRouteData(true) {
+    nh_req_.Swap(&nh_req);
+}
+
+bool SubnetRoute::AddChangePath(Agent *agent, AgentPath *path,
+                                const AgentRoute *rt) {
+    agent->nexthop_table()->Process(nh_req_);
+    NextHop *nh = static_cast<NextHop *>(agent->nexthop_table()->
+                                    FindActiveEntry(nh_req_.key.get()));
+    assert(nh);
+    
+    bool ret = false;
+
+    if (path->ChangeNH(agent, nh) == true) {
+        ret = true;
+    }
+    path->set_is_subnet_discard(true);
+    path->set_flood_arp(true);
+
+    AgentRouteTable *table = static_cast<AgentRouteTable *>(rt->get_table());
+    if ((table->GetTableType() != Agent::INET4_UNICAST) &&
+        (table->GetTableType() != Agent::INET6_UNICAST))
+        return false;
+
+    InetUnicastAgentRouteTable *uc_rt_table =
+        static_cast<InetUnicastAgentRouteTable *>(table);
+    const InetUnicastRouteEntry *uc_rt =
+        static_cast<const InetUnicastRouteEntry *>(rt);
+    uc_rt_table->ResyncSubnetRoutes(uc_rt, true);
+    return ret;
+}
+
+bool IpamSubnetData::AddChangePathNonConst(Agent *agent, AgentPath *path,
+                                           AgentRoute *rt) {
+    bool ret = false;
+    const AgentPath *active_path = rt->GetActivePath();
+    InetUnicastRouteEntry *uc_rt =
+        static_cast<InetUnicastRouteEntry *>(rt);
+
+    for (Route::PathList::iterator it = uc_rt->GetPathList().begin();
+         it != uc_rt->GetPathList().end(); it++) {
+        AgentPath *path = static_cast<AgentPath *>(it.operator->());
+        if ((ipam_subnet_add_ != path->flood_arp()) &&
+            (path->nexthop(agent)->GetType() != NextHop::RESOLVE)) {
+            path->set_flood_arp(ipam_subnet_add_);
+
+            if (path == active_path)
+                ret = true;
+        }
+    }
+
+    return ret;
 }
 
 ///////////////////////////////////////////////
