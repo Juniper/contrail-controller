@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_bgp_message_builder_h
-#define ctrlplane_bgp_message_builder_h
+#ifndef SRC_BGP_BGP_MESSAGE_BUILDER_H_
+#define SRC_BGP_BGP_MESSAGE_BUILDER_H_
 
 #include "bgp/bgp_proto.h"
 #include "bgp/message_builder.h"
@@ -41,4 +41,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(BgpMessageBuilder);
 };
 
-#endif
+#endif  // SRC_BGP_BGP_MESSAGE_BUILDER_H_
