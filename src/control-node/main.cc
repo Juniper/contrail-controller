@@ -288,6 +288,7 @@ bool ControlNodeInfoLogger(BgpSandeshContext &ctx) {
         if (prev_state.get_cpu_info().get_meminfo() != 
                 cpu_load_info.get_meminfo()) {
             state.set_virt_mem(cpu_load_info.get_meminfo().get_virt());
+            state.set_res_mem(cpu_load_info.get_meminfo().get_res());
         }
         prev_state.set_cpu_info(cpu_load_info);
         change = true;
