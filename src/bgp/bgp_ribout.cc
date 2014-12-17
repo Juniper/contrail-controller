@@ -14,7 +14,7 @@
 #include "bgp/bgp_update.h"
 #include "bgp/scheduling_group.h"
 
-using namespace std;
+using std::find;
 
 //
 // Implement operator< for RibExportPolicy by comparing each of the fields.
@@ -62,47 +62,32 @@ RibOutAttr::RibOutAttr(const BgpAttr *attr, uint32_t label, bool include_nh)
 }
 
 RibOutAttr::RibOutAttr(BgpRoute *route, const BgpAttr *attr, bool is_xmpp) {
-
-    //
     // Attribute should not be set already
-    //
     assert(!attr_out_);
 
-    //
     // Always encode best path's attributes (including it's nexthop) and label.
-    //
     set_attr(attr, route->BestPath()->GetLabel());
 
-    //
     // Do not encode ECMP NextHops for non XMPP peers.
-    //
     if (!is_xmpp) return;
 
     for (Route::PathList::iterator it = route->GetPathList().begin();
         it != route->GetPathList().end(); it++) {
         const BgpPath *path = static_cast<BgpPath *>(it.operator->());
 
-        //
         // Skip the best path.
-        //
         if (path == route->BestPath()) continue;
 
-        //
         // Check if the path is ECMP eligible. If not, bail out, as the paths
         // are sorted in cost order anyways.
-        //
         if (route->BestPath()->PathCompare(*path, true)) break;
 
-        //
         // We have an eligible ECMP path.
-        //
         NextHop nexthop(path->GetAttr()->nexthop(), path->GetLabel(),
                 path->GetAttr()->ext_community());
 
-        //
         // Skip if we have already encoded this next-hop
-        //
-        if (std::find(nexthop_list_.begin(), nexthop_list_.end(), nexthop) !=
+        if (find(nexthop_list_.begin(), nexthop_list_.end(), nexthop) !=
                 nexthop_list_.end()) {
             continue;
         }
@@ -126,7 +111,7 @@ int RibOutAttr::CompareTo(const RibOutAttr &rhs) const {
     if (nexthop_list_.size() > rhs.nexthop_list_.size()) {
         return 1;
     }
-    for(size_t i = 0; i < nexthop_list_.size(); i++) {
+    for (size_t i = 0; i < nexthop_list_.size(); i++) {
         int cmp = nexthop_list_[i].CompareTo(rhs.nexthop_list_[i]);
         if (cmp) {
             return cmp;
@@ -153,11 +138,8 @@ void RibOutAttr::set_attr(const BgpAttrPtr &attrp, uint32_t label) {
     bool nexthop_changed = attr_out_->nexthop() != attrp->nexthop();
     attr_out_ = attrp;
 
+    // Update the next-hop list ? We would need label too then.
     if (nexthop_changed) {
-
-        //
-        // Update the next-hop list ? We would need label too then.
-        //
         assert(false);
     }
 }
