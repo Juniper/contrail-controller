@@ -2,10 +2,13 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef __BGP__BGP_FACTORY_H__
-#define __BGP__BGP_FACTORY_H__
+#ifndef SRC_BGP_BGP_FACTORY_H_
+#define SRC_BGP_BGP_FACTORY_H_
 
 #include <boost/function.hpp>
+
+#include <string>
+
 #include "base/factory.h"
 
 class BgpConfigListener;
@@ -56,4 +59,4 @@ class BgpObjectFactory : public Factory<BgpObjectFactory> {
                     const BgpInstanceConfig *);
 };
 
-#endif
+#endif  // SRC_BGP_BGP_FACTORY_H_
