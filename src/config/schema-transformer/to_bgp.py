@@ -2132,7 +2132,9 @@ class VirtualMachineInterfaceST(DictST):
 
             address = AddressType(subnet=SubnetType(
                 ip_obj.get_instance_ip_address(), 32))
-            mc = MatchConditionType(src_address=address)
+            mc = MatchConditionType(src_address=address,
+                src_port=PortType(-1, -1), dst_port=PortType(-1, -1),
+                protocol="any")
 
             ri_name = vn.obj.get_fq_name_str() + ':' + vn._default_ri_name
             vrf_rule = VrfAssignRuleType(match_condition=mc,
