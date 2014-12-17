@@ -130,6 +130,8 @@ public:
     const uint32_t GetVmIpPlen() const {return plen_;}
 
 private:
+    bool ReComputeMulticastPaths(AgentPath *path, bool del);
+
     MacAddress mac_;
     Ip4Address vm_ip_;
     uint32_t plen_;
