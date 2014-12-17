@@ -17,7 +17,7 @@
 
 class McastTreeManager::DeleteActor : public LifetimeActor {
 public:
-    DeleteActor(McastTreeManager *tree_manager)
+    explicit DeleteActor(McastTreeManager *tree_manager)
         : LifetimeActor(tree_manager->table_->routing_instance()->server()->
                 lifetime_manager()),
           tree_manager_(tree_manager) {
@@ -869,7 +869,6 @@ void McastTreeManager::TreeNodeListener(McastManagerPartition *partition,
 
     DBState *dbstate = route->GetState(table_, listener_id_);
     if (!dbstate) {
-
         // We have no previous DBState for this route.
         // Bail if the route is not valid.
         if (!route->IsValid())
@@ -889,9 +888,7 @@ void McastTreeManager::TreeNodeListener(McastManagerPartition *partition,
         // another node.
         if (route->GetPrefix().type() == ErmVpnPrefix::LocalTreeRoute)
             sg_entry->UpdateLocalTreeRoute();
-
     } else {
-
         McastSGEntry *sg_entry = partition->FindSGEntry(
             route->GetPrefix().group(), route->GetPrefix().source());
         assert(sg_entry);
@@ -899,18 +896,14 @@ void McastTreeManager::TreeNodeListener(McastManagerPartition *partition,
         assert(forwarder);
 
         if (!route->IsValid()) {
-
             // Delete the McastForwarder associated with the route.
             route->ClearState(table_, listener_id_);
             sg_entry->DeleteForwarder(forwarder);
             delete forwarder;
-
         } else if (forwarder->Update(route)) {
-
             // Trigger update of the distribution tree.
             sg_entry->ChangeForwarder(forwarder);
         }
-
     }
 }
 
@@ -925,7 +918,6 @@ void McastTreeManager::TreeResultListener(McastManagerPartition *partition,
 
     DBState *dbstate = route->GetState(table_, listener_id_);
     if (!dbstate) {
-
         // We have no previous DBState for this route.
         // Bail if the route is not valid.
         if (!route->IsValid())
@@ -942,9 +934,7 @@ void McastTreeManager::TreeResultListener(McastManagerPartition *partition,
         route->SetState(table_, listener_id_, sg_entry);
         sg_entry->set_tree_result_route(route);
         sg_entry->NotifyForestNode();
-
     } else {
-
         McastSGEntry *sg_entry = dynamic_cast<McastSGEntry *>(dbstate);
         assert(sg_entry);
 
