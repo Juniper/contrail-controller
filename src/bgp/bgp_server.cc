@@ -25,16 +25,14 @@
 #include "bgp/routing-instance/service_chaining.h"
 #include "io/event_manager.h"
 
-using namespace std;
-using namespace boost::asio;
-using namespace boost::assign;
 using boost::system::error_code;
+using std::string;
 
 // The ConfigUpdater serves as glue between the BgpConfigManager and the
 // BgpServer.
 class BgpServer::ConfigUpdater {
 public:
-    ConfigUpdater(BgpServer *server) : server_(server) {
+    explicit ConfigUpdater(BgpServer *server) : server_(server) {
         BgpConfigManager::Observers obs;
         obs.instance =
             boost::bind(&ConfigUpdater::ProcessInstanceConfig, this, _1, _2);
@@ -48,7 +46,6 @@ public:
 
     void ProcessProtocolConfig(const BgpProtocolConfig *protocol_config,
                                BgpConfigManager::EventType event) {
-
         const string &instance_name = protocol_config->InstanceName();
 
         //
@@ -158,7 +155,7 @@ private:
 
 class BgpServer::DeleteActor : public LifetimeActor {
 public:
-    DeleteActor(BgpServer *server)
+    explicit DeleteActor(BgpServer *server)
         : LifetimeActor(server->lifetime_manager()), server_(server) {
     }
     virtual bool MayDelete() const {
@@ -292,19 +289,16 @@ BgpPeer *BgpServer::FindPeer(const string &name) {
     return (loc != peer_list_.end() ? loc->second : NULL);
 }
 
-const std::string &BgpServer::localname() const {
+const string &BgpServer::localname() const {
     return config_mgr_->localname();
 }
 
-boost::asio::io_service *BgpServer::ioservice() { 
-   return session_manager()->event_manager()->io_service(); 
+boost::asio::io_service *BgpServer::ioservice() {
+    return session_manager()->event_manager()->io_service();
 }
 
 bool BgpServer::IsPeerCloseGraceful() {
-
-    //
     // If the server is deleted, do not do graceful restart
-    //
     if (deleter()->IsDeleted()) return false;
 
     static bool init = false;
@@ -325,10 +319,10 @@ uint32_t BgpServer::num_routing_instance() const {
 
 uint32_t BgpServer::get_output_queue_depth() const {
     uint32_t out_q_depth = 0;
-    RoutingInstanceMgr::RoutingInstanceIterator rit = inst_mgr_->begin();
-    for (;rit != inst_mgr_->end(); rit++) {
+    for (RoutingInstanceMgr::RoutingInstanceIterator rit = inst_mgr_->begin();
+         rit != inst_mgr_->end(); ++rit) {
         RoutingInstance::RouteTableList const rt_list = rit->GetTables();
-        for (RoutingInstance::RouteTableList::const_iterator it = 
+        for (RoutingInstance::RouteTableList::const_iterator it =
              rt_list.begin(); it != rt_list.end(); ++it) {
             BgpTable *table = it->second;
             size_t markers;
@@ -339,8 +333,8 @@ uint32_t BgpServer::get_output_queue_depth() const {
 }
 
 void BgpServer::VisitBgpPeers(BgpServer::VisitorFn fn) const {
-    RoutingInstanceMgr::RoutingInstanceIterator rit = inst_mgr_->begin();
-    for (;rit != inst_mgr_->end(); rit++) {
+    for (RoutingInstanceMgr::RoutingInstanceIterator rit = inst_mgr_->begin();
+         rit != inst_mgr_->end(); ++rit) {
         BgpPeerKey key = BgpPeerKey();
         while (BgpPeer *peer = rit->peer_manager()->NextPeer(key)) {
             fn(peer);
