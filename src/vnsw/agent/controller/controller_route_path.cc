@@ -128,6 +128,13 @@ bool ControllerVmRoute::AddChangePath(Agent *agent, AgentPath *path,
     nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
     path->set_server_ip(server_ip_);
 
+    if ((rt->GetTableType() == Agent::INET4_UNICAST) ||
+        (rt->GetTableType() == Agent::INET6_UNICAST)) {
+        const InetUnicastRouteEntry *inet_rt =
+            static_cast<const InetUnicastRouteEntry *>(rt);
+        path->set_flood_arp(inet_rt->FloodArpEligibility());
+    }
+
     if (path->tunnel_type() != new_tunnel_type) {
         path->set_tunnel_type(new_tunnel_type);
         ret = true;

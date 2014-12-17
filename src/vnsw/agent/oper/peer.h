@@ -32,6 +32,7 @@ public:
     typedef std::map<std::string, Peer *> PeerMap;
     typedef std::pair<std::string, Peer *> PeerPair;
     enum Type {
+        MULTICAST_PEER,
         BGP_PEER,
         LINKLOCAL_PEER,
         ECMP_PEER,
@@ -40,7 +41,6 @@ public:
         LOCAL_PEER,
         NOVA_PEER,
         VGW_PEER,
-        MULTICAST_PEER,
         MULTICAST_FABRIC_TREE_BUILDER,
         OVS_PEER,
         MULTICAST_TOR_PEER
