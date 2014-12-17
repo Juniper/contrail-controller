@@ -52,6 +52,7 @@ public:
     ControllerPeerPath(const Peer *peer);
     ~ControllerPeerPath() { }
 
+    virtual bool UpdateRoute(AgentRoute *route) {return false;}
     // Only to be used for tests
     void set_sequence_number(uint64_t sequence_number) {
         sequence_number_ = sequence_number;
@@ -87,6 +88,7 @@ public:
 
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
                                const AgentRoute *rt);
+    virtual bool UpdateRoute(AgentRoute *route);
     virtual string ToString() const {return "remote VM";}
     virtual bool IsPeerValid() const;
     const SecurityGroupList &sg_list() const {return sg_list_;}

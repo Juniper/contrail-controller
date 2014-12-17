@@ -155,6 +155,7 @@ public:
         return new AgentDBTablePartition(this, index);
     };
     virtual void OnZeroRefcount(AgentDBEntry *e) {};
+    virtual void NotifyEntry(DBEntryBase *entry);
     // Dummy notification
     void Notify(DBTablePartBase *partition, DBEntryBase *entry) {
     };

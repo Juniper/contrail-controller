@@ -230,6 +230,7 @@ struct RouteUcSandeshData {
     2: i32 src_plen;                    // prefix length
     3: string src_vrf (link="VrfListReq"); // VRF
     4: list<PathSandeshData> path_list; // paths
+    5: optional bool ipam_associated;   // IPAM associated 
 }
 
 struct RouteMcSandeshData {

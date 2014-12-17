@@ -101,6 +101,28 @@ bool ControllerVmRoute::IsPeerValid() const {
     return CheckPeerValidity(channel(), sequence_number());
 }
 
+bool ControllerVmRoute::UpdateRoute(AgentRoute *rt) {
+    bool ret = false;
+    //For IP subnet routes with Tunnel NH, check if arp flood
+    //needs to be enabled for the path.
+    if ((rt->GetTableType() == Agent::INET4_UNICAST) ||
+        (rt->GetTableType() == Agent::INET6_UNICAST)) {
+        InetUnicastRouteEntry *inet_rt =
+            static_cast<InetUnicastRouteEntry *>(rt);
+        //If its the IPAM route then no change required neither
+        //super net needs to be searched.
+        if (inet_rt->ipam_associated())
+            return ret;
+
+        bool ipam_associated = inet_rt->IpamAssociated();
+        if (inet_rt->ipam_associated() != ipam_associated) {
+            inet_rt->set_ipam_associated(ipam_associated);
+            ret = true;
+        }
+    }
+    return ret;
+ }
+
 bool ControllerVmRoute::AddChangePath(Agent *agent, AgentPath *path,
                                       const AgentRoute *rt) {
     bool ret = false;

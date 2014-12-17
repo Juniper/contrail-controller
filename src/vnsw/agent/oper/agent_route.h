@@ -56,6 +56,7 @@ struct AgentRouteData : public AgentData {
     enum Type {
         ADD_DEL_CHANGE,
         ROUTE_PREFERENCE_CHANGE,
+        IPAM_SUBNET,
     };
     AgentRouteData(bool is_multicast) : type_(ADD_DEL_CHANGE),
     is_multicast_(is_multicast) { }
@@ -67,6 +68,7 @@ struct AgentRouteData : public AgentData {
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
                                const AgentRoute *rt) = 0;
     virtual bool IsPeerValid() const {return true;}
+    virtual bool UpdateRoute(AgentRoute *rt) {return false;}
 
     bool is_multicast() const {return is_multicast_;}
 
@@ -114,6 +116,8 @@ public:
 
     virtual void ProcessDelete(AgentRoute *rt) { }
     virtual void ProcessAdd(AgentRoute *rt) { }
+    //Entry notification
+    virtual void NotifyEntry(AgentRoute *entry);
 
     // Unresolved route tree accessors
     UnresolvedRouteTree::const_iterator unresolved_route_begin() const {
@@ -249,7 +253,6 @@ public:
     void FillTrace(RouteInfo &route, Trace event, const AgentPath *path);
     bool WaitForTraffic() const;
 protected:
-    bool ReComputeMulticastPaths(AgentPath *path, bool del);
     void SetVrf(VrfEntryRef vrf) { vrf_ = vrf; }
     void RemovePathInternal(AgentPath *path);
     void RemovePath(AgentPath *path);

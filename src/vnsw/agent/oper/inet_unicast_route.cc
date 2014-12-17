@@ -171,6 +171,58 @@ void InetUnicastAgentRouteTable::ReEvaluatePaths(const string &vrf_name,
     InetUnicastTableEnqueue(Agent::GetInstance(), vrf_name, &rt_req);
 }
 
+/*
+ * Traverse all smaller subnets w.r.t. route sent and mark the arp flood flag
+ * accordingly.
+ */
+bool InetUnicastAgentRouteTable::ResyncSubnetRoutes(const InetUnicastRouteEntry *rt,
+                                                    bool add_change)
+{
+    const IpAddress addr = rt->addr();
+    uint16_t plen = rt->plen();
+    InetUnicastRouteEntry *lpm_rt = GetNextNonConst(rt);
+
+    Ip4Address v4_parent_mask;
+    Ip6Address v6_parent_mask;
+
+    if (GetTableType() == Agent::INET4_UNICAST) {
+        v4_parent_mask = Address::GetIp4SubnetAddress(addr.to_v4(),
+                                                      plen);
+    } else {
+        v6_parent_mask = Address::GetIp6SubnetAddress(addr.to_v6(),
+                                                      plen);
+    }
+
+    while ((lpm_rt != NULL) && (plen < lpm_rt->plen())) {
+        if (GetTableType() == Agent::INET4_UNICAST) {
+            Ip4Address node_mask =
+                Address::GetIp4SubnetAddress(lpm_rt->addr().to_v4(),
+                                             plen);
+            if (v4_parent_mask != node_mask)
+                break;
+
+        } else {
+            Ip6Address node_mask =
+                Address::GetIp6SubnetAddress(lpm_rt->addr().to_v6(),
+                                             plen);
+            if (v6_parent_mask != node_mask)
+                break;
+        }
+
+        //Ignore all non subnet routes.
+        if (lpm_rt->IsHostRoute() == false) {
+            if (lpm_rt->ipam_associated() != add_change) {
+                lpm_rt->set_ipam_associated(add_change);
+                //Send notify 
+                NotifyEntry(lpm_rt);
+            }
+        }
+
+        lpm_rt = GetNextNonConst(lpm_rt);
+    }
+    return false;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Inet4UnicastAgentRouteEntry functions
 /////////////////////////////////////////////////////////////////////////////
@@ -178,7 +230,7 @@ InetUnicastRouteEntry::InetUnicastRouteEntry(VrfEntry *vrf,
                                              const IpAddress &addr,
                                              uint8_t plen,
                                              bool is_multicast) :
-    AgentRoute(vrf, is_multicast), plen_(plen) {
+    AgentRoute(vrf, is_multicast), plen_(plen), ipam_associated_(false) {
     if (addr.is_v4()) {
         addr_ = Address::GetIp4SubnetAddress(addr.to_v4(), plen);
     } else {
@@ -243,6 +295,19 @@ void InetUnicastRouteEntry::SetKey(const DBRequestKey *key) {
     IpAddress tmp(k->addr());
     set_addr(tmp);
     set_plen(k->plen());
+}
+
+bool InetUnicastRouteEntry::IsHostRoute() const {
+    InetUnicastAgentRouteTable *table =
+        static_cast<InetUnicastAgentRouteTable *>(get_table());
+    if (table->GetTableType() == Agent::INET4_UNICAST) {
+        if (plen_ != Address::kMaxV4PrefixLen)
+            return false;
+    } else if (table->GetTableType() == Agent::INET6_UNICAST) {
+        if (plen_ != Address::kMaxV6PrefixLen)
+            return false;
+    }
+    return true;
 }
 
 bool InetUnicastRouteEntry::ModifyEcmpPath(const IpAddress &dest_addr,
@@ -405,26 +470,57 @@ bool InetUnicastRouteEntry::EcmpDeletePath(AgentPath *path) {
     return true;
 }
 
-bool InetUnicastRouteEntry::ReComputePathAdd(AgentPath *path) {
-    Agent *agent = 
-        (static_cast<InetUnicastAgentRouteTable *> (get_table()))->agent();
-    AgentPath *local_path = FindPath(agent->local_peer());
-    if (local_path && local_path->is_subnet_discard()) {
-        return ReComputeMulticastPaths(path, false);
+/*
+ * This routine finds out if there is supernet for this subnet route and that
+ * is used to inherit flood flag. In case supernet is pointing to resolve i.e.
+ * gateway without having Ipam path, then search continues further
+ */
+bool InetUnicastRouteEntry::IpamAssociated() const {
+    if (IsHostRoute())
+        return false;
+
+    //Local path present means that this route itself was programmed
+    //because of IPAM add as well and hence its eligible for flood in
+    //all paths where NH is tunnel.
+    InetUnicastAgentRouteTable *table =
+        static_cast<InetUnicastAgentRouteTable *>(get_table());
+
+    //Search for supernet, if none then dont flood else again search for
+    //local path. If found then mark for flood otherwise check for active path
+    //and retain flood flag from that path.
+    uint16_t plen = plen_ - 1;
+    while (plen != 0) {
+        InetUnicastRouteEntry key(NULL, addr_, plen, false);
+        InetUnicastRouteEntry *supernet_rt = table->FindRouteUsingKey(key);
+        
+        if (supernet_rt == NULL)
+            return false;
+
+        return supernet_rt->ipam_associated();
+        plen--;
     }
+
+    return false;
+}
+
+bool InetUnicastRouteEntry::ReComputePathAdd(AgentPath *path) {
     // ECMP path are managed by route module. Update ECMP path with
     // addition of new path
     return EcmpAddPath(path);
 }
 
 bool InetUnicastRouteEntry::ReComputePathDeletion(AgentPath *path) {
-    Agent *agent = 
-        (static_cast<InetUnicastAgentRouteTable *> (get_table()))->agent();
-    AgentPath *local_path = FindPath(agent->local_peer());
-    if (local_path && local_path->is_subnet_discard()) {
-        return ReComputeMulticastPaths(path, true);
+    //Subnet discard = Ipam subnet route.
+    //Ipam path is getting deleted so all the smaller subnets should be
+    //resynced to remove the arp flood marking.
+    if (path->is_subnet_discard()) {
+        //Reset flag on route as ipam is going off.
+        ipam_associated_ = false;
+        InetUnicastAgentRouteTable *uc_rt_table =
+            static_cast<InetUnicastAgentRouteTable *>(get_table());
+        uc_rt_table->ResyncSubnetRoutes(this, false);
+        return true;
     }
-
     // ECMP path are managed by route module. Update ECMP path with
     // deletion of new path
     return EcmpDeletePath(path);
@@ -720,6 +816,7 @@ bool InetUnicastRouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
     RouteUcSandeshData data;
     data.set_src_ip(addr_.to_string());
     data.set_src_plen(plen_);
+    data.set_ipam_associated(ipam_associated_);
     data.set_src_vrf(vrf()->GetName());
     for (Route::PathList::const_iterator it = GetPathList().begin();
          it != GetPathList().end(); it++) {
@@ -1009,38 +1106,6 @@ InetUnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
 }
 
 void 
-InetUnicastAgentRouteTable::AddSubnetBroadcastRoute(const Peer *peer, 
-                                                    const string &vrf_name,
-                                                    const IpAddress &src_addr,
-                                                    const IpAddress &grp_addr,
-                                                    const string &vn_name,
-                                                    ComponentNHKeyList
-                                                    &component_nh_key_list) {
-    DBRequest nh_req;
-    NextHopKey *nh_key;
-    CompositeNHData *nh_data;
-
-    nh_key = new CompositeNHKey(Composite::L3COMP, true, component_nh_key_list,
-                                vrf_name);
-    nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    nh_req.key.reset(nh_key);
-    nh_data = new CompositeNHData();
-    nh_req.data.reset(nh_data);
-
-    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new InetUnicastRouteKey(peer, vrf_name, grp_addr, 32));
-
-    MulticastRoute *data = new MulticastRoute(vn_name,
-                                              MplsTable::kInvalidLabel,
-                                              VxLanTable::kInvalidvxlan_id,
-                                              TunnelType::AllType(),
-                                              nh_req);
-    req.data.reset(data);
-
-    InetUnicastTableEnqueue(Agent::GetInstance(), vrf_name, &req);
-}
-
-void 
 InetUnicastAgentRouteTable::AddRemoteVmRouteReq(const Peer *peer, 
                                                 const string &vm_vrf,
                                                 const IpAddress &vm_addr,
@@ -1314,50 +1379,15 @@ InetUnicastAgentRouteTable::AddGatewayRouteReq(const Peer *peer,
 }
 
 void
-InetUnicastAgentRouteTable::AddSubnetRoute(const string &vrf_name,
-                                           const IpAddress &dst_addr,
-                                           uint8_t plen,
-                                           const string &vn_name,
-                                           uint32_t vxlan_id) {
+InetUnicastAgentRouteTable::AddIpamSubnetRoute(const string &vrf_name,
+                                               const IpAddress &dst_addr,
+                                               uint8_t plen) {
     Agent *agent_ptr = agent();
     AgentRouteTable *table = NULL;
     if (dst_addr.is_v4()) {
         table = agent_ptr->vrf_table()->GetInet4UnicastRouteTable(vrf_name);
     } else if (dst_addr.is_v6()) {
         table = agent_ptr->vrf_table()->GetInet6UnicastRouteTable(vrf_name);
-    }
-
-    AgentRoute *route = Layer2AgentRouteTable::FindRoute(agent_ptr, vrf_name,
-                                                         MacAddress::BroadcastMac());
-
-    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    ComponentNHKeyList component_nh_list;
-
-    if (route != NULL) {
-        for(Route::PathList::iterator it = route->GetPathList().begin();
-            it != route->GetPathList().end(); it++) {
-            const AgentPath *path =
-                static_cast<const AgentPath *>(it.operator->());
-            if (path->peer()->GetType() != Peer::BGP_PEER) {
-                continue;
-            }
-            NextHopKey *evpn_peer_key =
-                static_cast<NextHopKey *>((path->nexthop(agent_ptr)->
-                                           GetDBRequestKey()).release());
-            DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-            nh_req.key.reset(evpn_peer_key);
-            nh_req.data.reset(new CompositeNHData());
-
-            //Add route with this peer
-            DBRequest req;
-            req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-            req.key.reset(new InetUnicastRouteKey(path->peer(),
-                                                   vrf_name, dst_addr, plen));
-            req.data.reset(new SubnetRoute(vn_name, vxlan_id, nh_req));
-            if (table) {
-                table->Process(req);
-            }
-        }
     }
 
     //Add local perr path with discard NH
@@ -1369,7 +1399,7 @@ InetUnicastAgentRouteTable::AddSubnetRoute(const string &vrf_name,
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(new InetUnicastRouteKey(agent_ptr->local_peer(),
                                             vrf_name, dst_addr, plen));
-    req.data.reset(new SubnetRoute(vn_name, vxlan_id, dscd_nh_req));
+    req.data.reset(new IpamSubnetRoute(dscd_nh_req));
     if (table) {
         table->Process(req);
     }

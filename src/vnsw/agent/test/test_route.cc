@@ -88,6 +88,7 @@ protected:
         subnet_vm_ip_2_ = Ip4Address::from_string("2.2.2.96");
         subnet_vm_ip_3_ = Ip4Address::from_string("3.3.0.0");
         remote_vm_ip_ = Ip4Address::from_string("1.1.1.11");
+        remote_subnet_ip_ = Ip4Address::from_string("1.1.1.9");
         trap_ip_ = Ip4Address::from_string("1.1.1.100");
         lpm1_ip_ = Ip4Address::from_string("2.0.0.0");
         lpm2_ip_ = Ip4Address::from_string("2.1.0.0");
@@ -223,6 +224,7 @@ protected:
     Ip4Address  subnet_vm_ip_2_;
     Ip4Address  subnet_vm_ip_3_;
     Ip4Address  remote_vm_ip_;
+    Ip4Address  remote_subnet_ip_;
     Ip4Address  vhost_ip_;
     Ip4Address  fabric_gw_ip_;
     Ip4Address  foreign_gw_ip_;
@@ -282,6 +284,9 @@ TEST_F(RouteTest, SubnetRoute_1) {
     EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::DISCARD);
     EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::DISCARD);
     EXPECT_TRUE(rt3->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt1->ipam_associated() == true);
+    EXPECT_TRUE(rt2->ipam_associated() == true);
+    EXPECT_TRUE(rt3->ipam_associated() == true);
     EXPECT_TRUE(rt1->IsRPFInvalid());
     EXPECT_TRUE(rt2->IsRPFInvalid());
     EXPECT_TRUE(rt3->IsRPFInvalid());
@@ -290,19 +295,16 @@ TEST_F(RouteTest, SubnetRoute_1) {
     FillEvpnNextHop(peer, "vrf1", 1000, TunnelType::MplsType());
     client->WaitForIdle();
 
-    EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
-    EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
-    EXPECT_TRUE(rt3->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
-    EXPECT_FALSE(rt1->IsRPFInvalid());
-    EXPECT_FALSE(rt2->IsRPFInvalid());
-    EXPECT_FALSE(rt3->IsRPFInvalid());
-
-    const CompositeNH *cnh1 = static_cast<const CompositeNH *>(rt1->GetActiveNextHop());
-    const CompositeNH *cnh2 = static_cast<const CompositeNH *>(rt2->GetActiveNextHop());
-    const CompositeNH *cnh3 = static_cast<const CompositeNH *>(rt3->GetActiveNextHop());
-    EXPECT_TRUE(cnh1->composite_nh_type() == Composite::EVPN);
-    EXPECT_TRUE(cnh2->composite_nh_type() == Composite::EVPN);
-    EXPECT_TRUE(cnh3->composite_nh_type() == Composite::EVPN);
+    //Addition of evpn composite NH should not change subnet route
+    EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt3->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt1->ipam_associated() == true);
+    EXPECT_TRUE(rt2->ipam_associated() == true);
+    EXPECT_TRUE(rt3->ipam_associated() == true);
+    EXPECT_TRUE(rt1->IsRPFInvalid());
+    EXPECT_TRUE(rt2->IsRPFInvalid());
+    EXPECT_TRUE(rt3->IsRPFInvalid());
 
     //Call for sandesh
     Inet4UcRouteReq *uc_list_req = new Inet4UcRouteReq();
@@ -372,12 +374,12 @@ TEST_F(RouteTest, SubnetRoute_2) {
     FillEvpnNextHop(peer, "vrf1", 1000, TunnelType::MplsType());
     client->WaitForIdle();
 
-    EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
-    EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
-    EXPECT_TRUE(rt3->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
-    EXPECT_FALSE(rt1->IsRPFInvalid());
-    EXPECT_FALSE(rt2->IsRPFInvalid());
-    EXPECT_FALSE(rt3->IsRPFInvalid());
+    EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt3->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt1->IsRPFInvalid());
+    EXPECT_TRUE(rt2->IsRPFInvalid());
+    EXPECT_TRUE(rt3->IsRPFInvalid());
 
     FlushEvpnNextHop(peer, "vrf1", 0);
     AddIPAM("vn1", ipam_info_2, 1);
@@ -393,8 +395,9 @@ TEST_F(RouteTest, SubnetRoute_2) {
     EXPECT_TRUE(rt2->IsRPFInvalid());
 
     FillEvpnNextHop(peer, "vrf1", 1000, TunnelType::MplsType());
-    EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
-    EXPECT_FALSE(rt2->IsRPFInvalid());
+    EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt2->ipam_associated());
+    EXPECT_TRUE(rt2->IsRPFInvalid());
 
     AddIPAM("vn1", ipam_info_3, 1);
     FlushEvpnNextHop(peer, "vrf1", 0);
@@ -459,6 +462,7 @@ TEST_F(RouteTest, LocalVmRoute_1) {
     EXPECT_TRUE(rt->dest_vn_name() == "vn1");
     EXPECT_TRUE(rt->GetActivePath()->vxlan_id() == VxLanTable::kInvalidvxlan_id);
     EXPECT_TRUE(rt->GetActivePath()->tunnel_bmap() == TunnelType::MplsType());
+    EXPECT_FALSE(rt->ipam_associated());
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
 
@@ -477,6 +481,7 @@ TEST_F(RouteTest, RemoteVmRoute_1) {
     EXPECT_TRUE(rt->dest_vn_name() == vrf_name_);
     EXPECT_TRUE(rt->GetActiveLabel() == MplsTable::kStartLabel);
     EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::TUNNEL);
+    EXPECT_FALSE(rt->ipam_associated());
 
     DeleteRoute(NULL, vrf_name_, remote_vm_ip_, 32);
     EXPECT_FALSE(RouteFind(vrf_name_, remote_vm_ip_, 32));
@@ -1316,7 +1321,7 @@ TEST_F(RouteTest, PathPreference) {
     Ip4Address ip = Ip4Address::from_string("1.1.1.1");
     InetUnicastRouteEntry *rt = RouteGet("vrf3", ip, 32);
 
-    //Enqueue traffic seen from vnet3 interface
+    //Enqueue traffic seen from vnet4 interface
     Agent::GetInstance()->oper_db()->route_preference_module()->
         EnqueueTrafficSeen(ip, 32, vnet4->id(), vnet4->vrf()->vrf_id());
     client->WaitForIdle();
@@ -1525,6 +1530,108 @@ TEST_F(RouteTest, PathPreference_1) {
     client->WaitForIdle();
     //Make sure vrf and all routes are deleted
     EXPECT_TRUE(VrfFind("vrf1", true) == false);
+}
+
+//Add IPAM and then add a smaller subnet as remote route.
+//Flood flag shud be set in both.
+TEST_F(RouteTest, SubnetRoute_Flood_1) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200", true},
+        {"2.2.2.100", 28, "2.2.2.200", true},
+        {"3.3.3.0", 16, "3.3.30.200", true},
+    };
+    client->Reset();
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 3);
+    client->WaitForIdle();
+    InetUnicastRouteEntry *rt1 = RouteGet(vrf_name_, subnet_vm_ip_1_, 24);
+    InetUnicastRouteEntry *rt2 = RouteGet(vrf_name_, subnet_vm_ip_2_, 28);
+    InetUnicastRouteEntry *rt3 = RouteGet(vrf_name_, subnet_vm_ip_3_, 16);
+
+    EXPECT_TRUE(rt1 != NULL);
+    EXPECT_TRUE(rt2 != NULL);
+    EXPECT_TRUE(rt3 != NULL);
+    EXPECT_TRUE(rt1->ipam_associated() == true);
+    EXPECT_TRUE(rt2->ipam_associated() == true);
+    EXPECT_TRUE(rt3->ipam_associated() == true);
+
+    //Now add remote route
+    AddRemoteVmRoute(remote_subnet_ip_, fabric_gw_ip_, 29, MplsTable::kStartLabel);
+
+    EXPECT_TRUE(RouteFind(vrf_name_, remote_subnet_ip_, 29));
+    InetUnicastRouteEntry *rt = RouteGet(vrf_name_, remote_subnet_ip_, 29);
+    EXPECT_TRUE(rt->ipam_associated() == true);
+
+    //On IPAM going off remote route should remove its flood flag.
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    EXPECT_FALSE(rt->ipam_associated());
+
+    client->Reset();
+    DeleteRoute(NULL, vrf_name_, remote_subnet_ip_, 29);
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+}
+
+//Add remote route and then add IPAM subnet.
+//Flood flag shud be set in both.
+TEST_F(RouteTest, SubnetRoute_Flood_2) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200", true},
+        {"2.2.2.100", 28, "2.2.2.200", true},
+        {"3.3.3.0", 16, "3.3.30.200", true},
+    };
+    client->Reset();
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    
+    //Now add remote route
+    AddRemoteVmRoute(remote_subnet_ip_, fabric_gw_ip_, 29, MplsTable::kStartLabel);
+
+    EXPECT_TRUE(RouteFind(vrf_name_, remote_subnet_ip_, 29));
+    InetUnicastRouteEntry *rt = RouteGet(vrf_name_, remote_subnet_ip_, 29);
+    EXPECT_FALSE(rt->ipam_associated());
+
+    AddIPAM("vn1", ipam_info, 3);
+    client->WaitForIdle();
+    InetUnicastRouteEntry *rt1 = RouteGet(vrf_name_, subnet_vm_ip_1_, 24);
+    InetUnicastRouteEntry *rt2 = RouteGet(vrf_name_, subnet_vm_ip_2_, 28);
+    InetUnicastRouteEntry *rt3 = RouteGet(vrf_name_, subnet_vm_ip_3_, 16);
+
+    EXPECT_TRUE(rt1 != NULL);
+    EXPECT_TRUE(rt2 != NULL);
+    EXPECT_TRUE(rt3 != NULL);
+    EXPECT_TRUE(rt1->ipam_associated() == true);
+    EXPECT_TRUE(rt2->ipam_associated() == true);
+    EXPECT_TRUE(rt3->ipam_associated() == true);
+
+
+    EXPECT_TRUE(RouteFind(vrf_name_, remote_subnet_ip_, 29));
+    rt = RouteGet(vrf_name_, remote_subnet_ip_, 29);
+    EXPECT_TRUE(rt->ipam_associated());
+
+    //On IPAM going off remote route should remove its flood flag.
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    EXPECT_FALSE(rt->ipam_associated());
+
+    client->Reset();
+    DeleteRoute(NULL, vrf_name_, remote_subnet_ip_, 29);
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
 }
 
 int main(int argc, char *argv[]) {
