@@ -282,6 +282,9 @@ TEST_F(RouteTest, SubnetRoute_1) {
     EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::DISCARD);
     EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::DISCARD);
     EXPECT_TRUE(rt3->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt1->GetActivePath()->flood_arp() == true);
+    EXPECT_TRUE(rt2->GetActivePath()->flood_arp() == true);
+    EXPECT_TRUE(rt3->GetActivePath()->flood_arp() == true);
     EXPECT_TRUE(rt1->IsRPFInvalid());
     EXPECT_TRUE(rt2->IsRPFInvalid());
     EXPECT_TRUE(rt3->IsRPFInvalid());
@@ -290,19 +293,16 @@ TEST_F(RouteTest, SubnetRoute_1) {
     FillEvpnNextHop(peer, "vrf1", 1000, TunnelType::MplsType());
     client->WaitForIdle();
 
-    EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
-    EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
-    EXPECT_TRUE(rt3->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
-    EXPECT_FALSE(rt1->IsRPFInvalid());
-    EXPECT_FALSE(rt2->IsRPFInvalid());
-    EXPECT_FALSE(rt3->IsRPFInvalid());
-
-    const CompositeNH *cnh1 = static_cast<const CompositeNH *>(rt1->GetActiveNextHop());
-    const CompositeNH *cnh2 = static_cast<const CompositeNH *>(rt2->GetActiveNextHop());
-    const CompositeNH *cnh3 = static_cast<const CompositeNH *>(rt3->GetActiveNextHop());
-    EXPECT_TRUE(cnh1->composite_nh_type() == Composite::EVPN);
-    EXPECT_TRUE(cnh2->composite_nh_type() == Composite::EVPN);
-    EXPECT_TRUE(cnh3->composite_nh_type() == Composite::EVPN);
+    //Addition of evpn composite NH should not change subnet route
+    EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt3->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt1->GetActivePath()->flood_arp() == true);
+    EXPECT_TRUE(rt2->GetActivePath()->flood_arp() == true);
+    EXPECT_TRUE(rt3->GetActivePath()->flood_arp() == true);
+    EXPECT_TRUE(rt1->IsRPFInvalid());
+    EXPECT_TRUE(rt2->IsRPFInvalid());
+    EXPECT_TRUE(rt3->IsRPFInvalid());
 
     //Call for sandesh
     Inet4UcRouteReq *uc_list_req = new Inet4UcRouteReq();
@@ -372,12 +372,12 @@ TEST_F(RouteTest, SubnetRoute_2) {
     FillEvpnNextHop(peer, "vrf1", 1000, TunnelType::MplsType());
     client->WaitForIdle();
 
-    EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
-    EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
-    EXPECT_TRUE(rt3->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
-    EXPECT_FALSE(rt1->IsRPFInvalid());
-    EXPECT_FALSE(rt2->IsRPFInvalid());
-    EXPECT_FALSE(rt3->IsRPFInvalid());
+    EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt3->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt1->IsRPFInvalid());
+    EXPECT_TRUE(rt2->IsRPFInvalid());
+    EXPECT_TRUE(rt3->IsRPFInvalid());
 
     FlushEvpnNextHop(peer, "vrf1", 0);
     AddIPAM("vn1", ipam_info_2, 1);
@@ -393,8 +393,9 @@ TEST_F(RouteTest, SubnetRoute_2) {
     EXPECT_TRUE(rt2->IsRPFInvalid());
 
     FillEvpnNextHop(peer, "vrf1", 1000, TunnelType::MplsType());
-    EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
-    EXPECT_FALSE(rt2->IsRPFInvalid());
+    EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt2->GetActivePath()->flood_arp());
+    EXPECT_TRUE(rt2->IsRPFInvalid());
 
     AddIPAM("vn1", ipam_info_3, 1);
     FlushEvpnNextHop(peer, "vrf1", 0);
@@ -459,6 +460,7 @@ TEST_F(RouteTest, LocalVmRoute_1) {
     EXPECT_TRUE(rt->dest_vn_name() == "vn1");
     EXPECT_TRUE(rt->GetActivePath()->vxlan_id() == VxLanTable::kInvalidvxlan_id);
     EXPECT_TRUE(rt->GetActivePath()->tunnel_bmap() == TunnelType::MplsType());
+    EXPECT_FALSE(rt->GetActivePath()->flood_arp());
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
 
@@ -477,6 +479,7 @@ TEST_F(RouteTest, RemoteVmRoute_1) {
     EXPECT_TRUE(rt->dest_vn_name() == vrf_name_);
     EXPECT_TRUE(rt->GetActiveLabel() == MplsTable::kStartLabel);
     EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::TUNNEL);
+    EXPECT_FALSE(rt->GetActivePath()->flood_arp());
 
     DeleteRoute(NULL, vrf_name_, remote_vm_ip_, 32);
     EXPECT_FALSE(RouteFind(vrf_name_, remote_vm_ip_, 32));
