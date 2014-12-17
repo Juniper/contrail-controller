@@ -111,7 +111,25 @@ struct PathPreferenceData : public AgentRouteData {
         return "";
     }
     virtual bool AddChangePath(Agent*, AgentPath*, const AgentRoute*);
+    virtual bool AddChangePathNonConst(Agent*, AgentPath*, AgentRoute*);
     PathPreference path_preference_;
+};
+
+/* 
+ * Used to carry flood flag info from parent Ipam route to all corresponding
+ * smaller subnets. This is sent via RESYNC request on affected routes.
+ */
+struct IpamSubnetData: public AgentRouteData {
+    IpamSubnetData(bool ipam_subnet_add):
+        AgentRouteData(IPAM_SUBNET, false),
+        ipam_subnet_add_(ipam_subnet_add) { }
+    virtual std::string ToString() const {
+        return "Ipam Subnet Data";
+    }
+    virtual bool AddChangePath(Agent*, AgentPath*, const AgentRoute*) {return false;};
+    virtual bool AddChangePathNonConst(Agent*, AgentPath*, AgentRoute*);
+
+    bool ipam_subnet_add_;
 };
 
 // A common class for all different type of paths
@@ -191,6 +209,10 @@ public:
     bool ChangeCompositeNH(Agent *agent, CompositeNHKey *nh);
     // Get nexthop-ip address to be used for path
     const Ip4Address *NexthopIp(Agent *agent) const;
+
+    bool flood_arp() const {return flood_arp_;}
+    void set_flood_arp(bool flood_arp) {flood_arp_ = flood_arp;}
+
 private:
     const Peer *peer_;
     // Nexthop for route. Not used for gateway routes
@@ -244,6 +266,7 @@ private:
     //helping in deciding the priority during live migration and
     //allowed address pair
     IpAddress subnet_gw_ip_;
+    bool flood_arp_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 
@@ -393,7 +416,6 @@ public:
                                    uint32_t vxlan_id,
                                    uint32_t label,
                                    uint32_t tunnel_type,
-                                   bool is_subnet_discard,
                                    NextHop *nh);
 
 private:
@@ -405,13 +427,16 @@ private:
     DISALLOW_COPY_AND_ASSIGN(MulticastRoute);
 };
 
-class SubnetRoute : public MulticastRoute {
+class SubnetRoute : public AgentRouteData {
 public:
-    SubnetRoute(const string &vn_name, uint32_t vxlan_id, DBRequest &nh_req);
+    SubnetRoute(DBRequest &nh_req);
     virtual ~SubnetRoute() {}
     virtual string ToString() const {return "subnet route";}
+    virtual bool AddChangePath(Agent *agent, AgentPath *path,
+                               const AgentRoute *rt);
 
 private:
+    DBRequest nh_req_;
     DISALLOW_COPY_AND_ASSIGN(SubnetRoute);
 };
 

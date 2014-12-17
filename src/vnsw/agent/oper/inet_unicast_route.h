@@ -9,6 +9,7 @@ class VlanNhRoute;
 class LocalVmRoute;
 class InetInterfaceRoute;
 class ClonedLocalPath;
+class IpamSubnetData;
 
 //////////////////////////////////////////////////////////////////
 //  UNICAST INET
@@ -116,6 +117,8 @@ public:
     };
     bool DBEntrySandesh(Sandesh *sresp, IpAddress addr, uint8_t plen, bool stale) const;
     const NextHop* GetLocalNextHop() const;
+    bool IsMaxPrefixLen() const;
+    bool FloodArpEligibility() const;
 
 private:
     friend class InetUnicastAgentRouteTable;
@@ -128,6 +131,7 @@ private:
 
 class InetUnicastAgentRouteTable : public AgentRouteTable {
 public:
+    //TODO take ref
     typedef Patricia::Tree<InetUnicastRouteEntry,
                            &InetUnicastRouteEntry::rtnode_,
                            InetUnicastRouteEntry::Rtkey> InetRouteTree;
@@ -154,6 +158,9 @@ public:
     }
     virtual void ProcessDelete(AgentRoute *rt) { 
         tree_.Remove(static_cast<InetUnicastRouteEntry *>(rt));
+    }
+    InetUnicastRouteEntry *FindRouteUsingKey(InetUnicastRouteEntry &key) {
+        return FindLPM(key);
     }
     InetUnicastRouteEntry *FindRoute(const IpAddress &ip) {
         return FindLPM(ip);
@@ -193,13 +200,6 @@ public:
                                 bool force_policy,
                                 const PathPreference &path_preference,
                                 const IpAddress &subnet_gw_ip);
-    static void AddSubnetBroadcastRoute(const Peer *peer,
-                                        const string &vrf_name,
-                                        const IpAddress &src_addr,
-                                        const IpAddress &grp_addr,
-                                        const string &vn_name,
-                                        ComponentNHKeyList
-                                        &component_nh_key_list);
     static void AddRemoteVmRouteReq(const Peer *peer, const string &vm_vrf,
                                     const IpAddress &vm_addr,uint8_t plen,
                                     AgentRouteData *data);
@@ -287,8 +287,7 @@ public:
                                    const std::string &vn_name, uint32_t label,
                                    const SecurityGroupList &sg_list);
     void AddSubnetRoute(const string &vm_vrf, const IpAddress &addr,
-                        uint8_t plen, const string &vn_name,
-                        uint32_t vxlan_id);
+                        uint8_t plen);
     void AddInterfaceRouteReq(Agent *agent, const Peer *peer,
                               const string &vrf_name,
                               const Ip4Address &ip, uint8_t plen,
@@ -297,6 +296,8 @@ public:
     void AddClonedLocalPathReq(const Peer *peer, const string &vm_vrf,
                                const IpAddress &addr,
                                uint8_t plen, ClonedLocalPath *data);
+    bool ResyncSubnetRoutes(const InetUnicastRouteEntry *rt,
+                            bool add_change);
 
 private:
     Agent::RouteTableType type_;
