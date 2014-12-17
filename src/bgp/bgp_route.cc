@@ -83,7 +83,6 @@ BgpPath *BgpRoute::FindPath(BgpPath::PathSource src, const IPeer *peer,
                             uint32_t path_id) {
     for (Route::PathList::iterator it = GetPathList().begin();
          it != GetPathList().end(); ++it) {
-
         // Skip secondary paths.
         if (dynamic_cast<BgpSecondaryPath *>(it.operator->())) {
             continue;
@@ -103,7 +102,7 @@ BgpPath *BgpRoute::FindPath(BgpPath::PathSource src, const IPeer *peer,
 // Skips secondary paths.
 // Return true if the path is found and removed, false otherwise.
 //
-bool BgpRoute::RemovePath(BgpPath::PathSource src,const IPeer *peer,
+bool BgpRoute::RemovePath(BgpPath::PathSource src, const IPeer *peer,
                           uint32_t path_id) {
     for (Route::PathList::iterator it = GetPathList().begin();
          it != GetPathList().end(); it++) {
@@ -314,7 +313,7 @@ static void FillRoutePathExtCommunityInfo(const BgpTable *table,
         } else {
             char temp[50];
             int len = snprintf(temp, sizeof(temp), "ext community: ");
-            for (size_t i=0; i < it->size(); i++) {
+            for (size_t i = 0; i < it->size(); i++) {
                 len += snprintf(temp+len, sizeof(temp) - len, "%02x", (*it)[i]);
             }
             show_path->communities.push_back(string(temp));
@@ -331,8 +330,8 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
         integerToString(UTCUsecToPTime(last_change_at())));
 
     vector<ShowRoutePath> show_route_paths;
-    for(Route::PathList::const_iterator it = GetPathList().begin();
-        it != GetPathList().end(); it++) {
+    for (Route::PathList::const_iterator it = GetPathList().begin();
+         it != GetPathList().end(); ++it) {
         const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
         ShowRoutePath srp;
         const IPeer *peer = path->GetPeer();
