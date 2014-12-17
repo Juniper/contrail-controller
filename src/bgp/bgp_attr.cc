@@ -711,7 +711,7 @@ BgpAttrPtr BgpAttrDB::ReplaceOriginatorIdAndLocate(const BgpAttr *attr,
 
 // Return a clone of attribute with updated source rd.
 BgpAttrPtr BgpAttrDB::ReplaceSourceRdAndLocate(const BgpAttr *attr,
-                                               RouteDistinguisher source_rd) {
+    const RouteDistinguisher &source_rd) {
     BgpAttr *clone = new BgpAttr(*attr);
     clone->set_source_rd(source_rd);
     return Locate(clone);
@@ -719,7 +719,7 @@ BgpAttrPtr BgpAttrDB::ReplaceSourceRdAndLocate(const BgpAttr *attr,
 
 // Return a clone of attribute with updated esi.
 BgpAttrPtr BgpAttrDB::ReplaceEsiAndLocate(const BgpAttr *attr,
-                                          EthernetSegmentId esi) {
+                                          const EthernetSegmentId &esi) {
     BgpAttr *clone = new BgpAttr(*attr);
     clone->set_esi(esi);
     return Locate(clone);
