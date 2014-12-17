@@ -2,9 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp_config_parser.h"
+#include "bgp/bgp_config_parser.h"
 
-#include <sstream>
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/asio/ip/address.hpp>
 #include <boost/uuid/name_generator.hpp>
@@ -12,6 +11,13 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <pugixml/pugixml.hpp>
+
+#include <map>
+#include <set>
+#include <sstream>
+#include <utility>
+#include <vector>
+
 #include "base/logging.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_log.h"
@@ -19,7 +25,18 @@
 #include "ifmap/ifmap_origin.h"
 #include "ifmap/ifmap_server_table.h"
 
-using namespace std;
+using std::auto_ptr;
+using std::istringstream;
+using std::list;
+using std::ostringstream;
+using std::make_pair;
+using std::map;
+using std::multimap;
+using std::pair;
+using std::set;
+using std::string;
+using std::vector;
+
 using namespace pugi;
 
 typedef multimap<
@@ -262,7 +279,7 @@ static bool ParseSession(const string &identifier, const xml_node &node,
 }
 
 static bool ParseServiceChain(const string &instance, const xml_node &node,
-                              bool add_change, 
+                              bool add_change,
                               BgpConfigParser::RequestList *requests) {
     auto_ptr<autogen::ServiceChainInfo> property(
         new autogen::ServiceChainInfo());
@@ -280,7 +297,7 @@ static bool ParseServiceChain(const string &instance, const xml_node &node,
 }
 
 static bool ParseStaticRoute(const string &instance, const xml_node &node,
-                              bool add_change, 
+                              bool add_change,
                               BgpConfigParser::RequestList *requests) {
     auto_ptr<autogen::StaticRouteEntriesType> property(
         new autogen::StaticRouteEntriesType());
@@ -308,10 +325,13 @@ static bool ParseBgpRouter(const string &instance, const xml_node &node,
     string identifier = name.value();
     assert(property->XmlParse(node));
 
-    if (property->autonomous_system == 0)
-        property->autonomous_system = BgpConfigManager::kDefaultAutonomousSystem;
-    if (property->identifier.empty())
+    if (property->autonomous_system == 0) {
+        property->autonomous_system =
+            BgpConfigManager::kDefaultAutonomousSystem;
+    }
+    if (property->identifier.empty()) {
         property->identifier = property->address;
+    }
 
     bool has_sessions = false;
     for (xml_node xsession = node.child("session"); xsession;
@@ -364,8 +384,8 @@ static void DeleteNeighborMesh(const list<string> &routers,
         ++iter;
         for (list<string>::const_iterator tgt = iter;
              tgt != routers.end(); ++tgt) {
-            MapObjectUnlink("bgp-router", left, "bgp-router", *tgt, "bgp-peering",
-                            requests);
+            MapObjectUnlink("bgp-router", left, "bgp-router", *tgt,
+                "bgp-peering", requests);
         }
     }
 }
@@ -517,7 +537,7 @@ bool BgpConfigParser::ParseConfig(const xml_node &root, bool add_change,
     return true;
 }
 
-bool BgpConfigParser::Parse(const std::string &content)  {
+bool BgpConfigParser::Parse(const string &content)  {
     istringstream sstream(content);
     xml_document xdoc;
     xml_parse_result result = xdoc.load(sstream);

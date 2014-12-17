@@ -2,10 +2,12 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef __ctrlplane__bgp_config_parser__
-#define __ctrlplane__bgp_config_parser__
+#ifndef SRC_BGP_BGP_CONFIG_PARSER_H_
+#define SRC_BGP_BGP_CONFIG_PARSER_H_
 
 #include <list>
+#include <string>
+
 #include "base/util.h"
 
 class DB;
@@ -38,4 +40,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(BgpConfigParser);
 };
 
-#endif /* defined(__ctrlplane__bgp_config_parser__) */
+#endif  // SRC_BGP_BGP_CONFIG_PARSER_H_
