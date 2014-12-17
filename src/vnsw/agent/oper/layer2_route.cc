@@ -388,6 +388,212 @@ bool Layer2RouteEntry::ReComputePathDeletion(AgentPath *path) {
     return false;
 }
 
+bool Layer2RouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
+    if (path->peer() == NULL) {
+        return false;
+    }
+
+    //HACK: subnet route uses multicast NH. During IPAM delete
+    //subnet discard is deleted. Consider this as delete of all
+    //paths. Though this can be handled via multicast module
+    //which can also issue delete of all peers, however
+    //this is a temporary code as subnet route will not use
+    //multicast NH.
+    bool delete_all = false;
+    if (path->is_subnet_discard() && del) {
+        delete_all = true;
+    }
+
+    Agent *agent =
+        (static_cast<InetUnicastAgentRouteTable *> (get_table()))->agent();
+    std::vector<AgentPath *> delete_paths;
+    if (del && (path->peer() == agent->multicast_peer()))
+        return false;
+
+    //Possible paths:
+    //EVPN path - can be from multiple peers.
+    //Fabric path - from multicast builder
+    //Multicast peer
+    AgentPath *multicast_peer_path = NULL;
+    AgentPath *local_peer_path = NULL;
+    AgentPath *evpn_peer_path = NULL;
+    AgentPath *fabric_peer_path = NULL;
+    AgentPath *tor_peer_path = NULL;
+
+    //Delete path label
+    if (del) {
+        MplsLabel::DeleteReq(agent, path->label());
+    }
+
+    for (Route::PathList::iterator it = GetPathList().begin();
+        it != GetPathList().end(); it++) {
+        AgentPath *it_path =
+            static_cast<AgentPath *>(it.operator->());
+
+        if (delete_all && (it_path->peer() != agent->multicast_peer()))
+            continue;
+
+        //Handle deletions
+        if (del && (path->peer() == it_path->peer())) {
+            continue;
+        }
+
+        //Handle Add/Changes
+        if (it_path->peer() == agent->local_vm_peer()) {
+            local_peer_path = it_path;
+        } else if (it_path->peer()->GetType() == Peer::MULTICAST_TOR_PEER) {
+            tor_peer_path = it_path;
+        } else if (it_path->peer()->GetType() == Peer::BGP_PEER) {
+            //Pick up the first peer.
+            if (evpn_peer_path == NULL)
+                evpn_peer_path = it_path;
+        } else if (it_path->peer()->GetType() ==
+                   Peer::MULTICAST_FABRIC_TREE_BUILDER) {
+            fabric_peer_path = it_path;
+        } else if (it_path->peer() == agent->multicast_peer()) {
+            multicast_peer_path = it_path;
+        }
+    }
+
+    //all paths are gone so delete multicast_peer path as well
+    if ((local_peer_path == NULL) &&
+        (tor_peer_path == NULL) &&
+        (evpn_peer_path == NULL) &&
+        (fabric_peer_path == NULL)) {
+        if (multicast_peer_path != NULL)
+            RemovePath(multicast_peer_path);
+        return true;
+    }
+
+    uint32_t old_fabric_mpls_label = 0;
+    if (multicast_peer_path == NULL) {
+        multicast_peer_path = new AgentPath(agent->multicast_peer(), NULL);
+        InsertPath(multicast_peer_path);
+    } else {
+        old_fabric_mpls_label = multicast_peer_path->label();
+    }
+
+    ComponentNHKeyList component_nh_list;
+
+    if (tor_peer_path) {
+        NextHopKey *tor_peer_key =
+            static_cast<NextHopKey *>((tor_peer_path->
+                        nexthop(agent)->GetDBRequestKey()).release());
+        std::auto_ptr<const NextHopKey> key4(tor_peer_key);
+        ComponentNHKeyPtr component_nh_data4(new ComponentNHKey(0, key4));
+        component_nh_list.push_back(component_nh_data4);
+    }
+    
+    if (evpn_peer_path) {
+        NextHopKey *evpn_peer_key =
+            static_cast<NextHopKey *>((evpn_peer_path->
+                        nexthop(agent)->GetDBRequestKey()).release());
+        std::auto_ptr<const NextHopKey> key2(evpn_peer_key);
+        ComponentNHKeyPtr component_nh_data2(new ComponentNHKey(0, key2));
+        component_nh_list.push_back(component_nh_data2);
+    }
+
+    if (fabric_peer_path) {
+        NextHopKey *fabric_peer_key =
+            static_cast<NextHopKey *>((fabric_peer_path->
+                        nexthop(agent)->GetDBRequestKey()).release());
+        std::auto_ptr<const NextHopKey> key3(fabric_peer_key);
+        ComponentNHKeyPtr component_nh_data3(new ComponentNHKey(0, key3));
+        component_nh_list.push_back(component_nh_data3);
+    }
+
+    if (local_peer_path) {
+        NextHopKey *local_peer_key =
+            static_cast<NextHopKey *>((local_peer_path->
+                        nexthop(agent)->GetDBRequestKey()).release());
+        std::auto_ptr<const NextHopKey> key1(local_peer_key);
+        ComponentNHKeyPtr component_nh_data1(new ComponentNHKey(0, key1));
+        component_nh_list.push_back(component_nh_data1);
+    }
+
+    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    nh_req.key.reset(new CompositeNHKey(Composite::L2COMP,
+                                        false,
+                                        component_nh_list,
+                                        vrf()->GetName()));
+    nh_req.data.reset(new CompositeNHData());
+    agent->nexthop_table()->Process(nh_req);
+    NextHop *nh = static_cast<NextHop *>(agent->nexthop_table()->
+                                 FindActiveEntry(nh_req.key.get()));
+    //NH may not get added if VRF is marked for delete. Route may be in
+    //transition of getting deleted, skip NH modification.
+    if (!nh) {
+        return false;
+    }
+
+    bool ret = false;
+    if (tor_peer_path) {
+        ret = MulticastRoute::CopyPathParameters(agent,
+                                                 multicast_peer_path,
+                                                 (tor_peer_path ? tor_peer_path->
+                                                  dest_vn_name() : ""),
+                                                 (tor_peer_path ? tor_peer_path->
+                                                  unresolved() : false),
+                                                 (tor_peer_path ? tor_peer_path->
+                                                  vxlan_id() : 0),
+                                                 (fabric_peer_path ? fabric_peer_path->
+                                                  label() : 0),
+                                                 TunnelType::VxlanType(),
+                                                 nh);
+    }
+    if (local_peer_path && local_peer_path->nexthop(agent)->GetType() !=
+        NextHop::DISCARD) {
+        ret = MulticastRoute::CopyPathParameters(agent,
+                                                 multicast_peer_path,
+                                                 (local_peer_path ? local_peer_path->
+                                                  dest_vn_name() : ""),
+                                                 (local_peer_path ? local_peer_path->
+                                                  unresolved() : false),
+                                                 (local_peer_path ? local_peer_path->
+                                                  vxlan_id() : 0),
+                                                 (fabric_peer_path ? fabric_peer_path->
+                                                  label() : 0),
+                                                 TunnelType::AllType(),
+                                                 nh);
+    }
+
+    //Bake all MPLS label
+    if (fabric_peer_path) {
+        if (!ret) {
+            ret = MulticastRoute::CopyPathParameters(agent,
+                                                     multicast_peer_path,
+                                                     (fabric_peer_path ? fabric_peer_path->
+                                                      dest_vn_name() : ""),
+                                                     (fabric_peer_path ? fabric_peer_path->
+                                                      unresolved() : false),
+                                                     (fabric_peer_path ? fabric_peer_path->
+                                                      vxlan_id() : 0),
+                                                     (fabric_peer_path ? fabric_peer_path->
+                                                      label() : 0),
+                                                     TunnelType::MplsType(),
+                                                     nh);
+        }
+        //Add new label
+        MplsLabel::CreateMcastLabelReq(agent,
+                                       fabric_peer_path->label(),
+                                       Composite::L2COMP,
+                                       component_nh_list,
+                                       vrf()->GetName());
+        //Delete Old label, in case label has changed for same peer.
+        if (old_fabric_mpls_label != fabric_peer_path->label()) {
+            MplsLabel::DeleteReq(agent, old_fabric_mpls_label);
+        }
+    }
+    if (evpn_peer_path) {
+        MplsLabel::CreateMcastLabelReq(agent,
+                                       evpn_peer_path->label(),
+                                       Composite::L2COMP,
+                                       component_nh_list,
+                                       vrf()->GetName());
+    }
+    return ret;
+}
+
 void Layer2RouteReq::HandleRequest() const {
     VrfEntry *vrf = 
         Agent::GetInstance()->vrf_table()->FindVrfFromId(get_vrf_index());
