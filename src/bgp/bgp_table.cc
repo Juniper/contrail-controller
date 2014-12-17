@@ -5,11 +5,10 @@
 #include "bgp/bgp_table.h"
 
 #include <boost/foreach.hpp>
-#include "base/task_annotations.h"
-
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 
+#include "base/task_annotations.h"
 #include "db/db_table_partition.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_path.h"
@@ -25,11 +24,14 @@
 #include "bgp/routing-instance/rtarget_group.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 
-using namespace std;
+using std::map;
+using std::make_pair;
+using std::ostringstream;
+using std::string;
 
 class BgpTable::DeleteActor : public LifetimeActor {
   public:
-    DeleteActor(BgpTable *table)
+    explicit DeleteActor(BgpTable *table)
         : LifetimeActor(table->rtinstance_->server()->lifetime_manager()),
           table_(table) {
     }
@@ -43,12 +45,10 @@ class BgpTable::DeleteActor : public LifetimeActor {
         table_->Shutdown();
     }
 
+    // Make sure that all notifications have been processed and all db
+    // state have been cleared for all partitions, before we inform the
+    // parent instance that this table deletion process is complete.
     virtual void Destroy() {
-        //
-        // Make sure that all notifications have been processed and all db state
-        // have been cleared for all partitions, befor we inform the parent 
-        // instance that this table deletion process is complete
-        //
         table_->rtinstance_->DestroyDBTable(table_);
     }
 
@@ -65,15 +65,15 @@ BgpTable::BgpTable(DB *db, const string &name)
     infeasible_path_count_ = 0;
 }
 
+//
+// Remove the table from the instance dependents before attempting to
+// destroy the DeleteActor which can have its Delete() method be called
+// via the reference.
+//
 BgpTable::~BgpTable() {
-
-    // remove the table from the instance dependents before attempting to
-    // destroy the DeleteActor which can have its Delete() method be called
-    // via the reference.
     instance_delete_ref_.Reset(NULL);
 }
 
-// TODO: Fix BgpTable creation to pass in instance argument in the constructor
 void BgpTable::set_routing_instance(RoutingInstance *rtinstance) {
     rtinstance_ = rtinstance;
     assert(rtinstance);
@@ -169,7 +169,6 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
         }
 
         if (ribout->peer_type() == BgpProto::IBGP) {
-
             // Split horizon check.
             const IPeer *peer = path->GetPeer();
             if (peer && peer->PeerType() == BgpProto::IBGP)
@@ -192,9 +191,7 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
 
             attr_ptr = attr->attr_db()->Locate(clone);
             attr = attr_ptr.get();
-
         } else if (ribout->peer_type() == BgpProto::EBGP) {
-
             // Sender side AS path loop check.
             if (attr->as_path() &&
                 attr->as_path()->path().AsPathLoop(ribout->peer_as())) {
@@ -254,13 +251,12 @@ void BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
 
     switch (oper) {
     case DBRequest::DB_ENTRY_ADD_CHANGE: {
-
         assert(rt);
 
         // The entry may currently be marked as deleted.
         rt->ClearDelete();
 
-        // Check whether peer already has a path
+        // Check whether peer already has a path.
         if (path != NULL) {
             if ((path->GetAttr() != attrs.get()) ||
                 (path->GetFlags() != flags) ||
@@ -269,21 +265,17 @@ void BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
                 is_stale = path->IsStale();
                 rt->DeletePath(path);
             } else {
-
-                //
-                // Ignore duplicate update
-                //
+                // Ignore duplicate update.
                 break;
             }
         }
 
         BgpPath *new_path;
-        new_path = new BgpPath(peer, path_id, BgpPath::BGP_XMPP, attrs, flags, label);
+        new_path =
+            new BgpPath(peer, path_id, BgpPath::BGP_XMPP, attrs, flags, label);
 
-        //
         // If the path is being staled (by bringing down the local pref,
-        // mark the same in the new path created
-        //
+        // mark the same in the new path created.
         if (is_stale) {
             new_path->SetStale();
         }
@@ -323,7 +315,7 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
     const IPeer *peer =
         (static_cast<RequestKey *>(req->key.get()))->GetPeer();
     // Skip if this peer is down
-    if ((req->oper == DBRequest::DB_ENTRY_ADD_CHANGE) && 
+    if ((req->oper == DBRequest::DB_ENTRY_ADD_CHANGE) &&
         peer && !peer->IsReady())
         return;
 
@@ -352,7 +344,6 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
     // Mark this peer's all paths as deleted.
     for (Route::PathList::iterator it = rt->GetPathList().begin();
          it != rt->GetPathList().end(); ++it) {
-
         // Skip secondary paths.
         if (dynamic_cast<BgpSecondaryPath *>(it.operator->())) continue;
 
@@ -370,8 +361,8 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
     // Process each of the paths sourced and create/update paths accordingly.
     if (data) {
         for (RequestData::NextHops::iterator iter = data->nexthops().begin(),
-                next = iter;
-                iter != data->nexthops().end(); iter = next, ++count) {
+             next = iter;
+             iter != data->nexthops().end(); iter = next, ++count) {
             next++;
             RequestData::NextHop nexthop = *iter;
             path = rt->FindPath(BgpPath::BGP_XMPP, peer,
@@ -402,8 +393,8 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
     }
 
     // Flush remaining paths that remain marked for deletion.
-    for (std::map<BgpPath *, bool>::iterator it = deleted_paths.begin();
-            it != deleted_paths.end(); it++) {
+    for (map<BgpPath *, bool>::iterator it = deleted_paths.begin();
+         it != deleted_paths.end(); it++) {
         BgpPath *path = it->first;
         InputCommon(root, rt, path, peer, req, DBRequest::DB_ENTRY_DELETE,
                     NULL, path->GetPathId(), 0, 0);
@@ -454,17 +445,18 @@ void BgpTable::RetryDelete() {
     deleter()->RetryDelete();
 }
 
-size_t BgpTable::GetPendingRiboutsCount(size_t &markers) {
+size_t BgpTable::GetPendingRiboutsCount(size_t *markers) {
     CHECK_CONCURRENCY("bgp::ShowCommand", "bgp::Config");
     size_t count = 0;
-    markers = 0;
+    *markers = 0;
 
     BOOST_FOREACH(RibOutMap::value_type &i, ribout_map_) {
         RibOut *ribout = i.second;
         if (ribout->updates()) {
-            BOOST_FOREACH(UpdateQueue *queue, ribout->updates()->queue_vec()) {
+            BOOST_FOREACH(const UpdateQueue *queue,
+                          ribout->updates()->queue_vec()) {
                 count += queue->size();
-                markers += queue->marker_count();
+                *markers += queue->marker_count();
             }
         }
     }

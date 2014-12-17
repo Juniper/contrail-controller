@@ -326,7 +326,7 @@ uint32_t BgpServer::get_output_queue_depth() const {
              rt_list.begin(); it != rt_list.end(); ++it) {
             BgpTable *table = it->second;
             size_t markers;
-            out_q_depth += table->GetPendingRiboutsCount(markers);
+            out_q_depth += table->GetPendingRiboutsCount(&markers);
         }
     }
     return out_q_depth;

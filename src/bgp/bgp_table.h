@@ -2,19 +2,21 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_bgp_table_h
-#define ctrlplane_bgp_table_h
+#ifndef SRC_BGP_BGP_TABLE_H_
+#define SRC_BGP_BGP_TABLE_H_
 
-#include <map>
 #include <tbb/atomic.h>
 
+#include <map>
+#include <string>
+#include <vector>
+
 #include "base/lifetime.h"
+#include "bgp/bgp_path.h"
 #include "bgp/bgp_ribout.h"
 #include "bgp/bgp_update.h"
-#include "route/table.h"
-#include "bgp/bgp_path.h"
-#include "bgp_ribout.h"
 #include "db/db_table_walker.h"
+#include "route/table.h"
 
 class BgpServer;
 class BgpRoute;
@@ -81,10 +83,11 @@ public:
 
     virtual Address::Family family() const = 0;
     virtual bool IsVpnTable() const { return false; }
-    virtual std::auto_ptr<DBEntry> AllocEntryStr(const std::string &key) const = 0;
+    virtual std::auto_ptr<DBEntry> AllocEntryStr(
+        const std::string &key) const = 0;
 
-    virtual BgpRoute *RouteReplicate(BgpServer *server, BgpTable *table, 
-                                     BgpRoute *src, const BgpPath *path, 
+    virtual BgpRoute *RouteReplicate(BgpServer *server, BgpTable *table,
+                                     BgpRoute *src, const BgpPath *path,
                                      ExtCommunityPtr community) = 0;
 
     static bool PathSelection(const Path &path1, const Path &path2);
@@ -112,7 +115,7 @@ public:
 
     LifetimeActor *deleter();
     const LifetimeActor *deleter() const;
-    size_t GetPendingRiboutsCount(size_t &markers);
+    size_t GetPendingRiboutsCount(size_t *markers);
 
     void UpdatePathCount(const BgpPath *path, int count);
     const uint64_t GetPrimaryPathCount() const { return primary_path_count_; }
@@ -140,4 +143,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(BgpTable);
 };
 
-#endif
+#endif  // SRC_BGP_BGP_TABLE_H_
