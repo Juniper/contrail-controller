@@ -6,6 +6,8 @@
 
 #include <boost/foreach.hpp>
 
+#include <string>
+
 #include "base/task_annotations.h"
 #include "base/util.h"
 #include "bgp/bgp_path.h"
@@ -13,11 +15,12 @@
 #include "bgp/evpn/evpn_table.h"
 #include "bgp/origin-vn/origin_vn.h"
 
-using namespace std;
+using std::string;
+using std::vector;
 
 class EvpnManager::DeleteActor : public LifetimeActor {
 public:
-    DeleteActor(EvpnManager *evpn_manager)
+    explicit DeleteActor(EvpnManager *evpn_manager)
         : LifetimeActor(evpn_manager->server()->lifetime_manager()),
           evpn_manager_(evpn_manager) {
     }
@@ -458,7 +461,6 @@ void EvpnManager::RouteListener(DBTablePartBase *tpart, DBEntryBase *db_entry) {
 
     DBState *dbstate = route->GetState(table_, listener_id_);
     if (!dbstate) {
-
         // We have no previous DBState for this route.
         // Bail if the route is not valid.
         if (!route->IsValid())
@@ -473,21 +475,16 @@ void EvpnManager::RouteListener(DBTablePartBase *tpart, DBEntryBase *db_entry) {
         }
         partition->AddMcastNode(node);
         route->SetState(table_, listener_id_, node);
-
     } else {
-
         EvpnMcastNode *node = dynamic_cast<EvpnMcastNode *>(dbstate);
         assert(node);
 
         if (!route->IsValid()) {
-
             // Delete the EvpnLocalMcastNode associated with the route.
             route->ClearState(table_, listener_id_);
             partition->DeleteMcastNode(node);
             delete node;
-
         } else if (node->Update(route)) {
-
             // Trigger update of the EvpnMcastNode.
             node->TriggerUpdate();
         }
