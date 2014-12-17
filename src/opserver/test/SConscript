@@ -18,6 +18,7 @@ local_sources = [
                  'analytics_systest.py',
                  'analytics_statstest.py',
                  'analytics_db_test.py',
+                 'overlay_to_underlay_mapper_test.py',
 #                 'analytics_perftest.py',
                  ]
 local_sources_rules = []
@@ -52,7 +53,7 @@ pip_pkgs = ['greenlet==0.4.1', 'gevent==0.13.8', 'eventlet==0.9.17',
         'testtools==0.9.21', 'fixtures==0.3.12', 'requests==1.1.0',
         'lxml==2.3.3', 'geventhttpclient==1.0a', 'prettytable==0.7.2',
         'psutil==0.4.1', 'redis==2.7.1', 'xmltodict==0.2', 'thrift==0.8.0',
-        'bottle==0.11.6']
+        'bottle==0.11.6', 'mock==1.0.1']
 
 build_pkgs = [
         '#controller/src/analytics/test/utils/mockcassandra',

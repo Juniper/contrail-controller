@@ -238,7 +238,7 @@ const string U_PROTOCOL = "u_protocol";
 const string U_FLOWTYPE = "u_flowtype";
 const string U_OTHERINFO = "u_otherinfo"
 
-const map<string, string> OverlayToFlowRecordTableFields = {
+const map<string, string> OverlayToFlowRecordFields = {
     O_SVN : "sourcevn",
     O_SIP : "sourceip",
     O_DVN : "destvn",
@@ -267,19 +267,6 @@ const map<string, string> UnderlayToUFlowDataFields = {
     U_VLAN : UFLOW_VLAN,
     U_FLOWTYPE : UFLOW_FLOWTYPE,
     U_OTHERINFO : UFLOW_OTHERINFO
-}
-
-const map<string, string> UFlowDataToUnderlayFields = {
-    UFLOW_PROUTER : U_PROUTER,
-    UFLOW_PIFINDEX : U_PIFINDEX,
-    UFLOW_SIP : U_SIP,
-    UFLOW_DIP : U_DIP,
-    UFLOW_SPORT : U_SPORT,
-    UFLOW_DPORT : U_DPORT,
-    UFLOW_PROTOCOL : U_PROTOCOL,
-    UFLOW_VLAN : U_VLAN,
-    UFLOW_FLOWTYPE : U_FLOWTYPE,
-    UFLOW_OTHERINFO : U_OTHERINFO
 }
 
 // Flow Table Query Strings
