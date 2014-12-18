@@ -23,6 +23,9 @@ class QueryResultMetaData;
 class QEOpServerProxy {
 public:
     static const int nMaxChunks = 16;
+
+    // Increase max number of threads available by a factor of 4
+    static const int nThreadCountMultFactor = 4;
     
     // This is the client-provided function that will be called when the OpServer
     // issues a query. Besides the QID, the function will get a map ,
