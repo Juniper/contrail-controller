@@ -54,22 +54,29 @@ bool RibExportPolicy::operator<(const RibExportPolicy &rhs) const {
 }
 
 RibOutAttr::RibOutAttr(const BgpAttr *attr, uint32_t label, bool include_nh)
-    : attr_out_(attr) {
+    : attr_out_(attr),
+      vrf_originated_(false) {
     if (attr && include_nh) {
         nexthop_list_.push_back(
                 NextHop(attr->nexthop(), label, attr->ext_community()));
     }
 }
 
-RibOutAttr::RibOutAttr(BgpRoute *route, const BgpAttr *attr, bool is_xmpp) {
+RibOutAttr::RibOutAttr(BgpRoute *route, const BgpAttr *attr, bool is_xmpp)
+    : vrf_originated_(false) {
     // Attribute should not be set already
     assert(!attr_out_);
 
     // Always encode best path's attributes (including it's nexthop) and label.
     set_attr(attr, route->BestPath()->GetLabel());
 
-    // Do not encode ECMP NextHops for non XMPP peers.
+    // Encode ECMP NextHops only for XMPP peers.
+    // Vrf Origination matters only for XMPP peers.
     if (!is_xmpp) return;
+
+    // Remember if the best path was originated in the VRF.  This is used to
+    // determine if VRF's VN name can be used as the origin VN for the route.
+    vrf_originated_ = route->BestPath()->IsVrfOriginated();
 
     for (Route::PathList::iterator it = route->GetPathList().begin();
         it != route->GetPathList().end(); it++) {

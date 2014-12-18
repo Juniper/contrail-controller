@@ -115,6 +115,10 @@ void BgpXmppMessage::Start(const RibOutAttr *roattr, const BgpRoute *route) {
     if (is_reachable_) {
         const BgpAttr *attr = roattr->attr();
         ProcessExtCommunity(attr->ext_community());
+        if (virtual_network_.empty() && roattr->vrf_originated()) {
+            virtual_network_ =
+                table_->routing_instance()->GetVirtualNetworkName();
+        }
     }
 
     stringstream ss;
@@ -385,10 +389,6 @@ string BgpXmppMessage::GetVirtualNetwork(const BgpRoute *route) const {
         return "unresolved";
     if (!virtual_network_.empty())
         return virtual_network_;
-
-    const BgpPath *path = route->BestPath();
-    if (path && path->IsVrfOriginated())
-        return table_->routing_instance()->GetVirtualNetworkName();
     return "unresolved";
 }
 
