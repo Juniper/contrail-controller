@@ -42,12 +42,17 @@ xsd:targetNamespace="http://www.contrailsystems.com/xmpp-enet-cfg.xsd">
     <xsd:element name="address" type="xsd:string"/>
 </xsd:complexType>
 
+<xsd:complexType name="EnetSecurityGroupListType">
+     <xsd:element name="security-group" type="xsd:integer" maxOccurs="unbounded"/>
+</xsd:complexType> 
+
 <xsd:complexType name="EnetEntryType">
     <xsd:all>
         <xsd:element name="nlri" type="EnetAddressType"/>
         <xsd:element name="next-hops" type="EnetNextHopListType"/>
         <xsd:element name="olist" type="EnetOlistType"/>
         <xsd:element name="virtual-network" type="xsd:string"/>
+        <xsd:element name="security-group-list" type="EnetSecurityGroupListType"/>
         <xsd:element name="edge-replication-not-supported" type="xsd:boolean"/>
     </xsd:all>
 </xsd:complexType>

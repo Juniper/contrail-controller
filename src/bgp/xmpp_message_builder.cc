@@ -262,6 +262,11 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route, const RibOutAttr *roatt
         integerToString(evpn_prefix.ip_address_length());
     item.entry.virtual_network = GetVirtualNetwork(route);
 
+    for (std::vector<int>::iterator it = security_group_list_.begin();
+         it !=  security_group_list_.end(); ++it) {
+        item.entry.security_group_list.security_group.push_back(*it);
+    }
+
     const BgpOList *olist = roattr->attr()->olist().get();
     assert((olist == NULL) != roattr->nexthop_list().empty());
 

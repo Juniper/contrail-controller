@@ -1639,6 +1639,14 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
             RouteDistinguisher(nh_address.to_v4().to_ulong(), instance_id));
         attrs.push_back(&source_rd);
 
+        // SGID list
+        for (std::vector<int>::iterator it =
+             item.entry.security_group_list.security_group.begin();
+             it != item.entry.security_group_list.security_group.end(); ++it) {
+            SecurityGroup sg(bgp_server_->autonomous_system(), *it);
+            ext.communities.push_back(sg.GetExtCommunityValue());
+        }
+
         if (!ext.communities.empty())
             attrs.push_back(&ext);
 
