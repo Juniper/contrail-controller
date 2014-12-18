@@ -223,7 +223,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="rule-uuid"        type="xsd:string"/>
         <xsd:element name="direction"        type="DirectionType"/>
         <xsd:element name="protocol"         type="ProtocolType"/>
-        <xsd:element name="ethertype"        type="EtherType"/>
         <xsd:element name="src-addresses"      type="AddressType"
                                              maxOccurs="unbounded"/>
         <xsd:element name="src-ports"         type="PortType"
@@ -235,6 +234,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="dst-ports"         type="PortType"
                                              maxOccurs="unbounded"/>
         <xsd:element name="action-list"      type="ActionListType"/>
+        <xsd:element name="ethertype"        type="EtherType"/>
     </xsd:all>
 </xsd:complexType>
 
