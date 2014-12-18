@@ -48,7 +48,7 @@ struct RouteParams {
 struct RouteAttributes {
 public:
     static const int kDefaultLocalPref = 100;
-    static const int kDefaultSequence = 9999;
+    static const int kDefaultSequence = 0;
     RouteAttributes()
         : local_pref(kDefaultLocalPref), sequence(kDefaultSequence),
           sgids(std::vector<int>()) {

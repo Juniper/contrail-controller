@@ -581,6 +581,8 @@ pugi::xml_document *XmppDocumentMock::RouteEnetAddDeleteXmlDoc(
     rt_entry.entry.nlri.address = address ? string(address) : string();
 
     if (add) {
+        rt_entry.entry.local_preference = attributes.local_pref;
+        rt_entry.entry.sequence_number = attributes.sequence;
         if (attributes.sgids.size()) {
             rt_entry.entry.security_group_list.security_group =
                 attributes.sgids;
