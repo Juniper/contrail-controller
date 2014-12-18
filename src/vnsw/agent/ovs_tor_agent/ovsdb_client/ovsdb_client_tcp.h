@@ -6,6 +6,7 @@
 #include <boost/asio.hpp>
 #include <boost/asio/buffer.hpp>
 
+#include <base/timer.h>
 #include <io/tcp_session.h>
 #include <base/queue_task.h>
 
@@ -73,6 +74,8 @@ private:
 
 class OvsdbClientTcp : public TcpServer, public OvsdbClient {
 public:
+    static const uint32_t TcpReconnectWait = 2000;      // in msec
+
     OvsdbClientTcp(Agent *agent, TorAgentParam *params,
             OvsPeerManager *manager);
     virtual ~OvsdbClientTcp();
@@ -84,14 +87,18 @@ public:
     const std::string server();
     uint16_t port();
     Ip4Address tsn_ip();
+    bool ReconnectTimerCb();
+
     OvsdbClientSession *next_session(OvsdbClientSession *session);
     void AddSessionInfo(SandeshOvsdbClient &client);
+
 private:
     friend class OvsdbClientTcpSession;
     Agent *agent_;
     TcpSession *session_;
     boost::asio::ip::tcp::endpoint server_ep_;
     Ip4Address tsn_ip_;
+    Timer *client_reconnect_timer_;
     DISALLOW_COPY_AND_ASSIGN(OvsdbClientTcp);
 };
 };
