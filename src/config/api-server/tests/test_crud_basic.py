@@ -812,6 +812,35 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         with ExpectedException(RefsExistError) as e:
             self._vnc_lib.project_create(dup_project_obj)
 
+    def test_dup_create_port_timing(self):
+        # test for https://bugs.launchpad.net/juniperopenstack/r2.0/+bug/1382385
+        vn_name = self.id() + '-network'
+        vn_obj = VirtualNetwork(vn_name, parent_obj=Project())
+        self._vnc_lib.virtual_network_create(vn_obj)
+
+        vmi_name = self.id() + '-port'
+        logger.info('Creating port %s', vmi_name)
+        vmi_obj = VirtualMachineInterface(vmi_name, parent_obj=Project())
+        vmi_obj.add_virtual_network(vn_obj)
+        self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+
+        vmi_name = self.id() + '-port'
+        logger.info('Creating dup port %s', vmi_name)
+        vmi_obj = VirtualMachineInterface(vmi_name, parent_obj=Project())
+        vmi_obj.add_virtual_network(vn_obj)
+
+        orig_fq_name_to_uuid = self._api_server._db_conn.fq_name_to_uuid
+        def dummy_fq_name_to_uuid(obj_type, *args, **kwargs):
+            if obj_type == 'virtual-machine-interface':
+                raise NoIdError('')
+            return orig_fq_name_to_uuid(obj_type, *args, **kwargs)
+        self._api_server._db_conn.fq_name_to_uuid = dummy_fq_name_to_uuid
+        try:
+            with ExpectedException(RefsExistError) as e:
+                self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+        finally:
+            self._api_server._db_conn.fq_name_to_uuid= orig_fq_name_to_uuid
+
     def test_put_on_wrong_type(self):
         vn_name = self.id()+'-vn'
         vn_obj = VirtualNetwork(vn_name)
