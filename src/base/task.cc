@@ -27,6 +27,7 @@
 using namespace std;
 using tbb::task;
 
+int TaskScheduler::ThreadAmpFactor = 1;
 class TaskEntry;
 struct TaskDeferEntryCmp;
 
@@ -292,7 +293,7 @@ int TaskScheduler::GetThreadCount() {
 // for task scheduling. But, in our case we dont want "main" thread to be
 // part of tbb. So, initialize TBB with one thread more than its default
 TaskScheduler::TaskScheduler() : 
-    task_scheduler_(GetThreadCount() + 1),
+    task_scheduler_(GetThreadCount()*ThreadAmpFactor + 1),
     running_(true), seqno_(0), id_max_(0) {
     hw_thread_count_ = GetThreadCount();
     task_group_db_.resize(TaskScheduler::kVectorGrowSize);

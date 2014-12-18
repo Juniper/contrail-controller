@@ -180,6 +180,9 @@ public:
     // Get number of tbb worker threads.
     static int GetThreadCount();
 
+    // following variable allows one to increase max num of threads used by
+    // TBB
+    static int ThreadAmpFactor;
 private:
     friend class SandeshTaskSchedulerReq;
     friend class SandeshTaskGroupReq;

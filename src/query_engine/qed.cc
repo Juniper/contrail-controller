@@ -138,6 +138,10 @@ main(int argc, char *argv[]) {
     pevm = &evm;
     Options options;
 
+    // Increase max number of threads available by a factor of 4
+    TaskScheduler::ThreadAmpFactor = 
+        QEOpServerProxy::nThreadCountMultFactor;
+
     if (!OptionsParse(options, evm, argc, argv)) {
         exit(-1);
     }
