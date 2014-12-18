@@ -1,0 +1,9 @@
+Verified+2: Zuul <zuul@lists.opencontrail.org>
+Code-Review+1: Édouard Thuleau <edouard.thuleau@cloudwatt.com>
+Approved+1: Rudra Rugge <rrugge@juniper.net>
+Code-Review+2: Rudra Rugge <rrugge@juniper.net>
+Submitted-by: Zuul <zuul@lists.opencontrail.org>
+Submitted-at: Wed, 17 Dec 2014 16:11:53 -0800
+Reviewed-on: https://review.opencontrail.org/5676
+Project: Juniper/contrail-controller
+Branch: refs/heads/master
