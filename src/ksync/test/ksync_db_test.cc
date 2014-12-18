@@ -434,6 +434,59 @@ TEST_F(DBKSyncTest, KSyncEntryRenewWithNewDBEntry) {
     EXPECT_EQ(VlanKSyncEntry::GetDelCount(), 1);
 }
 
+TEST_F(DBKSyncTest, OneKSyncEntryForTwoOperDBEntry) {
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new Vlan::VlanKey("vlan10", 10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+
+    task_util::WaitForIdle();
+    Vlan *entry;
+    VlanKSyncEntry v(10);
+    VlanKSyncEntry *ksync_vlan =
+        static_cast<VlanKSyncEntry *>(VlanKSyncObject::GetKSyncObject()->Find(&v));
+
+    // check ksync entry in sync and db entry vlan 10 being in use
+    entry = static_cast<Vlan *>(ksync_vlan->GetDBEntry());
+    EXPECT_EQ(ksync_vlan->GetState(), KSyncEntry::IN_SYNC);
+    EXPECT_TRUE(entry->name().compare("vlan10") == 0);
+
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new Vlan::VlanKey("new_vlan10", 10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+
+    // check ksync entry in sync and db entry vlan 10 being in use
+    entry = static_cast<Vlan *>(ksync_vlan->GetDBEntry());
+    EXPECT_EQ(ksync_vlan->GetState(), KSyncEntry::IN_SYNC);
+    EXPECT_TRUE(entry->name().compare("vlan10") == 0);
+
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    req.key.reset(new Vlan::VlanKey("vlan10", 10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+
+    // check ksync entry in sync and db entry new vlan 10 being in use
+    entry = static_cast<Vlan *>(ksync_vlan->GetDBEntry());
+    EXPECT_EQ(ksync_vlan->GetState(), KSyncEntry::IN_SYNC);
+    EXPECT_TRUE(entry->name().compare("new_vlan10") == 0);
+
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    req.key.reset(new Vlan::VlanKey("new_vlan10", 10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+
+    EXPECT_EQ(adc_notification, 2);
+    EXPECT_EQ(del_notification, 2);
+
+    EXPECT_EQ(VlanKSyncEntry::GetAddCount(), 1);
+    EXPECT_EQ(VlanKSyncEntry::GetDelCount(), 1);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     LoggingInit();
