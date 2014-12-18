@@ -1428,7 +1428,7 @@ class VncDbClient(object):
             else:
                 (ok, obj_uuid) = self._alloc_set_uuid(obj_type, obj_dict)
         except ResourceExistsError as e:
-            return (409, str(e))
+            return (False, (409, str(e)))
 
         parent_type = obj_dict.get('parent_type', None)
         method_name = obj_type.replace('-', '_')
