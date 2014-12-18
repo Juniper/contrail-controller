@@ -220,13 +220,45 @@ void KSyncDBObject::Notify(DBTablePartBase *partition, DBEntryBase *e) {
     }
 
     if (entry->IsDeleted() || resp == DBFilterDelete) {
-        // We may get duplicate delete notification in 
-        // case of db entry reuse
-        // add -> change ->delete(Notify) -> change -> delete(Notify)
-        // delete and change gets suppresed as delete and we get
-        // a duplicate delete notification
-        if (state && ksync->IsDeleted() == false) {
-            NotifyEvent(ksync, KSyncEntry::DEL_REQ);
+        if (state == NULL) {
+            return;
+        }
+        // Check if there is any entry present in dup_entry_list
+        if (!ksync->dup_entry_list_.empty()) {
+            // Check if entry getting deleted is actively associated with
+            // Ksync Entry.
+            if (entry == ksync->GetDBEntry()) {
+                // clean up db entry state.
+                CleanupOnDel(ksync);
+                ksync->SetDBEntry(ksync->dup_entry_list_.front());
+                ksync->dup_entry_list_.pop_front();
+
+                // DB entry association changed, trigger re-sync.
+                if (ksync->Sync(ksync->GetDBEntry())) {
+                    NotifyEvent(ksync, KSyncEntry::ADD_CHANGE_REQ);
+                }
+            } else {
+                // iterate through entries and delete the corresponding DB ref.
+                KSyncDBEntry::DupEntryList::iterator it_dup;
+                for (it_dup = ksync->dup_entry_list_.begin();
+                        it_dup != ksync->dup_entry_list_.end(); ++it_dup) {
+                    if (entry == *it_dup)
+                        break;
+                }
+                // something bad has happened if we fail to find the entry.
+                assert(it_dup != ksync->dup_entry_list_.end());
+                ksync->dup_entry_list_.erase(it_dup);
+                entry->ClearState(table_, id_);
+            }
+        } else {
+            // We may get duplicate delete notification in
+            // case of db entry reuse
+            // add -> change ->delete(Notify) -> change -> delete(Notify)
+            // delete and change gets suppresed as delete and we get
+            // a duplicate delete notification
+            if (ksync->IsDeleted() == false) {
+                NotifyEvent(ksync, KSyncEntry::DEL_REQ);
+            }
         }
     } else {
         if (resp == DBFilterIgnore) {
@@ -256,9 +288,12 @@ void KSyncDBObject::Notify(DBTablePartBase *partition, DBEntryBase *e) {
                 if (old_db_entry->IsDeleted()) {
                     CleanupOnDel(ksync);
                 } else {
-                    // something wrong! two db entry in oper db points to same
-                    // KSync entry.
-                    assert(false);
+                    // In case Oper DB and Ksync use different Keys, its
+                    // possible to have multiple Oper DB entries pointing to
+                    // same Ksync Entry.
+                    // add the entry to dup_entry_list and return
+                    ksync->dup_entry_list_.push_back(entry);
+                    return;
                 }
             }
             ksync->SetDBEntry(entry);

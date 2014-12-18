@@ -18,6 +18,7 @@ do {\
 } while (false);\
 
 class KSyncObject;
+class KSyncDBObject;
 
 class KSyncEntry {
 public:
@@ -146,6 +147,8 @@ private:
 // Applications are not needed to generate any events to the state-machine
 class KSyncDBEntry : public KSyncEntry, public DBState {
 public:
+    typedef std::list<DBEntry *> DupEntryList;
+
     KSyncDBEntry() : KSyncEntry(), DBState() { db_entry_ = NULL; };
     KSyncDBEntry(uint32_t index) : KSyncEntry(index), DBState() { db_entry_ = NULL; };
     virtual ~KSyncDBEntry() { };
@@ -156,8 +159,12 @@ public:
 
     void SetDBEntry(DBEntry *db_entry) { db_entry_ = db_entry; }
     DBEntry * GetDBEntry() { return db_entry_; }
+
 private:
+    friend class KSyncDBObject;
+
     DBEntry *db_entry_;
+    DupEntryList dup_entry_list_;
     DISALLOW_COPY_AND_ASSIGN(KSyncDBEntry);
 };
 
