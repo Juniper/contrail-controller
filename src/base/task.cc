@@ -27,6 +27,7 @@
 using namespace std;
 using tbb::task;
 
+int TaskScheduler::ThreadAmpFactor_ = 1;
 class TaskEntry;
 struct TaskDeferEntryCmp;
 
@@ -280,7 +281,7 @@ int TaskScheduler::GetThreadCount() {
     }
 
     init_ = true;
-    return num_cores_;
+    return num_cores_ * ThreadAmpFactor_;
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -1439,3 +1440,8 @@ void TaskScheduler::GetTaskSandeshData(int task_id, int instance_id,
     else
         resp->set_task_spawned(false);
 }
+
+// following function allows one to increase max num of threads used by
+// TBB
+void TaskScheduler::SetThreadAmpFactor(int n)
+{ ThreadAmpFactor_ = n; }

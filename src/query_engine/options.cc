@@ -108,7 +108,7 @@ void Options::Initialize(EventManager &evm,
              "Syslog facility to receive log lines")
         ("DEFAULT.max_slice", opt::value<int>()->default_value(100),
              "Max number of rows in chunk slice")
-        ("DEFAULT.max_tasks", opt::value<int>()->default_value(16),
+        ("DEFAULT.max_tasks", opt::value<int>()->default_value(0),
              "Max number of tasks used for a query")
         ("DEFAULT.start_time", opt::value<uint64_t>()->default_value(0),
              "Lowest start time for queries")
