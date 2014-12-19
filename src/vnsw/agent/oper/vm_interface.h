@@ -304,6 +304,7 @@ public:
     const Interface *parent() const { return parent_.get(); }
     bool ecmp() const { return ecmp_;}
     const OperDhcpOptions &oper_dhcp_options() const { return oper_dhcp_options_; }
+    const MacAddress& GetVifMac(const Agent*) const;
 
     Interface::MirrorDirection mirror_direction() const {
         return mirror_direction_;
