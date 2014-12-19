@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_bgp_export_h
-#define ctrlplane_bgp_export_h
+#ifndef SRC_BGP_BGP_EXPORT_H_
+#define SRC_BGP_BGP_EXPORT_H_
 
 #include <memory>
 
@@ -15,10 +15,10 @@ class RibPeerSet;
 
 class BgpExport {
 public:
-    BgpExport(RibOut *ribout);
+    explicit BgpExport(RibOut *ribout);
 
     void Export(DBTablePartBase *root, DBEntryBase *db_entry);
-    
+
     // Create new route advertisements in order to sync a peers that has
     // just joined the table.
     bool Join(DBTablePartBase *root, const RibPeerSet &mjoin,
@@ -36,4 +36,4 @@ private:
     RibOut *ribout_;
 };
 
-#endif
+#endif  // SRC_BGP_BGP_EXPORT_H_

@@ -65,7 +65,6 @@ void BgpExport::Export(DBTablePartBase *root, DBEntryBase *db_entry) {
 
     // Handle the DBState as appropriate.
     if (dbstate == NULL) {
-
         // A NULL DBState implies that we either have no previous state or
         // that the previously scheduled updates are duplicates of what we
         // want to send now.
@@ -82,9 +81,7 @@ void BgpExport::Export(DBTablePartBase *root, DBEntryBase *db_entry) {
         // We have no previous state and the route is reachable.  Need to
         // schedule a new update.
         rt_update = new RouteUpdate(route, RibOutUpdates::QUPDATE);
-
     } else {
-
         // The DBState in the DBEntryBase must be the same as what we found.
         // This is a paranoid check to make sure that GetDBStateAndDequeue
         // did not forget to update the DBState when handing a RouteUpdate
@@ -101,7 +98,6 @@ void BgpExport::Export(DBTablePartBase *root, DBEntryBase *db_entry) {
 
         rt_update = dynamic_cast<RouteUpdate *>(dbstate);
         if (rt_update == NULL)  {
-
             // Previous state is not a RouteUpdate, must be a RouteState.
             RouteState *rstate = static_cast<RouteState *>(dbstate);
 
@@ -121,9 +117,7 @@ void BgpExport::Export(DBTablePartBase *root, DBEntryBase *db_entry) {
             delete rstate;
             dbstate = NULL;
             rstate = NULL;
-
         } else {
-
             // The RouteUpdate must be for QUPDATE. Any RouteUpdate that got
             // dequeued from QBULK is also converted to be for QUPDATE.
             assert(rt_update->queue_id() == RibOutUpdates::QUPDATE);
