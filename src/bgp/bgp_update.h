@@ -2,16 +2,16 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_bgp_update_h
-#define ctrlplane_bgp_update_h
-
-#include <list>
+#ifndef SRC_BGP_BGP_UPDATE_H_
+#define SRC_BGP_BGP_UPDATE_H_
 
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/slist.hpp>
 #include <boost/intrusive/set.hpp>
-
 #include <tbb/mutex.h>
+
+#include <algorithm>
+#include <list>
 
 #include "bgp/bgp_ribout.h"
 
@@ -70,10 +70,15 @@ struct UpdateMarker : public UpdateEntry {
 // is sorted by attribute, timestamp and prefix.
 //
 struct UpdateInfo {
-    UpdateInfo() { }
-    UpdateInfo(RibPeerSet target) : target(target) { }
-    UpdateInfo(RibPeerSet target, RibOutAttr roattr)
-        : roattr(roattr), target(target) {
+    UpdateInfo() : update(NULL) { }
+    explicit UpdateInfo(const RibPeerSet &target)
+        : target(target),
+          update(NULL) {
+    }
+    UpdateInfo(const RibPeerSet &target, RibOutAttr roattr)
+        : roattr(roattr),
+          target(target),
+          update(NULL) {
     }
 
     void clear() {
@@ -130,7 +135,6 @@ inline void swap<UpdateInfo>(UpdateInfo &lhs, UpdateInfo &rhs) {
 //
 class UpdateInfoSList {
 public:
-
     typedef boost::intrusive::member_hook<
         UpdateInfo,
         boost::intrusive::slist_member_hook<>,
@@ -152,6 +156,7 @@ public:
 
 private:
     List list_;
+    DISALLOW_COPY_AND_ASSIGN(UpdateInfoSList);
 };
 
 //
@@ -183,7 +188,6 @@ private:
 //
 class RouteUpdate : public DBState, public UpdateEntry {
 public:
-
     enum Flag {
         F_LIST = 0,     // Entry is part of a list.
     };
@@ -199,7 +203,7 @@ public:
     const UpdateInfo *FindUpdateInfo(const RibOutAttr &roattr) const;
     void MergeUpdateInfo(UpdateInfoSList &uinfo_slist);
     bool RemoveUpdateInfo(UpdateInfo *uinfo);
-    void ResetUpdateInfo(RibPeerSet &peerset);
+    void ResetUpdateInfo(const RibPeerSet &peerset);
     void TrimRedundantUpdateInfo(UpdateInfoSList &uinfo_slist) const;
 
     void SetHistory(AdvertiseSList &history);
@@ -300,4 +304,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(UpdateList);
 };
 
-#endif
+#endif  // SRC_BGP_BGP_UPDATE_H_
