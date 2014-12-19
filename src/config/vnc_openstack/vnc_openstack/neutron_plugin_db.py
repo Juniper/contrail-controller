@@ -1114,11 +1114,11 @@ class DBInterface(object):
 
             rule = PolicyRuleType(rule_uuid=sgr_uuid, direction=dir,
                                   protocol=sgr_q['protocol'],
-                                  ethertype=sgr_q['ethertype'],
                                   src_addresses=local,
                                   src_ports=[PortType(0, 65535)],
                                   dst_addresses=remote,
-                                  dst_ports=[PortType(port_min, port_max)])
+                                  dst_ports=[PortType(port_min, port_max)],
+                                  ethertype=sgr_q['ethertype'])
             return rule
     #end _security_group_rule_neutron_to_vnc
 
