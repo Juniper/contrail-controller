@@ -2,14 +2,16 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_community_h
-#define ctrlplane_community_h
+#ifndef SRC_BGP_COMMUNITY_H_
+#define SRC_BGP_COMMUNITY_H_
 
-#include <set>
-#include <vector>
 #include <boost/array.hpp>
 #include <boost/intrusive_ptr.hpp>
 #include <tbb/atomic.h>
+
+#include <set>
+#include <string>
+#include <vector>
 
 #include "bgp/bgp_attr_base.h"
 #include "base/parse_object.h"
@@ -45,7 +47,10 @@ public:
         NoExportSubconfed = 0xFFFFFF03,
     };
 
-    Community(CommunityDB *comm_db) : comm_db_(comm_db) { refcount_ = 0; }
+    explicit Community(CommunityDB *comm_db)
+        : comm_db_(comm_db) {
+        refcount_ = 0;
+    }
     explicit Community(CommunityDB *comm_db, const CommunitySpec spec);
 
     virtual ~Community() { }
@@ -102,7 +107,7 @@ class CommunityDB : public BgpPathAttributeDB<Community, CommunityPtr,
                                               CommunitySpec, CommunityCompare,
                                               CommunityDB> {
 public:
-    CommunityDB(BgpServer *server);
+    explicit CommunityDB(BgpServer *server);
     virtual ~CommunityDB() { }
 
 private:
@@ -114,13 +119,7 @@ struct ExtCommunitySpec : public BgpAttribute {
     ExtCommunitySpec() : BgpAttribute(ExtendedCommunities, kFlags) { }
     explicit ExtCommunitySpec(const BgpAttribute &rhs) : BgpAttribute(rhs) { }
     std::vector<uint64_t> communities;
-    virtual int CompareTo(const BgpAttribute &rhs_attr) const {
-        int ret = BgpAttribute::CompareTo(rhs_attr);
-        if (ret != 0) return ret;
-        KEY_COMPARE(communities,
-                    static_cast<const ExtCommunitySpec &>(rhs_attr).communities);
-        return 0;
-    }
+    virtual int CompareTo(const BgpAttribute &rhs_attr) const;
     virtual void ToCanonical(BgpAttr *attr);
     virtual std::string ToString() const;
 };
@@ -130,13 +129,13 @@ public:
     typedef boost::array<uint8_t, 8> ExtCommunityValue;
     typedef std::vector<ExtCommunityValue> ExtCommunityList;
 
-    ExtCommunity(ExtCommunityDB *extcomm_db) : extcomm_db_(extcomm_db) {
+    explicit ExtCommunity(ExtCommunityDB *extcomm_db)
+        : extcomm_db_(extcomm_db) {
         refcount_ = 0;
     }
-
-    // Copy constructor
     explicit ExtCommunity(const ExtCommunity &rhs)
-        : extcomm_db_(rhs.extcomm_db_), communities_(rhs.communities_) {
+        : extcomm_db_(rhs.extcomm_db_),
+          communities_(rhs.communities_) {
         refcount_ = 0;
     }
 
@@ -205,7 +204,7 @@ public:
         // 2. IPv4 Address specific extended community Route Target
         // 3. 4 Octet AS specific extended community Route Target
         //
-        return ((val[0] == 0x0 || (val[0] == 0x2) || (val[0] ==  0x1)) && 
+        return ((val[0] == 0x0 || (val[0] == 0x2) || (val[0] ==  0x1)) &&
                 (val[1] == 0x2));
     }
 
@@ -283,7 +282,7 @@ class ExtCommunityDB : public BgpPathAttributeDB<ExtCommunity, ExtCommunityPtr,
                                                  ExtCommunityCompare,
                                                  ExtCommunityDB> {
 public:
-    ExtCommunityDB(BgpServer *server);
+    explicit ExtCommunityDB(BgpServer *server);
 
     ExtCommunityPtr AppendAndLocate(const ExtCommunity *src,
             const ExtCommunity::ExtCommunityList &list);
@@ -307,4 +306,4 @@ public:
 private:
 };
 
-#endif
+#endif  // SRC_BGP_COMMUNITY_H_
