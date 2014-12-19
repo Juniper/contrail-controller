@@ -9,7 +9,7 @@ from gen_py.instance_service import InstanceService, ttypes
 
 class ContrailVRouterApi(object):
 
-    def __init__(self, server_port=9090):
+    def __init__(self, server_port=9090, doconnect=False):
         """
         local variables:
         _client: current transport connection
@@ -18,6 +18,7 @@ class ContrailVRouterApi(object):
         self._server_port = server_port
         self._client = None
         self._ports = {}
+        self._connect = doconnect
 
     def _rpc_client_instance(self):
         """ Return an RPC client connection """
@@ -32,7 +33,7 @@ class ContrailVRouterApi(object):
             return None
         protocol = TBinaryProtocol.TBinaryProtocol(transport)
         client = InstanceService.Client(protocol)
-        if client:
+        if client and self._connect:
             client.Connect()
         return client
 
@@ -59,7 +60,8 @@ class ContrailVRouterApi(object):
             self._client = self._rpc_client_instance()
             if self._client is None:
                 return False
-            return True
+            if self._connect:
+                return True
 
         return self._client.Connect()
 
@@ -106,7 +108,7 @@ class ContrailVRouterApi(object):
             data.port_type = \
                 ttypes.PortTypes._NAMES_TO_VALUES[kwargs['port_type']]
         else:
-            data.port_type = ttypes.PortTypes.NovaVMPort
+            data.port_type = ttypes.PortTypes.NameSpacePort
         if 'ip6_address' in kwargs:
             data.ip6_address = kwargs['ip6_address']
 
