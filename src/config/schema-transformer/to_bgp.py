@@ -1527,21 +1527,18 @@ class ServiceChain(DictST):
                 "service chain %s: vn1_obj or vn2_obj is None", self.name)
             return None
 
-        ri1 = vn1_obj.get_primary_routing_instance()
-        service_ri2 = None
+        service_ri2 = vn1_obj.get_primary_routing_instance()
         first_node = True
         for service in self.service_list:
             service_name1 = vn1_obj.get_service_name(self.name, service)
             service_name2 = vn2_obj.get_service_name(self.name, service)
             service_ri1 = vn1_obj.locate_routing_instance(
                 service_name1, self.name)
-            if service_ri1 is None:
-                _sandesh._logger.error("service chain %s: service_ri1 is None",
-                                       self.name)
+            if service_ri1 is None or service_ri2 is None:
+                _sandesh._logger.debug("service chain %s: service_ri1 or "
+                                       "service_ri2 is None", self.name)
                 return None
-
-            if service_ri2 is not None:
-                service_ri2.add_connection(service_ri1)
+            service_ri2.add_connection(service_ri1)
             service_ri2 = vn2_obj.locate_routing_instance(
                 service_name2, self.name)
             if service_ri2 is None:
@@ -1553,8 +1550,6 @@ class ServiceChain(DictST):
                 first_node = False
                 service_ri1.update_route_target_list(
                     vn1_obj.rt_list, import_export='export')
-                service_ri1.update_route_target_list([ri1.route_target],
-                                                     import_export='import')
 
             try:
                 service_instance = _vnc_lib.service_instance_read(
@@ -1627,11 +1622,11 @@ class ServiceChain(DictST):
             _vnc_lib.routing_instance_update(service_ri1.obj)
             _vnc_lib.routing_instance_update(service_ri2.obj)
 
-        ri2 = vn2_obj.get_primary_routing_instance()
         service_ri2.update_route_target_list(
             vn2_obj.rt_list, import_export='export')
-        service_ri2.update_route_target_list([ri2.route_target],
-                                             import_export='import')
+
+        service_ri2.add_connection(vn2_obj.get_primary_routing_instance())
+
         if not transparent and len(self.service_list) == 1:
             for vn in VirtualNetworkST.values():
                 for prefix, nexthop in vn.route_table.items():
@@ -2909,9 +2904,11 @@ class SchemaTransformer(object):
                                 match.dst_address.virtual_network
                         if (len(action.apply_service) != 0):
                             # if a service was applied, the ACL should have a
-                            # pass action
+                            # pass action, and we should not make a connection
+                            # between the routing instances
                             action.simple_action = "pass"
                             action.apply_service = []
+                            continue
 
                         if action.simple_action:
                             virtual_network.add_connection(connected_network)
