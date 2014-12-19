@@ -22,6 +22,10 @@ import ConfigParser
 import signal
 import syslog
 
+global HOME_ENV_PATH
+HOME_ENV_PATH = '/root'
+
+
 from stats_daemon.sandesh.storage.ttypes import *
 from pysandesh.sandesh_base import *
 from sandesh_common.vns.ttypes import Module, NodeType
@@ -112,7 +116,14 @@ class EventManager:
     '''
     def call_subprocess(self, cmd):
         times = datetime.datetime.now()
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+
+        # latest 14.0.4 requires "HOME" env variable to be passed
+        # copy current environment variables and add "HOME" variable
+        # pass the newly created environment variable to Popen subprocess
+        env_home = os.environ.copy()
+        env_home['HOME'] = HOME_ENV_PATH
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, \
+            stderr=subprocess.STDOUT, shell=True, env=env_home)
 
         while p.poll() is None:
             time.sleep(0.1)
