@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef __ctrlplane__bgp_config_listener__
-#define __ctrlplane__bgp_config_listener__
+#ifndef SRC_BGP_BGP_CONFIG_LISTENER_H_
+#define SRC_BGP_BGP_CONFIG_LISTENER_H_
 
 #include "ifmap/ifmap_config_listener.h"
 
@@ -16,7 +16,7 @@ class BgpConfigManager;
 //
 class BgpConfigListener : public IFMapConfigListener {
 public:
-    BgpConfigListener(BgpConfigManager *manager);
+    explicit BgpConfigListener(BgpConfigManager *manager);
 
 private:
     friend class BgpConfigListenerTest;
@@ -26,4 +26,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(BgpConfigListener);
 };
 
-#endif /* defined(__ctrlplane__bgp_config_listener__) */
+#endif  // SRC_BGP_BGP_CONFIG_LISTENER_H_

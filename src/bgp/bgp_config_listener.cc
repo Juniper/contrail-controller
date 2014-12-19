@@ -6,10 +6,14 @@
 
 #include <boost/assign/list_of.hpp>
 
+#include <string>
+
 #include "ifmap/ifmap_dependency_tracker.h"
 
-using namespace boost::assign;
-using namespace std;
+using boost::assign::list_of;
+using boost::assign::map_list_of;
+using std::make_pair;
+using std::string;
 
 BgpConfigListener::BgpConfigListener(BgpConfigManager *manager)
     : IFMapConfigListener(manager, "bgp::Config") {
