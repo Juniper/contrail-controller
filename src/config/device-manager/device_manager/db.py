@@ -165,8 +165,10 @@ class PhysicalRouterDM(DBBase):
                                                              import_set,
                                                              export_set,
                                                              vn_obj.prefixes,
+                                                             vn_obj.gateways,
                                                              vn_obj.router_external,
-                                                             interfaces)
+                                                             interfaces,
+                                                             vn_obj.vxlan_vni)
                     break
         self.config_manager.send_bgp_config()
     # end push_config
@@ -292,6 +294,9 @@ class VirtualNetworkDM(DBBase):
         self.uuid = uuid
         self.physical_routers = set()
         self.router_external = False
+        self.vxlan_configured = False
+        self.vxlan_vni = None
+        self.gateways = None
         self.update(obj_dict)
     # end __init__
 
@@ -304,17 +309,28 @@ class VirtualNetworkDM(DBBase):
             self.router_external = obj['router_external']
         except KeyError:
             self.router_external = False
+        try:
+            prop = obj['virtual_network_properties']
+            if prop['vxlan_network_identifier'] is not None:
+                self.vxlan_configured = True
+                self.vxlan_vni = prop['vxlan_network_identifier']
+        except KeyError:
+            self.vxlan_configured = False 
+            self.vxlan_vni = None
+
         self.routing_instances = set([ri['uuid'] for ri in
                                       obj.get('routing_instances', [])])
         self.virtual_machine_interfaces = set(
             [vmi['uuid'] for vmi in
              obj.get('virtual_machine_interface_back_refs', [])])
         self.prefixes = set()
+        self.gateways = set()
         for ipam_ref in obj.get('network_ipam_refs', []):
             for subnet in ipam_ref['attr'].get('ipam_subnets', []):
                 self.prefixes.add('%s/%d' % (subnet['subnet']['ip_prefix'],
                                              subnet['subnet']['ip_prefix_len'])
                                   )
+                self.gateways.add(subnet['default_gateway'])
     # end update
 
     @classmethod
