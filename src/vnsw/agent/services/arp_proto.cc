@@ -108,8 +108,15 @@ bool ArpDBState::SendArpRequest() {
         if (it->second >= kMaxRetry) {
             continue;
         }
+
+        const VmInterface *vm_intf = static_cast<const VmInterface *>(
+                vrf_state_->agent->interface_table()->FindInterface(it->first));
+        if (!vm_intf) {
+            continue;
+        }
+        MacAddress smac = vm_intf->GetArpMac(vrf_state_->agent);
         it->second++;
-        arp_handler.SendArp(ARPOP_REQUEST, vrf_state_->agent->vrrp_mac(),
+        arp_handler.SendArp(ARPOP_REQUEST, smac,
                             gw_ip_.to_v4().to_ulong(),
                             MacAddress(), vm_ip_.to_v4().to_ulong(),
                             it->first, vrf_id_);

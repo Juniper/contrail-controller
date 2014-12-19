@@ -1109,6 +1109,14 @@ void VmInterface::DeleteL2(bool old_l2_active, VrfEntry *old_vrf) {
     DeleteL2NextHop(old_l2_active);
 }
 
+const MacAddress& VmInterface::GetArpMac(const Agent *agent) const {
+    if (parent()) {
+        return parent()->mac();
+    } else {
+        return agent->vrrp_mac();
+    }
+}
+
 // Apply the latest configuration
 void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old_policy, 
                               VrfEntry *old_vrf, const Ip4Address &old_addr, 

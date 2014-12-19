@@ -42,7 +42,8 @@ unsigned long src_ip, dest_ip, target_ip, gw_ip, bcast_ip, static_ip;
 
 class ArpTest : public ::testing::Test {
 public:
-    ArpTest() : trigger_(boost::bind(&ArpTest::AddVhostRcvRoute, this),
+    ArpTest() : agent(Agent::GetInstance()),
+    trigger_(boost::bind(&ArpTest::AddVhostRcvRoute, this),
                          TaskScheduler::GetInstance()->GetTaskId("db::DBTable"),
                          0) {
     }
@@ -244,6 +245,8 @@ public:
         usleep(1000);
         client->WaitForIdle();
     }
+protected:
+    Agent *agent;
 private:
     Ip4Address vhost_rcv_route_;
     TaskTrigger trigger_;
@@ -584,6 +587,9 @@ TEST_F(ArpTest, ArpReqOnVmInterface_1) {
     AddLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
     client->WaitForIdle();
     WAIT_FOR(5000, 1000, (agent->GetArpProto()->GetStats().vm_arp_req == 3));
+
+    VmInterface *vmi = static_cast<VmInterface *>(VmPortGet(1));
+    EXPECT_TRUE(vmi->GetArpMac(agent) == agent->vrrp_mac());
 
     DelIPAM("vn1", "vdns1");
     DeleteVmportEnv(input, 1, true);

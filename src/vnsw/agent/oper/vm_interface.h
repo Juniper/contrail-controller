@@ -304,6 +304,8 @@ public:
     const Interface *parent() const { return parent_.get(); }
     bool ecmp() const { return ecmp_;}
     const OperDhcpOptions &oper_dhcp_options() const { return oper_dhcp_options_; }
+    //Source MAC to be used, when agent originates ARP query
+    const MacAddress& GetArpMac(const Agent*) const;
 
     Interface::MirrorDirection mirror_direction() const {
         return mirror_direction_;
