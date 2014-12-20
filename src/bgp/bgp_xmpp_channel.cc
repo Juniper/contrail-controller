@@ -1632,6 +1632,11 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
             }
         }
 
+        BgpAttrLocalPref local_pref(item.entry.local_preference);
+        if (local_pref.local_pref != 0) {
+            attrs.push_back(&local_pref);
+        }
+
         BgpAttrNextHop nexthop(nh_address.to_v4().to_ulong());
         attrs.push_back(&nexthop);
 
@@ -1645,6 +1650,11 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
              it != item.entry.security_group_list.security_group.end(); ++it) {
             SecurityGroup sg(bgp_server_->autonomous_system(), *it);
             ext.communities.push_back(sg.GetExtCommunityValue());
+        }
+
+        if (item.entry.sequence_number) {
+            MacMobility mm(item.entry.sequence_number);
+            ext.communities.push_back(mm.GetExtCommunityValue());
         }
 
         if (!ext.communities.empty())

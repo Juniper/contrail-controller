@@ -1417,10 +1417,32 @@ protected:
         return true;
     }
 
+    bool CheckRouteLocalPrefSequence(test::NetworkAgentMockPtr agent,
+        const string &network, const string &prefix,
+        uint32_t local_pref, uint32_t sequence) {
+        task_util::TaskSchedulerLock lock;
+        const autogen::EnetItemType *rt =
+            agent->EnetRouteLookup(network, prefix);
+        if (!rt)
+            return false;
+        if (rt->entry.local_preference != local_pref)
+            return false;
+        if (rt->entry.sequence_number != sequence)
+            return false;
+        return true;
+    }
+
     void VerifyRouteSecurityGroup(test::NetworkAgentMockPtr agent,
         const string &network, const string &prefix, vector<int> &sg) {
         TASK_UTIL_EXPECT_TRUE(
             CheckRouteSecurityGroup(agent, network, prefix, sg));
+    }
+
+    void VerifyRouteLocalPrefSequence(test::NetworkAgentMockPtr agent,
+        const string &network, const string &prefix,
+        uint32_t local_pref, uint32_t sequence) {
+        TASK_UTIL_EXPECT_TRUE(CheckRouteLocalPrefSequence(
+            agent, network, prefix, local_pref, sequence));
     }
 
     EventManager evm_;
@@ -1619,9 +1641,97 @@ TEST_F(BgpXmppEvpnTest2, RouteAddWithSecurityGroup) {
     VerifyRouteSecurityGroup(agent_a_, "blue", eroute_a.str(), sg1);
     VerifyRouteSecurityGroup(agent_a_, "blue", eroute_b.str(), sg2);
 
+    // Verify local pref and sequence on A.
+    VerifyRouteLocalPrefSequence(agent_a_, "blue", eroute_a.str(),
+        test::RouteAttributes::kDefaultLocalPref,
+        test::RouteAttributes::kDefaultSequence);
+    VerifyRouteLocalPrefSequence(agent_a_, "blue", eroute_b.str(),
+        test::RouteAttributes::kDefaultLocalPref,
+        test::RouteAttributes::kDefaultSequence);
+
     // Verify security groups on B.
     VerifyRouteSecurityGroup(agent_b_, "blue", eroute_a.str(), sg1);
     VerifyRouteSecurityGroup(agent_b_, "blue", eroute_b.str(), sg2);
+
+    // Verify local pref and sequence on B.
+    VerifyRouteLocalPrefSequence(agent_a_, "blue", eroute_a.str(),
+        test::RouteAttributes::kDefaultLocalPref,
+        test::RouteAttributes::kDefaultSequence);
+    VerifyRouteLocalPrefSequence(agent_a_, "blue", eroute_b.str(),
+        test::RouteAttributes::kDefaultLocalPref,
+        test::RouteAttributes::kDefaultSequence);
+
+    // Delete route from agent A.
+    agent_a_->DeleteEnetRoute("blue", eroute_a.str());
+    task_util::WaitForIdle();
+
+    // Delete route from agent B.
+    agent_b_->DeleteEnetRoute("blue", eroute_b.str());
+    task_util::WaitForIdle();
+
+    // Verify that there are no routes on the agents.
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount("blue"));
+    TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount("blue"));
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Routes from 2 agents are advertised to each other.
+//
+TEST_F(BgpXmppEvpnTest2, RouteAddWithLocalPrefSequence) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->EnetSubscribe("blue", 1);
+    agent_b_->EnetSubscribe("blue", 1);
+
+    // Add route from agent A.
+    stringstream eroute_a;
+    eroute_a << "aa:00:00:00:00:01,10.1.1.1/32";
+    test::NextHop nexthop1("192.168.1.1");
+    test::RouteAttributes attr1(101, 1001);
+    agent_a_->AddEnetRoute("blue", eroute_a.str(), nexthop1, attr1);
+    task_util::WaitForIdle();
+
+    // Add route from agent B.
+    stringstream eroute_b;
+    eroute_b << "bb:00:00:00:00:01,10.1.2.1/32";
+    test::NextHop nexthop2("192.168.1.2");
+    test::RouteAttributes attr2(202, 2002);
+    agent_b_->AddEnetRoute("blue", eroute_b.str(), nexthop2, attr2);
+    task_util::WaitForIdle();
+
+    // Verify that routes showed up on the agents.
+    TASK_UTIL_EXPECT_EQ(2, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_a_->EnetRouteCount("blue"));
+    TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount("blue"));
+
+    // Verify local pref and sequence on A.
+    VerifyRouteLocalPrefSequence(agent_a_, "blue", eroute_a.str(), 101, 1001);
+    VerifyRouteLocalPrefSequence(agent_a_, "blue", eroute_b.str(), 202, 2002);
+
+    // Verify local pref and sequence on B.
+    VerifyRouteLocalPrefSequence(agent_b_, "blue", eroute_a.str(), 101, 1001);
+    VerifyRouteLocalPrefSequence(agent_b_, "blue", eroute_b.str(), 202, 2002);
 
     // Delete route from agent A.
     agent_a_->DeleteEnetRoute("blue", eroute_a.str());
