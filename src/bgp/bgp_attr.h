@@ -348,7 +348,7 @@ struct BgpAttrUnknown : public BgpAttribute {
 struct BgpAttrSourceRd : public BgpAttribute {
     BgpAttrSourceRd() : BgpAttribute(0, SourceRd, 0) {}
     BgpAttrSourceRd(const BgpAttribute &rhs) : BgpAttribute(rhs) {}
-    explicit BgpAttrSourceRd(RouteDistinguisher source_rd) :
+    explicit BgpAttrSourceRd(const RouteDistinguisher &source_rd) :
             BgpAttribute(0, SourceRd, 0), source_rd(source_rd) {}
     RouteDistinguisher source_rd;
     virtual int CompareTo(const BgpAttribute &rhs_attr) const;
@@ -379,7 +379,9 @@ public:
         aggregator_as_num_ = as_num;
         aggregator_address_ = address;
     }
-    void set_source_rd(RouteDistinguisher source_rd) { source_rd_ = source_rd; }
+    void set_source_rd(const RouteDistinguisher &source_rd) {
+        source_rd_ = source_rd;
+    }
     void set_as_path(const AsPathSpec *spec);
     void set_community(const CommunitySpec *comm);
     void set_ext_community(ExtCommunityPtr comm);
@@ -469,7 +471,7 @@ public:
     BgpAttrPtr ReplaceLocalPreferenceAndLocate(const BgpAttr *attr, 
                                                uint32_t local_pref);
     BgpAttrPtr ReplaceSourceRdAndLocate(const BgpAttr *attr,
-                                        RouteDistinguisher source_rd);
+                                        const RouteDistinguisher &source_rd);
     BgpAttrPtr ReplaceMulticastEdgeDiscoveryAndLocate(const BgpAttr *attr,
                                         BgpAttrPtr edge_discovery_attribute) {
         return attr;
