@@ -18,7 +18,7 @@
 const UpdateInfo *UpdateInfoSList::FindUpdateInfo(
     const RibOutAttr &roattr) const {
     for (List::const_iterator iter = list_.begin();
-         iter != list_.end(); iter++) {
+         iter != list_.end(); ++iter) {
         if (iter->roattr == roattr) return iter.operator->();
     }
     return NULL;
@@ -73,7 +73,7 @@ bool RouteUpdate::RemoveUpdateInfo(UpdateInfo *uinfo) {
 //
 UpdateInfo *RouteUpdate::FindUpdateInfo(const RibOutAttr &roattr) {
     for (UpdateInfoSList::List::iterator iter = updates_->begin();
-         iter != updates_->end(); iter++) {
+         iter != updates_->end(); ++iter) {
         if (iter->roattr == roattr) return iter.operator->();
     }
     return NULL;
@@ -85,7 +85,7 @@ UpdateInfo *RouteUpdate::FindUpdateInfo(const RibOutAttr &roattr) {
 //
 const UpdateInfo *RouteUpdate::FindUpdateInfo(const RibOutAttr &roattr) const {
     for (UpdateInfoSList::List::const_iterator iter = updates_->begin();
-         iter != updates_->end(); iter++) {
+         iter != updates_->end(); ++iter) {
         if (iter->roattr == roattr) return iter.operator->();
     }
     return NULL;
@@ -95,14 +95,14 @@ const UpdateInfo *RouteUpdate::FindUpdateInfo(const RibOutAttr &roattr) const {
 // Reset the given RibPeerSet from the target of all UpdateInfo elements. Get
 // rid of any elements whose target becomes empty.
 //
-void RouteUpdate::ResetUpdateInfo(RibPeerSet &peerset) {
+void RouteUpdate::ResetUpdateInfo(const RibPeerSet &peerset) {
     for (UpdateInfoSList::List::iterator iter = updates_->begin();
          iter != updates_->end(); ) {
         iter->target.Reset(peerset);
         if (iter->target.empty()) {
             iter = updates_->erase_and_dispose(iter, UpdateInfoDisposer());
         } else {
-            iter++;
+            ++iter;
         }
     }
 }
@@ -119,7 +119,6 @@ void RouteUpdate::ResetUpdateInfo(RibPeerSet &peerset) {
 // as that in the UpdateInfoSList.
 //
 bool RouteUpdate::CompareUpdateInfo(const UpdateInfoSList &uinfo_slist) const {
-
     // Handle the special case where the given UpdateInfoSList is empty.
     //
     // If we already have withdraws scheduled to all peers to which the
@@ -225,13 +224,13 @@ void RouteUpdate::BuildNegativeUpdateInfo(UpdateInfoSList &uinfo_slist) const {
 
     // Build the bitset of peers to which we previously advertised something.
     for (AdvertiseSList::List::const_iterator iter = history_->begin();
-         iter != history_->end(); iter++) {
+         iter != history_->end(); ++iter) {
         peerset.Set(iter->bitset);
     }
 
     // Remove the peers to which we are going to send updated state.
     for (UpdateInfoSList::List::const_iterator iter = uinfo_slist->begin();
-         iter != uinfo_slist->end(); iter++) {
+         iter != uinfo_slist->end(); ++iter) {
         peerset.Reset(iter->target);
     }
 
@@ -253,12 +252,11 @@ void RouteUpdate::BuildNegativeUpdateInfo(UpdateInfoSList &uinfo_slist) const {
 //
 void RouteUpdate::TrimRedundantUpdateInfo(UpdateInfoSList &uinfo_slist) const {
     for (AdvertiseSList::List::const_iterator iter = history_->begin();
-         iter != history_->end(); iter++) {
+         iter != history_->end(); ++iter) {
         const AdvertiseInfo *ainfo = iter.operator->();
 
         for (UpdateInfoSList::List::iterator iter = uinfo_slist->begin();
-             iter != uinfo_slist->end(); iter++) {
-
+             iter != uinfo_slist->end(); ++iter) {
             // Keep going if the attributes are different.
             if (iter->roattr != ainfo->roattr)
                 continue;
@@ -311,7 +309,7 @@ void RouteUpdate::MoveHistory(RouteState *rstate) {
 //
 const AdvertiseInfo *RouteUpdate::FindHistory(const RibOutAttr &roattr) const {
     for (AdvertiseSList::List::const_iterator iter = history_->begin();
-         iter != history_->end(); iter++) {
+         iter != history_->end(); ++iter) {
         if (iter->roattr == roattr) return iter.operator->();
     }
     return NULL;
@@ -325,7 +323,6 @@ const AdvertiseInfo *RouteUpdate::FindHistory(const RibOutAttr &roattr) const {
 //
 void RouteUpdate::UpdateHistory(RibOut *ribout, const RibOutAttr *roattr,
         const RibPeerSet &bits) {
-
     // The history information may reside in the RouteUpdate itself or in
     // the associated UpdateList if the RouteUpdate in on an UpdateList.
     AdvertiseSList &adv_slist =
@@ -339,18 +336,17 @@ void RouteUpdate::UpdateHistory(RibOut *ribout, const RibOutAttr *roattr,
     AdvertiseInfo *ainfo = NULL;
     for (AdvertiseSList::List::iterator iter = adv_slist->begin();
          iter != adv_slist->end(); ) {
-
         // Remember if we find the matching element, and move on to the
         // next one.
         if (iter->roattr == *roattr) {
             assert(ainfo == NULL);
             ainfo = iter.operator->();
-            iter++;
+            ++iter;
             continue;
         }
 
         // TBD: optimize to reuse an element with the same RibPeerSet but
-        // different attribtues.
+        // different attributes.
 
         // Reset the bits in the current element.  If the RibPeerSet in the
         // element becomes empty, get rid of it.
@@ -468,7 +464,7 @@ void UpdateList::MoveHistory(RouteUpdate *rt_update) {
 //
 const AdvertiseInfo *UpdateList::FindHistory(const RibOutAttr &roattr) const {
     for (AdvertiseSList::List::const_iterator iter = history_->begin();
-         iter != history_->end(); iter++) {
+         iter != history_->end(); ++iter) {
         if (iter->roattr == roattr) return iter.operator->();
     }
     return NULL;
@@ -516,7 +512,7 @@ RouteUpdate *UpdateList::FindUpdate(int queue_id) {
 // Returns the last/only RouteUpdate if successful, NULL otherwise.
 //
 RouteUpdate *UpdateList::MakeRouteUpdate() {
-    assert (list_.size() != 0);
+    assert(list_.size() != 0);
 
     if (list_.size() > 1)
         return NULL;
