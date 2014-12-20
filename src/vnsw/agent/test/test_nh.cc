@@ -2241,6 +2241,71 @@ TEST_F(CfgTest, Nexthop_invalid_vrf) {
     WAIT_FOR(1000, 1000, (VrfGet("vrf11") == NULL));
 }
 
+//Delete local ecmp mpls label by
+//deleting all local interfaces, add them
+//back with BGP path still retaining old local ecmp
+//mpls and ensure there is no crash
+TEST_F(CfgTest, EcmpNH_18) {
+    //Add interface
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+        {"vnet2", 2, "1.1.1.1", "00:00:00:01:01:01", 1, 2},
+    };
+    CreateVmportWithEcmp(input, 2);
+    client->WaitForIdle();
+
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);
+    EXPECT_TRUE(rt != NULL);
+    const NextHop *nh = rt->GetActiveNextHop();
+
+    //Create component NH list
+    //Transition remote VM route to ECMP route
+    DBEntryBase::KeyPtr key = nh->GetDBRequestKey();
+    NextHopKey *nh_key = static_cast<NextHopKey *>(key.release());
+    std::auto_ptr<const NextHopKey> nh_akey(nh_key);
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(rt->GetActiveLabel(), nh_akey));
+
+    uint32_t label = rt->GetActiveLabel();
+    ComponentNHKeyList comp_nh_list;
+    //Insert new NH first and then existing route NH
+    comp_nh_list.push_back(nh_data1);
+
+    SecurityGroupList sg_list;
+    EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip, 32,
+            comp_nh_list, false, "vn1", sg_list, PathPreference());
+    client->WaitForIdle();
+
+    DeleteVmportEnv(input, 2, false);
+    client->WaitForIdle();
+
+    struct PortInfo input1[] = {
+        {"vnet3", 3, "1.1.1.3", "00:00:00:01:01:01", 1, 3},
+        {"vnet4", 4, "1.1.1.4", "00:00:00:01:01:01", 1, 4},
+    };
+    CreateVmportWithEcmp(input1, 2, 1);
+    client->WaitForIdle();
+    //Add back the VM interface of ECMP
+    //This would result ing resync of route, due to policy change
+    CreateVmportWithEcmp(input, 1, 1);
+    client->WaitForIdle();
+    const VmInterface *vm_intf =
+        static_cast<const VmInterface *>(VmPortGet(1));
+
+    agent_->fabric_inet4_unicast_table()->
+        AddLocalVmRouteReq(bgp_peer, "vrf1", ip, 32,
+                MakeUuid(1), "vn1", vm_intf->label(),
+                SecurityGroupList(), false, PathPreference(), Ip4Address(0));
+    client->WaitForIdle();
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
+
+    DeleteVmportEnv(input, 1, false);
+    DeleteVmportEnv(input1, 2, true);
+    WAIT_FOR(100, 1000, (VrfFind("vrf1") == false));
+    client->WaitForIdle();
+    EXPECT_FALSE(RouteFind("vrf1", ip, 32));
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);

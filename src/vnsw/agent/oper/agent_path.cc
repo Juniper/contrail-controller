@@ -218,7 +218,8 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
 
     //Check if there was a change in local ecmp composite nexthop
     if (nh_ && nh_->GetType() == NextHop::COMPOSITE &&
-        composite_nh_key_.get() != NULL) {
+        composite_nh_key_.get() != NULL &&
+        local_ecmp_mpls_label_.get() != NULL) {
         boost::scoped_ptr<CompositeNHKey> composite_nh_key(composite_nh_key_->Clone());
         if (ReorderCompositeNH(agent, composite_nh_key.get())) {
             if (ChangeCompositeNH(agent, composite_nh_key.get())) {
