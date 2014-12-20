@@ -4,38 +4,43 @@
 
 #include "bgp/community.h"
 
-#include "bgp/bgp_proto.h"
+#include <algorithm>
+#include <string>
+
 #include "bgp/bgp_proto.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
+
+using std::sort;
+using std::string;
+using std::unique;
+using std::vector;
 
 void CommunitySpec::ToCanonical(BgpAttr *attr) {
     attr->set_community(this);
 }
 
-std::string CommunitySpec::ToString() const {
-    char repr[1024];
-    snprintf(repr, sizeof(repr),
-             "Communities: %d [", (uint32_t)communities.size());
+string CommunitySpec::ToString() const {
+    string repr;
+    char start[32];
+    snprintf(start, sizeof(start), "Communities: %lu [", communities.size());
+    repr += start;
 
-    for (size_t i = 0; i < communities.size(); i++) {
+    for (size_t i = 0; i < communities.size(); ++i) {
         char community[12];
-        snprintf(community, sizeof(community),
-                 " %X", (uint32_t)communities[i]);
-        strcat(repr, community);
+        snprintf(community, sizeof(community), " %X", communities[i]);
+        repr += community;
     }
-    char end[3];
-    snprintf(end, sizeof(end), " ]");
-    strcat(repr, end);
+    repr += " ]";
 
-    return std::string(repr);
+    return repr;
 }
 
 Community::Community(CommunityDB *comm_db, const CommunitySpec spec)
     : comm_db_(comm_db), communities_(spec.communities) {
     refcount_ = 0;
-    std::sort(communities_.begin(), communities_.end());
-    std::vector<uint32_t>::iterator it =
-        std::unique(communities_.begin(), communities_.end());
+    sort(communities_.begin(), communities_.end());
+    vector<uint32_t>::iterator it =
+        unique(communities_.begin(), communities_.end());
     communities_.erase(it, communities_.end());
 }
 
@@ -59,11 +64,19 @@ bool Community::ContainsValue(uint32_t value) const {
 CommunityDB::CommunityDB(BgpServer *server) {
 }
 
-std::string ExtCommunitySpec::ToString() const {
+string ExtCommunitySpec::ToString() const {
     char repr[80];
     snprintf(repr, sizeof(repr), "ExtCommunity <code: %d, flags: %02x>:%d",
              code, flags, (uint32_t)communities.size());
-    return std::string(repr);
+    return string(repr);
+}
+
+int ExtCommunitySpec::CompareTo(const BgpAttribute &rhs_attr) const {
+    int ret = BgpAttribute::CompareTo(rhs_attr);
+    if (ret != 0) return ret;
+    KEY_COMPARE(communities,
+        static_cast<const ExtCommunitySpec &>(rhs_attr).communities);
+    return 0;
 }
 
 void ExtCommunitySpec::ToCanonical(BgpAttr *attr) {
@@ -75,7 +88,7 @@ int ExtCommunity::CompareTo(const ExtCommunity &rhs) const {
 
     ExtCommunityList::const_iterator i, j;
     for (i = communities_.begin(), j = rhs.communities_.begin();
-            i < communities_.end(); i++, j++) {
+         i < communities_.end(); ++i, ++j) {
         if (*i < *j) {
             return -1;
         }
@@ -92,17 +105,17 @@ void ExtCommunity::Remove() {
 
 void ExtCommunity::Append(const ExtCommunityList &list) {
     communities_.insert(communities_.end(), list.begin(), list.end());
-    std::sort(communities_.begin(), communities_.end());
+    sort(communities_.begin(), communities_.end());
     ExtCommunityList::iterator it =
-        std::unique(communities_.begin(), communities_.end());
+        unique(communities_.begin(), communities_.end());
     communities_.erase(it, communities_.end());
 }
 
 void ExtCommunity::Append(const ExtCommunityValue &value) {
     communities_.push_back(value);
-    std::sort(communities_.begin(), communities_.end());
+    sort(communities_.begin(), communities_.end());
     ExtCommunityList::iterator it =
-        std::unique(communities_.begin(), communities_.end());
+        unique(communities_.begin(), communities_.end());
     communities_.erase(it, communities_.end());
 }
 
@@ -116,23 +129,23 @@ bool ExtCommunity::ContainsOriginVn(const ExtCommunityValue &val) const {
 }
 
 void ExtCommunity::RemoveRTarget() {
-    for (ExtCommunityList::iterator it = communities_.begin(); 
+    for (ExtCommunityList::iterator it = communities_.begin();
          it != communities_.end(); ) {
         if (ExtCommunity::is_route_target(*it)) {
             it = communities_.erase(it);
         } else {
-            it++;
+            ++it;
         }
     }
 }
 
 void ExtCommunity::RemoveSGID() {
-    for (ExtCommunityList::iterator it = communities_.begin(); 
+    for (ExtCommunityList::iterator it = communities_.begin();
          it != communities_.end(); ) {
         if (ExtCommunity::is_security_group(*it)) {
             it = communities_.erase(it);
         } else {
-            it++;
+            ++it;
         }
     }
 }
@@ -143,7 +156,7 @@ void ExtCommunity::RemoveSiteOfOrigin() {
         if (ExtCommunity::is_site_of_origin(*it)) {
             it = communities_.erase(it);
         } else {
-            it++;
+            ++it;
         }
     }
 }
@@ -154,7 +167,7 @@ void ExtCommunity::RemoveOriginVn() {
         if (ExtCommunity::is_origin_vn(*it)) {
             it = communities_.erase(it);
         } else {
-            it++;
+            ++it;
         }
     }
 }
@@ -165,13 +178,13 @@ void ExtCommunity::RemoveTunnelEncapsulation() {
         if (ExtCommunity::is_tunnel_encap(*it)) {
             it = communities_.erase(it);
         } else {
-            it++;
+            ++it;
         }
     }
 }
 
-std::vector<std::string> ExtCommunity::GetTunnelEncap() const {
-    std::vector<std::string> encap_list;
+vector<string> ExtCommunity::GetTunnelEncap() const {
+    vector<string> encap_list;
     for (ExtCommunityList::const_iterator iter = communities_.begin();
          iter != communities_.end(); ++iter) {
         if (!ExtCommunity::is_tunnel_encap(*iter))
@@ -182,9 +195,9 @@ std::vector<std::string> ExtCommunity::GetTunnelEncap() const {
         encap_list.push_back(encap.ToXmppString());
     }
 
-    std::sort(encap_list.begin(), encap_list.end());
-    std::vector<std::string>::iterator encap_iter =
-        std::unique(encap_list.begin(), encap_list.end());
+    sort(encap_list.begin(), encap_list.end());
+    vector<string>::iterator encap_iter =
+        unique(encap_list.begin(), encap_list.end());
     encap_list.erase(encap_iter, encap_list.end());
     return encap_list;
 }
@@ -192,15 +205,15 @@ std::vector<std::string> ExtCommunity::GetTunnelEncap() const {
 ExtCommunity::ExtCommunity(ExtCommunityDB *extcomm_db,
         const ExtCommunitySpec spec) : extcomm_db_(extcomm_db) {
     refcount_ = 0;
-    for (std::vector<uint64_t>::const_iterator it = spec.communities.begin();
-         it < spec.communities.end(); it++) {
+    for (vector<uint64_t>::const_iterator it = spec.communities.begin();
+         it < spec.communities.end(); ++it) {
         ExtCommunityValue comm;
         put_value(comm.data(), comm.size(), *it);
         communities_.push_back(comm);
     }
-    std::sort(communities_.begin(), communities_.end());
+    sort(communities_.begin(), communities_.end());
     ExtCommunityList::iterator it =
-        std::unique(communities_.begin(), communities_.end());
+        unique(communities_.begin(), communities_.end());
     communities_.erase(it, communities_.end());
 }
 
@@ -241,8 +254,9 @@ ExtCommunityPtr ExtCommunityDB::ReplaceRTargetAndLocate(const ExtCommunity *src,
     return Locate(clone);
 }
 
-ExtCommunityPtr ExtCommunityDB::ReplaceSGIDListAndLocate(const ExtCommunity *src,
-        const ExtCommunity::ExtCommunityList &sgid_list) {
+ExtCommunityPtr ExtCommunityDB::ReplaceSGIDListAndLocate(
+    const ExtCommunity *src,
+    const ExtCommunity::ExtCommunityList &sgid_list) {
     ExtCommunity *clone;
     if (src) {
         clone = new ExtCommunity(*src);
