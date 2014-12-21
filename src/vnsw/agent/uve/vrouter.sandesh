@@ -86,6 +86,9 @@ struct VrouterAgent {  // Agent info
    42: optional bool headless_mode_cfg;
    43: optional list<string> collector_server_list_cfg;
    44: optional bool log_flow;
+   45: optional list<string> tsn_prouter_list; 
+   46: optional list<string> tor_prouter_list;
+   47: optional list<string> embedded_prouter_list;
 }
 
 uve sandesh UveVrouterAgent {

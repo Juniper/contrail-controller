@@ -188,7 +188,7 @@ TEST_F(CfgTest, FloatingIp_1) {
     PhysicalInterface::CreateReq(Agent::GetInstance()->interface_table(),
                             "enet1", Agent::GetInstance()->fabric_vrf_name(),
                             PhysicalInterface::FABRIC,
-                            PhysicalInterface::ETHERNET, false);
+                            PhysicalInterface::ETHERNET, false, nil_uuid());
     client->WaitForIdle();
 
     AddArp("10.1.1.2", "00:00:00:00:00:02", "enet1");

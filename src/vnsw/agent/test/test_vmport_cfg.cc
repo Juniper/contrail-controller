@@ -1199,7 +1199,7 @@ TEST_F(CfgTest, Basic_1) {
     client->Reset();
     PhysicalInterface::CreateReq(Agent::GetInstance()->interface_table(),
                             eth_intf, vrf_name, PhysicalInterface::FABRIC,
-                            PhysicalInterface::ETHERNET, false);
+                            PhysicalInterface::ETHERNET, false, nil_uuid());
     client->WaitForIdle();
     phy_intf = static_cast<PhysicalInterface *>
         (agent_->interface_table()->FindActiveEntry(&key));
@@ -1208,7 +1208,7 @@ TEST_F(CfgTest, Basic_1) {
     PhysicalInterface::CreateReq(Agent::GetInstance()->interface_table(),
                             eth_intf, Agent::GetInstance()->fabric_vrf_name(),
                             PhysicalInterface::FABRIC,
-                            PhysicalInterface::ETHERNET, false);
+                            PhysicalInterface::ETHERNET, false, nil_uuid());
     client->WaitForIdle();
 
     phy_intf = static_cast<PhysicalInterface *>
