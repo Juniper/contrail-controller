@@ -814,13 +814,12 @@ void VnTable::AddSubnetRoute(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     if (ipam.IsV4()) {
         static_cast<InetUnicastAgentRouteTable *>(vrf->
-            GetInet4UnicastRouteTable())->AddSubnetRoute
-            (vrf->GetName(), ipam.GetSubnetAddress(), ipam.plen, vn->GetName(), 0);
+            GetInet4UnicastRouteTable())->AddIpamSubnetRoute
+            (vrf->GetName(), ipam.GetSubnetAddress(), ipam.plen);
     } else if (ipam.IsV6()) {
         static_cast<InetUnicastAgentRouteTable *>(vrf->
-            GetInet6UnicastRouteTable())->AddSubnetRoute
-            (vrf->GetName(), ipam.GetV6SubnetAddress(), ipam.plen, 
-             vn->GetName(), 0);
+            GetInet6UnicastRouteTable())->AddIpamSubnetRoute
+            (vrf->GetName(), ipam.GetV6SubnetAddress(), ipam.plen);
     }
 }
 
