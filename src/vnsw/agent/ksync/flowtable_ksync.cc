@@ -531,6 +531,11 @@ const vr_flow_entry *FlowTableKSyncObject::GetKernelFlowEntry
         return NULL;
     }
 
+    if (idx >= flow_table_entries_count_) {
+        /* if index is outside the range of flow table entries return NULL */
+        return NULL;
+    }
+
     if (ignore_active_status) {
         return &flow_table_[idx];
     }
