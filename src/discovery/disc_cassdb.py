@@ -45,8 +45,8 @@ class DiscoveryCassendraClient():
                                       use_threadlocal=True, prefill=True,
                                       pool_size=100, pool_timeout=20,
                                       max_retries=5, timeout=0.5)
-        rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
-        wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
+        rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.ONE
+        wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.ONE
         self._disco_cf = pycassa.ColumnFamily(pool, self._disco_cf_name,
                                               read_consistency_level = rd_consistency,
                                               write_consistency_level = wr_consistency)
