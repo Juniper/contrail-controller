@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_message_builder_h
-#define ctrlplane_message_builder_h
+#ifndef SRC_BGP_MESSAGE_BUILDER_H_
+#define SRC_BGP_MESSAGE_BUILDER_H_
 
 #include "bgp/bgp_ribout.h"
 
@@ -18,11 +18,11 @@ public:
     virtual bool AddRoute(const BgpRoute *route, const RibOutAttr *roattr) = 0;
     virtual void Finish() = 0;
     virtual const uint8_t *GetData(IPeerUpdate *peer_update, size_t *lenp) = 0;
-    uint32_t num_reach_routes() const { 
-        return num_reach_route_; 
+    uint32_t num_reach_routes() const {
+        return num_reach_route_;
     }
-    uint32_t num_unreach_routes() const { 
-        return num_unreach_route_; 
+    uint32_t num_unreach_routes() const {
+        return num_unreach_route_;
     }
 protected:
     uint32_t num_reach_route_;
@@ -37,4 +37,4 @@ public:
     static MessageBuilder *GetInstance(RibExportPolicy::Encoding encoding);
 };
 
-#endif
+#endif  // SRC_BGP_MESSAGE_BUILDER_H_
