@@ -673,6 +673,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
                      type='VxlanNetworkIdentifierType'/>
         <!-- Forwarding mode for virtual-network  -->
         <xsd:element name='forwarding-mode' type='ForwardingModeType'/>
+        <!-- Enable or disable unicast RPF for virtual-network -->
+        <xsd:element name='enable-rpf' type="xsd:boolean" default="true"/>
     </xsd:all>
 </xsd:complexType>
 
