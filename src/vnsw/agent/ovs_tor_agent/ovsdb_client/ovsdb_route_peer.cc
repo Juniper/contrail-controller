@@ -24,7 +24,7 @@ bool OvsPeer::Compare(const Peer *rhs) const {
     return peer_ip_ < rhs_peer->peer_ip_;
 }
 
-bool OvsPeer::AddOvsRoute(const boost::uuids::uuid &vn_uuid,
+bool OvsPeer::AddOvsRoute(const VnEntry *vn,
                           const MacAddress &mac, Ip4Address &tor_ip) {
 
     Agent *agent = peer_manager_->agent();
@@ -34,7 +34,6 @@ bool OvsPeer::AddOvsRoute(const boost::uuids::uuid &vn_uuid,
     Ip4Address prefix_ip = Ip4Address::from_string("0.0.0.0");
     int prefix_len = 32;
 
-    VnEntry *vn = agent->vn_table()->Find(vn_uuid);
     if (vn == NULL)
         return false;
 
@@ -53,16 +52,16 @@ bool OvsPeer::AddOvsRoute(const boost::uuids::uuid &vn_uuid,
     return true;
 }
 
-bool OvsPeer::DeleteOvsRoute(const VnEntry *vn, const MacAddress &mac) {
-    VrfEntry *vrf = vn->GetVrf();
+void OvsPeer::DeleteOvsRoute(VrfEntry *vrf, uint32_t vxlan_id,
+                             const MacAddress &mac) {
     if (vrf == NULL)
-        return false;
+        return;
 
     Layer2AgentRouteTable *table = static_cast<Layer2AgentRouteTable *>
         (vrf->GetLayer2RouteTable());
-    table->DeleteReq(this, vrf->GetName(), mac, vn->vxlan_id()->vxlan_id(),
+    table->DeleteReq(this, vrf->GetName(), mac, vxlan_id,
                      new OvsdbRouteData(this));
-    return true;
+    return;
 }
 
 const Ip4Address *OvsPeer::NexthopIp(Agent *agent,

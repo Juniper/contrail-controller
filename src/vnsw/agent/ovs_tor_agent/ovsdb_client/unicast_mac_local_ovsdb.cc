@@ -7,6 +7,7 @@ extern "C" {
 };
 #include <cmn/agent.h>
 #include <oper/vn.h>
+#include <oper/vxlan.h>
 #include <oper/physical_device_vn.h>
 #include <ovs_tor_agent/tor_agent_init.h>
 #include <ovsdb_client.h>
@@ -28,9 +29,6 @@ using std::string;
 UnicastMacLocalEntry::UnicastMacLocalEntry(UnicastMacLocalOvsdb *table,
         const UnicastMacLocalEntry *key) : OvsdbEntry(table), mac_(key->mac_),
     logical_switch_name_(key->logical_switch_name_), dest_ip_(key->dest_ip_) {
-    LogicalSwitchTable *l_table = table_->client_idl()->logical_switch_table();
-    LogicalSwitchEntry l_key(l_table, logical_switch_name_.c_str());
-    logical_switch_ = l_table->GetReference(&l_key);
 }
 
 UnicastMacLocalEntry::UnicastMacLocalEntry(UnicastMacLocalOvsdb *table,
@@ -49,10 +47,17 @@ bool UnicastMacLocalEntry::Add() {
     UnicastMacLocalOvsdb *table = static_cast<UnicastMacLocalOvsdb *>(table_);
     OVSDB_TRACE(Trace, "Adding Route " + mac_ + " VN uuid " +
             logical_switch_name_ + " destination IP " + dest_ip_);
-    boost::uuids::uuid ls_uuid = StringToUuid(logical_switch_name_);
+    LogicalSwitchTable *l_table = table_->client_idl()->logical_switch_table();
+    LogicalSwitchEntry l_key(l_table, logical_switch_name_.c_str());
+    LogicalSwitchEntry *ls_entry =
+        static_cast<LogicalSwitchEntry *>(l_table->Find(&l_key));
+    const PhysicalDeviceVn *dev_vn =
+        static_cast<const PhysicalDeviceVn *>(ls_entry->GetDBEntry());
+    vrf_ = dev_vn->vn()->GetVrf();
+    vxlan_id_ = dev_vn->vn()->vxlan_id()->vxlan_id();
     boost::system::error_code err;
     Ip4Address dest = Ip4Address::from_string(dest_ip_, err);
-    table->peer()->AddOvsRoute(ls_uuid, MacAddress(mac_), dest);
+    table->peer()->AddOvsRoute(dev_vn->vn(), MacAddress(mac_), dest);
     return true;
 }
 
@@ -60,11 +65,7 @@ bool UnicastMacLocalEntry::Delete() {
     UnicastMacLocalOvsdb *table = static_cast<UnicastMacLocalOvsdb *>(table_);
     OVSDB_TRACE(Trace, "Deleting Route " + mac_ + " VN uuid " +
             logical_switch_name_ + " destination IP " + dest_ip_);
-    LogicalSwitchEntry *ls_entry =
-        static_cast<LogicalSwitchEntry *>(logical_switch_.get());
-    const PhysicalDeviceVn *dev_vn =
-        static_cast<const PhysicalDeviceVn *>(ls_entry->GetDBEntry());
-    table->peer()->DeleteOvsRoute(dev_vn->vn(), MacAddress(mac_));
+    table->peer()->DeleteOvsRoute(vrf_, vxlan_id_, MacAddress(mac_));
     return true;
 }
 
