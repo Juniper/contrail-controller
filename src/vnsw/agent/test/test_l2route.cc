@@ -85,7 +85,7 @@ protected:
                                 eth_name_,
                                 agent_->fabric_vrf_name(),
                                 PhysicalInterface::FABRIC,
-                                PhysicalInterface::ETHERNET, false);
+                                PhysicalInterface::ETHERNET, false, nil_uuid());
         AddResolveRoute(server1_ip_, 24);
         client->WaitForIdle();
     }

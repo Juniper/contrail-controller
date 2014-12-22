@@ -11,6 +11,7 @@
 #include <uve/test/vn_uve_table_test.h>
 #include <uve/test/vm_uve_table_test.h>
 #include <uve/test/vrouter_uve_entry_test.h>
+#include <uve/test/prouter_uve_table_test.h>
 #include <uve/test/agent_stats_collector_test.h>
 #include <uve/test/flow_stats_collector_test.h>
 
@@ -19,6 +20,7 @@ AgentUveBaseTest::AgentUveBaseTest(Agent *agent, uint64_t intvl)
     vn_uve_table_.reset(new VnUveTableTest(agent)); 
     vm_uve_table_.reset(new VmUveTableTest(agent));
     vrouter_uve_entry_.reset(new VrouterUveEntryTest(agent));
+    prouter_uve_table_.reset(new ProuterUveTableTest(agent));
     agent_stats_collector_.reset(new AgentStatsCollectorTest(
                                  *(agent->event_manager()->io_service()),
                                  agent));
