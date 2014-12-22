@@ -469,7 +469,7 @@ void ShowNeighborHandler::FillXmppNeighborInfo(
 
     PeerRibMembershipManager *mgr =
         bx_channel->Peer()->server()->membership_mgr();
-    mgr->FillPeerMembershipInfo(bx_channel->Peer(), resp);
+    mgr->FillPeerMembershipInfo(bx_channel->Peer(), &resp);
     bx_channel->FillTableMembershipInfo(&resp);
     bx_channel->FillInstanceMembershipInfo(&resp);
 
@@ -847,7 +847,7 @@ public:
         vector<ShowRoutingInstanceTable> rit_list;
         for (; it != tables.end(); it++) {
             ShowRoutingInstanceTable table;
-            pmm->FillRoutingInstanceInfo(table, it->second);
+            pmm->FillRoutingInstanceInfo(&table, it->second);
             FillRoutingTableStats(table, it->second);
             rit_list.push_back(table);
         }

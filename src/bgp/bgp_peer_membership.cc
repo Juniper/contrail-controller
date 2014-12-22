@@ -4,14 +4,14 @@
 
 #include "bgp/bgp_peer_membership.h"
 
+#include <sandesh/sandesh_types.h>
+#include <sandesh/sandesh.h>
+
 #include <boost/assign/list_of.hpp>
 #include <boost/bind.hpp>
 #include <tbb/mutex.h>
 
 #include "base/task_annotations.h"
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
-
 #include "bgp/bgp_export.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer.h"
@@ -25,8 +25,6 @@
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/scheduling_group.h"
 #include "db/db.h"
-
-using namespace std;
 
 int PeerRibMembershipManager::membership_task_id_ = -1;
 const int PeerRibMembershipManager::kMembershipTaskInstanceId;
@@ -71,10 +69,10 @@ std::string MembershipRequest::ActionMaskToString(Action action_mask) {
 std::string IPeerRibEvent::EventTypeToString(EventType event_type) {
     static const std::map<EventType, std::string> ToString =
         boost::assign::map_list_of
-            (REGISTER_RIB, "RegisterRib") 
-            (REGISTER_RIB_COMPLETE, "RegisterRibComplete") 
-            (UNREGISTER_RIB, "UnregisterRib") 
-            (UNREGISTER_RIB_COMPLETE, "UnregisterRibComplete") 
+            (REGISTER_RIB, "RegisterRib")
+            (REGISTER_RIB_COMPLETE, "RegisterRibComplete")
+            (UNREGISTER_RIB, "UnregisterRib")
+            (UNREGISTER_RIB_COMPLETE, "UnregisterRibComplete")
             (UNREGISTER_PEER, "UnregisterPeer")
             (UNREGISTER_PEER_COMPLETE, "UnregisterPeerComplete");
 
@@ -280,8 +278,8 @@ void IPeerRib::RibOutJoin(DBTablePartBase *root, DBEntryBase *db_entry,
 
     RibPeerSet jmask;
 
-    //TODO: For peers with the same export policy, we could combine and
-    // launch one BgpExport::Join
+    // TODO(ananth): For peers with the same export policy, we could combine
+    // and launch one BgpExport::Join
     jmask.set(ribout_->GetPeerIndex(ipeer_));
     ribout_->bgp_export()->Join(root, jmask, db_entry);
 }
@@ -306,10 +304,8 @@ void IPeerRib::RibOutLeave(DBTablePartBase *root, DBEntryBase *db_entry,
 }
 
 void IPeerRib::ManagedDelete() {
-
-    //
-    // TODO: We let IPeerRib to be deleted as part of the peer cleanups. Once
-    // all the IPeerRibs are deleted, the table gets deleted automatically
+    // TODO(ananth): We let IPeerRib to be deleted as part of peer cleanups.
+    // Once all the IPeerRibs are deleted, table gets deleted automatically.
     //
     // membership_mgr_->Unregister(ipeer_, table_);
 }
@@ -423,12 +419,11 @@ void PeerRibMembershipManager::Join(BgpTable *table,
 bool PeerRibMembershipManager::RouteJoin(DBTablePartBase *root,
                                          DBEntryBase *db_entry, BgpTable *table,
                                          MembershipRequestList *request_list) {
-
     // Iterate through each of the peers in the request list and process RibIn
     // and RibOut for this peer
     //
-    // TODO: RibOut can be aggregated into a single call for all peers with the
-    // same export policy
+    // TODO(ananth): RibOut can be aggregated into a single call for all peers
+    // with the same export policy
     for (MembershipRequestList::iterator iter = request_list->begin();
              iter != request_list->end(); iter++) {
         MembershipRequest *request = iter.operator->();
@@ -472,7 +467,6 @@ void PeerRibMembershipManager::JoinDone(DBTableBase *db,
 //
 void PeerRibMembershipManager::Leave(BgpTable *table,
                               MembershipRequestList *request_list) {
-
     DB *db = table->database();
 
     for (MembershipRequestList::iterator iter = request_list->begin();
@@ -486,10 +480,7 @@ void PeerRibMembershipManager::Leave(BgpTable *table,
         IPeerRib *peer_rib = IPeerRibFind(request->ipeer, table);
 
         if (peer_rib) {
-
-            // 
             // Ignore peer ribs which are already in close process
-            //
             if (peer_rib->IsRibOutActive()) peer_rib->DeactivateRibOut();
         }
     }
@@ -585,10 +576,7 @@ IPeerRibEvent *PeerRibMembershipManager::ProcessRequest(
     // Check if there is already a pending task. If so, just append this
     // peer to the list
     if (it != request_map->end()) {
-
-        //
         // A similar request for other peers is pending in this table.
-        //
         MembershipRequestList *request_list = it->second;
         if (!request_list) {
             it->second = request_list = new MembershipRequestList();
@@ -605,9 +593,7 @@ IPeerRibEvent *PeerRibMembershipManager::ProcessRequest(
         return NULL;
     }
 
-    //
     // Create a new list, and enqueue an event with this peer list
-    //
     MembershipRequestList *request_list = new MembershipRequestList();
     request_list->push_back(request);
 
@@ -629,7 +615,7 @@ void PeerRibMembershipManager::Register(
         IPeer *ipeer, BgpTable *table, const RibExportPolicy &policy,
         int instance_id, NotifyCompletionFn notify_completion_fn) {
     MembershipRequest request;
-    
+
     request.ipeer = ipeer;
     request.action_mask = static_cast<MembershipRequest::Action>(
         MembershipRequest::RIBIN_ADD | MembershipRequest::RIBOUT_ADD);
@@ -661,7 +647,7 @@ void PeerRibMembershipManager::Unregister(IPeer *ipeer, BgpTable *table,
     request.action_mask = static_cast<MembershipRequest::Action>(
         MembershipRequest::RIBIN_DELETE | MembershipRequest::RIBOUT_DELETE);
     request.notify_completion_fn = notify_completion_fn;
-    
+
     tbb::mutex::scoped_lock lock(mutex_);
 
     IPeerRibEvent *event = ProcessRequest(IPeerRibEvent::UNREGISTER_RIB,
@@ -707,12 +693,10 @@ void PeerRibMembershipManager::UnregisterPeerCallback(IPeerRibEvent *event) {
         if (it->first != event->ipeer) break;
         IPeerRib *peer_rib = it->second;
 
-        // 
         // We need to track the completion of each of these rib close process
         // before we can inform the requester that unregistration is complete
-        // 
-        // Use a simple counter to manage this part
         //
+        // Use a simple counter to manage this part
         if (!count) count = new int(0);
         ++*count;
 
@@ -755,16 +739,12 @@ void PeerRibMembershipManager::UnregisterPeerCallback(IPeerRibEvent *event) {
 void PeerRibMembershipManager::UnregisterPeerDone(
         IPeer *ipeer, BgpTable *table, int *count,
         MembershipRequest::NotifyCompletionFn notify_completion_fn) {
-
     // If there are other rib closes pending, wait
-    //
     if (--*count) return;
     delete count;
 
-    //
     // Enqueue a notification to signal the requestor that unregistration
     // of this peer is complete
-    //
     IPeerRibEvent *event = new IPeerRibEvent(
             IPeerRibEvent::UNREGISTER_PEER_COMPLETE, ipeer, NULL);
     event->ipeer = ipeer;
@@ -780,15 +760,12 @@ void PeerRibMembershipManager::UnregisterPeerDone(
 //
 void PeerRibMembershipManager::UnregisterPeerCompleteCallback(
                                    IPeerRibEvent *event) {
-
-    //
     // Inform the requestor (PeerCloseManager) that this process is complete
-    //
     event->request.notify_completion_fn(event->ipeer, NULL);
 }
 
 void PeerRibMembershipManager::FillRoutingInstanceInfo(
-            ShowRoutingInstanceTable &inst,
+            ShowRoutingInstanceTable *inst,
             const BgpTable *table) const {
     RibPeerMap::const_iterator it;
     std::vector<std::string> peers;
@@ -797,9 +774,9 @@ void PeerRibMembershipManager::FillRoutingInstanceInfo(
         peers.push_back(it->second->ToString());
     }
 
-    inst.set_name(table->name());
-    inst.set_deleted(table->IsDeleted());
-    if (peers.size()) inst.set_peers(peers);
+    inst->set_name(table->name());
+    inst->set_deleted(table->IsDeleted());
+    if (peers.size()) inst->set_peers(peers);
 }
 
 //
@@ -823,37 +800,38 @@ int PeerRibMembershipManager::GetRegistrationId(const IPeer *ipeer,
 }
 
 void PeerRibMembershipManager::FillPeerMembershipInfo(const IPeer *peer,
-        BgpNeighborResp &resp) {
-    assert(resp.get_routing_tables().size() == 0);
+        BgpNeighborResp *resp) {
+    assert(resp->get_routing_tables().size() == 0);
     IPeer *nc_peer = const_cast<IPeer *>(peer);
 
     SchedulingGroupManager *sg_mgr = server_->scheduling_group_manager();
     SchedulingGroup *sg = sg_mgr->PeerGroup(nc_peer);
-    resp.set_send_state(sg ?
+    resp->set_send_state(sg ?
             (sg->PeerInSync(nc_peer) ? "in sync" : "not in sync") :
             "not advertising");
     IPeerRib peer_rib(nc_peer, NULL, this);
     PeerRibMembershipManager::PeerRibSet::iterator it =
         peer_rib_set_.lower_bound(&peer_rib);
     std::vector<BgpNeighborRoutingTable> table_list;
-    for (;it != peer_rib_set_.end(); it++) {
+    for (; it != peer_rib_set_.end(); it++) {
         if ((*it)->ipeer() != peer) break;
         BgpNeighborRoutingTable table;
         table.set_name((*it)->table()->name());
         table.set_current_state("subscribed");
         table_list.push_back(table);
     }
-    if (table_list.size()) resp.set_routing_tables(table_list);
+    if (table_list.size()) resp->set_routing_tables(table_list);
 }
 
-void PeerRibMembershipManager::FillRegisteredTable(IPeer *peer, 
-                                               std::vector<std::string> &list) {
-    IPeerRib peer_rib(peer, NULL, this);
+void PeerRibMembershipManager::FillRegisteredTable(const IPeer *peer,
+    std::vector<std::string> *list) {
+    IPeer *nc_peer = const_cast<IPeer *>(peer);
+    IPeerRib peer_rib(nc_peer, NULL, this);
     PeerRibMembershipManager::PeerRibSet::iterator it =
         peer_rib_set_.lower_bound(&peer_rib);
-    for (;it != peer_rib_set_.end(); it++) {
-        if ((*it)->ipeer() != peer) break;
-        list.push_back((*it)->table()->name());
+    for (; it != peer_rib_set_.end(); it++) {
+        if ((*it)->ipeer() != nc_peer) break;
+        list->push_back((*it)->table()->name());
     }
 }
 //
@@ -901,11 +879,8 @@ void PeerRibMembershipManager::IPeerRibRemove(IPeerRib *peer_rib) {
 //
 void PeerRibMembershipManager::NotifyCompletion(BgpTable *table,
                                          MembershipRequestList *request_list) {
-
-    //
     // We batch multiple requests and process them together in a single db
     // walk. Iterate through each request and notify the party appropriately
-    //
     for (MembershipRequestList::iterator iter =
             request_list->begin(); iter != request_list->end(); iter++) {
         MembershipRequest *request = iter.operator->();
@@ -922,7 +897,6 @@ void PeerRibMembershipManager::NotifyCompletion(BgpTable *table,
 //
 void PeerRibMembershipManager::ProcessRegisterRibEvent(BgpTable *table,
                                    MembershipRequestList *request_list) {
-
     // Notify completion right away if the table is marked for deletion
     if (table->IsDeleted()) {
         NotifyCompletion(table, request_list);
@@ -983,7 +957,7 @@ void PeerRibMembershipManager::ProcessRegisterRibEvent(BgpTable *table,
 }
 
 
-// 
+//
 // Registration for a set of peers is complete. Notify the caller indicating
 // the completion of this process
 //
@@ -1024,20 +998,14 @@ void PeerRibMembershipManager::ProcessUnregisterRibEvent(BgpTable *table,
                                    request->action_mask));
     }
 
-    //
     // If there is no walk necessary, inform the caller
-    //
     if (complete) {
-
         // Notify
         NotifyCompletion(table, request_list);
         delete request_list;
         unregister_request_map_.erase(table);
     } else {
-
-        //
         // Kick off the db walk to start the leave process
-        //
         Leave(table, request_list);
     }
 }
@@ -1049,41 +1017,31 @@ void PeerRibMembershipManager::ProcessUnregisterRibEvent(BgpTable *table,
 //
 void PeerRibMembershipManager::ProcessUnregisterRibCompleteEvent(
         IPeerRibEvent *event) {
-
     for (MembershipRequestList::iterator iter =
             event->request_list->begin();
             iter != event->request_list->end(); iter++) {
-
         MembershipRequest *request = iter.operator->();
         IPeerRib *peer_rib = IPeerRibFind(request->ipeer, event->table);
 
         if (peer_rib) {
-
-            //
             // If there was unregister for RibOut, do some final cleanup
             // necessary
-            //
             if (request->action_mask & MembershipRequest::RIBOUT_DELETE) {
                 peer_rib->UnregisterRibOut();
                 peer_rib->SetRibOutRegistered(false);
             }
 
-            //
             // If there was unregister for RibOut, do some final cleanup
             // necessary
-            //
             if (request->action_mask & MembershipRequest::RIBIN_DELETE) {
                 peer_rib->UnregisterRibIn();
                 peer_rib->SetRibInRegistered(false);
             }
 
-            //
             // If both RibIn and RibOut have been unregistered, go ahead
             // and remove this peer_rib
-            //
             if (!peer_rib->IsRibInRegistered() &&
                 !peer_rib->IsRibOutRegistered()) {
-
                 // Both RibIn and RibOut unregistration are complete.
                 // This peer_rib should now go away.
                 IPeerRibRemove(peer_rib);
@@ -1091,9 +1049,7 @@ void PeerRibMembershipManager::ProcessUnregisterRibCompleteEvent(
             }
         }
 
-        // 
         // Notify the caller indicating the completion this process
-        //
         if (request->notify_completion_fn) {
             request->notify_completion_fn(request->ipeer, event->table);
         }

@@ -2,10 +2,13 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef __BGP_PEER_MEMBERSHIP_H__
-#define __BGP_PEER_MEMBERSHIP_H__
+#ifndef SRC_BGP_BGP_PEER_MEMBERSHIP_H_
+#define SRC_BGP_BGP_PEER_MEMBERSHIP_H_
 
+#include <map>
 #include <set>
+#include <string>
+#include <vector>
 
 #include "base/lifetime.h"
 #include "base/util.h"
@@ -24,7 +27,6 @@ class BgpNeighborResp;
 
 struct MembershipRequest {
 public:
-
     // Different actions to take when the table is walked. Not all combinations
     // are valid. Some are, such as RIBIN_PATH_DELETE and RIBOUT_PATH_DELETE
     enum Action {
@@ -92,6 +94,8 @@ struct IPeerRibEvent {
     BgpTable              *table;
     MembershipRequestList *request_list;
     MembershipRequest      request;
+
+private:
     DISALLOW_COPY_AND_ASSIGN(IPeerRibEvent);
 };
 
@@ -138,14 +142,13 @@ public:
                     BgpTable *table, MembershipRequest::Action action_mask);
     void RibOutLeave(DBTablePartBase *root, DBEntryBase *db_entry,
                      BgpTable *table, MembershipRequest::Action action_mask);
-    
+
     void ManagedDelete();
 
     int instance_id() const { return instance_id_; }
     void set_instance_id(int instance_id) { instance_id_ = instance_id; }
 
 private:
-
     IPeer *ipeer_;
     BgpTable *table_;
     PeerRibMembershipManager *membership_mgr_;
@@ -201,7 +204,7 @@ public:
 
     static const int kMembershipTaskInstanceId = 0;
 
-    PeerRibMembershipManager(BgpServer *server);
+    explicit PeerRibMembershipManager(BgpServer *server);
     virtual ~PeerRibMembershipManager();
 
     int RegisterPeerRegistrationCallback(PeerRegistrationCallback callback);
@@ -227,13 +230,13 @@ public:
     void Enqueue(IPeerRibEvent *event) { event_queue_->Enqueue(event); }
 
     BgpServer *server() { return server_; }
-    void FillRoutingInstanceInfo(ShowRoutingInstanceTable &inst,
+    void FillRoutingInstanceInfo(ShowRoutingInstanceTable *inst,
                                  const BgpTable * table) const;
 
-    void FillPeerMembershipInfo(const IPeer *peer, BgpNeighborResp &resp);
+    void FillPeerMembershipInfo(const IPeer *peer, BgpNeighborResp *resp);
     IPeerRib *IPeerRibFind(IPeer *ipeer, BgpTable *table);
     bool IsQueueEmpty() const { return event_queue_->IsQueueEmpty(); }
-    void FillRegisteredTable(IPeer *peer, std::vector<std::string> &list);
+    void FillRegisteredTable(const IPeer *peer, std::vector<std::string> *list);
 
 private:
     friend class BgpServerUnitTest;
@@ -299,4 +302,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(PeerRibMembershipManager);
 };
 
-#endif // __BGP_PEER_MEMBERSHIP_H__
+#endif  // SRC_BGP_BGP_PEER_MEMBERSHIP_H_
