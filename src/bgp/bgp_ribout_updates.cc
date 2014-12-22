@@ -14,7 +14,7 @@
 #include "bgp/message_builder.h"
 #include "bgp/scheduling_group.h"
 
-using namespace std;
+using std::auto_ptr;
 
 //
 // Create a new RibOutUpdates.  Also create the necessary UpdateQueue and
@@ -90,7 +90,6 @@ bool RibOutUpdates::DequeueCommon(UpdateMarker *marker, RouteUpdate *rt_update,
     RibPeerSet rt_blocked;
     for (UpdateInfoSList::List::iterator iter = rt_update->Updates()->begin();
          iter != rt_update->Updates()->end();) {
-
         // Get the UpdateInfo and move the iterator to next one before doing
         // any processing, since we may delete the UpdateInfo further down.
         UpdateInfo *uinfo = iter.operator->();
@@ -185,7 +184,6 @@ bool RibOutUpdates::TailDequeue(int queue_id, const RibPeerSet &msync,
     RouteUpdatePtr next_update;
     for (; update.get() != NULL; update = next_update) {
         if (!DequeueCommon(start_marker, update.get(), blocked)) {
-
             // Be sure to get rid of the RouteUpdate if it's empty.
             if (update->empty()) {
                 ClearUpdate(&update);
@@ -236,9 +234,6 @@ bool RibOutUpdates::PeerDequeue(int queue_id, IPeerUpdate *peer,
         return true;
     }
 
-    // TODO: Look back in the queue for immediate predecessors and move
-    // any send-ready peers into the current marker.
-
     // Get the encapsulator for the first RouteUpdate.  Even if there's no
     // RouteUpdate, we should find another marker or the tail marker.
     UpdateEntry *upentry;
@@ -267,7 +262,6 @@ bool RibOutUpdates::PeerDequeue(int queue_id, IPeerUpdate *peer,
     for (; upentry != NULL; upentry = next_upentry, update = next_update) {
         UpdateMarker *marker = NULL;
         if (upentry->IsMarker()) {
-
             // The queue entry is a marker.  We're done if we've reached the
             // tail marker.  Updates will be built later via TailDequeue.
             marker = static_cast<UpdateMarker *>(upentry);
@@ -277,11 +271,9 @@ bool RibOutUpdates::PeerDequeue(int queue_id, IPeerUpdate *peer,
                 return true;
             }
         } else {
-
             // The queue entry is a RouteUpdate. Go ahead and build an update
             // message.  Bail if all the peers in the marker get blocked.
             if (!DequeueCommon(start_marker, update.get(), blocked)) {
-
                 // Be sure to get rid of the RouteUpdate if it's empty.
                 if (update->empty()) {
                     ClearUpdate(&update);
@@ -296,7 +288,6 @@ bool RibOutUpdates::PeerDequeue(int queue_id, IPeerUpdate *peer,
             monitor_->GetNextEntry(queue_id, upentry, &next_upentry);
 
         if (upentry->IsMarker()) {
-
             // As the entry is a marker, merge send-ready peers from it
             // with the marker that is being processed for dequeue.  Note
             // that this updates the RibPeerSet in the marker.
@@ -308,9 +299,7 @@ bool RibOutUpdates::PeerDequeue(int queue_id, IPeerUpdate *peer,
                             "PeerDequeue Merge: " << mmove.ToString());
                 queue->MarkerMerge(start_marker, marker, mmove);
             }
-
         } else if (update->empty()) {
-
             // Be sure to get rid of the RouteUpdate since it's empty.
             ClearUpdate(&update);
         }
@@ -346,7 +335,6 @@ void RibOutUpdates::UpdatePack(int queue_id, Message *message,
     RouteUpdatePtr update =
         monitor_->GetAttrNext(queue_id, start_uinfo, &uinfo);
     for (; update.get() != NULL; update = next_update, uinfo = next_uinfo) {
-
         // Iterate to the next element before we potentially delete the
         // current one.
         next_update = monitor_->GetAttrNext(queue_id, uinfo, &next_uinfo);
@@ -453,7 +441,6 @@ void RibOutUpdates::ClearUpdate(RouteUpdatePtr *update) {
     monitor_->DequeueUpdate(rt_update);
 
     if (rt_update->OnUpdateList()) {
-
         // Remove the route update from the update list and check if the list
         // can now be downgraded back to a route update.
         UpdateList *uplist = rt_update->GetUpdateList(ribout_);
@@ -472,9 +459,7 @@ void RibOutUpdates::ClearUpdate(RouteUpdatePtr *update) {
             update->release();
             delete rt_update;
         }
-
     } else {
-
         // Store the history from the route update or clear the state for the
         // DBEntry depending on whether we advertised the route.  In either
         // case, get rid of the route update.

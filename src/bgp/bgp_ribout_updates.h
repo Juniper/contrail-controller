@@ -2,8 +2,10 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_bgp_ribout_updates_h
-#define ctrlplane_bgp_ribout_updates_h
+#ifndef SRC_BGP_BGP_RIBOUT_UPDATES_H_
+#define SRC_BGP_BGP_RIBOUT_UPDATES_H_
+
+#include <vector>
 
 #include "bgp/bgp_ribout.h"
 
@@ -53,7 +55,7 @@ public:
     // Enqueue a marker at the head of the queue with this bit set.
     void QueueJoin(int queue_id, int bit);
     void QueueLeave(int queue_id, int bit);
-    
+
     bool Empty() const;
 
     RibUpdateMonitor *monitor() { return monitor_.get(); }
@@ -72,7 +74,7 @@ private:
 
     bool DequeueCommon(UpdateMarker *marker, RouteUpdate *rt_update,
                        RibPeerSet *blocked);
-    
+
     // Add additional updates.
     void UpdatePack(int queue_id, Message *message, UpdateInfo *start_uinfo,
                     const RibPeerSet &isect);
@@ -85,7 +87,7 @@ private:
     // information. Returns true if the UpdateInfo should be deleted.
     bool ClearAdvertisedBits(RouteUpdate *rt_update, UpdateInfo *uinfo,
                              const RibPeerSet &bits);
-    
+
     void StoreHistory(RouteUpdate *rt_update);
     void ClearState(RouteUpdate *rt_update);
     void ClearUpdate(RouteUpdatePtr *update);
@@ -100,4 +102,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(RibOutUpdates);
 };
 
-#endif
+#endif  // SRC_BGP_BGP_RIBOUT_UPDATES_H_
