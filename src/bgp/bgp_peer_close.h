@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef __BGP_PEER_CLOSE_H__
-#define __BGP_PEER_CLOSE_H__
+#ifndef SRC_BGP_BGP_PEER_CLOSE_H_
+#define SRC_BGP_BGP_PEER_CLOSE_H_
 
 #include <tbb/recursive_mutex.h>
 
@@ -25,7 +25,7 @@ class BgpTable;
 // Among other things, RibIns and RibOuts of peers must be closed/deleted
 // completely before a peer can be completely closed/deleted. This class
 // provides this capability.
-// 
+//
 // RibIn and RibOut close are handled by invoking Unregister request with
 // PeerRibMembershipManager class.
 //
@@ -34,10 +34,10 @@ class BgpTable;
 //
 class PeerCloseManager {
 public:
-    static const int kDefaultGracefulRestartTime = 60; // Seconds
+    static const int kDefaultGracefulRestartTime = 60;  // Seconds
 
     // thread: bgp::StateMachine
-    PeerCloseManager(IPeer *peer);
+    explicit PeerCloseManager(IPeer *peer);
     virtual ~PeerCloseManager();
 
     IPeer *peer() { return peer_; }
@@ -70,4 +70,4 @@ private:
     tbb::recursive_mutex mutex_;
 };
 
-#endif // __BGP_PEER_CLOSE_H__
+#endif  // SRC_BGP_BGP_PEER_CLOSE_H_
