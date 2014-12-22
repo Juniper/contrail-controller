@@ -407,6 +407,13 @@ TEST_F(KStateTest, RouteDumpTest) {
     }
 }
 
+TEST_F(KStateTest, FlowDumpTest_invalid_index) {
+    /* send invalid index to flowkstate */
+    TestFlowKState::Init(true, -2, 0);
+    client->WaitForIdle();
+    client->KStateResponseWait(0);
+}
+
 TEST_F(KStateTest, DISABLED_FlowDumpTest) {
     EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
     TestFlowKState::Init(true, -1, 0);
