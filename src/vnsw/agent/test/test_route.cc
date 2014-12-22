@@ -1521,6 +1521,37 @@ TEST_F(RouteTest, PathPreference_1) {
     EXPECT_TRUE(VrfFind("vrf1", true) == false);
 }
 
+TEST_F(RouteTest, NonEcmpToEcmpConversion) {
+    struct PortInfo input2[] = {
+        {"vnet11", 11, "2.1.1.1", "00:00:00:01:01:01", 8, 11},
+        {"vnet12", 12, "2.1.1.1", "00:00:00:02:02:01", 8, 12},
+        {"vnet13", 13, "2.1.1.1", "00:00:00:02:02:01", 8, 13},
+    };
+    //Add interface in non ecmp mode
+    CreateVmportEnv(input2, 3);
+    client->WaitForIdle();
+
+    Ip4Address ip = Ip4Address::from_string("2.1.1.1");
+    InetUnicastRouteEntry *rt = RouteGet("vrf8", ip, 32);
+    EXPECT_TRUE(rt != NULL);
+    EXPECT_TRUE(rt->GetPathList().size() == 3);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
+
+    CreateVmportWithEcmp(input2, 3);
+    client->WaitForIdle();
+    EXPECT_TRUE(rt->GetPathList().size() == 4);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+
+    CreateVmportEnv(input2, 3);
+    client->WaitForIdle();
+    EXPECT_TRUE(rt->GetPathList().size() == 3);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
+
+    DeleteVmportEnv(input2, 3, true);
+    client->WaitForIdle();
+    EXPECT_TRUE(VrfFind("vrf8", true) == false);
+}
+
 int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     GETUSERARGS();
