@@ -2,7 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp_debug.h"
+#include "bgp/bgp_debug.h"
 
 #if defined(__BGP_DEBUG__)
 
@@ -12,8 +12,6 @@
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_table.h"
 #include "bgp/routing-instance/routing_instance.h"
-
-using namespace std;
 
 bool BgpDebug::enable_ = (getenv("BGP_DEBUG") != NULL);
 bool BgpDebug::enable_stack_trace_ = (getenv("BGP_DEBUG_STACK_TRACE") != NULL);
@@ -38,7 +36,6 @@ bool BgpDebug::enable_stack_trace_ = (getenv("BGP_DEBUG_STACK_TRACE") != NULL);
 
 void BgpDebug::Debug(DBTable *t, DBEntry *r, IPeer *peer, const char *file,
                      const char *function, int line, char *msg) {
-
     if (!enable_) return;
     if (enable_stack_trace_) BackTrace::Log();
 
@@ -63,7 +60,7 @@ void BgpDebug::Debug(DBTable *t, DBEntry *r, IPeer *peer, const char *file,
     const char *route_name = rt ? rt->ToString().c_str() : "Unknown";
 
     str += snprintf(str, buf_size - (str - buf), "\n%s:%s:%d: ",
-                    file, function, line); // class: typeid(*this).name()
+                    file, function, line);  // class: typeid(*this).name()
     if (strcmp(server_name, "Unknown")) {
         str += snprintf(str, buf_size    - (str - buf),
                         COLOR_BROWN "Serv %s(%p); ",
@@ -103,4 +100,4 @@ void BgpDebug::Debug(DBTable *t, DBEntry *r, IPeer *peer, const char *file,
     free(buf);
 }
 
-#endif // __BGP_DEBUG__
+#endif  // __BGP_DEBUG__

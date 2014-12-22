@@ -2,9 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef __BGP_DEBUG_H__
-
-#define __BGP_DEBUG_H__
+#ifndef SRC_BGP_BGP_DEBUG_H_
+#define SRC_BGP_BGP_DEBUG_H_
 
 #if !defined(__BGP_DEBUG__)
 
@@ -29,11 +28,11 @@ private:
 
 //
 // Generic debug macro to print a peer, instance, table, and route information
-// if provided. (Use NULL to omit a partiuclar field). It also prints caller
+// if provided. (Use NULL to omit a particular field). It also prints caller
 // file name, function name, class name and line number
 //
-// TODO: Have a simple way to filter messages such as filter based on server,
-// instance, table, peer, route, etc.
+// TODO(ananth): Have a simple way to filter messages such as filter based on
+// server, instance, table, peer, route, etc.
 //
 //
 #ifdef __APPLE__
@@ -44,8 +43,9 @@ private:
 
 #define BGP_DEBUG(dtable, dpeer, droute, format, args...)                      \
 do {                                                                           \
-    if (!BgpDebug::Enabled()) break;                                           \
-                                                                               \
+    if (!BgpDebug::Enabled()) {                                                \
+        break;                                                                 \
+    }                                                                          \
     char msg[1024];                                                            \
     snprintf(msg, sizeof(msg), format, ##args);                                \
                                                                                \
@@ -55,6 +55,6 @@ do {                                                                           \
                     __FILE__, __FUNC__, __LINE__, msg);                        \
 } while (0)
 
-#endif // __BGP_DEBUG__
+#endif  // __BGP_DEBUG__
 
-#endif // __BGP_DEBUG_H__
+#endif  // SRC_BGP_BGP_DEBUG_H_
