@@ -2,15 +2,18 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_bgp_attr_base_h
-#define ctrlplane_bgp_attr_base_h
+#ifndef SRC_BGP_BGP_ATTR_BASE_H_
+#define SRC_BGP_BGP_ATTR_BASE_H_
 
 #include <boost/functional/hash.hpp>
 #include <boost/scoped_array.hpp>
+#include <tbb/mutex.h>
+
 #include <set>
 #include <string>
-#include <tbb/mutex.h>
+#include <utility>
 #include <vector>
+
 #include "base/parse_object.h"
 #include "base/task.h"
 
@@ -102,9 +105,10 @@ template <class Type, class TypePtr, class TypeSpec, typename TypeCompare,
           class TypeDB>
 class BgpPathAttributeDB {
 public:
-    BgpPathAttributeDB(int hash_size = GetHashSize()) :
-            hash_size_(hash_size), set_(new Set[hash_size]),
-            mutex_(new tbb::mutex[hash_size]) {
+    explicit BgpPathAttributeDB(int hash_size = GetHashSize())
+        : hash_size_(hash_size),
+          set_(new Set[hash_size]),
+          mutex_(new tbb::mutex[hash_size]) {
     }
 
     size_t Size() {
@@ -158,11 +162,9 @@ private:
     // If the entry is already present, then passed in entry is freed and
     // existing entry is returned.
     TypePtr LocateInternal(Type *attr) {
-
         // Hash attribute contents to to avoid potential mutex contention.
         size_t hash = HashCompute(attr);
         while (true) {
-
             // Grab mutex to keep db access thread safe.
             tbb::mutex::scoped_lock lock(mutex_[hash]);
             std::pair<typename Set::iterator, bool> ret;
@@ -177,7 +179,6 @@ private:
 
             // Check if passed in entry did get into the data base.
             if (ret.second) {
-
                 // Take intrusive pointer, thereby incrementing the refcount.
                 TypePtr ptr = TypePtr(*ret.first);
 
@@ -196,7 +197,6 @@ private:
             // cases, we retry inserting the passed attribute pointer into the
             // data base.
             if (prev > 0) {
-
                 // Free passed in attribute, as it is already in the database.
                 delete attr;
 
@@ -225,4 +225,4 @@ private:
     boost::scoped_array<tbb::mutex> mutex_;
 };
 
-#endif
+#endif  // SRC_BGP_BGP_ATTR_BASE_H_
