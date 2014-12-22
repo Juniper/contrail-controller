@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef __ctrlplane__bgp_peer_key__
-#define __ctrlplane__bgp_peer_key__
+#ifndef SRC_BGP_BGP_PEER_KEY_H_
+#define SRC_BGP_BGP_PEER_KEY_H_
 
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/uuid/uuid.hpp>
@@ -24,4 +24,4 @@ struct BgpPeerKey {
 };
 
 
-#endif /* defined(__ctrlplane__bgp_peer_key__) */
+#endif  // SRC_BGP_BGP_PEER_KEY_H_

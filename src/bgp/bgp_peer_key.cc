@@ -2,18 +2,21 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp_peer_key.h"
+#include "bgp/bgp_peer_key.h"
 
 #include <boost/uuid/nil_generator.hpp>
 #include <boost/uuid/string_generator.hpp>
 
 #include "bgp/bgp_config.h"
 
-using namespace boost::asio::ip;
+using boost::asio::ip::address;
 using boost::system::error_code;
+using boost::uuids::nil_generator;
+using boost::uuids::string_generator;
+using std::exception;
 
 BgpPeerKey::BgpPeerKey() {
-    boost::uuids::nil_generator nil;
+    nil_generator nil;
     uuid = nil();
 }
 
@@ -25,11 +28,11 @@ BgpPeerKey::BgpPeerKey(const BgpNeighborConfig *config) {
 #if defined(__EXCEPTIONS)
     try {
 #endif
-        boost::uuids::string_generator gen;
+        string_generator gen;
         uuid = gen(config->uuid());
 #if defined(__EXCEPTIONS)
-    } catch (std::exception &ex) {
-        boost::uuids::nil_generator nil;
+    } catch (exception &ex) {
+        nil_generator nil;
         uuid = nil();
     }
 #endif
