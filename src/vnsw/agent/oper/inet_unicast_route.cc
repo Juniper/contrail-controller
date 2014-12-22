@@ -444,6 +444,7 @@ bool InetUnicastRouteEntry::EcmpDeletePath(AgentPath *path) {
 
         if (it_path->peer() &&
             it_path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER &&
+            it_path->path_preference().ecmp() == true &&
             it_path != path)
             count++;
     }
@@ -559,7 +560,8 @@ bool InetUnicastRouteEntry::EcmpAddPath(AgentPath *path) {
             ecmp = it_path;
 
         if (it_path->peer() &&
-            it_path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER) {
+            it_path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER &&
+            it_path->path_preference().ecmp() == true) {
             count++;
             if (it_path != path)
                 vm_port_path = it_path;
