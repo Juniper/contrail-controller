@@ -1480,7 +1480,7 @@ void StateMachine::OnMessage(BgpSession *session, BgpProto::BgpMessage *msg) {
 
         std::string data;
         int subcode;
-        if (peer && (subcode = update->Validate(peer, data))) {
+        if (peer && (subcode = update->Validate(peer, &data))) {
             Enqueue(fsm::EvBgpUpdateError(session, subcode, data));
             peer->inc_update_error();
         } else {

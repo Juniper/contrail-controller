@@ -2,8 +2,11 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef __BGP_BGP_PROTO_H__
-#define __BGP_BGP_PROTO_H__
+#ifndef SRC_BGP_BGP_PROTO_H_
+#define SRC_BGP_BGP_PROTO_H_
+
+#include <string>
+#include <vector>
 
 #include "base/parse_object.h"
 #include "bgp/bgp_attr.h"
@@ -27,7 +30,7 @@ public:
         XMPP,
     };
     struct BgpMessage : public ParseObject {
-        BgpMessage(MessageType type) : type(type) {
+        explicit BgpMessage(MessageType type) : type(type) {
         }
         MessageType type;
         virtual const std::string ToString() const { return ""; }
@@ -292,9 +295,9 @@ public:
         int subcode;
         std::string data;
         static BgpProto::Notification *Decode(const uint8_t *data, size_t size);
-    	static int EncodeData(Notification *msg, uint8_t *data, size_t size);
+        static int EncodeData(Notification *msg, uint8_t *data, size_t size);
         virtual const std::string ToString() const;
-        const static std::string toString(BgpProto::Notification::Code code,
+        static const std::string toString(BgpProto::Notification::Code code,
                                           int subcode);
     };
 
@@ -304,9 +307,9 @@ public:
     };
 
     struct Update : public BgpMessage {
-    	Update();
-    	~Update();
-        int Validate(const BgpPeer *, std::string &data);
+        Update();
+        ~Update();
+        int Validate(const BgpPeer *, std::string *data);
         int CompareTo(const Update &rhs) const;
         static BgpProto::Update *Decode(const uint8_t *data, size_t size);
 
@@ -326,8 +329,6 @@ public:
                       EncodeOffsets *offsets = NULL);
     static int Encode(const BgpMpNlri *msg, uint8_t *data, size_t size,
                       EncodeOffsets *offsets = NULL);
-
-private:    
 };
 
-#endif
+#endif  // SRC_BGP_BGP_PROTO_H_
