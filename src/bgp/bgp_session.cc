@@ -5,6 +5,7 @@
 #include "bgp/bgp_session.h"
 
 #include <algorithm>
+#include <string>
 
 #include "base/logging.h"
 #include "base/parse_object.h"
@@ -13,7 +14,7 @@
 #include "bgp/bgp_session_manager.h"
 #include "bgp/scheduling_group.h"
 
-using namespace std;
+using std::string;
 
 using boost::asio::mutable_buffer;
 
@@ -31,8 +32,9 @@ int BgpMessageReader::MsgLength(Buffer buffer, int offset) {
     return length;
 }
 
-BgpMessageReader::BgpMessageReader(TcpSession *session, ReceiveCallback callback) :
-        TcpMessageReader(session, callback) {
+BgpMessageReader::BgpMessageReader(TcpSession *session,
+    ReceiveCallback callback)
+    : TcpMessageReader(session, callback) {
 }
 
 BgpMessageReader::~BgpMessageReader() {
@@ -72,7 +74,7 @@ int BgpSession::GetSessionInstance() const {
 }
 
 void BgpSession::SendNotification(int code, int subcode,
-                                  const std::string &data) {
+                                  const string &data) {
     BgpProto::Notification msg;
     msg.error = code;
     msg.subcode = subcode;

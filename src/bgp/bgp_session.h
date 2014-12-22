@@ -2,10 +2,12 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef __BGP_SESSION_H__
-#define __BGP_SESSION_H__
+#ifndef SRC_BGP_BGP_SESSION_H_
+#define SRC_BGP_BGP_SESSION_H_
 
 #include <boost/scoped_ptr.hpp>
+
+#include <string>
 
 #include "bgp/bgp_peer.h"
 #include "io/tcp_session.h"
@@ -64,4 +66,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(BgpSession);
 };
 
-#endif
+#endif  // SRC_BGP_BGP_SESSION_H_
