@@ -349,7 +349,7 @@ void ServiceInstance::Properties::Clear() {
     interface_count = 0;
 
     instance_data.clear();
-    
+
     pool_id = boost::uuids::nil_uuid();
 }
 
@@ -737,6 +737,20 @@ void ServiceInstanceTable::ChangeEventHandler(DBEntry *entry) {
      * by IFNodeToReq.
      */
     if (svc_instance->node()->IsDeleted()) {
+	/*
+	 * IFNodeToReq is not getting called after the service instance
+	 *  node is marked as deleted. i.e else of IFNodeToReq() is never hit.
+	 *  Because of this
+	 *    * svc_instance object is not deleted.
+	 *    * Agent Introspect still shows the deleted service instances
+	 *      in ServiceInstanceResp.
+	 * Enqueue an DB_ENTRY_DELETE operation so that the service
+	 * instance is deleted.
+	*/
+	DBRequest request;
+	request.oper = DBRequest::DB_ENTRY_DELETE;
+	request.key = svc_instance->GetDBRequestKey();
+	Enqueue(&request);
         return;
     }
 
