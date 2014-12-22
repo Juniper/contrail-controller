@@ -224,7 +224,6 @@ public:
     void Update(const InetUnicastRouteEntry *route);
     void UpdateArpRoutes(const InetUnicastRouteEntry *route);
     void Delete(const InetUnicastRouteEntry *rt);
-
 private:
     ArpVrfState *vrf_state_;
     Timer *arp_req_timer_;

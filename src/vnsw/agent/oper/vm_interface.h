@@ -325,6 +325,7 @@ public:
     bool CanBeDeleted() const {return (configurer_ == 0);}
     const Ip4Address& subnet() const { return subnet_;}
     const uint8_t subnet_plen() const { return subnet_plen_;}
+    const MacAddress& GetVifMac(const Agent*) const;
 
     Interface::MirrorDirection mirror_direction() const {
         return mirror_direction_;
