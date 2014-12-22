@@ -13,9 +13,11 @@
 #include "db/db.h"
 
 RouteUpdatePtr::RouteUpdatePtr(tbb::mutex *entry_mutexp, RouteUpdate *rt_update,
-        tbb::mutex *monitor_mutexp, tbb::interface5::condition_variable *cond_var)
-        : entry_mutexp_(entry_mutexp), rt_update_(rt_update),
-          monitor_mutexp_(monitor_mutexp), cond_var_(cond_var) {
+    tbb::mutex *monitor_mutexp, tbb::interface5::condition_variable *cond_var)
+    : entry_mutexp_(entry_mutexp),
+      rt_update_(rt_update),
+      monitor_mutexp_(monitor_mutexp),
+      cond_var_(cond_var) {
     if (rt_update_ != NULL) {
         entry_mutexp_->lock();
     }
@@ -87,7 +89,6 @@ DBState *RibUpdateMonitor::GetUpdateListAndDequeue(DBEntryBase *db_entry,
     DBState *dbstate;
     RouteUpdate *rt_update = uplist->FindUpdate(RibOutUpdates::QUPDATE);
     if (rt_update) {
-
         // There's a RouteUpdate for QUPDATE. Remove it from the UpdateList
         // and move the history to it.  The entry will be reused as if that
         // was the DBState instead of the UpdateList.
@@ -95,17 +96,13 @@ DBState *RibUpdateMonitor::GetUpdateListAndDequeue(DBEntryBase *db_entry,
         queue_vec_->at(rt_update->queue_id())->Dequeue(rt_update);
         uplist->MoveHistory(rt_update);
         dbstate = rt_update;
-
     } else if (!uplist->History()->empty()) {
-
         // There's no RouteUpdate for QUPDATE, but the history is not empty.
         // Move the history to a new RouteState.
         RouteState *rstate = new RouteState();
         uplist->MoveHistory(rstate);
         dbstate = rstate;
-
     } else {
-
         // There's no RouteUpdate for QUPDATE and the history is empty. We
         // can simply pretend that there was no DBState after we get rid
         // of the UpdateList.
@@ -622,13 +619,11 @@ bool RibUpdateMonitor::RouteUpdateClearPeerSet(DBEntryBase *db_entry,
 
     // Update the DBstate for the DBentry as appropriate.
     if (!rt_update->Updates()->empty()) {
-
         // There are more scheduled updates, do nothing.
         return false;
     }
 
     if (!rt_update->History()->empty()) {
-
         // No more scheduled updates but there are current updates. Dequeue
         // the RouteUpdate, move the history to a new RouteState and get rid
         // of the RouteUpdate.
@@ -636,9 +631,7 @@ bool RibUpdateMonitor::RouteUpdateClearPeerSet(DBEntryBase *db_entry,
         RouteState *rstate = new RouteState;
         rt_update->MoveHistory(rstate);
         db_entry->SetState(ribout_->table(), ribout_->listener_id(), rstate);
-
     } else {
-
         // No more scheduled or current updates.  Dequeue the RouteUpdate,
         // clear the state on the DBEntry and get rid of the RouteUpdate.
         DequeueUpdateUnlocked(rt_update);
@@ -682,12 +675,9 @@ bool RibUpdateMonitor::UpdateListClearPeerSet(DBEntryBase *db_entry,
 
     // Update the DBstate for the DBentry as appropriate.
     if (list->size() > 1) {
-
         // There's multiple RouteUpdates on the UpdateList, do nothing.
         return false;
-
     } else if (list->size() == 1) {
-
         // There's exactly 1 RouteUpdate on the UpdateList. Downgrade
         // the UpdateList to a RouteUpdate and get rid of UpdateList.
         // Note that the history will be moved to the RouteUpdate as
@@ -695,18 +685,14 @@ bool RibUpdateMonitor::UpdateListClearPeerSet(DBEntryBase *db_entry,
         RouteUpdate *rt_update = uplist->MakeRouteUpdate();
         assert(rt_update);
         db_entry->SetState(ribout_->table(), ribout_->listener_id(), rt_update);
-
     } else if (!uplist->History()->empty()) {
-
         // There's no RouteUpdates on the UpdateList, but the history
         // is not empty.  Move the history to a new RouteState and get
         // rid of the UpdateList.
         RouteState *rstate = new RouteState;
         uplist->MoveHistory(rstate);
         db_entry->SetState(ribout_->table(), ribout_->listener_id(), rstate);
-
     } else {
-
         // There's no RouteUpdates on the UpdateList and the history is
         // empty. Clear state on the DBEntry and get rid of UpdateList.
         db_entry->ClearState(ribout_->table(), ribout_->listener_id());
@@ -722,7 +708,7 @@ bool RibUpdateMonitor::UpdateListClearPeerSet(DBEntryBase *db_entry,
 // to any current updates for the peers in the RibPeerSet.
 //
 void RibUpdateMonitor::ClearPeerSetCurrentAndScheduled(DBEntryBase *db_entry,
-        RibPeerSet &mleave) {
+        const RibPeerSet &mleave) {
     CHECK_CONCURRENCY("db::DBTable");
 
     // Don't need to bother going through the monitor if there's no DBState.
