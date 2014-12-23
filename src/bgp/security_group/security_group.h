@@ -2,11 +2,13 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_security_group_h
-#define ctrlplane_security_group_h
+#ifndef SRC_BGP_SECURITY_GROUP_SECURITY_GROUP_H_
+#define SRC_BGP_SECURITY_GROUP_SECURITY_GROUP_H_
 
 #include <boost/array.hpp>
 #include <boost/system/error_code.hpp>
+
+#include <string>
 
 #include "base/parse_object.h"
 #include "bgp/bgp_common.h"
@@ -38,4 +40,4 @@ private:
     bytes_type data_;
 };
 
-#endif
+#endif  // SRC_BGP_SECURITY_GROUP_SECURITY_GROUP_H_
