@@ -4,6 +4,7 @@
 
 #include "bgp/rtarget/rtarget_prefix.h"
 
+#include "base/string_util.h"
 
 using boost::system::error_code;
 using std::copy;

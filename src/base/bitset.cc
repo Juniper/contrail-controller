@@ -3,12 +3,14 @@
  */
 
 #include "base/bitset.h"
-#include "base/util.h"
 
 #include <cassert>
 #include <sstream>
 #include <string>
 #include <string.h>
+
+#include "base/util.h"
+#include "base/string_util.h"
 
 using namespace std;
 

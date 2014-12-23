@@ -2,6 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "options.h"
+
 #include <fstream>
 #include <iostream>
 #include <boost/asio/ip/host_name.hpp>
@@ -11,8 +13,7 @@
 #include "base/logging.h"
 #include "base/misc_utils.h"
 #include "base/util.h"
-
-#include "options.h"
+#include "net/address_util.h"
 
 using namespace std;
 using namespace boost::asio::ip;
@@ -216,7 +217,7 @@ bool Options::Process(int argc, char *argv[],
     GetOptValue< vector<string> >(var_map, collector_server_list_,
                                   "DEFAULT.collectors");
     string error_msg;
-    if (!ValidateServerEndpoints(collector_server_list_, error_msg)) {
+    if (!ValidateServerEndpoints(collector_server_list_, &error_msg)) {
         cout << "Invalid endpoint : " << error_msg;
         return false;
     }
@@ -228,7 +229,7 @@ bool Options::Process(int argc, char *argv[],
     }
 
     GetOptValue<string>(var_map, host_ip_, "DEFAULT.hostip");
-    if (!ValidateIPAddressString(host_ip_, error_msg)) {
+    if (!ValidateIPAddressString(host_ip_, &error_msg)) {
         cout << "Invalid IP address: " << host_ip_ << error_msg;
         return false;
     }

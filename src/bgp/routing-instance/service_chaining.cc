@@ -26,6 +26,7 @@
 #include "bgp/routing-instance/routing_instance.h"
 #include "db/db_table_partition.h"
 #include "net/address.h"
+#include "net/address_util.h"
 
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>

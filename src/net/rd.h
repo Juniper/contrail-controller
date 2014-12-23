@@ -5,6 +5,7 @@
 #ifndef ctrlplane_rd_h
 #define ctrlplane_rd_h
 
+#include <boost/system/error_code.hpp>
 #include "base/util.h"
 
 class RouteDistinguisher {

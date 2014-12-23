@@ -12,6 +12,7 @@
 #include "base/util.h"
 #include "cmn/buildinfo.h"
 #include "cmn/dns_options.h"
+#include "net/address_util.h"
 
 using namespace std;
 using namespace boost::asio::ip;

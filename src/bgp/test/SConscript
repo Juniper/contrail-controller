@@ -99,7 +99,7 @@ else:
 env.Append(LIBS = ['bgp_ermvpn', 'bgp_evpn'])
 env.Append(LIBS = ['bgp_inet', 'bgp_inet6', 'bgp_l3vpn',
                    'bgp_inet6vpn'])
-env.Append(LIBS = ['route', 'net', 'routing_instance', 'rtarget'])
+env.Append(LIBS = ['routing_instance', 'rtarget', 'route', 'net'])
 env.Append(LIBS = ['extended_community', 'origin_vn', 'security_group', 'tunnel_encap'])
 env.Append(LIBS = ['xmpp', 'xmpp_unicast', 
                    'xmpp_multicast', 'xmpp_enet', 'xml', 'pugixml',
