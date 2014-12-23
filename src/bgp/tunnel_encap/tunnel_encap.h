@@ -2,13 +2,15 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_tunnel_encap_h
-#define ctrlplane_tunnel_encap_h
+#ifndef SRC_BGP_TUNNEL_ENCAP_TUNNEL_ENCAP_H_
+#define SRC_BGP_TUNNEL_ENCAP_TUNNEL_ENCAP_H_
 
 #include "net/tunnel_encap_type.h"
 
 #include <boost/array.hpp>
 #include <boost/system/error_code.hpp>
+
+#include <string>
 
 #include "base/parse_object.h"
 
@@ -17,8 +19,8 @@ public:
     static const int kSize = 8;
     typedef boost::array<uint8_t, kSize> bytes_type;
 
-    TunnelEncap(TunnelEncapType::Encap encap);
-    TunnelEncap(std::string encap);
+    explicit TunnelEncap(TunnelEncapType::Encap encap);
+    explicit TunnelEncap(std::string encap);
     explicit TunnelEncap(const bytes_type &data);
 
     TunnelEncapType::Encap tunnel_encap() const;
@@ -37,4 +39,4 @@ private:
     bytes_type data_;
 };
 
-#endif
+#endif  // SRC_BGP_TUNNEL_ENCAP_TUNNEL_ENCAP_H_
