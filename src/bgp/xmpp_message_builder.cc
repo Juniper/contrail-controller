@@ -7,6 +7,9 @@
 #include <boost/foreach.hpp>
 #include <pugixml/pugixml.hpp>
 
+#include <string>
+#include <vector>
+
 #include "base/parse_object.h"
 #include "base/logging.h"
 #include "bgp/bgp_peer.h"
@@ -24,8 +27,13 @@
 #include "schema/xmpp_enet_types.h"
 #include "xmpp/xmpp_init.h"
 
-using namespace pugi;
-using namespace std;
+using pugi::xml_attribute;
+using pugi::xml_document;
+using pugi::xml_node;
+using std::ostringstream;
+using std::string;
+using std::stringstream;
+using std::vector;
 
 class BgpXmppMessage : public Message {
 public:
@@ -42,7 +50,7 @@ public:
 
 private:
     void EncodeNextHop(const BgpRoute *route, RibOutAttr::NextHop nexthop,
-                       autogen::ItemType &item);
+                       autogen::ItemType *item);
     void AddIpReach(const BgpRoute *route, const RibOutAttr *roattr);
     void AddIpUnreach(const BgpRoute *route);
     bool AddInetRoute(const BgpRoute *route, const RibOutAttr *roattr);
@@ -50,7 +58,7 @@ private:
     bool AddInet6Route(const BgpRoute *route, const RibOutAttr *roattr);
 
     void EncodeEnetNextHop(const BgpRoute *route, RibOutAttr::NextHop nexthop,
-                           autogen::EnetItemType &item);
+                           autogen::EnetItemType *item);
     void AddEnetReach(const BgpRoute *route, const RibOutAttr *roattr);
     void AddEnetUnreach(const BgpRoute *route);
     bool AddEnetRoute(const BgpRoute *route, const RibOutAttr *roattr);
@@ -93,8 +101,8 @@ private:
     xml_document xdoc_;
     xml_node xitems_;
     uint32_t sequence_number_;
-    std::string virtual_network_;
-    std::vector<int> security_group_list_;
+    string virtual_network_;
+    vector<int> security_group_list_;
     string repr_;
     string repr_new_;
     size_t repr_part1_;
@@ -124,7 +132,7 @@ void BgpXmppMessage::Start(const RibOutAttr *roattr, const BgpRoute *route) {
     stringstream ss;
     ss << route->Afi() << "/" << int(route->XmppSafi()) << "/" <<
           table_->routing_instance()->name();
-    std::string node(ss.str());
+    string node(ss.str());
     if (table_->family() == Address::ERMVPN) {
         xitems_.append_attribute("node") = node.c_str();
         AddMcastRoute(route, roattr);
@@ -154,23 +162,23 @@ bool BgpXmppMessage::AddRoute(const BgpRoute *route, const RibOutAttr *roattr) {
 
 void BgpXmppMessage::EncodeNextHop(const BgpRoute *route,
                                    RibOutAttr::NextHop nexthop,
-                                   autogen::ItemType &item) {
+                                   autogen::ItemType *item) {
     autogen::NextHopType item_nexthop;
 
     item_nexthop.af = route->NexthopAfi();
     item_nexthop.address = nexthop.address().to_v4().to_string();
     item_nexthop.label = nexthop.label();
+
+    // If encap list is empty use mpls over gre as default encap.
+    vector<string> &encap_list =
+        item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation;
     if (nexthop.encap().empty()) {
-        // If encap list is empty, routes from non-control-node, 
-        // use mpls over gre as default encap
-        item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.
-            push_back(std::string("gre"));
+        encap_list.push_back(string("gre"));
     } else {
-        item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation =
-            nexthop.encap();
+        encap_list = nexthop.encap();
     }
 
-    item.entry.next_hops.next_hop.push_back(item_nexthop);
+    item->entry.next_hops.next_hop.push_back(item_nexthop);
 }
 
 void BgpXmppMessage::AddIpReach(const BgpRoute *route,
@@ -191,11 +199,11 @@ void BgpXmppMessage::AddIpReach(const BgpRoute *route,
     // Encode all next-hops in the list
     //
     BOOST_FOREACH(RibOutAttr::NextHop nexthop, roattr->nexthop_list()) {
-        EncodeNextHop(route, nexthop, item);
+        EncodeNextHop(route, nexthop, &item);
     }
 
-    for (std::vector<int>::iterator it = security_group_list_.begin(); 
-         it !=  security_group_list_.end(); it++) {
+    for (vector<int>::iterator it = security_group_list_.begin();
+         it !=  security_group_list_.end(); ++it) {
         item.entry.security_group_list.security_group.push_back(*it);
     }
 
@@ -235,24 +243,26 @@ bool BgpXmppMessage::AddInet6Route(const BgpRoute *route,
 
 void BgpXmppMessage::EncodeEnetNextHop(const BgpRoute *route,
                                        RibOutAttr::NextHop nexthop,
-                                       autogen::EnetItemType &item) {
+                                       autogen::EnetItemType *item) {
     autogen::EnetNextHopType item_nexthop;
 
     item_nexthop.af = BgpAf::IPv4;
     item_nexthop.address = nexthop.address().to_v4().to_string();
     item_nexthop.label = nexthop.label();
+
+    // If encap list is empty use mpls over gre as default encap.
+    vector<string> &encap_list =
+        item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation;
     if (nexthop.encap().empty()) {
-        // If encap list is empty, routes from non-control-node, 
-        // use mpls over gre as default encap
-        item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.push_back(std::string("gre"));
+        encap_list.push_back(string("gre"));
     } else {
-        item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation= nexthop.encap();
+        encap_list = nexthop.encap();
     }
-    item.entry.next_hops.next_hop.push_back(item_nexthop);
+    item->entry.next_hops.next_hop.push_back(item_nexthop);
 }
 
-void BgpXmppMessage::AddEnetReach(const BgpRoute *route, const RibOutAttr *roattr) {
-
+void BgpXmppMessage::AddEnetReach(const BgpRoute *route,
+                                  const RibOutAttr *roattr) {
     autogen::EnetItemType item;
     item.entry.nlri.af = route->Afi();
     item.entry.nlri.safi = route->XmppSafi();
@@ -268,7 +278,7 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route, const RibOutAttr *roatt
     item.entry.local_preference = roattr->attr()->local_pref();
     item.entry.sequence_number = sequence_number_;
 
-    for (std::vector<int>::iterator it = security_group_list_.begin();
+    for (vector<int>::iterator it = security_group_list_.begin();
          it !=  security_group_list_.end(); ++it) {
         item.entry.security_group_list.security_group.push_back(*it);
     }
@@ -288,7 +298,7 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route, const RibOutAttr *roatt
     }
 
     BOOST_FOREACH(RibOutAttr::NextHop nexthop, roattr->nexthop_list()) {
-        EncodeEnetNextHop(route, nexthop, item);
+        EncodeEnetNextHop(route, nexthop, &item);
     }
 
     xml_node node = xitems_.append_child("item");
@@ -301,7 +311,8 @@ void BgpXmppMessage::AddEnetUnreach(const BgpRoute *route) {
     node.append_attribute("id") = route->ToXmppIdString().c_str();
 }
 
-bool BgpXmppMessage::AddEnetRoute(const BgpRoute *route, const RibOutAttr *roattr) {
+bool BgpXmppMessage::AddEnetRoute(const BgpRoute *route,
+    const RibOutAttr *roattr) {
     if (is_reachable_) {
         num_reach_route_++;
         AddEnetReach(route, roattr);
@@ -312,8 +323,8 @@ bool BgpXmppMessage::AddEnetRoute(const BgpRoute *route, const RibOutAttr *roatt
     return true;
 }
 
-void BgpXmppMessage::AddMcastReach(const BgpRoute *route, const RibOutAttr *roattr) {
-
+void BgpXmppMessage::AddMcastReach(const BgpRoute *route,
+                                   const RibOutAttr *roattr) {
     autogen::McastItemType item;
     item.entry.nlri.af = route->Afi();
     item.entry.nlri.safi = route->XmppSafi();
@@ -344,7 +355,8 @@ void BgpXmppMessage::AddMcastUnreach(const BgpRoute *route) {
     node.append_attribute("id") = route->ToXmppIdString().c_str();
 }
 
-bool BgpXmppMessage::AddMcastRoute(const BgpRoute *route, const RibOutAttr *roattr) {
+bool BgpXmppMessage::AddMcastRoute(const BgpRoute *route,
+                                   const RibOutAttr *roattr) {
     if (is_reachable_) {
         num_reach_route_++;
         AddMcastReach(route, roattr);
@@ -356,7 +368,7 @@ bool BgpXmppMessage::AddMcastRoute(const BgpRoute *route, const RibOutAttr *roat
 }
 
 const uint8_t *BgpXmppMessage::GetData(IPeerUpdate *peer, size_t *lenp) {
-    std::string str = peer->ToString() + "/" + XmppInit::kBgpPeer;
+    string str = peer->ToString() + "/" + XmppInit::kBgpPeer;
 
     // If the message has already been constructed, just replace the 'to' part.
     if (!repr_.empty()) {
