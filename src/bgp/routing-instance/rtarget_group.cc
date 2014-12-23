@@ -4,6 +4,8 @@
 
 #include "bgp/routing-instance/rtarget_group.h"
 
+#include <boost/foreach.hpp>
+
 #include "bgp/bgp_route.h"
 #include "bgp/routing-instance/rtarget_group_types.h"
 #include "bgp/rtarget/rtarget_route.h"

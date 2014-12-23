@@ -2,6 +2,7 @@
 
 #include <map>
 #include <boost/uuid/uuid.hpp>
+#include <boost/uuid/string_generator.hpp>
 #include <boost/uuid/random_generator.hpp>
 
 #include "db/db.h"

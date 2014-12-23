@@ -5,6 +5,7 @@
 #ifndef ctrlplane_esi_h
 #define ctrlplane_esi_h
 
+#include <boost/system/error_code.hpp>
 #include "base/util.h"
 
 class EthernetSegmentId {

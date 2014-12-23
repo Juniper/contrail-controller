@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
+#include "analytics/options.h"
 
 #include <fstream>
 #include <iostream>
@@ -11,8 +12,7 @@
 #include "base/logging.h"
 #include "base/misc_utils.h"
 #include "base/util.h"
-
-#include "options.h"
+#include "net/address_util.h"
 
 using namespace std;
 using namespace boost::asio::ip;

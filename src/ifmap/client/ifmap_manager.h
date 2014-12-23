@@ -5,14 +5,13 @@
 #ifndef ctrlplane_ifmap_manager_h
 #define ctrlplane_ifmap_manager_h
 
-#include "peer_server_finder.h"
 #include "ifmap_channel.h"
 
 #include <boost/function.hpp>
 #include <boost/asio/io_service.hpp>
 #include <boost/scoped_ptr.hpp>
 
-//class IFMapChannel;
+class DiscoveryServiceClient;
 class IFMapStateMachine;
 class IFMapServer;
 class IFMapDSPeerInfo;
@@ -49,12 +48,12 @@ public:
     std::string get_host_port() {
         return channel_->get_host() + ":" + channel_->get_port();
     }
-    std::string get_url() { return peer_finder_->get_url(); }
+    std::string get_url();
     uint64_t GetChannelSequenceNumber();
     void GetPeerServerInfo(IFMapPeerServerInfoUI &server_info);
     void RetrieveStaticHostPort(const std::string& url);
     void GetAllDSPeerInfo(IFMapDSPeerInfo *ds_peer_info);
-    bool get_init_done() { return peer_finder_->get_init_done(); }
+    bool get_init_done();
     virtual void ResetConnection(const std::string &host,
                                  const std::string &port);
     bool PeerDown();

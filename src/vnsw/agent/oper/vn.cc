@@ -27,12 +27,60 @@
 #include <oper/agent_sandesh.h>
 #include <oper/oper_dhcp_options.h>
 #include <filter/acl.h>
+#include "net/address_util.h"
 
 using namespace autogen;
 using namespace std;
 using namespace boost;
 
 VnTable *VnTable::vn_table_;
+
+VnIpam::VnIpam(const std::string& ip, uint32_t len, const std::string& gw,
+               const std::string& dns, bool dhcp, std::string &name,
+               const std::vector<autogen::DhcpOptionType> &dhcp_options,
+               const std::vector<autogen::RouteType> &host_routes)
+        : plen(len), installed(false), dhcp_enable(dhcp), ipam_name(name) {
+    boost::system::error_code ec;
+    ip_prefix = IpAddress::from_string(ip, ec);
+    default_gw = IpAddress::from_string(gw, ec);
+    dns_server = IpAddress::from_string(dns, ec);
+    oper_dhcp_options.set_options(dhcp_options);
+    oper_dhcp_options.set_host_routes(host_routes);
+}
+
+Ip4Address VnIpam::GetBroadcastAddress() const {
+    if (ip_prefix.is_v4()) {
+        Ip4Address broadcast(ip_prefix.to_v4().to_ulong() | 
+                             ~(0xFFFFFFFF << (32 - plen)));
+        return broadcast;
+    } 
+    return Ip4Address(0);
+}
+
+Ip4Address VnIpam::GetSubnetAddress() const {
+    if (ip_prefix.is_v4()) {
+        return Address::GetIp4SubnetAddress(ip_prefix.to_v4(), plen);
+    }
+    return Ip4Address(0);
+}
+
+Ip6Address VnIpam::GetV6SubnetAddress() const {
+    if (ip_prefix.is_v6()) {
+        return Address::GetIp6SubnetAddress(ip_prefix.to_v6(), plen);
+    }
+    return Ip6Address();
+}
+
+bool VnIpam::IsSubnetMember(const IpAddress &ip) const {
+    if (ip_prefix.is_v4() && ip.is_v4()) {
+        return ((ip_prefix.to_v4().to_ulong() |
+                 ~(0xFFFFFFFF << (32 - plen))) == 
+                (ip.to_v4().to_ulong() | ~(0xFFFFFFFF << (32 - plen))));
+    } else if (ip_prefix.is_v6() && ip.is_v6()) {
+        return IsIp6SubnetMember(ip.to_v6(), ip_prefix.to_v6(), plen);
+    }
+    return false;
+}
 
 bool VnEntry::IsLess(const DBEntry &rhs) const {
     const VnEntry &a = static_cast<const VnEntry &>(rhs);

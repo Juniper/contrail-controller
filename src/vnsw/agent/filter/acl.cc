@@ -10,6 +10,7 @@
 #include <ifmap/ifmap_link.h>
 #include <ifmap/ifmap_table.h>
 #include <base/logging.h>
+#include "net/address_util.h"
 
 #include <cmn/agent_cmn.h>
 #include <vnc_cfg_types.h>

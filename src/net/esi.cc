@@ -6,6 +6,7 @@
 
 #include "base/parse_object.h"
 #include "base/util.h"
+#include "base/string_util.h"
 #include "net/address.h"
 
 using namespace std;

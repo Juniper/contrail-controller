@@ -20,6 +20,7 @@
 #include <io/io_types.h>
 #include <io/udp_server.h>
 
+#include "analytics/diffstats.h"
 #include "analytics/self_describing_message.pb.h"
 #include "analytics/protobuf_server.h"
 #include "analytics/protobuf_server_impl.h"

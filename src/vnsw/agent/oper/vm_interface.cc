@@ -11,6 +11,7 @@
 #include "db/db_entry.h"
 #include "db/db_table.h"
 #include "ifmap/ifmap_node.h"
+#include "net/address_util.h"
 
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_interface.h>

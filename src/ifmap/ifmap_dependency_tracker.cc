@@ -4,6 +4,7 @@
 
 #include "ifmap/ifmap_dependency_tracker.h"
 
+#include <sstream>
 #include <boost/assign/list_of.hpp>
 
 #include "ifmap/ifmap_link.h"

@@ -4,8 +4,29 @@
 
 #include "ifmap/ifmap_whitelist.h"
 
+#include <sstream>
 #include <boost/bind.hpp>
 #include "ifmap/ifmap_util.h"
+
+IFMapGTFLink::IFMapGTFLink(
+    DBGraphBase::edge_descriptor edge_id, IFMapGTFNode* left,
+    IFMapGTFNode *right, const std::string &metadata) :
+        DBGraphEdge(edge_id), left_(left), right_(right), metadata_(metadata) {
+}
+
+std::string IFMapGTFLink::ToString() const {
+    std::ostringstream ss;
+    ss << edge_id();
+    return ss.str();
+}
+
+void IFMapGTFLink::SetKey(const DBRequestKey *key) {
+}
+
+bool IFMapGTFLink::IsLess(const DBEntry &rhs) const {
+    const IFMapGTFLink &e = static_cast<const IFMapGTFLink &>(rhs);
+    return edge_id() < e.edge_id();
+}
 
 IFMapGTFVisitor::IFMapGTFVisitor(IFMapTypenameWhiteList *white_list) 
     : white_list_(white_list) {
