@@ -2,17 +2,19 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_service_chaining_h
-#define ctrlplane_service_chaining_h
+#ifndef SRC_BGP_ROUTING_INSTANCE_SERVICE_CHAINING_H_
+#define SRC_BGP_ROUTING_INSTANCE_SERVICE_CHAINING_H_
+
+#include <boost/shared_ptr.hpp>
 
 #include <list>
 #include <map>
 #include <set>
+#include <string>
+#include <vector>
 
-#include <boost/shared_ptr.hpp>
 #include "base/lifetime.h"
-#include <base/queue_task.h>
-
+#include "base/queue_task.h"
 #include "bgp/bgp_condition_listener.h"
 #include "bgp/inet/inet_route.h"
 
@@ -35,7 +37,7 @@ public:
     //
     typedef std::set<BgpRoute *> RouteList;
     //
-    // Map of Virtual Network subnet prefix to List of More Specific routes 
+    // Map of Virtual Network subnet prefix to List of More Specific routes
     //
     typedef std::map<Ip4Prefix, RouteList> PrefixToRouteListMap;
     //
@@ -47,7 +49,7 @@ public:
     //
     typedef std::set<uint32_t> ConnectedPathIdList;
 
-    ServiceChain(RoutingInstance *src, RoutingInstance *dest, 
+    ServiceChain(RoutingInstance *src, RoutingInstance *dest,
                  RoutingInstance *connected,
                  const std::vector<std::string> &subnets, IpAddress addr);
 
@@ -94,8 +96,8 @@ public:
     }
 
     bool connected_route_valid() const {
-        return (connected_route_ && !connected_route_->IsDeleted() && 
-                connected_route_->BestPath() && 
+        return (connected_route_ && !connected_route_->IsDeleted() &&
+                connected_route_->BestPath() &&
                 connected_route_->BestPath()->IsFeasible());
     }
 
@@ -113,7 +115,7 @@ public:
     void RemoveServiceChainRoute(Ip4Prefix prefix, bool aggregate);
 
     bool add_more_specific(Ip4Prefix aggregate, BgpRoute *more_specific) {
-        PrefixToRouteListMap::iterator it = 
+        PrefixToRouteListMap::iterator it =
             prefix_to_routelist_map_.find(aggregate);
         assert(it != prefix_to_routelist_map_.end());
         bool ret = false;
@@ -126,11 +128,11 @@ public:
     }
 
     bool delete_more_specific(Ip4Prefix aggregate, BgpRoute *more_specific) {
-        PrefixToRouteListMap::iterator it = 
+        PrefixToRouteListMap::iterator it =
             prefix_to_routelist_map_.find(aggregate);
         assert(it != prefix_to_routelist_map_.end());
         it->second.erase(more_specific);
-        return it->second.empty(); 
+        return it->second.empty();
     }
 
     BgpTable *src_table() const;
@@ -147,10 +149,10 @@ public:
         return &prefix_to_routelist_map_;
     }
 
-    virtual bool Match(BgpServer *server, BgpTable *table, 
+    virtual bool Match(BgpServer *server, BgpTable *table,
                        BgpRoute *route, bool deleted);
 
-    void FillServiceChainInfo(ShowServicechainInfo &info) const; 
+    void FillServiceChainInfo(ShowServicechainInfo *info) const;
 
     void set_connected_table_unregistered() {
         connected_table_unregistered_ = true;
@@ -204,10 +206,10 @@ private:
     ExtConnectRouteList ext_connect_routes_;
     bool connected_table_unregistered_;
     bool dest_table_unregistered_;
-    bool aggregate_; // Whether the host route needs to be aggregated
+    bool aggregate_;  // Whether the host route needs to be aggregated
     LifetimeRef<ServiceChain> src_table_delete_ref_;
 
-    // Helper function to match 
+    // Helper function to match
     bool is_more_specific(BgpRoute *route, Ip4Prefix *aggregate_match);
     bool is_aggregate(BgpRoute *route);
 
@@ -225,11 +227,12 @@ typedef ConditionMatchPtr ServiceChainPtr;
 
 class ServiceChainState : public ConditionMatchState {
 public:
-    ServiceChainState(ServiceChainPtr info) : info_(info) {
+    explicit ServiceChainState(ServiceChainPtr info) : info_(info) {
     }
     ServiceChainPtr info() {
         return info_;
     }
+
 private:
     ServiceChainPtr info_;
     DISALLOW_COPY_AND_ASSIGN(ServiceChainState);
@@ -250,12 +253,12 @@ struct ServiceChainRequest {
     };
 
     ServiceChainRequest(RequestType type, BgpTable *table, BgpRoute *route,
-                        Ip4Prefix aggregate_match, ServiceChainPtr info) 
-        : type_(type), table_(table), rt_(route), 
+                        Ip4Prefix aggregate_match, ServiceChainPtr info)
+        : type_(type), table_(table), rt_(route),
           aggregate_match_(aggregate_match), info_(info), snh_resp_(NULL) {
     }
 
-    ServiceChainRequest(RequestType type, SandeshResponse *resp) 
+    ServiceChainRequest(RequestType type, SandeshResponse *resp)
         : type_(type), table_(NULL), rt_(NULL), snh_resp_(resp) {
     }
 
@@ -265,6 +268,8 @@ struct ServiceChainRequest {
     Ip4Prefix   aggregate_match_;
     ServiceChainPtr info_;
     SandeshResponse *snh_resp_;
+
+private:
     DISALLOW_COPY_AND_ASSIGN(ServiceChainRequest);
 };
 
@@ -273,18 +278,18 @@ public:
     // Set of service chains created in the system
     typedef std::map<RoutingInstance *, ServiceChainPtr> ServiceChainMap;
 
-    // At the time of processing, service chain request, all required 
+    // At the time of processing, service chain request, all required
     // routing instance may not be created. Create a list of service chain
     // waiting for a routing instance to get created
     typedef std::set<RoutingInstance *> UnresolvedServiceChainList;
 
-    ServiceChainMgr(BgpServer *server);
+    explicit ServiceChainMgr(BgpServer *server);
     ~ServiceChainMgr();
 
     // Creates a new service chain between two Virtual network
     // If the two routing instance is already connected, it updates the
     // connected route address for existing service chain
-    bool LocateServiceChain(RoutingInstance *src, 
+    bool LocateServiceChain(RoutingInstance *src,
                             const autogen::ServiceChainInfo &cfg);
 
     // Remove the existing service chain between from routing instance
@@ -333,7 +338,7 @@ public:
 private:
     friend class ServiceChainTest;
 
-    // All service chain related actions are performed in the context 
+    // All service chain related actions are performed in the context
     // of this task. This task has exclusion with db::DBTable task.
     static int service_chain_task_id_;
 
@@ -361,4 +366,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(ServiceChainMgr);
 };
 
-#endif // ctrlplane_service_chaining_h
+#endif  // SRC_BGP_ROUTING_INSTANCE_SERVICE_CHAINING_H_
