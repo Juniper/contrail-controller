@@ -1826,7 +1826,7 @@ bool BgpXmppChannel::MembershipResponseHandler(std::string table_name) {
     defer_q_.erase(vrf_n_table);
 
     std::vector<std::string> registered_tables;
-    mgr->FillRegisteredTable(peer_.get(), registered_tables);
+    mgr->FillRegisteredTable(peer_.get(), &registered_tables);
 
     if (registered_tables.empty()) return true;
 

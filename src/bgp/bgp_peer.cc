@@ -1614,7 +1614,7 @@ void BgpPeer::FillNeighborInfo(vector<BgpNeighborResp> *nbr_list,
     nbr.set_configured_hold_time(state_machine_->GetConfiguredHoldTime());
     FillBgpNeighborDebugState(nbr, peer_stats_.get());
     PeerRibMembershipManager *mgr = server_->membership_mgr();
-    mgr->FillPeerMembershipInfo(this, nbr);
+    mgr->FillPeerMembershipInfo(this, &nbr);
     nbr_list->push_back(nbr);
 }
 
