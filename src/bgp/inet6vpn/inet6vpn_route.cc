@@ -4,6 +4,8 @@
 
 #include "bgp/inet6vpn/inet6vpn_route.h"
 
+#include <algorithm>
+
 #include "bgp/inet6vpn/inet6vpn_table.h"
 #include "bgp/inet6/inet6_route.h"
 
@@ -113,7 +115,6 @@ bool Inet6VpnPrefix::IsMoreSpecific(const Inet6VpnPrefix &rhs) const {
 }
 
 int Inet6VpnPrefix::CompareTo(const Inet6VpnPrefix &other) const {
-
     int res = route_distinguisher().CompareTo(other.route_distinguisher());
     if (res != 0) {
         return res;

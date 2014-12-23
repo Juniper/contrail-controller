@@ -2,8 +2,11 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_inet6vpn_route_h
-#define ctrlplane_inet6vpn_route_h
+#ifndef SRC_BGP_INET6VPN_INET6VPN_ROUTE_H_
+#define SRC_BGP_INET6VPN_INET6VPN_ROUTE_H_
+
+#include <string>
+#include <vector>
 
 #include "base/util.h"
 #include "bgp/bgp_attr.h"
@@ -75,4 +78,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(Inet6VpnRoute);
 };
 
-#endif /* ctrlplane_inet6vpn_route_h */
+#endif  // SRC_BGP_INET6VPN_INET6VPN_ROUTE_H_
