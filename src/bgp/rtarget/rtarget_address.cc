@@ -4,6 +4,8 @@
 
 #include "bgp/rtarget/rtarget_address.h"
 
+#include <algorithm>
+
 #include "base/parse_object.h"
 #include "net/address.h"
 
@@ -24,7 +26,8 @@ const uint64_t RouteTarget::GetExtCommunityValue() const {
         return get_value(data_.begin(), 8);
 }
 
-RouteTarget RouteTarget::FromString(const string &str, boost::system::error_code *errorp) {
+RouteTarget RouteTarget::FromString(const string &str,
+                                    boost::system::error_code *errorp) {
     RouteTarget rt;
     uint8_t data[RouteTarget::kSize];
     // target:1:2 OR target:1.2.3.4:3
@@ -60,11 +63,11 @@ RouteTarget RouteTarget::FromString(const string &str, boost::system::error_code
     int offset;
     char *endptr;
     if (ec.value() != 0) {
-        //Not an IP address. Try ASN
-        long asn = strtol(second.c_str(), &endptr, 10);
+        // Not an IP address, try ASN.
+        int64_t asn = strtol(second.c_str(), &endptr, 10);
         if (asn == 0 || asn >= 65535 || *endptr != '\0') {
             if (errorp != NULL) {
-                *errorp = 
+                *errorp =
                     make_error_code(boost::system::errc::invalid_argument);
             }
             return RouteTarget::null_rtarget;

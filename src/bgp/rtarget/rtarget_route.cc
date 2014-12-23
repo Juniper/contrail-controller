@@ -5,6 +5,8 @@
 #include "bgp/rtarget/rtarget_route.h"
 #include "bgp/rtarget/rtarget_table.h"
 
+#include <algorithm>
+
 using std::copy;
 using std::string;
 using std::vector;
@@ -42,7 +44,7 @@ void RTargetRoute::BuildBgpProtoNextHop(vector<uint8_t> &nh,
 }
 
 DBEntryBase::KeyPtr RTargetRoute::GetDBRequestKey() const {
-    RTargetTable::RequestKey *key = 
+    RTargetTable::RequestKey *key =
         new RTargetTable::RequestKey(GetPrefix(), NULL);
     return KeyPtr(key);
 }
