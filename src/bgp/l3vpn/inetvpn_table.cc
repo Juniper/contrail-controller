@@ -15,21 +15,22 @@
 #include "bgp/routing-instance/routing_instance.h"
 #include "db/db_table_partition.h"
 
-using namespace std;
+using std::auto_ptr;
+using std::string;
 
 InetVpnTable::InetVpnTable(DB *db, const string &name)
         : BgpTable(db, name) {
 }
 
-std::auto_ptr<DBEntry> InetVpnTable::AllocEntry(const DBRequestKey *key) const {
+auto_ptr<DBEntry> InetVpnTable::AllocEntry(const DBRequestKey *key) const {
     const RequestKey *pfxkey = static_cast<const RequestKey *>(key);
-    return std::auto_ptr<DBEntry> (new InetVpnRoute(pfxkey->prefix));
+    return auto_ptr<DBEntry> (new InetVpnRoute(pfxkey->prefix));
 }
 
 
-std::auto_ptr<DBEntry> InetVpnTable::AllocEntryStr(const string &key_str) const {
+auto_ptr<DBEntry> InetVpnTable::AllocEntryStr(const string &key_str) const {
     InetVpnPrefix prefix = InetVpnPrefix::FromString(key_str);
-    return std::auto_ptr<DBEntry> (new InetVpnRoute(prefix));
+    return auto_ptr<DBEntry> (new InetVpnRoute(prefix));
 }
 
 size_t InetVpnTable::Hash(const DBEntry *entry) const {
@@ -47,13 +48,14 @@ size_t InetVpnTable::Hash(const DBRequestKey *key) const {
     return value % DB::PartitionCount();
 }
 
-BgpRoute *InetVpnTable::TableFind(DBTablePartition *rtp, const DBRequestKey *prefix) {
+BgpRoute *InetVpnTable::TableFind(DBTablePartition *rtp,
+                                  const DBRequestKey *prefix) {
     const RequestKey *pfxkey = static_cast<const RequestKey *>(prefix);
     InetVpnRoute rt_key(pfxkey->prefix);
     return static_cast<BgpRoute *>(rtp->Find(&rt_key));
 }
 
-DBTableBase *InetVpnTable::CreateTable(DB *db, const std::string &name) {
+DBTableBase *InetVpnTable::CreateTable(DB *db, const string &name) {
     InetVpnTable *table = new InetVpnTable(db, name);
     table->Init();
     return table;
@@ -95,7 +97,7 @@ BgpRoute *InetVpnTable::RouteReplicate(BgpServer *server,
         dest_route->ClearDelete();
     }
 
-    BgpAttrPtr new_attr = 
+    BgpAttrPtr new_attr =
         server->attr_db()->ReplaceExtCommunityAndLocate(src_path->GetAttr(),
                                                         community);
 
@@ -105,11 +107,11 @@ BgpRoute *InetVpnTable::RouteReplicate(BgpServer *server,
                                       src_path->GetPeer(),
                                       src_path->GetPathId());
     if (dest_path != NULL) {
-        if ((new_attr != dest_path->GetAttr()) || 
+        if ((new_attr != dest_path->GetAttr()) ||
             (src_path->GetLabel() != dest_path->GetLabel())) {
             // Update Attributes and notify (if needed)
             assert(dest_route->RemoveSecondaryPath(src_rt,
-                                src_path->GetSource(), src_path->GetPeer(), 
+                                src_path->GetSource(), src_path->GetPeer(),
                                 src_path->GetPathId()));
         } else {
             return dest_route;
@@ -117,9 +119,9 @@ BgpRoute *InetVpnTable::RouteReplicate(BgpServer *server,
     }
 
     // Create replicated path and insert it on the route
-    BgpSecondaryPath *replicated_path = 
-        new BgpSecondaryPath(src_path->GetPeer(), src_path->GetPathId(), 
-                            src_path->GetSource(), new_attr, 
+    BgpSecondaryPath *replicated_path =
+        new BgpSecondaryPath(src_path->GetPeer(), src_path->GetPathId(),
+                            src_path->GetSource(), new_attr,
                             src_path->GetFlags(), src_path->GetLabel());
     replicated_path->SetReplicateInfo(src_table, src_rt);
     dest_route->InsertPath(replicated_path);

@@ -2,8 +2,10 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_inetvpn_table_h
-#define ctrlplane_inetvpn_table_h
+#ifndef SRC_BGP_L3VPN_INETVPN_TABLE_H_
+#define SRC_BGP_L3VPN_INETVPN_TABLE_H_
+
+#include <string>
 
 #include "bgp/bgp_attr.h"
 #include "bgp/bgp_table.h"
@@ -35,7 +37,7 @@ public:
     virtual size_t Hash(const DBEntry *entry) const;
     virtual size_t Hash(const DBRequestKey *key) const;
 
-    virtual BgpRoute *RouteReplicate(BgpServer *server, BgpTable *src_table, 
+    virtual BgpRoute *RouteReplicate(BgpServer *server, BgpTable *src_table,
                                      BgpRoute *src_rt, const BgpPath *path,
                                      ExtCommunityPtr ptr);
 
@@ -45,10 +47,10 @@ public:
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 
 private:
-    virtual BgpRoute *TableFind(DBTablePartition *rtp, 
+    virtual BgpRoute *TableFind(DBTablePartition *rtp,
                                 const DBRequestKey *prefix);
 
     DISALLOW_COPY_AND_ASSIGN(InetVpnTable);
 };
 
-#endif
+#endif  // SRC_BGP_L3VPN_INETVPN_TABLE_H_
