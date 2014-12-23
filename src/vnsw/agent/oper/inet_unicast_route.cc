@@ -476,7 +476,7 @@ bool InetUnicastRouteEntry::EcmpDeletePath(AgentPath *path) {
  * gateway without having Ipam path, then search continues further
  */
 bool InetUnicastRouteEntry::IpamSubnetRouteAvailable() const {
-    if (IsHostRoute())
+    if ((IsHostRoute() == true) || (plen_ == 0))
         return false;
 
     //Local path present means that this route itself was programmed
