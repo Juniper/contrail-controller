@@ -42,7 +42,8 @@ unsigned long src_ip, dest_ip, target_ip, gw_ip, bcast_ip, static_ip;
 
 class ArpTest : public ::testing::Test {
 public:
-    ArpTest() : trigger_(boost::bind(&ArpTest::AddVhostRcvRoute, this),
+    ArpTest() : agent(Agent::GetInstance()),
+    trigger_(boost::bind(&ArpTest::AddVhostRcvRoute, this),
                          TaskScheduler::GetInstance()->GetTaskId("db::DBTable"),
                          0) {
     }
@@ -249,6 +250,8 @@ public:
         usleep(1000);
         client->WaitForIdle();
     }
+protected:
+    Agent *agent;
 private:
     Ip4Address vhost_rcv_route_;
     TaskTrigger trigger_;
@@ -912,6 +915,7 @@ TEST_F(ArpTest, IntfArpReqTest_2) {
     VmInterface *vmi = static_cast<VmInterface *>(itf);
     VrfEntry *vrf = VrfGet("vrf1");
 
+    EXPECT_TRUE(vmi->GetVifMac(agent) == agent->vrrp_mac());
     Agent::GetInstance()->GetArpProto()->ClearInterfaceArpStats(vmi->id());
     Ip4Address arp_tip = Ip4Address::from_string("1.1.1.2");
     EXPECT_EQ(1U, Agent::GetInstance()->GetArpProto()->GetArpCacheSize()); // For GW
