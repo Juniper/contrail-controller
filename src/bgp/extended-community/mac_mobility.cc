@@ -4,15 +4,21 @@
 
 #include "bgp/extended-community/mac_mobility.h"
 
-#include "base/parse_object.h"
 #include <stdio.h>
-using namespace std;
+
+#include <algorithm>
+#include <string>
+
+#include "base/parse_object.h"
+
+using std::copy;
+using std::string;
 
 MacMobility::MacMobility(uint32_t seq) {
-    data_[0] = 0x06; // Type 0x6
-    data_[1] = 0x00; // Sub Type 0x0
-    data_[2] = 0x01; // Flags
-    data_[3] = 0x00; // Rsvd
+    data_[0] = 0x06;  // Type 0x6
+    data_[1] = 0x00;  // Sub Type 0x0
+    data_[2] = 0x01;  // Flags
+    data_[3] = 0x00;  // Reserved
     put_value(&data_[4], 4, seq);
 }
 
@@ -33,5 +39,5 @@ uint32_t MacMobility::sequence_number() const {
 std::string MacMobility::ToString() {
     char temp[50];
     snprintf(temp, sizeof(temp), "mobility:%d", sequence_number());
-    return std::string(temp);
+    return string(temp);
 }

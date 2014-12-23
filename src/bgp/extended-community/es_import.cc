@@ -4,6 +4,9 @@
 
 #include "bgp/extended-community/es_import.h"
 
+#include <algorithm>
+#include <string>
+
 #include "net/mac_address.h"
 
 using std::copy;

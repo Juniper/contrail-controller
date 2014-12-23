@@ -2,11 +2,13 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_esi_label_h
-#define ctrlplane_esi_label_h
+#ifndef SRC_BGP_EXTENDED_COMMUNITY_ESI_LABEL_H_
+#define SRC_BGP_EXTENDED_COMMUNITY_ESI_LABEL_H_
 
 #include <boost/array.hpp>
 #include <stdint.h>
+
+#include <string>
 
 class EsiLabel {
 public:
@@ -23,4 +25,4 @@ private:
     bytes_type data_;
 };
 
-#endif
+#endif  // SRC_BGP_EXTENDED_COMMUNITY_ESI_LABEL_H_

@@ -4,6 +4,9 @@
 
 #include "bgp/extended-community/default_gateway.h"
 
+#include <algorithm>
+#include <string>
+
 using std::copy;
 using std::string;
 

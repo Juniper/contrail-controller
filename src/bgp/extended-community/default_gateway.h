@@ -2,11 +2,13 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_default_gateway_h
-#define ctrlplane_default_gateway_h
+#ifndef SRC_BGP_EXTENDED_COMMUNITY_DEFAULT_GATEWAY_H_
+#define SRC_BGP_EXTENDED_COMMUNITY_DEFAULT_GATEWAY_H_
 
 #include <boost/array.hpp>
 #include <stdint.h>
+
+#include <string>
 
 class DefaultGateway {
 public:
@@ -20,4 +22,4 @@ private:
     bytes_type data_;
 };
 
-#endif
+#endif  // SRC_BGP_EXTENDED_COMMUNITY_DEFAULT_GATEWAY_H_

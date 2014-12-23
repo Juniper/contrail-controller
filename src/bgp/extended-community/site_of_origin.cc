@@ -4,6 +4,8 @@
 
 #include "bgp/extended-community/site_of_origin.h"
 
+#include <algorithm>
+
 #include "net/address.h"
 
 using std::copy;
@@ -76,11 +78,11 @@ SiteOfOrigin SiteOfOrigin::FromString(const string &str,
     int offset;
     char *endptr;
     if (ec.value() != 0) {
-        //Not an IP address. Try ASN
-        long asn = strtol(second.c_str(), &endptr, 10);
+        // Not an IP address. Try ASN
+        int64_t asn = strtol(second.c_str(), &endptr, 10);
         if (asn == 0 || asn >= 65535 || *endptr != '\0') {
             if (errorp != NULL) {
-                *errorp = 
+                *errorp =
                     make_error_code(boost::system::errc::invalid_argument);
             }
             return SiteOfOrigin::null_soo;

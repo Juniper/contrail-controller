@@ -2,11 +2,13 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_mac_mobility_h
-#define ctrlplane_mac_mobility_h
+#ifndef SRC_BGP_EXTENDED_COMMUNITY_MAC_MOBILITY_H_
+#define SRC_BGP_EXTENDED_COMMUNITY_MAC_MOBILITY_H_
 
 #include <boost/array.hpp>
 #include <boost/system/error_code.hpp>
+
+#include <string>
 
 #include "base/parse_object.h"
 
@@ -15,7 +17,7 @@ public:
     static const int kSize = 8;
     typedef boost::array<uint8_t, kSize> bytes_type;
 
-    MacMobility(uint32_t seq);
+    explicit MacMobility(uint32_t seq);
     explicit MacMobility(const bytes_type &data);
 
     uint32_t sequence_number() const;
@@ -32,4 +34,4 @@ private:
     bytes_type data_;
 };
 
-#endif
+#endif  // SRC_BGP_EXTENDED_COMMUNITY_MAC_MOBILITY_H_
