@@ -6,9 +6,10 @@
 #include <boost/bind.hpp>
 #include <boost/foreach.hpp>
 
+#include <utility>
+
 #include "base/task.h"
 #include "base/task_annotations.h"
-
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_ribout.h"
 #include "bgp/bgp_sandesh.h"
@@ -21,7 +22,7 @@
 
 int RTargetGroupMgr::rtfilter_task_id_ = -1;
 
-RTargetGroupMgr::RTargetGroupMgr(BgpServer *server) : server_(server), 
+RTargetGroupMgr::RTargetGroupMgr(BgpServer *server) : server_(server),
     rtarget_route_trigger_(new TaskTrigger(
            boost::bind(&RTargetGroupMgr::ProcessRTargetRouteList, this),
            TaskScheduler::GetInstance()->GetTaskId("bgp::RTFilter"), 0)),
@@ -30,20 +31,19 @@ RTargetGroupMgr::RTargetGroupMgr(BgpServer *server) : server_(server),
            TaskScheduler::GetInstance()->GetTaskId("bgp::RTFilter"), 0)),
     rtarget_trigger_lists_(DB::PartitionCount()),
     master_instance_delete_ref_(this, NULL) {
-
     if (rtfilter_task_id_ == -1) {
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         rtfilter_task_id_ = scheduler->GetTaskId("bgp::RTFilter");
     }
 
-   process_queue_ = 
-        new WorkQueue<RtGroupMgrReq *>(rtfilter_task_id_, 0, 
+   process_queue_ =
+        new WorkQueue<RtGroupMgrReq *>(rtfilter_task_id_, 0,
              boost::bind(&RTargetGroupMgr::RequestHandler, this, _1));
 
     for (int i = 0; i < DB::PartitionCount(); i++) {
-        rtarget_dep_triggers_.push_back(boost::shared_ptr<TaskTrigger>(new 
-               TaskTrigger(boost::bind(&RTargetGroupMgr::ProcessRouteTargetList, 
-                                       this, i), 
+        rtarget_dep_triggers_.push_back(boost::shared_ptr<TaskTrigger>(new
+               TaskTrigger(boost::bind(&RTargetGroupMgr::ProcessRouteTargetList,
+                                       this, i),
                TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), i)));
     }
 }
@@ -122,8 +122,8 @@ bool RTargetGroupMgr::RequestHandler(RtGroupMgrReq *req) {
     return true;
 }
 
-void RTargetGroupMgr::Enqueue(RtGroupMgrReq *req) { 
-    process_queue_->Enqueue(req); 
+void RTargetGroupMgr::Enqueue(RtGroupMgrReq *req) {
+    process_queue_->Enqueue(req);
 }
 
 void ShowRtGroupReq::HandleRequest() const {
@@ -156,8 +156,8 @@ void ShowRtGroupSummaryReq::HandleRequest() const {
     mgr->Enqueue(req);
 }
 
-void RTargetGroupMgr::RTargetPeerSync(BgpTable *table, RTargetRoute *rt, 
-                                      DBTableBase::ListenerId id, 
+void RTargetGroupMgr::RTargetPeerSync(BgpTable *table, RTargetRoute *rt,
+                                      DBTableBase::ListenerId id,
                                       RTargetState *dbstate,
                                       RtGroup::InterestedPeerList &current) {
     CHECK_CONCURRENCY("bgp::RTFilter");
@@ -172,7 +172,7 @@ void RTargetGroupMgr::RTargetPeerSync(BgpTable *table, RTargetRoute *rt,
     dbstate_it = dbstate_next_it = dbstate->GetMutableList()->begin();
     std::pair<RtGroup::InterestedPeerList::iterator, bool> r;
 
-    while (cur_it != current.end() && 
+    while (cur_it != current.end() &&
            dbstate_it != dbstate->GetMutableList()->end()) {
         if (*cur_it < *dbstate_it) {
             // Add to DBState
@@ -207,8 +207,8 @@ void RTargetGroupMgr::RTargetPeerSync(BgpTable *table, RTargetRoute *rt,
         AddRouteTargetToLists(rtarget);
         assert(r.second);
     }
-    for (dbstate_next_it = dbstate_it; 
-         dbstate_it != dbstate->GetMutableList()->end(); 
+    for (dbstate_next_it = dbstate_it;
+         dbstate_it != dbstate->GetMutableList()->end();
          dbstate_it = dbstate_next_it) {
         dbstate_next_it++;
         // Remove the route from rtarget to route dep tree
@@ -225,11 +225,11 @@ void RTargetGroupMgr::RTargetPeerSync(BgpTable *table, RTargetRoute *rt,
     }
 }
 
-void RTargetGroupMgr::BuildRTargetDistributionGraph(BgpTable *table, 
+void RTargetGroupMgr::BuildRTargetDistributionGraph(BgpTable *table,
                                 RTargetRoute *rt, DBTableBase::ListenerId id) {
     CHECK_CONCURRENCY("bgp::RTFilter");
 
-    RTargetState *dbstate = 
+    RTargetState *dbstate =
         static_cast<RTargetState *>(rt->GetState(table, id));
 
     RtGroup::InterestedPeerList peer_list;
@@ -240,7 +240,7 @@ void RTargetGroupMgr::BuildRTargetDistributionGraph(BgpTable *table,
         return;
     }
 
-    for (Route::PathList::iterator it = rt->GetPathList().begin(); 
+    for (Route::PathList::iterator it = rt->GetPathList().begin();
          it != rt->GetPathList().end(); it++) {
         BgpPath *path = static_cast<BgpPath *>(it.operator->());
         if (!path->IsFeasible()) break;
@@ -248,8 +248,8 @@ void RTargetGroupMgr::BuildRTargetDistributionGraph(BgpTable *table,
         const BgpPeer *peer = static_cast<const BgpPeer *>(path->GetPeer());
         BgpProto::BgpPeerType peer_type = peer->PeerType();
 
-        std::pair<RtGroup::InterestedPeerList::iterator,bool> ret = 
-            peer_list.insert(std::pair<const BgpPeer *, 
+        std::pair<RtGroup::InterestedPeerList::iterator, bool> ret =
+            peer_list.insert(std::pair<const BgpPeer *,
                  RtGroup::RTargetRouteList>(peer, RtGroup::RTargetRouteList()));
         assert(ret.second);
         ret.first->second.insert(rt);
@@ -308,14 +308,14 @@ bool RTargetGroupMgr::ProcessRTargetRouteList() {
     CHECK_CONCURRENCY("bgp::RTFilter");
 
     RoutingInstanceMgr *mgr = server()->routing_instance_mgr();
-    RoutingInstance *master = 
+    RoutingInstance *master =
         mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
     BgpTable *table = master->GetTable(Address::RTARGET);
 
     // Get the Listener id
     DBTableBase::ListenerId id = GetListenerId(table);
 
-    for (RTargetRouteTriggerList::iterator it = rtarget_route_list_.begin(); 
+    for (RTargetRouteTriggerList::iterator it = rtarget_route_list_.begin();
          it != rtarget_route_list_.end(); it++) {
         BuildRTargetDistributionGraph(table, *it, id);
     }
@@ -347,19 +347,19 @@ void RTargetGroupMgr::Initialize() {
     RoutingInstance::RouteTableList const table_list = master->GetTables();
     DBTableBase::ListenerId id;
     RtGroupMgrTableState *ts = NULL;
-    for (RoutingInstance::RouteTableList::const_iterator it = table_list.begin();
-         it != table_list.end(); ++it) {
+    for (RoutingInstance::RouteTableList::const_iterator it =
+         table_list.begin(); it != table_list.end(); ++it) {
         if (!it->second->IsVpnTable()) continue;
 
         BgpTable *vpntable = it->second;
-        id = vpntable->Register(boost::bind(&RTargetGroupMgr::VpnRouteNotify, 
+        id = vpntable->Register(boost::bind(&RTargetGroupMgr::VpnRouteNotify,
                                             this, _1, _2));
         ts = new RtGroupMgrTableState(vpntable, id);
         table_state_.insert(std::make_pair(vpntable, ts));
     }
 
     BgpTable *rttable = master->GetTable(Address::RTARGET);
-    id = rttable->Register(boost::bind(&RTargetGroupMgr::RTargetRouteNotify, 
+    id = rttable->Register(boost::bind(&RTargetGroupMgr::RTargetRouteNotify,
                                       this, _1, _2));
     ts = new RtGroupMgrTableState(rttable, id);
     table_state_.insert(std::make_pair(rttable, ts));
@@ -369,8 +369,8 @@ void RTargetGroupMgr::ManagedDelete() {
     if (rtgroup_map_.empty()) remove_rtgroup_trigger_->Set();
 }
 
-void 
-RTargetGroupMgr::RTargetDepSync(DBTablePartBase *root, BgpRoute *rt, 
+void
+RTargetGroupMgr::RTargetDepSync(DBTablePartBase *root, BgpRoute *rt,
                                 DBTableBase::ListenerId id,
                                 VpnRouteState *dbstate,
                                 VpnRouteState::RTargetList &current) {
@@ -387,7 +387,7 @@ RTargetGroupMgr::RTargetDepSync(DBTablePartBase *root, BgpRoute *rt,
     dbstate_it = dbstate_next_it = dbstate->GetMutableList()->begin();
     std::pair<VpnRouteState::RTargetList::iterator, bool> r;
 
-    while (cur_it != current.end() && 
+    while (cur_it != current.end() &&
            dbstate_it != dbstate->GetMutableList()->end()) {
         if (*cur_it < *dbstate_it) {
             // Add RTarget to DBState
@@ -420,8 +420,8 @@ RTargetGroupMgr::RTargetDepSync(DBTablePartBase *root, BgpRoute *rt,
         RtGroup *rtgroup = LocateRtGroup(*cur_it);
         rtgroup->AddDepRoute(root->index(), rt);
     }
-    for (dbstate_next_it = dbstate_it; 
-         dbstate_it != dbstate->GetMutableList()->end(); 
+    for (dbstate_next_it = dbstate_it;
+         dbstate_it != dbstate->GetMutableList()->end();
          dbstate_it = dbstate_next_it) {
         dbstate_next_it++;
         // Remove the route from rtarget to route dep tree
@@ -456,7 +456,7 @@ bool RTargetGroupMgr::VpnRouteNotify(DBTablePartBase *root,
     DBTableBase::ListenerId id = GetListenerId(table);
 
     // Get the dbstate
-    VpnRouteState *dbstate = 
+    VpnRouteState *dbstate =
         static_cast<VpnRouteState *>(rt->GetState(table, id));
 
     VpnRouteState::RTargetList list;
@@ -475,7 +475,7 @@ bool RTargetGroupMgr::VpnRouteNotify(DBTablePartBase *root,
 
     if (ext_community) {
         // Gather all Route Target
-        BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm, 
+        BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
                       ext_community->communities()) {
             if (ExtCommunity::is_route_target(comm)) {
                 list.insert(RouteTarget(comm));
@@ -497,7 +497,7 @@ bool RTargetGroupMgr::RTargetRouteNotify(DBTablePartBase *root,
     DBTableBase::ListenerId id = GetListenerId(table);
 
     // Get the dbstate
-    RTargetState *dbstate = 
+    RTargetState *dbstate =
         static_cast<RTargetState *>(rt->GetState(table, id));
 
     if (!dbstate) {
@@ -554,13 +554,13 @@ void RTargetGroupMgr::RemoveRtGroup(const RouteTarget &rt) {
     remove_rtgroup_trigger_->Set();
 }
 
-void RTargetGroupMgr::GetRibOutInterestedPeers(RibOut *ribout, 
-             const ExtCommunity *ext_community, 
-             const RibPeerSet &peerset, RibPeerSet &new_peerset) {
-    RtGroupInterestedPeerSet peer_set; 
+void RTargetGroupMgr::GetRibOutInterestedPeers(RibOut *ribout,
+             const ExtCommunity *ext_community,
+             const RibPeerSet &peerset, RibPeerSet *new_peerset) {
+    RtGroupInterestedPeerSet peer_set;
     RtGroup *null_rtgroup = GetRtGroup(RouteTarget::null_rtarget);
     if (null_rtgroup) peer_set = null_rtgroup->GetInterestedPeers();
-    BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm, 
+    BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
                   ext_community->communities()) {
         if (ExtCommunity::is_route_target(comm)) {
             RtGroup *rtgroup = GetRtGroup(comm);
@@ -576,7 +576,7 @@ void RTargetGroupMgr::GetRibOutInterestedPeers(RibOut *ribout,
         assert(tmp);
         if (tmp->IsFamilyNegotiated(Address::RTARGET)) {
             if (!peer_set.test(tmp->GetIndex())) {
-                new_peerset.reset(current_index);
+                new_peerset->reset(current_index);
             }
         }
     }
@@ -587,11 +587,11 @@ void RTargetGroupMgr::UnregisterTables() {
 
     if (rtgroup_map_.empty()) {
         RoutingInstanceMgr *mgr = server()->routing_instance_mgr();
-        RoutingInstance *master = 
+        RoutingInstance *master =
             mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
         if (master && master->deleted()) {
-            for (RtGroupMgrTableStateList::iterator it = 
-                 table_state_.begin(), itnext; it != table_state_.end(); 
+            for (RtGroupMgrTableStateList::iterator it =
+                 table_state_.begin(), itnext; it != table_state_.end();
                  it = itnext) {
                 itnext = it;
                 itnext++;
@@ -634,7 +634,7 @@ bool RTargetGroupMgr::IsRtGroupOnList(RtGroup *rtgroup) const {
     return rtgroup_remove_list_.find(rtgroup) != rtgroup_remove_list_.end();
 }
 
-RtGroupMgrTableState::RtGroupMgrTableState(BgpTable *table, 
+RtGroupMgrTableState::RtGroupMgrTableState(BgpTable *table,
                                            DBTableBase::ListenerId id)
     : id_(id), table_delete_ref_(this, table->deleter()) {
     assert(table->deleter() != NULL);

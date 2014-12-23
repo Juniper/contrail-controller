@@ -164,7 +164,7 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
         if (attr->ext_community() != NULL) {
             // Handle route-target filtering
             rtinstance_->server()->rtarget_group_mgr()->GetRibOutInterestedPeers
-                (ribout, attr->ext_community(), peerset, new_peerset);
+                (ribout, attr->ext_community(), peerset, &new_peerset);
             if (new_peerset.empty()) return NULL;
         }
 

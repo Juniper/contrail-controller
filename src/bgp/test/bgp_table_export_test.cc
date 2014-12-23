@@ -108,8 +108,8 @@ public:
     }
     virtual void GetRibOutInterestedPeers(RibOut *ribout, 
              const ExtCommunity *ext_community, 
-             const RibPeerSet &peerset, RibPeerSet &new_peerset) {
-        new_peerset = peerset;
+             const RibPeerSet &peerset, RibPeerSet *new_peerset) {
+        *new_peerset = peerset;
     }
 };
 
