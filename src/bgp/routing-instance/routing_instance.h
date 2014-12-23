@@ -2,20 +2,22 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_routing_instance_h
-#define ctrlplane_routing_instance_h
+#ifndef SRC_BGP_ROUTING_INSTANCE_ROUTING_INSTANCE_H_
+#define SRC_BGP_ROUTING_INSTANCE_ROUTING_INSTANCE_H_
 
-#include <map>
-#include <list>
-#include <set>
-
-#include <tbb/spin_rw_mutex.h>
 
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/dynamic_bitset.hpp>
 #include <boost/intrusive_ptr.hpp>
 #include <boost/iterator/iterator_facade.hpp>
 #include <boost/scoped_ptr.hpp>
+#include <tbb/spin_rw_mutex.h>
+
+#include <list>
+#include <map>
+#include <set>
+#include <string>
+#include <vector>
 
 #include "base/bitset.h"
 #include "base/index_map.h"
@@ -150,7 +152,7 @@ class RoutingInstanceSet : public BitSet {
 
 class RoutingInstanceMgr {
 public:
-    typedef IndexMap<std::string, RoutingInstance, 
+    typedef IndexMap<std::string, RoutingInstance,
             RoutingInstanceSet> RoutingInstanceList;
     typedef RoutingInstanceList::iterator NameIterator;
     typedef std::multimap<RouteTarget, RoutingInstance *> InstanceTargetMap;
@@ -164,9 +166,9 @@ public:
         INSTANCE_UPDATE = 2,
         INSTANCE_DELETE = 3
     };
-    class RoutingInstanceIterator 
-        : public boost::iterator_facade<RoutingInstanceIterator, 
-                                        RoutingInstance, 
+    class RoutingInstanceIterator
+        : public boost::iterator_facade<RoutingInstanceIterator,
+                                        RoutingInstance,
                                         boost::forward_traversal_tag> {
     public:
         explicit RoutingInstanceIterator(const RoutingInstanceList &indexmap,
@@ -196,12 +198,12 @@ public:
     virtual ~RoutingInstanceMgr();
 
     RoutingInstanceIterator begin() {
-        return RoutingInstanceIterator(instances_, instances_.bits(), 
+        return RoutingInstanceIterator(instances_, instances_.bits(),
                                        instances_.bits().find_first());
     }
 
     RoutingInstanceIterator end() {
-        return RoutingInstanceIterator(instances_, instances_.bits(), 
+        return RoutingInstanceIterator(instances_, instances_.bits(),
                                        RoutingInstanceSet::npos);
     }
 
@@ -270,4 +272,5 @@ private:
     tbb::spin_rw_mutex rw_mutex_;
     InstanceOpListenersList callbacks_;
 };
-#endif
+
+#endif  // SRC_BGP_ROUTING_INSTANCE_ROUTING_INSTANCE_H_
