@@ -476,7 +476,7 @@ bool InetUnicastRouteEntry::EcmpDeletePath(AgentPath *path) {
  * gateway without having Ipam path, then search continues further
  */
 bool InetUnicastRouteEntry::IpamSubnetRouteAvailable() const {
-    if (IsHostRoute())
+    if ((IsHostRoute() == true) || (plen_ == 0))
         return false;
 
     //Local path present means that this route itself was programmed
@@ -490,6 +490,7 @@ bool InetUnicastRouteEntry::IpamSubnetRouteAvailable() const {
     //and retain flood flag from that path.
     uint16_t plen = plen_ - 1;
     while (plen != 0) {
+        assert(plen < plen_);
         InetUnicastRouteEntry key(NULL, addr_, plen, false);
         InetUnicastRouteEntry *supernet_rt = table->FindRouteUsingKey(key);
         

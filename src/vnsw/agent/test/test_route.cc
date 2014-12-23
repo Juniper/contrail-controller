@@ -1634,6 +1634,20 @@ TEST_F(RouteTest, SubnetRoute_Flood_2) {
     client->WaitForIdle();
 }
 
+TEST_F(RouteTest, null_ip_subnet_add) {
+    Ip4Address null_subnet_ip;
+    null_subnet_ip = Ip4Address::from_string("0.0.0.0");
+    AddRemoteVmRoute(null_subnet_ip, fabric_gw_ip_, 0, MplsTable::kStartLabel);
+
+    EXPECT_TRUE(RouteFind(vrf_name_, null_subnet_ip, 0));
+    InetUnicastRouteEntry *rt = RouteGet(vrf_name_, null_subnet_ip, 0);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::TUNNEL);
+    EXPECT_FALSE(rt->ipam_subnet_route());
+
+    DeleteRoute(NULL, vrf_name_, null_subnet_ip, 0);
+    EXPECT_FALSE(RouteFind(vrf_name_, null_subnet_ip, 0));
+}
+
 int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     GETUSERARGS();
