@@ -12,8 +12,9 @@
 #include "bgp/bgp_peer_types.h"
 #include "bgp/routing-instance/routing_instance_log.h"
 
-using namespace std;
-using namespace boost::asio;
+using std::make_pair;
+using std::string;
+using std::vector;
 
 BgpPeer *PeerManager::PeerLocate(BgpServer *server,
     const BgpNeighborConfig *config) {
@@ -182,7 +183,8 @@ size_t PeerManager::GetNeighborCount(string up_or_down) {
 //
 // Concurrency: Called from state machine thread
 //
-BgpPeer *PeerManager::PeerLookup(ip::tcp::endpoint remote_endpoint) {
+BgpPeer *PeerManager::PeerLookup(
+    boost::asio::ip::tcp::endpoint remote_endpoint) {
     BgpPeer    *peer = NULL;
     BgpPeerKey  peer_key;
 
@@ -195,7 +197,6 @@ BgpPeer *PeerManager::PeerLookup(ip::tcp::endpoint remote_endpoint) {
     // Do a partial match, as we do not know the peer's port yet.
     BgpPeerKeyMap::iterator loc = peers_by_key_.lower_bound(peer_key);
     while (loc != peers_by_key_.end()) {
-
         // Check if the address does indeed match as we are doing a partial
         // match here
         if (loc->second->peer_key().endpoint.address() !=

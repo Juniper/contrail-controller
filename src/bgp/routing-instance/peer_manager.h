@@ -2,12 +2,14 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef routing_instance_peer_manager_h
-#define routing_instance_peer_manager_h
-
-#include <map>
+#ifndef SRC_BGP_ROUTING_INSTANCE_PEER_MANAGER_H_
+#define SRC_BGP_ROUTING_INSTANCE_PEER_MANAGER_H_
 
 #include <boost/asio/ip/tcp.hpp>
+
+#include <map>
+#include <string>
+#include <vector>
 
 #include "bgp/bgp_peer_key.h"
 #include "bgp/ipeer.h"
@@ -23,7 +25,7 @@ public:
     typedef std::multimap<BgpPeerKey, BgpPeer *> BgpPeerKeyMap;
     typedef std::map<std::string, BgpPeer *> BgpPeerNameMap;
 
-    PeerManager(RoutingInstance *instance) : instance_(instance) { }
+    explicit PeerManager(RoutingInstance *instance) : instance_(instance) { }
     virtual ~PeerManager() { }
 
     virtual BgpPeer *PeerFind(std::string address);
@@ -66,4 +68,4 @@ private:
     RoutingInstance *instance_;
 };
 
-#endif
+#endif  // SRC_BGP_ROUTING_INSTANCE_PEER_MANAGER_H_
