@@ -2,8 +2,10 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_inet_table_h
-#define ctrlplane_inet_table_h
+#ifndef SRC_BGP_INET_INET_TABLE_H_
+#define SRC_BGP_INET_INET_TABLE_H_
+
+#include <string>
 
 #include "bgp/bgp_table.h"
 #include "bgp/inet/inet_route.h"
@@ -42,15 +44,15 @@ public:
 
     static size_t HashFunction(const Ip4Prefix &addr);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
-    BgpRoute *RouteReplicate(BgpServer *server, BgpTable *src_tbl, 
+    BgpRoute *RouteReplicate(BgpServer *server, BgpTable *src_tbl,
                              BgpRoute *src_rt, const BgpPath *path,
                              ExtCommunityPtr ptr);
 
 private:
-    virtual BgpRoute *TableFind(DBTablePartition *rtp, 
+    virtual BgpRoute *TableFind(DBTablePartition *rtp,
                                 const DBRequestKey *prefix);
 
     DISALLOW_COPY_AND_ASSIGN(InetTable);
 };
 
-#endif
+#endif  // SRC_BGP_INET_INET_TABLE_H_
