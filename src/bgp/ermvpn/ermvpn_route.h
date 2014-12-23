@@ -2,12 +2,14 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_ermvpn_route_h
-#define ctrlplane_ermvpn_route_h
-
-#include <set>
+#ifndef SRC_BGP_ERMVPN_ERMVPN_ROUTE_H_
+#define SRC_BGP_ERMVPN_ERMVPN_ROUTE_H_
 
 #include <boost/system/error_code.hpp>
+
+#include <set>
+#include <string>
+#include <vector>
 
 #include "base/util.h"
 #include "bgp/bgp_attr.h"
@@ -77,7 +79,7 @@ public:
     virtual void BuildProtoPrefix(BgpProtoPrefix *prefix,
                                   const BgpAttr *attr = NULL,
                                   uint32_t label = 0) const;
-    virtual void BuildBgpProtoNextHop(std::vector<uint8_t> &nh, 
+    virtual void BuildBgpProtoNextHop(std::vector<uint8_t> &nh,
                                       IpAddress nexthop) const;
 
     virtual bool IsLess(const DBEntry &genrhs) const {
@@ -95,4 +97,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(ErmVpnRoute);
 };
 
-#endif
+#endif  // SRC_BGP_ERMVPN_ERMVPN_ROUTE_H_
