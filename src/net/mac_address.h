@@ -5,12 +5,11 @@
 #ifndef ctrlplane_mac_address_h
 #define ctrlplane_mac_address_h
 
-#include <sys/types.h>
+#include <string>
+#include <boost/system/error_code.hpp>
+
 #include <net/ethernet.h>
 #include <sys/socket.h>
-#include <cstring>
-#include <string>
-#include "base/util.h"
 
 class MacAddress {
 public:
@@ -65,15 +64,9 @@ public:
         return ((u_int8_t *)&addr_)[i];
     }
 
-    MacAddress &operator=(const u_int8_t *c) {
-        memcpy(&addr_, c, size());
-        return *this;
-    }
+    MacAddress &operator=(const u_int8_t *c);
 
-    MacAddress &operator=(const struct sockaddr *sa) {
-        memcpy(&addr_, sa->sa_data, size());
-        return *this;
-    }
+    MacAddress &operator=(const struct sockaddr *sa);
 
     MacAddress &operator=(const struct sockaddr &sa) {
         return operator=(&sa);
@@ -89,14 +82,7 @@ public:
         return *this;
     }
 
-    bool ToArray(u_int8_t *p, size_t s) const {
-        if (s < size())
-            return false;
-
-        memcpy(p, &addr_, size());
-
-        return true;
-    }
+    bool ToArray(u_int8_t *p, size_t s) const;
 
     operator ether_addr() {
         return addr_;

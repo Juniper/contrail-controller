@@ -84,3 +84,10 @@ bool IFMapManager::PeerDown() {
     return peer_finder_->PeerDown();
 }
 
+std::string IFMapManager::get_url() {
+    return peer_finder_->get_url();
+}
+
+bool IFMapManager::get_init_done() {
+    return peer_finder_->get_init_done();
+}

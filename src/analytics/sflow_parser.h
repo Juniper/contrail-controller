@@ -5,6 +5,9 @@
 #ifndef __SFLOW_PARSER_H__
 #define __SFLOW_PARSER_H__
 
+#include <boost/ptr_container/ptr_map.hpp>
+#include <boost/ptr_container/ptr_vector.hpp>
+
 #include "base/util.h"
 #include "sflow.h"
 
@@ -73,42 +76,10 @@ private:
                              SFlowFlowEthernetData& eth_data);
     int DecodeIpv4Header(const uint8_t* ipv4h, SFlowFlowIpData& ip_data);
     int DecodeLayer4Header(const uint8_t* l4h, SFlowFlowIpData& ip_data);
-    int SkipBytes(size_t len) {
-        // All the fields in SFlow datagram are 4-byte aligned
-        decode_ptr_ += ((len+3)/4);
-        if (decode_ptr_ > reinterpret_cast<const uint32_t*>(end_ptr_)) {
-            return -1;
-        }
-        return 0;
-    }
-    int ReadData32(uint32_t& data32) {
-        if ((decode_ptr_+1) > reinterpret_cast<const uint32_t*>(end_ptr_)) {
-            return -1;
-        }
-        data32 = ntohl(*decode_ptr_++);
-        return 0;
-    }
-    int ReadBytes(uint8_t *bytes, size_t len) {
-        memcpy(bytes, decode_ptr_, len);
-        return SkipBytes(len);
-    }
-    int ReadIpaddress(SFlowIpaddress& ipaddr) {
-        if (ReadData32(ipaddr.type) < 0) {
-            return -1;
-        }
-        if (ipaddr.type == SFLOW_IPADDR_V4) {
-            if (ReadBytes(ipaddr.address.ipv4, 4) < 0) {
-                return -1;
-            }
-        } else if (ipaddr.type == SFLOW_IPADDR_V6) {
-            if (ReadBytes(ipaddr.address.ipv6, 16) < 0) {
-                return -1;
-            }
-        } else {
-            return -1;
-        }
-        return 0;
-    }
+    int SkipBytes(size_t len);
+    int ReadData32(uint32_t& data32);
+    int ReadBytes(uint8_t *bytes, size_t len);
+    int ReadIpaddress(SFlowIpaddress& ipaddr);
     
     const uint8_t* const raw_datagram_;
     uint16_t length_;

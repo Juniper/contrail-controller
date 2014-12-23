@@ -3,15 +3,17 @@
  */
 
 #include "peer_server_finder.h"
-#include "ifmap_manager.h"
+
 
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 #include "sandesh/common/vns_types.h"
 #include "sandesh/common/vns_constants.h"
-#include "discovery_client.h"
+#include "discovery/client/discovery_client.h"
 
 #include "base/task_annotations.h"
+#include "base/time_util.h"
+#include "ifmap/client/ifmap_manager.h"
 #include "ifmap/ifmap_server_show_types.h"
 #include "ifmap/ifmap_log_types.h"
 #include "ifmap/ifmap_log.h"
@@ -255,3 +257,12 @@ void PeerIFMapServerFinder::GetAllDSPeerInfo(IFMapDSPeerInfo *ds_peer_info) {
     ds_peer_info->set_no_best_peer_count(get_no_best_peer_count());
 }
 
+void PeerIFMapServerFinder::set_last_response_at_to_now() {
+    last_response_at_ = UTCTimestampUsec();
+}
+
+std::string PeerIFMapServerFinder::last_response_at_str() {
+    return last_response_at_ ?
+            (duration_usecs_to_string(UTCTimestampUsec() - last_response_at_)) :
+            boost::lexical_cast<std::string>(0);
+}

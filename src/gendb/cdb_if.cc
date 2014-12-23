@@ -6,6 +6,7 @@
 #include <boost/assign/list_of.hpp>
 #include <boost/pointer_cast.hpp>
 
+#include "analytics/diffstats.h"
 #include <base/parse_object.h>
 #include <sandesh/sandesh_constants.h>
 #include <sandesh/sandesh_types.h>

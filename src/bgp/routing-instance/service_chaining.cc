@@ -32,6 +32,7 @@
 #include "bgp/routing-instance/service_chaining_types.h"
 #include "db/db_table_partition.h"
 #include "net/address.h"
+#include "net/address_util.h"
 
 using boost::bind;
 using boost::system::error_code;

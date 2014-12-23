@@ -11,6 +11,7 @@
 #include "base/misc_utils.h"
 #include "base/util.h"
 #include "query_engine/buildinfo.h"
+#include "net/address_util.h"
 
 #include "options.h"
 

@@ -4,6 +4,7 @@
 
 #include <algorithm>
 
+#include <boost/system/error_code.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/random_generator.hpp>
 #include <boost/variant.hpp>

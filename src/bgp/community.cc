@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <string>
 
+#include <boost/foreach.hpp>
+
 #include "bgp/bgp_proto.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
 

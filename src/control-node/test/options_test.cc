@@ -5,6 +5,8 @@
 #include <fstream>
 #include <iostream>
 
+#include <boost/asio/ip/host_name.hpp>
+
 #include "base/contrail_ports.h"
 #include "base/test/task_test_util.h"
 #include "base/util.h"
@@ -12,6 +14,7 @@
 #include "base/test/task_test_util.h"
 #include "control-node/options.h"
 #include "io/event_manager.h"
+#include "net/address_util.h"
 
 using namespace std;
 using namespace boost::asio::ip;

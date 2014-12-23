@@ -4,6 +4,7 @@
 
 #include "sandesh/sandesh_types.h"
 #include "sandesh/sandesh.h"
+#include "net/address_util.h"
 #include "oper/nexthop.h"
 #include "oper/tunnel_nh.h"
 #include "oper/mirror_table.h"

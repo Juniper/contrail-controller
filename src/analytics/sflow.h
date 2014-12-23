@@ -41,19 +41,7 @@ struct SFlowIpaddress {
     }
     ~SFlowIpaddress() {
     }
-    const std::string ToString() const {
-        std::stringstream ss;
-        if (type == SFLOW_IPADDR_V4) {
-            char ipv4_str[INET_ADDRSTRLEN];
-            ss << inet_ntop(AF_INET, address.ipv4,
-                            ipv4_str, INET_ADDRSTRLEN);
-        } else if (type == SFLOW_IPADDR_V6) {
-            char ipv6_str[INET6_ADDRSTRLEN];
-            ss << inet_ntop(AF_INET6, address.ipv6,
-                            ipv6_str, INET6_ADDRSTRLEN);
-        }
-        return ss.str();
-    }
+    const std::string ToString() const;
     friend inline std::ostream& operator<<(std::ostream& out, 
                     const SFlowIpaddress& sflow_ipaddr) {
         out << sflow_ipaddr.ToString();

@@ -3,6 +3,7 @@
  */
 
 #include <sys/types.h>
+#include "net/address_util.h"
 #include "oper/interface_common.h"
 #include "services/dns_proto.h"
 #include "bind/bind_resolver.h"

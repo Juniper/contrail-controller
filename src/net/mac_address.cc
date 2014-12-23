@@ -2,7 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <stdint.h>
 #include "net/mac_address.h"
 
 #include <cstring>
@@ -68,4 +67,21 @@ MacAddress MacAddress::FromString(const std::string &str,
 
 int MacAddress::CompareTo(const MacAddress &rhs) const {
     return memcmp(&addr_, &rhs.addr_, sizeof(addr_));
+}
+
+bool MacAddress::ToArray(u_int8_t *p, size_t s) const {
+    if (s < size())
+        return false;
+    memcpy(p, &addr_, size());
+    return true;
+}
+
+MacAddress &MacAddress::operator=(const u_int8_t *c) {
+    memcpy(&addr_, c, size());
+    return *this;
+}
+
+MacAddress &MacAddress::operator=(const struct sockaddr *sa) {
+    memcpy(&addr_, sa->sa_data, size());
+    return *this;
 }
