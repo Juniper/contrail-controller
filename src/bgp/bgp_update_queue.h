@@ -2,10 +2,15 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_bgp_update_queue_h
-#define ctrlplane_bgp_update_queue_h
+#ifndef SRC_BGP_BGP_UPDATE_QUEUE_H_
+#define SRC_BGP_BGP_UPDATE_QUEUE_H_
 
 #include <tbb/mutex.h>
+
+#include <list>
+#include <map>
+#include <set>
+
 #include "bgp/bgp_update.h"
 
 //
@@ -86,31 +91,31 @@ public:
     > UpdateEntryNode;
 
     typedef boost::intrusive::list<UpdateEntry, UpdateEntryNode> UpdatesByOrder;
-    
+
     // Typedefs for the intrusive set.
     typedef boost::intrusive::member_hook<UpdateInfo,
         boost::intrusive::set_member_hook<>,
         &UpdateInfo::update_node
     > UpdateSetNode;
-    
+
     typedef boost::intrusive::set<UpdateInfo, UpdateSetNode,
         boost::intrusive::compare<UpdateByAttrCmp>
     > UpdatesByAttr;
-    
+
     typedef std::map<int, UpdateMarker *> MarkerMap;
 
     explicit UpdateQueue(int queue_id);
     ~UpdateQueue();
-    
+
     bool Enqueue(RouteUpdate *rt_update);
     void Dequeue(RouteUpdate *rt_update);
-    
+
     RouteUpdate *NextUpdate(UpdateEntry *upentry);
     UpdateEntry *NextEntry(UpdateEntry *upentry);
 
     void AttrDequeue(UpdateInfo *current_uinfo);
     UpdateInfo *AttrNext(UpdateInfo *current_uinfo);
-    
+
     void AddMarker(UpdateMarker *marker, RouteUpdate *rt_update);
     void MoveMarker(UpdateMarker *marker, RouteUpdate *rt_update);
     void MarkerSplit(UpdateMarker *marker, const RibPeerSet &msplit);
@@ -141,7 +146,7 @@ private:
     MarkerMap markers_;
     UpdateMarker tail_marker_;
 
-    DISALLOW_COPY_AND_ASSIGN(UpdateQueue);    
+    DISALLOW_COPY_AND_ASSIGN(UpdateQueue);
 };
 
-#endif
+#endif  // SRC_BGP_BGP_UPDATE_QUEUE_H_

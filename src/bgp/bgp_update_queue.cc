@@ -166,7 +166,8 @@ void UpdateQueue::MoveMarker(UpdateMarker *marker, RouteUpdate *rt_update) {
 
     UpdatesByOrder::iterator iter = queue_.iterator_to(*rt_update);
     if (marker == &tail_marker_) {
-        for (iter++; iter != queue_.end() && iter->IsMarker(); iter++);
+        for (iter++; iter != queue_.end() && iter->IsMarker(); iter++) {
+        }
         queue_.insert(iter, *marker);
     } else {
         queue_.insert(++iter, *marker);
@@ -193,7 +194,7 @@ void UpdateQueue::MarkerSplit(UpdateMarker *marker, const RibPeerSet &msplit) {
     UpdatesByOrder::iterator mpos = queue_.iterator_to(*marker);
     queue_.insert(mpos, *split_marker);
     marker_count_++;
-    
+
     for (size_t i = msplit.find_first();
          i != BitSet::npos; i = msplit.find_next(i)) {
         MarkerMap::iterator loc = markers_.find(i);
