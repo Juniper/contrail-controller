@@ -2,10 +2,12 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_rtarget_group_h
-#define ctrlplane_rtarget_group_h
+#ifndef SRC_BGP_ROUTING_INSTANCE_RTARGET_GROUP_H_
+#define SRC_BGP_ROUTING_INSTANCE_RTARGET_GROUP_H_
 
+#include <map>
 #include <set>
+#include <string>
 #include <vector>
 
 #include "bgp/bgp_table.h"
@@ -61,7 +63,7 @@ public:
     typedef std::set<RTargetRoute *> RTargetRouteList;
     typedef std::map<const BgpPeer *, RTargetRouteList> InterestedPeerList;
 
-    RtGroup(const RouteTarget &rt);
+    explicit RtGroup(const RouteTarget &rt);
     const RouteTarget &rt();
     bool MayDelete() const;
 
@@ -108,4 +110,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(RtGroup);
 };
 
-#endif
+#endif  // SRC_BGP_ROUTING_INSTANCE_RTARGET_GROUP_H_
