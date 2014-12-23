@@ -20,6 +20,7 @@
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_message_builder.h>
+#include <sandesh/protocol/TXMLProtocol.h>
 
 #include "viz_constants.h"
 #include "vizd_table_desc.h"
@@ -43,6 +44,7 @@ using std::pair;
 using std::string;
 using boost::system::error_code;
 using namespace pugi;
+using namespace contrail::sandesh::protocol;
 using process::ConnectionState;
 using process::ConnectionType;
 using process::ConnectionStatus;
@@ -1088,7 +1090,9 @@ bool FlowDataIpv4ObjectWalker<T>::for_each(pugi::xml_node& node) {
             }
         case GenDb::DbDataType::AsciiType:
             {
-                values_[ftinfo.get<0>()] = node.child_value();
+                std::string val = node.child_value();
+                TXMLProtocol::unescapeXMLControlChars(val);
+                values_[ftinfo.get<0>()] = val;
                 break;
             }
         default:

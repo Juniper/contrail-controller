@@ -17,7 +17,6 @@ import socket
 from util import retry
 from pysandesh.sandesh_base import *
 from sandesh.stats_test.ttypes import *
-from sandesh.qe.ttypes import *
 from analytics_fixture import AnalyticsFixture
 from generator_introspect_utils import VerificationGenerator
 from opserver_introspect_utils import VerificationOpsSrv
@@ -84,16 +83,16 @@ class StatsFixture(fixtures.Fixture):
 
     def send_test_stat_dynamic(self,nm,s1,i1,d1,s2="",i2=0,d2=0):
         self._logger.info('Sending Test Stats tags %s, %i, %f' % (s1,i1, d1))
-        tstat = TestStat()
+        tstat = TestStatDynamic()
         tstat.s1 = s1
         tstat.s2 = s2
         tstat.i1 = i1
         tstat.i2 = i2
         tstat.d1 = d1
         tstat.d2 = d2
-        tstate = TestState(ts = [tstat])
+        tstate = TestStateDynamic(ts = [tstat])
         tstate.name = nm
-        tdata = TestStateTrace(
+        tdata = TestStateDynamicTrace(
             data=tstate,
             sandesh=self._sandesh_instance)
         tdata.send(sandesh=self._sandesh_instance)       

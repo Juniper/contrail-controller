@@ -180,6 +180,11 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert generator_obj.verify_vm_uve(vm_id='abcd',
                                            num_vm_ifs=5,
                                            msg_count=5)
+        # Generate VM with vm_id containing XML control character
+        generator_obj.send_vm_uve(vm_id='<abcd&>', num_vm_ifs=2, msg_count=2)
+        assert generator_obj.verify_vm_uve(vm_id='<abcd&>', num_vm_ifs=2,
+                                           msg_count=2)
+
         return True
     # end test_03_vm_uve
 
@@ -554,12 +559,12 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True;
     #end test_11_where_clause_query
 
-    #@unittest.skip('verify ObjectTable query')
-    def test_12_verify_object_table_query(self):
+    #@unittest.skip('verify ObjectValueTable query')
+    def test_12_verify_object_value_table_query(self):
         '''
-        This test verifies the ObjectTable query.
+        This test verifies the ObjectValueTable query.
         '''
-        logging.info('*** test_12_verify_object_table_query ***')
+        logging.info('*** test_12_verify_object_value_table_query ***')
         
         if AnalyticsTest._check_skip_test() is True:
             return True
@@ -570,7 +575,20 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
-        assert vizd_obj.verify_object_table_query()
+        assert vizd_obj.verify_object_value_table_query(
+            table='ObjectCollectorInfo',
+            exp_object_values=[vizd_obj.collectors[0].hostname])
+        # verify that the object table query works for object id containing
+        # XML control characters.
+        collectors = [vizd_obj.get_collector()]
+        generator_obj = self.useFixture(
+            GeneratorFixture('contrail-vrouter-agent', collectors,
+                             logging, vizd_obj.get_opserver_port()))
+        assert generator_obj.verify_on_setup()
+        generator_obj.send_vm_uve(vm_id='vm11&>', num_vm_ifs=2,
+                                  msg_count=1)
+        assert vizd_obj.verify_object_value_table_query(table='ObjectVMTable',
+            exp_object_values=['vm11&>'])
     # end test_12_verify_object_table_query
 
     #@unittest.skip('verify ObjectTable query')
