@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
+#include "analytics/sflow_parser.h"
 
 #include <netinet/if_ether.h>
 #include <netinet/ip.h>
@@ -8,12 +9,23 @@
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 
-#include <boost/ptr_container/ptr_vector.hpp>
-#include <boost/ptr_container/ptr_map.hpp>
-
 #include "base/logging.h"
 
-#include "sflow_parser.h"
+#include <arpa/inet.h>
+
+const std::string SFlowIpaddress::ToString() const {
+    std::stringstream ss;
+    if (type == SFLOW_IPADDR_V4) {
+        char ipv4_str[INET_ADDRSTRLEN];
+        ss << inet_ntop(AF_INET, address.ipv4,
+                        ipv4_str, INET_ADDRSTRLEN);
+    } else if (type == SFLOW_IPADDR_V6) {
+        char ipv6_str[INET6_ADDRSTRLEN];
+        ss << inet_ntop(AF_INET6, address.ipv6,
+                        ipv6_str, INET6_ADDRSTRLEN);
+    }
+    return ss.str();
+}
 
 SFlowParser::SFlowParser(const uint8_t* buf, size_t len)
     : raw_datagram_(buf), length_(len), end_ptr_(buf+len),
@@ -306,6 +318,43 @@ int SFlowParser::DecodeLayer4Header(const uint8_t* l4h,
     default:
         LOG(DEBUG, "Skip processing of layer 4 protocol: " <<
             ip_data.protocol);
+    }
+    return 0;
+}
+
+int SFlowParser::SkipBytes(size_t len) {
+    // All the fields in SFlow datagram are 4-byte aligned
+    decode_ptr_ += ((len+3)/4);
+    if (decode_ptr_ > reinterpret_cast<const uint32_t*>(end_ptr_)) {
+        return -1;
+    }
+    return 0;
+}
+int SFlowParser::ReadData32(uint32_t& data32) {
+    if ((decode_ptr_+1) > reinterpret_cast<const uint32_t*>(end_ptr_)) {
+        return -1;
+    }
+    data32 = ntohl(*decode_ptr_++);
+    return 0;
+}
+int SFlowParser::ReadBytes(uint8_t *bytes, size_t len) {
+    memcpy(bytes, decode_ptr_, len);
+    return SkipBytes(len);
+}
+int SFlowParser::ReadIpaddress(SFlowIpaddress& ipaddr) {
+    if (ReadData32(ipaddr.type) < 0) {
+        return -1;
+    }
+    if (ipaddr.type == SFLOW_IPADDR_V4) {
+        if (ReadBytes(ipaddr.address.ipv4, 4) < 0) {
+            return -1;
+        }
+    } else if (ipaddr.type == SFLOW_IPADDR_V6) {
+        if (ReadBytes(ipaddr.address.ipv6, 16) < 0) {
+            return -1;
+        }
+    } else {
+        return -1;
     }
     return 0;
 }

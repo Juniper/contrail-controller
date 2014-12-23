@@ -9,10 +9,6 @@
 #include <vector>
 #include <tbb/mutex.h>
 
-#include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/date_time/posix_time/posix_time_types.hpp>
-#include <boost/lexical_cast.hpp>
-
 #include "base/util.h"
 
 class DiscoveryServiceClient;
@@ -97,14 +93,8 @@ private:
     void incr_peer_ifmap_ds_resp_count() { ++peer_ifmap_ds_resp_count_; }
     void incr_using_non_ds_peer_count() { ++using_non_ds_peer_count_; }
     void incr_no_best_peer_count() { ++no_best_peer_count_; }
-    void set_last_response_at_to_now() {
-        last_response_at_ = UTCTimestampUsec();
-    }
-    std::string last_response_at_str() {
-        return last_response_at_ ?
-            (duration_usecs_to_string(UTCTimestampUsec() - last_response_at_)) :
-            boost::lexical_cast<std::string>(0);
-    }
+    void set_last_response_at_to_now();
+    std::string last_response_at_str();
 
     IFMapManager *ifmap_manager_;
     DiscoveryServiceClient *ds_client_;
@@ -119,6 +109,8 @@ private:
     uint64_t last_response_at_;
     uint64_t using_non_ds_peer_count_;
     uint64_t no_best_peer_count_;
+
+    DISALLOW_COPY_AND_ASSIGN(PeerIFMapServerFinder);
 };
 
 #endif // ctrlplane_peer_server_finder_h

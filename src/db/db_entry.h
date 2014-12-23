@@ -24,10 +24,8 @@ public:
     typedef DBTableBase::ListenerId ListenerId;
     typedef std::auto_ptr<DBRequestKey> KeyPtr;
 
-    DBEntryBase() : tpart_(NULL), flags(0), last_change_at_(UTCTimestampUsec()) {
-        onremoveq_ = false;
-    }
-    virtual ~DBEntryBase() { }
+    DBEntryBase();
+    virtual ~DBEntryBase();
     virtual std::string ToString() const = 0;
     virtual KeyPtr GetDBRequestKey() const = 0;
     virtual bool IsMoreSpecific(const std::string &match) const {

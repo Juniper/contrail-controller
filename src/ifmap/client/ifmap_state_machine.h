@@ -6,6 +6,7 @@
 #define __IFMAP_STATE_MACHINE_H__
 
 #include <boost/statechart/state_machine.hpp>
+#include <boost/system/error_code.hpp>
 
 #include "base/queue_task.h"
 

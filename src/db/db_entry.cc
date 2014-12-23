@@ -2,13 +2,22 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <tbb/mutex.h>
-#include "base/util.h"
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include "db/db_entry.h"
+
+#include <tbb/mutex.h>
+
+#include "base/time_util.h"
 #include "db/db_table_partition.h"
 
 using namespace std;
+
+DBEntryBase::DBEntryBase()
+        : tpart_(NULL), flags(0), last_change_at_(UTCTimestampUsec()) {
+    onremoveq_ = false;
+}
+
+DBEntryBase::~DBEntryBase() {
+}
 
 void DBEntryBase::SetState(DBTableBase *tbl_base, ListenerId listener,
                            DBState *state) {

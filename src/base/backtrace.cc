@@ -2,11 +2,12 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/backtrace.h"
+
 #include <boost/algorithm/string.hpp>
 #include <execinfo.h>
 #include <stdio.h>
 
-#include "base/util.h"
 #include "base/logging.h"
 
 ssize_t BackTrace::ToString(void * const* callstack, int frames, char *buf,
@@ -67,7 +68,8 @@ int BackTrace::Get(void * const* &callstack) {
     return backtrace((void **) callstack, 1024);
 }
 
-void BackTrace::Log(void * const* callstack, int frames, std::string msg) {
+void BackTrace::Log(void * const* callstack, int frames,
+                    const std::string &msg) {
     char buf[10240];
 
     ToString(callstack, frames, buf, sizeof(buf));
@@ -76,7 +78,7 @@ void BackTrace::Log(void * const* callstack, int frames, std::string msg) {
     free((void *) callstack);
 }
 
-void BackTrace::Log(std::string msg) {
+void BackTrace::Log(const std::string &msg) {
     void * const*callstack;
 
     int frames = Get(callstack);

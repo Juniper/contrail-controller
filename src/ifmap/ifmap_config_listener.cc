@@ -5,6 +5,7 @@
 #include "ifmap/ifmap_config_listener.h"
 
 #include <boost/assign/list_of.hpp>
+#include <boost/foreach.hpp>
 
 #include "base/task_annotations.h"
 #include "db/db.h"
