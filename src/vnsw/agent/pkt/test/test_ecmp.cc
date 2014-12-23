@@ -49,6 +49,7 @@ class EcmpTest : public ::testing::Test {
         boost::system::error_code ec;
         bgp_peer = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
                                  "xmpp channel");
+        client->WaitForIdle();
 
         //Add floating IP for vrf2 interface to talk to
         //vrf3
@@ -1490,7 +1491,8 @@ TEST_F(EcmpTest, ServiceVlanTest_3) {
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
 
-    EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
+    WAIT_FOR(1000, 1000,
+            (Agent::GetInstance()->pkt()->flow_table()->Size() == 0));
     EXPECT_FALSE(VrfFind("vrf11"));
     EXPECT_FALSE(VrfFind("vrf10"));
     EXPECT_FALSE(VrfFind("service-vrf1"));
