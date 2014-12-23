@@ -17,7 +17,8 @@
 #include "bgp/routing-instance/routing_instance.h"
 #include "db/db_table_partition.h"
 
-using namespace std;
+using std::auto_ptr;
+using std::string;
 
 size_t ErmVpnTable::HashFunction(const ErmVpnPrefix &prefix) const {
     return boost::hash_value(prefix.group().to_ulong());
@@ -27,17 +28,17 @@ ErmVpnTable::ErmVpnTable(DB *db, const string &name)
     : BgpTable(db, name), tree_manager_(NULL) {
 }
 
-std::auto_ptr<DBEntry> ErmVpnTable::AllocEntry(
+auto_ptr<DBEntry> ErmVpnTable::AllocEntry(
     const DBRequestKey *key) const {
     const RequestKey *pfxkey = static_cast<const RequestKey *>(key);
-    return std::auto_ptr<DBEntry> (new ErmVpnRoute(pfxkey->prefix));
+    return auto_ptr<DBEntry> (new ErmVpnRoute(pfxkey->prefix));
 }
 
 
-std::auto_ptr<DBEntry> ErmVpnTable::AllocEntryStr(
+auto_ptr<DBEntry> ErmVpnTable::AllocEntryStr(
     const string &key_str) const {
     ErmVpnPrefix prefix = ErmVpnPrefix::FromString(key_str);
-    return std::auto_ptr<DBEntry> (new ErmVpnRoute(prefix));
+    return auto_ptr<DBEntry> (new ErmVpnRoute(prefix));
 }
 
 size_t ErmVpnTable::Hash(const DBEntry *entry) const {
@@ -61,7 +62,7 @@ BgpRoute *ErmVpnTable::TableFind(DBTablePartition *rtp,
     return static_cast<BgpRoute *>(rtp->Find(&rt_key));
 }
 
-DBTableBase *ErmVpnTable::CreateTable(DB *db, const std::string &name) {
+DBTableBase *ErmVpnTable::CreateTable(DB *db, const string &name) {
     ErmVpnTable *table = new ErmVpnTable(db, name);
     table->Init();
     return table;
@@ -80,7 +81,6 @@ BgpRoute *ErmVpnTable::RouteReplicate(BgpServer *server,
         return NULL;
 
     if (!IsDefault()) {
-
         // Don't replicate to a VRF from other VRF tables.
         ErmVpnTable *src_ermvpn_table = dynamic_cast<ErmVpnTable *>(src_table);
         if (!src_ermvpn_table->IsDefault())
