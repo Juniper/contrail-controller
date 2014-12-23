@@ -47,7 +47,10 @@ private:
     std::string mac_;
     std::string logical_switch_name_;
     std::string dest_ip_;
-    KSyncEntryPtr logical_switch_;
+    // we don't need to hold reference to vrf since this pointer is valid,
+    // only once route is exported and will become invalid once its removed.
+    VrfEntry *vrf_;
+    uint32_t vxlan_id_;
     DISALLOW_COPY_AND_ASSIGN(UnicastMacLocalEntry);
 };
 
