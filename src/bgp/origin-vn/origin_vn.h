@@ -2,12 +2,13 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_origin_vn_h
-#define ctrlplane_origin_vn_h
+#ifndef SRC_BGP_ORIGIN_VN_ORIGIN_VN_H_
+#define SRC_BGP_ORIGIN_VN_ORIGIN_VN_H_
 
-#include <string>
 #include <boost/array.hpp>
 #include <boost/system/error_code.hpp>
+
+#include <string>
 
 #include "base/parse_object.h"
 #include "bgp/bgp_common.h"
@@ -50,4 +51,4 @@ private:
     bytes_type data_;
 };
 
-#endif
+#endif  // SRC_BGP_ORIGIN_VN_ORIGIN_VN_H_

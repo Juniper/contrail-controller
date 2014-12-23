@@ -6,9 +6,12 @@
 
 #include <stdio.h>
 
+#include <algorithm>
+
 #include "base/parse_object.h"
 
-using namespace std;
+using std::copy;
+using std::string;
 
 OriginVn OriginVn::null_originvn;
 
@@ -27,7 +30,8 @@ OriginVn::OriginVn(const bytes_type &data) {
     copy(data.begin(), data.end(), data_.begin());
 }
 
-OriginVn OriginVn::FromString(const string &str, boost::system::error_code *errorp) {
+OriginVn OriginVn::FromString(const string &str,
+    boost::system::error_code *errorp) {
     OriginVn origin_vn;
     uint8_t data[OriginVn::kSize];
     size_t pos = str.find(':');
@@ -58,7 +62,7 @@ OriginVn OriginVn::FromString(const string &str, boost::system::error_code *erro
 
     string second(rest.substr(0, pos));
     char *endptr;
-    long asn = strtol(second.c_str(), &endptr, 10);
+    int64_t asn = strtol(second.c_str(), &endptr, 10);
     if (asn == 0 || asn >= 65535 || *endptr != '\0') {
         if (errorp != NULL) {
             *errorp = make_error_code(boost::system::errc::invalid_argument);
@@ -111,8 +115,8 @@ int OriginVn::vn_index() const {
     return 0;
 }
 
-std::string OriginVn::ToString() {
+string OriginVn::ToString() {
     char temp[50];
     snprintf(temp, sizeof(temp), "originvn:%u:%u", as_number(), vn_index());
-    return std::string(temp);
+    return string(temp);
 }
