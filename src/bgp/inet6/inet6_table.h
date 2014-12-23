@@ -2,8 +2,10 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_inet6_table_h
-#define ctrlplane_inet6_table_h
+#ifndef SRC_BGP_INET6_INET6_TABLE_H_
+#define SRC_BGP_INET6_INET6_TABLE_H_
+
+#include <string>
 
 #include "bgp/bgp_table.h"
 #include "bgp/inet6/inet6_route.h"
@@ -52,4 +54,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(Inet6Table);
 };
 
-#endif /* ctrlplane_inet6_table_h */
+#endif  // SRC_BGP_INET6_INET6_TABLE_H_

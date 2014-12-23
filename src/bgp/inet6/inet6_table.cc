@@ -103,7 +103,7 @@ BgpRoute *Inet6Table::RouteReplicate(BgpServer *server, BgpTable *src_table,
         }
     }
 
-    BgpSecondaryPath *replicated_path = 
+    BgpSecondaryPath *replicated_path =
         new BgpSecondaryPath(path->GetPeer(), path->GetPathId(),
             path->GetSource(), new_attr, path->GetFlags(), path->GetLabel());
     replicated_path->SetReplicateInfo(src_table, src_rt);
@@ -112,8 +112,8 @@ BgpRoute *Inet6Table::RouteReplicate(BgpServer *server, BgpTable *src_table,
     // Notify the route even if the best path may not have changed. For XMPP
     // peers, we support sending multiple ECMP next-hops for a single route.
     //
-    // TODO: Can be optimized for changes that does not result in any change
-    // to ECMP list
+    // TODO(ananth): Can be optimized for changes that does not result in
+    // any change to ECMP list
     partition->Notify(dest_route);
 
     return dest_route;
