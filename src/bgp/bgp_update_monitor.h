@@ -2,19 +2,21 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_bgp_update_monitor_h
-#define ctrlplane_bgp_update_monitor_h
+#ifndef SRC_BGP_BGP_UPDATE_MONITOR_H_
+#define SRC_BGP_BGP_UPDATE_MONITOR_H_
 
-#include <vector>
 #include <boost/function.hpp>
-
 #include <tbb/mutex.h>
-#include "bgp/bgp_ribout.h"
-#include "bgp/bgp_update.h"
+
+#include <algorithm>
 #ifndef _LIBCPP_VERSION
 #include <tbb/compat/condition_variable>
 #endif
+#include <vector>
+
 #include "base/util.h"
+#include "bgp/bgp_ribout.h"
+#include "bgp/bgp_update.h"
 
 class DBEntryBase;
 struct DBState;
@@ -39,8 +41,10 @@ class RouteUpdatePtr {
 public:
     struct Proxy {
         Proxy()
-	        : entry_mutexp(NULL), rt_update(NULL),
-	          monitor_mutexp(NULL), cond_var(NULL) {
+            : entry_mutexp(NULL),
+              rt_update(NULL),
+              monitor_mutexp(NULL),
+              cond_var(NULL) {
         }
         tbb::mutex *entry_mutexp;
         RouteUpdate *rt_update;
@@ -48,20 +52,26 @@ public:
         tbb::interface5::condition_variable *cond_var;
     };
     RouteUpdatePtr()
-        : entry_mutexp_(NULL), rt_update_(NULL),
-          monitor_mutexp_(NULL), cond_var_(NULL) {
+        : entry_mutexp_(NULL),
+          rt_update_(NULL),
+          monitor_mutexp_(NULL),
+          cond_var_(NULL) {
     }
     RouteUpdatePtr(tbb::mutex *entry_mutexp, RouteUpdate *rt_update,
                    tbb::mutex *monitor_mutexp,
                    tbb::interface5::condition_variable *cond_var);
     RouteUpdatePtr(RouteUpdatePtr &rhs)
-        : entry_mutexp_(NULL), rt_update_(NULL),
-          monitor_mutexp_(NULL), cond_var_(NULL) {
+        : entry_mutexp_(NULL),
+          rt_update_(NULL),
+          monitor_mutexp_(NULL),
+          cond_var_(NULL) {
         swap(rhs);
     }
     RouteUpdatePtr(Proxy rhs)
-        : entry_mutexp_(rhs.entry_mutexp), rt_update_(rhs.rt_update),
-          monitor_mutexp_(rhs.monitor_mutexp), cond_var_(rhs.cond_var) {
+        : entry_mutexp_(rhs.entry_mutexp),
+          rt_update_(rhs.rt_update),
+          monitor_mutexp_(rhs.monitor_mutexp),
+          cond_var_(rhs.cond_var) {
     }
     ~RouteUpdatePtr();
 
@@ -162,7 +172,7 @@ public:
     // Cancel scheduled updates for the route and/or remove any current
     // advertised state.
     void ClearPeerSetCurrentAndScheduled(DBEntryBase *db_entry,
-                                         RibPeerSet &mleave);
+                                         const RibPeerSet &mleave);
 
     // Used by the update dequeue process to retrieve an update.
     RouteUpdatePtr GetNextUpdate(int queue_id, UpdateEntry *upentry);
@@ -182,7 +192,7 @@ public:
 private:
     // Retrieve that mutex associated with the route state.
     tbb::mutex *DBStateMutex(RouteUpdate *rt_update);
-    
+
     // Helper functions for GetRouteStateAndDequeue
     DBState *GetRouteUpdateAndDequeue(DBEntryBase *db_entry,
                                       RouteUpdate *rt_update,
@@ -226,4 +236,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(RibUpdateMonitor);
 };
 
-#endif
+#endif  // SRC_BGP_BGP_UPDATE_MONITOR_H_
