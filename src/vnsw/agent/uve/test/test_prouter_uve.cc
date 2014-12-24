@@ -160,7 +160,7 @@ TEST_F(UveProuterUveTest, LogicalInterfaceAddDel_2) {
     EXPECT_EQ(1U, data.get_logical_interface_list().size());
 
     //Disassociate logical-interface from physical_interface
-    int send_count = pr->send_count();
+    uint32_t send_count = pr->send_count();
     DelLink("physical-interface", "pi1", "logical-interface", "li1");
     client->WaitForIdle();
     LogicalInterface *li = LogicalInterfaceGet(1, "li1");
@@ -206,7 +206,7 @@ TEST_F(UveProuterUveTest, LogicalInterfaceAddDel_3) {
     EXPECT_EQ(1U, data.get_logical_interface_list().size());
 
     //Disassociate logical-interface from physical_interface
-    int send_count = pr->send_count();
+    uint32_t send_count = pr->send_count();
     DelLink("physical-interface", "pi1", "logical-interface", "li1");
     //Disassociate physical-device from physical-interface
     DelLink("physical-router", "prouter1", "physical-interface", "pi1");
@@ -254,7 +254,7 @@ TEST_F(UveProuterUveTest, LogicalInterfaceAddDel_4) {
     WAIT_FOR(1000, 500, (pr->last_sent_uve().get_logical_interface_list().
                          size() == 1U));
 
-    int send_count = pr->send_count();
+    uint32_t send_count = pr->send_count();
     //Disassociate physical-device from logical-interface
     DelLink("physical-router", "prouter1", "logical-interface", "li1");
     client->WaitForIdle();
@@ -298,7 +298,7 @@ TEST_F(UveProuterUveTest, LogicalInterfaceAddDel_5) {
     client->WaitForIdle();
     WAIT_FOR(1000, 500, (PhysicalDeviceGet(2) != NULL));
 
-    int send_count = pr->send_count();
+    uint32_t send_count = pr->send_count();
     //Change the prouter for logical-interface
     DelLink("physical-router", "prouter1", "logical-interface", "li1");
     AddLink("physical-router", "prouter2", "logical-interface", "li1");
@@ -359,7 +359,7 @@ TEST_F(UveProuterUveTest, PhysicalDeviceDel_1) {
 
     //Disassociate logical-interface from physical_interface
     //Delete physical-device and physical-interface
-    int send_count = pr->send_count();
+    uint32_t send_count = pr->send_count();
     DelLink("physical-interface", "pi1", "logical-interface", "li1");
     DeleteLogicalInterface("li1");
     DeletePhysicalInterface("pi1");
@@ -408,7 +408,7 @@ TEST_F(UveProuterUveTest, PhysicalDeviceDel_2) {
     WAIT_FOR(1000, 500, (1U == pr->delete_count()));
 
     //Re-add PhysicalDevice and its association to physical-interface
-    int send_count = pr->send_count();
+    uint32_t send_count = pr->send_count();
     AddPhysicalDevice("prouter2", 2);
     AddLink("physical-router", "prouter2", "physical-interface", "pi1");
     client->WaitForIdle();
@@ -516,7 +516,7 @@ TEST_F(UveProuterUveTest, VMIAddDel_2) {
     UveLogicalInterfaceData ldata = data.get_logical_interface_list().front();
     EXPECT_EQ(1U, ldata.get_vm_interface_list().size());
     
-    int send_count = pr->send_count();
+    uint32_t send_count = pr->send_count();
     //Disassociate VMI from logical-interface
     DelLink("virtual-machine-interface", "vmi1", "logical-interface", "li1");
     client->WaitForIdle();
