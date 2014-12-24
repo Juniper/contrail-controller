@@ -178,17 +178,35 @@ protected:
 
     template <typename ValueType>
     bool GetOptValue(const boost::program_options::variables_map &var_map, 
-                     ValueType &var, const std::string &val);
+                     ValueType &var, const std::string &val) {
+        return GetOptValueImpl(var_map, var, val,
+            static_cast<ValueType *>(0));
+    }
     // Implementation overloads
     template <typename ValueType>
     bool GetOptValueImpl(const boost::program_options::variables_map &var_map,
-                         ValueType &var, const std::string &val, ValueType*);
+                         ValueType &var, const std::string &val, ValueType*) {
+        // Check if the value is present.
+        if (var_map.count(val) && !var_map[val].defaulted()) {
+            var = var_map[val].as<ValueType>();
+            return true;
+        }
+        return false;
+    }
     template <typename ElementType>
     bool GetOptValueImpl(const boost::program_options::variables_map &var_map,
                          std::vector<ElementType> &var, const std::string &val,
                          std::vector<ElementType> *);
     template <typename ValueType>
-    bool GetValueFromTree(ValueType &var, const std::string &val);
+    bool GetValueFromTree(ValueType &var, const std::string &val) {
+        boost::optional<ValueType> opt;
+
+        if (opt = tree_.get_optional<ValueType>(val)) {
+            var = opt.get();
+            return true;
+        }
+        return false;
+    }
     bool GetIpAddress(const std::string &str, Ip4Address *addr);
     bool ParseIp(const std::string &key, Ip4Address *server);
     bool ParseServerList(const std::string &key, Ip4Address *s1, Ip4Address *s2);

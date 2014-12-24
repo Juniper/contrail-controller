@@ -37,26 +37,6 @@ using namespace boost::property_tree;
 using boost::optional;
 namespace opt = boost::program_options;
 
-template <typename ValueType>
-bool AgentParam::GetOptValue
-    (const boost::program_options::variables_map &var_map, ValueType &var,
-     const std::string &val) {
-    return GetOptValueImpl(var_map, var, val,
-        static_cast<ValueType *>(0));
-}
-
-template <typename ValueType>
-bool AgentParam::GetOptValueImpl
-    (const boost::program_options::variables_map &var_map,
-     ValueType &var, const std::string &val, ValueType*) {
-    // Check if the value is present.
-    if (var_map.count(val) && !var_map[val].defaulted()) {
-        var = var_map[val].as<ValueType>();
-        return true;
-    }
-    return false;
-}
-
 template <typename ElementType>
 bool AgentParam::GetOptValueImpl(
     const boost::program_options::variables_map &var_map,
@@ -77,18 +57,6 @@ bool AgentParam::GetOptValueImpl(
         }
         return true;
     }
-    return false;
-}
-
-template <typename ValueType>
-bool AgentParam::GetValueFromTree(ValueType &var, const std::string &val) {
-
-    optional<ValueType> opt;
-
-    if (opt = tree_.get_optional<ValueType>(val)) {
-        var = opt.get();
-        return true;
-    } 
     return false;
 }
 
