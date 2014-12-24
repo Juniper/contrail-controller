@@ -45,6 +45,8 @@ contrail_tor_agent = env.Program(target = 'contrail-tor-agent',
 env.Alias('agent:contrail-tor-agent', contrail_tor_agent)
 env.SConscript('ovsdb_client/SConscript', exports='AgentEnv', duplicate=0)
 
+env.Alias('install', env.Install(env['INSTALL_BIN'], contrail_tor_agent))
+
 # Local Variables:
 # mode: python
 # End:
