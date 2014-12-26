@@ -32,8 +32,6 @@ class TestDummy : public ::testing::Test {
 };
 
 TEST_F(TestDummy, test_1) {
-    char test_file[1024];
-
     AgentUtXmlTest test("controller/src/vnsw/agent/test-xml/dummy.xml");
     AgentUtXmlOperInit(&test);
     if (test.Load() == true) {

@@ -35,7 +35,6 @@ uint32_t GetPktModuleCount(PktHandler::PktModuleName mod) {
 
 bool CallPktParse(PktInfo *pkt_info, uint8_t *ptr, int len) {
     Interface *intf = NULL;
-    uint8_t *pkt;
 
     pkt_info->pkt = ptr;
     pkt_info->len = len;

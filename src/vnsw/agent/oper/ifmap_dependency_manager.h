@@ -53,6 +53,10 @@ public:
     void ResetObject(IFMapNode *node);
 
     /*
+     * Add DBState to an IFMapNode
+     */
+    void SetState(IFMapNode *node);
+    /*
      * Register a notification callback.
      */
     void Register(const std::string &type, ChangeEventHandler handler);

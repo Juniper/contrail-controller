@@ -899,9 +899,6 @@ TEST_F(EcmpTest, EcmpTest_14) {
     CreateVmportWithEcmp(input1, 1);
     client->WaitForIdle();
 
-    VmInterface *intf = static_cast<VmInterface *>(VmPortGet(9));
-    uint32_t label = intf->label();
-
     AddVn("default-project:vn10", 10);
     AddVrf("default-project:vn10:vn10", 10);
     AddLink("virtual-network", "default-project:vn10",
@@ -982,9 +979,6 @@ TEST_F(EcmpTest, EcmpTest_15) {
     };
     CreateVmportWithEcmp(input1, 1);
     client->WaitForIdle();
-
-    VmInterface *intf = static_cast<VmInterface *>(VmPortGet(9));
-    uint32_t label = intf->label();
 
     Ip4Address gw_rt = Ip4Address::from_string("0.0.0.0");
     Ip4Address remote_server_ip1 = Ip4Address::from_string("10.10.10.100");

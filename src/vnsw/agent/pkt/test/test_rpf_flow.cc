@@ -118,7 +118,6 @@ protected:
     virtual void TearDown() {
         FlushFlowTable();
         client->Reset();
-        VrfEntry *vrf = VrfGet("vrf5");
         Ip4Address gw_ip = Ip4Address::from_string("11.1.1.254");
         Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(
             Agent::GetInstance()->local_peer(), "vrf5", gw_ip, 32, NULL);

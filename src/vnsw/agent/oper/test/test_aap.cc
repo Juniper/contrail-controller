@@ -195,7 +195,6 @@ TEST_F(TestAap, StateMachine_1) {
     Ip4Address ip = Ip4Address::from_string("1.1.1.1");
     EXPECT_TRUE(RouteFind("vrf1", ip, 32));
 
-    VmInterface *vm_intf = VmInterfaceGet(1);
     InetUnicastRouteEntry *rt =
         RouteGet("vrf1", ip, 32);
     const AgentPath *path = rt->GetActivePath();
@@ -488,7 +487,6 @@ TEST_F(TestAap, StateMachine_10) {
     Ip4Address ip = Ip4Address::from_string("1.1.1.1");
     EXPECT_TRUE(RouteFind("vrf1", ip, 32));
 
-    VmInterface *vm_intf = VmInterfaceGet(1);
     InetUnicastRouteEntry *rt =
         RouteGet("vrf1", ip, 32);
     const AgentPath *path = rt->GetActivePath();
@@ -506,7 +504,6 @@ TEST_F(TestAap, StaticMachine_11) {
     Ip4Address ip = Ip4Address::from_string("1.1.1.1");
     EXPECT_TRUE(RouteFind("vrf1", ip, 32));
 
-    VmInterface *vm_intf = VmInterfaceGet(1);
     InetUnicastRouteEntry *rt =
         RouteGet("vrf1", ip, 32);
     const AgentPath *path = rt->GetActivePath();

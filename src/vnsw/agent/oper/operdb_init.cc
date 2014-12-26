@@ -198,6 +198,7 @@ void OperDB::RegisterDBClients() {
     IFMapDependencyManager *mgr = agent_->oper_db()->dependency_manager();
     agent_->physical_device_table()->RegisterDBClients(mgr);
     agent_->interface_table()->RegisterDBClients(mgr);
+    agent_->vn_table()->RegisterDBClients(mgr);
 
     multicast_.get()->Register();
     global_vrouter_.get()->CreateDBClients();

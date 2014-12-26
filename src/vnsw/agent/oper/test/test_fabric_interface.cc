@@ -67,9 +67,9 @@ public:
         WAIT_FOR(100, 1000, (agent_->vn_table()->Size() == 0U));
     }
 
-    int intf_count_;
-    int nh_count_;
-    int vrf_count_;
+    uint32_t intf_count_;
+    uint32_t nh_count_;
+    uint32_t vrf_count_;
     Agent *agent_;
     InterfaceTable *interface_table_;
     NextHopTable *nh_table_;
@@ -92,7 +92,7 @@ static void CfgIntfSync(FabricInterfaceTest *t, int id, const char *cfg_name,
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, MakeUuid(id), cfg_name));
 
-    VmInterfaceConfigData *cfg_data = new VmInterfaceConfigData(NULL);
+    VmInterfaceConfigData *cfg_data = new VmInterfaceConfigData(NULL, NULL);
     req.data.reset(cfg_data);
     InterfaceData *data = static_cast<InterfaceData *>(cfg_data);
     data->VmPortInit();
