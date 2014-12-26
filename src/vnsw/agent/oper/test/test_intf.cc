@@ -102,7 +102,7 @@ public:
         uint32_t vn_count = Agent::GetInstance()->vn_table()->Size();
         client->Reset();
         AddVn(vn_name, id);
-        EXPECT_TRUE(client->VnNotifyWait(1));
+        EXPECT_TRUE(client->VnNotifyWait(2));
         EXPECT_TRUE(VnFind(id));
         EXPECT_EQ((vn_count + 1), Agent::GetInstance()->vn_table()->Size());
     }

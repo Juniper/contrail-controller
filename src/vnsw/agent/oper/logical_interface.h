@@ -31,7 +31,6 @@ class LogicalInterface : public Interface {
     virtual bool Delete(const DBRequest *req);
     virtual bool OnChange(const InterfaceTable *table,
                           const LogicalInterfaceData *data);
-    virtual void ConfigEventHandler(IFMapNode *node);
 
     virtual bool Copy(const InterfaceTable *table,
                       const LogicalInterfaceData *data) = 0;

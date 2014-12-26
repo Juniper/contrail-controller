@@ -31,6 +31,8 @@
 using namespace autogen;
 using namespace std;
 using namespace boost;
+using boost::assign::map_list_of;
+using boost::assign::list_of;
 
 VnTable *VnTable::vn_table_;
 
@@ -233,7 +235,7 @@ bool VnEntry::Resync() {
     return VxLanNetworkIdentifierChanged();
 }
 
-bool VnTable::Resync(DBEntry *entry, DBRequest *req) {
+bool VnTable::OperDBResync(DBEntry *entry, const DBRequest *req) {
     VnEntry *vn = static_cast<VnEntry *>(entry);
     bool ret = vn->Resync();
     return ret;
@@ -276,7 +278,7 @@ std::auto_ptr<DBEntry> VnTable::AllocEntry(const DBRequestKey *k) const {
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(vn));
 }
 
-DBEntry *VnTable::Add(const DBRequest *req) {
+DBEntry *VnTable::OperDBAdd(const DBRequest *req) {
     VnKey *key = static_cast<VnKey *>(req->key.get());
     VnData *data = static_cast<VnData *>(req->data.get());
     VnEntry *vn = new VnEntry(key->uuid_);
@@ -287,7 +289,7 @@ DBEntry *VnTable::Add(const DBRequest *req) {
     return vn;
 }
 
-bool VnTable::OnChange(DBEntry *entry, const DBRequest *req) {
+bool VnTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     bool ret = ChangeHandler(entry, req);
     VnEntry *vn = static_cast<VnEntry *>(entry);
     vn->SendObjectLog(AgentLogEvent::CHANGE);
@@ -368,7 +370,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
     return ret;
 }
 
-bool VnTable::Delete(DBEntry *entry, const DBRequest *req) {
+bool VnTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     VnEntry *vn = static_cast<VnEntry *>(entry);
     DeleteAllIpamRoutes(vn);
     vn->SendObjectLog(AgentLogEvent::DELETE);
@@ -385,6 +387,21 @@ DBTableBase *VnTable::CreateTable(DB *db, const std::string &name) {
     vn_table_->Init();
     return vn_table_;
 };
+
+void VnTable::RegisterDBClients(IFMapDependencyManager *dep) {
+    typedef IFMapDependencyTracker::PropagateList PropagateList;
+    typedef IFMapDependencyTracker::ReactionMap ReactionMap;
+
+    ReactionMap react_vn = map_list_of<string, PropagateList>
+            (("self"),
+             list_of("virtual-network-virtual-machine-interface")
+                    ("virtual-machine-interface-virtual-network"))
+            ("virtual-network-network-ipam",
+             list_of("virtual-machine-interface-virtual-network"));
+    dep->RegisterReactionMap("virtual-network", react_vn);
+    dep->Register("virtual-network",
+                  boost::bind(&AgentOperDBTable::ConfigEventHandler, this, _1));
+}
 
 /*
  * IsVRFServiceChainingInstance
@@ -553,6 +570,7 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
                           mirror_cfg_acl_uuid, vn_ipam, vn_ipam_data,
                           vxlan_id, vnid, layer2_forwarding, layer3_forwarding,
                           id_perms.enable);
+        data->ifmap_node_ = node;
     }
 
     req.key.reset(key);

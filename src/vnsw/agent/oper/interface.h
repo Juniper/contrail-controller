@@ -12,12 +12,13 @@
 
 #include <cmn/agent_cmn.h>
 #include <cmn/index_vector.h>
+#include <oper_db.h>
 
 struct InterfaceData;
 class VmInterface;
 class IFMapDependencyManager;
 
-class Interface : AgentRefCount<Interface>, public AgentDBEntry {
+class Interface : AgentRefCount<Interface>, public AgentOperDBEntry {
 public:
     // Type of interfaces supported
     enum Type {
@@ -74,9 +75,6 @@ public:
     virtual void Add() { }
     virtual void SendTrace(Trace event) const;
     virtual void GetOsParams(Agent *agent);
-    // Callback from ifmap-dependency manager. All interfaces created from
-    // config *should* over-ride this method.
-    virtual void ConfigEventHandler(IFMapNode *node) { assert(0); }
 
     // DBEntry comparator virtual function
     bool IsLess(const DBEntry &rhs) const {
@@ -147,7 +145,6 @@ protected:
     //packet interface and layer2 interface will not have this
     //reference set.
     NextHopConstRef flow_key_nh_;
-    IFMapNode *ifmap_node_;
 
 private:
     friend class InterfaceTable;
@@ -156,7 +153,7 @@ private:
 };
 
 // Common key for all interfaces.
-struct InterfaceKey : public AgentKey {
+struct InterfaceKey : public AgentOperDBKey {
     InterfaceKey(const InterfaceKey &rhs) {
         type_ = rhs.type_;
         uuid_ = rhs.uuid_;
@@ -166,7 +163,7 @@ struct InterfaceKey : public AgentKey {
     InterfaceKey(AgentKey::DBSubOperation sub_op, Interface::Type type,
                  const boost::uuids::uuid &uuid,
                  const std::string &name, bool is_mcast) :
-        AgentKey(sub_op), type_(type), uuid_(uuid), name_(name) {
+        AgentOperDBKey(sub_op), type_(type), uuid_(uuid), name_(name) {
     }
 
     void Init(Interface::Type type, const boost::uuids::uuid &intf_uuid,
@@ -208,10 +205,8 @@ struct InterfaceKey : public AgentKey {
 
 // Common data for all interfaces. The data is further derived based on type
 // of interfaces
-struct InterfaceData : public AgentData {
-    InterfaceData(IFMapNode *ifmap_node) :
-        AgentData(), ifmap_node_(ifmap_node) {
-    }
+struct InterfaceData : public AgentOperDBData {
+    InterfaceData(IFMapNode *node) : AgentOperDBData(node) { }
 
     void VmPortInit() { vrf_name_ = ""; }
     void EthInit(const std::string &vrf_name) { vrf_name_ = vrf_name; }
@@ -223,14 +218,13 @@ struct InterfaceData : public AgentData {
 
     // This is constant-data. Set only during create and not modified later
     std::string vrf_name_;
-    IFMapNode *ifmap_node_;
 };
 
 /////////////////////////////////////////////////////////////////////////////
 // Interface Table
 // Index for interface is maintained using an IndexVector.
 /////////////////////////////////////////////////////////////////////////////
-class InterfaceTable : public AgentDBTable {
+class InterfaceTable : public AgentOperDBTable {
 public:
     struct DhcpSnoopEntry {
         DhcpSnoopEntry() : addr_(0), config_entry_(false) { }
@@ -250,7 +244,7 @@ public:
                                  const Ip4Address &, bool)> UpdateFloatingIpFn;
 
     InterfaceTable(DB *db, const std::string &name) :
-        AgentDBTable(db, name), operdb_(NULL), agent_(NULL),
+        AgentOperDBTable(db, name), operdb_(NULL), agent_(NULL),
         walkid_(DBTableWalker::kInvalidWalkerId), index_table_() { 
     }
     virtual ~InterfaceTable() { }
@@ -264,10 +258,10 @@ public:
     size_t Hash(const DBEntry *entry) const { return 0; }
     size_t Hash(const DBRequestKey *key) const { return 0; }
 
-    DBEntry *Add(const DBRequest *req);
-    bool OnChange(DBEntry *entry, const DBRequest *req);
-    bool Delete(DBEntry *entry, const DBRequest *req);
-    bool Resync(DBEntry *entry, DBRequest *req);
+    DBEntry *OperDBAdd(const DBRequest *req);
+    bool OperDBOnChange(DBEntry *entry, const DBRequest *req);
+    bool OperDBDelete(DBEntry *entry, const DBRequest *req);
+    bool OperDBResync(DBEntry *entry, const DBRequest *req);
 
     // Config handlers
     bool VmiIFNodeToReq(IFMapNode *node, DBRequest &req);
@@ -275,7 +269,6 @@ public:
     bool LogicalInterfaceIFNodeToReq(IFMapNode *node, DBRequest &req);
     bool RemotePhysicalInterfaceIFNodeToReq(IFMapNode *node, DBRequest &req);
     bool IFNodeToReq(IFMapNode *node, DBRequest &req);
-    void ConfigEventHandler(DBEntry *entry);
 
     // Handle change in config VRF for the interface
     void VmInterfaceVrfSync(IFMapNode *node);

@@ -106,14 +106,6 @@ bool PhysicalDevice::Copy(const PhysicalDeviceTable *table,
         ret = true;
     }
 
-    if (ifmap_node_ != data->ifmap_node_) {
-        OperDB *oper = table->agent()->oper_db();
-        oper->dependency_manager()->SetObject(data->ifmap_node_, this);
-        if (ifmap_node_)
-            oper->dependency_manager()->ResetObject(ifmap_node_);
-        ifmap_node_ = data->ifmap_node_;
-    }
-
     return ret;
 }
 
@@ -127,7 +119,7 @@ std::auto_ptr<DBEntry> PhysicalDeviceTable::AllocEntry(const DBRequestKey *k)
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(dev));
 }
 
-DBEntry *PhysicalDeviceTable::Add(const DBRequest *req) {
+DBEntry *PhysicalDeviceTable::OperDBAdd(const DBRequest *req) {
     PhysicalDeviceKey *key = static_cast<PhysicalDeviceKey *>(req->key.get());
     PhysicalDeviceData *data = static_cast<PhysicalDeviceData *>
         (req->data.get());
@@ -137,7 +129,7 @@ DBEntry *PhysicalDeviceTable::Add(const DBRequest *req) {
     return dev;
 }
 
-bool PhysicalDeviceTable::OnChange(DBEntry *entry, const DBRequest *req) {
+bool PhysicalDeviceTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     PhysicalDevice *dev = static_cast<PhysicalDevice *>(entry);
     PhysicalDeviceData *data = static_cast<PhysicalDeviceData *>
         (req->data.get());
@@ -146,11 +138,9 @@ bool PhysicalDeviceTable::OnChange(DBEntry *entry, const DBRequest *req) {
     return ret;
 }
 
-bool PhysicalDeviceTable::Delete(DBEntry *entry, const DBRequest *req) {
+bool PhysicalDeviceTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     PhysicalDevice *dev = static_cast<PhysicalDevice *>(entry);
     dev->SendObjectLog(AgentLogEvent::DELETE);
-    if (dev->ifmap_node_)
-        agent()->oper_db()->dependency_manager()->ResetObject(dev->ifmap_node_);
     return true;
 }
 
@@ -168,14 +158,6 @@ DBTableBase *PhysicalDeviceTable::CreateTable(DB *db, const std::string &name) {
 /////////////////////////////////////////////////////////////////////////////
 // Config handling
 /////////////////////////////////////////////////////////////////////////////
-void PhysicalDeviceTable::ConfigEventHandler(DBEntry *entry) {
-    PhysicalDevice *dev = static_cast<PhysicalDevice *>(entry);
-    DBRequest req;
-    if (IFNodeToReq(dev->ifmap_node_, req) == true) {
-        Enqueue(&req);
-    }
-}
-
 void PhysicalDeviceTable::RegisterDBClients(IFMapDependencyManager *dep) {
     typedef IFMapDependencyTracker::PropagateList PropagateList;
     typedef IFMapDependencyTracker::ReactionMap ReactionMap;
@@ -186,7 +168,7 @@ void PhysicalDeviceTable::RegisterDBClients(IFMapDependencyManager *dep) {
     dep->RegisterReactionMap("physical-router", device_react);
 
     dep->Register("physical-router",
-                  boost::bind(&PhysicalDeviceTable::ConfigEventHandler, this,
+                  boost::bind(&AgentOperDBTable::ConfigEventHandler, this,
                               _1));
     agent()->cfg()->Register("physical-router", this,
                              autogen::PhysicalRouter::ID_PERMS);

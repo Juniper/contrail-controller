@@ -37,7 +37,6 @@ public:
     virtual bool Delete(const DBRequest *req);
     virtual bool OnChange(const InterfaceTable *table,
                           const PhysicalInterfaceData *data);
-    virtual void ConfigEventHandler(IFMapNode *node);
 
     SubType subtype() const { return subtype_; }
     PhysicalDevice *physical_device() const;

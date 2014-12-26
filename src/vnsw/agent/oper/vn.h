@@ -8,6 +8,7 @@
 #include <cmn/agent_cmn.h>
 #include <cmn/agent.h>
 #include <oper/agent_types.h>
+#include <oper/oper_db.h>
 #include <oper/oper_dhcp_options.h>
 
 using namespace boost::uuids;
@@ -103,14 +104,14 @@ struct VnIpamLinkData {
     }
 };
 
-struct VnKey : public AgentKey {
-    VnKey(uuid id) : AgentKey(), uuid_(id) {} ;
-    virtual ~VnKey() { };
+struct VnKey : public AgentOperDBKey {
+    VnKey(const boost::uuids::uuid &id) : AgentOperDBKey(), uuid_(id) { }
+    virtual ~VnKey() { }
 
-    uuid uuid_;
+    boost::uuids::uuid uuid_;
 };
 
-struct VnData : public AgentData {
+struct VnData : public AgentOperDBData {
     typedef std::map<std::string, VnIpamLinkData> VnIpamDataMap;
     typedef std::pair<std::string, VnIpamLinkData> VnIpamDataPair;
 
@@ -119,13 +120,13 @@ struct VnData : public AgentData {
            const std::vector<VnIpam> &ipam, const VnIpamDataMap &vn_ipam_data,
            int vxlan_id, int vnid, bool layer2_forwarding,
            bool layer3_forwarding, bool admin_state) :
-                AgentData(), name_(name), vrf_name_(vrf_name), acl_id_(acl_id),
-                mirror_acl_id_(mirror_acl_id), mirror_cfg_acl_id_(mc_acl_id),
-                ipam_(ipam), vn_ipam_data_(vn_ipam_data), vxlan_id_(vxlan_id),
-                vnid_(vnid), layer2_forwarding_(layer2_forwarding), 
-                layer3_forwarding_(layer3_forwarding), admin_state_(admin_state) {
+        AgentOperDBData(NULL), name_(name), vrf_name_(vrf_name),
+        acl_id_(acl_id), mirror_acl_id_(mirror_acl_id),
+        mirror_cfg_acl_id_(mc_acl_id), ipam_(ipam), vn_ipam_data_(vn_ipam_data),
+        vxlan_id_(vxlan_id), vnid_(vnid), layer2_forwarding_(layer2_forwarding),
+        layer3_forwarding_(layer3_forwarding), admin_state_(admin_state) {
     };
-    virtual ~VnData() { };
+    virtual ~VnData() { }
 
     string name_;
     string vrf_name_;
@@ -141,11 +142,13 @@ struct VnData : public AgentData {
     bool admin_state_;
 };
 
-class VnEntry : AgentRefCount<VnEntry>, public AgentDBEntry {
+class VnEntry : AgentRefCount<VnEntry>, public AgentOperDBEntry {
 public:
-    VnEntry(uuid id) : uuid_(id), vxlan_id_(0), vnid_(0), layer2_forwarding_(true), 
-    layer3_forwarding_(true), admin_state_(true), table_label_(0) { }
-    virtual ~VnEntry() { };
+    VnEntry(const boost::uuids::uuid &id) :
+        AgentOperDBEntry(), uuid_(id), vxlan_id_(0), vnid_(0),
+        layer2_forwarding_(true), layer3_forwarding_(true), admin_state_(true),
+        table_label_(0) { }
+    virtual ~VnEntry() { }
 
     virtual bool IsLess(const DBEntry &rhs) const;
     virtual KeyPtr GetDBRequestKey() const;
@@ -218,9 +221,9 @@ private:
     DISALLOW_COPY_AND_ASSIGN(VnEntry);
 };
 
-class VnTable : public AgentDBTable {
+class VnTable : public AgentOperDBTable {
 public:
-    VnTable(DB *db, const std::string &name) : AgentDBTable(db, name),
+    VnTable(DB *db, const std::string &name) : AgentOperDBTable(db, name),
         walkid_(DBTableWalker::kInvalidWalkerId) { }
     virtual ~VnTable() { }
 
@@ -228,15 +231,16 @@ public:
     virtual size_t Hash(const DBEntry *entry) const {return 0;};
     virtual size_t  Hash(const DBRequestKey *key) const {return 0;};
 
-    virtual DBEntry *Add(const DBRequest *req);
-    virtual bool OnChange(DBEntry *entry, const DBRequest *req);
-    virtual bool Delete(DBEntry *entry, const DBRequest *req);
-    virtual bool Resync(DBEntry *entry, DBRequest *req); 
+    virtual DBEntry *OperDBAdd(const DBRequest *req);
+    virtual bool OperDBOnChange(DBEntry *entry, const DBRequest *req);
+    virtual bool OperDBDelete(DBEntry *entry, const DBRequest *req);
+    virtual bool OperDBResync(DBEntry *entry, const DBRequest *req); 
 
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static VnTable *GetInstance() {return vn_table_;};
+    void RegisterDBClients(IFMapDependencyManager *dep);
 
     void AddVn(const uuid &vn_uuid, const string &name, const uuid &acl_id,
                const string &vrf_name, const std::vector<VnIpam> &ipam,

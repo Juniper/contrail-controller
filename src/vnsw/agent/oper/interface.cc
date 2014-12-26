@@ -62,7 +62,7 @@ void InterfaceTable::RegisterDBClients(IFMapDependencyManager *dep) {
          list_of("physical-router-physical-interface"));
     dep->RegisterReactionMap("physical-interface", physical_port_react);
     dep->Register("physical-interface",
-                  boost::bind(&InterfaceTable::ConfigEventHandler, this, _1));
+                  boost::bind(&AgentOperDBTable::ConfigEventHandler, this, _1));
     agent()->cfg()->Register("physical-interface", this,
                              autogen::PhysicalInterface::ID_PERMS);
 
@@ -76,21 +76,10 @@ void InterfaceTable::RegisterDBClients(IFMapDependencyManager *dep) {
          list_of("self"));
     dep->RegisterReactionMap("logical-interface", logical_port_react);
     dep->Register("logical-interface",
-                  boost::bind(&InterfaceTable::ConfigEventHandler, this,
+                  boost::bind(&AgentOperDBTable::ConfigEventHandler, this,
                               _1));
     agent()->cfg()->Register("logical-interface", this,
                              autogen::LogicalInterface::ID_PERMS);
-}
-
-void InterfaceTable::ConfigEventHandler(DBEntry *entry) {
-    Interface *intf = static_cast<Interface *>(entry);
-    if (intf->ifmap_node_) {
-        DBRequest req;
-        if (IFNodeToReq(intf->ifmap_node_, req) == true) {
-            Enqueue(&req);
-        }
-    }
-    return;
 }
 
 bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
@@ -116,7 +105,7 @@ std::auto_ptr<DBEntry> InterfaceTable::AllocEntry(const DBRequestKey *k) const{
                                   (key->AllocEntry(this)));
 }
 
-DBEntry *InterfaceTable::Add(const DBRequest *req) {
+DBEntry *InterfaceTable::OperDBAdd(const DBRequest *req) {
     InterfaceKey *key = static_cast<InterfaceKey *>(req->key.get());
     InterfaceData *data = static_cast<InterfaceData *>(req->data.get());
 
@@ -130,18 +119,13 @@ DBEntry *InterfaceTable::Add(const DBRequest *req) {
     intf->GetOsParams(agent());
 
     intf->Add();
-    intf->ifmap_node_ = data->ifmap_node_;
-    if (intf->ifmap_node_) {
-        operdb_->dependency_manager()->SetObject(intf->ifmap_node_, intf);
-    }
     intf->SendTrace(Interface::ADD);
     return intf;
 }
 
-bool InterfaceTable::OnChange(DBEntry *entry, const DBRequest *req) {
+bool InterfaceTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     bool ret = false;
     InterfaceKey *key = static_cast<InterfaceKey *>(req->key.get());
-    InterfaceData *data = static_cast<InterfaceData *>(req->data.get());
 
     switch (key->type_) {
     case Interface::VM_INTERFACE: {
@@ -186,57 +170,27 @@ bool InterfaceTable::OnChange(DBEntry *entry, const DBRequest *req) {
         break;
     }
 
-    if (data->ifmap_node_) {
-        Interface *intf = static_cast<Interface *>(entry);
-        IFMapDependencyManager *dep = operdb()->dependency_manager();
-        if (intf->ifmap_node_ != data->ifmap_node_) {
-            if (intf->ifmap_node_ != NULL)
-                dep->ResetObject(intf->ifmap_node_);
-            intf->ifmap_node_ = data->ifmap_node_;
-            if (intf->ifmap_node_)
-                dep->SetObject(intf->ifmap_node_, intf);
-        }
-    }
-
     return ret;
 }
 
 // RESYNC supported only for VM_INTERFACE
-bool InterfaceTable::Resync(DBEntry *entry, DBRequest *req) {
+bool InterfaceTable::OperDBResync(DBEntry *entry, const DBRequest *req) {
     InterfaceKey *key = static_cast<InterfaceKey *>(req->key.get());
-    InterfaceData *data = static_cast<InterfaceData *>(req->data.get());
     if (key->type_ != Interface::VM_INTERFACE)
         return false;
-
-    if (data->ifmap_node_) {
-        Interface *intf = static_cast<Interface *>(entry);
-        IFMapDependencyManager *dep = operdb()->dependency_manager();
-        if (intf->ifmap_node_ != data->ifmap_node_) {
-            if (intf->ifmap_node_ != NULL)
-                dep->ResetObject(intf->ifmap_node_);
-            intf->ifmap_node_ = data->ifmap_node_;
-            if (intf->ifmap_node_)
-                dep->SetObject(intf->ifmap_node_, intf);
-        }
-    }
 
     VmInterfaceData *vm_data = static_cast<VmInterfaceData *>(req->data.get());
     VmInterface *intf = static_cast<VmInterface *>(entry);
     return intf->Resync(this, vm_data);
 }
 
-bool InterfaceTable::Delete(DBEntry *entry, const DBRequest *req) {
+bool InterfaceTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     Interface *intf = static_cast<Interface *>(entry);
     bool ret = false;
 
     if (intf->Delete(req)) {
         intf->SendTrace(Interface::DELETE);
         ret = true;
-
-        if (intf->ifmap_node_ != NULL) {
-            operdb()->dependency_manager()->ResetObject(intf->ifmap_node_);
-            intf->ifmap_node_ = NULL;
-        }
     }
     return ret;
 }
@@ -355,8 +309,7 @@ Interface::Interface(Type type, const uuid &uuid, const string &name,
     vrf_(vrf), label_(MplsTable::kInvalidLabel),
     l2_label_(MplsTable::kInvalidLabel), ipv4_active_(true), l2_active_(true),
     id_(kInvalidIndex), dhcp_enabled_(true), dns_enabled_(true), mac_(),
-    os_index_(kInvalidIndex), admin_state_(true), test_oper_state_(true),
-    ifmap_node_(NULL) {
+    os_index_(kInvalidIndex), admin_state_(true), test_oper_state_(true) {
 }
 
 Interface::~Interface() {

@@ -213,9 +213,6 @@ void VlanLogicalInterface::SetSandeshData(SandeshLogicalInterface *data) const {
 /////////////////////////////////////////////////////////////////////////////
 // Config handling routines
 /////////////////////////////////////////////////////////////////////////////
-void LogicalInterface::ConfigEventHandler(IFMapNode *node) {
-}
-
 static LogicalInterfaceKey *BuildKey(IFMapNode *node,
                                      const autogen::LogicalInterface *port) {
     autogen::IdPermsType id_perms = port->id_perms();

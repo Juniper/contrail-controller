@@ -212,9 +212,6 @@ void PhysicalDeviceVnTable::ConfigUpdate(IFMapNode *node) {
     }
 }
 
-void PhysicalDeviceVnTable::ConfigEventHandler(DBEntry *entry) {
-}
-
 bool PhysicalDeviceVnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     return false;
 }

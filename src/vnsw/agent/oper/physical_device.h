@@ -7,25 +7,26 @@
 #include <cmn/agent_cmn.h>
 #include <cmn/agent.h>
 #include <agent_types.h>
+#include <oper_db.h>
 #include <string>
 
 class IFMapDependencyManager;
 
-struct PhysicalDeviceKey : public AgentKey {
+struct PhysicalDeviceKey : public AgentOperDBKey {
     explicit PhysicalDeviceKey(const boost::uuids::uuid &id) :
-        AgentKey(), uuid_(id) { }
+        AgentOperDBKey(), uuid_(id) { }
     virtual ~PhysicalDeviceKey() { }
 
     boost::uuids::uuid uuid_;
 };
 
-struct PhysicalDeviceData : public AgentData {
+struct PhysicalDeviceData : public AgentOperDBData {
     PhysicalDeviceData(const std::string &fq_name, const std::string &name,
                        const std::string &vendor,
                        const IpAddress &ip, const IpAddress &mgmt_ip,
                        const std::string &protocol, IFMapNode *ifmap_node) :
-        AgentData(), fq_name_(fq_name), name_(name), vendor_(vendor), ip_(ip),
-        management_ip_(mgmt_ip), protocol_(protocol), ifmap_node_(ifmap_node) {
+        AgentOperDBData(ifmap_node), fq_name_(fq_name), name_(name),
+        vendor_(vendor), ip_(ip), management_ip_(mgmt_ip), protocol_(protocol) {
     }
     virtual ~PhysicalDeviceData() { }
 
@@ -35,11 +36,9 @@ struct PhysicalDeviceData : public AgentData {
     IpAddress ip_;
     IpAddress management_ip_;
     std::string protocol_;
-    IFMapNode *ifmap_node_;
 };
 
-class PhysicalDevice : AgentRefCount<PhysicalDevice>,
-    public AgentDBEntry {
+class PhysicalDevice : AgentRefCount<PhysicalDevice>, public AgentOperDBEntry {
  public:
     typedef enum {
         INVALID,
@@ -47,8 +46,8 @@ class PhysicalDevice : AgentRefCount<PhysicalDevice>,
     } ManagementProtocol;
 
     explicit PhysicalDevice(const boost::uuids::uuid &id) :
-        uuid_(id), name_(""), vendor_(""), ip_(), protocol_(INVALID),
-        ifmap_node_(NULL) { }
+        AgentOperDBEntry(), uuid_(id), name_(""), vendor_(""), ip_(),
+        protocol_(INVALID) { }
     virtual ~PhysicalDevice() { }
 
     virtual bool IsLess(const DBEntry &rhs) const;
@@ -80,28 +79,26 @@ class PhysicalDevice : AgentRefCount<PhysicalDevice>,
     IpAddress ip_;
     IpAddress management_ip_;
     ManagementProtocol protocol_;
-    IFMapNode *ifmap_node_;
     DISALLOW_COPY_AND_ASSIGN(PhysicalDevice);
 };
 
-class PhysicalDeviceTable : public AgentDBTable {
+class PhysicalDeviceTable : public AgentOperDBTable {
  public:
     PhysicalDeviceTable(DB *db, const std::string &name) :
-        AgentDBTable(db, name) { }
+        AgentOperDBTable(db, name) { }
     virtual ~PhysicalDeviceTable() { }
 
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
     virtual size_t Hash(const DBEntry *entry) const {return 0;}
     virtual size_t Hash(const DBRequestKey *key) const {return 0;}
 
-    virtual DBEntry *Add(const DBRequest *req);
-    virtual bool OnChange(DBEntry *entry, const DBRequest *req);
-    virtual bool Delete(DBEntry *entry, const DBRequest *req);
+    virtual DBEntry *OperDBAdd(const DBRequest *req);
+    virtual bool OperDBOnChange(DBEntry *entry, const DBRequest *req);
+    virtual bool OperDBDelete(DBEntry *entry, const DBRequest *req);
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
 
     PhysicalDevice *Find(const boost::uuids::uuid &u);
 
-    void ConfigEventHandler(DBEntry *entry);
     void RegisterDBClients(IFMapDependencyManager *dep);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 

@@ -20,7 +20,6 @@ public:
     virtual KeyPtr GetDBRequestKey() const;
     virtual bool OnChange(const InterfaceTable *table,
                           const RemotePhysicalInterfaceData *data);
-    virtual void ConfigEventHandler(IFMapNode *node);
 
     const std::string &display_name() const { return display_name_; }
     PhysicalDevice *physical_device() const {
