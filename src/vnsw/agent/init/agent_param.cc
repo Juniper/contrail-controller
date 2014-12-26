@@ -309,10 +309,10 @@ void AgentParam::ParseHypervisor() {
     optional<string> opt_str;
     if (opt_str = tree_.get_optional<string>("HYPERVISOR.type")) {
         // Initialize mode to KVM. Will be overwritten for XEN later
-        mode_ = AgentParam::MODE_KVM;
+        hypervisor_mode_ = AgentParam::MODE_KVM;
 
         if (opt_str.get() == "xen") {
-            mode_ = AgentParam::MODE_XEN;
+            hypervisor_mode_ = AgentParam::MODE_XEN;
             GetValueFromTree<string>(xen_ll_.name_, 
                                      "HYPERVISOR.xen_ll_interface");
 
@@ -329,11 +329,11 @@ void AgentParam::ParseHypervisor() {
                 }
             }
         } else if (opt_str.get() == "vmware") {
-            mode_ = AgentParam::MODE_VMWARE;
+            hypervisor_mode_ = AgentParam::MODE_VMWARE;
             GetValueFromTree<string>(vmware_physical_port_, 
                                      "HYPERVISOR.vmware_physical_interface");
         } else {
-            mode_ = AgentParam::MODE_KVM;
+            hypervisor_mode_ = AgentParam::MODE_KVM;
         }
     }
 
@@ -441,10 +441,20 @@ void AgentParam::ParseHeadlessMode() {
     }
 }
 
-void AgentParam::ParseTsnMode() {
-    if (!GetValueFromTree<bool>(enable_tsn_, "DEFAULT.tsn")) {
-        enable_tsn_ = false;
-    }
+void AgentParam::ParseAgentMode() {
+    std::string mode;
+    GetValueFromTree<string>(mode, "DEFAULT.agent_mode");
+    set_agent_mode(mode);
+}
+
+void AgentParam::set_agent_mode(const std::string &mode) {
+    std::string agent_mode = boost::to_lower_copy(mode);
+    if (agent_mode == "tsn")
+        agent_mode_ = TSN_AGENT;
+    else if (agent_mode == "tor")
+        agent_mode_ = TOR_AGENT;
+    else
+        agent_mode_ = VROUTER_AGENT;
 }
 
 void AgentParam::ParseSimulateEvpnTor() {
@@ -509,7 +519,7 @@ void AgentParam::ParseHypervisorArguments
     if (var_map.count("HYPERVISOR.type") && 
         !var_map["HYPERVISOR.type"].defaulted()) {
         if (var_map["HYPERVISOR.type"].as<string>() == "xen") {
-            mode_ = AgentParam::MODE_XEN;
+            hypervisor_mode_ = AgentParam::MODE_XEN;
             GetOptValue<string>(var_map, xen_ll_.name_, 
                                 "HYPERVISOR.xen_ll_interface");
 
@@ -524,11 +534,11 @@ void AgentParam::ParseHypervisorArguments
                 }
             }
         } else if (var_map["HYPERVISOR.type"].as<string>() == "vmware") {
-            mode_ = AgentParam::MODE_VMWARE;
+            hypervisor_mode_ = AgentParam::MODE_VMWARE;
             GetOptValue<string>(var_map, vmware_physical_port_, 
                                 "HYPERVISOR.vmware_physical_interface");
         } else {
-            mode_ = AgentParam::MODE_KVM;
+            hypervisor_mode_ = AgentParam::MODE_KVM;
         }
     }
 
@@ -596,9 +606,12 @@ void AgentParam::ParseHeadlessModeArguments
     GetOptValue<bool>(var_map, headless_mode_, "DEFAULT.headless_mode");
 }
 
-void AgentParam::ParseTsnModeArguments
+void AgentParam::ParseAgentModeArguments
     (const boost::program_options::variables_map &var_map) {
-    GetOptValue<bool>(var_map, enable_tsn_, "DEFAULT.tsn_mode");
+    std::string mode;
+    if (GetOptValue<string>(var_map, mode, "DEFAULT.agent_mode")) {
+        set_agent_mode(mode);
+    }
 }
 
 void AgentParam::ParseServiceInstanceArguments
@@ -621,7 +634,7 @@ void AgentParam::InitFromSystem() {
 
     struct stat fstat;
     if (stat("/proc/xen", &fstat) == 0) {
-        mode_ = MODE_XEN;
+        hypervisor_mode_ = MODE_XEN;
         cout << "Found file /proc/xen. Initializing mode to XEN\n";
     }
     xen_ll_.addr_ = Ip4Address::from_string("169.254.0.1");
@@ -655,7 +668,7 @@ void AgentParam::InitFromConfig() {
     ParseHeadlessMode();
     ParseSimulateEvpnTor();
     ParseServiceInstance();
-    ParseTsnMode();
+    ParseAgentMode();
     cout << "Config file <" << config_file_ << "> parsing completed.\n";
     return;
 }
@@ -674,7 +687,7 @@ void AgentParam::InitFromArguments() {
     ParseMetadataProxyArguments(var_map_);
     ParseHeadlessModeArguments(var_map_);
     ParseServiceInstanceArguments(var_map_);
-    ParseTsnModeArguments(var_map_);
+    ParseAgentModeArguments(var_map_);
     return;
 }
 
@@ -801,7 +814,7 @@ int AgentParam::Validate() {
     }
 
     // Validate physical port used in vmware
-    if (mode_ == MODE_VMWARE) {
+    if (hypervisor_mode_ == MODE_VMWARE) {
         if (vmware_physical_port_ == "") {
             LOG(ERROR, "Configuration error. Physical port connecting to "
                 "virtual-machines not specified");
@@ -859,6 +872,14 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Linklocal Max System Flows  : " << linklocal_system_flows_);
     LOG(DEBUG, "Linklocal Max Vm Flows      : " << linklocal_vm_flows_);
     LOG(DEBUG, "Flow cache timeout          : " << flow_cache_timeout_);
+
+    if (agent_mode_ == VROUTER_AGENT)
+        LOG(DEBUG, "Agent Mode                  : Vrouter");
+    else if (agent_mode_ == TSN_AGENT)
+        LOG(DEBUG, "Agent Mode                  : TSN");
+    else if (agent_mode_ == TOR_AGENT)
+        LOG(DEBUG, "Agent Mode                  : TOR");
+
     LOG(DEBUG, "Headless Mode               : " << headless_mode_);
     if (simulate_evpn_tor_) {
         LOG(DEBUG, "Simulate EVPN TOR           : " << simulate_evpn_tor_);
@@ -868,19 +889,19 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Service instance workers    : " << si_netns_workers_);
     LOG(DEBUG, "Service instance timeout    : " << si_netns_timeout_);
     LOG(DEBUG, "Service instance HAProxy ssl: " << si_haproxy_ssl_cert_path_);
-    if (mode_ == MODE_KVM) {
+    if (hypervisor_mode_ == MODE_KVM) {
     LOG(DEBUG, "Hypervisor mode             : kvm");
         return;
     }
 
-    if (mode_ == MODE_XEN) {
+    if (hypervisor_mode_ == MODE_XEN) {
     LOG(DEBUG, "Hypervisor mode             : xen");
     LOG(DEBUG, "XEN Link Local port         : " << xen_ll_.name_);
     LOG(DEBUG, "XEN Link Local IP Address   : " << xen_ll_.addr_.to_string()
         << "/" << xen_ll_.plen_);
     }
 
-    if (mode_ == MODE_VMWARE) {
+    if (hypervisor_mode_ == MODE_VMWARE) {
     LOG(DEBUG, "Hypervisor mode             : vmware");
     LOG(DEBUG, "Vmware port                 : " << vmware_physical_port_);
     if (vmware_mode_ == VCENTER) {
@@ -888,10 +909,6 @@ void AgentParam::LogConfig() const {
     } else {
     LOG(DEBUG, "Vmware mode                 : Esxi_Neutron");
     }
-    }
-
-    if (enable_tsn_) {
-    LOG(DEBUG, "TSN Agent mode              : Enabled");
     }
 }
 
@@ -921,17 +938,17 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
                        bool enable_vhost_options,
                        bool enable_hypervisor_options,
                        bool enable_service_options,
-                       bool enable_tsn) :
+                       AgentMode agent_mode) :
         enable_flow_options_(enable_flow_options),
         enable_vhost_options_(enable_vhost_options),
         enable_hypervisor_options_(enable_hypervisor_options),
         enable_service_options_(enable_service_options),
-        enable_tsn_(enable_tsn), vhost_(), agent_name_(), eth_port_(),
+        agent_mode_(agent_mode), vhost_(), agent_name_(), eth_port_(),
         eth_port_no_arp_(false), eth_port_encap_type_(),
         xmpp_instance_count_(),
         dns_port_1_(ContrailPorts::DnsServerPort()),
         dns_port_2_(ContrailPorts::DnsServerPort()),
-        mgmt_ip_(), mode_(MODE_KVM), xen_ll_(),
+        mgmt_ip_(), hypervisor_mode_(MODE_KVM), xen_ll_(),
         tunnel_type_(), metadata_shared_secret_(), max_vm_flows_(),
         linklocal_system_flows_(), linklocal_vm_flows_(),
         flow_cache_timeout_(), config_file_(), program_name_(),
@@ -978,8 +995,8 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
          "Sandesh HTTP listener port")
         ("DEFAULT.tunnel_type", opt::value<string>()->default_value("MPLSoGRE"),
          "Tunnel Encapsulation type <MPLSoGRE|MPLSoUDP|VXLAN>")
-        ("DEFAULT.tsn_mode", opt::value<bool>(),
-         "Run compute-node in TSN mode")
+        ("DEFAULT.agent_mode", opt::value<string>(),
+         "Run agent in vrouter / tsn / tor mode")
         ("DISCOVERY.server", opt::value<string>(), 
          "IP address of discovery server")
         ("DISCOVERY.max_control_nodes", opt::value<uint16_t>(), 

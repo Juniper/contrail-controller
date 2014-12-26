@@ -505,11 +505,11 @@ static void ReadDhcpEnable(Agent *agent, VmInterfaceConfigData *data,
 //TBD Use link instead of device_owner
 VmInterface::SubType GetVmInterfaceSubType(Agent *agent,
                                            const std::string &device_owner) {
-    if (device_owner.compare("compute:nova") == 0 || agent->test_mode() ||
-        agent->tsn_enabled() == false)
-        return VmInterface::NOVA;
-    else
+    if (agent->tsn_enabled() || agent->tor_agent_enabled())
         return VmInterface::TOR;
+
+    // if (device_owner.compare("compute:nova") == 0 || agent->test_mode())
+    return VmInterface::NOVA;
 }
 
 void VmInterface::SetConfigurer(VmInterface::Configurer type) {

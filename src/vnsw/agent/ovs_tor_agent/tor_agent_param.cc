@@ -35,7 +35,6 @@ void TorAgentParam::AddOptions() {
 }
 
 void TorAgentParam::InitFromConfig() {
-    set_mode(MODE_TOR_AGENT);
     // Parse common config elements
     AgentParam::InitFromConfig();
 

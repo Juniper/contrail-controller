@@ -21,13 +21,19 @@ public:
     static const uint32_t kVrouterStatsInterval = (30 * 1000); //time-millisecs
     typedef std::vector<Ip4Address> AddressList;
 
+    // Agent mode we are running in
+    enum AgentMode {
+        VROUTER_AGENT,
+        TSN_AGENT,
+        TOR_AGENT,
+    };
+
     // Hypervisor mode we are working on
-    enum Mode {
+    enum HypervisorMode {
         MODE_INVALID,
         MODE_KVM,
         MODE_XEN,
         MODE_VMWARE,
-        MODE_TOR_AGENT
     };
 
     enum VmwareMode {
@@ -53,7 +59,7 @@ public:
                bool enable_vhost_options = true,
                bool enable_hypervisor_options = true,
                bool enable_service_options = true,
-               bool enable_tsn = false);
+               AgentMode agent_mode = VROUTER_AGENT);
     virtual ~AgentParam();
 
     virtual int Validate();
@@ -137,10 +143,10 @@ public:
     }
     bool debug() const { return debug_; }
 
-    Mode mode() const { return mode_; }
-    bool isXenMode() const { return mode_ == MODE_XEN; }
-    bool isKvmMode() const { return mode_ == MODE_KVM; }
-    bool isVmwareMode() const { return mode_ == MODE_VMWARE; }
+    HypervisorMode mode() const { return hypervisor_mode_; }
+    bool isXenMode() const { return hypervisor_mode_ == MODE_XEN; }
+    bool isKvmMode() const { return hypervisor_mode_ == MODE_KVM; }
+    bool isVmwareMode() const { return hypervisor_mode_ == MODE_VMWARE; }
     bool isVmwareVcenterMode() const { return vmware_mode_ == VCENTER; }
     VmwareMode vmware_mode() const { return vmware_mode_; }
 
@@ -162,7 +168,9 @@ public:
     boost::program_options::options_description options() const {
         return options_;
     }
-    bool isTsnEnabled() const { return enable_tsn_; }
+    AgentMode agent_mode() const { return agent_mode_; }
+    bool isTsnAgent() const { return agent_mode_ == TSN_AGENT; }
+    bool isTorAgent() const { return agent_mode_ == TOR_AGENT; }
 
     const AddressList &compute_node_address_list() const {
         return compute_node_address_list_;
@@ -170,7 +178,7 @@ public:
     void BuildAddressList(const std::string &val);
 
 protected:
-    void set_mode(Mode m) { mode_ = m; }
+    void set_hypervisor_mode(HypervisorMode m) { hypervisor_mode_ = m; }
     virtual void InitFromSystem();
     virtual void InitFromConfig();
     virtual void InitFromArguments();
@@ -238,7 +246,8 @@ private:
     void ParseHeadlessMode();
     void ParseSimulateEvpnTor();
     void ParseServiceInstance();
-    void ParseTsnMode();
+    void ParseAgentMode();
+    void set_agent_mode(const std::string &mode);
 
     void ParseCollectorArguments
         (const boost::program_options::variables_map &v);
@@ -260,7 +269,7 @@ private:
         (const boost::program_options::variables_map &v);
     void ParseServiceInstanceArguments
         (const boost::program_options::variables_map &v);
-    void ParseTsnModeArguments
+    void ParseAgentModeArguments
         (const boost::program_options::variables_map &v);
 
     boost::program_options::variables_map var_map_;
@@ -269,7 +278,7 @@ private:
     bool enable_vhost_options_;
     bool enable_hypervisor_options_;
     bool enable_service_options_;
-    bool enable_tsn_;
+    AgentMode agent_mode_;
 
     PortInfo vhost_;
     std::string agent_name_;
@@ -285,7 +294,7 @@ private:
     uint16_t dns_port_2_;
     Ip4Address dss_server_;
     Ip4Address mgmt_ip_;
-    Mode mode_;
+    HypervisorMode hypervisor_mode_;
     PortInfo xen_ll_;
     std::string tunnel_type_;
     std::string metadata_shared_secret_;

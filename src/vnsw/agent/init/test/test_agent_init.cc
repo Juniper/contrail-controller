@@ -57,6 +57,7 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
     EXPECT_STREQ(param.config_file().c_str(), 
                  "controller/src/vnsw/agent/init/test/cfg.ini");
     EXPECT_STREQ(param.program_name().c_str(), "test-param");
+    EXPECT_EQ(param.agent_mode(), AgentParam::VROUTER_AGENT);
 }
 
 TEST_F(FlowTest, Agent_Conf_file_2) {
@@ -76,6 +77,7 @@ TEST_F(FlowTest, Agent_Conf_file_2) {
     EXPECT_EQ(param.dns_server_2().to_ulong(),
               Ip4Address::from_string("14.1.1.1").to_ulong());
     EXPECT_EQ(param.dns_port_2(), 12999);
+    EXPECT_EQ(param.agent_mode(), AgentParam::VROUTER_AGENT);
 }
 
 // Check that linklocal flows are updated when the system limits are lowered
@@ -222,6 +224,7 @@ TEST_F(FlowTest, Default_Cmdline_arg1) {
     EXPECT_STREQ(param.log_file().c_str(), "/var/log/contrail/vrouter2.log");
     EXPECT_STREQ(param.log_level().c_str(), "SYS_ERR");
     EXPECT_TRUE(param.isXenMode());
+    EXPECT_EQ(param.agent_mode(), AgentParam::TSN_AGENT);
 }
 
 /* Some command line args have default values. If user has not passed these
@@ -240,6 +243,7 @@ TEST_F(FlowTest, Default_Cmdline_arg2) {
                  Agent::GetInstance()->log_file().c_str());
     EXPECT_STREQ(param.log_level().c_str(), "SYS_DEBUG");
     EXPECT_TRUE(param.isKvmMode());
+    EXPECT_EQ(param.agent_mode(), AgentParam::TOR_AGENT);
 }
 
 /* Some command line args have default values. If user has explicitly passed 
@@ -263,6 +267,7 @@ TEST_F(FlowTest, Default_Cmdline_arg3) {
     EXPECT_EQ(param.http_server_port(), 20001);
     EXPECT_STREQ(param.log_file().c_str(), "3.log");
     EXPECT_TRUE(param.isVmwareMode());
+    EXPECT_EQ(param.agent_mode(), AgentParam::TSN_AGENT);
 }
 
 TEST_F(FlowTest, MultitokenVector) {
