@@ -121,13 +121,13 @@ LogicalInterfaceKey::~LogicalInterfaceKey() {
 //////////////////////////////////////////////////////////////////////////////
 // LogicalInterfaceData routines
 //////////////////////////////////////////////////////////////////////////////
-LogicalInterfaceData::LogicalInterfaceData(IFMapNode *node,
+LogicalInterfaceData::LogicalInterfaceData(Agent *agent, IFMapNode *node,
                                            const std::string &display_name,
                                            const std::string &port,
                                            const boost::uuids::uuid &vif,
                                            const uuid &device_uuid) :
-    InterfaceData(node), display_name_(display_name), physical_interface_(port),
-    vm_interface_(vif), device_uuid_(device_uuid) {
+    InterfaceData(agent, node), display_name_(display_name),
+    physical_interface_(port), vm_interface_(vif), device_uuid_(device_uuid) {
 }
 
 LogicalInterfaceData::~LogicalInterfaceData() {
@@ -195,10 +195,10 @@ InterfaceKey *VlanLogicalInterfaceKey::Clone() const {
 }
 
 VlanLogicalInterfaceData::VlanLogicalInterfaceData
-(IFMapNode *node, const std::string &display_name,
+(Agent *agent, IFMapNode *node, const std::string &display_name,
  const std::string &physical_interface,
  const boost::uuids::uuid &vif, const boost::uuids::uuid &u, uint16_t vlan) :
-    LogicalInterfaceData(node, display_name, physical_interface, vif, u),
+    LogicalInterfaceData(agent, node, display_name, physical_interface, vif, u),
     vlan_(vlan) {
 }
 
@@ -213,9 +213,6 @@ void VlanLogicalInterface::SetSandeshData(SandeshLogicalInterface *data) const {
 /////////////////////////////////////////////////////////////////////////////
 // Config handling routines
 /////////////////////////////////////////////////////////////////////////////
-void LogicalInterface::ConfigEventHandler(IFMapNode *node) {
-}
-
 static LogicalInterfaceKey *BuildKey(IFMapNode *node,
                                      const autogen::LogicalInterface *port) {
     autogen::IdPermsType id_perms = port->id_perms();
@@ -224,7 +221,7 @@ static LogicalInterfaceKey *BuildKey(IFMapNode *node,
     return new VlanLogicalInterfaceKey(u, node->name());
 }
 
-static LogicalInterfaceData *BuildData(const Agent *agent, IFMapNode *node,
+static LogicalInterfaceData *BuildData(Agent *agent, IFMapNode *node,
                                   const autogen::LogicalInterface *port) {
     // Find link with physical-interface adjacency
     string physical_interface;
@@ -274,8 +271,10 @@ static LogicalInterfaceData *BuildData(const Agent *agent, IFMapNode *node,
         CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
                    dev_uuid);
     }
-    return new VlanLogicalInterfaceData(node, port->display_name(), physical_interface,
-                                        vmi_uuid, dev_uuid, port->vlan_tag());
+
+    return new VlanLogicalInterfaceData(agent, node, port->display_name(),
+                                        physical_interface, vmi_uuid, dev_uuid,
+                                        port->vlan_tag());
 }
 
 bool InterfaceTable::LogicalInterfaceIFNodeToReq(IFMapNode *node,

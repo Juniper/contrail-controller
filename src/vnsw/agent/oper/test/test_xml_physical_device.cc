@@ -456,7 +456,7 @@ const string AgentUtXmlLogicalInterfaceValidate::ToString() {
 /////////////////////////////////////////////////////////////////////////////
 AgentUtXmlPhysicalDeviceVnValidate::AgentUtXmlPhysicalDeviceVnValidate
 (const string &name, const uuid &id, const xml_node &node) :
-    AgentUtXmlValidationNode(name, node), id_(id) {
+    AgentUtXmlValidationNode(name, node), id_(id), vxlan_id_(0xFFFF) {
 }
 
 AgentUtXmlPhysicalDeviceVnValidate::~AgentUtXmlPhysicalDeviceVnValidate() {
@@ -477,6 +477,7 @@ bool AgentUtXmlPhysicalDeviceVnValidate::ReadXml() {
         vn_uuid_ = MakeUuid(id);
     }
 
+    GetUintAttribute(node(), "vxlan-id", &vxlan_id_);
     return true;
 }
 
@@ -496,6 +497,14 @@ bool AgentUtXmlPhysicalDeviceVnValidate::Validate() {
 
     if (entry == NULL)
         return false;
+
+    if (vxlan_id_ != 0xFFFF) {
+        VnEntry *vn = entry->vn();
+        if (vn == NULL)
+            return false;
+        if (vn->GetVxLanId() != vxlan_id_)
+            return false;
+    }
 
     return true;
 }

@@ -34,6 +34,12 @@
         <physical-router-vn name="router-vn-1" uuid="1" device="1" vn="1" />
     </validate>
 
+    <virtual-network uuid="1" name="vn-1" vxlan_id="2"/>
+
+    <validate name="validate-4-1">
+        <physical-router-vn name="router-vn-1" uuid="1" device="1" vn="1" />
+    </validate>
+
     <link left="virtual-machine-interface" left-name="tap1"
           right="virtual-network" right-name="vn-1" del="1"/>
     <validate name="validate-5">

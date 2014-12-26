@@ -37,7 +37,6 @@ public:
     virtual bool Delete(const DBRequest *req);
     virtual bool OnChange(const InterfaceTable *table,
                           const PhysicalInterfaceData *data);
-    virtual void ConfigEventHandler(IFMapNode *node);
 
     SubType subtype() const { return subtype_; }
     PhysicalDevice *physical_device() const;
@@ -73,7 +72,8 @@ private:
 };
 
 struct PhysicalInterfaceData : public InterfaceData {
-    PhysicalInterfaceData(IFMapNode *node, const std::string &vrf_name,
+    PhysicalInterfaceData(Agent *agent, IFMapNode *node,
+                          const std::string &vrf_name,
                           PhysicalInterface::SubType subtype,
                           PhysicalInterface::EncapType encap,
                           bool no_arp,

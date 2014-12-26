@@ -102,7 +102,7 @@ public:
         uint32_t vn_count = Agent::GetInstance()->vn_table()->Size();
         client->Reset();
         AddVn(vn_name, id);
-        EXPECT_TRUE(client->VnNotifyWait(1));
+        EXPECT_TRUE(client->VnNotifyWait(2));
         EXPECT_TRUE(VnFind(id));
         EXPECT_EQ((vn_count + 1), Agent::GetInstance()->vn_table()->Size());
     }
@@ -243,7 +243,7 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
                                                      intf_uuid, "");
     req.key.reset(key);
 
-    VmInterfaceConfigData *cfg_data = new VmInterfaceConfigData(NULL);
+    VmInterfaceConfigData *cfg_data = new VmInterfaceConfigData(NULL, NULL);
     InterfaceData *data = static_cast<InterfaceData *>(cfg_data);
     data->VmPortInit();
 
@@ -285,7 +285,7 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
     VmInterfaceKey *key = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     req.key.reset(key);
 
-    VmInterfaceConfigData *cfg_data = new VmInterfaceConfigData(NULL);
+    VmInterfaceConfigData *cfg_data = new VmInterfaceConfigData(NULL, NULL);
     InterfaceData *data = static_cast<InterfaceData *>(cfg_data);
     data->VmPortInit();
 

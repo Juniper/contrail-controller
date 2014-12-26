@@ -20,7 +20,6 @@ public:
     virtual KeyPtr GetDBRequestKey() const;
     virtual bool OnChange(const InterfaceTable *table,
                           const RemotePhysicalInterfaceData *data);
-    virtual void ConfigEventHandler(IFMapNode *node);
 
     const std::string &display_name() const { return display_name_; }
     PhysicalDevice *physical_device() const {
@@ -57,7 +56,7 @@ struct RemotePhysicalInterfaceKey : public InterfaceKey {
 };
 
 struct RemotePhysicalInterfaceData : public InterfaceData {
-    RemotePhysicalInterfaceData(IFMapNode *node,
+    RemotePhysicalInterfaceData(Agent *agent, IFMapNode *node,
                                 const std::string &display_name,
                                 const std::string &vrf_name,
                                 const boost::uuids::uuid &device_uuid);
