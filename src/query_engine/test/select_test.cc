@@ -1,29 +1,17 @@
 /*
- * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
 #include "testing/gunit.h"
-#include "base/logging.h"
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_generators.hpp>
-#include <boost/uuid/uuid_io.hpp>
-#include <boost/random/linear_congruential.hpp>
-#include <boost/random/uniform_int.hpp>
 
 #include "query.h"
 #include "analytics_query_mock.h"
-
-using boost::get;
 
 using ::testing::Return;
 using ::testing::AnyNumber;
 
 class SelectTest : public ::testing::Test {
 public:
-    // bool indicates whether the ResultRowT is verified or not
-    typedef std::pair<QEOpServerProxy::ResultRowT,bool> RowT;
-    typedef std::vector<RowT> BufferT;
-
     SelectTest() {
     }
 
@@ -55,16 +43,67 @@ public:
     }
 };
 
-TEST_F(SelectTest, SelectValidQuery) {
+// Invalid Selection of timeseries and sum(bytes)
+TEST_F(SelectTest, InvalidFlowseriesSelectTQuery) {
     AnalyticsQueryMock analytics_query_mock;
     select_fs_query_default_expect_init(analytics_query_mock);
 
     std::map<std::string, std::string> json_select;
     json_select.insert(std::pair<std::string, std::string>(
-        "select_fields", "[\"T\", \"sum(bytes)\", \"sum(packets)\"]"));
+        "select_fields", "[\"T\", \"sum(bytes)\", \"destv\"]"));
     SelectQuery* select_query = new SelectQuery(&analytics_query_mock,
                                                 json_select);
-    EXPECT_TRUE(select_query->result_.get());
+    EXPECT_TRUE(select_query->status_details != 0);
+}
+
+// Invalid Selection of time granularity and bytes
+TEST_F(SelectTest, InvalidFlowseriesSelectTSStats) {
+    AnalyticsQueryMock analytics_query_mock;
+    select_fs_query_default_expect_init(analytics_query_mock);
+
+    std::map<std::string, std::string> json_select;
+    int granularity = 10;
+    std::stringstream ss;
+    ss << "[\"T=" << granularity << "\", " << "\"bytes\"]";
+    json_select.insert(std::pair<std::string, std::string>(
+        "select_fields", ss.str()));
+    granularity *= 1000000; // convert to microseconds
+
+    SelectQuery* select_query = new SelectQuery(&analytics_query_mock,
+                                                json_select);
+    EXPECT_TRUE(select_query->status_details != 0);
+}
+
+// Invalid Selection of time granularity and packets
+TEST_F(SelectTest, InvalidFlowseriesSelectTSStatsQuery) {
+    AnalyticsQueryMock analytics_query_mock;
+    select_fs_query_default_expect_init(analytics_query_mock);
+
+    std::map<std::string, std::string> json_select;
+    int granularity = 5;
+    std::stringstream ss;
+    ss << "[\"T=" << granularity << "\", " << "\"sourcevn\", "
+       << "\"packets\"]";
+    json_select.insert(std::pair<std::string, std::string>(
+        "select_fields", ss.str()));
+    granularity *= 1000000;
+
+    SelectQuery* select_query = new SelectQuery(&analytics_query_mock,
+                                                json_select);
+    EXPECT_TRUE(select_query->status_details != 0);
+}
+
+// Invalid Selection of time sum(bytes) and raw packets
+TEST_F(SelectTest, InvalidFlowseriesSelectStatsQuery) {
+    AnalyticsQueryMock analytics_query_mock;
+    select_fs_query_default_expect_init(analytics_query_mock);
+
+    std::map<std::string, std::string> json_select;
+    json_select.insert(std::pair<std::string, std::string>(
+        "select_fields", "[\"sum(bytes)\", \"packets\"]"));
+    SelectQuery* select_query = new SelectQuery(&analytics_query_mock,
+                                                json_select);
+    EXPECT_TRUE(select_query->status_details != 0);
 }
 
 int main(int argc, char **argv) {

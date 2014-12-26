@@ -1427,21 +1427,6 @@ bool AnalyticsQuery::is_flow_query()
         (this->table_ == g_viz_constants.FLOW_TABLE));
 }
 
-bool AnalyticsQuery::is_valid_query(const rapidjson::Value& json_select_fields) {
-    for (rapidjson::SizeType i = 0; i < json_select_fields.Size(); i++) {
-        if (json_select_fields[i].GetString() == std::string(TIMESTAMP_FIELD)) {
-            for (rapidjson::SizeType i = 0; i < json_select_fields.Size(); i++) {
-                if ((json_select_fields[i].GetString() == std::string(SELECT_SUM_PACKETS)) ||
-                    (json_select_fields[i].GetString()  == std::string(SELECT_SUM_BYTES))) {
-                    return false;
-                }
-            }
-            return true;
-        }
-    }
-    return true;
-}
-
 #define UNIT_TEST_MESSAGE_FILTERS
 
 void QueryEngine::QueryEngine_Test()
