@@ -1459,14 +1459,46 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
         return;
     }
 
-    Ip4Prefix ip_prefix;
+    Ip4Prefix inet_prefix;
+    Inet6Prefix inet6_prefix;
+    IpAddress ip_addr;
     if (!mac_addr.IsBroadcast() && !item.entry.nlri.address.empty()) {
-        ip_prefix = Ip4Prefix::FromString(item.entry.nlri.address, &error);
-        if (error || ip_prefix.prefixlen() != 32) {
-            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
-                                       BGP_LOG_FLAG_ALL,
-                                       "Bad address string: " <<
-                                       item.entry.nlri.address);
+        size_t pos = item.entry.nlri.address.find('/');
+        if (pos == string::npos) {
+            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                "Missing / in address string: " << item.entry.nlri.address);
+            return;
+        }
+
+        string plen_str = item.entry.nlri.address.substr(pos + 1);
+        if (plen_str == "32") {
+            inet_prefix =
+                Ip4Prefix::FromString(item.entry.nlri.address, &error);
+            if (error || inet_prefix.prefixlen() != 32) {
+                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                    "Bad inet address string: " <<
+                    item.entry.nlri.address);
+                return;
+            }
+            ip_addr = inet_prefix.ip4_addr();
+        } else if (plen_str == "128") {
+            inet6_prefix =
+                Inet6Prefix::FromString(item.entry.nlri.address, &error);
+            if (error || inet6_prefix.prefixlen() != 128) {
+                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                    "Bad inet6 address string: " <<
+                    item.entry.nlri.address);
+                return;
+            }
+            ip_addr = inet6_prefix.ip6_addr();
+        } else {
+            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                "Bad prefix length in address string: " <<
+                item.entry.nlri.address);
             return;
         }
     }
@@ -1544,7 +1576,7 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
     }
 
     uint32_t ethernet_tag = item.entry.nlri.ethernet_tag;
-    EvpnPrefix evpn_prefix(rd, ethernet_tag, mac_addr, ip_prefix.ip4_addr());
+    EvpnPrefix evpn_prefix(rd, ethernet_tag, mac_addr, ip_addr);
 
     EvpnTable::RequestData::NextHops nexthops;
     DBRequest req;

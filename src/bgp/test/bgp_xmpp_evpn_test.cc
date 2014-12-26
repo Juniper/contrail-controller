@@ -1405,6 +1405,16 @@ protected:
         bs_y_->Configure(config);
     }
 
+    bool CheckRouteExists(test::NetworkAgentMockPtr agent,
+        const string &network, const string &prefix) {
+        task_util::TaskSchedulerLock lock;
+        const autogen::EnetItemType *rt =
+            agent->EnetRouteLookup(network, prefix);
+        if (!rt)
+            return false;
+        return true;
+    }
+
     bool CheckRouteSecurityGroup(test::NetworkAgentMockPtr agent,
         const string &network, const string &prefix, vector<int> &sg) {
         task_util::TaskSchedulerLock lock;
@@ -1430,6 +1440,11 @@ protected:
         if (rt->entry.sequence_number != sequence)
             return false;
         return true;
+    }
+
+    void VerifyRouteExists(test::NetworkAgentMockPtr agent,
+        const string &network, const string &prefix) {
+        TASK_UTIL_EXPECT_TRUE(CheckRouteExists(agent, network, prefix));
     }
 
     void VerifyRouteSecurityGroup(test::NetworkAgentMockPtr agent,
@@ -1654,10 +1669,10 @@ TEST_F(BgpXmppEvpnTest2, RouteAddWithSecurityGroup) {
     VerifyRouteSecurityGroup(agent_b_, "blue", eroute_b.str(), sg2);
 
     // Verify local pref and sequence on B.
-    VerifyRouteLocalPrefSequence(agent_a_, "blue", eroute_a.str(),
+    VerifyRouteLocalPrefSequence(agent_b_, "blue", eroute_a.str(),
         test::RouteAttributes::kDefaultLocalPref,
         test::RouteAttributes::kDefaultSequence);
-    VerifyRouteLocalPrefSequence(agent_a_, "blue", eroute_b.str(),
+    VerifyRouteLocalPrefSequence(agent_b_, "blue", eroute_b.str(),
         test::RouteAttributes::kDefaultLocalPref,
         test::RouteAttributes::kDefaultSequence);
 
@@ -1957,6 +1972,152 @@ TEST_F(BgpXmppEvpnTest2, MacOnlyRouteAddDelete2) {
 }
 
 //
+// Add/Delete routes from 2 agents with inet6 address.
+//
+TEST_F(BgpXmppEvpnTest2, Inet6RouteAddDelete) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->EnetSubscribe("blue", 1);
+    agent_b_->EnetSubscribe("blue", 1);
+
+    // Add route from agent A.
+    stringstream eroute_a;
+    eroute_a << "aa:00:00:00:00:01,aa00:db8:85a3::8a2e:370:fad1/128";
+    agent_a_->AddEnetRoute("blue", eroute_a.str(), "192.168.1.1");
+    task_util::WaitForIdle();
+
+    // Add route from agent B.
+    stringstream eroute_b;
+    eroute_b << "bb:00:00:00:00:01,bb00:db8:85a3::8a2e:370:fad1/128";
+    agent_b_->AddEnetRoute("blue", eroute_b.str(), "192.168.1.2");
+    task_util::WaitForIdle();
+
+    // Verify that routes showed up on the agents.
+    TASK_UTIL_EXPECT_EQ(2, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_a_->EnetRouteCount("blue"));
+    TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount("blue"));
+
+    // Verify routes on A.
+    VerifyRouteExists(agent_a_, "blue", eroute_a.str());
+    VerifyRouteExists(agent_a_, "blue", eroute_b.str());
+
+    // Verify routes on B.
+    VerifyRouteExists(agent_b_, "blue", eroute_a.str());
+    VerifyRouteExists(agent_b_, "blue", eroute_b.str());
+
+    // Delete route from agent A.
+    agent_a_->DeleteEnetRoute("blue", eroute_a.str());
+    task_util::WaitForIdle();
+
+    // Delete route from agent B.
+    agent_b_->DeleteEnetRoute("blue", eroute_b.str());
+    task_util::WaitForIdle();
+
+    // Verify that there are no routes on the agents.
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount("blue"));
+    TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount("blue"));
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Add/Delete routes from 2 agents with inet and inet6 address.
+//
+TEST_F(BgpXmppEvpnTest2, InetInet6RouteAddDelete) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->EnetSubscribe("blue", 1);
+    agent_b_->EnetSubscribe("blue", 1);
+
+    // Add routes from agent A.
+    stringstream eroute_a1, eroute_a2;
+    eroute_a1 << "aa:00:00:00:00:01,10.1.1.1/32";
+    agent_a_->AddEnetRoute("blue", eroute_a1.str(), "192.168.1.1");
+    eroute_a2 << "aa:00:00:00:00:01,aa00:db8:85a3::8a2e:370:fad1/128";
+    agent_a_->AddEnetRoute("blue", eroute_a2.str(), "192.168.1.1");
+    task_util::WaitForIdle();
+
+    // Add route from agent B.
+    stringstream eroute_b1, eroute_b2;
+    eroute_b1 << "bb:00:00:00:00:01,10.1.1.2/32";
+    agent_b_->AddEnetRoute("blue", eroute_b1.str(), "192.168.1.2");
+    eroute_b2 << "bb:00:00:00:00:01,bb00:db8:85a3::8a2e:370:fad1/128";
+    agent_b_->AddEnetRoute("blue", eroute_b2.str(), "192.168.1.2");
+    task_util::WaitForIdle();
+
+    // Verify that routes showed up on the agents.
+    TASK_UTIL_EXPECT_EQ(4, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(4, agent_a_->EnetRouteCount("blue"));
+    TASK_UTIL_EXPECT_EQ(4, agent_b_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(4, agent_b_->EnetRouteCount("blue"));
+
+    // Verify routes on A.
+    VerifyRouteExists(agent_a_, "blue", eroute_a1.str());
+    VerifyRouteExists(agent_a_, "blue", eroute_a2.str());
+    VerifyRouteExists(agent_a_, "blue", eroute_b1.str());
+    VerifyRouteExists(agent_a_, "blue", eroute_b2.str());
+
+    // Verify routes on B.
+    VerifyRouteExists(agent_b_, "blue", eroute_a1.str());
+    VerifyRouteExists(agent_b_, "blue", eroute_a2.str());
+    VerifyRouteExists(agent_b_, "blue", eroute_b1.str());
+    VerifyRouteExists(agent_b_, "blue", eroute_b2.str());
+
+    // Delete routes from agent A.
+    agent_a_->DeleteEnetRoute("blue", eroute_a1.str());
+    agent_a_->DeleteEnetRoute("blue", eroute_a2.str());
+    task_util::WaitForIdle();
+
+    // Delete routes from agent B.
+    agent_b_->DeleteEnetRoute("blue", eroute_b1.str());
+    agent_b_->DeleteEnetRoute("blue", eroute_b2.str());
+    task_util::WaitForIdle();
+
+    // Verify that there are no routes on the agents.
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount("blue"));
+    TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount("blue"));
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
 // Multiple routes from 2 agents are advertised to each other.
 // Different MAC address and IP address for each route.
 //
@@ -2110,6 +2271,97 @@ TEST_F(BgpXmppEvpnTest2, MultipleRoutes2) {
     TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount("blue"));
     TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount());
     TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount("blue"));
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Multiple MACs from 2 agents are advertised to each other.
+// Each MAC address has 2 routes - 1 for inet and 1 for inet6.
+//
+TEST_F(BgpXmppEvpnTest2, InetInet6MultipleRoutes) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->EnetSubscribe("blue", 1);
+    agent_b_->EnetSubscribe("blue", 1);
+
+    // Add routes from agent A.
+    for (int idx = 1; idx <= 4;  idx++) {
+        stringstream eroute_a1, eroute_a2;
+        eroute_a1 << "aa:00:00:00:00:0" << idx << ",10.1.1." << idx << "/32";
+        agent_a_->AddEnetRoute("blue", eroute_a1.str(), "192.168.1.1");
+        eroute_a2 << "aa:00:00:00:00:0" << idx;
+        eroute_a2 << ",aa00:db8:85a3::8a2e:370:fad" << idx << "/128";
+        agent_a_->AddEnetRoute("blue", eroute_a2.str(), "192.168.1.1");
+    }
+    task_util::WaitForIdle();
+
+    // Add route from agent B.
+    for (int idx = 1; idx <= 4;  idx++) {
+        stringstream eroute_b1, eroute_b2;
+        eroute_b1 << "bb:00:00:00:00:0" << idx << ",10.1.2." << idx << "/32";
+        agent_b_->AddEnetRoute("blue", eroute_b1.str(), "192.168.1.2");
+        eroute_b2 << "bb:00:00:00:00:0" << idx;
+        eroute_b2 << ",bb00:db8:85a3::8a2e:370:fad" << idx << "/128";
+        agent_b_->AddEnetRoute("blue", eroute_b2.str(), "192.168.1.2");
+    }
+    task_util::WaitForIdle();
+
+    // Verify that routes showed up on the agents.
+    TASK_UTIL_EXPECT_EQ(16, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(16, agent_a_->EnetRouteCount("blue"));
+    TASK_UTIL_EXPECT_EQ(16, agent_b_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(16, agent_b_->EnetRouteCount("blue"));
+
+    // Delete routes from agent A.
+    for (int idx = 1; idx <= 4;  idx++) {
+        stringstream eroute_a1, eroute_a2;
+        eroute_a1 << "aa:00:00:00:00:0" << idx << ",10.1.1." << idx << "/32";
+        agent_a_->DeleteEnetRoute("blue", eroute_a1.str());
+        eroute_a2 << "aa:00:00:00:00:0" << idx;
+        eroute_a2 << ",aa00:db8:85a3::8a2e:370:fad" << idx << "/128";
+        agent_a_->DeleteEnetRoute("blue", eroute_a2.str());
+    }
+    task_util::WaitForIdle();
+
+    // Verify deletion.
+    TASK_UTIL_EXPECT_EQ(8, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(8, agent_a_->EnetRouteCount("blue"));
+    TASK_UTIL_EXPECT_EQ(8, agent_b_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(8, agent_b_->EnetRouteCount("blue"));
+
+    // Delete route from agent B.
+    for (int idx = 1; idx <= 4;  idx++) {
+        stringstream eroute_b1, eroute_b2;
+        eroute_b1 << "bb:00:00:00:00:0" << idx << ",10.1.2." << idx << "/32";
+        agent_b_->DeleteEnetRoute("blue", eroute_b1.str());
+        eroute_b2 << "bb:00:00:00:00:0" << idx;
+        eroute_b2 << ",bb00:db8:85a3::8a2e:370:fad" << idx << "/128";
+        agent_b_->DeleteEnetRoute("blue", eroute_b2.str());
+    }
+    task_util::WaitForIdle();
+
+    // Verify that there are no routes on the agents.
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount("blue"));
+    TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount("blue"));
 
     // Close the sessions.
     agent_a_->SessionDown();
