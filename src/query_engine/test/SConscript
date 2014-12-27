@@ -49,6 +49,27 @@ options_test = env.UnitTest('options_test', ['../buildinfo.o', '../options.o',
                                              'options_test.cc'])
 env.Alias('src/query_engine:options_test', options_test)
 
+select_test_obj = env_noWerror_excep.Object('select_test.o',
+                                            'select_test.cc')
+
+select_test = env.UnitTest('select_test',
+                           [select_test_obj,
+                           RedisConn_obj,
+                           Analytics_obj,
+                           env['QE_SANDESH_GEN_OBJS'],
+                           '../../analytics/viz_constants.o',
+                           '../rac_alloc.o',
+                           '../query.o',
+                           '../where_query.o',
+                           '../db_query.o',
+                           '../set_operation.o',
+                           '../select.o',
+                           '../select_fs_query.o',
+                           '../stats_select.o',
+                           '../stats_query.o',
+                           '../post_processing.o',
+                           '../QEOpServerProxy.o'])
+
 select_fs_query_test_obj = env_noWerror_excep.Object('select_fs_query_test.o',
                                                      'select_fs_query_test.cc')
 select_fs_query_test = env.UnitTest('select_fs_query_test',
@@ -71,7 +92,8 @@ select_fs_query_test = env.UnitTest('select_fs_query_test',
 
 test_suite = [
                options_test,
-               select_fs_query_test
+               select_fs_query_test,
+               select_test
              ]
 
 test = env.TestSuite('qe-test', test_suite)
