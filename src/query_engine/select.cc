@@ -118,7 +118,19 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
             agg_stats.push_back(agg_stats_entry);
             QE_INVALIDARG_ERROR(
                 m_query->table() == g_viz_constants.FLOW_SERIES_TABLE);
-        }      
+        }
+        else if (json_select_fields[i].GetString() ==
+                std::string(SELECT_FLOW_CLASS_ID)) {
+            select_column_fields.push_back(SELECT_FLOW_CLASS_ID);
+            QE_INVALIDARG_ERROR(
+                m_query->table() == g_viz_constants.FLOW_SERIES_TABLE);
+        }
+        else if (json_select_fields[i].GetString() ==
+                std::string(SELECT_FLOW_COUNT)) {
+            select_column_fields.push_back(SELECT_FLOW_COUNT);
+            QE_INVALIDARG_ERROR(
+                m_query->table() == g_viz_constants.FLOW_SERIES_TABLE);
+        }
         // processing other select fields
         else {
             QE_INVALIDARG_ERROR(is_valid_select_field(
@@ -132,6 +144,8 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
 
     if (m_query->table() == g_viz_constants.FLOW_SERIES_TABLE) {
         evaluate_fs_query_type();
+        if (fs_query_type_ == SelectQuery::FS_SELECT_INVALID)
+            QE_INVALIDARG_ERROR(false);
     }
 
     if ((m_query->table() == g_viz_constants.FLOW_TABLE) && !uuid_key_selected) {
@@ -212,13 +226,24 @@ void SelectQuery::evaluate_fs_query_type() {
     }
     if (agg_stats.size()) {
         fs_query_type_ |= SelectQuery::FS_SELECT_STATS;
-        if (!provide_timeseries) {
-            std::vector<agg_stats_t>::const_iterator it;
-            for (it = agg_stats.begin(); it != agg_stats.end(); ++it) {
-                if ((*it).agg_op == RAW) {
-                    fs_query_type_ |= SelectQuery::FS_SELECT_T;
-                    break;
+        agg_op_t stats_op = AGG_OP_INVALID;
+        std::vector<agg_stats_t>::const_iterator it;
+        for (it = agg_stats.begin(); it != agg_stats.end(); ++it) {
+            if ((*it).agg_op == RAW) {
+                if ((fs_query_type_ & SelectQuery::FS_SELECT_TS) ||
+                    (stats_op == SUM)) {
+                    fs_query_type_ = SelectQuery::FS_SELECT_INVALID;
+                    return;
                 }
+                stats_op = RAW;
+                fs_query_type_ |= SelectQuery::FS_SELECT_T;
+            } else if ((*it).agg_op == SUM) {
+                if ((fs_query_type_ & SelectQuery::FS_SELECT_T) ||
+                    (stats_op == RAW)) {
+                    fs_query_type_ = SelectQuery::FS_SELECT_INVALID;
+                    return;
+                }
+                stats_op = SUM;
             }
         }
     }
