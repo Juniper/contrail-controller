@@ -6,10 +6,11 @@
 
 #include <boost/bind.hpp>
 #include <boost/foreach.hpp>
-
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_trace.h>
+
+#include <utility>
 
 #include "base/task.h"
 #include "base/task_annotations.h"
@@ -57,7 +58,6 @@ TableState::TableState(BgpTable *table, DBTableBase::ListenerId id)
 TableState::~TableState() {
 }
 
-// TODO: verify that the RoutePathReplicator is going to Leave this table.
 void TableState::ManagedDelete() {
 }
 
@@ -110,8 +110,8 @@ RoutePathReplicator::StartWalk() {
     DBTableWalker::WalkFn walker
         = boost::bind(&RoutePathReplicator::BgpTableListener, this, _1, _2);
     // For each member table, start a walker to replicate
-    for(BulkSyncOrders::iterator it = bulk_sync_.begin();
-        it != bulk_sync_.end(); it++) {
+    for (BulkSyncOrders::iterator it = bulk_sync_.begin();
+         it != bulk_sync_.end(); ++it) {
         if (it->second->GetWalkerId() != DBTableWalker::kInvalidWalkerId) {
             // Walk is in progress.
             continue;
@@ -126,9 +126,9 @@ RoutePathReplicator::StartWalk() {
     return true;
 }
 
-bool 
+bool
 RoutePathReplicator::UnregisterTables() {
-    for (UnregTableList::iterator it = unreg_table_list_.begin(); 
+    for (UnregTableList::iterator it = unreg_table_list_.begin();
          it != unreg_table_list_.end(); it++) {
         BgpTable *bgptable = *it;
         RouteReplicatorTableState::iterator ts_it = table_state_.find(bgptable);
@@ -151,7 +151,7 @@ RoutePathReplicator::BulkReplicationDone(DBTableBase *table) {
     BgpTable *bgptable = static_cast<BgpTable *>(table);
     RPR_TRACE(WalkDone, table->name());
     BulkSyncOrders::iterator loc = bulk_sync_.find(bgptable);
-    assert (loc != bulk_sync_.end());
+    assert(loc != bulk_sync_.end());
     BulkSyncState *bulk_sync_state = loc->second;
     if (bulk_sync_state->WalkAgain()) {
         bulk_sync_state->SetWalkerId(DBTableWalker::kInvalidWalkerId);
@@ -172,7 +172,7 @@ RoutePathReplicator::BulkReplicationDone(DBTableBase *table) {
 void RoutePathReplicator::AddVpnTable(RtGroup *rtgroup) {
     // Master routingInstance imports/exports all RouteTargets
     RoutingInstanceMgr *mgr = server()->routing_instance_mgr();
-    RoutingInstance *master = 
+    RoutingInstance *master =
         mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
     if (master) {
         BgpTable *vpntable = master->GetTable(family());
@@ -263,7 +263,7 @@ void RoutePathReplicator::Leave(BgpTable *table, const RouteTarget &rt,
             if ((vpntable == *(group->GetExportTables(family()).begin())) &&
                 (vpntable == *(group->GetImportTables(family()).begin()))) {
                 // Delete the group if last vrf inet table left the RT
-                RouteReplicatorTableState::iterator loc = 
+                RouteReplicatorTableState::iterator loc =
                     table_state_.find(vpntable);
                 assert(loc != table_state_.end());
                 TableState *ts = loc->second;
@@ -284,8 +284,8 @@ void RoutePathReplicator::Leave(BgpTable *table, const RouteTarget &rt,
     walk_trigger_->Set();
 }
 
-void 
-RoutePathReplicator::DBStateSync(BgpTable *table, BgpRoute *rt, 
+void
+RoutePathReplicator::DBStateSync(BgpTable *table, BgpRoute *rt,
                                  DBTableBase::ListenerId id,
                                  RtReplicated *dbstate,
                                  RtReplicated::ReplicatedRtPathList &current) {
@@ -294,7 +294,7 @@ RoutePathReplicator::DBStateSync(BgpTable *table, BgpRoute *rt,
     dbstate_it = dbstate_next_it = dbstate->GetMutableList()->begin();
     std::pair<RtReplicated::ReplicatedRtPathList::iterator, bool> r;
 
-    while (cur_it != current.end() && 
+    while (cur_it != current.end() &&
            dbstate_it != dbstate->GetMutableList()->end()) {
         if (*cur_it < *dbstate_it) {
             // Add to DBstate
@@ -319,8 +319,8 @@ RoutePathReplicator::DBStateSync(BgpTable *table, BgpRoute *rt,
         r = dbstate->GetMutableList()->insert(*cur_it);
         assert(r.second);
     }
-    for (dbstate_next_it = dbstate_it; 
-         dbstate_it != dbstate->GetMutableList()->end(); 
+    for (dbstate_next_it = dbstate_it;
+         dbstate_it != dbstate->GetMutableList()->end();
          dbstate_it = dbstate_next_it) {
         dbstate_next_it++;
         DeleteSecondaryPath(table, rt, *dbstate_it);
@@ -340,7 +340,6 @@ RoutePathReplicator::DBStateSync(BgpTable *table, BgpRoute *rt,
 static ExtCommunityPtr UpdateExtCommunity(BgpServer *server,
         const RoutingInstance *rtinstance, const ExtCommunity *ext_community,
         const ExtCommunity::ExtCommunityList &export_list) {
-
     // Add RouteTargets exported by the instance for a non-default instance.
     ExtCommunityPtr extcomm_ptr;
     if (!rtinstance->IsDefaultRoutingInstance()) {
@@ -399,7 +398,7 @@ bool RoutePathReplicator::BgpTableListener(DBTablePartBase *root,
     assert(id != DBTableBase::kInvalidId);
 
     // Get the dbstate
-    RtReplicated *dbstate = 
+    RtReplicated *dbstate =
         static_cast<RtReplicated *>(rt->GetState(table, id));
 
     RtReplicated::ReplicatedRtPathList replicated_path_list;
@@ -429,7 +428,7 @@ bool RoutePathReplicator::BgpTableListener(DBTablePartBase *root,
     }
 
     // Replicate all feasible and non replicated paths.
-    for (Route::PathList::iterator it = rt->GetPathList().begin(); 
+    for (Route::PathList::iterator it = rt->GetPathList().begin();
         it != rt->GetPathList().end(); it++) {
         BgpPath *path = static_cast<BgpPath *>(it.operator->());
 
@@ -460,16 +459,16 @@ bool RoutePathReplicator::BgpTableListener(DBTablePartBase *root,
         // For each RouteTarget extended community, get the list of tables
         // to which we need to replicate the path.
         int vn_index = 0;
-        BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm, 
+        BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
                       ext_community->communities()) {
             if (ExtCommunity::is_origin_vn(comm)) {
                 OriginVn origin_vn(comm);
                 vn_index = origin_vn.vn_index();
             } else if (ExtCommunity::is_route_target(comm)) {
-                RtGroup *rtgroup = 
+                RtGroup *rtgroup =
                     server()->rtarget_group_mgr()->GetRtGroup(comm);
                 if (!rtgroup) continue;
-                RtGroup::RtGroupMemberList import_list = 
+                RtGroup::RtGroupMemberList import_list =
                     rtgroup->GetImportTables(family());
                 if (import_list.empty()) continue;
                 super_set.insert(import_list.begin(), import_list.end());
@@ -534,12 +533,12 @@ const RtReplicated *RoutePathReplicator::GetReplicationState(
     if (loc == table_state_.end()) return NULL;
 
     const TableState *ts = loc->second;
-    RtReplicated *dbstate = 
+    RtReplicated *dbstate =
         static_cast<RtReplicated *>(rt->GetState(table, ts->GetListenerId()));
     return dbstate;
 }
 
-void RoutePathReplicator::DeleteSecondaryPath(BgpTable *table, BgpRoute *rt, 
+void RoutePathReplicator::DeleteSecondaryPath(BgpTable *table, BgpRoute *rt,
                               const RtReplicated::SecondaryRouteInfo &rtinfo) {
     BgpRoute *rt_secondary = rtinfo.rt_;
     BgpTable *secondary_table = rtinfo.table_;
@@ -548,7 +547,7 @@ void RoutePathReplicator::DeleteSecondaryPath(BgpTable *table, BgpRoute *rt,
     BgpPath::PathSource src = rtinfo.src_;
 
     assert(rt_secondary->RemoveSecondaryPath(rt, src, peer, path_id));
-    DBTablePartBase *partition = 
+    DBTablePartBase *partition =
         secondary_table->GetTablePartition(rt_secondary);
     if (rt_secondary->count() == 0) {
         RPR_TRACE_ONLY(Flush, secondary_table->name(), rt_secondary->ToString(),
@@ -567,8 +566,8 @@ void RoutePathReplicator::DeleteSecondaryPath(BgpTable *table, BgpRoute *rt,
 
 std::string RtReplicated::SecondaryRouteInfo::ToString() const {
     std::ostringstream out;
-    out << table_->name() << "(" << table_ << ")" << ":" << 
-        peer_->ToString() << "(" << peer_ << ")" << ":" << 
+    out << table_->name() << "(" << table_ << ")" << ":" <<
+        peer_->ToString() << "(" << peer_ << ")" << ":" <<
         rt_->ToString() << "(" << rt_ << ")";
     return out.str();
 }

@@ -2,20 +2,22 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_routepath_replicator_h
-#define ctrlplane_routepath_replicator_h
-
-#include <list>
+#ifndef SRC_BGP_ROUTING_INSTANCE_ROUTEPATH_REPLICATOR_H_
+#define SRC_BGP_ROUTING_INSTANCE_ROUTEPATH_REPLICATOR_H_
 
 #include <boost/ptr_container/ptr_map.hpp>
+#include <sandesh/sandesh_trace.h>
 #include <tbb/mutex.h>
+
+#include <list>
+#include <map>
+#include <set>
+#include <string>
 
 #include "bgp/bgp_table.h"
 #include "bgp/community.h"
 #include "bgp/rtarget/rtarget_address.h"
 #include "db/db_table_walker.h"
-
-#include <sandesh/sandesh_trace.h>
 
 class BgpRoute;
 class BgpServer;
@@ -50,10 +52,11 @@ private:
 
 
 // BulkSyncState
-// This class holds the information of the TableWalk requests posted from config sync
+// This class holds the information of the TableWalk requests posted from
+// config sync.
 class BulkSyncState {
 public:
-    BulkSyncState() {
+    BulkSyncState() : id_(DBTable::kInvalidId), walk_again_(false) {
     }
 
     DBTableWalker::WalkId GetWalkerId() {
@@ -91,9 +94,9 @@ public:
         SecondaryRouteInfo(BgpTable *table, const IPeer *peer,
                 uint32_t path_id, BgpPath::PathSource src, BgpRoute *rt)
            : table_(table), peer_(peer), path_id_(path_id), src_(src), rt_(rt) {
-        }   
+        }
         bool operator<(const SecondaryRouteInfo &rhs) const {
-            if (table_ != rhs.table_) 
+            if (table_ != rhs.table_)
                 return (table_ < rhs.table_);
             if (peer_ != rhs.peer_)
                 return (peer_ < rhs.peer_);
@@ -104,7 +107,7 @@ public:
             return (rt_ < rhs.rt_);
         }
         bool operator>(const SecondaryRouteInfo &rhs) const {
-            if (table_ != rhs.table_) 
+            if (table_ != rhs.table_)
                 return (table_ > rhs.table_);
             if  (peer_ != rhs.peer_)
                 return (peer_ > rhs.peer_);
@@ -114,8 +117,8 @@ public:
                 return (src_ > rhs.src_);
             return (rt_ > rhs.rt_);
         }
-        std::string ToString() const; 
-    };  
+        std::string ToString() const;
+    };
 
     typedef std::set<SecondaryRouteInfo> ReplicatedRtPathList;
 
@@ -168,7 +171,7 @@ public:
     BgpServer *server() { return server_; }
     Address::Family family() { return family_; }
 
-    const RtReplicated *GetReplicationState(BgpTable *table, 
+    const RtReplicated *GetReplicationState(BgpTable *table,
                                             BgpRoute *rt) const;
 
     void RequestWalk(BgpTable *table);
@@ -189,10 +192,10 @@ private:
     void DeleteSecondaryPath(BgpTable  *table, BgpRoute *rt,
                              const RtReplicated::SecondaryRouteInfo &rtinfo);
     void DBStateSync(BgpTable *table, BgpRoute *rt, DBTableBase::ListenerId id,
-                     RtReplicated *dbstate, 
+                     RtReplicated *dbstate,
                      RtReplicated::ReplicatedRtPathList &current);
 
-    // Mutex to protect unreg_table_list_, table_state_ and bulk_sync_ 
+    // Mutex to protect unreg_table_list_, table_state_ and bulk_sync_
     // from multiple DBTable task
     tbb::mutex mutex_;
     RouteReplicatorTableState table_state_;
@@ -205,4 +208,4 @@ private:
     SandeshTraceBufferPtr trace_buf_;
 };
 
-#endif // ctrlplane_routepath_replicator_h
+#endif  // SRC_BGP_ROUTING_INSTANCE_ROUTEPATH_REPLICATOR_H_
