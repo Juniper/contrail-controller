@@ -4,8 +4,12 @@
 
 #include "bgp/extended-community/esi_label.h"
 
-#include "base/parse_object.h"
 #include <stdio.h>
+
+#include <algorithm>
+#include <string>
+
+#include "base/parse_object.h"
 
 using std::copy;
 using std::string;

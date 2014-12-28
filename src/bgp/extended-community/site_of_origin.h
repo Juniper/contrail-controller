@@ -2,12 +2,13 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_site_of_origin_h
-#define ctrlplane_site_of_origin_h
+#ifndef SRC_BGP_EXTENDED_COMMUNITY_SITE_OF_ORIGIN_H_
+#define SRC_BGP_EXTENDED_COMMUNITY_SITE_OF_ORIGIN_H_
 
-#include <string>
 #include <boost/array.hpp>
 #include <boost/system/error_code.hpp>
+
+#include <string>
 
 #include "base/parse_object.h"
 
@@ -50,4 +51,4 @@ private:
     bytes_type data_;
 };
 
-#endif
+#endif  // SRC_BGP_EXTENDED_COMMUNITY_SITE_OF_ORIGIN_H_

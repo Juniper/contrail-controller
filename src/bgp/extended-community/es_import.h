@@ -2,11 +2,13 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_es_import_h
-#define ctrlplane_es_import_h
+#ifndef SRC_BGP_EXTENDED_COMMUNITY_ES_IMPORT_H_
+#define SRC_BGP_EXTENDED_COMMUNITY_ES_IMPORT_H_
 
 #include <boost/array.hpp>
 #include <stdint.h>
+
+#include <string>
 
 class MacAddress;
 
@@ -24,4 +26,4 @@ private:
     bytes_type data_;
 };
 
-#endif
+#endif  // SRC_BGP_EXTENDED_COMMUNITY_ES_IMPORT_H_
