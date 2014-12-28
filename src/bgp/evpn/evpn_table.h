@@ -2,8 +2,10 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_evpn_table_h
-#define ctrlplane_evpn_table_h
+#ifndef SRC_BGP_EVPN_EVPN_TABLE_H_
+#define SRC_BGP_EVPN_EVPN_TABLE_H_
+
+#include <string>
 
 #include "bgp/bgp_table.h"
 #include "bgp/evpn/evpn_route.h"
@@ -34,7 +36,7 @@ public:
     virtual size_t Hash(const DBRequestKey *key) const;
 
     virtual BgpRoute *RouteReplicate(BgpServer *server, BgpTable *src_table,
-                                     BgpRoute *src_rt, const BgpPath *path, 
+                                     BgpRoute *src_rt, const BgpPath *path,
                                      ExtCommunityPtr ptr);
 
     virtual bool Export(RibOut *ribout, Route *route,
@@ -57,4 +59,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(EvpnTable);
 };
 
-#endif
+#endif  // SRC_BGP_EVPN_EVPN_TABLE_H_

@@ -20,7 +20,8 @@
 #include "bgp/routing-instance/routing_instance.h"
 #include "db/db_table_partition.h"
 
-using namespace std;
+using std::auto_ptr;
+using std::string;
 
 size_t EvpnTable::HashFunction(const EvpnPrefix &prefix) {
     if (prefix.type() != EvpnPrefix::MacAdvertisementRoute)
@@ -33,20 +34,20 @@ size_t EvpnTable::HashFunction(const EvpnPrefix &prefix) {
     return boost::hash_value(value);
 }
 
-EvpnTable::EvpnTable(DB *db, const std::string &name)
+EvpnTable::EvpnTable(DB *db, const string &name)
     : BgpTable(db, name), evpn_manager_(NULL) {
 }
 
-std::auto_ptr<DBEntry> EvpnTable::AllocEntry(
+auto_ptr<DBEntry> EvpnTable::AllocEntry(
         const DBRequestKey *key) const {
     const RequestKey *pfxkey = static_cast<const RequestKey *>(key);
-    return std::auto_ptr<DBEntry> (new EvpnRoute(pfxkey->prefix));
+    return auto_ptr<DBEntry> (new EvpnRoute(pfxkey->prefix));
 }
 
-std::auto_ptr<DBEntry> EvpnTable::AllocEntryStr(
+auto_ptr<DBEntry> EvpnTable::AllocEntryStr(
         const string &key_str) const {
     EvpnPrefix prefix = EvpnPrefix::FromString(key_str);
-    return std::auto_ptr<DBEntry> (new EvpnRoute(prefix));
+    return auto_ptr<DBEntry> (new EvpnRoute(prefix));
 }
 
 size_t EvpnTable::Hash(const DBRequestKey *key) const {
@@ -68,7 +69,7 @@ BgpRoute *EvpnTable::TableFind(DBTablePartition *rtp,
     return static_cast<BgpRoute *>(rtp->Find(&rt_key));
 }
 
-DBTableBase *EvpnTable::CreateTable(DB *db, const std::string &name) {
+DBTableBase *EvpnTable::CreateTable(DB *db, const string &name) {
     EvpnTable *table = new EvpnTable(db, name);
     table->Init();
     return table;
@@ -80,7 +81,6 @@ BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
     assert(src_table->family() == Address::EVPN);
 
     if (!IsDefault()) {
-
         // Don't replicate to a VRF from other VRF tables.
         EvpnTable *src_evpn_table = dynamic_cast<EvpnTable *>(src_table);
         if (!src_evpn_table->IsDefault())
