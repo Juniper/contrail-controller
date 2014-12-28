@@ -2,10 +2,12 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_inetvpn_address_h
-#define ctrlplane_inetvpn_address_h
+#ifndef SRC_BGP_L3VPN_INETVPN_ADDRESS_H_
+#define SRC_BGP_L3VPN_INETVPN_ADDRESS_H_
 
 #include <boost/system/error_code.hpp>
+
+#include <string>
 
 #include "bgp/bgp_attr_base.h"
 #include "net/address.h"
@@ -15,7 +17,7 @@ class InetVpnPrefix {
 public:
     InetVpnPrefix();
     explicit InetVpnPrefix(const BgpProtoPrefix &prefix);
-    InetVpnPrefix(const RouteDistinguisher &rd, Ip4Address ip, int prefixlen) 
+    InetVpnPrefix(const RouteDistinguisher &rd, Ip4Address ip, int prefixlen)
         : rd_(rd), addr_(ip), prefixlen_(prefixlen) {
     }
 
@@ -39,4 +41,4 @@ private:
     int prefixlen_;
 };
 
-#endif
+#endif  // SRC_BGP_L3VPN_INETVPN_ADDRESS_H_

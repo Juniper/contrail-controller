@@ -3,10 +3,15 @@
  */
 
 #include "bgp/l3vpn/inetvpn_route.h"
+
+#include <algorithm>
+
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/inet/inet_route.h"
 
-using namespace std;
+using std::copy;
+using std::string;
+using std::vector;
 
 InetVpnRoute::InetVpnRoute(const InetVpnPrefix &prefix)
     : prefix_(prefix) {
@@ -58,14 +63,17 @@ void InetVpnRoute::BuildProtoPrefix(BgpProtoPrefix *prefix,
     prefix_.BuildProtoPrefix(label, prefix);
 }
 
-void InetVpnRoute::BuildBgpProtoNextHop(std::vector<uint8_t> &nh, IpAddress nexthop) const {
+void InetVpnRoute::BuildBgpProtoNextHop(vector<uint8_t> &nh,
+                                        IpAddress nexthop) const {
     nh.resize(4+RouteDistinguisher::kSize);
     const Ip4Address::bytes_type &addr_bytes = nexthop.to_v4().to_bytes();
-    std::copy(addr_bytes.begin(), addr_bytes.end(), nh.begin()+RouteDistinguisher::kSize);
+    copy(addr_bytes.begin(), addr_bytes.end(),
+        nh.begin() + RouteDistinguisher::kSize);
 }
 
 DBEntryBase::KeyPtr InetVpnRoute::GetDBRequestKey() const {
-    InetVpnTable::RequestKey *key = new InetVpnTable::RequestKey(GetPrefix(), NULL);
+    InetVpnTable::RequestKey *key =
+        new InetVpnTable::RequestKey(GetPrefix(), NULL);
     return KeyPtr(key);
 }
 
