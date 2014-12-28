@@ -2,10 +2,12 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_rtarget_prefix_h
-#define ctrlplane_rtarget_prefix_h
+#ifndef SRC_BGP_RTARGET_RTARGET_PREFIX_H_
+#define SRC_BGP_RTARGET_RTARGET_PREFIX_H_
 
 #include <boost/system/error_code.hpp>
+
+#include <string>
 
 #include "bgp/bgp_attr_base.h"
 #include "bgp/bgp_common.h"
@@ -15,7 +17,7 @@ class RTargetPrefix {
 public:
     RTargetPrefix();
     explicit RTargetPrefix(const BgpProtoPrefix &prefix);
-    RTargetPrefix(as4_t as, RouteTarget rtarget) 
+    RTargetPrefix(as4_t as, RouteTarget rtarget)
         : as_(as), rtarget_(rtarget) {
     }
 
@@ -38,4 +40,4 @@ private:
     RouteTarget rtarget_;
 };
 
-#endif
+#endif  // SRC_BGP_RTARGET_RTARGET_PREFIX_H_

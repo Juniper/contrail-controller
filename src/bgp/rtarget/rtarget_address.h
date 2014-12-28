@@ -2,12 +2,13 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_rtarget_address_h
-#define ctrlplane_rtarget_address_h
+#ifndef SRC_BGP_RTARGET_RTARGET_ADDRESS_H_
+#define SRC_BGP_RTARGET_RTARGET_ADDRESS_H_
 
-#include <string>
 #include <boost/array.hpp>
 #include <boost/system/error_code.hpp>
+
+#include <string>
 
 class RouteTarget {
 public:
@@ -34,7 +35,7 @@ public:
         return data_ == rhs.data_;
     }
 
-    static RouteTarget FromString(const std::string &str, 
+    static RouteTarget FromString(const std::string &str,
                                   boost::system::error_code *error = NULL);
 
     const bytes_type &GetExtCommunity() const {
@@ -47,4 +48,4 @@ private:
     bytes_type data_;
 };
 
-#endif
+#endif  // SRC_BGP_RTARGET_RTARGET_ADDRESS_H_

@@ -14,22 +14,22 @@
 #include "bgp/routing-instance/routing_instance.h"
 #include "db/db_table_partition.h"
 
-using namespace std;
+using std::auto_ptr;
+using std::string;
 
 RTargetTable::RTargetTable(DB *db, const string &name)
         : BgpTable(db, name) {
 }
 
-std::auto_ptr<DBEntry> RTargetTable::AllocEntry(const DBRequestKey *key) const {
+auto_ptr<DBEntry> RTargetTable::AllocEntry(const DBRequestKey *key) const {
     const RequestKey *pfxkey = static_cast<const RequestKey *>(key);
-    return std::auto_ptr<DBEntry> (new RTargetRoute(pfxkey->prefix));
+    return auto_ptr<DBEntry> (new RTargetRoute(pfxkey->prefix));
 }
 
 
-std::auto_ptr<DBEntry> RTargetTable::AllocEntryStr(const string &key_str) 
-    const {
+auto_ptr<DBEntry> RTargetTable::AllocEntryStr(const string &key_str) const {
     RTargetPrefix prefix = RTargetPrefix::FromString(key_str);
-    return std::auto_ptr<DBEntry> (new RTargetRoute(prefix));
+    return auto_ptr<DBEntry> (new RTargetRoute(prefix));
 }
 
 size_t RTargetTable::Hash(const DBEntry *entry) const {
@@ -40,14 +40,14 @@ size_t RTargetTable::Hash(const DBRequestKey *key) const {
     return 0;
 }
 
-BgpRoute *RTargetTable::TableFind(DBTablePartition *rtp, 
+BgpRoute *RTargetTable::TableFind(DBTablePartition *rtp,
                                   const DBRequestKey *prefix) {
     const RequestKey *pfxkey = static_cast<const RequestKey *>(prefix);
     RTargetRoute rt_key(pfxkey->prefix);
     return static_cast<BgpRoute *>(rtp->Find(&rt_key));
 }
 
-DBTableBase *RTargetTable::CreateTable(DB *db, const std::string &name) {
+DBTableBase *RTargetTable::CreateTable(DB *db, const string &name) {
     RTargetTable *table = new RTargetTable(db, name);
     table->Init();
     return table;

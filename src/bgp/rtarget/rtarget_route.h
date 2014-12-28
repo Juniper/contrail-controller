@@ -2,8 +2,11 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_rtarget_route_h
-#define ctrlplane_rtarget_route_h
+#ifndef SRC_BGP_RTARGET_RTARGET_ROUTE_H_
+#define SRC_BGP_RTARGET_RTARGET_ROUTE_H_
+
+#include <string>
+#include <vector>
 
 #include "base/util.h"
 #include "bgp/bgp_attr.h"
@@ -30,7 +33,7 @@ public:
     virtual void BuildProtoPrefix(BgpProtoPrefix *prefix,
                                   const BgpAttr *attr = NULL,
                                   uint32_t label = 0) const;
-    virtual void BuildBgpProtoNextHop(std::vector<uint8_t> &nh, 
+    virtual void BuildBgpProtoNextHop(std::vector<uint8_t> &nh,
                                       IpAddress nexthop) const;
 
     virtual bool IsLess(const DBEntry &genrhs) const {
@@ -47,4 +50,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(RTargetRoute);
 };
 
-#endif
+#endif  // SRC_BGP_RTARGET_RTARGET_ROUTE_H_
