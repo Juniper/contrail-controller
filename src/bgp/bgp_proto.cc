@@ -4,16 +4,25 @@
 
 #include "bgp/bgp_proto.h"
 
+#include <algorithm>
+#include <list>
+#include <map>
+#include <utility>
+
 #include "base/proto.h"
 #include "base/logging.h"
 #include "bgp/bgp_common.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer.h"
-#include "bgp_server.h"
+#include "bgp/bgp_server.h"
 #include "net/bgp_af.h"
 
 using boost::system::error_code;
-using namespace std;
+using std::cout;
+using std::endl;
+using std::string;
+using std::vector;
+
 namespace mpl = boost::mpl;
 
 BgpProto::OpenMessage::OpenMessage()
@@ -144,35 +153,36 @@ BgpProto::Notification::Notification()
     : BgpMessage(NOTIFICATION), error(0), subcode(0) {
 }
 
-const std::string BgpProto::Notification::ToString() const {
+const string BgpProto::Notification::ToString() const {
     return toString(static_cast<BgpProto::Notification::Code>(error), subcode);
 }
 
-const std::string BgpProto::Notification::toString(
+const string BgpProto::Notification::toString(
         BgpProto::Notification::Code code, int sub_code) {
-    std::string msg("");
+    string msg("");
     switch (code) {
         case MsgHdrErr:
-            msg += std::string("Message Header Error:") +
+            msg += string("Message Header Error:") +
                 MsgHdrSubcodeToString(static_cast<MsgHdrSubCode>(sub_code));
             break;
         case OpenMsgErr:
-            msg += std::string("OPEN Message Error:") +
+            msg += string("OPEN Message Error:") +
                 OpenMsgSubcodeToString(static_cast<OpenMsgSubCode>(sub_code));
             break;
         case UpdateMsgErr:
-            msg += std::string("UPDATE Message Error:") + 
-                UpdateMsgSubCodeToString(static_cast<UpdateMsgSubCode>(sub_code));
+            msg += string("UPDATE Message Error:") +
+                UpdateMsgSubCodeToString(
+                    static_cast<UpdateMsgSubCode>(sub_code));
             break;
         case HoldTimerExp:
             msg += "Hold Timer Expired";
             break;
         case FSMErr:
-            msg += std::string("Finite State Machine Error:") + 
+            msg += string("Finite State Machine Error:") +
                 FsmSubcodeToString(static_cast<FsmSubcode>(sub_code));
             break;
         case Cease:
-            msg += std::string("Cease:") + 
+            msg += string("Cease:") +
                 CeaseSubcodeToString(static_cast<CeaseSubCode>(sub_code));
             break;
         default:
@@ -202,10 +212,12 @@ struct BgpAttrCodeCompare {
     }
 };
 
-//Validate an incoming Update Message
-//Returns 0 if message is OK
-//Returns one of the values from enum UpdateMsgSubCode if an error is detected
-int BgpProto::Update::Validate(const BgpPeer *peer, std::string &data) {
+//
+// Validate an incoming Update Message
+// Returns 0 if message is OK
+// Returns one of the values from enum UpdateMsgSubCode if an error is detected
+//
+int BgpProto::Update::Validate(const BgpPeer *peer, string *data) {
     BgpAttrCodeCompare comp;
     std::sort(path_attributes.begin(), path_attributes.end(), comp);
     bool origin = false, nh = false, as_path = false, mp_reach_nlri = false,
@@ -214,10 +226,10 @@ int BgpProto::Update::Validate(const BgpPeer *peer, std::string &data) {
     bool ibgp = (peer->PeerType() == IBGP);
 
     BgpAttrSpec::const_iterator it;
-    std::string rxed_attr("Path attributes : ");
+    string rxed_attr("Path attributes : ");
     for (it = path_attributes.begin(); it < path_attributes.end(); it++) {
         if (it+1 < path_attributes.end() && (*it)->code == (*(it+1))->code) {
-            //duplicate attributes
+            // Duplicate attributes
             return BgpProto::Notification::MalformedAttributeList;
         }
 
@@ -225,22 +237,23 @@ int BgpProto::Update::Validate(const BgpPeer *peer, std::string &data) {
 
         if ((*it)->code == BgpAttribute::Origin)
             origin = true;
-        if ((*it)->code == BgpAttribute::LocalPref)
+        if ((*it)->code == BgpAttribute::LocalPref) {
             local_pref = true;
-        else if ((*it)->code == BgpAttribute::NextHop)
+        } else if ((*it)->code == BgpAttribute::NextHop) {
             nh = true;
-        else if ((*it)->code == BgpAttribute::AsPath) {
+        } else if ((*it)->code == BgpAttribute::AsPath) {
             as_path = true;
             AsPathSpec *asp = static_cast<AsPathSpec *>(*it);
-            // Check segments size for ebpg, 
-            // IBGP can have empty path for routes that are originated
+            // Check segments size for ebgp.
+            // IBGP can have empty path for routes that are originated.
             if (!ibgp) {
                 if (!asp->path_segments.size() ||
                     !asp->path_segments[0]->path_segment.size())
                     return BgpProto::Notification::MalformedASPath;
             }
-        } else if ((*it)->code == BgpAttribute::MPReachNlri)
+        } else if ((*it)->code == BgpAttribute::MPReachNlri) {
             mp_reach_nlri = true;
+        }
     }
 
     BGP_LOG_PEER(Message, const_cast<BgpPeer *>(peer),
@@ -249,19 +262,19 @@ int BgpProto::Update::Validate(const BgpPeer *peer, std::string &data) {
     if (nlri.size() > 0 && !nh) {
         // next-hop attribute must be present if IPv4 NLRI is present
         char attrib_type = BgpAttribute::NextHop;
-        data = std::string(&attrib_type, 1);
+        *data = string(&attrib_type, 1);
         return BgpProto::Notification::MissingWellKnownAttrib;
     }
     if (nlri.size() > 0 || mp_reach_nlri) {
         // origin and as_path must be present if any NLRI is present
         if (!origin) {
             char attrib_type = BgpAttribute::Origin;
-            data = std::string(&attrib_type, 1);
+            *data = string(&attrib_type, 1);
             return BgpProto::Notification::MissingWellKnownAttrib;
         }
         if (!as_path) {
             char attrib_type = BgpAttribute::AsPath;
-            data = std::string(&attrib_type, 1);
+            *data = string(&attrib_type, 1);
             return BgpProto::Notification::MissingWellKnownAttrib;
         }
 
@@ -269,16 +282,16 @@ int BgpProto::Update::Validate(const BgpPeer *peer, std::string &data) {
         if (ibgp && !local_pref) {
             // If IBGP, local_pref is mandatory
             char attrib_type = BgpAttribute::LocalPref;
-            data = std::string(&attrib_type, 1);
+            *data = string(&attrib_type, 1);
             return BgpProto::Notification::MissingWellKnownAttrib;
         }
     }
     return 0;
 }
 
-int BgpProto::Update::CompareTo(const BgpProto::Update &rhs) const{
+int BgpProto::Update::CompareTo(const BgpProto::Update &rhs) const {
     KEY_COMPARE(withdrawn_routes.size(), rhs.withdrawn_routes.size());
-    for (size_t i=0; i < withdrawn_routes.size(); i++) {
+    for (size_t i = 0; i < withdrawn_routes.size(); i++) {
         KEY_COMPARE(withdrawn_routes[i]->prefixlen,
                     rhs.withdrawn_routes[i]->prefixlen);
         KEY_COMPARE(withdrawn_routes[i]->prefix,
@@ -295,7 +308,7 @@ int BgpProto::Update::CompareTo(const BgpProto::Update &rhs) const{
     }
 
     KEY_COMPARE(nlri.size(), rhs.nlri.size());
-    for (size_t i=0; i<rhs.nlri.size(); i++) {
+    for (size_t i = 0; i < rhs.nlri.size(); i++) {
         KEY_COMPARE(nlri[i]->prefixlen, rhs.nlri[i]->prefixlen);
         KEY_COMPARE(nlri[i]->prefix, rhs.nlri[i]->prefix);
     }
@@ -327,7 +340,7 @@ public:
     static const int kErrorCode = BgpProto::Notification::MsgHdrErr;
     static const int kErrorSubcode = BgpProto::Notification::BadMsgLength;
     struct Offset {
-        std::string operator()() {
+        string operator()() {
             return "BgpMsgLength";
         }
     };
@@ -373,7 +386,6 @@ public:
     static const int kSize = 2;
     typedef Accessor<BgpProto::OpenMessage, uint32_t,
         &BgpProto::OpenMessage::as_num> Setter;
-    
 };
 
 class BgpHoldTime : public ProtoElement<BgpHoldTime> {
@@ -402,8 +414,7 @@ class BgpOpenCapabilityCode : public ProtoElement<BgpOpenCapabilityCode> {
 public:
     static const int kSize = 1;
     typedef Accessor<BgpProto::OpenMessage::Capability, int,
-    &BgpProto::OpenMessage::Capability::code> Setter;
-    
+        &BgpProto::OpenMessage::Capability::code> Setter;
 };
 
 class BgpOpenCapabilityLength : public ProtoElement<BgpOpenCapabilityLength> {
@@ -416,7 +427,7 @@ class BgpOpenCapabilityValue : public ProtoElement<BgpOpenCapabilityValue> {
 public:
     static const int kSize = -1;
     typedef VectorAccessor<BgpProto::OpenMessage::Capability, uint8_t,
-    		&BgpProto::OpenMessage::Capability::capability> Setter;
+        &BgpProto::OpenMessage::Capability::capability> Setter;
 };
 
 class BgpOpenCapability : public ProtoSequence<BgpOpenCapability> {
@@ -435,7 +446,7 @@ public:
     typedef CollectionAccessor<BgpProto::OpenMessage::OptParam,
         vector<BgpProto::OpenMessage::Capability *>,
         &BgpProto::OpenMessage::OptParam::capabilities> ContextStorer;
-    
+
     struct OptMatch {
         bool match(const BgpProto::OpenMessage::OptParam *ctx) {
             return !ctx->capabilities.empty();
@@ -488,7 +499,7 @@ class NotificationErrorSubcode : public ProtoElement<NotificationErrorSubcode> {
 public:
     static const int kSize = 1;
     typedef Accessor<BgpProto::Notification, int,
-        &BgpProto::Notification::subcode> Setter;    
+        &BgpProto::Notification::subcode> Setter;
 };
 
 class NotificationData : public ProtoElement<NotificationData> {
@@ -533,7 +544,7 @@ public:
             &BgpProtoPrefix::prefix> Setter;
 };
 
-class BgpUpdateWithdrawnRoutes : 
+class BgpUpdateWithdrawnRoutes :
     public ProtoSequence<BgpUpdateWithdrawnRoutes> {
 public:
     static const int kSize = 2;
@@ -598,7 +609,8 @@ struct BgpAttributeVerifier {
     static bool Verifier(const C *obj, const uint8_t *data, size_t size,
                          ParseContext *context) {
         int pre = (obj->flags & BgpAttribute::ExtendedLength) ? 4 : 3;
-        if (C::kSize > 0 && (int) context->total_size() != C::kSize) {
+        if (C::kSize > 0 &&
+            static_cast<int>(context->total_size()) != C::kSize) {
             int offset = pre + context->total_size() - context->size();
             context->SetError(BgpProto::Notification::UpdateMsgErr,
                     BgpProto::Notification::AttribLengthError,
@@ -650,7 +662,7 @@ struct BgpAttributeVerifier<BgpAttrNextHop> {
     static bool Verifier(const BgpAttrNextHop *obj, const uint8_t *data,
                          size_t size, ParseContext *context) {
         int pre = (obj->flags & BgpAttribute::ExtendedLength) ? 4 : 3;
-        if ((int)context->size() != BgpAttrNextHop::kSize) {
+        if (static_cast<int>(context->size()) != BgpAttrNextHop::kSize) {
             context->SetError(BgpProto::Notification::UpdateMsgErr,
                     BgpProto::Notification::AttribLengthError,
                     "BgpAttrNextHop", data - pre, size + pre);
@@ -663,7 +675,7 @@ struct BgpAttributeVerifier<BgpAttrNextHop> {
             return false;
         }
         uint32_t value = get_value(data, size);
-        //TODO: More checks are needed
+        // TODO(sbansal): More checks are needed
         if (value == 0) {
             context->SetError(BgpProto::Notification::UpdateMsgErr,
                     BgpProto::Notification::InvalidNH,
@@ -676,8 +688,9 @@ struct BgpAttributeVerifier<BgpAttrNextHop> {
 
 template <>
 struct BgpAttributeVerifier<AsPathSpec::PathSegment> {
-    static bool Verifier(const AsPathSpec::PathSegment *obj, const uint8_t *data,
-                         size_t size, ParseContext *context) {
+    static bool Verifier(const AsPathSpec::PathSegment *obj,
+                         const uint8_t *data, size_t size,
+                         ParseContext *context) {
         return true;
     }
 };
@@ -876,9 +889,12 @@ public:
     typedef PmsiTunnelSpec ContextType;
     typedef BgpContextSwap<PmsiTunnelSpec> ContextSwap;
     typedef mpl::list<BgpPathAttrLength,
-        BgpAttributeValue<1, PmsiTunnelSpec, uint8_t, &PmsiTunnelSpec::tunnel_flags>,
-        BgpAttributeValue<1, PmsiTunnelSpec, uint8_t, &PmsiTunnelSpec::tunnel_type>,
-        BgpAttributeValue<3, PmsiTunnelSpec, uint32_t, &PmsiTunnelSpec::label>,
+        BgpAttributeValue<1, PmsiTunnelSpec,
+            uint8_t, &PmsiTunnelSpec::tunnel_flags>,
+        BgpAttributeValue<1, PmsiTunnelSpec,
+            uint8_t, &PmsiTunnelSpec::tunnel_type>,
+        BgpAttributeValue<3, PmsiTunnelSpec,
+            uint32_t, &PmsiTunnelSpec::label>,
         BgpPathAttributePmsiTunnelIdentifier> Sequence;
 };
 
@@ -1089,7 +1105,7 @@ public:
 
 class BgpPathAttributeReserved : public ProtoElement<BgpPathAttributeReserved> {
 public:
-    const static int kSize = 1;
+    static const int kSize = 1;
     static void Writer(const void *msg, uint8_t *data, size_t size) {
         *data = 0;
     }
@@ -1098,17 +1114,16 @@ public:
 class BgpPathAttributeMpNlriNextHopLength :
     public ProtoElement<BgpPathAttributeMpNlriNextHopLength> {
 public:
-    const static int kSize = 1;
+    static const int kSize = 1;
     typedef int SequenceLength;
 };
 
 
-class BgpPathAttributeMpNlriNexthopAddr : 
+class BgpPathAttributeMpNlriNexthopAddr :
     public ProtoElement<BgpPathAttributeMpNlriNexthopAddr> {
 public:
     static const int kSize = -1;
-    typedef VectorAccessor<BgpMpNlri, uint8_t,
-    		&BgpMpNlri::nexthop> Setter;
+    typedef VectorAccessor<BgpMpNlri, uint8_t, &BgpMpNlri::nexthop> Setter;
 };
 
 class BgpPathAttributeMpNlriNextHop :
@@ -1125,7 +1140,7 @@ public:
 
     struct OptMatch {
         bool match(const BgpMpNlri *obj) {
-            return 
+            return
                 (((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::Unicast)) ||
                  ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::Vpn))     ||
                  ((obj->afi == BgpAf::IPv6) && (obj->safi == BgpAf::Vpn)));
@@ -1135,11 +1150,10 @@ public:
     typedef OptMatch ContextMatch;
     typedef CollectionAccessor<BgpMpNlri, vector<BgpProtoPrefix *>,
             &BgpMpNlri::nlri> ContextStorer;
-
     typedef mpl::list<BgpPrefixLen, BgpPrefixAddress> Sequence;
 };
 
-class BgpPathAttributeMpRTargetNlri : 
+class BgpPathAttributeMpRTargetNlri :
     public ProtoSequence<BgpPathAttributeMpRTargetNlri> {
 public:
     static const int kMinOccurs = 0;
@@ -1186,7 +1200,8 @@ public:
     typedef ErmVpnPrefixLen Setter;
 };
 
-class BgpPathAttributeMpErmVpnNlri : public ProtoSequence<BgpPathAttributeMpErmVpnNlri> {
+class BgpPathAttributeMpErmVpnNlri
+    : public ProtoSequence<BgpPathAttributeMpErmVpnNlri> {
 public:
     static const int kMinOccurs = 0;
     static const int kMaxOccurs = -1;
@@ -1202,7 +1217,8 @@ public:
     typedef CollectionAccessor<BgpMpNlri, vector<BgpProtoPrefix *>,
             &BgpMpNlri::nlri> ContextStorer;
 
-    typedef mpl::list<BgpErmVpnNlriType, BgpErmVpnNlriLen, BgpPrefixAddress> Sequence;
+    typedef mpl::list<BgpErmVpnNlriType, BgpErmVpnNlriLen,
+        BgpPrefixAddress> Sequence;
 };
 
 class BgpEvpnNlriType : public ProtoElement<BgpEvpnNlriType> {
@@ -1232,7 +1248,7 @@ public:
     typedef EvpnPrefixLen Setter;
 };
 
-class BgpPathAttributeMpEvpnNlri : 
+class BgpPathAttributeMpEvpnNlri :
     public ProtoSequence<BgpPathAttributeMpEvpnNlri> {
 public:
     static const int kMinOccurs = 0;
@@ -1245,22 +1261,18 @@ public:
     };
 
     typedef OptMatch ContextMatch;
-
     typedef CollectionAccessor<BgpMpNlri, vector<BgpProtoPrefix *>,
             &BgpMpNlri::nlri> ContextStorer;
-
-    typedef mpl::list<BgpEvpnNlriType, BgpEvpnNlriLen, BgpPrefixAddress> Sequence;
+    typedef mpl::list<BgpEvpnNlriType, BgpEvpnNlriLen,
+        BgpPrefixAddress> Sequence;
 };
 
-class BgpPathAttributeMpNlriChoice : 
+class BgpPathAttributeMpNlriChoice :
     public ProtoChoice<BgpPathAttributeMpNlriChoice> {
 public:
     static const int kSize = 0;
     struct MpChoice {
         static void set(BgpMpNlri *obj, int &value) {
-            if ((obj->afi == BgpAf::L2Vpn) && (obj->safi == BgpAf::EVpn)) {
-                value = 1;
-            }
             if ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::Unicast)) {
                 value = 0;
             }
@@ -1269,6 +1281,9 @@ public:
             }
             if ((obj->afi == BgpAf::IPv6) && (obj->safi == BgpAf::Vpn)) {
                 value = 0;
+            }
+            if ((obj->afi == BgpAf::L2Vpn) && (obj->safi == BgpAf::EVpn)) {
+                value = 1;
             }
             if ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::RTarget)) {
                 value = 2;
@@ -1279,23 +1294,23 @@ public:
         }
 
         static int get(BgpMpNlri *obj) {
-            if ((obj->afi == BgpAf::L2Vpn) && (obj->safi == BgpAf::EVpn)) {
-                return 1;
-            }
             if ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::Unicast)) {
                 return 0;
             }
             if ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::Vpn)) {
                 return 0;
             }
+            if ((obj->afi == BgpAf::IPv6) && (obj->safi == BgpAf::Vpn)) {
+                return 0;
+            }
+            if ((obj->afi == BgpAf::L2Vpn) && (obj->safi == BgpAf::EVpn)) {
+                return 1;
+            }
             if ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::RTarget)) {
                 return 2;
             }
             if ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::ErmVpn)) {
                 return 3;
-            }
-            if ((obj->afi == BgpAf::IPv6) && (obj->safi == BgpAf::Vpn)) {
-                return 0;
             }
             return -1;
         }
@@ -1314,7 +1329,7 @@ class BgpPathAttributeMpReachNlriSequence :
 public ProtoSequence<BgpPathAttributeMpReachNlriSequence> {
 public:
     struct Offset {
-        std::string operator()() {
+        string operator()() {
             return "MpReachUnreachNlri";
         }
     };
@@ -1333,7 +1348,7 @@ class BgpPathAttributeMpUnreachNlriSequence :
 public ProtoSequence<BgpPathAttributeMpUnreachNlriSequence> {
 public:
     struct Offset {
-        std::string operator()() {
+        string operator()() {
             return "MpReachUnreachNlri";
         }
     };
@@ -1360,7 +1375,8 @@ public:
         }
         return true;
     }
-    typedef VectorAccessor<BgpAttrUnknown, uint8_t, &BgpAttrUnknown::value> Setter;
+    typedef VectorAccessor<BgpAttrUnknown, uint8_t,
+        &BgpAttrUnknown::value> Setter;
 };
 
 class BgpPathAttributeUnknown : public ProtoSequence<BgpPathAttributeUnknown> {
@@ -1423,7 +1439,7 @@ public:
     static const int kErrorSubcode =
             BgpProto::Notification::MalformedAttributeList;
     struct Offset {
-        std::string operator()() {
+        string operator()() {
             return "BgpPathAttribute";
         }
     };
@@ -1438,18 +1454,17 @@ class BgpUpdateNlri : public ProtoSequence<BgpUpdateNlri> {
 public:
     static const int kMinOccurs = 0;
     static const int kMaxOccurs = -1;
-    
+
     typedef CollectionAccessor<BgpProto::Update,
             vector<BgpProtoPrefix *>,
             &BgpProto::Update::nlri> ContextStorer;
-    
+
     struct OptMatch {
         bool match(const BgpProto::Update *ctx) {
             return !ctx->nlri.empty();
         }
     };
     typedef OptMatch ContextMatch;
-    
     typedef mpl::list<BgpPrefixLen, BgpPrefixAddress> Sequence;
 };
 
@@ -1481,7 +1496,8 @@ public:
 BgpProto::BgpMessage *BgpProto::Decode(const uint8_t *data, size_t size,
                                        ParseErrorContext *ec) {
     ParseContext context;
-    int result = BgpProtocol::Parse(data, size, &context, (void *) NULL);
+    int result = BgpProtocol::Parse(
+        data, size, &context, reinterpret_cast<void *>(NULL));
     if (result < 0) {
         if (ec) {
             *ec = context.error_context();
