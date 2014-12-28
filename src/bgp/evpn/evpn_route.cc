@@ -4,6 +4,8 @@
 
 #include "bgp/evpn/evpn_route.h"
 
+#include <algorithm>
+
 #include "bgp/evpn/evpn_table.h"
 #include "bgp/bgp_server.h"
 
@@ -383,12 +385,12 @@ EvpnPrefix EvpnPrefix::FromString(const string &str,
 
     switch (prefix.type_) {
     case AutoDiscoveryRoute: {
-
         // Parse ESI.
         size_t pos3 = str.find('-', pos2 + 1);
         if (pos3 == string::npos) {
             if (errorp != NULL) {
-                *errorp = make_error_code(boost::system::errc::invalid_argument);
+                *errorp =
+                    make_error_code(boost::system::errc::invalid_argument);
             }
             return EvpnPrefix::kNullPrefix;
         }
@@ -407,7 +409,8 @@ EvpnPrefix EvpnPrefix::FromString(const string &str,
         bool ret = stringToInteger(tag_str, prefix.tag_);
         if (!ret) {
             if (errorp != NULL) {
-                *errorp = make_error_code(boost::system::errc::invalid_argument);
+                *errorp =
+                    make_error_code(boost::system::errc::invalid_argument);
             }
             return EvpnPrefix::kNullPrefix;
         }
@@ -416,12 +419,12 @@ EvpnPrefix EvpnPrefix::FromString(const string &str,
     }
 
     case MacAdvertisementRoute: {
-
         // Parse tag.
         size_t pos3 = str.find('-', pos2 + 1);
         if (pos3 == string::npos) {
             if (errorp != NULL) {
-                *errorp = make_error_code(boost::system::errc::invalid_argument);
+                *errorp =
+                    make_error_code(boost::system::errc::invalid_argument);
             }
             return EvpnPrefix::kNullPrefix;
         }
@@ -429,7 +432,8 @@ EvpnPrefix EvpnPrefix::FromString(const string &str,
         bool ret = stringToInteger(tag_str, prefix.tag_);
         if (!ret) {
             if (errorp != NULL) {
-                *errorp = make_error_code(boost::system::errc::invalid_argument);
+                *errorp =
+                    make_error_code(boost::system::errc::invalid_argument);
             }
             return EvpnPrefix::kNullPrefix;
         }
@@ -465,12 +469,12 @@ EvpnPrefix EvpnPrefix::FromString(const string &str,
     }
 
     case InclusiveMulticastRoute: {
-
         // Parse tag.
         size_t pos3 = str.find('-', pos2 + 1);
         if (pos3 == string::npos) {
             if (errorp != NULL) {
-                *errorp = make_error_code(boost::system::errc::invalid_argument);
+                *errorp =
+                    make_error_code(boost::system::errc::invalid_argument);
             }
             return EvpnPrefix::kNullPrefix;
         }
@@ -478,7 +482,8 @@ EvpnPrefix EvpnPrefix::FromString(const string &str,
         bool ret = stringToInteger(tag_str, prefix.tag_);
         if (!ret) {
             if (errorp != NULL) {
-                *errorp = make_error_code(boost::system::errc::invalid_argument);
+                *errorp =
+                    make_error_code(boost::system::errc::invalid_argument);
             }
             return EvpnPrefix::kNullPrefix;
         }
@@ -500,12 +505,12 @@ EvpnPrefix EvpnPrefix::FromString(const string &str,
     }
 
     case SegmentRoute: {
-
         // Parse ESI.
         size_t pos3 = str.find('-', pos2 + 1);
         if (pos3 == string::npos) {
             if (errorp != NULL) {
-                *errorp = make_error_code(boost::system::errc::invalid_argument);
+                *errorp =
+                    make_error_code(boost::system::errc::invalid_argument);
             }
             return EvpnPrefix::kNullPrefix;
         }

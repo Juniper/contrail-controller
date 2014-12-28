@@ -2,10 +2,13 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_evpn_route_h
-#define ctrlplane_evpn_route_h
+#ifndef SRC_BGP_EVPN_EVPN_ROUTE_H_
+#define SRC_BGP_EVPN_EVPN_ROUTE_H_
 
 #include <boost/system/error_code.hpp>
+
+#include <string>
+#include <vector>
 
 #include "bgp/bgp_route.h"
 #include "bgp/inet/inet_route.h"
@@ -95,7 +98,7 @@ private:
 
 class EvpnRoute : public BgpRoute {
 public:
-    EvpnRoute(const EvpnPrefix &prefix);
+    explicit EvpnRoute(const EvpnPrefix &prefix);
     virtual int CompareTo(const Route &rhs) const;
     virtual std::string ToString() const;
     std::string ToXmppIdString() const;
@@ -127,4 +130,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(EvpnRoute);
 };
 
-#endif
+#endif  // SRC_BGP_EVPN_EVPN_ROUTE_H_
