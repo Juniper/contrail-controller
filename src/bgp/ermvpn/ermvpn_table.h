@@ -2,8 +2,10 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_ermvpn_table_h
-#define ctrlplane_ermvpn_table_h
+#ifndef SRC_BGP_ERMVPN_ERMVPN_TABLE_H_
+#define SRC_BGP_ERMVPN_ERMVPN_TABLE_H_
+
+#include <string>
 
 #include "bgp/bgp_attr.h"
 #include "bgp/bgp_table.h"
@@ -36,7 +38,7 @@ public:
     virtual size_t Hash(const DBEntry *entry) const;
     virtual size_t Hash(const DBRequestKey *key) const;
 
-    virtual BgpRoute *RouteReplicate(BgpServer *server, BgpTable *src_table, 
+    virtual BgpRoute *RouteReplicate(BgpServer *server, BgpTable *src_table,
                                      BgpRoute *src_rt, const BgpPath *path,
                                      ExtCommunityPtr ptr);
 
@@ -54,11 +56,11 @@ public:
 private:
     friend class BgpMulticastTest;
 
-    virtual BgpRoute *TableFind(DBTablePartition *rtp, 
+    virtual BgpRoute *TableFind(DBTablePartition *rtp,
                                 const DBRequestKey *prefix);
     McastTreeManager *tree_manager_;
 
     DISALLOW_COPY_AND_ASSIGN(ErmVpnTable);
 };
 
-#endif
+#endif  // SRC_BGP_ERMVPN_ERMVPN_TABLE_H_
