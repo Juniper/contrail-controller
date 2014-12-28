@@ -46,7 +46,6 @@ Inet6Prefix Inet6Prefix::FromString(const string &str, error_code *error) {
 
 // Check whether 'this' is more specific than rhs.
 bool Inet6Prefix::IsMoreSpecific(const Inet6Prefix &rhs) const {
-
     // My prefixlen must be longer in order to be more specific.
     if (prefixlen_ < rhs.prefixlen()) {
         return false;
@@ -67,8 +66,8 @@ Inet6Prefix Inet6Prefix::operator&(const Inet6Prefix& right) const {
     for (size_t i = 0; i < sizeof(Ip6Address::bytes_type); ++i) {
         addr_bytes[i] = lhs[i] & rhs[i];
     }
-    return Inet6Prefix(Ip6Address(addr_bytes), (prefixlen_ <= right.prefixlen_ ?
-                                              prefixlen() : right.prefixlen()));
+    return Inet6Prefix(Ip6Address(addr_bytes),
+        (prefixlen_ <= right.prefixlen_ ? prefixlen() : right.prefixlen()));
 }
 
 // Routines for class Inet6Route

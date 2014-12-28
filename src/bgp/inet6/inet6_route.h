@@ -2,8 +2,11 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_inet6_route_h
-#define ctrlplane_inet6_route_h
+#ifndef SRC_BGP_INET6_INET6_ROUTE_H_
+#define SRC_BGP_INET6_INET6_ROUTE_H_
+
+#include <string>
+#include <vector>
 
 #include "bgp/bgp_attr.h"
 #include "bgp/bgp_route.h"
@@ -15,7 +18,7 @@ class Inet6Prefix {
 public:
     static const uint8_t kMaxV6PrefixLen = Address::kMaxV6PrefixLen;
 
-    Inet6Prefix() : prefixlen_ (0) { }
+    Inet6Prefix() : prefixlen_(0) { }
     Inet6Prefix(Ip6Address addr, int prefixlen)
         : ip6_addr_(addr), prefixlen_(prefixlen) {
     }
@@ -102,4 +105,4 @@ private:
     static bool initialized_;
 };
 
-#endif /* #ifndef ctrlplane_inet6_route_h */
+#endif  // SRC_BGP_INET6_INET6_ROUTE_H_
