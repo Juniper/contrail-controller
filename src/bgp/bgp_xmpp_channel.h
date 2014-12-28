@@ -2,23 +2,25 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef __BGP_XMPP_CHANNEL_H__
-#define __BGP_XMPP_CHANNEL_H__
+#ifndef SRC_BGP_BGP_XMPP_CHANNEL_H_
+#define SRC_BGP_BGP_XMPP_CHANNEL_H_
 
-#include <map>
-#include <string>
 #include <boost/function.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/scoped_ptr.hpp>
 
-#include "net/rd.h"
+#include <map>
+#include <set>
+#include <string>
+#include <utility>
 
 #include "base/queue_task.h"
 #include "bgp/bgp_ribout.h"
 #include "bgp/routing-instance/routing_instance.h"
+#include "net/rd.h"
 #include "xmpp/xmpp_channel.h"
 
-namespace pugi{
+namespace pugi {
 class xml_node;
 }
 
@@ -110,13 +112,12 @@ private:
         UNSUBSCRIBE,
     };
     struct MembershipRequestState {
-        MembershipRequestState(RequestType current, int id) 
+        MembershipRequestState(RequestType current, int id)
             : current_req(current), instance_id(id), pending_req(current) {
         }
         RequestType current_req;
         int instance_id;
         RequestType pending_req;
-
     };
 
     // Map of routing instances to which this BgpXmppChannel is subscribed.
@@ -133,11 +134,11 @@ private:
     typedef std::map<RouteTarget, RoutingInstanceList> PublishedRTargetRoutes;
 
     // map of routing-instance table name to XMPP subscription request state
-    typedef std::map<std::string, MembershipRequestState> 
+    typedef std::map<std::string, MembershipRequestState>
                                             RoutingTableMembershipRequestMap;
 
     // map of routing-instance name to XMPP subscription request state
-    // This map maintains list of requests that are rxed for subscription 
+    // This map maintains list of requests that are rxed for subscription
     // before routing instance is actually created
     typedef std::map<std::string, int> VrfMembershipRequestMap;
 
@@ -152,13 +153,13 @@ private:
                      bool add_change);
     void ProcessInet6Item(std::string vrf_name, const pugi::xml_node &node,
                           bool add_change);
-    void ProcessMcastItem(std::string rt_instance, 
+    void ProcessMcastItem(std::string rt_instance,
                           const pugi::xml_node &item, bool add_change);
     void ProcessEnetItem(std::string rt_instance,
                          const pugi::xml_node &item, bool add_change);
     void PublishRTargetRoute(RoutingInstance *instance, bool add_change,
                              int index);
-    void RTargetRouteOp(BgpTable *rtarget_table, as4_t asn, 
+    void RTargetRouteOp(BgpTable *rtarget_table, as4_t asn,
                     const RouteTarget &rt, BgpAttrPtr attr, bool add_change);
     void AddNewRTargetRoute(BgpTable *rtarget_table,
         RoutingInstance *rtinstance, const RouteTarget &rtarget,
@@ -180,7 +181,7 @@ private:
     bool ResumeClose();
     void FlushDeferQ(std::string vrf_name);
     void FlushDeferQ(std::string vrf_name, std::string table_name);
-    void ProcessDeferredSubscribeRequest(RoutingInstance *rt_instance, 
+    void ProcessDeferredSubscribeRequest(RoutingInstance *rt_instance,
                                          int instance_id);
     xmps::PeerId peer_id_;
     BgpServer *bgp_server_;
@@ -221,15 +222,16 @@ public:
 
     typedef boost::function<void(BgpXmppChannel *)> VisitorFn;
     void VisitChannels(BgpXmppChannelManager::VisitorFn);
-    BgpXmppChannel *FindChannel(const XmppChannel *);
+    BgpXmppChannel *FindChannel(const XmppChannel *channel);
     BgpXmppChannel *FindChannel(std::string client);
-    void RemoveChannel(XmppChannel *);
-    virtual void XmppHandleChannelEvent(XmppChannel *, xmps::PeerState);
+    void RemoveChannel(XmppChannel *channel);
+    virtual void XmppHandleChannelEvent(XmppChannel *channel,
+                                        xmps::PeerState state);
 
     const XmppChannelMap &channel_map() const { return channel_map_; }
-    bool DeleteExecutor(BgpXmppChannel *channel);
-    void Enqueue(BgpXmppChannel *channel) {
-        queue_.Enqueue(channel);
+    bool DeleteExecutor(BgpXmppChannel *bx_channel);
+    void Enqueue(BgpXmppChannel *bx_channel) {
+        queue_.Enqueue(bx_channel);
     }
     bool IsReadyForDeletion();
     void RoutingInstanceCallback(std::string vrf_name, int op);
@@ -246,7 +248,7 @@ public:
     XmppServer *xmpp_server() { return xmpp_server_; }
 
 protected:
-    virtual BgpXmppChannel *CreateChannel(XmppChannel *);
+    virtual BgpXmppChannel *CreateChannel(XmppChannel *channel);
 
 private:
     friend class BgpXmppChannelManagerMock;
@@ -263,4 +265,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(BgpXmppChannelManager);
 };
 
-#endif // __BGP_XMPP_CHANNEL_H__
+#endif  // SRC_BGP_BGP_XMPP_CHANNEL_H_
