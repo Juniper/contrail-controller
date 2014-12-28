@@ -2,22 +2,24 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_rtgroup_mgr_h
-#define ctrlplane_rtgroup_mgr_h
+#ifndef SRC_BGP_ROUTING_INSTANCE_RTARGET_GROUP_MGR_H_
+#define SRC_BGP_ROUTING_INSTANCE_RTARGET_GROUP_MGR_H_
 
 #include <boost/ptr_container/ptr_map.hpp>
 #include <boost/shared_ptr.hpp>
-
-#include <base/queue_task.h>
-#include <base/lifetime.h>
-
-#include <tbb/atomic.h>
-#include <tbb/mutex.h>
-
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_trace.h>
+#include <tbb/atomic.h>
+#include <tbb/mutex.h>
 
+#include <map>
+#include <set>
+#include <string>
+#include <vector>
+
+#include "base/queue_task.h"
+#include "base/lifetime.h"
 #include "bgp/bgp_table.h"
 #include "bgp/bgp_route.h"
 #include "bgp/community.h"
@@ -109,6 +111,7 @@ struct RtGroupMgrReq {
     SandeshResponse *snh_resp_;
     std::string param_;
 
+private:
     DISALLOW_COPY_AND_ASSIGN(RtGroupMgrReq);
 };
 
@@ -195,13 +198,13 @@ struct RtGroupMgrReq {
 class RTargetGroupMgr {
 public:
     typedef boost::ptr_map<const RouteTarget, RtGroup> RtGroupMap;
-    typedef std::map<BgpTable *, 
+    typedef std::map<BgpTable *,
             RtGroupMgrTableState *> RtGroupMgrTableStateList;
     typedef std::set<RTargetRoute *> RTargetRouteTriggerList;
     typedef std::set<RouteTarget> RouteTargetTriggerList;
     typedef std::set<RtGroup *> RtGroupRemoveList;
 
-    RTargetGroupMgr(BgpServer *);
+    explicit RTargetGroupMgr(BgpServer *server);
     virtual ~RTargetGroupMgr();
 
     // RtGroup
@@ -210,9 +213,9 @@ public:
     RtGroup *LocateRtGroup(const RouteTarget &rt);
     RtGroupMap &GetRtGroupMap() { return rtgroup_map_; }
     void RemoveRtGroup(const RouteTarget &rt);
-    virtual void GetRibOutInterestedPeers(RibOut *ribout, 
-             const ExtCommunity *ext_community, 
-             const RibPeerSet &peerset, RibPeerSet &new_peerset);
+    virtual void GetRibOutInterestedPeers(RibOut *ribout,
+             const ExtCommunity *ext_community,
+             const RibPeerSet &peerset, RibPeerSet *new_peerset);
     void Enqueue(RtGroupMgrReq *req);
     void Initialize();
     void ManagedDelete();
@@ -224,13 +227,13 @@ private:
     static int rtfilter_task_id_;
 
     friend class BgpXmppRTargetTest;
-    void RTargetDepSync(DBTablePartBase *root, BgpRoute *rt, 
+    void RTargetDepSync(DBTablePartBase *root, BgpRoute *rt,
                         DBTableBase::ListenerId id, VpnRouteState *dbstate,
                         VpnRouteState::RTargetList &current);
-    void RTargetPeerSync(BgpTable *table, RTargetRoute *rt, 
+    void RTargetPeerSync(BgpTable *table, RTargetRoute *rt,
                          DBTableBase::ListenerId id, RTargetState *dbstate,
                          RtGroup::InterestedPeerList &current);
-    void BuildRTargetDistributionGraph(BgpTable *table, RTargetRoute *rt, 
+    void BuildRTargetDistributionGraph(BgpTable *table, RTargetRoute *rt,
                                        DBTableBase::ListenerId id);
     BgpServer *server() { return server_; }
 
@@ -272,4 +275,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(RTargetGroupMgr);
 };
 
-#endif
+#endif  // SRC_BGP_ROUTING_INSTANCE_RTARGET_GROUP_MGR_H_
