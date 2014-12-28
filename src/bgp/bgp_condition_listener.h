@@ -2,25 +2,24 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_bgp_condition_listener_h
-#define ctrlplane_bgp_condition_listener_h
+#ifndef SRC_BGP_BGP_CONDITION_LISTENER_H_
+#define SRC_BGP_BGP_CONDITION_LISTENER_H_
+
+#include <boost/intrusive_ptr.hpp>
+#include <tbb/mutex.h>
 
 #include <map>
 #include <set>
 
-#include <boost/intrusive_ptr.hpp>
-
-#include <tbb/mutex.h>
-
 #include "base/task_trigger.h"
-
 #include "bgp/bgp_table.h"
 #include "bgp/bgp_route.h"
 #include "db/db_table_partition.h"
-// 
+
+//
 // ConditionMatch
-// Base class for ConditionMatch 
-// Provides interface to match a implementation specific match condition and 
+// Base class for ConditionMatch
+// Provides interface to match a implementation specific match condition and
 // action function
 //
 class ConditionMatch {
@@ -32,12 +31,12 @@ public:
     virtual ~ConditionMatch() {
     }
 
-    // Performs the Match and action function. 
+    // Performs the Match and action function.
     // Runs in the db::DBTable task context
     // Actual action can be performed in different task context
-    // Concurrency: DB:DBTable task either from DB Notification context or 
+    // Concurrency: DB:DBTable task either from DB Notification context or
     // from DB Walk context
-    virtual bool Match(BgpServer *server, BgpTable *table, 
+    virtual bool Match(BgpServer *server, BgpTable *table,
                        BgpRoute *route, bool deleted) = 0;
 
     bool deleted() {
@@ -118,19 +117,20 @@ public:
         assert(refcount_);
         refcount_--;
     }
+
 private:
     uint32_t refcount_;
     bool deleted_;
 };
 
-// 
+//
 // Helper classes
 //
 
 //
-// Store the state managed by BgpConditionListener against each table 
+// Store the state managed by BgpConditionListener against each table
 // it is registered
-// 
+//
 class ConditionMatchTableState;
 
 //
@@ -154,21 +154,21 @@ public:
     // Called upon completion of Add or Delete operations
     typedef boost::function<void(BgpTable *, ConditionMatch *)> RequestDoneCb;
 
-    BgpConditionListener(BgpServer *server);
+    explicit BgpConditionListener(BgpServer *server);
 
     // Add a new match condition
     // All subsequent DB Table notification matches this condition
     // DB Table is walked to match this condition for existing entries
-    void AddMatchCondition(BgpTable *table, ConditionMatch *obj, 
+    void AddMatchCondition(BgpTable *table, ConditionMatch *obj,
                            RequestDoneCb addDoneCb);
 
     // Delete a match condition
-    // DB table should be walked to match this deleting condition and 
+    // DB table should be walked to match this deleting condition and
     // revert the action taken on previous match
-    // DeleteDone callback indicates the calling application about Remove 
-    // completion. Application should call UnregisterCondition to 
+    // DeleteDone callback indicates the calling application about Remove
+    // completion. Application should call UnregisterCondition to
     // remove the ConditionMatch object from the table
-    void RemoveMatchCondition(BgpTable *table, ConditionMatch *obj, 
+    void RemoveMatchCondition(BgpTable *table, ConditionMatch *obj,
                               RequestDoneCb deleteDonecb);
 
     // Return the meta-data added by the module requested for Match
@@ -176,12 +176,12 @@ public:
                                          ConditionMatch *obj);
 
     // Set the module specific meta-data after the match/action
-    void SetMatchState(BgpTable *table, BgpRoute *route, 
-                       ConditionMatch *obj, 
+    void SetMatchState(BgpTable *table, BgpRoute *route,
+                       ConditionMatch *obj,
                        ConditionMatchState *state);
 
     // Clear the module specific DBState
-    void RemoveMatchState(BgpTable *table, BgpRoute *route, 
+    void RemoveMatchState(BgpTable *table, BgpRoute *route,
                           ConditionMatch *obj);
 
     // API to remove condition object from the table
@@ -198,7 +198,7 @@ private:
 
     WalkRequestMap walk_map_;
 
-    // Table listener 
+    // Table listener
     bool BgpRouteNotify(BgpServer *server, DBTablePartBase *root,
                         DBEntryBase *entry);
 
@@ -213,4 +213,5 @@ private:
 
     DISALLOW_COPY_AND_ASSIGN(BgpConditionListener);
 };
-#endif // ctrlplane_bgp_condition_listener_h
+
+#endif  // SRC_BGP_BGP_CONDITION_LISTENER_H_
