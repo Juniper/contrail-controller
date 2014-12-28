@@ -4,6 +4,8 @@
 
 #include "bgp/routing-instance/rtarget_group.h"
 
+#include <utility>
+
 #include "bgp/bgp_route.h"
 #include "bgp/routing-instance/rtarget_group_types.h"
 #include "bgp/rtarget/rtarget_route.h"
@@ -12,7 +14,7 @@ using std::pair;
 using std::string;
 using std::vector;
 
-RtGroup::RtGroup(const RouteTarget &rt) 
+RtGroup::RtGroup(const RouteTarget &rt)
     : rt_(rt), dep_(RTargetDepRouteList(DB::PartitionCount())) {
 }
 
@@ -117,7 +119,7 @@ const RtGroupInterestedPeerSet& RtGroup::GetInterestedPeers() const {
 void RtGroup::AddInterestedPeer(const BgpPeer *peer, RTargetRoute *rt) {
     InterestedPeerList::iterator it = peer_list_.find(peer);
     if (it == peer_list_.end()) {
-        it = peer_list_.insert(peer_list_.begin(), 
+        it = peer_list_.insert(peer_list_.begin(),
             pair<const BgpPeer *, RTargetRouteList>(peer, RTargetRouteList()));
         assert(peer->GetIndex() >= 0);
         interested_peers_.set(peer->GetIndex());
