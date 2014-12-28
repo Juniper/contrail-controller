@@ -22,17 +22,19 @@
 #include "bgp/routing-instance/static_route.h"
 #include "db/db_table.h"
 
-using namespace std;
-using namespace boost::asio;
 using boost::assign::list_of;
 using boost::system::error_code;
+using std::make_pair;
+using std::set;
+using std::string;
+using std::vector;
 
 SandeshTraceBufferPtr RoutingInstanceTraceBuf(
         SandeshTraceBufferCreate(RTINSTANCE_TRACE_BUF, 1000));
 
 class RoutingInstanceMgr::DeleteActor : public LifetimeActor {
 public:
-    DeleteActor(RoutingInstanceMgr *manager)
+    explicit DeleteActor(RoutingInstanceMgr *manager)
         : LifetimeActor(manager->server_->lifetime_manager()),
           manager_(manager) {
     }
@@ -154,7 +156,7 @@ const RoutingInstance *RoutingInstanceMgr::GetInstanceByVnIndex(
 //
 // Lookup the VN name for the given vn index.
 //
-std::string RoutingInstanceMgr::GetVirtualNetworkByVnIndex(
+string RoutingInstanceMgr::GetVirtualNetworkByVnIndex(
         int vn_index) const {
     const RoutingInstance *rti = GetInstanceByVnIndex(vn_index);
     return rti ? rti->virtual_network() : "unresolved";
@@ -245,7 +247,7 @@ void RoutingInstanceMgr::UnregisterInstanceOpCallback(int listener) {
     }
 }
 
-void RoutingInstanceMgr::NotifyInstanceOp(std::string name, Operation op) {
+void RoutingInstanceMgr::NotifyInstanceOp(string name, Operation op) {
     tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
     for (InstanceOpListenersList::iterator iter = callbacks_.begin();
          iter != callbacks_.end(); ++iter) {
@@ -276,7 +278,7 @@ RoutingInstance *RoutingInstanceMgr::CreateRoutingInstance(
     }
 
     rtinstance = BgpObjectFactory::Create<RoutingInstance>(
-                     config->name(), server_,this, config);
+        config->name(), server_, this, config);
     rtinstance->ProcessConfig(server_);
     int index = instances_.Insert(config->name(), rtinstance);
 
@@ -287,9 +289,9 @@ RoutingInstance *RoutingInstanceMgr::CreateRoutingInstance(
     // Notify clients about routing instance create
     NotifyInstanceOp(config->name(), INSTANCE_ADD);
 
-    std::vector<string> import_rt(config->import_list().begin(),
+    vector<string> import_rt(config->import_list().begin(),
                                   config->import_list().end());
-    std::vector<string> export_rt(config->export_list().begin(),
+    vector<string> export_rt(config->export_list().begin(),
                                   config->export_list().end());
     RTINSTANCE_LOG(Create, rtinstance,
         SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL,
@@ -325,9 +327,9 @@ void RoutingInstanceMgr::UpdateRoutingInstance(
     // Notify clients about routing instance create
     NotifyInstanceOp(config->name(), INSTANCE_UPDATE);
 
-    std::vector<string> import_rt(config->import_list().begin(),
+    vector<string> import_rt(config->import_list().begin(),
                                   config->import_list().end());
-    std::vector<string> export_rt(config->export_list().begin(),
+    vector<string> export_rt(config->export_list().begin(),
                                   config->export_list().end());
     RTINSTANCE_LOG(Update, rtinstance,
         SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL, import_rt, export_rt,
@@ -374,7 +376,7 @@ void RoutingInstanceMgr::DeleteRoutingInstance(const string &name) {
     server()->service_chain_mgr()->StopServiceChain(rtinstance);
 
     // Remove Static Route config
-    if (rtinstance->static_route_mgr()) 
+    if (rtinstance->static_route_mgr())
         rtinstance->static_route_mgr()->FlushStaticRouteConfig();
 
     NotifyInstanceOp(name, INSTANCE_DELETE);
@@ -394,14 +396,14 @@ void RoutingInstanceMgr::DestroyRoutingInstance(RoutingInstance *rtinstance) {
         SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
 
     // Remove call here also deletes the instance.
-    const std::string name = rtinstance->name();
+    const string name = rtinstance->name();
     instances_.Remove(rtinstance->name(), rtinstance->index());
 
     if (deleted()) return;
 
     if (name == BgpConfigManager::kMasterInstance) return;
 
-    const BgpInstanceConfig *config 
+    const BgpInstanceConfig *config
         = server()->config_manager()->config().FindInstance(name);
     if (config) {
         CreateRoutingInstance(config);
@@ -418,7 +420,7 @@ public:
         return parent_->MayDelete();
     }
     virtual void Shutdown() {
-        parent_->mgr_->NotifyInstanceOp(parent_->name(), 
+        parent_->mgr_->NotifyInstanceOp(parent_->name(),
                                         RoutingInstanceMgr::INSTANCE_DELETE);
         parent_->Shutdown();
     }
@@ -430,7 +432,7 @@ private:
     RoutingInstance *parent_;
 };
 
-RoutingInstance::RoutingInstance(std::string name, BgpServer *server,
+RoutingInstance::RoutingInstance(string name, BgpServer *server,
                                  RoutingInstanceMgr *mgr,
                                  const BgpInstanceConfig *config)
     : name_(name), index_(-1), mgr_(mgr), config_(config),
@@ -454,7 +456,7 @@ void RoutingInstance::ProcessConfig(BgpServer *server) {
     virtual_network_allow_transit_ = config_->virtual_network_allow_transit();
     vxlan_id_ = config_->vxlan_id();
 
-    std::vector<std::string> import_rt, export_rt;
+    vector<string> import_rt, export_rt;
     BOOST_FOREACH(string irt, config_->import_list()) {
         import_.insert(RouteTarget::FromString(irt));
         import_rt.push_back(irt);
@@ -483,12 +485,10 @@ void RoutingInstance::ProcessConfig(BgpServer *server) {
 
         BgpTable *table_inet = static_cast<BgpTable *>(
                 server->database()->CreateTable("inet.0"));
-        // TODO: log
         if (table_inet != NULL) {
             AddTable(table_inet);
         }
     } else {
-
         // Create foo.inet.0.
         VrfTableCreate(server, Address::INET, Address::INETVPN);
         // Create foo.inet6.0.
@@ -573,8 +573,8 @@ void RoutingInstance::UpdateConfig(BgpServer *server,
         server->replicator(Address::ERMVPN);
 
     RoutingInstanceInfo info = GetDataCollection("");
-    std::vector<std::string> add_import_rt, remove_import_rt;
-    std::vector<std::string> add_export_rt, remove_export_rt;
+    vector<string> add_import_rt, remove_import_rt;
+    vector<string> add_export_rt, remove_export_rt;
     while ((cfg_it != cfg->import_list().end()) &&  (rt_it != import_.end())) {
         RouteTarget cfg_rtarget(RouteTarget::FromString(*cfg_it));
         if (cfg_rtarget.GetExtCommunity() < rt_it->GetExtCommunity()) {
@@ -734,7 +734,7 @@ void RoutingInstance::Shutdown() {
     ClearRouteTarget();
     server()->service_chain_mgr()->StopServiceChain(this);
 
-    if (static_route_mgr()) 
+    if (static_route_mgr())
         static_route_mgr()->FlushStaticRouteConfig();
 }
 
@@ -832,7 +832,7 @@ BgpTable *RoutingInstance::RTargetTableCreate(BgpServer *server) {
 
 BgpTable *RoutingInstance::VpnTableCreate(BgpServer *server,
                                           Address::Family vpn_family) {
-    std::string table_name = GetTableName(name(), vpn_family);
+    string table_name = GetTableName(name(), vpn_family);
     BgpTable *table = static_cast<BgpTable *>
         (server->database()->CreateTable(table_name));
 
@@ -861,9 +861,8 @@ BgpTable *RoutingInstance::VpnTableCreate(BgpServer *server,
 
 BgpTable *RoutingInstance::VrfTableCreate(BgpServer *server,
         Address::Family vrf_family, Address::Family vpn_family) {
-
     // Create foo.table_name_suffix
-    std::string table_name = GetTableName(name(), vrf_family);
+    string table_name = GetTableName(name(), vrf_family);
     BgpTable *table = static_cast<BgpTable *>
         (server->database()->CreateTable(table_name));
 
@@ -884,7 +883,7 @@ BgpTable *RoutingInstance::VrfTableCreate(BgpServer *server,
 }
 
 void RoutingInstance::AddTable(BgpTable *tbl) {
-    vrf_tables_.insert(std::make_pair(tbl->name(), tbl));
+    vrf_tables_.insert(make_pair(tbl->name(), tbl));
     tbl->set_routing_instance(this);
     RoutingInstanceInfo info = GetDataCollection("Add");
     info.set_family(Address::FamilyToString(tbl->family()));
@@ -921,9 +920,9 @@ void RoutingInstance::DestroyDBTable(DBTable *dbtable) {
     delete table;
 }
 
-std::string RoutingInstance::GetTableName(std::string instance_name, 
+string RoutingInstance::GetTableName(string instance_name,
                                           Address::Family fmly) {
-    std::string table_name;
+    string table_name;
     if (instance_name == BgpConfigManager::kMasterInstance) {
         if ((fmly == Address::INET) || (fmly == Address::INET6)) {
             table_name = Address::FamilyToTableString(fmly) + ".0";
@@ -938,7 +937,7 @@ std::string RoutingInstance::GetTableName(std::string instance_name,
 }
 
 BgpTable *RoutingInstance::GetTable(Address::Family fmly) {
-    std::string table_name = RoutingInstance::GetTableName(name_, fmly);
+    string table_name = RoutingInstance::GetTableName(name_, fmly);
     RouteTableList::const_iterator loc = GetTables().find(table_name);
     if (loc != GetTables().end()) {
         return loc->second;
