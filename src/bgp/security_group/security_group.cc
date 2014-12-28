@@ -4,8 +4,11 @@
 
 #include "bgp/security_group/security_group.h"
 
-#include "base/parse_object.h"
 #include <stdio.h>
+
+#include <algorithm>
+
+#include "base/parse_object.h"
 
 using std::copy;
 using std::string;
