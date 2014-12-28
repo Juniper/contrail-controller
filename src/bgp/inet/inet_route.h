@@ -2,8 +2,11 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_inet_route_h
-#define ctrlplane_inet_route_h
+#ifndef SRC_BGP_INET_INET_ROUTE_H_
+#define SRC_BGP_INET_INET_ROUTE_H_
+
+#include <string>
+#include <vector>
 
 #include "bgp/bgp_attr.h"
 #include "bgp/bgp_route.h"
@@ -13,7 +16,7 @@
 
 class Ip4Prefix {
 public:
-    Ip4Prefix() : prefixlen_ (0) { }
+    Ip4Prefix() : prefixlen_(0) { }
     Ip4Prefix(Ip4Address addr, int prefixlen)
         : ip4_addr_(addr), prefixlen_(prefixlen) {
     }
@@ -62,14 +65,14 @@ public:
     const Ip4Prefix &GetPrefix() const {
         return prefix_;
     }
-    
+
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *reqkey);
 
     virtual void BuildProtoPrefix(BgpProtoPrefix *prefix,
                                   const BgpAttr *attr = NULL,
                                   uint32_t label = 0) const;
-    virtual void BuildBgpProtoNextHop(std::vector<uint8_t> &nh, 
+    virtual void BuildBgpProtoNextHop(std::vector<uint8_t> &nh,
                                       IpAddress nexthop) const;
 
     virtual bool IsLess(const DBEntry &genrhs) const {
@@ -88,4 +91,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(InetRoute);
 };
 
-#endif
+#endif  // SRC_BGP_INET_INET_ROUTE_H_

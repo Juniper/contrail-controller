@@ -4,6 +4,8 @@
 
 #include "bgp/inet/inet_route.h"
 
+#include <algorithm>
+
 #include "bgp/inet/inet_table.h"
 
 using std::copy;
@@ -59,7 +61,6 @@ Ip4Prefix Ip4Prefix::FromString(const string &str,
 
 // Check whether 'this' is more specific than rhs.
 bool Ip4Prefix::IsMoreSpecific(const Ip4Prefix &rhs) const {
-
     // My prefixlen must be longer in order to be more specific.
     if (prefixlen_ < rhs.prefixlen()) return false;
 
@@ -114,7 +115,8 @@ void InetRoute::BuildProtoPrefix(BgpProtoPrefix *prefix,
          back_inserter(prefix->prefix));
 }
 
-void InetRoute::BuildBgpProtoNextHop(vector<uint8_t> &nh, IpAddress nexthop) const {
+void InetRoute::BuildBgpProtoNextHop(vector<uint8_t> &nh,
+                                     IpAddress nexthop) const {
     nh.resize(4);
     const Ip4Address::bytes_type &addr_bytes = nexthop.to_v4().to_bytes();
     copy(addr_bytes.begin(), addr_bytes.end(), nh.begin());

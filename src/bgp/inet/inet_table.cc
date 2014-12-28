@@ -14,21 +14,24 @@
 #include "bgp/routing-instance/routing_instance.h"
 #include "db/db_table_partition.h"
 
+using std::auto_ptr;
+using std::string;
+
 size_t InetTable::HashFunction(const Ip4Prefix &prefix) {
     return boost::hash_value(prefix.ip4_addr().to_ulong());
 }
 
-InetTable::InetTable(DB *db, const std::string &name) : BgpTable(db, name) {
+InetTable::InetTable(DB *db, const string &name) : BgpTable(db, name) {
 }
 
-std::auto_ptr<DBEntry> InetTable::AllocEntry(const DBRequestKey *key) const {
+auto_ptr<DBEntry> InetTable::AllocEntry(const DBRequestKey *key) const {
     const RequestKey *pfxkey = static_cast<const RequestKey *>(key);
-    return std::auto_ptr<DBEntry> (new InetRoute(pfxkey->prefix));
+    return auto_ptr<DBEntry> (new InetRoute(pfxkey->prefix));
 }
 
-std::auto_ptr<DBEntry> InetTable::AllocEntryStr(const std::string &key_str) const {
+auto_ptr<DBEntry> InetTable::AllocEntryStr(const string &key_str) const {
     Ip4Prefix prefix = Ip4Prefix::FromString(key_str);
-    return std::auto_ptr<DBEntry> (new InetRoute(prefix));
+    return auto_ptr<DBEntry> (new InetRoute(prefix));
 }
 
 size_t InetTable::Hash(const DBEntry *entry) const {
@@ -43,13 +46,14 @@ size_t InetTable::Hash(const DBRequestKey *key) const {
     return value % DB::PartitionCount();
 }
 
-BgpRoute *InetTable::TableFind(DBTablePartition *rtp, const DBRequestKey *prefix) {
+BgpRoute *InetTable::TableFind(DBTablePartition *rtp,
+        const DBRequestKey *prefix) {
     const RequestKey *pfxkey = static_cast<const RequestKey *>(prefix);
     InetRoute rt_key(pfxkey->prefix);
     return static_cast<BgpRoute *>(rtp->Find(&rt_key));
 }
 
-DBTableBase *InetTable::CreateTable(DB *db, const std::string &name) {
+DBTableBase *InetTable::CreateTable(DB *db, const string &name) {
     InetTable *table = new InetTable(db, name);
     table->Init();
     return table;
@@ -58,18 +62,17 @@ DBTableBase *InetTable::CreateTable(DB *db, const std::string &name) {
 BgpRoute *InetTable::RouteReplicate(BgpServer *server,
         BgpTable *src_table, BgpRoute *src_rt, const BgpPath *path,
         ExtCommunityPtr community) {
-
     InetRoute *inet= dynamic_cast<InetRoute *> (src_rt);
 
     boost::scoped_ptr<Ip4Prefix> inet_prefix;
 
     if (inet) {
-        inet_prefix.reset(new Ip4Prefix(inet->GetPrefix().ip4_addr(), 
+        inet_prefix.reset(new Ip4Prefix(inet->GetPrefix().ip4_addr(),
                                       inet->GetPrefix().prefixlen()));
     } else {
         InetVpnRoute *inetvpn = dynamic_cast<InetVpnRoute *> (src_rt);
         assert(inetvpn);
-        inet_prefix.reset(new Ip4Prefix(inetvpn->GetPrefix().addr(), 
+        inet_prefix.reset(new Ip4Prefix(inetvpn->GetPrefix().addr(),
                                   inetvpn->GetPrefix().prefixlen()));
     }
 
@@ -93,7 +96,7 @@ BgpRoute *InetTable::RouteReplicate(BgpServer *server,
                                           path->GetSource(), path->GetPeer(),
                                           path->GetPathId());
     if (dest_path != NULL) {
-        if ((new_attr != dest_path->GetAttr()) || 
+        if ((new_attr != dest_path->GetAttr()) ||
             (path->GetLabel() != dest_path->GetLabel())) {
             // Update Attributes and notify (if needed)
             assert(dest_route->RemoveSecondaryPath(src_rt, path->GetSource(),
@@ -102,9 +105,9 @@ BgpRoute *InetTable::RouteReplicate(BgpServer *server,
             return dest_route;
         }
     }
- 
-    BgpSecondaryPath *replicated_path = 
-        new BgpSecondaryPath(path->GetPeer(), path->GetPathId(), 
+
+    BgpSecondaryPath *replicated_path =
+        new BgpSecondaryPath(path->GetPeer(), path->GetPathId(),
             path->GetSource(), new_attr, path->GetFlags(), path->GetLabel());
     replicated_path->SetReplicateInfo(src_table, src_rt);
     dest_route->InsertPath(replicated_path);
@@ -112,8 +115,8 @@ BgpRoute *InetTable::RouteReplicate(BgpServer *server,
     // Notify the route even if the best path may not have changed. For XMPP
     // peers, we support sending multiple ECMP next-hops for a single route.
     //
-    // TODO: Can be optimized for changes that does not result in any change
-    // to ECMP list
+    // TODO(ananth): Can be optimized for changes that does not result in
+    // any change to ECMP list.
     rtp->Notify(dest_route);
 
     return dest_route;
@@ -121,7 +124,7 @@ BgpRoute *InetTable::RouteReplicate(BgpServer *server,
 
 bool InetTable::Export(RibOut *ribout, Route *route, const RibPeerSet &peerset,
         UpdateInfoSList &uinfo_slist) {
-    BgpRoute *bgp_route = static_cast<BgpRoute *> (route);
+    BgpRoute *bgp_route = static_cast<BgpRoute *>(route);
 
     UpdateInfo *uinfo = GetUpdateInfo(ribout, bgp_route, peerset);
     if (!uinfo)
@@ -145,4 +148,5 @@ bool InetTable::Export(RibOut *ribout, Route *route, const RibPeerSet &peerset,
 static void RegisterFactory() {
     DB::RegisterFactory("inet.0", &InetTable::CreateTable);
 }
+
 MODULE_INITIALIZER(RegisterFactory);
