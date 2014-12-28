@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_static_route_h
-#define ctrlplane_static_route_h
+#ifndef SRC_BGP_ROUTING_INSTANCE_STATIC_ROUTE_H_
+#define SRC_BGP_ROUTING_INSTANCE_STATIC_ROUTE_H_
 
 #include <map>
 #include <set>
@@ -34,6 +34,8 @@ struct StaticRouteRequest {
     BgpTable    *table_;
     BgpRoute    *rt_;
     StaticRoutePtr info_;
+
+private:
     DISALLOW_COPY_AND_ASSIGN(StaticRouteRequest);
 };
 
@@ -42,7 +44,7 @@ public:
     // Map of Static Route prefix to the StaticRoute match object
     typedef std::map<Ip4Prefix, StaticRoutePtr> StaticRouteMap;
 
-    StaticRouteMgr(RoutingInstance *instance);
+    explicit StaticRouteMgr(RoutingInstance *instance);
     ~StaticRouteMgr();
 
     // Config
@@ -81,4 +83,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(StaticRouteMgr);
 };
 
-#endif
+#endif  // SRC_BGP_ROUTING_INSTANCE_STATIC_ROUTE_H_
