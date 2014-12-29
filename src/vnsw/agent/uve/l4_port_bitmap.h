@@ -13,8 +13,6 @@
 #include <vrouter_types.h>
 #include <port_bmap_types.h>
 
-class FlowEntry;
-
 struct L4PortBitmap {
     static const uint16_t kPortPerBucket = 256;
     static const uint16_t kBucketCount = (0x10000 / kPortPerBucket);

@@ -11,9 +11,8 @@
 void VrfStatsIoContext::Handler() {
     AgentStatsSandeshContext *ctx = static_cast<AgentStatsSandeshContext *>
                                                                        (ctx_);
-    AgentStatsCollector *collector = ctx->collector();
     VnUveTable *vt = static_cast<VnUveTable *>
-        (collector->agent()->uve()->vn_uve_table());
+        (ctx->agent()->uve()->vn_uve_table());
     vt->SendVnStats(true);
     /* Reset the marker for query during next timer interval, if there is
      * no additional records for the current query */

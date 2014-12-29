@@ -44,6 +44,9 @@
 #include "pkt/pkt_sandesh_flow.h"
 #include "pkt/agent_stats.h"
 #include "uve/agent_uve.h"
+#include "uve/vm_uve_table.h"
+#include "uve/vn_uve_table.h"
+#include "uve/vrouter_uve_entry.h"
 
 using boost::assign::map_list_of;
 const std::map<FlowEntry::FlowPolicyState, const char*>
@@ -821,9 +824,7 @@ void FlowEntry::UpdateKSync(const FlowTable* table) {
          * Do not export stats on flow creation, it will be exported
          * while updating stats
          */
-        AgentUveBase *uve = table->agent()->uve();
-        AgentUve *f_uve = static_cast<AgentUve *>(uve);
-        FlowStatsCollector *fec = f_uve->flow_stats_collector();
+        FlowStatsCollector *fec = table->agent()->flow_stats_collector();
         fec->FlowExport(this, 0, 0);
     }
     FlowTableKSyncObject *ksync_obj = 
@@ -1542,8 +1543,7 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
     FlowTableKSyncObject *ksync_obj = 
         agent_->ksync()->flowtable_ksync_obj();
 
-    AgentUve *f_uve = static_cast<AgentUve *>(agent_->uve());
-    FlowStatsCollector *fec = f_uve->flow_stats_collector();
+    FlowStatsCollector *fec = agent_->flow_stats_collector();
     uint64_t diff_bytes, diff_packets;
     fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
 
@@ -1826,6 +1826,45 @@ void FlowTable::AclNotify(DBTablePartBase *part, DBEntryBase *e)
     } else {
         ResyncAclFlows(acl);
     }
+}
+
+void FlowTable::NewFlow(const FlowEntry *flow) {
+    uint8_t proto = flow->key().protocol;
+    uint16_t sport = flow->key().src_port;
+    uint16_t dport = flow->key().dst_port;
+    AgentUveBase *uve = agent()->uve();
+
+    // Update vrouter port bitmap
+    VrouterUveEntry *vre = static_cast<VrouterUveEntry *>(
+        uve->vrouter_uve_entry());
+    vre->UpdateBitmap(proto, sport, dport);
+
+    // Update source-vn port bitmap
+    VnUveTable *vnte = static_cast<VnUveTable *>(uve->vn_uve_table());
+    vnte->UpdateBitmap(flow->data().source_vn, proto, sport, dport);
+
+    // Update dest-vn port bitmap
+    vnte->UpdateBitmap(flow->data().dest_vn, proto, sport, dport);
+
+    const Interface *intf = flow->data().intf_entry.get();
+
+    const VmInterface *port = dynamic_cast<const VmInterface *>(intf);
+    if (port == NULL) {
+        return;
+    }
+    const VmEntry *vm = port->vm();
+    if (vm == NULL) {
+        return;
+    }
+
+    // update vm and interface (all interfaces of vm) bitmap
+    VmUveTable *vmt = static_cast<VmUveTable *>(uve->vm_uve_table());
+    vmt->UpdateBitmap(vm, proto, sport, dport);
+}
+
+void FlowTable::DeleteFlow(const FlowEntry *flow) {
+    /* We need not reset bitmaps on flow deletion. We will have to
+     * provide introspect to reset this */
 }
 
 Inet4RouteUpdate::Inet4RouteUpdate(InetUnicastAgentRouteTable *rt_table):
@@ -2197,8 +2236,7 @@ void FlowTable::DeleteRouteFlows(const RouteFlowKey &key)
 
 void FlowTable::DeleteFlowInfo(FlowEntry *fe) 
 {
-    AgentUve *f_uve = static_cast<AgentUve *>(agent_->uve());
-    f_uve->DeleteFlow(fe);
+    DeleteFlow(fe);
     // Remove from AclFlowTree
     // Go to all matched ACL list and remove from all acls
     std::list<MatchAclParams>::const_iterator acl_it;
@@ -2379,8 +2417,7 @@ void FlowTable::DeleteRouteFlowInfo (FlowEntry *fe)
 
 void FlowTable::AddFlowInfo(FlowEntry *fe)
 {
-    AgentUve *f_uve = static_cast<AgentUve *>(agent_->uve());
-    f_uve->NewFlow(fe);
+    NewFlow(fe);
     // Add AclFlowTree
     AddAclFlowInfo(fe);
     // Add IntfFlowTree

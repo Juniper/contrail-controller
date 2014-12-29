@@ -264,15 +264,15 @@ public:
         flow->InitFwdFlow(&info, pkt, &ctrl, &ctrl);
     }
     void NewFlow(FlowEntry *f) {
-        AgentUveBase *uve = Agent::GetInstance()->uve();
-        AgentUve *f_uve = static_cast<AgentUve *>(uve);
-        f_uve->NewFlow(f);;
+        Agent *agent = Agent::GetInstance();
+        FlowTable *table = agent->pkt()->flow_table();
+        table->NewFlow(f);
     }
 
     void DeleteFlow(FlowEntry *f) {
-        AgentUveBase *uve = Agent::GetInstance()->uve();
-        AgentUve *f_uve = static_cast<AgentUve *>(uve);
-        f_uve->DeleteFlow(f);;
+        Agent *agent = Agent::GetInstance();
+        FlowTable *table = agent->pkt()->flow_table();
+        table->DeleteFlow(f);;
     }
 
 protected:

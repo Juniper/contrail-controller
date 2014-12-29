@@ -26,50 +26,6 @@ void VmUveTable::UpdateBitmap(const VmEntry* vm, uint8_t proto,
     }
 }
 
-void VmUveTable::UpdateFloatingIpStats(const FlowEntry *flow,
-                                       uint64_t bytes, uint64_t pkts) {
-    VmUveEntry::FipInfo fip_info;
-
-    /* Ignore Non-Floating-IP flow */
-    if (!flow->stats().fip ||
-        flow->stats().fip_vm_port_id == Interface::kInvalidIndex) {
-        return;
-    }
-
-    VmUveEntry *entry = InterfaceIdToVmUveEntry(flow->stats().fip_vm_port_id);
-    if (entry == NULL) {
-        return;
-    }
-
-    fip_info.bytes_ = bytes;
-    fip_info.packets_ = pkts;
-    fip_info.flow_ = flow;
-    fip_info.rev_fip_ = NULL;
-    if (flow->stats().fip != flow->reverse_flow_fip()) {
-        /* This is the case where Source and Destination VMs (part of
-         * same compute node) ping to each other to their respective
-         * Floating IPs. In this case for each flow we need to increment
-         * stats for both the VMs */
-        fip_info.rev_fip_ = ReverseFlowFip(fip_info);
-    }
-
-    entry->UpdateFloatingIpStats(fip_info);
-}
-
-VmUveEntry::FloatingIp *VmUveTable::ReverseFlowFip
-    (const VmUveEntry::FipInfo &fip_info) {
-    uint32_t fip = fip_info.flow_->reverse_flow_fip();
-    const string &vn = fip_info.flow_->data().source_vn;
-    uint32_t intf_id = fip_info.flow_->reverse_flow_vmport_id();
-    Interface *intf = InterfaceTable::GetInstance()->FindInterface(intf_id);
-
-    VmUveEntry *entry = InterfaceIdToVmUveEntry(intf_id);
-    if (entry != NULL) {
-        return entry->FipEntry(fip, vn, intf);
-    }
-    return NULL;
-}
-
 VmUveEntry *VmUveTable::InterfaceIdToVmUveEntry(uint32_t id) {
     Interface *intf = InterfaceTable::GetInstance()->FindInterface(id);
     if (!intf || intf->type() != Interface::VM_INTERFACE) {

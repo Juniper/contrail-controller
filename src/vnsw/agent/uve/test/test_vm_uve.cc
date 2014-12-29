@@ -824,6 +824,7 @@ TEST_F(UveVmUveTest, FipUninstalledRemove) {
 
 TEST_F(UveVmUveTest, FipStats_1) {
     FlowSetUp();
+    FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_collector();
     TestFlow flow[] = {
         {
             TestFlowPkt(Address::INET, vm1_ip, vm4_ip, 1, 0, 0, "vrf5",
@@ -852,8 +853,8 @@ TEST_F(UveVmUveTest, FipStats_1) {
     EXPECT_EQ(0U, vmut->GetVmIntfFipCount(flow0->vm(), flow0));
 
     //Update FIP stats which resuts in creation of stats FIP entry
-    vmut->UpdateFloatingIpStats(f1, 300, 3);
-    vmut->UpdateFloatingIpStats(rev, 300, 3);
+    fsc->UpdateFloatingIpStats(f1, 300, 3);
+    fsc->UpdateFloatingIpStats(rev, 300, 3);
 
     //Verify that stats FIP entry is created
     EXPECT_EQ(1U, vmut->GetVmIntfFipCount(flow0->vm(), flow0));
@@ -875,6 +876,7 @@ TEST_F(UveVmUveTest, FipStats_1) {
 // our data-structures
 TEST_F(UveVmUveTest, FipStats_2) {
     FlowSetUp();
+    FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_collector();
     TestFlow flow[] = {
         {
             TestFlowPkt(Address::INET, vm1_ip, vm4_ip, 1, 0, 0, "vrf5",
@@ -903,8 +905,8 @@ TEST_F(UveVmUveTest, FipStats_2) {
     EXPECT_EQ(0U, vmut->GetVmIntfFipCount(flow0->vm(), flow0));
 
     //Update FIP stats which resuts in creation of stats FIP entry
-    vmut->UpdateFloatingIpStats(f1, 300, 3);
-    vmut->UpdateFloatingIpStats(rev, 300, 3);
+    fsc->UpdateFloatingIpStats(f1, 300, 3);
+    fsc->UpdateFloatingIpStats(rev, 300, 3);
 
     //Verify that stats FIP entry is created
     EXPECT_EQ(1U, vmut->GetVmIntfFipCount(flow0->vm(), flow0));
@@ -922,6 +924,7 @@ TEST_F(UveVmUveTest, FipStats_2) {
 // Update FIP stats and verify dispatched VM Stats UVE has the expected stats
 TEST_F(UveVmUveTest, FipStats_3) {
     FlowSetUp();
+    FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_collector();
     TestFlow flow[] = {
         {
             TestFlowPkt(Address::INET, vm1_ip, vm4_ip, 1, 0, 0, "vrf5",
@@ -950,8 +953,8 @@ TEST_F(UveVmUveTest, FipStats_3) {
     EXPECT_EQ(0U, vmut->GetVmIntfFipCount(flow0->vm(), flow0));
 
     //Update FIP stats which resuts in creation of stats FIP entry
-    vmut->UpdateFloatingIpStats(f1, 300, 3);
-    vmut->UpdateFloatingIpStats(rev, 300, 3);
+    fsc->UpdateFloatingIpStats(f1, 300, 3);
+    fsc->UpdateFloatingIpStats(rev, 300, 3);
 
     //Verify that stats FIP entry is created
     EXPECT_EQ(1U, vmut->GetVmIntfFipCount(flow0->vm(), flow0));
@@ -993,6 +996,7 @@ TEST_F(UveVmUveTest, FipStats_3) {
 // compute node (Local Flow case)
 TEST_F(UveVmUveTest, FipStats_4) {
     FlowSetUp2();
+    FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_collector();
     TestFlow flow[] = {
         {
             TestFlowPkt(Address::INET, vm_a_ip, vm_c_fip2, 1, 0, 0, "vrf6",
@@ -1021,8 +1025,8 @@ TEST_F(UveVmUveTest, FipStats_4) {
     EXPECT_EQ(0U, vmut->GetVmIntfFipCount(flowa->vm(), flowa));
 
     //Update FIP stats which resuts in creation of stats FIP entry
-    vmut->UpdateFloatingIpStats(f1, 300, 3);
-    vmut->UpdateFloatingIpStats(rev, 300, 3);
+    fsc->UpdateFloatingIpStats(f1, 300, 3);
+    fsc->UpdateFloatingIpStats(rev, 300, 3);
 
     //Verify that stats FIP entry is created
     EXPECT_EQ(1U, vmut->GetVmIntfFipCount(flowa->vm(), flowa));
@@ -1065,6 +1069,7 @@ TEST_F(UveVmUveTest, FipStats_4) {
 // different compute node. (Non Local flow case)
 TEST_F(UveVmUveTest, FipStats_5) {
     FlowSetUp();
+    FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_collector();
     CreatePeer();
     util_.CreateRemoteRoute("default-project:vn4:vn4", remote_vm_fip,
                       remote_router_ip, 30, "default-project:vn4", peer_);
@@ -1095,8 +1100,8 @@ TEST_F(UveVmUveTest, FipStats_5) {
     EXPECT_EQ(0U, vmut->GetVmIntfFipCount(flow0->vm(), flow0));
 
     //Update FIP stats which resuts in creation of stats FIP entry
-    vmut->UpdateFloatingIpStats(f1, 300, 3);
-    vmut->UpdateFloatingIpStats(rev, 300, 3);
+    fsc->UpdateFloatingIpStats(f1, 300, 3);
+    fsc->UpdateFloatingIpStats(rev, 300, 3);
 
     //Verify that stats FIP entry is created
     EXPECT_EQ(1U, vmut->GetVmIntfFipCount(flow0->vm(), flow0));

@@ -6,6 +6,7 @@
 #define vnsw_agent_vrouter_uve_entry_h
 
 #include <uve/vrouter_uve_entry_base.h>
+#include <uve/stats_manager.h>
 
 //The class that defines data-structures to store VRouter information
 //required for sending VRouter UVE.
@@ -28,7 +29,7 @@ private:
     bool SetVrouterPortBitmap(VrouterStatsAgent &vr_stats);
     uint8_t CalculateBandwitdh(uint64_t bytes, int speed_mbps,
                                int diff_seconds) const;
-    uint8_t GetBandwidthUsage(AgentStatsCollector::InterfaceStats *s,
+    uint8_t GetBandwidthUsage(StatsManager::InterfaceStats *s,
                               bool dir_in, int mins) const;
     bool BuildPhysicalInterfaceBandwidth(std::vector<AgentIfBandwidth> &list,
                                          uint8_t mins) const;

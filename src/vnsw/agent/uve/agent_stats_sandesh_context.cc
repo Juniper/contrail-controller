@@ -4,13 +4,17 @@
 
 #include <net/if.h>
 
+#include <uve/agent_uve.h>
 #include <uve/agent_stats_sandesh_context.h>
 #include <uve/agent_stats_collector.h>
 #include <pkt/agent_stats.h>
 #include <oper/vrf.h>
+#include <vrouter_types.h>
 
-AgentStatsSandeshContext::AgentStatsSandeshContext(AgentStatsCollector *col)
-    : collector_(col), marker_id_(-1) {
+AgentStatsSandeshContext::AgentStatsSandeshContext(Agent *agent)
+    : agent_(agent), marker_id_(-1) {
+    AgentUve *uve = static_cast<AgentUve *>(agent_->uve());
+    stats_ = uve->stats_manager();
 }
 
 AgentStatsSandeshContext::~AgentStatsSandeshContext() {
@@ -48,20 +52,20 @@ void AgentStatsSandeshContext::IfMsgHandler(vr_interface_req *req) {
         return;
      }
 
-    AgentStatsCollector::InterfaceStats *stats =
-                                        collector_->GetInterfaceStats(intf);
+    StatsManager::InterfaceStats *stats =stats_->GetInterfaceStats(intf);
+
     if (!stats) {
         return;
     }
     if (intf->type() == Interface::VM_INTERFACE) {
-        collector_->agent()->stats()->incr_in_pkts(req->get_vifr_ipackets() -
-                                                 stats->in_pkts);
-        collector_->agent()->stats()->incr_in_bytes(req->get_vifr_ibytes() -
-                                                  stats->in_bytes);
-        collector_->agent()->stats()->incr_out_pkts(req->get_vifr_opackets() -
-                                                  stats->out_pkts);
-        collector_->agent()->stats()->incr_out_bytes(req->get_vifr_obytes() -
-                                                   stats->out_bytes);
+        agent_->stats()->incr_in_pkts(req->get_vifr_ipackets() -
+                                      stats->in_pkts);
+        agent_->stats()->incr_in_bytes(req->get_vifr_ibytes() -
+                                       stats->in_bytes);
+        agent_->stats()->incr_out_pkts(req->get_vifr_opackets() -
+                                       stats->out_pkts);
+        agent_->stats()->incr_out_bytes(req->get_vifr_obytes() -
+                                        stats->out_bytes);
     }
 
     stats->UpdateStats(req->get_vifr_ibytes(), req->get_vifr_ipackets(),
@@ -73,18 +77,17 @@ void AgentStatsSandeshContext::IfMsgHandler(vr_interface_req *req) {
 void AgentStatsSandeshContext::VrfStatsMsgHandler(vr_vrf_stats_req *req) {
     set_marker_id(req->get_vsr_vrf());
     bool vrf_present = true;
-    const VrfEntry *vrf = collector_->agent()->vrf_table()->
+    const VrfEntry *vrf = agent_->vrf_table()->
                           FindVrfFromId(req->get_vsr_vrf());
     if (vrf == NULL) {
-        if (req->get_vsr_vrf() != collector_->GetNamelessVrfId()) {
+        if (req->get_vsr_vrf() != stats_->GetNamelessVrfId()) {
             vrf_present = false;
         } else {
             return;
         }
      }
 
-    AgentStatsCollector::VrfStats *stats = collector_->GetVrfStats
-                                                        (req->get_vsr_vrf());
+    StatsManager::VrfStats *stats = stats_->GetVrfStats(req->get_vsr_vrf());
     if (!stats) {
         LOG(DEBUG, "Vrf not present in stats tree <" << req->get_vsr_vrf()
             << ">");
@@ -125,7 +128,7 @@ void AgentStatsSandeshContext::VrfStatsMsgHandler(vr_vrf_stats_req *req) {
          * This will be used to update prev_* fields on receiving vrf delete
          * notification
          */
-        if (req->get_vsr_vrf() != collector_->GetNamelessVrfId()) {
+        if (req->get_vsr_vrf() != stats_->GetNamelessVrfId()) {
             stats->k_discards = req->get_vsr_discards();
             stats->k_resolves = req->get_vsr_resolves();
             stats->k_receives = req->get_vsr_receives();
@@ -138,10 +141,60 @@ void AgentStatsSandeshContext::VrfStatsMsgHandler(vr_vrf_stats_req *req) {
             stats->k_encaps = req->get_vsr_encaps();
             stats->k_l2_encaps = req->get_vsr_l2_encaps();
         }
-
     }
 }
 
 void AgentStatsSandeshContext::DropStatsMsgHandler(vr_drop_stats_req *req) {
-    collector_->set_drop_stats(*req);
+    AgentDropStats ds = GetDropStats(req);
+    stats_->set_drop_stats(ds);
 }
+
+AgentDropStats AgentStatsSandeshContext::GetDropStats(vr_drop_stats_req *req) {
+    AgentDropStats ds;
+
+    ds.ds_discard = req->get_vds_discard();
+    ds.ds_pull = req->get_vds_pull();
+    ds.ds_invalid_if = req->get_vds_invalid_if();
+    ds.ds_arp_not_me = req->get_vds_arp_not_me();
+    ds.ds_garp_from_vm = req->get_vds_garp_from_vm();
+    ds.ds_invalid_arp = req->get_vds_invalid_arp();
+    ds.ds_trap_no_if = req->get_vds_trap_no_if();
+    ds.ds_nowhere_to_go = req->get_vds_nowhere_to_go();
+    ds.ds_flow_queue_limit_exceeded = req->get_vds_flow_queue_limit_exceeded();
+    ds.ds_flow_no_memory = req->get_vds_flow_no_memory();
+    ds.ds_flow_invalid_protocol = req->get_vds_flow_invalid_protocol();
+    ds.ds_flow_nat_no_rflow = req->get_vds_flow_nat_no_rflow();
+    ds.ds_flow_action_drop = req->get_vds_flow_action_drop();
+    ds.ds_flow_action_invalid = req->get_vds_flow_action_invalid();
+    ds.ds_flow_unusable = req->get_vds_flow_unusable();
+    ds.ds_flow_table_full = req->get_vds_flow_table_full();
+    ds.ds_interface_tx_discard = req->get_vds_interface_tx_discard();
+    ds.ds_interface_drop = req->get_vds_interface_drop();
+    ds.ds_duplicated = req->get_vds_duplicated();
+    ds.ds_push = req->get_vds_push();
+    ds.ds_ttl_exceeded = req->get_vds_ttl_exceeded();
+    ds.ds_invalid_nh = req->get_vds_invalid_nh();
+    ds.ds_invalid_label = req->get_vds_invalid_label();
+    ds.ds_invalid_protocol = req->get_vds_invalid_protocol();
+    ds.ds_interface_rx_discard = req->get_vds_interface_rx_discard();
+    ds.ds_invalid_mcast_source = req->get_vds_invalid_mcast_source();
+    ds.ds_head_alloc_fail = req->get_vds_head_alloc_fail();
+    ds.ds_head_space_reserve_fail = req->get_vds_head_space_reserve_fail();
+    ds.ds_pcow_fail = req->get_vds_pcow_fail();
+    ds.ds_flood = req->get_vds_flood();
+    ds.ds_mcast_clone_fail = req->get_vds_mcast_clone_fail();
+    ds.ds_composite_invalid_interface = req->get_vds_composite_invalid_interface();
+    ds.ds_rewrite_fail = req->get_vds_rewrite_fail();
+    ds.ds_misc = req->get_vds_misc();
+    ds.ds_invalid_packet = req->get_vds_invalid_packet();
+    ds.ds_cksum_err = req->get_vds_cksum_err();
+    ds.ds_clone_fail = req->get_vds_clone_fail();
+    ds.ds_no_fmd = req->get_vds_no_fmd();
+    ds.ds_cloned_original = req->get_vds_cloned_original();
+    ds.ds_invalid_vnid = req->get_vds_invalid_vnid();
+    ds.ds_frag_err = req->get_vds_frag_err();
+    ds.ds_invalid_source = req->get_vds_invalid_source();
+    ds.ds_mcast_df_bit = req->get_vds_mcast_df_bit();
+    return ds;
+} 
+

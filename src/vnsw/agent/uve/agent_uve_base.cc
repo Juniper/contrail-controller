@@ -48,6 +48,7 @@ void AgentUveBase::Shutdown() {
     vrouter_uve_entry_.get()->Shutdown();
     prouter_uve_table_.get()->Shutdown();
     connection_state_manager_->Shutdown();
+    vrouter_stats_collector_->Shutdown();
 }
 
 void AgentUveBase::Init() {

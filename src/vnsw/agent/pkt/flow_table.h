@@ -634,6 +634,9 @@ public:
     static const SecurityGroupList &default_sg_list() {return default_sg_list_;}
     bool ValidFlowMove(const FlowEntry *new_flow,
                        const FlowEntry *old_flow) const;
+    // Update flow port bucket information
+    void NewFlow(const FlowEntry *flow);
+    void DeleteFlow(const FlowEntry *flow);
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;
     friend class FetchFlowRecord;

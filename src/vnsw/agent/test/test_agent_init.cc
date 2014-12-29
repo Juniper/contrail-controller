@@ -22,6 +22,8 @@ TestAgentInit::TestAgentInit() : ContrailInitCommon() {
 TestAgentInit::~TestAgentInit() {
     ksync_.reset();
     uve_.reset();
+    stats_collector_.reset();
+    flow_stats_collector_.reset();
 }
 
 void TestAgentInit::ProcessOptions
@@ -72,6 +74,18 @@ void TestAgentInit::CreateModules() {
                (agent(), AgentUveBase::kBandwidthInterval));
     agent()->set_uve(uve_.get());
 
+    stats_collector_.reset(new AgentStatsCollectorTest(
+                                *(agent()->event_manager()->io_service()),
+                                agent()));
+    agent()->set_stats_collector(stats_collector_.get());
+
+    flow_stats_collector_.reset(new FlowStatsCollectorTest(
+                                    *(agent()->event_manager()->io_service()),
+                                    agent()->params()->flow_stats_interval(),
+                                    agent()->params()->flow_cache_timeout(),
+                                    uve_.get()));
+    agent()->set_flow_stats_collector(flow_stats_collector_.get());
+
     ksync_.reset(AgentObjectFactory::Create<KSync>(agent()));
     agent()->set_ksync(ksync_.get());
 }
@@ -89,6 +103,18 @@ void TestAgentInit::KSyncShutdown() {
 void TestAgentInit::UveShutdown() {
     if (agent()->uve()) {
         agent()->uve()->Shutdown();
+    }
+}
+
+void TestAgentInit::StatsCollectorShutdown() {
+    if (agent()->stats_collector()) {
+        agent()->stats_collector()->Shutdown();
+    }
+}
+
+void TestAgentInit::FlowStatsCollectorShutdown() {
+    if (agent()->flow_stats_collector()) {
+        agent()->flow_stats_collector()->Shutdown();
     }
 }
 

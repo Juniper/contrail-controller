@@ -13,6 +13,11 @@
 #include <oper/mirror_table.h>
 #include <ksync/ksync_init.h>
 
+void vr_interface_req::Process(SandeshContext *context) {
+     AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
+     ioc->IfMsgHandler(this);
+}
+
 void vr_drop_stats_req::Process(SandeshContext *context) {
     AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
     ioc->DropStatsMsgHandler(this);

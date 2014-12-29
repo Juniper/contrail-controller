@@ -13,8 +13,7 @@ public:
     }
     virtual bool Run() {
         for (int i = 0; i < count_; i++) {
-            AgentUve *uve = static_cast<AgentUve *>(Agent::GetInstance()->uve());
-            uve->agent_stats_collector()->Run();
+            Agent::GetInstance()->stats_collector()->Run();
         }
         return true;
     }
@@ -29,8 +28,7 @@ public:
                 StatsCollector::FlowStatsCollector) {
     }
     virtual bool Run() {
-        AgentUve *uve = static_cast<AgentUve *>(Agent::GetInstance()->uve());
-        uve->flow_stats_collector()->Run();
+        Agent::GetInstance()->flow_stats_collector()->Run();
     }
 };
 

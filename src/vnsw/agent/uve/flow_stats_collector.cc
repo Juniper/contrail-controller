@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <pkt/flow_proto.h>
 #include <ksync/ksync_init.h>
+#include <uve/flow_stats_interval_types.h>
 
 FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
                                        uint32_t flow_cache_timeout,
@@ -253,6 +254,91 @@ uint64_t FlowStatsCollector::GetUpdatedFlowPackets(const FlowStats *stats,
     return (oflow_pkts |= k_flow_pkts);
 }
 
+void FlowStatsCollector::UpdateFloatingIpStats(const FlowEntry *flow,
+                                       uint64_t bytes, uint64_t pkts) {
+    VmUveEntry::FipInfo fip_info;
+
+    /* Ignore Non-Floating-IP flow */
+    if (!flow->stats().fip ||
+        flow->stats().fip_vm_port_id == Interface::kInvalidIndex) {
+        return;
+    }
+
+    VmUveTable *vm_table = static_cast<VmUveTable *>
+        (agent_uve_->vm_uve_table());
+    VmUveEntry *entry = vm_table->InterfaceIdToVmUveEntry
+        (flow->stats().fip_vm_port_id);
+    if (entry == NULL) {
+        return;
+    }
+
+    fip_info.bytes_ = bytes;
+    fip_info.packets_ = pkts;
+    fip_info.fip_ = flow->stats().fip;
+    fip_info.fip_vm_port_id_ = flow->stats().fip_vm_port_id;
+    fip_info.is_local_flow_ = flow->is_flags_set(FlowEntry::LocalFlow);
+    fip_info.is_ingress_flow_ = flow->is_flags_set(FlowEntry::IngressDir);
+    fip_info.is_reverse_flow_ = flow->is_flags_set(FlowEntry::ReverseFlow);
+    fip_info.vn_ = flow->data().source_vn;
+
+    fip_info.rev_fip_ = NULL;
+    if (flow->stats().fip != flow->reverse_flow_fip()) {
+        /* This is the case where Source and Destination VMs (part of
+         * same compute node) ping to each other to their respective
+         * Floating IPs. In this case for each flow we need to increment
+         * stats for both the VMs */
+        fip_info.rev_fip_ = ReverseFlowFip(flow);
+    }
+
+    entry->UpdateFloatingIpStats(fip_info);
+}
+
+VmUveEntry::FloatingIp *FlowStatsCollector::ReverseFlowFip
+    (const FlowEntry *flow) {
+    uint32_t fip = flow->reverse_flow_fip();
+    const string &vn = flow->data().source_vn;
+    uint32_t intf_id = flow->reverse_flow_vmport_id();
+    Interface *intf = InterfaceTable::GetInstance()->FindInterface(intf_id);
+
+    VmUveTable *vm_table = static_cast<VmUveTable *>
+        (agent_uve_->vm_uve_table());
+    VmUveEntry *entry = vm_table->InterfaceIdToVmUveEntry(intf_id);
+    if (entry != NULL) {
+        return entry->FipEntry(fip, vn, intf);
+    }
+    return NULL;
+}
+
+void FlowStatsCollector::UpdateInterVnStats(const FlowEntry *fe, uint64_t bytes,
+                                            uint64_t pkts) {
+
+    string src_vn = fe->data().source_vn, dst_vn = fe->data().dest_vn;
+    VnUveTable *vn_table = static_cast<VnUveTable *>
+        (agent_uve_->vn_uve_table());
+
+    if (!fe->data().source_vn.length())
+        src_vn = FlowHandler::UnknownVn();
+    if (!fe->data().dest_vn.length())
+        dst_vn = FlowHandler::UnknownVn();
+
+    /* When packet is going from src_vn to dst_vn it should be interpreted
+     * as ingress to vrouter and hence in-stats for src_vn w.r.t. dst_vn
+     * should be incremented. Similarly when the packet is egressing vrouter
+     * it should be considered as out-stats for dst_vn w.r.t. src_vn.
+     * Here the direction "in" and "out" should be interpreted w.r.t vrouter
+     */
+    if (fe->is_flags_set(FlowEntry::LocalFlow)) {
+        vn_table->UpdateInterVnStats(src_vn, dst_vn, bytes, pkts, false);
+        vn_table->UpdateInterVnStats(dst_vn, src_vn, bytes, pkts, true);
+    } else {
+        if (fe->is_flags_set(FlowEntry::IngressDir)) {
+            vn_table->UpdateInterVnStats(src_vn, dst_vn, bytes, pkts, false);
+        } else {
+            vn_table->UpdateInterVnStats(dst_vn, src_vn, bytes, pkts, true);
+        }
+    }
+}
+
 void FlowStatsCollector::UpdateFlowStats(FlowEntry *flow, uint64_t &diff_bytes,
                                          uint64_t &diff_packets) {
     FlowTableKSyncObject *ksync_obj = Agent::GetInstance()->ksync()->
@@ -370,13 +456,9 @@ bool FlowStatsCollector::Run() {
                 diff_bytes = bytes - stats->bytes;
                 diff_pkts = packets - stats->packets;
                 //Update Inter-VN stats
-                VnUveTable *vn_table = static_cast<VnUveTable *>
-                    (agent_uve_->vn_uve_table());
-                vn_table->UpdateInterVnStats(entry, diff_bytes, diff_pkts);
+                UpdateInterVnStats(entry, diff_bytes, diff_pkts);
                 //Update Floating-IP stats
-                VmUveTable *vm_table = static_cast<VmUveTable *>
-                    (agent_uve_->vm_uve_table());
-                vm_table->UpdateFloatingIpStats(entry, diff_bytes, diff_pkts);
+                UpdateFloatingIpStats(entry, diff_bytes, diff_pkts);
                 stats->bytes = bytes;
                 stats->packets = packets;
                 stats->last_modified_time = curr_time;
@@ -443,4 +525,30 @@ bool FlowStatsCollector::Run() {
     }
     set_expiry_time(flow_timer_interval);
     return true;
+}
+
+void SetFlowStatsInterval_InSeconds::HandleRequest() const {
+    SandeshResponse *resp;
+    if (get_interval() > 0) {
+        FlowStatsCollector *fec = Agent::GetInstance()->flow_stats_collector();
+        fec->set_expiry_time(get_interval() * 1000);
+        resp = new FlowStatsCfgResp();
+    } else {
+        resp = new FlowStatsCfgErrResp();
+    }
+
+    resp->set_context(context());
+    resp->Response();
+    return;
+}
+
+void GetFlowStatsInterval::HandleRequest() const {
+    FlowStatsIntervalResp_InSeconds *resp =
+        new FlowStatsIntervalResp_InSeconds();
+    resp->set_flow_stats_interval((Agent::GetInstance()->flow_stats_collector()->
+        expiry_time())/1000);
+
+    resp->set_context(context());
+    resp->Response();
+    return;
 }

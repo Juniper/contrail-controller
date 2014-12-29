@@ -21,14 +21,6 @@ AgentUveBaseTest::AgentUveBaseTest(Agent *agent, uint64_t intvl)
     vm_uve_table_.reset(new VmUveTableTest(agent));
     vrouter_uve_entry_.reset(new VrouterUveEntryTest(agent));
     prouter_uve_table_.reset(new ProuterUveTableTest(agent));
-    agent_stats_collector_.reset(new AgentStatsCollectorTest(
-                                 *(agent->event_manager()->io_service()),
-                                 agent));
-    flow_stats_collector_.reset(new FlowStatsCollectorTest(
-                                *(agent->event_manager()->io_service()),
-                                agent->params()->flow_stats_interval(),
-                                agent->params()->flow_cache_timeout(),
-                                this));
 }
 
 AgentUveBaseTest::~AgentUveBaseTest() {

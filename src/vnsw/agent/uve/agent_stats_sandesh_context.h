@@ -19,15 +19,14 @@
 #include "vr_types.h"
 #include "nl_util.h"
 #include <assert.h>
-
-class AgentStatsCollector;
+#include "uve/stats_manager.h"
 
 class AgentStatsSandeshContext: public AgentSandeshContext {
 public:
-    AgentStatsSandeshContext(AgentStatsCollector *col) ;
+    explicit AgentStatsSandeshContext(Agent *agent);
     virtual ~AgentStatsSandeshContext();
 
-    AgentStatsCollector *collector() { return collector_; }
+    Agent* agent() const { return agent_; }
     int marker_id() const { return marker_id_; }
     void set_marker_id(int id) { marker_id_ = id; }
     void set_response_code(int value) { response_code_ = value; }
@@ -64,7 +63,10 @@ public:
         assert(0);
     }
 private:
-    AgentStatsCollector *collector_;
+    AgentDropStats GetDropStats(vr_drop_stats_req *req);
+
+    Agent *agent_;
+    StatsManager *stats_;
     int marker_id_;
     int response_code_;
     DISALLOW_COPY_AND_ASSIGN(AgentStatsSandeshContext);

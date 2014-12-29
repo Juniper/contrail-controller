@@ -30,7 +30,12 @@ public:
     struct FipInfo {
         uint64_t bytes_;
         uint64_t packets_;
-        const FlowEntry *flow_;
+        uint32_t fip_;
+        uint32_t fip_vm_port_id_;
+        bool is_local_flow_;
+        bool is_ingress_flow_;
+        bool is_reverse_flow_;
+        std::string vn_;
         FloatingIp *rev_fip_;
     };
     struct FloatingIp {
