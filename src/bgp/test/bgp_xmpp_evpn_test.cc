@@ -1429,7 +1429,7 @@ protected:
 
     bool CheckRouteLocalPrefSequence(test::NetworkAgentMockPtr agent,
         const string &network, const string &prefix,
-        uint32_t local_pref, uint32_t sequence) {
+        int local_pref, int sequence) {
         task_util::TaskSchedulerLock lock;
         const autogen::EnetItemType *rt =
             agent->EnetRouteLookup(network, prefix);
@@ -1455,7 +1455,7 @@ protected:
 
     void VerifyRouteLocalPrefSequence(test::NetworkAgentMockPtr agent,
         const string &network, const string &prefix,
-        uint32_t local_pref, uint32_t sequence) {
+        int local_pref, uint32_t sequence) {
         TASK_UTIL_EXPECT_TRUE(CheckRouteLocalPrefSequence(
             agent, network, prefix, local_pref, sequence));
     }

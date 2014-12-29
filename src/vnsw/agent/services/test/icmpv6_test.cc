@@ -10,7 +10,6 @@
 #include <netinet/if_ether.h>
 #include <netinet/ip6.h>
 #include <netinet/icmp6.h>
-#include <boost/uuid/string_generator.hpp>
 #include <boost/scoped_array.hpp>
 #include <base/logging.h>
 

@@ -87,8 +87,7 @@ bool CdbIfMock::Db_GetStringIndexRange(std::string index_field, std::vector<GenD
             colelem.elem_name.assign((const char *)ts_hton, 8);
             std::map<std::string, std::string>::iterator it;
             it = MessageTable[i].find(g_viz_constants.UUID_KEY);
-            boost::uuids::string_generator gen;
-            boost::uuids::uuid u = gen(it->second);
+            boost::uuids::uuid u = StringToUuid(it->second);
             std::string uuid_col_value(u.size(), 0);
             std::copy(u.begin(), u.end(), uuid_col_value.begin());
             colelem.elem_value = uuid_col_value;

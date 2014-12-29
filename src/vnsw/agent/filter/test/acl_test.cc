@@ -3,7 +3,6 @@
  */
 
 #include "base/os.h"
-#include <boost/uuid/string_generator.hpp>
 #include <test_cmn_util.h>
 #include <filter/packet_header.h>
 
@@ -128,14 +127,12 @@ void AddAclFromFile() {
 // Create and delete ACEs
 TEST_F(AclTest, Basic) {
 
-    boost::uuids::string_generator gen;
-
     AclTable *table = Agent::GetInstance()->acl_table();
     assert(table);
     LOG(DEBUG, "db.acl.0:0x" << table);
 
     AclSpec acl_spec;
-    uuid acl_id = gen("00000000-0000-0000-0000-000000000010");
+    uuid acl_id = StringToUuid("00000000-0000-0000-0000-000000000010");
     acl_spec.acl_id = acl_id;
 
     AclEntrySpec ae_spec;
@@ -152,7 +149,7 @@ TEST_F(AclTest, Basic) {
     table->Enqueue(&req);
 
     AclSpec acl_spec1;
-    acl_id = gen("00000000-0000-0000-0000-000000000001");
+    acl_id = StringToUuid("00000000-0000-0000-0000-000000000001");
     acl_spec1.acl_id = acl_id;
 
     AclEntrySpec ae_spec1;
@@ -189,12 +186,11 @@ TEST_F(AclTest, Basic) {
 }
 
 TEST_F(AclTest, Basic1) {
-    boost::uuids::string_generator gen;
     AclTable *table = Agent::GetInstance()->acl_table();
     assert(table);
 
     AclSpec acl_spec;
-    uuid acl_id = gen("00000000-0000-0000-0000-000000000012");
+    uuid acl_id = StringToUuid("00000000-0000-0000-0000-000000000012");
     acl_spec.acl_id = acl_id;
 
     AclEntrySpec ae_spec;
@@ -237,12 +233,11 @@ TEST_F(AclTest, Basic1) {
 
 TEST_F(AclTest, PacketMatching) {
 
-    boost::uuids::string_generator gen;
     AclTable *table = Agent::GetInstance()->acl_table();
     assert(table);
 
     AclSpec acl_spec;
-    uuid acl_id = gen("00000000-0000-0000-0000-000000000012");
+    uuid acl_id = StringToUuid("00000000-0000-0000-0000-000000000012");
     acl_spec.acl_id = acl_id;
 
     AclEntrySpec ae_spec;
@@ -296,8 +291,7 @@ TEST_F(AclTest, Config) {
     client->WaitForIdle();
 
     AclTable *table = Agent::GetInstance()->acl_table();
-    boost::uuids::string_generator gen;
-    uuid acl_id = gen("65babf07-3bcb-4d38-b920-be3355f11126");
+    uuid acl_id = StringToUuid("65babf07-3bcb-4d38-b920-be3355f11126");
     AclKey key_1 = AclKey(acl_id);
     AclDBEntry *acl1 = static_cast<AclDBEntry *>(table->FindActiveEntry(&key_1));
     EXPECT_TRUE(acl1 != NULL);

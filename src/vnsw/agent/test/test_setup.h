@@ -10,7 +10,6 @@
 #include "testing/gunit.h"
 
 #include <boost/uuid/uuid.hpp>
-#include <boost/uuid/string_generator.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <pugixml/pugixml.hpp>
 

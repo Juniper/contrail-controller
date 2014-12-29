@@ -8,7 +8,6 @@
 #include <fstream>
 #include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
-#include <boost/uuid/string_generator.hpp>
 #include <boost/function.hpp>
 #include <boost/bind.hpp>
 #include <pugixml/pugixml.hpp>

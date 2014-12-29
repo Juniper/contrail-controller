@@ -20,8 +20,6 @@
 
 #include "testing/gunit.h"
 
-#include <boost/uuid/string_generator.hpp>
-
 #include <base/logging.h>
 #include <io/event_manager.h>
 #include <tbb/task.h>

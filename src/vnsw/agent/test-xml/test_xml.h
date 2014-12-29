@@ -9,7 +9,6 @@
 #include <vector>
 #include <pugixml/pugixml.hpp>
 #include <boost/uuid/uuid.hpp>
-#include <boost/uuid/string_generator.hpp>
 
 #include <base/util.h>
 

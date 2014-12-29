@@ -8,7 +8,6 @@
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/array.hpp>
 #include <boost/uuid/name_generator.hpp>
-#include <boost/uuid/string_generator.hpp>
 
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
@@ -856,7 +855,7 @@ static const std::vector<FlowRecordFields::type> FlowRecordTableColumns =
     (FlowRecordFields::FLOWREC_UNDERLAY_PROTO)
     (FlowRecordFields::FLOWREC_UNDERLAY_SPORT);
 
-boost::uuids::uuid DbHandler::seed_uuid = boost::uuids::string_generator()(std::string("ffffffffffffffffffffffffffffffff"));
+boost::uuids::uuid DbHandler::seed_uuid = StringToUuid(std::string("ffffffffffffffffffffffffffffffff"));
 
 static void PopulateFlowRecordTableColumns(
     const std::vector<FlowRecordFields::type> &frvt,

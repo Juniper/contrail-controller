@@ -119,8 +119,7 @@ void IFMapMsgPropertySet(DB *db,
         data->content.get());
     autogen::IdPermsType id_perms;
     id_perms.Clear();
-    boost::uuids::string_generator gen;
-    UuidTypeSet(gen(id), &id_perms.uuid);
+    UuidTypeSet(StringToUuid(id), &id_perms.uuid);
     mapid->SetProperty("id-perms", &id_perms);
 
     for (std::map<std::string, AutogenProperty *>::const_iterator iter =
