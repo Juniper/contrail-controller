@@ -2,7 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <boost/uuid/string_generator.hpp>
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 
@@ -34,16 +33,15 @@ protected:
 // Create and delete Policy
 TEST_F(PolicyTest, Basic) {
     PolicyConfigSpec policy_c_s1;
-    boost::uuids::string_generator gen;
 
-    uuid vpc_id1 = gen("00000000-0000-0000-0000-000000000001");
-    uuid policy_id1 = gen("00000000-0000-0000-0000-000000000001");
+    uuid vpc_id1 = StringToUuid("00000000-0000-0000-0000-000000000001");
+    uuid policy_id1 = StringToUuid("00000000-0000-0000-0000-000000000001");
     policy_c_s1.vpc_id = vpc_id1;
     policy_c_s1.policy_id = policy_id1;
     policy_c_s1.name.clear();
     policy_c_s1.name.append("Contrail Employee SG");
     policy_c_s1.inbound = true;
-    policy_c_s1.acl_id = gen("00000000-0000-0000-0000-000000000001");
+    policy_c_s1.acl_id = StringToUuid("00000000-0000-0000-0000-000000000001");
 
     DB db;
     PolicyTable::Register();
@@ -70,16 +68,15 @@ TEST_F(PolicyTest, Basic) {
 // Modify policy and delete
 TEST_F(PolicyTest, ChangeAnEntry) {
     PolicyConfigSpec policy_c_s1;
-    boost::uuids::string_generator gen;
 
-    uuid vpc_id1 = gen("00000000-0000-0000-0000-000000000001");
-    uuid policy_id1 = gen("00000000-0000-0000-0000-000000000001");
+    uuid vpc_id1 = StringToUuid("00000000-0000-0000-0000-000000000001");
+    uuid policy_id1 = StringToUuid("00000000-0000-0000-0000-000000000001");
     policy_c_s1.vpc_id = vpc_id1;
     policy_c_s1.policy_id = policy_id1;
     policy_c_s1.name.clear();
     policy_c_s1.name.append("Contrail Employee SG");
     policy_c_s1.inbound = true;
-    policy_c_s1.acl_id = gen("00000000-0000-0000-0000-000000000001");
+    policy_c_s1.acl_id = StringToUuid("00000000-0000-0000-0000-000000000001");
 
     DB db;
     PolicyTable::Register();
@@ -104,7 +101,7 @@ TEST_F(PolicyTest, ChangeAnEntry) {
 
     // Modifing a existing policy
     policy_c_s1.inbound = true;
-    policy_c_s1.acl_id = gen("00000000-0000-0000-0000-000000000002");
+    policy_c_s1.acl_id = StringToUuid("00000000-0000-0000-0000-000000000002");
 
     Policy *pe = static_cast<Policy *>
         (ptable->FindActiveEntry(new PolicyKey(policy_id1)));
@@ -120,7 +117,7 @@ TEST_F(PolicyTest, ChangeAnEntry) {
     ptable->Enqueue(&req1);
     sleep(1);
     AclPtr ap = pe->FindAcl(true,
-                          gen("00000000-0000-0000-0000-000000000002"));
+                          StringToUuid("00000000-0000-0000-0000-000000000002"));
     EXPECT_TRUE(NULL != ap);
     sleep(1);
 

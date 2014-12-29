@@ -6,7 +6,6 @@
 #include <list>
 #include <map>
 
-#include <boost/uuid/string_generator.hpp>
 #include <boost/function.hpp>
 
 #include <base/parse_object.h>

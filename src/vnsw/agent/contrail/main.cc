@@ -2,7 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <boost/uuid/string_generator.hpp>
 #include <boost/program_options.hpp>
 #include <base/logging.h>
 #include <base/contrail_ports.h>

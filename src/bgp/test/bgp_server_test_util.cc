@@ -6,7 +6,6 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/foreach.hpp>
-#include <boost/uuid/string_generator.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <tbb/mutex.h>
 
@@ -237,10 +236,9 @@ void BgpPeerTest::BindLocalEndpoint(BgpSession *session) {
     peer_key.endpoint.address(
         ip::address::from_string("127.0.0.1", err));
     peer_key.endpoint.port(server()->session_manager()->GetPort());
-    boost::uuids::string_generator gen;
 
     if (config_) {
-        peer_key.uuid = gen(config_->uuid());
+        peer_key.uuid = StringToUuid(config_->uuid());
         tbb::mutex::scoped_lock lock(peer_connect_map_mutex_);
         peer_connect_map_[local_endpoint] = peer_key;
     }

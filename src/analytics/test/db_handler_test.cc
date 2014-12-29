@@ -419,8 +419,7 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
       }
 
       {
-        boost::uuids::string_generator gen;
-        boost::uuids::uuid unm_allf = gen(std::string("ffffffffffffffffffffffffffffffff"));
+        boost::uuids::uuid unm_allf = StringToUuid(std::string("ffffffff-ffff-ffff-ffff-ffffffffffff"));
         DbDataValueVec *colname(new DbDataValueVec);
         colname->reserve(4);
         colname->push_back("ObjectTableInsertTest:Objecttype");
@@ -448,8 +447,7 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
       }
 
       {
-        boost::uuids::string_generator gen;
-        boost::uuids::uuid unm_allf = gen(std::string("ffffffffffffffffffffffffffffffff"));
+        boost::uuids::uuid unm_allf = StringToUuid(std::string("ffffffff-ffff-ffff-ffff-ffffffffffff"));
         DbDataValueVec *colname(new DbDataValueVec);
         colname->reserve(4);
         colname->push_back(hdr.get_Source());
@@ -497,7 +495,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
     msg->SetHeader(hdr);
 
     std::string flowu_str = "555788e0-513c-4351-8711-3fc481cf2eb4";
-    boost::uuids::uuid flowu = boost::uuids::string_generator()(flowu_str);
+    boost::uuids::uuid flowu = StringToUuid(flowu_str);
 
       {
         GenDb::DbDataValueVec rowkey;

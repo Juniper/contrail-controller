@@ -4,7 +4,6 @@
 
 #include <vector>
 #include <boost/uuid/uuid_io.hpp>
-#include <boost/uuid/string_generator.hpp>
 
 #include <base/parse_object.h>
 #include <ifmap/ifmap_link.h>
@@ -589,8 +588,7 @@ const AclDBEntry* AclTable::GetAclDBEntry(const string acl_uuid_str,
 
     // Get acl entry from acl uuid string
     AclTable *table = Agent::GetInstance()->acl_table();
-    boost::uuids::string_generator gen;
-    boost::uuids::uuid acl_id = gen(acl_uuid_str);
+    boost::uuids::uuid acl_id = StringToUuid(acl_uuid_str);
     AclKey key(acl_id);
     AclDBEntry *acl_entry = static_cast<AclDBEntry *>(table->FindActiveEntry(&key));
 

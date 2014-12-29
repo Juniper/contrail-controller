@@ -5,7 +5,6 @@
 #include "base/os.h"
 #include "testing/gunit.h"
 
-#include <boost/uuid/string_generator.hpp>
 #include <boost/scoped_array.hpp>
 #include <base/logging.h>
 

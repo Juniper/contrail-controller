@@ -11,7 +11,6 @@
 #include <netinet/if_ether.h>
 #include <netinet/in.h>
 #include <netinet/ip_icmp.h>
-#include <boost/uuid/string_generator.hpp>
 #include <boost/scoped_array.hpp>
 #include <base/logging.h>
 

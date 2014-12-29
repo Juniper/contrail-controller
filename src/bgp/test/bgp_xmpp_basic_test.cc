@@ -110,14 +110,14 @@ protected:
         agent_c_->SessionDown();
     }
 
-    void Configure(const char *cfg_template, int asn) {
+    void Configure(const char *cfg_template, uint32_t asn) {
         char config[4096];
         snprintf(config, sizeof(config), cfg_template,
                  asn, bs_x_->session_manager()->GetPort());
         bs_x_->Configure(config);
     }
 
-    int GetXmppConnectionFlapCount(const string &hostname) {
+    uint32_t GetXmppConnectionFlapCount(const string &hostname) {
         TASK_UTIL_EXPECT_TRUE(xs_x_->FindConnectionEndpoint(hostname) != NULL);
         const XmppConnectionEndpoint *conn_endpoint =
             xs_x_->FindConnectionEndpoint(hostname);
@@ -266,13 +266,13 @@ TEST_P(BgpXmppBasicParamTest, ClearAllConnections) {
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
 
-    int client_flap_a = agent_a_->flap_count();
-    int client_flap_b = agent_b_->flap_count();
-    int client_flap_c = agent_c_->flap_count();
+    uint32_t client_flap_a = agent_a_->flap_count();
+    uint32_t client_flap_b = agent_b_->flap_count();
+    uint32_t client_flap_c = agent_c_->flap_count();
 
-    int server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
-    int server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
-    int server_flap_c = GetXmppConnectionFlapCount(agent_c_->hostname());
+    uint32_t server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
+    uint32_t server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
+    uint32_t server_flap_c = GetXmppConnectionFlapCount(agent_c_->hostname());
 
     TaskScheduler::GetInstance()->Stop();
     xs_x_->ClearAllConnections();
@@ -304,13 +304,13 @@ TEST_P(BgpXmppBasicParamTest, ClearConnection) {
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
 
-    int client_flap_a = agent_a_->flap_count();
-    int client_flap_b = agent_b_->flap_count();
-    int client_flap_c = agent_c_->flap_count();
+    uint32_t client_flap_a = agent_a_->flap_count();
+    uint32_t client_flap_b = agent_b_->flap_count();
+    uint32_t client_flap_c = agent_c_->flap_count();
 
-    int server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
-    int server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
-    int server_flap_c = GetXmppConnectionFlapCount(agent_c_->hostname());
+    uint32_t server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
+    uint32_t server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
+    uint32_t server_flap_c = GetXmppConnectionFlapCount(agent_c_->hostname());
 
     TaskScheduler::GetInstance()->Stop();
     EXPECT_TRUE(xs_x_->ClearConnection("agent-b"));
@@ -342,13 +342,13 @@ TEST_P(BgpXmppBasicParamTest, ClearNonExistentConnection) {
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
 
-    int client_flap_a = agent_a_->flap_count();
-    int client_flap_b = agent_b_->flap_count();
-    int client_flap_c = agent_c_->flap_count();
+    uint32_t client_flap_a = agent_a_->flap_count();
+    uint32_t client_flap_b = agent_b_->flap_count();
+    uint32_t client_flap_c = agent_c_->flap_count();
 
-    int server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
-    int server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
-    int server_flap_c = GetXmppConnectionFlapCount(agent_c_->hostname());
+    uint32_t server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
+    uint32_t server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
+    uint32_t server_flap_c = GetXmppConnectionFlapCount(agent_c_->hostname());
 
     TaskScheduler::GetInstance()->Stop();
     EXPECT_FALSE(xs_x_->ClearConnection("agent-bx"));
@@ -387,13 +387,13 @@ TEST_P(BgpXmppBasicParamTest, ChangeAsNumber) {
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
 
-    int client_flap_a = agent_a_->flap_count();
-    int client_flap_b = agent_b_->flap_count();
-    int client_flap_c = agent_c_->flap_count();
+    uint32_t client_flap_a = agent_a_->flap_count();
+    uint32_t client_flap_b = agent_b_->flap_count();
+    uint32_t client_flap_c = agent_c_->flap_count();
 
-    int server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
-    int server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
-    int server_flap_c = GetXmppConnectionFlapCount(agent_c_->hostname());
+    uint32_t server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
+    uint32_t server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
+    uint32_t server_flap_c = GetXmppConnectionFlapCount(agent_c_->hostname());
 
     Configure(bgp_config_template, 64513);
     task_util::WaitForIdle();
@@ -679,9 +679,9 @@ TEST_P(BgpXmppBasicParamTest, ShowDeletedConnections1) {
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
     TASK_UTIL_EXPECT_EQ(3, xs_x_->ConnectionCount());
 
-    int server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
-    int server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
-    int server_flap_c = GetXmppConnectionFlapCount(agent_c_->hostname());
+    uint32_t server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
+    uint32_t server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
+    uint32_t server_flap_c = GetXmppConnectionFlapCount(agent_c_->hostname());
 
     // Disable destroy of xmpp managed objects.
     SetLifetimeManagerDestroyDisable(true);
@@ -717,9 +717,9 @@ TEST_P(BgpXmppBasicParamTest, ShowDeletedConnections2) {
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
     TASK_UTIL_EXPECT_EQ(3, xs_x_->ConnectionCount());
 
-    int server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
-    int server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
-    int server_flap_c = GetXmppConnectionFlapCount(agent_c_->hostname());
+    uint32_t server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
+    uint32_t server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
+    uint32_t server_flap_c = GetXmppConnectionFlapCount(agent_c_->hostname());
 
     // Disable xmpp lifetime manager queue processing.
     SetLifetimeManagerQueueDisable(true);
@@ -754,13 +754,13 @@ TEST_P(BgpXmppBasicParamTest, IntrospectClearAllConnections) {
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
 
-    int client_flap_a = agent_a_->flap_count();
-    int client_flap_b = agent_b_->flap_count();
-    int client_flap_c = agent_c_->flap_count();
+    uint32_t client_flap_a = agent_a_->flap_count();
+    uint32_t client_flap_b = agent_b_->flap_count();
+    uint32_t client_flap_c = agent_c_->flap_count();
 
-    int server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
-    int server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
-    int server_flap_c = GetXmppConnectionFlapCount(agent_c_->hostname());
+    uint32_t server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
+    uint32_t server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
+    uint32_t server_flap_c = GetXmppConnectionFlapCount(agent_c_->hostname());
 
     // Clear should fail when test mode is disabled.
     VerifyClearXmppConnectionSandesh(false, "all", false);
@@ -806,13 +806,13 @@ TEST_P(BgpXmppBasicParamTest, IntrospectClearConnection) {
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
 
-    int client_flap_a = agent_a_->flap_count();
-    int client_flap_b = agent_b_->flap_count();
-    int client_flap_c = agent_c_->flap_count();
+    uint32_t client_flap_a = agent_a_->flap_count();
+    uint32_t client_flap_b = agent_b_->flap_count();
+    uint32_t client_flap_c = agent_c_->flap_count();
 
-    int server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
-    int server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
-    int server_flap_c = GetXmppConnectionFlapCount(agent_c_->hostname());
+    uint32_t server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
+    uint32_t server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
+    uint32_t server_flap_c = GetXmppConnectionFlapCount(agent_c_->hostname());
 
     // Clear should fail when test mode is enabled.
     VerifyClearXmppConnectionSandesh(false, "agent-b", false);
@@ -858,13 +858,13 @@ TEST_P(BgpXmppBasicParamTest, IntrospectClearNonExistentConnection) {
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
 
-    int client_flap_a = agent_a_->flap_count();
-    int client_flap_b = agent_b_->flap_count();
-    int client_flap_c = agent_c_->flap_count();
+    uint32_t client_flap_a = agent_a_->flap_count();
+    uint32_t client_flap_b = agent_b_->flap_count();
+    uint32_t client_flap_c = agent_c_->flap_count();
 
-    int server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
-    int server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
-    int server_flap_c = GetXmppConnectionFlapCount(agent_c_->hostname());
+    uint32_t server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
+    uint32_t server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
+    uint32_t server_flap_c = GetXmppConnectionFlapCount(agent_c_->hostname());
 
     VerifyClearXmppConnectionSandesh(false, "*", false);
     task_util::WaitForIdle();
@@ -940,9 +940,9 @@ TEST_P(BgpXmppBasicParamTest2, DuplicateEndpointName1) {
     agent_x1_->SessionUp();
     TASK_UTIL_EXPECT_TRUE(agent_x1_->IsEstablished());
 
-    int client_x1_session_close = agent_x1_->get_session_close();
-    int client_x2_session_close = agent_x2_->get_session_close();
-    int client_x3_session_close = agent_x3_->get_session_close();
+    uint32_t client_x1_session_close = agent_x1_->get_session_close();
+    uint32_t client_x2_session_close = agent_x2_->get_session_close();
+    uint32_t client_x3_session_close = agent_x3_->get_session_close();
 
     // Attempt to bring up two more agents with the same name.
     agent_x2_->SessionUp();
@@ -966,8 +966,8 @@ TEST_P(BgpXmppBasicParamTest2, DuplicateEndpointName2) {
     agent_x1_->SessionUp();
     TASK_UTIL_EXPECT_TRUE(agent_x1_->IsEstablished());
 
-    int client_x1_session_close = agent_x1_->get_session_close();
-    int client_x2_session_close = agent_x2_->get_session_close();
+    uint32_t client_x1_session_close = agent_x1_->get_session_close();
+    uint32_t client_x2_session_close = agent_x2_->get_session_close();
 
     // Attempt to bring up another agent with the same name.
     agent_x2_->SessionUp();

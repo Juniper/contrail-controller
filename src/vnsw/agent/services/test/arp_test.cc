@@ -7,7 +7,6 @@
 
 #include <sys/socket.h>
 #include <netinet/if_ether.h>
-#include <boost/uuid/string_generator.hpp>
 #include <base/logging.h>
 
 #include <io/event_manager.h>

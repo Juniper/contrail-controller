@@ -10,7 +10,6 @@
 
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/algorithm/string.hpp>
-#include <boost/uuid/string_generator.hpp>
 #include <boost/foreach.hpp>
 #include <vector>
 #include <pugixml/pugixml.hpp>

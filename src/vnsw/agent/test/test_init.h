@@ -20,7 +20,6 @@
 #include <stdlib.h>
 #include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
-#include <boost/uuid/string_generator.hpp>
 #include <boost/program_options.hpp>
 #include <base/task.h>
 #include <base/task_trigger.h>

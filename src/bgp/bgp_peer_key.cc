@@ -5,14 +5,12 @@
 #include "bgp/bgp_peer_key.h"
 
 #include <boost/uuid/nil_generator.hpp>
-#include <boost/uuid/string_generator.hpp>
 
 #include "bgp/bgp_config.h"
 
 using boost::asio::ip::address;
 using boost::system::error_code;
 using boost::uuids::nil_generator;
-using boost::uuids::string_generator;
 using std::exception;
 
 BgpPeerKey::BgpPeerKey() {
@@ -28,8 +26,7 @@ BgpPeerKey::BgpPeerKey(const BgpNeighborConfig *config) {
 #if defined(__EXCEPTIONS)
     try {
 #endif
-        string_generator gen;
-        uuid = gen(config->uuid());
+        uuid = StringToUuid(config->uuid());
 #if defined(__EXCEPTIONS)
     } catch (exception &ex) {
         nil_generator nil;

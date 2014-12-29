@@ -19,9 +19,8 @@ int test_tap_fd[MAX_VNET];
 
 uuid MakeUuid(int id) {
     char str[50];
-    boost::uuids::string_generator gen;
-    sprintf(str, "000000000000000000000000000000%02x", id);
-    boost::uuids::uuid u1 = gen(std::string(str));
+    sprintf(str, "00000000-0000-0000-0000-0000000000%02x", id);
+    boost::uuids::uuid u1 = StringToUuid(std::string(str));
 
     return u1;
 }
