@@ -23,7 +23,7 @@ public:
                                       Interface *intf);
 protected:
     uint64_t GetVmPortBandwidth
-        (AgentStatsCollector::InterfaceStats *s, bool dir_in) const;
+        (StatsManager::InterfaceStats *s, bool dir_in) const;
     L4PortBitmap port_bitmap_;
 private:
     bool SetVmPortBitmap(UveVirtualMachineAgent *uve);

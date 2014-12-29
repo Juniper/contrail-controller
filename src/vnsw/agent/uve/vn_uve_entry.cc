@@ -293,8 +293,7 @@ bool VnUveEntry::FillVrfStats(int vrf_id, UveVirtualNetworkAgent &s_vn) {
     vector<UveVrfStats> vlist;
 
     AgentUve *uve = static_cast<AgentUve *>(agent_->uve());
-    AgentStatsCollector::VrfStats *s =
-        uve->agent_stats_collector()->GetVrfStats(vrf_id);
+    StatsManager::VrfStats *s = uve->stats_manager()->GetVrfStats(vrf_id);
     if (s != NULL) {
         vrf_stats.set_name(s->name);
         vrf_stats.set_discards(s->discards);
@@ -367,8 +366,8 @@ bool VnUveEntry::FrameVnStatsMsg(const VnEntry *vn,
         fip_count += vm_port->GetFloatingIpCount();
 
         AgentUve *uve = static_cast<AgentUve *>(agent_->uve());
-        const AgentStatsCollector::InterfaceStats *s =
-            uve->agent_stats_collector()->GetInterfaceStats(intf);
+        const StatsManager::InterfaceStats *s =
+            uve->stats_manager()->GetInterfaceStats(intf);
         if (s == NULL) {
             continue;
         }

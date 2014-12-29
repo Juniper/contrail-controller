@@ -107,9 +107,8 @@ public:
         assert(test1);
 
         //To disable flow aging set the flow age time to high value
-        AgentUveBase *uve = Agent::GetInstance()->uve();
-        AgentUve *f_uve = static_cast<AgentUve *>(uve);
-        f_uve->flow_stats_collector()->UpdateFlowAgeTime(1000000 * 60 * 10);
+        Agent::GetInstance()->flow_stats_collector()->
+            UpdateFlowAgeTime(1000000 * 60 * 10);
 
     }
     static void TestTeardown() {
@@ -441,12 +440,11 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
                                flow1->flow_key_nh()->id()));
 
     int tmp_age_time = 1000 * 1000;
-    AgentUveBase *uve = Agent::GetInstance()->uve();
-    AgentUve *f_uve = static_cast<AgentUve *>(uve);
-    int bkp_age_time = f_uve->flow_stats_collector()->flow_age_time_intvl();
+    Agent* agent = Agent::GetInstance();
+    int bkp_age_time = agent->flow_stats_collector()->flow_age_time_intvl();
 
     //Set the flow age time to 1000 microsecond
-    f_uve->flow_stats_collector()->UpdateFlowAgeTime(tmp_age_time);
+    agent->flow_stats_collector()->UpdateFlowAgeTime(tmp_age_time);
 
     usleep(tmp_age_time + 10);
     client->EnqueueFlowAge();
@@ -454,7 +452,7 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
     WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
 
     //Restore flow aging time
-    f_uve->flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
+    agent->flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
 }
 
 TEST_F(StatsTestMock, DeletedFlowStatsTest) {
@@ -556,9 +554,8 @@ TEST_F(StatsTestMock, DeletedFlowStatsTest) {
 }
 
 TEST_F(StatsTestMock, IntfStatsTest) {
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
     AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
-        (u->agent_stats_collector());
+        (Agent::GetInstance()->stats_collector());
     collector->interface_stats_responses_ = 0;
     client->IfStatsTimerWait(1);
 
@@ -703,9 +700,8 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     KSyncSockTypeMap::VrfStatsUpdate(vrf42_id, 23, 24, 25, 26, 27, 28, 29, 30,
                                      31, 32, 33, 34, 35);
 
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
     AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
-        (u->agent_stats_collector());
+        (Agent::GetInstance()->stats_collector());
     //Wait for stats to be updated in agent
     collector->vrf_stats_responses_ = 0;
     client->VrfStatsTimerWait(1);
@@ -830,9 +826,8 @@ TEST_F(StatsTestMock, VrfStatsTest) {
 }
 
 TEST_F(StatsTestMock, VnStatsTest) {
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
     AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
-        (u->agent_stats_collector());
+        (Agent::GetInstance()->stats_collector());
     collector->interface_stats_responses_ = 0;
     client->IfStatsTimerWait(1);
 
@@ -994,10 +989,8 @@ TEST_F(StatsTestMock, Underlay_3) {
 
     //Since encap type is MPLS_GRE verify that exported flow has
     //0 as underlay source port
-    AgentUveBase *uve = Agent::GetInstance()->uve();
-    AgentUve *f_uve = static_cast<AgentUve *>(uve);
     FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>
-        (f_uve->flow_stats_collector());
+        (Agent::GetInstance()->flow_stats_collector());
     FlowDataIpv4 flow_log = f->last_sent_flow_log();
     EXPECT_EQ(flow_log.get_underlay_source_port(), 0);
 

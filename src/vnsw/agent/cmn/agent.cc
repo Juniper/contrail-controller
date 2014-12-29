@@ -452,6 +452,22 @@ void Agent::set_uve(AgentUveBase *uve) {
     uve_ = uve;
 }
 
+AgentStatsCollector *Agent::stats_collector() const {
+    return stats_collector_;
+}
+
+void Agent::set_stats_collector(AgentStatsCollector *asc) {
+    stats_collector_ = asc;
+}
+
+FlowStatsCollector *Agent::flow_stats_collector() const {
+    return flow_stats_collector_;
+}
+
+void Agent::set_flow_stats_collector(FlowStatsCollector *fsc) {
+    flow_stats_collector_ = fsc;
+}
+
 PktModule *Agent::pkt() const {
     return pkt_;
 }

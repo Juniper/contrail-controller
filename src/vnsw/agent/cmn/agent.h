@@ -30,6 +30,8 @@ class OperDB;
 class AgentRoute;
 class TaskScheduler;
 class AgentInit;
+class AgentStatsCollector;
+class FlowStatsCollector;
 
 class Interface;
 typedef boost::intrusive_ptr<Interface> InterfaceRef;
@@ -645,6 +647,12 @@ public:
     AgentUveBase *uve() const;
     void set_uve(AgentUveBase *uve);
 
+    AgentStatsCollector *stats_collector() const;
+    void set_stats_collector(AgentStatsCollector *asc);
+
+    FlowStatsCollector *flow_stats_collector() const;
+    void set_flow_stats_collector(FlowStatsCollector *fsc);
+
     PktModule *pkt() const;
     void set_pkt(PktModule *pkt);
 
@@ -766,6 +774,8 @@ private:
     AgentStats *stats_;
     KSync *ksync_;
     AgentUveBase *uve_;
+    AgentStatsCollector *stats_collector_;
+    FlowStatsCollector *flow_stats_collector_;
     PktModule *pkt_;
     ServicesModule *services_;
     VirtualGateway *vgw_;

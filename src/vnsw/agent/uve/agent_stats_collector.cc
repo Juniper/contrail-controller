@@ -23,6 +23,7 @@
 #include <uve/vrf_stats_io_context.h>
 #include <uve/drop_stats_io_context.h>
 #include <uve/agent_uve.h>
+#include <uve/agent_stats_interval_types.h>
 
 AgentStatsCollector::AgentStatsCollector
     (boost::asio::io_service &io, Agent* agent)
@@ -31,12 +32,10 @@ AgentStatsCollector::AgentStatsCollector
                      StatsCollector::AgentStatsCollector,
                      io, agent->params()->agent_stats_interval(),
                      "Agent Stats collector"),
-    vrf_listener_id_(DBTableBase::kInvalidId),
-    intf_listener_id_(DBTableBase::kInvalidId), agent_(agent) {
-    AddNamelessVrfStatsEntry();
-    intf_stats_sandesh_ctx_.reset(new AgentStatsSandeshContext(this));
-    vrf_stats_sandesh_ctx_.reset( new AgentStatsSandeshContext(this));
-    drop_stats_sandesh_ctx_.reset(new AgentStatsSandeshContext(this));
+    agent_(agent) {
+    intf_stats_sandesh_ctx_.reset(new AgentStatsSandeshContext(agent));
+    vrf_stats_sandesh_ctx_.reset( new AgentStatsSandeshContext(agent));
+    drop_stats_sandesh_ctx_.reset(new AgentStatsSandeshContext(agent));
 }
 
 AgentStatsCollector::~AgentStatsCollector() {
@@ -114,74 +113,6 @@ void AgentStatsCollector::SendAsync(char* buf, uint32_t buf_len,
     }
 }
 
-void vr_interface_req::Process(SandeshContext *context) {
-     AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
-     ioc->IfMsgHandler(this);
-}
-
-void AgentStatsCollector::AddInterfaceStatsEntry(const Interface *intf) {
-    InterfaceStatsTree::iterator it;
-    it = if_stats_tree_.find(intf);
-    if (it == if_stats_tree_.end()) {
-        AgentStatsCollector::InterfaceStats stats;
-        stats.name = intf->name();
-        if_stats_tree_.insert(InterfaceStatsPair(intf, stats));
-    }
-}
-
-void AgentStatsCollector::DelInterfaceStatsEntry(const Interface *intf) {
-    InterfaceStatsTree::iterator it;
-    it = if_stats_tree_.find(intf);
-    if (it != if_stats_tree_.end()) {
-        if_stats_tree_.erase(it);
-    }
-}
-
-void AgentStatsCollector::AddNamelessVrfStatsEntry() {
-    AgentStatsCollector::VrfStats stats;
-    stats.name = GetNamelessVrf();
-    vrf_stats_tree_.insert(VrfStatsPair(GetNamelessVrfId(), stats));
-}
-
-void AgentStatsCollector::AddUpdateVrfStatsEntry(const VrfEntry *vrf) {
-    VrfIdToVrfStatsTree::iterator it;
-    it = vrf_stats_tree_.find(vrf->vrf_id());
-    if (it == vrf_stats_tree_.end()) {
-        AgentStatsCollector::VrfStats stats;
-        stats.name = vrf->GetName();
-        vrf_stats_tree_.insert(VrfStatsPair(vrf->vrf_id(), stats));
-    } else {
-        /* Vrf could be deleted in agent oper DB but not in Kernel. To handle
-         * this case we maintain vrfstats object in AgentStatsCollector even
-         * when vrf is absent in agent oper DB.  Since vrf could get deleted and
-         * re-added we need to update the name in vrfstats object.
-         */
-        AgentStatsCollector::VrfStats *stats = &it->second;
-        stats->name = vrf->GetName();
-    }
-}
-
-void AgentStatsCollector::DelVrfStatsEntry(const VrfEntry *vrf) {
-    VrfIdToVrfStatsTree::iterator it;
-    it = vrf_stats_tree_.find(vrf->vrf_id());
-    if (it != vrf_stats_tree_.end()) {
-        AgentStatsCollector::VrfStats *stats = &it->second;
-        stats->prev_discards = stats->k_discards;
-        stats->prev_resolves = stats->k_resolves;
-        stats->prev_receives = stats->k_receives;
-        stats->prev_udp_mpls_tunnels = stats->k_udp_mpls_tunnels;
-        stats->prev_udp_tunnels = stats->k_udp_tunnels;
-        stats->prev_gre_mpls_tunnels = stats->k_gre_mpls_tunnels;
-        stats->prev_fabric_composites = stats->k_fabric_composites;
-        stats->prev_l2_mcast_composites = stats->k_l2_mcast_composites;
-        stats->prev_l3_mcast_composites = stats->k_l3_mcast_composites;
-        stats->prev_multi_proto_composites = stats->k_multi_proto_composites;
-        stats->prev_ecmp_composites = stats->k_ecmp_composites;
-        stats->prev_l2_encaps = stats->k_l2_encaps;
-        stats->prev_encaps = stats->k_encaps;
-    }
-}
-
 bool AgentStatsCollector::Run() {
     SendInterfaceBulkGet();
     SendVrfStatsBulkGet();
@@ -199,126 +130,31 @@ void AgentStatsCollector::SendStats() {
     vmt->SendVmStats();
 }
 
-AgentStatsCollector::InterfaceStats *AgentStatsCollector::GetInterfaceStats
-    (const Interface *intf) {
-    InterfaceStatsTree::iterator it;
-
-    it = if_stats_tree_.find(intf);
-    if (it == if_stats_tree_.end()) {
-        return NULL;
-    }
-
-    return &it->second;
-}
-
-AgentStatsCollector::VrfStats *AgentStatsCollector::GetVrfStats(int vrf_id) {
-    VrfIdToVrfStatsTree::iterator it;
-    it = vrf_stats_tree_.find(vrf_id);
-    if (it == vrf_stats_tree_.end()) {
-        return NULL;
-    }
-
-    return &it->second;
-}
-
-void AgentStatsCollector::InterfaceNotify(DBTablePartBase *part,
-                                          DBEntryBase *e) {
-    const Interface *intf = static_cast<const Interface *>(e);
-    bool set_state = false, reset_state = false;
-
-    DBState *state = static_cast<DBState *>
-                      (e->GetState(part->parent(), intf_listener_id_));
-    switch(intf->type()) {
-    case Interface::VM_INTERFACE:
-        if (e->IsDeleted() || ((intf->ipv4_active() == false) &&
-                                (intf->l2_active() == false))) {
-            if (state) {
-                reset_state = true;
-            }
-        } else {
-            if (!state) {
-                set_state = true;
-            }
-        }
-        break;
-    default:
-        if (e->IsDeleted()) {
-            if (state) {
-                reset_state = true;
-            }
-        } else {
-            if (!state) {
-                set_state = true;
-            }
-        }
-    }
-    if (set_state) {
-        state = new DBState();
-        e->SetState(part->parent(), intf_listener_id_, state);
-        AddInterfaceStatsEntry(intf);
-    } else if (reset_state) {
-        DelInterfaceStatsEntry(intf);
-        delete state;
-        e->ClearState(part->parent(), intf_listener_id_);
-    }
-    return;
-}
-
-void AgentStatsCollector::VrfNotify(DBTablePartBase *part, DBEntryBase *e) {
-    const VrfEntry *vrf = static_cast<const VrfEntry *>(e);
-    DBState *state = static_cast<DBState *>
-                      (e->GetState(part->parent(), vrf_listener_id_));
-    if (e->IsDeleted()) {
-        if (state) {
-            DelVrfStatsEntry(vrf);
-            delete state;
-            e->ClearState(part->parent(), vrf_listener_id_);
-        }
-    } else {
-        if (!state) {
-            state = new DBState();
-            e->SetState(part->parent(), vrf_listener_id_, state);
-        }
-        AddUpdateVrfStatsEntry(vrf);
-    }
-}
-
-void AgentStatsCollector::RegisterDBClients() {
-    InterfaceTable *intf_table = agent_->interface_table();
-    intf_listener_id_ = intf_table->Register
-        (boost::bind(&AgentStatsCollector::InterfaceNotify, this, _1, _2));
-
-    VrfTable *vrf_table = agent_->vrf_table();
-    vrf_listener_id_ = vrf_table->Register
-        (boost::bind(&AgentStatsCollector::VrfNotify, this, _1, _2));
-}
-
 void AgentStatsCollector::Shutdown(void) {
-    agent_->vrf_table()->Unregister(vrf_listener_id_);
-    agent_->interface_table()->Unregister(intf_listener_id_);
     StatsCollector::Shutdown();
 }
 
-void AgentStatsCollector::InterfaceStats::UpdateStats
-    (uint64_t in_b, uint64_t in_p, uint64_t out_b, uint64_t out_p) {
-    in_bytes = in_b;
-    in_pkts = in_p;
-    out_bytes = out_b;
-    out_pkts = out_p;
+void SetAgentStatsInterval_InSeconds::HandleRequest() const {
+    SandeshResponse *resp;
+    if (get_interval() > 0) {
+        Agent::GetInstance()->stats_collector()->set_expiry_time
+            (get_interval() * 1000);
+        resp = new AgentStatsCfgResp();
+    } else {
+        resp = new AgentStatsCfgErrResp();
+    }
+
+    resp->set_context(context());
+    resp->Response();
+    return;
 }
 
-void AgentStatsCollector::InterfaceStats::UpdatePrevStats() {
-    prev_in_bytes = in_bytes;
-    prev_in_pkts = in_pkts;
-    prev_out_bytes = out_bytes;
-    prev_out_pkts = out_pkts;
+void GetAgentStatsInterval::HandleRequest() const {
+    AgentStatsIntervalResp_InSeconds *resp =
+        new AgentStatsIntervalResp_InSeconds();
+    resp->set_agent_stats_interval((Agent::GetInstance()->stats_collector()->
+        expiry_time())/1000);
+    resp->set_context(context());
+    resp->Response();
+    return;
 }
-
-void AgentStatsCollector::InterfaceStats::GetDiffStats
-    (uint64_t *in_b, uint64_t *in_p, uint64_t *out_b, uint64_t *out_p) {
-    *in_b = in_bytes - prev_in_bytes;
-    *in_p = in_pkts - prev_in_pkts;
-    *out_b = out_bytes - prev_out_bytes;
-    *out_p = out_pkts - prev_out_pkts;
-}
-

@@ -411,8 +411,28 @@ void AgentInit::UveShutdownBase() {
     return;
 }
 
+void AgentInit::StatsCollectorShutdownBase() {
+    StatsCollectorShutdown();
+    return;
+}
+
+void AgentInit::FlowStatsCollectorShutdownBase() {
+    FlowStatsCollectorShutdown();
+    return;
+}
+
 static bool UveShutdownInternal(AgentInit *init) {
     init->UveShutdownBase();
+    return true;
+}
+
+static bool StatsCollectorShutdownInternal(AgentInit *init) {
+    init->StatsCollectorShutdownBase();
+    return true;
+}
+
+static bool FlowStatsCollectorShutdownInternal(AgentInit *init) {
+    init->FlowStatsCollectorShutdownBase();
     return true;
 }
 
@@ -435,6 +455,10 @@ void AgentInit::Shutdown() {
     DeleteDBEntriesBase();
     WaitForDBEmpty();
     RunInTaskContext(this, task_id, boost::bind(&ServicesShutdownInternal,
+                                                this));
+    RunInTaskContext(this, task_id, boost::bind
+                     (&FlowStatsCollectorShutdownInternal, this));
+    RunInTaskContext(this, task_id, boost::bind(&StatsCollectorShutdownInternal,
                                                 this));
     RunInTaskContext(this, task_id, boost::bind(&UveShutdownInternal, this));
     RunInTaskContext(this, task_id, boost::bind(&PktShutdownInternal, this));

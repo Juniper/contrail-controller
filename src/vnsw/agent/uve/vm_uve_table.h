@@ -17,19 +17,16 @@ public:
     virtual ~VmUveTable();
     void UpdateBitmap(const VmEntry* vm, uint8_t proto, uint16_t sport,
                       uint16_t dport);
-    void UpdateFloatingIpStats(const FlowEntry *flow, uint64_t bytes,
-                               uint64_t pkts);
     void EnqueueVmStatData(VmStatData *data);
     bool Process(VmStatData *vm_stat_data);
     void SendVmStats(void);
     virtual void DispatchVmStatsMsg(const VirtualMachineStats &uve);
+    VmUveEntry *InterfaceIdToVmUveEntry(uint32_t id);
 protected:
     virtual void VmStatCollectionStart(VmUveVmState *state, const VmEntry *vm);
     virtual void VmStatCollectionStop(VmUveVmState *state);
 private:
     virtual VmUveEntryPtr Allocate(const VmEntry *vm);
-    VmUveEntry::FloatingIp *ReverseFlowFip(const VmUveEntry::FipInfo &fip_info);
-    VmUveEntry *InterfaceIdToVmUveEntry(uint32_t id);
     virtual void SendVmDeleteMsg(const VmEntry *vm);
     void SendVmStatsMsg(const VmEntry *vm);
 

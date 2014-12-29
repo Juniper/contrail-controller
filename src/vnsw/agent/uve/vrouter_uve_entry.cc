@@ -183,8 +183,8 @@ bool VrouterUveEntry::SendVrouterMsg() {
     const Interface *vhost = static_cast<const Interface *>
         (agent_->interface_table()->FindActiveEntry(&key));
     AgentUve *uve = static_cast<AgentUve *>(agent_->uve());
-    const AgentStatsCollector::InterfaceStats *s =
-        uve->agent_stats_collector()->GetInterfaceStats(vhost);
+    const StatsManager::InterfaceStats *s =
+        uve->stats_manager()->GetInterfaceStats(vhost);
     if (s != NULL) {
         AgentIfStats vhost_stats;
         vhost_stats.set_name(agent_->vhost_interface_name());
@@ -238,7 +238,7 @@ uint8_t VrouterUveEntry::CalculateBandwitdh(uint64_t bytes, int speed_mbps,
 }
 
 uint8_t VrouterUveEntry::GetBandwidthUsage
-    (AgentStatsCollector::InterfaceStats *s, bool dir_in, int mins) const {
+    (StatsManager::InterfaceStats *s, bool dir_in, int mins) const {
 
     uint64_t bytes;
     if (dir_in) {
@@ -282,8 +282,8 @@ bool VrouterUveEntry::BuildPhysicalInterfaceList(vector<AgentIfStats> &list)
     while (it != phy_intf_set_.end()) {
         const Interface *intf = *it;
         AgentUve *uve = static_cast<AgentUve *>(agent_->uve());
-        AgentStatsCollector::InterfaceStats *s =
-              uve->agent_stats_collector()->GetInterfaceStats(intf);
+        StatsManager::InterfaceStats *s =
+              uve->stats_manager()->GetInterfaceStats(intf);
         if (s == NULL) {
             continue;
         }
@@ -311,8 +311,8 @@ bool VrouterUveEntry::BuildPhysicalInterfaceBandwidth
     while (it != phy_intf_set_.end()) {
         const Interface *intf = *it;
         AgentUve *uve = static_cast<AgentUve *>(agent_->uve());
-        AgentStatsCollector::InterfaceStats *s =
-              uve->agent_stats_collector()->GetInterfaceStats(intf);
+        StatsManager::InterfaceStats *s =
+              uve->stats_manager()->GetInterfaceStats(intf);
         if (s == NULL) {
             continue;
         }
@@ -334,8 +334,8 @@ void VrouterUveEntry::InitPrevStats() const {
     while (it != phy_intf_set_.end()) {
         const Interface *intf = *it;
         AgentUve *uve = static_cast<AgentUve *>(agent_->uve());
-        AgentStatsCollector::InterfaceStats *s =
-              uve->agent_stats_collector()->GetInterfaceStats(intf);
+        StatsManager::InterfaceStats *s =
+              uve->stats_manager()->GetInterfaceStats(intf);
         if (s == NULL) {
             continue;
         }
@@ -351,51 +351,7 @@ void VrouterUveEntry::InitPrevStats() const {
 
 void VrouterUveEntry::FetchDropStats(AgentDropStats &ds) const {
     AgentUve *uve = static_cast<AgentUve *>(agent_->uve());
-    vr_drop_stats_req stats = uve->agent_stats_collector()
-                                           ->drop_stats();
-    ds.ds_discard = stats.get_vds_discard();
-    ds.ds_pull = stats.get_vds_pull();
-    ds.ds_invalid_if = stats.get_vds_invalid_if();
-    ds.ds_arp_not_me = stats.get_vds_arp_not_me();
-    ds.ds_garp_from_vm = stats.get_vds_garp_from_vm();
-    ds.ds_invalid_arp = stats.get_vds_invalid_arp();
-    ds.ds_trap_no_if = stats.get_vds_trap_no_if();
-    ds.ds_nowhere_to_go = stats.get_vds_nowhere_to_go();
-    ds.ds_flow_queue_limit_exceeded = stats.
-                                        get_vds_flow_queue_limit_exceeded();
-    ds.ds_flow_no_memory = stats.get_vds_flow_no_memory();
-    ds.ds_flow_invalid_protocol = stats.get_vds_flow_invalid_protocol();
-    ds.ds_flow_nat_no_rflow = stats.get_vds_flow_nat_no_rflow();
-    ds.ds_flow_action_drop = stats.get_vds_flow_action_drop();
-    ds.ds_flow_action_invalid = stats.get_vds_flow_action_invalid();
-    ds.ds_flow_unusable = stats.get_vds_flow_unusable();
-    ds.ds_flow_table_full = stats.get_vds_flow_table_full();
-    ds.ds_interface_tx_discard = stats.get_vds_interface_tx_discard();
-    ds.ds_interface_drop = stats.get_vds_interface_drop();
-    ds.ds_duplicated = stats.get_vds_duplicated();
-    ds.ds_push = stats.get_vds_push();
-    ds.ds_ttl_exceeded = stats.get_vds_ttl_exceeded();
-    ds.ds_invalid_nh = stats.get_vds_invalid_nh();
-    ds.ds_invalid_label = stats.get_vds_invalid_label();
-    ds.ds_invalid_protocol = stats.get_vds_invalid_protocol();
-    ds.ds_interface_rx_discard = stats.get_vds_interface_rx_discard();
-    ds.ds_invalid_mcast_source = stats.get_vds_invalid_mcast_source();
-    ds.ds_head_alloc_fail = stats.get_vds_head_alloc_fail();
-    ds.ds_head_space_reserve_fail = stats.get_vds_head_space_reserve_fail();
-    ds.ds_pcow_fail = stats.get_vds_pcow_fail();
-    ds.ds_flood = stats.get_vds_flood();
-    ds.ds_mcast_clone_fail = stats.get_vds_mcast_clone_fail();
-    ds.ds_composite_invalid_interface = stats.
-                                        get_vds_composite_invalid_interface();
-    ds.ds_rewrite_fail = stats.get_vds_rewrite_fail();
-    ds.ds_misc = stats.get_vds_misc();
-    ds.ds_invalid_packet = stats.get_vds_invalid_packet();
-    ds.ds_cksum_err = stats.get_vds_cksum_err();
-    ds.ds_clone_fail = stats.get_vds_clone_fail();
-    ds.ds_no_fmd = stats.get_vds_no_fmd();
-    ds.ds_cloned_original = stats.get_vds_cloned_original();
-    ds.ds_invalid_vnid = stats.get_vds_invalid_vnid();
-    ds.ds_frag_err = stats.get_vds_frag_err();
+    ds = uve->stats_manager()->drop_stats();
 }
 
 void VrouterUveEntry::BuildXmppStatsList(vector<AgentXmppStats> &list) const {

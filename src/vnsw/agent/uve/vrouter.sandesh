@@ -137,6 +137,8 @@ struct AgentDropStats {
     39: u64   ds_cloned_original;
     40: u64   ds_invalid_vnid;
     41: u64   ds_frag_err;
+    42: u64   ds_invalid_source;
+    43: u64   ds_mcast_df_bit;
 }
 
 struct AgentXmppStats {

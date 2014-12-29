@@ -208,7 +208,6 @@ static void RemoveMetadataService() {
 }
 
 static void Setup() {
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
     int ret = true;
     hash_id = 1;
 
@@ -334,7 +333,7 @@ static void Setup() {
     EXPECT_TRUE(ret);
     assert(ret == true);
 
-    u->flow_stats_collector()->UpdateFlowAgeTime(AGE_TIME);
+    Agent::GetInstance()->flow_stats_collector()->UpdateFlowAgeTime(AGE_TIME);
     AddAllowAcl("acl1", 1);
     client->WaitForIdle();
 }
@@ -1034,8 +1033,8 @@ TEST_F(FlowTest, Nat2NonNat) {
 
 // Non-Nat to Nat flow conversion test for traffic from VM to local VM
 TEST_F(FlowTest, NonNat2Nat) {
-    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
-    u->flow_stats_collector()->UpdateFlowAgeTime(FlowStatsCollector::FlowAgeTime);
+    Agent::GetInstance()->flow_stats_collector()->UpdateFlowAgeTime
+        (FlowStatsCollector::FlowAgeTime);
     Ip4Address addr = Ip4Address::from_string("2.1.1.1");
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
     Inet4TunnelRouteAdd(NULL, "vrf1", addr, 32, gw,
@@ -1083,7 +1082,7 @@ TEST_F(FlowTest, NonNat2Nat) {
     EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
                 fe->short_flow_reason() == FlowEntry::SHORT_REVERSE_FLOW_CHANGE);
 
-    u->flow_stats_collector()->UpdateFlowAgeTime(AGE_TIME);
+    Agent::GetInstance()->flow_stats_collector()->UpdateFlowAgeTime(AGE_TIME);
     client->EnqueueFlowAge();
     client->WaitForIdle();
     vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 32, NULL);

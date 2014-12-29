@@ -142,6 +142,14 @@ public:
     virtual void UveShutdownBase();
     virtual void UveShutdown() { }
 
+    // Shutdown Stats collector
+    virtual void StatsCollectorShutdownBase();
+    virtual void StatsCollectorShutdown() { }
+
+    // Shutdown Flow collector
+    virtual void FlowStatsCollectorShutdownBase();
+    virtual void FlowStatsCollectorShutdown() { }
+
     // Shutdown KSync
     virtual void KSyncShutdownBase();
     virtual void KSyncShutdown() { }

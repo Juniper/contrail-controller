@@ -6,6 +6,7 @@
 #define vnsw_agent_uve_h
 
 #include <uve/agent_uve_base.h>
+#include <uve/stats_manager.h>
 #include <uve/agent_stats_collector.h>
 #include <uve/flow_stats_collector.h>
 
@@ -18,20 +19,11 @@ public:
     virtual ~AgentUve();
 
     virtual void Shutdown();
-    FlowStatsCollector *flow_stats_collector() const {
-        return flow_stats_collector_.get();
-    }
-    // Update flow port bucket information
-    void NewFlow(const FlowEntry *flow);
-    void DeleteFlow(const FlowEntry *flow);
     virtual void RegisterDBClients();
-    AgentStatsCollector *agent_stats_collector() const {
-        return agent_stats_collector_.get();
-    }
+    StatsManager *stats_manager() const;
 
 protected:
-    boost::scoped_ptr<AgentStatsCollector> agent_stats_collector_;
-    boost::scoped_ptr<FlowStatsCollector> flow_stats_collector_;
+    boost::scoped_ptr<StatsManager> stats_manager_;
 
 private:
     DISALLOW_COPY_AND_ASSIGN(AgentUve);

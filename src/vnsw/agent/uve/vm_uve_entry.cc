@@ -22,8 +22,8 @@ bool VmUveEntry::FrameInterfaceStatsMsg(const VmInterface *vm_intf,
 
     const Interface *intf = static_cast<const Interface *>(vm_intf);
     AgentUve *uve = static_cast<AgentUve *>(agent_->uve());
-    AgentStatsCollector::InterfaceStats *s =
-        uve->agent_stats_collector()->GetInterfaceStats(intf);
+    StatsManager::InterfaceStats *s =
+        uve->stats_manager()->GetInterfaceStats(intf);
     if (s == NULL) {
         return false;
     }
@@ -159,7 +159,7 @@ bool VmUveEntry::FrameVmStatsMsg(const VmEntry* vm,
     return changed;
 }
 
-uint64_t VmUveEntry::GetVmPortBandwidth(AgentStatsCollector::InterfaceStats *s,
+uint64_t VmUveEntry::GetVmPortBandwidth(StatsManager::InterfaceStats *s,
                                         bool dir_in) const {
     if (s->stats_time == 0) {
         return 0;
@@ -181,7 +181,7 @@ uint64_t VmUveEntry::GetVmPortBandwidth(AgentStatsCollector::InterfaceStats *s,
 
 void VmUveEntry::UpdateFloatingIpStats(const FipInfo &fip_info) {
     Interface *intf = InterfaceTable::GetInstance()->FindInterface
-                              (fip_info.flow_->stats().fip_vm_port_id);
+                              (fip_info.fip_vm_port_id_);
     UveInterfaceEntryPtr entry(new UveInterfaceEntry(intf));
     InterfaceSet::iterator intf_it = interface_tree_.find(entry);
 

@@ -183,8 +183,9 @@ bool VmUveEntryBase::UveVmInterfaceListChanged
 void VmUveEntryBase::UveInterfaceEntry::UpdateFloatingIpStats
                                     (const FipInfo &fip_info) {
     tbb::mutex::scoped_lock lock(mutex_);
-    string vn = fip_info.flow_->data().source_vn;
-    FloatingIp *entry = FipEntry(fip_info.flow_->stats().fip, vn);
+    //string vn = fip_info.flow_->data().source_vn;
+    //FloatingIp *entry = FipEntry(fip_info.flow_->stats().fip, fip_info.vn_);
+    FloatingIp *entry = FipEntry(fip_info.fip_, fip_info.vn_);
     entry->UpdateFloatingIpStats(fip_info);
 }
 
@@ -201,8 +202,8 @@ VmUveEntryBase::FloatingIp *VmUveEntryBase::UveInterfaceEntry::FipEntry
     }
 }
 void VmUveEntryBase::FloatingIp::UpdateFloatingIpStats(const FipInfo &fip_info) {
-    if (fip_info.flow_->is_flags_set(FlowEntry::LocalFlow)) {
-        if (fip_info.flow_->is_flags_set(FlowEntry::ReverseFlow)) {
+    if (fip_info.is_local_flow_) {
+        if (fip_info.is_reverse_flow_) {
             out_bytes_ += fip_info.bytes_;
             out_packets_ += fip_info.packets_;
 
@@ -227,7 +228,7 @@ void VmUveEntryBase::FloatingIp::UpdateFloatingIpStats(const FipInfo &fip_info) 
             }
         }
     } else {
-        if (fip_info.flow_->is_flags_set(FlowEntry::IngressDir)) {
+        if (fip_info.is_ingress_flow_) {
             in_bytes_ += fip_info.bytes_;
             in_packets_ += fip_info.packets_;
         } else {

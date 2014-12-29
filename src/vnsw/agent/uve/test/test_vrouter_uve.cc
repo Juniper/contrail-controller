@@ -348,7 +348,9 @@ TEST_F(UveVrouterUveTest, ComputeCpuState_1) {
 }
 
 TEST_F(UveVrouterUveTest, DropStatsAddChange) {
+    Agent *agent = Agent::GetInstance();
     AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    StatsManager *sm = u->stats_manager();
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
         (Agent::GetInstance()->uve()->vrouter_uve_entry());
     vr->clear_count();
@@ -370,12 +372,12 @@ TEST_F(UveVrouterUveTest, DropStatsAddChange) {
     KSyncSockTypeMap::SetDropStats(ds2);
 
     //Fetch drop-stats
-    u->agent_stats_collector()->Run();
+    agent->stats_collector()->Run();
     client->WaitForIdle();
 
     //Verify drop stats in agent_stats_collector
-    vr_drop_stats_req fetched_ds = u->agent_stats_collector()->drop_stats();
-    EXPECT_TRUE(fetched_ds == ds2);
+    AgentDropStats fetched_ds = sm->drop_stats();
+    EXPECT_TRUE(DropStatsEqual(fetched_ds, ds2));
 
     //Trigger vrouter stats collection
     u->vrouter_stats_collector()->run_counter_ = 0;
@@ -394,7 +396,7 @@ TEST_F(UveVrouterUveTest, DropStatsAddChange) {
     KSyncSockTypeMap::SetDropStats(ds2);
 
     //Fetch drop-stats
-    u->agent_stats_collector()->Run();
+    agent->stats_collector()->Run();
     client->WaitForIdle();
 
     //Trigger vrouter stats collection
@@ -415,12 +417,14 @@ TEST_F(UveVrouterUveTest, DropStatsAddChange) {
     KSyncSockTypeMap::SetDropStats(ds_null);
     //Fetch drop-stats in agent_stats_collector by fetching null stats from
     //mock kernel
-    u->agent_stats_collector()->Run();
+    agent->stats_collector()->Run();
     client->WaitForIdle();
 }
 
 TEST_F(UveVrouterUveTest, BandwidthTest_1) {
+    Agent *agent = Agent::GetInstance();
     AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    StatsManager *sm = u->stats_manager();
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
         (Agent::GetInstance()->uve()->vrouter_uve_entry());
     vr->clear_count();
@@ -437,15 +441,14 @@ TEST_F(UveVrouterUveTest, BandwidthTest_1) {
 
     //Fetch interface stats
     AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
-        (u->agent_stats_collector());
+        (agent->stats_collector());
     collector->interface_stats_responses_ = 0;
-    u->agent_stats_collector()->Run();
+    agent->stats_collector()->Run();
     client->WaitForIdle();
     WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
 
     //Fetch the stats object from agent_stats_collector
-    AgentStatsCollector::InterfaceStats* stats = u->
-        agent_stats_collector()->GetInterfaceStats(intf);
+    StatsManager::InterfaceStats* stats = sm->GetInterfaceStats(intf);
     EXPECT_TRUE((stats != NULL));
 
     //Run Vrouter stats collector to update bandwidth
@@ -488,6 +491,7 @@ TEST_F(UveVrouterUveTest, BandwidthTest_1) {
 }
 
 TEST_F(UveVrouterUveTest, BandwidthTest_2) {
+    Agent *agent = Agent::GetInstance();
     AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
         (Agent::GetInstance()->uve()->vrouter_uve_entry());
@@ -501,15 +505,15 @@ TEST_F(UveVrouterUveTest, BandwidthTest_2) {
 
     //Fetch interface stats
     AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
-        (u->agent_stats_collector());
+        (agent->stats_collector());
     collector->interface_stats_responses_ = 0;
     collector->Run();
     client->WaitForIdle();
     WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
 
     //Fetch the stats object from agent_stats_collector
-    AgentStatsCollector::InterfaceStats* stats =
-        u->agent_stats_collector()->GetInterfaceStats(intf);
+    StatsManager::InterfaceStats* stats =
+        u->stats_manager()->GetInterfaceStats(intf);
     EXPECT_TRUE((stats != NULL));
 
     //Reset bandwidth counter which controls when bandwidth is updated
@@ -587,7 +591,9 @@ TEST_F(UveVrouterUveTest, BandwidthTest_2) {
 }
 
 TEST_F(UveVrouterUveTest, BandwidthTest_3) {
+    Agent *agent = Agent::GetInstance();
     AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    StatsManager *sm = u->stats_manager();
     VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
         (Agent::GetInstance()->uve()->vrouter_uve_entry());
     vr->clear_count();
@@ -600,15 +606,14 @@ TEST_F(UveVrouterUveTest, BandwidthTest_3) {
 
     //Fetch interface stats
     AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
-        (u->agent_stats_collector());
+        (agent->stats_collector());
     collector->interface_stats_responses_ = 0;
-    u->agent_stats_collector()->Run();
+    agent->stats_collector()->Run();
     client->WaitForIdle();
     WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
 
     //Fetch the stats object from agent_stats_collector
-    AgentStatsCollector::InterfaceStats* stats =
-        u->agent_stats_collector()->GetInterfaceStats(intf);
+    StatsManager::InterfaceStats* stats = sm->GetInterfaceStats(intf);
     EXPECT_TRUE((stats != NULL));
 
     //Reset bandwidth counter which controls when bandwidth is updated

@@ -32,7 +32,8 @@ public:
     void UpdateBitmap(const std::string &vn, uint8_t proto, uint16_t sport,
                       uint16_t dport);
     void SendVnStats(bool only_vrf_stats);
-    void UpdateInterVnStats(const FlowEntry *e, uint64_t bytes, uint64_t pkts);
+    void UpdateInterVnStats(const std::string &src, const std::string &dst,
+                            uint64_t bytes, uint64_t pkts, bool outgoing);
 
 protected:
     //The following API is made protected for UT.
@@ -42,8 +43,6 @@ private:
     virtual VnUveEntryPtr Allocate();
     virtual void Delete(const VnEntry *vn);
     bool SendUnresolvedVnMsg(const std::string &vn, UveVirtualNetworkAgent &u);
-    void VnStatsUpdateInternal(const std::string &src, const std::string &dst,
-                               uint64_t bytes, uint64_t pkts, bool outgoing);
     void RemoveInterVnStats(const std::string &vn);
 
     DBTableBase::ListenerId vn_listener_id_;
