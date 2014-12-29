@@ -66,6 +66,9 @@ public:
     virtual IPeerDebugStats *peer_stats() {
         return NULL;
     }
+    virtual const IPeerDebugStats *peer_stats() const {
+        return NULL;
+    }
     virtual bool IsReady() const {
         return true;
     }

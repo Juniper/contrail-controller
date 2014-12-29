@@ -165,6 +165,7 @@ public:
 
     virtual IPeerClose *peer_close();
     virtual IPeerDebugStats *peer_stats();
+    virtual const IPeerDebugStats *peer_stats() const;
     void ManagedDelete();
     void RetryDelete();
     LifetimeActor *deleter();

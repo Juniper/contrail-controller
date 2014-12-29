@@ -163,37 +163,37 @@ public:
         return peer_->flap_count();
     }
 
-    virtual void GetRxProtoStats(ProtoStats &stats) const {
-        stats = proto_stats_[0];
+    virtual void GetRxProtoStats(ProtoStats *stats) const {
+        *stats = proto_stats_[0];
     }
 
-    virtual void GetTxProtoStats(ProtoStats &stats) const {
-        stats = proto_stats_[1];
+    virtual void GetTxProtoStats(ProtoStats *stats) const {
+        *stats = proto_stats_[1];
     }
 
-    virtual void GetRxRouteUpdateStats(UpdateStats &stats)  const {
-        stats = update_stats_[0];
+    virtual void GetRxRouteUpdateStats(UpdateStats *stats)  const {
+        *stats = update_stats_[0];
     }
 
-    virtual void GetTxRouteUpdateStats(UpdateStats &stats)  const {
-        stats = update_stats_[1];
+    virtual void GetTxRouteUpdateStats(UpdateStats *stats)  const {
+        *stats = update_stats_[1];
     }
 
-    virtual void GetRxSocketStats(IPeerDebugStats::SocketStats &stats) const {
+    virtual void GetRxSocketStats(IPeerDebugStats::SocketStats *stats) const {
         if (peer_->session()) {
             io::SocketStats socket_stats(peer_->session()->GetSocketStats());
-            stats.calls = socket_stats.read_calls;
-            stats.bytes = socket_stats.read_bytes;
+            stats->calls = socket_stats.read_calls;
+            stats->bytes = socket_stats.read_bytes;
         }
     }
 
-    virtual void GetTxSocketStats(IPeerDebugStats::SocketStats &stats) const {
+    virtual void GetTxSocketStats(IPeerDebugStats::SocketStats *stats) const {
         if (peer_->session()) {
             io::SocketStats socket_stats(peer_->session()->GetSocketStats());
-            stats.calls = socket_stats.write_calls;
-            stats.bytes = socket_stats.write_bytes;
-            stats.blocked_count = socket_stats.write_blocked;
-            stats.blocked_duration_usecs =
+            stats->calls = socket_stats.write_calls;
+            stats->bytes = socket_stats.write_bytes;
+            stats->blocked_count = socket_stats.write_blocked;
+            stats->blocked_duration_usecs =
                 socket_stats.write_blocked_duration_usecs;
         }
     }
@@ -206,8 +206,8 @@ public:
         update_stats_[1].reach += count;
     }
 
-    virtual void GetRxErrorStats(RxErrorStats &) const {
-        // Do nothing for bgp peers
+    // Do nothing for bgp peers.
+    virtual void GetRxErrorStats(RxErrorStats *stats) const {
     }
 
 private:
@@ -585,6 +585,9 @@ IPeerDebugStats *BgpPeer::peer_stats() {
     return peer_stats_.get();
 }
 
+const IPeerDebugStats *BgpPeer::peer_stats() const {
+    return peer_stats_.get();
+}
 
 void BgpPeer::Clear(int subcode) {
     state_machine_->Shutdown(subcode);
@@ -1510,7 +1513,7 @@ void BgpPeer::SetDataCollectionKey(BgpPeerInfo *peer_info) const {
     peer_info->set_ip_address(peer_key_.endpoint.address().to_string());
 }
 
-static void FillProtoStats(IPeerDebugStats::ProtoStats &stats, 
+static void FillProtoStats(const IPeerDebugStats::ProtoStats &stats,
                            PeerProtoStats &proto_stats) {
     proto_stats.open = stats.open;
     proto_stats.keepalive = stats.keepalive;
@@ -1521,14 +1524,14 @@ static void FillProtoStats(IPeerDebugStats::ProtoStats &stats,
         stats.update + stats.notification;
 }
 
-static void FillRouteUpdateStats(IPeerDebugStats::UpdateStats &stats, 
+static void FillRouteUpdateStats(const IPeerDebugStats::UpdateStats &stats,
                                  PeerUpdateStats &rt_stats) {
     rt_stats.total = stats.total;
     rt_stats.reach = stats.reach;
     rt_stats.unreach = stats.unreach;
 }
 
-static void FillSocketStats(IPeerDebugStats::SocketStats &socket_stats,
+static void FillSocketStats(const IPeerDebugStats::SocketStats &socket_stats,
                             PeerSocketStats &peer_socket_stats) {
     peer_socket_stats.calls = socket_stats.calls;
     peer_socket_stats.bytes = socket_stats.bytes;
@@ -1558,32 +1561,32 @@ void BgpPeer::FillBgpNeighborDebugState(BgpNeighborResp &resp,
 
     IPeerDebugStats::ProtoStats stats;
     PeerProtoStats proto_stats;
-    peer_state->GetRxProtoStats(stats);
+    peer_state->GetRxProtoStats(&stats);
     FillProtoStats(stats, proto_stats);
     resp.set_rx_proto_stats(proto_stats);
 
-    peer_state->GetTxProtoStats(stats);
+    peer_state->GetTxProtoStats(&stats);
     FillProtoStats(stats, proto_stats);
     resp.set_tx_proto_stats(proto_stats);
 
     IPeerDebugStats::UpdateStats update_stats;
     PeerUpdateStats rt_stats;
-    peer_state->GetRxRouteUpdateStats(update_stats);
+    peer_state->GetRxRouteUpdateStats(&update_stats);
     FillRouteUpdateStats(update_stats, rt_stats);
     resp.set_rx_update_stats(rt_stats);
 
-    peer_state->GetTxRouteUpdateStats(update_stats);
+    peer_state->GetTxRouteUpdateStats(&update_stats);
     FillRouteUpdateStats(update_stats, rt_stats);
     resp.set_tx_update_stats(rt_stats);
 
     IPeerDebugStats::SocketStats socket_stats;
     PeerSocketStats peer_socket_stats;
 
-    peer_state->GetRxSocketStats(socket_stats);
+    peer_state->GetRxSocketStats(&socket_stats);
     FillSocketStats(socket_stats, peer_socket_stats);
     resp.set_rx_socket_stats(peer_socket_stats);
 
-    peer_state->GetTxSocketStats(socket_stats);
+    peer_state->GetTxSocketStats(&socket_stats);
     FillSocketStats(socket_stats, peer_socket_stats);
     resp.set_tx_socket_stats(peer_socket_stats);
 }

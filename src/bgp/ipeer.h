@@ -2,8 +2,10 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef __IPEER_H__
-#define __IPEER_H__
+#ifndef SRC_BGP_IPEER_H_
+#define SRC_BGP_IPEER_H_
+
+#include <string>
 
 #include "bgp/bgp_proto.h"
 #include "tbb/atomic.h"
@@ -25,7 +27,7 @@ public:
 class IPeerDebugStats {
 public:
     struct ProtoStats {
-        ProtoStats() : total(0), open(0), keepalive(0), notification(0), 
+        ProtoStats() : total(0), open(0), keepalive(0), notification(0),
         update(0), close(0) {
         }
         uint32_t total;
@@ -65,7 +67,7 @@ public:
     struct UpdateStats {
         UpdateStats() : total(0), reach(0), unreach(0) {
         }
-        uint32_t total; // Total valid update messages
+        uint32_t total;  // Total valid update messages
         uint32_t reach;
         uint32_t unreach;
     };
@@ -96,14 +98,14 @@ public:
     // Total number of flaps
     virtual uint32_t num_flaps() const = 0;
 
-    virtual void GetRxProtoStats(ProtoStats &) const = 0;
-    virtual void GetRxRouteUpdateStats(UpdateStats &) const = 0;
-    virtual void GetRxSocketStats(SocketStats &) const = 0;
-    virtual void GetRxErrorStats(RxErrorStats &) const = 0;
+    virtual void GetRxProtoStats(ProtoStats *stats) const = 0;
+    virtual void GetRxRouteUpdateStats(UpdateStats *stats) const = 0;
+    virtual void GetRxSocketStats(SocketStats *stats) const = 0;
+    virtual void GetRxErrorStats(RxErrorStats *stats) const = 0;
 
-    virtual void GetTxProtoStats(ProtoStats &) const = 0;
-    virtual void GetTxRouteUpdateStats(UpdateStats &) const = 0;
-    virtual void GetTxSocketStats(SocketStats &) const = 0;
+    virtual void GetTxProtoStats(ProtoStats *stats) const = 0;
+    virtual void GetTxRouteUpdateStats(UpdateStats *stats) const = 0;
+    virtual void GetTxSocketStats(SocketStats *stats) const = 0;
 
     virtual void UpdateTxReachRoute(uint32_t count) = 0;
     virtual void UpdateTxUnreachRoute(uint32_t count) = 0;
@@ -129,6 +131,7 @@ public:
     virtual BgpServer *server() = 0;
     virtual IPeerClose *peer_close() = 0;
     virtual IPeerDebugStats *peer_stats() = 0;
+    virtual const IPeerDebugStats *peer_stats() const = 0;
     virtual bool IsReady() const = 0;
     virtual bool IsXmppPeer() const = 0;
     virtual void Close() = 0;
@@ -139,4 +142,4 @@ public:
     virtual tbb::atomic<int> GetRefCount() const = 0;
 };
 
-#endif
+#endif  // SRC_BGP_IPEER_H_

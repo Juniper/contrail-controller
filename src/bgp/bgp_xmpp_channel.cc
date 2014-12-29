@@ -222,62 +222,62 @@ public:
         return (peer_->channel_->FlapCount());
     }
 
-    virtual void GetRxProtoStats(ProtoStats &stats) const {
-        stats.open = peer_->channel_->rx_open();
-        stats.close = peer_->channel_->rx_close();
-        stats.keepalive = peer_->channel_->rx_keepalive();
-        stats.update = peer_->channel_->rx_update();
+    virtual void GetRxProtoStats(ProtoStats *stats) const {
+        stats->open = peer_->channel_->rx_open();
+        stats->close = peer_->channel_->rx_close();
+        stats->keepalive = peer_->channel_->rx_keepalive();
+        stats->update = peer_->channel_->rx_update();
     }
 
-    virtual void GetTxProtoStats(ProtoStats &stats) const {
-        stats.open = peer_->channel_->tx_open();
-        stats.close = peer_->channel_->tx_close();
-        stats.keepalive = peer_->channel_->tx_keepalive();
-        stats.update = peer_->channel_->tx_update();
+    virtual void GetTxProtoStats(ProtoStats *stats) const {
+        stats->open = peer_->channel_->tx_open();
+        stats->close = peer_->channel_->tx_close();
+        stats->keepalive = peer_->channel_->tx_keepalive();
+        stats->update = peer_->channel_->tx_update();
     }
 
-    virtual void GetRxRouteUpdateStats(UpdateStats &stats)  const {
-        stats.total = peer_->stats_[RX].rt_updates;
-        stats.reach = peer_->stats_[RX].reach;
-        stats.unreach = peer_->stats_[RX].unreach;
+    virtual void GetRxRouteUpdateStats(UpdateStats *stats)  const {
+        stats->total = peer_->stats_[RX].rt_updates;
+        stats->reach = peer_->stats_[RX].reach;
+        stats->unreach = peer_->stats_[RX].unreach;
     }
 
-    virtual void GetTxRouteUpdateStats(UpdateStats &stats)  const {
-        stats.total = peer_->stats_[TX].rt_updates;
-        stats.reach = peer_->stats_[TX].reach;
-        stats.unreach = peer_->stats_[TX].unreach;
+    virtual void GetTxRouteUpdateStats(UpdateStats *stats)  const {
+        stats->total = peer_->stats_[TX].rt_updates;
+        stats->reach = peer_->stats_[TX].reach;
+        stats->unreach = peer_->stats_[TX].unreach;
     }
 
-    virtual void GetRxSocketStats(IPeerDebugStats::SocketStats &stats) const {
+    virtual void GetRxSocketStats(IPeerDebugStats::SocketStats *stats) const {
         const XmppSession *session = peer_->GetSession();
         if (session) {
             io::SocketStats socket_stats(session->GetSocketStats());
-            stats.calls = socket_stats.read_calls;
-            stats.bytes = socket_stats.read_bytes;
+            stats->calls = socket_stats.read_calls;
+            stats->bytes = socket_stats.read_bytes;
         }
     }
 
-    virtual void GetTxSocketStats(IPeerDebugStats::SocketStats &stats) const {
+    virtual void GetTxSocketStats(IPeerDebugStats::SocketStats *stats) const {
         const XmppSession *session = peer_->GetSession();
         if (session) {
             io::SocketStats socket_stats(session->GetSocketStats());
-            stats.calls = socket_stats.write_calls;
-            stats.bytes = socket_stats.write_bytes;
-            stats.blocked_count = socket_stats.write_blocked;
-            stats.blocked_duration_usecs =
+            stats->calls = socket_stats.write_calls;
+            stats->bytes = socket_stats.write_bytes;
+            stats->blocked_count = socket_stats.write_blocked;
+            stats->blocked_duration_usecs =
                 socket_stats.write_blocked_duration_usecs;
         }
     }
 
-    virtual void GetRxErrorStats(RxErrorStats &stats) const {
-        BgpXmppChannel::ErrorStats &err_stats = peer_->error_stats();
-        stats.inet6_bad_xml_token_count =
+    virtual void GetRxErrorStats(RxErrorStats *stats) const {
+        const BgpXmppChannel::ErrorStats &err_stats = peer_->error_stats();
+        stats->inet6_bad_xml_token_count =
             err_stats.get_inet6_rx_bad_xml_token_count();
-        stats.inet6_bad_prefix_count =
+        stats->inet6_bad_prefix_count =
             err_stats.get_inet6_rx_bad_prefix_count();
-        stats.inet6_bad_nexthop_count =
+        stats->inet6_bad_nexthop_count =
             err_stats.get_inet6_rx_bad_nexthop_count();
-        stats.inet6_bad_afi_safi_count =
+        stats->inet6_bad_afi_safi_count =
             err_stats.get_inet6_rx_bad_afi_safi_count();
     }
 
@@ -328,6 +328,10 @@ public:
     virtual IPeerDebugStats *peer_stats() {
         return parent_->peer_stats_.get();
     }
+    virtual const IPeerDebugStats *peer_stats() const {
+        return parent_->peer_stats_.get();
+    }
+
     virtual bool IsReady() const {
         return (parent_->channel_->GetPeerState() == xmps::READY);
     }

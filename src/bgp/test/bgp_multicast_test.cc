@@ -80,6 +80,7 @@ public:
     virtual BgpServer *server() { return server_; }
     virtual IPeerClose *peer_close() { return NULL; }
     virtual IPeerDebugStats *peer_stats() { return NULL; }
+    virtual const IPeerDebugStats *peer_stats() const { return NULL; }
     virtual bool IsReady() const { return true; }
     virtual bool IsXmppPeer() const { return true; }
     virtual void Close() { }
