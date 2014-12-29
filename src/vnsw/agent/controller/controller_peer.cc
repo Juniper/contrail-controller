@@ -169,8 +169,8 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
                                           ethernet_tag,
                              ControllerPeerPath::kInvalidPeerIdentifier);
                 } else {
-                    rt_table->DeleteReq(bgp_peer_id(), vrf_name, mac, ethernet_tag,
-                                        new ControllerVmRoute(bgp_peer_id()));
+                    rt_table->DeleteReq(bgp_peer_id(), vrf_name, mac,
+                                        ethernet_tag);
                 }
             }
         }
@@ -684,7 +684,7 @@ void AgentXmppChannel::AddEvpnRoute(std::string vrf_name,
                                                     sg, PathPreference());
         rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name, mac, prefix_addr,
                                       item->entry.nlri.ethernet_tag,
-                                      prefix_len, data);
+                                      data);
         return;
     }
 
@@ -749,7 +749,6 @@ void AgentXmppChannel::AddEvpnRoute(std::string vrf_name,
             rt_table->AddLocalVmRouteReq(bgp_peer, vrf_name, mac,
                                          prefix_addr,
                                          item->entry.nlri.ethernet_tag,
-                                         prefix_len,
                                          static_cast<LocalVmRoute *>(local_vm_route));
             break;
             }
@@ -1668,7 +1667,7 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
     item.entry.nlri.mac = rstr.str();
     Layer2RouteEntry *l2_route = static_cast<Layer2RouteEntry *>(route);
     rstr.str("");
-    rstr << l2_route->GetVmIpAddress().to_string() << "/"
+    rstr << l2_route->ip_addr().to_string() << "/"
         << l2_route->GetVmIpPlen();
     item.entry.nlri.address = rstr.str();
     assert(item.entry.nlri.address != "0.0.0.0");

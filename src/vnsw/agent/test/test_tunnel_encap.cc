@@ -186,7 +186,7 @@ public:
         client->WaitForIdle();
         Layer2AgentRouteTable::DeleteReq(Agent::GetInstance()->local_peer(), 
                                          vrf_name_,
-                                         remote_vm_mac_, 0, NULL);
+                                         remote_vm_mac_, 0);
         client->WaitForIdle();
         agent->fabric_inet4_unicast_table()->
             DeleteReq(agent->local_peer(), vrf_name_,

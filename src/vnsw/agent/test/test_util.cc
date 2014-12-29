@@ -1179,7 +1179,7 @@ bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf,
                               bmap, label, "", SecurityGroupList(),
                               PathPreference());
     Layer2AgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf, remote_vm_mac,
-                                        vm_addr, 0, plen, data);
+                                        vm_addr, 0, data);
     return true;
 }
 

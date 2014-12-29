@@ -2338,13 +2338,11 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update) 
     if (old_l2_active && force_update == false)
         return;
 
-    const string &vrf_name = vrf_.get()->GetName();
-
     assert(peer_.get());
-    Layer2AgentRouteTable::AddLocalVmRoute(peer_.get(), GetUuid(),
-                                           vn_->GetName(), vrf_name, l2_label_,
-                                           vxlan_id_, MacAddress::FromString(vm_mac()),
-                                           ip_addr(), 0, 32);
+    Layer2AgentRouteTable *table = static_cast<Layer2AgentRouteTable *>
+        (vrf_->GetLayer2RouteTable());
+
+    table->AddLocalVmRoute(peer_.get(), this);
 }
 
 void VmInterface::DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf) {
@@ -2357,7 +2355,7 @@ void VmInterface::DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf) 
         vxlan_id_ = 0;
     }
     Layer2AgentRouteTable::Delete(peer_.get(), old_vrf->GetName(),
-                                  vxlan_id_, MacAddress::FromString(vm_mac_));
+                                  MacAddress::FromString(vm_mac_), vxlan_id_);
 }
 
 // Copy the SG List for VM Interface. Used to add route for interface
