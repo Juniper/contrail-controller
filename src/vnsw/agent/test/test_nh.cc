@@ -1100,7 +1100,6 @@ TEST_F(CfgTest, EcmpNH_9) {
     InetUnicastRouteEntry *rt1 = RouteGet("vrf1", ip1, 32);
     EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
 
-    const NextHop *nh = rt1->GetActiveNextHop();
     //Change ip1 route nexthop to be unicast nexthop
     Inet4TunnelRouteAdd(bgp_peer, "vrf1", ip1, 32, remote_server_ip1,
                         TunnelType::AllType(), 8, "vn1",
@@ -2276,7 +2275,6 @@ TEST_F(CfgTest, EcmpNH_18) {
     std::auto_ptr<const NextHopKey> nh_akey(nh_key);
     ComponentNHKeyPtr nh_data1(new ComponentNHKey(rt->GetActiveLabel(), nh_akey));
 
-    uint32_t label = rt->GetActiveLabel();
     ComponentNHKeyList comp_nh_list;
     //Insert new NH first and then existing route NH
     comp_nh_list.push_back(nh_data1);

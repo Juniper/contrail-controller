@@ -340,7 +340,6 @@ static void Setup() {
 }
 
 void Teardown() {
-    int ret = true;
     Ip4Address addr;
 
     // Delete routes

@@ -111,9 +111,9 @@ InterfaceKey *RemotePhysicalInterfaceKey::Clone() const {
 // RemotePhysicalInterfaceData routines
 /////////////////////////////////////////////////////////////////////////////
 RemotePhysicalInterfaceData::RemotePhysicalInterfaceData
-    (IFMapNode *node, const string &display_name, const string &vrf_name,
-     const uuid &device_uuid) :
-    InterfaceData(node), display_name_(display_name),
+    (Agent *agent, IFMapNode *node, const string &display_name,
+     const string &vrf_name, const uuid &device_uuid) :
+    InterfaceData(agent, node), display_name_(display_name),
     device_uuid_(device_uuid) {
     RemotePhysicalPortInit(vrf_name);
 }
@@ -129,7 +129,7 @@ static RemotePhysicalInterfaceKey *BuildKey(IFMapNode *node) {
 }
 
 static RemotePhysicalInterfaceData *BuildData
-(const Agent *agent, IFMapNode *node, const autogen::PhysicalInterface *port) {
+(Agent *agent, IFMapNode *node, const autogen::PhysicalInterface *port) {
     boost::uuids::uuid dev_uuid = nil_uuid();
     // Find link with physical-router adjacency
     IFMapNode *adj_node = NULL;
@@ -143,7 +143,7 @@ static RemotePhysicalInterfaceData *BuildData
                    dev_uuid);
     }
 
-    return new RemotePhysicalInterfaceData(node, port->display_name(),
+    return new RemotePhysicalInterfaceData(agent, node, port->display_name(),
                                            agent->fabric_vrf_name(), dev_uuid);
 }
 
@@ -164,9 +164,6 @@ bool InterfaceTable::RemotePhysicalInterfaceIFNodeToReq(IFMapNode *node,
     return true;
 }
 
-void RemotePhysicalInterface::ConfigEventHandler(IFMapNode *node) {
-}
-
 /////////////////////////////////////////////////////////////////////////////
 // Utility methods
 /////////////////////////////////////////////////////////////////////////////
@@ -174,7 +171,7 @@ static void SetReq(DBRequest *req, const string &fqdn,
                    const string &display_name, const string &vrf_name,
                    const uuid &device_uuid) {
     req->key.reset(new RemotePhysicalInterfaceKey(fqdn));
-    req->data.reset(new RemotePhysicalInterfaceData(NULL, display_name,
+    req->data.reset(new RemotePhysicalInterfaceData(NULL, NULL, display_name,
                                                     vrf_name, device_uuid));
 }
 

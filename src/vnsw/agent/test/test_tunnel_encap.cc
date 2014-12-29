@@ -303,9 +303,6 @@ public:
             flood_fabric_cnh->GetNH(0));
         ASSERT_TRUE(tnh->GetTunnelType().GetType() == type);
 
-        Ip4Address subnet_broadcast = Ip4Address::from_string("1.1.1.255");
-        InetUnicastRouteEntry *uc_rt =
-            RouteGet("vrf1", subnet_broadcast, 32);
         const CompositeNH *subnet_cnh =
             static_cast<const CompositeNH *>(mc_rt->GetActiveNextHop());
         ASSERT_TRUE(subnet_cnh->ComponentNHCount() == 2);

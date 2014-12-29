@@ -301,7 +301,7 @@ public:
         }
     }
 
-    void CheckSandeshResponse(Sandesh *sandesh, int flows) {
+    void CheckSandeshResponse(Sandesh *sandesh, uint32_t flows) {
         if (memcmp(sandesh->Name(), "FlowRecordsResp",
                    strlen("FlowRecordsResp")) == 0) {
             FlowRecordsResp *resp = static_cast<FlowRecordsResp *>(sandesh);
@@ -537,7 +537,6 @@ protected:
     virtual void TearDown() {
         FlushFlowTable();
         client->Reset();
-        VrfEntry *vrf = VrfGet("vrf5");
         Ip4Address gw_ip = Ip4Address::from_string("11.1.1.254");
         Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(
             Agent::GetInstance()->local_peer(), "vrf5", gw_ip, 32, NULL);
@@ -1965,7 +1964,6 @@ TEST_F(FlowTest, FlowOnDeletedVrf) {
     };
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
-    int nh_id = GetFlowKeyNH(input[0].intf_id);
 
     uint32_t vrf_id = VrfGet("vrf5")->vrf_id();
     InterfaceRef intf(VmInterfaceGet(input[0].intf_id));
@@ -2217,11 +2215,6 @@ TEST_F(FlowTest, Flow_ksync_nh_state_find_failure) {
     nh_object->set_test_id(nh_listener);
     CreateFlow(flow, 1);
 
-    FlowEntry *fe = 
-        FlowGet(VrfGet("vrf5")->vrf_id(), remote_vm1_ip, vm1_ip, 1, 0, 0,
-                GetFlowKeyNH(input[0].intf_id));
-
-
     EXPECT_TRUE((vr_flow->fe_flags & VR_FLOW_FLAG_ACTIVE) != 0);
     DeleteFlow(flow, 1);
     EXPECT_TRUE(FlowTableWait(0));
@@ -2321,16 +2314,6 @@ TEST_F(FlowTest, LinkLocalFlow_1) {
                         IPPROTO_TCP, 3000, linklocal_port,
                         GetFlowKeyNH(input[0].intf_id)));
     
-    // Check that a reverse pkt will not create a new flow
-    TestFlow reverse_flow[] = {
-        {
-            TestFlowPkt(Address::INET, fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port, linklocal_src_port, "vrf5",
-                        flow0->id(), 1),
-            {
-                new VerifyNat(vm1_ip, linklocal_ip, IPPROTO_TCP, 3000, linklocal_port) 
-            }
-        }
-    };
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
     EXPECT_TRUE(FlowGet(0, fabric_ip.c_str(), vhost_ip_addr, IPPROTO_TCP,
                         fabric_port, linklocal_src_port,

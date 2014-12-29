@@ -236,7 +236,7 @@ TEST_F(IFMapDependencyManagerTest, VMIEvent) {
 
     task_util::WaitForIdle();
     ASSERT_LE(1, change_list_.size());
-    for (int i = 0; i < change_list_.size(); ++i) {
+    for (uint32_t i = 0; i < change_list_.size(); ++i) {
         TestEntry *entry = static_cast<TestEntry *>(change_list_.at(i));
         EXPECT_EQ("id-1", entry->name());
     }
@@ -258,7 +258,7 @@ TEST_F(IFMapDependencyManagerTest, VMIEvent) {
 
     task_util::WaitForIdle();
     ASSERT_LE(1, change_list_.size());
-    for (int i = 0; i < change_list_.size(); ++i) {
+    for (uint32_t i = 0; i < change_list_.size(); ++i) {
         TestEntry *entry = static_cast<TestEntry *>(change_list_.at(i));
         EXPECT_EQ("id-1", entry->name());
     }
@@ -280,7 +280,7 @@ TEST_F(IFMapDependencyManagerTest, VMIEvent) {
 
     task_util::WaitForIdle();
     ASSERT_LE(1, change_list_.size());
-    for (int i = 0; i < change_list_.size(); ++i) {
+    for (uint32_t i = 0; i < change_list_.size(); ++i) {
         TestEntry *entry = static_cast<TestEntry *>(change_list_.at(i));
         EXPECT_EQ("id-2", entry->name());
     }

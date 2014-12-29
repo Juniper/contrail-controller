@@ -55,7 +55,7 @@ struct PacketInterfaceKey : public InterfaceKey {
 };
 
 struct PacketInterfaceData : public InterfaceData {
-    PacketInterfaceData() : InterfaceData(NULL) {
+    PacketInterfaceData() : InterfaceData(NULL, NULL) {
         PktInit();
     }
 };

@@ -998,10 +998,6 @@ TEST_F(MulticastTest, subnet_bcast_add_l2l3vn_and_l2vn) {
         {"vnet1", 1, "11.1.1.2", "00:00:00:01:01:11", 1, 1},
     };
 
-    struct PortInfo input_2[] = {
-        {"vnet2", 2, "11.1.1.3", "00:00:00:01:01:11", 1, 1},
-    };
-
     IpamInfo ipam_info[] = {
         {"10.1.1.0", 24, "10.1.1.100", true},
         {"11.1.1.0", 24, "11.1.1.100", true},

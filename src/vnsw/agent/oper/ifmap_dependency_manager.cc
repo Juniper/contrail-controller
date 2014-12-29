@@ -150,11 +150,6 @@ void IFMapDependencyManager::Initialize() {
             ("self", list_of("instance-ip-virtual-machine-interface"));
     policy->insert(make_pair("instance-ip", react_ip));
 
-    ReactionMap react_vnet = map_list_of<string, PropagateList>
-            ("virtual-network-network-ipam",
-             list_of("virtual-machine-interface-virtual-network"));
-    policy->insert(make_pair("virtual-network", react_vnet));
-
     ReactionMap react_subnet = map_list_of<string, PropagateList>
             ("self", list_of("virtual-network-network-ipam"))
             ("virtual-network-network-ipam", list_of("nil"));
@@ -300,6 +295,13 @@ void IFMapDependencyManager::SetObject(IFMapNode *node, DBEntry *entry) {
     }
     tracker_->NodeEvent(node);
     trigger_->Set();
+}
+
+void IFMapDependencyManager::SetState(IFMapNode *node) {
+    IFMapNodeState *state = IFMapNodeGet(node);
+    if (state == NULL) {
+        IFMapNodeSet(node, NULL);
+    }
 }
 
 /*

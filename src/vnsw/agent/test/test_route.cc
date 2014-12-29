@@ -1350,9 +1350,6 @@ TEST_F(RouteTest, EcmpPathDelete) {
     CreateVmportWithEcmp(input, 2);
     client->WaitForIdle();
 
-    VmInterface *vnet3 = VmInterfaceGet(3);
-    VmInterface *vnet4 = VmInterfaceGet(4);
-
     Ip4Address ip = Ip4Address::from_string("1.1.1.1");
     InetUnicastRouteEntry *rt = RouteGet("vrf3", ip, 32);
     EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);

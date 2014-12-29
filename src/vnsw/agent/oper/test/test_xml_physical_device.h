@@ -158,6 +158,7 @@ private:
     const boost::uuids::uuid id_;
     boost::uuids::uuid device_uuid_;
     boost::uuids::uuid vn_uuid_;
+    uint16_t vxlan_id_;
 };
 
 #endif //vnsw_agent_test_xml_test_xml_physical_device_h

@@ -99,7 +99,6 @@ class PhysicalDeviceVnTable : public AgentDBTable {
                        const boost::uuids::uuid &dev_uuid);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 
-    void ConfigEventHandler(DBEntry *entry);
     void ConfigUpdate(IFMapNode *node);
     const ConfigTree &config_tree() const { return config_tree_; }
     uint32_t config_version() const { return config_version_; }

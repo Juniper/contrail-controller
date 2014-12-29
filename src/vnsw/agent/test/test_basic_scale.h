@@ -26,8 +26,8 @@
 #define DEFAULT_WALKER_YIELD 1024
 
 using namespace pugi;
-int num_vns = 1;
-int num_vms_per_vn = 1;
+uint32_t num_vns = 1;
+uint32_t num_vms_per_vn = 1;
 int num_ctrl_peers = 1;
 int walker_wait_usecs = 0;
 int walker_yield = 0;
@@ -161,7 +161,6 @@ public:
 
         EXPECT_TRUE(item.XmlParse(node));
         EXPECT_TRUE(item.entry.nlri.af == BgpAf::IPv4);
-        uint32_t label = 0;
         if (peer_skip_route_list_.find(item.entry.nlri.address) !=
            peer_skip_route_list_.end()) {
             return;
@@ -206,7 +205,6 @@ public:
 
         EXPECT_TRUE(item.XmlParse(node));
         EXPECT_TRUE(item.entry.nlri.af == BgpAf::L2Vpn);
-        uint32_t label = 0;
         if (peer_skip_route_list_.find(item.entry.nlri.mac) !=
            peer_skip_route_list_.end()) {
             return;
@@ -617,10 +615,8 @@ protected:
         return cfg;
     }
 
-    void VerifyConnections(int i, int mock_peer_count = 1) {
+    void VerifyConnections(int i, uint32_t mock_peer_count = 1) {
         XmppServer *xs_l = xs[i];
-        XmppClient *xc_l = xc[i];
-
         XmppConnection *sconnection_l = sconnection[i];
 
         WAIT_FOR(100, 10000,
@@ -682,12 +678,12 @@ protected:
         //Build the VM port list
         input = (struct PortInfo *)malloc(sizeof(struct PortInfo) * num_entries);
         int intf_id = 1;
-        for (int vn_cnt = 1; vn_cnt <= num_vns; vn_cnt++) {
+        for (uint32_t vn_cnt = 1; vn_cnt <= num_vns; vn_cnt++) {
             stringstream ip_addr;
             ip_addr << vn_cnt << ".1.1.0";
             Ip4Address addr = 
                 IncrementIpAddress(Ip4Address::from_string(ip_addr.str()));
-            for (int vm_cnt = 0; vm_cnt < num_vms_per_vn; vm_cnt++) {
+            for (uint32_t vm_cnt = 0; vm_cnt < num_vms_per_vn; vm_cnt++) {
                 stringstream name;
                 stringstream mac;
                 int cnt = intf_id - 1;
@@ -714,7 +710,7 @@ protected:
 
     void VerifyVmPortActive(bool active) {
         int intf_id;
-        for (int i = 0; i < (num_vns * num_vms_per_vn); i++) {
+        for (uint32_t i = 0; i < (num_vns * num_vms_per_vn); i++) {
             intf_id = input[i].intf_id;
             if (active) {
                 WAIT_FOR(1000, 1000, VmPortActive(intf_id));
@@ -727,10 +723,9 @@ protected:
     void DeleteVmPortEnvironment() {
         char vrf_name[80];
         PortInfo *del_input = NULL;
-        int input_id = 0;
-        int intf_count = agent_->interface_table()->Size();
-        for (int vn_cnt = 1; vn_cnt <= num_vns; vn_cnt++) {
-            for (int j = 0; j < num_vms_per_vn; j++) {
+        uint32_t input_id = 0;
+        for (uint32_t vn_cnt = 1; vn_cnt <= num_vns; vn_cnt++) {
+            for (uint32_t j = 0; j < num_vms_per_vn; j++) {
                 del_input = &input[input_id];
                 DeleteVmportEnv(del_input, 1, 1);
                 input_id++;
@@ -755,14 +750,14 @@ protected:
         int intf_id = 1;
         MacAddress flood_mac = MacAddress::BroadcastMac();
         MacAddress local_vm_mac;
-        for (int vn_cnt = 1; vn_cnt <= num_vns; vn_cnt++) {
+        for (uint32_t vn_cnt = 1; vn_cnt <= num_vns; vn_cnt++) {
             stringstream ip_addr;
             ip_addr << vn_cnt << ".1.1.0";
             Ip4Address addr =
                 IncrementIpAddress(Ip4Address::from_string(ip_addr.str()));
             stringstream name;
             name << "vrf" << intf_id;
-            for (int vm_cnt = 0; vm_cnt < num_vms_per_vn; vm_cnt++) {
+            for (uint32_t vm_cnt = 0; vm_cnt < num_vms_per_vn; vm_cnt++) {
                 stringstream mac;
                 mac << "00:00:00:00:" << std::hex << vn_cnt << ":" <<
                     std::hex << (vm_cnt + 1);

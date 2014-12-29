@@ -791,9 +791,6 @@ TEST_F(AgentXmppUnitTest, dummy) {
 
 // Local VM Deactivate Test
 TEST_F(AgentXmppUnitTest, SubnetBcast_Test_VmDeActivate) {
-    const NextHop *nh;
-    const CompositeNH *cnh;
-
     XmppConnectionSetUp(true);
 
     EXPECT_TRUE(Agent::GetInstance()->mulitcast_builder() != NULL);
@@ -878,13 +875,8 @@ TEST_F(AgentXmppUnitTest, DISABLED_L2OnlyBcast_Test_SessionDownUp) {
     EXPECT_TRUE(Agent::GetInstance()->mulitcast_builder() == NULL);
     MacAddress mac_1("00:00:00:01:01:01");
     MacAddress mac_2("00:00:00:02:02:02");
-    MacAddress broadcast_mac = MacAddress::BroadcastMac();
 
     //ensure route learnt via control-node, path is updated
-    Layer2RouteEntry *rt_1 = L2RouteGet("vrf1", mac_1);
-    Layer2RouteEntry *rt_2 = L2RouteGet("vrf1", mac_2);
-    Layer2RouteEntry *rt_b = L2RouteGet("vrf1", broadcast_mac);
-
 	client->WaitForIdle();
 
     //bring-up the channel
@@ -1105,7 +1097,6 @@ TEST_F(AgentXmppUnitTest, Test_mcast_peer_identifier) {
     NextHop *nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     WAIT_FOR(1000, 10000, (nh != NULL));
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
-    CompositeNH *cnh = static_cast<CompositeNH *>(nh);
     MulticastGroupObject *obj;
     obj = MulticastHandler::GetInstance()->FindGroupObject("vrf1", addr);
     EXPECT_TRUE(obj != NULL);
@@ -1616,7 +1607,6 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Retract_from_non_mcast_tree_builder) {
     // remote-VM deactivated resulting in
     // route-delete for subnet and all broadcast route 
 
-    int alloc_label = GetStartLabel();
     SendBcastRouteDelete(mock_peer_s.get(), "vrf1",
                          "255.255.255.255",
                          "127.0.0.1");

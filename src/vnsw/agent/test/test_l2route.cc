@@ -544,7 +544,6 @@ TEST_F(RouteTest, vxlan_network_id_change_for_non_l2_interface) {
     client->WaitForIdle();
 
     EXPECT_TRUE(VmPortActive(input, 0));
-    InetUnicastRouteEntry *rt1 = RouteGet(vrf_name_, local_vm_ip_, 32);
     WAIT_FOR(100, 1000, (RouteGet(vrf_name_, local_vm_ip_, 32) != NULL));
     WAIT_FOR(100, 1000, (L2RouteGet(vrf_name_, local_vm_mac_) != NULL));
 

@@ -256,7 +256,6 @@ TEST_F(NovaInfoClientServerTest, KeepAliveTest) {
 TEST_F(NovaInfoClientServerTest, PortAdd) {
     // Add and delete port check the status of the cfg intf db
     AddVmPort(client_service, 1, 1, 1, PortTypes::NovaVMPort);
-    CfgIntTable *cfgtable = Agent::GetInstance()->interface_config_table();
     CfgIntKey key(MakeUuid(1));
     TASK_UTIL_EXPECT_EQ(1, Agent::GetInstance()->interface_config_table()->Size());
     CfgIntEntry *cfg_entry;
@@ -268,7 +267,6 @@ TEST_F(NovaInfoClientServerTest, PortAdd) {
 
 
 TEST_F(NovaInfoClientServerTest, PortDelete) {
-    CfgIntTable *cfgtable = Agent::GetInstance()->interface_config_table();
     CfgIntKey key(MakeUuid(1));
     TASK_UTIL_EXPECT_EQ(1, Agent::GetInstance()->interface_config_table()->Size());
     CfgIntEntry *cfg_entry;
@@ -288,7 +286,6 @@ TEST_F(NovaInfoClientServerTest, StaleTimer) {
     // 4) Verifuy nova port deleted and name space port exists
     // 5) Delete name space port
     AddVmPort(client_service, 1, 1, 1, PortTypes::NameSpacePort);
-    CfgIntTable *cfgtable = Agent::GetInstance()->interface_config_table();
     CfgIntKey key(MakeUuid(1));
     TASK_UTIL_EXPECT_EQ(1, Agent::GetInstance()->interface_config_table()->Size());
     CfgIntEntry *cfg_entry;
@@ -326,7 +323,6 @@ TEST_F(NovaInfoClientServerTest, StaleTimer) {
 TEST_F(NovaInfoClientServerTest, ReconnectVersionCheck) {
     AddVmPort(client_service, 1, 1, 1, PortTypes::NovaVMPort);
     ConnectToServer(client_service);
-    CfgIntTable *cfgtable = Agent::GetInstance()->interface_config_table();
     CfgIntKey key(MakeUuid(1));
     TASK_UTIL_EXPECT_EQ(1, Agent::GetInstance()->interface_config_table()->Size());
     CfgIntEntry *cfg_entry;
@@ -472,7 +468,6 @@ TEST_F(NovaInfoClientServerTest, ConnectionDelete) {
 int main (int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
-    EventManager *evm = Agent::GetInstance()->event_manager();
     InstanceInfoServiceServerInit(Agent::GetInstance());
     int ret = RUN_ALL_TESTS();
     client->WaitForIdle();

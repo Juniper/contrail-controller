@@ -31,7 +31,6 @@ class LogicalInterface : public Interface {
     virtual bool Delete(const DBRequest *req);
     virtual bool OnChange(const InterfaceTable *table,
                           const LogicalInterfaceData *data);
-    virtual void ConfigEventHandler(IFMapNode *node);
 
     virtual bool Copy(const InterfaceTable *table,
                       const LogicalInterfaceData *data) = 0;
@@ -58,7 +57,8 @@ struct LogicalInterfaceKey : public InterfaceKey {
 };
 
 struct LogicalInterfaceData : public InterfaceData {
-    LogicalInterfaceData(IFMapNode *node, const std::string &display_name,
+    LogicalInterfaceData(Agent *agent, IFMapNode *node,
+                         const std::string &display_name,
                          const std::string &physical_interface,
                         const boost::uuids::uuid &vif,
                         const boost::uuids::uuid &device_uuid);
@@ -82,7 +82,8 @@ struct VlanLogicalInterfaceKey : public LogicalInterfaceKey {
 };
 
 struct VlanLogicalInterfaceData : public LogicalInterfaceData {
-    VlanLogicalInterfaceData(IFMapNode *node, const std::string &display_name,
+    VlanLogicalInterfaceData(Agent *agent, IFMapNode *node,
+                             const std::string &display_name,
                              const std::string &physical_interface,
                              const boost::uuids::uuid &vif,
                              const boost::uuids::uuid &device_uuid,

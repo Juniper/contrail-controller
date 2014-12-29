@@ -101,8 +101,8 @@ TEST_F(AgentBasicScaleTest, multicast_one_channel_down_up) {
     //expect subscribe message+route at the mock server
     Ip4Address mc_addr = Ip4Address::from_string("255.255.255.255");
     WAIT_FOR(1000, 10000, MCRouteFind("vrf1", mc_addr));
-    MulticastGroupObject *flood_mcobj = MulticastHandler::GetInstance()->
-        FindGroupObject("vrf1", mc_addr);
+    //MulticastGroupObject *flood_mcobj = MulticastHandler::GetInstance()->
+    //    FindGroupObject("vrf1", mc_addr);
 
     VerifyVmPortActive(true);
     VerifyRoutes(false);
@@ -124,7 +124,6 @@ TEST_F(AgentBasicScaleTest, multicast_one_channel_down_up) {
     //WAIT_FOR(1000, 10000, (flood_mcobj->GetEvpnOlist().size() == 2));
 
     //Bring down the channel
-    AgentXmppChannel *ch = static_cast<AgentXmppChannel *>(bgp_peer[0].get());
     bgp_peer[0].get()->HandleXmppChannelEvent(xmps::NOT_READY);
     client->WaitForIdle();
     mc_addr = Ip4Address::from_string("1.1.1.255");
@@ -208,7 +207,6 @@ TEST_F(AgentBasicScaleTest, multicast_one_channel_down_up_skip_route_from_peer) 
     //uint32_t subnet_src_label = mcobj->GetSourceMPLSLabel();
 
     //Bring down the channel
-    AgentXmppChannel *ch = static_cast<AgentXmppChannel *>(bgp_peer[0].get());
     bgp_peer[0].get()->HandleXmppChannelEvent(xmps::NOT_READY);
     client->WaitForIdle();
 
@@ -297,7 +295,6 @@ TEST_F(AgentBasicScaleTest, v4_unicast_one_channel_down_up) {
     VerifyRoutes(false);
 
     //Bring down the channel
-    AgentXmppChannel *ch = static_cast<AgentXmppChannel *>(bgp_peer[0].get());
     bgp_peer[0].get()->HandleXmppChannelEvent(xmps::NOT_READY);
     path = static_cast<AgentPath *>(rt->FindPath(peer));
     WAIT_FOR(1000, 1000, (path->is_stale()));
@@ -423,7 +420,6 @@ TEST_F(AgentBasicScaleTest, flap_xmpp_channel_check_stale_path_count) {
     VerifyVmPortActive(true);
     VerifyRoutes(false);
 
-    AgentXmppChannel *ch = static_cast<AgentXmppChannel *>(bgp_peer[0].get());
     //Bring down the channel
     bgp_peer[0].get()->HandleXmppChannelEvent(xmps::NOT_READY);
     client->WaitForIdle();
@@ -484,7 +480,6 @@ TEST_F(AgentBasicScaleTest, unicast_one_channel_down_up_skip_route_from_peer) {
     //EXPECT_TRUE(Agent::GetInstance()->mpls_table()->FindMplsLabel(subnet_src_label));
 
     //Bring down the channel
-    AgentXmppChannel *ch = static_cast<AgentXmppChannel *>(bgp_peer[0].get());
     bgp_peer[0].get()->HandleXmppChannelEvent(xmps::NOT_READY);
     mc_addr = Ip4Address::from_string("1.1.1.255");
     EXPECT_TRUE(RouteFind("vrf1", mc_addr, 32));
@@ -571,8 +566,6 @@ TEST_F(AgentBasicScaleTest, unicast_cleanup_timer_1) {
     VerifyVmPortActive(true);
     VerifyRoutes(false);
 
-    AgentXmppChannel *ch1 = static_cast<AgentXmppChannel *>(bgp_peer[0].get());
-    AgentXmppChannel *ch2 = static_cast<AgentXmppChannel *>(bgp_peer[1].get());
     //Bring down the channel
     bgp_peer[0].get()->HandleXmppChannelEvent(xmps::NOT_READY);
     client->WaitForIdle();
@@ -648,8 +641,6 @@ TEST_F(AgentBasicScaleTest, unicast_cleanup_timer_2) {
     VerifyVmPortActive(true);
     VerifyRoutes(false);
 
-    AgentXmppChannel *ch1 = static_cast<AgentXmppChannel *>(bgp_peer[0].get());
-    AgentXmppChannel *ch2 = static_cast<AgentXmppChannel *>(bgp_peer[1].get());
     //Bring down the channel
     bgp_peer[0].get()->HandleXmppChannelEvent(xmps::NOT_READY);
     client->WaitForIdle();
