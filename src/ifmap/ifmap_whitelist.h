@@ -43,24 +43,14 @@ private:
 class IFMapGTFLink : public DBGraphEdge {
 public:
     IFMapGTFLink(DBGraphBase::edge_descriptor edge_id, IFMapGTFNode* left,
-                 IFMapGTFNode *right, std::string metadata) :
-        DBGraphEdge(edge_id), left_(left), right_(right), metadata_(metadata) {
-    }
-    virtual std::string ToString() const {
-        std::ostringstream ss;
-        ss << edge_id();
-        return ss.str();
-    }
+                 IFMapGTFNode *right, const std::string &metadata);
+    virtual std::string ToString() const;
     virtual KeyPtr GetDBRequestKey() const {
         KeyPtr nil;
         return nil;
     }
-    virtual void SetKey(const DBRequestKey *key) {
-    }
-    virtual bool IsLess(const DBEntry &rhs) const {
-        const IFMapGTFLink &e = static_cast<const IFMapGTFLink &>(rhs);
-        return edge_id() < e.edge_id();
-    }
+    virtual void SetKey(const DBRequestKey *key);
+    virtual bool IsLess(const DBEntry &rhs) const;
     IFMapGTFNode *left() { return left_; };
     IFMapGTFNode *right() { return right_; };
     std::string metadata() { return metadata_; };

@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <boost/asio/buffer.hpp>
+#include <boost/foreach.hpp>
 
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/descriptor.pb.h>
@@ -20,6 +21,7 @@
 #include <io/io_types.h>
 #include <io/udp_server.h>
 
+#include "analytics/diffstats.h"
 #include "analytics/self_describing_message.pb.h"
 #include "analytics/protobuf_server.h"
 #include "analytics/protobuf_server_impl.h"

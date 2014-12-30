@@ -17,8 +17,9 @@ libcontrol_test = env.Library('control_test',
 
 env.Append(LIBPATH = env['TOP'] + '/base')
 env.Append(LIBPATH = env['TOP'] + '/io')
+env.Append(LIBPATH = env['TOP'] + '/net')
 
-env.Prepend(LIBS = ['gunit', 'io', 'sandesh', 'http',
+env.Prepend(LIBS = ['gunit', 'io', 'sandesh', 'http', 'net',
                     'sandeshvns', 'process_info', 'io', 'base', 'http_parser', 'curl',
                     'boost_filesystem', 'boost_program_options', 'pugixml'])
 

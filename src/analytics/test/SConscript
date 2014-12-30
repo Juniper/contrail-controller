@@ -8,8 +8,12 @@ Import('AnalyticsEnv')
 
 env = AnalyticsEnv.Clone()
 
-env.Append(LIBS=['sandeshflow', 'task_test', 'gunit'])
-env.Append(LIBPATH=['#/build/lib', Dir(env['TOP']).abspath + '/base/test/'])
+env.Append(LIBS=['sandeshflow', 'task_test', 'net', 'gunit'])
+env.Append(LIBPATH=[
+	'#/build/lib',
+	Dir(env['TOP']).abspath + '/base/test/',
+	Dir('../../net'),
+	])
 env.Append(CPPPATH = ['#/'+Dir('.').path ,
                       env['TOP'],
                       env['TOP'] + '/io',

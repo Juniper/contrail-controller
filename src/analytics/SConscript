@@ -45,6 +45,7 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'process_info',
         'base',
         'io',
+	'net',
         'ipfix',
         'misc',
         'sandeshvns',
@@ -65,7 +66,8 @@ libs = MapBuildDir(['sandesh',
         'http/client',
         'xml',
         'base',
-        'io'])
+        'io',
+	'net'])
 libs.extend('/usr/lib/')
 AnalyticsEnv.Append(LIBPATH=libs)
 

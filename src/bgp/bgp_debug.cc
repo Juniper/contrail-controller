@@ -9,6 +9,7 @@
 #include <cxxabi.h>
 #include "base/logging.h"
 #include "base/util.h"
+#include "base/backtrace.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_table.h"
 #include "bgp/routing-instance/routing_instance.h"

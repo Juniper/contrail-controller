@@ -3,6 +3,7 @@
  */
 
 #include <boost/assign/list_of.hpp>
+#include <boost/foreach.hpp>
 
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_sandesh.h"
