@@ -387,7 +387,6 @@ TEST_F(UveTest, VrfAddDelTest_1) {
 }
 
 TEST_F(UveTest, StatsCollectorTest) {
-    AgentUve *uve = static_cast<AgentUve *>(Agent::GetInstance()->uve());
     AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
         (Agent::GetInstance()->stats_collector());
     collector->interface_stats_responses_ = 0;
@@ -456,7 +455,6 @@ TEST_F(UveTest, StatsCollectorTest) {
 
 TEST_F(UveTest, SandeshTest) {
     Agent *agent = Agent::GetInstance();
-    AgentUve *uve = static_cast<AgentUve *>(Agent::GetInstance()->uve());
     AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
         (Agent::GetInstance()->stats_collector());
 

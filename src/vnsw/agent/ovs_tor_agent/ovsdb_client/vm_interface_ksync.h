@@ -35,7 +35,6 @@ public:
     VMInterfaceKSyncEntry(VMInterfaceKSyncObject *table,
             boost::uuids::uuid uuid);
 
-    bool IsDataResolved() {return true;};
     void AddMsg(struct ovsdb_idl_txn *);
     void ChangeMsg(struct ovsdb_idl_txn *);
     void DeleteMsg(struct ovsdb_idl_txn *);

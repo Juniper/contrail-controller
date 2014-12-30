@@ -949,22 +949,28 @@ void VmInterface::UpdateVxLan() {
 }
 
 void VmInterface::UpdateL2(bool old_l2_active, VrfEntry *old_vrf, int old_vxlan_id,
-                           bool force_update, bool policy_change) {
+                           bool force_update, bool policy_change,
+                           const Ip4Address &old_v4_addr,
+                           const Ip6Address &old_v6_addr) {
     UpdateVxLan();
     UpdateL2NextHop(old_l2_active);
     //Update label only if new entry is to be created, so
     //no force update on same.
     UpdateL2TunnelId(false, policy_change);
-    UpdateL2InterfaceRoute(old_l2_active, force_update);
+    UpdateL2InterfaceRoute(old_l2_active, force_update, old_vrf, old_v4_addr,
+                           old_v6_addr);
 }
 
 void VmInterface::UpdateL2(bool force_update) {
-    UpdateL2(l2_active_, vrf_.get(), vxlan_id_, force_update, false);
+    UpdateL2(l2_active_, vrf_.get(), vxlan_id_, force_update, false, ip_addr_,
+             ip6_addr_);
 }
 
-void VmInterface::DeleteL2(bool old_l2_active, VrfEntry *old_vrf) {
+void VmInterface::DeleteL2(bool old_l2_active, VrfEntry *old_vrf,
+                           const Ip4Address &old_v4_addr,
+                           const Ip6Address &old_v6_addr) {
     DeleteL2TunnelId();
-    DeleteL2InterfaceRoute(old_l2_active, old_vrf);
+    DeleteL2InterfaceRoute(old_l2_active, old_vrf, old_v4_addr, old_v6_addr);
     DeleteL2NextHop(old_l2_active);
 }
 
@@ -1027,9 +1033,9 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
     // Add/Del/Update L2 
     if (l2_active_ && layer2_forwarding_) {
         UpdateL2(old_l2_active, old_vrf, old_vxlan_id, 
-                 force_update, policy_change);
+                 force_update, policy_change, old_addr, old_v6_addr);
     } else if (old_l2_active) {
-        DeleteL2(old_l2_active, old_vrf);
+        DeleteL2(old_l2_active, old_vrf, old_addr, old_v6_addr);
     }
 
     if (old_l2_active != l2_active_) {
@@ -2332,9 +2338,22 @@ void VmInterface::DeleteL2TunnelId() {
     DeleteL2MplsLabel();
 }
 
-void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update) {
+void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
+                                         VrfEntry *old_vrf,
+                                         const Ip4Address &old_v4_addr,
+                                         const Ip6Address &old_v6_addr) {
     if (l2_active_ == false)
         return;
+
+    if (ip_addr_ != old_v4_addr) {
+        force_update = true;
+        DeleteL2InterfaceRoute(true, old_vrf, old_v4_addr, Ip6Address());
+    }
+
+    if (ip6_addr_ != old_v6_addr) {
+        force_update = true;
+        DeleteL2InterfaceRoute(true, old_vrf, Ip4Address(), old_v6_addr);
+    }
 
     if (old_l2_active && force_update == false)
         return;
@@ -2346,7 +2365,9 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update) 
     table->AddLocalVmRoute(peer_.get(), this);
 }
 
-void VmInterface::DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf) {
+void VmInterface::DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf,
+                                         const Ip4Address &old_v4_addr,
+                                         const Ip6Address &old_v6_addr) {
     if (old_l2_active == false)
         return;
 
@@ -2355,8 +2376,11 @@ void VmInterface::DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf) 
         VxLanId::Delete(vxlan_id_);
         vxlan_id_ = 0;
     }
-    Layer2AgentRouteTable::Delete(peer_.get(), old_vrf->GetName(),
-                                  MacAddress::FromString(vm_mac_), vxlan_id_);
+
+    Layer2AgentRouteTable *table = static_cast<Layer2AgentRouteTable *>
+        (old_vrf->GetLayer2RouteTable());
+    table->DelLocalVmRoute(peer_.get(), old_vrf->GetName(), this, old_v4_addr,
+                           old_v6_addr);
 }
 
 // Copy the SG List for VM Interface. Used to add route for interface

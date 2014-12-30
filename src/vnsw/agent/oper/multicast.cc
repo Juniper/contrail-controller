@@ -919,9 +919,10 @@ void MulticastHandler::Shutdown() {
          GetMulticastObjList().begin(); it != GetMulticastObjList().end();
          it++) {
         MulticastGroupObject *obj = (*it);
-        AgentRoute *route = Layer2AgentRouteTable::FindRoute(agent_,
-                                                             obj->vrf_name(),
-                                                             MacAddress::BroadcastMac());
+        AgentRoute *route =
+            Layer2AgentRouteTable::FindRoute(agent_, obj->vrf_name(),
+                                             MacAddress::BroadcastMac(),
+                                             IpAddress());
         if (route == NULL)
             return;
 
