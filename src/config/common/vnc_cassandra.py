@@ -16,6 +16,7 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 import time
 import json
+import utils
 
 class VncCassandraClient(VncCassandraClientGen):
     # Name to ID mapping keyspace + tables
@@ -141,12 +142,16 @@ class VncCassandraClient(VncCassandraClientGen):
                 if comparator_type:
                     sys_mgr.create_column_family(
                         keyspace_name, cf_name,
-                        comparator_type=comparator_type)
+                        comparator_type=comparator_type,
+                        default_validation_class='UTF8Type')
                 else:
-                    sys_mgr.create_column_family(keyspace_name, cf_name)
+                    sys_mgr.create_column_family(keyspace_name, cf_name,
+                        default_validation_class='UTF8Type')
             except pycassa.cassandra.ttypes.InvalidRequestException as e:
                 # TODO verify only EEXISTS
                 self._logger("Warning! " + str(e), level=SandeshLevel.SYS_WARN)
+                sys_mgr.alter_column_family(keyspace_name, cf_name,
+                    default_validation_class='UTF8Type')
     # end _cassandra_ensure_keyspace
 
     def _cassandra_init_conn_pools(self):
@@ -209,8 +214,8 @@ class VncCassandraClient(VncCassandraClientGen):
     def fq_name_to_uuid(self, obj_type, fq_name):
         method_name = obj_type.replace('-', '_')
         fq_name_str = ':'.join(fq_name)
-        col_start = '%s:' % (fq_name_str)
-        col_fin = '%s;' % (fq_name_str)
+        col_start = '%s:' % (utils.encode_string(fq_name_str))
+        col_fin = '%s;' % (utils.encode_string(fq_name_str))
         try:
             col_info_iter = self._obj_fq_name_cf.xget(
                 method_name, column_start=col_start, column_finish=col_fin)
