@@ -451,6 +451,7 @@ class FakeIfmapClient(object):
         if method == 'publish':
             pub_env = cls._PUBLISH_ENVELOPE % {
                 'body': body._PublishRequest__operations}
+            pub_env = pub_env.encode('utf-8')
             env_root = etree.fromstring(pub_env)
             poll_result = etree.Element('pollResult')
             for pub_root in env_root[0]:
