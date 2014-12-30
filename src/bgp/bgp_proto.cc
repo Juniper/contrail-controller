@@ -869,6 +869,28 @@ public:
                       BgpPathAttributeExtendedCommunityList> Sequence;
 };
 
+class BgpPathAttributeOriginVnList :
+    public ProtoElement<BgpPathAttributeOriginVnList> {
+public:
+    static const int kSize = -1;
+    static bool Verifier(const OriginVnPathSpec *obj, const uint8_t *data,
+                         size_t size, ParseContext *context) {
+        return BgpAttributeVerifier<OriginVnPathSpec>::Verifier(obj, data, size,
+                                                                context);
+    }
+
+    typedef VectorAccessor<OriginVnPathSpec, uint64_t,
+                           &OriginVnPathSpec::origin_vns> Setter;
+};
+
+class BgpPathAttributeOriginVnPath :
+    public ProtoSequence<BgpPathAttributeOriginVnPath> {
+public:
+    typedef OriginVnPathSpec ContextType;
+    typedef BgpContextSwap<OriginVnPathSpec> ContextSwap;
+    typedef mpl::list<BgpPathAttrLength, BgpPathAttributeOriginVnList> Sequence;
+};
+
 class BgpPathAttributePmsiTunnelIdentifier :
     public ProtoElement<BgpPathAttributePmsiTunnelIdentifier> {
 public:
@@ -1420,6 +1442,8 @@ public:
                     BgpPathAttributeMpUnreachNlriSequence>,
           mpl::pair<mpl::int_<BgpAttribute::ExtendedCommunities>,
                     BgpPathAttributeExtendedCommunities>,
+          mpl::pair<mpl::int_<BgpAttribute::OriginVnPath>,
+                    BgpPathAttributeOriginVnPath>,
           mpl::pair<mpl::int_<BgpAttribute::PmsiTunnel>,
                     BgpPathAttributePmsiTunnel>,
           mpl::pair<mpl::int_<BgpAttribute::McastEdgeDiscovery>,

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <config>
     <virtual-network name="blue-vn">
-        <network-id>1000</network-id>
+        <network-id>3000</network-id>
     </virtual-network>
     <virtual-network name="core-vn">
         <network-id>2000</network-id>

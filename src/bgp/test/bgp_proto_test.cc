@@ -202,6 +202,14 @@ private:
         msg->path_attributes.push_back(efspec);
     }
 
+    static void AddOriginVnPath(BgpProto::Update *msg) {
+        OriginVnPathSpec *ovnpath = new OriginVnPathSpec;
+        for (int i = rand() % 10; i > 0; i--) {
+            ovnpath->origin_vns.push_back(rand());
+        }
+        msg->path_attributes.push_back(ovnpath);
+    }
+
     static void AddUnknown(BgpProto::Update *msg) {
         BgpAttrUnknown *unk = new BgpAttrUnknown;
         unk->flags = BgpAttribute::Optional;
@@ -228,6 +236,7 @@ std::vector<BuildUpdateMessage::BuildUpdateParam> BuildUpdateMessage::build_para
             (std::make_pair(&BuildUpdateMessage::AddPmsiTunnel, 5))
             (std::make_pair(&BuildUpdateMessage::AddEdgeDiscovery, 5))
             (std::make_pair(&BuildUpdateMessage::AddEdgeForwarding, 5))
+            (std::make_pair(&BuildUpdateMessage::AddOriginVnPath, 5))
             (std::make_pair(&BuildUpdateMessage::AddUnknown, 5));
 
 

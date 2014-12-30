@@ -321,6 +321,16 @@ static void FillRoutePathExtCommunityInfo(const BgpTable *table,
     }
 }
 
+static void FillOriginVnPathInfo(const OriginVnPath *ovnpath,
+    ShowRoutePath *show_path) {
+    const OriginVnPath::OriginVnList &v = ovnpath->origin_vns();
+    for (OriginVnPath::OriginVnList::const_iterator it = v.begin();
+         it != v.end(); ++it) {
+        OriginVn origin_vn(*it);
+        show_path->origin_vn_path.push_back(origin_vn.ToString());
+    }
+}
+
 void BgpRoute::FillRouteInfo(const BgpTable *table,
     ShowRoute *show_route) const {
     const RoutingInstance *ri = table->routing_instance();
@@ -377,6 +387,9 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
         }
         if (!table->IsVpnTable() && path->IsVrfOriginated()) {
             srp.set_origin_vn(ri->GetVirtualNetworkName());
+        }
+        if (attr->origin_vn_path()) {
+            FillOriginVnPathInfo(attr->origin_vn_path(), &srp);
         }
         show_route_paths.push_back(srp);
     }

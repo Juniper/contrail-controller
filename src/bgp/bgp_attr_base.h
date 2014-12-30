@@ -44,6 +44,7 @@ struct BgpAttribute : public ParseObject {
         PmsiTunnel = 22,
         McastEdgeDiscovery = 241,
         McastEdgeForwarding = 242,
+        OriginVnPath = 243,
     };
     enum Subcode {
         OList = 1,

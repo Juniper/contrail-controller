@@ -13,6 +13,7 @@
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_server.h"
+#include "bgp/origin-vn/origin_vn.h"
 #include "control-node/control_node.h"
 #include "io/event_manager.h"
 #include "testing/gunit.h"
@@ -26,7 +27,8 @@ protected:
           attr_db_(server_.attr_db()),
           aspath_db_(server_.aspath_db()),
           comm_db_(server_.comm_db()),
-          extcomm_db_(server_.extcomm_db()) {
+          extcomm_db_(server_.extcomm_db()),
+          ovnpath_db_(server_.ovnpath_db()) {
     }
 
     void TearDown() {
@@ -40,6 +42,7 @@ protected:
     AsPathDB *aspath_db_;
     CommunityDB *comm_db_;
     ExtCommunityDB *extcomm_db_;
+    OriginVnPathDB *ovnpath_db_;
 };
 
 TEST_F(BgpAttrTest, UnknownCode) {
@@ -327,6 +330,166 @@ TEST_F(BgpAttrTest, ExtCommunityAppend2) {
     ExtCommunity extcomm2(extcomm_db_, spec2);
 
     EXPECT_EQ(0, extcomm1.CompareTo(extcomm2));
+}
+
+TEST_F(BgpAttrTest, OriginVnPathToString) {
+    OriginVnPathSpec spec;
+    for (int idx = 1; idx < 5; idx++)
+        spec.origin_vns.push_back(100 * idx);
+    EXPECT_EQ("OriginVnPath <code: 243, flags: c0> : 4", spec.ToString());
+}
+
+TEST_F(BgpAttrTest, OriginVnPathCompare1) {
+    OriginVnPathSpec spec1;
+    for (int idx = 1; idx < 5; idx++) {
+        OriginVn origin_vn(64512, 100 * idx);
+        spec1.origin_vns.push_back(origin_vn.GetExtCommunityValue());
+    }
+    OriginVnPath ovnpath1(ovnpath_db_, spec1);
+
+    OriginVnPathSpec spec2;
+    for (int idx = 4; idx >= 1; idx--) {
+        OriginVn origin_vn(64512, 100 * idx);
+        spec2.origin_vns.push_back(origin_vn.GetExtCommunityValue());
+    }
+    OriginVnPath ovnpath2(ovnpath_db_, spec2);
+
+    EXPECT_NE(0, ovnpath1.CompareTo(ovnpath2));
+    EXPECT_NE(0, ovnpath2.CompareTo(ovnpath1));
+}
+
+TEST_F(BgpAttrTest, OriginVnPathCompare2) {
+    OriginVnPathSpec spec1;
+    for (int idx = 1; idx < 5; idx++) {
+        OriginVn origin_vn(64512, 100 * idx);
+        spec1.origin_vns.push_back(origin_vn.GetExtCommunityValue());
+    }
+    OriginVnPath ovnpath1(ovnpath_db_, spec1);
+
+    OriginVnPathSpec spec2;
+    for (int idx = 1; idx < 5; idx++) {
+        OriginVn origin_vn(64512, 100 * idx);
+        spec2.origin_vns.push_back(origin_vn.GetExtCommunityValue());
+    }
+    OriginVnPath ovnpath2(ovnpath_db_, spec2);
+
+    EXPECT_EQ(0, ovnpath1.CompareTo(ovnpath2));
+    EXPECT_EQ(0, ovnpath2.CompareTo(ovnpath1));
+}
+
+TEST_F(BgpAttrTest, OriginVnPathPrepend) {
+    OriginVnPathSpec spec1;
+    for (int idx = 5; idx < 9; idx++) {
+        OriginVn origin_vn(64512, 100 * idx);
+        spec1.origin_vns.push_back(origin_vn.GetExtCommunityValue());
+    }
+    OriginVnPath ovnpath1(ovnpath_db_, spec1);
+
+    for (int idx = 4; idx >= 1; idx--) {
+        OriginVn origin_vn(64512, 100 * idx);
+        ovnpath1.Prepend(origin_vn.GetExtCommunity());
+    }
+
+    OriginVnPathSpec spec2;
+    for (int idx = 1; idx < 9; idx++) {
+        OriginVn origin_vn(64512, 100 * idx);
+        spec2.origin_vns.push_back(origin_vn.GetExtCommunityValue());
+    }
+    OriginVnPath ovnpath2(ovnpath_db_, spec2);
+
+    EXPECT_EQ(0, ovnpath1.CompareTo(ovnpath2));
+    EXPECT_EQ(0, ovnpath2.CompareTo(ovnpath1));
+}
+
+TEST_F(BgpAttrTest, OriginVnPathContains) {
+    OriginVnPathSpec spec;
+    for (int idx = 9; idx >= 1; idx -= 2) {
+        OriginVn origin_vn(64512, 100 * idx);
+        spec.origin_vns.push_back(origin_vn.GetExtCommunityValue());
+    }
+    OriginVnPath ovnpath(ovnpath_db_, spec);
+
+    for (int idx = 1; idx <= 9; idx++) {
+        OriginVn origin_vn(64512, 100 * idx);
+        if (idx % 2 == 1) {
+            EXPECT_TRUE(ovnpath.Contains(origin_vn.GetExtCommunity()));
+        } else {
+            EXPECT_FALSE(ovnpath.Contains(origin_vn.GetExtCommunity()));
+        }
+    }
+
+    for (int idx = 8; idx > 0; idx -= 2) {
+        OriginVn origin_vn(64512, 100 * idx);
+        ovnpath.Prepend(origin_vn.GetExtCommunity());
+    }
+
+    for (int idx = 1; idx <= 9; idx++) {
+        OriginVn origin_vn(64512, 100 * idx);
+        EXPECT_TRUE(ovnpath.Contains(origin_vn.GetExtCommunity()));
+    }
+}
+
+TEST_F(BgpAttrTest, OriginVnPathLocate) {
+    OriginVnPathSpec spec1;
+    for (int idx = 1; idx < 5; idx++) {
+        OriginVn origin_vn(64512, 100 * idx);
+        spec1.origin_vns.push_back(origin_vn.GetExtCommunityValue());
+    }
+    OriginVnPathPtr ovnpath1 = ovnpath_db_->Locate(spec1);
+    EXPECT_EQ(1, ovnpath_db_->Size());
+
+    OriginVnPathSpec spec2;
+    for (int idx = 4; idx >= 1; idx--) {
+        OriginVn origin_vn(64512, 100 * idx);
+        spec2.origin_vns.push_back(origin_vn.GetExtCommunityValue());
+    }
+    OriginVnPathPtr ovnpath2 = ovnpath_db_->Locate(spec2);
+    EXPECT_EQ(2, ovnpath_db_->Size());
+
+    EXPECT_NE(0, ovnpath1->CompareTo(*ovnpath2));
+    EXPECT_NE(0, ovnpath2->CompareTo(*ovnpath1));
+}
+
+TEST_F(BgpAttrTest, OriginVnPathPrependAndLocate) {
+    OriginVnPathSpec spec;
+    for (int idx = 2; idx < 5; idx++) {
+        OriginVn origin_vn(64512, 100 * idx);
+        spec.origin_vns.push_back(origin_vn.GetExtCommunityValue());
+    }
+    OriginVnPathPtr ovnpath1 = ovnpath_db_->Locate(spec);
+    EXPECT_EQ(1, ovnpath_db_->Size());
+
+    OriginVn origin_vn(64512, 100 * 1);
+    OriginVnPathPtr ovnpath2 = ovnpath_db_->PrependAndLocate(ovnpath1.get(),
+        origin_vn.GetExtCommunity());
+    EXPECT_EQ(2, ovnpath_db_->Size());
+
+    EXPECT_NE(0, ovnpath1->CompareTo(*ovnpath2));
+    EXPECT_NE(0, ovnpath2->CompareTo(*ovnpath1));
+
+    EXPECT_FALSE(ovnpath1->Contains(origin_vn.GetExtCommunity()));
+    EXPECT_TRUE(ovnpath2->Contains(origin_vn.GetExtCommunity()));
+}
+
+TEST_F(BgpAttrTest, OriginVnPathReplace) {
+    OriginVnPathSpec spec;
+    for (int idx = 2; idx < 5; idx++) {
+        OriginVn origin_vn(64512, 100 * idx);
+        spec.origin_vns.push_back(origin_vn.GetExtCommunityValue());
+    }
+    BgpAttrSpec attr_spec;
+    attr_spec.push_back(&spec);
+    BgpAttrPtr ptr1 = attr_db_->Locate(attr_spec);
+    EXPECT_EQ(1, ovnpath_db_->Size());
+    EXPECT_EQ(1, attr_db_->Size());
+
+    OriginVn origin_vn(64512, 100 * 1);
+    OriginVnPathPtr ovnpath = ovnpath_db_->PrependAndLocate(
+        ptr1->origin_vn_path(), origin_vn.GetExtCommunity());
+    BgpAttrPtr ptr2 =
+        attr_db_->ReplaceOriginVnPathAndLocate(ptr1.get(), ovnpath);
+    EXPECT_EQ(2, ovnpath_db_->Size());
+    EXPECT_EQ(2, attr_db_->Size());
 }
 
 TEST_F(BgpAttrTest, OriginatorId1) {
@@ -1085,6 +1248,10 @@ TEST_F(BgpAttrTest, BgpAttrDB) {
     ext_community->communities.push_back(0x1020304050607080);
     spec.push_back(ext_community);
 
+    OriginVnPathSpec *ovnpath = new OriginVnPathSpec;
+    ovnpath->origin_vns.push_back(0x1020304050607080);
+    spec.push_back(ovnpath);
+
     BgpAttrPtr ptr1 = attr_db_->Locate(spec);
     BgpAttrPtr ptr2 = attr_db_->Locate(spec);
 
@@ -1092,6 +1259,7 @@ TEST_F(BgpAttrTest, BgpAttrDB) {
     EXPECT_EQ(1, aspath_db_->Size());
     EXPECT_EQ(1, comm_db_->Size());
     EXPECT_EQ(1, extcomm_db_->Size());
+    EXPECT_EQ(1, ovnpath_db_->Size());
 
     agg->address = 0xcafed00d;
     BgpAttrPtr ptr3 = attr_db_->Locate(spec);
@@ -1100,30 +1268,35 @@ TEST_F(BgpAttrTest, BgpAttrDB) {
     EXPECT_EQ(1, aspath_db_->Size());
     EXPECT_EQ(1, comm_db_->Size());
     EXPECT_EQ(1, extcomm_db_->Size());
+    EXPECT_EQ(1, ovnpath_db_->Size());
 
     ptr1.reset();
     EXPECT_EQ(2, attr_db_->Size());
     EXPECT_EQ(1, aspath_db_->Size());
     EXPECT_EQ(1, comm_db_->Size());
     EXPECT_EQ(1, extcomm_db_->Size());
+    EXPECT_EQ(1, ovnpath_db_->Size());
 
     ptr2.reset();
     EXPECT_EQ(1, attr_db_->Size());
     EXPECT_EQ(1, aspath_db_->Size());
     EXPECT_EQ(1, comm_db_->Size());
     EXPECT_EQ(1, extcomm_db_->Size());
+    EXPECT_EQ(1, ovnpath_db_->Size());
 
     ptr3.reset();
     EXPECT_EQ(0, attr_db_->Size());
     EXPECT_EQ(0, aspath_db_->Size());
     EXPECT_EQ(0, comm_db_->Size());
     EXPECT_EQ(0, extcomm_db_->Size());
+    EXPECT_EQ(0, ovnpath_db_->Size());
 
     ptr1 = attr_db_->Locate(spec);
     EXPECT_EQ(1, attr_db_->Size());
     EXPECT_EQ(1, aspath_db_->Size());
     EXPECT_EQ(1, comm_db_->Size());
     EXPECT_EQ(1, extcomm_db_->Size());
+    EXPECT_EQ(1, ovnpath_db_->Size());
 
     STLDeleteValues(&spec);
 }
@@ -1179,14 +1352,16 @@ static void ConcurrencyTest(TypeDB *db) {
 }
 
 // Instantiate the template functions.
-template void ConcurrencyTest<BgpAttr, BgpAttrPtr, BgpAttrDB, BgpAttrSpec>(
-                  BgpAttrDB *);
-template void ConcurrencyTest<AsPath, AsPathPtr, AsPathDB, AsPathSpec>(
-                  AsPathDB *);
+template void ConcurrencyTest<BgpAttr, BgpAttrPtr, BgpAttrDB,
+                              BgpAttrSpec>(BgpAttrDB *);
+template void ConcurrencyTest<AsPath, AsPathPtr, AsPathDB,
+                              AsPathSpec>(AsPathDB *);
 template void ConcurrencyTest<Community, CommunityPtr, CommunityDB,
                               CommunitySpec>(CommunityDB *);
 template void ConcurrencyTest<ExtCommunity, ExtCommunityPtr, ExtCommunityDB,
                               ExtCommunitySpec>(ExtCommunityDB *);
+template void ConcurrencyTest<OriginVnPath, OriginVnPathPtr, OriginVnPathDB,
+                              OriginVnPathSpec>(OriginVnPathDB *);
 
 TEST_F(BgpAttrTest, BgpAttrDBConcurrency) {
     ConcurrencyTest<BgpAttr, BgpAttrPtr, BgpAttrDB, BgpAttrSpec>(attr_db_);
@@ -1204,6 +1379,11 @@ TEST_F(BgpAttrTest, CommunityDBConcurrency) {
 TEST_F(BgpAttrTest, ExtCommunityDBConcurrency) {
     ConcurrencyTest<ExtCommunity, ExtCommunityPtr, ExtCommunityDB,
                     ExtCommunitySpec>(extcomm_db_);
+}
+
+TEST_F(BgpAttrTest, OriginVnPathDBConcurrency) {
+    ConcurrencyTest<OriginVnPath, OriginVnPathPtr, OriginVnPathDB,
+                    OriginVnPathSpec>(ovnpath_db_);
 }
 
 static void SetUp() {

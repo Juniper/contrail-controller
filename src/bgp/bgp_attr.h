@@ -17,6 +17,7 @@
 #include "base/util.h"
 #include "bgp/bgp_aspath.h"
 #include "bgp/bgp_attr_base.h"
+#include "bgp/bgp_origin_vn_path.h"
 #include "bgp/bgp_server.h"
 #include "bgp/community.h"
 #include "net/address.h"
@@ -159,7 +160,9 @@ struct BgpMpNlri : public BgpAttribute {
         BgpAttribute(code, ExtendedLength|kFlags), afi(afi), safi(safi) {
         nexthop.clear();
     }
-    explicit BgpMpNlri(const BgpAttribute &rhs) : BgpAttribute(rhs) {}
+    explicit BgpMpNlri(const BgpAttribute &rhs)
+        : BgpAttribute(rhs), afi(0), safi(0) {
+    }
     ~BgpMpNlri() {
         STLDeleteValues(&nlri);
     }
@@ -521,8 +524,10 @@ public:
     void set_as_path(const AsPathSpec *spec);
     void set_community(CommunityPtr comm);
     void set_community(const CommunitySpec *comm);
-    void set_ext_community(ExtCommunityPtr comm);
+    void set_ext_community(ExtCommunityPtr extcomm);
     void set_ext_community(const ExtCommunitySpec *extcomm);
+    void set_origin_vn_path(OriginVnPathPtr ovnpath);
+    void set_origin_vn_path(const OriginVnPathSpec *spec);
     void set_pmsi_tunnel(const PmsiTunnelSpec *pmsi_spec);
     void set_edge_discovery(const EdgeDiscoverySpec *edspec);
     void set_edge_forwarding(const EdgeForwardingSpec *efspec);
@@ -546,6 +551,7 @@ public:
     int as_path_count() const { return as_path_ ? as_path_->AsCount() : 0; }
     const Community *community() const { return community_.get(); }
     const ExtCommunity *ext_community() const { return ext_community_.get(); }
+    const OriginVnPath *origin_vn_path() const { return origin_vn_path_.get(); }
     const PmsiTunnel *pmsi_tunnel() const { return pmsi_tunnel_.get(); }
     const EdgeDiscovery *edge_discovery() const {
         return edge_discovery_.get();
@@ -579,6 +585,7 @@ private:
     AsPathPtr as_path_;
     CommunityPtr community_;
     ExtCommunityPtr ext_community_;
+    OriginVnPathPtr origin_vn_path_;
     PmsiTunnelPtr pmsi_tunnel_;
     EdgeDiscoveryPtr edge_discovery_;
     EdgeForwardingPtr edge_forwarding_;
@@ -619,7 +626,9 @@ public:
     BgpAttrPtr ReplaceCommunityAndLocate(const BgpAttr *attr,
                                          const Community *community);
     BgpAttrPtr ReplaceExtCommunityAndLocate(const BgpAttr *attr,
-                                            ExtCommunityPtr com);
+                                            ExtCommunityPtr extcomm);
+    BgpAttrPtr ReplaceOriginVnPathAndLocate(const BgpAttr *attr,
+                                            OriginVnPathPtr ovnpath);
     BgpAttrPtr ReplaceLocalPreferenceAndLocate(const BgpAttr *attr,
                                                uint32_t local_pref);
     BgpAttrPtr ReplaceOriginatorIdAndLocate(const BgpAttr *attr,
