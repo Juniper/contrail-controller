@@ -1,0 +1,27 @@
+# -*- mode: python; -*-
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import sys
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+AgentStatsSandeshGenFiles = env.SandeshGenCpp('agent_stats_interval.sandesh')
+AgentStatsSandeshGenSrcs = env.ExtractCpp(AgentStatsSandeshGenFiles)
+AgentStatsSandeshGenObjs = env.Object(AgentStatsSandeshGenSrcs)
+
+libstatscollector = env.Library('statscollector',
+                          AgentStatsSandeshGenObjs +
+                         [
+                          'agent_stats_collector.cc',
+                          'agent_stats_sandesh_context.cc',
+                          'drop_stats_io_context.cc',
+                          'interface_stats_io_context.cc',
+                          'vrf_stats_io_context.cc',
+                         ])
+
+#def MapBuildDir(list):
+#    return map(lambda x: Dir('../../../' + x).abspath, list)
+#
+#env.SConscript('test/SConscript', exports='AgentEnv', duplicate=0)

@@ -7,8 +7,6 @@
 
 #include <uve/agent_uve_base.h>
 #include <uve/stats_manager.h>
-#include <uve/agent_stats_collector.h>
-#include <uve/flow_stats_collector.h>
 
 //The class to drive UVE module initialization for agent
 //Defines objects required for statistics collection from vrouter and

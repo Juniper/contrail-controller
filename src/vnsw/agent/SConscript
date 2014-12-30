@@ -86,6 +86,7 @@ env.Append(LIBPATH = MapBuildDir([
     'vnsw/agent/services',
     'vnsw/agent/uve',
     'vnsw/agent/vgw',
+    'vnsw/agent/vrouter/stats_collector',
     'vrouter/utils',
     'xml',
     'xmpp',
@@ -299,6 +300,7 @@ subdirs = [
     'test',
     'uve',
     'vgw',
+    'vrouter',
 ]
 
 for dir in subdirs:

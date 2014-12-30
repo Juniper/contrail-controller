@@ -5,7 +5,7 @@
 #ifndef vnsw_drop_stats_io_context_h
 #define vnsw_drop_stats_io_context_h
 
-#include <uve/agent_stats_sandesh_context.h>
+#include <vrouter/stats_collector/agent_stats_sandesh_context.h>
 
 class DropStatsIoContext: public IoContext {
 public:

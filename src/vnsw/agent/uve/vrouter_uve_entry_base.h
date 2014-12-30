@@ -16,7 +16,6 @@
 #include <vrouter_types.h>
 #include <uve/l4_port_bitmap.h>
 #include <pkt/flow_proto.h>
-#include <uve/agent_stats_collector.h>
 #include <cmn/agent_cmn.h>
 #include <vgw/cfg_vgw.h>
 

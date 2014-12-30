@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <uve/drop_stats_io_context.h>
-#include <uve/agent_stats_collector.h>
+#include <vrouter/stats_collector/drop_stats_io_context.h>
+#include <vrouter/stats_collector/agent_stats_collector.h>
 #include <ksync/ksync_types.h>
 
 DropStatsIoContext::DropStatsIoContext(int msg_len, char *msg, uint32_t seqno,

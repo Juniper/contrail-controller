@@ -5,7 +5,7 @@
 #ifndef vnsw_vrf_stats_io_context_h
 #define vnsw_vrf_stats_io_context_h
 
-#include <uve/agent_stats_sandesh_context.h>
+#include <vrouter/stats_collector/agent_stats_sandesh_context.h>
 
 class VrfStatsIoContext: public IoContext {
 public:

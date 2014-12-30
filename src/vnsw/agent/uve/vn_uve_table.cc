@@ -5,7 +5,6 @@
 #include <uve/agent_uve.h>
 #include <uve/vn_uve_table.h>
 #include <uve/vn_uve_entry.h>
-#include <uve/agent_stats_collector.h>
 
 VnUveTable::VnUveTable(Agent *agent)
     : VnUveTableBase(agent) {

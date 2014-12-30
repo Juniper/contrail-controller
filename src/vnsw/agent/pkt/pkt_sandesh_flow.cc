@@ -9,6 +9,7 @@
 #include <algorithm>
 
 #include <uve/agent_uve.h>
+#include <uve/flow_stats_collector.h>
 
 using boost::system::error_code;
 
