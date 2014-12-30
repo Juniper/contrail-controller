@@ -109,6 +109,7 @@ public:
     bool dhcp_enabled() const {return dhcp_enabled_;}
     bool dns_enabled() const {return dns_enabled_;}
     uint32_t label() const {return label_;}
+    uint32_t l2_label() const {return l2_label_;}
     bool IsL2LabelValid(uint32_t label) const { return (label_ == label);}
     uint32_t os_index() const {return os_index_;}
     const MacAddress &mac() const {return mac_;}

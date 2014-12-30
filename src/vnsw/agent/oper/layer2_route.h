@@ -15,48 +15,29 @@ public:
     }
     virtual ~Layer2AgentRouteTable() { }
 
-    virtual string GetTableName() const {return "Layer2AgentRouteTable";}
+    virtual std::string GetTableName() const {return "Layer2AgentRouteTable";}
     virtual Agent::RouteTableType GetTableType() const {
         return Agent::LAYER2;
     }
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
-    static void AddRemoteVmRouteReq(const Peer *peer, const string &vm_vrf,
-                                    const MacAddress &mac,
-                                    const Ip4Address &vm_addr,
-                                    uint32_t ethernet_tag,
-                                    uint8_t plen,
-                                    AgentRouteData *data);
+
     void AddLocalVmRouteReq(const Peer *peer,
-                            const string &vrf_name,
+                            const std::string &vrf_name,
                             const MacAddress &mac,
-                            const Ip4Address &vm_ip,
+                            const Ip4Address &ip_addr,
                             uint32_t ethernet_tag,
-                            uint32_t plen,
                             LocalVmRoute *data);
-    void AddLocalVmRouteReq(const Peer *peer,
-                            const uuid &intf_uuid,
-                            const string &vn_name,
-                            const string &vrf_name,
-                            uint32_t mpls_label,
-                            uint32_t vxlan_id,
-                            const MacAddress &mac,
-                            const Ip4Address &vm_ip,
-                            uint32_t ethernet_tag,
-                            uint32_t plen);
-    static void AddLocalVmRoute(const Peer *peer,
-                                const uuid &intf_uuid,
-                                const string &vn_name,
-                                const string &vrf_name,
-                                uint32_t mpls_label,
-                                uint32_t vxlan_id,
-                                const MacAddress &mac,
-                                const Ip4Address &vm_ip,
-                                uint32_t ethernet_tag,
-                                uint32_t plen);
+    void AddLocalVmRoute(const Peer *peer, const VmInterface *intf);
+    static void AddRemoteVmRouteReq(const Peer *peer,
+                                    const std::string &vrf_name,
+                                    const MacAddress &mac,
+                                    const Ip4Address &ip_addr,
+                                    uint32_t ethernet_tag,
+                                    AgentRouteData *data);
     static void AddLayer2BroadcastRoute(const Peer *peer,
-                                        const string &vrf_name,
-                                        const string &vn_name,
+                                        const std::string &vrf_name,
+                                        const std::string &vn_name,
                                         uint32_t label,
                                         int vxlan_id,
                                         uint32_t ethernet_tag,
@@ -65,22 +46,20 @@ public:
                                         ComponentNHKeyList
                                         &component_nh_key_list);
     static void AddLayer2ReceiveRoute(const Peer *peer,
-                                      const string &vrf_name,
-                                      const string &vn_name,
+                                      const std::string &vrf_name,
                                       const MacAddress &mac,
-                                      const string &interface,
+                                      const std::string &vn_name,
+                                      const std::string &interface,
                                       bool policy);
-    static void DeleteReq(const Peer *peer, const string &vrf_name,
-                          const MacAddress &mac,
-                          uint32_t ethernet_tag,
-                          AgentRouteData *data);
-    static void Delete(const Peer *peer, const string &vrf_name,
-                       uint32_t ethernet_tag,
-                       const MacAddress &mac);
-    static void DeleteBroadcastReq(const Peer *peer, const string &vrf_name,
+    static void DeleteReq(const Peer *peer, const std::string &vrf_name,
+                          const MacAddress &mac, uint32_t ethernet_tag);
+    static void Delete(const Peer *peer, const std::string &vrf_name,
+                       const MacAddress &mac, uint32_t ethernet_tag);
+    static void DeleteBroadcastReq(const Peer *peer,
+                                   const std::string &vrf_name,
                                    uint32_t ethernet_tag);
     static Layer2RouteEntry *FindRoute(const Agent *agent,
-                                       const string &vrf_name,
+                                       const std::string &vrf_name,
                                        const MacAddress &mac);
 
 private:
@@ -91,25 +70,19 @@ private:
 class Layer2RouteEntry : public AgentRoute {
 public:
     Layer2RouteEntry(VrfEntry *vrf, const MacAddress &mac,
-                     const Ip4Address &vm_ip, uint32_t plen,
+                     const Ip4Address &ip_addr,
                      Peer::Type type, bool is_multicast) :
-        AgentRoute(vrf, is_multicast), mac_(mac) {
-        if (type != Peer::BGP_PEER) {
-            vm_ip_ = vm_ip;
-            plen_ = plen;
-        } else {
-            //TODO Add the IP prefix sent by BGP peer to add IP route
-        }
+        AgentRoute(vrf, is_multicast), mac_(mac), ip_addr_(ip_addr) {
     }
     virtual ~Layer2RouteEntry() { }
 
     virtual int CompareTo(const Route &rhs) const;
-    virtual string ToString() const;
+    virtual std::string ToString() const;
     virtual void UpdateDependantRoutes() { }
     virtual void UpdateNH() { }
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *key);
-    virtual const string GetAddressString() const {
+    virtual const std::string GetAddressString() const {
         //For multicast use the same tree as of 255.255.255.255
         if (is_multicast())
             return "255.255.255.255";
@@ -126,50 +99,48 @@ public:
     virtual AgentPath *FindPathUsingKey(const AgentRouteKey *key);
 
     const MacAddress &GetAddress() const {return mac_;}
-    const Ip4Address &GetVmIpAddress() const {return vm_ip_;}
-    const uint32_t GetVmIpPlen() const {return plen_;}
+    const Ip4Address &ip_addr() const {return ip_addr_;}
+    const uint32_t GetVmIpPlen() const {return 32;}
 
 private:
     bool ReComputeMulticastPaths(AgentPath *path, bool del);
 
     MacAddress mac_;
-    Ip4Address vm_ip_;
-    uint32_t plen_;
+    Ip4Address ip_addr_;
     DISALLOW_COPY_AND_ASSIGN(Layer2RouteEntry);
 };
 
 class Layer2RouteKey : public AgentRouteKey {
 public:
-    Layer2RouteKey(const Peer *peer, const string &vrf_name,
+    Layer2RouteKey(const Peer *peer, const std::string &vrf_name,
                    const MacAddress &mac,
                    uint32_t ethernet_tag) :
         AgentRouteKey(peer, vrf_name), dmac_(mac),
-        plen_(0), ethernet_tag_(ethernet_tag) {
-    }
-    Layer2RouteKey(const Peer *peer, const string &vrf_name,
-                   const MacAddress &mac, const Ip4Address &vm_ip,
-                   uint32_t plen, uint32_t ethernet_tag) :
-        AgentRouteKey(peer, vrf_name), dmac_(mac), vm_ip_(vm_ip), plen_(plen),
         ethernet_tag_(ethernet_tag) {
     }
-    Layer2RouteKey(const Peer *peer, const string &vrf_name,
+    Layer2RouteKey(const Peer *peer, const std::string &vrf_name,
+                   const MacAddress &mac, const Ip4Address &ip_addr,
                    uint32_t ethernet_tag) :
-        AgentRouteKey(peer, vrf_name), plen_(0), ethernet_tag_(ethernet_tag) {
+        AgentRouteKey(peer, vrf_name), dmac_(mac), ip_addr_(ip_addr),
+        ethernet_tag_(ethernet_tag) {
+    }
+    Layer2RouteKey(const Peer *peer, const std::string &vrf_name,
+                   uint32_t ethernet_tag) :
+        AgentRouteKey(peer, vrf_name), ethernet_tag_(ethernet_tag) {
             dmac_ = MacAddress::BroadcastMac();
     }
     virtual ~Layer2RouteKey() { }
 
     virtual AgentRoute *AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const;
     virtual Agent::RouteTableType GetRouteTableType() { return Agent::LAYER2; }
-    virtual string ToString() const;
+    virtual std::string ToString() const;
     virtual Layer2RouteKey *Clone() const;
     const MacAddress &GetMac() const { return dmac_;}
     uint32_t ethernet_tag() const {return ethernet_tag_;}
 
 private:
     MacAddress dmac_;
-    Ip4Address vm_ip_;
-    uint32_t plen_;
+    Ip4Address ip_addr_;
     //ethernet_tag is the segment identifier for VXLAN. In control node its used
     //as a key however for forwarding only MAC is used as a key.
     //To handle this ethernet_tag is sent as part of key for all remote routes

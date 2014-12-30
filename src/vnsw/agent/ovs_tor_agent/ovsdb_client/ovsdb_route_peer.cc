@@ -32,7 +32,6 @@ bool OvsPeer::AddOvsRoute(const VnEntry *vn,
     // We dont learn the MAC to IP binding in case of TOR. Populate 0.0.0.0
     // (unknown ip) for the MAC in EVPN route
     Ip4Address prefix_ip = Ip4Address::from_string("0.0.0.0");
-    int prefix_len = 32;
 
     if (vn == NULL)
         return false;
@@ -48,7 +47,7 @@ bool OvsPeer::AddOvsRoute(const VnEntry *vn,
     Layer2AgentRouteTable *table = static_cast<Layer2AgentRouteTable *>
         (vrf->GetLayer2RouteTable());
     table->AddRemoteVmRouteReq(this, vrf->GetName(), mac, prefix_ip,
-                               vn->vxlan_id()->vxlan_id(), prefix_len, data);
+                               vn->vxlan_id()->vxlan_id(), data);
     return true;
 }
 
@@ -59,8 +58,7 @@ void OvsPeer::DeleteOvsRoute(VrfEntry *vrf, uint32_t vxlan_id,
 
     Layer2AgentRouteTable *table = static_cast<Layer2AgentRouteTable *>
         (vrf->GetLayer2RouteTable());
-    table->DeleteReq(this, vrf->GetName(), mac, vxlan_id,
-                     new OvsdbRouteData(this));
+    table->DeleteReq(this, vrf->GetName(), mac, vxlan_id);
     return;
 }
 
