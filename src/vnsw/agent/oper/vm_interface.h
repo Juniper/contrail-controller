@@ -386,6 +386,7 @@ public:
     bool OnResyncServiceVlan(VmInterfaceConfigData *data);
     void UpdateAllRoutes();
 
+    bool IsL2Active() const;
     bool IsIpv6Active() const;
     bool NeedDevice() const;
     VmInterface::SubType sub_type() const {return sub_type_;}
@@ -438,7 +439,6 @@ private:
     bool IsActive() const;
     bool IsIpv4Active() const;
     bool IsL3Active() const;
-    bool IsL2Active() const;
     bool PolicyEnabled() const;
     void UpdateL3Services(bool dhcp, bool dns);
     void AddRoute(const std::string &vrf_name, const IpAddress &ip,

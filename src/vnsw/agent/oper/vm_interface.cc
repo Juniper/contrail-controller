@@ -2354,7 +2354,6 @@ void VmInterface::DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf) 
 
     if ((vxlan_id_ != 0) &&
         (TunnelType::ComputeType(TunnelType::AllType()) == TunnelType::VXLAN)) {
-        VxLanId::Delete(vxlan_id_);
         vxlan_id_ = 0;
     }
     Layer2AgentRouteTable::Delete(peer_.get(), old_vrf->GetName(),

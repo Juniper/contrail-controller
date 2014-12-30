@@ -2546,6 +2546,8 @@ TEST_F(IntfTest, Intf_l2mode_deactivate_activat_via_os_state) {
     Agent::GetInstance()->interface_table()->Enqueue(&req);
     client->WaitForIdle();
 
+    EXPECT_FALSE(vm_interface->IsL2Active());
+    EXPECT_TRUE(FindVxLanId(agent, vxlan_id));
     EXPECT_TRUE(vm_interface->vxlan_id() == 0);
 
     //Activate OS state (IF up)
@@ -2557,6 +2559,8 @@ TEST_F(IntfTest, Intf_l2mode_deactivate_activat_via_os_state) {
     Agent::GetInstance()->interface_table()->Enqueue(&req2);
     client->WaitForIdle();
 
+    EXPECT_TRUE(vm_interface->IsL2Active());
+    EXPECT_TRUE(FindVxLanId(agent, vxlan_id));
     EXPECT_TRUE(vm_interface->vxlan_id() == vxlan_id);
 
     //Cleanup
