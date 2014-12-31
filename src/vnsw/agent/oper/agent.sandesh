@@ -1072,6 +1072,7 @@ struct SandeshPhysicalDeviceVn {
     2: string vn_uuid;
     3: string device;
     4: string vn;
+    5: i32 vxlan_id;
 }
 
 response sandesh SandeshPhysicalDeviceVnListResp {

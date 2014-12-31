@@ -21,7 +21,12 @@ public:
     virtual std::string NodeType();
     virtual void ToString(std::string *str);
 
+    std::string &vxlan_id() { return vxlan_id_;}
+    std::string &network_id() { return network_id_;}
+
 private:
+    std::string vxlan_id_;;
+    std::string network_id_;
 };
 
 class AgentUtXmlVm : public AgentUtXmlConfig {

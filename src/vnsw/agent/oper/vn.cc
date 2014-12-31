@@ -26,6 +26,7 @@
 #include <oper/mirror_table.h>
 #include <oper/agent_sandesh.h>
 #include <oper/oper_dhcp_options.h>
+#include <oper/physical_device_vn.h>
 #include <filter/acl.h>
 #include "net/address_util.h"
 
@@ -298,7 +299,7 @@ bool VnTable::VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry) {
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         req.key.reset(key); 
         req.data.reset(NULL);
-        Agent::GetInstance()->vn_table()->Enqueue(&req); 
+        Enqueue(&req);
     }
     return true;
 }
@@ -306,6 +307,8 @@ bool VnTable::VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry) {
 void VnTable::VnEntryWalkDone(DBTableBase *partition) {
     walkid_ = DBTableWalker::kInvalidWalkerId;
     agent()->interface_table()->
+        UpdateVxLanNetworkIdentifierMode();
+    agent()->physical_device_vn_table()->
         UpdateVxLanNetworkIdentifierMode();
 }
 

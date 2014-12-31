@@ -113,12 +113,25 @@ AgentUtXmlVn::~AgentUtXmlVn() {
 
 
 bool AgentUtXmlVn::ReadXml() {
-    return AgentUtXmlConfig::ReadXml();
+    if (AgentUtXmlConfig::ReadXml() == false) {
+        return false;
+    }
+    GetStringAttribute(node(), "vxlan-id", &vxlan_id_);
+    GetStringAttribute(node(), "network-id", &network_id_);
+    return true;
 }
 
 bool AgentUtXmlVn::ToXml(xml_node *parent) {
     xml_node n = AddXmlNodeWithAttr(parent, NodeType().c_str());
     AddXmlNodeWithValue(&n, "name", name());
+    if (!network_id().empty()) {
+        xml_node n1 = n.append_child("virtual-network-properties");
+        AddXmlNodeWithValue(&n1, "network-id", network_id());
+    }
+    if (!vxlan_id().empty()) {
+        xml_node n1 = n.append_child("virtual-network-properties");
+        AddXmlNodeWithValue(&n1, "vxlan-network-identifier", vxlan_id());
+    }
     AddIdPerms(&n);
     return true;
 }
