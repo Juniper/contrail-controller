@@ -7,6 +7,7 @@
 #include "testing/gunit.h"
 #include "base/util.h"
 #include "base/logging.h"
+#include "base/time_util.h"
 
 namespace {
 

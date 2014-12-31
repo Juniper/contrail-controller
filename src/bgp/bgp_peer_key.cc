@@ -6,6 +6,7 @@
 
 #include <boost/uuid/nil_generator.hpp>
 
+#include "base/string_util.h"
 #include "bgp/bgp_config.h"
 
 using boost::asio::ip::address;
