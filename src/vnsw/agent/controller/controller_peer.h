@@ -147,7 +147,7 @@ private:
     void AddMulticastEvpnRoute(std::string vrf_name, MacAddress &mac,
 
                                autogen::EnetItemType *item);
-    void AddEvpnRoute(std::string vrf_name, std::string mac_addr,
+    void AddEvpnRoute(const std::string &vrf_name, std::string mac_addr,
                       autogen::EnetItemType *item);
     void AddRemoteRoute(std::string vrf_name, IpAddress ip, uint32_t plen,
                         autogen::ItemType *item);

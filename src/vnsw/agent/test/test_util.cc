@@ -1033,10 +1033,16 @@ bool RouteFindV6(const string &vrf_name, const string &addr, int plen) {
     return RouteFindV6(vrf_name, Ip6Address::from_string(addr), plen);
 }
 
-bool L2RouteFind(const string &vrf_name, const MacAddress &mac) {
+bool L2RouteFind(const string &vrf_name, const MacAddress &mac,
+                 const IpAddress &ip_addr) {
     Layer2RouteEntry *route =
-        Layer2AgentRouteTable::FindRoute(Agent::GetInstance(), vrf_name, mac);
+        Layer2AgentRouteTable::FindRoute(Agent::GetInstance(), vrf_name, mac,
+                                         ip_addr);
     return (route != NULL);
+}
+
+bool L2RouteFind(const string &vrf_name, const MacAddress &mac) {
+    return L2RouteFind(vrf_name, mac, IpAddress());
 }
 
 bool MCRouteFind(const string &vrf_name, const Ip4Address &grp_addr,
@@ -1077,18 +1083,24 @@ bool MCRouteFind(const string &vrf_name, const string &grp_addr) {
 
 }
 
-Layer2RouteEntry *L2RouteGet(const string &vrf_name,
-                             const MacAddress &mac) {
-    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
+Layer2RouteEntry *L2RouteGet(const string &vrf_name, const MacAddress &mac,
+                             const IpAddress &ip_addr) {
+    Agent *agent = Agent::GetInstance();
+    VrfEntry *vrf = agent->vrf_table()->FindVrfFromName(vrf_name);
     if (vrf == NULL)
         return NULL;
 
-    Layer2RouteKey key(Agent::GetInstance()->local_vm_peer(), vrf_name, mac, 0);
+    Layer2RouteKey key(agent->local_vm_peer(), vrf_name, mac, ip_addr, 0);
     Layer2RouteEntry *route =
         static_cast<Layer2RouteEntry *>
         (static_cast<Layer2AgentRouteTable *>(vrf->
              GetLayer2RouteTable())->FindActiveEntry(&key));
     return route;
+}
+
+Layer2RouteEntry *L2RouteGet(const string &vrf_name,
+                             const MacAddress &mac) {
+    return L2RouteGet(vrf_name, mac, IpAddress());
 }
 
 InetUnicastRouteEntry* RouteGet(const string &vrf_name, const Ip4Address &addr, int plen) {
@@ -1168,7 +1180,7 @@ bool VlanNhFind(int id, uint16_t tag) {
 bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const Ip4Address &server_ip,
                           uint32_t label, MacAddress &remote_vm_mac,
-                          const Ip4Address &vm_addr, uint8_t plen) {
+                          const IpAddress &vm_addr, uint8_t plen) {
     ControllerVmRoute *data =
         ControllerVmRoute::MakeControllerVmRoute(peer,
                               Agent::GetInstance()->fabric_vrf_name(),
@@ -1188,7 +1200,7 @@ bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf,
     boost::system::error_code ec;
     Layer2TunnelRouteAdd(peer, vm_vrf, bmap,
                         Ip4Address::from_string(server_ip, ec), label, remote_vm_mac,
-                         Ip4Address::from_string(vm_addr, ec), plen);
+                        IpAddress::from_string(vm_addr, ec), plen);
 }
 
 bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Address &vm_ip,

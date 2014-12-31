@@ -229,13 +229,13 @@ public:
     ~KSyncObjectManager();
     bool Process(KSyncObjectEvent *event);
     void Enqueue(KSyncObjectEvent *event);
-    KSyncEntry *default_defer_entry();
+    static KSyncEntry *default_defer_entry();
     static KSyncObjectManager *Init();
     static void Shutdown();
     static void Unregister(KSyncObject *);
 private:
     WorkQueue<KSyncObjectEvent *> *event_queue_;
-    std::auto_ptr<KSyncEntry> default_defer_entry_;
+    static std::auto_ptr<KSyncEntry> default_defer_entry_;
     static KSyncObjectManager *singleton_;
 };
 

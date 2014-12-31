@@ -39,6 +39,37 @@ using process::ConnectionType;
 using process::ConnectionStatus;
 using process::ConnectionState;
 
+// Parses string ipv4-addr/plen or ipv6-addr/plen
+// Stores address in addr and returns plen
+static int ParseAddress(const string &str, IpAddress *addr) {
+    size_t pos = str.find('/');
+    if (pos == string::npos) {
+        return -1;
+    }
+
+    int plen = 0;
+    boost::system::error_code ec;
+    string plen_str = str.substr(pos + 1);
+    if (plen_str == "32") {
+        Ip4Address ip4_addr;
+        ec = Ip4PrefixParse(str, &ip4_addr, &plen);
+        if (ec || plen != 32) {
+            return -1;
+        }
+        *addr = ip4_addr;
+    } else if (plen_str == "128") {
+        Ip6Address ip6_addr;
+        ec = Inet6PrefixParse(str, &ip6_addr, &plen);
+        if (ec || plen != 128) {
+            return -1;
+        }
+        *addr = ip6_addr;
+    } else {
+        return -1;
+    }
+    return plen;
+}
+
 AgentXmppChannel::AgentXmppChannel(Agent *agent,
                                    const std::string &xmpp_server,
                                    const std::string &label_range,
@@ -116,6 +147,12 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
     Layer2AgentRouteTable *rt_table =
         static_cast<Layer2AgentRouteTable *>
         (agent_->vrf_table()->GetLayer2RouteTable(vrf_name));
+    if (rt_table == NULL) {
+        CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                         "Invalid VRF. Ignoring route retract" +
+                         string(attr.value()));
+        return;
+    }
 
     pugi::xml_node node_check = pugi->FindNode("retract");
     if (!pugi->IsNull(node_check)) {
@@ -126,35 +163,52 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
                                  "EVPN Delete Node id:" + id);
 
                 char buff[id.length() + 1];
-                uint16_t offset = 0;
                 strcpy(buff, id.c_str());
 
-                char *mac_str = strtok_r(buff + offset, "-", &saveptr);
+                // retract does not have nlri. Need to decode key fields from
+                // retract id. Format of retract-id expected are:
+                // 00:00:00:01:01:01,1.1.1.1/32 - Mac and IP for Non-VXLAN Encap
+                // 10-00:00:00:01:01:01,1.1.1.1/32 - VXLAN, mac, ip.
+                //
+                // In case of not finding pattern "-" whole string will be
+                // returned in token. So dont use it for ethernet_tag.
+                // Check for string length of saveptr to know if string was
+                // tokenised.
+
+                uint16_t offset = 0;
                 uint32_t ethernet_tag = 0;
-                //retract id expected are:
-                //00:00:00:01:01:01,1.1.1.1 - Mac and IP
-                //10-00:00:00:01:01:01,1.1.1.1 - Ehernet tag, mac, ip.
-                //In case of not finding pattern "-" whole string will be
-                //returned in mac_str. So dont use it for ethernet_tag.
-                //Check for string length of saveptr to know if string was
-                //tokenised.
-                if ((strlen(saveptr) != 0) && mac_str) {
-                    ethernet_tag = atoi(mac_str);
-                    offset += strlen(mac_str) + 1;
+                saveptr = NULL;
+
+                // If id has "-", the value before "-" is treated as
+                // ethernet-tag
+                char *token = strtok_r(buff + offset, "-", &saveptr);
+                if ((strlen(saveptr) != 0) && token) {
+                    ethernet_tag = atoi(token);
+                    offset += strlen(token) + 1;
                 }
 
-                mac_str = strtok_r(buff + offset, ",", &saveptr);
-                if (mac_str == NULL) {
+                // Get MAC address. Its delimited by ","
+                token = strtok_r(buff + offset, ",", &saveptr);
+                if ((strlen(saveptr) != 0) || (token == NULL)) {
                     CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
                                      "Error parsing MAC from retract-id: " +id);
                     continue;
                 }
 
                 boost::system::error_code ec;
-                MacAddress mac(mac_str, &ec);
+                MacAddress mac(token, &ec);
                 if (ec) {
                     CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
                                      "Error decoding MAC from retract-id: "+id);
+                    continue;
+                }
+
+                offset += strlen(token) + 1;
+                IpAddress ip_addr;
+                if (ParseAddress(buff + offset, &ip_addr) < 0) {
+                    CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                                     "Error decoding IP address from "
+                                     "retract-id: "+id);
                     continue;
                 }
 
@@ -170,7 +224,7 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
                              ControllerPeerPath::kInvalidPeerIdentifier);
                 } else {
                     rt_table->DeleteReq(bgp_peer_id(), vrf_name, mac,
-                                        ethernet_tag);
+                                        ip_addr, ethernet_tag);
                 }
             }
         }
@@ -631,135 +685,132 @@ void AgentXmppChannel::AddMulticastEvpnRoute(string vrf_name,
                           multicast_sequence_number());
 }
 
-void AgentXmppChannel::AddEvpnRoute(std::string vrf_name,
+void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                                     std::string mac_str,
                                     EnetItemType *item) {
+    // Validate VRF first
+    Layer2AgentRouteTable *rt_table =
+        static_cast<Layer2AgentRouteTable *>
+        (agent_->vrf_table()->GetLayer2RouteTable(vrf_name));
+    if (rt_table == NULL) {
+        CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                         "Invalid VRF. Ignoring route");
+        return;
+    }
+
     boost::system::error_code ec;
     MacAddress mac(mac_str);
-
     if (mac == MacAddress::BroadcastMac()) {
         AddMulticastEvpnRoute(vrf_name, mac, item);
         return;
     }
 
-    string nexthop_addr = item->entry.next_hops.next_hop[0].address;
     uint32_t label = item->entry.next_hops.next_hop[0].label;
     TunnelType::TypeBmap encap = GetEnetTypeBitmap
         (item->entry.next_hops.next_hop[0].tunnel_encapsulation_list);
-    IpAddress addr = IpAddress::from_string(nexthop_addr, ec);
-    Layer2AgentRouteTable *rt_table =
-        static_cast<Layer2AgentRouteTable *>
-        (agent_->vrf_table()->GetLayer2RouteTable(vrf_name));
 
+    string nexthop_addr = item->entry.next_hops.next_hop[0].address;
+    IpAddress nh_ip = IpAddress::from_string(nexthop_addr, ec);
     if (ec.value() != 0) {
         CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
                          "Error parsing nexthop ip address");
         return;
     }
 
+    IpAddress ip_addr;
+    if (ParseAddress(item->entry.nlri.address, &ip_addr) < 0) {
+        CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                         "Error parsing address : " + item->entry.nlri.address);
+        return;
+    }
+
     CONTROLLER_TRACE(RouteImport, GetBgpPeerName(), vrf_name,
                      mac.ToString(), 0, nexthop_addr, label, "");
 
-    Ip4Address prefix_addr;
-    int prefix_len;
-    ec = Ip4PrefixParse(item->entry.nlri.address, &prefix_addr,
-                        &prefix_len);
-    if (ec.value() != 0) {
-        CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                         "Error parsing route address");
-        return;
-    }
-    if (agent_->router_id() != addr.to_v4()) {
+    if (agent_->router_id() != nh_ip.to_v4()) {
         CONTROLLER_TRACE(Trace, GetBgpPeerName(), nexthop_addr,
                          "add remote evpn route");
         // Currently SG not supported for l2 route.
         SecurityGroupList sg;
         ControllerVmRoute *data =
             ControllerVmRoute::MakeControllerVmRoute(bgp_peer_id(),
-                                                    agent_->fabric_vrf_name(),
-                                                    agent_->router_id(),
-                                                    vrf_name, addr.to_v4(),
-                                                    encap, label,
-                                                    item->entry.virtual_network,
-                                                    sg, PathPreference());
-        rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name, mac, prefix_addr,
+                                                     agent_->fabric_vrf_name(),
+                                                     agent_->router_id(),
+                                                     vrf_name, nh_ip.to_v4(),
+                                                     encap, label,
+                                                     item->entry.virtual_network,
+                                                     sg, PathPreference());
+        rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name, mac, ip_addr,
                                       item->entry.nlri.ethernet_tag,
                                       data);
         return;
     }
 
-    const NextHop *nh = NULL;
-    if (encap == (1 << TunnelType::VXLAN)) {
-        VrfEntry *vrf =
-            agent_->vrf_table()->FindVrfFromName(vrf_name);
-        Layer2RouteKey key(agent_->local_vm_peer(),
-                           vrf_name, mac, item->entry.nlri.ethernet_tag);
-        if (vrf != NULL) {
-            Layer2RouteEntry *route =
-                static_cast<Layer2RouteEntry *>
-                (static_cast<Layer2AgentRouteTable *>
-                 (vrf->GetLayer2RouteTable())->FindActiveEntry(&key));
-            if (route) {
-                nh = route->GetActiveNextHop();
-            } else {
-                CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                                 "route not found, ignoring request");
-            }
-        } else {
-                CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                                 "vrf not found, ignoring request");
-        }
-    } else {
-        MplsLabel *mpls =
-            agent_->mpls_table()->FindMplsLabel(label);
-        if (mpls != NULL) {
-            nh = mpls->nexthop();
-        }
+    // Route originated by us and reflected back by control-node
+    // When encap is MPLS based, the nexthop can be found by label lookup
+    // When encapsulation used is VXLAN, nexthop cannot be found from message
+    // To have common design, get nexthop from the route already present
+    VrfEntry *vrf =
+        agent_->vrf_table()->FindVrfFromName(vrf_name);
+    if (vrf == NULL) {
+        CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                         "vrf not found, ignoring request");
+        return;
     }
-    if (nh != NULL) {
-        switch(nh->GetType()) {
-        case NextHop::INTERFACE: {
-            const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
-            ControllerLocalVmRoute *local_vm_route = NULL;
-            VmInterfaceKey vm_intf_key(AgentKey::ADD_DEL_CHANGE,
-                                    intf_nh->GetIfUuid(), "");
-            SecurityGroupList sg_list;
-            PathPreference path_preference;
-            BgpPeer *bgp_peer = bgp_peer_id();
-            if (encap == TunnelType::VxlanType()) {
-                local_vm_route =
-                    new ControllerLocalVmRoute(vm_intf_key,
-                                               MplsTable::kInvalidLabel,
-                                               label, false, "",
-                                               InterfaceNHFlags::LAYER2,
-                                               sg_list, path_preference,
-                                               unicast_sequence_number(),
-                                               this);
-            } else {
-                local_vm_route =
-                    new ControllerLocalVmRoute(vm_intf_key,
-                                               label,
-                                               VxLanTable::kInvalidvxlan_id,
-                                               false, "",
-                                               InterfaceNHFlags::LAYER2,
-                                               sg_list, path_preference,
-                                               unicast_sequence_number(),
-                                               this);
-            }
-            rt_table->AddLocalVmRouteReq(bgp_peer, vrf_name, mac,
-                                         prefix_addr,
-                                         item->entry.nlri.ethernet_tag,
-                                         static_cast<LocalVmRoute *>(local_vm_route));
-            break;
-            }
-        default:
-            CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                             "label points to invalid NH");
-        }
-    } else {
+
+    Layer2RouteKey key(agent_->local_vm_peer(), vrf_name, mac,
+                       ip_addr, item->entry.nlri.ethernet_tag);
+    Layer2RouteEntry *route = static_cast<Layer2RouteEntry *>
+        (rt_table->FindActiveEntry(&key));
+    if (route == NULL) {
+        CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                         "route not found, ignoring request");
+        return;
+    }
+
+    const NextHop *nh = route->GetActiveNextHop();
+    if (nh == NULL) {
         CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
                          "nexthop not found, ignoring request");
+        return;
     }
+
+    // We expect only INTERFACE nexthop for layer2 routes
+    const InterfaceNH *intf_nh = dynamic_cast<const InterfaceNH *>(nh);
+    if (nh->GetType() != NextHop::INTERFACE) {
+        CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                         "Invalid nexthop in layer2 route");
+        return;
+    }
+
+    SecurityGroupList sg_list;
+    PathPreference path_preference;
+    BgpPeer *bgp_peer = bgp_peer_id();
+    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_nh->GetIfUuid(), "");
+    ControllerLocalVmRoute *local_vm_route = NULL;
+    if (encap == TunnelType::VxlanType()) {
+        local_vm_route =
+            new ControllerLocalVmRoute(intf_key,
+                                       MplsTable::kInvalidLabel,
+                                       label, false, "",
+                                       InterfaceNHFlags::LAYER2,
+                                       sg_list, path_preference,
+                                       unicast_sequence_number(),
+                                       this);
+    } else {
+        local_vm_route =
+            new ControllerLocalVmRoute(intf_key,
+                                       label,
+                                       VxLanTable::kInvalidvxlan_id,
+                                       false, "",
+                                       InterfaceNHFlags::LAYER2,
+                                       sg_list, path_preference,
+                                       unicast_sequence_number(),
+                                       this);
+    }
+    rt_table->AddLocalVmRouteReq(bgp_peer, vrf_name, mac, ip_addr,
+                                 item->entry.nlri.ethernet_tag,
+                                 static_cast<LocalVmRoute *>(local_vm_route));
 }
 
 void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,

@@ -207,14 +207,14 @@ void DnsProto::VrfNotify(DBEntryBase *entry) {
 
     if (entry->IsDeleted()) {
         Layer2AgentRouteTable::Delete(agent_->local_peer(), vrf->GetName(),
-                                      address, -1);
+                                      address, IpAddress(), -1);
         return;
     }
 
     if (vrf->vn()) {
         Layer2AgentRouteTable::AddLayer2ReceiveRoute(agent_->local_peer(),
                                                      vrf->GetName(),
-                                                     address,
+                                                     address, IpAddress(),
                                                      vrf->vn()->GetName(),
                                                      "pkt0", true);
     }

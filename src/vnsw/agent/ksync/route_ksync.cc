@@ -81,6 +81,7 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
           const Layer2RouteEntry *l2_rt =
               static_cast<const Layer2RouteEntry *>(rt);              
           mac_ = l2_rt->GetAddress();
+          addr_ = l2_rt->ip_addr();
           prefix_len_ = 0;
           break;
     }
@@ -134,7 +135,11 @@ bool RouteKSyncEntry::L2IsLess(const KSyncEntry &rhs) const {
         return vrf_id_ < entry.vrf_id_;
     }
 
-    return (mac_.CompareTo(entry.mac_) < 0);
+    if (mac_ != entry.mac_) {
+        return mac_ < entry.mac_;
+    }
+
+    return (addr_ < entry.addr_);
 }
 
 bool RouteKSyncEntry::IsLess(const KSyncEntry &rhs) const {
@@ -429,6 +434,16 @@ int RouteKSyncEntry::DeleteInternal(NHKSyncEntry *nexthop, uint32_t lbl,
 }
 
 KSyncEntry *RouteKSyncEntry::UnresolvedReference() {
+    if (rt_type_ == Agent::LAYER2) {
+        if (addr_.is_v6()) {
+            return KSyncObjectManager::default_defer_entry();
+        }
+
+        if (mac_ != MacAddress::BroadcastMac() && addr_.is_unspecified()) {
+            return KSyncObjectManager::default_defer_entry();
+        }
+    }
+
     NHKSyncEntry *nexthop = nh();
     if (!nexthop->IsResolved()) {
         return nexthop;

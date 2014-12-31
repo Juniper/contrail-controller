@@ -482,8 +482,10 @@ private:
                   bool old_ipv6_active, const Ip6Address &old_v6_addr,
                   const Ip4Address &old_subnet, const uint8_t old_subnet_plen);
     void UpdateL2(bool old_l2_active, VrfEntry *old_vrf, int old_vxlan_id,
-                  bool force_update, bool policy_change);
-    void DeleteL2(bool old_l2_active, VrfEntry *old_vrf);
+                  bool force_update, bool policy_change,
+                  const Ip4Address &old_addr, const Ip6Address &old_v6_addr);
+    void DeleteL2(bool old_l2_active, VrfEntry *old_vrf,
+                  const Ip4Address &old_addr, const Ip6Address &old_v6_addr);
     void UpdateVxLan();
 
     void AllocL3MplsLabel(bool force_update, bool policy_change);
@@ -534,8 +536,13 @@ private:
     void DeleteSecurityGroup();
     void UpdateL2TunnelId(bool force_update, bool policy_change);
     void DeleteL2TunnelId();
-    void UpdateL2InterfaceRoute(bool old_l2_active, bool force_update);
-    void DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf);
+    void UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
+                                VrfEntry *vrf,
+                                const Ip4Address &old_addr,
+                                const Ip6Address &old_v6_addr);
+    void DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf,
+                                const Ip4Address &old_v4_addr,
+                                const Ip6Address &old_v6_addr);
 
     void DeleteL2Route(const std::string &vrf_name,
                        const MacAddress &mac);
