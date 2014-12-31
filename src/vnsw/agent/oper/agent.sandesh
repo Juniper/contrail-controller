@@ -99,6 +99,9 @@ struct VnSandeshData {
     9: bool layer2_forwarding;
     10: bool ipv4_forwarding;
     11: bool admin_state;
+    12: i32 vxlan_id;
+    13: i32 config_vxlan_id;
+    14: i32 vn_id;
 }
 
 struct SgSandeshData {
@@ -1072,6 +1075,7 @@ struct SandeshPhysicalDeviceVn {
     2: string vn_uuid;
     3: string device;
     4: string vn;
+    5: i32 vxlan_id;
 }
 
 response sandesh SandeshPhysicalDeviceVnListResp {

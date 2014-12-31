@@ -5,6 +5,7 @@
     <physical-interface uuid="1" name="intf-1" />
     <logical-interface uuid="1" name="l-intf-1"/>
     <virtual-machine uuid="1" name="vm1"/>
+    <global-vrouter-config uuid="1" name="default-global-system-config:default-global-vrouter-config" vxlan-mode="automatic"/>
     <vmi nova="1"
      uuid="1" name="tap1" mac="00:00:00:00:00:01" vn-name="vn-1" vn-uuid="1"
      vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.1"
@@ -34,10 +35,29 @@
         <physical-router-vn name="router-vn-1" uuid="1" device="1" vn="1" />
     </validate>
 
-    <virtual-network uuid="1" name="vn-1" vxlan_id="2"/>
+    <virtual-network uuid="1" name="vn-1" vxlan-id="2" network-id="100" />
 
     <validate name="validate-4-1">
-        <physical-router-vn name="router-vn-1" uuid="1" device="1" vn="1" />
+        <physical-router-vn name="router-vn-1" uuid="1" device="1" vn="1" vxlan-id="100" />
+    </validate>
+
+    <global-vrouter-config uuid="1" name="default-global-system-config:default-global-vrouter-config" vxlan-mode="configured"/>
+
+    <validate name="validate-4-global-mode-change">
+        <physical-router-vn name="router-vn-1" uuid="1" device="1" vn="1" vxlan-id="2" />
+    </validate>
+
+    <virtual-network uuid="1" name="vn-1" vxlan-id="10" network-id="100" />
+
+    <validate name="validate-4-vxlan-id-change">
+        <physical-router-vn name="router-vn-1" uuid="1" device="1" vn="1" vxlan-id="10" />
+    </validate>
+
+    <global-vrouter-config uuid="1" name="default-global-system-config:default-global-vrouter-config" vxlan-mode="automatic"/>
+    <virtual-network uuid="1" name="vn-1" vxlan-id="2" network-id="100" />
+
+    <validate name="validate-4-2">
+        <physical-router-vn name="router-vn-1" uuid="1" device="1" vn="1" vxlan-id="100" />
     </validate>
 
     <link left="virtual-machine-interface" left-name="tap1"

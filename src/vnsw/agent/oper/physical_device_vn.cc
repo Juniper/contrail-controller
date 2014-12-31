@@ -65,6 +65,12 @@ bool PhysicalDeviceVn::Copy(PhysicalDeviceVnTable *table,
         ret = true;
     }
 
+    int vxlan_id = vn ? vn->GetVxLanId() : 0;
+    if (vxlan_id != vxlan_id_) {
+        vxlan_id_ = vxlan_id;
+        ret = true;
+    }
+
     return ret;
 }
 
@@ -100,6 +106,15 @@ bool PhysicalDeviceVnTable::OnChange(DBEntry *e, const DBRequest *req) {
         static_cast<PhysicalDeviceVnData *>(req->data.get());
     bool ret = entry->Copy(this, data);
     entry->SendObjectLog(AgentLogEvent::CHANGE);
+    return ret;
+}
+
+bool PhysicalDeviceVnTable::Resync(DBEntry *e, DBRequest *req) {
+    PhysicalDeviceVn *entry = static_cast<PhysicalDeviceVn *>(e);
+    PhysicalDeviceVnData *data =
+        static_cast<PhysicalDeviceVnData *>(req->data.get());
+    bool ret = entry->Copy(this, data);
+    entry->SendObjectLog(AgentLogEvent::RESYNC);
     return ret;
 }
 
@@ -172,6 +187,37 @@ void PhysicalDeviceVnTable::IterateConfig(const Agent *agent, const char *type,
     req.data.reset(new PhysicalDeviceVnData());
     Enqueue(&req);
     return;
+}
+
+bool PhysicalDeviceVnTable::DeviceVnWalk(DBTablePartBase *partition,
+                                         DBEntryBase *entry) {
+    PhysicalDeviceVn *dev_vn = static_cast<PhysicalDeviceVn *>(entry);
+    DBEntryBase::KeyPtr db_key = dev_vn->GetDBRequestKey();
+    PhysicalDeviceVnKey *key =
+        static_cast<PhysicalDeviceVnKey *>(db_key.release());
+    key->sub_op_ = AgentKey::RESYNC;
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(key);
+    req.data.reset(NULL);
+    Process(req);
+    return true;
+}
+
+void PhysicalDeviceVnTable::DeviceVnWalkDone(DBTableBase *part) {
+    walkid_ = DBTableWalker::kInvalidWalkerId;
+}
+
+void PhysicalDeviceVnTable::UpdateVxLanNetworkIdentifierMode() {
+    DBTableWalker *walker = agent()->db()->GetWalker();
+    if (walkid_ != DBTableWalker::kInvalidWalkerId) {
+        walker->WalkCancel(walkid_);
+    }
+    walkid_ = walker->WalkTable(this, NULL,
+                          boost::bind(&PhysicalDeviceVnTable::DeviceVnWalk,
+                                      this, _1, _2),
+                          boost::bind(&PhysicalDeviceVnTable::DeviceVnWalkDone,
+                                      this, _1));
 }
 
 void PhysicalDeviceVnTable::ConfigUpdate(IFMapNode *node) {
@@ -249,6 +295,7 @@ static void SetPhysicalDeviceVnSandeshData(const PhysicalDeviceVn *entry,
     } else {
         data->set_vn("INVALID");
     }
+    data->set_vxlan_id(entry->vxlan_id());
 }
 
 bool PhysicalDeviceVn::DBEntrySandesh(Sandesh *resp, std::string &name)
