@@ -24,9 +24,13 @@ import signal
 import socket
 import struct
 import tempfile
+import sys
 
-from eventlet.green import subprocess
-from eventlet import greenthread
+if sys.version_info[:2] == (2, 6):
+   import subprocess
+else:
+   from eventlet.green import subprocess
+   from eventlet import greenthread
 
 
 def _subprocess_setup():
@@ -81,10 +85,13 @@ def execute(cmd, root_helper=None, process_input=None, addl_env=None,
             if check_exit_code:
                 raise RuntimeError(m)
     finally:
+        if sys.version_info[:2] == (2, 6):
+            pass
+        else:
         # NOTE(termie): this appears to be necessary to let the subprocess
         #               call clean something up in between calls, without
         #               it two execute calls in a row hangs the second one
-        greenthread.sleep(0)
+            greenthread.sleep(0)
 
     return return_stderr and (_stdout, _stderr) or _stdout
 
