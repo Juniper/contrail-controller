@@ -15,15 +15,15 @@
 #include "nl_util.h"
 
 #include <uve/stats_collector.h>
-#include <uve/agent_stats_collector.h>
+#include <vrouter/stats_collector/agent_stats_collector.h>
 #include <uve/vn_uve_table.h>
 #include <uve/vm_uve_table.h>
 #include <init/agent_param.h>
-#include <uve/interface_stats_io_context.h>
-#include <uve/vrf_stats_io_context.h>
-#include <uve/drop_stats_io_context.h>
+#include <vrouter/stats_collector/interface_stats_io_context.h>
+#include <vrouter/stats_collector/vrf_stats_io_context.h>
+#include <vrouter/stats_collector/drop_stats_io_context.h>
 #include <uve/agent_uve.h>
-#include <uve/agent_stats_interval_types.h>
+#include <vrouter/stats_collector/agent_stats_interval_types.h>
 
 AgentStatsCollector::AgentStatsCollector
     (boost::asio::io_service &io, Agent* agent)

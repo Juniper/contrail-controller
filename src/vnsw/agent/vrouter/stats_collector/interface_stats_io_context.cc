@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <uve/interface_stats_io_context.h>
-#include <uve/agent_stats_collector.h>
+#include <vrouter/stats_collector/interface_stats_io_context.h>
+#include <vrouter/stats_collector/agent_stats_collector.h>
 #include <ksync/ksync_types.h>
 
 InterfaceStatsIoContext::InterfaceStatsIoContext(int msg_len, char *msg,

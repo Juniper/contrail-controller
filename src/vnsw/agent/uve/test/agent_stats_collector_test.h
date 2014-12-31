@@ -14,11 +14,11 @@
 #include <cmn/agent_cmn.h>
 #include <uve/stats_collector.h>
 #include <boost/scoped_ptr.hpp>
-#include <uve/agent_stats_collector.h>
-#include <uve/interface_stats_io_context.h>
-#include <uve/vrf_stats_io_context.h>
-#include <uve/drop_stats_io_context.h>
-#include <uve/agent_stats_sandesh_context.h>
+#include <vrouter/stats_collector/agent_stats_collector.h>
+#include <vrouter/stats_collector/interface_stats_io_context.h>
+#include <vrouter/stats_collector/vrf_stats_io_context.h>
+#include <vrouter/stats_collector/drop_stats_io_context.h>
+#include <vrouter/stats_collector/agent_stats_sandesh_context.h>
 
 class AgentStatsCollectorTest : public AgentStatsCollector {
 public:

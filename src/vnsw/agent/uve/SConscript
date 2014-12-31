@@ -118,16 +118,6 @@ libstatsuve = env.Library('statsuve',
                           'vrouter_uve_entry.cc',
                          ])
 
-libstatscollector = env.Library('statscollector',
-                          AgentStatsSandeshGenObjs +
-                         [
-                          'agent_stats_collector.cc',
-                          'agent_stats_sandesh_context.cc',
-                          'drop_stats_io_context.cc',
-                          'interface_stats_io_context.cc',
-                          'vrf_stats_io_context.cc',
-                         ])
-
 libflowstats = env.Library('flowstats',
                           FlowStatsSandeshGenObjs +
                          [

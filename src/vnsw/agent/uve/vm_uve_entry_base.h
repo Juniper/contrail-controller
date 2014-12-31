@@ -19,7 +19,6 @@
 #include <oper/interface_common.h>
 #include <oper/interface.h>
 #include <oper/vm.h>
-#include <uve/agent_stats_collector.h>
 
 //The class that defines data-structures to store VirtualMachine information
 //required for sending VirtualMachine UVE.

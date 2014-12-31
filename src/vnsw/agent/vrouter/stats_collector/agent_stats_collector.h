@@ -14,7 +14,7 @@
 #include <cmn/agent_cmn.h>
 #include <uve/stats_collector.h>
 #include <boost/scoped_ptr.hpp>
-#include <uve/agent_stats_sandesh_context.h>
+#include <vrouter/stats_collector/agent_stats_sandesh_context.h>
 
 //Defines the functionality to periodically poll interface, vrf and drop
 //statistics from vrouter and updates its data-structures with this

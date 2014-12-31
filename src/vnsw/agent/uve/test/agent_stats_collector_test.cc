@@ -15,7 +15,6 @@
 #include "nl_util.h"
 
 #include <uve/stats_collector.h>
-#include <uve/agent_stats_collector.h>
 #include <uve/vn_uve_table.h>
 #include <uve/vm_uve_table.h>
 #include <init/agent_param.h>

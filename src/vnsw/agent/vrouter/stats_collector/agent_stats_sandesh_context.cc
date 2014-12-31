@@ -5,8 +5,8 @@
 #include <net/if.h>
 
 #include <uve/agent_uve.h>
-#include <uve/agent_stats_sandesh_context.h>
-#include <uve/agent_stats_collector.h>
+#include <vrouter/stats_collector/agent_stats_sandesh_context.h>
+#include <vrouter/stats_collector/agent_stats_collector.h>
 #include <pkt/agent_stats.h>
 #include <oper/vrf.h>
 #include <vrouter_types.h>

@@ -1,0 +1,8 @@
+#
+# Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+#
+
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+env.SConscript('stats_collector/SConscript', exports=['AgentEnv'], duplicate=0)
