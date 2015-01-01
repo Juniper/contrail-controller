@@ -292,6 +292,17 @@ OvsdbDBEntry *LogicalSwitchTable::AllocOvsEntry(struct ovsdb_idl_row *row) {
     return static_cast<OvsdbDBEntry *>(Create(&key));
 }
 
+KSyncDBObject::DBFilterResp LogicalSwitchTable::DBEntryFilter(
+        const DBEntry *db_entry) {
+    const PhysicalDeviceVn *entry =
+        static_cast<const PhysicalDeviceVn *>(db_entry);
+    // Delete the entry which has invalid VxLAN id associated.
+    if (entry->vn() == NULL || entry->vn()->GetVxLanId() == 0) {
+        return DBFilterDelete;
+    }
+    return DBFilterAccept;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Sandesh routines
 /////////////////////////////////////////////////////////////////////////////
