@@ -10,6 +10,7 @@ import pprint
 import json
 import sys
 import time
+import platform
 import __main__ as main
 
 import gen.resource_common
@@ -57,9 +58,11 @@ def _read_cfg(cfg_parser, section, option, default):
 class VncApi(VncApiClientGen):
     _DEFAULT_WEB_SERVER = "127.0.0.1"
 
+    hostname = platform.node()
     _DEFAULT_HEADERS = {
         'Content-type': 'application/json; charset="UTF-8"',
-        'X-Contrail-Useragent': getattr(main, '__file__', ''),
+        'X-Contrail-Useragent': '%s:%s'
+             %(hostname, getattr(main, '__file__', '')),
     }
 
     _AUTHN_SUPPORTED_TYPES = ["keystone"]

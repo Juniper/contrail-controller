@@ -1,10 +1,11 @@
+import platform
 import test_common
 import requests
 import json
 import httpretty
 
 import testtools
-from testtools.matchers import Not, Equals, MismatchError
+from testtools.matchers import Not, Equals, MismatchError, Contains
 from testtools import content, content_type, ExpectedException
 
 from cfgm_common import rest
@@ -58,7 +59,8 @@ class TestVncApi(test_common.TestCase):
         
         def _check_header(uri, headers=None, query_params=None):
             useragent = headers['X-Contrail-Useragent']
-            self.assertThat(useragent, Not(Equals('')))
+            hostname = platform.node()
+            self.assertThat(useragent, Contains(hostname))
             return (200, json.dumps({}))
         
         orig_http_get = self._vnc_lib._http_get
