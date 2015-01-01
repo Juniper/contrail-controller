@@ -111,7 +111,13 @@ bool OvsdbDBEntry::IsAddChangeAckWaiting() {
 }
 
 void OvsdbDBEntry::NotifyAdd(struct ovsdb_idl_row *row) {
-    ovs_entry_ = row;
+    if (ovs_entry_ == NULL) {
+        ovs_entry_ = row;
+    } else {
+        // ovs_entry should never change from Non-NULL value to
+        // another Non-NULL value.
+        assert(ovs_entry_ == row);
+    }
     OvsdbChange();
 }
 

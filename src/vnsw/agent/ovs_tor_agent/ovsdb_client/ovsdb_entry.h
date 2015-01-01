@@ -73,7 +73,6 @@ public:
     bool IsAddChangeAckWaiting();
 
     struct ovsdb_idl_row *ovs_entry() {return ovs_entry_;}
-    void clear_ovs_entry() {ovs_entry_ = NULL;}
 
     KSyncObject* GetObject();
     void Ack(bool success);
