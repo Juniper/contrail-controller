@@ -54,8 +54,15 @@ OvsdbDBObject::~OvsdbDBObject() {
 void OvsdbDBObject::NotifyAddOvsdb(OvsdbDBEntry *key, struct ovsdb_idl_row *row) {
     OvsdbDBEntry *entry = static_cast<OvsdbDBEntry *>(Find(key));
     if (entry) {
-        if (entry->IsAddChangeAckWaiting()) {
+        // Notify Add, if entry is waiting for add/change ack
+        // or if ovs_entry is not set, this case can happen when OvsdbDBEntry
+        // is in a Deferred state and in the mean while on reconnect we receive
+        // a ADD Notify due to a old state in TOR
+        if (entry->IsAddChangeAckWaiting() || entry->ovs_entry_ == NULL) {
             entry->NotifyAdd(row);
+        } else {
+            // idl row corresponding to OvsdbDBEntry should not change
+            assert(entry->ovs_entry_ == row);
         }
     } else {
         //TODO trigger delete of this entry
