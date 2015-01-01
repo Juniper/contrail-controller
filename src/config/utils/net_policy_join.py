@@ -11,6 +11,7 @@ traffic between net1 and net2
 
 import argparse
 import os
+from urlparse import urlparse
 from vnc_api import vnc_api
 
 
@@ -49,7 +50,7 @@ parser.add_argument(
     help="Password of keystone admin user")
 parser.add_argument(
     "--api_host", default='127.0.0.1',
-    help="Hostnmae of api server")
+    help="Hostname of api server")
 parser.add_argument(
     "--api_port", default=8082,
     help="Port of api server")
@@ -58,15 +59,26 @@ parser.add_argument("net2_uuid")
 parser.set_defaults(**arg_defaults)
 args = parser.parse_args()
     
+urlparts = urlparse(args.auth_url)
+auth_proto = urlparts.scheme
+auth_host, auth_port = urlparts.netloc.split(':')
+
 vnc_lib = vnc_api.VncApi(api_server_host=args.api_host,
                          api_server_port=args.api_port,
+                         tenant_name=args.auth_tenant,
+                         username=args.auth_user,
+                         password=args.auth_password,
+                         auth_protocol=auth_proto,
+                         auth_host=auth_host,
+                         auth_port=auth_port,
+                         auth_url=urlparts.path+'/tokens',
                          )
 
 net1 = vnc_lib.virtual_network_read(id = args.net1_uuid)
 net2 = vnc_lib.virtual_network_read(id = args.net2_uuid)
 
 pol1 = vnc_api.NetworkPolicy(
-    'policy-%s-%s-any' % (net1.get_fq_name_str(), net2.get_fq_name_str()),
+    'policy-%s-%s-any' % (net1.name, net2.name),
     network_policy_entries = vnc_api.PolicyEntriesType(
         [vnc_api.PolicyRuleType(
             direction = '<>',
@@ -80,7 +92,8 @@ pol1 = vnc_api.NetworkPolicy(
                 vnc_api.AddressType(virtual_network = net2.get_fq_name_str())
             ],
             dst_ports = [vnc_api.PortType(-1, -1)])
-         ]))
+         ]),
+    parent_obj=vnc_lib.project_read(fq_name=net1.get_parent_fq_name()))
 vnc_lib.network_policy_create(pol1)
 
 net1.add_network_policy(pol1, vnc_api.VirtualNetworkPolicyType(
