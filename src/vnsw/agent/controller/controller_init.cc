@@ -374,11 +374,15 @@ void VNController::ApplyDiscoveryXmppServices(std::vector<DSResponse> resp) {
              }
 
              if (it == AgentXmppChannelList.end()) {
-                 // not in list, cleanup
-                 CONTROLLER_TRACE(DiscoveryConnection,  "Cleanup Older Xmpp ",
-                     agent_->controller_ifmap_xmpp_server(idx), "");
-                 DisConnectControllerIfmapServer(idx);
-                 agent_->reset_controller_ifmap_xmpp_server(idx);
+                 // not in list, cleanup only if DOWN as new set of hints from
+                 // discovery shud take effect only if agent detects the server DOWN
+                 if (agent_->controller_xmpp_channel(idx)->GetXmppChannel()->
+                     GetPeerState() == xmps::NOT_READY) {
+                     CONTROLLER_TRACE(DiscoveryConnection,  "Cleanup Older Xmpp ",
+                         agent_->controller_ifmap_xmpp_server(idx), "");
+                     DisConnectControllerIfmapServer(idx);
+                     agent_->reset_controller_ifmap_xmpp_server(idx);
+                 }
             }
         }
     }
@@ -501,11 +505,15 @@ void VNController::ApplyDiscoveryDnsXmppServices(std::vector<DSResponse> resp) {
              }
 
              if (it == AgentDnsXmppChannelList.end()) {
-                 // not in list, cleanup
-                 CONTROLLER_TRACE(DiscoveryConnection,  "Cleanup Older Dns Xmpp ",
-                     agent_->dns_server(idx), "");
-                 DisConnectDnsServer(idx);
-                 agent_->reset_dns_server(idx);
+                 // not in list, cleanup only if DOWN as new set of hints from
+                 // discovery shud take effect only if agent detects the server DOWN
+                 if (agent_->dns_xmpp_channel(idx)->GetXmppChannel()->GetPeerState()
+                     == xmps::NOT_READY) {
+                     CONTROLLER_TRACE(DiscoveryConnection,  "Cleanup Older Dns Xmpp ",
+                         agent_->dns_server(idx), "");
+                     DisConnectDnsServer(idx);
+                     agent_->reset_dns_server(idx);
+                 }
             }
         }
     }
