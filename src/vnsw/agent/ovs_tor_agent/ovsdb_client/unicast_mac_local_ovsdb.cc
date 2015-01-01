@@ -54,7 +54,7 @@ bool UnicastMacLocalEntry::Add() {
     const PhysicalDeviceVn *dev_vn =
         static_cast<const PhysicalDeviceVn *>(ls_entry->GetDBEntry());
     vrf_ = dev_vn->vn()->GetVrf();
-    vxlan_id_ = dev_vn->vn()->GetVxLanId();
+    vxlan_id_ = dev_vn->vxlan_id();
     boost::system::error_code err;
     Ip4Address dest = Ip4Address::from_string(dest_ip_, err);
     table->peer()->AddOvsRoute(dev_vn->vn(), MacAddress(mac_), dest);

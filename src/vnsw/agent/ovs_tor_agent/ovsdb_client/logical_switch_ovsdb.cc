@@ -29,7 +29,7 @@ LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
         const PhysicalDeviceVn *entry) : OvsdbDBEntry(table),
         name_(UuidToString(entry->vn()->GetUuid())), mcast_local_row_(NULL),
         mcast_remote_row_(NULL), old_mcast_remote_row_(NULL) {
-    vxlan_id_ = entry->vn()->GetVxLanId();
+    vxlan_id_ = entry->vxlan_id();
     device_name_ = entry->device()->name();
 }
 
@@ -129,8 +129,8 @@ bool LogicalSwitchEntry::Sync(DBEntry *db_entry) {
     PhysicalDeviceVn *entry =
         static_cast<PhysicalDeviceVn *>(db_entry);
     bool change = false;
-    if (vxlan_id_ != entry->vn()->GetVxLanId()) {
-        vxlan_id_ = entry->vn()->GetVxLanId();
+    if (vxlan_id_ != entry->vxlan_id()) {
+        vxlan_id_ = entry->vxlan_id();
         change = true;
     }
     if (device_name_ != entry->device()->name()) {
@@ -290,6 +290,17 @@ KSyncEntry *LogicalSwitchTable::DBToKSyncEntry(const DBEntry* db_entry) {
 OvsdbDBEntry *LogicalSwitchTable::AllocOvsEntry(struct ovsdb_idl_row *row) {
     LogicalSwitchEntry key(this, row);
     return static_cast<OvsdbDBEntry *>(Create(&key));
+}
+
+KSyncDBObject::DBFilterResp LogicalSwitchTable::DBEntryFilter(
+        const DBEntry *db_entry) {
+    const PhysicalDeviceVn *entry =
+        static_cast<const PhysicalDeviceVn *>(db_entry);
+    // Delete the entry which has invalid VxLAN id associated.
+    if (entry->vxlan_id() == 0) {
+        return DBFilterDelete;
+    }
+    return DBFilterAccept;
 }
 
 /////////////////////////////////////////////////////////////////////////////
