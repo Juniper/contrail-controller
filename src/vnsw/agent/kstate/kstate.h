@@ -17,7 +17,7 @@
 #include <ksync/ksync_sock.h>
 #include <ksync/ksync_netlink.h>
 #include <ksync/ksync_types.h>
-#include <ksync/agent_ksync_types.h>
+#include <vrouter/ksync/agent_ksync_types.h>
 
 class KState : public AgentSandeshContext {
 public:

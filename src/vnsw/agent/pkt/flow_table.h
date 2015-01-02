@@ -364,7 +364,7 @@ class FlowEntry {
     };
 
     bool ActionRecompute();
-    void UpdateKSync(const FlowTable* table);
+    void UpdateKSync(FlowTable* table);
     int GetRefCount() { return refcount_; }
     void MakeShortFlow(FlowShortReason reason);
     const FlowStats &stats() const { return stats_;}
@@ -374,7 +374,7 @@ class FlowEntry {
     const uuid &flow_uuid() const { return flow_uuid_; }
     const uuid &egress_uuid() const { return egress_uuid_; }
     uint32_t flow_handle() const { return flow_handle_; }
-    void set_flow_handle(uint32_t flow_handle, const FlowTable* table);
+    void set_flow_handle(uint32_t flow_handle, FlowTable* table);
     FlowEntry * reverse_flow_entry() { return reverse_flow_entry_.get(); }
     const FlowEntry * reverse_flow_entry() const { return reverse_flow_entry_.get(); }
     void set_reverse_flow_entry(FlowEntry *reverse_flow_entry) {
@@ -634,6 +634,9 @@ public:
     static const SecurityGroupList &default_sg_list() {return default_sg_list_;}
     bool ValidFlowMove(const FlowEntry *new_flow,
                        const FlowEntry *old_flow) const;
+    void FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64_t diff_pkts);
+    virtual void DispatchFlowMsg(SandeshLevel::type level, FlowDataIpv4 &flow);
+
     // Update flow port bucket information
     void NewFlow(const FlowEntry *flow);
     void DeleteFlow(const FlowEntry *flow);
@@ -715,6 +718,8 @@ private:
     bool Delete(FlowEntryMap::iterator &it, bool rev_flow);
 
     void UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow);
+    void SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow);
+    void SetUnderlayInfo(FlowEntry *flow, FlowDataIpv4 &s_flow);
 
     DISALLOW_COPY_AND_ASSIGN(FlowTable);
 };

@@ -1,8 +1,15 @@
 #
-# Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+# Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
 
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-env.SConscript('stats_collector/SConscript', exports=['AgentEnv'], duplicate=0)
+subdirs = [
+    'flow_stats',
+    'ksync',
+    'stats_collector',
+]
+
+for dir in subdirs:
+    env.SConscript(dir + '/SConscript', exports=['AgentEnv'], duplicate=0)

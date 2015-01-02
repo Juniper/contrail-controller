@@ -12,10 +12,10 @@
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_trace.h>
 #include <pkt/flow_table.h>
-#include <uve/flow_stats_collector.h>
-#include <ksync/ksync_init.h>
+#include <vrouter/flow_stats/flow_stats_collector.h>
+#include <vrouter/ksync/ksync_init.h>
 #include <ksync/ksync_entry.h>
-#include <ksync/flowtable_ksync.h>
+#include <vrouter/ksync/flowtable_ksync.h>
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -816,7 +816,7 @@ uint32_t FlowEntry::acl_assigned_vrf_index() const {
     return 0;
 }
 
-void FlowEntry::UpdateKSync(const FlowTable* table) {
+void FlowEntry::UpdateKSync(FlowTable* table) {
     FlowInfo flow_info;
     FillFlowInfo(flow_info);
     if (stats_.last_modified_time != stats_.setup_time) {
@@ -824,8 +824,7 @@ void FlowEntry::UpdateKSync(const FlowTable* table) {
          * Do not export stats on flow creation, it will be exported
          * while updating stats
          */
-        FlowStatsCollector *fec = table->agent()->flow_stats_collector();
-        fec->FlowExport(this, 0, 0);
+        table->FlowExport(this, 0, 0);
     }
     FlowTableKSyncObject *ksync_obj = 
         Agent::GetInstance()->ksync()->flowtable_ksync_obj();
@@ -1026,7 +1025,7 @@ bool FlowEntry::set_pending_recompute(bool value) {
     return false;
 }
 
-void FlowEntry::set_flow_handle(uint32_t flow_handle, const FlowTable* table) {
+void FlowEntry::set_flow_handle(uint32_t flow_handle, FlowTable* table) {
     /* trigger update KSync on flow handle change */
     if (flow_handle_ != flow_handle) {
         flow_handle_ = flow_handle;
@@ -1548,7 +1547,7 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
     fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
 
     fe->stats_.teardown_time = UTCTimestampUsec();
-    fec->FlowExport(fe, diff_bytes, diff_packets);
+    FlowExport(fe, diff_bytes, diff_packets);
     /* Reset stats and teardown_time after these information is exported during
      * flow delete so that if the flow entry is reused they point to right 
      * values */
@@ -3021,3 +3020,141 @@ FlowTable::~FlowTable() {
     delete nh_listener_;
 }
 
+void FlowTable::SetUnderlayInfo(FlowEntry *flow, FlowDataIpv4 &s_flow) {
+    string rid = agent_->router_id().to_string();
+    uint16_t underlay_src_port = 0;
+    if (flow->is_flags_set(FlowEntry::LocalFlow)) {
+        s_flow.set_vrouter_ip(rid);
+        s_flow.set_other_vrouter_ip(rid);
+        /* Set source_port as 0 for local flows. Source port is calculated by
+         * vrouter irrespective of whether flow is local or not. So for local
+         * flows we need to ignore port given by vrouter
+         */
+        s_flow.set_underlay_source_port(0);
+    } else {
+        s_flow.set_vrouter_ip(rid);
+        s_flow.set_other_vrouter_ip(flow->peer_vrouter());
+        if (flow->tunnel_type().GetType() != TunnelType::MPLS_GRE) {
+            underlay_src_port = flow->underlay_source_port();
+        }
+        s_flow.set_underlay_source_port(underlay_src_port);
+    }
+    s_flow.set_underlay_proto(flow->tunnel_type().GetType());
+}
+
+/* For ingress flows, change the SIP as Nat-IP instead of Native IP */
+void FlowTable::SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow) {
+    FlowEntry *rev_flow = flow->reverse_flow_entry();
+    if (flow->is_flags_set(FlowEntry::NatFlow) && s_flow.get_direction_ing() &&
+        rev_flow) {
+        const FlowKey *nat_key = &rev_flow->key();
+        if (flow->key().src_addr != nat_key->dst_addr) {
+            // TODO: IPV6
+            if (flow->key().family == Address::INET) {
+                s_flow.set_sourceip(nat_key->dst_addr.to_v4().to_ulong());
+            } else {
+                s_flow.set_sourceip(0);
+            }
+        }
+    }
+}
+
+void FlowTable::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
+                           uint64_t diff_pkts) {
+    FlowDataIpv4   s_flow;
+    SandeshLevel::type level = SandeshLevel::SYS_DEBUG;
+    FlowStats &stats = flow->stats_;
+
+    s_flow.set_flowuuid(to_string(flow->flow_uuid()));
+    s_flow.set_bytes(stats.bytes);
+    s_flow.set_packets(stats.packets);
+    s_flow.set_diff_bytes(diff_bytes);
+    s_flow.set_diff_packets(diff_pkts);
+
+    // TODO: IPV6
+    if (flow->key().family == Address::INET) {
+        s_flow.set_sourceip(flow->key().src_addr.to_v4().to_ulong());
+        s_flow.set_destip(flow->key().dst_addr.to_v4().to_ulong());
+    } else {
+        s_flow.set_sourceip(0);
+        s_flow.set_destip(0);
+    }
+    s_flow.set_protocol(flow->key().protocol);
+    s_flow.set_sport(flow->key().src_port);
+    s_flow.set_dport(flow->key().dst_port);
+    s_flow.set_sourcevn(flow->data().source_vn);
+    s_flow.set_destvn(flow->data().dest_vn);
+
+    if (stats.intf_in != Interface::kInvalidIndex) {
+        Interface *intf = InterfaceTable::GetInstance()->FindInterface(stats.intf_in);
+        if (intf && intf->type() == Interface::VM_INTERFACE) {
+            VmInterface *vm_port = static_cast<VmInterface *>(intf);
+            const VmEntry *vm = vm_port->vm();
+            if (vm) {
+                s_flow.set_vm(vm->GetCfgName());
+            }
+        }
+    }
+    s_flow.set_sg_rule_uuid(flow->sg_rule_uuid());
+    s_flow.set_nw_ace_uuid(flow->nw_ace_uuid());
+
+    FlowEntry *rev_flow = flow->reverse_flow_entry();
+    if (rev_flow) {
+        s_flow.set_reverse_uuid(to_string(rev_flow->flow_uuid()));
+    }
+
+    // Flow setup(first) and teardown(last) messages are sent with higher
+    // priority.
+    if (!stats.exported) {
+        s_flow.set_setup_time(stats.setup_time);
+        // Set flow action
+        std::string action_str;
+        GetFlowSandeshActionParams(flow->match_p().action_info,
+            action_str);
+        s_flow.set_action(action_str);
+        stats.exported = true;
+        level = SandeshLevel::SYS_ERR;
+        SetUnderlayInfo(flow, s_flow);
+    }
+    if (stats.teardown_time) {
+        s_flow.set_teardown_time(stats.teardown_time);
+        //Teardown time will be set in flow only when flow is deleted.
+        //We need to reset the exported flag when flow is getting deleted to
+        //handle flow entry reuse case (Flow add request coming for flows
+        //marked as deleted)
+        stats.exported = false;
+        level = SandeshLevel::SYS_ERR;
+    }
+
+    if (flow->is_flags_set(FlowEntry::LocalFlow)) {
+        /* For local flows we need to send two flow log messages.
+         * 1. With direction as ingress
+         * 2. With direction as egress
+         * For local flows we have already sent flow log above with
+         * direction as ingress. We are sending flow log below with
+         * direction as egress.
+         */
+        s_flow.set_direction_ing(1);
+        SourceIpOverride(flow, s_flow);
+        DispatchFlowMsg(level, s_flow);
+        s_flow.set_direction_ing(0);
+        //Export local flow of egress direction with a different UUID even when
+        //the flow is same. Required for analytics module to query flows
+        //irrespective of direction.
+        s_flow.set_flowuuid(to_string(flow->egress_uuid()));
+        DispatchFlowMsg(level, s_flow);
+    } else {
+        if (flow->is_flags_set(FlowEntry::IngressDir)) {
+            s_flow.set_direction_ing(1);
+            SourceIpOverride(flow, s_flow);
+        } else {
+            s_flow.set_direction_ing(0);
+        }
+        DispatchFlowMsg(level, s_flow);
+    }
+
+}
+
+void FlowTable::DispatchFlowMsg(SandeshLevel::type level, FlowDataIpv4 &flow) {
+    FLOW_DATA_IPV4_OBJECT_LOG("", level, flow);
+}

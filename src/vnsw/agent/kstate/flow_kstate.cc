@@ -14,8 +14,8 @@
 
 #include <pkt/flow_table.h>
 
-#include <ksync/flowtable_ksync.h>
-#include <ksync/ksync_init.h>
+#include <vrouter/ksync/flowtable_ksync.h>
+#include <vrouter/ksync/ksync_init.h>
 
 using namespace std;
 

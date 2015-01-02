@@ -17,7 +17,7 @@
 #include <controller/controller_vrf_export.h>
 #include <pkt/pkt_init.h>
 #include <services/services_init.h>
-#include <ksync/ksync_init.h>
+#include <vrouter/ksync/ksync_init.h>
 #include <uve/agent_uve.h>
 #include <pkt/proto_handler.h>
 #include <pkt/agent_stats.h>

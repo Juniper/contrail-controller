@@ -12,8 +12,6 @@
 #include <uve/test/vm_uve_table_test.h>
 #include <uve/test/vrouter_uve_entry_test.h>
 #include <uve/test/prouter_uve_table_test.h>
-#include <uve/test/agent_stats_collector_test.h>
-#include <uve/test/flow_stats_collector_test.h>
 
 AgentUveBaseTest::AgentUveBaseTest(Agent *agent, uint64_t intvl)
     : AgentUve(agent, intvl) {

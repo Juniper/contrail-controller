@@ -1,0 +1,18 @@
+# -*- mode: python; -*-
+#
+# Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+#
+
+import sys
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+FlowStatsSandeshGenFiles = env.SandeshGenCpp('flow_stats_interval.sandesh')
+FlowStatsSandeshGenSrcs = env.ExtractCpp(FlowStatsSandeshGenFiles)
+FlowStatsSandeshGenObjs = env.Object(FlowStatsSandeshGenSrcs)
+
+libflowstats = env.Library('flowstats',
+                          FlowStatsSandeshGenObjs +
+                         [
+                          'flow_stats_collector.cc'
+                         ])

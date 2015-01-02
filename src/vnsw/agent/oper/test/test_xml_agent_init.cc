@@ -11,8 +11,8 @@
 #include <cfg/cfg_init.h>
 
 #include <oper/operdb_init.h>
-#include <ksync/ksync_init.h>
-#include <ksync/test/ksync_test.h>
+#include <vrouter/ksync/ksync_init.h>
+#include <vrouter/ksync/test/ksync_test.h>
 #include <uve/agent_uve.h>
 #include <uve/test/agent_uve_test.h>
 #include "test/test_init.h"

@@ -11,7 +11,7 @@
 #include <uve/test/vn_uve_table_test.h>
 #include "ksync/ksync_sock_user.h"
 #include <uve/test/agent_stats_collector_test.h>
-#include <uve/test/flow_stats_collector_test.h>
+#include <pkt/test/flow_table_test.h>
 #include "uve/test/test_uve_util.h"
 #include "pkt/test/test_flow_util.h"
 
@@ -989,8 +989,8 @@ TEST_F(StatsTestMock, Underlay_3) {
 
     //Since encap type is MPLS_GRE verify that exported flow has
     //0 as underlay source port
-    FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>
-        (Agent::GetInstance()->flow_stats_collector());
+    FlowTableUnitTest *f = static_cast<FlowTableUnitTest *>
+        (Agent::GetInstance()->pkt()->flow_table());
     FlowDataIpv4 flow_log = f->last_sent_flow_log();
     EXPECT_EQ(flow_log.get_underlay_source_port(), 0);
 

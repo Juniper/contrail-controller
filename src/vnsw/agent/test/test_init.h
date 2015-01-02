@@ -41,7 +41,7 @@
 #include "controller/controller_peer.h"
 #include <controller/controller_vrf_export.h>
 #include <services/services_init.h>
-#include <ksync/ksync_init.h>
+#include <vrouter/ksync/ksync_init.h>
 #include "vnswif_listener.h"
 #include <ifmap/ifmap_agent_parser.h>
 #include <ifmap/ifmap_agent_table.h>
@@ -55,7 +55,7 @@
 #include <oper/sg.h>
 #include <uve/stats_collector.h>
 #include <uve/agent_uve.h>
-#include <uve/flow_stats_collector.h>
+#include <vrouter/flow_stats/flow_stats_collector.h>
 #include <vrouter/stats_collector/agent_stats_collector.h>
 #include <uve/vrouter_stats_collector.h>
 #include <uve/test/agent_stats_collector_test.h>

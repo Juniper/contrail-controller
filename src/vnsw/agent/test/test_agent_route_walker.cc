@@ -16,7 +16,7 @@
 #include "controller/controller_init.h"
 #include "pkt/pkt_init.h"
 #include "services/services_init.h"
-#include "ksync/ksync_init.h"
+#include "vrouter/ksync/ksync_init.h"
 #include "oper/agent_route_walker.h"
 #include "openstack/instance_service_server.h"
 #include "test_cmn_util.h"

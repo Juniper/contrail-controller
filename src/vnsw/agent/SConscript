@@ -45,9 +45,9 @@ cpppath = [
 ]
 
 if sys.platform.startswith('linux'):
-    cpppath.append('vnsw/agent/ksync/linux')
+    cpppath.append('vnsw/agent/vrouter/ksync/linux')
 elif sys.platform.startswith('freebsd'):
-    cpppath.append('vnsw/agent/ksync/freebsd')
+    cpppath.append('vnsw/agent/vrouter/ksync/freebsd')
 
 env.Prepend(CPPPATH = AddTopDir(cpppath))
 
@@ -79,13 +79,14 @@ env.Append(LIBPATH = MapBuildDir([
     'vnsw/agent/filter',
     'vnsw/agent/init',
     'vnsw/agent/kstate', 
-    'vnsw/agent/ksync',
     'vnsw/agent/openstack',
     'vnsw/agent/oper',
     'vnsw/agent/pkt',
     'vnsw/agent/services',
     'vnsw/agent/uve',
     'vnsw/agent/vgw',
+    'vnsw/agent/vrouter/flow_stats',
+    'vnsw/agent/vrouter/ksync',
     'vnsw/agent/vrouter/stats_collector',
     'vrouter/utils',
     'xml',
@@ -291,7 +292,6 @@ subdirs = [
     'filter',
     'init',
     'kstate',
-    'ksync',
     'openstack',
     'oper',
     'ovs_tor_agent',

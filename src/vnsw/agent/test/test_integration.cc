@@ -14,9 +14,9 @@
 #include <controller/controller_init.h>
 #include <pkt/pkt_init.h>
 #include <services/services_init.h>
-#include <ksync/ksync_init.h>
+#include <vrouter/ksync/ksync_init.h>
 #include "ksync/ksync_index.h"
-#include <ksync/interface_ksync.h>
+#include <vrouter/ksync/interface_ksync.h>
 #include <cmn/agent_cmn.h>
 #include <base/task.h>
 #include <base/patricia.h>

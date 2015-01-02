@@ -17,7 +17,7 @@
 #include "cfg/cfg_interface.h"
 #include "pkt/pkt_init.h"
 #include "services/services_init.h"
-#include "ksync/ksync_init.h"
+#include "vrouter/ksync/ksync_init.h"
 #include "oper/interface_common.h"
 #include "oper/nexthop.h"
 #include "oper/tunnel_nh.h"

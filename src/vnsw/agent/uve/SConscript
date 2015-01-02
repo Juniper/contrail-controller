@@ -87,10 +87,6 @@ AgentStatsSandeshGenFiles = env.SandeshGenCpp('agent_stats_interval.sandesh')
 AgentStatsSandeshGenSrcs = env.ExtractCpp(AgentStatsSandeshGenFiles)
 AgentStatsSandeshGenObjs = env.Object(AgentStatsSandeshGenSrcs)
 
-FlowStatsSandeshGenFiles = env.SandeshGenCpp('flow_stats_interval.sandesh')
-FlowStatsSandeshGenSrcs = env.ExtractCpp(FlowStatsSandeshGenFiles)
-FlowStatsSandeshGenObjs = env.Object(FlowStatsSandeshGenSrcs)
-
 libuve = env.Library('uve',
                      SandeshGenObjs +
                      [
@@ -116,12 +112,6 @@ libstatsuve = env.Library('statsuve',
                           'vn_uve_entry.cc',
                           'vn_uve_table.cc',
                           'vrouter_uve_entry.cc',
-                         ])
-
-libflowstats = env.Library('flowstats',
-                          FlowStatsSandeshGenObjs +
-                         [
-                          'flow_stats_collector.cc',
                          ])
 
 Import('BuildEnv')

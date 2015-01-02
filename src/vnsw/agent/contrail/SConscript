@@ -66,13 +66,13 @@ buildinfo_dep_libs += MapBuildAgentLib([
     'controller/libvnswctrl.a',
     'filter/libfilter.a',
     'kstate/libkstate.a',
-    'ksync/libvnswksync.a',
+    'vrouter/ksync/libvnswksync.a',
     'openstack/libnova_ins.a',
     'openstack/libnova_ins_thrift.a',
     'oper/libvnswoperdb.a',
     'pkt/libpkt.a', 'diag/libdiag.a',
     'services/libagent_services.a', 'uve/libuve.a',
-    'uve/libstatsuve.a', 'uve/libflowstats.a',
+    'uve/libstatsuve.a', 'vrouter/flow_stats/libflowstats.a',
     'vrouter/stats_collector/libstatscollector.a'
 ])
 

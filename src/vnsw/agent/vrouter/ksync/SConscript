@@ -1,0 +1,42 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+#-*- mode: pythos; -*-
+
+import sys
+if sys.platform == 'darwin':
+    Return()
+
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+SandeshGenFiles = env.SandeshGenCpp('agent_ksync.sandesh')
+SandeshGenFiles += env.SandeshGenCpp('../../../../vrouter/sandesh/vr.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
+
+if sys.platform.startswith('linux'):
+    except_files = [ 'vnswif_listener_base.cc', 'linux/vnswif_listener.cc' ]
+elif sys.platform.startswith('freebsd'):
+    except_files = [ 'vnswif_listener_base.cc', 'freebsd/vnswif_listener.cc' ]
+
+except_objs = AgentEnv.BuildExceptionCcObj(env, except_files)
+
+libksync = env.Library('vnswksync',
+                       sandesh_objs +
+                       except_objs +
+                       ['ksync_init.cc',
+                        'interface_ksync.cc',
+                        'interface_scan.cc',
+                        'mirror_ksync.cc',
+                        'mpls_ksync.cc',
+                        'nexthop_ksync.cc',
+                        'route_ksync.cc',
+                        'flowtable_ksync.cc',
+                        'vxlan_ksync.cc',
+                        'sandesh_ksync.cc',
+                        'vrf_assign_ksync.cc'
+                       ])
+
+env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)

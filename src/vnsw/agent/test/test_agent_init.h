@@ -9,7 +9,7 @@
 #include <init/contrail_init_common.h>
 #include <test/test_pkt0_interface.h>
 #include <uve/test/agent_stats_collector_test.h>
-#include <uve/test/flow_stats_collector_test.h>
+#include <vrouter/flow_stats/flow_stats_collector.h>
 
 class Agent;
 class AgentParam;
@@ -42,7 +42,7 @@ private:
     std::auto_ptr<AgentUveBase> uve_;
     std::auto_ptr<TestPkt0Interface> pkt0_;
     std::auto_ptr<AgentStatsCollectorTest> stats_collector_;
-    std::auto_ptr<FlowStatsCollectorTest> flow_stats_collector_;
+    std::auto_ptr<FlowStatsCollector> flow_stats_collector_;
 
     DISALLOW_COPY_AND_ASSIGN(TestAgentInit);
 };

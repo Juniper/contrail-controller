@@ -11,7 +11,7 @@
 #include <controller/controller_init.h>
 #include <pkt/pkt_init.h>
 #include <services/services_init.h>
-#include <ksync/ksync_init.h>
+#include <vrouter/ksync/ksync_init.h>
 #include <cmn/agent_cmn.h>
 #include <base/task.h>
 #include <io/event_manager.h>

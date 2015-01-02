@@ -4,6 +4,7 @@
 
 #include <io/event_manager.h>
 #include <cmn/agent_cmn.h>
+#include <cmn/agent_factory.h>
 #include "sandesh/sandesh_trace.h"
 #include "pkt/pkt_init.h"
 #include "pkt/pkt_handler.h"
@@ -35,7 +36,7 @@ void PktModule::Init(bool run_with_vrouter) {
         control_interface_->Init(pkt_handler_.get());
     }
 
-    flow_table_.reset(new FlowTable(agent_));
+    flow_table_.reset(AgentObjectFactory::Create<FlowTable>(agent()));
     flow_table_->Init();
 
     flow_proto_.reset(new FlowProto(agent_, io));
