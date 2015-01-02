@@ -49,6 +49,7 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
     EXPECT_EQ(param.mgmt_ip().to_ulong(), 0);
     EXPECT_EQ(param.xmpp_instance_count(), 2);
     EXPECT_STREQ(param.tunnel_type().c_str(), "MPLSoGRE");
+    EXPECT_EQ(param.dhcp_relay_mode(), true);
     EXPECT_STREQ(param.metadata_shared_secret().c_str(), "contrail");
     EXPECT_EQ(param.max_vm_flows(), 50);
     EXPECT_EQ(param.linklocal_system_flows(), 1024);
@@ -78,6 +79,7 @@ TEST_F(FlowTest, Agent_Conf_file_2) {
               Ip4Address::from_string("14.1.1.1").to_ulong());
     EXPECT_EQ(param.dns_port_2(), 12999);
     EXPECT_EQ(param.agent_mode(), AgentParam::VROUTER_AGENT);
+    EXPECT_EQ(param.dhcp_relay_mode(), false);
 }
 
 // Check that linklocal flows are updated when the system limits are lowered
@@ -122,7 +124,7 @@ TEST_F(FlowTest, Agent_Conf_Xen_1) {
 }
 
 TEST_F(FlowTest, Agent_Param_1) {
-    int argc = 15;
+    int argc = 17;
     char *argv[] = {
         (char *) "",
         (char *) "--config_file", 
@@ -134,6 +136,7 @@ TEST_F(FlowTest, Agent_Param_1) {
         (char *) "--DEFAULT.log_category",  (char *)"Test",
         (char *) "--DEFAULT.http_server_port", (char *)"8000",
         (char *) "--DEFAULT.hostname",     (char *)"vhost-1",
+        (char *) "--DEFAULT.dhcp_relay_mode",     (char *)"true",
     };
 
     AgentParam param(Agent::GetInstance());
@@ -150,6 +153,7 @@ TEST_F(FlowTest, Agent_Param_1) {
     EXPECT_STREQ(first_collector.c_str(), "1.1.1.1:1000");
     EXPECT_EQ(param.http_server_port(), 8000);
     EXPECT_STREQ(param.host_name().c_str(), "vhost-1");
+    EXPECT_EQ(param.dhcp_relay_mode(), true);
 
 }
 

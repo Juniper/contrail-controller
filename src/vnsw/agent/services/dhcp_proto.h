@@ -62,6 +62,9 @@ public:
                                     boost::asio::io_service &io);
     void SendDhcpIpc(uint8_t *dhcp, std::size_t len);
 
+    bool dhcp_relay_mode() const { return dhcp_relay_mode_; }
+    void set_dhcp_relay_mode(bool mode) { dhcp_relay_mode_ = mode; }
+
     Interface *ip_fabric_interface() const { return ip_fabric_interface_; }
     void set_ip_fabric_interface(Interface *itf) { ip_fabric_interface_ = itf; }
     uint16_t ip_fabric_interface_index() const {
@@ -97,6 +100,7 @@ private:
     void ReadHandler(const boost::system::error_code &error, std::size_t len);
 
     bool run_with_vrouter_;
+    bool dhcp_relay_mode_;
     Interface *ip_fabric_interface_;
     uint16_t ip_fabric_interface_index_;
     MacAddress ip_fabric_interface_mac_;

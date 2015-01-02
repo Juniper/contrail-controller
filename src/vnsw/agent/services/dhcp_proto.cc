@@ -3,6 +3,7 @@
  */
 
 #include "cmn/agent_cmn.h"
+#include "init/agent_param.h"
 #include "services/dhcp_proto.h"
 #include "services/services_types.h"
 #include "services/services_init.h"
@@ -20,35 +21,40 @@ DhcpProto::DhcpProto(Agent *agent, boost::asio::io_service &io,
     run_with_vrouter_(run_with_vrouter), ip_fabric_interface_(NULL),
     ip_fabric_interface_index_(-1), dhcp_server_socket_(io) {
 
-    boost::system::error_code ec;
-    dhcp_server_socket_.open(udp::v4(), ec);
-    assert(ec == 0);
-    dhcp_server_socket_.bind(udp::endpoint(udp::v4(), DHCP_SERVER_PORT), ec);
-    if (ec) {
-        DHCP_TRACE(Error, "Error creating DHCP socket : " << ec);
+    dhcp_relay_mode_ = agent->params()->dhcp_relay_mode();
+    if (dhcp_relay_mode_) {
+        boost::system::error_code ec;
+        dhcp_server_socket_.open(udp::v4(), ec);
+        assert(ec == 0);
+        dhcp_server_socket_.bind(udp::endpoint(udp::v4(), DHCP_SERVER_PORT), ec);
+        if (ec) {
+            DHCP_TRACE(Error, "Error creating DHCP socket : " << ec);
+        }
+
+        // For DHCP requests coming from VMs in default VRF, when the IP received
+        // from Nova is 0, DHCP module acts DHCP relay and relays the request onto
+        // the fabric VRF. Vrouter sends responses for these to vhost0 interface.
+        // We listen on DHCP server port to receive these responses (check option 82
+        // header to decide that it is a response for a relayed request) and send
+        // the response to the VM.
+        AsyncRead();
     }
 
     iid_ = agent->interface_table()->Register(
                   boost::bind(&DhcpProto::ItfNotify, this, _2));
-
-    // For DHCP requests coming from VMs in default VRF, when the IP received
-    // from Nova is 0, DHCP module acts DHCP relay and relays the request onto
-    // the fabric VRF. Vrouter sends responses for these to vhost0 interface.
-    // We listen on DHCP server port to receive these responses (check option 82
-    // header to decide that it is a response for a relayed request) and send
-    // the response to the VM.
-    AsyncRead();
 }
 
 DhcpProto::~DhcpProto() {
-    boost::system::error_code ec;
-    dhcp_server_socket_.shutdown(udp::socket::shutdown_both, ec);
-    if (ec) {
-        DHCP_TRACE(Error, "Error shutting down DHCP socket : " << ec);
-    }
-    dhcp_server_socket_.close (ec);
-    if (ec) {
-        DHCP_TRACE(Error, "Error closing DHCP socket : " << ec);
+    if (dhcp_relay_mode_) {
+        boost::system::error_code ec;
+        dhcp_server_socket_.shutdown(udp::socket::shutdown_both, ec);
+        if (ec) {
+            DHCP_TRACE(Error, "Error shutting down DHCP socket : " << ec);
+        }
+        dhcp_server_socket_.close (ec);
+        if (ec) {
+            DHCP_TRACE(Error, "Error closing DHCP socket : " << ec);
+        }
     }
     agent_->interface_table()->Unregister(iid_);
     if (dhcp_server_read_buf_) delete [] dhcp_server_read_buf_;
