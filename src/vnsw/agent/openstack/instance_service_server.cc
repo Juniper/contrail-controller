@@ -563,6 +563,10 @@ void AddPortReq::HandleRequest() const {
         resp_str += "Vn uuid is not correct, ";
         err = true;
     }
+    if (vm_project_uuid == nil_uuid()) {
+        resp_str += "Vm project uuid is not correct, ";
+        err = true;
+    }
     if (!ValidateMac(mac_address)) {
         resp_str += "Invalid MAC, Use xx:xx:xx:xx:xx:xx format";
         err = true;
@@ -604,6 +608,7 @@ void DeletePortReq::HandleRequest() const {
     if (port_uuid == nil_uuid()) {
         resp->set_resp(std::string("Port uuid is not correct."));
         resp->Response();
+        return;
     }
 
     CfgIntTable *ctable = Agent::GetInstance()->interface_config_table();
