@@ -54,27 +54,24 @@ OvsdbDBObject::~OvsdbDBObject() {
 void OvsdbDBObject::NotifyAddOvsdb(OvsdbDBEntry *key, struct ovsdb_idl_row *row) {
     OvsdbDBEntry *entry = static_cast<OvsdbDBEntry *>(Find(key));
     if (entry) {
-        if (entry->IsAddChangeAckWaiting()) {
-            entry->NotifyAdd(row);
-        }
+        // trigger notify add for the entry, to update ovs_idl state
+        entry->NotifyAdd(row);
     } else {
-        //TODO trigger delete of this entry
         OvsdbDBEntry *del_entry = AllocOvsEntry(row);
         del_entry->ovs_entry_ = row;
         Delete(del_entry);
-        //del_entry->Delete();
-        //delete del_entry;
     }
 }
 
 void OvsdbDBObject::NotifyDeleteOvsdb(OvsdbDBEntry *key) {
     OvsdbDBEntry *entry = static_cast<OvsdbDBEntry *>(Find(key));
     if (entry) {
-        if (entry->IsDelAckWaiting()) {
-            entry->NotifyDelete();
-        } else {
-            // Clear OVS State and trigger Add/Change Req on entry
-            entry->clear_ovs_entry();
+        // trigger notify delete for the entry, to reset ovs_idl state
+        entry->NotifyDelete();
+        if (!entry->IsDelAckWaiting()) {
+            // we were not waiting for delete to happen, state for
+            // OVSDB server and client mismatch happend.
+            // Trigger Add/Change Req on entry to resync
             NotifyEvent(entry, KSyncEntry::ADD_CHANGE_REQ);
         }
     }
