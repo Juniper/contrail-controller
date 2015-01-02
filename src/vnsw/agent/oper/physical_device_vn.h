@@ -50,6 +50,7 @@ class PhysicalDeviceVn : AgentRefCount<PhysicalDeviceVn>,
 
     const boost::uuids::uuid &vn_uuid() const { return vn_uuid_; }
     VnEntry *vn() const { return vn_.get(); }
+    int vxlan_id() const { return vxlan_id_; }
 
     bool Copy(PhysicalDeviceVnTable *table, const PhysicalDeviceVnData *data);
     void SendObjectLog(AgentLogEvent::type event) const;
@@ -62,6 +63,7 @@ class PhysicalDeviceVn : AgentRefCount<PhysicalDeviceVn>,
 
     PhysicalDeviceRef device_;
     VnEntryRef vn_;
+    int vxlan_id_;
     DISALLOW_COPY_AND_ASSIGN(PhysicalDeviceVn);
 };
 
@@ -93,11 +95,17 @@ class PhysicalDeviceVnTable : public AgentDBTable {
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);
     virtual bool Delete(DBEntry *entry, const DBRequest *req);
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
+    virtual bool Resync(DBEntry *entry, DBRequest *req);
 
     void IterateConfig(const Agent *agent, const char *type, IFMapNode *node,
                        AgentKey *key, AgentData *data,
                        const boost::uuids::uuid &dev_uuid);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
+
+    bool DeviceVnWalk(DBTablePartBase *partition, DBEntryBase *entry);
+    void DeviceVnWalkDone(DBTableBase *partition);
+    // Handle change in VxLan Identifier mode from global-config
+    void UpdateVxLanNetworkIdentifierMode();
 
     void ConfigUpdate(IFMapNode *node);
     const ConfigTree &config_tree() const { return config_tree_; }
@@ -106,6 +114,7 @@ class PhysicalDeviceVnTable : public AgentDBTable {
  private:
     ConfigTree config_tree_;
     uint32_t config_version_;
+    DBTableWalker::WalkId walkid_;
     DISALLOW_COPY_AND_ASSIGN(PhysicalDeviceVnTable);
 };
 

@@ -10,6 +10,25 @@
 
 void AgentUtXmlOperInit(AgentUtXmlTest *test);
 
+class AgentUtXmlGlobalVrouter : public AgentUtXmlConfig {
+public:
+    AgentUtXmlGlobalVrouter(const std::string &name,
+                            const boost::uuids::uuid &uuid,
+                            const pugi::xml_node &node,
+                            AgentUtXmlTestCase *test_case);
+    ~AgentUtXmlGlobalVrouter();
+
+    virtual bool ReadXml();
+    virtual bool ToXml(pugi::xml_node *parent);
+    virtual std::string NodeType();
+    virtual void ToString(std::string *str);
+
+    std::string &vxlan_mode() { return vxlan_mode_;}
+
+private:
+    std::string vxlan_mode_;
+};
+
 class AgentUtXmlVn : public AgentUtXmlConfig {
 public:
     AgentUtXmlVn(const std::string &name, const boost::uuids::uuid &uuid,
@@ -21,7 +40,12 @@ public:
     virtual std::string NodeType();
     virtual void ToString(std::string *str);
 
+    std::string &vxlan_id() { return vxlan_id_;}
+    std::string &network_id() { return network_id_;}
+
 private:
+    std::string vxlan_id_;;
+    std::string network_id_;
 };
 
 class AgentUtXmlVm : public AgentUtXmlConfig {

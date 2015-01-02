@@ -498,6 +498,8 @@ bool AgentUtXmlPhysicalDeviceVnValidate::Validate() {
         return false;
 
     if (vxlan_id_ != 0xFFFF) {
+        if (entry->vxlan_id() != vxlan_id_)
+            return false;
         VnEntry *vn = entry->vn();
         if (vn == NULL)
             return false;
