@@ -223,6 +223,17 @@ TEST_F(NovaInfoServerTest, IntrospecPortDelete) {
     req->Release();
 }
 
+TEST_F(NovaInfoServerTest, IntrospectErrorPortDelete) {
+    DeletePortReq *req = new DeletePortReq();
+    req->set_port_uuid(std::string("wrong-uuid"));
+    port_resp_done = false;
+    Sandesh::set_response_callback(boost::bind(PortReqResponse, _1, std::string("Port uuid is not correct.")));
+    req->HandleRequest();
+    client->WaitForIdle();
+    EXPECT_EQ(0, Agent::GetInstance()->interface_config_table()->Size());
+    req->Release();
+}
+
 EventManager *client_evm;
 ServerThread *client_thread;
 
