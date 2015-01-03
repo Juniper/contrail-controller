@@ -441,6 +441,12 @@ void AgentParam::ParseHeadlessMode() {
     }
 }
 
+void AgentParam::ParseDhcpRelayMode() {
+    if (!GetValueFromTree<bool>(dhcp_relay_mode_, "DEFAULT.dhcp_relay_mode")) {
+        dhcp_relay_mode_ = false;
+    }
+}
+
 void AgentParam::ParseAgentMode() {
     std::string mode;
     GetValueFromTree<string>(mode, "DEFAULT.agent_mode");
@@ -606,6 +612,11 @@ void AgentParam::ParseHeadlessModeArguments
     GetOptValue<bool>(var_map, headless_mode_, "DEFAULT.headless_mode");
 }
 
+void AgentParam::ParseDhcpRelayModeArguments
+    (const boost::program_options::variables_map &var_map) {
+    GetOptValue<bool>(var_map, dhcp_relay_mode_, "DEFAULT.dhcp_relay_mode");
+}
+
 void AgentParam::ParseAgentModeArguments
     (const boost::program_options::variables_map &var_map) {
     std::string mode;
@@ -666,6 +677,7 @@ void AgentParam::InitFromConfig() {
     ParseMetadataProxy();
     ParseFlows();
     ParseHeadlessMode();
+    ParseDhcpRelayMode();
     ParseSimulateEvpnTor();
     ParseServiceInstance();
     ParseAgentMode();
@@ -686,6 +698,7 @@ void AgentParam::InitFromArguments() {
     ParseDefaultSectionArguments(var_map_);
     ParseMetadataProxyArguments(var_map_);
     ParseHeadlessModeArguments(var_map_);
+    ParseDhcpRelayModeArguments(var_map_);
     ParseServiceInstanceArguments(var_map_);
     ParseAgentModeArguments(var_map_);
     return;
@@ -881,6 +894,7 @@ void AgentParam::LogConfig() const {
         LOG(DEBUG, "Agent Mode                  : TOR");
 
     LOG(DEBUG, "Headless Mode               : " << headless_mode_);
+    LOG(DEBUG, "DHCP Relay Mode             : " << dhcp_relay_mode_);
     if (simulate_evpn_tor_) {
         LOG(DEBUG, "Simulate EVPN TOR           : " << simulate_evpn_tor_);
     }
@@ -959,8 +973,9 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         flow_stats_interval_(kFlowStatsInterval),
         vrouter_stats_interval_(kVrouterStatsInterval),
         vmware_physical_port_(""), test_mode_(false), debug_(false), tree_(),
-        headless_mode_(false), simulate_evpn_tor_(false),
-        si_netns_command_(), si_docker_command_(), si_netns_workers_(0),
+        headless_mode_(false), dhcp_relay_mode_(false),
+        simulate_evpn_tor_(false), si_netns_command_(),
+        si_docker_command_(), si_netns_workers_(0),
         si_netns_timeout_(0), si_haproxy_ssl_cert_path_(),
         vmware_mode_(ESXI_NEUTRON) {
 
@@ -988,8 +1003,10 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
          "Flow aging time in seconds")
         ("DEFAULT.hostname", opt::value<string>(), 
          "Hostname of compute-node")
-        ("DEFAULT.headless", opt::value<bool>(),
+        ("DEFAULT.headless_mode", opt::value<bool>(),
          "Run compute-node in headless mode")
+        ("DEFAULT.dhcp_relay_mode", opt::value<bool>(),
+         "Enable / Disable DHCP relay of DHCP packets from virtual instance")
         ("DEFAULT.http_server_port", 
          opt::value<uint16_t>()->default_value(ContrailPorts::HttpPortAgent()), 
          "Sandesh HTTP listener port")
