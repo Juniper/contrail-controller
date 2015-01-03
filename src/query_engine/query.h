@@ -453,6 +453,7 @@ struct final_result_t {
 enum agg_op_t {
     RAW = 1,
     SUM = 2,
+    AGG_OP_INVALID = 3,
 };
 
 enum stat_type_t {
