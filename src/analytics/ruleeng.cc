@@ -15,6 +15,7 @@
 #include <sandesh/sandesh.h> 
 #include <sandesh/sandesh_trace.h>
 #include <sandesh/sandesh_message_builder.h>
+#include <sandesh/protocol/TXMLProtocol.h>
 #include "ruleparser/ruleglob.h"
 #include "db_handler.h"
 #include "OpServerProxy.h"
@@ -27,6 +28,8 @@ using std::string;
 using std::vector;
 using std::pair;
 using std::make_pair;
+
+using namespace contrail::sandesh::protocol;
 
 int Ruleeng::RuleBuilderID = 0;
 int Ruleeng::RuleWorkerID = 0;
@@ -100,13 +103,15 @@ void Ruleeng::handle_object_log(const pugi::xml_node& parent, const VizMsg *rmsg
 
     std::map<std::string, std::string> keymap;
     std::map<std::string, std::string>::iterator it;
-    const char *table, *rowkey;
+    const char *table;
+    std::string rowkey;
 
     for (pugi::xml_node node = parent.first_child(); node;
          node = node.next_sibling()) {
         table = node.attribute("key").value();
         if (strcmp(table, "")) {
-            rowkey = node.child_value();
+            rowkey = std::string(node.child_value());
+            TXMLProtocol::unescapeXMLControlChars(rowkey);
             it = keymap.find(table);
             if (it != keymap.end()) {
                 std::string tempstr(it->second);
@@ -147,7 +152,9 @@ static DbHandler::Var ParseNode(const pugi::xml_node& node) {
     }
     string attype = node.attribute("type").value();
     if (attype == "string") {
-        sample = string(node.child_value());
+        std::string val(node.child_value());
+        TXMLProtocol::unescapeXMLControlChars(val);
+        sample = val;
     } else if (attype == "double") {   
         sample = (double) strtod(node.child_value(), NULL);
     } else if ((attype == "u16") ||  (attype == "u32") || (attype == "u64")) {
@@ -248,14 +255,16 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
     object = object.first_child();
 
     std::string barekey;
-    const char *tempstr, *rowkey;
+    const char *tempstr;
+    std::string rowkey;
     std::string table;
 
     for (pugi::xml_node node = object.first_child(); node;
             node = node.next_sibling()) {
         tempstr = node.attribute("key").value();
         if (strcmp(tempstr, "")) {
-            rowkey = node.child_value();
+            rowkey = std::string(node.child_value());
+            TXMLProtocol::unescapeXMLControlChars(rowkey);
             if (!barekey.empty()) {
                 barekey.append(":");
                 barekey.append(rowkey);
@@ -280,7 +289,7 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
     for (pugi::xml_node node = object.first_child(); node;
            node = node.next_sibling()) {
         std::ostringstream ostr; 
-        node.print(ostr, "", pugi::format_raw);
+        node.print(ostr, "", pugi::format_raw | pugi::format_no_escapes);
         std::string agg;
         std::string atyp;
         if (!strcmp(node.name(), "deleted")) {

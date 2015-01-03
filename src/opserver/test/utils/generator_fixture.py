@@ -128,7 +128,7 @@ class GeneratorFixture(fixtures.Fixture):
             self.flows.append(FlowDataIpv4(flowuuid=str(uuid.uuid1()),
                                            direction_ing=1,
                                            sourcevn='domain1:admin:vn1',
-                                           destvn='domain1:admin:vn2',
+                                           destvn='domain1:admin:vn2&>',
                                            sourceip=0x0A0A0A01,
                                            destip=0x0A0A0A02,
                                            sport=i + 10, dport=i + 100,

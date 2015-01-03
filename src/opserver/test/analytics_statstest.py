@@ -91,15 +91,26 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         generator_obj.send_test_stat_dynamic("t00","samp1",1,1);
         generator_obj.send_test_stat_dynamic("t00","samp2",2,1.1);
-
+        generator_obj.send_test_stat_dynamic("t00&t01","samp1&samp2",2,1.1);
+        generator_obj.send_test_stat_dynamic("t00>t01>","samp1&samp2",2,1.1,
+                                             "&test_s2>");
 
         logging.info("Checking Stats " + str(UTCTimestampUsec()))
 
-        assert generator_obj.verify_test_stat("StatTable.TestState.ts","-2m",
-            select_fields = [ "UUID", "ts.s1", "ts.i1", "ts.d1" ],
+        assert generator_obj.verify_test_stat("StatTable.TestStateDynamic.ts",
+            "-2m", select_fields = [ "UUID", "ts.s1", "ts.i1", "ts.d1" ],
             where_clause = 'name="t00"', num = 2, check_rows =
             [{ "ts.s1":"samp2", "ts.i1":2, "ts.d1":1.1},
              { "ts.s1":"samp1", "ts.i1":1, "ts.d1":1}]);
+        assert generator_obj.verify_test_stat("StatTable.TestStateDynamic.ts",
+            "-2m", select_fields = [ "UUID", "ts.s1", "ts.s2" ],
+            where_clause = 'name="t00&t01"', num = 1, check_rows =
+            [{ "ts.s1":"samp1&samp2", "ts.s2": "" }])
+        assert generator_obj.verify_test_stat("StatTable.TestStateDynamic.ts",
+            "-2m", select_fields = [ "UUID", "name", "ts.s2" ],
+            where_clause = 'ts.s1="samp1&samp2"', num = 2, check_rows =
+            [{ "name":"t00&t01", "ts.s2": "" },
+             { "name":"t00>t01>", "ts.s2":"&test_s2>" }])
             
         return True
     # end test_00_basicsamples
@@ -134,10 +145,12 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
         generator_obj.send_test_stat("t010","lxxx","samp1",1,1);
         generator_obj.send_test_stat("t010","lyyy","samp1",2,2);
         generator_obj.send_test_stat("t010","lyyy","samp3",2,2,"",5);
+        generator_obj.send_test_stat("t010","lyyy&","samp3>",2,2,"");
         generator_obj.send_test_stat("t011","lyyy","samp2",1,1.1,"",7);
         generator_obj.send_test_stat("t011","lxxx","samp2",2,1.2);
         generator_obj.send_test_stat("t011","lxxx","samp2",2,1.2,"",9);
-
+        generator_obj.send_test_stat("t010&t011","lxxx","samp2",1,1.4);
+        generator_obj.send_test_stat("t010&t011","lx>ly","samp2",1,1.4);
 
         logging.info("Checking Stats str-str " + str(UTCTimestampUsec()))
 
@@ -146,8 +159,11 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
             where_clause = 'name|st.s1=t010|samp1', num = 2, check_rows =
             [{ "st.s1":"samp1", "st.i1":2, "st.d1":2},
              { "st.s1":"samp1", "st.i1":1, "st.d1":1}]);
-
-        logging.info("Checking Stats int-int " + str(UTCTimestampUsec()))
+        assert generator_obj.verify_test_stat("StatTable.StatTestState.st",
+            "-2m", select_fields = [ "UUID", "l1" ], where_clause =
+            'name|st.s1=t010&t011|samp2 OR name|st.s1=t010|samp3>',
+            num = 3, check_rows = [{ "l1":"lxxx" }, { "l1":"lx>ly" },
+            { "l1":"lyyy&" }])
 
         assert generator_obj.verify_test_stat("StatTable.StatTestState.st","-2m",
             select_fields = [ "UUID", "st.s1", "st.i1", "st.d1" ],
@@ -158,8 +174,8 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         assert generator_obj.verify_test_stat("StatTable.StatTestState.st","-2m",
             select_fields = [ "T", "name", "l1", "CLASS(T)" ],
-            where_clause = 'name=*', num = 6, check_uniq = 
-            { "CLASS(T)":4 })
+            where_clause = 'name=*', num = 9, check_uniq =
+            { "CLASS(T)":7 })
          
         return True
     # end test_01_statprefix
@@ -195,8 +211,8 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         logging.info("Checking Stats " + str(UTCTimestampUsec()))
 
-        assert generator_obj.verify_test_stat("StatTable.TestState.ts","-2m",
-            select_fields = [ "UUID", "ts.s1", "ts.i1", "ts.d1" ],
+        assert generator_obj.verify_test_stat("StatTable.TestStateDynamic.ts",
+            "-2m", select_fields = [ "UUID", "ts.s1", "ts.i1", "ts.d1" ],
             where_clause = 'name="t02"', num = 1, check_rows =
             [{"ts.s1":"samp02-2", "ts.i1":0xffffffffffffffff, "ts.d1":1.1}])
             
@@ -253,14 +269,15 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
     def verify_ipfix(self, res):
         logging.info("Trying to verify IPFIX...")
         if len(res)!=1:
-            assert(False)
+            return False
         uexp = {u'name': u'127.0.0.1',
                u'flow.sport': 49152,
                u'flow.sip': u'10.84.45.254',
                u'flow.flowtype': u'IPFIX'}
         exp = OrderedDict(sorted(uexp.items(), key=lambda t: t[0]))
         rs = OrderedDict(sorted(res[0].items(), key=lambda t: t[0]))
-        assert(exp == rs)
+        if exp != rs:
+            return False
         return True
 
     @staticmethod

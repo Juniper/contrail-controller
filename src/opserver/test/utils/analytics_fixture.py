@@ -861,7 +861,7 @@ class AnalyticsFixture(fixtures.Fixture):
             start_time=str(generator_obj.flow_start_time),
             end_time=str(generator_obj.flow_end_time),
             select_fields=['UuidKey', 'destvn', 'destip'],
-            where_clause='destip=10.10.10.2 AND destvn=domain1:admin:vn2 AND vrouter=%s'% vrouter)
+            where_clause='destip=10.10.10.2 AND destvn=domain1:admin:vn2&> AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == generator_obj.flow_cnt)
         res = vns.post_query(
@@ -869,7 +869,7 @@ class AnalyticsFixture(fixtures.Fixture):
             start_time=str(generator_obj.flow_start_time),
             end_time=str(generator_obj.flow_end_time),
             select_fields=['destvn', 'destip'],
-            where_clause='destip=10.10.10.2 AND destvn=domain1:admin:vn2 AND vrouter=%s'% vrouter)
+            where_clause='destip=10.10.10.2 AND destvn=domain1:admin:vn2&> AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == generator_obj.num_flow_samples)
         # give non-existent values in the where clause
@@ -888,7 +888,7 @@ class AnalyticsFixture(fixtures.Fixture):
             start_time=str(generator_obj.flow_start_time),
             end_time=str(generator_obj.flow_end_time),
             select_fields=['destvn', 'destip'],
-            where_clause='destip=20.1.1.10 AND destvn=domain1:admin:vn2 AND vrouter=%s'% vrouter)
+            where_clause='destip=20.1.1.10 AND destvn=domain1:admin:vn2&> AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == 0)
 
@@ -1103,7 +1103,7 @@ class AnalyticsFixture(fixtures.Fixture):
             select_fields=['T=%s' % (granularity), 'sum(bytes)',
                            'sum(packets)'],
             where_clause='sourcevn=domain1:admin:vn1 ' +
-            'AND destvn=domain1:admin:vn2 AND vrouter=%s'% vrouter)
+            'AND destvn=domain1:admin:vn2&> AND vrouter=%s'% vrouter)
         diff_t = int(et) - int(st)
         num_records = (diff_t/gms) + bool(diff_t%gms)
         assert(len(res) == num_records)
@@ -1141,7 +1141,7 @@ class AnalyticsFixture(fixtures.Fixture):
             select_fields=['T=%s' % (granularity), 'protocol', 'sum(bytes)',
                            'sum(packets)'],
             where_clause='sourcevn=domain1:admin:vn1 ' +
-            'AND destvn=domain1:admin:vn2 AND vrouter=%s'% vrouter)
+            'AND destvn=domain1:admin:vn2&> AND vrouter=%s'% vrouter)
         diff_t = int(et) - int(st)
         num_ts = (diff_t/gms) + bool(diff_t%gms)
         ts = [generator_obj.flow_start_time + (x * gms) \
@@ -1252,7 +1252,7 @@ class AnalyticsFixture(fixtures.Fixture):
             select_fields=['T=%s' % (granularity), 'protocol', 'sourcevn', 'destvn',
                            'sport', 'dport'],
             where_clause='sourcevn=domain1:admin:vn1' +
-            'AND destvn=domain1:admin:vn2 AND vrouter=%s'% vrouter)
+            'AND destvn=domain1:admin:vn2&> AND vrouter=%s'% vrouter)
         diff_t = int(et) - int(st)
         num_ts = (diff_t/gms) + bool(diff_t%gms)
         ts = [generator_obj.flow_start_time + (x * gms) \
@@ -1363,7 +1363,7 @@ class AnalyticsFixture(fixtures.Fixture):
             'FlowSeriesTable', start_time=st, end_time=et,
             select_fields=['T=%s' % (granularity)],
             where_clause='sourcevn=domain1:admin:vn1' +
-            'AND destvn=domain1:admin:vn2 AND vrouter=%s'% vrouter)
+            'AND destvn=domain1:admin:vn2&> AND vrouter=%s'% vrouter)
         diff_t = int(et) - int(st)
         num_ts = (diff_t/gms) + bool(diff_t%gms)
         ts = []
@@ -1615,44 +1615,23 @@ class AnalyticsFixture(fixtures.Fixture):
         return True
     # end verify_collector_object_log_after_purge
 
-    @retry(delay=1, tries=5)
-    def verify_object_table_query(self):
-        self.logger.info('verify_object_table_query')
+    @retry(delay=1, tries=10)
+    def verify_object_value_table_query(self, table, exp_object_values):
+        self.logger.info('verify_object_value_table_query')
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
-
-        #ObjectTable query with only ObjectId
-        self.logger.info('ObjectTable query with only ObjectId')
-        object_id = object_id = self.collectors[0].hostname
-        res = vns.post_query('ObjectCollectorInfo',
-                             start_time='-10m', end_time='now',
+        res = vns.post_query(table, start_time='-10m', end_time='now',
                              select_fields=['ObjectId'],
-                             where_clause='ObjectId = %s' % object_id)
+                             where_clause='')
         if not res:
             return False
-        else:
-            self.logger.info(res)
-            for r in res:
-                assert('ObjectId' in r)
-
-        # ObjectTable query with ModuleId specified in where clause
-        self.logger.info('ObjectTable query with ModuleId in where clause')
-        object_id = object_id = self.collectors[0].hostname 
-        module = 'contrail-collector'
-        where_obj_id = 'ObjectId = %s' % object_id
-        where_mod = 'ModuleId = %s' % module
-        res = vns.post_query('ObjectCollectorInfo',
-                             start_time='-10m', end_time='now',
-                             select_fields=['ObjectId'],
-                             where_clause=where_obj_id + 'AND' + where_mod)
-        if not res:
-            return False
-        else:
-            self.logger.info(res)
-            for r in res:
-                assert('ObjectId' in r)
-
+        self.logger.info(res)
+        actual_object_values = [r['ObjectId'] for r in res]
+        for object_id in exp_object_values:
+            self.logger.info('object_id: %s' % object_id)
+            if object_id not in actual_object_values:
+                return False
         return True
-    # end verify_object_table_query
+    # end verify_object_value_table_query
 
     @retry(delay=1, tries=5)
     def verify_keyword_query(self, line, keywords=[]):
