@@ -132,7 +132,7 @@ public:
                             SecurityGroupList(), PathPreference());
         client->WaitForIdle();
 
-        EvpnTunnelRouteAdd(Agent::GetInstance()->local_peer(), vrf_name_,
+        BridgeTunnelRouteAdd(Agent::GetInstance()->local_peer(), vrf_name_,
                              l2_bmap, server1_ip_, 2000, remote_vm_mac_, remote_vm_ip_, 32);
         client->WaitForIdle();
 
@@ -184,7 +184,7 @@ public:
             DeleteReq(Agent::GetInstance()->local_peer(), vrf_name_,
                       remote_vm_ip_, 32, NULL);
         client->WaitForIdle();
-        EvpnAgentRouteTable::DeleteReq(Agent::GetInstance()->local_peer(), 
+        EvpnAgentRouteTable::DeleteReq(Agent::GetInstance()->local_peer(),
                                          vrf_name_, remote_vm_mac_,
                                          remote_vm_ip_, 0);
         client->WaitForIdle();
@@ -199,7 +199,7 @@ public:
     }
 
     void VerifyLabel(AgentPath *path) {
-        const NextHop *nh = path->nexthop(agent);
+        const NextHop *nh = path->GetNextHop(agent);
         const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
         TunnelType::Type type = tnh->GetTunnelType().GetType();
         switch (type) {
@@ -224,7 +224,7 @@ public:
             it != route->GetPathList().end(); it++) {
             const AgentPath *path =
                 static_cast<const AgentPath *>(it.operator->());
-            const NextHop *nh = path->nexthop(agent);
+            const NextHop *nh = path->GetNextHop(agent);
             if (nh->GetType() == NextHop::TUNNEL) {
                 const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
                 ASSERT_TRUE(type == tnh->GetTunnelType().GetType());
@@ -236,7 +236,7 @@ public:
             it != route->GetPathList().end(); it++) {
             const AgentPath *path =
                 static_cast<const AgentPath *>(it.operator->());
-            const NextHop *nh = path->nexthop(agent);
+            const NextHop *nh = path->GetNextHop(agent);
             if (nh->GetType() == NextHop::TUNNEL) {
                 const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
                 ASSERT_TRUE(type == tnh->GetTunnelType().GetType());
@@ -248,7 +248,7 @@ public:
             it != route->GetPathList().end(); it++) {
             const AgentPath *path =
                 static_cast<const AgentPath *>(it.operator->());
-            const NextHop *nh = path->nexthop(agent);
+            const NextHop *nh = path->GetNextHop(agent);
             ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
             if (nh->GetType() == NextHop::COMPOSITE) {
                 const CompositeNH *comp_nh =
@@ -264,13 +264,13 @@ public:
         }
     }
 
-    void VerifyEvpnUnicastRoutes(TunnelType::Type type) {
-        EvpnRouteEntry *route = L2RouteGet(vrf_name_, local_vm_mac_);
+    void VerifyBridgeUnicastRoutes(TunnelType::Type type) {
+        BridgeRouteEntry *route = L2RouteGet(vrf_name_, local_vm_mac_);
         for(Route::PathList::iterator it = route->GetPathList().begin();
             it != route->GetPathList().end(); it++) {
             const AgentPath *path =
                 static_cast<const AgentPath *>(it.operator->());
-            const NextHop *nh = path->nexthop(agent);
+            const NextHop *nh = path->GetNextHop(agent);
             if (nh->GetType() == NextHop::TUNNEL) {
                 const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
                 ASSERT_TRUE(type == tnh->GetTunnelType().GetType());
@@ -282,7 +282,7 @@ public:
             it != route->GetPathList().end(); it++) {
             const AgentPath *path =
                 static_cast<const AgentPath *>(it.operator->());
-            const NextHop *nh = path->nexthop(agent);
+            const NextHop *nh = path->GetNextHop(agent);
             if (nh->GetType() == NextHop::TUNNEL) {
                 const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
                 ASSERT_TRUE(type == tnh->GetTunnelType().GetType());
@@ -330,7 +330,7 @@ TEST_F(TunnelEncapTest, dummy) {
     AddRemoteVmRoute(TunnelType::MplsType(), TunnelType::AllType());
     client->WaitForIdle();
     VerifyInet4UnicastRoutes(TunnelType::MPLS_GRE);
-    VerifyEvpnUnicastRoutes(TunnelType::MPLS_GRE);
+    VerifyBridgeUnicastRoutes(TunnelType::MPLS_GRE);
     VerifyMulticastRoutes(TunnelType::MPLS_GRE);
     DeleteRemoteVmRoute();
     client->WaitForIdle();
@@ -343,7 +343,7 @@ TEST_F(TunnelEncapTest, delete_encap_default_to_mpls_gre) {
     DelEncapList();
     client->WaitForIdle();
     VerifyInet4UnicastRoutes(TunnelType::MPLS_GRE);
-    VerifyEvpnUnicastRoutes(TunnelType::MPLS_GRE);
+    VerifyBridgeUnicastRoutes(TunnelType::MPLS_GRE);
     VerifyMulticastRoutes(TunnelType::MPLS_GRE);
     DeleteRemoteVmRoute();
     client->WaitForIdle();
@@ -356,12 +356,12 @@ TEST_F(TunnelEncapTest, gre_to_udp) {
     AddEncapList("MPLSoUDP", "MPLSoGRE", "VXLAN");
     client->WaitForIdle();
     VerifyInet4UnicastRoutes(TunnelType::MPLS_UDP);
-    VerifyEvpnUnicastRoutes(TunnelType::MPLS_UDP);
+    VerifyBridgeUnicastRoutes(TunnelType::MPLS_UDP);
     VerifyMulticastRoutes(TunnelType::MPLS_UDP);
     DelEncapList();
     client->WaitForIdle();
     VerifyInet4UnicastRoutes(TunnelType::MPLS_GRE);
-    VerifyEvpnUnicastRoutes(TunnelType::MPLS_GRE);
+    VerifyBridgeUnicastRoutes(TunnelType::MPLS_GRE);
     VerifyMulticastRoutes(TunnelType::MPLS_GRE);
     DeleteRemoteVmRoute();
     client->WaitForIdle();
@@ -374,12 +374,12 @@ TEST_F(TunnelEncapTest, gre_to_vxlan_udp) {
     AddEncapList("VXLAN", "MPLSoUDP", "MPLSoGRE");
     client->WaitForIdle();
     VerifyInet4UnicastRoutes(TunnelType::MPLS_UDP);
-    VerifyEvpnUnicastRoutes(TunnelType::VXLAN);
+    VerifyBridgeUnicastRoutes(TunnelType::VXLAN);
     VerifyMulticastRoutes(TunnelType::MPLS_UDP);
     DelEncapList();
     client->WaitForIdle();
     VerifyInet4UnicastRoutes(TunnelType::MPLS_GRE);
-    VerifyEvpnUnicastRoutes(TunnelType::MPLS_GRE);
+    VerifyBridgeUnicastRoutes(TunnelType::MPLS_GRE);
     VerifyMulticastRoutes(TunnelType::MPLS_GRE);
     DeleteRemoteVmRoute();
     client->WaitForIdle();

@@ -151,8 +151,38 @@ private:
 
 class AgentLayer2RtSandesh : public AgentSandesh {
 public:
-    AgentLayer2RtSandesh(VrfEntry *vrf, std::string context, std::string name, 
+    AgentLayer2RtSandesh(VrfEntry *vrf, std::string context, std::string name,
+                         bool stale)
+        : AgentSandesh(context, name), vrf_(vrf), stale_(stale) {}
+
+private:
+    DBTable *AgentGetTable();
+    void Alloc();
+    bool UpdateResp(DBEntryBase *entry);
+
+    VrfEntry *vrf_;
+    bool stale_;
+};
+
+class AgentBridgeRtSandesh : public AgentSandesh {
+public:
+    AgentBridgeRtSandesh(VrfEntry *vrf, std::string context, std::string name, 
                          bool stale) 
+        : AgentSandesh(context, name), vrf_(vrf), stale_(stale) {}
+
+private:
+    DBTable *AgentGetTable();
+    void Alloc();
+    bool UpdateResp(DBEntryBase *entry);
+
+    VrfEntry *vrf_;
+    bool stale_;
+};
+
+class AgentEvpnRtSandesh : public AgentSandesh {
+public:
+    AgentEvpnRtSandesh(VrfEntry *vrf, std::string context, std::string name,
+                       bool stale)
         : AgentSandesh(context, name), vrf_(vrf), stale_(stale) {}
 
 private:

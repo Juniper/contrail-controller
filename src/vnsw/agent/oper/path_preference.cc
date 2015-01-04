@@ -239,7 +239,7 @@ void PathPreferenceSM::Process() {
      if (max_sequence > sequence()) {
          process_event(EvSeqChange(max_sequence));
      } else if (sequence() == max_sequence &&
-             best_path->nexthop(agent_) != local_path->nexthop(agent_)) {
+             best_path->GetNextHop(agent_) != local_path->GetNextHop(agent_)) {
          //Control node chosen  path and local path are different
          //move to wait for traffic state
          process_event(EvWaitForTraffic());

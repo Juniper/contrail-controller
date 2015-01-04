@@ -19,9 +19,12 @@ public:
     virtual Agent::RouteTableType GetTableType() const {
         return Agent::EVPN;
     }
+    virtual void UpdateDependants(AgentRoute *entry);
+    virtual void PreRouteDelete(AgentRoute *entry);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 
+    //Add routines
     void AddLocalVmRouteReq(const Peer *peer,
                             const std::string &vrf_name,
                             const MacAddress &mac,
@@ -33,52 +36,30 @@ public:
                          const IpAddress &ip, uint32_t label,
                          const std::string &vn_name,
                          const SecurityGroupList &sg_id_list,
-                         const PathPreference &path_pref);
-    void DelLocalVmRoute(const Peer *peer, const std::string &vrf_name,
-                         const MacAddress &mac, const VmInterface *intf,
-                         const IpAddress &ip);
+                         const PathPreference &path_pref,
+                         uint32_t ethernet_tag);
     static void AddRemoteVmRouteReq(const Peer *peer,
                                     const std::string &vrf_name,
                                     const MacAddress &mac,
                                     const IpAddress &ip_addr,
                                     uint32_t ethernet_tag,
                                     AgentRouteData *data);
-    static void AddEvpnBroadcastRoute(const Peer *peer,
-                                        const std::string &vrf_name,
-                                        const std::string &vn_name,
-                                        uint32_t label,
-                                        int vxlan_id,
-                                        uint32_t ethernet_tag,
-                                        uint32_t tunnel_type,
-                                        Composite::Type type,
-                                        ComponentNHKeyList
-                                        &component_nh_key_list);
-    static void AddEvpnReceiveRoute(const Peer *peer,
-                                      const std::string &vrf_name,
-                                      const MacAddress &mac,
-                                      const IpAddress &ip_addr,
-                                      const std::string &vn_name,
-                                      const std::string &interface,
-                                      bool policy);
-    void AddEvpnReceiveRouteReq(const Peer *peer, const std::string &vrf_name,
-                                  uint32_t vxlan_id, const MacAddress &mac,
-                                  const std::string &vn_name);
-    void AddEvpnReceiveRoute(const Peer *peer, const std::string &vrf_name,
-                               uint32_t vxlan_id, const MacAddress &mac,
-                               const std::string &vn_name);
+
+    //Delete routines
+    void DelLocalVmRoute(const Peer *peer, const std::string &vrf_name,
+                         const MacAddress &mac, const VmInterface *intf,
+                         const IpAddress &ip, uint32_t ethernet_tag);
     static void DeleteReq(const Peer *peer, const std::string &vrf_name,
                           const MacAddress &mac, const IpAddress &ip_addr,
                           uint32_t ethernet_tag);
     static void Delete(const Peer *peer, const std::string &vrf_name,
                        const MacAddress &mac, const IpAddress &ip_addr,
                        uint32_t ethernet_tag);
-    static void DeleteBroadcastReq(const Peer *peer,
-                                   const std::string &vrf_name,
-                                   uint32_t ethernet_tag);
     static EvpnRouteEntry *FindRoute(const Agent *agent,
                                        const std::string &vrf_name,
                                        const MacAddress &mac,
-                                       const IpAddress &ip_addr);
+                                       const IpAddress &ip_addr,
+                                       uint32_t ethernet_tag);
 
 private:
     DBTableWalker::WalkId walkid_;
@@ -87,11 +68,11 @@ private:
 
 class EvpnRouteEntry : public AgentRoute {
 public:
-    EvpnRouteEntry(VrfEntry *vrf, const MacAddress &mac,
-                     const IpAddress &ip_addr,
-                     Peer::Type type, bool is_multicast) :
-        AgentRoute(vrf, is_multicast), mac_(mac), ip_addr_(ip_addr) {
-    }
+    EvpnRouteEntry(VrfEntry *vrf,
+                   const MacAddress &mac,
+                   const IpAddress &ip_addr,
+                   uint32_t ethernet_tag,
+                   Peer::Type type);
     virtual ~EvpnRouteEntry() { }
 
     virtual int CompareTo(const Route &rhs) const;
@@ -101,31 +82,23 @@ public:
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *key);
     virtual const std::string GetAddressString() const {
-        //For multicast use the same tree as of 255.255.255.255
-        if (is_multicast())
-            return "255.255.255.255";
-        return ToString();
+        return mac_.ToString();
     }
     virtual Agent::RouteTableType GetTableType() const {
         return Agent::EVPN;
     }
     virtual bool DBEntrySandesh(Sandesh *sresp, bool stale) const;
     virtual uint32_t GetActiveLabel() const;
-    virtual bool ReComputePathDeletion(AgentPath *path);
-    virtual bool ReComputePathAdd(AgentPath *path);
-    virtual void DeletePath(const AgentRouteKey *key, bool force_delete);
-    virtual AgentPath *FindPathUsingKey(const AgentRouteKey *key);
 
-    const MacAddress &GetAddress() const {return mac_;}
     const MacAddress &mac() const {return mac_;}
     const IpAddress &ip_addr() const {return ip_addr_;}
     const uint32_t GetVmIpPlen() const;
+    uint32_t ethernet_tag() const {return ethernet_tag_;}
 
 private:
-    bool ReComputeMulticastPaths(AgentPath *path, bool del);
-
     MacAddress mac_;
     IpAddress ip_addr_;
+    uint32_t ethernet_tag_;
     DISALLOW_COPY_AND_ASSIGN(EvpnRouteEntry);
 };
 

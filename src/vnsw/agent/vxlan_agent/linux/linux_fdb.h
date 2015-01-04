@@ -17,7 +17,7 @@ public:
     virtual ~KSyncLinuxVrfObject();
 
     // Allocates a KSyncVxlanFdbObject for every VRF
-    KSyncVxlanRouteObject *AllocEvpnRouteTable(const VrfEntry *entry);
+    KSyncVxlanRouteObject *AllocBridgeRouteTable(const VrfEntry *entry);
 private:
     DISALLOW_COPY_AND_ASSIGN(KSyncLinuxVrfObject);
 };
@@ -31,7 +31,7 @@ public:
     virtual ~KSyncLinuxFdbObject();
 
     // Allocates an entry of type KSyncLinuxFdbEntry from DBEntry of type
-    // EvpnRouteEntry
+    // BridgeRouteEntry
     KSyncEntry *DBToKSyncEntry(const DBEntry *e);
     // Allocate and initialize an entry of type KSyncLinuxFdbEntry
     KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index);
@@ -44,7 +44,7 @@ private:
  **************************************************************************/
 class KSyncLinuxFdbEntry : public KSyncVxlanFdbEntry {
 public:
-    KSyncLinuxFdbEntry(KSyncLinuxFdbObject *obj, const EvpnRouteEntry *route);
+    KSyncLinuxFdbEntry(KSyncLinuxFdbObject *obj, const BridgeRouteEntry *route);
     KSyncLinuxFdbEntry(KSyncLinuxFdbObject *obj,
                        const KSyncLinuxFdbEntry *entry);
     virtual ~KSyncLinuxFdbEntry();

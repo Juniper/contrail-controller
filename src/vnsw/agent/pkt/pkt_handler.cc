@@ -168,7 +168,7 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
 
         if (pkt_info->l3_forwarding == false &&
             vm_itf->bridging() == false) {
-            PKT_TRACE(Err, "Bridging not enabled for interface "
+            PKT_TRACE(Err, "bridging not enabled for interface "
                       "index <" << pkt_info->agent_hdr.ifindex << ">");
             return INVALID;
         }
@@ -650,14 +650,13 @@ bool PktHandler::IsToRDevice(uint32_t vrf_id, const IpAddress &ip) {
     if (vrf == NULL)
         return false;
 
-    EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
-        (vrf->GetEvpnRouteTable());
+    BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
+        (vrf->GetBridgeRouteTable());
     if (table == NULL)
         return false;
 
-    EvpnRouteEntry *rt = table->FindRoute(agent(), vrf->GetName(),
-                                            MacAddress::BroadcastMac(),
-                                            IpAddress());
+    BridgeRouteEntry *rt = table->FindRoute(agent(), vrf->GetName(),
+                                            MacAddress::BroadcastMac());
     if (rt == NULL)
         return false;
 

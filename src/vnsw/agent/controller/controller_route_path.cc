@@ -319,7 +319,7 @@ bool ClonedLocalPath::AddChangePath(Agent *agent, AgentPath *path,
         ret = true;
     }
 
-    NextHop *nh = const_cast<NextHop *>(local_path->nexthop(agent));
+    NextHop *nh = const_cast<NextHop *>(local_path->GetNextHop(agent));
     if (path->ChangeNH(agent, nh) == true) {
         ret = true;
     }

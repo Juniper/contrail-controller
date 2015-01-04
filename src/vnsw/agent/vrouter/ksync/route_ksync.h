@@ -54,9 +54,12 @@ private:
                        bool proxy_arp, char *buf, int buf_len);
     bool UcIsLess(const KSyncEntry &rhs) const;
     bool McIsLess(const KSyncEntry &rhs) const;
+    bool EvpnIsLess(const KSyncEntry &rhs) const;
     bool L2IsLess(const KSyncEntry &rhs) const;
     bool BuildRouteFlags(const DBEntry *rt,
                          const MacAddress &mac);
+    const NextHop *GetActiveNextHop(const AgentRoute *route) const;
+    const AgentPath *GetActivePath(const AgentRoute *route) const;
 
     RouteKSyncObject* ksync_obj_;
     Agent::RouteTableType rt_type_;
@@ -72,9 +75,9 @@ private:
     string address_string_;
     TunnelType::Type tunnel_type_;
     bool wait_for_traffic_;
-    IpAddress evpn_ip_;
     bool local_vm_peer_route_;
     bool flood_;
+    uint32_t ethernet_tag_;
     DISALLOW_COPY_AND_ASSIGN(RouteKSyncEntry);
 };
 
@@ -110,13 +113,15 @@ public:
     typedef std::map<IpAddress, MacAddress> IpToMacBinding;
 
     struct VrfState : DBState {
-        VrfState() : DBState(), seen_(false) {};
+        VrfState() : DBState(), seen_(false),
+        evpn_rt_table_listener_id_(DBTableBase::kInvalidId) {}
         bool seen_;
         RouteKSyncObject *inet4_uc_route_table_;
         RouteKSyncObject *inet4_mc_route_table_;
         RouteKSyncObject *inet6_uc_route_table_;
-        RouteKSyncObject *evpn_route_table_;
+        RouteKSyncObject *bridge_route_table_;
         IpToMacBinding  ip_mac_binding_;
+        DBTableBase::ListenerId evpn_rt_table_listener_id_;
     };
 
     VrfKSyncObject(KSync *ksync);
@@ -128,6 +133,9 @@ public:
     void Shutdown();
     void VrfNotify(DBTablePartBase *partition, DBEntryBase *e);
 
+    void EvpnRouteTableNotify(DBTablePartBase *partition, DBEntryBase *e);
+    void UnRegisterEvpnRouteTableListener(const VrfEntry *entry,
+                                          VrfState *state);
     void AddIpMacBinding(VrfEntry *vrf, const IpAddress &ip,
                          const MacAddress &mac);
     void DelIpMacBinding(VrfEntry *vrf, const IpAddress &ip,
