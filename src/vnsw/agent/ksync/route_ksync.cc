@@ -81,7 +81,6 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
           const Layer2RouteEntry *l2_rt =
               static_cast<const Layer2RouteEntry *>(rt);              
           mac_ = l2_rt->GetAddress();
-          addr_ = l2_rt->ip_addr();
           prefix_len_ = 0;
           break;
     }
@@ -135,11 +134,7 @@ bool RouteKSyncEntry::L2IsLess(const KSyncEntry &rhs) const {
         return vrf_id_ < entry.vrf_id_;
     }
 
-    if (mac_ != entry.mac_) {
-        return mac_ < entry.mac_;
-    }
-
-    return (addr_ < entry.addr_);
+    return mac_ < entry.mac_;
 }
 
 bool RouteKSyncEntry::IsLess(const KSyncEntry &rhs) const {
@@ -185,6 +180,28 @@ std::string RouteKSyncEntry::ToString() const {
     return s.str();
 }
 
+//Uses internal API to extract path.
+const NextHop *RouteKSyncEntry::GetActiveNextHop(const AgentRoute *route) const {
+    const AgentPath *path = GetActivePath(route);
+    if (path == NULL)
+        return NULL;
+
+    return path->nexthop(ksync_obj_->ksync()->agent());
+}
+
+//Returns the usable path.
+//In case of layer2 tables the path contains reference path which
+//has all the data. This path known as evpn_path is a level of indirection
+//to leaked path from MAC+IP route.
+const AgentPath *RouteKSyncEntry::GetActivePath(const AgentRoute *route) const {
+    const AgentPath *path = route->GetActivePath();
+    if ((rt_type_ == Agent::LAYER2) && (route->is_multicast() == false)) {
+        const EvpnPath *evpn_path = static_cast<const EvpnPath *>(path);
+        path = evpn_path->reference_path();
+    }
+    return path;
+}
+
 bool RouteKSyncEntry::Sync(DBEntry *e) {
     bool ret = false;
     const AgentRoute *route;
@@ -195,7 +212,7 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
 
     Agent *agent = ksync_obj_->ksync()->agent();
     const NextHop *tmp = NULL;
-    tmp = route->GetActiveNextHop();
+    tmp = GetActiveNextHop(route);
     if (tmp == NULL) {
         DiscardNHKey key;
         tmp = static_cast<NextHop *>(agent->nexthop_table()->
@@ -211,8 +228,8 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
     //Bother for label for unicast and EVPN routes
     if (rt_type_ != Agent::INET4_MULTICAST) {
         uint32_t old_label = label_;
-        const AgentPath *path = 
-            (static_cast <InetUnicastRouteEntry *>(e))->GetActivePath();
+        const AgentPath *path = GetActivePath((static_cast<AgentRoute *>(e)));
+
         if (route->is_multicast()) {
             label_ = path->vxlan_id();
         } else {
@@ -434,16 +451,6 @@ int RouteKSyncEntry::DeleteInternal(NHKSyncEntry *nexthop, uint32_t lbl,
 }
 
 KSyncEntry *RouteKSyncEntry::UnresolvedReference() {
-    if (rt_type_ == Agent::LAYER2) {
-        if (addr_.is_v6()) {
-            return KSyncObjectManager::default_defer_entry();
-        }
-
-        if (mac_ != MacAddress::BroadcastMac() && addr_.is_unspecified()) {
-            return KSyncObjectManager::default_defer_entry();
-        }
-    }
-
     NHKSyncEntry *nexthop = nh();
     if (!nexthop->IsResolved()) {
         return nexthop;

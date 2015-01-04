@@ -104,6 +104,7 @@ public:
 
     InetUnicastAgentRouteTable *GetInet4UnicastRouteTable() const;
     AgentRouteTable *GetInet4MulticastRouteTable() const;
+    AgentRouteTable *GetEvpnRouteTable() const;
     AgentRouteTable *GetLayer2RouteTable() const;
     InetUnicastAgentRouteTable *GetInet6UnicastRouteTable() const;
     AgentRouteTable *GetRouteTable(uint8_t table_type) const;
@@ -172,6 +173,7 @@ public:
     InetUnicastAgentRouteTable *GetInet4UnicastRouteTable
         (const std::string &vrf_name);
     AgentRouteTable *GetInet4MulticastRouteTable(const std::string &vrf_name);
+    AgentRouteTable *GetEvpnRouteTable(const std::string &vrf_name);
     AgentRouteTable *GetLayer2RouteTable(const std::string &vrf_name);
     AgentRouteTable *GetRouteTable(const string &vrf_name, uint8_t table_type);
     InetUnicastAgentRouteTable *GetInet6UnicastRouteTable

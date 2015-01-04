@@ -79,6 +79,7 @@ void intrusive_ptr_add_ref(const VxLanId* p);
 
 class InetUnicastRouteEntry;
 class Inet4MulticastRouteEntry;
+class EvpnRouteEntry;
 class Layer2RouteEntry;
 class Route;
 typedef boost::intrusive_ptr<Route> RouteRef;
@@ -129,6 +130,7 @@ class RouteTable;
 class AgentRouteTable;
 class InetUnicastAgentRouteTable;
 class Inet4MulticastAgentRouteTable;
+class EvpnAgentRouteTable;
 class Layer2AgentRouteTable;
 class CfgIntTable;
 class AclTable;
@@ -198,6 +200,7 @@ public:
         INVALID = 0,
         INET4_UNICAST,
         INET4_MULTICAST,
+        EVPN,
         LAYER2,
         INET6_UNICAST,
         ROUTE_TABLE_MAX
@@ -317,6 +320,16 @@ public:
     }
     void set_fabric_inet4_multicast_table(RouteTable *table) {
         mc_rt_table_ = (Inet4MulticastAgentRouteTable *)table;
+    }
+
+    EvpnAgentRouteTable *fabric_evpn_table() const {
+        return evpn_rt_table_;
+    }
+    void set_fabric_evpn_table(EvpnAgentRouteTable *table) {
+        evpn_rt_table_ = table;
+    }
+    void set_fabric_evpn_table(RouteTable *table) {
+        evpn_rt_table_ = (EvpnAgentRouteTable *)table;
     }
 
     Layer2AgentRouteTable *fabric_l2_unicast_table() const {
@@ -812,6 +825,7 @@ private:
     NextHopTable *nh_table_;
     InetUnicastAgentRouteTable *uc_rt_table_;
     Inet4MulticastAgentRouteTable *mc_rt_table_;
+    EvpnAgentRouteTable *evpn_rt_table_;
     Layer2AgentRouteTable *l2_rt_table_;
     VrfTable *vrf_table_;
     VmTable *vm_table_;

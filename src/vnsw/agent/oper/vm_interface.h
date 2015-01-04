@@ -428,6 +428,11 @@ public:
             std::vector<autogen::DhcpOptionType> *options, bool ipv6) const;
     const Peer *peer() const;
     Ip4Address GetGateway() const;
+    void UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
+                                VrfEntry *vrf,
+                                const Ip4Address &old_addr,
+                                const Ip6Address &old_v6_addr,
+                                int old_vxlan_id) const;
 private:
     friend struct VmInterfaceConfigData;
     friend struct VmInterfaceNovaData;
@@ -484,7 +489,7 @@ private:
     void UpdateL2(bool old_l2_active, VrfEntry *old_vrf, int old_vxlan_id,
                   bool force_update, bool policy_change,
                   const Ip4Address &old_addr, const Ip6Address &old_v6_addr);
-    void DeleteL2(bool old_l2_active, VrfEntry *old_vrf,
+    void DeleteL2(bool old_l2_active, VrfEntry *old_vrf, int old_vxlan_id,
                   const Ip4Address &old_addr, const Ip6Address &old_v6_addr);
     void UpdateVxLan();
 
@@ -536,13 +541,10 @@ private:
     void DeleteSecurityGroup();
     void UpdateL2TunnelId(bool force_update, bool policy_change);
     void DeleteL2TunnelId();
-    void UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
-                                VrfEntry *vrf,
-                                const Ip4Address &old_addr,
-                                const Ip6Address &old_v6_addr);
     void DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf,
                                 const Ip4Address &old_v4_addr,
-                                const Ip6Address &old_v6_addr);
+                                const Ip6Address &old_v6_addr,
+                                int old_vxlan_id) const;
 
     void DeleteL2Route(const std::string &vrf_name,
                        const MacAddress &mac);

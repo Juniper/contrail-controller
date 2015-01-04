@@ -152,7 +152,7 @@ protected:
 
     void DeleteRoute(const Peer *peer, const std::string &vrf_name,
                      MacAddress &remote_vm_mac, const IpAddress &ip_addr) {
-        Layer2AgentRouteTable::DeleteReq(peer, vrf_name_, remote_vm_mac,
+        EvpnAgentRouteTable::DeleteReq(peer, vrf_name_, remote_vm_mac,
                                         ip_addr, 0);
         client->WaitForIdle();
         while (L2RouteFind(vrf_name, remote_vm_mac, ip_addr) == true) {
@@ -518,12 +518,12 @@ TEST_F(RouteTest, Layer2_route_key) {
                                             local_vm_ip4_);
     WAIT_FOR(1000, 100, (vnet1_rt != NULL));
     Layer2RouteKey new_key(agent_->local_vm_peer(), "vrf2", local_vm_mac_,
-                           local_vm_ip4_, 0);
+                           0);
     vnet1_rt->SetKey(&new_key);
     EXPECT_TRUE(vnet1_rt->vrf()->GetName() == "vrf2");
     EXPECT_TRUE(MacAddress(new_key.ToString()) == local_vm_mac_);
     Layer2RouteKey restore_key(agent_->local_vm_peer(), "vrf1",
-                               local_vm_mac_, local_vm_ip4_,  0);
+                               local_vm_mac_, 0);
     vnet1_rt->SetKey(&restore_key);
     EXPECT_TRUE(vnet1_rt->vrf()->GetName() == "vrf1");
     EXPECT_TRUE(MacAddress(restore_key.ToString()) == local_vm_mac_);
@@ -629,9 +629,9 @@ TEST_F(RouteTest, Enqueue_l2_route_add_on_deleted_vrf) {
     client->WaitForIdle();
     TaskScheduler::GetInstance()->Stop();
     ComponentNHKeyList component_nh_key_list;
-    Layer2AgentRouteTable::AddRemoteVmRouteReq(agent_->local_vm_peer(),
-                                               vrf_name_, local_vm_mac_,
-                                               local_vm_ip4_, 0, NULL);
+    EvpnAgentRouteTable::AddRemoteVmRouteReq(agent_->local_vm_peer(),
+                                             vrf_name_, local_vm_mac_,
+                                             local_vm_ip4_, 0, NULL);
 
     vrf_ref = NULL;
     TaskScheduler::GetInstance()->Start();
@@ -651,7 +651,7 @@ TEST_F(RouteTest, Enqueue_l2_route_del_on_deleted_vrf) {
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
     TaskScheduler::GetInstance()->Stop();
-    Layer2AgentRouteTable::DeleteReq(agent_->local_vm_peer(), vrf_name_,
+    EvpnAgentRouteTable::DeleteReq(agent_->local_vm_peer(), vrf_name_,
                                      local_vm_mac_, local_vm_ip4_, 0);
     vrf_ref = NULL;
     TaskScheduler::GetInstance()->Start();

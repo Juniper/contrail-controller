@@ -144,9 +144,9 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
     strtok_r(NULL, "/", &saveptr);
     char *vrf_name =  strtok_r(NULL, "", &saveptr);
     const std::string vrf(vrf_name);
-    Layer2AgentRouteTable *rt_table =
-        static_cast<Layer2AgentRouteTable *>
-        (agent_->vrf_table()->GetLayer2RouteTable(vrf_name));
+    EvpnAgentRouteTable *rt_table =
+        static_cast<EvpnAgentRouteTable *>
+        (agent_->vrf_table()->GetEvpnRouteTable(vrf_name));
     if (rt_table == NULL) {
         CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
                          "Invalid VRF. Ignoring route retract" +
@@ -189,7 +189,7 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
 
                 // Get MAC address. Its delimited by ","
                 token = strtok_r(buff + offset, ",", &saveptr);
-                if ((strlen(saveptr) != 0) || (token == NULL)) {
+                if ((strlen(saveptr) == 0) || (token == NULL)) {
                     CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
                                      "Error parsing MAC from retract-id: " +id);
                     continue;
@@ -689,9 +689,9 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                                     std::string mac_str,
                                     EnetItemType *item) {
     // Validate VRF first
-    Layer2AgentRouteTable *rt_table =
-        static_cast<Layer2AgentRouteTable *>
-        (agent_->vrf_table()->GetLayer2RouteTable(vrf_name));
+    EvpnAgentRouteTable *rt_table =
+        static_cast<EvpnAgentRouteTable *>
+        (agent_->vrf_table()->GetEvpnRouteTable(vrf_name));
     if (rt_table == NULL) {
         CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
                          "Invalid VRF. Ignoring route");
@@ -758,9 +758,9 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
         return;
     }
 
-    Layer2RouteKey key(agent_->local_vm_peer(), vrf_name, mac,
+    EvpnRouteKey key(agent_->local_vm_peer(), vrf_name, mac,
                        ip_addr, item->entry.nlri.ethernet_tag);
-    Layer2RouteEntry *route = static_cast<Layer2RouteEntry *>
+    EvpnRouteEntry *route = static_cast<EvpnRouteEntry *>
         (rt_table->FindActiveEntry(&key));
     if (route == NULL) {
         CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
@@ -775,11 +775,11 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
         return;
     }
 
-    // We expect only INTERFACE nexthop for layer2 routes
+    // We expect only INTERFACE nexthop for evpn routes
     const InterfaceNH *intf_nh = dynamic_cast<const InterfaceNH *>(nh);
     if (nh->GetType() != NextHop::INTERFACE) {
         CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                         "Invalid nexthop in layer2 route");
+                         "Invalid nexthop in evpn route");
         return;
     }
 
@@ -1714,12 +1714,24 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
     item.entry.nlri.af = BgpAf::L2Vpn;
     item.entry.nlri.safi = BgpAf::Enet;
     stringstream rstr;
-    rstr << route->ToString();
+    rstr << route->GetAddressString();
     item.entry.nlri.mac = rstr.str();
-    Layer2RouteEntry *l2_route = static_cast<Layer2RouteEntry *>(route);
+
+    const AgentPath *active_path = NULL;
     rstr.str("");
-    rstr << l2_route->ip_addr().to_string() << "/"
-        << l2_route->GetVmIpPlen();
+    //TODO fix this when multicast moves to evpn
+    if (route->GetTableType() == Agent::EVPN) {
+        EvpnRouteEntry *evpn_route = static_cast<EvpnRouteEntry *>(route);
+        rstr << evpn_route->ip_addr().to_string() << "/"
+            << evpn_route->GetVmIpPlen();
+        active_path = evpn_route->FindLocalVmPortPath();
+    } else {
+        Layer2RouteEntry *l2_route = static_cast<Layer2RouteEntry *>(route);
+        assert(l2_route->is_multicast());
+        rstr << "0.0.0.0/0";
+        active_path = l2_route->FindPath(agent_->multicast_peer());
+    }
+
     item.entry.nlri.address = rstr.str();
     assert(item.entry.nlri.address != "0.0.0.0");
 
@@ -1730,12 +1742,6 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
 
     item.entry.nlri.ethernet_tag = 0;
     TunnelType::Type tunnel_type = TunnelType::ComputeType(tunnel_bmap);
-    const AgentPath *active_path = NULL;
-    if (l2_route->is_multicast()) {
-        active_path = l2_route->FindPath(agent_->multicast_peer());
-    } else {
-        active_path = l2_route->FindLocalVmPortPath();
-    }
 
     if (active_path) {
         tunnel_type = active_path->tunnel_type();
@@ -1784,7 +1790,7 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
 
     stringstream ss_node;
     ss_node << item.entry.nlri.af << "/" << item.entry.nlri.safi << "/"
-        << route->ToString() << "," << item.entry.nlri.address;
+        << route->GetAddressString() << "," << item.entry.nlri.address;
     std::string node_id(ss_node.str());
     pugi->AddAttribute("node", node_id);
     pugi->AddChildNode("item", "");
@@ -1982,7 +1988,7 @@ bool AgentXmppChannel::ControllerSendRouteAdd(AgentXmppChannel *peer,
                                                    path_preference, true, 
                                                    type);
     }
-    if (type == Agent::LAYER2) {
+    if (type == Agent::EVPN) {
         ret = peer->ControllerSendEvpnRouteCommon(route, nexthop_ip, vn,
                                                   label, bmap, true);
     }
@@ -2016,7 +2022,7 @@ bool AgentXmppChannel::ControllerSendRouteDelete(AgentXmppChannel *peer,
                                                        false,
                                                        type);
     }
-    if (type == Agent::LAYER2) {
+    if (type == Agent::EVPN) {
         Ip4Address nh_ip(0);
         ret = peer->ControllerSendEvpnRouteCommon(route, &nh_ip, vn,
                                                   label, bmap, false);

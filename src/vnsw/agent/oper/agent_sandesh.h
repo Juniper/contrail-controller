@@ -164,6 +164,21 @@ private:
     bool stale_;
 };
 
+class AgentEvpnRtSandesh : public AgentSandesh {
+public:
+    AgentEvpnRtSandesh(VrfEntry *vrf, std::string context, std::string name, 
+                       bool stale) 
+        : AgentSandesh(context, name), vrf_(vrf), stale_(stale) {}
+
+private:
+    DBTable *AgentGetTable();
+    void Alloc();
+    bool UpdateResp(DBEntryBase *entry);
+
+    VrfEntry *vrf_;
+    bool stale_;
+};
+
 class AgentInet6UcRtSandesh : public AgentSandesh {
 public:
     AgentInet6UcRtSandesh(VrfEntry *vrf, std::string context, bool stale) : 
