@@ -65,7 +65,8 @@ void OvsPeer::DeleteOvsRoute(VrfEntry *vrf, uint32_t vxlan_id,
 
 const Ip4Address *OvsPeer::NexthopIp(Agent *agent,
                                      const AgentPath *path) const {
-    const TunnelNH *nh = dynamic_cast<const TunnelNH *>(path->nexthop(agent));
+    const TunnelNH *nh = dynamic_cast<const TunnelNH *>(path->
+                                                        GetNextHop(agent));
     if (nh == NULL)
         return agent->router_ip_ptr();
     return nh->GetDip();

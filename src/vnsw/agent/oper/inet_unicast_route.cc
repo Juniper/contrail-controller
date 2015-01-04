@@ -46,8 +46,10 @@ InetUnicastAgentRouteTable::InetUnicastAgentRouteTable(DB *db,
         type_ = Agent::INET4_UNICAST;
     } else if (name.find("uc.route6.0") != std::string::npos) {
         type_ = Agent::INET6_UNICAST;
+    } else if (name.find("evpn.route.0") != std::string::npos) {
+        type_ = Agent::EVPN;
     } else if (name.find("l2.route.0") != std::string::npos) {
-        type_ = Agent::EVPN;;
+        type_ = Agent::BRIDGE;
     } else if (name.find("mc.route.0") != std::string::npos) {
         type_ = Agent::INET4_MULTICAST;
     } else {
@@ -387,14 +389,14 @@ AgentPath *InetUnicastRouteEntry::AllocateEcmpPath(Agent *agent,
     uint32_t label = agent->mpls_table()->AllocLabel();
 
     // Create Component NH to be added to ECMP path
-    DBEntryBase::KeyPtr key1 = path1->nexthop(agent)->GetDBRequestKey();
+    DBEntryBase::KeyPtr key1 = path1->GetNextHop(agent)->GetDBRequestKey();
     NextHopKey *nh_key1 = static_cast<NextHopKey *>(key1.release());
     std::auto_ptr<const NextHopKey> nh_akey1(nh_key1);
     nh_key1->SetPolicy(false);
     ComponentNHKeyPtr component_nh_data1(new ComponentNHKey(path1->label(),
                                                             nh_akey1));
 
-    DBEntryBase::KeyPtr key2 = path2->nexthop(agent)->GetDBRequestKey();
+    DBEntryBase::KeyPtr key2 = path2->GetNextHop(agent)->GetDBRequestKey();
     NextHopKey *nh_key2 = static_cast<NextHopKey *>(key2.release());
     std::auto_ptr<const NextHopKey> nh_akey2(nh_key2);
     nh_key2->SetPolicy(false);
@@ -610,7 +612,7 @@ void InetUnicastRouteEntry::AppendEcmpPath(Agent *agent, AgentPath *path) {
     AgentPath *ecmp_path = FindPath(agent->ecmp_peer());
     assert(ecmp_path);
 
-    DBEntryBase::KeyPtr key = path->nexthop(agent)->GetDBRequestKey();
+    DBEntryBase::KeyPtr key = path->GetNextHop(agent)->GetDBRequestKey();
     NextHopKey *nh_key = static_cast<NextHopKey *>(key.release());
     std::auto_ptr<const NextHopKey> nh_akey(nh_key);
     nh_key->SetPolicy(false);
@@ -618,7 +620,7 @@ void InetUnicastRouteEntry::AppendEcmpPath(Agent *agent, AgentPath *path) {
 
     ComponentNHKeyList component_nh_key_list;
     const CompositeNH *comp_nh =
-        static_cast<const CompositeNH *>(ecmp_path->nexthop(agent));
+        static_cast<const CompositeNH *>(ecmp_path->GetNextHop(agent));
     component_nh_key_list = comp_nh->AddComponentNHKey(comp_nh_key_ptr);
 
     // Form the request for Inet4UnicastEcmpRoute and invoke AddChangePath
@@ -648,7 +650,7 @@ void InetUnicastRouteEntry::DeleteComponentNH(Agent *agent, AgentPath *path) {
     AgentPath *ecmp_path = FindPath(agent->ecmp_peer());
 
     assert(ecmp_path);
-    DBEntryBase::KeyPtr key = path->nexthop(agent)->GetDBRequestKey();
+    DBEntryBase::KeyPtr key = path->GetNextHop(agent)->GetDBRequestKey();
     NextHopKey *nh_key = static_cast<NextHopKey *>(key.release());
     std::auto_ptr<const NextHopKey> nh_akey(nh_key);
     nh_key->SetPolicy(false);
@@ -656,7 +658,7 @@ void InetUnicastRouteEntry::DeleteComponentNH(Agent *agent, AgentPath *path) {
 
     ComponentNHKeyList component_nh_key_list;
     const CompositeNH *comp_nh =
-        static_cast<const CompositeNH *>(ecmp_path->nexthop(agent));
+        static_cast<const CompositeNH *>(ecmp_path->GetNextHop(agent));
     component_nh_key_list = comp_nh->DeleteComponentNHKey(comp_nh_key_ptr);
 
     // Form the request for Inet4UnicastEcmpRoute and invoke AddChangePath
@@ -688,7 +690,7 @@ const NextHop* InetUnicastRouteEntry::GetLocalNextHop() const {
         (static_cast<InetUnicastAgentRouteTable *> (get_table()))->agent();
 
     if (FindPath(agent->ecmp_peer())) {
-        return FindPath(agent->ecmp_peer())->nexthop(agent);
+        return FindPath(agent->ecmp_peer())->GetNextHop(agent);
     }
    
     //If a route is leaked, and it points to local composite nexthop
@@ -704,7 +706,7 @@ const NextHop* InetUnicastRouteEntry::GetLocalNextHop() const {
         if (path) {
             if (path->peer() && 
                 path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER) {
-                return path->nexthop(agent);
+                return path->GetNextHop(agent);
             }
         }
     }
