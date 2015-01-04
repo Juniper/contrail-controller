@@ -126,6 +126,19 @@ bool AgentInet4McRtSandesh::UpdateResp(DBEntryBase *entry) {
     return rt->DBEntrySandesh(resp_, stale_);
 }
 
+DBTable *AgentEvpnRtSandesh::AgentGetTable() {
+    return static_cast<DBTable *>(vrf_->GetEvpnRouteTable());
+}
+
+void AgentEvpnRtSandesh::Alloc() {
+    resp_ = new EvpnRouteResp();
+}
+
+bool AgentEvpnRtSandesh::UpdateResp(DBEntryBase *entry) {
+    AgentRoute *rt = static_cast<AgentRoute *>(entry);
+    return rt->DBEntrySandesh(resp_, stale_);
+}
+
 DBTable *AgentLayer2RtSandesh::AgentGetTable() {
     return static_cast<DBTable *>(vrf_->GetLayer2RouteTable());
 }

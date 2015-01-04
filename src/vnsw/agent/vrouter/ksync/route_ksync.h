@@ -55,6 +55,8 @@ private:
     bool UcIsLess(const KSyncEntry &rhs) const;
     bool McIsLess(const KSyncEntry &rhs) const;
     bool L2IsLess(const KSyncEntry &rhs) const;
+    const NextHop *GetActiveNextHop(const AgentRoute *route) const;
+    const AgentPath *GetActivePath(const AgentRoute *route) const;
     RouteKSyncObject* ksync_obj_;
     Agent::RouteTableType rt_type_;
     uint32_t vrf_id_;

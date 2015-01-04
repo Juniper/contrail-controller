@@ -300,6 +300,68 @@ bool AgentPath::IsLess(const AgentPath &r_path) const {
     return peer()->IsLess(r_path.peer());
 }
 
+EvpnPath::EvpnPath(EvpnPeer::EvpnPeerRef evpn_peer_ref,
+                   const IpAddress &ip_addr,
+                   AgentRoute *route) :
+    AgentPath(evpn_peer_ref.get(), route),
+    ip_addr_(ip_addr), evpn_peer_ref_(evpn_peer_ref) {
+    reference_path_ = NULL;
+}
+
+const EvpnPeer *EvpnPath::evpn_peer() const {
+    return evpn_peer_ref_.get();
+}
+
+void EvpnPath::set_evpn_peer(EvpnPeer *peer) {
+    evpn_peer_ref_.reset(peer);
+}
+
+EvpnPathData::EvpnPathData(EvpnPeer::EvpnPeerRef evpn_peer_ref,
+                           const AgentPath *reference_path,
+                           const IpAddress &ip_addr,
+                           bool path_parameters_changed,
+                           const std::string &parent) :
+    AgentRouteData(false), evpn_peer_ref_(evpn_peer_ref),
+    reference_path_(reference_path), ip_addr_(ip_addr),
+    path_parameters_changed_(path_parameters_changed),
+    parent_(parent) {
+}
+
+AgentPath *EvpnPathData::CreateAgentPath(const Peer *peer, AgentRoute *rt) const {
+    //EvpnRouteEntry *evpn_rt = static_cast<EvpnRouteEntry *>(rt);
+    //EvpnPeer *evpn_peer = new EvpnPeer();
+    //evpn_rt->set_evpn_peer(evpn_peer);
+
+    //Not using peer from arguments i.e. key as it is const, evpn_peer
+    //in data is non const
+    return (new EvpnPath(evpn_peer_ref_, ip_addr_, rt));
+}
+
+EvpnPeer *EvpnPathData::evpn_peer() const {
+    return evpn_peer_ref_.get();
+}
+
+bool EvpnPathData::AddChangePath(Agent *agent, AgentPath *path,
+                                 const AgentRoute *rt) {
+    bool ret = false;
+    EvpnPath *evpn_path = static_cast<EvpnPath *>(path);
+
+    if (evpn_path->reference_path() != reference_path_) {
+        evpn_path->set_reference_path(reference_path_);
+        ret = true;
+    } else if (path_parameters_changed_) {
+        ret = true;
+    }
+
+    if (evpn_path->ip_addr() != ip_addr_) {
+        evpn_path->set_ip_addr(ip_addr_);
+        ret = true;
+    }
+
+    evpn_path->set_parent(parent_);
+    return ret;
+}
+
 bool HostRoute::AddChangePath(Agent *agent, AgentPath *path,
                               const AgentRoute *rt) {
     bool ret = false;
@@ -792,6 +854,7 @@ void AgentRoute::FillTrace(RouteInfo &rt_info, Trace event,
             break;
         }
 
+        //if ((path->PathType() != AgentPath::EVPN) && path->peer()) {
         if (path->peer()) {
             rt_info.set_peer(path->peer()->GetName());
         }

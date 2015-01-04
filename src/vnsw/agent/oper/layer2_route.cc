@@ -46,14 +46,14 @@ string Layer2RouteKey::ToString() const {
 }
 
 Layer2RouteKey *Layer2RouteKey::Clone() const {
-    return new Layer2RouteKey(peer_, vrf_name_, dmac_, ip_addr_,
+    return new Layer2RouteKey(peer_, vrf_name_, dmac_,
                               ethernet_tag_);
 }
 
 AgentRoute *
 Layer2RouteKey::AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const
 {
-    Layer2RouteEntry *entry = new Layer2RouteEntry(vrf, dmac_, ip_addr_,
+    Layer2RouteEntry *entry = new Layer2RouteEntry(vrf, dmac_,
                                                    peer()->GetType(),
                                                    is_multicast);
     return static_cast<AgentRoute *>(entry);
@@ -71,13 +71,12 @@ DBTableBase *Layer2AgentRouteTable::CreateTable(DB *db,
 
 Layer2RouteEntry *Layer2AgentRouteTable::FindRoute(const Agent *agent,
                                                    const string &vrf_name,
-                                                   const MacAddress &mac,
-                                                   const IpAddress &ip_addr) {
+                                                   const MacAddress &mac) {
     VrfEntry *vrf = agent->vrf_table()->FindVrfFromName(vrf_name);
     if (vrf == NULL)
         return NULL;
 
-    Layer2RouteKey key(agent->local_vm_peer(), vrf_name, mac, ip_addr, 0);
+    Layer2RouteKey key(agent->local_vm_peer(), vrf_name, mac, 0);
     Layer2AgentRouteTable *table = static_cast<Layer2AgentRouteTable *>
         (vrf->GetLayer2RouteTable());
     Layer2RouteEntry *route =
@@ -88,99 +87,15 @@ Layer2RouteEntry *Layer2AgentRouteTable::FindRoute(const Agent *agent,
 /////////////////////////////////////////////////////////////////////////////
 // Layer2AgentRouteTable utility methods to add/delete routes
 /////////////////////////////////////////////////////////////////////////////
-void Layer2AgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
-                                               const string &vrf_name,
-                                               const MacAddress &mac,
-                                               const IpAddress &ip_addr,
-                                               uint32_t ethernet_tag,
-                                               LocalVmRoute *data) {
-    assert(peer);
-    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-
-    req.key.reset(new Layer2RouteKey(peer, vrf_name, mac, ip_addr,
-                                     ethernet_tag));
-    data->set_tunnel_bmap(TunnelType::AllType());
-    req.data.reset(data);
-    Layer2TableEnqueue(Agent::GetInstance(), &req);
-}
-
-static LocalVmRoute *MakeData(const VmInterface *intf) {
-    SecurityGroupList sg_list;
-    PathPreference path_preference;
-    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf->GetUuid(), "");
-    LocalVmRoute *data = new LocalVmRoute(intf_key, intf->l2_label(),
-                                          intf->vxlan_id(), false,
-                                          intf->vn()->GetName(),
-                                          InterfaceNHFlags::LAYER2,
-                                          sg_list, path_preference,
-                                          IpAddress());
-    data->set_tunnel_bmap(TunnelType::AllType());
-    return data;
-}
-
-void Layer2AgentRouteTable::AddLocalVmRoute(const Peer *peer,
-                                            const VmInterface *intf) {
-    Agent *agent = static_cast<AgentDBTable *>(intf->get_table())->agent();
-    assert(peer);
-    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-
-    // Add route for IPv4 address
-    if (intf->ip_addr().is_unspecified() == false) {
-        req.key.reset(new Layer2RouteKey(peer, intf->vrf()->GetName(),
-                                         MacAddress::FromString(intf->vm_mac()),
-                                         IpAddress(intf->ip_addr()), 0));
-        req.data.reset(MakeData(intf));
-        Layer2TableProcess(agent, intf->vrf()->GetName(), req);
-    }
-
-    // Add route for IPv6 address
-    if (intf->ip6_addr().is_unspecified() == false) {
-        req.key.reset(new Layer2RouteKey(peer, intf->vrf()->GetName(),
-                                         MacAddress::FromString(intf->vm_mac()),
-                                         IpAddress(intf->ip6_addr()), 0));
-        req.data.reset(MakeData(intf));
-        Layer2TableProcess(agent, intf->vrf()->GetName(), req);
-    }
-}
-
-void Layer2AgentRouteTable::DelLocalVmRoute(const Peer *peer,
-                                            const string &vrf_name,
-                                            const VmInterface *intf,
-                                            const Ip4Address &old_v4_addr,
-                                            const Ip6Address &old_v6_addr) {
-    Agent *agent = static_cast<AgentDBTable *>(intf->get_table())->agent();
-    assert(peer);
-    DBRequest req(DBRequest::DB_ENTRY_DELETE);
-
-    // Delete route for IPv4 address
-    if (old_v4_addr.is_unspecified() == false) {
-        req.key.reset(new Layer2RouteKey(peer, vrf_name,
-                                         MacAddress::FromString(intf->vm_mac()),
-                                         IpAddress(old_v4_addr), 0));
-        req.data.reset(NULL);
-        Layer2TableProcess(agent, vrf_name, req);
-    }
-
-    // Delete route for IPv6 address
-    if (old_v6_addr.is_unspecified() == false) {
-        req.key.reset(new Layer2RouteKey(peer, vrf_name,
-                                         MacAddress::FromString(intf->vm_mac()),
-                                         IpAddress(old_v6_addr), 0));
-        req.data.reset(NULL);
-        Layer2TableProcess(agent, vrf_name, req);
-    }
-}
-
 void Layer2AgentRouteTable::AddLayer2ReceiveRoute(const Peer *peer,
                                                   const string &vrf_name,
                                                   const MacAddress &mac,
-                                                  const IpAddress &ip_addr,
                                                   const string &vn_name,
                                                   const string &interface,
                                                   bool policy) {
     Agent *agent = Agent::GetInstance();
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new Layer2RouteKey(peer, vrf_name, mac, ip_addr, 0));
+    req.key.reset(new Layer2RouteKey(peer, vrf_name, mac, 0));
 
     PacketInterfaceKey intf_key(nil_uuid(), agent->pkt_interface_name());
     req.data.reset(new HostRoute(intf_key, vn_name));
@@ -188,26 +103,34 @@ void Layer2AgentRouteTable::AddLayer2ReceiveRoute(const Peer *peer,
     Layer2TableEnqueue(agent, &req);
 }
 
-void Layer2AgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
-                                                const string &vrf_name,
-                                                const MacAddress &mac,
-                                                const IpAddress &ip_addr,
-                                                uint32_t ethernet_tag,
-                                                AgentRouteData *data) {
+void Layer2AgentRouteTable::AddEvpnRoute(AgentRoute *rt) {
+    EvpnRouteEntry *evpn_rt =
+        static_cast<EvpnRouteEntry *>(rt);
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new Layer2RouteKey(peer, vrf_name, mac, ip_addr,
-                                     ethernet_tag));
-    req.data.reset(data);
+    req.key.reset(new Layer2RouteKey(evpn_rt->evpn_peer(),
+                                     evpn_rt->vrf()->GetName(),
+                                     evpn_rt->mac(), 0));
+    req.data.reset(new EvpnPathData(evpn_rt->evpn_peer_ref(),
+                                    evpn_rt->GetActivePath(),
+                                    evpn_rt->ip_addr(), true,
+                                    evpn_rt->ToString()));
+    Layer2TableProcess(agent(), vrf_name(), req);
+}
 
-    Layer2TableEnqueue(Agent::GetInstance(), &req);
+void Layer2AgentRouteTable::DeleteEvpnRoute(AgentRoute *rt) {
+    EvpnRouteEntry *evpn_rt =
+        static_cast<EvpnRouteEntry *>(rt);
+    Layer2AgentRouteTable::Delete(evpn_rt->evpn_peer(),
+                                  evpn_rt->vrf()->GetName(),
+                                  evpn_rt->mac(),
+                                  0);
 }
 
 void Layer2AgentRouteTable::DeleteReq(const Peer *peer, const string &vrf_name,
                                       const MacAddress &mac,
-                                      const IpAddress &ip_addr,
                                       uint32_t ethernet_tag) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
-    req.key.reset(new Layer2RouteKey(peer, vrf_name, mac, ip_addr,
+    req.key.reset(new Layer2RouteKey(peer, vrf_name, mac,
                                      ethernet_tag));
     req.data.reset(NULL);
     Layer2TableEnqueue(Agent::GetInstance(), &req);
@@ -215,10 +138,9 @@ void Layer2AgentRouteTable::DeleteReq(const Peer *peer, const string &vrf_name,
 
 void Layer2AgentRouteTable::Delete(const Peer *peer, const string &vrf_name,
                                    const MacAddress &mac,
-                                   const IpAddress &ip_addr,
                                    uint32_t ethernet_tag) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
-    req.key.reset(new Layer2RouteKey(peer, vrf_name, mac, ip_addr,
+    req.key.reset(new Layer2RouteKey(peer, vrf_name, mac,
                                      ethernet_tag));
     req.data.reset(NULL);
     Layer2TableProcess(Agent::GetInstance(), vrf_name, req);
@@ -241,7 +163,7 @@ void Layer2AgentRouteTable::AddLayer2BroadcastRoute(const Peer *peer,
 
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new Layer2RouteKey(peer, vrf_name, MacAddress::BroadcastMac(),
-                                     IpAddress(), ethernet_tag));
+                                     ethernet_tag));
     req.data.reset(new MulticastRoute(vn_name, label,
                                       ((peer->GetType() == Peer::BGP_PEER) ?
                                       ethernet_tag : vxlan_id), tunnel_type,
@@ -254,7 +176,7 @@ void Layer2AgentRouteTable::DeleteBroadcastReq(const Peer *peer,
                                                uint32_t ethernet_tag) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new Layer2RouteKey(peer, vrf_name, MacAddress::BroadcastMac(),
-                                     IpAddress(), ethernet_tag));
+                                     ethernet_tag));
     req.data.reset(NULL);
     Layer2TableEnqueue(Agent::GetInstance(), &req);
 }
@@ -273,19 +195,13 @@ int Layer2RouteEntry::CompareTo(const Route &rhs) const {
     if (cmp != 0)
         return cmp;
 
-    if (ip_addr_ < a.ip_addr_)
-        return -1;
-
-    if (ip_addr_ > a.ip_addr_)
-        return 1;
-
     return 0;
 }
 
 DBEntryBase::KeyPtr Layer2RouteEntry::GetDBRequestKey() const {
     Layer2RouteKey *key =
         new Layer2RouteKey(Agent::GetInstance()->local_vm_peer(),
-                           vrf()->GetName(), mac_, ip_addr_, 0);
+                           vrf()->GetName(), mac_, 0);
     return DBEntryBase::KeyPtr(key);
 }
 
@@ -293,15 +209,6 @@ void Layer2RouteEntry::SetKey(const DBRequestKey *key) {
     const Layer2RouteKey *k = static_cast<const Layer2RouteKey *>(key);
     SetVrf(Agent::GetInstance()->vrf_table()->FindVrfFromName(k->vrf_name()));
     mac_ = k->GetMac();
-    ip_addr_ = k->ip_addr();
-}
-
-const uint32_t Layer2RouteEntry::GetVmIpPlen() const {
-    if (ip_addr_.is_v4())
-        return 32;
-    if (ip_addr_.is_v6())
-        return 128;
-    assert(0);
 }
 
 uint32_t Layer2RouteEntry::GetActiveLabel() const {
@@ -324,7 +231,8 @@ AgentPath *Layer2RouteEntry::FindPathUsingKey(const AgentRouteKey *key) {
     const Peer *peer = key->peer();
     const Layer2RouteKey *l2_rt_key =
         static_cast<const Layer2RouteKey *>(key);
-    if (peer->GetType() != Peer::BGP_PEER)
+    if ((peer->GetType() != Peer::BGP_PEER) ||
+        (is_multicast() == false))
         return FindPath(peer);
 
     Route::PathList::iterator it;
@@ -621,11 +529,15 @@ bool Layer2RouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
     Layer2RouteResp *resp = static_cast<Layer2RouteResp *>(sresp);
     RouteL2SandeshData data;
     data.set_mac(ToString());
-    data.set_ip_addr(ip_addr_.to_string());
 
     for (Route::PathList::const_iterator it = GetPathList().begin();
          it != GetPathList().end(); it++) {
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
+        const EvpnPath *evpn_path = NULL;
+        if (path->PathType() == AgentPath::EVPN) {
+            evpn_path = static_cast<const EvpnPath *>(path);
+            path = evpn_path->reference_path();
+        }
         if (path) {
             if (stale && !path->is_stale())
                 continue;
@@ -633,6 +545,10 @@ bool Layer2RouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
             path->SetSandeshData(pdata);
             if (is_multicast()) {
                 pdata.set_vxlan_id(path->vxlan_id());
+            }
+            if (evpn_path) {
+                pdata.set_info(evpn_path->parent());
+                pdata.set_ip_address(evpn_path->ip_addr().to_string());
             }
             data.path_list.push_back(pdata);
         }
