@@ -76,7 +76,6 @@ AgentXmppChannel::AgentXmppChannel(Agent *agent,
                                    uint8_t xs_idx)
     : channel_(NULL), xmpp_server_(xmpp_server), label_range_(label_range),
       xs_idx_(xs_idx), agent_(agent), unicast_sequence_number_(0) {
-    evpn_bgp_peer_id_.reset();
     bgp_peer_id_.reset();
 }
 
@@ -103,7 +102,6 @@ std::string AgentXmppChannel::GetBgpPeerName() const {
 
 void AgentXmppChannel::CreateBgpPeer() {
     assert(bgp_peer_id_.get() == NULL);
-    assert(evpn_bgp_peer_id_.get() == NULL);
     DBTableBase::ListenerId id =
         agent_->vrf_table()->Register(boost::bind(&VrfExport::Notify,
                                        this, _1, _2));
@@ -112,8 +110,6 @@ void AgentXmppChannel::CreateBgpPeer() {
     Ip4Address ip = Ip4Address::from_string(addr.c_str(), ec);
     assert(ec.value() == 0);
     bgp_peer_id_.reset(new BgpPeer(ip, addr, this, id, Peer::BGP_PEER));
-    evpn_bgp_peer_id_.reset(new BgpPeer(ip, addr, this, id,
-                                        Peer::EVPN_BGP_PEER));
 }
 
 void AgentXmppChannel::DeCommissionBgpPeer() {
@@ -125,10 +121,8 @@ void AgentXmppChannel::DeCommissionBgpPeer() {
 
     // Add the peer to global decommisioned list
     agent_->controller()->AddToDecommissionedPeerList(bgp_peer_id_);
-    agent_->controller()->AddToDecommissionedPeerList(evpn_bgp_peer_id_);
     //Reset channel BGP peer id
     bgp_peer_id_.reset();
-    evpn_bgp_peer_id_.reset();
 }
 
 
@@ -229,7 +223,7 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
                                           ethernet_tag,
                              ControllerPeerPath::kInvalidPeerIdentifier);
                 } else {
-                    rt_table->DeleteReq(evpn_bgp_peer_id(), vrf_name, mac,
+                    rt_table->DeleteReq(bgp_peer_id(), vrf_name, mac,
                                         ip_addr, ethernet_tag);
                 }
             }
@@ -737,7 +731,7 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
         CONTROLLER_TRACE(Trace, GetBgpPeerName(), nexthop_addr,
                          "add remote evpn route");
         ControllerVmRoute *data =
-            ControllerVmRoute::MakeControllerVmRoute(evpn_bgp_peer_id(),
+            ControllerVmRoute::MakeControllerVmRoute(bgp_peer_id(),
                                                      agent_->fabric_vrf_name(),
                                                      agent_->router_id(),
                                                      vrf_name, nh_ip.to_v4(),
@@ -745,7 +739,7 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                                                      item->entry.virtual_network,
                                                      item->entry.security_group_list.security_group,
                                                      PathPreference());
-        rt_table->AddRemoteVmRouteReq(evpn_bgp_peer_id(), vrf_name, mac, ip_addr,
+        rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name, mac, ip_addr,
                                       item->entry.nlri.ethernet_tag, data);
         return;
     }
@@ -813,7 +807,7 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                                        unicast_sequence_number(),
                                        this);
     }
-    rt_table->AddLocalVmRouteReq(evpn_bgp_peer_id(), vrf_name, mac,
+    rt_table->AddLocalVmRouteReq(bgp_peer_id(), vrf_name, mac,
                                  ip_addr, item->entry.nlri.ethernet_tag,
                                  static_cast<LocalVmRoute *>(local_vm_route));
 }
@@ -1180,7 +1174,6 @@ void AgentXmppChannel::MulticastPeerDown(AgentXmppChannel *old_mcast_builder,
  */
 bool AgentXmppChannel::IsBgpPeerActive(AgentXmppChannel *peer) {
     if (peer && peer->GetXmppChannel() && peer->bgp_peer_id() &&
-        peer->evpn_bgp_peer_id() &&
         (peer->GetXmppChannel()->GetPeerState() == xmps::READY)) {
         return true;
     }
@@ -1344,7 +1337,6 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
         //when message is dropped at ControllerSendMulticastRoute by checking
         //peer against mcast builder. This can be refined though.
         peer->bgp_peer_id()->PeerNotifyRoutes();
-        peer->evpn_bgp_peer_id()->PeerNotifyRoutes();
 
         //Cleanup stales if any
         // If its headless agent mode clean stale for config and unicast
@@ -1363,7 +1355,6 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
             return;
 
         BgpPeer *decommissioned_peer_id = peer->bgp_peer_id();
-        BgpPeer *decommissioned_evpn_peer_id = peer->evpn_bgp_peer_id();
         // Add BgpPeer to global decommissioned list
         peer->DeCommissionBgpPeer();
 
@@ -1373,7 +1364,6 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
         // Remove all unicast peer paths(in non headless mode) and cancel stale
         // timer in headless
         AgentXmppChannel::UnicastPeerDown(peer, decommissioned_peer_id);
-        AgentXmppChannel::UnicastPeerDown(peer, decommissioned_evpn_peer_id);
 
         // evaluate peer change for config and multicast
         AgentXmppChannel *agent_mcast_builder =
@@ -1724,12 +1714,29 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
     item.entry.nlri.af = BgpAf::L2Vpn;
     item.entry.nlri.safi = BgpAf::Enet;
     stringstream rstr;
-    rstr << route->ToString();
+    rstr << route->GetAddressString();
     item.entry.nlri.mac = rstr.str();
-    EvpnRouteEntry *l2_route = static_cast<EvpnRouteEntry *>(route);
+
+    const AgentPath *active_path = NULL;
     rstr.str("");
-    rstr << l2_route->ip_addr().to_string() << "/"
-        << l2_route->GetVmIpPlen();
+    //TODO fix this when multicast moves to evpn
+    if (route->GetTableType() == Agent::EVPN) {
+        EvpnRouteEntry *evpn_route = static_cast<EvpnRouteEntry *>(route);
+        rstr << evpn_route->ip_addr().to_string() << "/"
+            << evpn_route->GetVmIpPlen();
+        active_path = evpn_route->FindLocalVmPortPath();
+        item.entry.nlri.ethernet_tag = evpn_route->ethernet_tag();
+    } else if (route->is_multicast()) {
+        BridgeRouteEntry *l2_route = static_cast<BridgeRouteEntry *>(route);
+        assert(l2_route->is_multicast());
+        rstr << "0.0.0.0/0";
+        active_path = l2_route->FindPath(agent_->multicast_peer());
+        item.entry.nlri.ethernet_tag = 0;
+        if (associate == false)
+            item.entry.nlri.ethernet_tag = label;
+
+    }
+
     item.entry.nlri.address = rstr.str();
     assert(item.entry.nlri.address != "0.0.0.0");
 
@@ -1738,14 +1745,7 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
     nh.address = nh_ip->to_string();
     nh.label = label;
 
-    item.entry.nlri.ethernet_tag = 0;
     TunnelType::Type tunnel_type = TunnelType::ComputeType(tunnel_bmap);
-    const AgentPath *active_path = NULL;
-    if (l2_route->is_multicast()) {
-        active_path = l2_route->FindPath(agent_->multicast_peer());
-    } else {
-        active_path = l2_route->FindLocalVmPortPath();
-    }
 
     if (active_path) {
         tunnel_type = active_path->tunnel_type();
@@ -1761,7 +1761,8 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
         } else {
             if (active_path) {
                 nh.label = active_path->vxlan_id();
-                item.entry.nlri.ethernet_tag = nh.label;
+                if (route->is_multicast())
+                    item.entry.nlri.ethernet_tag = nh.label;
             } else {
                 nh.label = 0;
             }
@@ -1771,9 +1772,6 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
         if (sg_list && sg_list->size()) {
             item.entry.security_group_list.security_group = *sg_list;
         }
-
-    } else {
-        item.entry.nlri.ethernet_tag = label;
     }
 
     item.entry.next_hops.next_hop.push_back(nh);
@@ -1799,7 +1797,7 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
 
     stringstream ss_node;
     ss_node << item.entry.nlri.af << "/" << item.entry.nlri.safi << "/"
-        << route->ToString() << "," << item.entry.nlri.address;
+        << route->GetAddressString() << "," << item.entry.nlri.address;
     std::string node_id(ss_node.str());
     pugi->AddAttribute("node", node_id);
     pugi->AddChildNode("item", "");

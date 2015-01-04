@@ -1943,7 +1943,7 @@ TEST_F(CfgTest, Nexthop_keys) {
 
     InetUnicastRouteEntry *rt = RouteGet("vrf10", ip, 32);
     WAIT_FOR(1000, 1000, (rt->GetActivePath() != NULL));
-    const NextHop *nh = rt->GetActivePath()->nexthop(agent_);
+    const NextHop *nh = rt->GetActivePath()->ComputeNextHop(agent_);
     EXPECT_TRUE(nh != NULL);
     WAIT_FOR(100, 1000, (rt->GetActiveNextHop()->GetType() ==
                          NextHop::INTERFACE));
@@ -1990,13 +1990,13 @@ TEST_F(CfgTest, Nexthop_keys) {
 
     Ip4Address vm_ip = Ip4Address::from_string("1.1.1.10");
     MacAddress remote_vm_mac("00:00:01:01:01:11");
-    EvpnTunnelRouteAdd(agent_->local_peer(), "vrf10", TunnelType::MplsType(),
+    BridgeTunnelRouteAdd(agent_->local_peer(), "vrf10", TunnelType::MplsType(),
                          Ip4Address::from_string("10.1.1.100"),
                          1000, remote_vm_mac, vm_ip, 32);
     client->WaitForIdle();
-    EvpnRouteEntry *l2_rt = L2RouteGet("vrf10", remote_vm_mac);
+    BridgeRouteEntry *l2_rt = L2RouteGet("vrf10", remote_vm_mac);
     EXPECT_TRUE(l2_rt != NULL);
-    const NextHop *l2_rt_nh = l2_rt->GetActivePath()->nexthop(agent_);
+    const NextHop *l2_rt_nh = l2_rt->GetActivePath()->ComputeNextHop(agent_);
 
     DBEntryBase::KeyPtr tnh_key_base(l2_rt_nh->GetDBRequestKey());
     TunnelNHKey *tnh_key = static_cast<TunnelNHKey *>(tnh_key_base.get());
@@ -2067,7 +2067,7 @@ TEST_F(CfgTest, Nexthop_keys) {
     EXPECT_TRUE(vlan_rt != NULL);
     VlanNH *vlan_nh = static_cast<VlanNH *>(agent_->
                    nexthop_table()->FindActiveEntry(vlan_rt->
-                   GetActivePath()->nexthop(agent_)->GetDBRequestKey().get()));
+                   GetActivePath()->ComputeNextHop(agent_)->GetDBRequestKey().get()));
     EXPECT_TRUE(vlan_nh == VlanNH::Find(MakeUuid(10), 100));
     vlan_nh->SetKey(vlan_nh->GetDBRequestKey().get());
 

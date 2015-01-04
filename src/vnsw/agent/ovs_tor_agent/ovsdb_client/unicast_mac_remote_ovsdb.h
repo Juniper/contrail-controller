@@ -10,7 +10,7 @@
 #include <ovsdb_object.h>
 #include <ovsdb_client_idl.h>
 
-class EvpnRouteEntry;
+class BridgeRouteEntry;
 
 namespace OVSDB {
 class VrfOvsdbObject;
@@ -48,7 +48,7 @@ public:
     };
     UnicastMacRemoteEntry(OvsdbDBObject *table, const std::string mac,
             const std::string logical_switch);
-    UnicastMacRemoteEntry(OvsdbDBObject *table, const EvpnRouteEntry *entry);
+    UnicastMacRemoteEntry(OvsdbDBObject *table, const BridgeRouteEntry *entry);
     UnicastMacRemoteEntry(OvsdbDBObject *table, const UnicastMacRemoteEntry *key);
     UnicastMacRemoteEntry(OvsdbDBObject *table,
             struct ovsdb_idl_row *entry);
