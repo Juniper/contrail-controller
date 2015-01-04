@@ -1866,48 +1866,9 @@ void FlowTable::DeleteFlow(const FlowEntry *flow) {
      * provide introspect to reset this */
 }
 
-Inet4RouteUpdate::Inet4RouteUpdate(InetUnicastAgentRouteTable *rt_table):
-    rt_table_(rt_table), marked_delete_(false), 
-    table_delete_ref_(this, rt_table->deleter()) {
-}
-
-Inet4RouteUpdate::~Inet4RouteUpdate() {
-    if (rt_table_) {
-        rt_table_->Unregister(id_);
-    }
-    table_delete_ref_.Reset(NULL);
-}
-
-void Inet4RouteUpdate::ManagedDelete() {
-    marked_delete_ = true;
-}
-
-bool Inet4RouteUpdate::DeleteState(DBTablePartBase *partition,
-                                   DBEntryBase *entry) {
-    State *state = static_cast<State *>
-                          (entry->GetState(partition->parent(), id_));
-    if (state) {
-        entry->ClearState(partition->parent(), id_);
-        delete state;
-    }
-    return true;
-}
-
-void Inet4RouteUpdate::WalkDone(DBTableBase *partition,
-                                Inet4RouteUpdate *rt_update) {
-    delete rt_update;
-}
-
-void Inet4RouteUpdate::Unregister() {
-    DBTableWalker *walker = Agent::GetInstance()->db()->GetWalker();
-    walker->WalkTable(rt_table_, NULL,
-                      boost::bind(&Inet4RouteUpdate::DeleteState, this, _1, _2),
-                      boost::bind(&Inet4RouteUpdate::WalkDone, _1, this));
-}
-
 void NhListener::Notify(DBTablePartBase *part, DBEntryBase *e) {
     NextHop *nh = static_cast<NextHop *>(e);
-    NhState *state = 
+    NhState *state =
         static_cast<NhState *>(e->GetState(part->parent(), id_));
 
     if (nh->IsDeleted()) {
@@ -1922,61 +1883,82 @@ void NhListener::Notify(DBTablePartBase *part, DBEntryBase *e) {
         state = new NhState(nh);
     }
     nh->SetState(part->parent(), id_, state);
-    return; 
+    return;
 }
 
-void Inet4RouteUpdate::UnicastNotify(DBTablePartBase *partition, DBEntryBase *e)
-{
-    InetUnicastRouteEntry *route = static_cast<InetUnicastRouteEntry *>(e);
-    State *state = static_cast<State *>(e->GetState(partition->parent(), id_));
-    Agent *agent =
-      (static_cast<InetUnicastAgentRouteTable *>(route->get_table()))->agent();
+RouteFlowInfo *FlowTable::FindInetRouteFlowInfo(RouteFlowInfo *key) {
+    return route_flow_tree_.LPMFind(key);
+}
 
+////////////////////////////////////////////////////////////////////////////
+// RouteFlowUpdate class responsible to keep flow in-sync with route
+// add/delete/change
+////////////////////////////////////////////////////////////////////////////
+RouteFlowUpdate::RouteFlowUpdate(AgentRouteTable *table):
+    rt_table_(table), rt_table_deleted_(false),
+    table_delete_ref_(this, rt_table_->deleter()) {
+}
+
+RouteFlowUpdate::~RouteFlowUpdate() {
+    if (rt_table_) {
+        rt_table_->Unregister(id_);
+    }
+    table_delete_ref_.Reset(NULL);
+}
+
+void RouteFlowUpdate::ManagedDelete() {
+    rt_table_deleted_ = true;
+}
+
+bool RouteFlowUpdate::DeleteState(DBTablePartBase *partition,
+                                  DBEntryBase *entry, RouteFlowUpdate *info) {
+    State *state = static_cast<State *>
+        (entry->GetState(partition->parent(), info->id_));
+    if (state) {
+        entry->ClearState(partition->parent(), info->id_);
+        delete state;
+    }
+    return true;
+}
+
+void RouteFlowUpdate::WalkDone(DBTableBase *partition, RouteFlowUpdate *info) {
+    delete info;
+}
+
+void RouteFlowUpdate::Notify(DBTablePartBase *partition, DBEntryBase *e) {
+    InetUnicastRouteEntry *route = static_cast<InetUnicastRouteEntry *>(e);
     if (route->is_multicast()) {
         return;
     }
-    
-    SecurityGroupList new_sg_l;
-    if (route->GetActivePath()) {
-        new_sg_l = route->GetActivePath()->sg_list();
-    }
-    FLOW_TRACE(RouteUpdate, 
-               route->vrf()->GetName(), 
-               route->addr().to_string(), 
-               route->plen(), 
-               (route->GetActivePath()) ? route->dest_vn_name() : "",
-               route->IsDeleted(),
-               marked_delete_,
-               new_sg_l.size(),
-               new_sg_l);
 
-    // Handle delete cases
-    if (marked_delete_ || route->IsDeleted()) {
-        RouteFlowKey rkey(route->vrf()->vrf_id(), route->addr(), route->plen());
-        Agent::GetInstance()->pkt()->flow_table()->DeleteRouteFlows(rkey);
-        if (state) {
-            route->ClearState(partition->parent(), id_);
-            delete state;
-        }
+    const AgentPath *path = route->GetActivePath();
+    // Get new sg-list. Sort, the sg-list to aid in comparison
+    SecurityGroupList new_sg_l;
+    if (path) {
+        new_sg_l = route->GetActivePath()->sg_list();
+        sort(new_sg_l.begin(), new_sg_l.end());
+    }
+
+    TraceMsg(route, path, new_sg_l);
+
+    if (rt_table_deleted_ || route->IsDeleted()) {
+        // Route deleted
+        RouteDel(route);
+        DeleteState(partition, e, this);
         return;
     }
 
+    State *state = static_cast<State *>(e->GetState(partition->parent(), id_));
     if (state == NULL) {
         state  = new State();
         route->SetState(partition->parent(), id_, state);
-        // Find the RouteFlowInfo for the covering route and trigger flow
-        // re-compute to use more specific route. use (prefix_len -1) in LPM
-        // to get covering route.
-        RouteFlowInfo rt_key(route->vrf()->vrf_id(), route->addr(),
-                             route->plen() - 1);
-        agent->pkt()->flow_table()->FlowReCompute(rt_key);
+        RouteAdd(route);
     }
 
-    RouteFlowKey skey(route->vrf()->vrf_id(), route->addr(), route->plen());
-    sort (new_sg_l.begin(), new_sg_l.end());
+    // Handle SG change
     if (state->sg_l_ != new_sg_l) {
+        SgChange(route, new_sg_l);
         state->sg_l_ = new_sg_l;
-        Agent::GetInstance()->pkt()->flow_table()->ResyncRouteFlows(skey, new_sg_l);
     }
 
     //Trigger RPF NH sync, if active nexthop changes
@@ -1989,21 +1971,139 @@ void Inet4RouteUpdate::UnicastNotify(DBTablePartBase *partition, DBEntryBase *e)
     }
 
     if ((state->active_nh_ != active_nh) || (state->local_nh_ != local_nh)) {
-        Agent::GetInstance()->pkt()->flow_table()->ResyncRpfNH(skey, route);
+        NhChange(route, active_nh, local_nh);
         state->active_nh_ = active_nh;
         state->local_nh_ = local_nh;
     }
 }
 
-Inet4RouteUpdate *Inet4RouteUpdate::UnicastInit(
-                              InetUnicastAgentRouteTable *table)
-{
-    Inet4RouteUpdate *rt_update = new Inet4RouteUpdate(table);
-    rt_update->id_ = table->Register(
-        boost::bind(&Inet4RouteUpdate::UnicastNotify, rt_update, _1, _2));
-    return rt_update;
+////////////////////////////////////////////////////////////////////////////
+// InetRouteFlowUpdate class responsible to keep flow in-sync with Inet route
+// add/delete/change
+////////////////////////////////////////////////////////////////////////////
+void InetRouteFlowUpdate::TraceMsg(AgentRoute *entry, const AgentPath *path,
+                                   SecurityGroupList &sg_list) {
+    InetUnicastRouteEntry *route = static_cast<InetUnicastRouteEntry *>(entry);
+    FLOW_TRACE(RouteUpdate,
+               route->vrf()->GetName(),
+               route->addr().to_string(),
+               route->plen(),
+               path ? path->dest_vn_name() : "",
+               route->IsDeleted(),
+               rt_table_deleted_,
+               sg_list.size(),
+               sg_list);
 }
 
+void InetRouteFlowUpdate::RouteAdd(AgentRoute *entry) {
+    Agent *agent = static_cast<AgentRouteTable *>(entry->get_table())->agent();
+    InetUnicastRouteEntry *route = static_cast<InetUnicastRouteEntry *>(entry);
+    // Find the RouteFlowInfo for the covering route and trigger flow
+    // re-compute to use more specific route. use (prefix_len -1) in LPM
+    // to get covering route.
+    RouteFlowInfo rt_key(route->vrf()->vrf_id(), route->addr(),
+                         route->plen() - 1);
+    RouteFlowInfo *rt_info =
+        agent->pkt()->flow_table()->FindInetRouteFlowInfo(&rt_key);
+    agent->pkt()->flow_table()->FlowReComputeInternal(rt_info);
+}
+
+void InetRouteFlowUpdate::RouteDel(AgentRoute *entry) {
+    FLOW_TRACE(ModuleInfo, "Delete Route flows");
+    Agent *agent = static_cast<AgentRouteTable *>(entry->get_table())->agent();
+    InetUnicastRouteEntry *route = static_cast<InetUnicastRouteEntry *>(entry);
+
+    RouteFlowInfo rt_key(RouteFlowKey(route->vrf()->vrf_id(), route->addr(),
+                                      route->plen()));
+    RouteFlowInfo *rt_info =
+        agent->pkt()->flow_table()->FindInetRouteFlowInfo(&rt_key);
+    agent->pkt()->flow_table()->FlowReComputeInternal(rt_info);
+}
+
+void InetRouteFlowUpdate::SgUpdate(FlowEntry *fe, FlowTable *table,
+                                   RouteFlowKey &key,
+                                   const SecurityGroupList &sg_list) {
+    table->DeleteFlowInfo(fe);
+    fe->GetPolicyInfo();
+
+    // Update SG-ID List
+    if (fe->FlowSrcMatch(key)) {
+        fe->set_source_sg_id_l(sg_list);
+    } else if (fe->FlowDestMatch(key)) {
+        fe->set_dest_sg_id_l(sg_list);
+    } else {
+        FLOW_TRACE(Err, fe->flow_handle(), "Not found route key, vrf :"
+                   + integerToString(key.vrf) + " ip:" + key.ip.to_string());
+    }
+
+    // Update SG id for reverse flow
+    // So that SG match rules can be applied on the
+    // latest sg id of forward and reverse flow
+    FlowEntry *rev_flow = fe->reverse_flow_entry();
+    if (rev_flow && rev_flow->FlowSrcMatch(key)) {
+        rev_flow->set_source_sg_id_l(sg_list);
+    } else if (rev_flow && rev_flow->FlowDestMatch(key)) {
+        rev_flow->set_dest_sg_id_l(sg_list);
+    }
+
+    // SG id for a reverse flow is updated
+    // Reevaluate forward flow
+    if (fe->is_flags_set(FlowEntry::ReverseFlow)) {
+        FlowEntry *fwd_flow = fe->reverse_flow_entry();
+        if (fwd_flow) {
+            table->ResyncAFlow(fwd_flow);
+            table->AddFlowInfo(fwd_flow);
+        }
+    }
+
+    table->ResyncAFlow(fe);
+    table->AddFlowInfo(fe);
+}
+
+void InetRouteFlowUpdate::SgChange(AgentRoute *entry,
+                                   SecurityGroupList &sg_list) {
+    Agent *agent = static_cast<AgentRouteTable *>(entry->get_table())->agent();
+    FlowTable *table = agent->pkt()->flow_table();
+    InetUnicastRouteEntry *route = static_cast<InetUnicastRouteEntry *>(entry);
+    RouteFlowKey key(route->vrf()->vrf_id(), route->addr(), route->plen());
+    table->IterateInetFlowTable(key, boost::bind(&InetRouteFlowUpdate::SgUpdate,
+                                                 this, _1, table, key,
+                                                 sg_list));
+}
+
+void InetRouteFlowUpdate::NhChange(AgentRoute *entry, const NextHop *active_nh,
+                                   const NextHop *local_nh) {
+    Agent *agent = static_cast<AgentRouteTable *>(entry->get_table())->agent();
+    InetUnicastRouteEntry *route = static_cast<InetUnicastRouteEntry *>(entry);
+    RouteFlowKey key(route->vrf()->vrf_id(), route->addr(), route->plen());
+    agent->pkt()->flow_table()->ResyncRpfNH(key, route);
+}
+
+// Register to the route tables
+void FlowTable::VrfFlowHandlerState::Register(VrfEntry *vrf) {
+    // Register to the Inet4 Unicast Table
+    InetUnicastAgentRouteTable *inet_table =
+        static_cast<InetUnicastAgentRouteTable *>
+        (vrf->GetInet4UnicastRouteTable());
+    inet4_unicast_update_ = new InetRouteFlowUpdate(inet_table);
+    inet4_unicast_update_->set_dblistener_id
+        (inet_table->Register(boost::bind(&RouteFlowUpdate::Notify,
+                                         inet4_unicast_update_, _1, _2)));
+}
+
+// VRF being deleted. Do the cleanup
+void FlowTable::VrfFlowHandlerState::Unregister(VrfEntry *vrf) {
+    Agent *agent = static_cast<VrfTable *>(vrf->get_table())->agent();
+
+    // TODO : Is this really needed? Routes will anyway be deleted
+    // VRF is deleted. Delete DBState for all the route entries
+    DBTableWalker *walker = agent->db()->GetWalker();
+    walker->WalkTable(vrf->GetInet4UnicastRouteTable(), NULL,
+                      boost::bind(&RouteFlowUpdate::DeleteState,
+                                  _1, _2, inet4_unicast_update_),
+                      boost::bind(&RouteFlowUpdate::WalkDone, _1,
+                                  inet4_unicast_update_));
+}
 
 void FlowTable::VrfNotify(DBTablePartBase *part, DBEntryBase *e)
 {   
@@ -2014,17 +2114,14 @@ void FlowTable::VrfNotify(DBTablePartBase *part, DBEntryBase *e)
         if (state == NULL) {
             return;
         }
-        state->inet4_unicast_update_->Unregister();
+        state->Unregister(vrf);
         e->ClearState(part->parent(), vrf_listener_id_);
         delete state;
         return;
     }
     if (state == NULL) {
         state = new VrfFlowHandlerState();
-        state->inet4_unicast_update_ = 
-            Inet4RouteUpdate::UnicastInit(
-            static_cast<InetUnicastAgentRouteTable *>(vrf->
-            GetInet4UnicastRouteTable()));
+        state->Register(vrf);
         vrf->SetState(part->parent(), vrf_listener_id_, state);
     }
     return;
@@ -2126,60 +2223,21 @@ void FlowTable::FlowReComputeInternal(RouteFlowInfo *rt_info) {
     }
 }
 
-void FlowTable::FlowReCompute(const RouteFlowInfo &rt_key) {
-    RouteFlowInfo *rt_info = route_flow_tree_.LPMFind(&rt_key);
-    FlowReComputeInternal(rt_info);
-}
-
-void FlowTable::ResyncRouteFlows(RouteFlowKey &key,
-                                 SecurityGroupList &sg_l)
-{
-    RouteFlowInfo *rt_info;
+// Iterate thru Inet FlowEntryTree and invoke call back for each flow entry
+void FlowTable::IterateInetFlowTable(const RouteFlowKey &key, FlowEntryCb cb) {
     RouteFlowInfo rt_key(key);
-    rt_info = route_flow_tree_.Find(&rt_key);
+    RouteFlowInfo *rt_info = route_flow_tree_.Find(&rt_key);
     if (rt_info == NULL) {
         return;
     }
+
     FlowEntryTree fet = rt_info->fet;
     FlowEntryTree::iterator fet_it, it;
     it = fet.begin();
     while (it != fet.end()) {
         fet_it = it++;
         FlowEntry *fe = (*fet_it).get();
-        DeleteFlowInfo(fe);
-        fe->GetPolicyInfo();
-        if (fe->FlowSrcMatch(key)) {
-            fe->set_source_sg_id_l(sg_l);
-        } else if (fe->FlowDestMatch(key)) {
-            fe->set_dest_sg_id_l(sg_l);
-        } else {
-            FLOW_TRACE(Err, fe->flow_handle(), 
-                       "Not found route key, vrf:"
-                       + integerToString(key.vrf) 
-                       + " ip:"
-                       + key.ip.to_string());
-        }
-        //Update SG id for reverse flow
-        //So that SG match rules can be applied on the
-        //latest sg id of forward and reverse flow
-        FlowEntry *rev_flow = fe->reverse_flow_entry();
-        if (rev_flow && rev_flow->FlowSrcMatch(key)) {
-            rev_flow->set_source_sg_id_l(sg_l);
-        } else if (rev_flow && rev_flow->FlowDestMatch(key)) {
-            rev_flow->set_dest_sg_id_l(sg_l);
-        }
-
-        //SG id for a reverse flow is updated
-        //Reevaluate forward flow
-        if (fe->is_flags_set(FlowEntry::ReverseFlow)) {
-            FlowEntry *fwd_flow = fe->reverse_flow_entry();
-            if (fwd_flow) {
-                ResyncAFlow(fwd_flow);
-                AddFlowInfo(fwd_flow);
-            }
-        }
-        ResyncAFlow(fe);
-        AddFlowInfo(fe);
+        cb(fe);
         FlowInfo flow_info;
         fe->FillFlowInfo(flow_info);
         FLOW_TRACE(Trace, "Evaluate Route Flows", flow_info);
@@ -2223,15 +2281,6 @@ void FlowTable::ResyncVmPortFlows(const VmInterface *intf) {
     }
 }
 
-
-void FlowTable::DeleteRouteFlows(const RouteFlowKey &key)
-{
-    RouteFlowInfo rt_key(key);
-    RouteFlowInfo *rt_info = route_flow_tree_.Find(&rt_key);
-    FLOW_TRACE(ModuleInfo, "Delete Route flows");
-    // On Route Delete trigger flow re-compute to use less specific route.
-    FlowReComputeInternal(rt_info);
-}
 
 void FlowTable::DeleteFlowInfo(FlowEntry *fe) 
 {
