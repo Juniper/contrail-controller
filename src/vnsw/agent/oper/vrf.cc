@@ -102,6 +102,13 @@ void VrfEntry::PostAdd() {
     ((VrfTable *)get_table())->dbtree_[type].insert(VrfTable::VrfDbPair(name_, 
                                                         rt_table_db_[type]));
 
+    type = Agent::EVPN;
+    rt_table_db_[type] = static_cast<AgentRouteTable *>
+        (db->CreateTable(name_ + AgentRouteTable::GetSuffix(type)));
+    rt_table_db_[type]->SetVrf(this);
+    ((VrfTable *)get_table())->dbtree_[type].insert(VrfTable::VrfDbPair(name_,
+                                                        rt_table_db_[type]));
+
     type = Agent::LAYER2;
     rt_table_db_[type] = static_cast<AgentRouteTable *>
         (db->CreateTable(name_ + AgentRouteTable::GetSuffix(type)));
@@ -177,6 +184,10 @@ AgentRouteTable *VrfEntry::GetInet4MulticastRouteTable() const {
     return rt_table_db_[Agent::INET4_MULTICAST];
 }
 
+AgentRouteTable *VrfEntry::GetEvpnRouteTable() const {
+    return rt_table_db_[Agent::EVPN];
+}
+
 AgentRouteTable *VrfEntry::GetLayer2RouteTable() const {
     return rt_table_db_[Agent::LAYER2];
 }
@@ -194,6 +205,7 @@ bool VrfEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
         data.set_name(GetName());
         data.set_ucindex(vrf_id());
         data.set_mcindex(vrf_id());
+        data.set_evpnindex(vrf_id());
         data.set_l2index(vrf_id());
         data.set_uc6index(vrf_id());
         std::string vrf_flags;
@@ -248,6 +260,7 @@ bool VrfEntry::DeleteTimeout() {
     std::ostringstream str;
     str << "Unicast routes: " << rt_table_db_[Agent::INET4_UNICAST]->Size();
     str << " Mutlicast routes: " << rt_table_db_[Agent::INET4_MULTICAST]->Size();
+    str << " EVPN routes: " << rt_table_db_[Agent::EVPN]->Size();
     str << " Layer2 routes: " << rt_table_db_[Agent::LAYER2]->Size();
     str << "Unicast v6 routes: " << rt_table_db_[Agent::INET6_UNICAST]->Size();
     str << " Reference: " << GetRefCount();
@@ -393,6 +406,10 @@ InetUnicastAgentRouteTable *VrfTable::GetInet4UnicastRouteTable
 
 AgentRouteTable *VrfTable::GetInet4MulticastRouteTable(const string &vrf_name) {
     return GetRouteTable(vrf_name, Agent::INET4_MULTICAST);
+}
+
+AgentRouteTable *VrfTable::GetEvpnRouteTable(const string &vrf_name) {
+    return GetRouteTable(vrf_name, Agent::EVPN);
 }
 
 AgentRouteTable *VrfTable::GetLayer2RouteTable(const string &vrf_name) {

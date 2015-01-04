@@ -18,6 +18,7 @@ class AgentXmppChannel;
 class InterfaceKey;
 class PhysicalInterface;
 class Peer;
+class EvpnPeer;
 
 class PathPreference {
 public:
@@ -117,9 +118,14 @@ struct PathPreferenceData : public AgentRouteData {
 // A common class for all different type of paths
 class AgentPath : public Path {
 public:
+    enum Type {
+        NATIVE,
+        EVPN
+    };
     AgentPath(const Peer *peer, AgentRoute *rt);
     virtual ~AgentPath();
 
+    virtual AgentPath::Type PathType() const {return NATIVE;}
     const Peer *peer() const {return peer_;}
     const NextHop *nexthop(Agent *agent) const;
     uint32_t label() const {return label_;}
@@ -246,6 +252,77 @@ private:
     //allowed address pair
     IpAddress subnet_gw_ip_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
+};
+
+/*
+ * EvpnPath
+ *
+ * Used by layer2 routes. This path is derived from AgentPath as
+ * common route code expects type AgentPath. Also EvpnPath
+ * keeps reference path from Evpn route.
+ * evpn_peer_ref is unique peer generated for each evpn route.
+ * ip_addr is the IP taken from parent evpn route.
+ * parent is for debugging to know which evpn route added the path.
+ */
+class EvpnPath : public AgentPath {
+public:
+    EvpnPath(EvpnPeer::EvpnPeerRef evpn_peer,
+             const IpAddress &ip_addr,
+             AgentRoute *route);
+    virtual ~EvpnPath() { };
+
+    virtual AgentPath::Type PathType() const {return AgentPath::EVPN;}
+    const EvpnPeer *evpn_peer() const;
+    void set_evpn_peer(EvpnPeer *peer);
+    const IpAddress &ip_addr() const {return ip_addr_;}
+    void set_ip_addr(const IpAddress &ip_addr) {ip_addr_ = ip_addr;}
+
+    const AgentPath *reference_path() const {return reference_path_;}
+    void set_reference_path(const AgentPath *path) {reference_path_ = path;}
+    const std::string &parent() const {return parent_;}
+    void set_parent(const std::string &parent) {parent_ = parent;}
+
+private:
+    IpAddress ip_addr_;
+    EvpnPeer::EvpnPeerRef evpn_peer_ref_;
+    const AgentPath *reference_path_;
+    std::string parent_;
+    DISALLOW_COPY_AND_ASSIGN(EvpnPath);
+};
+
+/*
+ * EvpnPathData
+ * Route data used to transfer information from Evpn route for layer2 rute
+ * creation.
+ * path_parameters_changed - Telss if some parameters changed in reference path.
+ * Currently its always true as any change in path attributes results in
+ * notification of evpn route and thats when layer2 route is also updated.
+ */
+class EvpnPathData : public AgentRouteData {
+public:
+    EvpnPathData(EvpnPeer::EvpnPeerRef evpn_peer_ref,
+                 const AgentPath *reference_path,
+                 const IpAddress &ip_addr,
+                 bool path_parameters_changed,
+                 const std::string &parent);
+    virtual ~EvpnPathData() { }
+    AgentPath *CreateAgentPath(const Peer *peer, AgentRoute *rt) const; 
+    virtual bool AddChangePath(Agent *agent, AgentPath *path,
+                               const AgentRoute *rt);
+    virtual std::string ToString() const {return "EvpnPathData";}
+    EvpnPeer *evpn_peer() const;
+    EvpnPeer::EvpnPeerRef evpn_peer_ref() const;
+    const IpAddress &ip_addr() const {return ip_addr_;}
+    const std::string &parent() const {return parent_;}
+    void set_parent(const std::string &parent) {parent_ = parent;}
+
+private:
+    EvpnPeer::EvpnPeerRef evpn_peer_ref_;
+    const AgentPath *reference_path_;
+    IpAddress ip_addr_;
+    bool path_parameters_changed_;
+    std::string parent_;
+    DISALLOW_COPY_AND_ASSIGN(EvpnPathData);
 };
 
 class ResolveRoute : public AgentRouteData {

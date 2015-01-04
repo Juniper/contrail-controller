@@ -1036,8 +1036,7 @@ bool RouteFindV6(const string &vrf_name, const string &addr, int plen) {
 bool L2RouteFind(const string &vrf_name, const MacAddress &mac,
                  const IpAddress &ip_addr) {
     Layer2RouteEntry *route =
-        Layer2AgentRouteTable::FindRoute(Agent::GetInstance(), vrf_name, mac,
-                                         ip_addr);
+        Layer2AgentRouteTable::FindRoute(Agent::GetInstance(), vrf_name, mac);
     return (route != NULL);
 }
 
@@ -1090,7 +1089,7 @@ Layer2RouteEntry *L2RouteGet(const string &vrf_name, const MacAddress &mac,
     if (vrf == NULL)
         return NULL;
 
-    Layer2RouteKey key(agent->local_vm_peer(), vrf_name, mac, ip_addr, 0);
+    Layer2RouteKey key(agent->local_vm_peer(), vrf_name, mac, 0);
     Layer2RouteEntry *route =
         static_cast<Layer2RouteEntry *>
         (static_cast<Layer2AgentRouteTable *>(vrf->
@@ -1188,7 +1187,7 @@ bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf,
                               vm_vrf, server_ip,
                               bmap, label, "", SecurityGroupList(),
                               PathPreference());
-    Layer2AgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf, remote_vm_mac,
+    EvpnAgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf, remote_vm_mac,
                                         vm_addr, 0, data);
     return true;
 }

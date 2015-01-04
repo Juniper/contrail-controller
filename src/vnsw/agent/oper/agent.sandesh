@@ -226,6 +226,8 @@ struct PathSandeshData {
    12: string active_tunnel_type;
    13: bool stale;
    14: optional PathPreferenceSandeshData path_preference_data;
+   15: optional string info;
+   16: optional string ip_address;
 }
 
 struct RouteUcSandeshData {
@@ -245,6 +247,12 @@ struct RouteMcSandeshData {
 struct RouteL2SandeshData {
     1: string mac;                   // MAC addr
     2: string src_vrf (link="VrfListReq"); // VRF
+    4: list<PathSandeshData> path_list; // paths
+}
+
+struct RouteEvpnSandeshData {
+    1: string mac;                   // MAC addr
+    2: string src_vrf (link="VrfListReq"); // VRF
     3: string ip_addr;
     4: list<PathSandeshData> path_list; // paths
 }
@@ -258,6 +266,7 @@ struct VrfSandeshData {
     6: i32 uc6index (link="Inet6UcRouteReq"); // VRF Index INET6 UC Table
     7: string vn (link="VnListReq");          // VN-Name
     8: i32 table_label;                      //Label for route lookup on this vrf
+    9: i32 evpnindex  (link="EvpnRouteReq"); // VRF Index evpn Table
 }
 
 struct MplsSandeshData {
@@ -376,6 +385,16 @@ request sandesh Layer2RouteReq {
 
 response sandesh Layer2RouteResp {
     1: list<RouteL2SandeshData> route_list; // routes
+}
+
+request sandesh EvpnRouteReq {
+    1: i32 vrf_index = 0;
+    2: string mac;
+    3: bool stale = 0;                // Display stale entries only if set
+}
+
+response sandesh EvpnRouteResp {
+    1: list<RouteEvpnSandeshData> route_list; // routes
 }
 
 request sandesh ItfReq {

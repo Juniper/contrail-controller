@@ -958,7 +958,7 @@ void VmInterface::UpdateL2(bool old_l2_active, VrfEntry *old_vrf, int old_vxlan_
     //no force update on same.
     UpdateL2TunnelId(false, policy_change);
     UpdateL2InterfaceRoute(old_l2_active, force_update, old_vrf, old_v4_addr,
-                           old_v6_addr);
+                           old_v6_addr, old_vxlan_id);
 }
 
 void VmInterface::UpdateL2(bool force_update) {
@@ -967,10 +967,13 @@ void VmInterface::UpdateL2(bool force_update) {
 }
 
 void VmInterface::DeleteL2(bool old_l2_active, VrfEntry *old_vrf,
+                           int old_vxlan_id,
                            const Ip4Address &old_v4_addr,
                            const Ip6Address &old_v6_addr) {
     DeleteL2TunnelId();
-    DeleteL2InterfaceRoute(old_l2_active, old_vrf, old_v4_addr, old_v6_addr);
+    DeleteL2InterfaceRoute(old_l2_active, old_vrf, old_v4_addr, old_v6_addr,
+                           old_vxlan_id);
+
     DeleteL2NextHop(old_l2_active);
 }
 
@@ -1035,7 +1038,7 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
         UpdateL2(old_l2_active, old_vrf, old_vxlan_id, 
                  force_update, policy_change, old_addr, old_v6_addr);
     } else if (old_l2_active) {
-        DeleteL2(old_l2_active, old_vrf, old_addr, old_v6_addr);
+        DeleteL2(old_l2_active, old_vrf, old_vxlan_id, old_addr, old_v6_addr);
     }
 
     if (old_l2_active != l2_active_) {
@@ -2329,9 +2332,7 @@ void VmInterface::DeleteSecurityGroup() {
 }
 
 void VmInterface::UpdateL2TunnelId(bool force_update, bool policy_change) {
-    if (IsVxlanMode() == false) {
-        AllocL2MplsLabel(force_update, policy_change);
-    }
+    AllocL2MplsLabel(force_update, policy_change);
 }
 
 void VmInterface::DeleteL2TunnelId() {
@@ -2341,46 +2342,60 @@ void VmInterface::DeleteL2TunnelId() {
 void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
                                          VrfEntry *old_vrf,
                                          const Ip4Address &old_v4_addr,
-                                         const Ip6Address &old_v6_addr) {
+                                         const Ip6Address &old_v6_addr,
+                                         int old_vxlan_id) const {
     if (l2_active_ == false)
         return;
 
+    Ip4Address v4_addr = ip_addr_; 
+    Ip6Address v6_addr = ip6_addr_;
+
     if (ip_addr_ != old_v4_addr) {
         force_update = true;
-        DeleteL2InterfaceRoute(true, old_vrf, old_v4_addr, Ip6Address());
+        v4_addr = old_v4_addr;
     }
 
     if (ip6_addr_ != old_v6_addr) {
         force_update = true;
-        DeleteL2InterfaceRoute(true, old_vrf, Ip4Address(), old_v6_addr);
+        v6_addr = old_v6_addr;
+    }
+
+    //Encap change will result in force update of l2 routes.
+    if (force_update) {
+        DeleteL2InterfaceRoute(true, old_vrf, v4_addr, v6_addr, old_vxlan_id);
     }
 
     if (old_l2_active && force_update == false)
         return;
 
     assert(peer_.get());
-    Layer2AgentRouteTable *table = static_cast<Layer2AgentRouteTable *>
-        (vrf_->GetLayer2RouteTable());
-
-    table->AddLocalVmRoute(peer_.get(), this);
+    EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
+        (vrf_->GetEvpnRouteTable());
+    table->AddLocalVmRoute(peer_.get(), this, IsVxlanMode() ? vxlan_id_ : 0);
 }
 
 void VmInterface::DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf,
                                          const Ip4Address &old_v4_addr,
-                                         const Ip6Address &old_v6_addr) {
+                                         const Ip6Address &old_v6_addr,
+                                         int old_vxlan_id) const {
     if (old_l2_active == false)
         return;
 
-    if ((vxlan_id_ != 0) &&
-        (TunnelType::ComputeType(TunnelType::AllType()) == TunnelType::VXLAN)) {
-        VxLanId::Delete(vxlan_id_);
-        vxlan_id_ = 0;
-    }
+    if (old_vrf == NULL)
+        return;
 
-    Layer2AgentRouteTable *table = static_cast<Layer2AgentRouteTable *>
-        (old_vrf->GetLayer2RouteTable());
+    EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
+        (old_vrf->GetEvpnRouteTable());
+
+    //TODO optimize to identify which one has to be unsubscribed. In case of
+    //encap change interface has no info on what was the last encap and hence
+    //vxlan_id can not be determined. Nevertheless it will either be zero or
+    //old_vxlan_id.
+    table->DelLocalVmRoute(peer_.get(), old_vrf->GetName(),
+                           this, old_v4_addr,
+                           old_v6_addr, 0);
     table->DelLocalVmRoute(peer_.get(), old_vrf->GetName(), this, old_v4_addr,
-                           old_v6_addr);
+                           old_v6_addr, old_vxlan_id);
 }
 
 // Copy the SG List for VM Interface. Used to add route for interface

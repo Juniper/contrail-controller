@@ -118,6 +118,12 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
                                 DBTablePartBase *partition, DBEntryBase *e,
                                 Agent::RouteTableType type) {
     AgentRoute *route = static_cast<AgentRoute *>(e);
+    //TODO Currently LAYER2 notifications are coming because multicast route
+    //are installed in same. Once multicast route is shifted to EVPN table
+    //then there will be no export from Layer2 and check below can be removed.
+    if (route->GetTableType() == Agent::LAYER2)
+        return;
+
     AgentRouteTable *table = static_cast<AgentRouteTable *>
         (partition->parent());
     State *state = static_cast<State *>(route->GetState(partition->parent(),
@@ -140,36 +146,6 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
 
     if (path) {
         if (state->Changed(path)) {
-            if (type == Agent::LAYER2) {
-                //In case of layer2 routes any change in vxlan id or
-                //movement of tunnelt type from vxlan to mpls should result in
-                //withdraw and re add of route.
-                bool withdraw = false;
-                uint32_t withdraw_label = state->label_;
-                if (state->tunnel_type_ == TunnelType::VXLAN) {
-                    //Vxlan ID changed or tunnel type is no more VXLAN
-                    if ((path->GetActiveLabel() != state->label_) ||
-                        (TunnelType::ComputeType(path->GetTunnelBmap()) !=
-                         TunnelType::VXLAN)) {
-                        withdraw = true;
-                    }
-                } else {
-                    if (TunnelType::ComputeType(path->GetTunnelBmap()) ==
-                        TunnelType::VXLAN) {
-                        withdraw = true;
-                        withdraw_label = 0;
-                    }
-                }
-
-                if (withdraw) {
-                    state->exported_ =
-                        AgentXmppChannel::ControllerSendRouteDelete(bgp_xmpp_peer,
-                             static_cast<AgentRoute * >(route), state->vn_,
-                             withdraw_label, path->GetTunnelBmap(),
-                             &path->sg_list(), type,
-                             state->path_preference_);
-                }
-            }
             state->Update(path);
             state->exported_ = 
                 AgentXmppChannel::ControllerSendRouteAdd(bgp_xmpp_peer, 
