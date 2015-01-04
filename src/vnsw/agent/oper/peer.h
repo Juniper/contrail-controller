@@ -18,6 +18,7 @@
 #define LINKLOCAL_PEER_NAME "LinkLocal"
 #define ECMP_PEER_NAME "Ecmp"
 #define VGW_PEER_NAME "Vgw"
+#define EVPN_PEER_NAME "EVPN"
 #define MULTICAST_PEER_NAME "Multicast"
 #define MULTICAST_TOR_PEER_NAME "Multicast TOR"
 #define MULTICAST_FABRIC_TREE_BUILDER_NAME "MulticastTreeBuilder"
@@ -33,7 +34,7 @@ public:
     typedef std::pair<std::string, Peer *> PeerPair;
     enum Type {
         MULTICAST_PEER,
-        EVPN_BGP_PEER,
+        EVPN_PEER,
         BGP_PEER,
         LINKLOCAL_PEER,
         ECMP_PEER,
@@ -159,5 +160,19 @@ public:
     bool ExportToController() const {return true;}
 private:
     DISALLOW_COPY_AND_ASSIGN(EcmpPeer);
+};
+
+// EVPN peer
+class EvpnPeer : public Peer {
+public:
+    typedef boost::shared_ptr<EvpnPeer> EvpnPeerRef;
+
+    EvpnPeer() : Peer(Peer::EVPN_PEER, "EVPN", false) { }
+    virtual ~EvpnPeer() { }
+
+    bool Compare(const Peer *rhs) const { return false; }
+    bool ExportToController() const {return false;}
+private:
+    DISALLOW_COPY_AND_ASSIGN(EvpnPeer);
 };
 #endif // vnsw_agent_peer_h_

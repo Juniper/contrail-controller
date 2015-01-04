@@ -234,7 +234,7 @@ bool ControllerRouteWalker::RouteDelPeer(DBTablePartBase *partition,
     AgentRouteKey *key = (static_cast<AgentRouteKey *>(route->
                                       GetDBRequestKey().get()))->Clone();
     key->set_peer(peer_);
-    route->DeletePath(key, true);
+    route->DeletePathUsingKeyData(key, NULL, true);
     delete key;
     return true;
 }

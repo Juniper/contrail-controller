@@ -368,7 +368,7 @@ TEST_F(MulticastTest, L2Broadcast_1) {
     EXPECT_TRUE(cnh->composite_nh_type() == Composite::L3COMP);
     DoMulticastSandesh(1);
 
-    EvpnRouteEntry *l2_rt = L2RouteGet("vrf1", MacAddress("FF:FF:FF:FF:FF:FF"));
+    BridgeRouteEntry *l2_rt = L2RouteGet("vrf1", MacAddress("FF:FF:FF:FF:FF:FF"));
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
     CompositeNH *l2_cnh = static_cast<CompositeNH *>(l2_nh);
     EXPECT_TRUE(l2_cnh->ComponentNHCount() == 2);
@@ -1130,7 +1130,7 @@ TEST_F(MulticastTest, evpn_flood_l2l3_mode) {
 
     DoMulticastSandesh(1);
 
-    EvpnRouteEntry *l2_rt = L2RouteGet("vrf1", MacAddress::BroadcastMac());
+    BridgeRouteEntry *l2_rt = L2RouteGet("vrf1", MacAddress::BroadcastMac());
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
     CompositeNH *l2_cnh = static_cast<CompositeNH *>(l2_nh);
     EXPECT_TRUE(l2_cnh->ComponentNHCount() == 3);
@@ -1254,7 +1254,7 @@ TEST_F(MulticastTest, evpn_flood_l2_mode) {
     ASSERT_TRUE(evpn_flood_label != 0);
     ASSERT_TRUE((mcobj->GetLocalOlist()).size() == 1);
 
-    EvpnRouteEntry *l2_rt = L2RouteGet("vrf1", MacAddress::BroadcastMac());
+    BridgeRouteEntry *l2_rt = L2RouteGet("vrf1", MacAddress::BroadcastMac());
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
     CompositeNH *l2_cnh = static_cast<CompositeNH *>(l2_nh);
     EXPECT_TRUE(l2_cnh->ComponentNHCount() == 3);

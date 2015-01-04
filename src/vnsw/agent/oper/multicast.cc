@@ -90,13 +90,13 @@ void MulticastHandler::AddL2BroadcastRoute(MulticastGroupObject *obj,
 {
     boost::system::error_code ec;
     MCTRACE(Log, "add L2 bcast route ", vrf_name, addr.to_string(), 0);
-    //Add Evpn FF:FF:FF:FF:FF:FF
+    //Add Bridge FF:FF:FF:FF:FF:FF
     ComponentNHKeyList component_nh_key_list =
         GetInterfaceComponentNHKeyList(obj, InterfaceNHFlags::BRIDGE);
     if (component_nh_key_list.size() == 0)
         return;
     uint32_t route_tunnel_bmap = TunnelType::AllType();
-    EvpnAgentRouteTable::AddEvpnBroadcastRoute(agent_->local_vm_peer(),
+    BridgeAgentRouteTable::AddBridgeBroadcastRoute(agent_->local_vm_peer(),
                                                    vrf_name, vn_name,
                                                    label, vxlan_id,
                                                    ethernet_tag,
@@ -114,7 +114,7 @@ void MulticastHandler::DeleteBroadcast(const Peer *peer,
 {
     boost::system::error_code ec;
     MCTRACE(Log, "delete bcast route ", vrf_name, "255.255.255.255", 0);
-    EvpnAgentRouteTable::DeleteBroadcastReq(peer, vrf_name, ethernet_tag);
+    BridgeAgentRouteTable::DeleteBroadcastReq(peer, vrf_name, ethernet_tag);
     ComponentNHKeyList component_nh_key_list; //dummy list
 }
 
@@ -158,7 +158,7 @@ void MulticastHandler::HandleFamilyConfig(const VnEntry *vn)
         if (!(new_bridging) && (*it)->bridging()) {
             (*it)->SetBridging(new_bridging);
             if (IS_BCAST_MCAST((*it)->GetGroupAddress())) { 
-                EvpnAgentRouteTable::DeleteBroadcastReq(agent_->
+                BridgeAgentRouteTable::DeleteBroadcastReq(agent_->
                                                           local_vm_peer(),
                                                           (*it)->vrf_name(), 0);
             }
@@ -257,7 +257,7 @@ void MulticastHandler::HandleTorRoute(DBTablePartBase *partition,
                                TunnelType::VxlanType(), false);
         if (obj->tor_olist().empty()) {
             //Delete route path for TOR since olist is empty
-            EvpnAgentRouteTable::DeleteBroadcastReq(agent_->multicast_tor_peer(),
+            BridgeAgentRouteTable::DeleteBroadcastReq(agent_->multicast_tor_peer(),
                                                       vrf_name,
                                                       vxlan_id);
             ComponentNHKeyList component_nh_key_list; //dummy list
@@ -571,9 +571,9 @@ void MulticastHandler::TriggerLocalRouteChange(MulticastGroupObject *obj,
             obj->vrf_name(),
             obj->GetGroupAddress().to_string(),
             component_nh_key_list.size());
-    //Add Evpn FF:FF:FF:FF:FF:FF, local_vm_peer
+    //Add Bridge FF:FF:FF:FF:FF:FF, local_vm_peer
     uint32_t route_tunnel_bmap = TunnelType::AllType();
-    EvpnAgentRouteTable::AddEvpnBroadcastRoute(peer,
+    BridgeAgentRouteTable::AddBridgeBroadcastRoute(peer,
                                                    obj->vrf_name(),
                                                    obj->GetVnName(),
                                                    obj->evpn_mpls_label(),
@@ -620,7 +620,7 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
         // dont update peer_identifier. Let it get updated via update operation only
         MCTRACE(Log, "delete bcast path from remote peer", vrf_name,
                 "255.255.255.255", 0);
-        EvpnAgentRouteTable::DeleteBroadcastReq(peer, vrf_name,
+        BridgeAgentRouteTable::DeleteBroadcastReq(peer, vrf_name,
                                                   ethernet_tag);
         ComponentNHKeyList component_nh_key_list; //dummy list
         return;
@@ -673,11 +673,11 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
             obj->GetGroupAddress().to_string(),
             component_nh_key_list.size());
 
-    //Add Evpn FF:FF:FF:FF:FF:FF$
+    //Add Bridge FF:FF:FF:FF:FF:FF$
     uint32_t route_tunnel_bmap = TunnelType::AllType();
     if (comp_type == Composite::TOR)
         route_tunnel_bmap = TunnelType::VxlanType();
-    EvpnAgentRouteTable::AddEvpnBroadcastRoute(peer,
+    BridgeAgentRouteTable::AddBridgeBroadcastRoute(peer,
                                                    obj->vrf_name(),
                                                    obj->GetVnName(),
                                                    label,
@@ -920,9 +920,8 @@ void MulticastHandler::Shutdown() {
          it++) {
         MulticastGroupObject *obj = (*it);
         AgentRoute *route =
-            EvpnAgentRouteTable::FindRoute(agent_, obj->vrf_name(),
-                                             MacAddress::BroadcastMac(),
-                                             IpAddress());
+            BridgeAgentRouteTable::FindRoute(agent_, obj->vrf_name(),
+                                             MacAddress::BroadcastMac());
         if (route == NULL)
             return;
 

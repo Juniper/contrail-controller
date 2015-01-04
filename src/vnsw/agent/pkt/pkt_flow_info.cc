@@ -50,8 +50,8 @@ static void LogError(const PktInfo *pkt, const char *str) {
 
 // VRF changed for the packet. Treat it as Layer3 packet from now.
 // Note:
-// Features like service chain are supported only for Layer3. Layer2
-// routes are not leaked into the new VRF and any Layer2 route lookup
+// Features like service chain are supported only for Layer3. Bridge 
+// entries are not leaked into the new VRF and any bridge entry lookup
 // into new VRF will also Fail. So, even VRouter will treat packets
 // as L3 after VRF transaltion.
 void PktFlowInfo::ChangeVrf(const PktInfo *pkt, PktControlInfo *info,
@@ -86,10 +86,10 @@ uint8_t PktFlowInfo::RouteToPrefixLen(const AgentRoute *route) {
         return inet_rt->plen();
     }
 
-    const EvpnRouteEntry *l2_rt =
-        dynamic_cast<const EvpnRouteEntry *>(route);
+    const BridgeRouteEntry *l2_rt =
+        dynamic_cast<const BridgeRouteEntry *>(route);
     if (l2_rt) {
-        return l2_rt->GetAddress().bit_len();
+        return l2_rt->mac().bit_len();
     }
 
     assert(0);
@@ -355,7 +355,7 @@ static bool RouteToOutInfo(const AgentRoute *rt, const PktInfo *pkt,
     if (path == NULL)
         return false;
 
-    const NextHop *nh = static_cast<const NextHop *>(path->nexthop(agent));
+    const NextHop *nh = static_cast<const NextHop *>(path->ComputeNextHop(agent));
     if (nh == NULL)
         return false;
 
@@ -470,7 +470,7 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
         //Destination on remote server
         //Choose local path, which will also pointed by MPLS label
         if (rt->FindPath(Agent::GetInstance()->ecmp_peer())) {
-            nh = rt->FindPath(agent->ecmp_peer())->nexthop(agent);
+            nh = rt->FindPath(agent->ecmp_peer())->ComputeNextHop(agent);
         } else {
             //Aggregarated routes may not have local path
             //Derive local path
@@ -494,8 +494,8 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
 }
 
 static bool RouteAllowNatLookup(const AgentRoute *rt) {
-    // No NAT for bridge entries 
-    if (dynamic_cast<const EvpnRouteEntry *>(rt) != NULL)
+    // No NAT for bridge routes
+    if (dynamic_cast<const BridgeRouteEntry *>(rt) != NULL)
         return false;
 
     if (rt != NULL && IsLinkLocalRoute(rt)) {
