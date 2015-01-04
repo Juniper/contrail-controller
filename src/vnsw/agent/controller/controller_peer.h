@@ -74,7 +74,7 @@ public:
                                            std::string vn,
                                            uint32_t mpls_label,
                                            uint32_t tunnel_bmap,
-                                          const SecurityGroupList *sg_list);
+                                           const SecurityGroupList *sg_list);
     static bool ControllerSendMcastRouteAdd(AgentXmppChannel *peer,
                                             AgentRoute *route);
     //Deletes to control node
@@ -113,7 +113,6 @@ public:
 
     Agent *agent() const {return agent_;}
     BgpPeer *bgp_peer_id() const {return bgp_peer_id_.get();}
-    BgpPeer *evpn_bgp_peer_id() const {return evpn_bgp_peer_id_.get();}
     std::string GetBgpPeerName() const;
     void UpdateConnectionInfo(xmps::PeerState state);
 
@@ -161,7 +160,6 @@ private:
     std::string label_range_;
     uint8_t xs_idx_;
     boost::shared_ptr<BgpPeer> bgp_peer_id_;
-    boost::shared_ptr<BgpPeer> evpn_bgp_peer_id_;
     Agent *agent_;
     uint64_t unicast_sequence_number_;
 };

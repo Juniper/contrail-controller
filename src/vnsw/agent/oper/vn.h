@@ -149,6 +149,7 @@ public:
                    uint8_t *plen) const;
     std::string GetProject() const;
     int GetVxLanId() const;
+    int ComputeEthernetTag() const;
     bool Resync(); 
     bool VxLanNetworkIdentifierChanged();
     bool ReEvaluateVxlan(VrfEntry *old_vrf, int new_vxlan_id, int new_vnid,

@@ -25,6 +25,10 @@ MacAddress::MacAddress(const uint8_t *data) {
     memcpy(&addr_, data, sizeof(addr_));
 }
 
+bool MacAddress::IsZero() const {
+    return CompareTo(ZeroMac()) == 0;
+}
+
 bool MacAddress::IsBroadcast() const {
     return CompareTo(BroadcastMac()) == 0;
 }

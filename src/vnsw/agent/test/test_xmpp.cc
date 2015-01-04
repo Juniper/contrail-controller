@@ -993,7 +993,7 @@ TEST_F(AgentXmppUnitTest, ConnectionUpDown) {
 
     const MacAddress mac("00:00:00:01:01:02");
     EXPECT_TRUE(L2RouteFind("vrf1", mac));
-    EvpnRouteEntry *l2_rt = L2RouteGet("vrf1", mac);
+    BridgeRouteEntry *l2_rt = L2RouteGet("vrf1", mac);
 
     //ensure active path is local-vm
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER);
@@ -1064,7 +1064,7 @@ TEST_F(AgentXmppUnitTest, ConnectionUpDown) {
 
     const MacAddress mac2("00:00:00:02:01:03");
     EXPECT_TRUE(L2RouteFind("vrf1", mac2));
-    EvpnRouteEntry *l2_rt2 = L2RouteGet("vrf1", mac2);
+    BridgeRouteEntry *l2_rt2 = L2RouteGet("vrf1", mac2);
 
     //ensure active path is local-vm
     EXPECT_TRUE(rt2->GetActivePath()->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER);
@@ -1399,7 +1399,7 @@ TEST_F(AgentXmppUnitTest, vxlan_peer_l2route_add) {
 
     const MacAddress mac("00:00:00:01:01:02");
     EXPECT_TRUE(L2RouteFind("vrf1", mac));
-    EvpnRouteEntry *l2_rt = L2RouteGet("vrf1", mac);
+    BridgeRouteEntry *l2_rt = L2RouteGet("vrf1", mac);
 
     //ensure active path is local-vm
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER);
@@ -1486,7 +1486,7 @@ TEST_F(AgentXmppUnitTest, vxlan_l2route_vrf_delete_without_deleting_vm) {
 
     const MacAddress mac("00:00:00:01:01:02");
     EXPECT_TRUE(L2RouteFind("vrf1", mac));
-    EvpnRouteEntry *l2_rt = L2RouteGet("vrf1", mac);
+    BridgeRouteEntry *l2_rt = L2RouteGet("vrf1", mac);
 
     //ensure active path is local-vm
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER);
@@ -1577,7 +1577,7 @@ TEST_F(AgentXmppUnitTest, vxlan_l2route_peer_down_before_vrf_delete) {
 
     const MacAddress mac("00:00:00:01:01:02");
     EXPECT_TRUE(L2RouteFind("vrf1", mac));
-    EvpnRouteEntry *l2_rt = L2RouteGet("vrf1", mac);
+    BridgeRouteEntry *l2_rt = L2RouteGet("vrf1", mac);
 
     //ensure active path is local-vm
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER);
@@ -1677,7 +1677,7 @@ TEST_F(AgentXmppUnitTest, mpls_peer_l2route_add) {
 
     const MacAddress mac("00:00:00:01:01:02");
     EXPECT_TRUE(L2RouteFind("vrf1", mac));
-    EvpnRouteEntry *l2_rt = L2RouteGet("vrf1", mac);
+    BridgeRouteEntry *l2_rt = L2RouteGet("vrf1", mac);
 
     //ensure active path is local-vm
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER);
