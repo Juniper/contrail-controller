@@ -2005,7 +2005,7 @@ TEST_F(CfgTest, Nexthop_keys) {
     EXPECT_TRUE(tnh->ToString() == "Tunnel to 10.1.1.100");
     tnh->SetKey(tnh->GetDBRequestKey().get());
     DoNextHopSandesh();
-    Layer2AgentRouteTable::DeleteReq(agent_->local_peer(),
+    EvpnAgentRouteTable::DeleteReq(agent_->local_peer(),
                                      "vrf10", remote_vm_mac, IpAddress(vm_ip),
                                      0);
     client->WaitForIdle();

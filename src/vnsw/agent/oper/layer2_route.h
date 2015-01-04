@@ -22,27 +22,7 @@ public:
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 
-    void AddLocalVmRouteReq(const Peer *peer,
-                            const std::string &vrf_name,
-                            const MacAddress &mac,
-                            const IpAddress &ip_addr,
-                            uint32_t ethernet_tag,
-                            LocalVmRoute *data);
-    void AddLocalVmRoute(const Peer *peer, const std::string &vrf_name,
-                         const MacAddress &mac, const VmInterface *intf,
-                         const IpAddress &ip, uint32_t label,
-                         const std::string &vn_name,
-                         const SecurityGroupList &sg_id_list,
-                         const PathPreference &path_pref);
-    void DelLocalVmRoute(const Peer *peer, const std::string &vrf_name,
-                         const MacAddress &mac, const VmInterface *intf,
-                         const IpAddress &ip);
-    static void AddRemoteVmRouteReq(const Peer *peer,
-                                    const std::string &vrf_name,
-                                    const MacAddress &mac,
-                                    const IpAddress &ip_addr,
-                                    uint32_t ethernet_tag,
-                                    AgentRouteData *data);
+    void AddLayer2Route(AgentRoute *rt);
     static void AddLayer2BroadcastRoute(const Peer *peer,
                                         const std::string &vrf_name,
                                         const std::string &vn_name,
@@ -56,7 +36,6 @@ public:
     static void AddLayer2ReceiveRoute(const Peer *peer,
                                       const std::string &vrf_name,
                                       const MacAddress &mac,
-                                      const IpAddress &ip_addr,
                                       const std::string &vn_name,
                                       const std::string &interface,
                                       bool policy);
@@ -67,18 +46,16 @@ public:
                                uint32_t vxlan_id, const MacAddress &mac,
                                const std::string &vn_name);
     static void DeleteReq(const Peer *peer, const std::string &vrf_name,
-                          const MacAddress &mac, const IpAddress &ip_addr,
-                          uint32_t ethernet_tag);
+                          const MacAddress &mac, uint32_t ethernet_tag);
     static void Delete(const Peer *peer, const std::string &vrf_name,
-                       const MacAddress &mac, const IpAddress &ip_addr,
-                       uint32_t ethernet_tag);
+                       const MacAddress &mac, uint32_t ethernet_tag);
     static void DeleteBroadcastReq(const Peer *peer,
                                    const std::string &vrf_name,
                                    uint32_t ethernet_tag);
+    void DeleteLayer2Route(AgentRoute *rt);
     static Layer2RouteEntry *FindRoute(const Agent *agent,
                                        const std::string &vrf_name,
-                                       const MacAddress &mac,
-                                       const IpAddress &ip_addr);
+                                       const MacAddress &mac);
 
 private:
     DBTableWalker::WalkId walkid_;
@@ -88,9 +65,8 @@ private:
 class Layer2RouteEntry : public AgentRoute {
 public:
     Layer2RouteEntry(VrfEntry *vrf, const MacAddress &mac,
-                     const IpAddress &ip_addr,
                      Peer::Type type, bool is_multicast) :
-        AgentRoute(vrf, is_multicast), mac_(mac), ip_addr_(ip_addr) {
+        AgentRoute(vrf, is_multicast), mac_(mac) {
     }
     virtual ~Layer2RouteEntry() { }
 
@@ -113,29 +89,26 @@ public:
     virtual uint32_t GetActiveLabel() const;
     virtual bool ReComputePathDeletion(AgentPath *path);
     virtual bool ReComputePathAdd(AgentPath *path);
-    virtual void DeletePath(const AgentRouteKey *key, bool force_delete);
-    virtual AgentPath *FindPathUsingKey(const AgentRouteKey *key);
+    virtual AgentPath *FindPathUsingKeyData(const AgentRouteKey *key,
+                                            const AgentRouteData *data) const;
+    virtual void DeletePathUsingKeyData(const AgentRouteKey *key,
+                                        const AgentRouteData *data,
+                                        bool force_delete);
 
-    const MacAddress &GetAddress() const {return mac_;}
     const MacAddress &mac() const {return mac_;}
-    const IpAddress &ip_addr() const {return ip_addr_;}
-    const uint32_t GetVmIpPlen() const;
 
 private:
     bool ReComputeMulticastPaths(AgentPath *path, bool del);
 
     MacAddress mac_;
-    IpAddress ip_addr_;
     DISALLOW_COPY_AND_ASSIGN(Layer2RouteEntry);
 };
 
 class Layer2RouteKey : public AgentRouteKey {
 public:
     Layer2RouteKey(const Peer *peer, const std::string &vrf_name,
-                   const MacAddress &mac, const IpAddress &ip_addr,
-                   uint32_t ethernet_tag) :
-        AgentRouteKey(peer, vrf_name), dmac_(mac), ip_addr_(ip_addr),
-        ethernet_tag_(ethernet_tag) {
+                   const MacAddress &mac, uint32_t ethernet_tag = 0) :
+        AgentRouteKey(peer, vrf_name), dmac_(mac), ethernet_tag_(ethernet_tag) {
     }
 
     virtual ~Layer2RouteKey() { }
@@ -145,17 +118,12 @@ public:
     virtual std::string ToString() const;
     virtual Layer2RouteKey *Clone() const;
     const MacAddress &GetMac() const { return dmac_;}
-    const IpAddress &ip_addr() const { return ip_addr_;}
     uint32_t ethernet_tag() const {return ethernet_tag_;}
 
 private:
     MacAddress dmac_;
-    IpAddress ip_addr_;
-    //ethernet_tag is the segment identifier for VXLAN. In control node its used
-    //as a key however for forwarding only MAC is used as a key.
-    //To handle this ethernet_tag is sent as part of key for all remote routes
-    //which in turn is used to create a seperate path for same peer and
-    //mac.
+    //TODO retained only for multicast route. Once multicast route shift to
+    //evpn table this will go off.
     uint32_t ethernet_tag_;
     DISALLOW_COPY_AND_ASSIGN(Layer2RouteKey);
 };

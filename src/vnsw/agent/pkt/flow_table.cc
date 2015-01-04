@@ -2115,7 +2115,7 @@ void EvpnRouteFlowUpdate::TraceMsg(AgentRoute *entry, const AgentPath *path,
     Layer2RouteEntry *route = static_cast<Layer2RouteEntry *>(entry);
     FLOW_TRACE(RouteUpdate,
                route->vrf()->GetName(),
-               route->mac().ToString() + ":" + route->ip_addr().to_string(),
+               route->mac().ToString(),
                route->plen(),
                path ? path->dest_vn_name() : "",
                route->IsDeleted(),
@@ -3003,11 +3003,11 @@ AgentRoute *FlowTable::GetL2Route(const VrfEntry *vrf,
     Layer2AgentRouteTable *table = static_cast<Layer2AgentRouteTable *>
         (vrf->GetLayer2RouteTable());
     Layer2RouteEntry *entry = NULL;
-    entry = table->FindRoute(agent(), vrf->GetName(), mac, IpAddress());
+    entry = table->FindRoute(agent(), vrf->GetName(), mac);
     if (entry != NULL)
         return entry;
 
-    return table->FindRoute(agent(), vrf->GetName(), mac, ip_addr);
+    return table->FindRoute(agent(), vrf->GetName(), mac);
 }
 
 AgentRoute *FlowTable::GetUcRoute(const VrfEntry *entry,

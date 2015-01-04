@@ -184,7 +184,7 @@ public:
             DeleteReq(Agent::GetInstance()->local_peer(), vrf_name_,
                       remote_vm_ip_, 32, NULL);
         client->WaitForIdle();
-        Layer2AgentRouteTable::DeleteReq(Agent::GetInstance()->local_peer(), 
+        EvpnAgentRouteTable::DeleteReq(Agent::GetInstance()->local_peer(),
                                          vrf_name_, remote_vm_mac_,
                                          remote_vm_ip_, 0);
         client->WaitForIdle();

@@ -656,8 +656,7 @@ bool PktHandler::IsToRDevice(uint32_t vrf_id, const IpAddress &ip) {
         return false;
 
     Layer2RouteEntry *rt = table->FindRoute(agent(), vrf->GetName(),
-                                            MacAddress::BroadcastMac(),
-                                            IpAddress());
+                                            MacAddress::BroadcastMac());
     if (rt == NULL)
         return false;
 

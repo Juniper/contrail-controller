@@ -70,8 +70,8 @@ public:
         void L3Activate(VmInterface *interface, bool force_update) const;
         void L3DeActivate(VmInterface *interface) const;
         void L2Activate(VmInterface *interface, bool force_update) const;
-        void L2DeActivate(VmInterface *interface) const;
-        void DeActivate(VmInterface *interface, bool l2) const;
+        void L2DeActivate(VmInterface *interface, int old_ethernet_tag) const;
+        void DeActivate(VmInterface *interface, bool l2, int old_ethernet_tag) const;
         void Activate(VmInterface *interface, bool force_update, bool l2) const;
 
         IpAddress floating_ip_;
@@ -80,6 +80,7 @@ public:
         std::string vrf_name_;
         boost::uuids::uuid vn_uuid_;
         mutable bool l2_installed_;
+        mutable int ethernet_tag_;
     };
     typedef std::set<FloatingIp, FloatingIp> FloatingIpSet;
 
@@ -435,6 +436,14 @@ public:
             std::vector<autogen::DhcpOptionType> *options, bool ipv6) const;
     const Peer *peer() const;
     Ip4Address GetGateway() const;
+    void UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
+                                VrfEntry *vrf,
+                                const Ip4Address &old_addr,
+                                const Ip6Address &old_v6_addr,
+                                int ethernet_tag) const;
+    uint32_t ethernet_tag() const {return ethernet_tag_;}
+    void UpdateVxLan();
+
 private:
     friend struct VmInterfaceConfigData;
     friend struct VmInterfaceNovaData;
@@ -473,13 +482,13 @@ private:
                     bool *ecmp_changed, bool *local_pref_changed);
     void ApplyConfig(bool old_ipv4_active,bool old_l2_active,  bool old_policy,
                      VrfEntry *old_vrf, const Ip4Address &old_addr,
-                     int old_vxlan_id, bool old_need_linklocal_ip,
+                     int old_ethernet_tag, bool old_need_linklocal_ip,
                      bool sg_changed, bool old_ipv6_active,
                      const Ip6Address &old_v6_addr, bool ecmp_changed,
                      bool local_pref_changed, const Ip4Address &old_subnet,
                      const uint8_t old_subnet_plen);
     void UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
-                  const Ip4Address &old_addr, int old_vxlan_id,
+                  const Ip4Address &old_addr, int old_ethernet_tag,
                   bool force_update, bool policy_change, bool old_ipv6_active,
                   const Ip6Address &old_v6_addr, const Ip4Address &subnet,
                   const uint8_t old_subnet_plen);
@@ -487,12 +496,11 @@ private:
                   const Ip4Address &old_addr, bool old_need_linklocal_ip,
                   bool old_ipv6_active, const Ip6Address &old_v6_addr,
                   const Ip4Address &old_subnet, const uint8_t old_subnet_plen);
-    void UpdateL2(bool old_l2_active, VrfEntry *old_vrf, int old_vxlan_id,
+    void UpdateL2(bool old_l2_active, VrfEntry *old_vrf, int old_ethernet_tag,
                   bool force_update, bool policy_change,
                   const Ip4Address &old_addr, const Ip6Address &old_v6_addr);
-    void DeleteL2(bool old_l2_active, VrfEntry *old_vrf,
+    void DeleteL2(bool old_l2_active, VrfEntry *old_vrf, int old_ethernet_tag,
                   const Ip4Address &old_addr, const Ip6Address &old_v6_addr);
-    void UpdateVxLan();
 
     void AllocL3MplsLabel(bool force_update, bool policy_change);
     void DeleteL3MplsLabel();
@@ -532,7 +540,7 @@ private:
                              bool old_need_linklocal_ip);
     void CleanupFloatingIpList();
     void UpdateFloatingIp(bool force_update, bool policy_change, bool l2);
-    void DeleteFloatingIp(bool l2);
+    void DeleteFloatingIp(bool l2, uint32_t old_ethernet_tag);
     void UpdateServiceVlan(bool force_update, bool policy_change);
     void DeleteServiceVlan();
     void UpdateStaticRoute(bool force_update, bool policy_change);
@@ -543,13 +551,10 @@ private:
     void DeleteSecurityGroup();
     void UpdateL2TunnelId(bool force_update, bool policy_change);
     void DeleteL2TunnelId();
-    void UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
-                                VrfEntry *vrf,
-                                const Ip4Address &old_addr,
-                                const Ip6Address &old_v6_addr);
     void DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf,
                                 const Ip4Address &old_v4_addr,
-                                const Ip6Address &old_v6_addr);
+                                const Ip6Address &old_v6_addr,
+                                int old_ethernet_tag) const;
 
     void DeleteL2Route(const std::string &vrf_name,
                        const MacAddress &mac);
@@ -609,6 +614,7 @@ private:
     uint8_t configurer_;
     Ip4Address subnet_;
     uint8_t subnet_plen_;
+    int ethernet_tag_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 

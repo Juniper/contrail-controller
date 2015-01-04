@@ -289,6 +289,7 @@ public:
 
     static void SetDefaultType(Type type) {default_type_ = type;}
     static Type ComputeType(TypeBmap bmap);
+    static Type DefaultMplsComputeType();
     static Type DefaultType() {return default_type_;}
     static TypeBmap DefaultTypeBmap() {return (1 << DefaultType());}
     static TypeBmap VxlanType() {return (1 << VXLAN);};

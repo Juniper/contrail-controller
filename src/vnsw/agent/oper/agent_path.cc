@@ -59,6 +59,10 @@ uint32_t AgentPath::GetActiveLabel() const {
     }
 }
 
+const NextHopRef AgentPath::NextHopReference() const {
+    return nh_;
+}
+
 const NextHop* AgentPath::nexthop(Agent *agent) const {
     if (nh_) {
         return nh_.get();
@@ -298,6 +302,90 @@ bool AgentPath::IsLess(const AgentPath &r_path) const {
     }
 
     return peer()->IsLess(r_path.peer());
+}
+
+EvpnPath::EvpnPath(const EvpnPeer *evpn_peer,
+                   const IpAddress &ip_addr,
+                   uint32_t ethernet_tag) :
+    AgentPath(evpn_peer, NULL),
+    ip_addr_(ip_addr), ethernet_tag_(ethernet_tag) {
+}
+
+void EvpnPath::set_nexthop_reference(NextHopRef nexthop_ref) {
+    nexthop_reference_ = nexthop_ref;
+}
+
+const NextHop *EvpnPath::nexthop(Agent *agent) const {
+    return nexthop_reference_.get();
+}
+
+EvpnPathData::EvpnPathData(const EvpnRouteEntry *evpn_rt) :
+    AgentRouteData(false), ethernet_tag_(evpn_rt->ethernet_tag()),
+    ip_addr_(evpn_rt->ip_addr()), reference_path_(evpn_rt->GetActivePath()) {
+    // For debuging add peer of active path in parent as well
+    std::stringstream s;
+    s << evpn_rt->ToString();
+    s << " ";
+    if (reference_path_)
+        s << reference_path_->peer()->GetName();
+    parent_ = s.str();
+}
+
+AgentPath *EvpnPathData::CreateAgentPath(const Peer *peer,
+                                         AgentRoute *rt) const {
+    const EvpnPeer *evpn_peer = dynamic_cast<const EvpnPeer *>(peer);
+    assert(evpn_peer != NULL);
+    return (new EvpnPath(evpn_peer, ip_addr_, ethernet_tag_));
+}
+
+bool EvpnPathData::AddChangePath(Agent *agent, AgentPath *path,
+                                 const AgentRoute *rt) {
+    bool ret = false;
+    EvpnPath *evpn_path = dynamic_cast<EvpnPath *>(path);
+    assert(evpn_path != NULL);
+
+    if (evpn_path->ip_addr() != ip_addr_) {
+        evpn_path->set_ip_addr(ip_addr_);
+        ret = true;
+    }
+
+    if (evpn_path->ethernet_tag() != ethernet_tag_) {
+        evpn_path->set_ethernet_tag(ethernet_tag_);
+        ret = true;
+    }
+
+    uint32_t label = reference_path_->GetActiveLabel();
+    if (evpn_path->label() != label) {
+        evpn_path->set_label(label);
+        ret = true;
+    }
+
+    TunnelType::Type tunnel_type = reference_path_->tunnel_type();
+    if (evpn_path->tunnel_type() != tunnel_type) {
+        evpn_path->set_tunnel_type(tunnel_type);
+        ret = true;
+    }
+
+    if (evpn_path->nexthop_reference().get() !=
+        reference_path_->NextHopReference().get()) {
+        evpn_path->set_nexthop_reference(reference_path_->NextHopReference());
+        ret = true;
+    }
+
+    const SecurityGroupList &sg_list = reference_path_->sg_list();
+    if (evpn_path->sg_list() != sg_list) {
+        evpn_path->set_sg_list(sg_list);
+        ret = true;
+    }
+
+    const std::string &dest_vn = reference_path_->dest_vn_name();
+    if (evpn_path->dest_vn_name() != dest_vn) {
+        evpn_path->set_dest_vn_name(dest_vn);
+        ret = true;
+    }
+
+    evpn_path->set_parent(parent_);
+    return ret;
 }
 
 bool HostRoute::AddChangePath(Agent *agent, AgentPath *path,
@@ -935,8 +1023,9 @@ void AgentRoute::FillTrace(RouteInfo &rt_info, Trace event,
 }
 
 void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
-    if (nh_.get() != NULL) {
-        nh_->SetNHSandeshData(pdata.nh);
+    const NextHop *nh = static_cast<const NextHop *>(NextHopReference().get());
+    if (nh != NULL) {
+        nh->SetNHSandeshData(pdata.nh);
     }
     pdata.set_peer(const_cast<Peer *>(peer())->GetName());
     pdata.set_dest_vn(dest_vn_name());
@@ -962,6 +1051,7 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
     path_preference_data.set_wait_for_traffic(
          path_preference_.wait_for_traffic());
     pdata.set_path_preference_data(path_preference_data);
+    pdata.set_active_label(GetActiveLabel());
 }
 
 void AgentPath::set_local_ecmp_mpls_label(MplsLabel *mpls) {

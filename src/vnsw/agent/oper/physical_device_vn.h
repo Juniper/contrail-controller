@@ -84,7 +84,7 @@ class PhysicalDeviceVnTable : public AgentDBTable {
     typedef std::pair<PhysicalDeviceVnKey, uint32_t> ConfigPair;
 
     PhysicalDeviceVnTable(DB *db, const std::string &name) :
-        AgentDBTable(db, name) { }
+        AgentDBTable(db, name), walkid_(DBTableWalker::kInvalidWalkerId) { }
     virtual ~PhysicalDeviceVnTable() { }
 
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;

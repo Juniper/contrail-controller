@@ -59,6 +59,8 @@ void AgentRouteWalker::CancelRouteWalk(const VrfEntry *vrf) {
             AGENT_LOG(AgentRouteWalkerLog, iter->second, 0,
                       "route table walk cancelled for vrf", 
                       vrf->GetName(), table_type);
+            assert((iter->second == DBTableWalker::kInvalidWalkerId) || 
+                   (iter->second != vrf_walkid_));
             walker->WalkCancel(iter->second);
             route_walkid_[table_type].erase(iter);
             DecrementWalkCount();
@@ -114,6 +116,8 @@ void AgentRouteWalker::StartRouteWalk(const VrfEntry *vrf) {
                                          this, _1, _2),
                              boost::bind(&AgentRouteWalker::RouteWalkDone, 
                                          this, _1));
+        assert((walkid == DBTableWalker::kInvalidWalkerId) || 
+               (walkid != vrf_walkid_));
         if (walkid != DBTableWalker::kInvalidWalkerId) {
             IncrementWalkCount();
             route_walkid_[table_type][vrf_id] = walkid;

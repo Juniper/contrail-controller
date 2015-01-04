@@ -42,18 +42,17 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj,
     proxy_arp_(false), address_string_(entry->address_string_),
     tunnel_type_(entry->tunnel_type_),
     wait_for_traffic_(entry->wait_for_traffic_),
-    evpn_ip_(entry->evpn_ip_),
     local_vm_peer_route_(entry->local_vm_peer_route_),
-    flood_(entry->flood_) {
+    flood_(entry->flood_), ethernet_tag_(entry->ethernet_tag_) {
 }
 
 RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
     vrf_id_(rt->vrf_id()), nh_(NULL), label_(0), proxy_arp_(false),
     tunnel_type_(TunnelType::DefaultType()), wait_for_traffic_(false),
-    evpn_ip_(),
     local_vm_peer_route_(false),
-    flood_(false) {
+    flood_(false),
+    ethernet_tag_(0) {
     boost::system::error_code ec;
     rt_type_ = rt->GetTableType();
     switch (rt_type_) {
@@ -81,11 +80,18 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
           prefix_len_ = 32;
           break;
     }
+    case Agent::EVPN: {
+          const EvpnRouteEntry *evpn_rt =
+              static_cast<const EvpnRouteEntry *>(rt);
+          mac_ = evpn_rt->mac();
+          addr_ = evpn_rt->ip_addr();
+          prefix_len_ = evpn_rt->GetVmIpPlen();
+          break;
+    }
     case Agent::LAYER2: {
           const Layer2RouteEntry *l2_rt =
               static_cast<const Layer2RouteEntry *>(rt);              
-          mac_ = l2_rt->GetAddress();
-          addr_ = l2_rt->ip_addr();
+          mac_ = l2_rt->mac();
           prefix_len_ = 0;
           break;
     }
@@ -129,6 +135,28 @@ bool RouteKSyncEntry::McIsLess(const KSyncEntry &rhs) const {
     return (addr_ < entry.addr_);
 }
 
+bool RouteKSyncEntry::EvpnIsLess(const KSyncEntry &rhs) const {
+    const RouteKSyncEntry &entry = static_cast<const RouteKSyncEntry &>(rhs);
+
+    if (vrf_id_ != entry.vrf_id_) {
+        return vrf_id_ < entry.vrf_id_;
+    }
+
+    if (ethernet_tag_ != entry.ethernet_tag_) {
+        return ethernet_tag_ < entry.ethernet_tag_;
+    }
+
+    if (addr_ != entry.addr_) {
+        return addr_ < entry.addr_;
+    }
+
+    if (prefix_len_ != entry.prefix_len_) {
+        return prefix_len_ < entry.prefix_len_;
+    }
+
+    return mac_ < entry.mac_;
+}
+
 bool RouteKSyncEntry::L2IsLess(const KSyncEntry &rhs) const {
     const RouteKSyncEntry &entry = static_cast<const RouteKSyncEntry &>(rhs);
  
@@ -136,11 +164,7 @@ bool RouteKSyncEntry::L2IsLess(const KSyncEntry &rhs) const {
         return vrf_id_ < entry.vrf_id_;
     }
 
-    if (mac_ != entry.mac_) {
-        return mac_ < entry.mac_;
-    }
-
-    return (addr_ < entry.addr_);
+    return mac_ < entry.mac_;
 }
 
 bool RouteKSyncEntry::IsLess(const KSyncEntry &rhs) const {
@@ -152,6 +176,10 @@ bool RouteKSyncEntry::IsLess(const KSyncEntry &rhs) const {
     if ((rt_type_ == Agent::INET4_UNICAST) ||
         (rt_type_ == Agent::INET6_UNICAST)) {
         return UcIsLess(rhs);
+    }
+
+    if (rt_type_ == Agent::EVPN) {
+        return EvpnIsLess(rhs);
     }
 
     if (rt_type_ == Agent::LAYER2) {
@@ -172,8 +200,11 @@ static std::string RouteTypeToString(Agent::RouteTableType type) {
     case Agent::INET4_MULTICAST:
         return "INET_MULTICAST";
         break;
-    case Agent::LAYER2:
+    case Agent::EVPN:
         return "EVPN";
+        break;
+    case Agent::LAYER2:
+        return "LAYER2";
         break;
     default:
         break;
@@ -284,12 +315,47 @@ bool RouteKSyncEntry::BuildRouteFlags(const DBEntry *e,
     }
 
     return ret;
- }
+}
+
+//Uses internal API to extract path.
+const NextHop *RouteKSyncEntry::GetActiveNextHop(const AgentRoute *route) const {
+    const AgentPath *path = GetActivePath(route);
+    if (path == NULL)
+        return NULL;
+
+    return path->nexthop(ksync_obj_->ksync()->agent());
+}
+
+//Returns the usable path.
+//In case of layer2 tables the path contains reference path which
+//has all the data. This path known as evpn_path is a level of indirection
+//to leaked path from MAC+IP route.
+const AgentPath *RouteKSyncEntry::GetActivePath(const AgentRoute *route) const {
+    const AgentPath *path = route->GetActivePath();
+    return path;
+}
 
 bool RouteKSyncEntry::Sync(DBEntry *e) {
     bool ret = false;
     Agent *agent = ksync_obj_->ksync()->agent();
     const AgentRoute *route = static_cast<AgentRoute *>(e);
+
+    //EVPN route is only present for IP-MAC binding and does not get
+    //downloaded to vrouter.
+    if (rt_type_ == Agent::EVPN) {
+        VrfKSyncObject *obj = ksync_obj_->ksync()->vrf_ksync_obj();
+        const Layer2RouteEntry *evpn_rt =
+            static_cast<const Layer2RouteEntry *>(e);
+        if (addr_.is_unspecified() == true)
+            return ret;
+
+        if (evpn_rt->IsDeleted()) {
+            obj->DelIpMacBinding(evpn_rt->vrf(), addr_, mac_);
+        } else {
+            obj->AddIpMacBinding(evpn_rt->vrf(), addr_, mac_);
+        }
+        return ret;
+    }
 
     const AgentPath *path = route->GetActivePath();
     if (path->peer() == agent->local_vm_peer())
@@ -301,7 +367,7 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
     NHKSyncEntry *old_nh = nh();
 
     const NextHop *tmp = NULL;
-    tmp = route->GetActiveNextHop();
+    tmp = GetActiveNextHop(route);
     if (tmp == NULL) {
         DiscardNHKey key;
         tmp = static_cast<NextHop *>(agent->nexthop_table()->
@@ -317,8 +383,8 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
     //Bother for label for unicast and EVPN routes
     if (rt_type_ != Agent::INET4_MULTICAST) {
         uint32_t old_label = label_;
-        const AgentPath *path = 
-            (static_cast <InetUnicastRouteEntry *>(e))->GetActivePath();
+        const AgentPath *path = GetActivePath((static_cast<AgentRoute *>(e)));
+
         if (route->is_multicast()) {
             label_ = path->vxlan_id();
         } else {
@@ -356,22 +422,6 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
 
     if (BuildRouteFlags(e, mac_))
         ret = true;
-
-    if (rt_type_ == Agent::LAYER2) {
-        const Layer2RouteEntry *l2_rt =
-            static_cast<const Layer2RouteEntry *>(e);
-        if (evpn_ip_ != l2_rt->ip_addr()) {
-            VrfKSyncObject *obj = ksync_obj_->ksync()->vrf_ksync_obj();
-            if (evpn_ip_.is_unspecified() == false) {
-                obj->DelIpMacBinding(l2_rt->vrf(), evpn_ip_, mac_);
-            }
-
-            evpn_ip_ = l2_rt->ip_addr();
-            if (evpn_ip_.is_unspecified() == false) {
-                obj->AddIpMacBinding(l2_rt->vrf(), evpn_ip_, mac_);
-            }
-        }
-    }
 
     return ret;
 }
@@ -569,17 +619,6 @@ int RouteKSyncEntry::DeleteInternal(NHKSyncEntry *nexthop, uint32_t lbl,
 }
 
 KSyncEntry *RouteKSyncEntry::UnresolvedReference() {
-    if (rt_type_ == Agent::LAYER2) {
-        if (addr_.is_v6()) {
-            return KSyncObjectManager::default_defer_entry();
-        }
-
-        if ((local_vm_peer_route_ == false) &&
-            (mac_ != MacAddress::BroadcastMac() && addr_.is_unspecified())) {
-            return KSyncObjectManager::default_defer_entry();
-        }
-    }
-
     NHKSyncEntry *nexthop = nh();
     if (!nexthop->IsResolved()) {
         return nexthop;

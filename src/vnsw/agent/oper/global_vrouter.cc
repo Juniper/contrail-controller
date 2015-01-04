@@ -406,16 +406,27 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
         encap_changed = true;
     }
 
+    bool resync_vm_interface = false;
+    
+
     if (cfg_vxlan_network_identifier_mode !=                             
         oper_->agent()->vxlan_network_identifier_mode()) {
-        oper_->agent()->set_vxlan_network_identifier_mode(
-                        cfg_vxlan_network_identifier_mode);
-        oper_->agent()->vn_table()->UpdateVxLanNetworkIdentifierMode();
+        oper_->agent()->
+            set_vxlan_network_identifier_mode(cfg_vxlan_network_identifier_mode);
+        resync_vm_interface = true;
     }
 
     if (encap_changed) {
         AGENT_LOG(GlobalVrouterLog, "Rebake all routes for changed encap");
+        //Resync vm_interfaces to handle ethernet tag change if vxlan changed to
+        //mpls or vice versa.
+        //Update all routes irrespectively as this will handle change of
+        //priority between MPLS-UDP to MPLS-GRE and vice versa.
         agent_route_encap_update_walker_.get()->Update();
+    }
+
+    if (resync_vm_interface) {
+        oper_->agent()->vn_table()->UpdateVxLanNetworkIdentifierMode();
     }
 }
 

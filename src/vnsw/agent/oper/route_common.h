@@ -11,6 +11,7 @@
 #include <oper/agent_path.h>
 #include <oper/inet_unicast_route.h>
 #include <oper/inet4_multicast_route.h>
+#include <oper/evpn_route.h>
 #include <oper/layer2_route.h>
 #include <oper/mpls.h>
 

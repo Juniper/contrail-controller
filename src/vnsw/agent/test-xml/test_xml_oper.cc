@@ -1012,10 +1012,13 @@ string AgentUtXmlL2Route::NodeType() {
 }
 
 bool AgentUtXmlL2Route::Run() {
-    Layer2AgentRouteTable::AddRemoteVmRouteReq(NULL, vrf_,
-                                               MacAddress::FromString(mac_),
-                                               Ip4Address::from_string(ip_),
-                                               0, NULL);
+    EvpnAgentRouteTable *rt_table =
+        static_cast<EvpnAgentRouteTable *>
+        (Agent::GetInstance()->vrf_table()->GetEvpnRouteTable(vrf_));
+    rt_table->AddRemoteVmRouteReq(NULL, vrf_,
+                                  MacAddress::FromString(mac_),
+                                  Ip4Address::from_string(ip_),
+                                  0, NULL);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1062,7 +1065,7 @@ bool AgentUtXmlL2RouteValidate::Validate() {
     Agent *agent = Agent::GetInstance();
     Layer2RouteEntry *rt =
         Layer2AgentRouteTable::FindRoute(agent, vrf_,
-                                         MacAddress::FromString(mac_), ip_);
+                                         MacAddress::FromString(mac_));
     if (present() == false)
         return (rt == NULL);
 

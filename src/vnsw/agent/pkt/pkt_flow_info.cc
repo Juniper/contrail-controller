@@ -76,7 +76,8 @@ uint8_t PktFlowInfo::RouteToPrefixLen(const AgentRoute *route) {
     const Layer2RouteEntry *l2_rt =
         dynamic_cast<const Layer2RouteEntry *>(route);
     if (l2_rt) {
-        return l2_rt->GetAddress().bit_len();
+        return 0;
+        //return l2_rt->GetAddress().bit_len();
     }
 
     assert(0);

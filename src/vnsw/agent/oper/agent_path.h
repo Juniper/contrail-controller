@@ -18,6 +18,7 @@ class AgentXmppChannel;
 class InterfaceKey;
 class PhysicalInterface;
 class Peer;
+class EvpnPeer;
 
 class PathPreference {
 public:
@@ -120,8 +121,13 @@ public:
     AgentPath(const Peer *peer, AgentRoute *rt);
     virtual ~AgentPath();
 
+    virtual uint32_t GetActiveLabel() const;
+    virtual const NextHop *nexthop(Agent *agent) const;
+    virtual const SecurityGroupList &sg_list() const {return sg_list_;}
+    virtual const std::string &dest_vn_name() const {return dest_vn_name_;}
+    virtual const NextHopRef NextHopReference() const;
+
     const Peer *peer() const {return peer_;}
-    const NextHop *nexthop(Agent *agent) const;
     uint32_t label() const {return label_;}
     uint32_t vxlan_id() const {return vxlan_id_;}
     TunnelType::Type tunnel_type() const {return tunnel_type_;}
@@ -131,12 +137,9 @@ public:
     bool force_policy() const {return force_policy_;}
     const bool unresolved() const {return unresolved_;}
     const Ip4Address& server_ip() const {return server_ip_;}
-    const std::string &dest_vn_name() const {return dest_vn_name_;}
-    const SecurityGroupList &sg_list() const {return sg_list_;}
     bool is_subnet_discard() const {return is_subnet_discard_;}
     const IpAddress subnet_gw_ip() const { return subnet_gw_ip_;}
 
-    uint32_t GetActiveLabel() const;
     TunnelType::Type GetTunnelType() const {
         return TunnelType::ComputeType(tunnel_bmap_);
     }
@@ -246,6 +249,94 @@ private:
     //allowed address pair
     IpAddress subnet_gw_ip_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
+};
+
+/*
+ * EvpnPath
+ *
+ * Used by layer2 routes. This path is derived from AgentPath as
+ * common route code expects type AgentPath. Also EvpnPath
+ * keeps reference path from Evpn route.
+ * evpn_peer_ref is unique peer generated for each evpn route.
+ * ip_addr is the IP taken from parent evpn route.
+ * parent is for debugging to know which evpn route added the path.
+ */
+class EvpnPath : public AgentPath {
+public:
+    EvpnPath(const EvpnPeer *evpn_peer,
+             const IpAddress &ip_addr,
+             uint32_t ethernet_tag);
+    virtual ~EvpnPath() { };
+
+    virtual uint32_t GetActiveLabel() const {return label_;}
+    virtual const NextHop *nexthop(Agent *agent) const;
+    virtual const std::string &dest_vn_name() const {return dest_vn_name_;}
+    virtual const SecurityGroupList &sg_list() const {return sg_list_;}
+    virtual const NextHopRef NextHopReference() const {return nexthop_reference();}
+
+    //Data get/set
+    const IpAddress &ip_addr() const {return ip_addr_;}
+    void set_ip_addr(const IpAddress &ip_addr) {ip_addr_ = ip_addr;}
+    const std::string &parent() const {return parent_;}
+    void set_parent(const std::string &parent) {parent_ = parent;}
+    uint32_t ethernet_tag() const {return ethernet_tag_;}
+    void set_ethernet_tag(uint32_t ethernet_tag) {ethernet_tag_ = ethernet_tag;}
+    void set_label(uint32_t label) {label_ = label;}
+    TunnelType::Type tunnel_type() const {return tunnel_type_;}
+    void set_tunnel_type(TunnelType::Type tunnel_type) {
+        tunnel_type_ = tunnel_type;}
+    NextHopRef nexthop_reference() const {return nexthop_reference_;}
+    void set_nexthop_reference(NextHopRef nh_ref);
+    void set_sg_list(const SecurityGroupList &sg) {sg_list_ = sg;}
+    void set_dest_vn_name(const std::string &dest_vn) {dest_vn_name_ = dest_vn;}
+
+private:
+    //Key parameters for comparision
+    IpAddress ip_addr_;
+    uint32_t ethernet_tag_;
+    //Data
+    std::string parent_;
+    uint32_t label_;
+    TunnelType::Type tunnel_type_;
+    std::string dest_vn_name_;
+    SecurityGroupList sg_list_;
+    NextHopRef nexthop_reference_;
+    DISALLOW_COPY_AND_ASSIGN(EvpnPath);
+};
+
+/*
+ * EvpnPathData
+ * Route data used to transfer information from Evpn route for layer2 rute
+ * creation.
+ * path_parameters_changed - Telss if some parameters changed in reference path.
+ * Currently its always true as any change in path attributes results in
+ * notification of evpn route and thats when layer2 route is also updated.
+ */
+class EvpnPathData : public AgentRouteData {
+public:
+    EvpnPathData(const EvpnRouteEntry *evpn_rt);
+    virtual ~EvpnPathData() { }
+    virtual bool AddChangePath(Agent *agent, AgentPath *path,
+                               const AgentRoute *rt);
+    virtual std::string ToString() const {return "EvpnPathData";}
+    virtual AgentPath *CreateAgentPath(const Peer *peer, AgentRoute *rt) const;
+
+    EvpnPeer *evpn_peer() const;
+    const IpAddress &ip_addr() const {return ip_addr_;}
+    const std::string &parent() const {return parent_;}
+    void set_parent(const std::string &parent) {parent_ = parent;}
+    void set_ethernet_tag(uint32_t ethernet_tag) {ethernet_tag_ = ethernet_tag;}
+    uint32_t ethernet_tag() const {return ethernet_tag_;}
+    const AgentPath *reference_path() const {return reference_path_;}
+
+private:
+    void CopyData(const AgentPath *path);
+
+    uint32_t ethernet_tag_;
+    IpAddress ip_addr_;
+    std::string parent_;
+    const AgentPath *reference_path_;
+    DISALLOW_COPY_AND_ASSIGN(EvpnPathData);
 };
 
 class ResolveRoute : public AgentRouteData {
@@ -397,17 +488,17 @@ private:
 
 class MulticastRoute : public AgentRouteData {
 public:
-    MulticastRoute(const string &vn_name, uint32_t label,
-                   int vxlan_id, uint32_t tunnel_type,
-                   DBRequest &nh_req):
-    AgentRouteData(true), vn_name_(vn_name),
-    label_(label), vxlan_id_(vxlan_id), tunnel_type_(tunnel_type) {
+    MulticastRoute(const string &vn_name, uint32_t label, int vxlan_id,
+                   uint32_t tunnel_type, DBRequest &nh_req):
+    AgentRouteData(true), vn_name_(vn_name), label_(label), vxlan_id_(vxlan_id), 
+    tunnel_type_(tunnel_type) {
         composite_nh_req_.Swap(&nh_req);
     }
     virtual ~MulticastRoute() { }
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
                                const AgentRoute *rt);
     virtual std::string ToString() const {return "multicast";}
+    uint32_t vxlan_id() const {return vxlan_id_;}
     static bool CopyPathParameters(Agent *agent,
                                    AgentPath *path,
                                    const std::string &dest_vn_name,

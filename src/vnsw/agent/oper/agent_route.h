@@ -65,6 +65,7 @@ struct AgentRouteData : public AgentData {
     virtual ~AgentRouteData() { }
 
     virtual std::string ToString() const = 0;
+    virtual AgentPath *CreateAgentPath(const Peer *peer, AgentRoute *rt) const;
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
                                const AgentRoute *rt) = 0;
     virtual bool IsPeerValid() const {return true;}
@@ -118,6 +119,10 @@ public:
     virtual void ProcessAdd(AgentRoute *rt) { }
     //Entry notification
     virtual void NotifyEntry(AgentRoute *entry);
+    //Can be used for operations related to updation of route.
+    virtual void UpdateDependants(AgentRoute *entry) { }
+    //Can be used for operations resulting from deletion of route.
+    virtual void PreRouteDelete(AgentRoute *entry) { }
 
     // Unresolved route tree accessors
     UnresolvedRouteTree::const_iterator unresolved_route_begin() const {
@@ -224,7 +229,12 @@ public:
     virtual bool ReComputePathDeletion(AgentPath *path) {return false;}
     virtual bool ReComputePathAdd(AgentPath *path) {return false;}
     virtual uint32_t GetActiveLabel() const;
-    virtual AgentPath *FindPathUsingKey(const AgentRouteKey *key);
+    virtual AgentPath *FindPathUsingKeyData(const AgentRouteKey *key,
+                                            const AgentRouteData *data) const;
+    virtual AgentPath *FindPath(const Peer *peer) const;
+    virtual void DeletePathUsingKeyData(const AgentRouteKey *key,
+                                        const AgentRouteData *data,
+                                        bool force_delete);
     virtual void DeletePath(const AgentRouteKey *key, bool force_delete);
 
     // Accessor functions
@@ -233,7 +243,6 @@ public:
     uint32_t vrf_id() const;
 
     AgentPath *FindLocalVmPortPath() const;
-    AgentPath *FindPath(const Peer *peer) const;
     const AgentPath *GetActivePath() const;
     const NextHop *GetActiveNextHop() const; 
     const std::string &dest_vn_name() const;

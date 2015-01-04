@@ -2546,7 +2546,6 @@ TEST_F(IntfTest, Intf_l2mode_deactivate_activat_via_os_state) {
 
     EXPECT_FALSE(vm_interface->IsL2Active());
     EXPECT_TRUE(FindVxLanId(agent, vxlan_id));
-    EXPECT_TRUE(vm_interface->vxlan_id() == 0);
 
     //Activate OS state (IF up)
     DBRequest req2(DBRequest::DB_ENTRY_ADD_CHANGE);
