@@ -219,7 +219,7 @@ class VirtualNetworkST(DictST):
     _sg_id_allocator = None
     _rt_allocator = None
     _sc_vlan_allocator_dict = {}
-    
+
     def __init__(self, name):
         self.obj = _vnc_lib.virtual_network_read(fq_name_str=name)
         self.name = name
@@ -228,6 +228,8 @@ class VirtualNetworkST(DictST):
         self.rinst = {}
         self.acl = None
         self.dynamic_acl = None
+        self.physical_router_dict = None
+        self.fip_pool_dict = {}
         for acl in self.obj.get_access_control_lists() or []:
             acl_obj = _vnc_lib.access_control_list_read(id=acl['uuid'])
             if acl_obj.name == self.obj.name:
@@ -373,6 +375,46 @@ class VirtualNetworkST(DictST):
                                            key=lambda t:(t[1].sequence.major,
                                                          t[1].sequence.minor)))
     #end add_policy
+
+    def add_physical_router(self, pr_name, pr):
+        if self.physical_router_dict is None:
+            self.physical_router_dict = {}
+        self.physical_router_dict[pr_name] = pr
+    #end add_physical_router
+
+    def delete_physical_router(self, pr_name):
+        if self.physical_router_dict is None:
+            self.physical_router_dict = {}
+        try:
+            del self.physical_router_dict[pr_name]
+        except KeyError:
+            pass
+    #end delete_physical_router
+
+    def get_bare_metal_enabled_physical_routers(self):
+        pr_set = set()
+        for pr in self.physical_router_dict.itervalues():
+            bare_metal_service = pr.obj.get_physical_router_bare_metal_service()
+            if bare_metal_service is not None and bare_metal_service.enable == True:
+                pr_set.add(pr) 
+        return pr_set
+    #end get_bare_metal_enabled_physical_routers
+
+    def add_fip_pool(self, pool_name, fip_pool):
+        if self.fip_pool_dict is None:
+            self.fip_pool_dict = {}
+        self.fip_pool_dict[pool_name] = fip_pool
+    #end add_fip_pool
+
+    def delete_fip_pool(self, pool_name):
+        if self.fip_pool_dict is None:
+            self.fip_pool_dict = {}
+        try:
+            del self.fip_pool_dict[pool_name]
+        except KeyError:
+            pass
+    #end delete_fip_pool
+
 
     def get_primary_routing_instance(self):
         return self.rinst[self._default_ri_name]
@@ -2229,6 +2271,196 @@ class VirtualMachineInterfaceST(DictST):
     # end recreate_vrf_assign_table
 # end VirtualMachineInterfaceST
 
+class PhysicalRouterST(DictST):
+    _dict = {}
+    def __init__(self, name):
+        self.name = name
+        self.physical_interface_set = set()
+        self.obj = _vnc_lib.physical_router_read(fq_name_str=name)
+    # end __init__
+
+    @classmethod
+    def delete(cls, name):
+        if name in cls._dict:
+            cls._dict[name].physical_interfaces()
+            del cls._dict[name]
+    # end delete
+
+    def add_physical_interface(self, pi_name):
+        self.physical_interface_set.add(pi_name)
+    # end add_physical_interface
+
+    def get_physical_interfaces(self):
+        return self.physical_interface_set
+    # end get_physical_interfaces
+
+    def delete_physical_interface(self, pi_name):
+        self.physical_interface_set.discard(pi_name)
+    # end delete_physical_interface
+
+    def clear_physical_interfaces(self):
+        self.physical_interface_set.clear()
+    # end clear_physical_interfaces
+
+#end PhysicalRouterST
+
+class FloatingIpPoolST(DictST):
+    _dict = {}
+    def __init__(self, name):
+        self.name = name
+        self.virtual_network = None
+        self.floating_ip_dict = {}
+    # end __init__
+
+    @classmethod
+    def delete(cls, name):
+        if name in cls._dict:
+            cls._dict[name].clear_fips()
+            del cls._dict[name]
+    # end delete
+
+    def set_virtual_network(self, network_name):
+        self.virtual_network = VirtualNetworkST.get(network_name)
+    # end set_virtual_network
+
+    def add_floating_ip(self, fip_name):
+        fip_obj = _vnc_lib.floating_ip_read(fq_name_str=fip_name)
+        vmi_refs = fip_obj.get_virtual_machine_interface_refs()
+        if vmi_refs:
+            vmi_obj = _vnc_lib.virtual_machine_interface_read(vmi_refs[0]['to'])
+            li_refs = vmi_obj.get_logical_interface_back_refs()
+            if li_refs is None:
+                 _sandesh._logger.info("vmi does not have any bare metal server connected to physical router"%fip_name)
+                 return
+            # check if li parent is physical router or physical interface, if not return
+            li_obj = _vnc_lib.logical_interface_read(li_refs[0]['to'])
+            if li_obj.parent_type != 'physical-interface' and li_obj.parent_type != 'physical-router':
+                 _sandesh._logger.info("vmi does not have any bare metal server connected to physical router"%fip_name)
+                 return
+
+            self.floating_ip_dict[fip_name] = fip_obj
+
+            vn_refs = vmi_obj.get_virtual_network_refs()
+            if vn_refs:
+                vn_name = vn_refs[0]['to'][-1]
+                vn_fq_name = ':'.join(vn_refs[0]['to'])
+                # RI is per private VN - Pool association, one per every association
+                ri_name = vn_name + "_" + self.name.split(':')[-1] + "_nat"
+                vn_pool_ri = self.virtual_network.locate_routing_instance(ri_name)
+                if vn_pool_ri is None:
+                    _sandesh._logger.error("unable to create pool ri %s"%ri_name)
+                # create physical interface and two LIs and two VMIs for every privateVN-PublicVN association
+                private_network = VirtualNetworkST.get(vn_fq_name)
+                pr_set = private_network.get_bare_metal_enabled_physical_routers()
+                for pr in pr_set:
+                    # get bare metal service info
+                    bare_metal_service_info = pr.obj.get_physical_router_bare_metal_service()
+
+                    # create pi with service_port name 
+                    pi_obj= PhysicalInterface(bare_metal_service_info.service_port, parent_obj = pr.obj)
+                    pi_obj_id = _vnc_lib.physical_interface_create(pi_obj)
+
+                    # vmi name = private vn name + '_' + public vn name + physical_interface name + '_vmi_' + [0 or 1]
+                    vmi1_fq_name = [vn_refs[0]['to'][1], vn_name + '_' + self.virtual_network.obj.get_fq_name()[2] + '_' + pi_obj.get_fq_name()[-1] + '_vmi_0']
+                    try:
+                        vmi1_obj = _vnc_lib.virtual_machine_interface_read(vmi1_fq_name)
+                        # VMIs and LIs already created for this private VN - public VN association, 
+                        # this will happen when second or more floating ips is added
+                        continue
+                    except NoIdError:
+                        pass
+
+                    vmi1 = VirtualMachineInterface(fq_name=vmi1_fq_name, parent_type = 'project')
+                    vmi1.set_virtual_network(private_network.obj)
+                    #fix me, do we need to add routing instance link
+                    #vmi1.add_routing_instance(vn_pool_ri.obj)
+                    vmi1_id = _vnc_lib.virtual_machine_interface_create(vmi1)
+
+                    li1 = LogicalInterface(pi_obj.get_fq_name()[-1] + '.0', parent_obj = pi_obj)
+                    li1.set_virtual_machine_interface(vmi1)
+                    li1_id = _vnc_lib.logical_interface_create(li1)
+
+                    vmi2_fq_name =  [self.virtual_network.obj.get_fq_name()[1], vn_name + '_' + self.virtual_network.obj.get_fq_name()[2] + '_' +  pi_obj.get_fq_name()[-1] + '_vmi_1']
+                    try:
+                        vmi2_obj = _vnc_lib.virtual_machine_interface_read(vmi2_fq_name)
+                        continue
+                    except NoIdError:
+                        pass
+                    vmi2 = VirtualMachineInterface(fq_name=vmi2_fq_name, parent_type = 'project')
+                    vmi2.set_virtual_network(self.virtual_network.obj)
+                    _vnc_lib.virtual_machine_interface_create(vmi2)
+
+                    li2 = LogicalInterface(pi_obj.get_fq_name()[-1] + '.1', parent_obj = pi_obj)
+                    li2.set_virtual_machine_interface(vmi2)
+                    li2_id = _vnc_lib.logical_interface_create(li2)
+    # end add_floating_ip
+
+    def delete_floating_ip(self, fip_name):
+        if self.floating_ip_dict is None:
+            self.floating_ip_dict = {}
+        fip_obj = self.floating_ip_dict[fip_name]
+        try:
+            del self.floating_ip_dict[fip_name]
+        except KeyError:
+            pass
+
+        if len(self.floating_ip_dict) > 0 :
+            return;  
+        vmi_refs = fip_obj.get_virtual_machine_interface_refs()
+        if vmi_refs:
+            vmi_obj = _vnc_lib.virtual_machine_interface_read(vmi_refs[0]['to'])
+            li_refs = vmi_obj.get_logical_interface_back_refs()
+            if li_refs is None:
+                 _sandesh._logger.info("vmi does not have any bare metal server connected to physical router"%fip_name)
+                 return
+            # check if li parent is physical router or physical interface, if not return
+            li_obj = _vnc_lib.logical_interface_read(li_refs[0]['to'])
+            if li_obj.parent_type != 'physical-interface' and li_obj.parent_type != 'physical-router':
+                 _sandesh._logger.info("vmi does not have any bare metal server connected to physical router"%fip_name)
+                 return
+            vn_refs = vmi_obj.get_virtual_network_refs()
+            if vn_refs:
+                vn_name = vn_refs[0]['to'][-1]
+                vn_fq_name = ':'.join(vn_refs[0]['to'])
+                private_network = VirtualNetworkST.get(vn_fq_name)
+                pr_set = private_network.get_bare_metal_enabled_physical_routers()
+                for pr in pr_set:
+                    # get bare metal service info
+                    bare_metal_service_info = pr.obj.get_physical_router_bare_metal_service()
+
+                    pi_fq_name = list(pr.obj.get_fq_name())
+                    pi_fq_name.append(bare_metal_service_info.service_port)
+                    vmi1_fq_name = [vn_refs[0]['to'][1], vn_name + '_' + self.virtual_network.obj.get_fq_name()[2] + '_' + pi_fq_name[-1] + '_vmi_0']
+                    li1_fq_name = list(pi_fq_name)
+                    li1_fq_name.append(pi_fq_name[-1] + '.0')
+                    vmi2_fq_name =  [self.virtual_network.obj.get_fq_name()[1], vn_name + '_' + self.virtual_network.obj.get_fq_name()[2] + '_' +  pi_fq_name[-1] + '_vmi_1']
+                    li2_fq_name = list(pi_fq_name)
+                    li2_fq_name.append(pi_fq_name[-1] + '.1')
+
+                    try:
+                        _vnc_lib.logical_interface_delete(fq_name=li1_fq_name)
+                        _vnc_lib.logical_interface_delete(fq_name=li2_fq_name)
+                        _vnc_lib.virtual_machine_interface_delete(fq_name=vmi1_fq_name)
+                        _vnc_lib.virtual_machine_interface_delete(fq_name=vmi2_fq_name)
+                        _vnc_lib.physical_interface_delete(fq_name=pi_fq_name)
+                    except NoIdError:
+                        pass
+
+                # RI is per private VN - Pool association, one per every association
+                ri_name = vn_name + "_" + self.name.split(':')[-1] + "_nat"
+                # fix it, locate_routing_instance creates one if not found
+                vn_pool_ri = self.virtual_network.locate_routing_instance(ri_name)
+                if vn_pool_ri is None:
+                    _sandesh._logger.error("unable to locate pool ri %s"%ri_name)
+                    return
+                vn_pool_ri .delete()
+    # end delete_floating_ip
+
+    def clear_fips(self):
+        self.floating_ip_dict.clear()
+    # end clear_fips
+
+# end FloatingIpPoolST
 
 class LogicalRouterST(DictST):
     _dict = {}
@@ -2526,6 +2758,76 @@ class SchemaTransformer(object):
         network_name = idents['virtual-network']
         VirtualNetworkST.locate(network_name)
     # end add_project_virtual_network
+
+    def add_virtual_network_floating_ip_pool(self, idents, meta):
+        # New floating ip pool
+        network_name = idents['virtual-network']
+        fip_pool_name = idents['floating-ip-pool']
+        virtual_network = VirtualNetworkST.locate(network_name)
+        fip = FloatingIpPoolST.locate(fip_pool_name)
+        if fip is None:
+            return
+        fip.set_virtual_network(virtual_network.name)
+        virtual_network.add_fip_pool(fip_pool_name, fip)
+    # end add_virtual_network_fip_pool
+
+    def delete_virtual_network_floating_ip_pool(self, idents, meta):
+        network_name = idents['virtual-network']
+        fip_pool_name = idents['floating-ip-pool']
+        virtual_network.delete_fip_pool(fip_pool_name)
+        FloatingIpPoolST.delete(fip_pool_name)
+    # end delete_virtual_network_fip_pool
+
+    def add_floating_ip_pool_floating_ip(self, idents, meta):
+        # New floating ip 
+        fip_pool_name = idents['floating-ip-pool']
+        fip_name = idents['floating-ip']
+        fip = FloatingIpPoolST.locate(fip_pool_name)
+        if fip is not None:
+            fip.add_floating_ip(fip_name)
+    # end add_fip_pool_floating_ip
+
+    def delete_floating_ip_pool_floating_ip(self, idents, meta):
+        fip_pool_name = idents['floating-ip-pool']
+        fip_name = idents['floating-ip']
+        fip = FloatingIpPoolST.locate(fip_pool_name)
+        if fip is not None:
+            fip.delete_floating_ip(fip_name)
+    # end delete_fip_pool_floating_ip
+
+    def add_physical_router_virtual_network(self, idents, meta):
+        pr_name = idents['physical-router']
+        network_name = idents['virtual-network']
+        pr = PhysicalRouterST.locate(pr_name)
+        vn = VirtualNetworkST.locate(network_name)
+        if vn is not None:
+            vn.add_physical_router(pr_name, pr)
+    # end add_physical_router_virtual_network
+
+    def delete_physical_router_virtual_network(self, idents, meta):
+        pr_name = idents['physical-router']
+        network_name = idents['virtual-network']
+        pr = PhysicalRouterST.locate(pr_name)
+        vn = VirtualNetworkST.locate(network_name)
+        if vn is not None:
+            vn.delete_physical_router(pr_name, pr)
+    # end delete_physical_router_virtual_network
+
+    def add_physical_router_physical_interface(self, idents, meta):
+        pr_name = idents['physical-router']
+        pi_name = idents['physical-interface']
+        pr = PhysicalRouterST.locate(pr_name)
+        if pr is not None:
+            pr.add_physical_interface(pi_name)
+    # end add_physical_router_physical_interface
+
+    def delete_physical_router_physical_interface(self, idents, meta):
+        pr_name = idents['physical-router']
+        pi_name = idents['physical-interface']
+        pr = PhysicalRouterST.locate(pr_name)
+        if pr is not None:
+            pr.delete_physical_interface(pi_name)
+    # end delete_physical_router_physical_interface
 
     def add_project_network_policy(self, idents, meta):
         policy_name = idents['network-policy']
