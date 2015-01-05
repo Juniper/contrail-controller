@@ -1094,6 +1094,17 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('physical-router-snmp-credentials', 'physical-router') -->
 
+<xsd:complexType name="BaremetalService">
+    <xsd:all>
+        <xsd:element name="enable" type="xsd:boolean"/>
+        <xsd:element name="service-port" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:element name="physical-router-bare-metal-service" type='BaremetalService'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('physical-router-bare-metal-service', 'physical-router') -->
+
 <xsd:element name="logical-interface-virtual-machine-interface"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('logical-interface-virtual-machine-interface',
