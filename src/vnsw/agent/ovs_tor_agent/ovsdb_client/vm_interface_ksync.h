@@ -35,6 +35,9 @@ public:
     VMInterfaceKSyncEntry(VMInterfaceKSyncObject *table,
             boost::uuids::uuid uuid);
 
+    // ovs_entry ref is not valid for VM interface, override IsDataResolved
+    // to return always true
+    bool IsDataResolved() {return true;}
     void AddMsg(struct ovsdb_idl_txn *);
     void ChangeMsg(struct ovsdb_idl_txn *);
     void DeleteMsg(struct ovsdb_idl_txn *);
