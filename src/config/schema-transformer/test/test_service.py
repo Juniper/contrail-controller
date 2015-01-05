@@ -9,6 +9,7 @@ from testtools.matchers import Equals, Contains, Not
 from test_utils import *
 import test_common
 import test_case
+import uuid
 
 from vnc_api.vnc_api import *
 try:
@@ -116,6 +117,14 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.routing_instance_read(fq_name)
 
     @retries(5, hook=retry_exc_handler)
+    def check_vmi_is_present(self, fq_name):
+        self._vnc_lib.virtual_machine_interface_read(fq_name)
+
+    @retries(5, hook=retry_exc_handler)
+    def check_li_is_present(self, fq_name):
+        self._vnc_lib.logical_interface_read(fq_name)
+
+    @retries(5, hook=retry_exc_handler)
     def check_link_in_ifmap_graph(self, fq_name_str, links):
         self._vnc_lib.routing_instance_read(fq_name)
 
@@ -136,6 +145,131 @@ class TestPolicy(test_case.STTestCase):
                 return
         raise Exception('prefix %s/%d not found in ACL rules for %s' %
                         (ip_prefix, ip_len, fq_name))
+    def _get_ip_fabric_ri_obj(self):
+        # TODO pick fqname hardcode from common
+        rt_inst_obj = self._vnc_lib.routing_instance_read(
+            fq_name=['default-domain', 'default-project',
+                     'ip-fabric', '__default__'])
+
+        return rt_inst_obj
+    # end _get_ip_fabric_ri_obj
+
+    def create_router(self, name, mgmt_ip):
+        bgp_router = BgpRouter(name, parent_obj=self._get_ip_fabric_ri_obj())
+        params = BgpRouterParams()
+        params.address = mgmt_ip
+        params.address_families = AddressFamilies(['route-target', 'inet-vpn', 'e-vpn',
+                                             'inet6-vpn'])
+        params.autonomous_system = 64512
+        params.vendor = 'mx'
+        params.vnc_managed = True
+        bgp_router.set_bgp_router_parameters(params)
+        self._vnc_lib.bgp_router_create(bgp_router)
+
+        pr = PhysicalRouter(name)
+        pr.physical_router_management_ip = mgmt_ip
+        pr.physical_router_vendor_name = 'mx'
+        uc = UserCredentials('user', 'pw')
+        pr.set_physical_router_user_credentials(uc)
+        pr.set_bgp_router(bgp_router)
+        pr_id = self._vnc_lib.physical_router_create(pr)
+
+        return bgp_router, pr
+
+    def test_fip(self):
+        vn1_name = 'vn-private'
+        vn1_obj = VirtualNetwork(vn1_name)
+        ipam_obj = NetworkIpam('ipam1')
+        self._vnc_lib.network_ipam_create(ipam_obj)
+        vn1_obj.add_network_ipam(ipam_obj, VnSubnetsType(
+            [IpamSubnetType(SubnetType("10.0.0.0", 24))]))
+        vn1_uuid = self._vnc_lib.virtual_network_create(vn1_obj)
+
+        bgp_router, pr = self.create_router('router1', '1.1.1.1')
+        pr.set_virtual_network(vn1_obj)
+        self._vnc_lib.physical_router_update(pr)
+
+        pi = PhysicalInterface('pi1', parent_obj = pr)
+        pi_id = self._vnc_lib.physical_interface_create(pi)
+
+        fq_name = ['default-project', 'vmi1']
+        vmi = VirtualMachineInterface(fq_name=fq_name, parent_type = 'project')
+        vmi.set_virtual_network(vn1_obj)
+        self._vnc_lib.virtual_machine_interface_create(vmi)
+
+        ip_obj1 = InstanceIp(name='inst-ip-1')
+        ip_obj1.set_virtual_machine_interface(vmi)
+        ip_obj1.set_virtual_network(vn1_obj)
+        ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1)
+        ip_obj1 = self._vnc_lib.instance_ip_read(id=ip_id1)
+        ip_addr1 = ip_obj1.get_instance_ip_address()
+        print '  got v4 IP Address for first instance', ip_addr1
+
+        vn2_name = 'vn-public'
+        vn2_obj = VirtualNetwork(vn2_name)
+        vn2_obj.set_router_external(True)
+        ipam2_obj = NetworkIpam('ipam2')
+        self._vnc_lib.network_ipam_create(ipam2_obj)
+        vn2_obj.add_network_ipam(ipam2_obj, VnSubnetsType(
+            [IpamSubnetType(SubnetType("192.168.7.0", 24))]))
+        vn2_uuid = self._vnc_lib.virtual_network_create(vn2_obj)
+        fip_pool_name = 'vn_public_fip_pool'
+        fip_pool = FloatingIpPool(fip_pool_name, vn2_obj)
+        self._vnc_lib.floating_ip_pool_create(fip_pool)
+        fip_obj = FloatingIp("fip1", fip_pool)
+        fip_obj.set_virtual_machine_interface(vmi)
+        default_project = self._vnc_lib.project_read(fq_name=[u'default-domain', u'default-project'])
+        fip_obj.set_project(default_project)
+        fip_uuid = self._vnc_lib.floating_ip_create(fip_obj)
+
+        for obj in [vn1_obj, vn2_obj]:
+            ident_name = self.get_obj_imid(obj)
+            gevent.sleep(2)
+            ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
+
+        try:
+            self.check_ri_is_present(fq_name=[u'default-domain', u'default-project', vn1_name, vn1_name])
+        except NoIdError, e:
+            print "failed : routing instance state is not correct... ", test_common.lineno()
+            self.assertTrue(False)
+
+        pool_ri_name = vn1_name + "_" + fip_pool_name + "_nat"
+        try:
+            self.check_ri_is_present(fq_name=[u'default-domain', u'default-project', vn2_name, pool_ri_name])
+        except NoIdError, e:
+            print "failed : routing instance state is not correct... ", test_common.lineno()
+            self.assertTrue(False)
+
+        vmi1_name =  vn1_name + '_' + vn2_name + '_' + 'pi1' + '_vmi_0'
+        try:
+            self.check_vmi_is_present(fq_name=[u'default-project', vmi1_name])
+        except NoIdError, e:
+            print "failed : vmi1 is not present ... ", test_common.lineno()
+            self.assertTrue(False)
+
+        li1_fq_name = list(pi.get_fq_name())
+        li1_fq_name.append('pi1.0')
+        try:
+            self.check_li_is_present(fq_name=li1_fq_name)
+        except NoIdError, e:
+            print "failed : li1 is not present ... ", test_common.lineno()
+            self.assertTrue(False)
+
+        vmi2_name =  vn1_name + '_' + vn2_name + '_' + 'pi1' + '_vmi_1'
+        try:
+            self.check_vmi_is_present(fq_name=[u'default-project', vmi2_name])
+        except NoIdError, e:
+            print "failed : vmi2 is not present ... ", test_common.lineno()
+            self.assertTrue(False)
+
+	li2_fq_name = list(pi.get_fq_name())
+        li2_fq_name.append('pi1.1')
+        try:
+            self.check_li_is_present(fq_name=li2_fq_name)
+        except NoIdError, e:
+            print "failed : li2 is not present ... ", test_common.lineno()
+            self.assertTrue(False)
+
 
     def test_basic_policy(self):
         vn1_name = 'vn1'
