@@ -1561,9 +1561,10 @@ void DelFloatingIpPool(const char *name) {
 }
 
 void AddInstanceIp(const char *name, int id, const char *addr) {
-    char buf[128];
+    char buf[256];
 
-    sprintf(buf, "<instance-ip-address>%s</instance-ip-address>", addr);
+    sprintf(buf, "<instance-ip-address>%s</instance-ip-address>"
+                 "<instance-ip-mode>active-backup</instance-ip-mode>", addr);
     AddNode("instance-ip", name, id, buf);
 }
 
