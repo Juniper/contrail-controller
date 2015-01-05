@@ -29,6 +29,21 @@ class ResourceApi(ResourceApiGen):
         pass
     #end __init__
 
+    @abc.abstractmethod
+    def transform_request(self, request):
+        pass
+    # end transform_request
+
+    @abc.abstractmethod
+    def validate_request(self, request):
+        pass
+    # end validate_request
+
+    @abc.abstractmethod
+    def transform_response(self, response):
+        pass
+    # end transform_response
+
 
 class NeutronApi(object):
     @abc.abstractmethod
