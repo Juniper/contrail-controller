@@ -240,8 +240,6 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
                                  query_params=query_params)
         response = self._api_server_session.get(url, headers=self._HTTP_HEADERS,
                                                 params=query_params)
-        response = self._api_server_session.get(url, headers = headers,
-                                                params = query_params)
         self._add_detail('Received Response: ' +
                          pformat(response.status_code) +
                          pformat(response.text))
