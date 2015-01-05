@@ -36,6 +36,7 @@
 #include <sandesh/sandesh_trace.h>
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>
+#include <filter/acl.h>
 
 using namespace std;
 using namespace boost::uuids;
@@ -786,6 +787,13 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         } else {
             data.set_sub_type("None");
         }
+
+        if (vintf->vrf_assign_acl()) {
+            std::string vrf_assign_acl;
+            vrf_assign_acl.assign(UuidToString(vintf->vrf_assign_acl()->GetUuid()));
+            data.set_vrf_assign_acl_uuid(vrf_assign_acl);
+        }
+
         break;
     }
     case Interface::INET:

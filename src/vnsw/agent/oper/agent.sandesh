@@ -71,6 +71,7 @@ struct ItfSandeshData {
    39: string parent_interface;
    40: optional string subnet;
    41: optional string sub_type;
+   42: optional string vrf_assign_acl_uuid (link="AclReq"); //VRF assign acl
 }
 
 struct VnIpamData {
