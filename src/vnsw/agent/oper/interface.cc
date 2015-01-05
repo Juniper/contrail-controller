@@ -330,14 +330,21 @@ void Interface::GetOsParams(Agent *agent) {
         return;
     }
 
+    std::string name = name_;
+    if (type_ == Interface::PHYSICAL) {
+        const PhysicalInterface *phy_intf =
+            static_cast<const PhysicalInterface *>(this);
+        name = phy_intf->display_name();
+    }
+
     struct ifreq ifr;
     memset(&ifr, 0, sizeof(ifr));
-    strncpy(ifr.ifr_name, name_.c_str(), IF_NAMESIZE);
+    strncpy(ifr.ifr_name, name.c_str(), IF_NAMESIZE);
     int fd = socket(AF_LOCAL, SOCK_STREAM, 0);
     assert(fd >= 0);
     if (ioctl(fd, SIOCGIFHWADDR, (void *)&ifr) < 0) {
         LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
-            "> querying mac-address for interface <" << name_ << ">");
+            "> querying mac-address for interface <" << name << ">");
         os_oper_state_ = false;
         close(fd);
         return;
@@ -346,7 +353,7 @@ void Interface::GetOsParams(Agent *agent) {
 
     if (ioctl(fd, SIOCGIFFLAGS, (void *)&ifr) < 0) {
         LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
-            "> querying mac-address for interface <" << name_ << ">");
+            "> querying mac-address for interface <" << name << ">");
         os_oper_state_ = false;
         close(fd);
         return;
@@ -365,7 +372,7 @@ void Interface::GetOsParams(Agent *agent) {
 #endif
 
     if (os_index_ == kInvalidIndex) {
-        int idx = if_nametoindex(name_.c_str());
+        int idx = if_nametoindex(name.c_str());
         if (idx)
             os_index_ = idx;
     }

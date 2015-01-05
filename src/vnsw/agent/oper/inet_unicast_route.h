@@ -70,7 +70,6 @@ public:
     virtual bool ReComputePathAdd(AgentPath *path);
     virtual bool EcmpAddPath(AgentPath *path);
     virtual bool EcmpDeletePath(AgentPath *path);
-    virtual bool is_multicast() const;
     void AppendEcmpPath(Agent *agent, AgentPath *path);
     void DeleteComponentNH(Agent *agent, AgentPath *path);
 

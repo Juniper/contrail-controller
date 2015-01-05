@@ -37,9 +37,11 @@ public:
     virtual bool Delete(const DBRequest *req);
     virtual bool OnChange(const InterfaceTable *table,
                           const PhysicalInterfaceData *data);
-
     SubType subtype() const { return subtype_; }
     PhysicalDevice *physical_device() const;
+    const std::string& display_name() const {
+        return display_name_;
+    }
 
     // Lets kernel know if physical interface is to be kept after agent exits or
     // dies. If its true keep the interface, else remove it.
@@ -68,6 +70,7 @@ private:
     EncapType encap_type_;
     bool no_arp_;
     PhysicalDeviceRef physical_device_;
+    std::string display_name_;
     DISALLOW_COPY_AND_ASSIGN(PhysicalInterface);
 };
 
@@ -77,11 +80,13 @@ struct PhysicalInterfaceData : public InterfaceData {
                           PhysicalInterface::SubType subtype,
                           PhysicalInterface::EncapType encap,
                           bool no_arp,
-                          const boost::uuids::uuid &device_uuid);
+                          const boost::uuids::uuid &device_uuid,
+                          const std::string &display_name);
     PhysicalInterface::SubType subtype_;
     PhysicalInterface::EncapType encap_type_;
     bool no_arp_;
     boost::uuids::uuid device_uuid_;
+    std::string display_name_;
 };
 
 struct PhysicalInterfaceKey : public InterfaceKey {

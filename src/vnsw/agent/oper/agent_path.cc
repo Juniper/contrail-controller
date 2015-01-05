@@ -671,7 +671,7 @@ bool PathPreferenceData::AddChangePath(Agent *agent, AgentPath *path,
 }
 
 // Subnet Route route data
-IpamSubnetRoute::IpamSubnetRoute(DBRequest &nh_req) : AgentRouteData(true) {
+IpamSubnetRoute::IpamSubnetRoute(DBRequest &nh_req) : AgentRouteData(false) {
     nh_req_.Swap(&nh_req);
 }
 

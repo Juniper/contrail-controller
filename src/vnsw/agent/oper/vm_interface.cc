@@ -694,10 +694,7 @@ bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req) {
             FindAdjacentIFMapNode(agent_, logical_node, "physical-interface");
         //Add physical interface
         if (physical_node) {
-            autogen::PhysicalInterface *physical_interface =
-                static_cast <autogen::PhysicalInterface *>(
-                        physical_node->GetObject());
-            data->parent_ = physical_interface->display_name();
+            data->parent_ = physical_node->name();
         }
     }
 

@@ -702,15 +702,6 @@ const NextHop* InetUnicastRouteEntry::GetLocalNextHop() const {
     return NULL;
 }
 
-bool InetUnicastRouteEntry::is_multicast() const {
-    Agent *agent =
-        (static_cast<InetUnicastAgentRouteTable *> (get_table()))->agent();
-    const AgentPath *path = FindPath(agent->local_peer());
-    if (AgentRoute::is_multicast() || (path && path->is_subnet_discard()))
-        return true;
-    return false;
-}
-
 /////////////////////////////////////////////////////////////////////////////
 // AgentRouteData virtual functions
 /////////////////////////////////////////////////////////////////////////////
@@ -820,6 +811,7 @@ bool InetUnicastRouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
     data.set_src_plen(plen_);
     data.set_ipam_subnet_route(ipam_subnet_route_);
     data.set_src_vrf(vrf()->GetName());
+    data.set_multicast(AgentRoute::is_multicast());
     for (Route::PathList::const_iterator it = GetPathList().begin();
          it != GetPathList().end(); it++) {
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
