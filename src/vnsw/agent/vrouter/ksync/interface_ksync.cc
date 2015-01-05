@@ -67,7 +67,8 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     subtype_(entry->subtype_),
     xconnect_(entry->xconnect_),
     no_arp_(entry->no_arp_),
-    encap_type_(entry->encap_type_) {
+    encap_type_(entry->encap_type_),
+    display_name_(entry->display_name_) {
 }
 
 InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
@@ -139,6 +140,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
             static_cast<const PhysicalInterface *>(intf);
         encap_type_ = physical_intf->encap_type();
         no_arp_ = physical_intf->no_arp();
+        display_name_ = physical_intf->display_name();
     }
 }
 
@@ -488,6 +490,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         if (subtype_ == PhysicalInterface::CONFIG) {
             flags |= VIF_FLAG_NATIVE_VLAN_TAG;
         }
+        encoder.set_vifr_name(display_name_);
         break;
     }
 
@@ -560,7 +563,9 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     encoder.set_vifr_rid(0);
     encoder.set_vifr_os_idx(os_index_);
     encoder.set_vifr_mtu(0);
-    encoder.set_vifr_name(interface_name_);
+    if (type_ != Interface::PHYSICAL) {
+        encoder.set_vifr_name(interface_name_);
+    }
     encoder.set_vifr_ip(ip_);
     encoder.set_vifr_nh_id(flow_key_nh_id_);
 

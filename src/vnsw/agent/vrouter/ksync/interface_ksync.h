@@ -100,7 +100,7 @@ private:
     KSyncEntryPtr xconnect_;
     bool no_arp_;
     PhysicalInterface::EncapType encap_type_;
-
+    std::string display_name_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceKSyncEntry);
 };
 
