@@ -50,7 +50,8 @@ struct IntfFlowInfo;
 struct VmFlowInfo;
 struct RouteFlowKey;
 struct RouteFlowInfo;
-class Inet4RouteUpdate;
+class RouteFlowUpdate;
+class InetRouteFlowUpdate;
 class FlowEntry;
 class FlowTable;
 class FlowTableKSyncEntry;
@@ -428,8 +429,12 @@ class FlowEntry {
     void InitRevFlow(const PktFlowInfo *info,
             const PktControlInfo *ctrl, const PktControlInfo *rev_ctrl);
     void InitAuditFlow(uint32_t flow_idx);
-    void set_source_sg_id_l(SecurityGroupList &sg_l) { data_.source_sg_id_l = sg_l; }
-    void set_dest_sg_id_l(SecurityGroupList &sg_l) { data_.dest_sg_id_l = sg_l; }
+    void set_source_sg_id_l(const SecurityGroupList &sg_l) {
+        data_.source_sg_id_l = sg_l;
+    }
+    void set_dest_sg_id_l(const SecurityGroupList &sg_l) {
+        data_.dest_sg_id_l = sg_l;
+    }
     int linklocal_src_port() const { return linklocal_src_port_; }
     int linklocal_src_port_fd() const { return linklocal_src_port_fd_; }
     const std::string& acl_assigned_vrf() const;
@@ -500,7 +505,6 @@ struct FlowEntryCmp {
 typedef std::set<FlowEntryPtr, FlowEntryCmp> FlowEntryTree;
 
 struct RouteFlowInfo {
-    RouteFlowInfo() {}
     RouteFlowInfo(const RouteFlowKey &r_key) : key(r_key) {}
     RouteFlowInfo(uint32_t v, const IpAddress &ip_p, uint8_t p) :
         key(v, ip_p, p) {}
@@ -558,6 +562,7 @@ public:
     typedef std::pair<const VmEntry *, VmFlowInfo *> VmFlowPair;
 
     typedef Patricia::Tree<RouteFlowInfo, &RouteFlowInfo::node, RouteFlowInfo::KeyCmp> RouteFlowTree;
+    typedef boost::function<void(FlowEntry *flow)> FlowEntryCb;
 
     struct VnFlowHandlerState : public DBState {
         AclDBEntryConstRef acl_;
@@ -581,7 +586,13 @@ public:
     struct VrfFlowHandlerState : public DBState {
         VrfFlowHandlerState() {}
         virtual ~VrfFlowHandlerState() {}
-        Inet4RouteUpdate *inet4_unicast_update_;
+
+        // Register to all the route tables of intrest
+        void Register(VrfEntry *vrf);
+        // Unregister from the route tables
+        void Unregister(VrfEntry *vrf);
+
+        InetRouteFlowUpdate *inet4_unicast_update_;
     };
     struct RouteFlowHandlerState : public DBState {
         RouteFlowHandlerState(SecurityGroupList &sg_l) : sg_l_(sg_l) { }
@@ -636,6 +647,8 @@ public:
                        const FlowEntry *old_flow) const;
     void FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64_t diff_pkts);
     virtual void DispatchFlowMsg(SandeshLevel::type level, FlowDataIpv4 &flow);
+    void IterateInetFlowTable(const RouteFlowKey &key, FlowEntryCb cb);
+    RouteFlowInfo *FindInetRouteFlowInfo(RouteFlowInfo *key);
 
     // Update flow port bucket information
     void NewFlow(const FlowEntry *flow);
@@ -643,7 +656,8 @@ public:
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;
     friend class FetchFlowRecord;
-    friend class Inet4RouteUpdate;
+    friend class RouteFlowUpdate;
+    friend class InetRouteFlowUpdate;
     friend class NhState;
     friend class PktFlowInfo;
     friend void intrusive_ptr_release(FlowEntry *fe);
@@ -682,13 +696,10 @@ private:
     void IncrVnFlowCounter(VnFlowInfo *vn_flow_info, const FlowEntry *fe);
     void DecrVnFlowCounter(VnFlowInfo *vn_flow_info, const FlowEntry *fe);
     void ResyncVnFlows(const VnEntry *vn);
-    void FlowReCompute(const RouteFlowInfo &rt_key);
     void FlowReComputeInternal(RouteFlowInfo *rt_info);
-    void ResyncRouteFlows(RouteFlowKey &key, SecurityGroupList &sg_l);
     void ResyncAFlow(FlowEntry *fe);
     void ResyncVmPortFlows(const VmInterface *intf);
     void ResyncRpfNH(const RouteFlowKey &key, const AgentRoute *rt);
-    void DeleteRouteFlows(const RouteFlowKey &key);
 
     void DeleteFlowInfo(FlowEntry *fe);
     void DeleteVnFlowInfo(FlowEntry *fe);
@@ -738,29 +749,94 @@ inline void intrusive_ptr_release(FlowEntry *fe) {
     }
 }
 
-class Inet4RouteUpdate {
+////////////////////////////////////////////////////////////////////////////
+// RouteFlowUpdate class responsible to keep flow in-sync with route
+// add/delete/change
+//
+// A RouteFlowUpdate entry is created for every Route table.
+// RouteFlowUpdate registers to route notifications and do the following
+//   - Tracks change of SG-List for a route entry
+//   - Tracks change of NH for a route entry
+// When a VRF entry is deleted, will start a DBTable walk and in the walk, 
+// will delete DBState for all entries in the table. The RouteFlowUpdate entry
+// itself is deleted at end of the walk
+//
+// Defines pure virtual methods for following
+// - Handle add of a new route
+// - Handle delte of a route
+// - Handle change in SG-List
+// - Handle change in NH for route
+////////////////////////////////////////////////////////////////////////////
+class RouteFlowUpdate {
 public:
+    // DBSTate to hold old values for SG-List and NH
     struct State : DBState {
         SecurityGroupList sg_l_;
         const NextHop* active_nh_;
         const NextHop* local_nh_;
     };
 
-    Inet4RouteUpdate(InetUnicastAgentRouteTable *rt_table);
-    Inet4RouteUpdate();
-    ~Inet4RouteUpdate();
-    void ManagedDelete();
-    static Inet4RouteUpdate *UnicastInit(InetUnicastAgentRouteTable *table);
-    void Unregister();
-    bool DeleteState(DBTablePartBase *partition, DBEntryBase *entry);
-    static void WalkDone(DBTableBase *partition, Inet4RouteUpdate *rt);
-private:
-    void UnicastNotify(DBTablePartBase *partition, DBEntryBase *e);
+    RouteFlowUpdate(AgentRouteTable *table);
+    virtual ~RouteFlowUpdate();
 
+    void set_dblistener_id(DBTableBase::ListenerId id) { id_ = id; }
+    DBTableBase::ListenerId dblistener_id() { return id_; }
+
+    void ManagedDelete();
+    void Notify(DBTablePartBase *partition, DBEntryBase *e);
+
+    static bool DeleteState(DBTablePartBase *partition, DBEntryBase *entry,
+                            RouteFlowUpdate *info);
+    static void WalkDone(DBTableBase *partition, RouteFlowUpdate *info);
+
+    virtual void TraceMsg(AgentRoute *route, const AgentPath *path,
+                          SecurityGroupList &sg_list) = 0;
+    virtual void RouteDel(AgentRoute *entry) = 0;
+    virtual void RouteAdd(AgentRoute *entry) = 0;
+    virtual void SgChange(AgentRoute *entry, SecurityGroupList &sg_list)
+        = 0;
+    virtual void NhChange(AgentRoute *entry, const NextHop *active_nh,
+                          const NextHop *local_nh) = 0;
+protected:
     DBTableBase::ListenerId id_;
-    InetUnicastAgentRouteTable *rt_table_;
-    bool marked_delete_;
-    LifetimeRef<Inet4RouteUpdate> table_delete_ref_;
+    AgentRouteTable *rt_table_;
+    bool rt_table_deleted_;
+    LifetimeRef<RouteFlowUpdate> table_delete_ref_;
+private:
+    DISALLOW_COPY_AND_ASSIGN(RouteFlowUpdate);
+};
+
+////////////////////////////////////////////////////////////////////////////
+// RouteFlowUpdate implementation for InetUnicast route tables
+//
+// RouteDel : Triggers re-evaluation of the flows. Flows can potentially use
+//            route with lower prefix-len
+// RouteDel : Triggers re-evaluation of the flows. Finds the covering route
+//            (route with lower prefix). The new route can potentially change
+//            the route for flows associated with covering route. The flow
+//            re-evaluates all flows attached to lower prefix route.
+// SgChange : When SG-List for a flow changes, it can potentially change
+//            flow action. So, RESYNC's the flows
+// NhChange : Change of NH can potentially change RPF check for flows.
+//            Re-evaluates flows to re-compute RPF check.
+////////////////////////////////////////////////////////////////////////////
+class InetRouteFlowUpdate : public RouteFlowUpdate {
+public:
+    InetRouteFlowUpdate(AgentRouteTable *table) : RouteFlowUpdate(table) { }
+    virtual ~InetRouteFlowUpdate() { }
+
+    void SgUpdate(FlowEntry *fe, FlowTable *table, RouteFlowKey &key,
+                  const SecurityGroupList &sg_list);
+
+    virtual void TraceMsg(AgentRoute *route, const AgentPath *path,
+                          SecurityGroupList &sg_list);
+    virtual void RouteDel(AgentRoute *entry);
+    virtual void RouteAdd(AgentRoute *entry);
+    virtual void SgChange(AgentRoute *entry, SecurityGroupList &sg_list);
+    virtual void NhChange(AgentRoute *entry, const NextHop *active_nh,
+                          const NextHop *local_nh);
+private:
+    DISALLOW_COPY_AND_ASSIGN(InetRouteFlowUpdate);
 };
 
 class NhState : public DBState {
