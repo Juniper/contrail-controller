@@ -429,6 +429,7 @@ TEST_F(BgpIfmapConfigManagerTest,
     EXPECT_EQ(3, count);
 
     autogen::BgpRouterParams *params = new autogen::BgpRouterParams;
+    params->Clear();
     params->identifier = "10.1.1.200";
     string id = string(BgpConfigManager::kMasterInstance) + ":local";
     ifmap_test_util::IFMapMsgPropertyAdd(&db_, "bgp-router", id,
@@ -470,6 +471,7 @@ TEST_F(BgpIfmapConfigManagerTest,
     EXPECT_EQ(3, count);
 
     autogen::BgpRouterParams *params = new autogen::BgpRouterParams;
+    params->Clear();
     params->autonomous_system = 200;
     string id = string(BgpConfigManager::kMasterInstance) + ":local";
     ifmap_test_util::IFMapMsgPropertyAdd(&db_, "bgp-router", id,

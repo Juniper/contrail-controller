@@ -133,6 +133,7 @@ static BgpNeighborConfig *MakeBgpNeighborConfig(
     BgpNeighborConfig *neighbor = new BgpNeighborConfig();
 
     neighbor->set_instance_name(instance->name());
+
     // If the autogen::BgpSession has a uuid, we append it to the remote
     // bgp-router's name to make the BgpNeighborConfig's name unique.
     if (session && !session->uuid.empty()) {
@@ -145,7 +146,11 @@ static BgpNeighborConfig *MakeBgpNeighborConfig(
     // Store a copy of the remote bgp-router's autogen::BgpRouterParams and
     // derive the autogen::BgpSessionAttributes for the session.
     const autogen::BgpRouterParams &params = router->parameters();
-    neighbor->set_peer_as(params.autonomous_system);
+    if (params.local_autonomous_system) {
+        neighbor->set_peer_as(params.local_autonomous_system);
+    } else {
+        neighbor->set_peer_as(params.autonomous_system);
+    }
     boost::system::error_code err;
     neighbor->set_peer_address(
         IpAddress::from_string(params.address, err));
@@ -178,7 +183,11 @@ static BgpNeighborConfig *MakeBgpNeighborConfig(
         if (err == 0) {
             neighbor->set_local_identifier(IpAddressToBgpIdentifier(localid));
         }
-        neighbor->set_local_as(params.autonomous_system);
+        if (params.local_autonomous_system) {
+            neighbor->set_local_as(params.local_autonomous_system);
+        } else {
+            neighbor->set_local_as(params.autonomous_system);
+        }
 
         if (neighbor->address_families().empty()) {
             neighbor->set_address_families(params.address_families.family);
@@ -392,6 +401,7 @@ void BgpIfmapProtocolConfig::Update(BgpIfmapConfigManager *manager,
     bgp_router_.reset(router);
     const autogen::BgpRouterParams &params = router->parameters();
     data_.set_autonomous_system(params.autonomous_system);
+    data_.set_local_autonomous_system(params.local_autonomous_system);
     boost::system::error_code err;
     IpAddress identifier = IpAddress::from_string(params.identifier, err);
     if (err == 0) {

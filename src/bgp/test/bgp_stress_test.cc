@@ -2044,6 +2044,7 @@ void BgpStressTest::DeleteBgpPeer(int peer_id, bool verify_state) {
     out << "</delete>";
 
     as_t as = server_->autonomous_system();
+    as_t local_as = server_->local_autonomous_system();
     uint32_t bgp_identifier = server_->bgp_identifier();
 
     BGP_DEBUG_UT("Applying config" << out.str());
@@ -2055,6 +2056,7 @@ void BgpStressTest::DeleteBgpPeer(int peer_id, bool verify_state) {
     // Restore server's AS and bgp identifier
     //
     server_->set_autonomous_system(as);
+    server_->set_local_autonomous_system(local_as);
     server_->set_bgp_identifier(bgp_identifier);
     WaitForIdle();
     peer_servers_[peer_id]->Shutdown();

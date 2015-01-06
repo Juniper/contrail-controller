@@ -230,12 +230,19 @@ public:
     void set_autonomous_system(uint32_t autonomous_system) {
         autonomous_system_ = autonomous_system;
     }
+    uint32_t local_autonomous_system() const {
+        return local_autonomous_system_;
+    }
+    void set_local_autonomous_system(uint32_t local_autonomous_system) {
+        local_autonomous_system_ = local_autonomous_system;
+    }
     int hold_time() const { return hold_time_; }
     void set_hold_time(int hold_time) { hold_time_ = hold_time; }
 
 private:
     std::string instance_name_;
     uint32_t autonomous_system_;
+    uint32_t local_autonomous_system_;
     uint32_t identifier_;
     int hold_time_;
     DISALLOW_COPY_AND_ASSIGN(BgpProtocolConfig);

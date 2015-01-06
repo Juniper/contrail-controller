@@ -85,20 +85,46 @@ public:
             server_->NotifyIdentifierUpdate(old_identifier);
         }
 
-        if (server_->autonomous_system_ != config->autonomous_system()) {
+        bool notify_asn_update = false;
+        uint32_t old_asn = server_->autonomous_system_;
+        uint32_t old_local_asn = server_->local_autonomous_system_;
+        server_->autonomous_system_ = config->autonomous_system();
+        if (config->local_autonomous_system()) {
+            server_->local_autonomous_system_ =
+                config->local_autonomous_system();
+        } else {
+            server_->local_autonomous_system_ = config->autonomous_system();
+        }
+
+        if (server_->autonomous_system_ != old_asn) {
             SandeshLevel::type log_level;
-            if (server_->autonomous_system_ != 0) {
+            if (old_asn != 0) {
                 log_level = SandeshLevel::SYS_NOTICE;
             } else {
                 log_level = SandeshLevel::SYS_DEBUG;
             }
             BGP_LOG_STR(BgpConfig, log_level, BGP_LOG_FLAG_SYSLOG,
-                        "Updated Autonomous System from " <<
-                        server_->autonomous_system_ << " to "
-                        << config->autonomous_system());
-            uint32_t old_asn = server_->autonomous_system_;
-            server_->autonomous_system_ = config->autonomous_system();
-            server_->NotifyASNUpdate(old_asn);
+                        "Updated Autonomous System from " << old_asn <<
+                        " to " << server_->autonomous_system_);
+            notify_asn_update = true;
+        }
+
+        if (server_->local_autonomous_system_ != old_local_asn) {
+            SandeshLevel::type log_level;
+            if (old_local_asn != 0) {
+                log_level = SandeshLevel::SYS_NOTICE;
+            } else {
+                log_level = SandeshLevel::SYS_DEBUG;
+            }
+            BGP_LOG_STR(BgpConfig, log_level, BGP_LOG_FLAG_SYSLOG,
+                        "Updated Local Autonomous System from " <<
+                        old_local_asn << " to " <<
+                        server_->local_autonomous_system_);
+            notify_asn_update = true;
+        }
+
+        if (notify_asn_update) {
+            server_->NotifyASNUpdate(old_asn, old_local_asn);
         }
 
         if (server_->hold_time_ != config->hold_time()) {
@@ -206,7 +232,10 @@ bool BgpServer::IsReadyForDeletion() {
 }
 
 BgpServer::BgpServer(EventManager *evm)
-    : autonomous_system_(0), bgp_identifier_(0), hold_time_(0),
+    : autonomous_system_(0),
+      local_autonomous_system_(0),
+      bgp_identifier_(0),
+      hold_time_(0),
       lifetime_manager_(new BgpLifetimeManager(this,
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)),
@@ -366,13 +395,13 @@ void BgpServer::UnregisterASNUpdateCallback(int listener) {
     }
 }
 
-void BgpServer::NotifyASNUpdate(as_t old_asn) {
+void BgpServer::NotifyASNUpdate(as_t old_asn, as_t old_local_asn) {
     tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
     for (ASNUpdateListenersList::iterator iter = asn_listeners_.begin();
          iter != asn_listeners_.end(); ++iter) {
         if (*iter != NULL) {
             ASNUpdateCb cb = *iter;
-            (cb)(old_asn);
+            (cb)(old_asn, old_local_asn);
         }
     }
 }

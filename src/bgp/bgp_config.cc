@@ -50,6 +50,7 @@ int BgpNeighborConfig::CompareTo(const BgpNeighborConfig &rhs) const {
 BgpProtocolConfig::BgpProtocolConfig(const std::string &instance_name)
         : instance_name_(instance_name),
           autonomous_system_(0), 
+          local_autonomous_system_(0),
           identifier_(0), 
           hold_time_(-1) {
 }

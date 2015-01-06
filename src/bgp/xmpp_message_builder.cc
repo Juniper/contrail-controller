@@ -71,13 +71,13 @@ private:
         if (ext_community == NULL)
             return;
 
-        as_t local_as_number =  table_->server()->autonomous_system();
+        as_t as_number =  table_->server()->autonomous_system();
         for (ExtCommunity::ExtCommunityList::const_iterator iter =
              ext_community->communities().begin();
              iter != ext_community->communities().end(); ++iter) {
             if (ExtCommunity::is_security_group(*iter)) {
                 SecurityGroup sg(*iter);
-                if (sg.as_number() != local_as_number && !sg.IsGlobal())
+                if (sg.as_number() != as_number && !sg.IsGlobal())
                     continue;
                 security_group_list_.push_back(sg.security_group_id());
             }
