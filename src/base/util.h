@@ -12,11 +12,6 @@
 
 #include <boost/function.hpp>
 
-// TODO(roque): Remove these includes after tools/sandesh repository
-// commit goes through.
-#include "base/string_util.h"
-#include "base/time_util.h"
-
 #define DISALLOW_COPY_AND_ASSIGN(_Class) \
 	_Class(const _Class &);				\
 	_Class& operator=(const _Class &)

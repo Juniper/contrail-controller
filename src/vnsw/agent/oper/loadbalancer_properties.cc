@@ -4,6 +4,10 @@
 
 #include "loadbalancer_properties.h"
 
+#include <sstream>
+#include <boost/uuid/nil_generator.hpp>
+#include <boost/uuid/uuid_io.hpp>
+
 LoadbalancerProperties::LoadbalancerProperties()
         : vip_uuid_(boost::uuids::nil_uuid()) {
     pool_.Clear();
