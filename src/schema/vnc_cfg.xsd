@@ -663,6 +663,13 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      </xsd:restriction>
 </xsd:simpleType>
 
+<xsd:simpleType name="RpfModeType" default='enable'>
+     <xsd:restriction base='xsd:string'>
+         <xsd:enumeration value='enable'/>
+         <xsd:enumeration value='disable'/>
+     </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name='VirtualNetworkType'>
     <xsd:all>
         <xsd:element name='allow-transit' type="xsd:boolean"/>
@@ -673,6 +680,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
                      type='VxlanNetworkIdentifierType'/>
         <!-- Forwarding mode for virtual-network  -->
         <xsd:element name='forwarding-mode' type='ForwardingModeType'/>
+        <!-- Enable or disable unicast RPF for virtual-network -->
+        <xsd:element name='rpf' type='RpfModeType'/>
     </xsd:all>
 </xsd:complexType>
 
