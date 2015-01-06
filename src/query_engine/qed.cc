@@ -138,6 +138,10 @@ main(int argc, char *argv[]) {
     pevm = &evm;
     Options options;
 
+    // Increase max number of threads available by a factor of 4
+    TaskScheduler::SetThreadAmpFactor( 
+        QEOpServerProxy::nThreadCountMultFactor);
+
     if (!OptionsParse(options, evm, argc, argv)) {
         exit(-1);
     }
@@ -176,9 +180,25 @@ main(int argc, char *argv[]) {
         }
     }
 
+    int max_tasks = options.max_tasks();
+    // Tune max_tasks 
+    if (max_tasks == 0)
+    {
+        // no command line option was specified to tune the max # of tasks
+        max_tasks = QEOpServerProxy::nMaxChunks;
+
+        if (max_tasks*2 > TaskScheduler::GetThreadCount())
+        {
+            // avoid creating too many tasks for one query
+            max_tasks = TaskScheduler::GetThreadCount()/2;
+            // make sure atleast we have one task
+            max_tasks = (max_tasks > 1) ? max_tasks : 1;
+        }
+    }
+
     LOG(INFO, "http-server-port " << options.http_server_port());
     LOG(INFO, "Endpoint " << dss_ep);
-    LOG(INFO, "Max-tasks " << options.max_tasks());
+    LOG(INFO, "Max-tasks " << max_tasks);
     LOG(INFO, "Max-slice " << options.max_slice());
     BOOST_FOREACH(std::string collector_ip, options.collector_server_list()) {
         LOG(INFO, "Collectors  " << collector_ip);
@@ -243,7 +263,7 @@ main(int argc, char *argv[]) {
         qe = new QueryEngine(&evm,
             options.redis_server(),
             options.redis_port(),
-            options.max_tasks(),
+            max_tasks,
             options.max_slice(),
             options.analytics_data_ttl());
     } else {
@@ -252,7 +272,7 @@ main(int argc, char *argv[]) {
             cassandra_ports,
             options.redis_server(),
             options.redis_port(),
-            options.max_tasks(),
+            max_tasks,
             options.max_slice(),
             options.analytics_data_ttl(),
             options.start_time());
