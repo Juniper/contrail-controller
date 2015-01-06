@@ -37,6 +37,7 @@ static const char *config_template0 = "\
     <bgp-router name=\'CN1\'>\
         <identifier>192.168.0.1</identifier>\
         <autonomous-system>%d</autonomous-system>\
+        <local-autonomous-system>%d</local-autonomous-system>\
         <address>127.0.0.1</address>\
         <port>%d</port>\
         <address-families>\
@@ -59,6 +60,7 @@ static const char *config_template0 = "\
     <bgp-router name=\'CN2\'>\
         <identifier>192.168.0.2</identifier>\
         <autonomous-system>%d</autonomous-system>\
+        <local-autonomous-system>%d</local-autonomous-system>\
         <address>127.0.0.1</address>\
         <port>%d</port>\
         <address-families>\
@@ -75,6 +77,7 @@ static const char *config_template0 = "\
     <bgp-router name=\'MX\'>\
         <identifier>192.168.0.3</identifier>\
         <autonomous-system>%d</autonomous-system>\
+        <local-autonomous-system>%d</local-autonomous-system>\
         <address>127.0.0.1</address>\
         <port>%d</port>\
         <address-families>\
@@ -90,6 +93,7 @@ static const char *config_template1 = "\
     <bgp-router name=\'CN1\'>\
         <identifier>192.168.1.1</identifier>\
         <autonomous-system>%d</autonomous-system>\
+        <local-autonomous-system>%d</local-autonomous-system>\
         <address>127.0.0.1</address>\
         <port>%d</port>\
         <address-families>\
@@ -112,6 +116,7 @@ static const char *config_template1 = "\
     <bgp-router name=\'CN2\'>\
         <identifier>192.168.1.2</identifier>\
         <autonomous-system>%d</autonomous-system>\
+        <local-autonomous-system>%d</local-autonomous-system>\
         <address>127.0.0.1</address>\
         <port>%d</port>\
         <address-families>\
@@ -128,6 +133,7 @@ static const char *config_template1 = "\
     <bgp-router name=\'MX\'>\
         <identifier>192.168.1.3</identifier>\
         <autonomous-system>%d</autonomous-system>\
+        <local-autonomous-system>%d</local-autonomous-system>\
         <address>127.0.0.1</address>\
         <port>%d</port>\
         <address-families>\
@@ -363,12 +369,20 @@ protected:
         return peer;
     }
 
-    void Configure(int cn1_asn, int cn2_asn, int mx_asn) {
+    void Configure(int cn1_asn, int cn2_asn, int mx_asn,
+        int cn1_local_asn = 0, int cn2_local_asn = 0, int mx_local_asn = 0) {
+        if (cn1_local_asn == 0)
+            cn1_local_asn = cn1_asn;
+        if (cn2_local_asn == 0)
+            cn2_local_asn = cn2_asn;
+        if (mx_local_asn == 0)
+            mx_local_asn = mx_asn;
+
         char config[4096];
         snprintf(config, sizeof(config), config_template0,
-                 cn1_asn, cn1_->session_manager()->GetPort(),
-                 cn2_asn, cn2_->session_manager()->GetPort(),
-                 mx_asn, mx_->session_manager()->GetPort());
+                 cn1_asn, cn1_local_asn, cn1_->session_manager()->GetPort(),
+                 cn2_asn, cn2_local_asn, cn2_->session_manager()->GetPort(),
+                 mx_asn, mx_local_asn, mx_->session_manager()->GetPort());
         cn1_->Configure(config);
         task_util::WaitForIdle();
         cn2_->Configure(config);
@@ -379,6 +393,13 @@ protected:
         VerifyAllPeerUp(cn1_.get(), 2);
         VerifyAllPeerUp(cn2_.get(), 2);
         VerifyAllPeerUp(mx_.get(), 2);
+
+        TASK_UTIL_EXPECT_EQ(cn1_asn, cn1_->autonomous_system());
+        TASK_UTIL_EXPECT_EQ(cn2_asn, cn2_->autonomous_system());
+        TASK_UTIL_EXPECT_EQ(mx_asn, mx_->autonomous_system());
+        TASK_UTIL_EXPECT_EQ(cn1_local_asn, cn1_->local_autonomous_system());
+        TASK_UTIL_EXPECT_EQ(cn2_local_asn, cn2_->local_autonomous_system());
+        TASK_UTIL_EXPECT_EQ(mx_local_asn, mx_->local_autonomous_system());
 
         vector<string> instance_names =
             list_of("blue")("pink")("red")("purple")("yellow");
@@ -443,12 +464,20 @@ protected:
         task_util::WaitForIdle();
     }
 
-    void UpdateASN() {
+    void UpdateASN(int cn1_asn, int cn2_asn, int mx_asn,
+        int cn1_local_asn = 0, int cn2_local_asn = 0, int mx_local_asn = 0) {
+        if (cn1_local_asn == 0)
+            cn1_local_asn = cn1_asn;
+        if (cn2_local_asn == 0)
+            cn2_local_asn = cn2_asn;
+        if (mx_local_asn == 0)
+            mx_local_asn = mx_asn;
+
         char config[4096];
         snprintf(config, sizeof(config), config_template0,
-                 64497, cn1_->session_manager()->GetPort(),
-                 64497, cn2_->session_manager()->GetPort(),
-                 64497, mx_->session_manager()->GetPort());
+                 cn1_asn, cn1_local_asn, cn1_->session_manager()->GetPort(),
+                 cn2_asn, cn2_local_asn, cn2_->session_manager()->GetPort(),
+                 mx_asn, mx_local_asn, mx_->session_manager()->GetPort());
         cn1_->Configure(config);
         task_util::WaitForIdle();
         cn2_->Configure(config);
@@ -459,14 +488,22 @@ protected:
         VerifyAllPeerUp(cn1_.get(), 2);
         VerifyAllPeerUp(cn2_.get(), 2);
         VerifyAllPeerUp(mx_.get(), 2);
+
+        TASK_UTIL_EXPECT_EQ(cn1_asn, cn1_->autonomous_system());
+        TASK_UTIL_EXPECT_EQ(cn2_asn, cn2_->autonomous_system());
+        TASK_UTIL_EXPECT_EQ(mx_asn, mx_->autonomous_system());
+        TASK_UTIL_EXPECT_EQ(cn1_local_asn, cn1_->local_autonomous_system());
+        TASK_UTIL_EXPECT_EQ(cn2_local_asn, cn2_->local_autonomous_system());
+        TASK_UTIL_EXPECT_EQ(mx_local_asn, mx_->local_autonomous_system());
     }
 
-    void UpdateIdentifier() {
+    void UpdateIdentifier(int cn1_asn, int cn2_asn, int mx_asn,
+        int cn1_local_asn, int cn2_local_asn, int mx_local_asn) {
         char config[4096];
         snprintf(config, sizeof(config), config_template1,
-                 64496, cn1_->session_manager()->GetPort(),
-                 64496, cn2_->session_manager()->GetPort(),
-                 64496, mx_->session_manager()->GetPort());
+                 cn1_asn, cn1_local_asn, cn1_->session_manager()->GetPort(),
+                 cn2_asn, cn2_local_asn, cn2_->session_manager()->GetPort(),
+                 mx_asn, mx_local_asn, mx_->session_manager()->GetPort());
         cn1_->Configure(config);
         task_util::WaitForIdle();
         cn2_->Configure(config);
@@ -2103,6 +2140,7 @@ TEST_F(BgpXmppRTargetTest, BulkRouteAdd) {
 //
 // Update ASN on CNs and make sure that the ASN in the RTargetRoute prefix
 // is updated.
+// Local AS is same as global AS.
 //
 TEST_F(BgpXmppRTargetTest, ASNUpdate) {
     VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
@@ -2117,7 +2155,54 @@ TEST_F(BgpXmppRTargetTest, ASNUpdate) {
     TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn1_.get()));
     TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn2_.get()));
 
-    UpdateASN();
+    UpdateASN(64497, 64497, 64497);
+    task_util::WaitForIdle();
+    BringupAgents();
+
+    SubscribeAgents("blue", 1);
+
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(cn1_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteExists(cn2_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteExists(mx_.get(), "64497:target:64496:1");
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(mx_.get()));
+
+    UnsubscribeAgents("blue");
+
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(mx_.get()));
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn1_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64497:target:64496:1");
+}
+
+//
+// Update local ASN on CNs and make sure that the ASN in the RTargetRoute
+// prefix is updated.
+// Local AS is different than global AS.
+//
+TEST_F(BgpXmppRTargetTest, LocalASNUpdate) {
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn2_.get()));
+
+    SubscribeAgents("blue", 1);
+
+    VerifyRTargetRouteExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteExists(cn2_.get(), "64496:target:64496:1");
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn2_.get()));
+
+    UpdateASN(64496, 64496, 64496, 64497, 64497, 64497);
     task_util::WaitForIdle();
     BringupAgents();
 
@@ -2149,8 +2234,9 @@ TEST_F(BgpXmppRTargetTest, ASNUpdate) {
 //
 // Update Identifier on CNs and make sure that Nexthop in RTargetRoute prefix
 // is updated.
+// Local AS is same as global AS.
 //
-TEST_F(BgpXmppRTargetTest, IdentifierUpdate) {
+TEST_F(BgpXmppRTargetTest, IdentifierUpdate1) {
     VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
     VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
     VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
@@ -2169,7 +2255,7 @@ TEST_F(BgpXmppRTargetTest, IdentifierUpdate) {
     TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn2_.get()));
     TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(mx_.get()));
 
-    UpdateIdentifier();
+    UpdateIdentifier(64496, 64496, 64496, 64496, 64496, 64496);
 
     vector<string> nexthops1 = list_of("192.168.1.1")("192.168.1.2");
     VerifyRTargetRouteNexthops(cn1_.get(), "64496:target:64496:1", nexthops1);
@@ -2188,6 +2274,57 @@ TEST_F(BgpXmppRTargetTest, IdentifierUpdate) {
     VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
     VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
     VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+}
+
+//
+// Update Identifier on CNs and make sure that Nexthop in RTargetRoute prefix
+// is updated.
+// Local AS is different than global AS.
+//
+TEST_F(BgpXmppRTargetTest, IdentifierUpdate2) {
+    Unconfigure();
+    task_util::WaitForIdle();
+    Configure(64496, 64496, 64496, 64497, 64497, 64497);
+    task_util::WaitForIdle();
+    BringupAgents();
+
+    VerifyRTargetRouteNoExists(cn1_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64497:target:64496:1");
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(mx_.get()));
+
+    agent_a_1_->Subscribe("blue", 1);
+    agent_a_2_->Subscribe("blue", 1);
+
+    vector<string> nexthops0 = list_of("192.168.0.1")("192.168.0.2");
+    VerifyRTargetRouteNexthops(cn1_.get(), "64497:target:64496:1", nexthops0);
+    VerifyRTargetRouteNexthops(cn2_.get(), "64497:target:64496:1", nexthops0);
+    VerifyRTargetRouteNexthops(mx_.get(), "64497:target:64496:1", nexthops0);
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(mx_.get()));
+
+    UpdateIdentifier(64496, 64496, 64496, 64497, 64497, 64497);
+
+    vector<string> nexthops1 = list_of("192.168.1.1")("192.168.1.2");
+    VerifyRTargetRouteNexthops(cn1_.get(), "64497:target:64496:1", nexthops1);
+    VerifyRTargetRouteNexthops(cn2_.get(), "64497:target:64496:1", nexthops1);
+    VerifyRTargetRouteNexthops(mx_.get(), "64497:target:64496:1", nexthops1);
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(mx_.get()));
+
+    agent_a_1_->Unsubscribe("blue", -1);
+    agent_a_2_->Unsubscribe("blue", -1);
+
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn1_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(cn2_.get()));
+    TASK_UTIL_EXPECT_EQ(0, RTargetRouteCount(mx_.get()));
+    VerifyRTargetRouteNoExists(cn1_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64497:target:64496:1");
 }
 
 //
@@ -3128,6 +3265,98 @@ TEST_F(BgpXmppRTargetTest, PathSelection5) {
     VerifyInetRouteExists(cn2_.get(), "blue", BuildPrefix());
 
     DeleteInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
+}
+
+//
+// Local AS is different than the global AS.
+// Verify that RTarget route prefixes use local AS while the route target
+// itself uses the global AS.
+// CN1, CN2 and MX have the same local AS.
+//
+TEST_F(BgpXmppRTargetTest, DifferentLocalAs1) {
+    Unconfigure();
+    task_util::WaitForIdle();
+    Configure(64496, 64496, 64496, 64497, 64497, 64497);
+    task_util::WaitForIdle();
+    BringupAgents();
+
+    agent_a_1_->Subscribe("blue", 1);
+    agent_a_2_->Subscribe("pink", 2);
+
+    VerifyRTargetRouteExists(cn1_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteExists(cn1_.get(), "64497:target:64496:2");
+    VerifyRTargetRouteExists(cn2_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteExists(cn2_.get(), "64497:target:64496:2");
+    VerifyRTargetRouteExists(mx_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteExists(mx_.get(), "64497:target:64496:2");
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:2");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:2");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:2");
+
+    agent_a_1_->Unsubscribe("blue", -1);
+    agent_a_2_->Unsubscribe("pink", -1);
+
+    VerifyRTargetRouteNoExists(cn1_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteNoExists(cn1_.get(), "64497:target:64496:2");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64497:target:64496:2");
+    VerifyRTargetRouteNoExists(mx_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64497:target:64496:2");
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:2");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:2");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:2");
+}
+
+//
+// Local AS is different than the global AS.
+// Verify that RTarget route prefixes use local AS while the route target
+// itself uses the global AS.
+// CN1, CN2 and MX have different local ASes.
+//
+TEST_F(BgpXmppRTargetTest, DifferentLocalAs2) {
+    Unconfigure();
+    task_util::WaitForIdle();
+    Configure(64496, 64496, 64496, 64497, 64498, 64499);
+    task_util::WaitForIdle();
+    BringupAgents();
+
+    agent_a_1_->Subscribe("blue", 1);
+    agent_a_2_->Subscribe("pink", 2);
+
+    VerifyRTargetRouteExists(cn1_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteExists(cn1_.get(), "64498:target:64496:2");
+    VerifyRTargetRouteExists(cn2_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteExists(cn2_.get(), "64498:target:64496:2");
+    VerifyRTargetRouteExists(mx_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteExists(mx_.get(), "64498:target:64496:2");
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:2");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:2");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:2");
+
+    agent_a_1_->Unsubscribe("blue", -1);
+    agent_a_2_->Unsubscribe("pink", -1);
+
+    VerifyRTargetRouteNoExists(cn1_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteNoExists(cn1_.get(), "64498:target:64496:2");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64498:target:64496:2");
+    VerifyRTargetRouteNoExists(mx_.get(), "64497:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64498:target:64496:2");
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:2");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:2");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
+    VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:2");
 }
 
 class TestEnvironment : public ::testing::Environment {

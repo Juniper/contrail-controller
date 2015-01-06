@@ -207,7 +207,8 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
             }
 
             // Prepend the local AS to AsPath.
-            as_t local_as = attr->attr_db()->server()->autonomous_system();
+            as_t local_as =
+                attr->attr_db()->server()->local_autonomous_system();
             if (attr->as_path() != NULL) {
                 const AsPathSpec &as_path = attr->as_path()->path();
                 AsPathSpec *as_path_ptr = as_path.Add(local_as);

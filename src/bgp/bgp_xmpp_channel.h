@@ -85,7 +85,7 @@ public:
     void set_deleted(bool deleted) { deleted_ = deleted; }
     bool deleted() { return deleted_; }
     void RoutingInstanceCallback(std::string vrf_name, int op);
-    void ASNUpdateCallback(as_t old_asn);
+    void ASNUpdateCallback(as_t old_asn, as_t old_local_asn);
     void IdentifierUpdateCallback(Ip4Address old_identifier);
     void FillInstanceMembershipInfo(BgpNeighborResp *resp);
     void FillTableMembershipInfo(BgpNeighborResp *resp);
@@ -235,7 +235,7 @@ public:
     }
     bool IsReadyForDeletion();
     void RoutingInstanceCallback(std::string vrf_name, int op);
-    void ASNUpdateCallback(as_t old_asn);
+    void ASNUpdateCallback(as_t old_asn, as_t old_local_asn);
     void IdentifierUpdateCallback(Ip4Address old_identifier);
 
     uint32_t count() const {

@@ -50,7 +50,8 @@
         <xsd:element name='port' type='xsd:integer'/>
         <xsd:element name='hold-time' type='BgpHoldTime' default='90'/>
         <xsd:element name='address-families' type='AddressFamilies'/>
-	<xsd:element name='auth-key-chain' type='AuthenticationKeyChain'/>
+        <xsd:element name='auth-key-chain' type='AuthenticationKeyChain'/>
+        <xsd:element name='local-autonomous-system' type='xsd:integer'/>
     </xsd:sequence>
 </xsd:complexType>
 

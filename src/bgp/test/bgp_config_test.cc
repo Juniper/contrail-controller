@@ -130,22 +130,102 @@ TEST_F(BgpConfigTest, BgpRouterAutonomousSystemChange) {
     // AS should be kDefaultAutonomousSystem as it's not specified.
     TASK_UTIL_EXPECT_EQ(BgpConfigManager::kDefaultAutonomousSystem,
         server_.autonomous_system());
+    TASK_UTIL_EXPECT_EQ(BgpConfigManager::kDefaultAutonomousSystem,
+        server_.local_autonomous_system());
 
     // AS should change to 100.
     string content_b = FileRead("controller/src/bgp/testdata/config_test_24b.xml");
     EXPECT_TRUE(parser_.Parse(content_b));
     TASK_UTIL_EXPECT_EQ(100, server_.autonomous_system());
+    TASK_UTIL_EXPECT_EQ(100, server_.local_autonomous_system());
 
     // AS should change to 101.
     string content_c = FileRead("controller/src/bgp/testdata/config_test_24c.xml");
     EXPECT_TRUE(parser_.Parse(content_c));
     TASK_UTIL_EXPECT_EQ(101, server_.autonomous_system());
+    TASK_UTIL_EXPECT_EQ(101, server_.local_autonomous_system());
 
     // AS should go back to kDefaultAutonomousSystem since it's not specified.
     content_a = FileRead("controller/src/bgp/testdata/config_test_24a.xml");
     EXPECT_TRUE(parser_.Parse(content_a));
     TASK_UTIL_EXPECT_EQ(BgpConfigManager::kDefaultAutonomousSystem,
         server_.autonomous_system());
+    TASK_UTIL_EXPECT_EQ(BgpConfigManager::kDefaultAutonomousSystem,
+        server_.local_autonomous_system());
+
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+TEST_F(BgpConfigTest, BgpRouterLocalAutonomousSystemChange) {
+    string content_a = FileRead("controller/src/bgp/testdata/config_test_33a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    // Local AS should default to AS since it's not specified.
+    TASK_UTIL_EXPECT_EQ(99, server_.autonomous_system());
+    TASK_UTIL_EXPECT_EQ(99, server_.local_autonomous_system());
+
+    // Local AS should change to 100.
+    string content_b = FileRead("controller/src/bgp/testdata/config_test_33b.xml");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    TASK_UTIL_EXPECT_EQ(99, server_.autonomous_system());
+    TASK_UTIL_EXPECT_EQ(100, server_.local_autonomous_system());
+
+    // Local AS should change to 101.
+    string content_c = FileRead("controller/src/bgp/testdata/config_test_33c.xml");
+    EXPECT_TRUE(parser_.Parse(content_c));
+    TASK_UTIL_EXPECT_EQ(99, server_.autonomous_system());
+    TASK_UTIL_EXPECT_EQ(101, server_.local_autonomous_system());
+
+    // Local AS should go back to AS since it's not specified.
+    content_a = FileRead("controller/src/bgp/testdata/config_test_33a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    TASK_UTIL_EXPECT_EQ(99, server_.autonomous_system());
+    TASK_UTIL_EXPECT_EQ(99, server_.local_autonomous_system());
+
+    boost::replace_all(content_a, "<config>", "<delete>");
+    boost::replace_all(content_a, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+TEST_F(BgpConfigTest, BgpRouterLocalGlobalAutonomousSystemChange) {
+    string content_a = FileRead("controller/src/bgp/testdata/config_test_34a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    // Local AS should default to Global AS since it's not specified.
+    TASK_UTIL_EXPECT_EQ(100, server_.autonomous_system());
+    TASK_UTIL_EXPECT_EQ(100, server_.local_autonomous_system());
+
+    // Global AS should remain 100.
+    // Local AS should change to 101.
+    string content_b = FileRead("controller/src/bgp/testdata/config_test_34b.xml");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    TASK_UTIL_EXPECT_EQ(100, server_.autonomous_system());
+    TASK_UTIL_EXPECT_EQ(101, server_.local_autonomous_system());
+
+    // Global AS should change to 102.
+    // Local AS should change to 103.
+    string content_c = FileRead("controller/src/bgp/testdata/config_test_34c.xml");
+    EXPECT_TRUE(parser_.Parse(content_c));
+    TASK_UTIL_EXPECT_EQ(102, server_.autonomous_system());
+    TASK_UTIL_EXPECT_EQ(103, server_.local_autonomous_system());
+
+    // Local AS should go back to Global AS since it's not specified.
+    content_a = FileRead("controller/src/bgp/testdata/config_test_34a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    TASK_UTIL_EXPECT_EQ(100, server_.autonomous_system());
+    TASK_UTIL_EXPECT_EQ(100, server_.local_autonomous_system());
 
     boost::replace_all(content_a, "<config>", "<delete>");
     boost::replace_all(content_a, "</config>", "</delete>");
