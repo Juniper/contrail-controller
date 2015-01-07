@@ -79,6 +79,7 @@ class VrouterProvisioner(object):
             'api_server_port': '8082',
             'oper': 'add',
             'control_names': [],
+            'router_type': 'embedded'
         }
         ksopts = {
             'admin_user': 'user1',
@@ -126,6 +127,8 @@ class VrouterProvisioner(object):
             "--admin_tenant_name", help="Tenamt name for keystone admin user")
         parser.add_argument(
             "--openstack_ip", help="IP address of openstack node")
+        parser.add_argument(
+            "--router_type", help="Type of the virtual router (tor-service-node,embedded or none)")
 
         self._args = parser.parse_args(remaining_argv)
 
@@ -153,6 +156,8 @@ class VrouterProvisioner(object):
                 fq_name=bgp_router_fq_name)
             vrouter_obj.add_bgp_router(bgp_router_obj)
 
+        # Configure router type
+        vrouter_obj.set_virtual_router_type([self._args.router_type])
         if vrouter_exists:
             self._vnc_lib.virtual_router_update(vrouter_obj)
         else:
