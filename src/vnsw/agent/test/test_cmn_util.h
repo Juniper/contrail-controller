@@ -307,6 +307,8 @@ void AddSubnetType(const char *name, int id, const char* addr, uint8_t);
 void AddActiveActiveInstanceIp(const char *name, int id, const char* addr);
 void DelInstanceIp(const char *name);
 extern Peer *bgp_peer_;
+VxLanId* GetVxLan(const Agent *agent, uint32_t vxlan_id);
+bool FindVxLanId(const Agent *agent, uint32_t vxlan_id);
 bool FindMplsLabel(MplsLabel::Type type, uint32_t label);
 MplsLabel *GetActiveLabel(MplsLabel::Type type, uint32_t label);
 uint32_t GetFlowKeyNH(int id);

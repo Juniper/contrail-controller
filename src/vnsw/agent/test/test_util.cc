@@ -2898,6 +2898,17 @@ uint32_t PathCount(const string vrf_name, const Ip4Address &addr, int plen) {
     return route->GetPathList().size();
 }
 
+bool FindVxLanId(const Agent *agent, uint32_t vxlan_id) {
+    return (GetVxLan(agent, vxlan_id) != NULL);
+}
+
+VxLanId* GetVxLan(const Agent *agent, uint32_t vxlan_id) {
+    VxLanIdKey vxlan_id_key(vxlan_id);
+    VxLanId *vxlan_id_entry =
+        static_cast<VxLanId *>(agent->vxlan_table()->FindActiveEntry(&vxlan_id_key));
+    return vxlan_id_entry;
+}
+
 bool FindMplsLabel(MplsLabel::Type type, uint32_t label) {
     MplsLabelKey key(type, label);
     MplsLabel *mpls = static_cast<MplsLabel *>(Agent::GetInstance()->mpls_table()->FindActiveEntry(&key));
