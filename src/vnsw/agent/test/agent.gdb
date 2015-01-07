@@ -33,7 +33,7 @@ end
 
 define uc_route_entry_format
     set $__rt = (InetUnicastRouteEntry*)((size_t)($Xnode) - (size_t)&(Route::node_))
-    set $__ip = $__rt->addr_.addr_.s_addr
+    set $__ip = $__rt->addr_.ipv4_address_.addr_.s_addr
     printf "%p  %d.%d.%d.%d/%d\t\t flags=%d\n", $__rt, ($__ip & 0xff),\
                                    ($__ip >> 8 & 0xff), ($__ip >> 16 & 0xff),\
                                    ($__ip >> 24 & 0xff), $__rt->plen_, $__rt->flags

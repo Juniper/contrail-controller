@@ -254,7 +254,7 @@ struct FlowData {
         mirror_vrf(VrfEntry::kInvalidIndex), dest_vrf(),
         component_nh_idx((uint32_t)CompositeNH::kInvalidComponentNHIdx),
         nh_state_(NULL), source_plen(0), dest_plen(0), drop_reason(0),
-        vrf_assign_evaluated(false), pending_recompute(false) {}
+        vrf_assign_evaluated(false), pending_recompute(false), enable_rpf(true) {}
 
     std::string source_vn;
     std::string dest_vn;
@@ -289,6 +289,7 @@ struct FlowData {
     // on route add. key for the map is vrf and data is prefix length
     FlowRouteRefMap     flow_source_plen_map;
     FlowRouteRefMap     flow_dest_plen_map;
+    bool enable_rpf;
 };
 
 class FlowEntry {
@@ -462,6 +463,7 @@ private:
                      const PktControlInfo *rev_ctrl);
     void GetSourceRouteInfo(const InetUnicastRouteEntry *rt);
     void GetDestRouteInfo(const InetUnicastRouteEntry *rt);
+    void UpdateRpf();
 
     FlowKey key_;
     FlowData data_;
@@ -568,10 +570,11 @@ public:
         AclDBEntryConstRef acl_;
         AclDBEntryConstRef macl_;
         AclDBEntryConstRef mcacl_;
+        bool enable_rpf_;
         VnFlowHandlerState(const AclDBEntry *acl, 
                            const AclDBEntry *macl,
-                           const AclDBEntry *mcacl) :
-           acl_(acl), macl_(macl), mcacl_(mcacl) { }
+                           const AclDBEntry *mcacl, bool enable_rpf) :
+           acl_(acl), macl_(macl), mcacl_(mcacl), enable_rpf_(enable_rpf) { }
         virtual ~VnFlowHandlerState() { }
     };
     struct VmIntfFlowHandlerState : public DBState {

@@ -87,12 +87,13 @@ struct VnData : public AgentOperDBData {
            const uuid &mirror_acl_id, const uuid &mc_acl_id, 
            const std::vector<VnIpam> &ipam, const VnIpamDataMap &vn_ipam_data,
            int vxlan_id, int vnid, bool layer2_forwarding,
-           bool layer3_forwarding, bool admin_state) :
+           bool layer3_forwarding, bool admin_state, bool enable_rpf) :
         AgentOperDBData(NULL, NULL), name_(name), vrf_name_(vrf_name),
         acl_id_(acl_id), mirror_acl_id_(mirror_acl_id),
         mirror_cfg_acl_id_(mc_acl_id), ipam_(ipam), vn_ipam_data_(vn_ipam_data),
         vxlan_id_(vxlan_id), vnid_(vnid), layer2_forwarding_(layer2_forwarding),
-        layer3_forwarding_(layer3_forwarding), admin_state_(admin_state) {
+        layer3_forwarding_(layer3_forwarding), admin_state_(admin_state),
+        enable_rpf_(enable_rpf) {
     };
     virtual ~VnData() { }
 
@@ -108,6 +109,7 @@ struct VnData : public AgentOperDBData {
     bool layer2_forwarding_;
     bool layer3_forwarding_;
     bool admin_state_;
+    bool enable_rpf_;
 };
 
 class VnEntry : AgentRefCount<VnEntry>, public AgentOperDBEntry {
@@ -158,6 +160,7 @@ public:
     bool layer2_forwarding() const {return layer2_forwarding_;};
     bool layer3_forwarding() const {return layer3_forwarding_;};
     bool admin_state() const {return admin_state_;}
+    bool enable_rpf() const {return enable_rpf_;}
 
     AgentDBTable *DBToTable() const;
     uint32_t GetRefCount() const {
@@ -186,6 +189,7 @@ private:
     bool admin_state_;
     VxLanIdRef vxlan_id_ref_;
     uint32_t table_label_;
+    bool enable_rpf_;
     DISALLOW_COPY_AND_ASSIGN(VnEntry);
 };
 
@@ -213,7 +217,7 @@ public:
     void AddVn(const uuid &vn_uuid, const string &name, const uuid &acl_id,
                const string &vrf_name, const std::vector<VnIpam> &ipam,
                const VnData::VnIpamDataMap &vn_ipam_data, int vxlan_id,
-               bool admin_state);
+               bool admin_state, bool enable_rpf);
     void DelVn(const uuid &vn_uuid);
     VnEntry *Find(const uuid &vn_uuid);
     void UpdateVxLanNetworkIdentifierMode();

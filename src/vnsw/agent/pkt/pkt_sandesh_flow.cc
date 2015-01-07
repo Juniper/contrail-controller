@@ -85,7 +85,8 @@ using boost::system::error_code;
     }                                                                       \
     data.set_peer_vrouter(fe->peer_vrouter());                            \
     data.set_tunnel_type(fe->tunnel_type().ToString());                     \
-    data.set_underlay_source_port(fe->underlay_source_port())
+    data.set_underlay_source_port(fe->underlay_source_port()); \
+    data.set_enable_rpf(fe->data().enable_rpf);\
 
 
 const std::string PktSandeshFlow::start_key = "0:0:0:0:0.0.0.0:0.0.0.0";
