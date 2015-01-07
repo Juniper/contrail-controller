@@ -402,5 +402,6 @@ void DeleteLogicalInterface(const char *name);
 PhysicalDevice *PhysicalDeviceGet(int id);
 PhysicalInterface *PhysicalInterfaceGet(const std::string &name);
 LogicalInterface *LogicalInterfaceGet(int id, const std::string &name);
-
+void EnableRpf(const std::string &vn_name, int vn_id);
+void DisableRpf(const std::string &vn_name, int vn_id);
 #endif // vnsw_agent_test_cmn_util_h
