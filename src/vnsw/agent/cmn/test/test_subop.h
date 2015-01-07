@@ -77,7 +77,7 @@ public:
     bool OnChange(DBEntry *entry, const DBRequest *req);
     bool Delete(DBEntry *entry, const DBRequest *req);
 
-    bool Resync(DBEntry *entry, DBRequest *req);
+    bool Resync(DBEntry *entry, const DBRequest *req);
     bool Delete(DBRequest *req);
 
     EntryC *FindC(int id);
