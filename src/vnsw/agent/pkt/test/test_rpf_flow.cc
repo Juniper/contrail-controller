@@ -243,6 +243,7 @@ TEST_F(FlowRpfTest, Flow_rpf_failure_invalid_source) {
                             flow0->flow_key_nh()->id());
 
     EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->data().enable_rpf == true);
     if (fe != NULL) {
         WAIT_FOR(1000, 500, (fe->is_flags_set(FlowEntry::ShortFlow) != true));
         NextHop *nh = fe->data().nh_state_->nh();
@@ -259,6 +260,132 @@ TEST_F(FlowRpfTest, Flow_rpf_failure_invalid_source) {
     client->WaitForIdle();
 
     EXPECT_TRUE(FlowTableWait(0));
+}
+
+//Disable RPF on a VN and verify that
+//rpf check is disabled
+TEST_F(FlowRpfTest, FlowDisableRpf) {
+    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    DisableRpf("vn5", 5);
+
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(Address::INET, vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
+                    flow0->id()),
+            {new VerifyRpfEnable(false, false)}
+        }
+    };
+
+    CreateFlow(flow, 1);
+    client->WaitForIdle();
+
+    DeleteFlow(flow, 1);
+    client->WaitForIdle();
+
+    EnableRpf("vn5", 5);
+    EXPECT_TRUE(FlowTableWait(0));
+}
+
+//Setup flow with RPF enabled
+//Change the rpf enable field in VN
+//Verify that RPF is disabled on flow
+TEST_F(FlowRpfTest, FlowEnableDisableRpf) {
+    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+    EnableRpf("vn5", 5);
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(Address::INET, vm1_ip, vm2_ip, 1, 0, 0, "vrf5",
+                    flow0->id()),
+            {new VerifyRpfEnable(true, true)}
+        }
+    };
+
+    CreateFlow(flow, 1);
+    client->WaitForIdle();
+
+    //Disable RPF
+    DisableRpf("vn5", 5);
+    uint32_t vrf_id = VrfGet("vrf5")->vrf_id();
+    FlowEntry *fe = FlowGet(vrf_id, vm1_ip, vm2_ip, 1, 0, 0,
+                            flow0->flow_key_nh()->id());
+    EXPECT_TRUE(fe->data().enable_rpf == false);
+
+    FlowEntry *rfe = FlowGet(vrf_id, vm2_ip, vm1_ip, 1, 0, 0,
+                             flow1->flow_key_nh()->id());
+    EXPECT_TRUE(rfe->data().enable_rpf == false);
+
+    DeleteFlow(flow, 1);
+    client->WaitForIdle();
+
+    EnableRpf("vn5", 5);
+    EXPECT_TRUE(FlowTableWait(0));
+}
+
+
+//Add floating IP for a flow0 interface and disable
+//rpf on the VN from where floating IP is enabled
+//Verify rpf check is disabled
+TEST_F(FlowRpfTest, FipDisableRpf) {
+    EXPECT_EQ(0U, agent()->pkt()->flow_table()->Size());
+
+    AddVn("default-project:vn2", 2);
+    AddVrf("default-project:vn2:vn2", 2);
+    AddLink("virtual-network", "default-project:vn2", "routing-instance",
+            "default-project:vn2:vn2");
+    //Add floating IP for vnet1
+    AddFloatingIpPool("fip-pool1", 1);
+    AddFloatingIp("fip1", 1, "2.1.1.100");
+    AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn2");
+    client->WaitForIdle();
+    AddLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
+    client->WaitForIdle();
+    Ip4Address floating_ip = Ip4Address::from_string("2.1.1.100");
+    EXPECT_TRUE(RouteFind("default-project:vn2:vn2", floating_ip, 32));
+    EXPECT_TRUE(VmPortFloatingIpCount(6, 1));
+    DisableRpf("default-project:vn2", 2);
+
+    Ip4Address addr = Ip4Address::from_string("0.0.0.0");
+    Ip4Address gw = Ip4Address::from_string("10.1.1.2");
+
+    Inet4TunnelRouteAdd(NULL, "default-project:vn2:vn2", addr, 0, gw,
+            TunnelType::AllType(), 8, "default-project:vn2",
+            SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
+
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(Address::INET, vm1_ip, vn5_unused_ip, 1, 0, 0, "vrf5",
+                    flow0->id()),
+            {new VerifyRpfEnable(false, false),
+             new VerifyNat(vn5_unused_ip, "2.1.1.100", 1, 0, 0),
+            }
+        }
+    };
+
+    CreateFlow(flow, 1);
+    client->WaitForIdle();
+
+    DeleteFlow(flow, 1);
+    client->WaitForIdle();
+
+    DeleteRoute("default-project:vn2:vn2", "0.0.0.0", 0);
+    client->WaitForIdle();
+    DelLink("virtual-network", "default-project:vn2", "routing-instance",
+            "default-project:vn2:vn2");
+    DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    DelLink("floating-ip-pool", "fip-pool1",
+            "virtual-network", "default-project:vn2");
+    DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
+    DelFloatingIp("fip1");
+    DelFloatingIpPool("fip-pool1");
+    client->WaitForIdle();
+    DelLink("virtual-network", "vn2", "routing-instance",
+            "default-project:vn2:vn2");
+    DelVrf("default-project:vn2:vn2");
+    DelVn("default-project:vn2");
+    client->WaitForIdle();
 }
 
 int main(int argc, char *argv[]) {

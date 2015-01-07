@@ -103,6 +103,7 @@ struct VnSandeshData {
     12: i32 vxlan_id;
     13: i32 config_vxlan_id;
     14: i32 vn_id;
+    15: bool enable_rpf;
 }
 
 struct SgSandeshData {

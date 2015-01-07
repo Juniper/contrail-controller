@@ -849,7 +849,7 @@ void VnAddReq(int id, const char *name) {
     VnData::VnIpamDataMap vn_ipam_data;
     Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name, nil_uuid(),
                                               name, ipam, vn_ipam_data, id,
-                                              true);
+                                              true, true);
     usleep(1000);
 }
 
@@ -859,7 +859,7 @@ void VnAddReq(int id, const char *name, int acl_id) {
     Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name,
                                               MakeUuid(acl_id),
                                               name, ipam, vn_ipam_data, id,
-                                              true);
+                                              true, true);
     usleep(1000);
 }
 
@@ -868,7 +868,7 @@ void VnAddReq(int id, const char *name, int acl_id, const char *vrf_name) {
     VnData::VnIpamDataMap vn_ipam_data;
     Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name,
                                               MakeUuid(acl_id), vrf_name, ipam,
-                                              vn_ipam_data, id, true);
+                                              vn_ipam_data, id, true, true);
     usleep(1000);
 }
 
@@ -877,7 +877,7 @@ void VnAddReq(int id, const char *name, const char *vrf_name) {
     VnData::VnIpamDataMap vn_ipam_data;
     Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name, nil_uuid(),
                                               vrf_name, ipam, vn_ipam_data, id,
-                                              true);
+                                              true, true);
     usleep(1000);
 }
 
@@ -1345,6 +1345,7 @@ void AddVn(const char *name, int id, bool admin_state) {
     str << "    <network-id>" << id << "</network-id>" << endl;
     str << "    <vxlan-network-identifier>" << (id+100) << "</vxlan-network-identifier>" << endl;
     str << "    <forwarding-mode>l2_l3</forwarding-mode>" << endl;
+    str << "    <rpf>enable</rpf>" << endl;
     str << "</virtual-network-properties>" << endl;
 
     AddNode("virtual-network", name, id, str.str().c_str(), admin_state);
@@ -3037,4 +3038,30 @@ LogicalInterface *LogicalInterfaceGet(int id, const std::string &name) {
     intf = static_cast<LogicalInterface *>(Agent::GetInstance()->
             interface_table()->FindActiveEntry(&key));
     return intf;
+}
+
+void EnableRpf(std::string vn_name, int vn_id) {
+    std::ostringstream buf;
+    buf << "<virtual-network-properties>";
+    buf << "<rpf>";
+    buf << "enable";
+    buf << "</rpf>";
+    buf << "</virtual-network-properties>";
+    char cbuf[10000];
+    strcpy(cbuf, buf.str().c_str());
+    AddNode("virtual-network", vn_name.c_str(), vn_id, cbuf);
+    client->WaitForIdle();
+}
+
+void DisableRpf(std::string vn_name, int vn_id) {
+    std::ostringstream buf;
+    buf << "<virtual-network-properties>";
+    buf << "<rpf>";
+    buf << "disable";
+    buf << "</rpf>";
+    buf << "</virtual-network-properties>";
+    char cbuf[10000];
+    strcpy(cbuf, buf.str().c_str());
+    AddNode("virtual-network", vn_name.c_str(), vn_id, cbuf);
+    client->WaitForIdle();
 }

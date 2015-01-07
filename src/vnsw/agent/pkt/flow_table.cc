@@ -330,6 +330,13 @@ void FlowEntry::SetOutPacketHeader(PacketHeader *hdr) {
     hdr->dst_sg_id_l = &(rflow->data().source_sg_id_l);
 }
 
+void FlowEntry::UpdateRpf() {
+    if (data_.vn_entry) {
+        data_.enable_rpf = data_.vn_entry->enable_rpf();
+    } else {
+        data_.enable_rpf = true;
+    }
+}
 // Apply Policy and SG rules for a flow.
 //
 // Special case of local flows:
@@ -1778,6 +1785,7 @@ void FlowTable::VnNotify(DBTablePartBase *part, DBEntryBase *e)
     AclDBEntryConstRef acl = NULL;
     AclDBEntryConstRef macl = NULL;
     AclDBEntryConstRef mcacl = NULL;
+    bool enable_rpf = true;
 
     if (vn->IsDeleted()) {
         DeleteVnFlows(vn);
@@ -1792,21 +1800,26 @@ void FlowTable::VnNotify(DBTablePartBase *part, DBEntryBase *e)
         acl = state->acl_;
         macl = state->macl_;
         mcacl = state->mcacl_;
+        enable_rpf = state->enable_rpf_;
     }
 
     const AclDBEntry *new_acl = vn->GetAcl();
     const AclDBEntry *new_macl = vn->GetMirrorAcl();
     const AclDBEntry *new_mcacl = vn->GetMirrorCfgAcl();
+    bool new_enable_rpf = vn->enable_rpf();
     
     if (state == NULL) {
-        state = new VnFlowHandlerState(new_acl, new_macl, new_mcacl);
+        state = new VnFlowHandlerState(new_acl, new_macl, new_mcacl,
+                                       new_enable_rpf);
         e->SetState(part->parent(), vn_listener_id_, state);
     }
 
-    if (acl != new_acl || macl != new_macl || mcacl !=new_mcacl) {
+    if (acl != new_acl || macl != new_macl || mcacl !=new_mcacl ||
+        enable_rpf != new_enable_rpf) {
         state->acl_ = new_acl;
         state->macl_ = new_macl;
         state->mcacl_ = new_mcacl;
+        state->enable_rpf_ = new_enable_rpf;
         ResyncVnFlows(vn);
     }
 }
@@ -2751,6 +2764,7 @@ void FlowTable::AddRouteFlowInfo (FlowEntry *fe)
 }
 
 void FlowTable::ResyncAFlow(FlowEntry *fe) {
+    fe->UpdateRpf();
     fe->DoPolicy();
     fe->UpdateKSync(this);
 

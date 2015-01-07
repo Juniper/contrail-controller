@@ -439,6 +439,24 @@ private:
     uint32_t reverse_flow_rpf_nh_;
 };
 
+class VerifyRpfEnable : public FlowVerify {
+public:
+    VerifyRpfEnable(bool fwd_rpf_enable, bool rev_rpf_enable):
+        fwd_rpf_enable_(fwd_rpf_enable),
+        rev_rpf_enable_(rev_rpf_enable){};
+    virtual ~VerifyRpfEnable() {};
+    void Verify(FlowEntry *fe) {
+        FlowEntry *rev = fe->reverse_flow_entry();
+        EXPECT_TRUE(rev != NULL);
+        EXPECT_TRUE(fe->data().enable_rpf == fwd_rpf_enable_);
+        EXPECT_TRUE(rev->data().enable_rpf == rev_rpf_enable_);
+    }
+private:
+    bool fwd_rpf_enable_;
+    bool rev_rpf_enable_;
+};
+
+
 struct TestFlow {
     ~TestFlow() {
         for (int i = 0; i < 10; i++) {
