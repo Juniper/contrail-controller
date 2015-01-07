@@ -25,6 +25,15 @@ OvsdbClientTcp::OvsdbClientTcp(Agent *agent, TorAgentParam *params,
                 "OVSDB Client TCP reconnect Timer")) {
 }
 
+OvsdbClientTcp::OvsdbClientTcp(Agent *agent, IpAddress tor_ip, int tor_port,
+        IpAddress tsn_ip, OvsPeerManager *manager) :
+    TcpServer(agent->event_manager()), OvsdbClient(manager), agent_(agent),
+    session_(NULL), server_ep_(tor_ip, tor_port), tsn_ip_(tsn_ip.to_v4()),
+    client_reconnect_timer_(TimerManager::CreateTimer(
+                *(agent->event_manager())->io_service(),
+                "OVSDB Client TCP reconnect Timer")) {
+}
+
 OvsdbClientTcp::~OvsdbClientTcp() {
     TimerManager::DeleteTimer(client_reconnect_timer_);
 }

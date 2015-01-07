@@ -78,6 +78,8 @@ public:
 
     OvsdbClientTcp(Agent *agent, TorAgentParam *params,
             OvsPeerManager *manager);
+    OvsdbClientTcp(Agent *agent, IpAddress tor_ip, int tor_port,
+            IpAddress tsn_ip, OvsPeerManager *manager);
     virtual ~OvsdbClientTcp();
 
     virtual TcpSession *AllocSession(Socket *socket);

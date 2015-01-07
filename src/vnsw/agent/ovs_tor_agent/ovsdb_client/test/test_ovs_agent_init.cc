@@ -2,6 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <csetjmp>
+
 #include <base/os.h>
 #include <base/test/task_test_util.h>
 
@@ -20,6 +22,89 @@
 #include <test/test_agent_init.h>
 #include "test_ovs_agent_init.h"
 
+#include <boost/filesystem/operations.hpp>
+
+#define OVSDB_SERVER "build/third_party/openvswitch/ovsdb/ovsdb-server"
+#define DB_FILE_TEMPLATE "controller/src/vnsw/agent/ovs_tor_agent/ovsdb_client/test/vtep.db"
+
+std::string db_file_name;
+std::string lock_file_name;
+bool server_inited = false;
+bool server_stopping = false;
+int server_pid;
+jmp_buf env;
+uint32_t ovsdb_port = 0;
+
+void stop_ovsdb_server() {
+    if (server_inited == false || server_stopping == true) {
+        return;
+    }
+    server_stopping = true;
+    kill(server_pid, SIGTERM);
+    int status;
+    while (server_pid != wait(&status));
+    // after the child process has exited, delete the db file and lock file
+    boost::filesystem::remove(db_file_name);
+    boost::filesystem::remove(lock_file_name);
+    server_inited = false;
+    server_stopping = false;
+}
+
+void signalHandler(int sig_num) {
+    stop_ovsdb_server();
+    longjmp (env, 1);
+}
+
+static void start_ovsdb_server() {
+    assert(server_inited == false);
+    signal(SIGABRT, signalHandler);
+    signal(SIGSEGV, signalHandler);
+    signal(SIGTERM, signalHandler);
+    atexit(stop_ovsdb_server);
+    server_inited = true;
+    db_file_name =
+        "build/debug/vnsw/agent/ovs_tor_agent/ovsdb_client/test/vtep_" +
+        boost::lexical_cast<std::string>(getpid()) + "_" +
+        boost::lexical_cast<std::string>(UTCTimestampUsec()) + ".db";
+    lock_file_name = db_file_name;
+    size_t pos = lock_file_name.find("vtep_");
+    lock_file_name.insert(pos, ".");
+    lock_file_name.append(".~lock~");
+    // create a new DB for Ovsdb Server from DB Template file
+    boost::filesystem::copy_file(DB_FILE_TEMPLATE, db_file_name);
+    server_pid = fork();
+
+    if (server_pid == 0) {
+        execlp(OVSDB_SERVER, OVSDB_SERVER, "--remote=ptcp:0:127.0.0.1",
+               db_file_name.c_str(), static_cast<char *>(NULL));
+    }
+
+    std::string port = "";
+    // Get the TCP server port used by ovsdb-server.
+    do {
+        std::string cmd("netstat -anp | grep ovsdb-server | grep tcp | grep ");
+        cmd += boost::lexical_cast<std::string>(server_pid);
+        FILE* pipe = popen(cmd.c_str(), "r");
+        if (!pipe) assert(false);
+        char buffer[128];
+        std::string result;
+        while(!feof(pipe)) {
+            if(fgets(buffer, 128, pipe) != NULL)
+                result += buffer;
+        }
+        pclose(pipe);
+        size_t start = result.find("127.0.0.1:");
+        // find will fail if the process has not started the listen on socket
+        if (start == string::npos)
+            continue;
+        start += 10;
+        size_t end = result.find_first_of(' ', start);
+        assert(end != string::npos);
+        port = result.substr(start, end - start);
+    } while (port.empty());
+    ovsdb_port = strtoul(port.c_str(), NULL, 0);
+}
+
 TestOvsAgentInit::TestOvsAgentInit() : TestAgentInit() {
 }
 
@@ -34,6 +119,13 @@ TestOvsAgentInit::~TestOvsAgentInit() {
 // by init module
 void TestOvsAgentInit::CreateModules() {
     TestAgentInit::CreateModules();
+    if (ovs_init_) {
+        start_ovsdb_server();
+        ovsdb_client_.reset(new OVSDB::OvsdbClientTcp(agent(),
+                    IpAddress(Ip4Address::from_string("127.0.0.1")), ovsdb_port,
+                    IpAddress(Ip4Address::from_string("127.0.0.1")),
+                    ovs_peer_manager()));
+    }
 }
 
 void TestOvsAgentInit::CreateDBTables() {
@@ -42,6 +134,8 @@ void TestOvsAgentInit::CreateDBTables() {
 
 void TestOvsAgentInit::RegisterDBClients() {
     TestAgentInit::RegisterDBClients();
+    if (ovs_init_)
+        ovsdb_client_->RegisterClients();
 }
 
 void TestOvsAgentInit::CreatePeers() {
@@ -55,7 +149,15 @@ OvsPeerManager *TestOvsAgentInit::ovs_peer_manager() const {
     return ovs_peer_manager_.get();
 }
 
-TestClient *OvsTestInit(const char *init_file, bool ksync_init) {
+OVSDB::OvsdbClient *TestOvsAgentInit::ovsdb_client() const {
+    return ovsdb_client_.get();
+}
+
+void TestOvsAgentInit::set_ovs_init(bool ovs_init) {
+    ovs_init_ = ovs_init;
+}
+
+TestClient *OvsTestInit(const char *init_file, bool ovs_init) {
     TestClient *client = new TestClient(new TestOvsAgentInit());
     TestOvsAgentInit *init =
         static_cast<TestOvsAgentInit *>(client->agent_init());
@@ -81,6 +183,7 @@ TestClient *OvsTestInit(const char *init_file, bool ksync_init) {
     init->set_uve_enable(true);
     init->set_vgw_enable(false);
     init->set_router_id_dep_enable(false);
+    init->set_ovs_init(ovs_init);
     param->set_test_mode(true);
     agent->set_ksync_sync_mode(true);
 
