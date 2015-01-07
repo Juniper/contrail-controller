@@ -893,7 +893,7 @@ void BgpXmppChannel::ProcessMcastItem(string vrf_name,
         // encap to "gre"
         const autogen::McastNextHopType &next_hop =
             item.entry.next_hops.next_hop[0];
-        if (next_hop.tunnel_encapsulation_list.tunnel_encapsulation.empty() &&
+        if (!next_hop.tunnel_encapsulation_list.tunnel_encapsulation.empty() &&
             no_valid_tunnel_encap) {
             flags = BgpPath::NoTunnelEncap;
         }
