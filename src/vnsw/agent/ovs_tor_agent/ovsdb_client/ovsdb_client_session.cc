@@ -33,7 +33,6 @@ void OvsdbClientSession::OnEstablish() {
 
 void OvsdbClientSession::OnClose() {
     OVSDB_TRACE(Trace, "Connection to client Closed");
-    assert(0);
 }
 
 OvsdbClientIdl *OvsdbClientSession::client_idl() {

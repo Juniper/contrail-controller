@@ -22,7 +22,16 @@ OvsdbClientTcp::OvsdbClientTcp(Agent *agent, TorAgentParam *params,
     tsn_ip_(params->tsn_ip()),
     client_reconnect_timer_(TimerManager::CreateTimer(
                 *(agent->event_manager())->io_service(),
-                "OVSDB Client TCP reconnect Timer")) {
+                "OVSDB Client TCP reconnect Timer")), shutdown_(false) {
+}
+
+OvsdbClientTcp::OvsdbClientTcp(Agent *agent, IpAddress tor_ip, int tor_port,
+        IpAddress tsn_ip, OvsPeerManager *manager) :
+    TcpServer(agent->event_manager()), OvsdbClient(manager), agent_(agent),
+    session_(NULL), server_ep_(tor_ip, tor_port), tsn_ip_(tsn_ip.to_v4()),
+    client_reconnect_timer_(TimerManager::CreateTimer(
+                *(agent->event_manager())->io_service(),
+                "OVSDB Client TCP reconnect Timer")), shutdown_(false) {
 }
 
 OvsdbClientTcp::~OvsdbClientTcp() {
@@ -56,6 +65,9 @@ void OvsdbClientTcp::OnSessionEvent(TcpSession *session,
     case TcpSession::CLOSE:
         /* TODO need to handle reconnects */
         tcp->OnClose();
+        if (!shutdown_)
+            assert(0);
+        DeleteSession(session);
         break;
     case TcpSession::CONNECT_COMPLETE:
         ec = tcp->SetSocketOptions();
@@ -82,6 +94,13 @@ uint16_t OvsdbClientTcp::port() {
 
 Ip4Address OvsdbClientTcp::tsn_ip() {
     return tsn_ip_;
+}
+
+void OvsdbClientTcp::shutdown() {
+    if (shutdown_)
+        return;
+    shutdown_ = true;
+    session_->Close();
 }
 
 bool OvsdbClientTcp::ReconnectTimerCb() {

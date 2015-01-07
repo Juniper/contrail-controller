@@ -78,6 +78,8 @@ public:
 
     OvsdbClientTcp(Agent *agent, TorAgentParam *params,
             OvsPeerManager *manager);
+    OvsdbClientTcp(Agent *agent, IpAddress tor_ip, int tor_port,
+            IpAddress tsn_ip, OvsPeerManager *manager);
     virtual ~OvsdbClientTcp();
 
     virtual TcpSession *AllocSession(Socket *socket);
@@ -87,6 +89,8 @@ public:
     const std::string server();
     uint16_t port();
     Ip4Address tsn_ip();
+    void shutdown();
+
     bool ReconnectTimerCb();
 
     OvsdbClientSession *next_session(OvsdbClientSession *session);
@@ -99,6 +103,7 @@ private:
     boost::asio::ip::tcp::endpoint server_ep_;
     Ip4Address tsn_ip_;
     Timer *client_reconnect_timer_;
+    bool shutdown_;
     DISALLOW_COPY_AND_ASSIGN(OvsdbClientTcp);
 };
 };
