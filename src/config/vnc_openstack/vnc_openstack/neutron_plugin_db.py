@@ -2022,12 +2022,10 @@ class DBInterface(object):
                     aap = AllowedAddressPair(subnet,
                                              address_pair['mac_address'], mode)
                     aap_array.append(aap)
+            aaps = AllowedAddressPairs()
             if aap_array:
-                aaps = AllowedAddressPairs()
                 aaps.set_allowed_address_pair(aap_array)
-                port_obj.set_virtual_machine_interface_allowed_address_pairs(aaps)
-            else:
-                port_obj.set_virtual_machine_interface_allowed_address_pairs(None)
+            port_obj.set_virtual_machine_interface_allowed_address_pairs(aaps)
 
         if 'fixed_ips' in port_q:
             net_id = (port_q.get('network_id') or
