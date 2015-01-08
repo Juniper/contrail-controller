@@ -112,6 +112,8 @@ void OvsdbClientIdl::SendJsonRpc(struct jsonrpc_msg *msg) {
     ovsdb_wrapper_json_destroy(json_msg);
 
     session_->SendMsg((u_int8_t *)s, strlen(s));
+    // release the memory allocated by ovsdb_wrapper_json_to_string
+    free(s);
 }
 
 void OvsdbClientIdl::MessageProcess(const u_int8_t *buf, std::size_t len) {
