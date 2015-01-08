@@ -41,7 +41,7 @@ def redis_version():
 '''
 
 
-def start_redis(port, exe=None):
+def start_redis(port, exe=None, password=None):
     '''
     Client uses this function to start an instance of redis
     Arguments:
@@ -68,13 +68,15 @@ def start_redis(port, exe=None):
                      ("port 6379", "port " + str(port)),
                      ("/var/log/redis_6379.log", redisbase + "log"),
                      ("/var/lib/redis/6379", redisbase + "cache")])
+    if password:
+       replace_string_(redisbase + redis_conf,[("# requirepass foobared","requirepass " + password)])
     if exe == None:
         exe = "redis-server"
     command = exe + " " + redisbase + redis_conf
     subprocess.Popen(command.split(' '),
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)
-    r = redis.StrictRedis(host='localhost', port=port, db=0)
+    r = redis.StrictRedis(host='localhost', port=port, db=0, password=password)
     done = False
     while not done:
         try:
@@ -87,14 +89,14 @@ def start_redis(port, exe=None):
     logging.info('Redis ready')
 
 
-def stop_redis(port):
+def stop_redis(port, password=None):
     '''
     Client uses this function to stop an instance of redis
     This will only work for redis instances that were started by this module
     Arguments:
         cport : The Client Port for the instance of redis to be stopped
     '''
-    r = redis.StrictRedis(host='localhost', port=port, db=0)
+    r = redis.StrictRedis(host='localhost', port=port, db=0, password=password)
     r.shutdown()
     del r
     redisbase = "/tmp/redis.%s.%d/" % (os.getenv('USER', 'None'), port)

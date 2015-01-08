@@ -14,27 +14,32 @@ import copy
 import xmltodict
 import redis
 import datetime
+import sys
 from opserver_util import OpServerUtils
 import re
 from gevent.coros import BoundedSemaphore
 from pysandesh.util import UTCTimestampUsec
+from pysandesh.connection_info import ConnectionState
 
 class UVEServer(object):
 
-    def __init__(self, redis_uve_server, logger):
+    def __init__(self, redis_uve_server, logger, redis_password=None):
         self._local_redis_uve = redis_uve_server
         self._redis_uve_list = []
         self._logger = logger
         self._sem = BoundedSemaphore(1)
         self._redis = None
+        self._redis_password = redis_password
         if self._local_redis_uve:
             self._redis = redis.StrictRedis(self._local_redis_uve[0],
-                                            self._local_redis_uve[1], db=1)
+                                            self._local_redis_uve[1],
+                                            password=self._redis_password,
+                                            db=1)
     #end __init__
 
     def update_redis_uve_list(self, redis_uve_list):
         self._redis_uve_list = redis_uve_list
-    # end update_redis_uve_list 
+    # end update_redis_uve_list
 
     def fill_redis_uve_info(self, redis_uve_info):
         redis_uve_info.ip = self._local_redis_uve[0]
@@ -127,6 +132,14 @@ class UVEServer(object):
                     self._redis.hset("PREVIOUS:" + key + ":" + typ, attr, vstr)
 
                 self._redis.delete(value)
+            except redis.exceptions.ResponseError:
+                #send redis connection down msg. Coule be bcos of authentication
+                ConnectionState.update(conn_type = ConnectionType.REDIS,
+                    name = 'UVE', status = ConnectionStatus.DOWN,
+                    message = 'UVE result : Connection Error',
+                    server_addrs = ['%s:%d' % (self._local_redis_uve[0],
+                    self._local_redis_uve[1])])
+                sys.exit()
             except redis.exceptions.ConnectionError:
                 if lck:
                     self._sem.release()
@@ -197,7 +210,8 @@ class UVEServer(object):
         statdict = {}
         for redis_uve in self._redis_uve_list:
             redish = redis.StrictRedis(host=redis_uve[0],
-                                       port=redis_uve[1], db=1)
+                                       port=redis_uve[1],
+                                       password=self._redis_password, db=1)
             try:
                 qmap = {}
                 for origs in redish.smembers("ORIGINS:" + key):
@@ -398,7 +412,8 @@ class UVEServer(object):
                 patterns.add(self.get_uve_regex(filt))
         for redis_uve in self._redis_uve_list:
             redish = redis.StrictRedis(host=redis_uve[0],
-                                       port=redis_uve[1], db=1)
+                                       port=redis_uve[1],
+                                       password=self._redis_password, db=1)
             try:
                 for entry in redish.smembers("TABLE:" + key):
                     info = (entry.split(':', 1)[1]).rsplit(':', 5)

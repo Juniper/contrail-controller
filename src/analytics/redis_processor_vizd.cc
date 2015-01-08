@@ -125,8 +125,9 @@ RedisProcessorExec::UVEDelete(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
 
 
 bool
-RedisProcessorExec::SyncGetSeq(const std::string & redis_ip, unsigned short redis_port,  
-        const std::string &source, const std::string &node_type,
+RedisProcessorExec::SyncGetSeq(const std::string & redis_ip, unsigned short redis_port,
+        const std::string & redis_password, const std::string &source,
+        const std::string &node_type,
         const std::string &module, const std::string &instance_id,
         std::map<std::string,int32_t> & seqReply) {
 
@@ -137,7 +138,21 @@ RedisProcessorExec::SyncGetSeq(const std::string & redis_ip, unsigned short redi
             << ":" << module << ":" << instance_id);
         redisFree(c); 
         return false;
-    } 
+    }
+
+    //Authenticate the context with password
+    if (!redis_password.empty()) {
+        redisReply * reply = (redisReply *) redisCommand(c, "AUTH %s",
+						     redis_password.c_str());
+        if (reply->type == REDIS_REPLY_ERROR) {
+	    LOG(ERROR, "Authentication to redis error");
+            freeReplyObject(reply);
+            redisFree(c);
+            return false;
+        }
+        freeReplyObject(reply);
+    }
+ 
 
     string lua_scr(reinterpret_cast<char *>(seqnum_lua), seqnum_lua_len);
 
@@ -175,7 +190,8 @@ RedisProcessorExec::SyncGetSeq(const std::string & redis_ip, unsigned short redi
 
 
 bool 
-RedisProcessorExec::SyncDeleteUVEs(const std::string & redis_ip, unsigned short redis_port,  
+RedisProcessorExec::SyncDeleteUVEs(const std::string & redis_ip, unsigned short redis_port,
+        const std::string &redis_password,  
         const std::string &source, const std::string &node_type,
         const std::string &module, const std::string &instance_id) {
 
@@ -186,8 +202,22 @@ RedisProcessorExec::SyncDeleteUVEs(const std::string & redis_ip, unsigned short 
             node_type << ":" << module << ":" << instance_id);
         redisFree(c); 
         return false;
-    } 
+    }
 
+    //Authenticate the context with password
+    if (!redis_password.empty()) {
+        std::string & local_password = const_cast<std::string &>(redis_password);
+        redisReply * reply = (redisReply *) redisCommand(c, "AUTH %s",
+                                                     local_password.c_str());
+        if (reply->type == REDIS_REPLY_ERROR) {
+            LOG(ERROR, "Authentication to redis error");
+            freeReplyObject(reply);
+            redisFree(c);
+            return false;
+        }
+        freeReplyObject(reply);
+    }
+ 
     string lua_scr(reinterpret_cast<char *>(delrequest_lua), delrequest_lua_len);
 
     redisReply * reply = (redisReply *) redisCommand(c, 
@@ -216,13 +246,28 @@ RedisProcessorExec::SyncDeleteUVEs(const std::string & redis_ip, unsigned short 
 
 bool
 RedisProcessorExec::FlushUVEs(const std::string & redis_ip,
-                              unsigned short redis_port) {
+                              unsigned short redis_port, 
+                              const std::string & redis_password) {
     redisContext *c = redisConnect(redis_ip.c_str(), redis_port);
 
     if (c->err) {
         LOG(ERROR, "No connection for FlushUVEs");
         redisFree(c);
         return false;
+    }
+
+    //Authenticate the context with password
+    if (!redis_password.empty()) {
+        std::string & local_password = const_cast<std::string &>(redis_password);
+        redisReply * reply = (redisReply *) redisCommand(c, "AUTH %s",
+                                                     local_password.c_str());
+        if (reply->type == REDIS_REPLY_ERROR) {
+            LOG(ERROR, "Authentication to redis error");
+            freeReplyObject(reply);
+            redisFree(c);
+            return false;
+        }
+        freeReplyObject(reply);
     }
 
     string lua_scr(reinterpret_cast<char *>(flushuves_lua), flushuves_lua_len);
