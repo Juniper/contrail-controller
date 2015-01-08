@@ -140,7 +140,7 @@ protected:
         return ret;
     }
 
-    virtual bool Resync(DBEntry *entry, DBRequest *req) {
+    virtual bool Resync(DBEntry *entry, const DBRequest *req) {
         AgentOperDBEntry *oper_entry = static_cast<AgentOperDBEntry *>(entry);
         bool ret = OperDBResync(entry, req);
 

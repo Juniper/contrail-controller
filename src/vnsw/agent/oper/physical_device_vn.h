@@ -95,7 +95,7 @@ class PhysicalDeviceVnTable : public AgentDBTable {
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);
     virtual bool Delete(DBEntry *entry, const DBRequest *req);
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
-    virtual bool Resync(DBEntry *entry, DBRequest *req);
+    virtual bool Resync(DBEntry *entry, const DBRequest *req);
 
     void IterateConfig(const Agent *agent, const char *type, IFMapNode *node,
                        AgentKey *key, AgentData *data,

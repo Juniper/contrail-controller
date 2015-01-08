@@ -138,7 +138,7 @@ public:
     virtual void Input(DBTablePartition *root, DBClient *client,
                        DBRequest *req);
     virtual DBEntry *CfgAdd(DBRequest *req) {return NULL;};
-    virtual bool Resync(DBEntry *entry, DBRequest *req) {return false;};
+    virtual bool Resync(DBEntry *entry, const DBRequest *req) {return false;};
 
     /*
      * Clear all entries on a table. Requires the table to have no listeners.

@@ -109,7 +109,7 @@ bool PhysicalDeviceVnTable::OnChange(DBEntry *e, const DBRequest *req) {
     return ret;
 }
 
-bool PhysicalDeviceVnTable::Resync(DBEntry *e, DBRequest *req) {
+bool PhysicalDeviceVnTable::Resync(DBEntry *e, const DBRequest *req) {
     PhysicalDeviceVn *entry = static_cast<PhysicalDeviceVn *>(e);
     PhysicalDeviceVnData *data =
         static_cast<PhysicalDeviceVnData *>(req->data.get());
