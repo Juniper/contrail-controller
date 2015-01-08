@@ -128,7 +128,6 @@ public:
     uint32_t tunnel_bmap() const {return tunnel_bmap_;}
     const Ip4Address& gw_ip() const {return gw_ip_;}
     const std::string &vrf_name() const {return vrf_name_;}
-    bool proxy_arp() const {return proxy_arp_;}
     bool force_policy() const {return force_policy_;}
     const bool unresolved() const {return unresolved_;}
     const Ip4Address& server_ip() const {return server_ip_;}
@@ -147,7 +146,6 @@ public:
     void set_dest_vn_name(const std::string &dest_vn) {dest_vn_name_ = dest_vn;}
     void set_unresolved(bool unresolved) {unresolved_ = unresolved;};
     void set_gw_ip(const Ip4Address &addr) {gw_ip_ = addr;}
-    void set_proxy_arp(bool proxy_arp) {proxy_arp_ = proxy_arp;}
     void set_force_policy(bool force_policy) {force_policy_ = force_policy;}
     void set_vrf_name(const std::string &vrf_name) {vrf_name_ = vrf_name;}
     void set_tunnel_bmap(TunnelType::TypeBmap bmap) {tunnel_bmap_ = bmap;}
@@ -202,10 +200,12 @@ private:
     uint32_t vxlan_id_;
     // destination vn-name used in policy lookups
     std::string dest_vn_name_;
+
+    // sync_ flag says that any change in this path sholud result in re-sync
+    // of all paths in the route. This can be used in cases where some
+    // properties are inherited from one path to other
     bool sync_;
 
-    // Proxy-Arp enabled for the route?
-    bool proxy_arp_;
     // When force_policy_ is not set,
     //     Use nexthop with policy if policy enabled on interface
     //     Use nexthop without policy if policy is disabled on interface
@@ -276,7 +276,7 @@ public:
                  const IpAddress &subnet_gw_ip) :
         AgentRouteData(false), intf_(intf), mpls_label_(mpls_label),
         vxlan_id_(vxlan_id), force_policy_(force_policy),
-        dest_vn_name_(vn_name), proxy_arp_(true), sync_route_(false),
+        dest_vn_name_(vn_name), proxy_arp_(false), sync_route_(false),
         flags_(flags), sg_list_(sg_list), tunnel_bmap_(TunnelType::MplsType()),
         path_preference_(path_preference), subnet_gw_ip_(subnet_gw_ip) {
     }
@@ -293,6 +293,7 @@ public:
     }
     uint32_t vxlan_id() const {return vxlan_id_;}
     uint32_t tunnel_bmap() const {return tunnel_bmap_;}
+    bool proxy_arp() const {return proxy_arp_;}
 
 private:
     VmInterfaceKey intf_;
@@ -321,6 +322,7 @@ public:
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
                                const AgentRoute *rt);
     virtual std::string ToString() const {return "host";}
+    virtual bool UpdateRoute(AgentRoute *rt);
 
 private:
     InetInterfaceKey intf_;
@@ -337,16 +339,35 @@ public:
         proxy_arp_(false) {
     }
     virtual ~HostRoute() { }
-    void EnableProxyArp() {proxy_arp_ = true;}
+    void set_proxy_arp() {proxy_arp_ = true;}
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
                                const AgentRoute *rt);
     virtual std::string ToString() const {return "host";}
+    virtual bool UpdateRoute(AgentRoute *rt);
 
 private:
     PacketInterfaceKey intf_;
     std::string dest_vn_name_;
     bool proxy_arp_;
     DISALLOW_COPY_AND_ASSIGN(HostRoute);
+};
+
+class L2ReceiveRoute : public AgentRouteData {
+public:
+    L2ReceiveRoute(const std::string &dest_vn_name, uint32_t vxlan_id) :
+        AgentRouteData(false), dest_vn_name_(dest_vn_name),
+        vxlan_id_(vxlan_id) {
+    }
+    virtual ~L2ReceiveRoute() { }
+    virtual bool AddChangePath(Agent *agent, AgentPath *path,
+                               const AgentRoute *rt);
+    virtual std::string ToString() const {return "l2-receive";}
+    virtual bool UpdateRoute(AgentRoute *rt) {return false;}
+
+private:
+    std::string dest_vn_name_;
+    uint32_t vxlan_id_;
+    DISALLOW_COPY_AND_ASSIGN(L2ReceiveRoute);
 };
 
 class VlanNhRoute : public AgentRouteData {
@@ -428,10 +449,11 @@ public:
         vn_(vn), sg_list_() {
     }
     virtual ~ReceiveRoute() { }
-    void EnableProxyArp() {proxy_arp_ = true;}
+    void set_proxy_arp() {proxy_arp_ = true;}
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
                                const AgentRoute *rt);
     virtual std::string ToString() const {return "receive";}
+    virtual bool UpdateRoute(AgentRoute *rt);
 
 private:
     InetInterfaceKey intf_;

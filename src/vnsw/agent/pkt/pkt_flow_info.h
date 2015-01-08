@@ -30,6 +30,7 @@ struct PktControlInfo {
     const VmEntry *vm_;
     bool  vlan_nh_;
     uint16_t vlan_tag_;
+    // The NH-ID field used as key in the flow
     uint16_t nh_;
 };
 
@@ -38,7 +39,8 @@ public:
     static const int kLinkLocalInvalidFd = -1;
 
     PktFlowInfo(boost::shared_ptr<PktInfo> info, FlowTable *ftable):
-        family(info->family), pkt(info), flow_table(ftable),
+        l3_flow(info->l3_forwarding), family(info->family), pkt(info),
+        flow_table(ftable),
         flow_source_vrf(-1), flow_dest_vrf(-1), nat_done(false),
         nat_ip_saddr(), nat_ip_daddr(), nat_sport(0), nat_dport(0), nat_vrf(0),
         nat_dest_vrf(0), dest_vrf(0), acl(NULL), ingress(false),
@@ -79,12 +81,15 @@ public:
     uint32_t LinkLocalBindPort(const VmEntry *vm, uint8_t proto);
     void UpdateFipStatsInfo(FlowEntry *flow, FlowEntry *rflow, const PktInfo *p,
                             const PktControlInfo *in, const PktControlInfo *o);
+    const NextHop *TunnelToNexthop(const PktInfo *pkt);
 
 public:
     void UpdateRoute(const AgentRoute **rt, const VrfEntry *vrf,
-                     const IpAddress &addr, FlowRouteRefMap &ref_map);
+                     const IpAddress &addr, const MacAddress &mac,
+                     FlowRouteRefMap &ref_map);
     uint8_t RouteToPrefixLen(const AgentRoute *route);
 
+    bool                l3_flow;
     Address::Family     family;
     boost::shared_ptr<PktInfo> pkt;
     FlowTable *flow_table;

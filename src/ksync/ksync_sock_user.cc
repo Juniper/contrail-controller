@@ -568,12 +568,12 @@ void KSyncSockTypeMap::SetFlowEntry(vr_flow_req *req, bool set) {
     f->fe_flags |= VR_FLOW_FLAG_ACTIVE;
     f->fe_stats.flow_bytes = 30;
     f->fe_stats.flow_packets = 1;
-    f->fe_key.key_src_ip = req->get_fr_flow_sip();
-    f->fe_key.key_dest_ip = req->get_fr_flow_dip();
-    f->fe_key.key_src_port = req->get_fr_flow_sport();
-    f->fe_key.key_dst_port = req->get_fr_flow_dport();
-    f->fe_key.key_nh_id = req->get_fr_flow_nh_id();
-    f->fe_key.key_proto = req->get_fr_flow_proto();
+    f->fe_key.flow4_sip = req->get_fr_flow_sip();
+    f->fe_key.flow4_dip = req->get_fr_flow_dip();
+    f->fe_key.flow4_sport = req->get_fr_flow_sport();
+    f->fe_key.flow4_dport = req->get_fr_flow_dport();
+    f->fe_key.flow4_nh_id = req->get_fr_flow_nh_id();
+    f->fe_key.flow4_proto = req->get_fr_flow_proto();
 }
 
 void KSyncSockTypeMap::IncrFlowStats(int idx, int pkts, int bytes) {

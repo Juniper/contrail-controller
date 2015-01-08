@@ -15,7 +15,7 @@ env = AgentEnv.Clone()
 # test specific modifications
 AgentEnv.MakeTestEnv(env)
 
-lib_src = ['test_xml.cc', 'test_xml_validate.cc']
+lib_src = ['test_xml.cc', 'test_xml_validate.cc', 'test_xml_packet.cc']
 env.Library('agent_test_xml', lib_src)
 
 oper_lib_src = ['test_xml_oper.cc']

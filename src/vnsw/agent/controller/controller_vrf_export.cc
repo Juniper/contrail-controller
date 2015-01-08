@@ -28,6 +28,7 @@ void VrfExport::Notify(AgentXmppChannel *bgp_xmpp_peer,
                        DBTablePartBase *partition, DBEntryBase *e) {
 
     BgpPeer *bgp_peer = static_cast<BgpPeer *>(bgp_xmpp_peer->bgp_peer_id());
+    BgpPeer *evpn_bgp_peer = static_cast<BgpPeer *>(bgp_xmpp_peer->evpn_bgp_peer_id());
     VrfEntry *vrf = static_cast<VrfEntry *>(e);
 
     //Peer is decommissioned so ignore the notification as there is no active
@@ -43,6 +44,7 @@ void VrfExport::Notify(AgentXmppChannel *bgp_xmpp_peer,
             CONTROLLER_TRACE(Trace, bgp_peer->GetName(), vrf->GetName(), 
                              "VRF deleted, remove state");
             bgp_peer->DeleteVrfState(partition, e);
+            //evpn_bgp_peer->DeleteVrfState(partition, e);
         }
         bgp_xmpp_peer->agent()->controller()->
             DeleteVrfStateOfDecommisionedPeers(partition, e);
@@ -89,6 +91,7 @@ void VrfExport::Notify(AgentXmppChannel *bgp_xmpp_peer,
                 if (vrf->GetName().compare(bgp_xmpp_peer->agent()->
                                            fabric_vrf_name()) != 0) {
                     bgp_peer->route_walker()->StartRouteWalk(vrf);
+                    evpn_bgp_peer->route_walker()->StartRouteWalk(vrf);
                 }
             }
             return;

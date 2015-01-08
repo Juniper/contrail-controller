@@ -26,7 +26,7 @@ public:
     MulticastTest() : agent_(Agent::GetInstance()) {}
     virtual void SetUp() {
         peer_ = new BgpPeer(IpAddress::from_string("127.0.0.1").to_v4(),
-                            "dummy", NULL, 1);
+                            "dummy", NULL, 1, Peer::BGP_PEER);
     }
 
     virtual void TearDown() {

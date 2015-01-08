@@ -78,14 +78,14 @@ void FlowKState::SetFlowData(vector<KFlowInfo> &list,
     string action_str;
     string flag_str;
     data.set_index((unsigned int)index);
-    data.set_sport((unsigned)ntohs(k_flow->fe_key.key_src_port));
-    data.set_dport((unsigned)ntohs(k_flow->fe_key.key_dst_port));
-    Ip4Address sip(ntohl(k_flow->fe_key.key_src_ip));
+    data.set_sport((unsigned)ntohs(k_flow->fe_key.flow4_sport));
+    data.set_dport((unsigned)ntohs(k_flow->fe_key.flow4_dport));
+    Ip4Address sip(ntohl(k_flow->fe_key.flow4_sip));
     data.set_sip(sip.to_string());
-    Ip4Address dip(ntohl(k_flow->fe_key.key_dest_ip));
+    Ip4Address dip(ntohl(k_flow->fe_key.flow4_dip));
     data.set_dip(dip.to_string());
     data.set_vrf_id(k_flow->fe_vrf);
-    data.set_proto(k_flow->fe_key.key_proto);
+    data.set_proto(k_flow->fe_key.flow4_proto);
     switch (k_flow->fe_action) {
         case VR_FLOW_ACTION_FORWARD:
             action_str.assign("FORWARD");

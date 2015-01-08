@@ -91,12 +91,15 @@ public:
     virtual bool ReadXml();
     virtual bool Run();
     virtual void ToString(std::string *str);
+    void set_verbose(bool val) { verbose_ = val; }
+    bool verbose() const { return verbose_; }
 private:
     std::string name_;
     pugi::xml_node xml_node_;
     AgentUtXmlNodeList node_list_;
     pugi::xml_document gen_doc_;
     AgentUtXmlTest *test_;
+    bool verbose_;
     DISALLOW_COPY_AND_ASSIGN(AgentUtXmlTestCase);
 };
 
@@ -174,35 +177,6 @@ protected:
 private:
     boost::uuids::uuid id_;
     DISALLOW_COPY_AND_ASSIGN(AgentUtXmlConfig);
-};
-
-/////////////////////////////////////////////////////////////////////////////
-//   Packet nodes
-/////////////////////////////////////////////////////////////////////////////
-class AgentUtXmlPacket : public AgentUtXmlNode {
-public:
-    AgentUtXmlPacket(const std::string &name, const pugi::xml_node &node,
-                     AgentUtXmlTestCase *test_case);
-    virtual ~AgentUtXmlPacket();
-
-    virtual bool ReadXml();
-    virtual bool ToXml(pugi::xml_node *parent);
-    virtual std::string NodeType();
-    virtual void ToString(std::string *str);
-    virtual bool Run();
-
-private:
-    uint16_t intf_id_;
-    std::string intf_;
-    std::string tunnel_sip_;
-    std::string tunnel_dip_;
-    uint32_t label_;
-    std::string sip_;
-    std::string dip_;
-    std::string proto_;
-    uint16_t sport_;
-    uint16_t dport_;
-    uint16_t proto_id_;
 };
 
 #endif //vnsw_agent_test_xml_test_xml_h

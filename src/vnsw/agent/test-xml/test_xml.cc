@@ -11,6 +11,7 @@
 #include <pkt/test/test_pkt_util.h>
 #include "test_xml.h"
 #include "test_xml_validate.h"
+#include "test_xml_packet.h"
 
 using namespace std;
 using namespace pugi;
@@ -168,6 +169,15 @@ bool AgentUtXmlTest::ReadXml() {
             }
             AgentUtXmlTestCase *test = new AgentUtXmlTestCase(attr.value(),
                                                               node, this);
+            attr = node.attribute("verbose");
+            bool verbose;
+            if (!attr) {
+                verbose = false;
+            } else {
+                if (atoi(attr.value()))
+                    verbose = true;
+            }
+            test->set_verbose(verbose);
             test_list_.push_back(test);
             test->ReadXml();
         }
@@ -378,7 +388,9 @@ bool AgentUtXmlTestCase::Run() {
             n1 = n.append_child("update");
         }
         (*it)->ToXml(&n1);
-        doc.print(std::cout);
+        if (verbose_) {
+            doc.print(std::cout);
+        }
         Agent *agent = Agent::GetInstance();
         agent->ifmap_parser()->ConfigParse(n, 0);
         TestClient::WaitForIdle();
@@ -566,123 +578,3 @@ bool AgentUtXmlConfig::AddIdPerms(xml_node *parent) {
     AddUuid(&n, id());
     AddXmlNodeWithValue(&n, "enable", "true");
 }
-
-/////////////////////////////////////////////////////////////////////////////
-//  AgentUtXmlPacket routines
-/////////////////////////////////////////////////////////////////////////////
-AgentUtXmlPacket::AgentUtXmlPacket(const string &name, const xml_node &node,
-                                   AgentUtXmlTestCase *test_case) :
-    AgentUtXmlNode(name, node, false, test_case), intf_id_(0xFFFF) {
-}
-
-AgentUtXmlPacket::~AgentUtXmlPacket() {
-}
-
-bool AgentUtXmlPacket::ReadXml() {
-    AgentUtXmlNode::ReadXml();
-    GetStringAttribute(node(), "tunnel_sip", &tunnel_sip_);
-    GetStringAttribute(node(), "tunnel_dip", &tunnel_dip_);
-    GetUintAttribute(node(), "label", (uint16_t *)&label_);
-
-    if (GetUintAttribute(node(), "id", &intf_id_) == false) {
-        cout << "Attribute \"id\" not specified for Packet. Skipping"
-            << endl;
-        return false;
-    }
-
-    if (GetStringAttribute(node(), "interface", &intf_) == false) {
-        cout << "Attribute \"interface\" not specified for Packet. Skipping"
-            << endl;
-        return false;
-    }
-
-    if (GetStringAttribute(node(), "sip", &sip_) == false) {
-        cout << "Attribute \"sip\" not specified for Packet. Skipping" << endl;
-        return false;
-    }
-
-    if (GetStringAttribute(node(), "dip", &dip_) == false) {
-        cout << "Attribute \"dip\" not specified for Packet. Skipping" << endl;
-        return false;
-    }
-
-    if (GetStringAttribute(node(), "proto", &proto_) == false &&
-        GetUintAttribute(node(), "proto", &proto_id_) == false) {
-        cout << "Attribute \"proto\" not specified for Packet. Skipping"
-            << endl;
-        return false;
-    }
-
-    if (proto_ == "tcp" || proto_ == "udp") {
-        if (proto_ == "tcp")
-            proto_id_ = 6;
-        else
-            proto_id_ = 17;
-        if (GetUintAttribute(node(), "sport", &sport_) == false) {
-            cout << "Attribute \"sport\" not specified for Packet. Skipping"
-                << endl;
-            return false;
-        }
-
-        if (GetUintAttribute(node(), "dport", &dport_) == false) {
-            cout << "Attribute \"dport\" not specified for Packet. Skipping"
-                << endl;
-            return false;
-        }
-    }
-
-    return true;
-}
-
-bool AgentUtXmlPacket::ToXml(xml_node *parent) {
-    assert(0);
-    return true;
-}
-
-void AgentUtXmlPacket::ToString(string *str) {
-    AgentUtXmlNode::ToString(str);
-
-    stringstream s;
-    if (label_ == 0) {
-        s << "Interface <" << intf_ << "> ";
-    } else {
-        s << "Tunnel <" << intf_ << " : " << label_ << " : " << tunnel_sip_
-            << " : " << tunnel_dip_ << "> ";
-    }
-    s << "<" << sip_ << " : " << dip_ << " : " << proto_ << " : " << sport_
-        << " : " << dport_ << ">" << endl;
-    *str += s.str();
-    return;
-}
-
-string AgentUtXmlPacket::NodeType() {
-    return "packet";
-}
-
-bool AgentUtXmlPacket::Run() {
-    cout << "Generate packet" << endl;
-    boost::system::error_code ec;
-    IpAddress ip = IpAddress::from_string(sip_, ec);
-    if (ip.is_v4()) {
-        if (proto_ == "udp") {
-            TxUdpPacket(intf_id_, sip_.c_str(), dip_.c_str(), sport_, dport_);
-        } else if (proto_ == "udp") {
-            TxTcpPacket(intf_id_, sip_.c_str(), dip_.c_str(), sport_, dport_,
-                        false);
-        } else {
-            TxIpPacket(intf_id_, sip_.c_str(), dip_.c_str(), proto_id_);
-        }
-    } else {
-        if (proto_ == "udp") {
-            TxUdp6Packet(intf_id_, sip_.c_str(), dip_.c_str(), sport_, dport_);
-        } else if (proto_ == "udp") {
-            TxTcp6Packet(intf_id_, sip_.c_str(), dip_.c_str(), sport_, dport_,
-                         false);
-        } else {
-            TxIp6Packet(intf_id_, sip_.c_str(), dip_.c_str(), proto_id_);
-        }
-    }
-
-    return true;
-}
-

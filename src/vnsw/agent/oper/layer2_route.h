@@ -28,10 +28,15 @@ public:
                             const IpAddress &ip_addr,
                             uint32_t ethernet_tag,
                             LocalVmRoute *data);
-    void AddLocalVmRoute(const Peer *peer, const VmInterface *intf);
+    void AddLocalVmRoute(const Peer *peer, const std::string &vrf_name,
+                         const MacAddress &mac, const VmInterface *intf,
+                         const IpAddress &ip, uint32_t label,
+                         const std::string &vn_name,
+                         const SecurityGroupList &sg_id_list,
+                         const PathPreference &path_pref);
     void DelLocalVmRoute(const Peer *peer, const std::string &vrf_name,
-                         const VmInterface *intf, const Ip4Address &old_v4_addr,
-                         const Ip6Address &old_v6_addr);
+                         const MacAddress &mac, const VmInterface *intf,
+                         const IpAddress &ip);
     static void AddRemoteVmRouteReq(const Peer *peer,
                                     const std::string &vrf_name,
                                     const MacAddress &mac,
@@ -55,6 +60,12 @@ public:
                                       const std::string &vn_name,
                                       const std::string &interface,
                                       bool policy);
+    void AddLayer2ReceiveRouteReq(const Peer *peer, const std::string &vrf_name,
+                                  uint32_t vxlan_id, const MacAddress &mac,
+                                  const std::string &vn_name);
+    void AddLayer2ReceiveRoute(const Peer *peer, const std::string &vrf_name,
+                               uint32_t vxlan_id, const MacAddress &mac,
+                               const std::string &vn_name);
     static void DeleteReq(const Peer *peer, const std::string &vrf_name,
                           const MacAddress &mac, const IpAddress &ip_addr,
                           uint32_t ethernet_tag);
@@ -106,6 +117,7 @@ public:
     virtual AgentPath *FindPathUsingKey(const AgentRouteKey *key);
 
     const MacAddress &GetAddress() const {return mac_;}
+    const MacAddress &mac() const {return mac_;}
     const IpAddress &ip_addr() const {return ip_addr_;}
     const uint32_t GetVmIpPlen() const;
 

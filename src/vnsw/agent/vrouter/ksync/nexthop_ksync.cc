@@ -42,7 +42,8 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
     is_layer2_(entry->is_layer2_), comp_type_(entry->comp_type_),
     tunnel_type_(entry->tunnel_type_), prefix_len_(entry->prefix_len_),
     nh_id_(entry->nh_id()),
-    component_nh_key_list_(entry->component_nh_key_list_) {
+    component_nh_key_list_(entry->component_nh_key_list_),
+    vxlan_nh_(entry->vxlan_nh_){
 }
 
 NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
@@ -50,7 +51,8 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
     vrf_id_(0), interface_(NULL), valid_(nh->IsValid()),
     policy_(nh->PolicyEnabled()), is_mcast_nh_(false), nh_(nh),
     vlan_tag_(VmInterface::kInvalidVlanId), is_layer2_(false),
-    tunnel_type_(TunnelType::INVALID), prefix_len_(32), nh_id_(nh->id()) {
+    tunnel_type_(TunnelType::INVALID), prefix_len_(32), nh_id_(nh->id()),
+    vxlan_nh_(false) {
 
     sip_.s_addr = 0;
     switch (type_) {
@@ -104,6 +106,10 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
         break;
     }
 
+    case NextHop::L2_RECEIVE: {
+        break;
+    }
+
     case NextHop::RESOLVE: {
         InterfaceKSyncObject *interface_object =
             ksync_obj_->ksync()->interface_ksync_obj();
@@ -117,6 +123,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
     case NextHop::VRF: {
         const VrfNH *vrf_nh = static_cast<const VrfNH *>(nh);
         vrf_id_ = vrf_nh->GetVrf()->vrf_id();
+        vxlan_nh_ = vrf_nh->vxlan_nh();
         break;
     }
 
@@ -191,6 +198,10 @@ bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
     }
 
     if (type_ == NextHop::DISCARD) {
+        return false;
+    }
+
+    if (type_ == NextHop::L2_RECEIVE) {
         return false;
     }
 
@@ -334,6 +345,10 @@ std::string NHKSyncEntry::ToString() const {
         s << "Discard";
         break;
     }
+    case NextHop::L2_RECEIVE: {
+        s << "L2-Receive ";
+        break;
+    }
     case NextHop::RECEIVE: {
         s << "Receive ";
         break;
@@ -446,6 +461,11 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
         break;
     }
 
+    case NextHop::L2_RECEIVE: {
+        ret = false;
+        break;
+    }
+
     case NextHop::TUNNEL: {
         ret = true;
         // Invalid nexthop, no valid interface or mac info
@@ -553,6 +573,7 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
     case NextHop::VRF: {
         VrfNH *vrf_nh = static_cast<VrfNH *>(e);
         vrf_id_ = vrf_nh->GetVrf()->vrf_id();
+        vxlan_nh_ = vrf_nh->vxlan_nh();
         ret = false;
         break;
     }
@@ -662,6 +683,10 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             flags |= NH_FLAG_TUNNEL_UDP;
             break;
 
+        case NextHop::L2_RECEIVE:
+            encoder.set_nhr_type(NH_L2_RCV);
+            break;
+
         case NextHop::DISCARD:
             encoder.set_nhr_type(NH_DISCARD);
             break;
@@ -681,6 +706,9 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
         case NextHop::VRF:
             encoder.set_nhr_type(NH_VXLAN_VRF);
+            if (vxlan_nh_) {
+                flags |= NH_FLAG_VNID;
+            }
             break;
 
         case NextHop::COMPOSITE: {
@@ -765,6 +793,10 @@ void NHKSyncEntry::FillObjectLog(sandesh_op::type op, KSyncNhInfo &info)
     }
 
     switch(type_) {
+    case NextHop::L2_RECEIVE: {
+        info.set_type("L2-RECEIVE");
+        break;
+    }
     case NextHop::DISCARD: {
         info.set_type("DISCARD");
         break;
@@ -906,6 +938,11 @@ KSyncEntry *NHKSyncEntry::UnresolvedReference() {
         break;
     }
 
+    case NextHop::L2_RECEIVE: {
+        assert(if_ksync == NULL);
+        break;
+    }
+
     case NextHop::DISCARD: {
         assert(if_ksync == NULL);
         break;
@@ -955,16 +992,29 @@ KSyncEntry *NHKSyncEntry::UnresolvedReference() {
     return entry;
 }
 
+static bool NeedRewrite(NHKSyncEntry *entry, InterfaceKSyncEntry *if_ksync) {
+
+    // If interface has RAW-IP encapsulation, it doesnt need any rewrite
+    // information
+    if (if_ksync && if_ksync->encap_type() == PhysicalInterface::RAW_IP) {
+        return false;
+    }
+
+    // For layer2 nexthops, only INTERFACE nexthop has rewrite NH
+    if (entry->is_layer2() == true) {
+        if (entry->type() == NextHop::INTERFACE)
+            return true;
+        return false;
+    }
+
+    return true;
+}
+
 void NHKSyncEntry::SetEncap(InterfaceKSyncEntry *if_ksync,
                             std::vector<int8_t> &encap) {
 
-    if (is_layer2_ == true) {
+    if (NeedRewrite(this, if_ksync) == false)
         return;
-    }
-
-    if (if_ksync && if_ksync->encap_type() == PhysicalInterface::RAW_IP) {
-        return;
-    }
 
     const MacAddress *smac = &MacAddress::ZeroMac();
     /* DMAC encode */

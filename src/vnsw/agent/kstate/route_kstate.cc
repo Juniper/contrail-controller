@@ -84,7 +84,7 @@ const string RouteKState::LabelFlagsToString(int flags) const {
         str += "MPLS ";
     }
 
-    if (flags & VR_RT_HOSTED_FLAG) {
+    if (flags & VR_RT_ARP_PROXY_FLAG) {
         str += "PROXY-ARP";
     }
     return str;

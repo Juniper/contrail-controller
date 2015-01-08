@@ -252,12 +252,15 @@ public:
 
     void FillTrace(RouteInfo &route, Trace event, const AgentPath *path);
     bool WaitForTraffic() const;
+    virtual uint8_t plen() const { return 0; }
 protected:
     void SetVrf(VrfEntryRef vrf) { vrf_ = vrf; }
     void RemovePathInternal(AgentPath *path);
     void RemovePath(AgentPath *path);
     void InsertPath(const AgentPath *path);
     void DeletePathInternal(AgentPath *path);
+    bool ProcessPath(Agent *agent, DBTablePartition *part, AgentPath *path,
+                     AgentRouteData *data);
 
 private:
     friend class AgentRouteTable;

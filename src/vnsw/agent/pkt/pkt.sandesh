@@ -189,6 +189,9 @@ struct FlowInfo {
    29: optional list<u32> dest_sg_id_l;
    30: u16 nh_id;
    31: optional string vrf_assign;
+   32: bool l3_flow;
+   33: string smac;
+   34: string dmac;
 }
 
 traceobject sandesh FlowTrace {
@@ -203,6 +206,7 @@ trace sandesh FlowDetailErr {
     4: u32 sip;
     5: u32 dip;
     6: string error;
+    7: bool l3_flow;
 }
 
 trace sandesh FlowErr {

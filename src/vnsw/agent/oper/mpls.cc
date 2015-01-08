@@ -109,7 +109,7 @@ void MplsTable::CreateTableLabel(const Agent *agent,
     nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     VrfNHKey *vrf_nh_key = new VrfNHKey(vrf_name, false);
     nh_req.key.reset(vrf_nh_key);
-    nh_req.data.reset(NULL);
+    nh_req.data.reset(new VrfNHData(false));
     agent->nexthop_table()->Process(nh_req);
 
     DBRequest req;

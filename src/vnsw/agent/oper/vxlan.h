@@ -92,7 +92,7 @@ public:
 
     void Process(DBRequest &req);
 
-    // Allocate and Free vxlan_id from the vxlan_id_table
+    VxLanId *Find(uint32_t vxlan_id);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 
 private:

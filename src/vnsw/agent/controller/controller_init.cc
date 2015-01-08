@@ -187,11 +187,14 @@ void VNController::XmppServerDisConnect() {
     while (count < MAX_XMPP_SERVERS) {
         if ((cl = agent_->controller_ifmap_xmpp_client(count)) != NULL) {
             BgpPeer *peer = agent_->controller_xmpp_channel(count)->bgp_peer_id();
+            BgpPeer *evpn_peer = agent_->controller_xmpp_channel(count)->evpn_bgp_peer_id();
             // Sets the context of walk to decide on callback when walks are
             // done, setting to true results in callback of cleanup for
             // VNController once all walks are done for deleting peer info.
             if (peer)
                 peer->set_is_disconnect_walk(true);
+            if (evpn_peer)
+                evpn_peer->set_is_disconnect_walk(true);
             //shutdown triggers cleanup of routes learnt from
             //the control-node. 
             cl->Shutdown();

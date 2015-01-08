@@ -134,9 +134,9 @@ public:
         if (d1.get_ds_invalid_if() != (uint64_t)d2.get_vds_invalid_if()) {
             return false;
         }
-        if (d1.get_ds_arp_not_me() != (uint64_t)d2.get_vds_arp_not_me()) {
-            return false;
-        }
+        //if (d1.get_ds_arp_not_me() != (uint64_t)d2.get_vds_arp_not_me()) {
+        //    return false;
+        //}
         if (d1.get_ds_garp_from_vm() != (uint64_t)d2.get_vds_garp_from_vm()) {
             return false;
         }

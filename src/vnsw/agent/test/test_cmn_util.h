@@ -65,6 +65,8 @@ bool VrfFind(const char *name, bool ret_del);
 VrfEntry *VrfGet(const char *name, bool ret_del=false);
 bool VnFind(int id);
 VnEntry *VnGet(int id);
+bool VxlanFind(int id);
+VxLanId *VxlanGet(int id);
 bool AclFind(int id);
 AclDBEntry *AclGet(int id);
 VmEntry *VmGet(int id);

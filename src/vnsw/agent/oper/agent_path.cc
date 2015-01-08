@@ -30,7 +30,7 @@ using namespace boost::asio;
 AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     Path(), peer_(peer), nh_(NULL), label_(MplsTable::kInvalidLabel),
     vxlan_id_(VxLanTable::kInvalidvxlan_id), dest_vn_name_(""),
-    sync_(false), proxy_arp_(false), force_policy_(false), sg_list_(),
+    sync_(false), force_policy_(false), sg_list_(),
     server_ip_(0), tunnel_bmap_(TunnelType::AllType()),
     tunnel_type_(TunnelType::ComputeType(TunnelType::AllType())),
     vrf_name_(""), gw_ip_(0), unresolved_(true), is_stale_(false),
@@ -310,18 +310,73 @@ bool HostRoute::AddChangePath(Agent *agent, AgentPath *path,
         path->set_dest_vn_name(dest_vn_name_);
         ret = true;
     }
-    if (path->proxy_arp() != proxy_arp_) {
-        path->set_proxy_arp(proxy_arp_);
-        ret = true;
-    }
 
-    path->set_proxy_arp(true);
     path->set_unresolved(false);
     if (path->ChangeNH(agent, nh) == true)
         ret = true;
 
     return ret;
 } 
+
+bool HostRoute::UpdateRoute(AgentRoute *rt) {
+    bool ret = false;
+    InetUnicastRouteEntry *uc_rt =
+        static_cast<InetUnicastRouteEntry *>(rt);
+    AgentRouteTable *table = static_cast<AgentRouteTable *>(rt->get_table());
+    if ((table->GetTableType() != Agent::INET4_UNICAST) && 
+        (table->GetTableType() != Agent::INET6_UNICAST))
+        return ret;
+
+    if (uc_rt->proxy_arp() != true) {
+        uc_rt->set_proxy_arp(true);
+        ret = true;
+    }
+    return ret;
+}
+
+bool L2ReceiveRoute::AddChangePath(Agent *agent, AgentPath *path,
+                                   const AgentRoute *rt) {
+    bool ret = false;
+
+    path->set_unresolved(false);
+
+    if (path->dest_vn_name() != dest_vn_name_) {
+        path->set_dest_vn_name(dest_vn_name_);
+        ret = true;
+    }
+
+    if (path->vxlan_id() != vxlan_id_) {
+        path->set_vxlan_id(vxlan_id_);
+        ret = true;
+    }
+
+    if (path->ChangeNH(agent, agent->nexthop_table()->l2_receive_nh()) == true)
+        ret = true;
+
+    return ret;
+} 
+
+bool InetInterfaceRoute::UpdateRoute(AgentRoute *rt) {
+    bool ret = false;
+    AgentRouteTable *table = static_cast<AgentRouteTable *>(rt->get_table());
+    if ((table->GetTableType() != Agent::INET4_UNICAST) && 
+        (table->GetTableType() != Agent::INET6_UNICAST))
+        return ret;
+
+    InetUnicastRouteEntry *uc_rt =
+        static_cast<InetUnicastRouteEntry *>(rt);
+    if (uc_rt->proxy_arp() != true) {
+        uc_rt->set_proxy_arp(true);
+        ret = true;
+    }
+
+    if (uc_rt->ipam_subnet_route() == true) {
+        uc_rt->set_ipam_subnet_route(false);
+        ret = true;
+    }
+
+    return ret;
+}
 
 bool InetInterfaceRoute::AddChangePath(Agent *agent, AgentPath *path,
                                        const AgentRoute *rt) {
@@ -383,9 +438,12 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path,
         (agent->interface_table()->FindActiveEntry(&intf_key));
 
     bool policy = false;
-    // Use policy based NH if policy enabled on interface
-    if (vm_port && vm_port->policy_enabled()) {
-        policy = true;
+    if (vm_port) {
+        // Use policy based NH if policy enabled on interface
+        if (vm_port->policy_enabled()) {
+            policy = true;
+            ret = true;
+        }
     }
 
     path->set_tunnel_bmap(tunnel_bmap_);
@@ -420,11 +478,6 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path,
 
     if (path->dest_vn_name() != dest_vn_name_) {
         path->set_dest_vn_name(dest_vn_name_);
-        ret = true;
-    }
-
-    if (path->proxy_arp() != proxy_arp_) {
-        path->set_proxy_arp(proxy_arp_);
         ret = true;
     }
 
@@ -585,11 +638,6 @@ bool ReceiveRoute::AddChangePath(Agent *agent, AgentPath *path,
         ret = true;
     }
 
-    if (path->proxy_arp() != proxy_arp_) {
-        path->set_proxy_arp(proxy_arp_);
-        ret = true;
-    }
-
     if (path->label() != label_) {
         path->set_label(label_);
         ret = true;
@@ -598,6 +646,22 @@ bool ReceiveRoute::AddChangePath(Agent *agent, AgentPath *path,
     if (path->ChangeNH(agent, nh) == true)
         ret = true;
 
+    return ret;
+}
+
+bool ReceiveRoute::UpdateRoute(AgentRoute *rt) {
+    bool ret = false;
+    AgentRouteTable *table = static_cast<AgentRouteTable *>(rt->get_table());
+    if ((table->GetTableType() != Agent::INET4_UNICAST) && 
+        (table->GetTableType() != Agent::INET6_UNICAST))
+        return ret;
+
+    InetUnicastRouteEntry *uc_rt =
+        static_cast<InetUnicastRouteEntry *>(rt);
+    if (uc_rt->proxy_arp() != proxy_arp_) {
+        uc_rt->set_proxy_arp(proxy_arp_);
+        ret = true;
+    }
     return ret;
 }
 
@@ -705,13 +769,19 @@ bool IpamSubnetRoute::AddChangePath(Agent *agent, AgentPath *path,
 }
 
 bool IpamSubnetRoute::UpdateRoute(AgentRoute *rt) {
-    bool ret = true;
+    bool ret = false;
     InetUnicastRouteEntry *uc_rt =
         static_cast<InetUnicastRouteEntry *>(rt);
     if (uc_rt->ipam_subnet_route() != true) {
         uc_rt->set_ipam_subnet_route(true);
         ret = true;
     }
+
+    if (uc_rt->proxy_arp() == true) {
+        uc_rt->set_proxy_arp(false);
+        ret =true;
+    }
+
     return ret;
 }
 
@@ -849,6 +919,11 @@ void AgentRoute::FillTrace(RouteInfo &rt_info, Trace event,
             rt_info.set_nh_type("COMPOSITE");
             break;
         }
+ 
+        case NextHop::L2_RECEIVE: {
+            rt_info.set_nh_type("L2_RECEIVE");
+            break;
+        }
   
         default:
             assert(0);
@@ -870,9 +945,6 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
     if (!gw_ip().is_unspecified()) {
         pdata.set_gw_ip(gw_ip().to_string());
         pdata.set_vrf(vrf_name());
-    }
-    if (proxy_arp()) {
-        pdata.set_proxy_arp("ProxyArp");
     }
 
     pdata.set_sg_list(sg_list());

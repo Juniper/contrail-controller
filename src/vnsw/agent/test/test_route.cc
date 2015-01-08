@@ -197,12 +197,13 @@ protected:
 
     void DeleteRoute(const Peer *peer, const std::string &vrf_name, 
                      const Ip4Address &addr, uint32_t plen) {
+        AgentRoute *rt = RouteGet(vrf_name, addr, plen);
+        uint32_t path_count = rt->GetPathList().size();
         Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(peer, vrf_name,
                                                                             addr, plen, NULL);
         client->WaitForIdle();
-        while (RouteFind(vrf_name, addr, plen) == true) {
-            client->WaitForIdle();
-        }
+        WAIT_FOR(1000, 10000, ((RouteFind(vrf_name, addr, plen) != true) || 
+                               (rt->GetPathList().size() == (path_count - 1))));
     }
 
     bool IsSameNH(const Ip4Address &ip1, uint32_t plen1, const Ip4Address &ip2, 
@@ -1643,6 +1644,218 @@ TEST_F(RouteTest, null_ip_subnet_add) {
 
     DeleteRoute(NULL, vrf_name_, null_subnet_ip, 0);
     EXPECT_FALSE(RouteFind(vrf_name_, null_subnet_ip, 0));
+}
+
+// Test case checks for arp and proxy flag setting
+// on different routes.
+TEST_F(RouteTest, route_arp_flags_1) {
+    client->Reset();
+    BgpPeer *peer = CreateBgpPeer("127.0.0.1", "remote");
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200", true},
+        {"2.2.2.100", 28, "2.2.2.200", true},
+        {"3.3.3.0", 16, "3.3.30.200", true},
+    };
+    client->Reset();
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 3);
+    client->WaitForIdle();
+
+    //Local unicast route arp proxy and flood check
+    InetUnicastRouteEntry *uc_rt = RouteGet(vrf_name_,
+                                            Ip4Address::from_string("1.1.1.1"),
+                                            32);
+    //In ksync binding decides if flood flag i.e. ipam_subnet_route needs to be
+    //enabled or not. 
+    EXPECT_FALSE(uc_rt->ipam_subnet_route());
+    EXPECT_FALSE(uc_rt->proxy_arp());
+
+    //Subnet routes check
+    InetUnicastRouteEntry *rt1 = RouteGet(vrf_name_, subnet_vm_ip_1_, 24);
+    InetUnicastRouteEntry *rt2 = RouteGet(vrf_name_, subnet_vm_ip_2_, 28);
+    InetUnicastRouteEntry *rt3 = RouteGet(vrf_name_, subnet_vm_ip_3_, 16);
+    EXPECT_TRUE(rt1 != NULL);
+    EXPECT_TRUE(rt2 != NULL);
+    EXPECT_TRUE(rt3 != NULL);
+    //All ipam added gateway routes should have flood enabled and proxy disabled
+    //for arp.
+    EXPECT_TRUE(rt1->ipam_subnet_route());
+    EXPECT_TRUE(rt2->ipam_subnet_route());
+    EXPECT_TRUE(rt3->ipam_subnet_route());
+    EXPECT_FALSE(rt1->proxy_arp());
+    EXPECT_FALSE(rt2->proxy_arp());
+    EXPECT_FALSE(rt3->proxy_arp());
+
+    //Add remote route for ipam gw (1.1.1.0/24) with bgp peer, route flag should
+    //be retained.
+    Inet4TunnelRouteAdd(peer, vrf_name_, subnet_vm_ip_1_, 24, server1_ip_,
+                        TunnelType::MplsType(), MplsTable::kStartLabel,
+                        vrf_name_,
+                        SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
+    rt1 = RouteGet(vrf_name_, subnet_vm_ip_1_, 24);
+    EXPECT_TRUE(rt1->GetPathList().size() == 2);
+    EXPECT_TRUE(rt1->ipam_subnet_route());
+    EXPECT_FALSE(rt1->proxy_arp());
+
+    //Delete 1.1.1.0/24 from BGP peer, no change in flags
+    DeleteRoute(peer, vrf_name_, subnet_vm_ip_1_, 24);
+    client->WaitForIdle();
+    rt1 = RouteGet(vrf_name_, subnet_vm_ip_1_, 24);
+    EXPECT_TRUE(rt1->GetPathList().size() == 1);
+    EXPECT_TRUE(rt1->ipam_subnet_route());
+    EXPECT_FALSE(rt1->proxy_arp());
+
+    //Add remote route for ipam gw (3.3.3.0/16) with bgp peer, route flag should
+    //be retained.
+    Inet4TunnelRouteAdd(peer, vrf_name_, subnet_vm_ip_3_, 16, server1_ip_,
+                        TunnelType::MplsType(), MplsTable::kStartLabel,
+                        vrf_name_,
+                        SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
+    rt3 = RouteGet(vrf_name_, subnet_vm_ip_3_, 16);
+    EXPECT_TRUE(rt3->GetPathList().size() == 2);
+    EXPECT_TRUE(rt3->ipam_subnet_route());
+    EXPECT_FALSE(rt3->proxy_arp());
+    //Add another smaller subnet, should inherit 3.3.0.0/16 flags
+    Ip4Address  smaller_subnet_3;
+    smaller_subnet_3 = Ip4Address::from_string("3.3.3.3");
+    Inet4TunnelRouteAdd(peer, vrf_name_, smaller_subnet_3, 28, server1_ip_,
+                        TunnelType::MplsType(), MplsTable::kStartLabel,
+                        vrf_name_,
+                        SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
+    rt3 = RouteGet(vrf_name_, smaller_subnet_3, 28);
+    EXPECT_TRUE(rt3->ipam_subnet_route());
+    EXPECT_FALSE(rt3->proxy_arp());
+
+    //Delete Ipam path for 3.3.3.0/16 and there shud be only one path
+    //i.e. from remote peer and flags should be toggled. Proxy - yes,
+    //flood - no.
+    IpamInfo ipam_info_2[] = {
+        {"1.1.1.0", 24, "1.1.1.200", true},
+        {"2.2.2.100", 28, "2.2.2.200", true},
+    };
+    AddIPAM("vn1", ipam_info_2, 2);
+    client->WaitForIdle();
+    rt3 = RouteGet(vrf_name_, subnet_vm_ip_3_, 16);
+    EXPECT_TRUE(rt3->GetPathList().size() == 1);
+    EXPECT_FALSE(rt3->ipam_subnet_route());
+    EXPECT_FALSE(rt3->proxy_arp());
+    //Smaller subnet 3.3.3.3/28 also toggles
+    rt3 = RouteGet(vrf_name_, smaller_subnet_3, 28);
+    EXPECT_FALSE(rt3->ipam_subnet_route());
+    EXPECT_FALSE(rt3->proxy_arp());
+
+    //Add back IPAM 3.3.0.0/16 and see flags are restored.
+    AddIPAM("vn1", ipam_info, 3);
+    client->WaitForIdle();
+    rt3 = RouteGet(vrf_name_, subnet_vm_ip_3_, 16);
+    EXPECT_TRUE(rt3->ipam_subnet_route());
+    EXPECT_FALSE(rt3->proxy_arp());
+    //Smaller subnet 3.3.3.3/28 also toggles
+    rt3 = RouteGet(vrf_name_, smaller_subnet_3, 28);
+    EXPECT_TRUE(rt3->ipam_subnet_route());
+    EXPECT_FALSE(rt3->proxy_arp());
+
+    //Add back IPAM 3.3.0.0/16 and see flags are restored.
+
+    //Delete the 3.3.3.0/16 remotr route
+    DeleteRoute(peer, vrf_name_, subnet_vm_ip_3_, 16);
+    DeleteRoute(peer, vrf_name_, smaller_subnet_3, 28);
+    client->WaitForIdle();
+
+    //Add and delete a super net 2.2.2.0/24 and see 2.2.2.100/28 is not impacted
+    Ip4Address  subnet_supernet_2;
+    subnet_supernet_2 = Ip4Address::from_string("2.2.2.0");
+    Inet4TunnelRouteAdd(peer, vrf_name_, subnet_supernet_2, 24, server1_ip_,
+                        TunnelType::MplsType(), MplsTable::kStartLabel,
+                        vrf_name_,
+                        SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
+    rt2 = RouteGet(vrf_name_, subnet_supernet_2, 24);
+    EXPECT_FALSE(rt2->ipam_subnet_route());
+    EXPECT_TRUE(rt2->proxy_arp());
+    rt2 = RouteGet(vrf_name_, subnet_vm_ip_2_, 28);
+    EXPECT_TRUE(rt2->ipam_subnet_route());
+    EXPECT_FALSE(rt2->proxy_arp());
+    //Delete super net
+    DeleteRoute(peer, vrf_name_, subnet_vm_ip_2_, 24);
+    client->WaitForIdle();
+    EXPECT_TRUE(rt2->ipam_subnet_route());
+    EXPECT_FALSE(rt2->proxy_arp());
+
+    //Add any arbitrary remote route outside ipam say 4.4.4.0/24
+    //proxy - yes, flood - no
+    Ip4Address  subnet_vm_ip_non_ipam;
+    subnet_vm_ip_non_ipam = Ip4Address::from_string("4.4.4.0");
+
+    Inet4TunnelRouteAdd(peer, vrf_name_, subnet_vm_ip_non_ipam, 24, server1_ip_,
+                        TunnelType::MplsType(), MplsTable::kStartLabel,
+                        vrf_name_,
+                        SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
+    InetUnicastRouteEntry *rt4 = RouteGet(vrf_name_, subnet_vm_ip_non_ipam, 24);
+    EXPECT_FALSE(rt4->ipam_subnet_route());
+    EXPECT_TRUE(rt4->proxy_arp());
+
+    //Add another smaller subnet in 4.4.4.0/24 say 4.4.4.10/28
+    //proxy - yes, flood -no
+    Ip4Address  subnet_vm_ip_non_ipam_2;
+    subnet_vm_ip_non_ipam_2 = Ip4Address::from_string("4.4.4.10");
+
+    Inet4TunnelRouteAdd(peer, vrf_name_, subnet_vm_ip_non_ipam_2, 28,
+                        server1_ip_,
+                        TunnelType::MplsType(), MplsTable::kStartLabel,
+                        vrf_name_,
+                        SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
+    InetUnicastRouteEntry *rt5 = RouteGet(vrf_name_, subnet_vm_ip_non_ipam_2, 28);
+    EXPECT_FALSE(rt5->ipam_subnet_route());
+    EXPECT_TRUE(rt5->proxy_arp());
+
+    //Add super net 4.4.0.0/16
+    Ip4Address  subnet_vm_ip_non_ipam_3;
+    subnet_vm_ip_non_ipam_3 = Ip4Address::from_string("4.4.0.0");
+
+    Inet4TunnelRouteAdd(peer, vrf_name_, subnet_vm_ip_non_ipam_3, 16,
+                        server1_ip_,
+                        TunnelType::MplsType(), MplsTable::kStartLabel,
+                        vrf_name_,
+                        SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
+    InetUnicastRouteEntry *rt6 = RouteGet(vrf_name_, subnet_vm_ip_non_ipam_3, 16);
+    EXPECT_FALSE(rt6->ipam_subnet_route());
+    EXPECT_TRUE(rt6->proxy_arp());
+
+    //Delete all these external prefixes 4.4.0.0 and keep checking flags dont
+    //change
+    DeleteRoute(peer, vrf_name_, subnet_vm_ip_non_ipam, 24);
+    client->WaitForIdle();
+    EXPECT_FALSE(rt5->ipam_subnet_route());
+    EXPECT_TRUE(rt5->proxy_arp());
+    EXPECT_FALSE(rt6->ipam_subnet_route());
+    EXPECT_TRUE(rt6->proxy_arp());
+    DeleteRoute(peer, vrf_name_, subnet_vm_ip_non_ipam_2, 28);
+    client->WaitForIdle();
+    EXPECT_FALSE(rt6->ipam_subnet_route());
+    EXPECT_TRUE(rt6->proxy_arp());
+    DeleteRoute(peer, vrf_name_, subnet_vm_ip_non_ipam_3, 16);
+    client->WaitForIdle();
+    
+
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+    DeleteBgpPeer(peer);
+    client->WaitForIdle();
 }
 
 TEST_F(RouteTest, NonEcmpToEcmpConversion) {

@@ -212,12 +212,20 @@ void AgentInit::CreateVrfBase() {
 }
 
 void AgentInit::CreateNextHopsBase() {
-    DiscardNH::Create();
+    NextHop *nh = NULL;
 
-    DiscardNHKey key;
-    NextHop *nh = static_cast<NextHop *>
-                (agent_->nexthop_table()->FindActiveEntry(&key));
+    DiscardNH::Create();
+    DiscardNHKey key1;
+    nh = static_cast<NextHop *>
+                (agent_->nexthop_table()->FindActiveEntry(&key1));
     agent_->nexthop_table()->set_discard_nh(nh);
+
+    L2ReceiveNH::Create();
+    L2ReceiveNHKey key2;
+    nh = static_cast<NextHop *>
+                (agent_->nexthop_table()->FindActiveEntry(&key2));
+    agent_->nexthop_table()->set_l2_receive_nh(nh);
+
     CreateNextHops();
 }
 

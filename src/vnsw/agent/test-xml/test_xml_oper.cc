@@ -3,6 +3,7 @@
  */
 #include <base/os.h>
 #include <iostream>
+#include <string>
 #include <fstream>
 #include <pugixml/pugixml.hpp>
 #include <boost/uuid/uuid.hpp>
@@ -12,6 +13,7 @@
 #include "test_xml.h"
 #include "test_xml_oper.h"
 #include "test_xml_validate.h"
+#include "test_xml_packet.h"
 
 using namespace std;
 using namespace pugi;
@@ -25,6 +27,8 @@ AgentUtXmlValidationNode *CreateValidateNode(const string &type,
         return new AgentUtXmlVnValidate(name, id, node);
     if (type == "virtual-machine" || type == "vm")
         return new AgentUtXmlVmValidate(name, id, node);
+    if (type == "vxlan")
+        return new AgentUtXmlVxlanValidate(name, id, node);
     if (type == "virtual-machine-interface" || type == "vm-interface"
         || type == "vmi")
         return new AgentUtXmlVmInterfaceValidate(name, id, node);
@@ -36,6 +40,10 @@ AgentUtXmlValidationNode *CreateValidateNode(const string &type,
         return new AgentUtXmlVrfValidate(name, node);
     if (type == "access-control-list" || type == "acl")
         return new AgentUtXmlAclValidate(name, node);
+    if (type == "pkt-parse")
+        return new AgentUtXmlPktParseValidate(name, node);
+    if (type == "fdb")
+        return new AgentUtXmlL2RouteValidate(name, node);
 }
 
 AgentUtXmlNode *CreateNode(const string &type, const string &name,
@@ -59,6 +67,8 @@ AgentUtXmlNode *CreateNode(const string &type, const string &name,
     if (type == "virtual-machine-interface-routing-instance" ||
         type == "vmi-vrf")
         return new AgentUtXmlVmiVrf(name, id, node, test_case);
+    if (type == "fdb" || type == "l2-route")
+        return new AgentUtXmlL2Route(name, id, node, test_case);
 }
 
 void AgentUtXmlOperInit(AgentUtXmlTest *test) {
@@ -69,6 +79,8 @@ void AgentUtXmlOperInit(AgentUtXmlTest *test) {
 
     test->AddConfigEntry("virtual-machine", CreateNode);
     test->AddConfigEntry("vm", CreateNode);
+
+    test->AddConfigEntry("vxlan", CreateNode);
 
     test->AddConfigEntry("virtual-machine-interface", CreateNode);
     test->AddConfigEntry("vm-interface", CreateNode);
@@ -89,6 +101,7 @@ void AgentUtXmlOperInit(AgentUtXmlTest *test) {
 
     test->AddValidateEntry("virtual-network", CreateValidateNode);
     test->AddValidateEntry("vn", CreateValidateNode);
+    test->AddValidateEntry("vxlan", CreateValidateNode);
     test->AddValidateEntry("virtual-machine", CreateValidateNode);
     test->AddValidateEntry("vm", CreateValidateNode);
     test->AddValidateEntry("virtual-machine-interface", CreateValidateNode);
@@ -101,6 +114,7 @@ void AgentUtXmlOperInit(AgentUtXmlTest *test) {
     test->AddValidateEntry("vrf", CreateValidateNode);
     test->AddValidateEntry("access-control-list", CreateValidateNode);
     test->AddValidateEntry("acl", CreateValidateNode);
+    test->AddValidateEntry("pkt-parse", CreateValidateNode);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -173,7 +187,7 @@ bool AgentUtXmlVn::ToXml(xml_node *parent) {
         xml_node n1 = n.append_child("virtual-network-properties");
         AddXmlNodeWithValue(&n1, "network-id", network_id());
     }
-    if (!vxlan_id().empty()) {
+    if (!vxlan_id().empty() && op_delete() == false) {
         xml_node n1 = n.append_child("virtual-network-properties");
         AddXmlNodeWithValue(&n1, "vxlan-network-identifier", vxlan_id());
     }
@@ -680,6 +694,35 @@ const string AgentUtXmlVmValidate::ToString() {
 }
 
 /////////////////////////////////////////////////////////////////////////////
+//  AgentUtXmlVxlanValidate routines
+/////////////////////////////////////////////////////////////////////////////
+AgentUtXmlVxlanValidate::AgentUtXmlVxlanValidate(const string &name,
+                                                 const uuid &id,
+                                                 const xml_node &node) :
+    AgentUtXmlValidationNode(name, node), id_(id) {
+}
+
+AgentUtXmlVxlanValidate::~AgentUtXmlVxlanValidate() {
+}
+
+bool AgentUtXmlVxlanValidate::ReadXml() {
+    GetUintAttribute(node(), "vxlan", &vxlan_id_);
+    return true;
+}
+
+bool AgentUtXmlVxlanValidate::Validate() {
+    if (present()) {
+        return VxlanFind(vxlan_id_);
+    } else {
+        return !VxlanFind(vxlan_id_);
+    }
+}
+
+const string AgentUtXmlVxlanValidate::ToString() {
+    return "vxlan";
+}
+
+/////////////////////////////////////////////////////////////////////////////
 //  AgentUtXmlVmInterfaceValidate routines
 /////////////////////////////////////////////////////////////////////////////
 AgentUtXmlVmInterfaceValidate::AgentUtXmlVmInterfaceValidate(const string &name,
@@ -869,19 +912,167 @@ bool AgentUtXmlFlowValidate::ReadXml() {
         }
     }
 
+    GetStringAttribute(node(), "svn", &svn_);
+    GetStringAttribute(node(), "dvn", &dvn_);
+    GetStringAttribute(node(), "action", &action_);
     return true;
 }
 
-bool AgentUtXmlFlowValidate::Validate() {
-    FlowEntry *entry = FlowGet(0, sip_, dip_, proto_id_, sport_, dport_,
-                               nh_id_);
-    if (present()) {
-        return (entry != NULL);
-    } else {
-        return (entry == NULL);
+static bool MatchFlowAction(FlowEntry *flow, const string &str) {
+    uint64_t action = flow->data().match_p.action_info.action;
+    if (str == "pass") {
+        return (action & (1 << TrafficAction::PASS));
     }
+
+    if (str == "drop") {
+        return ((action & TrafficAction::DROP_FLAGS) != 0);
+    }
+
+    return false;
+}
+
+bool AgentUtXmlFlowValidate::Validate() {
+    FlowEntry *flow = FlowGet(0, sip_, dip_, proto_id_, sport_, dport_,
+                               nh_id_);
+    if (present() == false)
+        return (flow == NULL);
+
+    if (flow == NULL)
+        return false;
+
+    if (svn_ != "" && svn_ != flow->data().source_vn)
+        return false;
+
+    if (dvn_ != "" && dvn_ != flow->data().dest_vn)
+        return false;
+
+    if (MatchFlowAction(flow, action_) == false)
+        return false;
+    return true;
 }
 
 const string AgentUtXmlFlowValidate::ToString() {
-    return "flow";
+    return ("flow <"  + name() + ">");
+}
+
+uint32_t AgentUtXmlFlowValidate::wait_count() const {
+    if (present()) {
+        return 10;
+    } else {
+        return AgentUtXmlValidationNode::wait_count();
+    }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// AgentUtXmlL2Route routines
+/////////////////////////////////////////////////////////////////////////////
+AgentUtXmlL2Route::AgentUtXmlL2Route(const string &name, const uuid &id,
+                                     const xml_node &node,
+                                     AgentUtXmlTestCase *test_case) :
+    AgentUtXmlNode(name, node, false, test_case) {
+}
+
+AgentUtXmlL2Route::~AgentUtXmlL2Route() {
+}
+
+
+bool AgentUtXmlL2Route::ReadXml() {
+    if (GetStringAttribute(node(), "mac", &mac_) == false) {
+        cout << "Attribute \"mac\" not specified. Skipping" << endl;
+        return false;
+    }
+
+    if (GetStringAttribute(node(), "vrf", &vrf_) == false) {
+        cout << "Attribute \"vrf_\" not specified. Skipping" << endl;
+        return false;
+    }
+
+    GetStringAttribute(node(), "vn", &vn_);
+    GetUintAttribute(node(), "vxlan_id", &vxlan_id_);
+    GetStringAttribute(node(), "tunnel-dest", &tunnel_dest_);
+    GetStringAttribute(node(), "tunnel-type", &tunnel_type_);
+
+    return true;
+}
+
+bool AgentUtXmlL2Route::ToXml(xml_node *parent) {
+    assert(0);
+    return true;
+}
+
+void AgentUtXmlL2Route::ToString(string *str) {
+    *str = "L2-Route";
+    return;
+}
+
+string AgentUtXmlL2Route::NodeType() {
+    return "FDB";
+}
+
+bool AgentUtXmlL2Route::Run() {
+    Layer2AgentRouteTable::AddRemoteVmRouteReq(NULL, vrf_,
+                                               MacAddress::FromString(mac_),
+                                               Ip4Address::from_string(ip_),
+                                               0, NULL);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// AgentUtXmlL2RouteValidate routines
+/////////////////////////////////////////////////////////////////////////////
+AgentUtXmlL2RouteValidate::AgentUtXmlL2RouteValidate(const string &name,
+                                                     const xml_node &node) :
+    AgentUtXmlValidationNode(name, node) {
+}
+
+AgentUtXmlL2RouteValidate::~AgentUtXmlL2RouteValidate() {
+}
+
+bool AgentUtXmlL2RouteValidate::ReadXml() {
+    if (GetStringAttribute(node(), "mac", &mac_) == false) {
+        cout << "Attribute \"mac\" not specified. Skipping" << endl;
+        return false;
+    }
+
+    if (GetStringAttribute(node(), "vrf", &vrf_) == false) {
+        cout << "Attribute \"vrf_\" not specified. Skipping" << endl;
+        return false;
+    }
+
+    if (GetStringAttribute(node(), "vn", &vn_) == false) {
+        cout << "Attribute \"vn\" not specified. Skipping" << endl;
+        return false;
+    }
+
+    string addr = "";
+    GetStringAttribute(node(), "ip", &addr);
+    boost::system::error_code ec;
+    ip_ = IpAddress::from_string(addr, ec);
+
+    GetUintAttribute(node(), "vxlan_id", &vxlan_id_);
+    GetStringAttribute(node(), "tunnel-dest", &tunnel_dest_);
+    GetStringAttribute(node(), "tunnel-type", &tunnel_type_);
+    GetUintAttribute(node(), "intf", &intf_uuid_);
+
+    return true;
+}
+
+bool AgentUtXmlL2RouteValidate::Validate() {
+    Agent *agent = Agent::GetInstance();
+    Layer2RouteEntry *rt =
+        Layer2AgentRouteTable::FindRoute(agent, vrf_,
+                                         MacAddress::FromString(mac_), ip_);
+    if (present() == false)
+        return (rt == NULL);
+
+    if (rt == NULL)
+        return false;
+
+    if (vn_ != "" && vn_ != rt->dest_vn_name())
+        return false;
+
+    return true;
+}
+
+const string AgentUtXmlL2RouteValidate::ToString() {
+    return ("FDB <"  + name() + ">");
 }

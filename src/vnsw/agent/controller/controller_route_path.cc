@@ -119,9 +119,22 @@ bool ControllerVmRoute::UpdateRoute(AgentRoute *rt) {
             inet_rt->set_ipam_subnet_route(ipam_subnet_route);
             ret = true;
         }
+
+        if (ipam_subnet_route) { 
+            if (inet_rt->proxy_arp() == true) {
+                inet_rt->set_proxy_arp(false);
+                ret = true;
+            }
+        } else {
+            if (inet_rt->proxy_arp() == false) {
+                inet_rt->set_proxy_arp(true);
+                ret = true;
+            }
+        }
+
     }
     return ret;
- }
+}
 
 bool ControllerVmRoute::AddChangePath(Agent *agent, AgentPath *path,
                                       const AgentRoute *rt) {

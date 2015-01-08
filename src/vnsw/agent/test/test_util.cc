@@ -442,6 +442,18 @@ VnEntry *VnGet(int id) {
     return static_cast<VnEntry *>(Agent::GetInstance()->vn_table()->FindActiveEntry(&key));
 }
 
+bool VxlanFind(int id) {
+    VxLanId *vxlan;
+    VxLanIdKey key(id);
+    vxlan = static_cast<VxLanId *>(Agent::GetInstance()->vxlan_table()->FindActiveEntry(&key));
+    return (vxlan != NULL);
+}
+
+VxLanId *VxlanGet(int id) {
+    VxLanIdKey key(id);
+    return static_cast<VxLanId *>(Agent::GetInstance()->vxlan_table()->FindActiveEntry(&key));
+}
+
 bool AclFind(int id) {
     AclDBEntry *acl;
     AclKey key(MakeUuid(id));
@@ -2758,6 +2770,9 @@ int MplsToVrfId(int label) {
         }
     }
     return vrf;
+}
+
+uint32_t GetInterfaceLabel(int uuid, bool l3) {
 }
 
 PktGen *TxMplsPacketUtil(int ifindex, const char *out_sip,
