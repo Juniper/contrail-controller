@@ -8,7 +8,7 @@ RedisAsyncConnection * rac_alloc(EventManager *evm, const std::string & redis_ip
             unsigned short redis_port,
             RedisAsyncConnection::ClientConnectCbFn client_connect_cb,
             RedisAsyncConnection::ClientDisconnectCbFn client_disconnect_cb) {
-    RedisAsyncConnection * rac = 
+    RedisAsyncConnection * rac =
             new RedisAsyncConnection( evm, redis_ip, redis_port,
         client_connect_cb, client_disconnect_cb);
     rac->RAC_Connect();

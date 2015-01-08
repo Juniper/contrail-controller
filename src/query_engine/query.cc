@@ -988,9 +988,10 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, GenDb::GenDbIf *dbif,
 
 QueryEngine::QueryEngine(EventManager *evm,
             const std::string & redis_ip, unsigned short redis_port,
-            int max_tasks, int max_slice, uint64_t anal_ttl) :    
+            const std::string & redis_passwd, int max_tasks, int max_slice,
+            uint64_t anal_ttl) :
         qosp_(new QEOpServerProxy(evm,
-            this, redis_ip, redis_port, max_tasks)),
+            this, redis_ip, redis_port, redis_passwd, max_tasks)),
         evm_(evm),
         cassandra_ports_(0)
 {
@@ -1011,13 +1012,13 @@ QueryEngine::QueryEngine(EventManager *evm,
             std::vector<std::string> cassandra_ips,
             std::vector<int> cassandra_ports,
             const std::string & redis_ip, unsigned short redis_port,
-            int max_tasks, int max_slice, uint64_t anal_ttl, 
-            uint64_t start_time) :  
+            const std::string & redis_passwd, int max_tasks, int max_slice, 
+            uint64_t anal_ttl, uint64_t start_time) :
         dbif_(GenDb::GenDbIf::GenDbIfImpl( 
             boost::bind(&QueryEngine::db_err_handler, this),
             cassandra_ips, cassandra_ports, 0, "QueryEngine", true)),
         qosp_(new QEOpServerProxy(evm,
-            this, redis_ip, redis_port, max_tasks)),
+            this, redis_ip, redis_port, redis_passwd, max_tasks)),
         evm_(evm),
         cassandra_ports_(cassandra_ports),
         cassandra_ips_(cassandra_ips)

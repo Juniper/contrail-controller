@@ -263,6 +263,7 @@ main(int argc, char *argv[]) {
         qe = new QueryEngine(&evm,
             options.redis_server(),
             options.redis_port(),
+            options.redis_passwd(),
             max_tasks,
             options.max_slice(),
             options.analytics_data_ttl());
@@ -272,6 +273,7 @@ main(int argc, char *argv[]) {
             cassandra_ports,
             options.redis_server(),
             options.redis_port(),
+            options.redis_passwd(),
             max_tasks,
             options.max_slice(),
             options.analytics_data_ttl(),

@@ -276,6 +276,7 @@ int main(int argc, char *argv[])
 
     LOG(INFO, "COLLECTOR LISTEN PORT: " << options.collector_port());
     LOG(INFO, "COLLECTOR REDIS UVE PORT: " << options.redis_port());
+    LOG(INFO, "COLLECTOR REDIS PASSWORD: " << options.redis_passwd());
     ostringstream css;
     copy(cassandra_servers.begin(), cassandra_servers.end(),
          ostream_iterator<string>(css, " "));
@@ -319,6 +320,7 @@ int main(int argc, char *argv[])
             options.redis_port(),
             options.syslog_port(),
             options.sflow_port(),
+            options.redis_passwd(),
             options.ipfix_port(),
             options.dup(),
             options.analytics_data_ttl());

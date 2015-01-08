@@ -21,20 +21,23 @@ from pysandesh.util import UTCTimestampUsec
 
 class UVEServer(object):
 
-    def __init__(self, redis_uve_server, logger):
+    def __init__(self, redis_uve_server, logger, redis_password=None):
         self._local_redis_uve = redis_uve_server
         self._redis_uve_list = []
         self._logger = logger
         self._sem = BoundedSemaphore(1)
         self._redis = None
+        self._redis_password = redis_password
         if self._local_redis_uve:
             self._redis = redis.StrictRedis(self._local_redis_uve[0],
-                                            self._local_redis_uve[1], db=1)
+                                            self._local_redis_uve[1],
+                                            password=self._redis_password,
+                                            db=1)
     #end __init__
 
     def update_redis_uve_list(self, redis_uve_list):
         self._redis_uve_list = redis_uve_list
-    # end update_redis_uve_list 
+    # end update_redis_uve_list
 
     def fill_redis_uve_info(self, redis_uve_info):
         redis_uve_info.ip = self._local_redis_uve[0]
@@ -197,7 +200,8 @@ class UVEServer(object):
         statdict = {}
         for redis_uve in self._redis_uve_list:
             redish = redis.StrictRedis(host=redis_uve[0],
-                                       port=redis_uve[1], db=1)
+                                       port=redis_uve[1],
+                                       password=self._redis_password, db=1)
             try:
                 qmap = {}
                 for origs in redish.smembers("ORIGINS:" + key):
@@ -398,7 +402,8 @@ class UVEServer(object):
                 patterns.add(self.get_uve_regex(filt))
         for redis_uve in self._redis_uve_list:
             redish = redis.StrictRedis(host=redis_uve[0],
-                                       port=redis_uve[1], db=1)
+                                       port=redis_uve[1],
+                                       password=self._redis_password, db=1)
             try:
                 for entry in redish.smembers("TABLE:" + key):
                     info = (entry.split(':', 1)[1]).rsplit(':', 5)

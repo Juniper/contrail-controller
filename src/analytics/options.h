@@ -30,6 +30,7 @@ public:
     const uint16_t discovery_port() const { return discovery_port_; }
     const std::string redis_server() const { return redis_server_; }
     const uint16_t redis_port() const { return redis_port_; }
+    const std::string redis_passwd() const { return redis_passwd_; }
     const std::string hostname() const { return hostname_; }
     const std::string host_ip() const { return host_ip_; }
     const uint16_t http_server_port() const { return http_server_port_; }
@@ -84,6 +85,7 @@ private:
     uint16_t discovery_port_;
     std::string redis_server_;
     uint16_t redis_port_;
+    std::string redis_passwd_;
     std::string hostname_;
     std::string host_ip_;
     uint16_t http_server_port_;
