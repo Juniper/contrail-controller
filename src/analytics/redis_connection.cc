@@ -274,8 +274,6 @@ bool RedisAsyncConnection::SetClientAsyncCmdCb(ClientAsyncCmdCbFn cb_fn) {
     if (it == fns_map.end()) {
         assert(0);
     } else {
-        if ((!it->second) || (it->second->client_async_cmd_cbfn_ != NULL))
-            assert(0);
         it->second->client_async_cmd_cbfn_ = cb_fn;
     }
     return true;

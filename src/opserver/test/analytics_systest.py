@@ -455,85 +455,13 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                     ModuleNames[Module.COLLECTOR], 'UveTrace')
     #end test_08_send_tracebuffer 
 
-    #@unittest.skip('verify source/module list')
-    def test_09_table_source_module_list(self):
-        '''
-        This test verifies /analytics/table/<table>/column-values/Source
-        and /analytics/table/<table>/column-values/ModuleId
-        '''
-        logging.info('*** test_09_source_module_list ***')
-        if AnalyticsTest._check_skip_test() is True:
-            return True
-
-        vizd_obj = self.useFixture(
-            AnalyticsFixture(logging, builddir,
-                             self.__class__.cassandra_port, 
-                             collector_ha_test=True))
-        assert vizd_obj.verify_on_setup()
-        assert vizd_obj.verify_collector_obj_count()
-        exp_genlist1 = ['contrail-collector', 'contrail-analytics-api', 'contrail-query-engine']
-        assert vizd_obj.verify_generator_list(vizd_obj.collectors[0], 
-                                              exp_genlist1)
-        exp_genlist2 = ['contrail-collector'] 
-        assert vizd_obj.verify_generator_list(vizd_obj.collectors[1], 
-                                              exp_genlist2)
-        exp_src_list = [col.hostname for col in vizd_obj.collectors]
-        exp_mod_list = exp_genlist1 
-        assert vizd_obj.verify_table_source_module_list(exp_src_list, 
-                                                        exp_mod_list)
-        # stop the second redis_uve instance and verify the src/module list
-        vizd_obj.redis_uves[1].stop()
-        exp_src_list = [vizd_obj.collectors[0].hostname]
-        exp_mod_list = exp_genlist1
-        assert vizd_obj.verify_table_source_module_list(exp_src_list, 
-                                                        exp_mod_list)
-    #end test_09_table_source_module_list 
-
-    #@unittest.skip('verify redis-uve restart')
-    def test_10_redis_uve_restart(self):
-        logging.info('*** test_10_redis_uve_restart ***')
-        if AnalyticsTest._check_skip_test() is True:
-            return True
-
-        vizd_obj = self.useFixture(
-            AnalyticsFixture(logging,
-                             builddir,
-                             self.__class__.cassandra_port))
-        assert vizd_obj.verify_on_setup()
-        assert vizd_obj.verify_collector_redis_uve_connection(
-                            vizd_obj.collectors[0])
-        assert vizd_obj.verify_opserver_redis_uve_connection(
-                            vizd_obj.opserver)
-        # verify redis-uve list
-        host = socket.gethostname()
-        gen_list = [host+':Analytics:contrail-collector:0',
-                    host+':Analytics:contrail-query-engine:0',
-                    host+':Analytics:contrail-analytics-api:0']
-        assert vizd_obj.verify_generator_uve_list(gen_list)
-        # stop redis-uve
-        vizd_obj.redis_uves[0].stop()
-        assert vizd_obj.verify_collector_redis_uve_connection(
-                            vizd_obj.collectors[0], False)
-        assert vizd_obj.verify_opserver_redis_uve_connection(
-                            vizd_obj.opserver, False)
-        # start redis-uve and verify that contrail-collector and Opserver are 
-        # connected to the redis-uve
-        vizd_obj.redis_uves[0].start()
-        assert vizd_obj.verify_collector_redis_uve_connection(
-                            vizd_obj.collectors[0])
-        assert vizd_obj.verify_opserver_redis_uve_connection(
-                            vizd_obj.opserver)
-        # verify that UVEs are resynced with redis-uve
-        assert vizd_obj.verify_generator_uve_list(gen_list)
-    # end test_10_redis_uve_restart
-   
     #@unittest.skip(' where queries with different conditions')
-    def test_11_where_clause_query(self):
+    def test_09_where_clause_query(self):
         '''
         This test is used to check the working of integer 
         fields in the where query 
         '''
-        logging.info("*** test_11_where_clause_query ***")
+        logging.info("*** test_09_where_clause_query ***")
 
         if AnalyticsTest._check_skip_test() is True:
             return True
@@ -557,14 +485,14 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         generator_obj.generate_flow_samples()
 	assert vizd_obj.verify_where_query_prefix(generator_obj)
         return True;
-    #end test_11_where_clause_query
+    #end test_09_where_clause_query
 
     #@unittest.skip('verify ObjectValueTable query')
-    def test_12_verify_object_value_table_query(self):
+    def test_10_verify_object_value_table_query(self):
         '''
         This test verifies the ObjectValueTable query.
         '''
-        logging.info('*** test_12_verify_object_value_table_query ***')
+        logging.info('*** test_10_verify_object_value_table_query ***')
         
         if AnalyticsTest._check_skip_test() is True:
             return True
@@ -589,15 +517,15 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                                   msg_count=1)
         assert vizd_obj.verify_object_value_table_query(table='ObjectVMTable',
             exp_object_values=['vm11&>'])
-    # end test_12_verify_object_table_query
+    # end test_10_verify_object_table_query
 
     #@unittest.skip('verify ObjectTable query')
-    def test_13_verify_syslog_table_query(self):
+    def test_11_verify_syslog_table_query(self):
         '''
         This test verifies the Syslog query.
         '''
         import logging.handlers
-        logging.info('*** test_13_verify_syslog_table_query ***')
+        logging.info('*** test_11_verify_syslog_table_query ***')
 
         if AnalyticsTest._check_skip_test() is True:
             return True
@@ -625,17 +553,17 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         syslogger.critical(line)
         assert vizd_obj.verify_keyword_query(line, ['football', 'baseball'])
 
-    # end test_13_verify_syslog_table_query
+    # end test_11_verify_syslog_table_query
 
     #@unittest.skip('Skipping Fieldnames table test')
-    def test_14_fieldname_table(self):
+    def test_12_fieldname_table(self):
         '''
         This test starts vizd and a python generators that simulates
         vrouter and sends messages. It uses the test class' cassandra
         instance.Then it checks that the Field names table got the
         values.
         '''
-        logging.info("*** test_14_fieldname_table ***")
+        logging.info("*** test_12_fieldname_table ***")
         if AnalyticsTest._check_skip_test() is True:
             return True
 
@@ -652,7 +580,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
 	generator_obj.generate_intervn()
 	assert vizd_obj.verify_fieldname_table()
         return True
-    # end test_14_fieldname_table
+    # end test_12_fieldname_table
 
     @staticmethod
     def get_free_port():
