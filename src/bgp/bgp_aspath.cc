@@ -100,4 +100,3 @@ void AsPath::Remove() {
 
 AsPathDB::AsPathDB(BgpServer *server) {
 }
-
