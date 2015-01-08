@@ -123,6 +123,10 @@ public:
 
     virtual bool DoEventTrace(void) { return true; }
     static void Shutdown();
+
+    void set_delete_scheduled() { delete_scheduled_ = true;}
+    bool delete_scheduled() { return delete_scheduled_;}
+
 protected:
     // Create an entry with default state. Used internally
     KSyncEntry *CreateImpl(const KSyncEntry *key);
@@ -152,6 +156,9 @@ private:
     bool need_index_;
     // Index table for KSyncObject
     KSyncIndexTable index_table_;
+    // scheduled for deletion
+    bool delete_scheduled_;
+
     DISALLOW_COPY_AND_ASSIGN(KSyncObject);
 };
 
@@ -214,17 +221,21 @@ private:
 struct KSyncObjectEvent {
     enum Event {
         UNKNOWN,
-        UNREGISTER
+        UNREGISTER,
+        DELETE,
     };
     KSyncObjectEvent(KSyncObject *obj, Event event) :
         obj_(obj), event_(event) {
     }
+    KSyncEntry::KSyncEntryPtr ref_;
     KSyncObject *obj_;
     Event event_;
 };
 
 class KSyncObjectManager {
 public:
+    static const int kMaxEntriesProcess = 100;
+
     KSyncObjectManager();
     ~KSyncObjectManager();
     bool Process(KSyncObjectEvent *event);
@@ -233,6 +244,7 @@ public:
     static KSyncObjectManager *Init();
     static void Shutdown();
     static void Unregister(KSyncObject *);
+    bool Delete(KSyncObject *);
 private:
     WorkQueue<KSyncObjectEvent *> *event_queue_;
     static std::auto_ptr<KSyncEntry> default_defer_entry_;

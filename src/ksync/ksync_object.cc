@@ -33,11 +33,13 @@ KSyncObjectManager *KSyncObjectManager::singleton_;
 std::auto_ptr<KSyncEntry> KSyncObjectManager::default_defer_entry_;
 bool KSyncDebug::debug_;
 
-KSyncObject::KSyncObject() : need_index_(false), index_table_() {
+KSyncObject::KSyncObject() : need_index_(false), index_table_(),
+                         delete_scheduled_(false) {
 }
 
 KSyncObject::KSyncObject(int max_index) : 
-                         need_index_(true), index_table_(max_index) {
+                         need_index_(true), index_table_(max_index),
+                         delete_scheduled_(false) {
 }
 
 KSyncObject::~KSyncObject() {
@@ -72,6 +74,9 @@ KSyncEntry *KSyncObject::Next(const KSyncEntry *entry) const {
     return NULL;
 }
 KSyncEntry *KSyncObject::CreateImpl(const KSyncEntry *key) {
+    // should not create an entry while scheduled for deletion
+    assert(delete_scheduled_ == false);
+
     KSyncEntry *entry;
     if (need_index_) {
         entry = Alloc(key, index_table_.Alloc());
@@ -216,11 +221,11 @@ void KSyncDBObject::Notify(DBTablePartBase *partition, DBEntryBase *e) {
 
     // Trigger DB Filter callback only for ADD/CHANGE, since we need to handle
     // cleanup for delete anyways.
-    if (!entry->IsDeleted()) {
+    if (!entry->IsDeleted() && !delete_scheduled()) {
         resp = DBEntryFilter(entry);
     }
 
-    if (entry->IsDeleted() || resp == DBFilterDelete) {
+    if (entry->IsDeleted() || delete_scheduled() || resp == DBFilterDelete) {
         // We may get duplicate delete notification in 
         // case of db entry reuse
         // add -> change ->delete(Notify) -> change -> delete(Notify)
@@ -1125,9 +1130,31 @@ void KSyncObject::BackRefReEval(KSyncEntry *key) {
 }
 
 bool KSyncObjectManager::Process(KSyncObjectEvent *event) {
+    int count = 0;
     switch(event->event_) {
     case KSyncObjectEvent::UNREGISTER:
         delete event->obj_;
+        break;
+    case KSyncObjectEvent::DELETE:
+        if (event->ref_.get() == NULL) {
+            event->obj_->set_delete_scheduled();
+        }
+
+        event->ref_ = event->obj_->Next(event->ref_.get());
+        while (event->ref_.get() != NULL) {
+            count++;
+            if (event->ref_->IsDeleted() == false) {
+                // trigger delete if entry is not marked delete already.
+                event->obj_->SafeNotifyEvent(event->ref_.get(),
+                                             KSyncEntry::DEL_REQ);
+            }
+            if (count == kMaxEntriesProcess) {
+                // yeild and re-enqueue event for processing later.
+                event_queue_->Enqueue(event);
+                return false;
+            }
+            event->ref_ = event->obj_->Next(event->ref_.get());
+        }
         break;
     default:
         assert(0);
@@ -1166,6 +1193,16 @@ KSyncObjectManager *KSyncObjectManager::Init() {
 void KSyncObjectManager::Shutdown() {
     delete singleton_;
     singleton_ = NULL;
+}
+
+bool KSyncObjectManager::Delete(KSyncObject *object) {
+    if (object->IsEmpty()) {
+        return true;
+    }
+    KSyncObjectEvent *event = new KSyncObjectEvent(object,
+                                      KSyncObjectEvent::DELETE);
+    Enqueue(event);
+    return false;
 }
 
 // Create a dummy KSync Entry. This entry will all ways be in deferred state
