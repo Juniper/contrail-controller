@@ -148,6 +148,15 @@ void ContrailInitCommon::ProcessComputeAddress(AgentParam *param) {
     if (param->compute_node_address_list().size()) {
         agent()->set_compute_node_ip(param->compute_node_address_list()[0]);
     }
+
+    // In case of metadata request from VM, packets go thru VRF translation
+    // to fabric-vrf. VRouter will do FDB lookup for VRRP MAC in this case.
+    // Add Layer2 receive NH for vrrp-mac to aid VRouter
+    Layer2AgentRouteTable *l2_table = agent()->fabric_l2_unicast_table();
+    l2_table->AddLayer2ReceiveRouteReq(agent()->local_vm_peer(),
+                                       agent()->fabric_vrf_name(),
+                                       0, agent()->vrrp_mac(),
+                                       agent()->fabric_vn_name());
 }
 
 void ContrailInitCommon::CreateInterfaces() {

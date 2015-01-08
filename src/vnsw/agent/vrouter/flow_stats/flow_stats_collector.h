@@ -47,6 +47,7 @@ public:
     void UpdateFloatingIpStats(const FlowEntry *flow, uint64_t bytes,
                                uint64_t pkts);
     void Shutdown();
+    void set_delete_short_flow(bool val) { delete_short_flow_ = val; }
 private:
     void UpdateInterVnStats(const FlowEntry *fe, uint64_t bytes, uint64_t pkts);
     uint64_t GetFlowStats(const uint16_t &oflow_data, const uint32_t &data);
@@ -61,6 +62,9 @@ private:
     uint32_t flow_count_per_pass_;
     uint32_t flow_multiplier_;
     uint32_t flow_default_interval_;
+    // Should short-flow be deleted immediately?
+    // Value will be set to false for test cases
+    bool delete_short_flow_;
     DISALLOW_COPY_AND_ASSIGN(FlowStatsCollector);
 };
 

@@ -551,13 +551,13 @@ bool FlowTableKSyncObject::GetFlowKey(uint32_t index, FlowKey *key) {
     if (!kflow) {
         return false;
     }
-    key->nh = kflow->fe_key.key_nh_id;
+    key->nh = kflow->fe_key.flow4_nh_id;
     // TODO : IPv6
-    key->src_addr = Ip4Address(ntohl(kflow->fe_key.key_src_ip));
-    key->dst_addr = Ip4Address(ntohl(kflow->fe_key.key_dest_ip));
-    key->src_port = ntohs(kflow->fe_key.key_src_port);
-    key->dst_port = ntohs(kflow->fe_key.key_dst_port);
-    key->protocol = kflow->fe_key.key_proto;
+    key->src_addr = Ip4Address(ntohl(kflow->fe_key.flow4_sip));
+    key->dst_addr = Ip4Address(ntohl(kflow->fe_key.flow4_dip));
+    key->src_port = ntohs(kflow->fe_key.flow4_sport);
+    key->dst_port = ntohs(kflow->fe_key.flow4_dport);
+    key->protocol = kflow->fe_key.flow4_proto;
     //TODO : Pick family from kernel flow entry, once
     //family field is present in vr flow entry
     key->family   = Address::INET;
@@ -598,12 +598,12 @@ bool FlowTableKSyncObject::AuditProcess() {
         vflow_entry = GetKernelFlowEntry(flow_idx, false);
         if (vflow_entry && vflow_entry->fe_action == VR_FLOW_ACTION_HOLD) {
             // TODO : IPv6
-            FlowKey key(vflow_entry->fe_key.key_nh_id,
-                        Ip4Address(ntohl(vflow_entry->fe_key.key_src_ip)),
-                        Ip4Address(ntohl(vflow_entry->fe_key.key_dest_ip)),
-                        vflow_entry->fe_key.key_proto,
-                        ntohs(vflow_entry->fe_key.key_src_port),
-                        ntohs(vflow_entry->fe_key.key_dst_port));
+            FlowKey key(vflow_entry->fe_key.flow4_nh_id,
+                        Ip4Address(ntohl(vflow_entry->fe_key.flow4_sip)),
+                        Ip4Address(ntohl(vflow_entry->fe_key.flow4_dip)),
+                        vflow_entry->fe_key.flow4_proto,
+                        ntohs(vflow_entry->fe_key.flow4_sport),
+                        ntohs(vflow_entry->fe_key.flow4_dport));
             FlowEntry *flow_p = ksync_->agent()->pkt()->flow_table()->
                                 Find(key);
             if (flow_p == NULL) {

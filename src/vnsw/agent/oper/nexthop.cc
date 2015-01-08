@@ -643,8 +643,20 @@ void VrfNH::SetKey(const DBRequestKey *k) {
 }
 
 VrfNH::KeyPtr VrfNH::GetDBRequestKey() const {
-    NextHopKey *key = new VrfNHKey(vrf_->GetName(), false);
+    NextHopKey *key = new VrfNHKey(vrf_->GetName(), policy_);
     return DBEntryBase::KeyPtr(key);
+}
+
+bool VrfNH::Change(const DBRequest *req) {
+    bool ret = false;
+    const VrfNHData *data = static_cast<const VrfNHData *>(req->data.get());
+
+    if (vxlan_nh_ != data->vxlan_nh_) {
+        vxlan_nh_ = data->vxlan_nh_;
+        ret = true;
+    }
+
+    return ret;
 }
 
 void VrfNH::SendObjectLog(AgentLogEvent::type event) const {
@@ -1016,6 +1028,24 @@ void DiscardNH::Create( ) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new DiscardNHKey());
     req.data.reset(new DiscardNHData());
+    NextHopTable::GetInstance()->Process(req);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// L2ReceiveNH routines
+/////////////////////////////////////////////////////////////////////////////
+NextHop *L2ReceiveNHKey::AllocEntry() const {
+    return new L2ReceiveNH();
+}
+
+bool L2ReceiveNH::CanAdd() const {
+    return true;
+}
+
+void L2ReceiveNH::Create( ) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new L2ReceiveNHKey());
+    req.data.reset(new L2ReceiveNHData());
     NextHopTable::GetInstance()->Process(req);
 }
 
@@ -2114,6 +2144,9 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
     switch (type_) {
         case DISCARD:
             data.set_type("discard");
+            break;
+        case L2_RECEIVE:
+            data.set_type("l2-receive");
             break;
         case RECEIVE: {
             data.set_type("receive");

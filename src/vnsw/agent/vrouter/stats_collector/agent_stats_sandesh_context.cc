@@ -155,7 +155,6 @@ AgentDropStats AgentStatsSandeshContext::GetDropStats(vr_drop_stats_req *req) {
     ds.ds_discard = req->get_vds_discard();
     ds.ds_pull = req->get_vds_pull();
     ds.ds_invalid_if = req->get_vds_invalid_if();
-    ds.ds_arp_not_me = req->get_vds_arp_not_me();
     ds.ds_garp_from_vm = req->get_vds_garp_from_vm();
     ds.ds_invalid_arp = req->get_vds_invalid_arp();
     ds.ds_trap_no_if = req->get_vds_trap_no_if();
@@ -193,6 +192,7 @@ AgentDropStats AgentStatsSandeshContext::GetDropStats(vr_drop_stats_req *req) {
     ds.ds_cloned_original = req->get_vds_cloned_original();
     ds.ds_invalid_vnid = req->get_vds_invalid_vnid();
     ds.ds_frag_err = req->get_vds_frag_err();
+
     ds.ds_invalid_source = req->get_vds_invalid_source();
     ds.ds_mcast_df_bit = req->get_vds_mcast_df_bit();
     return ds;

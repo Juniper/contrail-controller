@@ -44,7 +44,7 @@ public:
     std::string &network_id() { return network_id_;}
 
 private:
-    std::string vxlan_id_;;
+    std::string vxlan_id_;
     std::string network_id_;
 };
 
@@ -222,6 +222,21 @@ private:
     const boost::uuids::uuid id_;
 };
 
+class AgentUtXmlVxlanValidate : public AgentUtXmlValidationNode {
+public:
+    AgentUtXmlVxlanValidate(const std::string &name,
+                            const boost::uuids::uuid &id,
+                            const pugi::xml_node &node);
+    virtual ~AgentUtXmlVxlanValidate();
+
+    virtual bool ReadXml();
+    virtual bool Validate();
+    virtual const std::string ToString();
+private:
+    const boost::uuids::uuid id_;
+    uint16_t vxlan_id_;
+};
+
 class AgentUtXmlVmInterfaceValidate : public AgentUtXmlValidationNode {
 public:
     AgentUtXmlVmInterfaceValidate(const std::string &name,
@@ -284,6 +299,7 @@ public:
     virtual bool ReadXml();
     virtual bool Validate();
     virtual const std::string ToString();
+    virtual uint32_t wait_count() const;
 private:
     uint16_t nh_id_;
     std::string sip_;
@@ -292,6 +308,54 @@ private:
     uint16_t sport_;
     uint16_t dport_;
     uint16_t proto_id_;
+    std::string svn_;
+    std::string dvn_;
+    std::string action_;
+};
+
+class AgentUtXmlL2Route : public AgentUtXmlNode {
+public:
+    AgentUtXmlL2Route(const std::string &name, const boost::uuids::uuid &uuid,
+                      const pugi::xml_node &node,
+                      AgentUtXmlTestCase *test_case);
+    ~AgentUtXmlL2Route();
+
+    virtual bool ReadXml();
+    virtual bool ToXml(pugi::xml_node *parent);
+    virtual std::string NodeType();
+    virtual void ToString(std::string *str);
+    virtual bool Run();
+
+private:
+    std::string mac_;
+    std::string vrf_;
+    std::string vn_name_;
+    std::string ip_;
+    uint16_t vxlan_id_;
+    std::string vn_;
+    std::string tunnel_dest_;
+    std::string tunnel_type_;
+};
+
+class AgentUtXmlL2RouteValidate : public AgentUtXmlValidationNode {
+public:
+    AgentUtXmlL2RouteValidate(const std::string &name,
+                              const pugi::xml_node &node);
+    virtual ~AgentUtXmlL2RouteValidate();
+
+    virtual bool ReadXml();
+    virtual bool Validate();
+    virtual const std::string ToString();
+private:
+    std::string mac_;
+    std::string vrf_;
+    uint16_t vxlan_id_;
+    IpAddress ip_;
+    std::string vn_;
+    std::string nh_type_;
+    std::string tunnel_dest_;
+    std::string tunnel_type_;
+    uint16_t intf_uuid_;
 };
 
 #endif //vnsw_agent_test_xml_test_xml_oper_h

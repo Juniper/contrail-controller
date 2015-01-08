@@ -33,6 +33,7 @@ public:
     typedef std::pair<std::string, Peer *> PeerPair;
     enum Type {
         MULTICAST_PEER,
+        EVPN_BGP_PEER,
         BGP_PEER,
         LINKLOCAL_PEER,
         ECMP_PEER,
@@ -77,7 +78,8 @@ class BgpPeer : public Peer {
 public:
     typedef boost::function<void()> DelPeerDone;
     BgpPeer(const Ip4Address &server_ip, const std::string &name,
-            AgentXmppChannel *bgp_xmpp_peer, DBTableBase::ListenerId id); 
+            AgentXmppChannel *bgp_xmpp_peer, DBTableBase::ListenerId id,
+            Peer::Type bgp_peer_type);
     virtual ~BgpPeer();
 
     bool Compare(const Peer *rhs) const {

@@ -360,12 +360,13 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
                 state->label_ = active_path->GetActiveLabel();
                 state->vn_ = route->dest_vn_name();
                 if (associate) {
+                    SecurityGroupList sg;
                     state->evpn_exported_ =
                         AgentXmppChannel::ControllerSendEvpnRouteAdd
                         (bgp_xmpp_peer, route,
                          active_path->NexthopIp(table->agent()),
                          route->dest_vn_name(), state->label_,
-                         TunnelType::GetTunnelBmap(state->tunnel_type_));
+                         TunnelType::GetTunnelBmap(state->tunnel_type_), &sg);
                 } else {
                     state->evpn_exported_ =
                         AgentXmppChannel::ControllerSendEvpnRouteDelete(bgp_xmpp_peer,

@@ -31,7 +31,7 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
                        ("Agent::StatsCollector"),
                        StatsCollector::FlowStatsCollector,
                        io, intvl, "Flow stats collector"),
-        agent_uve_(uve) {
+        agent_uve_(uve), delete_short_flow_(true) {
         flow_iteration_key_.Reset();
         flow_default_interval_ = intvl;
         if (flow_cache_timeout) {
@@ -327,7 +327,8 @@ bool FlowStatsCollector::Run() {
             }
         }
 
-        if ((!deleted) && entry->is_flags_set(FlowEntry::ShortFlow)) {
+        if ((!deleted) && (delete_short_flow_ == true) &&
+            entry->is_flags_set(FlowEntry::ShortFlow)) {
             if (it != flow_obj->flow_entry_map_.end()) {
                 if (it->second == reverse_flow) {
                     it++;

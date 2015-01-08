@@ -323,6 +323,7 @@ public:
     enum Type {
         INVALID,
         DISCARD,
+        L2_RECEIVE,
         RECEIVE,
         RESOLVE,
         ARP,
@@ -486,6 +487,55 @@ public:
 
 private:
     DISALLOW_COPY_AND_ASSIGN(DiscardNH);
+};
+
+/////////////////////////////////////////////////////////////////////////////
+// Layer2 Receive NH definition
+/////////////////////////////////////////////////////////////////////////////
+class L2ReceiveNHKey : public NextHopKey {
+public:
+    L2ReceiveNHKey() : NextHopKey(NextHop::L2_RECEIVE, false) { }
+    virtual ~L2ReceiveNHKey() { }
+    virtual bool NextHopKeyIsLess(const NextHopKey &rhs) const {
+        // There is single Layer2 Receive NH. There is no field to compare
+        return false;
+    }
+
+private:
+
+    virtual NextHop *AllocEntry() const;
+private:
+    DISALLOW_COPY_AND_ASSIGN(L2ReceiveNHKey);
+};
+
+class L2ReceiveNHData : public NextHopData {
+public:
+    L2ReceiveNHData() : NextHopData() {};
+    virtual ~L2ReceiveNHData() {};
+private:
+    DISALLOW_COPY_AND_ASSIGN(L2ReceiveNHData);
+};
+
+class L2ReceiveNH : public NextHop {
+public:
+    L2ReceiveNH() : NextHop(L2_RECEIVE, true, false) { };
+    virtual ~L2ReceiveNH() { };
+
+    virtual std::string ToString() const { return "L2-Receive"; };
+    // No change expected to Discard NH */
+    virtual bool Change(const DBRequest *req) { return false; };
+    virtual void Delete(const DBRequest *req) {};
+    virtual bool NextHopIsLess(const DBEntry &rhs) const { return false; };
+    virtual void SetKey(const DBRequestKey *key) { NextHop::SetKey(key); };
+    virtual bool CanAdd() const;
+    virtual KeyPtr GetDBRequestKey() const {
+        return DBEntryBase::KeyPtr(new L2ReceiveNHKey());
+    };
+
+    static void Create();
+
+private:
+    DISALLOW_COPY_AND_ASSIGN(L2ReceiveNH);
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -889,6 +939,7 @@ public:
     virtual NextHopKey *Clone() const {
         return new VrfNHKey(vrf_key_.name_, policy_); 
     }
+
 private:
     friend class VrfNH;
     VrfKey vrf_key_;
@@ -898,10 +949,11 @@ private:
 
 class VrfNHData : public NextHopData {
 public:
-    VrfNHData() : NextHopData() { }
+    VrfNHData(bool vxlan_nh) : NextHopData(), vxlan_nh_(vxlan_nh) { }
     virtual ~VrfNHData() { }
 private:
     friend class VrfNH;
+    bool vxlan_nh_;
     DISALLOW_COPY_AND_ASSIGN(VrfNHData);
 };
 
@@ -915,7 +967,7 @@ public:
     virtual bool NextHopIsLess(const DBEntry &rhs) const;
     virtual void SetKey(const DBRequestKey *key);
     // No change expected for VRF Nexthop
-    virtual bool Change(const DBRequest *req) {return false;};
+    virtual bool Change(const DBRequest *req);
     virtual void Delete(const DBRequest *req) {};
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SendObjectLog(AgentLogEvent::type event) const;
@@ -925,9 +977,12 @@ public:
     virtual bool DeleteOnZeroRefCount() const {
         return true;
     }
+    bool vxlan_nh() const { return vxlan_nh_; }
 
 private:
     VrfEntryRef vrf_;
+    // NH created by VXLAN
+    bool vxlan_nh_;
     DISALLOW_COPY_AND_ASSIGN(VrfNH);
 };
 
@@ -1346,6 +1401,9 @@ public:
 
     void set_discard_nh(NextHop *nh) { discard_nh_ = nh; }
     NextHop *discard_nh() const {return discard_nh_;}
+
+    void set_l2_receive_nh(NextHop *nh) { l2_receive_nh_ = nh; }
+    NextHop *l2_receive_nh() const {return l2_receive_nh_;}
     // NextHop index managing routines
     void FreeInterfaceId(size_t index) { index_table_.Remove(index); }
     NextHop *FindNextHop(size_t index);
@@ -1355,6 +1413,7 @@ private:
     virtual std::auto_ptr<DBEntry> GetEntry(const DBRequestKey *key) const;
 
     NextHop *discard_nh_;
+    NextHop *l2_receive_nh_;
     IndexVector<NextHop> index_table_;
     static NextHopTable *nexthop_table_;
     DISALLOW_COPY_AND_ASSIGN(NextHopTable);

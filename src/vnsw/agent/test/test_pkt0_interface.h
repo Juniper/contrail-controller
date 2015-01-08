@@ -157,6 +157,14 @@ public:
         return true;
     }
 
+    bool ParsePacket(uint8_t *buff, uint32_t payload_len, uint32_t buff_len) {
+        PacketBufferPtr pkt(agent_->pkt()->packet_buffer_manager()->Allocate
+            (PktHandler::RX_PACKET, buff, buff_len, buff_len - payload_len,
+             payload_len, 0));
+        VrouterControlInterface::Process(pkt);
+        return true;
+    }
+
 private:
     void Pkt0ReadHandler(const boost::system::error_code &error,
                             std::size_t length) {

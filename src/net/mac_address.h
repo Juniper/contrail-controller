@@ -56,6 +56,10 @@ public:
         return sizeof(struct ether_addr);
     }
 
+    static size_t bit_len() {
+        return (sizeof(struct ether_addr) * 8);
+    }
+
     u_int8_t &operator[](size_t i) {
         return ((u_int8_t *)&addr_)[i];
     }

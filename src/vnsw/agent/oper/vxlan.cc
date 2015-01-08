@@ -87,6 +87,11 @@ bool VxLanTable::Delete(DBEntry *entry, const DBRequest *req) {
     return true;
 }
 
+VxLanId *VxLanTable::Find(uint32_t vxlan_id) {
+    VxLanIdKey key(vxlan_id);
+    return static_cast<VxLanId *>(FindActiveEntry(&key));
+}
+
 void VxLanTable::OnZeroRefcount(AgentDBEntry *e) {
     const VxLanId *vxlan_id = static_cast<const VxLanId *>(e);
     VxLanId::Delete(vxlan_id->vxlan_id());
@@ -104,7 +109,7 @@ void VxLanId::Create(uint32_t vxlan_id, const string &vrf_name) {
     nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     VrfNHKey *vrf_nh_key = new VrfNHKey(vrf_name, false);
     nh_req.key.reset(vrf_nh_key);
-    nh_req.data.reset(NULL);
+    nh_req.data.reset(new VrfNHData(true));
 
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;

@@ -323,7 +323,7 @@ public:
         struct udphdr *udp = (struct udphdr *)(buff + len);
         udp->uh_dport = htons(dport);
         udp->uh_sport = htons(sport);
-        len += sizeof(udphdr) + len;
+        len += sizeof(udphdr) + plen;
     };
 
     void AddTcpHdr(uint16_t sport, uint16_t dport, bool syn, bool fin, bool ack,
@@ -332,7 +332,7 @@ public:
         tcp->th_dport = htons(dport);
         tcp->th_sport = htons(sport);
         tcp->th_flags = (fin ? TH_FIN : 0) | (syn ? TH_SYN : 0) | (ack ? TH_ACK : 0);
-        len += sizeof(tcphdr) + len;
+        len += sizeof(tcphdr) + plen;
     };
 
     void AddIcmpHdr() {
@@ -353,6 +353,14 @@ public:
         return AddGreHdr(VR_GRE_PROTO_MPLS);
     };
 
+    void AddVxlanHdr(uint32_t id) {
+        VxlanHdr tmp(id);
+        tmp.vxlan_id = ntohl(tmp.vxlan_id);
+        VxlanHdr *vxlan = (VxlanHdr *)(buff + len);
+        memcpy((uint8_t *)vxlan, (uint8_t *) &tmp, sizeof(VxlanHdr));
+        len += sizeof(VxlanHdr);
+    };
+
     void AddMplsHdr(uint32_t label, bool bottom) {
         MplsHdr *mpls = (MplsHdr *)(buff + len);
 
@@ -366,7 +374,7 @@ public:
     };
 
     void AddAgentHdr(int if_id, int cmd, int param = 0, int vrf = -1,
-                     int label = -1) {
+                     int label = -1, int vxlan_id = -1) {
         agent_hdr *hdr= (agent_hdr *)(buff + len);
         Interface *intf = InterfaceTable::GetInstance()->FindInterface(if_id);
         if (vrf == -1) {
@@ -381,6 +389,12 @@ public:
                 Agent::GetInstance()->mpls_table()->FindMplsLabel(label);
             if (mpls_label) {
                 nh = mpls_label->nexthop()->id();
+            }
+        } else if (vxlan_id > 0) {
+            VxLanId *vxlan =
+                Agent::GetInstance()->vxlan_table()->Find(vxlan_id);
+            if (vxlan) {
+                nh = vxlan->nexthop()->id();
             }
         } else {
             if (intf && intf->type() == Interface::VM_INTERFACE) {

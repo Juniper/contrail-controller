@@ -30,6 +30,7 @@
 #define DHCPV6_CLIENT_PORT 546
 #define DNS_SERVER_PORT 53
 #define VXLAN_UDP_DEST_PORT 4789
+#define MPLS_OVER_UDP_DEST_PORT 51234
 
 #define IPv4_ALEN           4
 #define ARP_TX_BUFF_LEN     128
@@ -38,6 +39,7 @@
 #define VLAN_PROTOCOL      0x8100
 #define DEFAULT_IP_TTL     64
 #define DEFAULT_IP_ID      0
+#define VLAN_HDR_LEN       4
 
 struct agent_hdr;
 class PacketBuffer;
@@ -62,6 +64,15 @@ struct MplsHdr {
     ~MplsHdr() {}
 
     uint32_t hdr;
+};
+
+struct VxlanHdr {
+    VxlanHdr() : reserved(0), vxlan_id(0) { }
+    VxlanHdr(uint32_t id) : reserved(0), vxlan_id((id) << 8) { }
+    ~VxlanHdr() { }
+
+    uint32_t reserved;
+    uint32_t vxlan_id;
 };
 
 struct PktType {
@@ -132,15 +143,18 @@ struct AgentHdr {
     uint16_t            mtu;
 };
 
-// Tunnel header decoded from the GRE encapsulated packet on fabric
-// Supports only IPv4 addresses since only IPv4 is supported on fabric
+// Tunnel header decoded from the MPLSoGRE/MPLSoUDP encapsulated packet on
+// fabric. Supports only IPv4 addresses since only IPv4 is supported on fabric
 struct TunnelInfo {
     TunnelInfo() : 
-        type(TunnelType::INVALID), label(-1), ip_saddr(), ip_daddr() {}
+        type(TunnelType::INVALID), label(-1), vxlan_id(-1), src_port(0),
+        ip_saddr(), ip_daddr() {}
     ~TunnelInfo() {}
 
     TunnelType          type;
-    uint32_t            label;
+    uint32_t            label;      // Valid only for MPLSoGRE and MPLSoUDP
+    uint32_t            vxlan_id;   // Valid only for VXLAN
+    uint16_t            src_port;   // Valid only for VXLAN and MPLSoUDP
     uint32_t            ip_saddr;
     uint32_t            ip_daddr;
 };
@@ -160,6 +174,8 @@ struct PktInfo {
     uint16_t            ether_type;
     // Fields extracted for processing in agent
     uint32_t            vrf;
+    MacAddress          smac;
+    MacAddress          dmac;
     IpAddress           ip_saddr;
     IpAddress           ip_daddr;
     uint8_t             ip_proto;
@@ -168,6 +184,9 @@ struct PktInfo {
 
     bool                tcp_ack;
     TunnelInfo          tunnel;
+    // Forwarding mode for packet - l3/l2
+    bool                l3_forwarding;
+    bool                l3_label;
 
     // Pointer to different headers in user packet
     struct ether_header *eth;
@@ -249,6 +268,10 @@ public:
 
     void Send(const AgentHdr &hdr, const PacketBufferPtr &buff);
 
+    PktModuleName ParsePacket(const AgentHdr &hdr, PktInfo *pkt_info,
+                              uint8_t *pkt);
+    int ParseUserPkt(PktInfo *pkt_info, Interface *intf,
+                     PktType::Type &pkt_type, uint8_t *pkt);
     // identify pkt type and send to the registered handler
     void HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff);
     void SendMessage(PktModuleName mod, InterTaskMsg *msg); 
@@ -273,8 +296,6 @@ public:
     Agent *agent() const { return agent_; }
     PktModule *pkt_module() const { return pkt_module_; }
 private:
-    friend bool ::CallPktParse(PktInfo *pkt_info, uint8_t *ptr, int len);
-
     struct MacVmBindingKey {
         MacAddress mac;
         int vxlan;
@@ -292,17 +313,22 @@ private:
     typedef std::set<MacVmBindingKey> MacVmBindingSet;
 
     void InterfaceNotify(DBEntryBase *entry);
-    uint8_t *ParseEthernetHeader(PktInfo *pkt_info,
-                                 PktType::Type &pkt_type, uint8_t *pkt);
-    uint8_t *ParseIpPacket(PktInfo *pkt_info, PktType::Type &pkt_type,
-                           uint8_t *ptr);
-    uint8_t *ParseUserPkt(PktInfo *pkt_info, Interface *intf,
-                          PktType::Type &pkt_type, uint8_t *pkt);
-    void SetOuterIp(PktInfo *pkt_info, uint8_t *pkt);
+    int ParseEthernetHeader(PktInfo *pkt_info, uint8_t *pkt);
+    int ParseMplsHdr(PktInfo *pkt_info, uint8_t *pkt);
+    int ParseIpPacket(PktInfo *pkt_info, PktType::Type &pkt_type,
+                      uint8_t *ptr);
+
     int ParseMPLSoGRE(PktInfo *pkt_info, uint8_t *pkt);
     int ParseMPLSoUDP(PktInfo *pkt_info, uint8_t *pkt);
+    int ParseUDPTunnels(PktInfo *pkt_info, uint8_t *pkt);
+    int ParseVxlan(PktInfo *pkt_info, uint8_t *pkt);
+    int ParseUdp(PktInfo *pkt_info, uint8_t *pkt);
+    void ComputeForwardingMode(PktInfo *pkt_info) const;
+
+    void SetOuterIp(PktInfo *pkt_info, uint8_t *pkt);
     bool IsDHCPPacket(PktInfo *pkt_info);
     bool IsValidInterface(uint16_t ifindex, Interface **interface);
+    bool IsToRDevice(uint32_t vrf_id, const IpAddress &ip);
     bool IsManagedTORPacket(Interface *intf, PktInfo *pkt_info,
                             PktType::Type &pkt_type, uint8_t *pkt);
     MacVmBindingSet::iterator

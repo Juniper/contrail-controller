@@ -15,7 +15,7 @@ void MakeIpPacket(PktGen *pkt, int ifindex, const char *sip,
 		  const char *dip, int proto, int hash_id, int cmd, int vrf) {
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, cmd, hash_id, vrf) ;
-    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", 0x800);
     pkt->AddIpHdr(sip, dip, proto);
     if (proto == 1) {
         pkt->AddIcmpHdr();
@@ -50,7 +50,7 @@ void MakeUdpPacket(PktGen *pkt, int ifindex, const char *sip,
 		   int hash_id, uint32_t vrf_id) {
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS, hash_id, vrf_id);
-    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", 0x800);
     pkt->AddIpHdr(sip, dip, IPPROTO_UDP);
     pkt->AddUdpHdr(sport, dport, 64);
 }
@@ -71,7 +71,7 @@ void MakeTcpPacket(PktGen *pkt, int ifindex, const char *sip,
 		   int hash_id, uint32_t vrf_id) {
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS, hash_id, vrf_id);
-    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", 0x800);
     pkt->AddIpHdr(sip, dip, IPPROTO_TCP);
     pkt->AddTcpHdr(sport, dport, false, false, ack, 64);
 
@@ -96,7 +96,7 @@ void MakeIpMplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS, hash_id, MplsToVrfId(label),
                      label);
-    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", 0x800);
     pkt->AddIpHdr(out_sip, out_dip, IPPROTO_GRE);
     pkt->AddGreHdr();
     pkt->AddMplsHdr(label, true);
@@ -127,7 +127,7 @@ void MakeUdpMplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS, hash_id, MplsToVrfId(label),
                      label);
-    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", 0x800);
     pkt->AddIpHdr(out_sip, out_dip, IPPROTO_GRE);
     pkt->AddGreHdr();
     pkt->AddMplsHdr(label, true);
@@ -156,7 +156,7 @@ void MakeTcpMplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS, hash_id, MplsToVrfId(label),
                      label);
-    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", 0x800);
     pkt->AddIpHdr(out_sip, out_dip, IPPROTO_GRE);
     pkt->AddGreHdr();
     pkt->AddMplsHdr(label, true);
@@ -183,7 +183,7 @@ void MakeIp6Packet(PktGen *pkt, int ifindex, const char *sip, const char *dip,
                    int proto, int hash_id, int cmd, int vrf) {
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, cmd, hash_id, vrf) ;
-    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", ETHERTYPE_IPV6);
+    pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", ETHERTYPE_IPV6);
     pkt->AddIp6Hdr(sip, dip, proto);
     if (proto == IPPROTO_ICMPV6) {
         pkt->AddIcmpHdr();
@@ -219,7 +219,7 @@ void MakeUdp6Packet(PktGen *pkt, int ifindex, const char *sip,
 		   int hash_id, uint32_t vrf_id) {
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_id, vrf_id);
-    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", ETHERTYPE_IPV6);
+    pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", ETHERTYPE_IPV6);
     pkt->AddIp6Hdr(sip, dip, IPPROTO_UDP);
     pkt->AddUdpHdr(sport, dport, 64);
 }
@@ -240,7 +240,7 @@ void MakeTcp6Packet(PktGen *pkt, int ifindex, const char *sip,
                     int hash_id, uint32_t vrf_id) {
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_id, vrf_id);
-    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", ETHERTYPE_IPV6);
+    pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", ETHERTYPE_IPV6);
     pkt->AddIp6Hdr(sip, dip, IPPROTO_TCP);
     pkt->AddTcpHdr(sport, dport, false, false, ack, 64);
 
@@ -265,7 +265,7 @@ void MakeIp6MplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_id, MplsToVrfId(label),
                      label);
-    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", ETHERTYPE_IPV6);
     pkt->AddIpHdr(out_sip, out_dip, IPPROTO_GRE);
     pkt->AddGreHdr();
     pkt->AddMplsHdr(label, true);
@@ -296,7 +296,7 @@ void MakeUdp6MplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_id, MplsToVrfId(label),
                      label);
-    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", 0x800);
     pkt->AddIpHdr(out_sip, out_dip, IPPROTO_GRE);
     pkt->AddGreHdr();
     pkt->AddMplsHdr(label, true);
@@ -325,7 +325,7 @@ void MakeTcp6MplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_id, MplsToVrfId(label),
                      label);
-    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", 0x800);
     pkt->AddIpHdr(out_sip, out_dip, IPPROTO_GRE);
     pkt->AddGreHdr();
     pkt->AddMplsHdr(label, true);

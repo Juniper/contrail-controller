@@ -86,6 +86,7 @@ public:
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
     InetUnicastRouteEntry *GetUcRoute(const IpAddress &addr) const;
     InetUnicastRouteEntry *GetUcRoute(const InetUnicastRouteEntry &rt_key) const;
+    bool UpdateVxlanId(Agent *agent, uint32_t new_vxlan_id);
 
     LifetimeActor *deleter();
     void SendObjectLog(AgentLogEvent::type event) const;
@@ -119,6 +120,7 @@ private:
     AgentRouteTable *rt_table_db_[Agent::ROUTE_TABLE_MAX];
     Timer *delete_timeout_timer_;
     uint32_t table_label_;
+    uint32_t vxlan_id_;
     DISALLOW_COPY_AND_ASSIGN(VrfEntry);
 };
 

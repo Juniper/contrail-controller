@@ -56,7 +56,8 @@ const std::map<FlowEntry::FlowPolicyState, const char*>
                             (IMPLICIT_DENY, "00000000-0000-0000-0000-000000000002")
                             (DEFAULT_GW_ICMP_OR_DNS, "00000000-0000-0000-0000-000000000003")
                             (LINKLOCAL_FLOW, "00000000-0000-0000-0000-000000000004")
-                            (MULTICAST_FLOW, "00000000-0000-0000-0000-000000000005");
+                            (MULTICAST_FLOW, "00000000-0000-0000-0000-000000000005")
+                            (NON_IP_FLOW,    "00000000-0000-0000-0000-000000000006");
 
 boost::uuids::random_generator FlowTable::rand_gen_ = boost::uuids::random_generator();
 tbb::atomic<int> FlowEntry::alloc_count_;
@@ -89,8 +90,10 @@ static void SetAclListAceId(const AclDBEntry *acl, const std::list<MatchAclParam
 }
 
 FlowEntry::FlowEntry(const FlowKey &k) : 
-    key_(k), data_(), stats_(), flow_handle_(kInvalidFlowHandle),
-    ksync_entry_(NULL), deleted_(false), flags_(0), short_flow_reason_(SHORT_UNKNOWN),
+    key_(k), data_(), stats_(), l3_flow_(true),
+    flow_handle_(kInvalidFlowHandle),
+    ksync_entry_(NULL), deleted_(false), flags_(0),
+    short_flow_reason_(SHORT_UNKNOWN),
     linklocal_src_port_(),
     linklocal_src_port_fd_(PktFlowInfo::kLinkLocalInvalidFd),
     peer_vrouter_(), tunnel_type_(TunnelType::INVALID),
@@ -103,7 +106,7 @@ FlowEntry::FlowEntry(const FlowKey &k) :
     alloc_count_.fetch_and_increment();
 }
 
-void FlowEntry::GetSourceRouteInfo(const InetUnicastRouteEntry *rt) {
+void FlowEntry::GetSourceRouteInfo(const AgentRoute *rt) {
     const AgentPath *path = NULL;
     if (rt) {
         path = rt->GetActivePath();
@@ -119,7 +122,7 @@ void FlowEntry::GetSourceRouteInfo(const InetUnicastRouteEntry *rt) {
     }
 }
 
-void FlowEntry::GetDestRouteInfo(const InetUnicastRouteEntry *rt) {
+void FlowEntry::GetDestRouteInfo(const AgentRoute *rt) {
     const AgentPath *path = NULL;
     if (rt) {
         path = rt->GetActivePath();
@@ -1133,35 +1136,9 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
         info.set_trap(true);
     }
     info.set_vrf_assign(acl_assigned_vrf());
-}
-
-bool FlowEntry::FlowSrcMatch(const RouteFlowKey &route_key) const {
-    if (data_.flow_source_vrf != route_key.vrf ||
-        data_.source_plen != route_key.plen ||
-        key_.family != route_key.family)
-        return false;
-
-    if (key_.family == Address::INET) {
-        return Address::GetIp4SubnetAddress(key_.src_addr.to_v4(),
-                                   data_.source_plen) == route_key.ip;
-    } else {
-        return (Address::GetIp6SubnetAddress(key_.src_addr.to_v6(),
-                                    data_.source_plen) == route_key.ip);
-    }
-}
-
-bool FlowEntry::FlowDestMatch(const RouteFlowKey &route_key) const {
-    if (data_.flow_dest_vrf != route_key.vrf ||
-        data_.dest_plen != route_key.plen ||
-        key_.family != route_key.family)
-        return false;
-    if (key_.family == Address::INET) {
-        return Address::GetIp4SubnetAddress(key_.dst_addr.to_v4(),
-                                   data_.dest_plen) == route_key.ip;
-    } else {
-        return (Address::GetIp6SubnetAddress(key_.dst_addr.to_v6(),
-                                    data_.dest_plen) == route_key.ip);
-    }
+    info.set_l3_flow(l3_flow_);
+    info.set_smac(data_.smac.ToString());
+    info.set_dmac(data_.dmac.ToString());
 }
 
 void FlowEntry::UpdateReflexiveAction() {
@@ -1250,7 +1227,9 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
     fe_sandesh_data.set_implicit_deny(ImplicitDenyFlow() ? "yes" : "no");
     fe_sandesh_data.set_short_flow(is_flags_set(FlowEntry::ShortFlow) ? 
                                    "yes" : "no");
-
+    fe_sandesh_data.set_l3_flow(l3_flow_);
+    fe_sandesh_data.set_smac(data_.smac.ToString());
+    fe_sandesh_data.set_dmac(data_.dmac.ToString());
 }
 
 bool FlowEntry::SetRpfNH(const AgentRoute *rt) {
@@ -1262,6 +1241,7 @@ bool FlowEntry::SetRpfNH(const AgentRoute *rt) {
     if (nh->GetType() == NextHop::COMPOSITE &&
         !is_flags_set(FlowEntry::LocalFlow) &&
         is_flags_set(FlowEntry::IngressDir)) {
+        assert(l3_flow_ == true);
             //Logic for RPF check for ecmp
             //  Get reverse flow, and its corresponding ecmp index
             //  Check if source matches composite nh in reverse flow ecmp index,
@@ -1364,6 +1344,7 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
     data_.vn_entry = ctrl->vn_ ? ctrl->vn_ : rev_ctrl->vn_;
     data_.in_vm_entry = ctrl->vm_ ? ctrl->vm_ : NULL;
     data_.out_vm_entry = rev_ctrl->vm_ ? rev_ctrl->vm_ : NULL;
+    l3_flow_ = info->l3_flow;
 
     return true;
 }
@@ -1423,19 +1404,14 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
         set_flags(FlowEntry::Multicast);
     }
 
-    if (key_.family == Address::INET) {
-        const InetUnicastRouteEntry* inet4_rt =
-            static_cast<const InetUnicastRouteEntry*>(ctrl->rt_);
-        const InetUnicastRouteEntry* inet4_rev_rt =
-            static_cast<const InetUnicastRouteEntry*>(rev_ctrl->rt_);
-        GetSourceRouteInfo(inet4_rt);
-        GetDestRouteInfo(inet4_rev_rt);
-    } else {
-        //TODO:IPV6
-    }
+    GetSourceRouteInfo(ctrl->rt_);
+    GetDestRouteInfo(rev_ctrl->rt_);
+
+    data_.smac = pkt->smac;
+    data_.dmac = pkt->dmac;
 }
 
-void FlowEntry::InitRevFlow(const PktFlowInfo *info,
+void FlowEntry::InitRevFlow(const PktFlowInfo *info, const PktInfo *pkt,
                             const PktControlInfo *ctrl,
                             const PktControlInfo *rev_ctrl) {
     if (InitFlowCmn(info, ctrl, rev_ctrl) == false) {
@@ -1478,16 +1454,11 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info,
         reset_flags(FlowEntry::Trap);
     }
 
-    if (key_.family == Address::INET) {
-        const InetUnicastRouteEntry* inet4_rt =
-            static_cast<const InetUnicastRouteEntry*>(ctrl->rt_);
-        const InetUnicastRouteEntry* inet4_rev_rt =
-            static_cast<const InetUnicastRouteEntry*>(rev_ctrl->rt_);
-        GetSourceRouteInfo(inet4_rt);
-        GetDestRouteInfo(inet4_rev_rt);
-    } else {
-        //TODO:IPV6
-    }
+    GetSourceRouteInfo(ctrl->rt_);
+    GetDestRouteInfo(rev_ctrl->rt_);
+
+    data_.smac = pkt->dmac;
+    data_.dmac = pkt->smac;
 }
 
 void FlowEntry::InitAuditFlow(uint32_t flow_idx) {
@@ -1827,6 +1798,26 @@ void FlowTable::AclNotify(DBTablePartBase *part, DBEntryBase *e)
     }
 }
 
+void NhListener::Notify(DBTablePartBase *part, DBEntryBase *e) {
+    NextHop *nh = static_cast<NextHop *>(e);
+    NhState *state =
+        static_cast<NhState *>(e->GetState(part->parent(), id_));
+
+    if (nh->IsDeleted()) {
+        if (state && state->refcount() == 0) {
+            e->ClearState(part->parent(), id_);
+            delete state;
+        }
+        return;
+    }
+
+    if (!state) {
+        state = new NhState(nh);
+    }
+    nh->SetState(part->parent(), id_, state);
+    return;
+}
+
 void FlowTable::NewFlow(const FlowEntry *flow) {
     uint8_t proto = flow->key().protocol;
     uint16_t sport = flow->key().src_port;
@@ -1866,28 +1857,50 @@ void FlowTable::DeleteFlow(const FlowEntry *flow) {
      * provide introspect to reset this */
 }
 
-void NhListener::Notify(DBTablePartBase *part, DBEntryBase *e) {
-    NextHop *nh = static_cast<NextHop *>(e);
-    NhState *state =
-        static_cast<NhState *>(e->GetState(part->parent(), id_));
-
-    if (nh->IsDeleted()) {
-        if (state && state->refcount() == 0) {
-            e->ClearState(part->parent(), id_);
-            delete state;
-        }
-        return;
-    }
-
-    if (!state) {
-        state = new NhState(nh);
-    }
-    nh->SetState(part->parent(), id_, state);
-    return;
+RouteFlowInfo *FlowTable::FindRouteFlowInfo(RouteFlowInfo *key) {
+    return route_flow_tree_.LPMFind(key);
 }
 
-RouteFlowInfo *FlowTable::FindInetRouteFlowInfo(RouteFlowInfo *key) {
-    return route_flow_tree_.LPMFind(key);
+////////////////////////////////////////////////////////////////////////////
+// RouteFlowKey methods
+////////////////////////////////////////////////////////////////////////////
+bool RouteFlowKey::FlowSrcMatch(const FlowEntry *flow) const {
+    if (flow->data().flow_source_vrf != vrf ||
+        flow->data().source_plen != plen ||
+        flow->key().family != family)
+        return false;
+
+    if (flow->key().family == Address::INET) {
+        return (Address::GetIp4SubnetAddress(flow->key().src_addr.to_v4(),
+                                             flow->data().source_plen) == ip);
+    } else if (flow->key().family == Address::INET6) {
+        return (Address::GetIp6SubnetAddress(flow->key().src_addr.to_v6(),
+                                             flow->data().source_plen) == ip);
+    } else if (flow->key().family == Address::ENET) {
+        return (flow->data().smac == mac);
+    } else {
+        assert(0);
+    }
+    return false;
+}
+
+bool RouteFlowKey::FlowDestMatch(const FlowEntry *flow) const {
+    if (flow->data().flow_dest_vrf != vrf ||
+        flow->data().dest_plen != plen ||
+        flow->key().family != family)
+        return false;
+    if (flow->key().family == Address::INET) {
+        return (Address::GetIp4SubnetAddress(flow->key().dst_addr.to_v4(),
+                                             flow->data().dest_plen) == ip);
+    } else if (flow->key().family == Address::INET6) {
+        return (Address::GetIp6SubnetAddress(flow->key().dst_addr.to_v6(),
+                                             flow->data().dest_plen) == ip);
+    } else if (flow->key().family == Address::ENET) {
+        return (flow->data().dmac == mac);
+    } else {
+        assert(0);
+    }
+    return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -1926,7 +1939,7 @@ void RouteFlowUpdate::WalkDone(DBTableBase *partition, RouteFlowUpdate *info) {
 }
 
 void RouteFlowUpdate::Notify(DBTablePartBase *partition, DBEntryBase *e) {
-    InetUnicastRouteEntry *route = static_cast<InetUnicastRouteEntry *>(e);
+    AgentRoute *route = static_cast<InetUnicastRouteEntry *>(e);
     if (route->is_multicast()) {
         return;
     }
@@ -1965,9 +1978,12 @@ void RouteFlowUpdate::Notify(DBTablePartBase *partition, DBEntryBase *e) {
     const NextHop *active_nh = route->GetActiveNextHop();
     const NextHop *local_nh = NULL;
     if (active_nh->GetType() == NextHop::COMPOSITE) {
+        InetUnicastRouteEntry *inet_route =
+            dynamic_cast<InetUnicastRouteEntry *>(route);
+        assert(inet_route);
         //If destination is ecmp, all remote flow would
         //have RPF NH set to that local component NH
-        local_nh = route->GetLocalNextHop();
+        local_nh = inet_route->GetLocalNextHop();
     }
 
     if ((state->active_nh_ != active_nh) || (state->local_nh_ != local_nh)) {
@@ -2004,8 +2020,8 @@ void InetRouteFlowUpdate::RouteAdd(AgentRoute *entry) {
     RouteFlowInfo rt_key(route->vrf()->vrf_id(), route->addr(),
                          route->plen() - 1);
     RouteFlowInfo *rt_info =
-        agent->pkt()->flow_table()->FindInetRouteFlowInfo(&rt_key);
-    agent->pkt()->flow_table()->FlowReComputeInternal(rt_info);
+        agent->pkt()->flow_table()->FindRouteFlowInfo(&rt_key);
+    agent->pkt()->flow_table()->FlowRecompute(rt_info);
 }
 
 void InetRouteFlowUpdate::RouteDel(AgentRoute *entry) {
@@ -2016,20 +2032,19 @@ void InetRouteFlowUpdate::RouteDel(AgentRoute *entry) {
     RouteFlowInfo rt_key(RouteFlowKey(route->vrf()->vrf_id(), route->addr(),
                                       route->plen()));
     RouteFlowInfo *rt_info =
-        agent->pkt()->flow_table()->FindInetRouteFlowInfo(&rt_key);
-    agent->pkt()->flow_table()->FlowReComputeInternal(rt_info);
+        agent->pkt()->flow_table()->FindRouteFlowInfo(&rt_key);
+    agent->pkt()->flow_table()->FlowRecompute(rt_info);
 }
 
-void InetRouteFlowUpdate::SgUpdate(FlowEntry *fe, FlowTable *table,
+bool InetRouteFlowUpdate::SgUpdate(FlowEntry *fe, FlowTable *table,
                                    RouteFlowKey &key,
                                    const SecurityGroupList &sg_list) {
-    table->DeleteFlowInfo(fe);
     fe->GetPolicyInfo();
 
     // Update SG-ID List
-    if (fe->FlowSrcMatch(key)) {
+    if (key.FlowSrcMatch(fe)) {
         fe->set_source_sg_id_l(sg_list);
-    } else if (fe->FlowDestMatch(key)) {
+    } else if (key.FlowDestMatch(fe)) {
         fe->set_dest_sg_id_l(sg_list);
     } else {
         FLOW_TRACE(Err, fe->flow_handle(), "Not found route key, vrf :"
@@ -2040,9 +2055,9 @@ void InetRouteFlowUpdate::SgUpdate(FlowEntry *fe, FlowTable *table,
     // So that SG match rules can be applied on the
     // latest sg id of forward and reverse flow
     FlowEntry *rev_flow = fe->reverse_flow_entry();
-    if (rev_flow && rev_flow->FlowSrcMatch(key)) {
+    if (rev_flow && key.FlowSrcMatch(rev_flow)) {
         rev_flow->set_source_sg_id_l(sg_list);
-    } else if (rev_flow && rev_flow->FlowDestMatch(key)) {
+    } else if (rev_flow && key.FlowDestMatch(rev_flow)) {
         rev_flow->set_dest_sg_id_l(sg_list);
     }
 
@@ -2056,17 +2071,16 @@ void InetRouteFlowUpdate::SgUpdate(FlowEntry *fe, FlowTable *table,
         }
     }
 
-    table->ResyncAFlow(fe);
-    table->AddFlowInfo(fe);
+    return true;
 }
 
 void InetRouteFlowUpdate::SgChange(AgentRoute *entry,
                                    SecurityGroupList &sg_list) {
     Agent *agent = static_cast<AgentRouteTable *>(entry->get_table())->agent();
-    FlowTable *table = agent->pkt()->flow_table();
     InetUnicastRouteEntry *route = static_cast<InetUnicastRouteEntry *>(entry);
     RouteFlowKey key(route->vrf()->vrf_id(), route->addr(), route->plen());
-    table->IterateInetFlowTable(key, boost::bind(&InetRouteFlowUpdate::SgUpdate,
+    FlowTable *table = agent->pkt()->flow_table();
+    table->IterateFlowInfoEntries(key, boost::bind(&InetRouteFlowUpdate::SgUpdate,
                                                  this, _1, table, key,
                                                  sg_list));
 }
@@ -2079,6 +2093,110 @@ void InetRouteFlowUpdate::NhChange(AgentRoute *entry, const NextHop *active_nh,
     agent->pkt()->flow_table()->ResyncRpfNH(key, route);
 }
 
+////////////////////////////////////////////////////////////////////////////
+// EvpnRouteFlowUpdate class responsible to keep flow in-sync with Inet route
+// add/delete/change
+////////////////////////////////////////////////////////////////////////////
+void EvpnRouteFlowUpdate::TraceMsg(AgentRoute *entry, const AgentPath *path,
+                                   SecurityGroupList &sg_list) {
+    Layer2RouteEntry *route = static_cast<Layer2RouteEntry *>(entry);
+    FLOW_TRACE(RouteUpdate,
+               route->vrf()->GetName(),
+               route->mac().ToString() + ":" + route->ip_addr().to_string(),
+               route->plen(),
+               path ? path->dest_vn_name() : "",
+               route->IsDeleted(),
+               rt_table_deleted_,
+               sg_list.size(),
+               sg_list);
+}
+
+void EvpnRouteFlowUpdate::RouteAdd(AgentRoute *entry) {
+}
+
+bool EvpnRouteFlowUpdate::DelEntry(FlowEntry *fe, FlowTable *table,
+                                   RouteFlowKey &key) {
+    table->Delete(fe->key(), true);
+    return false;
+}
+
+void EvpnRouteFlowUpdate::RouteDel(AgentRoute *entry) {
+    FLOW_TRACE(ModuleInfo, "Delete Route flows");
+    Agent *agent = static_cast<AgentRouteTable *>(entry->get_table())->agent();
+    Layer2RouteEntry *route = static_cast<Layer2RouteEntry *>(entry);
+    RouteFlowKey key(route->vrf()->vrf_id(), route->mac());
+    FlowTable *table = agent->pkt()->flow_table();
+    table->IterateFlowInfoEntries(key,
+                                  boost::bind(&EvpnRouteFlowUpdate::DelEntry,
+                                              this, _1, table, key));
+    RouteFlowInfo rt_key(key);
+    RouteFlowInfo *rt_info = table->route_flow_tree_.Find(&rt_key);
+    if (rt_info == NULL) {
+        return;
+    }
+    table->route_flow_tree_.Remove(rt_info);
+}
+
+bool EvpnRouteFlowUpdate::SgUpdate(FlowEntry *fe, FlowTable *table,
+                                   RouteFlowKey &key,
+                                   const SecurityGroupList &sg_list) {
+    fe->GetPolicyInfo();
+
+    // Update SG-ID List
+    if (key.FlowSrcMatch(fe)) {
+        fe->set_source_sg_id_l(sg_list);
+    } else if (key.FlowDestMatch(fe)) {
+        fe->set_dest_sg_id_l(sg_list);
+    } else {
+        FLOW_TRACE(Err, fe->flow_handle(), "Not found route key, vrf :"
+                   + integerToString(key.vrf) + " ip:" + key.ip.to_string());
+    }
+
+    // Update SG id for reverse flow
+    // So that SG match rules can be applied on the
+    // latest sg id of forward and reverse flow
+    FlowEntry *rev_flow = fe->reverse_flow_entry();
+    if (rev_flow && key.FlowSrcMatch(rev_flow)) {
+        rev_flow->set_source_sg_id_l(sg_list);
+    } else if (rev_flow && key.FlowDestMatch(rev_flow)) {
+        rev_flow->set_dest_sg_id_l(sg_list);
+    }
+
+    // SG id for a reverse flow is updated
+    // Reevaluate forward flow
+    if (fe->is_flags_set(FlowEntry::ReverseFlow)) {
+        FlowEntry *fwd_flow = fe->reverse_flow_entry();
+        if (fwd_flow) {
+            table->ResyncAFlow(fwd_flow);
+            table->AddFlowInfo(fwd_flow);
+        }
+    }
+
+    return true;
+}
+
+void EvpnRouteFlowUpdate::SgChange(AgentRoute *entry,
+                                   SecurityGroupList &sg_list) {
+    Agent *agent = static_cast<AgentRouteTable *>(entry->get_table())->agent();
+    FlowTable *table = agent->pkt()->flow_table();
+    Layer2RouteEntry *route = static_cast<Layer2RouteEntry *>(entry);
+    RouteFlowKey key(route->vrf()->vrf_id(), route->mac());
+    table->IterateFlowInfoEntries(key,
+                                  boost::bind(&EvpnRouteFlowUpdate::SgUpdate,
+                                              this, _1, table, key, sg_list));
+}
+
+void EvpnRouteFlowUpdate::NhChange(AgentRoute *entry, const NextHop *active_nh,
+                                   const NextHop *local_nh) {
+    Agent *agent = static_cast<AgentRouteTable *>(entry->get_table())->agent();
+    Layer2RouteEntry *route = static_cast<Layer2RouteEntry *>(entry);
+    RouteFlowKey key(route->vrf()->vrf_id(), route->mac());
+    agent->pkt()->flow_table()->ResyncRpfNH(key, route);
+}
+
+////////////////////////////////////////////////////////////////////////////
+// VRF Notification handlers
+////////////////////////////////////////////////////////////////////////////
 // Register to the route tables
 void FlowTable::VrfFlowHandlerState::Register(VrfEntry *vrf) {
     // Register to the Inet4 Unicast Table
@@ -2089,6 +2207,15 @@ void FlowTable::VrfFlowHandlerState::Register(VrfEntry *vrf) {
     inet4_unicast_update_->set_dblistener_id
         (inet_table->Register(boost::bind(&RouteFlowUpdate::Notify,
                                          inet4_unicast_update_, _1, _2)));
+
+    // Register to the Evpn Unicast Table
+    Layer2AgentRouteTable *evpn_table =
+        static_cast<Layer2AgentRouteTable *>
+        (vrf->GetLayer2RouteTable());
+    evpn_update_ = new EvpnRouteFlowUpdate(evpn_table);
+    evpn_update_->set_dblistener_id
+        (evpn_table->Register(boost::bind(&RouteFlowUpdate::Notify,
+                                          evpn_update_, _1, _2)));
 }
 
 // VRF being deleted. Do the cleanup
@@ -2103,6 +2230,12 @@ void FlowTable::VrfFlowHandlerState::Unregister(VrfEntry *vrf) {
                                   _1, _2, inet4_unicast_update_),
                       boost::bind(&RouteFlowUpdate::WalkDone, _1,
                                   inet4_unicast_update_));
+    DBTableWalker *evpn_walker = agent->db()->GetWalker();
+    evpn_walker->WalkTable(vrf->GetLayer2RouteTable(), NULL,
+                           boost::bind(&RouteFlowUpdate::DeleteState,
+                                       _1, _2, evpn_update_),
+                           boost::bind(&RouteFlowUpdate::WalkDone, _1,
+                                       evpn_update_));
 }
 
 void FlowTable::VrfNotify(DBTablePartBase *part, DBEntryBase *e)
@@ -2187,7 +2320,8 @@ void FlowTable::ResyncRpfNH(const RouteFlowKey &key, const AgentRoute *rt) {
     while (it != fet.end()) {
         fet_it = it++;
         FlowEntry *flow = (*fet_it).get();
-        if (flow->FlowSrcMatch(key) == false) {
+        assert(flow->l3_flow_ == true);
+        if (key.FlowSrcMatch(flow) == false) {
             continue;
         }
 
@@ -2200,7 +2334,7 @@ void FlowTable::ResyncRpfNH(const RouteFlowKey &key, const AgentRoute *rt) {
     }
 }
 
-void FlowTable::FlowReComputeInternal(RouteFlowInfo *rt_info) {
+void FlowTable::FlowRecompute(RouteFlowInfo *rt_info) {
     if (rt_info == NULL) {
         return;
     }
@@ -2224,7 +2358,7 @@ void FlowTable::FlowReComputeInternal(RouteFlowInfo *rt_info) {
 }
 
 // Iterate thru Inet FlowEntryTree and invoke call back for each flow entry
-void FlowTable::IterateInetFlowTable(const RouteFlowKey &key, FlowEntryCb cb) {
+void FlowTable::IterateFlowInfoEntries(const RouteFlowKey &key, FlowEntryCb cb) {
     RouteFlowInfo rt_key(key);
     RouteFlowInfo *rt_info = route_flow_tree_.Find(&rt_key);
     if (rt_info == NULL) {
@@ -2237,10 +2371,16 @@ void FlowTable::IterateInetFlowTable(const RouteFlowKey &key, FlowEntryCb cb) {
     while (it != fet.end()) {
         fet_it = it++;
         FlowEntry *fe = (*fet_it).get();
-        cb(fe);
         FlowInfo flow_info;
         fe->FillFlowInfo(flow_info);
         FLOW_TRACE(Trace, "Evaluate Route Flows", flow_info);
+        DeleteFlowInfo(fe);
+        if (cb(fe) == false) {
+            fet.erase(fet_it);
+        } else {
+            ResyncAFlow(fe);
+            AddFlowInfo(fe);
+        }
     }
 }
 
@@ -2428,7 +2568,8 @@ void FlowTable::DeleteVmFlowInfo(FlowEntry *fe, const VmEntry *vm) {
     }
 }
 
-void FlowTable::DeleteRouteFlowInfoInternal(FlowEntry *fe, RouteFlowKey &key) {
+void FlowTable::DeleteInetRouteFlowInfoInternal(FlowEntry *fe,
+                                                RouteFlowKey &key) {
     RouteFlowInfo *rt_info;
     RouteFlowInfo rt_key(key);
     rt_info = route_flow_tree_.Find(&rt_key);
@@ -2441,25 +2582,35 @@ void FlowTable::DeleteRouteFlowInfoInternal(FlowEntry *fe, RouteFlowKey &key) {
     }
 }
 
-void FlowTable::DeleteRouteFlowInfo (FlowEntry *fe)
-{
+void FlowTable::DeleteInetRouteFlowInfo(FlowEntry *fe) {
     RouteFlowKey skey(fe->data().flow_source_vrf,
                       fe->key().src_addr, fe->data().source_plen);
-    DeleteRouteFlowInfoInternal(fe, skey);
+    DeleteInetRouteFlowInfoInternal(fe, skey);
     std::map<int, int>::iterator it;
     for (it = fe->data().flow_source_plen_map.begin();
          it != fe->data().flow_source_plen_map.end(); ++it) {
         RouteFlowKey skey_dep(it->first, fe->key().src_addr, it->second);
-        DeleteRouteFlowInfoInternal(fe, skey_dep);
+        DeleteInetRouteFlowInfoInternal(fe, skey_dep);
     }
    
     RouteFlowKey dkey(fe->data().flow_dest_vrf, fe->key().dst_addr,
                       fe->data().dest_plen);
-    DeleteRouteFlowInfoInternal(fe, dkey);
+    DeleteInetRouteFlowInfoInternal(fe, dkey);
     for (it = fe->data().flow_dest_plen_map.begin();
          it != fe->data().flow_dest_plen_map.end(); ++it) {
         RouteFlowKey dkey_dep(it->first, fe->key().dst_addr, it->second);
-        DeleteRouteFlowInfoInternal(fe, dkey_dep);
+        DeleteInetRouteFlowInfoInternal(fe, dkey_dep);
+    }
+}
+
+void FlowTable::DeleteL2RouteFlowInfo(FlowEntry *fe) {
+}
+
+void FlowTable::DeleteRouteFlowInfo (FlowEntry *fe) {
+    if (fe->l3_flow_) {
+        DeleteInetRouteFlowInfo(fe);
+    } else {
+        DeleteL2RouteFlowInfo(fe);
     }
 }
 
@@ -2711,7 +2862,7 @@ uint32_t FlowTable::VmLinkLocalFlowCount(const VmEntry *vm) {
     return 0;
 }
 
-void FlowTable::AddRouteFlowInfoInternal (FlowEntry *fe, RouteFlowKey &key) {
+void FlowTable::AddInetRouteFlowInfoInternal (FlowEntry *fe, RouteFlowKey &key) {
     RouteFlowInfo *rt_info;
     RouteFlowInfo rt_key(key);
     rt_info = route_flow_tree_.Find(&rt_key);
@@ -2724,29 +2875,39 @@ void FlowTable::AddRouteFlowInfoInternal (FlowEntry *fe, RouteFlowKey &key) {
     }
 }
 
-void FlowTable::AddRouteFlowInfo (FlowEntry *fe)
-{
+void FlowTable::AddInetRouteFlowInfo (FlowEntry *fe) {
     if (fe->data().flow_source_vrf != VrfEntry::kInvalidIndex) {
         RouteFlowKey skey(fe->data().flow_source_vrf, fe->key().src_addr,
                           fe->data().source_plen);
-        AddRouteFlowInfoInternal(fe, skey);
+        AddInetRouteFlowInfoInternal(fe, skey);
     }
     std::map<int, int>::iterator it;
     for (it = fe->data().flow_source_plen_map.begin();
          it != fe->data().flow_source_plen_map.end(); ++it) {
         RouteFlowKey skey_dep(it->first, fe->key().src_addr, it->second);
-        AddRouteFlowInfoInternal(fe, skey_dep);
+        AddInetRouteFlowInfoInternal(fe, skey_dep);
     }
 
     if (fe->data().flow_dest_vrf != VrfEntry::kInvalidIndex) {
         RouteFlowKey dkey(fe->data().flow_dest_vrf, fe->key().dst_addr,
                           fe->data().dest_plen);
-        AddRouteFlowInfoInternal(fe, dkey);
+        AddInetRouteFlowInfoInternal(fe, dkey);
     }
     for (it = fe->data().flow_dest_plen_map.begin();
          it != fe->data().flow_dest_plen_map.end(); ++it) {
         RouteFlowKey dkey_dep(it->first, fe->key().dst_addr, it->second);
-        AddRouteFlowInfoInternal(fe, dkey_dep);
+        AddInetRouteFlowInfoInternal(fe, dkey_dep);
+    }
+}
+
+void FlowTable::AddL2RouteFlowInfo (FlowEntry *fe) {
+}
+
+void FlowTable::AddRouteFlowInfo (FlowEntry *fe) {
+    if (fe->l3_flow_) {
+        AddInetRouteFlowInfo(fe);
+    } else {
+        AddL2RouteFlowInfo(fe);
     }
 }
 
@@ -2818,6 +2979,21 @@ void FlowTable::DeleteVmIntfFlows(const Interface *intf)
 
 DBTableBase::ListenerId FlowTable::nh_listener_id() {
     return nh_listener_->id();
+}
+
+// Find L2 Route for the MAC address. EVPN routes have <MAC + IP> as key.
+// Try for EVPN entry with <MAC + 0.0.0.0> first followed by <MAC + pkt-ip>
+AgentRoute *FlowTable::GetL2Route(const VrfEntry *vrf,
+                                  const MacAddress &mac,
+                                  const IpAddress &ip_addr) {
+    Layer2AgentRouteTable *table = static_cast<Layer2AgentRouteTable *>
+        (vrf->GetLayer2RouteTable());
+    Layer2RouteEntry *entry = NULL;
+    entry = table->FindRoute(agent(), vrf->GetName(), mac, IpAddress());
+    if (entry != NULL)
+        return entry;
+
+    return table->FindRoute(agent(), vrf->GetName(), mac, ip_addr);
 }
 
 AgentRoute *FlowTable::GetUcRoute(const VrfEntry *entry,

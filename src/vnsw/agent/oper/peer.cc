@@ -26,8 +26,9 @@ const Ip4Address *Peer::NexthopIp(Agent *agent, const AgentPath *path) const {
 }
 
 BgpPeer::BgpPeer(const Ip4Address &server_ip, const std::string &name,
-                 AgentXmppChannel *bgp_xmpp_peer, DBTableBase::ListenerId id)
-    : Peer(Peer::BGP_PEER, name, false), server_ip_(server_ip), id_(id),
+                 AgentXmppChannel *bgp_xmpp_peer, DBTableBase::ListenerId id,
+                 Peer::Type bgp_peer_type)
+    : Peer(bgp_peer_type, name, false), server_ip_(server_ip), id_(id),
     bgp_xmpp_peer_(bgp_xmpp_peer), 
     route_walker_(new ControllerRouteWalker(bgp_xmpp_peer_->agent(), this)) {
         is_disconnect_walk_ = false;
@@ -90,7 +91,9 @@ void BgpPeer::DeleteVrfState(DBTablePartBase *partition,
         // Note that decommisioned bgp_peer_id can have reference to parent 
         // agentxmppchannel, however agentzmppchannel wud have moved to some
         // other new peer.
-        if (bgp_xmpp_peer_ && (bgp_xmpp_peer_->bgp_peer_id() == this) && 
+        if (bgp_xmpp_peer_ &&
+            ((bgp_xmpp_peer_->bgp_peer_id() == this) ||
+            (bgp_xmpp_peer_->evpn_bgp_peer_id() == this)) &&
             AgentXmppChannel::IsBgpPeerActive(bgp_xmpp_peer_)) {
             AgentXmppChannel::ControllerSendSubscribe(bgp_xmpp_peer_, vrf, 
                                                       false); 

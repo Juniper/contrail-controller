@@ -9,6 +9,13 @@ env = AgentEnv.Clone()
 
 AgentEnv.MakeTestEnv(env)
 
+env.Append(LIBPATH = env['TOP'] + '/vnsw/agent/test-xml')
+env.Append(LIBPATH = env['TOP'] + '/vnsw/agent/oper/test')
+env.Append(LIBPATH = env['TOP'] + '/vnsw/agent/pkt/test')
+env.Prepend(LIBS = 'agent_test_xml')
+env.Prepend(LIBS = 'agent_oper_test_xml')
+env.Prepend(LIBS = 'agent_physical_devices_test_xml')
+
 pkt_test_suite = []
 pkt_flaky_test_suite = []
 
@@ -27,6 +34,15 @@ test_sg_flow = AgentEnv.MakeTestCmd(env, 'test_sg_flow', pkt_flaky_test_suite)
 test_sg_tcp_flow = AgentEnv.MakeTestCmd(env, 'test_sg_tcp_flow', pkt_flaky_test_suite)
 test_vrf_assign_acl = AgentEnv.MakeTestCmd(env, 'test_vrf_assign_acl',
                                            pkt_flaky_test_suite)
+
+test_xml_packet_ut = AgentEnv.MakeTestCmdSrc(env, 'test_xml_packet_ut',
+                                                [
+                                                'test_xml_packet_ut.cc',
+                                                'test_xml_flow_agent_init.cc',
+                                                '../../pkt/test/test_pkt_util.o'
+                                                ],
+                                                pkt_test_suite)
+
 flaky_test = env.TestSuite('agent-flaky-test', pkt_flaky_test_suite)
 env.Alias('controller/src/vnsw/agent/pkt:flaky_test', flaky_test)
 

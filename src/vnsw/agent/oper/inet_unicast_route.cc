@@ -210,10 +210,22 @@ bool InetUnicastAgentRouteTable::ResyncSubnetRoutes(const InetUnicastRouteEntry 
                 break;
         }
 
-        //Ignore all non subnet routes.
+        //Ignored all non subnet routes.
         if (lpm_rt->IsHostRoute() == false) {
+            bool notify = false;
             if (lpm_rt->ipam_subnet_route() != add_change) {
                 lpm_rt->set_ipam_subnet_route(add_change);
+                notify = true;
+            }
+
+            if (lpm_rt->proxy_arp() == true) {
+                if (add_change == true) {
+                    lpm_rt->set_proxy_arp(false);
+                    notify = true;
+                } 
+            }
+
+            if (notify) {
                 //Send notify 
                 NotifyEntry(lpm_rt);
             }
@@ -231,8 +243,9 @@ InetUnicastRouteEntry::InetUnicastRouteEntry(VrfEntry *vrf,
                                              const IpAddress &addr,
                                              uint8_t plen,
                                              bool is_multicast) :
-    AgentRoute(vrf, is_multicast), plen_(plen), ipam_subnet_route_(false) {
-    if (addr.is_v4()) {
+    AgentRoute(vrf, is_multicast), plen_(plen), ipam_subnet_route_(false),
+    proxy_arp_(false) {
+        if (addr.is_v4()) {
         addr_ = Address::GetIp4SubnetAddress(addr.to_v4(), plen);
     } else {
         addr_ = Address::GetIp6SubnetAddress(addr.to_v6(), plen);
@@ -519,6 +532,7 @@ bool InetUnicastRouteEntry::ReComputePathDeletion(AgentPath *path) {
     if (path->is_subnet_discard()) {
         //Reset flag on route as ipam is going off.
         ipam_subnet_route_ = false;
+        proxy_arp_ = false;
         InetUnicastAgentRouteTable *uc_rt_table =
             static_cast<InetUnicastAgentRouteTable *>(get_table());
         uc_rt_table->ResyncSubnetRoutes(this, false);
@@ -812,6 +826,7 @@ bool InetUnicastRouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
     data.set_src_ip(addr_.to_string());
     data.set_src_plen(plen_);
     data.set_ipam_subnet_route(ipam_subnet_route_);
+    data.set_proxy_arp(proxy_arp_);
     data.set_src_vrf(vrf()->GetName());
     data.set_multicast(AgentRoute::is_multicast());
     for (Route::PathList::const_iterator it = GetPathList().begin();
@@ -1282,7 +1297,7 @@ void InetUnicastAgentRouteTable::AddVHostRecvRoute(const Peer *peer,
     DBRequest req;
     AddVHostRecvRouteInternal(&req, peer, vrf, interface, addr, plen,
                               vn_name, policy);
-    static_cast<ReceiveRoute *>(req.data.get())->EnableProxyArp();
+    static_cast<ReceiveRoute *>(req.data.get())->set_proxy_arp();
     Inet4UnicastTableProcess(Agent::GetInstance(), vrf, req);
 }
 
@@ -1292,7 +1307,7 @@ void InetUnicastAgentRouteTable::AddVHostRecvRouteReq
     DBRequest req;
     AddVHostRecvRouteInternal(&req, peer, vrf, interface, addr, plen,
                               vn_name, policy);
-    static_cast<ReceiveRoute *>(req.data.get())->EnableProxyArp();
+    static_cast<ReceiveRoute *>(req.data.get())->set_proxy_arp();
     Inet4UnicastTableEnqueue(Agent::GetInstance(), &req);
 }
 
