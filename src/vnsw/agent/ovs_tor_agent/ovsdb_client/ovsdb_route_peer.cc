@@ -44,8 +44,8 @@ bool OvsPeer::AddOvsRoute(const VnEntry *vn,
                                               tor_ip, agent->router_id(),
                                               agent->fabric_vrf_name(),
                                               vn->GetName());
-    Layer2AgentRouteTable *table = static_cast<Layer2AgentRouteTable *>
-        (vrf->GetLayer2RouteTable());
+    BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
+        (vrf->GetBridgeRouteTable());
     table->AddRemoteVmRouteReq(this, vrf->GetName(), mac, prefix_ip,
                                vn->vxlan_id()->vxlan_id(), data);
     return true;
@@ -57,8 +57,8 @@ void OvsPeer::DeleteOvsRoute(VrfEntry *vrf, uint32_t vxlan_id,
         return;
 
     IpAddress prefix_ip = IpAddress(Ip4Address::from_string("0.0.0.0"));
-    Layer2AgentRouteTable *table = static_cast<Layer2AgentRouteTable *>
-        (vrf->GetLayer2RouteTable());
+    BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
+        (vrf->GetBridgeRouteTable());
     table->DeleteReq(this, vrf->GetName(), mac, prefix_ip, vxlan_id);
     return;
 }

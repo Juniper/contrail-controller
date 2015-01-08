@@ -144,9 +144,9 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
     strtok_r(NULL, "/", &saveptr);
     char *vrf_name =  strtok_r(NULL, "", &saveptr);
     const std::string vrf(vrf_name);
-    Layer2AgentRouteTable *rt_table =
-        static_cast<Layer2AgentRouteTable *>
-        (agent_->vrf_table()->GetLayer2RouteTable(vrf_name));
+    BridgeAgentRouteTable *rt_table =
+        static_cast<BridgeAgentRouteTable *>
+        (agent_->vrf_table()->GetBridgeRouteTable(vrf_name));
     if (rt_table == NULL) {
         CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
                          "Invalid VRF. Ignoring route retract" +
@@ -689,9 +689,9 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                                     std::string mac_str,
                                     EnetItemType *item) {
     // Validate VRF first
-    Layer2AgentRouteTable *rt_table =
-        static_cast<Layer2AgentRouteTable *>
-        (agent_->vrf_table()->GetLayer2RouteTable(vrf_name));
+    BridgeAgentRouteTable *rt_table =
+        static_cast<BridgeAgentRouteTable *>
+        (agent_->vrf_table()->GetBridgeRouteTable(vrf_name));
     if (rt_table == NULL) {
         CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
                          "Invalid VRF. Ignoring route");
@@ -758,9 +758,9 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
         return;
     }
 
-    Layer2RouteKey key(agent_->local_vm_peer(), vrf_name, mac,
+    BridgeRouteKey key(agent_->local_vm_peer(), vrf_name, mac,
                        ip_addr, item->entry.nlri.ethernet_tag);
-    Layer2RouteEntry *route = static_cast<Layer2RouteEntry *>
+    BridgeRouteEntry *route = static_cast<BridgeRouteEntry *>
         (rt_table->FindActiveEntry(&key));
     if (route == NULL) {
         CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
@@ -775,11 +775,11 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
         return;
     }
 
-    // We expect only INTERFACE nexthop for layer2 routes
+    // We expect only INTERFACE nexthop for bridge routes
     const InterfaceNH *intf_nh = dynamic_cast<const InterfaceNH *>(nh);
     if (nh->GetType() != NextHop::INTERFACE) {
         CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                         "Invalid nexthop in layer2 route");
+                         "Invalid nexthop in bridge route");
         return;
     }
 
@@ -793,7 +793,7 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
             new ControllerLocalVmRoute(intf_key,
                                        MplsTable::kInvalidLabel,
                                        label, false, "",
-                                       InterfaceNHFlags::LAYER2,
+                                       InterfaceNHFlags::BRIDGE,
                                        sg_list, path_preference,
                                        unicast_sequence_number(),
                                        this);
@@ -803,7 +803,7 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                                        label,
                                        VxLanTable::kInvalidvxlan_id,
                                        false, "",
-                                       InterfaceNHFlags::LAYER2,
+                                       InterfaceNHFlags::BRIDGE,
                                        sg_list, path_preference,
                                        unicast_sequence_number(),
                                        this);
@@ -1716,7 +1716,7 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
     stringstream rstr;
     rstr << route->ToString();
     item.entry.nlri.mac = rstr.str();
-    Layer2RouteEntry *l2_route = static_cast<Layer2RouteEntry *>(route);
+    BridgeRouteEntry *l2_route = static_cast<BridgeRouteEntry *>(route);
     rstr.str("");
     rstr << l2_route->ip_addr().to_string() << "/"
         << l2_route->GetVmIpPlen();
@@ -1982,7 +1982,7 @@ bool AgentXmppChannel::ControllerSendRouteAdd(AgentXmppChannel *peer,
                                                    path_preference, true, 
                                                    type);
     }
-    if (type == Agent::LAYER2) {
+    if (type == Agent::BRIDGE) {
         ret = peer->ControllerSendEvpnRouteCommon(route, nexthop_ip, vn,
                                                   label, bmap, true);
     }
@@ -2016,7 +2016,7 @@ bool AgentXmppChannel::ControllerSendRouteDelete(AgentXmppChannel *peer,
                                                        false,
                                                        type);
     }
-    if (type == Agent::LAYER2) {
+    if (type == Agent::BRIDGE) {
         Ip4Address nh_ip(0);
         ret = peer->ControllerSendEvpnRouteCommon(route, &nh_ip, vn,
                                                   label, bmap, false);

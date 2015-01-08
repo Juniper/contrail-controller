@@ -86,7 +86,7 @@ private:
     const NextHop *nh_;
     uint16_t vlan_tag_;
     bool is_local_ecmp_nh_;
-    bool is_layer2_;
+    bool is_bridge_;
     COMPOSITETYPE comp_type_;
     TunnelType tunnel_type_;
     uint8_t prefix_len_;

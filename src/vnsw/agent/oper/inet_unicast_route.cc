@@ -47,7 +47,7 @@ InetUnicastAgentRouteTable::InetUnicastAgentRouteTable(DB *db,
     } else if (name.find("uc.route6.0") != std::string::npos) {
         type_ = Agent::INET6_UNICAST;
     } else if (name.find("l2.route.0") != std::string::npos) {
-        type_ = Agent::LAYER2;;
+        type_ = Agent::BRIDGE;;
     } else if (name.find("mc.route.0") != std::string::npos) {
         type_ = Agent::INET4_MULTICAST;
     } else {

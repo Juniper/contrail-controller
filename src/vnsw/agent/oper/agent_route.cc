@@ -82,7 +82,7 @@ const string &AgentRouteTable::GetSuffix(Agent::RouteTableType type) {
         return uc_suffix;
     case Agent::INET4_MULTICAST:
         return mc_suffix;
-    case Agent::LAYER2:
+    case Agent::BRIDGE:
         return l2_suffix;
     case Agent::INET6_UNICAST:
         return uc_inet6_suffix;

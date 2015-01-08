@@ -160,8 +160,8 @@ Some of the important tables in Oper-DB are,
       - VxLan-Id : VxLan-Id to be used when VxLan encapsulations is used.
       - layer3_forwarding : Specifies if layer3 forwarding is enabled for
          IPv4/IPv6 packets
-      - layer2_forwarding : Specifies if layer2 forwarding is enabled.
-        If layer3_forwarding is disabled, even IPv4/IPv6 packets are layer2
+      - bridge_forwarding : Specifies if bridge forwarding is enabled.
+        If layer3_forwarding is disabled, even IPv4/IPv6 packets are bridge
         forwarded.
 
     VRF
@@ -174,7 +174,7 @@ Some of the important tables in Oper-DB are,
     Each VRF has a set of routing-tables as its members.
       - Inet4 Unicast Table : Table contraining Inet4 unicast routes
       - Inet4 Multicast Table : Table containing Inet4 multicast route table
-      - Layer2 Table : Table containing MAC addresses. The Layer2 table is
+      - Bridge Table : Table containing MAC addresses. The Bridge table is
         currently used only in case of "native" VRF for a virtual-network.
 
     Based on platforms, agent creates few VRF implicitly,
@@ -247,7 +247,7 @@ Some of the important tables in Oper-DB are,
     Routes
     ------
     Every VRF has a set of route tables for Inet4 Unicast routes, Inet4
-    Mulitcast routes and Layer2 MAC routes.
+    Mulitcast routes and Bridge MAC routes.
 
     Every route specifies the forwarding action for a destination. Agent has
     multiple modules that can have different view of forwarding action for a
@@ -321,7 +321,7 @@ Some of the important tables in Oper-DB are,
 
       - Two labels are allocated for every VM Interface
         * A label for layer3 packets
-        * A label for layer2 packets
+        * A label for bridge packets
       - A label for every ECMP Composite Nexthop
       - A label for every Multicast Composite Nexthop
 

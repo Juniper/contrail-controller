@@ -137,8 +137,8 @@ InetUnicastRouteEntry *RouteGet(const string &vrf_name, const Ip4Address &addr, 
 InetUnicastRouteEntry *RouteGetV6(const string &vrf_name, const Ip6Address &addr, int plen);
 Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const Ip4Address &grp_addr);
 Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const string &grp_addr);
-Layer2RouteEntry *L2RouteGet(const string &vrf_name, const MacAddress &mac);
-Layer2RouteEntry *L2RouteGet(const string &vrf_name, const MacAddress &mac,
+BridgeRouteEntry *L2RouteGet(const string &vrf_name, const MacAddress &mac);
+BridgeRouteEntry *L2RouteGet(const string &vrf_name, const MacAddress &mac,
                              const IpAddress &ip_addr);
 bool TunnelNHFind(const Ip4Address &server_ip);
 bool TunnelNHFind(const Ip4Address &server_ip, bool policy, TunnelType::Type type);
@@ -146,7 +146,7 @@ bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Addre
                        uint8_t plen, ComponentNHKeyList &comp_nh_list,
                        bool local_ecmp, const string &vn_name, const SecurityGroupList &sg,
                        const PathPreference &path_preference);
-bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf,
+bool BridgeTunnelRouteAdd(const Peer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const Ip4Address &server_ip,
                           uint32_t label, MacAddress &remote_vm_mac,
                           const IpAddress &vm_addr, uint8_t plen);
@@ -155,7 +155,7 @@ bool Inet4TunnelRouteAdd(const Peer *peer, const string &vm_vrf, const Ip4Addres
                          uint32_t label, const string &dest_vn_name,
                          const SecurityGroupList &sg,
                          const PathPreference &path_preference);
-bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf,
+bool BridgeTunnelRouteAdd(const Peer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const char *server_ip,
                           uint32_t label, MacAddress &remote_vm_mac,
                           const char *vm_addr, uint8_t plen);
@@ -390,7 +390,7 @@ void FillEvpnNextHop(BgpPeer *peer, std::string name,
                      uint32_t label, uint32_t bmap);
 void FlushEvpnNextHop(BgpPeer *peer, std::string name,
                       uint32_t tag);
-Layer2RouteEntry *GetL2FloodRoute(const std::string &vrf_name);
+BridgeRouteEntry *GetL2FloodRoute(const std::string &vrf_name);
 void AddPhysicalDevice(const char *name, int id);
 void DeletePhysicalDevice(const char *name);
 void AddPhysicalInterface(const char *name, int id, const char* display_name);

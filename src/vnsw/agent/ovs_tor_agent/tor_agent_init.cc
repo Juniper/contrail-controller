@@ -21,7 +21,7 @@
 #include <oper/vxlan.h>
 #include <oper/mpls.h>
 #include <oper/route_common.h>
-#include <oper/layer2_route.h>
+#include <oper/bridge_route.h>
 #include <uve/agent_uve_base.h>
 
 #include <cfg/cfg_init.h>

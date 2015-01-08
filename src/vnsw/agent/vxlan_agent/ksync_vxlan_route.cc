@@ -23,7 +23,7 @@
 #include <oper/vxlan.h>
 #include <oper/mpls.h>
 #include <oper/route_common.h>
-#include <oper/layer2_route.h>
+#include <oper/bridge_route.h>
 
 #include "ksync_vxlan.h"
 #include "ksync_vxlan_bridge.h"
@@ -74,7 +74,7 @@ KSyncVxlanFdbEntry::KSyncVxlanFdbEntry(KSyncVxlanRouteObject *obj,
 }
 
 KSyncVxlanFdbEntry::KSyncVxlanFdbEntry(KSyncVxlanRouteObject *obj,
-                                       const Layer2RouteEntry *route) :
+                                       const BridgeRouteEntry *route) :
     KSyncVxlanRouteEntry(obj, route), bridge_(NULL), mac_(route->GetAddress()),
     port_(NULL), tunnel_dest_() {
 }
@@ -101,7 +101,7 @@ bool KSyncVxlanFdbEntry::Sync(DBEntry *e) {
     uint32_t new_vxlan_id = VxLanTable::kInvalidvxlan_id;
     uint32_t old_vxlan_id = VxLanTable::kInvalidvxlan_id;
 
-    Layer2RouteEntry *fdb = static_cast<Layer2RouteEntry *>(e);
+    BridgeRouteEntry *fdb = static_cast<BridgeRouteEntry *>(e);
     KSyncVxlanRouteObject *obj =
         static_cast<KSyncVxlanRouteObject *>(GetObject());
     Agent *agent = obj->ksync()->agent();
@@ -283,7 +283,7 @@ void KSyncVxlanVrfObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e){
         state = new VrfState();
         state->seen_ = true;
         vrf->SetState(partition->parent(), vrf_listener_id_, state);
-        AddToVrfMap(vrf->vrf_id(), AllocLayer2RouteTable(vrf));
+        AddToVrfMap(vrf->vrf_id(), AllocBridgeRouteTable(vrf));
     }
 
     return;

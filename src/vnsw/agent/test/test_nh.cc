@@ -1990,11 +1990,11 @@ TEST_F(CfgTest, Nexthop_keys) {
 
     Ip4Address vm_ip = Ip4Address::from_string("1.1.1.10");
     MacAddress remote_vm_mac("00:00:01:01:01:11");
-    Layer2TunnelRouteAdd(agent_->local_peer(), "vrf10", TunnelType::MplsType(),
+    BridgeTunnelRouteAdd(agent_->local_peer(), "vrf10", TunnelType::MplsType(),
                          Ip4Address::from_string("10.1.1.100"),
                          1000, remote_vm_mac, vm_ip, 32);
     client->WaitForIdle();
-    Layer2RouteEntry *l2_rt = L2RouteGet("vrf10", remote_vm_mac);
+    BridgeRouteEntry *l2_rt = L2RouteGet("vrf10", remote_vm_mac);
     EXPECT_TRUE(l2_rt != NULL);
     const NextHop *l2_rt_nh = l2_rt->GetActivePath()->nexthop(agent_);
 
@@ -2005,7 +2005,7 @@ TEST_F(CfgTest, Nexthop_keys) {
     EXPECT_TRUE(tnh->ToString() == "Tunnel to 10.1.1.100");
     tnh->SetKey(tnh->GetDBRequestKey().get());
     DoNextHopSandesh();
-    Layer2AgentRouteTable::DeleteReq(agent_->local_peer(),
+    BridgeAgentRouteTable::DeleteReq(agent_->local_peer(),
                                      "vrf10", remote_vm_mac, IpAddress(vm_ip),
                                      0);
     client->WaitForIdle();

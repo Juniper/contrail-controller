@@ -49,7 +49,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     ip_(entry->ip_), ipv4_active_(false),
     layer3_forwarding_(entry->layer3_forwarding_),
     ksync_obj_(obj), l2_active_(false),
-    layer2_forwarding_(entry->layer2_forwarding_),
+    bridge_forwarding_(entry->bridge_forwarding_),
     mac_(entry->mac_),
     smac_(entry->smac_),
     mirror_direction_(entry->mirror_direction_),
@@ -86,7 +86,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     layer3_forwarding_(true),
     ksync_obj_(obj),
     l2_active_(false),                
-    layer2_forwarding_(true),
+    bridge_forwarding_(true),
     mac_(),
     smac_(),
     mirror_direction_(Interface::UNKNOWN),
@@ -213,8 +213,8 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
             layer3_forwarding_ = vm_port->layer3_forwarding();
             ret = true;
         }
-        if (layer2_forwarding_ != vm_port->layer2_forwarding()) {
-            layer2_forwarding_ = vm_port->layer2_forwarding();
+        if (bridge_forwarding_ != vm_port->bridge_forwarding()) {
+            bridge_forwarding_ = vm_port->bridge_forwarding();
             ret = true;
         }
 
@@ -448,7 +448,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         if (dhcp_enable_) {
             flags |= VIF_FLAG_DHCP_ENABLED;
         }
-        if (layer2_forwarding_) {
+        if (bridge_forwarding_) {
             flags |= VIF_FLAG_L2_ENABLED;
         }
         MacAddress mac;

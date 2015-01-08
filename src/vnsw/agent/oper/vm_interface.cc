@@ -51,7 +51,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     mirror_direction_(MIRROR_RX_TX), cfg_name_(""), fabric_port_(true),
     need_linklocal_ip_(false), dhcp_enable_(true),
     do_dhcp_relay_(false), vm_name_(),
-    vm_project_uuid_(nil_uuid()), vxlan_id_(0), layer2_forwarding_(true),
+    vm_project_uuid_(nil_uuid()), vxlan_id_(0), bridge_forwarding_(true),
     layer3_forwarding_(true), mac_set_(false), ecmp_(false),
     tx_vlan_id_(kInvalidVlanId), rx_vlan_id_(kInvalidVlanId), parent_(NULL),
     local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
@@ -79,7 +79,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     need_linklocal_ip_(false), dhcp_enable_(true),
     do_dhcp_relay_(false), vm_name_(vm_name),
     vm_project_uuid_(vm_project_uuid), vxlan_id_(0),
-    layer2_forwarding_(true), layer3_forwarding_(true), mac_set_(false),
+    bridge_forwarding_(true), layer3_forwarding_(true), mac_set_(false),
     ecmp_(false), tx_vlan_id_(tx_vlan_id), rx_vlan_id_(rx_vlan_id),
     parent_(parent), local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
     sg_list_(), floating_ip_list_(), service_vlan_list_(), static_route_list_(),
@@ -1028,7 +1028,7 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
     }
 
     // Add/Del/Update L2 
-    if (l2_active_ && layer2_forwarding_) {
+    if (l2_active_ && bridge_forwarding_) {
         UpdateL2(old_l2_active, old_vrf, old_vxlan_id, 
                  force_update, policy_change, old_addr, old_v6_addr);
     } else if (old_l2_active) {
@@ -1621,7 +1621,7 @@ bool VmInterface::IsL3Active() const {
 }
 
 bool VmInterface::IsL2Active() const {
-    if (!layer2_forwarding()) {
+    if (!bridge_forwarding()) {
         return false;
     }
 
@@ -1729,7 +1729,7 @@ void VmInterface::DeleteL3MplsLabel() {
     label_ = MplsTable::kInvalidLabel;
 }
 
-// Allocate MPLS Label for Layer2 routes
+// Allocate MPLS Label for Bridge routes
 void VmInterface::AllocL2MplsLabel(bool force_update,
                                    bool policy_change) {
     bool new_entry = false;
@@ -1742,10 +1742,10 @@ void VmInterface::AllocL2MplsLabel(bool force_update,
     Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
     if (force_update || policy_change || new_entry)
         MplsLabel::CreateVPortLabel(agent, l2_label_, GetUuid(), false,
-                                    InterfaceNHFlags::LAYER2);
+                                    InterfaceNHFlags::BRIDGE);
 }
 
-// Delete MPLS Label for Layer2 routes
+// Delete MPLS Label for Bridge routes
 void VmInterface::DeleteL2MplsLabel() {
     if (l2_label_ == MplsTable::kInvalidLabel) {
         return;
@@ -1791,7 +1791,7 @@ bool VmInterface::Ipv6Activated(bool old_ipv6_active) {
     return false;
 }
 
-//Check if interface transitioned from active layer2 forwarding to inactive state
+//Check if interface transitioned from active bridge forwarding to inactive state
 bool VmInterface::L2Deactivated(bool old_l2_active) {
     if (old_l2_active == true && l2_active_ == false) {
         return true;
@@ -2356,8 +2356,8 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
         return;
 
     assert(peer_.get());
-    Layer2AgentRouteTable *table = static_cast<Layer2AgentRouteTable *>
-        (vrf_->GetLayer2RouteTable());
+    BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
+        (vrf_->GetBridgeRouteTable());
 
     table->AddLocalVmRoute(peer_.get(), this);
 }
@@ -2373,8 +2373,8 @@ void VmInterface::DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf,
         vxlan_id_ = 0;
     }
 
-    Layer2AgentRouteTable *table = static_cast<Layer2AgentRouteTable *>
-        (old_vrf->GetLayer2RouteTable());
+    BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
+        (old_vrf->GetBridgeRouteTable());
     table->DelLocalVmRoute(peer_.get(), old_vrf->GetName(), this, old_v4_addr,
                            old_v6_addr);
 }

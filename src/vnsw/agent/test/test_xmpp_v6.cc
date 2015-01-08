@@ -630,7 +630,7 @@ TEST_F(AgentXmppUnitTest, ConnectionUpDown) {
 
     const MacAddress mac("00:00:00:01:01:02");
     EXPECT_TRUE(L2RouteFind("vrf1", mac));
-    Layer2RouteEntry *l2_rt = L2RouteGet("vrf1", mac);
+    BridgeRouteEntry *l2_rt = L2RouteGet("vrf1", mac);
 
     Ip6Address addr6 = Ip6Address::from_string("fd12::2");
     EXPECT_TRUE(RouteFindV6("vrf1", addr6, 128));

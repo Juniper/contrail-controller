@@ -368,7 +368,7 @@ TEST_F(MulticastTest, L2Broadcast_1) {
     EXPECT_TRUE(cnh->composite_nh_type() == Composite::L3COMP);
     DoMulticastSandesh(1);
 
-    Layer2RouteEntry *l2_rt = L2RouteGet("vrf1", MacAddress("FF:FF:FF:FF:FF:FF"));
+    BridgeRouteEntry *l2_rt = L2RouteGet("vrf1", MacAddress("FF:FF:FF:FF:FF:FF"));
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
     CompositeNH *l2_cnh = static_cast<CompositeNH *>(l2_nh);
     EXPECT_TRUE(l2_cnh->ComponentNHCount() == 2);
@@ -383,7 +383,7 @@ TEST_F(MulticastTest, L2Broadcast_1) {
         EXPECT_TRUE(l3_comp_nh->GetFlags() == 
                     (InterfaceNHFlags::MULTICAST |
                      InterfaceNHFlags::INET4));
-        EXPECT_TRUE(l2_comp_nh->GetFlags() == InterfaceNHFlags::LAYER2);
+        EXPECT_TRUE(l2_comp_nh->GetFlags() == InterfaceNHFlags::BRIDGE);
         EXPECT_TRUE(l3_comp_nh->GetIfUuid() == l2_comp_nh->GetIfUuid());
     }
 
@@ -408,7 +408,7 @@ TEST_F(MulticastTest, L2Broadcast_1) {
             static_cast<const InterfaceNH *>(l2_intf_cnh->GetNH(i));
         EXPECT_TRUE(l3_intf_nh->GetFlags() ==
                     (InterfaceNHFlags::MULTICAST | InterfaceNHFlags::INET4));
-        EXPECT_TRUE(l2_intf_nh->GetFlags() == InterfaceNHFlags::LAYER2);
+        EXPECT_TRUE(l2_intf_nh->GetFlags() == InterfaceNHFlags::BRIDGE);
         EXPECT_TRUE(l3_intf_nh->GetIfUuid() == l2_intf_nh->GetIfUuid());
     }
 
@@ -855,7 +855,7 @@ TEST_F(MulticastTest, subnet_bcast_ipv4_vn_delete) {
     //Change the vn forwarding mode to l2-only
     MulticastGroupObject *mcobj = MulticastHandler::GetInstance()->
         FindGroupObject("vrf1", IpAddress::from_string("11.1.1.255").to_v4());
-    EXPECT_TRUE(mcobj->layer2_forwarding() == false);
+    EXPECT_TRUE(mcobj->bridge_forwarding() == false);
     //Del VN
     VnDelReq(1);
     client->WaitForIdle();
@@ -913,7 +913,7 @@ TEST_F(MulticastTest, subnet_bcast_ipv4_vn_ipam_change) {
     //Change the vn forwarding mode to l2-only
     MulticastGroupObject *mcobj = MulticastHandler::GetInstance()->
         FindGroupObject("vrf1", IpAddress::from_string("11.1.1.255").to_v4());
-    EXPECT_TRUE(mcobj->layer2_forwarding() == false);
+    EXPECT_TRUE(mcobj->bridge_forwarding() == false);
     //Change IPAM
     AddIPAM("vn1", ipam_info_2, 2);
     client->WaitForIdle();
@@ -966,7 +966,7 @@ TEST_F(MulticastTest, subnet_bcast_ipv4_vn_vrf_link_delete) {
     //Change the vn forwarding mode to l2-only
     MulticastGroupObject *mcobj = MulticastHandler::GetInstance()->
         FindGroupObject("vrf1", IpAddress::from_string("11.1.1.255").to_v4());
-    EXPECT_TRUE(mcobj->layer2_forwarding() == false);
+    EXPECT_TRUE(mcobj->bridge_forwarding() == false);
     //VRF delete for VN
     DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
     client->WaitForIdle();
@@ -1018,7 +1018,7 @@ TEST_F(MulticastTest, subnet_bcast_add_l2l3vn_and_l2vn) {
 
     MulticastGroupObject *mcobj = MulticastHandler::GetInstance()->
         FindGroupObject("vrf1", IpAddress::from_string("11.1.1.255").to_v4());
-    EXPECT_TRUE(mcobj->layer2_forwarding() == false);
+    EXPECT_TRUE(mcobj->bridge_forwarding() == false);
     client->WaitForIdle();
 
     AddL2Vn("vn2", 2);
@@ -1130,7 +1130,7 @@ TEST_F(MulticastTest, evpn_flood_l2l3_mode) {
 
     DoMulticastSandesh(1);
 
-    Layer2RouteEntry *l2_rt = L2RouteGet("vrf1", MacAddress::BroadcastMac());
+    BridgeRouteEntry *l2_rt = L2RouteGet("vrf1", MacAddress::BroadcastMac());
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
     CompositeNH *l2_cnh = static_cast<CompositeNH *>(l2_nh);
     EXPECT_TRUE(l2_cnh->ComponentNHCount() == 3);
@@ -1167,7 +1167,7 @@ TEST_F(MulticastTest, evpn_flood_l2l3_mode) {
             static_cast<const InterfaceNH *>(l2_intf_cnh->GetNH(i));
         EXPECT_TRUE(l3_intf_nh->GetFlags() == 
                     (InterfaceNHFlags::MULTICAST | InterfaceNHFlags::INET4));
-        EXPECT_TRUE(l2_intf_nh->GetFlags() == InterfaceNHFlags::LAYER2);
+        EXPECT_TRUE(l2_intf_nh->GetFlags() == InterfaceNHFlags::BRIDGE);
         EXPECT_TRUE(l3_intf_nh->GetIfUuid() == l2_intf_nh->GetIfUuid());
     }
 
@@ -1254,7 +1254,7 @@ TEST_F(MulticastTest, evpn_flood_l2_mode) {
     ASSERT_TRUE(evpn_flood_label != 0);
     ASSERT_TRUE((mcobj->GetLocalOlist()).size() == 1);
 
-    Layer2RouteEntry *l2_rt = L2RouteGet("vrf1", MacAddress::BroadcastMac());
+    BridgeRouteEntry *l2_rt = L2RouteGet("vrf1", MacAddress::BroadcastMac());
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
     CompositeNH *l2_cnh = static_cast<CompositeNH *>(l2_nh);
     EXPECT_TRUE(l2_cnh->ComponentNHCount() == 3);

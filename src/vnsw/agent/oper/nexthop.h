@@ -749,7 +749,7 @@ struct InterfaceNHFlags {
     enum Type {
         INVALID,
         INET4 = 1,
-        LAYER2 = 2,
+        BRIDGE = 2,
         MULTICAST = 4,
         INET6 = 8
     };
@@ -834,7 +834,7 @@ public:
     const Interface *GetInterface() const {return interface_.get();};
     const MacAddress &GetDMac() const {return dmac_;};
     bool is_multicastNH() const { return flags_ & InterfaceNHFlags::MULTICAST; };
-    bool IsLayer2() const { return flags_ & InterfaceNHFlags::LAYER2; };
+    bool IsBridge() const { return flags_ & InterfaceNHFlags::BRIDGE; };
     uint8_t GetFlags() const {return flags_;};
     const uuid &GetIfUuid() const;
     const VrfEntry *GetVrf() const {return vrf_.get();};

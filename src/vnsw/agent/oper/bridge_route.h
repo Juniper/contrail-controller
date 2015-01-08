@@ -2,22 +2,22 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef vnsw_layer2_route_hpp
-#define vnsw_layer2_route_hpp
+#ifndef vnsw_bridge_route_hpp
+#define vnsw_bridge_route_hpp
 
 //////////////////////////////////////////////////////////////////
-//  LAYER2
+//  BRIDGE
 /////////////////////////////////////////////////////////////////
-class Layer2AgentRouteTable : public AgentRouteTable {
+class BridgeAgentRouteTable : public AgentRouteTable {
 public:
-    Layer2AgentRouteTable(DB *db, const std::string &name) :
+    BridgeAgentRouteTable(DB *db, const std::string &name) :
         AgentRouteTable(db, name) {
     }
-    virtual ~Layer2AgentRouteTable() { }
+    virtual ~BridgeAgentRouteTable() { }
 
-    virtual std::string GetTableName() const {return "Layer2AgentRouteTable";}
+    virtual std::string GetTableName() const {return "BridgeAgentRouteTable";}
     virtual Agent::RouteTableType GetTableType() const {
-        return Agent::LAYER2;
+        return Agent::BRIDGE;
     }
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
@@ -38,7 +38,7 @@ public:
                                     const IpAddress &ip_addr,
                                     uint32_t ethernet_tag,
                                     AgentRouteData *data);
-    static void AddLayer2BroadcastRoute(const Peer *peer,
+    static void AddBridgeBroadcastRoute(const Peer *peer,
                                         const std::string &vrf_name,
                                         const std::string &vn_name,
                                         uint32_t label,
@@ -48,7 +48,7 @@ public:
                                         Composite::Type type,
                                         ComponentNHKeyList
                                         &component_nh_key_list);
-    static void AddLayer2ReceiveRoute(const Peer *peer,
+    static void AddBridgeReceiveRoute(const Peer *peer,
                                       const std::string &vrf_name,
                                       const MacAddress &mac,
                                       const IpAddress &ip_addr,
@@ -64,24 +64,24 @@ public:
     static void DeleteBroadcastReq(const Peer *peer,
                                    const std::string &vrf_name,
                                    uint32_t ethernet_tag);
-    static Layer2RouteEntry *FindRoute(const Agent *agent,
+    static BridgeRouteEntry *FindRoute(const Agent *agent,
                                        const std::string &vrf_name,
                                        const MacAddress &mac,
                                        const IpAddress &ip_addr);
 
 private:
     DBTableWalker::WalkId walkid_;
-    DISALLOW_COPY_AND_ASSIGN(Layer2AgentRouteTable);
+    DISALLOW_COPY_AND_ASSIGN(BridgeAgentRouteTable);
 };
 
-class Layer2RouteEntry : public AgentRoute {
+class BridgeRouteEntry : public AgentRoute {
 public:
-    Layer2RouteEntry(VrfEntry *vrf, const MacAddress &mac,
+    BridgeRouteEntry(VrfEntry *vrf, const MacAddress &mac,
                      const IpAddress &ip_addr,
                      Peer::Type type, bool is_multicast) :
         AgentRoute(vrf, is_multicast), mac_(mac), ip_addr_(ip_addr) {
     }
-    virtual ~Layer2RouteEntry() { }
+    virtual ~BridgeRouteEntry() { }
 
     virtual int CompareTo(const Route &rhs) const;
     virtual std::string ToString() const;
@@ -96,7 +96,7 @@ public:
         return ToString();
     }
     virtual Agent::RouteTableType GetTableType() const {
-        return Agent::LAYER2;
+        return Agent::BRIDGE;
     }
     virtual bool DBEntrySandesh(Sandesh *sresp, bool stale) const;
     virtual uint32_t GetActiveLabel() const;
@@ -114,24 +114,24 @@ private:
 
     MacAddress mac_;
     IpAddress ip_addr_;
-    DISALLOW_COPY_AND_ASSIGN(Layer2RouteEntry);
+    DISALLOW_COPY_AND_ASSIGN(BridgeRouteEntry);
 };
 
-class Layer2RouteKey : public AgentRouteKey {
+class BridgeRouteKey : public AgentRouteKey {
 public:
-    Layer2RouteKey(const Peer *peer, const std::string &vrf_name,
+    BridgeRouteKey(const Peer *peer, const std::string &vrf_name,
                    const MacAddress &mac, const IpAddress &ip_addr,
                    uint32_t ethernet_tag) :
         AgentRouteKey(peer, vrf_name), dmac_(mac), ip_addr_(ip_addr),
         ethernet_tag_(ethernet_tag) {
     }
 
-    virtual ~Layer2RouteKey() { }
+    virtual ~BridgeRouteKey() { }
 
     virtual AgentRoute *AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const;
-    virtual Agent::RouteTableType GetRouteTableType() { return Agent::LAYER2; }
+    virtual Agent::RouteTableType GetRouteTableType() { return Agent::BRIDGE; }
     virtual std::string ToString() const;
-    virtual Layer2RouteKey *Clone() const;
+    virtual BridgeRouteKey *Clone() const;
     const MacAddress &GetMac() const { return dmac_;}
     const IpAddress &ip_addr() const { return ip_addr_;}
     uint32_t ethernet_tag() const {return ethernet_tag_;}
@@ -145,7 +145,7 @@ private:
     //which in turn is used to create a seperate path for same peer and
     //mac.
     uint32_t ethernet_tag_;
-    DISALLOW_COPY_AND_ASSIGN(Layer2RouteKey);
+    DISALLOW_COPY_AND_ASSIGN(BridgeRouteKey);
 };
 
-#endif // vnsw_layer2_route_hpp
+#endif // vnsw_bridge_route_hpp

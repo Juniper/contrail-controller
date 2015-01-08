@@ -77,9 +77,9 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
           prefix_len_ = 32;
           break;
     }
-    case Agent::LAYER2: {
-          const Layer2RouteEntry *l2_rt =
-              static_cast<const Layer2RouteEntry *>(rt);              
+    case Agent::BRIDGE: {
+          const BridgeRouteEntry *l2_rt =
+              static_cast<const BridgeRouteEntry *>(rt);              
           mac_ = l2_rt->GetAddress();
           addr_ = l2_rt->ip_addr();
           prefix_len_ = 0;
@@ -153,7 +153,7 @@ bool RouteKSyncEntry::IsLess(const KSyncEntry &rhs) const {
         return UcIsLess(rhs);
     }
 
-    if (rt_type_ == Agent::LAYER2) {
+    if (rt_type_ == Agent::BRIDGE) {
         return L2IsLess(rhs);
     }
 
@@ -278,7 +278,7 @@ int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
     encoder.set_h_op(op);
     encoder.set_rtr_rid(0);
     encoder.set_rtr_vrf_id(vrf_id_);
-    if (rt_type_ != Agent::LAYER2) {
+    if (rt_type_ != Agent::BRIDGE) {
         if (addr_.is_v4()) {
             encoder.set_rtr_family(AF_INET);
             boost::array<unsigned char, 4> bytes = addr_.to_v4().to_bytes();
@@ -308,7 +308,7 @@ int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
         }
     }
 
-    if (rt_type_ == Agent::LAYER2) {
+    if (rt_type_ == Agent::BRIDGE) {
         flags |= 0x02;
         label = label_;
         if (nexthop != NULL && nexthop->type() == NextHop::COMPOSITE) {
@@ -370,7 +370,7 @@ int RouteKSyncEntry::DeleteMsg(char *buf, int buf_len) {
     NHKSyncEntry *ksync_nh = NULL;
 
     // IF multicast or EVPN delete unconditionally
-    if ((rt_type_ == Agent::LAYER2) ||
+    if ((rt_type_ == Agent::BRIDGE) ||
         (rt_type_ == Agent::INET4_MULTICAST)) {
         return DeleteInternal(nh(), 0, 0, false, buf, buf_len);
     }
@@ -434,7 +434,7 @@ int RouteKSyncEntry::DeleteInternal(NHKSyncEntry *nexthop, uint32_t lbl,
 }
 
 KSyncEntry *RouteKSyncEntry::UnresolvedReference() {
-    if (rt_type_ == Agent::LAYER2) {
+    if (rt_type_ == Agent::BRIDGE) {
         if (addr_.is_v6()) {
             return KSyncObjectManager::default_defer_entry();
         }
@@ -523,7 +523,7 @@ void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
 
         // Get Layer 2 Route table and register with KSync
         rt_table = static_cast<AgentRouteTable *>(vrf->
-                          GetLayer2RouteTable());
+                          GetBridgeRouteTable());
         new RouteKSyncObject(ksync_, rt_table);
 
         //Now for multicast table. Ksync object for multicast table is 

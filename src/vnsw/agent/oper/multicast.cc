@@ -90,13 +90,13 @@ void MulticastHandler::AddL2BroadcastRoute(MulticastGroupObject *obj,
 {
     boost::system::error_code ec;
     MCTRACE(Log, "add L2 bcast route ", vrf_name, addr.to_string(), 0);
-    //Add Layer2 FF:FF:FF:FF:FF:FF
+    //Add Bridge FF:FF:FF:FF:FF:FF
     ComponentNHKeyList component_nh_key_list =
-        GetInterfaceComponentNHKeyList(obj, InterfaceNHFlags::LAYER2);
+        GetInterfaceComponentNHKeyList(obj, InterfaceNHFlags::BRIDGE);
     if (component_nh_key_list.size() == 0)
         return;
     uint32_t route_tunnel_bmap = TunnelType::AllType();
-    Layer2AgentRouteTable::AddLayer2BroadcastRoute(agent_->local_vm_peer(),
+    BridgeAgentRouteTable::AddBridgeBroadcastRoute(agent_->local_vm_peer(),
                                                    vrf_name, vn_name,
                                                    label, vxlan_id,
                                                    ethernet_tag,
@@ -114,7 +114,7 @@ void MulticastHandler::DeleteBroadcast(const Peer *peer,
 {
     boost::system::error_code ec;
     MCTRACE(Log, "delete bcast route ", vrf_name, "255.255.255.255", 0);
-    Layer2AgentRouteTable::DeleteBroadcastReq(peer, vrf_name, ethernet_tag);
+    BridgeAgentRouteTable::DeleteBroadcastReq(peer, vrf_name, ethernet_tag);
     ComponentNHKeyList component_nh_key_list; //dummy list
 }
 
@@ -142,7 +142,7 @@ void MulticastHandler::HandleVxLanChange(const VnEntry *vn) {
 
 void MulticastHandler::HandleFamilyConfig(const VnEntry *vn) 
 {
-    bool new_layer2_forwarding = vn->layer2_forwarding();
+    bool new_bridge_forwarding = vn->bridge_forwarding();
 
     if (!vn->GetVrf())
         return;
@@ -155,10 +155,10 @@ void MulticastHandler::HandleFamilyConfig(const VnEntry *vn)
             continue;
 
         //L2 family disabled
-        if (!(new_layer2_forwarding) && (*it)->layer2_forwarding()) {
-            (*it)->SetLayer2Forwarding(new_layer2_forwarding);
+        if (!(new_bridge_forwarding) && (*it)->bridge_forwarding()) {
+            (*it)->SetBridgeForwarding(new_bridge_forwarding);
             if (IS_BCAST_MCAST((*it)->GetGroupAddress())) { 
-                Layer2AgentRouteTable::DeleteBroadcastReq(agent_->
+                BridgeAgentRouteTable::DeleteBroadcastReq(agent_->
                                                           local_vm_peer(),
                                                           (*it)->vrf_name(), 0);
             }
@@ -257,7 +257,7 @@ void MulticastHandler::HandleTorRoute(DBTablePartBase *partition,
                                TunnelType::VxlanType(), false);
         if (obj->tor_olist().empty()) {
             //Delete route path for TOR since olist is empty
-            Layer2AgentRouteTable::DeleteBroadcastReq(agent_->multicast_tor_peer(),
+            BridgeAgentRouteTable::DeleteBroadcastReq(agent_->multicast_tor_peer(),
                                                       vrf_name,
                                                       vxlan_id);
             ComponentNHKeyList component_nh_key_list; //dummy list
@@ -558,7 +558,7 @@ MulticastHandler::GetInterfaceComponentNHKeyList(MulticastGroupObject *obj,
 
 void MulticastHandler::TriggerLocalRouteChange(MulticastGroupObject *obj,
                                           const Peer *peer) {
-    if (obj->layer2_forwarding() == false) {
+    if (obj->bridge_forwarding() == false) {
         return;
     }
 
@@ -566,14 +566,14 @@ void MulticastHandler::TriggerLocalRouteChange(MulticastGroupObject *obj,
     ComponentNHKeyList component_nh_key_list;
 
     component_nh_key_list =
-        GetInterfaceComponentNHKeyList(obj, InterfaceNHFlags::LAYER2);
+        GetInterfaceComponentNHKeyList(obj, InterfaceNHFlags::BRIDGE);
     MCTRACE(Log, "enqueue route change with local peer",
             obj->vrf_name(),
             obj->GetGroupAddress().to_string(),
             component_nh_key_list.size());
-    //Add Layer2 FF:FF:FF:FF:FF:FF, local_vm_peer
+    //Add Bridge FF:FF:FF:FF:FF:FF, local_vm_peer
     uint32_t route_tunnel_bmap = TunnelType::AllType();
-    Layer2AgentRouteTable::AddLayer2BroadcastRoute(peer,
+    BridgeAgentRouteTable::AddBridgeBroadcastRoute(peer,
                                                    obj->vrf_name(),
                                                    obj->GetVnName(),
                                                    obj->evpn_mpls_label(),
@@ -620,7 +620,7 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
         // dont update peer_identifier. Let it get updated via update operation only
         MCTRACE(Log, "delete bcast path from remote peer", vrf_name,
                 "255.255.255.255", 0);
-        Layer2AgentRouteTable::DeleteBroadcastReq(peer, vrf_name,
+        BridgeAgentRouteTable::DeleteBroadcastReq(peer, vrf_name,
                                                   ethernet_tag);
         ComponentNHKeyList component_nh_key_list; //dummy list
         return;
@@ -673,11 +673,11 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
             obj->GetGroupAddress().to_string(),
             component_nh_key_list.size());
 
-    //Add Layer2 FF:FF:FF:FF:FF:FF$
+    //Add Bridge FF:FF:FF:FF:FF:FF$
     uint32_t route_tunnel_bmap = TunnelType::AllType();
     if (comp_type == Composite::TOR)
         route_tunnel_bmap = TunnelType::VxlanType();
-    Layer2AgentRouteTable::AddLayer2BroadcastRoute(peer,
+    BridgeAgentRouteTable::AddBridgeBroadcastRoute(peer,
                                                    obj->vrf_name(),
                                                    obj->GetVnName(),
                                                    label,
@@ -712,19 +712,19 @@ void MulticastHandler::AddVmInterfaceInFloodGroup(const VmInterface *vm_itf) {
 
     //Modify Nexthops
     if (all_broadcast->AddLocalMember(intf_uuid) == true) {
-        if (vn->layer2_forwarding()) {
+        if (vn->bridge_forwarding()) {
             TriggerLocalRouteChange(all_broadcast, agent_->local_vm_peer());
         }
         AddVmToMulticastObjMap(intf_uuid, all_broadcast);
     }
     //Modify routes
-    if ((add_route || (all_broadcast->layer2_forwarding() != 
-                       vn->layer2_forwarding())) && vn->layer2_forwarding()) {
+    if ((add_route || (all_broadcast->bridge_forwarding() != 
+                       vn->bridge_forwarding())) && vn->bridge_forwarding()) {
         if (TunnelType::ComputeType(TunnelType::AllType()) ==
             TunnelType::VXLAN) {
             all_broadcast->set_vxlan_id(vn->GetVxLanId());
         } 
-        all_broadcast->SetLayer2Forwarding(vn->layer2_forwarding());
+        all_broadcast->SetBridgeForwarding(vn->bridge_forwarding());
         //TODO OVS no need to alloc mpls label for OVS VMI.
         uint32_t evpn_label = agent_->mpls_table()->
             AllocLabel();
@@ -920,7 +920,7 @@ void MulticastHandler::Shutdown() {
          it++) {
         MulticastGroupObject *obj = (*it);
         AgentRoute *route =
-            Layer2AgentRouteTable::FindRoute(agent_, obj->vrf_name(),
+            BridgeAgentRouteTable::FindRoute(agent_, obj->vrf_name(),
                                              MacAddress::BroadcastMac(),
                                              IpAddress());
         if (route == NULL)

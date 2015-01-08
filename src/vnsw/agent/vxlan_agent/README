@@ -161,8 +161,8 @@ Contrail-Vxlan-Agent is split into two layers.
 
         - KSyncVxlanRouteTable :
           KSyncVxlanRouteTable is table of all FDB entries in a Vxlan Bridge.
-          The table is built by listening to Layer2 Routing Oper-DBTable.
-          A FDB entry is created for every entry in the Layer2 Routing Table.
+          The table is built by listening to Bridge Routing Oper-DBTable.
+          A FDB entry is created for every entry in the Bridge Routing Table.
 
           Each route entry contains reference to KSyncVxlanBridgeEntry it is
           member of and KSyncVxlanPortEntry.

@@ -1384,11 +1384,11 @@ TEST_F(IntfTest, IntfActivateDeactivate_1) {
                                     InterfaceNHFlags::INET4);
     EXPECT_FALSE(FindNH(&multicast_nh_key));
 
-    InterfaceNHKey layer2_nh_key(intf_key4, false, InterfaceNHFlags::LAYER2);
-    EXPECT_FALSE(FindNH(&layer2_nh_key));
+    InterfaceNHKey bridge_nh_key(intf_key4, false, InterfaceNHFlags::BRIDGE);
+    EXPECT_FALSE(FindNH(&bridge_nh_key));
 
-    InterfaceNHKey layer2_policy_nh_key(intf_key5, true, InterfaceNHFlags::LAYER2);
-    EXPECT_FALSE(FindNH(&layer2_policy_nh_key));
+    InterfaceNHKey bridge_policy_nh_key(intf_key5, true, InterfaceNHFlags::BRIDGE);
+    EXPECT_FALSE(FindNH(&bridge_policy_nh_key));
 
     AddPort(input[0].name, 1);
 
@@ -1396,8 +1396,8 @@ TEST_F(IntfTest, IntfActivateDeactivate_1) {
     EXPECT_TRUE(FindNH(&unicast_nh_key));
     EXPECT_TRUE(FindNH(&unicast_policy_nh_key));
     EXPECT_TRUE(FindNH(&multicast_nh_key));
-    EXPECT_TRUE(FindNH(&layer2_nh_key));
-    EXPECT_TRUE(FindNH(&layer2_policy_nh_key));
+    EXPECT_TRUE(FindNH(&bridge_nh_key));
+    EXPECT_TRUE(FindNH(&bridge_policy_nh_key));
 
     //Clean up
     DeleteVmportEnv(input, 1, true);
@@ -1405,8 +1405,8 @@ TEST_F(IntfTest, IntfActivateDeactivate_1) {
     EXPECT_FALSE(FindNH(&unicast_nh_key));
     EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
     EXPECT_FALSE(FindNH(&multicast_nh_key));
-    EXPECT_FALSE(FindNH(&layer2_nh_key));
-    EXPECT_FALSE(FindNH(&layer2_policy_nh_key));
+    EXPECT_FALSE(FindNH(&bridge_nh_key));
+    EXPECT_FALSE(FindNH(&bridge_policy_nh_key));
     EXPECT_FALSE(VrfFind("vrf1", true));
 }
 
@@ -1435,15 +1435,15 @@ TEST_F(IntfTest, IntfActivateDeactivate_2) {
     InterfaceNHKey unicast_policy_nh_key(intf_key2, true, InterfaceNHFlags::INET4);
     InterfaceNHKey multicast_nh_key(intf_key3, false, InterfaceNHFlags::MULTICAST |
                                     InterfaceNHFlags::INET4);
-    InterfaceNHKey layer2_nh_key(intf_key4, false, InterfaceNHFlags::LAYER2);
-    InterfaceNHKey layer2_policy_nh_key(intf_key5, true, InterfaceNHFlags::LAYER2);
+    InterfaceNHKey bridge_nh_key(intf_key4, false, InterfaceNHFlags::BRIDGE);
+    InterfaceNHKey bridge_policy_nh_key(intf_key5, true, InterfaceNHFlags::BRIDGE);
 
     client->WaitForIdle();
     EXPECT_TRUE(FindNH(&unicast_nh_key));
     EXPECT_TRUE(FindNH(&unicast_policy_nh_key));
     EXPECT_TRUE(FindNH(&multicast_nh_key));
-    EXPECT_TRUE(FindNH(&layer2_nh_key));
-    EXPECT_TRUE(FindNH(&layer2_policy_nh_key));
+    EXPECT_TRUE(FindNH(&bridge_nh_key));
+    EXPECT_TRUE(FindNH(&bridge_policy_nh_key));
 
     //Deactivate the interface
     DelLink("virtual-machine-interface-routing-instance", input[0].name,
@@ -1452,8 +1452,8 @@ TEST_F(IntfTest, IntfActivateDeactivate_2) {
     EXPECT_FALSE(FindNH(&unicast_nh_key));
     EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
     EXPECT_FALSE(FindNH(&multicast_nh_key));
-    EXPECT_FALSE(FindNH(&layer2_nh_key));
-    EXPECT_FALSE(FindNH(&layer2_policy_nh_key));
+    EXPECT_FALSE(FindNH(&bridge_nh_key));
+    EXPECT_FALSE(FindNH(&bridge_policy_nh_key));
 
     //Activate the interface
     AddLink("virtual-machine-interface-routing-instance", input[0].name,
@@ -1462,24 +1462,24 @@ TEST_F(IntfTest, IntfActivateDeactivate_2) {
     EXPECT_TRUE(FindNH(&unicast_nh_key));
     EXPECT_TRUE(FindNH(&unicast_policy_nh_key));
     EXPECT_TRUE(FindNH(&multicast_nh_key));
-    EXPECT_TRUE(FindNH(&layer2_nh_key));
-    EXPECT_TRUE(FindNH(&layer2_policy_nh_key));
+    EXPECT_TRUE(FindNH(&bridge_nh_key));
+    EXPECT_TRUE(FindNH(&bridge_policy_nh_key));
 
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
     EXPECT_FALSE(FindNH(&unicast_nh_key));
     EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
     EXPECT_FALSE(FindNH(&multicast_nh_key));
-    EXPECT_FALSE(FindNH(&layer2_nh_key));
-    EXPECT_FALSE(FindNH(&layer2_policy_nh_key));
+    EXPECT_FALSE(FindNH(&bridge_nh_key));
+    EXPECT_FALSE(FindNH(&bridge_policy_nh_key));
     EXPECT_FALSE(VrfFind("vrf1", true));
 }
 
-//1> Add interface with layer2 forwarding disabled(no VN present)
-//   and verify layer2 nexthops are absent
-//2> Activate layer2 forwarding of interface by changing forward mode in VN
+//1> Add interface with bridge forwarding disabled(no VN present)
+//   and verify bridge nexthops are absent
+//2> Activate bridge forwarding of interface by changing forward mode in VN
 //   verify layer 2 nexthop are added
-//3> Activate both layer 2 and layer 3 forwarding, and verify both layer2 and
+//3> Activate both layer 2 and layer 3 forwarding, and verify both bridge and
 //   layer3 nexthop are present
 //4> Delete the interface , and verify all nexthop are deleted
 TEST_F(IntfTest, IntfActivateDeactivate_3) {
@@ -1502,15 +1502,15 @@ TEST_F(IntfTest, IntfActivateDeactivate_3) {
     InterfaceNHKey unicast_policy_nh_key(intf_key2, true, InterfaceNHFlags::INET4);
     InterfaceNHKey multicast_nh_key(intf_key3, false, InterfaceNHFlags::MULTICAST |
                                     InterfaceNHFlags::INET4);
-    InterfaceNHKey layer2_nh_key(intf_key4, false, InterfaceNHFlags::LAYER2);
-    InterfaceNHKey layer2_policy_nh_key(intf_key5, true, InterfaceNHFlags::LAYER2);
+    InterfaceNHKey bridge_nh_key(intf_key4, false, InterfaceNHFlags::BRIDGE);
+    InterfaceNHKey bridge_policy_nh_key(intf_key5, true, InterfaceNHFlags::BRIDGE);
 
     client->WaitForIdle();
     EXPECT_FALSE(FindNH(&unicast_nh_key));
     EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
     EXPECT_FALSE(FindNH(&multicast_nh_key));
-    EXPECT_FALSE(FindNH(&layer2_nh_key));
-    EXPECT_FALSE(FindNH(&layer2_policy_nh_key));
+    EXPECT_FALSE(FindNH(&bridge_nh_key));
+    EXPECT_FALSE(FindNH(&bridge_policy_nh_key));
 
     //Add L2 VN
     client->Reset();
@@ -1522,8 +1522,8 @@ TEST_F(IntfTest, IntfActivateDeactivate_3) {
     EXPECT_FALSE(FindNH(&unicast_nh_key));
     EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
     EXPECT_TRUE(FindNH(&multicast_nh_key));
-    EXPECT_TRUE(FindNH(&layer2_nh_key));
-    EXPECT_TRUE(FindNH(&layer2_policy_nh_key));
+    EXPECT_TRUE(FindNH(&bridge_nh_key));
+    EXPECT_TRUE(FindNH(&bridge_policy_nh_key));
 
     //Activate ip forwarding of interface
     AddVn("vn1", 1);
@@ -1531,22 +1531,22 @@ TEST_F(IntfTest, IntfActivateDeactivate_3) {
     EXPECT_TRUE(FindNH(&unicast_nh_key));
     EXPECT_TRUE(FindNH(&unicast_policy_nh_key));
     EXPECT_TRUE(FindNH(&multicast_nh_key));
-    EXPECT_TRUE(FindNH(&layer2_nh_key));
-    EXPECT_TRUE(FindNH(&layer2_policy_nh_key));
+    EXPECT_TRUE(FindNH(&bridge_nh_key));
+    EXPECT_TRUE(FindNH(&bridge_policy_nh_key));
 
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
     EXPECT_FALSE(FindNH(&unicast_nh_key));
     EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
     EXPECT_FALSE(FindNH(&multicast_nh_key));
-    EXPECT_FALSE(FindNH(&layer2_nh_key));
-    EXPECT_FALSE(FindNH(&layer2_policy_nh_key));
+    EXPECT_FALSE(FindNH(&bridge_nh_key));
+    EXPECT_FALSE(FindNH(&bridge_policy_nh_key));
     EXPECT_FALSE(VrfFind("vrf1", true));
 }
 
 //1> Deactivate layer3 forwarding of interface by changing forward mode in VN
 //   verify layer 3 nexthop are deleted
-//2> Activate both layer 2 and layer 3 forwarding, and verify both layer2 and
+//2> Activate both layer 2 and layer 3 forwarding, and verify both bridge and
 //   layer3 nexthop are present
 //3> Delete the interface , and verify all nexthop are deleted
 TEST_F(IntfTest, IntfActivateDeactivate_4) {
@@ -1569,15 +1569,15 @@ TEST_F(IntfTest, IntfActivateDeactivate_4) {
     InterfaceNHKey unicast_policy_nh_key(intf_key2, true, InterfaceNHFlags::INET4);
     InterfaceNHKey multicast_nh_key(intf_key3, false, InterfaceNHFlags::MULTICAST |
                                     InterfaceNHFlags::INET4);
-    InterfaceNHKey layer2_nh_key(intf_key4, false, InterfaceNHFlags::LAYER2);
-    InterfaceNHKey layer2_policy_nh_key(intf_key5, true, InterfaceNHFlags::LAYER2);
+    InterfaceNHKey bridge_nh_key(intf_key4, false, InterfaceNHFlags::BRIDGE);
+    InterfaceNHKey bridge_policy_nh_key(intf_key5, true, InterfaceNHFlags::BRIDGE);
 
     client->WaitForIdle();
     EXPECT_TRUE(FindNH(&unicast_nh_key));
     EXPECT_TRUE(FindNH(&unicast_policy_nh_key));
     EXPECT_TRUE(FindNH(&multicast_nh_key));
-    EXPECT_TRUE(FindNH(&layer2_nh_key));
-    EXPECT_TRUE(FindNH(&layer2_policy_nh_key));
+    EXPECT_TRUE(FindNH(&bridge_nh_key));
+    EXPECT_TRUE(FindNH(&bridge_policy_nh_key));
 
     //Add L2 VN
     client->Reset();
@@ -1589,8 +1589,8 @@ TEST_F(IntfTest, IntfActivateDeactivate_4) {
     EXPECT_FALSE(FindNH(&unicast_nh_key));
     EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
     EXPECT_TRUE(FindNH(&multicast_nh_key));
-    EXPECT_TRUE(FindNH(&layer2_nh_key));
-    EXPECT_TRUE(FindNH(&layer2_policy_nh_key));
+    EXPECT_TRUE(FindNH(&bridge_nh_key));
+    EXPECT_TRUE(FindNH(&bridge_policy_nh_key));
 
     //Activate ip forwarding of interface
     AddVn("vn1", 1);
@@ -1598,20 +1598,20 @@ TEST_F(IntfTest, IntfActivateDeactivate_4) {
     EXPECT_TRUE(FindNH(&unicast_nh_key));
     EXPECT_TRUE(FindNH(&unicast_policy_nh_key));
     EXPECT_TRUE(FindNH(&multicast_nh_key));
-    EXPECT_TRUE(FindNH(&layer2_nh_key));
-    EXPECT_TRUE(FindNH(&layer2_policy_nh_key));
+    EXPECT_TRUE(FindNH(&bridge_nh_key));
+    EXPECT_TRUE(FindNH(&bridge_policy_nh_key));
 
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
     EXPECT_FALSE(FindNH(&unicast_nh_key));
     EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
     EXPECT_FALSE(FindNH(&multicast_nh_key));
-    EXPECT_FALSE(FindNH(&layer2_nh_key));
-    EXPECT_FALSE(FindNH(&layer2_policy_nh_key));
+    EXPECT_FALSE(FindNH(&bridge_nh_key));
+    EXPECT_FALSE(FindNH(&bridge_policy_nh_key));
     EXPECT_FALSE(VrfFind("vrf1", true));
 }
 
-//1> Create interface without IP, make layer2 nexthop are present and
+//1> Create interface without IP, make bridge nexthop are present and
 //   layer3 nexthop are absent
 //2> Add instance IP and make sure layer3 nexthop are added
 //3> Delete instance ip and layer3 nexthop are deleted
@@ -1635,15 +1635,15 @@ TEST_F(IntfTest, IntfActivateDeactivate_5) {
     InterfaceNHKey unicast_policy_nh_key(intf_key2, true, InterfaceNHFlags::INET4);
     InterfaceNHKey multicast_nh_key(intf_key3, false, InterfaceNHFlags::MULTICAST |
                                     InterfaceNHFlags::INET4);
-    InterfaceNHKey layer2_nh_key(intf_key4, false, InterfaceNHFlags::LAYER2);
-    InterfaceNHKey layer2_policy_nh_key(intf_key5, true, InterfaceNHFlags::LAYER2);
+    InterfaceNHKey bridge_nh_key(intf_key4, false, InterfaceNHFlags::BRIDGE);
+    InterfaceNHKey bridge_policy_nh_key(intf_key5, true, InterfaceNHFlags::BRIDGE);
 
     client->WaitForIdle();
     EXPECT_FALSE(FindNH(&unicast_nh_key));
     EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
     EXPECT_TRUE(FindNH(&multicast_nh_key));
-    EXPECT_TRUE(FindNH(&layer2_nh_key));
-    EXPECT_TRUE(FindNH(&layer2_policy_nh_key));
+    EXPECT_TRUE(FindNH(&bridge_nh_key));
+    EXPECT_TRUE(FindNH(&bridge_policy_nh_key));
 
     //Add instance ip
     AddInstanceIp("instance1", input[0].vm_id, "1.1.1.10");
@@ -1654,16 +1654,16 @@ TEST_F(IntfTest, IntfActivateDeactivate_5) {
     EXPECT_TRUE(FindNH(&unicast_nh_key));
     EXPECT_TRUE(FindNH(&unicast_policy_nh_key));
     EXPECT_TRUE(FindNH(&multicast_nh_key));
-    EXPECT_TRUE(FindNH(&layer2_nh_key));
-    EXPECT_TRUE(FindNH(&layer2_policy_nh_key));
+    EXPECT_TRUE(FindNH(&bridge_nh_key));
+    EXPECT_TRUE(FindNH(&bridge_policy_nh_key));
 
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
     EXPECT_FALSE(FindNH(&unicast_nh_key));
     EXPECT_FALSE(FindNH(&unicast_policy_nh_key));
     EXPECT_FALSE(FindNH(&multicast_nh_key));
-    EXPECT_FALSE(FindNH(&layer2_nh_key));
-    EXPECT_FALSE(FindNH(&layer2_policy_nh_key));
+    EXPECT_FALSE(FindNH(&bridge_nh_key));
+    EXPECT_FALSE(FindNH(&bridge_policy_nh_key));
     EXPECT_FALSE(VrfFind("vrf1", true));
 }
 
