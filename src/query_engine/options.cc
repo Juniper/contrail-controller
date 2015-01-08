@@ -128,6 +128,8 @@ void Options::Initialize(EventManager &evm,
              "Port of Redis-uve server")
         ("REDIS.server", opt::value<string>()->default_value("127.0.0.1"),
              "IP address of Redis Server")
+        ("REDIS.password", opt::value<string>()->default_value(""),
+             "password for Redis Server")
         ;
 
     config_file_options_.add(config);
@@ -231,4 +233,5 @@ void Options::Process(int argc, char *argv[],
 
     GetOptValue<uint16_t>(var_map, redis_port_, "REDIS.port");
     GetOptValue<string>(var_map, redis_server_, "REDIS.server");
+    GetOptValue<string>(var_map, redis_password_, "REDIS.password");
 }

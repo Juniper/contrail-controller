@@ -20,6 +20,7 @@ local_sources = [
                  'analytics_db_test.py',
                  'overlay_to_underlay_mapper_test.py',
 #                 'analytics_perftest.py',
+                 'analytics_redistest.py'
                  ]
 local_sources_rules = []
 for file in local_sources:

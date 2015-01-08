@@ -137,24 +137,94 @@ class OpServerProxy::OpServerImpl {
             
             if (!started_) {
                 RedisProcessorExec::FlushUVEs(redis_uve_.GetIp(),
-                                              redis_uve_.GetPort());
+                                              redis_uve_.GetPort(),
+                                              redis_password_);
                 started_=true;
             }
             if (collector_) 
                 collector_->RedisUpdate(true);
         }
 
-        void ToOpsConnUp() {
-            LOG(DEBUG, "ToOpsConnUp.. UP");
-            {
-                tbb::mutex::scoped_lock lock(rac_mutex_); 
-                redis_uve_.RedisStatusUpdate(RAC_UP);
-            }
-            // Update connection info
-            ConnectionState::GetInstance()->Update(ConnectionType::REDIS,
+        void toAuthCallbackProcess(const redisAsyncContext *c, void *r, void *privdata) {
+           //Handle the AUTH callback
+            redisReply reply = *reinterpret_cast<redisReply*>(r);
+            if (reply.type != REDIS_REPLY_ERROR) {
+                {
+                   tbb::mutex::scoped_lock lock(rac_mutex_);
+                   redis_uve_.RedisStatusUpdate(RAC_UP);
+                }
+                ConnectionState::GetInstance()->Update(ConnectionType::REDIS,
                 "To", ConnectionStatus::UP, to_ops_conn_->Endpoint(),
                 std::string());
-            evm_->io_service()->post(boost::bind(&OpServerProxy::OpServerImpl::ToOpsConnUpPostProcess, this));
+                evm_->io_service()->post(boost::bind(&OpServerProxy::OpServerImpl::ToOpsConnUpPostProcess, this));
+                return;
+
+            } else {
+                LOG(ERROR,"In authCallbackProcess.. Error");
+                assert(reply.type != REDIS_REPLY_ERROR);
+            }
+
+       }
+
+        void fromAuthCallbackProcess(const redisAsyncContext *c, void *r, void *privdata) {
+            //Handle the AUTH callback
+            redisReply reply = *reinterpret_cast<redisReply*>(r);
+            if (reply.type != REDIS_REPLY_ERROR) {
+                ConnectionState::GetInstance()->Update(ConnectionType::REDIS,
+                "From", ConnectionStatus::UP, from_ops_conn_->Endpoint(),
+                std::string());
+                evm_->io_service()->post(boost::bind(&OpServerProxy::OpServerImpl::FromOpsConnUpPostProcess, this));
+                return;
+
+            } else {
+                LOG(ERROR,"In authCallbackProcess.. Error");
+                assert(reply.type != REDIS_REPLY_ERROR);
+            }
+
+        }
+
+        void ToOpsAuthenticated() {
+            if (!redis_password_.empty()) {
+                //Set the authentication callback
+                to_ops_conn_.get()->SetClientAsyncCmdCb(boost::bind(
+                                                        &OpServerImpl::toAuthCallbackProcess,
+                                                         this, _1, _2, _3));
+                //Call the AUTH command
+                to_ops_conn_.get()->RedisAsyncCommand(NULL,"AUTH %s",redis_password_.c_str());
+            } else {
+                {
+                   tbb::mutex::scoped_lock lock(rac_mutex_);
+                   redis_uve_.RedisStatusUpdate(RAC_UP);
+                }
+                //No passwd set so calling ToOpsPostProcess directly
+                ConnectionState::GetInstance()->Update(ConnectionType::REDIS,
+                "To", ConnectionStatus::UP, to_ops_conn_->Endpoint(),
+                std::string());
+                evm_->io_service()->post(boost::bind(&OpServerProxy::OpServerImpl::ToOpsConnUpPostProcess, this));
+	    }
+        }
+
+        void FromOpsAuthenticated() {
+            if (!redis_password_.empty()) {
+                //Set the authentication callback
+                from_ops_conn_.get()->SetClientAsyncCmdCb(boost::bind(
+                                                        &OpServerImpl::fromAuthCallbackProcess,
+                                                         this, _1, _2, _3));
+                //Call the AUTH command
+                from_ops_conn_.get()->RedisAsyncCommand(NULL,"AUTH %s",redis_password_.c_str());
+            } else {
+                //No passwd set so calling ToOpsPostProcess directly
+                ConnectionState::GetInstance()->Update(ConnectionType::REDIS,
+                "From", ConnectionStatus::UP, from_ops_conn_->Endpoint(),
+                std::string());
+                evm_->io_service()->post(boost::bind(&OpServerProxy::OpServerImpl::FromOpsConnUpPostProcess, this));
+            }
+
+        }
+
+        void ToOpsConnUp() {
+            LOG(DEBUG, "ToOpsConnUp.. UP");
+            evm_->io_service()->post(boost::bind(&OpServerProxy::OpServerImpl::ToOpsAuthenticated, this));
         }
 
         void FromOpsConnUpPostProcess() {
@@ -165,11 +235,7 @@ class OpServerProxy::OpServerImpl {
 
         void FromOpsConnUp() {
             LOG(DEBUG, "FromOpsConnUp.. UP");
-            // Update connection info
-            ConnectionState::GetInstance()->Update(ConnectionType::REDIS,
-                "From", ConnectionStatus::UP, from_ops_conn_->Endpoint(),
-                std::string());
-            evm_->io_service()->post(boost::bind(&OpServerProxy::OpServerImpl::FromOpsConnUpPostProcess, this));
+            evm_->io_service()->post(boost::bind(&OpServerProxy::OpServerImpl::FromOpsAuthenticated, this));
         }
 
         void RAC_ConnectProcess(RacConnType type) {
@@ -302,17 +368,23 @@ class OpServerProxy::OpServerImpl {
             return from_ops_conn_;
         }
 
+        const string get_redis_password() {
+            return redis_password_;
+        }
+
         OpServerImpl(EventManager *evm, VizCollector *collector,
-                     const std::string redis_uve_ip, 
-                     unsigned short redis_uve_port) :
+                     const std::string redis_uve_ip,
+                     unsigned short redis_uve_port,
+                     const std::string redis_password) :
             redis_uve_(redis_uve_ip, redis_uve_port),
             evm_(evm),
             collector_(collector),
             started_(false),
             analytics_cb_proc_fn(NULL),
-            processor_cb_proc_fn(NULL) {
-            to_ops_conn_.reset(new RedisAsyncConnection(evm_, 
-                redis_uve_ip, redis_uve_port, 
+            processor_cb_proc_fn(NULL),
+            redis_password_(redis_password) {
+            to_ops_conn_.reset(new RedisAsyncConnection(evm_,
+                redis_uve_ip, redis_uve_port,
                 boost::bind(&OpServerProxy::OpServerImpl::ToOpsConnUp, this),
                 boost::bind(&OpServerProxy::OpServerImpl::ToOpsConnDown, this)));
             // Update connection info
@@ -320,8 +392,8 @@ class OpServerProxy::OpServerImpl {
                 "To", ConnectionStatus::INIT, to_ops_conn_->Endpoint(),
                 std::string());
             to_ops_conn_.get()->RAC_Connect();
-            from_ops_conn_.reset(new RedisAsyncConnection(evm_, 
-                redis_uve_ip, redis_uve_port, 
+            from_ops_conn_.reset(new RedisAsyncConnection(evm_,
+                redis_uve_ip, redis_uve_port,
                 boost::bind(&OpServerProxy::OpServerImpl::FromOpsConnUp, this),
                 boost::bind(&OpServerProxy::OpServerImpl::FromOpsConnDown, this)));
             // Update connection info
@@ -345,12 +417,15 @@ class OpServerProxy::OpServerImpl {
         RedisAsyncConnection::ClientAsyncCmdCbFn analytics_cb_proc_fn;
         RedisAsyncConnection::ClientAsyncCmdCbFn processor_cb_proc_fn;
         tbb::mutex rac_mutex_;
+        const std::string redis_password_;
 };
 
 OpServerProxy::OpServerProxy(EventManager *evm, VizCollector *collector,
                              const std::string& redis_uve_ip,
-                             unsigned short redis_uve_port) {
-    impl_ = new OpServerImpl(evm, collector, redis_uve_ip, redis_uve_port);
+                             unsigned short redis_uve_port,
+                             const std::string& redis_password) {
+    impl_ = new OpServerImpl(evm, collector, redis_uve_ip, redis_uve_port,
+                             redis_password);
 }
 
 OpServerProxy::~OpServerProxy() {
@@ -398,8 +473,8 @@ OpServerProxy::UVEDelete(const std::string &type,
     return ret;
 }
 
-bool 
-OpServerProxy::GetSeq(const string &source, const string &node_type, 
+bool
+OpServerProxy::GetSeq(const string &source, const string &node_type,
         const string &module, const string &instance_id,
         std::map<std::string,int32_t> & seqReply) {
 
@@ -408,21 +483,21 @@ OpServerProxy::GetSeq(const string &source, const string &node_type,
 
     if (!impl_->to_ops_conn()) return false;
 
-    return RedisProcessorExec::SyncGetSeq(impl_->redis_uve_.GetIp(), 
-            impl_->redis_uve_.GetPort(), source, node_type, module, 
-            instance_id, seqReply);
+    return RedisProcessorExec::SyncGetSeq(impl_->redis_uve_.GetIp(),
+            impl_->redis_uve_.GetPort(), impl_->get_redis_password(),
+            source, node_type, module, instance_id, seqReply);
 }
 
-bool 
+bool
 OpServerProxy::DeleteUVEs(const string &source, const string &module,
                           const string &node_type, const string &instance_id) {
 
     shared_ptr<RedisAsyncConnection> prac = impl_->to_ops_conn();
     if  (!(prac && prac->IsConnUp())) return false;
 
-    return RedisProcessorExec::SyncDeleteUVEs(impl_->redis_uve_.GetIp(), 
-            impl_->redis_uve_.GetPort(), source, node_type, 
-            module, instance_id);
+    return RedisProcessorExec::SyncDeleteUVEs(impl_->redis_uve_.GetIp(),
+            impl_->redis_uve_.GetPort(), impl_->get_redis_password(),source,
+            node_type, module, instance_id);
 }
 
 void 
