@@ -149,9 +149,9 @@ private:
     bool stale_;
 };
 
-class AgentLayer2RtSandesh : public AgentSandesh {
+class AgentEvpnRtSandesh : public AgentSandesh {
 public:
-    AgentLayer2RtSandesh(VrfEntry *vrf, std::string context, std::string name, 
+    AgentEvpnRtSandesh(VrfEntry *vrf, std::string context, std::string name, 
                          bool stale) 
         : AgentSandesh(context, name), vrf_(vrf), stale_(stale) {}
 

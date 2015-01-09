@@ -98,7 +98,7 @@ struct RouteTableWalkerState {
 };
 
 // Agent implements multiple route tables - inet4-unicast, inet4-multicast, 
-// layer2. This base class contains common code for all route tables
+// evpn. This base class contains common code for all route tables
 class AgentRouteTable : public RouteTable {
 public:
     typedef std::set<const AgentRoute *, RouteComparator> UnresolvedRouteTree;

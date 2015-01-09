@@ -112,7 +112,7 @@ void VrfEntry::PostAdd() {
     rt_table_db_[type]->SetVrf(this);
     table->dbtree_[type].insert(VrfTable::VrfDbPair(name_, rt_table_db_[type]));
 
-    type = Agent::LAYER2;
+    type = Agent::EVPN;
     rt_table_db_[type] = static_cast<AgentRouteTable *>
         (db->CreateTable(name_ + AgentRouteTable::GetSuffix(type)));
     rt_table_db_[type]->SetVrf(this);
@@ -136,9 +136,9 @@ void VrfEntry::PostAdd() {
     UpdateVxlanId(agent, vxlan_id);
 
     // Add the L2 Receive routes for VRRP mac
-    Layer2AgentRouteTable *l2_table = static_cast<Layer2AgentRouteTable *>
-        (rt_table_db_[Agent::LAYER2]);
-    l2_table->AddLayer2ReceiveRoute(agent->local_vm_peer(), name_, 0,
+    EvpnAgentRouteTable *l2_table = static_cast<EvpnAgentRouteTable *>
+        (rt_table_db_[Agent::EVPN]);
+    l2_table->AddEvpnReceiveRoute(agent->local_vm_peer(), name_, 0,
                                     agent->vrrp_mac(), "");
 
     // Add the L2 Receive routes for xconnect interface to vhost
@@ -147,7 +147,7 @@ void VrfEntry::PostAdd() {
     const InetInterface *vhost = static_cast<const InetInterface *>
         (agent->vhost_interface());
     if (vhost && vhost->xconnect()) {
-        l2_table->AddLayer2ReceiveRoute(agent->local_vm_peer(), name_, 0,
+        l2_table->AddEvpnReceiveRoute(agent->local_vm_peer(), name_, 0,
                                         vhost->xconnect()->mac(), "");
     }
 
@@ -208,8 +208,8 @@ AgentRouteTable *VrfEntry::GetInet4MulticastRouteTable() const {
     return rt_table_db_[Agent::INET4_MULTICAST];
 }
 
-AgentRouteTable *VrfEntry::GetLayer2RouteTable() const {
-    return rt_table_db_[Agent::LAYER2];
+AgentRouteTable *VrfEntry::GetEvpnRouteTable() const {
+    return rt_table_db_[Agent::EVPN];
 }
 
 InetUnicastAgentRouteTable *VrfEntry::GetInet6UnicastRouteTable() const {
@@ -280,7 +280,7 @@ bool VrfEntry::DeleteTimeout() {
     std::ostringstream str;
     str << "Unicast routes: " << rt_table_db_[Agent::INET4_UNICAST]->Size();
     str << " Mutlicast routes: " << rt_table_db_[Agent::INET4_MULTICAST]->Size();
-    str << " Layer2 routes: " << rt_table_db_[Agent::LAYER2]->Size();
+    str << " Evpn routes: " << rt_table_db_[Agent::EVPN]->Size();
     str << "Unicast v6 routes: " << rt_table_db_[Agent::INET6_UNICAST]->Size();
     str << " Reference: " << GetRefCount();
     OPER_TRACE(Vrf, "VRF delete failed, " + str.str(), name_);
@@ -358,8 +358,8 @@ bool VrfTable::Delete(DBEntry *entry, const DBRequest *req) {
         return false;
 
     // Delete the L2 Receive routes added by default
-    Layer2AgentRouteTable *l2_table = static_cast<Layer2AgentRouteTable *>
-        (vrf->rt_table_db_[Agent::LAYER2]);
+    EvpnAgentRouteTable *l2_table = static_cast<EvpnAgentRouteTable *>
+        (vrf->rt_table_db_[Agent::EVPN]);
     l2_table->Delete(agent()->local_vm_peer(), vrf->GetName(),
                      agent()->vrrp_mac(), IpAddress(), 0);
     const InetInterface *vhost = static_cast<const InetInterface *>
@@ -446,8 +446,8 @@ AgentRouteTable *VrfTable::GetInet4MulticastRouteTable(const string &vrf_name) {
     return GetRouteTable(vrf_name, Agent::INET4_MULTICAST);
 }
 
-AgentRouteTable *VrfTable::GetLayer2RouteTable(const string &vrf_name) {
-    return GetRouteTable(vrf_name, Agent::LAYER2);
+AgentRouteTable *VrfTable::GetEvpnRouteTable(const string &vrf_name) {
+    return GetRouteTable(vrf_name, Agent::EVPN);
 }
 
 InetUnicastAgentRouteTable *VrfTable::GetInet6UnicastRouteTable

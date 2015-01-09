@@ -115,7 +115,7 @@ public:
         RouteKSyncObject *inet4_uc_route_table_;
         RouteKSyncObject *inet4_mc_route_table_;
         RouteKSyncObject *inet6_uc_route_table_;
-        RouteKSyncObject *layer2_route_table_;
+        RouteKSyncObject *evpn_route_table_;
         IpToMacBinding  ip_mac_binding_;
     };
 

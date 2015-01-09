@@ -50,7 +50,7 @@ struct IntfFlowInfo;
 struct VmFlowInfo;
 class RouteFlowUpdate;
 class InetRouteFlowUpdate;
-class EvpnRouteFlowUpdate;
+class BridgeEntryFlowUpdate;
 class FlowEntry;
 class FlowTable;
 class FlowTableKSyncEntry;
@@ -295,7 +295,7 @@ class FlowEntry {
         DEFAULT_GW_ICMP_OR_DNS, /* DNS/ICMP pkt to/from default gateway */
         LINKLOCAL_FLOW, /* No policy applied for linklocal flow */
         MULTICAST_FLOW, /* No policy applied for multicast flow */
-        NON_IP_FLOW,    /* Flow due to Layer2 forwarding */
+        NON_IP_FLOW,    /* Flow due to bridging */
     };
 
     static const uint32_t kInvalidFlowHandle=0xFFFFFFFF;
@@ -611,7 +611,7 @@ public:
         void Unregister(VrfEntry *vrf);
 
         InetRouteFlowUpdate *inet4_unicast_update_;
-        EvpnRouteFlowUpdate *evpn_update_;
+        BridgeEntryFlowUpdate *bridge_update_;
     };
     struct RouteFlowHandlerState : public DBState {
         RouteFlowHandlerState(SecurityGroupList &sg_l) : sg_l_(sg_l) { }
@@ -680,7 +680,7 @@ public:
     friend class FetchFlowRecord;
     friend class RouteFlowUpdate;
     friend class InetRouteFlowUpdate;
-    friend class EvpnRouteFlowUpdate;
+    friend class BridgeEntryFlowUpdate;
     friend class NhState;
     friend class PktFlowInfo;
     friend void intrusive_ptr_release(FlowEntry *fe);
@@ -866,7 +866,7 @@ private:
 };
 
 ////////////////////////////////////////////////////////////////////////////
-// EvpnRouteFlowUpdate implementation for Evpn route tables
+// BridgeEntryFlowUpdate implementation for bridge tables
 //
 // RouteDel : Deletes the flows. Unlike Inet routes, flow cannot match other
 //            route to re-evaluate
@@ -876,10 +876,10 @@ private:
 // NhChange : Change of NH can potentially change RPF check for flows.
 //            Re-evaluates flows to re-compute RPF check.
 ////////////////////////////////////////////////////////////////////////////
-class EvpnRouteFlowUpdate : public RouteFlowUpdate {
+class BridgeEntryFlowUpdate : public RouteFlowUpdate {
 public:
-    EvpnRouteFlowUpdate(AgentRouteTable *table) : RouteFlowUpdate(table) { }
-    virtual ~EvpnRouteFlowUpdate() { }
+    BridgeEntryFlowUpdate(AgentRouteTable *table) : RouteFlowUpdate(table) { }
+    virtual ~BridgeEntryFlowUpdate() { }
 
     bool SgUpdate(FlowEntry *fe, FlowTable *table, RouteFlowKey &key,
                   const SecurityGroupList &sg_list);
@@ -893,7 +893,7 @@ public:
     virtual void NhChange(AgentRoute *entry, const NextHop *active_nh,
                           const NextHop *local_nh);
 private:
-    DISALLOW_COPY_AND_ASSIGN(EvpnRouteFlowUpdate);
+    DISALLOW_COPY_AND_ASSIGN(BridgeEntryFlowUpdate);
 };
 
 class NhState : public DBState {
