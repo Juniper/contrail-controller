@@ -81,9 +81,9 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
           prefix_len_ = 32;
           break;
     }
-    case Agent::LAYER2: {
-          const Layer2RouteEntry *l2_rt =
-              static_cast<const Layer2RouteEntry *>(rt);              
+    case Agent::EVPN: {
+          const EvpnRouteEntry *l2_rt =
+              static_cast<const EvpnRouteEntry *>(rt);              
           mac_ = l2_rt->GetAddress();
           addr_ = l2_rt->ip_addr();
           prefix_len_ = 0;
@@ -154,7 +154,7 @@ bool RouteKSyncEntry::IsLess(const KSyncEntry &rhs) const {
         return UcIsLess(rhs);
     }
 
-    if (rt_type_ == Agent::LAYER2) {
+    if (rt_type_ == Agent::EVPN) {
         return L2IsLess(rhs);
     }
 
@@ -172,7 +172,7 @@ static std::string RouteTypeToString(Agent::RouteTableType type) {
     case Agent::INET4_MULTICAST:
         return "INET_MULTICAST";
         break;
-    case Agent::LAYER2:
+    case Agent::EVPN:
         return "EVPN";
         break;
     default:
@@ -314,7 +314,7 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
         ret = true;
     }
 
-    //Bother for label for unicast and EVPN routes
+    //Bother for label for unicast and bridge routes
     if (rt_type_ != Agent::INET4_MULTICAST) {
         uint32_t old_label = label_;
         const AgentPath *path = 
@@ -357,9 +357,9 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
     if (BuildRouteFlags(e, mac_))
         ret = true;
 
-    if (rt_type_ == Agent::LAYER2) {
-        const Layer2RouteEntry *l2_rt =
-            static_cast<const Layer2RouteEntry *>(e);
+    if (rt_type_ == Agent::EVPN) {
+        const EvpnRouteEntry *l2_rt =
+            static_cast<const EvpnRouteEntry *>(e);
         if (evpn_ip_ != l2_rt->ip_addr()) {
             VrfKSyncObject *obj = ksync_obj_->ksync()->vrf_ksync_obj();
             if (evpn_ip_.is_unspecified() == false) {
@@ -409,7 +409,7 @@ int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
     encoder.set_h_op(op);
     encoder.set_rtr_rid(0);
     encoder.set_rtr_vrf_id(vrf_id_);
-    if (rt_type_ != Agent::LAYER2) {
+    if (rt_type_ != Agent::EVPN) {
         if (addr_.is_v4()) {
             encoder.set_rtr_family(AF_INET);
             boost::array<unsigned char, 4> bytes = addr_.to_v4().to_bytes();
@@ -444,7 +444,7 @@ int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
         }
     }
 
-    if (rt_type_ == Agent::LAYER2) {
+    if (rt_type_ == Agent::EVPN) {
         flags |= 0x02;
         label = label_;
         if (nexthop != NULL && nexthop->type() == NextHop::COMPOSITE) {
@@ -504,8 +504,8 @@ int RouteKSyncEntry::DeleteMsg(char *buf, int buf_len) {
     RouteKSyncEntry *route = NULL;
     NHKSyncEntry *ksync_nh = NULL;
 
-    // IF multicast or EVPN delete unconditionally
-    if ((rt_type_ == Agent::LAYER2) ||
+    // IF multicast or bridge delete unconditionally
+    if ((rt_type_ == Agent::EVPN) ||
         (rt_type_ == Agent::INET4_MULTICAST)) {
         return DeleteInternal(nh(), 0, 0, false, buf, buf_len);
     }
@@ -569,7 +569,7 @@ int RouteKSyncEntry::DeleteInternal(NHKSyncEntry *nexthop, uint32_t lbl,
 }
 
 KSyncEntry *RouteKSyncEntry::UnresolvedReference() {
-    if (rt_type_ == Agent::LAYER2) {
+    if (rt_type_ == Agent::EVPN) {
         if (addr_.is_v6()) {
             return KSyncObjectManager::default_defer_entry();
         }
@@ -659,8 +659,8 @@ void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
 
         // Get Layer 2 Route table and register with KSync
         rt_table = static_cast<AgentRouteTable *>(vrf->
-                          GetLayer2RouteTable());
-        state->layer2_route_table_ = new RouteKSyncObject(ksync_, rt_table);
+                          GetEvpnRouteTable());
+        state->evpn_route_table_ = new RouteKSyncObject(ksync_, rt_table);
 
         //Now for multicast table. Ksync object for multicast table is 
         //not maintained in vrf list
@@ -697,7 +697,7 @@ void vr_route_req::Process(SandeshContext *context) {
 /****************************************************************************
  * Methods to stitch IP and MAC addresses. The KSync object maintains mapping
  * between IP <-> MAC in ip_mac_binding_ tree. The table is built based on
- * Layer2 routes.
+ * Evpn routes.
  *
  * When an Inet route is notified, if it needs MAC Stitching, the MAC to 
  * stitch is found from the ip_mac_binding_ tree

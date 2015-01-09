@@ -79,7 +79,7 @@ void intrusive_ptr_add_ref(const VxLanId* p);
 
 class InetUnicastRouteEntry;
 class Inet4MulticastRouteEntry;
-class Layer2RouteEntry;
+class EvpnRouteEntry;
 class Route;
 typedef boost::intrusive_ptr<Route> RouteRef;
 void intrusive_ptr_release(const Route* p);
@@ -129,7 +129,7 @@ class RouteTable;
 class AgentRouteTable;
 class InetUnicastAgentRouteTable;
 class Inet4MulticastAgentRouteTable;
-class Layer2AgentRouteTable;
+class EvpnAgentRouteTable;
 class CfgIntTable;
 class AclTable;
 class MirrorTable;
@@ -198,7 +198,7 @@ public:
         INVALID = 0,
         INET4_UNICAST,
         INET4_MULTICAST,
-        LAYER2,
+        EVPN,
         INET6_UNICAST,
         ROUTE_TABLE_MAX
     };
@@ -319,14 +319,14 @@ public:
         mc_rt_table_ = (Inet4MulticastAgentRouteTable *)table;
     }
 
-    Layer2AgentRouteTable *fabric_l2_unicast_table() const {
+    EvpnAgentRouteTable *fabric_l2_unicast_table() const {
         return l2_rt_table_;
     }
-    void set_fabric_l2_unicast_table(Layer2AgentRouteTable *table) {
+    void set_fabric_l2_unicast_table(EvpnAgentRouteTable *table) {
         l2_rt_table_ = table;
     }
     void set_fabric_l2_unicast_table(RouteTable *table) {
-        l2_rt_table_ = (Layer2AgentRouteTable *)table;
+        l2_rt_table_ = (EvpnAgentRouteTable *)table;
     }
 
     PhysicalDeviceTable *physical_device_table() const {
@@ -812,7 +812,7 @@ private:
     NextHopTable *nh_table_;
     InetUnicastAgentRouteTable *uc_rt_table_;
     Inet4MulticastAgentRouteTable *mc_rt_table_;
-    Layer2AgentRouteTable *l2_rt_table_;
+    EvpnAgentRouteTable *l2_rt_table_;
     VrfTable *vrf_table_;
     VmTable *vm_table_;
     VnTable *vn_table_;
