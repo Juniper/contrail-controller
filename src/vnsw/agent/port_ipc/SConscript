@@ -1,0 +1,12 @@
+# -*- mode: python; -*-
+#
+# Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+#
+
+import sys
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+install_files = [ 'port_manager' ]
+
+env.Alias('install', env.Install(env['INSTALL_BIN'], install_files))

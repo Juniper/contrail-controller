@@ -296,6 +296,7 @@ subdirs = [
     'oper',
     'ovs_tor_agent',
     'pkt',
+    'port_ipc',
     'services',
     'test',
     'uve',
