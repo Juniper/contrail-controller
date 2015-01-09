@@ -925,13 +925,12 @@ void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
         const VrfEntry *vrf = static_cast<const VrfEntry*>
             (Agent::GetInstance()->vrf_table()->FindActiveEntry(&key));
         out->vrf_ = vrf;
+        l3_flow = true;
         if (vrf) {
             UpdateRoute(&out->rt_, vrf, pkt->ip_daddr, pkt->dmac,
                         flow_dest_plen_map);
-            if (vm_intf->vrf_assign_acl()) {
-                UpdateRoute(&in->rt_, vrf, pkt->ip_saddr, pkt->smac,
-                            flow_source_plen_map);
-            }
+            UpdateRoute(&in->rt_, vrf, pkt->ip_saddr, pkt->smac,
+                        flow_source_plen_map);
         }
     }
 }

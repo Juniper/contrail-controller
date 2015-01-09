@@ -115,6 +115,8 @@ void AgentUtXmlOperInit(AgentUtXmlTest *test) {
     test->AddValidateEntry("access-control-list", CreateValidateNode);
     test->AddValidateEntry("acl", CreateValidateNode);
     test->AddValidateEntry("pkt-parse", CreateValidateNode);
+    test->AddValidateEntry("fdb", CreateValidateNode);
+    test->AddValidateEntry("l2-route", CreateValidateNode);
 }
 
 /////////////////////////////////////////////////////////////////////////////
