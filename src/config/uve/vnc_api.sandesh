@@ -16,9 +16,11 @@ struct VncApiCommon {
     7: string remote_ip;       // which host is doing operation
     8: optional string params;
     9: optional string body;
-    10: optional string user;
-    11: optional string project;
-    12: optional string domain;
+
+    // The below are re-arranged for index of <domain:project:user>
+    10: optional string domain (key="ConfigObjectTableByUser");
+    11: optional string project (key="ConfigObjectTableByUser");
+    12: optional string user (key="ConfigObjectTableByUser");
     13: optional string error;
 }
 
