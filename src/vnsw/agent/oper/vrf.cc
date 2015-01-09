@@ -88,81 +88,69 @@ bool VrfEntry::UpdateVxlanId(Agent *agent, uint32_t new_vxlan_id) {
         return ret;
     }
 
-    const InetInterface *vhost = static_cast<const InetInterface *>
-        (agent->vhost_interface());
-    const Interface *intf = vhost->xconnect();
-
-    Layer2AgentRouteTable *table = static_cast<Layer2AgentRouteTable *>
-        (rt_table_db_[Agent::LAYER2]);
-    if (vxlan_id_ != VxLanTable::kInvalidvxlan_id) {
-        table->Delete(agent->local_vm_peer(), GetName(),
-                      agent->vrrp_mac(), IpAddress(), 0);
-        if (intf) {
-            table->Delete(agent->local_vm_peer(), GetName(), intf->mac(),
-                          IpAddress(), 0);
-        }
-    }
-
-    if (new_vxlan_id != VxLanTable::kInvalidvxlan_id) {
-        table->AddLayer2ReceiveRoute(agent->local_vm_peer(), name_, new_vxlan_id,
-                                     agent->vrrp_mac(), vn_->GetName());
-        if (intf) {
-            table->AddLayer2ReceiveRoute(agent->local_vm_peer(), name_,
-                                         new_vxlan_id, intf->mac(),
-                                         vn_->GetName());
-        }
-    }
-
     vxlan_id_ = new_vxlan_id;
     return ret;
 }
 
 void VrfEntry::PostAdd() {
+    VrfTable *table = static_cast<VrfTable *>(get_table());
+    Agent *agent = table->agent();
     // get_table() would return NULL in Add(), so move dependent functions and 
     // initialization to PostAdd
     deleter_.reset(new DeleteActor(this));
     // Create the route-tables and insert them into dbtree_
     Agent::RouteTableType type = Agent::INET4_UNICAST;
-    AgentDBTable *table = static_cast<AgentDBTable *>(get_table());
     DB *db = get_table()->database();
     rt_table_db_[type] = static_cast<AgentRouteTable *>
         (db->CreateTable(name_ + AgentRouteTable::GetSuffix(type)));
     rt_table_db_[type]->SetVrf(this);
-    ((VrfTable *)get_table())->dbtree_[type].insert(VrfTable::VrfDbPair(name_, 
-                                                        rt_table_db_[type]));
+    table->dbtree_[type].insert(VrfTable::VrfDbPair(name_, rt_table_db_[type]));
 
     type = Agent::INET4_MULTICAST;
     rt_table_db_[type] = static_cast<AgentRouteTable *>
         (db->CreateTable(name_ + AgentRouteTable::GetSuffix(type)));
     rt_table_db_[type]->SetVrf(this);
-    ((VrfTable *)get_table())->dbtree_[type].insert(VrfTable::VrfDbPair(name_, 
-                                                        rt_table_db_[type]));
+    table->dbtree_[type].insert(VrfTable::VrfDbPair(name_, rt_table_db_[type]));
 
     type = Agent::LAYER2;
     rt_table_db_[type] = static_cast<AgentRouteTable *>
         (db->CreateTable(name_ + AgentRouteTable::GetSuffix(type)));
     rt_table_db_[type]->SetVrf(this);
-    ((VrfTable *)get_table())->dbtree_[type].insert(VrfTable::VrfDbPair(name_, 
-                                                        rt_table_db_[type]));
+    table->dbtree_[type].insert(VrfTable::VrfDbPair(name_, rt_table_db_[type]));
 
     type = Agent::INET6_UNICAST;
     rt_table_db_[type] = static_cast<AgentRouteTable *>
         (db->CreateTable(name_ + AgentRouteTable::GetSuffix(type)));
     rt_table_db_[type]->SetVrf(this);
-    ((VrfTable *)get_table())->dbtree_[type].insert(VrfTable::VrfDbPair(name_, 
-                                                        rt_table_db_[type]));
+    table->dbtree_[type].insert(VrfTable::VrfDbPair(name_, rt_table_db_[type]));
 
-    if (table->agent()->fabric_vrf_name() != name_) {
-        set_table_label(table->agent()->mpls_table()->AllocLabel());
-        MplsTable::CreateTableLabel(table->agent(), table_label(), name_,
-                                    false);
+    if (agent->fabric_vrf_name() != name_) {
+        set_table_label(agent->mpls_table()->AllocLabel());
+        MplsTable::CreateTableLabel(agent, table_label(), name_, false);
     }
 
     uint32_t vxlan_id = VxLanTable::kInvalidvxlan_id;
     if (vn_) {
         vxlan_id = vn_->GetVxLanId();
     }
-    UpdateVxlanId(table->agent(), vxlan_id);
+    UpdateVxlanId(agent, vxlan_id);
+
+    // Add the L2 Receive routes for VRRP mac
+    Layer2AgentRouteTable *l2_table = static_cast<Layer2AgentRouteTable *>
+        (rt_table_db_[Agent::LAYER2]);
+    l2_table->AddLayer2ReceiveRoute(agent->local_vm_peer(), name_, 0,
+                                    agent->vrrp_mac(), "");
+
+    // Add the L2 Receive routes for xconnect interface to vhost
+    // Note, vhost is not created when fabric VRF is created. We only need
+    // VRRP MAC on fabric vrf. So, we are good for now
+    const InetInterface *vhost = static_cast<const InetInterface *>
+        (agent->vhost_interface());
+    if (vhost && vhost->xconnect()) {
+        l2_table->AddLayer2ReceiveRoute(agent->local_vm_peer(), name_, 0,
+                                        vhost->xconnect()->mac(), "");
+    }
+
     SendObjectLog(AgentLogEvent::ADD);
 }
 
@@ -368,6 +356,18 @@ bool VrfTable::Delete(DBEntry *entry, const DBRequest *req) {
     vrf->flags_ &= ~data->flags_;
     if (vrf->flags_ != 0)
         return false;
+
+    // Delete the L2 Receive routes added by default
+    Layer2AgentRouteTable *l2_table = static_cast<Layer2AgentRouteTable *>
+        (vrf->rt_table_db_[Agent::LAYER2]);
+    l2_table->Delete(agent()->local_vm_peer(), vrf->GetName(),
+                     agent()->vrrp_mac(), IpAddress(), 0);
+    const InetInterface *vhost = static_cast<const InetInterface *>
+        (agent()->vhost_interface());
+    if (vhost && vhost->xconnect()) {
+        l2_table->Delete(agent()->local_vm_peer(), vrf->GetName(),
+                         vhost->xconnect()->mac(), IpAddress(), 0);
+    }
 
     vrf->UpdateVxlanId(agent(), VxLanTable::kInvalidvxlan_id);
     vrf->vn_.reset(NULL);

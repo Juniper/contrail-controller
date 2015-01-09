@@ -925,13 +925,18 @@ void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
         const VrfEntry *vrf = static_cast<const VrfEntry*>
             (Agent::GetInstance()->vrf_table()->FindActiveEntry(&key));
         out->vrf_ = vrf;
+        // VRF changed for the packet. Treat it as Layer3 packet from now.
+        // Note:
+        // Features like service chain are supported only for Layer3. Layer2
+        // routes are not leaked into the new VRF and any Layer2 route lookup
+        // into new VRF will also Fail. So, even VRouter will treat packets
+        // as L3 after VRF transaltion.
+        l3_flow = true;
         if (vrf) {
             UpdateRoute(&out->rt_, vrf, pkt->ip_daddr, pkt->dmac,
                         flow_dest_plen_map);
-            if (vm_intf->vrf_assign_acl()) {
-                UpdateRoute(&in->rt_, vrf, pkt->ip_saddr, pkt->smac,
-                            flow_source_plen_map);
-            }
+            UpdateRoute(&in->rt_, vrf, pkt->ip_saddr, pkt->smac,
+                        flow_source_plen_map);
         }
     }
 }

@@ -9,16 +9,15 @@
         <routing-instance uuid="1" name="a:b:vn1:vn1" vn="nil" present="1"/>
     </validate>
 
-    <link left="virtual-network" left-name="a:b:vn1"
+    <link name="test" uuid="1" left="virtual-network" left-name="a:b:vn1"
           right="routing-instance" right-name="a:b:vn1:vn1"/>
-    <validate name="validate-1">
 
     <validate name="validate-2">
         <virtual-network uuid="1" name="a:b:vn1" present="1"/>
         <routing-instance uuid="1" name="a:b:vn1:vn1" vn="a:b:vn1" present="1"/>
     </validate>
 
-    <link left="virtual-network" left-name="a:b:vn1"
+    <link name="test" uuid="1" left="virtual-network" left-name="a:b:vn1"
           right="routing-instance" right-name="a:b:vn1:vn1" del="1" />
     <vrf uuid="1" name="a:b:vn1:vn1" vn="a:b:vn1" del="1" />
     <virtual-network uuid="1" name="a:b:vn1" del="1" />
@@ -38,7 +37,7 @@
         <routing-instance uuid="1" name="a:b:vn1:vn1" vn="a:b:vn1" present="1"/>
     </validate>
 
-    <link left="virtual-network" left-name="a:b:vn1"
+    <link name="test" uuid="1" left="virtual-network" left-name="a:b:vn1"
           right="routing-instance" right-name="a:b:vn1:vn1" del="1" />
     <vrf uuid="1" name="a:b:vn1:vn1" vn="a:b:vn1" del="1" />
     <virtual-network uuid="1" name="a:b:vn1" del="1" />
@@ -63,7 +62,7 @@
         <routing-instance uuid="1" name="a:b:vn1:vn1" vn="nil" present="1"/>
     </validate>
 
-    <link left="virtual-network" left-name="a:b:vn1"
+    <link name="test" uuid="1" left="virtual-network" left-name="a:b:vn1"
           right="routing-instance" right-name="a:b:vn1:vn1" del="1" />
     <vrf uuid="1" name="a:b:vn1:vn1" vn="a:b:vn1" del="1" />
     <virtual-network uuid="1" name="a:b:vn1" del="1" />
@@ -88,7 +87,7 @@
         <routing-instance uuid="1" name="a:b:vn1:vn1" vn="nil" present="no"/>
     </validate>
 
-    <link left="virtual-network" left-name="a:b:vn1"
+    <link name="test" uuid="1" left="virtual-network" left-name="a:b:vn1"
           right="routing-instance" right-name="a:b:vn1:vn1" del="1" />
     <vrf uuid="1" name="a:b:vn1:vn1" vn="a:b:vn1" del="1" />
     <virtual-network uuid="1" name="a:b:vn1" del="1" />
@@ -97,4 +96,22 @@
         <vrf uuid="1" name="a:b:vn1:vn1" present="no"/>
     </validate>
 </test>
+
+<test name="vrf-l2-route-1">
+    <vrf uuid="1" name="a:b:vn1:vn1" />
+
+    <validate name="validate-vrf-evpn-add-1">
+        <routing-instance uuid="1" name="a:b:vn1:vn1" vn="nil" present="1"/>
+        <fdb uuid="1" vrf="a:b:vn1:vn1" mac="00:00:5E:00:01:00"/>
+        <fdb uuid="1" vrf="a:b:vn1:vn1" mac="00:00:00:00:00:01"/>
+    </validate>
+
+    <vrf uuid="1" name="a:b:vn1:vn1" del="1" />
+    <validate name="validate-vrf-evpn-del-1">
+        <routing-instance uuid="1" name="a:b:vn1:vn1" vn="nil" present="no"/>
+        <fdb uuid="1" vrf="a:b:vn1:vn1" mac="00:00:5E:00:01:00" present="no"/>
+        <fdb uuid="1" vrf="a:b:vn1:vn1" mac="00:00:00:00:00:01" present="no"/>
+    </validate>
+</test>
+
 </test_suite>
