@@ -28,20 +28,32 @@ public:
 
 #define TASK_UTIL_WAIT_EQ_NO_MSG(expected, actual, wait, retry, msg)           \
 do {                                                                           \
+    bool _satisfied = false;                                                   \
     for (size_t _i = 0; !retry || _i < retry; _i++) {                          \
-        if ((expected) == (actual)) break;                                     \
+        if ((expected) == (actual)) {                                          \
+            _satisfied = true;                                                 \
+            break;                                                             \
+        }                                                                      \
         usleep(wait);                                                          \
     }                                                                          \
-    EXPECT_TRUE((expected) == (actual));                                       \
+    if (!_satisfied) {                                                         \
+        EXPECT_TRUE((expected) == (actual));                                   \
+    }                                                                          \
 } while (false)
 
 #define TASK_UTIL_WAIT_NE_NO_MSG(expected, actual, wait, retry, msg)           \
 do {                                                                           \
+    bool _satisfied = false;                                                   \
     for (size_t _i = 0; !retry || _i < retry; _i++) {                          \
-        if ((expected) != (actual)) break;                                     \
+        if ((expected) != (actual)) {                                          \
+            _satisfied = true;                                                 \
+            break;                                                             \
+        }                                                                      \
         usleep(wait);                                                          \
     }                                                                          \
-    EXPECT_TRUE((expected) != (actual));                                       \
+    if (!_satisfied) {                                                         \
+        EXPECT_TRUE((expected) != (actual));                                   \
+    }                                                                          \
 } while (false)
 
 #define TASK_UTIL_WAIT_MSG(cnt, expected, actual, wait, type, msg)             \
@@ -58,16 +70,25 @@ do {                                                                           \
     std::ostringstream ostream;                                                \
                                                                                \
     size_t _j = 0;                                                             \
+    bool _satisfied = false;                                                   \
     for (size_t _i = 0; !retry || _i < retry; _i++) {                          \
-        if ((expected) == (actual)) break;                                     \
+        if ((expected) == (actual)) {                                          \
+            _satisfied = true;                                                 \
+            break;                                                             \
+        }                                                                      \
         usleep(wait);                                                          \
         _j++;                                                                  \
         if ((_j * wait < 2000000UL)) continue;                                 \
-        if ((expected) == (actual)) break;                                     \
+        if ((expected) == (actual)) {                                          \
+            _satisfied = true;                                                 \
+            break;                                                             \
+        }                                                                      \
         _j = 0;                                                                \
         TASK_UTIL_WAIT_MSG(_i, expected, actual, wait, " to become ", msg);    \
     }                                                                          \
-    EXPECT_EQ(expected, actual);                                               \
+    if (!_satisfied) {                                                         \
+        EXPECT_EQ(expected, actual);                                           \
+    }                                                                          \
 } while (false)
 
 #define TASK_UTIL_WAIT_NE(expected, actual, wait, retry, msg)                  \
@@ -75,16 +96,25 @@ do {                                                                           \
     std::ostringstream ostream;                                                \
                                                                                \
     size_t _j = 0;                                                             \
+    bool _satisfied = false;                                                   \
     for (size_t _i = 0; !retry || _i < retry; _i++) {                          \
-        if ((expected) != (actual)) break;                                     \
+        if ((expected) != (actual)) {                                          \
+            _satisfied = true;                                                 \
+            break;                                                             \
+        }                                                                      \
         usleep(wait);                                                          \
         _j++;                                                                  \
         if ((_j * wait < 2000000UL)) continue;                                 \
-        if ((expected) != (actual)) break;                                     \
+        if ((expected) != (actual)) {                                          \
+            _satisfied = true;                                                 \
+            break;                                                             \
+        }                                                                      \
         _j = 0;                                                                \
         TASK_UTIL_WAIT_MSG(_i, expected, actual, wait, " to not remain ", msg);\
     }                                                                          \
-    EXPECT_NE(expected, actual);                                               \
+    if (!_satisfied) {                                                         \
+        EXPECT_NE(expected, actual);                                           \
+    }                                                                          \
 } while (false)
 
 #define TASK_UTIL_EXPECT_VECTOR_EQ(actual, expected)             \
