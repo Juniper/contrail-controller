@@ -313,7 +313,7 @@ public:
     }
     bool do_dhcp_relay() const { return do_dhcp_relay_; }
     int vxlan_id() const { return vxlan_id_; }
-    bool layer2_forwarding() const { return layer2_forwarding_; }
+    bool evpn_forwarding() const { return evpn_forwarding_; }
     bool layer3_forwarding() const { return layer3_forwarding_; }
     const std::string &vm_name() const { return vm_name_; }
     const boost::uuids::uuid &vm_project_uuid() const { return vm_project_uuid_; }
@@ -580,7 +580,7 @@ private:
     // project uuid of the vm to which the interface belongs
     boost::uuids::uuid vm_project_uuid_;
     int vxlan_id_;
-    bool layer2_forwarding_;
+    bool evpn_forwarding_;
     bool layer3_forwarding_;
     bool mac_set_;
     bool ecmp_;
@@ -713,7 +713,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
         VmInterfaceData(agent, node, CONFIG), addr_(0), ip6_addr_(),
         vm_mac_(""),
         cfg_name_(""), vm_uuid_(), vm_name_(), vn_uuid_(), vrf_name_(""),
-        fabric_port_(true), need_linklocal_ip_(false), layer2_forwarding_(true),
+        fabric_port_(true), need_linklocal_ip_(false), evpn_forwarding_(true),
         layer3_forwarding_(true), mirror_enable_(false), ecmp_(false),
         dhcp_enable_(true), analyzer_name_(""),
         local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
@@ -747,7 +747,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     bool fabric_port_;
     // Does the port need link-local IP to be allocated
     bool need_linklocal_ip_;
-    bool layer2_forwarding_;
+    bool evpn_forwarding_;
     bool layer3_forwarding_;
     bool mirror_enable_;
     //Is interface in active-active mode or active-backup mode

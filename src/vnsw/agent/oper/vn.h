@@ -86,12 +86,12 @@ struct VnData : public AgentOperDBData {
     VnData(const string &name, const uuid &acl_id, const string &vrf_name,
            const uuid &mirror_acl_id, const uuid &mc_acl_id, 
            const std::vector<VnIpam> &ipam, const VnIpamDataMap &vn_ipam_data,
-           int vxlan_id, int vnid, bool layer2_forwarding,
+           int vxlan_id, int vnid, bool evpn_forwarding,
            bool layer3_forwarding, bool admin_state) :
         AgentOperDBData(NULL, NULL), name_(name), vrf_name_(vrf_name),
         acl_id_(acl_id), mirror_acl_id_(mirror_acl_id),
         mirror_cfg_acl_id_(mc_acl_id), ipam_(ipam), vn_ipam_data_(vn_ipam_data),
-        vxlan_id_(vxlan_id), vnid_(vnid), layer2_forwarding_(layer2_forwarding),
+        vxlan_id_(vxlan_id), vnid_(vnid), evpn_forwarding_(evpn_forwarding),
         layer3_forwarding_(layer3_forwarding), admin_state_(admin_state) {
     };
     virtual ~VnData() { }
@@ -105,7 +105,7 @@ struct VnData : public AgentOperDBData {
     VnIpamDataMap vn_ipam_data_;
     int vxlan_id_;
     int vnid_;
-    bool layer2_forwarding_;
+    bool evpn_forwarding_;
     bool layer3_forwarding_;
     bool admin_state_;
 };
@@ -114,7 +114,7 @@ class VnEntry : AgentRefCount<VnEntry>, public AgentOperDBEntry {
 public:
     VnEntry(const boost::uuids::uuid &id) :
         AgentOperDBEntry(), uuid_(id), vxlan_id_(0), vnid_(0),
-        layer2_forwarding_(true), layer3_forwarding_(true), admin_state_(true),
+        evpn_forwarding_(true), layer3_forwarding_(true), admin_state_(true),
         table_label_(0) { }
     virtual ~VnEntry() { }
 
@@ -150,12 +150,12 @@ public:
     bool Resync(); 
     bool VxLanNetworkIdentifierChanged();
     bool ReEvaluateVxlan(VrfEntry *old_vrf, int new_vxlan_id, int new_vnid,
-                         bool new_layer2_forwarding,
+                         bool new_evpn_forwarding,
                          bool vxlan_network_identifier_mode_changed);
 
     const VxLanId *vxlan_id_ref() const {return vxlan_id_ref_.get();}
     const VxLanId *vxlan_id() const {return vxlan_id_ref_.get();}
-    bool layer2_forwarding() const {return layer2_forwarding_;};
+    bool evpn_forwarding() const {return evpn_forwarding_;};
     bool layer3_forwarding() const {return layer3_forwarding_;};
     bool admin_state() const {return admin_state_;}
 
@@ -181,7 +181,7 @@ private:
     VnData::VnIpamDataMap vn_ipam_data_;
     int vxlan_id_;
     int vnid_;
-    bool layer2_forwarding_;
+    bool evpn_forwarding_;
     bool layer3_forwarding_;
     bool admin_state_;
     VxLanIdRef vxlan_id_ref_;

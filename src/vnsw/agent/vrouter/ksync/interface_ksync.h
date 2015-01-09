@@ -81,7 +81,7 @@ private:
     bool layer3_forwarding_;
     InterfaceKSyncObject *ksync_obj_;
     bool l2_active_;
-    bool layer2_forwarding_;
+    bool evpn_forwarding_;
     MacAddress mac_;
     MacAddress smac_;
     Interface::MirrorDirection mirror_direction_;

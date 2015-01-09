@@ -295,7 +295,7 @@ class FlowEntry {
         DEFAULT_GW_ICMP_OR_DNS, /* DNS/ICMP pkt to/from default gateway */
         LINKLOCAL_FLOW, /* No policy applied for linklocal flow */
         MULTICAST_FLOW, /* No policy applied for multicast flow */
-        NON_IP_FLOW,    /* Flow due to Layer2 forwarding */
+        NON_IP_FLOW,    /* Flow due to Evpn forwarding */
     };
 
     static const uint32_t kInvalidFlowHandle=0xFFFFFFFF;

@@ -490,14 +490,14 @@ private:
 };
 
 /////////////////////////////////////////////////////////////////////////////
-// Layer2 Receive NH definition
+// Evpn Receive NH definition
 /////////////////////////////////////////////////////////////////////////////
 class L2ReceiveNHKey : public NextHopKey {
 public:
     L2ReceiveNHKey() : NextHopKey(NextHop::L2_RECEIVE, false) { }
     virtual ~L2ReceiveNHKey() { }
     virtual bool NextHopKeyIsLess(const NextHopKey &rhs) const {
-        // There is single Layer2 Receive NH. There is no field to compare
+        // There is single Evpn Receive NH. There is no field to compare
         return false;
     }
 
@@ -799,7 +799,7 @@ struct InterfaceNHFlags {
     enum Type {
         INVALID,
         INET4 = 1,
-        LAYER2 = 2,
+        EVPN = 2,
         MULTICAST = 4,
         INET6 = 8
     };
@@ -884,7 +884,7 @@ public:
     const Interface *GetInterface() const {return interface_.get();};
     const MacAddress &GetDMac() const {return dmac_;};
     bool is_multicastNH() const { return flags_ & InterfaceNHFlags::MULTICAST; };
-    bool IsLayer2() const { return flags_ & InterfaceNHFlags::LAYER2; };
+    bool IsEvpn() const { return flags_ & InterfaceNHFlags::EVPN; };
     uint8_t GetFlags() const {return flags_;};
     const uuid &GetIfUuid() const;
     const VrfEntry *GetVrf() const {return vrf_.get();};

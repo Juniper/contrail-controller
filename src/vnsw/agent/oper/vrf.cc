@@ -92,8 +92,8 @@ bool VrfEntry::UpdateVxlanId(Agent *agent, uint32_t new_vxlan_id) {
         (agent->vhost_interface());
     const Interface *intf = vhost->xconnect();
 
-    Layer2AgentRouteTable *table = static_cast<Layer2AgentRouteTable *>
-        (rt_table_db_[Agent::LAYER2]);
+    EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
+        (rt_table_db_[Agent::EVPN]);
     if (vxlan_id_ != VxLanTable::kInvalidvxlan_id) {
         table->Delete(agent->local_vm_peer(), GetName(),
                       agent->vrrp_mac(), IpAddress(), 0);
@@ -104,10 +104,10 @@ bool VrfEntry::UpdateVxlanId(Agent *agent, uint32_t new_vxlan_id) {
     }
 
     if (new_vxlan_id != VxLanTable::kInvalidvxlan_id) {
-        table->AddLayer2ReceiveRoute(agent->local_vm_peer(), name_, new_vxlan_id,
+        table->AddEvpnReceiveRoute(agent->local_vm_peer(), name_, new_vxlan_id,
                                      agent->vrrp_mac(), vn_->GetName());
         if (intf) {
-            table->AddLayer2ReceiveRoute(agent->local_vm_peer(), name_,
+            table->AddEvpnReceiveRoute(agent->local_vm_peer(), name_,
                                          new_vxlan_id, intf->mac(),
                                          vn_->GetName());
         }
@@ -138,7 +138,7 @@ void VrfEntry::PostAdd() {
     ((VrfTable *)get_table())->dbtree_[type].insert(VrfTable::VrfDbPair(name_, 
                                                         rt_table_db_[type]));
 
-    type = Agent::LAYER2;
+    type = Agent::EVPN;
     rt_table_db_[type] = static_cast<AgentRouteTable *>
         (db->CreateTable(name_ + AgentRouteTable::GetSuffix(type)));
     rt_table_db_[type]->SetVrf(this);
@@ -220,8 +220,8 @@ AgentRouteTable *VrfEntry::GetInet4MulticastRouteTable() const {
     return rt_table_db_[Agent::INET4_MULTICAST];
 }
 
-AgentRouteTable *VrfEntry::GetLayer2RouteTable() const {
-    return rt_table_db_[Agent::LAYER2];
+AgentRouteTable *VrfEntry::GetEvpnRouteTable() const {
+    return rt_table_db_[Agent::EVPN];
 }
 
 InetUnicastAgentRouteTable *VrfEntry::GetInet6UnicastRouteTable() const {
@@ -292,7 +292,7 @@ bool VrfEntry::DeleteTimeout() {
     std::ostringstream str;
     str << "Unicast routes: " << rt_table_db_[Agent::INET4_UNICAST]->Size();
     str << " Mutlicast routes: " << rt_table_db_[Agent::INET4_MULTICAST]->Size();
-    str << " Layer2 routes: " << rt_table_db_[Agent::LAYER2]->Size();
+    str << " Evpn routes: " << rt_table_db_[Agent::EVPN]->Size();
     str << "Unicast v6 routes: " << rt_table_db_[Agent::INET6_UNICAST]->Size();
     str << " Reference: " << GetRefCount();
     OPER_TRACE(Vrf, "VRF delete failed, " + str.str(), name_);
@@ -446,8 +446,8 @@ AgentRouteTable *VrfTable::GetInet4MulticastRouteTable(const string &vrf_name) {
     return GetRouteTable(vrf_name, Agent::INET4_MULTICAST);
 }
 
-AgentRouteTable *VrfTable::GetLayer2RouteTable(const string &vrf_name) {
-    return GetRouteTable(vrf_name, Agent::LAYER2);
+AgentRouteTable *VrfTable::GetEvpnRouteTable(const string &vrf_name) {
+    return GetRouteTable(vrf_name, Agent::EVPN);
 }
 
 InetUnicastAgentRouteTable *VrfTable::GetInet6UnicastRouteTable

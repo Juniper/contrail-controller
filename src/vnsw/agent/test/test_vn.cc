@@ -391,8 +391,8 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_1) {
     CompositeNH *cnh = NULL;
 
     //By default l2_l3 mode
-    Layer2RouteEntry *l2_uc_rt = L2RouteGet(vrf_name, vxlan_vm_mac);
-    Layer2RouteEntry *l2_flood_rt = L2RouteGet(vrf_name, vxlan_flood_mac);
+    EvpnRouteEntry *l2_uc_rt = L2RouteGet(vrf_name, vxlan_vm_mac);
+    EvpnRouteEntry *l2_flood_rt = L2RouteGet(vrf_name, vxlan_flood_mac);
     InetUnicastRouteEntry *uc_rt = RouteGet(vrf_name, vm_ip, 32);
     InetUnicastRouteEntry *subnet_rt = RouteGet(vrf_name, subnet_ip, 32);
     Inet4MulticastRouteEntry *flood_rt = MCRouteGet(vrf_name, flood_ip);
@@ -487,8 +487,8 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_2) {
     Ip4Address flood_ip = Ip4Address::from_string("255.255.255.255");
     CompositeNH *cnh = NULL;
 
-    Layer2RouteEntry *l2_uc_rt;
-    Layer2RouteEntry *l2_flood_rt;
+    EvpnRouteEntry *l2_uc_rt;
+    EvpnRouteEntry *l2_flood_rt;
     InetUnicastRouteEntry *uc_rt;
     InetUnicastRouteEntry *subnet_rt;
     Inet4MulticastRouteEntry *flood_rt;
@@ -747,7 +747,7 @@ TEST_F(CfgTest, l2_mode_configured_via_ipam_0_gw) {
 
     VnEntry *vn = VnGet(1);;
     EXPECT_FALSE(vn->layer3_forwarding());
-    EXPECT_TRUE(vn->layer2_forwarding());
+    EXPECT_TRUE(vn->evpn_forwarding());
 
     //Restore and cleanup
     client->Reset();
@@ -778,7 +778,7 @@ TEST_F(CfgTest, l2_mode_configured_via_ipam_linklocal_gw) {
 
     VnEntry *vn = VnGet(1);;
     EXPECT_FALSE(vn->layer3_forwarding());
-    EXPECT_TRUE(vn->layer2_forwarding());
+    EXPECT_TRUE(vn->evpn_forwarding());
 
     //Restore and cleanup
     client->Reset();
@@ -809,7 +809,7 @@ TEST_F(CfgTest, l2_mode_configured_via_ipam_non_linklocal_gw) {
 
     VnEntry *vn = VnGet(1);;
     EXPECT_TRUE(vn->layer3_forwarding());
-    EXPECT_TRUE(vn->layer2_forwarding());
+    EXPECT_TRUE(vn->evpn_forwarding());
 
     //Restore and cleanup
     client->Reset();
