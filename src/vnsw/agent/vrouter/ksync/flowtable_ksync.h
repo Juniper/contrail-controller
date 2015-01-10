@@ -56,6 +56,7 @@ private:
     uint32_t trap_flow_;
     uint16_t old_drop_reason_;
     bool ecmp_;
+    bool enable_rpf_;
     KSyncEntryPtr nh_;
     FlowTableKSyncObject *ksync_obj_;
     DISALLOW_COPY_AND_ASSIGN(FlowTableKSyncEntry);

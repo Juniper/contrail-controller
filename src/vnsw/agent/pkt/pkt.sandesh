@@ -115,6 +115,7 @@ struct SandeshFlowData {
     47: optional string peer_vrouter;
     48: optional string tunnel_type;
     49: optional u16 underlay_source_port;
+    50: bool enable_rpf;
 }
 
 request sandesh FetchFlowRecord {

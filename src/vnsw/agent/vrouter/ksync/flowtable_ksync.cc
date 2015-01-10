@@ -293,12 +293,13 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             action = VR_FLOW_ACTION_HOLD;
         }
 
-        if (nh_) {
+        if (nh_ && enable_rpf_) {
             const NHKSyncEntry *ksync_nh =
                 static_cast<const NHKSyncEntry *>(nh_.get());
             req.set_fr_src_nh_index(ksync_nh->nh_id());
         } else {
-            //Set to discard
+            //Set to discard, vrouter ignores RPF check if
+            //nexthop is set to discard
             req.set_fr_src_nh_index(0);
         }
 
@@ -367,6 +368,10 @@ bool FlowTableKSyncEntry::Sync() {
         changed = true;
     }
 
+    if (enable_rpf_ != flow_entry_->data().enable_rpf) {
+        enable_rpf_ = flow_entry_->data().enable_rpf;
+        changed = true;
+    }
 
     if (flow_entry_->data().nh_state_.get() && 
         flow_entry_->data().nh_state_->nh()) {

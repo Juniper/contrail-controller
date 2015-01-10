@@ -418,6 +418,10 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
                               data->layer2_forwarding_, false);
     
 
+    if (vn->enable_rpf_ != data->enable_rpf_) {
+        vn->enable_rpf_ = data->enable_rpf_;
+        ret = true;
+    }
     return ret;
 }
 
@@ -535,6 +539,7 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     int vxlan_id = properties.vxlan_network_identifier;
     bool layer2_forwarding = true;
     bool layer3_forwarding = true;
+    bool enable_rpf = true;
     boost::uuids::uuid u;
     CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
 
@@ -542,6 +547,11 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         (Agent::GetInstance()->simulate_evpn_tor())) {
         layer3_forwarding = false;
     }
+
+    if (properties.rpf == "disable") {
+        enable_rpf = false;
+    }
+
     VnKey *key = new VnKey(u);
     VnData *data = NULL;
     if (node->IsDeleted()) {
@@ -620,7 +630,7 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         data = new VnData(node->name(), acl_uuid, vrf_name, mirror_acl_uuid, 
                           mirror_cfg_acl_uuid, vn_ipam, vn_ipam_data,
                           vxlan_id, vnid, layer2_forwarding, layer3_forwarding,
-                          id_perms.enable);
+                          id_perms.enable, enable_rpf);
         data->SetIFMapNode(agent(), node);
     }
 
@@ -668,13 +678,13 @@ void VnTable::AddVn(const uuid &vn_uuid, const string &name,
                     const uuid &acl_id, const string &vrf_name, 
                     const std::vector<VnIpam> &ipam,
                     const VnData::VnIpamDataMap &vn_ipam_data,
-                    int vxlan_id, bool admin_state) {
+                    int vxlan_id, bool admin_state, bool enable_rpf) {
     DBRequest req;
     VnKey *key = new VnKey(vn_uuid);
     VnData *data = new VnData(name, acl_id, vrf_name, nil_uuid(), 
                               nil_uuid(), ipam, vn_ipam_data,
                               vxlan_id, vxlan_id, true, true,
-                              admin_state);
+                              admin_state, enable_rpf);
  
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
@@ -973,6 +983,7 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
         data.set_ipv4_forwarding(layer3_forwarding());
         data.set_layer2_forwarding(layer2_forwarding());
         data.set_admin_state(admin_state());
+        data.set_enable_rpf(enable_rpf());
 
         std::vector<VnSandeshData> &list =
             const_cast<std::vector<VnSandeshData>&>(resp->get_vn_list());
