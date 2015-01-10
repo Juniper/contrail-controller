@@ -1205,7 +1205,9 @@ class VncApiServer(VncApiServerGen):
         apiConfig.useragent = useragent
         apiConfig.user = request.headers.get('X-User-Name')
         apiConfig.project = request.headers.get('X-Project-Name')
-        apiConfig.domain = request.headers.get('X-Domain-Name')
+        apiConfig.domain = request.headers.get('X-Domain-Name', 'None')
+        if apiConfig.domain.lower() == 'none':
+            apiConfig.domain = 'default-domain'
         if int(request.headers.get('Content-Length', 0)) > 0:
             apiConfig.body = str(request.json)
     # end _set_api_audit_info

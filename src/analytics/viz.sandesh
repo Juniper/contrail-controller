@@ -72,6 +72,7 @@ const string OSD_TABLE              = "ObjectOsdTable"
 const string DISK_TABLE             = "ObjectDiskTable"
 const string SERVER_TABLE             = "ObjectServerTable"
 const string PROUTER_TABLE          = "ObjectPRouter"
+const string CONFIG_OBJECT_TABLE_USER = "ConfigObjectTableByUser"
 
 const string VN_DISPLAY_NAME        = "Virtual Network"
 const string VM_DISPLAY_NAME        = "Virtual Machine"
@@ -96,6 +97,7 @@ const string STORAGE_OSD_DISPLAY_NAME      = "Storage Device"
 const string STORAGE_DISK_DISPLAY_NAME     = "Storage RawDisk"
 const string SERVER_TABLE_DISPLAY_NAME       = "Server Table Info"
 const string PROUTER_DISPLAY_NAME          = "pRouter"
+const string CONFIG_OBJECT_USER_DISPLAY_NAME = "Config Object by User Table"
 
 const string SYSTEM_LOG             = "SystemLog"
 const string OBJECT_LOG             = "ObjectLog"
@@ -400,6 +402,10 @@ const map<string, objtable_info> _OBJECT_TABLES = {
     }
     SERVER_TABLE          : {
         'objtable_display_name' : SERVER_TABLE_DISPLAY_NAME
+    }
+    CONFIG_OBJECT_TABLE_USER    : {
+        'objtable_display_name' : CONFIG_OBJECT_USER_DISPLAY_NAME
+        'log_query_name'        : "config-user"
     }
 }
 
