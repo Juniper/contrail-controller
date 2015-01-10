@@ -347,6 +347,9 @@ void XmppConnection::ReceiveMsg(XmppSession *session, const string &msg) {
         }
         IncProtoStats((unsigned int)minfo->type);
         state_machine_->OnMessage(session, minfo);
+    } else if ((minfo = last_msg_.get()) != NULL) {
+        session->IncStats((unsigned int)minfo->type, msg.size());
+        IncProtoStats((unsigned int)minfo->type);
     } else {
         session->IncStats(XmppStanza::INVALID, msg.size());
         XMPP_MESSAGE_TRACE(XmppRxStreamInvalid,
