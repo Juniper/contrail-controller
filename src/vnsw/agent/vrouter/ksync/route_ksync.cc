@@ -209,6 +209,11 @@ std::string RouteKSyncEntry::ToString() const {
     return s.str();
 }
 
+// Set the flood_ and proxy_arp_ flag for the route
+// flood_ flag says that ARP packets hitting route should be flooded
+// proxy_arp_ flag says VRouter should do proxy ARP
+//
+// The flags are set based on NH and Interface-type
 bool RouteKSyncEntry::BuildRouteFlags(const DBEntry *e,
                                       const MacAddress &mac) {
     bool ret = false;
@@ -222,67 +227,71 @@ bool RouteKSyncEntry::BuildRouteFlags(const DBEntry *e,
     const InetUnicastRouteEntry *rt =
         static_cast<const InetUnicastRouteEntry *>(e);
 
-    //resolve NH handling i.e. gateway
-    if (rt->GetActiveNextHop()->GetType() == NextHop::RESOLVE) { 
+    // Assume no flood and proxy_arp by default
+    bool flood = false;
+    bool proxy_arp = false;
+    const NextHop *nh = rt->GetActiveNextHop();
+
+    switch (nh->GetType()) {
+    case NextHop::RESOLVE:
         if (rt->vrf()->GetName() != agent->fabric_vrf_name()) {
-            if (proxy_arp_ == false) {
-                proxy_arp_ = true;
-                ret = true;
-            }
-
-            if (flood_ == true) {
-                flood_ = false;
-                ret = true;
-            }
+            // We do only routing on fabric-vrf. So, set proxy_arp_ flag
+            // MAC will not be stitched for fabric-vrf
+            proxy_arp = true;
         } else {
-            if (proxy_arp_ == true) {
-                proxy_arp_ = false;
-                ret = true;
-            }
+            // Non-Fabric VRF, its possible that baremetals are present in the
+            // network. So, set ARP flag for the route
+            flood = true;
+        }
+        break;
 
-            if (flood_ == true) {
-                flood_ = false;
-                ret = true;
+    case NextHop::COMPOSITE:
+        // ECMP flows have composite NH. We want to do routing for ECMP flows
+        // So, set proxy_arp flag
+        proxy_arp = true;
+        break;
+
+    case NextHop::VLAN: {
+        const VlanNH *vlan_nh = static_cast<const VlanNH *>(nh);
+        const VmInterface *intf = dynamic_cast<const VmInterface *>
+            (vlan_nh->GetInterface());
+        // Service-Chaining supported only for L3 Flows. So, set proxy_arp_ 
+        // flag for service interfaces
+        if (intf && intf->HasServiceVlan()) {
+            proxy_arp = true;
+            break;
+        }
+        // fallthru
+    }
+    default:
+        // Proxy-ARP without flood if mac-stitching is present
+        if (mac != MacAddress::ZeroMac()) {
+            proxy_arp = true;
+            flood = false;
+        } else {
+            if (rt->FindLocalVmPortPath()) {
+                // Local port without MAC stitching should only be a
+                // transition case
+                proxy_arp_ = false;
+                flood = true;
+            } else {
+                // Non local-route. Set flags based on the route
+                proxy_arp = rt->proxy_arp();
+                flood = rt->ipam_subnet_route();
             }
         }
-
-        return ret;
+        break;
     }
 
-    //Rest of the v4 cases
-    bool is_binding_available = (MacAddress::ZeroMac() != mac);
-    if (is_binding_available) {
-        if (proxy_arp_ != true) {
-            proxy_arp_ = true;
-            ret = true;
-        }
-        if (flood_ != false) {
-            flood_ = false;
-            ret = true;
-        }
-    } else {
-        if (rt->FindLocalVmPortPath()) {
-            if (proxy_arp_ != false) {
-                proxy_arp_ = false;
-                ret = true;
-            }
-            if (flood_ != true) {
-                flood_ = true;
-                ret = true;
-            }
-        } else {
-            if (proxy_arp_ != rt->proxy_arp()) {
-                proxy_arp_ = rt->proxy_arp();
-                ret = true;
-            }
-
-            if (flood_ != rt->ipam_subnet_route()) {
-                flood_ = rt->ipam_subnet_route();
-                ret = true;
-            }
-        }
+    if (proxy_arp != proxy_arp_) {
+        proxy_arp_ = proxy_arp;
+        ret = true;
     }
 
+    if (flood != flood_) {
+        flood_ = flood;
+        ret = true;
+    }
     return ret;
  }
 
