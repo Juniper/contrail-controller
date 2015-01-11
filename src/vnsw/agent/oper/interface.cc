@@ -275,7 +275,7 @@ bool InterfaceTable::L2VmInterfaceWalk(DBTablePartBase *partition,
     if (!vm_intf->l2_active())
         return true;
 
-    if (vm_intf->layer2_forwarding()) {
+    if (vm_intf->bridging()) {
         bool force_update = false;
         if (vm_intf->vxlan_id() != vm_intf->vn()->GetVxLanId()) {
             force_update = true;
@@ -659,7 +659,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             }
 
             if (!l2_active_) {
-                if (vintf->layer2_forwarding() == false) {
+                if (vintf->bridging() == false) {
                     common_reason += "l2-disabled";
                 }
                 string reason = "L2 Inactive < " + common_reason;

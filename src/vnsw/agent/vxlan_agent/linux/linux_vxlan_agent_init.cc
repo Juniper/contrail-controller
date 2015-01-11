@@ -25,7 +25,7 @@
 #include <oper/vxlan.h>
 #include <oper/mpls.h>
 #include <oper/route_common.h>
-#include <oper/layer2_route.h>
+#include <oper/evpn_route.h>
 
 #include <cfg/cfg_init.h>
 #include <controller/controller_init.h>

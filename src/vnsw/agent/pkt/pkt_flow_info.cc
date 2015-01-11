@@ -73,8 +73,8 @@ uint8_t PktFlowInfo::RouteToPrefixLen(const AgentRoute *route) {
         return inet_rt->plen();
     }
 
-    const Layer2RouteEntry *l2_rt =
-        dynamic_cast<const Layer2RouteEntry *>(route);
+    const EvpnRouteEntry *l2_rt =
+        dynamic_cast<const EvpnRouteEntry *>(route);
     if (l2_rt) {
         return l2_rt->GetAddress().bit_len();
     }
@@ -254,7 +254,7 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
                 //TODO::v6
             }
         } else {
-            // Layer2 forwarded flow. ECMP not supported for L2 flows
+            // Bridged flow. ECMP not supported for L2 flows
             out->nh_ = in->nh_;
         }
         out->intf_ = NULL;
@@ -481,8 +481,8 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
 }
 
 static bool RouteAllowNatLookup(const AgentRoute *rt) {
-    // No NAT for layer2 routes
-    if (dynamic_cast<const Layer2RouteEntry *>(rt) != NULL)
+    // No NAT for bridge entries 
+    if (dynamic_cast<const EvpnRouteEntry *>(rt) != NULL)
         return false;
 
     if (rt != NULL && IsLinkLocalRoute(rt)) {
@@ -1128,8 +1128,8 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
         }
 
         if (pkt->l3_forwarding == false &&
-            vm_intf->layer2_forwarding() == false) {
-            LogError(pkt, "layer2 service not enabled for ifindex");
+            vm_intf->bridging() == false) {
+            LogError(pkt, "Bridge service not enabled for ifindex");
             short_flow = true;
             short_flow_reason = FlowEntry::SHORT_IPV4_FWD_DIS;
             return false;

@@ -2107,12 +2107,12 @@ void InetRouteFlowUpdate::NhChange(AgentRoute *entry, const NextHop *active_nh,
 }
 
 ////////////////////////////////////////////////////////////////////////////
-// EvpnRouteFlowUpdate class responsible to keep flow in-sync with Inet route
+// BridgeEntryFlowUpdate class responsible to keep flow in-sync with Inet route
 // add/delete/change
 ////////////////////////////////////////////////////////////////////////////
-void EvpnRouteFlowUpdate::TraceMsg(AgentRoute *entry, const AgentPath *path,
+void BridgeEntryFlowUpdate::TraceMsg(AgentRoute *entry, const AgentPath *path,
                                    SecurityGroupList &sg_list) {
-    Layer2RouteEntry *route = static_cast<Layer2RouteEntry *>(entry);
+    EvpnRouteEntry *route = static_cast<EvpnRouteEntry *>(entry);
     FLOW_TRACE(RouteUpdate,
                route->vrf()->GetName(),
                route->mac().ToString() + ":" + route->ip_addr().to_string(),
@@ -2124,23 +2124,23 @@ void EvpnRouteFlowUpdate::TraceMsg(AgentRoute *entry, const AgentPath *path,
                sg_list);
 }
 
-void EvpnRouteFlowUpdate::RouteAdd(AgentRoute *entry) {
+void BridgeEntryFlowUpdate::RouteAdd(AgentRoute *entry) {
 }
 
-bool EvpnRouteFlowUpdate::DelEntry(FlowEntry *fe, FlowTable *table,
+bool BridgeEntryFlowUpdate::DelEntry(FlowEntry *fe, FlowTable *table,
                                    RouteFlowKey &key) {
     table->Delete(fe->key(), true);
     return false;
 }
 
-void EvpnRouteFlowUpdate::RouteDel(AgentRoute *entry) {
+void BridgeEntryFlowUpdate::RouteDel(AgentRoute *entry) {
     FLOW_TRACE(ModuleInfo, "Delete Route flows");
     Agent *agent = static_cast<AgentRouteTable *>(entry->get_table())->agent();
-    Layer2RouteEntry *route = static_cast<Layer2RouteEntry *>(entry);
+    EvpnRouteEntry *route = static_cast<EvpnRouteEntry *>(entry);
     RouteFlowKey key(route->vrf()->vrf_id(), route->mac());
     FlowTable *table = agent->pkt()->flow_table();
     table->IterateFlowInfoEntries(key,
-                                  boost::bind(&EvpnRouteFlowUpdate::DelEntry,
+                                  boost::bind(&BridgeEntryFlowUpdate::DelEntry,
                                               this, _1, table, key));
     RouteFlowInfo rt_key(key);
     RouteFlowInfo *rt_info = table->route_flow_tree_.Find(&rt_key);
@@ -2150,7 +2150,7 @@ void EvpnRouteFlowUpdate::RouteDel(AgentRoute *entry) {
     table->route_flow_tree_.Remove(rt_info);
 }
 
-bool EvpnRouteFlowUpdate::SgUpdate(FlowEntry *fe, FlowTable *table,
+bool BridgeEntryFlowUpdate::SgUpdate(FlowEntry *fe, FlowTable *table,
                                    RouteFlowKey &key,
                                    const SecurityGroupList &sg_list) {
     fe->GetPolicyInfo();
@@ -2188,21 +2188,21 @@ bool EvpnRouteFlowUpdate::SgUpdate(FlowEntry *fe, FlowTable *table,
     return true;
 }
 
-void EvpnRouteFlowUpdate::SgChange(AgentRoute *entry,
+void BridgeEntryFlowUpdate::SgChange(AgentRoute *entry,
                                    SecurityGroupList &sg_list) {
     Agent *agent = static_cast<AgentRouteTable *>(entry->get_table())->agent();
     FlowTable *table = agent->pkt()->flow_table();
-    Layer2RouteEntry *route = static_cast<Layer2RouteEntry *>(entry);
+    EvpnRouteEntry *route = static_cast<EvpnRouteEntry *>(entry);
     RouteFlowKey key(route->vrf()->vrf_id(), route->mac());
     table->IterateFlowInfoEntries(key,
-                                  boost::bind(&EvpnRouteFlowUpdate::SgUpdate,
+                                  boost::bind(&BridgeEntryFlowUpdate::SgUpdate,
                                               this, _1, table, key, sg_list));
 }
 
-void EvpnRouteFlowUpdate::NhChange(AgentRoute *entry, const NextHop *active_nh,
+void BridgeEntryFlowUpdate::NhChange(AgentRoute *entry, const NextHop *active_nh,
                                    const NextHop *local_nh) {
     Agent *agent = static_cast<AgentRouteTable *>(entry->get_table())->agent();
-    Layer2RouteEntry *route = static_cast<Layer2RouteEntry *>(entry);
+    EvpnRouteEntry *route = static_cast<EvpnRouteEntry *>(entry);
     RouteFlowKey key(route->vrf()->vrf_id(), route->mac());
     agent->pkt()->flow_table()->ResyncRpfNH(key, route);
 }
@@ -2221,14 +2221,14 @@ void FlowTable::VrfFlowHandlerState::Register(VrfEntry *vrf) {
         (inet_table->Register(boost::bind(&RouteFlowUpdate::Notify,
                                          inet4_unicast_update_, _1, _2)));
 
-    // Register to the Evpn Unicast Table
-    Layer2AgentRouteTable *evpn_table =
-        static_cast<Layer2AgentRouteTable *>
-        (vrf->GetLayer2RouteTable());
-    evpn_update_ = new EvpnRouteFlowUpdate(evpn_table);
-    evpn_update_->set_dblistener_id
-        (evpn_table->Register(boost::bind(&RouteFlowUpdate::Notify,
-                                          evpn_update_, _1, _2)));
+    // Register to the Bridge Unicast Table
+    EvpnAgentRouteTable *bridge_table =
+        static_cast<EvpnAgentRouteTable *>
+        (vrf->GetEvpnRouteTable());
+    bridge_update_ = new BridgeEntryFlowUpdate(bridge_table);
+    bridge_update_->set_dblistener_id
+        (bridge_table->Register(boost::bind(&RouteFlowUpdate::Notify,
+                                          bridge_update_, _1, _2)));
 }
 
 // VRF being deleted. Do the cleanup
@@ -2243,12 +2243,12 @@ void FlowTable::VrfFlowHandlerState::Unregister(VrfEntry *vrf) {
                                   _1, _2, inet4_unicast_update_),
                       boost::bind(&RouteFlowUpdate::WalkDone, _1,
                                   inet4_unicast_update_));
-    DBTableWalker *evpn_walker = agent->db()->GetWalker();
-    evpn_walker->WalkTable(vrf->GetLayer2RouteTable(), NULL,
+    DBTableWalker *bridge_walker = agent->db()->GetWalker();
+    bridge_walker->WalkTable(vrf->GetEvpnRouteTable(), NULL,
                            boost::bind(&RouteFlowUpdate::DeleteState,
-                                       _1, _2, evpn_update_),
+                                       _1, _2, bridge_update_),
                            boost::bind(&RouteFlowUpdate::WalkDone, _1,
-                                       evpn_update_));
+                                       bridge_update_));
 }
 
 void FlowTable::VrfNotify(DBTablePartBase *part, DBEntryBase *e)
@@ -2995,14 +2995,14 @@ DBTableBase::ListenerId FlowTable::nh_listener_id() {
     return nh_listener_->id();
 }
 
-// Find L2 Route for the MAC address. EVPN routes have <MAC + IP> as key.
-// Try for EVPN entry with <MAC + 0.0.0.0> first followed by <MAC + pkt-ip>
+// Find L2 Route for the MAC address. Bridge routes have <MAC + IP> as key.
+// Try for Bridge entry with <MAC + 0.0.0.0> first followed by <MAC + pkt-ip>
 AgentRoute *FlowTable::GetL2Route(const VrfEntry *vrf,
                                   const MacAddress &mac,
                                   const IpAddress &ip_addr) {
-    Layer2AgentRouteTable *table = static_cast<Layer2AgentRouteTable *>
-        (vrf->GetLayer2RouteTable());
-    Layer2RouteEntry *entry = NULL;
+    EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
+        (vrf->GetEvpnRouteTable());
+    EvpnRouteEntry *entry = NULL;
     entry = table->FindRoute(agent(), vrf->GetName(), mac, IpAddress());
     if (entry != NULL)
         return entry;

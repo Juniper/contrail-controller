@@ -97,7 +97,7 @@ struct VnSandeshData {
     6: string vrf_name (link="VrfListReq"); // VRF name
     7: list<VnIpamData> ipam_data;
     8: list<VnIpamHostRoutes> ipam_host_routes;
-    9: bool layer2_forwarding;
+    9: bool bridging;
     10: bool ipv4_forwarding;
     11: bool admin_state;
     12: i32 vxlan_id;
@@ -256,7 +256,7 @@ struct VrfSandeshData {
     1: string name;                           // VRF name
     2: i32 ucindex  (link="Inet4UcRouteReq"); // VRF Index INET4 UC Table
     3: i32 mcindex  (link="Inet4McRouteReq"); // VRF Index INET4 MC Table
-    4: i32 l2index  (link="Layer2RouteReq"); // VRF Index L2 Table
+    4: i32 l2index  (link="EvpnRouteReq"); // VRF Index L2 Table
     5: string source;                        // config or gateway
     6: i32 uc6index (link="Inet6UcRouteReq"); // VRF Index INET6 UC Table
     7: string vn (link="VnListReq");          // VN-Name
@@ -372,13 +372,13 @@ response sandesh Inet4McRouteResp {
     1: list<RouteMcSandeshData> route_list; // routes
 }
 
-request sandesh Layer2RouteReq {
+request sandesh EvpnRouteReq {
     1: i32 vrf_index = 0;
     2: string mac;
     3: bool stale = 0;                // Display stale entries only if set
 }
 
-response sandesh Layer2RouteResp {
+response sandesh EvpnRouteResp {
     1: list<RouteL2SandeshData> route_list; // routes
 }
 
@@ -841,7 +841,7 @@ struct VnObjectLogInfo {
     7: optional string vrf;
     8: optional list <VnObjectLogIpam> ipam_list;
     9: optional bool ipv4_forwarding;
-   10: optional bool layer2_forwarding;
+   10: optional bool bridging;
    11: optional bool admin_state;
 }
 
