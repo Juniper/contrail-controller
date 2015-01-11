@@ -20,6 +20,7 @@
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_sandesh.h"
+#include "bgp/bgp_xmpp_sandesh.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
@@ -427,6 +428,8 @@ int main(int argc, char *argv[]) {
         !options.collectors_configured()) {
         sandesh_generator_init = false;
     }
+
+    RegisterSandeshShowXmppExtensions(&sandesh_context);
 
     if (sandesh_generator_init) {
         NodeType::type node_type = 

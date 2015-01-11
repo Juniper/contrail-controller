@@ -60,12 +60,10 @@ libbgp = env.Library('bgp',
                       'bgp_update.cc',
                       'bgp_update_monitor.cc',
                       'bgp_update_queue.cc',
-                      'bgp_xmpp_channel.cc',
                       'community.cc',
                       'message_builder.cc',
                       'scheduling_group.cc',
                       'state_machine.cc',
-                      'xmpp_message_builder.cc'
                       ])
 
 # ifmap based BGP configuration used by the control-node
@@ -75,6 +73,13 @@ libbgp_ifmap_config = env.Library('bgp_ifmap_config',
                                       'bgp_config_listener.cc',
                                       'bgp_config_parser.cc',
                                   ])
+
+libbgp_xmpp = env.Library('bgp_xmpp',
+                          [
+                              'bgp_xmpp_channel.cc',
+                              'xmpp_message_builder.cc',
+                              'bgp_xmpp_sandesh.cc',
+                          ])
 
 test_suite = env.SConscript('ermvpn/SConscript', exports='BuildEnv',
                             duplicate = 0)

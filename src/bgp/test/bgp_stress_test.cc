@@ -34,6 +34,7 @@
 #include "bgp/bgp_ribout.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_session_manager.h"
+#include "bgp/bgp_xmpp_sandesh.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/inet6/inet6_table.h"
@@ -42,6 +43,7 @@
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/routepath_replicator.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
+#include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
 
 #include "db/db.h"
@@ -503,6 +505,7 @@ void BgpStressTest::SetUp() {
                                 d_http_port_, sandesh_context_.get());
         Sandesh::ConnectToCollector("127.0.0.1",
                                     sandesh_server_->GetPort());
+        RegisterSandeshShowXmppExtensions(sandesh_context_.get());
         BGP_STRESS_TEST_LOG("Introspect at http://localhost:" <<
                             Sandesh::http_port());
     } else {
@@ -3235,6 +3238,8 @@ static void SetUp() {
         boost::factory<PeerCloseManagerTest *>());
     BgpObjectFactory::Register<StateMachine>(
         boost::factory<StateMachineTest *>());
+    BgpObjectFactory::Register<BgpXmppMessageBuilder>(
+        boost::factory<BgpXmppMessageBuilder *>());
     IFMapFactory::Register<IFMapXmppChannel>(
         boost::factory<IFMapXmppChannelTest *>());
     XmppObjectFactory::Register<XmppStateMachine>(

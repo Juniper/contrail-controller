@@ -66,6 +66,7 @@ for src in ControlNodeSandeshGenSrcs:
 env.Prepend(LIBS=['bgp',
                   'bgp_ifmap_config',
                   'bgp_schema',
+                  'bgp_xmpp',
                   'extended_community',
                   'xmpp_unicast',
                   'xmpp_multicast',

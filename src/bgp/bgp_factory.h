@@ -15,10 +15,12 @@ class BgpConfigListener;
 class BgpConfigManager;
 class BgpExport;
 class BgpInstanceConfig;
+class BgpMessageBuilder;
 class BgpNeighborConfig;
 class BgpPeer;
 class BgpServer;
 class BgpSessionManager;
+class BgpXmppMessageBuilder;
 class EventManager;
 class EvpnManager;
 class EvpnTable;
@@ -56,6 +58,8 @@ class BgpObjectFactory : public Factory<BgpObjectFactory> {
     FACTORY_TYPE_N4(BgpObjectFactory, RoutingInstance,
                     std::string, BgpServer *, RoutingInstanceMgr *,
                     const BgpInstanceConfig *);
+    FACTORY_TYPE_N0(BgpObjectFactory, BgpMessageBuilder);
+    FACTORY_TYPE_N0(BgpObjectFactory, BgpXmppMessageBuilder);
 };
 
 #endif  // SRC_BGP_BGP_FACTORY_H_

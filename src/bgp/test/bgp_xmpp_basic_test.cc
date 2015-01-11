@@ -9,6 +9,7 @@
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
+#include "bgp/bgp_xmpp_sandesh.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
@@ -179,6 +180,7 @@ protected:
         bool deleted) {
         BgpSandeshContext sandesh_context;
         sandesh_context.xmpp_server = xs_x_;
+        RegisterSandeshShowXmppExtensions(&sandesh_context);
         Sandesh::set_client_context(&sandesh_context);
         Sandesh::set_response_callback(boost::bind(
             ValidateShowXmppConnectionResponse, _1, result, deleted));
@@ -203,6 +205,7 @@ protected:
         BgpSandeshContext sandesh_context;
         sandesh_context.test_mode = test_mode;
         sandesh_context.xmpp_server = xs_x_;
+        RegisterSandeshShowXmppExtensions(&sandesh_context);
         Sandesh::set_client_context(&sandesh_context);
         Sandesh::set_response_callback(boost::bind(
             ValidateClearXmppConnectionResponse, _1, success));

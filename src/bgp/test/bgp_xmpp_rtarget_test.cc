@@ -8,6 +8,7 @@
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_sandesh.h"
+#include "bgp/bgp_xmpp_sandesh.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
 #include "bgp/inet/inet_table.h"
@@ -15,6 +16,7 @@
 #include "bgp/rtarget/rtarget_table.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/test/bgp_test_util.h"
+#include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
 #include "ifmap/ifmap_server_parser.h"
@@ -844,6 +846,7 @@ protected:
         BgpSandeshContext sandesh_context;
         sandesh_context.bgp_server = server;
         sandesh_context.xmpp_peer_manager = NULL;
+        RegisterSandeshShowXmppExtensions(&sandesh_context);
         Sandesh::set_client_context(&sandesh_context);
         Sandesh::set_response_callback(
             boost::bind(ValidateRTGroupResponse, _1, result));
@@ -859,6 +862,7 @@ protected:
         BgpSandeshContext sandesh_context;
         sandesh_context.bgp_server = server;
         sandesh_context.xmpp_peer_manager = NULL;
+        RegisterSandeshShowXmppExtensions(&sandesh_context);
         Sandesh::set_client_context(&sandesh_context);
         Sandesh::set_response_callback(
             boost::bind(ValidateRTGroupResponse, _1, result));
@@ -875,6 +879,7 @@ protected:
         BgpSandeshContext sandesh_context;
         sandesh_context.bgp_server = server;
         sandesh_context.xmpp_peer_manager = NULL;
+        RegisterSandeshShowXmppExtensions(&sandesh_context);
         Sandesh::set_client_context(&sandesh_context);
         Sandesh::set_response_callback(
             boost::bind(ValidateRTGroupPeerResponse, _1, result));
@@ -891,6 +896,7 @@ protected:
         BgpSandeshContext sandesh_context;
         sandesh_context.bgp_server = server;
         sandesh_context.xmpp_peer_manager = NULL;
+        RegisterSandeshShowXmppExtensions(&sandesh_context);
         Sandesh::set_client_context(&sandesh_context);
         Sandesh::set_response_callback(
             boost::bind(ValidateRTGroupSummaryResponse, _1, result));
@@ -3143,6 +3149,8 @@ static void SetUp() {
         boost::factory<XmppStateMachineTest *>());
     BgpObjectFactory::Register<StateMachine>(
         boost::factory<StateMachineTest *>());
+    BgpObjectFactory::Register<BgpXmppMessageBuilder>(
+        boost::factory<BgpXmppMessageBuilder *>());
 }
 
 static void TearDown() {
