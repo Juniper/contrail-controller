@@ -20,6 +20,7 @@
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_sandesh.h"
+#include "bgp/bgp_xmpp_sandesh.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
@@ -32,6 +33,7 @@
 #include "db/db_graph.h"
 #include "ifmap/client/ifmap_manager.h"
 #include "ifmap/ifmap_link_table.h"
+#include "ifmap/ifmap_sandesh_context.h"
 #include "ifmap/ifmap_server.h"
 #include "ifmap/ifmap_server_parser.h"
 #include "ifmap/ifmap_xmpp.h"
@@ -46,6 +48,7 @@
 #include "schema/vnc_cfg_types.h"
 #include "xmpp/sandesh/xmpp_peer_info_types.h"
 #include "xmpp/xmpp_init.h"
+#include "xmpp/xmpp_sandesh.h"
 #include "xmpp/xmpp_server.h"
 
 using namespace std;
@@ -240,11 +243,11 @@ void LogControlNodePeerStats(BgpServer *server,
     server->VisitBgpPeers(boost::bind(FillBgpPeerStats, server, _1));
 }
 
-bool ControlNodeInfoLogger(BgpSandeshContext &ctx, uint64_t start_time,
+bool ControlNodeInfoLogger(BgpServer *server,
+                           BgpXmppChannelManager *xmpp_channel_mgr,
+                           IFMapServer *ifmap_server,
+                           uint64_t start_time,
                            Timer *node_info_log_timer) {
-    BgpServer *server = ctx.bgp_server;
-    BgpXmppChannelManager *xmpp_channel_mgr = ctx.xmpp_peer_manager;
-
     LogControlNodePeerStats(server, xmpp_channel_mgr);
 
     BgpRouterState state;
@@ -340,7 +343,7 @@ bool ControlNodeInfoLogger(BgpSandeshContext &ctx, uint64_t start_time,
     }
 
     IFMapPeerServerInfoUI peer_server_info;
-    ctx.ifmap_server->get_ifmap_manager()->GetPeerServerInfo(peer_server_info);
+    ifmap_server->get_ifmap_manager()->GetPeerServerInfo(peer_server_info);
     if (peer_server_info != prev_state.get_ifmap_info() || first) {
         state.set_ifmap_info(peer_server_info);
         prev_state.set_ifmap_info(peer_server_info);
@@ -348,7 +351,7 @@ bool ControlNodeInfoLogger(BgpSandeshContext &ctx, uint64_t start_time,
     }
 
     IFMapServerInfoUI server_info;
-    ctx.ifmap_server->GetUIInfo(&server_info);
+    ifmap_server->GetUIInfo(&server_info);
     if (server_info != prev_state.get_ifmap_server_info() || first) {
         state.set_ifmap_server_info(server_info);
         prev_state.set_ifmap_server_info(server_info);
@@ -428,6 +431,8 @@ int main(int argc, char *argv[]) {
         sandesh_generator_init = false;
     }
 
+    RegisterSandeshShowXmppExtensions(&sandesh_context);
+
     if (sandesh_generator_init) {
         NodeType::type node_type = 
             g_vns_constants.Module2NodeType.find(module)->second;
@@ -464,13 +469,12 @@ int main(int argc, char *argv[]) {
     ControlNode::SetTestMode(options.test_mode());
 
     boost::scoped_ptr<BgpServer> bgp_server(new BgpServer(&evm));
-    sandesh_context.test_mode = ControlNode::GetTestMode();
+    sandesh_context.set_test_mode(ControlNode::GetTestMode());
     sandesh_context.bgp_server = bgp_server.get();
 
     DB config_db;
     DBGraph config_graph;
     IFMapServer ifmap_server(&config_db, &config_graph, evm.io_service());
-    sandesh_context.ifmap_server = &ifmap_server;
     IFMap_Initialize(&ifmap_server);
 
     BgpIfmapConfigManager *config_manager =
@@ -496,7 +500,6 @@ int main(int argc, char *argv[]) {
     init.AddXmppChannelConfig(&xmpp_cfg);
     if (!init.InitServer(xmpp_server, options.xmpp_port(), true))
         exit(1);
-    sandesh_context.xmpp_server = xmpp_server;
 
     // Register XMPP channel peers 
     boost::scoped_ptr<BgpXmppChannelManager> bgp_peer_manager(
@@ -504,6 +507,12 @@ int main(int argc, char *argv[]) {
     sandesh_context.xmpp_peer_manager = bgp_peer_manager.get();
     IFMapChannelManager ifmap_channel_mgr(xmpp_server, &ifmap_server);
     ifmap_server.set_ifmap_channel_manager(&ifmap_channel_mgr);
+
+    XmppSandeshContext xmpp_sandesh_context;
+    xmpp_sandesh_context.xmpp_server = xmpp_server;
+    Sandesh::set_module_context("XMPP", &xmpp_sandesh_context);
+    IFMapSandeshContext ifmap_sandesh_context(&ifmap_server);
+    Sandesh::set_module_context("IFMap", &ifmap_sandesh_context);
 
     //Register services with Discovery Service Server
     DiscoveryServiceClient *ds_client = NULL; 
@@ -579,8 +588,10 @@ int main(int argc, char *argv[]) {
 
     std::auto_ptr<TaskTrigger> node_info_trigger(
         new TaskTrigger(
-            boost::bind(&ControlNodeInfoLogger, sandesh_context, start_time,
-                        node_info_log_timer.get()),
+            boost::bind(&ControlNodeInfoLogger,
+                        bgp_server.get(), bgp_peer_manager.get(),
+                        &ifmap_server,
+                        start_time, node_info_log_timer.get()),
             TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0));
 
     node_info_log_timer->Start(

@@ -36,6 +36,7 @@
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
+#include "bgp/xmpp_message_builder.h"
 
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
@@ -1131,6 +1132,8 @@ static void SetUp() {
     BgpServerTest::GlobalSetUp();
     BgpObjectFactory::Register<PeerCloseManager>(
         boost::factory<PeerCloseManagerTest *>());
+    BgpObjectFactory::Register<BgpXmppMessageBuilder>(
+        boost::factory<BgpXmppMessageBuilder *>());
 }
 
 static void TearDown() {

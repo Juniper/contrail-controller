@@ -34,10 +34,8 @@ public:
     virtual Message *Create(const BgpTable *table,
                             const RibOutAttr *roattr,
                             const BgpRoute *route) const;
-    static BgpMessageBuilder *GetInstance();
 
 private:
-    static BgpMessageBuilder instance_;
     DISALLOW_COPY_AND_ASSIGN(BgpMessageBuilder);
 };
 

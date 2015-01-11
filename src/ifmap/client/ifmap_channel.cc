@@ -34,6 +34,7 @@
 #include "ifmap_state_machine.h"
 #include "ifmap/ifmap_log.h"
 #include "ifmap_manager.h"
+#include "ifmap/ifmap_sandesh_context.h"
 #include "ifmap/ifmap_server.h"
 #include "ifmap/ifmap_server_show_types.h"
 #include "ifmap/ifmap_log_types.h"
@@ -41,7 +42,6 @@
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 #include <sandesh/request_pipeline.h>
-#include "bgp/bgp_sandesh.h"
 
 const int IFMapChannel::kSocketCloseTimeout = 2 * 1000;
 const uint64_t IFMapChannel::kRetryConnectionMax = 2;
@@ -831,10 +831,10 @@ static bool IFMapServerInfoHandleRequest(const Sandesh *sr,
                                          RequestPipeline::InstData *data) {
     const IFMapPeerServerInfoReq *request =
         static_cast<const IFMapPeerServerInfoReq *>(ps.snhRequest_.get());
-    BgpSandeshContext *bsc = 
-        static_cast<BgpSandeshContext *>(request->client_context());
+    IFMapSandeshContext *sctx = 
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
 
-    IFMapManager *ifmap_manager = bsc->ifmap_server->get_ifmap_manager();
+    IFMapManager *ifmap_manager = sctx->ifmap_server()->get_ifmap_manager();
     IFMapChannel *channel = ifmap_manager->channel();
     IFMapStateMachine *sm = ifmap_manager->state_machine();
 

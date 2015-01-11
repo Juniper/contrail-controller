@@ -7,6 +7,7 @@
 #include "base/task_annotations.h"
 #include "base/util.h"
 #include "base/test/task_test_util.h"
+#include "bgp/bgp_factory.h"
 #include "bgp/bgp_evpn.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_ribout_updates.h"
@@ -15,6 +16,7 @@
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
+#include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
 #include "db/db.h"
 #include "io/test/event_manager_test.h"
@@ -2152,6 +2154,8 @@ class TestEnvironment : public ::testing::Environment {
 static void SetUp() {
     ControlNode::SetDefaultSchedulingPolicy();
     BgpServerTest::GlobalSetUp();
+    BgpObjectFactory::Register<BgpXmppMessageBuilder>(
+        boost::factory<BgpXmppMessageBuilder *>());
 }
 
 static void TearDown() {

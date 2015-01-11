@@ -6,15 +6,16 @@
 
 #include <boost/checked_delete.hpp>
 #include <boost/assign/list_of.hpp>
-#include "ifmap/ifmap_exporter.h"
-#include "ifmap/ifmap_link.h"
-#include "ifmap/ifmap_server.h"
 
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 #include <sandesh/request_pipeline.h>
+
+#include "ifmap/ifmap_exporter.h"
+#include "ifmap/ifmap_link.h"
+#include "ifmap/ifmap_sandesh_context.h"
+#include "ifmap/ifmap_server.h"
 #include "ifmap/ifmap_server_show_types.h"
-#include "bgp/bgp_sandesh.h"
 
 IFMapUpdateQueue::IFMapUpdateQueue(IFMapServer *server) : server_(server) {
     list_.push_back(tail_marker_);
@@ -327,11 +328,11 @@ bool ShowIFMapUpdateQueue::BufferStage(const Sandesh *sr,
                                        RequestPipeline::InstData *data) {
     const IFMapUpdateQueueShowReq *request = 
         static_cast<const IFMapUpdateQueueShowReq *>(ps.snhRequest_.get());
-    BgpSandeshContext *bsc = 
-        static_cast<BgpSandeshContext *>(request->client_context());
+    IFMapSandeshContext *sctx = 
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
     ShowData *show_data = static_cast<ShowData *>(data);
 
-    IFMapUpdateQueue *queue = bsc->ifmap_server->queue();
+    IFMapUpdateQueue *queue = sctx->ifmap_server()->queue();
     assert(queue);
     show_data->send_buffer.reserve(queue->list_.size());
 

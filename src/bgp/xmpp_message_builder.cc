@@ -414,11 +414,5 @@ Message *BgpXmppMessageBuilder::Create(const BgpTable *table,
     return msg;
 }
 
-BgpXmppMessageBuilder BgpXmppMessageBuilder::instance_;
-
 BgpXmppMessageBuilder::BgpXmppMessageBuilder() {
-}
-
-BgpXmppMessageBuilder *BgpXmppMessageBuilder::GetInstance() {
-    return &instance_;
 }
