@@ -185,7 +185,7 @@ struct PktInfo {
     bool                tcp_ack;
     TunnelInfo          tunnel;
     // Forwarding mode for packet - l3/l2
-    bool                l3_forwarding;
+    mutable bool        l3_forwarding;
     bool                l3_label;
 
     // Pointer to different headers in user packet

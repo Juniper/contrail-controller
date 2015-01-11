@@ -82,6 +82,8 @@ public:
     void UpdateFipStatsInfo(FlowEntry *flow, FlowEntry *rflow, const PktInfo *p,
                             const PktControlInfo *in, const PktControlInfo *o);
     const NextHop *TunnelToNexthop(const PktInfo *pkt);
+    void ChangeVrf(const PktInfo *pkt, PktControlInfo *info,
+                   const VrfEntry *vrf);
 
 public:
     void UpdateRoute(const AgentRoute **rt, const VrfEntry *vrf,
