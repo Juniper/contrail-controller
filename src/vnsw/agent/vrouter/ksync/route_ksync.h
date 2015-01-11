@@ -32,6 +32,7 @@ public:
     uint32_t prefix_len() const { return prefix_len_; }
     uint32_t label() const { return label_; }
     bool proxy_arp() const { return proxy_arp_; }
+    bool flood() const { return flood_; }
     NHKSyncEntry* nh() const { 
         return static_cast<NHKSyncEntry *>(nh_.get());
     }
@@ -47,6 +48,8 @@ public:
     virtual int AddMsg(char *buf, int buf_len);
     virtual int ChangeMsg(char *buf, int buf_len);
     virtual int DeleteMsg(char *buf, int buf_len);
+
+    bool BuildRouteFlags(const DBEntry *rt, const MacAddress &mac);
 private:
     int Encode(sandesh_op::type op, uint8_t replace_plen,
                char *buf, int buf_len);
@@ -55,8 +58,6 @@ private:
     bool UcIsLess(const KSyncEntry &rhs) const;
     bool McIsLess(const KSyncEntry &rhs) const;
     bool L2IsLess(const KSyncEntry &rhs) const;
-    bool BuildRouteFlags(const DBEntry *rt,
-                         const MacAddress &mac);
 
     RouteKSyncObject* ksync_obj_;
     Agent::RouteTableType rt_type_;
@@ -135,6 +136,7 @@ public:
     MacAddress GetIpMacBinding(VrfEntry *vrf, const IpAddress &ip) const;
     void NotifyUcRoute(VrfEntry *vrf, VrfState *state, const IpAddress &ip);
     bool RouteNeedsMacBinding(const InetUnicastRouteEntry *rt);
+    DBTableBase::ListenerId listener_id() const { return vrf_listener_id_; }
 
 private:
     KSync *ksync_;

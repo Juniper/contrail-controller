@@ -491,7 +491,7 @@ bool InetUnicastRouteEntry::EcmpDeletePath(AgentPath *path) {
  * gateway without having Ipam path, then search continues further
  */
 bool InetUnicastRouteEntry::IpamSubnetRouteAvailable() const {
-    if ((IsHostRoute() == true) || (plen_ == 0))
+    if (plen_ == 0)
         return false;
 
     //Local path present means that this route itself was programmed
@@ -506,13 +506,16 @@ bool InetUnicastRouteEntry::IpamSubnetRouteAvailable() const {
     uint16_t plen = plen_ - 1;
     while (plen != 0) {
         assert(plen < plen_);
-        InetUnicastRouteEntry key(NULL, addr_, plen, false);
+        InetUnicastRouteEntry key(vrf(), addr_, plen, false);
+        // Find next highest matching route
         InetUnicastRouteEntry *supernet_rt = table->FindRouteUsingKey(key);
         
         if (supernet_rt == NULL)
             return false;
 
-        return supernet_rt->ipam_subnet_route();
+        if (supernet_rt->ipam_subnet_route())
+            return true;
+
         plen--;
     }
 
