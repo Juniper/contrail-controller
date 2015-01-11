@@ -11,7 +11,6 @@
 #include <boost/algorithm/string.hpp>
 
 #include "base/logging.h"
-#include "bgp/bgp_sandesh.h"
 #include "db/db.h"
 #include "db/db_graph.h"
 #include "db/db_graph_edge.h"

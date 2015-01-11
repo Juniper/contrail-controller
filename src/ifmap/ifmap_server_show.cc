@@ -22,6 +22,7 @@
 #include "ifmap/ifmap_node.h"
 #include "ifmap/ifmap_object.h"
 #include "ifmap/ifmap_origin.h"
+#include "ifmap/ifmap_sandesh_context.h"
 #include "ifmap/ifmap_server.h"
 #include "ifmap/ifmap_server_show_types.h"
 #include "ifmap/ifmap_log_types.h"
@@ -29,7 +30,6 @@
 #include "ifmap/ifmap_update.h"
 #include "ifmap/ifmap_uuid_mapper.h"
 
-#include "bgp/bgp_sandesh.h"
 #include <pugixml/pugixml.hpp>
 
 using namespace boost::assign;
@@ -163,15 +163,15 @@ bool ShowIFMapTable::BufferSomeTables(const RequestPipeline::PipeSpec ps,
                                       RequestPipeline::InstData *data) {
     const IFMapTableShowReq *request = 
         static_cast<const IFMapTableShowReq *>(ps.snhRequest_.get());
-    BgpSandeshContext *bsc = 
-        static_cast<BgpSandeshContext *>(request->client_context());
+    IFMapSandeshContext *sctx = 
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
 
-    IFMapTable *table = IFMapTable::FindTable(bsc->ifmap_server->database(),
+    IFMapTable *table = IFMapTable::FindTable(sctx->ifmap_server()->database(),
                                               request->get_table_name());
     if (table) {
         ShowData *show_data = static_cast<ShowData *>(data);
         show_data->send_buffer.reserve(table->Size());
-        TableToBuffer(table, show_data, bsc->ifmap_server);
+        TableToBuffer(table, show_data, sctx->ifmap_server());
     } else {
         IFMAP_WARN(IFMapTblNotFound, "Cant show/find table ",
                    request->get_table_name());
@@ -184,10 +184,10 @@ bool ShowIFMapTable::BufferAllTables(const RequestPipeline::PipeSpec ps,
                                      RequestPipeline::InstData *data) {
     const IFMapTableShowReq *request = 
         static_cast<const IFMapTableShowReq *>(ps.snhRequest_.get());
-    BgpSandeshContext *bsc = 
-        static_cast<BgpSandeshContext *>(request->client_context());
+    IFMapSandeshContext *sctx = 
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
 
-    DB *db = bsc->ifmap_server->database();
+    DB *db = sctx->ifmap_server()->database();
 
     // Get the sum total of entries in all the tables
     int num_entries = 0;
@@ -207,7 +207,7 @@ bool ShowIFMapTable::BufferAllTables(const RequestPipeline::PipeSpec ps,
             break;
         }
         IFMapTable *table = static_cast<IFMapTable *>(iter->second);
-        TableToBuffer(table, show_data, bsc->ifmap_server);
+        TableToBuffer(table, show_data, sctx->ifmap_server());
     }
 
     return true;
@@ -378,11 +378,11 @@ bool ShowIFMapLinkTable::BufferStage(const Sandesh *sr,
                                      RequestPipeline::InstData *data) {
     const IFMapLinkTableShowReq *request = 
         static_cast<const IFMapLinkTableShowReq *>(ps.snhRequest_.get());
-    BgpSandeshContext *bsc = 
-        static_cast<BgpSandeshContext *>(request->client_context());
+    IFMapSandeshContext *sctx = 
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
 
     IFMapLinkTable *table =  static_cast<IFMapLinkTable *>(
-        bsc->ifmap_server->database()->FindTable("__ifmap_metadata__.0"));
+        sctx->ifmap_server()->database()->FindTable("__ifmap_metadata__.0"));
     if (table) {
         ShowData *show_data = static_cast<ShowData *>(data);
         show_data->send_buffer.reserve(table->Size());
@@ -391,7 +391,7 @@ bool ShowIFMapLinkTable::BufferStage(const Sandesh *sr,
         DBEntryBase *src = partition->GetFirst();
         while (src) {
             IFMapLinkShowInfo dest;
-            CopyNode(&dest, src, bsc->ifmap_server);
+            CopyNode(&dest, src, sctx->ifmap_server());
             show_data->send_buffer.push_back(dest);
             src = partition->GetNext(src);
         }
@@ -478,8 +478,8 @@ static bool IFMapNodeShowReqHandleRequest(const Sandesh *sr,
                                           RequestPipeline::InstData *data) {
     const IFMapNodeShowReq *request =
         static_cast<const IFMapNodeShowReq *>(ps.snhRequest_.get());
-    BgpSandeshContext *bsc = 
-        static_cast<BgpSandeshContext *>(request->client_context());
+    IFMapSandeshContext *sctx = 
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
 
     IFMapNodeShowResp *response = new IFMapNodeShowResp();
 
@@ -491,13 +491,13 @@ static bool IFMapNodeShowReqHandleRequest(const Sandesh *sr,
         // +1 to go to the next character after ':'
         string node_name = fq_node_name.substr(type_length + 1);
 
-        DB *db = bsc->ifmap_server->database();
+        DB *db = sctx->ifmap_server()->database();
         IFMapTable *table = IFMapTable::FindTable(db, node_type);
         if (table) {
             IFMapNode *src = table->FindNode(node_name);
             if (src) {
                 IFMapNodeShowInfo dest;
-                IFMapNodeCopier copyNode(&dest, src, bsc->ifmap_server);
+                IFMapNodeCopier copyNode(&dest, src, sctx->ifmap_server());
                 response->set_node_info(dest);
             } else {
                 IFMAP_WARN(IFMapIdentifierNotFound, "Cant find identifier",
@@ -591,11 +591,11 @@ bool ShowIFMapPerClientNodes::BufferStage(const Sandesh *sr,
     const IFMapPerClientNodesShowReq *request =
         static_cast<const IFMapPerClientNodesShowReq *>(ps.snhRequest_.get());
     int client_index = request->get_client_index();
-    BgpSandeshContext *bsc =
-        static_cast<BgpSandeshContext *>(request->client_context());
+    IFMapSandeshContext *sctx =
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
 
     ShowData *show_data = static_cast<ShowData *>(data);
-    DB *db = bsc->ifmap_server->database();
+    DB *db = sctx->ifmap_server()->database();
     for (DB::iterator iter = db->lower_bound("__ifmap__.");
          iter != db->end(); ++iter) {
         if (iter->first.find("__ifmap__.") != 0) {
@@ -608,7 +608,7 @@ bool ShowIFMapPerClientNodes::BufferStage(const Sandesh *sr,
             DBEntryBase *src = partition->GetFirst();
             while (src) {
                 IFMapPerClientNodesShowInfo dest;
-                bool send = CopyNode(&dest, src, bsc->ifmap_server,
+                bool send = CopyNode(&dest, src, sctx->ifmap_server(),
                                      client_index);
                 if (send) {
                     show_data->send_buffer.push_back(dest);
@@ -750,12 +750,12 @@ bool ShowIFMapPerClientLinkTable::BufferStage(const Sandesh *sr,
         RequestPipeline::InstData *data) {
     const IFMapPerClientLinksShowReq *request = 
         static_cast<const IFMapPerClientLinksShowReq *>(ps.snhRequest_.get());
-    BgpSandeshContext *bsc = 
-        static_cast<BgpSandeshContext *>(request->client_context());
+    IFMapSandeshContext *sctx = 
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
     int client_index = request->get_client_index();
 
     IFMapLinkTable *table =  static_cast<IFMapLinkTable *>(
-        bsc->ifmap_server->database()->FindTable("__ifmap_metadata__.0"));
+        sctx->ifmap_server()->database()->FindTable("__ifmap_metadata__.0"));
     if (table) {
         ShowData *show_data = static_cast<ShowData *>(data);
         show_data->send_buffer.reserve(table->Size());
@@ -764,7 +764,7 @@ bool ShowIFMapPerClientLinkTable::BufferStage(const Sandesh *sr,
         DBEntryBase *src = partition->GetFirst();
         while (src) {
             IFMapPerClientLinksShowInfo dest;
-            bool send = CopyNode(&dest, src, bsc->ifmap_server, client_index);
+            bool send = CopyNode(&dest, src, sctx->ifmap_server(), client_index);
             if (send) {
                 show_data->send_buffer.push_back(dest);
             }
@@ -884,11 +884,11 @@ bool ShowIFMapUuidToNodeMapping::BufferStage(const Sandesh *sr,
                                              RequestPipeline::InstData *data) {
     const IFMapUuidToNodeMappingReq *request = 
         static_cast<const IFMapUuidToNodeMappingReq *>(ps.snhRequest_.get());
-    BgpSandeshContext *bsc = 
-        static_cast<BgpSandeshContext *>(request->client_context());
+    IFMapSandeshContext *sctx = 
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
     ShowData *show_data = static_cast<ShowData *>(data);
 
-    IFMapVmUuidMapper *mapper = bsc->ifmap_server->vm_uuid_mapper();
+    IFMapVmUuidMapper *mapper = sctx->ifmap_server()->vm_uuid_mapper();
     IFMapUuidMapper &uuid_mapper = mapper->uuid_mapper_;
 
     show_data->send_buffer.reserve(uuid_mapper.Size());
@@ -1013,11 +1013,11 @@ bool ShowIFMapNodeToUuidMapping::BufferStage(const Sandesh *sr,
                                              RequestPipeline::InstData *data) {
     const IFMapNodeToUuidMappingReq *request = 
         static_cast<const IFMapNodeToUuidMappingReq *>(ps.snhRequest_.get());
-    BgpSandeshContext *bsc = 
-        static_cast<BgpSandeshContext *>(request->client_context());
+    IFMapSandeshContext *sctx = 
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
     ShowData *show_data = static_cast<ShowData *>(data);
 
-    IFMapVmUuidMapper *mapper = bsc->ifmap_server->vm_uuid_mapper();
+    IFMapVmUuidMapper *mapper = sctx->ifmap_server()->vm_uuid_mapper();
 
     show_data->send_buffer.reserve(mapper->NodeUuidMapCount());
     for (IFMapVmUuidMapper::NodeUuidMap::const_iterator iter = 
@@ -1141,11 +1141,11 @@ bool ShowIFMapPendingVmReg::BufferStage(const Sandesh *sr,
                                         RequestPipeline::InstData *data) {
     const IFMapPendingVmRegReq *request = 
         static_cast<const IFMapPendingVmRegReq *>(ps.snhRequest_.get());
-    BgpSandeshContext *bsc = 
-        static_cast<BgpSandeshContext *>(request->client_context());
+    IFMapSandeshContext *sctx = 
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
     ShowData *show_data = static_cast<ShowData *>(data);
 
-    IFMapVmUuidMapper *mapper = bsc->ifmap_server->vm_uuid_mapper();
+    IFMapVmUuidMapper *mapper = sctx->ifmap_server()->vm_uuid_mapper();
 
     show_data->send_buffer.reserve(mapper->PendingVmRegCount());
     for (IFMapVmUuidMapper::PendingVmRegMap::const_iterator iter = 
@@ -1235,15 +1235,15 @@ static bool IFMapServerClientShowReqHandleRequest(const Sandesh *sr,
                 RequestPipeline::InstData *data) {
     const IFMapServerClientShowReq *request =
         static_cast<const IFMapServerClientShowReq *>(ps.snhRequest_.get());
-    BgpSandeshContext *bsc =
-        static_cast<BgpSandeshContext *>(request->client_context());
+    IFMapSandeshContext *sctx =
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
 
     IFMapServerClientShowResp *response = new IFMapServerClientShowResp();
 
     IFMapServerShowClientMap name_list;
-    bsc->ifmap_server->FillClientMap(&name_list);
+    sctx->ifmap_server()->FillClientMap(&name_list);
     IFMapServerShowIndexMap index_list;
-    bsc->ifmap_server->FillIndexMap(&index_list);
+    sctx->ifmap_server()->FillIndexMap(&index_list);
 
     response->set_name_list(name_list);
     response->set_index_list(index_list);
@@ -1274,11 +1274,11 @@ static bool IFMapNodeTableListShowReqHandleRequest(const Sandesh *sr,
                 RequestPipeline::InstData *data) {
     const IFMapNodeTableListShowReq *request =
         static_cast<const IFMapNodeTableListShowReq *>(ps.snhRequest_.get());
-    BgpSandeshContext *bsc =
-        static_cast<BgpSandeshContext *>(request->client_context());
+    IFMapSandeshContext *sctx =
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
 
     vector<IFMapNodeTableListShowEntry> dest_buffer;
-    IFMapTable::FillNodeTableList(bsc->ifmap_server->database(),
+    IFMapTable::FillNodeTableList(sctx->ifmap_server()->database(),
                                   &dest_buffer);
 
     IFMapNodeTableListShowResp *response = new IFMapNodeTableListShowResp();

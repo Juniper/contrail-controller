@@ -2875,7 +2875,6 @@ TEST_P(ServiceChainParamTest, TransitNetworkRemoteExtConnectRoute) {
     AddConnectedRoute(2, NULL, "192.168.2.253/32", 100, "20.1.1.2");
 
     // Check for ExtConnect route in blue
-    BgpRoute *ext_rt;
     vector<string> origin_vn_path = list_of("core-vn")("red-vn");
     VerifyInetRouteExists("blue", "10.1.3.1/32");
     VerifyInetRouteAttributes("blue", "10.1.3.1/32", "20.1.1.1", "core-vn",
@@ -2909,7 +2908,6 @@ TEST_P(ServiceChainParamTest, TransitNetworkLocalExtConnectRoute) {
     AddConnectedRoute(1, NULL, "192.168.1.253/32", 100, "20.1.1.1");
 
     // Check for ExtConnect route in blue
-    BgpRoute *ext_rt;
     vector<string> origin_vn_path = list_of("core-vn");
     VerifyInetRouteExists("blue", "10.1.2.1/32");
     VerifyInetRouteAttributes("blue", "10.1.2.1/32", "20.1.1.1", "core-vn",
@@ -3180,7 +3178,6 @@ TEST_P(ServiceChainParamTest, TransitNetworkMultipleNetworks) {
         origin_vn_path_green);
 
     // Check for ExtConnect routes in blue
-    BgpRoute *ext_rt;
     VerifyInetRouteExists("blue", "10.1.3.1/32");
     VerifyInetRouteAttributes("blue", "10.1.3.1/32", "20.1.1.1", "core-vn",
         origin_vn_path_red);

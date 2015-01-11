@@ -13,13 +13,16 @@
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
+#include "bgp/bgp_xmpp_sandesh.h"
 #include "bgp/test/bgp_server_test_util.h"
+#include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
 #include "io/test/event_manager_test.h"
 #include "sandesh/xmpp_server_types.h"
 #include "testing/gunit.h"
 #include "xmpp/xmpp_client.h"
 #include "xmpp/xmpp_factory.h"
+#include "xmpp/xmpp_sandesh.h"
 
 using namespace boost::asio;
 using namespace boost::assign;
@@ -462,6 +465,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
     BGP_DEBUG_UT("Received route message at Client \n ");
 
     BgpSandeshContext sandesh_context;
+    RegisterSandeshShowXmppExtensions(&sandesh_context);
     sandesh_context.bgp_server = a_.get();
     sandesh_context.xmpp_peer_manager = bgp_channel_manager_;
 
@@ -745,9 +749,9 @@ TEST_F(BgpXmppUnitTest, ShowXmppServer) {
     WAIT_EQ(2, bgp_channel_manager_->channel_->Count());
     BGP_DEBUG_UT("Received unsubscribe message 1 at Server");
 
-    BgpSandeshContext sandesh_context;
-    sandesh_context.xmpp_server = xs_a_;
-    Sandesh::set_client_context(&sandesh_context);
+    XmppSandeshContext xmpp_sandesh_context;
+    xmpp_sandesh_context.xmpp_server = xs_a_;
+    Sandesh::set_module_context("XMPP", &xmpp_sandesh_context);
     Sandesh::set_response_callback(
         boost::bind(ValidateShowXmppServerResponse, _1));
     ShowXmppServerReq *show_req = new ShowXmppServerReq;
@@ -779,6 +783,8 @@ static void SetUp() {
     BgpServerTest::GlobalSetUp();
     BgpObjectFactory::Register<StateMachine>(
         boost::factory<StateMachineTest *>());
+    BgpObjectFactory::Register<BgpXmppMessageBuilder>(
+        boost::factory<BgpXmppMessageBuilder *>());
     XmppObjectFactory::Register<XmppStateMachine>(
         boost::factory<XmppStateMachineTest *>());
 }

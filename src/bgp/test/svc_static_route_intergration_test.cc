@@ -32,6 +32,7 @@
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/test/bgp_test_util.h"
+#include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
 #include "db/db_graph.h"
@@ -769,7 +770,6 @@ protected:
         for (Route::PathList::const_iterator it = route->GetPathList().begin();
              it != route->GetPathList().end(); ++it) {
             const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
-            const BgpAttr *attr = path->GetAttr();
             if (GetOriginVnPathFromRoute(server, path) != origin_vn_path)
                 return false;
         }
@@ -1986,6 +1986,8 @@ static void SetUp() {
     BgpServerTest::GlobalSetUp();
     BgpObjectFactory::Register<StateMachine>(
         boost::factory<StateMachineTest *>());
+    BgpObjectFactory::Register<BgpXmppMessageBuilder>(
+        boost::factory<BgpXmppMessageBuilder *>());
     XmppObjectFactory::Register<XmppStateMachine>(
         boost::factory<XmppStateMachineTest *>());
 }

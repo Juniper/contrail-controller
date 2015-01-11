@@ -6,8 +6,10 @@
 
 #include "base/logging.h"
 #include "base/test/task_test_util.h"
+#include "bgp/bgp_factory.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/routing-instance/routing_instance.h"
+#include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
 #include "control-node/test/control_node_test.h"
 #include "control-node/test/network_agent_mock.h"
@@ -349,6 +351,8 @@ class TestEnvironment : public ::testing::Environment {
 static void SetUp() {
     ControlNode::SetDefaultSchedulingPolicy();
     BgpServerTest::GlobalSetUp();
+    BgpObjectFactory::Register<BgpXmppMessageBuilder>(
+        boost::factory<BgpXmppMessageBuilder *>());
 }
 
 static void TearDown() {
