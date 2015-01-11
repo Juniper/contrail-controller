@@ -1898,7 +1898,7 @@ TEST_F(BgpServerUnitTest, ClearNeighbor1) {
         BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
         BgpSandeshContext sandesh_context;
-        sandesh_context.test_mode = true;
+        sandesh_context.set_test_mode(true);
         sandesh_context.bgp_server = a_.get();
         Sandesh::set_client_context(&sandesh_context);
         Sandesh::set_response_callback(
@@ -1970,7 +1970,7 @@ TEST_F(BgpServerUnitTest, ClearNeighbor2) {
         BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
         BgpSandeshContext sandesh_context;
-        sandesh_context.test_mode = true;
+        sandesh_context.set_test_mode(true);
         sandesh_context.bgp_server = a_.get();
         Sandesh::set_client_context(&sandesh_context);
         Sandesh::set_response_callback(
@@ -2042,7 +2042,7 @@ TEST_F(BgpServerUnitTest, ClearNeighbor3) {
         BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
         BgpSandeshContext sandesh_context;
-        sandesh_context.test_mode = true;
+        sandesh_context.set_test_mode(true);
         sandesh_context.bgp_server = a_.get();
         Sandesh::set_client_context(&sandesh_context);
         Sandesh::set_response_callback(
@@ -2108,7 +2108,7 @@ TEST_F(BgpServerUnitTest, ClearNeighbor4) {
     // Attempt to clear neighbor(s) with an empty name.
     //
     BgpSandeshContext sandesh_context;
-    sandesh_context.test_mode = true;
+    sandesh_context.set_test_mode(true);
     sandesh_context.bgp_server = a_.get();
     Sandesh::set_client_context(&sandesh_context);
     Sandesh::set_response_callback(
@@ -2177,7 +2177,6 @@ TEST_F(BgpServerUnitTest, ClearNeighbor5) {
         BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
         BgpSandeshContext sandesh_context;
-        sandesh_context.test_mode = false;
         sandesh_context.bgp_server = a_.get();
         Sandesh::set_client_context(&sandesh_context);
         Sandesh::set_response_callback(

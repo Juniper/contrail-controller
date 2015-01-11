@@ -2,6 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "bgp/bgp_sandesh.h"
+
 #include <boost/assign/list_of.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -11,29 +13,25 @@
 #include <sandesh/request_pipeline.h>
 
 #include "base/util.h"
-#include "io/tcp_server.h"
-#include "control-node/control_node.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_multicast.h"
 #include "bgp/bgp_path.h"
-#include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_peer_membership.h"
+#include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_route.h"
-#include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_table.h"
-#include "bgp/bgp_xmpp_channel.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/inet/inet_route.h"
 #include "bgp/inet/inet_table.h"
+#include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
-#include "bgp/origin-vn/origin_vn.h"
 #include "bgp/security_group/security_group.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
+#include "control-node/control_node.h"
 #include "db/db_table_partition.h"
-#include "xmpp/xmpp_connection.h"
-#include "xmpp/xmpp_server.h"
+#include "io/tcp_server.h"
 
 using namespace boost::assign;
 using namespace std;
@@ -431,8 +429,6 @@ public:
             }
         }
     }
-    static void FillXmppNeighborInfo(vector<BgpNeighborResp> *, BgpServer *,
-        const string &neighbor, BgpXmppChannel *);
     static bool CallbackS1(const Sandesh *sr,
             const RequestPipeline::PipeSpec ps,
             int stage, int instNum,
@@ -446,36 +442,6 @@ public:
             int stage, int instNum,
             RequestPipeline::InstData *data);
 };
-
-void ShowNeighborHandler::FillXmppNeighborInfo(
-        vector<BgpNeighborResp> *nbr_list, BgpServer *bgp_server,
-        const string &neighbor, BgpXmppChannel *bx_channel) {
-    if (!neighbor.empty() && bx_channel->ToString() != neighbor &&
-        bx_channel->remote_endpoint().address().to_string() != neighbor) {
-        return;
-    }
-    BgpNeighborResp resp;
-    resp.set_peer(bx_channel->ToString());
-    resp.set_peer_address(bx_channel->remote_endpoint().address().to_string());
-    resp.set_deleted(bx_channel->peer_deleted());
-    resp.set_local_address(bx_channel->local_endpoint().address().to_string());
-    resp.set_peer_type("internal");
-    resp.set_encoding("XMPP");
-    resp.set_state(bx_channel->StateName());
-
-    const XmppConnection *connection = bx_channel->channel()->connection();
-    resp.set_configured_hold_time(connection->GetConfiguredHoldTime());
-    resp.set_negotiated_hold_time(connection->GetNegotiatedHoldTime());
-
-    PeerRibMembershipManager *mgr =
-        bx_channel->Peer()->server()->membership_mgr();
-    mgr->FillPeerMembershipInfo(bx_channel->Peer(), &resp);
-    bx_channel->FillTableMembershipInfo(&resp);
-    bx_channel->FillInstanceMembershipInfo(&resp);
-
-    BgpPeer::FillBgpNeighborDebugState(resp, bx_channel->Peer()->peer_stats());
-    nbr_list->push_back(resp);
-}
 
 bool ShowNeighborHandler::CallbackS1(const Sandesh *sr,
             const RequestPipeline::PipeSpec ps,
@@ -500,8 +466,7 @@ bool ShowNeighborHandler::CallbackS1(const Sandesh *sr,
         }
     }
 
-    bsc->xmpp_peer_manager->VisitChannels(boost::bind(FillXmppNeighborInfo,
-        &mydata->nbr_list, bsc->bgp_server, req->get_neighbor(), _1));
+    bsc->ShowNeighborExtension(&mydata->nbr_list, req);
 
     return true;
 }
@@ -565,28 +530,11 @@ bool ShowNeighborHandler::CallbackS3(const Sandesh *sr,
 
 class ShowNeighborSummaryHandler {
 public:
-    static void FillXmppNeighborInfo(vector<BgpNeighborResp> *nbr_list,
-        BgpXmppChannel *bx_channel);
     static bool CallbackS1(const Sandesh *sr,
             const RequestPipeline::PipeSpec ps,
             int stage, int instNum,
             RequestPipeline::InstData *data);
 };
-
-void ShowNeighborSummaryHandler::FillXmppNeighborInfo(
-        vector<BgpNeighborResp> *nbr_list, BgpXmppChannel *bx_channel) {
-    BgpNeighborResp resp;
-    resp.set_peer(bx_channel->ToString());
-    resp.set_deleted(bx_channel->peer_deleted());
-    resp.set_peer_address(bx_channel->remote_endpoint().address().to_string());
-    resp.set_peer_type("internal");
-    resp.set_encoding("XMPP");
-    resp.set_state(bx_channel->StateName());
-    resp.set_local_address(bx_channel->local_endpoint().address().to_string());
-    const XmppConnection *connection = bx_channel->channel()->connection();
-    resp.set_negotiated_hold_time(connection->GetNegotiatedHoldTime());
-    nbr_list->push_back(resp);
-}
 
 bool ShowNeighborSummaryHandler::CallbackS1(const Sandesh *sr,
             const RequestPipeline::PipeSpec ps,
@@ -603,8 +551,7 @@ bool ShowNeighborSummaryHandler::CallbackS1(const Sandesh *sr,
         it->peer_manager()->FillBgpNeighborInfo(&nbr_list, string(), true);
     }
 
-    bsc->xmpp_peer_manager->VisitChannels(
-        boost::bind(FillXmppNeighborInfo, &nbr_list, _1));
+    bsc->ShowNeighborSummaryExtension(&nbr_list, req);
 
     ShowBgpNeighborSummaryResp *resp = new ShowBgpNeighborSummaryResp;
     resp->set_neighbors(nbr_list);
@@ -628,42 +575,12 @@ void ShowBgpNeighborSummaryReq::HandleRequest() const {
 
 class ShowNeighborStatisticsHandler {
 public:
-    static void FillXmppNeighborStatistics(size_t *count, BgpServer *bgp_server,
-                                           string domain, string up_or_down,
-                                           BgpXmppChannel *channel);
     static bool CallbackS1(const Sandesh *sr,
                            const RequestPipeline::PipeSpec ps, int stage,
                            int instNum, RequestPipeline::InstData * data);
     static size_t FillBgpNeighborStatistics(const ShowNeighborStatisticsReq *req,
                                    BgpServer *bgp_server);
 };
-
-void ShowNeighborStatisticsHandler::FillXmppNeighborStatistics(
-        size_t *count, BgpServer *bgp_server, string domain,
-        string up_or_down, BgpXmppChannel *channel) {
-
-    if (boost::iequals(up_or_down, "up") && !channel->Peer()->IsReady()) {
-        return;
-    }
-    if (boost::iequals(up_or_down, "down") && channel->Peer()->IsReady()) {
-        return;
-    }
-
-    if (!domain.empty()) {
-        RoutingInstanceMgr *rim = bgp_server->routing_instance_mgr();
-        RoutingInstance *ri = rim->GetRoutingInstance(domain);
-        if (!ri) return;
-        BgpTable *table = ri->GetTable(Address::INET);
-        if (!table) return;
-
-        if (!bgp_server->membership_mgr()->IPeerRibFind(channel->Peer(),
-                                                        table)) {
-            return;
-        }
-    }
-
-    ++*count;
-}
 
 size_t ShowNeighborStatisticsHandler::FillBgpNeighborStatistics(
            const ShowNeighborStatisticsReq *req, BgpServer *bgp_server) {
@@ -705,10 +622,7 @@ bool ShowNeighborStatisticsHandler::CallbackS1(
     // Retrieve numner of XMPP agents.
     if (req->get_bgp_or_xmpp().empty() ||
             boost::iequals(req->get_bgp_or_xmpp(), "xmpp")) {
-        bsc->xmpp_peer_manager->VisitChannels(
-                boost::bind(FillXmppNeighborStatistics, &count,
-                            bsc->bgp_server, req->get_domain(),
-                            req->get_up_or_down(), _1));
+        bsc->ShowNeighborStatisticsExtension(&count, req);
     }
 
     ShowNeighborStatisticsResp *resp = new ShowNeighborStatisticsResp;
@@ -788,7 +702,7 @@ bool ClearBgpNeighborHandler::CallbackS1(
     BgpPeer *peer = bsc->bgp_server->FindPeer(req->get_name());
 
     ClearBgpNeighborResp *resp = new ClearBgpNeighborResp;
-    if (!bsc->test_mode) {
+    if (!bsc->test_mode()) {
         resp->set_success(false);
     } else if (peer) {
         peer->Clear(BgpProto::Notification::AdminReset);
@@ -1579,4 +1493,40 @@ void ShowBgpServerReq::HandleRequest() const {
     s1.instances_.push_back(0);
     ps.stages_ = list_of(s1);
     RequestPipeline rp(ps);
+}
+
+BgpSandeshContext::BgpSandeshContext()
+        : bgp_server(NULL),
+          xmpp_peer_manager(NULL),
+          test_mode_(false) {
+}
+
+void BgpSandeshContext::SetNeighborShowExtensions(
+    const NeighborListExtension &show_neighbor,
+    const NeighborListExtension &show_neighbor_summary,
+    const NeighborStatisticsExtension &show_neighbor_statistics) {
+    show_neighbor_ext_ = show_neighbor;
+    show_neighbor_summary_ext_ = show_neighbor_summary;
+    show_neighbor_statistics_ext_ = show_neighbor_statistics;
+}
+
+void BgpSandeshContext::ShowNeighborExtension(
+    std::vector<BgpNeighborResp> *list, const BgpNeighborReq *req) {
+    if (show_neighbor_ext_) {
+        show_neighbor_ext_(list, this, req);
+    }
+}
+
+void BgpSandeshContext::ShowNeighborSummaryExtension(
+    std::vector<BgpNeighborResp> *list, const BgpNeighborReq *req) {
+    if (show_neighbor_summary_ext_) {
+        show_neighbor_summary_ext_(list, this, req);
+    }
+}
+
+void BgpSandeshContext::ShowNeighborStatisticsExtension(
+    size_t *count, const ShowNeighborStatisticsReq *req) {
+    if (show_neighbor_statistics_ext_) {
+        show_neighbor_statistics_ext_(count, this, req);
+    }
 }

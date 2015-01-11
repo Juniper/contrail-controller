@@ -5,12 +5,14 @@
 #include "base/logging.h"
 #include "base/test/task_test_util.h"
 #include "control-node/control_node.h"
+#include "bgp/bgp_factory.h"
 #include "bgp/inet/inet_route.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_proto.h"
 #include "bgp/bgp_ribout.h"
 #include "bgp/scheduling_group.h"
+#include "bgp/xmpp_message_builder.h"
 #include "db/db.h"
 #include "testing/gunit.h"
 
@@ -291,6 +293,8 @@ TEST_F(BgpTableTest, RiboutAS) {
 static void SetUp() {
     bgp_log_test::init();
     ControlNode::SetDefaultSchedulingPolicy();
+    BgpObjectFactory::Register<BgpXmppMessageBuilder>(
+        boost::factory<BgpXmppMessageBuilder *>());
 }
 
 static void TearDown() {

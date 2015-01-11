@@ -16,6 +16,7 @@
 #include "ifmap/ifmap_client.h"
 #include "ifmap/ifmap_factory.h"
 #include "ifmap/ifmap_log.h"
+#include "ifmap/ifmap_sandesh_context.h"
 #include "ifmap/ifmap_server.h"
 #include "ifmap/ifmap_server_show_types.h"
 #include "ifmap/ifmap_log_types.h"
@@ -23,7 +24,6 @@
 
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
-#include "bgp/bgp_sandesh.h"
 
 #include "xmpp/xmpp_connection.h"
 #include "xmpp/xmpp_channel.h"
@@ -471,10 +471,10 @@ static bool IFMapXmppShowReqHandleRequest(const Sandesh *sr,
                                           RequestPipeline::InstData *data) {
     const IFMapXmppShowReq *request =
         static_cast<const IFMapXmppShowReq *>(ps.snhRequest_.get());
-    BgpSandeshContext *bsc =
-        static_cast<BgpSandeshContext *>(request->client_context());
+    IFMapSandeshContext *sctx =
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
     IFMapChannelManager *ifmap_channel_manager =
-        bsc->ifmap_server->get_ifmap_channel_manager();
+        sctx->ifmap_server()->get_ifmap_channel_manager();
 
     IFMapXmppShowResp *response = new IFMapXmppShowResp();
     response->set_context(request->context());

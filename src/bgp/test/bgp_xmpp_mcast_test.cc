@@ -9,11 +9,13 @@
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_sandesh.h"
+#include "bgp/bgp_xmpp_sandesh.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
 #include "bgp/ermvpn/ermvpn_route.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/test/bgp_server_test_util.h"
+#include "bgp/xmpp_message_builder.h"
 #include "io/test/event_manager_test.h"
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
@@ -714,6 +716,7 @@ TEST_F(BgpXmppMcastMultiAgentTest, ValidateShowRoute) {
 
     // Verify routes via sandesh.
     BgpSandeshContext sandesh_context;
+    RegisterSandeshShowXmppExtensions(&sandesh_context);
     sandesh_context.bgp_server = bs_x_.get();
     sandesh_context.xmpp_peer_manager = bcm_x_.get();
     Sandesh::set_client_context(&sandesh_context);
@@ -798,6 +801,7 @@ TEST_F(BgpXmppMcastMultiAgentTest, ValidateShowMulticastManager) {
 
     // Verify multicast manager via sandesh.
     BgpSandeshContext sandesh_context;
+    RegisterSandeshShowXmppExtensions(&sandesh_context);
     sandesh_context.bgp_server = bs_x_.get();
     sandesh_context.xmpp_peer_manager = bcm_x_.get();
     Sandesh::set_client_context(&sandesh_context);
@@ -830,6 +834,7 @@ TEST_F(BgpXmppMcastMultiAgentTest, ValidateShowMulticastManagerDetail) {
 
     // Verify multicast manager detail via sandesh.
     BgpSandeshContext sandesh_context;
+    RegisterSandeshShowXmppExtensions(&sandesh_context);
     sandesh_context.bgp_server = bs_x_.get();
     sandesh_context.xmpp_peer_manager = bcm_x_.get();
     Sandesh::set_client_context(&sandesh_context);
@@ -3227,6 +3232,8 @@ static void SetUp() {
     BgpServerTest::GlobalSetUp();
     BgpObjectFactory::Register<StateMachine>(
         boost::factory<StateMachineTest *>());
+    BgpObjectFactory::Register<BgpXmppMessageBuilder>(
+        boost::factory<BgpXmppMessageBuilder *>());
     XmppObjectFactory::Register<XmppStateMachine>(
         boost::factory<XmppStateMachineTest *>());
 }

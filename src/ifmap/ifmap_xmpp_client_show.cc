@@ -9,9 +9,9 @@
 #include <boost/bind.hpp>
 #include <boost/assign/list_of.hpp>
 #include "base/logging.h"
-#include "bgp/bgp_sandesh.h"
 
 #include "ifmap/ifmap_client.h"
+#include "ifmap/ifmap_sandesh_context.h"
 #include "ifmap/ifmap_server.h"
 #include "ifmap/ifmap_xmpp.h"
 #include "ifmap/ifmap_server_show_types.h" // sandesh
@@ -75,9 +75,9 @@ bool ShowIFMapXmppClientInfo::BufferStage(const Sandesh *sr,
                                      RequestPipeline::InstData *data) {
     const IFMapXmppClientInfoShowReq *request = 
         static_cast<const IFMapXmppClientInfoShowReq *>(ps.snhRequest_.get());
-    BgpSandeshContext *bsc = 
-        static_cast<BgpSandeshContext *>(request->client_context());
-    IFMapServer* server = bsc->ifmap_server;
+    IFMapSandeshContext *sctx = 
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
+    IFMapServer* server = sctx->ifmap_server();
 
     IFMapServer::ClientMap client_map = server->GetClientMap();
 

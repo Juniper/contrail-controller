@@ -20,6 +20,7 @@
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_sandesh.h"
+#include "bgp/bgp_xmpp_sandesh.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
@@ -428,6 +429,8 @@ int main(int argc, char *argv[]) {
         sandesh_generator_init = false;
     }
 
+    RegisterSandeshShowXmppExtensions(&sandesh_context);
+
     if (sandesh_generator_init) {
         NodeType::type node_type = 
             g_vns_constants.Module2NodeType.find(module)->second;
@@ -470,7 +473,6 @@ int main(int argc, char *argv[]) {
     DB config_db;
     DBGraph config_graph;
     IFMapServer ifmap_server(&config_db, &config_graph, evm.io_service());
-    sandesh_context.ifmap_server = &ifmap_server;
     IFMap_Initialize(&ifmap_server);
 
     BgpIfmapConfigManager *config_manager =
@@ -496,7 +498,6 @@ int main(int argc, char *argv[]) {
     init.AddXmppChannelConfig(&xmpp_cfg);
     if (!init.InitServer(xmpp_server, options.xmpp_port(), true))
         exit(1);
-    sandesh_context.xmpp_server = xmpp_server;
 
     // Register XMPP channel peers 
     boost::scoped_ptr<BgpXmppChannelManager> bgp_peer_manager(
@@ -504,6 +505,12 @@ int main(int argc, char *argv[]) {
     sandesh_context.xmpp_peer_manager = bgp_peer_manager.get();
     IFMapChannelManager ifmap_channel_mgr(xmpp_server, &ifmap_server);
     ifmap_server.set_ifmap_channel_manager(&ifmap_channel_mgr);
+
+    XmppSandeshContext xmpp_sandesh_context;
+    xmpp_sandesh_context.xmpp_server = xmpp_server;
+    Sandesh::set_module_context("XMPP", &xmpp_sandesh_context);
+    IFMapSandeshContext ifmap_sandesh_context(&ifmap_server);
+    Sandesh::set_module_context("IFMap", &ifmap_sandesh_context);
 
     //Register services with Discovery Service Server
     DiscoveryServiceClient *ds_client = NULL; 

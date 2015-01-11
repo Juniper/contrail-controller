@@ -8,3 +8,6 @@
 FACTORY_STATIC_REGISTER(BgpObjectFactory, BgpConfigManager,
                         BgpIfmapConfigManager);
 
+#include "bgp/xmpp_message_builder.h"
+FACTORY_STATIC_REGISTER(BgpObjectFactory, BgpXmppMessageBuilder,
+                        BgpXmppMessageBuilder);

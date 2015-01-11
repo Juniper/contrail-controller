@@ -8,6 +8,8 @@
 #include "bgp/bgp_ribout.h"
 
 class BgpRoute;
+class BgpMessageBuilder;
+class BgpXmppMessageBuilder;
 
 class Message {
 public:
@@ -35,6 +37,10 @@ public:
                             const RibOutAttr *roattr,
                             const BgpRoute *route) const = 0;
     static MessageBuilder *GetInstance(RibExportPolicy::Encoding encoding);
+
+private:
+    static BgpMessageBuilder *bgp_message_builder_;
+    static BgpXmppMessageBuilder *xmpp_message_builder_;
 };
 
 #endif  // SRC_BGP_MESSAGE_BUILDER_H_
