@@ -475,7 +475,7 @@ public:
         const ShowXmppConnectionReq *req =
             static_cast<const ShowXmppConnectionReq *>(ps.snhRequest_.get());
         XmppSandeshContext *xsc =
-            dynamic_cast<XmppSandeshContext *>(req->client_context());
+            dynamic_cast<XmppSandeshContext *>(req->module_context("XMPP"));
 
         ShowXmppConnectionResp *resp = new ShowXmppConnectionResp;
         vector<ShowXmppConnection> connections;
@@ -511,7 +511,7 @@ public:
         const ClearXmppConnectionReq *req =
             static_cast<const ClearXmppConnectionReq *>(ps.snhRequest_.get());
         XmppSandeshContext *xsc =
-            dynamic_cast<XmppSandeshContext *>(req->client_context());
+            dynamic_cast<XmppSandeshContext *>(req->module_context("XMPP"));
 
         ClearXmppConnectionResp *resp = new ClearXmppConnectionResp;
         if (!xsc || !xsc->test_mode) {
@@ -559,7 +559,7 @@ public:
         const ShowXmppServerReq *req =
             static_cast<const ShowXmppServerReq *>(ps.snhRequest_.get());
         XmppSandeshContext *xsc =
-            dynamic_cast<XmppSandeshContext *>(req->client_context());
+            dynamic_cast<XmppSandeshContext *>(req->module_context("XMPP"));
 
         ShowXmppServerResp *resp = new ShowXmppServerResp;
         if (xsc)

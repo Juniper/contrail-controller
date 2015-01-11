@@ -18,6 +18,7 @@
 #include "bgp/inet/inet_route.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/test/bgp_server_test_util.h"
+#include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
 #include "db/db.h"
 #include "io/test/event_manager_test.h"
@@ -892,6 +893,8 @@ static void SetUp() {
 
     BgpObjectFactory::Register<RTargetGroupMgr>(
         boost::factory<RTargetGroupMgrTest *>());
+    BgpObjectFactory::Register<BgpXmppMessageBuilder>(
+        boost::factory<BgpXmppMessageBuilder *>());
 }
 
 static void TearDown() {

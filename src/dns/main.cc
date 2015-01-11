@@ -12,6 +12,7 @@
 #include <base/task.h>
 #include <db/db_graph.h>
 #include <ifmap/ifmap_link_table.h>
+#include "ifmap/ifmap_sandesh_context.h"
 #include <ifmap/ifmap_server_parser.h>
 #include <ifmap/ifmap_server.h>
 #include <ifmap/ifmap_xmpp.h>
@@ -27,11 +28,11 @@
 #include <cfg/dns_config.h>
 #include <cfg/dns_config_parser.h>
 #include <agent/agent_xmpp_init.h>
-#include "bgp/bgp_sandesh.h"
 #include "cmn/dns_options.h"
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>
 #include <uve/uve.h>
+#include "xmpp/xmpp_sandesh.h"
 
 namespace opt = boost::program_options;
 using namespace boost::asio::ip;
@@ -120,7 +121,6 @@ int main(int argc, char *argv[]) {
     Dns::SetHttpPort(options.http_server_port());
     Dns::SetDnsPort(options.dns_server_port());
 
-    BgpSandeshContext sandesh_context;
     boost::system::error_code ec;
     string hostname = host_name(ec);
     Dns::SetHostName(hostname);
@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
                     Dns::GetEventManager(),
                     options.http_server_port(), 0,
                     options.collector_server_list(),
-                    &sandesh_context);
+                    NULL);
     }
     Sandesh::SetLoggingParams(options.log_local(), options.log_category(),
                               options.log_level());
@@ -151,7 +151,6 @@ int main(int argc, char *argv[]) {
     DBGraph config_graph;
     IFMapServer ifmap_server(&config_db, &config_graph,
                              Dns::GetEventManager()->io_service());
-    sandesh_context.ifmap_server = &ifmap_server;
     IFMap_Initialize(&ifmap_server);
 
     DnsManager dns_manager;
@@ -166,7 +165,13 @@ int main(int argc, char *argv[]) {
     parser.Parse(FileRead(options.config_file()));
 
     DnsAgentXmppManager::Init();
-    sandesh_context.xmpp_server = Dns::GetXmppServer();
+
+    XmppSandeshContext xmpp_sandesh_context;
+    xmpp_sandesh_context.xmpp_server = Dns::GetXmppServer();
+    Sandesh::set_module_context("XMPP", &xmpp_sandesh_context);
+    IFMapSandeshContext ifmap_sandesh_context(&ifmap_server);
+    Sandesh::set_module_context("IFMap", &ifmap_sandesh_context);
+
     start_time = UTCTimestampUsec();
     dns_info_trigger =
             new TaskTrigger(boost::bind(&DnsInfoLogger),
@@ -224,7 +229,7 @@ int main(int argc, char *argv[]) {
                                    options.http_server_port(),
                                    csf,
                                    list,
-                                   &sandesh_context);
+                                   NULL);
         }
     } else {
         LOG(ERROR, "Invalid Discovery Server hostname or ip " <<

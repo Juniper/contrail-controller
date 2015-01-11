@@ -1188,7 +1188,7 @@ protected:
         Configure();
         task_util::WaitForIdle();
         sandesh_context.bgp_server = a_.get();
-        sandesh_context.set_unit_test_mode(true);
+        sandesh_context.set_test_mode(true);
         Sandesh::set_client_context(&sandesh_context);
     }
 

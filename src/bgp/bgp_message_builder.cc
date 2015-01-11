@@ -225,11 +225,5 @@ Message *BgpMessageBuilder::Create(const BgpTable *table,
     return msg;
 }
 
-BgpMessageBuilder BgpMessageBuilder::instance_;
-
 BgpMessageBuilder::BgpMessageBuilder() {
-}
-
-BgpMessageBuilder *BgpMessageBuilder::GetInstance() {
-    return &instance_;
 }
