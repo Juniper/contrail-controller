@@ -48,6 +48,19 @@ static void LogError(const PktInfo *pkt, const char *str) {
     }
 }
 
+// VRF changed for the packet. Treat it as Layer3 packet from now.
+// Note:
+// Features like service chain are supported only for Layer3. Layer2
+// routes are not leaked into the new VRF and any Layer2 route lookup
+// into new VRF will also Fail. So, even VRouter will treat packets
+// as L3 after VRF transaltion.
+void PktFlowInfo::ChangeVrf(const PktInfo *pkt, PktControlInfo *info,
+                            const VrfEntry *vrf) {
+    l3_flow = true;
+    pkt->l3_forwarding = true;
+    info->vrf_ = vrf;
+}
+
 void PktFlowInfo::UpdateRoute(const AgentRoute **rt, const VrfEntry *vrf,
                               const IpAddress &ip, const MacAddress &mac,
                               FlowRouteRefMap &ref_map) {
@@ -166,7 +179,7 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
     // Find the out_component_nh_idx
     if (nh->GetType() == NextHop::COMPOSITE) {
         // We dont expect L2 multicast packets. Return failure to drop packet
-        if (pkt->l3_forwarding == true)
+        if (pkt->l3_forwarding == false)
             return false;
         comp_nh = static_cast<const CompositeNH *>(nh);
         if (comp_nh->composite_nh_type() == Composite::ECMP ||
@@ -924,14 +937,7 @@ void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
         VrfKey key(match_acl_param.action_info.vrf_translate_action_.vrf_name());
         const VrfEntry *vrf = static_cast<const VrfEntry*>
             (Agent::GetInstance()->vrf_table()->FindActiveEntry(&key));
-        out->vrf_ = vrf;
-        // VRF changed for the packet. Treat it as Layer3 packet from now.
-        // Note:
-        // Features like service chain are supported only for Layer3. Layer2
-        // routes are not leaked into the new VRF and any Layer2 route lookup
-        // into new VRF will also Fail. So, even VRouter will treat packets
-        // as L3 after VRF transaltion.
-        l3_flow = true;
+        ChangeVrf(pkt, out, vrf);
         if (vrf) {
             UpdateRoute(&out->rt_, vrf, pkt->ip_daddr, pkt->dmac,
                         flow_dest_plen_map);
