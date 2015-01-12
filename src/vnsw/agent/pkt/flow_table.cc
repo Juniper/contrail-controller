@@ -1952,7 +1952,7 @@ void RouteFlowUpdate::WalkDone(DBTableBase *partition, RouteFlowUpdate *info) {
 }
 
 void RouteFlowUpdate::Notify(DBTablePartBase *partition, DBEntryBase *e) {
-    AgentRoute *route = static_cast<InetUnicastRouteEntry *>(e);
+    AgentRoute *route = static_cast<AgentRoute *>(e);
     if (route->is_multicast()) {
         return;
     }
