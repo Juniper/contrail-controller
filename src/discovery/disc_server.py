@@ -192,7 +192,7 @@ class DiscoveryServer():
                                           size=1000)
 
         # DB interface initialization
-        self._db_connect(self._args.reset_config)
+        self._db_conn = self._db_connect(self._args.reset_config)
 
         # build in-memory subscriber data
         self._sub_data = {}
@@ -270,7 +270,7 @@ class DiscoveryServer():
     # end
 
     def _db_connect(self, reset_config):
-        self._db_conn = DiscoveryCassendraClient("discovery", 
+        return DiscoveryCassendraClient("discovery",
             self._args.cassandra_server_list, reset_config)
     # end _db_connect
 
@@ -471,7 +471,7 @@ class DiscoveryServer():
     # round-robin
     def service_list_round_robin(self, pubs):
         self._debug['policy_rr'] += 1
-        return sorted(pubs, key=lambda service: service['ts_use'])
+        return sorted(pubs, key=lambda service: service['ts_use'], reverse=True)
     # end
 
     # load-balance
