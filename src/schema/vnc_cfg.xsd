@@ -1364,6 +1364,26 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('logical-router-service-instance',
           'logical-router', 'service-instance', ['ref']) -->
 
+<xsd:element name="analytics-node" type="ifmap:IdentityType"/>
+<xsd:element name="global-system-config-analytics-node"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('global-system-config-analytics-node', 
+             'global-system-config', 'analytics-node', ['has']) -->
+
+<xsd:element name="analytics-node-ip-address" type="IpAddressType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('analytics-node-ip-address', 'analytics-node') -->
+
+<xsd:element name="database-node" type="ifmap:IdentityType"/>
+<xsd:element name="global-system-config-database-node"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('global-system-config-database-node', 
+             'global-system-config', 'database-node', ['has']) -->
+
+<xsd:element name="database-node-ip-address" type="IpAddressType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('database-node-ip-address', 'database-node') -->
+
 <!-- Neutron extensions -->
 <xsd:include schemaLocation='loadbalancer.xsd'/>
 
