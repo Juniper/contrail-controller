@@ -31,6 +31,8 @@ generated_rule = env.Command(generated_files,
                              autogen_cmd + ' $SOURCE')
 
 setup_sources = [
+           'requirements.txt',
+           'test-requirements.txt',
            'setup.py',
            'MANIFEST.in',
           ]
@@ -49,12 +51,23 @@ local_sources = [
            'client.py',
            'disc_zk.py',
            'disc_cassdb.py',
-           'output.py',
+           'output.py'
           ]
 local_sources_rules = []
 for file in local_sources:
     local_sources_rules.append(
         env.Install("discovery", '#controller/src/discovery/' + file))
+
+test_sources = [
+        'tests/__init__.py',
+        'tests/test_disc_server.py'
+        ]
+
+test_sources_rules = []
+for file in test_sources:
+    test_sources_rules.append(
+        env.Install("discovery/tests", '#controller/src/discovery/' + file))
+
 
 introspect_pkg = env.SandeshGenPy('discovery_introspect.sandesh', 'discovery/sandesh/', False)
 
@@ -62,6 +75,7 @@ cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_depends = [generated_rule]
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
+sdist_depends.extend(test_sources_rules)
 sdist_depends.extend(introspect_pkg)
 
 sdist_gen = env.Command('dist', 'setup.py', cd_cmd + 'python setup.py sdist')
@@ -98,3 +112,9 @@ subdirs = [
 
 for dir in subdirs:
     env.SConscript(dir + '/SConscript', exports='BuildEnv', duplicate=0)
+
+test_cmd = env.Command(None, test_sources,
+        cd_cmd + 'python setup.py test')
+env.Depends(test_cmd, sdist_depends)
+
+env.Alias('controller/src/discovery:test', test_cmd)

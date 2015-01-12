@@ -1,0 +1,7 @@
+gevent
+pycassa
+bottle
+cfgm_common
+sandesh_common
+sandesh
+mock
