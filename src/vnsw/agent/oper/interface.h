@@ -143,7 +143,7 @@ protected:
     bool test_oper_state_;
     //Reference to nexthop, whose index gets used as key in
     //flow lookup for traffic ingressing from this interface
-    //packet interface and layer2 interface will not have this
+    //packet interface and evpn interface will not have this
     //reference set.
     NextHopConstRef flow_key_nh_;
 

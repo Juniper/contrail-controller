@@ -206,13 +206,13 @@ void DnsProto::VrfNotify(DBEntryBase *entry) {
     MacAddress address(agent_->vhost_interface()->mac());
 
     if (entry->IsDeleted()) {
-        Layer2AgentRouteTable::Delete(agent_->local_peer(), vrf->GetName(),
+        EvpnAgentRouteTable::Delete(agent_->local_peer(), vrf->GetName(),
                                       address, IpAddress(), -1);
         return;
     }
 
     if (vrf->vn()) {
-        Layer2AgentRouteTable::AddLayer2ReceiveRoute(agent_->local_peer(),
+        EvpnAgentRouteTable::AddEvpnReceiveRoute(agent_->local_peer(),
                                                      vrf->GetName(),
                                                      address, IpAddress(),
                                                      vrf->vn()->GetName(),

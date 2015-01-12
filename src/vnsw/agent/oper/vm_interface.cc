@@ -51,7 +51,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     mirror_direction_(MIRROR_RX_TX), cfg_name_(""), fabric_port_(true),
     need_linklocal_ip_(false), dhcp_enable_(true),
     do_dhcp_relay_(false), vm_name_(),
-    vm_project_uuid_(nil_uuid()), vxlan_id_(0), layer2_forwarding_(true),
+    vm_project_uuid_(nil_uuid()), vxlan_id_(0), bridging_(true),
     layer3_forwarding_(true), mac_set_(false), ecmp_(false),
     tx_vlan_id_(kInvalidVlanId), rx_vlan_id_(kInvalidVlanId), parent_(NULL),
     local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
@@ -79,7 +79,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     need_linklocal_ip_(false), dhcp_enable_(true),
     do_dhcp_relay_(false), vm_name_(vm_name),
     vm_project_uuid_(vm_project_uuid), vxlan_id_(0),
-    layer2_forwarding_(true), layer3_forwarding_(true), mac_set_(false),
+    bridging_(true), layer3_forwarding_(true), mac_set_(false),
     ecmp_(false), tx_vlan_id_(tx_vlan_id), rx_vlan_id_(rx_vlan_id),
     parent_(parent), local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
     sg_list_(), floating_ip_list_(), service_vlan_list_(), static_route_list_(),
@@ -1030,7 +1030,7 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
     }
 
     // Add/Del/Update L2 
-    if (l2_active_ && layer2_forwarding_) {
+    if (l2_active_ && bridging_) {
         UpdateL2(old_l2_active, old_vrf, old_vxlan_id, 
                  force_update, policy_change, old_addr, old_v6_addr);
     } else if (old_l2_active) {
@@ -1626,7 +1626,7 @@ bool VmInterface::IsL3Active() const {
 }
 
 bool VmInterface::IsL2Active() const {
-    if (!layer2_forwarding()) {
+    if (!bridging()) {
         return false;
     }
 
@@ -1734,7 +1734,7 @@ void VmInterface::DeleteL3MplsLabel() {
     label_ = MplsTable::kInvalidLabel;
 }
 
-// Allocate MPLS Label for Layer2 routes
+// Allocate MPLS Label for Evpn routes
 void VmInterface::AllocL2MplsLabel(bool force_update,
                                    bool policy_change) {
     bool new_entry = false;
@@ -1747,10 +1747,10 @@ void VmInterface::AllocL2MplsLabel(bool force_update,
     Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
     if (force_update || policy_change || new_entry)
         MplsLabel::CreateVPortLabel(agent, l2_label_, GetUuid(),
-                                    policy_enabled_, InterfaceNHFlags::LAYER2);
+                                    policy_enabled_, InterfaceNHFlags::BRIDGE);
 }
 
-// Delete MPLS Label for Layer2 routes
+// Delete MPLS Label for Evpn routes
 void VmInterface::DeleteL2MplsLabel() {
     if (l2_label_ == MplsTable::kInvalidLabel) {
         return;
@@ -1796,7 +1796,7 @@ bool VmInterface::Ipv6Activated(bool old_ipv6_active) {
     return false;
 }
 
-//Check if interface transitioned from active layer2 forwarding to inactive state
+//Check if interface transitioned from active evpn forwarding to inactive state
 bool VmInterface::L2Deactivated(bool old_l2_active) {
     if (old_l2_active == true && l2_active_ == false) {
         return true;
@@ -2369,8 +2369,8 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
         return;
 
     assert(peer_.get());
-    Layer2AgentRouteTable *table = static_cast<Layer2AgentRouteTable *>
-        (vrf_->GetLayer2RouteTable());
+    EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
+        (vrf_->GetEvpnRouteTable());
 
     SecurityGroupList sg_id_list;
     CopySgIdList(&sg_id_list);
@@ -2399,8 +2399,8 @@ void VmInterface::DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf,
         vxlan_id_ = 0;
     }
 
-    Layer2AgentRouteTable *table = static_cast<Layer2AgentRouteTable *>
-        (old_vrf->GetLayer2RouteTable());
+    EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
+        (old_vrf->GetEvpnRouteTable());
     table->DelLocalVmRoute(peer_.get(), old_vrf->GetName(),
                            MacAddress::FromString(vm_mac_), this, old_v4_addr);
     table->DelLocalVmRoute(peer_.get(), old_vrf->GetName(),
@@ -2624,8 +2624,8 @@ void VmInterface::FloatingIp::L2Activate(VmInterface *interface,
     PathPreference path_preference;
     interface->SetPathPreference(&path_preference, false);
 
-    Layer2AgentRouteTable *l2_table = static_cast<Layer2AgentRouteTable *>
-        (vrf_->GetLayer2RouteTable());
+    EvpnAgentRouteTable *l2_table = static_cast<EvpnAgentRouteTable *>
+        (vrf_->GetEvpnRouteTable());
     Agent *agent = l2_table->agent();
     l2_table->AddLocalVmRoute(interface->peer_.get(), vrf_->GetName(),
                               agent->vhost_interface()->mac(),
@@ -2638,8 +2638,8 @@ void VmInterface::FloatingIp::L2DeActivate(VmInterface *interface) const {
     if (l2_installed_ == false)
         return;
 
-    Layer2AgentRouteTable *l2_table = static_cast<Layer2AgentRouteTable *>
-        (vrf_->GetLayer2RouteTable());
+    EvpnAgentRouteTable *l2_table = static_cast<EvpnAgentRouteTable *>
+        (vrf_->GetEvpnRouteTable());
     Agent *agent = l2_table->agent();
     l2_table->DelLocalVmRoute(interface->peer_.get(), vrf_->GetName(),
                               agent->vhost_interface()->mac(),
@@ -3085,11 +3085,11 @@ void VmInterface::ServiceVlanRouteAdd(const ServiceVlan &entry) {
     // With IRB model, add L2 Receive route for SMAC and DMAC to ensure
     // packets from service vm go thru routing
     Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
-    Layer2AgentRouteTable *table = static_cast<Layer2AgentRouteTable *>
-        (vrf_->GetLayer2RouteTable());
-    table->AddLayer2ReceiveRoute(agent->local_vm_peer(), entry.vrf_->GetName(),
+    EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
+        (vrf_->GetEvpnRouteTable());
+    table->AddEvpnReceiveRoute(agent->local_vm_peer(), entry.vrf_->GetName(),
                                  0, entry.dmac_, vn()->GetName());
-    table->AddLayer2ReceiveRoute(agent->local_vm_peer(), entry.vrf_->GetName(),
+    table->AddEvpnReceiveRoute(agent->local_vm_peer(), entry.vrf_->GetName(),
                                  0, entry.smac_, vn()->GetName());
     InetUnicastAgentRouteTable::AddVlanNHRoute
         (peer_.get(), entry.vrf_->GetName(), entry.addr_, 32,
@@ -3110,8 +3110,8 @@ void VmInterface::ServiceVlanRouteDel(const ServiceVlan &entry) {
 
     // Delete the L2 Recive routes added for smac_ and dmac_
     Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
-    Layer2AgentRouteTable *table = static_cast<Layer2AgentRouteTable *>
-        (entry.vrf_->GetLayer2RouteTable());
+    EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
+        (entry.vrf_->GetEvpnRouteTable());
     table->Delete(agent->local_vm_peer(), entry.vrf_->GetName(), entry.dmac_,
                   IpAddress(), 0);
     table->Delete(agent->local_vm_peer(), entry.vrf_->GetName(), entry.smac_,

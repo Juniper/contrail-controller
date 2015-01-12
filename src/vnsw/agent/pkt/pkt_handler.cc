@@ -167,8 +167,8 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
         }
 
         if (pkt_info->l3_forwarding == false &&
-            vm_itf->layer2_forwarding() == false) {
-            PKT_TRACE(Err, "layer2 forwarding not enabled for interface "
+            vm_itf->bridging() == false) {
+            PKT_TRACE(Err, "Bridging not enabled for interface "
                       "index <" << pkt_info->agent_hdr.ifindex << ">");
             return INVALID;
         }
@@ -461,7 +461,7 @@ int PktHandler::ParseMplsHdr(PktInfo *pkt_info, uint8_t *pkt) {
 
     pkt_info->l3_label = true;
     const InterfaceNH *nh = dynamic_cast<const InterfaceNH *>(mpls->nexthop());
-    if (nh && nh->IsLayer2()) {
+    if (nh && nh->IsBridge()) {
         pkt_info->l3_label = false;
     }
 
@@ -650,12 +650,12 @@ bool PktHandler::IsToRDevice(uint32_t vrf_id, const IpAddress &ip) {
     if (vrf == NULL)
         return false;
 
-    Layer2AgentRouteTable *table = static_cast<Layer2AgentRouteTable *>
-        (vrf->GetLayer2RouteTable());
+    EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
+        (vrf->GetEvpnRouteTable());
     if (table == NULL)
         return false;
 
-    Layer2RouteEntry *rt = table->FindRoute(agent(), vrf->GetName(),
+    EvpnRouteEntry *rt = table->FindRoute(agent(), vrf->GetName(),
                                             MacAddress::BroadcastMac(),
                                             IpAddress());
     if (rt == NULL)

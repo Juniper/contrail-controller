@@ -97,7 +97,7 @@ struct VnSandeshData {
     6: string vrf_name (link="VrfListReq"); // VRF name
     7: list<VnIpamData> ipam_data;
     8: list<VnIpamHostRoutes> ipam_host_routes;
-    9: bool layer2_forwarding;
+    9: bool bridging;
     10: bool ipv4_forwarding;
     11: bool admin_state;
     12: i32 vxlan_id;
@@ -841,7 +841,7 @@ struct VnObjectLogInfo {
     7: optional string vrf;
     8: optional list <VnObjectLogIpam> ipam_list;
     9: optional bool ipv4_forwarding;
-   10: optional bool layer2_forwarding;
+   10: optional bool bridging;
    11: optional bool admin_state;
 }
 
