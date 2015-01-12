@@ -266,24 +266,38 @@ void PktHandler::HandleRcvPkt(const AgentHdr &hdr, const PacketBufferPtr &buff){
 // Compute L2/L3 forwarding mode for pacekt.
 // Forwarding mode is L3 if,
 // - Packet uses L3 label
-// - Packet uses L2 Label and DMAC matches VRRP-MAC or VHOST-MAC
+// - Packet uses L2 Label and DMAC hits a route with L2-Receive NH
 // Else forwarding mode is L2
 void PktHandler::ComputeForwardingMode(PktInfo *pkt_info) const {
-    pkt_info->l3_forwarding = true;
     if (pkt_info->l3_label) {
+        pkt_info->l3_forwarding = true;
         return;
     }
 
-    if (agent_->vhost_interface()) {
-        if (pkt_info->dmac != agent_->vrrp_mac() &&
-            pkt_info->dmac != agent_->vhost_interface()->mac()) {
-            pkt_info->l3_forwarding = false;
-        }
-    } else {
-        if (pkt_info->dmac != agent_->vrrp_mac()) {
-            pkt_info->l3_forwarding = false;
-        }
+    pkt_info->l3_forwarding = false;
+    VrfTable *table = static_cast<VrfTable *>(agent_->vrf_table());
+    VrfEntry *vrf = table->FindVrfFromId(pkt_info->agent_hdr.vrf);
+    if (vrf == NULL) {
+        return;
     }
+    EvpnAgentRouteTable *l2_table = static_cast<EvpnAgentRouteTable *>
+        (vrf->GetEvpnRouteTable());
+    AgentRoute *rt = static_cast<AgentRoute *>
+        (l2_table->FindRoute(agent_, vrf->GetName(), pkt_info->dmac,
+                             IpAddress()));
+    if (rt == NULL) {
+        return;
+    }
+
+    const NextHop *nh = rt->GetActiveNextHop();
+    if (nh == NULL) {
+        return;
+    }
+
+    if (nh->GetType() == NextHop::L2_RECEIVE) {
+        pkt_info->l3_forwarding = true;
+    }
+    return;
 }
 
 void PktHandler::SetOuterIp(PktInfo *pkt_info, uint8_t *pkt) {
