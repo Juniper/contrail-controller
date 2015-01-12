@@ -127,7 +127,7 @@ bool AgentInet4McRtSandesh::UpdateResp(DBEntryBase *entry) {
 }
 
 DBTable *AgentLayer2RtSandesh::AgentGetTable() {
-    return static_cast<DBTable *>(vrf_->GetLayer2RouteTable());
+    return static_cast<DBTable *>(vrf_->GetEvpnRouteTable());
 }
 
 void AgentLayer2RtSandesh::Alloc() {

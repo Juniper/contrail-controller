@@ -140,8 +140,8 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
 
     if (path) {
         if (state->Changed(path)) {
-            if (type == Agent::LAYER2) {
-                //In case of layer2 routes any change in vxlan id or
+            if (type == Agent::EVPN) {
+                //In case of evpn routes any change in vxlan id or
                 //movement of tunnelt type from vxlan to mpls should result in
                 //withdraw and re add of route.
                 bool withdraw = false;
@@ -246,7 +246,7 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
     bool route_can_be_dissociated = RouteCanDissociate(route);
     const Agent *agent = bgp_xmpp_peer->agent();
 
-    if (route->GetTableType() != Agent::LAYER2)
+    if (route->GetTableType() != Agent::EVPN)
         return;
 
     if (route_can_be_dissociated && (state != NULL)) {
@@ -256,7 +256,7 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
             state->exported_ = false;
         }
 
-        if ((route->GetTableType() == Agent::LAYER2) &&
+        if ((route->GetTableType() == Agent::EVPN) &&
             (state->evpn_exported_ == true)) {
             state->tunnel_type_ = TunnelType::INVALID;
             AgentXmppChannel::ControllerSendEvpnRouteDelete(bgp_xmpp_peer,
@@ -288,7 +288,7 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
 
     // Dont register for multicast if vrouter is not present. If vrouter is
     // not present, vhost interface will also be not present
-    if (route->GetTableType() == Agent::LAYER2 &&
+    if (route->GetTableType() == Agent::EVPN &&
         agent->vhost_interface() == NULL) {
         return;
     }
@@ -320,7 +320,7 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
         TunnelType::Type new_tunnel_type = active_path->tunnel_type();
         uint32_t new_label = active_path->GetActiveLabel();
 
-        if (route->GetTableType() == Agent::LAYER2) {
+        if (route->GetTableType() == Agent::EVPN) {
             if ((state->evpn_exported_ == true) || (state->force_chg_ ==
                                                     true)) {
                 bool withdraw = false;

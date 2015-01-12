@@ -18,7 +18,7 @@ extern "C" {
 #include <oper/nexthop.h>
 #include <oper/tunnel_nh.h>
 #include <oper/agent_path.h>
-#include <oper/layer2_route.h>
+#include <oper/evpn_route.h>
 #include <ovsdb_types.h>
 
 using OVSDB::UnicastMacRemoteEntry;
@@ -35,7 +35,7 @@ UnicastMacRemoteEntry::UnicastMacRemoteEntry(OvsdbDBObject *table,
 }
 
 UnicastMacRemoteEntry::UnicastMacRemoteEntry(OvsdbDBObject *table,
-        const Layer2RouteEntry *entry) : OvsdbDBEntry(table),
+        const EvpnRouteEntry *entry) : OvsdbDBEntry(table),
         mac_(entry->GetAddress().ToString()),
         logical_switch_name_(UuidToString(entry->vrf()->vn()->GetUuid())) {
 }
@@ -120,8 +120,8 @@ void UnicastMacRemoteEntry::OvsdbChange() {
 }
 
 bool UnicastMacRemoteEntry::Sync(DBEntry *db_entry) {
-    const Layer2RouteEntry *entry =
-        static_cast<const Layer2RouteEntry *>(db_entry);
+    const EvpnRouteEntry *entry =
+        static_cast<const EvpnRouteEntry *>(db_entry);
     std::string dest_ip;
     const NextHop *nh = entry->GetActiveNextHop();
     /* 
@@ -255,8 +255,8 @@ KSyncEntry *UnicastMacRemoteTable::Alloc(const KSyncEntry *key, uint32_t index) 
 }
 
 KSyncEntry *UnicastMacRemoteTable::DBToKSyncEntry(const DBEntry* db_entry) {
-    const Layer2RouteEntry *entry =
-        static_cast<const Layer2RouteEntry *>(db_entry);
+    const EvpnRouteEntry *entry =
+        static_cast<const EvpnRouteEntry *>(db_entry);
     UnicastMacRemoteEntry *key = new UnicastMacRemoteEntry(this, entry);
     return static_cast<KSyncEntry *>(key);
 }
@@ -369,7 +369,7 @@ void VrfOvsdbObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
 
         /* We are interested only in L2 Routes */
         state->l2_table = new UnicastMacRemoteTable(client_idl_,
-                vrf->GetLayer2RouteTable());
+                vrf->GetEvpnRouteTable());
     }
 }
 

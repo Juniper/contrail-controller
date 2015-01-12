@@ -1047,8 +1047,8 @@ bool RouteFindV6(const string &vrf_name, const string &addr, int plen) {
 
 bool L2RouteFind(const string &vrf_name, const MacAddress &mac,
                  const IpAddress &ip_addr) {
-    Layer2RouteEntry *route =
-        Layer2AgentRouteTable::FindRoute(Agent::GetInstance(), vrf_name, mac,
+    EvpnRouteEntry *route =
+        EvpnAgentRouteTable::FindRoute(Agent::GetInstance(), vrf_name, mac,
                                          ip_addr);
     return (route != NULL);
 }
@@ -1095,22 +1095,22 @@ bool MCRouteFind(const string &vrf_name, const string &grp_addr) {
 
 }
 
-Layer2RouteEntry *L2RouteGet(const string &vrf_name, const MacAddress &mac,
+EvpnRouteEntry *L2RouteGet(const string &vrf_name, const MacAddress &mac,
                              const IpAddress &ip_addr) {
     Agent *agent = Agent::GetInstance();
     VrfEntry *vrf = agent->vrf_table()->FindVrfFromName(vrf_name);
     if (vrf == NULL)
         return NULL;
 
-    Layer2RouteKey key(agent->local_vm_peer(), vrf_name, mac, ip_addr, 0);
-    Layer2RouteEntry *route =
-        static_cast<Layer2RouteEntry *>
-        (static_cast<Layer2AgentRouteTable *>(vrf->
-             GetLayer2RouteTable())->FindActiveEntry(&key));
+    EvpnRouteKey key(agent->local_vm_peer(), vrf_name, mac, ip_addr, 0);
+    EvpnRouteEntry *route =
+        static_cast<EvpnRouteEntry *>
+        (static_cast<EvpnAgentRouteTable *>(vrf->
+             GetEvpnRouteTable())->FindActiveEntry(&key));
     return route;
 }
 
-Layer2RouteEntry *L2RouteGet(const string &vrf_name,
+EvpnRouteEntry *L2RouteGet(const string &vrf_name,
                              const MacAddress &mac) {
     return L2RouteGet(vrf_name, mac, IpAddress());
 }
@@ -1189,7 +1189,7 @@ bool VlanNhFind(int id, uint16_t tag) {
     return (nh != NULL);
 }
 
-bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf,
+bool EvpnTunnelRouteAdd(const Peer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const Ip4Address &server_ip,
                           uint32_t label, MacAddress &remote_vm_mac,
                           const IpAddress &vm_addr, uint8_t plen) {
@@ -1200,17 +1200,17 @@ bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf,
                               vm_vrf, server_ip,
                               bmap, label, "", SecurityGroupList(),
                               PathPreference());
-    Layer2AgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf, remote_vm_mac,
+    EvpnAgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf, remote_vm_mac,
                                         vm_addr, 0, data);
     return true;
 }
 
-bool Layer2TunnelRouteAdd(const Peer *peer, const string &vm_vrf,
+bool EvpnTunnelRouteAdd(const Peer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const char *server_ip,
                           uint32_t label, MacAddress &remote_vm_mac,
                           const char *vm_addr, uint8_t plen) {
     boost::system::error_code ec;
-    Layer2TunnelRouteAdd(peer, vm_vrf, bmap,
+    EvpnTunnelRouteAdd(peer, vm_vrf, bmap,
                         Ip4Address::from_string(server_ip, ec), label, remote_vm_mac,
                         IpAddress::from_string(vm_addr, ec), plen);
 }
@@ -3025,9 +3025,9 @@ void FlushEvpnNextHop(BgpPeer *peer, std::string vrf_name,
     client->WaitForIdle();
 }
 
-Layer2RouteEntry *GetL2FloodRoute(const std::string &vrf_name) {
+EvpnRouteEntry *GetL2FloodRoute(const std::string &vrf_name) {
     MacAddress broadcast_mac("ff:ff:ff:ff:ff:ff");
-    Layer2RouteEntry *rt = L2RouteGet("vrf1", broadcast_mac);
+    EvpnRouteEntry *rt = L2RouteGet("vrf1", broadcast_mac);
     return rt;
 }
 

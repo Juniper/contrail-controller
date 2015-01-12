@@ -18,7 +18,7 @@ class KSyncVxlanVrfObject;
  * Virtual-Network is got from the VRF for it.
  *
  * KSyncVxlanVrfObject listens to VRF entries being created and in-turn 
- * create a KSyncVxlanRouteObject for Layer2 Route Table in the VRF
+ * create a KSyncVxlanRouteObject for Evpn Route Table in the VRF
  ****************************************************************************/
 class KSyncVxlanVrfObject {
 public:
@@ -36,9 +36,9 @@ public:
     void RegisterDBClients();
 
     // Virtual Method to allocate KSync Object KSyncVxlanRouteObject for every
-    // Layer2 Route Table.
-    // This API is invoked when Vxlan Agent sees Layer2 Route Table in a new VRF
-    virtual KSyncVxlanRouteObject *AllocLayer2RouteTable(const VrfEntry *entry)
+    // Evpn Route Table.
+    // This API is invoked when Vxlan Agent sees Evpn Route Table in a new VRF
+    virtual KSyncVxlanRouteObject *AllocEvpnRouteTable(const VrfEntry *entry)
         = 0;
     KSyncVxlan *ksync() const { return ksync_; }
 
@@ -55,9 +55,9 @@ private:
 
 /****************************************************************************
  * KSync Object to manage Vxlan FDB Table. A KSyncVxlanRouteObject is created
- * for every Layer2 Route Table. 
+ * for every Evpn Route Table. 
  *
- * Registers as client to Layer2 Route DBTable
+ * Registers as client to Evpn Route DBTable
  ****************************************************************************/
 class KSyncVxlanRouteObject : public KSyncDBObject {
 public:
@@ -66,7 +66,7 @@ public:
 
     // Method to allocate the inherited KSyncVxlanFdbEntry
     // Must populate the KSyncEntry from DBEntry passed
-    // DBEntry will be of type Layer2RouteEntry
+    // DBEntry will be of type EvpnRouteEntry
     virtual KSyncEntry *DBToKSyncEntry(const DBEntry *e) = 0;
 
     // Method to allocate the inherited KSyncVxlanFdbEntry
@@ -113,14 +113,14 @@ private:
 /****************************************************************************
  * KSync representation of every FDB entry in a Vxlan Bridge
  *
- * A KSyncVxlanFdbEntry is created for every entry in Layer2 Route Table
+ * A KSyncVxlanFdbEntry is created for every entry in Evpn Route Table
  ****************************************************************************/
 class KSyncVxlanFdbEntry : public KSyncVxlanRouteEntry {
 public:
     KSyncVxlanFdbEntry(KSyncVxlanRouteObject *obj,
                        const KSyncVxlanFdbEntry *entry);
     KSyncVxlanFdbEntry(KSyncVxlanRouteObject *obj,
-                       const Layer2RouteEntry *route);
+                       const EvpnRouteEntry *route);
     virtual ~KSyncVxlanFdbEntry();
 
     virtual bool CompareRoute(const KSyncVxlanRouteEntry &rhs) const;

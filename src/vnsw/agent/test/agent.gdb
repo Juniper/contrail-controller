@@ -51,7 +51,7 @@ define mc_route_entry_format
 end
 
 define l2_route_entry_format
-    set $__rt = (Layer2RouteEntry*)((size_t)($Xnode) - (size_t)&(Route::node_))
+    set $__rt = (EvpnRouteEntry*)((size_t)($Xnode) - (size_t)&(Route::node_))
     set $__mac = $__rt->mac_
     printf "%p  %02x:%02x:%02x:%02x:%02x:%02x\t\t flags=%d\n", $__rt,\
                  ($__mac.ether_addr_octet[0]), ($__mac.ether_addr_octet[1]),\
@@ -123,10 +123,10 @@ end
 
 define vrf_entry_format
     set $__vrf = (VrfEntry *)((size_t)($Xnode) - (size_t)&(((VrfEntry *)0)->node_))
-    printf "%p    %-20s    idx=%-4d    ref_count=%-4d   flags=%-4d rt_db=%p mcrt_db=%p layer2_db=%p v6_rt_db=%p\n", $__vrf,\
+    printf "%p    %-20s    idx=%-4d    ref_count=%-4d   flags=%-4d rt_db=%p mcrt_db=%p evpn_db=%p v6_rt_db=%p\n", $__vrf,\
            $__vrf->name_._M_dataplus._M_p, $__vrf->id_, $__vrf->refcount_->rep->value,\
            $__vrf->flags, $__vrf->rt_table_db_[Agent::INET4_UNICAST], $__vrf->rt_table_db_[Agent::INET4_MULTICAST], \
-           $__vrf->rt_table_db_[Agent::LAYER2], $__vrf->rt_table_db_[Agent::INET6_UNICAST],
+           $__vrf->rt_table_db_[Agent::EVPN], $__vrf->rt_table_db_[Agent::INET6_UNICAST],
 end
 
 define dump_vrf_entries

@@ -136,7 +136,7 @@ protected:
                           const Ip4Address &server_ip,
                           uint32_t label, TunnelType::TypeBmap bmap) {
         //Use any other peer than localvmpeer
-        Layer2TunnelRouteAdd(agent_->local_peer(), vrf_name_, bmap, server_ip,
+        EvpnTunnelRouteAdd(agent_->local_peer(), vrf_name_, bmap, server_ip,
                              label, remote_vm_mac, ip_addr, 32);
         client->WaitForIdle();
     }
@@ -152,7 +152,7 @@ protected:
 
     void DeleteRoute(const Peer *peer, const std::string &vrf_name,
                      MacAddress &remote_vm_mac, const IpAddress &ip_addr) {
-        Layer2AgentRouteTable::DeleteReq(peer, vrf_name_, remote_vm_mac,
+        EvpnAgentRouteTable::DeleteReq(peer, vrf_name_, remote_vm_mac,
                                         ip_addr, 0);
         client->WaitForIdle();
         while (L2RouteFind(vrf_name, remote_vm_mac, ip_addr) == true) {
@@ -237,10 +237,10 @@ TEST_F(RouteTest, LocalVmRoute_1) {
     MulticastGroupObject *obj = 
         MulticastHandler::GetInstance()->FindFloodGroupObject("vrf1");
     EXPECT_TRUE(obj != NULL);
-    EXPECT_TRUE(obj->layer2_forwarding() == true);
+    EXPECT_TRUE(obj->bridging() == true);
     WAIT_FOR(1000, 100,
              (L2RouteFind(vrf_name_, local_vm_mac_, local_vm_ip4_) == true));
-    Layer2RouteEntry *rt = L2RouteGet(vrf_name_, local_vm_mac_, local_vm_ip4_);
+    EvpnRouteEntry *rt = L2RouteGet(vrf_name_, local_vm_mac_, local_vm_ip4_);
     EXPECT_TRUE(rt->GetActiveNextHop() != NULL);
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(rt->dest_vn_name() == "vn1");
@@ -251,7 +251,7 @@ TEST_F(RouteTest, LocalVmRoute_1) {
 
     EXPECT_TRUE(mpls->nexthop() == nh);
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
-    EXPECT_TRUE(intf_nh->GetFlags() == InterfaceNHFlags::LAYER2);
+    EXPECT_TRUE(intf_nh->GetFlags() == InterfaceNHFlags::BRIDGE);
 
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
@@ -275,7 +275,7 @@ TEST_F(RouteTest, LocalVmRoute_2) {
 
     WAIT_FOR(1000, 100, (VmPortActive(input, 0) == true));
     EXPECT_TRUE(L2RouteFind(vrf_name_, local_vm_mac_, local_vm_ip4_));
-    Layer2RouteEntry *rt = L2RouteGet(vrf_name_, local_vm_mac_, local_vm_ip4_);
+    EvpnRouteEntry *rt = L2RouteGet(vrf_name_, local_vm_mac_, local_vm_ip4_);
     EXPECT_TRUE(rt->GetActiveNextHop() != NULL);
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(rt->dest_vn_name() == "vn1");
@@ -286,7 +286,7 @@ TEST_F(RouteTest, LocalVmRoute_2) {
 
     EXPECT_TRUE(mpls->nexthop() == nh);
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
-    EXPECT_TRUE(intf_nh->GetFlags() == InterfaceNHFlags::LAYER2);
+    EXPECT_TRUE(intf_nh->GetFlags() == InterfaceNHFlags::BRIDGE);
 
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
@@ -314,7 +314,7 @@ TEST_F(RouteTest, Mpls_sandesh_check_with_l2route) {
     MulticastGroupObject *obj = 
         MulticastHandler::GetInstance()->FindFloodGroupObject("vrf1");
     EXPECT_TRUE(obj != NULL);
-    EXPECT_TRUE(obj->layer2_forwarding() == true);
+    EXPECT_TRUE(obj->bridging() == true);
     EXPECT_TRUE(L2RouteFind(vrf_name_, local_vm_mac_, local_vm_ip4_));
 
     MplsReq *mpls_list_req = new MplsReq();
@@ -349,7 +349,7 @@ TEST_F(RouteTest, RemoteVmRoute_1) {
     WAIT_FOR(1000, 100,
              (L2RouteFind(vrf_name_, remote_vm_mac_, remote_vm_ip4_) == true));
 
-    Layer2RouteEntry *rt = L2RouteGet(vrf_name_, remote_vm_mac_,
+    EvpnRouteEntry *rt = L2RouteGet(vrf_name_, remote_vm_mac_,
                                       remote_vm_ip4_);
     EXPECT_TRUE(rt->GetActiveLabel() == MplsTable::kStartLabel);
 
@@ -392,7 +392,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_auto) {
     WAIT_FOR(100, 100, (VmPortActive(input, 0) == true));
     EXPECT_TRUE(L2RouteFind(vrf_name_, local_vm_mac_, local_vm_ip4_));
 
-    Layer2RouteEntry *vnet1_rt = L2RouteGet(vrf_name_, local_vm_mac_,
+    EvpnRouteEntry *vnet1_rt = L2RouteGet(vrf_name_, local_vm_mac_,
                                             local_vm_ip4_);
     const NextHop *vnet1_nh = vnet1_rt->GetActiveNextHop();
     EXPECT_TRUE(vnet1_nh->GetType() == NextHop::INTERFACE);
@@ -411,7 +411,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_auto) {
              (L2RouteFind(vrf_name_, remote_vm_mac_2_, remote_vm_ip4_2_)
               == true));
 
-    Layer2RouteEntry *rt = L2RouteGet(vrf_name_, remote_vm_mac_2_,
+    EvpnRouteEntry *rt = L2RouteGet(vrf_name_, remote_vm_mac_2_,
                                       remote_vm_ip4_2_);
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(nh->GetType() == NextHop::TUNNEL);
@@ -457,7 +457,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_config) {
     WAIT_FOR(1000, 100, (VmPortActive(input, 0) == true));
     EXPECT_TRUE(L2RouteFind(vrf_name_, local_vm_mac_, local_vm_ip4_));
 
-    Layer2RouteEntry *vnet1_rt = L2RouteGet(vrf_name_, local_vm_mac_,
+    EvpnRouteEntry *vnet1_rt = L2RouteGet(vrf_name_, local_vm_mac_,
                                             local_vm_ip4_);
     const NextHop *vnet1_nh = vnet1_rt->GetActiveNextHop();
     EXPECT_TRUE(vnet1_nh->GetType() == NextHop::INTERFACE);
@@ -478,7 +478,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_config) {
     l2_req->Release();
     client->WaitForIdle();
 
-    Layer2RouteEntry *rt = L2RouteGet(vrf_name_, remote_vm_mac_2_,
+    EvpnRouteEntry *rt = L2RouteGet(vrf_name_, remote_vm_mac_2_,
                                       remote_vm_ip4_2_);
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(nh->GetType() == NextHop::TUNNEL);
@@ -499,7 +499,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_config) {
     client->WaitForIdle();
 }
 
-TEST_F(RouteTest, Layer2_route_key) {
+TEST_F(RouteTest, Evpn_route_key) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
     };
@@ -514,15 +514,15 @@ TEST_F(RouteTest, Layer2_route_key) {
     client->WaitForIdle();
 
     EXPECT_TRUE(VmPortL2Active(input, 0));
-    Layer2RouteEntry *vnet1_rt = L2RouteGet(vrf_name_, local_vm_mac_,
+    EvpnRouteEntry *vnet1_rt = L2RouteGet(vrf_name_, local_vm_mac_,
                                             local_vm_ip4_);
     WAIT_FOR(1000, 100, (vnet1_rt != NULL));
-    Layer2RouteKey new_key(agent_->local_vm_peer(), "vrf2", local_vm_mac_,
+    EvpnRouteKey new_key(agent_->local_vm_peer(), "vrf2", local_vm_mac_,
                            local_vm_ip4_, 0);
     vnet1_rt->SetKey(&new_key);
     EXPECT_TRUE(vnet1_rt->vrf()->GetName() == "vrf2");
     EXPECT_TRUE(MacAddress(new_key.ToString()) == local_vm_mac_);
-    Layer2RouteKey restore_key(agent_->local_vm_peer(), "vrf1",
+    EvpnRouteKey restore_key(agent_->local_vm_peer(), "vrf1",
                                local_vm_mac_, local_vm_ip4_,  0);
     vnet1_rt->SetKey(&restore_key);
     EXPECT_TRUE(vnet1_rt->vrf()->GetName() == "vrf1");
@@ -562,7 +562,7 @@ TEST_F(RouteTest, Vxlan_basic) {
     WAIT_FOR(1000, 100, (VmPortActive(input, 0) == true));
     EXPECT_TRUE(L2RouteFind(vrf_name_, local_vm_mac_, local_vm_ip4_));
 
-    Layer2RouteEntry *vnet1_rt = L2RouteGet(vrf_name_, local_vm_mac_,
+    EvpnRouteEntry *vnet1_rt = L2RouteGet(vrf_name_, local_vm_mac_,
                                             local_vm_ip4_);
     WAIT_FOR(1000, 100, (vnet1_rt != NULL));
     const NextHop *vnet1_nh = vnet1_rt->GetActiveNextHop();
@@ -629,7 +629,7 @@ TEST_F(RouteTest, Enqueue_l2_route_add_on_deleted_vrf) {
     client->WaitForIdle();
     TaskScheduler::GetInstance()->Stop();
     ComponentNHKeyList component_nh_key_list;
-    Layer2AgentRouteTable::AddRemoteVmRouteReq(agent_->local_vm_peer(),
+    EvpnAgentRouteTable::AddRemoteVmRouteReq(agent_->local_vm_peer(),
                                                vrf_name_, local_vm_mac_,
                                                local_vm_ip4_, 0, NULL);
 
@@ -651,7 +651,7 @@ TEST_F(RouteTest, Enqueue_l2_route_del_on_deleted_vrf) {
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
     TaskScheduler::GetInstance()->Stop();
-    Layer2AgentRouteTable::DeleteReq(agent_->local_vm_peer(), vrf_name_,
+    EvpnAgentRouteTable::DeleteReq(agent_->local_vm_peer(), vrf_name_,
                                      local_vm_mac_, local_vm_ip4_, 0);
     vrf_ref = NULL;
     TaskScheduler::GetInstance()->Start();
