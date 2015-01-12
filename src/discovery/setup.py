@@ -24,5 +24,6 @@ setup(
             'contrail-discovery = discovery.disc_server:server_main',
         ],
     },
- 
+
+    test_suite='discovery.tests'
 )

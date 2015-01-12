@@ -50,6 +50,7 @@ local_sources = [
            'disc_zk.py',
            'disc_cassdb.py',
            'output.py',
+           'tests',
           ]
 local_sources_rules = []
 for file in local_sources:
@@ -98,3 +99,9 @@ subdirs = [
 
 for dir in subdirs:
     env.SConscript(dir + '/SConscript', exports='BuildEnv', duplicate=0)
+
+test_sources = local_sources
+test = env.Command('test.log', test_sources,
+                   cd_cmd + 'python setup.py test')
+
+env.Alias('controller/src/discovery:test', test)
