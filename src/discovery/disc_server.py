@@ -7,10 +7,12 @@ This is the main module in discovery service package. It manages interaction
 between http/rest and database interfaces.
 """
 
+import sys
 import gevent
 from disc_cassdb import DiscoveryCassandraClient
 from gevent import monkey
-monkey.patch_all()
+if not 'unittest' in sys.modules:
+    monkey.patch_all()
 from gevent import hub
 
 import sys
@@ -42,7 +44,7 @@ from pysandesh.sandesh_base import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeNames,\
-    INSTANCE_ID_DEFAULT    
+    INSTANCE_ID_DEFAULT
 from sandesh.discovery_introspect import ttypes as sandesh
 
 from gevent.coros import BoundedSemaphore
@@ -162,7 +164,7 @@ class DiscoveryServer():
                 'action',
                 self._base_url , '/stats', 'show discovery service stats'))
 
-        # cleanup 
+        # cleanup
         bottle.route('/cleanup', 'GET', self.cleanup_http_get)
         self._homepage_links.append(LinkObject('action',
             self._base_url , '/cleanup', 'Purge inactive publishers'))
@@ -194,7 +196,7 @@ class DiscoveryServer():
                                           size=1000)
 
         # DB interface initialization
-        self._db_connect(self._args.reset_config)
+        self._db_conn = self._db_connect(self._args.reset_config)
 
         # build in-memory subscriber data
         self._sub_data = {}
@@ -272,7 +274,7 @@ class DiscoveryServer():
     # end
 
     def _db_connect(self, reset_config):
-        self._db_conn = DiscoveryCassandraClient("discovery",
+        return DiscoveryCassandraClient("discovery",
             self._args.cassandra_server_list, reset_config,
             self._args.cass_max_retries,
             self._args.cass_timeout)
@@ -387,7 +389,7 @@ class DiscoveryServer():
             self.syslog('Unable to parse heartbeat')
             self.syslog(bottle.request.body.buf)
             bottle.abort(400, 'Unable to parse heartbeat')
-            
+
         status = self.heartbeat(data['cookie'])
         return status
 
@@ -462,7 +464,7 @@ class DiscoveryServer():
         master_list = []
         working_list = []
         previous_use_count = list[0]['in_use']
-        list.append({'in_use': -1}) 
+        list.append({'in_use': -1})
         for item in list:
             if item['in_use'] != previous_use_count:
                 random.shuffle(working_list)
@@ -475,7 +477,7 @@ class DiscoveryServer():
     # round-robin
     def service_list_round_robin(self, pubs):
         self._debug['policy_rr'] += 1
-        return sorted(pubs, key=lambda service: service['ts_use'])
+        return sorted(pubs, key=lambda service: service['ts_use'], reverse=True)
     # end
 
     # load-balance
@@ -693,7 +695,7 @@ class DiscoveryServer():
             rsp += '        <td>' + link + '</td>\n'
             rsp += '        <td>' + pub['prov_state'] + '</td>\n'
             rsp += '        <td>' + pub['admin_state'] + '</td>\n'
-            link = do_html_url("/clients/%s/%s" % (service_type, service_id), 
+            link = do_html_url("/clients/%s/%s" % (service_type, service_id),
                 str(pub['in_use']))
             rsp += '        <td>' + link + '</td>\n'
             (expired, color, timedelta) = self.service_expired(
@@ -794,7 +796,7 @@ class DiscoveryServer():
             if self.service_expired(entry):
                 self._db_conn.delete_service(entry)
         return self.show_all_services()
-    #end 
+    #end
 
     @db_error_handler
     def show_all_clients(self, service_type=None, service_id=None):
@@ -813,7 +815,7 @@ class DiscoveryServer():
         rsp += '    </tr>\n'
 
         # lookup subscribers of the service
-        clients = self._db_conn.get_all_clients(service_type=service_type, 
+        clients = self._db_conn.get_all_clients(service_type=service_type,
             service_id=service_id)
 
         if not clients:
