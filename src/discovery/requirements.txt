@@ -1,0 +1,3 @@
+gevent
+pycassa
+bottle
