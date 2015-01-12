@@ -745,7 +745,7 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                                                      item->entry.virtual_network,
                                                      item->entry.security_group_list.security_group,
                                                      PathPreference());
-        rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name, mac, ip_addr,
+        rt_table->AddRemoteVmRouteReq(evpn_bgp_peer_id(), vrf_name, mac, ip_addr,
                                       item->entry.nlri.ethernet_tag, data);
         return;
     }
