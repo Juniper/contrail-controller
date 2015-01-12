@@ -1,0 +1,7 @@
+gevent
+pycassa
+bottle
+sandesh
+sandesh_common
+cfgm_common
+discoveryclient
