@@ -2141,6 +2141,7 @@ static void ExpandCompositeNextHop(const CompositeNH *comp_nh,
 
 void NextHop::SetNHSandeshData(NhSandeshData &data) const {
     data.set_nh_index(id());
+    data.set_vxlan_flag(false);
     switch (type_) {
         case DISCARD:
             data.set_type("discard");
@@ -2182,6 +2183,7 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
             data.set_type("vrf");
             const VrfNH *vrf = static_cast<const VrfNH *>(this);
             data.set_vrf(vrf->GetVrf()->GetName());
+            data.set_vxlan_flag(vrf->vxlan_nh());
             break;
         }
         case INTERFACE: {

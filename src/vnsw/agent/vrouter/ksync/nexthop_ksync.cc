@@ -573,8 +573,11 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
     case NextHop::VRF: {
         VrfNH *vrf_nh = static_cast<VrfNH *>(e);
         vrf_id_ = vrf_nh->GetVrf()->vrf_id();
-        vxlan_nh_ = vrf_nh->vxlan_nh();
         ret = false;
+        if (vxlan_nh_ != vrf_nh->vxlan_nh()) {
+            vxlan_nh_ = vrf_nh->vxlan_nh();
+            ret = true;
+        }
         break;
     }
     case NextHop::RECEIVE:

@@ -196,6 +196,7 @@ struct NhSandeshData {
    21: i32 nh_index;
    22: optional MulticastCompositeData interface_comp;  //Multicast sub nh list
    23: optional MulticastCompositeData evpn_comp;  //Multicast sub nh list
+   24: optional bool vxlan_flag;
 }
 
 struct NamespaceStateSandeshData {
