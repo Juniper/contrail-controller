@@ -3618,7 +3618,7 @@ class DBInterface(object):
             elif 'tenant_id' in filters:
                 all_project_ids = self._validate_project_ids(context,
                                                              filters['tenant_id'])
-            elif 'name' in filters:
+            elif 'name' in filters or 'device_owner' in filters:
                 all_project_ids = [str(uuid.UUID(context['tenant']))]
             elif 'id' in filters:
                 # TODO optimize
@@ -3640,6 +3640,9 @@ class DBInterface(object):
             for port_obj in ret_q_ports:
                 if not self._filters_is_present(filters, 'name',
                                                 port_obj['name']):
+                    continue
+                if not self._filters_is_present(filters, 'device_owner',
+                                                port_obj["device_owner"]):
                     continue
                 if 'fixed_ips' in filters and \
                     not self._port_fixed_ips_is_present(filters['fixed_ips'],
