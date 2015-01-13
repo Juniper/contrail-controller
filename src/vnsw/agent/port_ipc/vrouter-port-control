@@ -9,29 +9,35 @@ import ConfigParser
 import urllib2
 import json
 import os
+import errno
 
 sys.path.insert(1, sys.path[0]+'/../api-venv/lib/python2.7/site-packages')
 from vnc_api.vnc_api import *
 from requests.exceptions import ConnectionError
+PORT_PATH="/var/lib/contrail/ports/"
 
-class PortManager(object):
+class VrouterPortControl(object):
     def __init__(self, args_str = None):
         self._args = None
         if not args_str:
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
-
+        #TODO:Move this to other place as it tries to create directory every time
+        self.CreateDirectoryTree(PORT_PATH)
         port_type_value = 0
         if self._args.oper == "add":
             if self._args.port_type == "NovaVMPort":
                 port_type_value = 0
             elif self._args.port_type == "NameSpacePort":
                 port_type_value = 1
+            
             u = self._args.vm_project_uuid
-            u = u[:8] + '-' + u[8:]
-            u = u[:13] + '-' + u[13:]
-            u = u[:18] + '-' + u[18:]
-            project_id = u[:23] + '-' + u[23:]
+            project_id = ""
+            if (u and (len(u) == 32)):
+                u = u[:8] + '-' + u[8:]
+                u = u[:13] + '-' + u[13:]
+                u = u[:18] + '-' + u[18:]
+                project_id = u[:23] + '-' + u[23:]
 
             url = "http://localhost:8085/Snh_AddPortReq?port_uuid=%s&instance_uuid=%s&tap_name=%s&ip_address=%s&vn_uuid=%s&mac_address=%s&vm_name=%s&tx_vlan_id=%d&rx_vlan_id=%d&vm_project_uuid=%s&port_type=%d&ip6_address=%s" % (self._args.uuid, self._args.instance_uuid, self._args.tap_name, self._args.ip_address, self._args.vn_uuid, self._args.mac, self._args.vm_name, self._args.tx_vlan_id, self._args.rx_vlan_id, project_id, port_type_value, self._args.ipv6_address)
             self.WriteToFile(port_type_value, project_id)
@@ -39,15 +45,16 @@ class PortManager(object):
             self.DeleteFile()
             url = "http://localhost:8085/Snh_DeletePortReq?port_uuid=" + self._args.uuid
 
-        print urllib2.urlopen(url).read()
+        urllib2.urlopen(url).read()
 
     #end __init__
 
     def _parse_args(self, args_str):
+
         # Source any specified config/ini file
         # Turn off help, so we print all options in response to -h
         conf_parser = argparse.ArgumentParser(add_help = False)
-
+        
         args, remaining_argv = conf_parser.parse_known_args(args_str.split())
 
         # Don't surpress add_help here so it will handle -h
@@ -62,7 +69,7 @@ class PortManager(object):
 
         parser.add_argument(
             '--oper', choices=['add', 'delete'], help="Operation add/delete ")
-
+        
         parser.add_argument('--uuid', help="port UUID")
         parser.add_argument('--instance_uuid', help="instance UUID")
         parser.add_argument('--vn_uuid', help="VN UUID")
@@ -80,9 +87,18 @@ class PortManager(object):
 
     #end _parse_args
 
+    def CreateDirectoryTree(self, path):
+        try:
+            os.makedirs(path)
+        except OSError as exc:
+            if exc.errno == errno.EEXIST and os.path.isdir(path):
+                pass
+            else: raise
+    #end CreateDirectoryTree
+
     def WriteToFile(self, port_type, project_id):
-        filename = ("/etc/contrail/instances/%s" %(self._args.uuid))
-        data = {
+        filename = ("%s%s" %(PORT_PATH, self._args.uuid))
+        data = { 
                     "id" : self._args.uuid,
                     "instance-id" : self._args.instance_uuid,
                     "ip-address" : self._args.ip_address,
@@ -102,14 +118,15 @@ class PortManager(object):
     #end WriteToFile
 
     def DeleteFile(self):
-        filename = ("/etc/contrail/instances/%s" %(self._args.uuid))
-        os.remove(filename)
+        filename = ("%s%s" %(PORT_PATH, self._args.uuid))
+        if os.path.isfile(filename):
+            os.remove(filename)
     #end DeleteFile
 
-# end class PortManager
+# end class VrouterPortControl 
 
 def main(args_str = None):
-    PortManager(args_str)
+    VrouterPortControl(args_str)
 #end main
 
 if __name__ == "__main__":
