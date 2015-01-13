@@ -209,8 +209,36 @@ std::string RouteKSyncEntry::ToString() const {
     return s.str();
 }
 
-bool RouteKSyncEntry::BuildRouteFlags(const DBEntry *e,
-                                      const MacAddress &mac) {
+// Check if NH points to a service-chain interface or a Gateway interface
+static bool IsGatewayOrServiceInterface(const NextHop *nh) {
+    if (nh->GetType() != NextHop::INTERFACE &&
+        nh->GetType() != NextHop::VLAN)
+        return false;
+
+    const Interface *intf = NULL;
+    if (nh->GetType() == NextHop::INTERFACE)
+        intf = (static_cast<const InterfaceNH *>(nh))->GetInterface();
+    else if (nh->GetType() == NextHop::VLAN)
+        intf = (static_cast<const VlanNH *>(nh))->GetInterface();
+
+    const VmInterface *vmi = dynamic_cast<const VmInterface *>(intf);
+    if (vmi == NULL)
+        return false;
+
+    if (vmi->HasServiceVlan())
+        return true;
+    if (vmi->sub_type() == VmInterface::GATEWAY)
+        return true;
+
+    return false;
+}
+
+// Set the flood_ and proxy_arp_ flag for the route
+// flood_ flag says that ARP packets hitting route should be flooded
+// proxy_arp_ flag says VRouter should do proxy ARP
+//
+// The flags are set based on NH and Interface-type
+bool RouteKSyncEntry::BuildRouteFlags(const DBEntry *e, const MacAddress &mac) {
     bool ret = false;
 
     //Route flags for inet4 and inet6
@@ -222,69 +250,77 @@ bool RouteKSyncEntry::BuildRouteFlags(const DBEntry *e,
     const InetUnicastRouteEntry *rt =
         static_cast<const InetUnicastRouteEntry *>(e);
 
-    //resolve NH handling i.e. gateway
-    if (rt->GetActiveNextHop()->GetType() == NextHop::RESOLVE) { 
+    // Assume no flood and proxy_arp by default
+    bool flood = false;
+    bool proxy_arp = false;
+    const NextHop *nh = rt->GetActiveNextHop();
+
+    switch (nh->GetType()) {
+    case NextHop::RESOLVE:
+        // RESOLVE NH can be used by Gateway Interface or Fabric VRF
+        // VRouter does not honour flood_ and proxy_arp_ flag for Fabric VRF
+        // We dont want to flood ARP on Gateway Interface
         if (rt->vrf()->GetName() != agent->fabric_vrf_name()) {
-            if (proxy_arp_ == false) {
-                proxy_arp_ = true;
-                ret = true;
-            }
+            proxy_arp = true;
+        }
+        break;
 
-            if (flood_ == true) {
-                flood_ = false;
-                ret = true;
-            }
-        } else {
-            if (proxy_arp_ == true) {
-                proxy_arp_ = false;
-                ret = true;
-            }
+    case NextHop::COMPOSITE:
+        // ECMP flows have composite NH. We want to do routing for ECMP flows
+        // So, set proxy_arp flag
+        proxy_arp = true;
+        break;
 
-            if (flood_ == true) {
-                flood_ = false;
-                ret = true;
-            }
+    default:
+        if (mac != MacAddress::ZeroMac()) {
+            // Proxy-ARP without flood if mac-stitching is present
+            proxy_arp = true;
+            flood = false;
+            break;
         }
 
-        return ret;
-    }
+        // MAC stitching not present.
+        // If interface belongs to service-chain or Gateway, we want packet to
+        // be routed. Following config ensures routing,
+        //     - Enable Proxy
+        //     - Disable Flood-bit
+        //     - Dont do MAC Stitching (in RouteNeedsMacBinding)
+        if (IsGatewayOrServiceInterface(nh) == true) {
+            proxy_arp = true;
+            flood = false;
+            break;
+        }
 
-    //Rest of the v4 cases
-    bool is_binding_available = (MacAddress::ZeroMac() != mac);
-    if (is_binding_available) {
-        if (proxy_arp_ != true) {
-            proxy_arp_ = true;
-            ret = true;
-        }
-        if (flood_ != false) {
-            flood_ = false;
-            ret = true;
-        }
-    } else {
         if (rt->FindLocalVmPortPath()) {
-            if (proxy_arp_ != false) {
-                proxy_arp_ = false;
-                ret = true;
-            }
-            if (flood_ != true) {
-                flood_ = true;
-                ret = true;
-            }
+            // Local port without MAC stitching should only be a transition
+            // case. In the meanwhile, flood ARP so that VM can respond
+            proxy_arp_ = false;
+            flood = true;
         } else {
-            if (proxy_arp_ != rt->proxy_arp()) {
-                proxy_arp_ = rt->proxy_arp();
-                ret = true;
-            }
-
-            if (flood_ != rt->ipam_subnet_route()) {
-                flood_ = rt->ipam_subnet_route();
-                ret = true;
-            }
+            // Non local-route. Set flags based on the route
+            proxy_arp = rt->proxy_arp();
+            flood = rt->ipam_subnet_route();
         }
+        break;
     }
 
+    // VRouter does not honour flood/proxy_arp flags for fabric-vrf
+    if (rt->vrf()->GetName() == agent->fabric_vrf_name()) {
+        proxy_arp = false;
+        flood = false;
+    }
+
+    if (proxy_arp != proxy_arp_) {
+        proxy_arp_ = proxy_arp;
+        ret = true;
+    }
+
+    if (flood != flood_) {
+        flood_ = flood;
+        ret = true;
+    }
     return ret;
- }
+}
 
 bool RouteKSyncEntry::Sync(DBEntry *e) {
     bool ret = false;
@@ -706,7 +742,10 @@ void vr_route_req::Process(SandeshContext *context) {
  * Inet4/Inet6 route that may potentially have stitching changed
  ****************************************************************************/
 
-// A route potentially needs IP-MAC binding if its a host route and points
+// Compute if a route needs IP-MAC binding. A route needs IP-MAC binding if,
+// 1. The NH points to interface or Tunnel-NH
+// 2. NH does not belong to Service-Chain Interface
+// 3. NH does not belong to Gateway Interface
 // to interface or tunnel-nh
 bool VrfKSyncObject::RouteNeedsMacBinding(const InetUnicastRouteEntry *rt) {
     if (rt->addr().is_v4() && rt->plen() != 32)
@@ -720,7 +759,11 @@ bool VrfKSyncObject::RouteNeedsMacBinding(const InetUnicastRouteEntry *rt) {
         return false;
 
     if (nh->GetType() != NextHop::INTERFACE &&
-        nh->GetType() != NextHop::TUNNEL)
+        nh->GetType() != NextHop::TUNNEL &&
+        nh->GetType() != NextHop::VLAN)
+        return false;
+
+    if (IsGatewayOrServiceInterface(nh) == true)
         return false;
 
     return true;
