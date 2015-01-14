@@ -20,17 +20,16 @@ public:
         virtual ~State() {};
 
         bool exported_;
-        bool evpn_exported_;
+        bool fabric_multicast_exported_; //Used by multicast
         bool force_chg_;
-        Ip4Address server_;
         uint32_t label_;
         std::string vn_;
         SecurityGroupList sg_list_;
         TunnelType::Type tunnel_type_;
         PathPreference path_preference_;
 
-        bool Changed(const AgentPath *path) const;
-        void Update(const AgentPath *path);
+        bool Changed(const AgentRoute *route, const AgentPath *path) const;
+        void Update(const AgentRoute *route, const AgentPath *path);
     };
     RouteExport(AgentRouteTable *rt);
     ~RouteExport();
