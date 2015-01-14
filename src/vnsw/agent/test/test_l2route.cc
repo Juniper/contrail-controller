@@ -136,7 +136,7 @@ protected:
                           const Ip4Address &server_ip,
                           uint32_t label, TunnelType::TypeBmap bmap) {
         //Use any other peer than localvmpeer
-        EvpnTunnelRouteAdd(agent_->local_peer(), vrf_name_, bmap, server_ip,
+        BridgeTunnelRouteAdd(agent_->local_peer(), vrf_name_, bmap, server_ip,
                              label, remote_vm_mac, ip_addr, 32);
         client->WaitForIdle();
     }
@@ -240,7 +240,7 @@ TEST_F(RouteTest, LocalVmRoute_1) {
     EXPECT_TRUE(obj->bridging() == true);
     WAIT_FOR(1000, 100,
              (L2RouteFind(vrf_name_, local_vm_mac_, local_vm_ip4_) == true));
-    EvpnRouteEntry *rt = L2RouteGet(vrf_name_, local_vm_mac_, local_vm_ip4_);
+    BridgeRouteEntry *rt = L2RouteGet(vrf_name_, local_vm_mac_, local_vm_ip4_);
     EXPECT_TRUE(rt->GetActiveNextHop() != NULL);
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(rt->dest_vn_name() == "vn1");
@@ -275,7 +275,7 @@ TEST_F(RouteTest, LocalVmRoute_2) {
 
     WAIT_FOR(1000, 100, (VmPortActive(input, 0) == true));
     EXPECT_TRUE(L2RouteFind(vrf_name_, local_vm_mac_, local_vm_ip4_));
-    EvpnRouteEntry *rt = L2RouteGet(vrf_name_, local_vm_mac_, local_vm_ip4_);
+    BridgeRouteEntry *rt = L2RouteGet(vrf_name_, local_vm_mac_, local_vm_ip4_);
     EXPECT_TRUE(rt->GetActiveNextHop() != NULL);
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(rt->dest_vn_name() == "vn1");
@@ -349,11 +349,11 @@ TEST_F(RouteTest, RemoteVmRoute_1) {
     WAIT_FOR(1000, 100,
              (L2RouteFind(vrf_name_, remote_vm_mac_, remote_vm_ip4_) == true));
 
-    EvpnRouteEntry *rt = L2RouteGet(vrf_name_, remote_vm_mac_,
+    BridgeRouteEntry *rt = L2RouteGet(vrf_name_, remote_vm_mac_,
                                       remote_vm_ip4_);
     EXPECT_TRUE(rt->GetActiveLabel() == MplsTable::kStartLabel);
 
-    Layer2RouteReq *l2_req = new Layer2RouteReq();
+    BridgeRouteReq *l2_req = new BridgeRouteReq();
     std::vector<int> result = list_of(1);
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
     l2_req->set_vrf_index(1);
@@ -392,7 +392,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_auto) {
     WAIT_FOR(100, 100, (VmPortActive(input, 0) == true));
     EXPECT_TRUE(L2RouteFind(vrf_name_, local_vm_mac_, local_vm_ip4_));
 
-    EvpnRouteEntry *vnet1_rt = L2RouteGet(vrf_name_, local_vm_mac_,
+    BridgeRouteEntry *vnet1_rt = L2RouteGet(vrf_name_, local_vm_mac_,
                                             local_vm_ip4_);
     const NextHop *vnet1_nh = vnet1_rt->GetActiveNextHop();
     EXPECT_TRUE(vnet1_nh->GetType() == NextHop::INTERFACE);
@@ -411,7 +411,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_auto) {
              (L2RouteFind(vrf_name_, remote_vm_mac_2_, remote_vm_ip4_2_)
               == true));
 
-    EvpnRouteEntry *rt = L2RouteGet(vrf_name_, remote_vm_mac_2_,
+    BridgeRouteEntry *rt = L2RouteGet(vrf_name_, remote_vm_mac_2_,
                                       remote_vm_ip4_2_);
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(nh->GetType() == NextHop::TUNNEL);
@@ -421,7 +421,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_auto) {
     EXPECT_TRUE(rt->GetActivePath()->GetTunnelType() ==
                 TunnelType::VXLAN);
     EXPECT_TRUE(tnh->GetDip()->to_string() == server1_ip_.to_string());
-    Layer2RouteReq *l2_req = new Layer2RouteReq();
+    BridgeRouteReq *l2_req = new BridgeRouteReq();
     std::vector<int> result = list_of(1);
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
     l2_req->set_vrf_index(1);
@@ -457,7 +457,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_config) {
     WAIT_FOR(1000, 100, (VmPortActive(input, 0) == true));
     EXPECT_TRUE(L2RouteFind(vrf_name_, local_vm_mac_, local_vm_ip4_));
 
-    EvpnRouteEntry *vnet1_rt = L2RouteGet(vrf_name_, local_vm_mac_,
+    BridgeRouteEntry *vnet1_rt = L2RouteGet(vrf_name_, local_vm_mac_,
                                             local_vm_ip4_);
     const NextHop *vnet1_nh = vnet1_rt->GetActiveNextHop();
     EXPECT_TRUE(vnet1_nh->GetType() == NextHop::INTERFACE);
@@ -469,7 +469,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_config) {
     bmap = 1 << TunnelType::VXLAN;
     AddRemoteVmRoute(remote_vm_mac_2_, remote_vm_ip4_2_, server1_ip_, 1, bmap);
     EXPECT_TRUE(L2RouteFind(vrf_name_, remote_vm_mac_2_, remote_vm_ip4_2_));
-    Layer2RouteReq *l2_req = new Layer2RouteReq();
+    BridgeRouteReq *l2_req = new BridgeRouteReq();
     std::vector<int> result = list_of(1);
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
     l2_req->set_vrf_index(1);
@@ -478,7 +478,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_config) {
     l2_req->Release();
     client->WaitForIdle();
 
-    EvpnRouteEntry *rt = L2RouteGet(vrf_name_, remote_vm_mac_2_,
+    BridgeRouteEntry *rt = L2RouteGet(vrf_name_, remote_vm_mac_2_,
                                       remote_vm_ip4_2_);
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(nh->GetType() == NextHop::TUNNEL);
@@ -499,7 +499,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_config) {
     client->WaitForIdle();
 }
 
-TEST_F(RouteTest, Evpn_route_key) {
+TEST_F(RouteTest, Bridge_route_key) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
     };
@@ -514,16 +514,16 @@ TEST_F(RouteTest, Evpn_route_key) {
     client->WaitForIdle();
 
     EXPECT_TRUE(VmPortL2Active(input, 0));
-    EvpnRouteEntry *vnet1_rt = L2RouteGet(vrf_name_, local_vm_mac_,
+    BridgeRouteEntry *vnet1_rt = L2RouteGet(vrf_name_, local_vm_mac_,
                                             local_vm_ip4_);
     WAIT_FOR(1000, 100, (vnet1_rt != NULL));
-    EvpnRouteKey new_key(agent_->local_vm_peer(), "vrf2", local_vm_mac_,
-                           local_vm_ip4_, 0);
+    BridgeRouteKey new_key(agent_->local_vm_peer(), "vrf2", local_vm_mac_,
+                           0);
     vnet1_rt->SetKey(&new_key);
     EXPECT_TRUE(vnet1_rt->vrf()->GetName() == "vrf2");
     EXPECT_TRUE(MacAddress(new_key.ToString()) == local_vm_mac_);
-    EvpnRouteKey restore_key(agent_->local_vm_peer(), "vrf1",
-                               local_vm_mac_, local_vm_ip4_,  0);
+    BridgeRouteKey restore_key(agent_->local_vm_peer(), "vrf1",
+                               local_vm_mac_, 0);
     vnet1_rt->SetKey(&restore_key);
     EXPECT_TRUE(vnet1_rt->vrf()->GetName() == "vrf1");
     EXPECT_TRUE(MacAddress(restore_key.ToString()) == local_vm_mac_);
@@ -536,7 +536,7 @@ TEST_F(RouteTest, Evpn_route_key) {
 }
 
 TEST_F(RouteTest, Sandesh_chaeck_with_invalid_vrf) {
-    Layer2RouteReq *l2_req = new Layer2RouteReq();
+    BridgeRouteReq *l2_req = new BridgeRouteReq();
     std::vector<int> result = list_of(1);
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
     l2_req->set_vrf_index(100);
@@ -562,7 +562,7 @@ TEST_F(RouteTest, Vxlan_basic) {
     WAIT_FOR(1000, 100, (VmPortActive(input, 0) == true));
     EXPECT_TRUE(L2RouteFind(vrf_name_, local_vm_mac_, local_vm_ip4_));
 
-    EvpnRouteEntry *vnet1_rt = L2RouteGet(vrf_name_, local_vm_mac_,
+    BridgeRouteEntry *vnet1_rt = L2RouteGet(vrf_name_, local_vm_mac_,
                                             local_vm_ip4_);
     WAIT_FOR(1000, 100, (vnet1_rt != NULL));
     const NextHop *vnet1_nh = vnet1_rt->GetActiveNextHop();
@@ -630,8 +630,8 @@ TEST_F(RouteTest, Enqueue_l2_route_add_on_deleted_vrf) {
     TaskScheduler::GetInstance()->Stop();
     ComponentNHKeyList component_nh_key_list;
     EvpnAgentRouteTable::AddRemoteVmRouteReq(agent_->local_vm_peer(),
-                                               vrf_name_, local_vm_mac_,
-                                               local_vm_ip4_, 0, NULL);
+                                             vrf_name_, local_vm_mac_,
+                                             local_vm_ip4_, 0, NULL);
 
     vrf_ref = NULL;
     TaskScheduler::GetInstance()->Start();

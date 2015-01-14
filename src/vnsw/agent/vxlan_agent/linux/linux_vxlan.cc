@@ -21,7 +21,7 @@
 #include <oper/vxlan.h>
 #include <oper/mpls.h>
 #include <oper/route_common.h>
-#include <oper/evpn_route.h>
+#include <oper/bridge_route.h>
 
 #include <vxlan_agent/ksync_vxlan.h>
 #include <vxlan_agent/ksync_vxlan_bridge.h>
@@ -222,7 +222,7 @@ KSyncLinuxFdbEntry::KSyncLinuxFdbEntry(KSyncLinuxFdbObject *obj,
 }
 
 KSyncLinuxFdbEntry::KSyncLinuxFdbEntry(KSyncLinuxFdbObject *obj,
-                                       const EvpnRouteEntry *route) :
+                                       const BridgeRouteEntry *route) :
     KSyncVxlanFdbEntry(obj, route) {
 }
 
@@ -305,7 +305,7 @@ KSyncEntry *KSyncLinuxFdbObject::Alloc(const KSyncEntry *entry,
 }
 
 KSyncEntry *KSyncLinuxFdbObject::DBToKSyncEntry(const DBEntry *e) {
-    const EvpnRouteEntry *fdb = static_cast<const EvpnRouteEntry *>(e);
+    const BridgeRouteEntry *fdb = static_cast<const BridgeRouteEntry *>(e);
     return new KSyncLinuxFdbEntry(this, fdb);
 }
 
@@ -319,7 +319,7 @@ KSyncLinuxVrfObject::KSyncLinuxVrfObject(KSyncLinuxVxlan *ksync) :
 KSyncLinuxVrfObject::~KSyncLinuxVrfObject() {
 }
 
-KSyncVxlanRouteObject *KSyncLinuxVrfObject::AllocEvpnRouteTable
+KSyncVxlanRouteObject *KSyncLinuxVrfObject::AllocBridgeRouteTable
 (const VrfEntry *vrf) {
-    return new KSyncLinuxFdbObject(this, vrf->GetEvpnRouteTable());
+    return new KSyncLinuxFdbObject(this, vrf->GetBridgeRouteTable());
 }

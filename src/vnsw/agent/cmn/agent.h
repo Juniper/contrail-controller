@@ -80,6 +80,7 @@ void intrusive_ptr_add_ref(const VxLanId* p);
 class InetUnicastRouteEntry;
 class Inet4MulticastRouteEntry;
 class EvpnRouteEntry;
+class BridgeRouteEntry;
 class Route;
 typedef boost::intrusive_ptr<Route> RouteRef;
 void intrusive_ptr_release(const Route* p);
@@ -130,6 +131,7 @@ class AgentRouteTable;
 class InetUnicastAgentRouteTable;
 class Inet4MulticastAgentRouteTable;
 class EvpnAgentRouteTable;
+class BridgeAgentRouteTable;
 class CfgIntTable;
 class AclTable;
 class MirrorTable;
@@ -199,6 +201,7 @@ public:
         INET4_UNICAST,
         INET4_MULTICAST,
         EVPN,
+        BRIDGE,
         INET6_UNICAST,
         ROUTE_TABLE_MAX
     };
@@ -319,14 +322,21 @@ public:
         mc_rt_table_ = (Inet4MulticastAgentRouteTable *)table;
     }
 
-    EvpnAgentRouteTable *fabric_l2_unicast_table() const {
+    EvpnAgentRouteTable *fabric_evpn_table() const {
+        return evpn_rt_table_;
+    }
+    void set_fabric_evpn_table(RouteTable *table) {
+        evpn_rt_table_ = (EvpnAgentRouteTable *)table;
+    }
+
+    BridgeAgentRouteTable *fabric_l2_unicast_table() const {
         return l2_rt_table_;
     }
-    void set_fabric_l2_unicast_table(EvpnAgentRouteTable *table) {
+    void set_fabric_l2_unicast_table(BridgeAgentRouteTable *table) {
         l2_rt_table_ = table;
     }
     void set_fabric_l2_unicast_table(RouteTable *table) {
-        l2_rt_table_ = (EvpnAgentRouteTable *)table;
+        l2_rt_table_ = (BridgeAgentRouteTable *)table;
     }
 
     PhysicalDeviceTable *physical_device_table() const {
@@ -627,6 +637,7 @@ public:
     const Peer *link_local_peer() const {return linklocal_peer_.get();}
     const Peer *ecmp_peer() const {return ecmp_peer_.get();}
     const Peer *vgw_peer() const {return vgw_peer_.get();}
+    const Peer *evpn_peer() const {return evpn_peer_.get();}
     const Peer *multicast_peer() const {return multicast_peer_.get();}
     const Peer *multicast_tor_peer() const {return multicast_tor_peer_.get();}
     const Peer *multicast_tree_builder_peer() const {
@@ -812,7 +823,8 @@ private:
     NextHopTable *nh_table_;
     InetUnicastAgentRouteTable *uc_rt_table_;
     Inet4MulticastAgentRouteTable *mc_rt_table_;
-    EvpnAgentRouteTable *l2_rt_table_;
+    EvpnAgentRouteTable *evpn_rt_table_;
+    BridgeAgentRouteTable *l2_rt_table_;
     VrfTable *vrf_table_;
     VmTable *vm_table_;
     VnTable *vn_table_;
@@ -875,6 +887,7 @@ private:
     std::auto_ptr<Peer> linklocal_peer_;
     std::auto_ptr<Peer> ecmp_peer_;
     std::auto_ptr<Peer> vgw_peer_;
+    std::auto_ptr<Peer> evpn_peer_;
     std::auto_ptr<Peer> multicast_peer_;
     std::auto_ptr<Peer> multicast_tor_peer_;
     std::auto_ptr<Peer> multicast_tree_builder_peer_;

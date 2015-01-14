@@ -59,7 +59,11 @@ uint32_t AgentPath::GetActiveLabel() const {
     }
 }
 
-const NextHop* AgentPath::nexthop(Agent *agent) const {
+NextHop* AgentPath::nexthop() const {
+    return nh_.get();
+}
+
+const NextHop* AgentPath::ComputeNextHop(Agent *agent) const {
     if (nh_) {
         return nh_.get();
     }
@@ -300,6 +304,100 @@ bool AgentPath::IsLess(const AgentPath &r_path) const {
     return peer()->IsLess(r_path.peer());
 }
 
+void AgentPath::set_nexthop(NextHop *nh) {
+    nh_ = nh;
+}
+
+EvpnDerivedPath::EvpnDerivedPath(const EvpnPeer *evpn_peer,
+                   const IpAddress &ip_addr,
+                   uint32_t ethernet_tag,
+                   const std::string &parent) :
+    AgentPath(evpn_peer, NULL),
+    ip_addr_(ip_addr), ethernet_tag_(ethernet_tag),
+    parent_(parent){
+}
+
+bool EvpnDerivedPath::IsLess(const AgentPath &r_path) const {
+    const EvpnDerivedPath *r_evpn_path =
+        dynamic_cast<const EvpnDerivedPath *>(&r_path);
+    if (r_evpn_path != NULL) {
+        if (r_evpn_path->ip_addr() != ip_addr_) {
+            return (r_evpn_path->ip_addr() < ip_addr_);
+        }
+    }
+
+    return peer()->IsLess(r_path.peer());
+}
+
+const NextHop *EvpnDerivedPath::ComputeNextHop(Agent *agent) const {
+    return nexthop();
+}
+
+EvpnDerivedPathData::EvpnDerivedPathData(const EvpnRouteEntry *evpn_rt) :
+    AgentRouteData(false), ethernet_tag_(evpn_rt->ethernet_tag()),
+    ip_addr_(evpn_rt->ip_addr()), reference_path_(evpn_rt->GetActivePath()) {
+    // For debuging add peer of active path in parent as well
+    std::stringstream s;
+    s << evpn_rt->ToString();
+    s << " ";
+    if (reference_path_)
+        s << reference_path_->peer()->GetName();
+    parent_ = s.str();
+}
+
+AgentPath *EvpnDerivedPathData::CreateAgentPath(const Peer *peer,
+                                         AgentRoute *rt) const {
+    const EvpnPeer *evpn_peer = dynamic_cast<const EvpnPeer *>(peer);
+    assert(evpn_peer != NULL);
+    return (new EvpnDerivedPath(evpn_peer, ip_addr_, ethernet_tag_,
+                                parent_));
+}
+
+bool EvpnDerivedPathData::AddChangePath(Agent *agent, AgentPath *path,
+                                 const AgentRoute *rt) {
+    bool ret = false;
+    EvpnDerivedPath *evpn_path = dynamic_cast<EvpnDerivedPath *>(path);
+    assert(evpn_path != NULL);
+
+    uint32_t label = reference_path_->label();
+    if (evpn_path->label() != label) {
+        evpn_path->set_label(label);
+        ret = true;
+    }
+
+    uint32_t vxlan_id = reference_path_->vxlan_id();
+    if (evpn_path->vxlan_id() != vxlan_id) {
+        evpn_path->set_vxlan_id(vxlan_id);
+        ret = true;
+    }
+
+    TunnelType::Type tunnel_type = reference_path_->tunnel_type();
+    if (evpn_path->tunnel_type() != tunnel_type) {
+        evpn_path->set_tunnel_type(tunnel_type);
+        ret = true;
+    }
+
+    if (evpn_path->nexthop() !=
+        reference_path_->nexthop()) {
+        evpn_path->set_nexthop(reference_path_->nexthop());
+        ret = true;
+    }
+
+    const SecurityGroupList &sg_list = reference_path_->sg_list();
+    if (evpn_path->sg_list() != sg_list) {
+        evpn_path->set_sg_list(sg_list);
+        ret = true;
+    }
+
+    const std::string &dest_vn = reference_path_->dest_vn_name();
+    if (evpn_path->dest_vn_name() != dest_vn) {
+        evpn_path->set_dest_vn_name(dest_vn);
+        ret = true;
+    }
+
+    return ret;
+}
+
 bool HostRoute::AddChangePath(Agent *agent, AgentPath *path,
                               const AgentRoute *rt) {
     bool ret = false;
@@ -520,7 +618,7 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path,
     // paths does not have any problem
     bool old_policy = false;
     bool new_policy = false;
-    if (path->nexthop(agent) && path->nexthop(agent)->PolicyEnabled())
+    if (path->ComputeNextHop(agent) && path->ComputeNextHop(agent)->PolicyEnabled())
         old_policy = true;
     if (nh && nh->PolicyEnabled())
         new_policy = true;
@@ -866,7 +964,7 @@ void AgentRoute::FillTrace(RouteInfo &rt_info, Trace event,
             rt_info.set_peer(path->peer()->GetName());
         }
         rt_info.set_ecmp(path->path_preference().ecmp());
-        const NextHop *nh = path->nexthop(agent);
+        const NextHop *nh = path->ComputeNextHop(agent);
         if (nh == NULL) {
             rt_info.set_nh_type("<NULL>");
             break;
@@ -935,8 +1033,9 @@ void AgentRoute::FillTrace(RouteInfo &rt_info, Trace event,
 }
 
 void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
-    if (nh_.get() != NULL) {
-        nh_->SetNHSandeshData(pdata.nh);
+    const NextHop *nh = nexthop();
+    if (nh != NULL) {
+        nh->SetNHSandeshData(pdata.nh);
     }
     pdata.set_peer(const_cast<Peer *>(peer())->GetName());
     pdata.set_dest_vn(dest_vn_name());
@@ -962,6 +1061,7 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
     path_preference_data.set_wait_for_traffic(
          path_preference_.wait_for_traffic());
     pdata.set_path_preference_data(path_preference_data);
+    pdata.set_active_label(GetActiveLabel());
 }
 
 void AgentPath::set_local_ecmp_mpls_label(MplsLabel *mpls) {
@@ -1005,7 +1105,7 @@ bool AgentPath::ReorderCompositeNH(Agent *agent,
     //in that exact order,If B gets deleted,
     //the new composite NH created should be A <NULL> C in that order,
     //irrespective of the order user passed it in
-    composite_nh_key->Reorder(agent, label_, nexthop(agent));
+    composite_nh_key->Reorder(agent, label_, ComputeNextHop(agent));
     //Copy the unchanged component NH list to path data
     set_composite_nh_key(comp_key);
     return true;

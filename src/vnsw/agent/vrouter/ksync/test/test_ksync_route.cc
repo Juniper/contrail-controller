@@ -27,7 +27,7 @@ public:
         vnet2_ = static_cast<VmInterface *>(VmPortGet(2));
 
         vrf1_obj_ = agent_->ksync()->vrf_ksync_obj();
-        vrf_listener_id_ = vrf1_obj_->listener_id();
+        vrf_listener_id_ = vrf1_obj_->vrf_listener_id();
 
         VrfTable *table = static_cast<VrfTable *>(agent_->vrf_table());
         VrfKSyncObject::VrfState *state;

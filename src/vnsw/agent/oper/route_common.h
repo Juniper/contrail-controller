@@ -12,6 +12,7 @@
 #include <oper/inet_unicast_route.h>
 #include <oper/inet4_multicast_route.h>
 #include <oper/evpn_route.h>
+#include <oper/bridge_route.h>
 #include <oper/mpls.h>
 
 #endif // vnsw_route_common_hpp
