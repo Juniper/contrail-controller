@@ -829,6 +829,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='service-interface-type' type="ServiceInterfaceType"/>
         <xsd:element name='interface-mirror'  type="InterfaceMirrorType"/>
         <xsd:element name="local-preference" type="xsd:integer"/>
+        <xsd:element name="sub-interface-vlan-tag" type="xsd:integer"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -853,6 +854,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Property('virtual-machine-interface-properties',
              'virtual-machine-interface') -->
+
+<xsd:element name="virtual-machine-virtual-sub-interface"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('virtual-machine-interface-virtual-machine-interface',
+          'virtual-machine-interface', 'virtual-machine-interface', ['ref'])
+ -->
 
 <xsd:element name="virtual-machine-virtual-machine-interface"/>
 <xsd:element name="project-virtual-machine-interface"/>
