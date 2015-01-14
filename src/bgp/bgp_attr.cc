@@ -536,6 +536,7 @@ BgpAttr::BgpAttr(const BgpAttr &rhs)
       as_path_(rhs.as_path_),
       community_(rhs.community_),
       ext_community_(rhs.ext_community_),
+      origin_vn_path_(rhs.origin_vn_path_),
       pmsi_tunnel_(rhs.pmsi_tunnel_),
       edge_discovery_(rhs.edge_discovery_),
       edge_forwarding_(rhs.edge_forwarding_),
@@ -563,8 +564,8 @@ void BgpAttr::set_community(const CommunitySpec *comm) {
     }
 }
 
-void BgpAttr::set_ext_community(ExtCommunityPtr comm) {
-    ext_community_ = comm;
+void BgpAttr::set_ext_community(ExtCommunityPtr extcomm) {
+    ext_community_ = extcomm;
 }
 
 void BgpAttr::set_ext_community(const ExtCommunitySpec *extcomm) {
@@ -572,6 +573,18 @@ void BgpAttr::set_ext_community(const ExtCommunitySpec *extcomm) {
         ext_community_ = attr_db_->server()->extcomm_db()->Locate(*extcomm);
     } else {
         ext_community_ = NULL;
+    }
+}
+
+void BgpAttr::set_origin_vn_path(OriginVnPathPtr ovnpath) {
+    origin_vn_path_ = ovnpath;
+}
+
+void BgpAttr::set_origin_vn_path(const OriginVnPathSpec *spec) {
+    if (spec) {
+        origin_vn_path_ = attr_db_->server()->ovnpath_db()->Locate(*spec);
+    } else {
+        origin_vn_path_ = NULL;
     }
 }
 
@@ -649,6 +662,13 @@ int BgpAttr::CompareTo(const BgpAttr &rhs) const {
         if (ret != 0) return ret;
     }
 
+    if (origin_vn_path_.get() == NULL || rhs.origin_vn_path_.get() == NULL) {
+        KEY_COMPARE(origin_vn_path_.get(), rhs.origin_vn_path_.get());
+    } else {
+        int ret = origin_vn_path_->CompareTo(*rhs.origin_vn_path_);
+        if (ret != 0) return ret;
+    }
+
     return 0;
 }
 
@@ -680,6 +700,7 @@ std::size_t hash_value(BgpAttr const &attr) {
     if (attr.as_path_) boost::hash_combine(hash, *attr.as_path_);
     if (attr.community_) boost::hash_combine(hash, *attr.community_);
     if (attr.ext_community_) boost::hash_combine(hash, *attr.ext_community_);
+    if (attr.origin_vn_path_) boost::hash_combine(hash, *attr.origin_vn_path_);
 
     return hash;
 }
@@ -700,6 +721,14 @@ BgpAttrPtr BgpAttrDB::ReplaceExtCommunityAndLocate(const BgpAttr *attr,
                                                    ExtCommunityPtr extcomm) {
     BgpAttr *clone = new BgpAttr(*attr);
     clone->set_ext_community(extcomm);
+    return Locate(clone);
+}
+
+// Return a clone of attribute with updated origin vn path.
+BgpAttrPtr BgpAttrDB::ReplaceOriginVnPathAndLocate(const BgpAttr *attr,
+                                                   OriginVnPathPtr ovnpath) {
+    BgpAttr *clone = new BgpAttr(*attr);
+    clone->set_origin_vn_path(ovnpath);
     return Locate(clone);
 }
 

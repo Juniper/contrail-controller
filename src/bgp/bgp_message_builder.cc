@@ -92,6 +92,18 @@ void BgpMessage::StartReach(const RibOutAttr *roattr, const BgpRoute *route) {
         update.path_attributes.push_back(ext_comm);
     }
 
+    if (attr->origin_vn_path() && attr->origin_vn_path()->origin_vns().size()) {
+        OriginVnPathSpec *ovnpath_spec = new OriginVnPathSpec;
+        const OriginVnPath::OriginVnList &v =
+            attr->origin_vn_path()->origin_vns();
+        for (OriginVnPath::OriginVnList::const_iterator it = v.begin();
+             it != v.end(); ++it) {
+            uint64_t value = get_value(it->data(), it->size());
+            ovnpath_spec->origin_vns.push_back(value);
+        }
+        update.path_attributes.push_back(ovnpath_spec);
+    }
+
     if (attr->pmsi_tunnel()) {
         PmsiTunnelSpec *pmsi_spec =
             new PmsiTunnelSpec(attr->pmsi_tunnel()->pmsi_tunnel());

@@ -18,6 +18,7 @@
 #include "bgp/bgp_condition_listener.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_origin_vn_path.h"
 #include "bgp/bgp_path.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_membership.h"
@@ -153,6 +154,15 @@ bool ServiceChain::Match(BgpServer *server, BgpTable *table,
                             deleted = true;
                         if (!dest_vn_index)
                             deleted = true;
+                    }
+
+                    OriginVn src_origin_vn(
+                        server->autonomous_system(), src_vn_index);
+                    const OriginVnPath *ovnpath =
+                        attr ? attr->origin_vn_path() : NULL;
+                    if (ovnpath &&
+                        ovnpath->Contains(src_origin_vn.GetExtCommunity())) {
+                        deleted = true;
                     }
                 }
             }
@@ -310,6 +320,7 @@ void ServiceChain::AddServiceChainRoute(Ip4Prefix prefix,
     SiteOfOrigin soo;
     ExtCommunity::ExtCommunityList sgid_list;
     const Community *orig_community = NULL;
+    const OriginVnPath *orig_ovnpath = NULL;
     if (orig_route) {
         const BgpPath *orig_path = orig_route->BestPath();
         const BgpAttr *orig_attr = NULL;
@@ -319,6 +330,7 @@ void ServiceChain::AddServiceChainRoute(Ip4Prefix prefix,
         if (orig_attr) {
             orig_community = orig_attr->community();
             ext_community = orig_attr->ext_community();
+            orig_ovnpath = orig_attr->origin_vn_path();
         }
         if (ext_community) {
             BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
@@ -331,9 +343,13 @@ void ServiceChain::AddServiceChainRoute(Ip4Prefix prefix,
         }
     }
 
-    BgpAttrDB *attr_db = src_->server()->attr_db();
-    ExtCommunityDB *extcomm_db = src_->server()->extcomm_db();
-    PeerRibMembershipManager *membership_mgr = src_->server()->membership_mgr();
+    BgpAttrDB *attr_db = server->attr_db();
+    ExtCommunityDB *extcomm_db = server->extcomm_db();
+    PeerRibMembershipManager *membership_mgr = server->membership_mgr();
+    OriginVnPathDB *ovnpath_db = server->ovnpath_db();
+    OriginVnPathPtr new_ovnpath =
+        ovnpath_db->PrependAndLocate(orig_ovnpath, origin_vn.GetExtCommunity());
+
     ConnectedPathIdList new_path_ids;
     for (Route::PathList::iterator it =
          connected_route()->GetPathList().begin();
@@ -380,13 +396,15 @@ void ServiceChain::AddServiceChainRoute(Ip4Prefix prefix,
         new_ext_community = extcomm_db->ReplaceOriginVnAndLocate(
             new_ext_community.get(), origin_vn.GetExtCommunity());
 
-        // Replace extended community and community values.
+        // Replace extended community, community and origin vn path.
         BgpAttrPtr new_attr = attr_db->ReplaceExtCommunityAndLocate(
             attr, new_ext_community);
         if (orig_community) {
             new_attr = attr_db->ReplaceCommunityAndLocate(new_attr.get(),
                 orig_community);
         }
+        new_attr = attr_db->ReplaceOriginVnPathAndLocate(new_attr.get(),
+            new_ovnpath);
 
         // If the connected path is learnt via XMPP, construct RD based on
         // the id registered with source table instead of connected table.

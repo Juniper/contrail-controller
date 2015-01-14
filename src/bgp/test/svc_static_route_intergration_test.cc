@@ -759,6 +759,30 @@ protected:
         TASK_UTIL_EXPECT_TRUE(MatchResult(server, instance, prefix, verify));
     }
 
+    bool CheckServiceChainRouteOriginVnPath(BgpServerTest *server,
+        const string &instance, const string &prefix,
+        const vector<string> &origin_vn_path) {
+        task_util::TaskSchedulerLock lock;
+        BgpRoute *route = InetRouteLookup(server, instance, prefix);
+        if (!route)
+            return false;
+        for (Route::PathList::const_iterator it = route->GetPathList().begin();
+             it != route->GetPathList().end(); ++it) {
+            const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
+            const BgpAttr *attr = path->GetAttr();
+            if (GetOriginVnPathFromRoute(server, path) != origin_vn_path)
+                return false;
+        }
+        return true;
+    }
+
+    void VerifyServiceChainRouteOriginVnPath(BgpServerTest *server,
+        const string &instance, const string &prefix,
+        const vector<string> &origin_vn_path) {
+        TASK_UTIL_EXPECT_TRUE(CheckServiceChainRouteOriginVnPath(
+            server, instance, prefix, origin_vn_path));
+    }
+
     string FileRead(const string &filename) {
         ifstream file(filename.c_str());
         string content((istreambuf_iterator<char>(file)),
@@ -861,6 +885,23 @@ protected:
         return "unresolved";
     }
 
+    vector<string> GetOriginVnPathFromRoute(BgpServerTest *server,
+        const BgpPath *path) {
+        const OriginVnPath *ovnpath = path->GetAttr()->origin_vn_path();
+        assert(ovnpath);
+        vector<string> result;
+        RoutingInstanceMgr *ri_mgr = server->routing_instance_mgr();
+        BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
+                      ovnpath->origin_vns()) {
+            assert(ExtCommunity::is_origin_vn(comm));
+            OriginVn origin_vn(comm);
+            string vn_name =
+                ri_mgr->GetVirtualNetworkByVnIndex(origin_vn.vn_index());
+            result.push_back(vn_name);
+        }
+        return result;
+    }
+
     SiteOfOrigin GetSiteOfOriginFromRoute(const BgpPath *path) {
         const ExtCommunity *ext_comm = path->GetAttr()->ext_community();
         assert(ext_comm);
@@ -939,14 +980,23 @@ TEST_P(ServiceIntergrationParamTest, Basic) {
         path_list.push_back(verify_2);
     }
 
+    vector<string> origin_vn_path = list_of("red");
     if (aggregate_enable_) {
         // Check for aggregated route
         VerifyServiceChainRoute(cn1_.get(), "192.168.1.0/24", path_list);
         VerifyServiceChainRoute(cn2_.get(), "192.168.1.0/24", path_list);
+        VerifyServiceChainRouteOriginVnPath(
+            cn1_.get(), "blue", "192.168.1.0/24", origin_vn_path);
+        VerifyServiceChainRouteOriginVnPath(
+            cn2_.get(), "blue", "192.168.1.0/24", origin_vn_path);
     } else {
         // Check for aggregated route
         VerifyServiceChainRoute(cn1_.get(), "192.168.1.1/32", path_list);
         VerifyServiceChainRoute(cn2_.get(), "192.168.1.1/32", path_list);
+        VerifyServiceChainRouteOriginVnPath(
+            cn1_.get(), "blue", "192.168.1.1/32", origin_vn_path);
+        VerifyServiceChainRouteOriginVnPath(
+            cn2_.get(), "blue", "192.168.1.1/32", origin_vn_path);
     }
 
     agent_a_1_->DeleteRoute("red", "192.168.1.1/32");
@@ -992,14 +1042,23 @@ TEST_P(ServiceIntergrationParamTest, ECMP) {
         path_list.push_back(verify_4);
     }
 
+    vector<string> origin_vn_path = list_of("red");
     if (aggregate_enable_) {
         // Check for aggregated route
         VerifyServiceChainRoute(cn1_.get(), "192.168.1.0/24", path_list);
         VerifyServiceChainRoute(cn2_.get(), "192.168.1.0/24", path_list);
+        VerifyServiceChainRouteOriginVnPath(
+            cn1_.get(), "blue", "192.168.1.0/24", origin_vn_path);
+        VerifyServiceChainRouteOriginVnPath(
+            cn2_.get(), "blue", "192.168.1.0/24", origin_vn_path);
     } else {
         // Check for aggregated route
         VerifyServiceChainRoute(cn1_.get(), "192.168.1.1/32", path_list);
         VerifyServiceChainRoute(cn2_.get(), "192.168.1.1/32", path_list);
+        VerifyServiceChainRouteOriginVnPath(
+            cn1_.get(), "blue", "192.168.1.1/32", origin_vn_path);
+        VerifyServiceChainRouteOriginVnPath(
+            cn2_.get(), "blue", "192.168.1.1/32", origin_vn_path);
     }
  
     agent_a_1_->DeleteRoute("red", "192.168.1.1/32");
@@ -1051,6 +1110,11 @@ TEST_P(ServiceIntergrationParamTest, ExtRoute) {
     // Check for ServiceChain route
     VerifyServiceChainRoute(cn1_.get(), "10.1.1.0/24", path_list);
     VerifyServiceChainRoute(cn2_.get(), "10.1.1.0/24", path_list);
+    vector<string> origin_vn_path = list_of("red");
+    VerifyServiceChainRouteOriginVnPath(
+        cn1_.get(), "blue", "10.1.1.0/24", origin_vn_path);
+    VerifyServiceChainRouteOriginVnPath(
+        cn2_.get(), "blue", "10.1.1.0/24", origin_vn_path);
 
     DeleteInetRoute(mx_.get(), NULL, "public", "10.1.1.0/24");
 
@@ -1106,6 +1170,11 @@ TEST_P(ServiceIntergrationParamTest, SiteOfOrigin) {
     // Check for ServiceChain route
     VerifyServiceChainRoute(cn1_.get(), "10.1.1.0/24", path_list);
     VerifyServiceChainRoute(cn2_.get(), "10.1.1.0/24", path_list);
+    vector<string> origin_vn_path = list_of("red");
+    VerifyServiceChainRouteOriginVnPath(
+        cn1_.get(), "blue", "10.1.1.0/24", origin_vn_path);
+    VerifyServiceChainRouteOriginVnPath(
+        cn2_.get(), "blue", "10.1.1.0/24", origin_vn_path);
 
     DeleteInetRoute(mx_.get(), NULL, "public", "10.1.1.0/24");
 
@@ -1485,16 +1554,36 @@ TEST_P(ServiceIntergrationParamTest3, BidirectionalChain) {
     pl_red.push_back(verify_red1);
     pl_red.push_back(verify_red2);
 
+    vector<string> origin_vn_path_blue = list_of("blue");
+    vector<string> origin_vn_path_red = list_of("red");
     if (aggregate_enable_) {
         VerifyServiceChainRoute(cn1_.get(), "blue", "192.168.1.0/24", pl_blue);
         VerifyServiceChainRoute(cn2_.get(), "blue", "192.168.1.0/24", pl_blue);
+        VerifyServiceChainRouteOriginVnPath(
+            cn1_.get(), "blue", "192.168.1.0/24", origin_vn_path_red);
+        VerifyServiceChainRouteOriginVnPath(
+            cn2_.get(), "blue", "192.168.1.0/24", origin_vn_path_red);
+
         VerifyServiceChainRoute(cn1_.get(), "red", "192.168.0.0/24", pl_red);
         VerifyServiceChainRoute(cn2_.get(), "red", "192.168.0.0/24", pl_red);
+        VerifyServiceChainRouteOriginVnPath(
+            cn1_.get(), "red", "192.168.0.0/24", origin_vn_path_blue);
+        VerifyServiceChainRouteOriginVnPath(
+            cn2_.get(), "red", "192.168.0.0/24", origin_vn_path_blue);
     } else {
         VerifyServiceChainRoute(cn1_.get(), "blue", "192.168.1.1/32", pl_blue);
         VerifyServiceChainRoute(cn2_.get(), "blue", "192.168.1.1/32", pl_blue);
+        VerifyServiceChainRouteOriginVnPath(
+            cn1_.get(), "blue", "192.168.1.1/32", origin_vn_path_red);
+        VerifyServiceChainRouteOriginVnPath(
+            cn2_.get(), "blue", "192.168.1.1/32", origin_vn_path_red);
+
         VerifyServiceChainRoute(cn1_.get(), "red", "192.168.0.1/32", pl_red);
         VerifyServiceChainRoute(cn2_.get(), "red", "192.168.0.1/32", pl_red);
+        VerifyServiceChainRouteOriginVnPath(
+            cn1_.get(), "red", "192.168.0.1/32", origin_vn_path_blue);
+        VerifyServiceChainRouteOriginVnPath(
+            cn2_.get(), "red", "192.168.0.1/32", origin_vn_path_blue);
     }
 
     // Delete Connected routes
@@ -1550,16 +1639,36 @@ TEST_P(ServiceIntergrationParamTest3, BidirectionalChainWithTransitNetwork) {
     pl_red.push_back(verify_red1);
     pl_red.push_back(verify_red2);
 
+    vector<string> origin_vn_path_blue = list_of("blue");
+    vector<string> origin_vn_path_red = list_of("red");
     if (aggregate_enable_) {
         VerifyServiceChainRoute(cn1_.get(), "blue", "192.168.1.0/24", pl_blue);
         VerifyServiceChainRoute(cn2_.get(), "blue", "192.168.1.0/24", pl_blue);
+        VerifyServiceChainRouteOriginVnPath(
+            cn1_.get(), "blue", "192.168.1.0/24", origin_vn_path_red);
+        VerifyServiceChainRouteOriginVnPath(
+            cn2_.get(), "blue", "192.168.1.0/24", origin_vn_path_red);
+
         VerifyServiceChainRoute(cn1_.get(), "red", "192.168.0.0/24", pl_red);
         VerifyServiceChainRoute(cn2_.get(), "red", "192.168.0.0/24", pl_red);
+        VerifyServiceChainRouteOriginVnPath(
+            cn1_.get(), "red", "192.168.0.0/24", origin_vn_path_blue);
+        VerifyServiceChainRouteOriginVnPath(
+            cn2_.get(), "red", "192.168.0.0/24", origin_vn_path_blue);
     } else {
         VerifyServiceChainRoute(cn1_.get(), "blue", "192.168.1.1/32", pl_blue);
         VerifyServiceChainRoute(cn2_.get(), "blue", "192.168.1.1/32", pl_blue);
+        VerifyServiceChainRouteOriginVnPath(
+            cn1_.get(), "blue", "192.168.1.1/32", origin_vn_path_red);
+        VerifyServiceChainRouteOriginVnPath(
+            cn2_.get(), "blue", "192.168.1.1/32", origin_vn_path_red);
+
         VerifyServiceChainRoute(cn1_.get(), "red", "192.168.0.1/32", pl_red);
         VerifyServiceChainRoute(cn2_.get(), "red", "192.168.0.1/32", pl_red);
+        VerifyServiceChainRouteOriginVnPath(
+            cn1_.get(), "red", "192.168.0.1/32", origin_vn_path_blue);
+        VerifyServiceChainRouteOriginVnPath(
+            cn2_.get(), "red", "192.168.0.1/32", origin_vn_path_blue);
     }
 
     // Delete Connected routes
