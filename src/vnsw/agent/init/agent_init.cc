@@ -211,7 +211,7 @@ static void CreateVrfIndependentNextHop(Agent *agent) {
 }
 
 void AgentInit::CreateVrfBase() {
-    // Layer2 Receive routes are added on VRF creation. Ensure that Layer2
+    // Bridge Receive routes are added on VRF creation. Ensure that Bridge
     // Receive-NH which is independent of VRF is created first
     CreateVrfIndependentNextHop(agent_.get());
 
@@ -225,7 +225,8 @@ void AgentInit::CreateVrfBase() {
     agent_->set_fabric_inet4_unicast_table(vrf->GetInet4UnicastRouteTable());
     agent_->set_fabric_inet4_multicast_table
         (vrf->GetInet4MulticastRouteTable());
-    agent_->set_fabric_l2_unicast_table(vrf->GetEvpnRouteTable());
+    agent_->set_fabric_l2_unicast_table(vrf->GetBridgeRouteTable());
+    agent_->set_fabric_evpn_table(vrf->GetEvpnRouteTable());
 
     CreateVrf();
 }

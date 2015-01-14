@@ -13,6 +13,7 @@
 #include <oper/agent_route_encap.h>
 #include <oper/vrf.h>
 #include <oper/agent_route.h>
+#include <oper/agent_path.h>
 
 AgentRouteEncap::AgentRouteEncap(Agent *agent) : 
     AgentRouteWalker(agent, AgentRouteWalker::ALL) {

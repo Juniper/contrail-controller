@@ -505,7 +505,7 @@ protected:
 
 	// Verify presence of all broadcast route in mcast table
 	addr = Ip4Address::from_string("255.255.255.255");
-    EvpnRouteEntry *rt_m = GetL2FloodRoute("vrf1");
+    BridgeRouteEntry *rt_m = GetL2FloodRoute("vrf1");
     ASSERT_TRUE(rt_m != NULL);
     int alloc_label = GetStartLabel_XmppServer(1);
 
@@ -593,7 +593,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
     EXPECT_STREQ(ch->GetXmppServer().c_str(), "127.0.0.2");
 
     //ensure route learnt via control-node is cleaned/updated 
-    EvpnRouteEntry *rt_m = GetL2FloodRoute("vrf1");
+    BridgeRouteEntry *rt_m = GetL2FloodRoute("vrf1");
     NextHop *nh = const_cast<NextHop *>(rt_m->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);

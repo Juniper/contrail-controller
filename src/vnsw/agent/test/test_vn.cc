@@ -391,8 +391,8 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_1) {
     CompositeNH *cnh = NULL;
 
     //By default l2_l3 mode
-    EvpnRouteEntry *l2_uc_rt = L2RouteGet(vrf_name, vxlan_vm_mac);
-    EvpnRouteEntry *l2_flood_rt = L2RouteGet(vrf_name, vxlan_flood_mac);
+    BridgeRouteEntry *l2_uc_rt = L2RouteGet(vrf_name, vxlan_vm_mac);
+    BridgeRouteEntry *l2_flood_rt = L2RouteGet(vrf_name, vxlan_flood_mac);
     InetUnicastRouteEntry *uc_rt = RouteGet(vrf_name, vm_ip, 32);
     InetUnicastRouteEntry *subnet_rt = RouteGet(vrf_name, subnet_ip, 32);
     Inet4MulticastRouteEntry *flood_rt = MCRouteGet(vrf_name, flood_ip);
@@ -487,8 +487,8 @@ TEST_F(CfgTest, vn_forwarding_mode_changed_2) {
     Ip4Address flood_ip = Ip4Address::from_string("255.255.255.255");
     CompositeNH *cnh = NULL;
 
-    EvpnRouteEntry *l2_uc_rt;
-    EvpnRouteEntry *l2_flood_rt;
+    BridgeRouteEntry *l2_uc_rt;
+    BridgeRouteEntry *l2_flood_rt;
     InetUnicastRouteEntry *uc_rt;
     InetUnicastRouteEntry *subnet_rt;
     Inet4MulticastRouteEntry *flood_rt;
