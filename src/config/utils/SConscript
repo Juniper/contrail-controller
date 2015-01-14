@@ -42,6 +42,8 @@ utils_scripts = [
   'service-instance.py',
   'config_db_obj_name_validate.sh',
   'config_db_obj_name_validate.py',
+  'provision_analytics_node.py',
+  'provision_database_node.py',
 ]
 
 for utils in utils_scripts:

@@ -298,6 +298,8 @@ class VncApiServer(VncApiServerGen):
             'loadbalancer-healthmonitor'].generate_default_instance = False
         self._resource_classes[
             'virtual-ip'].generate_default_instance = False
+        self._resource_classes['analytics-node'].generate_default_instance = False
+        self._resource_classes['database-node'].generate_default_instance = False
 
         for act_res in _ACTION_RESOURCES:
             link = LinkObject('action', self._base_url, act_res['uri'],
