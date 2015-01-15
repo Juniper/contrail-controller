@@ -4,6 +4,8 @@
 
 #include "bgp/state_machine.h"
 
+#include <boost/assign/list_of.hpp>
+
 #include "base/logging.h"
 #include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
@@ -41,7 +43,6 @@ protected:
     BgpUpdateRxTest()
         : server_(&evm_),
           instance_config_(BgpConfigManager::kMasterInstance),
-          config_(&instance_config_, "test-peer", "local", &router_, NULL),
           peer_(NULL),
           rib1_(NULL), rib2_(NULL),
           tid1_(DBTableBase::kInvalidId), tid2_(DBTableBase::kInvalidId) {
@@ -49,6 +50,10 @@ protected:
         RoutingInstance *instance =
                 server_.routing_instance_mgr()->CreateRoutingInstance(
                     &instance_config_);
+        config_.set_name("test-peer");
+        config_.set_instance_name(BgpConfigManager::kMasterInstance);
+        config_.set_address_families(
+            boost::assign::list_of("inet")("inet-vpn"));
         rib1_ = instance->GetTable(Address::INET);
         rib2_ = instance->GetTable(Address::INETVPN);
         peer_ = instance->peer_manager()->PeerLocate(&server_, &config_);
@@ -91,7 +96,6 @@ protected:
     EventManager evm_;
     BgpServer server_;
     BgpInstanceConfig instance_config_;
-    autogen::BgpRouter router_;
     BgpNeighborConfig config_;
     BgpPeer *peer_;
 

@@ -332,6 +332,7 @@ void BgpServerUnitTest::VerifyPeers(int peer_count,
                 a_->FindPeerByUuid(BgpConfigManager::kMasterInstance, uuid));
         BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
+        ASSERT_TRUE(peer_a != NULL);
         TASK_UTIL_EXPECT_EQ(as_num1, peer_a->local_as());
         TASK_UTIL_EXPECT_EQ(peer_type, peer_a->PeerType());
         BGP_WAIT_FOR_PEER_STATE(peer_a, StateMachine::ESTABLISHED);

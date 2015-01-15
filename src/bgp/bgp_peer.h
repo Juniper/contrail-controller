@@ -117,9 +117,11 @@ public:
     as_t local_as() const { return local_as_; }
     as_t peer_as() const { return peer_as_; }
 
+    // The BGP Identifier in host byte order.
     virtual uint32_t bgp_identifier() const;
+
     // TODO: remove
-    uint32_t remote_bgp_id() const { return remote_bgp_id_; }
+    // uint32_t remote_bgp_id() const { return remote_bgp_id_; }
 
     const AddressFamilyList &families() const {
         return family_;
@@ -210,7 +212,6 @@ public:
     virtual void UpdateRefCount(int count) const { refcount_ += count; }
     virtual tbb::atomic<int> GetRefCount() const { return refcount_; }
 
-    bool IsControlNode() const { return control_node_; }
     void RegisterToVpnTables(bool established);
 
     StateMachine *state_machine() { return state_machine_.get(); }
@@ -285,7 +286,6 @@ private:
     Timer *keepalive_timer_;
     Timer *end_of_rib_timer_;
     bool send_ready_;
-    bool control_node_;
     bool admin_down_;
 
     boost::scoped_ptr<StateMachine> state_machine_;
@@ -295,8 +295,8 @@ private:
     std::vector<BgpProto::OpenMessage::Capability *> capabilities_;
     as_t local_as_;
     as_t peer_as_;
-    uint32_t remote_bgp_id_;
-    uint32_t local_bgp_id_;
+    uint32_t remote_bgp_id_;    // network order
+    uint32_t local_bgp_id_;     // network order
     AddressFamilyList family_;
     std::vector<std::string> configured_families_;
     std::vector<std::string> negotiated_families_;

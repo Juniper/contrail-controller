@@ -30,7 +30,6 @@
 #include "bgp/routing-instance/static_route_types.h"
 #include "db/db_table_partition.h"
 #include "net/address.h"
-#include "schema/bgp_schema_types.h"
 
 using boost::assign::list_of;
 using boost::system::error_code;
@@ -71,7 +70,7 @@ public:
                 const vector<string> &rtargets, IpAddress nexthop);
 
     // Compare config and return whether cfg has updated
-    CompareResult CompareStaticRouteCfg(const autogen::StaticRouteType &cfg);
+    CompareResult CompareStaticRouteCfg(const StaticRouteConfig &cfg);
 
     const Ip4Prefix &static_route_prefix() const {
         return static_route_prefix_;
@@ -214,12 +213,13 @@ StaticRoute::StaticRoute(RoutingInstance *rtinst,
 }
 
 // Compare config and return whether cfg has updated
-StaticRoute::CompareResult
-StaticRoute::CompareStaticRouteCfg(const autogen::StaticRouteType &cfg) {
-    if (static_route_prefix_.ToString() != cfg.prefix) {
+StaticRoute::CompareResult 
+StaticRoute::CompareStaticRouteCfg(const StaticRouteConfig &cfg) {
+    Ip4Prefix prefix(cfg.address.to_v4(), cfg.prefix_length);
+    if (static_route_prefix_ != prefix) {
         return PrefixChange;
     }
-    if (nexthop_.to_string() != cfg.next_hop) {
+    if (nexthop_ != cfg.nexthop) {
         return NexthopChange;
     }
     if (rtarget_list_.size() != cfg.route_target.size()) {
@@ -238,9 +238,9 @@ StaticRoute::CompareStaticRouteCfg(const autogen::StaticRouteType &cfg) {
 
 // Match function called from BgpConditionListener
 // Concurrency : db::DBTable
-bool
-StaticRoute::Match(BgpServer *server, BgpTable *table,
-                                         BgpRoute *route, bool deleted) {
+bool 
+StaticRoute::Match(BgpServer *server, BgpTable *table, 
+                   BgpRoute *route, bool deleted) {
     CHECK_CONCURRENCY("db::DBTable");
     StaticRouteRequest::RequestType type;
 
@@ -528,10 +528,10 @@ bool StaticRouteMgr::StaticRouteEventCallback(StaticRouteRequest *req) {
             if (!info->num_matchstate()) {
                 listener->UnregisterCondition(table, info);
                 static_route_map_.erase(info->static_route_prefix());
-                if (!routing_instance()->deleted() &&
-                    routing_instance()->config() &&
-                    routing_instance()->config()->instance_config())
+                if (!routing_instance()->deleted() && 
+                    routing_instance()->config()) {
                     resolve_trigger_->Set();
+                }
             }
             break;
         }
@@ -549,10 +549,10 @@ bool StaticRouteMgr::StaticRouteEventCallback(StaticRouteRequest *req) {
             if (!info->num_matchstate() && info->unregistered()) {
                 listener->UnregisterCondition(table, info);
                 static_route_map_.erase(info->static_route_prefix());
-                if (!routing_instance()->deleted() &&
-                    routing_instance()->config() &&
-                    routing_instance()->config()->instance_config())
+                if (!routing_instance()->deleted() && 
+                    routing_instance()->config()) {
                     resolve_trigger_->Set();
+                }
             }
         }
     }
@@ -561,15 +561,10 @@ bool StaticRouteMgr::StaticRouteEventCallback(StaticRouteRequest *req) {
     return true;
 }
 
-void
-StaticRouteMgr::LocateStaticRoutePrefix(const autogen::StaticRouteType &cfg) {
+void 
+StaticRouteMgr::LocateStaticRoutePrefix(const StaticRouteConfig &cfg) {
     CHECK_CONCURRENCY("bgp::Config");
-    error_code ec;
-    IpAddress nexthop = Ip4Address::from_string(cfg.next_hop, ec);
-    assert(ec == 0);
-
-    Ip4Prefix prefix = Ip4Prefix::FromString(cfg.prefix, &ec);
-    assert(ec == 0);
+    Ip4Prefix prefix(cfg.address.to_v4(), cfg.prefix_length);
 
     BgpConditionListener *listener =
         routing_instance()->server()->condition_listener();
@@ -609,8 +604,9 @@ StaticRouteMgr::LocateStaticRoutePrefix(const autogen::StaticRouteType &cfg) {
         return;
     }
 
-    StaticRoute *match =
-        new StaticRoute(routing_instance(), prefix, cfg.route_target, nexthop);
+    StaticRoute *match =  
+        new StaticRoute(routing_instance(), prefix, cfg.route_target,
+                        cfg.nexthop);
     StaticRoutePtr static_route_match = StaticRoutePtr(match);
 
     static_route_map_.insert(make_pair(prefix, static_route_match));
@@ -651,12 +647,11 @@ void StaticRouteMgr::RemoveStaticRoutePrefix(const Ip4Prefix &static_route) {
 
 void StaticRouteMgr::ProcessStaticRouteConfig() {
     CHECK_CONCURRENCY("bgp::Config");
-    const vector<autogen::StaticRouteType> &static_route_list =
-        routing_instance()->config()->instance_config()->static_route_entries();
-    for (vector<autogen::StaticRouteType>::const_iterator static_it =
-         static_route_list.begin(); static_it != static_route_list.end();
-         static_it++) {
-        LocateStaticRoutePrefix(*static_it);
+    const BgpInstanceConfig::StaticRouteList &list =
+        routing_instance()->config()->static_routes();
+    typedef BgpInstanceConfig::StaticRouteList::const_iterator iterator_t;
+    for (iterator_t iter = list.begin(); iter != list.end(); ++iter) {
+        LocateStaticRoutePrefix(*iter);
     }
 }
 
@@ -670,39 +665,31 @@ StaticRouteMgr::~StaticRouteMgr() {
         delete static_route_queue_;
 }
 
-bool CompareStaticRouteConfig(autogen::StaticRouteType lhs,
-                              autogen::StaticRouteType rhs) {
-    error_code ec;
-    Ip4Prefix lhs_static_route_prefix =
-        Ip4Prefix::FromString(lhs.prefix, &ec);
-    assert(*ec == 0);
-
-    Ip4Prefix rhs_static_route_prefix =
-        Ip4Prefix::FromString(rhs.prefix, &ec);
-    assert(*ec == 0);
-
-    return (lhs_static_route_prefix < rhs_static_route_prefix);
+bool CompareStaticRouteConfig(const StaticRouteConfig &lhs,
+                              const StaticRouteConfig &rhs) {
+    Ip4Prefix lhs_static_route_prefix(lhs.address.to_v4(), lhs.prefix_length);
+    Ip4Prefix rhs_static_route_prefix(rhs.address.to_v4(), rhs.prefix_length);
+    return (lhs_static_route_prefix < rhs_static_route_prefix); 
 }
 
 
 void StaticRouteMgr::UpdateStaticRouteConfig() {
     CHECK_CONCURRENCY("bgp::Config");
-    vector<autogen::StaticRouteType> static_route_list =
-        routing_instance()->config()->instance_config()->static_route_entries();
+    typedef BgpInstanceConfig::StaticRouteList StaticRouteList;
+    StaticRouteList static_route_list =
+        routing_instance()->config()->static_routes();
 
     sort(static_route_list.begin(), static_route_list.end(),
               CompareStaticRouteConfig);
 
-    vector<autogen::StaticRouteType>::iterator static_route_cfg_it =
-        static_route_list.begin();
+    StaticRouteList::const_iterator static_route_cfg_it = 
+            static_route_list.begin();
     StaticRouteMap::iterator oper_it = static_route_map_.begin();
 
     while ((static_route_cfg_it != static_route_list.end()) &&
            (oper_it != static_route_map_.end())) {
-        error_code ec;
-        Ip4Prefix static_route_prefix =
-            Ip4Prefix::FromString(static_route_cfg_it->prefix, &ec);
-        assert(*ec == 0);
+        Ip4Prefix static_route_prefix(static_route_cfg_it->address.to_v4(),
+                                      static_route_cfg_it->prefix_length);
         if (static_route_prefix < oper_it->first) {
             LocateStaticRoutePrefix(*static_route_cfg_it);
             static_route_cfg_it++;

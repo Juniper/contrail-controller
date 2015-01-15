@@ -50,9 +50,9 @@
 #include "sandesh/common/vns_types.h"
 #include "sandesh/sandesh_http.h"
 #include "sandesh/sandesh_types.h"
+#include "schema/bgp_schema_types.h"
 #include "schema/xmpp_unicast_types.h"
 #include "schema/vnc_cfg_types.h"
-#include "tbb/task_scheduler_init.h"
 
 #include "xmpp/xmpp_client.h"
 #include "xmpp/xmpp_init.h"
@@ -463,10 +463,10 @@ void BgpStressTest::IFMapInitialize() {
         IFMapServerParser::GetInstance("vnc_cfg");
     vnc_cfg_ParserInit(ifmap_parser);
     vnc_cfg_Server_ModuleInit(ifmap_server_->database(),
-                                ifmap_server_->graph());
+                              ifmap_server_->graph());
     bgp_schema_ParserInit(ifmap_parser);
     bgp_schema_Server_ModuleInit(ifmap_server_->database(),
-                                    ifmap_server_->graph());
+                                 ifmap_server_->graph());
     ifmap_server_->Initialize();
 }
 

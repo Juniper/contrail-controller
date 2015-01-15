@@ -213,22 +213,18 @@ public:
 class BgpNullPeer {
 public:
     BgpNullPeer(BgpServerTest *server, const BgpInstanceConfig *instance_config,
-                string name, RoutingInstance *rtinstance, int peer_id) {
+                string name, RoutingInstance *rtinstance, int peer_id)
+            : name_(name), peer_id_(peer_id), config_(new BgpNeighborConfig) {
         for (int i = 0; i < 20; i++) {
             ribout_creation_complete_.push_back(false);
         }
 
-        autogen::BgpRouterParams params;
-        params.Clear();
-        params.address = "127.0.0.1";
-        params.autonomous_system = 65412;
-        params.port = peer_id;
-        peer_id_ = peer_id;
-        name_ = name;
-        rtr_config_.SetProperty("bgp-router-parameters",
-                                static_cast<AutogenProperty *>(&params));
-        config_.reset(new BgpNeighborConfig(instance_config, name, "Local",
-                                            &rtr_config_));
+        config_->set_name(name);
+        config_->set_instance_name(rtinstance->name());
+        config_->set_peer_address(IpAddress::from_string("127.0.0.1"));
+        config_->set_peer_as(65412);
+        config_->set_port(peer_id);
+
         peer_ = static_cast<BgpPeerTest *>
             (rtinstance->peer_manager()->PeerLocate(server, config_.get()));
         WaitForIdle();
@@ -247,7 +243,6 @@ public:
     BgpPeerTest *peer_;
 
 private:
-    autogen::BgpRouter rtr_config_;
     auto_ptr<BgpNeighborConfig> config_;
     std::vector<bool> ribout_creation_complete_;
 };

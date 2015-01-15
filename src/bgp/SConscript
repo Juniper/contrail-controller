@@ -2,8 +2,6 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-# -*- mode: python; -*-
-
 Import('BuildEnv')
 import sys
 
@@ -34,10 +32,8 @@ libbgp = env.Library('bgp',
                      ['bgp_aspath.cc',
                       'bgp_attr.cc',
                       'bgp_attr_base.cc',
+		      'bgp_config.cc',
                       'bgp_condition_listener.cc',
-                      'bgp_config.cc',
-                      'bgp_config_listener.cc',
-                      'bgp_config_parser.cc',
                       'bgp_debug.cc',
                       'bgp_evpn.cc',
                       'bgp_export.cc',
@@ -71,6 +67,14 @@ libbgp = env.Library('bgp',
                       'state_machine.cc',
                       'xmpp_message_builder.cc'
                       ])
+
+# ifmap based BGP configuration used by the control-node
+libbgp_ifmap_config = env.Library('bgp_ifmap_config',
+                                  [
+                                      'bgp_config_ifmap.cc',
+                                      'bgp_config_listener.cc',
+                                      'bgp_config_parser.cc',
+                                  ])
 
 test_suite = env.SConscript('ermvpn/SConscript', exports='BuildEnv',
                             duplicate = 0)
@@ -129,3 +133,7 @@ if env['OPT'] == 'coverage':
     test_coverage = env.Command(Dir('test_coverage'), '', code_coverage)
     env.AlwaysBuild(test_coverage)
     env.Alias('src/bgp:test_coverage', test_coverage)
+
+# Local Variables:
+# mode: python
+# End:

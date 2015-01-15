@@ -848,6 +848,7 @@ INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest5,
 static void SetUp() {
     bgp_log_test::init();
     ControlNode::SetDefaultSchedulingPolicy();
+    BgpServerTest::GlobalSetUp();
 
     BgpObjectFactory::Register<RTargetGroupMgr>(
         boost::factory<RTargetGroupMgrTest *>());

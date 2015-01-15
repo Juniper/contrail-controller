@@ -4,18 +4,22 @@
 
 #include "bgp/bgp_config_listener.h"
 
+#include <string>
 #include <boost/assign/list_of.hpp>
 
-#include <string>
+#include "bgp/bgp_config_ifmap.h"
 
 #include "ifmap/ifmap_dependency_tracker.h"
+
+#include "schema/bgp_schema_types.h"
+#include "schema/vnc_cfg_types.h"
 
 using boost::assign::list_of;
 using boost::assign::map_list_of;
 using std::make_pair;
 using std::string;
 
-BgpConfigListener::BgpConfigListener(BgpConfigManager *manager)
+BgpConfigListener::BgpConfigListener(BgpIfmapConfigManager *manager)
     : IFMapConfigListener(manager, "bgp::Config") {
 }
 
