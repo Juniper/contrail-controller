@@ -781,6 +781,30 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
         return;
     }
 
+    //In EVPN, if interface IP is not same as IP received in Evpn route
+    //then use receive NH. This is done because this received evpn ip is
+    //a floating IP associated with VM and it shoul be routed.
+    const VmInterface *vm_intf =
+        dynamic_cast<const VmInterface *>(intf_nh->
+                                          GetInterface());
+    if (vm_intf) {
+        bool is_vm_ip = true;
+        if (ip_addr.is_v6()) {
+            is_vm_ip = (vm_intf->ip6_addr() == ip_addr) ? true : false;
+        } else if (ip_addr.is_v4()) {
+            is_vm_ip = (vm_intf->ip_addr() == ip_addr) ? true : false;
+        }
+
+        if (is_vm_ip == false) {
+            rt_table->AddReceiveRouteReq(bgp_peer_id(), vrf_name,
+                                         label, mac, ip_addr,
+                                         item->entry.nlri.ethernet_tag,
+                                         item->entry.virtual_network);
+            return;
+        }
+
+    }
+
     SecurityGroupList sg_list = item->entry.security_group_list.security_group;
     PathPreference path_preference;
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_nh->GetIfUuid(), "");

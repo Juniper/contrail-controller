@@ -443,6 +443,11 @@ bool L2ReceiveRoute::AddChangePath(Agent *agent, AgentPath *path,
         ret = true;
     }
 
+    if (path->label() != mpls_label_) {
+        path->set_label(mpls_label_);
+        ret = true;
+    }
+
     if (path->vxlan_id() != vxlan_id_) {
         path->set_vxlan_id(vxlan_id_);
         ret = true;
