@@ -239,6 +239,13 @@ public:
 
     typedef std::map<const std::string, DhcpSnoopEntry> DhcpSnoopMap;
     typedef std::map<const std::string, DhcpSnoopEntry>::iterator DhcpSnoopIterator;
+
+    // Map of VM-Interface UUID to VmiType. VmiType is computed based on the
+    // config when interface is added. But when VMI is deleted, the VmiType
+    // cannot be computed. So, store the computed value in this map
+    // Storing VmiType as int to avoid forward declaration
+    typedef std::map<boost::uuids::uuid, int> VmiToVmiTypeMap;
+
     // DNS module is optional. Callback function to keep DNS entry for
     // floating ip in-sync. This callback is defined to avoid linking error
     // when DNS is not enabled
@@ -304,6 +311,9 @@ public:
 
     void set_update_floatingip_cb(UpdateFloatingIpFn fn);
     const UpdateFloatingIpFn &update_floatingip_cb() const;
+    void AddVmiToVmiType(const boost::uuids::uuid &u, int type);
+    int GetVmiToVmiType(const boost::uuids::uuid &u);
+    void DelVmiToVmiType(const boost::uuids::uuid &u);
 
     // TODO : to remove this
     static InterfaceTable *GetInstance() { return interface_table_; }
@@ -325,6 +335,7 @@ private:
     tbb::mutex dhcp_snoop_mutex_;
     DhcpSnoopMap dhcp_snoop_map_;
     UpdateFloatingIpFn update_floatingip_cb_;
+    VmiToVmiTypeMap vmi_to_vmitype_map_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceTable);
 };
 

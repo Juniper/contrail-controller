@@ -90,7 +90,7 @@ private:
     KSyncEntryPtr parent_;
     bool policy_enabled_;
     InetInterface::SubType sub_type_;
-    VmInterface::SubType vmi_sub_type_;
+    VmInterface::DeviceType vmi_device_type_;
     Interface::Type type_;
     uint16_t rx_vlan_id_;
     uint16_t tx_vlan_id_;
