@@ -25,6 +25,9 @@
 #include "ifmap/ifmap_origin.h"
 #include "ifmap/ifmap_server_table.h"
 
+#include "schema/bgp_schema_types.h"
+#include "schema/vnc_cfg_types.h"
+
 using std::auto_ptr;
 using std::istringstream;
 using std::list;
@@ -349,12 +352,12 @@ static bool ParseBgpRouter(const string &instance, const xml_node &node,
         MapObjectSetProperty("bgp-router", fqname,
             "bgp-router-parameters", property.release(), requests);
         MapObjectLink("routing-instance", instance,
-            "bgp-router", identifier, "instance-bgp-router", requests);
+            "bgp-router", fqname, "instance-bgp-router", requests);
     } else {
         MapObjectClearProperty("bgp-router", fqname,
             "bgp-router-parameters", requests);
         MapObjectUnlink("routing-instance", instance,
-            "bgp-router", identifier, "instance-bgp-router", requests);
+            "bgp-router", fqname, "instance-bgp-router", requests);
     }
 
     return true;

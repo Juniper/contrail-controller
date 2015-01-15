@@ -54,7 +54,10 @@ void PeerManager::PeerResurrect(string name) {
     if (instance_->deleted())
         return;
 
-    const BgpNeighborConfig *config = instance_->config()->FindNeighbor(name);
+    const BgpConfigManager *config_manager =
+            instance_->manager()->server()->config_manager();
+    const BgpNeighborConfig *config =
+            config_manager->FindNeighbor(instance_->name(), name);
     if (!config)
         return;
 

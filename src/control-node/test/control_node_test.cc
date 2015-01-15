@@ -17,9 +17,9 @@
 #include "ifmap/ifmap_server.h"
 #include "ifmap/ifmap_server_parser.h"
 #include "ifmap/ifmap_xmpp.h"
-#include "xmpp/xmpp_server.h"
-
+#include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
+#include "xmpp/xmpp_server.h"
 
 using boost::asio::ip::address;
 

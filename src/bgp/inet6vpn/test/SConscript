@@ -2,8 +2,6 @@
 # Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 #
 
-# -*- mode: python; -*-
-
 Import('BuildEnv')
 import sys
 
@@ -44,6 +42,7 @@ env.Prepend(LIBS = [
                     'task_test',
                     'bgptest',
                     'bgp',
+                    'bgp_ifmap_config',
                     'peer_sandesh',
                     'control_node',
                     'origin_vn',
@@ -140,3 +139,7 @@ test = env.TestSuite('bgp-test', test_suite)
 env.Alias('controller/src/bgp/inet6vpn:test', test)
 
 Return('test_suite')
+
+# Local Variables:
+# mode: python
+# End:

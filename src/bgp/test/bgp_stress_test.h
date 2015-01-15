@@ -275,8 +275,6 @@ public:
     BgpPeerTest *peer_;
 
 private:
-    autogen::BgpRouter rtr_config_;
-    std::auto_ptr<BgpNeighborConfig> config_;
     std::vector<bool> ribout_creation_complete_;
 };
 

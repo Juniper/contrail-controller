@@ -2,8 +2,6 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-# -*- mode: python; -*-
-
 Import('BuildEnv')
 import os
 import sys
@@ -49,6 +47,10 @@ libbgptest = env.Library('bgptest',
 
 env.Alias('src/bgp:libbgptest', libbgptest)
 
+libbgp_test_factory = env.Library(
+    'bgp_test_factory',
+    ['bgp_config_mock.cc'])
+
 env.Append(LIBPATH = env['TOP'] + '/schema')
 env.Append(LIBPATH = env['TOP'] + '/base/test')
 env.Append(LIBPATH = env['TOP'] + '/db/test')
@@ -57,7 +59,11 @@ env.Append(LIBPATH = env['TOP'] + '/control-node/test')
 env.Append(LIBPATH = env['TOP'] + '/discovery/client')
 env.Append(LIBPATH = env['TOP'] + '/http/client')
 
-env.Prepend(LIBS = ['control_test', 'bgptest', 'bgp', 'peer_sandesh',
+env.Prepend(LIBS = ['control_test',
+                    'bgptest',
+                    'bgp',
+                    'bgp_ifmap_config',
+                    'peer_sandesh',
                     'bgp_schema', 'control_node', 'dbtest',
                     'ifmap_vnc', 'task_test',
                     'ifmap_test_util', 'ifmap_test_util_server',
@@ -94,12 +100,22 @@ else:
                  '-lrtarget',
                  '-lbgp_inet6',
                  '-lbgp_inet6vpn',
+                 '-lbgp_test_factory',
                  '-Wl,--no-whole-archive'])
 
-env.Append(LIBS = ['bgp_ermvpn', 'bgp_evpn'])
-env.Append(LIBS = ['bgp_inet', 'bgp_inet6', 'bgp_l3vpn',
-                   'bgp_inet6vpn'])
-env.Append(LIBS = ['routing_instance', 'rtarget', 'route', 'net'])
+env.Append(LIBS = [
+    'bgp_ermvpn',
+    'bgp_evpn',
+    'bgp_inet',
+    'bgp_inet6',
+    'bgp_inet6vpn',
+    'bgp_l3vpn',
+    'bgp_test_factory',
+    'rtarget',
+])
+
+env.Append(LIBS = ['route', 'routing_instance', 'net'])
+
 env.Append(LIBS = ['extended_community', 'origin_vn', 'security_group', 'tunnel_encap'])
 env.Append(LIBS = ['xmpp', 'xmpp_unicast', 
                    'xmpp_multicast', 'xmpp_enet', 'xml', 'pugixml',
@@ -127,9 +143,11 @@ bgp_config_listener_test = config_test_env.UnitTest('bgp_config_listener_test',
                                                     ['bgp_config_listener_test.cc'])
 env.Alias('src/bgp:bgp_config_listener_test', bgp_config_listener_test)
 
-bgp_config_manager_test = config_test_env.UnitTest('bgp_config_manager_test',
-                                                   ['bgp_config_manager_test.cc'])
-env.Alias('src/bgp:bgp_config_manager_test', bgp_config_manager_test)
+bgp_ifmap_config_manager_test = config_test_env.UnitTest(
+    'bgp_ifmap_config_manager_test',
+    ['bgp_ifmap_config_manager_test.cc'])
+env.Alias('src/bgp:bgp_ifmap_config_manager_test',
+          bgp_ifmap_config_manager_test)
 
 bgp_config_test = config_test_env.UnitTest('bgp_config_test',
                                            ['bgp_config_test.cc'])
@@ -324,7 +342,7 @@ test_suite = [
     bgp_attr_test,
     bgp_condition_listener_test,
     bgp_config_listener_test,
-    bgp_config_manager_test,
+    bgp_ifmap_config_manager_test,
     bgp_config_test,
     bgp_evpn_manager_test,
     bgp_export_nostate_test,
@@ -454,3 +472,7 @@ if 'BGP_STRESS_TEST_SUITE' in os.environ and \
               ]))
 
 Return('test_suite')
+
+# Local Variables:
+# mode: python
+# End:

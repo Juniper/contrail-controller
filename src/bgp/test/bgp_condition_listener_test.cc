@@ -10,6 +10,8 @@
 #include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_config.h"
+#include "bgp/bgp_config_ifmap.h"
+#include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/routing-instance/routing_instance.h"
@@ -21,6 +23,8 @@
 #include "ifmap/ifmap_server_parser.h"
 #include "ifmap/test/ifmap_test_util.h"
 #include "io/event_manager.h"
+#include "schema/bgp_schema_types.h"
+#include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"
 
 using namespace std;
@@ -141,8 +145,10 @@ protected:
         IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
         vnc_cfg_ParserInit(parser);
         bgp_schema_ParserInit(parser);
-        bgp_server_->config_manager()->Initialize(&config_db_, &config_graph_,
-                                                  "localhost");
+        BgpIfmapConfigManager *config_manager =
+                static_cast<BgpIfmapConfigManager *>(
+                    bgp_server_->config_manager());
+        config_manager->Initialize(&config_db_, &config_graph_, "localhost");
     }
 
     virtual void TearDown() {
@@ -533,6 +539,8 @@ class TestEnvironment : public ::testing::Environment {
 };
 
 static void SetUp() {
+    BgpObjectFactory::Register<BgpConfigManager>(
+        boost::factory<BgpIfmapConfigManager *>());
     ControlNode::SetDefaultSchedulingPolicy();
 }
 

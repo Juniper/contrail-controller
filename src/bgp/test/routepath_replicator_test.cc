@@ -9,7 +9,9 @@
 
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_config.h"
+#include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_config_parser.h"
+#include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_route.h"
@@ -27,6 +29,7 @@
 #include "io/event_manager.h"
 #include "net/bgp_af.h"
 #include "schema/bgp_schema_types.h"
+#include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"
 
 using namespace std;
@@ -112,8 +115,10 @@ protected:
         IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
         vnc_cfg_ParserInit(parser);
         bgp_schema_ParserInit(parser);
-        bgp_server_->config_manager()->Initialize(&config_db_, &config_graph_,
-                                                  "localhost");
+        BgpIfmapConfigManager *config_manager =
+                static_cast<BgpIfmapConfigManager *>(
+                    bgp_server_->config_manager());
+        config_manager->Initialize(&config_db_, &config_graph_, "localhost");
         BgpConfigParser bgp_parser(&config_db_);
         bgp_parser.Parse(bgp_server_config);
         task_util::WaitForIdle();
@@ -1908,6 +1913,8 @@ class TestEnvironment : public ::testing::Environment {
 
 static void SetUp() {
     ControlNode::SetDefaultSchedulingPolicy();
+    BgpObjectFactory::Register<BgpConfigManager>(
+        boost::factory<BgpIfmapConfigManager *>());
 }
 
 static void TearDown() {
