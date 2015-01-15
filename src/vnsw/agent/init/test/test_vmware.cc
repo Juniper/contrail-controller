@@ -97,8 +97,8 @@ TEST_F(VmwareTest, VmwareVmPort_1) {
 
     EXPECT_TRUE(intf->rx_vlan_id() == 1);
     EXPECT_TRUE(intf->tx_vlan_id() == 1);
-    EXPECT_TRUE(intf->parent() != NULL);
-    EXPECT_TRUE(intf->GetVifMac(agent) == intf->parent()->mac());
+    EXPECT_TRUE(intf->physical_interface() != NULL);
+    EXPECT_TRUE(intf->GetVifMac(agent) == intf->physical_interface()->mac());
 
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();

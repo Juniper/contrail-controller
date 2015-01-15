@@ -173,9 +173,9 @@ void ArpEntry::SendArpRequest() {
         const VmInterface *vmi = static_cast<const VmInterface *>(interface_);
         ip = vmi->GetGateway();
         vrf_id = nh_vrf_->vrf_id();
-        if (vmi->parent()) {
-            intf_id = vmi->parent()->id();
-            smac = vmi->parent()->mac();
+        if (vmi->physical_interface()) {
+            intf_id = vmi->physical_interface()->id();
+            smac = vmi->physical_interface()->mac();
         }
     } else {
         ip = agent->router_id();

@@ -58,7 +58,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     parent_(entry->parent_),
     policy_enabled_(entry->policy_enabled_),
     sub_type_(entry->sub_type_),
-    vmi_sub_type_(entry->vmi_sub_type_),
+    vmi_device_type_(entry->vmi_device_type_),
     type_(entry->type_),
     rx_vlan_id_(entry->rx_vlan_id_),
     tx_vlan_id_(entry->tx_vlan_id_),
@@ -94,7 +94,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     parent_(NULL),
     policy_enabled_(false),
     sub_type_(InetInterface::VHOST),
-    vmi_sub_type_(VmInterface::NONE),
+    vmi_device_type_(VmInterface::DEVICE_TYPE_INVALID),
     type_(intf->type()),
     rx_vlan_id_(VmInterface::kInvalidVlanId),
     tx_vlan_id_(VmInterface::kInvalidVlanId),
@@ -118,11 +118,11 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
         network_id_ = vmitf->vxlan_id();
         rx_vlan_id_ = vmitf->rx_vlan_id();
         tx_vlan_id_ = vmitf->tx_vlan_id();
-        if (vmitf->parent()) {
-            InterfaceKSyncEntry tmp(ksync_obj_, vmitf->parent());
+        if (vmitf->physical_interface()) {
+            InterfaceKSyncEntry tmp(ksync_obj_, vmitf->physical_interface());
             parent_ = ksync_obj_->GetReference(&tmp);
         }
-        vmi_sub_type_ = vmitf->sub_type();
+        vmi_device_type_ = vmitf->device_type();
     } else if (type_ == Interface::INET) {
         const InetInterface *inet_intf =
         static_cast<const InetInterface *>(intf);
@@ -189,8 +189,8 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
 
     if (intf->type() == Interface::VM_INTERFACE) {
         VmInterface *vm_port = static_cast<VmInterface *>(intf);
-        if (vmi_sub_type_ != vm_port->sub_type()) {
-            vmi_sub_type_ = vm_port->sub_type();
+        if (vmi_device_type_ != vm_port->device_type()) {
+            vmi_device_type_ = vm_port->device_type();
             ret = true;
         }
 
@@ -229,16 +229,19 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
         }
 
         KSyncEntryPtr parent = NULL;
-        if (vm_port->parent()) {
-            InterfaceKSyncEntry tmp(ksync_obj_, vm_port->parent());
+        if (vm_port->physical_interface()) {
+            InterfaceKSyncEntry tmp(ksync_obj_, vm_port->physical_interface());
             parent = ksync_obj_->GetReference(&tmp);
+        } else if (vm_port->device_type() == VmInterface::VM_VLAN_ON_VMI) {
+            InterfaceKSyncEntry tmp(ksync_obj_, vm_port->parent_vmi());
+            parent_ = ksync_obj_->GetReference(&tmp);
         }
+
         if (parent_ != parent) {
             parent_ = parent;
             ret = true;
         }
     }
-
 
     uint32_t vrf_id = VIF_VRF_INVALID;
     bool policy_enabled = false;
@@ -443,7 +446,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     encoder.set_h_op(op);
     switch (type_) {
     case Interface::VM_INTERFACE: {
-        if (vmi_sub_type_ == VmInterface::TOR)
+        if (vmi_device_type_ == VmInterface::TOR)
             return 0;            
         if (dhcp_enable_) {
             flags |= VIF_FLAG_DHCP_ENABLED;

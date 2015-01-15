@@ -737,20 +737,63 @@ AgentUtXmlVmInterfaceValidate::~AgentUtXmlVmInterfaceValidate() {
 }
 
 bool AgentUtXmlVmInterfaceValidate::ReadXml() {
+    GetUintAttribute(node(), "vlan", &vlan_id_);
+    GetStringAttribute(node(), "active", &active_);
+    GetStringAttribute(node(), "device_type", &device_type_);
+    GetStringAttribute(node(), "vmi_type", &vmi_type_);
     return true;
 }
 
+static string DeviceTypeToString(VmInterface::DeviceType type) {
+    if (type == VmInterface::VM_ON_TAP)
+        return "VM-Tap";
+    if (type == VmInterface::VM_VLAN_ON_VMI)
+        return "VM-Sub-Intf";
+    if (type == VmInterface::TOR)
+        return "Tor";
+    if (type == VmInterface::LOCAL_DEVICE)
+        return "Baremetal";
+    return "Invalid";
+
+}
+
+static string VmiTypeToString(VmInterface::VmiType type) {
+    if (type == VmInterface::INSTANCE)
+        return "vm";
+    if (type == VmInterface::BAREMETAL)
+        return "Baremetal";
+    if (type == VmInterface::GATEWAY)
+        return "Gateway";
+
+    return "Invalid";
+}
+
 bool AgentUtXmlVmInterfaceValidate::Validate() {
-    if (present()) {
-        return VmPortFind(id());
-    } else {
-        return !VmPortFind(id());
-    }
+    VmInterface *vmi = VmInterfaceGet(id());
 
     if (present()) {
-        return VmPortActive(id());
+        if (vmi == NULL)
+            return false;
     } else {
-        return !VmPortActive(id());
+        return vmi == NULL;
+    }
+
+    if (active_.empty() == false) {
+        if (boost::iequals(active_, "true")) {
+            if (VmPortActive(id()) == false)
+               return false;
+        } else {
+           if (VmPortActive(id()) == true)
+               return false;
+        }
+    }
+
+    if (device_type_.empty() == false) {
+        return boost::iequals(device_type_, DeviceTypeToString(vmi->device_type()));
+    }
+
+    if (vmi_type_.empty() == false) {
+        return boost::iequals(vmi_type_, VmiTypeToString(vmi->vmi_type()));
     }
 
     return true;

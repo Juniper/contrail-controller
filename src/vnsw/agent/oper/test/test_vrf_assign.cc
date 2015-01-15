@@ -33,7 +33,7 @@ static void NovaIntfAdd(int id, const char *name, const char *addr,
 
 static void NovaDel(int id) {
     VmInterface::Delete(Agent::GetInstance()->interface_table(),
-                        MakeUuid(id), VmInterface::EXTERNAL);
+                        MakeUuid(id), VmInterface::INSTANCE_MSG);
 }
 
 static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm, std::string ) {
