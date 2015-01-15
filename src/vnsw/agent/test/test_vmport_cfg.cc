@@ -457,7 +457,7 @@ TEST_F(CfgTest, AddDelVmPortDepOnVmVn_3) {
     EXPECT_TRUE(VmPortInactive(input, 0));
     client->WaitForIdle();
 
-    // Delete VM and its associated links. NOVA cfg is still not deleted
+    // Delete VM and its associated links. INSTANCE_MSG is still not deleted
     // Vmport should be inactive
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
     DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");

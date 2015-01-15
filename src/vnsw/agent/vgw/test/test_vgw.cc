@@ -86,7 +86,7 @@ TEST_F(VgwTest, interface_1) {
     if (gw == NULL)
         return;
 
-    EXPECT_TRUE(gw->sub_type() == InetInterface::SIMPLE_GATEWAY);
+    EXPECT_TRUE(gw->device_type() == InetInterface::SIMPLE_GATEWAY);
     EXPECT_TRUE(gw->ipv4_active());
     EXPECT_NE(gw->label(), 0xFFFFFFFF);
 
@@ -95,7 +95,7 @@ TEST_F(VgwTest, interface_1) {
     if (gw == NULL)
         return;
 
-    EXPECT_TRUE(gw->sub_type() == InetInterface::SIMPLE_GATEWAY);
+    EXPECT_TRUE(gw->device_type() == InetInterface::SIMPLE_GATEWAY);
     EXPECT_TRUE(gw->ipv4_active());
     EXPECT_NE(gw->label(), 0xFFFFFFFF);
 }
@@ -163,7 +163,7 @@ static void ValidateVgwInterface(InetUnicastRouteEntry *route,
 
     const InetInterface *inet_intf;
     inet_intf = static_cast<const InetInterface *>(intf);
-    EXPECT_TRUE(inet_intf->sub_type() == InetInterface::SIMPLE_GATEWAY);
+    EXPECT_TRUE(inet_intf->device_type() == InetInterface::SIMPLE_GATEWAY);
     EXPECT_STREQ(intf->name().c_str(), name);
     EXPECT_TRUE(route->GetActivePath()->GetTunnelBmap() ==
                 TunnelType::GREType());
