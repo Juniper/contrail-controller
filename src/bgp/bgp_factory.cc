@@ -7,12 +7,6 @@
 template <>
 BgpObjectFactory *Factory<BgpObjectFactory>::singleton_ = NULL;
 
-#include "bgp/bgp_config_listener.h"
-FACTORY_STATIC_REGISTER(BgpObjectFactory, BgpConfigListener, BgpConfigListener);
-
-#include "bgp/bgp_config.h"
-FACTORY_STATIC_REGISTER(BgpObjectFactory, BgpConfigManager, BgpConfigManager);
-
 #include "bgp/bgp_evpn.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, EvpnManager, EvpnManager);
 

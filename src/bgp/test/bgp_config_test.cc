@@ -10,7 +10,9 @@
 #include "base/logging.h"
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_config.h"
+#include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_config_parser.h"
+#include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_server.h"
 #include "bgp/state_machine.h"
@@ -26,6 +28,7 @@
 #include "ifmap/ifmap_server_parser.h"
 #include "ifmap/test/ifmap_test_util.h"
 #include "io/event_manager.h"
+#include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"
 
@@ -48,7 +51,9 @@ protected:
         IFMapLinkTable_Init(&config_db_, &db_graph_);
         vnc_cfg_Server_ModuleInit(&config_db_, &db_graph_);
         bgp_schema_Server_ModuleInit(&config_db_, &db_graph_);
-        server_.config_manager()->Initialize(&config_db_, &db_graph_, "local");
+        BgpIfmapConfigManager *manager =
+                static_cast<BgpIfmapConfigManager *>(server_.config_manager());
+        manager->Initialize(&config_db_, &db_graph_, "local");
     }
 
     virtual void TearDown() {
@@ -1101,6 +1106,8 @@ TEST_F(BgpConfigTest, AddressFamilies3) {
 int main(int argc, char **argv) {
     bgp_log_test::init();
     ControlNode::SetDefaultSchedulingPolicy();
+    BgpObjectFactory::Register<BgpConfigManager>(
+        boost::factory<BgpIfmapConfigManager *>());
     ::testing::InitGoogleTest(&argc, argv);
     int error = RUN_ALL_TESTS();
     TaskScheduler::GetInstance()->Terminate();

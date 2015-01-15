@@ -12,9 +12,7 @@
 #include "bgp/inet/inet_route.h"
 
 class StaticRoute;
-namespace autogen {
-class StaticRouteType;
-}
+class StaticRouteConfig;
 
 typedef ConditionMatchPtr StaticRoutePtr;
 
@@ -51,7 +49,7 @@ public:
     void ProcessStaticRouteConfig();
     void UpdateStaticRouteConfig();
     void FlushStaticRouteConfig();
-    void LocateStaticRoutePrefix(const autogen::StaticRouteType &cfg);
+    void LocateStaticRoutePrefix(const StaticRouteConfig &cfg);
     void RemoveStaticRoutePrefix(const Ip4Prefix &static_route);
     void StopStaticRouteDone(BgpTable *table, ConditionMatch *info);
 

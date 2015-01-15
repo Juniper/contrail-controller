@@ -291,46 +291,42 @@ protected:
                                    RoutingInstance *a_blue,
                                    RoutingInstance *b_blue) {
         RibExportPolicy policy(BgpProto::IBGP, RibExportPolicy::BGP, 1, 0);
-        autogen::BgpRouter rtr_config;
-        autogen::BgpRouterParams params;
-        params.address = "127.0.0.1";
 
-        params.port = 1;
-        params.autonomous_system = 65531;
-        rtr_config.SetProperty("bgp-router-parameters",
-                               static_cast<AutogenProperty *>(&params));
+        a_peer_red_config_.reset(new BgpNeighborConfig());
+        a_peer_red_config_->set_name("a_red");
+        a_peer_red_config_->set_instance_name(a_red->name());
+        a_peer_red_config_->set_peer_address(
+            IpAddress::from_string("127.0.0.1"));
+        a_peer_red_config_->set_peer_as(65531);
 
-        a_peer_red_config_.reset(new BgpNeighborConfig(a_red->config(),
-                                                       "a_red", "a_red_local",
-                                                       &rtr_config));
         a_peer_red_ = dynamic_cast<BgpPeerTest *>(
             a_red->peer_manager()->PeerLocate(
                 a_.get(), a_peer_red_config_.get()));
         a_peer_red_->IsReady_fnc_ = boost::bind(&L3VPNPeerTest::IsReady, this);
         a_->membership_mgr()->Register(a_peer_red_, a_red_inet_, policy, -1);
 
-        params.port = 2;
-        params.autonomous_system = 65532;
-        rtr_config.SetProperty("bgp-router-parameters",
-                               static_cast<AutogenProperty *>(&params));
-        a_peer_blue_config_.reset(new BgpNeighborConfig(a_blue->config(),
-                                                        "a_blue",
-                                                        "a_blue_local",
-                                                        &rtr_config));
+        a_peer_blue_config_.reset(new BgpNeighborConfig());
+        a_peer_blue_config_->set_name("a_blue");
+        a_peer_blue_config_->set_instance_name(a_blue->name());
+        a_peer_blue_config_->set_peer_address(
+            IpAddress::from_string("127.0.0.1"));
+        a_peer_blue_config_->set_port(2);
+        a_peer_blue_config_->set_peer_as(65532);
+
         a_peer_blue_ = dynamic_cast<BgpPeerTest *>(
             a_blue->peer_manager()->PeerLocate(
                 a_.get(), a_peer_blue_config_.get()));
         a_peer_blue_->IsReady_fnc_ = boost::bind(&L3VPNPeerTest::IsReady, this);
         a_->membership_mgr()->Register(a_peer_blue_, a_blue_inet_, policy, -1);
 
-        params.port = 3;
-        params.autonomous_system = 65533;
-        rtr_config.SetProperty("bgp-router-parameters",
-                               static_cast<AutogenProperty *>(&params));
-        b_peer_blue_config_.reset(new BgpNeighborConfig(b_blue->config(),
-                                                        "b_blue",
-                                                        "b_blue_local",
-                                                        &rtr_config));
+        b_peer_blue_config_.reset(new BgpNeighborConfig());
+        b_peer_blue_config_->set_name("b_blue");
+        b_peer_blue_config_->set_instance_name(b_blue->name());
+        b_peer_blue_config_->set_peer_address(
+            IpAddress::from_string("127.0.0.1"));
+        b_peer_blue_config_->set_port(3);
+        b_peer_blue_config_->set_peer_as(65533);
+ 
         b_peer_blue_ = dynamic_cast<BgpPeerTest *>(
             b_blue->peer_manager()->PeerLocate(
                 b_.get(), b_peer_blue_config_.get()));

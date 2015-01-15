@@ -43,6 +43,8 @@ env.Prepend(LIBS = [
                     'task_test',
                     'bgptest',
                     'bgp',
+		    'bgp_test_factory',
+		    'bgp_ifmap_config',
                     'extended_community',
                     'peer_sandesh',
                     'control_node',
@@ -83,6 +85,7 @@ env.Prepend(LIBS = [
 if sys.platform != 'darwin':
     env.Append(LIBS=['rt'])
     env.Prepend(LINKFLAGS = ['-Wl,--whole-archive',
+                             '-lbgp_test_factory',
                              '-lbgp_evpn',
                              '-lbgp_ermvpn',
                              '-lbgp_l3vpn',

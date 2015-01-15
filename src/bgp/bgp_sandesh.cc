@@ -1358,32 +1358,32 @@ public:
         BgpSandeshContext *bsc =
             static_cast<BgpSandeshContext *>(req->client_context());
         BgpConfigManager *bcm = bsc->bgp_server->config_manager();
-        const BgpConfigData &bcd = bcm->config();
 
         vector<ShowBgpInstanceConfig> ri_list;
-        for (BgpConfigData::BgpInstanceMap::const_iterator loc = bcd.instances().begin();
-             loc != bcd.instances().end(); ++loc) {
+        typedef std::pair<std::string, const BgpInstanceConfig *> pair_t;
+        BOOST_FOREACH(pair_t item, bcm->InstanceMapItems()) {
             ShowBgpInstanceConfig inst;
-            inst.set_name(loc->second->name());
-            inst.set_virtual_network(loc->second->virtual_network());
-            inst.set_virtual_network_index(loc->second->virtual_network_index());
-            inst.set_vxlan_id(loc->second->vxlan_id());
+            const BgpInstanceConfig *instance = item.second;
+            inst.set_name(instance->name());
+            inst.set_virtual_network(instance->virtual_network());
+            inst.set_virtual_network_index(instance->virtual_network_index());
+            inst.set_vxlan_id(instance->vxlan_id());
 
             std::vector<std::string> import_list;
-            BOOST_FOREACH(std::string rt, loc->second->import_list()) {
+            BOOST_FOREACH(std::string rt, instance->import_list()) {
                 import_list.push_back(rt);
             }
             inst.set_import_target(import_list);
 
             std::vector<std::string> export_list;
-            BOOST_FOREACH(std::string rt, loc->second->export_list()) {
+            BOOST_FOREACH(std::string rt, instance->export_list()) {
                 export_list.push_back(rt);
             }
             inst.set_export_target(export_list);
 
-            const autogen::RoutingInstance *rti = loc->second->instance_config();
-            if (rti && rti->IsPropertySet(autogen::RoutingInstance::SERVICE_CHAIN_INFORMATION)) {
-                const autogen::ServiceChainInfo &sci = rti->service_chain_information();
+            if (!instance->service_chain_list().empty()) {
+                const ServiceChainConfig &sci =
+                        instance->service_chain_list().front();
                 ShowBgpServiceChainConfig scc;
                 scc.set_routing_instance(sci.routing_instance);
                 scc.set_service_instance(sci.service_instance);
@@ -1391,25 +1391,24 @@ public:
                 scc.set_prefixes(sci.prefix);
                 inst.set_service_chain_info(scc);
             }
-            if (rti && rti->IsPropertySet(autogen::RoutingInstance::STATIC_ROUTE_ENTRIES)) {
-                std::vector<ShowBgpStaticRouteConfig> static_route_list;
-                const std::vector<autogen::StaticRouteType> &cfg_list =
-                    rti->static_route_entries();
-                for (std::vector<autogen::StaticRouteType>::const_iterator 
-                     static_it = cfg_list.begin(); static_it != cfg_list.end();
-                     static_it++) {
-                    ShowBgpStaticRouteConfig src;
-                    src.set_prefix(static_it->prefix);
-                    src.set_targets(static_it->route_target);
-                    src.set_nexthop(static_it->prefix);
-                    static_route_list.push_back(src);
-                }
+
+            std::vector<ShowBgpStaticRouteConfig> static_route_list;
+            BOOST_FOREACH(const StaticRouteConfig &rtconfig,
+                          instance->static_routes()) {
+                ShowBgpStaticRouteConfig src;
+                std::stringstream prefix;
+                prefix << rtconfig.address.to_string() << "/"
+                       << rtconfig.prefix_length;
+                src.set_prefix(prefix.str());
+                src.set_targets(rtconfig.route_target);
+                src.set_nexthop(rtconfig.nexthop.to_string());
+                static_route_list.push_back(src);
+            }
+            if (!static_route_list.empty()) {
                 inst.set_static_routes(static_route_list);
             }
-
             ri_list.push_back(inst);
         }
-
         ShowBgpInstanceConfigResp *resp = new ShowBgpInstanceConfigResp;
         resp->set_instances(ri_list);
         resp->set_context(req->context());
@@ -1443,44 +1442,26 @@ public:
         BgpSandeshContext *bsc =
             static_cast<BgpSandeshContext *>(req->client_context());
         BgpConfigManager *bcm = bsc->bgp_server->config_manager();
-        const BgpConfigData &bcd = bcm->config();
 
         vector<ShowBgpPeeringConfig> peering_list;
-        for (BgpConfigData::BgpPeeringMap::const_iterator loc = bcd.peerings().begin();
-             loc != bcd.peerings().end(); ++loc) {
-
+        typedef std::pair<std::string, const BgpNeighborConfig *> pair_t;
+        BOOST_FOREACH(pair_t item, bcm->NeighborMapItems(
+            BgpConfigManager::kMasterInstance)) {
             ShowBgpPeeringConfig peering;
-            peering.set_instance_name(loc->second->instance()->name());
-            peering.set_name(loc->second->name());
-            peering.set_neighbor_count(loc->second->size());
-
-            if (!loc->second->bgp_peering()) {
-                peering_list.push_back(peering);
-                continue;
-            }
+            const BgpNeighborConfig *neighbor = item.second;
+            peering.set_instance_name(neighbor->instance_name());
+            peering.set_name(neighbor->name());
+            peering.set_neighbor_count(1);
 
             vector<ShowBgpSessionConfig> session_list;
-            const autogen::BgpPeeringAttributes &attr = loc->second->bgp_peering()->data();
-            for (autogen::BgpPeeringAttributes::const_iterator iter1 = attr.begin();
-                 iter1 != attr.end(); ++iter1) {
-                ShowBgpSessionConfig session;
-                session.set_uuid(iter1->uuid);
-
-                vector<ShowBgpSessionAttributesConfig> attribute_list;
-                for (std::vector<autogen::BgpSessionAttributes>::const_iterator iter2 =
-                     iter1->attributes.begin();
-                     iter2 != iter1->attributes.end(); ++iter2) {
-                    ShowBgpSessionAttributesConfig attribute;
-
-                    attribute.set_bgp_router(iter2->bgp_router);
-                    attribute.set_address_families(iter2->address_families.family);
-                    attribute_list.push_back(attribute);
-                }
-
-                session.set_attributes(attribute_list);
-                session_list.push_back(session);
-            }
-
+            ShowBgpSessionConfig session;
+            session.set_uuid(neighbor->uuid());
+            vector<ShowBgpSessionAttributesConfig> attribute_list;
+            ShowBgpSessionAttributesConfig attribute;
+            attribute.set_address_families(neighbor->address_families());
+            attribute_list.push_back(attribute);
+            session.set_attributes(attribute_list);
+            session_list.push_back(session);
             peering.set_sessions(session_list);
             peering_list.push_back(peering);
         }
@@ -1518,35 +1499,26 @@ public:
         BgpSandeshContext *bsc =
             static_cast<BgpSandeshContext *>(req->client_context());
         BgpConfigManager *bcm = bsc->bgp_server->config_manager();
-        const BgpConfigData &bcd = bcm->config();
 
         vector<ShowBgpNeighborConfig> nbr_list;
-        for (BgpConfigData::BgpInstanceMap::const_iterator loc1 =
-             bcd.instances().begin();
-             loc1 != bcd.instances().end(); ++loc1) {
 
-            const BgpInstanceConfig *bic = loc1->second;
-            if (!bic->neighbors().size())
-                continue;
+        typedef std::pair<std::string, const BgpNeighborConfig *> pair_t;
+        BOOST_FOREACH(pair_t item, bcm->NeighborMapItems(
+            BgpConfigManager::kMasterInstance)) {
+            const BgpNeighborConfig *neighbor = item.second;
+            ShowBgpNeighborConfig nbr;
+            nbr.set_instance_name(neighbor->instance_name());
+            nbr.set_name(neighbor->name());
+            Ip4Address localid(ntohl(neighbor->local_identifier()));
+            nbr.set_local_identifier(localid.to_string());
+            nbr.set_local_as(neighbor->local_as());
+            nbr.set_autonomous_system(neighbor->peer_as());
+            Ip4Address peerid(ntohl(neighbor->peer_identifier()));
+            nbr.set_identifier(peerid.to_string());
+            nbr.set_address(neighbor->peer_address().to_string());
+            nbr.set_address_families(neighbor->address_families());
 
-            for (BgpInstanceConfig::NeighborMap::const_iterator loc2 =
-                 bic->neighbors().begin();
-                 loc2 != bic->neighbors().end(); ++loc2) {
-                const autogen::BgpRouterParams &peer = loc2->second->peer_config();
-
-                ShowBgpNeighborConfig nbr;
-                nbr.set_instance_name(loc2->second->InstanceName());
-                nbr.set_name(loc2->second->name());
-                nbr.set_local_identifier(loc2->second->local_identifier());
-                nbr.set_local_as(loc2->second->local_as());
-                nbr.set_vendor(peer.vendor);
-                nbr.set_autonomous_system(peer.autonomous_system);
-                nbr.set_identifier(peer.identifier);
-                nbr.set_address(peer.address);
-                nbr.set_address_families(loc2->second->address_families());
-
-                nbr_list.push_back(nbr);
-            }
+            nbr_list.push_back(nbr);
         }
 
         ShowBgpNeighborConfigResp *resp = new ShowBgpNeighborConfigResp;

@@ -64,6 +64,7 @@ for src in ControlNodeSandeshGenSrcs:
     control_node_sandesh_files_.append(obj)
 
 env.Prepend(LIBS=['bgp',
+                  'bgp_ifmap_config',
                   'bgp_schema',
                   'extended_community',
                   'xmpp_unicast',
@@ -172,7 +173,9 @@ else:
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_cpuinfo.path])
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_extend_community.path])
 
-buildinfo_dep_libs = ['../bgp/libbgp.a', '../schema/libbgp_schema.a', '../schema/libxmpp_unicast.a', 
+buildinfo_dep_libs = ['../bgp/libbgp.a', 
+                      '../bgp/libbgp_ifmap_config.a',
+                      '../schema/libbgp_schema.a', '../schema/libxmpp_unicast.a', 
                       '../schema/libxmpp_multicast.a', '../schema/libxmpp_enet.a',
                       '../control-node/libcontrol_node.a', '../bgp/routing-instance/librouting_instance.a', 
                       '../bgp/origin-vn/liborigin_vn.a',
@@ -192,6 +195,7 @@ env.GenerateBuildInfoCode(
 
 ctrlnode = env.Program(target = 'contrail-control',
                        source = ['buildinfo.cc',
+                                 'factory.cc',
                                  'main.cc',
                                  'options.cc',
                                  'sandesh/control_node_sandesh.cc'] +

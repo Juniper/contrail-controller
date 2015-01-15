@@ -7,6 +7,7 @@
 #include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_config.h"
+#include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_config_listener.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
@@ -21,6 +22,8 @@
 #include "ifmap/ifmap_node.h"
 #include "ifmap/test/ifmap_test_util.h"
 #include "io/event_manager.h"
+#include "schema/bgp_schema_types.h"
+#include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"
 
 using namespace std;
@@ -72,7 +75,7 @@ static string ReadFile(const string &filename) {
 
 class BgpConfigListenerMock : public BgpConfigListener {
 public:
-    BgpConfigListenerMock(BgpConfigManager *manager)
+    BgpConfigListenerMock(BgpIfmapConfigManager *manager)
         : BgpConfigListener(manager), no_processing_(false) {
     }
 
@@ -100,9 +103,10 @@ protected:
     typedef IFMapDependencyTracker::EdgeDescriptorList EdgeList;
 
     BgpConfigListenerTest() : server_(&evm_), parser_(&db_) {
-        config_manager_ = server_.config_manager();
-        listener_ = static_cast<BgpConfigListenerMock *>(
-            config_manager_->listener_.get());
+        config_manager_ = static_cast<BgpIfmapConfigManager *>(
+            server_.config_manager());
+        listener_ = new BgpConfigListenerMock(config_manager_);
+        config_manager_->listener_.reset(listener_);
         change_list_ = &listener_->change_list_;
     }
 
@@ -192,7 +196,7 @@ protected:
     BgpConfigListenerMock *listener_;
     IFMapDependencyTracker *tracker_;
     ChangeList *change_list_;
-    BgpConfigManager *config_manager_;
+    BgpIfmapConfigManager *config_manager_;
     BgpConfigParser parser_;
 };
 
@@ -1497,9 +1501,9 @@ TEST_F(BgpConfigListenerTest, VirtualNetworkUninterestingLinkChange) {
 int main(int argc, char **argv) {
     bgp_log_test::init();
     ControlNode::SetDefaultSchedulingPolicy();
-    BgpObjectFactory::Register<BgpConfigListener>(
-        boost::factory<BgpConfigListenerMock *>());
     ::testing::InitGoogleTest(&argc, argv);
+    BgpObjectFactory::Register<BgpConfigManager>(
+        boost::factory<BgpIfmapConfigManager *>());
     int error = RUN_ALL_TESTS();
     TaskScheduler::GetInstance()->Terminate();
     return error;

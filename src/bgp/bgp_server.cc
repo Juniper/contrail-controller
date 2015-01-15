@@ -46,7 +46,7 @@ public:
 
     void ProcessProtocolConfig(const BgpProtocolConfig *protocol_config,
                                BgpConfigManager::EventType event) {
-        const string &instance_name = protocol_config->InstanceName();
+        const string &instance_name = protocol_config->instance_name();
 
         //
         // At the moment, we only support BGP sessions in master instance
@@ -55,33 +55,21 @@ public:
             return;
         }
 
-        autogen::BgpRouterParams params;
-
-        //
-        // Update with default parameters
-        //
-        server_->config_manager()->DefaultBgpRouterParams(params);
-
         if (event == BgpConfigManager::CFG_ADD ||
             event == BgpConfigManager::CFG_CHANGE) {
-            if (protocol_config->bgp_router()) {
-                params = protocol_config->router_params();
-            }
         } else if (event != BgpConfigManager::CFG_DELETE) {
             assert(false);
             return;
         }
 
-        BgpServerConfigUpdate(instance_name, params);
+        BgpServerConfigUpdate(instance_name, protocol_config);
     }
 
     void BgpServerConfigUpdate(string instance_name,
-                               autogen::BgpRouterParams &params) {
+                               const BgpProtocolConfig *config) {
         boost::system::error_code ec;
-        Ip4Address bgp_identifier =
-            Ip4Address::from_string(params.identifier, ec);
-
-        if (server_->bgp_identifier_ != bgp_identifier) {
+        Ip4Address identifier(ntohl(config->identifier()));
+        if (server_->bgp_identifier_ != identifier) {
             SandeshLevel::type log_level;
             if (!server_->bgp_identifier_.is_unspecified()) {
                 log_level = SandeshLevel::SYS_NOTICE;
@@ -91,13 +79,13 @@ public:
             BGP_LOG_STR(BgpConfig, log_level, BGP_LOG_FLAG_SYSLOG,
                         "Updated Router ID from " <<
                         server_->bgp_identifier_.to_string() << " to " <<
-                        params.identifier);
+                        config->identifier());
             Ip4Address old_identifier = server_->bgp_identifier_;
-            server_->bgp_identifier_ = bgp_identifier;
+            server_->bgp_identifier_ = identifier;
             server_->NotifyIdentifierUpdate(old_identifier);
         }
 
-        if (server_->autonomous_system_ != params.autonomous_system) {
+        if (server_->autonomous_system_ != config->autonomous_system()) {
             SandeshLevel::type log_level;
             if (server_->autonomous_system_ != 0) {
                 log_level = SandeshLevel::SYS_NOTICE;
@@ -107,25 +95,26 @@ public:
             BGP_LOG_STR(BgpConfig, log_level, BGP_LOG_FLAG_SYSLOG,
                         "Updated Autonomous System from " <<
                         server_->autonomous_system_ << " to "
-                        << params.autonomous_system);
-            as_t old_asn = server_->autonomous_system_;
-            server_->autonomous_system_ = params.autonomous_system;
+                        << config->autonomous_system());
+            uint32_t old_asn = server_->autonomous_system_;
+            server_->autonomous_system_ = config->autonomous_system();
             server_->NotifyASNUpdate(old_asn);
         }
 
-        if (server_->hold_time_ != params.hold_time) {
+        if (server_->hold_time_ != config->hold_time()) {
             BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_SYSLOG,
                         "Updated Hold Time from " <<
-                        server_->hold_time_ << " to " << params.hold_time);
-            server_->hold_time_ = params.hold_time;
+                        server_->hold_time_ << " to " << config->hold_time());
+            server_->hold_time_ = config->hold_time();
         }
     }
 
     void ProcessNeighborConfig(const BgpNeighborConfig *neighbor_config,
                                BgpConfigManager::EventType event) {
-        string instance_name = neighbor_config->InstanceName();
+        string instance_name = neighbor_config->instance_name();
         RoutingInstanceMgr *ri_mgr = server_->routing_instance_mgr();
         RoutingInstance *rti = ri_mgr->GetRoutingInstance(instance_name);
+        assert(rti);
         PeerManager *peer_manager = rti->peer_manager();
 
         if (event == BgpConfigManager::CFG_ADD ||

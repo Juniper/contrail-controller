@@ -317,7 +317,6 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
                    TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
                    GetIndex())),
           send_ready_(true),
-          control_node_(config_->vendor() == "contrail"),
           admin_down_(false),
           state_machine_(BgpObjectFactory::Create<StateMachine>(this)),
           membership_req_pending_(0),
@@ -342,8 +341,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
     }
 
     boost::system::error_code ec;
-    Ip4Address id = Ip4Address::from_string(config->local_identifier(), ec);
-    local_bgp_id_ = id.to_ulong();
+    local_bgp_id_ = config->local_identifier();
 
     refcount_ = 0;
     configured_families_ = config->address_families();
@@ -436,8 +434,7 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
     }
 
     boost::system::error_code ec;
-    Ip4Address id = Ip4Address::from_string(config->local_identifier(), ec);
-    uint32_t local_bgp_id = id.to_ulong();
+    uint32_t local_bgp_id = config->local_identifier();
     if (local_bgp_id_ != local_bgp_id) {
         local_bgp_id_ = local_bgp_id;
         peer_info.set_local_id(local_bgp_id_);
@@ -529,7 +526,7 @@ bool BgpPeer::IsXmppPeer() const {
 }
 
 uint32_t BgpPeer::bgp_identifier() const {
-    return remote_bgp_id_;
+    return ntohl(remote_bgp_id_);
 }
 
 //
@@ -1603,7 +1600,7 @@ void BgpPeer::FillNeighborInfo(vector<BgpNeighborResp> *nbr_list,
     nbr.set_peer_type(PeerType() == BgpProto::IBGP ? "internal" : "external");
     nbr.set_state(state_machine_->StateName());
     nbr.set_local_address(server_->ToString());
-    nbr.set_local_id(Ip4Address(local_bgp_id_).to_string());
+    nbr.set_local_id(Ip4Address(htonl(local_bgp_id_)).to_string());
     nbr.set_local_asn(local_as());
     nbr.set_negotiated_hold_time(state_machine_->hold_time());
 

@@ -20,10 +20,11 @@ BgpPeerKey::BgpPeerKey() {
 }
 
 BgpPeerKey::BgpPeerKey(const BgpNeighborConfig *config) {
-    const autogen::BgpRouterParams &peer = config->peer_config();
     error_code ec;
-    endpoint.address(address::from_string(peer.address, ec));
-    endpoint.port(peer.port);
+    endpoint.address(config->peer_address());
+    endpoint.port(config->port());
+
+    if (!config->uuid().empty()) {
 #if defined(__EXCEPTIONS)
     try {
 #endif
@@ -34,6 +35,10 @@ BgpPeerKey::BgpPeerKey(const BgpNeighborConfig *config) {
         uuid = nil();
     }
 #endif
+    } else {
+        boost::uuids::nil_generator nil;
+        uuid = nil();
+    }
 }
 
 bool BgpPeerKey::operator<(const BgpPeerKey &rhs) const {
