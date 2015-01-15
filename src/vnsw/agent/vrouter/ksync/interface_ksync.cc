@@ -194,8 +194,8 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
             ret = true;
         }
 
-        if (dhcp_enable_ != vm_port->dhcp_enable_config()) {
-            dhcp_enable_ = vm_port->dhcp_enable_config();
+        if (dhcp_enable_ != vm_port->dhcp_enabled()) {
+            dhcp_enable_ = vm_port->dhcp_enabled();
             ret = true;
         }
         if (vm_port->do_dhcp_relay()) {
