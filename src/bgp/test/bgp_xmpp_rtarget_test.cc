@@ -20,6 +20,8 @@
 #include "ifmap/ifmap_server_parser.h"
 #include "ifmap/test/ifmap_test_util.h"
 #include "io/test/event_manager_test.h"
+#include "schema/bgp_schema_types.h"
+#include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"
 #include "xmpp/xmpp_factory.h"
 

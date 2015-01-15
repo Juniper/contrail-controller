@@ -70,15 +70,15 @@ class BgpSessionUnitTest : public ::testing::Test {
 protected:
     BgpSessionUnitTest()
         : server_(&evm_),
-          instance_config_(BgpConfigManager::kMasterInstance) {
+          instance_config_(BgpConfigManager::kMasterInstance),
+          config_(new BgpNeighborConfig) {
         ConcurrencyScope scope("bgp::Config");
         BgpObjectFactory::Register<BgpPeer>(boost::factory<BgpPeerMock *>());
         RoutingInstance *rti =
                 server_.routing_instance_mgr()->CreateRoutingInstance(
                     &instance_config_);
-        config_.reset(new BgpNeighborConfig(rti->config(),
-                                            "test-peer", "localhost",
-                                            &router_, NULL));
+        config_->set_instance_name(BgpConfigManager::kMasterInstance);
+        config_->set_name("test-peer");
         peer_ = static_cast<BgpPeerMock *>(
             rti->peer_manager()->PeerLocate(&server_, config_.get()));
         session_.reset(new BgpSessionTest(server_.session_manager()));
@@ -94,7 +94,6 @@ protected:
 
     EventManager evm_;
     BgpServer server_;
-    autogen::BgpRouter router_;
     BgpInstanceConfig instance_config_;
     auto_ptr<BgpNeighborConfig> config_;
     BgpPeerMock *peer_;

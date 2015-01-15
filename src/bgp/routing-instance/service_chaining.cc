@@ -58,8 +58,8 @@ ServiceChain::ServiceChain(RoutingInstance *src, RoutingInstance *dest,
 }
 
 // Compare config and return whether cfg has updated
-bool
-ServiceChain::CompareServiceChainCfg(const autogen::ServiceChainInfo &cfg) {
+bool 
+ServiceChain::CompareServiceChainCfg(const ServiceChainConfig &cfg) {
     if (cfg.routing_instance != dest_->name()) {
         return false;
     }
@@ -509,11 +509,11 @@ static void RemoveMatchState(BgpConditionListener *listener, ServiceChain *info,
     }
 }
 
-static void FillServiceChainConfigInfo(ShowServicechainInfo *info,
-                                       const autogen::ServiceChainInfo &sci) {
-    info->set_dest_virtual_network(
+static void FillServiceChainConfigInfo(ShowServicechainInfo &info, 
+                                       const ServiceChainConfig &sci) {
+    info.set_dest_virtual_network(
         GetVNFromRoutingInstance(sci.routing_instance));
-    info->set_service_instance(sci.service_instance);
+    info.set_service_instance(sci.service_instance);
 }
 
 struct ServiceChainInfoComp {
@@ -737,14 +737,12 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
             for (; rit != server()->routing_instance_mgr()->end(); rit++) {
                 if (rit->deleted()) continue;
                 ShowServicechainInfo info;
-                const autogen::RoutingInstance *rti =
-                    rit->config()->instance_config();
-                if (rti && rti->IsPropertySet(
-                    autogen::RoutingInstance::SERVICE_CHAIN_INFORMATION)) {
+                const BgpInstanceConfig *rtc = rit->config();
+                if (!rtc->service_chain_list().empty()) {
                     info.set_src_virtual_network(rit->virtual_network());
-                    const autogen::ServiceChainInfo &sci =
-                        rti->service_chain_information();
-                    FillServiceChainConfigInfo(&info, sci);
+                    const ServiceChainConfig &sci =
+                            rtc->service_chain_list().front();
+                    FillServiceChainConfigInfo(info, sci);
                     ServiceChain *chain = FindServiceChain(rit->name());
                     if (chain) {
                         if (chain->deleted())
@@ -839,8 +837,8 @@ void ServiceChainMgr::Enqueue(ServiceChainRequest *req) {
     process_queue_->Enqueue(req);
 }
 
-bool ServiceChainMgr::LocateServiceChain(RoutingInstance *rtinstance,
-                                         const autogen::ServiceChainInfo &cfg) {
+bool ServiceChainMgr::LocateServiceChain(RoutingInstance *rtinstance, 
+                                         const ServiceChainConfig &cfg) {
     CHECK_CONCURRENCY("bgp::Config");
     // Verify whether the entry already exists
     ServiceChainMap::iterator it = chain_set_.find(rtinstance);
@@ -936,7 +934,7 @@ bool ServiceChainMgr::ResolvePendingServiceChain() {
         RoutingInstance *rtinst = *it;
         pending_chain_.erase(it);
         LocateServiceChain(rtinst,
-           rtinst->config()->instance_config()->service_chain_information());
+                           rtinst->config()->service_chain_list().front());
     }
     return true;
 }

@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
+#include <boost/uuid/random_generator.hpp>
 
 #include "base/task.h"
 #include "base/task_annotations.h"
@@ -124,9 +125,11 @@ protected:
         for (int idx = 0; idx < 3; idx++) {
             ostringstream out;
             out << "A" << idx;
-            BgpNeighborConfig *config =
-                new BgpNeighborConfig(rtinstance->config(), out.str(),
-                                      out.str(), &router_);
+            BgpNeighborConfig *config = new BgpNeighborConfig();
+            config->set_instance_name(rtinstance->name());
+            config->set_name(out.str());
+            boost::uuids::random_generator gen;
+            config->set_uuid(UuidToString(gen()));
             BgpTestPeer *peer = static_cast<BgpTestPeer *>(
                 rtinstance->peer_manager()->PeerLocate(server(), config));
             peers_.push_back(peer);
@@ -157,8 +160,6 @@ protected:
     BgpTable *vpn_tbl_;
     BgpTable *red_tbl_, *green_tbl_, *blue_tbl_;
     SchedulingGroupManager mgr_;
-    autogen::BgpRouter router_;
-
 };
 
 // Single peer with inet table.
@@ -505,9 +506,8 @@ TEST_F(PeerMembershipMgrTest, PeerDeleteWithDBRequestPending) {
 
 static void SetUp() {
     bgp_log_test::init();
+    BgpServerTest::GlobalSetUp();
     ControlNode::SetDefaultSchedulingPolicy();
-    BgpObjectFactory::Register<BgpPeer>(
-        boost::factory<BgpTestPeer *>());
     BgpObjectFactory::Register<PeerRibMembershipManager>(
         boost::factory<PeerRibMembershipManagerTest *>());
 }

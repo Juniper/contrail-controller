@@ -65,6 +65,7 @@ public:
     }
     LifetimeManager *lifetime_manager() { return lifetime_manager_.get(); }
     BgpConfigManager *config_manager() { return config_mgr_.get(); }
+    const BgpConfigManager *config_manager() const { return config_mgr_.get(); }
     RoutingInstanceMgr *routing_instance_mgr() { return inst_mgr_.get(); }
     const RoutingInstanceMgr *routing_instance_mgr() const {
         return inst_mgr_.get();

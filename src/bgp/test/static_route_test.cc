@@ -14,6 +14,8 @@
 
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_config.h"
+#include "bgp/bgp_config_ifmap.h"
+#include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_sandesh.h"
 #include "bgp/inet/inet_table.h"
@@ -112,8 +114,10 @@ protected:
         IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
         vnc_cfg_ParserInit(parser);
         bgp_schema_ParserInit(parser);
-        bgp_server_->config_manager()->Initialize(&config_db_, &config_graph_,
-                                                  "localhost");
+        BgpIfmapConfigManager *config_manager =
+                static_cast<BgpIfmapConfigManager *>(
+                    bgp_server_->config_manager());
+        config_manager->Initialize(&config_db_, &config_graph_, "localhost");
         ri_mgr_ = bgp_server_->routing_instance_mgr();
     }
 
@@ -1344,6 +1348,8 @@ class TestEnvironment : public ::testing::Environment {
 
 static void SetUp() {
     ControlNode::SetDefaultSchedulingPolicy();
+    BgpObjectFactory::Register<BgpConfigManager>(
+        boost::factory<BgpIfmapConfigManager *>());
 }
 
 static void TearDown() {

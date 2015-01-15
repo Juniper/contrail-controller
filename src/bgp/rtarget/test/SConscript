@@ -2,8 +2,6 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-# -*- mode: python; -*-
-
 Import('BuildEnv')
 import sys
 
@@ -64,6 +62,7 @@ else:
     env.Prepend(LINKFLAGS =
                 ['-Wl,--whole-archive',
                  '-rdynamic',
+                 '-lbgp_test_factory',
                  '-lbgp_inet',
                  '-lbgp_ermvpn',
                  '-lbgp_evpn',
@@ -106,3 +105,7 @@ flaky_test = env.TestSuite('rtarget-flaky-test', flaky_test_suite)
 env.Alias('controller/src/bgp/rtarget:flaky-test', flaky_test)
 
 Return('test_suite')
+
+# Local Variables:
+# mode: python
+# End:

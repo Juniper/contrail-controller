@@ -10,7 +10,6 @@
 #include "sandesh/sandesh.h"
 #include "sandesh/sandesh_trace.h"
 #include "sandesh/common/vns_types.h"
-#include "sandesh/common/vns_constants.h"
 #include "base/logging.h"
 #include "bgp/bgp_log_types.h"
 #include "bgp/ipeer.h"
@@ -49,9 +48,7 @@ extern SandeshTraceBufferPtr BgpPeerObjectTraceBuf;
 do {                                                                       \
     if (LoggingDisabled()) break;                                          \
     if ((flags) & BGP_LOG_FLAG_SYSLOG) {                                   \
-        obj##Log::Send(g_vns_constants.CategoryNames.find(                 \
-                       Category::BGP)->second, level,                      \
-                       __FILE__, __LINE__, ##__VA_ARGS__);                 \
+        obj##Log::Send("BGP", level, __FILE__, __LINE__, ##__VA_ARGS__);   \
         if (bgp_log_test::unit_test()) break;                              \
     }                                                                      \
     if ((flags) & BGP_LOG_FLAG_TRACE) {                                    \
@@ -164,9 +161,8 @@ do {                                                                           \
     if (LoggingDisabled()) break;                                              \
     if ((flags) & BGP_LOG_FLAG_SYSLOG) {                                       \
         bgp_log_test::LogServerName(server);                                   \
-        BgpConfig##type##Log::Send(g_vns_constants.CategoryNames.find(         \
-                                    Category::BGP_CONFIG)->second,             \
-                                    level, __FILE__, __LINE__, ##__VA_ARGS__); \
+        BgpConfig##type##Log::Send("BGPConfig", level,                         \
+                                   __FILE__, __LINE__, ##__VA_ARGS__);         \
     }                                                                          \
     if ((flags) & BGP_LOG_FLAG_TRACE) {                                        \
         const std::string __trace_buf(BGP_TRACE_BUF);                          \
