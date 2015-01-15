@@ -1065,6 +1065,13 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
         return;
     }
 
+    if (out->intf_ && out->intf_->type() == Interface::VM_INTERFACE) {
+        const VmInterface *vm_intf = static_cast<const VmInterface *>(out->intf_);
+        if (vm_intf->IsFloatingIp(pkt->ip_daddr)) {
+            pkt->l3_forwarding = true;
+            l3_flow = true;
+        }
+    }
     UpdateRoute(&out->rt_, out->vrf_, pkt->ip_daddr, pkt->dmac,
                 flow_dest_plen_map);
     UpdateRoute(&in->rt_, out->vrf_, pkt->ip_saddr, pkt->smac,
