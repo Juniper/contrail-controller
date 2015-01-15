@@ -382,6 +382,7 @@ public:
     bool IsMirrorEnabled() const { return mirror_entry_.get() != NULL; }
     bool HasFloatingIp(Address::Family family) const;
     bool HasFloatingIp() const;
+    bool IsFloatingIp(const IpAddress &ip) const;
 
     size_t GetFloatingIpCount() const { return floating_ip_list_.list_.size(); }
     bool HasServiceVlan() const { return service_vlan_list_.list_.size() != 0; }

@@ -322,7 +322,7 @@ bool EvpnDerivedPath::IsLess(const AgentPath &r_path) const {
         dynamic_cast<const EvpnDerivedPath *>(&r_path);
     if (r_evpn_path != NULL) {
         if (r_evpn_path->ip_addr() != ip_addr_) {
-            return (r_evpn_path->ip_addr() < ip_addr_);
+            return (ip_addr_ < r_evpn_path->ip_addr());
         }
     }
 
@@ -440,6 +440,11 @@ bool L2ReceiveRoute::AddChangePath(Agent *agent, AgentPath *path,
 
     if (path->dest_vn_name() != dest_vn_name_) {
         path->set_dest_vn_name(dest_vn_name_);
+        ret = true;
+    }
+
+    if (path->label() != mpls_label_) {
+        path->set_label(mpls_label_);
         ret = true;
     }
 
