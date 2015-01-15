@@ -249,6 +249,10 @@ public:
     virtual const std::string ToString();
 private:
     const boost::uuids::uuid id_;
+    std::string active_;
+    std::string device_type_;
+    std::string vmi_type_;
+    uint16_t vlan_id_;
 };
 
 class AgentUtXmlEthInterfaceValidate : public AgentUtXmlValidationNode {

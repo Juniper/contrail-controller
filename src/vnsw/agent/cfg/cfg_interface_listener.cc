@@ -33,7 +33,7 @@ void InterfaceCfgClient::Notify(DBTablePartBase *partition, DBEntryBase *e) {
 
     if (entry->IsDeleted()) {
         VmInterface::Delete(agent->interface_table(),
-                             entry->GetUuid(), VmInterface::EXTERNAL);
+                             entry->GetUuid(), VmInterface::INSTANCE_MSG);
     } else {
         uint16_t tx_vlan_id = VmInterface::kInvalidVlanId;
         uint16_t rx_vlan_id = VmInterface::kInvalidVlanId;
