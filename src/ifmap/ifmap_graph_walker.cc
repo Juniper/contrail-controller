@@ -271,6 +271,8 @@ void IFMapGraphWalker::AddLinksToWhitelist() {
     traversal_white_list_->include_edge.insert(
         "source=global-system-config,target=global-vrouter-config");
     traversal_white_list_->include_edge.insert(
+        "source=virtual-machine-interface,target=virtual-machine-interface");
+    traversal_white_list_->include_edge.insert(
         "source=virtual-machine-interface,target=instance-ip");
     traversal_white_list_->include_edge.insert(
         "source=virtual-machine-interface,target=virtual-network");
