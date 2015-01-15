@@ -57,6 +57,12 @@ bool DiagPktHandler::IsTraceRoutePacket() {
 }
 
 bool DiagPktHandler::HandleTraceRoutePacket() {
+
+    if (pkt_info_->ip == NULL) {
+        // we only send IPv4 trace route packets; ignore other packets
+        return true;
+    }
+
     if (pkt_info_->ip->ip_ttl == 0) {
         SendTimeExceededPacket();
         return true;
