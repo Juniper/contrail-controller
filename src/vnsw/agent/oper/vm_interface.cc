@@ -2643,13 +2643,12 @@ void VmInterface::FloatingIp::L2Activate(VmInterface *interface,
 
     EvpnAgentRouteTable *evpn_table = static_cast<EvpnAgentRouteTable *>
         (vrf_->GetEvpnRouteTable());
-    Agent *agent = evpn_table->agent();
+    //Agent *agent = evpn_table->agent();
     ethernet_tag_ = vn_->ComputeEthernetTag();
-    evpn_table->AddLocalVmRoute(interface->peer_.get(), vrf_->GetName(),
-                                agent->vhost_interface()->mac(),
-                                interface, floating_ip_, interface->l2_label(),
-                                vn_->GetName(), sg_id_list, path_preference,
-                                ethernet_tag_);
+    evpn_table->AddReceiveRoute(interface->peer_.get(), vrf_->GetName(),
+                                interface->l2_label(),
+                                MacAddress::FromString(interface->vm_mac()),
+                                floating_ip_, ethernet_tag_, vn_->GetName());
     l2_installed_ = true;
 }
 
@@ -2659,9 +2658,8 @@ void VmInterface::FloatingIp::L2DeActivate(VmInterface *interface) const {
 
     EvpnAgentRouteTable *evpn_table = static_cast<EvpnAgentRouteTable *>
         (vrf_->GetEvpnRouteTable());
-    Agent *agent = evpn_table->agent();
     evpn_table->DelLocalVmRoute(interface->peer_.get(), vrf_->GetName(),
-                                agent->vhost_interface()->mac(),
+                                MacAddress::FromString(interface->vm_mac()),
                                 interface, floating_ip_, ethernet_tag_);
     ethernet_tag_ = 0;
     l2_installed_ = false;
@@ -3149,6 +3147,18 @@ bool VmInterface::HasFloatingIp(Address::Family family) const {
 
 bool VmInterface::HasFloatingIp() const {
     return floating_ip_list_.list_.size() != 0;
+}
+
+bool VmInterface::IsFloatingIp(const IpAddress &ip) const {
+    VmInterface::FloatingIpSet::const_iterator it =
+        floating_ip_list_.list_.begin();
+    while(it != floating_ip_list_.list_.end()) {
+        if ((*it).floating_ip_ == ip) {
+            return true;
+        }
+        it++;
+    }
+    return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////
