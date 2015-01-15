@@ -999,3 +999,42 @@ class NetworkPolicyServer(NetworkPolicyServerGen):
     # end _check_policy
 
 # end class NetworkPolicyServer
+
+class LogicalInterfaceServer(LogicalInterfaceServerGen):
+
+    @classmethod
+    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+        return cls._check_vlan(obj_dict, db_conn)
+    # end http_post_collection
+
+    @classmethod
+    def http_put(cls, id, fq_name, obj_dict, db_conn):
+        interface = {'uuid': id}
+        (read_ok, read_result) = db_conn.dbe_read('logical-interface', interface)
+        if not read_ok:
+            return (False, (500, read_result))
+
+        vlan = None
+        old_vlan = None
+        if 'logical_interface_vlan_tag' in read_result:
+            old_vlan = read_result.get('logical_interface_vlan_tag')
+        if 'logical_interface_vlan_tag' in obj_dict:
+            vlan = obj_dict['logical_interface_vlan_tag']
+        if vlan or old_vlan:
+            if vlan != old_vlan:
+                return (False, (403, "Cannot change Vlan id"))
+
+        return True, ""
+    # end http_put
+
+    @classmethod
+    def _check_vlan(cls, obj_dict, db_conn):
+        if 'logical_interface_vlan_tag' in obj_dict:
+            vlan = obj_dict['logical_interface_vlan_tag']
+            if vlan < 0 or vlan > 4094:
+                return (False, (403, "Invalid Vlan id"))
+
+        return True, ""
+    # end _check_vlan
+
+# end class LogicalInterfaceServer
