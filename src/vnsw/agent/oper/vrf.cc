@@ -12,6 +12,7 @@
 #include <bgp_schema_types.h>
 #include <vnc_cfg_types.h>
 
+#include <init/agent_init.h>
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_listener.h>
 #include <route/route.h>
@@ -156,6 +157,18 @@ void VrfEntry::PostAdd() {
     if (vhost && vhost->xconnect()) {
         l2_table->AddBridgeReceiveRoute(agent->local_vm_peer(), name_, 0,
                                         vhost->xconnect()->mac(), "");
+    }
+
+    //Add receive route for vmware physical interface mac, so
+    //that packets hitting this mac gets routed(inter-vn traffic)
+    if (agent->isVmwareMode()) {
+        PhysicalInterfaceKey key(agent->params()->vmware_physical_port());
+        Interface *intf = static_cast<Interface *>
+            (agent->interface_table()->FindActiveEntry(&key));
+        if (intf) {
+             l2_table->AddEvpnReceiveRoute(agent->local_vm_peer(), name_, 0,
+                                           intf->mac(), "");
+        }
     }
 
     SendObjectLog(AgentLogEvent::ADD);
@@ -381,6 +394,16 @@ bool VrfTable::Delete(DBEntry *entry, const DBRequest *req) {
     if (vhost && vhost->xconnect()) {
         l2_table->Delete(agent()->local_vm_peer(), vrf->GetName(),
                          vhost->xconnect()->mac(), 0);
+    }
+
+    if (agent()->isVmwareMode()) {
+        PhysicalInterfaceKey key(agent()->params()->vmware_physical_port());
+        Interface *intf = static_cast<Interface *>
+            (agent()->interface_table()->FindActiveEntry(&key));
+        if (intf) {
+             l2_table->Delete(agent()->local_vm_peer(), vrf->GetName(),
+                              intf->mac(), IpAddress(), 0);
+        }
     }
 
     vrf->UpdateVxlanId(agent(), VxLanTable::kInvalidvxlan_id);
