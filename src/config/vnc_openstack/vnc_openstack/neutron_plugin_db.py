@@ -1746,12 +1746,9 @@ class DBInterface(object):
             aap_array = []
             if port_q['allowed_address_pairs']:
                 for address_pair in port_q['allowed_address_pairs']:
-                    mac_refs = \
-                        port_obj.get_virtual_machine_interface_mac_addresses()
                     mode = u'active-standby';
                     if 'mac_address' not in address_pair:
-                        if mac_refs:
-                            address_pair['mac_address'] = mac_refs.mac_address[0]
+                        address_pair['mac_address'] = ""
 
                     cidr = address_pair['ip_address'].split('/')
                     if len(cidr) == 1:
@@ -1762,20 +1759,6 @@ class DBInterface(object):
                         self._raise_contrail_exception(
                                'BadRequest', resource='port',
                                msg='Invalid address pair argument')
-                    ip_back_refs = port_obj.get_instance_ip_back_refs()
-                    if ip_back_refs:
-                        for ip_back_ref in ip_back_refs:
-                            iip_uuid = ip_back_ref['uuid']
-                            try:
-                                ip_obj = self._instance_ip_read(instance_ip_id=\
-                                                            ip_back_ref['uuid'])
-                            except NoIdError:
-                                continue
-                            ip_addr = ip_obj.get_instance_ip_address()
-                            if ((ip_addr == address_pair['ip_address']) and
-                                (mac_refs.mac_address[0] == address_pair['mac_address'])):
-                                self._raise_contrail_exception(
-                                       'AddressPairMatchesPortFixedIPAndMac')
                     aap = AllowedAddressPair(subnet,
                                              address_pair['mac_address'], mode)
                     aap_array.append(aap)
