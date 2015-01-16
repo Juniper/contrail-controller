@@ -44,7 +44,7 @@ class UdpServer {
     boost::asio::ip::udp::endpoint GetLocalEndpoint(
         boost::system::error_code *error);
     std::string GetLocalEndpointAddress();
-    int GetLocalEndpointPort();
+    unsigned short GetLocalEndpointPort();
     // buffers
     boost::asio::mutable_buffer AllocateBuffer();
     boost::asio::mutable_buffer AllocateBuffer(std::size_t s);

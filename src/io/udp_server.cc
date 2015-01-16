@@ -293,7 +293,7 @@ std::string UdpServer::GetLocalEndpointAddress() {
     return ep.address().to_string();
 }
 
-int UdpServer::GetLocalEndpointPort() {
+unsigned short UdpServer::GetLocalEndpointPort() {
     boost::system::error_code error;
     udp::endpoint ep = GetLocalEndpoint(&error);
     if (error.value())

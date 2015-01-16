@@ -73,8 +73,8 @@ public:
     // Getters and setters
     Socket *socket() { return socket_.get(); }
     TcpServer *server() { return server_.get(); }
-    int32_t local_port() const;
-    int32_t remote_port() const;
+    unsigned short local_port() const;
+    unsigned short remote_port() const;
 
     // Concurrency: changing the observer guarantees mutual exclusion with
     // the observer invocation. e.g. if the caller sets the observer to NULL

@@ -30,7 +30,7 @@ public:
     virtual ~TcpServer();
 
     // Bind a listening socket and register it with the event manager.
-    virtual bool Initialize(short port);
+    virtual bool Initialize(unsigned short port);
 
     const std::string ToString() const { return name_; }
     void SetAcceptor();
@@ -54,7 +54,7 @@ public:
 
     virtual bool DisableSandeshLogMessages() { return false; }
 
-    int GetPort() const;
+    unsigned short GetPort() const;
     const io::SocketStats &GetSocketStats() const { return stats_; }
 
     //

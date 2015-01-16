@@ -336,7 +336,7 @@ int TcpSession::GetSessionInstance() const {
 }
 
 
-int32_t TcpSession::local_port() const {
+unsigned short TcpSession::local_port() const {
     if (socket_.get() == NULL) {
         return -1;
     }
@@ -348,7 +348,7 @@ int32_t TcpSession::local_port() const {
     return local.port();
 }
 
-int32_t TcpSession::remote_port() const {
+unsigned short TcpSession::remote_port() const {
     if (socket_.get() == NULL) {
         return -1;
     }

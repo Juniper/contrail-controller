@@ -45,7 +45,7 @@ void TcpServer::ResetAcceptor() {
     name_ = "";
 }
 
-bool TcpServer::Initialize(short port) {
+bool TcpServer::Initialize(unsigned short port) {
     acceptor_.reset(new tcp::acceptor(*evm_->io_service()));
     if (!acceptor_) {
         TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "Cannot create acceptor");
@@ -219,7 +219,7 @@ void TcpServer::AsyncAccept() {
             TcpServerPtr(this), boost::asio::placeholders::error));
 }
 
-int TcpServer::GetPort() const {
+unsigned short TcpServer::GetPort() const {
     tbb::mutex::scoped_lock lock(mutex_);
     if (acceptor_.get() == NULL) {
         return -1;
