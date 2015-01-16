@@ -951,6 +951,9 @@ void VmInterface::UpdateL2(bool old_l2_active, VrfEntry *old_vrf,
                            bool force_update, bool policy_change,
                            const Ip4Address &old_v4_addr,
                            const Ip6Address &old_v6_addr) {
+    if (GetVmInterfaceSubType() == VmInterface::TOR)
+        return;
+
     UpdateVxLan();
     UpdateL2NextHop(old_l2_active);
     //Update label only if new entry is to be created, so
