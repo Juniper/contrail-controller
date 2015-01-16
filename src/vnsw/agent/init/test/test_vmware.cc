@@ -97,7 +97,7 @@ TEST_F(VmwareTest, VmwarPhysicalPort_2) {
     EXPECT_TRUE(intf != NULL);
 
     EXPECT_TRUE(L2RouteFind("vrf1", intf->mac(), IpAddress()));
-    EvpnRouteEntry *rt = L2RouteGet("vrf1", intf->mac());
+    BridgeRouteEntry *rt = L2RouteGet("vrf1", intf->mac());
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(nh->GetType() == NextHop::L2_RECEIVE);
 
