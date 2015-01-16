@@ -4,13 +4,12 @@
 
 #include "bgp/bgp_update.h"
 
-#include <time.h>
-#ifdef __APPLE__
-#include <mach/mach_time.h>
-#endif
 #include "base/logging.h"
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_table.h"
+
+// Automatically initialized to 0 in C++03 mode.
+tbb::atomic<uint64_t> RouteUpdate::global_tstamp_;
 
 //
 // Find the UpdateInfo element with matching RibOutAttr.
@@ -421,18 +420,9 @@ UpdateList *RouteUpdate::GetUpdateList(RibOut *ribout) {
 
 //
 // Update the timestamp in this RouteUpdate.
-
-// The code expects that the APIs use the underlying CPU performance counters
-// in order to provide high resolution timestamps.
 //
 void RouteUpdate::set_tstamp_now() {
-#ifdef __APPLE__
-    tstamp_ = mach_absolute_time();
-#else
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    tstamp_ = ts.tv_sec * 1000000000 + ts.tv_nsec;
-#endif
+    tstamp_ = global_tstamp_.fetch_and_increment();
 }
 
 //

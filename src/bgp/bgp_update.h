@@ -10,7 +10,7 @@
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/slist.hpp>
 #include <boost/intrusive/set.hpp>
-
+#include <tbb/atomic.h>
 #include <tbb/mutex.h>
 
 #include "bgp/bgp_ribout.h"
@@ -243,6 +243,7 @@ private:
     void FlagSet(Flag flag) { flags_ |= (1 << flag); }
     void FlagReset(Flag flag) { flags_ &= ~(1 << flag); }
 
+    static tbb::atomic<uint64_t> global_tstamp_;
     tbb::mutex mutex_;
     BgpRoute *route_;
     int8_t queue_id_;
