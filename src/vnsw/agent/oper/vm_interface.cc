@@ -1071,7 +1071,8 @@ void VmInterface::UpdateL2(bool old_l2_active, VrfEntry *old_vrf,
                            bool force_update, bool policy_change,
                            const Ip4Address &old_v4_addr,
                            const Ip6Address &old_v6_addr) {
-    if (sub_type() == VmInterface::TOR)
+    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+    if (table->agent()->tsn_enabled())
         return;
 
     UpdateVxLan();
