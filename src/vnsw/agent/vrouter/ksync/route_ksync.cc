@@ -610,6 +610,8 @@ KSyncEntry *RouteKSyncEntry::UnresolvedReference() {
         VrfKSyncObject *vrf_obj = ksync_obj_->ksync()->vrf_ksync_obj();
         VrfEntry* vrf =
             ksync_obj_->ksync()->agent()->vrf_table()->FindVrfFromId(vrf_id_);
+        if (!vrf) return NULL;
+
         VrfKSyncObject::VrfState *state =
             static_cast<VrfKSyncObject::VrfState *>
             (vrf->GetState(vrf->get_table(),
