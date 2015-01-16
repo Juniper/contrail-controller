@@ -557,19 +557,6 @@ class SvcMonitor(object):
 
     def _delete_shared_vn(self, vn_uuid, proj_name):
         try:
-            vn_obj = self._vnc_lib.virtual_network_read(id=vn_uuid)
-        except NoIdError:
-            self.logger.log("Deleted VN %s %s" % (proj_name, vn_uuid))
-            return True
-
-        iip_back_refs = vn_obj.get_instance_ip_back_refs()
-        for iip_back_ref in iip_back_refs or []:
-            try:
-                self._vnc_lib.instance_ip_delete(id=iip_back_ref['uuid'])
-            except (NoIdError, RefsExistError):
-                continue
-
-        try:
             self.logger.log("Deleting VN %s %s" % (proj_name, vn_uuid))
             self._vnc_lib.virtual_network_delete(id=vn_uuid)
         except RefsExistError:
