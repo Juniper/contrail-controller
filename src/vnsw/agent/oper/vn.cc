@@ -902,11 +902,12 @@ void VnTable::AddSubnetRoute(VnEntry *vn, VnIpam &ipam) {
     if (ipam.IsV4()) {
         static_cast<InetUnicastAgentRouteTable *>(vrf->
             GetInet4UnicastRouteTable())->AddIpamSubnetRoute
-            (vrf->GetName(), ipam.GetSubnetAddress(), ipam.plen);
+            (vrf->GetName(), ipam.GetSubnetAddress(), ipam.plen, vn->GetName());
     } else if (ipam.IsV6()) {
         static_cast<InetUnicastAgentRouteTable *>(vrf->
             GetInet6UnicastRouteTable())->AddIpamSubnetRoute
-            (vrf->GetName(), ipam.GetV6SubnetAddress(), ipam.plen);
+            (vrf->GetName(), ipam.GetV6SubnetAddress(), ipam.plen,
+             vn->GetName());
     }
 }
 

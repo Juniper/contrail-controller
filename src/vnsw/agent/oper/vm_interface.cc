@@ -58,8 +58,9 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     sg_list_(), floating_ip_list_(), service_vlan_list_(), static_route_list_(),
     allowed_address_pair_list_(), vrf_assign_rule_list_(),
     vrf_assign_acl_(NULL), vm_ip_gw_addr_(0), vm_ip6_gw_addr_(),
-    sub_type_(VmInterface::NONE), configurer_(0),
-    subnet_(0), subnet_plen_(0), ethernet_tag_(0) {
+    device_type_(VmInterface::DEVICE_TYPE_INVALID),
+    vmi_type_(VmInterface::VMI_TYPE_INVALID),
+    configurer_(0), subnet_(0), subnet_plen_(0), ethernet_tag_(0) {
     ipv4_active_ = false;
     ipv6_active_ = false;
     l2_active_ = false;
@@ -71,7 +72,8 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
                          const std::string &vm_name,
                          const boost::uuids::uuid &vm_project_uuid,
                          uint16_t tx_vlan_id, uint16_t rx_vlan_id,
-                         Interface *parent, const Ip6Address &a6) :
+                         Interface *parent, const Ip6Address &a6,
+                         DeviceType device_type, VmiType vmi_type) :
     Interface(Interface::VM_INTERFACE, uuid, name, NULL), vm_(NULL),
     vn_(NULL), ip_addr_(addr), mdata_addr_(0), subnet_bcast_addr_(0),
     ip6_addr_(a6), vm_mac_(mac), policy_enabled_(false), mirror_entry_(NULL),
@@ -84,8 +86,9 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     parent_(parent), local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
     sg_list_(), floating_ip_list_(), service_vlan_list_(), static_route_list_(),
     allowed_address_pair_list_(), vrf_assign_rule_list_(),
-    vrf_assign_acl_(NULL), sub_type_(VmInterface::NONE), configurer_(0),
-    subnet_(0), subnet_plen_(0) {
+    vrf_assign_acl_(NULL), device_type_(device_type),
+    vmi_type_(vmi_type), configurer_(0), subnet_(0),
+    subnet_plen_(0) {
     ipv4_active_ = false;
     ipv6_active_ = false;
     l2_active_ = false;
@@ -389,11 +392,9 @@ static void BuildVrfAndServiceVlanInfo(Agent *agent,
     return;
 }
 
-static void ReadInstanceIp(VmInterfaceConfigData *data, IFMapNode *node) {
+static void BuildInstanceIp(VmInterfaceConfigData *data, IFMapNode *node) {
     InstanceIp *ip = static_cast<InstanceIp *>(node->GetObject());
     boost::system::error_code err;
-    LOG(DEBUG, "InstanceIp config for " << data->cfg_name_ << " "
-        << ip->address());
     IpAddress addr = IpAddress::from_string(ip->address(), err);
     if (addr.is_v4()) {
         data->addr_ = addr.to_v4();
@@ -407,6 +408,60 @@ static void ReadInstanceIp(VmInterfaceConfigData *data, IFMapNode *node) {
     }
 }
 
+static void BuildSgList(VmInterfaceConfigData *data, IFMapNode *node) {
+    SecurityGroup *sg_cfg = static_cast<SecurityGroup *>
+        (node->GetObject());
+    assert(sg_cfg);
+    autogen::IdPermsType id_perms = sg_cfg->id_perms();
+    uint32_t sg_id = SgTable::kInvalidSgId;
+    stringToInteger(sg_cfg->id(), sg_id);
+    if (sg_id != SgTable::kInvalidSgId) {
+        uuid sg_uuid = nil_uuid();
+        CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                   sg_uuid);
+        data->sg_list_.list_.insert
+            (VmInterface::SecurityGroupEntry(sg_uuid));
+    }
+}
+
+static void BuildVn(VmInterfaceConfigData *data, IFMapNode *node,
+                    const boost::uuids::uuid &u, CfgIntEntry *cfg_entry) {
+    VirtualNetwork *vn = static_cast<VirtualNetwork *>
+        (node->GetObject());
+    assert(vn);
+    autogen::IdPermsType id_perms = vn->id_perms();
+    CfgUuidSet(id_perms.uuid.uuid_mslong,
+               id_perms.uuid.uuid_lslong, data->vn_uuid_);
+    if (cfg_entry && (cfg_entry->GetVnUuid() != data->vn_uuid_)) {
+        IFMAP_ERROR(InterfaceConfiguration, 
+                    "Virtual-network UUID mismatch for interface:",
+                    UuidToString(u),
+                    "configuration VN uuid",
+                    UuidToString(data->vn_uuid_),
+                    "compute VN uuid",
+                    UuidToString(cfg_entry->GetVnUuid()));
+    }
+}
+
+static void BuildVm(VmInterfaceConfigData *data, IFMapNode *node,
+                    const boost::uuids::uuid &u, CfgIntEntry *cfg_entry) {
+    VirtualMachine *vm = static_cast<VirtualMachine *>
+        (node->GetObject());
+    assert(vm);
+
+    autogen::IdPermsType id_perms = vm->id_perms();
+    CfgUuidSet(id_perms.uuid.uuid_mslong,
+               id_perms.uuid.uuid_lslong, data->vm_uuid_);
+    if (cfg_entry && (cfg_entry->GetVmUuid() != data->vm_uuid_)) {
+        IFMAP_ERROR(InterfaceConfiguration, 
+                    "Virtual-machine UUID mismatch for interface:",
+                    UuidToString(u),
+                    "configuration VM UUID is",
+                    UuidToString(data->vm_uuid_),
+                    "compute VM uuid is",
+                    UuidToString(cfg_entry->GetVnUuid()));
+    }
+}
 
 // Get DHCP configuration
 static void ReadDhcpOptions(VirtualMachineInterface *cfg,
@@ -503,14 +558,177 @@ static void ReadDhcpEnable(Agent *agent, VmInterfaceConfigData *data,
     }
 }
 
-//TBD Use link instead of device_owner
-VmInterface::SubType GetVmInterfaceSubType(Agent *agent,
-                                           const std::string &device_owner) {
-    if (agent->tsn_enabled() || agent->tor_agent_enabled())
-        return VmInterface::TOR;
+// Check if VMI is a sub-interface. Sub-interface will have
+// sub_interface_vlan_tag property set to non-zero
+static bool IsVlanSubInterface(VirtualMachineInterface *cfg) {
+    if (cfg->IsPropertySet(VirtualMachineInterface::PROPERTIES) == false)
+        return false;
 
-    // if (device_owner.compare("compute:nova") == 0 || agent->test_mode())
-    return VmInterface::NOVA;
+    if (cfg->properties().sub_interface_vlan_tag == 0)
+        return false;
+
+    return true;
+}
+
+// Builds parent for VMI (not to be confused with parent ifmap-node)
+// Possible values are,
+// - logical-interface : Incase of baremetals
+// - virtual-machine-interface : We support virtual-machine-interface
+//   sub-interfaces. In this case, another virtual-machine-interface itself
+//   can be a parent
+static PhysicalRouter *BuildParentInfo(Agent *agent,
+                                       VmInterfaceConfigData *data,
+                                       VirtualMachineInterface *cfg,
+                                       IFMapNode *node) {
+    // Read logical-interface neighbor if any
+    IFMapNode *logical_node = agent->cfg_listener()->
+        FindAdjacentIFMapNode(agent, node, 
+                              "logical-interface");
+    if (logical_node) {
+        IFMapNode *physical_node = agent->cfg_listener()->
+            FindAdjacentIFMapNode(agent, logical_node, "physical-interface");
+        // Find phyiscal-interface for the VMI
+        IFMapNode *prouter_node = NULL;
+        if (physical_node) {
+            data->physical_interface_ = physical_node->name();
+            // Find vrouter for the physical interface
+            prouter_node = agent->cfg_listener()->
+                FindAdjacentIFMapNode(agent, physical_node, "physical-router");
+        }
+        if (prouter_node == NULL)
+            return NULL;
+        return static_cast<PhysicalRouter *>(prouter_node->GetObject());
+    }
+
+    // Check if this is VLAN sub-interface VMI
+    if (IsVlanSubInterface(cfg) == false) {
+        return NULL;
+    }
+
+    // Find Parent VMI for sub-interface
+    IFMapNode *vmi_node = agent->cfg_listener()->
+        FindAdjacentIFMapNode(agent, node, "virtual-machine-interface");
+    if (vmi_node == false)
+        return NULL;
+    VirtualMachineInterface *parent_cfg =
+        static_cast <VirtualMachineInterface *> (vmi_node->GetObject());
+    assert(parent_cfg);
+    if (IsVlanSubInterface(parent_cfg)) {
+        return NULL;
+    }
+    autogen::IdPermsType id_perms = parent_cfg->id_perms();
+    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+               data->parent_vmi_);
+    data->rx_vlan_id_ = cfg->properties().sub_interface_vlan_tag;
+    data->tx_vlan_id_ = cfg->properties().sub_interface_vlan_tag;
+    return NULL;
+}
+
+static void BuildAttributes(Agent *agent, IFMapNode *node,
+                            VirtualMachineInterface *cfg,
+                            VmInterfaceConfigData *data) {
+    //Extract the local preference
+    if (cfg->IsPropertySet(VirtualMachineInterface::PROPERTIES)) {
+        autogen::VirtualMachineInterfacePropertiesType prop = cfg->properties();
+        data->local_preference_ = VmInterface::LOW;
+        if (prop.local_preference == VmInterface::HIGH) {
+            data->local_preference_ = VmInterface::HIGH;
+        }
+    }
+
+    ReadAnalyzerNameAndCreate(agent, cfg, *data);
+
+    // Fill DHCP option data
+    ReadDhcpOptions(cfg, *data);
+
+    //Fill config data items
+    data->cfg_name_ = node->name();
+    data->admin_state_ = cfg->id_perms().enable;
+
+    BuildVrfAssignRule(cfg, data);
+    BuildAllowedAddressPairRouteList(cfg, data);
+
+    if (cfg->mac_addresses().size()) {
+        data->vm_mac_ = cfg->mac_addresses().at(0);
+    }
+
+    // Compute fabric_port_ and need_linklocal_ip_ flags
+    data->fabric_port_ = false;
+    data->need_linklocal_ip_ = true;
+    if (data->vrf_name_ == agent->fabric_vrf_name() ||
+        data->vrf_name_ == agent->linklocal_vrf_name()) {
+        data->fabric_port_ = true;
+        data->need_linklocal_ip_ = false;
+    } 
+
+    if (agent->isXenMode()) {
+        data->need_linklocal_ip_ = false;
+    }
+}
+
+static void ComputeTypeInfo(Agent *agent, VmInterfaceConfigData *data,
+                            CfgIntEntry *cfg_entry, PhysicalRouter *prouter,
+                            IFMapNode *node) {
+    if (cfg_entry != NULL) {
+        // Have got InstancePortAdd message. Treat it as VM_ON_TAP by default
+        // TODO: Need to identify more cases here
+        data->device_type_ = VmInterface::VM_ON_TAP;
+        data->vmi_type_ = VmInterface::INSTANCE;
+        return;
+    }
+
+    data->device_type_ = VmInterface::DEVICE_TYPE_INVALID;
+    data->vmi_type_ = VmInterface::VMI_TYPE_INVALID;
+    // Does it have physical-interface
+    if (data->physical_interface_.empty() == false) {
+        // no physical-router connected. Should be transient case
+        if (prouter == NULL) {
+            // HACK : TSN/ToR agent only supports barements. So, set as
+            // baremetal anyway
+            if (agent->tsn_enabled() || agent->tor_agent_enabled()) {
+                data->device_type_ = VmInterface::TOR;
+                data->vmi_type_ = VmInterface::BAREMETAL;
+            }
+            return;
+        }
+
+        // VMI is either Baremetal or Gateway interface
+        if (prouter->display_name() == agent->agent_name()) {
+            // Read logical-interface neighbor if any
+           IFMapNode *logical_node = agent->cfg_listener()->
+                         FindAdjacentIFMapNode(agent, node,
+                                               "logical-interface");
+            // VMI connected to local vrouter. Treat it as GATEWAY 
+            data->device_type_ = VmInterface::LOCAL_DEVICE;
+            data->vmi_type_ = VmInterface::GATEWAY;
+            if (logical_node) {
+                autogen::LogicalInterface *port =
+                    static_cast <autogen::LogicalInterface *>
+                    (logical_node->GetObject());
+                data->rx_vlan_id_ = port->vlan_tag();
+                data->tx_vlan_id_ = port->vlan_tag();
+            } else {
+                data->rx_vlan_id_ = 0;
+                data->tx_vlan_id_ = 0;
+            }
+            return;
+        } else {
+            // prouter does not match. Treat as baremetal
+            data->device_type_ = VmInterface::TOR;
+            data->vmi_type_ = VmInterface::BAREMETAL;
+            return;
+        }
+        return;
+    }
+
+    // Physical router not specified. Check if this is VMI sub-interface
+    if (data->parent_vmi_.is_nil() == false) {
+        data->device_type_ = VmInterface::VM_VLAN_ON_VMI;
+        data->vmi_type_ = VmInterface::INSTANCE;
+        return;
+    }
+
+    return;
 }
 
 void VmInterface::SetConfigurer(VmInterface::Configurer type) {
@@ -525,6 +743,25 @@ bool VmInterface::IsConfigurerSet(VmInterface::Configurer type) {
     return ((configurer_ & (1 << type)) != 0);
 }
 
+static bool DeleteVmi(InterfaceTable *table, const uuid &u, DBRequest *req) {
+    int type = table->GetVmiToVmiType(u);
+    if (type <= (int)VmInterface::VMI_TYPE_INVALID)
+        return false;
+
+    table->DelVmiToVmiType(u);
+    // Process delete based on VmiType
+    if (type == VmInterface::INSTANCE) {
+        // INSTANCE type are not added by config. We only do RESYNC
+        req->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+        req->key.reset(new VmInterfaceKey(AgentKey::RESYNC, u, ""));
+        req->data.reset(new VmInterfaceConfigData(NULL, NULL));
+        return true;
+    } else {
+        VmInterface::Delete(table, u, VmInterface::CONFIG);
+        return false;
+    }
+}
+
 // Virtual Machine Interface is added or deleted into oper DB from Nova 
 // messages. The Config notify is used only to change interface.
 bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req) {
@@ -536,22 +773,12 @@ bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req) {
     boost::uuids::uuid u;
     CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
 
-    VmInterface::SubType interface_sub_type =
-        GetVmInterfaceSubType(agent_, cfg->device_owner());
-
-    // Skip config interface delete notification
+    // Handle object delete
     if (node->IsDeleted()) {
-        if (interface_sub_type == VmInterface::NOVA) {
-            req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-            req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, u, ""));
-            req.data.reset(new VmInterfaceConfigData(NULL, NULL));
-            return true;
-        } else {
-            VmInterface::Delete(this, u, VmInterface::CONFIG);
-            return false;
-        }
+        return DeleteVmi(this, u, &req);
     }
 
+    // Get the entry from Interface Config table
     CfgIntTable *cfg_table = agent_->interface_config_table();
     CfgIntKey cfg_key(u);
     CfgIntEntry *cfg_entry =
@@ -559,41 +786,14 @@ bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req) {
 
     // Update interface configuration
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    InterfaceKey *key = NULL; 
-    if (interface_sub_type == VmInterface::NOVA) {
-        key = new VmInterfaceKey(AgentKey::RESYNC, u, "");
-    } else {
-        key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, u,
-                                 cfg->display_name());
-    }
-
     VmInterfaceConfigData *data = new VmInterfaceConfigData(NULL, NULL);
     data->SetIFMapNode(agent(), node);
-    //Extract the local preference
-    if (cfg->IsPropertySet(VirtualMachineInterface::PROPERTIES)) {
-        autogen::VirtualMachineInterfacePropertiesType prop = cfg->properties();
-        data->local_preference_ = VmInterface::LOW;
-        if (prop.local_preference == VmInterface::HIGH) {
-            data->local_preference_ = VmInterface::HIGH;
-        }
-    }
 
-    ReadAnalyzerNameAndCreate(agent_, cfg, *data);
-
-    // Fill DHCP option data
-    ReadDhcpOptions(cfg, *data);
-
-    //Fill config data items
-    data->cfg_name_ = node->name();
-    data->admin_state_ = id_perms.enable;
-
-    BuildVrfAssignRule(cfg, data);
-    BuildAllowedAddressPairRouteList(cfg, data);
-
-    SgUuidList sg_list(0);
     IFMapNode *vn_node = NULL;
 
-    // Walk Interface Graph to get VM, VN and FloatingIPList
+    BuildAttributes(agent_, node, cfg, data);
+
+    // Graph walk to get interface configuration
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     for (DBGraphVertex::adjacency_iterator iter =
          node->begin(table->GetGraph()); 
@@ -605,67 +805,20 @@ bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req) {
         }
 
         if (adj_node->table() == agent_->cfg()->cfg_sg_table()) {
-            SecurityGroup *sg_cfg = static_cast<SecurityGroup *>
-                    (adj_node->GetObject());
-            assert(sg_cfg);
-            autogen::IdPermsType id_perms = sg_cfg->id_perms();
-            uint32_t sg_id = SgTable::kInvalidSgId;
-            stringToInteger(sg_cfg->id(), sg_id);
-            if (sg_id != SgTable::kInvalidSgId) {
-                uuid sg_uuid = nil_uuid();
-                CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
-                           sg_uuid);
-                data->sg_list_.list_.insert
-                    (VmInterface::SecurityGroupEntry(sg_uuid));
-            }
+            BuildSgList(data, adj_node);
         }
 
         if (adj_node->table() == agent_->cfg()->cfg_vn_table()) {
             vn_node = adj_node;
-            VirtualNetwork *vn = static_cast<VirtualNetwork *>
-                (adj_node->GetObject());
-            assert(vn);
-            autogen::IdPermsType id_perms = vn->id_perms();
-            CfgUuidSet(id_perms.uuid.uuid_mslong,
-                       id_perms.uuid.uuid_lslong, data->vn_uuid_);
-            if (cfg_entry && (cfg_entry->GetVnUuid() != data->vn_uuid_)) {
-                IFMAP_ERROR(InterfaceConfiguration, 
-                            "Virtual-network UUID mismatch for interface:",
-                            UuidToString(u),
-                            "configuration VN uuid",
-                            UuidToString(data->vn_uuid_),
-                            "compute VN uuid",
-                            UuidToString(cfg_entry->GetVnUuid()));
-            }
+            BuildVn(data, adj_node, u, cfg_entry);
         }
 
         if (adj_node->table() == agent_->cfg()->cfg_vm_table()) {
-            VirtualMachine *vm = static_cast<VirtualMachine *>
-                (adj_node->GetObject());
-            assert(vm);
-
-            //VM link to virtual-router tells kind of virtual-router.
-            //If virtual-router is not of type TOR/TSN, then NOVA is the only
-            //place from where interface gets created. So if subtype is unknown
-            //and there was a nova entry found then treat it as NOVA else
-            //ignore the request. Subsequent addition of VM or nova should
-            //re-invoke this routine.
-            autogen::IdPermsType id_perms = vm->id_perms();
-            CfgUuidSet(id_perms.uuid.uuid_mslong,
-                       id_perms.uuid.uuid_lslong, data->vm_uuid_);
-            if (cfg_entry && (cfg_entry->GetVmUuid() != data->vm_uuid_)) {
-                IFMAP_ERROR(InterfaceConfiguration, 
-                            "Virtual-machine UUID mismatch for interface:",
-                            UuidToString(u),
-                            "configuration VM UUID is",
-                            UuidToString(data->vm_uuid_),
-                            "compute VM uuid is",
-                            UuidToString(cfg_entry->GetVnUuid()));
-            }
+            BuildVm(data, adj_node, u, cfg_entry);
         }
 
         if (adj_node->table() == agent_->cfg()->cfg_instanceip_table()) {
-            ReadInstanceIp(data, adj_node);
+            BuildInstanceIp(data, adj_node);
         }
 
         if (adj_node->table() == agent_->cfg()->cfg_floatingip_table()) {
@@ -685,53 +838,33 @@ bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req) {
         }
     }
 
-    //Read parent interface name if any
-    IFMapNode *logical_node = agent_->cfg_listener()->
-                              FindAdjacentIFMapNode(agent_, node, 
-                                                     "logical-interface");
-    if (logical_node) {
-        IFMapNode *physical_node = agent_->cfg_listener()->
-            FindAdjacentIFMapNode(agent_, logical_node, "physical-interface");
-        //Add physical interface
-        if (physical_node) {
-            data->parent_ = physical_node->name();
-        }
-    }
-
-    if (!data->subnet_.is_unspecified() &&
-        data->parent_ != agent_->NullString()) {
-        interface_sub_type = VmInterface::GATEWAY;
-        data->rx_vlan_id_ = 0;
-        data->tx_vlan_id_ = 0;
-        delete key;
-        //Add request for a VMI of type gateway
-        key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, u,
-                                 cfg->display_name());
-    }
-
-    data->sub_type_ = interface_sub_type;
-
-    if (cfg->mac_addresses().size()) {
-        data->vm_mac_ = cfg->mac_addresses().at(0);
-    }
-
     // Get DHCP enable flag from subnet
     if (vn_node && data->addr_.to_ulong()) {
         ReadDhcpEnable(agent_, data, vn_node);
     }
 
-    data->fabric_port_ = false;
-    data->need_linklocal_ip_ = true;
-    if (data->vrf_name_ == agent_->fabric_vrf_name() ||
-        data->vrf_name_ == agent_->linklocal_vrf_name()) {
-        data->fabric_port_ = true;
-        data->need_linklocal_ip_ = false;
-    } 
+    PhysicalRouter *prouter = NULL;
+    // Build parent for the virtual-machine-interface
+    prouter = BuildParentInfo(agent_, data, cfg, node);
 
-    if (agent_->isXenMode()) {
-        data->need_linklocal_ip_ = false;
+    // Compute device-type and vmi-type for the interface
+    ComputeTypeInfo(agent_, data, cfg_entry, prouter, node);
+
+    InterfaceKey *key = NULL; 
+    if (data->device_type_ == VmInterface::VM_ON_TAP ||
+        data->device_type_ == VmInterface::DEVICE_TYPE_INVALID) {
+        key = new VmInterfaceKey(AgentKey::RESYNC, u, "");
+    } else {
+        key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, u,
+                                 cfg->display_name());
     }
 
+    if (data->device_type_ != VmInterface::DEVICE_TYPE_INVALID) {
+        AddVmiToVmiType(u, data->device_type_);
+    } else {
+        LOG(DEBUG, "DeviceType for VMI <" << UuidToString(u) <<
+            "> could not be identified. RESYNC called on interface");
+    }
     req.key.reset(key);
     req.data.reset(data);
     return true;
@@ -809,6 +942,21 @@ const Peer *VmInterface::peer() const {
 bool VmInterface::OnChange(VmInterfaceData *data) {
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     return Resync(table, data);
+}
+
+// When VMInterface is added from Config (sub-interface, gateway interface etc.)
+// the RESYNC is not called and some of the config like VN and VRF are not
+// applied on the interface (See Add() API above). Force change to ensure
+// RESYNC is called
+void VmInterface::PostAdd() {
+    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+    DBRequest req;
+    if (ifmap_node() == NULL)
+        return;
+
+    if (table->IFNodeToReq(ifmap_node(), req) == true) {
+        table->Process(req);
+    }
 }
 
 // Handle RESYNC DB Request. Handles multiple sub-types,
@@ -946,11 +1094,26 @@ void VmInterface::UpdateVxLan() {
     ethernet_tag_ = IsVxlanMode() ? vxlan_id_ : 0;
 }
 
+void VmInterface::AddL2ReceiveRoute(bool old_l2_active) {
+    if (L2Activated(old_l2_active)) {
+        InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+        Agent *agent = table->agent();
+        BridgeAgentRouteTable *l2_table = static_cast<BridgeAgentRouteTable *>(
+                vrf_->GetRouteTable(Agent::BRIDGE));
+
+        l2_table->AddBridgeReceiveRoute(peer_.get(), vrf_->GetName(), 0,
+                                        GetVifMac(agent), vn_->GetName());
+    }
+}
+
 void VmInterface::UpdateL2(bool old_l2_active, VrfEntry *old_vrf,
                            int old_ethernet_tag,
                            bool force_update, bool policy_change,
                            const Ip4Address &old_v4_addr,
                            const Ip6Address &old_v6_addr) {
+    if (device_type() == VmInterface::TOR)
+        return;
+
     UpdateVxLan();
     UpdateL2NextHop(old_l2_active);
     //Update label only if new entry is to be created, so
@@ -959,6 +1122,12 @@ void VmInterface::UpdateL2(bool old_l2_active, VrfEntry *old_vrf,
     UpdateL2InterfaceRoute(old_l2_active, force_update, old_vrf, old_v4_addr,
                            old_v6_addr, old_ethernet_tag);
     UpdateFloatingIp(force_update, policy_change, true);
+    //If the interface is Gateway we need to add a receive route,
+    //such the packet gets routed. Bridging on gateway
+    //interface is not supported
+    if (vmi_type() == GATEWAY && L2Activated(old_l2_active)) {
+        AddL2ReceiveRoute(old_l2_active);
+    }
 }
 
 void VmInterface::UpdateL2(bool force_update) {
@@ -975,10 +1144,16 @@ void VmInterface::DeleteL2(bool old_l2_active, VrfEntry *old_vrf,
                            old_ethernet_tag);
     DeleteFloatingIp(true, old_ethernet_tag);
     DeleteL2NextHop(old_l2_active);
+    DeleteL2ReceiveRoute(old_vrf, old_l2_active);
 }
 
 const MacAddress& VmInterface::GetVifMac(const Agent *agent) const {
     if (parent()) {
+        if (device_type_ == VM_VLAN_ON_VMI) {
+            const VmInterface *vmi =
+                static_cast<const VmInterface *>(parent_.get());
+            return vmi->GetVifMac(agent);
+        }
         return parent()->mac();
     } else {
         return agent->vrrp_mac();
@@ -996,7 +1171,7 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
                               uint8_t old_subnet_plen) {
     //Need not apply config for TOR VMI as it is more of an inidicative
     //interface. No route addition or NH addition happens for this interface.
-    if (sub_type_ == VmInterface::TOR &&
+    if (device_type_ == VmInterface::TOR &&
         (old_subnet.is_unspecified() && old_subnet_plen == 0)) {
         return;
     }
@@ -1108,7 +1283,8 @@ VmInterface *VmInterfaceConfigData::OnAdd(const InterfaceTable *table,
     VmInterface *vmi =
         new VmInterface(key->uuid_, key->name_, addr_, vm_mac_, vm_name_,
                         nil_uuid(), VmInterface::kInvalidVlanId,
-                        VmInterface::kInvalidVlanId, NULL, ip6_addr_);
+                        VmInterface::kInvalidVlanId, NULL, ip6_addr_,
+                        device_type_, vmi_type_);
     vmi->SetConfigurer(VmInterface::CONFIG);
     return vmi;
 }
@@ -1313,24 +1489,38 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         *ecmp_changed = true;
     }
 
-    if (sub_type_ != data->sub_type_) {
-        sub_type_= data->sub_type_;
+    if (device_type_ != data->device_type_) {
+        device_type_= data->device_type_;
         ret = true;
     }
 
-    if (sub_type_ == GATEWAY) {
+    if (device_type_ == LOCAL_DEVICE || device_type_ == VM_VLAN_ON_VMI) {
         if (rx_vlan_id_ != data->rx_vlan_id_) {
             rx_vlan_id_ = data->rx_vlan_id_;
+            ret = true;
         }
         if (tx_vlan_id_ != data->tx_vlan_id_) {
             tx_vlan_id_ = data->tx_vlan_id_;
+            ret = true;
         }
     }
 
-    if (data->parent_ != Agent::NullString()) {
-        PhysicalInterfaceKey key(data->parent_);
-        parent_ = static_cast<Interface *>
+    Interface *new_parent = NULL;
+    if (data->physical_interface_.empty() == false) {
+        PhysicalInterfaceKey key(data->physical_interface_);
+        new_parent = static_cast<Interface *>
             (table->agent()->interface_table()->FindActiveEntry(&key));
+    } else if (data->parent_vmi_.is_nil() == false) {
+        VmInterfaceKey key(AgentKey::RESYNC, data->parent_vmi_, "");
+        new_parent = static_cast<Interface *>
+            (table->agent()->interface_table()->FindActiveEntry(&key));
+    } else {
+        new_parent = parent_.get();
+    }
+
+    if (parent_ != new_parent) {
+        parent_ = new_parent;
+        ret = true;
     }
 
     if (table) {
@@ -1348,14 +1538,14 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
 // VmInterfaceNovaData routines
 /////////////////////////////////////////////////////////////////////////////
 VmInterfaceNovaData::VmInterfaceNovaData() :
-    VmInterfaceData(NULL, NULL, NOVA),
+    VmInterfaceData(NULL, NULL, INSTANCE_MSG),
     ipv4_addr_(),
     ipv6_addr_(),
     mac_addr_(),
     vm_name_(),
     vm_uuid_(),
     vm_project_uuid_(),
-    parent_(),
+    physical_interface_(),
     tx_vlan_id_(),
     rx_vlan_id_() {
 }
@@ -1366,19 +1556,23 @@ VmInterfaceNovaData::VmInterfaceNovaData(const Ip4Address &ipv4_addr,
                                          const std::string vm_name,
                                          boost::uuids::uuid vm_uuid,
                                          boost::uuids::uuid vm_project_uuid,
-                                         const std::string &parent,
+                                         const std::string &physical_interface,
                                          uint16_t tx_vlan_id,
-                                         uint16_t rx_vlan_id) :
-    VmInterfaceData(NULL, NULL, NOVA),
+                                         uint16_t rx_vlan_id,
+                                         VmInterface::DeviceType device_type,
+                                         VmInterface::VmiType vmi_type) :
+    VmInterfaceData(NULL, NULL, INSTANCE_MSG),
     ipv4_addr_(ipv4_addr),
     ipv6_addr_(ipv6_addr),
     mac_addr_(mac_addr),
     vm_name_(vm_name),
     vm_uuid_(vm_uuid),
     vm_project_uuid_(vm_project_uuid),
-    parent_(parent),
+    physical_interface_(physical_interface),
     tx_vlan_id_(tx_vlan_id),
-    rx_vlan_id_(rx_vlan_id) {
+    rx_vlan_id_(rx_vlan_id),
+    device_type_(device_type),
+    vmi_type_(vmi_type) {
 }
 
 VmInterfaceNovaData::~VmInterfaceNovaData() {
@@ -1389,8 +1583,8 @@ VmInterface *VmInterfaceNovaData::OnAdd(const InterfaceTable *table,
     Interface *parent = NULL;
     if (tx_vlan_id_ != VmInterface::kInvalidVlanId &&
         rx_vlan_id_ != VmInterface::kInvalidVlanId &&
-        parent_ != Agent::NullString()) {
-        PhysicalInterfaceKey key_1(parent_);
+        physical_interface_ != Agent::NullString()) {
+        PhysicalInterfaceKey key_1(physical_interface_);
         parent = static_cast<Interface *>
             (table->agent()->interface_table()->FindActiveEntry(&key_1));
         assert(parent != NULL);
@@ -1398,20 +1592,20 @@ VmInterface *VmInterfaceNovaData::OnAdd(const InterfaceTable *table,
     VmInterface *vmi =
         new VmInterface(key->uuid_, key->name_, ipv4_addr_, mac_addr_, vm_name_,
                         vm_project_uuid_, tx_vlan_id_, rx_vlan_id_,
-                        parent, ipv6_addr_);
-    vmi->SetConfigurer(VmInterface::EXTERNAL);
+                        parent, ipv6_addr_, device_type_, vmi_type_);
+    vmi->SetConfigurer(VmInterface::INSTANCE_MSG);
     return vmi;
 }
 
 bool VmInterfaceNovaData::OnDelete(const InterfaceTable *table,
                                    VmInterface *vmi) const {
-    if (vmi->IsConfigurerSet(VmInterface::EXTERNAL) == false)
+    if (vmi->IsConfigurerSet(VmInterface::INSTANCE_MSG) == false)
         return true;
 
     vmi->ResetConfigurer(VmInterface::CONFIG);
     VmInterfaceConfigData data(NULL, NULL);
     vmi->Resync(table, &data);
-    vmi->ResetConfigurer(VmInterface::EXTERNAL);
+    vmi->ResetConfigurer(VmInterface::INSTANCE_MSG);
     return true;
 }
 
@@ -1435,7 +1629,7 @@ bool VmInterfaceNovaData::OnResync(const InterfaceTable *table,
         vmi->rx_vlan_id_ = rx_vlan_id_;
         ret = true;
     }
-    vmi->SetConfigurer(VmInterface::EXTERNAL);
+    vmi->SetConfigurer(VmInterface::INSTANCE_MSG);
 
     return ret;
 }
@@ -1529,7 +1723,10 @@ bool VmInterfaceOsOperStateData::OnResync(const InterfaceTable *table,
 bool VmInterface::NeedDevice() const {
     bool ret = true;
 
-    if (sub_type_ == TOR)
+    if (device_type_ == TOR)
+        ret = false;
+
+    if (device_type_ == VM_VLAN_ON_VMI)
         ret = false;
 
     if (subnet_.is_unspecified() == false) {
@@ -1560,6 +1757,9 @@ void VmInterface::GetOsParams(Agent *agent) {
 // A VM Interface is L3 active under following conditions,
 // - If interface is deleted, it is inactive
 // - VN, VRF are set
+// - If sub_interface VMIs, parent_ should be set
+//   (We dont track parent_ and activate sub-interfaces. So, we only check 
+//    parent_ is present and not necessarily active)
 // - For non-VMWARE hypervisors,
 //   The tap interface must be created. This is verified by os_index_
 // - MAC address set for the interface
@@ -1570,6 +1770,14 @@ bool VmInterface::IsActive()  const {
 
     if (!admin_state_) {
         return false;
+    }
+
+    // If sub_interface VMIs, parent_vmi_ should be set
+    // (We dont track parent_ and activate sub-interfaces. So, we only check 
+    //  paremt_vmi is present and not necessarily active)
+    if (device_type_ == VM_VLAN_ON_VMI) {
+        if (parent_.get() == NULL)
+            return false;
     }
 
     if ((vn_.get() == NULL) || (vrf_.get() == NULL)) {
@@ -1888,6 +2096,16 @@ void VmInterface::DeleteL3NextHop(bool old_ipv4_active, bool old_ipv6_active) {
 
 void VmInterface::DeleteMulticastNextHop() {
     InterfaceNH::DeleteMulticastVmInterfaceNH(GetUuid());
+}
+
+void VmInterface::DeleteL2ReceiveRoute(const VrfEntry *old_vrf,
+                                       bool old_l2_active) {
+    if (L2Deactivated(old_l2_active) && old_vrf) {
+        InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+        Agent *agent = table->agent();
+        BridgeAgentRouteTable::Delete(peer_.get(), old_vrf->GetName(),
+                                      GetVifMac(agent), 0);
+    }
 }
 
 Ip4Address VmInterface::GetGateway() const {
@@ -3532,7 +3750,9 @@ void VmInterface::NovaAdd(InterfaceTable *table, const uuid &intf_uuid,
 
     req.data.reset(new VmInterfaceNovaData(addr, ip6, mac, vm_name,
                                            nil_uuid(), vm_project_uuid, parent,
-                                           tx_vlan_id, rx_vlan_id));
+                                           tx_vlan_id, rx_vlan_id,
+                                           VmInterface::VM_ON_TAP,
+                                           VmInterface::INSTANCE));
     table->Enqueue(&req);
 }
 
@@ -3544,7 +3764,7 @@ void VmInterface::Delete(InterfaceTable *table, const uuid &intf_uuid,
 
     if (configurer == VmInterface::CONFIG) {
         req.data.reset(new VmInterfaceConfigData(NULL, NULL));
-    } else if (configurer == VmInterface::EXTERNAL) {
+    } else if (configurer == VmInterface::INSTANCE_MSG) {
         req.data.reset(new VmInterfaceNovaData());
     } else {
         assert(0);

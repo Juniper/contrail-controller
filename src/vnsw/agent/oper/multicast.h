@@ -135,6 +135,7 @@ public:
     bool UpdateTorAddressInOlist(const boost::uuids::uuid &device_uuid,
                                  const Ip4Address &ip,
                                  uint32_t vxlan_id);
+    void CreateEvpnMplsLabel(const Agent *agent);
 
 private:
 

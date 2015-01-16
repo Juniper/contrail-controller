@@ -43,7 +43,7 @@ class ProvisionVgwInterface(object):
                 file.write("1")
 
             vif_command = '/usr/bin/vif --create ' + self._args.interface
-            vif_command += ' --mac 00:01:00:5e:00:00'
+            vif_command += ' --mac 00:00:5e:00:01:00'
             self.execute_command(vif_command)
 
             ifconfig_command = 'ifconfig ' + self._args.interface + ' up'

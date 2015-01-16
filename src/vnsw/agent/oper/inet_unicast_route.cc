@@ -1397,7 +1397,8 @@ InetUnicastAgentRouteTable::AddGatewayRouteReq(const Peer *peer,
 void
 InetUnicastAgentRouteTable::AddIpamSubnetRoute(const string &vrf_name,
                                                const IpAddress &dst_addr,
-                                               uint8_t plen) {
+                                               uint8_t plen,
+                                               const string &vn_name) {
     Agent *agent_ptr = agent();
     AgentRouteTable *table = NULL;
     if (dst_addr.is_v4()) {
@@ -1415,7 +1416,7 @@ InetUnicastAgentRouteTable::AddIpamSubnetRoute(const string &vrf_name,
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(new InetUnicastRouteKey(agent_ptr->local_peer(),
                                             vrf_name, dst_addr, plen));
-    req.data.reset(new IpamSubnetRoute(dscd_nh_req));
+    req.data.reset(new IpamSubnetRoute(dscd_nh_req, vn_name));
     if (table) {
         table->Process(req);
     }

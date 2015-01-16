@@ -136,6 +136,26 @@ private:
 };
 
 /////////////////////////////////////////////////////////////////////////////
+//   Task control nodes
+/////////////////////////////////////////////////////////////////////////////
+class AgentUtXmlTask : public AgentUtXmlNode {
+public:
+    AgentUtXmlTask(const pugi::xml_node &node, AgentUtXmlTestCase *test_case);
+    virtual ~AgentUtXmlTask();
+
+    virtual bool ReadXml();
+    virtual bool ToXml(pugi::xml_node *parent);
+    virtual std::string NodeType();
+    virtual void ToString(std::string *str);
+    virtual bool Run();
+
+private:
+    pugi::xml_node xml_;
+    std::string stop_;
+    DISALLOW_COPY_AND_ASSIGN(AgentUtXmlTask);
+};
+
+/////////////////////////////////////////////////////////////////////////////
 //   Link nodes
 /////////////////////////////////////////////////////////////////////////////
 class AgentUtXmlLink : public AgentUtXmlNode {

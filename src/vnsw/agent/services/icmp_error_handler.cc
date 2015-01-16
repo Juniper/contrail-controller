@@ -89,9 +89,10 @@ bool IcmpErrorHandler::SendIcmpError(VmInterface *intf) {
                   MacAddress(pkt_info_->eth->ether_shost),
                   ETHERTYPE_IP, intf->tx_vlan_id());
 
-    uint16_t ip_len = sizeof(struct ip) + sizeof(struct icmp) + data_len;
+    uint16_t icmp_len = ICMP_UNREACH_HDR_LEN;
+    uint16_t ip_len = sizeof(struct ip) + icmp_len + data_len;
     len += IpHdr(ptr + len, buf_len - len, ip_len,
-            ipam->default_gw.to_v4().to_ulong(),
+            htonl(ipam->default_gw.to_v4().to_ulong()),
             htonl(src_ip), IPPROTO_ICMP, DEFAULT_IP_ID, DEFAULT_IP_TTL);
 
     char *icmp = ptr + len;
@@ -106,6 +107,7 @@ bool IcmpErrorHandler::SendIcmpError(VmInterface *intf) {
 
         ip->ip_src.s_addr = htonl(key.src_addr.to_v4().to_ulong());
         ip->ip_dst.s_addr = htonl(key.dst_addr.to_v4().to_ulong());
+        ip->ip_sum = 0;
         ip->ip_sum = Csum((uint16_t *)data, ip_hlen, 0);
         if (ip->ip_p == IPPROTO_UDP) {
             udphdr *udp = (udphdr *)(data + ip_hlen);
@@ -119,7 +121,7 @@ bool IcmpErrorHandler::SendIcmpError(VmInterface *intf) {
     }
     memcpy(ptr + len, data, data_len);
     len += data_len;
-    IcmpChecksum(icmp, sizeof(struct icmp) + data_len);
+    IcmpChecksum(icmp, icmp_len + data_len);
     pkt_info_->set_len(len);
 
     Send(GetInterfaceIndex(), pkt_info_->vrf, AgentHdr::TX_SWITCH,

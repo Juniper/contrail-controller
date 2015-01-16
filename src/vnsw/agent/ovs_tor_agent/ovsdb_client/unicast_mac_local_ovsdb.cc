@@ -122,6 +122,10 @@ void UnicastMacLocalOvsdb::Notify(OvsdbClientIdl::Op op,
     if (ls_name == NULL) {
         return;
     }
+
+    LogicalSwitchTable *l_table = client_idl_->logical_switch_table();
+    l_table->OvsdbUcastLocalMacNotify(op, row);
+
     UnicastMacLocalEntry key(this, row);
     UnicastMacLocalEntry *entry =
         static_cast<UnicastMacLocalEntry *>(FindActiveEntry(&key));

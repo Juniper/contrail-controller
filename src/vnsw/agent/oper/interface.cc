@@ -544,6 +544,34 @@ void InterfaceTable::AuditDhcpSnoopTable() {
 /////////////////////////////////////////////////////////////////////////////
 // Sandesh routines
 /////////////////////////////////////////////////////////////////////////////
+static string DeviceTypeToString(VmInterface::DeviceType type) {
+    if (type == VmInterface::LOCAL_DEVICE) {
+        return "Gateway";
+    } else if (type == VmInterface::TOR) {
+        return "TOR";
+    } else if (type == VmInterface::VM_ON_TAP) {
+        return "Tap";
+    } else if (type == VmInterface::VM_VLAN_ON_VMI) {
+        return "VMI vlan-sub-if";
+    }
+    return "Invalid";
+}
+
+static string VmiTypeToString(VmInterface::VmiType type) {
+    if (type == VmInterface::INSTANCE) {
+        return "Virtual Machine";
+    } else if (type == VmInterface::SERVICE_CHAIN) {
+        return "Service Chain";
+    } else if (type == VmInterface::SERVICE_INSTANCE) {
+        return "Service Instance";
+    } else if (type == VmInterface::BAREMETAL) {
+        return "Baremetal";
+    } else if (type == VmInterface::GATEWAY) {
+        return "Gateway";
+    }
+    return "Invalid";
+}
+
 void Interface::SetItfSandeshData(ItfSandeshData &data) const {
     data.set_index(id_);
     data.set_name(name_);
@@ -592,8 +620,18 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
     switch (type_) {
     case Interface::PHYSICAL:
         data.set_type("eth");
-        // data.set_policy("Enable");
         break;
+
+    case Interface::REMOTE_PHYSICAL:
+        data.set_type("remote-physical-port");
+        data.set_vrf_name("--NA--");
+        break;
+
+    case Interface::LOGICAL:
+        data.set_type("logical-port");
+        data.set_vrf_name("--NA--");
+        break;
+
     case Interface::VM_INTERFACE: {
         data.set_type("vport");
         const VmInterface *vintf = static_cast<const VmInterface *>(this);
@@ -628,11 +666,6 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
 
             if (vintf->vrf() == NULL) {
                 common_reason += "vrf-null ";
-            }
-
-            if (vintf->subnet().is_unspecified() &&
-                vintf->os_index() == Interface::kInvalidIndex) {
-                common_reason += "no-dev ";
             }
 
             if (vintf->NeedDevice()) {
@@ -785,15 +818,9 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
                 << (int)vintf->subnet_plen();
             data.set_subnet(str.str());
         }
-        if (vintf->sub_type() == VmInterface::GATEWAY) {
-            data.set_sub_type("Gateway");
-        } else if (vintf->sub_type() == VmInterface::TOR) {
-            data.set_sub_type("TOR");
-        } else if (vintf->sub_type() == VmInterface::NOVA) {
-             data.set_sub_type("Tap");
-        } else {
-            data.set_sub_type("None");
-        }
+
+        data.set_sub_type(DeviceTypeToString(vintf->device_type()));
+        data.set_vmi_type(VmiTypeToString(vintf->vmi_type()));
 
         if (vintf->vrf_assign_acl()) {
             std::string vrf_assign_acl;
@@ -869,4 +896,25 @@ bool Interface::ip_active(Address::Family family) const {
     else
         assert(0);
     return false;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Map of VMI-UUID to VmiType
+/////////////////////////////////////////////////////////////////////////////
+void InterfaceTable::AddVmiToVmiType(const boost::uuids::uuid &u, int type) {
+    vmi_to_vmitype_map_[u] = type;
+}
+
+int InterfaceTable::GetVmiToVmiType(const boost::uuids::uuid &u) {
+    InterfaceTable::VmiToVmiTypeMap::iterator it = vmi_to_vmitype_map_.find(u);
+    if (it == vmi_to_vmitype_map_.end())
+        return -1;
+    return it->second;
+}
+
+void InterfaceTable::DelVmiToVmiType(const boost::uuids::uuid &u) {
+    InterfaceTable::VmiToVmiTypeMap::iterator it = vmi_to_vmitype_map_.find(u);
+    if (it == vmi_to_vmitype_map_.end())
+        return;
+    vmi_to_vmitype_map_.erase(it);
 }

@@ -162,7 +162,7 @@ public:
 
     void AddOptions(const boost::program_options::options_description &opt);
     void ParseArguments(int argc, char *argv[]);
-    boost::program_options::variables_map var_map() const {
+    const boost::program_options::variables_map &var_map() const {
         return var_map_;
     }
 

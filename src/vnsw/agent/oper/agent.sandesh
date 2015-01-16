@@ -72,6 +72,7 @@ struct ItfSandeshData {
    40: optional string subnet;
    41: optional string sub_type;
    42: optional string vrf_assign_acl_uuid (link="AclReq"); //VRF assign acl
+   43: optional string vmi_type;
 }
 
 struct VnIpamData {
@@ -1014,6 +1015,22 @@ trace sandesh MulticastLog {
 trace sandesh OperVrf {
     1: string message;
     2: string vrf_name;
+}
+
+trace sandesh AgentRouteWalkerTrace {
+    1: string message;
+    2: "Walk Type:";
+    3: i32 walk_type;
+    4: "Vrf name:";
+    5: string vrf_name;
+    6: "VRF walkid:";
+    7: i32 vrf_walk_id;
+    8: "Route table Type:";
+    9: i32 route_table_type;
+   10: "Route table name:";
+   11: string route_table_name;
+   12: "Route Walk Id:";
+   13: i32 route_walk_id;
 }
 
 trace sandesh AgentDBWalkLog {

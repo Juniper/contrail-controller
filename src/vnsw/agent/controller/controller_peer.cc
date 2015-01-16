@@ -1738,6 +1738,7 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
     } else {
         rstr << route->GetAddressString();
     }
+
     item.entry.nlri.mac = rstr.str();
 
     const AgentPath *active_path = NULL;

@@ -371,6 +371,12 @@ bool EvpnDerivedPathData::AddChangePath(Agent *agent, AgentPath *path,
         ret = true;
     }
 
+    uint32_t tunnel_bmap = reference_path_->tunnel_bmap();
+    if (evpn_path->tunnel_bmap() != tunnel_bmap) {
+        evpn_path->set_tunnel_bmap(tunnel_bmap);
+        ret = true;
+    }
+
     TunnelType::Type tunnel_type = reference_path_->tunnel_type();
     if (evpn_path->tunnel_type() != tunnel_type) {
         evpn_path->set_tunnel_type(tunnel_type);
@@ -720,6 +726,15 @@ bool ResolveRoute::AddChangePath(Agent *agent, AgentPath *path,
         ret = true;
     }
 
+    //By default resolve route on gateway interface
+    //is supported with MPLSoGRE or MplsoUdp port
+    path->set_tunnel_bmap(TunnelType::MplsType());
+    TunnelType::Type new_tunnel_type =
+        TunnelType::ComputeType(TunnelType::MplsType());
+    if (path->tunnel_type() != new_tunnel_type) {
+        path->set_tunnel_type(new_tunnel_type);
+    }
+
     if (path->ChangeNH(agent, nh) == true)
         ret = true;
 
@@ -838,7 +853,9 @@ bool PathPreferenceData::AddChangePath(Agent *agent, AgentPath *path,
 }
 
 // Subnet Route route data
-IpamSubnetRoute::IpamSubnetRoute(DBRequest &nh_req) : AgentRouteData(false) {
+IpamSubnetRoute::IpamSubnetRoute(DBRequest &nh_req,
+                                 const std::string &dest_vn_name) :
+    AgentRouteData(false), dest_vn_name_(dest_vn_name) {
     nh_req_.Swap(&nh_req);
 }
 
@@ -855,6 +872,11 @@ bool IpamSubnetRoute::AddChangePath(Agent *agent, AgentPath *path,
         ret = true;
     }
     path->set_is_subnet_discard(true);
+
+    if (path->dest_vn_name() != dest_vn_name_) {
+        path->set_dest_vn_name(dest_vn_name_);
+        ret = true;
+    }
 
     //Resync of subnet route is needed for identifying if arp flood flag
     //needs to be enabled for all the smaller subnets present w.r.t. this subnet
