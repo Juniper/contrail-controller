@@ -166,8 +166,8 @@ void VrfEntry::PostAdd() {
         Interface *intf = static_cast<Interface *>
             (agent->interface_table()->FindActiveEntry(&key));
         if (intf) {
-             l2_table->AddEvpnReceiveRoute(agent->local_vm_peer(), name_, 0,
-                                           intf->mac(), "");
+             l2_table->AddBridgeReceiveRoute(agent->local_vm_peer(), name_, 0,
+                                             intf->mac(), "");
         }
     }
 
@@ -402,7 +402,7 @@ bool VrfTable::Delete(DBEntry *entry, const DBRequest *req) {
             (agent()->interface_table()->FindActiveEntry(&key));
         if (intf) {
              l2_table->Delete(agent()->local_vm_peer(), vrf->GetName(),
-                              intf->mac(), IpAddress(), 0);
+                              intf->mac(), 0);
         }
     }
 
