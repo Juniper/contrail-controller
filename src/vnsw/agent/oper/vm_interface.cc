@@ -951,7 +951,7 @@ void VmInterface::UpdateL2(bool old_l2_active, VrfEntry *old_vrf,
                            bool force_update, bool policy_change,
                            const Ip4Address &old_v4_addr,
                            const Ip6Address &old_v6_addr) {
-    if (GetVmInterfaceSubType() == VmInterface::TOR)
+    if (sub_type() == VmInterface::TOR)
         return;
 
     UpdateVxLan();

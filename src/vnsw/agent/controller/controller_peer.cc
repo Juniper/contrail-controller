@@ -1731,7 +1731,7 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
     item.entry.nlri.af = BgpAf::L2Vpn;
     item.entry.nlri.safi = BgpAf::Enet;
     stringstream rstr;
-    rstr << route->GetAddressString();
+    rstr << route->ToString();
     item.entry.nlri.mac = rstr.str();
 
     const AgentPath *active_path = NULL;
