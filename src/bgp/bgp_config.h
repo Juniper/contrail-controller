@@ -88,7 +88,7 @@ public:
     const std::string &uuid() const { return uuid_; }
     as_t local_as() const { return (as_t) local_as_; }
     const std::string local_identifier() const { return local_identifier_; }
-    as_t peer_as() const { return (as_t) peer_config_.autonomous_system; }
+    as_t peer_as() const;
     std::string peer_address() const { return peer_config_.address; }
     const std::string &vendor() const { return peer_config_.vendor; }
     const autogen::BgpRouterParams &peer_config() const { return peer_config_; }

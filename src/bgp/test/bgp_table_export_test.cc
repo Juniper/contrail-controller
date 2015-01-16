@@ -119,7 +119,13 @@ class BgpTableExportTest : public ::testing::Test {
 protected:
 
     BgpTableExportTest()
-        : server_(&evm_, "Local") {
+        : server_(&evm_, "Local"),
+          internal_(false),
+          local_as_is_different_(false),
+          table_name_(NULL),
+          table_(NULL),
+          ribout_(NULL),
+          result_(false) {
         server_.set_autonomous_system(200);
         active_peerset_.set(1);
         active_peerset_.set(3);
@@ -129,7 +135,14 @@ protected:
     virtual void SetUp() {
         std::cout << "Table: " << table_name_
                 << " Source: " << (internal_ ? "IBGP" : "EBGP")
+                << " Local AS: " << (local_as_is_different_ ? 201 : 200)
                 << std::endl;
+
+        if (local_as_is_different_) {
+            server_.set_local_autonomous_system(201);
+        } else {
+            server_.set_local_autonomous_system(200);
+        }
 
         CreatePeer();
         CreateAttr();
@@ -145,6 +158,10 @@ protected:
 
     as_t AsNumber() {
         return server_.autonomous_system();
+    }
+
+    as_t LocalAsNumber() {
+        return server_.local_autonomous_system();
     }
 
     bool PeerIsInternal() {
@@ -295,7 +312,10 @@ protected:
         const BgpAttr *attr = uinfo.roattr.attr();
         const AsPath *as_path = attr->as_path();
         as_t my_as = server_.autonomous_system();
-        EXPECT_TRUE(as_path->path().AsLeftMostMatch(my_as));
+        as_t my_local_as = server_.local_autonomous_system();
+        EXPECT_TRUE(as_path->path().AsLeftMostMatch(my_local_as));
+        if (my_as != my_local_as)
+            EXPECT_FALSE(as_path->path().AsLeftMostMatch(my_as));
     }
 
     void VerifyAttrNoAsPrepend() {
@@ -303,7 +323,9 @@ protected:
         const BgpAttr *attr = uinfo.roattr.attr();
         const AsPath *as_path = attr->as_path();
         as_t my_as = server_.autonomous_system();
+        as_t my_local_as = server_.local_autonomous_system();
         EXPECT_FALSE(as_path->path().AsLeftMostMatch(my_as));
+        EXPECT_FALSE(as_path->path().AsLeftMostMatch(my_local_as));
     }
 
     void VerifyAttrExtCommunity(bool is_null) {
@@ -317,6 +339,7 @@ protected:
     SchedulingGroupManager mgr_;
 
     bool internal_;
+    bool local_as_is_different_;
     const char *table_name_;
 
     BgpTable *table_;
@@ -331,9 +354,9 @@ protected:
 
 };
 
-// Parameterize table name and peer type.
+// Parameterize table name, peer type and local AS.
 
-typedef std::tr1::tuple<const char *, bool> TestParams1;
+typedef std::tr1::tuple<const char *, bool, bool> TestParams1;
 
 class BgpTableExportParamTest1 :
     public BgpTableExportTest,
@@ -342,6 +365,7 @@ class BgpTableExportParamTest1 :
     virtual void SetUp() {
         table_name_ = std::tr1::get<0>(GetParam());
         internal_ = std::tr1::get<1>(GetParam());
+        local_as_is_different_ = std::tr1::get<2>(GetParam());
         BgpTableExportTest::SetUp();
     }
 
@@ -357,7 +381,7 @@ class BgpTableExportParamTest1 :
 // Intent: Route without a best path is rejected.
 //
 TEST_P(BgpTableExportParamTest1, NoBestPath) {
-    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, AsNumber());
+    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, LocalAsNumber());
     RunExport();
     VerifyExportReject();
 }
@@ -369,7 +393,7 @@ TEST_P(BgpTableExportParamTest1, NoBestPath) {
 // Intent: Route with an infeasible best path is rejected.
 //
 TEST_P(BgpTableExportParamTest1, NoFeasiblePath) {
-    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, AsNumber());
+    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, LocalAsNumber());
     AddInfeasiblePath();
     RunExport();
     VerifyExportReject();
@@ -396,7 +420,7 @@ TEST_P(BgpTableExportParamTest1, CommunityNoAdvertise1) {
 // Intent: Route with NoAdvertise community is rejected for iBGP.
 //
 TEST_P(BgpTableExportParamTest1, CommunityNoAdvertise2) {
-    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, AsNumber());
+    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, LocalAsNumber());
     SetAttrCommunity(Community::NoAdvertise);
     AddPath();
     RunExport();
@@ -496,9 +520,10 @@ TEST_P(BgpTableExportParamTest1, AsPathLoop) {
 }
 
 INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest1,
-        ::testing::Combine(
-            ::testing::Values("inet.0", "bgp.l3vpn.0"),
-            ::testing::Bool()));
+    ::testing::Combine(
+        ::testing::Values("inet.0", "bgp.l3vpn.0"),
+        ::testing::Bool(),
+        ::testing::Bool()));
 
 // Parameterize table name and fix peer type to internal.
 
@@ -524,24 +549,27 @@ class BgpTableExportParamTest2 :
 // Intent: Split Horizon check rejects export.
 //
 TEST_P(BgpTableExportParamTest2, IBgpSplitHorizon) {
-    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, AsNumber());
+    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, LocalAsNumber());
     AddPath();
     RunExport();
     VerifyExportReject();
 }
 
 INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest2,
-        ::testing::Values("inet.0", "bgp.l3vpn.0"));
+    ::testing::Values("inet.0", "bgp.l3vpn.0"));
 
-// Parameterize table name and fix peer type to external.
+// Fix peer type to external and parameterize table name and local AS.
+
+typedef std::tr1::tuple<const char *, bool> TestParams3;
 
 class BgpTableExportParamTest3 :
     public BgpTableExportTest,
-    public ::testing::WithParamInterface<const char *> {
+    public ::testing::WithParamInterface<TestParams3> {
 
     virtual void SetUp() {
-        table_name_ = GetParam();
+        table_name_ = std::tr1::get<0>(GetParam());
         internal_ = false;
+        local_as_is_different_ = std::tr1::get<1>(GetParam());
         BgpTableExportTest::SetUp();
     }
 
@@ -557,7 +585,7 @@ class BgpTableExportParamTest3 :
 // Intent: Route with NoExport community is accepted for iBGP.
 //
 TEST_P(BgpTableExportParamTest3, CommunityNoExport) {
-    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, AsNumber());
+    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, LocalAsNumber());
     SetAttrCommunity(Community::NoExport);
     AddPath();
     RunExport();
@@ -571,7 +599,7 @@ TEST_P(BgpTableExportParamTest3, CommunityNoExport) {
 // Intent: Route with NoExportSubconfed community is accepted for iBGP.
 //
 TEST_P(BgpTableExportParamTest3, CommunityNoExportSubconfed) {
-    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, AsNumber());
+    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, LocalAsNumber());
     SetAttrCommunity(Community::NoExportSubconfed);
     AddPath();
     RunExport();
@@ -585,7 +613,7 @@ TEST_P(BgpTableExportParamTest3, CommunityNoExportSubconfed) {
 // Intent: LocalPref should be set to default value.
 //
 TEST_P(BgpTableExportParamTest3, IBgpLocalPref) {
-    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, AsNumber());
+    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, LocalAsNumber());
     AddPath();
     RunExport();
     VerifyAttrLocalPref(100);
@@ -601,7 +629,7 @@ TEST_P(BgpTableExportParamTest3, IBgpLocalPref) {
 // Note:   Current AsPath is non-NULL.
 //
 TEST_P(BgpTableExportParamTest3, IBgpNoAsPrepend1) {
-    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, AsNumber());
+    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, LocalAsNumber());
     AddPath();
     RunExport();
     VerifyExportAccept();
@@ -618,7 +646,7 @@ TEST_P(BgpTableExportParamTest3, IBgpNoAsPrepend1) {
 // Note:   Current AsPath is NULL.
 //
 TEST_P(BgpTableExportParamTest3, IBgpNoAsPrepend2) {
-    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, AsNumber());
+    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, LocalAsNumber());
     ResetAttrAsPath();
     AddPath();
     RunExport();
@@ -635,7 +663,7 @@ TEST_P(BgpTableExportParamTest3, IBgpNoAsPrepend2) {
 // Intent: LocalPref should not be overwritten if it's already set.
 //
 TEST_P(BgpTableExportParamTest3, IBgpNoOverwriteLocalPref) {
-    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, AsNumber());
+    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, LocalAsNumber());
     SetAttrLocalPref(50);
     AddPath();
     RunExport();
@@ -650,7 +678,7 @@ TEST_P(BgpTableExportParamTest3, IBgpNoOverwriteLocalPref) {
 // Intent: Med should not be overwritten.
 //
 TEST_P(BgpTableExportParamTest3, IBgpNoOverwriteMed) {
-    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, AsNumber());
+    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, LocalAsNumber());
     AddPath();
     RunExport();
     VerifyExportAccept();
@@ -658,17 +686,22 @@ TEST_P(BgpTableExportParamTest3, IBgpNoOverwriteMed) {
 }
 
 INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest3,
-        ::testing::Values("inet.0", "bgp.l3vpn.0"));
+    ::testing::Combine(
+        ::testing::Values("inet.0", "bgp.l3vpn.0"),
+        ::testing::Bool()));
 
-// Parameterize peer type and fix table name to inet.0.
+// Fix table name to inet.0 and parameterize peer type and local AS.
+
+typedef std::tr1::tuple<bool, bool> TestParams4a;
 
 class BgpTableExportParamTest4a :
     public BgpTableExportTest,
-    public ::testing::WithParamInterface<bool> {
+    public ::testing::WithParamInterface<TestParams4a> {
 
     virtual void SetUp() {
         table_name_ = "inet.0";
-        internal_ = GetParam();
+        internal_ = std::tr1::get<0>(GetParam());
+        local_as_is_different_ = std::tr1::get<1>(GetParam());
         BgpTableExportTest::SetUp();
     }
 
@@ -699,7 +732,7 @@ TEST_P(BgpTableExportParamTest4a, StripExtendedCommunity1) {
 // Intent: Extended communities are stripped on export.
 //
 TEST_P(BgpTableExportParamTest4a, StripExtendedCommunity2) {
-    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, AsNumber());
+    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, LocalAsNumber());
     SetAttrExtCommunity(12345);
     AddPath();
     RunExport();
@@ -712,7 +745,9 @@ TEST_P(BgpTableExportParamTest4a, StripExtendedCommunity2) {
 }
 
 INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest4a,
-            ::testing::Bool());
+    ::testing::Combine(
+        ::testing::Bool(),
+        ::testing::Bool()));
 
 // Parameterize peer type and fix table name to inet.0.
 // RibOut encoding is XMPP.
@@ -791,15 +826,18 @@ TEST_P(BgpTableExportParamTest4b, CommunityNoExportSubconfed) {
 INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest4b,
             ::testing::Bool());
 
-// Parameterize peer type and fix table name to bgp.l3vpn.0.
+// Fix table name to bgp.l3vpn.0 and parameterize peer type and local AS.
+
+typedef std::tr1::tuple<bool, bool> TestParams5;
 
 class BgpTableExportParamTest5 :
     public BgpTableExportTest,
-    public ::testing::WithParamInterface<bool> {
+    public ::testing::WithParamInterface<TestParams5> {
 
     virtual void SetUp() {
         table_name_ = "bgp.l3vpn.0";
-        internal_ = GetParam();
+        internal_ = std::tr1::get<0>(GetParam());
+        local_as_is_different_ = std::tr1::get<1>(GetParam());
         BgpTableExportTest::SetUp();
     }
 
@@ -830,7 +868,7 @@ TEST_P(BgpTableExportParamTest5, NoStripExtendedCommunity1) {
 // Intent: Extended communities are not stripped on export.
 //
 TEST_P(BgpTableExportParamTest5, NoStripExtendedCommunity2) {
-    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, AsNumber());
+    CreateRibOut(BgpProto::IBGP, RibExportPolicy::BGP, LocalAsNumber());
     SetAttrExtCommunity(12345);
     AddPath();
     RunExport();
@@ -843,7 +881,9 @@ TEST_P(BgpTableExportParamTest5, NoStripExtendedCommunity2) {
 }
 
 INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest5,
-            ::testing::Bool());
+    ::testing::Combine(
+        ::testing::Bool(),
+        ::testing::Bool()));
 
 static void SetUp() {
     bgp_log_test::init();

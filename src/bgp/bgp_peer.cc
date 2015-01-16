@@ -687,11 +687,8 @@ void BgpPeer::RegisterAllTables() {
 }
 
 void BgpPeer::SendOpen(TcpSession *session) {
-    BgpSessionManager *session_mgr = 
-        static_cast<BgpSessionManager *>(session->server());
-    BgpServer *server = session_mgr->server();
     BgpProto::OpenMessage openmsg;
-    openmsg.as_num = server->autonomous_system();
+    openmsg.as_num = local_as_;
     openmsg.holdtime = state_machine_->GetConfiguredHoldTime();
     openmsg.identifier = local_bgp_id_;
     static const uint8_t cap_mp[6][4] = {
@@ -941,8 +938,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
         }
 
         // Check for AS_PATH loop
-        if (path_attr->as_path()->path().AsPathLoop(
-                server_->autonomous_system())) {
+        if (path_attr->as_path()->path().AsPathLoop(local_as_)) {
             flags |= BgpPath::AsPathLooped;
         }
     }

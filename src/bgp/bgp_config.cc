@@ -281,7 +281,11 @@ BgpNeighborConfig::BgpNeighborConfig(const BgpInstanceConfig *instance,
     if (protocol && protocol->bgp_router()) {
         const autogen::BgpRouterParams &params = protocol->router_params();
         local_identifier_ = params.identifier;
-        local_as_ = params.autonomous_system;
+        if (params.local_autonomous_system) {
+            local_as_ = params.local_autonomous_system;
+        } else {
+            local_as_ = params.autonomous_system;
+        }
     }
 }
 
@@ -345,6 +349,17 @@ BgpNeighborConfig::address_families() const {
     }
 
     return default_addr_family_list_;
+}
+
+//
+// Get the peer AS for the BgpNeighborConfig.
+//
+as_t BgpNeighborConfig::peer_as() const {
+    if (peer_config_.local_autonomous_system) {
+        return peer_config_.local_autonomous_system;
+    } else {
+        return peer_config_.autonomous_system;
+    }
 }
 
 // TODO: compare peer_config_ and attributes_
