@@ -1041,6 +1041,8 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
         DeleteL2(old_l2_active, old_vrf, old_ethernet_tag, old_addr, old_v6_addr);
     }
 
+    UpdateFlowKeyNextHop();
+
     // Remove floating-ip entries marked for deletion
     CleanupFloatingIpList();
 
@@ -1832,6 +1834,26 @@ void VmInterface::UpdateMulticastNextHop(bool old_ipv4_active,
     }
 }
 
+void VmInterface::UpdateFlowKeyNextHop() {
+    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+    Agent *agent = table->agent();
+
+    if (ipv4_active_ || ipv6_active_) {
+        InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                              GetUuid(), ""), true,
+                                              InterfaceNHFlags::INET4);
+        flow_key_nh_ = static_cast<const NextHop *>(
+                agent->nexthop_table()->FindActiveEntry(&key));
+        return;
+    }
+
+    InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                          GetUuid(), ""), true,
+                                          InterfaceNHFlags::BRIDGE);
+    flow_key_nh_ = static_cast<const NextHop *>(
+            agent->nexthop_table()->FindActiveEntry(&key));
+}
+
 void VmInterface::UpdateL2NextHop(bool old_l2_active) {
     if (L2Activated(old_l2_active)) {
         InterfaceNH::CreateL2VmInterfaceNH(GetUuid(),
@@ -1845,17 +1867,8 @@ void VmInterface::UpdateL3NextHop(bool old_ipv4_active, bool old_ipv6_active) {
         return;
     }
     if (Ipv4Activated(old_ipv4_active) || Ipv6Activated(old_ipv6_active)) {
-        InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
-        Agent *agent = table->agent();
-
         InterfaceNH::CreateL3VmInterfaceNH(GetUuid(),
                                            MacAddress::FromString(vm_mac_), vrf_->GetName());
-        InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
-                                              GetUuid(), ""), true,
-                                              InterfaceNHFlags::INET4);
-        flow_key_nh_ = static_cast<const NextHop *>(
-                agent->nexthop_table()->FindActiveEntry(&key));
-        assert(flow_key_nh_);
     }
 }
 
@@ -1869,7 +1882,6 @@ void VmInterface::DeleteL3NextHop(bool old_ipv4_active, bool old_ipv6_active) {
     if (Ipv4Deactivated(old_ipv4_active) || Ipv6Deactivated(old_ipv6_active)) {
         if (!ipv4_active_ && !ipv6_active_) {
             InterfaceNH::DeleteL3InterfaceNH(GetUuid());
-            flow_key_nh_ = NULL;
         }
     }
 }
