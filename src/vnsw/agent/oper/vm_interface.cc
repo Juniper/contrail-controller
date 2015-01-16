@@ -1840,7 +1840,23 @@ void VmInterface::UpdateL2NextHop(bool old_l2_active) {
         InterfaceNH::CreateL2VmInterfaceNH(GetUuid(),
                                            MacAddress::FromString(vm_mac_),
                                            vrf_->GetName());
+        // update flow_key_nh_ when l3 is not active
+        if (ipv4_active_ || ipv6_active_)
+            return;
+
+        UpdateL2FlowKeyNextHop();
     }
+}
+
+void VmInterface::UpdateL2FlowKeyNextHop() {
+    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+    Agent *agent = table->agent();
+    InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                          GetUuid(), ""), true,
+                                          InterfaceNHFlags::BRIDGE);
+    flow_key_nh_ = static_cast<const NextHop *>(
+            agent->nexthop_table()->FindActiveEntry(&key));
+    assert(flow_key_nh_);
 }
 
 void VmInterface::UpdateL3NextHop(bool old_ipv4_active, bool old_ipv6_active) {
@@ -1873,6 +1889,9 @@ void VmInterface::DeleteL3NextHop(bool old_ipv4_active, bool old_ipv6_active) {
         if (!ipv4_active_ && !ipv6_active_) {
             InterfaceNH::DeleteL3InterfaceNH(GetUuid());
             flow_key_nh_ = NULL;
+            if (l2_active_) {
+                UpdateL2FlowKeyNextHop();
+            }
         }
     }
 }
