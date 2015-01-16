@@ -23,6 +23,7 @@ import fixtures
 import socket
 from utils.analytics_fixture import AnalyticsFixture
 from mockcassandra import mockcassandra
+from mockredis import mockredis
 import logging
 from pysandesh.util import UTCTimestampUsec
 
@@ -43,6 +44,9 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         cls.cassandra_port = AnalyticsDbTest.get_free_port()
         mockcassandra.start_cassandra(cls.cassandra_port)
+        cls.redis_port = AnalyticsDbTest.get_free_port()
+        mockredis.start_redis(
+            cls.redis_port, builddir+'/testroot/bin/redis-server')
 
     @classmethod
     def tearDownClass(cls):
@@ -50,6 +54,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
             return
 
         mockcassandra.stop_cassandra(cls.cassandra_port)
+        mockredis.stop_redis(cls.redis_port)
         pass
 
     def test_00_database_purge_query(self):
@@ -64,8 +69,8 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
             return True
 
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging,
-                             builddir,
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.redis_port,
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
