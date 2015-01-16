@@ -430,7 +430,7 @@ void MulticastHandler::ModifyVmInterface(DBTablePartBase *partition,
     }
 
     vm_itf = static_cast<const VmInterface *>(intf);
-    if (vm_itf->sub_type() == VmInterface::TOR) {
+    if (vm_itf->device_type() == VmInterface::TOR) {
         //Ignore TOR VMI, they are not active VMI.
         return;
     }

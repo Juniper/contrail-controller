@@ -221,7 +221,7 @@ static bool IsGatewayOrServiceInterface(const NextHop *nh) {
 
     if (vmi->HasServiceVlan())
         return true;
-    if (vmi->sub_type() == VmInterface::GATEWAY)
+    if (vmi->device_type() == VmInterface::LOCAL_DEVICE)
         return true;
 
     return false;
