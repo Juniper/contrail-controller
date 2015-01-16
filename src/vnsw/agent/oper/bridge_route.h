@@ -79,7 +79,7 @@ public:
     virtual const std::string GetAddressString() const {
         //For multicast use the same tree as of 255.255.255.255
         if (is_multicast())
-            return "255.255.255.255";
+            return "ff:ff:ff:ff:ff:ff";
         return ToString();
     }
     virtual Agent::RouteTableType GetTableType() const {

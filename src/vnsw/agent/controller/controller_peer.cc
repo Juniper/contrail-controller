@@ -1876,7 +1876,10 @@ bool AgentXmppChannel::ControllerSendMcastRouteCommon(AgentRoute *route,
 
     item.entry.nlri.af = BgpAf::IPv4;
     item.entry.nlri.safi = BgpAf::Mcast;
-    item.entry.nlri.group = route->GetAddressString();
+    //Assumption is only 255.255.255.255 is used for multicast.
+    //TODO modify if any more multicast addresses are supported.
+    //item.entry.nlri.group = route->GetAddressString();
+    item.entry.nlri.group = "255.255.255.255";
     item.entry.nlri.source = "0.0.0.0";
 
     autogen::McastNextHopType item_nexthop;
