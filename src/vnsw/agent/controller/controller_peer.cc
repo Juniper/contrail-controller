@@ -1731,7 +1731,14 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
     item.entry.nlri.af = BgpAf::L2Vpn;
     item.entry.nlri.safi = BgpAf::Enet;
     stringstream rstr;
-    rstr << route->GetAddressString();
+    if ((route->GetTableType() == Agent::BRIDGE) &&
+               (route->is_multicast())) {
+        //For bridge we expect only multicast route to send subscription
+        rstr << route->ToString();
+    } else {
+        rstr << route->GetAddressString();
+    }
+
     item.entry.nlri.mac = rstr.str();
 
     const AgentPath *active_path = NULL;
