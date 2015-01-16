@@ -510,6 +510,7 @@ private:
     void UpdateMulticastNextHop(bool old_ipv4_active, bool old_l2_active);
     void DeleteMulticastNextHop();
     void UpdateL2NextHop(bool old_l2_active);
+    void UpdateL2FlowKeyNextHop();
     void DeleteL2NextHop(bool old_l2_active);
     void UpdateL3NextHop(bool old_ipv4_active, bool old_ipv6_active);
     void DeleteL3NextHop(bool old_ipv4_active, bool old_ipv6_active);
