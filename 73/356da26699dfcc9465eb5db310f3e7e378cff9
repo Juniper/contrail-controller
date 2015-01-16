@@ -1,0 +1,10 @@
+Code-Review+1: opencontrail-admin <ci-admin@opencontrail.org>
+Verified+2: opencontrail-admin <ci-admin@opencontrail.org>
+Verified+2: Zuul <zuul@lists.opencontrail.org>
+Approved+1: Tapan Karwa <tkarwa@juniper.net>
+Code-Review+2: Tapan Karwa <tkarwa@juniper.net>
+Submitted-by: Zuul <zuul@lists.opencontrail.org>
+Submitted-at: Fri, 16 Jan 2015 02:38:42 -0800
+Reviewed-on: https://review.opencontrail.org/6241
+Project: Juniper/contrail-controller
+Branch: refs/heads/R2.1
