@@ -1045,6 +1045,14 @@ bool RouteFindV6(const string &vrf_name, const string &addr, int plen) {
     return RouteFindV6(vrf_name, Ip6Address::from_string(addr), plen);
 }
 
+bool EvpnRouteFind(const string &vrf_name, const MacAddress &mac,
+                 const IpAddress &ip_addr, uint32_t ethernet_tag) {
+    EvpnRouteEntry *route =
+        EvpnAgentRouteTable::FindRoute(Agent::GetInstance(), vrf_name, mac,
+                                       ip_addr, ethernet_tag);
+    return (route != NULL);
+}
+
 bool L2RouteFind(const string &vrf_name, const MacAddress &mac,
                  const IpAddress &ip_addr) {
     BridgeRouteEntry *route =
@@ -1094,6 +1102,21 @@ bool MCRouteFind(const string &vrf_name, const string &grp_addr) {
 
 }
 
+EvpnRouteEntry *EvpnRouteGet(const string &vrf_name, const MacAddress &mac,
+                             const IpAddress &ip_addr, uint32_t ethernet_tag) {
+    Agent *agent = Agent::GetInstance();
+    VrfEntry *vrf = agent->vrf_table()->FindVrfFromName(vrf_name);
+    if (vrf == NULL)
+        return NULL;
+
+    EvpnRouteKey key(agent->local_vm_peer(), vrf_name, mac, ip_addr, ethernet_tag);
+    EvpnRouteEntry *route =
+        static_cast<EvpnRouteEntry *>
+        (static_cast<EvpnAgentRouteTable *>(vrf->
+             GetEvpnRouteTable())->FindActiveEntry(&key));
+    return route;
+}
+
 BridgeRouteEntry *L2RouteGet(const string &vrf_name, const MacAddress &mac,
                              const IpAddress &ip_addr) {
     Agent *agent = Agent::GetInstance();
@@ -1101,7 +1124,7 @@ BridgeRouteEntry *L2RouteGet(const string &vrf_name, const MacAddress &mac,
     if (vrf == NULL)
         return NULL;
 
-    BridgeRouteKey key(agent->local_vm_peer(), vrf_name, mac);
+    BridgeRouteKey key(agent->evpn_peer(), vrf_name, mac);
     BridgeRouteEntry *route =
         static_cast<BridgeRouteEntry *>
         (static_cast<BridgeAgentRouteTable *>(vrf->

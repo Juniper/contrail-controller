@@ -113,6 +113,11 @@ protected:
     }
 
     virtual void TearDown() {
+        VrfDelReq(vrf_name_.c_str());
+        client->WaitForIdle();
+        WAIT_FOR(100, 100, (VrfFind(vrf_name_.c_str()) != true));
+        WAIT_FOR(1000, 1000, agent_->vrf_table()->Size() == 1);
+
         TestRouteTable table1(1);
         WAIT_FOR(100, 100, (table1.Size() == 0));
         EXPECT_EQ(table1.Size(), 0U);
@@ -124,11 +129,6 @@ protected:
         TestRouteTable table3(3);
         WAIT_FOR(100, 100, (table3.Size() == 0));
         EXPECT_EQ(table3.Size(), 0U);
-
-        VrfDelReq(vrf_name_.c_str());
-        client->WaitForIdle();
-        WAIT_FOR(100, 100, (VrfFind(vrf_name_.c_str()) != true));
-        WAIT_FOR(1000, 1000, agent_->vrf_table()->Size() == 1);
     }
 
     void AddHostRoute(Ip4Address addr) {

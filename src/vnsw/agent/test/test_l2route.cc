@@ -115,6 +115,10 @@ protected:
     }
 
     virtual void TearDown() {
+        VrfDelReq(vrf_name_.c_str());
+        client->WaitForIdle();
+        WAIT_FOR(100, 100, (VrfFind(vrf_name_.c_str()) != true));
+
         TestRouteTable table1(1);
         WAIT_FOR(100, 100, (table1.Size() == 0));
         EXPECT_EQ(table1.Size(), 0U);
@@ -126,10 +130,6 @@ protected:
         TestRouteTable table3(3);
         WAIT_FOR(100, 100, (table3.Size() == 0));
         EXPECT_EQ(table3.Size(), 0U);
-
-        VrfDelReq(vrf_name_.c_str());
-        client->WaitForIdle();
-        WAIT_FOR(100, 100, (VrfFind(vrf_name_.c_str()) != true));
     }
 
     void AddRemoteVmRoute(MacAddress &remote_vm_mac, const IpAddress &ip_addr,
@@ -239,8 +239,12 @@ TEST_F(RouteTest, LocalVmRoute_1) {
     EXPECT_TRUE(obj != NULL);
     EXPECT_TRUE(obj->bridging() == true);
     WAIT_FOR(1000, 100,
-             (L2RouteFind(vrf_name_, local_vm_mac_, local_vm_ip4_) == true));
-    BridgeRouteEntry *rt = L2RouteGet(vrf_name_, local_vm_mac_, local_vm_ip4_);
+             (L2RouteFind(vrf_name_, local_vm_mac_, Ip4Address()) == true));
+    EvpnRouteEntry *evpn_rt = EvpnRouteGet(vrf_name_, local_vm_mac_,
+                                           Ip4Address(), 0);
+    EXPECT_TRUE(evpn_rt != NULL);
+    //BridgeRouteEntry *rt = L2RouteGet(vrf_name_, local_vm_mac_, local_vm_ip4_);
+    BridgeRouteEntry *rt = L2RouteGet(vrf_name_, local_vm_mac_, Ip4Address());
     EXPECT_TRUE(rt->GetActiveNextHop() != NULL);
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(rt->dest_vn_name() == "vn1");
@@ -274,6 +278,8 @@ TEST_F(RouteTest, LocalVmRoute_2) {
     client->WaitForIdle();
 
     WAIT_FOR(1000, 100, (VmPortActive(input, 0) == true));
+    EvpnRouteEntry *evpn_rt = EvpnRouteGet(vrf_name_, local_vm_mac_, local_vm_ip4_, 0);
+    EXPECT_TRUE(evpn_rt->ip_addr() == local_vm_ip4_);
     EXPECT_TRUE(L2RouteFind(vrf_name_, local_vm_mac_, local_vm_ip4_));
     BridgeRouteEntry *rt = L2RouteGet(vrf_name_, local_vm_mac_, local_vm_ip4_);
     EXPECT_TRUE(rt->GetActiveNextHop() != NULL);
@@ -535,7 +541,7 @@ TEST_F(RouteTest, Bridge_route_key) {
     client->WaitForIdle();
 }
 
-TEST_F(RouteTest, Sandesh_chaeck_with_invalid_vrf) {
+TEST_F(RouteTest, Sandesh_check_with_invalid_vrf) {
     BridgeRouteReq *l2_req = new BridgeRouteReq();
     std::vector<int> result = list_of(1);
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));

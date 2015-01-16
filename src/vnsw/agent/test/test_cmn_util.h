@@ -124,6 +124,8 @@ void DeleteRoute(const char *vrf, const char *ip, uint8_t plen);
 void DeleteRoute(const char *vrf, const char *ip);
 bool RouteFind(const string &vrf_name, const Ip4Address &addr, int plen);
 bool RouteFind(const string &vrf_name, const string &addr, int plen);
+bool EvpnRouteFind(const string &vrf_name, const MacAddress &mac,
+                   const IpAddress &ip, uint32_t ethernet_tag);
 bool L2RouteFind(const string &vrf_name, const MacAddress &mac);
 bool L2RouteFind(const string &vrf_name, const MacAddress &mac,
                  const IpAddress &ip);
@@ -139,6 +141,8 @@ InetUnicastRouteEntry *RouteGet(const string &vrf_name, const Ip4Address &addr, 
 InetUnicastRouteEntry *RouteGetV6(const string &vrf_name, const Ip6Address &addr, int plen);
 Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const Ip4Address &grp_addr);
 Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const string &grp_addr);
+EvpnRouteEntry *EvpnRouteGet(const string &vrf_name, const MacAddress &mac,
+                             const IpAddress &ip_addr, uint32_t ethernet_tag);
 BridgeRouteEntry *L2RouteGet(const string &vrf_name, const MacAddress &mac);
 BridgeRouteEntry *L2RouteGet(const string &vrf_name, const MacAddress &mac,
                              const IpAddress &ip_addr);

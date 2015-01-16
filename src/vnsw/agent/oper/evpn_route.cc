@@ -123,8 +123,6 @@ void EvpnAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                           const PathPreference &path_pref,
                                           uint32_t ethernet_tag) {
     assert(peer);
-    if (ip.is_unspecified())
-        return;
 
     Agent *agent = static_cast<AgentDBTable *>(intf->get_table())->agent();
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf->GetUuid(), "");
@@ -150,8 +148,6 @@ void EvpnAgentRouteTable::DelLocalVmRoute(const Peer *peer,
                                           const IpAddress &ip,
                                           uint32_t ethernet_tag) {
     assert(peer);
-    if (ip.is_unspecified())
-        return;
 
     Agent *agent = static_cast<AgentDBTable *>(intf->get_table())->agent();
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
