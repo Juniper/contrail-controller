@@ -34,6 +34,7 @@ public:
                         boost::system::error_code *error = NULL);
 
     bool IsBroadcast() const;
+    bool IsZero() const;
     int CompareTo(const MacAddress &rhs) const;
 
     bool operator==(const MacAddress *rhs) const {

@@ -153,7 +153,7 @@ void ArpDBState::SendArpRequestForAllIntf(const InetUnicastRouteEntry *route) {
             if (path->subnet_gw_ip() == Ip4Address(0)) {
                 return;
             }
-            const NextHop *nh = path->nexthop(vrf_state_->agent);
+            const NextHop *nh = path->ComputeNextHop(vrf_state_->agent);
             if (nh->GetType() != NextHop::INTERFACE) {
                 continue;
             }

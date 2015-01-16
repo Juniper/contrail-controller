@@ -74,6 +74,7 @@ AgentRouteTable::~AgentRouteTable() {
 const string &AgentRouteTable::GetSuffix(Agent::RouteTableType type) {
     static const string uc_suffix(".uc.route.0");
     static const string mc_suffix(".mc.route.0");
+    static const string evpn_suffix(".evpn.route.0");
     static const string l2_suffix(".l2.route.0");
     static const string uc_inet6_suffix(".uc.route6.0");
 
@@ -83,6 +84,8 @@ const string &AgentRouteTable::GetSuffix(Agent::RouteTableType type) {
     case Agent::INET4_MULTICAST:
         return mc_suffix;
     case Agent::EVPN:
+        return evpn_suffix;
+    case Agent::BRIDGE:
         return l2_suffix;
     case Agent::INET6_UNICAST:
         return uc_inet6_suffix;
@@ -245,6 +248,7 @@ void AgentRouteTable::DeletePathFromPeer(DBTablePartBase *part,
         RouteInfo rt_info_del;
         rt->FillTrace(rt_info_del, AgentRoute::DELETE, NULL);
         OPER_TRACE(Route, rt_info_del);
+        PreRouteDelete(rt);
         RemoveUnresolvedRoute(rt);
         rt->UpdateDependantRoutes();
         rt->ResyncTunnelNextHop();
@@ -253,6 +257,7 @@ void AgentRouteTable::DeletePathFromPeer(DBTablePartBase *part,
     } else {
         // Notify deletion of path. 
         part->Notify(rt);
+        UpdateDependants(rt);
     }
 }
 
@@ -358,7 +363,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
                                 GETPEERNAME(key->peer()));
             } else {
                 // RT present. Check if path is also present by peer
-                path = rt->FindPathUsingKey(key);
+                path = rt->FindPathUsingKeyData(key, data);
             }
 
             //Update route with information sent in data
@@ -368,7 +373,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
 
             // Allocate path if not yet present
             if (path == NULL) {
-                path = new AgentPath(key->peer(), rt);
+                path = data->CreateAgentPath(key->peer(), rt);
                 rt->InsertPath(path);
                 rt->ProcessPath(agent_, part, path, data);
                 notify = true;
@@ -414,7 +419,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
     } else if (req->oper == DBRequest::DB_ENTRY_DELETE) {
         assert (key->sub_op_ == AgentKey::ADD_DEL_CHANGE);
         if (rt)
-            rt->DeletePath(key, false);
+            rt->DeletePathUsingKeyData(key, data, false);
     } else {
         assert(0);
     }
@@ -436,6 +441,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
         part->Notify(rt);
         rt->UpdateDependantRoutes();
         rt->ResyncTunnelNextHop();
+        UpdateDependants(rt);
     }
 }
 
@@ -558,12 +564,15 @@ void AgentRoute::DeletePathInternal(AgentPath *path) {
 //extra checks other than peer check has to be done.
 //
 //Explicit route walker used for deleting paths will set force_delete as true.
-void AgentRoute::DeletePath(const AgentRouteKey *key, bool force_delete) {
-    AgentPath *peer_path = FindPath(key->peer());
+void AgentRoute::DeletePathUsingKeyData(const AgentRouteKey *key,
+                                        const AgentRouteData *data,
+                                        bool force_delete) {
+    AgentPath *peer_path = FindPathUsingKeyData(key, data);
     DeletePathInternal(peer_path);
 }
 
-AgentPath *AgentRoute::FindPathUsingKey(const AgentRouteKey *key) {
+AgentPath *AgentRoute::FindPathUsingKeyData(const AgentRouteKey *key,
+                                            const AgentRouteData *data) const {
     return FindPath(key->peer());
 }
 
@@ -604,7 +613,8 @@ const NextHop *AgentRoute::GetActiveNextHop() const {
     if (path == NULL)
         return NULL;
 
-    return path->nexthop(static_cast<AgentRouteTable *>(get_table())->agent());
+    return path->ComputeNextHop(static_cast<AgentRouteTable *>(get_table())->
+                            agent());
 }
 
 bool AgentRoute::IsRPFInvalid() const {
@@ -723,4 +733,9 @@ void AgentRouteTable::StalePathFromPeer(DBTablePartBase *part, AgentRoute *rt,
 bool AgentRoute::ProcessPath(Agent *agent, DBTablePartition *part,
                              AgentPath *path, AgentRouteData *data) {
     return data->AddChangePath(agent, path, this);
+}
+
+AgentPath *AgentRouteData::CreateAgentPath(const Peer *peer,
+                                           AgentRoute *rt) const {
+    return (new AgentPath(peer, rt));
 }

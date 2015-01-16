@@ -177,12 +177,12 @@ void ContrailInitCommon::CreateInterfaces() {
     // Add L2 Receive route for vhost. We normally add L2 Receive route on
     // VRF creation, but vhost is not present when fabric-vrf is created.
     // So, add it now
-    EvpnAgentRouteTable *l2_table = agent()->fabric_l2_unicast_table();
+    BridgeAgentRouteTable *l2_table = agent()->fabric_l2_unicast_table();
     const InetInterface *vhost = static_cast<const InetInterface *>
         (agent()->vhost_interface());
-    l2_table->AddEvpnReceiveRoute(agent()->local_vm_peer(),
-                                  agent()->fabric_vrf_name(), 0,
-                                  vhost->xconnect()->mac(), "");
+    l2_table->AddBridgeReceiveRoute(agent()->local_vm_peer(),
+                                    agent()->fabric_vrf_name(), 0,
+                                    vhost->xconnect()->mac(), "");
 
     agent()->InitXenLinkLocalIntf();
     if (agent_param()->isVmwareMode()) {

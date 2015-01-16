@@ -203,6 +203,14 @@ int VnEntry::GetVxLanId() const {
     }
 }
 
+int VnEntry::ComputeEthernetTag() const {
+    int vxlan_id = GetVxLanId();
+    if (TunnelType::ComputeType(TunnelType::AllType()) != TunnelType::VXLAN) {
+        return 0;
+    }
+    return vxlan_id;
+}
+
 void VnEntry::RebakeVxLan(int vxlan_id) {
     VxLanId::Create(vxlan_id, GetVrf()->GetName());
     VxLanId *vxlan_id_entry = NULL;
@@ -981,6 +989,7 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
         }
         data.set_ipam_host_routes(vn_ipam_host_routes_list);
         data.set_ipv4_forwarding(layer3_forwarding());
+        data.set_layer2_forwarding(bridging());
         data.set_bridging(bridging());
         data.set_admin_state(admin_state());
         data.set_enable_rpf(enable_rpf());

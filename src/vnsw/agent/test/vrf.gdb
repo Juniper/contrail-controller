@@ -114,8 +114,11 @@ define find_vrf_ref
        printf "Multicast DB Count : ", 
        get_table_count $__vrf->rt_table_db_[1]
        printf "\n"
-       printf "Evpn DB Count : ", 
+       printf "EVPN DB Count : ", 
        get_table_count $__vrf->rt_table_db_[2]
+       printf "\n"
+       printf "Bridge DB Count : ", 
+       get_table_count $__vrf->rt_table_db_[3]
        printf "\n"
        find_intf_vrf_ref $__vrf
        find_nh_vrf_ref $__vrf

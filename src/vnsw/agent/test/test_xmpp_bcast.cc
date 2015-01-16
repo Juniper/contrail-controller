@@ -693,7 +693,7 @@ protected:
         //verify presence of L2 broadcast route
         MacAddress broadcast_mac = MacAddress::BroadcastMac();
         EXPECT_TRUE(L2RouteFind("vrf1", broadcast_mac));
-        EvpnRouteEntry *rt_m = L2RouteGet("vrf1", broadcast_mac);
+        BridgeRouteEntry *rt_m = L2RouteGet("vrf1", broadcast_mac);
 
         int alloc_label = GetStartLabel();
         //Send All bcast route
@@ -1043,7 +1043,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_SessionDownUp) {
 
     //ensure route learnt via control-node is updated 
     EXPECT_TRUE((GetL2FloodRoute("vrf1") != NULL));
-    EvpnRouteEntry *rt_m = GetL2FloodRoute("vrf1");
+    BridgeRouteEntry *rt_m = GetL2FloodRoute("vrf1");
     NextHop *nh = const_cast<NextHop *>(rt_m->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
@@ -1093,7 +1093,7 @@ TEST_F(AgentXmppUnitTest, Test_mcast_peer_identifier) {
 	
     AddIPAM("vn1", ipam_info, 1);
     Ip4Address addr = Ip4Address::from_string("255.255.255.255");
-    EvpnRouteEntry *rt = GetL2FloodRoute("vrf1");
+    BridgeRouteEntry *rt = GetL2FloodRoute("vrf1");
     NextHop *nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     WAIT_FOR(1000, 10000, (nh != NULL));
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
@@ -1127,7 +1127,7 @@ TEST_F(AgentXmppUnitTest, Test_mcast_peer_identifier) {
 
     SendBcastRouteMessage(mock_peer.get(), "vrf1",
 			  "255.255.255.255", 9000, "127.0.0.1", 9012, 9013);
-    EvpnRouteEntry *mc_rt = GetL2FloodRoute("vrf1");
+    BridgeRouteEntry *mc_rt = GetL2FloodRoute("vrf1");
     EXPECT_TRUE(mc_rt != NULL);
     obj = MulticastHandler::GetInstance()->FindGroupObject("vrf1", addr);
     EXPECT_TRUE(obj != NULL);
@@ -1180,7 +1180,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_MultipleRetracts) {
     WAIT_FOR(1000, 1000, (Agent::GetInstance()->mpls_table()->Size() == 4));
 
     //ensure route learnt via control-node, path is updated 
-    EvpnRouteEntry *rt = GetL2FloodRoute("vrf1");
+    BridgeRouteEntry *rt = GetL2FloodRoute("vrf1");
 
     NextHop *nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);
@@ -1214,7 +1214,7 @@ TEST_F(AgentXmppUnitTest, Test_Update_Olist_Src_Label) {
 
     //Verify sub-nh count
     int alloc_label = GetStartLabel();
-    EvpnRouteEntry *rt = GetL2FloodRoute("vrf1");
+    BridgeRouteEntry *rt = GetL2FloodRoute("vrf1");
     NextHop *nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
@@ -1231,7 +1231,7 @@ TEST_F(AgentXmppUnitTest, Test_Update_Olist_Src_Label) {
     ASSERT_TRUE(Agent::GetInstance()->mpls_table()->Size() == 4);
 
     // Verify presence of all broadcast route in mcast table
-    EvpnRouteEntry *rt_m = GetL2FloodRoute("vrf1");
+    BridgeRouteEntry *rt_m = GetL2FloodRoute("vrf1");
     nh = const_cast<NextHop *>(rt_m->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
@@ -1297,7 +1297,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
     XmppConnectionSetUp(true);
 
     //Verify all-broadcast
-    EvpnRouteEntry *rt_m = GetL2FloodRoute("vrf1");
+    BridgeRouteEntry *rt_m = GetL2FloodRoute("vrf1");
     NextHop *nh = const_cast<NextHop *>(rt_m->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
@@ -1337,7 +1337,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
     intf_cnh = static_cast<const CompositeNH *>(cnh->GetNH(1));
     EXPECT_TRUE(intf_cnh->ComponentNHCount() == 2);
     //verify sub-nh list count ( 2 local-VMs + 2 members in olist )
-    EvpnRouteEntry *rt = GetL2FloodRoute("vrf1");
+    BridgeRouteEntry *rt = GetL2FloodRoute("vrf1");
     nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
@@ -1412,7 +1412,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change_with_same_label) {
 
     int alloc_label = GetStartLabel();
     //Verify all-broadcast
-    EvpnRouteEntry *rt_m = GetL2FloodRoute("vrf1");
+    BridgeRouteEntry *rt_m = GetL2FloodRoute("vrf1");
     NextHop *nh = const_cast<NextHop *>(rt_m->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
@@ -1522,7 +1522,7 @@ TEST_F(AgentXmppUnitTest, multicast_fabric_path_delete_on_vrf_delete) {
 
     int alloc_label = GetStartLabel();
     //Verify all-broadcast
-    EvpnRouteEntry *rt_m = GetL2FloodRoute("vrf1");
+    BridgeRouteEntry *rt_m = GetL2FloodRoute("vrf1");
     ASSERT_TRUE(rt_m != NULL);
     NextHop *nh = const_cast<NextHop *>(rt_m->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);

@@ -21,6 +21,8 @@ ArpHandler::~ArpHandler() {
 
 bool ArpHandler::Run() {
     // Process ARP only when the IP Fabric interface is configured
+    assert(agent());
+    assert(agent()->GetArpProto());
     if (agent()->GetArpProto()->ip_fabric_interface() == NULL) {
         delete pkt_info_->ipc;
         return true;
