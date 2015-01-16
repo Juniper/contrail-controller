@@ -7,6 +7,6 @@ import sys
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-install_files = [ 'port_manager' ]
+install_files = [ 'vrouter-port-control' ]
 
 env.Alias('install', env.Install(env['INSTALL_BIN'], install_files))
