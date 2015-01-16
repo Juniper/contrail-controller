@@ -73,6 +73,41 @@ TEST_F(VmwareTest, VmwarePhysicalPort_1) {
     EXPECT_TRUE(phy_intf->persistent() == false);
 }
 
+//Verify mac address route for physical interface is added in all VRF
+TEST_F(VmwareTest, VmwarPhysicalPort_2) {
+    struct PortInfo input1[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    client->Reset();
+    IntfCfgAdd(1, "vnet1", "1.1.1.1", 1, 1, "00:00:00:01:01:01", 1,
+               "::0101:0101", 1);
+    CreateVmportEnv(input1, 1);
+    client->WaitForIdle();
+
+    if (VmPortGet(1) == NULL) {
+        EXPECT_STREQ("Port not created", "");
+        return;
+    }
+
+    // Validate the both IP Fabric and VM physical interfaces are present
+    PhysicalInterfaceKey key(param->vmware_physical_port());
+    Interface *intf = static_cast<Interface *>
+        (agent->interface_table()->Find(&key, true));
+    EXPECT_TRUE(intf != NULL);
+
+    EXPECT_TRUE(L2RouteFind("vrf1", intf->mac(), IpAddress()));
+    BridgeRouteEntry *rt = L2RouteGet("vrf1", intf->mac());
+    const NextHop *nh = rt->GetActiveNextHop();
+    EXPECT_TRUE(nh->GetType() == NextHop::L2_RECEIVE);
+
+    DeleteVmportEnv(input1, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+    EXPECT_FALSE(L2RouteFind("vrf1", intf->mac(), IpAddress()));
+    client->Reset();
+}
+
 // Create a VM VLAN interface
 TEST_F(VmwareTest, VmwareVmPort_1) {
     struct PortInfo input1[] = {
