@@ -138,8 +138,6 @@ IFMapChannel::IFMapChannel(IFMapManager *manager, const std::string& user,
     }
     string auth_str = username_ + ":" + password_;
     b64_auth_str_ = base64_encode(auth_str);
-    IFMAP_PEER_DEBUG(IFMapServerConnection, "Base64 auth string is",
-                     b64_auth_str_);
 }
 
 void IFMapChannel::set_connection_status(ConnectionStatus status) {
