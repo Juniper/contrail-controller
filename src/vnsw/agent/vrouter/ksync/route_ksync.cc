@@ -210,10 +210,13 @@ static bool IsGatewayOrServiceInterface(const NextHop *nh) {
         return false;
 
     const Interface *intf = NULL;
-    if (nh->GetType() == NextHop::INTERFACE)
+    if (nh->GetType() == NextHop::INTERFACE) {
         intf = (static_cast<const InterfaceNH *>(nh))->GetInterface();
-    else if (nh->GetType() == NextHop::VLAN)
+        if (intf->type() == Interface::PACKET)
+            return true;
+    } else if (nh->GetType() == NextHop::VLAN) {
         intf = (static_cast<const VlanNH *>(nh))->GetInterface();
+    }
 
     const VmInterface *vmi = dynamic_cast<const VmInterface *>(intf);
     if (vmi == NULL)
@@ -601,37 +604,40 @@ int RouteKSyncEntry::DeleteInternal(NHKSyncEntry *nexthop, uint32_t lbl,
 }
 
 KSyncEntry *RouteKSyncEntry::UnresolvedReference() {
-    if ((rt_type_ == Agent::INET4_UNICAST) ||
-        (rt_type_ == Agent::INET6_UNICAST)) {
-        if (mac_.IsZero())
-            return NULL;
-
-        //Get Vrf and bridge ksync object
-        VrfKSyncObject *vrf_obj = ksync_obj_->ksync()->vrf_ksync_obj();
-        VrfEntry* vrf =
-            ksync_obj_->ksync()->agent()->vrf_table()->FindVrfFromId(vrf_id_);
-        if (!vrf) return NULL;
-
-        VrfKSyncObject::VrfState *state =
-            static_cast<VrfKSyncObject::VrfState *>
-            (vrf->GetState(vrf->get_table(),
-                           vrf_obj->vrf_listener_id()));
-        RouteKSyncObject* bridge_ksync_obj = state->bridge_route_table_;
-        BridgeRouteEntry tmp_l2_rt(vrf, mac_, Peer::EVPN_PEER, false);
-        RouteKSyncEntry key(bridge_ksync_obj, &tmp_l2_rt);
-        RouteKSyncEntry *mac_route_reference =
-            static_cast<RouteKSyncEntry *>(bridge_ksync_obj->
-                                           GetReference(&key));
-        //Get the ksync entry for stitched mac
-        //else mark dependancy on same.
-        if (!mac_route_reference->IsResolved())
-            return mac_route_reference;
-    }
-
     NHKSyncEntry *nexthop = nh();
     if (!nexthop->IsResolved()) {
         return nexthop;
     }
+
+    if ((rt_type_ == Agent::INET4_UNICAST) ||
+        (rt_type_ == Agent::INET6_UNICAST)) {
+        if (!mac_.IsZero()) {
+            //Get Vrf and bridge ksync object
+            VrfKSyncObject *vrf_obj = ksync_obj_->ksync()->vrf_ksync_obj();
+            VrfEntry* vrf =
+                ksync_obj_->ksync()->agent()->vrf_table()->FindVrfFromId(vrf_id_);
+            if (vrf) {
+                VrfKSyncObject::VrfState *state =
+                    static_cast<VrfKSyncObject::VrfState *>
+                    (vrf->GetState(vrf->get_table(),
+                                   vrf_obj->vrf_listener_id()));
+                RouteKSyncObject* bridge_ksync_obj = state->bridge_route_table_;
+                BridgeRouteEntry tmp_l2_rt(vrf, mac_, Peer::EVPN_PEER, false);
+                RouteKSyncEntry key(bridge_ksync_obj, &tmp_l2_rt);
+                RouteKSyncEntry *mac_route_reference =
+                    static_cast<RouteKSyncEntry *>(bridge_ksync_obj->
+                                                   GetReference(&key));
+                //Get the ksync entry for stitched mac
+                //else mark dependancy on same.
+                if (!mac_route_reference->IsResolved())
+                    return mac_route_reference;
+            } else {
+                // clear the mac_ to avoid failure in programming vrouter
+                mac_ = MacAddress::ZeroMac();
+            }
+        }
+    }
+
     return NULL;
 }
 
