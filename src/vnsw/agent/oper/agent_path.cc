@@ -322,7 +322,7 @@ bool EvpnDerivedPath::IsLess(const AgentPath &r_path) const {
         dynamic_cast<const EvpnDerivedPath *>(&r_path);
     if (r_evpn_path != NULL) {
         if (r_evpn_path->ip_addr() != ip_addr_) {
-            return (r_evpn_path->ip_addr() < ip_addr_);
+            return (ip_addr_ < r_evpn_path->ip_addr());
         }
     }
 
