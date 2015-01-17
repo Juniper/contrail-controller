@@ -1921,18 +1921,31 @@ bool RouteFlowKey::FlowDestMatch(const FlowEntry *flow) const {
 // add/delete/change
 ////////////////////////////////////////////////////////////////////////////
 RouteFlowUpdate::RouteFlowUpdate(AgentRouteTable *table):
+    id_(DBTableBase::kInvalidId),
     rt_table_(table), rt_table_deleted_(false),
-    table_delete_ref_(this, rt_table_->deleter()) {
+    table_delete_ref_(this, rt_table_->deleter()), walk_id_(-1) {
+    LOG(DEBUG, "ROUTE-FLOW-UPDATE: Constructor : Entry <" << this
+        << "> Table : " << rt_table_->name() << "< Listener : " << id_
+        << " Walk : " << walk_id_);
 }
 
 RouteFlowUpdate::~RouteFlowUpdate() {
+    LOG(DEBUG, "ROUTE-FLOW-UPDATE: Destructor : Entry <" << this
+        << "> Table : " << rt_table_->name() << "< Listener : " << id_
+        << " Walk : " << walk_id_);
     if (rt_table_) {
         rt_table_->Unregister(id_);
+        id_ = DBTableBase::kInvalidId;
+        rt_table_ = NULL;
+        walk_id_ = -1;
     }
     table_delete_ref_.Reset(NULL);
 }
 
 void RouteFlowUpdate::ManagedDelete() {
+    LOG(DEBUG, "ROUTE-FLOW-UPDATE: Destructor : Entry <" << this
+        << "> Table : " << rt_table_->name() << "< Listener : " << id_
+        << " Walk : " << walk_id_);
     rt_table_deleted_ = true;
 }
 
@@ -1948,6 +1961,9 @@ bool RouteFlowUpdate::DeleteState(DBTablePartBase *partition,
 }
 
 void RouteFlowUpdate::WalkDone(DBTableBase *partition, RouteFlowUpdate *info) {
+    LOG(DEBUG, "ROUTE-FLOW-UPDATE: WalkDone : Entry <" << info
+        << "> Table : " << info->rt_table_->name() << "< Listener : "
+        << info->dblistener_id() << " Walk : " << info->walk_id());
     delete info;
 }
 
@@ -2220,6 +2236,8 @@ void FlowTable::VrfFlowHandlerState::Register(VrfEntry *vrf) {
     inet4_unicast_update_->set_dblistener_id
         (inet_table->Register(boost::bind(&RouteFlowUpdate::Notify,
                                          inet4_unicast_update_, _1, _2)));
+    LOG(DEBUG, "ROUTE-FLOW-UPDATE: Register for VrfFlowHandlerState  : "
+        << this );
 
     // Register to the Bridge Unicast Table
     BridgeAgentRouteTable *bridge_table =
@@ -2229,6 +2247,11 @@ void FlowTable::VrfFlowHandlerState::Register(VrfEntry *vrf) {
     bridge_update_->set_dblistener_id
         (bridge_table->Register(boost::bind(&RouteFlowUpdate::Notify,
                                           bridge_update_, _1, _2)));
+
+    LOG(DEBUG, "ROUTE-FLOW-UPDATE: INET entry: " << inet4_unicast_update_
+        << " Inet Listener : " << inet4_unicast_update_->dblistener_id()
+        << " Bridge : " << bridge_update_ << " Index : "
+        << bridge_update_->dblistener_id());
 }
 
 // VRF being deleted. Do the cleanup
@@ -2238,17 +2261,31 @@ void FlowTable::VrfFlowHandlerState::Unregister(VrfEntry *vrf) {
     // TODO : Is this really needed? Routes will anyway be deleted
     // VRF is deleted. Delete DBState for all the route entries
     DBTableWalker *walker = agent->db()->GetWalker();
-    walker->WalkTable(vrf->GetInet4UnicastRouteTable(), NULL,
+    DBTableWalker::WalkId id;
+    id = walker->WalkTable(vrf->GetInet4UnicastRouteTable(), NULL,
                       boost::bind(&RouteFlowUpdate::DeleteState,
                                   _1, _2, inet4_unicast_update_),
                       boost::bind(&RouteFlowUpdate::WalkDone, _1,
                                   inet4_unicast_update_));
+    inet4_unicast_update_->set_walk_id(id);
+    LOG(DEBUG, "ROUTE-FLOW-UPDATE: Inet Walk Start : Entry <"
+        << inet4_unicast_update_ << "> Table : "
+        << inet4_unicast_update_->rt_table()->name()
+        << "< Listener : " << inet4_unicast_update_->dblistener_id()
+        << " Walk : " << inet4_unicast_update_->walk_id());
+
     DBTableWalker *bridge_walker = agent->db()->GetWalker();
-    bridge_walker->WalkTable(vrf->GetBridgeRouteTable(), NULL,
+    id = bridge_walker->WalkTable(vrf->GetBridgeRouteTable(), NULL,
                            boost::bind(&RouteFlowUpdate::DeleteState,
                                        _1, _2, bridge_update_),
                            boost::bind(&RouteFlowUpdate::WalkDone, _1,
                                        bridge_update_));
+    bridge_update_->set_walk_id(id);
+    LOG(DEBUG, "ROUTE-FLOW-UPDATE: Bridge Walk Start : Entry <"
+        << bridge_update_ << "> Table : "
+        << bridge_update_->rt_table()->name()
+        << "< Listener : " << bridge_update_->dblistener_id()
+        << " Walk : " << bridge_update_->walk_id());
 }
 
 void FlowTable::VrfNotify(DBTablePartBase *part, DBEntryBase *e)
