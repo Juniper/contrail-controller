@@ -306,6 +306,9 @@ class VncApiServer(VncApiServerGen):
                               act_res['link_name'])
             self._homepage_links.append(link)
 
+        # Register for VN delete request. Disallow delete of system default VN
+        bottle.route('/virtual-network/<id>', 'DELETE', self.virtual_network_http_delete)
+
         bottle.route('/documentation/<filename:path>',
                      'GET', self.documentation_http_get)
         self._homepage_links.insert(
@@ -529,6 +532,23 @@ class VncApiServer(VncApiServerGen):
     def get_pipe_start_app(self):
         return self._pipe_start_app
     # end get_pipe_start_app
+
+    # Check for the system created VN. Disallow such VN delete
+    def virtual_network_http_delete(self, id):
+        db_conn = self._db_conn
+        # if obj doesn't exist return early
+        try:
+            obj_type = db_conn.uuid_to_obj_type(id)
+            if obj_type != 'virtual_network':
+                bottle.abort(404, 'No virtual-network object found for id %s' %(id))
+            vn_name = db_conn.uuid_to_fq_name(id)
+        except NoIdError:
+            bottle.abort(404, 'ID %s does not exist' %(id))
+        if vn_name == cfgm_common.IP_FABRIC_VN_FQ_NAME or \
+           vn_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME:
+            bottle.abort(409, 'Can not delete system created default virtual-network %s' %(id))
+        super(VncApiServer, self).virtual_network_http_delete(id)
+   # end
 
     def homepage_http_get(self):
         json_body = {}
