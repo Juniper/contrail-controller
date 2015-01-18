@@ -374,7 +374,7 @@ int IFMapChannel::ExtractPubSessionId() {
 
     if ((reply_str.find("errorResult") != string::npos) ||
         (reply_str.find("endSessionResult") != string::npos)) {
-        IFMAP_PEER_WARN(IFMapServerConnection, 
+        IFMAP_PEER_WARN(IFMapServerConnection,
                        "Error received instead of PubSessionId. Quitting.", "");
         return -1;
     }
@@ -513,7 +513,10 @@ int IFMapChannel::ReadSubscribeResponseStr() {
     } else if (reply_str.find(string("subscribeReceived")) != string::npos) {
         return 0;
     } else {
-        assert(0);
+        IFMAP_PEER_WARN(IFMapServerConnection,
+            "Unexpected message received instead of SubscribeReceived. "
+            "Quitting.", "");
+        return -1;
     }
     return 0;
 }
@@ -580,12 +583,16 @@ int IFMapChannel::ReadPollResponse() {
     // all possible responses, 3.7.5
     if ((reply_str.find("errorResult") != string::npos) ||
         (reply_str.find("endSessionResult") != string::npos)) {
-        IFMAP_PEER_WARN(IFMapServerConnection, 
+        IFMAP_PEER_WARN(IFMapServerConnection,
                         "Error received instead of PollResult. Quitting.", "");
         return -1;
     } else if (reply_str.find(string("pollResult")) != string::npos) {
         size_t pos = reply_str.find(string("<?xml version="));
-        assert(pos != string::npos);
+        if (pos == string::npos) {
+            IFMAP_PEER_WARN(IFMapServerConnection,
+                "Incorrectly formatted Poll response. Quitting.", "");
+            return -1;
+        }
         string poll_string = reply_str.substr(pos);
         increment_recv_msg_cnt();
         bool success = true;
@@ -600,7 +607,9 @@ int IFMapChannel::ReadPollResponse() {
             return -1;
         }
     } else {
-        assert(0);
+        IFMAP_PEER_WARN(IFMapServerConnection,
+            "Unexpected message received instead of PollResult. Quitting.", "");
+        return -1;
     }
     return 0;
 }
