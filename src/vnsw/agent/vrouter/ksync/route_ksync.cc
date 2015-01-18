@@ -631,6 +631,9 @@ KSyncEntry *RouteKSyncEntry::UnresolvedReference() {
                 //else mark dependancy on same.
                 if (!mac_route_reference->IsResolved())
                     return mac_route_reference;
+            } else {
+                // clear the mac_ to avoid failure in programming vrouter
+                mac_ = MacAddress::ZeroMac();
             }
         }
     }
