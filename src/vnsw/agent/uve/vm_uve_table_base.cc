@@ -106,7 +106,7 @@ void VmUveTableBase::InterfaceDeleteHandler(const VmEntry* vm,
 const VmEntry *VmUveTableBase::VmUuidToVm(const boost::uuids::uuid u) {
     VmKey key(u);
     const VmEntry *vm = static_cast<VmEntry *>(agent_->vm_table()
-            ->FindActiveEntry(&key));
+            ->Find(&key, true));
     return vm;
 }
 
@@ -121,8 +121,8 @@ void VmUveTableBase::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e)
     if (e->IsDeleted() || ((vm_port->vm() == NULL))) {
         if (state) {
             const VmEntry *vm = VmUuidToVm(state->vm_uuid_);
-            /* If vm is marked for delete or if vm is deleted, required
-             * UVEs will be sent as part of Vm Delete Notification */
+            /* If vm is deleted, required UVEs will be sent as part of
+             * Vm Delete Notification */
             if (vm != NULL) {
                 InterfaceDeleteHandler(vm, vm_port);
                 state->fip_list_.clear();
@@ -148,9 +148,9 @@ void VmUveTableBase::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e)
         if (vm->GetUuid() != state->vm_uuid_) {
             //Handle disassociation of old VM from the VMI
             const VmEntry *old_vm = VmUuidToVm(state->vm_uuid_);
-            /* If vm is marked for delete or if vm is deleted, required
-             * UVEs will be sent as part of Vm Delete Notification */
-            if (vm != NULL) {
+            /* If vm is deleted, required UVEs will be sent as part of
+             * Vm Delete Notification */
+            if (old_vm != NULL) {
                 InterfaceDeleteHandler(old_vm, vm_port);
             }
         }
