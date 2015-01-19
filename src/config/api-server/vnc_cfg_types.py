@@ -1004,6 +1004,9 @@ class LogicalInterfaceServer(LogicalInterfaceServerGen):
 
     @classmethod
     def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+        (ok, msg) = PhysicalInterfaceServer._check_interface_name(obj_dict, db_conn)
+        if ok == False:
+            return (False, msg)
         return cls._check_vlan(obj_dict, db_conn)
     # end http_post_collection
 
@@ -1013,6 +1016,10 @@ class LogicalInterfaceServer(LogicalInterfaceServerGen):
         (read_ok, read_result) = db_conn.dbe_read('logical-interface', interface)
         if not read_ok:
             return (False, (500, read_result))
+
+        # do not allow change in display name
+        if 'display_name' in obj_dict:
+            return (False, (403, "Cannot change display name !"))
 
         vlan = None
         old_vlan = None
@@ -1038,3 +1045,53 @@ class LogicalInterfaceServer(LogicalInterfaceServerGen):
     # end _check_vlan
 
 # end class LogicalInterfaceServer
+
+class PhysicalInterfaceServer(PhysicalInterfaceServerGen):
+
+    @classmethod
+    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+        return cls._check_interface_name(obj_dict, db_conn)
+    # end http_post_collection
+
+    @classmethod
+    def http_put(cls, id, fq_name, obj_dict, db_conn):
+        # do not allow change in display name
+        if 'display_name' in obj_dict:
+            return (False, (403, "Cannot change display name !"))
+
+        return True, ""
+    # end http_put
+
+    @classmethod
+    def _check_interface_name(cls, obj_dict, db_conn):
+        interface_name = obj_dict['display_name']
+        router = obj_dict['fq_name'][:2]
+        router_uuid = db_conn.fq_name_to_uuid('physical-router', router)
+        (ok, physical_router) = db_conn.dbe_read('physical-router', {'uuid':router_uuid})
+        if not ok:
+            return (False, (500, 'Internal error : reading physical router'))
+        if 'physical_interfaces' in physical_router:
+            physical_interfaces = physical_router['physical_interfaces']
+            for physical_interface in physical_interfaces:
+                (ok, interface_object) = db_conn.dbe_read('physical-interface',
+                                             {'uuid':physical_interface['uuid']})
+                if not ok:
+                    return (False, (500, 'Internal error : reading physical interface'))
+                if 'display_name' in interface_object:
+                    if interface_name == interface_object['display_name']:
+                        return (False, (403, "Display name already used in another interface !"))
+        if 'logical_interfaces' in physical_router:
+            logical_interfaces = physical_router['logical_interfaces']
+            for logical_interface in logical_interfaces:
+                (ok, interface_object) = db_conn.dbe_read('logical-interface',
+                                             {'uuid':logical_interface['uuid']})
+                if not ok:
+                    return (False, (500, 'Internal error : reading logical interface'))
+                if 'display_name' in interface_object:
+                    if interface_name == interface_object['display_name']:
+                        return (False, (403, "Display name already used in another interface !"))
+
+        return True, ""
+    # end _check_interface_name
+
+# end class PhysicalInterfaceServer
