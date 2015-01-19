@@ -11,6 +11,9 @@
 
 #include <ovsdb_wrapper.h>
 
+#define CONTRAIL_LOGICAL_SWITCH_NAME "Contrail-"
+#define CONTRAIL_LS_NAME_LENGTH 9
+
 void ovsdb_idl_set_callback(struct ovsdb_idl *idl, void *idl_base,
         idl_callback cb, txn_ack_callback ack_cb);
 struct jsonrpc_msg * ovsdb_idl_encode_monitor_request(struct ovsdb_idl *idl);
@@ -207,6 +210,12 @@ ovsdb_wrapper_logical_switch_name(struct ovsdb_idl_row *row)
 {
     struct vteprec_logical_switch *ls =
         row ? CONTAINER_OF(row, struct vteprec_logical_switch, header_) : NULL;
+    if (strncmp(ls->name, CONTRAIL_LOGICAL_SWITCH_NAME,
+                CONTRAIL_LS_NAME_LENGTH) == 0) {
+        /* Skip "Contrail-" from logical-switch name */
+        return &(ls->name[CONTRAIL_LS_NAME_LENGTH]);
+    }
+    /* return the complete name for non-contrail logical-switch */
     return ls->name;
 }
 
@@ -229,7 +238,11 @@ ovsdb_wrapper_add_logical_switch(struct ovsdb_idl_txn *txn,
         row ? CONTAINER_OF(row, struct vteprec_logical_switch, header_) : NULL;
     if (ls == NULL)
         ls = vteprec_logical_switch_insert(txn);
-    vteprec_logical_switch_set_name(ls, name);
+     /* prepend "Contrail-" in the logical-switch name */
+    char contrail_name[256];
+    strcpy(contrail_name, CONTRAIL_LOGICAL_SWITCH_NAME);
+    strncat(contrail_name, name, 256 - CONTRAIL_LS_NAME_LENGTH);
+    vteprec_logical_switch_set_name(ls, contrail_name);
     vteprec_logical_switch_set_tunnel_key(ls, &vxlan, 1);
     return &(ls->header_);
 }
@@ -368,7 +381,7 @@ ovsdb_wrapper_ucast_mac_local_logical_switch(struct ovsdb_idl_row *row)
     struct vteprec_ucast_macs_local *mac =
         row ? CONTAINER_OF(row, struct vteprec_ucast_macs_local, header_) : NULL;
     if (mac->logical_switch) {
-        return mac->logical_switch->name;
+        return ovsdb_wrapper_logical_switch_name(&mac->logical_switch->header_);
     }
     return NULL;
 }
@@ -435,7 +448,7 @@ ovsdb_wrapper_ucast_mac_remote_logical_switch(struct ovsdb_idl_row *row)
     struct vteprec_ucast_macs_remote *mac =
         row ? CONTAINER_OF(row, struct vteprec_ucast_macs_remote, header_) : NULL;
     if (mac->logical_switch) {
-        return mac->logical_switch->name;
+        return ovsdb_wrapper_logical_switch_name(&mac->logical_switch->header_);
     }
     return NULL;
 }
@@ -473,10 +486,10 @@ ovsdb_wrapper_mcast_mac_local_mac(struct ovsdb_idl_row *row)
 char *
 ovsdb_wrapper_mcast_mac_local_logical_switch(struct ovsdb_idl_row *row)
 {
-    struct vteprec_mcast_macs_local *mcast =
+    struct vteprec_mcast_macs_local *mac =
         row ? CONTAINER_OF(row, struct vteprec_mcast_macs_local, header_) : NULL;
-    if (mcast->logical_switch)
-        return mcast->logical_switch->name;
+    if (mac->logical_switch)
+        return ovsdb_wrapper_logical_switch_name(&mac->logical_switch->header_);
     return NULL;
 }
 
@@ -537,10 +550,10 @@ ovsdb_wrapper_mcast_mac_remote_mac(struct ovsdb_idl_row *row)
 char *
 ovsdb_wrapper_mcast_mac_remote_logical_switch(struct ovsdb_idl_row *row)
 {
-    struct vteprec_mcast_macs_remote *mcast =
+    struct vteprec_mcast_macs_remote *mac =
         row ? CONTAINER_OF(row, struct vteprec_mcast_macs_remote, header_) : NULL;
-    if (mcast->logical_switch)
-        return mcast->logical_switch->name;
+    if (mac->logical_switch)
+        return ovsdb_wrapper_logical_switch_name(&mac->logical_switch->header_);
     return NULL;
 }
 
