@@ -21,6 +21,7 @@ import mock
 import unittest
 
 import cfgm_common.analytics_client as analytics
+import cfgm_common.svc_info as svc_info
 import svc_monitor.scheduler.vrouter_scheduler as scheduler
 from vnc_api.vnc_api import VirtualRouter, VirtualMachine
 
@@ -55,6 +56,9 @@ RUNNING_VROUTER_UVES_STATUS = {
             }
         ],
         "description": "null"
+    },
+    "VrouterAgent": {
+        "build_info": "{\"build-info\":[{\"build-time\":\"2015-01-12 11:13:42.160435\",\"build-hostname\":\"vrouter1\",\"build-git-ver\":\"bdcb043\",\"build-user\":\"root\",\"build-version\":\"2.0\",\"build-id\":\"unknown\",\"build-number\":\"unknown\"}]}"
     }
 }
 
@@ -88,6 +92,9 @@ NON_RUNNING_VROUTER_UVES_STATUS_1 = {
             }
         ],
         "description": "null"
+    },
+    "VrouterAgent": {
+        "build_info": "{\"build-info\":[{\"build-time\":\"2015-01-12 11:13:42.160435\",\"build-hostname\":\"vrouter1\",\"build-git-ver\":\"bdcb043\",\"build-user\":\"root\",\"build-version\":\"1.06\",\"build-id\":\"unknown\",\"build-number\":\"unknown\"}]}"
     }
 }
 
@@ -121,6 +128,9 @@ NON_RUNNING_VROUTER_UVES_STATUS_2 = {
             }
         ],
         "description": "null"
+    },
+    "VrouterAgent": {
+        "build_info": "{\"build-info\":[{\"build-time\":\"2015-01-12 11:13:42.160435\",\"build-hostname\":\"vrouter1\",\"build-git-ver\":\"bdcb043\",\"build-user\":\"root\",\"build-version\":\"1.10\",\"build-id\":\"unknown\",\"build-number\":\"unknown\"}]}"
     }
 }
 
@@ -154,6 +164,9 @@ NON_RUNNING_VROUTER_UVES_STATUS_3 = {
             }
         ],
         "description": "null"
+    },
+    "VrouterAgent": {
+        "build_info": "{\"build-info\":[{\"build-time\":\"2015-01-12 11:13:42.160435\",\"build-hostname\":\"vrouter1\",\"build-git-ver\":\"bdcb043\",\"build-user\":\"root\",\"build-version\":\"2.0\",\"build-id\":\"unknown\",\"build-number\":\"unknown\"}]}"
     }
 }
 
@@ -213,6 +226,8 @@ class TestRandomScheduler(unittest.TestCase):
 
         self.analytics_mock.side_effect = [RUNNING_VROUTER_UVES_STATUS,
                                            NON_RUNNING_VROUTER_UVES_STATUS_3,
+                                           RUNNING_VROUTER_UVES_STATUS,
+                                           RUNNING_VROUTER_UVES_STATUS,
                                            RUNNING_VROUTER_UVES_STATUS]
 
         vr_obj = VirtualRouter()
@@ -245,6 +260,26 @@ class TestRandomScheduler(unittest.TestCase):
         self.assertFalse(self.scheduler.vrouter_running('fake_vrouter_name'))
         self.assertFalse(self.scheduler.vrouter_running('fake_vrouter_name'))
         self.assertTrue(self.scheduler.vrouter_running('fake_vrouter_name'))
+
+    def test_vrouter_check_version(self):
+        self.analytics_mock.side_effect = [analytics.OpenContrailAPIFailed,
+                                           NON_RUNNING_VROUTER_UVES_STATUS_1,
+                                           NON_RUNNING_VROUTER_UVES_STATUS_2,
+                                           NON_RUNNING_VROUTER_UVES_STATUS_3,
+                                           NON_RUNNING_VROUTER_UVES_STATUS_4,
+                                           RUNNING_VROUTER_UVES_STATUS]
+        self.assertFalse(self.scheduler.vrouter_check_version(
+            'fake_vrouter_name', svc_info._VROUTER_NETNS_SUPPORTED_VERSION))
+        self.assertFalse(self.scheduler.vrouter_check_version(
+            'fake_vrouter_name', svc_info._VROUTER_NETNS_SUPPORTED_VERSION))
+        self.assertTrue(self.scheduler.vrouter_check_version(
+            'fake_vrouter_name', svc_info._VROUTER_NETNS_SUPPORTED_VERSION))
+        self.assertTrue(self.scheduler.vrouter_check_version(
+            'fake_vrouter_name', svc_info._VROUTER_NETNS_SUPPORTED_VERSION))
+        self.assertFalse(self.scheduler.vrouter_check_version(
+            'fake_vrouter_name', svc_info._VROUTER_NETNS_SUPPORTED_VERSION))
+        self.assertTrue(self.scheduler.vrouter_check_version(
+            'fake_vrouter_name', svc_info._VROUTER_NETNS_SUPPORTED_VERSION))
 
     def test_random_scheduling(self):
         random_patch = mock.patch('random.choice')

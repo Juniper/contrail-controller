@@ -18,10 +18,13 @@
 # @author: Edouard Thuleau, Cloudwatt.
 
 import abc
+import ast
+from distutils.version import StrictVersion as V
 import random
 import six
 
 from cfgm_common import analytics_client
+from cfgm_common import svc_info
 from vnc_api.vnc_api import NoIdError
 
 @six.add_metaclass(abc.ABCMeta)
@@ -59,6 +62,11 @@ class VRouterScheduler(object):
         vrs_fq_name = [vr['fq_name'] for vr in
                        self._vnc_lib.virtual_routers_list()['virtual-routers']
                        if self.vrouter_running(vr['fq_name'][-1])]
+        vrs_fq_name = [vr_fq_name for vr_fq_name in vrs_fq_name
+                       if self.vrouter_check_version(
+                           vr_fq_name[-1],
+                           svc_info._VROUTER_NETNS_SUPPORTED_VERSION)]
+
         for vr_fq_name in vrs_fq_name:
             try:
                 vr_obj = self._vnc_lib.virtual_router_read(fq_name=vr_fq_name)
@@ -100,6 +108,29 @@ class VRouterScheduler(object):
                 return True
 
         return False
+
+    def vrouter_check_version(self, vrouter_name, version):
+        """Check the vrouter version is upper or equal to a desired version."""
+        path = "/analytics/uves/vrouter/"
+        fqdn_uuid = "%s?cfilt=VrouterAgent" % vrouter_name
+
+        try:
+            vrouter_agent = self._analytics.request(path, fqdn_uuid)
+        except analytics_client.OpenContrailAPIFailed:
+            return False
+
+        if not vrouter_agent:
+            return False
+
+        try:
+            build_info = ast.literal_eval(
+                vrouter_agent['VrouterAgent']['build_info'])
+            vrouter_version = V(build_info['build-info'][0]['build-version'])
+            requested_version = V(version)
+        except KeyError, ValueError:
+            return False
+
+        return vrouter_version >= requested_version
 
     def _bind_vrouter(self, vm_uuid, vr_fq_name):
         """Bind the virtual machine to the vrouter which has been chosen."""
