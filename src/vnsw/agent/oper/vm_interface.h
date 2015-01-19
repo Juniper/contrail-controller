@@ -420,6 +420,7 @@ public:
     void CopySgIdList(SecurityGroupList *sg_id_list) const;
     bool NeedMplsLabel() const;
     bool IsVxlanMode() const;
+    bool IsBridgeOnlyMode(bool ipv4_active, bool ipv6_active, bool l2_active_) const;
     bool SgExists(const boost::uuids::uuid &id, const SgList &sg_l);
     bool IsMirrorEnabled() const { return mirror_entry_.get() != NULL; }
     bool HasFloatingIp(Address::Family family) const;
@@ -480,7 +481,10 @@ public:
             std::vector<autogen::DhcpOptionType> *options, bool ipv6) const;
     const Peer *peer() const;
     Ip4Address GetGateway() const;
-    void UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
+    void UpdateL2InterfaceRoute(bool old_l2_active,
+                                bool old_ipv4_active,
+                                bool old_ipv6_active,
+                                bool force_update,
                                 VrfEntry *vrf,
                                 const Ip4Address &old_addr,
                                 const Ip6Address &old_v6_addr,
@@ -540,10 +544,12 @@ private:
                   const Ip4Address &old_addr, bool old_need_linklocal_ip,
                   bool old_ipv6_active, const Ip6Address &old_v6_addr,
                   const Ip4Address &old_subnet, const uint8_t old_subnet_plen);
-    void UpdateL2(bool old_l2_active, VrfEntry *old_vrf, int old_ethernet_tag,
+    void UpdateL2(bool old_l2_active, bool old_ipv4_active,
+                  bool old_ipv6_active, VrfEntry *old_vrf, int old_ethernet_tag,
                   bool force_update, bool policy_change,
                   const Ip4Address &old_addr, const Ip6Address &old_v6_addr);
-    void DeleteL2(bool old_l2_active, VrfEntry *old_vrf, int old_ethernet_tag,
+    void DeleteL2(bool old_l2_active, bool old_ipv4_active,
+                  bool old_ipv6_active, VrfEntry *old_vrf, int old_ethernet_tag,
                   const Ip4Address &old_addr, const Ip6Address &old_v6_addr);
 
     void AllocL3MplsLabel(bool force_update, bool policy_change);
@@ -596,7 +602,10 @@ private:
     void DeleteSecurityGroup();
     void UpdateL2TunnelId(bool force_update, bool policy_change);
     void DeleteL2TunnelId();
-    void DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf,
+    void DeleteL2InterfaceRoute(bool old_l2_active,
+                                bool old_ipv4_active,
+                                bool old_ipv6_active,
+                                VrfEntry *old_vrf,
                                 const Ip4Address &old_v4_addr,
                                 const Ip6Address &old_v6_addr,
                                 int old_ethernet_tag) const;

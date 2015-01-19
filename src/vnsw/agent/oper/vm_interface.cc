@@ -1066,7 +1066,10 @@ void VmInterface::UpdateVxLan() {
     ethernet_tag_ = IsVxlanMode() ? vxlan_id_ : 0;
 }
 
-void VmInterface::UpdateL2(bool old_l2_active, VrfEntry *old_vrf,
+void VmInterface::UpdateL2(bool old_l2_active,
+                           bool old_ipv4_active,
+                           bool old_ipv6_active,
+                           VrfEntry *old_vrf,
                            int old_ethernet_tag,
                            bool force_update, bool policy_change,
                            const Ip4Address &old_v4_addr,
@@ -1079,22 +1082,28 @@ void VmInterface::UpdateL2(bool old_l2_active, VrfEntry *old_vrf,
     //Update label only if new entry is to be created, so
     //no force update on same.
     UpdateL2TunnelId(false, policy_change);
-    UpdateL2InterfaceRoute(old_l2_active, force_update, old_vrf, old_v4_addr,
+    UpdateL2InterfaceRoute(old_l2_active, old_ipv4_active, old_ipv6_active,
+                           force_update, old_vrf, old_v4_addr,
                            old_v6_addr, old_ethernet_tag);
     UpdateFloatingIp(force_update, policy_change, true);
 }
 
 void VmInterface::UpdateL2(bool force_update) {
-    UpdateL2(l2_active_, vrf_.get(), ethernet_tag_, force_update, false,
+    UpdateL2(l2_active_, ipv4_active_, ipv6_active_,
+             vrf_.get(), ethernet_tag_, force_update, false,
              ip_addr_, ip6_addr_);
 }
 
-void VmInterface::DeleteL2(bool old_l2_active, VrfEntry *old_vrf,
+void VmInterface::DeleteL2(bool old_l2_active,
+                           bool old_ipv4_active,
+                           bool old_ipv6_active,
+                           VrfEntry *old_vrf,
                            int old_ethernet_tag,
                            const Ip4Address &old_v4_addr,
                            const Ip6Address &old_v6_addr) {
     DeleteL2TunnelId();
-    DeleteL2InterfaceRoute(old_l2_active, old_vrf, old_v4_addr, old_v6_addr,
+    DeleteL2InterfaceRoute(old_l2_active, old_ipv4_active, old_ipv6_active,
+                           old_vrf, old_v4_addr, old_v6_addr,
                            old_ethernet_tag);
     DeleteFloatingIp(true, old_ethernet_tag);
     DeleteL2NextHop(old_l2_active);
@@ -1152,21 +1161,24 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
 
     // Add/Del/Update L3 
     if ((ipv4_active_ || ipv6_active_) && layer3_forwarding_) {
-        UpdateL3(old_ipv4_active, old_vrf, old_addr, old_ethernet_tag, force_update,
+        UpdateL3(old_ipv4_active, old_vrf, old_addr,
+                 old_ethernet_tag, force_update,
                  policy_change, old_ipv6_active, old_v6_addr,
                  old_subnet, old_subnet_plen);
     } else if ((old_ipv4_active || old_ipv6_active)) {
-        DeleteL3(old_ipv4_active, old_vrf, old_addr, old_need_linklocal_ip, 
+        DeleteL3(old_ipv4_active, old_vrf, old_addr, old_need_linklocal_ip,
                  old_ipv6_active, old_v6_addr,
                  old_subnet, old_subnet_plen);
     }
 
     // Add/Del/Update L2 
     if (l2_active_ && bridging_) {
-        UpdateL2(old_l2_active, old_vrf, old_ethernet_tag, 
+        UpdateL2(old_l2_active, old_ipv4_active, old_ipv6_active,
+                 old_vrf, old_ethernet_tag,
                  force_update, policy_change, old_addr, old_v6_addr);
     } else if (old_l2_active) {
-        DeleteL2(old_l2_active, old_vrf, old_ethernet_tag, old_addr, old_v6_addr);
+        DeleteL2(old_l2_active, old_ipv4_active, old_ipv6_active,
+                 old_vrf, old_ethernet_tag, old_addr, old_v6_addr);
     }
 
     UpdateFlowKeyNextHop();
@@ -1873,6 +1885,11 @@ bool VmInterface::IsVxlanMode() const {
     return vxlan_id_ != 0;
 }
 
+bool VmInterface::IsBridgeOnlyMode(bool ipv4_active, bool ipv6_active,
+                                   bool l2_active) const {
+    return (!ipv4_active && !ipv6_active && l2_active);
+}
+
 // Allocate MPLS Label for Layer3 routes
 void VmInterface::AllocL3MplsLabel(bool force_update, bool policy_change) {
     if (fabric_port_)
@@ -2523,7 +2540,10 @@ void VmInterface::DeleteL2TunnelId() {
     DeleteL2MplsLabel();
 }
 
-void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
+void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active,
+                                         bool old_ipv4_active,
+                                         bool old_ipv6_active,
+                                         bool force_update,
                                          VrfEntry *old_vrf,
                                          const Ip4Address &old_v4_addr,
                                          const Ip6Address &old_v6_addr,
@@ -2535,20 +2555,36 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
         force_update = true;
     }
 
+    bool is_l2_mode = IsBridgeOnlyMode(ipv4_active_, ipv6_active_, l2_active_);
+    bool was_l2_mode = IsBridgeOnlyMode(old_ipv4_active, old_ipv6_active,
+                                        old_l2_active);
+    if (is_l2_mode != was_l2_mode) {
+        force_update = true;
+    }
+
     //Encap change will result in force update of l2 routes.
     if (force_update) {
-        DeleteL2InterfaceRoute(true, old_vrf, old_v4_addr,
-                               old_v6_addr, old_ethernet_tag);
+        if (was_l2_mode) {
+            DeleteL2InterfaceRoute(true, old_ipv4_active, old_ipv6_active,
+                                   old_vrf, Ip4Address(), Ip6Address(),
+                                   old_ethernet_tag);
+        } else {
+            DeleteL2InterfaceRoute(true, old_ipv4_active, old_ipv6_active,
+                                   old_vrf, old_v4_addr,
+                                   old_v6_addr, old_ethernet_tag);
+        }
     } else {
         if (ip_addr_ != old_v4_addr) {
             force_update = true;
-            DeleteL2InterfaceRoute(true, old_vrf, old_v4_addr, Ip6Address(),
+            DeleteL2InterfaceRoute(true, old_ipv4_active, old_ipv6_active,
+                                   old_vrf, old_v4_addr, Ip6Address(),
                                    old_ethernet_tag);
         }
 
         if (ip6_addr_ != old_v6_addr) {
             force_update = true;
-            DeleteL2InterfaceRoute(true, old_vrf, Ip4Address(), old_v6_addr,
+            DeleteL2InterfaceRoute(true, old_ipv4_active, old_ipv6_active,
+                                   old_vrf, Ip4Address(), old_v6_addr,
                                    old_ethernet_tag);
         }
     }
@@ -2566,6 +2602,15 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
     PathPreference path_preference;
     SetPathPreference(&path_preference, false);
 
+    //In bridge only mode i.e. no IP add evpn route with all zero v4 ip.
+    if (is_l2_mode) {
+        table->AddLocalVmRoute(peer_.get(), vrf_->GetName(),
+                               MacAddress::FromString(vm_mac_), this,
+                               Ip4Address(), l2_label_, vn_->GetName(),
+                               sg_id_list, path_preference, ethernet_tag_);
+        return;
+    }
+
     table->AddLocalVmRoute(peer_.get(), vrf_->GetName(),
                            MacAddress::FromString(vm_mac_), this, ip_addr(),
                            l2_label_, vn_->GetName(), sg_id_list,
@@ -2576,7 +2621,10 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
                            path_preference, ethernet_tag_);
 }
 
-void VmInterface::DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf,
+void VmInterface::DeleteL2InterfaceRoute(bool old_l2_active,
+                                         bool old_ipv4_active,
+                                         bool old_ipv6_active,
+                                         VrfEntry *old_vrf,
                                          const Ip4Address &old_v4_addr,
                                          const Ip6Address &old_v6_addr,
                                          int old_ethernet_tag) const {
@@ -2588,6 +2636,13 @@ void VmInterface::DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf,
 
     EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
         (old_vrf->GetEvpnRouteTable());
+    //Was in Bridge only mode.
+    if (IsBridgeOnlyMode(old_ipv4_active, old_ipv6_active, old_l2_active)) {
+        table->DelLocalVmRoute(peer_.get(), old_vrf->GetName(),
+                               MacAddress::FromString(vm_mac_), this,
+                               Ip4Address(), old_ethernet_tag);
+        return;
+    }
     table->DelLocalVmRoute(peer_.get(), old_vrf->GetName(),
                            MacAddress::FromString(vm_mac_), this, old_v4_addr,
                            old_ethernet_tag);
