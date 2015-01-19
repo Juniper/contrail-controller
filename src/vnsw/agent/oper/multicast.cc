@@ -288,7 +288,7 @@ void MulticastHandler::HandleTorRoute(DBTablePartBase *partition,
     MulticastDBState *state = new MulticastDBState(device_vn->GetVrf()->GetName(),
                                                    addr);
     device_vn_entry->SetState(partition->parent(),
-                              physical_device_vn_walker_id_, state);
+                              physical_device_vn_listener_id_, state);
 
     //rebake if VXLAN changed
     if (vxlan_id != obj->vxlan_id()) {
@@ -362,8 +362,10 @@ void MulticastHandler::HandleTor(const VnEntry *vn)
 
     DBTableWalker *walker = agent_->db()->GetWalker();
     //cancel walk
-    if (physical_device_vn_walker_id_ != DBTableWalker::kInvalidWalkerId)
+    if (physical_device_vn_walker_id_ != DBTableWalker::kInvalidWalkerId) {
         walker->WalkCancel(physical_device_vn_walker_id_);
+        physical_device_vn_walker_id_ = DBTableWalker::kInvalidWalkerId;
+    }
 
     DBTableWalker::WalkId walk_id = DBTableWalker::kInvalidWalkerId;
     //Start a walk on VN table
