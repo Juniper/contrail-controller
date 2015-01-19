@@ -267,6 +267,8 @@ class VncApiServer(VncApiServerGen):
             vnc_cfg_types.VirtualDnsRecordServer
         self._resource_classes['logical-interface'] = \
             vnc_cfg_types.LogicalInterfaceServer
+        self._resource_classes['physical-interface'] = \
+            vnc_cfg_types.PhysicalInterfaceServer
 
         # TODO default-generation-setting can be from ini file
         self._resource_classes['bgp-router'].generate_default_instance = False
