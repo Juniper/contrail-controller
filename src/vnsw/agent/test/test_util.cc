@@ -3079,3 +3079,62 @@ void DisableRpf(const std::string &vn_name, int vn_id) {
     AddNode("virtual-network", vn_name.c_str(), vn_id, cbuf);
     client->WaitForIdle();
 }
+
+void AddInterfaceVrfAssignRule(const char *intf_name, int intf_id,
+                               const char *sip, const char *dip, int proto,
+                               const char *vrf, const char *ignore_acl) {
+        char buf[3000];
+        sprintf(buf,
+                "    <vrf-assign-table>\n"
+                "        <vrf-assign-rule>\n"
+                "            <match-condition>\n"
+                "                 <protocol>\n"
+                "                     %d\n"
+                "                 </protocol>\n"
+                "                 <src-address>\n"
+                "                     <subnet>\n"
+                "                        <ip-prefix>\n"
+                "                         %s\n"
+                "                        </ip-prefix>\n"
+                "                        <ip-prefix-len>\n"
+                "                         24\n"
+                "                        </ip-prefix-len>\n"
+                "                     </subnet>\n"
+                "                 </src-address>\n"
+                "                 <src-port>\n"
+                "                     <start-port>\n"
+                "                         %d\n"
+                "                     </start-port>\n"
+                "                     <end-port>\n"
+                "                         %d\n"
+                "                     </end-port>\n"
+                "                 </src-port>\n"
+                "                 <dst-address>\n"
+                "                     <subnet>\n"
+                "                        <ip-prefix>\n"
+                "                         %s\n"
+                "                        </ip-prefix>\n"
+                "                        <ip-prefix-len>\n"
+                "                         24\n"
+                "                        </ip-prefix-len>\n"
+                "                     </subnet>\n"
+                "                 </dst-address>\n"
+                "                 <dst-port>\n"
+                "                     <start-port>\n"
+                "                        %d\n"
+                "                     </start-port>\n"
+                "                     <end-port>\n"
+                "                        %d\n"
+                "                     </end-port>\n"
+                "                 </dst-port>\n"
+                "             </match-condition>\n"
+                "             <vlan-tag>0</vlan-tag>\n"
+                "             <routing-instance>%s</routing-instance>\n"
+                "             <ignore-acl>%s</ignore-acl>\n"
+                "         </vrf-assign-rule>\n"
+                "    </vrf-assign-table>\n",
+        proto, sip, 0, 65535, dip, 0, 65535, vrf,
+        ignore_acl);
+        AddNode("virtual-machine-interface", intf_name, intf_id, buf);
+        client->WaitForIdle();
+}

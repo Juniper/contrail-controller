@@ -404,4 +404,7 @@ PhysicalInterface *PhysicalInterfaceGet(const std::string &name);
 LogicalInterface *LogicalInterfaceGet(int id, const std::string &name);
 void EnableRpf(const std::string &vn_name, int vn_id);
 void DisableRpf(const std::string &vn_name, int vn_id);
+void AddInterfaceVrfAssignRule(const char *intf_name, int intf_id,
+                               const char *sip, const char *dip, int proto,
+                               const char *vrf, const char *ignore_acl);
 #endif // vnsw_agent_test_cmn_util_h
