@@ -2481,16 +2481,20 @@ void VmInterface::DeleteVrfAssignRule() {
     VrfAssignRuleSet::iterator it = vrf_assign_rule_list_.list_.begin();
     while (it != vrf_assign_rule_list_.list_.end()) {
         VrfAssignRuleSet::iterator prev = it++;
-        vrf_assign_rule_list_.list_.erase(prev);
+        if (prev->del_pending_) {
+            vrf_assign_rule_list_.list_.erase(prev);
+        }
     }
 
-    vrf_assign_acl_ = NULL;
-    DBRequest req;
-    AclKey *key = new AclKey(uuid_);
-    req.oper = DBRequest::DB_ENTRY_DELETE;
-    req.key.reset(key);
-    req.data.reset(NULL);
-    agent->acl_table()->Process(req);
+    if (vrf_assign_acl_ != NULL) {
+        vrf_assign_acl_ = NULL;
+        DBRequest req;
+        AclKey *key = new AclKey(uuid_);
+        req.oper = DBRequest::DB_ENTRY_DELETE;
+        req.key.reset(key);
+        req.data.reset(NULL);
+        agent->acl_table()->Process(req);
+    }
 }
 
 void VmInterface::UpdateSecurityGroup() {

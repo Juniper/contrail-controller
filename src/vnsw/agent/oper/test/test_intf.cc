@@ -2733,6 +2733,45 @@ TEST_F(IntfTest, DISABLED_GwSubnetChange) {
     client->Reset();
 }
 
+TEST_F(IntfTest, VrfTranslateAddDelete) {
+    struct PortInfo input1[] = {
+        {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    client->Reset();
+    CreateVmportWithEcmp(input1, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    EXPECT_TRUE(VmPortFind(8));
+    client->Reset();
+
+    AddInterfaceVrfAssignRule("vnet8", 8, "8.1.1.1", "9.1.1.1", 1,
+                              "vrf1", "true");
+    client->WaitForIdle();
+    VmInterface *intf = dynamic_cast<VmInterface *>(VmPortGet(8));
+    EXPECT_TRUE(intf->vrf_assign_acl() != NULL);
+
+    //Get oper state down
+    intf->set_test_oper_state(false);
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, intf->GetUuid(),
+                intf->name()));
+    req.data.reset(new VmInterfaceOsOperStateData());
+    Agent::GetInstance()->interface_table()->Enqueue(&req);
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->vrf_assign_acl() == NULL);
+
+    intf->set_test_oper_state(true);
+    req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, intf->GetUuid(),
+                intf->name()));
+    req.data.reset(new VmInterfaceOsOperStateData());
+    Agent::GetInstance()->interface_table()->Enqueue(&req);
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->vrf_assign_acl() != NULL);
+    DeleteVmportEnv(input1, 1, true);
+    client->WaitForIdle();
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 
