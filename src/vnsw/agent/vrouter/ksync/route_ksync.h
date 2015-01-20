@@ -49,7 +49,8 @@ public:
     virtual int ChangeMsg(char *buf, int buf_len);
     virtual int DeleteMsg(char *buf, int buf_len);
 
-    bool BuildRouteFlags(const DBEntry *rt, const MacAddress &mac);
+    bool BuildArpFlags(const DBEntry *rt, const AgentPath *path,
+                       const MacAddress &mac);
 private:
     int Encode(sandesh_op::type op, uint8_t replace_plen,
                char *buf, int buf_len);
