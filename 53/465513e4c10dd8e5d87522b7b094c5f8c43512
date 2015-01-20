@@ -1,0 +1,10 @@
+Code-Review+1: opencontrail-admin <ci-admin@opencontrail.org>
+Verified+2: opencontrail-admin <ci-admin@opencontrail.org>
+Verified+2: Zuul <zuul@lists.opencontrail.org>
+Approved+1: Naveen N <naveenn@juniper.net>
+Code-Review+2: Naveen N <naveenn@juniper.net>
+Submitted-by: Zuul <zuul@lists.opencontrail.org>
+Submitted-at: Tue, 20 Jan 2015 06:55:59 -0800
+Reviewed-on: https://review.opencontrail.org/6390
+Project: Juniper/contrail-controller
+Branch: refs/heads/R2.1
