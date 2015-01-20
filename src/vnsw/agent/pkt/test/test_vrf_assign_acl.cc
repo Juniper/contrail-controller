@@ -330,19 +330,87 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp) {
 
     //Leak route for 2.1.1.0 to default-project:vn1:vn1
     Ip4Address ip1 = Ip4Address::from_string("2.1.1.0");
+    Ip4Address ip2 = Ip4Address::from_string("1.1.1.100");
     agent_->fabric_inet4_unicast_table()->
         AddLocalVmRouteReq(agent_->local_peer(),
                            "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
                            "default-project:vn2", 16, SecurityGroupList(),
                            false, PathPreference(), Ip4Address(0));
     client->WaitForIdle();
- 
+
     //Add an ACL, such that for traffic from vn4:vn4 to default-project:vn2,
     //route lookup happens in internal VRF
     //(assume default-project:vn3 in test case)
     AddVrfAssignNetworkAcl("Acl", 10, "default-project:vn1",
                            "default-project:vn2", "pass",
                            "default-project:vn3:vn3");
+    AddLink("virtual-network", "default-project:vn1", "access-control-list", "Acl");
+    client->WaitForIdle();
+
+    //Configure Floating-IP for intf7 in default-project:vn1
+    AddFloatingIpPool("fip-pool1", 1);
+    AddFloatingIp("fip1", 1, "1.1.1.100");
+    AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn1");
+    AddLink("virtual-machine-interface", "intf7", "floating-ip", "fip1");
+    client->WaitForIdle();
+
+    agent_->fabric_inet4_unicast_table()->
+        AddLocalVmRouteReq(agent_->local_peer(),
+                "default-project:vn3:vn3", ip2, 32, MakeUuid(7),
+                "default-project:vn1", 16, SecurityGroupList(),
+                false, PathPreference(), Ip4Address(0));
+    client->WaitForIdle();
+
+    TestFlow flow[] = {
+        {  TestFlowPkt(Address::INET, "4.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
+                       "vrf4", VmPortGet(7)->id()),
+        {
+            new VerifyVn("default-project:vn1", "default-project:vn3"),
+            new VerifyVrf("vrf4", "default-project:vn3:vn3"),
+            new VerifyNat("2.1.1.1", "1.1.1.100", IPPROTO_TCP, 20, 10)
+        }
+        }
+    };
+    CreateFlow(flow, 1);
+
+    DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    DelLink("floating-ip-pool", "fip-pool1", "virtual-network", "default:vn4");
+    DelFloatingIp("fip1");
+    DelFloatingIpPool("fip-pool1");
+    agent_->fabric_inet4_unicast_table()->DeleteReq(
+            agent_->local_peer(), "default-project:vn3:vn3", ip2, 32, NULL);
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+}
+
+//Verify flow becomes short flow, when
+//vrf assigned ACL doesnt have the routes
+TEST_F(TestVrfAssignAclFlow, FloatingIp1) {
+    struct PortInfo input[] = {
+        {"intf7", 7, "4.1.1.1", "00:00:00:01:01:01", 4, 7},
+    };
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    //Leak route for 2.1.1.0 to default-project:vn1:vn1
+    Ip4Address ip1 = Ip4Address::from_string("2.1.1.0");
+    agent_->fabric_inet4_unicast_table()->
+        AddLocalVmRouteReq(agent_->local_peer(),
+                           "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
+                           "default-project:vn2", 16, SecurityGroupList(),
+                           false, PathPreference(), Ip4Address(0));
+    client->WaitForIdle();
+
+    AddVrf("vrf9");
+    client->WaitForIdle();
+    //Add an ACL, such that for traffic from vn4:vn4 to default-project:vn2,
+    //route lookup happens in internal VRF
+    //(assume default-project:vn3 in test case)
+    AddVrfAssignNetworkAcl("Acl", 10, "default-project:vn1",
+                           "default-project:vn2", "pass",
+                           "vrf9");
     AddLink("virtual-network", "default-project:vn1", "access-control-list", "Acl");
     client->WaitForIdle();
 
@@ -360,9 +428,7 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp) {
         {  TestFlowPkt(Address::INET, "4.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
                        "vrf4", VmPortGet(7)->id()),
         {
-            new VerifyVn("default-project:vn1", "default-project:vn3"),
-            new VerifyVrf("vrf4", "default-project:vn3:vn3"),
-            new VerifyNat("2.1.1.1", "1.1.1.100", IPPROTO_TCP, 20, 10)
+            new ShortFlow()
         }
         }
     };
@@ -375,6 +441,7 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp) {
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
 }
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
