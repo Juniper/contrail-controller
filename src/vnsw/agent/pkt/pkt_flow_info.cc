@@ -835,7 +835,13 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
         return;
     }
 
-    VrfTranslate(pkt, in, out);
+    VrfTranslate(pkt, in, out, fip_it->floating_ip_);
+    if (out->rt_ == NULL || in->rt_ == NULL) {
+        //If After VRF translation, ingress route or
+        //egress route is NULL, mark the flow as short flow
+        return;
+    }
+
     // Compute out-intf and ECMP info from out-route
     if (RouteToOutInfo(out->rt_, pkt, this, in, out) == false) {
         return;
@@ -875,7 +881,7 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
 }
 
 void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
-                               PktControlInfo *out) {
+                               PktControlInfo *out, const IpAddress &src_ip) {
     const Interface *intf = NULL;
     if (ingress) {
         intf = in->intf_;
@@ -906,8 +912,9 @@ void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
 
     PacketHeader hdr;
     hdr.vrf = pkt->vrf;
-    hdr.src_ip = pkt->ip_saddr;
+    hdr.src_ip = src_ip;
     hdr.dst_ip = pkt->ip_daddr;
+
     hdr.protocol = pkt->ip_proto;
     if (hdr.protocol == IPPROTO_UDP || hdr.protocol == IPPROTO_TCP) {
         hdr.src_port = pkt->sport;
@@ -941,7 +948,7 @@ void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
         if (vrf) {
             UpdateRoute(&out->rt_, vrf, pkt->ip_daddr, pkt->dmac,
                         flow_dest_plen_map);
-            UpdateRoute(&in->rt_, vrf, pkt->ip_saddr, pkt->smac,
+            UpdateRoute(&in->rt_, vrf, hdr.src_ip, pkt->smac,
                         flow_source_plen_map);
         }
     }
@@ -970,7 +977,7 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
     //exact same route with different nexthop, hence if both ingress
     //route and egress route are present in native vrf, acl match condition
     //can be applied
-    VrfTranslate(pkt, in, out);
+    VrfTranslate(pkt, in, out, pkt->ip_saddr);
 
     if (out->rt_) {
         // Compute out-intf and ECMP info from out-route
@@ -1075,7 +1082,7 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
     }
 
     //Apply vrf translate ACL to get ingress route
-    VrfTranslate(pkt, in, out);
+    VrfTranslate(pkt, in, out, pkt->ip_saddr);
 
     if (RouteAllowNatLookup(out->rt_)) {
         // If interface has floating IP, check if destination is one of the
