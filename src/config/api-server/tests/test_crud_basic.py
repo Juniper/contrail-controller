@@ -26,12 +26,15 @@ import inspect
 import pycassa
 import kombu
 import requests
+import bottle
+import stevedore
 
 from vnc_api.vnc_api import *
 from vnc_api.common import exceptions as vnc_exceptions
 import vnc_api.gen.vnc_api_test_gen
 from vnc_api.gen.resource_test import *
 import cfgm_common
+from cfgm_common import vnc_plugin_base
 
 sys.path.append('../common/tests')
 from test_utils import *
@@ -982,6 +985,169 @@ class TestLocalAuth(test_case.ApiServerTestCase):
         self.assertThat(resp.status_code, Equals(401))
 
 # end class TestLocalAuth
+
+class TestExtensionApi(test_case.ApiServerTestCase):
+    def __init__(self, *args, **kwargs):
+        super(TestExtensionApi, self).__init__(*args, **kwargs)
+    # end __init__
+
+    class ResourceApiDriver(vnc_plugin_base.ResourceApi):
+        _test_case = None
+
+        def __init__(self, *args, **kwargs):
+            pass
+        # end __init__
+
+        def transform_request(self, request):
+            # add/del/mod envvar
+            request.environ['X_TEST_DUMMY'] = 'foo'
+            request.environ['HTTP_X_CONTRAIL_USERAGENT'] = 'bar'
+            del request.environ['SERVER_SOFTWARE']
+
+            # /virtual-networks -> virtual-network
+            obj_type = request.path[1:-1]
+            if request.method == 'POST' and obj_type == 'virtual-network':
+                obj_name = request.json[obj_type]['fq_name'][-1]
+                if 'transform-create' in obj_name:
+                    # add/del/mod body
+                    request.json[obj_type]['dummy_field'] = 'foo'
+                    request.json[obj_type]['fq_name'][-1] = obj_name + '-foo'
+                    del request.json[obj_type]['uuid']
+            elif request.method == 'GET':
+                request.environ['QUERY_STRING'] = \
+                    request.environ['QUERY_STRING'].replace('replace-me','')
+
+        # end transform_request
+
+        def validate_request(self, request):
+            # /virtual-networks -> virtual-network
+            obj_type = request.path[1:-1]
+            if request.method == 'POST' and obj_type == 'virtual-network':
+                obj_name = request.json[obj_type]['fq_name'][-1]
+                if 'validate-create' in obj_name:
+                    raise bottle.abort(456, 'invalidating create request')
+            elif request.method == 'GET':
+                mch = re.match('/virtual-network/.*', request.path)
+                if (mch and
+                    'fail-me' in request.environ['QUERY_STRING']):
+                    raise bottle.abort(456, 'invalidating read request')
+            elif request.method == 'PUT':
+                mch = re.match('/virtual-network/.*', request.path)
+                if (mch and
+                    request.json['virtual-network'].get('is_shared')):
+                    raise bottle.abort(456, 'invalidating update request')
+            elif request.method == 'DELETE':
+                mch = re.match('/virtual-network/.*', request.path)
+                if mch:
+                    raise bottle.abort(456, 'invalidating delete request')
+        # end validate_request
+
+        def transform_response(self, request, response):
+            self._test_case.assertIn('X_TEST_DUMMY', request.environ.keys())
+            self._test_case.assertNotIn('SERVER_SOFTWARE', request.environ.keys())
+            self._test_case.assertThat(request.environ['HTTP_X_CONTRAIL_USERAGENT'],
+                                       Equals('bar'))
+            if request.method == 'POST':
+                obj_type = request.path[1:-1]
+                obj_name = request.json[obj_type]['fq_name'][-1]
+                if 'validate-create' in obj_name:
+                    bottle.response.status = '234 Transformed Response'
+                    response[obj_type]['extra_field'] = 'foo'
+        # end transform_response
+    # end class ResourceApiDriver
+
+    def setUp(self):
+        test_common.setup_extra_flexmock(
+            [(stevedore.extension.ExtensionManager, '__new__',
+              FakeExtensionManager)])
+        FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.resourceApi'] = \
+            [TestExtensionApi.ResourceApiDriver]
+        super(TestExtensionApi, self).setUp()
+        TestExtensionApi.ResourceApiDriver._test_case = self
+    # end setUp
+
+    def tearDown(self):
+        FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.resourceApi'] = \
+            None
+        super(TestExtensionApi, self).tearDown()
+    # end tearDown
+
+    def test_transform_request(self):
+        # create
+        obj = VirtualNetwork('transform-create')
+        obj_request_uuid = str(uuid.uuid4())
+        body_dict = {'virtual-network':
+                          {'fq_name': obj.fq_name,
+                           'parent_type': 'project',
+                           'uuid': obj_request_uuid}}
+        status, content = self._http_post('/virtual-networks',
+                              body=json.dumps(body_dict))
+        self.assertThat(status, Equals(234))
+        obj_dict = json.loads(content)['virtual-network']
+        obj_allocd_uuid = obj_dict['uuid']
+
+        self.assertThat(obj_allocd_uuid, Not(Equals(obj_request_uuid)))
+        self.assertThat(obj_dict['fq_name'][-1], Equals('transform-create-foo'))
+        self.assertThat(obj_dict['extra_field'], Equals('foo'))
+
+        # read
+        status, content = self._http_get('/virtual-networks',
+            query_params={'obj_uuids':'replace-me'+obj_dict['uuid']})
+        self.assertThat(status, Equals(200))
+        objs_dict = json.loads(content)['virtual-networks']
+        self.assertThat(len(objs_dict), Equals(1))
+        self.assertThat(objs_dict[0]['fq_name'][-1],
+                        Equals('transform-create-foo'))
+
+        # update
+        body_dict = {'virtual-network':
+                         {'display_name': 'foo'}}
+        status, content = self._http_put('/virtual-network/'+obj_allocd_uuid,
+                                         body=json.dumps(body_dict))
+        obj = self._vnc_lib.virtual_network_read(id=obj_allocd_uuid)
+        self.assertThat(obj.display_name, Equals('foo'))
+    # end test_transform_request
+
+    def test_validate_request(self):
+        # create
+        obj = VirtualNetwork('validate-create')
+        body_dict = {'virtual-network':
+                        {'fq_name': obj.fq_name,
+                        'parent_type': 'project'}}
+        status, content = self._http_post('/virtual-networks',
+                              body=json.dumps(body_dict))
+        self.assertThat(status, Equals(456))
+        self.assertThat(content, Contains('invalidating create request'))
+        with ExpectedException(NoIdError) as e:
+            self._vnc_lib.virtual_network_read(fq_name=obj.fq_name)
+
+        # read
+        obj = self._create_test_object()
+        status, content = self._http_get('/virtual-network/'+obj.uuid,
+            query_params={'fail-me': 1})
+        self.assertThat(status, Equals(456))
+        self.assertThat(content, Contains('invalidating read request'))
+
+        # update
+        obj.is_shared = True
+        body_dict = {'virtual-network':
+                        {'is_shared': True}}
+        status, content = self._http_put('/virtual-network/'+obj.uuid,
+                               body=json.dumps(body_dict))
+        self.assertThat(status, Equals(456))
+        self.assertThat(content, Contains('invalidating update request'))
+        obj = self._vnc_lib.virtual_network_read(id=obj.uuid)
+        self.assertThat(obj.is_shared, Equals(None))
+
+        # delete
+        status, content = self._http_delete('/virtual-network/'+obj.uuid,
+                               body=None)
+        self.assertThat(status, Equals(456))
+        self.assertThat(content, Contains('invalidating delete request'))
+        obj = self._vnc_lib.virtual_network_read(id=obj.uuid)
+    # end test_validate_request
+
+# end class TestExtensionApi
 
 if __name__ == '__main__':
     ch = logging.StreamHandler()
