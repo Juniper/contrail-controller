@@ -263,13 +263,10 @@ AgentPath *BridgeRouteEntry::FindPathUsingKeyData
             continue;
 
         if (is_multicast()) {
-            //Handle multicast peer matching
+            //Handle multicast peer matching,
+            //In case of BGP peer also match VXLAN id.
             if (path->peer()->GetType() != Peer::BGP_PEER)
                 return const_cast<AgentPath *>(path);
-
-            //Not the BGP peer we are looking for.
-            if (path->tunnel_type() != TunnelType::VXLAN)
-                continue;
 
             const MulticastRoute *multicast_data =
                 dynamic_cast<const MulticastRoute *>(data);
