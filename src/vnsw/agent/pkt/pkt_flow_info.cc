@@ -835,7 +835,19 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
         return;
     }
 
+    nat_done = true;
+    nat_ip_saddr = fip_it->floating_ip_;
+    nat_ip_daddr = pkt->ip_daddr;
+    nat_sport = pkt->sport;
+    nat_dport = pkt->dport;
+
     VrfTranslate(pkt, in, out);
+    if (out->rt_ == NULL || in->rt_ == NULL) {
+        //If After VRF translation, ingress route or
+        //egress route is NULL, mark the flow as short flow
+        return;
+    }
+
     // Compute out-intf and ECMP info from out-route
     if (RouteToOutInfo(out->rt_, pkt, this, in, out) == false) {
         return;
@@ -843,11 +855,6 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
 
     dest_vrf = out->rt_->vrf_id();
     // Setup reverse flow to translate sip.
-    nat_done = true;
-    nat_ip_saddr = fip_it->floating_ip_;
-    nat_ip_daddr = pkt->ip_daddr;
-    nat_sport = pkt->sport;
-    nat_dport = pkt->dport;
 
     // Compute VRF for reverse flow
     if (out->intf_) {
@@ -906,8 +913,14 @@ void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
 
     PacketHeader hdr;
     hdr.vrf = pkt->vrf;
-    hdr.src_ip = pkt->ip_saddr;
-    hdr.dst_ip = pkt->ip_daddr;
+    if (nat_done == false) {
+        hdr.src_ip = pkt->ip_saddr;
+        hdr.dst_ip = pkt->ip_daddr;
+    } else {
+        hdr.src_ip = nat_ip_saddr;
+        hdr.dst_ip = nat_ip_daddr;
+    }
+
     hdr.protocol = pkt->ip_proto;
     if (hdr.protocol == IPPROTO_UDP || hdr.protocol == IPPROTO_TCP) {
         hdr.src_port = pkt->sport;
@@ -941,7 +954,7 @@ void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
         if (vrf) {
             UpdateRoute(&out->rt_, vrf, pkt->ip_daddr, pkt->dmac,
                         flow_dest_plen_map);
-            UpdateRoute(&in->rt_, vrf, pkt->ip_saddr, pkt->smac,
+            UpdateRoute(&in->rt_, vrf, hdr.src_ip, pkt->smac,
                         flow_source_plen_map);
         }
     }
