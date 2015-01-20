@@ -371,6 +371,12 @@ bool EvpnDerivedPathData::AddChangePath(Agent *agent, AgentPath *path,
         ret = true;
     }
 
+    uint32_t tunnel_bmap = reference_path_->tunnel_bmap();
+    if (evpn_path->tunnel_bmap() != tunnel_bmap) {
+        evpn_path->set_tunnel_bmap(tunnel_bmap);
+        ret = true;
+    }
+
     TunnelType::Type tunnel_type = reference_path_->tunnel_type();
     if (evpn_path->tunnel_type() != tunnel_type) {
         evpn_path->set_tunnel_type(tunnel_type);
