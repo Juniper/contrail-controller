@@ -183,6 +183,10 @@ int main(int argc, char *argv[]) {
         tcp::endpoint dss_ep;
         boost::system::error_code error;
         dss_ep.address(address::from_string(options.discovery_server(), error));
+        if (error) {
+            LOG(ERROR, "Invalid discovery-server ip address " <<
+                options.discovery_server());
+        }
         dss_ep.port(options.discovery_port());
         ds_client = new DiscoveryServiceClient(Dns::GetEventManager(), dss_ep,
             g_vns_constants.ModuleNames.find(Module::DNS)->second);

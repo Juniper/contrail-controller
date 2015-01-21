@@ -361,6 +361,10 @@ int main(int argc, char *argv[])
         boost::system::error_code error;
         dss_ep.address(address::from_string(options.discovery_server(),
                        error));
+        if (error) {
+            LOG(ERROR, "Invalid discover-server ip address " <<
+                options.discovery_server());
+        }
         dss_ep.port(options.discovery_port());
         string client_name =
             g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second;
