@@ -404,7 +404,7 @@ void RoutingInstanceMgr::DestroyRoutingInstance(RoutingInstance *rtinstance) {
     if (name == BgpConfigManager::kMasterInstance) return;
 
     const BgpInstanceConfig *config
-        = server()->config_manager()->config().FindInstance(name);
+        = server()->config_manager()->FindInstance(name);
     if (config) {
         CreateRoutingInstance(config);
         return;
@@ -499,15 +499,13 @@ void RoutingInstance::ProcessConfig(BgpServer *server) {
         VrfTableCreate(server, Address::EVPN, Address::EVPN);
     }
 
-    if (config_->instance_config() == NULL) {
-        return;
-    }
-
     // Service Chain
-    const autogen::ServiceChainInfo &cfg =
-        config_->instance_config()->service_chain_information();
-    if (cfg.routing_instance != "") {
-        server->service_chain_mgr()->LocateServiceChain(this, cfg);
+    if (!config_->service_chain_list().empty()) {
+        const ServiceChainConfig &cfg =
+                config_->service_chain_list().front();
+        if (cfg.routing_instance != "") {
+            server->service_chain_mgr()->LocateServiceChain(this, cfg);
+        }
     }
 
     if (static_route_mgr())
@@ -693,18 +691,12 @@ void RoutingInstance::UpdateConfig(BgpServer *server,
     //
     // Service Chain update
     //
-    if (cfg->instance_config() == NULL) {
+    if (!config_->service_chain_list().empty()) {
+        const ServiceChainConfig &cfg =
+                config_->service_chain_list().front();
+        server->service_chain_mgr()->LocateServiceChain(this, cfg);
+    } else {
         server->service_chain_mgr()->StopServiceChain(this);
-        if (static_route_mgr())
-            static_route_mgr()->FlushStaticRouteConfig();
-        return;
-    }
-
-    const autogen::ServiceChainInfo &service_chain_cfg =
-        cfg->instance_config()->service_chain_information();
-    if (service_chain_cfg.routing_instance != "") {
-        server->service_chain_mgr()->LocateServiceChain(this,
-                                                        service_chain_cfg);
     }
 
     if (static_route_mgr())

@@ -43,6 +43,7 @@ env.Prepend(LIBS = [
                     'task_test',
                     'bgptest',
                     'bgp',
+		    'bgp_ifmap_config',
                     'peer_sandesh',
                     'control_node',
                     'origin_vn',

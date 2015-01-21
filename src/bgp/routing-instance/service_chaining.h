@@ -24,11 +24,8 @@ class RoutingInstance;
 class BgpTable;
 class BgpServer;
 class SandeshResponse;
+class ServiceChainConfig;
 class ShowServicechainInfo;
-
-namespace autogen {
-class ServiceChainInfo;
-}
 
 class ServiceChain : public ConditionMatch {
 public:
@@ -54,7 +51,7 @@ public:
                  const std::vector<std::string> &subnets, IpAddress addr);
 
     // Compare config and return whether cfg has updated
-    bool CompareServiceChainCfg(const autogen::ServiceChainInfo &cfg);
+    bool CompareServiceChainCfg(const ServiceChainConfig &cfg);
 
     const IpAddress &service_chain_addr() const {
         return service_chain_addr_;
@@ -289,8 +286,8 @@ public:
     // Creates a new service chain between two Virtual network
     // If the two routing instance is already connected, it updates the
     // connected route address for existing service chain
-    bool LocateServiceChain(RoutingInstance *src,
-                            const autogen::ServiceChainInfo &cfg);
+    bool LocateServiceChain(RoutingInstance *src, 
+                            const ServiceChainConfig &cfg);
 
     // Remove the existing service chain between from routing instance
     void StopServiceChain(RoutingInstance *src);

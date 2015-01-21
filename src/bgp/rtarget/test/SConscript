@@ -2,8 +2,6 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-# -*- mode: python; -*-
-
 Import('BuildEnv')
 import sys
 
@@ -31,6 +29,7 @@ env.Append(LIBPATH = [env['TOP'] + '/base', env['TOP'] + '/base/test',
            env['TOP'] + '/schema', env['TOP'] + '/xmpp', env['TOP'] + '/xml'])
 
 env.Prepend(LIBS = ['control_test', 'bgptest', 'bgp', 'peer_sandesh',
+                    'bgp_test_factory',
                     'bgp_schema', 'control_node', 'dbtest',
                     'ifmap_vnc', 'task_test',
                     'ifmap_test_util', 'ifmap_test_util_server',
@@ -64,6 +63,7 @@ else:
     env.Prepend(LINKFLAGS =
                 ['-Wl,--whole-archive',
                  '-rdynamic',
+                 '-lbgp_test_factory',
                  '-lbgp_inet',
                  '-lbgp_ermvpn',
                  '-lbgp_evpn',
@@ -106,3 +106,7 @@ flaky_test = env.TestSuite('rtarget-flaky-test', flaky_test_suite)
 env.Alias('controller/src/bgp/rtarget:flaky-test', flaky_test)
 
 Return('test_suite')
+
+# Local Variables:
+# mode: python
+# End:

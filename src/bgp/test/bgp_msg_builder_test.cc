@@ -41,9 +41,10 @@ class BgpMsgBuilderTest : public testing::Test {
 protected:
     BgpMsgBuilderTest()
         : server_(&evm_),
-          instance_config_(BgpConfigManager::kMasterInstance),
-          config_(&instance_config_, "test-peer", "local", &router_, NULL) {
+          instance_config_(BgpConfigManager::kMasterInstance) {
         ConcurrencyScope scope("bgp::Config");
+        config_.set_instance_name(BgpConfigManager::kMasterInstance);
+        config_.set_name("test-peer");
         RoutingInstance *rti =
                 server_.routing_instance_mgr()->CreateRoutingInstance(
                     &instance_config_);
@@ -58,7 +59,6 @@ protected:
     EventManager evm_;
     BgpServer server_;
     BgpInstanceConfig instance_config_;
-    autogen::BgpRouter router_;
     BgpNeighborConfig config_;
     BgpPeer *peer_;
 };

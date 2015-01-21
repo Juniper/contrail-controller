@@ -13,6 +13,7 @@
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_attr.h"
 #include "bgp/bgp_config.h"
+#include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_peer.h"
@@ -25,6 +26,8 @@
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_table.h"
+#include "schema/bgp_schema_types.h"
+#include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"
 
 using namespace boost::asio;
@@ -46,8 +49,11 @@ typedef ip::tcp::socket Socket;
 BgpServerTest::BgpServerTest(EventManager *evm, const string &localname,
                              DB *config_db, DBGraph *config_graph) :
     BgpServer(evm), config_db_(config_db), config_graph_(config_graph) {
+    BgpIfmapConfigManager *config_manager =
+            static_cast<BgpIfmapConfigManager *>(config_mgr_.get());
+    config_manager->Initialize(config_db_.get(), config_graph_.get(),
+                               localname);
     cleanup_config_ = false;
-    config_mgr_->Initialize(config_db_.get(), config_graph_.get(), localname);
     rtarget_group_mgr_->Initialize();
     GetIsPeerCloseGraceful_fnc_ =
         boost::bind(&BgpServerTest::BgpServerIsPeerCloseGraceful, this);
@@ -62,7 +68,10 @@ BgpServerTest::BgpServerTest(EventManager *evm, const string &localname)
     IFMapLinkTable_Init(config_db_.get(), config_graph_.get());
     vnc_cfg_Server_ModuleInit(config_db_.get(), config_graph_.get());
     bgp_schema_Server_ModuleInit(config_db_.get(), config_graph_.get());
-    config_mgr_->Initialize(config_db_.get(), config_graph_.get(), localname);
+    BgpIfmapConfigManager *config_manager =
+            static_cast<BgpIfmapConfigManager *>(config_mgr_.get());
+    config_manager->Initialize(config_db_.get(), config_graph_.get(),
+                               localname);
     rtarget_group_mgr_->Initialize();
     GetIsPeerCloseGraceful_fnc_ =
         boost::bind(&BgpServerTest::BgpServerIsPeerCloseGraceful, this);
@@ -238,7 +247,10 @@ void BgpPeerTest::BindLocalEndpoint(BgpSession *session) {
     peer_key.endpoint.port(server()->session_manager()->GetPort());
 
     if (config_) {
-        peer_key.uuid = StringToUuid(config_->uuid());
+        if (!config_->uuid().empty()) {
+            boost::uuids::string_generator gen;
+            peer_key.uuid = gen(config_->uuid());
+        }
         tbb::mutex::scoped_lock lock(peer_connect_map_mutex_);
         peer_connect_map_[local_endpoint] = peer_key;
     }
@@ -379,20 +391,11 @@ boost::any BgpTestUtil::GetUserData(std::string key) {
     }
 }
 
-// Constructor to create different neighbor configs with custom names.
-// Used in unit testing mostly.
-BgpNeighborConfig::BgpNeighborConfig(const BgpInstanceConfig *instance,
-                                     const string &remote_name,
-                                     const string &local_name,
-                                     const autogen::BgpRouter *router)
-        : instance_(instance), name_(remote_name), local_as_(0) {
-    const autogen::BgpRouterParams &params = router->parameters();
-    peer_config_ = params;
-}
-
 void BgpServerTest::GlobalSetUp(void) {
     BgpObjectFactory::Register<BgpPeer>(
         boost::factory<BgpPeerTest *>());
     BgpObjectFactory::Register<PeerManager>(
         boost::factory<PeerManagerTest *>());
+    BgpObjectFactory::Register<BgpConfigManager>(
+        boost::factory<BgpIfmapConfigManager *>());
 }

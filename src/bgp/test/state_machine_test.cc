@@ -13,6 +13,7 @@
 #include "base/test/task_test_util.h"
 #include "net/bgp_af.h"
 #include "bgp/bgp_config.h"
+#include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_peer.h"
@@ -450,7 +451,7 @@ protected:
         uint32_t identifier = 1, int holdtime = 30) {
         BgpProto::OpenMessage *open = new BgpProto::OpenMessage;
         BgpMessageTest::GenerateOpenMessage(open);
-        open->identifier = identifier;
+        open->identifier = htonl(identifier);
         open->holdtime = holdtime;
         peer_->ResetCapabilities();
         sm_->OnMessage(session, open);
@@ -2537,6 +2538,8 @@ TEST_F(StateMachineEstablishedTest, TcpCloseThenAdminDown) {
 int main(int argc, char **argv) {
     bgp_log_test::init();
     ControlNode::SetDefaultSchedulingPolicy();
+    BgpObjectFactory::Register<BgpConfigManager>(
+        boost::factory<BgpIfmapConfigManager *>());
     BgpObjectFactory::Register<BgpSessionManager>(
         boost::factory<BgpSessionManagerMock *>());
     ::testing::InitGoogleTest(&argc, argv);

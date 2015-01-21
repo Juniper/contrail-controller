@@ -2,8 +2,6 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-# -*- mode: python; -*-
-
 Import('BuildEnv')
 import sys
 
@@ -43,6 +41,7 @@ env.Prepend(LIBS = [
                     'task_test',
                     'bgptest',
                     'bgp',
+		    'bgp_ifmap_config',
                     'extended_community',
                     'peer_sandesh',
                     'control_node',
@@ -74,6 +73,7 @@ env.Prepend(LIBS = [
                     'bgp_l3vpn',
                     'bgp_inet6',
                     'bgp_inet6vpn',
+                    'bgp_test_factory',
                     'xmpp_unicast',
                     'xmpp_multicast',
                     'xmpp_enet',
@@ -85,13 +85,14 @@ env.Prepend(LIBS = [
 if sys.platform != 'darwin':
     env.Append(LIBS=['rt'])
     env.Prepend(LINKFLAGS = ['-Wl,--whole-archive',
+			     '-lbgp_test_factory',
                              '-lbgp_ermvpn',
                              '-lbgp_evpn',
                              '-lbgp_inet',
-                             '-lbgp_l3vpn',
-                             '-lrtarget',
                              '-lbgp_inet6',
                              '-lbgp_inet6vpn',
+                             '-lbgp_l3vpn',
+                             '-lrtarget',
                              '-ltask_test',
                              '-Wl,--no-whole-archive'])
 else:
@@ -127,3 +128,7 @@ test = env.TestSuite('bgp-test', test_suite)
 env.Alias('controller/src/bgp/ermvpn:test', test)
 
 Return('test_suite')
+
+# Local Variables:
+# mode: python
+# End:

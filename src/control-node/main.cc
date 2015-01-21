@@ -9,53 +9,50 @@
 #include <boost/bind.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/program_options.hpp>
-#include <pthread.h>
 
-#include "base/logging.h"
 #include "base/connection_info.h"
 #include "base/cpuinfo.h"
+#include "base/logging.h"
+#include "base/misc_utils.h"
 #include "bgp/bgp_config.h"
+#include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_types.h"
+#include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
+#include "control-node/buildinfo.h"
 #include "control-node/control_node.h"
+#include "control-node/options.h"
+#include "control-node/sandesh/control_node_types.h"
 #include "db/db_graph.h"
-#include "ifmap/ifmap_link_table.h"
-#include "ifmap/ifmap_server_parser.h"
-#include "ifmap/ifmap_server.h"
-#include "ifmap/ifmap_xmpp.h"
 #include "ifmap/client/ifmap_manager.h"
+#include "ifmap/ifmap_link_table.h"
+#include "ifmap/ifmap_server.h"
+#include "ifmap/ifmap_server_parser.h"
+#include "ifmap/ifmap_xmpp.h"
 #include "io/event_manager.h"
-#include "sandesh/sandesh_types.h"
+#include "sandesh/common/vns_constants.h"
+#include "sandesh/common/vns_types.h"
 #include "sandesh/sandesh.h"
 #include "sandesh/sandesh_http.h"
 #include "sandesh/sandesh_trace.h"
-#include "sandesh/common/vns_types.h"
-#include "sandesh/common/vns_constants.h"
+#include "sandesh/sandesh_types.h"
+#include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
+#include "xmpp/sandesh/xmpp_peer_info_types.h"
 #include "xmpp/xmpp_init.h"
 #include "xmpp/xmpp_server.h"
-#include "xmpp/sandesh/xmpp_peer_info_types.h"
-#include "bgp/bgp_sandesh.h"
-#include "base/misc_utils.h"
-#include "control-node/options.h"
-#include "control-node/sandesh/control_node_types.h"
-#include <control-node/buildinfo.h>
 
 using namespace std;
 using namespace boost::asio::ip;
-namespace opt = boost::program_options;
 using process::ConnectionStateManager;
 using process::GetProcessStateCb;
 
-static TaskTrigger *node_info_trigger;
-static Timer *node_info_log_timer;
-static uint64_t start_time;
 static EventManager evm;
 
 static string FileRead(const char *filename) {
@@ -96,21 +93,20 @@ static void ShutdownDiscoveryClient(DiscoveryServiceClient *client) {
 
 // Shutdown various server objects used in the control-node.
 static void ShutdownServers(
-                boost::scoped_ptr<BgpXmppChannelManager> *channel_manager,
-                DiscoveryServiceClient *dsclient) {
+    boost::scoped_ptr<BgpXmppChannelManager> *channel_manager,
+    DiscoveryServiceClient *dsclient,
+    Timer *node_info_log_timer) {
 
     // Bring down bgp server, xmpp server, etc. in the right order.
     BgpServer *bgp_server = (*channel_manager)->bgp_server();
     XmppServer *xmpp_server = (*channel_manager)->xmpp_server();
-
-    int cnt;
 
     // Shutdown Xmpp server first.
     xmpp_server->Shutdown();
     WaitForIdle();
 
     // Wait until all XMPP connections are cleaned up.
-    for (cnt = 0; xmpp_server->ConnectionCount() != 0 && cnt < 15; cnt++) {
+    for (int cnt = 0; xmpp_server->ConnectionCount() != 0 && cnt < 15; cnt++) {
         sleep(1);
     }
 
@@ -119,15 +115,15 @@ static void ShutdownServers(
     WaitForIdle();
 
     // Wait until all routing-instances are cleaned up.
-    for (cnt = 0; bgp_server->routing_instance_mgr()->count() != 0 && cnt < 15;
-            cnt++) {
+    for (int cnt = 0;
+         bgp_server->routing_instance_mgr()->count() != 0 && cnt < 15;
+         cnt++) {
         sleep(1);
     }
 
     channel_manager->reset();
     TcpServerManager::DeleteServer(xmpp_server);
     TimerManager::DeleteTimer(node_info_log_timer);
-    delete node_info_trigger;
 
     // Shutdown Discovery Service Client
     ShutdownDiscoveryClient(dsclient);
@@ -142,7 +138,7 @@ static void ShutdownServers(
     WaitForIdle();
 }
 
-bool ControlNodeInfoLogTimer() {
+bool ControlNodeInfoLogTimer(TaskTrigger *node_info_trigger) {
     node_info_trigger->Set();
     return false;
 }
@@ -244,7 +240,8 @@ void LogControlNodePeerStats(BgpServer *server,
     server->VisitBgpPeers(boost::bind(FillBgpPeerStats, server, _1));
 }
 
-bool ControlNodeInfoLogger(BgpSandeshContext &ctx) {
+bool ControlNodeInfoLogger(BgpSandeshContext &ctx, uint64_t start_time,
+                           Timer *node_info_log_timer) {
     BgpServer *server = ctx.bgp_server;
     BgpXmppChannelManager *xmpp_channel_mgr = ctx.xmpp_peer_manager;
 
@@ -370,9 +367,6 @@ bool ControlNodeInfoLogger(BgpSandeshContext &ctx) {
 
     if (first) first = false;
 
-    node_info_log_timer->Cancel();
-    node_info_log_timer->Start(60*1000, boost::bind(&ControlNodeInfoLogTimer),
-                               NULL);
     return true;
 }
 
@@ -479,8 +473,9 @@ int main(int argc, char *argv[]) {
     sandesh_context.ifmap_server = &ifmap_server;
     IFMap_Initialize(&ifmap_server);
 
-    bgp_server->config_manager()->Initialize(&config_db,
-            &config_graph, options.hostname());
+    BgpIfmapConfigManager *config_manager =
+            static_cast<BgpIfmapConfigManager *>(bgp_server->config_manager());
+    config_manager->Initialize(&config_db, &config_graph, options.hostname());
     ControlNode::SetHostname(options.hostname());
     BgpConfigParser parser(&config_db);
     parser.Parse(FileRead(options.bgp_config_file().c_str()));
@@ -574,18 +569,29 @@ int main(int argc, char *argv[]) {
     ifmap_server.set_ifmap_manager(ifmapmgr);
 
     CpuLoadData::Init();
-    start_time = UTCTimestampUsec();
+    uint64_t start_time = UTCTimestampUsec();
 
-    node_info_trigger = 
-        new TaskTrigger(boost::bind(&ControlNodeInfoLogger, sandesh_context),
-            TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0);
+    std::auto_ptr<Timer> node_info_log_timer(
+        TimerManager::CreateTimer(
+            *evm.io_service(), "ControlNode Info log timer"));
 
-    node_info_log_timer = TimerManager::CreateTimer(*evm.io_service(), 
-        "ControlNode Info log timer");
-    node_info_log_timer->Start(60*1000, boost::bind(&ControlNodeInfoLogTimer),
-                               NULL);
+    std::auto_ptr<TaskTrigger> node_info_trigger(
+        new TaskTrigger(
+            boost::bind(&ControlNodeInfoLogger, sandesh_context, start_time,
+                        node_info_log_timer.get()),
+            TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0));
+
+    node_info_log_timer->Start(
+        60 * 1000,
+        boost::bind(&ControlNodeInfoLogTimer, node_info_trigger.get()),
+        NULL);
+
+    /*
+     * Event loop
+     */
     evm.Run();
-    ShutdownServers(&bgp_peer_manager, ds_client);
+
+    ShutdownServers(&bgp_peer_manager, ds_client, node_info_log_timer.get());
 
     init.Reset();
     return 0;
