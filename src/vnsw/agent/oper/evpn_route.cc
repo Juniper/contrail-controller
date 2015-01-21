@@ -96,6 +96,34 @@ EvpnRouteEntry *EvpnAgentRouteTable::FindRoute(const Agent *agent,
 /////////////////////////////////////////////////////////////////////////////
 // EvpnAgentRouteTable utility methods to add/delete routes
 /////////////////////////////////////////////////////////////////////////////
+void EvpnAgentRouteTable::AddReceiveRouteReq(const Peer *peer,
+                                             const string &vrf_name,
+                                             uint32_t label,
+                                             const MacAddress &mac,
+                                             const IpAddress &ip_addr,
+                                             uint32_t ethernet_tag,
+                                             const string &vn_name) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
+                                   ethernet_tag));
+    req.data.reset(new L2ReceiveRoute(vn_name, ethernet_tag, label));
+    Enqueue(&req);
+}
+
+void EvpnAgentRouteTable::AddReceiveRoute(const Peer *peer,
+                                          const string &vrf_name,
+                                          uint32_t label,
+                                          const MacAddress &mac,
+                                          const IpAddress &ip_addr,
+                                          uint32_t ethernet_tag,
+                                          const string &vn_name) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
+                                   ethernet_tag));
+    req.data.reset(new L2ReceiveRoute(vn_name, ethernet_tag, label));
+    Process(req);
+}
+
 void EvpnAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
                                              const string &vrf_name,
                                              const MacAddress &mac,
