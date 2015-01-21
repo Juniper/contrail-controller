@@ -1,0 +1,30 @@
+# -*- mode: python; -*-
+
+import os
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+sources = [
+    'MANIFEST.in',
+    'setup.py',
+    'inventory_daemon/__init__.py',
+    'inventory_daemon/inventory.py',
+    ]
+
+sources += env.SandeshGenPy(
+    'server_inventory.sandesh',
+    'inventory_daemon/', False)
+
+sdist_gen = env.Command('dist',
+                         sources,
+                         'python setup.py sdist',
+                         chdir=1)
+env.Alias('controller/src/inventory:sdist', sdist_gen)
+env.Default(sdist_gen)
+
+if 'install' in BUILD_TARGETS:
+    env.Alias('install',
+              env.Command(None, sources,
+                          'python setup.py install %s' %
+                          env['PYTHON_INSTALL_OPT'],
+                          chdir=1))

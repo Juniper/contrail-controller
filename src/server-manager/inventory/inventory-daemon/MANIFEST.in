@@ -1,0 +1,1 @@
+recursive-include inventory_daemon/server_inventory *.html *.xml *.css

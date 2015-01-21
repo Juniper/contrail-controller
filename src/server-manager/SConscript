@@ -9,3 +9,7 @@ Import('BuildEnv')
 BuildEnv.SConscript('monitoring/ipmi/SConscript',
                     exports='BuildEnv',
                     duplicate=0)
+
+BuildEnv.SConscript('inventory/SConscript',
+                    exports='BuildEnv',
+                    duplicate=0)
