@@ -191,7 +191,7 @@ KSyncEntry *PhysicalPortTable::Alloc(const KSyncEntry *key, uint32_t index) {
 class PhysicalPortSandeshTask : public Task {
 public:
     PhysicalPortSandeshTask(std::string resp_ctx) :
-        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::KSync")), -1),
+        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::KSync")), 0),
         resp_(new OvsdbPhysicalPortResp()), resp_data_(resp_ctx) {
     }
     virtual ~PhysicalPortSandeshTask() {}

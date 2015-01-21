@@ -309,7 +309,7 @@ KSyncDBObject::DBFilterResp LogicalSwitchTable::DBEntryFilter(
 class LogicalSwitchSandeshTask : public Task {
 public:
     LogicalSwitchSandeshTask(std::string resp_ctx) :
-        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::KSync")), -1),
+        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::KSync")), 0),
         resp_(new OvsdbLogicalSwitchResp()), resp_data_(resp_ctx) {
     }
     virtual ~LogicalSwitchSandeshTask() {}
