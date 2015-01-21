@@ -1892,9 +1892,13 @@ class DBInterface(object):
         if allowed_address_pairs and allowed_address_pairs.allowed_address_pair:
             address_pairs = []
             for aap in allowed_address_pairs.allowed_address_pair:
-                pair = {"ip_address": '%s/%s' % (aap.ip.get_ip_prefix(),
+                pair = {}
+                pair["mac_address"] = aap.mac
+                if aap.ip.get_ip_prefix_len() == 32:
+                    pair["ip_address"] = '%s' % (aap.ip.get_ip_prefix())
+                else:
+                    pair["ip_address"] = '%s/%s' % (aap.ip.get_ip_prefix(),
                                                  aap.ip.get_ip_prefix_len()),
-                        "mac_address": aap.mac}
                 address_pairs.append(pair)
             port_q_dict['allowed_address_pairs'] = address_pairs
 
