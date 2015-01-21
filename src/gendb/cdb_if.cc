@@ -1684,12 +1684,7 @@ void CdbIf::UpdateCfStats(CdbIf::CdbIfStats::CfOp op,
 // CdbIfStats
 void CdbIf::CdbIfStats::UpdateCf(const std::string &cfname, bool write,
     bool fail) {
-    CfStatsMap::iterator it = cf_stats_map_.find(cfname);
-    if (it == cf_stats_map_.end()) {
-        it = (cf_stats_map_.insert(cfname, new CfStats)).first;
-    }
-    CfStats *cfstats = it->second;
-    cfstats->Update(write, fail);
+    cf_stats_.Update(cfname, write, fail);
 }
 
 void CdbIf::CdbIfStats::IncrementErrors(CdbIf::CdbIfStats::ErrorType type) {
@@ -1722,62 +1717,14 @@ void CdbIf::CdbIfStats::IncrementErrors(CdbIf::CdbIfStats::ErrorType type) {
 
 void CdbIf::CdbIfStats::Get(std::vector<DbTableInfo> &vdbti,
     DbErrors &dbe) {
-    // Send diffs
-    GetDiffStats<CdbIf::CdbIfStats::CfStatsMap, const std::string,
-        CdbIf::CdbIfStats::CfStats, DbTableInfo>(
-        cf_stats_map_, ocf_stats_map_, vdbti);
+    // Get diff cfstats
+    cf_stats_.Get(vdbti);
     // Subtract old from new
     CdbIf::CdbIfStats::Errors derrors(db_errors_ - odb_errors_);
     // Update old
     odb_errors_ = db_errors_;
     // Populate from diff 
     derrors.Get(dbe);
-}
-
-// CfStats
-CdbIf::CdbIfStats::CfStats operator+(const CdbIf::CdbIfStats::CfStats &a,
-    const CdbIf::CdbIfStats::CfStats &b) {
-    CdbIf::CdbIfStats::CfStats sum;
-    sum.num_reads = a.num_reads + b.num_reads;
-    sum.num_read_fails = a.num_read_fails + b.num_read_fails;
-    sum.num_writes = a.num_writes + b.num_writes;
-    sum.num_write_fails = a.num_write_fails + b.num_write_fails;
-    return sum;
-}
- 
-CdbIf::CdbIfStats::CfStats operator-(const CdbIf::CdbIfStats::CfStats &a,
-    const CdbIf::CdbIfStats::CfStats &b) {
-    CdbIf::CdbIfStats::CfStats diff;
-    diff.num_reads = a.num_reads - b.num_reads;
-    diff.num_read_fails = a.num_read_fails - b.num_read_fails;
-    diff.num_writes = a.num_writes - b.num_writes;
-    diff.num_write_fails = a.num_write_fails - b.num_write_fails;
-    return diff;
-}
-
-void CdbIf::CdbIfStats::CfStats::Update(bool write, bool fail) {
-    if (write) {
-        if (fail) {
-            num_write_fails++;
-        } else {
-            num_writes++;
-        }
-    } else {
-        if (fail) {
-            num_read_fails++;
-        } else {
-            num_reads++;
-        }
-    }
-}
-
-void CdbIf::CdbIfStats::CfStats::Get(const std::string &cfname,
-    DbTableInfo &info) const {
-    info.set_table_name(cfname);
-    info.set_reads(num_reads);
-    info.set_read_fails(num_read_fails);
-    info.set_writes(num_writes);
-    info.set_write_fails(num_write_fails);
 }
 
 // Errors

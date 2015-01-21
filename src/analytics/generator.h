@@ -32,7 +32,7 @@ public:
     virtual DbHandler *GetDbHandler() = 0; // db_handler_;
     
     bool ReceiveSandeshMsg(const VizMsg *vmsg, bool rsc);
-    void GetStatistics(std::vector<SandeshMessageInfo> &sms);
+    void SendSandeshMessageStatistics();
     void GetStatistics(std::vector<SandeshStats> &ssv) const;
     void GetStatistics(std::vector<SandeshLogLevelStats> &lsv) const;
 
@@ -64,8 +64,7 @@ public:
                                      SandeshGeneratorStats &sm_msg_stats) const;
     bool GetDbStats(uint64_t &queue_count, uint64_t &enqueues,
         std::string &drop_level, std::vector<SandeshStats> &vdropmstats) const;
-    bool GetDbStats(std::vector<GenDb::DbTableInfo> &vdbti,
-        GenDb::DbErrors &dbe);
+    void SendDbStatistics();
 
     const std::string &instance_id() const { return instance_id_; }
     const std::string &node_type() const { return node_type_; }
