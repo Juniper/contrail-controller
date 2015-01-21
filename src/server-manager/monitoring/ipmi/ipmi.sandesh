@@ -16,3 +16,12 @@ struct SMIpmiInfo {
 uve sandesh SMIpmiInfoTrace {
     1: SMIpmiInfo             data
 }
+
+objectlog sandesh IpmiSystemEventLog {
+    	1: string name               (key="ObjectServerTable")
+	2: u64 event_id
+	3: string ipmi_timestamp
+	4: string sensor_name
+	5: string sensor_type
+	6: string ipmi_message
+}
