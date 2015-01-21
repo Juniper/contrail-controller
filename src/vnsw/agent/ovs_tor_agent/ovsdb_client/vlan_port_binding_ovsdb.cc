@@ -278,7 +278,7 @@ KSyncDBObject::DBFilterResp VlanPortBindingTable::DBEntryFilter(
 class VlanPortBindingSandeshTask : public Task {
 public:
     VlanPortBindingSandeshTask(std::string resp_ctx) :
-        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::KSync")), -1),
+        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::KSync")), 0),
         resp_(new OvsdbVlanPortBindingResp()), resp_data_(resp_ctx) {
     }
     virtual ~VlanPortBindingSandeshTask() {}
