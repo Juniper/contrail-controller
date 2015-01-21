@@ -23,8 +23,8 @@ protected:
     }
     virtual void TearDown() {
     }
-    void GetStats(std::vector<GenDb::DbTableInfo> &vdbti,
-        GenDb::DbErrors &dbe) {
+    void GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
+        GenDb::DbErrors *dbe) {
         stats_.Get(vdbti, dbe);
     }
     void UpdateErrorsWriteTablespace() {
@@ -294,7 +294,7 @@ TEST_F(CdbIfTest, Stats) {
     // Get and verify
     std::vector<GenDb::DbTableInfo> vdbti;
     GenDb::DbErrors adbe;
-    GetStats(vdbti, adbe);
+    GetStats(&vdbti, &adbe);
     ASSERT_EQ(1, vdbti.size());
     GenDb::DbTableInfo edbti;
     edbti.set_table_name(cfname);
@@ -319,7 +319,7 @@ TEST_F(CdbIfTest, Stats) {
     UpdateErrorsWriteTablespace();
     // Get and verify
     GenDb::DbErrors adbe_diffs;
-    GetStats(vdbti, adbe_diffs);
+    GetStats(&vdbti, &adbe_diffs);
     ASSERT_EQ(1, vdbti.size());
     GenDb::DbTableInfo edbti_diffs;
     edbti_diffs.set_table_name(cfname);

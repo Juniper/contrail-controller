@@ -173,3 +173,9 @@ void VizCollector::SendProtobufCollectorStatistics() {
         protobuf_collector_->SendStatistics(name_);
     }
 }
+
+void VizCollector::SendGeneratorStatistics() {
+    if (collector_) {
+        collector_->SendGeneratorStatistics();
+    }
+}

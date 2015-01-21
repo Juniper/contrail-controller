@@ -48,6 +48,7 @@ struct GeneratorDbStats {
     2: optional bool                      deleted
     3: optional list<gendb.DbTableInfo>   table_info (tags=".table_name")
     4: optional list<gendb.DbErrors>      errors
+    5: optional list<gendb.DbTableInfo>   statistics_table_info (tags=".table_name")
 }
 
 uve sandesh GeneratorDbStatsUve {

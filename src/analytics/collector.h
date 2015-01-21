@@ -62,8 +62,6 @@ public:
             SandeshSession *session, const Sandesh *sandesh);
 
     void GetGeneratorSummaryInfo(std::vector<GeneratorSummaryInfo> &genlist);
-    void GetGeneratorStats(std::vector<SandeshMessageStat> &smslist,
-        std::vector<GeneratorDbStats> &gdbslist);
     void GetGeneratorUVEInfo(std::vector<ModuleServerState> &genlist);
     bool SendRemote(const std::string& destination,
             const std::string &dec_sandesh);
@@ -100,6 +98,7 @@ public:
     int analytics_ttl() { return analytics_ttl_; }
     int db_task_id();
     const CollectorStats &GetStats() const { return stats_; }
+    void SendGeneratorStatistics();
 
     static void SetDiscoveryServiceClient(DiscoveryServiceClient *ds) {
         ds_client_ = ds;

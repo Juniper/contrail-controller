@@ -64,9 +64,16 @@ void Generator::GetStatistics(vector<SandeshLogLevelStats> &lsv) const {
     statistics_.Get(lsv);
 }
 
-void Generator::GetStatistics(vector<SandeshMessageInfo> &smv) {
-    tbb::mutex::scoped_lock lock(smutex_);
-    statistics_.Get(smv);
+void Generator::SendSandeshMessageStatistics() {
+    vector<SandeshMessageInfo> smv;
+    {
+        tbb::mutex::scoped_lock lock(smutex_);
+        statistics_.Get(smv);
+    }
+    SandeshMessageStat sms;
+    sms.set_name(ToString());
+    sms.set_msg_info(smv);
+    SandeshMessageTrace::Send(sms);
 }
     
 bool Generator::ReceiveSandeshMsg(const VizMsg *vmsg, bool rsc) {
@@ -263,9 +270,19 @@ bool SandeshGenerator::GetDbStats(uint64_t &queue_count, uint64_t &enqueues,
                vdropmstats);
 }
 
-bool SandeshGenerator::GetDbStats(std::vector<GenDb::DbTableInfo> &vdbti,
-    GenDb::DbErrors &dbe) {
-    return db_handler_->GetStats(vdbti, dbe);
+void SandeshGenerator::SendDbStatistics() {
+    // DB stats
+    std::vector<GenDb::DbTableInfo> vdbti, vstats_dbti;
+    GenDb::DbErrors dbe;
+    db_handler_->GetStats(&vdbti, &dbe, &vstats_dbti);
+    std::vector<GenDb::DbErrors> vdbe;
+    vdbe.push_back(dbe);
+    GeneratorDbStats gdbstats;
+    gdbstats.set_name(name_);
+    gdbstats.set_table_info(vdbti);
+    gdbstats.set_errors(vdbe);
+    gdbstats.set_statistics_table_info(vstats_dbti);
+    GeneratorDbStatsUve::Send(gdbstats);
 }
 
 void SandeshGenerator::GetGeneratorInfo(ModuleServerState &genlist) const {

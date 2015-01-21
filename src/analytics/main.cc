@@ -148,15 +148,7 @@ bool CollectorInfoLogger(VizSandeshContext &ctx) {
         SandeshModuleServerTrace::Send(sinfos[i]);
     }
 
-    vector<SandeshMessageStat> sminfos;
-    vector<GeneratorDbStats> gdbsinfos;
-    analytics->GetCollector()->GetGeneratorStats(sminfos, gdbsinfos);
-    for (uint i = 0; i < sminfos.size(); i++) {
-        SandeshMessageTrace::Send(sminfos[i]);
-    }
-    for (uint i = 0; i < gdbsinfos.size(); i++) {
-        GeneratorDbStatsUve::Send(gdbsinfos[i]);
-    }
+    analytics->SendGeneratorStatistics();
 
     collector_info_log_timer->Cancel();
     collector_info_log_timer->Start(60*1000, boost::bind(&CollectorInfoLogTimer),

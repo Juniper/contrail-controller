@@ -23,6 +23,7 @@ libgendb = env.Library('gendb',
                        [
                        'gendb_if.cc',
                        'cdb_if.cc',
+                       'gendb_statistics.cc'
                        ])
 
 env.Requires(libgendb, env['TOP'] + '/cdb/libcdb.a')

@@ -272,8 +272,12 @@ bool DbHandler::GetStats(uint64_t &queue_count, uint64_t &enqueues,
     return dbif_->Db_GetQueueStats(queue_count, enqueues);
 }
 
-bool DbHandler::GetStats(std::vector<GenDb::DbTableInfo> &vdbti,
-    GenDb::DbErrors &dbe) {
+bool DbHandler::GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
+    GenDb::DbErrors *dbe, std::vector<GenDb::DbTableInfo> *vstats_dbti) {
+    {
+        tbb::mutex::scoped_lock lock(smutex_);
+        stable_stats_.Get(vstats_dbti);
+    }
     return dbif_->Db_GetStats(vdbti, dbe);
 }
 
@@ -604,6 +608,8 @@ bool DbHandler::StatTableWrite(uint32_t t2,
                 } else if (sv.type==DbHandler::INVALID) {
                     cfname = g_viz_constants.STATS_TABLE_BY_STR_TAG;
                 } else {
+                    tbb::mutex::scoped_lock lock(smutex_);
+                    stable_stats_.Update(statName + ":" + statAttr, true, true);
                     return false;
                 }
             }
@@ -619,6 +625,8 @@ bool DbHandler::StatTableWrite(uint32_t t2,
                 } else if (sv.type==DbHandler::INVALID) {
                     cfname = g_viz_constants.STATS_TABLE_BY_U64_TAG;
                 } else {
+                    tbb::mutex::scoped_lock lock(smutex_);
+                    stable_stats_.Update(statName + ":" + statAttr, true, true);
                     return false;
                 }
             }
@@ -628,11 +636,15 @@ bool DbHandler::StatTableWrite(uint32_t t2,
                 if (sv.type==DbHandler::INVALID) {
                     cfname = g_viz_constants.STATS_TABLE_BY_DBL_TAG;
                 } else {
+                    tbb::mutex::scoped_lock lock(smutex_);
+                    stable_stats_.Update(statName + ":" + statAttr, true, true);
                     return false;
                 }
             }
             break;
         default:
+            tbb::mutex::scoped_lock lock(smutex_);
+            stable_stats_.Update(statName + ":" + statAttr, true, true);
             return false;
     }
 
@@ -682,8 +694,12 @@ bool DbHandler::StatTableWrite(uint32_t t2,
                 ", " << statAttr <<  " tag " << ptag.first <<
                 ":" << stag.first << " into table " <<
                 cfname <<" FAILED");
+        tbb::mutex::scoped_lock lock(smutex_);
+        stable_stats_.Update(statName + ":" + statAttr, true, true);
         return false;
     } else {
+        tbb::mutex::scoped_lock lock(smutex_);
+        stable_stats_.Update(statName + ":" + statAttr, true, false);
         return true;
     }
 }

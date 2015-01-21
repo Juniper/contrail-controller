@@ -62,6 +62,7 @@ public:
         collector_->RedisUpdate(rsc);
     }
     void SendProtobufCollectorStatistics();
+    void SendGeneratorStatistics();
 
 private:
     std::string DbGlobalName(bool dup=false);
