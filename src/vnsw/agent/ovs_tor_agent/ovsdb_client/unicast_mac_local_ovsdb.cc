@@ -152,7 +152,7 @@ KSyncEntry *UnicastMacLocalOvsdb::Alloc(const KSyncEntry *key, uint32_t index) {
 class UnicastMacLocalSandeshTask : public Task {
 public:
     UnicastMacLocalSandeshTask(std::string resp_ctx) :
-        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::KSync")), -1),
+        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::KSync")), 0),
         resp_(new OvsdbUnicastMacLocalResp()), resp_data_(resp_ctx) {
     }
     virtual ~UnicastMacLocalSandeshTask() {}

@@ -42,10 +42,17 @@ private:
 
 class OvsdbClientTcpSession : public OvsdbClientSession, public TcpSession {
 public:
+    static const uint32_t TcpReconnectWait = 2000;      // in msec
+
     struct queue_msg {
         u_int8_t *buf;
         std::size_t len;
     };
+
+    struct OvsdbSessionEvent {
+        TcpSession::Event event;
+    };
+
     OvsdbClientTcpSession(Agent *agent, OvsPeerManager *manager,
             TcpServer *server, Socket *sock, bool async_ready = true);
     ~OvsdbClientTcpSession();
@@ -63,19 +70,26 @@ public:
     void set_status(std::string status) {status_ = status;}
     std::string status() {return status_;}
 
+    // Dequeue event from workqueue for processing
+    bool ProcessSessionEvent(OvsdbSessionEvent event);
+
+    void EnqueueEvent(TcpSession::Event event);
+    bool ReconnectTimerCb();
+
 protected:
     virtual void OnRead(Buffer buffer);
 private:
+    friend class OvsdbClientTcp;
     std::string status_;
+    Timer *client_reconnect_timer_;
     OvsdbClientTcpSessionReader *reader_;
     WorkQueue<queue_msg> *receive_queue_;
+    WorkQueue<OvsdbSessionEvent> *session_event_queue_;
     DISALLOW_COPY_AND_ASSIGN(OvsdbClientTcpSession);
 };
 
 class OvsdbClientTcp : public TcpServer, public OvsdbClient {
 public:
-    static const uint32_t TcpReconnectWait = 2000;      // in msec
-
     OvsdbClientTcp(Agent *agent, TorAgentParam *params,
             OvsPeerManager *manager);
     virtual ~OvsdbClientTcp();
@@ -87,7 +101,7 @@ public:
     const std::string server();
     uint16_t port();
     Ip4Address tsn_ip();
-    bool ReconnectTimerCb();
+    const boost::asio::ip::tcp::endpoint &server_ep() const;
 
     OvsdbClientSession *next_session(OvsdbClientSession *session);
     void AddSessionInfo(SandeshOvsdbClient &client);
@@ -98,7 +112,6 @@ private:
     TcpSession *session_;
     boost::asio::ip::tcp::endpoint server_ep_;
     Ip4Address tsn_ip_;
-    Timer *client_reconnect_timer_;
     DISALLOW_COPY_AND_ASSIGN(OvsdbClientTcp);
 };
 };

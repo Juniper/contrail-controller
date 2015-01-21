@@ -384,7 +384,7 @@ VrfOvsdbObject::logical_switch_map() const {
 class UnicastMacRemoteSandeshTask : public Task {
 public:
     UnicastMacRemoteSandeshTask(std::string resp_ctx) :
-        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::KSync")), -1),
+        Task((TaskScheduler::GetInstance()->GetTaskId("Agent::KSync")), 0),
         resp_(new OvsdbUnicastMacRemoteResp()), resp_data_(resp_ctx) {
     }
     virtual ~UnicastMacRemoteSandeshTask() {}
