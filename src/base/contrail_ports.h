@@ -53,6 +53,7 @@ public:
     static const uint16_t ApiServerOpen();
     static const uint16_t AnalyzerUdpPort();
     static const uint16_t NovaVifVrouterAgentPort();
+    static const uint16_t PortIpcVrouterAgentPort();
 
 private:
     ContrailPorts() {}

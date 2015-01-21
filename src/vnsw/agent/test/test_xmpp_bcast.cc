@@ -11,7 +11,6 @@
 #include "xmpp/xmpp_init.h"
 #include "xmpp/test/xmpp_test_util.h"
 #include "vr_types.h"
-#include "openstack/instance_service_server.h"
 
 #include "xmpp_multicast_types.h"
 #include "xml/xml_pugi.h"

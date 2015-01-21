@@ -86,6 +86,7 @@ const u16 DnsRndcPort = 8094
 const u16 ApiServerOpenPort = 8095
 const u16 AnalyzerUdpPort = 8099
 const u16 NovaVifVrouterAgentPort = 9090
+const u16 PortIpcVrouterAgentPort = 9091
 
 const map<string, u16> ServiceHttpPortMap = {
     SERVICE_VROUTER_AGENT : HttpPortAgent,

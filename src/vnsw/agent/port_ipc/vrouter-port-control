@@ -6,7 +6,7 @@
 import sys
 import argparse
 import ConfigParser
-import urllib2
+import requests
 import json
 import os
 import errno
@@ -15,6 +15,7 @@ sys.path.insert(1, sys.path[0]+'/../api-venv/lib/python2.7/site-packages')
 from vnc_api.vnc_api import *
 from requests.exceptions import ConnectionError
 PORT_PATH="/var/lib/contrail/ports/"
+PORT_IPC_VROUTER_AGENT_PORT=9091
 
 class VrouterPortControl(object):
     def __init__(self, args_str = None):
@@ -25,6 +26,8 @@ class VrouterPortControl(object):
         #TODO:Move this to other place as it tries to create directory every time
         self.CreateDirectoryTree(PORT_PATH)
         port_type_value = 0
+        headers = {'content-type': 'application/json'}
+        base_url = "http://localhost:" + str(PORT_IPC_VROUTER_AGENT_PORT)
         if self._args.oper == "add":
             if self._args.port_type == "NovaVMPort":
                 port_type_value = 0
@@ -39,13 +42,23 @@ class VrouterPortControl(object):
                 u = u[:18] + '-' + u[18:]
                 project_id = u[:23] + '-' + u[23:]
 
-            url = "http://localhost:8085/Snh_AddPortReq?port_uuid=%s&instance_uuid=%s&tap_name=%s&ip_address=%s&vn_uuid=%s&mac_address=%s&vm_name=%s&tx_vlan_id=%d&rx_vlan_id=%d&vm_project_uuid=%s&port_type=%d&ip6_address=%s" % (self._args.uuid, self._args.instance_uuid, self._args.tap_name, self._args.ip_address, self._args.vn_uuid, self._args.mac, self._args.vm_name, self._args.tx_vlan_id, self._args.rx_vlan_id, project_id, port_type_value, self._args.ipv6_address)
-            self.WriteToFile(port_type_value, project_id)
+            url =  base_url + "/add_port"
+            payload = {"ip-address": self._args.ip_address, "vlan-id": -1,
+                       "display-name": self._args.vm_name, "id": self._args.uuid,
+                       "instance-id": self._args.instance_uuid,
+                       "ip6-address": self._args.ipv6_address,
+                       "isolated-vlan-id": -1, "tap-name": self._args.tap_name,
+                       "vn-id": self._args.vn_uuid, "vm-project-id": project_id,
+                       "type": port_type_value, "mac-address": self._args.mac}
+            json_dump = json.dumps(payload)
+            r = requests.put(url, data=json_dump, headers=headers)
+            if not self._args.no_persist:
+                self.WriteToFile(port_type_value, project_id)
         elif self._args.oper == "delete":
-            self.DeleteFile()
-            url = "http://localhost:8085/Snh_DeletePortReq?port_uuid=" + self._args.uuid
-
-        urllib2.urlopen(url).read()
+            if not self._args.no_persist:
+                self.DeleteFile()
+            url = base_url + "/port/" + self._args.uuid
+            requests.delete(url, data=None, headers=headers);
 
     #end __init__
 
@@ -69,7 +82,6 @@ class VrouterPortControl(object):
 
         parser.add_argument(
             '--oper', choices=['add', 'delete'], help="Operation add/delete ")
-
         parser.add_argument('--uuid', help="port UUID")
         parser.add_argument('--instance_uuid', help="instance UUID")
         parser.add_argument('--vn_uuid', help="VN UUID")
@@ -82,6 +94,7 @@ class VrouterPortControl(object):
         parser.add_argument("--port_type", choices=['NovaVMPort', 'NameSpacePort'], help = "Port type")
         parser.add_argument("--tx_vlan_id", type = int, help = "Transmit VLAN ID")
         parser.add_argument("--rx_vlan_id", type = int, help = "Receive VLAN ID")
+        parser.add_argument("--no_persist", type = bool, help = "Dont't store port information in files", default=False)
 
         self._args = parser.parse_args(remaining_argv)
 

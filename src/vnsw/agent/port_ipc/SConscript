@@ -7,6 +7,27 @@ import sys
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
+except_env = env.Clone()
+cflags = except_env['CCFLAGS']
+if '-fno-exceptions' in cflags:
+   cflags.remove('-fno-exceptions')
+except_env.Replace(CCFLAGS=cflags)
+
+SandeshGenFiles = env.SandeshGenCpp('port_ipc.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
+
+libport_ipc = env.Library('port_ipc',
+                          sandesh_objs +
+                          [except_env.Object('port_ipc_handler.cc'),
+                           'rest_common.cc',
+                           'rest_server.cc'
+                          ])
+
 install_files = [ 'vrouter-port-control' ]
 
 env.Alias('install', env.Install(env['INSTALL_BIN'], install_files))
+
+subdirs = ['test']
+for dir in subdirs:
+    env.SConscript(dir + '/SConscript', exports='AgentEnv', duplicate=0)

@@ -170,6 +170,7 @@ class AgentSignal;
 class ServiceInstanceTable;
 class LoadbalancerTable;
 class Agent;
+class RESTServer;
 
 extern void RouterIdDepInit(Agent *agent);
 
@@ -676,6 +677,9 @@ public:
     VirtualGateway *vgw() const;
     void set_vgw(VirtualGateway *vgw);
 
+    RESTServer *rest_server() const;
+    void set_rest_server(RESTServer *r);
+
     OperDB *oper_db() const;
     void set_oper_db(OperDB *oper_db);
 
@@ -790,6 +794,7 @@ private:
     PktModule *pkt_;
     ServicesModule *services_;
     VirtualGateway *vgw_;
+    RESTServer *rest_server_;
     OperDB *oper_db_;
     DiagTable *diag_table_;
     VNController *controller_;

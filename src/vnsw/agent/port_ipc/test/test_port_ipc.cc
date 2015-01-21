@@ -1,0 +1,130 @@
+/*
+ * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+ */
+
+#include <boost/filesystem.hpp>
+#include <boost/foreach.hpp>
+#include <cfg/cfg_init.h>
+#include <cfg/cfg_interface.h>
+#include <oper/operdb_init.h>
+#include <controller/controller_init.h>
+#include <pkt/pkt_init.h>
+#include <services/services_init.h>
+#include <vrouter/ksync/ksync_init.h>
+#include <cmn/agent_cmn.h>
+#include <base/task.h>
+#include <io/event_manager.h>
+#include <base/util.h>
+#include <ifmap/ifmap_agent_parser.h>
+#include <ifmap/ifmap_agent_table.h>
+#include <oper/vn.h>
+#include <oper/vm.h>
+#include <oper/interface_common.h>
+
+#include "testing/gunit.h"
+#include "test_cmn_util.h"
+#include "vr_types.h"
+
+#include <io/event_manager.h>
+#include <db/db.h>
+#include <cmn/agent_cmn.h>
+#include <cfg/cfg_interface.h>
+#include <port_ipc/port_ipc_handler.h>
+#include <test/test_init.h>
+
+using namespace std;
+namespace fs = boost::filesystem;
+
+void RouterIdDepInit(Agent *agent) {
+}
+
+class PortIpcTest : public ::testing::Test {
+ public:
+     PortIpcTest() : agent_(Agent::GetInstance()) {
+     }
+     Agent *agent() { return agent_; }
+     void AddPort(const PortIpcHandler &pih,
+             const PortIpcHandler::AddPortParams &req) {
+         pih.AddPort(req);
+     }
+     bool IsUUID(const PortIpcHandler &pih, const string &file) {
+         return pih.IsUUID(file);
+     }
+     void DeleteAllPorts(const string &dir) {
+         fs::path ports_dir(dir);
+         fs::directory_iterator end_iter;
+         PortIpcHandler pih(agent());
+
+         if (!fs::exists(ports_dir) || !fs::is_directory(ports_dir)) {
+             return;
+         }
+
+         fs::directory_iterator it(ports_dir);
+         BOOST_FOREACH(fs::path const &p, std::make_pair(it, end_iter)) {
+             if (!fs::is_regular_file(p)) {
+                 continue;
+             }
+             if (!IsUUID(pih, p.filename().string())) {
+                 continue;
+             }
+             pih.DeletePort(p.filename().string());
+         }
+     }
+
+ private:
+     Agent *agent_;
+};
+
+/* Add/delete a port */
+TEST_F(PortIpcTest, Port_Add_Del) {
+
+    CfgIntTable *ctable = agent()->interface_config_table();
+    assert(ctable);
+    uint32_t port_count = ctable->Size();
+
+    PortIpcHandler::AddPortParams req("ea73b285-01a7-4d3e-8322-50976e8913da",
+        "ea73b285-01a7-4d3e-8322-50976e8913db",
+        "fa73b285-01a7-4d3e-8322-50976e8913de",
+        "b02a3bfb-7946-4b1c-8cc4-bf8cedcbc48d", "vm1", "tap1af4bee3-04",
+        "11.0.0.3", "", "02:1a:f4:be:e3:04", 0, -1, -1);
+    PortIpcHandler pih(agent());
+    AddPort(pih, req);
+    client->WaitForIdle(2);
+    WAIT_FOR(500, 1000, ((port_count + 1) == ctable->Size()));
+
+    pih.DeletePort(req.port_id);
+    client->WaitForIdle(2);
+    WAIT_FOR(500, 1000, ((port_count) == ctable->Size()));
+}
+
+/* Reads files in a directory and add port info into agent */
+TEST_F(PortIpcTest, PortReload) {
+
+    const string dir = "controller/src/vnsw/agent/port_ipc/test/";
+    CfgIntTable *ctable = agent()->interface_config_table();
+    assert(ctable);
+    uint32_t port_count = ctable->Size();
+
+    //There are 2 files present in controller/src/vnsw/agent/port_ipc/test/
+    PortIpcHandler pih(agent(), dir);
+    pih.ReloadAllPorts();
+    client->WaitForIdle(2);
+
+    // Port count should increase by 2 as we have 2 ports
+    WAIT_FOR(500, 1000, ((port_count + 2) == ctable->Size()));
+
+    //cleanup
+    DeleteAllPorts(dir);
+    client->WaitForIdle(2);
+    WAIT_FOR(500, 1000, ((port_count) == ctable->Size()));
+}
+
+int main (int argc, char **argv) {
+    GETUSERARGS();
+    client = TestInit(init_file, ksync_init);
+    int ret = RUN_ALL_TESTS();
+    client->WaitForIdle();
+    TestShutdown();
+    delete client;
+    return ret;
+}

@@ -159,3 +159,7 @@ const uint16_t ContrailPorts::AnalyzerUdpPort() {
 const uint16_t ContrailPorts::NovaVifVrouterAgentPort() {
     return VnsPorts().NovaVifVrouterAgentPort;
 }
+
+const uint16_t ContrailPorts::PortIpcVrouterAgentPort() {
+    return VnsPorts().PortIpcVrouterAgentPort;
+}
