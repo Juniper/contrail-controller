@@ -29,7 +29,6 @@
 #include "oper/vn.h"
 #include "oper/path_preference.h"
 #include "filter/acl.h"
-#include "openstack/instance_service_server.h"
 #include "test_cmn_util.h"
 #include "vr_types.h"
 #include <controller/controller_export.h>

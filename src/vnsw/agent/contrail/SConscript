@@ -69,6 +69,7 @@ buildinfo_dep_libs += MapBuildAgentLib([
     'vrouter/ksync/libvnswksync.a',
     'openstack/libnova_ins.a',
     'openstack/libnova_ins_thrift.a',
+    'port_ipc/libport_ipc.a',
     'oper/libvnswoperdb.a',
     'pkt/libpkt.a', 'diag/libdiag.a',
     'services/libagent_services.a', 'uve/libuve.a',

@@ -18,7 +18,6 @@
 #include "services/services_init.h"
 #include "vrouter/ksync/ksync_init.h"
 #include "oper/agent_route_walker.h"
-#include "openstack/instance_service_server.h"
 #include "test_cmn_util.h"
 #include "kstate/test/test_kstate_util.h"
 #include "vr_types.h"

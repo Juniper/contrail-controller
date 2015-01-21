@@ -24,6 +24,8 @@
 #include <diag/diag.h>
 #include <vgw/cfg_vgw.h>
 #include <vgw/vgw.h>
+#include <port_ipc/rest_server.h>
+#include <port_ipc/port_ipc_handler.h>
 
 #include "contrail_init_common.h"
 
@@ -69,6 +71,8 @@ void ContrailInitCommon::CreateModules() {
         vgw_.reset(new VirtualGateway(agent()));
         agent()->set_vgw(vgw_.get());
     }
+    rest_server_.reset(new RESTServer(agent()));
+    agent()->set_rest_server(rest_server_.get());
 }
 
 void ContrailInitCommon::RegisterDBClients() {
@@ -236,6 +240,11 @@ void ContrailInitCommon::InitDone() {
     if (agent()->pkt()) {
         agent()->pkt()->InitDone();
     }
+
+    /* Reads and processes port information written by nova-compute */
+    PortIpcHandler pih(agent());
+    pih.ReloadAllPorts();
+
 }
 
 /****************************************************************************
@@ -268,5 +277,9 @@ void ContrailInitCommon::PktShutdown() {
 void ContrailInitCommon::ModulesShutdown() {
     if (agent()->diag_table()) {
         agent()->diag_table()->Shutdown();
+    }
+
+    if (agent()->rest_server()) {
+        agent()->rest_server()->Shutdown();
     }
 }
