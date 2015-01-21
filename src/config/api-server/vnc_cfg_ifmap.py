@@ -27,7 +27,7 @@ import netaddr
 from netaddr import IPNetwork
 from bitarray import bitarray
 
-from cfgm_common import ignore_exceptions
+from cfgm_common import ignore_exceptions, utils
 from cfgm_common.ifmap.client import client, namespaces
 from cfgm_common.ifmap.request import NewSessionRequest, RenewSessionRequest,\
     EndSessionRequest, PublishRequest, SearchRequest, SubscribeRequest,\
@@ -412,22 +412,22 @@ class VncIfmapClient(VncIfmapClientGen):
         def _build_request_id_self(imid, metalist):
             request = ''
             for m in metalist:
-                request += str(PublishUpdateOperation(
-                        id1=str(Identity(name=self_imid, type="other",
+                request += unicode(PublishUpdateOperation(
+                        id1=unicode(Identity(name=self_imid, type="other",
                                          other_type="extended")),
-                        metadata=str(m),
+                        metadata=unicode(m),
                         lifetime='forever'))
             return request
 
         def _build_request_id_pair(id1, id2, metalist):
             request = ''
             for m in metalist:
-                request += str(PublishUpdateOperation(
-                    id1=str(Identity(name=id1, type="other",
+                request += unicode(PublishUpdateOperation(
+                    id1=unicode(Identity(name=id1, type="other",
                                      other_type="extended")),
-                    id2=str(Identity(name=id2, type="other",
+                    id2=unicode(Identity(name=id2, type="other",
                                      other_type="extended")),
-                    metadata=str(m),
+                    metadata=unicode(m),
                     lifetime='forever'))
             return request
 
@@ -726,12 +726,16 @@ class VncCassandraClient(VncCassandraClientGen):
                 if comparator_type:
                     sys_mgr.create_column_family(
                         keyspace_name, cf_name,
-                        comparator_type=comparator_type)
+                        comparator_type=comparator_type,
+                        default_validation_class='UTF8Type')
                 else:
-                    sys_mgr.create_column_family(keyspace_name, cf_name)
+                    sys_mgr.create_column_family(keyspace_name, cf_name,
+                                                 default_validation_class='UTF8Type')
             except pycassa.cassandra.ttypes.InvalidRequestException as e:
                 # TODO verify only EEXISTS
                 print "Warning! " + str(e)
+		sys_mgr.alter_column_family(keyspace_name, cf_name,
+                                    default_validation_class='UTF8Type')
     # end _cassandra_ensure_keyspace
 
     def _create_prop(self, bch, obj_uuid, prop_name, prop_val):
@@ -958,8 +962,8 @@ class VncCassandraClient(VncCassandraClientGen):
     def fq_name_to_uuid(self, obj_type, fq_name):
         method_name = obj_type.replace('-', '_')
         fq_name_str = ':'.join(fq_name)
-        col_start = '%s:' % (fq_name_str)
-        col_fin = '%s;' % (fq_name_str)
+        col_start = '%s:' % (utils.encode_string(fq_name_str))
+        col_fin = '%s;' % (utils.encode_string(fq_name_str))
         try:
             col_info_iter = self._obj_fq_name_cf.xget(
                 method_name, column_start=col_start, column_finish=col_fin)
