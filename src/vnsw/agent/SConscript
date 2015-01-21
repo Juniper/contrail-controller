@@ -80,6 +80,7 @@ env.Append(LIBPATH = MapBuildDir([
     'vnsw/agent/init',
     'vnsw/agent/kstate', 
     'vnsw/agent/openstack',
+    'vnsw/agent/port_ipc',
     'vnsw/agent/oper',
     'vnsw/agent/pkt',
     'vnsw/agent/services',
@@ -154,6 +155,7 @@ env.Prepend(LIBS = [
 ##########################################################################
 AGENT_MULTIPATH_LIBS = [
     'cpuinfo',
+    'port_ipc',
     'vnswoperdb',
     'vnswcmn'
 ]

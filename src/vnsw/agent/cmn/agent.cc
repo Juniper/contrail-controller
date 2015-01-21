@@ -501,6 +501,14 @@ void Agent::set_vgw(VirtualGateway *vgw) {
     vgw_ = vgw;
 }
 
+RESTServer *Agent::rest_server() const {
+    return rest_server_;
+}
+
+void Agent::set_rest_server(RESTServer *r) {
+    rest_server_ = r;
+}
+
 OperDB *Agent::oper_db() const {
     return oper_db_;
 }

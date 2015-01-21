@@ -2,36 +2,9 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "base/os.h"
-#include <base/logging.h>
-#include <io/event_manager.h>
-#include <tbb/task.h>
-#include <base/task.h>
-
-#include <cmn/agent_cmn.h>
-
-#include "cfg/cfg_init.h"
-#include "cfg/cfg_interface.h"
-#include "oper/operdb_init.h"
-#include "controller/controller_init.h"
-#include "pkt/pkt_init.h"
-#include "services/services_init.h"
-#include "vrouter/ksync/ksync_init.h"
-#include "oper/interface_common.h"
-#include "oper/nexthop.h"
 #include "oper/tunnel_nh.h"
-#include "route/route.h"
-#include "oper/vrf.h"
-#include "oper/mpls.h"
-#include "oper/vm.h"
-#include "oper/vn.h"
-#include "filter/acl.h"
-#include "openstack/instance_service_server.h"
 #include "test_cmn_util.h"
 #include "kstate/test/test_kstate_util.h"
-#include "vr_types.h"
-
-#include <controller/controller_export.h>
 
 using namespace std;
 

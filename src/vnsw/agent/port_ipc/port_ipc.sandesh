@@ -1,0 +1,28 @@
+/*
+ * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+ */
+
+traceobject sandesh ConfigAddPortEnqueue {
+    1: string op;
+    2: string port_uuid;
+    3: string instance_uuid;
+    4: string vn_uuid;
+    5: string ip_address;
+    6: string system_name;
+    7: string mac_address;
+    8: string display_name;
+    9: i16 tx_vlan_id;
+    10: i16 rx_vlan_id;
+    11: string vm_project_uuid;
+    12: string port_type;
+    13: string ip6_address;
+}
+
+traceobject sandesh ConfigDeletePortEnqueue {
+    1: string op;
+    2: string port_uuid;
+}
+
+trace sandesh ConfigPortInfo {
+    1: string info;
+}
