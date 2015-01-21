@@ -11,6 +11,8 @@ monkey.patch_all()
 from gevent import hub
 
 import sys
+reload(sys)
+sys.setdefaultencoding('UTF8')
 import re
 import logging
 import signal
