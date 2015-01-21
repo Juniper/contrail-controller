@@ -50,12 +50,6 @@ extern void InstanceInfoServiceServerInit(Agent *agent);
 void RouterIdDepInit(Agent *agent) {
 }
 
-//namespace {
-class NovaInfoServerTest : public ::testing::Test {
-protected:
-};
-
-
 DB *db;
 
 uint32_t base_port_count = 3;
@@ -70,7 +64,6 @@ string host_name("vm");
 string host("vm");
 
 bool connection_complete = false;
-bool port_resp_done  = false;
 
 boost::shared_ptr<InstanceServiceAsyncClient> client_service;
 
@@ -183,55 +176,6 @@ void connected(boost::shared_ptr<InstanceServiceAsyncClient> inst_client) {
     std::cout << "connected!!!" << std::endl;
     client_service = inst_client;
     connection_complete = true;
-}
-
-static void PortReqResponse(Sandesh *sandesh, string &resp_str) {
-    PortResp *resp = dynamic_cast<PortResp *>(sandesh);
-    std::string s_resp_str = resp->get_resp();
-    EXPECT_EQ(resp_str, s_resp_str);
-    port_resp_done = true;
-}
-
-TEST_F(NovaInfoServerTest, IntrospecPortAdd) {
-    AddPortReq *req = new AddPortReq();
-    req->set_port_uuid(std::string("00000000-0000-0000-0000-000000000001"));
-    req->set_instance_uuid(std::string("00000000-0000-0000-0000-000000000001"));
-    req->set_tap_name(std::string("tap1"));
-    req->set_ip_address(std::string("1.1.1.1"));
-    req->set_vn_uuid(std::string("00000000-0000-0000-0000-000000000001"));
-    req->set_mac_address(std::string("00:00:00:00:00:1"));
-    req->set_vm_name(std::string("vm1"));
-    req->set_rx_vlan_id(100);
-    req->set_tx_vlan_id(100);
-    req->set_vm_project_uuid("00000000-0000-0000-0000-000000000001");
-    port_resp_done = false;
-    Sandesh::set_response_callback(boost::bind(PortReqResponse, _1, std::string("Success")));
-    req->HandleRequest();
-    client->WaitForIdle();
-    EXPECT_EQ(1, Agent::GetInstance()->interface_config_table()->Size());
-    req->Release();
-}
-
-TEST_F(NovaInfoServerTest, IntrospecPortDelete) {
-    DeletePortReq *req = new DeletePortReq();
-    req->set_port_uuid(std::string("00000000-0000-0000-0000-000000000001"));
-    port_resp_done = false;
-    Sandesh::set_response_callback(boost::bind(PortReqResponse, _1, std::string("Success")));
-    req->HandleRequest();
-    client->WaitForIdle();
-    EXPECT_EQ(0, Agent::GetInstance()->interface_config_table()->Size());
-    req->Release();
-}
-
-TEST_F(NovaInfoServerTest, IntrospectErrorPortDelete) {
-    DeletePortReq *req = new DeletePortReq();
-    req->set_port_uuid(std::string("wrong-uuid"));
-    port_resp_done = false;
-    Sandesh::set_response_callback(boost::bind(PortReqResponse, _1, std::string("Port uuid is not correct.")));
-    req->HandleRequest();
-    client->WaitForIdle();
-    EXPECT_EQ(0, Agent::GetInstance()->interface_config_table()->Size());
-    req->Release();
 }
 
 EventManager *client_evm;

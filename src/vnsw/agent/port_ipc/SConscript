@@ -7,6 +7,18 @@ import sys
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
+SandeshGenFiles = env.SandeshGenCpp('port_ipc.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
+
+libport_ipc = env.Library('port_ipc',
+                          sandesh_objs +
+                          ['port_ipc_handler.cc',])
+
 install_files = [ 'vrouter-port-control' ]
 
 env.Alias('install', env.Install(env['INSTALL_BIN'], install_files))
+
+subdirs = ['test']
+for dir in subdirs:
+    env.SConscript(dir + '/SConscript', exports='AgentEnv', duplicate=0)

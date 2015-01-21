@@ -32,7 +32,6 @@
 #include "oper/vm.h"
 #include "oper/vn.h"
 #include "oper/peer.h"
-#include "openstack/instance_service_server.h"
 #include "test_cmn_util.h"
 #include "xmpp/xmpp_init.h"
 #include "xmpp/test/xmpp_test_util.h"

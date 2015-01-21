@@ -24,6 +24,7 @@
 #include <diag/diag.h>
 #include <vgw/cfg_vgw.h>
 #include <vgw/vgw.h>
+#include <port_ipc/port_ipc_handler.h>
 
 #include "contrail_init_common.h"
 
@@ -236,6 +237,11 @@ void ContrailInitCommon::InitDone() {
     if (agent()->pkt()) {
         agent()->pkt()->InitDone();
     }
+
+    /* Reads and processes port information written by nova-compute */
+    PortIpcHandler pih;
+    pih.ReloadAllPorts();
+
 }
 
 /****************************************************************************

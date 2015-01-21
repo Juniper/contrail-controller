@@ -1,0 +1,51 @@
+/*
+ * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+ */
+
+request sandesh AddPortReq {
+    1: string port_uuid;
+    2: string instance_uuid;
+    3: string tap_name;
+    4: string ip_address;
+    5: optional string vn_uuid;
+    6: string mac_address;
+    7: optional string vm_name;
+    8: optional i16 tx_vlan_id;
+    9: optional i16 rx_vlan_id;
+   10: optional string vm_project_uuid;
+   11: i16 port_type;
+   12: optional string ip6_address;
+}
+
+response sandesh PortResp {
+    1: string resp;
+}
+
+request sandesh DeletePortReq {
+    1: string port_uuid;
+}
+
+traceobject sandesh CfgAddPortEnqueue {
+    1: string op;
+    2: string port_uuid;
+    3: string instance_uuid;
+    4: string vn_uuid;
+    5: string ip_address;
+    6: string tap_name;
+    7: string mac_address;
+    8: string display_name;
+    9: i16 tx_vlan_id;
+    10: i16 rx_vlan_id;
+    11: string vm_project_uuid;
+    12: string port_type;
+    13: string ip6_address;
+}
+
+traceobject sandesh CfgDeletePortEnqueue {
+    1: string op;
+    2: string port_uuid;
+}
+
+trace sandesh CfgPortInfo {
+    1: string info;
+}

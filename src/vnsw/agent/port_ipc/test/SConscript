@@ -1,0 +1,25 @@
+#
+# Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+import re
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+# test specific modifications
+AgentEnv.MakeTestEnv(env)
+
+port_ipc_test_suite=[]
+port_ipc_flaky_test_suite=[]
+
+test_port_ipc = AgentEnv.MakeTestCmd(env, 'test_port_ipc', port_ipc_test_suite)
+
+flaky_test = env.TestSuite('agent-flaky-test', port_ipc_flaky_test_suite)
+env.Alias('controller/src/vnsw/agent/port_ipc:flaky_test', flaky_test)
+
+test = env.TestSuite('agent-test', port_ipc_test_suite)
+env.Alias('agent:port_ipc', test)
+env.Alias('controller/src/vnsw/agent/port_ipc:test', test)
+Return('port_ipc_test_suite')
