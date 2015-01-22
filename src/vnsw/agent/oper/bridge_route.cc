@@ -499,52 +499,61 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
     }
 
     bool ret = false;
-    if (tor_peer_path) {
-        ret = MulticastRoute::CopyPathParameters(agent,
-                                                 multicast_peer_path,
-                                                 (tor_peer_path ? tor_peer_path->
-                                                  dest_vn_name() : ""),
-                                                 (tor_peer_path ? tor_peer_path->
-                                                  unresolved() : false),
-                                                 (tor_peer_path ? tor_peer_path->
-                                                  vxlan_id() : 0),
-                                                 (fabric_peer_path ? fabric_peer_path->
-                                                  label() : 0),
-                                                 TunnelType::VxlanType(),
-                                                 nh);
-    }
-    if (local_peer_path && local_peer_path->ComputeNextHop(agent)->GetType() !=
-        NextHop::DISCARD) {
-        ret = MulticastRoute::CopyPathParameters(agent,
-                                                 multicast_peer_path,
-                                                 (local_peer_path ? local_peer_path->
-                                                  dest_vn_name() : ""),
-                                                 (local_peer_path ? local_peer_path->
-                                                  unresolved() : false),
-                                                 (local_peer_path ? local_peer_path->
-                                                  vxlan_id() : 0),
-                                                 (fabric_peer_path ? fabric_peer_path->
-                                                  label() : 0),
-                                                 TunnelType::AllType(),
-                                                 nh);
+    //Identify parameters to be passed to populate multicast_peer path and
+    //based on peer priorites for each attribute.
+    std::string dest_vn_name = "";
+    bool unresolved = false;
+    uint32_t vxlan_id = 0;
+    uint32_t label = 0;
+    uint32_t evpn_label = 0;
+    uint32_t tunnel_bmap = TunnelType::AllType();
+
+    //Select based on priority of path peer.
+    if (local_peer_path) {
+        dest_vn_name = local_peer_path->dest_vn_name();
+        unresolved = local_peer_path->unresolved();
+        vxlan_id = local_peer_path->vxlan_id();
+        tunnel_bmap = TunnelType::AllType();
+        label = local_peer_path->label();
+        evpn_label = label;
+    } else if (tor_peer_path) {
+        dest_vn_name = tor_peer_path->dest_vn_name();
+        unresolved = tor_peer_path->unresolved();
+        vxlan_id = tor_peer_path->vxlan_id();
+        tunnel_bmap = TunnelType::VxlanType();
+        label = tor_peer_path->label();
+        evpn_label = label;
+    } else if (fabric_peer_path) {
+        dest_vn_name = fabric_peer_path->dest_vn_name();
+        unresolved = fabric_peer_path->unresolved();
+        vxlan_id = fabric_peer_path->vxlan_id();
+        tunnel_bmap = TunnelType::MplsType();
+        label = fabric_peer_path->label();
+    } else if (evpn_peer_path) {
+        dest_vn_name = evpn_peer_path->dest_vn_name();
+        unresolved = evpn_peer_path->unresolved();
+        vxlan_id = evpn_peer_path->vxlan_id();
+        tunnel_bmap = TunnelType::VxlanType();
+        label = evpn_peer_path->label();
+        evpn_label = label;
     }
 
+    //Mpls label selection needs to be overridden by fabric label
+    //if fabric peer is present
+    if (fabric_peer_path) {
+        label = fabric_peer_path->label();
+    }
+
+    ret = MulticastRoute::CopyPathParameters(agent,
+                                             multicast_peer_path,
+                                             dest_vn_name,
+                                             unresolved,
+                                             vxlan_id,
+                                             label,
+                                             tunnel_bmap,
+                                             nh);
     //Bake all MPLS label
     if (fabric_peer_path) {
-        if (!ret) {
-            ret = MulticastRoute::CopyPathParameters(agent,
-                                                     multicast_peer_path,
-                                                     (fabric_peer_path ? fabric_peer_path->
-                                                      dest_vn_name() : ""),
-                                                     (fabric_peer_path ? fabric_peer_path->
-                                                      unresolved() : false),
-                                                     (fabric_peer_path ? fabric_peer_path->
-                                                      vxlan_id() : 0),
-                                                     (fabric_peer_path ? fabric_peer_path->
-                                                      label() : 0),
-                                                     TunnelType::MplsType(),
-                                                     nh);
-        }
         //Add new label
         MplsLabel::CreateMcastLabelReq(agent,
                                        fabric_peer_path->label(),
@@ -556,9 +565,10 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
             MplsLabel::DeleteReq(agent, old_fabric_mpls_label);
         }
     }
-    if (evpn_peer_path) {
+
+    if (evpn_label != 0) {
         MplsLabel::CreateMcastLabelReq(agent,
-                                       evpn_peer_path->label(),
+                                       evpn_label,
                                        Composite::L2COMP,
                                        component_nh_list,
                                        vrf()->GetName());

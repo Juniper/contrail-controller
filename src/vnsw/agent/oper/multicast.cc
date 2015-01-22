@@ -303,6 +303,7 @@ void MulticastHandler::HandleTorRoute(DBTablePartBase *partition,
                                           vxlan_id);
 
     if (rebake) {
+        obj->CreateEvpnMplsLabel(agent_);
         ModifyTorMembers(agent_->multicast_tor_peer(),
                          device_vn->GetVrf()->GetName(),
                          obj->tor_olist(),
@@ -545,6 +546,20 @@ MulticastGroupObject *MulticastHandler::FindActiveGroupObject(
     return obj;
 }
 
+void MulticastGroupObject::CreateEvpnMplsLabel(const Agent *agent) {
+    //Already added
+    if ((evpn_mpls_label_ != MplsLabel::INVALID) &&
+        (evpn_mpls_label_ != 0)) {
+        return;
+    }
+
+    evpn_mpls_label_ = agent->mpls_table()->AllocLabel();
+    if (evpn_mpls_label_ == MplsLabel::INVALID) {
+        MCTRACE(Log, "allocation of  evpn mpls label failed",
+                vrf_name_, "FF:FF:FF:FF:FF:FF", 0);
+    }
+}
+
 ComponentNHKeyList
 MulticastHandler::GetInterfaceComponentNHKeyList(MulticastGroupObject *obj,
                                                  uint8_t interface_flags) {
@@ -645,6 +660,7 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
     obj->set_peer_identifier(peer_identifier);
     ComponentNHKeyList component_nh_key_list;
 
+    uint32_t route_tunnel_bmap = TunnelType::AllType();
     for (TunnelOlist::const_iterator it = olist.begin();
          it != olist.end(); it++) {
         TunnelNHKey *key =
@@ -668,6 +684,7 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
                     agent_->router_id(), it->daddr_,
                     false, it->tunnel_bmap_));
         component_nh_key_list.push_back(component_key_ptr);
+        route_tunnel_bmap = it->tunnel_bmap_;
     }
 
     MCTRACE(Log, "enqueue route change with remote peer",
@@ -676,7 +693,6 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
             component_nh_key_list.size());
 
     //Add Bridge FF:FF:FF:FF:FF:FF$
-    uint32_t route_tunnel_bmap = TunnelType::AllType();
     if (comp_type == Composite::TOR)
         route_tunnel_bmap = TunnelType::VxlanType();
     BridgeAgentRouteTable::AddBridgeBroadcastRoute(peer,
@@ -727,15 +743,7 @@ void MulticastHandler::AddVmInterfaceInFloodGroup(const VmInterface *vm_itf) {
             all_broadcast->set_vxlan_id(vn->GetVxLanId());
         } 
         all_broadcast->SetBridging(vn->bridging());
-        //TODO OVS no need to alloc mpls label for OVS VMI.
-        uint32_t evpn_label = agent_->mpls_table()->
-            AllocLabel();
-        if (evpn_label != MplsLabel::INVALID) { 
-            all_broadcast->set_evpn_mpls_label(evpn_label);
-        } else {
-            MCTRACE(Log, "allocation of  evpn mpls label failed",
-                    vrf_name, broadcast.to_string(), 0);
-        }
+        all_broadcast->CreateEvpnMplsLabel(agent_);
         TriggerLocalRouteChange(all_broadcast, agent_->local_vm_peer());
     }
 }
@@ -832,7 +840,7 @@ void MulticastHandler::ModifyTorMembers(const Peer *peer,
 
     TriggerRemoteRouteChange(obj, peer, vrf_name, olist,
                              peer_identifier, delete_op, Composite::TOR,
-                             MplsTable::kInvalidLabel, false, ethernet_tag);
+                             obj->evpn_mpls_label(), false, ethernet_tag);
     MCTRACE(Log, "Add external TOR Olist ", vrf_name, grp.to_string(), 0);
 }
 
