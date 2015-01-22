@@ -41,6 +41,8 @@
 #define DEFAULT_IP_ID      0
 #define VLAN_HDR_LEN       4
 
+#define ICMP_UNREACH_HDR_LEN 8
+
 struct agent_hdr;
 class PacketBuffer;
 
