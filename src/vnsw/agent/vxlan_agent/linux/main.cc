@@ -30,7 +30,7 @@ int main(int argc, char *argv[]) {
     Agent *agent = init.agent();
     AgentParam params(agent, false, false, false, false);
 
-    opt::variables_map var_map = params.var_map();
+    const opt::variables_map &var_map = params.var_map();
     try {
         params.ParseArguments(argc, argv);
     } catch (...) {
