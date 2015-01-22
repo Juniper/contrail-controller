@@ -313,7 +313,250 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.domain_delete(id=domain.uuid)
     #end
 
+    def test_v4_ip_allocation_exhaust(self):
+        print 'test ip allocation to cover all ip addresses'
 
+        # Create Domain
+        domain = Domain('v4-domain')
+        self._vnc_lib.domain_create(domain)
+        print 'Created domain '
+
+        # Create Project
+        project = Project('v4-proj', domain)
+        self._vnc_lib.project_create(project)
+        print 'Created Project'
+
+        # Create NetworkIpam
+        ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
+        self._vnc_lib.network_ipam_create(ipam)
+        print 'Created network ipam'
+
+        ipam = self._vnc_lib.network_ipam_read(fq_name=['v4-domain', 'v4-proj',
+                                                        'default-network-ipam'])
+        print 'Read network ipam'
+
+        ip_alloc_from_start = [True, False]
+        for from_start in ip_alloc_from_start:
+            # Create subnets
+            alloc_pool_list = []
+            alloc_pool_list.append(
+                AllocationPoolType(start='11.1.1.21', end='11.1.1.24'))
+            alloc_pool_list.append(
+                AllocationPoolType(start='11.1.1.31', end='11.1.1.34'))
+            ipam_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24),
+                                        allocation_pools=alloc_pool_list,
+                                        addr_from_start=from_start)
+
+            ip_addr_list = []
+            for alloc_pool in alloc_pool_list:
+                start_ip = alloc_pool.start
+                end_ip = alloc_pool.end
+
+                start = list(map(int, start_ip.split(".")))
+                end = list(map(int, end_ip.split(".")))
+                temp = start
+                ip_addr_list.append(start_ip)
+                while temp != end:
+                    start[3] += 1
+                    for i in (3, 2, 1):
+                        if temp[i] == 256:
+                            temp[i] = 0
+                            temp[i-1] += 1
+                    ip_addr_list.append(".".join(map(str, temp)))
+
+            if from_start is False:
+                ip_addr_list.reverse()
+
+            total_addr = len(ip_addr_list)
+            print 'ip address alloc list:', ip_addr_list[0:total_addr]
+            # Create VN
+            vn = VirtualNetwork('v4-vn', project)
+            vn.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4]))
+            self._vnc_lib.virtual_network_create(vn)
+            print 'Created Virtual Network object', vn.uuid
+            net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
+
+            # Create v4 Ip object for all possible addresses in alloc_pool
+            v4_ip_obj_list = []
+
+            for idx, val in enumerate(ip_addr_list):
+                v4_ip_obj_list.append(
+                    InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4'))
+                v4_ip_obj_list[idx].uuid = v4_ip_obj_list[idx].name
+                print 'Created Instance IP object',idx, v4_ip_obj_list[idx].uuid
+
+            # Create number of VMs to assign ip addresses
+            # to use all addresses in alloc_pool
+            vm_list_v4 = []
+            for idx, val in enumerate(ip_addr_list):
+                vm_list_v4.append(VirtualMachine(str(uuid.uuid4())))
+                vm_list_v4[idx].uuid = vm_list_v4[idx].name
+                self._vnc_lib.virtual_machine_create(vm_list_v4[idx])
+
+            port_list = []
+            port_id_list = []
+            for idx, val in enumerate(ip_addr_list):
+                id_perms = IdPermsType(enable=True)
+                port_list.append(
+                    VirtualMachineInterface(str(uuid.uuid4()), vm_list_v4[idx],
+                                            id_perms=id_perms))
+                port_list[idx].uuid = port_list[idx].name
+                port_list[idx].set_virtual_network(vn)
+                v4_ip_obj_list[idx].set_virtual_machine_interface(port_list[idx])
+                v4_ip_obj_list[idx].set_virtual_network(net_obj)
+                port_id_list.append(
+                    self._vnc_lib.virtual_machine_interface_create(port_list[idx]))
+
+            ip_ids = []
+            print 'Allocating an IP4 address for VMs'
+            for idx, val in enumerate(ip_addr_list):
+                ip_ids.append(
+                    self._vnc_lib.instance_ip_create(v4_ip_obj_list[idx]))
+                v4_ip_obj_list[idx] = self._vnc_lib.instance_ip_read(
+                                          id=ip_ids[idx])
+                ip_addr = v4_ip_obj_list[idx].get_instance_ip_address()
+                print 'got v4 IP Address for instance',idx,':', ip_addr
+                if ip_addr != ip_addr_list[idx]:
+                    print 'Allocation failed, expected v4 IP Address:', ip_addr_list[idx]
+
+            # Delete 2 VMs (With First and Last IP), associated Ports
+            # and instanace IPs,
+            # recreate them to make sure that we get same ips again.
+            # Repeat this for 2 VMs from middle of the alloc_pool
+            total_ip_addr = len(ip_addr_list)
+            to_modifies = [[0, total_ip_addr-1],
+                           [total_ip_addr/2 -1, total_ip_addr/2]]
+            for to_modify in to_modifies:
+                print 'Delete Instances', to_modify[0], to_modify[1]
+                for idx, val in enumerate(to_modify):
+                    self._vnc_lib.instance_ip_delete(id=ip_ids[val])
+                    ip_ids[val] = None
+                    self._vnc_lib.virtual_machine_interface_delete(
+                        id=port_list[val].uuid)
+                    port_list[val] = None
+                    port_id_list[val] = None
+                    self._vnc_lib.virtual_machine_delete(
+                        id=vm_list_v4[val].uuid)
+                    vm_list_v4[val] = None
+                    v4_ip_obj_list[val] = None
+                    ip_ids[val] = None
+                    print 'Deleted instance',val
+
+                # Re-create two VMs and assign IP addresses
+                # these should get first and last ip.
+                for idx, val in enumerate(to_modify):
+                    v4_ip_obj_list[val] = InstanceIp(
+                        name=str(uuid.uuid4()), instance_ip_family='v4')
+                    v4_ip_obj_list[val].uuid = v4_ip_obj_list[val].name
+                    vm_list_v4[val] = VirtualMachine(str(uuid.uuid4()))
+                    vm_list_v4[val].uuid = vm_list_v4[val].name
+                    self._vnc_lib.virtual_machine_create(vm_list_v4[val])
+                    id_perms = IdPermsType(enable=True)
+                    port_list[val] = VirtualMachineInterface(
+                        str(uuid.uuid4()), vm_list_v4[val], id_perms=id_perms)
+
+                    port_list[val].uuid = port_list[val].name
+                    port_list[val].set_virtual_network(vn)
+                    v4_ip_obj_list[val].set_virtual_machine_interface(
+                        port_list[val])
+                    v4_ip_obj_list[val].set_virtual_network(net_obj)
+                    port_id_list[val] = self._vnc_lib.virtual_machine_interface_create(port_list[val])
+                    print 'Created instance',val
+
+                # Allocate IPs to modified VMs
+                for idx, val in enumerate(to_modify):
+                    ip_ids[val] = self._vnc_lib.instance_ip_create(v4_ip_obj_list[val])
+                    v4_ip_obj_list[val] = self._vnc_lib.instance_ip_read(
+                        id=ip_ids[val])
+                    ip_addr = v4_ip_obj_list[val].get_instance_ip_address()
+                    print 'got v4 IP Address for instance',val,':', ip_addr
+                    if ip_addr != ip_addr_list[val]:
+                        print 'Allocation failed, expected v4 IP Address:', ip_addr_list[val]
+
+            # negative test.
+            # Create a new VM and try getting a new instance_ip
+            # we should get an exception as alloc_pool is fully exhausted.
+
+            print 'Negative Test to create extra instance and try assigning IP address'
+            # Create v4 Ip object
+            ip_obj1 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4')
+            ip_obj1.uuid = ip_obj1.name
+            print 'Created new Instance IP object', ip_obj1.uuid
+
+            # Create VM
+            vm_inst_obj1 = VirtualMachine(str(uuid.uuid4()))
+            vm_inst_obj1.uuid = vm_inst_obj1.name
+            self._vnc_lib.virtual_machine_create(vm_inst_obj1)
+
+            id_perms = IdPermsType(enable=True)
+            port_obj1 = VirtualMachineInterface(
+                str(uuid.uuid4()), vm_inst_obj1, id_perms=id_perms)
+            port_obj1.uuid = port_obj1.name
+            port_obj1.set_virtual_network(vn)
+            ip_obj1.set_virtual_machine_interface(port_obj1)
+            ip_obj1.set_virtual_network(net_obj)
+            port_id1 = self._vnc_lib.virtual_machine_interface_create(port_obj1)
+            print 'Created extra instance'
+
+            print 'Allocating an IP4 address for extra instance'
+            try:
+                ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1)
+            except HttpError:
+                print 'alloc pool is exhausted'
+                pass
+
+            # cleanup for negative test
+            self._vnc_lib.virtual_machine_interface_delete(id=port_obj1.uuid)
+            self._vnc_lib.virtual_machine_delete(id=vm_inst_obj1.uuid)
+
+            # user requested instance_ip, if VM is getting created
+            # with user requested ip and ip is already allocated,
+            # system allows VM creation with same ip
+            # Test is with start from begining allocation scheme
+            if from_start is True:
+                # Create a v4 Ip object
+                ip_obj2 = InstanceIp(name=str(uuid.uuid4()),
+                                     instance_ip_address='11.1.1.1',
+                                     instance_ip_family='v4')
+                ip_obj2.uuid = ip_obj2.name
+                print 'Created new Instance IP object', ip_obj2.uuid
+
+                # Create VM
+                vm_inst_obj2 = VirtualMachine(str(uuid.uuid4()))
+                vm_inst_obj2.uuid = vm_inst_obj2.name
+                self._vnc_lib.virtual_machine_create(vm_inst_obj2)
+
+                id_perms = IdPermsType(enable=True)
+                port_obj2 = VirtualMachineInterface(
+                    str(uuid.uuid4()), vm_inst_obj2, id_perms=id_perms)
+                port_obj2.uuid = port_obj2.name
+                port_obj2.set_virtual_network(vn)
+                ip_obj2.set_virtual_machine_interface(port_obj2)
+                ip_obj2.set_virtual_network(net_obj)
+                port_id2 = self._vnc_lib.virtual_machine_interface_create(
+                    port_obj2)
+                ip_id2 = self._vnc_lib.instance_ip_create(ip_obj2)
+
+                #cleanup for user requested IP, VM, port
+                self._vnc_lib.instance_ip_delete(id=ip_id2)
+                self._vnc_lib.virtual_machine_interface_delete(
+                    id=port_obj2.uuid)
+                self._vnc_lib.virtual_machine_delete(id=vm_inst_obj2.uuid)
+
+            #cleanup subnet and allocation pools
+            for idx, val in enumerate(ip_addr_list):
+                self._vnc_lib.instance_ip_delete(id=ip_ids[idx])
+                self._vnc_lib.virtual_machine_interface_delete(
+                    id=port_list[idx].uuid)
+                self._vnc_lib.virtual_machine_delete(id=vm_list_v4[idx].uuid)
+            self._vnc_lib.virtual_network_delete(id=vn.uuid)
+
+        # end of from_start
+        print 'Cleaning up'
+        self._vnc_lib.network_ipam_delete(id=ipam.uuid)
+        self._vnc_lib.project_delete(id=project.uuid)
+        self._vnc_lib.domain_delete(id=domain.uuid)
+    #end
 
 #end class TestIpAlloc
 
