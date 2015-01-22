@@ -27,6 +27,9 @@ _LB_SVC_TYPE = 'loadbalancer'
 _ACTIVE_LOCAL_PREFERENCE = 200
 _STANDBY_LOCAL_PREFERENCE = 100
 
+# Version from the vrouter agent can manage service instances
+_VROUTER_NETNS_SUPPORTED_VERSION = '1.10'
+
 def get_management_if_str():
     return _MGMT_STR
 
