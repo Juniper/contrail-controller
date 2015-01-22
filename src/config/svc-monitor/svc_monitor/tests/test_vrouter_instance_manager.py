@@ -48,7 +48,8 @@ class VRouterInstanceManagerTest(unittest.TestCase):
         mocked_db.get_vm_db_prefix.return_value = self.DB_PREFIX
         self.vrouter_manager = VRouterInstanceManager(
             db=mocked_db, logger=mock.MagicMock(),
-            vnc_lib=mocked_vnc, vrouter_scheduler=mock.MagicMock())
+            vnc_lib=mocked_vnc, vrouter_scheduler=mock.MagicMock(),
+            nova_client=mock.MagicMock())
 
     def test_create(self):
         st_obj = vnc_api.ServiceTemplate(name="test-template")
@@ -90,7 +91,7 @@ class VRouterInstanceManagerTest(unittest.TestCase):
         self.vrouter_manager._vnc_lib.virtual_router_read.\
             return_value = mocked_vr
 
-        self.vrouter_manager.delete_service(self.VM_UUID)
+        self.vrouter_manager.delete_service(mock.MagicMock(), self.VM_UUID)
         self.vrouter_manager._vnc_lib.virtual_machine_delete\
             .assert_called_with(id=self.VM_UUID)
         mocked_vr.del_virtual_machine.assert_called_with(
