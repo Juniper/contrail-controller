@@ -726,6 +726,15 @@ bool ResolveRoute::AddChangePath(Agent *agent, AgentPath *path,
         ret = true;
     }
 
+    //By default resolve route on gateway interface
+    //is supported with MPLSoGRE or MplsoUdp port
+    path->set_tunnel_bmap(TunnelType::MplsType());
+    TunnelType::Type new_tunnel_type =
+        TunnelType::ComputeType(TunnelType::MplsType());
+    if (path->tunnel_type() != new_tunnel_type) {
+        path->set_tunnel_type(new_tunnel_type);
+    }
+
     if (path->ChangeNH(agent, nh) == true)
         ret = true;
 
