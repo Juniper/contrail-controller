@@ -25,7 +25,7 @@
 #define MAX_VNET 1
 int fd_table[MAX_VNET];
 #define MAX_TEST_FD 5
-#define MAX_TEST_MPLS 10
+#define MAX_TEST_MPLS 11
 int test_fd[MAX_TEST_FD];
 
 TestIfKState *TestIfKState::singleton_;
@@ -109,11 +109,11 @@ public:
                                 Agent::GetInstance()->interface_table()->Size()));
         }
         //Table label would not be allocated for fabric vrf
-        WAIT_FOR(1000, 1000, ((((num_ports * 2) + agent_->vrf_table()->Size() - 1) ==
+        WAIT_FOR(1000, 1000, ((((num_ports * 2) + agent_->vrf_table()->Size()) ==
                             (Agent::GetInstance()->mpls_table()->Size()))));
         if (!ksync_init_) {
             //Table label would not be allocated for fabric vrf
-            WAIT_FOR(1000, 1000, (((num_ports * 2) + agent_->vrf_table()->Size() - 1) ==
+            WAIT_FOR(1000, 1000, (((num_ports * 2) + agent_->vrf_table()->Size()) ==
                                   (uint32_t)(KSyncSockTypeMap::MplsCount())));
             if (if_count) {
                 WAIT_FOR(1000, 1000, ((num_ports + if_count) ==
