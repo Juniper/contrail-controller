@@ -844,7 +844,9 @@ bool PathPreferenceData::AddChangePath(Agent *agent, AgentPath *path,
 }
 
 // Subnet Route route data
-IpamSubnetRoute::IpamSubnetRoute(DBRequest &nh_req) : AgentRouteData(false) {
+IpamSubnetRoute::IpamSubnetRoute(DBRequest &nh_req,
+                                 const std::string &dest_vn_name) :
+    AgentRouteData(false), dest_vn_name_(dest_vn_name) {
     nh_req_.Swap(&nh_req);
 }
 
@@ -861,6 +863,11 @@ bool IpamSubnetRoute::AddChangePath(Agent *agent, AgentPath *path,
         ret = true;
     }
     path->set_is_subnet_discard(true);
+
+    if (path->dest_vn_name() != dest_vn_name_) {
+        path->set_dest_vn_name(dest_vn_name_);
+        ret = true;
+    }
 
     //Resync of subnet route is needed for identifying if arp flood flag
     //needs to be enabled for all the smaller subnets present w.r.t. this subnet
