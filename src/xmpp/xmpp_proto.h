@@ -173,8 +173,10 @@ public:
                         uint8_t *data, size_t size);
 
 private:
-    static int EncodeOpen(uint8_t *data, std::string &to, std::string &from);
-    static int EncodeOpenResp(uint8_t *data, std::string &to, std::string &from);
+    static int EncodeOpen(uint8_t *data, std::string &to, std::string &from,
+                          size_t size);
+    static int EncodeOpenResp(uint8_t *data, std::string &to, std::string &from,
+                              size_t size);
     static int EncodeWhitespace(uint8_t *data);
     static int SetTo(std::string &to, XmlBase *doc);
     static int SetFrom(std::string &from, XmlBase *doc);
