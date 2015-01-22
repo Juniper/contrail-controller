@@ -144,18 +144,20 @@ void xml_parse(pugi::xml_node &node, string &s, int n) {
 void ShowIFMapAgentTable::MakeNode(string &dst, DBEntryBase *src) {
     IFMapNode *node = static_cast<IFMapNode *>(src);
     pugi::xml_document doc;
-    pugi::xml_node config = doc.append_child("config");
+    pugi::xml_node config;
+
+    if (!node->IsDeleted()) {
+        config = doc.append_child("config");
+    } else {
+        config = doc.append_child("Delete Marked config");
+    }
 
     node->EncodeNodeDetail(&config);
-#if 0
-    ostringstream oss;
-    doc.save(oss);
-    dst = oss.str();
-    //replace(dst.begin(), dst.end(), '<', '"');
-    //replace(dst.begin(), dst.end(), '>', '"');
-#else 
     xml_parse(config, dst, 1);
-#endif
+
+    if (node->IsDeleted()) {
+        return;
+    }
 
     // Display its adjacencies
     dst = dst + "Adjacencies:\n";
