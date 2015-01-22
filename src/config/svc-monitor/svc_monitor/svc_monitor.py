@@ -600,7 +600,11 @@ class SvcMonitor(object):
                 else:
                     self.logger.log("%s with %s/%s"
                                      % (funcname, meta_name, idents))
-                    func(idents)
+                    try:
+                        func(idents)
+                    except Exception:
+                        cgitb_error_log(self)
+                        pass
             # end for meta
         # end for result_type
     # end process_poll_result
