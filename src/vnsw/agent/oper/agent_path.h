@@ -509,7 +509,7 @@ private:
 
 class IpamSubnetRoute : public AgentRouteData {
 public:
-    IpamSubnetRoute(DBRequest &nh_req);
+    IpamSubnetRoute(DBRequest &nh_req, const std::string &dest_vn_name);
     virtual ~IpamSubnetRoute() {}
     virtual string ToString() const {return "subnet route";}
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
@@ -518,6 +518,7 @@ public:
 
 private:
     DBRequest nh_req_;
+    std::string dest_vn_name_;
     DISALLOW_COPY_AND_ASSIGN(IpamSubnetRoute);
 };
 
