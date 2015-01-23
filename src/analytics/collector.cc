@@ -299,10 +299,7 @@ void Collector::DisconnectSession(SandeshSession *session) {
     gen->DisconnectSession(vsession);
 }
 
-void Collector::GetGeneratorStats(vector<SandeshMessageStat> &smslist,
-    vector<GeneratorDbStats> &gdbslist) {
-    smslist.clear();
-    gdbslist.clear();
+void Collector::SendGeneratorStatistics() {
     tbb::mutex::scoped_lock lock(gen_map_mutex_);
     for (GeneratorMap::iterator gm_it = gen_map_.begin();
             gm_it != gen_map_.end(); gm_it++) {
@@ -313,23 +310,9 @@ void Collector::GetGeneratorStats(vector<SandeshMessageStat> &smslist,
             continue;
         }
         // Sandesh message info
-        vector<SandeshMessageInfo> smi;       
-        gen->GetStatistics(smi);
-        SandeshMessageStat sms;
-        sms.set_name(gen->ToString());
-        sms.set_msg_info(smi);
-        smslist.push_back(sms);
+        gen->SendSandeshMessageStatistics();
         // DB stats
-        vector<GenDb::DbTableInfo> vdbti;
-        GenDb::DbErrors dbe;
-        gen->GetDbStats(vdbti, dbe);
-        vector<GenDb::DbErrors> vdbe;
-        vdbe.push_back(dbe);
-        GeneratorDbStats gdbstats;
-        gdbstats.set_name(gen->ToString());
-        gdbstats.set_table_info(vdbti);
-        gdbstats.set_errors(vdbe); 
-        gdbslist.push_back(gdbstats);
+        gen->SendDbStatistics();
     }
 }
 

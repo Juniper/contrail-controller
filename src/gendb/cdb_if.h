@@ -9,7 +9,6 @@
 #include <boost/function.hpp>
 #include <boost/scoped_ptr.hpp>
 #include <boost/unordered_map.hpp>
-#include <boost/ptr_container/ptr_map.hpp>
 #include <boost/ptr_container/ptr_unordered_map.hpp>
 
 #include <protocol/TBinaryProtocol.h>
@@ -19,6 +18,7 @@
 
 #include <base/queue_task.h>
 #include "gendb_if.h"
+#include "gendb_statistics.h"
 
 class CdbIf : public GenDb::GenDbIf {
 public:
@@ -63,8 +63,8 @@ public:
         DbQueueWaterMarkCb cb);
     virtual void Db_ResetQueueWaterMarks();
     // Stats
-    virtual bool Db_GetStats(std::vector<GenDb::DbTableInfo> &vdbti,
-        GenDb::DbErrors &dbe);
+    virtual bool Db_GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
+        GenDb::DbErrors *dbe);
     // Connection
     virtual std::string Db_GetHost() const;
     virtual int Db_GetPort() const;
@@ -185,7 +185,7 @@ private:
                 write_batch_column_fails = 0;
                 read_column_fails = 0;
             }
-            void Get(GenDb::DbErrors &db_errors) const;
+            void Get(GenDb::DbErrors *db_errors) const;
             tbb::atomic<uint64_t> write_tablespace_fails;
             tbb::atomic<uint64_t> read_tablespace_fails;
             tbb::atomic<uint64_t> write_column_family_fails;
@@ -193,21 +193,6 @@ private:
             tbb::atomic<uint64_t> write_column_fails;
             tbb::atomic<uint64_t> write_batch_column_fails;
             tbb::atomic<uint64_t> read_column_fails;
-        };
-        struct CfStats {
-            CfStats() :
-                num_reads(0),
-                num_read_fails(0),
-                num_writes(0),
-                num_write_fails(0) {
-            }
-            void Update(bool write, bool fail);
-            void Get(const std::string &cf_name,
-                GenDb::DbTableInfo &dbti) const;
-            uint64_t num_reads;
-            uint64_t num_read_fails;
-            uint64_t num_writes;
-            uint64_t num_write_fails; 
         };
         enum ErrorType {
             CDBIF_STATS_ERR_NO_ERROR,
@@ -228,18 +213,12 @@ private:
         };
         void IncrementErrors(ErrorType type);
         void UpdateCf(const std::string &cf_name, bool write, bool fail);
-        void Get(std::vector<GenDb::DbTableInfo> &vdbti, GenDb::DbErrors &dbe);
-        typedef boost::ptr_map<const std::string, CfStats> CfStatsMap;
-        CfStatsMap cf_stats_map_;
-        CfStatsMap ocf_stats_map_;
+        void Get(std::vector<GenDb::DbTableInfo> *vdbti, GenDb::DbErrors *dbe);
+        GenDb::DbTableStatistics cf_stats_;
         Errors db_errors_;
         Errors odb_errors_;
     };
 
-    friend CdbIfStats::CfStats operator+(const CdbIfStats::CfStats &a,
-        const CdbIfStats::CfStats &b);
-    friend CdbIfStats::CfStats operator-(const CdbIfStats::CfStats &a,
-        const CdbIfStats::CfStats &b);
     friend CdbIfStats::Errors operator+(const CdbIfStats::Errors &a,
         const CdbIfStats::Errors &b);
     friend CdbIfStats::Errors operator-(const CdbIfStats::Errors &a,
@@ -287,10 +266,6 @@ private:
     static const int connectionTimeout = 3000;
 };
 
-CdbIf::CdbIfStats::CfStats operator+(const CdbIf::CdbIfStats::CfStats &a,
-    const CdbIf::CdbIfStats::CfStats &b);
-CdbIf::CdbIfStats::CfStats operator-(const CdbIf::CdbIfStats::CfStats &a,
-    const CdbIf::CdbIfStats::CfStats &b);
 CdbIf::CdbIfStats::Errors operator+(const CdbIf::CdbIfStats::Errors &a,
     const CdbIf::CdbIfStats::Errors &b);
 CdbIf::CdbIfStats::Errors operator-(const CdbIf::CdbIfStats::Errors &a,

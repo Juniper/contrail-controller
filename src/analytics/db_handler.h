@@ -27,6 +27,7 @@
 #include "io/event_manager.h"
 #include "base/random_generator.h"
 #include "gendb_if.h"
+#include "gendb_statistics.h"
 #include "sandesh/sandesh.h"
 #include "viz_message.h"
 #include "uflow_types.h"
@@ -122,8 +123,8 @@ public:
         uint64_t timestamp);
     bool GetStats(uint64_t &queue_count, uint64_t &enqueues,
         std::string &drop_level, std::vector<SandeshStats> &vdropmstats) const;
-    bool GetStats(std::vector<GenDb::DbTableInfo> &vdbti,
-        GenDb::DbErrors &dbe);
+    bool GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
+        GenDb::DbErrors *dbe, std::vector<GenDb::DbTableInfo> *vstats_dbti);
 
     void SetDbQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm);
     void ResetDbQueueWaterMarkInfo();
@@ -150,6 +151,7 @@ private:
     std::string col_name_;
     SandeshLevel::type drop_level_;
     VizMsgStatistics dropped_msg_stats_;
+    GenDb::DbTableStatistics stable_stats_;
     mutable tbb::mutex smutex_;
 
     DISALLOW_COPY_AND_ASSIGN(DbHandler);
