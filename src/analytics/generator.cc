@@ -94,8 +94,8 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
             collector->event_manager(), boost::bind(
                 &SandeshGenerator::StartDbifReinit, this),
             collector->cassandra_ips(), collector->cassandra_ports(),
-            collector->analytics_ttl(), source + ":" + node_type + ":" +
-                module + ":" + instance_id)) {
+            source + ":" + node_type + ":" +
+                module + ":" + instance_id, collector->analytics_ttl_map())) {
     disconnected_ = false;
     gen_attr_.set_connects(1);
     gen_attr_.set_connect_time(UTCTimestampUsec());

@@ -286,6 +286,22 @@ int main(int argc, char *argv[])
         LOG(INFO, "COLLECTOR PROTOBUF LISTEN PORT: " << protobuf_port);
     }
 
+    LOG(INFO, "COLLECTOR analytics_data_ttl: " << options.analytics_data_ttl());
+    LOG(INFO, "COLLECTOR analytics_flow_ttl: " << options.analytics_flow_ttl());
+    LOG(INFO, "COLLECTOR analytics_statistics_ttl: " <<
+            options.analytics_statistics_ttl());
+    LOG(INFO, "COLLECTOR analytics_config_audit_ttl: " <<
+            options.analytics_config_audit_ttl());
+    DbHandler::TtlMap ttl_map;
+    ttl_map.insert(std::pair<DbHandler::TtlType, int>(DbHandler::FLOWDATA_TTL,
+                options.analytics_flow_ttl()));
+    ttl_map.insert(std::pair<DbHandler::TtlType, int>(DbHandler::STATSDATA_TTL,
+                options.analytics_statistics_ttl()));
+    ttl_map.insert(std::pair<DbHandler::TtlType, int>
+            (DbHandler::CONFIGAUDIT_TTL, options.analytics_config_audit_ttl()));
+    ttl_map.insert(std::pair<DbHandler::TtlType, int>(DbHandler::GLOBAL_TTL,
+                options.analytics_data_ttl()));
+
     VizCollector analytics(a_evm,
             options.collector_port(),
             protobuf_server_enabled,
@@ -297,7 +313,7 @@ int main(int argc, char *argv[])
             options.syslog_port(),
             options.sflow_port(),
             options.dup(),
-            options.analytics_data_ttl());
+            ttl_map);
 
 #if 0
     // initialize python/c++ API
