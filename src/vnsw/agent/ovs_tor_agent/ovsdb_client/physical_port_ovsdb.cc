@@ -23,16 +23,31 @@ using OVSDB::PhysicalPortEntry;
 using OVSDB::PhysicalPortTable;
 
 PhysicalPortEntry::PhysicalPortEntry(PhysicalPortTable *table,
-        const char *name) : OvsdbEntry(table), name_(name), binding_table_(),
-    ovs_binding_table_() {
-}
-
-PhysicalPortEntry::PhysicalPortEntry(PhysicalPortTable *table,
         const std::string &name) : OvsdbEntry(table), name_(name),
     binding_table_(), ovs_binding_table_() {
 }
 
 PhysicalPortEntry::~PhysicalPortEntry() {
+}
+
+bool PhysicalPortEntry::Add() {
+    // trigger ack after setting ovs_entry ptr
+    return false;
+}
+
+bool PhysicalPortEntry::Change() {
+    // trigger ack after setting ovs_entry ptr
+    return false;
+}
+
+bool PhysicalPortEntry::IsDataResolved() {
+    return (ovs_entry_ == NULL) ? false : true;
+}
+
+void PhysicalPortEntry::trigger_ack(PhysicalPortTable *table,
+                                    struct ovsdb_idl_row *ovs_entry) {
+    ovs_entry_ = ovs_entry;
+    table->NotifyEvent(this, KSyncEntry::ADD_ACK);
 }
 
 bool PhysicalPortEntry::IsLess(const KSyncEntry &entry) const {
@@ -128,7 +143,7 @@ void PhysicalPortTable::Notify(OvsdbClientIdl::Op op,
             OVSDB_TRACE(Trace, "Add/Change of Physical Port " +
                     std::string(ovsdb_wrapper_physical_port_name(row)));
             entry = static_cast<PhysicalPortEntry *>(Create(&key));
-            entry->ovs_entry_ = row;
+            entry->trigger_ack(this, row);
         }
         PhysicalPortEntry::VlanLSTable old(entry->binding_table_);
         std::size_t count = ovsdb_wrapper_physical_port_vlan_binding_count(row);
