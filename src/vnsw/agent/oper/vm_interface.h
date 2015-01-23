@@ -337,6 +337,7 @@ public:
     std::string ToString() const;
     bool Resync(const InterfaceTable *table, const VmInterfaceData *data);
     bool OnChange(VmInterfaceData *data);
+    void PostAdd();
 
     // Accessor functions
     const VmEntry *vm() const { return vm_.get(); }

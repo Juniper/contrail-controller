@@ -335,6 +335,10 @@ bool AgentUtXmlTestCase::ReadXml() {
             cfg = new AgentUtXmlPacket(name, node, this);
         }
 
+        if (strcmp(node.name(), "task") == 0) {
+            cfg = new AgentUtXmlTask(node, this);
+        }
+
         if (strcmp(node.name(), "validate") == 0) {
             if (GetStringAttribute(node, "name", &name) == false) {
                 cout << "Attribute \"name\" not specified for validate."
@@ -453,6 +457,50 @@ void AgentUtXmlNode::ToString(string *str) {
 
     *str += s.str();
     return;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//  AgentUtXmlTask routines
+/////////////////////////////////////////////////////////////////////////////
+AgentUtXmlTask::AgentUtXmlTask(const xml_node &node,
+                               AgentUtXmlTestCase *test_case) :
+    AgentUtXmlNode("task", node, false, test_case) {
+}
+
+AgentUtXmlTask::~AgentUtXmlTask() {
+}
+
+bool AgentUtXmlTask::ReadXml() {
+    GetStringAttribute(node(), "stop", &stop_);
+    return true;
+}
+
+bool AgentUtXmlTask::ToXml(xml_node *parent) {
+    return true;
+}
+
+void AgentUtXmlTask::ToString(string *str) {
+    AgentUtXmlNode::ToString(str);
+    stringstream s;
+
+    s << "Stop : " << stop_ << endl;
+    *str += s.str();
+    return;
+}
+
+string AgentUtXmlTask::NodeType() {
+    return "Task";
+}
+
+bool AgentUtXmlTask::Run() {
+    if (boost::iequals(stop_, "1") || boost::iequals(stop_, "yes")) {
+        TestClient::WaitForIdle();
+        TaskScheduler::GetInstance()->Stop();
+    } else {
+        TaskScheduler::GetInstance()->Start();
+        TestClient::WaitForIdle();
+    }
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////////////

@@ -944,6 +944,21 @@ bool VmInterface::OnChange(VmInterfaceData *data) {
     return Resync(table, data);
 }
 
+// When VMInterface is added from Config (sub-interface, gateway interface etc.)
+// the RESYNC is not called and some of the config like VN and VRF are not
+// applied on the interface (See Add() API above). Force change to ensure
+// RESYNC is called
+void VmInterface::PostAdd() {
+    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+    DBRequest req;
+    if (ifmap_node() == NULL)
+        return;
+
+    if (table->IFNodeToReq(ifmap_node(), req) == true) {
+        table->Process(req);
+    }
+}
+
 // Handle RESYNC DB Request. Handles multiple sub-types,
 // - CONFIG : RESYNC from config message
 // - IP_ADDR: RESYNC due to learning IP from DHCP
