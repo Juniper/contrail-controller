@@ -19,14 +19,10 @@ OvsdbClientTcp::OvsdbClientTcp(Agent *agent, TorAgentParam *params,
         OvsPeerManager *manager) : TcpServer(agent->event_manager()),
     OvsdbClient(manager), agent_(agent), session_(NULL),
     server_ep_(IpAddress(params->tor_ip()), params->tor_port()),
-    tsn_ip_(params->tsn_ip()),
-    client_reconnect_timer_(TimerManager::CreateTimer(
-                *(agent->event_manager())->io_service(),
-                "OVSDB Client TCP reconnect Timer")) {
+    tsn_ip_(params->tsn_ip()) {
 }
 
 OvsdbClientTcp::~OvsdbClientTcp() {
-    TimerManager::DeleteTimer(client_reconnect_timer_);
 }
 
 void OvsdbClientTcp::RegisterClients() {
@@ -45,27 +41,7 @@ TcpSession *OvsdbClientTcp::AllocSession(Socket *socket) {
 void OvsdbClientTcp::OnSessionEvent(TcpSession *session,
         TcpSession::Event event) {
     OvsdbClientTcpSession *tcp = static_cast<OvsdbClientTcpSession *>(session);
-    boost::system::error_code ec;
-    switch (event) {
-    case TcpSession::CONNECT_FAILED:
-        /* Failed to Connect, Try Again! */
-        client_reconnect_timer_->Start(TcpReconnectWait,
-                boost::bind(&OvsdbClientTcp::ReconnectTimerCb, this));
-        tcp->set_status("Reconnecting");
-        break;
-    case TcpSession::CLOSE:
-        /* TODO need to handle reconnects */
-        tcp->OnClose();
-        break;
-    case TcpSession::CONNECT_COMPLETE:
-        ec = tcp->SetSocketOptions();
-        assert(ec.value() == 0);
-        tcp->set_status("Established");
-        tcp->OnEstablish();
-        break;
-    default:
-        break;
-    }
+    tcp->EnqueueEvent(event);
 }
 
 const std::string OvsdbClientTcp::protocol() {
@@ -84,9 +60,8 @@ Ip4Address OvsdbClientTcp::tsn_ip() {
     return tsn_ip_;
 }
 
-bool OvsdbClientTcp::ReconnectTimerCb() {
-    Connect(session_, server_ep_);
-    return false;
+const boost::asio::ip::tcp::endpoint &OvsdbClientTcp::server_ep() const {
+        return server_ep_;
 }
 
 OvsdbClientSession *OvsdbClientTcp::next_session(OvsdbClientSession *session) {
@@ -106,7 +81,11 @@ void OvsdbClientTcp::AddSessionInfo(SandeshOvsdbClient &client){
 OvsdbClientTcpSession::OvsdbClientTcpSession(Agent *agent,
         OvsPeerManager *manager, TcpServer *server, Socket *sock,
         bool async_ready) : OvsdbClientSession(agent, manager),
-    TcpSession(server, sock, async_ready), status_("Init") {
+    TcpSession(server, sock, async_ready), status_("Init"),
+    client_reconnect_timer_(TimerManager::CreateTimer(
+                *(agent->event_manager())->io_service(),
+                "OVSDB Client TCP reconnect Timer",
+                TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0)) {
     reader_ = new OvsdbClientTcpSessionReader(this, 
             boost::bind(&OvsdbClientTcpSession::RecvMsg, this, _1, _2));
     /*
@@ -114,14 +93,21 @@ OvsdbClientTcpSession::OvsdbClientTcpSession(Agent *agent,
      * to assure only one thread is writting data to OVSDB client.
      */
     receive_queue_ = new WorkQueue<queue_msg>(
-            TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), -1,
+            TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0,
             boost::bind(&OvsdbClientTcpSession::ReceiveDequeue, this, _1));
+    // Process session events in KSync workqueue task context,
+    session_event_queue_ = new WorkQueue<OvsdbSessionEvent>(
+            TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0,
+            boost::bind(&OvsdbClientTcpSession::ProcessSessionEvent, this, _1));
 }
 
 OvsdbClientTcpSession::~OvsdbClientTcpSession() {
     delete reader_;
     receive_queue_->Shutdown();
     delete receive_queue_;
+    session_event_queue_->Shutdown();
+    delete session_event_queue_;
+    TimerManager::DeleteTimer(client_reconnect_timer_);
 }
 
 void OvsdbClientTcpSession::OnRead(Buffer buffer) {
@@ -156,6 +142,46 @@ KSyncObjectManager *OvsdbClientTcpSession::ksync_obj_manager() {
 Ip4Address OvsdbClientTcpSession::tsn_ip() {
     OvsdbClientTcp *ovs_server = static_cast<OvsdbClientTcp *>(server());
     return ovs_server->tsn_ip();
+}
+
+bool OvsdbClientTcpSession::ProcessSessionEvent(OvsdbSessionEvent ovs_event) {
+    boost::system::error_code ec;
+    switch (ovs_event.event) {
+    case TcpSession::CONNECT_FAILED:
+        assert(client_reconnect_timer_->fired() == false);
+        /* Failed to Connect, Try Again! */
+        if (client_reconnect_timer_->Start(TcpReconnectWait,
+                boost::bind(&OvsdbClientTcpSession::ReconnectTimerCb, this)) == false ) {
+            assert(0);
+        }
+        set_status("Reconnecting");
+        break;
+    case TcpSession::CLOSE:
+        /* TODO need to handle reconnects */
+        OnClose();
+        break;
+    case TcpSession::CONNECT_COMPLETE:
+        ec = SetSocketOptions();
+        assert(ec.value() == 0);
+        set_status("Established");
+        OnEstablish();
+        break;
+    default:
+        break;
+    }
+    return true;
+}
+
+void OvsdbClientTcpSession::EnqueueEvent(TcpSession::Event event) {
+    OvsdbSessionEvent ovs_event;
+    ovs_event.event = event;
+    session_event_queue_->Enqueue(ovs_event);
+}
+
+bool OvsdbClientTcpSession::ReconnectTimerCb() {
+    OvsdbClientTcp *ovs_server = static_cast<OvsdbClientTcp *>(server());
+    ovs_server->Connect(this, ovs_server->server_ep());
+    return false;
 }
 
 OvsdbClientTcpSessionReader::OvsdbClientTcpSessionReader(
