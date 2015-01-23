@@ -29,7 +29,7 @@ public:
         testfile.close();
         std::stringstream cmd_str;
         cmd_str << "/bin/sh" << " " <<tmpfilename;
-        task_ = new InstanceTask(cmd_str.str(), 1, &evm);
+        task_ = new InstanceTaskExecvp(cmd_str.str(), 1, &evm);
     }
 
     virtual void TearDown() {
@@ -37,7 +37,7 @@ public:
         remove(tmpfilename);
     }
 
-    int StartTask() {
+    pid_t StartTask() {
         /* create few fds */
         if(pipe(pipe_fds) == -1)
             return -1;
@@ -45,7 +45,8 @@ public:
         if (sock_fd < 0)
             return -1;
         /* run the task now */
-        task_pid = task_->Run();
+        task_->Run();
+        task_pid = task_->pid();
         return task_pid;
     }
 
@@ -71,8 +72,8 @@ public:
 protected:
     int pipe_fds[2];
     int sock_fd;
-    InstanceTask *task_;
-    int task_pid;
+    InstanceTaskExecvp *task_;
+    pid_t task_pid;
     EventManager evm;
     char tmpfilename[L_tmpnam];
 };
