@@ -770,16 +770,44 @@ class DBInterface(object):
     #end _subnet_vnc_create_mapping
 
     def _subnet_vnc_read_mapping(self, id=None, key=None):
+        def _subnet_id_to_key():
+            all_net_objs = self._virtual_network_list(detail=True)
+            for net_obj in all_net_objs:
+                ipam_refs = net_obj.get_network_ipam_refs()
+                net_uuid = net_obj.uuid
+                for ipam_ref in ipam_refs:
+                    subnet_vncs = ipam_ref['attr'].get_ipam_subnets()
+                    for subnet_vnc in subnet_vncs:
+                        if subnet_vnc.subnet_uuid == id:
+                            return self._subnet_vnc_get_key(subnet_vnc,
+                                                            net_uuid)
+            return None
+        # _subnet_id_to_key
+
         if id:
             try:
                 subnet_key = self._vnc_lib.kv_retrieve(id)
-                return subnet_key
             except NoIdError:
-                self._raise_contrail_exception('SubnetNotFound',
-                                               subnet_id=id)
+                # contrail UI/api might have been used to create the subnet,
+                # create id to key mapping now/here.
+                subnet_key = _subnet_id_to_key()
+                if not subnet_key:
+                    self._raise_contrail_exception('SubnetNotFound',
+                                                   subnet_id=id)
+                # persist to avoid this calculation later
+                self._subnet_vnc_create_mapping(id, subnet_key)
+            return subnet_key
 
         if key:
-            subnet_id = self._vnc_lib.kv_retrieve(key)
+            try:
+                subnet_id = self._vnc_lib.kv_retrieve(key)
+            except NoIdError:
+                # contrail UI/api might have been used to create the subnet,
+                # create key to id mapping now/here.
+                subnet_vnc = self._subnet_read(key)
+                subnet_id = subnet_vnc.uuid
+                # persist to avoid this calculation later
+                self._subnet_vnc_create_mapping(subnet_id, key)
             return subnet_id
 
     #end _subnet_vnc_read_mapping
@@ -807,7 +835,8 @@ class DBInterface(object):
         return '%s %s/%s' % (net_id, str(network.ip), pfx_len)
     #end _subnet_vnc_get_key
 
-    def _subnet_read(self, net_uuid, subnet_key):
+    def _subnet_read(self, subnet_key):
+        net_uuid = subnet_key.split(' ')[0]
         try:
             net_obj = self._virtual_network_read(net_id=net_uuid)
         except NoIdError:
@@ -1332,9 +1361,13 @@ class DBInterface(object):
         sn_q_dict['cidr'] = cidr
         sn_q_dict['ip_version'] = IPNetwork(cidr).version # 4 or 6
 
-        subnet_key = self._subnet_vnc_get_key(subnet_vnc, net_obj.uuid)
-        sn_id = self._subnet_vnc_read_or_create_mapping(id=subnet_vnc.subnet_uuid,
-                                                        key=subnet_key)
+        # read from useragent kv only for old subnets created
+        # before schema had uuid in subnet
+        sn_id = subnet_vnc.subnet_uuid
+        if not sn_id:
+            subnet_key = self._subnet_vnc_get_key(subnet_vnc, net_obj.uuid)
+            sn_id = self._subnet_vnc_read_or_create_mapping(id=subnet_vnc.subnet_uuid,
+                                                            key=subnet_key)
 
         sn_q_dict['id'] = sn_id
 
@@ -2415,7 +2448,7 @@ class DBInterface(object):
         self._subnet_vnc_create_mapping(subnet_id, subnet_key)
 
         # Read in subnet from server to get updated values for gw etc.
-        subnet_vnc = self._subnet_read(net_obj.uuid, subnet_key)
+        subnet_vnc = self._subnet_read(subnet_key)
         subnet_info = self._subnet_vnc_to_neutron(subnet_vnc, net_obj,
                                                   ipam_fq_name)
 
