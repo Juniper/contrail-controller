@@ -29,7 +29,7 @@ public:
         testfile.close();
         std::stringstream cmd_str;
         cmd_str << "/bin/sh" << " " <<tmpfilename;
-        task_ = new InstanceTask(cmd_str.str(), 1, &evm);
+        task_ = new InstanceTaskExecvp(cmd_str.str(), 1, &evm);
     }
 
     virtual void TearDown() {
@@ -71,7 +71,7 @@ public:
 protected:
     int pipe_fds[2];
     int sock_fd;
-    InstanceTask *task_;
+    InstanceTaskExecvp *task_;
     int task_pid;
     EventManager evm;
     char tmpfilename[L_tmpnam];

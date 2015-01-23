@@ -2,21 +2,23 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All right reserved.
  */
 
+#include <tbb/tbb.h>
 #include "oper/instance_task.h"
-
 #include "base/logging.h"
 #include "io/event_manager.h"
 
-/*
- * InstanceTask class
- */
-InstanceTask::InstanceTask(const std::string &cmd, int cmd_type, EventManager *evm) :
-        cmd_(cmd), errors_(*(evm->io_service())), is_running_(false),
-        pid_(0), cmd_type_(cmd_type), start_time_(0) {
+InstanceTask::InstanceTask()
+: is_running_(false), start_time_(0)
+{}
+
+InstanceTaskExecvp::InstanceTaskExecvp(const std::string &cmd,
+                            int cmd_type, EventManager *evm) :
+        cmd_(cmd), errors_(*(evm->io_service())),
+        pid_(0), cmd_type_(cmd_type) {
 }
 
-void InstanceTask::ReadErrors(const boost::system::error_code &ec,
-                               size_t read_bytes) {
+void InstanceTaskExecvp::ReadErrors(const boost::system::error_code &ec,
+                                                   size_t read_bytes) {
     if (read_bytes) {
         errors_data_ << rx_buff_;
     }
@@ -42,22 +44,22 @@ void InstanceTask::ReadErrors(const boost::system::error_code &ec,
     boost::asio::async_read(
                     errors_,
                     boost::asio::buffer(rx_buff_, kBufLen),
-                    boost::bind(&InstanceTask::ReadErrors,
+                    boost::bind(&InstanceTaskExecvp::ReadErrors,
                                 this, boost::asio::placeholders::error,
                                 boost::asio::placeholders::bytes_transferred));
 }
 
-void InstanceTask::Stop() {
+void InstanceTaskExecvp::Stop() {
     assert(pid_);
     kill(pid_, SIGTERM);
 }
 
-void InstanceTask::Terminate() {
+void InstanceTaskExecvp::Terminate() {
     assert(pid_);
     kill(pid_, SIGKILL);
 }
 
-pid_t InstanceTask::Run() {
+bool InstanceTaskExecvp::Run() {
     std::vector<std::string> argv;
     LOG(DEBUG, "NetNS run command: " << cmd_);
 
@@ -71,7 +73,7 @@ pid_t InstanceTask::Run() {
 
     int err[2];
     if (pipe(err) < 0) {
-        return -1;
+        return false;
     }
     /*
      * temporarily block SIGCHLD signals
@@ -110,23 +112,17 @@ pid_t InstanceTask::Run() {
     boost::system::error_code ec;
     errors_.assign(::dup(err[0]), ec);
     close(err[0]);
-    if (ec) {
-        is_running_ = false;
-        return -1;
-    }
+    if (ec)
+        return is_running_ = false;
 
     bzero(rx_buff_, sizeof(rx_buff_));
     boost::asio::async_read(errors_, boost::asio::buffer(rx_buff_, kBufLen),
-            boost::bind(&InstanceTask::ReadErrors,
+            boost::bind(&InstanceTaskExecvp::ReadErrors,
                         this, boost::asio::placeholders::error,
                         boost::asio::placeholders::bytes_transferred));
-
-    return pid_;
+    return true;
 }
 
-/*
- *
- */
 InstanceTaskQueue::InstanceTaskQueue(EventManager *evm) : evm_(evm),
                 timeout_timer_(TimerManager::CreateTimer(
                                *evm_->io_service(),
