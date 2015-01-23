@@ -96,12 +96,18 @@ public:
 
     void OvsdbRouteNotify(OvsdbClientIdl::Op, struct ovsdb_idl_row *);
 
+    void DeleteTable(void);
+
+    bool VrfWalkNotify(DBTablePartBase *partition, DBEntryBase *entry);
+    void VrfWalkDone(DBTableBase *partition);
     void VrfNotify(DBTablePartBase *partition, DBEntryBase *e);
     const LogicalSwitchMap &logical_switch_map() const;
 
 private:
-    OvsdbClientIdl *client_idl_;
+    OvsdbClientIdlPtr client_idl_;
     DBTable *table_;
+    bool deleted_;
+    DBTableWalker::WalkId walkid_;
     LogicalSwitchMap logical_switch_map_;
     DBTableBase::ListenerId vrf_listener_id_;
     DISALLOW_COPY_AND_ASSIGN(VrfOvsdbObject);

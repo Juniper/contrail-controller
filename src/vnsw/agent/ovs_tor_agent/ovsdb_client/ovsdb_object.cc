@@ -29,6 +29,16 @@ KSyncEntry *OvsdbObject::FindActiveEntry(KSyncEntry *key) {
     return NULL;
 }
 
+void OvsdbObject::DeleteTable(void) {
+    client_idl_->ksync_obj_manager()->Delete(this);
+}
+
+void OvsdbObject::EmptyTable(void) {
+    if (delete_scheduled()) {
+        client_idl_ = NULL;
+    }
+}
+
 OvsdbDBObject::OvsdbDBObject(OvsdbClientIdl *idl) : KSyncDBObject(),
     client_idl_(idl), walkid_(DBTableWalker::kInvalidWalkerId) {
 }
@@ -84,5 +94,15 @@ bool OvsdbDBObject::DBWalkNotify(DBTablePartBase *part, DBEntryBase *entry) {
 
 void OvsdbDBObject::DBWalkDone(DBTableBase *partition) {
     walkid_ = DBTableWalker::kInvalidWalkerId;
+}
+
+void OvsdbDBObject::DeleteTable(void) {
+    client_idl_->ksync_obj_manager()->Delete(this);
+}
+
+void OvsdbDBObject::EmptyTable(void) {
+    if (delete_scheduled()) {
+        client_idl_ = NULL;
+    }
 }
 

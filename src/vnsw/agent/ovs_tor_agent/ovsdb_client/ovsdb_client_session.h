@@ -21,6 +21,9 @@ public:
     OvsdbClientSession(Agent *agent, OvsPeerManager *manager);
     virtual ~OvsdbClientSession();
 
+    // Callback triggered for session cleanup
+    virtual void OnCleanup() = 0;
+
     virtual KSyncObjectManager *ksync_obj_manager() = 0;
     virtual Ip4Address tsn_ip() = 0;
     virtual void SendMsg(u_int8_t *buf, std::size_t len) = 0;
@@ -31,8 +34,9 @@ public:
 
 private:
     friend class OvsdbClientIdl;
-    OvsdbClientIdl client_idl_;
+    OvsdbClientIdlPtr client_idl_;
     Agent *agent_;
+    OvsPeerManager *manager_;
     DISALLOW_COPY_AND_ASSIGN(OvsdbClientSession);
 };
 };  // namespace OVSDB

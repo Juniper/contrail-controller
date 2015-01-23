@@ -93,6 +93,11 @@ PhysicalPortEntry::stats_table() const {
 
 void PhysicalPortEntry::OverrideOvs() {
     struct ovsdb_idl_txn *txn = table_->client_idl()->CreateTxn(this);
+    if (txn == NULL) {
+        // failed to create transaction because of idl marked for
+        // deletion return from here.
+        return;
+    }
     Encode(txn);
     struct jsonrpc_msg *msg = ovsdb_wrapper_idl_txn_encode(txn);
     if (msg == NULL) {
@@ -109,7 +114,6 @@ PhysicalPortTable::PhysicalPortTable(OvsdbClientIdl *idl) :
 }
 
 PhysicalPortTable::~PhysicalPortTable() {
-    client_idl_->UnRegister(OvsdbClientIdl::OVSDB_PHYSICAL_PORT);
 }
 
 void PhysicalPortTable::Notify(OvsdbClientIdl::Op op,
@@ -200,46 +204,48 @@ public:
         TorAgentInit *init =
             static_cast<TorAgentInit *>(Agent::GetInstance()->agent_init());
         OvsdbClientSession *session = init->ovsdb_client()->next_session(NULL);
-        PhysicalPortTable *table =
-            session->client_idl()->physical_port_table();
-        PhysicalPortEntry *entry =
-            static_cast<PhysicalPortEntry *>(table->Next(NULL));
-        while (entry != NULL) {
-            OvsdbPhysicalPortEntry pentry;
-            pentry.set_state(entry->StateString());
-            pentry.set_name(entry->name());
-            const PhysicalPortEntry::VlanLSTable &bindings =
-                entry->ovs_binding_table();
-            const PhysicalPortEntry::VlanStatsTable &stats_table =
-                entry->stats_table();
-            PhysicalPortEntry::VlanLSTable::const_iterator it =
-                bindings.begin();
-            std::vector<OvsdbPhysicalPortVlanInfo> vlan_list;
-            for (; it != bindings.end(); it++) {
-                OvsdbPhysicalPortVlanInfo vlan;
-                vlan.set_vlan(it->first);
-                vlan.set_logical_switch(it->second->name());
-                PhysicalPortEntry::VlanStatsTable::const_iterator stats_it =
-                    stats_table.find(it->first);
-                if (stats_it != stats_table.end()) {
-                    int64_t in_pkts, in_bytes, out_pkts, out_bytes;
-                    ovsdb_wrapper_get_logical_binding_stats(stats_it->second,
-                            &in_pkts, &in_bytes, &out_pkts, &out_bytes);
-                    vlan.set_in_pkts(in_pkts);
-                    vlan.set_in_bytes(in_bytes);
-                    vlan.set_out_pkts(out_pkts);
-                    vlan.set_out_bytes(out_bytes);
-                } else {
-                    vlan.set_in_pkts(0);
-                    vlan.set_in_bytes(0);
-                    vlan.set_out_pkts(0);
-                    vlan.set_out_bytes(0);
+        if (session->client_idl() != NULL) {
+            PhysicalPortTable *table =
+                session->client_idl()->physical_port_table();
+            PhysicalPortEntry *entry =
+                static_cast<PhysicalPortEntry *>(table->Next(NULL));
+            while (entry != NULL) {
+                OvsdbPhysicalPortEntry pentry;
+                pentry.set_state(entry->StateString());
+                pentry.set_name(entry->name());
+                const PhysicalPortEntry::VlanLSTable &bindings =
+                    entry->ovs_binding_table();
+                const PhysicalPortEntry::VlanStatsTable &stats_table =
+                    entry->stats_table();
+                PhysicalPortEntry::VlanLSTable::const_iterator it =
+                    bindings.begin();
+                std::vector<OvsdbPhysicalPortVlanInfo> vlan_list;
+                for (; it != bindings.end(); it++) {
+                    OvsdbPhysicalPortVlanInfo vlan;
+                    vlan.set_vlan(it->first);
+                    vlan.set_logical_switch(it->second->name());
+                    PhysicalPortEntry::VlanStatsTable::const_iterator stats_it =
+                        stats_table.find(it->first);
+                    if (stats_it != stats_table.end()) {
+                        int64_t in_pkts, in_bytes, out_pkts, out_bytes;
+                        ovsdb_wrapper_get_logical_binding_stats(stats_it->second,
+                                &in_pkts, &in_bytes, &out_pkts, &out_bytes);
+                        vlan.set_in_pkts(in_pkts);
+                        vlan.set_in_bytes(in_bytes);
+                        vlan.set_out_pkts(out_pkts);
+                        vlan.set_out_bytes(out_bytes);
+                    } else {
+                        vlan.set_in_pkts(0);
+                        vlan.set_in_bytes(0);
+                        vlan.set_out_pkts(0);
+                        vlan.set_out_bytes(0);
+                    }
+                    vlan_list.push_back(vlan);
                 }
-                vlan_list.push_back(vlan);
+                pentry.set_vlans(vlan_list);
+                port_list.push_back(pentry);
+                entry = static_cast<PhysicalPortEntry *>(table->Next(entry));
             }
-            pentry.set_vlans(vlan_list);
-            port_list.push_back(pentry);
-            entry = static_cast<PhysicalPortEntry *>(table->Next(entry));
         }
         resp_->set_port(port_list);
         SendResponse();

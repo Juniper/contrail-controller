@@ -278,6 +278,7 @@ void UnicastMacRemoteTable::Unregister() {
 }
 
 void UnicastMacRemoteTable::EmptyTable() {
+    OvsdbDBObject::EmptyTable();
     if (deleted_ == true) {
         Unregister();
     }
@@ -292,7 +293,8 @@ bool UnicastMacRemoteTable::deleted() {
 }
 
 VrfOvsdbObject::VrfOvsdbObject(OvsdbClientIdl *idl, DBTable *table) :
-    client_idl_(idl), table_(table) {
+    client_idl_(idl), table_(table), deleted_(false),
+    walkid_(DBTableWalker::kInvalidWalkerId) {
     vrf_listener_id_ = table->Register(boost::bind(&VrfOvsdbObject::VrfNotify,
                 this, _1, _2));
     client_idl_->Register(OvsdbClientIdl::OVSDB_UCAST_MAC_REMOTE,
@@ -300,8 +302,8 @@ VrfOvsdbObject::VrfOvsdbObject(OvsdbClientIdl *idl, DBTable *table) :
 }
 
 VrfOvsdbObject::~VrfOvsdbObject() {
+    assert(walkid_ == DBTableWalker::kInvalidWalkerId);
     table_->Unregister(vrf_listener_id_);
-    client_idl_->UnRegister(OvsdbClientIdl::OVSDB_UCAST_MAC_REMOTE);
 }
 
 void VrfOvsdbObject::OvsdbRouteNotify(OvsdbClientIdl::Op op,
@@ -316,6 +318,11 @@ void VrfOvsdbObject::OvsdbRouteNotify(OvsdbClientIdl::Op op,
     if (it == logical_switch_map_.end()) {
         // if we fail to find ksync object, encode and send delete.
         struct ovsdb_idl_txn *txn = client_idl_->CreateTxn(NULL);
+        if (txn == NULL) {
+            // failed to create transaction because of idl marked for
+            // deletion return from here.
+            return;
+        }
         ovsdb_wrapper_delete_ucast_mac_remote(row);
         struct jsonrpc_msg *msg = ovsdb_wrapper_idl_txn_encode(txn);
         if (msg == NULL) {
@@ -343,11 +350,46 @@ void VrfOvsdbObject::OvsdbRouteNotify(OvsdbClientIdl::Op op,
     }
 }
 
+// Start a walk on Vrf table and trigger ksync object delete for all the
+// route tables.
+void VrfOvsdbObject::DeleteTable() {
+    if (deleted_)
+        return;
+    deleted_ = true;
+    DBTableWalker *walker = client_idl_->agent()->db()->GetWalker();
+    if (walkid_ != DBTableWalker::kInvalidWalkerId) {
+        walker->WalkCancel(walkid_);
+    }
+    walkid_ = walker->WalkTable(table_, NULL,
+            boost::bind(&VrfOvsdbObject::VrfWalkNotify, this, _1, _2),
+            boost::bind(&VrfOvsdbObject::VrfWalkDone, this, _1));
+}
+
+bool VrfOvsdbObject::VrfWalkNotify(DBTablePartBase *partition,
+                                   DBEntryBase *entry) {
+    VrfNotify(partition, entry);
+    return true;
+}
+
+void VrfOvsdbObject::VrfWalkDone(DBTableBase *partition) {
+    walkid_ = DBTableWalker::kInvalidWalkerId;
+    if (deleted_) {
+        client_idl_->UnRegister(OvsdbClientIdl::OVSDB_UCAST_MAC_REMOTE);
+        client_idl_ = NULL;
+    }
+}
+
 void VrfOvsdbObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
     VrfEntry *vrf = static_cast<VrfEntry *>(e);
     VrfState *state = static_cast<VrfState *>
         (vrf->GetState(partition->parent(), vrf_listener_id_));
-    if (vrf->IsDeleted()) {
+    if (deleted_ && state) {
+        // Vrf Object is marked for delete trigger delete for l2 table
+        // object and cleanup vrf state.
+        state->l2_table->DeleteTable();
+    }
+
+    if (deleted_ || vrf->IsDeleted()) {
         if (state) {
             logical_switch_map_.erase(state->logical_switch_name_);
             vrf->ClearState(partition->parent(), vrf_listener_id_);
@@ -368,7 +410,7 @@ void VrfOvsdbObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
         vrf->SetState(partition->parent(), vrf_listener_id_, state);
 
         /* We are interested only in L2 Routes */
-        state->l2_table = new UnicastMacRemoteTable(client_idl_,
+        state->l2_table = new UnicastMacRemoteTable(client_idl_.get(),
                 vrf->GetBridgeRouteTable());
     }
 }
@@ -393,23 +435,27 @@ public:
         TorAgentInit *init =
             static_cast<TorAgentInit *>(Agent::GetInstance()->agent_init());
         OvsdbClientSession *session = init->ovsdb_client()->next_session(NULL);
-        VrfOvsdbObject *vrf_obj = session->client_idl()->vrf_ovsdb();
-        const VrfOvsdbObject::LogicalSwitchMap ls_table =
-            vrf_obj->logical_switch_map();
-        VrfOvsdbObject::LogicalSwitchMap::const_iterator it = ls_table.begin();
-        for (; it != ls_table.end(); it++) {
-            UnicastMacRemoteTable *table = it->second->l2_table;
-            UnicastMacRemoteEntry *entry =
-                static_cast<UnicastMacRemoteEntry *>(table->Next(NULL));
-            while (entry != NULL) {
-                OvsdbUnicastMacRemoteEntry oentry;
-                oentry.set_state(entry->StateString());
-                oentry.set_mac(entry->mac());
-                oentry.set_logical_switch(entry->logical_switch_name());
-                oentry.set_dest_ip(entry->dest_ip());
-                oentry.set_self_exported(entry->self_exported_route());
-                macs.push_back(oentry);
-                entry = static_cast<UnicastMacRemoteEntry *>(table->Next(entry));
+        if (session->client_idl() != NULL) {
+            VrfOvsdbObject *vrf_obj = session->client_idl()->vrf_ovsdb();
+            const VrfOvsdbObject::LogicalSwitchMap ls_table =
+                vrf_obj->logical_switch_map();
+            VrfOvsdbObject::LogicalSwitchMap::const_iterator it =
+                ls_table.begin();
+            for (; it != ls_table.end(); it++) {
+                UnicastMacRemoteTable *table = it->second->l2_table;
+                UnicastMacRemoteEntry *entry =
+                    static_cast<UnicastMacRemoteEntry *>(table->Next(NULL));
+                while (entry != NULL) {
+                    OvsdbUnicastMacRemoteEntry oentry;
+                    oentry.set_state(entry->StateString());
+                    oentry.set_mac(entry->mac());
+                    oentry.set_logical_switch(entry->logical_switch_name());
+                    oentry.set_dest_ip(entry->dest_ip());
+                    oentry.set_self_exported(entry->self_exported_route());
+                    macs.push_back(oentry);
+                    entry =
+                        static_cast<UnicastMacRemoteEntry *>(table->Next(entry));
+                }
             }
         }
         resp_->set_macs(macs);

@@ -57,6 +57,11 @@ bool OvsdbDBEntry::Add() {
     PreAddChange();
     OvsdbDBObject *object = static_cast<OvsdbDBObject*>(GetObject());
     struct ovsdb_idl_txn *txn = object->client_idl_->CreateTxn(this);
+    if (txn == NULL) {
+        // failed to create transaction because of idl marked for
+        // deletion return from here.
+        return true;
+    }
     AddMsg(txn);
     struct jsonrpc_msg *msg = ovsdb_wrapper_idl_txn_encode(txn);
     if (msg == NULL) {
@@ -71,6 +76,11 @@ bool OvsdbDBEntry::Change() {
     PreAddChange();
     OvsdbDBObject *object = static_cast<OvsdbDBObject*>(GetObject());
     struct ovsdb_idl_txn *txn = object->client_idl_->CreateTxn(this);
+    if (txn == NULL) {
+        // failed to create transaction because of idl marked for
+        // deletion return from here.
+        return true;
+    }
     ChangeMsg(txn);
     struct jsonrpc_msg *msg = ovsdb_wrapper_idl_txn_encode(txn);
     if (msg == NULL) {
@@ -84,6 +94,11 @@ bool OvsdbDBEntry::Change() {
 bool OvsdbDBEntry::Delete() {
     OvsdbDBObject *object = static_cast<OvsdbDBObject*>(GetObject());
     struct ovsdb_idl_txn *txn = object->client_idl_->CreateTxn(this);
+    if (txn == NULL) {
+        // failed to create transaction because of idl marked for
+        // deletion return from here.
+        return true;
+    }
     DeleteMsg(txn);
     struct jsonrpc_msg *msg = ovsdb_wrapper_idl_txn_encode(txn);
     PostDelete();
@@ -131,8 +146,6 @@ KSyncObject *OvsdbDBEntry::GetObject() {
 
 void OvsdbDBEntry::Ack(bool success) {
     OvsdbDBObject *object = static_cast<OvsdbDBObject*>(GetObject());
-    // TODO we are not retrying as of now,
-    // success = true;
     if (success) {
         if (IsDelAckWaiting())
             object->NotifyEvent(this, KSyncEntry::DEL_ACK);
@@ -141,30 +154,37 @@ void OvsdbDBEntry::Ack(bool success) {
         else
             delete this;
     } else {
+        bool trigger_ack = false;
         // On Failure try again
         if (IsDelAckWaiting()) {
             OVSDB_TRACE(Error, "Delete Transaction failed for " + ToString());
-            //object->NotifyEvent(this, KSyncEntry::DEL_ACK);
             // if we are waiting to renew, dont retry delete.
             if (GetState() != RENEW_WAIT) {
-                Delete();
+                // trigger ack when if no message to send, on calling delete
+                trigger_ack = Delete();
             } else {
+                trigger_ack = true;
+            }
+
+            if (trigger_ack) {
                 object->NotifyEvent(this, KSyncEntry::DEL_ACK);
             }
         } else if (IsAddChangeAckWaiting()) {
             OVSDB_TRACE(Error, "Add Transaction failed for " + ToString());
-            //object->NotifyEvent(this, KSyncEntry::ADD_ACK);
             // if we are waiting to delete, dont retry add.
             if (GetState() != DEL_DEFER_SYNC) {
-                Add();
+                // trigger ack when if no message to send, on calling add
+                trigger_ack = Add();
             } else {
+                trigger_ack = true;
+            }
+
+            if (trigger_ack) {
                 object->NotifyEvent(this, KSyncEntry::ADD_ACK);
             }
         } else {
-            OVSDB_TRACE(Error, "Ovsdb Delete Transaction failed for " + ToString());
-            object->OvsdbNotify(OvsdbClientIdl::OVSDB_ADD, ovs_entry_);
-            delete this;
-            //Delete();
+            // should never happen
+            assert(0);
         }
     }
 }
