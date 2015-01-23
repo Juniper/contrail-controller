@@ -605,6 +605,8 @@ private:
                        const MacAddress &mac);
     void UpdateVrfAssignRule();
     void DeleteVrfAssignRule();
+    void AddL2ReceiveRoute(bool old_l2_active);
+    void DeleteL2ReceiveRoute(const VrfEntry *old_vrf, bool old_l2_active);
 
     VmEntryRef vm_;
     VnEntryRef vn_;

@@ -2627,7 +2627,7 @@ TEST_F(IntfTest, InstanceIpDelete) {
     client->Reset();
 }
 
-TEST_F(IntfTest, DISABLED_GwIntfAdd) {
+TEST_F(IntfTest, GwIntfAdd) {
     struct PortInfo input1[] = {
         {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
     };
@@ -2638,6 +2638,13 @@ TEST_F(IntfTest, DISABLED_GwIntfAdd) {
     EXPECT_TRUE(VmPortActive(input1, 0));
     EXPECT_TRUE(VmPortFind(8));
     client->Reset();
+
+    AddPhysicalDevice(agent->host_name().c_str(), 1);
+    AddPhysicalInterface("pi1", 1, "pid1");
+    AddLogicalInterface("lp1", 1, "lp1", 1);
+    AddLink("physical-router", "prouter1", "physical-interface", "pi1");
+    AddLink("logical-interface", "lp1", "physical-interface", "pi1");
+    AddLink("virtual-machine-interface", "vnet8", "logical-interface", "lp1");
 
     //Add a link to interface subnet and ensure resolve route is added
     AddSubnetType("subnet", 1, "8.1.1.0", 24);
@@ -2661,6 +2668,13 @@ TEST_F(IntfTest, DISABLED_GwIntfAdd) {
    
     DelLink("virtual-machine-interface", input1[0].name,
              "subnet", "subnet");
+    DelLink("physical-router", "prouter1", "physical-interface", "pi1");
+    DelLink("logical-interface", "lp1", "physical-interface", "pi1");
+    DelLink("virtual-machine-interface", "vnet8", "logical-interface", "lp1");
+    DeletePhysicalDevice(agent->host_name().c_str());
+    DeletePhysicalInterface("pi1");
+    DeleteLogicalInterface("lp1");
+
     client->WaitForIdle();
     EXPECT_FALSE(RouteFind("vrf1", "8.1.1.0", 24));
 
@@ -2674,7 +2688,7 @@ TEST_F(IntfTest, DISABLED_GwIntfAdd) {
     client->Reset();
 }
 
-TEST_F(IntfTest, DISABLED_GwSubnetChange) {
+TEST_F(IntfTest, GwSubnetChange) {
     struct PortInfo input1[] = {
         {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
     };
@@ -2686,6 +2700,12 @@ TEST_F(IntfTest, DISABLED_GwSubnetChange) {
     EXPECT_TRUE(VmPortFind(8));
     client->Reset();
 
+    AddPhysicalDevice(agent->host_name().c_str(), 1);
+    AddPhysicalInterface("pi1", 1, "pid1");
+    AddLogicalInterface("lp1", 1, "lp1", 1);
+    AddLink("physical-router", "prouter1", "physical-interface", "pi1");
+    AddLink("logical-interface", "lp1", "physical-interface", "pi1");
+    AddLink("virtual-machine-interface", "vnet8", "logical-interface", "lp1");
     //Add a link to interface subnet and ensure resolve route is added
     AddSubnetType("subnet", 1, "8.1.1.0", 24);
     AddLink("virtual-machine-interface", input1[0].name,
@@ -2719,6 +2739,14 @@ TEST_F(IntfTest, DISABLED_GwSubnetChange) {
         EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::RESOLVE);
     }
 
+    DelLink("virtual-machine-interface", input1[0].name,
+             "subnet", "subnet");
+    DelLink("physical-router", "prouter1", "physical-interface", "pi1");
+    DelLink("logical-interface", "lp1", "physical-interface", "pi1");
+    DelLink("virtual-machine-interface", "vnet8", "logical-interface", "lp1");
+    DeletePhysicalDevice(agent->host_name().c_str());
+    DeletePhysicalInterface("pi1");
+    DeleteLogicalInterface("lp1");
     DelLink("virtual-machine-interface", input1[0].name,
              "subnet", "subnet");
     client->WaitForIdle();

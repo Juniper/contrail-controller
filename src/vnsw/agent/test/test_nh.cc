@@ -289,17 +289,17 @@ TEST_F(CfgTest, CreateVrfNh_1) {
     VrfAddReq("test_vrf");
     client->WaitForIdle();
 
-    NextHopKey *key = new VrfNHKey("test_vrf", false);
+    NextHopKey *key = new VrfNHKey("test_vrf", false, false);
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
-    req.data.reset(new VrfNHData(false));
+    req.data.reset(new VrfNHData());
     agent_->nexthop_table()->Enqueue(&req);
     client->WaitForIdle();
 
-    key = new VrfNHKey("test_vrf", false);
+    key = new VrfNHKey("test_vrf", false, false);
     req.oper = DBRequest::DB_ENTRY_DELETE;
     req.key.reset(key);
-    req.data.reset(new VrfNHData(false));
+    req.data.reset(new VrfNHData());
     agent_->nexthop_table()->Enqueue(&req);
 
     VrfDelReq("test_vrf");
@@ -1977,6 +1977,7 @@ TEST_F(CfgTest, Nexthop_keys) {
     VrfNH *vrf_nh = static_cast<VrfNH*>
         (agent_->nexthop_table()->FindActiveEntry(vrf_nh_key));
     vrf_nh->SetKey(vrf_nh_key);
+    EXPECT_TRUE(vrf_nh->vxlan_nh() == true);
     DoNextHopSandesh();
 
     InetInterfaceKey vhost_intf_key(agent_->vhost_interface()->name());
@@ -2168,11 +2169,11 @@ TEST_F(CfgTest, Nexthop_invalid_vrf) {
     //VRF NH
     DBRequest vrf_nh_req;
     vrf_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    vrf_nh_req.key.reset(new VrfNHKey("vrf11", true));
-    vrf_nh_req.data.reset(new VrfNHData(false));
+    vrf_nh_req.key.reset(new VrfNHKey("vrf11", true, false));
+    vrf_nh_req.data.reset(new VrfNHData());
     agent_->nexthop_table()->Enqueue(&vrf_nh_req);
     client->WaitForIdle();
-    VrfNHKey find_vrf_nh_key("vrf11", true);
+    VrfNHKey find_vrf_nh_key("vrf11", true, false);
     EXPECT_TRUE(agent_->nexthop_table()->
                 FindActiveEntry(&find_vrf_nh_key) == NULL);
 

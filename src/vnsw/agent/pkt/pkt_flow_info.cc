@@ -308,6 +308,7 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
             }
         }
         out->intf_ = arp_nh->GetInterface();
+        out->vrf_ = arp_nh->GetVrf();
         break;
     }
 

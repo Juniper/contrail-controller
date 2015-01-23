@@ -623,7 +623,7 @@ bool VrfNH::CanAdd() const {
 NextHop *VrfNHKey::AllocEntry() const {
     VrfEntry *vrf = static_cast<VrfEntry *>
         (Agent::GetInstance()->vrf_table()->Find(&vrf_key_, true));
-    return new VrfNH(vrf, policy_);
+    return new VrfNH(vrf, policy_, vxlan_nh_);
 }
 
 bool VrfNH::NextHopIsLess(const DBEntry &rhs) const {
@@ -633,6 +633,10 @@ bool VrfNH::NextHopIsLess(const DBEntry &rhs) const {
         return (vrf_.get() < a.vrf_.get());
     }
 
+    if (vxlan_nh_ != a.vxlan_nh_) {
+        return vxlan_nh_ < a.vxlan_nh_;
+    }
+
     return policy_ < a.policy_;
 }
 
@@ -640,22 +644,16 @@ void VrfNH::SetKey(const DBRequestKey *k) {
     const VrfNHKey *key = static_cast<const VrfNHKey *>(k);
     NextHop::SetKey(k);
     vrf_ = NextHopTable::GetInstance()->FindVrfEntry(key->vrf_key_);
+    vxlan_nh_ = key->vxlan_nh_;
 }
 
 VrfNH::KeyPtr VrfNH::GetDBRequestKey() const {
-    NextHopKey *key = new VrfNHKey(vrf_->GetName(), policy_);
+    NextHopKey *key = new VrfNHKey(vrf_->GetName(), policy_, vxlan_nh_);
     return DBEntryBase::KeyPtr(key);
 }
 
 bool VrfNH::Change(const DBRequest *req) {
     bool ret = false;
-    const VrfNHData *data = static_cast<const VrfNHData *>(req->data.get());
-
-    if (vxlan_nh_ != data->vxlan_nh_) {
-        vxlan_nh_ = data->vxlan_nh_;
-        ret = true;
-    }
-
     return ret;
 }
 
