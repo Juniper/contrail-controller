@@ -32,6 +32,7 @@
 #include "generator.h"
 #include <string>
 #include "collector_uve_types.h"
+#include "db_handler.h"
 
 class DbHandler;
 class OpServerProxy;
@@ -46,10 +47,8 @@ public:
 
     Collector(EventManager *evm, short server_port,
               DbHandler *db_handler, OpServerProxy *osp, VizCallback cb,
-              std::vector<std::string> cassandra_ips = 
-                  boost::assign::list_of("127.0.0.1"), 
-              std::vector<int> cassandra_ports =
-                  boost::assign::list_of(9160), int analytics_ttl=7);
+              std::vector<std::string> cassandra_ips,
+              std::vector<int> cassandra_ports, int analytics_ttl, DbHandler::TtlMap& ttl_map);
     virtual ~Collector();
     virtual void Shutdown();
     virtual void SessionShutdown();
@@ -98,6 +97,7 @@ public:
     std::vector<std::string> cassandra_ips() { return cassandra_ips_; }
     std::vector<int> cassandra_ports() { return cassandra_ports_; }
     int analytics_ttl() { return analytics_ttl_; }
+    DbHandler::TtlMap& analytics_ttl_map() { return ttl_map_; }
     int db_task_id();
     const CollectorStats &GetStats() const { return stats_; }
 
@@ -142,6 +142,7 @@ private:
     std::vector<std::string> cassandra_ips_;
     std::vector<int> cassandra_ports_;
     int analytics_ttl_;
+    DbHandler::TtlMap ttl_map_;
     int db_task_id_;
 
     // SandeshGenerator map

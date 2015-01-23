@@ -83,6 +83,15 @@ void Options::Initialize(EventManager &evm,
         ("DEFAULT.analytics_data_ttl",
              opt::value<int>()->default_value(ANALYTICS_DATA_TTL_DEFAULT),
              "global TTL(hours) for analytics data")
+        ("DEFAULT.analytics_configaudit_ttl",
+             opt::value<int>()->default_value(-1),
+             "global TTL(hours) for analytics config audit data")
+        ("DEFAULT.analytics_statsdata_ttl",
+             opt::value<int>()->default_value(-1),
+             "global TTL(hours) for analytics stats data")
+        ("DEFAULT.analytics_flowdata_ttl",
+             opt::value<int>()->default_value(-1),
+             "global TTL(hours) for analytics flow data")
         ("DEFAULT.cassandra_server_list",
            opt::value<vector<string> >()->default_value(
                default_cassandra_server_list, "127.0.0.1:9160"),
@@ -241,6 +250,21 @@ void Options::Process(int argc, char *argv[],
     }
     GetOptValue<int>(var_map, analytics_data_ttl_,
                      "DEFAULT.analytics_data_ttl");
+    GetOptValue<int>(var_map, analytics_configaudit_ttl_,
+                     "DEFAULT.analytics_configaudit_ttl");
+    if (analytics_configaudit_ttl_ == -1) {
+        analytics_configaudit_ttl_ = analytics_data_ttl_;
+    }
+    GetOptValue<int>(var_map, analytics_statsdata_ttl_,
+                     "DEFAULT.analytics_statsdata_ttl");
+    if (analytics_statsdata_ttl_ == -1) {
+        analytics_statsdata_ttl_ = analytics_data_ttl_;
+    }
+    GetOptValue<int>(var_map, analytics_flowdata_ttl_,
+                     "DEFAULT.analytics_flowdata_ttl");
+    if (analytics_flowdata_ttl_ == -1) {
+        analytics_flowdata_ttl_ = analytics_statsdata_ttl_;
+    }
 
     GetOptValue< vector<string> >(var_map, cassandra_server_list_,
                                   "DEFAULT.cassandra_server_list");

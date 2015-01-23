@@ -63,7 +63,7 @@ const std::vector<Sandesh::QueueWaterMarkInfo> Collector::kSmQueueWaterMarkInfo 
 Collector::Collector(EventManager *evm, short server_port,
         DbHandler *db_handler, OpServerProxy *osp, VizCallback cb,
         std::vector<std::string> cassandra_ips,
-        std::vector<int> cassandra_ports, int analytics_ttl) :
+        std::vector<int> cassandra_ports, int analytics_ttl, DbHandler::TtlMap& ttl_map) :
         SandeshServer(evm),
         db_handler_(db_handler),
         osp_(osp),
@@ -72,6 +72,7 @@ Collector::Collector(EventManager *evm, short server_port,
         cassandra_ips_(cassandra_ips),
         cassandra_ports_(cassandra_ports),
         analytics_ttl_(analytics_ttl),
+        ttl_map_(ttl_map),
         db_task_id_(TaskScheduler::GetInstance()->GetTaskId(kDbTask)),
         db_queue_wm_info_(kDbQueueWaterMarkInfo),
         sm_queue_wm_info_(kSmQueueWaterMarkInfo) {

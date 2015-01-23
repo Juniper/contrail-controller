@@ -309,6 +309,16 @@ int main(int argc, char *argv[])
             boost::bind(&GetProcessStateCb, _1, _2, _3,
             protobuf_server_enabled ? 6 : 5));
 
+    LOG(INFO, "COLLECTOR data_ttl: " << options.analytics_data_ttl());
+    LOG(INFO, "COLLECTOR flowdata_ttl: " << options.analytics_flowdata_ttl());
+    LOG(INFO, "COLLECTOR statsdata_ttl: " << options.analytics_statsdata_ttl());
+    LOG(INFO, "COLLECTOR configaudit_ttl: " << options.analytics_configaudit_ttl());
+    DbHandler::TtlMap ttl_map;
+    ttl_map.insert(std::pair<DbHandler::TtlType, int>(DbHandler::FLOWDATA_TTL, options.analytics_flowdata_ttl()));
+    ttl_map.insert(std::pair<DbHandler::TtlType, int>(DbHandler::STATSDATA_TTL, options.analytics_statsdata_ttl()));
+    ttl_map.insert(std::pair<DbHandler::TtlType, int>(DbHandler::CONFIGAUDIT_TTL, options.analytics_configaudit_ttl()));
+    ttl_map.insert(std::pair<DbHandler::TtlType, int>(DbHandler::GLOBAL_TTL, options.analytics_data_ttl()));
+
     VizCollector analytics(a_evm,
             options.collector_port(),
             protobuf_server_enabled,
@@ -321,7 +331,7 @@ int main(int argc, char *argv[])
             options.sflow_port(),
             options.ipfix_port(),
             options.dup(),
-            options.analytics_data_ttl());
+            options.analytics_data_ttl(), ttl_map);
 
 #if 0
     // initialize python/c++ API
