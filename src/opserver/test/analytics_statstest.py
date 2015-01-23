@@ -26,6 +26,7 @@ import socket
 from utils.analytics_fixture import AnalyticsFixture
 from utils.stats_fixture import StatsFixture
 from mockcassandra import mockcassandra
+from mockredis import mockredis
 import logging
 import time
 import pycassa
@@ -53,6 +54,9 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         cls.cassandra_port = StatsTest.get_free_port()
         mockcassandra.start_cassandra(cls.cassandra_port)
+        cls.redis_port = StatsTest.get_free_port()
+        mockredis.start_redis(
+            cls.redis_port, builddir+'/testroot/bin/redis-server')
 
     @classmethod
     def tearDownClass(cls):
@@ -60,6 +64,7 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
             return
 
         mockcassandra.stop_cassandra(cls.cassandra_port)
+        mockredis.stop_redis(cls.redis_port)
         pass
 
     #@unittest.skip('Get samples using StatsOracle')
@@ -75,8 +80,8 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
             return True
 
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging,
-                             builddir,
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.redis_port,
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
@@ -128,8 +133,8 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
             return True
 
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging,
-                             builddir,
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.redis_port,
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
@@ -193,8 +198,8 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
             return True
 
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging,
-                             builddir,
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.redis_port,
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
@@ -231,20 +236,16 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
         if StatsTest._check_skip_test() is True:
             return True
         
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.bind(("", 0))
-        ipfix_port = sock.getsockname()[1]
-        sock.close()
-
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging,
-                             builddir,
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.redis_port,
                              self.__class__.cassandra_port,
-                             ipfix_port))
+                             ipfix_port = True))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
-        collectors = [vizd_obj.get_collector()]
+        ipfix_port = vizd_obj.collectors[0].get_ipfix_port()
+
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         
         UDP_IP = "127.0.0.1"
         f1 = open(builddir + '/opserver/test/data/ipfix_t.data')
@@ -253,27 +254,27 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
         sock.sendto(f2.read(), (UDP_IP, ipfix_port))
         sock.close()
 
-        logging.info("Verifying IPFIX data")
+        logging.info("Verifying IPFIX data sent to port %s" % str(ipfix_port))
+        uexp = {u'name': u'127.0.0.1',
+               u'flow.sport': 49152,
+               u'flow.sip': u'10.84.45.254',
+               u'flow.flowtype': u'IPFIX'}
         vns = VerificationOpsSrv('127.0.0.1', vizd_obj.get_opserver_port())
-        res = vns.post_query("StatTable.UFlowData.flow",
-            start_time="-5m", end_time="now",
-            select_fields=["name", "flow.flowtype", "flow.sip", "flow.sport"],
-            where_clause = 'name=*')
-        logging.info("Rssult: " + str(res))
-        assert(self.verify_ipfix(res))
+        assert(self.verify_ipfix(vns,uexp))
 
         return True
     # end test_03_ipfix
 
     @retry(delay=1, tries=5)
-    def verify_ipfix(self, res):
+    def verify_ipfix(self, vns, uexp):
         logging.info("Trying to verify IPFIX...")
+        res = vns.post_query("StatTable.UFlowData.flow",
+            start_time="-5m", end_time="now",
+            select_fields=["name", "flow.flowtype", "flow.sip", "flow.sport"],
+            where_clause = 'name=*')
+        logging.info("Result: " + str(res))
         if len(res)!=1:
             return False
-        uexp = {u'name': u'127.0.0.1',
-               u'flow.sport': 49152,
-               u'flow.sip': u'10.84.45.254',
-               u'flow.flowtype': u'IPFIX'}
         exp = OrderedDict(sorted(uexp.items(), key=lambda t: t[0]))
         rs = OrderedDict(sorted(res[0].items(), key=lambda t: t[0]))
         if exp != rs:

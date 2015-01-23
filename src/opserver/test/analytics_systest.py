@@ -26,6 +26,7 @@ import socket
 from utils.analytics_fixture import AnalyticsFixture
 from utils.generator_fixture import GeneratorFixture
 from mockcassandra import mockcassandra
+from mockredis import mockredis
 import logging
 import time
 import pycassa
@@ -52,6 +53,10 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         cls.cassandra_port = AnalyticsTest.get_free_port()
         mockcassandra.start_cassandra(cls.cassandra_port)
+        cls.redis_port = AnalyticsTest.get_free_port()
+        mockredis.start_redis(
+            cls.redis_port, builddir+'/testroot/bin/redis-server')
+
 
     @classmethod
     def tearDownClass(cls):
@@ -59,6 +64,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
             return
 
         mockcassandra.stop_cassandra(cls.cassandra_port)
+        mockredis.stop_redis(cls.redis_port)
         pass
 
     def _update_analytics_start_time(self, start_time):
@@ -82,8 +88,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
             return True
 
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging,
-                             builddir, 0))
+            AnalyticsFixture(logging, builddir, self.__class__.redis_port, 0)) 
         assert vizd_obj.verify_on_setup()
 
         return True
@@ -103,8 +108,8 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
             return True
 
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging,
-                             builddir,
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.redis_port,
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
@@ -124,8 +129,8 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
             return True
 
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging,
-                             builddir,
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.redis_port,
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
@@ -153,8 +158,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
             return True
 
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging,
-                             builddir, 0))
+            AnalyticsFixture(logging, builddir, self.__class__.redis_port, 0))
         assert vizd_obj.verify_on_setup()
         collectors = [vizd_obj.get_collector()]
         generator_obj = self.useFixture(
@@ -207,8 +211,8 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         start_time = UTCTimestampUsec() - 3600 * 1000 * 1000
         self._update_analytics_start_time(start_time)
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging,
-                             builddir,
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.redis_port,
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
@@ -240,9 +244,8 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
             return True
         
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging,
-                             builddir,
-                             self.__class__.cassandra_port, 
+            AnalyticsFixture(logging, builddir, -1,
+                             self.__class__.cassandra_port,
                              collector_ha_test=True))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
@@ -364,8 +367,8 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         start_time = UTCTimestampUsec() - 3600 * 1000 * 1000
         self._update_analytics_start_time(start_time)
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging,
-                             builddir,
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.redis_port,
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
@@ -395,8 +398,8 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         start_time = UTCTimestampUsec() - 3600 * 1000 * 1000
         self._update_analytics_start_time(start_time)
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging,
-                             builddir,
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.redis_port,
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
@@ -421,7 +424,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
             return True
         
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging, builddir,
+            AnalyticsFixture(logging, builddir, -1,
                              self.__class__.cassandra_port, 
                              collector_ha_test=True))
         assert vizd_obj.verify_on_setup()
@@ -466,7 +469,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
             return True
 
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging, builddir,
+            AnalyticsFixture(logging, builddir, -1,
                              self.__class__.cassandra_port, 
                              collector_ha_test=True))
         assert vizd_obj.verify_on_setup()
@@ -496,8 +499,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
             return True
 
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging,
-                             builddir,
+            AnalyticsFixture(logging, builddir, -1,
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_redis_uve_connection(
@@ -541,8 +543,8 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         start_time = UTCTimestampUsec() - 3600 * 1000 * 1000
         self._update_analytics_start_time(start_time)
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging,
-                             builddir,
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.redis_port,
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_where_query()
@@ -570,8 +572,8 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
             return True
 
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging,
-                             builddir,
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.redis_port,
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
@@ -603,9 +605,10 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
             return True
 
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging,
-                             builddir,
-                             self.__class__.cassandra_port))
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.redis_port,
+                             self.__class__.cassandra_port,
+                             syslog_port = True))
         assert vizd_obj.verify_on_setup()
         syslogger = logging.getLogger("SYSLOGER")
         lh = logging.handlers.SysLogHandler(address=('127.0.0.1',
@@ -640,8 +643,9 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
             return True
 
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging,
-                             builddir, self.__class__.cassandra_port))
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.redis_port,
+                             self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         collectors = [vizd_obj.get_collector()]
         generator_obj = self.useFixture(
