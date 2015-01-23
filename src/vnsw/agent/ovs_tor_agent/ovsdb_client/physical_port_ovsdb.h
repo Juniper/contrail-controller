@@ -16,7 +16,10 @@ public:
 
     void Notify(OvsdbClientIdl::Op, struct ovsdb_idl_row *);
     KSyncEntry *Alloc(const KSyncEntry *key, uint32_t index);
+
 private:
+    friend class PhysicalPortEntry;
+    struct ovsdb_idl_row *current_ovs_entry_;
     DISALLOW_COPY_AND_ASSIGN(PhysicalPortTable);
 };
 
@@ -24,9 +27,15 @@ class PhysicalPortEntry : public OvsdbEntry {
 public:
     typedef std::map<int, LogicalSwitchEntry *> VlanLSTable;
     typedef std::map<int, struct ovsdb_idl_row *> VlanStatsTable;
-    PhysicalPortEntry(PhysicalPortTable *table, const char *name);
     PhysicalPortEntry(PhysicalPortTable *table, const std::string &name);
     ~PhysicalPortEntry();
+
+    // we need ovs_entry ptr to be set before moving to in_sync
+    // state override Add/Change callbacks to set ovs_entry before
+    // returning true
+    bool Add();
+    bool Change();
+    bool IsDataResolved();
 
     bool IsLess(const KSyncEntry&) const;
     std::string ToString() const {return "Physical Port";}
@@ -43,7 +52,6 @@ private:
     friend class PhysicalPortTable;
     void OverrideOvs();
     std::string name_;
-    struct ovsdb_idl_row *ovs_entry_;
     VlanLSTable binding_table_;
     VlanLSTable ovs_binding_table_;
     VlanStatsTable stats_table_;
