@@ -130,7 +130,7 @@ void PhysicalPortTable::Notify(OvsdbClientIdl::Op op,
             entry = static_cast<PhysicalPortEntry *>(Create(&key));
             entry->ovs_entry_ = row;
         }
-        PhysicalPortEntry::VlanLSTable old(entry->ovs_binding_table_);
+        PhysicalPortEntry::VlanLSTable old(entry->binding_table_);
         std::size_t count = ovsdb_wrapper_physical_port_vlan_binding_count(row);
         struct ovsdb_wrapper_port_vlan_binding new_bind[count];
         ovsdb_wrapper_physical_port_vlan_binding(row, new_bind);
