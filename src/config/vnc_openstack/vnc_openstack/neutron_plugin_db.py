@@ -1332,9 +1332,13 @@ class DBInterface(object):
         sn_q_dict['cidr'] = cidr
         sn_q_dict['ip_version'] = IPNetwork(cidr).version # 4 or 6
 
-        subnet_key = self._subnet_vnc_get_key(subnet_vnc, net_obj.uuid)
-        sn_id = self._subnet_vnc_read_or_create_mapping(id=subnet_vnc.subnet_uuid,
-                                                        key=subnet_key)
+        # read from useragent kv only for old subnets created
+        # before schema had uuid in subnet
+        sn_id = subnet_vnc.subnet_uuid
+        if not sn_id:
+            subnet_key = self._subnet_vnc_get_key(subnet_vnc, net_obj.uuid)
+            sn_id = self._subnet_vnc_read_or_create_mapping(id=subnet_vnc.subnet_uuid,
+                                                            key=subnet_key)
 
         sn_q_dict['id'] = sn_id
 
