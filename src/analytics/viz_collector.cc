@@ -16,7 +16,6 @@
 #include "sandesh/sandesh.h"
 #include "sandesh/sandesh_session.h"
 
-#include "db_handler.h"
 #include "ruleeng.h"
 #include "protobuf_collector.h"
 #include "sflow_collector.h"
@@ -32,18 +31,18 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             const std::vector<int> &cassandra_ports,
             const std::string &redis_uve_ip, unsigned short redis_uve_port,
             const std::string &redis_password, int syslog_port, int sflow_port,
-            int ipfix_port, bool dup, int analytics_ttl) :
+            int ipfix_port, bool dup, const DbHandler::TtlMap& ttl_map) :
     db_initializer_(new DbHandlerInitializer(evm, DbGlobalName(dup), -1,
         std::string("collector:DbIf"),
         boost::bind(&VizCollector::DbInitializeCb, this),
-        cassandra_ips, cassandra_ports, analytics_ttl)),
+        cassandra_ips, cassandra_ports, ttl_map)),
     osp_(new OpServerProxy(evm, this, redis_uve_ip, redis_uve_port,
          redis_password)),
     ruleeng_(new Ruleeng(db_initializer_->GetDbHandler(), osp_.get())),
     collector_(new Collector(evm, listen_port, db_initializer_->GetDbHandler(),
         osp_.get(),
         boost::bind(&Ruleeng::rule_execute, ruleeng_.get(), _1, _2, _3),
-        cassandra_ips, cassandra_ports, analytics_ttl)),
+        cassandra_ips, cassandra_ports, ttl_map)),
     syslog_listener_(new SyslogListeners(evm,
             boost::bind(&Ruleeng::rule_execute, ruleeng_.get(), _1, _2, _3),
             db_initializer_->GetDbHandler(), syslog_port)),
@@ -59,7 +58,7 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
     if (protobuf_collector_enabled) {
         protobuf_collector_.reset(new ProtobufCollector(evm,
             protobuf_listen_port, cassandra_ips, cassandra_ports,
-            analytics_ttl));
+            ttl_map));
     }
 }
 

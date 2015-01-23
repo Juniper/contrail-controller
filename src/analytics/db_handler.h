@@ -75,6 +75,15 @@ public:
             const Var& value);
     };
 
+    typedef enum {
+        INVALID_TTL = 0,
+        FLOWDATA_TTL = 1,
+        STATSDATA_TTL = 2,
+        CONFIGAUDIT_TTL = 3,
+        GLOBAL_TTL = 4,
+    } TtlType;
+    typedef std::map<TtlType, int> TtlMap;
+
     typedef std::map<std::string, std::string> RuleMap;
 
     typedef std::map<std::string, Var > AttribMap;
@@ -82,11 +91,13 @@ public:
 
     DbHandler(EventManager *evm, GenDb::GenDbIf::DbErrorHandler err_handler,
         const std::vector<std::string> &cassandra_ips,
-        const std::vector<int> &cassandra_ports, int analytics_ttl,
-        std::string name);
-    DbHandler(GenDb::GenDbIf *dbif);
+        const std::vector<int> &cassandra_ports,
+        std::string name, const TtlMap& ttl_map);
+    DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map);
     virtual ~DbHandler();
 
+    static int GetTtlFromMap(const TtlMap& ttl_map,
+            TtlType type);
     bool DropMessage(const SandeshHeader &header, const VizMsg *vmsg);
     bool Init(bool initial, int instance);
     void UnInit(int instance);
@@ -100,7 +111,7 @@ public:
     void MessageTableOnlyInsert(const VizMsg *vmsgp);
     void FieldNamesTableInsert(const std::string& table_name,
         const std::string& field_name, const std::string& field_val,
-        uint64_t timestamp);
+        uint64_t timestamp, int ttl);
     void GetRuleMap(RuleMap& rulemap);
 
     void ObjectTableInsert(const std::string &table, const std::string &rowkey,
@@ -116,6 +127,12 @@ public:
             const std::string& statAttr,
             const TagMap & attribs_tag,
             const AttribMap & attribs_all);
+
+    void StatTableInsertTtl(uint64_t ts, 
+            const std::string& statName,
+            const std::string& statAttr,
+            const TagMap & attribs_tag,
+            const AttribMap & attribs_all, int ttl);
 
     bool FlowTableInsert(const pugi::xml_node& parent,
         const SandeshHeader &header);
@@ -141,7 +158,10 @@ private:
         const std::pair<std::string,DbHandler::Var>& ptag,
         const std::pair<std::string,DbHandler::Var>& stag,
         uint32_t t1, const boost::uuids::uuid& unm,
-        const std::string& jsonline);
+        const std::string& jsonline, int ttl);
+    int GetTtl(TtlType type) {
+        return GetTtlFromMap(ttl_map_, type);
+    }
 
     boost::scoped_ptr<GenDb::GenDbIf> dbif_;
 
@@ -153,6 +173,7 @@ private:
     VizMsgStatistics dropped_msg_stats_;
     GenDb::DbTableStatistics stable_stats_;
     mutable tbb::mutex smutex_;
+    TtlMap ttl_map_;
 
     DISALLOW_COPY_AND_ASSIGN(DbHandler);
 };
@@ -185,7 +206,8 @@ class DbHandlerInitializer {
         const std::string &db_name, int db_task_instance,
         const std::string &timer_task_name, InitializeDoneCb callback,
         const std::vector<std::string> &cassandra_ips,
-        const std::vector<int> &cassandra_ports, int analytics_ttl);
+        const std::vector<int> &cassandra_ports,
+        const DbHandler::TtlMap& ttl_map);
     DbHandlerInitializer(EventManager *evm,
         const std::string &db_name, int db_task_instance,
         const std::string &timer_task_name, InitializeDoneCb callback,
