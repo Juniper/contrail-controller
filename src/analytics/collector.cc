@@ -84,6 +84,10 @@ Collector::Collector(EventManager *evm, short server_port,
     }
 
     SandeshServer::Initialize(server_port);
+
+    Module::type module = Module::COLLECTOR;
+    string module_name = g_vns_constants.ModuleNames.find(module)->second;
+    Sandesh::RecordPort("collector", module_name, GetPort());
 }
 
 Collector::~Collector() {

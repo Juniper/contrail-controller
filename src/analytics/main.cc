@@ -337,13 +337,14 @@ int main(int argc, char *argv[])
 
     analytics.Init();
 
+    unsigned short coll_port = analytics.GetCollector()->GetPort();
     VizSandeshContext vsc(&analytics);
     Sandesh::InitCollector(
             module_id,
             analytics.name(),
             g_vns_constants.NodeTypeNames.find(node_type)->second,
             instance_id, 
-            a_evm, "127.0.0.1", options.collector_port(),
+            a_evm, "127.0.0.1", coll_port,
             options.http_server_port(), &vsc);
 
     Sandesh::SetLoggingParams(options.log_local(), options.log_category(),
