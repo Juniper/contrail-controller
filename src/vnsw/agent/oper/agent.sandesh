@@ -1017,6 +1017,22 @@ trace sandesh OperVrf {
     2: string vrf_name;
 }
 
+trace sandesh AgentRouteWalkerTrace {
+    1: string message;
+    2: "Walk Type:";
+    3: i32 walk_type;
+    4: "Vrf name:";
+    5: string vrf_name;
+    6: "VRF walkid:";
+    7: i32 vrf_walk_id;
+    8: "Route table Type:";
+    9: i32 route_table_type;
+   10: "Route table name:";
+   11: string route_table_name;
+   12: "Route Walk Id:";
+   13: i32 route_walk_id;
+}
+
 trace sandesh AgentDBWalkLog {
     1: string message;
     2: string table_name;
