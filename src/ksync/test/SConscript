@@ -10,8 +10,6 @@ env = BuildEnv.Clone()
 def MapBuildDir(list):
     return map(lambda x: '#/' + Dir('..').path + '/../' + x, list)
 
-env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent')
-env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/openstack')
 env.Prepend(CPPPATH = env['TOP'] + '/../include/thrift')
 env.Prepend(CPPPATH = env['TOP'] + '/schema')
 env.Prepend(CPPPATH = env['TOP'] + '/ifmap')
@@ -20,33 +18,22 @@ env.Prepend(CPPPATH = '#/third_party/thrift-0.8.0/lib/cpp/src/')
 env.Prepend(CPPPATH = env['TOP'] + '/discovery/client')
 env.Prepend(CPPPATH = env['TOP'] + '/http/client')
 
-env.Prepend(LIBS=['nova_ins', 'nova_ins_thrift',
-                  'thrift','xmpp', 'peer_sandesh', 'xmpp_unicast',
+env.Prepend(LIBS=['thrift','xmpp', 'peer_sandesh', 'xmpp_unicast',
                   'xmpp_multicast',  'ds', 'services', 
                   'xml', 'pugixml', 'route',
                   'bgp_schema', 'ifmap_vnc', 'ifmap_agent', 'ifmap_common', 
                   'sandeshflow', 'sandesh', 'httpc', 'http', 'http_parser', 'curl',
                   'process_info', 'db', 'base', 'task_test', 'io', 'sandeshvns', 'net', 
                   'gunit', 'boost_regex', 'boost_filesystem',
-                  'bind_interface', 'cpuinfo', 'pugixml'])
+                  'cpuinfo', 'pugixml'])
 
 if sys.platform != 'darwin':
-    env.Prepend(LIBS=['agent_services'])
-
-env.Prepend(LIBS=['vnswoperdb', 'cfg', 'vnswctrl', 'vnswcmn', 'filter',])
-if sys.platform != 'darwin':
-    env.Append(LIBS=['pkt', 'rt'])
-    env.Prepend(LIBS=['ksync', 'ksyncnl', 'vnswksync', 'vrutil','agentuve',])
+    env.Append(LIBS=['rt'])
+    env.Prepend(LIBS=['ksync', 'ksyncnl'])
 
 libs = MapBuildDir(['db', 'bgp', 'xmpp', 'xml', 'pugixml', 'io', 'ksync',
                     'base', 'base/test', 'boost_regex', 'route', 'schema',
-                    'ifmap', 'net', 'net', 'discovery/client', 'http/client',
-                    'vrouter/utils', 'vnsw/agent',
-                    'vnsw/agent/openstack',
-                    'vnsw/agent/cfg', 'vnsw/agent/oper', 'vnsw/agent/pkt', 
-                    'vnsw/agent/services', 'vnsw/agent/cmn',
-                    'vnsw/agent/controller', 'vnsw/agent/ksync', 
-                    'vnsw/agent/filter', 'vnsw/agent/uve', 'dns/bind'])
+                    'ifmap', 'net', 'net', 'discovery/client', 'http/client'])
 
 env.Append(LIBPATH=libs)
 
