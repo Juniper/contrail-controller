@@ -18,9 +18,8 @@
 #include "OpServerProxy.h"
 #include "viz_constants.h"
 #include "syslog_collector.h"
+#include "db_handler.h"
 
-class DbHandler;
-class DbHandlerInitializer;
 class Ruleeng;
 class ProtobufCollector;
 class SFlowCollector;
@@ -34,8 +33,8 @@ public:
             const std::vector<std::string> &cassandra_ips,
             const std::vector<int> &cassandra_ports,
             const std::string &redis_uve_ip, unsigned short redis_uve_port,
-            int syslog_port, int sflow_port, int ipfix_port, bool dup=false,
-            int analytics_ttl=g_viz_constants.AnalyticsTTL);
+            int syslog_port, int sflow_port, int ipfix_port, bool dup,
+            const DbHandler::TtlMap &ttlmap);
     VizCollector(EventManager *evm, DbHandler *db_handler, Ruleeng *ruleeng,
                  Collector *collector, OpServerProxy *osp);
     ~VizCollector();

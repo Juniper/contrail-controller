@@ -15,6 +15,11 @@ using ::testing::StrEq;
 using ::testing::Pointee;
 using ::testing::_;
 
+DbHandler::TtlMap ttl_map = boost::assign::map_list_of(DbHandler::FLOWDATA_TTL, 2)
+    (DbHandler::STATSDATA_TTL, 4)
+    (DbHandler::CONFIGAUDIT_TTL, 240)
+    (DbHandler::GLOBAL_TTL, 48);
+
 class SyslogParserTestHelper : public SyslogParser
 {
     public:
@@ -114,7 +119,7 @@ class SyslogCollectorTest : public ::testing::Test
     protected:
     virtual void SetUp() {
         evm_.reset(new EventManager());
-        db_handler_.reset(new DbHandlerMock(evm_.get()));
+        db_handler_.reset(new DbHandlerMock(evm_.get(), ttl_map));
         listener_.reset(new SyslogListeners(evm_.get(),
             boost::bind(&SyslogCollectorTest::myTestCb, this, _1, _2, _3),
             db_handler_.get(), 0));
