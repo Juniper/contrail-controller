@@ -207,33 +207,34 @@ TEST_F(QueueTaskTest, MaxIterationsTest) {
     int max_iterations = 5;
     SetWorkQueueMaxIterations(max_iterations);
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
-    EnqueueTask *etask1 = new EnqueueTask(&work_queue_,
-            scheduler->GetTaskId(
-                "::test::QueueTaskTest::MaxIterationsTest1"),
-            max_iterations);
-    scheduler->Enqueue(etask1);
+    scheduler->Stop();
+    int enqueue_counter = 0;
+    for (int i = 0; i < max_iterations; i++) {
+        work_queue_.Enqueue(enqueue_counter++);
+    }
+    scheduler->Start();
     task_util::WaitForIdle(1);
     // Verify task statistics
     TaskStats *tstats1 = scheduler->GetTaskStats(wq_task_id_);
     EXPECT_EQ(1, tstats1->run_count_);
     EXPECT_EQ(0, tstats1->defer_count_);
-    EXPECT_EQ(0, tstats1->wait_count_);
+    EXPECT_EQ(1, tstats1->wait_count_);
     // Verify WorkQueue
     EXPECT_EQ(max_iterations, work_queue_.NumEnqueues());
     EXPECT_EQ(max_iterations, work_queue_.NumDequeues());
     EXPECT_EQ(0, work_queue_.Length());
     scheduler->ClearTaskStats(wq_task_id_);
-    EnqueueTask *etask2 = new EnqueueTask(&work_queue_,
-            scheduler->GetTaskId(
-                "::test::QueueTaskTest::MaxIterationsTest2"),
-            max_iterations * 3);
-    scheduler->Enqueue(etask2);
+    scheduler->Stop();
+    for (int i = 0; i < max_iterations * 3; i++) {
+        work_queue_.Enqueue(enqueue_counter++);
+    }
+    scheduler->Start();
     task_util::WaitForIdle(1);
     // Verify task statistics
     TaskStats *tstats2 = scheduler->GetTaskStats(wq_task_id_);
     EXPECT_EQ(3, tstats2->run_count_);
     EXPECT_EQ(0, tstats2->defer_count_);
-    EXPECT_EQ(0, tstats2->wait_count_);
+    EXPECT_EQ(1, tstats2->wait_count_);
     // Verify WorkQueue
     EXPECT_EQ(max_iterations * 4, work_queue_.NumEnqueues());
     EXPECT_EQ(max_iterations * 4, work_queue_.NumDequeues());
