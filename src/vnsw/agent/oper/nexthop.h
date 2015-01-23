@@ -926,8 +926,9 @@ private:
 /////////////////////////////////////////////////////////////////////////////
 class VrfNHKey : public NextHopKey {
 public:
-    VrfNHKey(const string &vrf_name, bool policy) :
-        NextHopKey(NextHop::VRF, policy), vrf_key_(vrf_name), policy_(policy) {
+    VrfNHKey(const string &vrf_name, bool policy, bool vxlan_nh) :
+        NextHopKey(NextHop::VRF, policy), vrf_key_(vrf_name), policy_(policy),
+        vxlan_nh_(vxlan_nh) {
     }
     virtual ~VrfNHKey() { }
 
@@ -938,30 +939,30 @@ public:
 
     virtual NextHop *AllocEntry() const;
     virtual NextHopKey *Clone() const {
-        return new VrfNHKey(vrf_key_.name_, policy_); 
+        return new VrfNHKey(vrf_key_.name_, policy_, vxlan_nh_);
     }
 
 private:
     friend class VrfNH;
     VrfKey vrf_key_;
     bool policy_;
+    bool vxlan_nh_;
     DISALLOW_COPY_AND_ASSIGN(VrfNHKey);
 };
 
 class VrfNHData : public NextHopData {
 public:
-    VrfNHData(bool vxlan_nh) : NextHopData(), vxlan_nh_(vxlan_nh) { }
+    VrfNHData() : NextHopData() { }
     virtual ~VrfNHData() { }
 private:
     friend class VrfNH;
-    bool vxlan_nh_;
     DISALLOW_COPY_AND_ASSIGN(VrfNHData);
 };
 
 class VrfNH : public NextHop {
 public:
-    VrfNH(VrfEntry *vrf, bool policy) : 
-        NextHop(VRF, true, policy), vrf_(vrf) { };
+    VrfNH(VrfEntry *vrf, bool policy, bool vxlan_nh_) :
+        NextHop(VRF, true, policy), vrf_(vrf), vxlan_nh_(vxlan_nh_) { };
     virtual ~VrfNH() { };
 
     virtual std::string ToString() const { return "VrfNH"; };

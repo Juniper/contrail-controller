@@ -59,6 +59,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     policy_enabled_(entry->policy_enabled_),
     sub_type_(entry->sub_type_),
     vmi_device_type_(entry->vmi_device_type_),
+    vmi_type_(entry->vmi_type_),
     type_(entry->type_),
     rx_vlan_id_(entry->rx_vlan_id_),
     tx_vlan_id_(entry->tx_vlan_id_),
@@ -95,6 +96,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     policy_enabled_(false),
     sub_type_(InetInterface::VHOST),
     vmi_device_type_(VmInterface::DEVICE_TYPE_INVALID),
+    vmi_type_(VmInterface::VMI_TYPE_INVALID),
     type_(intf->type()),
     rx_vlan_id_(VmInterface::kInvalidVlanId),
     tx_vlan_id_(VmInterface::kInvalidVlanId),
@@ -123,6 +125,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
             parent_ = ksync_obj_->GetReference(&tmp);
         }
         vmi_device_type_ = vmitf->device_type();
+        vmi_type_ = vmitf->vmi_type();
     } else if (type_ == Interface::INET) {
         const InetInterface *inet_intf =
         static_cast<const InetInterface *>(intf);
@@ -191,6 +194,11 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
         VmInterface *vm_port = static_cast<VmInterface *>(intf);
         if (vmi_device_type_ != vm_port->device_type()) {
             vmi_device_type_ = vm_port->device_type();
+            ret = true;
+        }
+
+        if (vmi_type_ != vm_port->vmi_type()) {
+            vmi_type_ = vm_port->vmi_type();
             ret = true;
         }
 
@@ -450,6 +458,9 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         }
         if (bridging_) {
             flags |= VIF_FLAG_L2_ENABLED;
+        }
+        if (vmi_type_ == VmInterface::GATEWAY) {
+            flags |= VIF_FLAG_NO_ARP_PROXY;
         }
         MacAddress mac;
         if (parent_.get() != NULL) {

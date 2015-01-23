@@ -124,7 +124,7 @@ public:
     }
 
     MplsLabelData(const std::string vrf_name, bool policy) :
-        AgentData(), nh_key(new VrfNHKey(vrf_name, policy)) {
+        AgentData(), nh_key(new VrfNHKey(vrf_name, policy, false)) {
     }
     virtual ~MplsLabelData() { 
         if (nh_key) {

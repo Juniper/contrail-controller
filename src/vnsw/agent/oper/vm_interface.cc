@@ -588,13 +588,13 @@ static PhysicalRouter *BuildParentInfo(Agent *agent,
         IFMapNode *physical_node = agent->cfg_listener()->
             FindAdjacentIFMapNode(agent, logical_node, "physical-interface");
         // Find phyiscal-interface for the VMI
+        IFMapNode *prouter_node = NULL;
         if (physical_node) {
             data->physical_interface_ = physical_node->name();
+            // Find vrouter for the physical interface
+            prouter_node = agent->cfg_listener()->
+                FindAdjacentIFMapNode(agent, physical_node, "physical-router");
         }
-
-        // Find vrouter for the physical interface
-        IFMapNode *prouter_node = agent->cfg_listener()->
-            FindAdjacentIFMapNode(agent, logical_node, "physical-router");
         if (prouter_node == NULL)
             return NULL;
         return static_cast<PhysicalRouter *>(prouter_node->GetObject());
@@ -667,7 +667,8 @@ static void BuildAttributes(Agent *agent, IFMapNode *node,
 }
 
 static void ComputeTypeInfo(Agent *agent, VmInterfaceConfigData *data,
-                            CfgIntEntry *cfg_entry, PhysicalRouter *prouter) {
+                            CfgIntEntry *cfg_entry, PhysicalRouter *prouter,
+                            IFMapNode *node) {
     if (cfg_entry != NULL) {
         // Have got InstancePortAdd message. Treat it as VM_ON_TAP by default
         // TODO: Need to identify more cases here
@@ -693,11 +694,23 @@ static void ComputeTypeInfo(Agent *agent, VmInterfaceConfigData *data,
 
         // VMI is either Baremetal or Gateway interface
         if (prouter->display_name() == agent->agent_name()) {
+            // Read logical-interface neighbor if any
+           IFMapNode *logical_node = agent->cfg_listener()->
+                         FindAdjacentIFMapNode(agent, node,
+                                               "logical-interface");
             // VMI connected to local vrouter. Treat it as GATEWAY 
             data->device_type_ = VmInterface::LOCAL_DEVICE;
             data->vmi_type_ = VmInterface::GATEWAY;
-            data->rx_vlan_id_ = 0;
-            data->tx_vlan_id_ = 0;
+            if (logical_node) {
+                autogen::LogicalInterface *port =
+                    static_cast <autogen::LogicalInterface *>
+                    (logical_node->GetObject());
+                data->rx_vlan_id_ = port->vlan_tag();
+                data->tx_vlan_id_ = port->vlan_tag();
+            } else {
+                data->rx_vlan_id_ = 0;
+                data->tx_vlan_id_ = 0;
+            }
             return;
         } else {
             // prouter does not match. Treat as baremetal
@@ -835,7 +848,7 @@ bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req) {
     prouter = BuildParentInfo(agent_, data, cfg, node);
 
     // Compute device-type and vmi-type for the interface
-    ComputeTypeInfo(agent_, data, cfg_entry, prouter);
+    ComputeTypeInfo(agent_, data, cfg_entry, prouter, node);
 
     InterfaceKey *key = NULL; 
     if (data->device_type_ == VmInterface::VM_ON_TAP ||
@@ -1066,6 +1079,18 @@ void VmInterface::UpdateVxLan() {
     ethernet_tag_ = IsVxlanMode() ? vxlan_id_ : 0;
 }
 
+void VmInterface::AddL2ReceiveRoute(bool old_l2_active) {
+    if (L2Activated(old_l2_active)) {
+        InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+        Agent *agent = table->agent();
+        BridgeAgentRouteTable *l2_table = static_cast<BridgeAgentRouteTable *>(
+                vrf_->GetRouteTable(Agent::BRIDGE));
+
+        l2_table->AddBridgeReceiveRoute(peer_.get(), vrf_->GetName(), 0,
+                                        GetVifMac(agent), vn_->GetName());
+    }
+}
+
 void VmInterface::UpdateL2(bool old_l2_active, VrfEntry *old_vrf,
                            int old_ethernet_tag,
                            bool force_update, bool policy_change,
@@ -1082,6 +1107,12 @@ void VmInterface::UpdateL2(bool old_l2_active, VrfEntry *old_vrf,
     UpdateL2InterfaceRoute(old_l2_active, force_update, old_vrf, old_v4_addr,
                            old_v6_addr, old_ethernet_tag);
     UpdateFloatingIp(force_update, policy_change, true);
+    //If the interface is Gateway we need to add a receive route,
+    //such the packet gets routed. Bridging on gateway
+    //interface is not supported
+    if (vmi_type() == GATEWAY && L2Activated(old_l2_active)) {
+        AddL2ReceiveRoute(old_l2_active);
+    }
 }
 
 void VmInterface::UpdateL2(bool force_update) {
@@ -1098,6 +1129,7 @@ void VmInterface::DeleteL2(bool old_l2_active, VrfEntry *old_vrf,
                            old_ethernet_tag);
     DeleteFloatingIp(true, old_ethernet_tag);
     DeleteL2NextHop(old_l2_active);
+    DeleteL2ReceiveRoute(old_vrf, old_l2_active);
 }
 
 const MacAddress& VmInterface::GetVifMac(const Agent *agent) const {
@@ -2049,6 +2081,16 @@ void VmInterface::DeleteL3NextHop(bool old_ipv4_active, bool old_ipv6_active) {
 
 void VmInterface::DeleteMulticastNextHop() {
     InterfaceNH::DeleteMulticastVmInterfaceNH(GetUuid());
+}
+
+void VmInterface::DeleteL2ReceiveRoute(const VrfEntry *old_vrf,
+                                       bool old_l2_active) {
+    if (L2Deactivated(old_l2_active) && old_vrf) {
+        InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+        Agent *agent = table->agent();
+        BridgeAgentRouteTable::Delete(peer_.get(), old_vrf->GetName(),
+                                      GetVifMac(agent), 0);
+    }
 }
 
 Ip4Address VmInterface::GetGateway() const {

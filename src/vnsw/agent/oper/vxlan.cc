@@ -69,7 +69,7 @@ bool VxLanTable::ChangeHandler(VxLanId *vxlan_id, const DBRequest *req) {
 
     Agent::GetInstance()->nexthop_table()->Process(data->nh_req());
 
-    VrfNHKey nh_key(data->vrf_name(), false);
+    VrfNHKey nh_key(data->vrf_name(), false, true);
     NextHop *nh = static_cast<NextHop *>
         (Agent::GetInstance()->nexthop_table()->FindActiveEntry(&nh_key));
 
@@ -107,9 +107,9 @@ DBTableBase *VxLanTable::CreateTable(DB *db, const std::string &name) {
 void VxLanId::Create(uint32_t vxlan_id, const string &vrf_name) {
     DBRequest nh_req;
     nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    VrfNHKey *vrf_nh_key = new VrfNHKey(vrf_name, false);
+    VrfNHKey *vrf_nh_key = new VrfNHKey(vrf_name, false, true);
     nh_req.key.reset(vrf_nh_key);
-    nh_req.data.reset(new VrfNHData(true));
+    nh_req.data.reset(new VrfNHData());
 
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
