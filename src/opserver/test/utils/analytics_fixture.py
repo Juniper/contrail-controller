@@ -140,22 +140,30 @@ class Collector(object):
                          args, AnalyticsFixture.enable_core)
         self.http_port = ports["http"]
         self.listen_port = ports["collector"]
-
-        assert(self.http_port != None)
-        assert(self.listen_port != None)
+        return self.verify_setup()
     # end start
+
+    def verify_setup(self):
+        if not self.http_port:
+            return False
+        if not self.listen_port:
+            return False
+        return True
 
     def stop(self):
         if self._instance is not None:
-            self._logger.info('Shutting down Vizd: 127.0.0.1:%d' 
-                              % (self.listen_port))
-            self._instance.terminate()
+            self._logger.info('Shutting down Vizd: 127.0.0.1:%s' 
+                              % str(self.listen_port))
+            if self._instance.poll() == None:
+                self._instance.terminate()
             (vizd_out, vizd_err) = self._instance.communicate()
             vcode = self._instance.returncode
             if vcode != 0:
                 self._logger.info('vizd returned %d' % vcode)
                 self._logger.info('vizd terminated stdout: %s' % vizd_out)
                 self._logger.info('vizd terminated stderr: %s' % vizd_err)
+                with open(self._log_file, 'r') as fin:
+                    self._logger.info(fin.read())
             subprocess.call(['rm', self._log_file])
             assert(vcode == 0)
             self._instance = None
@@ -224,14 +232,20 @@ class OpServer(object):
                          "contrail-analytics-api", ["http"],
                          args, None)
         self.http_port = ports["http"]
-        assert(self.http_port != None)
+        return self.verify_setup()
     # end start
+
+    def verify_setup(self):
+        if not self.http_port:
+            return False
+        return True
 
     def stop(self):
         if self._instance is not None:
             self._logger.info('Shutting down OpServer 127.0.0.1:%d' 
                               % (self.listen_port))
-            self._instance.terminate()
+            if self._instance.poll() == None:
+                self._instance.terminate()
             (op_out, op_err) = self._instance.communicate()
             ocode = self._instance.returncode
             if ocode != 0:
@@ -301,20 +315,28 @@ class QueryEngine(object):
                          "contrail-query-engine", ["http"],
                          args, None)
         self.http_port = ports["http"]
-        assert(self.http_port != None)
+        return self.verify_setup()
     # end start
+
+    def verify_setup(self):
+        if not self.http_port:
+            return False
+        return True
 
     def stop(self):
         if self._instance is not None:
             self._logger.info('Shutting down contrail-query-engine: 127.0.0.1:%d'
                               % (self.listen_port))
-            self._instance.terminate()
+            if self._instance.poll() == None:
+                self._instance.terminate()
             (qe_out, qe_err) = self._instance.communicate()
             rcode = self._instance.returncode
             if rcode != 0:
                 self._logger.info('contrail-query-engine returned %d' % rcode)
                 self._logger.info('contrail-query-engine terminated stdout: %s' % qe_out)
                 self._logger.info('contrail-query-engine terminated stderr: %s' % qe_err)
+                with open(self._log_file, 'r') as fin:
+                    self._logger.info(fin.read())
             subprocess.call(['rm', self._log_file])
             assert(rcode == 0)
             self._instance = None
@@ -377,13 +399,16 @@ class AnalyticsFixture(fixtures.Fixture):
         self.redis_uves = [Redis(self.redis_port, self.builddir)]
         self.redis_uves[0].start()
 
+        self.opserver = None
+        self.query_engine = None
         self.collectors = [Collector(self, self.redis_uves[0], self.logger,
                            ipfix_port = self.ipfix_port,
                            syslog_port = self.syslog_port,
                            protobuf_port = self.protobuf_port)] 
-        self.collectors[0].start()
-
-        self.opserver_port = None
+        if not self.collectors[0].start():
+            self.logger.error("Collector did NOT start")
+            return 
+        
         if self.verify_collector_gen(self.collectors[0]):
             primary_collector = self.collectors[0].get_addr()
             secondary_collector = None
@@ -392,18 +417,24 @@ class AnalyticsFixture(fixtures.Fixture):
                 self.redis_uves[1].start()
                 self.collectors.append(Collector(self, self.redis_uves[1],
                                                  self.logger, is_dup=True))
-                self.collectors[1].start()
+                if not self.collectors[1].start():
+                    self.logger.error("Secondary Collector did NOT start")
                 secondary_collector = self.collectors[1].get_addr()
             self.opserver = OpServer(primary_collector, secondary_collector, 
                                      self.redis_uves[0].port, 
                                      self, self.logger)
-            self.opserver.start()
+            if not self.opserver.start():
+                self.logger.error("OpServer did NOT start")
+
             self.opserver_port = self.opserver.listen_port
-            self.query_engine = QueryEngine(primary_collector, 
+            if not self.noqed:
+                self.query_engine = QueryEngine(primary_collector, 
                                             secondary_collector, 
                                             self, self.logger)
-            if not self.noqed:
-                self.query_engine.start()
+                if not self.query_engine.start():
+                    self.logger.error("QE did NOT start")
+        else:
+            self.logger.error("Collector UVE not in Redis")
     # end setUp
 
     def get_collector(self):
@@ -421,15 +452,16 @@ class AnalyticsFixture(fixtures.Fixture):
 
     def verify_on_setup(self):
         result = True
-        if self.opserver_port is None:
+        if self.opserver is None:
             result = result and False
-            self.logger.error("Collector UVE not in Redis")
-        if self.opserver_port is None:
-            result = result and False
-            self.logger.error("OpServer not started")
+            self.logger.error("AnalyticsAPI not functional without OpServer")
+            return result
+        if not self.noqed:
+            if not self.query_engine:
+                self.logger.error("AnalyticsAPI not functional without QE")
         if not self.verify_opserver_api():
             result = result and False
-            self.logger.error("OpServer not responding")
+            self.logger.error("AnalyticsAPI not responding")
         self.verify_is_run = True
         return result
 
@@ -1755,7 +1787,8 @@ class AnalyticsFixture(fixtures.Fixture):
             self.opserver.stop()
         except:
             pass
-        self.query_engine.stop()
+        if self.query_engine:
+            self.query_engine.stop()
         for collector in self.collectors:
             collector.stop()
         for redis_uve in self.redis_uves:
@@ -1802,10 +1835,10 @@ class AnalyticsFixture(fixtures.Fixture):
       
         pmap = {} 
         for k,v in pipes.iteritems(): 
-            tries = 15
+            tries = 30
             port = None
             pipein , pipe_name = v
-            while tries >= 0:
+            while tries >= 0 and instance.poll() == None:
                 try:
                     line = pipein.readline()[:-1]
                     port = int(line)
