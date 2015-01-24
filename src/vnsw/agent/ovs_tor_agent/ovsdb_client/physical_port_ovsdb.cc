@@ -23,11 +23,6 @@ using OVSDB::PhysicalPortEntry;
 using OVSDB::PhysicalPortTable;
 
 PhysicalPortEntry::PhysicalPortEntry(PhysicalPortTable *table,
-        const char *name) : OvsdbEntry(table), name_(name), binding_table_(),
-    ovs_binding_table_() {
-}
-
-PhysicalPortEntry::PhysicalPortEntry(PhysicalPortTable *table,
         const std::string &name) : OvsdbEntry(table), name_(name),
     binding_table_(), ovs_binding_table_() {
 }
@@ -116,11 +111,11 @@ void PhysicalPortTable::Notify(OvsdbClientIdl::Op op,
         struct ovsdb_idl_row *row) {
     bool override_ovs = false;
     PhysicalPortEntry key(this, ovsdb_wrapper_physical_port_name(row));
-    PhysicalPortEntry *entry = static_cast<PhysicalPortEntry *>(FindActiveEntry(&key));
+    PhysicalPortEntry *entry = static_cast<PhysicalPortEntry *>(Find(&key));
     if (op == OvsdbClientIdl::OVSDB_DEL) {
         OVSDB_TRACE(Trace, "Delete of Physical Port " +
                 std::string(ovsdb_wrapper_physical_port_name(row)));
-        if (entry != NULL) {
+        if (entry != NULL && IsActiveEntry(entry)) {
             Delete(entry);
         }
     } else if (op == OvsdbClientIdl::OVSDB_ADD) {
@@ -129,6 +124,12 @@ void PhysicalPortTable::Notify(OvsdbClientIdl::Op op,
                     std::string(ovsdb_wrapper_physical_port_name(row)));
             entry = static_cast<PhysicalPortEntry *>(Create(&key));
             entry->ovs_entry_ = row;
+        } else if (!IsActiveEntry(entry)) {
+            // entry is present but it is a temp entry.
+            OVSDB_TRACE(Trace, "Add/Change of Physical Port " +
+                    std::string(ovsdb_wrapper_physical_port_name(row)));
+            entry->ovs_entry_ = row;
+            Change(entry);
         }
         PhysicalPortEntry::VlanLSTable old(entry->binding_table_);
         std::size_t count = ovsdb_wrapper_physical_port_vlan_binding_count(row);

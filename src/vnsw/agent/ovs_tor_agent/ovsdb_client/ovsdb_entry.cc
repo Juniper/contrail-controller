@@ -13,11 +13,12 @@ using OVSDB::OvsdbDBEntry;
 using OVSDB::OvsdbObject;
 using OVSDB::OvsdbDBObject;
 
-OvsdbEntry::OvsdbEntry(OvsdbObject *table) : KSyncEntry(), table_(table) {
+OvsdbEntry::OvsdbEntry(OvsdbObject *table) : KSyncEntry(), table_(table),
+    ovs_entry_(NULL) {
 }
 
 OvsdbEntry::OvsdbEntry(OvsdbObject *table, uint32_t index) : KSyncEntry(index),
-    table_(table) {
+    table_(table), ovs_entry_(NULL) {
 }
 
 OvsdbEntry::~OvsdbEntry() {
