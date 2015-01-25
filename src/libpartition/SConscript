@@ -1,0 +1,51 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import sys
+
+Import('BuildEnv')
+PartEnv = BuildEnv.Clone()
+
+setup_sources = [
+           'setup.py',
+           'MANIFEST.in',
+          ]
+
+setup_sources_rules = []
+for file in setup_sources:
+    setup_sources_rules.append(
+        PartEnv.Install(Dir("."), '#controller/src/libpartition/' + file))
+
+local_sources = [
+           '__init__.py',
+           'libpartition.py',
+          ]
+
+local_sources_rules = []
+for file in local_sources:
+    local_sources_rules.append(PartEnv.Install(Dir("libpartition"), file))
+    
+sdist_depends = [setup_sources_rules, local_sources_rules]
+
+cd_cmd = 'cd ' + Dir('.').path + ' && '
+sdist_gen = PartEnv.Command('dist', 'setup.py', cd_cmd + 'python setup.py sdist')
+# install everything before building distribution
+PartEnv.Depends(sdist_gen, sdist_depends)
+
+if 'install' in BUILD_TARGETS:
+    install_cmd = PartEnv.Command(None,
+                                'setup.py',
+                                cd_cmd + 'python setup.py install %s' %
+                                PartEnv['PYTHON_INSTALL_OPT'])
+    PartEnv.Depends(install_cmd, sdist_depends)
+    PartEnv.Alias('install', install_cmd)
+
+PartEnv['LIBPARTITION_PKG'] = sdist_gen
+#PartEnv.SConscript('test/SConscript', exports='PartEnv', duplicate = 0)
+#PartEnv.SConscript('docs/SConscript', exports='PartEnv', duplicate = 0)
+
+PartEnv.Default(sdist_gen)
+PartEnv.Alias("src/libpartition:libpartition", sdist_gen)
