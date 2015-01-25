@@ -620,8 +620,18 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
     switch (type_) {
     case Interface::PHYSICAL:
         data.set_type("eth");
-        // data.set_policy("Enable");
         break;
+
+    case Interface::REMOTE_PHYSICAL:
+        data.set_type("remote-physical-port");
+        data.set_vrf_name("--NA--");
+        break;
+
+    case Interface::LOGICAL:
+        data.set_type("logical-port");
+        data.set_vrf_name("--NA--");
+        break;
+
     case Interface::VM_INTERFACE: {
         data.set_type("vport");
         const VmInterface *vintf = static_cast<const VmInterface *>(this);
