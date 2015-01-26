@@ -29,7 +29,10 @@ class ServiceMonitorNovaClient(object):
         try:
             resource_obj = getattr(n_client, resource)
             oper_func = getattr(resource_obj, oper)
-            return oper_func(**kwargs)
+            if oper == 'get':
+                return oper_func(kwargs['id'])
+            else:
+                return oper_func(**kwargs)
         except nc_exc.NotFound:
             self.logger.log(
                 "Error: %s %s=%s not found in project %s"
