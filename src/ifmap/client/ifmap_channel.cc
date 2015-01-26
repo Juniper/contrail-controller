@@ -121,7 +121,7 @@ void IFMapChannel::ChannelUseCertAuth(const std::string& certstore)
 IFMapChannel::IFMapChannel(IFMapManager *manager, const std::string& user,
                 const std::string& passwd, const std::string& certstore)
     : manager_(manager), resolver_(*(manager->io_service())),
-      ctx_(*(manager->io_service()), boost::asio::ssl::context::sslv3_client),
+      ctx_(*(manager->io_service()), boost::asio::ssl::context::sslv23_client),
       io_strand_(*(manager->io_service())),
       ssrc_socket_(new SslStream((*manager->io_service()), ctx_)),
       arc_socket_(new SslStream((*manager->io_service()), ctx_)),
@@ -136,6 +136,10 @@ IFMapChannel::IFMapChannel(IFMapManager *manager, const std::string& user,
     } else {
         ChannelUseCertAuth(certstore);
     }
+    // Calling openssl api directly because boost doesn't provide a way to set
+    // the cipher
+    SSL_set_cipher_list(ssrc_socket_->native_handle(), "RC4-SHA");
+    SSL_set_cipher_list(arc_socket_->native_handle(), "RC4-SHA");
     string auth_str = username_ + ":" + password_;
     b64_auth_str_ = base64_encode(auth_str);
 }
