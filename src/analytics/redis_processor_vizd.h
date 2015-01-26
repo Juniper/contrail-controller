@@ -34,18 +34,21 @@ public:
             const std::string &key, int32_t seq);
 
     static bool
-    SyncGetSeq(const std::string & redis_ip, unsigned short redis_port,  
+    SyncGetSeq(const std::string & redis_ip, unsigned short redis_port,
+            const std::string & redis_password,  
             const std::string &source, const std::string &node_type,
             const std::string &module, const std::string &instance_id,
             std::map<std::string,int32_t> & seqReply);
 
     static bool 
-    SyncDeleteUVEs(const std::string & redis_ip, unsigned short redis_port,  
+    SyncDeleteUVEs(const std::string & redis_ip, unsigned short redis_port,
+            const std::string & redis_password,  
             const std::string &source, const std::string &node_type,
             const std::string &module, const std::string &instance_id);
 
     static bool
-    FlushUVEs(const std::string & redis_ip, unsigned short redis_port);
+    FlushUVEs(const std::string & redis_ip, unsigned short redis_port,
+            const std::string & redis_password);
 };
 
 class RedisProcessorIf {

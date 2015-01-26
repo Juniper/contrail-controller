@@ -76,6 +76,9 @@ class Collector(object):
         self._redis_uve = redis_uve
         self._logger = logger
         self._is_dup = is_dup
+        self.redis_password = None
+        if self._redis_uve.password:
+           self.redis_password = str(self._redis_uve.password)
         if self._is_dup is True:
             self.hostname = self.hostname+'dup'
         self._generator_id = self.hostname+':'+NodeTypeNames[NodeType.ANALYTICS]+\
@@ -124,6 +127,9 @@ class Collector(object):
             '--DEFAULT.syslog_port', str(self.syslog_port),
             '--DEFAULT.ipfix_port', str(self.ipfix_port),
             '--DEFAULT.log_file', self._log_file]
+        if self.redis_password:
+            args.append('--REDIS.password')
+            args.append(self.redis_password)
         if self._is_dup is True:
             args.append('--DEFAULT.dup')
         if (self.protobuf_port):
@@ -172,7 +178,7 @@ class Collector(object):
 # end class Collector
 
 class OpServer(object):
-    def __init__(self, primary_collector, secondary_collector, redis_port, 
+    def __init__(self, primary_collector, secondary_collector, redis_port,
                  analytics_fixture, logger, is_dup=False):
         self.primary_collector = primary_collector
         self.secondary_collector = secondary_collector
@@ -183,6 +189,9 @@ class OpServer(object):
         self._instance = None
         self._logger = logger
         self._is_dup = is_dup
+        self.redis_password = None
+        if self.analytics_fixture.redis_uves[0].password:
+           self.redis_password = str(self.analytics_fixture.redis_uves[0].password)
         if self._is_dup is True:
             self.hostname = self.hostname+'dup'
         self._generator_id = self.hostname+':'+NodeTypeNames[NodeType.ANALYTICS]+\
@@ -209,13 +218,16 @@ class OpServer(object):
         args = ['python', self.analytics_fixture.builddir + \
                 '/analytics_test/bin/contrail-analytics-api',
                 '--redis_server_port', str(self._redis_port),
-                '--redis_query_port', 
+                '--redis_query_port',
                 str(self.analytics_fixture.redis_uves[0].port),
                 '--cassandra_server_list', '127.0.0.1:' +
                 str(self.analytics_fixture.cassandra_port),
                 '--http_server_port', str(self.http_port),
                 '--log_file', self._log_file,
                 '--rest_api_port', str(self.listen_port)]
+        if self.analytics_fixture.redis_uves[0].password:
+            args.append('--redis_password')
+            args.append(self.analytics_fixture.redis_uves[0].password)
         args.append('--redis_uve_list') 
         for redis_uve in self.analytics_fixture.redis_uves:
             args.append('127.0.0.1:'+str(redis_uve.port))
@@ -276,6 +288,9 @@ class QueryEngine(object):
         self.hostname = socket.gethostname()
         self._instance = None
         self._logger = logger
+        self.redis_password = None 
+        if self.analytics_fixture.redis_uves[0].password:
+           self.redis_password = str(self.analytics_fixture.redis_uves[0].password) 
         self._generator_id = self.hostname+':'+NodeTypeNames[NodeType.ANALYTICS]+\
                             ':'+ModuleNames[Module.QUERY_ENGINE]+':0'
     # end __init__
@@ -304,6 +319,9 @@ class QueryEngine(object):
                 '--DEFAULT.log_local', '--DEFAULT.log_level', 'SYS_DEBUG',
                 '--DEFAULT.log_file', self._log_file,
                 '--DEFAULT.collectors', self.primary_collector]
+        if self.redis_password:
+            args.append('--REDIS.password')
+            args.append(self.redis_password)
         if self.secondary_collector is not None:
             args.append('--DEFAULT.collectors')
             args.append(self.secondary_collector)
@@ -345,13 +363,14 @@ class QueryEngine(object):
 # end class QueryEngine
 
 class Redis(object):
-    def __init__(self, port, builddir):
+    def __init__(self, port, builddir, password=None):
         self.builddir = builddir
         self.port = port
         if self.port == -1:
             self.use_global = False
         else:
             self.use_global = True
+        self.password = password
         self.running = False
     # end __init__
 
@@ -362,16 +381,17 @@ class Redis(object):
             if self.port == -1:
                 self.port = AnalyticsFixture.get_free_port()
             mockredis.start_redis(
-                self.port, self.builddir+'/testroot/bin/redis-server') 
+                self.port, self.builddir+'/testroot/bin/redis-server',
+                self.password)
         else:
-            redish = redis.StrictRedis("127.0.0.1", self.port)
+            redish = redis.StrictRedis("127.0.0.1", self.port, password=self.password)
             redish.flushall()
 
     # end start
     def stop(self):
         assert(not self.use_global)
         if self.running:
-            mockredis.stop_redis(self.port)
+            mockredis.stop_redis(self.port, self.password)
             self.running =  False
     #end stop
 
@@ -381,7 +401,7 @@ class AnalyticsFixture(fixtures.Fixture):
 
     def __init__(self, logger, builddir, redis_port, cassandra_port,
                  ipfix_port = False, syslog_port = False, protobuf_port = False,
-                 noqed=False, collector_ha_test=False):
+                 noqed=False, collector_ha_test=False, redis_password=None):
 
         self.builddir = builddir
         self.redis_port = redis_port
@@ -392,11 +412,13 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger = logger
         self.noqed = noqed
         self.collector_ha_test = collector_ha_test
+        self.redis_password = redis_password
 
     def setUp(self):
         super(AnalyticsFixture, self).setUp()
 
-        self.redis_uves = [Redis(self.redis_port, self.builddir)]
+        self.redis_uves = [Redis(self.redis_port, self.builddir,
+                                 self.redis_password)]
         self.redis_uves[0].start()
 
         self.opserver = None
@@ -404,7 +426,7 @@ class AnalyticsFixture(fixtures.Fixture):
         self.collectors = [Collector(self, self.redis_uves[0], self.logger,
                            ipfix_port = self.ipfix_port,
                            syslog_port = self.syslog_port,
-                           protobuf_port = self.protobuf_port)] 
+                           protobuf_port = self.protobuf_port)]
         if not self.collectors[0].start():
             self.logger.error("Collector did NOT start")
             return 
@@ -413,7 +435,8 @@ class AnalyticsFixture(fixtures.Fixture):
             primary_collector = self.collectors[0].get_addr()
             secondary_collector = None
             if self.collector_ha_test:
-                self.redis_uves.append(Redis(-1, self.builddir))
+                self.redis_uves.append(Redis(-1, self.builddir,
+                                             self.redis_password))
                 self.redis_uves[1].start()
                 self.collectors.append(Collector(self, self.redis_uves[1],
                                                  self.logger, is_dup=True))
@@ -1749,7 +1772,7 @@ class AnalyticsFixture(fixtures.Fixture):
     def verify_generator_list_in_redis(self, redis_uve, exp_gen_list):
         self.logger.info('Verify generator list in redis')
         try:
-            r = redis.StrictRedis(db=1, port=redis_uve.port)
+            r = redis.StrictRedis(db=1, port=redis_uve.port, password=redis_uve.password)
             gen_list = r.smembers('NGENERATORS')
         except Exception as e:
             self.logger.error('Failed to get generator list from redis - %s' % e)
