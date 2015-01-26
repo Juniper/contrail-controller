@@ -61,7 +61,8 @@ public:
     void ProcessVmUnsubscribe(const std::string &vm_uuid);
     void EnqueueVmSubUnsub(bool subscribe, const std::string &vm_uuid);
     bool get_client_added() { return client_added_; }
-    const std::string &channel_name() { return channel_name_; }
+    const std::string& channel_name() { return channel_name_; }
+    const std::string& FQName() const;
 
 private:
     friend class XmppIfmapTest;

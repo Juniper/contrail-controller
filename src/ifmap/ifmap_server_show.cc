@@ -590,9 +590,20 @@ bool ShowIFMapPerClientNodes::BufferStage(const Sandesh *sr,
         int instNum, RequestPipeline::InstData *data) {
     const IFMapPerClientNodesShowReq *request =
         static_cast<const IFMapPerClientNodesShowReq *>(ps.snhRequest_.get());
-    int client_index = request->get_client_index();
     BgpSandeshContext *bsc =
         static_cast<BgpSandeshContext *>(request->client_context());
+
+    string client_index_or_name = request->get_client_index_or_name();
+    // The user gives us either a name or an index. If the input is not a
+    // number, find the client's index using its name. If we cant find it,
+    // we cant process this request. If we have the index, continue processing.
+    int client_index;
+    if (!stringToInteger(client_index_or_name, client_index)) {
+        if (!bsc->ifmap_server->ClientNameToIndex(client_index_or_name,
+                                                  &client_index)) {
+            return true;
+        }
+    }
 
     ShowData *show_data = static_cast<ShowData *>(data);
     DB *db = bsc->ifmap_server->database();
@@ -752,7 +763,17 @@ bool ShowIFMapPerClientLinkTable::BufferStage(const Sandesh *sr,
         static_cast<const IFMapPerClientLinksShowReq *>(ps.snhRequest_.get());
     BgpSandeshContext *bsc = 
         static_cast<BgpSandeshContext *>(request->client_context());
-    int client_index = request->get_client_index();
+    string client_index_or_name = request->get_client_index_or_name();
+    // The user gives us either a name or an index. If the input is not a
+    // number, find the client's index using its name. If we cant find it,
+    // we cant process this request. If we have the index, continue processing.
+    int client_index;
+    if (!stringToInteger(client_index_or_name, client_index)) {
+        if (!bsc->ifmap_server->ClientNameToIndex(client_index_or_name,
+                                                  &client_index)) {
+            return true;
+        }
+    }
 
     IFMapLinkTable *table =  static_cast<IFMapLinkTable *>(
         bsc->ifmap_server->database()->FindTable("__ifmap_metadata__.0"));
