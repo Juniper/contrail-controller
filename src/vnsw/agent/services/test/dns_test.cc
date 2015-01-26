@@ -28,6 +28,8 @@
 #include <controller/controller_dns.h>
 #include "vr_types.h"
 
+using boost::asio::ip::udp;
+
 #define DNS_CLIENT_PORT 9999
 #define MAX_WAIT_COUNT 5000
 #define BUF_SIZE 8192
@@ -45,6 +47,7 @@ DnsItem ptr_items[MAX_ITEMS];
 DnsItem cname_items[MAX_ITEMS];
 DnsItem auth_items[MAX_ITEMS];
 DnsItem add_items[MAX_ITEMS];
+DnsItem mx_items[MAX_ITEMS];
 
 std::string names[MAX_ITEMS] = {"www.google.com",
                                 "www.cnn.com",
@@ -118,6 +121,13 @@ public:
             cname_items[i].ttl = (i + 1) * 2000;
             cname_items[i].name = cname_names[i];
             cname_items[i].data = cname_data[i];
+
+            mx_items[i].eclass = DNS_CLASS_IN;
+            mx_items[i].type = DNS_MX_RECORD;
+            mx_items[i].ttl = (i + 1) * 2000;
+            mx_items[i].priority = (i + 1) * 20;
+            mx_items[i].name = names[i];
+            mx_items[i].data = cname_names[i];
 
             auth_items[i].eclass = DNS_CLASS_IN;
             auth_items[i].type = DNS_NS_RECORD;
@@ -272,6 +282,8 @@ public:
         uint8_t *buf  = new uint8_t[len];
         memset(buf, 0, len);
 
+        while (!Agent::GetInstance()->GetDnsProto()->IsDnsQueryInProgress(g_xid))
+            g_xid++;
         dnshdr *dns = (dnshdr *) buf;
         BindUtil::BuildDnsHeader(dns, g_xid, DNS_QUERY_RESPONSE, 
                                  DNS_OPCODE_QUERY, 0, 0, 0, 0);
@@ -547,6 +559,15 @@ TEST_F(DnsTest, VirtualDnsReqTest) {
     client->WaitForIdle();
     CHECK_CONDITION(stats.resolved < 6);
     CHECK_STATS(stats, 11, 6, 2, 1, 1, 1);
+
+    //send MX requests
+    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 4, mx_items);
+    g_xid++;
+    usleep(1000);
+    client->WaitForIdle();
+    SendDnsResp(4, mx_items, 0, NULL, 0, NULL);
+    CHECK_CONDITION(stats.resolved < 7);
+    CHECK_STATS(stats, 12, 7, 2, 1, 1, 1);
 
     client->Reset();
     DeleteVmportEnv(input, 1, 1, 0);
@@ -1082,6 +1103,18 @@ int main(int argc, char *argv[]) {
     client = TestInit(init_file, ksync_init, true, true);
     usleep(100000);
     client->WaitForIdle();
+
+    // Bind to a local port and use it as the port for DNS.
+    // Avoid using port 53 as there could be a local DNS server running.
+    boost::system::error_code ec;
+    udp::socket sock(*Agent::GetInstance()->event_manager()->io_service());
+    udp::endpoint ep;
+    sock.open(udp::v4(), ec);
+    sock.bind(udp::endpoint(udp::v4(), 0), ec);
+    ep = sock.local_endpoint(ec);
+
+    BindResolver::DnsServer server("127.0.0.1", ep.port());
+    BindResolver::Resolver()->SetupResolver(server, 0);
 
     int ret = RUN_ALL_TESTS();
     client->WaitForIdle();
