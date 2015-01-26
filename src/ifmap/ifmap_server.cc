@@ -389,6 +389,15 @@ IFMapClient *IFMapServer::GetClient(int index) {
     return NULL;
 }
 
+bool IFMapServer::ClientNameToIndex(const std::string &id, int *index) {
+    IFMapClient *client = FindClient(id);
+    if (client) {
+        *index = client->index();
+        return true;
+    }
+    return false;
+}
+
 bool IFMapServer::StaleNodesProcTimeout() {
     IFMapStaleCleaner *cleaner = new IFMapStaleCleaner(db_, graph_, this);
 

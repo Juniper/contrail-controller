@@ -97,6 +97,7 @@ public:
     void FillIndexMap(IFMapServerShowIndexMap *out_map);
     const CmSz_t GetClientMapSize() const { return client_map_.size(); }
     void GetUIInfo(IFMapServerInfoUI *server_info);
+    bool ClientNameToIndex(const std::string &id, int *index);
 
 private:
     static const int kStaleCleanupTimeout = 60000; // milliseconds

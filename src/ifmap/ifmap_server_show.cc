@@ -555,7 +555,7 @@ public:
         return static_cast<RequestPipeline::InstData *>(new TrackerData);
     }
 
-    static bool CopyNode(IFMapPerClientNodesShowInfo *dest, DBEntryBase *src,
+    static bool CopyNode(IFMapPerClientNodesShowInfo *dest, IFMapNode *src,
                          IFMapServer *server, int client_index);
     static bool BufferStage(const Sandesh *sr,
                             const RequestPipeline::PipeSpec ps, int stage,
@@ -566,14 +566,12 @@ public:
 };
 
 bool ShowIFMapPerClientNodes::CopyNode(IFMapPerClientNodesShowInfo *dest,
-                                       DBEntryBase *src, IFMapServer *server,
+                                       IFMapNode *src, IFMapServer *server,
                                        int client_index) {
-    IFMapNode *src_node = static_cast<IFMapNode *>(src);
-
-    IFMapNodeState *state = server->exporter()->NodeStateLookup(src_node);
+    IFMapNodeState *state = server->exporter()->NodeStateLookup(src);
 
     if (state->interest().test(client_index)) {
-        dest->node_name = src_node->ToString();
+        dest->node_name = src->ToString();
         if (state->advertised().test(client_index)) {
             dest->sent = "Yes";
         } else {
@@ -590,10 +588,22 @@ bool ShowIFMapPerClientNodes::BufferStage(const Sandesh *sr,
         int instNum, RequestPipeline::InstData *data) {
     const IFMapPerClientNodesShowReq *request =
         static_cast<const IFMapPerClientNodesShowReq *>(ps.snhRequest_.get());
-    int client_index = request->get_client_index();
     BgpSandeshContext *bsc =
         static_cast<BgpSandeshContext *>(request->client_context());
 
+    string client_index_or_name = request->get_client_index_or_name();
+    // The user gives us either a name or an index. If the input is not a
+    // number, find the client's index using its name. If we cant find it,
+    // we cant process this request. If we have the index, continue processing.
+    int client_index;
+    if (!stringToInteger(client_index_or_name, client_index)) {
+        if (!bsc->ifmap_server->ClientNameToIndex(client_index_or_name,
+                                                  &client_index)) {
+            return true;
+        }
+    }
+
+    string search_string = request->get_search_string();
     ShowData *show_data = static_cast<ShowData *>(data);
     DB *db = bsc->ifmap_server->database();
     for (DB::iterator iter = db->lower_bound("__ifmap__.");
@@ -603,17 +613,24 @@ bool ShowIFMapPerClientNodes::BufferStage(const Sandesh *sr,
         }
         IFMapTable *table = static_cast<IFMapTable *>(iter->second);
 
-        for (int i = 0; i < IFMapTable::kPartitionCount; i++) {
+        for (int i = 0; i < IFMapTable::kPartitionCount; ++i) {
             DBTablePartBase *partition = table->GetTablePartition(i);
             DBEntryBase *src = partition->GetFirst();
             while (src) {
+                IFMapNode *src_node = static_cast<IFMapNode *>(src);
+                src = partition->GetNext(src);
+
+                // If the search string is not part of the node's name, skip it.
+                if (!search_string.empty() &&
+                   (src_node->ToString().find(search_string) == string::npos)) {
+                    continue;
+                }
                 IFMapPerClientNodesShowInfo dest;
-                bool send = CopyNode(&dest, src, bsc->ifmap_server,
+                bool send = CopyNode(&dest, src_node, bsc->ifmap_server,
                                      client_index);
                 if (send) {
                     show_data->send_buffer.push_back(dest);
                 }
-                src = partition->GetNext(src);
             }
         }
     }
@@ -714,7 +731,7 @@ public:
         return static_cast<RequestPipeline::InstData *>(new TrackerData);
     }
 
-    static bool CopyNode(IFMapPerClientLinksShowInfo *dest, DBEntryBase *src,
+    static bool CopyNode(IFMapPerClientLinksShowInfo *dest, IFMapLink *src,
                          IFMapServer *server, int client_index);
     static bool BufferStage(const Sandesh *sr,
                             const RequestPipeline::PipeSpec ps, int stage,
@@ -725,15 +742,13 @@ public:
 };
 
 bool ShowIFMapPerClientLinkTable::CopyNode(IFMapPerClientLinksShowInfo *dest,
-        DBEntryBase *src, IFMapServer *server, int client_index) {
-    IFMapLink *src_link = static_cast<IFMapLink *>(src);
-
-    IFMapLinkState *state = server->exporter()->LinkStateLookup(src_link);
+        IFMapLink *src, IFMapServer *server, int client_index) {
+    IFMapLinkState *state = server->exporter()->LinkStateLookup(src);
 
     if (state->interest().test(client_index)) {
-        dest->metadata = src_link->metadata();
-        dest->left = src_link->left()->ToString();
-        dest->right = src_link->right()->ToString();
+        dest->metadata = src->metadata();
+        dest->left = src->left()->ToString();
+        dest->right = src->right()->ToString();
         if (state->advertised().test(client_index)) {
             dest->sent = "Yes";
         } else {
@@ -752,9 +767,21 @@ bool ShowIFMapPerClientLinkTable::BufferStage(const Sandesh *sr,
         static_cast<const IFMapPerClientLinksShowReq *>(ps.snhRequest_.get());
     BgpSandeshContext *bsc = 
         static_cast<BgpSandeshContext *>(request->client_context());
-    int client_index = request->get_client_index();
 
-    IFMapLinkTable *table =  static_cast<IFMapLinkTable *>(
+    string client_index_or_name = request->get_client_index_or_name();
+    // The user gives us either a name or an index. If the input is not a
+    // number, find the client's index using its name. If we cant find it,
+    // we cant process this request. If we have the index, continue processing.
+    int client_index;
+    if (!stringToInteger(client_index_or_name, client_index)) {
+        if (!bsc->ifmap_server->ClientNameToIndex(client_index_or_name,
+                                                  &client_index)) {
+            return true;
+        }
+    }
+
+    string search_string = request->get_search_string();
+    IFMapLinkTable *table = static_cast<IFMapLinkTable *>(
         bsc->ifmap_server->database()->FindTable("__ifmap_metadata__.0"));
     if (table) {
         ShowData *show_data = static_cast<ShowData *>(data);
@@ -763,12 +790,24 @@ bool ShowIFMapPerClientLinkTable::BufferStage(const Sandesh *sr,
         DBTablePartBase *partition = table->GetTablePartition(0);
         DBEntryBase *src = partition->GetFirst();
         while (src) {
+            IFMapLink *src_link = static_cast<IFMapLink *>(src);
+            src = partition->GetNext(src);
+
+            // If the search string is not part of any of the fields, skip it.
+            if (!search_string.empty() &&
+                (src_link->metadata().find(search_string) == string::npos) &&
+                (src_link->left()->ToString().find(search_string) ==
+                                                              string::npos) &&
+                (src_link->right()->ToString().find(search_string) ==
+                                                              string::npos)) {
+                continue;
+            }
             IFMapPerClientLinksShowInfo dest;
-            bool send = CopyNode(&dest, src, bsc->ifmap_server, client_index);
+            bool send = CopyNode(&dest, src_link, bsc->ifmap_server,
+                                 client_index);
             if (send) {
                 show_data->send_buffer.push_back(dest);
             }
-            src = partition->GetNext(src);
         }
     } else {
         IFMAP_WARN(IFMapTblNotFound, "Cant show/find ", "link table");
