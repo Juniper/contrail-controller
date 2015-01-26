@@ -80,13 +80,13 @@ struct VmRegInfo {
 struct IFMapXmppClientInfo {
     1: string client_name;
     2: i32 client_index;
+    9: VmRegInfo vm_reg_info;
     3: u64 msgs_sent;
     4: u64 msgs_blocked;
     5: u64 nodes_sent;
     6: u64 links_sent;
     7: u64 bytes_sent;
     8: bool is_blocked;
-    9: VmRegInfo vm_reg_info;
 }
 
 request sandesh IFMapXmppClientInfoShowReq {
@@ -133,7 +133,7 @@ struct IFMapPerClientNodesShowInfo {
 }
 
 request sandesh IFMapPerClientNodesShowReq {
-    1: i32 client_index;
+    1: string client_index_or_name;
 }
 
 response sandesh IFMapPerClientNodesShowResp {
@@ -150,7 +150,7 @@ struct IFMapPerClientLinksShowInfo {
 }
 
 request sandesh IFMapPerClientLinksShowReq {
-    1: i32 client_index;
+    1: string client_index_or_name;
 }
 
 response sandesh IFMapPerClientLinksShowResp {
@@ -185,6 +185,8 @@ struct IFMapChannelManagerStats {
 
 struct IFMapXmppChannelMapEntry {
     1: string client_name;
+    4: string host_name;
+    3: string channel_name;
     2: bool client_added;
 }
 

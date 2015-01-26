@@ -184,6 +184,10 @@ bool IFMapXmppChannel::MustProcessChannelNotReady() {
     return client_added_;
 }
 
+const std::string& IFMapXmppChannel::FQName() const {
+    return ifmap_client_->identifier();
+}
+
 void IFMapXmppChannel::ProcessVrSubscribe(const std::string &identifier) {
     // If we have already received a vr-subscribe on this channel...
     if (client_added_) {
@@ -459,7 +463,9 @@ void IFMapChannelManager::FillChannelMap(
          iter != channel_map_.end(); ++iter) {
         IFMapXmppChannel *ifmap_chnl = iter->second;
         IFMapXmppChannelMapEntry entry;
-        entry.set_client_name(ifmap_chnl->channel()->ToString());
+        entry.set_client_name(ifmap_chnl->FQName());
+        entry.set_host_name(ifmap_chnl->channel()->ToString());
+        entry.set_channel_name(ifmap_chnl->channel_name());
         entry.set_client_added(ifmap_chnl->get_client_added());
         out_map->push_back(entry);
     }
