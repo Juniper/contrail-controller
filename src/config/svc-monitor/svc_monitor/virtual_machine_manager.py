@@ -119,7 +119,7 @@ class VirtualMachineManager(InstanceManager):
                 vm_uuid = vm.id
                 state = 'pending'
             else:
-                vm = self._nc.oper('servers', 'find', proj_name,
+                vm = self._nc.oper('servers', 'get', proj_name,
                                    id=si_info[prefix + 'uuid'])
                 if not vm:
                     continue
@@ -148,7 +148,7 @@ class VirtualMachineManager(InstanceManager):
         except (NoIdError, RefsExistError):
             pass
 
-        vm = self._nc.oper('servers', 'find', proj_name, id=vm_uuid)
+        vm = self._nc.oper('servers', 'get', proj_name, id=vm_uuid)
         if not vm:
             raise KeyError
 
@@ -162,7 +162,7 @@ class VirtualMachineManager(InstanceManager):
         vm_list = {}
         vm_back_refs = si_obj.get_virtual_machine_back_refs()
         for vm_back_ref in vm_back_refs or []:
-            vm = self._nc.oper('servers', 'find', proj_name,
+            vm = self._nc.oper('servers', 'get', proj_name,
                                id=vm_back_ref['uuid'])
             if vm:
                 vm_list[vm.name] = vm
