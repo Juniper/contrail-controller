@@ -878,7 +878,7 @@ class VirtualDnsRecordServer(VirtualDnsRecordServerGen):
         if rec_type == "a":
             if not VirtualDnsServer.is_valid_ipv4_address(rec_value):
                 return (False, (403, "Invalid IP address"))
-        elif rec_type == "cname" or rec_type == "ptr":
+        elif rec_type == "cname" or rec_type == "ptr" or rec_type == "mx":
             if not VirtualDnsServer.is_valid_dns_name(rec_value):
                 return (
                     False,
@@ -898,6 +898,12 @@ class VirtualDnsRecordServer(VirtualDnsRecordServerGen):
         ttl = rec_data['record_ttl_seconds']
         if ttl < 0 or ttl > 2147483647:
             return (False, (403, "Invalid value for TTL"))
+
+        if rec_type == "mx":
+            preference = rec_data['record_mx_preference']
+            if preference < 0 or preference > 65535:
+                return (False, (403, "Invalid value for MX record preference"))
+
         return True, ""
     # end validate_dns_record
 # end class VirtualDnsRecordServer

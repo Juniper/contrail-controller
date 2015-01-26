@@ -32,14 +32,15 @@ do {                                                                          \
 #define DNS_CLASS_NONE 0x00fe
 
 // DNS record types
-#define DNS_A_RECORD 1
-#define DNS_NS_RECORD 2
-#define DNS_AAAA_RECORD 0x1C
-#define DNS_PTR_RECORD 0x0C
-#define DNS_CNAME_RECORD 0x05
-#define DNS_TXT_RECORD 0x10
-#define DNS_TYPE_SOA 0x06
-#define DNS_TYPE_ANY 0x00ff
+#define DNS_A_RECORD     1
+#define DNS_NS_RECORD    2
+#define DNS_CNAME_RECORD 5
+#define DNS_TYPE_SOA     6
+#define DNS_PTR_RECORD   0x0C
+#define DNS_MX_RECORD    0x0F
+#define DNS_TXT_RECORD   0x10
+#define DNS_AAAA_RECORD  0x1C
+#define DNS_TYPE_ANY     0x00ff
 
 // DNS return codes
 #define DNS_ERR_NO_ERROR     0
@@ -277,9 +278,9 @@ public:
     static uint8_t *AddName(uint8_t *ptr, const std::string &addr,
                             uint16_t plen, uint16_t offset, uint16_t &length);
     static int ParseDnsQuery(uint8_t *buf, DnsItems &items);
-    static void ParseDnsQuery(uint8_t *buf, uint16_t &xid, dns_flags &flags,
-                              DnsItems &ques, DnsItems &ans,
-                              DnsItems &auth, DnsItems &add);
+    static bool ParseDnsResponse(uint8_t *buf, uint16_t &xid, dns_flags &flags,
+                                 DnsItems &ques, DnsItems &ans,
+                                 DnsItems &auth, DnsItems &add);
     static int ParseDnsUpdate(uint8_t *buf, DnsUpdateData &data);
     static int BuildDnsQuery(uint8_t *buf, uint16_t xid, 
                              const std::string &domain,
