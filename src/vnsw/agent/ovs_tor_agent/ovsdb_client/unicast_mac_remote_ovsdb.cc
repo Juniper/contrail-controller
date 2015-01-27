@@ -58,13 +58,21 @@ UnicastMacRemoteEntry::UnicastMacRemoteEntry(OvsdbDBObject *table,
 };
 
 void UnicastMacRemoteEntry::PreAddChange() {
-    if (self_exported_route_) {
-        return;
-    }
+    boost::system::error_code ec;
+    Ip4Address dest_ip = Ip4Address::from_string(dest_ip_, ec);
     LogicalSwitchTable *l_table = table_->client_idl()->logical_switch_table();
     LogicalSwitchEntry key(l_table, logical_switch_name_.c_str());
     LogicalSwitchEntry *logical_switch =
         static_cast<LogicalSwitchEntry *>(l_table->GetReference(&key));
+
+    if (self_exported_route_ ||
+            dest_ip == logical_switch->physical_switch_tunnel_ip()) {
+        // if the route is self exported or if dest tunnel end-point points to
+        // the physical switch itself then donot export this route to OVSDB
+        // release reference to logical switch to trigger delete.
+        logical_switch_ = NULL;
+        return;
+    }
     logical_switch_ = logical_switch;
 }
 
@@ -73,14 +81,7 @@ void UnicastMacRemoteEntry::PostDelete() {
 }
 
 void UnicastMacRemoteEntry::AddMsg(struct ovsdb_idl_txn *txn) {
-    boost::system::error_code ec;
-    Ip4Address dest_ip = Ip4Address::from_string(dest_ip_, ec);
-    LogicalSwitchEntry *logical_switch =
-        static_cast<LogicalSwitchEntry *>(logical_switch_.get());
-    if (self_exported_route_ ||
-            dest_ip == logical_switch->physical_switch_tunnel_ip()) {
-        // if the route is self exported or if dest tunnel end-point points to
-        // the physical switch itself then donot export this route to OVSDB
+    if (logical_switch_.get() == NULL) {
         DeleteMsg(txn);
         return;
     }
@@ -97,6 +98,8 @@ void UnicastMacRemoteEntry::AddMsg(struct ovsdb_idl_txn *txn) {
         struct ovsdb_idl_row *pl_row = NULL;
         if (pl_entry)
             pl_row = pl_entry->ovs_entry();
+        LogicalSwitchEntry *logical_switch =
+            static_cast<LogicalSwitchEntry *>(logical_switch_.get());
         obvsdb_wrapper_add_ucast_mac_remote(txn, mac_.c_str(),
                 logical_switch->ovs_entry(), pl_row, dest_ip_.c_str());
         SendTrace(UnicastMacRemoteEntry::ADD_REQ);

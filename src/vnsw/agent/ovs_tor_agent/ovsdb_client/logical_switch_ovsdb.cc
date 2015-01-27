@@ -105,6 +105,11 @@ void LogicalSwitchEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
     if (ovs_entry_ != NULL) {
         ovsdb_wrapper_delete_logical_switch(ovs_entry_);
     }
+    UcastLocalRouteList::iterator it;
+    for (it = ucast_local_row_list_.begin();
+         it != ucast_local_row_list_.end(); ++it) {
+        ovsdb_wrapper_delete_ucast_mac_local(*it);
+    }
     SendTrace(LogicalSwitchEntry::DEL_REQ);
 }
 
@@ -267,6 +272,32 @@ void LogicalSwitchTable::OvsdbMcastRemoteMacNotify(OvsdbClientIdl::Op op,
                 if (entry->old_mcast_remote_row_ != NULL)
                     entry->OvsdbChange();
             }
+        }
+    } else {
+        assert(0);
+    }
+}
+
+void LogicalSwitchTable::OvsdbUcastLocalMacNotify(OvsdbClientIdl::Op op,
+        struct ovsdb_idl_row *row) {
+    const char *mac = ovsdb_wrapper_ucast_mac_local_mac(row);
+    const char *ls = ovsdb_wrapper_ucast_mac_local_logical_switch(row);
+    LogicalSwitchEntry *entry = NULL;
+    if (ls) {
+        LogicalSwitchEntry key(this, ls);
+        entry = static_cast<LogicalSwitchEntry *>(Find(&key));
+    }
+    if (op == OvsdbClientIdl::OVSDB_DEL) {
+        OVSDB_TRACE(Trace, "Delete : Local Ucast MAC " + std::string(mac) +
+                ", logical switch " + (ls ? std::string(ls) : ""));
+        if (entry) {
+            entry->ucast_local_row_list_.erase(row);
+        }
+    } else if (op == OvsdbClientIdl::OVSDB_ADD) {
+        OVSDB_TRACE(Trace, "Add : Local Ucast MAC " + std::string(mac) +
+                ", logical switch " + (ls ? std::string(ls) : ""));
+        if (entry) {
+            entry->ucast_local_row_list_.insert(row);
         }
     } else {
         assert(0);

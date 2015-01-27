@@ -397,6 +397,14 @@ ovsdb_wrapper_ucast_mac_local_dst_ip(struct ovsdb_idl_row *row)
     return NULL;
 }
 
+void
+ovsdb_wrapper_delete_ucast_mac_local(struct ovsdb_idl_row *row)
+{
+    struct vteprec_ucast_macs_local *ucast =
+        row ? CONTAINER_OF(row, struct vteprec_ucast_macs_local, header_) : NULL;
+    vteprec_ucast_macs_local_delete(ucast);
+}
+
 /* unicast mac remote */
 void
 obvsdb_wrapper_add_ucast_mac_remote(struct ovsdb_idl_txn *txn, const char *mac,
