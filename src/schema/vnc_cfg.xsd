@@ -381,6 +381,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:enumeration value="CNAME"/>
         <xsd:enumeration value="PTR"/>
         <xsd:enumeration value="NS"/>
+        <xsd:enumeration value="MX"/>
         <!-- Add more record types as support is added -->
     </xsd:restriction>
 </xsd:simpleType>
@@ -399,6 +400,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="record-class"       type="DnsRecordClassType"/>
         <xsd:element name="record-data"        type="xsd:string"/>
         <xsd:element name="record-ttl-seconds" type="xsd:integer"/>
+        <xsd:element name="record-mx-preference" type="xsd:integer"/>
     </xsd:all>
 </xsd:complexType>
 
