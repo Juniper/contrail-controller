@@ -83,6 +83,13 @@ protected:
     // Create a session object.
     virtual TcpSession *AllocSession(Socket *socket) = 0;
 
+    // Only SslServer overrides this method, to manage server with SSL
+    // socket instead of TCP socket
+    virtual TcpSession *AllocSession(bool server_session);
+
+    virtual Socket *accept_socket() const;
+    virtual void set_accept_socket();
+
     //
     // Passively accepted a new session. Returns true if the session is
     // accepted, false otherwise.

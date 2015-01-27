@@ -23,6 +23,8 @@ libio = env.Library('io',
             EventManagerSrc +
             [
              'io_utils.cc',
+             'ssl_server.cc',
+             'ssl_session.cc',
              'tcp_message_write.cc',
              'tcp_server.cc',
              'tcp_session.cc',
