@@ -35,6 +35,7 @@ public:
     void DeleteBinding(int16_t vlan, LogicalSwitchEntry *ls);
 
     const std::string &name() const;
+    const VlanLSTable &binding_table() const;
     const VlanLSTable &ovs_binding_table() const;
     const VlanStatsTable &stats_table() const;
 
