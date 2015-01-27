@@ -971,6 +971,41 @@ TEST_P(ServiceChainParamTest, Basic) {
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
 }
 
+TEST_P(ServiceChainParamTest, IgnoreNonInetSubnets) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    NetworkConfig(instance_names, connections);
+    VerifyNetworkConfig(instance_names);
+
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_7.xml");
+
+    // Add More specifics
+    AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
+    AddInetRoute(NULL, "red", "192.168.2.1/32", 100);
+
+    // Check for aggregated routes
+    VerifyInetRouteNoExists("blue", "192.168.1.0/24");
+    VerifyInetRouteNoExists("blue", "192.168.2.0/24");
+
+    // Add Connected
+    AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
+
+    // Check for aggregated routes
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.4.5", "red");
+    VerifyInetRouteExists("blue", "192.168.2.0/24");
+    VerifyInetRouteAttributes("blue", "192.168.2.0/24", "2.3.4.5", "red");
+
+    // Delete More specifics
+    DeleteInetRoute(NULL, "red", "192.168.1.1/32");
+    DeleteInetRoute(NULL, "red", "192.168.2.1/32");
+
+    // Delete connected route
+    DeleteConnectedRoute(NULL, "1.1.2.3/32");
+}
+
 TEST_P(ServiceChainParamTest, MoreSpecificAddDelete) {
     vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
     multimap<string, string> connections = 
