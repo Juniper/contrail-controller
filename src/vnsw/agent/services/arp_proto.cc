@@ -426,7 +426,7 @@ void ArpProto::NextHopNotify(DBEntryBase *entry) {
         if (arp_nh->IsDeleted()) {
             SendArpIpc(ArpProto::ARP_DELETE, arp_nh->GetIp()->to_ulong(),
                        arp_nh->GetVrf(), arp_nh->GetInterface()); 
-        } else if (arp_nh->IsValid() == false) {
+        } else if (arp_nh->IsValid() == false && arp_nh->GetInterface()) {
             SendArpIpc(ArpProto::ARP_RESOLVE, arp_nh->GetIp()->to_ulong(),
                        arp_nh->GetVrf(), arp_nh->GetInterface()); 
         }

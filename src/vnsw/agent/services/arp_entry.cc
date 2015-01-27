@@ -25,6 +25,7 @@ ArpEntry::~ArpEntry() {
         arp_timer_->Cancel();
         TimerManager::DeleteTimer(arp_timer_);
     }
+    handler_.reset(NULL);
 }
 
 void ArpEntry::HandleDerivedArpRequest() {
@@ -266,9 +267,15 @@ bool ArpEntry::DeleteArpRoute() {
 
     MacAddress mac = mac_address();
     ARP_TRACE(Trace, "Delete", ip.to_string(), vrf_name, mac.ToString());
+    if (IsDerived()) {
+        //Just enqueue a delete, no need to mark nexthop invalid
+        InetUnicastAgentRouteTable::Delete(handler_->agent()->local_peer(),
+                                           vrf_name, ip, 32);
+        return true;
+    }
 
     handler_->agent()->fabric_inet4_unicast_table()->ArpRoute(
-                       DBRequest::DB_ENTRY_DELETE, vrf_name, ip, mac, vrf_name,
+                       DBRequest::DB_ENTRY_DELETE, vrf_name, ip, mac, nh_vrf_->GetName(),
                        *interface_, false, 32, false, " ", SecurityGroupList());
     return false;
 }

@@ -60,7 +60,7 @@ private:
     MacAddress mac_address_;
     State state_;
     int retry_count_;
-    boost::scoped_ptr<ArpHandler> handler_;
+    boost::intrusive_ptr<ArpHandler> handler_;
     Timer *arp_timer_;
     const Interface *interface_;
     DISALLOW_COPY_AND_ASSIGN(ArpEntry);

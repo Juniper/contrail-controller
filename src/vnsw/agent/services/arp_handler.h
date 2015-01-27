@@ -22,6 +22,8 @@ public:
     void SendArp(uint16_t op, const MacAddress &smac, in_addr_t sip,
                  const MacAddress &tmac, in_addr_t tip,
                  uint16_t itf, uint16_t vrf);
+    friend void intrusive_ptr_add_ref(const ArpHandler *p);
+    friend void intrusive_ptr_release(const ArpHandler *p);
 
 private:
     bool HandlePacket();
@@ -32,7 +34,7 @@ private:
 
     ether_arp *arp_;
     in_addr_t arp_tpa_;
-
+    mutable tbb::atomic<uint32_t> refcount_;
     DISALLOW_COPY_AND_ASSIGN(ArpHandler);
 };
 
