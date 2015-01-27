@@ -338,6 +338,17 @@ xmpp_sess_toggle_test = env.UnitTest('xmpp_sess_toggle_test',
                              ['xmpp_sess_toggle_test.cc'])
 env.Alias('src/bgp:xmpp_sess_toggle_test', xmpp_sess_toggle_test)
 
+# YAML based configuration
+# Requires package libyaml-cpp-dev available on ubuntu 14.04+
+yaml_test_env = env.Clone()
+yaml_test_env.Append(LIBS = ['bgp_yaml_config',
+                             'yaml-cpp'])
+bgp_yaml_config_manager_test = yaml_test_env.UnitTest(
+    'bgp_yaml_config_manager_test',
+    ['bgp_yaml_config_manager_test.cc'])
+yaml_test_env.Alias('bgp:bgp_yaml_config_manager_test',
+                    bgp_yaml_config_manager_test)
+
 # All Tests
 test_suite = [
     bgp_attr_test,

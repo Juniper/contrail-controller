@@ -81,6 +81,11 @@ libbgp_xmpp = env.Library('bgp_xmpp',
                               'bgp_xmpp_sandesh.cc',
                           ])
 
+libbgp_yaml_config = env.Library('bgp_yaml_config',
+                                 [
+                                     'bgp_config_yaml.cc',
+                                 ])
+
 test_suite = env.SConscript('ermvpn/SConscript', exports='BuildEnv',
                             duplicate = 0)
 test_suite += env.SConscript('evpn/SConscript', exports='BuildEnv',
@@ -106,6 +111,8 @@ test_suite += env.SConscript('extended-community/SConscript', exports='BuildEnv'
 
 test_suite += env.SConscript('test/SConscript',
                             exports='BuildEnv', duplicate = 0)
+
+env.SConscript('daemon/SConscript', exports='BuildEnv', duplicate = 0)
 
 def code_coverage(target, source, env):
     # rm -rf bgp/test_coverage

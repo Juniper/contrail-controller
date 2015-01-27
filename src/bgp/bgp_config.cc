@@ -23,7 +23,8 @@ bool AuthenticationKey::operator<(const AuthenticationKey &rhs) const {
 }
 
 BgpNeighborConfig::BgpNeighborConfig()
-        : peer_as_(0),
+        : type_(UNSPECIFIED),
+          peer_as_(0),
           identifier_(0),
           port_(BgpConfigManager::kDefaultPort),
           hold_time_(0),
@@ -31,10 +32,26 @@ BgpNeighborConfig::BgpNeighborConfig()
           local_identifier_(0) {
 }
 
+void BgpNeighborConfig::CopyValues(const BgpNeighborConfig &rhs) {
+    instance_name_ = rhs.instance_name_;
+    group_name_ = rhs.group_name_;
+    type_ = rhs.type_;
+    peer_as_ = rhs.peer_as_;
+    identifier_ = rhs.identifier_;
+    address_ = rhs.address_;
+    port_ = rhs.port_;
+    hold_time_ = rhs.hold_time_;
+    local_as_ = rhs.local_as_;
+    local_identifier_ = rhs.local_identifier_;
+    keychain_ = rhs.keychain_;
+    address_families_ = rhs.address_families_;
+}
+
 int BgpNeighborConfig::CompareTo(const BgpNeighborConfig &rhs) const {
     KEY_COMPARE(name_, rhs.name_);
     KEY_COMPARE(uuid_, rhs.uuid_);
     KEY_COMPARE(instance_name_, rhs.instance_name_);
+    KEY_COMPARE(type_, rhs.type_);
     KEY_COMPARE(peer_as_, rhs.peer_as_);
     KEY_COMPARE(identifier_, rhs.identifier_);
     KEY_COMPARE(address_, rhs.address_);
@@ -52,7 +69,17 @@ BgpProtocolConfig::BgpProtocolConfig(const std::string &instance_name)
           autonomous_system_(0), 
           local_autonomous_system_(0),
           identifier_(0), 
+          port_(0),
           hold_time_(-1) {
+}
+
+int BgpProtocolConfig::CompareTo(const BgpProtocolConfig &rhs) const {
+    KEY_COMPARE(instance_name_, rhs.instance_name_);
+    KEY_COMPARE(autonomous_system_, rhs.autonomous_system_);
+    KEY_COMPARE(identifier_, rhs.identifier_);
+    KEY_COMPARE(port_, rhs.port_);
+    KEY_COMPARE(hold_time_, rhs.hold_time_);
+    return 0;
 }
 
 BgpInstanceConfig::BgpInstanceConfig(const std::string &name)
