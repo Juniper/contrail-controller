@@ -406,12 +406,6 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
         ret = true;
     }
 
-    //Ignore IPAM changes if layer3 is not enabled
-    if (!vn->layer3_forwarding_) {
-        data->ipam_.clear();
-        data->vn_ipam_data_.clear();
-    }
-
     if (IpamChangeNotify(vn->ipam_, data->ipam_, vn)) {
         vn->ipam_ = data->ipam_;
         ret = true;
