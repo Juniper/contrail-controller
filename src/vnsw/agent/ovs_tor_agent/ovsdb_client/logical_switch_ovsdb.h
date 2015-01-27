@@ -20,6 +20,7 @@ public:
     void OvsdbNotify(OvsdbClientIdl::Op, struct ovsdb_idl_row *);
     void OvsdbMcastLocalMacNotify(OvsdbClientIdl::Op, struct ovsdb_idl_row *);
     void OvsdbMcastRemoteMacNotify(OvsdbClientIdl::Op, struct ovsdb_idl_row *);
+    void OvsdbUcastLocalMacNotify(OvsdbClientIdl::Op, struct ovsdb_idl_row *);
 
     KSyncEntry *Alloc(const KSyncEntry *key, uint32_t index);
     KSyncEntry *DBToKSyncEntry(const DBEntry*);
@@ -32,6 +33,7 @@ private:
 
 class LogicalSwitchEntry : public OvsdbDBEntry {
 public:
+    typedef std::set<struct ovsdb_idl_row *> UcastLocalRouteList;
     enum Trace {
         ADD_REQ,
         DEL_REQ,
@@ -72,6 +74,7 @@ private:
     struct ovsdb_idl_row *mcast_local_row_;
     struct ovsdb_idl_row *mcast_remote_row_;
     struct ovsdb_idl_row *old_mcast_remote_row_;
+    UcastLocalRouteList ucast_local_row_list_;
     DISALLOW_COPY_AND_ASSIGN(LogicalSwitchEntry);
 };
 };
