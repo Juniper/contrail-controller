@@ -37,8 +37,7 @@
 do {                                                                           \
     if (LoggingDisabled()) break;                                              \
     bgp_log_test::LogServerName(server());                                     \
-    Rpr##obj##Log::Send(g_vns_constants.CategoryNames.find(                    \
-            Category::ROUTING_INSTANCE)->second,                               \
+    Rpr##obj##Log::Send("RoutingInstance",                                     \
             SandeshLevel::SYS_DEBUG, __FILE__, __LINE__, __VA_ARGS__);         \
     Rpr##obj::TraceMsg(trace_buf_, __FILE__, __LINE__, __VA_ARGS__);           \
 } while (false)

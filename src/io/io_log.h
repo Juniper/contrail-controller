@@ -23,11 +23,11 @@
 
 extern SandeshTraceBufferPtr IOTraceBuf;
 
-#define IO_LOG(obj, level, flags, cat, ...)                                    \
+#define IO_LOG(obj, level, flags, category, ...)                               \
 do {                                                                           \
     if (LoggingDisabled()) break;                                              \
     if ((flags) & IO_LOG_FLAG_SYSLOG) {                                        \
-        obj##Log::Send(g_vns_constants.CategoryNames.find(cat)->second,        \
+        obj##Log::Send(category,                                               \
                        level, __FILE__, __LINE__, ##__VA_ARGS__);              \
     }                                                                          \
     if ((flags) & IO_LOG_FLAG_TRACE) {                                         \
@@ -96,7 +96,7 @@ do {                                                                           \
 } while (false)
 
 #define TCP_SERVER_LOG_STR(obj, level, flags, server, dir, arg)                \
-     IO_SERVER_LOG_STR(TcpServerMessage, Category::TCP, obj, level, flags,     \
+     IO_SERVER_LOG_STR(TcpServerMessage, "TCP", obj, level, flags,     \
                        server, dir, arg)
 
 #define TCP_SERVER_LOG_ERROR(server, dir, arg)                                 \
@@ -113,7 +113,7 @@ do {                                                                           \
                        IO_LOG_FLAG_SYSLOG, server, dir, arg)
 
 #define TCP_SESSION_LOG_STR(obj, level, flags, session, dir, arg)              \
-     IO_SESSION_LOG_STR(TcpSessionMessage, Category::TCP, obj, level, flags,   \
+     IO_SESSION_LOG_STR(TcpSessionMessage, "TCP", obj, level, flags,   \
                         session, dir, arg)
 
 #define TCP_SESSION_LOG_ERROR(session, dir, arg)                               \
@@ -130,7 +130,7 @@ do {                                                                           \
                        IO_LOG_FLAG_SYSLOG, session, dir, arg)
 
 #define TCP_UT_LOG_DEBUG(arg)                                                  \
-     IO_UT_LOG_DEBUG(TcpMessage, Category::TCP, TCP_DIR_NA, arg)
+     IO_UT_LOG_DEBUG(TcpMessage, "TCP", TCP_DIR_NA, arg)
 
 //
 // Event Manager Log and Trace macros
@@ -141,7 +141,7 @@ do {                                                                           \
     std::ostringstream out;                                                    \
     out << arg;                                                                \
     IO_LOG(EventManagerMessage, SandeshLevel::UT_ERR, IO_LOG_FLAG_ALL,         \
-           Category::TCP, out.str());                                          \
+           "TCP", out.str());                                                  \
 } while (false)
 
 //
@@ -153,11 +153,11 @@ do {                                                                           \
     std::ostringstream out;                                                    \
     out << arg;                                                                \
     IO_LOG(EventManagerMessage, SandeshLevel::UT_ERR, IO_LOG_FLAG_ALL,         \
-           Category::UDP, out.str());                                          \
+           "UDP", out.str());                                                  \
 } while (false)
 
 #define UDP_SERVER_LOG_STR(obj, level, flags, server, dir, arg)                \
-     IO_SERVER_LOG_STR(UdpServerMessage, Category::UDP, obj, level, flags,     \
+     IO_SERVER_LOG_STR(UdpServerMessage, "UDP", obj, level, flags,             \
                        server, dir, arg)
 #define UDP_SERVER_LOG_ERROR(server, dir, arg)                                 \
     UDP_SERVER_LOG_STR(UdpServerMessage, SandeshLevel::SYS_ERR,                \
@@ -174,11 +174,11 @@ do {                                                                           \
 
 
 #define UDP_SESSION_LOG_STR(obj, level, flags, session, dir, arg)              \
-     IO_SESSION_LOG_STR(UdpSessionMessage, Category::UDP, obj, level, flags,   \
+     IO_SESSION_LOG_STR(UdpSessionMessage, "UDP", obj, level, flags,           \
                         session, dir, arg)
 
 #define UDP_UT_LOG_DEBUG(arg)                                                  \
-     IO_UT_LOG_DEBUG(UdpMessage, Category::UDP, UDP_DIR_NA, arg)
+     IO_UT_LOG_DEBUG(UdpMessage, "UDP", UDP_DIR_NA, arg)
 
 #endif // __IO_LOG_H__
 
