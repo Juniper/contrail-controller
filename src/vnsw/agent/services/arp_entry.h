@@ -46,6 +46,9 @@ public:
     bool DeleteArpRoute();
     bool IsResolved();
     void Resync(bool policy, const std::string &vn, const SecurityGroupList &sg);
+    friend void intrusive_ptr_add_ref(const ArpEntry* p);
+    friend void intrusive_ptr_release(const ArpEntry* p);
+    uint32_t refcount() const {return refcount_;};
 
 private:
     void StartTimer(uint32_t timeout, uint32_t mtype);
@@ -60,9 +63,10 @@ private:
     MacAddress mac_address_;
     State state_;
     int retry_count_;
-    boost::scoped_ptr<ArpHandler> handler_;
+    boost::intrusive_ptr<ArpHandler> handler_;
     Timer *arp_timer_;
     const Interface *interface_;
+    mutable tbb::atomic<uint32_t> refcount_;
     DISALLOW_COPY_AND_ASSIGN(ArpEntry);
 };
 
