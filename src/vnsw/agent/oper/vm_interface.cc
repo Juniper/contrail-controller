@@ -1194,7 +1194,7 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
     if (layer3_forwarding_) {
         UpdateL3Services(dhcp_enable_, true);
     } else {
-        UpdateL3Services(false, false);
+        UpdateL3Services(dhcp_enable_, false);
     }
 
     // Add/Del/Update L3 

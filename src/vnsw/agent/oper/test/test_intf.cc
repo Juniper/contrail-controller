@@ -2800,6 +2800,72 @@ TEST_F(IntfTest, VrfTranslateAddDelete) {
     client->WaitForIdle();
 }
 
+TEST_F(IntfTest, l2_only_dhcp_enabled) {
+    struct PortInfo input1[] = {
+        {"vnet8", 8, "8.8.8.88", "00:00:00:01:01:08", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"8.8.8.8", 24, "0.0.0.0", true},
+    };
+    client->Reset();
+    CreateVmportEnv(input1, 1);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+    WAIT_FOR(100, 1000, (VmPortL2Active(input1, 0) == true));
+    EXPECT_TRUE(VmPortFind(8));
+    client->Reset();
+
+    //Check DHCP flag, should be disabled for vnet9 and enabled for vnet8
+    VmInterface *vm_interface_8 = static_cast<VmInterface *>(VmPortGet(8));
+    EXPECT_TRUE(vm_interface_8->dhcp_enable_config());
+
+    //Issue sandesh request
+    DoInterfaceSandesh("vnet8");
+    client->WaitForIdle();
+
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    DeleteVmportEnv(input1, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(8));
+}
+
+TEST_F(IntfTest, l2_only_dhcp_disabled) {
+    struct PortInfo input1[] = {
+        {"vnet8", 8, "8.8.8.88", "00:00:00:01:01:08", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"8.8.8.8", 24, "0.0.0.0", false},
+    };
+    client->Reset();
+    CreateVmportEnv(input1, 1);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+    WAIT_FOR(100, 1000, (VmPortL2Active(input1, 0) == true));
+    EXPECT_TRUE(VmPortFind(8));
+    client->Reset();
+
+    //Check DHCP flag, should be disabled for vnet9 and enabled for vnet8
+    VmInterface *vm_interface_8 = static_cast<VmInterface *>(VmPortGet(8));
+    EXPECT_FALSE(vm_interface_8->dhcp_enable_config());
+
+    //Issue sandesh request
+    DoInterfaceSandesh("vnet8");
+    client->WaitForIdle();
+
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    DeleteVmportEnv(input1, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(8));
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 
