@@ -6,11 +6,26 @@ struct IpmiSensor {
     5: string sensor_type;
 }
 
+struct IpmiChassis_status_info {
+    1: string system_power
+    2: bool power_overload
+    3: string power_interlock
+    4: bool main_power_fault
+    5: bool power_control_fault
+    6: string power_restore_policy
+    7: string last_power_event
+    8: string chassis_intrusion
+    9: string front_panel_lockout
+    10: bool        drive_fault
+    11: bool        cooling_fan_fault
+}
+
 struct SMIpmiInfo {
     1: string name               (key="ObjectServerTable")
     2: optional bool             deleted
     3: optional list<IpmiSensor> sensor_stats (tags=".sensor,.sensor_type")
     4: optional list<IpmiSensor> sensor_state
+    6: optional IpmiChassis_status_info chassis_state
 }
 
 uve sandesh SMIpmiInfoTrace {
