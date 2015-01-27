@@ -122,8 +122,11 @@ class EventManager:
         # pass the newly created environment variable to Popen subprocess
         env_home = os.environ.copy()
         env_home['HOME'] = HOME_ENV_PATH
+        # stdout and stderr are redirected.
+        # stderr not used (stdout validation is done so stderr check is
+        # is not needed)
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, \
-            stderr=subprocess.STDOUT, shell=True, env=env_home)
+            stderr=subprocess.PIPE, shell=True, env=env_home)
 
         while p.poll() is None:
             time.sleep(0.1)
@@ -136,6 +139,7 @@ class EventManager:
                 ssdlog = StorageStatsDaemonLog(message = message)
                 self.call_send(ssdlog)
                 return None
+        # stdout is used
         return p.stdout.read()
 
     def call_send(self, send_inst):
