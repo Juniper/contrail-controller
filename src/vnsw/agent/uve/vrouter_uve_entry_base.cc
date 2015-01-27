@@ -483,7 +483,7 @@ bool VrouterUveEntryBase::SendVrouterMsg() {
     }
 
     VrouterStatsAgent stats;
-    stats.set_name(agent_->host_name());
+    stats.set_name(agent_->agent_name());
     cpu_stats_count_++;
     if ((cpu_stats_count_ % 6) == 0) {
         static bool cpu_first = true;
@@ -544,7 +544,7 @@ void VrouterUveEntryBase::BuildAndSendComputeCpuStateMsg(const CpuLoadInfo &info
     VrouterCpuInfo ainfo;
     vector<VrouterCpuInfo> aciv;
 
-    astate.set_name(agent_->host_name());
+    astate.set_name(agent_->agent_name());
     ainfo.set_cpu_share(info.get_cpu_share());
     ainfo.set_mem_virt(info.get_meminfo().get_virt());
     ainfo.set_used_sys_mem(info.get_sys_mem_info().get_used());
