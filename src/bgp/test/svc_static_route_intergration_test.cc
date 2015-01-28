@@ -769,7 +769,6 @@ protected:
         for (Route::PathList::const_iterator it = route->GetPathList().begin();
              it != route->GetPathList().end(); ++it) {
             const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
-            const BgpAttr *attr = path->GetAttr();
             if (GetOriginVnPathFromRoute(server, path) != origin_vn_path)
                 return false;
         }
