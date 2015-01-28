@@ -507,16 +507,14 @@ int main(int argc, char *argv[]) {
 
     //Register services with Discovery Service Server
     DiscoveryServiceClient *ds_client = NULL; 
-    if (!options.discovery_server().empty()) {
-        tcp::endpoint dss_ep;
-        boost::system::error_code error;
-        dss_ep.address(address::from_string(options.discovery_server(), error));
-        dss_ep.port(options.discovery_port());
+    tcp::endpoint dss_ep;
+    if (DiscoveryServiceClient::ParseDiscoveryServerConfig(
+        options.discovery_server(), options.discovery_port(), &dss_ep)) {
+
         string subscriber_name = 
             g_vns_constants.ModuleNames.find(Module::CONTROL_NODE)->second;
         ds_client = new DiscoveryServiceClient(&evm, dss_ep, subscriber_name); 
         ds_client->Init();
-        ControlNode::SetDiscoveryServiceClient(ds_client); 
   
         // publish xmpp-server service
         ControlNode::SetSelfIp(options.host_ip());
@@ -556,7 +554,11 @@ int main(int argc, char *argv[]) {
                                    list,
                                    &sandesh_context);
         }
+    } else {
+        LOG(ERROR, "Invalid Discovery Server hostname or ip " <<
+                    options.discovery_server());
     }
+    ControlNode::SetDiscoveryServiceClient(ds_client);
 
     IFMapServerParser *ifmap_parser = IFMapServerParser::GetInstance("vnc_cfg");
 
