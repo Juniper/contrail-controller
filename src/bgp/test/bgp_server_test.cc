@@ -901,6 +901,54 @@ TEST_F(BgpServerUnitTest, AdminDown) {
     VerifyPeers(peer_count);
 }
 
+TEST_F(BgpServerUnitTest, ResetStatsOnFlap) {
+    int peer_count = 3;
+
+    StateMachineTest::set_keepalive_time_msecs(10);
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11");
+
+    //
+    // Make sure that a few keepalives have been exchanged
+    //
+    VerifyPeers(peer_count, 3);
+
+    //
+    // Set peers to be admin down
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        peer_a->SetAdminState(true);
+        peer_b->SetAdminState(true);
+    }
+
+    //
+    // Verify that peer keepalive count is 0
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_EQ(0, peer_a->get_rx_keepalive());
+        TASK_UTIL_EXPECT_EQ(0, peer_a->get_tr_keepalive());
+        TASK_UTIL_EXPECT_EQ(0, peer_b->get_rx_keepalive());
+        TASK_UTIL_EXPECT_EQ(0, peer_b->get_tr_keepalive());
+    }
+
+    StateMachineTest::set_keepalive_time_msecs(0);
+}
+
 //
 // BGP Port change number change is not supported yet
 //

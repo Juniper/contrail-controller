@@ -414,8 +414,10 @@ struct Idle : sc::state<Idle, StateMachine> {
         state_machine->CancelIdleHoldTimer();
         bool flap = (state_machine->get_state() == StateMachine::ESTABLISHED);
         state_machine->set_state(StateMachine::IDLE);
-        if (flap)
+        if (flap) {
             peer->increment_flap_count();
+            peer->peer_stats()->Clear();
+        }
     }
 
     ~Idle() {

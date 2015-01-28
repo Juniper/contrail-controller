@@ -133,6 +133,17 @@ public:
         : peer_(peer) {
     }
 
+    // Used when peer flaps.
+    // Reset all counters.
+    // Socket counters are implicitly cleared because we use a new socket.
+    virtual void Clear() {
+        error_stats_ = ErrorStats();
+        proto_stats_[0] = ProtoStats();
+        proto_stats_[1] = ProtoStats();
+        update_stats_[0] = UpdateStats();
+        update_stats_[1] = UpdateStats();
+    }
+
     // Printable name
     virtual std::string ToString() const {
         return peer_->ToString();

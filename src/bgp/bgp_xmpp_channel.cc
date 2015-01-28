@@ -188,6 +188,11 @@ public:
         : peer_(peer) {
     }
 
+    // Used when peer flaps.
+    // Don't need to do anything since the BgpXmppChannel itself gets deleted.
+    virtual void Clear() {
+    }
+
     // Printable name
     virtual string ToString() const {
         return peer_->ToString();
