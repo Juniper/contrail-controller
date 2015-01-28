@@ -143,8 +143,10 @@ public:
     static const uint32_t kMaxLabelCount = 1000;
     static const uint32_t kInvalidLabel = 0xFFFFFFFF;
     static const uint32_t kStartLabel = 16;
+    static const uint32_t kDpdkShiftBits = 4;
 
-    MplsTable(DB *db, const std::string &name) : AgentDBTable(db, name) { }
+    MplsTable(DB *db, const std::string &name) : AgentDBTable(db, name),
+        mpls_shift_bits_(0) { }
     virtual ~MplsTable() { }
 
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
@@ -156,10 +158,22 @@ public:
     virtual bool Delete(DBEntry *entry, const DBRequest *req);
 
     // Allocate and Free label from the label_table
-    uint32_t AllocLabel() {return label_table_.Insert(NULL);};
-    void UpdateLabel(uint32_t label, MplsLabel *entry) {return label_table_.Update(label, entry);};
-    void FreeLabel(uint32_t label) {label_table_.Remove(label);};
-    MplsLabel *FindMplsLabel(size_t index) {return label_table_.At(index);};
+    uint32_t AllocLabel() {
+        uint32_t index = label_table_.Insert(NULL);
+        return index << mpls_shift_bits_;
+    }
+    void UpdateLabel(uint32_t label, MplsLabel *entry) {
+        uint32_t index = label >> mpls_shift_bits_;
+        return label_table_.Update(index, entry);
+    }
+    void FreeLabel(uint32_t label) {
+        uint32_t index = label >> mpls_shift_bits_;
+        label_table_.Remove(index);
+    }
+    MplsLabel *FindMplsLabel(size_t label) {
+        uint32_t index = label >> mpls_shift_bits_;
+        return label_table_.At(index);
+    }
 
     static void CreateTableLabel(const Agent *agent, uint32_t label,
                                  const std::string &vrf_name,
@@ -169,10 +183,23 @@ public:
     void Process(DBRequest &req);
     bool ChangeNH(MplsLabel *mpls, NextHop *nh);
 
+    void set_mpls_shift_bits(uint32_t shift) {
+        mpls_shift_bits_ = shift;
+    }
+    void ReserveLabel();
 private:
     static MplsTable *mpls_table_;
     bool ChangeHandler(MplsLabel *mpls, const DBRequest *req);
     IndexVector<MplsLabel> label_table_;
+    //When agent is running with dpdk vrouter, it may
+    //use flow director functionality present in nic, to
+    //forward the packet to right queue of VM based on mpls label.
+    //NIC supporting that usually match 16 bits in packet and forward
+    //that to a queue, in case of MPLS packet lower 4bits of mpls label
+    //are present in one 16bit word and upper 16bit are present in
+    //other word. Mpls label are allocated such that lower 4 bits are 0,
+    //so that remaining MSB can uniquely identify the queue
+    uint32_t mpls_shift_bits_;
     DISALLOW_COPY_AND_ASSIGN(MplsTable);
 };
 

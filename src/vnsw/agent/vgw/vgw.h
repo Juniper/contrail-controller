@@ -17,9 +17,10 @@ public:
     void CreateVrf();
     void CreateVrf(const std::string &vrf_name);
     void DeleteVrf(const std::string &vrf_name);
-    void CreateInterfaces();
+    void CreateInterfaces(Interface::Transport transport);
     void CreateInterface(const std::string &interface_name,
-                         const std::string &vrf_name);
+                         const std::string &vrf_name,
+                         Interface::Transport transport);
     void DeleteInterface(const std::string &interface_name);
     void SubnetUpdate(const VirtualGatewayConfig &vgw,
                       const VirtualGatewayConfig::SubnetList &add_list,
