@@ -81,7 +81,7 @@ public:
     void ProcessUpdate(const BgpProto::Update *msg);
 
     // thread: io::ReaderTask
-    virtual void ReceiveMsg(BgpSession *session, const u_int8_t *msg,
+    virtual bool ReceiveMsg(BgpSession *session, const u_int8_t *msg,
                             size_t size);
 
     void StartKeepaliveTimer();

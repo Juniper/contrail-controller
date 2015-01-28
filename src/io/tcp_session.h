@@ -229,7 +229,7 @@ inline void intrusive_ptr_release(TcpSession *session) {
 class TcpMessageReader {
 public:
     typedef boost::asio::const_buffer Buffer;
-    typedef boost::function<void(const u_int8_t *, size_t)> ReceiveCallback;
+    typedef boost::function<bool(const u_int8_t *, size_t)> ReceiveCallback;
 
     TcpMessageReader(TcpSession *session, ReceiveCallback callback);
     virtual ~TcpMessageReader();

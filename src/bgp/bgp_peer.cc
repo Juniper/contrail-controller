@@ -1397,7 +1397,7 @@ string BgpPeer::BytesToHexString(const u_int8_t *msg, size_t size) {
     return out.str();
 }
 
-void BgpPeer::ReceiveMsg(BgpSession *session, const u_int8_t *msg,
+bool BgpPeer::ReceiveMsg(BgpSession *session, const u_int8_t *msg,
                          size_t size) {
     ParseErrorContext ec;
     BgpProto::BgpMessage *minfo = BgpProto::Decode(msg, size, &ec);
@@ -1408,7 +1408,7 @@ void BgpPeer::ReceiveMsg(BgpSession *session, const u_int8_t *msg,
                      BGP_PEER_DIR_IN,
                      "Error while parsing message at " << ec.type_name);
         state_machine_->OnMessageError(session, &ec);
-        return;
+        return false;
     }
 
     // Tracing periodic keepalive packets is not necessary.
@@ -1416,6 +1416,7 @@ void BgpPeer::ReceiveMsg(BgpSession *session, const u_int8_t *msg,
         BGP_TRACE_PEER_PACKET(this, msg, size, Sandesh::LoggingUtLevel());
 
     state_machine_->OnMessage(session, minfo);
+    return true;
 }
 
 string BgpPeer::ToString() const {

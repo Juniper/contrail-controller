@@ -343,9 +343,12 @@ class ReaderTestSession : public TcpSession {
     }
 
   private:
-    void ReceiveMsg(const u_int8_t *msg, size_t size) {
+    bool ReceiveMsg(const u_int8_t *msg, size_t size) {
         TCP_UT_LOG_DEBUG("ReceiveMsg: " << size << " bytes");
+        if (size < reader_->GetHeaderLenSize())
+            return false;
         sizes.push_back(size);
+        return true;
     }
 
     std::auto_ptr<ReaderTest> reader_;
@@ -368,10 +371,10 @@ protected:
     ReaderTestSession session_;
 };
 
-static void CreateFakeMessage(uint8_t *data, size_t length) {
-    assert(length > 18);
+static void CreateFakeMessage(uint8_t *data, size_t length, uint16_t msglen) {
+    assert(length >= 18);
     memset(data, 0xff, 16);
-    put_value(data + 16, 2, length);
+    put_value(data + 16, 2, msglen);
     memset(data + 18, 0, length - 18);
 }
 
@@ -382,7 +385,7 @@ TEST_F(ReaderUnitTest, StreamRead) {
     int sizes[] = { 100, 400, 80, 110, 40, 60 };
     uint8_t *data = stream;
     for (size_t i = 0; i < ARRAYLEN(sizes); i++) {
-        CreateFakeMessage(data, sizes[i]);
+        CreateFakeMessage(data, sizes[i], sizes[i]);
         data += sizes[i];
     }
     vector<mutable_buffer> buf_list;
@@ -413,6 +416,15 @@ TEST_F(ReaderUnitTest, StreamRead) {
     }
     TASK_UTIL_EXPECT_EQ(ARRAYLEN(sizes), i);
     TASK_UTIL_EXPECT_EQ(buf_list.size(), (size_t) session_.release_count());
+}
+
+TEST_F(ReaderUnitTest, ZeroMsgLengthRead) {
+    uint8_t stream[4096];
+    int size = 18;
+    CreateFakeMessage(stream, size, 0);
+    mutable_buffer buffer(stream, size);
+    session_.Read(buffer);
+    TASK_UTIL_EXPECT_TRUE(session_.begin() == session_.end());
 }
 
 }  // namespace
