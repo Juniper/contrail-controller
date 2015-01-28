@@ -897,10 +897,16 @@ class VirtualNetworkST(DictST):
             # TODO log unknown protocol
             return result_acl_rule_list
 
+        if prule.action_list is None:
+            _sandesh._logger.error("No action specified in policy rule "
+                                   "attached to %s. Ignored.", self.name)
+            return result_acl_rule_list
+
         for saddr in saddr_list:
             saddr_match = copy.deepcopy(saddr)
             svn = saddr.virtual_network
             spol = saddr.network_policy
+            s_cidr = saddr.subnet
             if svn == "local":
                 svn = self.name
                 saddr_match.virtual_network = self.name
@@ -908,6 +914,8 @@ class VirtualNetworkST(DictST):
                 daddr_match = copy.deepcopy(daddr)
                 dvn = daddr.virtual_network
                 dpol = daddr.network_policy
+                d_cidr = daddr.subnet
+
                 if dvn == "local":
                     dvn = self.name
                     daddr_match.virtual_network = self.name
@@ -938,6 +946,12 @@ class VirtualNetworkST(DictST):
                                                "has src = %s, dst = %s. Ignored.",
                                                self.name, svn or spol, dvn or dpol)
                         continue
+                elif not svn and not dvn and not spol and not dpol and s_cidr and d_cidr:
+                    if prule.action_list.apply_service:
+                        _sandesh._logger.error("service chains not allowed in cidr only rules"
+                                               " network %s, src = %s, dst = %s. Ignored.",
+                                               self.name, s_cidr, d_cidr)
+                        continue
                 else:
                     _sandesh._logger.error("network policy rule attached to %s"
                                            "has svn = %s, dvn = %s. Ignored.",
@@ -945,7 +959,7 @@ class VirtualNetworkST(DictST):
                     continue
 
                 service_list = None
-                if prule.action_list and prule.action_list.apply_service != []:
+                if prule.action_list.apply_service != []:
                     if remote_network_name == self.name:
                         _sandesh._logger.error("Service chain source and dest "
                                                "vn are same: %s", self.name)
@@ -964,15 +978,12 @@ class VirtualNetworkST(DictST):
 
                 for sp in sp_list:
                     for dp in dp_list:
-                        if prule.action_list:
-                            action = copy.deepcopy(prule.action_list)
-                            if (service_list and svn in [self.name, 'any']):
-                                    service_ri = self.get_service_name(sc_name,
-                                        service_list[0])
-                                    action.assign_routing_instance = \
-                                        self.name + ':' + service_ri
-                        else:
-                            return result_acl_rule_list
+                        action = copy.deepcopy(prule.action_list)
+                        if (service_list and svn in [self.name, 'any']):
+                                service_ri = self.get_service_name(sc_name,
+                                    service_list[0])
+                                action.assign_routing_instance = \
+                                    self.name + ':' + service_ri
 
                         if (action.mirror_to is not None and
                                 action.mirror_to.analyzer_name is not None):
