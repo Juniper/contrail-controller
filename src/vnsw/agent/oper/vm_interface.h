@@ -50,6 +50,7 @@ class LocalVmPortPeer;
 class VmInterface : public Interface {
 public:
     static const uint32_t kInvalidVlanId = 0xFFFF;
+    static const uint32_t kInvalidPmdId = 0xFFFF;
 
     enum Configurer {
         INSTANCE_MSG,
@@ -451,7 +452,8 @@ public:
                         const std::string &mac, const std::string &vn_name,
                         const boost::uuids::uuid &vm_project_uuid,
                         uint16_t tx_vlan_id, uint16_t rx_vlan_id,
-                        const std::string &parent, const Ip6Address &ipv6);
+                        const std::string &parent, const Ip6Address &ipv6,
+                        Interface::Transport transport);
     // Del a vm-interface
     static void Delete(InterfaceTable *table,
                        const boost::uuids::uuid &intf_uuid,
@@ -707,8 +709,9 @@ struct VmInterfaceData : public InterfaceData {
         OS_OPER_STATE
     };
 
-    VmInterfaceData(Agent *agent, IFMapNode *node, Type type) :
-        InterfaceData(agent, node), type_(type) {
+    VmInterfaceData(Agent *agent, IFMapNode *node, Type type,
+            Interface::Transport transport) :
+        InterfaceData(agent, node, transport), type_(type) {
         VmPortInit();
     }
     virtual ~VmInterfaceData() { }
@@ -731,7 +734,8 @@ struct VmInterfaceData : public InterfaceData {
 // Structure used when type=IP_ADDR. Used to update IP-Address of VM-Interface
 // The IP Address is picked up from the DHCP Snoop table
 struct VmInterfaceIpAddressData : public VmInterfaceData {
-    VmInterfaceIpAddressData() : VmInterfaceData(NULL, NULL, IP_ADDR) { }
+    VmInterfaceIpAddressData() : VmInterfaceData(NULL, NULL, IP_ADDR,
+                                     Interface::TRANSPORT_INVALID) { }
     virtual ~VmInterfaceIpAddressData() { }
     virtual bool OnResync(const InterfaceTable *table, VmInterface *vmi,
                           bool *sg_changed, bool *ecmp_changed,
@@ -742,7 +746,8 @@ struct VmInterfaceIpAddressData : public VmInterfaceData {
 // The current oper-state is got by querying the device
 struct VmInterfaceOsOperStateData : public VmInterfaceData {
     VmInterfaceOsOperStateData() :
-        VmInterfaceData(NULL, NULL, OS_OPER_STATE) { }
+        VmInterfaceData(NULL, NULL, OS_OPER_STATE,
+                        Interface::TRANSPORT_INVALID) { }
     virtual ~VmInterfaceOsOperStateData() { }
     virtual bool OnResync(const InterfaceTable *table, VmInterface *vmi,
                           bool *sg_changed, bool *ecmp_changed,
@@ -752,7 +757,8 @@ struct VmInterfaceOsOperStateData : public VmInterfaceData {
 // Structure used when type=MIRROR. Used to update IP-Address of VM-Interface
 struct VmInterfaceMirrorData : public VmInterfaceData {
     VmInterfaceMirrorData(bool mirror_enable, const std::string &analyzer_name):
-        VmInterfaceData(NULL, NULL, MIRROR), mirror_enable_(mirror_enable),
+        VmInterfaceData(NULL, NULL, MIRROR, Interface::TRANSPORT_INVALID),
+        mirror_enable_(mirror_enable),
         analyzer_name_(analyzer_name) {
     }
     virtual ~VmInterfaceMirrorData() { }
@@ -767,8 +773,8 @@ struct VmInterfaceMirrorData : public VmInterfaceData {
 // Definition for structures when request queued from IFMap config.
 struct VmInterfaceConfigData : public VmInterfaceData {
     VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
-        VmInterfaceData(agent, node, CONFIG), addr_(0), ip6_addr_(),
-        vm_mac_(""),
+        VmInterfaceData(agent, node, CONFIG, Interface::TRANSPORT_INVALID),
+        addr_(0), ip6_addr_(), vm_mac_(""),
         cfg_name_(""), vm_uuid_(), vm_name_(), vn_uuid_(), vrf_name_(""),
         fabric_port_(true), need_linklocal_ip_(false), bridging_(true),
         layer3_forwarding_(true), mirror_enable_(false), ecmp_(false),
@@ -848,7 +854,8 @@ struct VmInterfaceNovaData : public VmInterfaceData {
                         uint16_t tx_vlan_id,
                         uint16_t rx_vlan_id,
                         VmInterface::DeviceType device_type,
-                        VmInterface::VmiType vmi_type);
+                        VmInterface::VmiType vmi_type,
+                        Interface::Transport transport);
     virtual ~VmInterfaceNovaData();
     virtual VmInterface *OnAdd(const InterfaceTable *table,
                                const VmInterfaceKey *key) const;

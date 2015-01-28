@@ -118,7 +118,7 @@ void VirtualGateway::DeleteVrf(const std::string &vrf_name) {
 }
 
 // Create virtual-gateway interface
-void VirtualGateway::CreateInterfaces() {
+void VirtualGateway::CreateInterfaces(Interface::Transport transport) {
     if (vgw_config_table_ == NULL) {
         return;
     }
@@ -126,16 +126,17 @@ void VirtualGateway::CreateInterfaces() {
     VirtualGatewayConfigTable::Table::iterator it;
     const VirtualGatewayConfigTable::Table &table = vgw_config_table_->table();
     for (it = table.begin(); it != table.end(); it++) {
-        CreateInterface(it->interface_name(), it->vrf_name());
+        CreateInterface(it->interface_name(), it->vrf_name(), transport);
     }
 }
 
 void VirtualGateway::CreateInterface(const std::string &interface_name,
-                                     const std::string &vrf_name) {
+                                     const std::string &vrf_name,
+                                     Interface::Transport transport) {
     InetInterface::Create(agent_->interface_table(), interface_name,
                           InetInterface::SIMPLE_GATEWAY, vrf_name,
                           Ip4Address(0), 0, Ip4Address(0), Agent::NullString(),
-                          "");
+                          "", transport);
 }
 
 void VirtualGateway::DeleteInterface(const std::string &interface_name) {

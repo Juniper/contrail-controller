@@ -38,17 +38,23 @@ void InterfaceCfgClient::Notify(DBTablePartBase *partition, DBEntryBase *e) {
         uint16_t tx_vlan_id = VmInterface::kInvalidVlanId;
         uint16_t rx_vlan_id = VmInterface::kInvalidVlanId;
         string port = Agent::NullString();
+        Interface::Transport transport = Interface::TRANSPORT_ETHERNET;
         if (agent->params()->isVmwareMode()) {
             tx_vlan_id = entry->tx_vlan_id();
             rx_vlan_id = entry->rx_vlan_id();
             port = agent->params()->vmware_physical_port();
+            transport = Interface::TRANSPORT_VIRTUAL;
+        }
+        if (agent->vrouter_on_nic_mode() == true ||
+            agent->vrouter_on_host_dpdk() == true) {
+            transport = Interface::TRANSPORT_PMD;
         }
 
         VmInterface::NovaAdd(agent->interface_table(), entry->GetUuid(),
                              entry->GetIfname(), entry->ip_addr().to_v4(),
                              entry->GetMacAddr(), entry->vm_name(),
                              entry->vm_project_uuid(), tx_vlan_id, rx_vlan_id,
-                             port, entry->ip6_addr());
+                             port, entry->ip6_addr(), transport);
         IFMapNode *node = UuidToIFNode(entry->GetUuid());
         if (node != NULL) {
             DBRequest req;
