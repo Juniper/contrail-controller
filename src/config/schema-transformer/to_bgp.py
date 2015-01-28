@@ -14,6 +14,8 @@ from cfgm_common.zkclient import ZookeeperClient,IndexAllocator
 from gevent import monkey
 monkey.patch_all()
 import sys
+reload(sys)
+sys.setdefaultencoding('UTF8')
 import requests
 import ConfigParser
 import cgitb
@@ -220,7 +222,7 @@ class VirtualNetworkST(DictST):
     _sg_id_allocator = None
     _rt_allocator = None
     _sc_vlan_allocator_dict = {}
-    
+
     def __init__(self, name):
         self.obj = _vnc_lib.virtual_network_read(fq_name_str=name)
         self.name = name
@@ -369,7 +371,7 @@ class VirtualNetworkST(DictST):
                                    "number is not available", policy_name,
                                    self.name)
             return
-        
+
         self.policies[policy_name] = attrib
         self.policies = OrderedDict(sorted(self.policies.items(),
                                            key=lambda t:(t[1].sequence.major,
@@ -879,7 +881,7 @@ class VirtualNetworkST(DictST):
             pass
         return (vn_analyzer, ip_analyzer)
     # end get_analyzer_vn_and_ip
-    
+
     def process_analyzer(self, action):
         analyzer_name = action.mirror_to.analyzer_name
         try:
@@ -1104,7 +1106,7 @@ class NetworkPolicyST(DictST):
         if name in cls._dict:
             del cls._dict[name]
     # end delete
-    
+
     def add_rules(self, entries):
         network_set = self.networks_back_ref | self.analyzer_vn_set
         if entries is None:
@@ -1123,7 +1125,7 @@ class NetworkPolicyST(DictST):
                 if addr.network_policy:
                     self.policies.add(addr.network_policy)
         # end for prule
-        
+
         network_set |= self.analyzer_vn_set
         return network_set
     #end add_rules
@@ -1170,7 +1172,7 @@ class SecurityGroupST(DictST):
             if update:
                 _vnc_lib.access_control_list_update(acl)
     # end update_acl
-                
+
     def __init__(self, name):
         self.name = name
         self.obj = _vnc_lib.security_group_read(fq_name_str=name)
@@ -1426,7 +1428,7 @@ class RoutingInstanceST(object):
 
 class ServiceChain(DictST):
     _dict = {}
-    
+
     @classmethod
     def init(cls):
         # When schema transformer restarts, read all service chains from cassandra
@@ -1447,7 +1449,7 @@ class ServiceChain(DictST):
         except pycassa.NotFoundException:
             pass
     # end init
-    
+
     def __init__(self, name, left_vn, right_vn, direction, sp_list, dp_list,
                  protocol, service_list):
         self.name = name
@@ -1494,7 +1496,7 @@ class ServiceChain(DictST):
         # end for sc
         return None
     # end find
-    
+
     @classmethod
     def find_or_create(cls, left_vn, right_vn, direction, sp_list, dp_list,
                        protocol, service_list):
@@ -1502,7 +1504,7 @@ class ServiceChain(DictST):
         if sc is not None:
             sc.present_stale = False
             return sc
-        
+
         name = str(uuid.uuid4())
         sc = ServiceChain(name, left_vn, right_vn, direction, sp_list,
                           dp_list, protocol, service_list)
@@ -1793,7 +1795,7 @@ class ServiceChain(DictST):
         except pycassa.NotFoundException:
             pass
     # end delete
-    
+
     def build_introspect(self):
         sc = sandesh.ServiceChain(sc_name=self.name)
         sc.left_virtual_network = self.left_vn
@@ -1812,7 +1814,7 @@ class ServiceChain(DictST):
         sc.created = self.created
         return sc
     # end build_introspect
-    
+
 # end ServiceChain
 
 
@@ -2310,20 +2312,20 @@ class VirtualMachineInterfaceST(DictST):
         self.instance_ip_set = set()
     # end __init__
     @classmethod
-    
+
     def delete(cls, name):
         if name in cls._dict:
             del cls._dict[name]
     # end delete
-    
+
     def add_instance_ip(self, ip_name):
         self.instance_ip_set.add(ip_name)
     # end add_instance_ip
-    
+
     def delete_instance_ip(self, ip_name):
         self.instance_ip_set.discard(ip_name)
     # end delete_instance_ip
-    
+
     def set_service_interface_type(self, service_interface_type):
         self.service_interface_type = service_interface_type
     # end set_service_interface_type
@@ -2331,7 +2333,7 @@ class VirtualMachineInterfaceST(DictST):
     def set_interface_mirror(self, interface_mirror):
         self.interface_mirror = interface_mirror
     # end set_interface_mirror
-    
+
     def set_virtual_network(self, vn_name):
         try:
             if_obj = _vnc_lib.virtual_machine_interface_read(
@@ -2360,7 +2362,7 @@ class VirtualMachineInterfaceST(DictST):
             if self.name in lr.interfaces:
                 lr.add_interface(self.name)
     # end set_virtual_network
-    
+
     def process_analyzer(self):
         try:
             if_obj = _vnc_lib.virtual_machine_interface_read(
