@@ -227,3 +227,17 @@ void VnUveTableBase::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e)
     return;
 }
 
+void VnUveTableBase::SendVnAclRuleCount() {
+    UveVnMap::const_iterator it = uve_vn_map_.begin();
+    while (it != uve_vn_map_.end()) {
+        VnUveEntryBase *entry = it->second.get();
+        ++it;
+        if (entry->vn()) {
+            UveVirtualNetworkAgent uve;
+            bool send = entry->FrameVnAclRuleCountMsg(entry->vn(), &uve);
+            if (send) {
+                DispatchVnMsg(uve);
+            }
+        }
+    }
+}

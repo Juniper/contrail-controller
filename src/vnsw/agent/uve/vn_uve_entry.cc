@@ -429,21 +429,6 @@ bool VnUveEntry::FrameVnStatsMsg(const VnEntry *vn,
         changed = true;
     }
 
-    int acl_rule_count;
-    if (vn->GetAcl()) {
-        acl_rule_count = vn->GetAcl()->Size();
-    } else {
-        acl_rule_count = 0;
-    }
-    /* We have not registered for ACL notification. So total_acl_rules
-     * field is updated during stats updation
-     */
-    if (UveVnAclRuleCountChanged(acl_rule_count)) {
-        uve.set_total_acl_rules(acl_rule_count);
-        uve_info_.set_total_acl_rules(acl_rule_count);
-        changed = true;
-    }
-
     if (UpdateVnFlowCount(vn, uve)) {
         changed = true;
     }
