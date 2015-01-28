@@ -182,6 +182,40 @@ void DiscoveryServiceClient::Shutdown() {
     shutdown_ = true;
 }
 
+bool DiscoveryServiceClient::ParseDiscoveryServerConfig(
+                      std::string discovery_server, uint16_t port, 
+                      ip::tcp::endpoint *dss_ep) {
+    
+    bool valid = false;
+    if (!discovery_server.empty()) {
+        
+        boost::system::error_code error;
+        dss_ep->port(port);
+        dss_ep->address(ip::address::from_string(discovery_server, error)); 
+        if (error) {
+            boost::asio::io_service io_service;
+            ip::tcp::resolver resolver(io_service);
+            stringstream ss;
+            ss << port;
+            ip::tcp::resolver::query query(discovery_server, ss.str()); 
+            ip::tcp::resolver::iterator endpoint_iter = resolver.resolve(query, error);
+            if (!error) {
+                ip::tcp::endpoint ep = *endpoint_iter++;
+                dss_ep->address(ep.address());
+                dss_ep->port(ep.port());
+                valid = true;
+            } else {
+                LOG(ERROR, " Invalid Discovery Endpoint:" << discovery_server << 
+                           " error:" << error);
+                valid = false;
+            } 
+        } else {
+            valid = true;
+        }
+    }
+    return (valid);
+}
+
 DiscoveryServiceClient::~DiscoveryServiceClient() {
     assert(shutdown_);
     work_queue_.Shutdown();

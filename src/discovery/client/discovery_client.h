@@ -114,6 +114,9 @@ public:
     void Init();
     void Shutdown();
 
+    static bool ParseDiscoveryServerConfig(std::string discovery_server, 
+                uint16_t port, boost::asio::ip::tcp::endpoint *);
+
     void Publish(std::string serviceName, std::string &msg);
     void PublishResponseHandler(std::string &msg, boost::system::error_code, 
                                 std::string serviceName, HttpConnection *);
