@@ -19,27 +19,27 @@ using namespace boost::asio;
 
 void DiscoveryAgentClient::Init(AgentParam *param) {
     param_ = param;
-    if (!agent_cfg_->agent()->discovery_server().empty()) {
-        boost::system::error_code ec;
-        ip::tcp::endpoint dss_ep;
-        dss_ep.address(
-            ip::address::from_string(agent_cfg_->agent()->discovery_server(),
-            ec));
-        uint32_t port = agent_cfg_->agent()->discovery_server_port();
-        if (!port) {
-            port = DISCOVERY_SERVER_PORT;
-        }
-        dss_ep.port(port);
- 
+    uint32_t port = agent_cfg_->agent()->discovery_server_port();
+    if (!port) {
+        port = DISCOVERY_SERVER_PORT;
+    }
+
+    ip::tcp::endpoint dss_ep;
+    DiscoveryServiceClient *ds_client = NULL;
+    if (DiscoveryServiceClient::ParseDiscoveryServerConfig(
+        agent_cfg_->agent()->discovery_server(), port, &dss_ep)) {
+
         std::string subscriber_name =
             agent_cfg_->agent()->discovery_client_name();
         DiscoveryServiceClient *ds_client = 
             (new DiscoveryServiceClient(agent_cfg_->agent()->event_manager(), 
              dss_ep, subscriber_name));
         ds_client->Init();
-
-        agent_cfg_->agent()->set_discovery_service_client(ds_client);
+    } else {
+        LOG(ERROR, "Invalid Discovery Server hostname or ip " <<
+                   agent_cfg_->agent()->discovery_server());
     }
+    agent_cfg_->agent()->set_discovery_service_client(ds_client);
 }
 
 void DiscoveryAgentClient::DiscoverController() {
