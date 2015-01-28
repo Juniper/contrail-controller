@@ -14,6 +14,7 @@
 ArpHandler::ArpHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
                        boost::asio::io_service &io)
     : ProtoHandler(agent, info, io), arp_(NULL), arp_tpa_(0) {
+        refcount_ = 0;
 }
 
 ArpHandler::~ArpHandler() {
@@ -331,4 +332,14 @@ void ArpHandler::SendArp(uint16_t op, const MacAddress &smac, in_addr_t sip,
     pkt_info_->set_len(l2_len + sizeof(ether_arp));
 
     Send(itf, vrf, AgentHdr::TX_SWITCH, PktHandler::ARP);
+}
+
+void intrusive_ptr_add_ref(const ArpHandler *p) {
+    p->refcount_++;
+}
+
+void intrusive_ptr_release(const ArpHandler *p) {
+    if (p->refcount_.fetch_and_decrement() == 1) {
+        delete p;
+    }
 }
