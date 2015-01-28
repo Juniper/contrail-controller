@@ -179,15 +179,13 @@ int main(int argc, char *argv[]) {
 
     //Register services with Discovery Service Server
     DiscoveryServiceClient *ds_client = NULL;
-    if (!options.discovery_server().empty()) {
-        tcp::endpoint dss_ep;
-        boost::system::error_code error;
-        dss_ep.address(address::from_string(options.discovery_server(), error));
-        dss_ep.port(options.discovery_port());
+    tcp::endpoint dss_ep;
+    if (DiscoveryServiceClient::ParseDiscoveryServerConfig(
+        options.discovery_server(), options.discovery_port(), &dss_ep)) {
+
         ds_client = new DiscoveryServiceClient(Dns::GetEventManager(), dss_ep,
             g_vns_constants.ModuleNames.find(Module::DNS)->second);
         ds_client->Init();
-        Dns::SetDiscoveryServiceClient(ds_client);
 
         // Publish DNServer Service
         Dns::SetSelfIp(options.host_ip());
@@ -228,7 +226,11 @@ int main(int argc, char *argv[]) {
                                    list,
                                    &sandesh_context);
         }
+    } else {
+        LOG(ERROR, "Invalid Discovery Server hostname or ip " <<
+                   options.discovery_server());
     }
+    Dns::SetDiscoveryServiceClient(ds_client);    
 
     IFMapServerParser *ifmap_parser = IFMapServerParser::GetInstance("vnc_cfg");
 
