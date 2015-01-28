@@ -118,6 +118,7 @@ def code_coverage(target, source, env):
     for test in test_suite:
         cmd = test[0].path
         logfile = open(cmd + '.log', 'w')
+        print cmd
         subprocess.call([cmd], stdout=logfile, env=ShEnv)
 
     # lcov --base-directory $ROOT -- directory . -c -o bgp_test.info
