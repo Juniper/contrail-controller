@@ -156,7 +156,8 @@ void KSync::CreateVhostIntf() {
     struct  nl_client *cl;
 
     assert((cl = nl_register_client()) != NULL);
-    assert(nl_socket(cl, NETLINK_ROUTE) > 0);
+    assert(nl_socket(cl, AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE) > 0);
+    assert(nl_connect(cl, 0, 0) == 0);
 
     struct vn_if ifm;
     struct nl_response *resp;
@@ -195,7 +196,8 @@ void KSync::UpdateVhostMac() {
     struct  nl_client *cl;
 
     assert((cl = nl_register_client()) != NULL);
-    assert(nl_socket(cl, NETLINK_ROUTE) > 0);
+    assert(nl_socket(cl,AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE) > 0);
+    assert(nl_connect(cl, 0, 0) == 0);
 
     struct vn_if ifm;
     struct nl_response *resp;
@@ -261,7 +263,8 @@ void GenericNetlinkInit() {
     int    family;
 
     assert((cl = nl_register_client()) != NULL);
-    assert(nl_socket(cl, NETLINK_GENERIC) >= 0);
+    assert(nl_socket(cl, AF_NETLINK, SOCK_DGRAM, NETLINK_GENERIC) >= 0);
+    assert(nl_connect(cl, 0, 0) == 0);
 
     family = vrouter_get_family_id(cl);
     LOG(DEBUG, "Vrouter family is " << family);
@@ -270,3 +273,49 @@ void GenericNetlinkInit() {
     return;
 }
 
+KSyncTcp::KSyncTcp(Agent *agent): KSync(agent) {
+}
+
+void KSyncTcp::InitFlowMem() {
+    flowtable_ksync_obj_.get()->MapSharedMemory();
+}
+
+void KSyncTcp::ResetVRouter() {
+    int len = 0;
+    vrouter_ops encoder;
+    encoder.set_h_op(sandesh_op::RESET);
+    uint8_t msg[KSYNC_DEFAULT_MSG_SIZE];
+    len = Encode(encoder, msg, KSYNC_DEFAULT_MSG_SIZE);
+
+    KSyncSock *sock = KSyncSock::Get(0);
+    sock->BlockingSend((char *)msg, len);
+    KSyncSock::Start(false);
+}
+
+void KSyncTcp::TcpInit() {
+    EventManager *event_mgr;
+    event_mgr = agent_->event_manager();
+    boost::system::error_code ec;
+    boost::asio::ip::address ip;
+    ip = agent_->vrouter_server_ip();
+    uint32_t port = agent_->vrouter_server_port();
+    KSyncSock::SetNetlinkFamilyId(24);
+    KSyncSockTcp::Init(event_mgr, DB::PartitionCount(), ip, port);
+
+    KSyncSock::SetAgentSandeshContext(new KSyncSandeshContext(
+                                          flowtable_ksync_obj_.get()));
+    KSyncSockTcp *sock = static_cast<KSyncSockTcp *>(KSyncSock::Get(0));
+    while (sock->connect_complete() == false) {
+        sleep(1);
+    }
+}
+
+KSyncTcp::~KSyncTcp() { }
+
+void KSyncTcp::Init(bool create_vhost) {
+    TcpInit();
+    InitFlowMem();
+    ResetVRouter();
+    interface_ksync_obj_.get()->Init();
+    flowtable_ksync_obj_.get()->Init();
+}

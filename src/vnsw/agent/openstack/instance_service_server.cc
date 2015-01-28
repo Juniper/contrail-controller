@@ -589,8 +589,9 @@ void AddPortReq::HandleRequest() const {
         intf_type = CfgIntEntry::CfgIntNameSpacePort;
     }
 
-    cfg_int_data->Init(instance_uuid, vn_uuid, vm_project_uuid, tap_name, ip,
-                       ip6, mac_address, vm_name, tx_vlan_id, rx_vlan_id,
+    cfg_int_data->Init(instance_uuid, vn_uuid, vm_project_uuid,
+                       tap_name, ip, ip6, mac_address,
+                       vm_name, rx_vlan_id, tx_vlan_id,
                        intf_type, 0);
     req.data.reset(cfg_int_data);
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;

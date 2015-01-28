@@ -17,6 +17,7 @@
 #include <cfg/cfg_interface.h>
 #include <cfg/cfg_listener.h>
 #include <cmn/agent.h>
+#include <init/agent_param.h>
 #include <oper/operdb_init.h>
 #include <oper/ifmap_dependency_manager.h>
 #include <oper/route_common.h>
@@ -1546,7 +1547,7 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
 // VmInterfaceNovaData routines
 /////////////////////////////////////////////////////////////////////////////
 VmInterfaceNovaData::VmInterfaceNovaData() :
-    VmInterfaceData(NULL, NULL, INSTANCE_MSG),
+    VmInterfaceData(NULL, NULL, INSTANCE_MSG, Interface::TRANSPORT_INVALID),
     ipv4_addr_(),
     ipv6_addr_(),
     mac_addr_(),
@@ -1568,8 +1569,9 @@ VmInterfaceNovaData::VmInterfaceNovaData(const Ip4Address &ipv4_addr,
                                          uint16_t tx_vlan_id,
                                          uint16_t rx_vlan_id,
                                          VmInterface::DeviceType device_type,
-                                         VmInterface::VmiType vmi_type) :
-    VmInterfaceData(NULL, NULL, INSTANCE_MSG),
+                                         VmInterface::VmiType vmi_type,
+                                         Interface::Transport transport) :
+    VmInterfaceData(NULL, NULL, INSTANCE_MSG, transport),
     ipv4_addr_(ipv4_addr),
     ipv6_addr_(ipv6_addr),
     mac_addr_(mac_addr),
@@ -1738,6 +1740,10 @@ bool VmInterface::NeedDevice() const {
         ret = false;
 
     if (subnet_.is_unspecified() == false) {
+        ret = false;
+    }
+
+    if (transport_ != TRANSPORT_ETHERNET) {
         ret = false;
     }
 
@@ -3763,7 +3769,8 @@ void VmInterface::NovaAdd(InterfaceTable *table, const uuid &intf_uuid,
                           const string &mac, const string &vm_name,
                           const uuid &vm_project_uuid, uint16_t tx_vlan_id,
                           uint16_t rx_vlan_id, const std::string &parent,
-                          const Ip6Address &ip6) {
+                          const Ip6Address &ip6,
+                          Interface::Transport transport) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, intf_uuid,
                                      os_name));
@@ -3772,7 +3779,8 @@ void VmInterface::NovaAdd(InterfaceTable *table, const uuid &intf_uuid,
                                            nil_uuid(), vm_project_uuid, parent,
                                            tx_vlan_id, rx_vlan_id,
                                            VmInterface::VM_ON_TAP,
-                                           VmInterface::INSTANCE));
+                                           VmInterface::INSTANCE,
+                                           transport));
     table->Enqueue(&req);
 }
 

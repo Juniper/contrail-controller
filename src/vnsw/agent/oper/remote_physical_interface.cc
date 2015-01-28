@@ -113,7 +113,8 @@ InterfaceKey *RemotePhysicalInterfaceKey::Clone() const {
 RemotePhysicalInterfaceData::RemotePhysicalInterfaceData
     (Agent *agent, IFMapNode *node, const string &display_name,
      const string &vrf_name, const uuid &device_uuid) :
-    InterfaceData(agent, node), display_name_(display_name),
+    InterfaceData(agent, node, Interface::TRANSPORT_INVALID),
+    display_name_(display_name),
     device_uuid_(device_uuid) {
     RemotePhysicalPortInit(vrf_name);
 }

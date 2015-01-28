@@ -40,7 +40,7 @@ public:
 private:
     std::auto_ptr<KSync> ksync_;
     std::auto_ptr<AgentUveBase> uve_;
-    std::auto_ptr<Pkt0Interface> pkt0_;
+    std::auto_ptr<VrouterControlInterface> pkt0_;
     std::auto_ptr<AgentStatsCollector> stats_collector_;
     std::auto_ptr<FlowStatsCollector> flow_stats_collector_;
 

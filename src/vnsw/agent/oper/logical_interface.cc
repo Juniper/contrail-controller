@@ -126,7 +126,8 @@ LogicalInterfaceData::LogicalInterfaceData(Agent *agent, IFMapNode *node,
                                            const std::string &port,
                                            const boost::uuids::uuid &vif,
                                            const uuid &device_uuid) :
-    InterfaceData(agent, node), display_name_(display_name),
+    InterfaceData(agent, node, Interface::TRANSPORT_INVALID),
+    display_name_(display_name),
     physical_interface_(port), vm_interface_(vif), device_uuid_(device_uuid) {
 }
 

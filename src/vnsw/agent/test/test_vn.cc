@@ -115,6 +115,7 @@ TEST_F(CfgTest, VnBasic_1) {
     s2 = vn->ToString();
     EXPECT_TRUE(s1.compare(s2) == 0);
 
+
     // Send updated Ipam
     memset(buff, 0, 4096);
     AddXmlHdr(buff, len);
@@ -123,7 +124,7 @@ TEST_F(CfgTest, VnBasic_1) {
     AddLinkString(buff, len, "virtual-network", "vn1", "virtual-network-network-ipam", "default-network-ipam,vn1");
     AddXmlTail(buff, len);
     ApplyXmlString(buff);
-    
+
     //Mock the sandesh request, no expecatation just catch crashes.
     VnListReq *vn_list_req = new VnListReq();
     std::vector<int> result = list_of(1);

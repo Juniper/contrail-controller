@@ -5,6 +5,7 @@
 #include <io/event_manager.h>
 #include <cmn/agent_cmn.h>
 #include <cmn/agent_factory.h>
+#include <init/agent_param.h>
 #include "sandesh/sandesh_trace.h"
 #include "pkt/pkt_init.h"
 #include "pkt/pkt_handler.h"
@@ -73,6 +74,12 @@ void PktModule::CreateInterfaces() {
     if (control_interface_ == NULL)
         return;
 
+    Interface::Transport transport = Interface::TRANSPORT_ETHERNET;
+    if (agent_->vrouter_on_host_dpdk()) {
+        transport = Interface::TRANSPORT_SOCKET;
+    }
+
     PacketInterface::Create(agent_->interface_table(),
-                            control_interface_->Name());
+                            control_interface_->Name(),
+                            transport);
 }

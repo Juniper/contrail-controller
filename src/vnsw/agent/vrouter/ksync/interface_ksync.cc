@@ -69,7 +69,8 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     xconnect_(entry->xconnect_),
     no_arp_(entry->no_arp_),
     encap_type_(entry->encap_type_),
-    display_name_(entry->display_name_) {
+    display_name_(entry->display_name_),
+    transport_(entry->transport_) {
 }
 
 InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
@@ -104,7 +105,8 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     subtype_(PhysicalInterface::INVALID),
     xconnect_(NULL),
     no_arp_(false),
-    encap_type_(PhysicalInterface::ETHERNET) {
+    encap_type_(PhysicalInterface::ETHERNET),
+    transport_(Interface::TRANSPORT_INVALID) {
 
     if (intf->flow_key_nh()) {
         flow_key_nh_id_ = intf->flow_key_nh()->id();
@@ -129,6 +131,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
         const InetInterface *inet_intf =
         static_cast<const InetInterface *>(intf);
         sub_type_ = inet_intf->sub_type();
+        ip_ = inet_intf->ip_addr().to_ulong();
         if (sub_type_ == InetInterface::VHOST) {
             InterfaceKSyncEntry tmp(ksync_obj_, inet_intf->xconnect());
             xconnect_ = ksync_obj_->GetReference(&tmp);
@@ -143,6 +146,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
         encap_type_ = physical_intf->encap_type();
         no_arp_ = physical_intf->no_arp();
         display_name_ = physical_intf->display_name();
+        ip_ = physical_intf->ip_addr().to_ulong();
     }
 }
 
@@ -271,6 +275,11 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
         InetInterface *vhost = static_cast<InetInterface *>(intf);
         sub_type_ = vhost->sub_type();
 
+        if (ip_ != vhost->ip_addr().to_ulong()) {
+            ip_ = vhost->ip_addr().to_ulong();
+            ret = true;
+        }
+
         InetInterface *inet_interface = static_cast<InetInterface *>(intf);
         if (sub_type_ == InetInterface::VHOST) {
             KSyncEntryPtr xconnect = NULL;
@@ -396,6 +405,10 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
         ret = true;
     }
 
+    if (transport_ != intf->transport()) {
+        transport_ = intf->transport();
+        ret = true;
+    }
     return ret;
 }
 
@@ -417,7 +430,12 @@ KSyncEntry *InterfaceKSyncEntry::UnresolvedReference() {
     return NULL;
 }
 
-bool IsValidOsIndex(size_t os_index, Interface::Type type, uint16_t vlan_id) {
+bool IsValidOsIndex(size_t os_index, Interface::Type type, uint16_t vlan_id,
+                    Interface::Transport transport) {
+    if (transport != Interface::TRANSPORT_ETHERNET) {
+        return true;
+    }
+
     if (os_index != Interface::kInvalidIndex)
         return true;
 
@@ -434,7 +452,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     int encode_len, error;
 
     // Dont send message if interface index not known
-    if (IsValidOsIndex(os_index_, type_, rx_vlan_id_) == false) {
+    if (IsValidOsIndex(os_index_, type_, rx_vlan_id_,transport_) == false) {
         return 0;
     }
 
@@ -444,6 +462,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
     uint32_t flags = 0;
     encoder.set_h_op(op);
+
     switch (type_) {
     case Interface::VM_INTERFACE: {
         if (vmi_device_type_ == VmInterface::TOR)
@@ -559,6 +578,26 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
     encoder.set_vifr_mac(std::vector<int8_t>((const int8_t *)mac(),
                                              (const int8_t *)mac() + mac().size()));
+
+    switch(transport_) {
+    case Interface::TRANSPORT_ETHERNET: {
+        encoder.set_vifr_transport(VIF_TRANSPORT_ETH);
+        break;
+    }
+
+    case Interface::TRANSPORT_SOCKET: {
+        encoder.set_vifr_transport(VIF_TRANSPORT_SOCKET);
+        break;
+    }
+
+    case Interface::TRANSPORT_PMD: {
+        encoder.set_vifr_transport(VIF_TRANSPORT_PMD);
+        break;
+    }
+    default:
+        break;
+    }
+
     encoder.set_vifr_flags(flags);
 
     encoder.set_vifr_vrf(vrf_id_);
