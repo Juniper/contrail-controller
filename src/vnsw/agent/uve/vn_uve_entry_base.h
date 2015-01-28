@@ -41,6 +41,8 @@ public:
     const VnEntry *vn() const { return vn_; }
     void GetInStats(uint64_t *in_bytes, uint64_t *in_pkts) const;
     void GetOutStats(uint64_t *out_bytes, uint64_t *out_pkts) const;
+    bool FrameVnAclRuleCountMsg(const VnEntry *vn,
+                                UveVirtualNetworkAgent *uve);
 protected:
     bool UveVnAclRuleCountChanged(int32_t size) const;
     Agent *agent_;

@@ -41,9 +41,9 @@ public:
 
     void RegisterDBClients();
     void Shutdown(void);
+    void SendVnAclRuleCount();
 
 protected:
-    void SendVnStatsMsg(const VnEntry *vn, bool only_vrf_stats);
     virtual void Delete(const VnEntry *vn);
     VnUveEntryBase* UveEntryFromVn(const VnEntry *vn);
     //The following API is made protected for UT.
