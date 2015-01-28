@@ -22,7 +22,8 @@ using namespace boost::assign;
 DhcpHandlerBase::DhcpHandlerBase(Agent *agent, boost::shared_ptr<PktInfo> info,
                                  boost::asio::io_service &io)
         : ProtoHandler(agent, info, io), vm_itf_(NULL), vm_itf_index_(-1),
-          option_(NULL), flags_(), host_routes_level_(Invalid) {
+          option_(NULL), flags_(), dns_enable_(true),
+          host_routes_level_(Invalid) {
     ipam_type_.ipam_dns_method = "none";
 }
 
@@ -185,13 +186,25 @@ uint16_t DhcpHandlerBase::AddIpv4Option(uint32_t option, uint16_t opt_len,
     while (value.good()) {
         std::string ipstr;
         value >> ipstr;
+        if (option == DHCP_OPTION_DNS) {
+            boost::system::error_code ec;
+            uint32_t ip = Ip4Address::from_string(ipstr, ec).to_ulong();
+            if (!ec.value()) {
+                // when DNS server is present in DHCP option, disable vrouter
+                // proxying for DNS requests from VMs.
+                dns_enable_ = false;
+                if (!ip) {
+                    // Do not send the option when DNS servers have 0.0.0.0.
+                    // Set option flag here so that they are not added later
+                    set_flag(option);
+                    return opt_len - option_->GetLen() - option_->GetFixedLen();
+                }
+            }
+        }
         opt_len = AddIP(opt_len, ipstr);
     }
 
-    if (option == DHCP_OPTION_DNS) {
-        // Add DNS servers from the IPAM dns method and server config also
-        opt_len = AddDnsServers(opt_len);
-    } else if (option == DHCP_OPTION_ROUTER) {
+    if (option == DHCP_OPTION_ROUTER) {
         // Add our gw as well
         if (!config_.gw_addr.is_unspecified()) {
             opt_len = AddIP(opt_len, config_.gw_addr.to_string());
@@ -230,13 +243,23 @@ uint16_t DhcpHandlerBase::AddIpv6Option(uint32_t option, uint16_t opt_len,
     while (value.good()) {
         std::string ipstr;
         value >> ipstr;
+        if (option == DHCPV6_OPTION_DNS_SERVERS) {
+            boost::system::error_code ec;
+            Ip6Address ip = Ip6Address::from_string(ipstr, ec);
+            if (!ec.value()) {
+                // when DNS server is present in DHCP option, disable vrouter
+                // proxying for DNS requests from VMs.
+                dns_enable_ = false;
+                if (ip.is_unspecified()) {
+                    // Do not send the option when DNS servers have ::
+                    // Set option flag here so that they are not added later
+                    set_flag(option);
+                    return opt_len - option_->GetLen() - option_->GetFixedLen();
+                }
+            }
+        }
         opt_len = AddIP(opt_len, ipstr);
         if (!list) break;
-    }
-
-    if (option == DHCPV6_OPTION_DNS_SERVERS) {
-        // Add DNS servers from the IPAM dns method and server config also
-        opt_len = AddDnsServers(opt_len);
     }
 
     // check that atleast one IP address is added

@@ -19,9 +19,11 @@ OvsdbRouteData::OvsdbRouteData(const Peer *peer, uint32_t vxlan_id,
                                const Ip4Address &tor_ip,
                                const Ip4Address &router_id,
                                const std::string &tor_vrf,
-                               const std::string &dest_vn_name) :
+                               const std::string &dest_vn_name,
+                               const SecurityGroupList &sg_list) :
     AgentRouteData(false), peer_(peer), vxlan_id_(vxlan_id), tor_ip_(tor_ip),
-    tor_vrf_(tor_vrf), router_id_(router_id), dest_vn_name_(dest_vn_name) {
+    tor_vrf_(tor_vrf), router_id_(router_id), dest_vn_name_(dest_vn_name),
+    sg_list_(sg_list) {
 }
 
 OvsdbRouteData::OvsdbRouteData(const Peer *peer) :
@@ -50,9 +52,8 @@ bool OvsdbRouteData::AddChangePath(Agent *agent, AgentPath *path,
         ret = true;
     }
 
-    SecurityGroupList sg_list;
-    if (path->sg_list() != sg_list) {
-        path->set_sg_list(sg_list);
+    if (path->sg_list() != sg_list_) {
+        path->set_sg_list(sg_list_);
         ret = true;
     }
 
@@ -74,6 +75,28 @@ bool OvsdbRouteData::AddChangePath(Agent *agent, AgentPath *path,
     path->set_unresolved(false);
     if (path->ChangeNH(agent, nh) == true)
         ret = true;
+
+    return ret;
+}
+
+OvsdbRouteResyncData::OvsdbRouteResyncData(const SecurityGroupList &sg_list) :
+    AgentRouteData(false), sg_list_(sg_list) {
+}
+
+OvsdbRouteResyncData::~OvsdbRouteResyncData() {
+}
+
+std::string OvsdbRouteResyncData::ToString() const {
+    return "OVS Route Resync";
+}
+
+bool OvsdbRouteResyncData::AddChangePath(Agent *agent, AgentPath *path,
+                                         const AgentRoute *data) {
+    bool ret = false;
+    if (path->sg_list() != sg_list_) {
+        path->set_sg_list(sg_list_);
+        ret = true;
+    }
 
     return ret;
 }

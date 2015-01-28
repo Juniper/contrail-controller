@@ -767,7 +767,7 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
     }
 
     AgentPath *local_path = route->FindLocalVmPortPath();
-    const NextHop *nh = local_path->nexthop();
+    const NextHop *nh = local_path ? local_path->nexthop() : NULL;
     if (nh == NULL) {
         CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
                          "nexthop not found, ignoring request");

@@ -1889,8 +1889,14 @@ RouteFlowInfo *FlowTable::FindRouteFlowInfo(RouteFlowInfo *key) {
 // RouteFlowKey methods
 ////////////////////////////////////////////////////////////////////////////
 bool RouteFlowKey::FlowSrcMatch(const FlowEntry *flow) const {
-    if (flow->data().flow_source_vrf != vrf ||
-        flow->data().source_plen != plen ||
+    if (flow->data().flow_source_vrf != vrf)
+        return false;
+
+    if (flow->l3_flow() == false) {
+        return (flow->data().smac == mac);
+    }
+
+    if (flow->data().source_plen != plen ||
         flow->key().family != family)
         return false;
 
@@ -1900,8 +1906,6 @@ bool RouteFlowKey::FlowSrcMatch(const FlowEntry *flow) const {
     } else if (flow->key().family == Address::INET6) {
         return (Address::GetIp6SubnetAddress(flow->key().src_addr.to_v6(),
                                              flow->data().source_plen) == ip);
-    } else if (flow->key().family == Address::ENET) {
-        return (flow->data().smac == mac);
     } else {
         assert(0);
     }
@@ -1909,18 +1913,23 @@ bool RouteFlowKey::FlowSrcMatch(const FlowEntry *flow) const {
 }
 
 bool RouteFlowKey::FlowDestMatch(const FlowEntry *flow) const {
-    if (flow->data().flow_dest_vrf != vrf ||
-        flow->data().dest_plen != plen ||
+    if (flow->data().flow_dest_vrf != vrf)
+        return false;
+
+    if (flow->l3_flow() == false) {
+        return (flow->data().dmac == mac);
+    }
+
+    if (flow->data().source_plen != plen ||
         flow->key().family != family)
         return false;
+
     if (flow->key().family == Address::INET) {
         return (Address::GetIp4SubnetAddress(flow->key().dst_addr.to_v4(),
                                              flow->data().dest_plen) == ip);
     } else if (flow->key().family == Address::INET6) {
         return (Address::GetIp6SubnetAddress(flow->key().dst_addr.to_v6(),
                                              flow->data().dest_plen) == ip);
-    } else if (flow->key().family == Address::ENET) {
-        return (flow->data().dmac == mac);
     } else {
         assert(0);
     }
@@ -2366,7 +2375,6 @@ void FlowTable::ResyncRpfNH(const RouteFlowKey &key, const AgentRoute *rt) {
     while (it != fet.end()) {
         fet_it = it++;
         FlowEntry *flow = (*fet_it).get();
-        assert(flow->l3_flow_ == true);
         if (key.FlowSrcMatch(flow) == false) {
             continue;
         }
@@ -2650,6 +2658,10 @@ void FlowTable::DeleteInetRouteFlowInfo(FlowEntry *fe) {
 }
 
 void FlowTable::DeleteL2RouteFlowInfo(FlowEntry *fe) {
+    RouteFlowKey skey(fe->data().flow_source_vrf, fe->data().smac);
+    DeleteInetRouteFlowInfoInternal(fe, skey);
+    RouteFlowKey dkey(fe->data().flow_dest_vrf, fe->data().dmac);
+    DeleteInetRouteFlowInfoInternal(fe, dkey);
 }
 
 void FlowTable::DeleteRouteFlowInfo (FlowEntry *fe) {
@@ -2947,6 +2959,15 @@ void FlowTable::AddInetRouteFlowInfo (FlowEntry *fe) {
 }
 
 void FlowTable::AddL2RouteFlowInfo (FlowEntry *fe) {
+    if (fe->data().flow_source_vrf != VrfEntry::kInvalidIndex) {
+        RouteFlowKey skey(fe->data().flow_source_vrf, fe->data().smac);
+        AddInetRouteFlowInfoInternal(fe, skey);
+    }
+
+    if (fe->data().flow_dest_vrf != VrfEntry::kInvalidIndex) {
+        RouteFlowKey dkey(fe->data().flow_dest_vrf, fe->data().dmac);
+        AddInetRouteFlowInfoInternal(fe, dkey);
+    }
 }
 
 void FlowTable::AddRouteFlowInfo (FlowEntry *fe) {
@@ -3028,18 +3049,11 @@ DBTableBase::ListenerId FlowTable::nh_listener_id() {
     return nh_listener_->id();
 }
 
-// Find L2 Route for the MAC address. Bridge routes have <MAC + IP> as key.
-// Try for Bridge entry with <MAC + 0.0.0.0> first followed by <MAC + pkt-ip>
+// Find L2 Route for the MAC address.
 AgentRoute *FlowTable::GetL2Route(const VrfEntry *vrf,
-                                  const MacAddress &mac,
-                                  const IpAddress &ip_addr) {
+                                  const MacAddress &mac) {
     BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
         (vrf->GetBridgeRouteTable());
-    BridgeRouteEntry *entry = NULL;
-    entry = table->FindRoute(agent(), vrf->GetName(), mac);
-    if (entry != NULL)
-        return entry;
-
     return table->FindRoute(agent(), vrf->GetName(), mac);
 }
 

@@ -67,6 +67,14 @@ void TunnelType::DeletePriorityList() {
 // NextHop routines
 /////////////////////////////////////////////////////////////////////////////
 NextHopTable::NextHopTable(DB *db, const string &name) : AgentDBTable(db, name){
+    // nh-index 0 is reserved by vrouter. So, pre-allocate the first index so
+    // that nh added by agent use index 1 and above
+    int id = index_table_.Insert(NULL);
+    assert(id == 0);
+}
+
+NextHopTable::~NextHopTable() {
+    FreeInterfaceId(0);
 }
 
 void NextHop::SendObjectLog(AgentLogEvent::type event) const {

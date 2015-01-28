@@ -52,6 +52,7 @@ private:
     friend class VMInterfaceKSyncObject;
     boost::uuids::uuid uuid_;
     std::string vn_name_;
+    SecurityGroupList sg_list_;
     DISALLOW_COPY_AND_ASSIGN(VMInterfaceKSyncEntry);
 };
 };

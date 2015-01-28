@@ -341,7 +341,7 @@ EvpnDerivedPathData::EvpnDerivedPathData(const EvpnRouteEntry *evpn_rt) :
     std::stringstream s;
     s << evpn_rt->ToString();
     s << " ";
-    if (reference_path_)
+    if (reference_path_ && reference_path_->peer())
         s << reference_path_->peer()->GetName();
     parent_ = s.str();
 }

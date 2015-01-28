@@ -10,6 +10,7 @@
 
 #include <test/test_cmn_util.h>
 #include <pkt/test/test_pkt_util.h>
+#include <net/tunnel_encap_type.h>
 #include "test_xml.h"
 #include "test_xml_oper.h"
 #include "test_xml_validate.h"
@@ -69,6 +70,8 @@ AgentUtXmlNode *CreateNode(const string &type, const string &name,
         return new AgentUtXmlVmiVrf(name, id, node, test_case);
     if (type == "fdb" || type == "l2-route")
         return new AgentUtXmlL2Route(name, id, node, test_case);
+    if (type == "sg" || type == "securiy-group")
+        return new AgentUtXmlSg(name, id, node, test_case);
 }
 
 void AgentUtXmlOperInit(AgentUtXmlTest *test) {
@@ -98,6 +101,10 @@ void AgentUtXmlOperInit(AgentUtXmlTest *test) {
     test->AddConfigEntry("virtual-machine-interface-routing-instance",
                          CreateNode);
     test->AddConfigEntry("vmi-vrf", CreateNode);
+    test->AddConfigEntry("fdb", CreateNode);
+    test->AddConfigEntry("l2-route", CreateNode);
+    test->AddConfigEntry("sg", CreateNode);
+    test->AddConfigEntry("security-group", CreateNode);
 
     test->AddValidateEntry("virtual-network", CreateValidateNode);
     test->AddValidateEntry("vn", CreateValidateNode);
@@ -511,12 +518,25 @@ bool AgentUtXmlAcl::ReadXml() {
 
         std::string str;
         GetStringAttribute(n, "sport", &str);
-        sscanf(str.c_str(), "%d:%d", &ace.sport_begin_, &ace.sport_end_);
+        if (str.empty()) {
+            ace.sport_begin_ = 0;
+            ace.sport_end_ = 65535;
+        } else {
+            sscanf(str.c_str(), "%d:%d", &ace.sport_begin_, &ace.sport_end_);
+        }
 
         GetStringAttribute(n, "dport", &str);
-        sscanf(str.c_str(), "%d:%d", &ace.dport_begin_, &ace.dport_end_);
+        if (str.empty()) {
+            ace.dport_begin_ = 0;
+            ace.dport_end_ = 65535;
+        } else {
+            sscanf(str.c_str(), "%d:%d", &ace.dport_begin_, &ace.dport_end_);
+        }
 
-        GetStringAttribute(n, "dport", &ace.action_);
+        GetStringAttribute(n, "action", &ace.action_);
+        GetStringAttribute(n, "direction", &ace.direction_);
+        if (ace.direction_ != ">")
+            ace.direction_ = "<";
 
         ace_list_.push_back(ace);
     }
@@ -533,45 +553,62 @@ bool AgentUtXmlAcl::ToXml(xml_node *parent) {
 
     for (AceList::iterator it = ace_list_.begin(); it != ace_list_.end();
          it++) {
-        n1 = n1.append_child("acl-rule");
+        xml_node n2 = n1.append_child("acl-rule");
 
-        xml_node n2 = n1.append_child("match-condition");
-        AddXmlNodeWithValue(&n2, "protocol", "any");
+        xml_node n3 = n2.append_child("match-condition");
+        AddXmlNodeWithValue(&n3, "protocol", "any");
 
-        xml_node n3 = n2.append_child("src-address");
+        xml_node n4 = n3.append_child("src-address");
 
         Ace ace = (*it);
         if (ace.src_sg_) {
-            AddXmlNodeWithIntValue(&n3, "security-group", ace.src_sg_);
+            AddXmlNodeWithIntValue(&n4, "security-group", ace.src_sg_);
         }
 
         if (ace.src_vn_ != "") {
-            AddXmlNodeWithValue(&n3, "virtual-network", ace.src_vn_);
+            AddXmlNodeWithValue(&n4, "virtual-network", ace.src_vn_);
         }
 
         if (ace.src_ip_ != "") {
-            xml_node n4 = n3.append_child("subnet");
-            AddXmlNodeWithValue(&n4, "ip-prefix", ace.src_ip_);
-            AddXmlNodeWithIntValue(&n4, "ip-prefix-len", ace.src_ip_plen_);
+            xml_node n5 = n4.append_child("subnet");
+            AddXmlNodeWithValue(&n5, "ip-prefix", ace.src_ip_);
+            AddXmlNodeWithIntValue(&n5, "ip-prefix-len", ace.src_ip_plen_);
         }
 
-        n3 = n2.append_child("dst-address");
+        n4 = n3.append_child("dst-address");
         if (ace.dst_sg_) {
-            AddXmlNodeWithIntValue(&n3, "security-group", ace.dst_sg_);
+            AddXmlNodeWithIntValue(&n4, "security-group", ace.dst_sg_);
         }
 
         if (ace.dst_vn_ != "") {
-            AddXmlNodeWithValue(&n3, "virtual-network", ace.dst_vn_);
+            AddXmlNodeWithValue(&n4, "virtual-network", ace.dst_vn_);
         }
 
         if (ace.dst_ip_ != "") {
-            xml_node n4 = n3.append_child("subnet");
-            AddXmlNodeWithValue(&n4, "ip-prefix", ace.dst_ip_);
-            AddXmlNodeWithIntValue(&n4, "ip-prefix-len", ace.dst_ip_plen_);
+            xml_node n5 = n4.append_child("subnet");
+            AddXmlNodeWithValue(&n5, "ip-prefix", ace.dst_ip_);
+            AddXmlNodeWithIntValue(&n5, "ip-prefix-len", ace.dst_ip_plen_);
         }
 
-        n2 = n1.append_child("action_list");
-        AddXmlNodeWithValue(&n2, "simple-action", ace.action_);
+        stringstream str;
+        n4 = n3.append_child("src-port");
+        str.str("");
+        str << ace.sport_begin_;
+        AddXmlNodeWithValue(&n4, "start-port", str.str());
+        str.str("");
+        str << ace.sport_end_;
+        AddXmlNodeWithValue(&n4, "end-port", str.str());
+
+        n4 = n3.append_child("dst-port");
+        str.str("");
+        str << ace.dport_begin_;
+        AddXmlNodeWithValue(&n4, "start-port", str.str());
+        str.str("");
+        str << ace.dport_end_;
+        AddXmlNodeWithValue(&n4, "end-port", str.str());
+
+        n3 = n2.append_child("action-list");
+        AddXmlNodeWithValue(&n3, "simple-action", ace.action_);
     }
 
     AddIdPerms(&n);
@@ -586,6 +623,58 @@ void AgentUtXmlAcl::ToString(string *str) {
 
 string AgentUtXmlAcl::NodeType() {
     return "access-control-list";
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//  AgentUtXmlSg routines
+/////////////////////////////////////////////////////////////////////////////
+AgentUtXmlSg::AgentUtXmlSg(const string &name, const uuid &id,
+                           const xml_node &node,
+                           AgentUtXmlTestCase *test_case) :
+    AgentUtXmlConfig(name, id, node, test_case) {
+}
+
+AgentUtXmlSg::~AgentUtXmlSg() {
+}
+
+bool AgentUtXmlSg::ReadXml() {
+    if (AgentUtXmlConfig::ReadXml() == false)
+        return false;
+
+    GetStringAttribute(node(), "sg_id", &sg_id_);
+    GetStringAttribute(node(), "ingress", &ingress_);
+    GetStringAttribute(node(), "egress", &egress_);
+    return true;
+}
+
+bool AgentUtXmlSg::ToXml(xml_node *parent) {
+    xml_node n = AddXmlNodeWithAttr(parent, NodeType().c_str());
+    AddXmlNodeWithValue(&n, "name", name());
+    AddXmlNodeWithValue(&n, "security-group-id", sg_id_);
+    AddIdPerms(&n);
+
+    string str;
+    if (ingress_ != "") {
+        str = "ingress-access-control-list-" + ingress_;
+        LinkXmlNode(parent, NodeType(), name(), "access-control-list", str);
+    }
+
+    if (egress_ != "") {
+        str = "egress-access-control-list-" + egress_;
+        LinkXmlNode(parent, NodeType(), name(), "access-control-list", str);
+    }
+
+    return true;
+}
+
+void AgentUtXmlSg::ToString(string *str) {
+    AgentUtXmlConfig::ToString(str);
+    *str += "\n";
+    return;
+}
+
+string AgentUtXmlSg::NodeType() {
+    return "security-group";
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1075,11 +1164,16 @@ bool AgentUtXmlL2Route::ReadXml() {
         return false;
     }
 
+    GetStringAttribute(node(), "ip", &ip_);
     GetStringAttribute(node(), "vn", &vn_);
     GetUintAttribute(node(), "vxlan_id", &vxlan_id_);
     GetStringAttribute(node(), "tunnel-dest", &tunnel_dest_);
     GetStringAttribute(node(), "tunnel-type", &tunnel_type_);
-
+    GetUintAttribute(node(), "sg", &sg_id_);
+    GetUintAttribute(node(), "label", &label_);
+    if (ip_.empty()) {
+        ip_ = "0.0.0.0";
+    }
     return true;
 }
 
@@ -1098,13 +1192,40 @@ string AgentUtXmlL2Route::NodeType() {
 }
 
 bool AgentUtXmlL2Route::Run() {
+    Agent *agent = Agent::GetInstance();
     EvpnAgentRouteTable *rt_table =
         static_cast<EvpnAgentRouteTable *>
         (Agent::GetInstance()->vrf_table()->GetEvpnRouteTable(vrf_));
-    rt_table->AddRemoteVmRouteReq(NULL, vrf_,
-                                  MacAddress::FromString(mac_),
-                                  Ip4Address::from_string(ip_),
-                                  0, NULL);
+
+    SecurityGroupList sg_list;
+    if (sg_id_)
+        sg_list.push_back(sg_id_);
+
+    TunnelType::TypeBmap bmap = 0;
+    TunnelEncapType::Encap encap =
+        TunnelEncapType::TunnelEncapFromString(tunnel_type_);
+    if (encap == TunnelEncapType::MPLS_O_GRE)
+        bmap |= (1 << TunnelType::MPLS_GRE);
+    if (encap == TunnelEncapType::MPLS_O_UDP)
+        bmap |= (1 << TunnelType::MPLS_UDP);
+    if (encap == TunnelEncapType::VXLAN)
+        bmap |= (1 << TunnelType::VXLAN);
+    if (op_delete()) {
+        rt_table->DeleteReq(NULL, vrf_, MacAddress::FromString(mac_),
+                            Ip4Address::from_string(ip_), vxlan_id_);
+    } else {
+        ControllerVmRoute *data =
+            ControllerVmRoute::MakeControllerVmRoute(NULL,
+                                                     agent->fabric_vrf_name(),
+                                                     agent->router_id(), vrf_,
+                                                     Ip4Address::from_string(tunnel_dest_),
+                                                     bmap, label_, vn_, sg_list,
+                                                     PathPreference());
+        rt_table->AddRemoteVmRouteReq(NULL, vrf_,
+                                      MacAddress::FromString(mac_),
+                                      Ip4Address::from_string(ip_),
+                                      vxlan_id_, data);
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////////
