@@ -142,8 +142,19 @@ bool UnicastMacRemoteEntry::Sync(DBEntry *db_entry) {
         dest_ip_ = dest_ip;
         change = true;
     }
+
+    // Since OVSDB exports routes to evpn table check for self exported route
+    // path in the corresponding evpn route entry, instead of bridge entry
+    VrfEntry *vrf = entry->vrf();
+    EvpnAgentRouteTable *evpn_table =
+        static_cast<EvpnAgentRouteTable *>(vrf->GetEvpnRouteTable());
+    Ip4Address default_ip;
+    EvpnRouteEntry *evpn_rt = evpn_table->FindRoute(entry->mac(), default_ip,
+                                                    entry->GetActiveLabel());
+
     bool self_exported_route =
-        (entry->FindPath((Peer *)table_->client_idl()->route_peer()) != NULL);
+        (evpn_rt != NULL &&
+         evpn_rt->FindPath((Peer *)table_->client_idl()->route_peer()) != NULL);
     if (self_exported_route_ != self_exported_route) {
         self_exported_route_ = self_exported_route;
         change = true;
