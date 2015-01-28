@@ -134,6 +134,27 @@ bool VnUveEntryBase::UveVnAclRuleCountChanged(int32_t size) const {
     return false;
 }
 
+bool VnUveEntryBase::FrameVnAclRuleCountMsg(const VnEntry *vn,
+                                            UveVirtualNetworkAgent *uve) {
+    bool changed = false;
+    uve->set_name(vn->GetName());
+
+    int acl_rule_count;
+    if (vn->GetAcl()) {
+        acl_rule_count = vn->GetAcl()->Size();
+    } else {
+        acl_rule_count = 0;
+    }
+
+    if (UveVnAclRuleCountChanged(acl_rule_count)) {
+        uve->set_total_acl_rules(acl_rule_count);
+        uve_info_.set_total_acl_rules(acl_rule_count);
+        changed = true;
+    }
+
+    return changed;
+}
+
 bool VnUveEntryBase::FrameVnMsg(const VnEntry *vn, UveVirtualNetworkAgent &uve) {
     bool changed = false;
     uve.set_name(vn->GetName());
