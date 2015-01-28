@@ -572,9 +572,6 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
 
         self._vnc_lib = None
         self._openstack_drv = openstack_driver
-        # Tracks which domains/projects have been sync'd from keystone to contrail api server
-        self._vnc_domains = set()
-        self._vnc_projects = set()
         self._conn_glet = gevent.spawn(self._get_api_connection)
     # end __init__
 
@@ -597,8 +594,6 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
                         'domain', ['default-domain'])
                 project_id = vnc_lib.fq_name_to_id(
                         'project', ['default-domain', 'default-project'])
-                self._vnc_projects.add(project_id)
-                self._vnc_domains.add(domain_id)
                 break
             except requests.ConnectionError:
                 gevent.sleep(1)
@@ -659,15 +654,19 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
             # domain added via poll
             return
 
-        if id in self._vnc_domains:
+        try:
+            self._vnc_lib.domain_read(id=id)
+            # read, succeeded domain already known, done.
             return
+        except vnc_api.NoIdError:
+            # follow through, and sync domain to contrail
+            pass
 
         try:
             self._openstack_drv.sync_domain_to_vnc(id)
         except vnc_api.RefsExistError as e:
             # another api server has brought syncd it
             pass
-        self._vnc_domains.add(id)
     # end pre_domain_read
 
     def pre_project_read(self, id):
@@ -675,15 +674,19 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
             # project added via poll
             return
 
-        if id in self._vnc_projects:
+        try:
+            self._vnc_lib.project_read(id=proj_uuid)
+            # read, succeeded project already known, done.
             return
+        except vnc_api.NoIdError:
+            # follow through, and sync project to contrail
+            pass
 
         try:
             self._openstack_drv.sync_project_to_vnc(id)
         except vnc_api.RefsExistError as e:
             # another api server has brought syncd it
             pass
-        self._vnc_projects.add(id)
 
     # end pre_project_read
 
@@ -697,7 +700,6 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
         for group in sec_groups or []:
             if group['to'][2] == 'default':
                 self._vnc_lib.security_group_delete(id=group['uuid'])
-        self._vnc_projects.remove(proj_uuid)
     # end pre_project_delete
 
     def pre_virtual_network_create(self, vn_dict):
