@@ -287,19 +287,21 @@ public:
         TorAgentInit *init =
             static_cast<TorAgentInit *>(Agent::GetInstance()->agent_init());
         OvsdbClientSession *session = init->ovsdb_client()->next_session(NULL);
-        VlanPortBindingTable *table =
-            session->client_idl()->vlan_port_table();
-        VlanPortBindingEntry *entry =
-            static_cast<VlanPortBindingEntry *>(table->Next(NULL));
-        while (entry != NULL) {
-            OvsdbVlanPortBindingEntry oentry;
-            oentry.set_state(entry->StateString());
-            oentry.set_physical_port(entry->physical_port_name());
-            oentry.set_physical_device(entry->physical_device_name());
-            oentry.set_logical_switch(entry->logical_switch_name());
-            oentry.set_vlan(entry->vlan());
-            bindings.push_back(oentry);
-            entry = static_cast<VlanPortBindingEntry *>(table->Next(entry));
+        if (session->client_idl() != NULL) {
+            VlanPortBindingTable *table =
+                session->client_idl()->vlan_port_table();
+            VlanPortBindingEntry *entry =
+                static_cast<VlanPortBindingEntry *>(table->Next(NULL));
+            while (entry != NULL) {
+                OvsdbVlanPortBindingEntry oentry;
+                oentry.set_state(entry->StateString());
+                oentry.set_physical_port(entry->physical_port_name());
+                oentry.set_physical_device(entry->physical_device_name());
+                oentry.set_logical_switch(entry->logical_switch_name());
+                oentry.set_vlan(entry->vlan());
+                bindings.push_back(oentry);
+                entry = static_cast<VlanPortBindingEntry *>(table->Next(entry));
+            }
         }
         resp_->set_bindings(bindings);
         SendResponse();

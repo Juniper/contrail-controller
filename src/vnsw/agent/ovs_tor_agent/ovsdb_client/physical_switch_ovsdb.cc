@@ -69,7 +69,6 @@ PhysicalSwitchTable::PhysicalSwitchTable(OvsdbClientIdl *idl) :
 }
 
 PhysicalSwitchTable::~PhysicalSwitchTable() {
-    client_idl_->UnRegister(OvsdbClientIdl::OVSDB_PHYSICAL_SWITCH);
 }
 
 void PhysicalSwitchTable::Notify(OvsdbClientIdl::Op op,
@@ -116,17 +115,19 @@ public:
         TorAgentInit *init =
             static_cast<TorAgentInit *>(Agent::GetInstance()->agent_init());
         OvsdbClientSession *session = init->ovsdb_client()->next_session(NULL);
-        PhysicalSwitchTable *table =
-            session->client_idl()->physical_switch_table();
-        PhysicalSwitchEntry *entry =
-            static_cast<PhysicalSwitchEntry *>(table->Next(NULL));
-        while (entry != NULL) {
-            OvsdbPhysicalSwitchEntry pentry;
-            pentry.set_state(entry->StateString());
-            pentry.set_name(entry->name());
-            pentry.set_tunnel_ip(entry->tunnel_ip().to_string());
-            pswitch.push_back(pentry);
-            entry = static_cast<PhysicalSwitchEntry *>(table->Next(entry));
+        if (session->client_idl() != NULL) {
+            PhysicalSwitchTable *table =
+                session->client_idl()->physical_switch_table();
+            PhysicalSwitchEntry *entry =
+                static_cast<PhysicalSwitchEntry *>(table->Next(NULL));
+            while (entry != NULL) {
+                OvsdbPhysicalSwitchEntry pentry;
+                pentry.set_state(entry->StateString());
+                pentry.set_name(entry->name());
+                pentry.set_tunnel_ip(entry->tunnel_ip().to_string());
+                pswitch.push_back(pentry);
+                entry = static_cast<PhysicalSwitchEntry *>(table->Next(entry));
+            }
         }
         resp_->set_pswitch(pswitch);
         SendResponse();
