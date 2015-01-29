@@ -34,6 +34,7 @@ setup(
         # Please update sandesh/common/vns.sandesh on process name change
         'console_scripts' : [
             'contrail-api = vnc_cfg_api_server.vnc_cfg_api_server:server_main',
+            'contrail-db-check = vnc_cfg_api_server.db_manage:db_check',
         ],
     },
     cmdclass={

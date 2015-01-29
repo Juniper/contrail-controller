@@ -1,0 +1,262 @@
+#
+# Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+#
+"""
+Provides utility routines for modules in api-server
+"""
+import sys
+import argparse
+import ConfigParser
+from pysandesh.sandesh_base import Sandesh
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+
+_WEB_HOST = '0.0.0.0'
+_WEB_PORT = 8082
+_ADMIN_PORT = 8095
+
+def parse_args(args_str):
+    args_obj = None
+    # Source any specified config/ini file
+    # Turn off help, so we print all options in response to -h
+    conf_parser = argparse.ArgumentParser(add_help=False)
+
+    conf_parser.add_argument("-c", "--conf_file", action='append',
+                             help="Specify config file", metavar="FILE")
+    args, remaining_argv = conf_parser.parse_known_args(args_str.split())
+
+    defaults = {
+        'reset_config': False,
+        'wipe_config': False,
+        'listen_ip_addr': _WEB_HOST,
+        'listen_port': _WEB_PORT,
+        'admin_port': _ADMIN_PORT,
+        'ifmap_server_ip': '127.0.0.1',
+        'ifmap_server_port': "8443",
+        'collectors': None,
+        'http_server_port': '8084',
+        'log_local': True,
+        'log_level': SandeshLevel.SYS_NOTICE,
+        'log_category': '',
+        'log_file': Sandesh._DEFAULT_LOG_FILE,
+        'trace_file': '/var/log/contrail/vnc_openstack.err',
+        'use_syslog': False,
+        'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
+        'logging_level': 'WARN',
+        'logging_conf': '',
+        'multi_tenancy': True,
+        'disc_server_ip': None,
+        'disc_server_port': '5998',
+        'zk_server_ip': '127.0.0.1:2181',
+        'worker_id': '0',
+        'rabbit_server': 'localhost',
+        'rabbit_port': '5672',
+        'rabbit_user': 'guest',
+        'rabbit_password': 'guest',
+        'rabbit_vhost': None,
+        'rabbit_max_pending_updates': '4096',
+        'cluster_id': '',
+    }
+    # ssl options
+    secopts = {
+        'use_certs': False,
+        'keyfile': '',
+        'certfile': '',
+        'ca_certs': '',
+        'ifmap_certauth_port': "8444",
+    }
+    # keystone options
+    ksopts = {
+        'auth_host': '127.0.0.1',
+        'auth_port': '35357',
+        'auth_protocol': 'http',
+        'admin_user': '',
+        'admin_password': '',
+        'admin_tenant_name': '',
+        'insecure': True
+    }
+
+    config = None
+    if args.conf_file:
+        config = ConfigParser.SafeConfigParser({'admin_token': None})
+        config.read(args.conf_file)
+        defaults.update(dict(config.items("DEFAULTS")))
+        if 'multi_tenancy' in config.options('DEFAULTS'):
+            defaults['multi_tenancy'] = config.getboolean(
+                'DEFAULTS', 'multi_tenancy')
+        if 'SECURITY' in config.sections() and\
+                'use_certs' in config.options('SECURITY'):
+            if config.getboolean('SECURITY', 'use_certs'):
+                secopts.update(dict(config.items("SECURITY")))
+        if 'KEYSTONE' in config.sections():
+            ksopts.update(dict(config.items("KEYSTONE")))
+        if 'QUOTA' in config.sections():
+            for (k, v) in config.items("QUOTA"):
+                try:
+                    if str(k) != 'admin_token':
+                        QuotaHelper.default_quota[str(k)] = int(v)
+                except ValueError:
+                    pass
+        if 'default_encoding' in config.options('DEFAULTS'):
+            default_encoding = config.get('DEFAULTS', 'default_encoding')
+            gen.resource_xsd.ExternalEncoding = default_encoding
+
+    # Override with CLI options
+    # Don't surpress add_help here so it will handle -h
+    parser = argparse.ArgumentParser(
+        # Inherit options from config_parser
+        parents=[conf_parser],
+        # print script description with -h/--help
+        description=__doc__,
+        # Don't mess with format of description
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    defaults.update(secopts)
+    defaults.update(ksopts)
+    parser.set_defaults(**defaults)
+
+    parser.add_argument(
+        "--ifmap_server_ip", help="IP address of ifmap server")
+    parser.add_argument(
+        "--ifmap_server_port", help="Port of ifmap server")
+
+    # TODO should be from certificate
+    parser.add_argument(
+        "--ifmap_username",
+        help="Username known to ifmap server")
+    parser.add_argument(
+        "--ifmap_password",
+        help="Password known to ifmap server")
+    parser.add_argument(
+        "--cassandra_server_list",
+        help="List of cassandra servers in IP Address:Port format",
+        nargs='+')
+    parser.add_argument(
+        "--redis_server_ip",
+        help="IP address of redis server")
+    parser.add_argument(
+        "--redis_server_port",
+        help="Port of redis server")
+    parser.add_argument(
+        "--auth", choices=['keystone'],
+        help="Type of authentication for user-requests")
+    parser.add_argument(
+        "--reset_config", action="store_true",
+        help="Warning! Destroy previous configuration and start clean")
+    parser.add_argument(
+        "--wipe_config", action="store_true",
+        help="Warning! Destroy previous configuration")
+    parser.add_argument(
+        "--listen_ip_addr",
+        help="IP address to provide service on, default %s" % (_WEB_HOST))
+    parser.add_argument(
+        "--listen_port",
+        help="Port to provide service on, default %s" % (_WEB_PORT))
+    parser.add_argument(
+        "--admin_port",
+        help="Port with local auth for admin access, default %s"
+              % (_ADMIN_PORT))
+    parser.add_argument(
+        "--collectors",
+        help="List of VNC collectors in ip:port format",
+        nargs="+")
+    parser.add_argument(
+        "--http_server_port",
+        help="Port of local HTTP server")
+    parser.add_argument(
+        "--ifmap_server_loc",
+        help="Location of IFMAP server")
+    parser.add_argument(
+        "--log_local", action="store_true",
+        help="Enable local logging of sandesh messages")
+    parser.add_argument(
+        "--log_level",
+        help="Severity level for local logging of sandesh messages")
+    parser.add_argument(
+        "--logging_level",
+        help=("Log level for python logging: DEBUG, INFO, WARN, ERROR default: %s"
+              % defaults['logging_level']))
+    parser.add_argument(
+        "--logging_conf",
+        help=("Optional logging configuration file, default: None"))
+    parser.add_argument(
+        "--log_category",
+        help="Category filter for local logging of sandesh messages")
+    parser.add_argument(
+        "--log_file",
+        help="Filename for the logs to be written to")
+    parser.add_argument(
+        "--trace_file",
+        help="Filename for the errors backtraces to be written to")
+    parser.add_argument("--use_syslog",
+        action="store_true",
+        help="Use syslog for logging")
+    parser.add_argument("--syslog_facility",
+        help="Syslog facility to receive log lines")
+    parser.add_argument(
+        "--multi_tenancy", action="store_true",
+        help="Validate resource permissions (implies token validation)")
+    parser.add_argument(
+        "--worker_id",
+        help="Worker Id")
+    parser.add_argument(
+        "--zk_server_ip",
+        help="Ip address:port of zookeeper server")
+    parser.add_argument(
+        "--rabbit_server",
+        help="Rabbitmq server address")
+    parser.add_argument(
+        "--rabbit_port",
+        help="Rabbitmq server port")
+    parser.add_argument(
+        "--rabbit_user",
+        help="Username for rabbit")
+    parser.add_argument(
+        "--rabbit_vhost",
+        help="vhost for rabbit")
+    parser.add_argument(
+        "--rabbit_password",
+        help="password for rabbit")
+    parser.add_argument(
+        "--rabbit_max_pending_updates",
+        help="Max updates before stateful changes disallowed")
+    parser.add_argument(
+        "--cluster_id",
+        help="Used for database keyspace separation")
+    args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
+    args_obj.config_sections = config
+    if type(args_obj.cassandra_server_list) is str:
+        args_obj.cassandra_server_list =\
+            args_obj.cassandra_server_list.split()
+    if type(args_obj.collectors) is str:
+        args_obj.collectors = args_obj.collectors.split()
+
+    return args_obj, remaining_argv
+# end parse_args
+
+try:
+    from termcolor import colored
+except ImportError:
+    def colored(logmsg, *args, **kwargs):
+        return logmsg
+ 
+class ColorLog(object):
+ 
+    colormap = dict(
+        debug=dict(color='green'),
+        info=dict(color='green', attrs=['bold']),
+        warn=dict(color='yellow', attrs=['bold']),
+        warning=dict(color='yellow', attrs=['bold']),
+        error=dict(color='red'),
+        critical=dict(color='red', attrs=['bold']),
+    )
+ 
+    def __init__(self, logger):
+        self._log = logger
+ 
+    def __getattr__(self, name):
+        if name in ['debug', 'info', 'warn', 'warning', 'error', 'critical']:
+            return lambda s, *args: getattr(self._log, name)(
+                colored(s, **self.colormap[name]), *args)
+ 
+        return getattr(self._log, name)
+# end ColorLog

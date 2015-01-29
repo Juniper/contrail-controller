@@ -19,6 +19,12 @@ class ServiceMonitorDB(object):
     _KEYSPACE = 'svc_monitor_keyspace'
     _SVC_SI_CF = 'service_instance_table'
 
+    @classmethod
+    def get_db_info(cls):
+        db_info = [(cls._KEYSPACE, [cls._SVC_SI_CF])]
+        return db_info
+    # end get_db_info
+
     def __init__(self, args=None):
         self._args = args
 

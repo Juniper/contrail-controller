@@ -28,6 +28,13 @@ class VncCassandraClient(VncCassandraClientGen):
     # TODO describe layout
     _OBJ_FQ_NAME_CF_NAME = 'obj_fq_name_table'
 
+    @classmethod
+    def get_db_info(cls):
+        db_info = [(cls._UUID_KEYSPACE_NAME, [cls._OBJ_UUID_CF_NAME,
+                                              cls._OBJ_FQ_NAME_CF_NAME])]
+        return db_info
+    # end get_db_info
+
     def __init__(self, server_list, reset_config, db_prefix, keyspaces, logger,
                  generate_url=None):
         super(VncCassandraClient, self).__init__()

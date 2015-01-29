@@ -17,7 +17,15 @@ from pycassa.system_manager import *
 from pycassa.util import *
 from pycassa.types import *
 
-class DiscoveryCassendraClient():
+class DiscoveryCassandraClient(object):
+    _DISCOVERY_KEYSPACE_NAME = 'DISCOVERY_SERVER'
+    _DISCOVERY_CF_NAME = 'discovery'
+
+    @classmethod
+    def get_db_info(cls):
+        db_info = [(cls._DISCOVERY_KEYSPACE_NAME, [cls._DISCOVERY_CF_NAME])]
+        return db_info
+    # end get_db_info
 
     def __init__(self, module, cass_srv_list, reset_config=False):
         self._disco_cf_name = 'discovery'

@@ -68,7 +68,9 @@ local_sources = [
            'vnc_perms.py',
            'vnc_addr_mgmt.py',
            'vnc_quota.py',
-           'provision_defaults.py'
+           'provision_defaults.py',
+           'utils.py',
+           'db_manage.py',
           ]
 
 local_sources_rules = []

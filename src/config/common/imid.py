@@ -242,3 +242,95 @@ def parse_poll_result(poll_result_str):
                 result_list.append((result_type, idents, meta))
     return result_list
 # end parse_poll_result
+
+def parse_search_result(search_result_str):
+    _XPATH_NAMESPACES = {
+        'a': _SOAP_XSD,
+        'b': _IFMAP_XSD,
+        'c': _CONTRAIL_XSD
+    }
+
+    soap_doc = etree.parse(StringIO.StringIO(search_result_str))
+    #soap_doc.write(sys.stdout, pretty_print=True)
+
+    xpath_error = '/a:Envelope/a:Body/b:response/errorResult'
+    error_results = soap_doc.xpath(xpath_error,
+                                   namespaces=_XPATH_NAMESPACES)
+
+    if error_results:
+        if error_results[0].get('errorCode') == 'InvalidSessionID':
+            raise exceptions.InvalidSessionID(etree.tostring(error_results[0]))
+        raise Exception(etree.tostring(error_results[0]))
+
+    xpath_expr = '/a:Envelope/a:Body/b:response/searchResult'
+    search_results = soap_doc.xpath(xpath_expr,
+                                  namespaces=_XPATH_NAMESPACES)
+
+    result_list = []
+    for result in search_results:
+        result_items = result.getchildren()
+        item_list = parse_result_items(result_items)
+        for item in item_list:
+            ident1 = item[0]
+            ident2 = item[1]
+            meta = item[2]
+            idents = {}
+            ident1_imid = ident1.attrib['name']
+            ident1_type = get_type_from_ifmap_id(ident1_imid)
+            idents[ident1_type] = get_fq_name_str_from_ifmap_id(
+                ident1_imid)
+            if ident2 is not None:
+                ident2_imid = ident2.attrib['name']
+                ident2_type = get_type_from_ifmap_id(ident2_imid)
+                if ident1_type == ident2_type:
+                    idents[ident1_type] = [
+                        idents[ident1_type],
+                        get_fq_name_str_from_ifmap_id(ident2_imid)]
+                else:
+                    idents[ident2_type] = get_fq_name_str_from_ifmap_id(
+                        ident2_imid)
+            result_list.append((idents, meta))
+    return result_list
+# end parse_search_result
+
+def ifmap_read(mapclient, ifmap_id, srch_meta, result_meta, field_names=None):
+    start_id = str(
+        Identity(name=ifmap_id, type='other', other_type='extended'))
+
+    def _search(start_id, match_meta=None, result_meta=None,
+                max_depth=1):
+        # set ifmap search parmeters
+        srch_params = {}
+        srch_params['max-depth'] = str(max_depth)
+        srch_params['max-size'] = '50000000'
+
+        if match_meta is not None:
+            srch_params['match-links'] = match_meta
+
+        if result_meta is not None:
+            # all => don't set result-filter, so server returns all id + meta
+            if result_meta == "all":
+                pass
+            else:
+                srch_params['result-filter'] = result_meta
+        else:
+            # default to return match_meta metadata types only
+            srch_params['result-filter'] = match_meta
+
+        srch_req = SearchRequest(mapclient.get_session_id(), start_id,
+                                 search_parameters=srch_params
+                                 )
+        result = mapclient.call('search', srch_req)
+
+        return result
+    # end _search
+
+    return _search(start_id, srch_meta, result_meta, max_depth=10)
+# end ifmap_read
+
+def ifmap_read_all(mapclient):
+    srch_meta = None
+    result_meta = 'all'
+    return ifmap_read(mapclient, 'contrail:config-root:root',
+                      srch_meta, result_meta)
+# end ifmap_read_all

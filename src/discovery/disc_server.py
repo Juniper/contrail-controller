@@ -8,7 +8,7 @@ between http/rest and database interfaces.
 """
 
 import gevent
-from disc_cassdb import DiscoveryCassendraClient
+from disc_cassdb import DiscoveryCassandraClient
 from gevent import monkey
 monkey.patch_all()
 from gevent import hub
@@ -270,7 +270,7 @@ class DiscoveryServer():
     # end
 
     def _db_connect(self, reset_config):
-        self._db_conn = DiscoveryCassendraClient("discovery", 
+        self._db_conn = DiscoveryCassandraClient("discovery",
             self._args.cassandra_server_list, reset_config)
     # end _db_connect
 
