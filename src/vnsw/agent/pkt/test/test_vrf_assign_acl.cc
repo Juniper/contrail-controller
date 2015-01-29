@@ -442,6 +442,46 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp1) {
     client->WaitForIdle();
 }
 
+//Add an VRF translate ACL to send all ssh traffic to "2.1.1.1"
+//via default-project:vn2 and also add mirror ACL for VN1
+//Verify that final action has mirror action also
+TEST_F(TestVrfAssignAclFlow, VrfAssignAclWithMirror1) {
+    AddAddressVrfAssignAcl("intf1", 1, "1.1.1.0", "2.1.1.0", 6, 1, 65535,
+                           1, 65535, "default-project:vn2:vn2", "yes");
+
+    //Leak route for 2.1.1.0 to default-project:vn1:vn1
+    Ip4Address ip1 = Ip4Address::from_string("2.1.1.0");
+    agent_->fabric_inet4_unicast_table()->
+        AddLocalVmRouteReq(agent_->local_peer(),
+                           "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
+                           "default-project:vn2", 16, SecurityGroupList(),
+                           false, PathPreference(), Ip4Address(0));
+    client->WaitForIdle();
+
+    AddMirrorAcl("Acl", 10, "default-project:vn1", "default-project:vn2", "pass",
+                 "10.1.1.1");
+    AddLink("virtual-network", "default-project:vn1", "access-control-list", "Acl");
+    client->WaitForIdle();
+
+    TestFlow flow[] = {
+        {  TestFlowPkt(Address::INET, "1.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
+                       "default-project:vn1:vn1", VmPortGet(1)->id()),
+        {
+            new VerifyVn("default-project:vn1", "default-project:vn2"),
+            new VerifyAction((1 << TrafficAction::PASS) |
+                             (1 << TrafficAction::VRF_TRANSLATE) |
+                             (1 << TrafficAction::MIRROR),
+                             (1 << TrafficAction::DROP) | (1 << TrafficAction::IMPLICIT_DENY))
+        }
+        }
+    };
+    CreateFlow(flow, 1);
+
+    DelLink("virtual-network", "default-project:vn1", "access-control-list", "Acl");
+    DelAcl("Acl");
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
