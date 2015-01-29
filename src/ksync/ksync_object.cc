@@ -33,11 +33,13 @@ KSyncObjectManager *KSyncObjectManager::singleton_;
 std::auto_ptr<KSyncEntry> KSyncObjectManager::default_defer_entry_;
 bool KSyncDebug::debug_;
 
-KSyncObject::KSyncObject() : need_index_(false), index_table_() {
+KSyncObject::KSyncObject() : need_index_(false), index_table_(),
+                         delete_scheduled_(false) {
 }
 
 KSyncObject::KSyncObject(int max_index) : 
-                         need_index_(true), index_table_(max_index) {
+                         need_index_(true), index_table_(max_index),
+                         delete_scheduled_(false) {
 }
 
 KSyncObject::~KSyncObject() {
@@ -72,6 +74,9 @@ KSyncEntry *KSyncObject::Next(const KSyncEntry *entry) const {
     return NULL;
 }
 KSyncEntry *KSyncObject::CreateImpl(const KSyncEntry *key) {
+    // should not create an entry while scheduled for deletion
+    assert(delete_scheduled_ == false);
+
     KSyncEntry *entry;
     if (need_index_) {
         entry = Alloc(key, index_table_.Alloc());
@@ -200,6 +205,15 @@ void KSyncDBObject::CleanupOnDel(KSyncEntry *entry) {
         kentry->GetDBEntry()->ClearState(table_, id_);
         kentry->SetDBEntry(NULL);
     }
+
+    if (delete_scheduled()) {
+        // we are in cleanup process remove all duplicate entries
+        while (kentry->dup_entry_list_.empty() == false) {
+            // and clear db entry state
+            kentry->dup_entry_list_.front()->ClearState(table_, id_);
+            kentry->dup_entry_list_.pop_front();
+        }
+    }
 }
 
 // DBTable notification handler.
@@ -213,6 +227,11 @@ void KSyncDBObject::Notify(DBTablePartBase *partition, DBEntryBase *e) {
     DBState *state = entry->GetState(table, id_);
     KSyncDBEntry *ksync = static_cast<KSyncDBEntry *>(state);
     DBFilterResp resp = DBFilterAccept;
+
+    // cleanup is in-process, ignore All db notifications.
+    if (delete_scheduled()) {
+        return;
+    }
 
     // Trigger DB Filter callback only for ADD/CHANGE, since we need to handle
     // cleanup for delete anyways.
@@ -1169,6 +1188,44 @@ bool KSyncObjectManager::Process(KSyncObjectEvent *event) {
     case KSyncObjectEvent::UNREGISTER:
         delete event->obj_;
         break;
+    case KSyncObjectEvent::DELETE:
+        {
+            int count = 0;
+            KSyncEntry *entry;
+            if (event->ref_.get() == NULL) {
+                event->obj_->set_delete_scheduled();
+                if (event->obj_->IsEmpty()) {
+                    // trigger explicit empty table callback for client to
+                    // complete deletion of object in KSync Context.
+                    event->obj_->EmptyTable();
+                    break;
+                }
+                // get the first entry to start with
+                entry = event->obj_->Next(NULL);
+            } else {
+                entry = event->ref_.get();
+            }
+
+            while (entry != NULL) {
+                KSyncEntry *next_entry = event->obj_->Next(entry);
+                count++;
+                if (entry->IsDeleted() == false) {
+                    // trigger delete if entry is not marked delete already.
+                    event->obj_->SafeNotifyEvent(entry, KSyncEntry::DEL_REQ);
+                }
+
+                if (count == kMaxEntriesProcess && next_entry != NULL) {
+                    // update reference with which entry to start with
+                    // in next iteration.
+                    event->ref_ = next_entry;
+                    // yeild and re-enqueue event for processing later.
+                    event_queue_->Enqueue(event);
+                    return false;
+                }
+                entry = next_entry;
+            }
+            break;
+        }
     default:
         assert(0);
     }
@@ -1206,6 +1263,21 @@ KSyncObjectManager *KSyncObjectManager::Init() {
 void KSyncObjectManager::Shutdown() {
     delete singleton_;
     singleton_ = NULL;
+}
+
+// Create a KSync Object event to trigger Delete of all the KSync Entries
+// present in the given object.
+// Once the delete is scheduled new entry creation is not allowed for this
+// object and EmptyTable callback is trigger when all the entries of given
+// object are cleaned up. As part of which client can delete the object.
+//
+// This API can be used to clean up KSync objects irrespective of config
+// or oper tables
+
+void KSyncObjectManager::Delete(KSyncObject *object) {
+    KSyncObjectEvent *event = new KSyncObjectEvent(object,
+                                      KSyncObjectEvent::DELETE);
+    Enqueue(event);
 }
 
 // Create a dummy KSync Entry. This entry will all ways be in deferred state

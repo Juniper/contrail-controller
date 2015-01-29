@@ -107,7 +107,6 @@ UnicastMacLocalOvsdb::UnicastMacLocalOvsdb(OvsdbClientIdl *idl, OvsPeer *peer) :
 }
 
 UnicastMacLocalOvsdb::~UnicastMacLocalOvsdb() {
-    client_idl_->UnRegister(OvsdbClientIdl::OVSDB_UCAST_MAC_LOCAL);
 }
 
 OvsPeer *UnicastMacLocalOvsdb::peer() {
@@ -165,18 +164,20 @@ public:
         TorAgentInit *init =
             static_cast<TorAgentInit *>(Agent::GetInstance()->agent_init());
         OvsdbClientSession *session = init->ovsdb_client()->next_session(NULL);
-        UnicastMacLocalOvsdb *table =
-            session->client_idl()->unicast_mac_local_ovsdb();
-        UnicastMacLocalEntry *entry =
-            static_cast<UnicastMacLocalEntry *>(table->Next(NULL));
-        while (entry != NULL) {
-            OvsdbUnicastMacLocalEntry oentry;
-            oentry.set_state(entry->StateString());
-            oentry.set_mac(entry->mac());
-            oentry.set_logical_switch(entry->logical_switch_name());
-            oentry.set_dest_ip(entry->dest_ip());
-            macs.push_back(oentry);
-            entry = static_cast<UnicastMacLocalEntry *>(table->Next(entry));
+        if (session->client_idl() != NULL) {
+            UnicastMacLocalOvsdb *table =
+                session->client_idl()->unicast_mac_local_ovsdb();
+            UnicastMacLocalEntry *entry =
+                static_cast<UnicastMacLocalEntry *>(table->Next(NULL));
+            while (entry != NULL) {
+                OvsdbUnicastMacLocalEntry oentry;
+                oentry.set_state(entry->StateString());
+                oentry.set_mac(entry->mac());
+                oentry.set_logical_switch(entry->logical_switch_name());
+                oentry.set_dest_ip(entry->dest_ip());
+                macs.push_back(oentry);
+                entry = static_cast<UnicastMacLocalEntry *>(table->Next(entry));
+            }
         }
         resp_->set_macs(macs);
         SendResponse();
