@@ -24,9 +24,15 @@ public:
 
     bool IsActiveEntry(KSyncEntry *entry);
     KSyncEntry *FindActiveEntry(KSyncEntry *key);
-    OvsdbClientIdl *client_idl() { return client_idl_;}
+    // Trigger delete of object table
+    void DeleteTable(void);
+
+    virtual void EmptyTable(void);
+
+    OvsdbClientIdl *client_idl() { return client_idl_.get();}
+
 protected:
-    OvsdbClientIdl *client_idl_;
+    OvsdbClientIdlPtr client_idl_;
 private:
     DISALLOW_COPY_AND_ASSIGN(OvsdbObject);
 };
@@ -45,9 +51,14 @@ public:
     bool DBWalkNotify(DBTablePartBase *partition, DBEntryBase *entry);
     void DBWalkDone(DBTableBase *partition);
 
-    OvsdbClientIdl *client_idl() { return client_idl_;}
+    // Trigger delete of object table
+    void DeleteTable(void);
+
+    virtual void EmptyTable(void);
+
+    OvsdbClientIdl *client_idl() { return client_idl_.get();}
 protected:
-    OvsdbClientIdl *client_idl_;
+    OvsdbClientIdlPtr client_idl_;
 private:
     friend class OvsdbDBEntry;
     DBTableWalker::WalkId walkid_;
