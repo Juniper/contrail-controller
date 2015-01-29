@@ -249,6 +249,12 @@ bool FlowEntry::ActionRecompute() {
         action = data_.match_p.vrf_assign_acl_action |
             data_.match_p.sg_action_summary | data_.match_p.mirror_action |
             data_.match_p.out_mirror_action;
+
+        //Pick mirror action from network ACL
+        if (data_.match_p.policy_action & (1 << TrafficAction::MIRROR) ||
+            data_.match_p.out_policy_action & (1 << TrafficAction::MIRROR)) {
+            action |= (1 << TrafficAction::MIRROR);
+        }
     }
 
     // Force short flows to DROP
