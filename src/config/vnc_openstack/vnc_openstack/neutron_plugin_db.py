@@ -3456,10 +3456,6 @@ class DBInterface(object):
             self._port_check_and_add_iface_route_table(ret_port_q['fixed_ips'],
                                                        net_obj, port_obj)
 
-        # update cache on successful creation
-        tenant_id = proj_id.replace('-', '')
-        ncurports = self.port_count({'tenant_id': tenant_id})
-
         return ret_port_q
     #end port_create
 
