@@ -39,21 +39,24 @@ class PhysicalRouterConfig(object):
                     "config",
                     nsmap={"xc": "urn:ietf:params:xml:ns:netconf:base:1.0"})
                 config = etree.SubElement(add_config, "configuration")
-                config_group = etree.SubElement(config, "groups")
                 if operation:
-                    contrail_group = etree.SubElement(config_group, "name",
-                                                      operation=operation)
+                    config_group = etree.SubElement(config, "groups",
+                                                    operation=operation)
                 else:
-                    contrail_group = etree.SubElement(config_group, "name")
+                    config_group = etree.SubElement(config, "groups")
+                contrail_group = etree.SubElement(config_group, "name")
                 contrail_group.text = "__contrail__"
                 if isinstance(new_config, list):
                     for nc in new_config:
                         config_group.append(nc)
                 else:
                     config_group.append(new_config)
-                if operation != 'delete':
+                if operation:
+                    apply_groups = etree.SubElement(config, "apply-groups", operation=operation)
+                else:
                     apply_groups = etree.SubElement(config, "apply-groups")
-                    apply_groups.text = "__contrail__"
+                apply_groups.text = "__contrail__"
+                self._logger.info("\nsend netconf message: %s\n" % (etree.tostring(add_config, pretty_print=True)))
                 m.edit_config(
                     target='candidate', config=etree.tostring(add_config),
                     test_option='test-then-set',
@@ -91,28 +94,26 @@ class PhysicalRouterConfig(object):
                 etree.SubElement(if_element, "name").text = interface
         etree.SubElement(ri, "vrf-import").text = ri_name + "-import"
         etree.SubElement(ri, "vrf-export").text = ri_name + "-export"
-        rt_element = etree.SubElement(ri, "vrf-target")
-        etree.SubElement(ri, "vrf-table-label")
+        if vni is None:
+            etree.SubElement(ri, "vrf-table-label")
         ri_opt = None
-        if prefixes:
+        if prefixes and vni is None:
             ri_opt = etree.SubElement(ri, "routing-options")
             static_config = etree.SubElement(ri_opt, "static")
             for prefix in prefixes:
                 route_config = etree.SubElement(static_config, "route")
                 etree.SubElement(route_config, "name").text = prefix
                 etree.SubElement(route_config, "discard")
-                etree.SubElement(route_config, "inet.0")
             auto_export = "<auto-export><family><inet><unicast/></inet></family></auto-export>"
             ri_opt.append(etree.fromstring(auto_export))
 
-        if router_external:
+        if router_external and vni is None:
             if ri_opt is None:
                 ri_opt = etree.SubElement(ri, "routing-options")
                 static_config = etree.SubElement(ri_opt, "static")
             route_config = etree.SubElement(static_config, "route")
             etree.SubElement(route_config, "name").text = "0.0.0.0/0"
-            etree.SubElement(route_config, "next-table")
-            etree.SubElement(route_config, "inet.0")
+            etree.SubElement(route_config, "next-table").text = "inet.0"
 
         # add policies for export route targets
         ps = etree.SubElement(policy_config, "policy-statement")
@@ -123,7 +124,7 @@ class PhysicalRouterConfig(object):
         comm = etree.SubElement(then, "community")
         etree.SubElement(comm, "add")
         for route_target in export_targets:
-            etree.SubElement(comm, route_target.replace(':', '_'))
+            etree.SubElement(comm, "community_name").text = route_target.replace(':', '_') 
         etree.SubElement(then, "accept")
 
         # add policies for import route targets
@@ -145,8 +146,8 @@ class PhysicalRouterConfig(object):
         if router_external:
             forwarding_options_config = self.forwarding_options_config or etree.Element("forwarding-options")
             fo = etree.SubElement(forwarding_options_config, "family")
-            etree.SubElement(fo, "name").text= "inet"
-            f = etree.SubElement(fo, "filter")
+            inet  = etree.SubElement(fo, "inet")
+            f = etree.SubElement(inet, "filter")
             etree.SubElement(f, "input").text = "redirect_to_" + ri_name + "_vrf"
 
             firewall_config = self.firewall_config or etree.Element("firewall")
@@ -166,9 +167,17 @@ class PhysicalRouterConfig(object):
 
         # add L2 EVPN and BD config
         bd_config = None
+        interfaces_config = None
+        proto_config = None
         if vni is not None:
+            etree.SubElement(ri, "vtep-source-interface").text = "lo0.0"
+            rt_element = etree.SubElement(ri, "vrf-target")
+            #fix me, check if this is correct target value for vrf-target
+            for route_target in import_targets:
+                etree.SubElement(rt_element, "community").text = route_target
             bd_config = etree.SubElement(ri, "bridge-domains")
-            bd= etree.SubElement(bd_config, "bd-" + str(vni))
+            bd= etree.SubElement(bd_config, "domain")
+            etree.SubElement(bd, "name").text = "bd-" + str(vni)
             etree.SubElement(bd, "vlan-id").text = str(vni)
             vxlan = etree.SubElement(bd, "vxlan")
             etree.SubElement(vxlan, "vni").text = str(vni)
@@ -176,14 +185,11 @@ class PhysicalRouterConfig(object):
             for interface in interfaces:
                 if_element = etree.SubElement(bd, "interface")
                 etree.SubElement(if_element, "name").text = interface
-            irb_element = etree.SubElement(bd, "routing-interface")
-            etree.SubElement(irb_element, "name").text = "irb." + str(vni) #vni is unique, hence irb
-            irb_element = etree.SubElement(bd, "routing-interface")
+            etree.SubElement(bd, "routing-interface").text = "irb." + str(vni) #vni is unique, hence irb
             evpn_proto_config = etree.SubElement(ri, "protocols")
             evpn = etree.SubElement(evpn_proto_config, "evpn")
             etree.SubElement(evpn, "encapsulation").text = "vxlan"
             etree.SubElement(evpn, "extended-vni-all")
-            etree.Element("vtep-source-interface").text = "lo0.0"
 
             interfaces_config = self.interfaces_config or etree.Element("interfaces")
             irb_intf = etree.SubElement(interfaces_config, "interface")
@@ -196,7 +202,7 @@ class PhysicalRouterConfig(object):
                 inet = etree.SubElement(family, "inet")
                 for gateway in gateways:
                     addr = etree.SubElement(inet, "address")
-                    etree.SubElement(addr, "name").text = gateway
+                    etree.SubElement(addr, "name").text = gateway + "/24"
 
             lo_intf = etree.SubElement(interfaces_config, "interface")
             etree.SubElement(lo_intf, "name").text = "lo0"
@@ -204,21 +210,30 @@ class PhysicalRouterConfig(object):
             etree.SubElement(intf_unit, "name").text = "0"
             family = etree.SubElement(intf_unit, "family")
             inet = etree.SubElement(family, "inet")
-            addr = etree.SubElement(family, "address")
-            etree.SubElement(addr, "name").text = self.bgp_params['address']
+            addr = etree.SubElement(inet, "address")
+            etree.SubElement(addr, "name").text = self.bgp_params['address'] + "/32"
+            etree.SubElement(addr, "primary")
+            etree.SubElement(addr, "preferred")
 
             for interface in interfaces:
                 intf = etree.SubElement(interfaces_config, "interface")
-                etree.SubElement(intf, "name").text = interface
+                intfparts = interface.split(".")
+                etree.SubElement(intf, "name").text = intfparts[0] 
                 etree.SubElement(intf, "encapsulation").text = "ethernet-bridge" 
                 intf_unit = etree.SubElement(intf, "unit")
-                etree.SubElement(intf_unit, "name").text = "0"
+                etree.SubElement(intf_unit, "name").text = intfparts[1]
                 family = etree.SubElement(intf_unit, "family")
                 etree.SubElement(family, "bridge")
+
+            proto_config = self.proto_config or etree.Element("protocols")
+            mpls = etree.SubElement(proto_config, "mpls")
+            intf = etree.SubElement(mpls, "interface")
+            etree.SubElement(intf, "name").text = "all"
 
         self.forwarding_options_config = forwarding_options_config
         self.firewall_config = firewall_config
         self.policy_config = policy_config
+        self.proto_config = proto_config
         self.interfaces_config = interfaces_config
         self.route_targets |= import_targets | export_targets
         self.ri_config = ri_config
@@ -272,6 +287,7 @@ class PhysicalRouterConfig(object):
         self.policy_config = None
         self.firewall_config = None
         self.forwarding_options_config = None
+        self.proto_config = None
         self.route_targets = set()
         self.bgp_peers = {}
         self.external_peers = {}
@@ -352,6 +368,8 @@ class PhysicalRouterConfig(object):
             config_list.append(self.firewall_config)
         if self.forwarding_options_config is not None:
             config_list.append(self.forwarding_options_config)
+        if self.proto_config is not None:
+            config_list.append(self.proto_config)
         self.send_netconf(config_list)
         self.bgp_config_sent = True
     # end send_bgp_config

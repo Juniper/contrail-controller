@@ -187,14 +187,13 @@ class DeviceManager(object):
                 for vmi_id in vmi_set:
                     vmi = VirtualMachineInterfaceDM.locate(vmi_id)
                     if vmi:
-                        vn_set |= vmi.virtual_networks
+                        vn_set |= set([vmi.virtual_network])
 
             for vn_id in vn_set:
                 VirtualNetworkDM.locate(vn_id)
 
             for pr in PhysicalRouterDM.values():
                 pr.push_config()
-
         self._db_resync_done.set()
         while 1:
             self._vnc_kombu._subscribe_greenlet.join()
