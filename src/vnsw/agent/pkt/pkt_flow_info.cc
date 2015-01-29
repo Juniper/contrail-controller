@@ -58,7 +58,6 @@ void PktFlowInfo::ChangeVrf(const PktInfo *pkt, PktControlInfo *info,
                             const VrfEntry *vrf) {
     l3_flow = true;
     pkt->l3_forwarding = true;
-    info->vrf_ = vrf;
 }
 
 void PktFlowInfo::UpdateRoute(const AgentRoute **rt, const VrfEntry *vrf,
