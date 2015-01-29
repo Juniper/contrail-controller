@@ -199,9 +199,6 @@ LogicalSwitchTable::LogicalSwitchTable(OvsdbClientIdl *idl, DBTable *table) :
 }
 
 LogicalSwitchTable::~LogicalSwitchTable() {
-    client_idl_->UnRegister(OvsdbClientIdl::OVSDB_LOGICAL_SWITCH);
-    client_idl_->UnRegister(OvsdbClientIdl::OVSDB_MCAST_MAC_LOCAL);
-    client_idl_->UnRegister(OvsdbClientIdl::OVSDB_MCAST_MAC_REMOTE);
 }
 
 void LogicalSwitchTable::OvsdbNotify(OvsdbClientIdl::Op op,
@@ -349,18 +346,20 @@ public:
         TorAgentInit *init =
             static_cast<TorAgentInit *>(Agent::GetInstance()->agent_init());
         OvsdbClientSession *session = init->ovsdb_client()->next_session(NULL);
-        LogicalSwitchTable *table =
-            session->client_idl()->logical_switch_table();
-        LogicalSwitchEntry *entry =
-            static_cast<LogicalSwitchEntry *>(table->Next(NULL));
-        while (entry != NULL) {
-            OvsdbLogicalSwitchEntry lentry;
-            lentry.set_state(entry->StateString());
-            lentry.set_name(entry->name());
-            lentry.set_physical_switch(entry->device_name());
-            lentry.set_vxlan_id(entry->vxlan_id());
-            lswitch.push_back(lentry);
-            entry = static_cast<LogicalSwitchEntry *>(table->Next(entry));
+        if (session->client_idl() != NULL) {
+            LogicalSwitchTable *table =
+                session->client_idl()->logical_switch_table();
+            LogicalSwitchEntry *entry =
+                static_cast<LogicalSwitchEntry *>(table->Next(NULL));
+            while (entry != NULL) {
+                OvsdbLogicalSwitchEntry lentry;
+                lentry.set_state(entry->StateString());
+                lentry.set_name(entry->name());
+                lentry.set_physical_switch(entry->device_name());
+                lentry.set_vxlan_id(entry->vxlan_id());
+                lswitch.push_back(lentry);
+                entry = static_cast<LogicalSwitchEntry *>(table->Next(entry));
+            }
         }
         resp_->set_lswitch(lswitch);
         SendResponse();
