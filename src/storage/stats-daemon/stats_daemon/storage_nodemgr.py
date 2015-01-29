@@ -526,10 +526,12 @@ class EventManager:
         disk_list = res.splitlines()
         # osd disk list to get the mapping of osd to
         # raw disk
-        pattern = 'ceph-deploy disk list ' + \
+        # cd to /etc/ceph so that ceph-deploy command logs output to
+        # /var/log/ceph and not /root
+        pattern = 'cd /etc/ceph && ceph-deploy disk list' + \
             self._hostname
-        res1 = self.call_subprocess(pattern)
-        if res1 is None:
+        res = self.call_subprocess(pattern)
+        if res is None:
             return
         osd_list = res1.splitlines()
         # df used to get the free space of all disks
