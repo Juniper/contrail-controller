@@ -193,6 +193,9 @@ public:
 
     static void GlobalSetUp();
     void set_autonomous_system(as_t as) { autonomous_system_ = as; }
+    void set_local_autonomous_system(as_t local_as) {
+        local_autonomous_system_ = local_as;
+    }
     void set_bgp_identifier(uint32_t bgp_id) {
         Ip4Address addr(bgp_id);
         bgp_identifier_ = addr;

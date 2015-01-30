@@ -40,7 +40,7 @@ class ServiceChainMgr;
 
 class BgpServer {
 public:
-    typedef boost::function<void(as_t)> ASNUpdateCb;
+    typedef boost::function<void(as_t, as_t)> ASNUpdateCb;
     typedef boost::function<void(Ip4Address)> IdentifierUpdateCb;
     typedef boost::function<void(BgpPeer *)> VisitorFn;
     explicit BgpServer(EventManager *evm);
@@ -105,6 +105,7 @@ public:
     DB *database() { return &db_; }
     const std::string &localname() const;
     as_t autonomous_system() const { return autonomous_system_; }
+    as_t local_autonomous_system() const { return local_autonomous_system_; }
     uint32_t bgp_identifier() const { return bgp_identifier_.to_ulong(); }
     uint16_t hold_time() const { return hold_time_; }
 
@@ -131,7 +132,7 @@ public:
 
     int RegisterASNUpdateCallback(ASNUpdateCb callback);
     void UnregisterASNUpdateCallback(int listener);
-    void NotifyASNUpdate(as_t old_asn);
+    void NotifyASNUpdate(as_t old_asn, as_t old_local_asn);
     int RegisterIdentifierUpdateCallback(IdentifierUpdateCb callback);
     void UnregisterIdentifierUpdateCallback(int listener);
     void NotifyIdentifierUpdate(Ip4Address old_identifier);
@@ -150,6 +151,7 @@ private:
     // base config variables
     tbb::spin_rw_mutex rw_mutex_;
     as_t autonomous_system_;
+    as_t local_autonomous_system_;
     ASNUpdateListenersList asn_listeners_;
     boost::dynamic_bitset<> asn_bmap_;     // free list.
     Ip4Address bgp_identifier_;
