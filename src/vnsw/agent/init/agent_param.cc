@@ -484,6 +484,11 @@ void AgentParam::ParseServiceInstance() {
 
 }
 
+void AgentParam::ParseNexthopServer() {
+    GetValueFromTree<string>(nexthop_server_endpoint_,
+                             "NEXTHOP-SERVER.endpoint");
+}
+
 void AgentParam::ParseCollectorArguments
     (const boost::program_options::variables_map &var_map) {
     GetOptValue< vector<string> >(var_map, collector_server_list_,
@@ -636,6 +641,13 @@ void AgentParam::ParseServiceInstanceArguments
 
 }
 
+void AgentParam::ParseNexthopServerArguments
+    (const boost::program_options::variables_map &var_map) {
+    GetOptValue<string>(var_map, nexthop_server_endpoint_,
+                        "NEXTHOP-SERVER.endpoint");
+}
+
+
 // Initialize hypervisor mode based on system information
 // If "/proc/xen" exists it means we are running in Xen dom0
 void AgentParam::InitFromSystem() {
@@ -681,6 +693,8 @@ void AgentParam::InitFromConfig() {
     ParseSimulateEvpnTor();
     ParseServiceInstance();
     ParseAgentMode();
+    ParseNexthopServer();
+
     cout << "Config file <" << config_file_ << "> parsing completed.\n";
     return;
 }
@@ -701,6 +715,8 @@ void AgentParam::InitFromArguments() {
     ParseDhcpRelayModeArguments(var_map_);
     ParseServiceInstanceArguments(var_map_);
     ParseAgentModeArguments(var_map_);
+    ParseNexthopServerArguments(var_map_);
+
     return;
 }
 
@@ -924,6 +940,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Vmware mode                 : Esxi_Neutron");
     }
     }
+    LOG(DEBUG, "Nexthop server endpoint  : " << nexthop_server_endpoint_);
 }
 
 void AgentParam::PostValidateLogConfig() const {
@@ -977,7 +994,7 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         simulate_evpn_tor_(false), si_netns_command_(),
         si_docker_command_(), si_netns_workers_(0),
         si_netns_timeout_(0), si_haproxy_ssl_cert_path_(),
-        vmware_mode_(ESXI_NEUTRON) {
+        vmware_mode_(ESXI_NEUTRON), nexthop_server_endpoint_() {
 
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable(agent));
