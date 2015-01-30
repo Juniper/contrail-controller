@@ -7,7 +7,7 @@
 Import('BuildEnv')
 
 env = BuildEnv.Clone()
-env.CppDisableExceptions()
+env.CppEnableExceptions()
 env.Append(CPPPATH = [env['TOP']])
 
 SandeshGenFiles = env.SandeshGenCpp('io.sandesh')
@@ -27,6 +27,7 @@ libio = env.Library('io',
              'tcp_server.cc',
              'tcp_session.cc',
              'udp_server.cc',
+             'usock_server.cc',
             ])
 
 env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
