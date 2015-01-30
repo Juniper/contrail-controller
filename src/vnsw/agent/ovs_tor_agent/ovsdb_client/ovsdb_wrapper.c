@@ -583,9 +583,9 @@ ovsdb_wrapper_get_logical_binding_stats(struct ovsdb_idl_row *row,
         row ? CONTAINER_OF(row, struct vteprec_logical_binding_stats, header_) : NULL;
     if (row == NULL)
         return;
-    *in_pkts = stats->packets_from_local;
-    *in_bytes = stats->bytes_from_local;
-    *out_pkts = stats->packets_to_local;
-    *out_bytes = stats->bytes_to_local;
+    *out_pkts = stats->packets_from_local;
+    *out_bytes = stats->bytes_from_local;
+    *in_pkts = stats->packets_to_local;
+    *in_bytes = stats->bytes_to_local;
 }
 
