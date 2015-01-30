@@ -113,6 +113,9 @@ public:
         return si_haproxy_ssl_cert_path_;
     }
 
+    std::string nexthop_server_endpoint() const {
+        return nexthop_server_endpoint_;
+    }
 
     const std::string &config_file() const { return config_file_; }
     const std::string &program_name() const { return program_name_;}
@@ -249,6 +252,8 @@ private:
     void ParseSimulateEvpnTor();
     void ParseServiceInstance();
     void ParseAgentMode();
+    void ParseNexthopServer();
+
     void set_agent_mode(const std::string &mode);
 
     void ParseCollectorArguments
@@ -274,6 +279,8 @@ private:
     void ParseServiceInstanceArguments
         (const boost::program_options::variables_map &v);
     void ParseAgentModeArguments
+        (const boost::program_options::variables_map &v);
+    void ParseNexthopServerArguments
         (const boost::program_options::variables_map &v);
 
     boost::program_options::variables_map var_map_;
@@ -345,6 +352,7 @@ private:
     VmwareMode vmware_mode_;
     // List of IP addresses on the compute node.
     AddressList compute_node_address_list_;
+    std::string nexthop_server_endpoint_;
 
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
