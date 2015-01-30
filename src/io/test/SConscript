@@ -61,12 +61,19 @@ udp_io_test = env.UnitTest('udp_io_test',
 
 env.Alias('src/io:udp_io_test', udp_io_test)
 
+usock_io_test = env.UnitTest('usock_io_test',
+                             ['usock_io_test.cc'],
+                             )
+
+env.Alias('src/io:usock_io_test', usock_io_test)
+
 # netlink_test = env.Program('netlink_test', ['netlink_test.cc'])
 # env.Alias('src/io:netlink_test', netlink_test)
 
 test_suite = [
     event_manager_test,
     udp_io_test,
+    usock_io_test,
 ]
 
 flaky_test_suite = [

@@ -47,7 +47,10 @@ void DelLink(const char *node_name1, const char *name1, const char *node_name2,
 void AddNode(const char *node_name, const char *name, int id);
 void AddNode(const char *node_name, const char *name, int id, const char *attr,
              bool admin_state = true);
+void AddNode(Agent *agent, const char *node_name, const char *name, int id,
+             const char *attr, bool admin_state = true);
 void DelNode(const char *node_name, const char *name);
+void DelNode(Agent *agent, const char *node_name, const char *name);
 void IntfSyncMsg(PortInfo *input, int id);
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
                 int vm_id, int vn_id, const string &mac, uint16_t vlan,
@@ -324,7 +327,10 @@ bool FindNH(NextHopKey *key);
 NextHop *GetNH(NextHopKey *key);
 bool VmPortServiceVlanCount(int id, unsigned int count);
 void AddEncapList(const char *encap1, const char *encap2, const char *encap3);
+void AddEncapList(Agent *agent, const char *encap1, const char *encap2,
+                  const char *encap3);
 void DelEncapList();
+void DelEncapList(Agent *agent);
 void VxLanNetworkIdentifierMode(bool config);
 int MplsToVrfId(int label);
 void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *addr, 
