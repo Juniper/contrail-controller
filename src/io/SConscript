@@ -18,6 +18,11 @@ except_env.Append(CPPPATH = env['TOP_INCLUDE'] + '/thrift')
 except_env.Append(CPPPATH = [env['TOP']])
 EventManagerSrc = except_env.Object('event_manager.o', 'event_manager.cc')
 
+usock_env = BuildEnv.Clone()
+usock_env.CppEnableExceptions()
+usock_env.Append(CPPPATH = env['TOP'])
+usock_server = usock_env.Object('usock_server.o', 'usock_server.cc')
+
 libio = env.Library('io',
             SandeshGenSrcs +
             EventManagerSrc +
@@ -29,6 +34,7 @@ libio = env.Library('io',
              'tcp_server.cc',
              'tcp_session.cc',
              'udp_server.cc',
+             'usock_server',
             ])
 
 env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
