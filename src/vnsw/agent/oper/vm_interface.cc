@@ -3335,12 +3335,11 @@ void VmInterface::ServiceVlanRouteAdd(const ServiceVlan &entry) {
 
     // With IRB model, add L2 Receive route for SMAC and DMAC to ensure
     // packets from service vm go thru routing
-    Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
     BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
         (vrf_->GetBridgeRouteTable());
-    table->AddBridgeReceiveRoute(agent->local_vm_peer(), entry.vrf_->GetName(),
+    table->AddBridgeReceiveRoute(peer_.get(), entry.vrf_->GetName(),
                                  0, entry.dmac_, vn()->GetName());
-    table->AddBridgeReceiveRoute(agent->local_vm_peer(), entry.vrf_->GetName(),
+    table->AddBridgeReceiveRoute(peer_.get(), entry.vrf_->GetName(),
                                  0, entry.smac_, vn()->GetName());
     InetUnicastAgentRouteTable::AddVlanNHRoute
         (peer_.get(), entry.vrf_->GetName(), entry.addr_, 32,
@@ -3360,12 +3359,11 @@ void VmInterface::ServiceVlanRouteDel(const ServiceVlan &entry) {
         (peer_.get(), entry.vrf_->GetName(), entry.addr_, 32);
 
     // Delete the L2 Recive routes added for smac_ and dmac_
-    Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
     BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
         (entry.vrf_->GetBridgeRouteTable());
-    table->Delete(agent->local_vm_peer(), entry.vrf_->GetName(), entry.dmac_,
+    table->Delete(peer_.get(), entry.vrf_->GetName(), entry.dmac_,
                   0);
-    table->Delete(agent->local_vm_peer(), entry.vrf_->GetName(), entry.smac_,
+    table->Delete(peer_.get(), entry.vrf_->GetName(), entry.smac_,
                   0);
     entry.installed_ = false;
     return;
