@@ -116,7 +116,7 @@ class PhysicalRouterConfig(object):
             etree.SubElement(route_config, "next-table").text = "inet.0"
 
         # add policies for export route targets
-        ps = etree.SubElement(policy_config, "policy-statement", operation="replace")
+        ps = etree.SubElement(policy_config, "policy-statement")
         etree.SubElement(ps, "name").text = ri_name + "-export"
         term = etree.SubElement(ps, "term")
         etree.SubElement(term, "name").text= "t1"
@@ -128,7 +128,7 @@ class PhysicalRouterConfig(object):
         etree.SubElement(then, "accept")
 
         # add policies for import route targets
-        ps = etree.SubElement(policy_config, "policy-statement", operation="replace")
+        ps = etree.SubElement(policy_config, "policy-statement")
         etree.SubElement(ps, "name").text = ri_name + "-import"
         term = etree.SubElement(ps, "term")
         etree.SubElement(term, "name").text= "t1"
