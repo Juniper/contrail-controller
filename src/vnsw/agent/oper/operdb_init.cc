@@ -35,6 +35,7 @@
 #include <oper/loadbalancer.h>
 #include <oper/physical_device.h>
 #include <oper/physical_device_vn.h>
+#include <nexthop_server/nexthop_manager.h>
 
 using boost::assign::map_list_of;
 using boost::assign::list_of;
@@ -193,13 +194,13 @@ void OperDB::Init() {
     }
     instance_manager_->Initialize(agent_->db(), agent_->agent_signal(),
                                    netns_cmd, docker_cmd, netns_workers, netns_timeout);
+    nexthop_manager_->Initialize(agent_->db());
 }
 
 void OperDB::RegisterDBClients() {
     IFMapDependencyManager *mgr = agent_->oper_db()->dependency_manager();
     agent_->physical_device_table()->RegisterDBClients(mgr);
     agent_->interface_table()->RegisterDBClients(mgr);
-    agent_->vn_table()->RegisterDBClients(mgr);
 
     multicast_.get()->Register();
     global_vrouter_.get()->CreateDBClients();
@@ -211,7 +212,10 @@ OperDB::OperDB(Agent *agent)
               AgentObjectFactory::Create<IFMapDependencyManager>(
                   agent->db(), agent->cfg()->cfg_graph())),
           instance_manager_(
-              AgentObjectFactory::Create<InstanceManager>(agent)) {
+              AgentObjectFactory::Create<InstanceManager>(agent)),
+          nexthop_manager_(
+              AgentObjectFactory::Create<NexthopManager>(
+          agent->event_manager())) {
 }
 
 OperDB::~OperDB() {
@@ -219,6 +223,7 @@ OperDB::~OperDB() {
 
 void OperDB::Shutdown() {
     instance_manager_->Terminate();
+    nexthop_manager_->Terminate();
     dependency_manager_->Terminate();
     global_vrouter_.reset();
 

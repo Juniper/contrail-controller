@@ -42,6 +42,7 @@ cpppath = [
     'vnsw/agent/uve',
     'vnsw/agent/openstack',
     'vrouter/sandesh',
+    'vnsw/agent/nexthop_server',
 ]
 
 if sys.platform.startswith('linux'):
@@ -93,6 +94,7 @@ env.Append(LIBPATH = MapBuildDir([
     'xml',
     'xmpp',
     'third_party/bind-9.9.2-P1/lib/isc',
+    'vnsw/agent/nexthop_server',
 ]))
 
 ##########################################################################
@@ -157,7 +159,8 @@ AGENT_MULTIPATH_LIBS = [
     'cpuinfo',
     'port_ipc',
     'vnswoperdb',
-    'vnswcmn'
+    'vnswcmn',
+    'vnswnhserver'
 ]
 
 # Set LIBS environment to ensure libraries are built
@@ -304,6 +307,7 @@ subdirs = [
     'uve',
     'vgw',
     'vrouter',
+    'nexthop_server',
 ]
 
 for dir in subdirs:
