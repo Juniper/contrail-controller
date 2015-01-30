@@ -147,7 +147,7 @@ protected:
 //via default-project:vn2
 TEST_F(TestVrfAssignAclFlow, VrfAssignAcl1) {
     AddAddressVrfAssignAcl("intf1", 1, "1.1.1.0", "2.1.1.0", 6, 1, 65535,
-                           1, 65535, "default-project:vn2:vn2", "yes");
+                           1, 65535, "default-project:vn2:vn2", "true");
 
     TestFlow flow[] = {
         {  TestFlowPkt(Address::INET, "1.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
@@ -167,7 +167,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl1) {
 //via default-project:vn3
 TEST_F(TestVrfAssignAclFlow, VrfAssignAcl2) {
     AddAddressVrfAssignAcl("intf1", 1, "1.1.1.0", "2.1.1.0", 6, 1, 65535,
-                           1, 65535, "default-project:vn3:vn3", "yes");
+                           1, 65535, "default-project:vn3:vn3", "true");
     TestFlow flow[] = {
         {  TestFlowPkt(Address::INET, "1.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
                        "default-project:vn1:vn1", VmPortGet(1)->id()),
@@ -193,7 +193,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl3) {
                            "default-project:vn2", 16, SecurityGroupList(),
                            false, PathPreference(), Ip4Address(0));
     AddAddressVrfAssignAcl("intf1", 1, "1.1.1.0", "2.1.1.0", 6, 1, 65535,
-                           1, 65535, "vrf4", "yes");
+                           1, 65535, "vrf4", "true");
     TestFlow flow[] = {
         {  TestFlowPkt(Address::INET, "1.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
                 "default-project:vn1:vn1", VmPortGet(1)->id()),
@@ -217,7 +217,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl4) {
     AddAcl("Acl", 10, "default-project:vn1", "default-project:vn2", "drop");
     AddLink("virtual-network", "default-project:vn1", "access-control-list", "Acl");
     AddAddressVrfAssignAcl("intf1", 1, "1.1.1.0", "2.1.1.0", 6, 1, 65535,
-                           1, 65535, "default-project:vn2:vn2", "no");
+                           1, 65535, "default-project:vn2:vn2", "false");
     client->WaitForIdle();
     TestFlow flow[] = {
         {  TestFlowPkt(Address::INET, "1.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
@@ -246,7 +246,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl5) {
             "egress-access-control-list-Acl");
     AddLink("virtual-machine-interface", "intf1", "security-group", "sg1");
     AddAddressVrfAssignAcl("intf1", 1, "1.1.1.0", "2.1.1.0", 6, 1, 65535,
-                           1, 65535, "default-project:vn2:vn2", "yes");
+                           1, 65535, "default-project:vn2:vn2", "true");
     client->WaitForIdle();
      TestFlow flow[] = {
         {  TestFlowPkt(Address::INET, "1.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
@@ -273,7 +273,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl5) {
 //Verify that RPF information is setup properly
 TEST_F(TestVrfAssignAclFlow, VrfAssignAcl6) {
     AddAddressVrfAssignAcl("intf1", 1, "3.1.1.0", "1.1.1.0", 6, 1, 65535,
-                           1, 65535, "default-project:vn2:vn2", "no");
+                           1, 65535, "default-project:vn2:vn2", "false");
     //Remote VM IP
     Ip4Address ip = Ip4Address::from_string("3.1.1.1");
     //Add route in vn1 saying 3.1.1.1 is reachable on remote server1
@@ -439,6 +439,47 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp1) {
     DelFloatingIp("fip1");
     DelFloatingIpPool("fip-pool1");
     DeleteVmportEnv(input, 1, true);
+    DelVrf("vrf9");
+    client->WaitForIdle();
+}
+
+//Add an VRF translate ACL to send all ssh traffic to "2.1.1.1"
+//via default-project:vn2 and also add mirror ACL for VN1
+//Verify that final action has mirror action also
+TEST_F(TestVrfAssignAclFlow, VrfAssignAclWithMirror1) {
+    AddAddressVrfAssignAcl("intf1", 1, "1.1.1.0", "2.1.1.0", 6, 1, 65535,
+                           1, 65535, "default-project:vn2:vn2", "true");
+
+    //Leak route for 2.1.1.0 to default-project:vn1:vn1
+    Ip4Address ip1 = Ip4Address::from_string("2.1.1.0");
+    agent_->fabric_inet4_unicast_table()->
+        AddLocalVmRouteReq(agent_->local_peer(),
+                           "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
+                           "default-project:vn2", 16, SecurityGroupList(),
+                           false, PathPreference(), Ip4Address(0));
+    client->WaitForIdle();
+
+    AddMirrorAcl("Acl", 10, "default-project:vn1", "default-project:vn2", "pass",
+                 "10.1.1.1");
+    AddLink("virtual-network", "default-project:vn1", "access-control-list", "Acl");
+    client->WaitForIdle();
+
+    TestFlow flow[] = {
+        {  TestFlowPkt(Address::INET, "1.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
+                       "default-project:vn1:vn1", VmPortGet(1)->id()),
+        {
+            new VerifyVn("default-project:vn1", "default-project:vn2"),
+            new VerifyAction((1 << TrafficAction::PASS) |
+                             (1 << TrafficAction::VRF_TRANSLATE) |
+                             (1 << TrafficAction::MIRROR),
+                             (1 << TrafficAction::DROP) | (1 << TrafficAction::IMPLICIT_DENY))
+        }
+        }
+    };
+    CreateFlow(flow, 1);
+
+    DelLink("virtual-network", "default-project:vn1", "access-control-list", "Acl");
+    DelAcl("Acl");
     client->WaitForIdle();
 }
 
