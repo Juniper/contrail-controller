@@ -21,7 +21,8 @@ class ServiceMonitorNovaClient(object):
             '2', username=self._args.admin_user, project_id=proj_name,
             api_key=self._args.admin_password,
             region_name=self._args.region_name, service_type='compute',
-            auth_url=auth_url, insecure=self._args.auth_insecure)
+            auth_url=auth_url, insecure=self._args.auth_insecure,
+            endpoint_type='internalURL')
         return self._nova[proj_name]
 
     def _novaclient_exec(self, resource, oper, proj_name, **kwargs):
