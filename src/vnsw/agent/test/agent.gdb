@@ -52,7 +52,7 @@ end
 
 define l2_route_entry_format
     set $__rt = (BridgeRouteEntry*)((size_t)($Xnode) - (size_t)&(Route::node_))
-    set $__mac = $__rt->mac_
+    set $__mac = $__rt->mac_.addr_
     printf "%p  %02x:%02x:%02x:%02x:%02x:%02x\t\t flags=%d\n", $__rt,\
                  ($__mac.ether_addr_octet[0]), ($__mac.ether_addr_octet[1]),\
                  ($__mac.ether_addr_octet[2]), ($__mac.ether_addr_octet[3]),\
