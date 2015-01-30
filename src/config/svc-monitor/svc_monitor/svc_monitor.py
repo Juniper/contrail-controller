@@ -83,9 +83,27 @@ class SvcMonitor(object):
         "service_instance": {
             'self': [],
         },
+        "instance_ip": {
+            'self': [],
+        },
         "service_template": {
             'self': [],
-        }
+        },
+        "physical_router": {
+            'self': [],
+        },
+        "physical_interface": {
+            'self': [],
+        },
+        "logical_interface": {
+            'self': [],
+        },
+        "virtual_network": {
+            'self': [],
+        },
+        "project": {
+            'self': [],
+        },
     }
 
     def __init__(self, args=None):
@@ -150,7 +168,6 @@ class SvcMonitor(object):
         self.logger.log(msg)
 
     def _vnc_subscribe_callback(self, oper_info):
-        import pdb;pdb.set_trace()
         self._db_resync_done.wait()
         try:
             msg = "Notification Message: %s" % (pformat(oper_info))
@@ -262,12 +279,11 @@ class SvcMonitor(object):
             self._vnc_lib, self.db, self.logger,
             self.vrouter_scheduler, self._nova_client, self._args)
 
+        # TODO activate the code
         # load a loadbalancer agent
-        # TODO : activate the code 
-        # self.loadbalancer_agent = LoadbalancerAgent(self._vnc_lib, self._args)
+        # self.loadbalancer_agent = LoadbalancerAgent(self, self._vnc_lib, self._args)
 
         # Read the cassandra and populate the entry in ServiceMonitor DB
-        # TODO : activate the code 
         # self.sync_sm()
 
         # resync db
@@ -354,9 +370,57 @@ class SvcMonitor(object):
             for fq_name, uuid in si_list:
                 si = ServiceInstanceSM.locate(uuid)
 
+        ok, vn_list = self._cassandra._cassandra_virtual_network_list()
+        if not ok:
+            pass
+        else:
+            for fq_name, uuid in vn_list:
+                vn = VirtualNetworkSM.locate(uuid)
+                vmi_set |= vn.virtual_machine_interfaces
+
+        ok, ifd_list = self._cassandra._cassandra_physical_interface_list()
+        if not ok:
+            pass
+        else:
+            for fq_name, uuid in ifd_list:
+                ifd = PhysicalInterfaceSM.locate(uuid)
+
+
+        ok, ifl_list = self._cassandra._cassandra_logical_interface_list()
+        if not ok:
+            pass
+        else:
+            for fq_name, uuid in ifl_list:
+                ifl = LogicalInterfaceSM.locate(uuid)
+                if ifl.virtual_machine_interface:
+                    vmi_set.add(ifl.virtual_machine_interface)
+
+        ok, pr_list = self._cassandra._cassandra_physical_router_list()
+        if not ok:
+            pass
+        else:
+            for fq_name, uuid in pr_list:
+                pr = PhysicalRouterSM.locate(uuid)
+
+        ok, vmi_list = self._cassandra._cassandra_virtual_machine_interface_list()
+        if not ok:
+            pass
+        else:
+            for fq_name, uuid in vmi_list:
+                vmi = VirtualMachineInterfaceSM.locate(uuid)
+                if vmi.instance_ip:
+                    iip_set.add(vmi.instance_ip)
+
+        ok, project_list = self._cassandra._cassandra_project_list()
+        if not ok:
+            pass
+        else:
+            for fq_name, uuid in project_list:
+                prj = ProjectSM.locate(uuid)
+
         for vmi_id in vmi_set:
             vmi = VirtualMachineInterfaceSM.locate(vmi_id)
-            if (vmi.instance_ip):
+            if vmi.instance_ip:
                 iip_set.add(vmi.instance_ip)
 
         for iip_id in iip_set:
@@ -1015,6 +1079,7 @@ def parse_args(args_str):
     parser.add_argument("--cluster_id",
                         help="Used for database keyspace separation")
     args = parser.parse_args(remaining_argv)
+    args.config_sections = config
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
     if type(args.collectors) is str:
@@ -1032,6 +1097,8 @@ def parse_args(args_str):
 
 def run_svc_monitor(args=None):
     monitor = SvcMonitor(args)
+
+    monitor._zookeeper_client = _zookeeper_client
 
     # Retry till API server is up
     connected = False

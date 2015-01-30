@@ -8,19 +8,21 @@ from neutron.plugins.common import constants
 from config_db import *
 
 class LoadbalancerAgent(object):
-    def __init__(self, vnc_lib, args=None):
+    def __init__(self, svc_mon, vnc_lib, config_section):
         # Loadbalancer
         self._vnc_lib = vnc_lib
+        self._svc_mon = svc_mon
         self._pool_driver = {}
         self._loadbalancer_driver = {}
-        self._default_provider = self._load_driver(args)
+        self._default_provider = self._load_driver(config_section)
     # end __init__
 
-    def _load_driver(self, args):
+    def _load_driver(self, config_section):
         # TODO Load the driver fom config option
         self._loadbalancer_driver["opencontrail"] = importutils.import_object(
-            "neutron_plugin_contrail.plugins.opencontrail.loadbalancer.driver.OpencontrailLoadbalancerDriver",
-            self._vnc_lib)
+            "svc_monitor.services.loadbalancer.drivers.ha_proxy.driver.OpencontrailLoadbalancerDriver", self._svc_mon, self._vnc_lib, config_section)
+        self._loadbalancer_driver["f5"] = importutils.import_object(
+            "svc_monitor.services.loadbalancer.drivers.f5.f5_driver.OpencontrailF5LoadbalancerDriver", self._svc_mon, self._vnc_lib, config_section)
         return "opencontrail"
     # end _load_driver
 
@@ -46,64 +48,99 @@ class LoadbalancerAgent(object):
         p = self.loadbalancer_pool_get_reqdict(pool)
         driver = self._get_driver_for_pool(p['id'], p['provider'])
         try:
-            driver.create_pool(None, p)
+            if not pool.last_sent:
+                driver.create_pool(p)
+            #elif p != pool.last_sent:
+            else:
+                driver.update_pool(pool.last_sent, p)
         except Exception as ex:
             pass
+        return p
     # end loadbalancer_pool_add
 
     def loadbalancer_member_add(self, member):
         m = self.loadbalancer_member_get_reqdict(member)
         driver = self._get_driver_for_pool(m['pool_id'])
         try:
-            driver.create_member(None, m)
+            if not member.last_sent:
+                driver.create_member(m)
+            elif m != member.last_sent:
+                driver.update_member(member.last_sent, m)
         except Exception as ex:
             pass
+        return m
     # end loadbalancer_member_add
 
     def virtual_ip_add(self, vip):
         v = self.virtual_ip_get_reqdict(vip)
         driver = self._get_driver_for_pool(v['pool_id'])
         try:
-            driver.create_vip(None,v)
+            if not vip.last_sent:
+                driver.create_vip(v)
+            elif v != vip.last_sent:
+                driver.update_vip(vip.last_sent, v)
         except Exception as ex:
             pass
+        return v
     # end  virtual_ip_add
 
     def delete_virtual_ip(self, obj):
-        v = self.virtual_ip_get_reqdict(obj)
+        v = obj.last_sent
         driver = self._get_driver_for_pool(v['pool_id'])
         try:
-            driver.delete_vip(None,v)
+            driver.delete_vip(v)
         except Exception as ex:
             pass
     # end delete_virtual_ip
 
     def delete_loadbalancer_member(self, obj):
-        m = self.loadbalancer_member_get_reqdict(obj)
+        m = obj.last_sent
         driver = self._get_driver_for_pool(m['pool_id'])
         try:
-            driver.delete_member(None, m)
+            driver.delete_member(m)
         except Exception as ex:
             pass
     # end delete_loadbalancer_member
 
     def delete_loadbalancer_pool(self, obj):
-        p = self.loadbalancer_pool_get_reqdict(obj)
+        p = obj.last_sent
         driver = self._get_driver_for_pool(p['id'])
         try:
-            driver.delete_pool(None, p)
+            driver.delete_pool(p)
         except Exception as ex:
             pass
     # end delete_loadbalancer_pool
 
-    def delete_loadbalancer_healthmonitor(self, obj):
-        p = self.hm_get_reqdict(obj)
-        driver = self._get_driver_for_pool(p['id'])
+    def update_hm(self, obj):
+        hm = self.hm_get_reqdict(obj)
+        current_pools = hm['pools'] or []
+        old_pools = []
+        if obj.last_sent:
+            old_pools = hm['pools'] or []
+ 
+        set_current_pools = set()
+        set_old_pools = set()
+        for i in current_pools:
+            set_current_pools.add(i['pool_id'])
+        for i in old_pools: 
+            set_old_pools.add(i['pool_id'])
+        update_pools = set_current_pools & set_old_pools
+        delete_pools = set_old_pools - set_current_pools
+        add_pools = set_current_pools - set_old_pools
         try:
-            driver.delete_pool(None, p)
+            for pool in add_pools:
+                driver = self._get_driver_for_pool(pool)
+                driver.create_pool_health_monitor(hm, pool)
+            for pool in delete_pools:
+                driver = self._get_driver_for_pool(pool)
+                driver.delete_pool_health_monitor(hm, pool)
+            for pool in update_pools:
+                driver = self._get_driver_for_pool(pool)
+                driver.update_health_monitor(obj.last_sent, 
+                                         hm, pool)
         except Exception as ex:
             pass
-    # end delete_loadbalancer_healthmonitor
+    # end update_hm
 
     def _get_vip_pool_id(self, vip):
         pool_refs = vip.loadbalancer_pool
