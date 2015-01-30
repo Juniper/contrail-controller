@@ -1669,6 +1669,9 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
             "virtual-machine-interface", "vnet14");
     client->WaitForIdle();
 
+    const MacAddress mac("02:00:00:00:00:02");
+    EXPECT_TRUE(L2RouteFind("service-vrf1",mac));
+
     uint32_t vrf_id = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf11")->vrf_id();
     uint32_t service_vrf_id = 
         Agent::GetInstance()->vrf_table()->FindVrfFromName("service-vrf1")->vrf_id();
@@ -1771,11 +1774,17 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
     }
 
     DelLink("virtual-machine-interface-routing-instance", "ser1",
-            "routing-instance", "service-vrf1");
-    DelLink("virtual-machine-interface-routing-instance", "ser1",
             "virtual-machine-interface", "vnet13");
+    client->WaitForIdle();
+    EXPECT_TRUE(L2RouteFind("service-vrf1",mac));
+
     DelLink("virtual-machine-interface-routing-instance", "ser1",
             "virtual-machine-interface", "vnet14");
+    client->WaitForIdle();
+    EXPECT_FALSE(L2RouteFind("service-vrf1",mac));
+
+    DelLink("virtual-machine-interface-routing-instance", "ser1",
+            "routing-instance", "service-vrf1");
     DeleteVmportEnv(input2, 2, true);
     DelVrf("service-vrf1");
     client->WaitForIdle();
