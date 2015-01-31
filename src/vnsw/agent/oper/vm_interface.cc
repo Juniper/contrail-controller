@@ -652,6 +652,12 @@ static void BuildAttributes(Agent *agent, IFMapNode *node,
         data->vm_mac_ = cfg->mac_addresses().at(0);
     }
 
+    if (agent->isXenMode()) {
+        data->need_linklocal_ip_ = false;
+    }
+}
+
+static void UpdateAttributes(Agent *agent, VmInterfaceConfigData *data) {
     // Compute fabric_port_ and need_linklocal_ip_ flags
     data->fabric_port_ = false;
     data->need_linklocal_ip_ = true;
@@ -660,10 +666,6 @@ static void BuildAttributes(Agent *agent, IFMapNode *node,
         data->fabric_port_ = true;
         data->need_linklocal_ip_ = false;
     } 
-
-    if (agent->isXenMode()) {
-        data->need_linklocal_ip_ = false;
-    }
 }
 
 static void ComputeTypeInfo(Agent *agent, VmInterfaceConfigData *data,
@@ -837,6 +839,8 @@ bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req) {
             BuildResolveRoute(data, adj_node);
         }
     }
+
+    UpdateAttributes(agent_, data);
 
     // Get DHCP enable flag from subnet
     if (vn_node && data->addr_.to_ulong()) {
