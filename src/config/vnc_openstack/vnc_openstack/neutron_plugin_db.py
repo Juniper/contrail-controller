@@ -693,24 +693,44 @@ class DBInterface(object):
             return ret_list
 
         net_ids = [net_obj.uuid for net_obj in net_objs]
-        port_objs = self._virtual_machine_interface_list(back_ref_id=net_ids)
-        iip_objs = self._instance_ip_list(back_ref_id=net_ids)
-        vm_objs = self._virtual_machine_list()
+        all_port_gevent = gevent.spawn(self._virtual_machine_interface_list,
+                                       back_ref_id=net_ids)
+        port_iip_gevent = gevent.spawn(self._instance_ip_list, back_ref_id=net_ids)
+        port_vm_gevent = gevent.spawn(self._virtual_machine_list)
+        gevent.joinall([all_port_gevent, port_iip_gevent, port_vm_gevent])
 
-        return self._port_list(net_objs, port_objs, iip_objs, vm_objs)
+        all_port_objs = all_port_gevent.value
+        port_iip_objs = port_iip_gevent.value
+        port_vm_objs = port_vm_gevent.value
+
+        return self._port_list(net_objs, all_port_objs, port_iip_objs, port_vm_objs)
     #end _port_list_network
 
     # find port ids on a given project
     def _port_list_project(self, project_id, count=False):
         if self._list_optimization_enabled:
-            port_objs = self._virtual_machine_interface_list(parent_id=project_id,
-                                                             fields=['instance_ip_back_refs'])
             if count:
+                port_objs = self._virtual_machine_interface_list(parent_id=project_id)
                 return len(port_objs)
 
-            iip_objs = self._instance_ip_list()
-            vm_objs = self._virtual_machine_list()
-            return self._port_list([], port_objs, iip_objs, vm_objs)
+            # it is a list operation, not count
+            # read all VMI and IIP in detail one-shot
+            all_port_gevent = gevent.spawn(self._virtual_machine_interface_list,
+                                           parent_id=project_id)
+            port_iip_gevent = gevent.spawn(self._instance_ip_list)
+            port_vm_gevent = gevent.spawn(self._virtual_machine_list)
+            port_net_gevent = gevent.spawn(self._virtual_network_list,
+                                           parent_id=project_id,
+                                           detail=True)
+
+            gevent.joinall([all_port_gevent, port_iip_gevent, port_net_gevent, port_vm_gevent])
+
+            all_port_objs = all_port_gevent.value
+            port_iip_objs = port_iip_gevent.value
+            port_net_objs = port_net_gevent.value
+            port_vm_objs = port_vm_gevent.value
+
+            return self._port_list(port_net_objs, port_objs, iip_objs, vm_objs)
         else:
             if count:
                 ret_val = 0
@@ -3576,27 +3596,25 @@ class DBInterface(object):
                 else:
                     project_id = None
 
-                # read all VMI and IIP in detail one-shot
                 if self._list_optimization_enabled:
-                    all_port_gevent = gevent.spawn(self._virtual_machine_interface_list,
-                                                   parent_id=project_id)
+                    ret_q_ports = self._port_list_project(project_id=None)
                 else:
                     all_port_gevent = gevent.spawn(self._virtual_machine_interface_list)
-                port_iip_gevent = gevent.spawn(self._instance_ip_list)
-                port_vm_gevent = gevent.spawn(self._virtual_machine_list)
-                port_net_gevent = gevent.spawn(self._virtual_network_list,
-                                               parent_id=project_id,
-                                               detail=True)
+                    port_iip_gevent = gevent.spawn(self._instance_ip_list)
+                    port_vm_gevent = gevent.spawn(self._virtual_machine_list)
+                    port_net_gevent = gevent.spawn(self._virtual_network_list,
+                                                   parent_id=project_id,
+                                                   detail=True)
 
-                gevent.joinall([all_port_gevent, port_iip_gevent, port_net_gevent, port_vm_gevent])
+                    gevent.joinall([all_port_gevent, port_iip_gevent, port_net_gevent, port_vm_gevent])
 
-                all_port_objs = all_port_gevent.value
-                port_iip_objs = port_iip_gevent.value
-                port_net_objs = port_net_gevent.value
-                port_vm_objs = port_vm_gevent.value
+                    all_port_objs = all_port_gevent.value
+                    port_iip_objs = port_iip_gevent.value
+                    port_net_objs = port_net_gevent.value
+                    port_vm_objs = port_vm_gevent.value
 
-                ret_q_ports = self._port_list(port_net_objs, all_port_objs,
-                                              port_iip_objs, port_vm_objs)
+                    ret_q_ports = self._port_list(port_net_objs, all_port_objs,
+                                                  port_iip_objs, port_vm_objs)
 
             elif 'tenant_id' in filters:
                 all_project_ids = self._validate_project_ids(context,
