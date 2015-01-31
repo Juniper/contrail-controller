@@ -224,7 +224,7 @@ static bool IsGatewayOrServiceInterface(const NextHop *nh) {
 
     if (vmi->HasServiceVlan())
         return true;
-    if (vmi->sub_type() == VmInterface::GATEWAY)
+    if (vmi->device_type() == VmInterface::LOCAL_DEVICE)
         return true;
 
     return false;
@@ -235,7 +235,8 @@ static bool IsGatewayOrServiceInterface(const NextHop *nh) {
 // proxy_arp_ flag says VRouter should do proxy ARP
 //
 // The flags are set based on NH and Interface-type
-bool RouteKSyncEntry::BuildRouteFlags(const DBEntry *e, const MacAddress &mac) {
+bool RouteKSyncEntry::BuildArpFlags(const DBEntry *e, const AgentPath *path,
+                                    const MacAddress &mac) {
     bool ret = false;
 
     //Route flags for inet4 and inet6
@@ -299,6 +300,14 @@ bool RouteKSyncEntry::BuildRouteFlags(const DBEntry *e, const MacAddress &mac) {
             flood = rt->ipam_subnet_route();
         }
         break;
+    }
+
+    // If the route crosses a VN, we want packet to be routed. So, override
+    // the flags set above and set only Proxy flag
+    VnEntry *vn= rt->vrf()->vn();
+    if (vn == NULL || (path->dest_vn_name() != vn->GetName())) {
+        proxy_arp = true;
+        flood = false;
     }
 
     // VRouter does not honour flood/proxy_arp flags for fabric-vrf
@@ -368,7 +377,6 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
     //Bother for label for unicast and bridge routes
     if (rt_type_ != Agent::INET4_MULTICAST) {
         uint32_t old_label = label_;
-        const AgentPath *path = GetActivePath((static_cast<AgentRoute *>(e)));
 
         if (route->is_multicast()) {
             label_ = path->vxlan_id();
@@ -405,7 +413,7 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
         }
     }
 
-    if (BuildRouteFlags(e, mac_))
+    if (BuildArpFlags(e, path, mac_))
         ret = true;
 
     return ret;
@@ -631,6 +639,9 @@ KSyncEntry *RouteKSyncEntry::UnresolvedReference() {
                 //else mark dependancy on same.
                 if (!mac_route_reference->IsResolved())
                     return mac_route_reference;
+            } else {
+                // clear the mac_ to avoid failure in programming vrouter
+                mac_ = MacAddress::ZeroMac();
             }
         }
     }

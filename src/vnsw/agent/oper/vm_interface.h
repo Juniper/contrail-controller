@@ -24,20 +24,62 @@ class PathPreference;
 class LocalVmPortPeer;
 /////////////////////////////////////////////////////////////////////////////
 // Definition for VmInterface
+// Agent supports multiple type of VMInterfaces
+// - VMI for a virtual-machine spawned on KVM compute node. It will have a TAP
+//   interface associated with it. Agent also expects a INSTANCE_MSG from
+//    nova-compute/equivalent to add this port
+//    DeviceType = VM_ON_TAP, VmiType = INSTANCE
+// - VMI for a virtual-machine spawned on VMware ESXi. All virtual-machines
+//   are connected on a physical-port and VLAN is used to distinguish them
+//   DeviceType = VM_PHYSICAL_VLAN, VmiType = INTANCE, agent->hypervisor_mode = ESXi
+// - VMI for a virtual-machine spawned on VMWare VCenter . All virtual-machines
+//   are connected on a physical-port and they are classified by the smac
+//   DeviceType = VM_PHYSICAL_MAC, VmiType = INTANCE and
+//   agent hypervisor mode = VCenter
+// - VMI for service-chain virtual-machines
+// - VMI for service-chain virtual-machine spawned on KVM compute node.
+//   It will have a TAP interface associated with it. Agent also expects a
+//   INSTANCE_MSG from interface associated with it.
+//   DeviceType = VM_ON_TAP, VmiType = SERVICE_CHAIN
+// - VMI for service-instances spawned by agent itself.
+//   It will have a TAP interface associated with it. Agent also expects a
+//   INSTANCE_MSG from interface associated with it.
+//   DeviceType = VM, VmiType = SERVICE_INTANCE
+//
 /////////////////////////////////////////////////////////////////////////////
 class VmInterface : public Interface {
 public:
     static const uint32_t kInvalidVlanId = 0xFFFF;
 
     enum Configurer {
-        EXTERNAL,
+        INSTANCE_MSG,
         CONFIG
     };
 
-    enum SubType {
-        NONE,
-        TOR,
-        NOVA,
+    // Type of VMI Port
+    enum DeviceType {
+        DEVICE_TYPE_INVALID,
+        VM_ON_TAP,          // VMI on TAP/physial port interface
+                            // VMI is created based on the INSTANCE_MSG
+        VM_VLAN_ON_VMI,     // VMI on TAP port with VLAN as classifier
+                            // VMI is created based on config message
+        VM_PHYSICAL_VLAN,   // VMI classified with VLAN on a physical-port
+                            // (used in VMWare ESXi)
+                            // VMI is created based on the INSTANCE_MSG
+        VM_PHYSICAL_MAC,    // VMI classified with MAC on a physical-port
+                            // (used in VMWare VCenter)
+                            // VMI is created based on the INSTANCE_MSG
+        TOR,                // Baremetal connected to ToR
+        LOCAL_DEVICE        // VMI on a local port. Used in GATEWAY
+    };
+
+    // Type of VM on the VMI
+    enum VmiType {
+        VMI_TYPE_INVALID,
+        INSTANCE,
+        SERVICE_CHAIN,
+        SERVICE_INSTANCE,
+        BAREMETAL,
         GATEWAY
     };
 
@@ -283,7 +325,7 @@ public:
                 const std::string &vm_name,
                 const boost::uuids::uuid &vm_project_uuid, uint16_t tx_vlan_id,
                 uint16_t rx_vlan_id, Interface *parent,
-                const Ip6Address &addr6);
+                const Ip6Address &addr6, DeviceType dev_type, VmiType vmi_type);
     virtual ~VmInterface();
 
     virtual bool CmpInterface(const DBEntry &rhs) const;
@@ -295,6 +337,7 @@ public:
     std::string ToString() const;
     bool Resync(const InterfaceTable *table, const VmInterfaceData *data);
     bool OnChange(VmInterfaceData *data);
+    void PostAdd();
 
     // Accessor functions
     const VmEntry *vm() const { return vm_.get(); }
@@ -398,7 +441,8 @@ public:
     bool IsL2Active() const;
     bool IsIpv6Active() const;
     bool NeedDevice() const;
-    VmInterface::SubType sub_type() const {return sub_type_;}
+    VmInterface::DeviceType device_type() const {return device_type_;}
+    VmInterface::VmiType vmi_type() const {return vmi_type_;}
 
     // Add a vm-interface
     static void NovaAdd(InterfaceTable *table,
@@ -562,6 +606,8 @@ private:
                        const MacAddress &mac);
     void UpdateVrfAssignRule();
     void DeleteVrfAssignRule();
+    void AddL2ReceiveRoute(bool old_l2_active);
+    void DeleteL2ReceiveRoute(const VrfEntry *old_vrf, bool old_l2_active);
 
     VmEntryRef vm_;
     VnEntryRef vn_;
@@ -612,7 +658,8 @@ private:
     AclDBEntryRef vrf_assign_acl_;
     Ip4Address vm_ip_gw_addr_;
     Ip6Address vm_ip6_gw_addr_;
-    VmInterface::SubType sub_type_;
+    VmInterface::DeviceType device_type_;
+    VmInterface::VmiType vmi_type_;
     uint8_t configurer_;
     Ip4Address subnet_;
     uint8_t subnet_plen_;
@@ -652,7 +699,7 @@ struct VmInterfaceKey : public InterfaceKey {
 struct VmInterfaceData : public InterfaceData {
     enum Type {
         CONFIG,
-        NOVA,
+        INSTANCE_MSG,
         MIRROR,
         IP_ADDR,
         OS_OPER_STATE
@@ -727,8 +774,10 @@ struct VmInterfaceConfigData : public VmInterfaceData {
         local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
         mirror_direction_(Interface::UNKNOWN), sg_list_(),
         floating_ip_list_(), service_vlan_list_(), static_route_list_(),
-        allowed_address_pair_list_(), sub_type_(VmInterface::NONE),
-        parent_(""), subnet_(0), subnet_plen_(0),
+        allowed_address_pair_list_(),
+        device_type_(VmInterface::DEVICE_TYPE_INVALID),
+        vmi_type_(VmInterface::VMI_TYPE_INVALID),
+        physical_interface_(""), parent_vmi_(), subnet_(0), subnet_plen_(0),
         rx_vlan_id_(VmInterface::kInvalidVlanId),
         tx_vlan_id_(VmInterface::kInvalidVlanId) {
     }
@@ -772,8 +821,12 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     VmInterface::StaticRouteList static_route_list_;
     VmInterface::VrfAssignRuleList vrf_assign_rule_list_;
     VmInterface::AllowedAddressPairList allowed_address_pair_list_;
-    VmInterface::SubType sub_type_;
-    std::string parent_;
+    VmInterface::DeviceType device_type_;
+    VmInterface::VmiType vmi_type_;
+    // Parent physical-interface. Set only for ToR
+    std::string physical_interface_;
+    // Parent VMI. Set only for VM_VLAN_ON_VMI
+    boost::uuids::uuid parent_vmi_;
     Ip4Address subnet_;
     uint8_t subnet_plen_;
     uint16_t rx_vlan_id_;
@@ -791,7 +844,9 @@ struct VmInterfaceNovaData : public VmInterfaceData {
                         boost::uuids::uuid vm_project_uuid,
                         const std::string &parent,
                         uint16_t tx_vlan_id,
-                        uint16_t rx_vlan_id);
+                        uint16_t rx_vlan_id,
+                        VmInterface::DeviceType device_type,
+                        VmInterface::VmiType vmi_type);
     virtual ~VmInterfaceNovaData();
     virtual VmInterface *OnAdd(const InterfaceTable *table,
                                const VmInterfaceKey *key) const;
@@ -807,9 +862,11 @@ struct VmInterfaceNovaData : public VmInterfaceData {
     std::string vm_name_;
     boost::uuids::uuid vm_uuid_;
     boost::uuids::uuid vm_project_uuid_;
-    std::string parent_;
+    std::string physical_interface_;
     uint16_t tx_vlan_id_;
     uint16_t rx_vlan_id_;
+    VmInterface::DeviceType device_type_;
+    VmInterface::VmiType vmi_type_;
 };
 
 #endif // vnsw_agent_vm_interface_hpp

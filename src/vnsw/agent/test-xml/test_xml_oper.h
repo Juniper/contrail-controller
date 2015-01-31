@@ -84,6 +84,8 @@ private:
     std::string vrf_;
     std::string ip_;
     bool add_nova_;
+    uint16_t vlan_tag_;
+    std::string parent_vmi_;
 };
 
 class AgentUtXmlEthInterface : public AgentUtXmlConfig {
@@ -249,6 +251,11 @@ public:
     virtual const std::string ToString();
 private:
     const boost::uuids::uuid id_;
+    std::string active_;
+    std::string device_type_;
+    std::string vmi_type_;
+    uint16_t vlan_tag_;
+    boost::uuids::uuid vn_uuid_;
 };
 
 class AgentUtXmlEthInterfaceValidate : public AgentUtXmlValidationNode {

@@ -218,7 +218,10 @@ bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
     }
 
     if (type_ == NextHop::VRF) {
-        return vrf_id_ < entry.vrf_id_;
+        if ( vrf_id_ != entry.vrf_id_) {
+            return vrf_id_ < entry.vrf_id_;
+        }
+        return vxlan_nh_ < entry.vxlan_nh_;
     }
 
     if (type_ == NextHop::INTERFACE) {

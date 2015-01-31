@@ -249,7 +249,7 @@ public:
     };
 
     static void WaitForIdle(int wait_seconds = 30) {
-        task_util::WaitForIdle(wait_seconds);
+        task_util::WaitForIdle(wait_seconds, true);
     }
 
     void VrfReset() {vrf_notify_ = 0;};

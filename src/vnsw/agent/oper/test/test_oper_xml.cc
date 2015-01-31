@@ -44,6 +44,19 @@ TEST_F(TestVrf, vrf_1) {
     }
 }
 
+TEST_F(TestVrf, vm_sub_if) {
+    AgentUtXmlTest test("controller/src/vnsw/agent/oper/test/vmi-sub-if.xml");
+    AgentUtXmlOperInit(&test);
+    if (test.Load() == true) {
+        test.ReadXml();
+
+        string str;
+        test.ToString(&str);
+        cout << str << endl;
+        test.Run();
+    }
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);

@@ -248,7 +248,7 @@ AgentUtXmlVmInterface::AgentUtXmlVmInterface(const string &name,
                                              const uuid &id,
                                              const xml_node &node,
                                              AgentUtXmlTestCase *test_case) :
-    AgentUtXmlConfig(name, id, node, test_case) {
+    AgentUtXmlConfig(name, id, node, test_case), vlan_tag_(-1), parent_vmi_() {
 }
 
 AgentUtXmlVmInterface::~AgentUtXmlVmInterface() {
@@ -290,6 +290,14 @@ bool AgentUtXmlVmInterface::ReadXml() {
         add_nova_ = true;
     }
 
+    if (GetStringAttribute(node(), "nova", &str) ||
+        GetUintAttribute(node(), "nova", &id)) {
+        add_nova_ = true;
+    }
+
+    vlan_tag_ = 0;
+    GetUintAttribute(node(), "vlan-tag", &vlan_tag_);
+    GetStringAttribute(node(), "parent-vmi", &parent_vmi_);
     return true;
 }
 
@@ -301,6 +309,13 @@ bool AgentUtXmlVmInterface::ToXml(xml_node *parent) {
         xml_node n1 = n.append_child("virtual-machine-interface-mac-address");
         AddXmlNodeWithValue(&n1, "mac-address", mac_);
         AddIdPerms(&n);
+
+        if (vlan_tag_ > 0) {
+            n1 = n.append_child("virtual-machine-interface-properties");
+            char buff[32];
+            sprintf(buff, "%d", vlan_tag_);
+            AddXmlNodeWithValue(&n1, "sub-interface-vlan-tag", buff);
+        }
     }
 
     if (add_nova_) {
@@ -310,7 +325,7 @@ bool AgentUtXmlVmInterface::ToXml(xml_node *parent) {
                     vm_name_);
     }
 
-    if (vm_name_ != "") {
+    if (vn_name_ != "") {
         LinkXmlNode(parent, NodeType(), name(), "virtual-network", vn_name_);
     }
 
@@ -327,6 +342,10 @@ bool AgentUtXmlVmInterface::ToXml(xml_node *parent) {
                     "virtual-machine-interface-routing-instance", str);
     }
 
+    if (parent_vmi_ != "") {
+        LinkXmlNode(parent, NodeType(), name(), "virtual-machine-interface",
+                    parent_vmi_);
+    }
     return true;
 }
 
@@ -730,27 +749,94 @@ const string AgentUtXmlVxlanValidate::ToString() {
 AgentUtXmlVmInterfaceValidate::AgentUtXmlVmInterfaceValidate(const string &name,
                                            const uuid &id,
                                            const xml_node &node) :
-    AgentUtXmlValidationNode(name, node), id_(id) {
+    AgentUtXmlValidationNode(name, node), id_(id), vlan_tag_(0), vn_uuid_() {
 }
 
 AgentUtXmlVmInterfaceValidate::~AgentUtXmlVmInterfaceValidate() {
 }
 
 bool AgentUtXmlVmInterfaceValidate::ReadXml() {
+    GetUintAttribute(node(), "vlan", &vlan_tag_);
+    GetStringAttribute(node(), "active", &active_);
+    GetStringAttribute(node(), "device-type", &device_type_);
+    GetStringAttribute(node(), "vmi-type", &vmi_type_);
+    uint16_t id = 0;
+    GetUintAttribute(node(), "vn-uuid", &id);
+    if (id) {
+        vn_uuid_ = MakeUuid(id);
+    }
     return true;
 }
 
+static string DeviceTypeToString(VmInterface::DeviceType type) {
+    if (type == VmInterface::VM_ON_TAP)
+        return "VM-Tap";
+    if (type == VmInterface::VM_VLAN_ON_VMI)
+        return "VM-Sub-Intf";
+    if (type == VmInterface::TOR)
+        return "Tor";
+    if (type == VmInterface::LOCAL_DEVICE)
+        return "Baremetal";
+    return "Invalid";
+
+}
+
+static string VmiTypeToString(VmInterface::VmiType type) {
+    if (type == VmInterface::INSTANCE)
+        return "vm";
+    if (type == VmInterface::BAREMETAL)
+        return "Baremetal";
+    if (type == VmInterface::GATEWAY)
+        return "Gateway";
+
+    return "Invalid";
+}
+
 bool AgentUtXmlVmInterfaceValidate::Validate() {
-    if (present()) {
-        return VmPortFind(id());
-    } else {
-        return !VmPortFind(id());
-    }
+    VmInterface *vmi = VmInterfaceGet(id());
 
     if (present()) {
-        return VmPortActive(id());
+        if (vmi == NULL)
+            return false;
     } else {
-        return !VmPortActive(id());
+        return vmi == NULL;
+    }
+
+    if (active_.empty() == false) {
+        if (boost::iequals(active_, "true") ||
+            (boost::iequals(active_, "0") == false)){
+            if (VmPortActive(id()) == false)
+               return false;
+        } else {
+           if (VmPortActive(id()) == true)
+               return false;
+        }
+    }
+
+    if (device_type_.empty() == false) {
+        if (boost::iequals(device_type_, DeviceTypeToString(vmi->device_type()))
+            == false)
+            return false;
+    }
+
+    if (vmi_type_.empty() == false) {
+        if (boost::iequals(vmi_type_, VmiTypeToString(vmi->vmi_type()))
+            == false)
+            return false;
+    }
+
+    if (vlan_tag_ > 0) {
+        if (vmi->rx_vlan_id() != vlan_tag_)
+            return false;
+    }
+
+    if (vn_uuid_.is_nil() == false) {
+        const VnEntry *vn = vmi->vn();
+        if (vn == NULL)
+            return false;
+
+        if (vn->GetUuid() != vn_uuid_)
+            return false;
     }
 
     return true;

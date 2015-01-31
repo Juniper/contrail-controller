@@ -182,7 +182,10 @@ uint16_t ProtoHandler::IcmpHdr(char *buff, uint16_t buf_len, uint8_t type,
     assert(type == ICMP_UNREACH);
     hdr->icmp_nextmtu = htons(word2);
     hdr->icmp_cksum = 0;
-    return sizeof(struct icmp);
+    if (type == ICMP_UNREACH)
+        return ICMP_UNREACH_HDR_LEN;
+    assert(0);
+    return 0;
 }
 
 void ProtoHandler::IcmpChecksum(char *buff, uint16_t buf_len) {

@@ -75,7 +75,7 @@ KSyncVxlanFdbEntry::KSyncVxlanFdbEntry(KSyncVxlanRouteObject *obj,
 
 KSyncVxlanFdbEntry::KSyncVxlanFdbEntry(KSyncVxlanRouteObject *obj,
                                        const BridgeRouteEntry *route) :
-    KSyncVxlanRouteEntry(obj, route), bridge_(NULL), mac_(route->GetAddress()),
+    KSyncVxlanRouteEntry(obj, route), bridge_(NULL), mac_(route->mac()),
     port_(NULL), tunnel_dest_() {
 }
 
