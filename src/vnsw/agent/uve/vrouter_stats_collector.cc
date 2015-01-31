@@ -22,6 +22,11 @@ VrouterStatsCollector::~VrouterStatsCollector() {
 bool VrouterStatsCollector::Run() {
     run_counter_++;
     agent_uve_->vrouter_uve_entry()->SendVrouterMsg();
+    /* We have not registered for ACL notification. So total_acl_rules
+     * of VN is periodically polled from VN ACL and VN UVE is sent if there
+     * are any changes.
+     */
+    agent_uve_->vn_uve_table()->SendVnAclRuleCount();
     return true;
 }
 
