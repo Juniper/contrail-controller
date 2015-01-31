@@ -309,6 +309,7 @@ int main(int argc, char *argv[])
             cassandra_ports,
             string("127.0.0.1"),
             options.redis_port(),
+            options.redis_password(),
             options.syslog_port(),
             options.sflow_port(),
             options.ipfix_port(),

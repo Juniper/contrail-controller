@@ -42,7 +42,8 @@ public:
     // when the OpServer issues a Query.
     QEOpServerProxy(EventManager *evm, QueryEngine *qe,
             const std::string & hostname,
-            uint16_t port, int max_chunks = nMaxChunks);
+            uint16_t port, const std::string & redis_password,
+            int max_chunks = nMaxChunks);
     virtual ~QEOpServerProxy();
 
     // When the result of a Query is available, the client should
