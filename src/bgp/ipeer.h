@@ -83,6 +83,9 @@ public:
     };
 
     virtual ~IPeerDebugStats() { }
+
+    // Reset all counters
+    virtual void Clear() = 0;
     // Printable name
     virtual std::string ToString() const = 0;
     // Previous State of the peer
