@@ -375,7 +375,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
             if (path == NULL) {
                 path = data->CreateAgentPath(key->peer(), rt);
                 rt->InsertPath(path);
-                rt->ProcessPath(agent_, part, path, data);
+                rt->ProcessPathInternal(agent_, part, path, data);
                 notify = true;
 
                 RouteInfo rt_info;
@@ -387,7 +387,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
                 // Let path know of route change and update itself
                 path->set_is_stale(false);
                 bool ecmp = path->path_preference().ecmp();
-                notify = rt->ProcessPath(agent_, part, path, data);
+                notify = rt->ProcessPathInternal(agent_, part, path, data);
                 //If a path transition from ECMP to non ECMP
                 //remote the path from ecmp peer
                 if (ecmp && ecmp != path->path_preference().ecmp()) {
@@ -730,9 +730,10 @@ void AgentRouteTable::StalePathFromPeer(DBTablePartBase *part, AgentRoute *rt,
     }
 }
 
-bool AgentRoute::ProcessPath(Agent *agent, DBTablePartition *part,
-                             AgentPath *path, AgentRouteData *data) {
-    return data->AddChangePath(agent, path, this);
+bool AgentRoute::ProcessPathInternal(Agent *agent, DBTablePartition *part,
+                                     AgentPath *path, AgentRouteData *data) {
+    bool ret = data->AddChangePath(agent, path, this);
+    return (ret | ProcessPath(agent, part, path, data));
 }
 
 AgentPath *AgentRouteData::CreateAgentPath(const Peer *peer,
