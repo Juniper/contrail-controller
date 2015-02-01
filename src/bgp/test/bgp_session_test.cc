@@ -32,10 +32,11 @@ public:
                 const BgpNeighborConfig *config)
         : BgpPeer(server, rt, config) {
     }
-    virtual void ReceiveMsg(BgpSession *session, const u_int8_t *msg,
+    virtual bool ReceiveMsg(BgpSession *session, const u_int8_t *msg,
                             size_t size) {
         BGP_DEBUG_UT("ReceiveMsg: " << size << " bytes");
         sizes.push_back(size);
+        return true;
     }
     vector<int>::const_iterator begin() const {
         return sizes.begin();

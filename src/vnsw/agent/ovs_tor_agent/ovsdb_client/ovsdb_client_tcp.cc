@@ -119,13 +119,14 @@ void OvsdbClientTcpSession::SendMsg(u_int8_t *buf, std::size_t len) {
     Send(buf, len, NULL);
 }
 
-void OvsdbClientTcpSession::RecvMsg(const u_int8_t *buf, std::size_t len) {
+bool OvsdbClientTcpSession::RecvMsg(const u_int8_t *buf, std::size_t len) {
     OVSDB_PKT_TRACE(Trace, "Received: " + std::string((const char*)buf, len));
     queue_msg msg;
     msg.buf = (u_int8_t *)malloc(len);
     memcpy(msg.buf, buf, len);
     msg.len = len;
     receive_queue_->Enqueue(msg);
+    return true;
 }
 
 bool OvsdbClientTcpSession::ReceiveDequeue(queue_msg msg) {

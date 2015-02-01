@@ -456,7 +456,6 @@ TcpMessageReader::Buffer TcpMessageReader::PullUp(
 // Read the socket stream and send messages to the peer object.
 void TcpMessageReader::OnRead(Buffer buffer) {
     const int kHeaderLenSize = GetHeaderLenSize();
-    const int kMaxMessageSize = GetMaxMessageSize();
     size_t size = TcpSession::BufferSize(buffer);
     TCP_SESSION_LOG_UT_DEBUG(session_, TCP_DIR_IN, "Read " << size << " bytes");
 
@@ -475,10 +474,6 @@ void TcpMessageReader::OnRead(Buffer buffer) {
             msglength = MsgLength(header, 0);
             remain_ = msglength - queuelen;
         }
-        if (msglength > kMaxMessageSize) {
-            // TODO: post an error.
-            return;
-        }
 
         assert(remain_ > 0);
         if (size < (size_t) remain_) {
@@ -493,7 +488,9 @@ void TcpMessageReader::OnRead(Buffer buffer) {
         BufferConcat(data.get(), buffer, msglength);
         assert(remain_ == -1);
         // Receive the message
-        callback_(data.get(), msglength);
+        bool success = callback_(data.get(), msglength);
+        if (!success)
+            return;
     }
 
     int avail = size - offset_;
@@ -502,18 +499,17 @@ void TcpMessageReader::OnRead(Buffer buffer) {
         if (msglength < 0) {
             break;
         }
-        if (msglength > kMaxMessageSize) {
-            // TODO: post an error.
-            return;
-        }
         if (msglength > avail) {
             remain_ = msglength - avail;
             break;
         }
         // Receive the message
-        callback_(TcpSession::BufferData(buffer) + offset_, msglength);
+        bool success =
+            callback_(TcpSession::BufferData(buffer) + offset_, msglength);
         offset_ += msglength;
         avail -= msglength;
+        if (!success)
+            return;
     }
 
     if (avail > 0) {

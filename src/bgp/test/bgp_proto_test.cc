@@ -273,6 +273,21 @@ static void TestOpenMessage(BgpProto::OpenMessage &open) {
     delete result;
 }
 
+TEST_F(BgpProtoTest, HeaderError) {
+    uint8_t data[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                       0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                       0x00, 0x12 };
+
+    // msg length error - length is 18
+    ParseAndVerifyError(data, sizeof(data), BgpProto::Notification::MsgHdrErr,
+            BgpProto::Notification::BadMsgLength, "BgpMsgLength", 16, 2);
+
+    // msg length error - length is less than 18
+    data[17] = 17;
+    ParseAndVerifyError(data, sizeof(data), BgpProto::Notification::MsgHdrErr,
+            BgpProto::Notification::BadMsgLength, "BgpMsgLength", 16, 2);
+}
+
 TEST_F(BgpProtoTest, Open1) {
     BgpProto::OpenMessage open;
     BgpMessageTest::GenerateOpenMessage(&open);
@@ -685,6 +700,23 @@ TEST_F(BgpProtoTest, UpdateScale) {
         EXPECT_EQ(0, result->CompareTo(update));
         delete result;
     }
+}
+
+TEST_F(BgpProtoTest, KeepaliveError) {
+    uint8_t data[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                       0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                       0x00, 0x13, 0x04 };
+
+    // marker error
+    data[15] = 0xf1;
+    ParseAndVerifyError(data, sizeof(data), BgpProto::Notification::MsgHdrErr,
+            BgpProto::Notification::ConnNotSync, "BgpMarker", 0, 16);
+
+    // msg length error
+    data[15] = 0xff;
+    data[17] = 0;
+    ParseAndVerifyError(data, sizeof(data), BgpProto::Notification::MsgHdrErr,
+            BgpProto::Notification::BadMsgLength, "BgpMsgLength", 16, 2);
 }
 
 TEST_F(BgpProtoTest, RandomError) {
