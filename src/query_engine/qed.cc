@@ -161,15 +161,10 @@ main(int argc, char *argv[]) {
     DiscoveryServiceClient *ds_client = NULL;
     ip::tcp::endpoint dss_ep;
     Sandesh::CollectorSubFn csf = 0;
-    if (!options.discovery_server().empty()) {
-        error_code error;
-        dss_ep.address(
-            ip::address::from_string(options.discovery_server(), error));
-        if (error) {
-            LOG(ERROR, __func__ << ": Invalid discovery-server: " << 
-                    options.discovery_server());
-        } else {
-            dss_ep.port(options.discovery_port());
+
+    if (DiscoveryServiceClient::ParseDiscoveryServerConfig(
+        options.discovery_server(), options.discovery_port(), &dss_ep)) {
+
             string subscriber_name =
                 g_vns_constants.ModuleNames.find(Module::QUERY_ENGINE)->second;
             ds_client = new DiscoveryServiceClient(&evm, dss_ep, 
@@ -177,7 +172,9 @@ main(int argc, char *argv[]) {
             ds_client->Init();
             csf = boost::bind(&DiscoveryServiceClient::Subscribe, 
                               ds_client, _1, _2, _3);
-        }
+    } else {
+        LOG(ERROR, "Invalid Discovery Server hostname or ip " <<
+                    options.discovery_server());
     }
 
     int max_tasks = options.max_tasks();

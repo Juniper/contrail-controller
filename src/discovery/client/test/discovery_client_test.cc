@@ -792,6 +792,31 @@ TEST_F(DiscoveryServiceClientTest, HeartBeat_503_Response) {
     task_util::WaitForIdle(); 
 }
 
+TEST_F(DiscoveryServiceClientTest, ParseDiscoveryConfig) {
+
+    bool result;
+    ip::tcp::endpoint dss_ep;
+
+    std::string discovery_server(boost::asio::ip::host_name());
+    result = DiscoveryServiceClient::ParseDiscoveryServerConfig(discovery_server,
+                                                                5555, &dss_ep);
+    EXPECT_TRUE(result == true);
+
+    discovery_server.assign("127.0.0.1");
+    result = DiscoveryServiceClient::ParseDiscoveryServerConfig(discovery_server,
+                                                                5555, &dss_ep);
+    EXPECT_TRUE(result == true);
+    EXPECT_STREQ(dss_ep.address().to_string().c_str(),"127.0.0.1");
+    EXPECT_TRUE(dss_ep.port() == 5555);
+    EXPECT_TRUE(result == true);
+
+    discovery_server.assign("xxxx");
+    result = DiscoveryServiceClient::ParseDiscoveryServerConfig(discovery_server,
+                                                                5555, &dss_ep);
+    EXPECT_TRUE(result == false);
+
+    EvmShutdown();
+}
 
 }
 

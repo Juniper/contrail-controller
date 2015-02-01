@@ -350,17 +350,14 @@ int main(int argc, char *argv[])
 
     //Publish services to Discovery Service Servee
     DiscoveryServiceClient *ds_client = NULL;
-    if (!options.discovery_server().empty()) {
-        tcp::endpoint dss_ep;
-        boost::system::error_code error;
-        dss_ep.address(address::from_string(options.discovery_server(),
-                       error));
-        dss_ep.port(options.discovery_port());
+    tcp::endpoint dss_ep;
+    if (DiscoveryServiceClient::ParseDiscoveryServerConfig(
+        options.discovery_server(), options.discovery_port(), &dss_ep)) {
+
         string client_name =
             g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second;
         ds_client = new DiscoveryServiceClient(a_evm, dss_ep, client_name);
         ds_client->Init();
-        Collector::SetDiscoveryServiceClient(ds_client);
 
         // Get local ip address
         Collector::SetSelfIp(options.host_ip());
@@ -372,7 +369,11 @@ int main(int argc, char *argv[])
         std::string pub_msg;
         pub_msg = pub_ss.str();
         ds_client->Publish(service_name, pub_msg);
+    } else {
+        LOG (ERROR, "Invalid Discovery Server hostname or ip " <<
+                     options.discovery_server());
     }
+    Collector::SetDiscoveryServiceClient(ds_client);
              
     CpuLoadData::Init();
     collector_info_trigger =
