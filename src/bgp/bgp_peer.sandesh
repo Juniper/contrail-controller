@@ -164,6 +164,7 @@ struct ShowRouteTable {
 
 response sandesh ShowRouteResp {
     1: list<ShowRouteTable> tables;
+    2: optional string next_batch (link="ShowRouteReqIterate")
 }
 
 request sandesh ShowRouteReq {
@@ -171,16 +172,18 @@ request sandesh ShowRouteReq {
     1: string routing_table;
     2: string routing_instance;
     3: string prefix;
-
-    // Start at the route below
-    4: string start_routing_instance;
-    5: string start_routing_table;
-    6: string start_prefix;
-
-    // Only return this number of results. 0 implies unlimited
+    8: bool longer_match;
+    // Only return this number of results, capped by an internal default max
     7: u32 count;
 
-    8: bool longer_match;
+    // Start at the route below
+    5: string start_routing_table;
+    4: string start_routing_instance;
+    6: string start_prefix;
+}
+
+request sandesh ShowRouteReqIterate {
+    1: string route_info
 }
 
 struct ShowRouteTableSummary {

@@ -17,12 +17,15 @@ struct BgpSandeshContext : public XmppSandeshContext {
         : XmppSandeshContext(),
           bgp_server(NULL),
           xmpp_peer_manager(NULL),
-          ifmap_server(NULL) {
+          ifmap_server(NULL), unit_test_mode(false) {
     }
+    void set_unit_test_mode(bool val) { unit_test_mode = val; }
+    bool get_unit_test_mode() { return unit_test_mode; }
 
     BgpServer *bgp_server;
     BgpXmppChannelManager *xmpp_peer_manager;
     IFMapServer *ifmap_server;
+    bool unit_test_mode;
 };
 
 #endif /* BGP_SANDESH_H_ */
