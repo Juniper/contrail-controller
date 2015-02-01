@@ -38,7 +38,8 @@ SandeshTraceBufferPtr MulticastTraceBuf(SandeshTraceBufferCreate("Multicast",
 static bool IsTorDeleted(const PhysicalDeviceVn *device_vn,
                          const PhysicalDevice *physical_device,
                          const VnEntry *vn, const VrfEntry *vrf) {
-    if (device_vn->IsDeleted() || !physical_device || !vn || !vrf)
+    if (device_vn->IsDeleted() || !physical_device || !vn || !vrf ||
+        vrf->IsDeleted())
         return true;
 
     return false;
@@ -230,8 +231,6 @@ void MulticastHandler::HandleTorRoute(DBTablePartBase *partition,
 
     //Get the multicast object
     MulticastGroupObject *obj = NULL;
-    if (device_vn_vrf)
-        obj = FindFloodGroupObject(device_vn_vrf->GetName());
 
     //Find out if physical device is deleted.
     bool del_tor_request = IsTorDeleted(device_vn_entry, physical_device,
@@ -249,6 +248,7 @@ void MulticastHandler::HandleTorRoute(DBTablePartBase *partition,
                                     physical_device_vn_listener_id_);
         delete state;
 
+        obj = FindFloodGroupObject(vrf_name);
         //Deletion continues if vrf is known.
         //Since there was no object, ignore physical device delete
         if (obj == NULL)
@@ -261,13 +261,16 @@ void MulticastHandler::HandleTorRoute(DBTablePartBase *partition,
                                                       vrf_name,
                                                       vxlan_id);
             ComponentNHKeyList component_nh_key_list; //dummy list
-            DeleteMulticastObject(device_vn->GetVrf()->GetName(), device_addr);
+            DeleteMulticastObject(vrf_name, device_addr);
             return;
         }
         //Tor olist is not empty so fallback below to modify member list.
         //Code is same for modification with add.
         rebake = true;
     } else {
+        if (device_vn_vrf)
+            obj = FindFloodGroupObject(device_vn_vrf->GetName());
+
         if (obj == NULL) {
             boost::system::error_code ec;
             Ip4Address broadcast =  IpAddress::from_string("255.255.255.255",
@@ -496,6 +499,18 @@ void MulticastHandler::DeleteMulticastObject(const std::string &vrf_name,
     for(std::set<MulticastGroupObject *>::iterator it =
         this->GetMulticastObjList().begin(); 
         it != this->GetMulticastObjList().end(); it++) {
+        //TODO Enable the code below once VM are supported on TSN.
+        //Verify if all users (local vm and tors) are gone
+#if 0
+        if (((*it)->GetLocalListSize() != 0) ||
+            ((*it)->tor_olist_.empty() == false)) {
+            MCTRACE(Log, "defer of obj deletion  vrf/grp/size ", vrf_name,
+                    grp_addr.to_string(),
+                    this->GetMulticastObjList().size());
+            return;
+        }
+#endif
+
         if (((*it)->vrf_name() == vrf_name) &&
             ((*it)->GetGroupAddress() == grp_addr)) {
             if (!((*it)->CanBeDeleted()))
