@@ -51,7 +51,8 @@ ServiceChain::ServiceChain(RoutingInstance *src, RoutingInstance *dest,
          it != subnets.end(); it++) {
         error_code ec;
         Ip4Prefix ipam_subnet = Ip4Prefix::FromString(*it, &ec);
-        assert(ec == 0);
+        if (ec != 0)
+            continue;
         prefix_to_routelist_map_[ipam_subnet] = RouteList();
     }
 }
