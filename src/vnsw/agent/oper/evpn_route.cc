@@ -60,8 +60,7 @@ AgentRoute *
 EvpnRouteKey::AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const
 {
     EvpnRouteEntry *entry = new EvpnRouteEntry(vrf, dmac_, ip_addr_,
-                                               ethernet_tag_,
-                                               peer()->GetType());
+                                               ethernet_tag_);
     return static_cast<AgentRoute *>(entry);
 }
 
@@ -75,6 +74,15 @@ DBTableBase *EvpnAgentRouteTable::CreateTable(DB *db,
     return table;
 }
 
+EvpnRouteEntry *EvpnAgentRouteTable::FindRoute(const MacAddress &mac,
+                                               const IpAddress &ip_addr,
+                                               uint32_t ethernet_tag) {
+    EvpnRouteKey key(NULL, vrf_name(), mac, ip_addr, ethernet_tag);
+    EvpnRouteEntry *route =
+        static_cast<EvpnRouteEntry *>(FindActiveEntry(&key));
+    return route;
+}
+
 EvpnRouteEntry *EvpnAgentRouteTable::FindRoute(const Agent *agent,
                                                    const string &vrf_name,
                                                    const MacAddress &mac,
@@ -84,13 +92,9 @@ EvpnRouteEntry *EvpnAgentRouteTable::FindRoute(const Agent *agent,
     if (vrf == NULL)
         return NULL;
 
-    EvpnRouteKey key(agent->local_vm_peer(), vrf_name, mac, ip_addr,
-                     ethernet_tag);
     EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
         (vrf->GetEvpnRouteTable());
-    EvpnRouteEntry *route =
-        static_cast<EvpnRouteEntry *>(table->FindActiveEntry(&key));
-    return route;
+    return table->FindRoute(mac, ip_addr, ethernet_tag);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -245,8 +249,7 @@ void EvpnAgentRouteTable::PreRouteDelete(AgentRoute *entry) {
 EvpnRouteEntry::EvpnRouteEntry(VrfEntry *vrf,
                                const MacAddress &mac,
                                const IpAddress &ip_addr,
-                               uint32_t ethernet_tag,
-                               Peer::Type type) :
+                               uint32_t ethernet_tag) :
     AgentRoute(vrf, false), mac_(mac), ip_addr_(ip_addr),
     ethernet_tag_(ethernet_tag) {
 }

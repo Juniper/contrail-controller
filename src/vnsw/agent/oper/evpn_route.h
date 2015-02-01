@@ -63,6 +63,8 @@ public:
     static void Delete(const Peer *peer, const std::string &vrf_name,
                        const MacAddress &mac, const IpAddress &ip_addr,
                        uint32_t ethernet_tag);
+    EvpnRouteEntry *FindRoute(const MacAddress &mac, const IpAddress &ip_addr,
+                              uint32_t ethernet_tag);
     static EvpnRouteEntry *FindRoute(const Agent *agent,
                                        const std::string &vrf_name,
                                        const MacAddress &mac,
@@ -79,8 +81,7 @@ public:
     EvpnRouteEntry(VrfEntry *vrf,
                    const MacAddress &mac,
                    const IpAddress &ip_addr,
-                   uint32_t ethernet_tag,
-                   Peer::Type type);
+                   uint32_t ethernet_tag);
     virtual ~EvpnRouteEntry() { }
 
     virtual int CompareTo(const Route &rhs) const;
