@@ -14,6 +14,7 @@ DnsTypeMap g_dns_type_map = map_list_of<std::string, uint16_t>
                                 ("CNAME", 5)
                                 ("SOA", 6)
                                 ("PTR", 0x0C)
+                                ("MX", 0x0F)
                                 ("TXT", 0x10)
                                 ("AAAA", 0x1C)
                                 ("ANY", 0xFF);
@@ -24,6 +25,7 @@ DnsTypeNumMap g_dns_type_num_map = map_list_of<uint16_t, std::string>
                                 (DNS_CNAME_RECORD, "CNAME")
                                 (DNS_TYPE_SOA, "SOA")
                                 (DNS_PTR_RECORD, "PTR")
+                                (DNS_MX_RECORD, "MX")
                                 (DNS_TXT_RECORD, "TXT")
                                 (DNS_AAAA_RECORD, "AAAA")
                                 (DNS_TYPE_ANY, "ANY");
@@ -173,12 +175,23 @@ uint8_t *BindUtil::AddData(uint8_t *ptr, const DnsItem &item,
         ptr = WriteWord(ptr, item.soa.expiry);
         ptr = WriteWord(ptr, item.soa.ttl);
         length += 2 + 20;
-    } else {
+    } else if(item.type == DNS_PTR_RECORD ||
+              item.type == DNS_CNAME_RECORD ||
+              item.type == DNS_NS_RECORD ||
+              item.type == DNS_TXT_RECORD) {
         uint16_t data_len = DataLength(item.data_plen, item.data_offset,
                                        item.data.size());
         ptr = WriteShort(ptr, data_len);
         ptr = AddName(ptr, item.data, item.data_plen, item.data_offset, length);
         length += 2;
+    } else if (item.type == DNS_MX_RECORD) {
+        uint16_t data_len = 2 + DataLength(item.data_plen, item.data_offset,
+                                           item.data.size());
+        ptr = WriteShort(ptr, data_len);
+        // An MX record has 16 bit preference followed by host name
+        ptr = WriteShort(ptr, item.priority);
+        ptr = AddName(ptr, item.data, item.data_plen, item.data_offset, length);
+        length += 2 + 2;
     }
 
     return ptr;
@@ -269,8 +282,19 @@ uint8_t *BindUtil::ReadData(uint8_t *buf, uint8_t *ptr, DnsItem &item) {
         ptr = ReadWord(ptr, item.soa.retry);
         ptr = ReadWord(ptr, item.soa.expiry);
         ptr = ReadWord(ptr, item.soa.ttl);
-    } else
+    } else if(item.type == DNS_PTR_RECORD ||
+              item.type == DNS_CNAME_RECORD ||
+              item.type == DNS_NS_RECORD ||
+              item.type == DNS_TXT_RECORD) {
         ptr = ReadName(buf, ptr, item.data, item.data_plen, item.data_offset);
+    } else if(item.type == DNS_MX_RECORD) {
+        ptr = ReadShort(ptr, item.priority);
+        ptr = ReadName(buf, ptr, item.data, item.data_plen, item.data_offset);
+    } else {
+        DNS_BIND_TRACE(DnsBindError,
+                       "Unsupported data type in DNS response : " << item.type);
+        return NULL;
+    }
 
     return ptr;
 }
@@ -309,9 +333,9 @@ int BindUtil::ParseDnsQuery(uint8_t *buf, DnsItems &items) {
     return ptr - buf;
 }
 
-void BindUtil::ParseDnsQuery(uint8_t *buf, uint16_t &xid, dns_flags &flags,
-                             DnsItems &ques, DnsItems &ans,
-                             DnsItems &auth, DnsItems &add) {
+bool BindUtil::ParseDnsResponse(uint8_t *buf, uint16_t &xid, dns_flags &flags,
+                                DnsItems &ques, DnsItems &ans,
+                                DnsItems &auth, DnsItems &add) {
     dnshdr *dns = (dnshdr *) buf;
     xid = ntohs(dns->xid);
     flags = dns->flags;
@@ -333,6 +357,7 @@ void BindUtil::ParseDnsQuery(uint8_t *buf, uint16_t &xid, dns_flags &flags,
     for (unsigned int i = 0; i < ans_rrcount; ++i) {
         DnsItem item;
         ptr = ReadAnswerEntry(buf, ptr, item);
+        if (!ptr) goto error;
         ans.push_back(item);
     }
 
@@ -340,6 +365,7 @@ void BindUtil::ParseDnsQuery(uint8_t *buf, uint16_t &xid, dns_flags &flags,
     for (unsigned int i = 0; i < auth_rrcount; ++i) {
         DnsItem item;
         ptr = ReadAnswerEntry(buf, ptr, item);
+        if (!ptr) goto error;
         auth.push_back(item);
     }
 
@@ -347,8 +373,17 @@ void BindUtil::ParseDnsQuery(uint8_t *buf, uint16_t &xid, dns_flags &flags,
     for (unsigned int i = 0; i < add_rrcount; ++i) {
         DnsItem item;
         ptr = ReadAnswerEntry(buf, ptr, item);
+        if (!ptr) goto error;
         add.push_back(item);
     }
+
+    return true;
+
+error:
+    DNS_BIND_TRACE(DnsBindError,
+                   "Unsupported type in DNS response." <<
+                   " xid : " << xid << " - dropping it");
+    return false;
 }
 
 int BindUtil::ParseDnsUpdate(uint8_t *buf, DnsUpdateData &data) {
@@ -385,6 +420,11 @@ int BindUtil::ParseDnsUpdate(uint8_t *buf, DnsUpdateData &data) {
         ptr = ReadShort(ptr, item.eclass);
         ptr = ReadWord(ptr, item.ttl);
         ptr = ReadData(buf, ptr, item);
+        if (ptr == NULL) {
+            DNS_BIND_TRACE(DnsBindError,
+                           "Unsupported type in Update request : dropping");
+            return 0;
+        }
         data.items.push_back(item);
     }
 
