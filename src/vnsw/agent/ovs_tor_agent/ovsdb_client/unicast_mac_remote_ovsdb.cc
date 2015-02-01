@@ -215,7 +215,7 @@ void UnicastMacRemoteEntry::SendTrace(Trace event) const {
 
 UnicastMacRemoteTable::UnicastMacRemoteTable(OvsdbClientIdl *idl,
         AgentRouteTable *table) : OvsdbDBObject(idl, table),
-        table_delete_ref_(this, table->deleter()) {
+        deleted_(false), table_delete_ref_(this, table->deleter()) {
 }
 
 UnicastMacRemoteTable::~UnicastMacRemoteTable() {
