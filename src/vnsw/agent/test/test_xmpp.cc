@@ -13,7 +13,6 @@
 #include "base/test/task_test_util.h"
 
 #include "oper/operdb_init.h"
-#include "openstack/instance_service_server.h"
 #include "test_cmn_util.h"
 #include "xmpp/xmpp_init.h"
 #include "xmpp/test/xmpp_test_util.h"

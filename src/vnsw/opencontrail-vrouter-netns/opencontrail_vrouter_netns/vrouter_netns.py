@@ -29,9 +29,9 @@ import argparse
 import netaddr
 import sys
 import uuid
-import subprocess
+import requests
+import json
 
-from contrail_vrouter_api.vrouter_api import ContrailVRouterApi
 from linux import ip_lib
 
 
@@ -52,6 +52,8 @@ class NetnsManager(object):
     TAP_PREFIX = 'veth'
     PORT_TYPE = 'NameSpacePort'
     LBAAS_PROCESS = 'haproxy'
+    BASE_URL = "http://localhost:9091/port"
+    HEADERS = {'content-type': 'application/json'}
 
     def __init__(self, vm_uuid, nic_left, nic_right, other_nics=None,
                  root_helper='sudo', cfg_file=None, update=False,
@@ -77,7 +79,6 @@ class NetnsManager(object):
             self.nics.append(self.nic_right)
         self.ip_ns = ip_lib.IPWrapper(root_helper=self.root_helper,
                                       namespace=self.namespace)
-        self.vrouter_client = ContrailVRouterApi()
         self.cfg_file = cfg_file
         self.update = update
         self.gw_ip = gw_ip
@@ -199,7 +200,7 @@ class NetnsManager(object):
     def plug_namespace_interface(self):
         for nic in self.nics:
             self._add_port_to_agent(nic,
-                                    display_name='NetNS %s %s interface'
+                                    display_name='NetNS-%s-%s-interface'
                                                  % (self.vm_uuid, nic['name']))
 
     def unplug_namespace_interface(self):
@@ -237,20 +238,23 @@ class NetnsManager(object):
                                  )
 
     def _add_port_to_agent(self, nic, display_name=None):
-        kwargs = {}
-        kwargs['port_type'] = self.PORT_TYPE
-        kwargs['ip_address'] = str(nic['ip'].ip)
-        if display_name:
-            kwargs['display_name'] = display_name
-
-        if not (self.vrouter_client.add_port(self.vm_uuid, nic['uuid'],
-                                             self._get_tap_name(nic['uuid']),
-                                             str(nic['mac']), **kwargs)):
-            raise ValueError('Cannot add interface %s on the vrouter' %
-                             nic['uuid'])
+        if self.PORT_TYPE == "NovaVMPort":
+            port_type_value = 0
+        elif self.PORT_TYPE == "NameSpacePort":
+            port_type_value = 1
+        payload = {"ip-address": str(nic['ip'].ip), "vlan-id": -1,
+                   "display-name": display_name, "id": nic['uuid'],
+                   "instance-id": self.vm_uuid, "ip6-address": '',
+                   "isolated-vlan-id": -1,
+                   "system-name": self._get_tap_name(nic['uuid']),
+                   "vn-id": '', "vm-project-id": '',
+                   "type": port_type_value, "mac-address": str(nic['mac'])}
+        json_dump = json.dumps(payload)
+        requests.post(self.BASE_URL, data=json_dump, headers=self.HEADERS)
 
     def _delete_port_to_agent(self, nic):
-        self.vrouter_client.delete_port(nic['uuid'])
+        url = self.BASE_URL + "/" + nic['uuid']
+        requests.delete(url, data=None, headers=self.HEADERS);
 
 
 class VRouterNetns(object):

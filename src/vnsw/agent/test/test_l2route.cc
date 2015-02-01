@@ -29,7 +29,6 @@
 #include "oper/vm.h"
 #include "oper/vn.h"
 #include "filter/acl.h"
-#include "openstack/instance_service_server.h"
 #include "test_cmn_util.h"
 #include "kstate/test/test_kstate_util.h"
 #include "vr_types.h"

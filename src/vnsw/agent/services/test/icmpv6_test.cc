@@ -21,7 +21,6 @@
 #include <pkt/pkt_init.h>
 #include <services/services_init.h>
 #include <vrouter/ksync/ksync_init.h>
-#include <openstack/instance_service_server.h>
 #include <oper/vrf.h>
 #include <pugixml/pugixml.hpp>
 #include <services/icmpv6_proto.h>
