@@ -19,6 +19,7 @@ const string SERVICE_DEVICE_MANAGER = "contrail-device-manager"
 const string SERVICE_COLLECTOR = "contrail-collector"
 const string SERVICE_QUERY_ENGINE = "contrail-query-engine"
 const string SERVICE_OPSERVER = "contrail-analytics-api"
+const string SERVICE_ALARM_GENERATOR= "contrail-alarm-gen"
 const string SERVICE_DISCOVERY = "contrail-discovery:0"
 const string SERVICE_STORAGE_STATS_MGR = "contrail-storage-stats"
 const string SERVICE_IPMI_STATS_MGR = "contrail-ipmi-stats"
@@ -60,6 +61,7 @@ const u16 HttpPortCollector = 8089
 const u16 HttpPortOpserver = 8090
 const u16 HttpPortQueryEngine = 8091
 const u16 HttpPortDns = 8092
+const u16 HttpPortAlarmGenerator = 5995
 
 // Supervisord control ports
 const u16 AnalyticsSupervisorPort = 9002
@@ -109,6 +111,7 @@ const map<string, u16> ServiceHttpPortMap = {
     SERVICE_STORAGE_STATS_MGR : HttpPortStorageStatsmgr,
     SERVICE_IPMI_STATS_MGR : HttpPortIpmiStatsmgr,
     SERVICE_INVENTORY_AGENT: HttpPortInventorymgr,
+    SERVICE_ALARM_GENERATOR: HttpPortAlarmGenerator,
 }
 
 const list<string> NodeUVEImplementedServices = [
@@ -121,6 +124,7 @@ const list<string> NodeUVEImplementedServices = [
     SERVICE_SCHEMA_TRANSFORMER,
     SERVICE_SVC_MONITOR,
     SERVICE_DEVICE_MANAGER,
+    SERVICE_ALARM_GENERATOR,
 ]
 
 const map<string, string> ServicesDefaultConfigurationFile = {
@@ -162,6 +166,7 @@ enum Module {
     CONTRAIL_SNMP_COLLECTOR,
     CONTRAIL_TOPOLOGY,
     INVENTORY_AGENT,
+    ALARM_GENERATOR,
     MAX_MODULE,
 }
 
@@ -170,6 +175,7 @@ const string MODULE_VROUTER_AGENT_NAME = SERVICE_VROUTER_AGENT
 const string MODULE_API_SERVER_NAME = "contrail-api"
 const string MODULE_SCHEMA_TRANSFORMER_NAME = SERVICE_SCHEMA_TRANSFORMER
 const string MODULE_OPSERVER_NAME = SERVICE_OPSERVER
+const string MODULE_ALARM_GENERATOR_NAME = SERVICE_ALARM_GENERATOR
 const string MODULE_COLLECTOR_NAME = SERVICE_COLLECTOR
 const string MODULE_QUERY_ENGINE_NAME = SERVICE_QUERY_ENGINE
 const string MODULE_SVC_MONITOR_NAME = SERVICE_SVC_MONITOR
@@ -199,7 +205,7 @@ const map<Module, string> ModuleNames = {
     Module.COLLECTOR          : MODULE_COLLECTOR_NAME,
     Module.QUERY_ENGINE       : MODULE_QUERY_ENGINE_NAME,
     Module.SVC_MONITOR        : MODULE_SVC_MONITOR_NAME,
-    Module.DEVICE_MANAGER        : MODULE_DEVICE_MANAGER_NAME,
+    Module.DEVICE_MANAGER     : MODULE_DEVICE_MANAGER_NAME,
     Module.DNS                : MODULE_DNS_NAME,
     Module.DISCOVERY_SERVICE  : MODULE_DISCOVERY_SERVICE_NAME,
     Module.IFMAP_SERVER       : MODULE_IFMAP_SERVER_NAME,
@@ -214,7 +220,11 @@ const map<Module, string> ModuleNames = {
     Module.IPMI_STATS_MGR     : MODULE_IPMI_STATS_MGR_NAME,
     Module.CONTRAIL_SNMP_COLLECTOR  : MODULE_CONTRAIL_SNMP_COLLECTOR_NAME,
     Module.CONTRAIL_TOPOLOGY  : MODULE_CONTRAIL_TOPOLOGY_NAME,
+<<<<<<< HEAD
     Module.INVENTORY_AGENT    : MODULE_SERVER_INVENTORY_AGENT_NAME,
+=======
+    Module.ALARM_GENERATOR    : MODULE_ALARM_GENERATOR_NAME,
+>>>>>>> 39e0c1d... This is the initial commit of the alarm generator changes.
 }
 
 const map<string, Module> ModuleIds = {
@@ -223,10 +233,11 @@ const map<string, Module> ModuleIds = {
     MODULE_API_SERVER_NAME             : Module.API_SERVER,
     MODULE_SCHEMA_TRANSFORMER_NAME     : Module.SCHEMA_TRANSFORMER,
     MODULE_OPSERVER_NAME               : Module.OPSERVER,
+    MODULE_ALARM_GENERATOR_NAME        : Module.ALARM_GENERATOR,
     MODULE_COLLECTOR_NAME              : Module.COLLECTOR,
     MODULE_QUERY_ENGINE_NAME           : Module.QUERY_ENGINE,
     MODULE_SVC_MONITOR_NAME            : Module.SVC_MONITOR,
-    MODULE_DEVICE_MANAGER_NAME            : Module.DEVICE_MANAGER,
+    MODULE_DEVICE_MANAGER_NAME         : Module.DEVICE_MANAGER,
     MODULE_DNS_NAME                    : Module.DNS,
     MODULE_DISCOVERY_SERVICE_NAME      : Module.DISCOVERY_SERVICE
     MODULE_IFMAP_SERVER_NAME           : Module.IFMAP_SERVER,
@@ -275,10 +286,11 @@ const map <Module, NodeType> Module2NodeType = {
     Module.API_SERVER         : NodeType.CONFIG,
     Module.SCHEMA_TRANSFORMER : NodeType.CONFIG,
     Module.OPSERVER           : NodeType.ANALYTICS,
+    Module.ALARM_GENERATOR    : NodeType.ANALYTICS,
     Module.COLLECTOR          : NodeType.ANALYTICS,
     Module.QUERY_ENGINE       : NodeType.ANALYTICS,
     Module.SVC_MONITOR        : NodeType.CONFIG,
-    Module.DEVICE_MANAGER        : NodeType.CONFIG,
+    Module.DEVICE_MANAGER     : NodeType.CONFIG,
     Module.DNS                : NodeType.CONTROL,
     Module.DISCOVERY_SERVICE  : NodeType.CONFIG,
     Module.IFMAP_SERVER       : NodeType.CONFIG,
@@ -387,6 +399,7 @@ const map<Module, list<Category>> ModuleCategoryMap = {
 const string COLLECTOR_DISCOVERY_SERVICE_NAME = "Collector"
 const string API_SERVER_DISCOVERY_SERVICE_NAME = "ApiServer"
 const string ANALYTICS_API_SERVER_DISCOVERY_SERVICE_NAME = "OpServer"
+const string ALARM_GENERATOR_SERVICE_NAME = "AlarmGenerator"
 const string IFMAP_SERVER_DISCOVERY_SERVICE_NAME = "IfmapServer"
 const string XMPP_SERVER_DISCOVERY_SERVICE_NAME = "xmpp-server"
 const string DNS_SERVER_DISCOVERY_SERVICE_NAME = "dns-server"
