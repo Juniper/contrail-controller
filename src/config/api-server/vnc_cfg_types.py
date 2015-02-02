@@ -1034,10 +1034,12 @@ class LogicalInterfaceServer(LogicalInterfaceServerGen):
 
     @classmethod
     def http_post_collection(cls, tenant_name, obj_dict, db_conn):
-        (ok, msg) = PhysicalInterfaceServer._check_interface_name(obj_dict, db_conn)
+        (ok, msg) = cls._check_vlan(obj_dict, db_conn)
         if ok == False:
             return (False, msg)
-        return cls._check_vlan(obj_dict, db_conn)
+
+        vlan = obj_dict['logical_interface_vlan_tag']
+        return PhysicalInterfaceServer._check_interface_name(obj_dict, db_conn, vlan)
     # end http_post_collection
 
     @classmethod
@@ -1053,14 +1055,11 @@ class LogicalInterfaceServer(LogicalInterfaceServerGen):
                 return (False, (403, "Cannot change display name !"))
 
         vlan = None
-        old_vlan = None
-        if 'logical_interface_vlan_tag' in read_result:
-            old_vlan = read_result.get('logical_interface_vlan_tag')
         if 'logical_interface_vlan_tag' in obj_dict:
             vlan = obj_dict['logical_interface_vlan_tag']
-        if vlan or old_vlan:
-            if vlan != old_vlan:
-                return (False, (403, "Cannot change Vlan id"))
+            if 'logical_interface_vlan_tag' in read_result:
+                if int(vlan) != int(read_result.get('logical_interface_vlan_tag')):
+                    return (False, (403, "Cannot change Vlan id"))
 
         return True, ""
     # end http_put
@@ -1071,7 +1070,8 @@ class LogicalInterfaceServer(LogicalInterfaceServerGen):
             vlan = obj_dict['logical_interface_vlan_tag']
             if vlan < 0 or vlan > 4094:
                 return (False, (403, "Invalid Vlan id"))
-
+        else:
+            return (False, (403, "Vlan id not specified for interface"))
         return True, ""
     # end _check_vlan
 
@@ -1081,7 +1081,7 @@ class PhysicalInterfaceServer(PhysicalInterfaceServerGen):
 
     @classmethod
     def http_post_collection(cls, tenant_name, obj_dict, db_conn):
-        return cls._check_interface_name(obj_dict, db_conn)
+        return cls._check_interface_name(obj_dict, db_conn, None)
     # end http_post_collection
 
     @classmethod
@@ -1100,7 +1100,7 @@ class PhysicalInterfaceServer(PhysicalInterfaceServerGen):
     # end http_put
 
     @classmethod
-    def _check_interface_name(cls, obj_dict, db_conn):
+    def _check_interface_name(cls, obj_dict, db_conn, vlan_tag):
         interface_name = obj_dict['display_name']
         router = obj_dict['fq_name'][:2]
         try:
@@ -1123,25 +1123,38 @@ class PhysicalInterfaceServer(PhysicalInterfaceServerGen):
                     return (False, (403, "Display name already used in another interface :" +
                                          physical_interface['uuid']))
             for logical_interface in interface_object.get('logical_interfaces', []):
-                (ok, interface_object) = db_conn.dbe_read('logical-interface',
+                (ok, li_object) = db_conn.dbe_read('logical-interface',
                                              {'uuid':logical_interface['uuid']})
                 if not ok:
                     return (False, (500, 'Internal error : logical interface ' +
                                          logical_interface['uuid'] + ' not found'))
-                if 'display_name' in interface_object:
-                    if interface_name == interface_object['display_name']:
+                if 'display_name' in li_object:
+                    if interface_name == li_object['display_name']:
                         return (False, (403, "Display name already used in another interface : " +
                                              logical_interface['uuid']))
+                if vlan_tag != None:
+                    if 'logical_interface_vlan_tag' in li_object:
+                        if vlan_tag == int(li_object['logical_interface_vlan_tag']):
+                            return (False, (403, "Vlan tag already used in " +
+                                            "another interface : " +
+                                            logical_interface['uuid']))
+
         for logical_interface in physical_router.get('logical_interfaces', []):
-            (ok, interface_object) = db_conn.dbe_read('logical-interface',
+            (ok, li_object) = db_conn.dbe_read('logical-interface',
                                          {'uuid':logical_interface['uuid']})
             if not ok:
                 return (False, (500, 'Internal error : logical interface ' +
                                      logical_interface['uuid'] + ' not found'))
-            if 'display_name' in interface_object:
-                if interface_name == interface_object['display_name']:
+            if 'display_name' in li_object:
+                if interface_name == li_object['display_name']:
                     return (False, (403, "Display name already used in another interface : " +
                                          logical_interface['uuid']))
+            if vlan_tag != None:
+                if 'logical_interface_vlan_tag' in li_object:
+                    if vlan_tag == int(li_object['logical_interface_vlan_tag']):
+                        return (False, (403, "Vlan tag already used in " +
+                                        "another interface : " +
+                                        logical_interface['uuid']))
 
         return True, ""
     # end _check_interface_name
