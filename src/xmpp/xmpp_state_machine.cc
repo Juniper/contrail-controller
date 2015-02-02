@@ -313,15 +313,21 @@ struct Active : public sc::state<Active, XmppStateMachine> {
         }
         TcpSession *session = state_machine->session();
         state_machine->CancelOpenTimer();
-        state_machine->StartHoldTimer();
-        connection->SendOpenConfirm(session);
-        connection->StartKeepAliveTimer();
-        // Skipping openconfirm state till we have client authentication 
-        // return transit<OpenConfirm>();
-        XmppConnectionInfo info;
-        info.set_identifier(event.msg->from);
-        state_machine->SendConnectionInfo(&info, event.Name(), "Established");
-        return transit<XmppStreamEstablished>();
+        if (!connection->SendOpenConfirm(session)) {
+            connection->SendClose(session);
+            state_machine->ResetSession();
+            state_machine->SendConnectionInfo("Send Open Confirm Failed", "Idle");
+            return transit<Idle>();
+        } else {
+            state_machine->StartHoldTimer();
+            connection->StartKeepAliveTimer();
+            // Skipping openconfirm state till we have client authentication 
+            // return transit<OpenConfirm>();
+            XmppConnectionInfo info;
+            info.set_identifier(event.msg->from);
+            state_machine->SendConnectionInfo(&info, event.Name(), "Established");
+            return transit<XmppStreamEstablished>();
+        }
     }
 
     sc::result react(const EvStop &event) {

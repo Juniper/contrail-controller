@@ -29,6 +29,7 @@ using namespace std;
 
 #define PUBSUB_NODE_ADDR "bgp-node.contrai.com"
 #define SUB_ADDR "agent@vnsw.contrailsystems.com"
+#define SUB_ADDR2 "agentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentvvagentagentagentagentagentagentagentagentagentagentagentagentvagentagentagentagent@vnsw.contrailsystems.com"
 #define XMPP_CONTROL_SERV   "bgp.contrail.com"
 
 #define sXMPP_STREAM_RESP_BAD     "<?xml version='1.0'?><extra/><stream:stream from='dummyserver' to='dummycl' id='++123' version='1.0' xml:lang='en' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams'/>"
@@ -43,8 +44,9 @@ public:
           send_bad_open_resp(send_bad_open_resp),
           send_write_doc(send_write_doc) {}
 
-    void SendOpenConfirm(TcpSession *session) {
-        if (!session) return;
+    bool SendOpenConfirm(TcpSession *session) {
+
+        if (!session) return false;
 
         XmppProto::XmppStanza::XmppStreamMessage openstream;
         openstream.strmtype =
@@ -55,11 +57,11 @@ public:
         auto_ptr<XmlBase> resp_doc(XmppXmlImplFactory::Instance()->GetXmlImpl()); 
         if (send_bad_open_resp == true) { 
             if (resp_doc->LoadDoc(sXMPP_STREAM_RESP_BAD) == -1) { 
-                return;
+                return false;
             }
         } else {
             if (resp_doc->LoadDoc(sXMPP_STREAM_RESP_GOOD) == -1) { 
-                return;
+                return false;
             }
         }
 
@@ -87,7 +89,7 @@ public:
 	assert(len > 0);
 	session->Send(data, len, NULL);
 
-        return;
+        return true;
     }
 
     bool send_bad_open_resp;
@@ -190,6 +192,17 @@ protected:
         cconnection_ = NULL;
     }
 
+    void SetupMemoryOutofBoundConnection() {
+        LOG(DEBUG, "Create client");
+        client_cfg = new XmppChannelConfig(true);
+        CreateXmppChannelCfg(client_cfg, "127.0.0.1", a_->GetPort(), SUB_ADDR2,
+                             XMPP_CONTROL_SERV, true);
+        init_->AddXmppChannelConfig(client_cfg); 
+        init_->InitClient(b_);
+
+        LOG(DEBUG, "-- Executing --");
+    }
+
     auto_ptr<XmppInit> init_;
     XmppChannelConfig *client_cfg;
     XmppConnection *cconnection_;
@@ -223,6 +236,44 @@ TEST_F(XmppSessionTest, Connection) {
 
     TASK_UTIL_EXPECT_TRUE(
         cconnection_->GetStateMcState() == xmsm::ESTABLISHED);
+
+    TearDownConnection();
+}
+
+TEST_F(XmppSessionTest, CheckMemoryOutofBound_ClientSendOpen) {
+    SetupMemoryOutofBoundConnection();
+
+    //client connection
+    XmppConnection *connection;
+    TASK_UTIL_EXPECT_TRUE(
+        (connection = b_->FindConnection(XMPP_CONTROL_SERV)) != NULL);
+    cconnection_ = connection;
+
+    // server connection
+    XmppConnection *sconnection;
+    ip::tcp::endpoint remote_endpoint;
+    remote_endpoint.address(ip::address::from_string("127.0.0.1"));
+    remote_endpoint.port(0);
+    TASK_UTIL_EXPECT_TRUE(
+        (sconnection = a_->FindConnection(remote_endpoint)) != NULL);
+
+    // server connection
+    XmppConnection *sconnection_bad;
+    // find connection by name shud fail as this is populated after
+    // open message is received
+    TASK_UTIL_EXPECT_TRUE(
+        (sconnection_bad = a_->FindConnection(SUB_ADDR2)) == NULL);
+
+    // Check for server state, shud move from Active to Idle as
+    // open timer expires. 
+    TASK_UTIL_EXPECT_TRUE(
+        sconnection->GetStateMcState() == xmsm::ACTIVE);
+
+    // check for client state, send open failed 
+    TASK_UTIL_EXPECT_TRUE(
+        cconnection_->GetStateMcState() == xmsm::OPENSENT);
+    TASK_UTIL_EXPECT_TRUE(
+        cconnection_->tx_open_fail() == 1);
 
     TearDownConnection();
 }

@@ -192,24 +192,32 @@ void XmppConnection::SendOpen(TcpSession *session) {
     uint8_t data[256];
     int len = XmppProto::EncodeStream(openstream, to_, from_, data, 
                                       sizeof(data));
-    assert(len > 0);
-    XMPP_UTDEBUG(XmppOpen, len, from_, to_);
-    session->Send(data, len, NULL);
-    stats_[1].open++;
+    if (len <= 0) {
+        stats_[1].open_fail++;
+    } else {
+        XMPP_UTDEBUG(XmppOpen, len, from_, to_);
+        session->Send(data, len, NULL);
+        stats_[1].open++;
+    }
 }
 
-void XmppConnection::SendOpenConfirm(TcpSession *session) {
+bool XmppConnection::SendOpenConfirm(TcpSession *session) {
     tbb::spin_mutex::scoped_lock lock(spin_mutex_);
-    if (!session_) return;
+    if (!session_) return false;
     XmppStanza::XmppStreamMessage openstream;
     openstream.strmtype = XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER_RESP;
     uint8_t data[256];
     int len = XmppProto::EncodeStream(openstream, to_, from_, data, 
                                       sizeof(data));
-    assert(len > 0);
-    XMPP_UTDEBUG(XmppOpenConfirm, len, from_, to_);
-    session_->Send(data, len, NULL);
-    stats_[1].open++;
+    if (len <= 0) {
+        stats_[1].open_fail++;
+        return false;
+    } else {
+        XMPP_UTDEBUG(XmppOpenConfirm, len, from_, to_);
+        session_->Send(data, len, NULL);
+        stats_[1].open++;
+        return true;
+    }
 }
 
 void XmppConnection::SendClose(TcpSession *session) {
