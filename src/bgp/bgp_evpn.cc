@@ -49,12 +49,14 @@ private:
 //
 EvpnMcastNode::EvpnMcastNode(EvpnManagerPartition *partition,
     EvpnRoute *route, uint8_t type)
-    : partition_(partition), route_(route), type_(type),
-      edge_replication_not_supported_(false) {
-    const BgpPath *path = route->BestPath();
-    attr_ = path->GetAttr();
-    label_ = path->GetLabel();
-    address_ = path->GetAttr()->nexthop().to_v4();
+    : partition_(partition),
+      route_(route),
+      type_(type),
+      label_(0),
+      edge_replication_not_supported_(false),
+      assisted_replication_supported_(false),
+      assisted_replication_leaf_(false) {
+    UpdateAttributes(route);
 }
 
 //
@@ -67,7 +69,7 @@ EvpnMcastNode::~EvpnMcastNode() {
 // Update the label and attributes for a EvpnMcastNode.
 // Return true if either of them changed.
 //
-bool EvpnMcastNode::Update(EvpnRoute *route) {
+bool EvpnMcastNode::UpdateAttributes(EvpnRoute *route) {
     bool changed = false;
     const BgpPath *path = route->BestPath();
     if (path->GetLabel() != label_) {
@@ -79,14 +81,52 @@ bool EvpnMcastNode::Update(EvpnRoute *route) {
         changed = true;
     }
 
+    const PmsiTunnel *pmsi_tunnel = attr_->pmsi_tunnel();
+    uint8_t ar_type =
+        pmsi_tunnel->tunnel_flags & PmsiTunnelSpec::AssistedReplicationType;
+
+    bool edge_replication_not_supported = false;
+    if ((pmsi_tunnel->tunnel_flags &
+         PmsiTunnelSpec::EdgeReplicationSupported) == 0) {
+        edge_replication_not_supported = true;
+    }
+    if (edge_replication_not_supported != edge_replication_not_supported_) {
+        edge_replication_not_supported_ = edge_replication_not_supported;
+        changed = true;
+    }
+
+    bool assisted_replication_supported = false;
+    if (ar_type == PmsiTunnelSpec::ARReplicator)
+        assisted_replication_supported = true;
+    if (assisted_replication_supported != assisted_replication_supported_) {
+        assisted_replication_supported_ = assisted_replication_supported;
+        changed = true;
+    }
+
+    bool assisted_replication_leaf = false;
+    if (ar_type == PmsiTunnelSpec::ARLeaf)
+        assisted_replication_leaf = true;
+    if (assisted_replication_leaf != assisted_replication_leaf_) {
+        assisted_replication_leaf_ = assisted_replication_leaf;
+        changed = true;
+    }
+
+    if (address_ != path->GetAttr()->nexthop().to_v4()) {
+        address_ = path->GetAttr()->nexthop().to_v4();
+        changed = true;
+    }
+    if (replicator_address_ != pmsi_tunnel->identifier) {
+        replicator_address_ = pmsi_tunnel->identifier;
+        changed = true;
+    }
+
     return changed;
 }
 
 //
 // Constructor for EvpnLocalMcastNode.
 //
-// Figure out if edge replication is supported and add an Inclusive Multicast
-// route corresponding to the Broadcast MAC route.
+// Add an Inclusive Multicast route corresponding to Broadcast MAC route.
 //
 // Need to Notify the Broadcast MAC route so that the table Export method
 // can run and build the OList. OList is not built till EvpnLocalMcastNode
@@ -96,8 +136,6 @@ EvpnLocalMcastNode::EvpnLocalMcastNode(EvpnManagerPartition *partition,
     EvpnRoute *route)
     : EvpnMcastNode(partition, route, EvpnMcastNode::LocalNode),
       inclusive_mcast_route_(NULL) {
-    if (attr_->params() & BgpAttrParams::EdgeReplicationNotSupported)
-        edge_replication_not_supported_ = true;
     AddInclusiveMulticastRoute();
     DBTablePartition *tbl_partition = partition_->GetTablePartition();
     tbl_partition->Notify(route_);
@@ -135,22 +173,8 @@ void EvpnLocalMcastNode::AddInclusiveMulticastRoute() {
         route->ClearDelete();
     }
 
-    // Add PmsiTunnel to attributes of the broadcast MAC route.
-    PmsiTunnelSpec pmsi_spec;
-    if (edge_replication_not_supported_) {
-        pmsi_spec.tunnel_flags = 0;
-    } else {
-        pmsi_spec.tunnel_flags = PmsiTunnelSpec::EdgeReplicationSupported;
-    }
-    pmsi_spec.tunnel_type = PmsiTunnelSpec::IngressReplication;
-    pmsi_spec.SetLabel(label_);
-    pmsi_spec.SetIdentifier(address_);
-    BgpAttrDB *attr_db = partition_->server()->attr_db();
-    BgpAttrPtr attr =
-        attr_db->ReplacePmsiTunnelAndLocate(attr_.get(), &pmsi_spec);
-
     // Add a path with source BgpPath::Local.
-    BgpPath *path = new BgpPath(BgpPath::Local, attr, 0, label_);
+    BgpPath *path = new BgpPath(BgpPath::Local, attr_, 0, label_);
     route->InsertPath(path);
     inclusive_mcast_route_ = route;
     tbl_partition->Notify(inclusive_mcast_route_);
@@ -172,24 +196,6 @@ void EvpnLocalMcastNode::DeleteInclusiveMulticastRoute() {
         tbl_partition->Notify(inclusive_mcast_route_);
     }
     inclusive_mcast_route_ = NULL;
-}
-
-//
-// Update the attributes for a EvpnLocalMcastNode.
-// Update common attributes and edge_replication_not_supported_.
-// Returns true if anything changed.
-//
-bool EvpnLocalMcastNode::Update(EvpnRoute *route) {
-    bool changed = EvpnMcastNode::Update(route);
-
-    bool edge_replication_not_supported = false;
-    if (attr_->params() & BgpAttrParams::EdgeReplicationNotSupported)
-        edge_replication_not_supported = true;
-    if (edge_replication_not_supported != edge_replication_not_supported_) {
-        edge_replication_not_supported_ = edge_replication_not_supported;
-        changed = true;
-    }
-    return changed;
 }
 
 //
@@ -253,13 +259,6 @@ UpdateInfo *EvpnLocalMcastNode::GetUpdateInfo() {
 EvpnRemoteMcastNode::EvpnRemoteMcastNode(EvpnManagerPartition *partition,
     EvpnRoute *route)
     : EvpnMcastNode(partition, route, EvpnMcastNode::RemoteNode) {
-    const BgpAttr *attr = route->BestPath()->GetAttr();
-    const PmsiTunnel *pmsi_tunnel = attr->pmsi_tunnel();
-    if ((pmsi_tunnel->tunnel_flags &
-         PmsiTunnelSpec::EdgeReplicationSupported) == 0) {
-        edge_replication_not_supported_ = true;
-    }
-
     partition_->NotifyBroadcastMacRoutes();
 }
 
@@ -271,29 +270,6 @@ EvpnRemoteMcastNode::EvpnRemoteMcastNode(EvpnManagerPartition *partition,
 //
 EvpnRemoteMcastNode::~EvpnRemoteMcastNode() {
     partition_->NotifyBroadcastMacRoutes();
-}
-
-//
-// Update the attributes for a EvpnRemoteMcastNode.
-//
-// Update common attributes and edge_replication_not_supported_.
-// Returns true if anything changed.
-//
-bool EvpnRemoteMcastNode::Update(EvpnRoute *route) {
-    bool changed = EvpnMcastNode::Update(route);
-
-    const BgpAttr *attr = route->BestPath()->GetAttr();
-    const PmsiTunnel *pmsi_tunnel = attr->pmsi_tunnel();
-    bool edge_replication_not_supported = false;
-    if ((pmsi_tunnel->tunnel_flags &
-         PmsiTunnelSpec::EdgeReplicationSupported) == 0) {
-        edge_replication_not_supported = true;
-    }
-    if (edge_replication_not_supported != edge_replication_not_supported_) {
-        edge_replication_not_supported_ = edge_replication_not_supported;
-        changed = true;
-    }
-    return changed;
 }
 
 //
@@ -376,7 +352,9 @@ BgpServer *EvpnManagerPartition::server() {
 // Constructor for EvpnManager.
 //
 EvpnManager::EvpnManager(EvpnTable *table)
-    : table_(table), table_delete_ref_(this, table->deleter()) {
+    : table_(table),
+      listener_id_(DBTable::kInvalidId),
+      table_delete_ref_(this, table->deleter()) {
     deleter_.reset(new DeleteActor(this));
 }
 
@@ -480,11 +458,11 @@ void EvpnManager::RouteListener(DBTablePartBase *tpart, DBEntryBase *db_entry) {
         assert(node);
 
         if (!route->IsValid()) {
-            // Delete the EvpnLocalMcastNode associated with the route.
+            // Delete the EvpnMcastNode associated with the route.
             route->ClearState(table_, listener_id_);
             partition->DeleteMcastNode(node);
             delete node;
-        } else if (node->Update(route)) {
+        } else if (node->UpdateAttributes(route)) {
             // Trigger update of the EvpnMcastNode.
             node->TriggerUpdate();
         }

@@ -1707,10 +1707,37 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
         if (!ext.communities.empty())
             attrs.push_back(&ext);
 
-        BgpAttrParams params_spec;
-        if (item.entry.edge_replication_not_supported) {
-            params_spec.params |= BgpAttrParams::EdgeReplicationNotSupported;
-            attrs.push_back(&params_spec);
+        PmsiTunnelSpec pmsi_spec;
+        if (mac_addr.IsBroadcast()) {
+            if (!item.entry.replicator_address.empty()) {
+                IpAddress replicator_address;
+                if (!XmppDecodeAddress(BgpAf::IPv4,
+                    item.entry.replicator_address, &replicator_address)) {
+                    BGP_LOG_PEER(Message, Peer(), SandeshLevel::SYS_WARN,
+                                 BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
+                                 "Error parsing replicator address: " <<
+                                 item.entry.replicator_address <<
+                                 " for evpn route");
+                    return;
+                }
+                pmsi_spec.tunnel_type =
+                    PmsiTunnelSpec::AssistedReplicationContrail;
+                pmsi_spec.tunnel_flags = PmsiTunnelSpec::ARLeaf;
+                pmsi_spec.SetIdentifier(replicator_address.to_v4());
+            } else {
+                pmsi_spec.tunnel_type = PmsiTunnelSpec::IngressReplication;
+                if (item.entry.assisted_replication_supported) {
+                    pmsi_spec.tunnel_flags |= PmsiTunnelSpec::ARReplicator;
+                    pmsi_spec.tunnel_flags |= PmsiTunnelSpec::LeafInfoRequired;
+                }
+                if (!item.entry.edge_replication_not_supported) {
+                    pmsi_spec.tunnel_flags |=
+                        PmsiTunnelSpec::EdgeReplicationSupported;
+                }
+                pmsi_spec.SetIdentifier(nh_address.to_v4());
+            }
+            pmsi_spec.SetLabel(label);
+            attrs.push_back(&pmsi_spec);
         }
 
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attrs);

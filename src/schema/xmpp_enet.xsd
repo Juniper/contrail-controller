@@ -56,6 +56,9 @@ xsd:targetNamespace="http://www.contrailsystems.com/xmpp-enet-cfg.xsd">
         <xsd:element name="security-group-list" type="EnetSecurityGroupListType"/>
         <xsd:element name="local-preference" type="xsd:integer"/>
         <xsd:element name="edge-replication-not-supported" type="xsd:boolean"/>
+        <xsd:element name="assisted-replication-supported" type="xsd:boolean"/>
+        <xsd:element name="leaf-olist" type="EnetOlistType"/>
+        <xsd:element name="replicator-address" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
 

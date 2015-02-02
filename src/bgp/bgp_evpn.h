@@ -44,7 +44,7 @@ public:
         uint8_t type);
     ~EvpnMcastNode();
 
-    virtual bool Update(EvpnRoute *route);
+    bool UpdateAttributes(EvpnRoute *route);
     virtual void TriggerUpdate() = 0;
 
     EvpnRoute *route() { return route_; }
@@ -52,8 +52,15 @@ public:
     const BgpAttr *attr() const { return attr_.get(); }
     uint32_t label() const { return label_; }
     Ip4Address address() const { return address_; }
+    Ip4Address replicator_address() const { return replicator_address_; }
     bool edge_replication_not_supported() const {
         return edge_replication_not_supported_;
+    }
+    bool assisted_replication_supported() const {
+        return assisted_replication_supported_;
+    }
+    bool assisted_replication_leaf() const {
+        return assisted_replication_leaf_;
     }
 
 protected:
@@ -63,7 +70,10 @@ protected:
     BgpAttrPtr attr_;
     uint32_t label_;
     Ip4Address address_;
+    Ip4Address replicator_address_;
     bool edge_replication_not_supported_;
+    bool assisted_replication_supported_;
+    bool assisted_replication_leaf_;
 
 private:
     DISALLOW_COPY_AND_ASSIGN(EvpnMcastNode);
@@ -93,7 +103,6 @@ public:
     EvpnLocalMcastNode(EvpnManagerPartition *partition, EvpnRoute *route);
     virtual ~EvpnLocalMcastNode();
 
-    virtual bool Update(EvpnRoute *route);
     virtual void TriggerUpdate();
     UpdateInfo *GetUpdateInfo();
     EvpnRoute *inclusive_mcast_route() { return inclusive_mcast_route_; }
@@ -121,7 +130,6 @@ public:
     EvpnRemoteMcastNode(EvpnManagerPartition *partition, EvpnRoute *route);
     virtual ~EvpnRemoteMcastNode();
 
-    virtual bool Update(EvpnRoute *route);
     virtual void TriggerUpdate();
 
 private:
