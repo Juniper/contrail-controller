@@ -17,6 +17,10 @@ public:
     const std::vector<std::string> cassandra_server_list() const {
         return cassandra_server_list_;
     }
+    const std::vector<std::string> kafka_broker_list() const {
+        return kafka_broker_list_;
+    }
+    const uint16_t partitions() const { return partitions_; }
     const std::string collector_server() const { return collector_server_; }
     const uint16_t collector_port() const { return collector_port_; };
     bool collector_protobuf_port(uint16_t *collector_protobuf_port) const {
@@ -105,6 +109,8 @@ private:
     bool dup_;
     int analytics_data_ttl_;
     std::vector<std::string> cassandra_server_list_;
+    std::vector<std::string> kafka_broker_list_;
+    uint16_t partitions_;
 
     boost::program_options::options_description config_file_options_;
 };
