@@ -232,6 +232,7 @@ struct PathSandeshData {
    14: optional PathPreferenceSandeshData path_preference_data;
    15: optional string info;
    16: optional i32 active_label;
+   17: optional string flood_dhcp;
 }
 
 struct RouteUcSandeshData {

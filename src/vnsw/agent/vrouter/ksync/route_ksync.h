@@ -74,6 +74,7 @@ private:
     uint32_t label_;
     uint8_t type_;
     bool proxy_arp_;
+    bool flood_dhcp_;
     string address_string_;
     TunnelType::Type tunnel_type_;
     bool wait_for_traffic_;
