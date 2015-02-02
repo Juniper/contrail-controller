@@ -42,8 +42,8 @@ public:
             VmStat *stat_;
     };
     typedef boost::shared_ptr<VmUveEntryBase> VmUveEntryPtr;
-    typedef std::map<const VmEntry*, VmUveEntryPtr> UveVmMap;
-    typedef std::pair<const VmEntry*, VmUveEntryPtr> UveVmPair;
+    typedef std::map<const boost::uuids::uuid, VmUveEntryPtr> UveVmMap;
+    typedef std::pair<const boost::uuids::uuid, VmUveEntryPtr> UveVmPair;
 
     VmUveTableBase(Agent *agent);
     virtual ~VmUveTableBase();
@@ -54,21 +54,21 @@ public:
 protected:
     virtual void VmStatCollectionStart(VmUveVmState *state, const VmEntry *vm);
     virtual void VmStatCollectionStop(VmUveVmState *state);
-    VmUveEntryBase* UveEntryFromVm(const VmEntry *vm);
+    VmUveEntryBase* UveEntryFromVm(const boost::uuids::uuid &u);
     UveVmMap uve_vm_map_;
     Agent *agent_;
 private:
     virtual VmUveEntryPtr Allocate(const VmEntry *vm);
-    const VmEntry *VmUuidToVm(const boost::uuids::uuid u);
     void InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e);
     void VmNotify(DBTablePartBase *partition, DBEntryBase *e);
     void InterfaceAddHandler(const VmEntry* vm, const Interface* intf,
                              const VmInterface::FloatingIpSet &old_list);
-    void InterfaceDeleteHandler(const VmEntry* vm, const Interface* intf);
-    void SendVmMsg(const VmEntry *vm);
+    void InterfaceDeleteHandler(const boost::uuids::uuid &u,
+                                const Interface* intf);
+    void SendVmMsg(const boost::uuids::uuid &u);
     VmUveEntryBase* Add(const VmEntry *vm, bool vm_notify);
-    void Delete(const VmEntry *vm);
-    virtual void SendVmDeleteMsg(const VmEntry *vm);
+    void Delete(const boost::uuids::uuid &u);
+    virtual void SendVmDeleteMsg(const boost::uuids::uuid &u);
 
     DBTableBase::ListenerId intf_listener_id_;
     DBTableBase::ListenerId vm_listener_id_;

@@ -7,7 +7,8 @@
 
 class VmUveEntryTest : public VmUveEntry {
 public:
-    VmUveEntryTest(Agent *agent) : VmUveEntry(agent) {}
+    VmUveEntryTest(Agent *agent, const string &vm_name)
+        : VmUveEntry(agent, vm_name) {}
     virtual ~VmUveEntryTest() {}
     int InterfaceCount() const { return interface_tree_.size(); }
     L4PortBitmap* port_bitmap() { return &port_bitmap_; }

@@ -18,8 +18,8 @@ VmUveTable::~VmUveTable() {
 }
 
 void VmUveTable::UpdateBitmap(const VmEntry* vm, uint8_t proto,
-                                  uint16_t sport, uint16_t dport) {
-    UveVmMap::iterator it = uve_vm_map_.find(vm);
+                              uint16_t sport, uint16_t dport) {
+    UveVmMap::iterator it = uve_vm_map_.find(vm->GetUuid());
     if (it != uve_vm_map_.end()) {
         VmUveEntry *entry = static_cast<VmUveEntry *>(it->second.get());
         entry->UpdatePortBitmap(proto, sport, dport);
@@ -37,7 +37,7 @@ VmUveEntry *VmUveTable::InterfaceIdToVmUveEntry(uint32_t id) {
         return NULL;
     }
 
-    UveVmMap::iterator it = uve_vm_map_.find(vm_intf->vm());
+    UveVmMap::iterator it = uve_vm_map_.find(vm_intf->vm()->GetUuid());
     if (it == uve_vm_map_.end()) {
         return NULL;
     }
@@ -46,12 +46,12 @@ VmUveEntry *VmUveTable::InterfaceIdToVmUveEntry(uint32_t id) {
 }
 
 VmUveTableBase::VmUveEntryPtr VmUveTable::Allocate(const VmEntry *vm) {
-    VmUveEntryPtr uve(new VmUveEntry(agent_));
+    VmUveEntryPtr uve(new VmUveEntry(agent_, vm->GetCfgName()));
     return uve;
 }
 
-void VmUveTable::SendVmStatsMsg(const VmEntry *vm) {
-    VmUveEntry* entry = static_cast<VmUveEntry*>(UveEntryFromVm(vm));
+void VmUveTable::SendVmStatsMsg(const boost::uuids::uuid &u) {
+    VmUveEntry* entry = static_cast<VmUveEntry*>(UveEntryFromVm(u));
     if (entry == NULL) {
         return;
     }
@@ -62,7 +62,7 @@ void VmUveTable::SendVmStatsMsg(const VmEntry *vm) {
     /* Two VM UVEs will be sent for all VM stats. VirtualMachineStats will
      * have VM stats and UveVirtualMachineAgent will have port bitmap for VM
      * and all its containing interfaces */
-    bool send = entry->FrameVmStatsMsg(vm, &uve, &stats_uve, &stats_uve_send);
+    bool send = entry->FrameVmStatsMsg(&uve, &stats_uve, &stats_uve_send);
     if (send) {
         DispatchVmMsg(uve);
     }
@@ -101,20 +101,19 @@ void VmUveTable::DispatchVmStatsMsg(const VirtualMachineStats &uve) {
     VirtualMachineStatsTrace::Send(uve);
 }
 
-void VmUveTable::SendVmDeleteMsg(const VmEntry *vm) {
+void VmUveTable::SendVmDeleteMsg(const boost::uuids::uuid &u) {
     bool stats_uve_changed = false;
     UveVirtualMachineAgent uve;
     VirtualMachineStats stats_uve;
-    VmUveEntry* entry = static_cast<VmUveEntry*>(UveEntryFromVm(vm));
+    VmUveEntry* entry = static_cast<VmUveEntry*>(UveEntryFromVm(u));
     if (entry == NULL) {
         return;
     }
-    uve.set_name(vm->GetCfgName());
+
+    entry->FrameVmStatsMsg(&uve, &stats_uve, &stats_uve_changed);
+    entry->FrameVmMsg(&uve);
     uve.set_deleted(true);
-    stats_uve.set_name(vm->GetCfgName());
     stats_uve.set_deleted(true);
-    entry->FrameVmStatsMsg(vm, &uve, &stats_uve, &stats_uve_changed);
-    entry->FrameVmMsg(vm, &uve);
 
     DispatchVmMsg(uve);
     DispatchVmStatsMsg(stats_uve);
