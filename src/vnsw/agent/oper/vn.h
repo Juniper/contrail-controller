@@ -24,6 +24,7 @@ namespace autogen {
 bool IsVRFServiceChainingInstance(const std::string &vn_name,
                                   const std::string &vrf_name);
 class VmInterface;
+class AgentRouteEncap;
 
 struct VnIpam {
     IpAddress ip_prefix;
@@ -114,11 +115,8 @@ struct VnData : public AgentOperDBData {
 
 class VnEntry : AgentRefCount<VnEntry>, public AgentOperDBEntry {
 public:
-    VnEntry(const boost::uuids::uuid &id) :
-        AgentOperDBEntry(), uuid_(id), vxlan_id_(0), vnid_(0),
-        bridging_(true), layer3_forwarding_(true), admin_state_(true),
-        table_label_(0), enable_rpf_(true) { }
-    virtual ~VnEntry() { }
+    VnEntry(Agent *agent, uuid id);
+    virtual ~VnEntry();
 
     virtual bool IsLess(const DBEntry &rhs) const;
     virtual KeyPtr GetDBRequestKey() const;
@@ -155,6 +153,7 @@ public:
     bool ReEvaluateVxlan(VrfEntry *old_vrf, int new_vxlan_id, int new_vnid,
                          bool new_bridging,
                          bool vxlan_network_identifier_mode_changed);
+    void UpdateDhcpFloodFlag();
 
     const VxLanId *vxlan_id_ref() const {return vxlan_id_ref_.get();}
     const VxLanId *vxlan_id() const {return vxlan_id_ref_.get();}
@@ -191,6 +190,7 @@ private:
     VxLanIdRef vxlan_id_ref_;
     uint32_t table_label_;
     bool enable_rpf_;
+    boost::scoped_ptr<AgentRouteEncap> agent_route_encap_update_walker_;
     DISALLOW_COPY_AND_ASSIGN(VnEntry);
 };
 

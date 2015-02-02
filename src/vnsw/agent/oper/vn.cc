@@ -24,6 +24,7 @@
 #include <oper/nexthop.h>
 #include <oper/mpls.h>
 #include <oper/mirror_table.h>
+#include <oper/agent_route_encap.h>
 #include <oper/agent_sandesh.h>
 #include <oper/oper_dhcp_options.h>
 #include <oper/physical_device_vn.h>
@@ -83,6 +84,16 @@ bool VnIpam::IsSubnetMember(const IpAddress &ip) const {
         return IsIp6SubnetMember(ip.to_v6(), ip_prefix.to_v6(), plen);
     }
     return false;
+}
+
+VnEntry::VnEntry(Agent *agent, uuid id) :
+    AgentOperDBEntry(), uuid_(id), vxlan_id_(0), vnid_(0),
+    bridging_(true), layer3_forwarding_(true), admin_state_(true),
+    table_label_(0), enable_rpf_(true),
+    agent_route_encap_update_walker_(new AgentRouteEncap(agent)) {
+}
+
+VnEntry::~VnEntry() {
 }
 
 bool VnEntry::IsLess(const DBEntry &rhs) const {
@@ -292,6 +303,11 @@ bool VnEntry::Resync() {
     return VxLanNetworkIdentifierChanged();
 }
 
+void VnEntry::UpdateDhcpFloodFlag() {
+    if (GetVrf())
+        agent_route_encap_update_walker_->StartRouteWalk(GetVrf());
+}
+
 bool VnTable::OperDBResync(DBEntry *entry, const DBRequest *req) {
     VnEntry *vn = static_cast<VnEntry *>(entry);
     bool ret = vn->Resync();
@@ -333,14 +349,14 @@ void VnTable::UpdateVxLanNetworkIdentifierMode() {
 
 std::auto_ptr<DBEntry> VnTable::AllocEntry(const DBRequestKey *k) const {
     const VnKey *key = static_cast<const VnKey *>(k);
-    VnEntry *vn = new VnEntry(key->uuid_);
+    VnEntry *vn = new VnEntry(agent(), key->uuid_);
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(vn));
 }
 
 DBEntry *VnTable::OperDBAdd(const DBRequest *req) {
     VnKey *key = static_cast<VnKey *>(req->key.get());
     VnData *data = static_cast<VnData *>(req->data.get());
-    VnEntry *vn = new VnEntry(key->uuid_);
+    VnEntry *vn = new VnEntry(agent(), key->uuid_);
     vn->name_ = data->name_;
 
     ChangeHandler(vn, req);
@@ -763,6 +779,7 @@ bool VnTable::IpamChangeNotify(std::vector<VnIpam> &old_ipam,
         } else if (*it_new < *it_old) {
             // new entry
             AddIPAMRoutes(vn, *it_new);
+            vn->UpdateDhcpFloodFlag();
             change = true;
             it_new++;
         } else {
@@ -806,7 +823,8 @@ bool VnTable::IpamChangeNotify(std::vector<VnIpam> &old_ipam,
             if ((*it_old).dhcp_enable != (*it_new).dhcp_enable) {
                 (*it_old).dhcp_enable = (*it_new).dhcp_enable;
                 // Trigger to interface entries already is sent in config DB
-                // processing, nothing else to do here
+                // processing. Update the dhcp_flood flag in the route.
+                vn->UpdateDhcpFloodFlag();
             }
 
             it_old++;
@@ -823,6 +841,7 @@ bool VnTable::IpamChangeNotify(std::vector<VnIpam> &old_ipam,
     // add remaining new entries
     for (; it_new != new_ipam.end(); ++it_new) {
         AddIPAMRoutes(vn, *it_new);
+        vn->UpdateDhcpFloodFlag();
         change = true;
     }
 

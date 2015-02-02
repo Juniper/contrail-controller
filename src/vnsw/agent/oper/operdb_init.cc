@@ -21,6 +21,7 @@
 #include <oper/vm.h>
 #include <oper/vn.h>
 #include <oper/sg.h>
+#include <oper/mac_vm_binding.h>
 #include <oper/mirror_table.h>
 #include <oper/vrf_assign.h>
 #include <oper/vxlan.h>
@@ -175,6 +176,7 @@ void OperDB::CreateDBTables(DB *db) {
         DBTableCreate<PhysicalDeviceVnTable>(db, agent_, this,
                                              "db.physical_device_vn.0");
     agent_->set_physical_device_vn_table(dev_vn_table);
+    mac_vm_binding_ = std::auto_ptr<MacVmBinding>(new MacVmBinding(agent_));
 }
 
 void OperDB::Init() {
@@ -203,6 +205,7 @@ void OperDB::RegisterDBClients() {
 
     multicast_.get()->Register();
     global_vrouter_.get()->CreateDBClients();
+    mac_vm_binding_.get()->Register();
 }
 
 OperDB::OperDB(Agent *agent)
@@ -240,6 +243,7 @@ void OperDB::Shutdown() {
     agent_->service_instance_table()->Clear();
 #endif
     route_preference_module_->Shutdown();
+    mac_vm_binding_.reset();
 }
 
 void OperDB::DeleteRoutes() {
