@@ -12,9 +12,12 @@
 #include <oper/tunnel_nh.h>
 #include <oper/mpls.h>
 #include <oper/mirror_table.h>
+#include <oper/mac_vm_binding.h>
 #include <controller/controller_export.h>
 #include <controller/controller_peer.h>
 #include <oper/agent_sandesh.h>
+#include <pkt/pkt_init.h>
+#include <pkt/pkt_handler.h>
 
 using namespace std;
 using namespace boost::asio;
@@ -314,6 +317,41 @@ uint32_t EvpnRouteEntry::GetActiveLabel() const {
     return GetActivePath()->GetActiveLabel();
 }
 
+bool EvpnRouteEntry::FloodDhcpRequired() const {
+    VnEntry *vn = vrf()->vn();
+    if (vn) {
+        IpAddress ip = ip_addr_;
+        if (ip.is_unspecified()) {
+            Agent *agent =
+                (static_cast<AgentRouteTable *> (get_table()))->agent();
+            const Interface *interface = agent->interface_table()->
+                mac_vm_binding().FindMacVmBinding(mac_,
+                                                  GetActivePath()->vxlan_id());
+            if (!interface)
+                return true;
+            const VmInterface *vm_interface =
+                static_cast<const VmInterface *>(interface);
+            return !(vm_interface->dhcp_enable_config());
+        }
+        //VM is TAP VM.
+        const VnIpam *vn_ipam = vn->GetIpam(ip_addr_);
+        if (vn_ipam)
+            return !(vn_ipam->dhcp_enable);
+    }
+    return false;
+}
+
+bool EvpnRouteEntry::RecomputeRoutePath(Agent *agent, DBTablePartition *part,
+                                        AgentPath *path, AgentRouteData *data) {
+    bool ret = false;
+    bool flood_dhcp_required = FloodDhcpRequired();
+
+    if (path->flood_dhcp() != flood_dhcp_required) {
+        path->set_flood_dhcp(flood_dhcp_required);
+        ret = true;
+    }
+    return ret;
+}
 /////////////////////////////////////////////////////////////////////////////
 // Sandesh related methods
 /////////////////////////////////////////////////////////////////////////////

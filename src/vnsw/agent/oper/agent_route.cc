@@ -732,7 +732,11 @@ void AgentRouteTable::StalePathFromPeer(DBTablePartBase *part, AgentRoute *rt,
 
 bool AgentRoute::ProcessPath(Agent *agent, DBTablePartition *part,
                              AgentPath *path, AgentRouteData *data) {
-    return data->AddChangePath(agent, path, this);
+    bool ret = data->AddChangePath(agent, path, this);
+    if (RecomputeRoutePath(agent, part, path, data)) {
+        ret = true;
+    }
+    return ret;
 }
 
 AgentPath *AgentRouteData::CreateAgentPath(const Peer *peer,
