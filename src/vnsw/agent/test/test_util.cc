@@ -1373,7 +1373,7 @@ void AddPort(const char *name, int id, const char *attr) {
         << endl;
     str << "</virtual-machine-interface-mac-addresses>" << endl;
 
-    char buff[1028];
+    char buff[4096];
     strcpy(buff, str.str().c_str());
     if (attr != NULL)
         strcat(buff, attr);

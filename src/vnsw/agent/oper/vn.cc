@@ -617,11 +617,23 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
                             IsGatewayL2(subnets.ipam_subnets[i].default_gateway))
                             layer3_forwarding = false;
 
+                        // if the DNS server address is not specified, set this
+                        // to be the same as the GW address
+                        std::string dns_server_address =
+                            subnets.ipam_subnets[i].dns_server_address;
+                        boost::system::error_code ec;
+                        IpAddress dns_server =
+                            IpAddress::from_string(dns_server_address, ec);
+                        if (ec.value() || dns_server.is_unspecified()) {
+                            dns_server_address =
+                                subnets.ipam_subnets[i].default_gateway;
+                        }
+
                         vn_ipam.push_back(
                            VnIpam(subnets.ipam_subnets[i].subnet.ip_prefix,
                                   subnets.ipam_subnets[i].subnet.ip_prefix_len,
                                   subnets.ipam_subnets[i].default_gateway,
-                                  subnets.ipam_subnets[i].dns_server_address,
+                                  dns_server_address,
                                   subnets.ipam_subnets[i].enable_dhcp, ipam_name,
                                   subnets.ipam_subnets[i].dhcp_option_list.dhcp_option,
                                   subnets.ipam_subnets[i].host_routes.route));

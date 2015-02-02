@@ -133,6 +133,7 @@ protected:
 
     bool is_flag_set(uint8_t flag) const { return flags_[flag]; }
     void set_flag(uint8_t flag) { flags_.set(flag); }
+    bool is_dns_enabled() const { return dns_enable_; }
 
     VmInterface *vm_itf_;
     uint32_t vm_itf_index_;
@@ -141,6 +142,8 @@ protected:
 
     // bitset to indicate whether these options are added to the response or not
     std::bitset<256> flags_;
+    // flag to indicate if vrouter based DNS proxy is enabled or not
+    bool dns_enable_;
 
     // store the DHCP routers coming in config
     std::string routers_;
