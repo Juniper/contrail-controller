@@ -17,6 +17,7 @@ class PathPreferenceModule;
 class IFMapDependencyManager;
 class MulticastHandler;
 class InstanceManager;
+class MacVmBinding;
 
 class OperDB {
 public:
@@ -45,6 +46,7 @@ public:
     DomainConfig *domain_config_table() {
         return domain_config_.get();
     }
+    MacVmBinding *mac_vm_binding() const {return mac_vm_binding_.get();}
 
 private:
     OperDB();
@@ -56,6 +58,7 @@ private:
     std::auto_ptr<IFMapDependencyManager> dependency_manager_;
     std::auto_ptr<InstanceManager> instance_manager_;
     std::auto_ptr<DomainConfig> domain_config_;
+    std::auto_ptr<MacVmBinding> mac_vm_binding_;
     DISALLOW_COPY_AND_ASSIGN(OperDB);
 };
 #endif

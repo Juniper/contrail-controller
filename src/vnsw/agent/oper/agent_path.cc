@@ -35,7 +35,8 @@ AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     tunnel_type_(TunnelType::ComputeType(TunnelType::AllType())),
     vrf_name_(""), gw_ip_(0), unresolved_(true), is_stale_(false),
     is_subnet_discard_(false), dependant_rt_(rt), path_preference_(),
-    local_ecmp_mpls_label_(rt), composite_nh_key_(NULL), subnet_gw_ip_() {
+    local_ecmp_mpls_label_(rt), composite_nh_key_(NULL), subnet_gw_ip_(),
+    flood_dhcp_(false) {
 }
 
 AgentPath::~AgentPath() {
@@ -398,6 +399,12 @@ bool EvpnDerivedPathData::AddChangePath(Agent *agent, AgentPath *path,
     const std::string &dest_vn = reference_path_->dest_vn_name();
     if (evpn_path->dest_vn_name() != dest_vn) {
         evpn_path->set_dest_vn_name(dest_vn);
+        ret = true;
+    }
+
+    bool flood_dhcp = reference_path_->flood_dhcp();
+    if (evpn_path->flood_dhcp() != flood_dhcp) {
+        evpn_path->set_flood_dhcp(flood_dhcp);
         ret = true;
     }
 
@@ -1089,6 +1096,7 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
          path_preference_.wait_for_traffic());
     pdata.set_path_preference_data(path_preference_data);
     pdata.set_active_label(GetActiveLabel());
+    pdata.set_flood_dhcp(flood_dhcp() ? "true" : "false");
 }
 
 void AgentPath::set_local_ecmp_mpls_label(MplsLabel *mpls) {
