@@ -2215,13 +2215,9 @@ class VirtualMachineInterfaceST(DictST):
                             continue
                         ri_name = vn.obj.get_fq_name_str() + ':' + \
                             vn.get_service_name(service_chain.name, si_name)
-                        sa = AddressType(virtual_network=svn)
-                        da = AddressType(virtual_network=dvn)
                         for sp in prule.src_ports:
                             for dp in prule.dst_ports:
-                                mc = MatchConditionType(src_address=sa,
-                                                        src_port=sp,
-                                                        dst_address=da,
+                                mc = MatchConditionType(src_port=sp,
                                                         dst_port=dp,
                                                         protocol=proto)
 
@@ -2229,20 +2225,6 @@ class VirtualMachineInterfaceST(DictST):
                                     match_condition=mc,
                                     routing_instance=ri_name,
                                     ignore_acl=True)
-                                vrf_table.add_vrf_assign_rule(vrf_rule)
-
-                                # Add reverse rule for RPF check
-                                mc = MatchConditionType(src_address=da,
-                                                        src_port=dp,
-                                                        dst_address=sa,
-                                                        dst_port=sp,
-                                                        protocol=proto)
-
-                                vrf_rule = VrfAssignRuleType(
-                                    match_condition=mc,
-                                    routing_instance=ri_name,
-                                    ignore_acl=True)
-
                                 vrf_table.add_vrf_assign_rule(vrf_rule)
                                 policy_rule_count += 1
             # end for prule
