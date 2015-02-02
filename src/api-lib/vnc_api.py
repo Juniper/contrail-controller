@@ -160,6 +160,7 @@ class VncApi(VncApiClientGen):
         self._headers[rest.hdr_client_tenant()] = self._tenant_name
 
         self._auth_token_input = False
+        self._auth_token = None
 
         if auth_token:
             self._auth_token = auth_token
