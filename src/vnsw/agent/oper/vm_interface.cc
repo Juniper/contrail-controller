@@ -31,6 +31,7 @@
 #include <oper/vxlan.h>
 #include <oper/oper_dhcp_options.h>
 #include <oper/inet_unicast_route.h>
+#include <oper/mac_vm_binding.h>
 
 #include <vnc_cfg_types.h>
 #include <oper/agent_sandesh.h>
@@ -1173,6 +1174,13 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
                               bool local_pref_changed,
                               const Ip4Address &old_subnet,
                               uint8_t old_subnet_plen) {
+    //MAC VM binding is handled for all VM interface
+    if (l2_active_ && bridging_) {
+        UpdateMacVmBinding(old_l2_active);
+    } else {
+        DeleteMacVmBinding(old_l2_active);
+    }
+
     //Need not apply config for TOR VMI as it is more of an inidicative
     //interface. No route addition or NH addition happens for this interface.
     if (device_type_ == VmInterface::TOR &&
@@ -2066,6 +2074,13 @@ void VmInterface::UpdateFlowKeyNextHop() {
             agent->nexthop_table()->FindActiveEntry(&key));
 }
 
+void VmInterface::UpdateMacVmBinding(bool old_l2_active) {
+    if (L2Activated(old_l2_active)) {
+        InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+        table->mac_vm_binding().AddMacVmBinding(this);
+    }
+}
+
 void VmInterface::UpdateL2NextHop(bool old_l2_active) {
     if (L2Activated(old_l2_active)) {
         InterfaceNH::CreateL2VmInterfaceNH(GetUuid(),
@@ -2081,6 +2096,13 @@ void VmInterface::UpdateL3NextHop(bool old_ipv4_active, bool old_ipv6_active) {
     if (Ipv4Activated(old_ipv4_active) || Ipv6Activated(old_ipv6_active)) {
         InterfaceNH::CreateL3VmInterfaceNH(GetUuid(),
                                            MacAddress::FromString(vm_mac_), vrf_->GetName());
+    }
+}
+
+void VmInterface::DeleteMacVmBinding(bool old_l2_active) {
+    if (L2Deactivated(old_l2_active)) {
+        InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+        table->mac_vm_binding().DeleteMacVmBinding(this);
     }
 }
 
