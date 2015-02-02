@@ -235,6 +235,10 @@ public:
     virtual void DeletePathUsingKeyData(const AgentRouteKey *key,
                                         const AgentRouteData *data,
                                         bool force_delete);
+    virtual bool RecomputeRoutePath(Agent *agent,
+                             DBTablePartition *part,
+                             AgentPath *path,
+                             AgentRouteData *data) {return false;}
 
     // Accessor functions
     bool is_multicast() const {return is_multicast_;}
@@ -267,12 +271,13 @@ protected:
     void RemovePath(AgentPath *path);
     void InsertPath(const AgentPath *path);
     void DeletePathInternal(AgentPath *path);
-    bool ProcessPath(Agent *agent, DBTablePartition *part, AgentPath *path,
-                     AgentRouteData *data);
 
 private:
     friend class AgentRouteTable;
-    bool SyncPath(AgentPath *path);
+    bool ProcessPath(Agent *agent,
+                     DBTablePartition *part,
+                     AgentPath *path,
+                     AgentRouteData *data);
 
     VrfEntryRef vrf_;
     // Unicast table can contain routes for few multicast address 

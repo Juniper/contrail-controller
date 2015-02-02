@@ -85,6 +85,15 @@ bool VnIpam::IsSubnetMember(const IpAddress &ip) const {
     return false;
 }
 
+VnEntry::VnEntry(Agent *agent, uuid id) :
+    AgentOperDBEntry(), uuid_(id), vxlan_id_(0), vnid_(0),
+    bridging_(true), layer3_forwarding_(true), admin_state_(true),
+    table_label_(0), enable_rpf_(true) {
+}
+
+VnEntry::~VnEntry() {
+}
+
 bool VnEntry::IsLess(const DBEntry &rhs) const {
     const VnEntry &a = static_cast<const VnEntry &>(rhs);
     return (uuid_ < a.uuid_);
@@ -333,14 +342,14 @@ void VnTable::UpdateVxLanNetworkIdentifierMode() {
 
 std::auto_ptr<DBEntry> VnTable::AllocEntry(const DBRequestKey *k) const {
     const VnKey *key = static_cast<const VnKey *>(k);
-    VnEntry *vn = new VnEntry(key->uuid_);
+    VnEntry *vn = new VnEntry(agent(), key->uuid_);
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(vn));
 }
 
 DBEntry *VnTable::OperDBAdd(const DBRequest *req) {
     VnKey *key = static_cast<VnKey *>(req->key.get());
     VnData *data = static_cast<VnData *>(req->data.get());
-    VnEntry *vn = new VnEntry(key->uuid_);
+    VnEntry *vn = new VnEntry(agent(), key->uuid_);
     vn->name_ = data->name_;
 
     ChangeHandler(vn, req);
@@ -523,21 +532,6 @@ IFMapNode *VnTable::FindTarget(IFMapAgentTable *table, IFMapNode *node,
     return NULL;
 }
 
-bool VnTable::IsGatewayL2(const string &gateway) const {
-    boost::system::error_code ec;
-    IpAddress gateway_ip = IpAddress::from_string(gateway, ec);
-    if (gateway_ip.is_v4()) {
-        //0.0.0.0 or 169.254.0.0/16 is L2
-        return ((gateway_ip.to_v4() == Ip4Address::from_string("0.0.0.0", ec)) ||
-                IsIp4SubnetMember(gateway_ip.to_v4(),
-                                  Ip4Address::from_string("169.254.0.0", ec),
-                                  16));
-    } else if (gateway_ip.is_v6()) {
-        return gateway_ip.to_v6().is_unspecified();
-    }
-    return true;
-}
-
 bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
     assert(cfg);
@@ -550,11 +544,6 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     bool enable_rpf = true;
     boost::uuids::uuid u;
     CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
-
-    if ((properties.forwarding_mode == "l2") ||
-        (Agent::GetInstance()->simulate_evpn_tor())) {
-        layer3_forwarding = false;
-    }
 
     if (properties.rpf == "disable") {
         enable_rpf = false;
@@ -613,10 +602,6 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
                     assert(ipam);
                     const VnSubnetsType &subnets = ipam->data();
                     for (unsigned int i = 0; i < subnets.ipam_subnets.size(); ++i) {
-                        if (layer3_forwarding &&
-                            IsGatewayL2(subnets.ipam_subnets[i].default_gateway))
-                            layer3_forwarding = false;
-
                         vn_ipam.push_back(
                            VnIpam(subnets.ipam_subnets[i].subnet.ip_prefix,
                                   subnets.ipam_subnets[i].subnet.ip_prefix_len,
@@ -802,11 +787,8 @@ bool VnTable::IpamChangeNotify(std::vector<VnIpam> &old_ipam,
             // update DHCP options
             (*it_old).oper_dhcp_options = (*it_new).oper_dhcp_options;
 
-            // check if dhcp enable flag changed
             if ((*it_old).dhcp_enable != (*it_new).dhcp_enable) {
                 (*it_old).dhcp_enable = (*it_new).dhcp_enable;
-                // Trigger to interface entries already is sent in config DB
-                // processing, nothing else to do here
             }
 
             it_old++;

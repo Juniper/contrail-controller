@@ -13,6 +13,7 @@
 #include <cmn/agent_cmn.h>
 #include <cmn/index_vector.h>
 #include <oper_db.h>
+#include <oper/mac_vm_binding.h>
 
 struct InterfaceData;
 class VmInterface;
@@ -319,6 +320,7 @@ public:
     static InterfaceTable *GetInstance() { return interface_table_; }
     Agent *agent() const { return agent_; }
     OperDB *operdb() const { return operdb_; }
+    MacVmBinding &mac_vm_binding() {return mac_vm_binding_;}
 
 private:
     bool L2VmInterfaceWalk(DBTablePartBase *partition,
@@ -336,6 +338,7 @@ private:
     DhcpSnoopMap dhcp_snoop_map_;
     UpdateFloatingIpFn update_floatingip_cb_;
     VmiToVmiTypeMap vmi_to_vmitype_map_;
+    MacVmBinding mac_vm_binding_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceTable);
 };
 

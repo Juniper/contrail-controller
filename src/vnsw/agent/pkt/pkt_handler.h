@@ -263,8 +263,6 @@ public:
 
     PktHandler(Agent *, PktModule *pkt_module);
     virtual ~PktHandler();
-    void RegisterDBClients();
-    void Shutdown();
 
     void Register(PktModuleName type, RcvQueueFunc cb);
 
@@ -297,6 +295,7 @@ public:
     uint32_t EncapHeaderLen() const;
     Agent *agent() const { return agent_; }
     PktModule *pkt_module() const { return pkt_module_; }
+
 private:
     struct MacVmBindingKey {
         MacAddress mac;
@@ -314,7 +313,6 @@ private:
     };
     typedef std::set<MacVmBindingKey> MacVmBindingSet;
 
-    void InterfaceNotify(DBEntryBase *entry);
     int ParseEthernetHeader(PktInfo *pkt_info, uint8_t *pkt);
     int ParseMplsHdr(PktInfo *pkt_info, uint8_t *pkt);
     int ParseIpPacket(PktInfo *pkt_info, PktType::Type &pkt_type,
@@ -333,8 +331,6 @@ private:
     bool IsToRDevice(uint32_t vrf_id, const IpAddress &ip);
     bool IsManagedTORPacket(Interface *intf, PktInfo *pkt_info,
                             PktType::Type &pkt_type, uint8_t *pkt);
-    MacVmBindingSet::iterator
-    FindMacVmBinding(MacAddress &address, const Interface *interface);
     bool IsDiagPacket(PktInfo *pkt_info);
 
     // handlers for each module type
@@ -342,10 +338,6 @@ private:
 
     PktStats stats_;
     boost::array<PktTrace, MAX_MODULES> pkt_trace_;
-
-    // map of VM mac addresses to VM Interface, used in TOR services node
-    // to identify the VM based on incoming packet's mac address.
-    MacVmBindingSet mac_vm_binding_;
     DBTableBase::ListenerId iid_;
 
     Agent *agent_;
