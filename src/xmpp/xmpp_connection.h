@@ -29,12 +29,14 @@ class XmppSession;
 class XmppConnection {
 public:
     struct ProtoStats {
-        ProtoStats() : open(0), close(0), keepalive(0), update(0) {
+        ProtoStats() : open(0), close(0), keepalive(0), update(0),
+            open_fail(0) {
         }
         uint32_t open;
         uint32_t close;
         uint32_t keepalive;
         uint32_t update;
+        uint32_t open_fail;
     };
 
     struct ErrorStats {
@@ -69,7 +71,7 @@ public:
 
     // Xmpp connection messages
     virtual void SendOpen(TcpSession *session);
-    virtual void SendOpenConfirm(TcpSession *session);
+    virtual bool SendOpenConfirm(TcpSession *session);
     void SendKeepAlive();
     void SendClose(TcpSession *session);
 
@@ -167,6 +169,9 @@ public:
     uint32_t tx_update() const {
         return stats_[1].update;
     }
+    uint32_t tx_open_fail() const {
+        return stats_[1].open_fail;
+    }
 
 
     uint32_t rx_open() const {
@@ -180,6 +185,9 @@ public:
     }
     uint32_t rx_update() const {
         return stats_[0].update;
+    }
+    uint32_t rx_open_fail() const {
+        return stats_[0].open_fail;
     }
 
     void LogMsg(std::string msg);
