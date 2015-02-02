@@ -33,7 +33,7 @@ RedisProcessorExec::UVEUpdate(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
                        const std::string &instance_id,
                        const std::string &key, const std::string &msg,
                        int32_t seq, const std::string &agg,
-                       const std::string &hist, int64_t ts) {
+                       const std::string &hist, int64_t ts, unsigned int part) {
     
     bool ret = false;
     size_t sep = key.find(":");
@@ -89,7 +89,7 @@ RedisProcessorExec::UVEUpdate(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
                 string("VALUES:") + key + ":" + source + ":" + node_type + 
                 ":" + module + ":" + instance_id + ":" + type)(
                 source)(node_type)(module)(instance_id)(type)(attr)(key)
-                (seqstr.str())(msg)(integerToString(REDIS_DB_UVE)));        
+                (seqstr.str())(msg)(integerToString(REDIS_DB_UVE))(integerToString(part)));        
     }
     return ret;
 }
