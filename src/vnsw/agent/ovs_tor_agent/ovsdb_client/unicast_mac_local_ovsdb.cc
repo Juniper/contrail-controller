@@ -14,12 +14,14 @@ extern "C" {
 #include <ovsdb_client_idl.h>
 #include <ovsdb_client_session.h>
 #include <base/util.h>
+#include <base/string_util.h>
 #include <net/mac_address.h>
 #include <oper/agent_sandesh.h>
 #include <ovsdb_types.h>
 #include <ovsdb_route_peer.h>
 #include <logical_switch_ovsdb.h>
 #include <unicast_mac_local_ovsdb.h>
+#include <vn_ovsdb.h>
 
 using OVSDB::UnicastMacLocalOvsdb;
 using OVSDB::UnicastMacLocalEntry;
@@ -83,7 +85,21 @@ KSyncEntry *UnicastMacLocalEntry::UnresolvedReference() {
     LogicalSwitchEntry *l_switch =
         static_cast<LogicalSwitchEntry *>(l_table->GetReference(&key));
     if (!l_switch->IsResolved()) {
+        OVSDB_TRACE(Trace, "Skipping route add " + mac_ + " VN uuid " +
+                logical_switch_name_ + " destination IP " + dest_ip_ +
+                " due to unavailable Logical Switch ");
         return l_switch;
+    }
+
+    VnOvsdbObject *vn_object = table_->client_idl()->vn_ovsdb();
+    VnOvsdbEntry vn_key(vn_object, StringToUuid(logical_switch_name_));
+    VnOvsdbEntry *vn_entry =
+        static_cast<VnOvsdbEntry *>(vn_object->GetReference(&vn_key));
+    if (!vn_entry->IsResolved()) {
+        OVSDB_TRACE(Trace, "Skipping route add " + mac_ + " VN uuid " +
+                logical_switch_name_ + " destination IP " + dest_ip_ +
+                " due to unavailable VN ");
+        return vn_entry;
     }
     return NULL;
 }

@@ -38,7 +38,8 @@ libovsdbclient = env.Library('ovsdbclient',
                                  'unicast_mac_local_ovsdb.cc',
                                  'unicast_mac_remote_ovsdb.cc',
                                  'vlan_port_binding_ovsdb.cc',
-                                 'vm_interface_ksync.cc'
+                                 'vm_interface_ksync.cc',
+                                 'vn_ovsdb.cc'
                              ])
 env.Requires(libovsdbclient, '#/build/include/openvswitch/include')
 
