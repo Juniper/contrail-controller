@@ -204,6 +204,22 @@ class UVEServer(object):
 
         return state
 
+    def get_part(self, part):
+        uves = {}
+        for redis_uve in self._redis_uve_list:
+            gen_uves = {}
+            redish = redis.StrictRedis(host=redis_uve[0],
+                                       port=redis_uve[1], db=1)
+            for elems in redish.smembers("PART2KEY:" + str(part)): 
+                info = elems.split(":", 5)
+                gen = info[0] + ":" + info[1] + ":" + info[2] + ":" + info[3]
+                key = info[5]
+                if not gen_uves.has_key(gen):
+                     gen_uves[gen] = set()
+                gen_uves[gen].add(key)
+            uves[redis_uve[0] + ":" + str(redis_uve[1])] = gen_uves
+        return uves
+        
     def get_uve(self, key, flat, sfilter=None, mfilter=None, tfilter=None, multi=False):
         state = {}
         state[key] = {}

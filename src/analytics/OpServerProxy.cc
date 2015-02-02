@@ -16,11 +16,15 @@
 #include "hiredis/hiredis.h"
 #include "hiredis/base64.h"
 #include "hiredis/boostasio.hpp"
+#include <librdkafka/rdkafkacpp.h>
 #include <sandesh/sandesh.h>
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>
 
 #include "rapidjson/document.h"
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
+
 #include <base/connection_info.h>
 #include "redis_connection.h"
 #include "redis_processor_vizd.h"
@@ -35,6 +39,51 @@ using process::ConnectionState;
 using process::ConnectionType;
 using process::ConnectionStatus;
 
+class KafkaDeliveryReportCb : public RdKafka::DeliveryReportCb {
+ public:
+  void dr_cb (RdKafka::Message &message) {
+    if (message.err() != RdKafka::ERR_NO_ERROR) {
+        LOG(ERROR, "Message delivery for " << message.key() << " " <<
+            message.errstr() << " gen " <<
+            string((char *)(message.msg_opaque())));
+    }
+    char * cc = (char *)message.msg_opaque();
+    delete[] cc;
+  }
+};
+
+
+class KafkaEventCb : public RdKafka::EventCb {
+ public:
+  void event_cb (RdKafka::Event &event) {
+    switch (event.type())
+    {
+      case RdKafka::Event::EVENT_ERROR:
+        LOG(ERROR, RdKafka::err2str(event.err()) << " : " << event.str());
+        if (event.err() == RdKafka::ERR__ALL_BROKERS_DOWN) assert(0);
+        break;
+
+      case RdKafka::Event::EVENT_LOG:
+        LOG(INFO, "LOG-" << event.severity() << "-" << event.fac().c_str() <<
+            ": " << event.str().c_str());
+        break;
+
+      default:
+        LOG(INFO, "EVENT " << event.type() <<
+            " (" << RdKafka::err2str(event.err()) << "): " <<
+            event.str());
+        break;
+    }
+  }
+};
+
+static inline unsigned int djb_hash (const char *str, size_t len) {
+    unsigned int hash = 5381;
+    for (size_t i = 0 ; i < len ; i++)
+        hash = ((hash << 5) + hash) + str[i];
+    return hash;
+}
+
 class OpServerProxy::OpServerImpl {
     public:
         enum RacConnType {
@@ -47,6 +96,7 @@ class OpServerProxy::OpServerImpl {
             RAC_UP = 1,
             RAC_DOWN = 2
         };
+        const unsigned int partitions_;
 
         static const char* RacStatusToString(RacStatus status) {
             switch(status) {
@@ -57,6 +107,25 @@ class OpServerProxy::OpServerImpl {
             default:
                 return "Invalid";
             }
+        }
+
+        string name(void) { return collector_->name(); }
+
+        void KafkaPub(unsigned int pt,
+                          const string& skey,
+                          const string& gen,
+                          const string& value) {
+
+            char* gn = new char[gen.length()+1];
+            strcpy(gn,gen.c_str());
+
+            if (producer_) {
+                // Key in Kafka Topic includes UVE Key, Type
+                producer_->produce(topic_[pt].get(), 0, 
+                    RdKafka::Producer::MSG_COPY,
+                    const_cast<char *>(value.c_str()), value.length(),
+                    &skey, (void *)gn);
+                }
         }
 
         struct RedisInfo {
@@ -355,27 +424,43 @@ class OpServerProxy::OpServerImpl {
             tbb::mutex::scoped_lock lock(rac_mutex_);
             return from_ops_conn_;
         }
+        bool KafkaTimer() {
+            if (producer_) {
+                producer_->poll(0);
+            }
+            return true;
+        }
 
         const string get_redis_password() {
             return redis_password_;
         }
 
         OpServerImpl(EventManager *evm, VizCollector *collector,
-                     const std::string redis_uve_ip,
+                     const std::string redis_uve_ip, 
                      unsigned short redis_uve_port,
-                     const std::string redis_password) :
+                     const std::string redis_password,
+                     const std::string brokers,
+                     const std::string topic, 
+                     uint16_t partitions) :
+            partitions_(partitions),
             redis_uve_(redis_uve_ip, redis_uve_port),
             evm_(evm),
             collector_(collector),
             started_(false),
             analytics_cb_proc_fn(NULL),
             processor_cb_proc_fn(NULL),
-            redis_password_(redis_password) {
-            to_ops_conn_.reset(new RedisAsyncConnection(evm_,
-                redis_uve_ip, redis_uve_port,
+            redis_password_(redis_password),
+            k_event_cb(),
+            k_dr_cb(),
+            kafka_timer_(TimerManager::CreateTimer(*evm->io_service(),
+                         "Kafka Timer", 
+                         TaskScheduler::GetInstance()->GetTaskId(
+                         "Kafka Timer"))) {
+            to_ops_conn_.reset(new RedisAsyncConnection(evm_, 
+                redis_uve_ip, redis_uve_port, 
                 boost::bind(&OpServerProxy::OpServerImpl::ToOpsConnUp, this),
                 boost::bind(&OpServerProxy::OpServerImpl::ToOpsConnDown, this)));
-            // Update connection info
+            // Update connection 
             ConnectionState::GetInstance()->Update(ConnectionType::REDIS,
                 "To", ConnectionStatus::INIT, to_ops_conn_->Endpoint(),
                 std::string());
@@ -389,9 +474,42 @@ class OpServerProxy::OpServerImpl {
                 "From", ConnectionStatus::INIT, from_ops_conn_->Endpoint(),
                 std::string());
             from_ops_conn_.get()->RAC_Connect();
+
+            kafka_timer_->Start(1000,
+                boost::bind(&OpServerImpl::KafkaTimer, this), NULL);
+            if (brokers.empty()) return;
+
+            string errstr;
+            RdKafka::Conf *conf = RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL);
+            conf->set("metadata.broker.list", brokers, errstr);
+            conf->set("event_cb", &k_event_cb, errstr);
+            conf->set("dr_cb", &k_dr_cb, errstr);
+            producer_.reset(RdKafka::Producer::create(conf, errstr));
+            if (!producer_) 
+                assert(0);
+            for (unsigned int i=0; i<partitions_; i++) {
+                std::stringstream ss;
+                ss << topic;
+                ss << i;
+                shared_ptr<RdKafka::Topic> sr(RdKafka::Topic::create(producer_.get(), ss.str(), NULL, errstr));
+                topic_.push_back(sr);
+                if (!topic_[i])
+                    assert(0);
+            }
+            delete conf;
         }
 
         ~OpServerImpl() {
+            TimerManager::DeleteTimer(kafka_timer_);
+            kafka_timer_ = NULL;
+            if (producer_) {
+                for (unsigned int i=0; i<partitions_; i++) {
+                    topic_[i].reset();
+                }
+                producer_.reset();
+
+                RdKafka::wait_destroyed(5000);
+            }
         }
 
         RedisInfo redis_uve_;
@@ -399,6 +517,7 @@ class OpServerProxy::OpServerImpl {
         /* these are made public, so they are accessed by OpServerProxy */
         EventManager *evm_;
         VizCollector *collector_;
+        
         bool started_;
         shared_ptr<RedisAsyncConnection> to_ops_conn_;
         shared_ptr<RedisAsyncConnection> from_ops_conn_;
@@ -406,19 +525,93 @@ class OpServerProxy::OpServerImpl {
         RedisAsyncConnection::ClientAsyncCmdCbFn processor_cb_proc_fn;
         tbb::mutex rac_mutex_;
         const std::string redis_password_;
+        shared_ptr<RdKafka::Producer> producer_;
+        std::vector<shared_ptr<RdKafka::Topic> > topic_;
+        KafkaEventCb k_event_cb;
+        KafkaDeliveryReportCb k_dr_cb;
+        Timer *kafka_timer_;
 };
 
 OpServerProxy::OpServerProxy(EventManager *evm, VizCollector *collector,
                              const std::string& redis_uve_ip,
                              unsigned short redis_uve_port,
-                             const std::string& redis_password) {
+                             const std::string& redis_password, 
+                             const std::string& brokers,
+                             uint16_t partitions) {
     impl_ = new OpServerImpl(evm, collector, redis_uve_ip, redis_uve_port,
-                             redis_password);
+                             redis_password,
+                             brokers, string("uve-"), partitions);
 }
 
 OpServerProxy::~OpServerProxy() {
     if (impl_)
         delete impl_;
+}
+
+bool
+OpServerProxy::UVENotif(const std::string &type,
+                       const std::string &source, const std::string &node_type,
+                       const std::string &module, 
+                       const std::string &instance_id,
+                       const std::string &key) {
+
+    // Hashing into a partition is based on UVE Key
+    unsigned int pt = djb_hash(key.c_str(), key.size()) % impl_->partitions_;
+
+    std::stringstream ss;
+    ss << source << ":" << node_type << ":" << module << ":" << instance_id;
+    string genstr = ss.str();
+
+    std::stringstream ks;
+    ks << key << "|" << type;
+    string kstr = ks.str();
+
+    std::stringstream collss;
+    collss << impl_->redis_uve_.GetIp() << ":" <<
+               impl_->redis_uve_.GetPort();
+    string collstr = collss.str();
+
+    rapidjson::Document dd;
+    dd.SetObject();
+
+    {
+        rapidjson::Value val(rapidjson::kStringType);
+        val.SetString("UVEUpdate");
+        dd.AddMember("message", val, dd.GetAllocator());
+    }
+
+    {
+        rapidjson::Value val(rapidjson::kStringType);
+        val.SetString(key.c_str());
+        dd.AddMember("key", val, dd.GetAllocator());
+    }
+
+    {
+        rapidjson::Value val(rapidjson::kStringType);
+        val.SetString(type.c_str());
+        dd.AddMember("type", val, dd.GetAllocator());
+    }
+
+    {
+        rapidjson::Value val(rapidjson::kStringType);
+        val.SetString(genstr.c_str(), genstr.size());
+        dd.AddMember("gen", val, dd.GetAllocator());
+    }
+
+    {
+        rapidjson::Value val(rapidjson::kStringType);
+        val.SetString(collstr.c_str());
+        dd.AddMember("coll", val, dd.GetAllocator());
+    } 
+
+    rapidjson::StringBuffer sb;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(sb);
+    dd.Accept(writer);
+    string jsonline(sb.GetString());
+
+    impl_->KafkaPub(pt, kstr.c_str(), genstr, jsonline);
+
+    return true;
 }
 
 bool
@@ -436,9 +629,17 @@ OpServerProxy::UVEUpdate(const std::string &type, const std::string &attr,
         return false;
     }
 
+    // Hashing into a partition is based on UVE Key
+    unsigned int pt = djb_hash(key.c_str(), key.size()) % impl_->partitions_;
+
     bool ret = RedisProcessorExec::UVEUpdate(prac.get(), NULL, type, attr,
-            source, node_type, module, instance_id, key, message, seq, agg, atyp, ts);
-    ret ? impl_->redis_uve_.RedisUveUpdate() : impl_->redis_uve_.RedisUveUpdateFail(); 
+            source, node_type, module, instance_id, key, message, seq, agg, atyp, ts, pt);
+    if (ret) {
+        impl_->redis_uve_.RedisUveUpdate();
+
+    } else {
+        impl_->redis_uve_.RedisUveUpdateFail();
+    }
     return ret;
 }
 
@@ -482,10 +683,51 @@ OpServerProxy::DeleteUVEs(const string &source, const string &module,
 
     shared_ptr<RedisAsyncConnection> prac = impl_->to_ops_conn();
     if  (!(prac && prac->IsConnUp())) return false;
-
-    return RedisProcessorExec::SyncDeleteUVEs(impl_->redis_uve_.GetIp(),
-            impl_->redis_uve_.GetPort(), impl_->get_redis_password(),source,
+    bool ret =  RedisProcessorExec::SyncDeleteUVEs(impl_->redis_uve_.GetIp(),
+            impl_->redis_uve_.GetPort(), impl_->get_redis_password(), source,
             node_type, module, instance_id);
+
+    // Generator Delete notification must go to all partitions
+    for (unsigned int pt = 0; pt < impl_->partitions_; pt++) {
+
+        std::stringstream ss;
+        ss << source << ":" << node_type << ":" << module << ":" << instance_id;
+        string genstr = ss.str();
+
+        std::stringstream collss;
+        collss << impl_->redis_uve_.GetIp() << ":" <<
+                   impl_->redis_uve_.GetPort();
+        string collstr = collss.str();
+
+        rapidjson::Document dd;
+        dd.SetObject();
+
+        {
+            rapidjson::Value val(rapidjson::kStringType);
+            val.SetString("GenDelete");
+            dd.AddMember("message", val, dd.GetAllocator());
+        }
+
+        {
+            rapidjson::Value val(rapidjson::kStringType);
+            val.SetString(genstr.c_str(), genstr.size());
+            dd.AddMember("gen", val, dd.GetAllocator());
+        }
+
+        {
+            rapidjson::Value val(rapidjson::kStringType);
+            val.SetString(collstr.c_str());
+            dd.AddMember("coll", val, dd.GetAllocator());
+        } 
+
+        rapidjson::StringBuffer sb;
+        rapidjson::Writer<rapidjson::StringBuffer> writer(sb);
+        dd.Accept(writer);
+        string jsonline(sb.GetString());
+
+        impl_->KafkaPub(pt, genstr.c_str(), genstr, jsonline);
+    }
+    return ret;
 }
 
 void 

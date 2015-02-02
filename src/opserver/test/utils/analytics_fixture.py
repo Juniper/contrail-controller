@@ -18,6 +18,7 @@ from fcntl import fcntl, F_GETFL, F_SETFL
 from operator import itemgetter
 from opserver_introspect_utils import VerificationOpsSrv
 from collector_introspect_utils import VerificationCollector
+from alarmgen_introspect_utils import VerificationAlarmGen
 from opserver.sandesh.viz.constants import COLLECTOR_GLOBAL_TABLE, SOURCE, MODULE
 from sandesh_common.vns.constants import NodeTypeNames, ModuleNames
 from sandesh_common.vns.ttypes import NodeType, Module
@@ -53,10 +54,10 @@ class Query(object):
 class Collector(object):
     def __init__(self, analytics_fixture, redis_uve, 
                  logger, ipfix_port = False, syslog_port = False,
-                 protobuf_port = False, is_dup=False):
+                 protobuf_port = False, kafka_port = None, is_dup=False):
         self.analytics_fixture = analytics_fixture
         self.syslog_port = syslog_port
-
+        self.kafka_port = kafka_port
         # If these ports are needed, "start" should allocate them
         if self.syslog_port:
             self.syslog_port = 0
@@ -138,7 +139,9 @@ class Collector(object):
             args.append(str(self.protobuf_port))
         else:
             self.protobuf_port = None
-        
+        if self.kafka_port:
+            args.append('--DEFAULT.kafka_broker_list')
+            args.append('127.0.0.1:%d' % self.kafka_port)        
         self._logger.info('Setting up Vizd: %s' % (' '.join(args))) 
         ports, self._instance = \
                          self.analytics_fixture.start_with_ephemeral_ports(
@@ -176,6 +179,93 @@ class Collector(object):
     # end stop
 
 # end class Collector
+
+class AlarmGen(object):
+    def __init__(self, primary_collector, secondary_collector, kafka_port,
+                 analytics_fixture, logger, is_dup=False):
+        self.primary_collector = primary_collector
+        self.secondary_collector = secondary_collector
+        self.analytics_fixture = analytics_fixture
+        self.http_port = 0
+        self.kafka_port = kafka_port
+        self.hostname = socket.gethostname()
+        self._instance = None
+        self._logger = logger
+        self._generator_id = self.hostname+':'+NodeTypeNames[NodeType.ANALYTICS]+\
+                            ':'+ModuleNames[Module.ALARM_GENERATOR]+':0'
+    # end __init__
+
+    def get_introspect(self):
+        if self.http_port != 0:
+            return VerificationAlarmGen("127.0.0.1", self.http_port)
+        else:
+            return None
+
+    def set_primary_collector(self, collector):
+        self.primary_collector = collector
+    # end set_primary_collector
+
+    def set_secondary_collector(self, collector):
+        self.secondary_collector = collector
+    # end set_secondary_collector
+
+    def get_generator_id(self):
+        return self._generator_id
+    # end get_generator_id
+
+    def start(self):
+        assert(self._instance == None)
+        self._log_file = '/tmp/alarmgen.messages.' + str(os.getpid())
+        subprocess.call(['rm', '-rf', self._log_file])
+        args = ['python', self.analytics_fixture.builddir + \
+                '/analytics_test/bin/contrail-alarm-gen',
+                '--http_server_port', str(self.http_port),
+                '--log_file', self._log_file]
+        if self.kafka_port:
+            args.append('--kafka_broker_list')
+            args.append('127.0.0.1:' + str(self.kafka_port))
+        args.append('--redis_uve_list') 
+        for redis_uve in self.analytics_fixture.redis_uves:
+            args.append('127.0.0.1:'+str(redis_uve.port))
+        args.append('--collectors')
+        args.append(self.primary_collector)
+        if self.secondary_collector is not None:
+            args.append(self.secondary_collector)
+
+        self._logger.info('Setting up AlarmGen: %s' % ' '.join(args))
+        ports, self._instance = \
+                         self.analytics_fixture.start_with_ephemeral_ports(
+                         "contrail-alarm-gen", ["http"],
+                         args, None)
+        self.http_port = ports["http"]
+        return self.verify_setup()
+    # end start
+
+    def verify_setup(self):
+        if not self.http_port:
+            return False
+        return True
+
+    def stop(self):
+        if self._instance is not None:
+            self._logger.info('Shutting down AlarmGen 127.0.0.1:%s' 
+                              % str(self.http_port))
+            if self._instance.poll() == None:
+                self._instance.terminate()
+            (op_out, op_err) = self._instance.communicate()
+            ocode = self._instance.returncode
+            if ocode != 0:
+                self._logger.info('AlarmGen returned %d' % ocode)
+                self._logger.info('AlarmGen terminated stdout: %s' % op_out)
+                self._logger.info('AlarmGen terminated stderr: %s' % op_err)
+            subprocess.call(['rm', self._log_file])
+            self._instance = None
+            self.http_port = 0
+    # end stop
+
+    # TODO : PartitionOwnershipReq, PartitionStatusReq
+
+# end class AlarmGen
 
 class OpServer(object):
     def __init__(self, primary_collector, secondary_collector, redis_port,
@@ -355,7 +445,7 @@ class QueryEngine(object):
                 self._logger.info('contrail-query-engine terminated stderr: %s' % qe_err)
                 with open(self._log_file, 'r') as fin:
                     self._logger.info(fin.read())
-            subprocess.call(['rm', self._log_file])
+            #subprocess.call(['rm', self._log_file])
             assert(rcode == 0)
             self._instance = None
     # end stop
@@ -401,7 +491,7 @@ class AnalyticsFixture(fixtures.Fixture):
 
     def __init__(self, logger, builddir, redis_port, cassandra_port,
                  ipfix_port = False, syslog_port = False, protobuf_port = False,
-                 noqed=False, collector_ha_test=False, redis_password=None):
+                 noqed=False, collector_ha_test=False, redis_password=None, kafka=False):
 
         self.builddir = builddir
         self.redis_port = redis_port
@@ -413,6 +503,7 @@ class AnalyticsFixture(fixtures.Fixture):
         self.noqed = noqed
         self.collector_ha_test = collector_ha_test
         self.redis_password = redis_password
+        self.kafka = kafka
 
     def setUp(self):
         super(AnalyticsFixture, self).setUp()
@@ -421,16 +512,23 @@ class AnalyticsFixture(fixtures.Fixture):
                                  self.redis_password)]
         self.redis_uves[0].start()
 
+        # TODO : start Kafka
+        if self.kafka:
+            self.kafka_port = 9092
+        else:
+            self.kafka_port = None
+
         self.opserver = None
         self.query_engine = None
         self.collectors = [Collector(self, self.redis_uves[0], self.logger,
                            ipfix_port = self.ipfix_port,
                            syslog_port = self.syslog_port,
-                           protobuf_port = self.protobuf_port)]
+                           protobuf_port = self.protobuf_port,
+                           kafka_port = self.kafka_port)] 
         if not self.collectors[0].start():
             self.logger.error("Collector did NOT start")
             return 
-        
+
         if self.verify_collector_gen(self.collectors[0]):
             primary_collector = self.collectors[0].get_addr()
             secondary_collector = None
@@ -439,17 +537,25 @@ class AnalyticsFixture(fixtures.Fixture):
                                              self.redis_password))
                 self.redis_uves[1].start()
                 self.collectors.append(Collector(self, self.redis_uves[1],
-                                                 self.logger, is_dup=True))
+                                                 self.logger,
+                                                 kafka_port = self.kafka_port,
+                                                 is_dup=True))
                 if not self.collectors[1].start():
                     self.logger.error("Secondary Collector did NOT start")
                 secondary_collector = self.collectors[1].get_addr()
+
             self.opserver = OpServer(primary_collector, secondary_collector, 
                                      self.redis_uves[0].port, 
                                      self, self.logger)
             if not self.opserver.start():
                 self.logger.error("OpServer did NOT start")
-
             self.opserver_port = self.opserver.listen_port
+            
+            self.alarmgen = AlarmGen(primary_collector, secondary_collector,
+                                     self.kafka_port, self, self.logger)
+            if not self.alarmgen.start():
+                self.logger.error("AlarmGen did NOT start")
+
             if not self.noqed:
                 self.query_engine = QueryEngine(primary_collector, 
                                             secondary_collector, 
@@ -529,6 +635,28 @@ class AnalyticsFixture(fixtures.Fixture):
         else:
             return True
 
+    def set_alarmgen_partition(self, part, own):
+        vag = self.alarmgen.get_introspect()
+        ret = vag.get_PartitionOwnership(part,own)
+        self.logger.info("set_alarmgen_partition %d %d : %s" % \
+                         (part,own,str(ret)))
+        if ret == []:
+            return False
+        return ret['status']
+
+    @retry(delay=2, tries=5)
+    def verify_alarmgen_partition(self, part, own, uves = None):
+        vag = self.alarmgen.get_introspect()
+        ret = vag.get_PartitionStatus(part)
+        self.logger.info("verify_alarmgen_partition %d : %s" % \
+                         (part, str(ret)))
+        if ret == []:
+            return False
+        if ret['enabled'] == own:
+            return True
+        else:
+            return False
+      
     @retry(delay=2, tries=10)
     def verify_collector_obj_count(self):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
@@ -545,7 +673,7 @@ class AnalyticsFixture(fixtures.Fixture):
             self.logger.info(str(res))
             return True
 
-    @retry(delay=1, tries=10)
+    @retry(delay=1, tries=30)
     def verify_generator_list(self, collector, exp_genlist):
         vcl = VerificationCollector('127.0.0.1', collector.http_port)
         try:
@@ -771,7 +899,8 @@ class AnalyticsFixture(fixtures.Fixture):
         where_clause1 = "ModuleId = contrail-query-engine"
         where_clause2 = str("Source =" + socket.gethostname())
 
-        exp_moduleids = ['contrail-analytics-api', 'contrail-collector', 'contrail-query-engine']
+        exp_moduleids = ['contrail-alarm-gen', 'contrail-analytics-api',
+                         'contrail-collector', 'contrail-query-engine']
 
         # Ascending sort
         res = vns.post_query('MessageTable',
@@ -837,8 +966,8 @@ class AnalyticsFixture(fixtures.Fixture):
                 if x['ModuleId'] not in moduleids:
                     moduleids.append(x['ModuleId'])
             self.logger.info(str(moduleids))
-            if len(moduleids) == 1:  # 2 moduleids: contrail-collector/contrail-query-engine
-                if moduleids[0] != 'contrail-analytics-api':
+            if len(moduleids) == 1: 
+                if moduleids[0] != 'contrail-alarm-gen':
                     return False
                 return True
             else:
@@ -1810,6 +1939,10 @@ class AnalyticsFixture(fixtures.Fixture):
             self.opserver.stop()
         except:
             pass
+        try:
+            self.alarmgen.stop()
+        except:
+            pass
         if self.query_engine:
             self.query_engine.stop()
         for collector in self.collectors:
@@ -1817,6 +1950,9 @@ class AnalyticsFixture(fixtures.Fixture):
         for redis_uve in self.redis_uves:
             if not redis_uve.use_global:
                 redis_uve.stop()
+        # TODO : Stop Kafka
+        self.kafka_port = None
+
         super(AnalyticsFixture, self).cleanUp()
 
     @staticmethod
@@ -1858,7 +1994,7 @@ class AnalyticsFixture(fixtures.Fixture):
       
         pmap = {} 
         for k,v in pipes.iteritems(): 
-            tries = 30
+            tries = 60
             port = None
             pipein , pipe_name = v
             while tries >= 0 and instance.poll() == None:

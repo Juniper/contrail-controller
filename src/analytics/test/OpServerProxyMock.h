@@ -19,9 +19,9 @@ public:
                        const std::string &key, const std::string &message, int32_t seq,
                        const std::string &agg, const std::string &atyp, int64_t ts));
 
-
-    MOCK_METHOD4(UVESend, bool(const std::string &type, const std::string &source,
-                const std::string &key, const std::string &message));
+    MOCK_METHOD4(UVENotif, bool(const std::string &type,
+                       const std::string &source, const std::string &module,
+                       const std::string &key));
 
     bool 
     GetSeq(const std::string &source, const std::string &module, GetSeqReply gsr) {

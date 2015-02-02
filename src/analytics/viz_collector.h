@@ -34,9 +34,11 @@ public:
             const std::vector<std::string> &cassandra_ips,
             const std::vector<int> &cassandra_ports,
             const std::string &redis_uve_ip, unsigned short redis_uve_port,
-            const std::string &redis_password, int syslog_port, int sflow_port,
-            int ipfix_port, bool dup=false,
-            int analytics_ttl=g_viz_constants.AnalyticsTTL);
+            const std::string &redis_password,
+            const std::string &brokers,
+            int syslog_port, int sflow_port, int ipfix_port,
+            uint16_t partitions,
+            bool dup=false, int analytics_ttl=g_viz_constants.AnalyticsTTL);
     VizCollector(EventManager *evm, DbHandler *db_handler, Ruleeng *ruleeng,
                  Collector *collector, OpServerProxy *osp);
     ~VizCollector();
