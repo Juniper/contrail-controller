@@ -70,6 +70,8 @@ public:
     void set_status(std::string status) {status_ = status;}
     std::string status() {return status_;}
 
+    void OnCleanup();
+
     // Dequeue event from workqueue for processing
     bool ProcessSessionEvent(OvsdbSessionEvent event);
 
