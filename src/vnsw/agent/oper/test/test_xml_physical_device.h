@@ -158,6 +158,7 @@ private:
     const boost::uuids::uuid id_;
     boost::uuids::uuid device_uuid_;
     boost::uuids::uuid vn_uuid_;
+    std::string vrf_name_;
     uint16_t vxlan_id_;
 };
 

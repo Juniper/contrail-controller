@@ -71,6 +71,12 @@ bool PhysicalDeviceVn::Copy(PhysicalDeviceVnTable *table,
         ret = true;
     }
 
+    VrfEntry *vrf = vn ? vn->GetVrf() : NULL;
+    if (vrf != vrf_.get()) {
+        vrf_.reset(vrf);
+        ret = true;
+    }
+
     return ret;
 }
 

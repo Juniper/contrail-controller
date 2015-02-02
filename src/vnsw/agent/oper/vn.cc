@@ -460,6 +460,8 @@ void VnTable::RegisterDBClients(IFMapDependencyManager *dep) {
              list_of("virtual-network-virtual-machine-interface")
                     ("virtual-machine-interface-virtual-network"))
             ("virtual-network-network-ipam",
+             list_of("virtual-machine-interface-virtual-network"))
+            ("virtual-network-routing-instance",
              list_of("virtual-machine-interface-virtual-network"));
     dep->RegisterReactionMap("virtual-network", react_vn);
     dep->Register("virtual-network",

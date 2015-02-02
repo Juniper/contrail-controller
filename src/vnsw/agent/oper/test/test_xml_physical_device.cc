@@ -455,7 +455,8 @@ const string AgentUtXmlLogicalInterfaceValidate::ToString() {
 /////////////////////////////////////////////////////////////////////////////
 AgentUtXmlPhysicalDeviceVnValidate::AgentUtXmlPhysicalDeviceVnValidate
 (const string &name, const uuid &id, const xml_node &node) :
-    AgentUtXmlValidationNode(name, node), id_(id), vxlan_id_(0xFFFF) {
+    AgentUtXmlValidationNode(name, node), id_(id), vrf_name_(""),
+    vxlan_id_(0xFFFF) {
 }
 
 AgentUtXmlPhysicalDeviceVnValidate::~AgentUtXmlPhysicalDeviceVnValidate() {
@@ -477,6 +478,7 @@ bool AgentUtXmlPhysicalDeviceVnValidate::ReadXml() {
     }
 
     GetUintAttribute(node(), "vxlan-id", &vxlan_id_);
+    GetStringAttribute(node(), "vrf", &vrf_name_);
     return true;
 }
 
@@ -504,6 +506,20 @@ bool AgentUtXmlPhysicalDeviceVnValidate::Validate() {
         if (vn == NULL)
             return false;
         if (vn->GetVxLanId() != vxlan_id_)
+            return false;
+    }
+
+    if (vrf_name_ != "") {
+        if (entry->vrf() == NULL)
+            return false;
+        if (entry->vrf()->GetName() != vrf_name_)
+            return false;
+        if (entry->vn() == NULL)
+            return false;
+        VrfEntry *vrf = entry->vn()->GetVrf();
+        if (vrf == NULL)
+            return false;
+        if (vrf->GetName() != vrf_name_)
             return false;
     }
 

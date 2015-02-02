@@ -5,6 +5,8 @@
     <physical-interface uuid="1" name="intf-1" />
     <logical-interface uuid="1" name="l-intf-1"/>
     <virtual-machine uuid="1" name="vm1"/>
+    <vrf uuid="1" name="vrf1"/>
+    <vrf uuid="2" name="vrf2"/>
     <global-vrouter-config uuid="1" name="default-global-system-config:default-global-vrouter-config" vxlan-mode="automatic"/>
     <vmi nova="1"
      uuid="1" name="tap1" mac="00:00:00:00:00:01" vn-name="vn-1" vn-uuid="1"
@@ -60,6 +62,23 @@
         <physical-router-vn name="router-vn-1" uuid="1" device="1" vn="1" vxlan-id="100" />
     </validate>
 
+    <link left="virtual-network" left-name="vn-1"
+          right="routing-instance" right-name="vrf1"/>
+    <validate name="validate-vrf">
+        <physical-router-vn name="router-vn-1" uuid="1" device="1" vn="1" vxlan-id="100" vrf="vrf1"/>
+    </validate>
+
+    <link left="virtual-network" left-name="vn-1"
+          right="routing-instance" right-name="vrf1" del="1"/>
+    <link left="virtual-network" left-name="vn-1"
+          right="routing-instance" right-name="vrf2"/>
+    <validate name="validate-vrf-2">
+        <physical-router-vn name="router-vn-1" uuid="1" device="1" vn="1" vxlan-id="100" vrf="vrf2"/>
+    </validate>
+
+
+    <link left="virtual-network" left-name="vn-1"
+          right="routing-instance" right-name="vrf2" del="1"/>
     <link left="virtual-machine-interface" left-name="tap1"
           right="virtual-network" right-name="vn-1" del="1"/>
     <validate name="validate-5">
@@ -87,6 +106,8 @@
     <physical-interface uuid="1" name="intf-1" device="router-1"  del="1"/>
     <logical-interface uuid="1" name="l-intf-1" port="p-intf-1" vmi="tap1" del="1"/>
     <virtual-machine uuid="1" name="vm1" del="1"/>
+    <vrf uuid="1" name="vrf1" del="1"/>
+    <vrf uuid="2" name="vrf2" del="1"/>
     <vmi nova="1"
      uuid="1" name="tap1" mac="00:00:00:00:00:01" vn-name="vn1" vn-uuid="1"
      vm-name="vm1" vm-uuid="1" vrf="vrf1" ip="1.1.1.1" del="1"

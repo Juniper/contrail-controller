@@ -50,6 +50,7 @@ class PhysicalDeviceVn : AgentRefCount<PhysicalDeviceVn>,
 
     const boost::uuids::uuid &vn_uuid() const { return vn_uuid_; }
     VnEntry *vn() const { return vn_.get(); }
+    VrfEntry *vrf() const { return vrf_.get(); }
     int vxlan_id() const { return vxlan_id_; }
 
     bool Copy(PhysicalDeviceVnTable *table, const PhysicalDeviceVnData *data);
@@ -63,6 +64,7 @@ class PhysicalDeviceVn : AgentRefCount<PhysicalDeviceVn>,
 
     PhysicalDeviceRef device_;
     VnEntryRef vn_;
+    VrfEntryRef vrf_;
     int vxlan_id_;
     DISALLOW_COPY_AND_ASSIGN(PhysicalDeviceVn);
 };

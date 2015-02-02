@@ -328,6 +328,10 @@ KSyncDBObject::DBFilterResp LogicalSwitchTable::DBEntryFilter(
     if (entry->vxlan_id() == 0) {
         return DBFilterDelete;
     }
+    // ignore the entry if vrf is not present.
+    if (entry->vrf() == NULL) {
+        return DBFilterIgnore;
+    }
     return DBFilterAccept;
 }
 
