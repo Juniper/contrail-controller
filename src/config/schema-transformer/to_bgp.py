@@ -243,6 +243,7 @@ class VirtualNetworkST(DictST):
         self.service_chains = {}
         prop = self.obj.get_virtual_network_properties(
         ) or VirtualNetworkType()
+        self.allow_transit = prop.allow_transit
         if prop.network_id is None:
             prop.network_id = self._vn_id_allocator.alloc(name) + 1
             self.obj.set_virtual_network_properties(prop)
@@ -623,6 +624,30 @@ class VirtualNetworkST(DictST):
             return conn
         return self.connections
     # end expand_connections
+
+    def set_properties(self, properties):
+        if self.allow_transit == properties.allow_transit:
+            # If allow_transit didn't change, then we have nothing to do
+            return
+        self.allow_transit = properties.allow_transit
+        for sc_list in self.service_chains.values():
+            for service_chain in sc_list:
+                ri_name = self.get_service_name(service_chain.name,
+                                                service_chain.service_list[0])
+                ri = self.rinst.get(ri_name)
+                if not ri:
+                    continue
+                if self.allow_transit:
+                    # if the network is now a transit network, add the VN's
+                    # route target to all service RIs
+                    ri.update_route_target_list([self.get_route_target()], [],
+                                                import_export='export')
+                else:
+                    # if the network is not a transit network any more, then we
+                    # need to delete the route target from service RIs
+                    ri.update_route_target_list([], [self.get_route_target()],
+                                                import_export='export')
+    # end set_properties
 
     def set_route_target_list(self, rt_list):
         ri = self.get_primary_routing_instance()
@@ -1559,8 +1584,11 @@ class ServiceChain(DictST):
 
             if first_node:
                 first_node = False
-                service_ri1.update_route_target_list(
-                    vn1_obj.rt_list, import_export='export')
+                rt_list = vn1_obj.rt_list
+                if vn1_obj.allow_transit:
+                    rt_list |= set([vn1_obj.get_route_target()])
+                service_ri1.update_route_target_list(rt_list,
+                                                     import_export='export')
 
             try:
                 service_instance = _vnc_lib.service_instance_read(
@@ -1585,16 +1613,8 @@ class ServiceChain(DictST):
 
             mode = service_template.get_service_template_properties(
             ).get_service_mode()
-            nat_service = False
-            if mode == "transparent":
-                transparent = True
-            elif mode == "in-network":
-                transparent = False
-            elif mode == "in-network-nat":
-                transparent = False
-                nat_service = True
-            else:
-                transparent = True
+            nat_service = (mode == "in-network-nat")
+            transparent = (mode not in ["in-network", "in-network-nat"])
             _sandesh._logger.error("service chain %s: creating %s chain",
                                    self.name, mode)
 
@@ -1633,8 +1653,10 @@ class ServiceChain(DictST):
             _vnc_lib.routing_instance_update(service_ri1.obj)
             _vnc_lib.routing_instance_update(service_ri2.obj)
 
-        service_ri2.update_route_target_list(
-            vn2_obj.rt_list, import_export='export')
+        rt_list = vn2_obj.rt_list
+        if vn2_obj.allow_transit:
+            rt_list |= set([vn2_obj.get_route_target()])
+        service_ri2.update_route_target_list(rt_list, import_export='export')
 
         service_ri2.add_connection(vn2_obj.get_primary_routing_instance())
 
@@ -2610,6 +2632,16 @@ class SchemaTransformer(object):
         policy.obj.set_network_policy_entries(entries)
         self.current_network_set |= policy.add_rules(entries)
     # end add_network_policy_entries
+
+    def add_virtual_network_properties(self, idents, meta):
+        network_name = idents['virtual-network']
+        virtual_network = VirtualNetworkST.get(network_name)
+        if not virtual_network:
+            return
+        prop = VirtualNetworkType()
+        prop.build(meta)
+        virtual_network.set_properties(prop)
+    # end add_virtual_network_properties
 
     def add_virtual_network_network_policy(self, idents, meta):
         # Virtual network is referring to new network policy
