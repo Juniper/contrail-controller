@@ -151,7 +151,7 @@ public:
 
     KSyncDBEntry() : KSyncEntry(), DBState() { db_entry_ = NULL; };
     KSyncDBEntry(uint32_t index) : KSyncEntry(index), DBState() { db_entry_ = NULL; };
-    virtual ~KSyncDBEntry() { };
+    virtual ~KSyncDBEntry() { assert(dup_entry_list_.empty()); }
 
     // Check if object is in-sync with kernel.
     // Return true if object needs sync. Else return false

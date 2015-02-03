@@ -82,6 +82,10 @@ KSyncDBEntry:
 Implementation of KSyncEntry associated with a DBEntry. The infrastructure will
 register to the DBTable as a client. The events to state-machine are automatically triggerred based on Notification from DBTable.
 
+In Cases where definition of Key for DBTable entries and KSyncDbEntries is different,
+it also allows handling of Single KSync Entry mapping to multiple DBTable Entries
+using duplicate entry list.
+
 KSyncNetlinkDBEntry:
 --------------------
 Implementation of KSyncDBEntry associated with a DBEntry. Messages to kernel are
@@ -96,3 +100,10 @@ KSyncNetlinkEntry :
 Implementation of KSyncEntry where objects are written to kernel using Netlink
 ASIO sockets. It does not work on DBTable notifications. It is responsibility
 of application to trigger events to the state-machine.
+
+KSyncObjectManager:
+-------------------
+It provides following event functionality for KSync Objects
+    - UNREGISTER  : to delete given KSync Object in context of KSync Task
+    - DELETE      : to trigger delete for all teh KSync Entries present in
+                    the given KSync Object

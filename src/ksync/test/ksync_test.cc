@@ -18,10 +18,14 @@
 #include "ksync/ksync_entry.h"
 #include "ksync/ksync_object.h"
 
+#include "base/test/task_test_util.h"
+
 using namespace std;
 class VlanTable;
 
 VlanTable *vlan_table_;
+
+KSyncObjectManager *object_manager;
 
 class Vlan : public KSyncEntry {
 public:
@@ -111,7 +115,7 @@ uint32_t Vlan::free_wait_count_;
 
 class VlanTable : public KSyncObject {
 public:
-    VlanTable(int max_index) : KSyncObject(max_index) { };
+    VlanTable(int max_index) : KSyncObject(max_index), is_empty_count_(0) { };
     ~VlanTable() { };
 
     virtual KSyncEntry *Alloc(const KSyncEntry *key, uint32_t index) {
@@ -125,6 +129,9 @@ public:
         return v;
     }
 
+    virtual void EmptyTable(void) { is_empty_count_++; }
+
+    int is_empty_count_;
     DISALLOW_COPY_AND_ASSIGN(VlanTable);
 };
 
@@ -837,12 +844,81 @@ TEST_F(TestUT, add_defer_to_del_ref_pending_to_add) {
     EXPECT_EQ(Vlan::delete_count_, 1);
 }
 
+TEST_F(TestUT, trigger_object_delete_on_empty_object) {
+    vlan_table_->is_empty_count_ = 0;
+    object_manager->Delete(vlan_table_);
+    task_util::WaitForIdle();
+
+    EXPECT_EQ(Vlan::add_count_, 0);
+    EXPECT_EQ(Vlan::delete_count_, 0);
+
+    EXPECT_TRUE(vlan_table_->delete_scheduled());
+    EXPECT_EQ(vlan_table_->is_empty_count_, 1);
+
+    // Delete previous object and create a new one.
+    delete vlan_table_;
+    vlan_table_ = new VlanTable(200);
+}
+
+TEST_F(TestUT, trigger_object_delete) {
+    int count = 110;
+    int first_tag = 0xF00;
+    for (int i = 0; i < count; i++) {
+        AddVlan((i+first_tag), 0, KSyncEntry::IN_SYNC, Vlan::ADD, i);
+    }
+
+    vlan_table_->is_empty_count_ = 0;
+    object_manager->Delete(vlan_table_);
+    task_util::WaitForIdle();
+
+    EXPECT_EQ(Vlan::add_count_, count);
+    EXPECT_EQ(Vlan::delete_count_, count);
+
+    EXPECT_TRUE(vlan_table_->delete_scheduled());
+    EXPECT_EQ(vlan_table_->is_empty_count_, 1);
+
+    // Delete previous object and create a new one.
+    delete vlan_table_;
+    vlan_table_ = new VlanTable(200);
+}
+
+TEST_F(TestUT, trigger_object_delete_with_pending_ack) {
+    int count = 110;
+    int first_tag = 0xF00;
+    for (int i = 0; i < count; i++) {
+        AddVlan((i+first_tag), 0, KSyncEntry::IN_SYNC, Vlan::ADD, i);
+    }
+
+    Vlan *vlan1 = AddVlan(0x1, 0, KSyncEntry::SYNC_WAIT, Vlan::ADD, count);
+    vlan_table_->NotifyEvent(vlan1, KSyncEntry::ADD_ACK);
+    vlan_table_->Delete(vlan1);
+
+    vlan_table_->is_empty_count_ = 0;
+    object_manager->Delete(vlan_table_);
+    task_util::WaitForIdle();
+
+    EXPECT_EQ(Vlan::add_count_, count + 1);
+    EXPECT_EQ(Vlan::delete_count_, count + 1);
+
+    EXPECT_TRUE(vlan_table_->delete_scheduled());
+    EXPECT_EQ(vlan_table_->is_empty_count_, 0);
+
+    vlan_table_->NetlinkAck(vlan1, KSyncEntry::DEL_ACK);
+    EXPECT_EQ(vlan_table_->is_empty_count_, 1);
+
+    // Delete previous object and create a new one.
+    delete vlan_table_;
+    vlan_table_ = new VlanTable(200);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     LoggingInit();
 
-    vlan_table_ = new VlanTable(100);
+    vlan_table_ = new VlanTable(200);
+    object_manager = KSyncObjectManager::Init();
     int ret = RUN_ALL_TESTS();
     delete vlan_table_;
+    KSyncObjectManager::Shutdown();
     return ret;
 }

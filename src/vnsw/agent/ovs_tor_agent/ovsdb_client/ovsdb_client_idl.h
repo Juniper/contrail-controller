@@ -7,6 +7,9 @@
 
 #include <assert.h>
 
+#include <boost/intrusive_ptr.hpp>
+#include <tbb/atomic.h>
+
 #include <cmn/agent_cmn.h>
 #include <cmn/agent.h>
 #include <agent_types.h>
@@ -40,6 +43,9 @@ class PhysicalLocatorTable;
 class UnicastMacLocalOvsdb;
 class VrfOvsdbObject;
 class OvsdbEntryBase;
+
+class OvsdbClientIdl;
+typedef boost::intrusive_ptr<OvsdbClientIdl> OvsdbClientIdlPtr;
 
 class OvsdbClientIdl {
 public:
@@ -94,9 +100,13 @@ public:
     UnicastMacLocalOvsdb *unicast_mac_local_ovsdb();
     VrfOvsdbObject *vrf_ovsdb();
 
+    void TriggerDeletion();
+
 private:
     friend void ovsdb_wrapper_idl_callback(void *, int, struct ovsdb_idl_row *);
     friend void ovsdb_wrapper_idl_txn_ack(void *, struct ovsdb_idl_txn *);
+    friend void intrusive_ptr_add_ref(OvsdbClientIdl *p);
+    friend void intrusive_ptr_release(OvsdbClientIdl *p);
 
     struct ovsdb_idl *idl_;
     struct json_parser * parser_;
@@ -105,6 +115,9 @@ private:
     Agent *agent_;
     NotifyCB callback_[OVSDB_TYPE_COUNT];
     PendingTxnMap pending_txn_;
+    bool deleted_;
+    OvsPeerManager *manager_;
+    tbb::atomic<int> refcount_;
     std::auto_ptr<OvsPeer> route_peer_;
     std::auto_ptr<VMInterfaceKSyncObject> vm_interface_table_;
     std::auto_ptr<PhysicalSwitchTable> physical_switch_table_;

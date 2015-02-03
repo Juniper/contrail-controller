@@ -31,6 +31,8 @@ class VlanTable;
 
 VlanTable *vlan_table_;
 
+KSyncObjectManager *object_manager;
+
 class TestUT : public ::testing::Test {
 public:
     TestUT() { cout << "Creating TestTask" << endl; };
@@ -183,7 +185,8 @@ int VlanKSyncEntry::del_count_;
 
 class VlanKSyncObject : public KSyncDBObject {
 public:
-    VlanKSyncObject(DBTableBase *table) : KSyncDBObject(table) {};
+    VlanKSyncObject(DBTableBase *table) : KSyncDBObject(table),
+                                          is_empty_count_(0) {}
 
     virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index) {
         const VlanKSyncEntry *vlan = static_cast<const VlanKSyncEntry *>(entry);
@@ -208,6 +211,9 @@ public:
     }
 
     static VlanKSyncObject *GetKSyncObject() { return singleton_; };
+
+    virtual void EmptyTable(void) { is_empty_count_++; }
+    int is_empty_count_;
 
 private:
     static VlanKSyncObject *singleton_;
@@ -521,10 +527,70 @@ TEST_F(DBKSyncTest, OneKSyncEntryForTwoOperDBEntry) {
     EXPECT_EQ(VlanKSyncEntry::GetDelCount(), 1);
 }
 
+TEST_F(DBKSyncTest, Vlan_object_delete_with_dup_entries) {
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new Vlan::VlanKey("vlan10", 10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+
+    task_util::WaitForIdle();
+    VlanKSyncEntry v(10);
+    VlanKSyncEntry *ksync_vlan =
+        static_cast<VlanKSyncEntry *>(VlanKSyncObject::GetKSyncObject()->Find(&v));
+
+    // check ksync entry in sync and db entry vlan 10 being in use
+    EXPECT_EQ(ksync_vlan->GetState(), KSyncEntry::IN_SYNC);
+    EXPECT_TRUE(ksync_vlan->name().compare("vlan10") == 0);
+
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new Vlan::VlanKey("new_vlan10", 10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+
+    // check ksync entry in sync and db entry vlan 10 being in use
+    EXPECT_EQ(ksync_vlan->GetState(), KSyncEntry::IN_SYNC);
+    EXPECT_TRUE(ksync_vlan->name().compare("vlan10") == 0);
+
+    // fetch previous pointer and create a new vlan object.
+    VlanKSyncObject *vlan_obj = VlanKSyncObject::GetKSyncObject();
+
+    // trigger ksync object delete
+    vlan_obj->is_empty_count_ = 0;
+    object_manager->Delete(vlan_obj);
+    task_util::WaitForIdle();
+
+    EXPECT_EQ(vlan_obj->is_empty_count_, 1);
+
+    EXPECT_EQ(VlanKSyncEntry::GetAddCount(), 1);
+    EXPECT_EQ(VlanKSyncEntry::GetDelCount(), 1);
+
+    VlanKSyncObject::Shutdown();
+    VlanKSyncObject::Init(itbl);
+
+    // delete both the db entries.
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    req.key.reset(new Vlan::VlanKey("vlan10", 10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    req.key.reset(new Vlan::VlanKey("new_vlan10", 10));
+    req.data.reset(NULL);
+    itbl->Enqueue(&req);
+    task_util::WaitForIdle();
+
+    EXPECT_EQ(adc_notification, 2);
+    EXPECT_EQ(del_notification, 2);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     LoggingInit();
 
+    object_manager = KSyncObjectManager::Init();
     DB::RegisterFactory("db.test.vlan.0", &VlanTable::CreateTable);
     return RUN_ALL_TESTS();
 }

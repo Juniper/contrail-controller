@@ -37,7 +37,6 @@ PhysicalLocatorTable::PhysicalLocatorTable(OvsdbClientIdl *idl) :
 }
 
 PhysicalLocatorTable::~PhysicalLocatorTable() {
-    client_idl_->UnRegister(OvsdbClientIdl::OVSDB_PHYSICAL_LOCATOR);
 }
 
 void PhysicalLocatorTable::OvsdbNotify(OvsdbClientIdl::Op op,
