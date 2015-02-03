@@ -5,8 +5,11 @@
 #include <uve/vm_uve_entry.h>
 #include <uve/agent_uve_base.h>
 
-VmUveEntryBase::VmUveEntryBase(Agent *agent)
-    : agent_(agent), interface_tree_(), uve_info_(), add_by_vm_notify_(false) {
+using namespace std;
+
+VmUveEntryBase::VmUveEntryBase(Agent *agent, const string &vm_name)
+    : agent_(agent), vm_config_name_(vm_name), interface_tree_(), uve_info_(),
+    add_by_vm_notify_(false) {
 }
 
 VmUveEntryBase::~VmUveEntryBase() {
@@ -128,9 +131,9 @@ bool VmUveEntryBase::FrameInterfaceMsg(const VmInterface *vm_intf,
     return true;
 }
 
-bool VmUveEntryBase::FrameVmMsg(const VmEntry* vm, UveVirtualMachineAgent *uve) {
+bool VmUveEntryBase::FrameVmMsg(UveVirtualMachineAgent *uve) {
     bool changed = false;
-    uve->set_name(vm->GetCfgName());
+    uve->set_name(vm_config_name_);
     vector<VmInterfaceAgent> s_intf_list;
 
     InterfaceSet::iterator it = interface_tree_.begin();

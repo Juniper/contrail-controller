@@ -12,10 +12,10 @@
 //required for sending VirtualMachine UVE.
 class VmUveEntry : public VmUveEntryBase {
 public:
-    VmUveEntry(Agent *agent);
+    VmUveEntry(Agent *agent, const string &vm_name);
     virtual ~VmUveEntry();
     void UpdatePortBitmap(uint8_t proto, uint16_t sport, uint16_t dport);
-    bool FrameVmStatsMsg(const VmEntry* vm, UveVirtualMachineAgent *uve,
+    bool FrameVmStatsMsg(UveVirtualMachineAgent *uve,
                          VirtualMachineStats *stats_uve,
                          bool *stats_uve_changed);
     void UpdateFloatingIpStats(const FipInfo &fip_info);

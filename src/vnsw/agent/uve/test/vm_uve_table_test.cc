@@ -12,10 +12,9 @@ VmUveTableTest::VmUveTableTest(Agent *agent)
 int VmUveTableTest::GetVmUveInterfaceCount(const std::string &vm) const {
     UveVmMap::const_iterator it = uve_vm_map_.begin();
     while (it != uve_vm_map_.end()) {
-        const VmEntry *vme = it->first;
-        if (vme->GetCfgName().compare(vm) == 0) {
-            VmUveEntryTest *uve = static_cast<VmUveEntryTest *>
+        VmUveEntryTest *uve = static_cast<VmUveEntryTest *>
                 (it->second.get());
+        if (uve->vm_config_name().compare(vm) == 0) {
             return uve->InterfaceCount();
         }
         it++;
@@ -24,7 +23,7 @@ int VmUveTableTest::GetVmUveInterfaceCount(const std::string &vm) const {
 }
 
 L4PortBitmap* VmUveTableTest::GetVmUvePortBitmap(const VmEntry *vm) {
-    UveVmMap::iterator it = uve_vm_map_.find(vm);
+    UveVmMap::iterator it = uve_vm_map_.find(vm->GetUuid());
     if (it != uve_vm_map_.end()) {
         VmUveEntryTest *entry = static_cast<VmUveEntryTest *>(
                 it->second.get());
@@ -35,7 +34,7 @@ L4PortBitmap* VmUveTableTest::GetVmUvePortBitmap(const VmEntry *vm) {
 
 L4PortBitmap* VmUveTableTest::GetVmIntfPortBitmap(const VmEntry *vm, 
                                                   const Interface *intf) {
-    UveVmMap::iterator it = uve_vm_map_.find(vm);
+    UveVmMap::iterator it = uve_vm_map_.find(vm->GetUuid());
     if (it != uve_vm_map_.end()) {
         VmUveEntryTest *entry = static_cast<VmUveEntryTest *>(
                 it->second.get());
@@ -45,7 +44,7 @@ L4PortBitmap* VmUveTableTest::GetVmIntfPortBitmap(const VmEntry *vm,
 }
 
 VmUveTable::VmUveEntryPtr VmUveTableTest::Allocate(const VmEntry *vm) {
-    VmUveEntryPtr uve(new VmUveEntryTest(agent_));
+    VmUveEntryPtr uve(new VmUveEntryTest(agent_, vm->GetCfgName()));
     return uve;
 }
 
@@ -65,7 +64,7 @@ void VmUveTableTest::ClearCount() {
 }
 
 UveVirtualMachineAgent* VmUveTableTest::VmUveObject(const VmEntry *vm) {
-    UveVmMap::iterator it = uve_vm_map_.find(vm);
+    UveVmMap::iterator it = uve_vm_map_.find(vm->GetUuid());
     if (it == uve_vm_map_.end()) {
         return NULL;
     }
@@ -76,7 +75,7 @@ UveVirtualMachineAgent* VmUveTableTest::VmUveObject(const VmEntry *vm) {
 
 uint32_t VmUveTableTest::GetVmIntfFipCount(const VmEntry *vm,
                                            const Interface* intf) {
-    UveVmMap::iterator it = uve_vm_map_.find(vm);
+    UveVmMap::iterator it = uve_vm_map_.find(vm->GetUuid());
     if (it != uve_vm_map_.end()) {
         VmUveEntryTest *entry = static_cast<VmUveEntryTest *>(
                 it->second.get());
@@ -88,7 +87,7 @@ uint32_t VmUveTableTest::GetVmIntfFipCount(const VmEntry *vm,
 const VmUveEntry::FloatingIp *VmUveTableTest::GetVmIntfFip
     (const VmEntry *vm, const Interface* intf, const string &fip,
      const string &vn) {
-    UveVmMap::iterator it = uve_vm_map_.find(vm);
+    UveVmMap::iterator it = uve_vm_map_.find(vm->GetUuid());
     if (it != uve_vm_map_.end()) {
         VmUveEntryTest *entry = static_cast<VmUveEntryTest *>(
                 it->second.get());
