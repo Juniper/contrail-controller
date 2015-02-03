@@ -297,7 +297,7 @@ const map<string, string> UVE_MAP = {
     "bgp-peer" : BGP_PEER_TABLE,
     "xmpp-peer" : XMPP_PEER_INFO_TABLE,
     "analytics-node" : COLLECTOR_INFO_TABLE,
-    "database" : DATABASE_INFO_TABLE,
+    "database-node" : DATABASE_INFO_TABLE,
     "generator" : GENERATOR_INFO_TABLE
     "config-node" : CONFIG_NODE_TABLE,
     "service-chain" : SERVICE_CHAIN,
