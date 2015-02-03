@@ -6,7 +6,7 @@ from setuptools import setup
 
 setup(
     name='Control-Node',
-    version='0.1dev',
+    version='0.1.dev0',
     packages=['control_node',
               'control_node.control_node', 
               'control_node.control_node.cpuinfo',

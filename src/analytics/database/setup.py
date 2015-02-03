@@ -6,7 +6,7 @@ from setuptools import setup
 
 setup(
     name='database',
-    version='0.1dev',
+    version='0.1.dev0',
     packages=['database',
               'database.sandesh',
               'database.sandesh.database',

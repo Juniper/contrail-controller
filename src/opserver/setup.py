@@ -6,7 +6,7 @@ from setuptools import setup
 
 setup(
     name='opserver',
-    version='0.1dev',
+    version='0.1.dev0',
     packages=['opserver',
               'opserver.sandesh',
               'opserver.sandesh.viz',

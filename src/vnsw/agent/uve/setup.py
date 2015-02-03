@@ -6,7 +6,7 @@ from setuptools import setup
 
 setup(
     name='vrouter',
-    version='0.1dev',
+    version='0.1.dev0',
     packages=['vrouter',
               'vrouter.vrouter', 
               'vrouter.vrouter.cpuinfo',

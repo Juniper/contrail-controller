@@ -6,7 +6,7 @@ from setuptools import setup
 
 setup(
     name='sandesh-common',
-    version='0.1dev',
+    version='0.1.dev0',
     packages = [
         'sandesh_common',
         'sandesh_common.vns'

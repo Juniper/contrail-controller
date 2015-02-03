@@ -6,7 +6,7 @@ from setuptools import setup
 
 setup(
     name='discoveryclient',
-    version='0.1dev',
+    version='0.1.dev0',
     packages=[
         'discoveryclient',
         'discoveryclient.sandesh',

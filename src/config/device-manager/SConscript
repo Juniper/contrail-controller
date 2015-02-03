@@ -44,7 +44,7 @@ sdist_depends = []
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(dm_introspect_pkg)
-sdist_gen = env.Command('dist/device_manager-0.1dev.tar.gz', 'setup.py', cd_cmd + 'python setup.py sdist')
+sdist_gen = env.Command('dist/device_manager-0.1.dev0.tar.gz', 'setup.py', cd_cmd + 'python setup.py sdist')
 
 env.Depends(sdist_gen, sdist_depends)
 env.Default(sdist_gen)
@@ -75,13 +75,13 @@ else:
 test_cmd = env.Command('test.log', sdist_gen,
                        'cd ' + Dir(top_dir).path + ' && python setup.py run_tests 2>&1 | tee test.log')
 
-test_depends = ['/config/common/dist/cfgm_common-0.1dev.tar.gz',
-                '/api-lib/dist/vnc_api-0.1dev.tar.gz',
-                '/discovery/client/dist/discoveryclient-0.1dev.tar.gz',
-                '/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz',
-                '/sandesh/common/dist/sandesh-common-0.1dev.tar.gz',
-                '/config/api-server/dist/vnc_cfg_api_server-0.1dev.tar.gz',
-                '/config/schema-transformer/dist/schema_transformer-0.1dev.tar.gz',
+test_depends = ['/config/common/dist/cfgm_common-0.1.dev0.tar.gz',
+                '/api-lib/dist/vnc_api-0.1.dev0.tar.gz',
+                '/discovery/client/dist/discoveryclient-0.1.dev0.tar.gz',
+                '/tools/sandesh/library/python/dist/sandesh-0.1.dev0.tar.gz',
+                '/sandesh/common/dist/sandesh-common-0.1.dev0.tar.gz',
+                '/config/api-server/dist/vnc_cfg_api_server-0.1.dev0.tar.gz',
+                '/config/schema-transformer/dist/schema_transformer-0.1.dev0.tar.gz',
 ]
 env.Depends(test_cmd, [env['TOP']+x for x in test_depends])
 

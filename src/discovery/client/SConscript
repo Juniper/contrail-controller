@@ -62,7 +62,7 @@ sdist_depends = [generated_rule]
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(sandesh_gen_py_gfiles)
-sdist_gen = env.Command('dist/discoveryclient-0.1dev.tar.gz',
+sdist_gen = env.Command('dist/discoveryclient-0.1.dev0.tar.gz',
                         'setup.py', cd_cmd + 'python setup.py sdist')
 
 env.Default(sdist_gen)

@@ -12,7 +12,7 @@ def requirements(filename):
 
 setup(
     name='cfgm_common',
-    version='0.1dev',
+    version='0.1.dev0',
     packages=['cfgm_common',
               'cfgm_common.ifmap',
               'cfgm_common.uve',

@@ -93,7 +93,7 @@ sdist_depends.extend(sandesh_trace_pkg)
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 # TODO: deprecate
-sdist_gen = env.Command('dist/vnc_cfg_api_server-0.1dev.tar.gz', 'setup.py',
+sdist_gen = env.Command('dist/vnc_cfg_api_server-0.1.dev0.tar.gz', 'setup.py',
                         cd_cmd + 'python setup.py sdist')
 
 env.Default(sdist_gen)
@@ -135,11 +135,11 @@ else:
 test_cmd = env.Command('test.log', sdist_gen,
                        'cd ' + Dir(top_dir).path + ' && python setup.py run_tests 2>&1 | tee test.log')
 
-test_depends = ['/config/common/dist/cfgm_common-0.1dev.tar.gz',
-                '/api-lib/dist/vnc_api-0.1dev.tar.gz',
-                '/discovery/client/dist/discoveryclient-0.1dev.tar.gz',
-                '/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz',
-                '/sandesh/common/dist/sandesh-common-0.1dev.tar.gz',]
+test_depends = ['/config/common/dist/cfgm_common-0.1.dev0.tar.gz',
+                '/api-lib/dist/vnc_api-0.1.dev0.tar.gz',
+                '/discovery/client/dist/discoveryclient-0.1.dev0.tar.gz',
+                '/tools/sandesh/library/python/dist/sandesh-0.1.dev0.tar.gz',
+                '/sandesh/common/dist/sandesh-common-0.1.dev0.tar.gz',]
 env.Depends(test_cmd, [env['TOP']+x for x in test_depends])
 
 env.Alias('test', test_cmd)

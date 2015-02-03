@@ -6,7 +6,7 @@ from setuptools import setup
 
 setup(
     name='node_mgr',
-    version='0.1dev',
+    version='0.1.dev0',
     packages=['analytics',
               'analytics.cpuinfo',
               'analytics.process_info' ],

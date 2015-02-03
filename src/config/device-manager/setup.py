@@ -16,7 +16,7 @@ class RunTestsCommand(Command):
 
 setup(
     name='device_manager',
-    version='0.1dev',
+    version='0.1.dev0',
     packages=['device_manager',
               'device_manager.sandesh',
               'device_manager.sandesh.dm_introspect',

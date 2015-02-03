@@ -17,22 +17,22 @@ def setup_venv(build_top="../../../../build"):
         with prefix("source %s/bin/activate" % (venv_dir)):
             local(
                 "pip install --upgrade "
-                "../../common/dist/cfgm_common-0.1dev.tar.gz")
+                "../../common/dist/cfgm_common-0.1.dev0.tar.gz")
             local(
                 "pip install --upgrade "
-                "../dist/schema_transformer-0.1dev.tar.gz")
+                "../dist/schema_transformer-0.1.dev0.tar.gz")
             local(
                 "pip install --upgrade "
-                "../../svc-monitor/dist/svc_monitor-0.1dev.tar.gz")
+                "../../svc-monitor/dist/svc_monitor-0.1.dev0.tar.gz")
             local(
                 "pip install --upgrade "
-                "../../api-server/dist/vnc_cfg_api_server-0.1dev.tar.gz")
+                "../../api-server/dist/vnc_cfg_api_server-0.1.dev0.tar.gz")
             local(
                 "pip install --upgrade "
-                "../../../api-lib/dist/vnc_api-0.1dev.tar.gz")
+                "../../../api-lib/dist/vnc_api-0.1.dev0.tar.gz")
             local(
                 "pip install --upgrade "
-                "../../../sandesh/library/python/dist/sandesh-0.1dev.tar.gz")
+                "../../../sandesh/library/python/dist/sandesh-0.1.dev0.tar.gz")
             local("pip install paramiko==1.9.0")
             with lcd("../../../../../third_party/kazoo"):
                 local("python setup.py install")

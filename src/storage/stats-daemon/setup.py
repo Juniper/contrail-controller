@@ -13,7 +13,7 @@ def requirements(filename):
 
 setup(
     name='stats-daemon',
-    version='0.1dev',
+    version='0.1.dev0',
     packages=setuptools.find_packages(),
     zip_safe=False,
     long_description="Storage Statistics",

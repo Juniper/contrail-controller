@@ -17,7 +17,7 @@ class RunTestsCommand(Command):
 
 setup(
     name='vnc_api',
-    version='0.1dev',
+    version='0.1.dev0',
     packages=['vnc_api',
               'vnc_api.gen',
               'vnc_api.common',

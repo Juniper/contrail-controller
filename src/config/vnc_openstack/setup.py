@@ -6,7 +6,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='vnc_openstack',
-    version='0.1dev',
+    version='0.1.dev0',
     packages=find_packages(),
     include_package_data=True,
     zip_safe=False,

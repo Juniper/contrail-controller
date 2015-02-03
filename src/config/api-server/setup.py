@@ -16,7 +16,7 @@ class RunTestsCommand(Command):
 
 setup(
     name='vnc_cfg_api_server',
-    version='0.1dev',
+    version='0.1.dev0',
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,

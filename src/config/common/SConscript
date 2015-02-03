@@ -94,7 +94,7 @@ sdist_depends.extend(build_info_rules)
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 
 # TODO: deprecate
-sdist_gen = env.Command('dist/cfgm_common-0.1dev.tar.gz',
+sdist_gen = env.Command('dist/cfgm_common-0.1.dev0.tar.gz',
                         'setup.py', cd_cmd + 'python setup.py sdist')
 
 env.Depends(sdist_gen, sdist_depends)
