@@ -533,7 +533,7 @@ class EventManager:
         res = self.call_subprocess(pattern)
         if res is None:
             return
-        osd_list = res1.splitlines()
+        osd_list = res.splitlines()
         # df used to get the free space of all disks
         res1 = self.call_subprocess('df -hl')
         if res1 is None:
