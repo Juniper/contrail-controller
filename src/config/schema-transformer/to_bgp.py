@@ -2068,6 +2068,7 @@ class VirtualMachineInterfaceST(DictST):
         if mirror_to.__dict__ == self.interface_mirror.mirror_to.__dict__:
             return
         vmi_props.set_interface_mirror(self.interface_mirror)
+        if_obj.set_virtual_machine_interface_properties(vmi_props)
         try:
             _vnc_lib.virtual_machine_interface_update(if_obj)
         except NoIdError:
