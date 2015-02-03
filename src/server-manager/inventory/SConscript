@@ -1,0 +1,12 @@
+# -*- mode: python; -*-
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+# src directory
+
+Import('BuildEnv')
+
+BuildEnv.SConscript('inventory-daemon/SConscript',
+                    exports='BuildEnv',
+                    variant_dir='#build/noarch/inventory-daemon',
+                    duplicate=1)
