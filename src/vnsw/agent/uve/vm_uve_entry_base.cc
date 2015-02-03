@@ -85,7 +85,16 @@ bool VmUveEntryBase::FrameInterfaceMsg(const VmInterface *vm_intf,
         return false;
     }
     s_intf->set_name(vm_intf->cfg_name());
-    s_intf->set_vm_name(vm_intf->vm_name());
+    /* VM interfaces which are not created by Nova will not have VM name set.
+     * In that case pick VM name from VM object instead of VMI object */
+    if (vm_intf->vm_name() != agent_->NullString()) {
+        s_intf->set_vm_name(vm_intf->vm_name());
+    } else {
+        const VmEntry *vm = vm_intf->vm();
+        if (vm) {
+            s_intf->set_vm_name(vm->GetCfgName());
+        }
+    }
     if (vm_intf->vn() != NULL) {
         s_intf->set_virtual_network(vm_intf->vn()->GetName());
     } else {
