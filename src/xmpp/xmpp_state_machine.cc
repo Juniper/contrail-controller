@@ -313,15 +313,21 @@ struct Active : public sc::state<Active, XmppStateMachine> {
         }
         TcpSession *session = state_machine->session();
         state_machine->CancelOpenTimer();
-        state_machine->StartHoldTimer();
-        connection->SendOpenConfirm(session);
-        connection->StartKeepAliveTimer();
-        // Skipping openconfirm state till we have client authentication 
-        // return transit<OpenConfirm>();
-        XmppConnectionInfo info;
-        info.set_identifier(event.msg->from);
-        state_machine->SendConnectionInfo(&info, event.Name(), "Established");
-        return transit<XmppStreamEstablished>();
+        if (!connection->SendOpenConfirm(session)) {
+            connection->SendClose(session);
+            state_machine->ResetSession();
+            state_machine->SendConnectionInfo("Send Open Confirm Failed", "Idle");
+            return transit<Idle>();
+        } else {
+            state_machine->StartHoldTimer();
+            connection->StartKeepAliveTimer();
+            // Skipping openconfirm state till we have client authentication
+            // return transit<OpenConfirm>();
+            XmppConnectionInfo info;
+            info.set_identifier(event.msg->from);
+            state_machine->SendConnectionInfo(&info, event.Name(), "Established");
+            return transit<XmppStreamEstablished>();
+        }
     }
 
     sc::result react(const EvStop &event) {
@@ -412,15 +418,23 @@ struct Connect : public sc::state<Connect, XmppStateMachine> {
         }
         XmppConnection *connection = state_machine->connection();
         state_machine->CancelConnectTimer();
-        TcpSession *session = state_machine->session();
-        connection->SendOpen(session);
-        state_machine->StartHoldTimer();
         SM_LOG(state_machine, "Xmpp Connected: Cancelling Connect timer");
+        TcpSession *session = state_machine->session();
         XmppConnectionInfo info;
         info.set_local_port(session->local_port());
         info.set_remote_port(session->remote_port());
-        state_machine->SendConnectionInfo(&info, event.Name(), "OpenSent");
-        return transit<OpenSent>();
+        if (connection->SendOpen(session)) {
+            state_machine->StartHoldTimer();
+            state_machine->SendConnectionInfo(&info, event.Name(), "OpenSent");
+            return transit<OpenSent>();
+        } else {
+            SM_LOG(state_machine, "SendOpen failed in (Connect) State");
+            CloseSession(state_machine);
+            info.set_close_reason("SendOpen failed");
+            state_machine->connection()->set_close_reason("Send Open failed");
+            state_machine->SendConnectionInfo(&info, "Send Open failed", "Active");
+            return transit<Active>();
+        }
     }
 
     sc::result react(const EvTcpConnectFail &event) {

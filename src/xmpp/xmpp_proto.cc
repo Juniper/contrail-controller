@@ -38,11 +38,11 @@ int XmppProto::EncodeStream(const XmppStreamMessage &str, string &to,
     int len = 0;
 
     if (str.strmtype == XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER) {
-        len = EncodeOpen(buf, to, from);
+        len = EncodeOpen(buf, to, from, size);
     }
 
     if (str.strmtype == XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER_RESP) {
-        len = EncodeOpenResp(buf, to, from);
+        len = EncodeOpenResp(buf, to, from, size);
     }
 
     return len;
@@ -119,7 +119,8 @@ int XmppProto::EncodeWhitespace(uint8_t *buf) {
     return len;
 }
 
-int XmppProto::EncodeOpenResp(uint8_t *buf, string &to, string &from) {
+int XmppProto::EncodeOpenResp(uint8_t *buf, string &to, string &from,
+                              size_t max_size) {
 
     auto_ptr<XmlBase> resp_doc(XmppStanza::AllocXmppXmlImpl(sXMPP_STREAM_RESP));
 
@@ -130,19 +131,23 @@ int XmppProto::EncodeOpenResp(uint8_t *buf, string &to, string &from) {
     SetTo(to, resp_doc.get()); 
     SetFrom(from, resp_doc.get()); 
 
-    //Returns byte encoded in the doc
-    int len = resp_doc->WriteRawDoc(buf);
-    if (len > 0) {
-        string doc(buf, buf+len);
-
-        boost::algorithm::ireplace_last(doc, "/", " ");
-
-        memcpy(buf, doc.c_str(), len);
+    std::stringstream ss;
+    resp_doc->PrintDoc(ss);
+    std::string msg;
+    msg = ss.str();
+    size_t len = msg.size();
+    if (len > max_size) {
+        LOG(ERROR, "\n (Open Confirm) size greater than max buffer size \n");
+        return 0;
+    } else {
+        boost::algorithm::ireplace_last(msg, "/", " ");
+        memcpy(buf, msg.c_str(), len);
+        return len;
     }
-    return len;
 }
 
-int XmppProto::EncodeOpen(uint8_t *buf, string &to, string &from) {
+int XmppProto::EncodeOpen(uint8_t *buf, string &to, string &from,
+                          size_t max_size) {
 
     if (open_doc_.get() ==  NULL) {
         return 0;
@@ -152,15 +157,19 @@ int XmppProto::EncodeOpen(uint8_t *buf, string &to, string &from) {
     SetFrom(from, open_doc_.get()); 
 
     //Returns byte encoded in the doc
-    int len = open_doc_->WriteRawDoc(buf);
-    if (len > 0) {
-        string doc(buf, buf+len);
-
-        boost::algorithm::ireplace_last(doc, "/", " ");
-
-        memcpy(buf, doc.c_str(), len);
+    std::stringstream ss;
+    open_doc_->PrintDoc(ss);
+    std::string msg;
+    msg = ss.str();
+    size_t len = msg.size();
+    if (len > max_size) {
+        LOG(ERROR, "\n (Open Message) size greater than max buffer size \n");
+        return 0;
+    } else {
+        boost::algorithm::ireplace_last(msg, "/", " ");
+        memcpy(buf, msg.c_str(), len);
+        return len;
     }
-    return len;
 }
 
 XmppStanza::XmppMessage *XmppProto::Decode(const string &ts) {

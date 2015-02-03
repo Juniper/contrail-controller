@@ -38,10 +38,11 @@ public:
     };
 
     struct ErrorStats {
-        ErrorStats() : connect_error(0), session_close(0) {
+        ErrorStats() : connect_error(0), session_close(0), open_fail(0) {
         }
         uint32_t connect_error;
         uint32_t session_close;
+        uint32_t open_fail;
     };
 
     XmppConnection(TcpServer *server, const XmppChannelConfig *config);
@@ -68,8 +69,8 @@ public:
     bool Send(const uint8_t *data, size_t size);
 
     // Xmpp connection messages
-    virtual void SendOpen(TcpSession *session);
-    virtual void SendOpenConfirm(TcpSession *session);
+    virtual bool SendOpen(TcpSession *session);
+    virtual bool SendOpenConfirm(TcpSession *session);
     void SendKeepAlive();
     void SendClose(TcpSession *session);
 
@@ -168,7 +169,6 @@ public:
         return stats_[1].update;
     }
 
-
     uint32_t rx_open() const {
         return stats_[0].open;
     }
@@ -189,8 +189,10 @@ public:
 
     void inc_connect_error();
     void inc_session_close();
+    void inc_open_fail();
     size_t get_connect_error();
     size_t get_session_close();
+    size_t get_open_fail();
 
 protected:
     TcpServer *server_;
