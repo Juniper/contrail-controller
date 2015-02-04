@@ -152,7 +152,7 @@ private:
         p = NULL;
         x = root_;
         while (x) {
-            if (x->bitpos_ >= K::Length(NodeToData(node)) && !IS_INT_NODE(x)) {
+            if (x->bitpos_ >= K::BitLength(NodeToData(node)) && !IS_INT_NODE(x)) {
                 break;
             }
             p = x;
@@ -174,10 +174,10 @@ private:
                 return false;
             }
 
-            if (i != K::Length(NodeToData(node)) || i != l->bitpos_) {
+            if (i != K::BitLength(NodeToData(node)) || i != l->bitpos_) {
                 p = NULL;
                 x = root_;
-                while (x && x->bitpos_ <= i && x->bitpos_ < K::Length(NodeToData(node))) {
+                while (x && x->bitpos_ <= i && x->bitpos_ < K::BitLength(NodeToData(node))) {
                     p = x;
                     x = GetBit(node, x->bitpos_) ? x->right_ : x->left_;
                     if (x && (p->bitpos_ >= x->bitpos_)) {
@@ -192,7 +192,7 @@ private:
         nodes_++;
         node->left_ = NULL;
         node->right_ = NULL;
-        node->bitpos_ = K::Length(NodeToData(node));;
+        node->bitpos_ = K::BitLength(NodeToData(node));;
 
         if (x) {
             if (x->bitpos_ == i) {
@@ -206,8 +206,8 @@ private:
                 int_nodes_--;
                 l = node;
             } else {
-                /* key length of x has to be greater than node key length */
-                if (i == K::Length(NodeToData(node))) {
+                /* key BitLength of x has to be greater than node key BitLength */
+                if (i == K::BitLength(NodeToData(node))) {
                     if (GetBit(l, i)) {
                         node->right_ = x;
                     } else {
@@ -264,10 +264,10 @@ private:
         Node * x = root_;
 
         while (x) {
-            if (x->bitpos_ > K::Length(NodeToData(node))) {
+            if (x->bitpos_ > K::BitLength(NodeToData(node))) {
                 x = NULL;
                 break;
-            } else if (x->bitpos_ == K::Length(NodeToData(node)) && !IS_INT_NODE(x)) {
+            } else if (x->bitpos_ == K::BitLength(NodeToData(node)) && !IS_INT_NODE(x)) {
                 break;
             }
             pPrev = p;
@@ -360,10 +360,10 @@ private:
         p = NULL;
         x = root_;
         while (x) {
-            if (x->bitpos_ > K::Length(NodeToData(node))) {
+            if (x->bitpos_ > K::BitLength(NodeToData(node))) {
                 x = NULL;
                 break;
-            } else if (x->bitpos_ == K::Length(NodeToData(node)) && !IS_INT_NODE(x)) {
+            } else if (x->bitpos_ == K::BitLength(NodeToData(node)) && !IS_INT_NODE(x)) {
                 break;
             }
             p = x;
@@ -394,7 +394,7 @@ private:
                 if (Compare(node, x, i, i)) {
                     return GetNextNode(x);
                 }
-                if (x->bitpos_ > K::Length(NodeToData(node)) || i != x->bitpos_) {
+                if (x->bitpos_ > K::BitLength(NodeToData(node)) || i != x->bitpos_) {
                     break;
                 }
                 l = x;
@@ -415,7 +415,7 @@ private:
                     break;
                 }
             }
-            if (K::Length(NodeToData(node)) != l->bitpos_) {
+            if (K::BitLength(NodeToData(node)) != l->bitpos_) {
                 if (GetBit(node, l->bitpos_)) {
                     if (!x) {
                         return NULL;
@@ -486,7 +486,7 @@ private:
                     l = x;
                 }
             }
-            if (x->bitpos_ > K::Length(NodeToData(node))) {
+            if (x->bitpos_ > K::BitLength(NodeToData(node))) {
                 break;
             }
             p = x;
@@ -532,7 +532,7 @@ private:
 
     bool GetBit(const Node * node, std::size_t pos) {
         const D * data = NodeToData(node);
-        if (pos >= K::Length(data)) {
+        if (pos >= K::BitLength(data)) {
             return false;
         }
 
@@ -542,11 +542,11 @@ private:
     bool Compare(const Node *node_left, const Node *node_right) {
         const D * data_left = NodeToData(node_left);
         const D * data_right = NodeToData(node_right);
-        if (K::Length(data_left) != K::Length(data_right)) {
+        if (K::BitLength(data_left) != K::BitLength(data_right)) {
             return false;
         }
 
-        std::size_t byteLen = K::Length(data_left) >> 3;
+        std::size_t byteLen = K::BitLength(data_left) >> 3;
         std::size_t pos;
 
         for (pos = 0; pos < byteLen; ++pos) {
@@ -555,7 +555,7 @@ private:
             }
         }
 
-        for (pos <<= 3; pos < K::Length(data_left); ++pos) {
+        for (pos <<= 3; pos < K::BitLength(data_left); ++pos) {
             if (GetBit(node_left, pos) != GetBit(node_right, pos)) {
                 return false;
             }
@@ -571,12 +571,12 @@ private:
 
         bool isEqual;
 
-        if (K::Length(data_left) < K::Length(data_right)) {
-            shortLen = K::Length(data_left);
+        if (K::BitLength(data_left) < K::BitLength(data_right)) {
+            shortLen = K::BitLength(data_left);
             isEqual = false;
         } else {
-            shortLen = K::Length(data_right);
-            isEqual = (K::Length(data_left) == K::Length(data_right));
+            shortLen = K::BitLength(data_right);
+            isEqual = (K::BitLength(data_left) == K::BitLength(data_right));
         }
 
         std::size_t byteLen = shortLen >> 3;
