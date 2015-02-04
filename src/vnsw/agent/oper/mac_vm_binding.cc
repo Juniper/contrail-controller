@@ -25,17 +25,20 @@ MacVmBinding::MacVmBinding() : mac_vm_binding_set_() {
 MacVmBinding::~MacVmBinding() {
 }
 
-void MacVmBinding::AddMacVmBinding(const VmInterface *vm_interface) {
-    UpdateBinding(vm_interface, false);
+void MacVmBinding::AddMacVmBinding(uint32_t vrf_id,
+                                   const VmInterface *vm_interface) {
+    UpdateBinding(vm_interface, false, vrf_id);
 }
 
-void MacVmBinding::DeleteMacVmBinding(const VmInterface *vm_interface) {
-    UpdateBinding(vm_interface, true);
+void MacVmBinding::DeleteMacVmBinding(uint32_t vrf_id,
+                                      const VmInterface *vm_interface) {
+    UpdateBinding(vm_interface, true, vrf_id);
 }
 
 void MacVmBinding::UpdateBinding(const VmInterface *vm_interface,
-                                 bool del) {
-    if (vm_interface->vm_mac().empty())
+                                 bool del, uint32_t vrf_id) {
+    //If add operation vm_mac should be set to process.
+    if (!del && vm_interface->vm_mac().empty())
         return;
 
     boost::system::error_code ec;
@@ -44,26 +47,22 @@ void MacVmBinding::UpdateBinding(const VmInterface *vm_interface,
         return;
     }
 
-    MacVmBindingSet::iterator it = FindInterfaceUsingMac(address, vm_interface);
+    //delete specified mac on interface
+    MacVmBindingSet::iterator it = FindInterface(vm_interface);
     if (it != mac_vm_binding_set_.end())
         mac_vm_binding_set_.erase(it);
 
+    //Add request
     if (!del) {
-        if (!vm_interface->vn() || vm_interface->vn()->GetVxLanId() == 0) {
-            return;
-        }
         // assumed that VM mac does not change
-        MacVmBindingKey key(address, vm_interface->vn()->GetVxLanId(),
-                            vm_interface);
+        MacVmBindingKey key(address, vrf_id, vm_interface);
         mac_vm_binding_set_.insert(key);
     }
 }
 
 MacVmBinding::MacVmBindingSet::iterator
-MacVmBinding::FindInterfaceUsingMac(MacAddress &address,
-                                    const Interface *interface) {
-    MacVmBindingSet::iterator it =
-        mac_vm_binding_set_.lower_bound(MacVmBindingKey(address, 0, NULL));
+MacVmBinding::FindInterface(const Interface *interface) {
+    MacVmBindingSet::iterator it = mac_vm_binding_set_.begin();
     while (it != mac_vm_binding_set_.end()) {
         if (it->interface == interface)
             return it;
@@ -74,8 +73,9 @@ MacVmBinding::FindInterfaceUsingMac(MacAddress &address,
 }
 
 const Interface *
-MacVmBinding::FindMacVmBinding(const MacAddress &address, int vxlan) const {
-    MacVmBindingKey key(address, vxlan, NULL);
+MacVmBinding::FindMacVmBinding(const MacAddress &address,
+                               uint32_t vrf_id) const {
+    MacVmBindingKey key(address, vrf_id, NULL);
     MacVmBindingSet::iterator it = mac_vm_binding_set_.find(key);
     if (it == mac_vm_binding_set_.end())
         return NULL;

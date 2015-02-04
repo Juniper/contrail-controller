@@ -66,7 +66,7 @@ class BridgeRouteEntry : public AgentRoute {
 public:
     BridgeRouteEntry(VrfEntry *vrf, const MacAddress &mac,
                      Peer::Type type, bool is_multicast) :
-        AgentRoute(vrf, is_multicast), mac_(mac) {
+        AgentRoute(vrf, is_multicast), mac_(mac), flood_dhcp_(false) {
     }
     virtual ~BridgeRouteEntry() { }
 
@@ -94,13 +94,19 @@ public:
     virtual void DeletePathUsingKeyData(const AgentRouteKey *key,
                                         const AgentRouteData *data,
                                         bool force_delete);
+    virtual bool RecomputeRoutePath(Agent *agent,
+                                    DBTablePartition *part,
+                                    AgentPath *path,
+                                    AgentRouteData *data);
 
     const MacAddress &mac() const {return mac_;}
+    bool flood_dhcp() const {return flood_dhcp_;}
 
 private:
     bool ReComputeMulticastPaths(AgentPath *path, bool del);
 
     MacAddress mac_;
+    bool flood_dhcp_;
     DISALLOW_COPY_AND_ASSIGN(BridgeRouteEntry);
 };
 

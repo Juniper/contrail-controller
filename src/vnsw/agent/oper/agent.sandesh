@@ -232,7 +232,6 @@ struct PathSandeshData {
    14: optional PathPreferenceSandeshData path_preference_data;
    15: optional string info;
    16: optional i32 active_label;
-   17: optional string flood_dhcp;
 }
 
 struct RouteUcSandeshData {
@@ -255,6 +254,7 @@ struct RouteL2SandeshData {
     1: string mac;                   // MAC addr
     2: string src_vrf (link="VrfListReq"); // VRF
     4: list<PathSandeshData> path_list; // paths
+    5: optional string flood_dhcp;
 }
 
 struct RouteEvpnSandeshData {
@@ -262,6 +262,7 @@ struct RouteEvpnSandeshData {
     2: string src_vrf (link="VrfListReq"); // VRF
     3: string ip_addr;
     4: list<PathSandeshData> path_list; // paths
+    5: optional string flood_dhcp;
 }
 
 struct VrfSandeshData {

@@ -246,6 +246,18 @@ void EvpnAgentRouteTable::PreRouteDelete(AgentRoute *entry) {
     table->DeleteBridgeRoute(entry);
 }
 
+void EvpnAgentRouteTable::UpdateRouteFlags(const MacAddress &mac,
+                                           const IpAddress &ip_addr,
+                                           uint32_t ethernet_tag,
+                                           bool dhcp_enable) {
+    EvpnRouteEntry *evpn_rt = FindRoute(mac, ip_addr, ethernet_tag);
+    if (evpn_rt == NULL)
+        return;
+    evpn_rt->set_flood_dhcp(!dhcp_enable);
+    NotifyEntry(evpn_rt);
+    UpdateDependants(evpn_rt);
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // EvpnRouteEntry methods
 /////////////////////////////////////////////////////////////////////////////
@@ -254,7 +266,7 @@ EvpnRouteEntry::EvpnRouteEntry(VrfEntry *vrf,
                                const IpAddress &ip_addr,
                                uint32_t ethernet_tag) :
     AgentRoute(vrf, false), mac_(mac), ip_addr_(ip_addr),
-    ethernet_tag_(ethernet_tag) {
+    ethernet_tag_(ethernet_tag), flood_dhcp_(false) {
 }
 
 string EvpnRouteEntry::ToString() const {
@@ -318,25 +330,22 @@ uint32_t EvpnRouteEntry::GetActiveLabel() const {
 }
 
 bool EvpnRouteEntry::FloodDhcpRequired() const {
-    VnEntry *vn = vrf()->vn();
+    VrfEntry *vrf_entry = vrf();
+    VnEntry *vn = vrf_entry->vn();
     if (vn) {
-        IpAddress ip = ip_addr_;
-        if (ip.is_unspecified()) {
-            Agent *agent =
-                (static_cast<AgentRouteTable *> (get_table()))->agent();
-            const Interface *interface = agent->interface_table()->
-                mac_vm_binding().FindMacVmBinding(mac_,
-                                                  GetActivePath()->vxlan_id());
-            if (!interface)
-                return true;
-            const VmInterface *vm_interface =
-                static_cast<const VmInterface *>(interface);
-            return !(vm_interface->dhcp_enable_config());
+        Agent *agent =
+            (static_cast<AgentRouteTable *> (get_table()))->agent();
+        const Interface *interface = agent->interface_table()->
+            mac_vm_binding().FindMacVmBinding(mac_, vrf_entry->vrf_id());
+        if (!interface) {
+            //May be route is received before config for interface was done.
+            //return true for flooding till interface comes in and resets
+            //the config as per its config.
+            return true;
         }
-        //VM is TAP VM.
-        const VnIpam *vn_ipam = vn->GetIpam(ip_addr_);
-        if (vn_ipam)
-            return !(vn_ipam->dhcp_enable);
+        const VmInterface *vm_interface =
+            static_cast<const VmInterface *>(interface);
+        return !(vm_interface->dhcp_enable_config());
     }
     return false;
 }
@@ -346,8 +355,8 @@ bool EvpnRouteEntry::RecomputeRoutePath(Agent *agent, DBTablePartition *part,
     bool ret = false;
     bool flood_dhcp_required = FloodDhcpRequired();
 
-    if (path->flood_dhcp() != flood_dhcp_required) {
-        path->set_flood_dhcp(flood_dhcp_required);
+    if (flood_dhcp_ != flood_dhcp_required) {
+        flood_dhcp_ = flood_dhcp_required;
         ret = true;
     }
     return ret;
@@ -375,6 +384,7 @@ bool EvpnRouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
     RouteEvpnSandeshData data;
     data.set_mac(ToString());
     data.set_ip_addr(ip_addr_.to_string());
+    data.set_flood_dhcp(flood_dhcp_ ? "true" : "false");
 
     for (Route::PathList::const_iterator it = GetPathList().begin();
          it != GetPathList().end(); it++) {

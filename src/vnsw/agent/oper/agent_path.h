@@ -194,10 +194,6 @@ public:
     // Get nexthop-ip address to be used for path
     const Ip4Address *NexthopIp(Agent *agent) const;
 
-    //Flood DHCP
-    bool flood_dhcp() const {return flood_dhcp_;}
-    void set_flood_dhcp(bool flood_dhcp) {flood_dhcp_ = flood_dhcp;}
-
 private:
     const Peer *peer_;
     // Nexthop for route. Not used for gateway routes
@@ -253,8 +249,6 @@ private:
     //helping in deciding the priority during live migration and
     //allowed address pair
     IpAddress subnet_gw_ip_;
-    // should vrouter flood the DHCP request coming from this source route
-    bool flood_dhcp_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 
@@ -320,6 +314,7 @@ public:
     void set_ethernet_tag(uint32_t ethernet_tag) {ethernet_tag_ = ethernet_tag;}
     uint32_t ethernet_tag() const {return ethernet_tag_;}
     const AgentPath *reference_path() const {return reference_path_;}
+    bool flood_dhcp() const {return flood_dhcp_;}
 
 private:
     void CopyData(const AgentPath *path);
@@ -330,6 +325,7 @@ private:
     //reference_path holds good if route request is inline i.e. via Process
     //and not via Enqueue.
     const AgentPath *reference_path_;
+    bool flood_dhcp_;
     DISALLOW_COPY_AND_ASSIGN(EvpnDerivedPathData);
 };
 

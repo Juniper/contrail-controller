@@ -525,13 +525,17 @@ private:
     bool CopyConfig(const InterfaceTable *table,
                     const VmInterfaceConfigData *data, bool *sg_changed,
                     bool *ecmp_changed, bool *local_pref_changed);
+    void ResyncRouteDhcpFlags(bool old_l2_active, bool old_dhcp_enable);
+    void ApplyConfigCommon(const VrfEntry *old_vrf,
+                           bool old_l2_active,
+                           bool old_dhcp_enable);
     void ApplyConfig(bool old_ipv4_active,bool old_l2_active,  bool old_policy,
                      VrfEntry *old_vrf, const Ip4Address &old_addr,
                      int old_ethernet_tag, bool old_need_linklocal_ip,
                      bool sg_changed, bool old_ipv6_active,
                      const Ip6Address &old_v6_addr, bool ecmp_changed,
                      bool local_pref_changed, const Ip4Address &old_subnet,
-                     const uint8_t old_subnet_plen);
+                     const uint8_t old_subnet_plen, bool old_dhcp_enable);
     void UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
                   const Ip4Address &old_addr, int old_ethernet_tag,
                   bool force_update, bool policy_change, bool old_ipv6_active,
@@ -557,7 +561,7 @@ private:
     void UpdateL2NextHop(bool old_l2_active);
     void UpdateFlowKeyNextHop();
     void DeleteL2NextHop(bool old_l2_active);
-    void DeleteMacVmBinding(bool old_l2_active);
+    void DeleteMacVmBinding(const VrfEntry *vrf, bool old_l2_active);
     void UpdateL3NextHop(bool old_ipv4_active, bool old_ipv6_active);
     void DeleteL3NextHop(bool old_ipv4_active, bool old_ipv6_active);
     bool L2Activated(bool old_l2_active);

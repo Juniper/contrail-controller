@@ -15,29 +15,29 @@ public:
     MacVmBinding();
     virtual ~MacVmBinding();
     const Interface *FindMacVmBinding(const MacAddress &address,
-                                      int vxlan) const;
-    void AddMacVmBinding(const VmInterface *vm_interface);
-    void DeleteMacVmBinding(const VmInterface *vm_interface);
+                                      uint32_t vrf_id) const;
+    void AddMacVmBinding(uint32_t vrf_id, const VmInterface *vm_interface);
+    void DeleteMacVmBinding(uint32_t vrf_id, const VmInterface *vm_interface);
 
 private:
     struct MacVmBindingKey {
         MacAddress mac;
-        int vxlan;
+        uint32_t vrf_id;
         InterfaceConstRef interface;
 
-        MacVmBindingKey(const MacAddress &m, int v, InterfaceConstRef intf) :
-            mac(m), vxlan(v), interface(intf) {}
+        MacVmBindingKey(const MacAddress &m, uint32_t v,
+                        InterfaceConstRef intf) :
+            mac(m), vrf_id(v), interface(intf) {}
         bool operator<(const MacVmBindingKey &rhs) const {
             if (mac != rhs.mac)
                 return mac < rhs.mac;
 
-            return vxlan < rhs.vxlan;
+            return vrf_id < rhs.vrf_id;
         }
     };
     typedef std::set<MacVmBindingKey> MacVmBindingSet;
-    void UpdateBinding(const VmInterface *vm_interface, bool del);
-    MacVmBindingSet::iterator FindInterfaceUsingMac(MacAddress &address,
-                                                    const Interface *interface);
+    void UpdateBinding(const VmInterface *vm_interface, bool del, uint32_t vrf_id);
+    MacVmBindingSet::iterator FindInterface(const Interface *interface);
 
     MacVmBindingSet mac_vm_binding_set_;
 };
