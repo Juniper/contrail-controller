@@ -1512,6 +1512,11 @@ FlowEntry *FlowTable::Find(const FlowKey &key) {
     }
 }
 
+RouteFlowInfo *FlowTable::RouteFlowInfoFind(RouteFlowKey &key) {
+    RouteFlowInfo rt_key(key);
+    return route_flow_tree_.Find(&rt_key);
+}
+
 void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
 {
     FlowInfo flow_info;
