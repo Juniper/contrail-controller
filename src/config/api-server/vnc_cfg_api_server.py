@@ -10,6 +10,10 @@ from gevent import monkey
 monkey.patch_all()
 from gevent import hub
 
+# from neutron plugin to api server, the request URL could be large. fix the const
+import gevent.pywsgi
+gevent.pywsgi.MAX_REQUEST_LINE = 65535
+
 import sys
 reload(sys)
 sys.setdefaultencoding('UTF8')
