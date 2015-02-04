@@ -34,8 +34,16 @@ local _origins = KEYS[4]
 local _table = KEYS[5]
 local _deleted = KEYS[6]
 
-redis.log(redis.LOG_NOTICE,"DelUVE on "..sm.." for "..key)
 redis.call('select',db)
+local part = redis.call('hget',"KEY2PART:"..sm..":"..typ, key)
+
+if part == false then
+   part = "NULL"
+else
+   redis.call('hdel', "KEY2PART:"..sm..":"..typ, key)
+   redis.call('srem', "PART2KEY:"..part, sm..":"..typ..":"..key)
+end
+redis.log(redis.LOG_NOTICE,"DelUVE on "..sm.." for "..key.." part "..part)
 sub_del(_values)
 redis.call('rename', _values, _del)
 redis.call('zrem', _uves, key)
