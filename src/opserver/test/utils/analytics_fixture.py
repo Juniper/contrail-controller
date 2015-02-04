@@ -8,6 +8,7 @@ import fixtures
 import subprocess
 from util import retry
 from mockredis import mockredis
+from mockkafka import mockkafka
 import redis
 import urllib2
 import copy
@@ -54,10 +55,13 @@ class Query(object):
 class Collector(object):
     def __init__(self, analytics_fixture, redis_uve, 
                  logger, ipfix_port = False, syslog_port = False,
-                 protobuf_port = False, kafka_port = None, is_dup=False):
+                 protobuf_port = False, kafka = None, is_dup=False):
         self.analytics_fixture = analytics_fixture
         self.syslog_port = syslog_port
-        self.kafka_port = kafka_port
+        if kafka is None:
+            self.kafka_port = None
+        else:
+            self.kafka_port = kafka.port
         # If these ports are needed, "start" should allocate them
         if self.syslog_port:
             self.syslog_port = 0
@@ -487,11 +491,35 @@ class Redis(object):
 
 # end class Redis
 
+class Kafka(object):
+    def __init__(self, zk_port):
+        self.port = None
+        self.zk_port = zk_port
+        self.running = False
+    # end __init__
+
+    def start(self):
+        assert(self.running == False)
+        self.running = True
+        if not self.port:
+            self.port = AnalyticsFixture.get_free_port()
+        mockkafka.start_kafka(self.zk_port, self.port)
+
+    # end start
+
+    def stop(self):
+        if self.running:
+            mockkafka.stop_kafka(self.port)
+            self.running =  False
+    #end stop
+# end class Kafka
+
 class AnalyticsFixture(fixtures.Fixture):
 
     def __init__(self, logger, builddir, redis_port, cassandra_port,
                  ipfix_port = False, syslog_port = False, protobuf_port = False,
-                 noqed=False, collector_ha_test=False, redis_password=None, kafka=False):
+                 noqed=False, collector_ha_test=False, redis_password=None,
+                 kafka_zk=0):
 
         self.builddir = builddir
         self.redis_port = redis_port
@@ -503,7 +531,11 @@ class AnalyticsFixture(fixtures.Fixture):
         self.noqed = noqed
         self.collector_ha_test = collector_ha_test
         self.redis_password = redis_password
-        self.kafka = kafka
+        self.kafka_zk = kafka_zk
+        self.kafka = None
+        self.opserver = None
+        self.query_engine = None
+        self.alarmgen = None
 
     def setUp(self):
         super(AnalyticsFixture, self).setUp()
@@ -512,58 +544,56 @@ class AnalyticsFixture(fixtures.Fixture):
                                  self.redis_password)]
         self.redis_uves[0].start()
 
-        # TODO : start Kafka
-        if self.kafka:
-            self.kafka_port = 9092
-        else:
-            self.kafka_port = None
+        if self.kafka_zk != 0:
+            self.kafka = Kafka(self.kafka_zk)
+            self.kafka.start()
 
-        self.opserver = None
-        self.query_engine = None
         self.collectors = [Collector(self, self.redis_uves[0], self.logger,
                            ipfix_port = self.ipfix_port,
                            syslog_port = self.syslog_port,
                            protobuf_port = self.protobuf_port,
-                           kafka_port = self.kafka_port)] 
+                           kafka = self.kafka)] 
         if not self.collectors[0].start():
             self.logger.error("Collector did NOT start")
             return 
 
-        if self.verify_collector_gen(self.collectors[0]):
-            primary_collector = self.collectors[0].get_addr()
-            secondary_collector = None
-            if self.collector_ha_test:
-                self.redis_uves.append(Redis(-1, self.builddir,
-                                             self.redis_password))
-                self.redis_uves[1].start()
-                self.collectors.append(Collector(self, self.redis_uves[1],
-                                                 self.logger,
-                                                 kafka_port = self.kafka_port,
-                                                 is_dup=True))
-                if not self.collectors[1].start():
-                    self.logger.error("Secondary Collector did NOT start")
-                secondary_collector = self.collectors[1].get_addr()
+        if not self.verify_collector_gen(self.collectors[0]):
+            self.logger.error("Collector UVE not in Redis")
+            return
 
-            self.opserver = OpServer(primary_collector, secondary_collector, 
-                                     self.redis_uves[0].port, 
-                                     self, self.logger)
-            if not self.opserver.start():
-                self.logger.error("OpServer did NOT start")
-            self.opserver_port = self.opserver.listen_port
-            
+        primary_collector = self.collectors[0].get_addr()
+        secondary_collector = None
+        if self.collector_ha_test:
+            self.redis_uves.append(Redis(-1, self.builddir,
+                                         self.redis_password))
+            self.redis_uves[1].start()
+            self.collectors.append(Collector(self, self.redis_uves[1],
+                                             self.logger,
+                                             kafka = self.kafka,
+                                             is_dup=True))
+            if not self.collectors[1].start():
+                self.logger.error("Secondary Collector did NOT start")
+            secondary_collector = self.collectors[1].get_addr()
+
+        self.opserver = OpServer(primary_collector, secondary_collector, 
+                                 self.redis_uves[0].port, 
+                                 self, self.logger)
+        if not self.opserver.start():
+            self.logger.error("OpServer did NOT start")
+        self.opserver_port = self.opserver.listen_port
+        
+        if self.kafka is not None: 
             self.alarmgen = AlarmGen(primary_collector, secondary_collector,
-                                     self.kafka_port, self, self.logger)
+                                     self.kafka.port, self, self.logger)
             if not self.alarmgen.start():
                 self.logger.error("AlarmGen did NOT start")
 
-            if not self.noqed:
-                self.query_engine = QueryEngine(primary_collector, 
-                                            secondary_collector, 
-                                            self, self.logger)
-                if not self.query_engine.start():
-                    self.logger.error("QE did NOT start")
-        else:
-            self.logger.error("Collector UVE not in Redis")
+        if not self.noqed:
+            self.query_engine = QueryEngine(primary_collector, 
+                                        secondary_collector, 
+                                        self, self.logger)
+            if not self.query_engine.start():
+                self.logger.error("QE did NOT start")
     # end setUp
 
     def get_collector(self):
@@ -587,7 +617,16 @@ class AnalyticsFixture(fixtures.Fixture):
             return result
         if not self.noqed:
             if not self.query_engine:
+                result = result and False
                 self.logger.error("AnalyticsAPI not functional without QE")
+        if self.kafka is not None:
+            if self.alarmgen is None:
+                result = result and False
+                self.logger.error("Analytics did not start AlarmGen")
+            else:
+                if not self.alarmgen.verify_setup():
+                    result = result and False
+                    self.logger.error("Analytics AlarmGen startup failed")
         if not self.verify_opserver_api():
             result = result and False
             self.logger.error("AnalyticsAPI not responding")
@@ -899,7 +938,7 @@ class AnalyticsFixture(fixtures.Fixture):
         where_clause1 = "ModuleId = contrail-query-engine"
         where_clause2 = str("Source =" + socket.gethostname())
 
-        exp_moduleids = ['contrail-alarm-gen', 'contrail-analytics-api',
+        exp_moduleids = ['contrail-analytics-api',
                          'contrail-collector', 'contrail-query-engine']
 
         # Ascending sort
@@ -967,7 +1006,7 @@ class AnalyticsFixture(fixtures.Fixture):
                     moduleids.append(x['ModuleId'])
             self.logger.info(str(moduleids))
             if len(moduleids) == 1: 
-                if moduleids[0] != 'contrail-alarm-gen':
+                if moduleids[0] != 'contrail-analytics-api':
                     return False
                 return True
             else:
@@ -1950,8 +1989,8 @@ class AnalyticsFixture(fixtures.Fixture):
         for redis_uve in self.redis_uves:
             if not redis_uve.use_global:
                 redis_uve.stop()
-        # TODO : Stop Kafka
-        self.kafka_port = None
+        if self.kafka is not None:
+            self.kafka.stop()
 
         super(AnalyticsFixture, self).cleanUp()
 

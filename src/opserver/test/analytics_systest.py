@@ -299,7 +299,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
         exp_genlist1 = ['contrail-collector', 'contrail-analytics-api',
-                        'contrail-alarm-gen', 'contrail-query-engine']
+                        'contrail-query-engine']
         assert vizd_obj.verify_generator_list(vizd_obj.collectors[0], 
                                               exp_genlist1)
         exp_genlist2 = ['contrail-collector'] 

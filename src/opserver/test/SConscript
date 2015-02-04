@@ -20,7 +20,6 @@ local_sources = [
                  'analytics_statstest.py',
                  'analytics_db_test.py',
                  'overlay_to_underlay_mapper_test.py',
-#                 'analytics_redistest.py'
                  ]
 local_sources_rules = []
 for file in local_sources:
@@ -59,6 +58,8 @@ pip_pkgs = ['greenlet==0.4.1', 'gevent==0.13.8', 'eventlet==0.9.17',
 build_pkgs = [
         '#controller/src/analytics/test/utils/mockcassandra',
         '#controller/src/analytics/test/utils/mockredis',
+        '#controller/src/analytics/test/utils/mockkafka',
+        '#controller/src/config/test/utils/mockzoo',
         '#controller/src/opserver/test',
         env['TOP'] + '/tools/sandesh/library/python',
         env['TOP'] + '/sandesh/common',
