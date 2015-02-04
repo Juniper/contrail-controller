@@ -3243,7 +3243,7 @@ void VmInterface::ServiceVlan::Activate(VmInterface *interface,
         label_ = table->agent()->mpls_table()->AllocLabel();
         MplsLabel::CreateVlanNh(table->agent(), label_,
                                 interface->GetUuid(), tag_);
-        VrfAssignTable::CreateVlanReq(interface->GetUuid(), vrf_name_, tag_);
+        VrfAssignTable::CreateVlan(interface->GetUuid(), vrf_name_, tag_);
     }
 
     if (vrf_.get() != vrf) {
@@ -3261,7 +3261,7 @@ void VmInterface::ServiceVlan::Activate(VmInterface *interface,
 
 void VmInterface::ServiceVlan::DeActivate(VmInterface *interface) const {
     if (label_ != MplsTable::kInvalidLabel) {
-        VrfAssignTable::DeleteVlanReq(interface->GetUuid(), tag_);
+        VrfAssignTable::DeleteVlan(interface->GetUuid(), tag_);
         interface->ServiceVlanRouteDel(*this);
         Agent *agent =
             static_cast<InterfaceTable *>(interface->get_table())->agent();

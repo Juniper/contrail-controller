@@ -69,6 +69,7 @@ struct PortInfo input1[] = {
 class VrfAssignTest : public ::testing::Test {
 public:
     virtual void SetUp() {
+        agent_ = Agent::GetInstance();
         client->Reset();
         CreateVmportEnv(input1, 1);
         client->WaitForIdle();
@@ -88,6 +89,8 @@ public:
         EXPECT_FALSE(VrfFind("vrf1"));
         EXPECT_FALSE(VnFind(1));
     }
+
+    Agent *agent_;
 };
 
 TEST_F(VrfAssignTest, basic_1) {
@@ -157,6 +160,56 @@ TEST_F(VrfAssignTest, Check_key_manipulations) {
     VrfAssignTable::DeleteVlanReq(MakeUuid(1), 1);
     client->WaitForIdle();
     EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), 1) == NULL);
+}
+
+TEST_F(VrfAssignTest, AddDelete) {
+    IFMapTable *table = IFMapTable::FindTable(agent_->db(),
+                                              "virtual-machine-interface");
+    IFMapNode *node = table->FindNode("vnet1");
+    if (node == NULL) {
+        assert(0);
+    }
+
+    InterfaceTable *intf_table = agent_->interface_table();
+
+    //Build interface config data without service vlan
+    //configuration
+    DBRequest request1;
+    intf_table->IFNodeToReq(node, request1);
+
+    //Build interface config data with service vlan configuration
+    AddVrf("service-vrf1", 12);
+    AddVmPortVrf("ser1", "10.1.1.2", 2);
+    AddLink("virtual-machine-interface-routing-instance", "ser1",
+            "routing-instance", "service-vrf1");
+    AddLink("virtual-machine-interface-routing-instance", "ser1",
+            "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    EXPECT_TRUE(RouteFind("service-vrf1", "10.1.1.2", 32));
+    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), 2) != NULL);
+
+    DBRequest request2;
+    intf_table->IFNodeToReq(node, request2);
+
+    DelLink("virtual-machine-interface-routing-instance", "ser1",
+            "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    scheduler->Stop();
+    intf_table->Enqueue(&request2);
+    intf_table->Enqueue(&request1);
+
+    scheduler->Start();
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(1));
+    EXPECT_FALSE(RouteFind("service-vrf1", "10.1.1.2", 32));
+    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), 2) == NULL);
+    DelLink("virtual-machine-interface-routing-instance", "ser1",
+            "routing-instance", "service-vrf1");
+    DelVmPortVrf("ser1");
+    DelVrf("service-vrf1");
+    client->WaitForIdle();
 }
 
 int main(int argc, char **argv) {
