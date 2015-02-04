@@ -27,7 +27,9 @@ public:
     // To construct this interface, pass in the hostname and port for Redis
     OpServerProxy(EventManager *evm, VizCollector *collector,
             const std::string& redis_uve_ip, unsigned short redis_uve_port,
-            const std::string& redis_uve_password);
+            const std::string& redis_uve_password,
+            const std::string& brokers,
+            uint16_t partitions);
     OpServerProxy() : impl_(NULL) { }
     virtual ~OpServerProxy();
 
@@ -38,6 +40,12 @@ public:
                            const std::string &key, const std::string &message,
                            int32_t seq, const std::string& agg, 
                            const std::string& atyp, int64_t ts);
+
+    virtual bool UVENotif(const std::string &type,
+                           const std::string &source, const std::string &node_type,
+                           const std::string &module, 
+                           const std::string &instance_id,
+                           const std::string &key);
 
     // Use this to delete the object when the deleted attribute is set
     virtual bool UVEDelete(const std::string &type,
