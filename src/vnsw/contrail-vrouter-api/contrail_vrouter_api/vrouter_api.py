@@ -9,7 +9,7 @@ from gen_py.instance_service import InstanceService, ttypes
 
 class ContrailVRouterApi(object):
 
-    def __init__(self, server_port=9090, doconnect=False):
+    def __init__(self, server_port=9090, doconnect=False, semaphore=None):
         """
         local variables:
         _client: current transport connection
@@ -19,6 +19,7 @@ class ContrailVRouterApi(object):
         self._client = None
         self._ports = {}
         self._connect = doconnect
+        self._semaphore = semaphore
 
     def _rpc_client_instance(self):
         """ Return an RPC client connection """
@@ -72,7 +73,7 @@ class ContrailVRouterApi(object):
         dictionary since the vrouter agent may not be running at the
         moment or the RPC may fail.
         """
-
+        self._semaphore.acquire()
         vif_uuid = self._uuid_from_string(vif_uuid_str)
         # ip_address and network_uuid are optional to this API but must
         # be present in the message. For instance, when running in
@@ -122,6 +123,7 @@ class ContrailVRouterApi(object):
 
         if self._client is None:
             self._ports[vif_uuid] = data
+            self._semaphore.release()
             return False
 
         self._resynchronize()
@@ -132,7 +134,9 @@ class ContrailVRouterApi(object):
             result = self._client.AddPort([data])
         except:
             self._client = None
+            self._semaphore.release()
             raise
+        self._semaphore.release()
         return result
 
     def delete_port(self, vif_uuid_str):
@@ -140,12 +144,14 @@ class ContrailVRouterApi(object):
         Delete a port form the agent. The port is first removed from the
         internal _ports dictionary.
         """
+        self._semaphore.acquire()
         vif_uuid = self._uuid_from_string(vif_uuid_str)
         self._ports.pop(vif_uuid, None)
 
         if self._client is None:
             self._client = self._rpc_client_instance()
             if self._client is None:
+                self._semaphore.release()
                 return
             self._resynchronize()
 
@@ -153,6 +159,7 @@ class ContrailVRouterApi(object):
             self._client.DeletePort(self._uuid_to_hex(vif_uuid))
         except:
             self._client = None
+        self._semaphore.release()
 
     def periodic_connection_check(self):
         """
@@ -160,9 +167,11 @@ class ContrailVRouterApi(object):
         It is the API client's resposibility to periodically invoke this
         method.
         """
+        self._semaphore.acquire()
         if self._client is None:
             self._client = self._rpc_client_instance()
             if self._client is None:
+                self._semaphore.release()
                 return
             self._resynchronize()
 
@@ -172,3 +181,4 @@ class ContrailVRouterApi(object):
         except Exception as ex:
             self._client = None
             logging.exception(ex)
+        self._semaphore.release()
