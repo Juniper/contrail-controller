@@ -235,6 +235,7 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
         return true;
     }
 
+    bool uve_notif = false;
     std::string type(rmsg->msg->GetMessageType());
     std::string source(header.get_Source());
     std::string module(header.get_Module());
@@ -485,6 +486,8 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
                   " Bad Stat type " << ltype << " or tags " << tstr); 
                 continue;
             }
+        } else {
+            uve_notif = true;
         }
         
         if (!osp_->UVEUpdate(object.name(), node.name(),
@@ -513,8 +516,14 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
                 seq, true, node_type, instance_id);
         }
         LOG(DEBUG, __func__ << " Deleted " << key);
+        uve_notif = true;
     }
 
+    // Publish on the Kafka bus that this UVE has changed
+    if (uve_notif) {
+        osp_->UVENotif(object.name(), 
+                       source, node_type, module, instance_id, key);
+    }
     return true;
 }
 
