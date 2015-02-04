@@ -987,6 +987,7 @@ bool VmInterface::Resync(const InterfaceTable *table,
     Ip4Address old_subnet = subnet_;
     uint8_t  old_subnet_plen = subnet_plen_;
     int old_ethernet_tag = ethernet_tag_;
+    bool old_dhcp_enable = dhcp_enable_;
 
     if (data) {
         ret = data->OnResync(table, this, &sg_changed, &ecmp_changed,
@@ -1017,7 +1018,8 @@ bool VmInterface::Resync(const InterfaceTable *table,
     ApplyConfig(old_ipv4_active, old_l2_active, old_policy, old_vrf.get(), 
                 old_addr, old_ethernet_tag, old_need_linklocal_ip, sg_changed,
                 old_ipv6_active, old_v6_addr, ecmp_changed,
-                local_pref_changed, old_subnet, old_subnet_plen);
+                local_pref_changed, old_subnet, old_subnet_plen,
+                old_dhcp_enable);
 
     return ret;
 }
@@ -1165,6 +1167,34 @@ const MacAddress& VmInterface::GetVifMac(const Agent *agent) const {
     }
 }
 
+void VmInterface::ResyncRouteDhcpFlags(bool old_l2_active,
+                                       bool old_dhcp_enable) {
+    if (old_dhcp_enable == dhcp_enable_)
+        return;
+
+    if (L2Activated(old_l2_active)) {
+        //EVPN route update
+        EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
+            (vrf_->GetEvpnRouteTable());
+        table->UpdateRouteFlags(MacAddress::FromString(vm_mac_),
+                                ip_addr(), ethernet_tag_,
+                                dhcp_enable_);
+    }
+}
+
+void VmInterface::ApplyConfigCommon(const VrfEntry *old_vrf,
+                                    bool old_l2_active,
+                                    bool old_dhcp_enable) {
+    if (l2_active_ && bridging_) {
+        UpdateMacVmBinding(old_l2_active);
+        if (old_dhcp_enable != dhcp_enable_) {
+            ResyncRouteDhcpFlags(old_l2_active, old_dhcp_enable);
+        }
+    } else {
+        DeleteMacVmBinding(old_vrf, old_l2_active);
+    }
+}
+
 // Apply the latest configuration
 void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old_policy,
                               VrfEntry *old_vrf, const Ip4Address &old_addr,
@@ -1173,14 +1203,11 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
                               const Ip6Address &old_v6_addr, bool ecmp_mode_changed,
                               bool local_pref_changed,
                               const Ip4Address &old_subnet,
-                              uint8_t old_subnet_plen) {
-    //MAC VM binding is handled for all VM interface
-    if (l2_active_ && bridging_) {
-        UpdateMacVmBinding(old_l2_active);
-    } else {
-        DeleteMacVmBinding(old_l2_active);
-    }
+                              uint8_t old_subnet_plen,
+                              bool old_dhcp_enable) {
+    bool force_update = false;
 
+    ApplyConfigCommon(old_vrf, old_l2_active, old_dhcp_enable);
     //Need not apply config for TOR VMI as it is more of an inidicative
     //interface. No route addition or NH addition happens for this interface.
     if (device_type_ == VmInterface::TOR &&
@@ -1188,7 +1215,6 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
         return;
     }
 
-    bool force_update = false;
     if (sg_changed || ecmp_mode_changed | local_pref_changed) {
         force_update = true;
     }
@@ -2077,7 +2103,7 @@ void VmInterface::UpdateFlowKeyNextHop() {
 void VmInterface::UpdateMacVmBinding(bool old_l2_active) {
     if (L2Activated(old_l2_active)) {
         InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
-        table->mac_vm_binding().AddMacVmBinding(this);
+        table->mac_vm_binding().AddMacVmBinding(vrf_->vrf_id(), this);
     }
 }
 
@@ -2099,10 +2125,11 @@ void VmInterface::UpdateL3NextHop(bool old_ipv4_active, bool old_ipv6_active) {
     }
 }
 
-void VmInterface::DeleteMacVmBinding(bool old_l2_active) {
+void VmInterface::DeleteMacVmBinding(const VrfEntry *old_vrf,
+                                     bool old_l2_active) {
     if (L2Deactivated(old_l2_active)) {
         InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
-        table->mac_vm_binding().DeleteMacVmBinding(this);
+        table->mac_vm_binding().DeleteMacVmBinding(old_vrf->vrf_id(), this);
     }
 }
 

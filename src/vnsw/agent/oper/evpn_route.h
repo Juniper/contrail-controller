@@ -52,6 +52,10 @@ public:
                                     const IpAddress &ip_addr,
                                     uint32_t ethernet_tag,
                                     AgentRouteData *data);
+    void UpdateRouteFlags(const MacAddress &mac,
+                          const IpAddress &ip_addr,
+                          uint32_t ethernet_tag,
+                          bool dhcp_enable);
 
     //Delete routines
     void DelLocalVmRoute(const Peer *peer, const std::string &vrf_name,
@@ -107,6 +111,8 @@ public:
     const IpAddress &ip_addr() const {return ip_addr_;}
     const uint32_t GetVmIpPlen() const;
     uint32_t ethernet_tag() const {return ethernet_tag_;}
+    void set_flood_dhcp(bool flood_dhcp) {flood_dhcp_ = flood_dhcp;}
+    bool flood_dhcp() const {return flood_dhcp_;}
 
 private:
     bool FloodDhcpRequired() const;
@@ -114,6 +120,7 @@ private:
     MacAddress mac_;
     IpAddress ip_addr_;
     uint32_t ethernet_tag_;
+    bool flood_dhcp_;
     DISALLOW_COPY_AND_ASSIGN(EvpnRouteEntry);
 };
 

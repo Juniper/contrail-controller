@@ -83,6 +83,20 @@ BridgeRouteEntry *BridgeAgentRouteTable::FindRoute(const Agent *agent,
     return route;
 }
 
+bool BridgeRouteEntry::RecomputeRoutePath(Agent *agent, DBTablePartition *part,
+                                          AgentPath *path, AgentRouteData *data) {
+    bool ret = false;
+    const EvpnDerivedPathData *evpn_data =
+        dynamic_cast<const EvpnDerivedPathData *>(data);
+    bool flood_dhcp_required = evpn_data ? evpn_data->flood_dhcp() : false;
+
+    if (flood_dhcp_ != flood_dhcp_required) {
+        flood_dhcp_ = flood_dhcp_required;
+        ret = true;
+    }
+    return ret;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // BridgeAgentRouteTable utility methods to add/delete routes
 /////////////////////////////////////////////////////////////////////////////
@@ -598,6 +612,7 @@ bool BridgeRouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
     BridgeRouteResp *resp = static_cast<BridgeRouteResp *>(sresp);
     RouteL2SandeshData data;
     data.set_mac(ToString());
+    data.set_flood_dhcp(flood_dhcp_ ? "true" : "false");
 
     for (Route::PathList::const_iterator it = GetPathList().begin();
          it != GetPathList().end(); it++) {

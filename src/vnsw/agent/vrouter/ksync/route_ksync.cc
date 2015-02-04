@@ -85,9 +85,7 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
               static_cast<const BridgeRouteEntry *>(rt);
           mac_ = l2_rt->mac();
           prefix_len_ = 0;
-          const AgentPath *path = l2_rt->GetActivePath();
-          if (path)
-              flood_dhcp_ = path->flood_dhcp();
+          flood_dhcp_ = l2_rt->flood_dhcp();
           break;
     }
     default: {
@@ -395,14 +393,8 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
             tunnel_type_ = path->GetTunnelType();
             ret = true;
         }
-    }
-
-    if (wait_for_traffic_ != route->WaitForTraffic()) {
-        wait_for_traffic_ =  route->WaitForTraffic();
-        ret = true;
-    }
-
-    if (rt_type_ == Agent::INET4_UNICAST || rt_type_ == Agent::INET6_UNICAST) {
+    } else if (rt_type_ == Agent::INET4_UNICAST ||
+               rt_type_ == Agent::INET6_UNICAST) {
         VrfKSyncObject *obj = ksync_obj_->ksync()->vrf_ksync_obj();
         const InetUnicastRouteEntry *uc_rt =
             static_cast<const InetUnicastRouteEntry *>(e);
@@ -415,13 +407,20 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
             mac_ = mac;
             ret = true;
         }
+
+        if (BuildArpFlags(e, path, mac_))
+            ret = true;
+    } else if(rt_type_ == Agent::BRIDGE) {
+        const BridgeRouteEntry *bridge_rt =
+            dynamic_cast<const BridgeRouteEntry *>(route);
+        if (flood_dhcp_ != bridge_rt->flood_dhcp()) {
+            flood_dhcp_ = bridge_rt->flood_dhcp();
+            ret = true;
+        }
     }
 
-    if (BuildArpFlags(e, path, mac_))
-        ret = true;
-
-    if (flood_dhcp_ != path->flood_dhcp()) {
-        flood_dhcp_ = path->flood_dhcp();
+    if (wait_for_traffic_ != route->WaitForTraffic()) {
+        wait_for_traffic_ =  route->WaitForTraffic();
         ret = true;
     }
 
@@ -450,6 +449,55 @@ void RouteKSyncEntry::FillObjectLog(sandesh_op::type type,
 
     info.set_mac(mac_.ToString());
     info.set_type(RouteTypeToString(rt_type_));
+}
+
+int RouteKSyncEntry::GetLabel() const {
+    NHKSyncEntry *nexthop = nh();
+    if (rt_type_ == Agent::BRIDGE) {
+        return label_;
+    } else if (rt_type_ != Agent::INET4_MULTICAST) {
+        if (nexthop != NULL && nexthop->type() == NextHop::TUNNEL) {
+            return label_;
+        }
+    }
+
+    return 0;
+}
+
+int RouteKSyncEntry::BuildRouteFlags() const {
+    int flags = 0;
+    NHKSyncEntry *nexthop = nh();
+
+    if (rt_type_ == Agent::BRIDGE) {
+        //flags |= 0x02;
+        if (nexthop != NULL && ((nexthop->type() == NextHop::COMPOSITE) ||
+                                (nexthop->type() == NextHop::TUNNEL))) {
+            flags |= 0x02;
+            //flags |= VR_BE_LABEL_VALID_FLAG;
+        }
+        if (flood_dhcp_)
+            flags |= 0x04;
+        //flags |= VR_BE_FLOOD_DHCP_FLAG;
+        return flags;
+    } else if (rt_type_ != Agent::INET4_MULTICAST) {
+        if (nexthop != NULL && nexthop->type() == NextHop::TUNNEL) {
+            flags |= VR_RT_LABEL_VALID_FLAG;
+        }
+    }
+
+    if (proxy_arp_) {
+        flags |= VR_RT_ARP_PROXY_FLAG;
+    }
+
+    if (wait_for_traffic_) {
+        flags |= VR_RT_ARP_TRAP_FLAG;
+    }
+
+    if (flood_) {
+        flags |= VR_RT_ARP_FLOOD_FLAG;
+    }
+
+    return flags;
 }
 
 int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
@@ -487,43 +535,8 @@ int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
         encoder.set_rtr_mac(mac);
     }
 
-    int label = 0;
-    int flags = 0;
-    if (rt_type_ != Agent::INET4_MULTICAST) {
-        if (nexthop != NULL && nexthop->type() == NextHop::TUNNEL) {
-            label = label_;
-            flags |= VR_RT_LABEL_VALID_FLAG;
-        }
-    }
-
-    if (rt_type_ == Agent::BRIDGE) {
-        //flags |= 0x02;
-        label = label_;
-        if (nexthop != NULL && ((nexthop->type() == NextHop::COMPOSITE) ||
-                               (nexthop->type() == NextHop::TUNNEL))) {
-            flags |= 0x02;
-            //flags |= VR_BE_LABEL_VALID_FLAG;
-        }
-        if (flood_dhcp_)
-            flags |= 0x04;
-            //flags |= VR_BE_FLOOD_DHCP_FLAG;
-    } else {
-
-        if (proxy_arp_) {
-            flags |= VR_RT_ARP_PROXY_FLAG;
-        }
-
-        if (wait_for_traffic_) {
-            flags |= VR_RT_ARP_TRAP_FLAG;
-        }
-
-        if (flood_) {
-            flags |= VR_RT_ARP_FLOOD_FLAG;
-        }
-    }
-
-    encoder.set_rtr_label_flags(flags);
-    encoder.set_rtr_label(label);
+    encoder.set_rtr_label_flags(BuildRouteFlags());
+    encoder.set_rtr_label(GetLabel());
 
     if (nexthop != NULL) {
         encoder.set_rtr_nh_id(nexthop->nh_id());

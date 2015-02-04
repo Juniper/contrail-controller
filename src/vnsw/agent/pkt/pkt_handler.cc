@@ -667,8 +667,7 @@ bool PktHandler::IsManagedTORPacket(Interface *intf, PktInfo *pkt_info,
     if (pkt_type != PktType::UDP || pkt_info->dport != VXLAN_UDP_DEST_PORT)
         return false;
 
-    // Get VXLAN id and point to original L2 frame after the VXLAN header
-    uint32_t vxlan = ntohl(*(uint32_t *)(pkt + 4)) >> 8;
+    // point to original L2 frame after the VXLAN header
     pkt += 8;
 
     // get to the actual packet header
@@ -679,7 +678,8 @@ bool PktHandler::IsManagedTORPacket(Interface *intf, PktInfo *pkt_info,
     MacAddress address(addr);
     const Interface *vm_intf =
         agent_->interface_table()->
-        mac_vm_binding().FindMacVmBinding(address, vxlan);
+        mac_vm_binding().FindMacVmBinding(address,
+                                          pkt_info->agent_hdr.vrf);
     if (vm_intf == NULL) {
         return false;
     }
@@ -693,7 +693,6 @@ bool PktHandler::IsManagedTORPacket(Interface *intf, PktInfo *pkt_info,
     pkt_info->agent_hdr.cmd = AgentHdr::TRAP_TOR_CONTROL_PKT;
     pkt_info->agent_hdr.cmd_param = pkt_info->agent_hdr.ifindex;
     pkt_info->agent_hdr.ifindex = vm_intf->id();
-    pkt_info->agent_hdr.vrf = vm_intf->vrf_id();
 
     // Parse payload
     if (pkt_info->ether_type == ETHERTYPE_ARP) {

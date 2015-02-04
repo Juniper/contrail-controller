@@ -27,6 +27,7 @@ public:
         SecurityGroupList sg_list_;
         TunnelType::Type tunnel_type_;
         PathPreference path_preference_;
+        bool flood_dhcp_; //Used by EVPN route.
 
         bool Changed(const AgentRoute *route, const AgentPath *path) const;
         void Update(const AgentRoute *route, const AgentPath *path);

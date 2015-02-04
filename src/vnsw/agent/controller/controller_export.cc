@@ -19,7 +19,8 @@
 
 RouteExport::State::State() : 
     DBState(), exported_(false), fabric_multicast_exported_(false),
-    force_chg_(false), label_(MplsTable::kInvalidLabel), vn_(""), sg_list_() {
+    force_chg_(false), label_(MplsTable::kInvalidLabel), vn_(""),
+    sg_list_(), flood_dhcp_(false) {
 }
 
 bool RouteExport::State::Changed(const AgentRoute *route, const AgentPath *path) const {
@@ -45,6 +46,13 @@ bool RouteExport::State::Changed(const AgentRoute *route, const AgentPath *path)
     if (path_preference_ != path->path_preference())
         return true;
 
+    const BridgeRouteEntry *bridge_route =
+        dynamic_cast<const BridgeRouteEntry *>(route);
+    if (bridge_route) {
+        if (flood_dhcp_ != bridge_route->flood_dhcp())
+            return true;
+    }
+
     return false;
 }
 
@@ -55,6 +63,12 @@ void RouteExport::State::Update(const AgentRoute *route, const AgentPath *path) 
     sg_list_ = path->sg_list();
     tunnel_type_ = path->tunnel_type();
     path_preference_ = path->path_preference();
+
+    const BridgeRouteEntry *bridge_route =
+        dynamic_cast<const BridgeRouteEntry *>(route);
+    if (bridge_route) {
+        flood_dhcp_ = bridge_route->flood_dhcp();
+    }
 }
 
 RouteExport::RouteExport(AgentRouteTable *rt_table):

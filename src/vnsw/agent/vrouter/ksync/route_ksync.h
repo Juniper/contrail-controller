@@ -52,6 +52,8 @@ public:
     bool BuildArpFlags(const DBEntry *rt, const AgentPath *path,
                        const MacAddress &mac);
 private:
+    int GetLabel() const;
+    int BuildRouteFlags() const;
     int Encode(sandesh_op::type op, uint8_t replace_plen,
                char *buf, int buf_len);
     int DeleteInternal(NHKSyncEntry *nh, uint32_t lbl, uint8_t replace_plen,
