@@ -7,6 +7,8 @@ Provides utility routines for modules in api-server
 import sys
 import argparse
 import ConfigParser
+import gen.resource_xsd
+import vnc_quota
 from pysandesh.sandesh_base import Sandesh
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
@@ -93,7 +95,7 @@ def parse_args(args_str):
             for (k, v) in config.items("QUOTA"):
                 try:
                     if str(k) != 'admin_token':
-                        QuotaHelper.default_quota[str(k)] = int(v)
+                        vnc_quota.QuotaHelper.default_quota[str(k)] = int(v)
                 except ValueError:
                     pass
         if 'default_encoding' in config.options('DEFAULTS'):
@@ -238,9 +240,9 @@ try:
 except ImportError:
     def colored(logmsg, *args, **kwargs):
         return logmsg
- 
+
 class ColorLog(object):
- 
+
     colormap = dict(
         debug=dict(color='green'),
         info=dict(color='green', attrs=['bold']),
@@ -249,14 +251,14 @@ class ColorLog(object):
         error=dict(color='red'),
         critical=dict(color='red', attrs=['bold']),
     )
- 
+
     def __init__(self, logger):
         self._log = logger
- 
+
     def __getattr__(self, name):
         if name in ['debug', 'info', 'warn', 'warning', 'error', 'critical']:
             return lambda s, *args: getattr(self._log, name)(
                 colored(s, **self.colormap[name]), *args)
- 
+
         return getattr(self._log, name)
 # end ColorLog
