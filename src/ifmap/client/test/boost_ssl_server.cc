@@ -9,7 +9,7 @@ BoostSslServer::BoostSslServer(boost::asio::io_service& io_service,
     : io_service_(io_service),
       acceptor_(io_service, boost::asio::ip::tcp::endpoint(
                                         boost::asio::ip::tcp::v4(), port)),
-      context_(io_service, boost::asio::ssl::context::sslv3_server),
+      context_(io_service, boost::asio::ssl::context::sslv23_server),
       password_(password) {
 
     boost::system::error_code ec;

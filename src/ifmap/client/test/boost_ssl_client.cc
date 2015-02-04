@@ -9,7 +9,7 @@ using namespace std;
 
 BoostSslClient::BoostSslClient(boost::asio::io_service &io_service)
     : resolver_(io_service),
-      context_(io_service, boost::asio::ssl::context::sslv3_client),
+      context_(io_service, boost::asio::ssl::context::sslv23_client),
       socket_(io_service, context_) {
     boost::system::error_code ec;
     context_.set_verify_mode(boost::asio::ssl::context::verify_none, ec);
