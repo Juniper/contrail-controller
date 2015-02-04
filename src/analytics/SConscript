@@ -20,6 +20,7 @@ full_version = error.split()[1].split('.')
 python = 'python'+full_version[0]+'.'+full_version[1]
 
 AnalyticsEnv.Append(CPPPATH = ['/usr/include/'+ python,
+                               '/usr/include/librdkafka',
                                AnalyticsEnv['TOP'] + '/tools/sandesh/library/common',
                                AnalyticsEnv['TOP'] + '/io',
                                AnalyticsEnv['TOP'],
@@ -52,6 +53,8 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'pugixml',
         'hiredis',
         'protobuf',
+        'rdkafka++',
+        'rdkafka',
         'boost_filesystem',
         'boost_program_options'])
 

@@ -60,11 +60,15 @@ void Options::Initialize(EventManager &evm,
     uint16_t default_collector_port = ContrailPorts::CollectorPort();
     uint16_t default_collector_protobuf_port =
         ContrailPorts::CollectorProtobufPort();
+    uint16_t default_partitions = 100;
     uint16_t default_http_server_port = ContrailPorts::HttpPortCollector();
     uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
 
     vector<string> default_cassandra_server_list;
     default_cassandra_server_list.push_back("127.0.0.1:9160");
+
+    vector<string> default_kafka_broker_list;
+    default_kafka_broker_list.push_back("");
 
     // Command line and config file options.
     opt::options_description config("Configuration options");
@@ -96,6 +100,14 @@ void Options::Initialize(EventManager &evm,
            opt::value<vector<string> >()->default_value(
                default_cassandra_server_list, "127.0.0.1:9160"),
              "Cassandra server list")
+        ("DEFAULT.kafka_broker_list",
+           opt::value<vector<string> >()->default_value(
+               default_kafka_broker_list, ""),
+             "Kafka Broker List")
+        ("DEFAULT.partitions",
+            opt::value<uint16_t>()->default_value(
+                default_partitions),
+         "Number of partitions to use for publishing to kafka")
         ("DEFAULT.dup", opt::bool_switch(&dup_), "Internal use flag")
         ("DEFAULT.hostip", opt::value<string>()->default_value(host_ip),
              "IP address of collector")
@@ -270,6 +282,9 @@ void Options::Process(int argc, char *argv[],
 
     GetOptValue< vector<string> >(var_map, cassandra_server_list_,
                                   "DEFAULT.cassandra_server_list");
+    GetOptValue< vector<string> >(var_map, kafka_broker_list_,
+                                  "DEFAULT.kafka_broker_list");
+    GetOptValue<uint16_t>(var_map, partitions_, "DEFAULT.partitions");
     GetOptValue<string>(var_map, host_ip_, "DEFAULT.hostip");
     GetOptValue<string>(var_map, hostname_, "DEFAULT.hostname");
     GetOptValue<uint16_t>(var_map, http_server_port_,
