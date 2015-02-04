@@ -15,7 +15,8 @@ setup(
               'opserver.sandesh.analytics.cpuinfo',
               'opserver.sandesh.analytics_database',
               'opserver.sandesh.redis',
-              'opserver.sandesh.discovery'],
+              'opserver.sandesh.discovery',
+              'opserver.sandesh.alarmgen_ctrl'],
     package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,
     long_description="VNC Analytics API Implementation",
@@ -32,6 +33,7 @@ setup(
         # Please update sandesh/common/vns.sandesh on process name change
         'console_scripts' : [
             'contrail-analytics-api = opserver.opserver:main',
+            'contrail-alarm-gen = opserver.alarmgen:main',
             'contrail-logs = opserver.log:main',
             'contrail-stats = opserver.stats:main',
             'contrail-flows = opserver.flow:main',
