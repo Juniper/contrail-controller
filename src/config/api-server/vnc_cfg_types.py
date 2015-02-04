@@ -361,6 +361,13 @@ class VirtualMachineInterfaceServer(VirtualMachineInterfaceServerGen):
                 if not ok:
                     return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
 
+        # if this is a sub interface, check that the vlan tag is valid
+        if ('virtual_machine_interface_properties' in obj_dict) and \
+           ('sub_interface_vlan_tag' in obj_dict['virtual_machine_interface_properties']):
+            vlan = obj_dict['virtual_machine_interface_properties']['sub_interface_vlan_tag']
+            if vlan < 1 or vlan > 4094:
+                return (False, (403, "Invalid Vlan id"))
+
         inmac = None
         if 'virtual_machine_interface_mac_addresses' in obj_dict:
             mc = obj_dict['virtual_machine_interface_mac_addresses']
@@ -391,6 +398,25 @@ class VirtualMachineInterfaceServer(VirtualMachineInterfaceServerGen):
 
     @classmethod
     def http_put(cls, id, fq_name, obj_dict, db_conn):
+        # if a sub interface ref is added to a VMI, check that vlan tag is not already in use
+        if ('virtual_machine_interface_properties' not in obj_dict) or \
+           ('sub_interface_vlan_tag' not in obj_dict['virtual_machine_interface_properties']):
+            vlan_tags = []
+            for sub_itf in obj_dict.get('virtual_machine_interface_refs', []):
+                (ok, sub_itf_obj) = db_conn.dbe_read('virtual-machine-interface',
+                                                     {'uuid':sub_itf['uuid']})
+                if not ok:
+                    return (False, (500, 'Internal error : virtual machine interface ' +
+                                         sub_itf['uuid'] + ' not found'))
+                if ('virtual_machine_interface_properties' in sub_itf_obj) and \
+                   ('sub_interface_vlan_tag' in sub_itf_obj['virtual_machine_interface_properties']):
+                   vlan = sub_itf_obj['virtual_machine_interface_properties']['sub_interface_vlan_tag']
+                   index = [i for i, v in enumerate(vlan_tags) if v[0] == vlan]
+                   if index:
+                       return (False, (403, "Vlan tag already used in " +
+                               "another sub interface : " + vlan_tags[index[0]][1]))
+                   vlan_tags.append((vlan, sub_itf_obj['uuid']))
+
         if 'virtual_machine_interface_allowed_address_pairs' in obj_dict:
             vmi_id = {'uuid': id}
             (read_ok, read_result) = db_conn.dbe_read('virtual-machine-interface', vmi_id)
