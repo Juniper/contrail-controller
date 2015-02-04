@@ -1361,6 +1361,7 @@ TEST_F(FlowTest, Prefer_policy_over_fip_LPM_find) {
 
 TEST_F(FlowTest, Prefer_policy_over_fip_LPM_route_add_after_flow) {
     Ip4Address addr = Ip4Address::from_string("20.1.1.1");
+    Ip4Address default_route = Ip4Address::from_string("0.0.0.0");
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
     TxUdpPacket(vnet[1]->id(), vnet_addr[1], "20.1.1.1", 10, 20, 1, 1);
     client->WaitForIdle();
@@ -1369,10 +1370,31 @@ TEST_F(FlowTest, Prefer_policy_over_fip_LPM_route_add_after_flow) {
             IPPROTO_UDP, 10, 20, vnet[1]->flow_key_nh()->id());
     EXPECT_TRUE(fe->data().flow_source_vrf == VrfGet("default-project:vn2:vn2")->vrf_id());
 
+    uint32_t old_vrf_id = fe->data().vrf;
     Inet4TunnelRouteAdd(NULL, "vrf1", addr, 32, gw,
                         TunnelType::AllType(), 8, "default-project:vn2",
                         SecurityGroupList(), PathPreference());
     client->WaitForIdle();
+
+    // adding default route should not cause recompute on flow
+    Inet4TunnelRouteAdd(Agent::GetInstance()->local_peer(), "vrf1",
+                        default_route, 0, gw,
+                        TunnelType::AllType(), 8, "default-project:vn2",
+                        SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
+
+    RouteFlowKey rt_key(VrfGet("vrf1")->vrf_id(), addr, 32);
+    RouteFlowInfo *rt_info = Agent::GetInstance()->pkt()->flow_table()->RouteFlowInfoFind(rt_key);
+    EXPECT_TRUE(rt_info != NULL);
+    if (rt_info != NULL) {
+        EXPECT_TRUE(rt_info->key.vrf == rt_key.vrf);
+        EXPECT_TRUE(rt_info->key.family == rt_key.family);
+        EXPECT_TRUE(rt_info->key.ip == rt_key.ip);
+        EXPECT_TRUE(rt_info->key.plen == rt_key.plen);
+    }
+
+    // After flow recompute verify it to be in same vrf.
+    EXPECT_TRUE(old_vrf_id == fe->data().vrf);
 
     // since policy leaked route should be prefered deleteing the route should
     // result in picking floating-ip, so due to conversion from NAT to NON-NAT
@@ -1380,6 +1402,10 @@ TEST_F(FlowTest, Prefer_policy_over_fip_LPM_route_add_after_flow) {
     EXPECT_TRUE(fe->data().flow_source_vrf == VrfGet("default-project:vn2:vn2")->vrf_id());
     EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow) == true &&
                 fe->short_flow_reason() == FlowEntry::SHORT_NAT_CHANGE);
+
+    vnet_table[1]->DeleteReq(Agent::GetInstance()->local_peer(), "vrf1",
+                             default_route, 0, NULL);
+    client->WaitForIdle();
 
     vnet_table[1]->DeleteReq(NULL, "vrf1", addr, 32, NULL);
     client->WaitForIdle();
