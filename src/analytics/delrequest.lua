@@ -40,7 +40,14 @@ for k,v in pairs(typ) do
         local deltbl = string.sub(deluve, 1, st-1)
 
         local dkey = "DEL:"..deluve..":"..sm..":"..deltyp..":"..delseq
-        redis.log(redis.LOG_NOTICE,"DEL for "..dkey)
+	local part = redis.call('hget',"KEY2PART:"..sm..":"..deltyp, deluve)
+	if not part then
+	   part = "NULL"
+	else
+	   redis.call('hdel', "KEY2PART:"..sm..":"..deltyp, deluve)
+	   redis.call('srem', "PART2KEY:"..part, sm..":"..deltyp..":"..deluve)
+	end
+        redis.log(redis.LOG_NOTICE,"DEL for "..dkey.." part "..part)
 
         local dval = "VALUES:"..deluve..":"..sm..":"..deltyp
         sub_del(dval)
