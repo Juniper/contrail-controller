@@ -85,7 +85,7 @@ public:
 
     class RtKey {
     public:
-        static std::size_t Length(const Route *route_key) {
+        static std::size_t BitLength(const Route *route_key) {
             return route_key->len_;
         }
 
