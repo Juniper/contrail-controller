@@ -42,6 +42,7 @@ class VlanPortBindingTable;
 class PhysicalLocatorTable;
 class UnicastMacLocalOvsdb;
 class VrfOvsdbObject;
+class VnOvsdbObject;
 class OvsdbEntryBase;
 
 class OvsdbClientIdl;
@@ -99,6 +100,7 @@ public:
     VlanPortBindingTable *vlan_port_table();
     UnicastMacLocalOvsdb *unicast_mac_local_ovsdb();
     VrfOvsdbObject *vrf_ovsdb();
+    VnOvsdbObject *vn_ovsdb();
 
     void TriggerDeletion();
 
@@ -127,6 +129,7 @@ private:
     std::auto_ptr<VlanPortBindingTable> vlan_port_table_;
     std::auto_ptr<UnicastMacLocalOvsdb> unicast_mac_local_ovsdb_;
     std::auto_ptr<VrfOvsdbObject> vrf_ovsdb_;
+    std::auto_ptr<VnOvsdbObject> vn_ovsdb_;
     DISALLOW_COPY_AND_ASSIGN(OvsdbClientIdl);
 };
 };  // namespace OVSDB

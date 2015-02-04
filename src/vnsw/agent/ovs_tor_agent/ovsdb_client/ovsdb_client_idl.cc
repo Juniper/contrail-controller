@@ -24,6 +24,7 @@ extern "C" {
 #include <unicast_mac_local_ovsdb.h>
 #include <unicast_mac_remote_ovsdb.h>
 #include <vm_interface_ksync.h>
+#include <vn_ovsdb.h>
 
 SandeshTraceBufferPtr OvsdbTraceBuf(SandeshTraceBufferCreate("Ovsdb", 5000));
 SandeshTraceBufferPtr OvsdbPktTraceBuf(SandeshTraceBufferCreate("Ovsdb Pkt", 5000));
@@ -43,6 +44,7 @@ using OVSDB::PhysicalLocatorTable;
 using OVSDB::VlanPortBindingTable;
 using OVSDB::UnicastMacLocalOvsdb;
 using OVSDB::VrfOvsdbObject;
+using OVSDB::VnOvsdbObject;
 
 namespace OVSDB {
 void ovsdb_wrapper_idl_callback(void *idl_base, int op,
@@ -91,6 +93,7 @@ void intrusive_ptr_release(OvsdbClientIdl *p) {
         KSyncObjectManager::Unregister(p->vm_interface_table_.release());
         KSyncObjectManager::Unregister(p->logical_switch_table_.release());
         KSyncObjectManager::Unregister(p->vlan_port_table_.release());
+        KSyncObjectManager::Unregister(p->vn_ovsdb_.release());
         p->session_->OnCleanup();
         break;
     case 0:
@@ -129,6 +132,7 @@ OvsdbClientIdl::OvsdbClientIdl(OvsdbClientSession *session, Agent *agent,
     unicast_mac_local_ovsdb_.reset(new UnicastMacLocalOvsdb(this,
                 route_peer()));
     vrf_ovsdb_.reset(new VrfOvsdbObject(this, (DBTable *)agent->vrf_table()));
+    vn_ovsdb_.reset(new VnOvsdbObject(this, (DBTable *)agent->vn_table()));
 }
 
 OvsdbClientIdl::~OvsdbClientIdl() {
@@ -255,6 +259,10 @@ VrfOvsdbObject *OvsdbClientIdl::vrf_ovsdb() {
     return vrf_ovsdb_.get();
 }
 
+VnOvsdbObject *OvsdbClientIdl::vn_ovsdb() {
+    return vn_ovsdb_.get();
+}
+
 void OvsdbClientIdl::TriggerDeletion() {
     // idl should not be already marked as deleted
     assert(!deleted_);
@@ -280,6 +288,7 @@ void OvsdbClientIdl::TriggerDeletion() {
     physical_locator_table_->DeleteTable();
     vlan_port_table_->DeleteTable();
     unicast_mac_local_ovsdb_->DeleteTable();
+    vn_ovsdb_->DeleteTable();
 
     // trigger delete table for vrf table, which internally handles
     // deletion of route table.
