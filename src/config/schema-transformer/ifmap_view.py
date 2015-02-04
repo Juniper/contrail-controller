@@ -5,6 +5,8 @@
 
 import argparse
 import sys
+reload(sys)
+sys.setdefaultencoding('UTF8')
 
 import xml.etree.ElementTree as et
 import StringIO
