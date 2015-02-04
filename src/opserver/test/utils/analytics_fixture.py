@@ -449,7 +449,7 @@ class QueryEngine(object):
                 self._logger.info('contrail-query-engine terminated stderr: %s' % qe_err)
                 with open(self._log_file, 'r') as fin:
                     self._logger.info(fin.read())
-            #subprocess.call(['rm', self._log_file])
+            subprocess.call(['rm', self._log_file])
             assert(rcode == 0)
             self._instance = None
     # end stop

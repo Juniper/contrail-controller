@@ -220,11 +220,8 @@ const map<Module, string> ModuleNames = {
     Module.IPMI_STATS_MGR     : MODULE_IPMI_STATS_MGR_NAME,
     Module.CONTRAIL_SNMP_COLLECTOR  : MODULE_CONTRAIL_SNMP_COLLECTOR_NAME,
     Module.CONTRAIL_TOPOLOGY  : MODULE_CONTRAIL_TOPOLOGY_NAME,
-<<<<<<< HEAD
     Module.INVENTORY_AGENT    : MODULE_SERVER_INVENTORY_AGENT_NAME,
-=======
     Module.ALARM_GENERATOR    : MODULE_ALARM_GENERATOR_NAME,
->>>>>>> 39e0c1d... This is the initial commit of the alarm generator changes.
 }
 
 const map<string, Module> ModuleIds = {
