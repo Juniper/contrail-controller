@@ -29,9 +29,10 @@ public:
     PeerMock(int index, const Ip4Address address, bool is_xmpp,
         uint32_t label, vector<string> encap = vector<string>())
         : index_(index), address_(address), is_xmpp_(is_xmpp),
-          label_(label), encap_(encap) {
+          label_(label), encap_(encap),
+          edge_replication_supported_(is_xmpp_),
+          assisted_replication_supported_(false) {
         sort(encap_.begin(), encap_.end());
-        edge_replication_supported_ = is_xmpp_;
     }
     virtual ~PeerMock() { }
 
@@ -44,6 +45,12 @@ public:
     }
     void set_address(Ip4Address address) {
         address_ = address;
+    }
+    Ip4Address replicator_address() {
+        return replicator_address_;
+    }
+    void set_replicator_address(Ip4Address replicator_address) {
+        replicator_address_ = replicator_address;
     }
     uint32_t label() {
         return label_;
@@ -63,6 +70,12 @@ public:
     }
     void set_edge_replication_supported(bool value) {
         edge_replication_supported_ = value;
+    }
+    bool assisted_replication_supported() {
+        return assisted_replication_supported_;
+    }
+    void set_assisted_replication_supported(bool value) {
+        assisted_replication_supported_ = value;
     }
     virtual std::string ToString() const {
         return address_.to_string();
@@ -112,10 +125,12 @@ public:
 private:
     int index_;
     Ip4Address address_;
+    Ip4Address replicator_address_;
     bool is_xmpp_;
     uint32_t label_;
     vector<string> encap_;
     bool edge_replication_supported_;
+    bool assisted_replication_supported_;
 };
 
 static const char *config_template = "\
@@ -164,6 +179,8 @@ protected:
 
         CreateAllBgpPeers();
         CreateAllXmppPeers();
+        CreateAllReplicatorPeers();
+        CreateAllLeafPeers();
     }
 
     virtual void TearDown() {
@@ -175,6 +192,8 @@ protected:
 
         STLDeleteValues(&bgp_peers_);
         STLDeleteValues(&xmpp_peers_);
+        STLDeleteValues(&leaf_peers_);
+        STLDeleteValues(&replicator_peers_);
     }
 
     void RibOutRegister(RibOut *ribout, PeerMock *peer) {
@@ -185,13 +204,14 @@ protected:
         ribout->updates()->QueueJoin(RibOutUpdates::QBULK, bit);
     }
 
-    bool VerifyPeerInUpdateInfo(PeerMock *peer, UpdateInfoPtr uinfo) {
+    bool VerifyPeerInOListCommon(PeerMock *peer, UpdateInfoPtr uinfo,
+        bool leaf) {
         const BgpAttr *attr = uinfo->roattr.attr();
-        BgpOListPtr olist = attr->olist();
+        BgpOListPtr olist = leaf ? attr->leaf_olist() : attr->olist();
         if (olist == NULL)
             return false;
         bool found = false;
-        BOOST_FOREACH(BgpOListElem &elem, olist->elements) {
+        BOOST_FOREACH(const BgpOListElem &elem, olist->elements) {
             if (peer->address() == elem.address) {
                 EXPECT_FALSE(found);
                 found = true;
@@ -206,9 +226,18 @@ protected:
         return found;
     }
 
-    bool VerifyPeerNotInUpdateInfo(PeerMock *peer, UpdateInfoPtr uinfo) {
+    bool VerifyPeerInOList(PeerMock *peer, UpdateInfoPtr uinfo) {
+        return VerifyPeerInOListCommon(peer, uinfo, false);
+    }
+
+    bool VerifyPeerInLeafOList(PeerMock *peer, UpdateInfoPtr uinfo) {
+        return VerifyPeerInOListCommon(peer, uinfo, true);
+    }
+
+    bool VerifyPeerNotInOListCommon(PeerMock *peer, UpdateInfoPtr uinfo,
+        bool leaf) {
         const BgpAttr *attr = uinfo->roattr.attr();
-        BgpOListPtr olist = attr->olist();
+        BgpOListPtr olist = leaf ? attr->leaf_olist() : attr->olist();
         if (olist == NULL)
             return false;
         BOOST_FOREACH(BgpOListElem &elem, olist->elements) {
@@ -218,8 +247,16 @@ protected:
         return true;
     }
 
+    bool VerifyPeerNotInOList(PeerMock *peer, UpdateInfoPtr uinfo) {
+        return VerifyPeerNotInOListCommon(peer, uinfo, false);
+    }
+
+    bool VerifyPeerNotInLeafOList(PeerMock *peer, UpdateInfoPtr uinfo) {
+        return VerifyPeerNotInOListCommon(peer, uinfo, true);
+    }
+
     bool VerifyPeerUpdateInfoCommon(PeerMock *peer, bool odd, bool even,
-        bool include_xmpp) {
+        bool include_xmpp, bool include_leaf = false) {
         ConcurrencyScope scope("db::DBTable");
         RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
         EvpnPrefix prefix(rd, tag_, MacAddress::BroadcastMac(), IpAddress());
@@ -237,18 +274,18 @@ protected:
                 continue;
             if ((odd && bgp_peer->index() % 2 != 0) ||
                 (even && bgp_peer->index() % 2 == 0)) {
-                if (!VerifyPeerInUpdateInfo(bgp_peer, uinfo))
+                if (!VerifyPeerInOList(bgp_peer, uinfo))
                     return false;
                 count++;
             } else {
-                if (!VerifyPeerNotInUpdateInfo(bgp_peer, uinfo))
+                if (!VerifyPeerNotInOList(bgp_peer, uinfo))
                     return false;
             }
         }
 
         if (include_xmpp && !peer->edge_replication_supported()) {
             BOOST_FOREACH(PeerMock *xmpp_peer, xmpp_peers_) {
-                if (!VerifyPeerInUpdateInfo(xmpp_peer, uinfo))
+                if (!VerifyPeerInOList(xmpp_peer, uinfo))
                     return false;
                 count++;
             }
@@ -257,6 +294,24 @@ protected:
         const BgpAttr *attr = uinfo->roattr.attr();
         if (attr->olist()->elements.size() != count)
             return false;
+
+        if (include_leaf && peer->assisted_replication_supported()) {
+            size_t leaf_count = 0;
+            BOOST_FOREACH(PeerMock *leaf_peer, leaf_peers_) {
+                if (leaf_peer->replicator_address() != peer->address())
+                    continue;
+                if (!VerifyPeerInLeafOList(leaf_peer, uinfo))
+                    return false;
+                leaf_count++;
+            }
+
+            if (attr->leaf_olist()->elements.size() != leaf_count)
+                return false;
+        } else {
+            if (attr->leaf_olist()->elements.size() != 0)
+                return false;
+        }
+
         return true;
     }
 
@@ -794,6 +849,515 @@ protected:
         }
     }
 
+    void CreateAllLeafPeers() {
+        for (int idx = 1; idx <= 8; ++idx) {
+            boost::system::error_code ec;
+            string address_str = string("30.1.1.") + integerToString(idx);
+            Ip4Address address = Ip4Address::from_string(address_str, ec);
+            assert(ec.value() == 0);
+            PeerMock *peer = new PeerMock(idx, address, true, 300 + idx);
+            peer->set_assisted_replication_supported(false);
+            peer->set_edge_replication_supported(false);
+            size_t rep_idx = (idx % 2 != 0) ? 0 : 1;
+            peer->set_replicator_address(replicator_peers_[rep_idx]->address());
+            leaf_peers_.push_back(peer);
+            RibOutRegister(blue_ribout_.get(), peer);
+        }
+    }
+
+    void ChangeLeafPeersLabelCommon(bool odd, bool even) {
+        BOOST_FOREACH(PeerMock *peer, leaf_peers_) {
+            if ((odd && peer->index() % 2 != 0) ||
+                (even && peer->index() % 2 == 0)) {
+                peer->set_label(peer->label() + 1000);
+            }
+        }
+    }
+
+    void ChangeOddLeafPeersLabel() {
+        ChangeLeafPeersLabelCommon(true, false);
+    }
+
+    void ChangeEvenLeafPeersLabel() {
+        ChangeLeafPeersLabelCommon(false, true);
+    }
+
+    void ChangeAllLeafPeersLabel() {
+        ChangeLeafPeersLabelCommon(true, true);
+    }
+
+    void ChangeLeafPeersEncapCommon(bool odd, bool even,
+        const vector<string> encap) {
+        BOOST_FOREACH(PeerMock *peer, leaf_peers_) {
+            if ((odd && peer->index() % 2 != 0) ||
+                (even && peer->index() % 2 == 0)) {
+                peer->set_encap(encap);
+            }
+        }
+    }
+
+    void ChangeOddLeafPeersEncap(const vector<string> encap) {
+        ChangeLeafPeersEncapCommon(true, false, encap);
+    }
+
+    void ChangeEvenLeafPeersEncap(const vector<string> encap) {
+        ChangeLeafPeersEncapCommon(false, true, encap);
+    }
+
+    void ChangeAllLeafPeersEncap(const vector<string> encap) {
+        ChangeLeafPeersEncapCommon(true, true, encap);
+    }
+
+    void AddLeafPeerInclusiveMulticastRoute(PeerMock *peer,
+        string rtarget_str = "target:64512:1") {
+        EXPECT_TRUE(peer->IsXmppPeer());
+        RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
+        EvpnPrefix prefix(rd, tag_, peer->address());
+
+        BgpAttrSpec attr_spec;
+        ExtCommunitySpec ext_comm;
+        RouteTarget rtarget = RouteTarget::FromString(rtarget_str);
+        ext_comm.communities.push_back(rtarget.GetExtCommunityValue());
+        BOOST_FOREACH(string encap, peer->encap()) {
+            TunnelEncap tun_encap(encap);
+            ext_comm.communities.push_back(tun_encap.GetExtCommunityValue());
+        }
+        attr_spec.push_back(&ext_comm);
+        BgpAttrNextHop nexthop(peer->address().to_ulong());
+        attr_spec.push_back(&nexthop);
+        PmsiTunnelSpec pmsi_spec;
+        pmsi_spec.tunnel_flags = PmsiTunnelSpec::ARLeaf;
+        pmsi_spec.tunnel_type = PmsiTunnelSpec::AssistedReplicationContrail;
+        pmsi_spec.SetLabel(peer->label());
+        pmsi_spec.SetIdentifier(peer->replicator_address());
+        attr_spec.push_back(&pmsi_spec);
+        BgpAttrPtr attr = server_->attr_db()->Locate(attr_spec);
+
+        DBRequest addReq;
+        addReq.key.reset(new EvpnTable::RequestKey(prefix, peer));
+        addReq.data.reset(
+            new EvpnTable::RequestData(attr, 0, peer->label()));
+        addReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+        master_->Enqueue(&addReq);
+        task_util::WaitForIdle();
+    }
+
+    void AddLeafPeerInclusiveMulticastRouteCommon(bool odd, bool even) {
+        BOOST_FOREACH(PeerMock *peer, leaf_peers_) {
+            if ((odd && peer->index() % 2 != 0) ||
+                (even && peer->index() % 2 == 0)) {
+                AddLeafPeerInclusiveMulticastRoute(peer);
+            }
+        }
+    }
+
+    void AddOddLeafPeersInclusiveMulticastRoute() {
+        AddLeafPeerInclusiveMulticastRouteCommon(true, false);
+    }
+
+    void AddEvenLeafPeersInclusiveMulticastRoute() {
+        AddLeafPeerInclusiveMulticastRouteCommon(false, true);
+    }
+
+    void AddAllLeafPeersInclusiveMulticastRoute() {
+        AddLeafPeerInclusiveMulticastRouteCommon(true, true);
+    }
+
+    void DelLeafPeerInclusiveMulticastRoute(PeerMock *peer) {
+        RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
+        EvpnPrefix prefix(rd, tag_, peer->address());
+
+        DBRequest delReq;
+        delReq.key.reset(new EvpnTable::RequestKey(prefix, peer));
+        delReq.oper = DBRequest::DB_ENTRY_DELETE;
+        master_->Enqueue(&delReq);
+    }
+
+    void DelLeafPeerInclusiveMulticastRouteCommon(bool odd, bool even) {
+        BOOST_FOREACH(PeerMock *peer, leaf_peers_) {
+            if ((odd && peer->index() % 2 != 0) ||
+                (even && peer->index() % 2 == 0)) {
+                DelLeafPeerInclusiveMulticastRoute(peer);
+            }
+        }
+        task_util::WaitForIdle();
+    }
+
+    void DelOddLeafPeersInclusiveMulticastRoute() {
+        DelLeafPeerInclusiveMulticastRouteCommon(true, false);
+    }
+
+    void DelEvenLeafPeersInclusiveMulticastRoute() {
+        DelLeafPeerInclusiveMulticastRouteCommon(false, true);
+    }
+
+    void DelAllLeafPeersInclusiveMulticastRoute() {
+        DelLeafPeerInclusiveMulticastRouteCommon(true, true);
+    }
+
+    void AddLeafPeerBroadcastMacRoute(PeerMock *peer, uint32_t label = 0) {
+        EXPECT_TRUE(peer->IsXmppPeer());
+        RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
+        EvpnPrefix prefix(rd, tag_, MacAddress::BroadcastMac(), IpAddress());
+
+        BgpAttrSpec attr_spec;
+        ExtCommunitySpec ext_comm;
+        OriginVn origin_vn(server_->autonomous_system(), kVnIndex);
+        ext_comm.communities.push_back(origin_vn.GetExtCommunityValue());
+        BOOST_FOREACH(string encap, peer->encap()) {
+            TunnelEncap tun_encap(encap);
+            ext_comm.communities.push_back(tun_encap.GetExtCommunityValue());
+        }
+        attr_spec.push_back(&ext_comm);
+
+        BgpAttrNextHop nexthop(peer->address().to_ulong());
+        attr_spec.push_back(&nexthop);
+
+        PmsiTunnelSpec pmsi_spec;
+        pmsi_spec.tunnel_flags = PmsiTunnelSpec::ARLeaf;
+        pmsi_spec.tunnel_type = PmsiTunnelSpec::AssistedReplicationContrail;
+        pmsi_spec.SetLabel(label ? label : peer->label());
+        pmsi_spec.SetIdentifier(peer->replicator_address());
+        attr_spec.push_back(&pmsi_spec);
+
+        BgpAttrPtr attr = server_->attr_db()->Locate(attr_spec);
+
+        DBRequest addReq;
+        addReq.key.reset(new EvpnTable::RequestKey(prefix, peer));
+        addReq.data.reset(
+            new EvpnTable::RequestData(attr, 0, label ? label : peer->label()));
+        addReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+        blue_->Enqueue(&addReq);
+        task_util::WaitForIdle();
+    }
+
+    void AddLeafPeersBroadcastMacRouteCommon(bool odd, bool even) {
+        BOOST_FOREACH(PeerMock *peer, leaf_peers_) {
+            if ((odd && peer->index() % 2 != 0) ||
+                (even && peer->index() % 2 == 0)) {
+                AddLeafPeerBroadcastMacRoute(peer);
+            }
+        }
+    }
+
+    void AddOddLeafPeersBroadcastMacRoute() {
+        AddLeafPeersBroadcastMacRouteCommon(true, false);
+    }
+
+    void AddEvenLeafPeersBroadcastMacRoute() {
+        AddLeafPeersBroadcastMacRouteCommon(false, true);
+    }
+
+    void AddAllLeafPeersBroadcastMacRoute() {
+        AddLeafPeersBroadcastMacRouteCommon(true, true);
+    }
+
+    void DelLeafPeerBroadcastMacRoute(PeerMock *peer) {
+        EXPECT_TRUE(peer->IsXmppPeer());
+        RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
+        EvpnPrefix prefix(rd, tag_, MacAddress::BroadcastMac(), IpAddress());
+
+        DBRequest delReq;
+        delReq.key.reset(new EvpnTable::RequestKey(prefix, peer));
+        delReq.oper = DBRequest::DB_ENTRY_DELETE;
+        blue_->Enqueue(&delReq);
+        task_util::WaitForIdle();
+    }
+
+    void DelLeafPeersBroadcastMacRouteCommon(bool odd, bool even) {
+        BOOST_FOREACH(PeerMock *peer, leaf_peers_) {
+            if ((odd && peer->index() % 2 != 0) ||
+                (even && peer->index() % 2 == 0)) {
+                DelLeafPeerBroadcastMacRoute(peer);
+            }
+        }
+    }
+
+    void DelOddLeafPeersBroadcastMacRoute() {
+        DelLeafPeersBroadcastMacRouteCommon(true, false);
+    }
+
+    void DelEvenLeafPeersBroadcastMacRoute() {
+        DelLeafPeersBroadcastMacRouteCommon(false, true);
+    }
+
+    void DelAllLeafPeersBroadcastMacRoute() {
+        DelLeafPeersBroadcastMacRouteCommon(true, true);
+    }
+
+    void VerifyLeafPeerInclusiveMulticastRoute(PeerMock *peer) {
+        EXPECT_TRUE(peer->IsXmppPeer());
+        RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
+        EvpnPrefix prefix(rd, tag_, peer->address());
+        EvpnTable::RequestKey key(prefix, peer);
+        TASK_UTIL_EXPECT_TRUE(master_->Find(&key) != NULL);
+        EvpnRoute *rt = dynamic_cast<EvpnRoute *>(master_->Find(&key));
+        TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+        TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetAttr() != NULL);
+        const BgpAttr *attr = rt->BestPath()->GetAttr();
+        TASK_UTIL_EXPECT_TRUE(attr->pmsi_tunnel() != NULL);
+        const PmsiTunnel *pmsi_tunnel = attr->pmsi_tunnel();
+        TASK_UTIL_EXPECT_EQ(PmsiTunnelSpec::ARLeaf, pmsi_tunnel->tunnel_flags);
+        TASK_UTIL_EXPECT_EQ(PmsiTunnelSpec::AssistedReplicationContrail,
+            pmsi_tunnel->tunnel_type);
+        TASK_UTIL_EXPECT_EQ(peer->label(), pmsi_tunnel->label);
+        TASK_UTIL_EXPECT_EQ(peer->replicator_address(),
+            pmsi_tunnel->identifier);
+        TASK_UTIL_EXPECT_EQ(peer->address(), attr->nexthop().to_v4());
+        TASK_UTIL_EXPECT_TRUE(attr->ext_community() != NULL);
+        vector<string> encap = attr->ext_community()->GetTunnelEncap();
+        sort(encap.begin(), encap.end());
+        TASK_UTIL_EXPECT_TRUE(peer->encap() == encap);
+    }
+
+    void VerifyLeafPeersInclusiveMulticastRouteCommon(bool odd, bool even) {
+        BOOST_FOREACH(PeerMock *peer, leaf_peers_) {
+            if (!odd && peer->index() % 2 != 0)
+                continue;
+            if (!even && peer->index() % 2 == 0)
+                continue;
+            VerifyLeafPeerInclusiveMulticastRoute(peer);
+        }
+    }
+
+    void VerifyOddLeafPeersInclusiveMulticastRoute() {
+        VerifyLeafPeersInclusiveMulticastRouteCommon(true, false);
+    }
+
+    void VerifyEvenLeafPeersInclusiveMulticastRoute() {
+        VerifyLeafPeersInclusiveMulticastRouteCommon(false, true);
+    }
+
+    void VerifyAllLeafPeersInclusiveMulticastRoute() {
+        VerifyLeafPeersInclusiveMulticastRouteCommon(true, true);
+    }
+
+    void VerifyLeafPeerNoInclusiveMulticastRoute(PeerMock *peer) {
+        EXPECT_TRUE(peer->IsXmppPeer());
+        RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
+        EvpnPrefix prefix(rd, tag_, peer->address());
+        EvpnTable::RequestKey key(prefix, peer);
+        TASK_UTIL_EXPECT_TRUE(blue_->Find(&key) == NULL);
+    }
+
+    void VerifyAllLeafPeersNoInclusiveMulticastRoute() {
+        BOOST_FOREACH(PeerMock *peer, leaf_peers_) {
+            VerifyLeafPeerNoInclusiveMulticastRoute(peer);
+        }
+    }
+
+    void VerifyAllLeafPeersNoUpdateInfo() {
+        BOOST_FOREACH(PeerMock *peer, leaf_peers_) {
+            TASK_UTIL_EXPECT_TRUE(VerifyPeerNoUpdateInfo(peer));
+        }
+    }
+
+    void CreateAllReplicatorPeers() {
+        for (int idx = 1; idx <= 2; ++idx) {
+            boost::system::error_code ec;
+            string address_str = string("40.1.1.") + integerToString(idx);
+            Ip4Address address = Ip4Address::from_string(address_str, ec);
+            assert(ec.value() == 0);
+            PeerMock *peer = new PeerMock(idx, address, true, 400 + idx);
+            peer->set_assisted_replication_supported(true);
+            peer->set_edge_replication_supported(true);
+            replicator_peers_.push_back(peer);
+            RibOutRegister(blue_ribout_.get(), peer);
+        }
+    }
+
+    void AddReplicatorPeerBroadcastMacRoute(PeerMock *peer,
+        string nexthop_str = "", uint32_t label = 0) {
+        EXPECT_TRUE(peer->IsXmppPeer());
+        RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
+        EvpnPrefix prefix(rd, tag_, MacAddress::BroadcastMac(), IpAddress());
+
+        BgpAttrSpec attr_spec;
+        ExtCommunitySpec ext_comm;
+        OriginVn origin_vn(server_->autonomous_system(), kVnIndex);
+        ext_comm.communities.push_back(origin_vn.GetExtCommunityValue());
+        BOOST_FOREACH(string encap, peer->encap()) {
+            TunnelEncap tun_encap(encap);
+            ext_comm.communities.push_back(tun_encap.GetExtCommunityValue());
+        }
+        attr_spec.push_back(&ext_comm);
+
+        Ip4Address nexthop_address;
+        if (!nexthop_str.empty()) {
+            boost::system::error_code ec;
+            nexthop_address = Ip4Address::from_string(nexthop_str, ec);
+            assert(ec.value() == 0);
+        } else {
+            nexthop_address = peer->address();
+        }
+        BgpAttrNextHop nexthop(nexthop_address.to_ulong());
+        attr_spec.push_back(&nexthop);
+
+        PmsiTunnelSpec pmsi_spec;
+        pmsi_spec.tunnel_flags = PmsiTunnelSpec::EdgeReplicationSupported |
+            PmsiTunnelSpec::ARReplicator | PmsiTunnelSpec::LeafInfoRequired;
+        pmsi_spec.tunnel_type = PmsiTunnelSpec::IngressReplication;
+        pmsi_spec.SetLabel(label ? label : peer->label());
+        pmsi_spec.SetIdentifier(nexthop_address);
+        attr_spec.push_back(&pmsi_spec);
+
+        BgpAttrPtr attr = server_->attr_db()->Locate(attr_spec);
+
+        DBRequest addReq;
+        addReq.key.reset(new EvpnTable::RequestKey(prefix, peer));
+        addReq.data.reset(
+            new EvpnTable::RequestData(attr, 0, label ? label : peer->label()));
+        addReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+        blue_->Enqueue(&addReq);
+        task_util::WaitForIdle();
+    }
+
+    void AddReplicatorPeersBroadcastMacRouteCommon(bool odd, bool even) {
+        BOOST_FOREACH(PeerMock *peer, replicator_peers_) {
+            if ((odd && peer->index() % 2 != 0) ||
+                (even && peer->index() % 2 == 0)) {
+                AddReplicatorPeerBroadcastMacRoute(peer);
+            }
+        }
+    }
+
+    void AddOddReplicatorPeersBroadcastMacRoute() {
+        AddReplicatorPeersBroadcastMacRouteCommon(true, false);
+    }
+
+    void AddEvenReplicatorPeersBroadcastMacRoute() {
+        AddReplicatorPeersBroadcastMacRouteCommon(false, true);
+    }
+
+    void AddAllReplicatorPeersBroadcastMacRoute() {
+        AddReplicatorPeersBroadcastMacRouteCommon(true, true);
+    }
+
+    void DelReplicatorPeerBroadcastMacRoute(PeerMock *peer) {
+        EXPECT_TRUE(peer->IsXmppPeer());
+        RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
+        EvpnPrefix prefix(rd, tag_, MacAddress::BroadcastMac(), IpAddress());
+
+        DBRequest delReq;
+        delReq.key.reset(new EvpnTable::RequestKey(prefix, peer));
+        delReq.oper = DBRequest::DB_ENTRY_DELETE;
+        blue_->Enqueue(&delReq);
+        task_util::WaitForIdle();
+    }
+
+    void DelAllReplicatorPeersBroadcastMacRoute() {
+        BOOST_FOREACH(PeerMock *peer, replicator_peers_) {
+            DelReplicatorPeerBroadcastMacRoute(peer);
+        }
+    }
+
+    void VerifyReplicatorPeerInclusiveMulticastRoute(PeerMock *peer) {
+        EXPECT_TRUE(peer->IsXmppPeer());
+        RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
+        EvpnPrefix prefix(rd, tag_, peer->address());
+        EvpnTable::RequestKey key(prefix, peer);
+        TASK_UTIL_EXPECT_TRUE(master_->Find(&key) != NULL);
+        EvpnRoute *rt = dynamic_cast<EvpnRoute *>(master_->Find(&key));
+        TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+        TASK_UTIL_EXPECT_TRUE(rt->BestPath()->IsReplicated());
+        TASK_UTIL_EXPECT_TRUE(rt->BestPath()->GetAttr() != NULL);
+        const BgpAttr *attr = rt->BestPath()->GetAttr();
+        TASK_UTIL_EXPECT_TRUE(attr->pmsi_tunnel() != NULL);
+        const PmsiTunnel *pmsi_tunnel = attr->pmsi_tunnel();
+        uint8_t tunnel_flags = PmsiTunnelSpec::EdgeReplicationSupported |
+            PmsiTunnelSpec::ARReplicator | PmsiTunnelSpec::LeafInfoRequired;
+        TASK_UTIL_EXPECT_EQ(tunnel_flags, pmsi_tunnel->tunnel_flags);
+        TASK_UTIL_EXPECT_EQ(PmsiTunnelSpec::IngressReplication,
+            pmsi_tunnel->tunnel_type);
+        TASK_UTIL_EXPECT_EQ(peer->label(), pmsi_tunnel->label);
+        TASK_UTIL_EXPECT_EQ(peer->address(), pmsi_tunnel->identifier);
+        TASK_UTIL_EXPECT_EQ(peer->address(), attr->nexthop().to_v4());
+        TASK_UTIL_EXPECT_EQ(peer->address(), attr->originator_id());
+        TASK_UTIL_EXPECT_TRUE(attr->ext_community() != NULL);
+        vector<string> encap = attr->ext_community()->GetTunnelEncap();
+        sort(encap.begin(), encap.end());
+        TASK_UTIL_EXPECT_TRUE(peer->encap() == encap);
+    }
+
+    void VerifyAllReplicatorPeersInclusiveMulticastRoute() {
+        BOOST_FOREACH(PeerMock *peer, replicator_peers_) {
+            VerifyReplicatorPeerInclusiveMulticastRoute(peer);
+        }
+    }
+
+    void VerifyReplicatorPeerNoInclusiveMulticastRoute(PeerMock *peer) {
+        EXPECT_TRUE(peer->IsXmppPeer());
+        RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
+        EvpnPrefix prefix(rd, tag_, peer->address());
+        EvpnTable::RequestKey key(prefix, peer);
+        TASK_UTIL_EXPECT_TRUE(blue_->Find(&key) == NULL);
+    }
+
+    void VerifyAllReplicatorPeersNoInclusiveMulticastRoute() {
+        BOOST_FOREACH(PeerMock *peer, replicator_peers_) {
+            VerifyReplicatorPeerNoInclusiveMulticastRoute(peer);
+        }
+    }
+
+    void VerifyReplicatorPeersLeafUpdateInfoCommon(bool odd, bool even) {
+        BOOST_FOREACH(PeerMock *peer, replicator_peers_) {
+            if (!odd && peer->index() % 2 != 0)
+                continue;
+            if (!even && peer->index() % 2 == 0)
+                continue;
+            TASK_UTIL_EXPECT_TRUE(
+                VerifyPeerUpdateInfoCommon(peer, false, false, false, true));
+        }
+    }
+
+    void VerifyOddReplicatorPeersLeafUpdateInfo() {
+        VerifyReplicatorPeersLeafUpdateInfoCommon(true, false);
+    }
+
+    void VerifyEvenReplicatorPeersLeafUpdateInfo() {
+        VerifyReplicatorPeersLeafUpdateInfoCommon(false, true);
+    }
+
+    void VerifyAllReplicatorPeersLeafUpdateInfo() {
+        VerifyReplicatorPeersLeafUpdateInfoCommon(true, true);
+    }
+
+    void VerifyAllReplicatorPeersNonLeafUpdateInfo() {
+        BOOST_FOREACH(PeerMock *peer, replicator_peers_) {
+            TASK_UTIL_EXPECT_TRUE(
+                VerifyPeerUpdateInfoCommon(peer, true, true, false, false));
+        }
+    }
+
+    void VerifyAllReplicatorPeersAllUpdateInfo() {
+        BOOST_FOREACH(PeerMock *peer, replicator_peers_) {
+            TASK_UTIL_EXPECT_TRUE(
+                VerifyPeerUpdateInfoCommon(peer, true, true, false, true));
+        }
+    }
+
+    void VerifyReplicatorPeersNoUpdateInfoCommon(bool odd, bool even) {
+        BOOST_FOREACH(PeerMock *peer, replicator_peers_) {
+            if (!odd && peer->index() % 2 != 0)
+                continue;
+            if (!even && peer->index() % 2 == 0)
+                continue;
+            TASK_UTIL_EXPECT_TRUE(VerifyPeerNoUpdateInfo(peer));
+        }
+    }
+
+    void VerifyOddReplicatorPeersNoUpdateInfo() {
+        VerifyReplicatorPeersNoUpdateInfoCommon(true, false);
+    }
+
+    void VerifyEvenReplicatorPeersNoUpdateInfo() {
+        VerifyReplicatorPeersNoUpdateInfoCommon(false, true);
+    }
+
+    void VerifyAllReplicatorPeersNoUpdateInfo() {
+        VerifyReplicatorPeersNoUpdateInfoCommon(true, true);
+    }
+
     size_t GetPartitionLocalSize(uint32_t tag) {
         int part_id = 0;
         EvpnManagerPartition *partition = blue_manager_->partitions_[part_id];
@@ -806,6 +1370,18 @@ protected:
         return partition->remote_mcast_node_list_.size();
     }
 
+    size_t GetPartitionLeafSize(uint32_t tag) {
+        int part_id = 0;
+        EvpnManagerPartition *partition = blue_manager_->partitions_[part_id];
+        return partition->leaf_node_list_.size();
+    }
+
+    size_t GetPartitionReplicatorSize(uint32_t tag) {
+        int part_id = 0;
+        EvpnManagerPartition *partition = blue_manager_->partitions_[part_id];
+        return partition->replicator_node_list_.size();
+    }
+
     EventManager evm_;
     ServerThread thread_;
     BgpServerTestPtr server_;
@@ -815,6 +1391,8 @@ protected:
     boost::scoped_ptr<RibOut> blue_ribout_;
     vector<PeerMock *> bgp_peers_;
     vector<PeerMock *> xmpp_peers_;
+    vector<PeerMock *> leaf_peers_;
+    vector<PeerMock *> replicator_peers_;
     uint32_t tag_;
 };
 
@@ -2152,6 +2730,870 @@ TEST_P(BgpEvpnManagerTest, ChangeXmppPeersEncapAndLabel2) {
     DelAllXmppPeersBroadcastMacRoute();
     TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
     VerifyAllXmppPeersNoInclusiveMulticastRoute();
+}
+
+// Add Inclusive Multicast routes from all Leaf peers.
+// Add Broadcast MAC routes from all Replicator peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+TEST_P(BgpEvpnManagerTest, AssistedReplicationBasic1) {
+    AddAllLeafPeersInclusiveMulticastRoute();
+    VerifyAllLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size(), GetPartitionRemoteSize(tag_));
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size(), GetPartitionLeafSize(tag_));
+    VerifyAllLeafPeersNoUpdateInfo();
+
+    AddAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size(), GetPartitionLeafSize(tag_));
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(),
+        GetPartitionReplicatorSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    DelAllLeafPeersInclusiveMulticastRoute();
+    VerifyAllLeafPeersNoInclusiveMulticastRoute();
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    DelAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersNoInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+}
+
+// Add Broadcast MAC routes from all Replicator peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Add Inclusive Multicast routes from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+TEST_P(BgpEvpnManagerTest, AssistedReplicationBasic2) {
+    AddAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(),
+        GetPartitionReplicatorSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+
+    AddAllLeafPeersInclusiveMulticastRoute();
+    VerifyAllLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size(), GetPartitionLeafSize(tag_));
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(),
+        GetPartitionReplicatorSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    DelAllLeafPeersInclusiveMulticastRoute();
+    VerifyAllLeafPeersNoInclusiveMulticastRoute();
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    DelAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersNoInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+}
+
+// Add Broadcast MAC routes from all Leaf peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Add Broadcast MAC routes from all Replicator peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+TEST_P(BgpEvpnManagerTest, AssistedReplicationBasic3) {
+    AddAllLeafPeersBroadcastMacRoute();
+    VerifyAllLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size(), GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size(), GetPartitionRemoteSize(tag_));
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size(), GetPartitionLeafSize(tag_));
+    VerifyAllLeafPeersNoUpdateInfo();
+
+    AddAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size(), GetPartitionLeafSize(tag_));
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(),
+        GetPartitionReplicatorSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    DelAllLeafPeersBroadcastMacRoute();
+    VerifyAllLeafPeersNoInclusiveMulticastRoute();
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    DelAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersNoInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+}
+
+// Add Broadcast MAC routes from all Replicator peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Add Broadcast MAC routes from all Leaf peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+TEST_P(BgpEvpnManagerTest, AssistedReplicationBasic4) {
+    AddAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(),
+        GetPartitionReplicatorSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+
+    AddAllLeafPeersBroadcastMacRoute();
+    VerifyAllLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size(), GetPartitionLeafSize(tag_));
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(),
+        GetPartitionReplicatorSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    DelAllLeafPeersBroadcastMacRoute();
+    VerifyAllLeafPeersNoInclusiveMulticastRoute();
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    DelAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersNoInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+}
+
+// Add Broadcast MAC routes from all Replicator peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Add Inclusive Multicast routes from odd Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Add Inclusive Multicast routes from even Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+TEST_P(BgpEvpnManagerTest, AssistedReplicationAddLeafPeers1) {
+    AddAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersInclusiveMulticastRoute();
+    VerifyAllReplicatorPeersNoUpdateInfo();
+
+    AddOddLeafPeersInclusiveMulticastRoute();
+    VerifyOddLeafPeersInclusiveMulticastRoute();
+    VerifyOddReplicatorPeersLeafUpdateInfo();
+    AddEvenLeafPeersInclusiveMulticastRoute();
+    VerifyEvenLeafPeersInclusiveMulticastRoute();
+    VerifyEvenReplicatorPeersLeafUpdateInfo();
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    DelAllLeafPeersInclusiveMulticastRoute();
+    VerifyAllLeafPeersNoInclusiveMulticastRoute();
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    DelAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersNoInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+}
+
+// Add Broadcast MAC routes from all Replicator peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Add Broadcast MAC routes from odd Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Add Broadcast MAC routes from even Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+TEST_P(BgpEvpnManagerTest, AssistedReplicationAddLeafPeers2) {
+    AddAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersInclusiveMulticastRoute();
+    VerifyAllReplicatorPeersNoUpdateInfo();
+
+    AddOddLeafPeersBroadcastMacRoute();
+    VerifyOddLeafPeersInclusiveMulticastRoute();
+    VerifyOddReplicatorPeersLeafUpdateInfo();
+    AddEvenLeafPeersBroadcastMacRoute();
+    VerifyEvenLeafPeersInclusiveMulticastRoute();
+    VerifyEvenReplicatorPeersLeafUpdateInfo();
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    DelAllLeafPeersBroadcastMacRoute();
+    VerifyAllLeafPeersNoInclusiveMulticastRoute();
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    DelAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersNoInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+}
+
+// Add Broadcast MAC routes from all Replicator peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Add Inclusive Multicast routes from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Delete Inclusive Multicast routes from odd Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Delete Inclusive Multicast routes from even Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+TEST_P(BgpEvpnManagerTest, AssistedReplicationDelLeafPeers1) {
+    AddAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersInclusiveMulticastRoute();
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    AddAllLeafPeersInclusiveMulticastRoute();
+    VerifyAllLeafPeersInclusiveMulticastRoute();
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    DelOddLeafPeersInclusiveMulticastRoute();
+    VerifyOddReplicatorPeersNoUpdateInfo();
+    VerifyEvenReplicatorPeersLeafUpdateInfo();
+
+    DelEvenLeafPeersInclusiveMulticastRoute();
+    VerifyAllLeafPeersNoInclusiveMulticastRoute();
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    DelAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersNoInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+}
+
+// Add Broadcast MAC routes from all Replicator peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Add Broadcast MAC routes from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Delete Broadcast MAC routes from even Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Delete Broadcast MAC routes from odd Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+TEST_P(BgpEvpnManagerTest, AssistedReplicationDelLeafPeers2) {
+    AddAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersInclusiveMulticastRoute();
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    AddAllLeafPeersBroadcastMacRoute();
+    VerifyAllLeafPeersInclusiveMulticastRoute();
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    DelEvenLeafPeersBroadcastMacRoute();
+    VerifyEvenReplicatorPeersNoUpdateInfo();
+    VerifyOddReplicatorPeersLeafUpdateInfo();
+
+    DelOddLeafPeersBroadcastMacRoute();
+    VerifyAllLeafPeersNoInclusiveMulticastRoute();
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    DelAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersNoInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+}
+
+// Add Broadcast MAC routes from all Replicator peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Add Inclusive Multicast route from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Change encap in Inclusive Multicast route from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Change encap in Inclusive Multicast route from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+TEST_P(BgpEvpnManagerTest, AssistedReplicationChangeLeafPeersEncap1) {
+    AddAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    AddAllLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    vector<string> encap;
+    encap.push_back("gre");
+    encap.push_back("udp");
+    ChangeAllLeafPeersEncap(encap);
+    AddAllLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    encap.clear();
+    encap.push_back("udp");
+    ChangeAllLeafPeersEncap(encap);
+    AddAllLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    DelAllLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    DelAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersNoInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+}
+
+// Add Broadcast MAC routes from all Replicator peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Add Inclusive Multicast route from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Change encap in Inclusive Multicast route from odd Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Change encap in Inclusive Multicast route from even Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+TEST_P(BgpEvpnManagerTest, AssistedReplicationChangeLeafPeersEncap2) {
+    AddAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    AddAllLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    vector<string> encap;
+    encap.push_back("gre");
+    encap.push_back("udp");
+    ChangeOddLeafPeersEncap(encap);
+    AddOddLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    encap.clear();
+    encap.push_back("udp");
+    ChangeEvenLeafPeersEncap(encap);
+    AddEvenLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    DelAllLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    DelAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersNoInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+}
+
+// Add Broadcast MAC routes from all Replicator peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Add Broadcast MAC routes from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Change encap in Broadcast MAC route from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Change encap in Broadcast MAC route from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+TEST_P(BgpEvpnManagerTest, AssistedReplicationChangeLeafPeersEncap3) {
+    AddAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    AddAllLeafPeersBroadcastMacRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    vector<string> encap;
+    encap.push_back("gre");
+    encap.push_back("udp");
+    ChangeAllLeafPeersEncap(encap);
+    AddAllLeafPeersBroadcastMacRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    encap.clear();
+    encap.push_back("udp");
+    ChangeAllLeafPeersEncap(encap);
+    AddAllLeafPeersBroadcastMacRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    DelAllLeafPeersBroadcastMacRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    DelAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersNoInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+}
+
+// Add Broadcast MAC routes from all Replicator peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Add Broadcast MAC routes from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Change encap in Broadcast MAC route from odd Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Change encap in Broadcast MAC route from even Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+TEST_P(BgpEvpnManagerTest, AssistedReplicationChangeLeafPeersEncap4) {
+    AddAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    AddAllLeafPeersBroadcastMacRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    vector<string> encap;
+    encap.push_back("gre");
+    encap.push_back("udp");
+    ChangeOddLeafPeersEncap(encap);
+    AddOddLeafPeersBroadcastMacRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    encap.clear();
+    encap.push_back("udp");
+    ChangeEvenLeafPeersEncap(encap);
+    AddEvenLeafPeersBroadcastMacRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    DelAllLeafPeersBroadcastMacRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    DelAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersNoInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+}
+
+// Add Broadcast MAC routes from all Replicator peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Add Inclusive Multicast route from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Change encap in Inclusive Multicast route from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Change encap in Inclusive Multicast route from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+TEST_P(BgpEvpnManagerTest, AssistedReplicationChangeLeafPeersLabel1) {
+    AddAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    AddAllLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    ChangeAllLeafPeersLabel();
+    AddAllLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    ChangeAllLeafPeersLabel();
+    AddAllLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    DelAllLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    DelAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersNoInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+}
+
+// Add Broadcast MAC routes from all Replicator peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Add Inclusive Multicast route from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Change encap in Inclusive Multicast route from odd Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Change encap in Inclusive Multicast route from even Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+TEST_P(BgpEvpnManagerTest, AssistedReplicationChangeLeafPeersLabel2) {
+    AddAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    AddAllLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    ChangeOddLeafPeersLabel();
+    AddOddLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    ChangeEvenLeafPeersLabel();
+    AddEvenLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    DelAllLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    DelAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersNoInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+}
+
+// Add Broadcast MAC routes from all Replicator peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Add Broadcast MAC routes from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Change encap in Broadcast MAC route from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Change encap in Broadcast MAC route from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+TEST_P(BgpEvpnManagerTest, AssistedReplicationChangeLeafPeersLabel3) {
+    AddAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    AddAllLeafPeersBroadcastMacRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    ChangeAllLeafPeersLabel();
+    AddAllLeafPeersBroadcastMacRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    ChangeAllLeafPeersLabel();
+    AddAllLeafPeersBroadcastMacRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    DelAllLeafPeersBroadcastMacRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    DelAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersNoInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+}
+
+// Add Broadcast MAC routes from all Replicator peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Add Broadcast MAC routes from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Change encap in Broadcast MAC route from odd Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Change encap in Broadcast MAC route from even Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+TEST_P(BgpEvpnManagerTest, AssistedReplicationChangeLeafPeersLabel4) {
+    AddAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    AddAllLeafPeersBroadcastMacRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    ChangeOddLeafPeersLabel();
+    AddOddLeafPeersBroadcastMacRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    ChangeEvenLeafPeersLabel();
+    AddEvenLeafPeersBroadcastMacRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    DelAllLeafPeersBroadcastMacRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    DelAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersNoInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+}
+
+// Add Broadcast MAC routes from all Replicator peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Add Inclusive Multicast route from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Change encap in Inclusive Multicast route from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Change encap in Inclusive Multicast route from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+TEST_P(BgpEvpnManagerTest, AssistedReplicationChangeLeafPeersEncapAndLabel1) {
+    AddAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    AddAllLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    vector<string> encap;
+    encap.push_back("gre");
+    encap.push_back("udp");
+    ChangeAllLeafPeersEncap(encap);
+    ChangeAllLeafPeersLabel();
+    AddAllLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    encap.clear();
+    encap.push_back("udp");
+    ChangeAllLeafPeersEncap(encap);
+    ChangeAllLeafPeersLabel();
+    AddAllLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    DelAllLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    DelAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersNoInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+}
+
+// Add Broadcast MAC routes from all Replicator peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Add Inclusive Multicast route from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Change encap in Inclusive Multicast route from odd Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Change encap in Inclusive Multicast route from even Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+TEST_P(BgpEvpnManagerTest, AssistedReplicationChangeLeafPeersEncapAndLabel2) {
+    AddAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    AddAllLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    vector<string> encap;
+    encap.push_back("gre");
+    encap.push_back("udp");
+    ChangeOddLeafPeersEncap(encap);
+    ChangeOddLeafPeersLabel();
+    AddOddLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    encap.clear();
+    encap.push_back("udp");
+    ChangeEvenLeafPeersEncap(encap);
+    ChangeEvenLeafPeersLabel();
+    AddEvenLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    DelAllLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    DelAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersNoInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+}
+
+// Add Broadcast MAC routes from all Replicator peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Add Broadcast MAC routes from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Change encap in Broadcast MAC route from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Change encap in Broadcast MAC route from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+TEST_P(BgpEvpnManagerTest, AssistedReplicationChangeLeafPeersEncapAndLabel3) {
+    AddAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    AddAllLeafPeersBroadcastMacRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    vector<string> encap;
+    encap.push_back("gre");
+    encap.push_back("udp");
+    ChangeAllLeafPeersEncap(encap);
+    ChangeAllLeafPeersLabel();
+    AddAllLeafPeersBroadcastMacRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    encap.clear();
+    encap.push_back("udp");
+    ChangeAllLeafPeersEncap(encap);
+    ChangeAllLeafPeersLabel();
+    AddAllLeafPeersBroadcastMacRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    DelAllLeafPeersBroadcastMacRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    DelAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersNoInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+}
+
+// Add Broadcast MAC routes from all Replicator peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Add Broadcast MAC routes from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Change encap in Broadcast MAC route from odd Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+// Change encap in Broadcast MAC route from even Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+TEST_P(BgpEvpnManagerTest, AssistedReplicationChangeLeafPeersEncapAndLabel4) {
+    AddAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    AddAllLeafPeersBroadcastMacRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    vector<string> encap;
+    encap.push_back("gre");
+    encap.push_back("udp");
+    ChangeOddLeafPeersEncap(encap);
+    ChangeOddLeafPeersLabel();
+    AddOddLeafPeersBroadcastMacRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    encap.clear();
+    encap.push_back("udp");
+    ChangeEvenLeafPeersEncap(encap);
+    ChangeEvenLeafPeersLabel();
+    AddEvenLeafPeersBroadcastMacRoute();
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    DelAllLeafPeersBroadcastMacRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    DelAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersNoInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+}
+
+// Add Inclusive Multicast routes from all Leaf peers.
+// Add Inclusive Multicast route from all BGP peers.
+// Add Broadcast MAC routes from all Replicator peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+TEST_P(BgpEvpnManagerTest, AssistedReplicationWithIngressReplication1) {
+    AddAllLeafPeersInclusiveMulticastRoute();
+    VerifyAllLeafPeersInclusiveMulticastRoute();
+    AddAllBgpPeersInclusiveMulticastRoute();
+    AddAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersInclusiveMulticastRoute();
+
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size() +
+        bgp_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersAllUpdateInfo();
+
+    DelAllLeafPeersInclusiveMulticastRoute();
+    VerifyAllLeafPeersNoInclusiveMulticastRoute();
+    DelAllBgpPeersInclusiveMulticastRoute();
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    DelAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersNoInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+}
+
+// Add Inclusive Multicast routes from all Leaf peers.
+// Add Broadcast MAC routes from all Replicator peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Add Inclusive Multicast route from all BGP peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+TEST_P(BgpEvpnManagerTest, AssistedReplicationWithIngressReplication2) {
+    AddAllLeafPeersInclusiveMulticastRoute();
+    VerifyAllLeafPeersInclusiveMulticastRoute();
+    AddAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersInclusiveMulticastRoute();
+
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+
+    AddAllBgpPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size() +
+        bgp_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersAllUpdateInfo();
+
+    DelAllBgpPeersInclusiveMulticastRoute();
+    VerifyAllReplicatorPeersLeafUpdateInfo();
+    DelAllLeafPeersInclusiveMulticastRoute();
+    VerifyAllLeafPeersNoInclusiveMulticastRoute();
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    DelAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersNoInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+}
+
+// Add Broadcast MAC routes from all Replicator peers.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Add Inclusive Multicast route from all BGP peers.
+// Add Inclusive Multicast routes from all Leaf peers.
+// Verify UpdateInfo for Broadcast MAC routes from all Replicator peers.
+TEST_P(BgpEvpnManagerTest, AssistedReplicationWithIngressReplication3) {
+    AddAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersInclusiveMulticastRoute();
+    AddAllBgpPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(bgp_peers_.size() + replicator_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersNonLeafUpdateInfo();
+
+    AddAllLeafPeersInclusiveMulticastRoute();
+    VerifyAllLeafPeersInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(replicator_peers_.size(), GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(leaf_peers_.size() + replicator_peers_.size() +
+        bgp_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllReplicatorPeersAllUpdateInfo();
+
+    DelAllLeafPeersInclusiveMulticastRoute();
+    VerifyAllLeafPeersNoInclusiveMulticastRoute();
+    VerifyAllReplicatorPeersNonLeafUpdateInfo();
+    DelAllBgpPeersInclusiveMulticastRoute();
+    VerifyAllReplicatorPeersNoUpdateInfo();
+    DelAllReplicatorPeersBroadcastMacRoute();
+    VerifyAllReplicatorPeersNoInclusiveMulticastRoute();
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
 }
 
 INSTANTIATE_TEST_CASE_P(Default, BgpEvpnManagerTest, ::testing::Values(0, 4094));

@@ -149,9 +149,12 @@ public:
     ~EvpnManagerPartition();
 
     DBTablePartition *GetTablePartition();
+    void NotifyNodeRoute(EvpnMcastNode *node);
     void NotifyBroadcastMacRoutes();
+    void NotifyReplicatorNodeRoutes();
     void AddMcastNode(EvpnMcastNode *node);
     void DeleteMcastNode(EvpnMcastNode *node);
+    void UpdateMcastNode(EvpnMcastNode *node);
 
     bool empty() const;
     const EvpnMcastNodeList &remote_mcast_node_list() const {
@@ -159,6 +162,12 @@ public:
     }
     const EvpnMcastNodeList &local_mcast_node_list() const {
         return local_mcast_node_list_;
+    }
+    const EvpnMcastNodeList &leaf_node_list() const {
+        return leaf_node_list_;
+    }
+    const EvpnMcastNodeList &replicator_node_list() const {
+        return replicator_node_list_;
     }
     BgpServer *server();
 
@@ -169,6 +178,8 @@ private:
     size_t part_id_;
     EvpnMcastNodeList local_mcast_node_list_;
     EvpnMcastNodeList remote_mcast_node_list_;
+    EvpnMcastNodeList replicator_node_list_;
+    EvpnMcastNodeList leaf_node_list_;
 
     DISALLOW_COPY_AND_ASSIGN(EvpnManagerPartition);
 };

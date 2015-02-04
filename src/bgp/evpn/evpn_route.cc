@@ -663,9 +663,24 @@ bool EvpnRoute::IsValid() const {
         const PmsiTunnel *pmsi_tunnel = attr->pmsi_tunnel();
         if (!pmsi_tunnel)
             return false;
-        if (pmsi_tunnel->tunnel_type != PmsiTunnelSpec::IngressReplication)
+        uint8_t tunnel_type = pmsi_tunnel->tunnel_type;
+        uint8_t tunnel_flags = pmsi_tunnel->tunnel_flags;
+        uint8_t ar_type =
+            tunnel_flags & PmsiTunnelSpec::AssistedReplicationType;
+        if (tunnel_type == PmsiTunnelSpec::IngressReplication) {
+            if (ar_type == PmsiTunnelSpec::RegularNVE)
+                return true;
+            if (ar_type == PmsiTunnelSpec::ARReplicator &&
+                (tunnel_flags & PmsiTunnelSpec::LeafInfoRequired)) {
+                return true;
+            }
             return false;
-        return true;
+        }
+        if (tunnel_type == PmsiTunnelSpec::AssistedReplicationContrail &&
+            ar_type == PmsiTunnelSpec::ARLeaf) {
+            return true;
+        }
+        return false;
     }
     case EvpnPrefix::SegmentRoute: {
         return false;

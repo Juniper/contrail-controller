@@ -541,6 +541,7 @@ public:
     void set_edge_forwarding(const EdgeForwardingSpec *efspec);
     void set_label_block(LabelBlockPtr label_block);
     void set_olist(BgpOListPtr olist);
+    void set_leaf_olist(BgpOListPtr leaf_olist);
     friend std::size_t hash_value(BgpAttr const &attr);
 
     BgpAttrOrigin::OriginType origin() const { return origin_; }
@@ -569,6 +570,7 @@ public:
     }
     LabelBlockPtr label_block() const { return label_block_; }
     BgpOListPtr olist() const { return olist_; }
+    BgpOListPtr leaf_olist() const { return leaf_olist_; }
     BgpAttrDB *attr_db() const { return attr_db_; }
 
 private:
@@ -599,6 +601,7 @@ private:
     EdgeForwardingPtr edge_forwarding_;
     LabelBlockPtr label_block_;
     BgpOListPtr olist_;
+    BgpOListPtr leaf_olist_;
 };
 
 inline int intrusive_ptr_add_ref(const BgpAttr *cattrp) {
@@ -646,6 +649,8 @@ public:
     BgpAttrPtr ReplaceEsiAndLocate(const BgpAttr *attr,
                                    const EthernetSegmentId &esi);
     BgpAttrPtr ReplaceOListAndLocate(const BgpAttr *attr, BgpOListPtr olist);
+    BgpAttrPtr ReplaceLeafOListAndLocate(const BgpAttr *attr,
+                                         BgpOListPtr leaf_olist);
     BgpAttrPtr ReplacePmsiTunnelAndLocate(const BgpAttr *attr,
                                           PmsiTunnelSpec *pmsi_spec);
     BgpAttrPtr UpdateNexthopAndLocate(const BgpAttr *attr, uint16_t afi,
