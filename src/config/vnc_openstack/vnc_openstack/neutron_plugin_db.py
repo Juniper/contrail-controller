@@ -1557,10 +1557,19 @@ class DBInterface(object):
 
         port_id = None
         router_id = None
+        port_obj = None
         port_refs = fip_obj.get_virtual_machine_interface_refs()
         if port_refs:
-            port_id = port_refs[0]['uuid']
-            port_obj = self._virtual_machine_interface_read(port_id=port_id)
+            for port_ref in port_refs:
+                try:
+                    port_obj = self._virtual_machine_interface_read(
+                        port_id=port_ref['uuid'])
+                    port_id = port_ref['uuid']
+                    break
+                except NoIdError:
+                    pass
+
+        if port_obj:
             port_net_id = port_obj.get_virtual_network_refs()[0]['uuid']
             # find router_id from port
             router_list = self._router_list_project(tenant_id, detail=True)
