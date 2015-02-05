@@ -43,6 +43,9 @@ public:
     const std::string syslog_facility() const { return syslog_facility_; }
     const bool dup() const { return dup_; }
     const int analytics_data_ttl() const { return analytics_data_ttl_; }
+    const int analytics_flow_ttl() const { return analytics_flow_ttl_; }
+    const int analytics_statistics_ttl() const { return analytics_statistics_ttl_; }
+    const int analytics_config_audit_ttl() const { return analytics_config_audit_ttl_; }
     const int syslog_port() const { return syslog_port_; }
     const int sflow_port() const { return sflow_port_; }
     const bool test_mode() const { return test_mode_; }
@@ -99,6 +102,9 @@ private:
     bool test_mode_;
     bool dup_;
     int analytics_data_ttl_;
+    int analytics_config_audit_ttl_;
+    int analytics_flow_ttl_;
+    int analytics_statistics_ttl_;
     std::vector<std::string> cassandra_server_list_;
 
     boost::program_options::options_description config_file_options_;

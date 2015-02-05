@@ -72,6 +72,9 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), false);
     EXPECT_EQ(options_.analytics_data_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
+    EXPECT_EQ(options_.analytics_config_audit_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
+    EXPECT_EQ(options_.analytics_flow_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
+    EXPECT_EQ(options_.analytics_statistics_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
     EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), false);
@@ -110,6 +113,9 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.analytics_data_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
+    EXPECT_EQ(options_.analytics_config_audit_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
+    EXPECT_EQ(options_.analytics_flow_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
+    EXPECT_EQ(options_.analytics_statistics_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
     EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), false);
@@ -150,6 +156,9 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.analytics_data_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
+    EXPECT_EQ(options_.analytics_config_audit_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
+    EXPECT_EQ(options_.analytics_flow_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
+    EXPECT_EQ(options_.analytics_statistics_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
     EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), false);
@@ -190,6 +199,9 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.analytics_data_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
+    EXPECT_EQ(options_.analytics_config_audit_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
+    EXPECT_EQ(options_.analytics_flow_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
+    EXPECT_EQ(options_.analytics_statistics_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
     EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), true); // Overridden from command line.
@@ -271,6 +283,9 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.log_level(), "SYS_DEBUG");
     EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.analytics_data_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
+    EXPECT_EQ(options_.analytics_config_audit_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
+    EXPECT_EQ(options_.analytics_flow_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
+    EXPECT_EQ(options_.analytics_statistics_ttl(), ANALYTICS_DATA_TTL_DEFAULT);
     EXPECT_EQ(options_.syslog_port(), 101);
     EXPECT_EQ(options_.dup(), true);
     EXPECT_EQ(options_.test_mode(), true);
@@ -367,6 +382,9 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.log_level(), "SYS_DEBUG");
     EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.analytics_data_ttl(), 30);
+    EXPECT_EQ(options_.analytics_config_audit_ttl(), 30);
+    EXPECT_EQ(options_.analytics_flow_ttl(), 30);
+    EXPECT_EQ(options_.analytics_statistics_ttl(), 30);
     EXPECT_EQ(options_.syslog_port(), 102);
     EXPECT_EQ(options_.dup(), true);
     EXPECT_EQ(options_.test_mode(), true);
@@ -393,6 +411,26 @@ TEST_F(OptionsTest, MultitokenVector) {
     cassandra_server_list.push_back("30.30.30.3:300");
     TASK_UTIL_EXPECT_VECTOR_EQ(options_.cassandra_server_list(),
                      cassandra_server_list);
+}
+
+TEST_F(OptionsTest, MultiTtlOption) {
+    int argc = 4;
+    char *argv[argc];
+    char argv_0[] = "options_test";
+    char argv_1[] = "--DEFAULT.analytics_data_ttl=2";
+    char argv_2[] = "--DEFAULT.analytics_config_audit_ttl=240";
+    char argv_3[] = "--DEFAULT.analytics_statistics_ttl=4";
+    argv[0] = argv_0;
+    argv[1] = argv_1;
+    argv[2] = argv_2;
+    argv[3] = argv_3;
+
+    options_.Parse(evm_, argc, argv);
+
+    EXPECT_EQ(options_.analytics_data_ttl(), 2);
+    EXPECT_EQ(options_.analytics_config_audit_ttl(), 240);
+    EXPECT_EQ(options_.analytics_statistics_ttl(), 4);
+    EXPECT_EQ(options_.analytics_flow_ttl(), 4);
 }
 
 int main(int argc, char **argv) {
