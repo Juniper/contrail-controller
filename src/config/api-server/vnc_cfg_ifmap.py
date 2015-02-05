@@ -656,12 +656,12 @@ class VncCassandraClient(VncCassandraClientGen):
 
         uuid_pool = pycassa.ConnectionPool(
             uuid_ks_name, server_list, max_overflow=-1,
-            use_threadlocal=True, prefill=True, pool_size=20, pool_timeout=30,
-            max_retries=-1, timeout=0.5)
+            use_threadlocal=True, prefill=True, pool_size=20, pool_timeout=120,
+            max_retries=-1, timeout=5)
         useragent_pool = pycassa.ConnectionPool(
             useragent_ks_name, server_list, max_overflow=-1,
-            use_threadlocal=True, prefill=True, pool_size=20, pool_timeout=30,
-            max_retries=-1, timeout=0.5)
+            use_threadlocal=True, prefill=True, pool_size=20, pool_timeout=120,
+            max_retries=-1, timeout=5)
 
         rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
         wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
