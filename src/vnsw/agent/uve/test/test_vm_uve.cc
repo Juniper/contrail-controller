@@ -602,7 +602,7 @@ TEST_F(UveVmUveTest, VmIntfAddDel_2) {
 /* Associate FIP to a VM whose VN has ipv4 forwarding as false (L2 Only VN)
  * Test case to verify that FIP entries which are  not in "installed" state
  * are handled correctly. */
-TEST_F(UveVmUveTest, FipL3Disabled) {
+TEST_F(UveVmUveTest, DISABLED_FipL3Disabled) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };

@@ -39,7 +39,8 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj,
     rt_type_(entry->rt_type_), vrf_id_(entry->vrf_id_), 
     addr_(entry->addr_), src_addr_(entry->src_addr_), mac_(entry->mac_), 
     prefix_len_(entry->prefix_len_), nh_(entry->nh_), label_(entry->label_), 
-    proxy_arp_(false), address_string_(entry->address_string_),
+    proxy_arp_(false), flood_dhcp_(entry->flood_dhcp_),
+    address_string_(entry->address_string_),
     tunnel_type_(entry->tunnel_type_),
     wait_for_traffic_(entry->wait_for_traffic_),
     local_vm_peer_route_(entry->local_vm_peer_route_),
@@ -49,10 +50,9 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj,
 RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
     vrf_id_(rt->vrf_id()), nh_(NULL), label_(0), proxy_arp_(false),
-    tunnel_type_(TunnelType::DefaultType()), wait_for_traffic_(false),
-    local_vm_peer_route_(false),
-    flood_(false),
-    ethernet_tag_(0) {
+    flood_dhcp_(false), tunnel_type_(TunnelType::DefaultType()),
+    wait_for_traffic_(false), local_vm_peer_route_(false),
+    flood_(false), ethernet_tag_(0) {
     boost::system::error_code ec;
     rt_type_ = rt->GetTableType();
     switch (rt_type_) {
@@ -85,6 +85,9 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
               static_cast<const BridgeRouteEntry *>(rt);
           mac_ = l2_rt->mac();
           prefix_len_ = 0;
+          const AgentPath *path = l2_rt->GetActivePath();
+          if (path)
+              flood_dhcp_ = path->flood_dhcp();
           break;
     }
     default: {
@@ -200,6 +203,7 @@ std::string RouteKSyncEntry::ToString() const {
         s << " NextHop : <NULL>";
     }
 
+    s << " Flood DHCP:" << flood_dhcp_;
     return s.str();
 }
 
@@ -416,6 +420,11 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
     if (BuildArpFlags(e, path, mac_))
         ret = true;
 
+    if (flood_dhcp_ != path->flood_dhcp()) {
+        flood_dhcp_ = path->flood_dhcp();
+        ret = true;
+    }
+
     return ret;
 }
 
@@ -488,23 +497,26 @@ int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
     }
 
     if (rt_type_ == Agent::BRIDGE) {
-        flags |= 0x02;
         label = label_;
-        if (nexthop != NULL && nexthop->type() == NextHop::COMPOSITE) {
-            flags |= VR_RT_LABEL_VALID_FLAG;
+        if (nexthop != NULL && ((nexthop->type() == NextHop::COMPOSITE) ||
+                               (nexthop->type() == NextHop::TUNNEL))) {
+            flags |= VR_BE_LABEL_VALID_FLAG;
         }
-    }
+        if (flood_dhcp_)
+            flags |= VR_BE_FLOOD_DHCP_FLAG;
+    } else {
 
-    if (proxy_arp_) {
-        flags |= VR_RT_ARP_PROXY_FLAG;
-    }
+        if (proxy_arp_) {
+            flags |= VR_RT_ARP_PROXY_FLAG;
+        }
 
-    if (wait_for_traffic_) {
-        flags |= VR_RT_ARP_TRAP_FLAG;
-    }
+        if (wait_for_traffic_) {
+            flags |= VR_RT_ARP_TRAP_FLAG;
+        }
 
-    if (flood_) {
-        flags |= VR_RT_ARP_FLOOD_FLAG;
+        if (flood_) {
+            flags |= VR_RT_ARP_FLOOD_FLAG;
+        }
     }
 
     encoder.set_rtr_label_flags(flags);
