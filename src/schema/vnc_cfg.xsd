@@ -513,6 +513,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="security-group-rule" type="xsd:integer"/>
 	<xsd:element name="subnet" type="xsd:integer"/>
 	<xsd:element name="global-vrouter-config" type="xsd:integer"/>
+	<xsd:element name="loadbalancer-pool" type="xsd:integer"/>
+	<xsd:element name="loadbalancer-member" type="xsd:integer"/>
+	<xsd:element name="loadbalancer-healthmonitor" type="xsd:integer"/>
+	<xsd:element name="virtual-ip" type="xsd:integer"/>
     </xsd:all>
 </xsd:complexType>
 
