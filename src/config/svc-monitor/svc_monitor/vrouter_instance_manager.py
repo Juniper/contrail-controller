@@ -28,7 +28,7 @@ class VRouterInstanceManager(VRouterHostedManager):
         instance_name = self._get_instance_name(si_obj, 0)
         try:
             vm_obj = self._vnc_lib.virtual_machine_read(
-                fq_name=[instance_name])
+                fq_name=[instance_name], fields="virtual_router_back_refs")
             self.logger.log("Info: VM %s already exists" % instance_name)
         except NoIdError:
             vm_obj = VirtualMachine(instance_name)
@@ -54,7 +54,7 @@ class VRouterInstanceManager(VRouterHostedManager):
 
         vrouter_name = None
         state = 'pending'
-        vrouter_back_refs = vm_obj.get_virtual_router_back_refs()
+        vrouter_back_refs = getattr(vm_obj, "virtual_router_back_refs", None)
         vr_id = si_props.get_virtual_router_id()
         if (vrouter_back_refs is not None
                 and vrouter_back_refs[0]['uuid'] != vr_id):

@@ -113,7 +113,7 @@ class InstanceManager(object):
             rt_fq_name = self._get_if_route_table_name(
                 nic['type'], si_obj)
             rt_obj = self._vnc_lib.interface_route_table_read(
-                fq_name=rt_fq_name)
+                fq_name=rt_fq_name, fields=['virtual_machine_interface_back_refs'])
             rt_obj.set_interface_route_table_routes(static_routes)
         except NoIdError:
             proj_obj = self._vnc_lib.project_read(
@@ -378,13 +378,13 @@ class VRouterHostedManager(InstanceManager):
 
     def delete_service(self, si_fq_str, vm_uuid, proj_name=None):
         try:
-            vm_obj = self._vnc_lib.virtual_machine_read(id=vm_uuid)
+            vm_obj = self._vnc_lib.virtual_machine_read(id=vm_uuid, fields=['virtual_machine_interface_back_refs', 'virtual_router_back_refs'])
         except NoIdError:
             raise KeyError
-        for vmi in vm_obj.get_virtual_machine_interface_back_refs() or []:
+        for vmi in getattr(vm_obj, "virtual_machine_interface_back_refs", []):
             vmi_obj = self._vnc_lib.virtual_machine_interface_read(
-                id=vmi['uuid'])
-            for ip in vmi_obj.get_instance_ip_back_refs() or []:
+                id=vmi['uuid'], fields=['instance_ip_back_refs'])
+            for ip in getattr(vmi_obj, "instance_ip_back_refs", []):
                 iip_obj = self._vnc_lib.instance_ip_read(id=ip['uuid'])
                 iip_obj.del_virtual_machine_interface(vmi_obj)
                 vmi_refs = iip_obj.get_virtual_machine_interface_refs()
@@ -393,7 +393,7 @@ class VRouterHostedManager(InstanceManager):
                 else:
                     self._vnc_lib.instance_ip_update(iip_obj)
             self._vnc_lib.virtual_machine_interface_delete(id=vmi['uuid'])
-        for vr in vm_obj.get_virtual_router_back_refs() or []:
+        for vr in getattr(vm_obj, "virtual_router_back_refs", []):
             vr_obj = self._vnc_lib.virtual_router_read(id=vr['uuid'])
             vr_obj.del_virtual_machine(vm_obj)
             self._vnc_lib.virtual_router_update(vr_obj)
@@ -403,7 +403,7 @@ class VRouterHostedManager(InstanceManager):
         self._vnc_lib.virtual_machine_delete(id=vm_obj.uuid)
 
     def check_service(self, si_obj, proj_name=None):
-        vm_back_refs = si_obj.get_virtual_machine_back_refs()
+        vm_back_refs = getattr(si_obj, "virtual_machine_back_refs", None)
         if not vm_back_refs:
             self.logger.log("No virtual machine back refs!")
             return 'ERROR'
@@ -411,12 +411,12 @@ class VRouterHostedManager(InstanceManager):
         for vm_back_ref in vm_back_refs:
             try:
                 vm_obj = self._vnc_lib.virtual_machine_read(
-                    id=vm_back_ref['uuid'])
+                    id=vm_back_ref['uuid'], fields=['virtual_machine_interface_back_refs', 'virtual_router_back_refs'])
             except NoIdError:
                 self.logger.log("No virtual machine object!")
                 return 'ERROR'
 
-            vr_back_refs = vm_obj.get_virtual_router_back_refs()
+            vr_back_refs = getattr(vm_obj, "virtual_router_back_refs", None)
             if not vr_back_refs:
                 self.logger.log("No virtual router back refs!")
                 return 'ERROR'
@@ -469,7 +469,7 @@ class NetworkNamespaceManager(VRouterHostedManager):
             # Create a virtual machine
             instance_name = self._get_instance_name(si_obj, inst_count)
             try:
-                vm_obj = self._vnc_lib.virtual_machine_read(fq_name=[instance_name])
+                vm_obj = self._vnc_lib.virtual_machine_read(fq_name=[instance_name], fields=['virtual_machine_interface_back_refs', 'virtual_router_back_refs'])
                 self.logger.log("Info: VM %s already exists" % (instance_name))
             except NoIdError:
                 vm_obj = VirtualMachine(instance_name)
@@ -510,7 +510,7 @@ class NetworkNamespaceManager(VRouterHostedManager):
             chosen_vr_fq_name = None
             vrouter_name = None
             state = 'pending'
-            vrouter_back_refs = vm_obj.get_virtual_router_back_refs()
+            vrouter_back_refs = getattr(vm_obj, "virtual_router_back_refs", None)
             if vrouter_back_refs is None:
                 chosen_vr_fq_name = self.vrouter_scheduler.schedule(
                     si_obj.uuid, vm_obj.uuid)
@@ -575,15 +575,15 @@ class NetworkNamespaceManager(VRouterHostedManager):
 
     def _get_vip_vmi_iip(self, si_obj):
         try:
-            pool_back_refs = si_obj.get_loadbalancer_pool_back_refs()
+            pool_back_refs = getattr(si_obj, "loadbalancer_pool_back_refs", None)
             pool_obj = self._vnc_lib.loadbalancer_pool_read(
-                id=pool_back_refs[0]['uuid'])
-            vip_back_refs = pool_obj.get_virtual_ip_back_refs()
+                id=pool_back_refs[0]['uuid'], fields=['virtual_ip_back_refs'])
+            vip_back_refs = getattr(pool_obj, "virtual_ip_back_refs", None)
             vip_obj = self._vnc_lib.virtual_ip_read(id=vip_back_refs[0]['uuid'])
             vmi_refs = vip_obj.get_virtual_machine_interface_refs()
             vmi_obj = self._vnc_lib.virtual_machine_interface_read(
-                id=vmi_refs[0]['uuid'])
-            iip_back_refs = vmi_obj.get_instance_ip_back_refs()
+                id=vmi_refs[0]['uuid'], fields=['instance_ip_back_refs'])
+            iip_back_refs = getattr(vmi_obj, "instance_ip_back_refs", None)
             vn_refs = vmi_obj.get_virtual_network_refs()
             return iip_back_refs[0]['uuid'], vn_refs[0]['uuid']
         except NoIdError:
