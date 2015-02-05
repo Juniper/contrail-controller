@@ -2,6 +2,7 @@ import copy
 from gen.resource_xsd import *
 from gen.resource_common import *
 from gen.resource_server import *
+from pprint import pformat
 
 class QuotaHelper(object):
 
@@ -31,3 +32,27 @@ class QuotaHelper(object):
         if quota_limit > 0 and quota_count >= quota_limit:
             return (False, 'quota limit (%d) exceeded for resource %s' % (quota_limit, obj_type))
         return (True, quota_limit)
+
+    @classmethod
+    def verify_quota_for_resource(cls, db_conn, resource, obj_type,
+                                  user_visibility, proj_uuid=None, fq_name=[]):
+        if not proj_uuid and fq_name:
+            try:
+                proj_uuid = db_conn.fq_name_to_uuid('project', fq_name[0:2])
+            except cfgm_common.exceptions.NoIdError:
+                return (False, (500, 'No Project ID error : ' + proj_uuid))
+
+        (ok, proj_dict) = cls.get_project_dict(proj_uuid, db_conn)
+        if not ok:
+            return (False, (500, 'Internal error : ' + pformat(proj_dict)))
+
+        if not user_visibility:
+            return True, ""
+
+        quota_count = len(proj_dict.get(resource, []))
+        (ok, quota_limit) = cls.check_quota_limit(proj_dict, obj_type,
+                                                  quota_count)
+        if not ok:
+            return (False, (403, pformat(fq_name) + ' : ' + quota_limit))
+        return True, ""
+
