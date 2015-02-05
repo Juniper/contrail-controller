@@ -698,7 +698,7 @@ class DBInterface(object):
             port_net_objs = port_net_gevent.value
             port_vm_objs = port_vm_gevent.value
 
-            return self._port_list(port_net_objs, port_objs, iip_objs, vm_objs)
+            return self._port_list(port_net_objs, all_port_objs, port_iip_objs, port_vm_objs)
         else:
             if count:
                 ret_val = 0
