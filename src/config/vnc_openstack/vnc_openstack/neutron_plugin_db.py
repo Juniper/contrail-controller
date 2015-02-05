@@ -1986,10 +1986,22 @@ class DBInterface(object):
         port_id = None
         fixed_ip = None
         router_id = None
+        port_obj = None
         port_refs = fip_obj.get_virtual_machine_interface_refs()
         if port_refs:
-            port_id = port_refs[0]['uuid']
+            for port_ref in port_refs:
+                try:
+                    port_obj = self._virtual_machine_interface_read(
+                        port_id=port_ref['uuid'])
+                    port_id = port_ref['uuid']
+                    break
+                except NoIdError:
+                    pass
+
+        if port_obj:
             internal_net_id = None
+            port_net_id = port_obj.get_virtual_network_refs()[0]['uuid']
+
             # find router_id from port
             router_list = self._router_list_project(
                 fip_obj.get_project_refs()[0]['uuid'], detail=True)
@@ -2879,7 +2891,7 @@ class DBInterface(object):
                 exc_info = {'type': 'BadRequest',
                             'message': "update of gateway is not supported"}
                 bottle.abort(400, json.dumps(exc_info))
- 
+
 
         if 'allocation_pools' in subnet_q:
             if subnet_q['allocation_pools'] != None:
@@ -3558,7 +3570,7 @@ class DBInterface(object):
                     if ip['subnet_id'] == subnet_id:
                        msg = (_("Router %s already has a port "
                                 "on subnet %s") % (router_id, subnet_id))
-                       self._raise_contrail_exception(400, 
+                       self._raise_contrail_exception(400,
                            exceptions.BadRequest(resource='router', msg=msg))
                     sub_id = ip['subnet_id']
                     subnet = self.subnet_read(sub_id)
@@ -3839,7 +3851,7 @@ class DBInterface(object):
             # failure in creating the instance ip. Roll back
             self._virtual_machine_interface_delete(port_id=port_id)
             self._raise_contrail_exception(409,
-                exceptions.IpAddressGenerationFailure(net_id=net_obj.uuid)) 
+                exceptions.IpAddressGenerationFailure(net_id=net_obj.uuid))
         # TODO below reads back default parent name, fix it
         port_obj = self._virtual_machine_interface_read(port_id=port_id)
         ret_port_q = self._port_vnc_to_neutron(port_obj)
