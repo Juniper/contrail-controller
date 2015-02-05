@@ -125,7 +125,7 @@ void KSyncObject::Delete(KSyncEntry *entry) {
 }
 
 void KSyncObject::FreeInd(KSyncEntry *entry, uint32_t index) {
-    tree_.erase(*entry);
+    assert(tree_.erase(*entry) > 0);
     if (need_index_ == true && index != KSyncEntry::kInvalidIndex) {
         index_table_.Free(index);
     }
