@@ -1160,3 +1160,91 @@ class PhysicalInterfaceServer(PhysicalInterfaceServerGen):
     # end _check_interface_name
 
 # end class PhysicalInterfaceServer
+
+
+class LoadbalancerMemberServer(LoadbalancerMemberServerGen):
+
+    @classmethod
+    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+        user_visibility = obj_dict['id_perms'].get('user_visible', True)
+
+        try:
+            fq_name = obj_dict['fq_name']
+            proj_uuid = db_conn.fq_name_to_uuid('project', fq_name[0:2])
+        except cfgm_common.exceptions.NoIdError:
+            return (False, (500, 'No Project ID error : ' + proj_uuid))
+
+        ok, proj_dict = db_conn.dbe_read('project', {'uuid': proj_uuid})
+        if not ok:
+            return (False, (500, 'Internal error : ' + pformat(proj_dict)))
+
+        if not user_visibility:
+            return True, ""
+
+        lb_pools = proj_dict.get('loadbalancer_pools', [])
+        quota_count = 0
+
+        for pool in lb_pools:
+            ok, lb_pool_dict = db_conn.dbe_read('loadbalancer-pool',
+                                                {'uuid': pool['uuid']})
+            if not ok:
+                return (False, (500, 'Internal error : ' +
+                                pformat(lb_pool_dict)))
+
+            quota_count += len(lb_pool_dict.get('loadbalancer_members', []))
+
+        (ok, quota_limit) = QuotaHelper.check_quota_limit(
+            proj_dict, 'loadbalancer-member', quota_count)
+        if not ok:
+            return (False, (403, pformat(fq_name) + ' : ' + quota_limit))
+
+        return True, ""
+
+#end class LoadbalancerMemberServer
+
+
+class LoadbalancerPoolServer(LoadbalancerPoolServerGen):
+
+    @classmethod
+    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+        user_visibility = obj_dict['id_perms'].get('user_visible', True)
+        verify_quota_kwargs = {'db_conn': db_conn,
+                               'fq_name': obj_dict['fq_name'],
+                               'resource': 'loadbalancer_pools',
+                               'obj_type': 'loadbalancer-pool',
+                               'user_visibility': user_visibility}
+        return QuotaHelper.verify_quota_for_resource(**verify_quota_kwargs)
+
+# end class LoadbalancerPoolServer
+
+
+class LoadbalancerHealthmonitorServer(LoadbalancerHealthmonitorServerGen):
+
+    @classmethod
+    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+        user_visibility = obj_dict['id_perms'].get('user_visible', True)
+        verify_quota_kwargs = {'db_conn': db_conn,
+                               'fq_name': obj_dict['fq_name'],
+                               'resource': 'loadbalancer_healthmonitors',
+                               'obj_type': 'loadbalancer-healthmonitor',
+                               'user_visibility': user_visibility}
+        return QuotaHelper.verify_quota_for_resource(**verify_quota_kwargs)
+
+# end class LoadbalancerHealthmonitorServer
+
+
+class VirtualIpServer(VirtualIpServerGen):
+
+    @classmethod
+    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+
+        user_visibility = obj_dict['id_perms'].get('user_visible', True)
+        verify_quota_kwargs = {'db_conn': db_conn,
+                               'fq_name': obj_dict['fq_name'],
+                               'resource': 'virtual_ips',
+                               'obj_type': 'virtual-ip',
+                               'user_visibility': user_visibility}
+        return QuotaHelper.verify_quota_for_resource(**verify_quota_kwargs)
+
+# end class VirtualIpServer
+
