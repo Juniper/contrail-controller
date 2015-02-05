@@ -113,6 +113,36 @@ void VrfAssignTable::DeleteVlanReq(const boost::uuids::uuid &intf_uuid,
     return;
 }
 
+void VrfAssignTable::CreateVlan(const boost::uuids::uuid &intf_uuid,
+        const std::string &vrf_name, uint16_t vlan_tag) {
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+
+    VrfAssign::VrfAssignKey *key = new VrfAssign::VrfAssignKey();
+    key->VlanInit(intf_uuid, vlan_tag);
+    req.key.reset(key);
+
+    VrfAssign::VrfAssignData *data = new VrfAssign::VrfAssignData(vrf_name);
+    req.data.reset(data);
+
+    vrf_assign_table_->Process(req);
+    return;
+}
+
+void VrfAssignTable::DeleteVlan(const boost::uuids::uuid &intf_uuid,
+        uint16_t vlan_tag) {
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+
+    VrfAssign::VrfAssignKey *key = new VrfAssign::VrfAssignKey();
+    key->VlanInit(intf_uuid, vlan_tag);
+    req.key.reset(key);
+
+    req.data.reset(NULL);
+    vrf_assign_table_->Process(req);
+    return;
+}
+
 VrfAssign *VrfAssignTable::FindVlanReq(const boost::uuids::uuid &intf_uuid,
                                        uint16_t vlan_tag) {
     VrfAssign::VrfAssignKey key;
