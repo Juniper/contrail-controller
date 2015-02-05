@@ -9,7 +9,7 @@ from gen_py.instance_service import InstanceService, ttypes
 
 class ContrailVRouterApi(object):
 
-    def __init__(self, server_port=9090):
+    def __init__(self, server_port=9090, semaphore=None):
         """
         local variables:
         _client: current transport connection
@@ -18,6 +18,7 @@ class ContrailVRouterApi(object):
         self._server_port = server_port
         self._client = None
         self._ports = {}
+        self._semaphore = semaphore
 
     def _rpc_client_instance(self):
         """ Return an RPC client connection """
@@ -68,82 +69,137 @@ class ContrailVRouterApi(object):
         dictionary since the vrouter agent may not be running at the
         moment or the RPC may fail.
         """
-
-        vif_uuid = self._uuid_from_string(vif_uuid_str)
-        # ip_address and network_uuid are optional to this API but must
-        # be present in the message. For instance, when running in
-        # CloudStack/XenServer/XAPI these arguments are not known.
-        if 'ip_address' in kwargs:
-            ip_address = kwargs['ip_address']
-        else:
-            ip_address = '0.0.0.0'
-
-        if 'network_uuid' in kwargs:
-            network_uuid = self._uuid_string_to_hex(kwargs['network_uuid'])
-        else:
-            network_uuid = [0] * 16
-
-        # create port with mandatory arguments
-        data = ttypes.Port(
-            self._uuid_to_hex(vif_uuid),
-            self._uuid_string_to_hex(vm_uuid_str),
-            interface_name,
-            ip_address,
-            network_uuid,
-            mac_address)
-
-        if 'display_name' in kwargs:
-            data.display_name = kwargs['display_name']
-        if 'hostname' in kwargs:
-            data.hostname = kwargs['hostname']
-        if 'vm_project_uuid' in kwargs:
-            data.vm_project_uuid = self._uuid_string_to_hex(
-                kwargs['vm_project_uuid'])
-        if ('port_type' in kwargs and
-            kwargs['port_type'] in ttypes.PortTypes._NAMES_TO_VALUES.keys()):
-            data.port_type = \
-                ttypes.PortTypes._NAMES_TO_VALUES[kwargs['port_type']]
-        else:
-            data.port_type = ttypes.PortTypes.NovaVMPort
-
-        data.validate()
-
-        if self._client is None:
-            self._client = self._rpc_client_instance()
-
-        if self._client is None:
-            self._ports[vif_uuid] = data
-            return False
-
-        self._resynchronize()
-
-        self._ports[vif_uuid] = data
-
         try:
-            result = self._client.AddPort([data])
-        except:
-            self._client = None
-            raise
-        return result
+            if self._semaphore:
+                self._semaphore.acquire()
+            vif_uuid = self._uuid_from_string(vif_uuid_str)
+            # ip_address and network_uuid are optional to this API but must
+            # be present in the message. For instance, when running in
+            # CloudStack/XenServer/XAPI these arguments are not known.
+            if 'ip_address' in kwargs:
+                ip_address = kwargs['ip_address']
+            else:
+                ip_address = '0.0.0.0'
+
+            if 'vn_id' in kwargs:
+                network_uuid = self._uuid_string_to_hex(kwargs['vn_id'])
+            else:
+                network_uuid = [0] * 16
+
+            # create port with mandatory arguments
+            data = ttypes.Port(
+                self._uuid_to_hex(vif_uuid),
+                self._uuid_string_to_hex(vm_uuid_str),
+                interface_name,
+                ip_address,
+                network_uuid,
+                mac_address)
+
+            if 'display_name' in kwargs:
+                data.display_name = kwargs['display_name']
+            if 'hostname' in kwargs:
+                data.hostname = kwargs['hostname']
+            if 'vm_project_id' in kwargs:
+                data.vm_project_id = self._uuid_string_to_hex(
+                    kwargs['vm_project_id'])
+            if ('port_type' in kwargs and
+                kwargs['port_type'] in ttypes.PortTypes._NAMES_TO_VALUES.keys()):
+                data.port_type = \
+                    ttypes.PortTypes._NAMES_TO_VALUES[kwargs['port_type']]
+            else:
+                data.port_type = ttypes.PortTypes.NameSpacePort
+            if 'ip6_address' in kwargs:
+                data.ip6_address = kwargs['ip6_address']
+
+            if 'vlan' in kwargs:
+                data.vlan_id = kwargs['vlan']
+
+            data.validate()
+
+            vif_uuid = self._uuid_from_string(vif_uuid_str)
+            # ip_address and network_uuid are optional to this API but must
+            # be present in the message. For instance, when running in
+            # CloudStack/XenServer/XAPI these arguments are not known.
+            if 'ip_address' in kwargs:
+                ip_address = kwargs['ip_address']
+            else:
+                ip_address = '0.0.0.0'
+
+            if 'network_uuid' in kwargs:
+                network_uuid = self._uuid_string_to_hex(kwargs['network_uuid'])
+            else:
+                network_uuid = [0] * 16
+
+            # create port with mandatory arguments
+            data = ttypes.Port(
+                self._uuid_to_hex(vif_uuid),
+                self._uuid_string_to_hex(vm_uuid_str),
+                interface_name,
+                ip_address,
+                network_uuid,
+                mac_address)
+
+            if 'display_name' in kwargs:
+                data.display_name = kwargs['display_name']
+            if 'hostname' in kwargs:
+                data.hostname = kwargs['hostname']
+            if 'vm_project_uuid' in kwargs:
+                data.vm_project_uuid = self._uuid_string_to_hex(
+                    kwargs['vm_project_uuid'])
+            if ('port_type' in kwargs and
+                kwargs['port_type'] in ttypes.PortTypes._NAMES_TO_VALUES.keys()):
+                data.port_type = \
+                    ttypes.PortTypes._NAMES_TO_VALUES[kwargs['port_type']]
+            else:
+                data.port_type = ttypes.PortTypes.NovaVMPort
+
+            data.validate()
+
+            if self._client is None:
+                self._client = self._rpc_client_instance()
+
+            if self._client is None:
+                self._ports[vif_uuid] = data
+                return False
+
+            self._resynchronize()
+
+            self._ports[vif_uuid] = data
+
+            try:
+                result = self._client.AddPort([data])
+            except:
+                self._client = None
+                raise
+            return result
+        finally:
+            if self._semaphore:
+                self._semaphore.release()
 
     def delete_port(self, vif_uuid_str):
         """
         Delete a port form the agent. The port is first removed from the
         internal _ports dictionary.
         """
-        vif_uuid = self._uuid_from_string(vif_uuid_str)
-        self._ports.pop(vif_uuid, None)
-
-        if self._client is None:
-            self._client = self._rpc_client_instance()
-            if self._client is None:
-                return
-            self._resynchronize()
-
         try:
-            self._client.DeletePort(self._uuid_to_hex(vif_uuid))
-        except:
-            self._client = None
+            if self._semaphore:
+                self._semaphore.acquire()
+            vif_uuid = self._uuid_from_string(vif_uuid_str)
+            self._ports.pop(vif_uuid, None)
+
+            if self._client is None:
+                self._client = self._rpc_client_instance()
+                if self._client is None:
+                    return
+                self._resynchronize()
+
+            try:
+                self._client.DeletePort(self._uuid_to_hex(vif_uuid))
+            except:
+                self._client = None
+        finally:
+            if self._semaphore:
+                self._semaphore.release()
 
     def periodic_connection_check(self):
         """
@@ -151,15 +207,21 @@ class ContrailVRouterApi(object):
         It is the API client's resposibility to periodically invoke this
         method.
         """
-        if self._client is None:
-            self._client = self._rpc_client_instance()
-            if self._client is None:
-                return
-            self._resynchronize()
-
         try:
-            if self._client:
-                self._client.KeepAliveCheck()
-        except Exception as ex:
-            self._client = None
-            logging.exception(ex)
+            if self._semaphore:
+                self._semaphore.acquire()
+            if self._client is None:
+                self._client = self._rpc_client_instance()
+                if self._client is None:
+                    return
+                self._resynchronize()
+
+            try:
+                if self._client:
+                    self._client.KeepAliveCheck()
+            except Exception as ex:
+                self._client = None
+                logging.exception(ex)
+        finally:
+            if self._semaphore:
+                self._semaphore.release()
