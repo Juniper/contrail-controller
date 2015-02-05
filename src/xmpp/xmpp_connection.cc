@@ -185,31 +185,41 @@ bool XmppConnection::Send(const uint8_t *data, size_t size) {
     return session_->Send(data, size, &sent);
 }
 
-void XmppConnection::SendOpen(TcpSession *session) {
-    if (!session) return;
+bool XmppConnection::SendOpen(TcpSession *session) {
+    if (!session) return false;
     XmppProto::XmppStanza::XmppStreamMessage openstream;
     openstream.strmtype = XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER;
     uint8_t data[256];
     int len = XmppProto::EncodeStream(openstream, to_, from_, data, 
                                       sizeof(data));
-    assert(len > 0);
-    XMPP_UTDEBUG(XmppOpen, len, from_, to_);
-    session->Send(data, len, NULL);
-    stats_[1].open++;
+    if (len <= 0) {
+        inc_open_fail();
+        return false;
+    } else {
+        XMPP_UTDEBUG(XmppOpen, len, from_, to_);
+        session->Send(data, len, NULL);
+        stats_[1].open++;
+        return true;
+    }
 }
 
-void XmppConnection::SendOpenConfirm(TcpSession *session) {
+bool XmppConnection::SendOpenConfirm(TcpSession *session) {
     tbb::spin_mutex::scoped_lock lock(spin_mutex_);
-    if (!session_) return;
+    if (!session_) return false;
     XmppStanza::XmppStreamMessage openstream;
     openstream.strmtype = XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER_RESP;
     uint8_t data[256];
     int len = XmppProto::EncodeStream(openstream, to_, from_, data, 
                                       sizeof(data));
-    assert(len > 0);
-    XMPP_UTDEBUG(XmppOpenConfirm, len, from_, to_);
-    session_->Send(data, len, NULL);
-    stats_[1].open++;
+    if (len <= 0) {
+        inc_open_fail();
+        return false;
+    } else {
+        XMPP_UTDEBUG(XmppOpenConfirm, len, from_, to_);
+        session_->Send(data, len, NULL);
+        stats_[1].open++;
+        return true;
+    }
 }
 
 void XmppConnection::SendClose(TcpSession *session) {
@@ -327,12 +337,20 @@ void XmppConnection::inc_session_close() {
     error_stats_.session_close++;
 }
 
+void XmppConnection::inc_open_fail() {
+    error_stats_.open_fail++;
+}
+
 size_t XmppConnection::get_connect_error() {
     return error_stats_.connect_error;
 }
 
 size_t XmppConnection::get_session_close() {
     return error_stats_.session_close;
+}
+
+size_t XmppConnection::get_open_fail() {
+    return error_stats_.open_fail;
 }
 
 void XmppConnection::ReceiveMsg(XmppSession *session, const string &msg) {

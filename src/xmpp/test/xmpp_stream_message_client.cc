@@ -30,36 +30,41 @@ using namespace std;
 #define PUBSUB_NODE_ADDR "bgp-node.contrai.com"
 #define SUB_ADDR "agent@vnsw.contrailsystems.com"
 #define XMPP_CONTROL_SERV   "bgp.contrail.com"
-
-
+#define SUB_ADDR2 "agent@vnsw.contrailsystems.comagentagneagneagneagneagneagneagneagneagneagneagneagneagneagneagneagneagneagneagneagneagneagnettttttttttttttttttttttagenagenagenagenagenttttt"
 #define sXMPP_STREAM_OPEN_BAD     "<?xml version='1.0'?><extra></extra>><stream:stream from='dummycl' to='dummyserver' version='1.0' xml:lang='en' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams'/>"
 #define sXMPP_STREAM_OPEN_GOOD    "<?xml version='1.0'?><stream:stream from='dummycl' to='dummyserver' version='1.0' xml:lang='en' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams'/>"
 
 class XmppMockClientConnection;
 class XmppMockClientConnection : public XmppClientConnection {
 public:
-    XmppMockClientConnection(XmppClient *server, const XmppChannelConfig *config, bool send_write_doc=false)
+    XmppMockClientConnection(XmppClient *server, const XmppChannelConfig *config, bool send_write_doc=false,
+                             bool out_of_bound=false)
         : XmppClientConnection(server, config),
-                               open_count(0), send_bad_open(true), send_write_doc(send_write_doc) {}
+                               open_count(0), send_bad_open(true), send_write_doc(send_write_doc),
+                               out_of_bound(out_of_bound) {}
     virtual bool IsClient() const { return true; }
 
-    void SendOpen(TcpSession *session) {
-	if (!session) return;
+    bool SendOpen(TcpSession *session) {
+        if (!session) return false;
 
-	XmppProto::XmppStanza::XmppStreamMessage openstream;
-	openstream.strmtype = XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER;
-	uint8_t data[256];
+        XmppProto::XmppStanza::XmppStreamMessage openstream;
+        openstream.strmtype = XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER;
+        uint8_t data[2048];
 
         //EncodeStream
         auto_ptr<XmlBase> open_doc(XmppXmlImplFactory::Instance()->GetXmlImpl()); 
-        if (send_bad_open == true) { 
+        if (out_of_bound == true) {
+            if (open_doc->LoadDoc(sXMPP_STREAM_OPEN_GOOD) == -1) {
+                return false;
+            }
+        } else if(send_bad_open == true) {
             if (open_doc->LoadDoc(sXMPP_STREAM_OPEN_BAD) == -1) { 
-                return;
+                return false;
             }
             send_bad_open = false;
         } else {
             if (open_doc->LoadDoc(sXMPP_STREAM_OPEN_GOOD) == -1) { 
-                return;
+                return false;
             }
         }
 
@@ -67,7 +72,11 @@ public:
         string ns(sXMPP_STREAM_O);
         open_doc->ReadNode(ns);
         open_doc->ModifyAttribute("to" , GetComputeHostName());
-        open_doc->ModifyAttribute("from" , GetControllerHostName());
+        if (out_of_bound) {
+            open_doc->ModifyAttribute("from" , SUB_ADDR2);
+        } else {
+            open_doc->ModifyAttribute("from" , GetControllerHostName());
+        }
 
         uint8_t *buf = data;
         int len = 0;
@@ -85,17 +94,17 @@ public:
             LOG(DEBUG, "\n\n Sending open_doc:"  << openstr << "\n\n");
         }
 
-	assert(len > 0);
-	session->Send(data, len, NULL);
+        assert(len > 0);
+        session->Send(data, len, NULL);
         open_count++;
 
-        return;
+        return true;
     }
 
     size_t open_count;
     bool send_bad_open;
     bool send_write_doc;
-
+    bool out_of_bound;
 
 };
 
@@ -182,6 +191,18 @@ protected:
         LOG(DEBUG, "-- Exectuting --");
     }
 
+    void SetupOutofBoundConnection() {
+        XmppChannelConfig cfg(true);
+
+        LOG(DEBUG, "Create client");
+        CreateXmppChannelCfg(&cfg, "127.0.0.1", a_->GetPort(), SUB_ADDR,
+                             XMPP_CONTROL_SERV, true);
+        cconnection_ = new XmppMockClientConnection(b_, &cfg, true, true);
+        cconnection_->Initialize();
+        AddClientChannel(cconnection_);
+
+        LOG(DEBUG, "-- Exectuting --");
+    }
 
     void TearDownConnection() {
         
@@ -244,6 +265,32 @@ TEST_F(XmppStreamMessageTest, WriteDoc_Connection) {
     TearDownConnection();
 }
 
+TEST_F(XmppStreamMessageTest, CheckMemoryOutofBound_ServerReceiveOpen) {
+    // XmppMockClientConnection overloaded SendOpen will send
+    // out of bound message, check the out of bound at server side.
+    //
+    // Allocate a 2k buffer and send the open from client to server.
+    // Server side while encoding the OpenConfirm, detects buffer overflow
+    // and sends a TCP close to the client
+    // At this point, client is in Connect state and receives a Close
+    // and moves to Active state.
+    SetupOutofBoundConnection();
+
+    // server connection
+    XmppConnection *sconnection;
+    TASK_UTIL_EXPECT_TRUE(
+            (sconnection = a_->FindConnection(SUB_ADDR2)) == NULL);
+
+    // This ensures client state-machine transitioned to OpenSent state
+    TASK_UTIL_EXPECT_TRUE(
+             cconnection_->open_count > 1);
+    // client state-machine transitions to Active state on receiving a
+    // a close from server
+    TASK_UTIL_EXPECT_TRUE(
+             cconnection_->GetStateMcState() == xmsm::ACTIVE);
+
+    TearDownConnection();
+}
 
 }
 
