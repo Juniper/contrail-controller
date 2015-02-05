@@ -971,3 +971,64 @@ class NetworkPolicyServer(NetworkPolicyServerGen):
     # end _check_policy
 
 # end class VirtualNetworkServer
+
+
+class LoadbalancerMemberServer(LoadbalancerMemberServerGen):
+
+    @classmethod
+    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+        user_visibility = obj_dict['id_perms'].get('user_visible', True)
+        verify_quota_kwargs = {'db_conn': db_conn,
+                               'fq_name': obj_dict['fq_name'],
+                               'resource': 'loadbalancer_members',
+                               'obj_type': 'loadbalancer-member',
+                               'user_visibility': user_visibility}
+        return QuotaHelper.verify_quota_for_resource(**verify_quota_kwargs)
+
+#end class LoadbalancerMemberServer
+
+
+class LoadbalancerPoolServer(LoadbalancerPoolServerGen):
+
+    @classmethod
+    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+        user_visibility = obj_dict['id_perms'].get('user_visible', True)
+        verify_quota_kwargs = {'db_conn': db_conn,
+                               'fq_name': obj_dict['fq_name'],
+                               'resource': 'loadbalancer_pools',
+                               'obj_type': 'loadbalancer-pool',
+                               'user_visibility': user_visibility}
+        return QuotaHelper.verify_quota_for_resource(**verify_quota_kwargs)
+
+# end class LoadbalancerPoolServer
+
+
+class LoadbalancerHealthmonitorServer(LoadbalancerHealthmonitorServerGen):
+
+    @classmethod
+    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+        user_visibility = obj_dict['id_perms'].get('user_visible', True)
+        verify_quota_kwargs = {'db_conn': db_conn,
+                               'fq_name': obj_dict['fq_name'],
+                               'resource': 'loadbalancer_healthmonitors',
+                               'obj_type': 'loadbalancer-healthmonitor',
+                               'user_visibility': user_visibility}
+        return QuotaHelper.verify_quota_for_resource(**verify_quota_kwargs)
+
+# end class LoadbalancerHealthmonitorServer
+
+
+class VirtualIpServer(VirtualIpServerGen):
+
+    @classmethod
+    def http_post_collection(cls, tenant_name, obj_dict, db_conn):
+        user_visibility = obj_dict['id_perms'].get('user_visible', True)
+        verify_quota_kwargs = {'db_conn': db_conn,
+                               'fq_name': obj_dict['fq_name'],
+                               'resource': 'virtual_ips',
+                               'obj_type': 'virtual-ip',
+                               'user_visibility': user_visibility}
+        return QuotaHelper.verify_quota_for_resource(**verify_quota_kwargs)
+
+# end class VirtualIpServer
+
