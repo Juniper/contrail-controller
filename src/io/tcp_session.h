@@ -62,6 +62,9 @@ public:
     // Called by TcpServer to trigger async read.
     virtual bool Connected(Endpoint remote);
 
+    // Called by TcpServer to trigger async read.
+    virtual void Accepted();
+
     void ConnectFailed();
 
     void Close();
@@ -71,7 +74,7 @@ public:
     void SetBufferSize(int buffer_size);
 
     // Getters and setters
-    Socket *socket() { return socket_.get(); }
+    virtual Socket *socket() const { return socket_.get(); }
     TcpServer *server() { return server_.get(); }
     int32_t local_port() const;
     int32_t remote_port() const;
@@ -132,12 +135,24 @@ public:
     void GetTxSocketStats(SocketIOStats &socket_stats) const;
 
 protected:
+    typedef boost::intrusive_ptr<TcpSession> TcpSessionPtr;
+    static void AsyncReadHandler(TcpSessionPtr session,
+                                 boost::asio::mutable_buffer buffer,
+                                 const boost::system::error_code &error,
+                                 size_t size);
+    static void AsyncWriteHandler(TcpSessionPtr session,
+                                  const boost::system::error_code &error);
     virtual ~TcpSession();
 
     // Read handler. Called from a TBB task.
     virtual void OnRead(Buffer buffer) = 0;
     // Callback after socket is ready for write.
     virtual void WriteReady(const boost::system::error_code &error);
+
+    virtual void AsyncReadSome(boost::asio::mutable_buffer buffer);
+    virtual std::size_t WriteSome(const uint8_t *data, std::size_t len,
+                                  boost::system::error_code &error);
+    virtual void AsyncWrite(const u_int8_t *data, std::size_t size);
 
     virtual int reader_task_id() const {
         return reader_task_id_;
@@ -147,27 +162,23 @@ protected:
     boost::system::error_code SetSocketKeepaliveOptions(int keepalive_time,
             int keepalive_intvl, int keepalive_probes);
 
+    void CloseInternal(bool call_observer, bool notify_server = true);
+
 private:
     class Reader;
     friend class TcpServer;
     friend class TcpMessageWriter;
     friend void intrusive_ptr_add_ref(TcpSession *session);
     friend void intrusive_ptr_release(TcpSession *session);
-    typedef boost::intrusive_ptr<TcpSession> TcpSessionPtr;
     typedef std::list<boost::asio::mutable_buffer> BufferQueue;
 
-    static void AsyncReadHandler(TcpSessionPtr session,
-                                 boost::asio::mutable_buffer buffer,
-                                 const boost::system::error_code &error,
-                                 size_t size);
-    static void AsyncWriteHandler(TcpSessionPtr session,
-                                  const boost::system::error_code &error);
+    static void WriteReadyInternal(TcpSessionPtr session,
+                                   const boost::system::error_code &error,
+                                   uint64_t block_start_time);
 
+    void DeferWriter();
     void ReleaseBufferLocked(Buffer buffer);
-    void CloseInternal(bool call_observer, bool notify_server = true);
     void SetEstablished(Endpoint remote, Direction dir);
-
-    tbb::mutex &mutex() { return mutex_; }
 
     bool IsClosedLocked() const {
         return closed_;
@@ -176,7 +187,6 @@ private:
 
     boost::asio::mutable_buffer AllocateBuffer();
     void DeleteBuffer(boost::asio::mutable_buffer buffer);
-    void WriteReadyInternal(const boost::system::error_code &);
 
     static int reader_task_id_;
 

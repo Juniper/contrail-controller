@@ -138,8 +138,7 @@ void TcpServer::ClearSessions() {
 }
 
 TcpSession *TcpServer::CreateSession() {
-    Socket *socket = new Socket(*evm_->io_service());
-    TcpSession *session = AllocSession(socket);
+    TcpSession *session = AllocSession(false);
     {
         tbb::mutex::scoped_lock lock(mutex_);
         session_ref_.insert(TcpSessionPtr(session));
@@ -213,8 +212,8 @@ void TcpServer::AsyncAccept() {
     if (acceptor_ == NULL) {
         return;
     }
-    so_accept_.reset(new Socket(*evm_->io_service()));
-    acceptor_->async_accept(*so_accept_.get(),
+    set_accept_socket();
+    acceptor_->async_accept(*accept_socket(),
         boost::bind(&TcpServer::AcceptHandlerInternal, this,
             TcpServerPtr(this), boost::asio::placeholders::error));
 }
@@ -240,7 +239,7 @@ bool TcpServer::HasSessions() const {
 bool TcpServer::HasSessionReadAvailable() const {
     tbb::mutex::scoped_lock lock(mutex_);
     boost::system::error_code error;
-    if (so_accept_->available(error) > 0) {
+    if (accept_socket()->available(error) > 0) {
         return  true;
     }
     for (SessionMap::const_iterator iter = session_map_.begin(); 
@@ -266,6 +265,31 @@ TcpServer::Endpoint TcpServer::LocalEndpoint() const {
     return local;
 }
 
+TcpSession *TcpServer::AllocSession(bool server_session) {
+    TcpSession *session;
+    if (server_session) {
+        session = AllocSession(so_accept_.get());
+
+        // if session allocate succeeds release ownership to so_accept.
+        if (session != NULL) {
+            so_accept_.release();
+        }
+    } else {
+        Socket *socket = new Socket(*evm_->io_service());
+        session = AllocSession(socket);
+    }
+
+    return session;
+}
+
+TcpServer::Socket *TcpServer::accept_socket() const {
+    return so_accept_.get();
+}
+
+void TcpServer::set_accept_socket() {
+    so_accept_.reset(new Socket(*evm_->io_service()));
+}
+
 bool TcpServer::AcceptSession(TcpSession *session) {
     return true;
 }
@@ -281,15 +305,13 @@ void TcpServer::AcceptHandlerInternal(TcpServerPtr server,
     tcp::endpoint remote;
     boost::system::error_code ec;
     TcpSessionPtr session;
-    auto_ptr<Socket> socket;
     bool need_close = false;
 
     if (error) {
         goto done;
     }
 
-    socket.reset(so_accept_.release());
-    remote = socket->remote_endpoint(ec);
+    remote = accept_socket()->remote_endpoint(ec);
     if (ec) {
         TCP_SERVER_LOG_ERROR(this, TCP_DIR_IN,
                              "Accept: No remote endpoint: " << ec.message());
@@ -301,16 +323,15 @@ void TcpServer::AcceptHandlerInternal(TcpServerPtr server,
                               "Session accepted after server shutdown: "
                                   << remote.address().to_string()
                                   << ":" << remote.port());
-        socket->close(ec);
+        accept_socket()->close(ec);
         goto done;
     }
 
-    session.reset(AllocSession(socket.get()));
+    session.reset(AllocSession(true));
     if (session == NULL) {
         TCP_SERVER_LOG_DEBUG(this, TCP_DIR_IN, "Session not created");
         goto done;
     }
-    socket.release();
 
     ec = session->SetSocketOptions();
     if (ec) {
@@ -340,9 +361,7 @@ void TcpServer::AcceptHandlerInternal(TcpServerPtr server,
         }
     }
 
-    if (session->read_on_connect_) {
-        session->AsyncReadStart();
-    }
+    session->Accepted();
 
 done:
     if (need_close) {

@@ -19,7 +19,7 @@ env.Append(LIBPATH = env['TOP'] + '/base/test')
 env.Prepend(LIBS = ['gunit', 'task_test', 'io', 'sandesh', 'http',
                     'sandeshvns', 'process_info', 'io', 'base',
                     'http_parser', 'curl',
-                    'boost_program_options', 'pugixml'])
+                    'boost_program_options', 'pugixml', 'ssl', 'crypto'])
 
 if sys.platform != 'darwin':
     env.Append(LIBS = ['rt'])
@@ -35,6 +35,12 @@ tcp_server_test = env.UnitTest('tcp_server_test',
                               )
 
 env.Alias('src/io:tcp_server_test', tcp_server_test)
+
+ssl_server_test = env.UnitTest('ssl_server_test',
+                              ['ssl_server_test.cc'],
+                              )
+
+env.Alias('src/io:ssl_server_test', ssl_server_test)
 
 tcp_io_test = env.UnitTest('tcp_io_test',
                            ['tcp_io_test.cc'],
@@ -64,6 +70,7 @@ test_suite = [
 ]
 
 flaky_test_suite = [
+    ssl_server_test,
     tcp_io_test,
     tcp_server_test,
     tcp_stress_test,

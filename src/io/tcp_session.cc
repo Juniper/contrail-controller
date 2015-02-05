@@ -54,10 +54,8 @@ TcpSession::TcpSession(
       established_(false),
       closed_(false),
       direction_(ACTIVE),
-      writer_(new TcpMessageWriter(socket, this)) {
+      writer_(new TcpMessageWriter(this)) {
     refcount_ = 0;
-    writer_->RegisterNotification(
-                 boost::bind(&TcpSession::WriteReadyInternal, this, _1));
     if (reader_task_id_ == -1) {
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         reader_task_id_ = scheduler->GetTaskId("io::ReaderTask");
@@ -125,9 +123,34 @@ void TcpSession::AsyncReadStart() {
         ReleaseBufferLocked(buffer);
         return;
     }
+    AsyncReadSome(buffer);
+}
+
+void TcpSession::DeferWriter() {
+    // Update socket write block count.
+    stats_.write_blocked++;
+    server_->stats_.write_blocked++;
+    socket()->async_write_some(boost::asio::null_buffers(),
+                              boost::bind(&TcpSession::WriteReadyInternal, TcpSessionPtr(this),
+                                          placeholders::error, UTCTimestampUsec()));
+}
+
+void TcpSession::AsyncReadSome(boost::asio::mutable_buffer buffer) {
     socket_->async_read_some(mutable_buffers_1(buffer),
         boost::bind(&TcpSession::AsyncReadHandler, TcpSessionPtr(this), buffer,
                     boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
+}
+
+std::size_t TcpSession::WriteSome(const uint8_t *data, std::size_t len,
+                                  boost::system::error_code &error) {
+    return socket_->write_some(boost::asio::buffer(data, len), error);
+}
+
+void TcpSession::AsyncWrite(const u_int8_t *data, std::size_t size) {
+    boost::asio::async_write(
+        *socket_.get(), buffer(data, size),
+        boost::bind(&TcpSession::AsyncWriteHandler, TcpSessionPtr(this),
+                    boost::asio::placeholders::error));
 }
 
 TcpSession::Endpoint TcpSession::local_endpoint() const {
@@ -136,7 +159,7 @@ TcpSession::Endpoint TcpSession::local_endpoint() const {
         return Endpoint();
     }
     boost::system::error_code err;
-    Endpoint local = socket_->local_endpoint(err);
+    Endpoint local = socket()->local_endpoint(err);
     if (err) {
         return Endpoint();
     }
@@ -153,7 +176,7 @@ void TcpSession::SetName() {
     boost::system::error_code err;
     Endpoint local;
 
-    local = socket_->local_endpoint(err);
+    local = socket()->local_endpoint(err);
     out << local.address().to_string() << ":" << local.port() << "::";
     out << remote_.address().to_string() << ":" << remote_.port();
 
@@ -166,6 +189,21 @@ void TcpSession::SessionEstablished(Endpoint remote,
     remote_ = remote;
     direction_ = direction;
     SetName();
+}
+
+void TcpSession::Accepted() {
+    TCP_SESSION_LOG_DEBUG(this, TCP_DIR_OUT,
+                          "Passive session Accept complete");
+    {
+        tbb::mutex::scoped_lock obs_lock(obs_mutex_);
+        if (observer_) {
+            observer_(this, ACCEPT);
+        }
+    }
+
+    if (read_on_connect_) {
+        AsyncReadStart();
+    }
 }
 
 bool TcpSession::Connected(Endpoint remote) {
@@ -205,9 +243,9 @@ void TcpSession::ConnectFailed() {
 void TcpSession::CloseInternal(bool call_observer, bool notify_server) {
     tbb::mutex::scoped_lock lock(mutex_);
 
-    if (socket_.get() != NULL && !closed_) {
+    if (socket() != NULL && !closed_) {
         boost::system::error_code err;
-        socket_->close(err);
+        socket()->close(err);
     }
     closed_ = true;
     if (!established_) {
@@ -240,16 +278,42 @@ void TcpSession::Close() {
 void TcpSession::WriteReady(const boost::system::error_code &error) {
 }
 
-void TcpSession::WriteReadyInternal(const boost::system::error_code &error) {
-    if (IsSocketErrorHard(error)) {
-        TCP_SESSION_LOG_INFO(this, TCP_DIR_OUT, "Write failed due to error: "
-                             << error.value()
-                             << " category: " << error.category().name()
-                             << " message: " << error.message());
-        CloseInternal(true);
-        return;
+void TcpSession::WriteReadyInternal(TcpSessionPtr session,
+                                    const boost::system::error_code &error,
+                                    uint64_t block_start_time) {
+    boost::system::error_code ec = error;
+    tbb::mutex::scoped_lock lock(session->mutex_);
+
+    // Update socket write block time.
+    uint64_t blocked_usecs = UTCTimestampUsec() - block_start_time;
+    session->stats_.write_blocked_duration_usecs += blocked_usecs;
+    session->server_->stats_.write_blocked_duration_usecs += blocked_usecs;
+
+    if (session->IsSocketErrorHard(ec)) {
+        goto session_error;
     }
-    WriteReady(error);
+
+    //
+    // Ignore if connection is already closed.
+    //
+    if (session->IsClosedLocked()) return;
+
+    session->writer_->HandleWriteReady(ec);
+    if (session->IsSocketErrorHard(ec)) {
+        goto session_error;
+    }
+
+    lock.release();
+    session->WriteReady(ec);
+    return;
+
+session_error:
+    lock.release();
+    TCP_SESSION_LOG_INFO(session.get(), TCP_DIR_OUT,
+                         "Write failed due to error: " << ec.value()
+                         << " category: " << ec.category().name()
+                         << " message: " << ec.message());
+    session->CloseInternal(true);
 }
 
 void TcpSession::AsyncWriteHandler(TcpSessionPtr session,
@@ -274,7 +338,7 @@ bool TcpSession::Send(const u_int8_t *data, size_t size, size_t *sent) {
     //
     if (!established_) return false;
 
-    if (socket_->non_blocking()) {
+    if (socket()->non_blocking()) {
         boost::system::error_code error;
         int len = writer_->Send(data, size, error);
         lock.release();
@@ -288,10 +352,7 @@ bool TcpSession::Send(const u_int8_t *data, size_t size, size_t *sent) {
         if (len < 0 || (size_t)len != size) ret = false;
         if (sent) *sent = (len > 0) ? len : 0;
     } else {
-        boost::asio::async_write(
-            *socket_.get(), buffer(data, size),
-            boost::bind(&TcpSession::AsyncWriteHandler, TcpSessionPtr(this),
-                        boost::asio::placeholders::error));
+        AsyncWrite(data, size);
         if (sent) *sent = size;
     }
     return ret;
@@ -337,11 +398,11 @@ int TcpSession::GetSessionInstance() const {
 
 
 int32_t TcpSession::local_port() const {
-    if (socket_.get() == NULL) {
+    if (socket() == NULL) {
         return -1;
     }
     boost::system::error_code error;
-    Endpoint local = socket_->local_endpoint(error);
+    Endpoint local = socket()->local_endpoint(error);
     if (IsSocketErrorHard(error)) {
         return -1;
     }
@@ -349,11 +410,11 @@ int32_t TcpSession::local_port() const {
 }
 
 int32_t TcpSession::remote_port() const {
-    if (socket_.get() == NULL) {
+    if (socket() == NULL) {
         return -1;
     }
     boost::system::error_code error;
-    Endpoint remote = socket_->remote_endpoint(error);
+    Endpoint remote = socket()->remote_endpoint(error);
     if (IsSocketErrorHard(error)) {
         return -1;
     }
@@ -546,7 +607,7 @@ boost::system::error_code TcpSession::SetSocketKeepaliveOptions(int keepalive_ti
         int keepalive_intvl, int keepalive_probes) {
     boost::system::error_code ec;
     socket_base::keep_alive keep_alive_option(true);
-    socket_->set_option(keep_alive_option, ec);
+    socket()->set_option(keep_alive_option, ec);
     if (ec) {
         TCP_SESSION_LOG_ERROR(this, TCP_DIR_OUT,
                 "keep_alive set error: " << ec);
@@ -555,7 +616,7 @@ boost::system::error_code TcpSession::SetSocketKeepaliveOptions(int keepalive_ti
 #ifdef TCP_KEEPIDLE
     typedef boost::asio::detail::socket_option::integer< IPPROTO_TCP, TCP_KEEPIDLE > keepalive_idle_time;
     keepalive_idle_time keepalive_idle_time_option(keepalive_time);
-    socket_->set_option(keepalive_idle_time_option, ec);
+    socket()->set_option(keepalive_idle_time_option, ec);
     if (ec) {
         TCP_SESSION_LOG_ERROR(this, TCP_DIR_OUT,
                 "keepalive_idle_time: " << keepalive_time << " set error: " << ec);
@@ -565,7 +626,7 @@ boost::system::error_code TcpSession::SetSocketKeepaliveOptions(int keepalive_ti
 #ifdef TCP_KEEPALIVE
     typedef boost::asio::detail::socket_option::integer< IPPROTO_TCP, TCP_KEEPALIVE > keepalive_idle_time;
     keepalive_idle_time keepalive_idle_time_option(keepalive_time);
-    socket_->set_option(keepalive_idle_time_option, ec);
+    socket()->set_option(keepalive_idle_time_option, ec);
     if (ec) {
         TCP_SESSION_LOG_ERROR(this, TCP_DIR_OUT,
                 "keepalive_idle_time: " << keepalive_time << " set error: " << ec);
@@ -575,7 +636,7 @@ boost::system::error_code TcpSession::SetSocketKeepaliveOptions(int keepalive_ti
 #ifdef TCP_KEEPINTVL
     typedef boost::asio::detail::socket_option::integer< IPPROTO_TCP, TCP_KEEPINTVL > keepalive_interval;
     keepalive_interval keepalive_interval_option(keepalive_intvl);
-    socket_->set_option(keepalive_interval_option, ec);
+    socket()->set_option(keepalive_interval_option, ec);
     if (ec) {
         TCP_SESSION_LOG_ERROR(this, TCP_DIR_OUT,
                 "keepalive_interval: " << keepalive_intvl << " set error: " << ec);
@@ -585,7 +646,7 @@ boost::system::error_code TcpSession::SetSocketKeepaliveOptions(int keepalive_ti
 #ifdef TCP_KEEPCNT
     typedef boost::asio::detail::socket_option::integer< IPPROTO_TCP, TCP_KEEPCNT > keepalive_count;
     keepalive_count keepalive_count_option(keepalive_probes);
-    socket_->set_option(keepalive_count_option, ec);
+    socket()->set_option(keepalive_count_option, ec);
     if (ec) {
         TCP_SESSION_LOG_ERROR(this, TCP_DIR_OUT,
                 "keepalive_probes: " << keepalive_probes << " set error: " << ec);
@@ -601,7 +662,7 @@ boost::system::error_code TcpSession::SetSocketOptions() {
     //
     // Make socket write non-blocking
     //
-    socket_->non_blocking(true, ec);
+    socket()->non_blocking(true, ec);
     if (ec) {
         TCP_SESSION_LOG_ERROR(this, TCP_DIR_NA,
                               "Cannot set socket non blocking: " << ec);
@@ -621,7 +682,7 @@ boost::system::error_code TcpSession::SetSocketOptions() {
         // sends more deterministically
         //
         socket_base::send_buffer_size send_buffer_size_option(sz);
-        socket_->set_option(send_buffer_size_option, ec);
+        socket()->set_option(send_buffer_size_option, ec);
         if (ec) {
             TCP_SESSION_LOG_ERROR(this, TCP_DIR_OUT,
                                   "send_buffer_size set error: " << ec);
@@ -629,7 +690,7 @@ boost::system::error_code TcpSession::SetSocketOptions() {
         }
 
         socket_base::receive_buffer_size receive_buffer_size_option(sz);
-        socket_->set_option(receive_buffer_size_option, ec);
+        socket()->set_option(receive_buffer_size_option, ec);
         if (ec) {
             TCP_SESSION_LOG_ERROR(this, TCP_DIR_IN,
                                   "receive_buffer_size set error: " << ec);
