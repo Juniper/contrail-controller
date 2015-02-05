@@ -932,6 +932,16 @@ class DBInterface(object):
         return resp_dict['network-policys']
     #end _policy_list_project
 
+    def _logical_router_list(self, parent_id=None, back_ref_id=None, 
+                             obj_uuids=None, fields=None):
+        rtr_obj = self._vnc_lib.logical_routers_list(parent_id=parent_id,
+                                                     back_ref_id=back_ref_id,
+                                                     obj_uuids=obj_uuids,
+                                                     detail=True,
+                                                     fields=fields)
+        return rtr_obj
+    #end _logical_router_list
+
     def _logical_router_read(self, rtr_id=None, fq_name=None):
         if rtr_id:
             try:
@@ -4073,30 +4083,36 @@ class DBInterface(object):
             return ret_list
 
         # Listing from parent to children
+        port_iip_gevent = gevent.spawn(self._instance_ip_list)
+        port_vm_gevent = gevent.spawn(self._virtual_machine_list)
+        port_net_gevent = gevent.spawn(self._virtual_network_list, detail=True)
+
+        gevent.joinall([port_iip_gevent, port_net_gevent, port_vm_gevent])
+
+        port_iip_objs = port_iip_gevent.value
+        port_net_objs = port_net_gevent.value
+        port_vm_objs = port_vm_gevent.value
+
+        # port has a back_ref to LR, so need to read in LRs based on device id
         device_ids = filters['device_id']
-        for dev_id in device_ids:
-            try:
-                # TODO optimize
-                port_objs = self._virtual_machine_interface_list(
-                                              parent_id=dev_id,
-                                              back_ref_id=dev_id)
-                if not port_objs:
-                    raise NoIdError(None)
-                for port_obj in port_objs:
-                    port_info = self._port_vnc_to_neutron(port_obj)
-                    ret_q_ports.append(port_info)
-            except NoIdError:
-                try:
-                    router_obj = self._logical_router_read(rtr_id=dev_id)
-                    intfs = router_obj.get_virtual_machine_interface_refs()
-                    for intf in (intfs or []):
-                        try:
-                            port_info = self.port_read(intf['uuid'])
-                        except NoIdError:
-                            continue
-                        ret_q_ports.append(port_info)
-                except NoIdError:
-                    continue
+        router_objs = self._logical_router_list(obj_uuids=device_ids)
+        more_ports = []
+        for router_obj in router_objs:
+            intfs = router_obj.get_virtual_machine_interface_refs()
+            for intf in (intfs or []):
+                more_ports.append(intf['uuid'])
+
+        # gather all ports from an anchor of virtual-machine (backref in
+        # current schema and parent in < 1.06 schema)
+        port_objs = self._virtual_machine_interface_list(parent_id=device_ids,
+                                                    back_ref_id=device_ids)
+
+        if len(more_ports):
+            rtr_port_objs = self._virtual_machine_interface_list(obj_uuids=more_ports)
+            port_objs.extend(rtr_port_objs)
+
+        ret_q_ports = self._port_list(port_net_objs, port_objs,
+                                      port_iip_objs, port_vm_objs)
 
         return ret_q_ports
     #end port_list
