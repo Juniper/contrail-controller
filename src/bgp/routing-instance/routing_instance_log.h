@@ -28,8 +28,7 @@ do {                                                                           \
     if (LoggingDisabled()) break;                                              \
     if ((flags) & RTINSTANCE_LOG_FLAG_SYSLOG) {                                \
         bgp_log_test::LogServerName(server);                                   \
-        RoutingInstance##type##Log::Send(g_vns_constants.CategoryNames.find(   \
-                                    Category::ROUTING_INSTANCE)->second,       \
+        RoutingInstance##type##Log::Send("RoutingInstance",                    \
                                     level, __FILE__, __LINE__, ##__VA_ARGS__); \
     }                                                                          \
     if ((flags) & RTINSTANCE_LOG_FLAG_TRACE) {                                 \
