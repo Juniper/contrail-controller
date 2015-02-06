@@ -1512,6 +1512,11 @@ FlowEntry *FlowTable::Find(const FlowKey &key) {
     }
 }
 
+RouteFlowInfo *FlowTable::RouteFlowInfoFind(RouteFlowKey &key) {
+    RouteFlowInfo rt_key(key);
+    return route_flow_tree_.Find(&rt_key);
+}
+
 void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
 {
     FlowInfo flow_info;
@@ -2041,11 +2046,14 @@ void InetRouteFlowUpdate::RouteAdd(AgentRoute *entry) {
     // Find the RouteFlowInfo for the covering route and trigger flow
     // re-compute to use more specific route. use (prefix_len -1) in LPM
     // to get covering route.
-    RouteFlowInfo rt_key(route->vrf()->vrf_id(), route->addr(),
-                         route->plen() - 1);
-    RouteFlowInfo *rt_info =
-        agent->pkt()->flow_table()->FindRouteFlowInfo(&rt_key);
-    agent->pkt()->flow_table()->FlowRecompute(rt_info);
+    // Skip default route, as there will be no covering route for it.
+    if (route->plen() != 0) {
+        RouteFlowInfo rt_key(route->vrf()->vrf_id(), route->addr(),
+                             route->plen() - 1);
+        RouteFlowInfo *rt_info =
+            agent->pkt()->flow_table()->FindRouteFlowInfo(&rt_key);
+        agent->pkt()->flow_table()->FlowRecompute(rt_info);
+    }
 }
 
 void InetRouteFlowUpdate::RouteDel(AgentRoute *entry) {

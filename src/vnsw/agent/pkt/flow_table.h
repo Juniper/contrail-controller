@@ -528,8 +528,9 @@ struct RouteFlowInfo {
 
     class KeyCmp {
     public:
-        static std::size_t Length(const RouteFlowInfo *route_info) {
-            return (sizeof(route_info->key.vrf) + sizeof(route_info->key.family)
+        static std::size_t BitLength(const RouteFlowInfo *route_info) {
+            return (((sizeof(route_info->key.vrf) +
+                      sizeof(route_info->key.family)) << 3)
                     + route_info->key.plen);
         }
 
@@ -646,6 +647,7 @@ public:
     Agent *agent() const { return agent_; }
 
     // Test code only used method
+    RouteFlowInfo *RouteFlowInfoFind(RouteFlowKey &key);
     void DeleteFlow(const AclDBEntry *acl, const FlowKey &key, AclEntryIDList &id_list);
     void ResyncAclFlows(const AclDBEntry *acl);
     void DeleteAll();
