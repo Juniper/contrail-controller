@@ -236,7 +236,7 @@ class VirtualNetworkST(DictST):
                 self.dynamic_acl = acl_obj
 
         self.ipams = {}
-        self.rt_list = set()
+        self.rt_list = set(self.obj.get_route_target_list().get_route_target())
         self._route_target = 0
         self.route_table_refs = set()
         self.route_table = {}
@@ -568,6 +568,11 @@ class VirtualNetworkST(DictST):
                     rinst_obj = None
                 else:
                     rinst_obj.set_route_target(rtgt_obj, inst_tgt_data)
+                    if is_default:
+                        for rtgt_key in self.rt_list:
+                            rinst_obj.add_route_target(
+                                RouteTargetST.locate(rtgt_key),
+                                inst_tgt_data)
                     rinst_obj.set_routing_instance_is_default(is_default)
                     _vnc_lib.routing_instance_update(rinst_obj)
             except NoIdError:
@@ -575,6 +580,11 @@ class VirtualNetworkST(DictST):
             if rinst_obj is None:
                 rinst_obj = RoutingInstance(rinst_name, self.obj)
                 rinst_obj.set_route_target(rtgt_obj, inst_tgt_data)
+                if is_default:
+                    for rtgt_key in self.rt_list:
+                        rinst_obj.add_route_target(
+                            RouteTargetST.locate(rtgt_key),
+                            inst_tgt_data)
                 rinst_obj.set_routing_instance_is_default(is_default)
                 _vnc_lib.routing_instance_create(rinst_obj)
         except (BadRequest, HttpError) as e:
