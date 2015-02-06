@@ -353,6 +353,14 @@ protected:
         }
         BgpAttrNextHop nexthop(nexthop_address.to_ulong());
         attr_spec.push_back(&nexthop);
+
+        PmsiTunnelSpec pmsi_spec;
+        pmsi_spec.tunnel_flags = PmsiTunnelSpec::EdgeReplicationSupported;
+        pmsi_spec.tunnel_type = PmsiTunnelSpec::IngressReplication;
+        pmsi_spec.SetLabel(label ? label : peer->label());
+        pmsi_spec.SetIdentifier(nexthop_address);
+        attr_spec.push_back(&pmsi_spec);
+
         BgpAttrPtr attr = server_->attr_db()->Locate(attr_spec);
 
         DBRequest addReq;
@@ -690,11 +698,16 @@ protected:
         BgpAttrNextHop nexthop(peer->address().to_ulong());
         attr_spec.push_back(&nexthop);
 
-        uint64_t params = 0;
-        if (!peer->edge_replication_supported())
-            params = BgpAttrParams::EdgeReplicationNotSupported;
-        BgpAttrParams params_spec(params);
-        attr_spec.push_back(&params_spec);
+        PmsiTunnelSpec pmsi_spec;
+        if (peer->edge_replication_supported()) {
+            pmsi_spec.tunnel_flags = PmsiTunnelSpec::EdgeReplicationSupported;
+        } else {
+            pmsi_spec.tunnel_flags = 0;
+        }
+        pmsi_spec.tunnel_type = PmsiTunnelSpec::IngressReplication;
+        pmsi_spec.SetLabel(peer->label());
+        pmsi_spec.SetIdentifier(peer->address());
+        attr_spec.push_back(&pmsi_spec);
 
         BgpAttrPtr attr = server_->attr_db()->Locate(attr_spec);
 

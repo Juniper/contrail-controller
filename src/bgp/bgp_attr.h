@@ -179,7 +179,14 @@ struct BgpMpNlri : public BgpAttribute {
 struct PmsiTunnelSpec : public BgpAttribute {
     enum Flags {
         LeafInfoRequired = 1 << 0,
+        AssistedReplicationType = 3 << 3,
         EdgeReplicationSupported = 1 << 7
+    };
+
+    enum ARType {
+        RegularNVE = 0 << 3,
+        ARReplicator = 1 << 3,
+        ARLeaf = 2 << 3
     };
 
     enum Type {
@@ -190,7 +197,8 @@ struct PmsiTunnelSpec : public BgpAttribute {
         PimSmTree = 4,
         BidirPimTree = 5,
         IngressReplication = 6,
-        MldpMp2mpLsp = 7
+        MldpMp2mpLsp = 7,
+        AssistedReplicationContrail = 252
     };
 
     static const int kSize = -1;
@@ -475,7 +483,7 @@ struct BgpAttrEsi : public BgpAttribute {
 
 struct BgpAttrParams : public BgpAttribute {
     enum Flags {
-        EdgeReplicationNotSupported = 1 << 0
+        TestFlag = 1 << 0
     };
 
     BgpAttrParams() : BgpAttribute(0, Params, 0), params(0) {}

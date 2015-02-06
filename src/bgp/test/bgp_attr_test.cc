@@ -695,7 +695,7 @@ TEST_F(BgpAttrTest, EsiToString) {
 
 TEST_F(BgpAttrTest, Params1) {
     BgpAttrSpec attr_spec;
-    uint64_t params = BgpAttrParams::EdgeReplicationNotSupported;
+    uint64_t params = BgpAttrParams::TestFlag;
     BgpAttrParams params_spec(params);
     attr_spec.push_back(&params_spec);
     BgpAttrPtr ptr = attr_db_->Locate(attr_spec);
@@ -713,7 +713,7 @@ TEST_F(BgpAttrTest, Params2) {
     BgpAttrPtr ptr1 = attr_db_->Locate(attr_spec1);
 
     BgpAttrSpec attr_spec2;
-    uint64_t params2 = BgpAttrParams::EdgeReplicationNotSupported;
+    uint64_t params2 = BgpAttrParams::TestFlag;
     BgpAttrParams params_spec2(params2);
     attr_spec2.push_back(&params_spec2);
     BgpAttrPtr ptr2 = attr_db_->Locate(attr_spec2);
@@ -724,7 +724,7 @@ TEST_F(BgpAttrTest, Params2) {
 }
 
 TEST_F(BgpAttrTest, ParamsCompareTo) {
-    uint64_t params1 = BgpAttrParams::EdgeReplicationNotSupported;
+    uint64_t params1 = BgpAttrParams::TestFlag;
     uint64_t params2 = 0;
     BgpAttrParams params_spec1(params1);
     BgpAttrParams params_spec2(params2);
@@ -734,7 +734,7 @@ TEST_F(BgpAttrTest, ParamsCompareTo) {
 }
 
 TEST_F(BgpAttrTest, ParamsToString) {
-    uint64_t params = BgpAttrParams::EdgeReplicationNotSupported;
+    uint64_t params = BgpAttrParams::TestFlag;
     BgpAttrParams params_spec(params);
     EXPECT_EQ("Params <subcode: 5> : 0x0000000000000001",
         params_spec.ToString());
