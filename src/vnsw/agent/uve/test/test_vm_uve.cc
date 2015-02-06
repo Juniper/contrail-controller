@@ -599,10 +599,9 @@ TEST_F(UveVmUveTest, VmIntfAddDel_2) {
     vmut->ClearCount();
 }
 
-/* Associate FIP to a VM whose VN has ipv4 forwarding as false (L2 Only VN)
- * Test case to verify that FIP entries which are  not in "installed" state
+/* Test case to verify that FIP entries which are  not in "installed" state
  * are handled correctly. */
-TEST_F(UveVmUveTest, DISABLED_FipL3Disabled) {
+TEST_F(UveVmUveTest, FipL3Disabled) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
@@ -610,7 +609,7 @@ TEST_F(UveVmUveTest, DISABLED_FipL3Disabled) {
     VmUveTableTest *vmut = static_cast<VmUveTableTest *>
         (Agent::GetInstance()->uve()->vm_uve_table());
     //Add VN
-    util_.L2VnAdd(input[0].vn_id);
+    util_.VnAdd(input[0].vn_id);
     // Nova Port add message
     util_.NovaPortAdd(&input[0]);
     // Config Port add
@@ -630,12 +629,13 @@ TEST_F(UveVmUveTest, DISABLED_FipL3Disabled) {
     AddInstanceIp("instance0", input[0].vm_id, input[0].addr);
     AddLink("virtual-machine-interface", input[0].name,
             "instance-ip", "instance0");
-    AddLink("virtual-machine-interface-routing-instance", "vnet1",
-            "routing-instance", "vrf1");
     client->WaitForIdle(3);
     AddLink("virtual-machine-interface-routing-instance", "vnet1",
             "virtual-machine-interface", "vnet1");
     client->WaitForIdle(3);
+    // Expect VmPort to be Inactive because of absence of link
+    // AddLink("virtual-machine-interface-routing-instance", "vnet1",
+    //         "routing-instance", "vrf1");
     EXPECT_TRUE(VmPortInactive(input, 0));
 
     //Create a VN for floating-ip
@@ -673,8 +673,6 @@ TEST_F(UveVmUveTest, DISABLED_FipL3Disabled) {
             "default-project:vn2");
     DelLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn1");
     DelFloatingIpPool("fip-pool1");
-    DelLink("virtual-machine-interface-routing-instance", "vnet1",
-            "routing-instance", "vrf1");
     DelLink("virtual-machine-interface-routing-instance", "vnet1",
             "virtual-machine-interface", "vnet1");
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
