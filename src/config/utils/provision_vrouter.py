@@ -79,7 +79,7 @@ class VrouterProvisioner(object):
             'api_server_port': '8082',
             'oper': 'add',
             'control_names': [],
-            'router_type': 'embedded'
+            'router_type': None 
         }
         ksopts = {
             'admin_user': 'user1',
@@ -157,7 +157,10 @@ class VrouterProvisioner(object):
             vrouter_obj.add_bgp_router(bgp_router_obj)
 
         # Configure router type
-        vrouter_obj.set_virtual_router_type([self._args.router_type])
+        if self._args.router_type:
+            vrouter_obj.set_virtual_router_type([self._args.router_type])
+        else:
+            vrouter_obj.set_virtual_router_type([])
         if vrouter_exists:
             self._vnc_lib.virtual_router_update(vrouter_obj)
         else:
