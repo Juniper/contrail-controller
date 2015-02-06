@@ -557,6 +557,11 @@ class VirtualNetworkST(DictST):
         rt_key = "target:%s:%d" % (self.get_autonomous_system(), rtgt_num)
         rtgt_obj = RouteTargetST.locate(rt_key)
         inst_tgt_data = InstanceTargetType()
+        if is_default:
+            defined_rtgt_list = self.obj.get_route_target_list() or \
+                                    RouteTargetList()
+        else:
+            defined_rtgt_list = RouteTargetList()
 
         try:
             try:
@@ -567,14 +572,22 @@ class VirtualNetworkST(DictST):
                     _vnc_lib.routing_instance_delete(id=rinst_obj.uuid)
                     rinst_obj = None
                 else:
-                    rinst_obj.set_route_target(rtgt_obj, inst_tgt_data)
+                    rinst_obj.set_route_target(rtgt_obj)
+                    for rtgt_key in defined_rtgt_list.get_route_target():
+                        rinst_obj.add_route_target(
+                            RouteTargetST.locate(rtgt_key),
+                            inst_tgt_data)
                     rinst_obj.set_routing_instance_is_default(is_default)
                     _vnc_lib.routing_instance_update(rinst_obj)
             except NoIdError:
                 rinst_obj = None
             if rinst_obj is None:
                 rinst_obj = RoutingInstance(rinst_name, self.obj)
-                rinst_obj.set_route_target(rtgt_obj, inst_tgt_data)
+                rinst_obj.set_route_target(rtgt_obj)
+                for rtgt_key in defined_rtgt_list.get_route_target():
+                    rinst_obj.add_route_target(
+                        RouteTargetST.locate(rtgt_key),
+                        inst_tgt_data)
                 rinst_obj.set_routing_instance_is_default(is_default)
                 _vnc_lib.routing_instance_create(rinst_obj)
         except (BadRequest, HttpError) as e:
