@@ -567,9 +567,12 @@ class VirtualNetworkST(DictST):
                     _vnc_lib.routing_instance_delete(id=rinst_obj.uuid)
                     rinst_obj = None
                 else:
-                    rinst_obj.set_route_target(rtgt_obj, inst_tgt_data)
-                    rinst_obj.set_routing_instance_is_default(is_default)
-                    _vnc_lib.routing_instance_update(rinst_obj)
+                    rinst_rtgts = [ri_rtgt['to'][0] for ri_rtgt in
+                                   (rinst_obj.get_route_target_refs() or [])]
+                    if rt_key not in rinst_rtgts:
+                        rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
+                        rinst_obj.set_routing_instance_is_default(is_default)
+                        _vnc_lib.routing_instance_update(rinst_obj)
             except NoIdError:
                 rinst_obj = None
             if rinst_obj is None:
