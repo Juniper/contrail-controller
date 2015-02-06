@@ -11,6 +11,7 @@
 #include "bgp/inet6/inet6_route.h"
 #include "bgp/inet6/inet6_table.h"
 #include "bgp/test/bgp_server_test_util.h"
+#include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
 #include "io/test/event_manager_test.h"
@@ -5604,6 +5605,8 @@ static void SetUp() {
     BgpServerTest::GlobalSetUp();
     BgpObjectFactory::Register<StateMachine>(
         boost::factory<StateMachineTest *>());
+    BgpObjectFactory::Register<BgpXmppMessageBuilder>(
+        boost::factory<BgpXmppMessageBuilder *>());
 }
 
 static void TearDown() {

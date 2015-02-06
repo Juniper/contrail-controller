@@ -17,10 +17,10 @@ void ShutdownControlNodeReq::HandleRequest() const {
         dynamic_cast<BgpSandeshContext *>(client_context());
     ShutdownControlNodeResp *resp = new ShutdownControlNodeResp();
     resp->set_more(false);
-    resp->set_success(bsc->test_mode);
+    resp->set_success(bsc->test_mode());
     resp->set_context(context());
     resp->Response();
-    if (bsc->test_mode) {
+    if (bsc->test_mode()) {
         ControlNodeShutdown();
     }
 }

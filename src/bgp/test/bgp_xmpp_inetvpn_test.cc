@@ -11,6 +11,7 @@
 #include "bgp/bgp_xmpp_channel.h"
 #include "bgp/security_group/security_group.h"
 #include "bgp/test/bgp_server_test_util.h"
+#include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
 #include "io/test/event_manager_test.h"
@@ -676,6 +677,8 @@ static void SetUp() {
     BgpServerTest::GlobalSetUp();
     BgpObjectFactory::Register<StateMachine>(
         boost::factory<StateMachineTest *>());
+    BgpObjectFactory::Register<BgpXmppMessageBuilder>(
+        boost::factory<BgpXmppMessageBuilder *>());
     XmppObjectFactory::Register<XmppStateMachine>(
         boost::factory<XmppStateMachineTest *>());
 }

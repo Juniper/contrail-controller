@@ -24,6 +24,7 @@
 #include "bgp/bgp_peer_membership.h"
 #include "bgp/bgp_xmpp_channel.h"
 #include "bgp/test/bgp_server_test_util.h"
+#include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
 #include "io/test/event_manager_test.h"
@@ -454,6 +455,8 @@ class TestEnvironment : public ::testing::Environment {
 static void SetUp() {
     ControlNode::SetDefaultSchedulingPolicy();
     BgpServerTest::GlobalSetUp();
+    BgpObjectFactory::Register<BgpXmppMessageBuilder>(
+        boost::factory<BgpXmppMessageBuilder *>());
 }
 
 static void TearDown() {
