@@ -103,6 +103,24 @@ TEST_F(TestPhysicalDevice, physical_device_vn_1) {
     }
 }
 
+//Adds two TOR, one VM and then delete one TOR.
+//Makes sure db state for that TOR is released on
+//physical_device_vn.
+//https://bugs.launchpad.net/juniperopenstack/+bug/1418192
+TEST_F(TestPhysicalDevice, multicast_tor_1) {
+    AgentUtXmlTest test("controller/src/vnsw/agent/oper/test/tor-multicast.xml");
+    AgentUtXmlOperInit(&test);
+    AgentUtXmlPhysicalDeviceInit(&test);
+    if (test.Load() == true) {
+        test.ReadXml();
+
+        string str;
+        test.ToString(&str);
+        cout << str << endl;
+        test.Run();
+    }
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 

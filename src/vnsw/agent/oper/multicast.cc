@@ -235,10 +235,10 @@ void MulticastHandler::HandleTorRoute(DBTablePartBase *partition,
     //Find out if physical device is deleted.
     bool del_tor_request = IsTorDeleted(device_vn_entry, physical_device,
                                         device_vn, device_vn_vrf);
+    MulticastDBState *state = static_cast<MulticastDBState *>
+        (device_vn_entry->GetState(partition->parent(),
+                                   physical_device_vn_listener_id_));
     if (del_tor_request) {
-        MulticastDBState *state = static_cast<MulticastDBState *> 
-            (device_vn_entry->GetState(partition->parent(),
-                                       physical_device_vn_listener_id_));
         if (!state)
             return;
 
@@ -283,16 +283,18 @@ void MulticastHandler::HandleTorRoute(DBTablePartBase *partition,
 
         rebake = obj->AddInTorList(device_uuid, addr, vxlan_id,
                                    TunnelType::VxlanType());
+        if (!state) {
+            //Set the state for vrf name and address
+            MulticastDBState *state =
+                new MulticastDBState(device_vn->GetVrf()->GetName(),
+                                     addr);
+            device_vn_entry->SetState(partition->parent(),
+                                      physical_device_vn_listener_id_, state);
+
+        }
     }
 
     assert(obj != NULL);
-
-    //Set the state for vrf name and address
-    MulticastDBState *state = new MulticastDBState(device_vn->GetVrf()->GetName(),
-                                                   addr);
-    device_vn_entry->SetState(partition->parent(),
-                              physical_device_vn_listener_id_, state);
-
     //rebake if VXLAN changed
     if (vxlan_id != obj->vxlan_id()) {
         obj->set_vxlan_id(vxlan_id);

@@ -161,4 +161,16 @@ private:
     uint16_t vxlan_id_;
 };
 
+class AgentUtXmlMulticastTorValidate : public AgentUtXmlValidationNode {
+public:
+    AgentUtXmlMulticastTorValidate(const std::string &name,
+                                   const pugi::xml_node &node);
+    virtual ~AgentUtXmlMulticastTorValidate();
+
+    virtual bool ReadXml();
+    virtual bool Validate();
+    virtual const std::string ToString();
+private:
+};
+
 #endif //vnsw_agent_test_xml_test_xml_physical_device_h
