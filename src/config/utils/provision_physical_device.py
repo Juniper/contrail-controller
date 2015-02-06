@@ -148,7 +148,8 @@ class VrouterProvisioner(object):
         for member in [self._args.device_tsn, self._args.device_tor_agent]:
             vrouter_tmp = GetVrouter(self._vnc_lib, member)
             vrouter = vrouter_tmp.Get()
-            pr.add_virtual_router(vrouter)
+            if vrouter:
+                pr.add_virtual_router(vrouter)
         self._vnc_lib.physical_router_update(pr)
     # end add_physical_device
 
@@ -170,6 +171,7 @@ class GetVrouter():
         self.handle = handle
 
     def Get(self):
+        vrouter = None
         vrouter_list=self.handle.virtual_routers_list()
         for i in range(len(vrouter_list['virtual-routers'])):
             if unicode(self.vrouter_name) == vrouter_list['virtual-routers'][i]['fq_name'][1]:
