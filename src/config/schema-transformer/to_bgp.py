@@ -220,7 +220,7 @@ class VirtualNetworkST(DictST):
     _sg_id_allocator = None
     _rt_allocator = None
     _sc_vlan_allocator_dict = {}
-    
+
     def __init__(self, name):
         self.obj = _vnc_lib.virtual_network_read(fq_name_str=name)
         self.name = name
@@ -238,7 +238,8 @@ class VirtualNetworkST(DictST):
 
         self.ipams = {}
         self.extend = False
-        self.rt_list = set()
+        defined_rtgt = self.obj.get_route_target_list() or RouteTargetList()
+        self.rt_list = set(defined_rtgt.get_route_target())
         self._route_target = 0
         self.route_table_refs = set()
         self.route_table = {}
@@ -553,6 +554,7 @@ class VirtualNetworkST(DictST):
         if rinst_name in self.rinst:
             return self.rinst[rinst_name]
 
+        is_default = (rinst_name == self._default_ri_name)
         alloc_new = False
         rinst_fq_name_str = '%s:%s' % (self.obj.get_fq_name_str(), rinst_name)
         old_rtgt = None
@@ -586,12 +588,22 @@ class VirtualNetworkST(DictST):
                     rinst_obj = None
                 else:
                     rinst_obj.set_route_target(rtgt_obj, inst_tgt_data)
+                    if is_default:
+                        for rtgt_key in self.rt_list:
+                            rinst_obj.add_route_target(
+                                RouteTargetST.locate(rtgt_key),
+                                inst_tgt_data)
                     _vnc_lib.routing_instance_update(rinst_obj)
             except NoIdError:
                 rinst_obj = None
             if rinst_obj is None:
                 rinst_obj = RoutingInstance(rinst_name, self.obj)
                 rinst_obj.set_route_target(rtgt_obj, inst_tgt_data)
+                if is_default:
+                    for rtgt_key in self.rt_list:
+                        rinst_obj.add_route_target(
+                            RouteTargetST.locate(rtgt_key),
+                            inst_tgt_data)
                 _vnc_lib.routing_instance_create(rinst_obj)
         except HttpError as he:
             _sandesh._logger.error(
