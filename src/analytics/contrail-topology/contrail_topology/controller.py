@@ -25,6 +25,7 @@ class Controller(object):
         self.analytic_api.get_vrouters(True)
         self.vrouters = {}
         self.vrouter_ips = {}
+        self.vrouter_macs = {}
         for vr in self.analytic_api.list_vrouters():
             d = self.analytic_api.get_vrouter(vr)
             self.vrouters[vr] = {'ips': d['VrouterAgent']['self_ip_list'],
@@ -32,6 +33,13 @@ class Controller(object):
             }
             for ip in d['VrouterAgent']['self_ip_list']:
                 self.vrouter_ips[ip] = vr # index
+            for intf in d['VrouterAgent']['phy_if']:
+                try:
+                    self.vrouter_macs[intf['mac_address']] = {}
+                    self.vrouter_macs[intf['mac_address']]['vrname'] = vr
+                    self.vrouter_macs[intf['mac_address']]['ifname'] = intf['name']
+                except:
+                    continue
 
     def get_prouters(self):
         self.analytic_api.get_prouters(True)
@@ -58,12 +66,36 @@ class Controller(object):
                         'remote_interface_index': int(pl['lldpRemPortId']),
                         'type': 1
                         })
+            vrouter_neighbors = []
+            dot1d2snmp = map (lambda x: (x['dot1dBasePortIfIndex'], x['snmpIfIndex']), d['PRouterEntry']['fdbPortIfIndexTable'])
+            dot1d2snmp_dict = dict(dot1d2snmp)
+            for mac_entry in d['PRouterEntry']['fdbPortTable']:
+                if mac_entry['mac'] in self.vrouter_macs:
+                    vrouter_mac_entry = self.vrouter_macs[mac_entry['mac']]
+                    fdbport = mac_entry['dot1dBasePortIfIndex']
+                    try:
+                        snmpport = dot1d2snmp_dict[fdbport]
+                    except:
+                        continue
+                    self.link[pr].append({
+                        'remote_system_name': vrouter_mac_entry['vrname'],
+                        'local_interface_name': ifm[snmpport],
+                        'remote_interface_name': vrouter_mac_entry['ifname'],
+                        'local_interface_index': snmpport,
+                        'remote_interface_index': 1, #dont know TODO:FIX 
+                        'type': 2
+                            })
+                    vrouter_neighbors.append(vrouter_mac_entry['vrname'])
             for arp in d['PRouterEntry']['arpTable']:
                 if arp['ip'] in self.vrouter_ips:
                     if arp['mac'] in map(lambda x: x['mac_address'],
                             self.vrouters[self.vrouter_ips[arp['ip']]]['if']):
                         vr_name = arp['ip']
                         vr = self.vrouters[self.vrouter_ips[vr_name]]
+                        if self.vrouter_ips[vr_name] in vrouter_neighbors:
+                            continue
+                        if ifm[arp['localIfIndex']].startswith('vlan'):
+                            continue
                         self.link[pr].append({
                             'remote_system_name': self.vrouter_ips[vr_name],
                             'local_interface_name': ifm[arp['localIfIndex']],

@@ -7,6 +7,7 @@ from gen_py.prouter.ttypes import ArpTable, IfTable, IfXTable, IfStats, \
          LldpLocalSystemData, LldpRemOrgDefInfoTable, \
          LldpRemOrgDefInfoTable, LldpRemOrgDefInfoEntry, \
          LldpRemManAddrEntry, LldpRemoteSystemsData, \
+         dot1qTpFdbPortTable, dot1dBasePortIfIndexTable, \
          LldpTable, PRouterEntry, PRouterUVE, PRouterFlowEntry, PRouterFlowUVE
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
@@ -166,6 +167,14 @@ class SnmpUve(object):
                     rl.append(LldpRemoteSystemsData(**d))
                 data['lldpTable']['lldpRemoteSystemsData'] = rl
             data['lldpTable'] = LldpTable(**data['lldpTable'])
+        if 'qBridgeTable' in data:
+            if 'dot1qTpFdbPortTable' in data['qBridgeTable']:
+                data['fdbPortTable'] = map(lambda x: dot1qTpFdbPortTable(**x),
+                    data['qBridgeTable']['dot1qTpFdbPortTable'])
+            if 'dot1dBasePortIfIndexTable' in data['qBridgeTable']:
+                data['fdbPortIfIndexTable'] = map(lambda x: dot1dBasePortIfIndexTable(**x),
+                    data['qBridgeTable']['dot1dBasePortIfIndexTable'])
+            del data['qBridgeTable']
         return PRouterUVE(data=PRouterEntry(**data))
 
     def send_uve(self, uve):

@@ -239,8 +239,36 @@ class ArpTable(SnmpTable):
             self.arpTable.append({'localIfIndex': ifidx,
                     'ip': ip, 'mac':self._to_mac(x.val)})
 
+class QBridgeTable(SnmpTable):
+    def __init__(self, session):
+        super(QBridgeTable, self).__init__(session)
+        self.dot1qTpFdbPortTable = []
+        self.dot1dBasePortIfIndexTable = []
+
+    def py_obj(self):
+        return {'dot1qTpFdbPortTable': self.dot1qTpFdbPortTable,
+                'dot1dBasePortIfIndexTable': self.dot1dBasePortIfIndexTable}
+
+    def table_names(self):
+        return ['dot1qTpFdbPort', 'dot1dBasePortIfIndex']
+
+    def dot1qTpFdbPort_translator(self, snmp_dict):
+        for x in snmp_dict['vars']:
+            ns = x.iid.split('.')
+            try:
+                mac = ':'.join(map(lambda x: "%02x" % int(x), ns[1:]))
+            except:
+                continue
+            self.dot1qTpFdbPortTable.append({'mac': mac,
+                    'dot1dBasePortIfIndex':int(x.val)})
+
+    def dot1dBasePortIfIndex_translator(self, snmp_dict):
+        for x in snmp_dict['vars']:
+            self.dot1dBasePortIfIndexTable.append({'dot1dBasePortIfIndex': int(x.iid),
+                    'snmpIfIndex':int(x.val)})
+
 class SnmpSession(netsnmp.Session):
-    table_list = ['LldpTable', 'IfMib', 'ArpTable', 'IpMib']
+    table_list = ['LldpTable', 'IfMib', 'ArpTable', 'IpMib', 'QBridgeTable']
 
     @classmethod
     def TABLES(cls):
