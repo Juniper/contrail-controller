@@ -1,4 +1,6 @@
 import sys
+reload(sys)
+sys.setdefaultencoding('UTF8')
 import socket
 import re
 import logging
