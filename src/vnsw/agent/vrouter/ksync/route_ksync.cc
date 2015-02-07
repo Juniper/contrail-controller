@@ -565,7 +565,7 @@ int RouteKSyncEntry::DeleteMsg(char *buf, int buf_len) {
     // IF multicast or bridge delete unconditionally
     if ((rt_type_ == Agent::BRIDGE) ||
         (rt_type_ == Agent::INET4_MULTICAST)) {
-        return DeleteInternal(nh(), 0, 0, false, buf, buf_len);
+        return DeleteInternal(nh(), NULL, buf, buf_len);
     }
 
     // For INET routes, we need to give replacement NH and prefixlen
@@ -587,9 +587,7 @@ int RouteKSyncEntry::DeleteMsg(char *buf, int buf_len) {
             if (route->IsResolved()) {
                 ksync_nh = route->nh();
                 if(ksync_nh && ksync_nh->IsResolved()) {
-                    return DeleteInternal(ksync_nh, route->label(),
-                                          route->prefix_len(),
-                                          route->proxy_arp(), buf, buf_len);
+                    return DeleteInternal(ksync_nh, route, buf, buf_len);
                 }
                 ksync_nh = NULL;
             }
@@ -608,17 +606,35 @@ int RouteKSyncEntry::DeleteMsg(char *buf, int buf_len) {
         ksync_nh = static_cast<NHKSyncEntry *>(ksync_nh_object->Find(&nh_key));
     }
 
-    return DeleteInternal(ksync_nh, 0, 0, false, buf, buf_len);
+    return DeleteInternal(ksync_nh, NULL, buf, buf_len);
 }
 
-
-int RouteKSyncEntry::DeleteInternal(NHKSyncEntry *nexthop, uint32_t lbl,
-                                    uint8_t replace_plen, bool proxy_arp,
-                                    char *buf, int buf_len) {
+uint8_t RouteKSyncEntry::CopyReplacementData(NHKSyncEntry *nexthop,
+                                             RouteKSyncEntry *new_rt) {
+    uint8_t new_plen = 0;
     nh_ = nexthop;
-    label_ = lbl;
-    proxy_arp_ = proxy_arp;
+    if (new_rt == NULL) {
+        label_ = 0;
+        proxy_arp_ = false;
+        flood_ = false;
+        wait_for_traffic_ = false;
+        // Dont copy mac_ here. mac_ is key for bridge entries and modifying
+        // it will corrut the KSync tree
+    } else {
+        label_ = new_rt->label();
+        new_plen = new_rt->prefix_len();
+        proxy_arp_ = new_rt->proxy_arp();
+        flood_ = new_rt->flood();
+        wait_for_traffic_ = new_rt->wait_for_traffic();
+        mac_ = new_rt->mac();
+    }
+    return new_plen;
+}
 
+int RouteKSyncEntry::DeleteInternal(NHKSyncEntry *nexthop,
+                                    RouteKSyncEntry *new_rt,
+                                    char *buf, int buf_len) {
+    uint8_t replace_plen = CopyReplacementData(nexthop, new_rt);
     KSyncRouteInfo info;
     FillObjectLog(sandesh_op::DELETE, info);
     KSYNC_TRACE(Route, info);
