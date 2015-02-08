@@ -142,6 +142,8 @@ Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const string &grp_a
 BridgeRouteEntry *L2RouteGet(const string &vrf_name, const MacAddress &mac);
 BridgeRouteEntry *L2RouteGet(const string &vrf_name, const MacAddress &mac,
                              const IpAddress &ip_addr);
+EvpnRouteEntry *EvpnRouteGet(const string &vrf_name, const MacAddress &mac,
+                             const IpAddress &ip_addr, uint32_t ethernet_tag);
 bool TunnelNHFind(const Ip4Address &server_ip);
 bool TunnelNHFind(const Ip4Address &server_ip, bool policy, TunnelType::Type type);
 bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Address &vm_ip,

@@ -1114,6 +1114,22 @@ BridgeRouteEntry *L2RouteGet(const string &vrf_name,
     return L2RouteGet(vrf_name, mac, IpAddress());
 }
 
+EvpnRouteEntry *EvpnRouteGet(const string &vrf_name, const MacAddress &mac,
+                             const IpAddress &ip_addr, uint32_t ethernet_tag) {
+    Agent *agent = Agent::GetInstance();
+    VrfEntry *vrf = agent->vrf_table()->FindVrfFromName(vrf_name);
+    if (vrf == NULL)
+        return NULL;
+
+    EvpnRouteKey key(agent->local_vm_peer(), vrf_name, mac, ip_addr,
+                     ethernet_tag);
+    EvpnRouteEntry *route =
+        static_cast<EvpnRouteEntry *>
+        (static_cast<EvpnAgentRouteTable *>
+         (vrf->GetEvpnRouteTable())->FindActiveEntry(&key));
+    return route;
+}
+
 InetUnicastRouteEntry* RouteGet(const string &vrf_name, const Ip4Address &addr, int plen) {
     VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     if (vrf == NULL)
