@@ -158,11 +158,11 @@ class SvcMonitor(object):
                     continue
 
                 try:
-                    vm_obj = self._vnc_lib.virtual_machine_read(id=si[vm_key])
+                    vm_obj = self._vnc_lib.virtual_machine_read(id=si[vm_key], fields=['virtual_machine_interface_back_refs'])
                 except NoIdError:
                     continue
 
-                vmi_back_refs = vm_obj.get_virtual_machine_interface_back_refs()
+                vmi_back_refs = getattr(vm_obj, "virtual_machine_interface_back_refs", None)
                 for vmi_back_ref in vmi_back_refs or []:
                     try:
                         vmi_obj = self._vnc_lib.virtual_machine_interface_read(
@@ -318,7 +318,7 @@ class SvcMonitor(object):
     #end _check_store_si_info
 
     def _restart_svc(self, si_fq_str):
-        si_obj = self._vnc_lib.service_instance_read(fq_name_str=si_fq_str)
+        si_obj = self._vnc_lib.service_instance_read(fq_name_str=si_fq_str, fields=['virtual_machine_back_refs', 'loadbalancer_pool_back_refs'])
         st_list = si_obj.get_service_template_refs()
         if st_list is not None:
             fq_name = st_list[0]['to']
@@ -410,7 +410,7 @@ class SvcMonitor(object):
 
     def _check_si_status(self, si_fq_name_str, si_info):
         try:
-            si_obj = self._vnc_lib.service_instance_read(id=si_info['uuid'])
+            si_obj = self._vnc_lib.service_instance_read(id=si_info['uuid'], fields=['virtual_machine_back_refs', 'loadbalancer_pool_back_refs'])
         except NoIdError:
             # cleanup service instance
             return 'DELETE'
@@ -456,12 +456,12 @@ class SvcMonitor(object):
 
         try:
             rt_obj = self._vnc_lib.interface_route_table_read(
-                fq_name_str=rt_fq_str)
+                fq_name_str=rt_fq_str, fields=['virtual_machine_interface_back_refs'])
         except NoIdError:
             return
 
         try:
-            vmi_list = rt_obj.get_virtual_machine_interface_back_refs()
+            vmi_list = getattr(rt_obj, "virtual_machine_interface_back_refs", None)
             if vmi_list is None:
                 self._vnc_lib.interface_route_table_delete(id=rt_obj.uuid)
         except NoIdError:
@@ -475,7 +475,7 @@ class SvcMonitor(object):
             st_obj = self._vnc_lib.service_template_read(
                 fq_name_str=st_fq_str)
             si_obj = self._vnc_lib.service_instance_read(
-                fq_name_str=si_fq_str)
+                fq_name_str=si_fq_str, fields=['virtual_machine_back_refs','loadbalancer_pool_back_refs'])
         except NoIdError:
             self.logger.log("No template or service instance with ids: %s, %s"
                             % (st_fq_str, si_fq_str))
@@ -490,7 +490,7 @@ class SvcMonitor(object):
 
         try:
             si_obj = self._vnc_lib.service_instance_read(
-                fq_name_str=si_fq_str)
+                fq_name_str=si_fq_str, fields=['virtual_machine_back_refs', 'loadbalancer_pool_back_refs'])
         except NoIdError:
             return
 
@@ -510,8 +510,8 @@ class SvcMonitor(object):
 
             try:
                 si_obj = self._vnc_lib.service_instance_read(
-                    fq_name_str=si_fq_str)
-                if si_obj.get_virtual_machine_back_refs():
+                    fq_name_str=si_fq_str, fields=['virtual_machine_back_refs','loadbalancer_pool_back_refs'])
+                if getattr(si_obj, "virtual_machine_back_refs", None):
                     continue
 
                 st_refs = si_obj.get_service_template_refs()
@@ -531,17 +531,17 @@ class SvcMonitor(object):
             fip_obj = self._vnc_lib.floating_ip_read(
                 fq_name_str=fip_fq_str)
             vmi_obj = self._vnc_lib.virtual_machine_interface_read(
-                fq_name_str=vmi_fq_str)
+                fq_name_str=vmi_fq_str, fields=['virtual_ip_back_refs', 'instance_ip_back_refs'])
         except NoIdError:
             return
 
         # handle only if VIP back ref exists
-        vip_back_refs = vmi_obj.get_virtual_ip_back_refs()
+        vip_back_refs = getattr(vmi_obj, "virtual_ip_back_refs", None)
         if vip_back_refs is None:
             return
 
         # associate fip to all VMIs
-        iip_back_refs = vmi_obj.get_instance_ip_back_refs()
+        iip_back_refs = getattr(vmi_obj, "instance_ip_back_refs", None)
         try:
             iip_obj = self._vnc_lib.instance_ip_read(
                 id=iip_back_refs[0]['uuid'])

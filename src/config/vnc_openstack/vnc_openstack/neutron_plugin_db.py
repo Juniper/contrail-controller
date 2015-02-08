@@ -1839,11 +1839,12 @@ class DBInterface(object):
             return None
 
         try:
-            si_obj = self._vnc_lib.service_instance_read(id=si_refs[0]['uuid'])
+            si_obj = self._vnc_lib.service_instance_read(id=si_refs[0]['uuid'], 
+                    fields=["logical_router_back_refs"])
         except NoIdError:
             return None
 
-        rtr_back_refs = si_obj.get_logical_router_back_refs()
+        rtr_back_refs = getattr(si_obj, "logical_router_back_refs", None)
         if not rtr_back_refs:
             return None
         return rtr_back_refs[0]['uuid']
