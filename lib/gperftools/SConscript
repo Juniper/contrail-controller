@@ -10,6 +10,7 @@ vpath = '#/third_party/gperftools-2.1'
 
 config_opts = '--prefix=' + str(Dir('#/build'))
 config_opts += ' --enable-frame-pointers'
+# config_opts += ' --enable-libunwind=no'
 # + ' enable_heap_checker=yes'
 #TODO: Either gpreftools should be taken in proper version or patch 
 #      should be applied via third_party repo, instead of this if

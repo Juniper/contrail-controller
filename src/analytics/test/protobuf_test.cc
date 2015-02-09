@@ -165,7 +165,7 @@ TEST_F(ProtobufReaderTest, Parse) {
     int serialized_sdm_data_size(0);
     CreateAndSerializeSelfDescribingMessage("TestMessage", sdm_data,
         sizeof(sdm_data), &serialized_sdm_data_size, d_desc_file_.c_str(),
-        data, serialized_data_size);
+        data, (size_t) serialized_data_size);
     // Parse the SelfDescribingMessage from sdm_data to get TestMessage
     protobuf::impl::ProtobufReader reader;
     Message *msg = NULL;
@@ -394,7 +394,7 @@ TEST_F(ProtobufStatWalkerTest, Basic) {
     int serialized_sdm_data_size(0);
     CreateAndSerializeSelfDescribingMessage("TestMessage", sdm_data,
         sizeof(sdm_data), &serialized_sdm_data_size, d_desc_file_.c_str(),
-        data, serialized_data_size);
+        data, (size_t) serialized_data_size);
     // Parse the SelfDescribingMessage from sdm_data to get TestMessage
     protobuf::impl::ProtobufReader reader;
     Message *msg = NULL;
@@ -452,7 +452,7 @@ class ProtobufServerStatsTest : public ::testing::Test {
     }
 
     virtual void SetUp() {
-        for (int i = 0; i < stats_tester_.exp_.size(); i++) {
+        for (size_t i = 0; i < stats_tester_.exp_.size(); i++) {
             match_.push_back(true);
         }
         evm_.reset(new EventManager());
@@ -514,7 +514,7 @@ TEST_F(ProtobufServerStatsTest, Basic) {
     int serialized_sdm_data_size(0);
     CreateAndSerializeSelfDescribingMessage("TestMessage", sdm_data,
         sizeof(sdm_data), &serialized_sdm_data_size, d_desc_file_.c_str(),
-        data, serialized_data_size);
+        data, (size_t) serialized_data_size);
     std::string snd(reinterpret_cast<const char *>(sdm_data),
         serialized_sdm_data_size);
     client_->Send(snd, server_endpoint);
@@ -619,13 +619,13 @@ TEST_F(ProtobufServerTest, MessageSize) {
     boost::scoped_array<uint8_t> sdm_data(new uint8_t[5120]);
     int serialized_sdm_data_size(0);
     CreateAndSerializeSelfDescribingMessage("TestMessageSize", sdm_data.get(),
-        5120, &serialized_sdm_data_size, d_desc_file_.c_str(),
-        data.get(), serialized_data_size);
+        5120, (int *) &serialized_sdm_data_size, d_desc_file_.c_str(),
+        data.get(), (size_t) serialized_data_size);
     std::string snd(reinterpret_cast<const char *>(sdm_data.get()),
         serialized_sdm_data_size);
     client_->Send(snd, server_endpoint);
     TASK_UTIL_EXPECT_EQ(client_->GetTxPackets(), 1);
-    TASK_UTIL_EXPECT_EQ(GetServerRxBytes(), serialized_sdm_data_size);
+    TASK_UTIL_EXPECT_EQ(GetServerRxBytes(), (size_t) serialized_sdm_data_size);
     // Compare statistics
     TASK_UTIL_EXPECT_EQ(1, GetServerReceivedMessageStatisticsSize());
     std::vector<SocketEndpointMessageStats> va_rx_msg_stats;
@@ -668,13 +668,13 @@ TEST_F(ProtobufServerTest, Drop) {
     boost::scoped_array<uint8_t> sdm_data(new uint8_t[1024]);
     int serialized_sdm_data_size(0);
     CreateAndSerializeSelfDescribingMessage("TestMessageSizeWrong",
-        sdm_data.get(), 1024, &serialized_sdm_data_size,
-        d_desc_file_.c_str(), data.get(), serialized_data_size);
+        sdm_data.get(), 1024, (int *) &serialized_sdm_data_size,
+        d_desc_file_.c_str(), data.get(), (size_t) serialized_data_size);
     std::string snd(reinterpret_cast<const char *>(sdm_data.get()),
         serialized_sdm_data_size);
     client_->Send(snd, server_endpoint);
     TASK_UTIL_EXPECT_EQ(client_->GetTxPackets(), 1);
-    TASK_UTIL_EXPECT_EQ(GetServerRxBytes(), serialized_sdm_data_size);
+    TASK_UTIL_EXPECT_EQ(GetServerRxBytes(), (size_t) serialized_sdm_data_size);
     // Compare statistics
     TASK_UTIL_EXPECT_EQ(1, GetServerReceivedMessageStatisticsSize());
     std::vector<SocketEndpointMessageStats> va_rx_msg_stats;

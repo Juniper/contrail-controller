@@ -345,7 +345,7 @@ class ReaderTestSession : public TcpSession {
   private:
     bool ReceiveMsg(const u_int8_t *msg, size_t size) {
         TCP_UT_LOG_DEBUG("ReceiveMsg: " << size << " bytes");
-        if (size < reader_->GetHeaderLenSize())
+        if (size < (size_t) reader_->GetHeaderLenSize())
             return false;
         sizes.push_back(size);
         return true;
