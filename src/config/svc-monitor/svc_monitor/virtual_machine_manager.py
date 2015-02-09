@@ -65,7 +65,7 @@ class VirtualMachineManager(InstanceManager):
             vm_obj.uuid = nova_vm.id
             self._vnc_lib.virtual_machine_create(vm_obj)
         except RefsExistError:
-            vm_obj = self._vnc_lib.virtual_machine_read(id=nova_vm.id)
+            vm_obj = self._vnc_lib.virtual_machine_read(id=nova_vm.id, fields=['virtual_machine_interface_back_refs', 'virtual_router_back_refs'])
 
         vm_obj.add_service_instance(si_obj)
         self._vnc_lib.virtual_machine_update(vm_obj)
@@ -100,7 +100,6 @@ class VirtualMachineManager(InstanceManager):
             avail_zone = self._args.availability_zone
 
         # create and launch vm
-        vm_back_refs = si_obj.get_virtual_machine_back_refs()
         proj_name = si_obj.get_parent_fq_name()[-1]
         max_instances = si_props.get_scale_out().get_max_instances()
         self.db.service_instance_insert(si_obj.get_fq_name_str(),
@@ -160,8 +159,8 @@ class VirtualMachineManager(InstanceManager):
     def check_service(self, si_obj, proj_name=None):
         status = 'ACTIVE'
         vm_list = {}
-        vm_back_refs = si_obj.get_virtual_machine_back_refs()
-        for vm_back_ref in vm_back_refs or []:
+        vm_back_refs = getattr(si_obj, "virtual_machine_back_refs", [])
+        for vm_back_ref in vm_back_refs:
             vm = self._nc.oper('servers', 'get', proj_name,
                                id=vm_back_ref['uuid'])
             if vm:
@@ -234,19 +233,19 @@ class VirtualMachineManager(InstanceManager):
 
     def delete_iip(self, vm_uuid):
         try:
-            vm_obj = self._vnc_lib.virtual_machine_read(id=vm_uuid)
+            vm_obj = self._vnc_lib.virtual_machine_read(id=vm_uuid, fields=['virtual_machine_interface_back_refs', 'virtual_router_back_refs'])
         except NoIdError:
             return
 
-        vmi_back_refs = vm_obj.get_virtual_machine_interface_back_refs()
+        vmi_back_refs = getattr(vm_obj, "virtual_machine_interface_back_refs", None)
         for vmi_back_ref in vmi_back_refs or []:
             try:
                 vmi_obj = self._vnc_lib.virtual_machine_interface_read(
-                    id=vmi_back_ref['uuid'])
+                    id=vmi_back_ref['uuid'], fields=['instance_ip_back_refs'])
             except NoIdError:
                 continue
 
-            iip_back_refs = vmi_obj.get_instance_ip_back_refs()
+            iip_back_refs = getattr(vmi_obj, "instance_ip_back_refs", None)
             for iip_back_ref in iip_back_refs or []:
                 try:
                     self._vnc_lib.instance_ip_delete(id=iip_back_ref['uuid'])
