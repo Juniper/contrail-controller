@@ -22,6 +22,11 @@ public:
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 
+    void AddDhcpRoute(const Peer *peer,
+                              const std::string &vrf_name,
+                              const MacAddress &mac,
+                              const IpAddress &ip,
+                              const VmInterface *vm_intf);
     void AddBridgeRoute(const AgentRoute *rt);
     static void AddBridgeBroadcastRoute(const Peer *peer,
                                         const std::string &vrf_name,
@@ -53,6 +58,12 @@ public:
                                    const std::string &vrf_name,
                                    uint32_t ethernet_tag);
     void DeleteBridgeRoute(const AgentRoute *rt);
+    void DeleteDhcpRoute(const Peer *peer,
+                                 const std::string &vrf_name,
+                                 const MacAddress &mac,
+                                 const IpAddress &ip,
+                                 const VmInterface *vm_intf);
+    const VmInterface *FindVmFromDhcpBinding(const MacAddress &mac) const;
     static BridgeRouteEntry *FindRoute(const Agent *agent,
                                        const std::string &vrf_name,
                                        const MacAddress &mac);
@@ -96,9 +107,23 @@ public:
                                         bool force_delete);
 
     const MacAddress &mac() const {return mac_;}
+    const AgentPath *FindV4DhcpPath(const MacAddress &mac) const {
+        return FindDhcpPathInternal(mac, true);
+    }
+    const AgentPath *FindV6DhcpPath(const MacAddress &mac) const {
+        return FindDhcpPathInternal(mac, false);
+    }
 
 private:
+    const AgentPath *FindDhcpPathInternal(const MacAddress &mac,
+                                          bool v4_search) const;
     bool ReComputeMulticastPaths(AgentPath *path, bool del);
+    AgentPath *FindDhcpPathUsingKeyData(const AgentRouteKey *key,
+                                                const AgentRouteData *data) const;
+    AgentPath *FindEvpnPathUsingKeyData(const AgentRouteKey *key,
+                                        const AgentRouteData *data) const;
+    AgentPath *FindMulticastPathUsingKeyData(const AgentRouteKey *key,
+                                             const AgentRouteData *data) const;
 
     MacAddress mac_;
     DISALLOW_COPY_AND_ASSIGN(BridgeRouteEntry);

@@ -17,7 +17,6 @@ class PathPreferenceModule;
 class IFMapDependencyManager;
 class MulticastHandler;
 class InstanceManager;
-class MacVmBinding;
 
 class OperDB {
 public:
