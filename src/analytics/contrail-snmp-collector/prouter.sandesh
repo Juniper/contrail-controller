@@ -159,6 +159,16 @@ struct LldpTable {
     2: optional list<LldpRemoteSystemsData> lldpRemoteSystemsData
 }
 
+struct dot1qTpFdbPortTable {
+    1: string mac
+    2: i32 dot1dBasePortIfIndex
+}
+
+struct dot1dBasePortIfIndexTable {
+    1: i32 dot1dBasePortIfIndex
+    2: i32 snmpIfIndex
+}
+
 struct PRouterEntry {
     1: string name (key="ObjectPRouter")
     2: optional bool deleted
@@ -168,6 +178,8 @@ struct PRouterEntry {
     6: optional list<IfXTable> ifXTable
     7: optional list<IfStats> ifStats (tags="name:.ifIndex")
     8: optional list<IpMib> ipMib
+    9: optional list<dot1qTpFdbPortTable> fdbPortTable
+    10: optional list<dot1dBasePortIfIndexTable> fdbPortIfIndexTable
 }
 
 uve sandesh PRouterUVE {
