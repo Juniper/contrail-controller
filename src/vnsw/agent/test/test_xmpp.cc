@@ -311,13 +311,17 @@ protected:
 
     void SendL2RouteMessage(ControlNodeMockBgpXmppPeer *peer, std::string vrf,
                           std::string mac_string, std::string address, int label, 
-                          const char *vn = "vn1", bool is_vxlan = false) {
+                          int ethernet_tag, const char *vn = "vn1",
+                          bool is_vxlan = false, const char *peer_ip = NULL) {
         xml_document xdoc;
         xml_node xitems = L2MessageHeader(&xdoc, vrf);
 
         autogen::EnetNextHopType item_nexthop;
         item_nexthop.af = 1;
-        item_nexthop.address = Agent::GetInstance()->router_id().to_string();
+        if (peer_ip == NULL) 
+            item_nexthop.address = Agent::GetInstance()->router_id().to_string();
+        else
+            item_nexthop.address = peer_ip;
         item_nexthop.label = label;
         if (is_vxlan) {
             item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.push_back("vxlan");
@@ -331,6 +335,7 @@ protected:
         item.entry.nlri.safi = 242;
         item.entry.nlri.mac = mac_string.c_str();
         item.entry.nlri.address = address.c_str();
+        item.entry.nlri.ethernet_tag = ethernet_tag;
 
         item.entry.next_hops.next_hop.push_back(item_nexthop);
 
@@ -341,16 +346,35 @@ protected:
         node.append_attribute("id") = node_str.c_str();
         item.Encode(&node);
 
+        int count = bgp_peer.get()->Count();
         SendDocument(xdoc, peer);
+        WAIT_FOR(1000, 100, (bgp_peer.get()->Count() > count));
+        client->WaitForIdle();
     }
     
-    void SendRouteDeleteMessage(ControlNodeMockBgpXmppPeer *peer, std::string vrf) {
+    void SendL2RouteMessage(ControlNodeMockBgpXmppPeer *peer,
+                            const string &vrf, const string &mac_string,
+                            const string &address, int ethernet_tag) {
+        stringstream ss;
+        ss << mac_string.c_str() << "," << address.c_str(); 
+        SendRouteDeleteMessage(peer, vrf, ss.str().c_str());
+    }
+
+    void SendRouteDeleteMessage(ControlNodeMockBgpXmppPeer *peer,
+                                const std::string &vrf, const char *str) {
         xml_document xdoc;
         xml_node xitems = MessageHeader(&xdoc, vrf);
         xml_node node = xitems.append_child("retract");
-        node.append_attribute("id") = "1.1.1.1/32";
-
+        node.append_attribute("id") = str;
+        int count = bgp_peer.get()->Count();
         SendDocument(xdoc, peer);
+        WAIT_FOR(1000, 100, (bgp_peer.get()->Count() > count));
+        client->WaitForIdle();
+    }
+
+    void SendRouteDeleteMessage(ControlNodeMockBgpXmppPeer *peer,
+                                const std::string &vrf) {
+        SendRouteDeleteMessage(peer, vrf, "1.1.1.1/32");
     }
 
     void SendL2RouteDeleteMessage(ControlNodeMockBgpXmppPeer *peer,
@@ -492,7 +516,7 @@ TEST_F(AgentXmppUnitTest, Connection) {
     SendRouteMessage(mock_peer.get(), "vrf1", "1.1.1.1/32",
                      MplsTable::kStartLabel);
     SendL2RouteMessage(mock_peer.get(), "vrf1", "00:00:00:01:01:01",
-                     "1.1.1.1/24", MplsTable::kStartLabel + 1);
+                     "1.1.1.1/24", MplsTable::kStartLabel + 1, 0);
     // Route reflected to vrf1; Ipv4 and L2
     WAIT_FOR(1000, 10000, (bgp_peer.get()->Count() == 2));
 
@@ -1003,7 +1027,8 @@ TEST_F(AgentXmppUnitTest, ConnectionUpDown) {
     SendRouteMessage(mock_peer.get(), "vrf1", "1.1.1.2/32",
                      MplsTable::kStartLabel);
     SendL2RouteMessage(mock_peer.get(), "vrf1", "00:00:00:01:01:02",
-                     "1.1.1.2/24", MplsTable::kStartLabel + 1);
+                     "1.1.1.2/24", MplsTable::kStartLabel + 1,
+                     l2_rt->GetActivePath()->GetActiveLabel());
     // Route reflected to vrf1
     WAIT_FOR(1000, 10000, (bgp_peer.get()->Count() == 2));
 
@@ -1354,7 +1379,6 @@ TEST_F(AgentXmppUnitTest, TransparentSISgList) {
 }
 
 TEST_F(AgentXmppUnitTest, vxlan_peer_l2route_add) {
-
     client->Reset();
     AddEncapList("VXLAN", "MPLSoGRE", "MPLSoUDP");
     client->WaitForIdle();
@@ -1388,8 +1412,11 @@ TEST_F(AgentXmppUnitTest, vxlan_peer_l2route_add) {
     //Create vn,vrf,vm,vm-port and route entry in vrf1
     CreateVmportEnv(input, 1);
     //expect subscribe message+route at the mock server
-    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 6));
+    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 9));
     client->WaitForIdle();
+
+    VmInterface *vmi = static_cast<VmInterface *>(VmPortGet(2));
+    EXPECT_TRUE(vmi != NULL);
 
     Ip4Address addr = Ip4Address::from_string("1.1.1.2");
     EXPECT_TRUE(VmPortActive(input, 0));
@@ -1400,19 +1427,24 @@ TEST_F(AgentXmppUnitTest, vxlan_peer_l2route_add) {
     const MacAddress mac("00:00:00:01:01:02");
     EXPECT_TRUE(L2RouteFind("vrf1", mac));
     BridgeRouteEntry *l2_rt = L2RouteGet("vrf1", mac);
+    EvpnRouteEntry *evpn_rt = EvpnRouteGet("vrf1", mac, addr,
+                                           vmi->ethernet_tag());
+    EXPECT_TRUE(evpn_rt != NULL);
 
     //ensure active path is local-vm
     EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER);
-    EXPECT_TRUE(l2_rt->GetActivePath()->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER);
+    EXPECT_EQ(evpn_rt->GetActivePath()->peer()->GetType(), Peer::LOCAL_VM_PORT_PEER);
+    EXPECT_TRUE(l2_rt->GetActivePath()->peer()->GetType() == Peer::EVPN_PEER);
     uint32_t vxlan_id = l2_rt->GetActivePath()->vxlan_id();
     EXPECT_TRUE(vxlan_id != VxLanTable::kInvalidvxlan_id);
 
     // Send route, back to vrf1
     SendL2RouteMessage(mock_peer.get(), "vrf1", "00:00:00:01:01:02",
-                     "1.1.1.2/24", l2_rt->GetActivePath()->vxlan_id(),
-                     "vn1", true);
+                     "1.1.1.2/32", l2_rt->GetActivePath()->label(),
+                     vmi->ethernet_tag(), "vn1", true);
     // Route reflected to vrf1
-    WAIT_FOR(1000, 1000, (l2_rt->GetPathList().size() == 2));
+    WAIT_FOR(1000, 1000, (l2_rt->GetPathList().size() == 1));
+    WAIT_FOR(1000, 1000, (evpn_rt->GetPathList().size() == 2));
     client->WaitForIdle();
     int path_count = 0;
     for (Route::PathList::const_iterator it = l2_rt->GetPathList().begin();
@@ -1420,9 +1452,9 @@ TEST_F(AgentXmppUnitTest, vxlan_peer_l2route_add) {
         path_count++;
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
         EXPECT_TRUE(path != NULL);
-        EXPECT_TRUE(path->vxlan_id() == vxlan_id);
+        EXPECT_TRUE(path->vxlan_id() == vmi->l2_label());
     }
-    ASSERT_TRUE(path_count == 2);
+    ASSERT_TRUE(path_count == 1);
 
     client->WaitForIdle(5);
 
@@ -1497,6 +1529,7 @@ TEST_F(AgentXmppUnitTest, vxlan_l2route_vrf_delete_without_deleting_vm) {
     // Send route, back to vrf1
     SendL2RouteMessage(mock_peer.get(), "vrf1", "00:00:00:01:01:02",
                      "1.1.1.2/24", l2_rt->GetActivePath()->vxlan_id(),
+                     l2_rt->GetActivePath()->GetActiveLabel(),
                      "vn1", true);
     // Route reflected to vrf1
     WAIT_FOR(1000, 1000, (l2_rt->GetPathList().size() == 2));
@@ -1588,6 +1621,7 @@ TEST_F(AgentXmppUnitTest, vxlan_l2route_peer_down_before_vrf_delete) {
     // Send route, back to vrf1
     SendL2RouteMessage(mock_peer.get(), "vrf1", "00:00:00:01:01:02",
                      "1.1.1.2/24", l2_rt->GetActivePath()->vxlan_id(),
+                     l2_rt->GetActivePath()->GetActiveLabel(),
                      "vn1", true);
     // Route reflected to vrf1
     WAIT_FOR(1000, 1000, (l2_rt->GetPathList().size() == 2));
@@ -1688,6 +1722,7 @@ TEST_F(AgentXmppUnitTest, mpls_peer_l2route_add) {
     // Send route, back to vrf1
     SendL2RouteMessage(mock_peer.get(), "vrf1", "00:00:00:01:01:02",
                      "1.1.1.2/24", l2_rt->GetActivePath()->label(),
+                     l2_rt->GetActivePath()->GetActiveLabel(),
                      "vn1", false);
     // Route reflected to vrf1
     WAIT_FOR(1000, 1000, (l2_rt->GetPathList().size() == 2));
@@ -1717,6 +1752,130 @@ TEST_F(AgentXmppUnitTest, mpls_peer_l2route_add) {
     Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
     TaskScheduler::GetInstance()->Start();
     client->WaitForIdle();
+
+    EXPECT_FALSE(DBTableFind("vrf1.uc.route.0"));
+    EXPECT_FALSE(DBTableFind("vrf1.l2.route.0"));
+    EXPECT_FALSE(VrfFind("vrf1"));
+    xc->ConfigUpdate(new XmppConfigData());
+    client->WaitForIdle(5);
+}
+
+// On VM migration, route changes from tunne-nh to local-nh
+TEST_F(AgentXmppUnitTest, bgp_peer_route_update) {
+    client->Reset();
+    AddEncapList("VXLAN", "MPLSoGRE", "MPLSoUDP");
+    client->WaitForIdle();
+
+    XmppConnectionSetUp();
+    //wait for connection establishment
+    WAIT_FOR(1000, 10000, (sconnection->GetStateMcState() == xmsm::ESTABLISHED));
+    WAIT_FOR(1000, 10000, (cchannel->GetPeerState() == xmps::READY));
+
+    //Mock Sandesh request
+    AgentXmppConnectionStatusReq  *xmpp_req = new AgentXmppConnectionStatusReq();
+    std::vector<string> result;
+    result.push_back("127.0.0.1");
+    result.push_back("Yes");
+    result.push_back("Established");
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    xmpp_req->HandleRequest();
+    client->WaitForIdle();
+    xmpp_req->Release();
+
+    VxLanNetworkIdentifierMode(false);
+    client->WaitForIdle();
+
+    //expect subscribe for __default__ at the mock server
+    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 1));
+
+    Ip4Address addr = Ip4Address::from_string("1.1.1.2");
+    const MacAddress mac("00:00:00:01:01:02");
+    uint32_t ethernet_tag = 0;
+
+    AddVrf("vrf1", 1);
+    client->WaitForIdle();
+
+    // Add remote route with 5.5.5.5 as peer first
+    SendL2RouteMessage(mock_peer.get(), "vrf1", "00:00:00:01:01:02",
+                       "1.1.1.2/32", 100, ethernet_tag, "vn1", true, "5.5.5.5");
+
+    // Validate route with tunnel-nh is added
+    WAIT_FOR(1000, 1000,
+             (EvpnRouteGet("vrf1", mac, addr, ethernet_tag) != NULL));
+    EvpnRouteEntry *evpn_rt = EvpnRouteGet("vrf1", mac, addr, ethernet_tag);
+    EXPECT_TRUE(evpn_rt != NULL);
+
+    EXPECT_TRUE(evpn_rt->GetPathList().size() == 1);
+    const AgentPath *path = evpn_rt->GetActivePath();
+    EXPECT_TRUE(path->peer()->GetType() == Peer::BGP_PEER);
+    EXPECT_TRUE(path->nexthop()->GetType() == NextHop::TUNNEL);
+
+    // Validate bridge-route also
+    BridgeRouteEntry *l2_rt = L2RouteGet("vrf1", mac);
+    EXPECT_TRUE(l2_rt != NULL);
+    path = l2_rt->GetActivePath();
+    EXPECT_TRUE(path->nexthop()->GetType() == NextHop::TUNNEL);
+
+    // Create vm-port in vn1
+    struct PortInfo input[] = {
+        {"vnet2", 2, "1.1.1.2", "00:00:00:01:01:02", 1, 2},
+    };
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    WAIT_FOR(1000, 100, (VmPortActive(input, 0)));
+    VmInterface *vmi = static_cast<VmInterface *>(VmPortGet(2));
+    EXPECT_TRUE(vmi != NULL);
+    ethernet_tag = vmi->ethernet_tag();
+
+    // Ensure local path route is added
+    EXPECT_TRUE((evpn_rt->FindLocalVmPortPath() != NULL));
+
+    // Active path does not change since BGP Path is of higher priority
+    EXPECT_EQ(evpn_rt->GetActivePath()->peer()->GetType(), Peer::BGP_PEER);
+    EXPECT_TRUE(l2_rt->GetActivePath()->peer()->GetType() == Peer::EVPN_PEER);
+
+    // Active NH does not change since BGP route is not yet updated
+    WAIT_FOR(1000, 1000,
+             (evpn_rt->GetActiveNextHop()->GetType() == NextHop::TUNNEL));
+    WAIT_FOR(1000, 1000,
+             (l2_rt->GetActiveNextHop()->GetType() == NextHop::TUNNEL));
+
+    // Route from BGP with VHOST as tunnel-destination this time
+    SendL2RouteMessage(mock_peer.get(), "vrf1", "00:00:00:01:01:02",
+                       "1.1.1.2/32", l2_rt->GetActivePath()->label(),
+                       ethernet_tag, "vn1", true);
+
+    // Verify that route is reflected to vrf1
+    EXPECT_TRUE(l2_rt->GetPathList().size() == 1);
+    EXPECT_TRUE(evpn_rt->GetPathList().size() == 2);
+    client->WaitForIdle();
+
+    // Active NH should change to interface-nh
+    path = evpn_rt->GetActivePath();
+    WAIT_FOR(1000, 1000,
+             (evpn_rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE));
+    WAIT_FOR(1000, 1000,
+             (l2_rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE));
+
+    //Delete vm-port and route entry in vrf1
+    DeleteVmportEnv(input, 1, true);
+    WAIT_FOR(1000, 1000, !RouteFind("vrf1", addr, 32));
+    WAIT_FOR(1000, 1000, (VmPortFind(input, 0) == false));
+    client->WaitForIdle();
+    DelEncapList();
+    client->WaitForIdle();
+
+    SendRouteDeleteMessage(mock_peer.get(), "vrf1");
+    //Confirm Vmport is deleted
+    EXPECT_FALSE(VmPortFind(input, 0));
+
+    TaskScheduler::GetInstance()->Stop();
+    Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
+    TaskScheduler::GetInstance()->Start();
+    client->WaitForIdle();
+
+    WAIT_FOR(1000, 1000, (agent_->vn_table()->Size() == 0));
 
     EXPECT_FALSE(DBTableFind("vrf1.uc.route.0"));
     EXPECT_FALSE(DBTableFind("vrf1.l2.route.0"));
