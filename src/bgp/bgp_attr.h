@@ -223,8 +223,19 @@ struct PmsiTunnelSpec : public BgpAttribute {
 
 class PmsiTunnel {
 public:
-    explicit PmsiTunnel(const PmsiTunnelSpec &pmsi_spec);
+    PmsiTunnel(PmsiTunnelDB *pmsi_tunnel_db, const PmsiTunnelSpec &pmsi_spec);
+    virtual void Remove();
+    int CompareTo(const PmsiTunnel &rhs) const {
+        return pmsi_spec_.CompareTo(rhs.pmsi_tunnel());
+    }
+
     const PmsiTunnelSpec &pmsi_tunnel() const { return pmsi_spec_; }
+
+    friend std::size_t hash_value(const PmsiTunnel &pmsi_tunnel) {
+        size_t hash = 0;
+        boost::hash_combine(hash, pmsi_tunnel.pmsi_tunnel().ToString());
+        return hash;
+    }
 
     uint8_t tunnel_flags;
     uint8_t tunnel_type;
@@ -232,25 +243,48 @@ public:
     Ip4Address identifier;
 
 private:
-    friend void intrusive_ptr_add_ref(PmsiTunnel *pmsi_tunnel);
-    friend void intrusive_ptr_release(PmsiTunnel *pmsi_tunnel);
+    friend int intrusive_ptr_add_ref(const PmsiTunnel *cpmsi_tunnel);
+    friend int intrusive_ptr_del_ref(const PmsiTunnel *cpmsi_tunnel);
+    friend void intrusive_ptr_release(const PmsiTunnel *cpmsi_tunnel);
 
-    tbb::atomic<int> refcount_;
+    mutable tbb::atomic<int> refcount_;
+    PmsiTunnelDB *pmsi_tunnel_db_;
     PmsiTunnelSpec pmsi_spec_;
 };
 
-inline void intrusive_ptr_add_ref(PmsiTunnel *pmsi_tunnel) {
-    pmsi_tunnel->refcount_.fetch_and_increment();
+inline int intrusive_ptr_add_ref(const PmsiTunnel *cpmsi_tunnel) {
+    return cpmsi_tunnel->refcount_.fetch_and_increment();
 }
 
-inline void intrusive_ptr_release(PmsiTunnel *pmsi_tunnel) {
-    int prev = pmsi_tunnel->refcount_.fetch_and_decrement();
+inline int intrusive_ptr_del_ref(const PmsiTunnel *cpmsi_tunnel) {
+    return cpmsi_tunnel->refcount_.fetch_and_decrement();
+}
+
+inline void intrusive_ptr_release(const PmsiTunnel *cpmsi_tunnel) {
+    int prev = cpmsi_tunnel->refcount_.fetch_and_decrement();
     if (prev == 1) {
+        PmsiTunnel *pmsi_tunnel = const_cast<PmsiTunnel *>(cpmsi_tunnel);
+        pmsi_tunnel->Remove();
+        assert(pmsi_tunnel->refcount_ == 0);
         delete pmsi_tunnel;
     }
 }
 
 typedef boost::intrusive_ptr<PmsiTunnel> PmsiTunnelPtr;
+
+struct PmsiTunnelCompare {
+    bool operator()(const PmsiTunnel *lhs, const PmsiTunnel *rhs) {
+        return lhs->CompareTo(*rhs) < 0;
+    }
+};
+
+class PmsiTunnelDB : public BgpPathAttributeDB<PmsiTunnel, PmsiTunnelPtr,
+                                               PmsiTunnelSpec,
+                                               PmsiTunnelCompare,
+                                               PmsiTunnelDB> {
+public:
+    explicit PmsiTunnelDB(BgpServer *server);
+};
 
 struct EdgeDiscoverySpec : public BgpAttribute {
     static const int kSize = -1;

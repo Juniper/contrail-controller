@@ -28,10 +28,17 @@ protected:
           aspath_db_(server_.aspath_db()),
           comm_db_(server_.comm_db()),
           extcomm_db_(server_.extcomm_db()),
-          ovnpath_db_(server_.ovnpath_db()) {
+          ovnpath_db_(server_.ovnpath_db()),
+          pmsi_tunnel_db_(server_.pmsi_tunnel_db()) {
     }
 
     void TearDown() {
+        EXPECT_EQ(0, attr_db_->Size());
+        EXPECT_EQ(0, aspath_db_->Size());
+        EXPECT_EQ(0, comm_db_->Size());
+        EXPECT_EQ(0, extcomm_db_->Size());
+        EXPECT_EQ(0, ovnpath_db_->Size());
+        EXPECT_EQ(0, pmsi_tunnel_db_->Size());
         server_.Shutdown();
         task_util::WaitForIdle();
     }
@@ -43,6 +50,7 @@ protected:
     CommunityDB *comm_db_;
     ExtCommunityDB *extcomm_db_;
     OriginVnPathDB *ovnpath_db_;
+    PmsiTunnelDB *pmsi_tunnel_db_;
 };
 
 TEST_F(BgpAttrTest, UnknownCode) {
@@ -740,12 +748,92 @@ TEST_F(BgpAttrTest, ParamsToString) {
         params_spec.ToString());
 }
 
-TEST_F(BgpAttrTest, PmsiTunnel1) {
+TEST_F(BgpAttrTest, PmsiTunnelSpec) {
     PmsiTunnelSpec pmsi_spec;
     EXPECT_EQ(0, pmsi_spec.identifier.size());
     EXPECT_EQ(BgpAttribute::PmsiTunnel, pmsi_spec.code);
     EXPECT_EQ(BgpAttribute::Optional | BgpAttribute::Transitive,
         pmsi_spec.flags);
+}
+
+TEST_F(BgpAttrTest, PmsiTunnelSpecCompareTo1a) {
+    PmsiTunnelSpec pmsi_spec1;
+    PmsiTunnelSpec pmsi_spec2;
+    EXPECT_EQ(0, pmsi_spec1.CompareTo(pmsi_spec2));
+    EXPECT_EQ(0, pmsi_spec2.CompareTo(pmsi_spec1));
+}
+
+TEST_F(BgpAttrTest, PmsiTunnelSpecCompareTo1b) {
+    PmsiTunnelSpec pmsi_spec1;
+    PmsiTunnelSpec pmsi_spec2;
+    error_code ec;
+    pmsi_spec1.tunnel_flags = PmsiTunnelSpec::EdgeReplicationSupported;
+    pmsi_spec1.tunnel_type = PmsiTunnelSpec::IngressReplication;
+    pmsi_spec1.label = 999;
+    pmsi_spec1.SetIdentifier(Ip4Address::from_string("10.1.1.1", ec));
+    pmsi_spec2.tunnel_flags = PmsiTunnelSpec::EdgeReplicationSupported;
+    pmsi_spec2.tunnel_type = PmsiTunnelSpec::IngressReplication;
+    pmsi_spec2.label = 999;
+    pmsi_spec2.SetIdentifier(Ip4Address::from_string("10.1.1.1", ec));
+    EXPECT_EQ(0, pmsi_spec1.CompareTo(pmsi_spec2));
+    EXPECT_EQ(0, pmsi_spec2.CompareTo(pmsi_spec1));
+}
+
+TEST_F(BgpAttrTest, PmsiTunnelSpecCompareTo2a) {
+    PmsiTunnelSpec pmsi_spec1;
+    PmsiTunnelSpec pmsi_spec2;
+    pmsi_spec1.tunnel_flags = PmsiTunnelSpec::ARLeaf;
+    pmsi_spec2.tunnel_flags = PmsiTunnelSpec::ARReplicator;
+    EXPECT_NE(0, pmsi_spec1.CompareTo(pmsi_spec2));
+    EXPECT_NE(0, pmsi_spec2.CompareTo(pmsi_spec1));
+}
+
+TEST_F(BgpAttrTest, PmsiTunnelSpecCompareTo2b) {
+    PmsiTunnelSpec pmsi_spec1;
+    PmsiTunnelSpec pmsi_spec2;
+    pmsi_spec1.tunnel_type = PmsiTunnelSpec::IngressReplication;
+    pmsi_spec2.tunnel_type = PmsiTunnelSpec::AssistedReplicationContrail;
+    EXPECT_NE(0, pmsi_spec1.CompareTo(pmsi_spec2));
+    EXPECT_NE(0, pmsi_spec2.CompareTo(pmsi_spec1));
+}
+
+TEST_F(BgpAttrTest, PmsiTunnelSpecCompareTo2c) {
+    PmsiTunnelSpec pmsi_spec1;
+    PmsiTunnelSpec pmsi_spec2;
+    pmsi_spec1.label = 1001;
+    pmsi_spec2.label = 2002;
+    EXPECT_NE(0, pmsi_spec1.CompareTo(pmsi_spec2));
+    EXPECT_NE(0, pmsi_spec2.CompareTo(pmsi_spec1));
+}
+
+TEST_F(BgpAttrTest, PmsiTunnelSpecCompareTo2d) {
+    PmsiTunnelSpec pmsi_spec1;
+    PmsiTunnelSpec pmsi_spec2;
+    error_code ec;
+    pmsi_spec1.SetIdentifier(Ip4Address::from_string("10.1.1.1", ec));
+    pmsi_spec2.SetIdentifier(Ip4Address::from_string("10.1.1.2", ec));
+    EXPECT_NE(0, pmsi_spec1.CompareTo(pmsi_spec2));
+    EXPECT_NE(0, pmsi_spec2.CompareTo(pmsi_spec1));
+}
+
+TEST_F(BgpAttrTest, PmsiTunnelSpecToString1) {
+    PmsiTunnelSpec pmsi_spec;
+    EXPECT_EQ("PmsiTunnel <code: 22, flags: 0xc0>"
+              " Tunnel Flags: 0x0 Tunnel Type: 0 Label: 0 Identifier: 0.0.0.0",
+        pmsi_spec.ToString());
+}
+
+TEST_F(BgpAttrTest, PmsiTunnelSpecToString2) {
+    PmsiTunnelSpec pmsi_spec;
+    pmsi_spec.tunnel_flags = PmsiTunnelSpec::EdgeReplicationSupported;
+    pmsi_spec.tunnel_type = PmsiTunnelSpec::IngressReplication;
+    pmsi_spec.SetLabel(10000);
+    error_code ec;
+    pmsi_spec.SetIdentifier(Ip4Address::from_string("10.1.1.1", ec));
+    EXPECT_EQ("PmsiTunnel <code: 22, flags: 0xc0>"
+              " Tunnel Flags: 0x80 Tunnel Type: 6 Label: 10000"
+              " Identifier: 10.1.1.1",
+        pmsi_spec.ToString());
 }
 
 TEST_F(BgpAttrTest, PmsiTunnel2) {
@@ -842,32 +930,109 @@ TEST_F(BgpAttrTest, PmsiTunnel6) {
     EXPECT_EQ(2, attr_db_->Size());
 }
 
-TEST_F(BgpAttrTest, PmsiTunnelSpecCompareTo) {
+TEST_F(BgpAttrTest, PmsiTunnel7) {
+    BgpAttrSpec attr_spec1;
     PmsiTunnelSpec pmsi_spec1;
-    PmsiTunnelSpec pmsi_spec2;
-    EXPECT_EQ(0, pmsi_spec1.CompareTo(pmsi_spec1));
-    EXPECT_NE(0, pmsi_spec1.CompareTo(pmsi_spec2));
-    EXPECT_NE(0, pmsi_spec2.CompareTo(pmsi_spec1));
-}
-
-TEST_F(BgpAttrTest, PmsiTunnelSpecToString1) {
-    PmsiTunnelSpec pmsi_spec;
-    EXPECT_EQ("PmsiTunnel <code: 22, flags: 0xc0>"
-              " Tunnel Flags: 0x0 Tunnel Type: 0 Label: 0 Identifier: 0.0.0.0",
-        pmsi_spec.ToString());
-}
-
-TEST_F(BgpAttrTest, PmsiTunnelSpecToString2) {
-    PmsiTunnelSpec pmsi_spec;
-    pmsi_spec.tunnel_flags = PmsiTunnelSpec::EdgeReplicationSupported;
-    pmsi_spec.tunnel_type = PmsiTunnelSpec::IngressReplication;
-    pmsi_spec.SetLabel(10000);
+    pmsi_spec1.tunnel_flags = PmsiTunnelSpec::EdgeReplicationSupported;
+    pmsi_spec1.tunnel_type = PmsiTunnelSpec::IngressReplication;
+    pmsi_spec1.SetLabel(10000);
     error_code ec;
-    pmsi_spec.SetIdentifier(Ip4Address::from_string("10.1.1.1", ec));
-    EXPECT_EQ("PmsiTunnel <code: 22, flags: 0xc0>"
-              " Tunnel Flags: 0x80 Tunnel Type: 6 Label: 10000"
-              " Identifier: 10.1.1.1",
-        pmsi_spec.ToString());
+    pmsi_spec1.SetIdentifier(Ip4Address::from_string("10.1.1.1", ec));
+    attr_spec1.push_back(&pmsi_spec1);
+    BgpAttrPtr attr1 = attr_db_->Locate(attr_spec1);
+
+    BgpAttrSpec attr_spec2;
+    PmsiTunnelSpec pmsi_spec2 = pmsi_spec1;
+    attr_spec2.push_back(&pmsi_spec2);
+    BgpAttrPtr attr2 = attr_db_->Locate(attr_spec2);
+
+    EXPECT_EQ(attr1, attr2);
+    EXPECT_EQ(0, attr1->CompareTo(*attr2));
+    EXPECT_EQ(1, attr_db_->Size());
+}
+
+TEST_F(BgpAttrTest, PmsiTunnel8) {
+    PmsiTunnelSpec pmsi_spec1;
+    pmsi_spec1.tunnel_flags = PmsiTunnelSpec::EdgeReplicationSupported;
+    pmsi_spec1.tunnel_type = PmsiTunnelSpec::IngressReplication;
+    pmsi_spec1.SetLabel(10000);
+    error_code ec;
+    pmsi_spec1.SetIdentifier(Ip4Address::from_string("10.1.1.1", ec));
+    PmsiTunnelPtr pmsi_tunnel1 = pmsi_tunnel_db_->Locate(pmsi_spec1);
+    PmsiTunnelSpec pmsi_spec2 = pmsi_spec1;
+    PmsiTunnelPtr pmsi_tunnel2 = pmsi_tunnel_db_->Locate(pmsi_spec2);
+
+    EXPECT_EQ(pmsi_tunnel1, pmsi_tunnel2);
+    EXPECT_EQ(0, pmsi_tunnel1->CompareTo(*pmsi_tunnel2));
+    EXPECT_EQ(1, pmsi_tunnel_db_->Size());
+}
+
+TEST_F(BgpAttrTest, PmsiTunnel9a) {
+    PmsiTunnelSpec pmsi_spec1;
+    pmsi_spec1.tunnel_flags = PmsiTunnelSpec::EdgeReplicationSupported;
+    pmsi_spec1.tunnel_type = PmsiTunnelSpec::IngressReplication;
+    pmsi_spec1.SetLabel(10000);
+    error_code ec;
+    pmsi_spec1.SetIdentifier(Ip4Address::from_string("10.1.1.1", ec));
+    PmsiTunnelPtr pmsi_tunnel1 = pmsi_tunnel_db_->Locate(pmsi_spec1);
+    PmsiTunnelSpec pmsi_spec2 = pmsi_spec1;
+    pmsi_spec2.tunnel_flags = PmsiTunnelSpec::LeafInfoRequired;
+    PmsiTunnelPtr pmsi_tunnel2 = pmsi_tunnel_db_->Locate(pmsi_spec2);
+
+    EXPECT_NE(pmsi_tunnel1, pmsi_tunnel2);
+    EXPECT_NE(0, pmsi_tunnel1->CompareTo(*pmsi_tunnel2));
+    EXPECT_EQ(2, pmsi_tunnel_db_->Size());
+}
+
+TEST_F(BgpAttrTest, PmsiTunnel9b) {
+    PmsiTunnelSpec pmsi_spec1;
+    pmsi_spec1.tunnel_flags = PmsiTunnelSpec::EdgeReplicationSupported;
+    pmsi_spec1.tunnel_type = PmsiTunnelSpec::IngressReplication;
+    pmsi_spec1.SetLabel(10000);
+    error_code ec;
+    pmsi_spec1.SetIdentifier(Ip4Address::from_string("10.1.1.1", ec));
+    PmsiTunnelPtr pmsi_tunnel1 = pmsi_tunnel_db_->Locate(pmsi_spec1);
+    PmsiTunnelSpec pmsi_spec2 = pmsi_spec1;
+    pmsi_spec2.tunnel_type = PmsiTunnelSpec::AssistedReplicationContrail;
+    PmsiTunnelPtr pmsi_tunnel2 = pmsi_tunnel_db_->Locate(pmsi_spec2);
+
+    EXPECT_NE(pmsi_tunnel1, pmsi_tunnel2);
+    EXPECT_NE(0, pmsi_tunnel1->CompareTo(*pmsi_tunnel2));
+    EXPECT_EQ(2, pmsi_tunnel_db_->Size());
+}
+
+TEST_F(BgpAttrTest, PmsiTunnel9c) {
+    PmsiTunnelSpec pmsi_spec1;
+    pmsi_spec1.tunnel_flags = PmsiTunnelSpec::EdgeReplicationSupported;
+    pmsi_spec1.tunnel_type = PmsiTunnelSpec::IngressReplication;
+    pmsi_spec1.SetLabel(10000);
+    error_code ec;
+    pmsi_spec1.SetIdentifier(Ip4Address::from_string("10.1.1.1", ec));
+    PmsiTunnelPtr pmsi_tunnel1 = pmsi_tunnel_db_->Locate(pmsi_spec1);
+    PmsiTunnelSpec pmsi_spec2 = pmsi_spec1;
+    pmsi_spec2.SetLabel(20000);
+    PmsiTunnelPtr pmsi_tunnel2 = pmsi_tunnel_db_->Locate(pmsi_spec2);
+
+    EXPECT_NE(pmsi_tunnel1, pmsi_tunnel2);
+    EXPECT_NE(0, pmsi_tunnel1->CompareTo(*pmsi_tunnel2));
+    EXPECT_EQ(2, pmsi_tunnel_db_->Size());
+}
+
+TEST_F(BgpAttrTest, PmsiTunnel9d) {
+    PmsiTunnelSpec pmsi_spec1;
+    pmsi_spec1.tunnel_flags = PmsiTunnelSpec::EdgeReplicationSupported;
+    pmsi_spec1.tunnel_type = PmsiTunnelSpec::IngressReplication;
+    pmsi_spec1.SetLabel(10000);
+    error_code ec;
+    pmsi_spec1.SetIdentifier(Ip4Address::from_string("10.1.1.1", ec));
+    PmsiTunnelPtr pmsi_tunnel1 = pmsi_tunnel_db_->Locate(pmsi_spec1);
+    PmsiTunnelSpec pmsi_spec2 = pmsi_spec1;
+    pmsi_spec2.SetIdentifier(Ip4Address::from_string("10.1.1.2", ec));
+    PmsiTunnelPtr pmsi_tunnel2 = pmsi_tunnel_db_->Locate(pmsi_spec2);
+
+    EXPECT_NE(pmsi_tunnel1, pmsi_tunnel2);
+    EXPECT_NE(0, pmsi_tunnel1->CompareTo(*pmsi_tunnel2));
+    EXPECT_EQ(2, pmsi_tunnel_db_->Size());
 }
 
 TEST_F(BgpAttrTest, EdgeDiscovery1) {
@@ -1384,6 +1549,11 @@ TEST_F(BgpAttrTest, ExtCommunityDBConcurrency) {
 TEST_F(BgpAttrTest, OriginVnPathDBConcurrency) {
     ConcurrencyTest<OriginVnPath, OriginVnPathPtr, OriginVnPathDB,
                     OriginVnPathSpec>(ovnpath_db_);
+}
+
+TEST_F(BgpAttrTest, PmsiTunnelDBConcurrency) {
+    ConcurrencyTest<PmsiTunnel, PmsiTunnelPtr, PmsiTunnelDB,
+                    PmsiTunnelSpec>(pmsi_tunnel_db_);
 }
 
 static void SetUp() {
