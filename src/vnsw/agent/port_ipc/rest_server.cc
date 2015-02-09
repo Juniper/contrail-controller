@@ -20,14 +20,17 @@
 
 void RESTServer::VmPortPostHandler(const struct RESTData& data) {
     PortIpcHandler pih(agent_);
-    pih.AddPortFromJson(data.request->Body());
-    REST::SendResponse(data.session, "{}");
+    if (pih.AddPortFromJson(data.request->Body(), false)) {
+        REST::SendResponse(data.session, "{}");
+    } else {
+        REST::SendErrorResponse(data.session, "{}");
+    }
 }
 
 void RESTServer::VmPortDeleteHandler(const struct RESTData& data) {
     const std::string& port_id = (*data.match)[1];
     PortIpcHandler pih(agent_);
-    pih.DeletePort(port_id);
+    pih.DeletePort(port_id, data.request->Body());
     REST::SendResponse(data.session, "{}");
 }
 

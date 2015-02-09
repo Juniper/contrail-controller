@@ -109,6 +109,7 @@ public:
 
     void Init();
     void Shutdown();
+    virtual bool InterfaceExists(const std::string &name) = 0;
     bool IsValidLinkLocalAddress(const Ip4Address &addr) const;
     void Enqueue(Event *event);
     uint32_t GetHostInterfaceCount() const {

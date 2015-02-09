@@ -626,3 +626,6 @@ void VnswInterfaceListenerFreeBSD::UpdateLinkLocalRoute(
     }
 }
 
+bool VnswInterfaceListenerLinux::InterfaceExists(const std::string &name) {
+    return true;
+}

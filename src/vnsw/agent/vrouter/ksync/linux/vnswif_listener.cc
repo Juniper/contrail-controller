@@ -8,6 +8,7 @@
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <ifaddrs.h>
+#include <net/if.h>
 
 #include <base/logging.h>
 #include <base/util.h>
@@ -379,4 +380,12 @@ int VnswInterfaceListenerLinux::NlMsgDecode(struct nlmsghdr *nl,
         }
     }
     return 0;
+}
+
+bool VnswInterfaceListenerLinux::InterfaceExists(const std::string &name) {
+    int indx  = if_nametoindex(name.c_str());
+    if (indx == 0) {
+        return false;
+    }
+    return true;
 }

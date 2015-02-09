@@ -15,6 +15,7 @@ class VnswInterfaceListenerFreeBSD : public VnswInterfaceListenerBase {
 public:
     VnswInterfaceListenerFreeBSD(Agent *agent);
     virtual ~VnswInterfaceListenerFreeBSD();
+    virtual bool InterfaceExists(const std::string &name);
 
 private:
     friend class TestVnswIf;

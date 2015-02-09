@@ -22,7 +22,7 @@ class PortIpcTest : public ::testing::Test {
      Agent *agent() { return agent_; }
      void AddPort(const PortIpcHandler &pih,
              const PortIpcHandler::AddPortParams &req) {
-         pih.AddPort(req);
+         pih.AddPort(req, false);
      }
      bool IsUUID(const PortIpcHandler &pih, const string &file) {
          return pih.IsUUID(file);
@@ -44,7 +44,7 @@ class PortIpcTest : public ::testing::Test {
              if (!IsUUID(pih, p.filename().string())) {
                  continue;
              }
-             pih.DeletePort(p.filename().string());
+             pih.DeletePort(p.filename().string(), "");
          }
      }
 
@@ -63,18 +63,18 @@ TEST_F(PortIpcTest, Port_Add_Del) {
         "ea73b285-01a7-4d3e-8322-50976e8913db",
         "fa73b285-01a7-4d3e-8322-50976e8913de",
         "b02a3bfb-7946-4b1c-8cc4-bf8cedcbc48d", "vm1", "tap1af4bee3-04",
-        "11.0.0.3", "", "02:1a:f4:be:e3:04", 0, -1, -1);
+        "11.0.0.3", "", "02:1a:f4:be:e3:04", 0, -1, -1, false);
     PortIpcHandler pih(agent());
     AddPort(pih, req);
     client->WaitForIdle(2);
     WAIT_FOR(500, 1000, ((port_count + 1) == ctable->Size()));
 
-    pih.DeletePort(req.port_id);
+    pih.DeletePort(req.port_id, "");
     client->WaitForIdle(2);
     WAIT_FOR(500, 1000, ((port_count) == ctable->Size()));
 }
 
-/* Reads files in a directory and add port info into agent */
+/* Reads files in a directory and adds port info into agent */
 TEST_F(PortIpcTest, PortReload) {
 
     const string dir = "controller/src/vnsw/agent/port_ipc/test/";
@@ -83,7 +83,7 @@ TEST_F(PortIpcTest, PortReload) {
     uint32_t port_count = ctable->Size();
 
     //There are 2 files present in controller/src/vnsw/agent/port_ipc/test/
-    PortIpcHandler pih(agent(), dir);
+    PortIpcHandler pih(agent(), dir, false);
     pih.ReloadAllPorts();
     client->WaitForIdle(2);
 
@@ -94,6 +94,34 @@ TEST_F(PortIpcTest, PortReload) {
     DeleteAllPorts(dir);
     client->WaitForIdle(2);
     WAIT_FOR(500, 1000, ((port_count) == ctable->Size()));
+}
+
+/* Add/Delete port with persist option */
+TEST_F(PortIpcTest, Port_Add_Del_Persist) {
+
+    CfgIntTable *ctable = agent()->interface_config_table();
+    assert(ctable);
+    uint32_t port_count = ctable->Size();
+
+    const string dir = ".";
+    PortIpcHandler::AddPortParams req("ea73b285-01a7-4d3e-8322-50976e8913da",
+        "ea73b285-01a7-4d3e-8322-50976e8913db",
+        "fa73b285-01a7-4d3e-8322-50976e8913de",
+        "b02a3bfb-7946-4b1c-8cc4-bf8cedcbc48d", "vm1", "tap1af4bee3-04",
+        "11.0.0.3", "", "02:1a:f4:be:e3:04", 0, -1, -1, true);
+    PortIpcHandler pih(agent(), dir, false);
+    AddPort(pih, req);
+    client->WaitForIdle(2);
+    WAIT_FOR(500, 1000, ((port_count + 1) == ctable->Size()));
+
+    string filename = dir + "/" + req.port_id;
+    fs::path fptr(filename);
+    EXPECT_TRUE(fs::exists(fptr));
+
+    pih.DeletePort(req.port_id, "{\"persist\": true}");
+    client->WaitForIdle(2);
+    WAIT_FOR(500, 1000, ((port_count) == ctable->Size()));
+    EXPECT_TRUE(!fs::exists(fptr));
 }
 
 int main (int argc, char **argv) {
