@@ -121,6 +121,10 @@ public:
             const std::string &vrf_name, uint16_t vlan_tag);
     static void DeleteVlanReq(const boost::uuids::uuid &intf_uuid,
                               uint16_t vlan_tag);
+    static void CreateVlan(const boost::uuids::uuid &intf_uuid,
+            const std::string &vrf_name, uint16_t vlan_tag);
+    static void DeleteVlan(const boost::uuids::uuid &intf_uuid,
+                           uint16_t vlan_tag);
     static VrfAssign *FindVlanReq(const boost::uuids::uuid &intf_uuid,
                                   uint16_t vlan_tag);
 
