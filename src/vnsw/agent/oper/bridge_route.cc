@@ -68,18 +68,10 @@ DBTableBase *BridgeAgentRouteTable::CreateTable(DB *db,
     return table;
 }
 
-BridgeRouteEntry *BridgeAgentRouteTable::FindRoute(const Agent *agent,
-                                                   const string &vrf_name,
-                                                   const MacAddress &mac) {
-    VrfEntry *vrf = agent->vrf_table()->FindVrfFromName(vrf_name);
-    if (vrf == NULL)
-        return NULL;
-
-    BridgeRouteKey key(agent->local_vm_peer(), vrf_name, mac, 0);
-    BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
-        (vrf->GetBridgeRouteTable());
+BridgeRouteEntry *BridgeAgentRouteTable::FindRoute(const MacAddress &mac) {
+    BridgeRouteKey key(agent()->local_vm_peer(), vrf_name(), mac, 0);
     BridgeRouteEntry *route =
-        static_cast<BridgeRouteEntry *>(table->FindActiveEntry(&key));
+        static_cast<BridgeRouteEntry *>(FindActiveEntry(&key));
     return route;
 }
 
@@ -133,6 +125,26 @@ void BridgeAgentRouteTable::AddBridgeRoute(const AgentRoute *rt) {
                                      evpn_rt->mac(), 0));
     req.data.reset(new EvpnDerivedPathData(evpn_rt));
     BridgeTableProcess(agent(), vrf_name(), req);
+}
+
+void BridgeAgentRouteTable::AddDhcpRoute(const Peer *peer,
+                                         const std::string &vrf_name,
+                                         const MacAddress &mac,
+                                         const VmInterface *vm_intf) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new BridgeRouteKey(peer, vrf_name, mac, 0));
+    req.data.reset(new DhcpPathData(vm_intf));
+    BridgeTableProcess(agent(), vrf_name, req);
+}
+
+void BridgeAgentRouteTable::DeleteDhcpRoute(const Peer *peer,
+                                            const std::string &vrf_name,
+                                            const MacAddress &mac,
+                                            const VmInterface *vm_intf) {
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key.reset(new BridgeRouteKey(peer, vrf_name, mac, 0));
+    req.data.reset(new DhcpPathData(vm_intf));
+    BridgeTableProcess(agent(), vrf_name, req);
 }
 
 void BridgeAgentRouteTable::DeleteBridgeRoute(const AgentRoute *rt) {
@@ -203,6 +215,19 @@ void BridgeAgentRouteTable::DeleteBroadcastReq(const Peer *peer,
     BridgeTableEnqueue(Agent::GetInstance(), &req);
 }
 
+const VmInterface *BridgeAgentRouteTable::FindVmFromDhcpBinding
+(const MacAddress &mac) {
+    const BridgeRouteEntry *l2_rt = FindRoute(mac);
+    if (l2_rt == NULL)
+        return NULL;
+
+    const DhcpPath *dhcp_path = dynamic_cast<const DhcpPath *>
+        (l2_rt->FindDhcpPath());
+    if (dhcp_path == NULL)
+        return NULL;
+    return dhcp_path->vm_interface();
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // BridgeRouteEntry methods
 /////////////////////////////////////////////////////////////////////////////
@@ -248,12 +273,19 @@ uint32_t BridgeRouteEntry::GetActiveLabel() const {
 AgentPath *BridgeRouteEntry::FindPathUsingKeyData
 (const AgentRouteKey *key, const AgentRouteData *data) const {
     const Peer *peer = key->peer();
-    const EvpnPeer * evpn_peer = dynamic_cast<const EvpnPeer*>(peer);
+    const EvpnPeer *evpn_peer = dynamic_cast<const EvpnPeer*>(peer);
+    if (is_multicast())
+        return FindMulticastPathUsingKeyData(key, data);
 
-    //For non multicast route not programmed via EVPN route table,
-    //use Findpath.
-    if ((is_multicast() == false) && (evpn_peer == NULL))
-        return FindPath(key->peer());
+    if (evpn_peer != NULL)
+        return FindEvpnPathUsingKeyData(key, data);
+
+    return FindPath(peer);
+}
+
+AgentPath *BridgeRouteEntry::FindMulticastPathUsingKeyData
+(const AgentRouteKey *key, const AgentRouteData *data) const {
+    assert(is_multicast());
 
     Route::PathList::const_iterator it;
     for (it = GetPathList().begin(); it != GetPathList().end();
@@ -262,30 +294,45 @@ AgentPath *BridgeRouteEntry::FindPathUsingKeyData
         if (path->peer() != key->peer())
             continue;
 
-        if (is_multicast()) {
-            //Handle multicast peer matching,
-            //In case of BGP peer also match VXLAN id.
-            if (path->peer()->GetType() != Peer::BGP_PEER)
-                return const_cast<AgentPath *>(path);
+        //Handle multicast peer matching,
+        //In case of BGP peer also match VXLAN id.
+        if (path->peer()->GetType() != Peer::BGP_PEER)
+            return const_cast<AgentPath *>(path);
 
-            const MulticastRoute *multicast_data =
-                dynamic_cast<const MulticastRoute *>(data);
-            assert(multicast_data != NULL);
-            if (multicast_data->vxlan_id() != path->vxlan_id())
-                continue;
-        } else {
-            //Handle mac route added via evpn route.
-            const EvpnDerivedPath *evpn_path =
-                dynamic_cast<const EvpnDerivedPath *>(path);
-            const EvpnDerivedPathData *evpn_data =
-                dynamic_cast<const EvpnDerivedPathData *>(data);
-            assert(evpn_path != NULL);
-            assert(evpn_data != NULL);
-            if (evpn_path->ethernet_tag() != evpn_data->ethernet_tag())
-                continue;
-            if (evpn_path->ip_addr() != evpn_data->ip_addr())
-                continue;
-        }
+        const MulticastRoute *multicast_data =
+            dynamic_cast<const MulticastRoute *>(data);
+        assert(multicast_data != NULL);
+        if (multicast_data->vxlan_id() != path->vxlan_id())
+            continue;
+
+        return const_cast<AgentPath *>(path);
+    }
+    return NULL;
+}
+
+AgentPath *BridgeRouteEntry::FindEvpnPathUsingKeyData
+(const AgentRouteKey *key, const AgentRouteData *data) const {
+    const Peer *peer = key->peer();
+    const EvpnPeer *evpn_peer = dynamic_cast<const EvpnPeer*>(peer);
+    assert(evpn_peer != NULL);
+
+    Route::PathList::const_iterator it;
+    for (it = GetPathList().begin(); it != GetPathList().end(); it++) {
+        const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
+        if (path->peer() != key->peer())
+            continue;
+
+        //Handle mac route added via evpn route.
+        const EvpnDerivedPath *evpn_path =
+            dynamic_cast<const EvpnDerivedPath *>(path);
+        const EvpnDerivedPathData *evpn_data =
+            dynamic_cast<const EvpnDerivedPathData *>(data);
+        assert(evpn_path != NULL);
+        assert(evpn_data != NULL);
+        if (evpn_path->ethernet_tag() != evpn_data->ethernet_tag())
+            continue;
+        if (evpn_path->ip_addr() != evpn_data->ip_addr())
+            continue;
         return const_cast<AgentPath *>(path);
     }
     return NULL;
@@ -344,6 +391,11 @@ void BridgeRouteEntry::DeletePathUsingKeyData(const AgentRouteKey *key,
             }
         }
     }
+}
+
+const AgentPath *BridgeRouteEntry::FindDhcpPath() const {
+    Agent *agent = (static_cast<AgentRouteTable *> (get_table()))->agent();
+    return FindPath(agent->dhcp_peer());
 }
 
 bool BridgeRouteEntry::ReComputePathAdd(AgentPath *path) {

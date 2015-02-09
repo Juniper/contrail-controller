@@ -628,4 +628,44 @@ private:
     DISALLOW_COPY_AND_ASSIGN(Inet4UnicastInterfaceRoute);
 };
 
+class DhcpPath : public AgentPath {
+public:
+    DhcpPath(const Peer *peer);
+    virtual ~DhcpPath() { }
+
+    virtual const NextHop *ComputeNextHop(Agent *agent) const;
+    virtual bool IsLess(const AgentPath &right) const;
+
+    //Data get/set
+    const VmInterface *vm_interface() const {
+        return dynamic_cast<const VmInterface *>(vm_interface_.get());
+    }
+    void set_vm_interface(const VmInterface *vm_interface) {
+        vm_interface_ = vm_interface;
+    }
+    bool flood_dhcp() const {return flood_dhcp_;}
+    void set_flood_dhcp(bool flood_dhcp) {flood_dhcp_ = flood_dhcp;}
+
+private:
+    //Key parameters for comparision
+    InterfaceConstRef vm_interface_;
+    bool flood_dhcp_;
+    DISALLOW_COPY_AND_ASSIGN(DhcpPath);
+};
+
+class DhcpPathData : public AgentRouteData {
+public:
+    DhcpPathData(const VmInterface *vm_intf) :
+        AgentRouteData(false), vm_intf_(vm_intf) { }
+    virtual ~DhcpPathData() { }
+    virtual AgentPath *CreateAgentPath(const Peer *peer, AgentRoute *rt) const;
+    virtual bool AddChangePath(Agent *agent, AgentPath *path,
+                               const AgentRoute *rt);
+    virtual std::string ToString() const {return "DhcpData";}
+
+private:
+    const VmInterface *vm_intf_;
+    DISALLOW_COPY_AND_ASSIGN(DhcpPathData);
+};
+
 #endif // vnsw_agent_path_hpp

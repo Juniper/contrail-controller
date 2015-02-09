@@ -1047,8 +1047,15 @@ bool RouteFindV6(const string &vrf_name, const string &addr, int plen) {
 
 bool L2RouteFind(const string &vrf_name, const MacAddress &mac,
                  const IpAddress &ip_addr) {
-    BridgeRouteEntry *route =
-        BridgeAgentRouteTable::FindRoute(Agent::GetInstance(), vrf_name, mac);
+    if (Agent::GetInstance()->vrf_table() == NULL) {
+        return false;
+    }
+    BridgeAgentRouteTable *bridge_table =
+        static_cast<BridgeAgentRouteTable *>
+        (Agent::GetInstance()->vrf_table()->GetBridgeRouteTable(vrf_name));
+    if (bridge_table == NULL)
+        return false;
+    BridgeRouteEntry *route = bridge_table->FindRoute(mac);
     return (route != NULL);
 }
 
