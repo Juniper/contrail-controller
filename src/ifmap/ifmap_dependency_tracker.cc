@@ -162,6 +162,9 @@ void IFMapDependencyTracker::PropagateNode(
         if (plist->find(link->metadata()) == plist->end()) {
             continue;
         }
+        if (target->IsDeleted()) {
+            continue;
+        }
         PropagateEdge(target, link->metadata(), in_edges);
     }
 }
@@ -204,6 +207,9 @@ void IFMapDependencyTracker::PropagateEdge(
             continue;
         }
         IFMapNode *target = static_cast<IFMapNode *>(iter.target());
+        if (target->IsDeleted()) {
+            continue;
+        }
         PropagateEdge(target, link->metadata(), in_edges);
     }
 }
