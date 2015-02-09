@@ -16,7 +16,6 @@
 #include "oper/route_common.h"
 #include "oper/vrf.h"
 #include "oper/tunnel_nh.h"
-#include "oper/mac_vm_binding.h"
 #include "pkt/control_interface.h"
 #include "pkt/pkt_handler.h"
 #include "pkt/proto.h"
@@ -520,7 +519,6 @@ int PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
 
     // IP Packets
     len += ParseIpPacket(pkt_info, pkt_type, (pkt + len));
-
     // If it is a packet from TOR that we serve, dont parse any further
     if (IsManagedTORPacket(intf, pkt_info, pkt_type, (pkt + len))) {
         return len;
@@ -671,7 +669,6 @@ bool PktHandler::IsManagedTORPacket(Interface *intf, PktInfo *pkt_info,
         return false;
 
     // Get VXLAN id and point to original L2 frame after the VXLAN header
-    uint32_t vxlan = ntohl(*(uint32_t *)(pkt + 4)) >> 8;
     pkt += 8;
 
     // get to the actual packet header
@@ -680,9 +677,20 @@ bool PktHandler::IsManagedTORPacket(Interface *intf, PktInfo *pkt_info,
     ether_addr addr;
     memcpy(addr.ether_addr_octet, pkt_info->eth->ether_shost, ETH_ALEN);
     MacAddress address(addr);
-    const Interface *vm_intf =
-        agent_->interface_table()->
-        mac_vm_binding().FindMacVmBinding(address, vxlan);
+    const VrfEntry *vrf = agent_->vrf_table()->
+        FindVrfFromId(pkt_info->agent_hdr.vrf);
+    if (vrf == NULL)
+        return false;
+    const BridgeRouteEntry *l2_rt =
+        BridgeAgentRouteTable::FindRoute(agent_, vrf->GetName(), address);
+    if (l2_rt == NULL)
+        return false;
+
+    const DhcpPath *dhcp_path = dynamic_cast<const DhcpPath *>
+        (l2_rt->FindV4DhcpPath(vrf->GetName(), address));
+    if (dhcp_path == NULL)
+        return false;
+    const VmInterface *vm_intf = dhcp_path->vm_interface();
     if (vm_intf == NULL) {
         return false;
     }
@@ -696,7 +704,6 @@ bool PktHandler::IsManagedTORPacket(Interface *intf, PktInfo *pkt_info,
     pkt_info->agent_hdr.cmd = AgentHdr::TRAP_TOR_CONTROL_PKT;
     pkt_info->agent_hdr.cmd_param = pkt_info->agent_hdr.ifindex;
     pkt_info->agent_hdr.ifindex = vm_intf->id();
-    pkt_info->agent_hdr.vrf = vm_intf->vrf_id();
 
     // Parse payload
     if (pkt_info->ether_type == ETHERTYPE_ARP) {

@@ -22,6 +22,11 @@ public:
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 
+    void AddDhcpRoute(const Peer *peer,
+                              const std::string &vrf_name,
+                              const MacAddress &mac,
+                              const IpAddress &ip,
+                              const VmInterface *vm_intf);
     void AddBridgeRoute(const AgentRoute *rt);
     static void AddBridgeBroadcastRoute(const Peer *peer,
                                         const std::string &vrf_name,
@@ -53,6 +58,11 @@ public:
                                    const std::string &vrf_name,
                                    uint32_t ethernet_tag);
     void DeleteBridgeRoute(const AgentRoute *rt);
+    void DeleteDhcpRoute(const Peer *peer,
+                                 const std::string &vrf_name,
+                                 const MacAddress &mac,
+                                 const IpAddress &ip,
+                                 const VmInterface *vm_intf);
     static BridgeRouteEntry *FindRoute(const Agent *agent,
                                        const std::string &vrf_name,
                                        const MacAddress &mac);
@@ -87,18 +97,35 @@ public:
     }
     virtual bool DBEntrySandesh(Sandesh *sresp, bool stale) const;
     virtual uint32_t GetActiveLabel() const;
-    virtual bool ReComputePathDeletion(AgentPath *path);
-    virtual bool ReComputePathAdd(AgentPath *path);
     virtual AgentPath *FindPathUsingKeyData(const AgentRouteKey *key,
                                             const AgentRouteData *data) const;
     virtual void DeletePathUsingKeyData(const AgentRouteKey *key,
                                         const AgentRouteData *data,
                                         bool force_delete);
+    virtual bool ReComputePathDeletion(AgentPath *path);
+    virtual bool ReComputePathAdd(AgentPath *path);
 
     const MacAddress &mac() const {return mac_;}
+    const AgentPath *FindV4DhcpPath(const std::string &vrf_name,
+                                          const MacAddress &mac) const {
+        return FindDhcpPathInternal(vrf_name, mac, true);
+    }
+    const AgentPath *FindV6DhcpPath(const std::string &vrf_name,
+                                          const MacAddress &mac) const {
+        return FindDhcpPathInternal(vrf_name, mac, false);
+    }
 
 private:
+    const AgentPath *FindDhcpPathInternal(const std::string &vrf_name,
+                                          const MacAddress &mac,
+                                          bool v4_search) const;
     bool ReComputeMulticastPaths(AgentPath *path, bool del);
+    AgentPath *FindDhcpPathUsingKeyData(const AgentRouteKey *key,
+                                                const AgentRouteData *data) const;
+    AgentPath *FindEvpnPathUsingKeyData(const AgentRouteKey *key,
+                                        const AgentRouteData *data) const;
+    AgentPath *FindMulticastPathUsingKeyData(const AgentRouteKey *key,
+                                             const AgentRouteData *data) const;
 
     MacAddress mac_;
     DISALLOW_COPY_AND_ASSIGN(BridgeRouteEntry);

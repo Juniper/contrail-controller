@@ -55,6 +55,7 @@ public:
     bool has_service_vlan() const {return has_service_vlan_;}
     bool no_arp() const { return no_arp_; }
     PhysicalInterface::EncapType encap_type() const { return encap_type_; }
+    VmInterface::DeviceType vmi_device_type() const {return vmi_device_type_;}
 
     KSyncDBObject *GetObject();
     virtual bool Sync(DBEntry *e);

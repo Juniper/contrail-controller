@@ -628,4 +628,48 @@ private:
     DISALLOW_COPY_AND_ASSIGN(Inet4UnicastInterfaceRoute);
 };
 
+class DhcpPath : public AgentPath {
+public:
+    DhcpPath(const Peer *peer,
+                     const IpAddress &ip_addr);
+    virtual ~DhcpPath() { }
+
+    virtual const NextHop *ComputeNextHop(Agent *agent) const;
+    virtual bool IsLess(const AgentPath &right) const;
+
+    //Data get/set
+    const IpAddress &ip_addr() const {return ip_addr_;}
+    void set_ip_addr(const IpAddress &ip_addr) {ip_addr_ = ip_addr;}
+    const VmInterface *vm_interface() const {
+        return dynamic_cast<const VmInterface *>(vm_interface_.get());
+    }
+    void set_vm_interface(const VmInterface *vm_interface) {
+        vm_interface_ = vm_interface;
+    }
+
+private:
+    //Key parameters for comparision
+    IpAddress ip_addr_;
+    InterfaceConstRef vm_interface_;
+    DISALLOW_COPY_AND_ASSIGN(DhcpPath);
+};
+
+class DhcpPathData : public AgentRouteData {
+public:
+    DhcpPathData(const IpAddress &ip_addr,
+                 const VmInterface *vm_intf) :
+        AgentRouteData(false), ip_addr_(ip_addr), vm_intf_(vm_intf) { }
+    virtual ~DhcpPathData() { }
+    virtual AgentPath *CreateAgentPath(const Peer *peer, AgentRoute *rt) const;
+    virtual bool AddChangePath(Agent *agent, AgentPath *path,
+                               const AgentRoute *rt);
+    virtual std::string ToString() const {return "DhcpData";}
+    const IpAddress &ip_addr() const {return ip_addr_;}
+
+private:
+    IpAddress ip_addr_;
+    const VmInterface *vm_intf_;
+    DISALLOW_COPY_AND_ASSIGN(DhcpPathData);
+};
+
 #endif // vnsw_agent_path_hpp
