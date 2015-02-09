@@ -32,8 +32,10 @@ class TestOverlayToUnderlayMapper(unittest.TestCase):
         pass
     # end tearDown
 
+    @mock.patch('opserver.overlay_to_underlay_mapper.OpServerUtils.convert_to_utc_timestamp_usec')
     @mock.patch.object(OverlayToUnderlayMapper, '_send_query')
-    def test_get_overlay_flow_data_noerror(self, mock_send_query):
+    def test_get_overlay_flow_data_noerror(self, mock_send_query,
+                                           mock_convert_to_utc_timestamp_usec):
         flow_record_select_fields = [
             FlowRecordNames[FlowRecordFields.FLOWREC_VROUTER_IP],
             FlowRecordNames[FlowRecordFields.FLOWREC_OTHER_VROUTER_IP],
@@ -53,7 +55,8 @@ class TestOverlayToUnderlayMapper(unittest.TestCase):
                 'output': {
                     'flowrecord_query': {
                         'table': FLOW_TABLE,
-                        'start_time': 'now-10m', 'end_time': 'now-5m',
+                        'start_time': 1423458581000000,
+                        'end_time': 1423458591000000,
                         'select_fields': flow_record_select_fields,
                         'where': [], 'dir': 1
                     },
@@ -78,7 +81,8 @@ class TestOverlayToUnderlayMapper(unittest.TestCase):
                 'output': {
                     'flowrecord_query': {
                         'table': FLOW_TABLE,
-                        'start_time': 'now-5m', 'end_time': 'now',
+                        'start_time': 1423458471000000,
+                        'end_time': 1423458591000000,
                         'select_fields': flow_record_select_fields,
                         'where': [], 'dir': 1
                     },
@@ -106,7 +110,8 @@ class TestOverlayToUnderlayMapper(unittest.TestCase):
                 'output': {
                     'flowrecord_query': {
                         'table': FLOW_TABLE,
-                        'start_time': 'now-5m', 'end_time': 'now',
+                        'start_time': 1423457591000000,
+                        'end_time': 1423458591000000,
                         'select_fields': flow_record_select_fields,
                         'where': [
                             [
@@ -138,7 +143,8 @@ class TestOverlayToUnderlayMapper(unittest.TestCase):
                 'output': {
                     'flowrecord_query': {
                         'table': FLOW_TABLE,
-                        'start_time': 'now-2m', 'end_time': 'now',
+                        'start_time': 1423458591000000,
+                        'end_time': 1423458591234000,
                         'select_fields': flow_record_select_fields,
                         'where': [
                             [
@@ -190,7 +196,8 @@ class TestOverlayToUnderlayMapper(unittest.TestCase):
                 'output': {
                     'flowrecord_query': {
                         'table': FLOW_TABLE,
-                        'start_time': 'now-20m', 'end_time': 'now-10m',
+                        'start_time': 1423458580000000,
+                        'end_time': 1423458591000000,
                         'select_fields': flow_record_select_fields,
                         'where': [
                             [
@@ -222,6 +229,9 @@ class TestOverlayToUnderlayMapper(unittest.TestCase):
         mock_send_query.side_effect = \
             [item['output']['flowrecord_data'] for item in input_output_list]
         for item in input_output_list:
+            mock_convert_to_utc_timestamp_usec.side_effect = \
+                [item['output']['flowrecord_query']['start_time'],
+                 item['output']['flowrecord_query']['end_time']]
             overlay_to_underlay_mapper = \
                 OverlayToUnderlayMapper(
                     item['input']['overlay_to_underlay_map_query'],
@@ -291,8 +301,10 @@ class TestOverlayToUnderlayMapper(unittest.TestCase):
                overlay_to_underlay_mapper._get_overlay_flow_data)
     # end test_get_overlay_flow_data_raise_exception
 
+    @mock.patch('opserver.overlay_to_underlay_mapper.OpServerUtils.convert_to_utc_timestamp_usec')
     @mock.patch.object(OverlayToUnderlayMapper, '_send_query')
-    def test_get_underlay_flow_data_noerror(self, mock_send_query):
+    def test_get_underlay_flow_data_noerror(self, mock_send_query,
+                                            mock_convert_to_utc_timestamp_usec):
         input_output_list = [
             {
                 # FlowRecord query returning empty result
@@ -439,8 +451,8 @@ class TestOverlayToUnderlayMapper(unittest.TestCase):
                 'output': {
                     'uflow_data_query': {
                         'table': 'StatTable.UFlowData.flow',
-                        'start_time': 'now-20m',
-                        'end_time': 'now-10m',
+                        'start_time': 1423462400000000,
+                        'end_time': 1423463400000000,
                         'select_fields': [UFLOW_PROTOCOL, UFLOW_DPORT],
                         'where': [
                             [
@@ -495,8 +507,8 @@ class TestOverlayToUnderlayMapper(unittest.TestCase):
                 'output': {
                     'uflow_data_query': {
                         'table': 'StatTable.UFlowData.flow',
-                        'start_time': 'now-20m',
-                        'end_time': 'now-10m',
+                        'start_time': 1423453412300000,
+                        'end_time': 1423463400000000,
                         'select_fields': [UFLOW_PROTOCOL, UFLOW_DPORT],
                         'where': [
                             [
@@ -533,6 +545,12 @@ class TestOverlayToUnderlayMapper(unittest.TestCase):
                 if item['output']['uflow_data_query'] is not None]
 
         for item in input_output_list:
+            if not isinstance(
+                item['input']['overlay_to_underlay_map_query']['start_time'],
+                int):
+                mock_convert_to_utc_timestamp_usec.side_effect = \
+                    [item['output']['uflow_data_query']['start_time'],
+                     item['output']['uflow_data_query']['end_time']]
             overlay_to_underlay_mapper = \
                 OverlayToUnderlayMapper(
                     item['input']['overlay_to_underlay_map_query'],
