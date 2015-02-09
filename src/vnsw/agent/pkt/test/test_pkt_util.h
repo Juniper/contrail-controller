@@ -11,9 +11,12 @@ extern void MakeIpPacket(PktGen *pkt, int ifindex, const char *sip,
 			 const char *dip, int proto, int hash_id, 
              int cmd = AgentHdr::TRAP_FLOW_MISS, int vrf = -1);
 
-extern void TxIpPacket(int ifindex, const char *sip, const char *dip, 
+extern void TxIpPacket(int ifindex, const char *sip, const char *dip,
 			  int proto, int hash_id = 1, int vrf = -1);
 
+extern void TxL2Packet(int ifindex, const char *smac, const char *dmac,
+                       const char *sip, const char *dip, int proto,
+                       int hash_id = 1, int vrf = -1);
 extern void TxIpPacketEcmp(int ifindex, const char *sip, const char *dip, 
 		                   int proto, int hash_id = 1);
 
