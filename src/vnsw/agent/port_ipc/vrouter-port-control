@@ -26,6 +26,7 @@ class VrouterPortControl(object):
         #TODO:Move this to other place as it tries to create directory every time
         self.CreateDirectoryTree(PORT_PATH)
         port_type_value = 0
+        ret_code = 0
         headers = {'content-type': 'application/json'}
         base_url = "http://localhost:" + str(PORT_IPC_VROUTER_AGENT_PORT)
         if self._args.oper == "add":
@@ -51,14 +52,28 @@ class VrouterPortControl(object):
                        "vn-id": self._args.vn_uuid, "vm-project-id": project_id,
                        "type": port_type_value, "mac-address": self._args.mac}
             json_dump = json.dumps(payload)
-            r = requests.post(url, data=json_dump, headers=headers)
             if not self._args.no_persist:
                 self.WriteToFile(port_type_value, project_id)
+            try:
+                r = requests.post(url, data=json_dump, headers=headers)
+                ''' If post operation fails we should not write to the file
+                '''
+                if r.status_code != 200:
+                    script_persist = False
+                    ret_code = 1
+            except ConnectionError:
+                pass
         elif self._args.oper == "delete":
             if not self._args.no_persist:
                 self.DeleteFile()
             url = base_url + "/port/" + self._args.uuid
-            requests.delete(url, data=None, headers=headers);
+            try:
+                r = requests.delete(url, data=None, headers=headers);
+                if r.status_code != 200:
+                    ret_code = 1
+            except ConnectionError:
+                pass
+        sys.exit(ret_code)
 
     #end __init__
 
