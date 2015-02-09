@@ -3054,7 +3054,7 @@ AgentRoute *FlowTable::GetL2Route(const VrfEntry *vrf,
                                   const MacAddress &mac) {
     BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
         (vrf->GetBridgeRouteTable());
-    return table->FindRoute(agent(), vrf->GetName(), mac);
+    return table->FindRoute(mac);
 }
 
 AgentRoute *FlowTable::GetUcRoute(const VrfEntry *entry,

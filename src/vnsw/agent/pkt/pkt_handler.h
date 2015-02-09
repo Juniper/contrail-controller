@@ -297,22 +297,6 @@ public:
     PktModule *pkt_module() const { return pkt_module_; }
 
 private:
-    struct MacVmBindingKey {
-        MacAddress mac;
-        int vxlan;
-        InterfaceConstRef interface;
-
-        MacVmBindingKey(const MacAddress &m, int v, InterfaceConstRef intf) :
-            mac(m), vxlan(v), interface(intf) {}
-        bool operator<(const MacVmBindingKey &rhs) const {
-            if (mac != rhs.mac)
-                return mac < rhs.mac;
-
-            return vxlan < rhs.vxlan;
-        }
-    };
-    typedef std::set<MacVmBindingKey> MacVmBindingSet;
-
     int ParseEthernetHeader(PktInfo *pkt_info, uint8_t *pkt);
     int ParseMplsHdr(PktInfo *pkt_info, uint8_t *pkt);
     int ParseIpPacket(PktInfo *pkt_info, PktType::Type &pkt_type,
