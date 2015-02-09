@@ -1217,20 +1217,25 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
         Agent::GetInstance()->pkt()->flow_table()->DeleteFlowInfo(flow.get());
     }
 
-    if (l3_flow) {
-        if (pkt->family == Address::INET) {
-            Ip4Address v4_src = pkt->ip_saddr.to_v4();
-            if (ingress && !short_flow && !linklocal_flow) {
-                if (in->rt_->WaitForTraffic()) {
-                    flow_table->agent()->oper_db()->route_preference_module()->
-                        EnqueueTrafficSeen(v4_src, 32, in->intf_->id(),
-                                           pkt->vrf);
-                }
+    if (pkt->family == Address::INET) {
+        Ip4Address v4_src = pkt->ip_saddr.to_v4();
+        if (ingress && !short_flow && !linklocal_flow) {
+            const AgentRoute *rt = NULL;
+            if (l3_flow) {
+                rt = in->rt_;
+            } else if (in->vrf_) {
+                rt = flow_table->GetUcRoute(in->vrf_, v4_src);
             }
-        } else if (pkt->family == Address::INET6) {
-            //TODO:: Handle Ipv6 changes
+            if (rt && rt->WaitForTraffic()) {
+                flow_table->agent()->oper_db()->route_preference_module()->
+                    EnqueueTrafficSeen(v4_src, 32, in->intf_->id(),
+                                       pkt->vrf);
+            }
         }
+    } else if (pkt->family == Address::INET6) {
+        //TODO:: Handle Ipv6 changes
     }
+
     // Do not allow more than max flows
     if ((in->vm_ &&
          (flow_table->VmFlowCount(in->vm_) + 2) > flow_table->max_vm_flows()) ||
