@@ -26,8 +26,6 @@ private:
                         const LoadbalancerProperties &props) const;
     void GenerateDefaults(std::ostream *out,
                           const LoadbalancerProperties &props) const;
-    void GenerateListen(std::ostream *out,
-                          const LoadbalancerProperties &props) const;
     void GenerateFrontend(std::ostream *out,
                           const boost::uuids::uuid &pool_id,
                           const LoadbalancerProperties &props) const;
