@@ -552,7 +552,10 @@ class FakeKombu(object):
 
     class Exchange(object):
         def __init__(self, *args, **kwargs):
-            pass
+            self.queues = {}
+
+        def _new_queue(self, q_name, q_obj):
+            self.queues[q_name] = q_obj
         # end __init__
     # end Exchange
 
@@ -569,11 +572,11 @@ class FakeKombu(object):
 
         # end class Message
 
-        def __init__(self, entity, q_name, q_exchange):
+        def __init__(self, entity, q_name, q_exchange, **kwargs):
             self._sync_q = gevent.queue.Queue()
             self._name = q_name
             self._exchange = q_exchange
-            FakeKombu._queues[q_name] = self
+            self._exchange._new_queue(q_name, self._sync_q)
         # end __init__
 
         def __call__(self, *args):
@@ -586,8 +589,7 @@ class FakeKombu(object):
 
         def put(self, msg_dict, serializer):
             msg_obj = self.Message(msg_dict)
-            for q in FakeKombu._queues.values():
-                q._sync_q.put(copy.deepcopy(msg_obj))
+            self._sync_q.put(copy.deepcopy(msg_obj))
         # end put
 
         def get(self):
@@ -600,33 +602,6 @@ class FakeKombu(object):
     # end class Queue
 
     class Connection(object):
-        class SimpleQueue(object):
-            _simple_queues = {}
-            def __init__(self, q_obj):
-                if q_obj._name in self._simple_queues:
-                    self._q_obj = self._simple_queues[q_obj._name]._q_obj
-                else:
-                    self._simple_queues[q_obj._name] = self
-                    self._q_obj = q_obj
-            # end __init__
-
-            def put(self, *args, **kwargs):
-                self._q_obj.put(*args, **kwargs)
-            # end put
-
-            def get(self, *args, **kwargs):
-                return self._q_obj.get()
-            # end get
-
-            def __enter__(self):
-                return self
-            # end __enter__
-
-            def __exit__(self, *args, **kwargs):
-                pass
-            # end __exit__
-        # end class SimpleQueue
-
         def __init__(self, *args, **kwargs):
             pass
         # end __init__
@@ -634,6 +609,58 @@ class FakeKombu(object):
         def channel(self):
             pass
         # end channel
+
+        def close(self):
+            pass
+        # end close
+
+        def ensure_connection(self):
+            pass
+        # end ensure_connection
+
+        def connect(self):
+            pass
+        # end connection
+
+        def _info(self):
+            pass
+        # end _info
+    # end class Connection
+
+    class Consumer(object):
+        def __init__(self, *args, **kwargs):
+            self.queues = kwargs['queues']
+            self.callbacks = kwargs['callbacks']
+        # end __init__
+
+        def _consume(self):
+            while True:
+                try:
+                    msg = self.queues.get()
+                    for c in self.callbacks:
+                        c(msg.payload, msg)
+                except Exception:
+                    pass
+        # end _consume
+
+        def consume(self):
+            self.geventlet = gevent.spawn(self._consume)
+        # end consume
+
+    # end class Consumer
+
+    class Producer(object):
+        def __init__(self, *args, **kwargs):
+            self.exchange = kwargs['exchange']
+        # end __init__
+
+        def publish(self, payload):
+            for q in self.exchange.queues.values():
+                q.put(payload, None)
+        #end publish
+
+    # end class Producer
+
 # end class FakeKombu
 
 class FakeRedis(object):
