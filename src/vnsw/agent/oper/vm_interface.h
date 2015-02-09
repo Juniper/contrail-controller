@@ -522,6 +522,20 @@ private:
     bool ResyncConfig(VmInterfaceConfigData *data);
     bool CopyIpAddress(Ip4Address &addr);
     bool CopyIp6Address(const Ip6Address &addr);
+    void ApplyDhcpBindingConfig(const VrfEntry *old_vrf,
+                                bool old_l2_active,
+                                bool old_ipv4_active,
+                                bool old_ipv6_active,
+                                const Ip4Address &old_v4_addr,
+                                const Ip6Address &old_v6_addr,
+                                bool old_dhcp_enable);
+    void ApplyConfigCommon(const VrfEntry *old_vrf,
+                           bool old_l2_active,
+                           bool old_ipv4_active,
+                           bool old_ipv6_active,
+                           const Ip4Address &old_v4_addr,
+                           const Ip6Address &old_v6_addr,
+                           bool old_dhcp_enable);
     bool CopyConfig(const InterfaceTable *table,
                     const VmInterfaceConfigData *data, bool *sg_changed,
                     bool *ecmp_changed, bool *local_pref_changed);
@@ -531,7 +545,7 @@ private:
                      bool sg_changed, bool old_ipv6_active,
                      const Ip6Address &old_v6_addr, bool ecmp_changed,
                      bool local_pref_changed, const Ip4Address &old_subnet,
-                     const uint8_t old_subnet_plen);
+                     const uint8_t old_subnet_plen, bool old_dhcp_enable);
     void UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
                   const Ip4Address &old_addr, int old_ethernet_tag,
                   bool force_update, bool policy_change, bool old_ipv6_active,
@@ -553,11 +567,12 @@ private:
     void DeleteL3TunnelId();
     void UpdateMulticastNextHop(bool old_ipv4_active, bool old_l2_active);
     void DeleteMulticastNextHop();
-    void UpdateMacVmBinding(bool old_l2_active);
+    void UpdateDhcp(const IpAddress &ip_addr);
     void UpdateL2NextHop(bool old_l2_active);
     void UpdateFlowKeyNextHop();
     void DeleteL2NextHop(bool old_l2_active);
-    void DeleteMacVmBinding(bool old_l2_active);
+    void DeleteDhcp(const VrfEntry *old_vrf,
+                            const IpAddress &old_addr);
     void UpdateL3NextHop(bool old_ipv4_active, bool old_ipv6_active);
     void DeleteL3NextHop(bool old_ipv4_active, bool old_ipv6_active);
     bool L2Activated(bool old_l2_active);
