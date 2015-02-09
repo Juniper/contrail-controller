@@ -19,21 +19,29 @@
 #include "rest_common.h"
 
 void RESTServer::VmPortPostHandler(const struct RESTData& data) {
-    PortIpcHandler pih(agent_);
-    pih.AddPortFromJson(data.request->Body());
-    REST::SendResponse(data.session, "{}");
+    PortIpcHandler pih(agent_, PortIpcHandler::kPortsDir, true);
+    std::string err_msg;
+    if (pih.AddPortFromJson(data.request->Body(), false, err_msg)) {
+        REST::SendResponse(data.session, "{}");
+    } else {
+        REST::SendErrorResponse(data.session, "{ " + err_msg + " }");
+    }
 }
 
 void RESTServer::VmPortDeleteHandler(const struct RESTData& data) {
+    std::string error;
     const std::string& port_id = (*data.match)[1];
-    PortIpcHandler pih(agent_);
-    pih.DeletePort(port_id);
-    REST::SendResponse(data.session, "{}");
+    PortIpcHandler pih(agent_, PortIpcHandler::kPortsDir, true);
+    if (pih.DeletePort(port_id, error)) {
+        REST::SendResponse(data.session, "{}");
+    } else {
+        REST::SendErrorResponse(data.session, "{" + error + "}");
+    }
 }
 
 void RESTServer::VmPortGetHandler(const struct RESTData& data) {
     const std::string& port_id = (*data.match)[1];
-    PortIpcHandler pih(agent_);
+    PortIpcHandler pih(agent_, PortIpcHandler::kPortsDir, true);
     std::string info = pih.GetPortInfo(port_id);
     REST::SendResponse(data.session, info);
 }

@@ -242,7 +242,7 @@ void ContrailInitCommon::InitDone() {
     }
 
     /* Reads and processes port information written by nova-compute */
-    PortIpcHandler pih(agent());
+    PortIpcHandler pih(agent(), PortIpcHandler::kPortsDir, true);
     pih.ReloadAllPorts();
 
 }

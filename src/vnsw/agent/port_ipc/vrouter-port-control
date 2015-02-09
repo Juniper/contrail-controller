@@ -10,6 +10,7 @@ import requests
 import json
 import os
 import errno
+import datetime
 
 sys.path.insert(1, sys.path[0]+'/../api-venv/lib/python2.7/site-packages')
 from vnc_api.vnc_api import *
@@ -26,6 +27,7 @@ class VrouterPortControl(object):
         #TODO:Move this to other place as it tries to create directory every time
         self.CreateDirectoryTree(PORT_PATH)
         port_type_value = 0
+        ret_code = 0
         headers = {'content-type': 'application/json'}
         base_url = "http://localhost:" + str(PORT_IPC_VROUTER_AGENT_PORT)
         if self._args.oper == "add":
@@ -43,22 +45,30 @@ class VrouterPortControl(object):
                 project_id = u[:23] + '-' + u[23:]
 
             url =  base_url + "/port"
-            payload = {"ip-address": self._args.ip_address, "vlan-id": -1,
-                       "display-name": self._args.vm_name, "id": self._args.uuid,
-                       "instance-id": self._args.instance_uuid,
-                       "ip6-address": self._args.ipv6_address,
-                       "isolated-vlan-id": -1, "system-name": self._args.tap_name,
-                       "vn-id": self._args.vn_uuid, "vm-project-id": project_id,
-                       "type": port_type_value, "mac-address": self._args.mac}
+            payload = self.GetJSonDict(port_type_value, project_id)
             json_dump = json.dumps(payload)
-            r = requests.post(url, data=json_dump, headers=headers)
             if not self._args.no_persist:
-                self.WriteToFile(port_type_value, project_id)
+                ret_code = self.WriteToFile(port_type_value, project_id)
+            try:
+                '''We post the request to agent even if WriteToFile has failed.
+                   Agent will write to file if file is not already present
+                '''
+                r = requests.post(url, data=json_dump, headers=headers)
+                if r.status_code != 200:
+                    ret_code = 1
+            except ConnectionError:
+                pass
         elif self._args.oper == "delete":
             if not self._args.no_persist:
                 self.DeleteFile()
             url = base_url + "/port/" + self._args.uuid
-            requests.delete(url, data=None, headers=headers);
+            try:
+                r = requests.delete(url, data=None, headers=headers);
+                if r.status_code != 200:
+                    ret_code = 1
+            except ConnectionError:
+                pass
+        sys.exit(ret_code)
 
     #end __init__
 
@@ -109,25 +119,36 @@ class VrouterPortControl(object):
             else: raise
     #end CreateDirectoryTree
 
-    def WriteToFile(self, port_type, project_id):
-        filename = ("%s%s" %(PORT_PATH, self._args.uuid))
+    def GetJSonDict(self, port_type, project_id):
         data = {
                     "id" : self._args.uuid,
                     "instance-id" : self._args.instance_uuid,
                     "ip-address" : self._args.ip_address,
+                    "ip6-address" : self._args.ipv6_address,
                     "vn-id" : self._args.vn_uuid,
                     "display-name": self._args.vm_name,
                     "vm-project-id" : project_id,
                     "mac-address" : self._args.mac,
                     "system-name" : self._args.tap_name,
                     "type" : port_type,
-                    "ip6-address" : self._args.ipv6_address,
-                    "vlan-id" : self._args.tx_vlan_id,
-                    "isolated-vlan-id" : self._args.rx_vlan_id
+                    "rx-vlan-id" : self._args.rx_vlan_id,
+                    "tx-vlan-id" : self._args.tx_vlan_id,
+                    "author" : __file__,
+                    "time" : str(datetime.datetime.now())
                }
-        with open(filename, 'w') as outfile:
-            json.dump(data, outfile)
-            outfile.close()
+        return data;
+    #end GetJSonDict
+
+    def WriteToFile(self, port_type, project_id):
+        filename = ("%s%s" %(PORT_PATH, self._args.uuid))
+        data = self.GetJSonDict(port_type, project_id)
+        try:
+            with open(filename, 'w') as outfile:
+                json.dump(data, outfile, True)
+                outfile.close()
+        except:
+            return 1
+        return 0
     #end WriteToFile
 
     def DeleteFile(self):
