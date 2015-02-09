@@ -643,6 +643,7 @@ public:
     const Peer *multicast_tor_peer() const {return multicast_tor_peer_.get();}
     const Peer *multicast_tree_builder_peer() const {
         return multicast_tree_builder_peer_.get();}
+    const Peer *dhcp_peer() const {return dhcp_peer_.get();}
 
     // Agent Modules
     AgentConfig *cfg() const; 
@@ -896,6 +897,7 @@ private:
     std::auto_ptr<Peer> multicast_peer_;
     std::auto_ptr<Peer> multicast_tor_peer_;
     std::auto_ptr<Peer> multicast_tree_builder_peer_;
+    std::auto_ptr<Peer> dhcp_peer_;
 
     std::auto_ptr<AgentSignal> agent_signal_;
 

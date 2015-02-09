@@ -344,6 +344,8 @@ void Agent::InitPeers() {
                                  new Peer(Peer::MULTICAST_FABRIC_TREE_BUILDER,
                                           MULTICAST_FABRIC_TREE_BUILDER_NAME,
                                           false));
+    dhcp_peer_.reset(new Peer(Peer::DHCP_PEER,
+                              DHCP_PEER_NAME, false));
 }
 
 Agent::Agent() :
