@@ -274,6 +274,14 @@ class VncApiServer(VncApiServerGen):
         self._resource_classes['physical-interface'] = \
             vnc_cfg_types.PhysicalInterfaceServer
 
+        self._resource_classes['virtual-ip'] = vnc_cfg_types.VirtualIpServer
+        self._resource_classes['loadbalancer-healthmonitor'] = (
+            vnc_cfg_types.LoadbalancerHealthmonitorServer)
+        self._resource_classes['loadbalancer-member'] = (
+            vnc_cfg_types.LoadbalancerMemberServer)
+        self._resource_classes['loadbalancer-pool'] = (
+            vnc_cfg_types.LoadbalancerPoolServer)
+
         # TODO default-generation-setting can be from ini file
         self._resource_classes['bgp-router'].generate_default_instance = False
         self._resource_classes[
