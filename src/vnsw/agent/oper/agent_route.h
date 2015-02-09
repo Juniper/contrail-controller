@@ -245,8 +245,8 @@ public:
     VrfEntry *vrf() const {return vrf_.get();}
     uint32_t vrf_id() const;
 
-    AgentPath *FindLocalVmPortPath() const;
     const AgentPath *GetActivePath() const;
+    AgentPath *FindLocalVmPortPath() const;
     const NextHop *GetActiveNextHop() const; 
     const std::string &dest_vn_name() const;
     bool IsRPFInvalid() const;
