@@ -165,9 +165,11 @@ PmsiTunnelSpec::PmsiTunnelSpec(const BgpAttribute &rhs)
 int PmsiTunnelSpec::CompareTo(const BgpAttribute &rhs_attr) const {
     int ret = BgpAttribute::CompareTo(rhs_attr);
     if (ret != 0) return ret;
-    const PmsiTunnelSpec &rhs =
-        static_cast<const PmsiTunnelSpec &>(rhs_attr);
-    KEY_COMPARE(this, &rhs);
+    const PmsiTunnelSpec &rhs = static_cast<const PmsiTunnelSpec &>(rhs_attr);
+    KEY_COMPARE(tunnel_flags, rhs.tunnel_flags);
+    KEY_COMPARE(tunnel_type, rhs.tunnel_type);
+    KEY_COMPARE(label, rhs.label);
+    KEY_COMPARE(identifier, rhs.identifier);
     return 0;
 }
 
@@ -207,13 +209,22 @@ void PmsiTunnelSpec::SetIdentifier(Ip4Address in_identifier) {
     std::copy(bytes.begin(), bytes.begin() + 4, identifier.begin());
 }
 
-PmsiTunnel::PmsiTunnel(const PmsiTunnelSpec &pmsi_spec)
-    : pmsi_spec_(pmsi_spec) {
+PmsiTunnel::PmsiTunnel(PmsiTunnelDB *pmsi_tunnel_db,
+    const PmsiTunnelSpec &pmsi_spec)
+    : pmsi_tunnel_db_(pmsi_tunnel_db),
+      pmsi_spec_(pmsi_spec) {
     refcount_ = 0;
     tunnel_flags = pmsi_spec_.tunnel_flags;
     tunnel_type = pmsi_spec_.tunnel_type;
     label = pmsi_spec_.GetLabel();
     identifier = pmsi_spec_.GetIdentifier();
+}
+
+void PmsiTunnel::Remove() {
+    pmsi_tunnel_db_->Delete(this);
+}
+
+PmsiTunnelDB::PmsiTunnelDB(BgpServer *server) {
 }
 
 EdgeDiscoverySpec::EdgeDiscoverySpec()
@@ -590,7 +601,9 @@ void BgpAttr::set_origin_vn_path(const OriginVnPathSpec *spec) {
 
 void BgpAttr::set_pmsi_tunnel(const PmsiTunnelSpec *pmsi_spec) {
     if (pmsi_spec) {
-        pmsi_tunnel_.reset(new PmsiTunnel(*pmsi_spec));
+        pmsi_tunnel_ = attr_db_->server()->pmsi_tunnel_db()->Locate(*pmsi_spec);
+    } else {
+        pmsi_tunnel_ = NULL;
     }
 }
 
