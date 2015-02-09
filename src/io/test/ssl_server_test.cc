@@ -126,7 +126,6 @@ class ClientSession : public SslSession {
 
   protected:
     virtual void OnRead(Buffer buffer) {
-        const u_int8_t *data = BufferData(buffer);
         const size_t len = BufferSize(buffer);
         TCP_UT_LOG_DEBUG("Received " << BufferData(buffer) << " " << len << " bytes");
         len_ += len;

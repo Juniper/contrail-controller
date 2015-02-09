@@ -74,7 +74,7 @@ class ConnectionInfoTest : public ::testing::Test {
         const std::string ctype(
             g_process_info_constants.ConnectionTypeNames.find(
                 ConnectionType::TEST)->second);
-        for (int i = 0; i < vcinfo->size(); i++) {
+        for (size_t i = 0; i < vcinfo->size(); i++) {
             ConnectionInfo &tinfo(vcinfo->at(i));
             if (tinfo.get_type() == ctype &&
                 tinfo.get_name() == name) {
