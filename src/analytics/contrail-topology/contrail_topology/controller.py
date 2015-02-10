@@ -52,9 +52,10 @@ class Controller(object):
         self.link = {}
         for pr, d in self.prouters.items():
             if 'PRouterEntry' not in d or 'ifTable' not in d[
-                    'PRouterEntry'] or 'arpTable' not in d['PRouterEntry']:
+                    'PRouterEntry']:
                 continue
             self.link[pr] = []
+            lldp_ints = []
             ifm = dict(map(lambda x: (x['ifIndex'], x['ifDescr']),
                         d['PRouterEntry']['ifTable']))
             for pl in d['PRouterEntry']['lldpTable']['lldpRemoteSystemsData']:
@@ -66,6 +67,8 @@ class Controller(object):
                         'remote_interface_index': int(pl['lldpRemPortId']),
                         'type': 1
                         })
+                lldp_ints.append(ifm[pl['lldpRemLocalPortNum']])
+
             vrouter_neighbors = []
             dot1d2snmp = map (lambda x: (x['dot1dBasePortIfIndex'], x['snmpIfIndex']), d['PRouterEntry']['fdbPortIfIndexTable'])
             dot1d2snmp_dict = dict(dot1d2snmp)
@@ -76,6 +79,9 @@ class Controller(object):
                     try:
                         snmpport = dot1d2snmp_dict[fdbport]
                     except:
+                        continue
+                    is_lldp_int = any(ifm[snmpport] == lldp_int for lldp_int in lldp_ints)
+                    if is_lldp_int:
                         continue
                     self.link[pr].append({
                         'remote_system_name': vrouter_mac_entry['vrname'],
@@ -95,6 +101,9 @@ class Controller(object):
                         if self.vrouter_ips[vr_name] in vrouter_neighbors:
                             continue
                         if ifm[arp['localIfIndex']].startswith('vlan'):
+                            continue
+                        is_lldp_int = any(ifm[arp['localIfIndex']] == lldp_int for lldp_int in lldp_ints)
+                        if is_lldp_int:
                             continue
                         self.link[pr].append({
                             'remote_system_name': self.vrouter_ips[vr_name],
