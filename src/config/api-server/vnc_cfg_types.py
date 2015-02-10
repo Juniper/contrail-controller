@@ -916,6 +916,16 @@ def _check_policy_rule_uuid(entries):
             rule['rule_uuid'] = str(uuid.uuid4())
 # end _check_policy_rule_uuid
 
+def _check_policy_rule_port_range(entries):
+    if not entries:
+        return
+    for rule in entries.get('policy_rule') or []:
+        dst_ports = rule.get('dst_ports')
+        for dst_port in dst_ports:
+            if any(port > 65535 for port in dst_port.itervalues()):
+                return (500, "Invalid port range" + ': ' + pformat(dst_ports))
+# end _check_policy_rule_port_range
+
 class SecurityGroupServer(SecurityGroupServerGen):
     generate_default_instance = False
 
@@ -940,6 +950,9 @@ class SecurityGroupServer(SecurityGroupServerGen):
                 if not ok:
                     return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
 
+        errmsg = _check_policy_rule_port_range(obj_dict.get('security_group_entries'))
+        if errmsg:
+            return (False, errmsg)
         _check_policy_rule_uuid(obj_dict.get('security_group_entries'))
 
         return True, ""
@@ -972,6 +985,9 @@ class SecurityGroupServer(SecurityGroupServerGen):
                 if not ok:
                     return (False, (403, pformat(fq_name) + ' : ' + quota_limit))
 
+        errmsg = _check_policy_rule_port_range(obj_dict.get('security_group_entries'))
+        if errmsg:
+            return (False, errmsg)
         _check_policy_rule_uuid(obj_dict.get('security_group_entries'))
         return True, ""
     # end http_put
