@@ -5,9 +5,9 @@
 """
 This file contains implementation of data model for SVC monitor
 """
-from vnc_api.common.exceptions import NoIdError
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from cfgm_common.vnc_db import DBBase
+from cfgm_common import svc_info
 
 class LoadbalancerPoolSM(DBBase):
     _dict = {}
@@ -169,6 +169,76 @@ class HealthMonitorSM(DBBase):
 # end class HealthMonitorSM
 
 
+class VirtualMachineSM(DBBase):
+    _dict = {}
+    obj_type = 'virtual_machine'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.service_instance = None
+        self.virtual_router = None
+        self.virtual_machine_interfaces = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.update_single_ref('service_instance', obj)
+        self.update_single_ref('virtual_router', obj)
+        self.update_multiple_refs('virtual_machine_interface', obj)
+
+        # store only service vm info
+        if not self.service_instance:
+            self.delete(self.uuid)
+            return
+
+        self.display_name = obj['display_name']
+        self.virtualization_type = self.display_name.split('__')[-1]
+        self.proj_name = self.display_name.split('__')[1]
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_single_ref('service_instance', {})
+        obj.update_single_ref('virtual_router', {})
+        obj.update_multiple_refs('virtual_machine_interface', {})
+        del cls._dict[uuid]
+    # end delete
+# end VirtualMachineSM
+
+class VirtualRouterSM(DBBase):
+    _dict = {}
+    obj_type = 'virtual_router'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.virtual_machine = None
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.update_single_ref('virtual_machine', obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_single_ref('virtual_machine', {})
+        del cls._dict[uuid]
+    # end delete
+# end VirtualRouterSM
+
+
 class VirtualMachineInterfaceSM(DBBase):
     _dict = {}
     obj_type = 'virtual_machine_interface'
@@ -177,9 +247,11 @@ class VirtualMachineInterfaceSM(DBBase):
         self.uuid = uuid
         self.virtual_ip = None
         self.virtual_network = None
+        self.virtual_machine = None
         self.loadbalancer_pool = None
         self.logical_interface = None
         self.instance_ip = None
+        self.interface_route_table = None
         self.update(obj_dict)
     # end __init__
 
@@ -190,7 +262,9 @@ class VirtualMachineInterfaceSM(DBBase):
         self.update_single_ref('loadbalancer_pool', obj)
         self.update_single_ref('instance_ip', obj)
         self.update_single_ref('virtual_network', obj)
+        self.update_single_ref('virtual_machine', obj)
         self.update_single_ref('logical_interface', obj)
+        self.update_single_ref('interface_route_table', obj)
     # end update
 
     @classmethod
@@ -202,7 +276,9 @@ class VirtualMachineInterfaceSM(DBBase):
         obj.update_single_ref('loadbalancer_pool', {})
         obj.update_single_ref('instance_ip', {})
         obj.update_single_ref('virtual_network', {})
-        self.update_single_ref('logical_interface', {})
+        obj.update_single_ref('virtual_machine', {})
+        obj.update_single_ref('logical_interface', {})
+        obj.update_single_ref('interface_route_table', {})
         del cls._dict[uuid]
     # end delete
 # end VirtualMachineInterfaceSM
@@ -215,16 +291,38 @@ class ServiceInstanceSM(DBBase):
         self.uuid = uuid
         self.service_template = None
         self.loadbalancer_pool = None
+        self.virtual_machines = set()
+        self.params = None
+        self.state = 'init'
+        self.image = None
+        self.flavor = None
+        self.max_instances = 0
+        self.availability_zone = None
+        self.ha_mode = None
+        self.local_preference = [None, None]
+        self.vn_info = []
         self.update(obj_dict)
     # end __init__
 
     def update(self, obj=None):
         obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.proj_name = obj['fq_name'][-2]
         self.params = obj['service_instance_properties']
         self.update_single_ref('service_template', obj)
         self.update_single_ref('loadbalancer_pool', obj)
+        self.update_multiple_refs('virtual_machine', obj)
         self.id_perms = obj['id_perms']
+        self.ha_mode = self.params.get('ha_mode', None)
+        if self.ha_mode and self.ha_mode == 'active-standby':
+            self.max_instances = 2
+            self.local_preference = [svc_info.get_active_preference(),
+                svc_info.get_standby_preference()]
+        else:
+            scale_out = self.params.get('scale_out', None)
+            if scale_out:
+                self.max_instances = scale_out.get('max_instances', 1)
     # end update
 
     @classmethod
@@ -234,6 +332,7 @@ class ServiceInstanceSM(DBBase):
         obj = cls._dict[uuid]
         obj.update_single_ref('service_template', {})
         obj.update_single_ref('loadbalancer_pool', {})
+        obj.update_multiple_refs('virtual_machine', {})
         del cls._dict[uuid]
     # end delete
 # end class ServiceInstanceSM
@@ -246,13 +345,20 @@ class ServiceTemplateSM(DBBase):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.service_instances = set()
+        self.virtualization_type = None
         self.update(obj_dict)
     # end __init__
 
     def update(self, obj=None):
-        obj = self.read_obj(self.uuid)
+        if obj is None:
+            obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
-        self.params = obj['service_template_properties']
+        self.fq_name = obj['fq_name']
+        self.params = obj.get('service_template_properties')
+        self.virtualization_type = self.params.get(
+            'service_virtualization_type', None)
+        if not self.virtualization_type:
+            self.virtualization_type = 'virtual-machine'
         self.update_multiple_refs('service_instance', obj)
         self.id_perms = obj['id_perms']
     # end update
@@ -265,7 +371,7 @@ class ServiceTemplateSM(DBBase):
         obj.update_multiple_refs('service_instance', {})
         del cls._dict[uuid]
     # end delete
-# end class ServiceInstanceSM
+# end class ServiceTemplateSM
 
 
 class VirtualNetworkSM(DBBase):
@@ -304,7 +410,7 @@ class InstanceIpSM(DBBase):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.address = None
-        self.virtual_machine_interface = None
+        self.virtual_machine_interfaces = set()
         self.update(obj_dict)
     # end __init__
 
@@ -312,7 +418,7 @@ class InstanceIpSM(DBBase):
         obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.address = obj['instance_ip_address']
-        self.update_single_ref('virtual_machine_interface', obj)
+        self.update_multiple_refs('virtual_machine_interface', obj)
     # end update
 
     @classmethod
@@ -320,7 +426,7 @@ class InstanceIpSM(DBBase):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
-        obj.update_single_ref('instance_ip', {})
+        obj.update_multiple_refs('virtual_machine_interface', {})
         del cls._dict[uuid]
     # end delete
 # end class InstanceIpSM
@@ -456,6 +562,58 @@ class ProjectSM(DBBase):
     # end delete
 # end ProjectSM
 
+class SecurityGroupSM(DBBase):
+    _dict = {}
+    obj_type = 'security_group'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        if self.name != 'default':
+            self.delete(self.uuid)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        del cls._dict[uuid]
+    # end delete
+# end SecurityGroupSM
+
+class InterfaceRouteTableSM(DBBase):
+    _dict = {}
+    obj_type = 'interface_route_table'
+
+    def __init__(self, uuid):
+        self.uuid = uuid
+        self.virtual_machine_interfaces = set()
+    # end __init__
+
+    def update(self, obj=None):
+        obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.update_multiple_refs('virtual_machine_interface', obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('virtual_machine_interface', {})
+        del cls._dict[uuid]
+    # end delete
+# end InterfaceRouteTableSM
+
 
 DBBase._OBJ_TYPE_MAP = {
     'loadbalancer_pool': LoadbalancerPoolSM,
@@ -465,10 +623,14 @@ DBBase._OBJ_TYPE_MAP = {
     'service_template': ServiceTemplateSM,
     'service_instance': ServiceInstanceSM,
     'virtual_network': VirtualNetworkSM,
+    'virtual_machine': VirtualMachineSM,
     'virtual_machine_interface': VirtualMachineInterfaceSM,
+    'interface_route_table': InterfaceRouteTableSM,
     'instance_ip': InstanceIpSM,
     'logical_interface': LogicalInterfaceSM,
     'physical_interface': PhysicalInterfaceSM,
+    'virtual_router': VirtualRouterSM,
     'physical_router': PhysicalRouterSM,
     'project': ProjectSM,
+    'security_group': SecurityGroupSM,
 }

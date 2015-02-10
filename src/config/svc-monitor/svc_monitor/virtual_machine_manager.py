@@ -20,31 +20,31 @@
 from cfgm_common import svc_info
 from vnc_api.vnc_api import *
 from instance_manager import InstanceManager
+from config_db import VirtualMachineSM
 
 class VirtualMachineManager(InstanceManager):
 
-    def _create_svc_vm(self, instance_name, image_name, nics,
-                       flavor_name, st_obj, si_obj, avail_zone):
-
-        proj_name = si_obj.get_parent_fq_name()[-1]
-        if flavor_name:
+    def _create_service_vm(self, instance_index, si, st):
+        proj_name = si.fq_name[-2]
+        if si.flavor:
             flavor = self._nc.oper('flavors', 'find', proj_name,
-                                   name=flavor_name)
+                                   name=si.flavor)
         else:
             flavor = self._nc.oper('flavors', 'find', proj_name, ram=4096)
         if not flavor:
-            return
+            return None
 
-        image = self._nc.oper('images', 'find', proj_name, name=image_name)
+        image = self._nc.oper('images', 'find', proj_name, name=si.image)
         if not image:
-            return
+            return None
+
+        instance_name = self._get_instance_name(si, instance_index)
 
         # create port
         nics_with_port = []
-        for nic in nics:
+        for nic in si.vn_info:
             nic_with_port = {}
-            vmi_obj = self._create_svc_vm_port(nic, instance_name,
-                                               st_obj, si_obj)
+            vmi_obj = self._create_svc_vm_port(nic, instance_name, si, st)
             nic_with_port['port-id'] = vmi_obj.get_uuid()
             nics_with_port.append(nic_with_port)
 
@@ -53,201 +53,118 @@ class VirtualMachineManager(InstanceManager):
         nova_vm = self._nc.oper('servers', 'create', proj_name,
             name=instance_name, image=image,
             flavor=flavor, nics=nics_with_port,
-            availability_zone=avail_zone)
-        nova_vm.get()
-        self.logger.log('Created VM : ' + str(nova_vm))
+            availability_zone=si.availability_zone)
+        if not nova_vm:
+            self.cleanup_svc_vm_ports(nics_with_port)
+            return None
+        else:
+            nova_vm.get()
+            self.logger.log('Created VM : ' + str(nova_vm))
 
-        # create vnc VM object and link to SI
+        # link si and vm
         try:
-            proj_obj = self._vnc_lib.project_read(
-                fq_name=si_obj.get_parent_fq_name())
             vm_obj = VirtualMachine(nova_vm.id)
             vm_obj.uuid = nova_vm.id
             self._vnc_lib.virtual_machine_create(vm_obj)
         except RefsExistError:
-            vm_obj = self._vnc_lib.virtual_machine_read(id=nova_vm.id, fields=['virtual_machine_interface_back_refs', 'virtual_router_back_refs'])
+            vm_obj = self._vnc_lib.virtual_machine_read(id=nova_vm.id)
 
+        si_obj = self._vnc_lib.service_instance_read(id=si.uuid)
         vm_obj.add_service_instance(si_obj)
+        vm_obj.set_display_name(instance_name + '__' + st.virtualization_type)
         self._vnc_lib.virtual_machine_update(vm_obj)
         self.logger.log("Info: VM %s updated SI %s" %
             (vm_obj.get_fq_name_str(), si_obj.get_fq_name_str()))
 
-        return nova_vm
+        return nova_vm.id
 
-    def create_service(self, st_obj, si_obj):
-        si_props = si_obj.get_service_instance_properties()
-        st_props = st_obj.get_service_template_properties()
-        if st_props is None:
-            self.logger.log("Cannot find service template associated to "
-                             "service instance %s" % si_obj.get_fq_name_str())
-            return
+    def _check_create_service_vn(self, itf_type, si):
+        vn_id = None
 
-        flavor = st_props.get_flavor()
-        image_name = st_props.get_image_name()
-        if image_name is None:
-            self.logger.log("Error: Image name not present in %s" %
-                             (st_obj.name))
-            return
+        # search or create shared vn
+        funcname = "get_" + itf_type + "_vn_name"
+        func = getattr(svc_info, funcname)
+        service_vn_name = func()
+        funcname = "get_" + itf_type + "_vn_subnet"
+        func = getattr(svc_info, funcname)
+        service_vn_subnet = func()
 
-        # populate nic information
-        nics = self._get_nic_info(si_obj, si_props, st_props)
+        vn_fq_name = si.fq_name[:-1] + [service_vn_name]
+        try:
+            vn_id = self._vnc_lib.fq_name_to_id(
+                'virtual-network', vn_fq_name)
+        except NoIdError:
+            vn_id = self.create_service_vn(service_vn_name,
+                service_vn_subnet, si.fq_name[:-1])
+
+        return vn_id
+
+    def _validate_nova_objects(self, st, si):
+        # check image and flavor
+        si.flavor = st.params.get('flavor', None)
+        si.image = st.params.get('image_name', None)
+        if not (si.flavor or si.image):
+            self.logger.log("ERROR: Image/flavor not present in %s" %
+                ((':').join(st.fq_name)))
+            return False
 
         # get availability zone
-        avail_zone = None
-        if st_props.get_availability_zone_enable():
-            avail_zone = si_props.get_availability_zone()
+        if st.params.get('availability_zone_enable', None):
+            si.availability_zone = si.params.get('availability_zone')
         elif self._args.availability_zone:
-            avail_zone = self._args.availability_zone
+            si.availability_zone = self._args.availability_zone
+
+        return True
+
+    def create_service(self, st, si):
+        if not self._validate_nova_objects(st, si):
+            return
+        if not self.validate_network_config(st, si):
+            return
+
+        # get current vm list
+        vm_list = [None for i in range(0, si.max_instances)]
+        for vm_id in si.virtual_machines:
+            vm = VirtualMachineSM.get(vm_id)
+            index = int(vm.display_name.split('__')[-2]) - 1
+            vm_list[index] = vm
 
         # create and launch vm
-        proj_name = si_obj.get_parent_fq_name()[-1]
-        max_instances = si_props.get_scale_out().get_max_instances()
-        self.db.service_instance_insert(si_obj.get_fq_name_str(),
-                                        {'max-instances': str(max_instances),
-                                         'state': 'launching'})
+        si.state = 'launching'
         instances = []
-        for inst_count in range(0, max_instances):
-            instance_name = self._get_instance_name(si_obj, inst_count)
-            si_info = self.db.service_instance_get(si_obj.get_fq_name_str())
-            prefix = self.db.get_vm_db_prefix(inst_count)
-            if prefix + 'name' not in si_info.keys():
-                vm = self._create_svc_vm(instance_name, image_name, nics,
-                                         flavor, st_obj, si_obj, avail_zone)
-                if not vm:
-                    continue
-                vm_uuid = vm.id
-                state = 'pending'
+        for index in range(0, si.max_instances):
+            if vm_list[index]:
+                vm_uuid = vm_list[index].uuid
             else:
-                vm = self._nc.oper('servers', 'get', proj_name,
-                                   id=si_info[prefix + 'uuid'])
-                if not vm:
+                vm_uuid = self._create_service_vm(index, si, st)
+                if not vm_uuid:
                     continue
-                vm_uuid = si_info[prefix + 'uuid']
-                state = 'active'
 
-            # store vm, instance in db; use for linking when VM is up
-            vm_db_entry = self._set_vm_db_info(inst_count, instance_name,
-                                               vm_uuid, state)
-            self.db.service_instance_insert(si_obj.get_fq_name_str(),
-                                            vm_db_entry)
             instances.append({'uuid': vm_uuid})
 
-        self.db.service_instance_insert(si_obj.get_fq_name_str(),
-                                        {'state': 'active'})
+        # update static routes
+        self.update_static_routes(si)
+
         # uve trace
-        self.logger.uve_svc_instance(si_obj.get_fq_name_str(),
-            status='CREATE', vms=instances,
-            st_name=st_obj.get_fq_name_str())
+        si.state = 'active'
+        self.logger.uve_svc_instance(":".join(si.fq_name), status='CREATE',
+            vms=instances, st_name=st.name)
 
-    def delete_service(self, si_fq_str, vm_uuid, proj_name=None):
-        self.db.remove_vm_info(si_fq_str, vm_uuid)
-
-        try:
-            self._vnc_lib.virtual_machine_delete(id=vm_uuid)
-        except (NoIdError, RefsExistError):
-            pass
-
+    def delete_service(self, vm_uuid, proj_name=None):
         vm = self._nc.oper('servers', 'get', proj_name, id=vm_uuid)
-        if not vm:
-            raise KeyError
-
-        try:
-            vm.delete()
-        except Exception:
-            pass
-
-    def check_service(self, si_obj, proj_name=None):
-        status = 'ACTIVE'
-        vm_list = {}
-        vm_back_refs = getattr(si_obj, "virtual_machine_back_refs", [])
-        for vm_back_ref in vm_back_refs:
-            vm = self._nc.oper('servers', 'get', proj_name,
-                               id=vm_back_ref['uuid'])
-            if vm:
-                vm_list[vm.name] = vm
-            else:
-                try:
-                    self._vnc_lib.virtual_machine_delete(id=vm_back_ref['uuid'])
-                except (NoIdError, RefsExistError):
-                    pass
-
-        # check status of VMs
-        si_props = si_obj.get_service_instance_properties()
-        max_instances = si_props.get_scale_out().get_max_instances()
-        for inst_count in range(0, max_instances):
-            instance_name = self._get_instance_name(si_obj, inst_count)
-            if instance_name not in vm_list.keys():
-                status = 'ERROR'
-            elif vm_list[instance_name].status == 'ERROR':
-                try:
-                    self.delete_service(si_obj.get_fq_name_str(),
-                        vm_list[instance_name].id, proj_name)
-                except KeyError:
-                    pass
-                status = 'ERROR'
-
-        # check change in instance count
-        if vm_back_refs and (max_instances > len(vm_back_refs)):
-            status = 'ERROR'
-        elif vm_back_refs and (max_instances < len(vm_back_refs)):
-            for vm_back_ref in vm_back_refs:
-                try:
-                    self.delete_service(si_obj.get_fq_name_str(),
-                        vm_back_ref['uuid'], proj_name)
-                except KeyError:
-                    pass
-            status = 'ERROR'
-
-        return status
-
-    def update_static_routes(self, si_obj):
-        # get service instance interface list
-        si_props = si_obj.get_service_instance_properties()
-        si_if_list = si_props.get_interface_list()
-        if not si_if_list:
-            return
-
-        st_list = si_obj.get_service_template_refs()
-        fq_name = st_list[0]['to']
-        st_obj = self._vnc_lib.service_template_read(fq_name=fq_name)
-        st_props = st_obj.get_service_template_properties()
-        st_if_list = st_props.get_interface_type()
-
-        for idx in range(0, len(si_if_list)):
-            si_if = si_if_list[idx]
-            static_routes = si_if.get_static_routes()
-            if not static_routes:
-                static_routes = {'route':[]}
-
-            # update static routes
+        if vm:
             try:
-                rt_fq_name = self._get_if_route_table_name(
-                    st_if_list[idx].get_service_interface_type(),
-                    si_obj)
-                rt_obj = self._vnc_lib.interface_route_table_read(
-                    fq_name=rt_fq_name)
-                rt_obj.set_interface_route_table_routes(static_routes)
-                self._vnc_lib.interface_route_table_update(rt_obj)
-            except NoIdError:
+                vm.delete()
+            except Exception:
                 pass
 
-    def delete_iip(self, vm_uuid):
-        try:
-            vm_obj = self._vnc_lib.virtual_machine_read(id=vm_uuid, fields=['virtual_machine_interface_back_refs', 'virtual_router_back_refs'])
-        except NoIdError:
-            return
-
-        vmi_back_refs = getattr(vm_obj, "virtual_machine_interface_back_refs", None)
-        for vmi_back_ref in vmi_back_refs or []:
-            try:
-                vmi_obj = self._vnc_lib.virtual_machine_interface_read(
-                    id=vmi_back_ref['uuid'], fields=['instance_ip_back_refs'])
-            except NoIdError:
-                continue
-
-            iip_back_refs = getattr(vmi_obj, "instance_ip_back_refs", None)
-            for iip_back_ref in iip_back_refs or []:
+    def check_service(self, si):
+        for vm_id in si.virtual_machines:
+            vm = self._nc.oper('servers', 'get', si.proj_name, id=vm_id)
+            if vm and vm.status == 'ERROR':
                 try:
-                    self._vnc_lib.instance_ip_delete(id=iip_back_ref['uuid'])
-                except (NoIdError, RefsExistError):
-                    continue
+                    vm.delete()
+                except Exception:
+                    pass
+
+        return True
