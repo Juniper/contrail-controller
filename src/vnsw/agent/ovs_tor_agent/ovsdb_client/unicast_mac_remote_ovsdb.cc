@@ -311,6 +311,13 @@ VrfOvsdbObject::VrfOvsdbObject(OvsdbClientIdl *idl, DBTable *table) :
     walkid_(DBTableWalker::kInvalidWalkerId) {
     vrf_listener_id_ = table->Register(boost::bind(&VrfOvsdbObject::VrfNotify,
                 this, _1, _2));
+
+    // Trigger Walk to get existing vrf entries.
+    DBTableWalker *walker = idl->agent()->db()->GetWalker();
+    walkid_ = walker->WalkTable(table_, NULL,
+            boost::bind(&VrfOvsdbObject::VrfWalkNotify, this, _1, _2),
+            boost::bind(&VrfOvsdbObject::VrfWalkDone, this, _1));
+
     client_idl_->Register(OvsdbClientIdl::OVSDB_UCAST_MAC_REMOTE,
             boost::bind(&VrfOvsdbObject::OvsdbRouteNotify, this, _1, _2));
 }
