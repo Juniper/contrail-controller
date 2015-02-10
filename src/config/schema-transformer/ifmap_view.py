@@ -5,6 +5,8 @@
 
 import argparse
 import sys
+reload(sys)
+sys.setdefaultencoding('UTF8')
 
 import lxml.etree as et
 import StringIO

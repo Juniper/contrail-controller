@@ -7,6 +7,8 @@ Service monitor to instantiate/scale/monitor services like firewall, LB, ...
 """
 
 import sys
+reload(sys)
+sys.setdefaultencoding('UTF8')
 import gevent
 from gevent import monkey
 monkey.patch_all(thread=not 'unittest' in sys.modules)
