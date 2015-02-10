@@ -1,3 +1,6 @@
+#
+# Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+#
 import struct, netsnmp, string
 
 class SnmpTable(object):
@@ -259,13 +262,16 @@ class QBridgeTable(SnmpTable):
                 mac = ':'.join(map(lambda x: "%02x" % int(x), ns[1:]))
             except:
                 continue
-            self.dot1qTpFdbPortTable.append({'mac': mac,
+            if isinstance(x.val, int):
+                self.dot1qTpFdbPortTable.append({'mac': mac,
                     'dot1dBasePortIfIndex':int(x.val)})
 
     def dot1dBasePortIfIndex_translator(self, snmp_dict):
         for x in snmp_dict['vars']:
-            self.dot1dBasePortIfIndexTable.append({'dot1dBasePortIfIndex': int(x.iid),
-                    'snmpIfIndex':int(x.val)})
+            if isinstance(x.val, int):
+                self.dot1dBasePortIfIndexTable.append({
+                        'dot1dBasePortIfIndex': int(x.iid),
+                        'snmpIfIndex':int(x.val)})
 
 class SnmpSession(netsnmp.Session):
     table_list = ['LldpTable', 'IfMib', 'ArpTable', 'IpMib', 'QBridgeTable']

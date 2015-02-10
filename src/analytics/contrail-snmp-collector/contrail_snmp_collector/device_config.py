@@ -1,3 +1,6 @@
+#
+# Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+#
 from snmp import SnmpSession
 import copy, traceback, time, ConfigParser
 from vnc_api.vnc_api import VncApi
@@ -74,7 +77,6 @@ class DeviceConfig(object):
     def get_vnc(usr, passwd, tenant, ip, port):
         for rt in (5, 2, 7, 9, 16, 25):
             try:
-                print usr, passwd, tenant, ip, port
                 return VncApi(usr, passwd, tenant, ip, port)
             except Exception as e:
                 traceback.print_exc()

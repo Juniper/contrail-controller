@@ -1,3 +1,6 @@
+#
+# Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+#
 import re, setuptools
 
 def requirements(filename):
@@ -8,7 +11,7 @@ def requirements(filename):
 
 setuptools.setup(
         name='contrail-snmp-collector',
-        version='0.1.0',
+        version='0.2.0',
         description='contrail snmp collector package.',
         long_description=open('README.txt').read(),
         packages=setuptools.find_packages(),
@@ -26,6 +29,7 @@ setuptools.setup(
         entry_points = {
           'console_scripts' : [
             'contrail-snmp-collector = contrail_snmp_collector.main:emain',
+            'contrail-snmp-scanner = contrail_snmp_collector.scanner:main',
             ],
         },
     )

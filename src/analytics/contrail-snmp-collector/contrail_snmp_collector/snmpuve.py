@@ -1,3 +1,6 @@
+#
+# Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+#
 import pprint, socket, copy
 import datetime
 from pysandesh.sandesh_base import *
@@ -28,7 +31,8 @@ class SnmpUve(object):
                                       self._conf.collectors(),
                                       self._node_type_name,
                                       self._conf.http_port(),
-                                      ['contrail_snmp_collector.gen_py'])
+                                      ['contrail_snmp_collector.gen_py'],
+                                      self._conf._disc)
         sandesh_global.set_logging_params(
             enable_local_log=self._conf.log_local(),
             category=self._conf.log_category(),
@@ -42,6 +46,15 @@ class SnmpUve(object):
         #    NodeStatusUVE, NodeStatus)
 
         self.if_stat = {}
+        self._logger = sandesh_global.logger()
+
+    def killall(self):
+        sandesh_global.uninit()
+        if self._conf._disc:
+            self._conf._disc.uninit()
+
+    def logger(self):
+        return self._logger
 
     def get_diff(self, data):
         pname = data['name']

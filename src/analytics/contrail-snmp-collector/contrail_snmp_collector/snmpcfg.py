@@ -1,10 +1,17 @@
+#
+# Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+#
 import argparse, os, ConfigParser, sys, re
 from pysandesh.sandesh_base import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from device_config import DeviceConfig
+import discoveryclient.client as client
+from sandesh_common.vns.ttypes import Module
+from sandesh_common.vns.constants import ModuleNames, \
+         API_SERVER_DISCOVERY_SERVICE_NAME
 
 class CfgParser(object):
-    CONF_DEFAULT_PATH = '/etc/contrail/contrail-snmp-scanner.conf'
+    CONF_DEFAULT_PATH = '/etc/contrail/contrail-snmp-collector.conf'
     def __init__(self, argv):
         self._devices = []
         self._args = None
@@ -74,12 +81,15 @@ Mibs = LldpTable, ArpTable
             'syslog_facility' : Sandesh._DEFAULT_SYSLOG_FACILITY,
             'scan_frequency'  : 600,
             'http_server_port': 5920,
-            'file'            : 'devices.ini',
         }
         ksopts = {
             'admin_user': 'user1',
             'admin_password': 'password1',
             'admin_tenant_name': 'default-domain'
+        }
+        disc_opts = {
+            'disc_server_ip'     : None,
+            'disc_server_port'   : 5998,
         }
 
         config = None
@@ -90,6 +100,8 @@ Mibs = LldpTable, ArpTable
             defaults.update(dict(config.items("DEFAULTS")))
             if 'KEYSTONE' in config.sections():
                 ksopts.update(dict(config.items("KEYSTONE")))
+            if 'DISCOVERY' in config.sections():
+                disc_opts.update(dict(config.items('DISCOVERY')))
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
         parser = argparse.ArgumentParser(
@@ -101,6 +113,7 @@ Mibs = LldpTable, ArpTable
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
         defaults.update(ksopts)
+        defaults.update(disc_opts)
         parser.set_defaults(**defaults)
         parser.add_argument("--collectors",
             help="List of Collector IP addresses in ip:port format",
@@ -131,31 +144,56 @@ Mibs = LldpTable, ArpTable
                             help="Password of keystone admin user")
         parser.add_argument("--admin_tenant_name",
                             help="Tenant name for keystone admin user")
-        group = parser.add_mutually_exclusive_group(required=True)
-        group.add_argument("--file",
+        #parser.add_argument("--discovery_server",
+        #    help="ip:port of dicovery server")
+        parser.add_argument("--disc_server_ip",
+            help="Discovery Server IP address")
+        parser.add_argument("--disc_server_port", type=int,
+            help="Discovery Server port")
+        group = parser.add_mutually_exclusive_group(required=False)
+        group.add_argument("--device-config-file",
             help="where to look for snmp credentials")
         group.add_argument("--api_server",
             help="ip:port of api-server for snmp credentials")
-        group.add_argument("--discovery_server",
-            help="ip:port of dicovery to get api-sever snmp credentials")
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
         self._args.config_sections = config
+        self._disc = None
 
     def devices(self):
-        if self._args.file:
-            self._devices = DeviceConfig.fom_file(self._args.file)
-        if self._args.api_server:
-            self._devices = DeviceConfig.fom_api_server(self._args.api_server,
+        if self._args.device_config_file:
+            self._devices = DeviceConfig.fom_file(
+                    self._args.device_config_file)
+        elif self._args.api_server:
+            self._devices = DeviceConfig.fom_api_server(
+                    self._args.api_server,
                     self._args.admin_user, self._args.admin_password,
                     self._args.admin_tenant_name)
+        elif self._args.disc_server_port:
+          try:
+            self._devices = DeviceConfig.fom_api_server(
+                self.get_api_svr(), self._args.admin_user,
+                self._args.admin_password, self._args.admin_tenant_name)
+          except Exception as e:
+            self._devices = []
         for d in self._devices:
             yield d
 
-    def discovery(self):
-        return {'server':self._args.discovery_server,
-            'port':self._args.discovery_port}
+    def get_api_svr(self):
+        if self._disc is None:
+            self._disc = client.DiscoveryClient(*self.discovery_params())
+        a = self._disc.subscribe(API_SERVER_DISCOVERY_SERVICE_NAME, 0)
+        d = a.read()
+        return d[-1]['ip-address'] + ':' + d[-1]['port']
+
+    def discovery_params(self):
+        if self._args.disc_server_ip:
+            ip, port = self._args.disc_server_ip, \
+                       self._args.disc_server_port
+        else:
+            ip, port = '127.0.0.1', self._args.disc_server_port
+        return ip, port, ModuleNames[Module.CONTRAIL_SNMP_COLLECTOR]
 
     def collectors(self):
         return self._args.collectors

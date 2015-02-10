@@ -212,6 +212,7 @@ class DiscoveryClient(object):
 
         # task to publish deferred information
         self.pub_task = None
+        self._subs = []
     # end __init__
 
     def set_sandesh(self, sandesh):
@@ -279,6 +280,7 @@ class DiscoveryClient(object):
             # dictionary can change size during iteration
             pub_list = self.pubdata.copy()
             for cookie in pub_list:
+                gevent.sleep(0)
                 payload = {'cookie': cookie}
                 self.syslog('Sending cookie %s in heartbeat' % cookie)
                 try:
@@ -393,6 +395,8 @@ class DiscoveryClient(object):
     # subscribe request without callback is synchronous
     def subscribe(self, service_type, count, f=None, *args, **kw):
         obj = Subscribe(self, service_type, count, f, *args, **kw)
+        if f:
+            self._subs.append(obj)
         return obj
 
     # retreive service information given service ID
@@ -414,3 +418,8 @@ class DiscoveryClient(object):
         #print 'update_service response = ', r
         return r.status_code
     # end get_service
+
+    def uninit(self):
+        glets = map(lambda x: x.task, self._subs) + [self.hbtask]
+        gevent.killall(glets)
+        gevent.joinall(glets)
