@@ -29,7 +29,7 @@ void OvsdbClientSession::MessageProcess(const u_int8_t *buf, std::size_t len) {
 void OvsdbClientSession::OnEstablish() {
     OVSDB_TRACE(Trace, "Connection to client established");
     client_idl_ = new OvsdbClientIdl(this, agent_, manager_);
-    client_idl_->SendMointorReq();
+    client_idl_->OnEstablish();
 }
 
 void OvsdbClientSession::OnClose() {

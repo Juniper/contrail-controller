@@ -24,6 +24,9 @@ public:
     // Callback triggered for session cleanup
     virtual void OnCleanup() = 0;
 
+    // method to trigger close of session
+    virtual void TriggerClose() = 0;
+
     virtual KSyncObjectManager *ksync_obj_manager() = 0;
     virtual Ip4Address tsn_ip() = 0;
     virtual void SendMsg(u_int8_t *buf, std::size_t len) = 0;

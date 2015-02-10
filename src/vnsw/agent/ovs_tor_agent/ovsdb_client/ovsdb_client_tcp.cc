@@ -150,6 +150,17 @@ void OvsdbClientTcpSession::OnCleanup() {
     ovs_server->DeleteSession(this);
 }
 
+void OvsdbClientTcpSession::TriggerClose() {
+    // Close the session and return
+    Close();
+
+    // tcp session will not notify event for self closed session
+    // generate explicit event
+    OvsdbSessionEvent ovs_event;
+    ovs_event.event = TcpSession::CLOSE;
+    session_event_queue_->Enqueue(ovs_event);
+}
+
 bool OvsdbClientTcpSession::ProcessSessionEvent(OvsdbSessionEvent ovs_event) {
     boost::system::error_code ec;
     switch (ovs_event.event) {

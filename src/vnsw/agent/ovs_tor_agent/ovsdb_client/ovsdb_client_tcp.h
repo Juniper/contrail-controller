@@ -72,6 +72,9 @@ public:
 
     void OnCleanup();
 
+    // method to trigger close of session
+    void TriggerClose();
+
     // Dequeue event from workqueue for processing
     bool ProcessSessionEvent(OvsdbSessionEvent event);
 
