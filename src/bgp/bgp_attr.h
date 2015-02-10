@@ -314,39 +314,81 @@ struct EdgeDiscoverySpec : public BgpAttribute {
 
 class EdgeDiscovery {
 public:
-    explicit EdgeDiscovery(const EdgeDiscoverySpec &edspec);
-    ~EdgeDiscovery();
+    EdgeDiscovery(EdgeDiscoveryDB *edge_discovery_db,
+        const EdgeDiscoverySpec &edspec);
+    virtual ~EdgeDiscovery();
+    virtual void Remove();
+    int CompareTo(const EdgeDiscovery &rhs) const;
+
     const EdgeDiscoverySpec &edge_discovery() const { return edspec_; }
+
+    friend std::size_t hash_value(const EdgeDiscovery &edge_discovery) {
+        size_t hash = 0;
+        boost::hash_combine(hash, edge_discovery.edge_discovery().ToString());
+        return hash;
+    }
 
     struct Edge {
         explicit Edge(const EdgeDiscoverySpec::Edge *edge_spec);
         Ip4Address address;
         LabelBlockPtr label_block;
+        bool operator<(const Edge &rhs) const;
     };
     typedef std::vector<Edge *> EdgeList;
+
+    struct EdgeCompare {
+        bool operator()(const Edge *lhs, const Edge *rhs) {
+            BOOL_KEY_COMPARE(*lhs, *rhs);
+            return false;
+        }
+    };
 
     EdgeList edge_list;
 
 private:
-    friend void intrusive_ptr_add_ref(EdgeDiscovery *ediscovery);
-    friend void intrusive_ptr_release(EdgeDiscovery *ediscovery);
+    friend int intrusive_ptr_add_ref(const EdgeDiscovery *ediscovery);
+    friend int intrusive_ptr_del_ref(const EdgeDiscovery *ediscovery);
+    friend void intrusive_ptr_release(const EdgeDiscovery *ediscovery);
 
-    tbb::atomic<int> refcount_;
+    mutable tbb::atomic<int> refcount_;
+    EdgeDiscoveryDB *edge_discovery_db_;
     EdgeDiscoverySpec edspec_;
 };
 
-inline void intrusive_ptr_add_ref(EdgeDiscovery *ediscovery) {
-    ediscovery->refcount_.fetch_and_increment();
+inline int intrusive_ptr_add_ref(const EdgeDiscovery *cediscovery) {
+    return cediscovery->refcount_.fetch_and_increment();
 }
 
-inline void intrusive_ptr_release(EdgeDiscovery *ediscovery) {
-    int prev = ediscovery->refcount_.fetch_and_decrement();
+inline int intrusive_ptr_del_ref(const EdgeDiscovery *cediscovery) {
+    return cediscovery->refcount_.fetch_and_decrement();
+}
+
+inline void intrusive_ptr_release(const EdgeDiscovery *cediscovery) {
+    int prev = cediscovery->refcount_.fetch_and_decrement();
     if (prev == 1) {
+        EdgeDiscovery *ediscovery = const_cast<EdgeDiscovery *>(cediscovery);
+        ediscovery->Remove();
+        assert(ediscovery->refcount_ == 0);
         delete ediscovery;
     }
 }
 
 typedef boost::intrusive_ptr<EdgeDiscovery> EdgeDiscoveryPtr;
+
+struct EdgeDiscoveryCompare {
+    bool operator()(const EdgeDiscovery *lhs, const EdgeDiscovery *rhs) {
+        return lhs->CompareTo(*rhs) < 0;
+    }
+};
+
+class EdgeDiscoveryDB : public BgpPathAttributeDB<EdgeDiscovery,
+                                                  EdgeDiscoveryPtr,
+                                                  EdgeDiscoverySpec,
+                                                  EdgeDiscoveryCompare,
+                                                  EdgeDiscoveryDB> {
+public:
+    explicit EdgeDiscoveryDB(BgpServer *server);
+};
 
 struct EdgeForwardingSpec : public BgpAttribute {
     static const int kSize = -1;
@@ -377,39 +419,82 @@ struct EdgeForwardingSpec : public BgpAttribute {
 
 class EdgeForwarding {
 public:
-    explicit EdgeForwarding(const EdgeForwardingSpec &efspec);
+    EdgeForwarding(EdgeForwardingDB *edge_forwarding_db,
+        const EdgeForwardingSpec &efspec);
     ~EdgeForwarding();
+    int CompareTo(const EdgeForwarding &rhs) const;
+    virtual void Remove();
+
     const EdgeForwardingSpec &edge_forwarding() const { return efspec_; }
+
+    friend std::size_t hash_value(const EdgeForwarding &edge_forwarding) {
+        size_t hash = 0;
+        boost::hash_combine(hash, edge_forwarding.edge_forwarding().ToString());
+        return hash;
+    }
 
     struct Edge {
         explicit Edge(const EdgeForwardingSpec::Edge *edge_spec);
+        bool operator<(const Edge &rhs) const;
         Ip4Address inbound_address, outbound_address;
         uint32_t inbound_label, outbound_label;
     };
     typedef std::vector<Edge *> EdgeList;
 
+    struct EdgeCompare {
+        bool operator()(const Edge *lhs, const Edge *rhs) {
+            BOOL_KEY_COMPARE(*lhs, *rhs);
+            return false;
+        }
+    };
+
     EdgeList edge_list;
 
 private:
-    friend void intrusive_ptr_add_ref(EdgeForwarding *eforwarding);
-    friend void intrusive_ptr_release(EdgeForwarding *eforwarding);
+    friend int intrusive_ptr_add_ref(const EdgeForwarding *ceforwarding);
+    friend int intrusive_ptr_del_ref(const EdgeForwarding *ceforwarding);
+    friend void intrusive_ptr_release(const EdgeForwarding *ceforwarding);
 
-    tbb::atomic<int> refcount_;
+    mutable tbb::atomic<int> refcount_;
+    EdgeForwardingDB *edge_forwarding_db_;
     EdgeForwardingSpec efspec_;
 };
 
-inline void intrusive_ptr_add_ref(EdgeForwarding *eforwarding) {
-    eforwarding->refcount_.fetch_and_increment();
+inline int intrusive_ptr_add_ref(const EdgeForwarding *ceforwarding) {
+    return ceforwarding->refcount_.fetch_and_increment();
 }
 
-inline void intrusive_ptr_release(EdgeForwarding *eforwarding) {
-    int prev = eforwarding->refcount_.fetch_and_decrement();
+inline int intrusive_ptr_del_ref(const EdgeForwarding *ceforwarding) {
+    return ceforwarding->refcount_.fetch_and_decrement();
+}
+
+inline void intrusive_ptr_release(const EdgeForwarding *ceforwarding) {
+    int prev = ceforwarding->refcount_.fetch_and_decrement();
     if (prev == 1) {
+        EdgeForwarding *eforwarding =
+            const_cast<EdgeForwarding *>(ceforwarding);
+        eforwarding->Remove();
+        assert(eforwarding->refcount_ == 0);
         delete eforwarding;
     }
 }
 
 typedef boost::intrusive_ptr<EdgeForwarding> EdgeForwardingPtr;
+
+struct EdgeForwardingCompare {
+    bool operator()(const EdgeForwarding *lhs, const EdgeForwarding *rhs) {
+        return lhs->CompareTo(*rhs) < 0;
+    }
+};
+
+class EdgeForwardingDB : public BgpPathAttributeDB<EdgeForwarding,
+                                                   EdgeForwardingPtr,
+                                                   EdgeForwardingSpec,
+                                                   EdgeForwardingCompare,
+                                                   EdgeForwardingDB> {
+public:
+    explicit EdgeForwardingDB(BgpServer *server);
+};
 
 struct BgpAttrLabelBlock : public BgpAttribute {
     static const int kSize = 0;
