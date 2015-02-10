@@ -21,38 +21,11 @@
 using namespace boost::assign;
 using namespace std;
 
-class IFMapDependencyManager::IFMapNodeState : public DBState {
-  public:
-    IFMapNodeState(IFMapDependencyManager *manager, IFMapNode *node)
-            : manager_(manager), node_(node), object_(NULL), refcount_(0) {
-    }
-
-    IFMapNode *node() { return node_; }
-    DBEntry *object() { return object_; }
-    void set_object(DBEntry *object) {
-        object_ = object;
-        ++refcount_;
-    }
-    // Caller decrements refcount.
-    void clear_object() {
-        object_ = NULL;
-    }
-
-  private:
-    friend void intrusive_ptr_add_ref(IFMapNodeState *state);
-    friend void intrusive_ptr_release(IFMapNodeState *state);
-
-    IFMapDependencyManager *manager_;
-    IFMapNode *node_;
-    DBEntry *object_;
-    int refcount_;
-};
-
-void intrusive_ptr_add_ref(IFMapDependencyManager::IFMapNodeState *state) {
+void intrusive_ptr_add_ref(IFMapNodeState *state) {
     ++state->refcount_;
 }
 
-void intrusive_ptr_release(IFMapDependencyManager::IFMapNodeState *state) {
+void intrusive_ptr_release(IFMapNodeState *state) {
     if (--state->refcount_ ==  0) {
         state->manager_->IFMapNodeReset(state->node_);
         delete state;
@@ -250,7 +223,7 @@ void IFMapDependencyManager::ChangeListAdd(IFMapNode *node) {
     change_list_.push_back(IFMapNodePtr(state));
 }
 
-IFMapDependencyManager::IFMapNodeState *
+IFMapNodeState *
 IFMapDependencyManager::IFMapNodeGet(IFMapNode *node) {
     IFMapTable *table = node->table();
     TableMap::const_iterator loc = table_map_.find(table->name());
@@ -262,13 +235,16 @@ IFMapDependencyManager::IFMapNodeGet(IFMapNode *node) {
     return state;
 }
 
-void IFMapDependencyManager::IFMapNodeSet(IFMapNode *node, DBEntry *entry) {
+IFMapNodeState *
+IFMapDependencyManager::IFMapNodeSet(IFMapNode *node, DBEntry *entry) {
     IFMapTable *table = node->table();
     TableMap::const_iterator loc = table_map_.find(table->name());
     assert(loc != table_map_.end());
     IFMapNodeState *state = new IFMapNodeState(this, node);
-    state->set_object(entry);
+    if (entry)
+        state->set_object(entry);
     node->SetState(table, loc->second, state);
+    return state;
 }
 
 void IFMapDependencyManager::IFMapNodeReset(IFMapNode *node) {
@@ -297,11 +273,12 @@ void IFMapDependencyManager::SetObject(IFMapNode *node, DBEntry *entry) {
     trigger_->Set();
 }
 
-void IFMapDependencyManager::SetState(IFMapNode *node) {
+IFMapNodeState *
+IFMapDependencyManager::SetState(IFMapNode *node) {
     IFMapNodeState *state = IFMapNodeGet(node);
-    if (state == NULL) {
-        IFMapNodeSet(node, NULL);
-    }
+    if (!state)
+        state = IFMapNodeSet(node, NULL);
+    return state;
 }
 
 /*
@@ -313,8 +290,10 @@ void IFMapDependencyManager::ResetObject(IFMapNode *node) {
     if (state == NULL) {
         return;
     }
-    state->clear_object();
-    intrusive_ptr_release(state);
+    if (state->object()) {
+        state->clear_object();
+        intrusive_ptr_release(state);
+    }
 }
 
 /*

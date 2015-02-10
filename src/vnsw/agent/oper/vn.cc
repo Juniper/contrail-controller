@@ -532,18 +532,26 @@ IFMapNode *VnTable::FindTarget(IFMapAgentTable *table, IFMapNode *node,
     return NULL;
 }
 
+bool VnTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
+    VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
+    assert(cfg);
+    autogen::IdPermsType id_perms = cfg->id_perms();
+    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+    return true;
+}
+
 bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
     assert(cfg);
     autogen::IdPermsType id_perms = cfg->id_perms();
+    boost::uuids::uuid u;
+    agent()->cfg_listener()->GetCfgDBStateUuid(node, u);
     autogen::VirtualNetworkType properties = cfg->properties(); 
     int vnid = properties.network_id;
     int vxlan_id = properties.vxlan_network_identifier;
     bool bridging = true;
     bool layer3_forwarding = true;
     bool enable_rpf = true;
-    boost::uuids::uuid u;
-    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
 
     if (properties.rpf == "disable") {
         enable_rpf = false;
@@ -632,11 +640,11 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
 
         uuid mirror_acl_uuid = Agent::GetInstance()->mirror_cfg_table()->GetMirrorUuid(node->name());
         std::sort(vn_ipam.begin(), vn_ipam.end());
-        data = new VnData(node->name(), acl_uuid, vrf_name, mirror_acl_uuid, 
+        data = new VnData(agent(), node->name(), acl_uuid, vrf_name, mirror_acl_uuid,
                           mirror_cfg_acl_uuid, vn_ipam, vn_ipam_data,
                           vxlan_id, vnid, bridging, layer3_forwarding,
                           id_perms.enable, enable_rpf);
-        data->SetIFMapNode(agent(), node);
+        data->SetIFMapNode(node);
     }
 
     req.key.reset(key);
@@ -686,7 +694,7 @@ void VnTable::AddVn(const uuid &vn_uuid, const string &name,
                     int vxlan_id, bool admin_state, bool enable_rpf) {
     DBRequest req;
     VnKey *key = new VnKey(vn_uuid);
-    VnData *data = new VnData(name, acl_id, vrf_name, nil_uuid(), 
+    VnData *data = new VnData(agent(), name, acl_id, vrf_name, nil_uuid(),
                               nil_uuid(), ipam, vn_ipam_data,
                               vxlan_id, vxlan_id, true, true,
                               admin_state, enable_rpf);

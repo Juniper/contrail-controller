@@ -65,6 +65,7 @@ void CfgListener::Shutdown() {
     cfg_listener_id_map_.clear();
 }
 
+
 // Get CfgDBState set for an IFNode
 CfgDBState *CfgListener::GetCfgDBState(IFMapTable *table, DBEntryBase *dbe,
                                        DBTableBase::ListenerId &id) {
@@ -75,6 +76,19 @@ CfgDBState *CfgListener::GetCfgDBState(IFMapTable *table, DBEntryBase *dbe,
 
     id = it->second;
     return static_cast<CfgDBState *>(dbe->GetState(table, id));
+}
+
+
+bool CfgListener::GetCfgDBStateUuid(IFMapNode *node, boost::uuids::uuid &id) {
+
+    DBEntryBase *dbe = static_cast <DBEntryBase *> (node);
+    DBTableBase::ListenerId lid = 0;
+    CfgDBState *state = GetCfgDBState(node->table(), dbe, lid);
+    if (state) {
+        id = state->uuid_;
+        return true;
+    }
+    return false;
 }
 
 // When traversing graph, check if an IFMapNode can be used. Conditions are,
@@ -143,6 +157,11 @@ AgentDBTable* CfgListener::GetOperDBTable(IFMapNode *node) {
         return NULL;
     }
     const CfgTableListenerInfo *info = &loc->second;
+
+    // IF delete operation lets not bother about mandatory fields
+    if (node->IsDeleted())
+        return info->table_;
+
     // Check for presence of ID_PERMS if configured
     if (info->need_property_id_ >= 0) {
         const IFMapObject *obj = node->GetObject();
@@ -253,6 +272,10 @@ void CfgListener::NodeNotify(AgentDBTable *oper_table, IFMapNode *node) {
     if (node->IsDeleted()) {
         req.oper = DBRequest::DB_ENTRY_DELETE;
     } else {
+        DBEntryBase *dbe = static_cast <DBEntryBase *>(node);
+        DBTableBase::ListenerId lid = 0;
+        CfgDBState *state = GetCfgDBState(node->table(), dbe, lid);
+        oper_table->IFNodeToUuid(node, state->uuid_);
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     }
 
