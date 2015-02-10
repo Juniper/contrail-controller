@@ -208,6 +208,8 @@ class GeneratedsSuper(object):
     def populate_integer(name):
         if "prefix" in name:
             return 24
+        if name.endswith('_access'):
+            return 7
         else:
             return 42
 
