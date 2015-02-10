@@ -1,3 +1,6 @@
+#
+# Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+#
 from analytic_client import AnalyticApiClient
 from topology_uve import LinkUve
 import time
