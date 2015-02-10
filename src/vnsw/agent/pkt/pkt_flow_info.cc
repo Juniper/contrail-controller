@@ -63,7 +63,7 @@ void PktFlowInfo::ChangeVrf(const PktInfo *pkt, PktControlInfo *info,
 void PktFlowInfo::UpdateRoute(const AgentRoute **rt, const VrfEntry *vrf,
                               const IpAddress &ip, const MacAddress &mac,
                               FlowRouteRefMap &ref_map) {
-    if (*rt != NULL)
+    if (*rt != NULL && (*rt)->GetTableType() != Agent::BRIDGE)
         ref_map[(*rt)->vrf_id()] = RouteToPrefixLen(*rt);
     if (l3_flow) {
         *rt = flow_table->GetUcRoute(vrf, ip);
