@@ -214,10 +214,7 @@ void VlanLogicalInterface::SetSandeshData(SandeshLogicalInterface *data) const {
 // Config handling routines
 /////////////////////////////////////////////////////////////////////////////
 static LogicalInterfaceKey *BuildKey(IFMapNode *node,
-                                     const autogen::LogicalInterface *port) {
-    autogen::IdPermsType id_perms = port->id_perms();
-    boost::uuids::uuid u;
-    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+                                     boost::uuids::uuid &u) {
     return new VlanLogicalInterfaceKey(u, node->name());
 }
 
@@ -277,13 +274,29 @@ static LogicalInterfaceData *BuildData(Agent *agent, IFMapNode *node,
                                         port->vlan_tag());
 }
 
+bool InterfaceTable::LogicalInterfaceIFNodeToUuid(IFMapNode *node,
+        boost::uuids::uuid &u) {
+
+    autogen::LogicalInterface *port =
+        static_cast <autogen::LogicalInterface *>(node->GetObject());
+    assert(port);
+
+    autogen::IdPermsType id_perms = port->id_perms();
+    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+    return true;
+}
+
 bool InterfaceTable::LogicalInterfaceIFNodeToReq(IFMapNode *node,
                                                  DBRequest &req) {
     autogen::LogicalInterface *port =
         static_cast <autogen::LogicalInterface *>(node->GetObject());
     assert(port);
 
-    req.key.reset(BuildKey(node, port));
+    boost::uuids::uuid u;
+    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, u) == false)
+        return false;
+
+    req.key.reset(BuildKey(node, u));
     if (node->IsDeleted()) {
         req.oper = DBRequest::DB_ENTRY_DELETE;
         return true;

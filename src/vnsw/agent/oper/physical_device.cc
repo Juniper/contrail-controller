@@ -9,6 +9,7 @@
 #include <ifmap/ifmap_node.h>
 #include <cmn/agent_cmn.h>
 #include <cfg/cfg_init.h>
+#include <cfg/cfg_listener.h>
 #include <oper/agent_sandesh.h>
 #include <oper/operdb_init.h>
 #include <oper/ifmap_dependency_manager.h>
@@ -174,10 +175,8 @@ void PhysicalDeviceTable::RegisterDBClients(IFMapDependencyManager *dep) {
                              autogen::PhysicalRouter::ID_PERMS);
 }
 
-static PhysicalDeviceKey *BuildKey(const autogen::PhysicalRouter *router) {
-    autogen::IdPermsType id_perms = router->id_perms();
-    boost::uuids::uuid u;
-    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+static PhysicalDeviceKey *BuildKey(const autogen::PhysicalRouter
+        *router, boost::uuids::uuid &u) {
     return new PhysicalDeviceKey(u);
 }
 
@@ -192,12 +191,24 @@ static PhysicalDeviceData *BuildData(Agent *agent, IFMapNode *node,
                                   router->vendor_name(), ip, mip, "OVS", node);
 }
 
+bool PhysicalDeviceTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
+    autogen::PhysicalRouter *router = static_cast <autogen::PhysicalRouter *>
+        (node->GetObject());
+    autogen::IdPermsType id_perms = router->id_perms();
+    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+    return true;
+}
+
 bool PhysicalDeviceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     autogen::PhysicalRouter *router = static_cast <autogen::PhysicalRouter *>
         (node->GetObject());
     assert(router);
 
-    req.key.reset(BuildKey(router));
+    boost::uuids::uuid u;
+    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, u) == false)
+        return false;
+
+    req.key.reset(BuildKey(router, u));
     if (node->IsDeleted()) {
         req.oper = DBRequest::DB_ENTRY_DELETE;
         agent()->physical_device_vn_table()->ConfigUpdate(node);

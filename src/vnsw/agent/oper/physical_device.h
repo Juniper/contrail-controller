@@ -96,6 +96,7 @@ class PhysicalDeviceTable : public AgentOperDBTable {
     virtual bool OperDBOnChange(DBEntry *entry, const DBRequest *req);
     virtual bool OperDBDelete(DBEntry *entry, const DBRequest *req);
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
+    virtual bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
 
     PhysicalDevice *Find(const boost::uuids::uuid &u);
 

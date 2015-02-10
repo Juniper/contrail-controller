@@ -156,6 +156,8 @@ public:
         assert(0);
         return false;
     }
+    virtual bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &id);
+
     virtual DBTablePartition *AllocPartition(int index) {
         return new AgentDBTablePartition(this, index);
     };
