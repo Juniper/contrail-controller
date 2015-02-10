@@ -30,7 +30,9 @@ void TorAgentParam::AddOptions() {
         ("TOR.tsn_ip", boost_po::value<string>()->default_value(""),
          "IP Address of the ToR Service Node")
         ("TOR.tor_id", boost_po::value<string>()->default_value(""),
-         "Identifier of the TOR");
+         "Identifier of the TOR")
+        ("TOR.tor_keepalive_interval", boost_po::value<int>()->default_value(-1),
+         "Keepalive interval for TOR in milli seconds");
     AgentParam::AddOptions(tor);
 }
 
@@ -45,6 +47,8 @@ void TorAgentParam::InitFromConfig() {
     GetValueFromTree<string>(tor_info_.type_, "TOR.tor_type");
     GetValueFromTree<string>(tor_info_.protocol_, "TOR.tor_ovs_protocol");
     GetValueFromTree<int>(tor_info_.port_, "TOR.tor_ovs_port");
+    GetValueFromTree<int>(tor_info_.keepalive_interval_,
+                          "TOR.tor_keepalive_interval");
 }
 
 void TorAgentParam::InitFromArguments() {
@@ -60,6 +64,8 @@ void TorAgentParam::InitFromArguments() {
     GetOptValue<string>(vars, tor_info_.type_, "TOR.tor_type");
     GetOptValue<string>(vars, tor_info_.protocol_, "TOR.tor_ovs_protocol");
     GetOptValue<int>(vars, tor_info_.port_, "TOR.tor_ovs_port");
+    GetValueFromTree<int>(tor_info_.keepalive_interval_,
+                          "TOR.tor_keepalive_interval");
 }
 
 int TorAgentParam::Validate() {
