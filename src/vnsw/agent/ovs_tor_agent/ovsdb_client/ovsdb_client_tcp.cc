@@ -17,8 +17,8 @@ using OVSDB::OvsdbClientTcpSessionReader;
 
 OvsdbClientTcp::OvsdbClientTcp(Agent *agent, TorAgentParam *params,
         OvsPeerManager *manager) : TcpServer(agent->event_manager()),
-    OvsdbClient(manager), agent_(agent), session_(NULL),
-    server_ep_(IpAddress(params->tor_ip()), params->tor_port()),
+    OvsdbClient(manager, params->keepalive_interval()), agent_(agent),
+    session_(NULL), server_ep_(IpAddress(params->tor_ip()), params->tor_port()),
     tsn_ip_(params->tsn_ip()) {
 }
 
@@ -135,6 +135,11 @@ bool OvsdbClientTcpSession::ReceiveDequeue(queue_msg msg) {
     return true;
 }
 
+int OvsdbClientTcpSession::keepalive_interval() {
+    OvsdbClientTcp *ovs_server = static_cast<OvsdbClientTcp *>(server());
+    return ovs_server->keepalive_interval();
+}
+
 KSyncObjectManager *OvsdbClientTcpSession::ksync_obj_manager() {
     OvsdbClientTcp *ovs_server = static_cast<OvsdbClientTcp *>(server());
     return ovs_server->ksync_obj_manager();
@@ -148,6 +153,17 @@ Ip4Address OvsdbClientTcpSession::tsn_ip() {
 void OvsdbClientTcpSession::OnCleanup() {
     OvsdbClientTcp *ovs_server = static_cast<OvsdbClientTcp *>(server());
     ovs_server->DeleteSession(this);
+}
+
+void OvsdbClientTcpSession::TriggerClose() {
+    // Close the session and return
+    Close();
+
+    // tcp session will not notify event for self closed session
+    // generate explicit event
+    OvsdbSessionEvent ovs_event;
+    ovs_event.event = TcpSession::CLOSE;
+    session_event_queue_->Enqueue(ovs_event);
 }
 
 bool OvsdbClientTcpSession::ProcessSessionEvent(OvsdbSessionEvent ovs_event) {
