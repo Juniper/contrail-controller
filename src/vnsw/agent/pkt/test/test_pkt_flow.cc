@@ -3650,7 +3650,35 @@ TEST_F(FlowTest, TrafficPriority) {
     Ip4Address ip = Ip4Address::from_string(vm1_ip);
     InetUnicastRouteEntry *rt = RouteGet("vrf5", ip, 32);
     EXPECT_TRUE(rt->GetActivePath()->path_preference().wait_for_traffic()
-                == false);
+            == false);
+    FlushFlowTable();
+    client->WaitForIdle();
+}
+
+//Create a layer2 flow and verify that we dont add layer2 route
+//in prefix length manipulation
+TEST_F(FlowTest, Layer2PrefixManipulation) {
+    DelLink("virtual-network", "vn5", "access-control-list", "acl1");
+    //Add a vrf translate acl, so that packet is forced to go thru l3 processing
+    AddVrfAssignNetworkAcl("Acl", 10, "vn5", "vn5", "pass", "vrf5");
+    AddLink("virtual-network", "vn5", "access-control-list", "Acl");
+    client->WaitForIdle();
+
+    TxL2Packet(flow0->id(),input[0].mac, input[1].mac,
+               input[0].addr, input[1].addr, 1);
+    client->WaitForIdle();
+
+    int nh_id = flow0->flow_key_nh()->id();
+    FlowEntry *fe = FlowGet(1, vm1_ip, vm2_ip, 1, 0, 0, nh_id);
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->data().flow_source_plen_map.size() == 0);
+
+    FlushFlowTable();
+    client->WaitForIdle();
+    DelLink("virtual-network", "vn5", "access-control-list", "Acl");
+    DelAcl("Acl");
+    DelLink("virtual-network", "vn5", "access-control-list", "acl1");
+    client->WaitForIdle();
 }
 
 int main(int argc, char *argv[]) {
