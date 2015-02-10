@@ -3640,6 +3640,19 @@ TEST_F(FlowTest, FlowPolicyUuid_16) {
     client->WaitForIdle();
 }
 
+//Create a l2 flow and verify l3 route
+//priority gets increased
+TEST_F(FlowTest, TrafficPriority) {
+    TxL2Packet(flow0->id(),input[0].mac, input[1].mac,
+               input[0].addr, input[1].addr, 1);
+    client->WaitForIdle();
+
+    Ip4Address ip = Ip4Address::from_string(vm1_ip);
+    InetUnicastRouteEntry *rt = RouteGet("vrf5", ip, 32);
+    EXPECT_TRUE(rt->GetActivePath()->path_preference().wait_for_traffic()
+                == false);
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
