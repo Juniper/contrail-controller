@@ -15,6 +15,8 @@ import gevent.pywsgi
 gevent.pywsgi.MAX_REQUEST_LINE = 65535
 
 import sys
+reload(sys)
+sys.setdefaultencoding('UTF8')
 import re
 import logging
 import signal
