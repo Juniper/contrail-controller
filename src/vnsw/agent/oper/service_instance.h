@@ -155,6 +155,7 @@ class ServiceInstanceTable : public AgentDBTable {
      * Convert the ifmap node to a (key,data) pair stored in the database.
      */
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
+    virtual bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &id);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 
