@@ -100,13 +100,21 @@ DBTableBase *SgTable::CreateTable(DB *db, const std::string &name) {
     return sg_table_;
 };
 
+bool SgTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
+    SecurityGroup *cfg = static_cast<SecurityGroup *>(node->GetObject());
+    assert(cfg);
+    autogen::IdPermsType id_perms = cfg->id_perms();
+    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+    return true;
+}
+
 bool SgTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     SecurityGroup *cfg = static_cast<SecurityGroup *>(node->GetObject());
     assert(cfg);
 
-    autogen::IdPermsType id_perms = cfg->id_perms();
-    boost::uuids::uuid u;
-    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+    uuid u;
+    agent()->cfg_listener()->GetCfgDBStateUuid(node, u);
+    assert(boost::uuids::nil_uuid() != u);
 
     SgKey *key = new SgKey(u);
     SgData *data  = NULL;

@@ -214,9 +214,24 @@ void AgentConfig::RegisterDBClients(DB *db) {
     assert(cfg_vm_port_vrf_table_);
 
     cfg_route_table_ = (static_cast<IFMapAgentTable *>
-         (IFMapTable::FindTable(agent_->db(), 
+         (IFMapTable::FindTable(agent_->db(),
                                "interface-route-table")));
     assert(cfg_route_table_);
+
+    cfg_loadbalancer_table_ = (static_cast<IFMapAgentTable *>
+         (IFMapTable::FindTable(agent_->db(),
+                               "loadbalancer_pool")));
+    assert(cfg_loadbalancer_table_);
+
+    cfg_service_instance_table_ = (static_cast<IFMapAgentTable *>
+         (IFMapTable::FindTable(agent_->db(),
+                               "service_instance")));
+    assert(cfg_service_instance_table_);
+
+    cfg_security_group_table_ = (static_cast<IFMapAgentTable *>
+         (IFMapTable::FindTable(agent_->db(),
+                               "security_group")));
+    assert(cfg_security_group_table_);
 
     cfg_subnet_table_ = (static_cast<IFMapAgentTable *>
                     (IFMapTable::FindTable(agent_->db(),
