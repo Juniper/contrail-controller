@@ -593,8 +593,10 @@ class OpServer(object):
                 columnvalues = [STAT_OBJECTID_FIELD, SOURCE])
             self._VIRTUAL_TABLES.append(stt)
 
-        self._analytics_db = AnalyticsDb(self._logger, self._args.cassandra_server_list)
-        self._db_purge_running = False
+        self._analytics_db = AnalyticsDb(self._logger,
+                                         self._args.cassandra_server_list,
+                                         self._args.redis_query_port,
+                                         self._args.redis_password)
 
         bottle.route('/', 'GET', self.homepage_http_get)
         bottle.route('/analytics', 'GET', self.analytics_http_get)
@@ -1537,25 +1539,29 @@ class OpServer(object):
                 json.dumps(response), _ERRORS[errno.EBADMSG],
                 {'Content-type': 'application/json'})
 
-        if (self._db_purge_running == True):
-            self._logger.error(
-                'WARNING: Database Purge Operation is already running')
-            response = {'status': 'failed', 'reason':
-                        'Database Purge Operation is already running'}
-            return bottle.HTTPResponse(
-                json.dumps(response), _ERRORS[errno.EBUSY],
-                {'Content-type': 'application/json'})
+        res = self._analytics_db.get_analytics_db_purge_status(
+                  self._state_server._redis_list)
 
-        purge_request_ip, = struct.unpack('>I', socket.inet_pton(
+        if (res == None):
+            purge_request_ip, = struct.unpack('>I', socket.inet_pton(
                                         socket.AF_INET, self._args.host_ip))
-        purge_id = str(uuid.uuid1(purge_request_ip))
-        self._logger.info("Purge id is:" + str(purge_id))
-
-        gevent.spawn(self.db_purge_operation, purge_input, purge_id)
-        self._db_purge_running = True
-        response = {'status': 'started', 'purge_id': purge_id}
-        return bottle.HTTPResponse(
-            json.dumps(response), 200, {'Content-type': 'application/json'})
+            purge_id = str(uuid.uuid1(purge_request_ip))
+            resp = self._analytics_db.set_analytics_db_purge_status(purge_id,
+                            purge_input)
+            if (resp == None):
+                gevent.spawn(self.db_purge_operation, purge_input, purge_id)
+                response = {'status': 'started', 'purge_id': purge_id}
+                return bottle.HTTPResponse(json.dumps(response), 200,
+                                   {'Content-type': 'application/json'})
+            elif (resp['status'] == 'failed'):
+                return bottle.HTTPResponse(json.dumps(resp), _ERRORS[errno.EBUSY],
+                                       {'Content-type': 'application/json'})
+        elif (res['status'] == 'running'):
+            return bottle.HTTPResponse(json.dumps(res), 200,
+                                       {'Content-type': 'application/json'})
+        elif (res['status'] == 'failed'):
+            return bottle.HTTPResponse(json.dumps(res), _ERRORS[errno.EBUSY],
+                                       {'Content-type': 'application/json'})
     # end process_purge_request
 
     def db_purge_operation(self, purge_input, purge_id):
@@ -1567,12 +1573,13 @@ class OpServer(object):
         purge_info.number_of_purge_requests = \
             self._analytics_db.number_of_purge_requests
         total_rows_deleted = self._analytics_db.db_purge(purge_input, purge_id)
+        self._analytics_db.delete_db_purge_status()
         end_time = UTCTimestampUsec()
         duration = end_time - purge_stat.request_time
         purge_stat.purge_id = purge_id
         if (total_rows_deleted < 0):
             purge_stat.purge_status = PurgeStatusString[PurgeStatus.FAILURE]
-            self._logger.info("purge_id %s purging Failed" % str(purge_id))
+            self._logger.error("purge_id %s purging Failed" % str(purge_id))
         else:
             purge_stat.purge_status = PurgeStatusString[PurgeStatus.SUCCESS]
             self._logger.info("purge_id %s purging DONE" % str(purge_id))
@@ -1582,9 +1589,7 @@ class OpServer(object):
         purge_info.stats = [purge_stat]
         purge_data = DatabasePurge(data=purge_info)
         purge_data.send()
-
-        self._db_purge_running = False
-        #end db_purge_operation
+    #end db_purge_operation
 
     def _get_analytics_data_start_time(self):
         analytics_start_time = self._analytics_db._get_analytics_start_time()

@@ -1710,9 +1710,9 @@ class AnalyticsFixture(fixtures.Fixture):
         if not res:
             return False
         return True
-        # end verify_collector_object_log_before_purge
+    # end verify_collector_object_log_before_purge
 
-    def verify_database_purge_query(self, start_time, end_time):
+    def verify_database_purge_query(self):
         self.logger.info('verify database purge query');
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port);
         json_qstr = json.dumps({'purge_input': 100})
@@ -1731,6 +1731,18 @@ class AnalyticsFixture(fixtures.Fixture):
             return False
         return True
     # end verify_collector_object_log_after_purge
+
+    def verify_database_purge_request_limit(self):
+        self.logger.info('verify database purge request limit')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        json_qstr = json.dumps({'purge_input': 50})
+        res = vns.post_purge_query_json(json_qstr)
+        if (res == 'started'):
+            res1 = vns.post_purge_query_json(json_qstr)
+            if (res1 == 'running'):
+                return True
+        return False
+    # end verify_database_purge_request_limit
 
     @retry(delay=1, tries=10)
     def verify_object_value_table_query(self, table, exp_object_values):
