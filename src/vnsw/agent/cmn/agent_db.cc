@@ -93,6 +93,10 @@ void AgentDBTablePartition::Remove(DBEntryBase *entry) {
     DBTablePartition::Remove(entry);
 }
 
+bool AgentDBTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &id) {
+    return false;
+}
+
 void AgentDBTable::Input(DBTablePartition *partition, DBClient *client,
                          DBRequest *req) {
     AgentKey *key = static_cast<AgentKey *>(req->key.get());
