@@ -243,6 +243,7 @@ BgpServer::BgpServer(EventManager *evm)
       comm_db_(new CommunityDB(this)),
       extcomm_db_(new ExtCommunityDB(this)),
       ovnpath_db_(new OriginVnPathDB(this)),
+      pmsi_tunnel_db_(new PmsiTunnelDB(this)),
       attr_db_(new BgpAttrDB(this)),
       session_mgr_(BgpObjectFactory::Create<BgpSessionManager>(evm, this)),
       sched_mgr_(new SchedulingGroupManager),

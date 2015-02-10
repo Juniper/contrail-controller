@@ -31,6 +31,7 @@ class ExtCommunityDB;
 class LifetimeActor;
 class LifetimeManager;
 class OriginVnPathDB;
+class PmsiTunnelDB;
 class PeerRibMembershipManager;
 class RoutePathReplicator;
 class RoutingInstanceMgr;
@@ -97,6 +98,7 @@ public:
     CommunityDB *comm_db() { return comm_db_.get(); }
     ExtCommunityDB *extcomm_db() { return extcomm_db_.get(); }
     OriginVnPathDB *ovnpath_db() { return ovnpath_db_.get(); }
+    PmsiTunnelDB *pmsi_tunnel_db() { return pmsi_tunnel_db_.get(); }
 
     bool IsDeleted() const;
     bool IsReadyForDeletion();
@@ -172,6 +174,7 @@ private:
     boost::scoped_ptr<CommunityDB> comm_db_;
     boost::scoped_ptr<ExtCommunityDB> extcomm_db_;
     boost::scoped_ptr<OriginVnPathDB> ovnpath_db_;
+    boost::scoped_ptr<PmsiTunnelDB> pmsi_tunnel_db_;
     boost::scoped_ptr<BgpAttrDB> attr_db_;
 
     // sessions and state managers
