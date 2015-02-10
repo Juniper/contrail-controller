@@ -532,18 +532,26 @@ IFMapNode *VnTable::FindTarget(IFMapAgentTable *table, IFMapNode *node,
     return NULL;
 }
 
+bool VnTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
+    VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
+    assert(cfg);
+    autogen::IdPermsType id_perms = cfg->id_perms();
+    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+    return true;
+}
+
 bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
     assert(cfg);
     autogen::IdPermsType id_perms = cfg->id_perms();
+    boost::uuids::uuid u;
+    agent()->cfg_listener()->GetCfgDBStateUuid(node, u);
     autogen::VirtualNetworkType properties = cfg->properties(); 
     int vnid = properties.network_id;
     int vxlan_id = properties.vxlan_network_identifier;
     bool bridging = true;
     bool layer3_forwarding = true;
     bool enable_rpf = true;
-    boost::uuids::uuid u;
-    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
 
     if (properties.rpf == "disable") {
         enable_rpf = false;

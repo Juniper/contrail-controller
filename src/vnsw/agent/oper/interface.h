@@ -275,10 +275,12 @@ public:
 
     // Config handlers
     bool VmiIFNodeToReq(IFMapNode *node, DBRequest &req);
+    bool VmiIFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
     bool PhysicalInterfaceIFNodeToReq(IFMapNode *node, DBRequest &req);
     bool LogicalInterfaceIFNodeToReq(IFMapNode *node, DBRequest &req);
     bool RemotePhysicalInterfaceIFNodeToReq(IFMapNode *node, DBRequest &req);
     bool IFNodeToReq(IFMapNode *node, DBRequest &req);
+    bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
 
     // Handle change in config VRF for the interface
     void VmInterfaceVrfSync(IFMapNode *node);

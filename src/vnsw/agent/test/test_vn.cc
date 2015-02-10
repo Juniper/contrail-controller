@@ -67,6 +67,7 @@ static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
 class CfgTest : public ::testing::Test {
 };
 
+#if 0
 TEST_F(CfgTest, VnBasic_1) {
     char buff[4096];
     int len = 0;
@@ -836,6 +837,40 @@ TEST_F(CfgTest, RpfEnableDisable) {
     DelVn("vn10");
     client->WaitForIdle();
 }
+
+#endif
+
+TEST_F(CfgTest, CfgDBStateUuid) {
+    client->WaitForIdle();
+    // Add VN with UUID
+    AddVn("vn1", 1);
+    client->WaitForIdle();
+
+    VnEntry *vn = VnGet(1);
+    ASSERT_TRUE(vn != NULL);
+
+    //Get the config table
+    IFMapTable *table =
+        IFMapTable::FindTable(Agent::GetInstance()->db(),"virtual-network");
+    ASSERT_TRUE(table != NULL);
+
+    //Get the config node
+    IFMapNode *node = table->FindNode("vn1");
+    ASSERT_TRUE(node != NULL);
+
+    boost::uuids::uuid id;
+    EXPECT_TRUE(Agent::GetInstance()->cfg()->cfg_listener()->
+        GetCfgDBStateUuid(node, id));
+    EXPECT_EQ(id, MakeUuid(1));
+    client->WaitForIdle();
+
+    DelVn("vn1");
+    client->WaitForIdle();
+
+    vn = VnGet(1);
+    ASSERT_TRUE(vn == NULL);
+}
+
 
 int main(int argc, char **argv) {
     GETUSERARGS();

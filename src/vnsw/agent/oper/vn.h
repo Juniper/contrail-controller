@@ -208,6 +208,7 @@ public:
     virtual bool OperDBResync(DBEntry *entry, const DBRequest *req); 
 
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
+    virtual bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static VnTable *GetInstance() {return vn_table_;};

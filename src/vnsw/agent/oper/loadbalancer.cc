@@ -8,6 +8,7 @@
 #include "loadbalancer_properties.h"
 #include <oper/agent_sandesh.h>
 #include <oper/agent_types.h>
+#include <cfg/cfg_listener.h>
 
 class LoadbalancerData : public AgentData {
   public:
@@ -248,11 +249,23 @@ void LoadbalancerTable::Initialize(
         boost::bind(&LoadbalancerTable::ChangeEventHandler, this, _1));
 }
 
-bool LoadbalancerTable::IFNodeToReq(IFMapNode *node, DBRequest &request) {
+bool LoadbalancerTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
     autogen::LoadbalancerPool *pool =
-            static_cast<autogen::LoadbalancerPool *>(node->GetObject());
+        static_cast<autogen::LoadbalancerPool *>(node->GetObject());
     const autogen::IdPermsType &id = pool->id_perms();
-    request.key.reset(new LoadbalancerKey(IdPermsGetUuid(id)));
+    u = IdPermsGetUuid(id);
+    return true;
+}
+
+bool LoadbalancerTable::IFNodeToReq(IFMapNode *node, DBRequest &request) {
+    boost::uuids::uuid id;
+    if (agent() && agent()->cfg_listener()) {
+        agent()->cfg_listener()->GetCfgDBStateUuid(node, id);
+    } else {
+        IFNodeToUuid(node, id);
+    }
+    request.key.reset(new LoadbalancerKey(id));
+
     if (!node->IsDeleted()) {
         request.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         request.data.reset(new LoadbalancerData(node));
