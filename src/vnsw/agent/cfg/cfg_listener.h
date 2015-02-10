@@ -13,8 +13,9 @@ class DB;
 
 class CfgDBState : public DBState {
 public:
-    CfgDBState() : notify_count_(0) { };
-    uint32_t notify_count_;
+    CfgDBState() : notify_count_(0), uuid_(boost::uuids::nil_uuid()) { };
+    bool notify_count_;
+    boost::uuids::uuid uuid_;
 };
 
 class CfgListener {
@@ -66,6 +67,8 @@ public:
     bool CanUseNode(IFMapNode *node, IFMapAgentTable *table);
     bool SkipNode(IFMapNode *node);
     bool SkipNode(IFMapNode *node, IFMapAgentTable *table);
+
+    bool GetCfgDBStateUuid(IFMapNode *node, boost::uuids::uuid &id);
 
     // Callback invoked for each IFMap neighbor node
     typedef boost::function<void(const Agent *agent, const char *name,

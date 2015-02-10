@@ -214,7 +214,6 @@ public:
 };
 
 bool KStateTest::ksync_init_;
-
 TEST_F(KStateTest, IfDumpTest) {
     int if_count = 0;
     TestIfKState::Init();
@@ -267,7 +266,7 @@ TEST_F(KStateTest, NHDumpTest) {
 
     DeletePorts(max_ports);
 }
-
+#if 0
 TEST_F(KStateTest, NHGetTest) {
     int nh_count = 0;
     TestNHKState::Init();
@@ -470,6 +469,7 @@ TEST_F(KStateTest, DISABLED_FlowDumpTest) {
     WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->pkt()->flow_table()->Size()));
     DeletePortsWithPolicy();
 }
+#endif
 
 int main(int argc, char *argv[]) {
     int ret;

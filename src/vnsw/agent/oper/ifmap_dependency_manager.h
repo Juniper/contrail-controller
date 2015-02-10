@@ -18,10 +18,39 @@ class DBGraph;
 class IFMapDependencyTracker;
 class IFMapNode;
 class TaskTrigger;
+class IFMapDependencyManager;
+
+class IFMapNodeState : public DBState {
+  public:
+    IFMapNodeState(IFMapDependencyManager *manager, IFMapNode *node)
+            : manager_(manager), node_(node), object_(NULL), refcount_(0) {
+    }
+
+    IFMapNode *node() { return node_; }
+    DBEntry *object() { return object_; }
+    void set_object(DBEntry *object) {
+        object_ = object;
+    }
+
+    void clear_object() {
+        object_ = NULL;
+    }
+
+  private:
+    friend void intrusive_ptr_add_ref(IFMapNodeState *state);
+    friend void intrusive_ptr_release(IFMapNodeState *state);
+
+    IFMapDependencyManager *manager_;
+    IFMapNode *node_;
+    DBEntry *object_;
+    int refcount_;
+};
+
 
 class IFMapDependencyManager {
 public:
     typedef boost::function<void(DBEntry *)> ChangeEventHandler;
+    typedef boost::intrusive_ptr<IFMapNodeState> IFMapNodeStateRef;
     IFMapDependencyManager(DB *database, DBGraph *graph);
     virtual ~IFMapDependencyManager();
 
@@ -47,15 +76,9 @@ public:
     void SetObject(IFMapNode *node, DBEntry *entry);
 
     /*
-     * Reset the association between the IFMapNode and the operation DB
-     * entry.
-     */
-    void ResetObject(IFMapNode *node);
-
-    /*
      * Add DBState to an IFMapNode
      */
-    void SetState(IFMapNode *node);
+    IFMapNodeStateRef SetState(IFMapNode *node);
     /*
      * Register a notification callback.
      */
@@ -66,13 +89,13 @@ public:
      */
     void Unregister(const std::string &type);
 
+
 private:
     /*
      * IFMapNodeState (DBState) should exist:
      * a) if the object is set
      * b) if the entry is on the change list.
      */
-    class IFMapNodeState;
     friend void intrusive_ptr_add_ref(IFMapNodeState *state);
     friend void intrusive_ptr_release(IFMapNodeState *state);
 
@@ -87,7 +110,6 @@ private:
     void LinkObserver(DBTablePartBase *root, DBEntryBase *db_entry);
     void ChangeListAdd(IFMapNode *node);
 
-    void IFMapNodeSet(IFMapNode *node, DBEntry *object);
     void IFMapNodeReset(IFMapNode *node);
     IFMapNodeState *IFMapNodeGet(IFMapNode *node);
 
