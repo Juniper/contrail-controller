@@ -29,36 +29,71 @@ struct AgentOperDBKey : public AgentKey {
 };
 
 struct AgentOperDBData : public AgentData {
-    AgentOperDBData(Agent *agent, IFMapNode *node) :
-        AgentData(), ifmap_node_(NULL) {
-        SetIFMapNode(agent, node);
-    }
-    virtual ~AgentOperDBData() { }
 
-    void SetIFMapNode(Agent *agent, IFMapNode *node) {
-        if (node == NULL)
+    typedef boost::intrusive_ptr<IFMapNodeState> IFMapNodeStateRef;
+
+    AgentOperDBData(const Agent *agent, IFMapNode *node) :
+        AgentData(), agent_(agent) {
+        SetIFMapNode(node);
+    }
+    virtual ~AgentOperDBData() {
+        SetIFMapNode(NULL);
+    }
+
+
+    void SetIFMapNode(IFMapNode *node) {
+
+        if (node == NULL) {
+            ifmap_node_state_ = NULL;
             return;
-        IFMapDependencyManager *dep = agent->oper_db()->dependency_manager();
-        dep->SetState(node);
-        ifmap_node_ = node;
+        }
+
+        assert(agent_);
+
+        // We dont allow changing the node
+        assert(!ifmap_node_state_);
+
+        IFMapDependencyManager *dep = agent_->oper_db()->dependency_manager();
+        IFMapNodeState *state = dep->SetState(node);
+        assert(state);
+        ifmap_node_state_  = IFMapNodeStateRef(state);
     }
 
-    IFMapNode *ifmap_node() const { return ifmap_node_; }
+    IFMapNode *ifmap_node() const {
+        if (!ifmap_node_state_)
+            return NULL;
+        IFMapNodeState *state = ifmap_node_state_.get();
+        return state->node();
+    }
 private:
+    const Agent *agent_;
     // IFMap Node pointer for the object
-    IFMapNode *ifmap_node_;
+    IFMapNodeStateRef ifmap_node_state_;
 };
 
 class AgentOperDBEntry : public AgentDBEntry {
 public:
-    AgentOperDBEntry() : AgentDBEntry(), ifmap_node_(NULL) { }
+    typedef boost::intrusive_ptr<IFMapNodeState> IFMapNodeStateRef;
+    AgentOperDBEntry() : AgentDBEntry()  { }
     virtual ~AgentOperDBEntry() { }
 
-    IFMapNode *ifmap_node() const { return ifmap_node_; }
+    IFMapNode *ifmap_node() const {
+        if (!ifmap_node_state_)
+            return NULL;
+        IFMapNodeState *state = ifmap_node_state_.get();
+        return state->node();
+    }
+
+    void SetIFMapNodeState(IFMapNodeState *state) {
+        if (!state) {
+            ifmap_node_state_ = NULL;
+            return;
+        }
+        ifmap_node_state_  = IFMapNodeStateRef(state);
+    }
 private:
     friend class AgentOperDBTable;
-    // IFMapNode for the DBEntry
-    IFMapNode *ifmap_node_;
+    IFMapNodeStateRef ifmap_node_state_;
     DISALLOW_COPY_AND_ASSIGN(AgentOperDBEntry);
 };
 
@@ -91,9 +126,9 @@ public:
             return;
 
         AgentOperDBEntry *agent_entry = static_cast<AgentOperDBEntry *>(entry);
-        if (agent_entry->ifmap_node_) {
+        if (agent_entry->ifmap_node()) {
             DBRequest req;
-            if (IFNodeToReq(agent_entry->ifmap_node_, req) == true) {
+            if (IFNodeToReq(agent_entry->ifmap_node(), req) == true) {
                 Enqueue(&req);
             }
         }
@@ -106,16 +141,23 @@ protected:
         if (entry == NULL)
             return;
 
-        if (entry->ifmap_node_ == node)
+        IFMapNode *old_node = entry->ifmap_node();
+
+        if (old_node == node)
             return;
 
         IFMapDependencyManager *dep = agent()->oper_db()->dependency_manager();
-        if (entry->ifmap_node_ != NULL)
-            dep->ResetObject(entry->ifmap_node_);
+        if (old_node) {
+            dep->SetObject(old_node, NULL);
+            entry->SetIFMapNodeState(NULL);
+        }
 
-        entry->ifmap_node_ = node;
-        if (entry->ifmap_node_)
+        if (node) {
             dep->SetObject(node, entry);
+            IFMapNodeState *state = dep->IFMapNodeGet(node);
+            assert(state);
+            entry->SetIFMapNodeState(state);
+        }
     }
 
     // Implement Add, Delete, OnChange to provide common agent functionality
@@ -123,7 +165,6 @@ protected:
     virtual DBEntry *Add(const DBRequest *req) {
         AgentOperDBEntry *entry = static_cast<AgentOperDBEntry *>
             (OperDBAdd(req));
-
         AgentOperDBData *data = static_cast<AgentOperDBData *>(req->data.get());
         if (data && data->ifmap_node())
             UpdateIfMapNode(entry, data->ifmap_node());
@@ -153,6 +194,7 @@ protected:
     virtual bool Delete(DBEntry *entry, const DBRequest *req) {
         AgentOperDBEntry *oper_entry = static_cast<AgentOperDBEntry *>(entry);
         bool ret = OperDBDelete(entry, req);
+
         UpdateIfMapNode(oper_entry, NULL);
         return ret;
     }

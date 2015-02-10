@@ -16,6 +16,7 @@
 #include <agent_types.h>
 
 #include <cfg/cfg_init.h>
+#include <cfg/cfg_listener.h>
 
 #include <filter/traffic_action.h>
 #include <filter/acl_entry_match.h>
@@ -313,11 +314,18 @@ static void AclObjectTrace(AgentLogEvent::type event, AclSpec &acl_spec)
     }
 }
 
-bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
+bool AclTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
     AccessControlList *cfg_acl = static_cast <AccessControlList *> (node->GetObject());
     autogen::IdPermsType id_perms = cfg_acl->id_perms();
-    boost::uuids::uuid u;
     CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+    return true;
+}
+
+bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
+
+    AccessControlList *cfg_acl = static_cast <AccessControlList *> (node->GetObject());
+    uuid u;
+    agent()->cfg_listener()->GetCfgDBStateUuid(node, u);
 
     // Delete ACL
     if (req.oper == DBRequest::DB_ENTRY_DELETE) {
