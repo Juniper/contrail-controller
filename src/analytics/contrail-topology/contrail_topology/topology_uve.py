@@ -1,3 +1,6 @@
+#
+# Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+#
 import pprint, socket
 from pysandesh.sandesh_base import *
 from pysandesh.connection_info import ConnectionState
