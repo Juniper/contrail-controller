@@ -24,7 +24,7 @@ public:
 
     class Key {
     public:
-        static std::size_t Length (const TestIntfEntry *node) {
+        static std::size_t BitLength (const TestIntfEntry *node) {
             return (node->get_name().length() << 3);
         }
 
@@ -123,7 +123,7 @@ public:
 
     class Key {
     public:
-        static std::size_t Length (const TestRouteEntry *node) {
+        static std::size_t BitLength (const TestRouteEntry *node) {
             return node->get_prefix_len();
         }
 

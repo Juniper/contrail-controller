@@ -94,7 +94,7 @@ public:
     //Key for patricia node lookup 
     class Rtkey {
       public:
-          static std::size_t Length(const AgentRoute *key) {
+          static std::size_t BitLength(const AgentRoute *key) {
               const InetUnicastRouteEntry *uckey =
                   static_cast<const InetUnicastRouteEntry *>(key);
               return uckey->plen();

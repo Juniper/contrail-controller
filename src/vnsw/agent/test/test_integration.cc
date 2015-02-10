@@ -121,7 +121,7 @@ public:
 
     class Key {
     public:
-        static size_t Length(const NodeEntry *node) {
+        static size_t BitLength(const NodeEntry *node) {
             return ((node->type_len_ + node->name_len_) << 3);
         }
 
