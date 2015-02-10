@@ -32,6 +32,23 @@ class OverlayToUnderlayMapper(object):
         self._analytics_api_ip = analytics_api_ip
         self._analytics_api_port = analytics_api_port
         self._logger = logger
+        if self.query_json is not None:
+            self._start_time = self.query_json['start_time']
+            self._end_time = self.query_json['end_time']
+            # If the start_time/end_time in the query is specified as
+            # relative time, then the actual start_time/end_time for the
+            # FlowRecordTable query and UFlowData query would be different.
+            # Since the FlowRecordTable is queried first and the result of
+            # which is used to query the UFlowData table, the result may
+            # not be correct if the start_time/end_time is different for
+            # FlowRecord and UFlowData queries. Therefore, convert the
+            # relative start/end time to absolute time.
+            if not str(self._start_time).isdigit():
+                self._start_time = \
+                    OpServerUtils.convert_to_utc_timestamp_usec(self._start_time)
+            if not str(self._end_time).isdigit():
+                self._end_time = \
+                    OpServerUtils.convert_to_utc_timestamp_usec(self._end_time)
     # end __init__
 
     def process_query(self):
@@ -109,8 +126,8 @@ class OverlayToUnderlayMapper(object):
         ]
 
         flow_record_query = OpServerUtils.Query(table=FLOW_TABLE,
-                                start_time=self.query_json['start_time'],
-                                end_time=self.query_json['end_time'],
+                                start_time=self._start_time,
+                                end_time=self._end_time,
                                 select_fields=flow_record_select,
                                 where=flow_record_where,
                                 dir=1)
@@ -191,8 +208,8 @@ class OverlayToUnderlayMapper(object):
 
         uflow_data_query = OpServerUtils.Query(
                                 table='StatTable.UFlowData.flow',
-                                start_time=self.query_json['start_time'],
-                                end_time=self.query_json['end_time'],
+                                start_time=self._start_time,
+                                end_time=self._end_time,
                                 select_fields=uflow_data_select,
                                 where=uflow_data_where,
                                 sort=uflow_data_sort_type,
