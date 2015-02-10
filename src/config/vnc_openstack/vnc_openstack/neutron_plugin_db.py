@@ -805,7 +805,7 @@ class DBInterface(object):
             for net_obj in all_net_objs:
                 ipam_refs = net_obj.get_network_ipam_refs()
                 net_uuid = net_obj.uuid
-                for ipam_ref in ipam_refs:
+                for ipam_ref in ipam_refs or []:
                     subnet_vncs = ipam_ref['attr'].get_ipam_subnets()
                     for subnet_vnc in subnet_vncs:
                         if subnet_vnc.subnet_uuid == id:
