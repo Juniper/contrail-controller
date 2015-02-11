@@ -81,6 +81,18 @@ private:
     DBTablePartition *tbl_partition_;
 };
 
+class DBTableWalker::WalkDoneWorker : public Task {
+public:
+    WalkDoneWorker(Walker *walker)
+        : Task(walker_task_id_, Task::kTaskInstanceAny), walker_(walker) {
+    }
+
+    virtual bool Run();
+
+private:
+    DBTableWalker::Walker *walker_;
+};
+
 static void db_walker_wait() {
     static int walk_sleep_usecs_;
     static bool once;
@@ -156,14 +168,23 @@ walk_done:
         if (!walker_->should_stop_) {
             walker_->wkmgr_->update_walk_complete_count(+1);
         }
-        if (walker_->done_fn_ != NULL) {
-            if (!walker_->should_stop_) {
-                walker_->done_fn_(walker_->table_);
-            }
-        }
-        // Release the memory for walker and bitmap
-        walker_->wkmgr_->PurgeWalker(walker_->id_);
+
+        //Enqueue walk done to be executed in -1 task instance
+        WalkDoneWorker *task = new WalkDoneWorker(walker_);
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        scheduler->Enqueue(task);
     }
+    return true;
+}
+
+bool DBTableWalker::WalkDoneWorker::Run() {
+    if (walker_->done_fn_ != NULL) {
+        if (!walker_->should_stop_) {
+            walker_->done_fn_(walker_->table_);
+        }
+    }
+    // Release the memory for walker and bitmap
+    walker_->wkmgr_->PurgeWalker(walker_->id_);
     return true;
 }
 

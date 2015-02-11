@@ -77,6 +77,8 @@ private:
 
     // A Job for walking through the DBTablePartition
     class Worker;
+    // A Job for executing walk done
+    class WalkDoneWorker;
 
     typedef std::vector<Walker *> WalkerList;
     typedef boost::dynamic_bitset<> WalkerMap;
