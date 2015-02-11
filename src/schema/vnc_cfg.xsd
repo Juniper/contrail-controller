@@ -1397,6 +1397,84 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Property('database-node-ip-address', 'database-node') -->
 
+<xsd:complexType name="KeyValuePair">
+    <xsd:all>
+        <xsd:element name="key" type="xsd:string"/>
+        <xsd:element name="value" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="KeyValuePairs">
+    <xsd:all>
+        <xsd:element name="key-value-pair" type="KeyValuePair" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+<!--
+    Service appliance Set
+        This is the collection of service appliances.
+        This collection is used as a provider in loadbalancer pool config
+        Algorithm to distribute/choose one appliance over other can be built
+        while creating loadbalancer pool
+    By default, system will create service-appliance-set with name "opencontrail"
+    This is the default loadbalancer provider for pools in Contrail
+    This provider is based on "ha-proxy" 
+    Service appliance set has following attribute
+        - Driver to load for provisioning the appliance
+        - Service appliance properties
+        - HA mode
+-->
+<xsd:element name="service-appliance-set" type="ifmap:IdentityType"/>
+
+<!-- Service appliance set is child of global-system-config -->
+<xsd:element name="global-system-config-service-appliance-set"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('global-system-config-service-appliance-set',
+             'global-system-config', 'service-appliance-set', ['has']) -->
+
+<!-- any Opaque property for the service appliance set -->
+<xsd:element name="service-appliance-set-properties" type="KeyValuePairs"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('service-appliance-set-properties', 'service-appliance-set') -->
+
+<!-- python driver to load for provisioning the service appliance -->
+<xsd:element name="service-appliance-driver" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('service-appliance-driver', 'service-appliance-set') -->
+
+<!-- HA mode for service appliance set -->
+<xsd:element name="service-appliance-ha-mode" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('service-appliance-ha-mode', 'service-appliance-set') -->
+
+<!--
+    Service appliance
+        This config object defines the property of appliance 
+        (e.g. Loadbalancer, Firewall provider)
+        - ip address
+        - Login credentials
+        - KV pair for any generic property for this appliance
+    By default system will create "ha-proxy" based service appliance
+-->
+<xsd:element name="service-appliance" type="ifmap:IdentityType"/>
+
+<xsd:element name="service-appliance-user-credentials" type="UserCredentials" maxOccurs="unbounded"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('service-appliance-user-credentials', 'service-appliance') -->
+
+<xsd:element name="service-appliance-ip-address" type="IpAddressType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('service-appliance-ip-address', 'service-appliance') -->
+
+<xsd:element name="service-appliance-set-service-appliance"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('service-appliance-set-service-appliance',
+          'service-appliance-set', 'service-appliance', ['has']) -->
+
+<!-- any Opaque property for the service appliance -->
+<xsd:element name="service-appliance-properties" type="KeyValuePairs"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('service-appliance-properties', 'service-appliance') -->
+
 <!-- Neutron extensions -->
 <xsd:include schemaLocation='loadbalancer.xsd'/>
 
