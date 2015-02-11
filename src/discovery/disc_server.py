@@ -271,7 +271,9 @@ class DiscoveryServer():
 
     def _db_connect(self, reset_config):
         self._db_conn = DiscoveryCassandraClient("discovery",
-            self._args.cassandra_server_list, reset_config)
+            self._args.cassandra_server_list, reset_config,
+            self._args.cass_max_retries,
+            self._args.cass_timeout)
     # end _db_connect
 
     def cleanup(self):
@@ -956,6 +958,8 @@ def parse_args(args_str):
         'listen_port': disc_consts._WEB_PORT,
         'cass_server_ip': disc_consts._CASSANDRA_HOST,
         'cass_server_port': disc_consts._CASSANDRA_PORT,
+        'cass_max_retries': disc_consts._CASSANDRA_MAX_RETRIES,
+        'cass_timeout': disc_consts._CASSANDRA_TIMEOUT,
         'ttl_min': disc_consts._TTL_MIN,
         'ttl_max': disc_consts._TTL_MAX,
         'ttl_short': 0,
@@ -994,6 +998,14 @@ def parse_args(args_str):
         "--cassandra_server_list",
         help="List of cassandra servers in IP Address:Port format",
         nargs='+')
+    parser.add_argument(
+        "--cass_max_retries", type=int,
+        help="Maximum number of request retry, default %d"
+        % (disc_consts._CASSANDRA_MAX_RETRIES))
+    parser.add_argument(
+        "--cass_timeout", type=float,
+        help="Timeout of request, default %d"
+        % (disc_consts._CASSANDRA_TIMEOUT))
     parser.add_argument(
         "--reset_config", action="store_true",
         help="Warning! Destroy previous configuration and start clean")

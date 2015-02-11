@@ -27,18 +27,19 @@ class DiscoveryCassandraClient(object):
         return db_info
     # end get_db_info
 
-    def __init__(self, module, cass_srv_list, reset_config=False):
+    def __init__(self, module, cass_srv_list, reset_config=False,
+                 max_retries=5, timeout=0.5):
         self._disco_cf_name = 'discovery'
         self._keyspace_name = 'DISCOVERY_SERVER'
         self._reset_config = reset_config
-        self._cassandra_init(cass_srv_list)
+        self._cassandra_init(cass_srv_list, max_retries, timeout)
 
         self._debug = {
         }
     #end __init__
 
     # Helper routines for cassandra
-    def _cassandra_init(self, server_list):
+    def _cassandra_init(self, server_list, max_retries, timeout):
 
         # column name <table-name>, <id1>, <id2>
         disco_cf_info = (self._disco_cf_name, 
@@ -52,7 +53,7 @@ class DiscoveryCassandraClient(object):
                                       server_list, max_overflow=-1,
                                       use_threadlocal=True, prefill=True,
                                       pool_size=100, pool_timeout=20,
-                                      max_retries=5, timeout=0.5)
+                                      max_retries=max_retries, timeout=timeout)
         rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.ONE
         wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.ONE
         self._disco_cf = pycassa.ColumnFamily(pool, self._disco_cf_name,
