@@ -157,6 +157,7 @@ public:
         int dport_begin_;
         int dport_end_;
         std::string action_;
+        std::string direction_;
     };
     typedef std::vector<Ace> AceList;
 
@@ -171,6 +172,23 @@ public:
 
 private:
     AceList ace_list_;
+};
+
+class AgentUtXmlSg : public AgentUtXmlConfig {
+public:
+    AgentUtXmlSg(const std::string &name, const boost::uuids::uuid &uuid,
+                  const pugi::xml_node &node, AgentUtXmlTestCase *test_case);
+    ~AgentUtXmlSg();
+
+    virtual bool ReadXml();
+    virtual bool ToXml(pugi::xml_node *parent);
+    virtual std::string NodeType();
+    virtual void ToString(std::string *str);
+
+private:
+    std::string ingress_;
+    std::string egress_;
+    std::string sg_id_;
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -342,6 +360,8 @@ private:
     std::string vn_;
     std::string tunnel_dest_;
     std::string tunnel_type_;
+    uint16_t sg_id_;
+    uint16_t label_;
 };
 
 class AgentUtXmlL2RouteValidate : public AgentUtXmlValidationNode {

@@ -40,10 +40,18 @@ bool OvsPeer::AddOvsRoute(const VnEntry *vn,
     if (vrf == NULL)
         return false;
 
-    OvsdbRouteData *data = new OvsdbRouteData(this, vn->vxlan_id()->vxlan_id(),
+    uint32_t vxlan_id = vn->vxlan_id()->vxlan_id();
+    SecurityGroupList sg_list;
+    InterfaceTable *intf_table = agent->interface_table();
+    const VmInterface *vmi = dynamic_cast<const VmInterface *>
+        (intf_table->mac_vm_binding().FindMacVmBinding(mac, vxlan_id));
+    if (vmi) {
+        vmi->CopySgIdList(&sg_list);
+    }
+    OvsdbRouteData *data = new OvsdbRouteData(this, vxlan_id,
                                               tor_ip, agent->router_id(),
                                               agent->fabric_vrf_name(),
-                                              vn->GetName());
+                                              vn->GetName(), sg_list);
     EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
         (vrf->GetEvpnRouteTable());
     table->AddRemoteVmRouteReq(this, vrf->GetName(), mac, prefix_ip,
