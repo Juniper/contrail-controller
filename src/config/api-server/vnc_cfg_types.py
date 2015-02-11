@@ -1108,6 +1108,14 @@ class PhysicalInterfaceServer(PhysicalInterfaceServerGen):
         except cfgm_common.exceptions.NoIdError:
             return (False, (500, 'Internal error : Physical router ' +
                                  ":".join(router) + ' not found'))
+        physical_interface_uuid = ""
+        if obj_dict['parent_type'] == 'physical-interface':
+            try:
+                physical_interface_name = obj_dict['fq_name'][:3]
+                physical_interface_uuid = db_conn.fq_name_to_uuid('physical-interface', physical_interface_name)
+            except cfgm_common.exceptions.NoIdError:
+                return (False, (500, 'Internal error : Physical interface ' +
+                                     ":".join(physical_interface_name) + ' not found'))
         (ok, physical_router) = db_conn.dbe_read('physical-router', {'uuid':router_uuid})
         if not ok:
             return (False, (500, 'Internal error : Physical router ' +
@@ -1133,6 +1141,10 @@ class PhysicalInterfaceServer(PhysicalInterfaceServerGen):
                         return (False, (403, "Display name already used in another interface : " +
                                              logical_interface['uuid']))
                 if vlan_tag != None:
+                    # check vlan tags on the same physical interface
+                    if obj_dict['parent_type'] == 'physical-interface' and \
+                       physical_interface['uuid'] != physical_interface_uuid:
+                        continue
                     if 'logical_interface_vlan_tag' in li_object:
                         if vlan_tag == int(li_object['logical_interface_vlan_tag']):
                             return (False, (403, "Vlan tag already used in " +
@@ -1149,12 +1161,6 @@ class PhysicalInterfaceServer(PhysicalInterfaceServerGen):
                 if interface_name == li_object['display_name']:
                     return (False, (403, "Display name already used in another interface : " +
                                          logical_interface['uuid']))
-            if vlan_tag != None:
-                if 'logical_interface_vlan_tag' in li_object:
-                    if vlan_tag == int(li_object['logical_interface_vlan_tag']):
-                        return (False, (403, "Vlan tag already used in " +
-                                        "another interface : " +
-                                        logical_interface['uuid']))
 
         return True, ""
     # end _check_interface_name
