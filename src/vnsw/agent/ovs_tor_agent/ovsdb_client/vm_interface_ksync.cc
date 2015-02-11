@@ -10,7 +10,10 @@ extern "C" {
 #include <oper/vn.h>
 #include <oper/interface.h>
 #include <oper/vm_interface.h>
+#include <oper/vrf.h>
 #include <ovsdb_types.h>
+#include <ovsdb_route_data.h>
+#include <ovsdb_route_peer.h>
 
 using OVSDB::OvsdbDBEntry;
 using OVSDB::VMInterfaceKSyncEntry;
@@ -41,16 +44,39 @@ void VMInterfaceKSyncEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
 
 bool VMInterfaceKSyncEntry::Sync(DBEntry *db_entry) {
     VmInterface *entry = static_cast<VmInterface *>(db_entry);
+    bool ret = false;
 
     std::string vn_name;
     if (entry->vn()) {
         vn_name = UuidToString(entry->vn()->GetUuid());
     }
+
+    SecurityGroupList sg_list;
+    entry->CopySgIdList(&sg_list);
+    if (sg_list != sg_list_) {
+        // SG-ID List changed, update OVSDB Route for VMI with new SG-ID List
+        sg_list_ = sg_list;
+
+        // Enqueue a RESYNC on the route with new VN-Name and SG-ID
+        const VrfEntry *vrf = entry->vrf();
+        const VnEntry *vn = entry->vn();
+        EvpnAgentRouteTable *evpn_table = static_cast<EvpnAgentRouteTable *>
+            (vrf->GetEvpnRouteTable());
+
+        OvsdbRouteResyncData *data = new OvsdbRouteResyncData(sg_list);
+        evpn_table->ResyncVmRouteReq(table_->client_idl()->route_peer(),
+                                     vrf->GetName(),
+                                     MacAddress::FromString(entry->vm_mac()),
+                                     IpAddress(), vn->vxlan_id()->vxlan_id(),
+                                     data);
+        ret = true;
+    }
+
     if (vn_name_ != vn_name) {
         vn_name_ = vn_name;
-        return true;
+        ret = true;
     }
-    return false;
+    return ret;
 }
 
 bool VMInterfaceKSyncEntry::IsLess(const KSyncEntry &entry) const {

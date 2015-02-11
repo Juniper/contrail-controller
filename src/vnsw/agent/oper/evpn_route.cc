@@ -196,6 +196,23 @@ void EvpnAgentRouteTable::DelLocalVmRoute(const Peer *peer,
     EvpnTableProcess(agent, vrf_name, req);
 }
 
+void EvpnAgentRouteTable::ResyncVmRouteReq (const Peer *peer,
+                                            const string &vrf_name,
+                                            const MacAddress &mac,
+                                            const IpAddress &ip_addr,
+                                            uint32_t ethernet_tag,
+                                            AgentRouteData *data) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    EvpnRouteKey *key = new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
+                                         ethernet_tag);
+    key->sub_op_ = AgentKey::RESYNC;
+    req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
+                                   ethernet_tag));
+    req.data.reset(data);
+
+    EvpnTableEnqueue(Agent::GetInstance(), &req);
+}
+
 void EvpnAgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
                                               const string &vrf_name,
                                               const MacAddress &mac,
