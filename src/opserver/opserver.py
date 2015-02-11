@@ -1720,8 +1720,12 @@ class OpServer(object):
 
     def start_webserver(self):
         pipe_start_app = bottle.app()
-        bottle.run(app=pipe_start_app, host=self._args.rest_api_ip,
+        try:
+            bottle.run(app=pipe_start_app, host=self._args.rest_api_ip,
                    port=self._args.rest_api_port, server='gevent')
+        except Exception as e:
+            self._logger.error("Exception: %s" % e)
+            sys.exit()
     # end start_webserver
 
     def cpu_info_logger(self):
