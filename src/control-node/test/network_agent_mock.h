@@ -41,8 +41,13 @@ enum TestErrorType {
 };
 
 struct RouteParams {
-    RouteParams() : edge_replication_not_supported(false) { };
+    RouteParams()
+        : edge_replication_not_supported(false),
+          assisted_replication_supported(false) {
+    };
     bool edge_replication_not_supported;
+    bool assisted_replication_supported;
+    std::string replicator_address;
 };
 
 struct RouteAttributes {

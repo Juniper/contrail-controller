@@ -613,6 +613,12 @@ pugi::xml_document *XmppDocumentMock::RouteEnetAddDeleteXmlDoc(
 
         if (attributes.params.edge_replication_not_supported)
             rt_entry.entry.edge_replication_not_supported = true;
+        if (attributes.params.assisted_replication_supported)
+            rt_entry.entry.assisted_replication_supported = true;
+        if (!attributes.params.replicator_address.empty()) {
+            rt_entry.entry.replicator_address =
+                attributes.params.replicator_address;
+        }
     }
 
     xml_node item = pub.append_child("item");
