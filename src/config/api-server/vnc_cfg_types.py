@@ -11,14 +11,16 @@ import json
 import re
 
 import cfgm_common
-from vnc_quota import *
+import netaddr
+import uuid
+import vnc_quota
+
 from gen.resource_xsd import *
 from gen.resource_common import *
 from gen.resource_server import *
 from pprint import pformat
-import uuid
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-import netaddr
+
 
 class GlobalSystemConfigServer(GlobalSystemConfigServerGen):
     @classmethod
@@ -74,19 +76,19 @@ class FloatingIpServer(FloatingIpServerGen):
             proj_uuid = proj_dict['uuid']
         else:
             proj_uuid = db_conn.fq_name_to_uuid('project', proj_dict['to'])
-        (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
+
+        user_visibility = obj_dict['id_perms'].get('user_visible', True)
+        verify_quota_kwargs = {'db_conn': db_conn,
+                               'fq_name': obj_dict['fq_name'],
+                               'resource': 'floating_ip_back_refs',
+                               'obj_type': 'floating-ip',
+                               'user_visibility': user_visibility,
+                               'proj_uuid': proj_uuid}
+        (ok, response) = vnc_quota.QuotaHelper.verify_quota_for_resource(
+            **verify_quota_kwargs)
+
         if not ok:
-            return (False, (500, 'Internal error : ' + pformat(proj_dict)))
-
-        obj_type = 'floating-ip'
-
-        if 'floating_ip_back_refs' in proj_dict:
-            quota_count = len(proj_dict['floating_ip_back_refs'])
-            if obj_dict['id_perms'].get('user_visible', True) is not False:
-                (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type,
-                                                                  quota_count)
-                if not ok:
-                    return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
+            return (ok, response)
 
         vn_fq_name = obj_dict['fq_name'][:-2]
         req_ip = obj_dict.get("floating_ip_address")
@@ -307,25 +309,15 @@ class LogicalRouterServer(LogicalRouterServerGen):
 
     @classmethod
     def http_post_collection(cls, tenant_name, obj_dict, db_conn):
-        try:
-            fq_name = obj_dict['fq_name']
-            proj_uuid = db_conn.fq_name_to_uuid('project', fq_name[0:2])
-        except cfgm_common.exceptions.NoIdError:
-            return (False, (500, 'No Project ID error : ' + proj_uuid))
+        user_visibility = obj_dict['id_perms'].get('user_visible', True)
+        verify_quota_kwargs = {'db_conn': db_conn,
+                               'fq_name': obj_dict['fq_name'],
+                               'resource': 'logical_routers',
+                               'obj_type': 'logical-router',
+                               'user_visibility': user_visibility}
 
-        (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
-        if not ok:
-            return (False, (500, 'Internal error : ' + pformat(proj_dict)))
-
-        obj_type = 'logical-router'
-        if 'logical_routers' in proj_dict:
-            quota_count = len(proj_dict['logical_routers'])
-            if obj_dict['id_perms'].get('user_visible', True) is not False:
-                (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type,
-                                                                  quota_count)
-                if not ok:
-                    return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
-        return True, ""
+        return vnc_quota.QuotaHelper.verify_quota_for_resource(
+            **verify_quota_kwargs)
     # end http_post_collection
 
 # end class LogicalRouterServer
@@ -348,18 +340,19 @@ class VirtualMachineInterfaceServer(VirtualMachineInterfaceServerGen):
             return (False, (500, 'Internal error : ' + pformat(vn_dict)))
 
         proj_uuid = vn_dict['parent_uuid']
-        (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
-        if not ok:
-            return (False, (500, 'Internal error : ' + pformat(proj_dict)))
+        user_visibility = obj_dict['id_perms'].get('user_visible', True)
+        verify_quota_kwargs = {'db_conn': db_conn,
+                               'fq_name': obj_dict['fq_name'],
+                               'resource': 'virtual_machine_interfaces',
+                               'obj_type': 'virtual-machine-interface',
+                               'user_visibility': user_visibility,
+                               'proj_uuid': proj_uuid}
 
-        obj_type = 'virtual-machine-interface'
-        if 'virtual_machine_interfaces' in proj_dict:
-            quota_count = len(proj_dict['virtual_machine_interfaces'])
-            if obj_dict['id_perms'].get('user_visible', True) is not False:
-                (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type,
-                                                                  quota_count)
-                if not ok:
-                    return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
+        (ok, response) = vnc_quota.QuotaHelper.verify_quota_for_resource(
+            **verify_quota_kwargs)
+
+        if not ok:
+            return (ok, response)
 
         inmac = None
         if 'virtual_machine_interface_mac_addresses' in obj_dict:
@@ -444,24 +437,17 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
 
     @classmethod
     def http_post_collection(cls, tenant_name, obj_dict, db_conn):
-        try:
-            fq_name = obj_dict['fq_name']
-            proj_uuid = db_conn.fq_name_to_uuid('project', fq_name[0:2])
-        except cfgm_common.exceptions.NoIdError:
-            return (False, (500, 'No Project ID error : ' + proj_uuid))
+        user_visibility = obj_dict['id_perms'].get('user_visible', True)
+        verify_quota_kwargs = {'db_conn': db_conn,
+                               'fq_name': obj_dict['fq_name'],
+                               'resource': 'virtual_networks',
+                               'obj_type': 'virtual-network',
+                               'user_visibility': user_visibility}
 
-        (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
+        (ok, response) = vnc_quota.QuotaHelper.verify_quota_for_resource(
+            **verify_quota_kwargs)
         if not ok:
-            return (False, (500, 'Internal error : ' + pformat(proj_dict)))
-
-        obj_type = 'virtual-network'
-        if 'virtual_networks' in proj_dict:
-            quota_count = len(proj_dict['virtual_networks'])
-            if obj_dict['id_perms'].get('user_visible', True) is not False:
-                (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type,
-                                                                  quota_count)
-                if not ok:
-                    return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
+            return (ok, response)
 
         db_conn.update_subnet_uuid(obj_dict)
 
@@ -921,24 +907,17 @@ class SecurityGroupServer(SecurityGroupServerGen):
 
     @classmethod
     def http_post_collection(cls, tenant_name, obj_dict, db_conn):
-        try:
-            fq_name = obj_dict['fq_name']
-            proj_uuid = db_conn.fq_name_to_uuid('project', fq_name[0:2])
-        except cfgm_common.exceptions.NoIdError:
-            return (False, (500, 'No Project ID error : ' + proj_uuid))
+        user_visibility = obj_dict['id_perms'].get('user_visible', True)
+        verify_quota_kwargs = {'db_conn': db_conn,
+                               'fq_name': obj_dict['fq_name'],
+                               'resource': 'security_groups',
+                               'obj_type': 'security-group',
+                               'user_visibility': user_visibility}
 
-        (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
+        (ok, response) = vnc_quota.QuotaHelper.verify_quota_for_resource(
+            **verify_quota_kwargs)
         if not ok:
-            return (False, (500, 'Internal error : ' + pformat(proj_dict)))
-
-        obj_type = 'security-group'
-        if 'security_groups' in proj_dict:
-            quota_count = len(proj_dict['security_groups'])
-            if obj_dict['id_perms'].get('user_visible', True) is not False:
-                (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type,
-                                                                  quota_count)
-                if not ok:
-                    return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
+            return (ok, response)
 
         _check_policy_rule_uuid(obj_dict.get('security_group_entries'))
 
@@ -950,7 +929,8 @@ class SecurityGroupServer(SecurityGroupServerGen):
         (ok, sec_dict) = db_conn.dbe_read('security-group', {'uuid': id})
         if not ok:
             return (False, (500, 'Bad Security Group error : ' + pformat(sec_dict)))
-        (ok, proj_dict) = QuotaHelper.get_project_dict(sec_dict['parent_uuid'], db_conn)
+        (ok, proj_dict) = vnc_quota.QuotaHelper.get_project_dict(
+            sec_dict['parent_uuid'], db_conn)
         if not ok:
             return (False, (500, 'Bad Project error : ' + pformat(proj_dict)))
 
@@ -967,8 +947,8 @@ class SecurityGroupServer(SecurityGroupServerGen):
                 rule_count += len(sge.get('policy_rule', []))
 
             if sec_dict['id_perms'].get('user_visible', True) is not False:
-                (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type,
-                                                                  rule_count-1)
+                (ok, quota_limit) = vnc_quota.QuotaHelper.check_quota_limit(
+                                        proj_dict, obj_type, rule_count-1)
                 if not ok:
                     return (False, (403, pformat(fq_name) + ' : ' + quota_limit))
 
@@ -983,24 +963,17 @@ class NetworkPolicyServer(NetworkPolicyServerGen):
 
     @classmethod
     def http_post_collection(cls, tenant_name, obj_dict, db_conn):
-        try:
-            fq_name = obj_dict['fq_name']
-            proj_uuid = db_conn.fq_name_to_uuid('project', fq_name[0:2])
-        except cfgm_common.exceptions.NoIdError:
-            return (False, (500, 'No Project ID error : ' + proj_uuid))
+        user_visibility = obj_dict['id_perms'].get('user_visible', True)
+        verify_quota_kwargs = {'db_conn': db_conn,
+                               'fq_name': obj_dict['fq_name'],
+                               'resource': 'network-policys',
+                               'obj_type': 'network-policy',
+                               'user_visibility': user_visibility}
 
-        (ok, proj_dict) = QuotaHelper.get_project_dict(proj_uuid, db_conn)
+        (ok, response) = vnc_quota.QuotaHelper.verify_quota_for_resource(
+            **verify_quota_kwargs)
         if not ok:
-            return (False, (500, 'Internal error : ' + pformat(proj_dict)))
-
-        obj_type = 'network-policy'
-        if 'network-policys' in proj_dict:
-            quota_count = len(proj_dict['network-policys'])
-            if obj_dict['id_perms'].get('user_visible', True) is not False:
-                (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type,
-                                                                  quota_count)
-                if not ok:
-                    return (False, (403, pformat(obj_dict['fq_name']) + ' : ' + quota_limit))
+            return (ok, response)
 
         _check_policy_rule_uuid(obj_dict.get('network_policy_entries'))
         try:
@@ -1180,7 +1153,7 @@ class LoadbalancerMemberServer(LoadbalancerMemberServerGen):
 
             quota_count += len(lb_pool_dict.get('loadbalancer_members', []))
 
-        (ok, quota_limit) = QuotaHelper.check_quota_limit(
+        (ok, quota_limit) = vnc_quota.QuotaHelper.check_quota_limit(
             proj_dict, 'loadbalancer-member', quota_count)
         if not ok:
             return (False, (403, pformat(fq_name) + ' : ' + quota_limit))
@@ -1200,7 +1173,8 @@ class LoadbalancerPoolServer(LoadbalancerPoolServerGen):
                                'resource': 'loadbalancer_pools',
                                'obj_type': 'loadbalancer-pool',
                                'user_visibility': user_visibility}
-        return QuotaHelper.verify_quota_for_resource(**verify_quota_kwargs)
+        return vnc_quota.QuotaHelper.verify_quota_for_resource(
+            **verify_quota_kwargs)
 
 # end class LoadbalancerPoolServer
 
@@ -1215,7 +1189,8 @@ class LoadbalancerHealthmonitorServer(LoadbalancerHealthmonitorServerGen):
                                'resource': 'loadbalancer_healthmonitors',
                                'obj_type': 'loadbalancer-healthmonitor',
                                'user_visibility': user_visibility}
-        return QuotaHelper.verify_quota_for_resource(**verify_quota_kwargs)
+        return vnc_quota.QuotaHelper.verify_quota_for_resource(
+            **verify_quota_kwargs)
 
 # end class LoadbalancerHealthmonitorServer
 
@@ -1231,7 +1206,8 @@ class VirtualIpServer(VirtualIpServerGen):
                                'resource': 'virtual_ips',
                                'obj_type': 'virtual-ip',
                                'user_visibility': user_visibility}
-        return QuotaHelper.verify_quota_for_resource(**verify_quota_kwargs)
+        return vnc_quota.QuotaHelper.verify_quota_for_resource(
+            **verify_quota_kwargs)
 
 # end class VirtualIpServer
 
