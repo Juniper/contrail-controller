@@ -1054,7 +1054,8 @@ const NextHop *PktFlowInfo::TunnelToNexthop(const PktInfo *pkt) {
         }
         return vxlan->nexthop();
     } else {
-        assert(0);
+        LogError(pkt, "Invalid tunnel type in egress flow");
+        return NULL;
     }
 
     return NULL;
