@@ -1045,7 +1045,6 @@ void VmInterface::UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
                            const Ip6Address &old_v6_addr,
                            const Ip4Address &old_subnet,
                            const uint8_t old_subnet_plen) {
-    UpdateSecurityGroup();
     UpdateL3NextHop(old_ipv4_active, old_ipv6_active);
     UpdateL3TunnelId(force_update, policy_change);
     if (ipv4_active_) {
@@ -1083,7 +1082,6 @@ void VmInterface::DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
     DeleteServiceVlan();
     DeleteStaticRoute();
     DeleteAllowedAddressPair();
-    DeleteSecurityGroup();
     DeleteL3TunnelId();
     DeleteVrfAssignRule();
     DeleteL3NextHop(old_ipv4_active, old_ipv6_active);
@@ -1180,6 +1178,11 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
     } else {
         DeleteMacVmBinding(old_l2_active);
     }
+
+    if (IsActive())
+        UpdateSecurityGroup();
+    else
+        DeleteSecurityGroup();
 
     //Need not apply config for TOR VMI as it is more of an inidicative
     //interface. No route addition or NH addition happens for this interface.

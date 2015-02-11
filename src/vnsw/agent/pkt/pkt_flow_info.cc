@@ -68,7 +68,7 @@ void PktFlowInfo::UpdateRoute(const AgentRoute **rt, const VrfEntry *vrf,
     if (l3_flow) {
         *rt = flow_table->GetUcRoute(vrf, ip);
     } else {
-        *rt = flow_table->GetL2Route(vrf, mac, ip);
+        *rt = flow_table->GetL2Route(vrf, mac);
     }
     if (*rt == NULL)
         ref_map[vrf->vrf_id()] = 0;
@@ -1052,7 +1052,23 @@ const NextHop *PktFlowInfo::TunnelToNexthop(const PktInfo *pkt) {
             LogError(pkt, "Invalid vxlan in egress flow");
             return NULL;
         }
-        return vxlan->nexthop();
+
+        const VrfNH *nh = dynamic_cast<const VrfNH *>(vxlan->nexthop());
+        if (nh == NULL)
+            return NULL;
+
+        const VrfEntry *vrf = nh->GetVrf();
+        if (vrf == NULL)
+            return NULL;
+
+        // In case of VXLAN, the NH points to VrfNH. Need to do route lookup
+        // on dmac to find the real nexthop
+        AgentRoute *rt = flow_table->GetL2Route(vrf, pkt->dmac);
+        if (rt != NULL) {
+            return rt->GetActiveNextHop();
+        }
+
+        return NULL;
     } else {
         LogError(pkt, "Invalid tunnel type in egress flow");
         return NULL;
