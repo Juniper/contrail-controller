@@ -24,6 +24,10 @@ class TorAgentParam : public AgentParam  {
         std::string id_;
         // Protocol to connect to ToR
         std::string protocol_;
+        // SSL certificates required for SSL protocol
+        std::string ssl_cert_;
+        std::string ssl_privkey_;
+        std::string ssl_cacert_;
         int port_;
     };
 
@@ -38,6 +42,9 @@ class TorAgentParam : public AgentParam  {
     Ip4Address tor_ip() const { return tor_info_.ip_; }
     Ip4Address tsn_ip() const { return tor_info_.tsn_ip_; }
     int tor_port() const { return tor_info_.port_; }
+    std::string ssl_cert() const { return tor_info_.ssl_cert_; }
+    std::string ssl_privkey() const { return tor_info_.ssl_privkey_; }
+    std::string ssl_cacert() const { return tor_info_.ssl_cacert_; }
 
  private:
     virtual void InitFromConfig();

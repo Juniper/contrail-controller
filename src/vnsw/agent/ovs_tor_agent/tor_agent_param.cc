@@ -30,7 +30,15 @@ void TorAgentParam::AddOptions() {
         ("TOR.tsn_ip", boost_po::value<string>()->default_value(""),
          "IP Address of the ToR Service Node")
         ("TOR.tor_id", boost_po::value<string>()->default_value(""),
-         "Identifier of the TOR");
+         "Identifier of the TOR")
+        ("TOR.tor_ovs_protocol", boost_po::value<string>()->default_value(""),
+         "Protocol to be used for connection to TOR")
+        ("TOR.ssl_cert", boost_po::value<string>()->default_value(""),
+         "SSL Certificate file to be used")
+        ("TOR.ssl_privkey", boost_po::value<string>()->default_value(""),
+         "SSL Private Key file to be used")
+        ("TOR.ssl_cacert", boost_po::value<string>()->default_value(""),
+         "SSL CA certificate file to be used for peer validations");
     AgentParam::AddOptions(tor);
 }
 
@@ -45,6 +53,9 @@ void TorAgentParam::InitFromConfig() {
     GetValueFromTree<string>(tor_info_.type_, "TOR.tor_type");
     GetValueFromTree<string>(tor_info_.protocol_, "TOR.tor_ovs_protocol");
     GetValueFromTree<int>(tor_info_.port_, "TOR.tor_ovs_port");
+    GetValueFromTree<string>(tor_info_.ssl_cert_,"TOR.ssl_cert");
+    GetValueFromTree<string>(tor_info_.ssl_privkey_,"TOR.ssl_privkey");
+    GetValueFromTree<string>(tor_info_.ssl_cacert_,"TOR.ssl_cacert");
 }
 
 void TorAgentParam::InitFromArguments() {
@@ -60,14 +71,12 @@ void TorAgentParam::InitFromArguments() {
     GetOptValue<string>(vars, tor_info_.type_, "TOR.tor_type");
     GetOptValue<string>(vars, tor_info_.protocol_, "TOR.tor_ovs_protocol");
     GetOptValue<int>(vars, tor_info_.port_, "TOR.tor_ovs_port");
+    GetValueFromTree<string>(tor_info_.ssl_cert_,"TOR.ssl_cert");
+    GetValueFromTree<string>(tor_info_.ssl_privkey_,"TOR.ssl_privkey");
+    GetValueFromTree<string>(tor_info_.ssl_cacert_,"TOR.ssl_cacert");
 }
 
 int TorAgentParam::Validate() {
-    if (tor_info_.ip_ == Ip4Address::from_string("0.0.0.0")) {
-        LOG(ERROR, "Configuration error. ToR IP address not specified");
-        return (EINVAL);
-    }
-
     if (tor_info_.tsn_ip_ == Ip4Address::from_string("0.0.0.0")) {
         LOG(ERROR, "Configuration error. TSN IP address not specified");
         return (EINVAL);
@@ -84,7 +93,25 @@ int TorAgentParam::Validate() {
         return (EINVAL);
     }
 
-    if (tor_info_.protocol_ != "tcp") {
+    if (tor_info_.protocol_ == "tcp") {
+        if (tor_info_.ip_ == Ip4Address::from_string("0.0.0.0")) {
+            LOG(ERROR, "Configuration error. ToR IP address not specified");
+            return (EINVAL);
+        }
+    } else if (tor_info_.protocol_ == "pssl") {
+        if (tor_info_.ssl_cert_ == "") {
+            LOG(ERROR, "Configuration error. SSL Certificate not specified");
+            return (EINVAL);
+        }
+        if (tor_info_.ssl_privkey_ == "") {
+            LOG(ERROR, "Configuration error. SSL Private Key not specified");
+            return (EINVAL);
+        }
+        if (tor_info_.ssl_cacert_ == "") {
+            LOG(ERROR, "Configuration error. SSL CA certificate not specified");
+            return (EINVAL);
+        }
+    } else {
         LOG(ERROR, "Configuration error. Unsupported ToR OVS Protocol.");
         LOG(ERROR, "Supported ToR Protocol : <tcp>");
         return (EINVAL);
