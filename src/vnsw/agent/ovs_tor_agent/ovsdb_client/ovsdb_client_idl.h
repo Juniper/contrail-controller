@@ -86,6 +86,9 @@ public:
     void DeleteTxn(struct ovsdb_idl_txn *txn);
     void Register(EntryType type, NotifyCB cb) {callback_[type] = cb;}
     void UnRegister(EntryType type) {callback_[type] = NULL;}
+
+    // Notify Delete followed by add for a given ovsdb_idl_row
+    void NotifyDelAdd(struct ovsdb_idl_row *row);
     // Get TOR Service Node IP
     Ip4Address tsn_ip();
 

@@ -44,6 +44,7 @@ public:
 private:
     friend class VnOvsdbObject;
     boost::uuids::uuid uuid_;
+    VrfEntryRef vrf_;
     DISALLOW_COPY_AND_ASSIGN(VnOvsdbEntry);
 };
 };
