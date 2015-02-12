@@ -146,6 +146,8 @@ class Collector(object):
         if self.kafka_port:
             args.append('--DEFAULT.kafka_broker_list')
             args.append('127.0.0.1:%d' % self.kafka_port)        
+            args.append('--DEFAULT.partitions')
+            args.append(str(4))
         self._logger.info('Setting up Vizd: %s' % (' '.join(args))) 
         ports, self._instance = \
                          self.analytics_fixture.start_with_ephemeral_ports(
@@ -224,7 +226,8 @@ class AlarmGen(object):
         args = ['python', self.analytics_fixture.builddir + \
                 '/analytics_test/bin/contrail-alarm-gen',
                 '--http_server_port', str(self.http_port),
-                '--log_file', self._log_file]
+                '--log_file', self._log_file,
+                '--log_level', 'SYS_DEBUG']
         if self.kafka_port:
             args.append('--kafka_broker_list')
             args.append('127.0.0.1:' + str(self.kafka_port))
@@ -262,6 +265,8 @@ class AlarmGen(object):
                 self._logger.info('AlarmGen returned %d' % ocode)
                 self._logger.info('AlarmGen terminated stdout: %s' % op_out)
                 self._logger.info('AlarmGen terminated stderr: %s' % op_err)
+                with open(self._log_file, 'r') as fin:
+                    self._logger.info(fin.read())
             subprocess.call(['rm', self._log_file])
             self._instance = None
             self.http_port = 0
@@ -318,6 +323,7 @@ class OpServer(object):
                 str(self.analytics_fixture.cassandra_port),
                 '--http_server_port', str(self.http_port),
                 '--log_file', self._log_file,
+                '--log_level', "SYS_INFO",
                 '--rest_api_port', str(self.listen_port)]
         if self.analytics_fixture.redis_uves[0].password:
             args.append('--redis_password')
@@ -358,6 +364,8 @@ class OpServer(object):
                 self._logger.info('OpServer returned %d' % ocode)
                 self._logger.info('OpServer terminated stdout: %s' % op_out)
                 self._logger.info('OpServer terminated stderr: %s' % op_err)
+                with open(self._log_file, 'r') as fin:
+                    self._logger.info(fin.read())
             subprocess.call(['rm', self._log_file])
             self._instance = None
     # end stop
@@ -696,6 +704,35 @@ class AnalyticsFixture(fixtures.Fixture):
         else:
             return False
       
+    @retry(delay=2, tries=5)
+    def verify_uvetable_alarm(self, table, name, type, is_set = True):
+        vag = self.alarmgen.get_introspect()
+        ret = vag.get_UVETableAlarm(table)
+        self.logger.info("verify_uvetable_alarm %s, %s, %s [%s]: %s" % \
+                         (table, str(name), str(type), str(is_set), str(ret)))
+        if not len(ret):
+            return False
+        if not ret.has_key('uves'):
+            return False
+        uves = ret['uves']
+        if not name:
+            if not len(uves):
+                return True
+            else:
+                self.logger.info("Did not expect UVEs for %s" % table)
+                return False
+        alarms = set()
+        for elem in ret['uves']:
+            if elem['name'] != name:
+                continue
+            for alm in elem['alarms']:
+                if len(alm['description']):
+                    alarms.add(alm['type'])
+        if type in alarms:
+            return is_set
+        else:
+            return not is_set
+
     @retry(delay=2, tries=10)
     def verify_collector_obj_count(self):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)

@@ -37,8 +37,12 @@ class PartitionHandler(gevent.Greenlet):
                 kafka = KafkaClient(self._brokers ,str(os.getpid()))
                 try:
                     consumer = SimpleConsumer(kafka, self._group, self._topic, buffer_size = 4096*4, max_buffer_size=4096*32)
-                except:
-                    self._logger.info("%d consumer failure for %s" % (self._partition , self._topic))
+                    #except:
+                except Exception as ex:
+                    template = "Consumer Failure {0} occured. Arguments:\n{1!r}"
+                    messag = template.format(type(ex).__name__, ex.args)
+                    self._logger.info("%s" % messag)
+                    #self._logger.info("%d consumer failure for %s" % (self._partition , self._topic))
                     raise gevent.GreenletExit
 
                 self._logger.info("Starting %d" % self._partition)
@@ -144,7 +148,7 @@ class UveStreamProc(PartitionHandler):
         try:
             uv = json.loads(om.message.value)
             self._partdb[om.message.key] = uv
-            self._logger.info("%d Reading UVE %s" % (self._partition, str(om)))
+            self._logger.debug("%d Reading UVE %s" % (self._partition, str(om)))
             gen = uv["gen"]
             coll = uv["coll"]
 
