@@ -147,6 +147,9 @@ public:
         // now.
         IFMapNode *vm_node = ifmap_server_->GetVmNodeByUuid(vm_uuid_);
         if (vm_node) {
+            if (vm_node->IsDeleted()) {
+                return true;
+            }
             IFMapServerTable *vr_table = static_cast<IFMapServerTable *>(
                 db_->FindTable("__ifmap__.virtual_router.0"));
             assert(vr_table != NULL);
