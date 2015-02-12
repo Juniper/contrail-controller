@@ -419,6 +419,33 @@ void TcpServer::Connect(TcpSession *session, Endpoint remote) {
                     TcpSessionPtr(session), boost::asio::placeholders::error));
 }
 
+int TcpServer::SetMd5SocketOption(int fd, uint32_t peer_ip,
+                                  std::string md5_password) {
+    assert(md5_password.size() <= TCP_MD5SIG_MAXKEYLEN);
+
+    struct sockaddr_in local_addr;
+    memset(&local_addr, 0, sizeof(local_addr));
+
+    local_addr.sin_family = AF_INET;
+    local_addr.sin_addr.s_addr = htonl(peer_ip);
+
+    struct tcp_md5sig md5sig;
+    memset(&md5sig, 0, sizeof (md5sig));
+
+    memcpy(md5sig.tcpm_key, md5_password.c_str(), md5_password.size());
+    md5sig.tcpm_keylen = md5_password.size();
+    memcpy(&md5sig.tcpm_addr, &local_addr, sizeof(local_addr));
+    int retval = setsockopt(fd, IPPROTO_TCP, TCP_MD5SIG, &md5sig,
+                            sizeof(md5sig));
+    return retval;
+}
+
+int TcpServer::SetListenSocketMd5Option(uint32_t peer_ip,
+                                        std::string md5_password) {
+    return SetMd5SocketOption(acceptor_->native_handle(), peer_ip,
+                              md5_password);
+}
+
 void TcpServer::GetRxSocketStats(SocketIOStats &socket_stats) const {
     stats_.GetRxStats(socket_stats);
 }

@@ -64,6 +64,17 @@ int BgpNeighborConfig::CompareTo(const BgpNeighborConfig &rhs) const {
     return 0;
 }
 
+// Return the key's id concatenated with its type.
+const std::vector<std::string> BgpNeighborConfig::AuthKeysToString() {
+    AuthenticationKeyChain::const_iterator iter;
+    std::vector<std::string> auth_keys;
+    for (iter = keychain_.begin(); iter != keychain_.end(); ++iter) {
+        AuthenticationKey key = *iter;
+        auth_keys.push_back(key.id + ":" + key.KeyTypeToString());
+    }
+    return auth_keys;
+}
+
 BgpProtocolConfig::BgpProtocolConfig(const std::string &instance_name)
         : instance_name_(instance_name),
           autonomous_system_(0), 

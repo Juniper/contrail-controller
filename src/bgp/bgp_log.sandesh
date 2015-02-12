@@ -131,6 +131,8 @@ trace sandesh BgpConfigNeighborCreateTrace {
     4: i32 as_number;
     5: "Address Families";
     6: list<string> families;
+    13: "Keys";
+    14: list<string> keys;
 }
 
 systemlog sandesh BgpConfigNeighborCreateLog {
@@ -146,6 +148,8 @@ systemlog sandesh BgpConfigNeighborCreateLog {
     4: i32 as_number;
     5: "Address Families";
     6: list<string> families;
+    13: "Keys";
+    14: list<string> keys;
 }
 
 trace sandesh BgpConfigNeighborDeleteTrace {
@@ -171,6 +175,8 @@ trace sandesh BgpConfigNeighborUpdateTrace {
     4: i32 as_number;
     5: "Address Families";
     6: list<string> families;
+    13: "Keys";
+    14: list<string> keys;
 }
 
 systemlog sandesh BgpConfigNeighborUpdateLog {
@@ -186,6 +192,8 @@ systemlog sandesh BgpConfigNeighborUpdateLog {
     4: i32 as_number;
     5: "Address Families";
     6: list<string> families;
+    13: "Keys";
+    14: list<string> keys;
 }
 
 trace sandesh BgpConfigPeeringCreateTrace {

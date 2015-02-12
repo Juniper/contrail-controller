@@ -75,6 +75,7 @@ public:
 
     // Getters and setters
     virtual Socket *socket() const { return socket_.get(); }
+    int sock_descriptor() { return socket_->native_handle(); }
     TcpServer *server() { return server_.get(); }
     int32_t local_port() const;
     int32_t remote_port() const;
@@ -133,6 +134,7 @@ public:
     const io::SocketStats &GetSocketStats() const { return stats_; }
     void GetRxSocketStats(SocketIOStats &socket_stats) const;
     void GetTxSocketStats(SocketIOStats &socket_stats) const;
+    void SetMd5SocketOption(uint32_t peer_ip, std::string md5_password);
 
 protected:
     typedef boost::intrusive_ptr<TcpSession> TcpSessionPtr;

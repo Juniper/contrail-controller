@@ -22,7 +22,22 @@ struct AuthenticationKey {
         MD5,
     };
 
+    AuthenticationKey() : id(""), type(NIL), value(""), start_time(0) {
+    }
+
     bool operator<(const AuthenticationKey &) const;
+    bool IsMd5() const { return type == MD5; }
+    void Reset() {
+        id = "";
+        type = NIL;
+        value = "";
+    }
+    std::string KeyTypeToString() {
+        switch (type) {
+            case MD5: return "MD5";
+            default: return "NIL";
+        }
+    }
 
     std::string id;
     KeyType type;
@@ -123,6 +138,8 @@ public:
     void set_address_families(const AddressFamilyList &address_families) {
         address_families_ = address_families;
     }
+
+    const std::vector<std::string> AuthKeysToString();
 
     int CompareTo(const BgpNeighborConfig &rhs) const;
     bool operator!=(const BgpNeighborConfig &rhs) const {

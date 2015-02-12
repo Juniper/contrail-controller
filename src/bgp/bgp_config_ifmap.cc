@@ -128,7 +128,8 @@ static BgpNeighborConfig *MakeBgpNeighborConfig(
     const BgpIfmapInstanceConfig *instance,
     const string &remote_name,
     const string &local_name,
-    const autogen::BgpRouter *router,
+    const autogen::BgpRouter *local_router,
+    const autogen::BgpRouter *remote_router,
     const autogen::BgpSession *session) {
     BgpNeighborConfig *neighbor = new BgpNeighborConfig();
 
@@ -145,7 +146,7 @@ static BgpNeighborConfig *MakeBgpNeighborConfig(
 
     // Store a copy of the remote bgp-router's autogen::BgpRouterParams and
     // derive the autogen::BgpSessionAttributes for the session.
-    const autogen::BgpRouterParams &params = router->parameters();
+    const autogen::BgpRouterParams &params = remote_router->parameters();
     if (params.local_autonomous_system) {
         neighbor->set_peer_as(params.local_autonomous_system);
     } else {
@@ -192,6 +193,10 @@ static BgpNeighborConfig *MakeBgpNeighborConfig(
         if (neighbor->address_families().empty()) {
             neighbor->set_address_families(params.address_families.family);
         }
+        if (neighbor->keychain().empty()) {
+            const autogen::BgpRouterParams &lp = local_router->parameters();
+            BuildKeyChain(neighbor, lp.auth_key_chain);
+        }
     }
 
     if (neighbor->address_families().empty()) {
@@ -205,7 +210,8 @@ static BgpNeighborConfig *MakeBgpNeighborConfig(
 // Build map of BgpNeighborConfigs based on the data in autogen::BgpPeering.
 //
 void BgpIfmapPeeringConfig::BuildNeighbors(BgpConfigManager *manager,
-        const string &peername, const autogen::BgpRouter *rt_config,
+        const autogen::BgpRouter *local_rt_config,
+        const string &peername, const autogen::BgpRouter *remote_rt_config,
         const autogen::BgpPeering *peering, NeighborMap *map) {
 
     // If there are one or more autogen::BgpSessions for the peering, use
@@ -214,8 +220,8 @@ void BgpIfmapPeeringConfig::BuildNeighbors(BgpConfigManager *manager,
     for (autogen::BgpPeeringAttributes::const_iterator iter = attr.begin();
          iter != attr.end(); ++iter) {
         BgpNeighborConfig *neighbor = MakeBgpNeighborConfig(
-            instance_, peername, manager->localname(), rt_config,
-            iter.operator->());
+            instance_, peername, manager->localname(), local_rt_config,
+            remote_rt_config, iter.operator->());
         map->insert(make_pair(neighbor->name(), neighbor));
     }
 
@@ -223,7 +229,8 @@ void BgpIfmapPeeringConfig::BuildNeighbors(BgpConfigManager *manager,
     // no per-session configuration.
     if (map->empty()) {
         BgpNeighborConfig *neighbor = MakeBgpNeighborConfig(
-            instance_, peername, manager->localname(), rt_config, NULL);
+            instance_, peername, manager->localname(), local_rt_config,
+            remote_rt_config, NULL);
         map->insert(make_pair(neighbor->name(), neighbor));
     }
 }
@@ -249,13 +256,16 @@ void BgpIfmapPeeringConfig::Update(BgpIfmapConfigManager *manager,
     pair<IFMapNode *, IFMapNode *> routers;
     if (!node->IsDeleted() &&
         GetRouterPair(manager->graph(), manager->localname(), node, &routers)) {
-        const autogen::BgpRouter *rt_config =
+        const autogen::BgpRouter *local_rt_config =
+                static_cast<const autogen::BgpRouter *>(
+                    routers.first->GetObject());
+        const autogen::BgpRouter *remote_rt_config =
                 static_cast<const autogen::BgpRouter *>(
                     routers.second->GetObject());
-        if (rt_config != NULL &&
-            rt_config->IsPropertySet(autogen::BgpRouter::PARAMETERS)) {
-            BuildNeighbors(manager, routers.second->name(), rt_config,
-                           peering, &future);
+        if (remote_rt_config != NULL &&
+            remote_rt_config->IsPropertySet(autogen::BgpRouter::PARAMETERS)) {
+            BuildNeighbors(manager, local_rt_config, routers.second->name(),
+                           remote_rt_config, peering, &future);
         }
     }
 
@@ -690,7 +700,7 @@ void BgpIfmapInstanceConfig::AddNeighbor(BgpConfigManager *manager,
         BgpIdentifierToString(neighbor->local_identifier()),
         neighbor->local_as(),
         neighbor->peer_address().to_string(), neighbor->peer_as(),
-        neighbor->address_families());
+        neighbor->address_families(), neighbor->AuthKeysToString());
     neighbors_.insert(make_pair(neighbor->name(), neighbor));
     manager->Notify(neighbor, BgpConfigManager::CFG_ADD);
 }
@@ -710,7 +720,7 @@ void BgpIfmapInstanceConfig::ChangeNeighbor(BgpConfigManager *manager,
         BgpIdentifierToString(neighbor->local_identifier()),
         neighbor->local_as(),
         neighbor->peer_address().to_string(), neighbor->peer_as(),
-        neighbor->address_families());
+        neighbor->address_families(), neighbor->AuthKeysToString());
     manager->Notify(neighbor, BgpConfigManager::CFG_CHANGE);
 }
 
