@@ -254,6 +254,15 @@ KSyncDBObject::DBFilterResp VlanPortBindingTable::DBEntryFilter(
         // Ignore entries other than VLanLogicalInterface.
         return DBFilterIgnore;
     }
+
+    // Logical interface without vm interface is incomplete entry
+    // for ovsdb, trigger delete.
+    if (l_port->vm_interface() == NULL) {
+        OVSDB_TRACE(Trace, "VM Interface Unavialable, Deleting Logical "
+                    "Port " + l_port->name());
+        return DBFilterDelete;
+    }
+
     // Since we need physical port name and device name as key, ignore entry
     // if physical port or device is not yet present.
     RemotePhysicalInterface *phy_intf = dynamic_cast<RemotePhysicalInterface *>
