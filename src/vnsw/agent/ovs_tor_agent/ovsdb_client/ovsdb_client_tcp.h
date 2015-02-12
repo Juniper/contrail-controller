@@ -96,9 +96,10 @@ public:
             OvsPeerManager *manager);
     virtual ~OvsdbClientTcp();
 
-    virtual TcpSession *AllocSession(Socket *socket);
-    void RegisterClients();
-    void OnSessionEvent(TcpSession *session, TcpSession::Event event);
+    // virtual TcpSession *AllocSession(Socket *socket);
+    TcpSession *AllocSession(Socket *socket) { return NULL; }
+
+/bin/bash: :q: command not found
     const std::string protocol();
     const std::string server();
     uint16_t port();

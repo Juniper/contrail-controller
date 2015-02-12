@@ -25,15 +25,16 @@ protected:
     // boost ssl context accessor to setup ssl context variables.
     boost::asio::ssl::context *context();
 
-private:
-    // suppress AllocSession method using tcp socket, not valid for
-    // ssl server.
-    TcpSession *AllocSession(Socket *socket) { return NULL; }
+    // method is needed for applications that switch between 
+    // tcp socket and ssl socket. This is pure virtual and needs to be implemented
+    virtual TcpSession *AllocSession(Socket *socket) = 0;
 
     TcpSession *AllocSession(bool server_session);
 
-    Socket *accept_socket() const;
-    void set_accept_socket();
+    virtual Socket *accept_socket() const;
+    virtual void set_accept_socket();
+
+private:
 
     boost::asio::ssl::context context_;
     std::auto_ptr<SslSocket> so_ssl_accept_;       // SSL socket used in async_accept

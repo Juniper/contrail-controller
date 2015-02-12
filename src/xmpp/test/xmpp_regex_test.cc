@@ -18,7 +18,7 @@ using namespace std;
 
 class XmppRegexMock : public XmppSession {
 public:
-    XmppRegexMock(TcpServer *server, Socket *sock) : 
+    XmppRegexMock(SslServer *server, Socket *sock) : 
                   XmppSession(server, sock), p1("<(iq|message)"), bufx_("") { }
     ~XmppRegexMock() { }
 

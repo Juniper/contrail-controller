@@ -15,12 +15,26 @@ SslSession::SslSession(SslServer *server, SslSocket *socket,
                        ssl_socket_(socket) {
 }
 
+SslSession::SslSession(SslServer *server, Socket *socket,
+                       bool async_read_ready) :
+                       TcpSession(server, socket, async_read_ready),
+                       ssl_socket_(NULL) {
+}
+
+
+
 SslSession::~SslSession() {
 }
 
-TcpSession::Socket *SslSession::socket() const {
+//TcpSession::Socket *SslSession::socket() const {
+SslSession::Socket *SslSession::socket() const {
+
     // return tcp socket
-    return &ssl_socket_->next_layer();
+    if (ssl_socket_) {
+        return &ssl_socket_->next_layer();
+    } 
+
+    return (TcpSession::socket());
 }
 
 bool SslSession::Connected(Endpoint remote) {
@@ -28,22 +42,31 @@ bool SslSession::Connected(Endpoint remote) {
         return false;
     }
 
-    // trigger ssl client handshake
-    std::srand(std::time(0));
-    ssl_socket_->async_handshake
-        (boost::asio::ssl::stream_base::client,
-         boost::bind(&SslSession::ConnectHandShakeHandler, TcpSessionPtr(this),
-                     remote, boost::asio::placeholders::error));
-    return true;
+    if (ssl_socket_) {
+        // trigger ssl client handshake
+        std::srand(std::time(0));
+        ssl_socket_->async_handshake
+            (boost::asio::ssl::stream_base::client,
+             boost::bind(&SslSession::ConnectHandShakeHandler, TcpSessionPtr(this),
+                         remote, boost::asio::placeholders::error));
+        return true;
+    } else {
+        return (TcpSession::Connected(remote));
+    }
 }
 
 void SslSession::Accepted() {
-    // trigger ssl server handshake
-    std::srand(std::time(0));
-    ssl_socket_->async_handshake
-        (boost::asio::ssl::stream_base::server,
-         boost::bind(&SslSession::AcceptHandShakeHandler, TcpSessionPtr(this),
-                     boost::asio::placeholders::error));
+    
+    if (ssl_socket_) {
+        // trigger ssl server handshake
+        std::srand(std::time(0));
+        ssl_socket_->async_handshake
+            (boost::asio::ssl::stream_base::server,
+             boost::bind(&SslSession::AcceptHandShakeHandler, TcpSessionPtr(this),
+                         boost::asio::placeholders::error));
+    } else {
+        TcpSession::Accepted();
+    }
 }
 
 void SslSession::AcceptHandShakeHandler(TcpSessionPtr session,
@@ -75,21 +98,33 @@ void SslSession::ConnectHandShakeHandler(TcpSessionPtr session, Endpoint remote,
 
 
 void SslSession::AsyncReadSome(boost::asio::mutable_buffer buffer) {
-    ssl_socket_->async_read_some(mutable_buffers_1(buffer),
-        boost::bind(&TcpSession::AsyncReadHandler, TcpSessionPtr(this), buffer,
-                    boost::asio::placeholders::error,
-                    boost::asio::placeholders::bytes_transferred));
+    if (ssl_socket_) {
+        ssl_socket_->async_read_some(mutable_buffers_1(buffer),
+            boost::bind(&TcpSession::AsyncReadHandler, TcpSessionPtr(this), buffer,
+                        boost::asio::placeholders::error,
+                        boost::asio::placeholders::bytes_transferred));
+    } else {
+        TcpSession::AsyncReadSome(buffer);
+    }
 }
 
 std::size_t SslSession::WriteSome(const uint8_t *data, std::size_t len,
                                   boost::system::error_code &error) {
-    return ssl_socket_->write_some(boost::asio::buffer(data, len), error);
+    if (ssl_socket_) {
+        return ssl_socket_->write_some(boost::asio::buffer(data, len), error);
+    } else {
+        return (TcpSession::WriteSome(data, len, error));
+    }
 }
 
 void SslSession::AsyncWrite(const u_int8_t *data, std::size_t size) {
-    boost::asio::async_write(
-        *ssl_socket_.get(), buffer(data, size),
-        boost::bind(&TcpSession::AsyncWriteHandler, TcpSessionPtr(this),
-                    boost::asio::placeholders::error));
+    if (ssl_socket_) {
+        boost::asio::async_write(
+            *ssl_socket_.get(), buffer(data, size),
+            boost::bind(&TcpSession::AsyncWriteHandler, TcpSessionPtr(this),
+                        boost::asio::placeholders::error));
+    } else {
+        TcpSession::AsyncWrite(data, size);
+    }
 }
 
