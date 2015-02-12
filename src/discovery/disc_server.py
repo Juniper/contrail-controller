@@ -299,8 +299,10 @@ class DiscoveryServer():
 
     # check if service expired (return color along)
     def service_expired(self, entry, include_color=False, include_down=True):
-        timedelta = datetime.timedelta(
-                seconds=(int(time.time()) - entry['heartbeat']))
+        seconds = int(time.time()) - entry['heartbeat']
+        if seconds < 0:
+            seconds = 0
+        timedelta = datetime.timedelta(seconds=seconds)
 
         if self._args.hc_interval <= 0:
             # health check has been disabled
