@@ -54,6 +54,8 @@ class VirtualMachineManager(InstanceManager):
             name=instance_name, image=image,
             flavor=flavor, nics=nics_with_port,
             availability_zone=avail_zone)
+        if not nova_vm:
+            return
         nova_vm.get()
         self.logger.log('Created VM : ' + str(nova_vm))
 
