@@ -138,10 +138,17 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:choice>
 </xsd:complexType>
 
+<xsd:simpleType name="L4PortType">
+     <xsd:restriction base="xsd:integer">
+         <xsd:minInclusive value="-1"/>
+         <xsd:maxInclusive value="65535"/>
+     </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name="PortType">
     <xsd:sequence>
-        <xsd:element name="start-port" type="xsd:integer"/>
-        <xsd:element name="end-port" type="xsd:integer"/>
+        <xsd:element name="start-port" type="L4PortType"/>
+        <xsd:element name="end-port" type="L4PortType"/>
     </xsd:sequence>
 </xsd:complexType>
 
