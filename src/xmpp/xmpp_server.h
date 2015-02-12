@@ -10,7 +10,8 @@
 
 #include "base/lifetime.h"
 #include "base/queue_task.h"
-#include "io/tcp_server.h"
+//#include "io/tcp_server.h"
+#include "io/ssl_server.h"
 #include "net/address.h"
 #include "xmpp/xmpp_session.h"
 #include "xmpp/xmpp_config.h"
@@ -25,7 +26,7 @@ class XmppConnectionEndpoint;
 class XmppServerConnection;
 
 // Class to represent Xmpp Server
-class XmppServer : public TcpServer {
+class XmppServer : public SslServer {
 public:
     typedef boost::asio::ip::tcp::endpoint Endpoint;
 
@@ -76,14 +77,21 @@ public:
     void FillShowServer(ShowXmppServerResp *resp) const;
 
 protected:
-    virtual TcpSession *AllocSession(Socket *socket);
-    virtual bool AcceptSession(TcpSession *session);
+    SslSession *AllocSession(SslSocket *socket) { return NULL; }
+
+    virtual Socket *accept_socket() const;
+    virtual void set_accept_socket();
 
 private:
     class DeleteActor;
     friend class BgpXmppBasicTest;
     friend class DeleteActor;
     friend class XmppStateMachineTest;
+
+    TcpSession *AllocSession(Socket *socket);
+    TcpSession *AllocSession(bool server_session);
+
+    virtual bool AcceptSession(TcpSession *session);
 
     typedef std::map<Endpoint, XmppServerConnection *> ConnectionMap;
     typedef std::set<XmppServerConnection *> ConnectionSet;

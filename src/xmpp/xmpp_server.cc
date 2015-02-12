@@ -51,7 +51,7 @@ private:
 };
 
 XmppServer::XmppServer(EventManager *evm, const string &server_addr) 
-    : TcpServer(evm),
+    : SslServer(evm, ssl::context::tlsv1_server),
       lifetime_manager_(XmppObjectFactory::Create<XmppLifetimeManager>(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)), 
@@ -62,7 +62,7 @@ XmppServer::XmppServer(EventManager *evm, const string &server_addr)
 }
 
 XmppServer::XmppServer(EventManager *evm) 
-    : TcpServer(evm),
+    : SslServer(evm, ssl::context::tlsv1_server),
       max_connections_(0),
       lifetime_manager_(new LifetimeManager(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
@@ -231,9 +231,33 @@ void XmppServer::NotifyConnectionEvent(XmppChannelMux *mux,
     }
 }
 
+//
+// override so we can execute grand-parent TcpServer class method
+// instead of parent SslServer class method.
+//
+// This is done as basic Xmpp messages need to be exchanged on
+// tcp socket. Based on the message exchange, the ssl socket need to be
+// allocated for ssl handshake.
+//
+TcpSession *XmppServer::AllocSession (bool server_session) {
+    // call grand-parent class method
+    TcpSession *session;
+    session = TcpServer::AllocSession(server_session);
+
+    return session;
+}
+
 TcpSession *XmppServer::AllocSession(Socket *socket) {
     TcpSession *session = new XmppSession(this, socket);
     return session;
+}
+
+TcpServer::Socket *XmppServer::accept_socket() const {
+    return (TcpServer::accept_socket());
+}
+
+void XmppServer::set_accept_socket() {
+    TcpServer::set_accept_socket();
 }
 
 //

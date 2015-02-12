@@ -25,8 +25,8 @@ const boost::regex XmppSession::whitespace_(sXMPP_WHITESPACE);
 
 const std::string XmppStream::close_string = sXML_STREAM_C;
 
-XmppSession::XmppSession(TcpServer *server, Socket *socket, bool async_ready)
-        : TcpSession(server, socket, async_ready), connection_(NULL), 
+XmppSession::XmppSession(SslServer *server, Socket *socket, bool async_ready)
+        : SslSession(server, socket, async_ready), connection_(NULL),
           buf_(""), offset_(), tag_known_(0), 
           stats_(XmppStanza::RESERVED_STANZA, XmppSession::StatsPair(0,0)) {
 

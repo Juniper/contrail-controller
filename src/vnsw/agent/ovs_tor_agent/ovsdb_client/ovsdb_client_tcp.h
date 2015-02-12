@@ -96,9 +96,10 @@ public:
             OvsPeerManager *manager);
     virtual ~OvsdbClientTcp();
 
-    virtual TcpSession *AllocSession(Socket *socket);
+    TcpSession *AllocSession(Socket *socket) { return NULL; }
     void RegisterClients();
     void OnSessionEvent(TcpSession *session, TcpSession::Event event);
+
     const std::string protocol();
     const std::string server();
     uint16_t port();

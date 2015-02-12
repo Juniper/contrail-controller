@@ -16,6 +16,10 @@ public:
     SslSession(SslServer *server, SslSocket *socket,
                bool async_read_ready = true);
 
+    // SslSession constructor takes ownership of socket.
+    SslSession(SslServer *server, Socket *socket,
+               bool async_read_ready = true);
+
     virtual Socket *socket() const;
 
     // Override to trigger handshake
