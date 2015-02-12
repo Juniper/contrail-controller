@@ -24,10 +24,13 @@ public:
     virtual Ip4Address tsn_ip() = 0;
     virtual OvsdbClientSession *next_session(OvsdbClientSession *session) = 0;
     virtual void AddSessionInfo(SandeshOvsdbClient &client) = 0;
+    virtual void shutdown() = 0;
+
     KSyncObjectManager *ksync_obj_manager();
     void Init();
     static OvsdbClient* Allocate(Agent *agent, TorAgentParam *params,
             OvsPeerManager *manager);
+
 protected:
     OvsPeerManager *peer_manager_;
 private:

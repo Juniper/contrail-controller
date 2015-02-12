@@ -19,7 +19,14 @@ OvsdbClientTcp::OvsdbClientTcp(Agent *agent, TorAgentParam *params,
         OvsPeerManager *manager) : TcpServer(agent->event_manager()),
     OvsdbClient(manager), agent_(agent), session_(NULL),
     server_ep_(IpAddress(params->tor_ip()), params->tor_port()),
-    tsn_ip_(params->tsn_ip()) {
+    tsn_ip_(params->tsn_ip()), shutdown_(false) {
+}
+
+OvsdbClientTcp::OvsdbClientTcp(Agent *agent, IpAddress tor_ip, int tor_port,
+        IpAddress tsn_ip, OvsPeerManager *manager) :
+    TcpServer(agent->event_manager()), OvsdbClient(manager), agent_(agent),
+    session_(NULL), server_ep_(tor_ip, tor_port), tsn_ip_(tsn_ip.to_v4()),
+    shutdown_(false) {
 }
 
 OvsdbClientTcp::~OvsdbClientTcp() {
@@ -60,11 +67,21 @@ Ip4Address OvsdbClientTcp::tsn_ip() {
     return tsn_ip_;
 }
 
+void OvsdbClientTcp::shutdown() {
+    if (shutdown_)
+        return;
+    shutdown_ = true;
+    session_->Close();
+}
+
 const boost::asio::ip::tcp::endpoint &OvsdbClientTcp::server_ep() const {
         return server_ep_;
 }
 
 OvsdbClientSession *OvsdbClientTcp::next_session(OvsdbClientSession *session) {
+    if (session_ == NULL) {
+        return NULL;
+    }
     return static_cast<OvsdbClientSession *>(
             static_cast<OvsdbClientTcpSession *>(session_));
 }
@@ -72,8 +89,11 @@ OvsdbClientSession *OvsdbClientTcp::next_session(OvsdbClientSession *session) {
 void OvsdbClientTcp::AddSessionInfo(SandeshOvsdbClient &client){
     SandeshOvsdbClientSession session;
     std::vector<SandeshOvsdbClientSession> session_list;
-    OvsdbClientTcpSession *tcp = static_cast<OvsdbClientTcpSession *>(session_);
-    session.set_status(tcp->status());
+    if (session_ != NULL) {
+        OvsdbClientTcpSession *tcp =
+            static_cast<OvsdbClientTcpSession *>(session_);
+        session.set_status(tcp->status());
+    }
     session_list.push_back(session);
     client.set_sessions(session_list);
 }
@@ -169,8 +189,13 @@ bool OvsdbClientTcpSession::ProcessSessionEvent(OvsdbSessionEvent ovs_event) {
             OnClose();
             OvsdbClientTcp *ovs_server =
                 static_cast<OvsdbClientTcp *>(server());
-            ovs_server->session_ = ovs_server->CreateSession();
-            ovs_server->Connect(ovs_server->session_, ovs_server->server_ep());
+            if (ovs_server->shutdown_ == false) {
+                ovs_server->session_ = ovs_server->CreateSession();
+                ovs_server->Connect(ovs_server->session_,
+                                    ovs_server->server_ep());
+            } else {
+                ovs_server->session_ = NULL;
+            }
         }
         break;
     case TcpSession::CONNECT_COMPLETE:

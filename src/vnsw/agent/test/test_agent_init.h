@@ -29,7 +29,7 @@ public:
     void CreateModules();
 
     // Shutdown virtual methods
-    void KSyncShutdown();
+    virtual void KSyncShutdown();
     void UveShutdown();
     void StatsCollectorShutdown();
     void FlowStatsCollectorShutdown();

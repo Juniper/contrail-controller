@@ -94,6 +94,8 @@ class OvsdbClientTcp : public TcpServer, public OvsdbClient {
 public:
     OvsdbClientTcp(Agent *agent, TorAgentParam *params,
             OvsPeerManager *manager);
+    OvsdbClientTcp(Agent *agent, IpAddress tor_ip, int tor_port,
+            IpAddress tsn_ip, OvsPeerManager *manager);
     virtual ~OvsdbClientTcp();
 
     virtual TcpSession *AllocSession(Socket *socket);
@@ -105,6 +107,9 @@ public:
     Ip4Address tsn_ip();
     const boost::asio::ip::tcp::endpoint &server_ep() const;
 
+    // API to shutdown the TCP server
+    void shutdown();
+
     OvsdbClientSession *next_session(OvsdbClientSession *session);
     void AddSessionInfo(SandeshOvsdbClient &client);
 
@@ -114,6 +119,7 @@ private:
     TcpSession *session_;
     boost::asio::ip::tcp::endpoint server_ep_;
     Ip4Address tsn_ip_;
+    bool shutdown_;
     DISALLOW_COPY_AND_ASSIGN(OvsdbClientTcp);
 };
 };
