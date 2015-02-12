@@ -39,7 +39,7 @@ class XmppMockServerConnection : public XmppServerConnection {
 public:
     XmppMockServerConnection(XmppServer *server,
         const XmppChannelConfig *config, bool send_bad_open_resp,
-        bool end_write_doc=false)
+        bool send_write_doc=false)
         : XmppServerConnection(server, config),
           send_bad_open_resp(send_bad_open_resp),
           send_write_doc(send_write_doc) {}

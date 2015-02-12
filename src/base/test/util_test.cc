@@ -48,19 +48,22 @@ TEST_F(UtilTest, UTCCorrectness) {
 
 TEST_F(UtilTest, DISABLED_PerfUTCclock_gettime) {
     for (int i = 0; i < 1000000; i++) {
-       uint64_t t = UTCTimestampUsec();
+        uint64_t t = UTCTimestampUsec();
+        EXPECT_TRUE(t != 0);
     }
 }
 
 TEST_F(UtilTest, DISABLED_PerfUTCgettimeofday) {
     for (int i = 0; i < 1000000; i++) {
         uint64_t t = UTCgettimeofday();
+        EXPECT_TRUE(t != 0);
     }
 }
 
 TEST_F(UtilTest, DISABLED_PerfUTCboost) {
     for (int i = 0; i < 1000000; i++) {
         uint64_t t = UTCboost();
+        EXPECT_TRUE(t != 0);
     }
 }
 

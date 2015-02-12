@@ -76,7 +76,7 @@ TEST_F(CdbIfTest, EncodeDecodeString) {
     std::vector<std::string> strings = boost::assign::list_of
         ("Test String1")
         ("Test:Str :ing :2  ");
-    for (int i = 0; i < strings.size(); i++) {
+    for (size_t i = 0; i < strings.size(); i++) {
         std::string str(strings[i]);
         // Composite
         std::string composite_enc(DbEncodeStringComposite(str));
@@ -120,7 +120,7 @@ TEST_F(CdbIfTest, TestEncodeDecodeDouble) {
         (0)
         (std::numeric_limits<double>::min()/2)
         (std::numeric_limits<double>::max()/2);
-    for (int i = 0; i < integers.size(); i++) {
+    for (size_t i = 0; i < integers.size(); i++) {
         double integer(integers[i]);
         // Composite
         std::string composite_enc(
@@ -165,7 +165,7 @@ TEST_F(CdbIfTest, TestEncodeDecodeUUID) {
         (boost::uuids::nil_uuid())
         (gen())
         (gen());
-    for (int i = 0; i < integers.size(); i++) {
+    for (size_t i = 0; i < integers.size(); i++) {
         boost::uuids::uuid integer(integers[i]);
         // Composite
         std::string composite_enc(
@@ -268,7 +268,6 @@ TEST_F(CdbIfTest, EncodeDecodeU64) {
 }
 
 TEST_F(CdbIfTest, EncodeDecodeCompositeVector) {
-    uint32_t T2(166699223);
     uint32_t T1(6979602);
     GenDb::DbDataValueVec col_name;
     col_name.reserve(2);
