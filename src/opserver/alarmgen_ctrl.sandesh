@@ -37,15 +37,35 @@ response sandesh PartitionStatusResp {
     3: list<UVECollInfo>        uves
 }
 
-struct GeneratedAlarm {
-    1: string                              name
-    2: string                              description
-    3: bool                                ack
+struct AlarmElement {
+    1: string                      rule
+    2: string                      value
 }
+
+struct UVEAlarmInfo {
+    1: string                      type
+    2: list<AlarmElement>          description
+    3: bool                        ack
+}
+
+struct UVEAlarms {
+    1: string                      name
+    2: list<UVEAlarmInfo>          alarms
+}
+
+request sandesh UVETableAlarmReq {
+    1: string                      table
+}
+
+response sandesh UVETableAlarmResp {
+    1: string                      table
+    2: list<UVEAlarms>             uves
+}
+
 struct AnalyticsNodeAlarm {
-    1: string                              name (key="ObjectCollectorInfo")
-    2: optional bool                       deleted
-    3: optional list<GeneratedAlarm>       alarms
+    1: string                      name (key="ObjectCollectorInfo")
+    2: optional bool               deleted
+    3: optional list<UVEAlarmInfo> alarms
 }
 
 uve sandesh AnalyticsNodeAlarmTrace {

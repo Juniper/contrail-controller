@@ -2,23 +2,16 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name='opserver',
     version='0.1dev',
-    packages=['opserver',
-              'opserver.sandesh',
-              'opserver.sandesh.viz',
-              'opserver.sandesh.analytics',
-              'opserver.sandesh.analytics.process_info',
-              'opserver.sandesh.analytics.cpuinfo',
-              'opserver.sandesh.analytics_database',
-              'opserver.sandesh.redis',
-              'opserver.sandesh.discovery',
-              'opserver.sandesh.alarmgen_ctrl'],
+    packages=find_packages(exclude=["node_mgr", "node_mgr.*", "test.*",
+                                    "build.*", "plugins.*"]),
     package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,
+    include_package_data=True,
     long_description="VNC Analytics API Implementation",
     install_requires=[
         'lxml',
