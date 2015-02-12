@@ -54,22 +54,24 @@ bool VMInterfaceKSyncEntry::Sync(DBEntry *db_entry) {
     SecurityGroupList sg_list;
     entry->CopySgIdList(&sg_list);
     if (sg_list != sg_list_) {
-        // SG-ID List changed, update OVSDB Route for VMI with new SG-ID List
-        sg_list_ = sg_list;
-
         // Enqueue a RESYNC on the route with new VN-Name and SG-ID
         const VrfEntry *vrf = entry->vrf();
         const VnEntry *vn = entry->vn();
-        EvpnAgentRouteTable *evpn_table = static_cast<EvpnAgentRouteTable *>
-            (vrf->GetEvpnRouteTable());
+        if (vrf != NULL && vn != NULL) {
+            EvpnAgentRouteTable *evpn_table = static_cast<EvpnAgentRouteTable *>
+                (vrf->GetEvpnRouteTable());
 
-        OvsdbRouteResyncData *data = new OvsdbRouteResyncData(sg_list);
-        evpn_table->ResyncVmRouteReq(table_->client_idl()->route_peer(),
-                                     vrf->GetName(),
-                                     MacAddress::FromString(entry->vm_mac()),
-                                     IpAddress(), vn->vxlan_id()->vxlan_id(),
-                                     data);
-        ret = true;
+            // SG-ID changed, update OVSDB Route for VMI with new SG-ID
+            sg_list_ = sg_list;
+            OvsdbRouteResyncData *data = new OvsdbRouteResyncData(sg_list);
+            evpn_table->ResyncVmRouteReq(table_->client_idl()->route_peer(),
+                                         vrf->GetName(),
+                                         MacAddress::FromString(entry->vm_mac()),
+                                         IpAddress(),
+                                         vn->vxlan_id()->vxlan_id(),
+                                         data);
+            ret = true;
+        }
     }
 
     if (vn_name_ != vn_name) {
