@@ -32,9 +32,18 @@ from uveserver import UVEServer
 from partition_handler import PartitionHandler, UveStreamProc
 from sandesh.alarmgen_ctrl.ttypes import PartitionOwnershipReq, \
     PartitionOwnershipResp, PartitionStatusReq, UVECollInfo, UVEGenInfo, \
-    PartitionStatusResp
+    PartitionStatusResp, UVEAlarms, AlarmElement, UVETableAlarmReq, \
+    UVETableAlarmResp, UVEAlarmInfo
 
-class Controller(object):   
+from stevedore import hook
+
+class Controller(object):
+    
+    @staticmethod
+    def fail_cb(manager, entrypoint, exception):
+        sandesh_global._logger.info("Load failed for %s with exception %s" % \
+                                     (str(entrypoint),str(exception)))
+        
     def __init__(self, conf):
         self._conf = conf
         module = Module.ALARM_GENERATOR
@@ -58,6 +67,28 @@ class Controller(object):
             syslog_facility=self._conf.syslog_facility())
         self._logger = sandesh_global._logger
 
+        tables = [ "ObjectCollectorInfo",
+                   "ObjectDatabaseInfo",
+                   "ObjectVRouter",
+                   "ObjectBgpRouter",
+                   "ObjectConfigNode" ] 
+        self.mgrs = {}
+        self.tab_alarms = {}
+        for table in tables:
+            self.mgrs[table] = hook.HookManager(
+                namespace='contrail.analytics.alarms',
+                name=table,
+                invoke_on_load=True,
+                invoke_args=(),
+                on_load_failure_callback=Controller.fail_cb
+            )
+            
+            for extn in self.mgrs[table][table]:
+                self._logger.info('Loaded extensions for %s: %s,%s' % \
+                    (table, extn.name, extn.entry_point_target))
+
+            self.tab_alarms[table] = {}
+
         ConnectionState.init(sandesh_global, self._hostname, self._moduleid,
             self._instance_id,
             staticmethod(ConnectionState.get_process_state_cb),
@@ -77,12 +108,66 @@ class Controller(object):
 
         PartitionOwnershipReq.handle_request = self.handle_PartitionOwnershipReq
         PartitionStatusReq.handle_request = self.handle_PartitionStatusReq
+        UVETableAlarmReq.handle_request = self.handle_UVETableAlarmReq 
 
         self._workers = {}
 
     def handle_uve_notif(self, uves):
-        self._logger.info("Changed UVEs : %s" % str(uves))
+        self._logger.debug("Changed UVEs : %s" % str(uves))
+        no_handlers = set()
+        for uv in uves:
+            tab = uv.split(':',1)[0]
+            if not self.mgrs.has_key(tab):
+                no_handlers.add(tab)
+                continue
+            itr = self._us.multi_uve_get(uv, True, None, None, None, None)
+            uve_data = itr.next()['value']
+            if len(uve_data) == 0:
+                del self.tab_alarms[tab][uv]
+                self._logger.info("UVE %s deleted" % uv)
+                continue
+            results = self.mgrs[tab].map_method("__call__", uv, uve_data)
+            new_uve_alarms = {}
+            for res in results:
+                nm, errs = res
+                self._logger.info("Alarm[%s] %s: %s" % (tab, nm, str(errs)))
+                elems = []
+                for ae in errs:
+                    rule, val = ae
+                    rv = AlarmElement(rule, val)
+                    elems.append(rv)
+                if len(elems):
+                    new_uve_alarms[nm] = UVEAlarmInfo(type = nm,
+                                           description = elems, ack = False)
+            self.tab_alarms[tab][uv] = new_uve_alarms
+            
+        if len(no_handlers):
+            self._logger.info('No Alarm Handlers for %s' % str(no_handlers))
 
+    def handle_UVETableAlarmReq(self, req):
+        status = False
+        if req.table == "all":
+            parts = self.tab_alarms.keys()
+        else:
+            parts = [req.table]
+        self._logger.info("Got UVETableAlarmReq : %s" % str(parts))
+        np = 1
+        for pt in parts:
+            resp = UVETableAlarmResp(table = pt)
+            uves = []
+            for uk,uv in self.tab_alarms[pt].iteritems():
+                alms = []
+                for ak,av in uv.iteritems():
+                    alms.append(av)
+                uves.append(UVEAlarms(name = uk, alarms = alms))
+            resp.uves = uves 
+            if np == len(parts):
+                mr = False
+            else:
+                mr = True
+            resp.response(req.context(), mr)
+            np = np + 1
+        
     def handle_PartitionOwnershipReq(self, req):
         self._logger.info("Got PartitionOwnershipReq: %s" % str(req))
         status = False
