@@ -7,6 +7,7 @@ extern "C" {
 };
 #include <cmn/agent.h>
 #include <oper/vn.h>
+#include <oper/vrf.h>
 #include <oper/vxlan.h>
 #include <oper/physical_device_vn.h>
 #include <ovs_tor_agent/tor_agent_init.h>
@@ -55,7 +56,10 @@ bool UnicastMacLocalEntry::Add() {
         static_cast<LogicalSwitchEntry *>(l_table->Find(&l_key));
     const PhysicalDeviceVn *dev_vn =
         static_cast<const PhysicalDeviceVn *>(ls_entry->GetDBEntry());
+    // Take vrf reference to genrate withdraw/delete route request
     vrf_ = dev_vn->vn()->GetVrf();
+    // Add vrf dep in UnicastMacLocalOvsdb
+    table->vrf_dep_list_.insert(UnicastMacLocalOvsdb::VrfDepEntry(vrf_.get(), this));
     vxlan_id_ = dev_vn->vxlan_id();
     boost::system::error_code err;
     Ip4Address dest = Ip4Address::from_string(dest_ip_, err);
@@ -67,7 +71,10 @@ bool UnicastMacLocalEntry::Delete() {
     UnicastMacLocalOvsdb *table = static_cast<UnicastMacLocalOvsdb *>(table_);
     OVSDB_TRACE(Trace, "Deleting Route " + mac_ + " VN uuid " +
             logical_switch_name_ + " destination IP " + dest_ip_);
-    table->peer()->DeleteOvsRoute(vrf_, vxlan_id_, MacAddress(mac_));
+    table->vrf_dep_list_.erase(UnicastMacLocalOvsdb::VrfDepEntry(vrf_.get(), this));
+    table->peer()->DeleteOvsRoute(vrf_.get(), vxlan_id_, MacAddress(mac_));
+    // remove vrf reference after deleting route
+    vrf_ = NULL;
     return true;
 }
 
@@ -118,11 +125,16 @@ const std::string &UnicastMacLocalEntry::dest_ip() const {
 
 UnicastMacLocalOvsdb::UnicastMacLocalOvsdb(OvsdbClientIdl *idl, OvsPeer *peer) :
     OvsdbObject(idl), peer_(peer) {
+    vrf_reeval_queue_ = new WorkQueue<VrfEntryRef>(
+            TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0,
+            boost::bind(&UnicastMacLocalOvsdb::VrfReEval, this, _1));
     idl->Register(OvsdbClientIdl::OVSDB_UCAST_MAC_LOCAL,
             boost::bind(&UnicastMacLocalOvsdb::Notify, this, _1, _2));
 }
 
 UnicastMacLocalOvsdb::~UnicastMacLocalOvsdb() {
+    vrf_reeval_queue_->Shutdown();
+    delete vrf_reeval_queue_;
 }
 
 OvsPeer *UnicastMacLocalOvsdb::peer() {
@@ -147,11 +159,13 @@ void UnicastMacLocalOvsdb::Notify(OvsdbClientIdl::Op op,
     /* trigger delete if dest ip is not available */
     if (op == OvsdbClientIdl::OVSDB_DEL || dest_ip == NULL) {
         if (entry != NULL) {
+            entry->ovs_entry_ = NULL;
             Delete(entry);
         }
     } else if (op == OvsdbClientIdl::OVSDB_ADD) {
         if (entry == NULL) {
             entry = static_cast<UnicastMacLocalEntry *>(Create(&key));
+            entry->ovs_entry_ = row;
         }
     } else {
         assert(0);
@@ -163,6 +177,29 @@ KSyncEntry *UnicastMacLocalOvsdb::Alloc(const KSyncEntry *key, uint32_t index) {
         static_cast<const UnicastMacLocalEntry *>(key);
     UnicastMacLocalEntry *entry = new UnicastMacLocalEntry(this, k_entry);
     return entry;
+}
+
+void UnicastMacLocalOvsdb::VrfReEvalEnqueue(VrfEntry *vrf) {
+    vrf_reeval_queue_->Enqueue(vrf);
+}
+
+bool UnicastMacLocalOvsdb::VrfReEval(VrfEntryRef vrf) {
+    // iterate through dependency list and trigger del and add
+    VrfDepList::iterator it =
+        vrf_dep_list_.upper_bound(VrfDepEntry(vrf.get(), NULL));
+    while (it != vrf_dep_list_.end()) {
+        if (it->first != vrf.get()) {
+            break;
+        }
+        UnicastMacLocalEntry *u_entry = it->second;
+        it++;
+        if (u_entry->ovs_entry() != NULL && client_idl() != NULL) {
+            // vrf re-eval for unicast mac local is a catastrophic change
+            // trigger NotifyAddDel on ovs row.
+            client_idl()->NotifyDelAdd(u_entry->ovs_entry());
+        }
+    }
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////////////

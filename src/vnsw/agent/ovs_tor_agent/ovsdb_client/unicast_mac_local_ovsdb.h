@@ -10,8 +10,12 @@
 class OvsPeer;
 
 namespace OVSDB {
+class UnicastMacLocalEntry;
 class UnicastMacLocalOvsdb : public OvsdbObject {
 public:
+    typedef std::pair<VrfEntry *, UnicastMacLocalEntry *> VrfDepEntry;
+    typedef std::set<VrfDepEntry> VrfDepList;
+
     UnicastMacLocalOvsdb(OvsdbClientIdl *idl, OvsPeer *peer);
     ~UnicastMacLocalOvsdb();
 
@@ -19,8 +23,14 @@ public:
     void Notify(OvsdbClientIdl::Op op, struct ovsdb_idl_row *row);
     KSyncEntry *Alloc(const KSyncEntry *key, uint32_t index);
 
+    void VrfReEvalEnqueue(VrfEntry *vrf);
+    bool VrfReEval(VrfEntryRef vrf);
+
 private:
+    friend class UnicastMacLocalEntry;
     OvsPeer *peer_;
+    VrfDepList vrf_dep_list_;
+    WorkQueue<VrfEntryRef> *vrf_reeval_queue_;
     DISALLOW_COPY_AND_ASSIGN(UnicastMacLocalOvsdb);
 };
 
@@ -47,9 +57,9 @@ private:
     std::string mac_;
     std::string logical_switch_name_;
     std::string dest_ip_;
-    // we don't need to hold reference to vrf since this pointer is valid,
-    // only once route is exported and will become invalid once its removed.
-    VrfEntry *vrf_;
+    // take reference to the vrf while exporting route, to assure sanity
+    // of vrf pointer even if Add route request fails, due to any reason
+    VrfEntryRef vrf_;
     uint32_t vxlan_id_;
     DISALLOW_COPY_AND_ASSIGN(UnicastMacLocalEntry);
 };
