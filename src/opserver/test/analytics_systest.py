@@ -76,24 +76,6 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
     # end _update_analytics_start_time
 
-    #@unittest.skip('Skipping non-cassandra test with vizd')
-    def test_00_nocassandra(self):
-        '''
-        This test starts redis,vizd,opserver and qed
-        Then it checks that the collector UVE (via redis)
-        can be accessed from opserver.
-        '''
-        logging.info("*** test_00_nocassandra ***")
-        if AnalyticsTest._check_skip_test() is True:
-            return True
-
-        vizd_obj = self.useFixture(
-            AnalyticsFixture(logging, builddir, self.__class__.redis_port, 0)) 
-        assert vizd_obj.verify_on_setup()
-
-        return True
-    # end test_00_nocassandra
-
     #@unittest.skip('Skipping cassandra test with vizd')
     def test_01_startup(self):
         '''
@@ -145,53 +127,6 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_02_message_table_query
 
-    #@unittest.skip('Skipping VM UVE test')
-    def test_03_vm_uve(self):
-        '''
-        This test starts redis, vizd, opserver, qed, and a python generator
-        that simulates vrouter and sends UveVirtualMachineAgentTrace messages.
-        It uses the test class' cassandra instance. Then it checks that the
-        VM UVE (via redis) can be accessed from opserver.
-        '''
-        logging.info("*** test_03_vm_uve ***")
-        if AnalyticsTest._check_skip_test() is True:
-            return True
-
-        vizd_obj = self.useFixture(
-            AnalyticsFixture(logging, builddir, self.__class__.redis_port, 0))
-        assert vizd_obj.verify_on_setup()
-        collectors = [vizd_obj.get_collector()]
-        generator_obj = self.useFixture(
-            GeneratorFixture("contrail-vrouter-agent", collectors,
-                             logging, vizd_obj.get_opserver_port()))
-        assert generator_obj.verify_on_setup()
-        generator_obj.send_vm_uve(vm_id='abcd',
-                                  num_vm_ifs=5,
-                                  msg_count=5)
-        assert generator_obj.verify_vm_uve(vm_id='abcd',
-                                           num_vm_ifs=5,
-                                           msg_count=5)
-        # Delete the VM UVE and verify that the deleted flag is set
-        # in the UVE cache
-        generator_obj.delete_vm_uve('abcd')
-        assert generator_obj.verify_vm_uve_cache(vm_id='abcd', delete=True)
-        # Add the VM UVE with the same vm_id and verify that the deleted flag
-        # is cleared in the UVE cache
-        generator_obj.send_vm_uve(vm_id='abcd',
-                                  num_vm_ifs=5,
-                                  msg_count=5)
-        assert generator_obj.verify_vm_uve_cache(vm_id='abcd')
-        assert generator_obj.verify_vm_uve(vm_id='abcd',
-                                           num_vm_ifs=5,
-                                           msg_count=5)
-        # Generate VM with vm_id containing XML control character
-        generator_obj.send_vm_uve(vm_id='<abcd&>', num_vm_ifs=2, msg_count=2)
-        assert generator_obj.verify_vm_uve(vm_id='<abcd&>', num_vm_ifs=2,
-                                           msg_count=2)
-
-        return True
-    # end test_03_vm_uve
-
     #@unittest.skip('Send/query flow stats to test QE')
     def test_04_flow_query(self):
         '''
@@ -236,117 +171,6 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_flow_series_aggregation_binning(generator_object)
         return True
     # end test_04_flow_query 
-
-    #@unittest.skip('Skipping contrail-collector HA test')
-    def test_05_collector_ha(self):
-        logging.info('*** test_05_collector_ha ***')
-        if AnalyticsTest._check_skip_test() is True:
-            return True
-        
-        vizd_obj = self.useFixture(
-            AnalyticsFixture(logging, builddir, -1,
-                             self.__class__.cassandra_port,
-                             collector_ha_test=True))
-        assert vizd_obj.verify_on_setup()
-        assert vizd_obj.verify_collector_obj_count()
-        # contrail-analytics-api and contrail-query-engine are started with collectors[0] as 
-        # primary and collectors[1] as secondary
-        exp_genlist = ['contrail-collector', 'contrail-analytics-api', 'contrail-query-engine']
-        assert vizd_obj.verify_generator_list(vizd_obj.collectors[0], 
-                                              exp_genlist)
-        # start the contrail-vrouter-agent with collectors[1] as primary and 
-        # collectors[0] as secondary 
-        collectors = [vizd_obj.collectors[1].get_addr(), 
-                      vizd_obj.collectors[0].get_addr()]
-        vr_agent = self.useFixture(
-            GeneratorFixture("contrail-vrouter-agent", collectors,
-                             logging, vizd_obj.get_opserver_port()))
-        assert vr_agent.verify_on_setup()
-        exp_genlist = ['contrail-collector', 'contrail-vrouter-agent']
-        assert vizd_obj.verify_generator_list(vizd_obj.collectors[1], 
-                                              exp_genlist)
-        # stop collectors[0] and verify that contrail-analytics-api and QE switch 
-        # from primary to secondary collector
-        vizd_obj.collectors[0].stop()
-        exp_genlist = ['contrail-collector', 'contrail-vrouter-agent', 'contrail-analytics-api', 'contrail-query-engine']
-        assert vizd_obj.verify_generator_list(vizd_obj.collectors[1], 
-                                              exp_genlist)
-        # start collectors[0]
-        vizd_obj.collectors[0].start()
-        exp_genlist = ['contrail-collector']
-        assert vizd_obj.verify_generator_list(vizd_obj.collectors[0],
-                                              exp_genlist)
-        # verify that the old UVEs are flushed from redis when collector restarts
-        exp_genlist = [vizd_obj.collectors[0].get_generator_id()]
-        assert vizd_obj.verify_generator_list_in_redis(\
-                                vizd_obj.collectors[0].get_redis_uve(),
-                                exp_genlist)
-
-        # stop collectors[1] and verify that contrail-analytics-api and QE switch 
-        # from secondary to primary and contrail-vrouter-agent from primary to
-        # secondary
-        vizd_obj.collectors[1].stop()
-        exp_genlist = ['contrail-collector', 'contrail-vrouter-agent', 'contrail-analytics-api', 'contrail-query-engine']
-        assert vizd_obj.verify_generator_list(vizd_obj.collectors[0],
-                                              exp_genlist)
-        # verify the generator list in redis
-        exp_genlist = [vizd_obj.collectors[0].get_generator_id(),
-                       vr_agent.get_generator_id(),
-                       vizd_obj.opserver.get_generator_id(),
-                       vizd_obj.query_engine.get_generator_id()]
-        assert vizd_obj.verify_generator_list_in_redis(\
-                                vizd_obj.collectors[0].get_redis_uve(),
-                                exp_genlist)
-
-        # stop Opserver and QE 
-        vizd_obj.opserver.stop()
-        vizd_obj.query_engine.stop()
-        exp_genlist = ['contrail-collector', 'contrail-vrouter-agent']
-        assert vizd_obj.verify_generator_list(vizd_obj.collectors[0],
-                                              exp_genlist)
-
-        # verify the generator list in redis
-        exp_genlist = [vizd_obj.collectors[0].get_generator_id(),
-                       vr_agent.get_generator_id()]
-        assert vizd_obj.verify_generator_list_in_redis(\
-                                vizd_obj.collectors[0].get_redis_uve(),
-                                exp_genlist)
-
-        # start Opserver and QE with collectors[1] as the primary and
-        # collectors[0] as the secondary. On generator startup, verify 
-        # that it connects to the secondary collector, if the 
-        # connection to the primary fails
-        vizd_obj.opserver.set_primary_collector(
-                            vizd_obj.collectors[1].get_addr())
-        vizd_obj.opserver.set_secondary_collector(
-                            vizd_obj.collectors[0].get_addr())
-        vizd_obj.opserver.start()
-        vizd_obj.query_engine.set_primary_collector(
-                            vizd_obj.collectors[1].get_addr())
-        vizd_obj.query_engine.set_secondary_collector(
-                            vizd_obj.collectors[0].get_addr())
-        vizd_obj.query_engine.start()
-        exp_genlist = ['contrail-collector', 'contrail-vrouter-agent', 'contrail-analytics-api', 'contrail-query-engine']
-        assert vizd_obj.verify_generator_list(vizd_obj.collectors[0],
-                                              exp_genlist)
-        # stop the collectors[0] - both collectors[0] and collectors[1] are down
-        # send the VM UVE and verify that the VM UVE is synced after connection
-        # to the collector
-        vizd_obj.collectors[0].stop()
-        # Make sure the connection to the collector is teared down before 
-        # sending the VM UVE
-        while True:
-            if vr_agent.verify_on_setup() is False:
-                break
-        vr_agent.send_vm_uve(vm_id='abcd-1234-efgh-5678',
-                             num_vm_ifs=5, msg_count=5) 
-        vizd_obj.collectors[1].start()
-        exp_genlist = ['contrail-collector', 'contrail-vrouter-agent', 'contrail-analytics-api', 'contrail-query-engine']
-        assert vizd_obj.verify_generator_list(vizd_obj.collectors[1],
-                                              exp_genlist)
-        assert vr_agent.verify_vm_uve(vm_id='abcd-1234-efgh-5678',
-                                      num_vm_ifs=5, msg_count=5)
-    # end test_05_collector_ha
 
     #@unittest.skip('InterVN stats using StatsOracle')
     def test_06_intervn_query(self):
@@ -458,8 +282,43 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                     ModuleNames[Module.COLLECTOR], 'UveTrace')
     #end test_08_send_tracebuffer 
 
+    #@unittest.skip('verify source/module list')
+    def test_09_table_source_module_list(self):
+        '''
+        This test verifies /analytics/table/<table>/column-values/Source
+        and /analytics/table/<table>/column-values/ModuleId
+        '''
+        logging.info('*** test_09_source_module_list ***')
+        if AnalyticsTest._check_skip_test() is True:
+            return True
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging, builddir, -1,
+                             self.__class__.cassandra_port, 
+                             collector_ha_test=True))
+        assert vizd_obj.verify_on_setup()
+        assert vizd_obj.verify_collector_obj_count()
+        exp_genlist1 = ['contrail-collector', 'contrail-analytics-api',
+                        'contrail-query-engine']
+        assert vizd_obj.verify_generator_list(vizd_obj.collectors[0], 
+                                              exp_genlist1)
+        exp_genlist2 = ['contrail-collector'] 
+        assert vizd_obj.verify_generator_list(vizd_obj.collectors[1], 
+                                              exp_genlist2)
+        exp_src_list = [col.hostname for col in vizd_obj.collectors]
+        exp_mod_list = exp_genlist1 
+        assert vizd_obj.verify_table_source_module_list(exp_src_list, 
+                                                        exp_mod_list)
+        # stop the second redis_uve instance and verify the src/module list
+        vizd_obj.redis_uves[1].stop()
+        exp_src_list = [vizd_obj.collectors[0].hostname]
+        exp_mod_list = exp_genlist1
+        assert vizd_obj.verify_table_source_module_list(exp_src_list, 
+                                                        exp_mod_list)
+    #end test_09_table_source_module_list 
+
     #@unittest.skip(' where queries with different conditions')
-    def test_09_where_clause_query(self):
+    def test_10_where_clause_query(self):
         '''
         This test is used to check the working of integer 
         fields in the where query 
@@ -488,10 +347,10 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         generator_obj.generate_flow_samples()
 	assert vizd_obj.verify_where_query_prefix(generator_obj)
         return True;
-    #end test_09_where_clause_query
+    #end test_10_where_clause_query
 
     #@unittest.skip('verify ObjectValueTable query')
-    def test_10_verify_object_value_table_query(self):
+    def test_11_verify_object_value_table_query(self):
         '''
         This test verifies the ObjectValueTable query.
         '''
@@ -520,10 +379,10 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                                   msg_count=1)
         assert vizd_obj.verify_object_value_table_query(table='ObjectVMTable',
             exp_object_values=['vm11&>'])
-    # end test_10_verify_object_table_query
+    # end test_11_verify_object_table_query
 
     #@unittest.skip('verify ObjectTable query')
-    def test_11_verify_syslog_table_query(self):
+    def test_12_verify_syslog_table_query(self):
         '''
         This test verifies the Syslog query.
         '''
@@ -557,10 +416,10 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         syslogger.critical(line)
         assert vizd_obj.verify_keyword_query(line, ['football', 'baseball'])
 
-    # end test_11_verify_syslog_table_query
+    # end test_12_verify_syslog_table_query
 
     #@unittest.skip('Skipping Fieldnames table test')
-    def test_12_fieldname_table(self):
+    def test_13_fieldname_table(self):
         '''
         This test starts vizd and a python generators that simulates
         vrouter and sends messages. It uses the test class' cassandra
@@ -585,7 +444,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
 	generator_obj.generate_intervn()
 	assert vizd_obj.verify_fieldname_table()
         return True
-    # end test_12_fieldname_table
+    # end test_13_fieldname_table
 
     @staticmethod
     def get_free_port():

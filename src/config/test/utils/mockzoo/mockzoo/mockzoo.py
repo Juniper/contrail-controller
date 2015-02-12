@@ -35,7 +35,8 @@ def start_zoo(cport):
         process = subprocess.Popen(zookeeper_download.split(' '))
         process.wait()
         if process.returncode is not 0:
-            return
+            logging.info('Cannot download Zk: %s' % zookeeper_download)
+            return False
 
     basefile = "zookeeper-"+zookeeper_version
     tarfile = zookeeper_url
@@ -51,16 +52,24 @@ def start_zoo(cport):
     logging.info('zookeeper Client Port %d' % cport)
 
     replace_string_(confdir + "zoo.cfg", \
-        [("dataDir=/tmp/zookeeper", "dataDir="+cassbase)])
+        [("dataDir=/tmp/zookeeper", "dataDir="+cassbase),
+         ("clientPort=2181", "clientPort="+str(cport))])
 
-    replace_string_(confdir + "zoo.cfg", \
-        [("clientPort=2181", "clientPort="+str(cport))])
-
+    replace_string_(cassbase + basefile + "/bin/zkServer.sh", \
+        [('_ZOO_DAEMON_OUT="$ZOO_LOG_DIR/', '_ZOO_DAEMON_OUT="%s' % cassbase)])
+    output,_ = call_command_("chmod +x " + cassbase + basefile + "/bin/zkServer.sh")
     output,_ = call_command_(cassbase + basefile + "/bin/zkServer.sh start")
 
     zk = KazooClient(hosts='127.0.0.1:'+str(cport))
-    zk.start()
+    try:
+        zk.start()
+    except:
+        logging.info("Zookeeper client cannot connect. Zk logfile below:")
+        with open(cassbase+"zookeeper.out", 'r') as fin:
+            logging.info(fin.read())
+        return False
     zk.stop()
+    return True
 
 def stop_zoo(cport):
     '''

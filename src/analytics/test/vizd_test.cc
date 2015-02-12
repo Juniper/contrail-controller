@@ -392,6 +392,13 @@ TEST_F(VizdTest, MessagesTest) {
                       ::testing::_, ::testing::_, ::testing::_))
         .Times(1)
         .WillOnce(Return(true));
+    
+    EXPECT_CALL(*osp_mock(),
+            UVENotif("UveVirtualNetworkAgent",
+                      "127.0.0.1", "GeneratorTest",
+                      "abc-corp:vn02"));
+        .Times(1)
+        .WillOnce(Return(true));
 
     gentest.SendMessageUVETrace();
 

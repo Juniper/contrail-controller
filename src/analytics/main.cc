@@ -281,6 +281,16 @@ int main(int argc, char *argv[])
     if (protobuf_server_enabled) {
         LOG(INFO, "COLLECTOR PROTOBUF LISTEN PORT: " << protobuf_port);
     }
+    string kstr("");
+    vector<string> kbl = options.kafka_broker_list();
+    for (vector<string>::const_iterator st = kbl.begin(); 
+         st != kbl.end(); st++) {
+         if (st != kbl.begin()) {
+             kstr += string(",");
+         }
+         kstr += *st;
+    }
+    LOG(INFO, "KAFKA BROKERS: " << kstr);
     std::string hostname;
     boost::system::error_code error;
     if (options.dup()) {
@@ -326,9 +336,11 @@ int main(int argc, char *argv[])
             string("127.0.0.1"),
             options.redis_port(),
             options.redis_password(),
+            kstr,
             options.syslog_port(),
             options.sflow_port(),
             options.ipfix_port(),
+            options.partitions(),
             options.dup(),
             ttl_map);
 
