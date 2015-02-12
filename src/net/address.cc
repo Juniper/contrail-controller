@@ -75,21 +75,31 @@ static const std::map<Address::Family, string>
         (Address::EVPN, "evpn")
         (Address::ERMVPN, "ermvpn");
 
-Address::Family Address::FamilyFromString(std::string family) {
-    return fromString.find(family)->second;
+Address::Family Address::FamilyFromString(const std::string &family) {
+    std::map<string, Address::Family>::const_iterator loc =
+            fromString.find(family);
+    if (loc != fromString.end()) {
+        return loc->second;
+    }
+    return Address::UNSPEC;
 }
 
 std::string Address::FamilyToString(Address::Family family) {
     return toString.find(family)->second;
 }
 
-Address::Family Address::FamilyFromRoutingTableName(std::string name) {
+Address::Family Address::FamilyFromRoutingTableName(const std::string &name) {
     size_t pos1 = name.rfind('.');
     if (pos1 == string::npos) return Address::UNSPEC;
     size_t pos2 = name.rfind('.', pos1);
     if (pos2 == string::npos) pos2 = 0;
 
-    return fromTableName.find(name.substr(pos2, pos1 - pos2))->second;
+    std::map<string, Address::Family>::const_iterator loc =
+            fromTableName.find(name.substr(pos2, pos1 - pos2));
+    if (loc != fromTableName.end()) {
+        return loc->second;
+    }
+    return Address::UNSPEC;
 }
 
 std::string Address::FamilyToTableString(Address::Family family) {

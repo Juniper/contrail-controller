@@ -55,8 +55,15 @@ typedef std::vector<AuthenticationKey> AuthenticationKeyChain;
 class BgpNeighborConfig {
 public:
     typedef std::vector<std::string> AddressFamilyList;
+    enum Type {
+        UNSPECIFIED,
+        IBGP,
+        EBGP,
+    };
 
     BgpNeighborConfig();
+
+    void CopyValues(const BgpNeighborConfig &rhs);
 
     const std::string &name() const { return name_; }
     void set_name(const std::string &name) { name_ = name; }
@@ -69,6 +76,14 @@ public:
         instance_name_ = instance_name;
     }
 
+    const std::string &group_name() const { return group_name_; }
+    void set_group_name(const std::string &group_name) {
+        group_name_ = group_name;
+    }
+
+    Type peer_type() const { return type_; }
+    void set_peer_type(Type type) { type_ = type; }
+ 
     uint32_t peer_as() const { return peer_as_; }
     void set_peer_as(uint32_t peer_as) { peer_as_ = peer_as; }
 
@@ -118,6 +133,8 @@ private:
     std::string name_;
     std::string uuid_;
     std::string instance_name_;
+    std::string group_name_;
+    Type type_;
     uint32_t peer_as_;
     uint32_t identifier_;
     IpAddress address_;
@@ -224,18 +241,25 @@ public:
         return instance_name_;
     }
 
+    int CompareTo(const BgpProtocolConfig &rhs) const;
+
     uint32_t identifier() const { return identifier_; }
     void set_identifier(uint32_t identifier) { identifier_ = identifier; }
     uint32_t autonomous_system() const { return autonomous_system_; }
     void set_autonomous_system(uint32_t autonomous_system) {
         autonomous_system_ = autonomous_system;
     }
+
     uint32_t local_autonomous_system() const {
         return local_autonomous_system_;
     }
     void set_local_autonomous_system(uint32_t local_autonomous_system) {
         local_autonomous_system_ = local_autonomous_system;
     }
+
+    int port() const { return port_; }
+    void set_port(int port) { port_ = port; }
+
     int hold_time() const { return hold_time_; }
     void set_hold_time(int hold_time) { hold_time_ = hold_time; }
 
@@ -244,6 +268,7 @@ private:
     uint32_t autonomous_system_;
     uint32_t local_autonomous_system_;
     uint32_t identifier_;
+    int port_;
     int hold_time_;
     DISALLOW_COPY_AND_ASSIGN(BgpProtocolConfig);
 };
