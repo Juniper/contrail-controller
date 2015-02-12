@@ -640,9 +640,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="security-group" type="ifmap:IdentityType"/>
 <xsd:element name="security-group-id" type="xsd:string"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('security-group-id', 'security-group') -->
 
+<xsd:element name="configured-security-group-id" type="xsd:integer"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('configured-security-group-id', 'security-group') -->
 
 <xsd:element name="project-security-group"/>
 <!--#IFMAP-SEMANTICS-IDL 
