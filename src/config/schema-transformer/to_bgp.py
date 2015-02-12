@@ -14,6 +14,8 @@ from cfgm_common.zkclient import ZookeeperClient,IndexAllocator
 from gevent import monkey
 monkey.patch_all()
 import sys
+reload(sys)
+sys.setdefaultencoding('UTF8')
 import requests
 import ConfigParser
 import cgitb
