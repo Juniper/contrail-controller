@@ -38,9 +38,16 @@ local_sources = [
            'partition_handler.py'
           ]
 
+plugins_sources = [
+           'plugins/__init__.py',
+           'plugins/alarm_base.py',
+]
+
 local_sources_rules = []
 for file in local_sources:
     local_sources_rules.append(OpEnv.Install(Dir("opserver"), file))
+for file in plugins_sources:
+    local_sources_rules.append(OpEnv.Install(Dir("opserver/plugins"), file))
     
 viz_pkg = OpEnv.SandeshGenPy('#controller/src/analytics/viz.sandesh', 'opserver/sandesh/', False)
 analytics_pkg = OpEnv.SandeshGenPy('#controller/src/analytics/analytics.sandesh', 'opserver/sandesh/', False) 
@@ -75,6 +82,9 @@ OpEnv.SConscript('docs/SConscript', exports='OpEnv', duplicate = 0)
 
 OpEnv.Default(sdist_gen)
 OpEnv.Alias("src/opserver:opserver", sdist_gen)
+
+OpEnv.SConscript('plugins/alarm_process_status/SConscript', exports='BuildEnv', duplicate = 0)
+OpEnv.SConscript('plugins/alarm_process_connectivity/SConscript', exports='BuildEnv', duplicate = 0)
 
 OpEnv.SConscript('node_mgr/SConscript', exports='BuildEnv', duplicate = 0)
 OpEnv.Alias('install', OpEnv.Install(
