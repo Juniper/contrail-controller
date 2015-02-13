@@ -253,9 +253,10 @@ class VirtualNetworkST(DictST):
         prop = self.obj.get_virtual_network_properties(
         ) or VirtualNetworkType()
         self.allow_transit = prop.allow_transit
-        if prop.network_id is None:
-            prop.network_id = self._vn_id_allocator.alloc(name) + 1
-            self.obj.set_virtual_network_properties(prop)
+        nid = self.obj.get_virtual_network_network_id()
+        if nid is None:
+            nid = prop.network_id or self._vn_id_allocator.alloc(name) + 1
+            self.obj.set_virtual_network_network_id(nid)
             _vnc_lib.virtual_network_update(self.obj)
         if self.obj.get_fq_name() == common.IP_FABRIC_VN_FQ_NAME:
             self._default_ri_name = common.IP_FABRIC_RI_FQ_NAME[-1]
