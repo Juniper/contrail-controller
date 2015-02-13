@@ -421,31 +421,14 @@ int32_t TcpSession::remote_port() const {
     return remote.port();
 }
 
-void TcpSession::SetMd5SocketOption(uint32_t peer_ip,
-                                    std::string md5_password) {
-    int retval = server()->SetMd5SocketOption(socket_->native_handle(), peer_ip,
-                                              md5_password);
-    // XXX: stop printing the password when ready
-    if (retval < 0) {
-        TCP_SESSION_LOG_ERROR(this, TCP_DIR_NA,
-            "Failure in setting key " + md5_password +
-            " on the socket to peer " + integerToString(peer_ip));
-    } else {
-        TCP_SESSION_LOG_DEBUG(this, TCP_DIR_NA,
-            "Success in setting key " + md5_password +
-            " on the socket to peer " + integerToString(peer_ip));
-    }
-    retval = server()->SetListenSocketMd5Option(peer_ip, md5_password);
-    // XXX: stop printing the password when ready
-    if (retval < 0) {
-        TCP_SESSION_LOG_ERROR(this, TCP_DIR_NA,
-            "Failure in setting key " + md5_password +
-            " on the listen socket for peer " + integerToString(peer_ip));
-    } else {
-        TCP_SESSION_LOG_DEBUG(this, TCP_DIR_NA,
-            "Success in setting key " + md5_password +
-            " on the listen socket for peer " + integerToString(peer_ip));
-    }
+int TcpSession::SetMd5SocketOption(uint32_t peer_ip,
+                                   const std::string &md5_password) {
+    return server()->SetMd5SocketOption(socket_->native_handle(), peer_ip,
+                                        md5_password);
+}
+
+int TcpSession::ClearMd5SocketOption(uint32_t peer_ip) {
+    return server()->SetMd5SocketOption(socket_->native_handle(), peer_ip, "");
 }
 
 TcpMessageReader::TcpMessageReader(TcpSession *session, 
