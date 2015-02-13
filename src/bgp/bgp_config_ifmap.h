@@ -88,8 +88,10 @@ public:
     }
 
 private:
-    void BuildNeighbors(BgpConfigManager *manager, const std::string &peername,
-                        const autogen::BgpRouter *rt_config,
+    void BuildNeighbors(BgpConfigManager *manager,
+                        const autogen::BgpRouter *local_rt_config,
+                        const std::string &peername,
+                        const autogen::BgpRouter *remote_rt_config,
                         const autogen::BgpPeering *peering, NeighborMap *map);
 
     BgpIfmapInstanceConfig *instance_;

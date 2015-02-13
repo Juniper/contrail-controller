@@ -79,6 +79,9 @@ public:
     void GetRxSocketStats(SocketIOStats &socket_stats) const;
     void GetTxSocketStats(SocketIOStats &socket_stats) const;
 
+    int SetMd5SocketOption(int fd, uint32_t peer_ip, std::string md5_password);
+    int SetListenSocketMd5Option(uint32_t peer_ip, std::string md5_password);
+
 protected:
     // Create a session object.
     virtual TcpSession *AllocSession(Socket *socket) = 0;

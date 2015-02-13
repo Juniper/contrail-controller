@@ -52,6 +52,15 @@ private:
     bool create_session_fail_;
 };
 
+struct ConfigUTAuthKeyItem {
+    ConfigUTAuthKeyItem(string id, string type, string ikey, string time) :
+        key_id(id), key_type(type), key(ikey), start_time(time) { }
+    string key_id;
+    string key_type;
+    string key;
+    string start_time;
+};
+
 class BgpServerUnitTest : public ::testing::Test {
 public:
     void ASNUpdateCb(BgpServerTest *server, as_t old_asn, as_t old_local_asn) {
@@ -176,6 +185,34 @@ protected:
                     vector<string> families1 = vector<string>(),
                     vector<string> families2 = vector<string>(),
                     bool delete_config = false);
+    // Setup peers with auth keys
+    void SetupPeers(int peer_count, unsigned short port_a,
+                unsigned short port_b, bool verify_keepalives,
+                vector<ConfigUTAuthKeyItem> auth_keys,
+                uint16_t as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
+                uint16_t as_num2 = BgpConfigManager::kDefaultAutonomousSystem,
+                string peer_address1 = "127.0.0.1",
+                string peer_address2 = "127.0.0.1",
+                string bgp_identifier1 = "192.168.0.10",
+                string bgp_identifier2 = "192.168.0.11",
+                vector<string> families1 = vector<string>(),
+                vector<string> families2 = vector<string>(),
+                uint16_t hold_time1 = StateMachine::kHoldTime,
+                uint16_t hold_time2 = StateMachine::kHoldTime);
+    // Setup peer with auth keys
+    void SetupPeers(BgpServerTest *server, int peer_count,
+                unsigned short port_a, unsigned short port_b,
+                bool verify_keepalives,
+                vector<ConfigUTAuthKeyItem> auth_keys,
+                uint16_t as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
+                uint16_t as_num2 = BgpConfigManager::kDefaultAutonomousSystem,
+                string peer_address1 = "127.0.0.1",
+                string peer_address2 = "127.0.0.1",
+                string bgp_identifier1 = "192.168.0.10",
+                string bgp_identifier2 = "192.168.0.11",
+                vector<string> families1 = vector<string>(),
+                vector<string> families2 = vector<string>(),
+                bool delete_config = false);
     void VerifyPeers(int peer_count, size_t verify_keepalives_count = 0,
                      uint16_t local_as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
                      uint16_t local_as_num2 = BgpConfigManager::kDefaultAutonomousSystem);
@@ -187,7 +224,9 @@ protected:
                         string bgp_identifier1, string bgp_identifier2,
                         vector<string> families1, vector<string> families2,
                         uint16_t hold_time1, uint16_t hold_time2,
-                        bool delete_config);
+                        bool delete_config,
+                        vector<ConfigUTAuthKeyItem> auth_keys =
+                                vector<ConfigUTAuthKeyItem>());
 
     auto_ptr<EventManager> evm_;
     auto_ptr<ServerThread> thread_;
@@ -235,7 +274,7 @@ string BgpServerUnitTest::GetConfigStr(int peer_count,
         string bgp_identifier1, string bgp_identifier2,
         vector<string> families1, vector<string> families2,
         uint16_t hold_time1, uint16_t hold_time2,
-        bool delete_config) {
+        bool delete_config, vector<ConfigUTAuthKeyItem> auth_keys) {
     ostringstream config;
 
     if (families1.empty()) families1.push_back("inet");
@@ -255,6 +294,23 @@ string BgpServerUnitTest::GetConfigStr(int peer_count,
             config << "<family>" << *it << "</family>";
     }
     config << "</address-families>";
+
+    if (!auth_keys.empty()) {
+        config << "<auth-key-chain>";
+        config << "<auth-key-items>";
+    }
+    for (vector<ConfigUTAuthKeyItem>::const_iterator it =
+            auth_keys.begin(); it != auth_keys.end(); ++it) {
+        ConfigUTAuthKeyItem item = *it;
+        config << "<key-id>" << item.key_id << "</key-id>";
+        config << "<key-type>" << item.key_type << "</key-type>";
+        config << "<key>" << item.key << "</key>";
+        //config << "<start-time>" << "2001-11-12 18:31:01" << "</start-time>";
+    }
+    if (!auth_keys.empty()) {
+        config << "</auth-key-items>";
+        config << "</auth-key-chain>";
+    }
 
     for (int i = 0; i < peer_count; i++) {
         config << "<session to='B'>";
@@ -281,6 +337,23 @@ string BgpServerUnitTest::GetConfigStr(int peer_count,
             config << "<family>" << *it << "</family>";
     }
     config << "</address-families>";
+
+    if (!auth_keys.empty()) {
+        config << "<auth-key-chain>";
+        config << "<auth-key-items>";
+    }
+    for (vector<ConfigUTAuthKeyItem>::const_iterator it =
+            auth_keys.begin(); it != auth_keys.end(); ++it) {
+        ConfigUTAuthKeyItem item = *it;
+        config << "<key-id>" << item.key_id << "</key-id>";
+        config << "<key-type>" << item.key_type << "</key-type>";
+        config << "<key>" << item.key << "</key>";
+        //config << "<start-time>" << "2001-11-12 18:31:01" << "</start-time>";
+    }
+    if (!auth_keys.empty()) {
+        config << "</auth-key-items>";
+        config << "</auth-key-chain>";
+    }
 
     for (int i = 0; i < peer_count; i++) {
         config << "<session to='A'>";
@@ -315,6 +388,45 @@ void BgpServerUnitTest::SetupPeers(BgpServerTest *server, int peer_count,
                                  StateMachine::kHoldTime,
                                  delete_config);
     server->Configure(config);
+    task_util::WaitForIdle();
+}
+
+void BgpServerUnitTest::SetupPeers(BgpServerTest *server, int peer_count,
+        unsigned short port_a, unsigned short port_b,
+        bool verify_keepalives, vector<ConfigUTAuthKeyItem> auth_keys, 
+        as_t as_num1, as_t as_num2, string peer_address1, string peer_address2,
+        string bgp_identifier1, string bgp_identifier2,
+        vector<string> families1, vector<string> families2,
+        bool delete_config) {
+    string config = GetConfigStr(peer_count, port_a, port_b, as_num1, as_num2,
+                                 as_num1, as_num2, peer_address1, peer_address2,
+                                 bgp_identifier1, bgp_identifier2,
+                                 families1, families2,
+                                 StateMachine::kHoldTime,
+                                 StateMachine::kHoldTime,
+                                 delete_config, auth_keys);
+    server->Configure(config);
+    task_util::WaitForIdle();
+}
+
+void BgpServerUnitTest::SetupPeers(int peer_count,
+        unsigned short port_a, unsigned short port_b,
+        bool verify_keepalives, vector<ConfigUTAuthKeyItem> auth_keys, 
+        as_t as_num1, as_t as_num2,
+        string peer_address1, string peer_address2,
+        string bgp_identifier1, string bgp_identifier2,
+        vector<string> families1, vector<string> families2,
+        uint16_t hold_time1, uint16_t hold_time2) {
+    string config = GetConfigStr(peer_count, port_a, port_b, as_num1, as_num2,
+                                 as_num1, as_num2, peer_address1, peer_address2,
+                                 bgp_identifier1, bgp_identifier2,
+                                 families1, families2,
+                                 StateMachine::kHoldTime,
+                                 StateMachine::kHoldTime,
+                                 false, auth_keys);
+    a_->Configure(config);
+    task_util::WaitForIdle();
+    b_->Configure(config);
     task_util::WaitForIdle();
 }
 
@@ -414,6 +526,226 @@ TEST_F(BgpServerUnitTest, Connection) {
     SetupPeers(3, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), true);
     VerifyPeers(3, 2);
+    StateMachineTest::set_keepalive_time_msecs(0);
+}
+
+// Set the key only on one peer and check connection does not come up. Then add
+// the key to the second peer and check that it does comes up.
+TEST_F(BgpServerUnitTest, BasicMd5Check) {
+    int peer_count = 1;
+    StateMachineTest::set_keepalive_time_msecs(10);
+    BgpPeerTest::verbose_name(true);
+
+    // Set the key for router 'A'.
+    vector<ConfigUTAuthKeyItem> keys;
+    keys.push_back(ConfigUTAuthKeyItem("keyid1", "md5", "utkey1", ""));
+    SetupPeers(a_.get(), peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), true, keys);
+    // No key for router 'B'.
+    SetupPeers(b_.get(), peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), true);
+
+    string uuid = BgpConfigParser::session_uuid("A", "B", 1);
+    BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                         uuid);
+    BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                         uuid);
+
+    // Sleep for sometime. The peering should not come up due to key mismatch.
+    TASK_UTIL_EXPECT_EQ(0, peer_a->GetInuseAuthKeyValue().compare("utkey1"));
+    usleep(100000); // 100ms
+    EXPECT_EQ(0, peer_a->get_rx_keepalive());
+    EXPECT_EQ(0, peer_b->get_rx_keepalive());
+    TASK_UTIL_EXPECT_NE(peer_a->GetState(), StateMachine::ESTABLISHED);
+    TASK_UTIL_EXPECT_NE(peer_b->GetState(), StateMachine::ESTABLISHED);
+
+    // Setup correct key for router 'B' now.
+    SetupPeers(b_.get(), peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), true, keys);
+    TASK_UTIL_EXPECT_EQ(0, peer_b->GetInuseAuthKeyValue().compare("utkey1"));
+    TASK_UTIL_EXPECT_EQ(peer_a->GetState(), StateMachine::ESTABLISHED);
+    TASK_UTIL_EXPECT_EQ(peer_b->GetState(), StateMachine::ESTABLISHED);
+    uint32_t check_count = 
+        peer_a->get_rx_keepalive() > peer_b->get_rx_keepalive() ? 
+        peer_a->get_rx_keepalive() : peer_b->get_rx_keepalive();
+    VerifyPeers(peer_count, check_count + 10);
+    StateMachineTest::set_keepalive_time_msecs(0);
+}
+
+// Bring up the connection without keys. Then add keys to both the peers. Then
+// remove the keys from both the peers.
+TEST_F(BgpServerUnitTest, NoMd5ThenMd5ThenNoMd5) {
+    int peer_count = 1;
+    StateMachineTest::set_keepalive_time_msecs(10);
+    BgpPeerTest::verbose_name(true);
+
+    // Bring up the peers without any keys.
+    SetupPeers(a_.get(), peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), true);
+    SetupPeers(b_.get(), peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), true);
+
+    // Check that the peering comes up.
+    string uuid = BgpConfigParser::session_uuid("A", "B", 1);
+    BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                         uuid);
+    BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                         uuid);
+    TASK_UTIL_EXPECT_EQ(peer_a->GetState(), StateMachine::ESTABLISHED);
+    TASK_UTIL_EXPECT_EQ(peer_b->GetState(), StateMachine::ESTABLISHED);
+    uint32_t rx_ka_a = peer_a->get_rx_keepalive();
+    uint32_t rx_ka_b = peer_b->get_rx_keepalive();
+    uint32_t check_count = 
+        peer_a->get_rx_keepalive() > peer_b->get_rx_keepalive() ? 
+        peer_a->get_rx_keepalive() : peer_b->get_rx_keepalive();
+    VerifyPeers(peer_count, check_count + 10);
+    EXPECT_GE(peer_a->get_rx_keepalive(), rx_ka_a + 10);
+    EXPECT_GE(peer_b->get_rx_keepalive(), rx_ka_b + 10);
+
+    // Now, set the key for both the routers and check that the peering is
+    // still up.
+    vector<ConfigUTAuthKeyItem> keys;
+    keys.push_back(ConfigUTAuthKeyItem("keyid1", "md5", "utkey1", ""));
+    SetupPeers(a_.get(), peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), true, keys);
+    SetupPeers(b_.get(), peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), true, keys);
+    TASK_UTIL_EXPECT_EQ(0, peer_a->GetInuseAuthKeyValue().compare("utkey1"));
+    TASK_UTIL_EXPECT_EQ(0, peer_b->GetInuseAuthKeyValue().compare("utkey1"));
+    rx_ka_a = peer_a->get_rx_keepalive();
+    rx_ka_b = peer_b->get_rx_keepalive();
+    check_count = 
+        peer_a->get_rx_keepalive() > peer_b->get_rx_keepalive() ? 
+        peer_a->get_rx_keepalive() : peer_b->get_rx_keepalive();
+    VerifyPeers(peer_count, check_count + 10);
+    EXPECT_GE(peer_a->get_rx_keepalive(), rx_ka_a + 10);
+    EXPECT_GE(peer_b->get_rx_keepalive(), rx_ka_b + 10);
+
+    // Sleep for sometime and let a few keepalives get exchanged.
+    usleep(100000); // 100ms
+    EXPECT_EQ(peer_a->GetState(), StateMachine::ESTABLISHED);
+    EXPECT_EQ(peer_b->GetState(), StateMachine::ESTABLISHED);
+    check_count = 
+        peer_a->get_rx_keepalive() > peer_b->get_rx_keepalive() ? 
+        peer_a->get_rx_keepalive() : peer_b->get_rx_keepalive();
+    VerifyPeers(peer_count, check_count + 10);
+    EXPECT_GE(peer_a->get_rx_keepalive(), rx_ka_a + 10);
+    EXPECT_GE(peer_b->get_rx_keepalive(), rx_ka_b + 10);
+
+    // Now remove the keys from both the routers and check that the peering
+    // stays up.
+    SetupPeers(a_.get(), peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), true);
+    SetupPeers(b_.get(), peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), true);
+    TASK_UTIL_EXPECT_EQ(0, peer_a->GetInuseAuthKeyValue().compare(""));
+    TASK_UTIL_EXPECT_EQ(0, peer_b->GetInuseAuthKeyValue().compare(""));
+    rx_ka_a = peer_a->get_rx_keepalive();
+    rx_ka_b = peer_b->get_rx_keepalive();
+    check_count = 
+        peer_a->get_rx_keepalive() > peer_b->get_rx_keepalive() ? 
+        peer_a->get_rx_keepalive() : peer_b->get_rx_keepalive();
+    VerifyPeers(peer_count, check_count + 10);
+    EXPECT_GE(peer_a->get_rx_keepalive(), rx_ka_a + 10);
+    EXPECT_GE(peer_b->get_rx_keepalive(), rx_ka_b + 10);
+    StateMachineTest::set_keepalive_time_msecs(0);
+}
+
+// Add key1 to both the peers. Then change it to key2 on both the peers. Then,
+// change it to key3 only on one peer. Keepalives stop. Then add key3 to the
+// second peer. Keepalives should resume.
+TEST_F(BgpServerUnitTest, MultipleMd5KeyChanges) {
+    int peer_count = 1;
+    StateMachineTest::set_keepalive_time_msecs(10);
+    BgpPeerTest::verbose_name(true);
+
+    // Set the same key for both 'A' and 'B'.
+    vector<ConfigUTAuthKeyItem> keys;
+    keys.push_back(ConfigUTAuthKeyItem("keyid1", "md5", "utkey1", ""));
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), true, keys);
+    VerifyPeers(peer_count, 10);
+
+    uint32_t rx_ka_a;
+    uint32_t rx_ka_b;
+    string uuid = BgpConfigParser::session_uuid("A", "B", 1);
+    BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                         uuid);
+    BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                         uuid);
+
+    // Change the key for both 'A' and 'B' with the same key. Save the receive
+    // keepalive count for both peers.
+    keys.clear();
+    keys.push_back(ConfigUTAuthKeyItem("keyid1", "md5", "utkey2", ""));
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), true, keys);
+    TASK_UTIL_EXPECT_EQ(0, peer_a->GetInuseAuthKeyValue().compare("utkey2"));
+    TASK_UTIL_EXPECT_EQ(0, peer_b->GetInuseAuthKeyValue().compare("utkey2"));
+    usleep(100000); // 100ms
+    rx_ka_a = peer_a->get_rx_keepalive();
+    rx_ka_b = peer_b->get_rx_keepalive();
+    uint32_t check_count = 
+        peer_a->get_rx_keepalive() > peer_b->get_rx_keepalive() ? 
+        peer_a->get_rx_keepalive() : peer_b->get_rx_keepalive();
+    VerifyPeers(peer_count, check_count + 10);
+
+    // The keepalives should keep flowing even after the key change.
+    EXPECT_GE(peer_a->get_rx_keepalive(), rx_ka_a + 10);
+    EXPECT_GE(peer_b->get_rx_keepalive(), rx_ka_b + 10);
+
+    // Change the key only on router 'A'.
+    keys.clear();
+    keys.push_back(ConfigUTAuthKeyItem("keyid1", "md5", "utkey3", ""));
+    SetupPeers(a_.get(), peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), true, keys);
+    TASK_UTIL_EXPECT_EQ(0, peer_a->GetInuseAuthKeyValue().compare("utkey3"));
+    rx_ka_a = peer_a->get_rx_keepalive();
+    rx_ka_b = peer_b->get_rx_keepalive();
+    uint32_t tx_ka_a = peer_a->get_tr_keepalive();
+    uint32_t tx_ka_b = peer_b->get_tr_keepalive();
+    // Sleep for sometime to give the counters enough time.
+    usleep(100000); // 100ms
+
+    // Both sides should not receive any keepalives since TCP should be
+    // dropping the segments due to Md5 mismatch. But, the transmit counters
+    // should keep going up.
+    EXPECT_EQ(peer_a->get_rx_keepalive(), rx_ka_a);
+    EXPECT_EQ(peer_b->get_rx_keepalive(), rx_ka_b);
+    EXPECT_GT(peer_a->get_tr_keepalive(), tx_ka_a); // greater than
+    EXPECT_GT(peer_b->get_tr_keepalive(), tx_ka_b); // greater than
+
+    // Change the key on router 'B'.
+    SetupPeers(b_.get(), peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), true, keys);
+    TASK_UTIL_EXPECT_EQ(0, peer_b->GetInuseAuthKeyValue().compare("utkey3"));
+    rx_ka_a = peer_a->get_rx_keepalive();
+    rx_ka_b = peer_b->get_rx_keepalive();
+    check_count = peer_a->get_rx_keepalive() > peer_b->get_rx_keepalive() ? 
+        peer_a->get_rx_keepalive() : peer_b->get_rx_keepalive();
+    VerifyPeers(peer_count, check_count + 10);
+    EXPECT_GT(peer_a->get_rx_keepalive(), rx_ka_a);
+    EXPECT_GT(peer_b->get_rx_keepalive(), rx_ka_b);
+
+    // Change the key for both 'A' and 'B' with the first key again.
+    keys.clear();
+    keys.push_back(ConfigUTAuthKeyItem("keyid1", "md5", "utkey1", ""));
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), true, keys);
+    TASK_UTIL_EXPECT_EQ(0, peer_a->GetInuseAuthKeyValue().compare("utkey1"));
+    TASK_UTIL_EXPECT_EQ(0, peer_b->GetInuseAuthKeyValue().compare("utkey1"));
+    usleep(100000); // 100ms
+    rx_ka_a = peer_a->get_rx_keepalive();
+    rx_ka_b = peer_b->get_rx_keepalive();
+    check_count =
+        peer_a->get_rx_keepalive() > peer_b->get_rx_keepalive() ? 
+        peer_a->get_rx_keepalive() : peer_b->get_rx_keepalive();
+    VerifyPeers(peer_count, check_count + 10);
+
+    // The keepalives should keep flowing even after the key change.
+    EXPECT_GE(peer_a->get_rx_keepalive(), rx_ka_a + 10);
+    EXPECT_GE(peer_b->get_rx_keepalive(), rx_ka_b + 10);
+
     StateMachineTest::set_keepalive_time_msecs(0);
 }
 

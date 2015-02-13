@@ -15,6 +15,7 @@
 #include "base/util.h"
 #include "base/task_trigger.h"
 #include "base/timer.h"
+#include "bgp/auth_keychain.h"
 #include "bgp/bgp_debug.h"
 #include "bgp/bgp_peer_key.h"
 #include "bgp/bgp_proto.h"
@@ -100,6 +101,7 @@ public:
     virtual BgpServer *server() { return server_; }
     const BgpServer *server() const { return server_; }
 
+    unsigned long PeerAddress() const { return peer_key_.Address(); }
     const std::string peer_address_string() const {
         return peer_key_.endpoint.address().to_string();
     }
@@ -217,6 +219,11 @@ public:
     StateMachine *state_machine() { return state_machine_.get(); }
     const StateMachine *state_machine() const { return state_machine_.get(); }
 
+    bool GetBestAuthKeyItem(AuthenticationKey *auth_key);
+    bool AuthKeyIsMd5(const AuthenticationKey &auth_key);
+    void InstallAuthKeys(TcpSession *session);
+    std::string GetInuseAuthKeyValue();
+
 private:
     friend class BgpConfigTest;
     friend class BgpPeerTest;
@@ -245,6 +252,9 @@ private:
 
     virtual bool MpNlriAllowed(uint16_t afi, uint8_t safi);
     BgpAttrPtr GetMpNlriNexthop(BgpMpNlri *nlri, BgpAttrPtr attr);
+
+    bool GetBestAuthKey(AuthenticationKey *auth_key);
+    void ProcessAuthKeyChainConfig(const BgpNeighborConfig *config);
 
     void PostCloseRelease();
     void CustomClose();
@@ -309,6 +319,8 @@ private:
     mutable tbb::atomic<int> refcount_;
     uint32_t flap_count_;
     uint64_t last_flap_;
+    AuthKeyChain auth_key_chain_;
+    AuthenticationKey inuse_auth_key_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpPeer);
 };

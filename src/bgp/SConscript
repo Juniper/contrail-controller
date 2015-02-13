@@ -29,7 +29,8 @@ libpeer_sandesh = env.Library('peer_sandesh', SandeshPeerGenSrcs);
 
 libbgp = env.Library('bgp',
                      SandeshGenSrcs +
-                     ['bgp_aspath.cc',
+                     ['auth_keychain.cc',
+                      'bgp_aspath.cc',
                       'bgp_attr.cc',
                       'bgp_attr_base.cc',
 		      'bgp_config.cc',
