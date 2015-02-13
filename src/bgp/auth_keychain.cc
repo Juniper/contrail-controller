@@ -11,8 +11,9 @@ void AuthKeyChain::Update(const AuthenticationKeyChain &input) {
     auth_key_store_ = input;
 }
 
-AuthenticationKey *AuthKeyChain::Find(const std::string &input_key_id) {
-    AuthenticationKey *item;
+const AuthenticationKey *AuthKeyChain::Find(const std::string &input_key_id) 
+        const {
+    const AuthenticationKey *item;
     for (size_t i = 0; i < auth_key_store_.size(); ++i) {
         item = &auth_key_store_[i];
         if (item->id.compare(input_key_id) == 0) {
@@ -22,17 +23,7 @@ AuthenticationKey *AuthKeyChain::Find(const std::string &input_key_id) {
     return NULL;
 }
 
-bool AuthKeyChain::KeyPresent(const std::string &input_key_id) {
-    for (size_t i = 0; i < auth_key_store_.size(); ++i) {
-        AuthenticationKey item = auth_key_store_[i];
-        if (item.id.compare(input_key_id) == 0) {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool AuthKeyChain::Empty() {
+bool AuthKeyChain::Empty() const {
     return auth_key_store_.empty();
 }
 

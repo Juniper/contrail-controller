@@ -422,6 +422,9 @@ void TcpServer::Connect(TcpSession *session, Endpoint remote) {
 int TcpServer::SetMd5SocketOption(int fd, uint32_t peer_ip,
                                   std::string md5_password) {
     assert(md5_password.size() <= TCP_MD5SIG_MAXKEYLEN);
+    if (!peer_ip) {
+        return 0;
+    }
 
     struct sockaddr_in local_addr;
     memset(&local_addr, 0, sizeof(local_addr));
@@ -442,8 +445,12 @@ int TcpServer::SetMd5SocketOption(int fd, uint32_t peer_ip,
 
 int TcpServer::SetListenSocketMd5Option(uint32_t peer_ip,
                                         std::string md5_password) {
-    return SetMd5SocketOption(acceptor_->native_handle(), peer_ip,
-                              md5_password);
+    int retval = 0;
+    if (acceptor_) {
+        retval = SetMd5SocketOption(acceptor_->native_handle(), peer_ip,
+                                    md5_password);
+    }
+    return retval;
 }
 
 void TcpServer::GetRxSocketStats(SocketIOStats &socket_stats) const {
