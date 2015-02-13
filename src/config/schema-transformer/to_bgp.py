@@ -79,6 +79,7 @@ _PROTO_STR_TO_NUM = {
     'any': 'any',
 }
 
+SGID_MIN_ALLOC = common.SGID_MIN_ALLOC
 _sandesh = None
 
 # connection to api-server
@@ -1211,11 +1212,8 @@ class SecurityGroupST(DictST):
     def __init__(self, name):
         self.name = name
         self.obj = _vnc_lib.security_group_read(fq_name_str=name)
-        if not self.obj.get_security_group_id():
-            # TODO handle overflow + check alloc'd id is not in use
-            sg_id_num = self._sg_id_allocator.alloc(name)
-            self.obj.set_security_group_id(sg_id_num)
-            _vnc_lib.security_group_update(self.obj)
+        self.config_sgid = None
+        self.sg_id = None
         self.ingress_acl = None
         self.egress_acl = None
         acls = self.obj.get_access_control_lists()
@@ -1228,12 +1226,46 @@ class SecurityGroupST(DictST):
                     id=acl['uuid'])
             else:
                 _vnc_lib.access_control_list_delete(id=acl['uuid'])
+        config_id = self.obj.get_configured_security_group_id() or 0
+        self.set_configured_security_group_id(config_id)
         self.update_policy_entries(self.obj.get_security_group_entries())
+    # end __init__
+
+    def set_configured_security_group_id(self, config_id):
+        if self.config_sgid == config_id:
+            return
+        self.config_sgid = config_id
+        sg_id = self.obj.get_security_group_id()
+        if config_id:
+            if sg_id is not None:
+                if int(sg_id) > SGID_MIN_ALLOC:
+                    self._sg_id_allocator.delete(sg_id - SGID_MIN_ALLOC)
+                else:
+                    if self.name == self._sg_id_allocator.read(sg_id):
+                        self._sg_id_allocator.delete(sg_id)
+            self.obj.set_security_group_id(str(config_id))
+        else:
+            do_alloc = False
+            if sg_id is not None:
+                if int(sg_id) < SGID_MIN_ALLOC:
+                    if self.name == self._sg_id_allocator.read(int(sg_id)):
+                        self.obj.set_security_group_id(int(sg_id) + SGID_MIN_ALLOC)
+                    else:
+                        do_alloc = True
+            else:
+                do_alloc = True
+            if do_alloc:
+                sg_id_num = self._sg_id_allocator.alloc(self.name)
+                self.obj.set_security_group_id(sg_id_num + SGID_MIN_ALLOC)
+        if sg_id != self.obj.get_security_group_id():
+            _vnc_lib.security_group_update(self.obj)
+        from_value = self.sg_id or self.name
         for sg in self._dict.values():
-            sg.update_acl(from_value=name,
+            sg.update_acl(from_value=from_value,
                           to_value=self.obj.get_security_group_id())
         # end for sg
-    # end __init__
+        self.sg_id = self.obj.get_security_group_id()
+    # end set_configured_security_group_id
 
     @classmethod
     def delete(cls, name):
@@ -1243,8 +1275,11 @@ class SecurityGroupST(DictST):
         _vnc_lib.access_control_list_delete(id=sg.ingress_acl.uuid)
         _vnc_lib.access_control_list_delete(id=sg.egress_acl.uuid)
         sg_id = sg.obj.get_security_group_id()
-        if sg_id is not None:
-            cls._sg_id_allocator.delete(sg.obj.get_security_group_id())
+        if sg_id is not None and not sg.config_sgid:
+            if sg_id < SGID_MIN_ALLOC:
+                cls._sg_id_allocator.delete(sg_id)
+            else:
+                cls._sg_id_allocator.delete(sg_id-SGID_MIN_ALLOC)
         del cls._dict[name]
         for sg in cls._dict.values():
             sg.update_acl(from_value=sg_id, to_value=name)
@@ -2686,6 +2721,15 @@ class SchemaTransformer(object):
         if sg:
             sg.update_policy_entries(None)
     # end delete_security_group_entries
+
+    def add_configured_security_group_id(self, idents, meta):
+        sg_name = idents['security-group']
+        sg = SecurityGroupST.locate(sg_name)
+        config_id = int(meta.text)
+
+        if sg:
+            sg.set_configured_security_group_id(config_id)
+    # end add_configured_security_group_id
 
     def add_network_policy_entries(self, idents, meta):
         # Network policy entries arrived or modified
