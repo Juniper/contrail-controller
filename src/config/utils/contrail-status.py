@@ -14,7 +14,8 @@ import requests
 from StringIO import StringIO
 from lxml import etree
 from sandesh_common.vns.constants import ServiceHttpPortMap, \
-    NodeUVEImplementedServices, ServicesDefaultConfigurationFile
+    NodeUVEImplementedServices, ServicesDefaultConfigurationFile, \
+    BackupImplementedServices
 
 try:
     subprocess.check_call(["dpkg-vendor", "--derives-from", "debian"])
@@ -115,22 +116,14 @@ class IntrospectUtil(object):
 
     def _load(self, path):
         url = self._mk_url_str(path)
-        try:
-            resp = requests.get(url, timeout=self._timeout)
-            if resp.status_code == requests.codes.ok:
-                return etree.fromstring(resp.text)
-            else:
-                if self._debug:
-                    print 'URL: %s : HTTP error: %s' % (url, str(resp.status_code))
-                return None
-        except requests.ConnectionError, e:
+        resp = requests.get(url, timeout=self._timeout)
+        if resp.status_code == requests.codes.ok:
+            return etree.fromstring(resp.text)
+        else:
             if self._debug:
-                print 'URL: %s : Socket Connection error : %s' % (url, str(e))
+                print 'URL: %s : HTTP error: %s' % (url, str(resp.status_code))
             return None
-        except (requests.Timeout, socket.timeout) as te:
-            if self._debug:
-                print 'URL: %s : Timeout error : %s' % (url, str(te))
-            return None
+
     #end _load
 
     def get_uve(self, tname):
@@ -298,15 +291,34 @@ def check_svc_status(service_name, debug, detail, timeout):
                 svc_status = supervisor_svc_info[1]
                 svc_detail_info = ' '.join(supervisor_svc_info[2:])
                 # Extract UVE state only for running processes
+                svc_uve_description = None
                 if svc_name in NodeUVEImplementedServices and svc_status == 'active':
-                    svc_uve_status, svc_uve_description = get_svc_uve_status(svc_name, debug, timeout)
+                    try:
+                        svc_uve_status, svc_uve_description = get_svc_uve_status(svc_name, debug, timeout)
+                    except requests.ConnectionError, e:
+                        if debug:
+                            print 'Socket Connection error : %s' % (str(e))
+                        svc_uve_status = "connection-error"
+                    except (requests.Timeout, socket.timeout) as te:
+                        if debug:
+                            print 'Timeout error : %s' % (str(te))
+                        svc_uve_status = "connection-timeout"
+
                     if svc_uve_status is not None:
                         if svc_uve_status == 'Non-Functional':
                             svc_status = 'initializing'
+                        elif svc_uve_status == 'connection-error':
+                            if svc_name in BackupImplementedServices:
+                                svc_status = 'backup'
+                            else:
+                                svc_status = 'initializing'
+                        elif svc_uve_status == 'connection-timeout':
+                            svc_status = 'timeout'
                     else:
                         svc_status = 'initializing'
                     if svc_uve_description is not None and svc_uve_description is not '':
                         svc_status = svc_status + ' (' + svc_uve_description + ')'
+
                 if not detail:
                     print '{0:<30}{1:<20}'.format(svc_name, svc_status)
                 else:
@@ -357,7 +369,7 @@ def main():
                       default=False, action='store_true',
                       help="show debugging information")
     parser.add_option('-t', '--timeout', dest='timeout', type="float",
-                      default=0.5,
+                      default=2,
                       help="timeout in seconds to use for HTTP requests to services")
     
     (options, args) = parser.parse_args()

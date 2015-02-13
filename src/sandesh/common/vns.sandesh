@@ -127,6 +127,12 @@ const list<string> NodeUVEImplementedServices = [
     SERVICE_ALARM_GENERATOR,
 ]
 
+const list<string> BackupImplementedServices = [
+    SERVICE_SCHEMA_TRANSFORMER,
+    SERVICE_SVC_MONITOR,
+    SERVICE_DEVICE_MANAGER,
+]
+
 const map<string, string> ServicesDefaultConfigurationFile = {
     SERVICE_VROUTER_AGENT : '/etc/contrail/contrail-vrouter-agent.conf',
     SERVICE_CONTROL_NODE : '/etc/contrail/contrail-control.conf',
