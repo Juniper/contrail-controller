@@ -3033,6 +3033,7 @@ class SchemaTransformer(object):
                         action = arule.get_action_list()
                         if action.simple_action == 'deny':
                             continue
+                        connected_network = None
                         if (match.dst_address.virtual_network in
                                 [network_name, "any"]):
                             connected_network =\
@@ -3049,7 +3050,7 @@ class SchemaTransformer(object):
                             action.apply_service = []
                             continue
 
-                        if action.simple_action:
+                        if connected_network and action.simple_action:
                             virtual_network.add_connection(connected_network)
 
                     # end for acl_rule_list
