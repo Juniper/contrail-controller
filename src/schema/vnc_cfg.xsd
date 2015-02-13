@@ -683,7 +683,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:all>
         <xsd:element name='allow-transit' type="xsd:boolean"/>
         <!-- A unique id for the network, auto generated -->
-        <xsd:element name='network-id' type='xsd:integer'/>
+        <xsd:element name='network-id' type='xsd:integer'/> <!-- DEPRECATED -->
         <!-- VNI for the network, configured by user -->
         <xsd:element name='vxlan-network-identifier'
                      type='VxlanNetworkIdentifierType'/>
@@ -695,15 +695,19 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 </xsd:complexType>
 
 <xsd:element name="virtual-network-properties" type="VirtualNetworkType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('virtual-network-properties', 'virtual-network') -->
+
+<xsd:element name="virtual-network-id" type='xsd:integer'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('virtual-network-id', 'virtual-network') -->
 
 <xsd:complexType name="RouteTargetList">
     <xsd:all>
         <xsd:element name="route-target" type="xsd:string" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
-  
+
 <xsd:element name="route-target-list" type="RouteTargetList"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('route-target-list', 'virtual-network') -->
