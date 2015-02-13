@@ -2012,8 +2012,9 @@ class VirtualMachineInterfaceST(DictST):
         self.virtual_machine = None
         self.uuid = None
         self.instance_ip_set = set()
-        if_obj = _vnc_lib.virtual_machine_interface_read(fq_name_str=self.name)
-        self.uuid = if_obj.uuid
+        self.obj = _vnc_lib.virtual_machine_interface_read(fq_name_str=self.name)
+        self.uuid = self.obj.uuid
+        self.vrf_table = jsonpickle.encode(vmi_obj.get_vrf_assign_table())
     # end __init__
     @classmethod
     
@@ -2213,20 +2214,14 @@ class VirtualMachineInterfaceST(DictST):
     # end rebake
 
     def recreate_vrf_assign_table(self):
-        try:
-            vmi_obj = _vnc_lib.virtual_machine_interface_read(
-                fq_name_str=self.name)
-        except NoIdError as e:
-            _sandesh._logger.error(
-                "NoIdError while reading virtual machine interface %s: %s",
-                self.name, str(e))
-            self.delete(self.name)
-            return
-
         if self.service_interface_type not in ['left', 'right']:
             return
         vn = VirtualNetworkST.get(self.virtual_network)
         if vn is None:
+            return
+        vm_id = self.virtual_machine
+        if vm_id is None:
+            _sandesh._logger.error("vm id is None for interface %s", self.name)
             return
 
         vrf_table = VrfAssignTableType()
@@ -2252,10 +2247,6 @@ class VirtualMachineInterfaceST(DictST):
             vrf_table.add_vrf_assign_rule(vrf_rule)
         self.instance_ip_set -= deleted_instance_ip
 
-        vm_id = get_vm_id_from_interface(vmi_obj)
-        if vm_id is None:
-            _sandesh._logger.error("vm id is None for interface %s", self.name)
-            return
         try:
             vm_obj = _vnc_lib.virtual_machine_read(id=vm_id)
         except NoIdError as e:
@@ -2337,10 +2328,11 @@ class VirtualMachineInterfaceST(DictST):
 
         if policy_rule_count == 0:
             vrf_table = None
-        if (jsonpickle.encode(vrf_table) !=
-            jsonpickle.encode(vmi_obj.get_vrf_assign_table())):
-                vmi_obj.set_vrf_assign_table(vrf_table)
-                _vnc_lib.virtual_machine_interface_update(vmi_obj)
+        vrf_table_pickle = jsonpickle.encode(vrf_table)
+        if vrf_table_pickle != self.vrf_table:
+            self.obj.set_vrf_assign_table(vrf_table)
+            _vnc_lib.virtual_machine_interface_update(self.obj)
+            self.vrf_table = vrf_table_pickle
 
     # end recreate_vrf_assign_table
 # end VirtualMachineInterfaceST
