@@ -40,6 +40,7 @@ void OvsdbClientSession::OnEstablish() {
 
 void OvsdbClientSession::OnClose() {
     OVSDB_TRACE(Trace, "Connection to client Closed");
+    exit(-1);
     client_idl_->trigger_deletion();
 }
 

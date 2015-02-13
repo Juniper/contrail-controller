@@ -57,19 +57,21 @@ bool VMInterfaceKSyncEntry::Sync(DBEntry *db_entry) {
         // Enqueue a RESYNC on the route with new VN-Name and SG-ID
         const VrfEntry *vrf = entry->vrf();
         const VnEntry *vn = entry->vn();
-        if (vrf != NULL && vn != NULL) {
+        const VxLanId *vxlan = NULL;
+        if (vn)
+            vxlan = vn->vxlan_id();
+        if (vrf != NULL && vn != NULL && vxlan != NULL &&
+            table_->client_idl()->route_peer() != NULL) {
             EvpnAgentRouteTable *evpn_table = static_cast<EvpnAgentRouteTable *>
                 (vrf->GetEvpnRouteTable());
 
             // SG-ID changed, update OVSDB Route for VMI with new SG-ID
             sg_list_ = sg_list;
             OvsdbRouteResyncData *data = new OvsdbRouteResyncData(sg_list);
+            MacAddress mac = MacAddress::FromString(entry->vm_mac());
             evpn_table->ResyncVmRouteReq(table_->client_idl()->route_peer(),
-                                         vrf->GetName(),
-                                         MacAddress::FromString(entry->vm_mac()),
-                                         IpAddress(),
-                                         vn->vxlan_id()->vxlan_id(),
-                                         data);
+                                         vrf->GetName(), mac, IpAddress(),
+                                         vxlan->vxlan_id(), data);
             ret = true;
         }
     }
