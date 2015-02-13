@@ -12,8 +12,8 @@ from thrift.Thrift import TApplicationException, TException
 from thrift.transport import TTransport, TSocket
 from thrift.protocol import TBinaryProtocol, TProtocol
 from netaddr.ip import IPNetwork
-import InstanceService
-import ttypes
+from contrail_vrouter_api.gen_py.instance_service import InstanceService
+from contrail_vrouter_api.gen_py.instance_service import ttypes
 
 from vnc_api.vnc_api import *
 
