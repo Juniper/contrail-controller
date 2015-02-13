@@ -5,10 +5,13 @@
 extern "C" {
 #include <ovsdb_wrapper.h>
 };
-#include <vn_ovsdb.h>
 
 #include <oper/vn.h>
+#include <oper/vrf.h>
 #include <ovsdb_types.h>
+
+#include <unicast_mac_local_ovsdb.h>
+#include <vn_ovsdb.h>
 
 using OVSDB::OvsdbDBEntry;
 using OVSDB::VnOvsdbEntry;
@@ -19,12 +22,21 @@ VnOvsdbEntry::VnOvsdbEntry(VnOvsdbObject *table,
 }
 
 void VnOvsdbEntry::AddMsg(struct ovsdb_idl_txn *txn) {
+    VnEntry *vn = static_cast<VnEntry *>(GetDBEntry());
+    vrf_ = vn->GetVrf();
 }
 
 void VnOvsdbEntry::ChangeMsg(struct ovsdb_idl_txn *txn) {
 }
 
 void VnOvsdbEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
+    UnicastMacLocalOvsdb *uc_obj =
+        table_->client_idl()->unicast_mac_local_ovsdb();
+    // Entries in Unicast Mac Local Table are dependent on vn/vrf
+    // on delete of this entry trigger Vrf re-eval for entries in
+    // Unicast Mac Local Table
+    uc_obj->VrfReEvalEnqueue(vrf_.get());
+    vrf_ = NULL;
 }
 
 bool VnOvsdbEntry::Sync(DBEntry *db_entry) {
