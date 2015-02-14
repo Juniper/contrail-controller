@@ -157,6 +157,12 @@ void AgentConfig::RegisterDBClients(DB *db) {
         ("subnet", boost::bind(&VmInterface::SubnetSync,
                                agent_->interface_table(), _1), -1);
 
+    // Register for IFMapLinks
+    cfg_listener_->LinkRegister
+        ("virtual-network", agent_->vn_table());
+    cfg_listener_->LinkRegister
+        ("routing-instance", agent_->vrf_table());
+
     cfg_vm_interface_table_ = (static_cast<IFMapAgentTable *>
         (IFMapTable::FindTable(agent_->db(), "virtual-machine-interface")));
     assert(cfg_vm_interface_table_);

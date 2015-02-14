@@ -70,11 +70,21 @@ public:
         OVSDB_MCAST_MAC_REMOTE,
         OVSDB_TYPE_COUNT
     };
+
+    struct OvsdbMsg {
+        OvsdbMsg(struct jsonrpc_msg *m);
+        ~OvsdbMsg();
+        struct jsonrpc_msg *msg;
+    };
+
     typedef boost::function<void(OvsdbClientIdl::Op, struct ovsdb_idl_row *)> NotifyCB;
     typedef std::map<struct ovsdb_idl_txn *, OvsdbEntryBase *> PendingTxnMap;
 
     OvsdbClientIdl(OvsdbClientSession *session, Agent *agent, OvsPeerManager *manager);
     virtual ~OvsdbClientIdl();
+
+    // Callback from receive_queue to process the OVSDB Messages
+    bool ProcessMessage(OvsdbMsg *msg);
 
     // Send request to start monitoring OVSDB server
     void OnEstablish();
@@ -109,6 +119,7 @@ public:
 
     bool KeepAliveTimerCb();
     void TriggerDeletion();
+    bool IsDeleted() const { return deleted_; }
 
 private:
     friend void ovsdb_wrapper_idl_callback(void *, int, struct ovsdb_idl_row *);
@@ -124,6 +135,10 @@ private:
     NotifyCB callback_[OVSDB_TYPE_COUNT];
     PendingTxnMap pending_txn_;
     bool deleted_;
+    // Queue for handling OVS messages. Message processing accesses many of the
+    // OPER-DB and KSync structures. So, this queue will run in context KSync
+    // task
+    WorkQueue<OvsdbMsg *> *receive_queue_;
     OvsPeerManager *manager_;
     bool keepalive_wait_;
     Timer *keepalive_timer_;

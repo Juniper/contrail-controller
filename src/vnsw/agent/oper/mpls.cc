@@ -138,7 +138,7 @@ DBTableBase *MplsTable::CreateTable(DB *db, const std::string &name) {
 };
 
 void MplsTable::Process(DBRequest &req) {
-    CHECK_CONCURRENCY("db::DBTable");
+    agent()->ConcurrencyCheck();
     DBTablePartition *tpart =
         static_cast<DBTablePartition *>(GetTablePartition(req.key.get()));
     tpart->Process(NULL, &req);

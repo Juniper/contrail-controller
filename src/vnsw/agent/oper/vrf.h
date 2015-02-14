@@ -131,6 +131,10 @@ public:
     typedef map<string, VrfEntry *> VrfNameTree;
     typedef pair<string, VrfEntry *> VrfNamePair;
 
+    // Config tree of VRF to VMI entries. Tree used to track the VMIs that are
+    // already processed after VRF has been added
+    typedef set<std::string,  boost::uuids::uuid> CfgVmiTree;
+
     // Map from VRF Name to Route Table
     typedef map<string, RouteTable *> VrfDbTree;
     typedef pair<string, RouteTable *> VrfDbPair;
@@ -165,6 +169,8 @@ public:
     static VrfTable *GetInstance() {return vrf_table_;};
 
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
+    virtual bool IFLinkToReq(IFMapLink *link, IFMapNode *node, IFMapNode *peer,
+                             DBRequest &req);
 
     VrfEntry *FindVrfFromName(const string &name);
     VrfEntry *FindVrfFromId(size_t index);

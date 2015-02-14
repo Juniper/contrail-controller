@@ -39,7 +39,7 @@ std::auto_ptr<DBEntry> VxLanTable::AllocEntry(const DBRequestKey *k) const {
 }
 
 void VxLanTable::Process(DBRequest &req) {
-    CHECK_CONCURRENCY("db::DBTable");
+    agent()->ConcurrencyCheck();
     DBTablePartition *tpart =
         static_cast<DBTablePartition *>(GetTablePartition(req.key.get()));
     Input(tpart, NULL, &req);

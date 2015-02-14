@@ -3556,6 +3556,9 @@ void VmInterface::FloatingIpPoolSync(InterfaceTable *table, IFMapNode *node) {
     for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
          iter != node->end(graph); ++iter) {
         IFMapNode *fip_node = static_cast<IFMapNode *>(iter.operator->());
+        if (fip_node->table() != table->agent()->cfg()->cfg_floatingip_table()){
+            continue;
+        }
         FloatingIpSync(table, fip_node);
     }
 
@@ -3663,6 +3666,7 @@ void VmInterface::SubnetSync(InterfaceTable *table, IFMapNode *node) {
     }
 }
 
+// Process all floating-ip-pool nodes connected to the VN
 void VmInterface::FloatingIpVnSync(InterfaceTable *table, IFMapNode *node) {
     CfgListener *cfg_listener = table->agent()->cfg_listener();
     if (cfg_listener->SkipNode(node)) {
@@ -3674,6 +3678,10 @@ void VmInterface::FloatingIpVnSync(InterfaceTable *table, IFMapNode *node) {
     for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
          iter != node->end(graph); ++iter) {
         IFMapNode *pool_node = static_cast<IFMapNode *>(iter.operator->());
+        if (pool_node->table() !=
+            table->agent()->cfg()->cfg_floatingip_pool_table()) {
+            continue;
+        }
         FloatingIpPoolSync(table, pool_node);
     }
 
@@ -3691,6 +3699,9 @@ void VmInterface::FloatingIpVrfSync(InterfaceTable *table, IFMapNode *node) {
     for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
          iter != node->end(graph); ++iter) {
         IFMapNode *vn_node = static_cast<IFMapNode *>(iter.operator->());
+        if (vn_node->table() != table->agent()->cfg()->cfg_vn_table()) {
+            continue;
+        }
         FloatingIpVnSync(table, vn_node);
     }
 
