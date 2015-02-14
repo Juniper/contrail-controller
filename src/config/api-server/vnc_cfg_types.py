@@ -1027,7 +1027,9 @@ class LogicalInterfaceServer(LogicalInterfaceServerGen):
         if ok == False:
             return (False, msg)
 
-        vlan = obj_dict['logical_interface_vlan_tag']
+        vlan = 0
+        if 'logical_interface_vlan_tag' in obj_dict:
+            vlan = obj_dict['logical_interface_vlan_tag']
         return PhysicalInterfaceServer._check_interface_name(obj_dict, db_conn, vlan)
     # end http_post_collection
 
@@ -1059,8 +1061,6 @@ class LogicalInterfaceServer(LogicalInterfaceServerGen):
             vlan = obj_dict['logical_interface_vlan_tag']
             if vlan < 0 or vlan > 4094:
                 return (False, (403, "Invalid Vlan id"))
-        else:
-            return (False, (403, "Vlan id not specified for interface"))
         return True, ""
     # end _check_vlan
 
