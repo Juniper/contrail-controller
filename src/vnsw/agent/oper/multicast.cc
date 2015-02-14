@@ -242,8 +242,8 @@ void MulticastHandler::HandleTorRoute(DBTablePartBase *partition,
         if (!state)
             return;
 
-        const std::string &vrf_name = state->vrf_name_;
-        const Ip4Address &device_addr = state->ip_addr_;
+        const std::string vrf_name = state->vrf_name_;
+        const Ip4Address device_addr = state->ip_addr_;
         device_vn_entry->ClearState(partition->parent(),
                                     physical_device_vn_listener_id_);
         delete state;
