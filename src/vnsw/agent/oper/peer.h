@@ -22,7 +22,7 @@
 #define MULTICAST_PEER_NAME "Multicast"
 #define MULTICAST_TOR_PEER_NAME "Multicast TOR"
 #define MULTICAST_FABRIC_TREE_BUILDER_NAME "MulticastTreeBuilder"
-#define DHCP_PEER_NAME "Dhcp"
+#define MAC_VM_BINDING_PEER_NAME "MacVmBindingPeer"
 
 class AgentXmppChannel;
 class ControllerRouteWalker;
@@ -47,7 +47,7 @@ public:
         MULTICAST_FABRIC_TREE_BUILDER,
         OVS_PEER,
         MULTICAST_TOR_PEER,
-        DHCP_PEER
+        MAC_VM_BINDING_PEER
     };
 
     Peer(Type type, const std::string &name, bool controller_export);

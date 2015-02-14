@@ -421,8 +421,8 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
             static_cast<const BridgeRouteEntry *>(route);
 
         //First search for v4
-        const DhcpPath *dhcp_path = dynamic_cast<const DhcpPath *>
-            (l2_rt->FindDhcpPath());
+        const MacVmBindingPath *dhcp_path = dynamic_cast<const MacVmBindingPath *>
+            (l2_rt->FindMacVmBindingPath());
         bool flood_dhcp = false;
         if (dhcp_path)
             flood_dhcp = dhcp_path->flood_dhcp();

@@ -22,7 +22,7 @@ public:
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 
-    void AddDhcpRoute(const Peer *peer,
+    void AddMacVmBindingRoute(const Peer *peer,
                       const std::string &vrf_name,
                       const MacAddress &mac,
                       const VmInterface *vm_intf);
@@ -57,7 +57,7 @@ public:
                                    const std::string &vrf_name,
                                    uint32_t ethernet_tag);
     void DeleteBridgeRoute(const AgentRoute *rt);
-    void DeleteDhcpRoute(const Peer *peer,
+    void DeleteMacVmBindingRoute(const Peer *peer,
                          const std::string &vrf_name,
                          const MacAddress &mac,
                          const VmInterface *vm_intf);
@@ -103,7 +103,7 @@ public:
                                         bool force_delete);
 
     const MacAddress &mac() const {return mac_;}
-    const AgentPath *FindDhcpPath() const;
+    const AgentPath *FindMacVmBindingPath() const;
 
 private:
     bool ReComputeMulticastPaths(AgentPath *path, bool del);
