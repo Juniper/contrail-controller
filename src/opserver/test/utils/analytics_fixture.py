@@ -704,7 +704,7 @@ class AnalyticsFixture(fixtures.Fixture):
             if res != expected_res:
                 return False
 
-        # Limit
+        # sort + limit
         res = vns.post_query('MessageTable',
                              start_time='-10m', end_time='now',
                              select_fields=["ModuleId"],
@@ -726,6 +726,18 @@ class AnalyticsFixture(fixtures.Fixture):
                 return True
             else:
                 return False
+
+    def verify_message_table_limit(self):
+        self.logger.info("verify_message_table_limit")
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        res = vns.post_query('MessageTable',
+                             start_time='-10m', end_time='now',
+                             select_fields=['ModuleId', 'Messagetype'],
+                             where_clause='', limit=1)
+        self.logger.info(str(res))
+        assert(len(res) == 1)
+        return True
+    # end verify_message_table_limit
 
     @retry(delay=1, tries=8)
     def verify_intervn_all(self, gen_obj):
@@ -973,6 +985,15 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info(str(res))
         assert(len(res) == 1)
         assert(res[0]['protocol'] == 2)
+
+        # limit without sort
+        res = vns.post_query('FlowRecordTable',
+                             start_time=str(generator_obj.flow_start_time),
+                             end_time=str(generator_obj.flow_end_time),
+                             select_fields=['protocol'], where_clause='vrouter=%s'% vrouter,
+                             limit=1)
+        self.logger.info(str(res))
+        assert(len(res) == 1)
 
         # Filter by action
         res = vns.post_query('FlowRecordTable',
@@ -1312,6 +1333,19 @@ class AnalyticsFixture(fixtures.Fixture):
                       break
             assert(found)
 
+        # limit
+        res = vns.post_query(
+            'FlowSeriesTable',
+            start_time=str(generator_obj.flow_start_time),
+            end_time=str(generator_obj.flow_end_time),
+            select_fields=['T', 'bytes', 'packets'],
+            where_clause='sourcevn=%s' %(flow.sourcevn) +
+            'AND destvn=%s AND sport= %d' %(flow.destvn, flow.sport) +
+            'AND dport=%d AND protocol=%d' %(flow.dport, flow.protocol) +
+            'AND vrouter=%s'% vrouter, limit=len(flow.samples)/2)
+        self.logger.info(str(res))
+        assert(len(res) == len(flow.samples)/2)
+
         # 9. Raw bytes and packets
         self.logger.info('Flowseries: [bytes, packets]')
         res = vns.post_query(
@@ -1330,6 +1364,16 @@ class AnalyticsFixture(fixtures.Fixture):
                             'bytes':s.flowdata.diff_bytes})
         sorted_flow = sorted(flow, key=itemgetter('packets', 'bytes'))
         assert(sorted_res == sorted_flow)
+
+        # limit
+        res = vns.post_query(
+            'FlowSeriesTable',
+            start_time=str(generator_obj.flow_start_time),
+            end_time=str(generator_obj.flow_end_time),
+            select_fields=['bytes', 'packets'],
+            where_clause='vrouter=%s'% vrouter, limit=5)
+        self.logger.info(str(res))
+        assert(len(res) == 5)
 
         # 10. Timestamp
         self.logger.info('Flowseries: [T]')
@@ -1436,6 +1480,17 @@ class AnalyticsFixture(fixtures.Fixture):
                         found = 1
                         break
                 assert(found)
+
+        # limit
+        res = vns.post_query(
+            'FlowSeriesTable',
+            start_time=str(generator_obj.flow_start_time),
+            end_time=str(generator_obj.flow_end_time),
+            select_fields=['T', 'protocol', 'sport', 'dport', 'bytes', 'packets'],
+            where_clause='vrouter=%s'% vrouter,
+            limit=generator_obj.num_flow_samples+10)
+        self.logger.info(str(res))
+        assert(len(res) == generator_obj.num_flow_samples)
 
         # 15 vrouter
         self.logger.info("Flowseries: [sourcevn, destvn, vrouter]")
