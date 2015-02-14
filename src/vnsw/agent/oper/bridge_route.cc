@@ -127,23 +127,23 @@ void BridgeAgentRouteTable::AddBridgeRoute(const AgentRoute *rt) {
     BridgeTableProcess(agent(), vrf_name(), req);
 }
 
-void BridgeAgentRouteTable::AddDhcpRoute(const Peer *peer,
-                                         const std::string &vrf_name,
-                                         const MacAddress &mac,
-                                         const VmInterface *vm_intf) {
+void BridgeAgentRouteTable::AddMacVmBindingRoute(const Peer *peer,
+                                                 const std::string &vrf_name,
+                                                 const MacAddress &mac,
+                                                 const VmInterface *vm_intf) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new BridgeRouteKey(peer, vrf_name, mac, 0));
-    req.data.reset(new DhcpPathData(vm_intf));
+    req.data.reset(new MacVmBindingPathData(vm_intf));
     BridgeTableProcess(agent(), vrf_name, req);
 }
 
-void BridgeAgentRouteTable::DeleteDhcpRoute(const Peer *peer,
-                                            const std::string &vrf_name,
-                                            const MacAddress &mac,
-                                            const VmInterface *vm_intf) {
+void BridgeAgentRouteTable::DeleteMacVmBindingRoute(const Peer *peer,
+                                                    const std::string &vrf_name,
+                                                    const MacAddress &mac,
+                                                    const VmInterface *vm_intf) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new BridgeRouteKey(peer, vrf_name, mac, 0));
-    req.data.reset(new DhcpPathData(vm_intf));
+    req.data.reset(new MacVmBindingPathData(vm_intf));
     BridgeTableProcess(agent(), vrf_name, req);
 }
 
@@ -221,8 +221,8 @@ const VmInterface *BridgeAgentRouteTable::FindVmFromDhcpBinding
     if (l2_rt == NULL)
         return NULL;
 
-    const DhcpPath *dhcp_path = dynamic_cast<const DhcpPath *>
-        (l2_rt->FindDhcpPath());
+    const MacVmBindingPath *dhcp_path = dynamic_cast<const MacVmBindingPath *>
+        (l2_rt->FindMacVmBindingPath());
     if (dhcp_path == NULL)
         return NULL;
     return dhcp_path->vm_interface();
@@ -393,9 +393,9 @@ void BridgeRouteEntry::DeletePathUsingKeyData(const AgentRouteKey *key,
     }
 }
 
-const AgentPath *BridgeRouteEntry::FindDhcpPath() const {
+const AgentPath *BridgeRouteEntry::FindMacVmBindingPath() const {
     Agent *agent = (static_cast<AgentRouteTable *> (get_table()))->agent();
-    return FindPath(agent->dhcp_peer());
+    return FindPath(agent->mac_vm_binding_peer());
 }
 
 bool BridgeRouteEntry::ReComputePathAdd(AgentPath *path) {

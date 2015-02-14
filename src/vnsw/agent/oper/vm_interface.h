@@ -522,7 +522,7 @@ private:
     bool ResyncConfig(VmInterfaceConfigData *data);
     bool CopyIpAddress(Ip4Address &addr);
     bool CopyIp6Address(const Ip6Address &addr);
-    void ApplyDhcpBindingConfig(const VrfEntry *old_vrf,
+    void ApplyMacVmBindingConfig(const VrfEntry *old_vrf,
                                 bool old_l2_active,
                                 bool old_dhcp_enable);
     void ApplyConfigCommon(const VrfEntry *old_vrf,
@@ -559,11 +559,11 @@ private:
     void DeleteL3TunnelId();
     void UpdateMulticastNextHop(bool old_ipv4_active, bool old_l2_active);
     void DeleteMulticastNextHop();
-    void UpdateDhcp();
+    void UpdateMacVmBinding();
     void UpdateL2NextHop(bool old_l2_active);
     void UpdateFlowKeyNextHop();
     void DeleteL2NextHop(bool old_l2_active);
-    void DeleteDhcp(const VrfEntry *old_vrf);
+    void DeleteMacVmBinding(const VrfEntry *old_vrf);
     void UpdateL3NextHop(bool old_ipv4_active, bool old_ipv6_active);
     void DeleteL3NextHop(bool old_ipv4_active, bool old_ipv6_active);
     bool L2Activated(bool old_l2_active);

@@ -1090,9 +1090,9 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
          path_preference_.wait_for_traffic());
     pdata.set_path_preference_data(path_preference_data);
     pdata.set_active_label(GetActiveLabel());
-    if (peer()->GetType() == Peer::DHCP_PEER) {
-        const DhcpPath *dhcp_path =
-            static_cast<const DhcpPath *>(this);
+    if (peer()->GetType() == Peer::MAC_VM_BINDING_PEER) {
+        const MacVmBindingPath *dhcp_path =
+            static_cast<const MacVmBindingPath *>(this);
         pdata.set_flood_dhcp(dhcp_path->flood_dhcp() ? "true" : "false");
         pdata.set_vm_name(dhcp_path->vm_interface()->ToString());
     }
@@ -1170,31 +1170,31 @@ const Ip4Address *AgentPath::NexthopIp(Agent *agent) const {
     return peer_->NexthopIp(agent, this);
 }
 
-DhcpPath::DhcpPath(const Peer *peer) :
+MacVmBindingPath::MacVmBindingPath(const Peer *peer) :
     AgentPath(peer, NULL) {
 }
 
-bool DhcpPath::IsLess(const AgentPath &r_path) const {
+bool MacVmBindingPath::IsLess(const AgentPath &r_path) const {
     return peer()->IsLess(r_path.peer());
 }
 
-const NextHop *DhcpPath::ComputeNextHop(Agent *agent) const {
+const NextHop *MacVmBindingPath::ComputeNextHop(Agent *agent) const {
     return nexthop();
 }
 
-AgentPath *DhcpPathData::CreateAgentPath(const Peer *peer,
+AgentPath *MacVmBindingPathData::CreateAgentPath(const Peer *peer,
                                          AgentRoute *rt) const {
-    const Peer *dhcp_peer =
+    const Peer *mac_vm_binding_peer =
         dynamic_cast<const Peer *>(peer);
-    assert(dhcp_peer != NULL);
-    return (new DhcpPath(dhcp_peer));
+    assert(mac_vm_binding_peer != NULL);
+    return (new MacVmBindingPath(mac_vm_binding_peer));
 }
 
-bool DhcpPathData::AddChangePath(Agent *agent, AgentPath *path,
+bool MacVmBindingPathData::AddChangePath(Agent *agent, AgentPath *path,
                                          const AgentRoute *rt) {
     bool ret = false;
-    DhcpPath *dhcp_path =
-        dynamic_cast<DhcpPath *>(path);
+    MacVmBindingPath *dhcp_path =
+        dynamic_cast<MacVmBindingPath *>(path);
 
     NextHop *nh = agent->nexthop_table()->discard_nh();
     if (path->ChangeNH(agent, nh) == true)

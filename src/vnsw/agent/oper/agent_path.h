@@ -628,15 +628,15 @@ private:
     DISALLOW_COPY_AND_ASSIGN(Inet4UnicastInterfaceRoute);
 };
 
-//DhcpPath is used to store VM interface from which
+//MacVmBindingPath is used to store VM interface from which
 //this route was added. This helps in retrieving the
 //VM using MAC in a VRF. Also it stores the flood dhcp
 //flag which is used to decide if DHCP request are to
 //be answered by agent or external DHCP server.
-class DhcpPath : public AgentPath {
+class MacVmBindingPath : public AgentPath {
 public:
-    DhcpPath(const Peer *peer);
-    virtual ~DhcpPath() { }
+    MacVmBindingPath(const Peer *peer);
+    virtual ~MacVmBindingPath() { }
 
     virtual const NextHop *ComputeNextHop(Agent *agent) const;
     virtual bool IsLess(const AgentPath &right) const;
@@ -655,26 +655,26 @@ private:
     //Key parameters for comparision
     InterfaceConstRef vm_interface_;
     bool flood_dhcp_;
-    DISALLOW_COPY_AND_ASSIGN(DhcpPath);
+    DISALLOW_COPY_AND_ASSIGN(MacVmBindingPath);
 };
 
-//DhcpPathData is expected to be used only in
+//MacVmBindingPathData is expected to be used only in
 //inline calls as it is carrying interface pointer.
 //In case request is required key will have to be
 //provided.
-class DhcpPathData : public AgentRouteData {
+class MacVmBindingPathData : public AgentRouteData {
 public:
-    DhcpPathData(const VmInterface *vm_intf) :
+    MacVmBindingPathData(const VmInterface *vm_intf) :
         AgentRouteData(false), vm_intf_(vm_intf) { }
-    virtual ~DhcpPathData() { }
+    virtual ~MacVmBindingPathData() { }
     virtual AgentPath *CreateAgentPath(const Peer *peer, AgentRoute *rt) const;
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
                                const AgentRoute *rt);
-    virtual std::string ToString() const {return "DhcpData";}
+    virtual std::string ToString() const {return "MacVmBindingPathData";}
 
 private:
     const VmInterface *vm_intf_;
-    DISALLOW_COPY_AND_ASSIGN(DhcpPathData);
+    DISALLOW_COPY_AND_ASSIGN(MacVmBindingPathData);
 };
 
 #endif // vnsw_agent_path_hpp

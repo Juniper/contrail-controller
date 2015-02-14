@@ -1911,8 +1911,8 @@ TEST_F(RouteTest, Dhcp_enabled_ipam) {
         L2RouteGet("vrf1",
                    MacAddress::FromString("00:00:00:01:01:01"),
                    Ip4Address::from_string("1.1.1.1"));
-    const AgentPath *path = rt->FindDhcpPath();
-    const DhcpPath *dhcp_path = dynamic_cast<const DhcpPath *>(path);
+    const AgentPath *path = rt->FindMacVmBindingPath();
+    const MacVmBindingPath *dhcp_path = dynamic_cast<const MacVmBindingPath *>(path);
     EXPECT_TRUE(dhcp_path != NULL);
     EXPECT_TRUE(dhcp_path->vm_interface()->GetUuid() == MakeUuid(1));
     EXPECT_TRUE(dhcp_path->nexthop()->GetType() == NextHop::DISCARD);
@@ -1945,8 +1945,8 @@ TEST_F(RouteTest, Dhcp_disabled_ipam) {
         L2RouteGet("vrf1",
                    MacAddress::FromString("00:00:00:01:01:01"),
                    Ip4Address::from_string("1.1.1.1"));
-    const DhcpPath *dhcp_path =
-        dynamic_cast<const DhcpPath *>(rt->FindDhcpPath());
+    const MacVmBindingPath *dhcp_path =
+        dynamic_cast<const MacVmBindingPath *>(rt->FindMacVmBindingPath());
     EXPECT_TRUE(dhcp_path != NULL);
     EXPECT_TRUE(dhcp_path->vm_interface()->GetUuid() == MakeUuid(1));
     EXPECT_TRUE(dhcp_path->nexthop()->GetType() == NextHop::DISCARD);
@@ -1980,8 +1980,8 @@ TEST_F(RouteTest, Dhcp_mode_toggled_ipam) {
         L2RouteGet("vrf1",
                    MacAddress::FromString("00:00:00:01:01:01"),
                    Ip4Address::from_string("1.1.1.1"));
-    const AgentPath *path = rt->FindDhcpPath();
-    const DhcpPath *dhcp_path = dynamic_cast<const DhcpPath *>(path);
+    const AgentPath *path = rt->FindMacVmBindingPath();
+    const MacVmBindingPath *dhcp_path = dynamic_cast<const MacVmBindingPath *>(path);
     EXPECT_TRUE(dhcp_path != NULL);
     EXPECT_TRUE(dhcp_path->vm_interface()->GetUuid() == MakeUuid(1));
     EXPECT_TRUE(dhcp_path->nexthop()->GetType() == NextHop::DISCARD);
@@ -1989,7 +1989,7 @@ TEST_F(RouteTest, Dhcp_mode_toggled_ipam) {
     rt = L2RouteGet("vrf1",
                     MacAddress::FromString("00:00:00:01:01:02"),
                     Ip4Address::from_string("1.1.1.2"));
-    dhcp_path = dynamic_cast<const DhcpPath *>(rt->FindDhcpPath());
+    dhcp_path = dynamic_cast<const MacVmBindingPath *>(rt->FindMacVmBindingPath());
     EXPECT_TRUE(dhcp_path->vm_interface()->GetUuid() == MakeUuid(2));
     EXPECT_TRUE(dhcp_path->nexthop()->GetType() == NextHop::DISCARD);
     EXPECT_TRUE(dhcp_path->flood_dhcp() == false);
@@ -2003,14 +2003,14 @@ TEST_F(RouteTest, Dhcp_mode_toggled_ipam) {
     rt = L2RouteGet("vrf1",
                     MacAddress::FromString("00:00:00:01:01:01"),
                     Ip4Address::from_string("1.1.1.1"));
-    dhcp_path = dynamic_cast<const DhcpPath *>(rt->FindDhcpPath());
+    dhcp_path = dynamic_cast<const MacVmBindingPath *>(rt->FindMacVmBindingPath());
     EXPECT_TRUE(dhcp_path->vm_interface()->GetUuid() == MakeUuid(1));
     EXPECT_TRUE(dhcp_path->nexthop()->GetType() == NextHop::DISCARD);
     EXPECT_TRUE(dhcp_path->flood_dhcp() == true);
     rt = L2RouteGet("vrf1",
                     MacAddress::FromString("00:00:00:01:01:02"),
                     Ip4Address::from_string("1.1.1.2"));
-    dhcp_path = dynamic_cast<const DhcpPath *>(rt->FindDhcpPath());
+    dhcp_path = dynamic_cast<const MacVmBindingPath *>(rt->FindMacVmBindingPath());
     EXPECT_TRUE(dhcp_path->vm_interface()->GetUuid() == MakeUuid(2));
     EXPECT_TRUE(dhcp_path->nexthop()->GetType() == NextHop::DISCARD);
     EXPECT_TRUE(dhcp_path->flood_dhcp() == true);
@@ -2021,7 +2021,7 @@ TEST_F(RouteTest, Dhcp_mode_toggled_ipam) {
     rt = L2RouteGet("vrf1",
                     MacAddress::FromString("00:00:00:01:01:01"),
                     Ip4Address::from_string("1.1.1.1"));
-    dhcp_path = dynamic_cast<const DhcpPath *>(rt->FindDhcpPath());
+    dhcp_path = dynamic_cast<const MacVmBindingPath *>(rt->FindMacVmBindingPath());
     EXPECT_TRUE(dhcp_path != NULL);
     EXPECT_TRUE(dhcp_path->vm_interface()->GetUuid() == MakeUuid(1));
     EXPECT_TRUE(dhcp_path->nexthop()->GetType() == NextHop::DISCARD);
@@ -2029,7 +2029,7 @@ TEST_F(RouteTest, Dhcp_mode_toggled_ipam) {
     rt = L2RouteGet("vrf1",
                     MacAddress::FromString("00:00:00:01:01:02"),
                     Ip4Address::from_string("1.1.1.2"));
-    dhcp_path = dynamic_cast<const DhcpPath *>(rt->FindDhcpPath());
+    dhcp_path = dynamic_cast<const MacVmBindingPath *>(rt->FindMacVmBindingPath());
     EXPECT_TRUE(dhcp_path->vm_interface()->GetUuid() == MakeUuid(2));
     EXPECT_TRUE(dhcp_path->nexthop()->GetType() == NextHop::DISCARD);
     EXPECT_TRUE(dhcp_path->flood_dhcp() == false);
