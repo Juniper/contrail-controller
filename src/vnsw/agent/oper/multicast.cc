@@ -281,8 +281,8 @@ void MulticastHandler::HandleTorRoute(DBTablePartBase *partition,
                                              vxlan_id);
         }
 
-        rebake = obj->AddInTorList(device_uuid, addr, vxlan_id,
-                                   TunnelType::VxlanType());
+        rebake |= obj->AddInTorList(device_uuid, addr, vxlan_id,
+                                    TunnelType::VxlanType());
         if (!state) {
             //Set the state for vrf name and address
             MulticastDBState *state =
