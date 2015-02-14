@@ -16,8 +16,8 @@
 class SecurityGroup {
 public:
     static const int kSize = 8;
-    static const uint32_t kMinGlobalId = 1000000;
-    static const uint32_t kMaxGlobalId = 1999999;
+    static const uint32_t kMinGlobalId = 1;
+    static const uint32_t kMaxGlobalId = 7999999;
     typedef boost::array<uint8_t, kSize> bytes_type;
 
     SecurityGroup(as_t asn, uint32_t id);
