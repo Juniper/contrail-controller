@@ -303,7 +303,7 @@ void MulticastHandler::HandleTorRoute(DBTablePartBase *partition,
 
     //rebake if physical device address changed or any of the
     //physical device has changed vxlan
-    rebake = obj->UpdateTorAddressInOlist(device_vn_entry->device_uuid(),
+    rebake |= obj->UpdateTorAddressInOlist(device_vn_entry->device_uuid(),
                                           addr,
                                           vxlan_id);
 
