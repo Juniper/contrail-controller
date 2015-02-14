@@ -32,7 +32,7 @@ void AgentDBEntry::PostAdd() {
 }
 
 void AgentDBTable::NotifyEntry(DBEntryBase *e) {
-    CHECK_CONCURRENCY("db::DBTable");
+    agent_->ConcurrencyCheck();
     DBTablePartBase *tpart =
         static_cast<DBTablePartition *>(GetTablePartition(e));
     tpart->Notify(e);
@@ -137,7 +137,7 @@ void AgentDBTable::Clear() {
 }
 
 void AgentDBTable::Process(DBRequest &req) {
-    CHECK_CONCURRENCY("db::DBTable");
+    agent_->ConcurrencyCheck();
     DBTablePartition *tpart =
         static_cast<DBTablePartition *>(GetTablePartition(req.key.get()));
     tpart->Process(NULL, &req);

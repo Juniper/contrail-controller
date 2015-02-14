@@ -45,14 +45,17 @@ public:
     void NodeListener(DBTablePartBase *partition, DBEntryBase *dbe);
     void LinkListener(DBTablePartBase *partition, DBEntryBase *dbe);
     void NodeCallback(DBTablePartBase *partition, DBEntryBase *dbe);
+    // Regsiter for a IFMap link
+    void LinkRegister(const std::string &link_mdata, AgentDBTable *table);
     // Register DBTable for a IFMapNode
-    void Register(std::string id_type, AgentDBTable *table,
+    void Register(const std::string &id_type, AgentDBTable *table,
                   int need_property_id);
     // Register callback function for a IFMapNode
-    void Register(std::string id_type, NodeListenerCb callback,
+    void Register(const std::string &id_type, NodeListenerCb callback,
                   int need_property_id);
     void Unregister(std::string type);
 
+    AgentDBTable *GetLinkOperDBTable(IFMapNode *node);
     AgentDBTable *GetOperDBTable(IFMapNode *node);
     NodeListenerCb GetCallback(IFMapNode *node);
     void NodeReSync(IFMapNode *node);
@@ -80,8 +83,8 @@ public:
 private:
     void UpdateSeenState(DBTableBase *table, DBEntryBase *dbe,
                          CfgDBState *state, DBTableBase::ListenerId id);
-    void LinkNotify(IFMapNode *node, CfgDBState *state,
-                    DBTableBase::ListenerId id);
+    void LinkNotify(IFMapLink *link, IFMapNode *node, IFMapNode *peer,
+                    CfgDBState *state, DBTableBase::ListenerId id);
     CfgDBState *GetCfgDBState(IFMapTable *table, DBEntryBase *dbe,
                               DBTableBase::ListenerId &id);
 
@@ -89,6 +92,7 @@ private:
 
     CfgListenerIdMap cfg_listener_id_map_;
     CfgListenerMap cfg_listener_map_;
+    CfgListenerMap cfg_link_listener_map_;
     CfgListenerCbMap cfg_listener_cb_map_;
     void NodeNotify(AgentDBTable *oper_table, IFMapNode *node);
     DISALLOW_COPY_AND_ASSIGN(CfgListener);

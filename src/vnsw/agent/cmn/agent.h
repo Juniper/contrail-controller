@@ -782,6 +782,8 @@ public:
     void CreateLifetimeManager();
     void ShutdownLifetimeManager();
 
+    // Default concurrency checker. Checks for "Agent::KSync" and "db::DBTable"
+    void ConcurrencyCheck();
 private:
 
     AgentParam *params_;
