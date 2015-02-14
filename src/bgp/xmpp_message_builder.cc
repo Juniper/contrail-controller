@@ -297,6 +297,20 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route,
         }
     }
 
+    const BgpOList *leaf_olist = roattr->attr()->leaf_olist().get();
+    assert((leaf_olist == NULL) != roattr->nexthop_list().empty());
+
+    if (leaf_olist) {
+        BOOST_FOREACH(const BgpOListElem &elem, leaf_olist->elements) {
+            autogen::EnetNextHopType nh;
+            nh.af = BgpAf::IPv4;
+            nh.address = elem.address.to_string();
+            nh.label = elem.label;
+            nh.tunnel_encapsulation_list.tunnel_encapsulation = elem.encap;
+            item.entry.leaf_olist.next_hop.push_back(nh);
+        }
+    }
+
     BOOST_FOREACH(RibOutAttr::NextHop nexthop, roattr->nexthop_list()) {
         EncodeEnetNextHop(route, nexthop, &item);
     }

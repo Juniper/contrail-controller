@@ -598,7 +598,9 @@ BgpAttr::BgpAttr(const BgpAttr &rhs)
       pmsi_tunnel_(rhs.pmsi_tunnel_),
       edge_discovery_(rhs.edge_discovery_),
       edge_forwarding_(rhs.edge_forwarding_),
-      label_block_(rhs.label_block_), olist_(rhs.olist_) {
+      label_block_(rhs.label_block_),
+      olist_(rhs.olist_),
+      leaf_olist_(rhs.leaf_olist_) {
     refcount_ = 0;
 }
 
@@ -680,6 +682,10 @@ void BgpAttr::set_olist(BgpOListPtr olist) {
     olist_ = olist;
 }
 
+void BgpAttr::set_leaf_olist(BgpOListPtr leaf_olist) {
+    leaf_olist_ = leaf_olist;
+}
+
 // TODO(nsheth): Return the left-most AS number in the path.
 uint32_t BgpAttr::neighbor_as() const {
     return 0;
@@ -706,6 +712,7 @@ int BgpAttr::CompareTo(const BgpAttr &rhs) const {
     KEY_COMPARE(source_rd_, rhs.source_rd_);
     KEY_COMPARE(label_block_.get(), rhs.label_block_.get());
     KEY_COMPARE(olist_.get(), rhs.olist_.get());
+    KEY_COMPARE(leaf_olist_.get(), rhs.leaf_olist_.get());
 
     if (as_path_.get() == NULL || rhs.as_path_.get() == NULL) {
         KEY_COMPARE(as_path_.get(), rhs.as_path_.get());
@@ -761,6 +768,10 @@ std::size_t hash_value(BgpAttr const &attr) {
     if (attr.olist_) {
         boost::hash_range(hash, attr.olist_->elements.begin(),
                           attr.olist_->elements.end());
+    }
+    if (attr.leaf_olist_) {
+        boost::hash_range(hash, attr.leaf_olist_->elements.begin(),
+                          attr.leaf_olist_->elements.end());
     }
 
     if (attr.as_path_) boost::hash_combine(hash, *attr.as_path_);
@@ -835,6 +846,14 @@ BgpAttrPtr BgpAttrDB::ReplaceOListAndLocate(const BgpAttr *attr,
                                             BgpOListPtr olist) {
     BgpAttr *clone = new BgpAttr(*attr);
     clone->set_olist(olist);
+    return Locate(clone);
+}
+
+// Return a clone of attribute with updated leaf olist.
+BgpAttrPtr BgpAttrDB::ReplaceLeafOListAndLocate(const BgpAttr *attr,
+                                                BgpOListPtr leaf_olist) {
+    BgpAttr *clone = new BgpAttr(*attr);
+    clone->set_leaf_olist(leaf_olist);
     return Locate(clone);
 }
 
