@@ -28,8 +28,8 @@ sdist_gen = env.Command('dist',
 env.Alias('controller/src/inventory:sdist', sdist_gen)
 env.Default(sdist_gen)
 
-if 'install' in BUILD_TARGETS:
-    env.Alias('install',
+if 'install_contrail_sm_inventory' in BUILD_TARGETS:
+    env.Alias('install_contrail_sm_inventory',
               env.Command(None, sources+local_sources,
                           'python setup.py install %s' %
                           env['PYTHON_INSTALL_OPT'],
