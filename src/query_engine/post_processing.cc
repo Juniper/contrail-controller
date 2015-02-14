@@ -232,34 +232,28 @@ bool PostProcessingQuery::merge_processing(
                                     this, _1, _2));
                 }
             }
-
-            goto sort_done;
-        }
-
-        QEOpServerProxy::BufferT *raw_result2 = result_.get();
-        size_t size1 = raw_result1->size();
-        size_t size2 = raw_result2->size();
-        QE_TRACE(DEBUG, "Merging results from vectors of size:" <<
-                size1 << " and " << size2);
-        merged_result->reserve(raw_result1->size() + raw_result2->size());
-        if (sorting_type == ASCENDING) {
-            std::merge(raw_result1->begin(), raw_result1->end(), 
-                raw_result2->begin(), raw_result2->end(),
-                std::back_inserter(*merged_result),
-                boost::bind(&PostProcessingQuery::sort_field_comparator, 
-                            this, _1, _2)); 
         } else {
-            std::merge(raw_result1->rbegin(), raw_result1->rend(), 
-                raw_result2->rbegin(), raw_result2->rend(),
-                std::back_inserter(*merged_result),
-                boost::bind(&PostProcessingQuery::sort_field_comparator, 
-                            this, _1, _2)); 
+            QEOpServerProxy::BufferT *raw_result2 = result_.get();
+            size_t size1 = raw_result1->size();
+            size_t size2 = raw_result2->size();
+            QE_TRACE(DEBUG, "Merging results from vectors of size:" <<
+                     size1 << " and " << size2);
+            merged_result->reserve(raw_result1->size() + raw_result2->size());
+            if (sorting_type == ASCENDING) {
+                std::merge(raw_result1->begin(), raw_result1->end(),
+                           raw_result2->begin(), raw_result2->end(),
+                           std::back_inserter(*merged_result),
+                           boost::bind(&PostProcessingQuery::sort_field_comparator,
+                                       this, _1, _2));
+            } else {
+                std::merge(raw_result1->rbegin(), raw_result1->rend(),
+                           raw_result2->rbegin(), raw_result2->rend(),
+                           std::back_inserter(*merged_result),
+                           boost::bind(&PostProcessingQuery::sort_field_comparator,
+                                       this, _1, _2));
+            }
         }
-    } 
-
-sort_done:
-    if (!sorted && (mquery->table() == g_viz_constants.FLOW_TABLE))
-    {
+    } else {
         QE_TRACE(DEBUG, "Merge_Processing: Adding inputs to output");
         QEOpServerProxy::BufferT *merged_result = &output;
         const QEOpServerProxy::BufferT *raw_result1 = &(input);
@@ -295,6 +289,7 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
                         QEOpServerProxy::BufferT& output)
 {
     AnalyticsQuery *mquery = (AnalyticsQuery *)main_query;
+    bool merge_done = false;
 
     if (status_details != 0)
     {
@@ -330,22 +325,7 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
                     fs_update_flow_count(output[0]);
                 }
             }
-
-            if (sorted) {
-                QEOpServerProxy::BufferT *merged_result = &output;
-                if (sorting_type == ASCENDING) {
-                    std::sort(merged_result->begin(), merged_result->end(), 
-                              boost::bind(
-                                &PostProcessingQuery::sort_field_comparator, 
-                                          this, _1, _2)); 
-                } else {
-                    std::sort(merged_result->rbegin(), merged_result->rend(), 
-                              boost::bind(
-                                &PostProcessingQuery::sort_field_comparator,
-                                          this, _1, _2));
-                }
-            }
-            goto limit;
+            merge_done = true;
         }
     }
 
@@ -370,56 +350,39 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
             std::back_inserter(*merged_result));
 
         QE_TRACE(DEBUG, "Final_Merge_Processing: Done uniquify flow records");
-        // Check if the result has to be sorted
-        if (sorted) {
-            if (sorting_type == ASCENDING) {
-                std::sort(merged_result->begin(), merged_result->end(), 
-                          boost::bind(&PostProcessingQuery::sort_field_comparator, 
-                                      this, _1, _2)); 
-            } else {
-                std::sort(merged_result->rbegin(), merged_result->rend(), 
-                          boost::bind(&PostProcessingQuery::sort_field_comparator,
-                                      this, _1, _2));
-            }
+        merge_done = true;
+    }
+
+    if (!merge_done) {
+        QEOpServerProxy::BufferT *merged_result = &output;
+        size_t final_vector_size = 0;
+        // merge the results from parallel queries
+        for (size_t i = 0; i < inputs.size(); i++) {
+            final_vector_size += inputs[i]->size();
         }
-    } else {  // For non-flow-record queries
-        // Check if the result has to be sorted
-        if (sorted) {
-            QEOpServerProxy::BufferT *merged_result = &output;
-            size_t final_vector_size = 0;
-            for (size_t i = 0; i < inputs.size(); i++)
-                final_vector_size += inputs[i]->size();
-        
-            QE_TRACE(DEBUG, "Merging results between " << inputs.size() 
-                    << " vectors with final vector size:" << final_vector_size);
+        merged_result->reserve(final_vector_size);
+        QE_TRACE(DEBUG, "Merging results between " << inputs.size()
+                 << " vectors with final vector size:" << final_vector_size);
+        for (size_t i = 0; i < inputs.size(); i++) {
+            QEOpServerProxy::BufferT *raw_result = inputs[i].get();
+            copy(raw_result->begin(), raw_result->end(),
+                 std::back_inserter(*merged_result));
+        }
+    }
 
-            merged_result->reserve(final_vector_size);
-
-            for (size_t i = 0; i < inputs.size(); i++)
-            {
-                QEOpServerProxy::BufferT *raw_result = inputs[i].get();
-                if (sorting_type == ASCENDING) {
-                    QEOpServerProxy::BufferT::iterator
-                        current_result_end = merged_result->end();
-                    copy(raw_result->begin(), raw_result->end(), 
-                        std::back_inserter(*merged_result));
-                    std::inplace_merge(merged_result->begin(),
-                    current_result_end, merged_result->end(),
-    boost::bind(&PostProcessingQuery::sort_field_comparator, this, _1, _2)); 
-                } else {
-                    QEOpServerProxy::BufferT::reverse_iterator
-                        current_result_end = merged_result->rbegin();
-                    copy(raw_result->begin(), raw_result->end(), 
-                        std::back_inserter(*merged_result));
-                    std::inplace_merge(merged_result->rbegin(),
-                    current_result_end, merged_result->rend(),
-    boost::bind(&PostProcessingQuery::sort_field_comparator, this, _1, _2)); 
-                }
-            }
+    if (sorted) {
+        QEOpServerProxy::BufferT *merged_result = &output;
+        if (sorting_type == ASCENDING) {
+            std::sort(merged_result->begin(), merged_result->end(),
+                      boost::bind(&PostProcessingQuery::sort_field_comparator,
+                                  this, _1, _2));
+        } else {
+            std::sort(merged_result->rbegin(), merged_result->rend(),
+                      boost::bind(&PostProcessingQuery::sort_field_comparator,
+                                  this, _1, _2));
         }
     }
    
-limit:
     if (limit) {
         QEOpServerProxy::BufferT *merged_result = &output;
         QE_TRACE(DEBUG, "Apply Limit [" << limit << "]");
