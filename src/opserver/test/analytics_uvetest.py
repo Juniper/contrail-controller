@@ -341,6 +341,11 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         assert(vizd_obj.set_alarmgen_partition(0,1) == 'true')
         assert(vizd_obj.verify_alarmgen_partition(0,'true'))
+        assert(vizd_obj.set_alarmgen_partition(1,1) == 'true')
+        assert(vizd_obj.set_alarmgen_partition(2,1) == 'true')
+        assert(vizd_obj.set_alarmgen_partition(3,1) == 'true')
+        assert(vizd_obj.verify_uvetable_alarm("ObjectCollectorInfo",
+            "ObjectCollectorInfo:" + socket.gethostname(), "ProcessStatus"))
         return True
     # end test_06_alarmgen_basic
 
