@@ -69,9 +69,9 @@ bool VMInterfaceKSyncEntry::Sync(DBEntry *db_entry) {
             sg_list_ = sg_list;
             OvsdbRouteResyncData *data = new OvsdbRouteResyncData(sg_list);
             MacAddress mac = MacAddress::FromString(entry->vm_mac());
-            evpn_table->ResyncVmRouteReq(table_->client_idl()->route_peer(),
-                                         vrf->GetName(), mac, IpAddress(),
-                                         vxlan->vxlan_id(), data);
+            evpn_table->ResyncVmRoute(table_->client_idl()->route_peer(),
+                                      vrf->GetName(), mac, IpAddress(),
+                                      vxlan->vxlan_id(), data);
             ret = true;
         }
     }
