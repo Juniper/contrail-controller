@@ -61,7 +61,10 @@ public:
     bool EnqueueRequest(RequestQueueEntry *req_entry) {
         request_queue_.push(req_entry);
         MaybeStartRunner();
-        return request_count_.fetch_and_increment() < (kThreshold - 1);
+        long count = request_count_.fetch_and_increment();
+        if (count > max_request_count_)
+                max_request_count_ = count;
+        return count < (kThreshold - 1);
     }
 
     bool DequeueRequest(RequestQueueEntry **req_entry) {
@@ -114,6 +117,7 @@ private:
     RequestQueue request_queue_;
     TablePartList change_list_;
     atomic<long> request_count_;
+    long max_request_count_;
     RemoveQueue remove_queue_;
     tbb::mutex mutex_;
     int db_partition_id_;

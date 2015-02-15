@@ -532,120 +532,192 @@ IFMapNode *VnTable::FindTarget(IFMapAgentTable *table, IFMapNode *node,
     return NULL;
 }
 
+VnData *VnTable::BuildData(IFMapNode *node) {
+    VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
+    assert(cfg);
+
+    uuid acl_uuid = nil_uuid();
+    uuid mirror_cfg_acl_uuid = nil_uuid();
+    string vrf_name = "";
+    std::vector<VnIpam> vn_ipam;
+    VnData::VnIpamDataMap vn_ipam_data;
+    std::string ipam_name;
+
+    // Find link with ACL / VRF adjacency
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+    DBGraph *graph = table->GetGraph();
+    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph); 
+         iter != node->end(table->GetGraph()); ++iter) {
+
+        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
+        if (agent()->cfg_listener()->SkipNode(adj_node)) {
+            continue;
+        }
+
+        if (adj_node->table() == Agent::GetInstance()->cfg()->cfg_acl_table()) {
+            AccessControlList *acl_cfg = static_cast<AccessControlList *>
+                (adj_node->GetObject());
+            assert(acl_cfg);
+            autogen::IdPermsType id_perms = acl_cfg->id_perms();
+            if (acl_cfg->entries().dynamic) {
+                CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                           mirror_cfg_acl_uuid);
+            } else {
+                CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                           acl_uuid);
+            }
+        }
+
+        if ((adj_node->table() == agent()->cfg()->cfg_vrf_table()) &&
+            (!IsVRFServiceChainingInstance(node->name(), adj_node->name()))) {
+            vrf_name = adj_node->name();
+        }
+
+        if (adj_node->table() == agent()->cfg()->cfg_vn_network_ipam_table()) {
+            if (IFMapNode *ipam_node = FindTarget(table, adj_node, 
+                                                  "network-ipam")) {
+                ipam_name = ipam_node->name();
+
+                VirtualNetworkNetworkIpam *ipam = 
+                    static_cast<VirtualNetworkNetworkIpam *>
+                    (adj_node->GetObject());
+                assert(ipam);
+                const VnSubnetsType &subnets = ipam->data();
+                for (unsigned int i = 0; i < subnets.ipam_subnets.size(); ++i) {
+                    // if the DNS server address is not specified, set this
+                    // to be the same as the GW address
+                    std::string dns_server_address =
+                        subnets.ipam_subnets[i].dns_server_address;
+                    boost::system::error_code ec;
+                    IpAddress dns_server =
+                        IpAddress::from_string(dns_server_address, ec);
+                    if (ec.value() || dns_server.is_unspecified()) {
+                        dns_server_address =
+                            subnets.ipam_subnets[i].default_gateway;
+                    }
+
+                    vn_ipam.push_back
+                        (VnIpam(subnets.ipam_subnets[i].subnet.ip_prefix,
+                                subnets.ipam_subnets[i].subnet.ip_prefix_len,
+                                subnets.ipam_subnets[i].default_gateway,
+                                dns_server_address,
+                                subnets.ipam_subnets[i].enable_dhcp, ipam_name,
+                                subnets.ipam_subnets[i].dhcp_option_list.dhcp_option,
+                                subnets.ipam_subnets[i].host_routes.route));
+                }
+                VnIpamLinkData ipam_data;
+                ipam_data.oper_dhcp_options_.set_host_routes(subnets.host_routes.route);
+                vn_ipam_data.insert(VnData::VnIpamDataPair(ipam_name, ipam_data));
+            }
+        }
+    }
+
+    uuid mirror_acl_uuid = agent()->mirror_cfg_table()->GetMirrorUuid(node->name());
+    std::sort(vn_ipam.begin(), vn_ipam.end());
+
+    // Fetch VN Properties
+    bool enable_rpf = true;
+    if (cfg->properties().rpf == "disable") {
+        enable_rpf = false;
+    }
+    bool bridging = true;
+    bool layer3_forwarding = true;
+
+    return new VnData(node->name(), acl_uuid, vrf_name, mirror_acl_uuid, 
+                      mirror_cfg_acl_uuid, vn_ipam, vn_ipam_data,
+                      cfg->properties().vxlan_network_identifier,
+                      cfg->properties().network_id, bridging, layer3_forwarding,
+                      cfg->id_perms().enable, enable_rpf);
+}
+
+// Change to ACL referernce can result in change of Policy flag 
+// on interfaces. Find all interfaces on this VN and RESYNC them.
+// This is also required to check changes to admin_state and to
+// the enable_dhcp flag in the VN subnets (VN Ipam).
+// TODO: Check if there is change in VRF
+void VnTable::ResyncVmInterface(IFMapNode *node) {
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+    DBGraph *graph = table->GetGraph();
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+
+    // Find link with VM-Port adjacency
+    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
+            iter != node->end(graph); ++iter) {
+        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
+        if (agent()->cfg_listener()->SkipNode
+            (adj_node, agent()->cfg()->cfg_vm_interface_table())) {
+            continue;
+        }
+
+        if (adj_node->GetObject() == NULL) {
+            continue;
+        }
+        if (agent()->interface_table()->IFNodeToReq(adj_node, req)) {
+            agent()->interface_table()->Enqueue(&req);
+        }
+    }
+}
+
+bool VnTable::IFLinkToReq(IFMapLink *link, IFMapNode *node, IFMapNode *peer,
+                          DBRequest &req) {
+    VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
+    assert(cfg);
+    autogen::IdPermsType id_perms = cfg->id_perms();
+    boost::uuids::uuid u;
+    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+    req.key.reset(new VnKey(u));
+
+    // Add/Delete of link other than VMInterface will most likely need re-eval
+    // of VN
+    if (peer->table() != agent()->cfg()->cfg_vm_interface_table()) {
+        req.data.reset(BuildData(node));
+        Enqueue(&req);
+    }
+
+    // Any change to ACL/IPAM will need re-eval of all VMInterface on this VN
+    if (peer->table() == agent()->cfg()->cfg_acl_table() ||
+        peer->table() == agent()->cfg()->cfg_vn_network_ipam_table()) {
+        ResyncVmInterface(node);
+    }
+
+    if (peer->table() == agent()->cfg()->cfg_vm_interface_table()) {
+        DBRequest req;
+        if (agent()->interface_table()->IFNodeToReq(peer, req) == true) {
+             LOG(DEBUG, "VN change sync for Port " << peer->name());
+             agent()->interface_table()->Enqueue(&req);
+        }
+    }
+
+    if (peer->table() == agent()->cfg()->cfg_floatingip_pool_table()) {
+        VmInterface::FloatingIpPoolSync(agent()->interface_table(), peer);
+    }
+
+    return false;
+}
+
 bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
     assert(cfg);
     autogen::IdPermsType id_perms = cfg->id_perms();
-    autogen::VirtualNetworkType properties = cfg->properties(); 
-    int vnid = properties.network_id;
-    int vxlan_id = properties.vxlan_network_identifier;
-    bool bridging = true;
-    bool layer3_forwarding = true;
-    bool enable_rpf = true;
     boost::uuids::uuid u;
     CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
-
-    if (properties.rpf == "disable") {
-        enable_rpf = false;
-    }
-
-    VnKey *key = new VnKey(u);
+    req.key.reset(new VnKey(u));
     VnData *data = NULL;
+
     if (node->IsDeleted()) {
         req.oper = DBRequest::DB_ENTRY_DELETE;
     } else {
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        uuid acl_uuid = nil_uuid();
-        uuid mirror_cfg_acl_uuid = nil_uuid();
-        string vrf_name = "";
-        std::vector<VnIpam> vn_ipam;
-        VnData::VnIpamDataMap vn_ipam_data;
-        std::string ipam_name;
-
-        // Find link with ACL / VRF adjacency
-        IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
-        for (DBGraphVertex::adjacency_iterator iter =
-                node->begin(table->GetGraph()); 
-                iter != node->end(table->GetGraph()); ++iter) {
-            IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-            if (Agent::GetInstance()->cfg_listener()->SkipNode(adj_node)) {
-                continue;
-            }
-
-            if (adj_node->table() == Agent::GetInstance()->cfg()->cfg_acl_table()) {
-                AccessControlList *acl_cfg = static_cast<AccessControlList *>
-                    (adj_node->GetObject());
-                assert(acl_cfg);
-                autogen::IdPermsType id_perms = acl_cfg->id_perms();
-                if (acl_cfg->entries().dynamic) {
-                    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
-                               mirror_cfg_acl_uuid);
-                } else {
-                    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
-                               acl_uuid);
-                }
-            }
-
-            if ((adj_node->table() == Agent::GetInstance()->cfg()->cfg_vrf_table()) &&
-              (!IsVRFServiceChainingInstance(node->name(), adj_node->name()))) {
-                vrf_name = adj_node->name();
-            }
-
-            if (adj_node->table() == Agent::GetInstance()->cfg()->cfg_vn_network_ipam_table()) {
-                if (IFMapNode *ipam_node = FindTarget(table, adj_node, 
-                                                      "network-ipam")) {
-                    ipam_name = ipam_node->name();
-
-                    VirtualNetworkNetworkIpam *ipam = 
-                        static_cast<VirtualNetworkNetworkIpam *>
-                        (adj_node->GetObject());
-                    assert(ipam);
-                    const VnSubnetsType &subnets = ipam->data();
-                    for (unsigned int i = 0; i < subnets.ipam_subnets.size(); ++i) {
-                        // if the DNS server address is not specified, set this
-                        // to be the same as the GW address
-                        std::string dns_server_address =
-                            subnets.ipam_subnets[i].dns_server_address;
-                        boost::system::error_code ec;
-                        IpAddress dns_server =
-                            IpAddress::from_string(dns_server_address, ec);
-                        if (ec.value() || dns_server.is_unspecified()) {
-                            dns_server_address =
-                                subnets.ipam_subnets[i].default_gateway;
-                        }
-
-                        vn_ipam.push_back(
-                           VnIpam(subnets.ipam_subnets[i].subnet.ip_prefix,
-                                  subnets.ipam_subnets[i].subnet.ip_prefix_len,
-                                  subnets.ipam_subnets[i].default_gateway,
-                                  dns_server_address,
-                                  subnets.ipam_subnets[i].enable_dhcp, ipam_name,
-                                  subnets.ipam_subnets[i].dhcp_option_list.dhcp_option,
-                                  subnets.ipam_subnets[i].host_routes.route));
-                    }
-                    VnIpamLinkData ipam_data;
-                    ipam_data.oper_dhcp_options_.set_host_routes(subnets.host_routes.route);
-                    vn_ipam_data.insert(VnData::VnIpamDataPair(ipam_name, ipam_data));
-                }
-            }
-        }
-
-        uuid mirror_acl_uuid = Agent::GetInstance()->mirror_cfg_table()->GetMirrorUuid(node->name());
-        std::sort(vn_ipam.begin(), vn_ipam.end());
-        data = new VnData(node->name(), acl_uuid, vrf_name, mirror_acl_uuid, 
-                          mirror_cfg_acl_uuid, vn_ipam, vn_ipam_data,
-                          vxlan_id, vnid, bridging, layer3_forwarding,
-                          id_perms.enable, enable_rpf);
+        data = BuildData(node);
+        req.data.reset(data);
         data->SetIFMapNode(agent(), node);
     }
 
-    req.key.reset(key);
-    req.data.reset(data);
-    Agent::GetInstance()->vn_table()->Enqueue(&req);
-
+    Enqueue(&req);
     if (node->IsDeleted()) {
         return false;
     }
+
     // Change to ACL referernce can result in change of Policy flag 
     // on interfaces. Find all interfaces on this VN and RESYNC them.
     // This is also required to check changes to admin_state and to
@@ -658,24 +730,22 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
             node->begin(table->GetGraph()); 
             iter != node->end(table->GetGraph()); ++iter) {
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (Agent::GetInstance()->cfg_listener()->SkipNode
-            (adj_node, Agent::GetInstance()->cfg()->cfg_vm_interface_table())) {
+        if (agent()->cfg_listener()->SkipNode
+            (adj_node, agent()->cfg()->cfg_vm_interface_table())) {
             continue;
         }
 
         if (adj_node->GetObject() == NULL) {
             continue;
         }
-        if (Agent::GetInstance()->interface_table()->IFNodeToReq(adj_node, req)) {
-            Agent::GetInstance()->interface_table()->Enqueue(&req);
+        if (agent()->interface_table()->IFNodeToReq(adj_node, req)) {
+            agent()->interface_table()->Enqueue(&req);
         }
     }
 
     // Trigger Floating-IP resync
-    VmInterface::FloatingIpVnSync(Agent::GetInstance()->interface_table(),
-                                  node);
-    VmInterface::VnSync(Agent::GetInstance()->interface_table(), node);
-
+    VmInterface::FloatingIpVnSync(agent()->interface_table(), node);
+    VmInterface::VnSync(agent()->interface_table(), node);
     return false;
 }
 

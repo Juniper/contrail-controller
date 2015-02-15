@@ -575,9 +575,70 @@ bool VrfTable::CanNotify(IFMapNode *node) {
     return true;
 }
 
-bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
-    VrfKey *key = new VrfKey(node->name());
+static VrfData *BuildData(Agent *agent, IFMapNode *node) {
     boost::uuids::uuid vn_uuid = nil_uuid();
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+    DBGraph *graph = table->GetGraph();
+
+    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
+         iter != node->end(graph); ++iter) {
+        IFMapNode *adj_node =
+            static_cast<IFMapNode *>(iter.operator->());
+
+        if (iter->IsDeleted() ||
+            (adj_node->table() != agent->cfg()->cfg_vn_table())) {
+            continue;
+        }
+
+        VirtualNetwork *cfg =
+            static_cast <VirtualNetwork *> (adj_node->GetObject());
+        if (cfg == NULL) {
+            continue;
+        }
+
+        if (!IsVRFServiceChainingInstance(adj_node->name(), node->name())) {
+            autogen::IdPermsType id_perms = cfg->id_perms();
+            CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                       vn_uuid);
+            break;
+        }
+    }
+
+    return new VrfData(VrfData::ConfigVrf, vn_uuid);
+}
+
+bool VrfTable::IFLinkToReq(IFMapLink *link, IFMapNode *node, IFMapNode *peer,
+                           DBRequest &req) {
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new VrfKey(node->name()));
+
+    if (peer->table() == agent()->cfg()->cfg_vn_table()) {
+        // Change in VN neighbour can change VN in the VRF
+        req.data.reset(BuildData(agent(), node));
+        Enqueue(&req);
+
+        // Resync dependent Floating-IP
+        VmInterface::FloatingIpVnSync(agent()->interface_table(), peer);
+    }
+
+    // Change to virtual-machine-interface-routing-instance can modify VRF
+    // in connected VMInterface
+    if (peer->table() == agent()->cfg()->cfg_vm_port_vrf_table()) {
+        if (agent()->cfg_listener()->SkipNode
+            (peer, agent()->cfg()->cfg_vm_port_vrf_table())) {
+            return false;
+        }
+
+        agent()->interface_table()->VmInterfaceVrfSync(peer);
+    }
+
+    return false;
+}
+
+bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
+    req.key.reset(new VrfKey(node->name()));
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+    DBGraph *graph = table->GetGraph();
 
     //Trigger add or delete only for non fabric VRF
     if (node->IsDeleted()) {
@@ -588,41 +649,14 @@ bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         } else {
             req.oper = DBRequest::DB_ENTRY_DELETE;
         }
+        req.data.reset(new VrfData(VrfData::ConfigVrf, nil_uuid()));
     } else {
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        IFMapAgentTable *table =
-            static_cast<IFMapAgentTable *>(node->table());
-        for (DBGraphVertex::adjacency_iterator iter =
-                node->begin(table->GetGraph());
-                iter != node->end(table->GetGraph()); ++iter) {
-            IFMapNode *adj_node =
-                static_cast<IFMapNode *>(iter.operator->());
-
-            if (iter->IsDeleted() ||
-                    (adj_node->table() != agent()->cfg()->cfg_vn_table())) {
-                continue;
-            }
-
-            VirtualNetwork *cfg =
-                static_cast <VirtualNetwork *> (adj_node->GetObject());
-            if (cfg == NULL) {
-                continue;
-            }
-
-            if (!IsVRFServiceChainingInstance(adj_node->name(), node->name())) {
-                autogen::IdPermsType id_perms = cfg->id_perms();
-                CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
-                           vn_uuid);
-            }
-            autogen::VirtualNetworkType properties = cfg->properties();
-        }
+        req.data.reset(BuildData(agent(), node));
     }
 
     //When VRF config delete comes, first enqueue VRF delete
     //so that when link evaluation happens, all point to deleted VRF
-    VrfData *data = new VrfData(VrfData::ConfigVrf, vn_uuid);
-    req.key.reset(key);
-    req.data.reset(data);
     Enqueue(&req);
 
     if (node->IsDeleted()) {
@@ -634,10 +668,8 @@ bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     // virtual-machine-interface <-> virtual-machine-interface-routing-instance
     // <-> routing-instance path, we may have skipped a routing-instance that
     // failed SkipNode()
-    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
-    for (DBGraphVertex::adjacency_iterator iter =
-         node->begin(table->GetGraph());
-         iter != node->end(table->GetGraph()); ++iter) {
+    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
+         iter != node->end(graph); ++iter) {
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
         if (agent()->cfg_listener()->SkipNode
             (adj_node, agent()->cfg()->cfg_vm_port_vrf_table())) {

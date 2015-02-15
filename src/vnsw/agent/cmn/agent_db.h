@@ -150,6 +150,11 @@ public:
         assert(0);
         return false;
     }
+    virtual bool IFLinkToReq(IFMapLink *link, IFMapNode *node, IFMapNode *peer,
+                             DBRequest &req) {
+        assert(0);
+        return false;
+    }
     virtual DBTablePartition *AllocPartition(int index) {
         return new AgentDBTablePartition(this, index);
     };

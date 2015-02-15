@@ -61,6 +61,7 @@ void CfgListener::Shutdown() {
     }
 
     cfg_listener_map_.clear();
+    cfg_link_listener_map_.clear();
     cfg_listener_cb_map_.clear();
     cfg_listener_id_map_.clear();
 }
@@ -155,6 +156,26 @@ AgentDBTable* CfgListener::GetOperDBTable(IFMapNode *node) {
     return info->table_;
 }
 
+// Register a notification other than IFMapToNode for link notifications
+void CfgListener::LinkRegister(const std::string &type, AgentDBTable *table) {
+    CfgTableListenerInfo info = {table, -1};
+    pair<CfgListenerMap::iterator, bool> result =
+            cfg_link_listener_map_.insert(make_pair(type, info));
+    assert(result.second);
+}
+
+AgentDBTable* CfgListener::GetLinkOperDBTable(IFMapNode *node) {
+    IFMapTable *cfg_table = node->table();
+    std::string table_name = cfg_table->Typename();
+
+    CfgListenerMap::const_iterator it = cfg_link_listener_map_.find(table_name);
+    if (it == cfg_link_listener_map_.end()) {
+        return NULL;
+    }
+    const CfgTableListenerInfo *info = &it->second;
+    return info->table_;
+}
+
 // Find the Callback function registered for an IFMapNode.
 // When configured, will skip notification of IFMapNode as long as ID_PERMS
 // is not got
@@ -179,7 +200,8 @@ CfgListener::NodeListenerCb CfgListener::GetCallback(IFMapNode *node) {
     return info->cb_;
 }
 
-void CfgListener::LinkNotify(IFMapNode *node, CfgDBState *state,
+void CfgListener::LinkNotify(IFMapLink *link, IFMapNode *node,
+                             IFMapNode *peer, CfgDBState *state,
                              DBTableBase::ListenerId id) {
     if (node == NULL) {
         return;
@@ -189,7 +211,25 @@ void CfgListener::LinkNotify(IFMapNode *node, CfgDBState *state,
         return;
     }
 
-    AgentDBTable *oper_table = GetOperDBTable(node);
+    AgentDBTable *oper_table = NULL;
+    if (peer) {
+        oper_table = GetLinkOperDBTable(node);
+        if (oper_table) {
+            // Skip link notification if node was not notified earlier
+            if (state == NULL || oper_table->CanNotify(node) == false)
+                return;
+
+            // Link can only result in update to existing entry. So, ADD_CHANGE
+            // is the only operation needed
+            DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+            if (oper_table->IFLinkToReq(link, node, peer, req)) {
+                oper_table->Enqueue(&req);
+            }
+            return;
+        }
+    }
+
+    oper_table = GetOperDBTable(node);
     if (oper_table && oper_table->CanNotify(node)) {
         UpdateSeenState(node->table(), node, state, id);
         NodeNotify(oper_table, node);
@@ -223,6 +263,14 @@ void CfgListener::LinkListener(DBTablePartBase *partition, DBEntryBase *dbe) {
         rstate = GetCfgDBState(rnode->table(), rnode, rid);
     }
 
+#if 0
+    if (dbe->IsDeleted()) {
+        cout << "Link deleted left " << lnode << " right " << rnode << endl;
+    } else {
+        cout << "Link added left " << lnode << " right " << rnode << endl;
+    }
+#endif
+
     // DB Table does not guarantee ordering of client notifications. So, we may
     // end-up in following sequence
     // (1)Node-A, (2)Link <Node-A, Node-B>, (3) Node-B
@@ -237,14 +285,14 @@ void CfgListener::LinkListener(DBTablePartBase *partition, DBEntryBase *dbe) {
     //     If right node is not notified, notify right followed by left.
     //     Else, notify left followed by right
     if (lstate != NULL && rstate != NULL) {
-        LinkNotify(lnode, lstate, lid);
-        LinkNotify(rnode, rstate, rid);
+        LinkNotify(link, lnode, rnode, lstate, lid);
+        LinkNotify(link, rnode, lnode, rstate, rid);
     } else if (lstate == NULL) {
-        LinkNotify(lnode, lstate, lid);
-        LinkNotify(rnode, rstate, rid);
+        LinkNotify(link, lnode, rnode, lstate, lid);
+        LinkNotify(link, rnode, lnode, rstate, rid);
     } else if (rstate == NULL) {
-        LinkNotify(rnode, rstate, rid);
-        LinkNotify(lnode, lstate, lid);
+        LinkNotify(link, rnode, lnode, rstate, rid);
+        LinkNotify(link, lnode, rnode, lstate, lid);
     }
 }
 
@@ -269,6 +317,14 @@ void CfgListener::NodeListener(DBTablePartBase *partition, DBEntryBase *dbe) {
 
     if (oper_table == NULL)
         return;
+
+#if 0
+    if (dbe->IsDeleted()) {
+        cout << "Node deleted " << node << endl;
+    } else {
+        cout << "Node Added " << node << endl;
+    }
+#endif
 
     DBTableBase::ListenerId id = 0;
     IFMapTable *table = static_cast<IFMapTable *>(partition->parent());
@@ -352,7 +408,7 @@ void CfgListener::NodeReSync(IFMapNode *node) {
     }
 }
 
-void CfgListener::Register(std::string type, AgentDBTable *table,
+void CfgListener::Register(const std::string &type, AgentDBTable *table,
                            int need_property_id) {
     CfgTableListenerInfo info = {table, need_property_id};
     pair<CfgListenerMap::iterator, bool> result =
@@ -368,7 +424,7 @@ void CfgListener::Register(std::string type, AgentDBTable *table,
     assert(result_id.second);
 }
 
-void CfgListener::Register(std::string type, NodeListenerCb callback,
+void CfgListener::Register(const std::string &type, NodeListenerCb callback,
                            int need_property_id) {
     CfgListenerInfo info = {callback, need_property_id};
     pair<CfgListenerCbMap::iterator, bool> result =
@@ -400,9 +456,9 @@ IFMapNode *CfgListener::FindAdjacentIFMapNode(const Agent *agent,
                                               IFMapNode *node,
                                               const char *type) {
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
-    for (DBGraphVertex::adjacency_iterator iter =
-         node->begin(table->GetGraph());
-         iter != node->end(table->GetGraph()); ++iter) {
+    DBGraph *graph = table->GetGraph();
+    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
+         iter != node->end(graph); ++iter) {
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
         if (SkipNode(adj_node)) {
             continue;
