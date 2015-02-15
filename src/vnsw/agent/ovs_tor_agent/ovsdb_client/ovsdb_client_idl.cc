@@ -116,6 +116,9 @@ OvsdbClientIdl::OvsdbClientIdl(OvsdbClientSession *session, Agent *agent,
     ovsdb_wrapper_idl_set_callback(idl_, (void *)this,
             ovsdb_wrapper_idl_callback, ovsdb_wrapper_idl_txn_ack);
     parser_ = NULL;
+    receive_queue_ = new WorkQueue<OvsdbMsg *>(
+            TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0,
+            boost::bind(&OvsdbClientIdl::ProcessMessage, this, _1));
     for (int i = 0; i < OVSDB_TYPE_COUNT; i++) {
         callback_[i] = NULL;
     }
@@ -136,8 +139,16 @@ OvsdbClientIdl::OvsdbClientIdl(OvsdbClientSession *session, Agent *agent,
 }
 
 OvsdbClientIdl::~OvsdbClientIdl() {
+    receive_queue_->Shutdown();
+    delete receive_queue_;
     manager_->Free(route_peer_.release());
     ovsdb_wrapper_idl_destroy(idl_);
+}
+
+OvsdbClientIdl::OvsdbMsg::OvsdbMsg(struct jsonrpc_msg *m) : msg(m) {
+}
+
+OvsdbClientIdl::OvsdbMsg::~OvsdbMsg() {
 }
 
 void OvsdbClientIdl::SendMointorReq() {
@@ -159,6 +170,9 @@ void OvsdbClientIdl::SendJsonRpc(struct jsonrpc_msg *msg) {
     free(s);
 }
 
+// This is invoked from OVSDB::IO task context. Handle the keepalive messages
+// in The OVSDB::IO task context itself. OVSDB::IO should not have exclusion
+// with any of the tasks
 void OvsdbClientIdl::MessageProcess(const u_int8_t *buf, std::size_t len) {
     std::size_t used = 0;
     // Multiple json message may be clubbed together, need to keep reading
@@ -184,7 +198,6 @@ void OvsdbClientIdl::MessageProcess(const u_int8_t *buf, std::size_t len) {
             if (error) {
                 assert(0);
                 free(error);
-                //continue;
             }
 
             if (ovsdb_wrapper_msg_echo_req(msg)) {
@@ -196,12 +209,21 @@ void OvsdbClientIdl::MessageProcess(const u_int8_t *buf, std::size_t len) {
             } else if (ovsdb_wrapper_msg_echo_reply(msg)) {
                 /* It's a reply to our echo request.  Suppress it. */
             } else {
-                ovsdb_wrapper_idl_msg_process(idl_, msg);
+                // Enqueue non-keepalive messages to task in KSync context
+                OvsdbMsg *ovs_msg = new OvsdbMsg(msg);
+                receive_queue_->Enqueue(ovs_msg);
                 continue;
             }
             ovsdb_wrapper_jsonrpc_msg_destroy(msg);
         }
     }
+}
+
+bool OvsdbClientIdl::ProcessMessage(OvsdbMsg *msg) {
+    ovsdb_wrapper_idl_msg_process(idl_, msg->msg);
+    // msg->msg is freed by process method above
+    msg->msg = NULL;
+    return true;
 }
 
 struct ovsdb_idl_txn *OvsdbClientIdl::CreateTxn(OvsdbEntryBase *entry) {

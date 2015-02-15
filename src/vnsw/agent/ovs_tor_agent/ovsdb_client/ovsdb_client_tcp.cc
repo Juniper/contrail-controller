@@ -93,7 +93,7 @@ OvsdbClientTcpSession::OvsdbClientTcpSession(Agent *agent,
      * to assure only one thread is writting data to OVSDB client.
      */
     receive_queue_ = new WorkQueue<queue_msg>(
-            TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0,
+            TaskScheduler::GetInstance()->GetTaskId("OVSDB::IO"), 0,
             boost::bind(&OvsdbClientTcpSession::ReceiveDequeue, this, _1));
     // Process session events in KSync workqueue task context,
     session_event_queue_ = new WorkQueue<OvsdbSessionEvent>(
