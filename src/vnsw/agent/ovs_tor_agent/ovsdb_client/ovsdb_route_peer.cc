@@ -7,13 +7,22 @@
 #include <oper/nexthop.h>
 #include <oper/tunnel_nh.h>
 
+#include <ovsdb_client_idl.h>
+#include <ovsdb_types.h>
+
 OvsPeer::OvsPeer(const IpAddress &peer_ip, uint64_t gen_id,
                  OvsPeerManager *peer_manager) :
     Peer(Peer::OVS_PEER, "OVS-" + peer_ip.to_string(), true), peer_ip_(peer_ip),
     gen_id_(gen_id), peer_manager_(peer_manager) {
+    stringstream str;
+    str << "Allocating OVS Peer " << this << " Gen-Id " << gen_id;
+    OVSDB_TRACE(Trace, str.str());
 }
 
 OvsPeer::~OvsPeer() {
+    stringstream str;
+    str << "Deleting OVS Peer " << this << " Gen-Id " << gen_id_;
+    OVSDB_TRACE(Trace, str.str());
 }
 
 bool OvsPeer::Compare(const Peer *rhs) const {
@@ -54,8 +63,8 @@ bool OvsPeer::AddOvsRoute(const VnEntry *vn,
                                               vn->GetName(), sg_list);
     EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
         (vrf->GetEvpnRouteTable());
-    table->AddRemoteVmRouteReq(this, vrf->GetName(), mac, prefix_ip,
-                               vn->vxlan_id()->vxlan_id(), data);
+    table->AddRemoteVmRoute(this, vrf->GetName(), mac, prefix_ip,
+                            vn->vxlan_id()->vxlan_id(), data);
     return true;
 }
 
@@ -67,7 +76,7 @@ void OvsPeer::DeleteOvsRoute(VrfEntry *vrf, uint32_t vxlan_id,
     IpAddress prefix_ip = IpAddress(Ip4Address::from_string("0.0.0.0"));
     EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
         (vrf->GetEvpnRouteTable());
-    table->DeleteReq(this, vrf->GetName(), mac, prefix_ip, vxlan_id);
+    table->Delete(this, vrf->GetName(), mac, prefix_ip, vxlan_id);
     return;
 }
 
