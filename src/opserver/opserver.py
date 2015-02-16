@@ -1522,23 +1522,58 @@ class OpServer(object):
                 json.dumps(response), _ERRORS[errno.EBADMSG],
                 {'Content-type': 'application/json'})
 
-        purge_input= None
+        analytics_start_time = self._analytics_db._get_analytics_start_time()
+        if (analytics_start_time == None):
+            self._logger.info("Failed to get the analytics start time")
+            response = {'status': 'failed',
+                        'reason': 'Failed to get the analytics start time'}
+            return bottle.HTTPResponse(
+                        json.dumps(response), _ERRORS[errno.EIO],
+                        {'Content-type': 'application/json'})
+
+        purge_input = None
         if ("purge_input" in bottle.request.json.keys()):
             value = bottle.request.json["purge_input"]
-            if( (type(value) is int) and (value <= 100) and (value > 0)):
-                purge_input = value
+            if (type(value) is int):
+                if ((value <= 100) and (value > 0)):
+                    current_time = UTCTimestampUsec()
+                    purge_input = analytics_start_time + (float((value)*
+                             (float(current_time) - float(analytics_start_time))))/100
+                else:
+                    response = {'status': 'failed',
+                        'reason': 'Valid % range is [1, 100]'}
+                    return bottle.HTTPResponse(
+                        json.dumps(response), _ERRORS[errno.EBADMSG],
+                        {'Content-type': 'application/json'})
+            elif (type(value) is unicode):
+                try:
+                    purge_input = OpServerUtils.convert_to_utc_timestamp_usec(value)
+                except:
+                    response = {'status': 'failed',
+                   'reason': 'Valid time formats are: \'%Y %b %d %H:%M:%S.%f\', '
+                   '\'now\', \'now-h/m/s\', \'-/h/m/s\' in  purge_input'}
+                    return bottle.HTTPResponse(
+                        json.dumps(response), _ERRORS[errno.EBADMSG],
+                        {'Content-type': 'application/json'})
             else:
-                response = {
-                    'status': 'failed', 'reason': 'INVALID purge_input'}
+                response = {'status': 'failed',
+                    'reason': 'Valid purge_input format is % or time'}
                 return bottle.HTTPResponse(
                     json.dumps(response), _ERRORS[errno.EBADMSG],
                     {'Content-type': 'application/json'})
         else:
-            response = {
-                'status': 'failed', 'reason': 'purge_input not specified'}
+            response = {'status': 'failed',
+                        'reason': 'purge_input not specified'}
             return bottle.HTTPResponse(
                 json.dumps(response), _ERRORS[errno.EBADMSG],
                 {'Content-type': 'application/json'})
+
+        if (purge_input <= analytics_start_time):
+            response = {
+                'status': 'failed', 'reason': 'No data available to purge'}
+            return bottle.HTTPResponse(
+                    json.dumps(response), _ERRORS[errno.EBADMSG],
+                    {'Content-type': 'application/json'})
 
         res = self._analytics_db.get_analytics_db_purge_status(
                   self._state_server._redis_list)
