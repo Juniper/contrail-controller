@@ -38,6 +38,7 @@ public:
     virtual void ReceiveMulticastUpdate(XmlPugi *pugi);
     virtual void ReceiveV4V6Update(XmlPugi *pugi);
     XmppChannel *GetXmppChannel() { return channel_; }
+    void ReceiveBgpMessage(std::auto_ptr<XmlBase> impl);
 
     //Helper to identify if specified peer has active BGP peer attached
     static bool IsBgpPeerActive(AgentXmppChannel *peer);
@@ -50,6 +51,8 @@ public:
     static void UnicastPeerDown(AgentXmppChannel *peer, BgpPeer *peer_id);
     static void MulticastPeerDown(AgentXmppChannel *old_channel, 
                                   AgentXmppChannel *new_channel);
+    static void XmppClientChannelEvent(AgentXmppChannel *peer,
+                                       xmps::PeerState state);
     static void HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
                                                   xmps::PeerState state);
     static bool ControllerSendCfgSubscribe(AgentXmppChannel *peer);

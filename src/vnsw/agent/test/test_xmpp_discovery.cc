@@ -368,6 +368,7 @@ TEST_F(AgentXmppUnitTest, XmppConnection_Discovery) {
     client->WaitForIdle();
 
     xs5->Shutdown();
+    client->WaitForIdle();
     EXPECT_TRUE(agent_->controller()->config_cleanup_timer().
                 cleanup_timer_->running() == true);
     if (agent_->headless_agent_mode()) {
