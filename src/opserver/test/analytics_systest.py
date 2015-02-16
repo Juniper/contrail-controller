@@ -137,6 +137,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_message_table_filter()
         assert vizd_obj.verify_message_table_filter2()
         assert vizd_obj.verify_message_table_sort()
+        assert vizd_obj.verify_message_table_limit()
         return True
     # end test_02_message_table_query
 
