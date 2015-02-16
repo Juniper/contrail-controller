@@ -100,12 +100,10 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_collector_obj_count()
         end_time = UTCTimestampUsec()
         start_time = end_time - 3600*pow(10,6)
-        assert vizd_obj.verify_collector_object_log(start_time, end_time)
-        assert vizd_obj.verify_collector_object_log_before_purge(start_time,
-                   end_time)
-        assert vizd_obj.verify_database_purge_query()
-        assert vizd_obj.verify_collector_object_log_after_purge(start_time,
-                   end_time)
+        assert vizd_obj.verify_database_purge_with_percentage_input(start_time, end_time)
+        assert vizd_obj.verify_database_purge_support_utc_time_format()
+        assert vizd_obj.verify_database_purge_support_datetime_format()
+        assert vizd_obj.verify_database_purge_support_deltatime_format()
         assert vizd_obj.verify_database_purge_request_limit()
     # end verify_database_purge
 
