@@ -33,8 +33,10 @@ SandeshTraceBufferPtr ControllerTraceBuf(SandeshTraceBufferCreate(
 VNController::VNController(Agent *agent) 
     : agent_(agent), multicast_sequence_number_(0),
     unicast_cleanup_timer_(agent), multicast_cleanup_timer_(agent), 
-    config_cleanup_timer_(agent) {
-        decommissioned_peer_list_.clear();
+    config_cleanup_timer_(agent),
+    work_queue_(TaskScheduler::GetInstance()->GetTaskId("Agent::ControllerXmpp"), 0,
+        boost::bind(&VNController::XmppMessageProcess, this, _1)) {
+    decommissioned_peer_list_.clear();
 }
 
 VNController::~VNController() {
@@ -66,7 +68,7 @@ void VNController::XmppServerConnect() {
                               agent_->multicast_label_range(count),
                               count);
             client->RegisterConnectionEvent(xmps::BGP,
-               boost::bind(&AgentXmppChannel::HandleAgentXmppClientChannelEvent,
+               boost::bind(&AgentXmppChannel::XmppClientChannelEvent,
                            bgp_peer, _2));
 
             XmppChannelConfig *xmpp_cfg = new XmppChannelConfig(true);
@@ -651,4 +653,33 @@ void VNController::DeleteVrfStateOfDecommisionedPeers(
         BgpPeer *bgp_peer = static_cast<BgpPeer *>((*it).get());
         bgp_peer->DeleteVrfState(partition, e);
     }
+}
+
+bool VNController::XmppMessageProcess(boost::shared_ptr<ControllerXmppData> data) {
+
+    if ((data->peer_id() == xmps::BGP) && (data->peer_state() != xmps::UNKNOWN)) {
+        AgentXmppChannel *peer = agent_->controller_xmpp_channel(data->
+                                                                 channel_id());
+        AgentXmppChannel::HandleAgentXmppClientChannelEvent(peer,
+                                                            data->peer_state());
+    } else if (data->peer_id() == xmps::CONFIG) {
+        AgentIfMapXmppChannel *peer = agent_->ifmap_xmpp_channel(data->
+                                                                 channel_id());
+        peer->ReceiveConfigMessage(data->dom());
+    } else if (data->peer_id() == xmps::BGP) {
+        AgentXmppChannel *peer = agent_->controller_xmpp_channel(data->
+                                                                 channel_id());
+        peer->ReceiveBgpMessage(data->dom());
+    } else if (data->peer_id() == xmps::DNS) {
+        AgentDnsXmppChannel *peer = agent_->dns_xmpp_channel(data->
+                                                             channel_id());
+        AgentDnsXmppChannel::HandleXmppClientChannelEvent(peer,
+                                                          data->peer_state());
+    }
+
+    return true;
+}
+
+void VNController::Enqueue(boost::shared_ptr<ControllerXmppData> data) {
+    work_queue_.Enqueue(data);
 }
