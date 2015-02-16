@@ -15,14 +15,17 @@ import copy
 import os
 import json
 import gevent
+import datetime
 from fcntl import fcntl, F_GETFL, F_SETFL
 from operator import itemgetter
 from opserver_introspect_utils import VerificationOpsSrv
 from collector_introspect_utils import VerificationCollector
 from alarmgen_introspect_utils import VerificationAlarmGen
 from opserver.sandesh.viz.constants import COLLECTOR_GLOBAL_TABLE, SOURCE, MODULE
+from opserver.opserver_util import OpServerUtils
 from sandesh_common.vns.constants import NodeTypeNames, ModuleNames
 from sandesh_common.vns.ttypes import NodeType, Module
+from pysandesh.util import UTCTimestampUsec
 
 class Query(object):
     table = None
@@ -1972,16 +1975,15 @@ class AnalyticsFixture(fixtures.Fixture):
         return True
     # end verify_collector_object_log_before_purge
 
-    def verify_database_purge_query(self):
+    def verify_database_purge_query(self, json_qstr):
         self.logger.info('verify database purge query');
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port);
-        json_qstr = json.dumps({'purge_input': 100})
         res = vns.post_purge_query_json(json_qstr)
         assert(res == 'started')
         return True
     # end verify_database_purge_query
 
-    @retry(delay=2, tries=20)
+    @retry(delay=2, tries=5)
     def verify_collector_object_log_after_purge(self, start_time, end_time):
         self.logger.info('verify_collector_object_log_after_purge')
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
@@ -1991,6 +1993,55 @@ class AnalyticsFixture(fixtures.Fixture):
             return False
         return True
     # end verify_collector_object_log_after_purge
+
+    def verify_database_purge_with_percentage_input(self):
+        self.logger.info('verify database purge query')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        end_time = UTCTimestampUsec()
+        start_time = end_time - 10*60*pow(10,6)
+        assert(self.verify_collector_object_log_before_purge(start_time, end_time))
+        json_qstr = json.dumps({'purge_input': 100})
+        assert(self.verify_database_purge_query(json_qstr))
+        assert(self.verify_collector_object_log_after_purge(start_time, end_time))
+        return True
+    # end verify_database_purge_query
+
+    def verify_database_purge_support_utc_time_format(self):
+        self.logger.info('verify database purge support utc time format')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        json_qstr = json.dumps({'purge_input': 'now'})
+        end_time = OpServerUtils.convert_to_utc_timestamp_usec('now')
+        start_time = end_time - 20*60*pow(10,6)
+        assert(self.verify_collector_object_log_before_purge(start_time, end_time))
+        assert(self.verify_database_purge_query(json_qstr))
+        assert(self.verify_collector_object_log_after_purge(start_time, end_time))
+        return True
+    # end verify_database_purge_support_utc_time_format
+
+    def verify_database_purge_support_datetime_format(self):
+        self.logger.info('verify database purge support datetime format')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        dt = datetime.datetime.now().strftime("%Y %b %d %H:%M:%S.%f")
+        json_qstr = json.dumps({'purge_input': dt})
+        end_time = OpServerUtils.convert_to_utc_timestamp_usec(dt)
+        start_time = end_time - 30*60*pow(10,6)
+        assert(self.verify_collector_object_log_before_purge(start_time, end_time))
+        assert(self.verify_database_purge_query(json_qstr))
+        assert(self.verify_collector_object_log_after_purge(start_time, end_time))
+        return True
+    # end verify_database_purge_support_datetime_format
+
+    def verify_database_purge_support_deltatime_format(self):
+        self.logger.info('verify database purge support deltatime format')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        json_qstr = json.dumps({'purge_input': '-1s'})
+        end_time = OpServerUtils.convert_to_utc_timestamp_usec('-1s')
+        start_time = end_time - 10*60*pow(10,6)
+        assert(self.verify_collector_object_log_before_purge(start_time, end_time))
+        assert(self.verify_database_purge_query(json_qstr))
+        assert(self.verify_collector_object_log_after_purge(start_time, end_time))
+        return True
+    # end verify_database_purge_support_deltatime_format
 
     def verify_database_purge_request_limit(self):
         self.logger.info('verify database purge request limit')

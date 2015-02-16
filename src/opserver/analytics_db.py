@@ -190,16 +190,9 @@ class AnalyticsDb(object):
         return total_rows_deleted
     # end purge_old_data
 
-    def db_purge(self, purge_input, purge_id):
+    def db_purge(self, purge_time, purge_id):
         total_rows_deleted = 0 # total number of rows deleted
-        if (purge_input != None):
-            current_time = UTCTimestampUsec()
-            analytics_start_time = self._get_analytics_start_time()
-            if (analytics_start_time == None):
-                self._logger.error("Failed to get the analytics start time")
-                return -1
-            purge_time = analytics_start_time + (float((purge_input)*
-                         (float(current_time) - float(analytics_start_time))))/100
+        if (purge_time != None):
             total_rows_deleted = self.purge_old_data(purge_id, purge_time)
             if (total_rows_deleted != -1):
                 self._update_analytics_start_time(int(purge_time))
