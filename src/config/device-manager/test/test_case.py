@@ -39,14 +39,14 @@ class DMTestCase(test_common.TestCase):
         params.address_families = AddressFamilies(['route-target', 'inet-vpn', 'e-vpn',
                                              'inet6-vpn'])
         params.autonomous_system = 64512
-        params.vendor = 'mx'
-        params.vnc_managed = True
         bgp_router.set_bgp_router_parameters(params)
         self._vnc_lib.bgp_router_create(bgp_router)
 
         pr = PhysicalRouter(name)
         pr.physical_router_management_ip = mgmt_ip
-        pr.physical_router_vendor_name = 'mx'
+        pr.physical_router_vendor_name = 'juniper'
+        pr.physical_router_product_name = 'mx'
+        pr.physical_router_vnc_managed = True
         uc = UserCredentials('user', 'pw')
         pr.set_physical_router_user_credentials(uc)
         pr.set_bgp_router(bgp_router)
