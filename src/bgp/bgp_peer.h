@@ -222,7 +222,9 @@ public:
     bool GetBestAuthKeyItem(AuthenticationKey *auth_key);
     bool AuthKeyIsMd5(const AuthenticationKey &auth_key);
     void InstallAuthKeys(TcpSession *session);
-    std::string GetInuseAuthKeyValue();
+    std::string GetInuseAuthKeyValue() const;
+    void SetListenSocketAuthKey();
+    void ClearListenSocketAuthKey();
 
 private:
     friend class BgpConfigTest;
@@ -253,8 +255,10 @@ private:
     virtual bool MpNlriAllowed(uint16_t afi, uint8_t safi);
     BgpAttrPtr GetMpNlriNexthop(BgpMpNlri *nlri, BgpAttrPtr attr);
 
-    bool GetBestAuthKey(AuthenticationKey *auth_key);
+    bool GetBestAuthKey(AuthenticationKey *auth_key) const;
     void ProcessAuthKeyChainConfig(const BgpNeighborConfig *config);
+    void LogInstallAuthKeys(const std::string &oper,
+                            const AuthenticationKey &auth_key);
 
     void PostCloseRelease();
     void CustomClose();

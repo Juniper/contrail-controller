@@ -22,7 +22,7 @@ struct AuthenticationKey {
         MD5,
     };
 
-    AuthenticationKey() : id(""), type(NIL), value(""), start_time(0) {
+    AuthenticationKey() : type(NIL), start_time(0) {
     }
 
     bool operator<(const AuthenticationKey &) const;
@@ -32,7 +32,7 @@ struct AuthenticationKey {
         type = NIL;
         value = "";
     }
-    std::string KeyTypeToString() {
+    std::string KeyTypeToString() const {
         switch (type) {
             case MD5: return "MD5";
             default: return "NIL";

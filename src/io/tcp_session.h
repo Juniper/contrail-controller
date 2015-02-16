@@ -134,7 +134,8 @@ public:
     const io::SocketStats &GetSocketStats() const { return stats_; }
     void GetRxSocketStats(SocketIOStats &socket_stats) const;
     void GetTxSocketStats(SocketIOStats &socket_stats) const;
-    void SetMd5SocketOption(uint32_t peer_ip, std::string md5_password);
+    int SetMd5SocketOption(uint32_t peer_ip, const std::string &md5_password);
+    int ClearMd5SocketOption(uint32_t peer_ip);
 
 protected:
     typedef boost::intrusive_ptr<TcpSession> TcpSessionPtr;
