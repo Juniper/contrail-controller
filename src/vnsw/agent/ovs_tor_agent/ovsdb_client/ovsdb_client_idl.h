@@ -116,6 +116,7 @@ public:
     VnOvsdbObject *vn_ovsdb();
 
     void trigger_deletion();
+    bool IsDeleted() const { return deleted_; }
 
 private:
     friend void ovsdb_wrapper_idl_callback(void *, int, struct ovsdb_idl_row *);
