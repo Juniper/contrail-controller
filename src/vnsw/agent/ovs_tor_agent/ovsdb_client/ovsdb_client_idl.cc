@@ -210,9 +210,11 @@ void OvsdbClientIdl::MessageProcess(const u_int8_t *buf, std::size_t len) {
                 /* It's a reply to our echo request.  Suppress it. */
             } else {
                 // Enqueue non-keepalive messages to task in KSync context
-                OvsdbMsg *ovs_msg = new OvsdbMsg(msg);
-                receive_queue_->Enqueue(ovs_msg);
-                continue;
+                if (!deleted_) {
+                    OvsdbMsg *ovs_msg = new OvsdbMsg(msg);
+                    receive_queue_->Enqueue(ovs_msg);
+                    continue;
+                }
             }
             ovsdb_wrapper_jsonrpc_msg_destroy(msg);
         }
@@ -220,7 +222,9 @@ void OvsdbClientIdl::MessageProcess(const u_int8_t *buf, std::size_t len) {
 }
 
 bool OvsdbClientIdl::ProcessMessage(OvsdbMsg *msg) {
-    ovsdb_wrapper_idl_msg_process(idl_, msg->msg);
+    if (!deleted_) {
+        ovsdb_wrapper_idl_msg_process(idl_, msg->msg);
+    }
     // msg->msg is freed by process method above
     msg->msg = NULL;
     delete msg;

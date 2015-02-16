@@ -129,7 +129,9 @@ void OvsdbClientTcpSession::RecvMsg(const u_int8_t *buf, std::size_t len) {
 }
 
 bool OvsdbClientTcpSession::ReceiveDequeue(queue_msg msg) {
-    MessageProcess(msg.buf, msg.len);
+    if (!IsClosed()) {
+        MessageProcess(msg.buf, msg.len);
+    }
     free(msg.buf);
     return true;
 }

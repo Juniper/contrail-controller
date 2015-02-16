@@ -61,6 +61,7 @@ bool VMInterfaceKSyncEntry::Sync(DBEntry *db_entry) {
         if (vn)
             vxlan = vn->vxlan_id();
         if (vrf != NULL && vn != NULL && vxlan != NULL &&
+            !table_->client_idl()->IsDeleted() &&
             table_->client_idl()->route_peer() != NULL) {
             EvpnAgentRouteTable *evpn_table = static_cast<EvpnAgentRouteTable *>
                 (vrf->GetEvpnRouteTable());
