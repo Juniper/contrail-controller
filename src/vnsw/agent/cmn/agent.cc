@@ -523,3 +523,9 @@ bool Agent::isVmwareVcenterMode() const {
 
     return params_->isVmwareVcenterMode();
 }
+
+void Agent::ConcurrencyCheck() {
+    if (test_mode_) {
+       CHECK_CONCURRENCY("db::DBTable", "Agent::KSync");
+    }
+}

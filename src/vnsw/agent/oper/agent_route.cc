@@ -263,7 +263,7 @@ void AgentRouteTable::DeletePathFromPeer(DBTablePartBase *part,
 
 // Inline processing of Route request.
 void AgentRouteTable::Process(DBRequest &req) {
-    CHECK_CONCURRENCY("db::DBTable");
+    agent()->ConcurrencyCheck();
     DBTablePartition *tpart =
         static_cast<DBTablePartition *>(GetTablePartition(req.key.get()));
     tpart->Process(NULL, &req);
@@ -484,7 +484,7 @@ VrfEntry *AgentRouteTable::vrf_entry() const {
 }
 
 void AgentRouteTable::NotifyEntry(AgentRoute *e) {
-    CHECK_CONCURRENCY("db::DBTable");
+    agent()->ConcurrencyCheck();
     DBTablePartBase *tpart =
         static_cast<DBTablePartition *>(GetTablePartition(e));
     tpart->Notify(e);

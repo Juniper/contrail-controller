@@ -245,7 +245,7 @@ VrfEntry *NextHopTable::FindVrfEntry(const VrfKey &key) const {
 }
 
 void NextHopTable::Process(DBRequest &req) {
-    CHECK_CONCURRENCY("db::DBTable");
+    agent()->ConcurrencyCheck();
     DBTablePartition *tpart = 
         static_cast<DBTablePartition *>(GetTablePartition(req.key.get()));
     tpart->Process(NULL, &req);
@@ -258,7 +258,7 @@ void NextHopTable::OnZeroRefcount(AgentDBEntry *e) {
         return;
     }
 
-    CHECK_CONCURRENCY("db::DBTable");
+    agent()->ConcurrencyCheck();
     nh->OnZeroRefCount();
     
     DBRequest req;
