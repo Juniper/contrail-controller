@@ -21,6 +21,7 @@ import unittest
 import testtools
 import fixtures
 import socket
+import json
 from utils.analytics_fixture import AnalyticsFixture
 from mockcassandra import mockcassandra
 from mockredis import mockredis
@@ -100,12 +101,16 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_collector_obj_count()
         end_time = UTCTimestampUsec()
         start_time = end_time - 3600*pow(10,6)
+        json_qstr = json.dumps({'purge_input': 100})
         assert vizd_obj.verify_collector_object_log(start_time, end_time)
         assert vizd_obj.verify_collector_object_log_before_purge(start_time,
                    end_time)
-        assert vizd_obj.verify_database_purge_query()
+        assert vizd_obj.verify_database_purge_query(json_qstr)
         assert vizd_obj.verify_collector_object_log_after_purge(start_time,
                    end_time)
+        assert vizd_obj.verify_database_purge_support_utc_time_format()
+        assert vizd_obj.verify_database_purge_support_datetime_format()
+        assert vizd_obj.verify_database_purge_support_deltatime_format()
         assert vizd_obj.verify_database_purge_request_limit()
     # end verify_database_purge
 

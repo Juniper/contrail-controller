@@ -15,6 +15,7 @@ from pycassa.types import *
 from pycassa import *
 from sandesh.viz.constants import *
 from pysandesh.util import UTCTimestampUsec
+from opserver_util import OpServerUtils
 
 class AnalyticsDb(object):
     def __init__(self, logger, cassandra_server_list,
@@ -198,8 +199,11 @@ class AnalyticsDb(object):
             if (analytics_start_time == None):
                 self._logger.error("Failed to get the analytics start time")
                 return -1
-            purge_time = analytics_start_time + (float((purge_input)*
-                         (float(current_time) - float(analytics_start_time))))/100
+            if (purge_input <= 100):
+                purge_time = analytics_start_time + (float((purge_input)*
+                             (float(current_time) - float(analytics_start_time))))/100
+            else:
+                purge_time = purge_input
             total_rows_deleted = self.purge_old_data(purge_id, purge_time)
             if (total_rows_deleted != -1):
                 self._update_analytics_start_time(int(purge_time))
