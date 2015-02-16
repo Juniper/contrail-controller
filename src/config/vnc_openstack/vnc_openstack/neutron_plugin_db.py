@@ -1522,7 +1522,28 @@ class DBInterface(object):
         if not vn_refs:
             return None
 
-        return vn_refs[0]['uuid']
+        si_refs = rtr_obj.get_service_instance_refs()
+        if not si_refs:
+            return None
+
+        try:
+            si_obj = self._vnc_lib.service_instance_read(id=si_refs[0]['uuid'])
+        except NoIdError:
+            return None
+
+        si_id_perms = si_obj.get_id_perms()
+        if not si_id_perms.get_enable():
+            return None
+
+        for vm_ref in si_obj.get_virtual_machine_back_refs() or []:
+            try:
+                vm_obj = self._vnc_lib.virtual_machine_read(id=vm_ref['uuid'])
+                if vm_obj.get_virtual_router_back_refs():
+                    return vn_refs[0]['uuid']
+            except NoIdError:
+                continue
+
+        return None
 
     def _router_vnc_to_neutron(self, rtr_obj, rtr_repr='SHOW'):
         rtr_q_dict = {}
@@ -2929,7 +2950,7 @@ class DBInterface(object):
 
         # Add logical gateway virtual network
         router_obj.set_service_instance(si_obj)
-	router_obj.set_virtual_network(ext_net_obj)
+        router_obj.set_virtual_network(ext_net_obj)
         self._vnc_lib.logical_router_update(router_obj)
 
     def _router_clear_external_gateway(self, router_obj):
