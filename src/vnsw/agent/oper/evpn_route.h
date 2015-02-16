@@ -46,6 +46,12 @@ public:
                          const SecurityGroupList &sg_id_list,
                          const PathPreference &path_pref,
                          uint32_t ethernet_tag);
+    static void ResyncVmRouteReq(const Peer *peer,
+                                 const string &vrf_name,
+                                 const MacAddress &mac,
+                                 const IpAddress &ip_addr,
+                                 uint32_t ethernet_tag,
+                                 AgentRouteData *data);
     static void AddRemoteVmRouteReq(const Peer *peer,
                                     const std::string &vrf_name,
                                     const MacAddress &mac,

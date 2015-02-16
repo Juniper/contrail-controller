@@ -519,7 +519,7 @@ uint16_t Dhcpv6Handler::AddIP(uint16_t opt_len, const std::string &input) {
 // Add domain name from IPAM to the option
 uint16_t Dhcpv6Handler::AddDomainNameOption(uint16_t opt_len) {
     if (ipam_type_.ipam_dns_method == "virtual-dns-server") {
-        if (config_.domain_name_.size()) {
+        if (is_dns_enabled() && config_.domain_name_.size()) {
             // encode the domain name in the dns encoding format
             uint8_t domain_name[config_.domain_name_.size() * 2 + 2];
             uint16_t len = 0;
@@ -576,7 +576,9 @@ uint16_t Dhcpv6Handler::FillDhcpv6Hdr() {
         option_->SetNextOptionPtr(opt_len);
         option_->WriteData(DHCPV6_OPTION_DNS_SERVERS, 0, NULL, &opt_len);
         opt_len = AddDnsServers(opt_len);
-        if (opt_len == old_opt_len) opt_len -= 4;
+        // if there was no DNS server, revert the option
+        if (opt_len == old_opt_len + option_->GetFixedLen())
+            opt_len = old_opt_len;
     }
 
     if (!is_flag_set(DHCPV6_OPTION_DOMAIN_LIST)) {

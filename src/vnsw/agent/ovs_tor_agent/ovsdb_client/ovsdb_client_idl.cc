@@ -141,6 +141,10 @@ OvsdbClientIdl::~OvsdbClientIdl() {
 }
 
 void OvsdbClientIdl::SendMointorReq() {
+    if (deleted_) {
+        OVSDB_TRACE(Trace, "IDL deleted skipping Monitor Request");
+        return;
+    }
     OVSDB_TRACE(Trace, "Sending Monitor Request");
     SendJsonRpc(ovsdb_wrapper_idl_encode_monitor_request(idl_));
 }

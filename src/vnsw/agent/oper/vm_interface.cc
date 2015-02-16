@@ -652,7 +652,9 @@ static void BuildAttributes(Agent *agent, IFMapNode *node,
     if (cfg->mac_addresses().size()) {
         data->vm_mac_ = cfg->mac_addresses().at(0);
     }
+}
 
+static void UpdateAttributes(Agent *agent, VmInterfaceConfigData *data) {
     // Compute fabric_port_ and need_linklocal_ip_ flags
     data->fabric_port_ = false;
     data->need_linklocal_ip_ = true;
@@ -838,6 +840,8 @@ bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req) {
             BuildResolveRoute(data, adj_node);
         }
     }
+
+    UpdateAttributes(agent_, data);
 
     // Get DHCP enable flag from subnet
     if (vn_node && data->addr_.to_ulong()) {
@@ -1041,7 +1045,6 @@ void VmInterface::UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
                            const Ip6Address &old_v6_addr,
                            const Ip4Address &old_subnet,
                            const uint8_t old_subnet_plen) {
-    UpdateSecurityGroup();
     UpdateL3NextHop(old_ipv4_active, old_ipv6_active);
     UpdateL3TunnelId(force_update, policy_change);
     if (ipv4_active_) {
@@ -1079,7 +1082,6 @@ void VmInterface::DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
     DeleteServiceVlan();
     DeleteStaticRoute();
     DeleteAllowedAddressPair();
-    DeleteSecurityGroup();
     DeleteL3TunnelId();
     DeleteVrfAssignRule();
     DeleteL3NextHop(old_ipv4_active, old_ipv6_active);
@@ -1176,6 +1178,11 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
     } else {
         DeleteMacVmBinding(old_l2_active);
     }
+
+    if (IsActive())
+        UpdateSecurityGroup();
+    else
+        DeleteSecurityGroup();
 
     //Need not apply config for TOR VMI as it is more of an inidicative
     //interface. No route addition or NH addition happens for this interface.
@@ -2074,6 +2081,41 @@ void VmInterface::UpdateMacVmBinding(bool old_l2_active) {
     if (L2Activated(old_l2_active)) {
         InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
         table->mac_vm_binding().AddMacVmBinding(this);
+        int vxlan_id = vn_.get() ? vn_.get()->GetVxLanId() : 0;
+        EvpnAgentRouteTable *evpn_table = static_cast<EvpnAgentRouteTable *>
+            (vrf_.get()->GetEvpnRouteTable());
+        EvpnRouteEntry *evpn_rt =
+            evpn_table->FindRoute(MacAddress::FromString(vm_mac_), Ip4Address(),
+                                  vxlan_id);
+        if (evpn_rt == NULL)
+            evpn_rt = evpn_table->FindRoute(MacAddress::FromString(vm_mac_), Ip6Address(),
+                                       vxlan_id);
+        if (evpn_rt) {
+            for(Route::PathList::const_iterator it = evpn_rt->GetPathList().begin();
+                it != evpn_rt->GetPathList().end(); it++) {
+                const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
+                if (path) {
+                    path->set_flood_dhcp(!dhcp_enable_config());
+                }
+            }
+            evpn_table->NotifyEntry(evpn_rt);
+        }
+        BridgeRouteEntry *br_rt =
+            BridgeAgentRouteTable::FindRoute(evpn_table->agent(),
+                                             vrf_.get()->GetName(),
+                                             MacAddress::FromString(vm_mac_));
+        BridgeAgentRouteTable *br_table = static_cast<BridgeAgentRouteTable *>
+            (vrf_.get()->GetBridgeRouteTable());
+        if (br_rt) {
+            for(Route::PathList::const_iterator it = br_rt->GetPathList().begin();
+                it != br_rt->GetPathList().end(); it++) {
+                const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
+                if (path) {
+                    path->set_flood_dhcp(!dhcp_enable_config());
+                }
+            }
+            br_table->NotifyEntry(br_rt);
+        }
     }
 }
 

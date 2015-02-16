@@ -642,11 +642,14 @@ bool PktHandler::IsToRDevice(uint32_t vrf_id, const IpAddress &ip) {
         while (tor_it != tor_nh->end()) {
             const TunnelNH *tun_nh = dynamic_cast<const TunnelNH *>
                 ((*tor_it)->nh());
-            if (tun_nh == NULL)
+            if (tun_nh == NULL) {
+                tor_it++;
                 continue;
+            }
             if (*tun_nh->GetDip() == ip4) {
                 return true;
             }
+            tor_it++;
         }
 
         it++;

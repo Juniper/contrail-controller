@@ -108,6 +108,14 @@ static void DeleteTunnelNH(const string &vrf_name, const Ip4Address &sip,
     WaitForIdle(table_size, 5);
 }
 
+// Verify that index-0 is not used by agent and discard nh uses index 1
+TEST_F(CfgTest, DiscardNhIndex_) {
+    NextHopTable *table = Agent::GetInstance()->nexthop_table();
+    EXPECT_TRUE(table->FindNextHop(0) == NULL);
+    NextHop *nh = table->discard_nh();
+    EXPECT_NE(nh->id(), 0);
+}
+
 TEST_F(CfgTest, TunnelNh_1) {
     DBRequest req;
 

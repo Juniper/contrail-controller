@@ -35,6 +35,8 @@ CreatePhysicalDeviceValidateNode(const string &type, const string &name,
         return new AgentUtXmlLogicalInterfaceValidate(name, id, node);
     if (type == "physical-router-vn" || type == "device-vn")
         return new AgentUtXmlPhysicalDeviceVnValidate(name, id, node);
+    if (type == "multicast-tor")
+        return new AgentUtXmlMulticastTorValidate(name, node);
 }
 
 AgentUtXmlNode *
@@ -69,6 +71,7 @@ void AgentUtXmlPhysicalDeviceInit(AgentUtXmlTest *test) {
     test->AddValidateEntry("logical-port", CreatePhysicalDeviceValidateNode);
     test->AddValidateEntry("physical-router-vn", CreatePhysicalDeviceValidateNode);
     test->AddValidateEntry("device-vn", CreatePhysicalDeviceValidateNode);
+    test->AddValidateEntry("multicast-tor", CreatePhysicalDeviceValidateNode);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -512,4 +515,30 @@ bool AgentUtXmlPhysicalDeviceVnValidate::Validate() {
 
 const string AgentUtXmlPhysicalDeviceVnValidate::ToString() {
     return "physical-device-vn";
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//  AgentUtXmlMulticastTorValidate routines
+/////////////////////////////////////////////////////////////////////////////
+AgentUtXmlMulticastTorValidate::AgentUtXmlMulticastTorValidate
+(const string &name, const xml_node &node) :
+    AgentUtXmlValidationNode(name, node) {
+}
+
+AgentUtXmlMulticastTorValidate::~AgentUtXmlMulticastTorValidate() {
+}
+
+bool AgentUtXmlMulticastTorValidate::ReadXml() {
+    if (AgentUtXmlValidationNode::ReadXml() == false)
+        return false;
+
+    return true;
+}
+
+bool AgentUtXmlMulticastTorValidate::Validate() {
+    return true;
+}
+
+const string AgentUtXmlMulticastTorValidate::ToString() {
+    return "multicast-tor";
 }

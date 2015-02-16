@@ -63,12 +63,12 @@ void PktFlowInfo::ChangeVrf(const PktInfo *pkt, PktControlInfo *info,
 void PktFlowInfo::UpdateRoute(const AgentRoute **rt, const VrfEntry *vrf,
                               const IpAddress &ip, const MacAddress &mac,
                               FlowRouteRefMap &ref_map) {
-    if (*rt != NULL)
+    if (*rt != NULL && (*rt)->GetTableType() != Agent::BRIDGE)
         ref_map[(*rt)->vrf_id()] = RouteToPrefixLen(*rt);
     if (l3_flow) {
         *rt = flow_table->GetUcRoute(vrf, ip);
     } else {
-        *rt = flow_table->GetL2Route(vrf, mac, ip);
+        *rt = flow_table->GetL2Route(vrf, mac);
     }
     if (*rt == NULL)
         ref_map[vrf->vrf_id()] = 0;
@@ -1052,9 +1052,26 @@ const NextHop *PktFlowInfo::TunnelToNexthop(const PktInfo *pkt) {
             LogError(pkt, "Invalid vxlan in egress flow");
             return NULL;
         }
-        return vxlan->nexthop();
+
+        const VrfNH *nh = dynamic_cast<const VrfNH *>(vxlan->nexthop());
+        if (nh == NULL)
+            return NULL;
+
+        const VrfEntry *vrf = nh->GetVrf();
+        if (vrf == NULL)
+            return NULL;
+
+        // In case of VXLAN, the NH points to VrfNH. Need to do route lookup
+        // on dmac to find the real nexthop
+        AgentRoute *rt = flow_table->GetL2Route(vrf, pkt->dmac);
+        if (rt != NULL) {
+            return rt->GetActiveNextHop();
+        }
+
+        return NULL;
     } else {
-        assert(0);
+        LogError(pkt, "Invalid tunnel type in egress flow");
+        return NULL;
     }
 
     return NULL;
@@ -1217,20 +1234,25 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
         Agent::GetInstance()->pkt()->flow_table()->DeleteFlowInfo(flow.get());
     }
 
-    if (l3_flow) {
-        if (pkt->family == Address::INET) {
-            Ip4Address v4_src = pkt->ip_saddr.to_v4();
-            if (ingress && !short_flow && !linklocal_flow) {
-                if (in->rt_->WaitForTraffic()) {
-                    flow_table->agent()->oper_db()->route_preference_module()->
-                        EnqueueTrafficSeen(v4_src, 32, in->intf_->id(),
-                                           pkt->vrf);
-                }
+    if (pkt->family == Address::INET) {
+        Ip4Address v4_src = pkt->ip_saddr.to_v4();
+        if (ingress && !short_flow && !linklocal_flow) {
+            const AgentRoute *rt = NULL;
+            if (l3_flow) {
+                rt = in->rt_;
+            } else if (in->vrf_) {
+                rt = flow_table->GetUcRoute(in->vrf_, v4_src);
             }
-        } else if (pkt->family == Address::INET6) {
-            //TODO:: Handle Ipv6 changes
+            if (rt && rt->WaitForTraffic()) {
+                flow_table->agent()->oper_db()->route_preference_module()->
+                    EnqueueTrafficSeen(v4_src, 32, in->intf_->id(),
+                                       pkt->vrf);
+            }
         }
+    } else if (pkt->family == Address::INET6) {
+        //TODO:: Handle Ipv6 changes
     }
+
     // Do not allow more than max flows
     if ((in->vm_ &&
          (flow_table->VmFlowCount(in->vm_) + 2) > flow_table->max_vm_flows()) ||

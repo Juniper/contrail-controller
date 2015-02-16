@@ -1358,7 +1358,7 @@ private:
 class NextHopTable : public AgentDBTable {
 public:
     NextHopTable(DB *db, const std::string &name);
-    virtual ~NextHopTable() { };
+    virtual ~NextHopTable();
 
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
     virtual size_t Hash(const DBEntry *entry) const {return 0;};

@@ -506,7 +506,7 @@ struct RouteFlowKey {
     }
 
     RouteFlowKey(uint32_t v, const MacAddress &addr) :
-        vrf(v), family(Address::ENET), ip(), plen(48) {
+        vrf(v), family(Address::ENET), ip(), mac(addr), plen(48) {
     }
     virtual ~RouteFlowKey() {}
 
@@ -666,8 +666,7 @@ public:
     }
 
     DBTableBase::ListenerId nh_listener_id();
-    AgentRoute *GetL2Route(const VrfEntry *entry, const MacAddress &mac,
-                           const IpAddress &ip_addr);
+    AgentRoute *GetL2Route(const VrfEntry *entry, const MacAddress &mac);
     AgentRoute *GetUcRoute(const VrfEntry *entry, const IpAddress &addr);
     static const SecurityGroupList &default_sg_list() {return default_sg_list_;}
     bool ValidFlowMove(const FlowEntry *new_flow,
