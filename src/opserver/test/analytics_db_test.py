@@ -106,6 +106,8 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_database_purge_query()
         assert vizd_obj.verify_collector_object_log_after_purge(start_time,
                    end_time)
+        assert vizd_obj.verify_database_purge_support_time()
+        assert vizd_obj.verify_no_log_after_purge()
         assert vizd_obj.verify_database_purge_request_limit()
     # end verify_database_purge
 

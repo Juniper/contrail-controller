@@ -15,6 +15,7 @@ from pycassa.types import *
 from pycassa import *
 from sandesh.viz.constants import *
 from pysandesh.util import UTCTimestampUsec
+from opserver_util import OpServerUtils
 
 class AnalyticsDb(object):
     def __init__(self, logger, cassandra_server_list,
@@ -198,8 +199,13 @@ class AnalyticsDb(object):
             if (analytics_start_time == None):
                 self._logger.error("Failed to get the analytics start time")
                 return -1
-            purge_time = analytics_start_time + (float((purge_input)*
-                         (float(current_time) - float(analytics_start_time))))/100
+            if (type(purge_input) is unicode):
+                purge_time = OpServerUtils.convert_to_utc_timestamp_usec(purge_input)
+            else:
+                purge_time = analytics_start_time + (float((purge_input)*
+                             (float(current_time) - float(analytics_start_time))))/100
+            self._logger.info("purge_time is %s" % str(purge_time))
+            self._logger.info("type of purge_time %s" % str(type(purge_time)))
             total_rows_deleted = self.purge_old_data(purge_id, purge_time)
             if (total_rows_deleted != -1):
                 self._update_analytics_start_time(int(purge_time))

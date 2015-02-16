@@ -1981,7 +1981,7 @@ class AnalyticsFixture(fixtures.Fixture):
         return True
     # end verify_database_purge_query
 
-    @retry(delay=2, tries=20)
+    @retry(delay=2, tries=5)
     def verify_collector_object_log_after_purge(self, start_time, end_time):
         self.logger.info('verify_collector_object_log_after_purge')
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
@@ -1991,6 +1991,30 @@ class AnalyticsFixture(fixtures.Fixture):
             return False
         return True
     # end verify_collector_object_log_after_purge
+
+    def verify_database_purge_support_time(self):
+        self.logger.info('verify_database_purge_support_time');
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port);
+        json_qstr = json.dumps({'purge_input': 'now'})
+        res = vns.post_purge_query_json(json_qstr)
+        assert(res == 'started')
+        return True
+    # end verify_database_purge_support_time
+
+    @retry(delay=2, tries=5)
+    def verify_no_log_after_purge(self):
+        self.logger.info('verify_no_log_after_purge')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port);
+        query = Query(table='ObjectCollectorInfo',
+                             start_time='-2h', end_time='-10m',
+                             select_fields=['ObjectLog'])
+        json_qstr = json.dumps(query.__dict__)
+        res = vns.post_query_json(json_qstr)
+        self.logger.info("collector object log: %s" % res)
+        if res != []:
+            return False
+        return True
+    # end verify_no_log_after_purge
 
     def verify_database_purge_request_limit(self):
         self.logger.info('verify database purge request limit')

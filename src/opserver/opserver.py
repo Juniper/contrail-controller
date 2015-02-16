@@ -1521,10 +1521,13 @@ class OpServer(object):
                 json.dumps(response), _ERRORS[errno.EBADMSG],
                 {'Content-type': 'application/json'})
 
-        purge_input= None
+        purge_input = None
         if ("purge_input" in bottle.request.json.keys()):
             value = bottle.request.json["purge_input"]
-            if( (type(value) is int) and (value <= 100) and (value > 0)):
+            if (type(value) is int):
+                if ((value <= 100) and (value > 0)):
+                    purge_input = value
+            elif (type(value) is unicode):
                 purge_input = value
             else:
                 response = {
