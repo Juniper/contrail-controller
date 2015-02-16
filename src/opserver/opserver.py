@@ -1521,14 +1521,31 @@ class OpServer(object):
                 json.dumps(response), _ERRORS[errno.EBADMSG],
                 {'Content-type': 'application/json'})
 
-        purge_input= None
+        purge_input = None
         if ("purge_input" in bottle.request.json.keys()):
             value = bottle.request.json["purge_input"]
-            if( (type(value) is int) and (value <= 100) and (value > 0)):
-                purge_input = value
+            if (type(value) is int):
+                if ((value <= 100) and (value > 0)):
+                    purge_input = value
+                else:
+                    response = {'status': 'failed',
+                        'reason': 'Valid % range is [1, 100]'}
+                    return bottle.HTTPResponse(
+                        json.dumps(response), _ERRORS[errno.EBADMSG],
+                        {'Content-type': 'application/json'})
+            elif (type(value) is unicode):
+                try:
+                    purge_input = OpServerUtils.convert_to_utc_timestamp_usec(value)
+                except:
+                    response = {'status': 'failed',
+                        'reason': 'Valid time formats are: \'%Y %b %d %H:%M:%S.%f\', '
+                        '\'now\', \'now-/+h\', \'-+/h/m/s\' in  purge_input'}
+                    return bottle.HTTPResponse(
+                        json.dumps(response), _ERRORS[errno.EBADMSG],
+                        {'Content-type': 'application/json'})
             else:
-                response = {
-                    'status': 'failed', 'reason': 'INVALID purge_input'}
+                response = {'status': 'failed',
+                    'reason': 'Valid purge_input format is % or time'}
                 return bottle.HTTPResponse(
                     json.dumps(response), _ERRORS[errno.EBADMSG],
                     {'Content-type': 'application/json'})
