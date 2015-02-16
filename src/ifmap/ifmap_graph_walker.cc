@@ -78,9 +78,10 @@ IFMapGraphWalker::~IFMapGraphWalker() {
 }
 
 void IFMapGraphWalker::JoinVertex(DBGraphVertex *vertex, const BitSet &bset) {
-    IFMAP_DEBUG(JoinVertex, vertex->ToString());
     IFMapNode *node = static_cast<IFMapNode *>(vertex);
     IFMapNodeState *state = exporter_->NodeStateLocate(node);
+    IFMAP_DEBUG(JoinVertex, vertex->ToString(), state->interest().ToString(),
+                bset.ToString());
     state->InterestOr(bset);
     node->table()->Change(node);
     // Mark all dependent links as potentially modified.

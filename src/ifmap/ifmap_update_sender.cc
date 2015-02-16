@@ -312,7 +312,7 @@ void IFMapUpdateSender::LogAndCountSentUpdate(IFMapUpdate *update,
             IFMapClient *client = server_->GetClient(client_id);
             if (client) {
                 IFMAP_DEBUG_ONLY(IFMapClientSendInfo, operation, name,
-                                 client->name());
+                                 client->identifier(), client->name());
                 if (update->IsNode()) {
                     client->incr_nodes_sent();
                 } else if (update->IsLink()) {

@@ -3,8 +3,11 @@
  */
 
 systemlog sandesh JoinVertex {
-    1: "JoinVertex:"
-    2: string vertex_name
+    1: string vertex_name
+    2: ", current"
+    3: string current
+    4: ", adding"
+    5: string adding
 }
 
 systemlog sandesh LinkOper {
@@ -166,7 +169,8 @@ systemlog sandesh IFMapClientSendInfo {
     3: "of"
     4: string object_name
     5: "to vRouter"
-    6: string client_name (key="ObjectVRouter")
+    6: string identifier
+    7: string client_name (key="ObjectVRouter")
 }
 
 systemlog sandesh IFMapNodeOperation {
@@ -185,8 +189,11 @@ systemlog sandesh IFMapXmlLoadError {
 }
 
 trace sandesh JoinVertexTrace {
-    1: "JoinVertex:"
-    2: string vertex_name
+    1: string vertex_name
+    2: ", current"
+    3: string current
+    4: ", adding"
+    5: string adding
 }
 
 trace sandesh LinkOperTrace {
