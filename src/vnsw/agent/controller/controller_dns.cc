@@ -5,9 +5,10 @@
 #include "base/util.h"
 #include "base/logging.h"
 #include "base/connection_info.h"
-#include "controller/controller_dns.h"
-#include "xmpp/xmpp_channel.h"
 #include "cmn/agent_cmn.h"
+#include "controller/controller_dns.h"
+#include "controller/controller_init.h"
+#include "xmpp/xmpp_channel.h"
 #include "pugixml/pugixml.hpp"
 #include "xml/xml_pugi.h"
 #include "bind/xmpp_dns_agent.h"
@@ -19,11 +20,13 @@ using process::ConnectionStatus;
 
 AgentDnsXmppChannel::DnsMessageHandler AgentDnsXmppChannel::dns_message_handler_cb_;
 AgentDnsXmppChannel::DnsXmppEventHandler AgentDnsXmppChannel::dns_xmpp_event_handler_cb_;
+std::set<AgentDnsXmppChannel *> dns_channel_state_map_;
 
 AgentDnsXmppChannel::AgentDnsXmppChannel(Agent *agent,
       std::string xmpp_server, uint8_t xs_idx)
     : channel_(NULL), xmpp_server_(xmpp_server), xs_idx_(xs_idx),
     agent_(agent) {
+    sequence_number_ = 0;
 }
 
 AgentDnsXmppChannel::~AgentDnsXmppChannel() {
@@ -77,6 +80,37 @@ std::string AgentDnsXmppChannel::ToString() const {
 void AgentDnsXmppChannel::WriteReadyCb(uint8_t *msg, 
                                        const boost::system::error_code &ec) {
     delete [] msg;
+}
+
+void AgentDnsXmppChannel::XmppClientChannelEvent(AgentDnsXmppChannel *peer,
+                                                 xmps::PeerState state) {
+    std::set<AgentDnsXmppChannel *>::iterator it =
+        dns_channel_state_map_.find(peer);
+    //Note: any other state other than READY is
+    //considered as channel down.
+    if (it != dns_channel_state_map_.end()) {
+        //Duplicate READY, ignore
+        if (state == xmps::READY)
+            return;
+        dns_channel_state_map_.erase(it);
+    } else {
+        //Duplicate NOT_READY, ignore
+        //if state is ready so add it
+        //as its no duplicate.
+        if (state == xmps::READY)
+            dns_channel_state_map_.insert(peer);
+        else
+            return;
+    }
+
+    std::auto_ptr<XmlBase> dummy_dom;
+    peer->IncrementSequenceNumber();
+    boost::shared_ptr<ControllerXmppData> data(new ControllerXmppData(xmps::DNS,
+                                                                      state,
+                                                                      peer->GetXmppServerIdx(),
+                                                                      peer->sequence_number(),
+                                                                      dummy_dom));
+    peer->agent()->controller()->Enqueue(data);
 }
 
 void AgentDnsXmppChannel::HandleXmppClientChannelEvent(AgentDnsXmppChannel *peer,

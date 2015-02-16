@@ -56,7 +56,7 @@ public:
         XmppStanzaErrorType error;
         std::string from;
         std::string to;
-        std::auto_ptr<XmlBase> dom;
+        mutable std::auto_ptr<XmlBase> dom;
 
         bool IsValidType(XmppMessageType type) const {
             return (type > INVALID && type < RESERVED_STANZA);

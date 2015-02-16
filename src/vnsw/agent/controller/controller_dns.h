@@ -38,12 +38,16 @@ public:
     uint8_t GetXmppServerIdx() { return xs_idx_; }
     XmppChannel *GetXmppChannel() { return channel_; }
     void UpdateConnectionInfo(xmps::PeerState state);
+    static void XmppClientChannelEvent(AgentDnsXmppChannel *peer,
+                                       xmps::PeerState state);
     static void HandleXmppClientChannelEvent(AgentDnsXmppChannel *peer,
                                              xmps::PeerState state);
     static void set_dns_message_handler_cb(DnsMessageHandler cb);
     static void set_dns_xmpp_event_handler_cb(DnsXmppEventHandler cb);
     Agent *agent() const {return agent_;}
     void RegisterXmppChannel(XmppChannel *channel);
+    void IncrementSequenceNumber() {sequence_number_++;}
+    uint32_t sequence_number() const {return sequence_number_;}
 
 protected:
     virtual void WriteReadyCb(uint8_t *msg, 
@@ -57,6 +61,7 @@ private:
     static DnsMessageHandler dns_message_handler_cb_;
     static DnsXmppEventHandler dns_xmpp_event_handler_cb_;
     Agent *agent_;
+    tbb::atomic<uint32_t> sequence_number_;
 };
 
 #endif // __DNS_XMPP_H__
