@@ -207,7 +207,10 @@ public:
     virtual bool OperDBDelete(DBEntry *entry, const DBRequest *req);
     virtual bool OperDBResync(DBEntry *entry, const DBRequest *req); 
 
+    void ResyncVmInterface(IFMapNode *node);
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
+    virtual bool IFLinkToReq(IFMapLink *link, IFMapNode *node, IFMapNode *peer,
+                             DBRequest &req);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static VnTable *GetInstance() {return vn_table_;};
@@ -241,6 +244,7 @@ private:
     void DelHostRoute(VnEntry *vn, const IpAddress &address);
     bool ChangeHandler(DBEntry *entry, const DBRequest *req);
     bool IsGatewayL2(const string &gateway) const;
+    VnData *BuildData(IFMapNode *node);
     IFMapNode *FindTarget(IFMapAgentTable *table, IFMapNode *node, 
                           std::string node_type);
     DBTableWalker::WalkId walkid_;
