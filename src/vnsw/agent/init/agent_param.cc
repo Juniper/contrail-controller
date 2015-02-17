@@ -296,7 +296,7 @@ void AgentParam::ParseVirtualHost() {
 }
 
 void AgentParam::ParseDiscovery() {
-    ParseIp("DISCOVERY.server", &dss_server_);
+    GetValueFromTree<string>(dss_server_, "DISCOVERY.server");
     GetValueFromTree<uint16_t>(xmpp_instance_count_, 
                                "DISCOVERY.max_control_nodes");
 }
@@ -509,7 +509,7 @@ void AgentParam::ParseVirtualHostArguments
 
 void AgentParam::ParseDiscoveryArguments
     (const boost::program_options::variables_map &var_map) {
-    ParseIpArgument(var_map, dss_server_, "DISCOVERY.server");
+    GetOptValue<string>(var_map, dss_server_, "DISCOVERY.server");
     GetOptValue<uint16_t>(var_map, xmpp_instance_count_, 
                           "DISCOVERY.max_control_nodes");
 }
