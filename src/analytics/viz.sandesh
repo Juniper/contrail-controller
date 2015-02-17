@@ -725,8 +725,8 @@ const list<query_table> _TABLES = [
                { 'name' : 'action', 'datatype' : 'string', 'index' : false },
                { 'name' : 'sg_rule_uuid', 'datatype' : 'uuid', 'index' : false },
                { 'name' : 'nw_ace_uuid', 'datatype' : 'uuid', 'index' : false },
-               { 'name' : 'vrouter_ip', 'datatype' : 'ipv4', 'index' : false },
-               { 'name' : 'other_vrouter_ip', 'datatype' : 'ipv4', 'index' : false },
+               { 'name' : 'vrouter_ip', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'other_vrouter_ip', 'datatype' : 'string', 'index' : false },
                { 'name' : 'underlay_proto', 'datatype' : 'int', 'index' : false },
                { 'name' : 'underlay_source_port', 'datatype' : 'int', 'index' : false },
                ]
