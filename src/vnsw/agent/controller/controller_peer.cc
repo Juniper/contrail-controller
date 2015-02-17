@@ -1007,46 +1007,57 @@ void AgentXmppChannel::AddRoute(string vrf_name, IpAddress prefix_addr,
 }
 
 void AgentXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+    if (msg && msg->type == XmppStanza::MESSAGE_STANZA) {
+        auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+        XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+        XmlPugi *msg_pugi = reinterpret_cast<XmlPugi *>(msg->dom.get());
+        pugi->LoadXmlDoc(msg_pugi->doc());
+        boost::shared_ptr<ControllerXmppData> data(new ControllerXmppData(xmps::BGP,
+                                                                          xmps::UNKNOWN,
+                                                                          xs_idx_,
+                                                                          impl,
+                                                                          true));
+        agent_->controller()->Enqueue(data);
+    }
+}
 
+void AgentXmppChannel::ReceiveBgpMessage(std::auto_ptr<XmlBase> impl) {
     if (agent_->stats())
         agent_->stats()->incr_xmpp_in_msgs(xs_idx_);
-    if (msg && msg->type == XmppStanza::MESSAGE_STANZA) {
 
-        XmlBase *impl = msg->dom.get();
-        XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl);
-        pugi->FindNode("items");
-        pugi->ReadNode("items"); //sets the context
-        std::string nodename = pugi->ReadAttrib("node");
+    XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+    pugi->FindNode("items");
+    pugi->ReadNode("items"); //sets the context
+    std::string nodename = pugi->ReadAttrib("node");
 
-        const char *af = NULL, *safi = NULL, *vrf_name;
-        char *str = const_cast<char *>(nodename.c_str());
-        char *saveptr;
-        af = strtok_r(str, "/", &saveptr);
-        safi = strtok_r(NULL, "/", &saveptr);
-        vrf_name = saveptr;
+    const char *af = NULL, *safi = NULL, *vrf_name;
+    char *str = const_cast<char *>(nodename.c_str());
+    char *saveptr;
+    af = strtok_r(str, "/", &saveptr);
+    safi = strtok_r(NULL, "/", &saveptr);
+    vrf_name = saveptr;
 
-        // No BGP peer
-        if (bgp_peer_id() == NULL) {
-            CONTROLLER_TRACE (Trace, GetBgpPeerName(), vrf_name,
-                    "BGP peer not present, agentxmppchannel is inactive");
-            return;
-        }
-
-        if (atoi(af) == BgpAf::IPv4 && atoi(safi) == BgpAf::Mcast) {
-            ReceiveMulticastUpdate(pugi);
-            return;
-        }
-        if (atoi(af) == BgpAf::L2Vpn && atoi(safi) == BgpAf::Enet) {
-            ReceiveEvpnUpdate(pugi);
-            return;
-        }
-        if (atoi(safi) == BgpAf::Unicast) {
-            ReceiveV4V6Update(pugi);
-            return;
-        }
+    // No BGP peer
+    if (bgp_peer_id() == NULL) {
         CONTROLLER_TRACE (Trace, GetBgpPeerName(), vrf_name,
-            "Error Route update, Unknown Address Family or safi");
+                          "BGP peer not present, agentxmppchannel is inactive");
+        return;
     }
+
+    if (atoi(af) == BgpAf::IPv4 && atoi(safi) == BgpAf::Mcast) {
+        ReceiveMulticastUpdate(pugi);
+        return;
+    }
+    if (atoi(af) == BgpAf::L2Vpn && atoi(safi) == BgpAf::Enet) {
+        ReceiveEvpnUpdate(pugi);
+        return;
+    }
+    if (atoi(safi) == BgpAf::Unicast) {
+        ReceiveV4V6Update(pugi);
+        return;
+    }
+    CONTROLLER_TRACE (Trace, GetBgpPeerName(), vrf_name,
+                      "Error Route update, Unknown Address Family or safi");
 }
 
 void AgentXmppChannel::ReceiveInternal(const XmppStanza::XmppMessage *msg) {
@@ -1225,6 +1236,17 @@ void AgentXmppChannel::SetMulticastPeer(AgentXmppChannel *old_peer,
                                         AgentXmppChannel *new_peer) {
     old_peer->agent()->controller()->increment_multicast_sequence_number();
     old_peer->agent()->set_cn_mcast_builder(new_peer);
+}
+
+void AgentXmppChannel::XmppClientChannelEvent(AgentXmppChannel *peer,
+                                              xmps::PeerState state) {
+    std::auto_ptr<XmlBase> dummy_dom;
+    boost::shared_ptr<ControllerXmppData> data(new ControllerXmppData(xmps::BGP,
+                                                   state,
+                                                   peer->GetXmppServerIdx(),
+                                                   dummy_dom,
+                                                   false));
+    peer->agent()->controller()->Enqueue(data);
 }
 
 /*
