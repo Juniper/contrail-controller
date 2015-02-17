@@ -206,8 +206,7 @@ void EvpnAgentRouteTable::ResyncVmRoute(const Peer *peer,
     EvpnRouteKey *key = new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
                                          ethernet_tag);
     key->sub_op_ = AgentKey::RESYNC;
-    req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
-                                   ethernet_tag));
+    req.key.reset(key);
     req.data.reset(data);
 
     EvpnTableProcess(Agent::GetInstance(), vrf_name, req);
