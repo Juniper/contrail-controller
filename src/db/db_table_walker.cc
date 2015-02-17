@@ -6,6 +6,7 @@
 
 #include <list>
 #include <tbb/atomic.h>
+#include <boost/bind.hpp>
 
 #include "base/logging.h"
 #include "base/task.h"
@@ -22,10 +23,20 @@ DBTableWalker::DBTableWalker() {
         // Using same task id as DBPartition
         walker_task_id_ = scheduler->GetTaskId("db::DBTable");
     }
+
+    walk_done_trigger_ = new TaskTrigger(boost::bind(&DBTableWalker::WalkDone,
+                                                    this),
+                                        walker_task_id_,
+                                        Task::kTaskInstanceAny);
     walk_request_count_ = 0;
     walk_complete_count_ = 0;
     walk_cancel_count_ = 0;
 }
+
+DBTableWalker::~DBTableWalker() {
+    delete walk_done_trigger_;
+}
+
 class DBTableWalker::Walker {
 public:
     Walker(WalkId id, DBTableWalker *wkmgr, DBTable *table,
@@ -156,13 +167,9 @@ walk_done:
         if (!walker_->should_stop_) {
             walker_->wkmgr_->update_walk_complete_count(+1);
         }
-        if (walker_->done_fn_ != NULL) {
-            if (!walker_->should_stop_) {
-                walker_->done_fn_(walker_->table_);
-            }
-        }
-        // Release the memory for walker and bitmap
-        walker_->wkmgr_->PurgeWalker(walker_->id_);
+
+        //Push the walker to walk done list and set walk done trigger.
+        walker_->wkmgr_->EnqueueWalkDone(walker_);
     }
     return true;
 }
@@ -232,4 +239,34 @@ void DBTableWalker::PurgeWalker(WalkId id) {
         }
         walker_map_.set(id);
     }
+}
+
+void DBTableWalker::EnqueueWalkDone(DBTableWalker::Walker *walker) {
+    tbb::mutex::scoped_lock lock(walkers_mutex_);
+    walk_done_list_.push_back(walker);
+    walk_done_trigger_->Set();
+}
+
+DBTableWalker::Walker *DBTableWalker::PopWalkerWithWalkDone() {
+    tbb::mutex::scoped_lock lock(walkers_mutex_);
+    if (walk_done_list_.empty())
+        return NULL;
+    DBTableWalker::Walker *walker = walk_done_list_.back();
+    walk_done_list_.pop_back();
+    return walker;
+}
+
+bool DBTableWalker::WalkDone() {
+    DBTableWalker::Walker *walker = PopWalkerWithWalkDone();
+    while (walker != NULL) {
+        if (walker->done_fn_ != NULL) {
+            if (!walker->should_stop_) {
+                walker->done_fn_(walker->table_);
+            }
+        }
+        // Release the memory for walker and bitmap
+        PurgeWalker(walker->id_);
+        walker = PopWalkerWithWalkDone();
+    }
+    return true;
 }
