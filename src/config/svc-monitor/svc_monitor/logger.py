@@ -8,6 +8,7 @@ Service monitor logger
 """
 
 import datetime
+import logging
 import socket
 
 from cfgm_common import svc_info
@@ -29,6 +30,17 @@ from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
 
 
 class ServiceMonitorLogger(object):
+
+    _LOGGER_LEVEL_TO_SANDESH_LEVEL = {
+        logging.CRITICAL: SandeshLevel.SYS_EMERG,
+        logging.CRITICAL: SandeshLevel.SYS_ALERT,
+        logging.CRITICAL: SandeshLevel.SYS_CRIT,
+        logging.ERROR: SandeshLevel.SYS_ERR,
+        logging.WARNING: SandeshLevel.SYS_WARN,
+        logging.WARNING: SandeshLevel.SYS_NOTICE,
+        logging.INFO: SandeshLevel.SYS_INFO,
+        logging.DEBUG: SandeshLevel.SYS_DEBUG
+    }
 
     def __init__(self, db, discovery, args=None):
         self._args = args
@@ -56,9 +68,12 @@ class ServiceMonitorLogger(object):
             self._instance_id, sysinfo_req, self._sandesh, 60)
         self._cpu_info = cpu_info
 
+    def _get_sandesh_logger_level(self, sandesh_level):
+        return self._LOGGER_LEVEL_TO_SANDESH_LEVEL[sandesh_level]
 
-    def log(self, log_msg):
-        vn_log = sandesh.SvcMonitorLog(
+    def log(self, log_msg, level=logging.DEBUG):
+        sandesh_level = self._get_sandesh_logger_level(level)
+        vn_log = sandesh.SvcMonitorLog(level=sandesh_level,
             log_msg=log_msg, sandesh=self._sandesh)
         vn_log.send(sandesh=self._sandesh)
 
