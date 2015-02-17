@@ -10,6 +10,7 @@
 #include <tbb/task.h>
 
 #include "base/logging.h"
+#include "base/task_trigger.h"
 #include "db/db_table.h"
 #include "db/db_table_partition.h"
 
@@ -79,20 +80,27 @@ private:
     class Worker;
 
     typedef std::vector<Walker *> WalkerList;
+    typedef std::vector<Walker *> WalkDoneList;
     typedef boost::dynamic_bitset<> WalkerMap;
 
     // Purge the walker after the walk is completed/cancelled
     void PurgeWalker(WalkId id);
+    //Enqueue walker to run its walk done.
+    void EnqueueWalkDone(DBTableWalker::Walker *walker);
+    //Walk done executed for completed walkers.
+    bool WalkDone();
 
     // List of walkers allocated
     tbb::mutex walkers_mutex_;
     WalkerList walkers_;
     WalkerMap walker_map_;
+    WalkDoneList walk_done_list_;
 
     uint64_t walk_request_count_;
     uint64_t walk_complete_count_;
     uint64_t walk_cancel_count_;
 
     static int walker_task_id_;
+    TaskTrigger walk_done_trigger_;
 };
 #endif
