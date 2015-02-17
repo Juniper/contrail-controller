@@ -287,12 +287,13 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route,
     assert((olist == NULL) != roattr->nexthop_list().empty());
 
     if (olist) {
-        BOOST_FOREACH(const BgpOListElem &elem, olist->elements) {
+        assert(olist->olist().subcode == BgpAttribute::OList);
+        BOOST_FOREACH(const BgpOListElem *elem, olist->elements) {
             autogen::EnetNextHopType nh;
             nh.af = BgpAf::IPv4;
-            nh.address = elem.address.to_string();
-            nh.label = elem.label;
-            nh.tunnel_encapsulation_list.tunnel_encapsulation = elem.encap;
+            nh.address = elem->address.to_string();
+            nh.label = elem->label;
+            nh.tunnel_encapsulation_list.tunnel_encapsulation = elem->encap;
             item.entry.olist.next_hop.push_back(nh);
         }
     }
@@ -301,12 +302,13 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route,
     assert((leaf_olist == NULL) != roattr->nexthop_list().empty());
 
     if (leaf_olist) {
-        BOOST_FOREACH(const BgpOListElem &elem, leaf_olist->elements) {
+        assert(leaf_olist->olist().subcode == BgpAttribute::LeafOList);
+        BOOST_FOREACH(const BgpOListElem *elem, leaf_olist->elements) {
             autogen::EnetNextHopType nh;
             nh.af = BgpAf::IPv4;
-            nh.address = elem.address.to_string();
-            nh.label = elem.label;
-            nh.tunnel_encapsulation_list.tunnel_encapsulation = elem.encap;
+            nh.address = elem->address.to_string();
+            nh.label = elem->label;
+            nh.tunnel_encapsulation_list.tunnel_encapsulation = elem->encap;
             item.entry.leaf_olist.next_hop.push_back(nh);
         }
     }
@@ -350,12 +352,13 @@ void BgpXmppMessage::AddMcastReach(const BgpRoute *route,
     item.entry.nlri.source_label = roattr->label();
 
     const BgpOList *olist = roattr->attr()->olist().get();
-    BOOST_FOREACH(const BgpOListElem &elem, olist->elements) {
+    assert(olist->olist().subcode == BgpAttribute::OList);
+    BOOST_FOREACH(const BgpOListElem *elem, olist->elements) {
         autogen::McastNextHopType nh;
         nh.af = BgpAf::IPv4;
-        nh.address = elem.address.to_string();
-        nh.label = integerToString(elem.label);
-        nh.tunnel_encapsulation_list.tunnel_encapsulation = elem.encap;
+        nh.address = elem->address.to_string();
+        nh.label = integerToString(elem->label);
+        nh.tunnel_encapsulation_list.tunnel_encapsulation = elem->encap;
         item.entry.olist.next_hop.push_back(nh);
     }
 

@@ -240,6 +240,7 @@ BgpServer::BgpServer(EventManager *evm)
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)),
       aspath_db_(new AsPathDB(this)),
+      olist_db_(new BgpOListDB(this)),
       comm_db_(new CommunityDB(this)),
       edge_discovery_db_(new EdgeDiscoveryDB(this)),
       edge_forwarding_db_(new EdgeForwardingDB(this)),

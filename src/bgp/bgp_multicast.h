@@ -114,8 +114,8 @@ private:
     friend class BgpMulticastTest;
     friend class ShowMulticastManagerDetailHandler;
 
-    void AddLocalOListElems(BgpOListPtr olist);
-    void AddGlobalOListElems(BgpOListPtr olist);
+    void AddLocalOListElems(BgpOListSpec *olist_spec);
+    void AddGlobalOListElems(BgpOListSpec *olist_spec);
 
     McastSGEntry *sg_entry_;
     ErmVpnRoute *route_;
