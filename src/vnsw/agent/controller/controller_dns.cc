@@ -125,6 +125,9 @@ void AgentDnsXmppChannel::set_dns_xmpp_event_handler_cb(DnsXmppEventHandler cb){
 }
 
 void AgentDnsXmppChannel::UpdateConnectionInfo(xmps::PeerState state) {
+    if (agent_->connection_state() == NULL)
+        return;
+
     boost::asio::ip::tcp::endpoint ep;
     boost::system::error_code ec;
     std::string last_state_name;
