@@ -152,7 +152,7 @@ public:
     bool ReEvaluateVxlan(VrfEntry *old_vrf, int new_vxlan_id, int new_vnid,
                          bool new_bridging,
                          bool vxlan_network_identifier_mode_changed);
-    void UpdateDhcpFloodFlag();
+    void UpdateMacVmBindingFloodFlag();
 
     const VxLanId *vxlan_id_ref() const {return vxlan_id_ref_.get();}
     const VxLanId *vxlan_id() const {return vxlan_id_ref_.get();}
