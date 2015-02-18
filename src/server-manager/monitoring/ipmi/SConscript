@@ -14,7 +14,7 @@ for file in sources:
     setup_sources_rules.append(env.Install("", "#controller/src/server-manager/monitoring/ipmi/" + file))
 
 sources += env.SandeshGenPy(
-    'ipmi.sandesh',
+    'monitoring.sandesh',
     'contrail_sm_monitoring/', False)
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '

@@ -606,6 +606,9 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'sensor_stats.reading', 'datatype': 'int', 'index' : false},
           { 'name' : 'sensor_stats.unit', 'datatype': 'string', 'index' : false},
           { 'name' : 'sensor_stats.sensor_type', 'datatype': 'string', 'index' : true},
+          { 'name' : 'disk_usage.disk_name', 'datatype': 'string', 'index' : true},
+          { 'name' : 'disk_usage.read_MB', 'datatype': 'int', 'index' : false},
+          { 'name' : 'disk_usage.write_MB', 'datatype': 'int', 'index' : false},
         ]
     },
     {
