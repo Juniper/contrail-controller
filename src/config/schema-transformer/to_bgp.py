@@ -883,23 +883,14 @@ class VirtualNetworkST(DictST):
                 return (None, None)
             vmi_refs = (vm_analyzer_obj.get_virtual_machine_interfaces() or
                         vm_analyzer_obj.get_virtual_machine_interface_back_refs())
-            if vmi_refs is None:
-                return (None, None)
-            for vmi_ref in vmi_refs:
-                vmi = _vnc_lib.virtual_machine_interface_read(
-                    id=vmi_ref['uuid'])
-                vmi_props = vmi.get_virtual_machine_interface_properties()
-                if (vmi_props and
-                        vmi_props.get_service_interface_type() == 'left'):
-                    vmi_vn_refs = vmi.get_virtual_network_refs()
-                    if vmi_vn_refs:
-                        vn_analyzer = ':'.join(vmi_vn_refs[0]['to'])
-                        if_ip = vmi.get_instance_ip_back_refs()
-                    if_ip = vmi.get_instance_ip_back_refs()
-                    if if_ip:
-                        if_ip_obj = _vnc_lib.instance_ip_read(
-                            id=if_ip[0]['uuid'])
-                        ip_analyzer = if_ip_obj.get_instance_ip_address()
+            for vmi_ref in vmi_refs or []:
+                vmi_fq_name = ':'.join(vmi_ref['to'])
+                vmi = VirtualMachineInterfaceST.get(vmi_fq_name)
+                if vmi and vmi.service_interface_type == 'left':
+                    vn_analyzer = vmi.virtual_network
+                    for ip_analyzer in vmi.instance_ips.values():
+                        if ip_analyzer:
+                            break
                     break
             # end for vmi_ref
         except NoIdError:
@@ -1803,7 +1794,7 @@ class ServiceChain(DictST):
                 if_obj.service_interface_type not in ['left', 'right']):
                 continue
             ip_addr = None
-            for ip_addr in if_obj.instance_ips:
+            for ip_addr in if_obj.instance_ips.values():
                 if ip_addr is not None:
                     break
             else:
