@@ -150,8 +150,8 @@ public:
 
     DBTablePartition *GetTablePartition();
     void NotifyNodeRoute(EvpnMcastNode *node);
-    void NotifyBroadcastMacRoutes();
     void NotifyReplicatorNodeRoutes();
+    void NotifyIrClientNodeRoutes(bool exclude_edge_replication_supported);
     void AddMcastNode(EvpnMcastNode *node);
     void DeleteMcastNode(EvpnMcastNode *node);
     void UpdateMcastNode(EvpnMcastNode *node);
@@ -166,9 +166,6 @@ public:
     const EvpnMcastNodeList &leaf_node_list() const {
         return leaf_node_list_;
     }
-    const EvpnMcastNodeList &replicator_node_list() const {
-        return replicator_node_list_;
-    }
     BgpServer *server();
 
 private:
@@ -180,6 +177,8 @@ private:
     EvpnMcastNodeList remote_mcast_node_list_;
     EvpnMcastNodeList replicator_node_list_;
     EvpnMcastNodeList leaf_node_list_;
+    EvpnMcastNodeList regular_node_list_;
+    EvpnMcastNodeList ir_client_node_list_;
 
     DISALLOW_COPY_AND_ASSIGN(EvpnManagerPartition);
 };
