@@ -20,23 +20,33 @@ struct IpmiChassis_status_info {
     11: bool        cooling_fan_fault
 }
 
-struct SMIpmiInfo {
+struct Disk {
+    1: string disk_name;
+    2: u64 read_MB;
+    3: u64 write_MB;
+}
+
+struct ServerMonitoringInfo {
     1: string name               (key="ObjectServerTable")
     2: optional bool             deleted
     3: optional list<IpmiSensor> sensor_stats (tags=".sensor,.sensor_type")
     4: optional list<IpmiSensor> sensor_state
     6: optional IpmiChassis_status_info chassis_state
+    7: optional list<Disk> disk_usage_stats (tags=".disk_name")
+    8: optional list<Disk> disk_usage_state
+    9: optional double cpu_usage
+    10: optional double mem_usage
 }
 
-uve sandesh SMIpmiInfoTrace {
-    1: SMIpmiInfo             data
+uve sandesh ServerMonitoringInfoTrace {
+    1: ServerMonitoringInfo             data
 }
 
 objectlog sandesh IpmiSystemEventLog {
-    	1: string name               (key="ObjectServerTable")
-	2: u64 event_id
-	3: string ipmi_timestamp
-	4: string sensor_name
-	5: string sensor_type
-	6: string ipmi_message
+    1: string name               (key="ObjectServerTable")
+    2: u64 event_id
+    3: string ipmi_timestamp
+    4: string sensor_name
+    5: string sensor_type
+    6: string ipmi_message
 }
