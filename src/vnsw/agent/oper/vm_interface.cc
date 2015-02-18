@@ -707,11 +707,10 @@ static void ComputeTypeInfo(Agent *agent, VmInterfaceConfigData *data,
                 autogen::LogicalInterface *port =
                     static_cast <autogen::LogicalInterface *>
                     (logical_node->GetObject());
-                data->rx_vlan_id_ = port->vlan_tag();
-                data->tx_vlan_id_ = port->vlan_tag();
-            } else {
-                data->rx_vlan_id_ = 0;
-                data->tx_vlan_id_ = 0;
+                if (port->vlan_tag()) {
+                    data->rx_vlan_id_ = port->vlan_tag();
+                    data->tx_vlan_id_ = port->vlan_tag();
+                }
             }
             return;
         } else {

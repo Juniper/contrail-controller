@@ -417,12 +417,17 @@ KSyncEntry *InterfaceKSyncEntry::UnresolvedReference() {
     return NULL;
 }
 
-bool IsValidOsIndex(size_t os_index, Interface::Type type, uint16_t vlan_id) {
+bool IsValidOsIndex(size_t os_index, Interface::Type type, uint16_t vlan_id,
+                    VmInterface::VmiType vmi_type) {
     if (os_index != Interface::kInvalidIndex)
         return true;
 
     if (type == Interface::VM_INTERFACE &&
         vlan_id != VmInterface::kInvalidVlanId) {
+        return true;
+    }
+
+    if (vmi_type == VmInterface::GATEWAY) {
         return true;
     }
 
@@ -434,7 +439,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     int encode_len, error;
 
     // Dont send message if interface index not known
-    if (IsValidOsIndex(os_index_, type_, rx_vlan_id_) == false) {
+    if (IsValidOsIndex(os_index_, type_, rx_vlan_id_, vmi_type_) == false) {
         return 0;
     }
 
@@ -457,8 +462,17 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         MacAddress mac;
         if (parent_.get() != NULL) {
             encoder.set_vifr_type(VIF_TYPE_VIRTUAL_VLAN);
-            encoder.set_vifr_vlan_id(rx_vlan_id_);
-            encoder.set_vifr_ovlan_id(tx_vlan_id_);
+            if (vmi_type_ == VmInterface::GATEWAY &&
+                tx_vlan_id_ == VmInterface::kInvalidVlanId) {
+                //By default in case of gateway, untagged packet
+                //would be considered as belonging to interface
+                //at tag 0
+                encoder.set_vifr_vlan_id(0);
+                encoder.set_vifr_ovlan_id(0);
+            } else {
+                encoder.set_vifr_vlan_id(rx_vlan_id_);
+                encoder.set_vifr_ovlan_id(tx_vlan_id_);
+            }
             InterfaceKSyncEntry *parent =
                 (static_cast<InterfaceKSyncEntry *> (parent_.get()));
             encoder.set_vifr_parent_vif_idx(parent->interface_id());
