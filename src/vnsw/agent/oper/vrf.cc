@@ -607,23 +607,27 @@ static VrfData *BuildData(Agent *agent, IFMapNode *node) {
     return new VrfData(VrfData::ConfigVrf, vn_uuid);
 }
 
-bool VrfTable::IFLinkToReq(IFMapLink *link, IFMapNode *node, IFMapNode *peer,
+bool VrfTable::IFLinkToReq(IFMapLink *link, IFMapNode *node,
+                           const string &peer_type, IFMapNode *peer,
                            DBRequest &req) {
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req.key.reset(new VrfKey(node->name()));
-
-    if (peer->table() == agent()->cfg()->cfg_vn_table()) {
-        // Change in VN neighbour can change VN in the VRF
-        req.data.reset(BuildData(agent(), node));
-        Enqueue(&req);
-
-        // Resync dependent Floating-IP
-        VmInterface::FloatingIpVnSync(agent()->interface_table(), peer);
+    // If peer is VN, it means there is change in VRF to VN link. This can
+    // affect config for config modules. Invoke IFNodeToReq iteself. This
+    // should not affect scaling since we dont expect many changes for
+    // VN to VRF link
+    if (peer_type == "virtual-network") {
+        return IFNodeToReq(node, req);
     }
 
-    // Change to virtual-machine-interface-routing-instance can modify VRF
-    // in connected VMInterface
-    if (peer->table() == agent()->cfg()->cfg_vm_port_vrf_table()) {
+    // Another neighbour we are interested in
+    // virtual-machine-interface-routing-instance. Change to think link can 
+    // modify VRF for connected interface. There are two cases here,
+    // peer is NULL :
+    //    Means, virtual-machine-interface-routing-instance node is deleted.
+    //    It also means, VMI link is also deleted and it would have taken 
+    //    care of the necessary changes.
+    // peer is Non-NULL:
+    //    Propogate change till the connected VMI
+    if (peer && peer->table() == agent()->cfg()->cfg_vm_port_vrf_table()) {
         if (agent()->cfg_listener()->SkipNode
             (peer, agent()->cfg()->cfg_vm_port_vrf_table())) {
             return false;

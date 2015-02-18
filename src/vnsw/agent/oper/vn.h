@@ -209,7 +209,8 @@ public:
 
     void ResyncVmInterface(IFMapNode *node);
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
-    virtual bool IFLinkToReq(IFMapLink *link, IFMapNode *node, IFMapNode *peer,
+    virtual bool IFLinkToReq(IFMapLink *link, IFMapNode *node,
+                             const std::string &peer_type, IFMapNode *peer,
                              DBRequest &req);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);

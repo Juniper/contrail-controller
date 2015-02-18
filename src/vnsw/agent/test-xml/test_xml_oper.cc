@@ -1269,7 +1269,6 @@ bool AgentUtXmlL2RouteValidate::ReadXml() {
 }
 
 bool AgentUtXmlL2RouteValidate::Validate() {
-    Agent *agent = Agent::GetInstance();
     BridgeAgentRouteTable *bridge_table =
         static_cast<BridgeAgentRouteTable *>
         (Agent::GetInstance()->vrf_table()->GetBridgeRouteTable(vrf_));

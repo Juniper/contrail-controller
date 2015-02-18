@@ -14,7 +14,7 @@ class DB;
 class CfgDBState : public DBState {
 public:
     CfgDBState() : notify_count_(0) { };
-    bool notify_count_;
+    uint32_t notify_count_;
 };
 
 class CfgListener {
@@ -84,7 +84,8 @@ private:
     void UpdateSeenState(DBTableBase *table, DBEntryBase *dbe,
                          CfgDBState *state, DBTableBase::ListenerId id);
     void LinkNotify(IFMapLink *link, IFMapNode *node, IFMapNode *peer,
-                    CfgDBState *state, DBTableBase::ListenerId id);
+                    const std::string &peer_type, CfgDBState *state,
+                    DBTableBase::ListenerId id);
     CfgDBState *GetCfgDBState(IFMapTable *table, DBEntryBase *dbe,
                               DBTableBase::ListenerId &id);
 

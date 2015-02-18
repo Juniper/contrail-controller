@@ -169,7 +169,8 @@ public:
     static VrfTable *GetInstance() {return vrf_table_;};
 
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
-    virtual bool IFLinkToReq(IFMapLink *link, IFMapNode *node, IFMapNode *peer,
+    virtual bool IFLinkToReq(IFMapLink *link, IFMapNode *node,
+                             const string &peer_type, IFMapNode *peer,
                              DBRequest &req);
 
     VrfEntry *FindVrfFromName(const string &name);
