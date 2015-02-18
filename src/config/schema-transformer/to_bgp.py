@@ -240,7 +240,13 @@ class VirtualNetworkST(DictST):
 
         self.ipams = {}
         self.extend = False
-        self.rt_list = set()
+        rt_list = self.obj.get_route_target_list()
+        if rt_list:
+            self.rt_list = set(rt_list.get_route_target())
+            for rt in self.rt_list:
+                RouteTargetST.locate(rt)
+        else:
+            self.rt_list = set()
         self._route_target = 0
         self.route_table_refs = set()
         self.route_table = {}
@@ -555,6 +561,7 @@ class VirtualNetworkST(DictST):
         if rinst_name in self.rinst:
             return self.rinst[rinst_name]
 
+        is_default = (rinst_name == self._default_ri_name)
         alloc_new = False
         rinst_fq_name_str = '%s:%s' % (self.obj.get_fq_name_str(), rinst_name)
         old_rtgt = None
@@ -588,12 +595,29 @@ class VirtualNetworkST(DictST):
                     rinst_obj = None
                 else:
                     rinst_obj.set_route_target(rtgt_obj, inst_tgt_data)
+                    for rt in self.rt_list:
+                        rtgt_obj = RouteTarget(rt)
+                        if is_default:
+                            inst_tgt_data = InstanceTargetType()
+                        else:
+                            inst_tgt_data = InstanceTargetType(
+                                import_export="export")
+                        rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
+
                     _vnc_lib.routing_instance_update(rinst_obj)
             except NoIdError:
                 rinst_obj = None
             if rinst_obj is None:
                 rinst_obj = RoutingInstance(rinst_name, self.obj)
                 rinst_obj.set_route_target(rtgt_obj, inst_tgt_data)
+                for rt in self.rt_list:
+                    rtgt_obj = RouteTarget(rt)
+                    if is_default:
+                        inst_tgt_data = InstanceTargetType()
+                    else:
+                        inst_tgt_data = InstanceTargetType(
+                            import_export="export")
+                    rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
                 _vnc_lib.routing_instance_create(rinst_obj)
         except HttpError as he:
             _sandesh._logger.error(
