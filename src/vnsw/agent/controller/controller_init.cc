@@ -409,7 +409,7 @@ AgentDnsXmppChannel *VNController::FindAgentDnsXmppChannel(
 
 void VNController::DisConnectDnsServer(uint8_t idx) {
 
-    DeleteConnectionInfo(agent_->dns_server(0), true);
+    DeleteConnectionInfo(agent_->dns_server(idx), true);
 
     // Managed Delete of XmppClient object, which deletes the 
     // dependent XmppClientConnection object and
