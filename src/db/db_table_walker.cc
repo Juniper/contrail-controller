@@ -6,9 +6,11 @@
 
 #include <list>
 #include <tbb/atomic.h>
+#include <boost/bind.hpp>
 
 #include "base/logging.h"
 #include "base/task.h"
+#include "base/queue_task.h"
 #include "db/db.h"
 #include "db/db_partition.h"
 #include "db/db_table.h"
@@ -25,7 +27,16 @@ DBTableWalker::DBTableWalker() {
     walk_request_count_ = 0;
     walk_complete_count_ = 0;
     walk_cancel_count_ = 0;
+    work_queue_ = new WorkQueue<Walker *>
+        (walker_task_id_, Task::kTaskInstanceAny,
+         boost::bind(&DBTableWalker::WalkDone, this, _1));
 }
+
+DBTableWalker::~DBTableWalker() {
+    work_queue_->Shutdown();
+    delete work_queue_;
+}
+
 class DBTableWalker::Walker {
 public:
     Walker(WalkId id, DBTableWalker *wkmgr, DBTable *table,
@@ -156,13 +167,8 @@ walk_done:
         if (!walker_->should_stop_) {
             walker_->wkmgr_->update_walk_complete_count(+1);
         }
-        if (walker_->done_fn_ != NULL) {
-            if (!walker_->should_stop_) {
-                walker_->done_fn_(walker_->table_);
-            }
-        }
-        // Release the memory for walker and bitmap
-        walker_->wkmgr_->PurgeWalker(walker_->id_);
+        //Enqueue walk done
+        walker_->wkmgr_->work_queue_->Enqueue(walker_);
     }
     return true;
 }
@@ -232,4 +238,15 @@ void DBTableWalker::PurgeWalker(WalkId id) {
         }
         walker_map_.set(id);
     }
+}
+
+bool DBTableWalker::WalkDone(DBTableWalker::Walker *walker) {
+    if (walker->done_fn_ != NULL) {
+        if (!walker->should_stop_) {
+            walker->done_fn_(walker->table_);
+        }
+    }
+    // Release the memory for walker and bitmap
+    walker->wkmgr_->PurgeWalker(walker->id_);
+    return true;
 }

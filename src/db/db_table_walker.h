@@ -13,6 +13,9 @@
 #include "db/db_table.h"
 #include "db/db_table_partition.h"
 
+template <typename QueueEntryT>
+class WorkQueue;
+
 // A DB contains a TableWalker that is able to iterate though all the
 // entries in a certain routing table.
 class DBTableWalker {
@@ -43,6 +46,7 @@ public:
     void WalkCancel(WalkId id);
 
     DBTableWalker();
+    virtual ~DBTableWalker();
 
     uint64_t walk_request_count() { return walk_request_count_; }
     uint64_t walk_complete_count() { return walk_complete_count_; }
@@ -83,6 +87,7 @@ private:
 
     // Purge the walker after the walk is completed/cancelled
     void PurgeWalker(WalkId id);
+    bool WalkDone(DBTableWalker::Walker *walker);
 
     // List of walkers allocated
     tbb::mutex walkers_mutex_;
@@ -94,5 +99,6 @@ private:
     uint64_t walk_cancel_count_;
 
     static int walker_task_id_;
+    WorkQueue<Walker *> *work_queue_;
 };
 #endif
