@@ -93,7 +93,7 @@ public:
     const Ip4Address &dns_server_2() const { return dns_server_2_; }
     const uint16_t dns_port_1() const { return dns_port_1_; }
     const uint16_t dns_port_2() const { return dns_port_2_; }
-    const Ip4Address &discovery_server() const { return dss_server_; }
+    const std::string &discovery_server() const { return dss_server_; }
     const Ip4Address &mgmt_ip() const { return mgmt_ip_; }
     const int xmpp_instance_count() const { return xmpp_instance_count_; }
     const std::string &tunnel_type() const { return tunnel_type_; }
@@ -296,7 +296,7 @@ private:
     Ip4Address dns_server_2_;
     uint16_t dns_port_1_;
     uint16_t dns_port_2_;
-    Ip4Address dss_server_;
+    std::string dss_server_;
     Ip4Address mgmt_ip_;
     HypervisorMode hypervisor_mode_;
     PortInfo xen_ll_;

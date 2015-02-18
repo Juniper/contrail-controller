@@ -334,7 +334,7 @@ void VrouterUveEntryBase::BuildAgentConfig(VrouterAgent &vrouter_agent) {
     }
     vrouter_agent.set_hypervisor(hypervisor);
 
-    vrouter_agent.set_ds_addr(param->discovery_server().to_string());
+    vrouter_agent.set_ds_addr(param->discovery_server());
     vrouter_agent.set_ds_xs_instances(param->xmpp_instance_count());
 
     VirtualGatewayConfigTable *table = param->vgw_config_table();

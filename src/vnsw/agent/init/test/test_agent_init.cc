@@ -44,8 +44,7 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
     EXPECT_EQ(param.dns_port_1(), 53);
     EXPECT_EQ(param.dns_server_2().to_ulong(), 0);
     EXPECT_EQ(param.dns_port_2(), 53);
-    EXPECT_EQ(param.discovery_server().to_ulong(),
-              Ip4Address::from_string("10.3.1.1").to_ulong());
+    EXPECT_STREQ(param.discovery_server().c_str(), "10.3.1.1");
     EXPECT_EQ(param.mgmt_ip().to_ulong(), 0);
     EXPECT_EQ(param.xmpp_instance_count(), 2);
     EXPECT_STREQ(param.tunnel_type().c_str(), "MPLSoGRE");
