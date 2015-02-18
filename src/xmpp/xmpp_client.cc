@@ -41,7 +41,8 @@ private:
 };
 
 XmppClient::XmppClient(EventManager *evm) 
-    : TcpServer(evm), config_mgr_(new XmppConfigManager), 
+    : SslServer(evm, ssl::context::tlsv1_server), 
+      config_mgr_(new XmppConfigManager), 
       lifetime_manager_(new LifetimeManager(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)) {
@@ -157,8 +158,8 @@ size_t XmppClient::ConnectionCount() const {
     return connection_map_.size();
 }
 
-TcpSession *XmppClient::AllocSession(Socket *socket) {
-    TcpSession *session = new XmppSession(this, socket);
+SslSession *XmppClient::AllocSession(SslSocket *socket) {
+    SslSession *session = new XmppSession(this, socket);
     return session;
 }
 

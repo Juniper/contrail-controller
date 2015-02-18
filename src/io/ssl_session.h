@@ -14,7 +14,7 @@ public:
 
     // SslSession constructor takes ownership of socket.
     SslSession(SslServer *server, SslSocket *socket,
-               bool async_read_ready = true);
+               bool async_read_ready = true, bool ssl_handshake_delayed = false);
 
     virtual Socket *socket() const;
 
@@ -24,6 +24,10 @@ public:
     // Override to trigger handshake
     virtual void Accepted();
 
+    // Additional states to determine the trigger of SSL handshake
+    bool IsSslHandShakeDelayed() {
+        return ssl_handshake_delayed_;
+    }
 
 protected:
     virtual ~SslSession();
@@ -40,6 +44,8 @@ private:
     void AsyncWrite(const u_int8_t *data, std::size_t size);
 
     boost::scoped_ptr<SslSocket> ssl_socket_;
+    bool ssl_handshake_delayed_; 
+
     DISALLOW_COPY_AND_ASSIGN(SslSession);
 };
 
