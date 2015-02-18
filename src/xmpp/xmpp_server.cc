@@ -51,7 +51,7 @@ private:
 };
 
 XmppServer::XmppServer(EventManager *evm, const string &server_addr) 
-    : TcpServer(evm),
+    : SslServer(evm, ssl::context::tlsv1_server),
       lifetime_manager_(XmppObjectFactory::Create<XmppLifetimeManager>(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)), 
@@ -62,7 +62,7 @@ XmppServer::XmppServer(EventManager *evm, const string &server_addr)
 }
 
 XmppServer::XmppServer(EventManager *evm) 
-    : TcpServer(evm),
+    : SslServer(evm, ssl::context::tlsv1_server),
       max_connections_(0),
       lifetime_manager_(new LifetimeManager(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
@@ -231,8 +231,8 @@ void XmppServer::NotifyConnectionEvent(XmppChannelMux *mux,
     }
 }
 
-TcpSession *XmppServer::AllocSession(Socket *socket) {
-    TcpSession *session = new XmppSession(this, socket);
+SslSession *XmppServer::AllocSession(SslSocket *socket) {
+    SslSession *session = new XmppSession(this, socket);
     return session;
 }
 
