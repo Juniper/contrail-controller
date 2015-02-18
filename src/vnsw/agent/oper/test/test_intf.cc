@@ -2638,6 +2638,29 @@ TEST_F(IntfTest, VrfTranslateAddDelete) {
     client->WaitForIdle();
 }
 
+TEST_F(IntfTest, VMI_Sequence_1) {
+    AddVn("vn1", 1);
+    AddPort("vmi1", 1, "");
+    client->WaitForIdle();
+
+    AddLink("virtual-machine-interface", "vmi1", "virtual-network", "vn1");
+    AddVrf("vrf1");
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
+
+    VrfEntry *vrf = VrfGet("vrf1");
+    VnEntry *vn = VnGet(1);
+    EXPECT_TRUE(vn->GetVrf() != NULL);
+    EXPECT_TRUE(vrf->vn() != NULL);
+
+    DelLink("virtual-machine-interface", "vmi1", "virtual-network", "vn1");
+    DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    DelVrf("vrf1");
+    DelVn("vn1");
+    DelPort("vmi1");
+    client->WaitForIdle();
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 

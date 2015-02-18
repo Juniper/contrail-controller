@@ -150,7 +150,8 @@ public:
         assert(0);
         return false;
     }
-    virtual bool IFLinkToReq(IFMapLink *link, IFMapNode *node, IFMapNode *peer,
+    virtual bool IFLinkToReq(IFMapLink *link, IFMapNode *node,
+                             const std::string &peer_name, IFMapNode *peer,
                              DBRequest &req) {
         assert(0);
         return false;
