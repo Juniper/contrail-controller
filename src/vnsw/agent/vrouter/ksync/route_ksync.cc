@@ -85,9 +85,6 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
               static_cast<const BridgeRouteEntry *>(rt);
           mac_ = l2_rt->mac();
           prefix_len_ = 0;
-          const AgentPath *path = l2_rt->GetActivePath();
-          if (path)
-              flood_dhcp_ = path->flood_dhcp();
           break;
     }
     default: {
@@ -337,7 +334,6 @@ const NextHop *RouteKSyncEntry::GetActiveNextHop(const AgentRoute *route) const 
     const AgentPath *path = GetActivePath(route);
     if (path == NULL)
         return NULL;
-
     return path->ComputeNextHop(ksync_obj_->ksync()->agent());
 }
 
@@ -355,7 +351,7 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
     Agent *agent = ksync_obj_->ksync()->agent();
     const AgentRoute *route = static_cast<AgentRoute *>(e);
 
-    const AgentPath *path = route->GetActivePath();
+    const AgentPath *path = GetActivePath(route);
     if (path->peer() == agent->local_vm_peer())
         local_vm_peer_route_ = true;
     else
@@ -415,14 +411,26 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
             mac_ = mac;
             ret = true;
         }
+
+        if (BuildArpFlags(e, path, mac_))
+            ret = true;
     }
 
-    if (BuildArpFlags(e, path, mac_))
-        ret = true;
+    if (rt_type_ == Agent::BRIDGE) {
+        const BridgeRouteEntry *l2_rt =
+            static_cast<const BridgeRouteEntry *>(route);
 
-    if (flood_dhcp_ != path->flood_dhcp()) {
-        flood_dhcp_ = path->flood_dhcp();
-        ret = true;
+        //First search for v4
+        const DhcpPath *dhcp_path = dynamic_cast<const DhcpPath *>
+            (l2_rt->FindDhcpPath());
+        bool flood_dhcp = false;
+        if (dhcp_path)
+            flood_dhcp = dhcp_path->flood_dhcp();
+
+        if (flood_dhcp_ != flood_dhcp) {
+            flood_dhcp_ = flood_dhcp;
+            ret = true;
+        }
     }
 
     return ret;

@@ -31,7 +31,6 @@
 #include <oper/vxlan.h>
 #include <oper/oper_dhcp_options.h>
 #include <oper/inet_unicast_route.h>
-#include <oper/mac_vm_binding.h>
 
 #include <vnc_cfg_types.h>
 #include <oper/agent_sandesh.h>
@@ -987,6 +986,7 @@ bool VmInterface::Resync(const InterfaceTable *table,
     Ip4Address old_subnet = subnet_;
     uint8_t  old_subnet_plen = subnet_plen_;
     int old_ethernet_tag = ethernet_tag_;
+    bool old_dhcp_enable = dhcp_enable_;
 
     if (data) {
         ret = data->OnResync(table, this, &sg_changed, &ecmp_changed,
@@ -1017,7 +1017,8 @@ bool VmInterface::Resync(const InterfaceTable *table,
     ApplyConfig(old_ipv4_active, old_l2_active, old_policy, old_vrf.get(), 
                 old_addr, old_ethernet_tag, old_need_linklocal_ip, sg_changed,
                 old_ipv6_active, old_v6_addr, ecmp_changed,
-                local_pref_changed, old_subnet, old_subnet_plen);
+                local_pref_changed, old_subnet, old_subnet_plen,
+                old_dhcp_enable);
 
     return ret;
 }
@@ -1163,6 +1164,35 @@ const MacAddress& VmInterface::GetVifMac(const Agent *agent) const {
     }
 }
 
+void VmInterface::ApplyConfigCommon(const VrfEntry *old_vrf,
+                                    bool old_l2_active,
+                                    bool old_dhcp_enable) {
+    //DHCP MAC IP binding
+    ApplyDhcpBindingConfig(old_vrf, old_l2_active,  old_dhcp_enable);
+    //Security Group update
+    if (IsActive())
+        UpdateSecurityGroup();
+    else
+        DeleteSecurityGroup();
+
+}
+
+void VmInterface::ApplyDhcpBindingConfig(const VrfEntry *old_vrf,
+                                         bool old_l2_active,
+                                         bool old_dhcp_enable) {
+    if (L2Deactivated(old_l2_active)) {
+        DeleteDhcp(old_vrf);
+        return;
+    }
+
+    //Interface has been activated or
+    //dhcp toggled for already activated interface
+    if (L2Activated(old_l2_active) ||
+        (l2_active_ && (old_dhcp_enable != dhcp_enable_))) {
+        UpdateDhcp();
+    }
+}
+
 // Apply the latest configuration
 void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old_policy,
                               VrfEntry *old_vrf, const Ip4Address &old_addr,
@@ -1171,19 +1201,9 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
                               const Ip6Address &old_v6_addr, bool ecmp_mode_changed,
                               bool local_pref_changed,
                               const Ip4Address &old_subnet,
-                              uint8_t old_subnet_plen) {
-    //MAC VM binding is handled for all VM interface
-    if (l2_active_ && bridging_) {
-        UpdateMacVmBinding(old_l2_active);
-    } else {
-        DeleteMacVmBinding(old_l2_active);
-    }
-
-    if (IsActive())
-        UpdateSecurityGroup();
-    else
-        DeleteSecurityGroup();
-
+                              uint8_t old_subnet_plen,
+                              bool old_dhcp_enable) {
+    ApplyConfigCommon(old_vrf, old_l2_active, old_dhcp_enable);
     //Need not apply config for TOR VMI as it is more of an inidicative
     //interface. No route addition or NH addition happens for this interface.
     if (device_type_ == VmInterface::TOR &&
@@ -2077,46 +2097,14 @@ void VmInterface::UpdateFlowKeyNextHop() {
             agent->nexthop_table()->FindActiveEntry(&key));
 }
 
-void VmInterface::UpdateMacVmBinding(bool old_l2_active) {
-    if (L2Activated(old_l2_active)) {
-        InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
-        table->mac_vm_binding().AddMacVmBinding(this);
-        int vxlan_id = vn_.get() ? vn_.get()->GetVxLanId() : 0;
-        EvpnAgentRouteTable *evpn_table = static_cast<EvpnAgentRouteTable *>
-            (vrf_.get()->GetEvpnRouteTable());
-        EvpnRouteEntry *evpn_rt =
-            evpn_table->FindRoute(MacAddress::FromString(vm_mac_), Ip4Address(),
-                                  vxlan_id);
-        if (evpn_rt == NULL)
-            evpn_rt = evpn_table->FindRoute(MacAddress::FromString(vm_mac_), Ip6Address(),
-                                       vxlan_id);
-        if (evpn_rt) {
-            for(Route::PathList::const_iterator it = evpn_rt->GetPathList().begin();
-                it != evpn_rt->GetPathList().end(); it++) {
-                const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
-                if (path) {
-                    path->set_flood_dhcp(!dhcp_enable_config());
-                }
-            }
-            evpn_table->NotifyEntry(evpn_rt);
-        }
-        BridgeRouteEntry *br_rt =
-            BridgeAgentRouteTable::FindRoute(evpn_table->agent(),
-                                             vrf_.get()->GetName(),
-                                             MacAddress::FromString(vm_mac_));
-        BridgeAgentRouteTable *br_table = static_cast<BridgeAgentRouteTable *>
-            (vrf_.get()->GetBridgeRouteTable());
-        if (br_rt) {
-            for(Route::PathList::const_iterator it = br_rt->GetPathList().begin();
-                it != br_rt->GetPathList().end(); it++) {
-                const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
-                if (path) {
-                    path->set_flood_dhcp(!dhcp_enable_config());
-                }
-            }
-            br_table->NotifyEntry(br_rt);
-        }
-    }
+void VmInterface::UpdateDhcp() {
+    BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
+        (vrf_->GetBridgeRouteTable());
+    Agent *agent = table->agent();
+    table->AddDhcpRoute(agent->dhcp_peer(),
+                        vrf_->GetName(),
+                        MacAddress::FromString(vm_mac_),
+                        this);
 }
 
 void VmInterface::UpdateL2NextHop(bool old_l2_active) {
@@ -2137,11 +2125,16 @@ void VmInterface::UpdateL3NextHop(bool old_ipv4_active, bool old_ipv6_active) {
     }
 }
 
-void VmInterface::DeleteMacVmBinding(bool old_l2_active) {
-    if (L2Deactivated(old_l2_active)) {
-        InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
-        table->mac_vm_binding().DeleteMacVmBinding(this);
-    }
+void VmInterface::DeleteDhcp(const VrfEntry *old_vrf) {
+    if (old_vrf == NULL)
+        return;
+    BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
+        (old_vrf->GetBridgeRouteTable());
+    Agent *agent = table->agent();
+    table->DeleteDhcpRoute(agent->dhcp_peer(),
+                           old_vrf->GetName(),
+                           MacAddress::FromString(vm_mac_),
+                           this);
 }
 
 void VmInterface::DeleteL2NextHop(bool old_l2_active) {
