@@ -365,8 +365,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
 
     def tearDown(self):
         self._api_svr_greenlet.kill()
-        self._api_server._db_conn._msgbus._dbe_publish_greenlet.kill()
-        self._api_server._db_conn._msgbus._subscribe_greenlet.kill()
+        self._api_server._db_conn._msgbus.shutdown()
         FakeIfmapClient.reset()
         cov_handle.stop()
         cov_handle.report(file=open('covreport.txt', 'w'))
