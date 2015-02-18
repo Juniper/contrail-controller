@@ -205,12 +205,10 @@ void ArpDBState::UpdateArpRoutes(const InetUnicastRouteEntry *rt) {
     ArpProto::ArpIterator start_iter =
         vrf_state_->arp_proto->FindUpperBoundArpEntry(start_key);
 
-    if (start_iter->first.vrf != rt->vrf()) {
-        return;
-    }
 
-
-    while (IsIp4SubnetMember(Ip4Address(start_iter->first.ip), 
+    while (start_iter != vrf_state_->arp_proto->arp_cache().end() &&
+           start_iter->first.vrf == rt->vrf() &&
+           IsIp4SubnetMember(Ip4Address(start_iter->first.ip),
                              rt->addr().to_v4(), plen)) {
         start_iter->second->Resync(policy_, vn_, sg_list_);
         start_iter++;
@@ -226,11 +224,9 @@ void ArpDBState::Delete(const InetUnicastRouteEntry *rt) {
     ArpProto::ArpIterator start_iter =
         vrf_state_->arp_proto->FindUpperBoundArpEntry(start_key);
 
-    if (start_iter->first.vrf != rt->vrf()) {
-        return;
-    }
-
-    while (IsIp4SubnetMember(Ip4Address(start_iter->first.ip), 
+    while (start_iter != vrf_state_->arp_proto->arp_cache().end() &&
+           start_iter->first.vrf == rt->vrf() &&
+           IsIp4SubnetMember(Ip4Address(start_iter->first.ip),
                              rt->addr().to_v4(), plen)) {
         ArpProto::ArpIterator tmp = start_iter++;
         if (tmp->second->DeleteArpRoute()) {

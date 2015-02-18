@@ -10,6 +10,7 @@
 #include "oper/ifmap_dependency_manager.h"
 #include "oper/operdb_init.h"
 #include <cfg/cfg_init.h>
+#include <cfg/cfg_listener.h>
 #include <cmn/agent.h>
 #include <init/agent_param.h>
 #include <oper/agent_sandesh.h>
@@ -672,6 +673,8 @@ DBEntry *ServiceInstanceTable::Add(const DBRequest *request) {
             static_cast<ServiceInstanceCreate *>(request->data.get());
     svc_instance->set_node(data->node());
     assert(dependency_manager_);
+    svc_instance->SetIFMapNodeState
+        (dependency_manager_->SetState(data->node()));
     dependency_manager_->SetObject(data->node(), svc_instance);
 
     return svc_instance;
@@ -680,7 +683,8 @@ DBEntry *ServiceInstanceTable::Add(const DBRequest *request) {
 bool ServiceInstanceTable::Delete(DBEntry *entry, const DBRequest *request) {
     ServiceInstance *svc_instance  = static_cast<ServiceInstance *>(entry);
     assert(dependency_manager_);
-    dependency_manager_->ResetObject(svc_instance->node());
+    dependency_manager_->SetObject(svc_instance->node(), NULL);
+    svc_instance->SetIFMapNodeState(NULL);
     return true;
 }
 
@@ -716,10 +720,11 @@ void ServiceInstanceTable::Initialize(
 }
 
 bool ServiceInstanceTable::IFNodeToReq(IFMapNode *node, DBRequest &request) {
-    autogen::ServiceInstance *svc_instance =
-            static_cast<autogen::ServiceInstance *>(node->GetObject());
-    const autogen::IdPermsType &id = svc_instance->id_perms();
-    request.key.reset(new ServiceInstanceKey(IdPermsGetUuid(id)));
+    uuid id;
+    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, id) == false)
+        return false;
+
+    request.key.reset(new ServiceInstanceKey(id));
     if (!node->IsDeleted()) {
         request.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         request.data.reset(new ServiceInstanceCreate(node));
@@ -729,6 +734,13 @@ bool ServiceInstanceTable::IFNodeToReq(IFMapNode *node, DBRequest &request) {
     return true;
 }
 
+bool ServiceInstanceTable::IFNodeToUuid(IFMapNode *node, uuid &idperms_uuid) {
+    autogen::ServiceInstance *svc_instance =
+                static_cast<autogen::ServiceInstance *>(node->GetObject());
+    const autogen::IdPermsType &id = svc_instance->id_perms();
+    idperms_uuid = IdPermsGetUuid(id);
+    return true;
+}
 void ServiceInstanceTable::ChangeEventHandler(DBEntry *entry) {
     ServiceInstance *svc_instance = static_cast<ServiceInstance *>(entry);
 

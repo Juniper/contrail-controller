@@ -66,6 +66,7 @@ void CfgListener::Shutdown() {
     cfg_listener_id_map_.clear();
 }
 
+
 // Get CfgDBState set for an IFNode
 CfgDBState *CfgListener::GetCfgDBState(IFMapTable *table, DBEntryBase *dbe,
                                        DBTableBase::ListenerId &id) {
@@ -76,6 +77,19 @@ CfgDBState *CfgListener::GetCfgDBState(IFMapTable *table, DBEntryBase *dbe,
 
     id = it->second;
     return static_cast<CfgDBState *>(dbe->GetState(table, id));
+}
+
+
+bool CfgListener::GetCfgDBStateUuid(IFMapNode *node, boost::uuids::uuid &id) {
+
+    DBEntryBase *dbe = static_cast <DBEntryBase *> (node);
+    DBTableBase::ListenerId lid = 0;
+    CfgDBState *state = GetCfgDBState(node->table(), dbe, lid);
+    if (!state || (state->uuid_ == boost::uuids::nil_uuid()))
+        return false;
+
+    id = state->uuid_;
+    return true;
 }
 
 // When traversing graph, check if an IFMapNode can be used. Conditions are,
@@ -144,6 +158,11 @@ AgentDBTable* CfgListener::GetOperDBTable(IFMapNode *node) {
         return NULL;
     }
     const CfgTableListenerInfo *info = &loc->second;
+
+    // IF delete operation lets not bother about mandatory fields
+    if (node->IsDeleted())
+        return info->table_;
+
     // Check for presence of ID_PERMS if configured
     if (info->need_property_id_ >= 0) {
         const IFMapObject *obj = node->GetObject();
@@ -210,8 +229,8 @@ CfgListener::NodeListenerCb CfgListener::GetCallback(IFMapNode *node) {
     return info->cb_;
 }
 
-void CfgListener::LinkNotify(IFMapLink *link, IFMapNode *node,
-                             IFMapNode *peer, CfgDBState *state,
+void CfgListener::LinkNotify(IFMapLink *link, IFMapNode *node, IFMapNode *peer,
+                             const string &peer_type, CfgDBState *state,
                              DBTableBase::ListenerId id) {
     if (node == NULL) {
         return;
@@ -224,23 +243,22 @@ void CfgListener::LinkNotify(IFMapLink *link, IFMapNode *node,
     // Check if link notifier is registered. If there is no callback
     // registered for links, use IFNodeToReq iteself
     AgentDBTable *oper_table = NULL;
-    // Invoke link notifier only if peer node is known
-    if (peer) {
-        oper_table = GetLinkOperDBTable(node);
-        // Link callback registered
-        if (oper_table) {
-            // Skip link notification if node was not notified earlier
-            if (state == NULL || oper_table->CanNotify(node) == false)
-                return;
+    oper_table = GetLinkOperDBTable(node);
 
+    // Invoke IFLinkToReq under following conditions,
+    // - Link notification registered for the object
+    // - Object is already notified (state is set)
+    if (oper_table && state != NULL) {
+        // Skip link notification if node cannot be notified
+        if (oper_table->CanNotify(node)) {
             // Link can only result in update to existing entry. So, ADD_CHANGE
             // is the only operation needed
             DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-            if (oper_table->IFLinkToReq(link, node, peer, req)) {
+            if (oper_table->IFLinkToReq(link, node, peer_type, peer, req)) {
                 oper_table->Enqueue(&req);
             }
-            return;
         }
+        return;
     }
 
     oper_table = GetOperDBTable(node);
@@ -267,11 +285,13 @@ void CfgListener::LinkListener(DBTablePartBase *partition, DBEntryBase *dbe) {
     CfgDBState *lstate = NULL;
     CfgDBState *rstate = NULL;
 
+    const IFMapNode::Descriptor &ldescriptor = link->left_id();
     IFMapNode *lnode = link->LeftNode(database_);
     if (lnode) {
         lstate = GetCfgDBState(lnode->table(), lnode, lid);
     }
 
+    const IFMapNode::Descriptor &rdescriptor = link->right_id();
     IFMapNode *rnode = link->RightNode(database_);
     if (rnode) {
         rstate = GetCfgDBState(rnode->table(), rnode, rid);
@@ -291,14 +311,14 @@ void CfgListener::LinkListener(DBTablePartBase *partition, DBEntryBase *dbe) {
     //     If right node is not notified, notify right followed by left.
     //     Else, notify left followed by right
     if (lstate != NULL && rstate != NULL) {
-        LinkNotify(link, lnode, rnode, lstate, lid);
-        LinkNotify(link, rnode, lnode, rstate, rid);
+        LinkNotify(link, lnode, rnode, rdescriptor.first, lstate, lid);
+        LinkNotify(link, rnode, lnode, ldescriptor.first, rstate, rid);
     } else if (lstate == NULL) {
-        LinkNotify(link, lnode, rnode, lstate, lid);
-        LinkNotify(link, rnode, lnode, rstate, rid);
+        LinkNotify(link, lnode, rnode, rdescriptor.first, lstate, lid);
+        LinkNotify(link, rnode, lnode, ldescriptor.first, rstate, rid);
     } else if (rstate == NULL) {
-        LinkNotify(link, rnode, lnode, rstate, rid);
-        LinkNotify(link, lnode, rnode, lstate, lid);
+        LinkNotify(link, rnode, lnode, ldescriptor.first, rstate, rid);
+        LinkNotify(link, lnode, rnode, rdescriptor.first, lstate, lid);
     }
 }
 
@@ -307,6 +327,10 @@ void CfgListener::NodeNotify(AgentDBTable *oper_table, IFMapNode *node) {
     if (node->IsDeleted()) {
         req.oper = DBRequest::DB_ENTRY_DELETE;
     } else {
+        DBEntryBase *dbe = static_cast <DBEntryBase *>(node);
+        DBTableBase::ListenerId lid = 0;
+        CfgDBState *state = GetCfgDBState(node->table(), dbe, lid);
+        oper_table->IFNodeToUuid(node, state->uuid_);
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     }
 

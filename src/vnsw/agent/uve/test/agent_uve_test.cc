@@ -15,6 +15,18 @@
 
 AgentUveBaseTest::AgentUveBaseTest(Agent *agent, uint64_t intvl)
     : AgentUve(agent, intvl) {
+    if (vn_uve_table_) {
+        vn_uve_table_->Shutdown();
+    }
+    if (vm_uve_table_) {
+        vm_uve_table_->Shutdown();
+    }
+    if (vrouter_uve_entry_) {
+        vrouter_uve_entry_->Shutdown();
+    }
+    if (prouter_uve_table_) {
+        prouter_uve_table_->Shutdown();
+    }
     vn_uve_table_.reset(new VnUveTableTest(agent)); 
     vm_uve_table_.reset(new VmUveTableTest(agent));
     vrouter_uve_entry_.reset(new VrouterUveEntryTest(agent));

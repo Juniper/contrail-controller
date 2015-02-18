@@ -66,23 +66,50 @@ bool CfgFilter::CheckProperty(DBTable *table, IFMapNode *node, DBRequest *req,
 
 void CfgFilter::Init() {
     agent_cfg_->cfg_vm_table()->RegisterPreFilter
-        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3, 
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3,
                      VirtualMachine::ID_PERMS));
 
     agent_cfg_->cfg_vn_table()->RegisterPreFilter
-        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3, 
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3,
                      VirtualNetwork::ID_PERMS));
 
     agent_cfg_->cfg_vm_interface_table()->RegisterPreFilter
-        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3, 
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3,
                      VirtualMachineInterface::ID_PERMS));
 
     agent_cfg_->cfg_acl_table()->RegisterPreFilter
-        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3, 
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3,
                      AccessControlList::ID_PERMS));
+
+    agent_cfg_->cfg_loadbalancer_table()->RegisterPreFilter
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3,
+                     LoadbalancerPool::ID_PERMS));
+
+    agent_cfg_->cfg_service_instance_table()->RegisterPreFilter
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3,
+                     ServiceInstance::ID_PERMS));
+
+    agent_cfg_->cfg_security_group_table()->RegisterPreFilter
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3,
+                     SecurityGroup::ID_PERMS));
+
+    agent_cfg_->cfg_logical_port_table()->RegisterPreFilter
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3,
+                     LogicalInterface::ID_PERMS));
+
+    agent_cfg_->cfg_physical_device_table()->RegisterPreFilter
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3,
+                     PhysicalRouter::ID_PERMS));
 }
 
 void CfgFilter::Shutdown() {
     agent_cfg_->cfg_vm_table()->RegisterPreFilter(NULL);
     agent_cfg_->cfg_vn_table()->RegisterPreFilter(NULL);
+    agent_cfg_->cfg_vm_interface_table()->RegisterPreFilter(NULL);
+    agent_cfg_->cfg_acl_table()->RegisterPreFilter(NULL);
+    agent_cfg_->cfg_loadbalancer_table()->RegisterPreFilter(NULL);
+    agent_cfg_->cfg_service_instance_table()->RegisterPreFilter(NULL);
+    agent_cfg_->cfg_security_group_table()->RegisterPreFilter(NULL);
+    agent_cfg_->cfg_logical_port_table()->RegisterPreFilter(NULL);
+    agent_cfg_->cfg_physical_device_table()->RegisterPreFilter(NULL);
 }

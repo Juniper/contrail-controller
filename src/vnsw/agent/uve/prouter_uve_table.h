@@ -40,8 +40,10 @@ class ProuterUveTable {
 
     struct ProuterUveEntry {
         explicit  ProuterUveEntry(const PhysicalDevice *p) : prouter_(p),
-            physical_interface_set_() {
+            physical_interface_set_(), encoder_task_trigger_(NULL),
+            prouter_msg_enqueued_(false), deleted_(false) {
         }
+        ~ProuterUveEntry();
         void AddPhysicalInterface(const Interface *itf);
         void DeletePhysicalInterface(const Interface *itf);
         void AddLogicalInterface(const LogicalInterface *itf);
@@ -50,6 +52,9 @@ class ProuterUveTable {
         const PhysicalDevice *prouter_;
         InterfaceSet physical_interface_set_;
         LogicalInterfaceSet logical_interface_set_;
+        TaskTrigger *encoder_task_trigger_;
+        bool prouter_msg_enqueued_;
+        bool deleted_;
     };
     typedef boost::shared_ptr<ProuterUveEntry> ProuterUveEntryPtr;
     typedef std::map<boost::uuids::uuid, ProuterUveEntryPtr> UveProuterMap;
@@ -78,13 +83,15 @@ class ProuterUveTable {
  private:
     ProuterUveEntryPtr Allocate(const PhysicalDevice *pr);
     ProuterUveEntry *PDEntryToProuterUveEntry(const PhysicalDevice *p) const;
+    void RemoveUveEntry(const boost::uuids::uuid &u);
     PhyInterfaceUveEntry *InterfaceToPhyInterfaceUveEntry(const Interface *p)
         const;
     void FillLogicalInterfaceList(const LogicalInterfaceSet &in,
                            std::vector<UveLogicalInterfaceData> *out) const;
-    void FrameProuterMsg(const PhysicalDevice *p, ProuterData *uve) const;
+    void FrameProuterMsg(const PhysicalDevice *p, ProuterUveEntry *entry,
+                         ProuterData *uve) const;
     void SendProuterDeleteMsg(ProuterUveEntry *e);
-    void SendProuterMsg(const PhysicalDevice *p);
+    bool SendProuterMsg(const PhysicalDevice *p, ProuterUveEntry *entry);
     void SendProuterMsgFromPhyInterface(const Interface *pi);
     void PhysicalDeviceNotify(DBTablePartBase *partition, DBEntryBase *e);
     void PhysicalInterfaceHandler(const Interface *i, const PhysicalDevice *p);
@@ -101,6 +108,7 @@ class ProuterUveTable {
                                        const LogicalInterface *intf);
     const PhysicalDevice *InterfaceToProuter(const Interface *intf);
     void SendProuterVrouterAssociation();
+    void EnqueueProuterMsg(const PhysicalDevice *p);
 
     Agent *agent_;
     DBTableBase::ListenerId physical_device_listener_id_;

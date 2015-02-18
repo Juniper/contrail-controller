@@ -84,6 +84,15 @@ void DelLinkString(char *buff, int &len, const char *node_name1,
     len = strlen(buff);
 }
 
+void AddNodeStringWithoutUuid(char *buff, int &len, const char
+        *node_name, const char *name) {
+    sprintf(buff + len,
+            "       <node type=\"%s\">\n"
+            "           <name>%s</name>\n"
+            "       </node>\n", node_name, name);
+    len = strlen(buff);
+}
+
 void AddNodeString(char *buff, int &len, const char *node_name,
                    const char *name, int id, const char *attr,
                    bool admin_state) {
@@ -308,7 +317,10 @@ void AddNode(const char *node_name, const char *name, int id,
     int len = 0;
 
     AddXmlHdr(buff, len);
-    AddNodeString(buff, len, node_name, name, id, attr, admin_state);
+    if (id)
+        AddNodeString(buff, len, node_name, name, id, attr, admin_state);
+    else
+        AddNodeStringWithoutUuid(buff, len, node_name, name);
     AddXmlTail(buff, len);
     pugi::xml_document xdoc_;
     pugi::xml_parse_result result = xdoc_.load(buff);

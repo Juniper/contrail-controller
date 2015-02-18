@@ -65,6 +65,22 @@ public:
         return cfg_logical_port_table_;
     }
 
+    IFMapAgentTable *cfg_loadbalancer_table() const {
+        return cfg_loadbalancer_table_;
+    }
+
+    IFMapAgentTable *cfg_service_instance_table() const {
+        return cfg_service_instance_table_;
+    }
+
+    IFMapAgentTable *cfg_security_group_table() const {
+        return cfg_security_group_table_;
+    }
+
+    IFMapAgentTable *cfg_physical_device_table() const {
+        return cfg_physical_device_table_;
+    }
+
     Agent *agent() const { return agent_; }
     CfgFilter *cfg_filter() const { return cfg_filter_.get(); }
     CfgListener *cfg_listener() const { return cfg_listener_.get(); }
@@ -118,6 +134,10 @@ private:
     IFMapAgentTable *cfg_service_template_table_;
     IFMapAgentTable *cfg_subnet_table_;
     IFMapAgentTable *cfg_logical_port_table_;
+    IFMapAgentTable *cfg_loadbalancer_table_;
+    IFMapAgentTable *cfg_service_instance_table_;
+    IFMapAgentTable *cfg_security_group_table_;
+    IFMapAgentTable *cfg_physical_device_table_;
 
     DISALLOW_COPY_AND_ASSIGN(AgentConfig);
 };
