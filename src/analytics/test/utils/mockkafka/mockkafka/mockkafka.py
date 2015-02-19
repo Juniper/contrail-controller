@@ -59,6 +59,8 @@ def start_kafka(zk_client_port, broker_listen_port, broker_id=0):
         [("grep -v grep", "grep %d | grep -v grep" % broker_listen_port)])
     replace_string_(kafkabase + basefile + "/bin/kafka-server-stop.sh",
         [("SIGINT", "SIGKILL")])
+    replace_string_(kafkabase + basefile + "/bin/kafka-server-stop.sh",
+        [("#!/bin/sh", "#!/bin/sh -x")])
     output,_ = call_command_("chmod +x " + kafkabase + basefile + "/bin/kafka-server-stop.sh") 
 
     output,_ = call_command_(kafkabase + basefile + "/bin/kafka-server-start.sh -daemon " + kafkabase + basefile + "/config/server.properties")
@@ -88,9 +90,10 @@ def stop_kafka(broker_listen_port):
     '''
     kafkabase = "/tmp/kafka.%s.%d/" % (os.getenv('USER', 'None'), broker_listen_port)
     basefile = 'kafka_2.9.2-0.8.1.1'
+    logging.info('Killing kafka in %s' % (kafkabase + basefile))
     output,_ = call_command_(kafkabase + basefile + "/bin/kafka-server-stop.sh")
 
-    logging.info('Killing kafka for %d' % broker_listen_port)
+    logging.info('Killed kafka for %d' % broker_listen_port)
     output,_ = call_command_("rm -rf " + kafkabase)
 
 def replace_string_(filePath, findreplace):
