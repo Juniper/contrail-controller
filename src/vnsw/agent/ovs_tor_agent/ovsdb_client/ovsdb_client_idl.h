@@ -50,6 +50,8 @@ typedef boost::intrusive_ptr<OvsdbClientIdl> OvsdbClientIdlPtr;
 
 class OvsdbClientIdl {
 public:
+    static const uint32_t OVSDBKeepAliveTimer = 10000; // in millisecond
+
     enum Op {
         OVSDB_DEL = 0,
         OVSDB_ADD,
@@ -75,7 +77,7 @@ public:
     virtual ~OvsdbClientIdl();
 
     // Send request to start monitoring OVSDB server
-    void SendMointorReq();
+    void OnEstablish();
     // Send encode json rpc messgage to OVSDB server
     void SendJsonRpc(struct jsonrpc_msg *msg);
     // Process the recevied message and trigger update to ovsdb client
@@ -105,6 +107,7 @@ public:
     VrfOvsdbObject *vrf_ovsdb();
     VnOvsdbObject *vn_ovsdb();
 
+    bool KeepAliveTimerCb();
     void TriggerDeletion();
 
 private:
@@ -122,6 +125,8 @@ private:
     PendingTxnMap pending_txn_;
     bool deleted_;
     OvsPeerManager *manager_;
+    bool keepalive_wait_;
+    Timer *keepalive_timer_;
     tbb::atomic<int> refcount_;
     std::auto_ptr<OvsPeer> route_peer_;
     std::auto_ptr<VMInterfaceKSyncObject> vm_interface_table_;
