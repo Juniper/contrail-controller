@@ -124,7 +124,6 @@ protected:
         TestRouteTable table3(3);
         WAIT_FOR(100, 1000, (table3.Size() == 0));
         EXPECT_EQ(table3.Size(), 0U);
-
         VrfDelReq(vrf_name_.c_str());
         client->WaitForIdle();
         WAIT_FOR(100, 1000, (VrfFind(vrf_name_.c_str()) != true));
@@ -2040,6 +2039,29 @@ TEST_F(RouteTest, Dhcp_mode_toggled_ipam) {
     client->WaitForIdle();
     DeleteVmportEnv(input, 2, 1, 0);
     client->WaitForIdle();
+}
+
+//Double delete ARP route and verify that ARP NH
+//get deleted, since we always enqueu RESYNC for arp NH change
+//from ARP route deletiong path
+TEST_F(RouteTest, ArpRouteDelete) {
+    ArpNHKey key(Agent::GetInstance()->fabric_vrf_name(), server1_ip_, false);
+
+    AddArp(server1_ip_.to_string().c_str(), "0a:0b:0c:0d:0e:0f", eth_name_.c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(FindNH(&key));
+    EXPECT_TRUE(GetNH(&key)->IsValid() == true);
+
+    //Delete Remote VM route
+    DelArp(server1_ip_.to_string(), "0a:0b:0c:0d:0e:0f", eth_name_.c_str());
+    client->WaitForIdle();
+    EXPECT_FALSE(RouteFind(vrf_name_, server1_ip_, 32));
+
+    DelArp(server1_ip_.to_string(), "0a:0b:0c:0d:0e:0f", eth_name_.c_str());
+    client->WaitForIdle();
+    EXPECT_FALSE(RouteFind(vrf_name_, server1_ip_, 32));
+
+    EXPECT_FALSE(FindNH(&key));
 }
 
 int main(int argc, char *argv[]) {
