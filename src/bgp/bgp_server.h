@@ -24,6 +24,7 @@ class AsPathDB;
 class BgpAttrDB;
 class BgpConditionListener;
 class BgpConfigManager;
+class BgpOListDB;
 class BgpPeer;
 class BgpSessionManager;
 class CommunityDB;
@@ -97,6 +98,7 @@ public:
     PeerRibMembershipManager *membership_mgr() { return membership_mgr_.get(); }
     AsPathDB *aspath_db() { return aspath_db_.get(); }
     BgpAttrDB *attr_db() { return attr_db_.get(); }
+    BgpOListDB *olist_db() { return olist_db_.get(); }
     CommunityDB *comm_db() { return comm_db_.get(); }
     EdgeDiscoveryDB *edge_discovery_db() { return edge_discovery_db_.get(); }
     EdgeForwardingDB *edge_forwarding_db() { return edge_forwarding_db_.get(); }
@@ -175,6 +177,7 @@ private:
 
     // databases
     boost::scoped_ptr<AsPathDB> aspath_db_;
+    boost::scoped_ptr<BgpOListDB> olist_db_;
     boost::scoped_ptr<CommunityDB> comm_db_;
     boost::scoped_ptr<EdgeDiscoveryDB> edge_discovery_db_;
     boost::scoped_ptr<EdgeForwardingDB> edge_forwarding_db_;

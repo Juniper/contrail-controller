@@ -227,7 +227,7 @@ UpdateInfo *EvpnLocalMcastNode::GetUpdateInfo() {
         return NULL;
 
     // Go through list of EvpnRemoteMcastNodes and build the BgpOList.
-    BgpOListPtr olist(new BgpOList);
+    BgpOListSpec olist_spec(BgpAttribute::OList);
     BOOST_FOREACH(EvpnMcastNode *node, partition_->remote_mcast_node_list()) {
         if (node->address() == address_)
             continue;
@@ -240,11 +240,11 @@ UpdateInfo *EvpnLocalMcastNode::GetUpdateInfo() {
         const ExtCommunity *extcomm = node->attr()->ext_community();
         BgpOListElem elem(node->address(), node->label(),
             extcomm ? extcomm->GetTunnelEncap() : vector<string>());
-        olist->elements.push_back(elem);
+        olist_spec.elements.push_back(elem);
     }
 
     // Go through list of leaf EvpnMcastNodes and build the leaf BgpOList.
-    BgpOListPtr leaf_olist(new BgpOList);
+    BgpOListSpec leaf_olist_spec(BgpAttribute::LeafOList);
     if (assisted_replication_supported_) {
         BOOST_FOREACH(EvpnMcastNode *node, partition_->leaf_node_list()) {
             if (node->replicator_address() != address_)
@@ -253,18 +253,18 @@ UpdateInfo *EvpnLocalMcastNode::GetUpdateInfo() {
             const ExtCommunity *extcomm = node->attr()->ext_community();
             BgpOListElem elem(node->address(), node->label(),
                 extcomm ? extcomm->GetTunnelEncap() : vector<string>());
-            leaf_olist->elements.push_back(elem);
+            leaf_olist_spec.elements.push_back(elem);
         }
     }
 
     // Bail if both BgpOLists are empty.
-    if (olist->elements.empty() && leaf_olist->elements.empty())
+    if (olist_spec.elements.empty() && leaf_olist_spec.elements.empty())
         return NULL;
 
     // Add BgpOList and leaf BgpOList to RibOutAttr for broadcast MAC route.
     BgpAttrDB *attr_db = partition_->server()->attr_db();
-    BgpAttrPtr attr = attr_db->ReplaceOListAndLocate(attr_.get(), olist);
-    attr = attr_db->ReplaceLeafOListAndLocate(attr.get(), leaf_olist);
+    BgpAttrPtr attr = attr_db->ReplaceOListAndLocate(attr_.get(), &olist_spec);
+    attr = attr_db->ReplaceLeafOListAndLocate(attr.get(), &leaf_olist_spec);
 
     UpdateInfo *uinfo = new UpdateInfo;
     uinfo->roattr = RibOutAttr(attr.get(), 0, false);

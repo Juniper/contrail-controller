@@ -51,7 +51,8 @@ struct BgpAttribute : public ParseObject {
         LabelBlock = 2,
         SourceRd = 3,
         Esi = 4,
-        Params = 5
+        Params = 5,
+        LeafOList = 6
     };
 
     BgpAttribute() : code(0), subcode(0), flags(0) { }

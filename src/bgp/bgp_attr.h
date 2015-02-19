@@ -517,58 +517,94 @@ public:
         : address(address), label(label), encap(encap) {
     }
 
-    friend std::size_t hash_value(BgpOListElem const &elem) {
-        size_t hash = 0;
-        boost::hash_combine(hash, elem.address.to_string());
-        boost::hash_combine(hash, elem.label);
-        return hash;
-    }
+    bool operator<(const BgpOListElem &rhs) const;
 
     Ip4Address address;
     uint32_t label;
     std::vector<std::string> encap;
 };
 
-class BgpOList {
-public:
-    BgpOList() { refcount_ = 0; }
-
-    std::vector<BgpOListElem> elements;
-
-private:
-    friend void intrusive_ptr_add_ref(BgpOList *olist);
-    friend void intrusive_ptr_release(BgpOList *olist);
-
-    tbb::atomic<int> refcount_;
+struct BgpOListElemCompare {
+    bool operator()(const BgpOListElem *lhs, const BgpOListElem *rhs) {
+        BOOL_KEY_COMPARE(*lhs, *rhs);
+        return false;
+    }
 };
 
-inline void intrusive_ptr_add_ref(BgpOList *olist) {
-    olist->refcount_.fetch_and_increment();
+struct BgpOListSpec : public BgpAttribute {
+    static const int kSize = 0;
+    BgpOListSpec() : BgpAttribute(0, BgpAttribute::OList, 0) {}
+    explicit BgpOListSpec(uint8_t subcode) : BgpAttribute(0, subcode, 0) {}
+
+    virtual int CompareTo(const BgpAttribute &rhs_attr) const;
+    virtual void ToCanonical(BgpAttr *attr);
+    virtual std::string ToString() const;
+
+    typedef std::vector<BgpOListElem> Elements;
+    Elements elements;
+};
+
+class BgpOList {
+public:
+    BgpOList(BgpOListDB *olist_db, const BgpOListSpec &olist_spec);
+    virtual ~BgpOList();
+    int CompareTo(const BgpOList &rhs) const;
+    virtual void Remove();
+
+    const BgpOListSpec &olist() const { return olist_spec_; }
+
+    friend std::size_t hash_value(const BgpOList &olist) {
+        size_t hash = 0;
+        boost::hash_combine(hash, olist.olist().ToString());
+        return hash;
+    }
+
+    typedef std::vector<BgpOListElem *> Elements;
+    Elements elements;
+
+private:
+    friend int intrusive_ptr_add_ref(const BgpOList *colist);
+    friend int intrusive_ptr_del_ref(const BgpOList *colist);
+    friend void intrusive_ptr_release(const BgpOList *colist);
+
+    mutable tbb::atomic<int> refcount_;
+    BgpOListDB *olist_db_;
+    BgpOListSpec olist_spec_;
+};
+
+inline int intrusive_ptr_add_ref(const BgpOList *colist) {
+    return colist->refcount_.fetch_and_increment();
 }
 
-inline void intrusive_ptr_release(BgpOList *olist) {
-    int prev = olist->refcount_.fetch_and_decrement();
+inline int intrusive_ptr_del_ref(const BgpOList *colist) {
+    return colist->refcount_.fetch_and_decrement();
+}
+
+inline void intrusive_ptr_release(const BgpOList *colist) {
+    int prev = colist->refcount_.fetch_and_decrement();
     if (prev == 1) {
+        BgpOList *olist = const_cast<BgpOList *>(colist);
+        olist->Remove();
+        assert(olist->refcount_ == 0);
         delete olist;
     }
 }
 
 typedef boost::intrusive_ptr<BgpOList> BgpOListPtr;
 
-struct BgpAttrOList : public BgpAttribute {
-    static const int kSize = 0;
-    BgpAttrOList() : BgpAttribute(0, BgpAttribute::OList, 0) {}
-    explicit BgpAttrOList(const BgpAttribute &rhs) : BgpAttribute(rhs) {}
-    explicit BgpAttrOList(BgpOList *olist)
-        : BgpAttribute(0, BgpAttribute::OList, 0), olist(olist) {
+struct BgpOListCompare {
+    bool operator()(const BgpOList *lhs, const BgpOList *rhs) {
+        return lhs->CompareTo(*rhs) < 0;
     }
-    explicit BgpAttrOList(BgpOListPtr olist)
-        : BgpAttribute(0, BgpAttribute::OList, 0), olist(olist) {
-    }
-    BgpOListPtr olist;
-    virtual int CompareTo(const BgpAttribute &rhs_attr) const;
-    virtual void ToCanonical(BgpAttr *attr);
-    virtual std::string ToString() const;
+};
+
+class BgpOListDB : public BgpPathAttributeDB<BgpOList,
+                                             BgpOListPtr,
+                                             BgpOListSpec,
+                                             BgpOListCompare,
+                                             BgpOListDB> {
+public:
+    explicit BgpOListDB(BgpServer *server);
 };
 
 struct BgpAttrUnknown : public BgpAttribute {
@@ -660,8 +696,8 @@ public:
     void set_edge_discovery(const EdgeDiscoverySpec *edspec);
     void set_edge_forwarding(const EdgeForwardingSpec *efspec);
     void set_label_block(LabelBlockPtr label_block);
-    void set_olist(BgpOListPtr olist);
-    void set_leaf_olist(BgpOListPtr leaf_olist);
+    void set_olist(const BgpOListSpec *olist_spec);
+    void set_leaf_olist(const BgpOListSpec *leaf_olist_spec);
     friend std::size_t hash_value(BgpAttr const &attr);
 
     BgpAttrOrigin::OriginType origin() const { return origin_; }
@@ -768,11 +804,12 @@ public:
                                         const RouteDistinguisher &source_rd);
     BgpAttrPtr ReplaceEsiAndLocate(const BgpAttr *attr,
                                    const EthernetSegmentId &esi);
-    BgpAttrPtr ReplaceOListAndLocate(const BgpAttr *attr, BgpOListPtr olist);
+    BgpAttrPtr ReplaceOListAndLocate(const BgpAttr *attr,
+                                     const BgpOListSpec *olist_spec);
     BgpAttrPtr ReplaceLeafOListAndLocate(const BgpAttr *attr,
-                                         BgpOListPtr leaf_olist);
+                                         const BgpOListSpec *leaf_olist_spec);
     BgpAttrPtr ReplacePmsiTunnelAndLocate(const BgpAttr *attr,
-                                          PmsiTunnelSpec *pmsi_spec);
+                                          const PmsiTunnelSpec *pmsi_spec);
     BgpAttrPtr UpdateNexthopAndLocate(const BgpAttr *attr, uint16_t afi,
                                       uint8_t safi, IpAddress &addr);
     BgpServer *server() { return server_; }
