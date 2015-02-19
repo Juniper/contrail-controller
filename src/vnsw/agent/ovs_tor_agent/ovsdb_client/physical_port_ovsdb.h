@@ -22,8 +22,8 @@ private:
 
 class PhysicalPortEntry : public OvsdbEntry {
 public:
-    typedef std::map<int, LogicalSwitchEntry *> VlanLSTable;
-    typedef std::map<int, struct ovsdb_idl_row *> VlanStatsTable;
+    typedef std::map<uint32_t, LogicalSwitchEntry *> VlanLSTable;
+    typedef std::map<uint32_t, struct ovsdb_idl_row *> VlanStatsTable;
     PhysicalPortEntry(PhysicalPortTable *table, const std::string &name);
     ~PhysicalPortEntry();
 
