@@ -48,7 +48,7 @@ OvsdbClientIdl *OvsdbClientSession::client_idl() {
 }
 
 bool OvsdbClientSession::SendMonitorReqTimerCb() {
-    client_idl_->SendMointorReq();
+    client_idl_->OnEstablish();
     return false;
 }
 
