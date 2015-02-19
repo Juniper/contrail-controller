@@ -422,8 +422,8 @@ public:
     EdgeForwarding(EdgeForwardingDB *edge_forwarding_db,
         const EdgeForwardingSpec &efspec);
     virtual ~EdgeForwarding();
-    int CompareTo(const EdgeForwarding &rhs) const;
     virtual void Remove();
+    int CompareTo(const EdgeForwarding &rhs) const;
 
     const EdgeForwardingSpec &edge_forwarding() const { return efspec_; }
 
@@ -548,8 +548,8 @@ class BgpOList {
 public:
     BgpOList(BgpOListDB *olist_db, const BgpOListSpec &olist_spec);
     virtual ~BgpOList();
-    int CompareTo(const BgpOList &rhs) const;
     virtual void Remove();
+    int CompareTo(const BgpOList &rhs) const;
 
     const BgpOListSpec &olist() const { return olist_spec_; }
 

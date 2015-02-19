@@ -275,9 +275,6 @@ void EdgeDiscoverySpec::Edge::SetLabels(
 int EdgeDiscoverySpec::CompareTo(const BgpAttribute &rhs_attr) const {
     int ret = BgpAttribute::CompareTo(rhs_attr);
     if (ret != 0) return ret;
-    const EdgeDiscoverySpec &rhs =
-        static_cast<const EdgeDiscoverySpec &>(rhs_attr);
-    KEY_COMPARE(this, &rhs);
     return 0;
 }
 
@@ -391,9 +388,6 @@ void EdgeForwardingSpec::Edge::SetOutboundIp4Address(Ip4Address addr) {
 int EdgeForwardingSpec::CompareTo(const BgpAttribute &rhs_attr) const {
     int ret = BgpAttribute::CompareTo(rhs_attr);
     if (ret != 0) return ret;
-    const EdgeForwardingSpec &rhs =
-        static_cast<const EdgeForwardingSpec &>(rhs_attr);
-    KEY_COMPARE(this, &rhs);
     return 0;
 }
 
@@ -762,35 +756,10 @@ int BgpAttr::CompareTo(const BgpAttr &rhs) const {
     KEY_COMPARE(label_block_.get(), rhs.label_block_.get());
     KEY_COMPARE(olist_.get(), rhs.olist_.get());
     KEY_COMPARE(leaf_olist_.get(), rhs.leaf_olist_.get());
-
-    if (as_path_.get() == NULL || rhs.as_path_.get() == NULL) {
-        KEY_COMPARE(as_path_.get(), rhs.as_path_.get());
-    } else {
-        int ret = as_path_->CompareTo(*rhs.as_path_);
-        if (ret != 0) return ret;
-    }
-
-    if (community_.get() == NULL || rhs.community_.get() == NULL) {
-        KEY_COMPARE(community_.get(), rhs.community_.get());
-    } else {
-        int ret = community_->CompareTo(*rhs.community_);
-        if (ret != 0) return ret;
-    }
-
-    if (ext_community_.get() == NULL || rhs.ext_community_.get() == NULL) {
-        KEY_COMPARE(ext_community_.get(), rhs.ext_community_.get());
-    } else {
-        int ret = ext_community_->CompareTo(*rhs.ext_community_);
-        if (ret != 0) return ret;
-    }
-
-    if (origin_vn_path_.get() == NULL || rhs.origin_vn_path_.get() == NULL) {
-        KEY_COMPARE(origin_vn_path_.get(), rhs.origin_vn_path_.get());
-    } else {
-        int ret = origin_vn_path_->CompareTo(*rhs.origin_vn_path_);
-        if (ret != 0) return ret;
-    }
-
+    KEY_COMPARE(as_path_.get(), rhs.as_path_.get());
+    KEY_COMPARE(community_.get(), rhs.community_.get());
+    KEY_COMPARE(ext_community_.get(), rhs.ext_community_.get());
+    KEY_COMPARE(origin_vn_path_.get(), rhs.origin_vn_path_.get());
     return 0;
 }
 

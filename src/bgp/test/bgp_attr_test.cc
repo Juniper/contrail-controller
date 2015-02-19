@@ -1307,8 +1307,8 @@ TEST_F(BgpAttrTest, EdgeDiscoveryCompareTo) {
     EdgeDiscoverySpec edspec1;
     EdgeDiscoverySpec edspec2;
     EXPECT_EQ(0, edspec1.CompareTo(edspec1));
-    EXPECT_NE(0, edspec1.CompareTo(edspec2));
-    EXPECT_NE(0, edspec2.CompareTo(edspec1));
+    EXPECT_EQ(0, edspec1.CompareTo(edspec2));
+    EXPECT_EQ(0, edspec2.CompareTo(edspec1));
 }
 
 TEST_F(BgpAttrTest, EdgeDiscoveryToString1) {
@@ -1880,8 +1880,8 @@ TEST_F(BgpAttrTest, EdgeForwardingCompareTo) {
     EdgeForwardingSpec efspec1;
     EdgeForwardingSpec efspec2;
     EXPECT_EQ(0, efspec1.CompareTo(efspec1));
-    EXPECT_NE(0, efspec1.CompareTo(efspec2));
-    EXPECT_NE(0, efspec2.CompareTo(efspec1));
+    EXPECT_EQ(0, efspec1.CompareTo(efspec2));
+    EXPECT_EQ(0, efspec2.CompareTo(efspec1));
 }
 
 TEST_F(BgpAttrTest, EdgeForwardingToString1) {
