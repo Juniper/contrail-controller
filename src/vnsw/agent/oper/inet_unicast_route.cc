@@ -1170,7 +1170,15 @@ InetUnicastAgentRouteTable::ArpRoute(DBRequest::DBOperation op,
                                      const SecurityGroupList &sg) {
     Agent *agent = Agent::GetInstance();
     DBRequest  nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    nh_req.key.reset(new ArpNHKey(nexthop_vrf_name, ip, policy));
+    ArpNHKey *nh_key = new ArpNHKey(nexthop_vrf_name, ip, policy);
+    if (op == DBRequest::DB_ENTRY_DELETE) {
+        //In case of delete we want to set the
+        //nexthop as invalid, hence use resync operation
+        //We dont want the nexthop to created again
+        //in case of duplicate delete
+        nh_key->sub_op_ = AgentKey::RESYNC;
+    }
+    nh_req.key.reset(nh_key);
     ArpNHData *arp_data = new ArpNHData(mac,
                static_cast<InterfaceKey *>(intf.GetDBRequestKey().release()),
                resolved);
