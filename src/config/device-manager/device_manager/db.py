@@ -74,7 +74,13 @@ class PhysicalRouterDM(DBBase):
         self.uuid = uuid
         self.virtual_networks = set()
         self.bgp_router = None
+        self.config_manager = None
         self.update(obj_dict)
+        if self.vendor is None or self.vendor.lower() == 'juniper':
+            if self.product is None:
+                self.product = "mx"
+            if self.vnc_managed is None:
+                self.vnc_managed = True
         self.config_manager = PhysicalRouterConfig(
             self.management_ip, self.user_credentials, self.vendor,
             self.product, self.vnc_managed, self._logger)
@@ -94,6 +100,10 @@ class PhysicalRouterDM(DBBase):
                                         obj.get('physical_interfaces', [])])
         self.logical_interfaces = set([li['uuid'] for li in
                                        obj.get('logical_interfaces', [])])
+        if self.config_manager is not None:
+            self.config_manager.update(
+                self.management_ip, self.user_credentials, self.vendor,
+                self.product, self.vnc_managed)
     # end update
 
     @classmethod
