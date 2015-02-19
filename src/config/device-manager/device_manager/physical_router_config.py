@@ -31,6 +31,14 @@ class PhysicalRouterConfig(object):
         self._logger = logger
     # end __init__
 
+    def update(self, management_ip, user_creds, vendor, product, vnc_managed):
+        self.management_ip = management_ip
+        self.user_creds = user_creds
+        self.vendor = vendor
+        self.product = product
+        self.vnc_managed = vnc_managed
+    # end update
+
     def send_netconf(self, new_config, default_operation="merge",
                      operation=None):
         if (self.vendor is None or self.product is None or
