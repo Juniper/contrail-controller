@@ -336,17 +336,26 @@ KSyncDBObject::DBFilterResp LogicalSwitchTable::DBEntryFilter(
 /////////////////////////////////////////////////////////////////////////////
 class LogicalSwitchSandeshTask : public Task {
 public:
-    LogicalSwitchSandeshTask(std::string resp_ctx) :
+    LogicalSwitchSandeshTask(std::string resp_ctx, std::string ip,
+                             uint32_t port) :
         Task((TaskScheduler::GetInstance()->GetTaskId("Agent::KSync")), 0),
-        resp_(new OvsdbLogicalSwitchResp()), resp_data_(resp_ctx) {
+        resp_(new OvsdbLogicalSwitchResp()), resp_data_(resp_ctx),
+        ip_(ip), port_(port) {
     }
     virtual ~LogicalSwitchSandeshTask() {}
     virtual bool Run() {
         std::vector<OvsdbLogicalSwitchEntry> lswitch;
         TorAgentInit *init =
             static_cast<TorAgentInit *>(Agent::GetInstance()->agent_init());
-        OvsdbClientSession *session = init->ovsdb_client()->next_session(NULL);
-        if (session->client_idl() != NULL) {
+        OvsdbClientSession *session;
+        if (ip_.empty()) {
+            session = init->ovsdb_client()->NextSession(NULL);
+        } else {
+            boost::system::error_code ec;
+            Ip4Address ip_addr = Ip4Address::from_string(ip_, ec);
+            session = init->ovsdb_client()->FindSession(ip_addr, port_);
+        }
+        if (session != NULL && session->client_idl() != NULL) {
             LogicalSwitchTable *table =
                 session->client_idl()->logical_switch_table();
             LogicalSwitchEntry *entry =
@@ -365,6 +374,7 @@ public:
         SendResponse();
         return true;
     }
+
 private:
     void SendResponse() {
         resp_->set_context(resp_data_);
@@ -374,11 +384,15 @@ private:
 
     OvsdbLogicalSwitchResp *resp_;
     std::string resp_data_;
+    std::string ip_;
+    uint32_t port_;
     DISALLOW_COPY_AND_ASSIGN(LogicalSwitchSandeshTask);
 };
 
 void OvsdbLogicalSwitchReq::HandleRequest() const {
-    LogicalSwitchSandeshTask *task = new LogicalSwitchSandeshTask(context());
+    LogicalSwitchSandeshTask *task =
+        new LogicalSwitchSandeshTask(context(), get_session_remote_ip(),
+                                     get_session_remote_port());
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(task);
 }
