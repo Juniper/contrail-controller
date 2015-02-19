@@ -97,6 +97,12 @@ bool LogicalInterface::Delete(const DBRequest *req) {
     return true;
 }
 
+void LogicalInterface::GetOsParams(Agent *agent) {
+    os_index_ = Interface::kInvalidIndex;
+    mac_.Zero();
+    os_oper_state_ = true;
+}
+
 VmInterface *LogicalInterface::vm_interface() const {
     return static_cast<VmInterface *>(vm_interface_.get());
 }
