@@ -625,6 +625,18 @@ class FakeKombu(object):
         def _info(self):
             pass
         # end _info
+
+        def drain_events(self):
+            gevent.sleep(1)
+        # end drain_events
+
+        @property
+        def connection_errors(self):
+            return (Exception,)
+
+        @property
+        def channel_errors(self):
+            return (Exception, )
     # end class Connection
 
     class Consumer(object):
@@ -647,6 +659,10 @@ class FakeKombu(object):
             self.geventlet = gevent.spawn(self._consume)
         # end consume
 
+        def close(self):
+            self.geventlet.kill()
+        # end close
+
     # end class Consumer
 
     class Producer(object):
@@ -658,6 +674,10 @@ class FakeKombu(object):
             for q in self.exchange.queues.values():
                 q.put(payload, None)
         #end publish
+
+        def close(self):
+            pass
+        # end close
 
     # end class Producer
 
