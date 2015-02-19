@@ -173,6 +173,81 @@ NON_RUNNING_VROUTER_UVES_STATUS_3 = {
 
 NON_RUNNING_VROUTER_UVES_STATUS_4 = {}
 
+NON_RUNNING_VROUTER_UVES_STATUS_5 = {
+    "NodeStatus": {
+        "process_status": [
+            {
+                "instance_id": "0",
+                "module_id": constants.MODULE_VROUTER_AGENT_NAME,
+                "state": "Functional",
+                "connection_infos": [
+                    {
+                        "server_addrs": [
+                            "10.0.1.2:0"
+                        ],
+                        "status": "Up",
+                        "type": "XMPP",
+                        "name": "control-node:10.0.1.2",
+                        "description": "OpenSent"
+                    },
+                    {
+                        "server_addrs": [
+                            "127.0.0.1:8086"
+                        ],
+                        "status": "Up",
+                        "type": "Collector",
+                        "name": "null",
+                        "description": "Established"
+                    }
+                ]
+            }
+        ],
+        "description": "null"
+    },
+    "VrouterAgent": {
+        "mode": "TOR",
+        "build_info": "{\"build-info\":[{\"build-time\":\"2015-01-12 11:13:42.160435\",\"build-hostname\":\"vrouter1\",\"build-git-ver\":\"bdcb043\",\"build-user\":\"root\",\"build-version\":\"2.0\",\"build-id\":\"unknown\",\"build-number\":\"unknown\"}]}"
+    }
+}
+
+NON_RUNNING_VROUTER_UVES_STATUS_6 = {
+    "NodeStatus": {
+        "process_status": [
+            {
+                "instance_id": "0",
+                "module_id": constants.MODULE_VROUTER_AGENT_NAME,
+                "state": "Functional",
+                "connection_infos": [
+                    {
+                        "server_addrs": [
+                            "10.0.1.2:0"
+                        ],
+                        "status": "Up",
+                        "type": "XMPP",
+                        "name": "control-node:10.0.1.2",
+                        "description": "OpenSent"
+                    },
+                    {
+                        "server_addrs": [
+                            "127.0.0.1:8086"
+                        ],
+                        "status": "Up",
+                        "type": "Collector",
+                        "name": "null",
+                        "description": "Established"
+                    }
+                ]
+            }
+        ],
+        "description": "null"
+    },
+    "VrouterAgent": {
+        "mode": "TSN",
+        "build_info": "{\"build-info\":[{\"build-time\":\"2015-01-12 11:13:42.160435\",\"build-hostname\":\"vrouter1\",\"build-git-ver\":\"bdcb043\",\"build-user\":\"root\",\"build-version\":\"2.0\",\"build-id\":\"unknown\",\"build-number\":\"unknown\"}]}"
+    }
+}
+
+
 VROUTER_LIST = {
     "virtual-routers": [
         {
@@ -217,7 +292,7 @@ class TestRandomScheduler(unittest.TestCase):
 
         self.scheduler = \
             scheduler.RandomScheduler(self.vnc_mock, mock.MagicMock(),
-                                      mock.MagicMock(netns_availability_zone=False))
+                mock.MagicMock(netns_availability_zone=False))
 
     def tearDown(self):
         self.analytics_patch.stop()
@@ -273,7 +348,11 @@ class TestRandomScheduler(unittest.TestCase):
                                            NON_RUNNING_VROUTER_UVES_STATUS_2,
                                            NON_RUNNING_VROUTER_UVES_STATUS_3,
                                            NON_RUNNING_VROUTER_UVES_STATUS_4,
+                                           NON_RUNNING_VROUTER_UVES_STATUS_5,
+                                           NON_RUNNING_VROUTER_UVES_STATUS_6,
                                            RUNNING_VROUTER_UVES_STATUS]
+        self.assertFalse(self.scheduler.vrouter_running('fake_vrouter_name'))
+        self.assertFalse(self.scheduler.vrouter_running('fake_vrouter_name'))
         self.assertFalse(self.scheduler.vrouter_running('fake_vrouter_name'))
         self.assertFalse(self.scheduler.vrouter_running('fake_vrouter_name'))
         self.assertFalse(self.scheduler.vrouter_running('fake_vrouter_name'))
