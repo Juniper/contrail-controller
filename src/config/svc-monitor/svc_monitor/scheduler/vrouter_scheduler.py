@@ -105,18 +105,31 @@ class VRouterScheduler(object):
     def vrouter_running(self, vrouter_name):
         """Check if a vrouter agent is up and running."""
         path = "/analytics/uves/vrouter/"
-        fqdn_uuid = "%s?cfilt=NodeStatus" % vrouter_name
 
+        fqdn_uuid = "%s?cfilt=VrouterAgent" % vrouter_name
         try:
-            vrouter_status = self._analytics.request(path, fqdn_uuid)
+            vrouter_agent = self._analytics.request(path, fqdn_uuid)
         except analytics_client.OpenContrailAPIFailed:
             return False
 
-        if not vrouter_status or 'NodeStatus' not in vrouter_status or \
-                'process_status' not in vrouter_status['NodeStatus']:
+        if 'VrouterAgent' not in vrouter_agent or \
+                ('mode' in vrouter_agent['VrouterAgent'] and \
+                vrouter_agent['VrouterAgent']['mode'] != \
+                constants.VrouterAgentTypeMap[
+                    VrouterAgentType.VROUTER_AGENT_EMBEDDED]):
             return False
 
-        for process in vrouter_status['NodeStatus']['process_status']:
+        fqdn_uuid = "%s?cfilt=NodeStatus" % vrouter_name
+        try:
+            node_status = self._analytics.request(path, fqdn_uuid)
+        except analytics_client.OpenContrailAPIFailed:
+            return False
+
+        if not node_status or 'NodeStatus' not in node_status or \
+                'process_status' not in node_status['NodeStatus']:
+            return False
+
+        for process in node_status['NodeStatus']['process_status']:
             if (process['module_id'] == constants.MODULE_VROUTER_AGENT_NAME and
                 int(process['instance_id']) == 0 and
                 process['state'] == 'Functional'):
