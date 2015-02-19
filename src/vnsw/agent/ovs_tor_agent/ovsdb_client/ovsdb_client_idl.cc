@@ -110,7 +110,11 @@ void intrusive_ptr_release(OvsdbClientIdl *p) {
 OvsdbClientIdl::OvsdbClientIdl(OvsdbClientSession *session, Agent *agent,
         OvsPeerManager *manager) : idl_(ovsdb_wrapper_idl_create()),
     session_(session), agent_(agent), pending_txn_(), deleted_(false),
-    manager_(manager) {
+    manager_(manager), connection_state_(OvsdbSessionRcvWait),
+    keepalive_timer_(TimerManager::CreateTimer(
+                *(agent->event_manager())->io_service(),
+                "OVSDB Client Keep Alive Timer",
+                TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0)) {
     refcount_ = 0;
     vtep_global_= ovsdb_wrapper_vteprec_global_first(idl_);
     ovsdb_wrapper_idl_set_callback(idl_, (void *)this,
@@ -141,6 +145,7 @@ OvsdbClientIdl::OvsdbClientIdl(OvsdbClientSession *session, Agent *agent,
 OvsdbClientIdl::~OvsdbClientIdl() {
     receive_queue_->Shutdown();
     delete receive_queue_;
+    TimerManager::DeleteTimer(keepalive_timer_);
     manager_->Free(route_peer_.release());
     ovsdb_wrapper_idl_destroy(idl_);
 }
@@ -155,13 +160,31 @@ OvsdbClientIdl::OvsdbMsg::~OvsdbMsg() {
     }
 }
 
-void OvsdbClientIdl::SendMointorReq() {
+void OvsdbClientIdl::OnEstablish() {
     if (deleted_) {
         OVSDB_TRACE(Trace, "IDL deleted skipping Monitor Request");
         return;
     }
     OVSDB_TRACE(Trace, "Sending Monitor Request");
     SendJsonRpc(ovsdb_wrapper_idl_encode_monitor_request(idl_));
+
+    int keepalive_intv = session_->keepalive_interval();
+    if (keepalive_intv < 0) {
+        // timer not configured, use default timer
+        keepalive_intv = OVSDBKeepAliveTimer;
+    } else if (keepalive_intv == 0) {
+        // timer configured not to run, return from here.
+        return;
+    }
+
+    if (keepalive_intv < OVSDBMinKeepAliveTimer) {
+        // keepalive interval is not supposed to be less than min value.
+        keepalive_intv = OVSDBMinKeepAliveTimer;
+    }
+
+    // Start the Keep Alives
+    keepalive_timer_->Start(keepalive_intv,
+            boost::bind(&OvsdbClientIdl::KeepAliveTimerCb, this));
 }
 
 void OvsdbClientIdl::SendJsonRpc(struct jsonrpc_msg *msg) {
@@ -204,22 +227,23 @@ void OvsdbClientIdl::MessageProcess(const u_int8_t *buf, std::size_t len) {
             }
 
             if (ovsdb_wrapper_msg_echo_req(msg)) {
-                /* Echo request.  Send reply. */
+                // Echo request from ovsdb-server, reply inline so that
+                // ovsdb-server knows that connection is still active
                 struct jsonrpc_msg *reply;
                 reply = ovsdb_wrapper_jsonrpc_create_reply(msg);
                 SendJsonRpc(reply);
-                //jsonrpc_session_send(s, reply);
-            } else if (ovsdb_wrapper_msg_echo_reply(msg)) {
-                /* It's a reply to our echo request.  Suppress it. */
-            } else {
-                // Process the received messages in a KSync workqueue task context,
-                // to assure only one thread is writting data to OVSDB client.
-                if (!deleted_) {
-                    OvsdbMsg *ovs_msg = new OvsdbMsg(msg);
-                    receive_queue_->Enqueue(ovs_msg);
-                    continue;
-                }
             }
+
+            // Process all received messages in a KSync workqueue task context,
+            // to assure only one thread is writting data to OVSDB client.
+            // we even enqueue processed echo req message to workqueue, to
+            // track session activity in KSync task context.
+            if (!deleted_) {
+                OvsdbMsg *ovs_msg = new OvsdbMsg(msg);
+                receive_queue_->Enqueue(ovs_msg);
+                continue;
+            }
+
             ovsdb_wrapper_jsonrpc_msg_destroy(msg);
         }
     }
@@ -227,9 +251,16 @@ void OvsdbClientIdl::MessageProcess(const u_int8_t *buf, std::size_t len) {
 
 bool OvsdbClientIdl::ProcessMessage(OvsdbMsg *msg) {
     if (!deleted_) {
-        ovsdb_wrapper_idl_msg_process(idl_, msg->msg);
-        // msg->msg is freed by process method above
-        msg->msg = NULL;
+        // echo req and reply messages are just enqueued to identify
+        // session activity, since they need no further processing
+        // skip and delete the message
+        if (!ovsdb_wrapper_msg_echo_req(msg->msg) &&
+            !ovsdb_wrapper_msg_echo_reply(msg->msg)) {
+            ovsdb_wrapper_idl_msg_process(idl_, msg->msg);
+            // msg->msg is freed by process method above
+            msg->msg = NULL;
+        }
+        connection_state_ = OvsdbSessionActive;
     }
     delete msg;
     return true;
@@ -309,6 +340,32 @@ VrfOvsdbObject *OvsdbClientIdl::vrf_ovsdb() {
 
 VnOvsdbObject *OvsdbClientIdl::vn_ovsdb() {
     return vn_ovsdb_.get();
+}
+
+bool OvsdbClientIdl::KeepAliveTimerCb() {
+    switch (connection_state_) {
+    case OvsdbSessionActive:
+        // session is active, move to Receive wait state to
+        // identify session activity.
+        connection_state_ = OvsdbSessionRcvWait;
+        return true;
+    case OvsdbSessionRcvWait:
+        {
+        // send echo request and restart the timer to wait for reply
+        struct jsonrpc_msg *req = ovsdb_wrapper_jsonrpc_create_echo_request();
+        connection_state_ = OvsdbSessionEchoWait;
+        SendJsonRpc(req);
+        }
+        return true;
+    case OvsdbSessionEchoWait:
+        // echo reply not recevied ovsdb-server is not responding,
+        // close the session
+        OVSDB_TRACE(Error, "KeepAlive failed, Closing Session");
+        session_->TriggerClose();
+        // Connection is closed, timer doesn't need restart
+        return false;
+    }
+    return true;
 }
 
 void OvsdbClientIdl::trigger_deletion() {

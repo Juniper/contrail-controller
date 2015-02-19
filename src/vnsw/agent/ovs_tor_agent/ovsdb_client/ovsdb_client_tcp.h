@@ -60,6 +60,8 @@ public:
     // Receive message from OVSDB server
     void RecvMsg(const u_int8_t *buf, std::size_t len);
 
+    int keepalive_interval();
+
     KSyncObjectManager *ksync_obj_manager();
     Ip4Address tsn_ip();
 
@@ -67,6 +69,9 @@ public:
     std::string status() {return status_;}
 
     void OnCleanup();
+
+    // method to trigger close of session
+    void TriggerClose();
 
     // Dequeue event from workqueue for processing
     bool ProcessSessionEvent(OvsdbSessionEvent event);

@@ -79,6 +79,16 @@ ovsdb_wrapper_jsonrpc_create_reply(struct jsonrpc_msg *msg) {
     return jsonrpc_create_reply(json_clone(msg->params), msg->id);
 }
 
+// Creates OVSDB echo request.
+struct jsonrpc_msg *
+ovsdb_wrapper_jsonrpc_create_echo_request() {
+    struct jsonrpc_msg *request =
+        jsonrpc_create_request("echo", json_array_create_empty(), NULL);
+    // set the id to be echo request
+    request->id = json_string_create("echo");
+    return request;
+}
+
 void
 ovsdb_wrapper_idl_set_callback(struct ovsdb_idl *idl, void *idl_base,
         idl_callback cb, txn_ack_callback ack_cb)
