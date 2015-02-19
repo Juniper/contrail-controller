@@ -83,6 +83,7 @@ public:
     virtual bool Delete(DBEntry *entry, const DBRequest *req);
 
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
+    virtual bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static SgTable *GetInstance() {return sg_table_;};

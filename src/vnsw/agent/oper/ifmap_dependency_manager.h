@@ -18,9 +18,48 @@ class DBGraph;
 class IFMapDependencyTracker;
 class IFMapNode;
 class TaskTrigger;
+class IFMapDependencyManager;
+
+//IFMapNodeState is a DBState for IFMapNode with listener ID
+// of IFMapDependency Manager. DBState is created when the first
+// time SetState is invoked. The caller of SetState gets intrusive
+// pointer to IFMapNodeState  enabling the caller hold IFMapNode
+// till reference is removed. Caller does not need to invoke
+// clear state as it gets automatically cleared when references are
+// removed. Optionally a DBEntry can be added to this IFMapNodeState
+// to trigger the IFMapDependency tracker.
+// IFMapDependency tracker also uses the same state, to ensure that
+// across the traversal, IFMapNode is not removed.
+class IFMapNodeState : public DBState {
+  public:
+    IFMapNodeState(IFMapDependencyManager *manager, IFMapNode *node)
+            : manager_(manager), node_(node), object_(NULL), refcount_(0) {
+    }
+
+    IFMapNode *node() { return node_; }
+    DBEntry *object() { return object_; }
+    void set_object(DBEntry *object) {
+        object_ = object;
+    }
+
+    void clear_object() {
+        object_ = NULL;
+    }
+
+  private:
+    friend void intrusive_ptr_add_ref(IFMapNodeState *state);
+    friend void intrusive_ptr_release(IFMapNodeState *state);
+
+    IFMapDependencyManager *manager_;
+    IFMapNode *node_;
+    DBEntry *object_;
+    int refcount_;
+};
+
 
 class IFMapDependencyManager {
 public:
+    typedef boost::intrusive_ptr<IFMapNodeState> IFMapNodePtr;
     typedef boost::function<void(DBEntry *)> ChangeEventHandler;
     IFMapDependencyManager(DB *database, DBGraph *graph);
     virtual ~IFMapDependencyManager();
@@ -47,15 +86,9 @@ public:
     void SetObject(IFMapNode *node, DBEntry *entry);
 
     /*
-     * Reset the association between the IFMapNode and the operation DB
-     * entry.
-     */
-    void ResetObject(IFMapNode *node);
-
-    /*
      * Add DBState to an IFMapNode
      */
-    void SetState(IFMapNode *node);
+    IFMapNodePtr SetState(IFMapNode *node);
     /*
      * Register a notification callback.
      */
@@ -66,17 +99,16 @@ public:
      */
     void Unregister(const std::string &type);
 
+
 private:
     /*
      * IFMapNodeState (DBState) should exist:
      * a) if the object is set
      * b) if the entry is on the change list.
      */
-    class IFMapNodeState;
     friend void intrusive_ptr_add_ref(IFMapNodeState *state);
     friend void intrusive_ptr_release(IFMapNodeState *state);
 
-    typedef boost::intrusive_ptr<IFMapNodeState> IFMapNodePtr;
     typedef std::vector<IFMapNodePtr> ChangeList;
     typedef std::map<std::string, DBTable::ListenerId> TableMap;
     typedef std::map<std::string, ChangeEventHandler> EventMap;
@@ -87,7 +119,6 @@ private:
     void LinkObserver(DBTablePartBase *root, DBEntryBase *db_entry);
     void ChangeListAdd(IFMapNode *node);
 
-    void IFMapNodeSet(IFMapNode *node, DBEntry *object);
     void IFMapNodeReset(IFMapNode *node);
     IFMapNodeState *IFMapNodeGet(IFMapNode *node);
 

@@ -11,6 +11,7 @@
 #include <oper/vm.h>
 #include <oper/mirror_table.h>
 #include <oper/agent_sandesh.h>
+#include <cfg/cfg_listener.h>
 
 using namespace std;
 using namespace autogen;
@@ -114,16 +115,22 @@ DBTableBase *VmTable::CreateTable(DB *db, const std::string &name) {
     vm_table_->Init();
     return vm_table_;
 };
-
-bool VmTable::IFNodeToReq(IFMapNode *node, DBRequest &req){
+bool VmTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
     VirtualMachine *cfg = static_cast <VirtualMachine *> (node->GetObject());
     assert(cfg);
     autogen::IdPermsType id_perms = cfg->id_perms();
-    boost::uuids::uuid u;
     CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+    return true;
+}
+
+bool VmTable::IFNodeToReq(IFMapNode *node, DBRequest &req){
+    uuid id;
+    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, id) == false)
+        return false;
+
     string virtual_router_type = "none";
 
-    VmKey *key = new VmKey(u);
+    VmKey *key = new VmKey(id);
     VmData *data = NULL;
     if (node->IsDeleted()) {
         req.oper = DBRequest::DB_ENTRY_DELETE;

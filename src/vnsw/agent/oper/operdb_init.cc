@@ -159,12 +159,14 @@ void OperDB::CreateDBTables(DB *db) {
             db->CreateTable("db.service-instance.0"));
     agent_->set_service_instance_table(si_table);
     si_table->Initialize(agent_->cfg()->cfg_graph(), dependency_manager_.get());
+    si_table->set_agent(agent_);
 
     LoadbalancerTable *lb_table =
         static_cast<LoadbalancerTable *>(db->CreateTable("db.loadbalancer-pool.0"));
     agent_->set_loadbalancer_table(lb_table);
     lb_table->Initialize(agent_->cfg()->cfg_graph(),
             dependency_manager_.get());
+    lb_table->set_agent(agent_);
 
     PhysicalDeviceTable *dev_table =
         DBTableCreate<PhysicalDeviceTable>(db, agent_, this,

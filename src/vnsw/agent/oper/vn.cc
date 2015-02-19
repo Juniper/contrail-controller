@@ -623,7 +623,7 @@ VnData *VnTable::BuildData(IFMapNode *node) {
     bool bridging = true;
     bool layer3_forwarding = true;
 
-    return new VnData(node->name(), acl_uuid, vrf_name, mirror_acl_uuid,
+    return new VnData(agent(), node->name(), acl_uuid, vrf_name, mirror_acl_uuid,
                       mirror_cfg_acl_uuid, vn_ipam, vn_ipam_data,
                       cfg->properties().vxlan_network_identifier,
                       cfg->properties().network_id, bridging, layer3_forwarding,
@@ -658,17 +658,27 @@ void VnTable::ResyncVmInterface(IFMapNode *node) {
     }
 }
 
+
+bool VnTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
+    VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
+    assert(cfg);
+    autogen::IdPermsType id_perms = cfg->id_perms();
+    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+    return true;
+}
+
 bool VnTable::IFLinkToReq(IFMapLink *link, IFMapNode *node,
                           const string &peer_type, IFMapNode *peer,
                           DBRequest &req) {
+
+
     // Add/Delete of link other than VMInterface will most likely need re-eval
     // of VN.
     if (peer_type != "virtual-machine-interface") {
         VirtualNetwork *cfg = static_cast <VirtualNetwork *>(node->GetObject());
         assert(cfg);
-        autogen::IdPermsType id_perms = cfg->id_perms();
         boost::uuids::uuid u;
-        CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+        agent()->cfg_listener()->GetCfgDBStateUuid(node, u);
         req.key.reset(new VnKey(u));
         req.data.reset(BuildData(node));
         Enqueue(&req);
@@ -705,7 +715,9 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     assert(cfg);
     autogen::IdPermsType id_perms = cfg->id_perms();
     boost::uuids::uuid u;
-    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, u) == false)
+        return false;
+
     req.key.reset(new VnKey(u));
     VnData *data = NULL;
 
@@ -715,7 +727,7 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         data = BuildData(node);
         req.data.reset(data);
-        data->SetIFMapNode(agent(), node);
+        data->SetIFMapNode(node);
     }
 
     Enqueue(&req);
@@ -761,7 +773,7 @@ void VnTable::AddVn(const uuid &vn_uuid, const string &name,
                     int vxlan_id, bool admin_state, bool enable_rpf) {
     DBRequest req;
     VnKey *key = new VnKey(vn_uuid);
-    VnData *data = new VnData(name, acl_id, vrf_name, nil_uuid(), 
+    VnData *data = new VnData(agent(), name, acl_id, vrf_name, nil_uuid(), 
                               nil_uuid(), ipam, vn_ipam_data,
                               vxlan_id, vxlan_id, true, true,
                               admin_state, enable_rpf);

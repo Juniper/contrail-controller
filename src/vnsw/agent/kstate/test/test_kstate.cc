@@ -214,7 +214,6 @@ public:
 };
 
 bool KStateTest::ksync_init_;
-
 TEST_F(KStateTest, IfDumpTest) {
     int if_count = 0;
     TestIfKState::Init();
@@ -267,7 +266,6 @@ TEST_F(KStateTest, NHDumpTest) {
 
     DeletePorts(max_ports);
 }
-
 TEST_F(KStateTest, NHGetTest) {
     int nh_count = 0;
     TestNHKState::Init();
