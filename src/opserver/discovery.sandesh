@@ -8,5 +8,5 @@
 
 trace sandesh CollectorTrace {
     1: "Collector list from Discovery:"
-    2: list<string>     collectors
+    2: list<string>     publishers
 }
