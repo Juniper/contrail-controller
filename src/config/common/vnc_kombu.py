@@ -15,7 +15,6 @@ except ImportError:
     # older versions of gevent
     from gevent.coros import Semaphore
 
-
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
     ConnectionType
@@ -45,6 +44,7 @@ class VncKombuClientBase(object):
         self._subscribe_cb = subscribe_cb
         self._logger = logger
         self._publish_queue = Queue()
+        self._conn_lock = Semaphore()
 
         self.obj_upd_exchange = kombu.Exchange('vnc_config.object-update', 'fanout',
                                                durable=False)
@@ -57,120 +57,6 @@ class VncKombuClientBase(object):
         # override this method
         return
 
-
-class VncKombuClientV1(VncKombuClientBase):
-    def connect(self, delete_old_q=False):
-        msg = "Connecting to rabbitmq on %s:%s user %s" \
-              % (self._rabbit_ip, self._rabbit_port, self._rabbit_user)
-        self._logger(msg, level=SandeshLevel.SYS_NOTICE)
-        self._update_sandesh_status(ConnectionStatus.INIT)
-        self._conn_state = ConnectionStatus.INIT
-        while True:
-            try:
-                self._conn = kombu.Connection(hostname=self._rabbit_ip,
-                                              port=self._rabbit_port,
-                                              userid=self._rabbit_user,
-                                              password=self._rabbit_password,
-                                              virtual_host=self._rabbit_vhost)
-
-                self._update_sandesh_status(ConnectionStatus.UP)
-                self._conn_state = ConnectionStatus.UP
-                msg = 'RabbitMQ connection ESTABLISHED'
-                self._logger(msg, level=SandeshLevel.SYS_NOTICE)
-
-                if delete_old_q:
-                    bound_q = self._update_queue_obj(self._conn.channel())
-                    try:
-                        bound_q.delete()
-                    except amqp.exceptions.ChannelError as e:
-                        msg = "Unable to delete the old amqp Q: %s" % str(e)
-                        self._logger(msg, level=SandeshLevel.SYS_ERR)
-
-                self._obj_update_q = self._conn.SimpleQueue(self._update_queue_obj)
-
-                old_subscribe_greenlet = self._subscribe_greenlet
-                self._subscribe_greenlet = gevent.spawn(self._subscriber)
-                if old_subscribe_greenlet:
-                    old_subscribe_greenlet.kill()
-
-                break
-            except Exception as e:
-                if self._conn_state != ConnectionStatus.DOWN:
-                    msg = "RabbitMQ connection down: %s" %(str(e))
-                    self._logger(msg, level=SandeshLevel.SYS_ERR)
-
-                self._update_sandesh_status(ConnectionStatus.DOWN)
-                self._conn_state = ConnectionStatus.DOWN
-                time.sleep(2)
-    # end connect
-
-    def __init__(self, rabbit_ip, rabbit_port, rabbit_user, rabbit_password,
-                 rabbit_vhost, rabbit_ha_mode, q_name, subscribe_cb, logger):
-        super(VncKombuClientV1, self).__init__(rabbit_ip, rabbit_port,
-                                               rabbit_user, rabbit_password,
-                                               rabbit_vhost, rabbit_ha_mode,
-                                               q_name, subscribe_cb, logger)
-
-        self._update_queue_obj = kombu.Queue(q_name, self.obj_upd_exchange)
-        self._publisher_greenlet = gevent.spawn(self._publisher)
-        self._subscribe_greenlet = None
-        self.connect(True)
-    # end __init__
-
-    def _subscriber(self):
-        msg = "Running greenlet _subscriber"
-        self._logger(msg, level=SandeshLevel.SYS_NOTICE)
-
-        with self._conn.SimpleQueue(self._update_queue_obj) as queue:
-            while True:
-                try:
-                    message = queue.get()
-                except Exception as e:
-                    msg = "Disconnected from rabbitmq. Reinitializing connection: %s" % str(e)
-                    self._logger(msg, level=SandeshLevel.SYS_WARN)
-                    self.connect()
-                    # never reached
-                    continue
-
-                trace = None
-                try:
-                    self._subscribe_cb(message.payload)
-                except Exception as e:
-                    msg = "Subscribe callback had error: %s" % str(e)
-                    self._logger(msg, level=SandeshLevel.SYS_WARN)
-                finally:
-                    try:
-                        message.ack()
-                    except Exception as e:
-                        msg = "Disconnected from rabbitmq. Reinitializing connection: %s" % str(e)
-                        self._logger(msg, level=SandeshLevel.SYS_WARN)
-                        self.connect()
-                        # never reached
-    #end _subscriber
-
-    def _publisher(self):
-        self.prepare_to_consume()
-        while True:
-            try:
-                message = self._publish_queue.get()
-                while True:
-                    try:
-                        self._obj_update_q.put(message, serializer='json')
-                        break
-                    except Exception as e:
-                        log_str = "Disconnected from rabbitmq. " + \
-                            "Reinitializing connection: %s" % str(e)
-                        self.config_log(log_str, level=SandeshLevel.SYS_WARN)
-                        time.sleep(1)
-                        self.connect()
-            except Exception as e:
-                log_str = "Unknown exception in _publisher greenlet" + str(e)
-                self.config_log(log_str, level=SandeshLevel.SYS_ERR)
-                time.sleep(1)
-    # end _publisher
-
-
-class VncKombuClientV2(VncKombuClientBase):
     def _reconnect(self):
         if self._conn_lock.locked():
             # either connection-monitor or publisher should have taken
@@ -194,7 +80,7 @@ class VncKombuClientV2(VncKombuClientBase):
 
         self._update_sandesh_status(ConnectionStatus.UP)
         self._conn_state = ConnectionStatus.UP
-        msg = 'RabbitMQ connection ESTABLISHED %s ' % str(self._conn._info())
+        msg = 'RabbitMQ connection ESTABLISHED %s' % repr(self._conn)
         self._logger(msg, level=SandeshLevel.SYS_NOTICE)
 
         self._channel = self._conn.channel()
@@ -208,6 +94,73 @@ class VncKombuClientV2(VncKombuClientBase):
         self._conn_lock.release()
     # end _reconnect
 
+    def _connection_watch(self):
+        self.prepare_to_consume()
+        self._can_consume = True
+        self._consumer.consume()
+        while True:
+            try:
+                self._conn.drain_events()
+            except self._conn.connection_errors + self._conn.channel_errors as e:
+                self._reconnect()
+    # end _connection_watch
+
+    def _publisher(self):
+        while True:
+            try:
+                message = self._publish_queue.get()
+                while True:
+                    try:
+                        self._producer.publish(message)
+                        break
+                    except self._conn.connection_errors + self._conn.channel_errors as e:
+                        self._reconnect()
+            except Exception as e:
+                log_str = "Unknown exception in _publisher greenlet" + str(e)
+                self._logger(log_str, level=SandeshLevel.SYS_ERR)
+    # end _publisher
+
+    def _subscribe(self, body, message):
+        try:
+            self._subscribe_cb(body)
+        finally:
+            message.ack()
+
+
+    def _start(self):
+        self._can_consume = False
+        self._reconnect()
+
+        self._publisher_greenlet = gevent.spawn(self._publisher)
+        self._connection_monitor_greenlet = gevent.spawn(self._connection_watch)
+
+    def shutdown(self):
+        self._publisher_greenlet.kill()
+        self._connection_monitor_greenlet.kill()
+        self._producer.close()
+        self._consumer.close()
+        self._conn.close()
+
+
+class VncKombuClientV1(VncKombuClientBase):
+    def __init__(self, rabbit_ip, rabbit_port, rabbit_user, rabbit_password,
+                 rabbit_vhost, rabbit_ha_mode, q_name, subscribe_cb, logger):
+        super(VncKombuClientV1, self).__init__(rabbit_ip, rabbit_port,
+                                               rabbit_user, rabbit_password,
+                                               rabbit_vhost, rabbit_ha_mode,
+                                               q_name, subscribe_cb, logger)
+
+        self._conn = kombu.Connection(hostname=self._rabbit_ip,
+                                      port=self._rabbit_port,
+                                      userid=self._rabbit_user,
+                                      password=self._rabbit_password,
+                                      virtual_host=self._rabbit_vhost)
+        self._update_queue_obj = kombu.Queue(q_name, self.obj_upd_exchange)
+        self._start()
+    # end __init__
+
+
+class VncKombuClientV2(VncKombuClientBase):
     def _parse_rabbit_hosts(self, rabbit_hosts):
         server_list = rabbit_hosts.split(",")
 
@@ -249,45 +202,8 @@ class VncKombuClientV2(VncKombuClientBase):
         queue_args = {"x-ha-policy": "all"} if rabbit_ha_mode else None
         self._update_queue_obj = kombu.Queue(q_name, self.obj_upd_exchange, queue_arguments=queue_args)
 
-        self._conn_lock = Semaphore()
-        self._can_consume = False
-        self._reconnect()
-
-        self._publisher_greenlet = gevent.spawn(self._publisher)
-        self._connection_monitor_greenlet = gevent.spawn(self._connection_watch)
+        self._start()
     # end __init__
-
-    def _connection_watch(self):
-        self.prepare_to_consume()
-        self._can_consume = True
-        self._consumer.consume()
-        while True:
-            try:
-                self._conn.drain_events()
-            except self._conn.connection_errors + self._conn.channel_errors as e:
-                self._reconnect()
-    # end _connection_watch
-
-    def _publisher(self):
-        while True:
-            try:
-                message = self._publish_queue.get()
-                while True:
-                    try:
-                        self._producer.publish(message)
-                        break
-                    except self._conn.connection_errors + self._conn.channel_errors as e:
-                        self._reconnect()
-            except Exception as e:
-                log_str = "Unknown exception in _publisher greenlet" + str(e)
-                self._logger(log_str, level=SandeshLevel.SYS_ERR)
-    # end _publisher
-
-    def _subscribe(self, body, message):
-        try:
-            self._subscribe_cb(body)
-        finally:
-            message.ack()
 
 
 from distutils.version import LooseVersion

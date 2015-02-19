@@ -211,13 +211,13 @@ protected:
         if (olist == NULL)
             return false;
         bool found = false;
-        BOOST_FOREACH(const BgpOListElem &elem, olist->elements) {
-            if (peer->address() == elem.address) {
+        BOOST_FOREACH(const BgpOListElem *elem, olist->elements) {
+            if (peer->address() == elem->address) {
                 EXPECT_FALSE(found);
                 found = true;
-                if (peer->label() != elem.label)
+                if (peer->label() != elem->label)
                     return false;
-                vector<string> encap = elem.encap;
+                vector<string> encap = elem->encap;
                 sort(encap.begin(), encap.end());
                 if (peer->encap() != encap)
                     return false;
@@ -240,8 +240,8 @@ protected:
         BgpOListPtr olist = leaf ? attr->leaf_olist() : attr->olist();
         if (olist == NULL)
             return false;
-        BOOST_FOREACH(BgpOListElem &elem, olist->elements) {
-            if (peer->address() == elem.address)
+        BOOST_FOREACH(BgpOListElem *elem, olist->elements) {
+            if (peer->address() == elem->address)
                 return false;
         }
         return true;

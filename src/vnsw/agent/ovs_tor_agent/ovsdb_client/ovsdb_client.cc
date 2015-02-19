@@ -12,8 +12,9 @@
 
 using OVSDB::OvsdbClient;
 
-OvsdbClient::OvsdbClient(OvsPeerManager *manager) : peer_manager_(manager),
-    ksync_obj_manager_(KSyncObjectManager::Init()){
+OvsdbClient::OvsdbClient(OvsPeerManager *manager, int keepalive_interval) :
+    peer_manager_(manager), ksync_obj_manager_(KSyncObjectManager::Init()),
+    keepalive_interval_(keepalive_interval) {
 }
 
 OvsdbClient::~OvsdbClient() {
@@ -21,6 +22,10 @@ OvsdbClient::~OvsdbClient() {
 
 KSyncObjectManager *OvsdbClient::ksync_obj_manager() {
     return ksync_obj_manager_;
+}
+
+int OvsdbClient::keepalive_interval() const {
+    return keepalive_interval_;
 }
 
 void OvsdbClient::Init() {

@@ -36,7 +36,7 @@ struct cpu_info {
 
 struct ethernet_controller {
         1: string speed
-        2: u32 num_of_ports
+        2: string num_of_ports
         3: string model
 }
 

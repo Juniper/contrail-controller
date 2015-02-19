@@ -274,24 +274,24 @@ void McastForwarder::DeleteGlobalTreeRoute() {
 }
 
 //
-// Append list of BgpOListElems from the Local tree to the BgpOListPtr. The
+// Append list of BgpOListElems from the Local tree to the BgpOListSpec. The
 // list is built based on the tree links in this McastForwarder.
 //
-void McastForwarder::AddLocalOListElems(BgpOListPtr olist) {
+void McastForwarder::AddLocalOListElems(BgpOListSpec *olist_spec) {
     assert(level_ == McastTreeManager::LevelNative);
 
     for (McastForwarderList::const_iterator it = tree_links_.begin();
          it != tree_links_.end(); ++it) {
         BgpOListElem elem((*it)->address(), (*it)->label(), (*it)->encap());
-        olist->elements.push_back(elem);
+        olist_spec->elements.push_back(elem);
     }
 }
 
 //
-// Append list of BgpOListElems from the Global tree to the BgpOListPtr. The
+// Append list of BgpOListElems from the Global tree to the BgpOListSpec. The
 // list is built based on EdgeForwarding attribute in the GlobalTreeRoute.
 //
-void McastForwarder::AddGlobalOListElems(BgpOListPtr olist) {
+void McastForwarder::AddGlobalOListElems(BgpOListSpec *olist_spec) {
     assert(level_ == McastTreeManager::LevelNative);
 
     // Bail if this is not the forest node for the Local tree.
@@ -314,7 +314,7 @@ void McastForwarder::AddGlobalOListElems(BgpOListPtr olist) {
         const EdgeForwarding::Edge *edge = *it;
         if (edge->inbound_address == address_) {
             BgpOListElem elem(edge->outbound_address, edge->outbound_label);
-            olist->elements.push_back(elem);
+            olist_spec->elements.push_back(elem);
         }
     }
 }
@@ -322,7 +322,7 @@ void McastForwarder::AddGlobalOListElems(BgpOListPtr olist) {
 //
 // Construct an UpdateInfo with the RibOutAttr that needs to be advertised to
 // the IPeer for the ErmVpnRoute associated with this McastForwarder. This is
-// used the Export method of the ErmVpnTable.  It is expected that the caller
+// used as Export method of the ErmVpnTable.  It is expected that the caller
 // fills in the target RibPeerSet in the UpdateInfo.
 //
 // The main functionality here is to transform the McastForwarderList for the
@@ -334,17 +334,16 @@ UpdateInfo *McastForwarder::GetUpdateInfo(ErmVpnTable *table) {
 
     assert(level_ == McastTreeManager::LevelNative);
 
-    BgpOListPtr olist(new BgpOList);
-    AddLocalOListElems(olist);
-    AddGlobalOListElems(olist);
+    BgpOListSpec olist_spec(BgpAttribute::OList);
+    AddLocalOListElems(&olist_spec);
+    AddGlobalOListElems(&olist_spec);
 
     // Bail if we've never built the tree or if the BgpOList is empty.
-    if (label_ == 0 || olist->elements.empty())
+    if (label_ == 0 || olist_spec.elements.empty())
         return NULL;
 
-    BgpAttrOList olist_attr = BgpAttrOList(olist);
     BgpAttrSpec attr_spec;
-    attr_spec.push_back(&olist_attr);
+    attr_spec.push_back(&olist_spec);
     BgpAttrPtr attr = table->server()->attr_db()->Locate(attr_spec);
 
     UpdateInfo *uinfo = new UpdateInfo;

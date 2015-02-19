@@ -25,6 +25,7 @@ int ovsdb_wrapper_row_type(struct ovsdb_idl_row *row);
 bool ovsdb_wrapper_msg_echo_req(struct jsonrpc_msg *msg);
 bool ovsdb_wrapper_msg_echo_reply(struct jsonrpc_msg *msg);
 struct jsonrpc_msg* ovsdb_wrapper_jsonrpc_create_reply(struct jsonrpc_msg *msg);
+struct jsonrpc_msg* ovsdb_wrapper_jsonrpc_create_echo_request();
 
 void ovsdb_wrapper_idl_set_callback(struct ovsdb_idl *idl, void *idl_base,
         void (*cb)(void*, int, struct ovsdb_idl_row *),

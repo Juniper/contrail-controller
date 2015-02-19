@@ -705,9 +705,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('virtual-network-properties', 'virtual-network') -->
 
-<xsd:element name="virtual-network-id" type='xsd:integer'/>
+<xsd:element name="virtual-network-network-id" type='xsd:integer'/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('virtual-network-id', 'virtual-network') -->
+     Property('virtual-network-network-id', 'virtual-network') -->
 
 <xsd:complexType name="RouteTargetList">
     <xsd:all>
