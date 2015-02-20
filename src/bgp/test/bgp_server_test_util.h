@@ -281,7 +281,7 @@ private:
 class XmppStateMachineTest : public XmppStateMachine {
 public:
     explicit XmppStateMachineTest(XmppConnection *connection, bool active)
-        : XmppStateMachine(connection, active) {
+        : XmppStateMachine(connection, active, false) {
     }
     ~XmppStateMachineTest() { }
 

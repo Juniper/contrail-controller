@@ -163,9 +163,9 @@ protected:
     }
 
     void EvXmppOpen() {
-        XmppStanza::XmppMessage *msg_; 
-        msg_ = new XmppStanza::XmppMessage(XmppStanza::STREAM_HEADER);
-        msg_->type = XmppStanza::STREAM_HEADER;
+        XmppStanza::XmppStreamMessage *msg_;
+        msg_ = new XmppStanza::XmppStreamMessage();
+        msg_->strmtype = XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER;
         msg_->from = "agent";
         msg_->to = "bgp.contrail.com";
         sm_->OnMessage(session_, msg_);     
