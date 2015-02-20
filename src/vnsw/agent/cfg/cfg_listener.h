@@ -14,7 +14,7 @@ class DB;
 class CfgDBState : public DBState {
 public:
     CfgDBState() : notify_count_(0), uuid_(boost::uuids::nil_uuid()) { };
-    bool notify_count_;
+    uint32_t notify_count_;
     boost::uuids::uuid uuid_;
 };
 
