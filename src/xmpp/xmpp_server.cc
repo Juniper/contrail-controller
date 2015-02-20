@@ -2,6 +2,10 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+
+
+
+
 #include "xmpp/xmpp_server.h"
 
 #include <boost/foreach.hpp>
