@@ -69,9 +69,11 @@ env.Prepend(LIBS = ['control_test',
                     'ifmap_vnc', 'task_test',
                     'ifmap_test_util', 'ifmap_test_util_server',
                     'ifmap_server', 'ifmap_common',
-                    'ifmapio', 'ds', 'pugixml', 'httpc', 'curl',
-                    'crypto', 'ssl', 'sandesh', 'http', 'http_parser',
-                    'db', 'sandeshvns', 'process_info', 'io', 'base', 'gunit'])
+                    'ifmapio', 'ds', 'httpc', 'curl',
+                    'sandesh', 'http', 'http_parser',
+                    'xmpp', 'pugixml', 'xml',
+                    'db', 'sandeshvns', 'process_info',
+                    'io', 'crypto', 'ssl', 'base', 'gunit'])
 
 
 if sys.platform == 'darwin':
@@ -118,8 +120,7 @@ env.Append(LIBS = [
 env.Append(LIBS = ['route', 'routing_instance', 'net'])
 
 env.Append(LIBS = ['extended_community', 'origin_vn', 'security_group', 'tunnel_encap'])
-env.Append(LIBS = ['xmpp', 'xmpp_unicast', 
-                   'xmpp_multicast', 'xmpp_enet', 'xml', 'pugixml',
+env.Append(LIBS = ['xmpp_unicast', 'xmpp_multicast', 'xmpp_enet',
                    'boost_regex', 'boost_program_options'])
 
 if sys.platform != 'darwin':

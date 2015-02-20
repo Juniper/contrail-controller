@@ -7,8 +7,8 @@
 
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/ptr_container/ptr_map.hpp>
-#include "io/tcp_server.h"
-#include "io/tcp_session.h"
+#include "io/ssl_server.h"
+#include "io/ssl_session.h"
 #include "xmpp/xmpp_config.h"
 #include "xmpp/xmpp_connection.h"
 
@@ -19,7 +19,7 @@ class XmppSession;
 // Class to represent Xmpp Client
 // We derive from the common TCP server base class
 // which abstracts both server & client side methods.
-class XmppClient : public TcpServer {
+class XmppClient : public SslServer {
 public:
     typedef boost::asio::ip::tcp::endpoint Endpoint;
 
@@ -52,7 +52,7 @@ public:
     LifetimeActor *deleter();
 
 protected:
-    virtual TcpSession *AllocSession(Socket *socket);
+    virtual SslSession *AllocSession(SslSocket *socket);
 
 private:
     class DeleteActor;
