@@ -24,6 +24,9 @@ public:
     boost::asio::ip::tcp::endpoint endpoint;
     boost::asio::ip::tcp::endpoint local_endpoint;
     bool logUVE;
+    bool auth_enabled;
+    std::string path_to_server_cert;
+    std::string path_to_pvt_key;
 
     int CompareTo(const XmppChannelConfig &rhs) const;
     static int const default_client_port;

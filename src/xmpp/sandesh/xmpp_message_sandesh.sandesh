@@ -35,6 +35,11 @@ systemlog sandesh XmppBadMessage {
     1: string f1;
 }
 
+systemlog sandesh XmppSslHandShakeMessage {
+    1: string f1;
+    2: string f2;
+}
+
 systemlog sandesh XmppIqCollectionError {
     1: "Error: no associated previous IQ message for this collection"
 }
@@ -70,4 +75,23 @@ systemlog sandesh XmppRxOpenMessage {
     4: string f2;
 }
 
+systemlog sandesh XmppRxStreamTlsRequired {
+    1: "Received Tls Feature Required ";
+    2: string f1;
+    3: " To: ";
+    4: string f2;
+}
 
+systemlog sandesh XmppRxStreamStartTls {
+    1: "Received Start Tls ";
+    2: string f1;
+    3: " To: ";
+    4: string f2;
+}
+
+systemlog sandesh XmppRxStreamProceed {
+    1: "Received Proceed Tls ";
+    2: string f1;
+    3: " To: ";
+    4: string f2;
+}
