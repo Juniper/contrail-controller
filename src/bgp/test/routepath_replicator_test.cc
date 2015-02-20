@@ -18,6 +18,7 @@
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routing_instance.h"
+#include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/test/bgp_test_util.h"
 #include "control-node/control_node.h"
@@ -119,6 +120,7 @@ protected:
                 static_cast<BgpIfmapConfigManager *>(
                     bgp_server_->config_manager());
         config_manager->Initialize(&config_db_, &config_graph_, "localhost");
+        bgp_server_->rtarget_group_mgr()->Initialize();
         BgpConfigParser bgp_parser(&config_db_);
         bgp_parser.Parse(bgp_server_config);
         task_util::WaitForIdle();
@@ -406,6 +408,26 @@ protected:
             return origin_vn.vn_index();
         }
         return 0;
+    }
+
+    void DisableRouteTargetProcessing() {
+        bgp_server_->rtarget_group_mgr()->DisableRouteTargetProcessing();
+    }
+
+    void EnableRouteTargetProcessing() {
+        bgp_server_->rtarget_group_mgr()->EnableRouteTargetProcessing();
+    }
+
+    void VerifyVpnTableStateExists(bool exists) {
+        RoutePathReplicator *replicator =
+            bgp_server_->replicator(Address::INETVPN);
+        TASK_UTIL_EXPECT_TRUE(replicator->VpnTableStateExists() == exists);
+    }
+
+    void VerifyVpnTableStateRouteCount(uint32_t count) {
+        RoutePathReplicator *replicator =
+            bgp_server_->replicator(Address::INETVPN);
+        TASK_UTIL_EXPECT_EQ(count, replicator->VpnTableStateRouteCount());
     }
 
     EventManager evm_;
@@ -1905,6 +1927,73 @@ TEST_F(ReplicationTest, OriginVn4) {
     task_util::WaitForIdle();
     VERIFY_EQ(0, RouteCount("blue"));
     VERIFY_EQ(0, RouteCount("red"));
+}
+
+//
+// Verify cleanup of VPN table state.
+// No RtGroups have been created.
+// VPN Table shutdown triggers deletion of VPN table state.
+//
+TEST_F(ReplicationTest, VpnTableStateDelete1) {
+}
+
+//
+// Verify cleanup of VPN table state.
+// RtGroups have been created but no routes have been added/deleted.
+// VRF Table leave triggers deletion of VPN table state.
+//
+TEST_F(ReplicationTest, VpnTableStateDelete2) {
+    vector<string> instance_names = list_of("blue")("red")("green");
+    multimap<string, string> connections = map_list_of("blue", "red");
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+    VERIFY_EQ(0, RouteCount("red"));
+    VERIFY_EQ(0, RouteCount("green"));
+    VERIFY_EQ(0, RouteCount("blue"));
+}
+
+//
+// Verify cleanup of VPN table state.
+// VPN routes are notified only after Leave has been processed for all
+// VRF tables.
+// Notification of last VPN route triggers deletion of VPN table state.
+//
+TEST_F(ReplicationTest, VpnTableStateDelete3) {
+    vector<string> instance_names = list_of("blue")("red");
+    multimap<string, string> connections = map_list_of("blue", "red");
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    // Add VPN route with target "blue" and verify it's imported properly.
+    AddVPNRoute(NULL, "192.168.0.1:1:10.0.1.1/32", 100, list_of("blue"));
+    task_util::WaitForIdle();
+    VERIFY_EQ(1, RouteCount("blue"));
+    VERIFY_EQ(1, RouteCount("red"));
+
+    // Disable route target processing and shutdown the server.
+    DisableRouteTargetProcessing();
+    bgp_server_->Shutdown();
+    task_util::WaitForIdle();
+
+    // Verify vrf routes haven't yet been deleted.
+    VERIFY_EQ(1, RouteCount("blue"));
+    VERIFY_EQ(1, RouteCount("red"));
+
+    // Verify VPN Table state in the replicator is not yet deleted.
+    TASK_UTIL_EXPECT_FALSE(bgp_server_->destroyed());
+    VerifyVpnTableStateExists(true);
+    VerifyVpnTableStateRouteCount(1);
+
+    // Enable route target processing and verify VPN table state is deleted.
+    EnableRouteTargetProcessing();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_FALSE(bgp_server_->destroyed());
+    VerifyVpnTableStateExists(false);
+    VerifyVpnTableStateRouteCount(0);
+
+    // Delete VPN route and verify that shutdown is complete.
+    DeleteVPNRoute(NULL, "192.168.0.1:1:10.0.1.1/32");
+    TASK_UTIL_EXPECT_TRUE(bgp_server_->destroyed());
 }
 
 class TestEnvironment : public ::testing::Environment {

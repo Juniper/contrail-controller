@@ -110,6 +110,9 @@ public:
     bool IsReadyForDeletion();
     void RetryDelete();
 
+    bool destroyed() const { return destroyed_; }
+    void set_destroyed() { destroyed_  = true; }
+
     DB *database() { return &db_; }
     const std::string &localname() const;
     as_t autonomous_system() const { return autonomous_system_; }
@@ -174,6 +177,7 @@ private:
 
     boost::scoped_ptr<LifetimeManager> lifetime_manager_;
     boost::scoped_ptr<DeleteActor> deleter_;
+    bool destroyed_;
 
     // databases
     boost::scoped_ptr<AsPathDB> aspath_db_;
