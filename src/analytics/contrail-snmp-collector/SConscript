@@ -25,6 +25,7 @@ sources = [
     'contrail_snmp_collector/snmp.py',
     'contrail_snmp_collector/snmpuve.py',
     'contrail_snmp_collector/device_config.py',
+    'contrail_snmp_collector/scanner.py',
     'contrail_snmp_collector/tests/__init__.py',
     'contrail_snmp_collector/tests/snmp_test.py',
     ]
