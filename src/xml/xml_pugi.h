@@ -64,6 +64,8 @@ public:
     bool IsNull(pugi::xml_attribute &attr) { 
         return attr == NULL; 
     }
+    void LoadXmlDoc(const pugi::xml_document &doc) {doc_.reset(doc);}
+    const pugi::xml_document &doc() {return doc_;}
 
 private:
     uint8_t *buf_tmp_;

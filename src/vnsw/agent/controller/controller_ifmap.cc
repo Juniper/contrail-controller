@@ -58,21 +58,32 @@ bool AgentIfMapXmppChannel::SendUpdate(const std::string &msg) {
 }
 
 void AgentIfMapXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+    if (msg && msg->type == XmppStanza::IQ_STANZA) {
+        std::auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+        XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+        XmlPugi *msg_pugi = reinterpret_cast<XmlPugi *>(msg->dom.get());
+        pugi->LoadXmlDoc(msg_pugi->doc());
+        boost::shared_ptr<ControllerXmppData> data(new ControllerXmppData(xmps::CONFIG,
+                                                                          xmps::UNKNOWN,
+                                                                          xs_idx_,
+                                                                          impl,
+                                                                          true));
+        agent_->controller()->Enqueue(data);
+    }
+}
+
+void AgentIfMapXmppChannel::ReceiveConfigMessage(std::auto_ptr<XmlBase> impl) {
 
     if (GetXmppServerIdx() != agent_->ifmap_active_xmpp_server_index()) {
         LOG(WARN, "IFMap config on non primary channel");
         return;
     }
 
-    if (msg && msg->type == XmppStanza::IQ_STANZA) {
-        
-        XmlBase *impl = msg->dom.get();
-        XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl);
-        pugi::xml_node node = pugi->FindNode("config");
-        IFMapAgentParser *parser = agent_->ifmap_parser();
-        assert(parser);
-        parser->ConfigParse(node, seq_number_);
-    }
+    XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+    pugi::xml_node node = pugi->FindNode("config");
+    IFMapAgentParser *parser = agent_->ifmap_parser();
+    assert(parser);
+    parser->ConfigParse(node, seq_number_);
 }
 
 void AgentIfMapXmppChannel::ReceiveInternal(const XmppStanza::XmppMessage *msg) {
