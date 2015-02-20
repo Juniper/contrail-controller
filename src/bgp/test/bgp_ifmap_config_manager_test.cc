@@ -1137,6 +1137,52 @@ TEST_F(BgpIfmapConfigManagerTest, VirtualNetwork3) {
     TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
 }
 
+// Config parser sets network-id using virtual-network-properties property.
+// Override network-id using virtual-network-id property and verify.
+TEST_F(BgpIfmapConfigManagerTest, VirtualNetwork4) {
+    string content = FileRead("controller/src/bgp/testdata/config_test_20.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(3, config_manager_->config().instances().size());
+
+    const BgpInstanceConfig *blue = FindInstanceConfig("blue");
+    TASK_UTIL_ASSERT_TRUE(blue != NULL);
+    TASK_UTIL_EXPECT_EQ("blue-vn", blue->virtual_network());
+    TASK_UTIL_EXPECT_EQ(101, blue->virtual_network_index());
+    autogen::VirtualNetwork::NtProperty *blue_vni =
+        new autogen::VirtualNetwork::NtProperty;
+    blue_vni->data = 201;
+    ifmap_test_util::IFMapMsgPropertyAdd(&db_, "virtual-network", "blue-vn",
+        "virtual-network-network-id", blue_vni);
+    TASK_UTIL_EXPECT_EQ(201, blue->virtual_network_index());
+    ifmap_test_util::IFMapMsgPropertyDelete(&db_, "virtual-network", "blue-vn",
+        "virtual-network-network-id");
+    TASK_UTIL_EXPECT_EQ(101, blue->virtual_network_index());
+
+    const BgpInstanceConfig *red = FindInstanceConfig("red");
+    TASK_UTIL_ASSERT_TRUE(red != NULL);
+    TASK_UTIL_EXPECT_EQ("red-vn", red->virtual_network());
+    TASK_UTIL_EXPECT_EQ(102, red->virtual_network_index());
+    autogen::VirtualNetwork::NtProperty *red_vni =
+        new autogen::VirtualNetwork::NtProperty;
+    red_vni->data = 202;
+    ifmap_test_util::IFMapMsgPropertyAdd(&db_, "virtual-network", "red-vn",
+        "virtual-network-network-id", red_vni);
+    TASK_UTIL_EXPECT_EQ(202, red->virtual_network_index());
+    ifmap_test_util::IFMapMsgPropertyDelete(&db_, "virtual-network", "red-vn",
+        "virtual-network-network-id");
+    TASK_UTIL_EXPECT_EQ(102, red->virtual_network_index());
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, config_manager_->config().instances().size());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
 TEST_F(BgpIfmapConfigManagerTest, Instances) {
     string content = FileRead("controller/src/bgp/testdata/config_test_2.xml");
     EXPECT_TRUE(parser_.Parse(content));

@@ -526,6 +526,8 @@ static void GetRoutingInstanceExportTargets(DBGraph *graph, IFMapNode *node,
 static int GetVirtualNetworkIndex(DBGraph *graph, IFMapNode *node) {
     const autogen::VirtualNetwork *vn =
         static_cast<autogen::VirtualNetwork *>(node->GetObject());
+    if (vn && vn->IsPropertySet(autogen::VirtualNetwork::NETWORK_ID))
+        return vn->network_id();
     if (vn && vn->IsPropertySet(autogen::VirtualNetwork::PROPERTIES))
         return vn->properties().network_id;
     return 0;
