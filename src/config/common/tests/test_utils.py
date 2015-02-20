@@ -100,6 +100,15 @@ class FakeCF(object):
             yield (key, self.get(key))
     # end get_range
 
+    def _column_within_range(self, column_name, column_start, column_finish):
+        if column_start and column_name < column_start:
+            return False
+        if column_finish and column_name > column_finish:
+            return False
+
+        return True
+    # end _column_within_range
+
     def get(
         self, key, columns=None, column_start=None, column_finish=None,
             column_count=0, include_timestamp=False):
@@ -118,7 +127,8 @@ class FakeCF(object):
         else:
             col_dict = {}
             for col_name in self._rows[key].keys():
-                if column_start and column_start not in col_name:
+                if not self._column_within_range(col_name,
+                                    column_start, column_finish):
                     continue
 
                 col_value = self._rows[key][col_name][0]
@@ -139,7 +149,8 @@ class FakeCF(object):
             try:
                 result[key] = {}
                 for col_name in self._rows[key]:
-                    if column_start and column_start not in col_name:
+                    if not self._column_within_range(col_name,
+                                        column_start, column_finish):
                         continue
                     result[key][col_name] = copy.deepcopy(self._rows[key][col_name])
             except KeyError:
@@ -178,7 +189,8 @@ class FakeCF(object):
             col_names = self._rows[key].keys()
 
         for col_name in col_names:
-            if column_start and column_start not in col_name:
+            if not self._column_within_range(col_name,
+                                column_start, column_finish):
                 continue
 
             col_value = self._rows[key][col_name][0]
