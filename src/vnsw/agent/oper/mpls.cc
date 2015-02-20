@@ -4,7 +4,7 @@
 
 #include <boost/uuid/uuid_io.hpp>
 #include <cmn/agent_cmn.h>
-
+#include <init/agent_param.h>
 #include <base/task_annotations.h>
 #include <oper/interface_common.h>
 #include <oper/vrf.h>
@@ -125,15 +125,26 @@ void MplsTable::CreateTableLabel(const Agent *agent,
     return;
 }
 
+void MplsTable::ReserveLabel() {
+    if (agent()->vrouter_on_host_dpdk() == true) {
+        //In case of vrouter running in dpdk mode,
+        //label allocation has to be done at interval
+        //of 16, for example 16,32 and 48 are valid label
+        //Reserver label 0
+        AllocLabel();
+        set_mpls_shift_bits(kDpdkShiftBits);
+    } else {
+        // We want to allocate labels from an offset
+        // Pre-allocate entries
+        for (unsigned int i = 0; i < kStartLabel; i++) {
+            AllocLabel();
+        }
+    }
+}
+
 DBTableBase *MplsTable::CreateTable(DB *db, const std::string &name) {
     mpls_table_ = new MplsTable(db, name);
     mpls_table_->Init();
-
-    // We want to allocate labels from an offset
-    // Pre-allocate entries 
-    for (unsigned int i = 0; i < kStartLabel; i++) {
-        mpls_table_->AllocLabel();
-    }
     return mpls_table_;
 };
 

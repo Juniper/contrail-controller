@@ -338,7 +338,8 @@ void VnswInterfaceListenerBase::HandleAddressEvent(const Event *event) {
                              agent_->fabric_vrf_name(),
                              event->addr_, event->plen_,
                              agent_->vhost_default_gateway(),
-                             Agent::NullString(), agent_->fabric_vrf_name());
+                             Agent::NullString(), agent_->fabric_vrf_name(),
+                             Interface::TRANSPORT_ETHERNET);
     if (dep_init_reqd)
         agent_->agent_init()->ConnectToControllerBase();
 }

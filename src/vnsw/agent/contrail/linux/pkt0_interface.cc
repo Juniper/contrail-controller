@@ -126,3 +126,60 @@ void Pkt0Interface::InitControlInterface() {
     AsyncRead();
 }
 
+void Pkt0RawInterface::InitControlInterface() {
+    pkt_handler()->agent()->set_pkt_interface_name(name_);
+
+    int raw_;
+    struct ifreq ifr;
+    memset(&ifr, 0, sizeof(ifr));
+    if ((raw_ = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
+        LOG(ERROR, "Packet Tap Error <" << errno << ": " <<
+                strerror(errno) << "> creating socket");
+        assert(0);
+    }
+
+    memset(&ifr, 0, sizeof(ifr));
+    strncpy(ifr.ifr_name,
+            pkt_handler()->agent()->pkt_interface_name().c_str(), IF_NAMESIZE);
+    if (ioctl(raw_, SIOCGIFINDEX, (void *)&ifr) < 0) {
+        LOG(ERROR, "Packet Tap Error <" << errno << ": " <<
+                strerror(errno) << "> getting ifindex of the " <<
+                "expception packet interface");
+        assert(0);
+    }
+
+    struct sockaddr_ll sll;
+    memset(&sll, 0, sizeof(struct sockaddr_ll));
+    sll.sll_family = AF_PACKET;
+    sll.sll_ifindex = ifr.ifr_ifindex;
+    sll.sll_protocol = htons(ETH_P_ALL);
+    if (bind(raw_, (struct sockaddr *)&sll,
+                sizeof(struct sockaddr_ll)) < 0) {
+        LOG(ERROR, "Packet Tap Error <" << errno << ": " <<
+                strerror(errno) << "> binding the socket to the tap interface");
+        assert(0);
+    }
+
+    memset(&ifr, 0, sizeof(ifr));
+    strncpy(ifr.ifr_name, name_.data(), IF_NAMESIZE);
+    if (ioctl(raw_, SIOCGIFFLAGS, (void *)&ifr) < 0) {
+        LOG(ERROR, "Packet Tap Error <" << errno << ": " <<
+                strerror(errno) << "> getting socket flags");
+        assert(0);
+    }
+
+    ifr.ifr_flags |= IFF_UP;
+    if (ioctl(raw_, SIOCSIFFLAGS, (void *)&ifr) < 0) {
+        LOG(ERROR, "Packet Tap Error <" << errno << ": " <<
+                strerror(errno) << "> setting socket flags");
+        assert(0);
+    }
+    tap_fd_ = raw_;
+
+    boost::system::error_code ec;
+    input_.assign(tap_fd_, ec);
+    assert(ec == 0);
+
+    VrouterControlInterface::InitControlInterface();
+    AsyncRead();
+}

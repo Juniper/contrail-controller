@@ -41,6 +41,11 @@ public:
         VCENTER
     };
 
+    enum Platform {
+        VROUTER_ON_HOST,
+        VROUTER_ON_HOST_DPDK,
+        VROUTER_ON_NIC
+    };
 
     struct PortInfo {
         PortInfo() : 
@@ -153,6 +158,16 @@ public:
     bool isVmwareMode() const { return hypervisor_mode_ == MODE_VMWARE; }
     bool isVmwareVcenterMode() const { return vmware_mode_ == VCENTER; }
     VmwareMode vmware_mode() const { return vmware_mode_; }
+    Platform platform() const { return platform_; }
+    bool vrouter_on_nic_mode() const {
+        return platform_ == VROUTER_ON_NIC;
+    }
+    bool vrouter_on_host_dpdk() const {
+        return platform_ == VROUTER_ON_HOST_DPDK;
+    }
+    bool vrouter_on_host() const {
+        return platform_ == VROUTER_ON_HOST;
+    }
 
     void Init(const std::string &config_file,
               const std::string &program_name);
@@ -160,6 +175,7 @@ public:
     void LogConfig() const;
     void PostValidateLogConfig() const;
     void InitVhostAndXenLLPrefix();
+    void InitPlatform();
     void set_test_mode(bool mode);
     bool test_mode() const { return test_mode_; }
 
@@ -181,13 +197,21 @@ public:
     }
     void BuildAddressList(const std::string &val);
 
+    std::string exception_packet_interface() const {
+        return exception_packet_interface_;
+    }
+    std::string physical_interface_pci_addr() const {
+        return physical_interface_pci_addr_;
+    }
+    std::string physical_interface_mac_addr() const {
+        return physical_interface_mac_addr_;
+    }
 protected:
     void set_hypervisor_mode(HypervisorMode m) { hypervisor_mode_ = m; }
     virtual void InitFromSystem();
     virtual void InitFromConfig();
     virtual void InitFromArguments();
     boost::property_tree::ptree &tree() { return tree_; }
-
     template <typename ValueType>
     bool GetOptValue(const boost::program_options::variables_map &var_map, 
                      ValueType &var, const std::string &val) {
@@ -253,7 +277,7 @@ private:
     void ParseServiceInstance();
     void ParseAgentMode();
     void ParseNexthopServer();
-
+    void ParsePlatform();
     void set_agent_mode(const std::string &mode);
 
     void ParseCollectorArguments
@@ -282,6 +306,8 @@ private:
         (const boost::program_options::variables_map &v);
     void ParseNexthopServerArguments
         (const boost::program_options::variables_map &v);
+    void ParsePlatformArguments
+        (const boost::program_options::variables_map &v);
 
     boost::program_options::variables_map var_map_;
     boost::program_options::options_description options_;
@@ -291,6 +317,7 @@ private:
     bool enable_service_options_;
     AgentMode agent_mode_;
 
+    Agent *agent_;
     PortInfo vhost_;
     std::string agent_name_;
     std::string eth_port_;
@@ -354,7 +381,11 @@ private:
     AddressList compute_node_address_list_;
     std::string nexthop_server_endpoint_;
     bool nexthop_server_add_pid_;
-
+    bool vrouter_on_nic_mode_;
+    std::string exception_packet_interface_;
+    Platform platform_;
+    std::string physical_interface_pci_addr_;
+    std::string physical_interface_mac_addr_;
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
 
