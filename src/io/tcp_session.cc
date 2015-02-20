@@ -136,19 +136,19 @@ void TcpSession::DeferWriter() {
 }
 
 void TcpSession::AsyncReadSome(boost::asio::mutable_buffer buffer) {
-    socket_->async_read_some(mutable_buffers_1(buffer),
+    socket()->async_read_some(mutable_buffers_1(buffer),
         boost::bind(&TcpSession::AsyncReadHandler, TcpSessionPtr(this), buffer,
                     boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
 }
 
 std::size_t TcpSession::WriteSome(const uint8_t *data, std::size_t len,
                                   boost::system::error_code &error) {
-    return socket_->write_some(boost::asio::buffer(data, len), error);
+    return socket()->write_some(boost::asio::buffer(data, len), error);
 }
 
 void TcpSession::AsyncWrite(const u_int8_t *data, std::size_t size) {
     boost::asio::async_write(
-        *socket_.get(), buffer(data, size),
+        *socket(), buffer(data, size),
         boost::bind(&TcpSession::AsyncWriteHandler, TcpSessionPtr(this),
                     boost::asio::placeholders::error));
 }

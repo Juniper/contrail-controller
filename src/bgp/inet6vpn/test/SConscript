@@ -78,6 +78,7 @@ env.Prepend(LIBS = [
                     'xmpp_enet',
                     'xml',
                     'pugixml',
+                    'ssl',
                     'boost_regex',
                     'process_info',
                     'extended_community'

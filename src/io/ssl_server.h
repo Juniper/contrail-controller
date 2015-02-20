@@ -26,6 +26,8 @@ protected:
     boost::asio::ssl::context *context();
 
 private:
+    friend class SslSession;
+
     // suppress AllocSession method using tcp socket, not valid for
     // ssl server.
     TcpSession *AllocSession(Socket *socket) { return NULL; }
@@ -39,5 +41,7 @@ private:
     std::auto_ptr<SslSocket> so_ssl_accept_;       // SSL socket used in async_accept
     DISALLOW_COPY_AND_ASSIGN(SslServer);
 };
+
+typedef boost::intrusive_ptr<SslServer> SslServerPtr;
 
 #endif  //__src_io_ssl_server_h__

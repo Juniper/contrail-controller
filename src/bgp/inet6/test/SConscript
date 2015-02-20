@@ -63,6 +63,7 @@ env.Prepend(LIBS = [
                     'db',
                     'gunit',
                     'io',
+                    'ssl',
                     'sandeshvns',
                     'net',
                     'route',
