@@ -15,7 +15,8 @@ class SslServer : public TcpServer {
 public:
     typedef boost::asio::ssl::stream<boost::asio::ip::tcp::socket> SslSocket;
 
-    explicit SslServer(EventManager *evm, boost::asio::ssl::context::method m);
+    explicit SslServer(EventManager *evm, boost::asio::ssl::context::method m,
+                       bool ssl_enabled, bool ssl_handshake_delayed);
     virtual ~SslServer();
 
 protected:
@@ -26,6 +27,8 @@ protected:
     boost::asio::ssl::context *context();
 
 private:
+    friend class SslSession;
+
     // suppress AllocSession method using tcp socket, not valid for
     // ssl server.
     TcpSession *AllocSession(Socket *socket) { return NULL; }
@@ -37,6 +40,8 @@ private:
 
     boost::asio::ssl::context context_;
     std::auto_ptr<SslSocket> so_ssl_accept_;       // SSL socket used in async_accept
+    bool ssl_enabled_;
+    bool ssl_handshake_delayed_;
     DISALLOW_COPY_AND_ASSIGN(SslServer);
 };
 

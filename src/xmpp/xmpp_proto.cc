@@ -37,12 +37,28 @@ int XmppProto::EncodeStream(const XmppStreamMessage &str, string &to,
                             string &from, uint8_t *buf, size_t size) {
     int len = 0;
 
-    if (str.strmtype == XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER) {
-        len = EncodeOpen(buf, to, from, size);
-    }
-
-    if (str.strmtype == XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER_RESP) {
-        len = EncodeOpenResp(buf, to, from, size);
+    switch (str.strmtype) {
+        case (XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER):
+            len = EncodeOpen(buf, to, from, size);
+            break;
+        case (XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER_RESP):
+            len = EncodeOpenResp(buf, to, from, size);
+            break;
+        case (XmppStanza::XmppStreamMessage::FEATURE_TLS):
+            switch (str.strmtlstype) {
+                case (XmppStanza::XmppStreamMessage::TLS_FEATURE_REQUEST):
+                    len = EncodeFeatureTlsRequest(buf);
+                    break;
+                case (XmppStanza::XmppStreamMessage::TLS_START):
+                    len = EncodeFeatureTlsStart(buf);
+                    break;
+                case (XmppStanza::XmppStreamMessage::TLS_PROCEED):
+                    len = EncodeFeatureTlsProceed(buf);
+                    break;
+            }
+            break;
+        default:
+            break;
     }
 
     return len;
@@ -172,6 +188,27 @@ int XmppProto::EncodeOpen(uint8_t *buf, string &to, string &from,
     }
 }
 
+int XmppProto::EncodeFeatureTlsRequest(uint8_t *buf) {
+    auto_ptr<XmlBase> resp_doc(XmppStanza::AllocXmppXmlImpl(sXMPP_STREAM_FEATURE_TLS)); 
+    //Returns byte encoded in the doc
+    int len = resp_doc->WriteDoc(buf);
+    return len;
+}
+
+int XmppProto::EncodeFeatureTlsStart(uint8_t *buf) {
+    auto_ptr<XmlBase> resp_doc(XmppStanza::AllocXmppXmlImpl(sXMPP_STREAM_START_TLS)); 
+    //Returns byte encoded in the doc
+    int len = resp_doc->WriteDoc(buf);
+    return len;
+}
+
+int XmppProto::EncodeFeatureTlsProceed(uint8_t *buf) {
+    auto_ptr<XmlBase> resp_doc(XmppStanza::AllocXmppXmlImpl(sXMPP_STREAM_PROCEED_TLS));
+    //Returns byte encoded in the doc
+    int len = resp_doc->WriteDoc(buf);
+    return len;
+}
+
 XmppStanza::XmppMessage *XmppProto::Decode(const string &ts) {
     auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
     if (impl.get() == NULL) {
@@ -290,11 +327,65 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(const string &ts,
 
         XMPP_UTDEBUG(XmppRxOpenMessage, strm->from, strm->to);
 
+    } else if (ts.find(sXMPP_STREAM_NS_TLS) != string::npos) {
+
+        if (impl->LoadDoc(ts) == -1) {
+            XMPP_WARNING(XmppBadMessage, "Stream TLS parse failed.");
+            goto done;
+        }
+
+        // find stream:features tls required
+        if ((ts.find(sXMPP_STREAM_FEATURES_O) != string::npos) &&
+            (ts.find(sXMPP_STREAM_STARTTLS_O) != string::npos) &&
+            (ts.find(sXMPP_REQUIRED_O) != string::npos)) {
+
+            XmppStanza::XmppStreamMessage *strm =
+                new XmppStanza::XmppStreamMessage();
+            strm->strmtype = XmppStanza::XmppStreamMessage::FEATURE_TLS;
+            strm->strmtlstype = XmppStanza::XmppStreamMessage::TLS_FEATURE_REQUEST;
+            impl->ReadNode(ns);
+            strm->to = XmppProto::GetTo(impl);
+            strm->from = XmppProto::GetFrom(impl);
+
+            ret = strm;
+
+            XMPP_UTDEBUG(XmppRxStreamTlsRequired, strm->from, strm->to);
+
+        } else if (ts.find(sXMPP_STREAM_STARTTLS_O) != string::npos) {
+            XmppStanza::XmppStreamMessage *strm =
+                new XmppStanza::XmppStreamMessage();
+            strm->strmtype = XmppStanza::XmppStreamMessage::FEATURE_TLS;
+            strm->strmtlstype = XmppStanza::XmppStreamMessage::TLS_START;
+            impl->ReadNode(ns);
+            strm->to = XmppProto::GetTo(impl);
+            strm->from = XmppProto::GetFrom(impl);
+
+            ret = strm;
+
+            XMPP_UTDEBUG(XmppRxStreamStartTls, strm->from, strm->to);
+
+        } else if (ts.find(sXMPP_STREAM_PROCEED_O) != string::npos) {
+            XmppStanza::XmppStreamMessage *strm =
+                new XmppStanza::XmppStreamMessage();
+            strm->strmtype = XmppStanza::XmppStreamMessage::FEATURE_TLS;
+            strm->strmtlstype = XmppStanza::XmppStreamMessage::TLS_PROCEED;
+            impl->ReadNode(ns);
+            strm->to = XmppProto::GetTo(impl);
+            strm->from = XmppProto::GetFrom(impl);
+
+            ret = strm;
+
+            XMPP_UTDEBUG(XmppRxStreamProceed, strm->from, strm->to);
+        }
+        goto done;
+
     } else if (ts.find_first_of(sXMPP_VALIDWS) != string::npos) {
 
         XmppStanza::XmppMessage *msg = 
             new XmppStanza::XmppMessage(WHITESPACE_MESSAGE_STANZA);
         return msg;
+    } else {
+        XMPP_WARNING(XmppBadMessage, "Message not supported");
     }
 
 done:
