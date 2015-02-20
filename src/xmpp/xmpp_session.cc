@@ -22,11 +22,16 @@ const boost::regex XmppSession::patt_(rXMPP_MESSAGE);
 const boost::regex XmppSession::stream_patt_(rXMPP_STREAM_START);
 const boost::regex XmppSession::stream_res_end_(rXMPP_STREAM_END);
 const boost::regex XmppSession::whitespace_(sXMPP_WHITESPACE);
+const boost::regex XmppSession::stream_features_patt_(rXMPP_STREAM_FEATURES);
+const boost::regex XmppSession::starttls_patt_(rXMPP_STREAM_STARTTLS);
+const boost::regex XmppSession::proceed_patt_(rXMPP_STREAM_PROCEED);
+const boost::regex XmppSession::end_patt_(rXMPP_STREAM_STANZA_END);
 
 const std::string XmppStream::close_string = sXML_STREAM_C;
 
-XmppSession::XmppSession(TcpServer *server, Socket *socket, bool async_ready)
-        : TcpSession(server, socket, async_ready), connection_(NULL), 
+XmppSession::XmppSession(SslServer *server, SslSocket *socket, bool async_ready)
+        : SslSession(server, socket, async_ready),
+          connection_(NULL),
           buf_(""), offset_(), tag_known_(0), 
           stats_(XmppStanza::RESERVED_STANZA, XmppSession::StatsPair(0,0)) {
 
@@ -116,6 +121,8 @@ bool XmppSession::Match(Buffer buffer, int *result, bool NewBuf) {
     }
 
     xmsm::XmState state = connection->GetStateMcState();
+    xmsm::XmOpenConfirmState oc_state =
+        connection->GetStateMcOpenConfirmState();
 
     if (NewBuf) {
         const uint8_t *cp = BufferData(buffer);
@@ -141,6 +148,23 @@ bool XmppSession::Match(Buffer buffer, int *result, bool NewBuf) {
             m = MatchRegex(tag_known_ ? stream_res_end_:stream_patt_);
         } else if (state == xmsm::CONNECT || state == xmsm::OPENSENT) { 
             m = MatchRegex(tag_known_ ? stream_res_end_:stream_patt_);
+        } else if ((state == xmsm::OPENCONFIRM) && !(IsSslDisabled())) {
+            if (connection->IsClient()) {
+                if (oc_state == xmsm::OPENCONFIRM_FEATURE_NEGOTIATION) {
+                    m = MatchRegex(tag_known_ ? end_patt_: proceed_patt_);
+                } else if (oc_state == xmsm::OPENCONFIRM_FEATURE_SUCCESS) {
+                    m = MatchRegex(tag_known_ ? stream_res_end_:stream_patt_);
+                } else {
+                    m = MatchRegex(tag_known_ ? tag_to_pattern(begin_tag_.c_str()):
+                                                stream_features_patt_);
+                }
+            } else {
+                if (oc_state == xmsm::OPENCONFIRM_FEATURE_SUCCESS) {
+                    m = MatchRegex(tag_known_ ? stream_res_end_:stream_patt_);
+                } else {
+                    m = MatchRegex(tag_known_ ? end_patt_:starttls_patt_);
+                }
+            }
         } else if (state == xmsm::OPENCONFIRM || state == xmsm::ESTABLISHED) {
             m = MatchRegex(tag_known_ ? tag_to_pattern(begin_tag_.c_str()):patt_);
         }
