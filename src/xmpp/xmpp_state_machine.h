@@ -11,7 +11,7 @@
 
 #include "base/queue_task.h"
 #include "base/timer.h"
-#include "io/tcp_session.h"
+#include "io/ssl_session.h"
 #include "xmpp/xmpp_proto.h"
 
 namespace sc = boost::statechart;
@@ -22,7 +22,7 @@ namespace xmsm {
     struct Connect;
     struct OpenSent;
     struct OpenConfirm;
-    struct Established;
+    struct XmppStreamEstablished;
 }
 
 namespace xmsm {
@@ -37,6 +37,18 @@ typedef enum {
     OPENCONFIRM = 4,
     ESTABLISHED = 5
 } XmState;
+
+typedef enum {
+    OPENCONFIRM_INIT                         = 0,
+    OPENCONFIRM_FEATURE_NEGOTIATION          = 1,
+    OPENCONFIRM_FEATURE_SUCCESS              = 2
+} XmOpenConfirmState;
+
+
+typedef enum {
+    EvTLSHANDSHAKE_FAILURE = 0,
+    EvTLSHANDSHAKE_SUCCESS = 1
+} SslHandShakeResponse;
 
 }
 
@@ -54,7 +66,7 @@ public:
     static const int kMaxAttempts = 4;
     static const int kJitter = 10;           // percentage
 
-    XmppStateMachine(XmppConnection *connection, bool active);
+    XmppStateMachine(XmppConnection *connection, bool active, bool auth_enabled = false);
     ~XmppStateMachine();
 
     void Initialize();
@@ -74,6 +86,8 @@ public:
     void CancelHoldTimer();
     void ResetSession();
 
+    bool IsAuthEnabled() { return auth_enabled_; }
+
     void TimerErrorHandler(std::string name, std::string error);
 
     // Feed session events into the state machine.
@@ -84,6 +98,10 @@ public:
 
     // Receive incoming message
     void OnMessage(XmppSession *session, const XmppStanza::XmppMessage *msg);
+
+    // Receive incoming ssl events
+    //void OnEvent(XmppSession *session, xmsm::SslHandShakeResponse);
+    void OnEvent(SslSession *session, xmsm::SslHandShakeResponse);
 
     //void OnSessionError(Error error);
 
@@ -97,6 +115,7 @@ public:
     std::string LastStateName() const;
     std::string LastStateChangeAt() const;
     xmsm::XmState StateType() const;
+    xmsm::XmOpenConfirmState OpenConfirmStateType() const;
 
     // getters and setters
     XmppConnection *connection() { return connection_; }
@@ -109,6 +128,10 @@ public:
     XmppSession *session() { return session_; }
     void set_state(xmsm::XmState state);
     xmsm::XmState get_state() { return state_; }
+    void set_openconfirm_state(xmsm::XmOpenConfirmState state);
+    xmsm::XmOpenConfirmState get_openconfirm_state() { 
+        return openconfirm_state_; 
+    }
 
     void connect_attempts_inc() { attempts_++; }
     void connect_attempts_clear() { attempts_ = 0; }
@@ -155,7 +178,9 @@ private:
     bool deleted_;
     bool in_dequeue_;
     bool is_active_;
+    bool auth_enabled_;
     xmsm::XmState state_;
+    xmsm::XmOpenConfirmState openconfirm_state_;
     xmsm::XmState last_state_;
     uint64_t state_since_;
     std::string last_event_;

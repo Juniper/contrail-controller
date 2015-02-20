@@ -44,7 +44,7 @@ public:
                                out_of_bound(out_of_bound) {}
     virtual bool IsClient() const { return true; }
 
-    bool SendOpen(TcpSession *session) {
+    bool SendOpen(XmppSession *session) {
         if (!session) return false;
 
         XmppProto::XmppStanza::XmppStreamMessage openstream;
