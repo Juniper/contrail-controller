@@ -362,6 +362,17 @@ int PktHandler::ParseIpPacket(PktInfo *pkt_info, PktType::Type &pkt_type,
         if (icmp->icmp_type == ICMP_ECHO || icmp->icmp_type == ICMP_ECHOREPLY) {
             pkt_info->dport = ICMP_ECHOREPLY;
             pkt_info->sport = htons(icmp->icmp_id);
+        } else if (icmp->icmp_type == ICMP_DEST_UNREACH) {
+            //Agent has to look at inner payload
+            //and recalculate the parameter
+            ParseIpPacket(pkt_info, pkt_type, pkt + len + sizeof(icmp));
+            //Swap the key parameter, which would be used as key
+            IpAddress src_ip = pkt_info->ip_saddr;
+            pkt_info->ip_saddr = pkt_info->ip_daddr;
+            pkt_info->ip_daddr = src_ip;
+            uint16_t port = pkt_info->sport;
+            pkt_info->sport = pkt_info->dport;
+            pkt_info->dport = port;
         } else {
             pkt_info->sport = 0;
         }
