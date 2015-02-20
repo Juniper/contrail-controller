@@ -387,13 +387,24 @@ class VncApiServer(VncApiServerGen):
                                           size=1000)
         self._sandesh.trace_buffer_create(name="IfmapTraceBuf", size=1000)
 
+        log_formatter = {}
+        if self._args.log_format:
+            log_formatter['fmt'] = self._args.log_format
+
+        if self._args.log_date_format:
+            log_formatter['datefmt'] = self._args.log_date_format
+
         self._sandesh.set_logging_params(
             enable_local_log=self._args.log_local,
             category=self._args.log_category,
             level=self._args.log_level,
             file=self._args.log_file,
             enable_syslog=self._args.use_syslog,
-            syslog_facility=self._args.syslog_facility)
+            syslog_facility=self._args.syslog_facility,
+            max_file_bytes=int(self._args.log_file_max_bytes),
+            file_backup_count=int(self._args.log_file_backup_count),
+            log_formatter=log_formatter)
+
         ConnectionState.init(self._sandesh, hostname, module_name,
                 instance_id,
                 staticmethod(ConnectionState.get_process_state_cb),
