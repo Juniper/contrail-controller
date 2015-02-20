@@ -44,7 +44,7 @@ public:
           send_bad_open_resp(send_bad_open_resp),
           send_write_doc(send_write_doc) {}
 
-    bool SendOpenConfirm(TcpSession *session) {
+    bool SendOpenConfirm(XmppSession *session) {
 
         if (!session) return false;
 
