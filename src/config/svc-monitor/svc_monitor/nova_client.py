@@ -44,7 +44,8 @@ class ServiceMonitorNovaClient(object):
                 "Error: Multiple %s %s=%s found in project %s"
                 % (resource, kwargs.keys()[0], kwargs.values()[0], proj_name))
             return None
-        except Exception:
+        except Exception as e:
+            self.logger.log("Error: nova error %s" % str(e))
             return None
 
     def oper(self, resource, oper, proj_name, **kwargs):
