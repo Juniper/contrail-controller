@@ -92,7 +92,11 @@ class DBBase(object):
     def update_single_ref(self, ref_type, obj):
         refs = obj.get(ref_type+'_refs') or obj.get(ref_type+'_back_refs')
         if refs:
-            new_id = refs[0]['uuid']
+            try:
+                new_id = refs[0]['uuid']
+            except KeyError:
+                fq_name = refs[0]['to']
+                new_id = self._cassandra.fq_name_to_uuid(ref_type, fq_name)
         else:
             new_id = None
         old_id = getattr(self, ref_type, None)

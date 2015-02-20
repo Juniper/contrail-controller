@@ -43,7 +43,6 @@
 <xsd:complexType name='BgpRouterParams'>
     <xsd:sequence>
         <xsd:element name='vendor' type='xsd:string'/>
-        <xsd:element name='vnc-managed' type='xsd:boolean'/>
         <xsd:element name='autonomous-system' type='xsd:integer'/>
         <xsd:element name='identifier' type='smi:IpAddress'/>
         <xsd:element name='address' type='smi:IpAddress'/>

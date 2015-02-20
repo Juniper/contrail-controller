@@ -76,7 +76,8 @@ class PhysicalRouterDM(DBBase):
         self.bgp_router = None
         self.update(obj_dict)
         self.config_manager = PhysicalRouterConfig(
-            self.management_ip, self.user_credentials, self._logger)
+            self.management_ip, self.user_credentials, self.vendor,
+            self.product, self.vnc_managed, self._logger)
     # end __init__
 
     def update(self, obj=None):
@@ -84,6 +85,8 @@ class PhysicalRouterDM(DBBase):
             obj = self.read_obj(self.uuid)
         self.management_ip = obj.get('physical_router_management_ip')
         self.vendor = obj.get('physical_router_vendor_name')
+        self.product = obj.get('physical_router_product_name')
+        self.vnc_managed = obj.get('physical_router_vnc_managed')
         self.user_credentials = obj.get('physical_router_user_credentials')
         self.update_single_ref('bgp_router', obj)
         self.update_multiple_refs('virtual_network', obj)
