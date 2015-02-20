@@ -212,7 +212,9 @@ public:
     RtGroup *GetRtGroup(const ExtCommunity::ExtCommunityValue &comm);
     RtGroup *LocateRtGroup(const RouteTarget &rt);
     RtGroupMap &GetRtGroupMap() { return rtgroup_map_; }
+    void NotifyRtGroup(const RouteTarget &rt);
     void RemoveRtGroup(const RouteTarget &rt);
+
     virtual void GetRibOutInterestedPeers(RibOut *ribout,
              const ExtCommunity *ext_community,
              const RibPeerSet &peerset, RibPeerSet *new_peerset);
@@ -227,6 +229,8 @@ private:
     static int rtfilter_task_id_;
 
     friend class BgpXmppRTargetTest;
+    friend class ReplicationTest;
+
     void RTargetDepSync(DBTablePartBase *root, BgpRoute *rt,
                         DBTableBase::ListenerId id, VpnRouteState *dbstate,
                         VpnRouteState::RTargetList &current);
