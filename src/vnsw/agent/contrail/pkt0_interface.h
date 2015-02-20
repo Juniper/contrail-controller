@@ -18,9 +18,9 @@ public:
     Pkt0Interface(const std::string &name, boost::asio::io_service *io);
     virtual ~Pkt0Interface();
     
-    void InitControlInterface();
-    void IoShutdownControlInterface();
-    void ShutdownControlInterface();
+    virtual void InitControlInterface();
+    virtual void IoShutdownControlInterface();
+    virtual void ShutdownControlInterface();
     
     const std::string &Name() const { return name_; }
     int Send(uint8_t *buff, uint16_t buff_len, const PacketBufferPtr &pkt);
@@ -41,4 +41,46 @@ protected:
     DISALLOW_COPY_AND_ASSIGN(Pkt0Interface);
 };
 
+class Pkt0RawInterface : public Pkt0Interface {
+public:
+    Pkt0RawInterface(const std::string &name, boost::asio::io_service *io);
+    virtual ~Pkt0RawInterface();
+
+    void InitControlInterface();
+
+protected:
+    DISALLOW_COPY_AND_ASSIGN(Pkt0RawInterface);
+};
+
+class Pkt0Socket : public VrouterControlInterface {
+public:
+    static const uint32_t kConnectTimeout = 100; //100 millisecond
+    static const char *kAgentSocketPath;
+    static const char *kVrouterSocketPath;
+    Pkt0Socket(const std::string &name,
+               boost::asio::io_service *io);
+    ~Pkt0Socket();
+
+    virtual void InitControlInterface();
+    virtual void IoShutdownControlInterface();
+    virtual void ShutdownControlInterface();
+    const std::string &Name() const { return name_; }
+
+    int Send(uint8_t *buff, uint16_t buff_len, const PacketBufferPtr &pkt);
+private:
+    void AsyncRead();
+    void ReadHandler(const boost::system::error_code &err, std::size_t length);
+    void WriteHandler(const boost::system::error_code &error,
+                      std::size_t length, PacketBufferPtr pkt, uint8_t *buff);
+    void CreateUnixSocket();
+    void StartConnectTimer();
+    bool OnTimeout();
+    bool connected_;
+    boost::asio::local::datagram_protocol::socket socket_;
+    boost::scoped_ptr<Timer> timer_;
+    uint8_t *read_buff_;
+    PktHandler *pkt_handler_;
+    std::string name_;
+    DISALLOW_COPY_AND_ASSIGN(Pkt0Socket);
+};
 #endif // vnsw_agent_contrail_pkt0_interface_hpp

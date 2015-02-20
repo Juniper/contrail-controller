@@ -29,7 +29,6 @@ ContrailAgentInit::~ContrailAgentInit() {
 
 void ContrailAgentInit::ProcessOptions
     (const std::string &config_file, const std::string &program_name) {
-
     ContrailInitCommon::ProcessOptions(config_file, program_name);
 }
 
@@ -38,15 +37,27 @@ void ContrailAgentInit::ProcessOptions
 ****************************************************************************/
 void ContrailAgentInit::FactoryInit() {
     AgentObjectFactory::Register<AgentUveBase>(boost::factory<AgentUve *>());
-    AgentObjectFactory::Register<KSync>(boost::factory<KSync *>());
+    if (agent_param()->vrouter_on_nic_mode() || agent_param()->vrouter_on_host_dpdk()) {
+        AgentObjectFactory::Register<KSync>(boost::factory<KSyncTcp *>());
+    } else {
+        AgentObjectFactory::Register<KSync>(boost::factory<KSync *>());
+    }
     AgentObjectFactory::Register<FlowTable>(boost::factory<FlowTable *>());
 }
 
 void ContrailAgentInit::CreateModules() {
     ContrailInitCommon::CreateModules();
 
-    pkt0_.reset(new Pkt0Interface("pkt0",
-                                  agent()->event_manager()->io_service()));
+    if (agent_param()->vrouter_on_host_dpdk()) {
+        pkt0_.reset(new Pkt0Socket("unix",
+                    agent()->event_manager()->io_service()));
+    } else if (agent_param()->vrouter_on_nic_mode()) {
+        pkt0_.reset(new Pkt0RawInterface("pkt0",
+                    agent()->event_manager()->io_service()));
+    } else {
+        pkt0_.reset(new Pkt0Interface("pkt0",
+                    agent()->event_manager()->io_service()));
+    }
     agent()->pkt()->set_control_interface(pkt0_.get());
 
     uve_.reset(AgentObjectFactory::Create<AgentUveBase>

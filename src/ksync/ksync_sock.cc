@@ -143,8 +143,8 @@ bool KSyncSockNetlink::Validate(char *data) {
 }
 
 //netlink socket class for interacting with kernel
-void KSyncSockNetlink::AsyncSendTo(IoContext *ioc, mutable_buffers_1 buf,
-                                   HandlerCb cb) {
+void KSyncSockNetlink::AsyncSendTo(char *data, uint32_t data_len,
+                                   uint32_t seq_no, HandlerCb cb) {
     struct nl_client cl;
     unsigned char *nl_buf;
     uint32_t nl_buf_len;
@@ -160,19 +160,20 @@ void KSyncSockNetlink::AsyncSendTo(IoContext *ioc, mutable_buffers_1 buf,
     }
 
     iovec.push_back(buffer(cl.cl_buf, cl.cl_buf_offset));
-    iovec.push_back(buf);
+    iovec.push_back(buffer(data, data_len));
 
-    nl_update_header(&cl, buffer_size(buf));
+    nl_update_header(&cl, data_len);
     struct nlmsghdr *nlh = (struct nlmsghdr *)cl.cl_buf;
     nlh->nlmsg_pid = KSyncSock::GetPid();
-    nlh->nlmsg_seq = ioc->GetSeqno();
+    nlh->nlmsg_seq = seq_no;
 
     boost::asio::netlink::raw::endpoint ep;
     sock_.async_send_to(iovec, ep, cb);
     free(cl.cl_buf);
 }
 
-size_t KSyncSockNetlink::SendTo(const_buffers_1 buf, uint32_t seq_no) {
+size_t KSyncSockNetlink::SendTo(const char *data, uint32_t data_len,
+                                uint32_t seq_no) {
     struct nl_client cl;
     unsigned char *nl_buf;
     uint32_t nl_buf_len;
@@ -188,9 +189,9 @@ size_t KSyncSockNetlink::SendTo(const_buffers_1 buf, uint32_t seq_no) {
     }
 
     iovec.push_back(buffer((const char *)cl.cl_buf, cl.cl_buf_offset));
-    iovec.push_back(buf);
+    iovec.push_back(buffer((const char *)data, data_len));
 
-    nl_update_header(&cl, buffer_size(buf));
+    nl_update_header(&cl, data_len);
     struct nlmsghdr *nlh = (struct nlmsghdr *)cl.cl_buf;
     nlh->nlmsg_pid = KSyncSock::GetPid();
     nlh->nlmsg_seq = seq_no;
@@ -254,29 +255,30 @@ bool KSyncSockUdp::Validate(char *data) {
     return true;
 }
 
-void KSyncSockUdp::AsyncSendTo(IoContext *ioc, mutable_buffers_1 buf,
-                               HandlerCb cb) {
+void KSyncSockUdp::AsyncSendTo(char *data, uint32_t data_len,
+                               uint32_t seq_no, HandlerCb cb) {
     struct uvr_msg_hdr hdr;
     std::vector<mutable_buffers_1> iovec;
-    hdr.seq_no = ioc->GetSeqno();
+    hdr.seq_no = seq_no;
     hdr.flags = 0;
-    hdr.msg_len = buffer_size(buf);
+    hdr.msg_len = data_len;
 
     iovec.push_back(buffer((char *)(&hdr), sizeof(hdr)));
-    iovec.push_back(buf);
+    iovec.push_back(buffer(data, data_len));
 
     sock_.async_send_to(iovec, server_ep_, cb);
 }
 
-size_t KSyncSockUdp::SendTo(const_buffers_1 buf, uint32_t seq_no) {
+size_t KSyncSockUdp::SendTo(const char *data, uint32_t data_len,
+                            uint32_t seq_no) {
     struct uvr_msg_hdr hdr;
     std::vector<const_buffers_1> iovec;
     hdr.seq_no = seq_no;
     hdr.flags = 0;
-    hdr.msg_len = buffer_size(buf);
+    hdr.msg_len = data_len;
 
     iovec.push_back(buffer((const char *)(&hdr), sizeof(hdr)));
-    iovec.push_back(buf);
+    iovec.push_back(buffer((const char *)data, data_len));
 
     size_t ret = sock_.send_to(iovec, server_ep_, MSG_DONTWAIT);
     return ret;
@@ -290,6 +292,263 @@ void KSyncSockUdp::AsyncReceive(mutable_buffers_1 buf, HandlerCb cb) {
 void KSyncSockUdp::Receive(mutable_buffers_1 buf) {
     ip::udp::endpoint ep;
     sock_.receive_from(buf, ep);
+}
+
+//TCP socket class for interacting with vrouter
+KSyncSockTcp::KSyncSockTcp(EventManager *evm,
+    ip::address ip_address, int port) : TcpServer(evm), evm_(evm),
+    session_(NULL), server_ep_(ip_address, port), connect_complete_(false) {
+    session_ = CreateSession();
+    Connect(session_, server_ep_);
+}
+
+uint32_t KSyncSockTcp::GetSeqno(char *data) {
+    struct nlmsghdr *nlh = (struct nlmsghdr *)data;
+    return nlh->nlmsg_seq;
+}
+
+bool KSyncSockTcp::IsMoreData(char *data) {
+    struct nlmsghdr *nlh = (struct nlmsghdr *)data;
+    return ((nlh->nlmsg_flags & NLM_F_MULTI) && (nlh->nlmsg_type != NLMSG_DONE));
+}
+
+void KSyncSockTcp::Decoder(char *data, SandeshContext *ctxt) {
+    struct nlmsghdr *nlh = (struct nlmsghdr *)data;
+    if (nlh->nlmsg_type == GetNetlinkFamilyId()) {
+        struct genlmsghdr *genlh = (struct genlmsghdr *)
+                                   (data + NLMSG_HDRLEN);
+        int total_len = nlh->nlmsg_len;
+        int decode_len;
+        uint8_t *decode_buf;
+        if (genlh->cmd == SANDESH_REQUEST) {
+            struct nlattr * attr = (struct nlattr *)(data + NLMSG_HDRLEN
+                                                     + GENL_HDRLEN);
+            int decode_buf_len = total_len - (NLMSG_HDRLEN + GENL_HDRLEN +
+                                              NLA_HDRLEN);
+            int err = 0;
+            if (attr->nla_type == NL_ATTR_VR_MESSAGE_PROTOCOL) {
+                decode_buf = (uint8_t *)(data + NLMSG_HDRLEN +
+                                         GENL_HDRLEN + NLA_HDRLEN);
+                while(decode_buf_len > (NLA_ALIGNTO - 1)) {
+                    decode_len = Sandesh::ReceiveBinaryMsgOne(decode_buf, decode_buf_len, &err,
+                                                              ctxt);
+                    if (decode_len < 0) {
+                        LOG(DEBUG, "Incorrect decode len " << decode_len);
+                        break;
+                    }
+                    decode_buf += decode_len;
+                    decode_buf_len -= decode_len;
+                }
+            } else {
+                LOG(ERROR, "Unknown generic netlink TLV type : " << attr->nla_type);
+                assert(0);
+            }
+        } else {
+            LOG(ERROR, "Unknown generic netlink cmd : " << genlh->cmd);
+            assert(0);
+        }
+    } else if (nlh->nlmsg_type != NLMSG_DONE) {
+        LOG(ERROR, "Netlink unknown message type : " << nlh->nlmsg_type);
+        assert(0);
+    }
+}
+
+bool KSyncSockTcp::Validate(char *data) {
+    struct nlmsghdr *nlh = (struct nlmsghdr *)data;
+    if (nlh->nlmsg_type == NLMSG_ERROR) {
+        LOG(ERROR, "Ignoring Netlink error for seqno " << nlh->nlmsg_seq
+                        << " len " << nlh->nlmsg_len);
+        assert(0);
+        return true;
+    }
+
+    if (nlh->nlmsg_len > kBufLen) {
+        LOG(ERROR, "Length of " << nlh->nlmsg_len << " is more than expected "
+            "length of " << kBufLen);
+        assert(0);
+        return true;
+    }
+    return true;
+}
+
+void KSyncSockTcp::AsyncSendTo(char *data, uint32_t data_len,
+                               uint32_t seq_no, HandlerCb cb) {
+    struct nl_client cl;
+    unsigned char *nl_buf;
+    uint32_t nl_buf_len;
+    int ret;
+    char msg[4096];
+    std::vector<mutable_buffers_1> iovec;
+
+    nl_init_generic_client_req(&cl, GetNetlinkFamilyId());
+
+    if ((ret = nl_build_header(&cl, &nl_buf, &nl_buf_len)) < 0) {
+        LOG(ERROR, "Error creating netlink message. Error : " << ret);
+        free(cl.cl_buf);
+        return;
+    }
+
+    uint32_t total_length = cl.cl_buf_offset + data_len;
+    assert(total_length < 4096);
+
+    uint32_t header_len = cl.cl_buf_offset;
+    nl_update_header(&cl, data_len);
+    struct nlmsghdr *nlh = (struct nlmsghdr *)cl.cl_buf;
+    nlh->nlmsg_pid = KSyncSock::GetPid();
+    nlh->nlmsg_seq = seq_no;
+
+    memcpy(msg, cl.cl_buf, header_len);
+    memcpy(msg + header_len, data, data_len);
+
+    session_->Send((const uint8_t *)msg, total_length, NULL);
+    free(cl.cl_buf);
+}
+
+size_t KSyncSockTcp::SendTo(const char *data, uint32_t data_len,
+                            uint32_t seq_no) {
+    struct nl_client cl;
+    unsigned char *nl_buf;
+    uint32_t nl_buf_len;
+    int ret;
+    char msg[4096];
+
+    nl_init_generic_client_req(&cl, GetNetlinkFamilyId());
+
+    if ((ret = nl_build_header(&cl, &nl_buf, &nl_buf_len)) < 0) {
+        LOG(ERROR, "Error creating netlink message. Error : " << ret);
+        free(cl.cl_buf);
+        return ((size_t) -1);
+    }
+
+    uint32_t total_length = cl.cl_buf_offset + data_len;
+    assert(total_length < 4096);
+
+    uint32_t header_len = cl.cl_buf_offset;
+    nl_update_header(&cl, data_len);
+    struct nlmsghdr *nlh = (struct nlmsghdr *)cl.cl_buf;
+    nlh->nlmsg_pid = KSyncSock::GetPid();
+    nlh->nlmsg_seq = seq_no;
+
+    memcpy(msg, cl.cl_buf, header_len);
+    memcpy(msg + header_len, data, data_len);
+ 
+    session_->Send((const uint8_t *)msg, total_length, NULL);
+    free(cl.cl_buf);
+    return total_length;
+}
+
+void KSyncSockTcp::AsyncReceive(mutable_buffers_1 buf, HandlerCb cb) {
+    //Data would be read from ksync tcp session
+    //hence no socket operation would be required
+}
+
+void KSyncSockTcp::Receive(mutable_buffers_1 buf) {
+    uint32_t bytes_read = 0;
+    boost::system::error_code ec;
+    const struct nlmsghdr *nlh = NULL;
+
+    //Create a buffer to read netlink header first
+    mutable_buffers_1 netlink_header(buffer_cast<void *>(buf),
+                                     sizeof(struct nlmsghdr));
+
+    while (bytes_read < sizeof(struct nlmsghdr)) {
+        mutable_buffers_1 buffer =
+            static_cast<mutable_buffers_1>(netlink_header + bytes_read);
+        bytes_read += session_->socket()->receive(buffer, 0, ec);
+        if (ec != 0) {
+            assert(0);
+        }
+        //Data read is lesser than netlink header
+        //continue reading
+        if (bytes_read == sizeof(struct nlmsghdr)) {
+            nlh =  buffer_cast<struct nlmsghdr *>(buf);
+        }
+    }
+
+    if (nlh->nlmsg_type == NLMSG_ERROR) {
+        LOG(ERROR, "Netlink error for seqno " << nlh->nlmsg_seq
+                << " len " << nlh->nlmsg_len);
+        assert(0);
+    }
+
+    bytes_read = 0;
+    uint32_t payload_size = nlh->nlmsg_len - sizeof(struct nlmsghdr);
+    //Read data
+    mutable_buffers_1 data(buffer_cast<void *>(buf + sizeof(struct nlmsghdr)),
+                           payload_size);
+
+    while (bytes_read < payload_size) {
+        mutable_buffers_1 buffer =
+            static_cast<mutable_buffers_1>(data + bytes_read);
+        bytes_read += session_->socket()->receive(buffer, 0, ec);
+        if (ec != 0) {
+            assert(0);
+        }
+    }
+}
+
+TcpSession* KSyncSockTcp::AllocSession(Socket *socket) {
+    TcpSession *session = new KSyncSockTcpSession(this, socket, false);
+    session->set_observer(boost::bind(&KSyncSockTcp::OnSessionEvent,
+                                      this, _1, _2));
+    return session;
+}
+
+bool KSyncSockTcp::ReceiveMsg(const u_int8_t *msg, size_t size) {
+    char *rx_buff = new char[kBufLen];
+    memcpy(rx_buff, msg, size);
+    ValidateAndEnqueue(rx_buff);
+    return true;
+}
+
+void KSyncSockTcp::OnSessionEvent(TcpSession *session,
+                                  TcpSession::Event event) {
+    switch (event) {
+    case TcpSession::CONNECT_FAILED:
+        //Retry
+        Connect(session_, server_ep_);
+        break;
+    case TcpSession::CLOSE:
+        assert(0);
+        break;
+    case TcpSession::CONNECT_COMPLETE:
+        connect_complete_ = true;
+    default:
+        break;
+    }
+}
+
+void KSyncSockTcp::AsyncReadStart() {
+    session_->AsyncReadStart();
+}
+
+KSyncSockTcpSession::KSyncSockTcpSession(TcpServer *server, Socket *sock,
+    bool async_ready) : TcpSession(server, sock, async_ready) {
+    KSyncSockTcp *tcp_ptr = static_cast<KSyncSockTcp *>(server);
+    reader_ = new KSyncSockTcpSessionReader(this,
+                       boost::bind(&KSyncSockTcp::ReceiveMsg, tcp_ptr, _1, _2));
+}
+
+void KSyncSockTcpSession::OnRead(Buffer buffer) {
+    reader_->OnRead(buffer);
+}
+
+KSyncSockTcpSessionReader::KSyncSockTcpSessionReader(
+    TcpSession *session, ReceiveCallback callback) :
+    TcpMessageReader(session, callback) {
+}
+
+int KSyncSockTcpSessionReader::MsgLength(Buffer buffer, int offset) {
+    size_t size = TcpSession::BufferSize(buffer);
+    int remain = size - offset;
+    if (remain < GetHeaderLenSize()) {
+        return -1;
+    }
+
+    //Byte ordering?
+    const struct nlmsghdr *nlh =
+        (const struct nlmsghdr *)(TcpSession::BufferData(buffer) + offset);
+    return nlh->nlmsg_len;
 }
 
 KSyncSock::KSyncSock() : tx_count_(0), err_count_(0), run_sync_mode_(true) {
@@ -366,6 +625,15 @@ void KSyncSockUdp::Init(io_service &ios, int count, int port) {
     }
 }
 
+void KSyncSockTcp::Init(EventManager *evm, int count, ip::address ip_addr,
+                        int port) {
+    KSyncSock::Init(count);
+    SetNetlinkFamilyId(10);
+    for (int i = 0; i < count; i++) {
+        KSyncSock::SetSockTableEntry(i, new KSyncSockTcp(evm, ip_addr, port));
+    }
+}
+
 // Create KSyncSock objects
 void KSyncSock::Shutdown() {
     shutdown_ = true;
@@ -422,6 +690,7 @@ bool KSyncSock::ValidateAndEnqueue(char *data) {
 // Currently only Agent::KSync and Agent::Uve are possibilities
 bool KSyncSock::ProcessKernelData(char *data) {
     Tree::iterator it = GetIoContext(data);
+
     IoContext *context = it.operator->();
 
     AgentSandeshContext *ctxt = context->GetSandeshContext();
@@ -469,7 +738,7 @@ KSyncSock *KSyncSock::Get(int idx) {
 }
 
 size_t KSyncSock::BlockingSend(const char *msg, int msg_len) {
-    return SendTo(buffer(msg, msg_len), 0);
+    return SendTo(msg, msg_len, 0);
 }
 
 bool KSyncSock::BlockingRecv() {
@@ -512,13 +781,13 @@ bool KSyncSock::SendAsyncImpl(IoContext *ioc) {
         wait_tree_.insert(*ioc);
     }
     if (!run_sync_mode_) {
-        AsyncSendTo(ioc, boost::asio::buffer(ioc->GetMsg(), ioc->GetMsgLen()),
+        AsyncSendTo(ioc->GetMsg(), ioc->GetMsgLen(), ioc->GetSeqno(),
                     boost::bind(&KSyncSock::WriteHandler, this,
                                 placeholders::error,
                                 placeholders::bytes_transferred));
     } else {
-        SendTo(boost::asio::buffer((const char *)ioc->GetMsg(),
-                    ioc->GetMsgLen()), ioc->GetSeqno());
+        SendTo((const char *)ioc->GetMsg(),
+               ioc->GetMsgLen(), ioc->GetSeqno());
         bool more_data = false;
         do {
             char *rxbuf = new char[kBufLen];

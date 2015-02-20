@@ -11,8 +11,11 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/types.h>
-
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <asm/types.h>
 #include <boost/asio.hpp>
+#include <boost/asio/buffer.hpp>
 
 #include <cmn/agent_cmn.h>
 #include <ksync/ksync_index.h>
@@ -41,6 +44,8 @@
 #include <services/services_init.h>
 #include <services/icmp_error_proto.h>
 #include <uve/stats_collector.h>
+
+using namespace boost::asio::ip;
 
 static uint16_t GetDropReason(uint16_t dr) {
     switch (dr) {
@@ -498,7 +503,7 @@ FlowTableKSyncObject::FlowTableKSyncObject(KSync *ksync) :
                   "Flow Audit Timer",
                   TaskScheduler::GetInstance()->GetTaskId
                   ("Agent::StatsCollector"),
-                  StatsCollector::FlowStatsCollector)) { 
+                  StatsCollector::FlowStatsCollector)) {
 }
 
 FlowTableKSyncObject::FlowTableKSyncObject(KSync *ksync, int max_index) :
@@ -574,6 +579,14 @@ void vr_flow_req::Process(SandeshContext *context) {
     ioc->FlowMsgHandler(this);
 }
 
+void FlowTableKSyncObject::StartAuditTimer() {
+    audit_yield_ = AuditYield;
+    audit_timeout_ = AuditTimeout;
+    audit_timer_->Start(AuditTimeout,
+            boost::bind(&FlowTableKSyncObject::AuditProcess,
+                this));
+}
+
 void FlowTableKSyncObject::MapFlowMemTest() {
     flow_table_ = KSyncSockTypeMap::FlowMmapAlloc(kTestFlowTableSize);
     memset(flow_table_, 0, kTestFlowTableSize);
@@ -642,6 +655,87 @@ bool FlowTableKSyncObject::AuditProcess() {
     return true;
 }
 
+void FlowTableKSyncObject::GetFlowTableSize() {
+    struct nl_client *cl;
+    vr_flow_req req;
+    int attr_len;
+    int encode_len, error;
+
+    KSyncSock *sock = KSyncSock::Get(0);
+    assert((cl = nl_register_client()) != NULL);
+    cl->cl_genl_family_id = KSyncSock::GetNetlinkFamilyId();
+    assert(nl_build_nlh(cl, cl->cl_genl_family_id, NLM_F_REQUEST) == 0);
+    assert(nl_build_genlh(cl, SANDESH_REQUEST, 0) == 0);
+
+    attr_len = nl_get_attr_hdr_size();
+    req.set_fr_op(flow_op::FLOW_TABLE_GET);
+    req.set_fr_rid(0);
+    req.set_fr_index(0);
+    req.set_fr_action(0);
+    req.set_fr_flags(0);
+    req.set_fr_ftable_size(0);
+    encode_len = req.WriteBinary(nl_get_buf_ptr(cl) + attr_len,
+                                 nl_get_buf_len(cl), &error);
+    nl_build_attr(cl, encode_len, NL_ATTR_VR_MESSAGE_PROTOCOL);
+    nl_update_nlh(cl);
+
+    tcp::socket socket(*(ksync_->agent()->event_manager()->io_service()));
+    tcp::endpoint endpoint(ksync_->agent()->vrouter_server_ip(),
+                           ksync_->agent()->vrouter_server_port());
+    boost::system::error_code ec;
+    socket.connect(endpoint, ec);
+    if (ec) {
+        assert(0);
+    }
+
+    socket.send(boost::asio::buffer(cl->cl_buf, cl->cl_buf_offset), 0, ec);
+    if (ec) {
+        assert(0);
+    }
+
+    uint32_t len_read = 0;
+    uint32_t data_len = sizeof(struct nlmsghdr);
+    while (len_read < data_len) {
+        len_read = socket.read_some(boost::asio::buffer(cl->cl_buf + len_read,
+                                                        cl->cl_buf_len), ec);
+        if (ec) {
+            assert(0);
+        }
+
+        if (len_read > sizeof(struct nlmsghdr)) {
+            const struct nlmsghdr *nlh =
+                (const struct nlmsghdr *)((cl->cl_buf));
+            data_len = nlh->nlmsg_len;
+        }
+    }
+
+    sock->Decoder(cl->cl_buf, KSyncSock::GetAgentSandeshContext());
+    nl_free_client(cl);
+}
+
+void FlowTableKSyncObject::MapSharedMemory() {
+    GetFlowTableSize();
+
+    int fd;
+    if ((fd = open(flow_table_path_.c_str(), O_RDONLY | O_SYNC)) < 0) {
+        LOG(DEBUG, "Error opening device " << flow_table_path_
+            << ". Error <" << errno
+            << "> : " << strerror(errno));
+        assert(0);
+    }
+
+    flow_table_ = (vr_flow_entry *)mmap(NULL, flow_table_size_,
+                                        PROT_READ, MAP_SHARED, fd, 0);
+    if (flow_table_ == MAP_FAILED) {
+        LOG(DEBUG, "Error mapping flow table memory. Error <" << errno
+            << "> : " << strerror(errno));
+        assert(0);
+    }
+
+    flow_table_entries_count_ = flow_table_size_ / sizeof(vr_flow_entry);
+    ksync_->agent()->set_flow_table_size(flow_table_entries_count_);
+}
+
 // Steps to map flow table entry
 // - Query the Flow table parameters from kernel
 // - Create device /dev/flow with major-num and minor-num 
@@ -653,7 +747,8 @@ void FlowTableKSyncObject::MapFlowMem() {
     int encode_len, error, ret;
 
     assert((cl = nl_register_client()) != NULL);
-    assert(nl_socket(cl, NETLINK_GENERIC) > 0);
+    assert(nl_socket(cl, AF_NETLINK, SOCK_DGRAM, NETLINK_GENERIC) > 0);
+    assert(nl_connect(cl, 0, 0) == 0);
     assert(vrouter_get_family_id(cl) > 0);
 
     assert(nl_build_nlh(cl, cl->cl_genl_family_id, NLM_F_REQUEST) == 0);
@@ -721,11 +816,6 @@ void FlowTableKSyncObject::MapFlowMem() {
 
     flow_table_entries_count_ = flow_table_size_ / sizeof(vr_flow_entry);
     ksync_->agent()->set_flow_table_size(flow_table_entries_count_);
-    audit_yield_ = AuditYield;
-    audit_timeout_ = AuditTimeout;
-    audit_timer_->Start(AuditTimeout,
-                        boost::bind(&FlowTableKSyncObject::AuditProcess,
-                                    this));
     return;
 }
 
@@ -735,4 +825,5 @@ void FlowTableKSyncObject::Init() {
     proto = ksync()->agent()->services()->icmp_error_proto();
     proto->Register(boost::bind(&FlowTableKSyncObject::GetFlowKey, this, _1,
                                 _2));
+    StartAuditTimer();
 }

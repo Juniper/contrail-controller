@@ -320,10 +320,14 @@ void Agent::InitXenLinkLocalIntf() {
     }
     params_->set_xen_ll_name(dev_name);
 
+    //We create a kernel visible interface to support xapi
+    //Once we support dpdk on xen, we should change
+    //the transport type to KNI
     InetInterface::Create(intf_table_, params_->xen_ll_name(),
                           InetInterface::LINK_LOCAL, link_local_vrf_name_,
                           params_->xen_ll_addr(), params_->xen_ll_plen(),
-                          params_->xen_ll_gw(), NullString(), link_local_vrf_name_);
+                          params_->xen_ll_gw(), NullString(), link_local_vrf_name_,
+                          Interface::TRANSPORT_ETHERNET);
 }
 
 void Agent::InitPeers() {
@@ -528,4 +532,16 @@ bool Agent::isVmwareVcenterMode() const {
         return false;
 
     return params_->isVmwareVcenterMode();
+}
+
+bool Agent::vrouter_on_nic_mode() const {
+    return params_->vrouter_on_nic_mode();
+}
+
+bool Agent::vrouter_on_host_dpdk() const {
+    return params_->vrouter_on_host_dpdk();
+}
+
+bool Agent::vrouter_on_host() const {
+    return params_->vrouter_on_host();
 }

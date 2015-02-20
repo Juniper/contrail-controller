@@ -158,11 +158,27 @@ void ContrailInitCommon::CreateInterfaces() {
     InterfaceTable *table = agent()->interface_table();
     PhysicalInterface::EncapType type;
 
+    Interface::Transport physical_transport = Interface::TRANSPORT_ETHERNET;
+    Interface::Transport vhost_transport = Interface::TRANSPORT_ETHERNET;
+    if (agent_param()->vrouter_on_host_dpdk()) {
+        //TODO : transport type for vhost interface should
+        //be set to KNI
+        vhost_transport = Interface::TRANSPORT_PMD;
+        physical_transport = Interface::TRANSPORT_PMD;
+    }
+
+    if (agent_param()->vrouter_on_nic_mode()) {
+        vhost_transport = Interface::TRANSPORT_PMD;
+        physical_transport = Interface::TRANSPORT_PMD;
+    }
+
     type = ComputeEncapType(agent_param()->eth_port_encap_type());
     PhysicalInterface::Create(table, agent_param()->eth_port(),
                               agent()->fabric_vrf_name(),
                               PhysicalInterface::FABRIC, type,
-                              agent_param()->eth_port_no_arp(), nil_uuid());
+                              agent_param()->eth_port_no_arp(), nil_uuid(),
+                              agent_param()->vhost_addr(),
+                              physical_transport);
     PhysicalInterfaceKey physical_key(agent()->fabric_interface_name());
     assert(table->FindActiveEntry(&physical_key));
 
@@ -172,7 +188,7 @@ void ContrailInitCommon::CreateInterfaces() {
                           agent_param()->vhost_plen(),
                           agent_param()->vhost_gw(),
                           agent_param()->eth_port(),
-                          agent()->fabric_vn_name());
+                          agent()->fabric_vn_name(), vhost_transport);
     InetInterfaceKey key(agent()->vhost_interface_name());
     agent()->set_vhost_interface
         (static_cast<Interface *>(table->FindActiveEntry(&key)));
@@ -195,7 +211,8 @@ void ContrailInitCommon::CreateInterfaces() {
                                   agent()->fabric_vrf_name(),
                                   PhysicalInterface::VMWARE,
                                   PhysicalInterface::ETHERNET, false,
-                                  nil_uuid());
+                                  nil_uuid(), Ip4Address(0),
+                                  physical_transport);
     }
 
     agent()->set_router_id(agent_param()->vhost_addr());
@@ -207,7 +224,7 @@ void ContrailInitCommon::CreateInterfaces() {
     }
 
     if (agent()->vgw()) {
-        agent()->vgw()->CreateInterfaces();
+        agent()->vgw()->CreateInterfaces(vhost_transport);
     }
 
     ProcessComputeAddress(agent_param());

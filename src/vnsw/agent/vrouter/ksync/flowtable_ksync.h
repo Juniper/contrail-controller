@@ -97,6 +97,9 @@ public:
     void Shutdown() {
         UnmapFlowMemTest();
     }
+    void MapSharedMemory();
+    void GetFlowTableSize();
+    void StartAuditTimer();
 private:
     friend class KSyncSandeshContext;
     KSync *ksync_;
@@ -109,6 +112,7 @@ private:
     uint32_t audit_timeout_;
     uint32_t audit_flow_idx_;
     uint64_t audit_timestamp_;
+    std::string flow_table_path_;
     std::list<std::pair<uint32_t, uint64_t> > audit_flow_list_;
     Timer *audit_timer_;
     DISALLOW_COPY_AND_ASSIGN(FlowTableKSyncObject);
