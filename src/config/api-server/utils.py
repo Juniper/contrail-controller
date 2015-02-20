@@ -78,6 +78,13 @@ def parse_args(args_str):
         'insecure': True
     }
 
+    logging_opts = {
+        'log_file_max_bytes': None,
+        'log_file_backup_count': None,
+        'log_format': None,
+        'log_date_format': None,
+    }
+
     config = None
     if args.conf_file:
         config = ConfigParser.SafeConfigParser({'admin_token': None})
@@ -103,6 +110,9 @@ def parse_args(args_str):
             default_encoding = config.get('DEFAULTS', 'default_encoding')
             gen.resource_xsd.ExternalEncoding = default_encoding
 
+        if 'LOGGING' in config.sections():
+            logging_opts.update(dict(config.items("LOGGING", raw=True)))
+
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
     parser = argparse.ArgumentParser(
@@ -115,6 +125,7 @@ def parse_args(args_str):
     )
     defaults.update(secopts)
     defaults.update(ksopts)
+    defaults.update(logging_opts)
     parser.set_defaults(**defaults)
 
     parser.add_argument(
