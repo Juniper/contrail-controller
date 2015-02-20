@@ -673,7 +673,7 @@ class VirtualDnsServer(VirtualDnsServerGen):
                 return (
                     False,
                     (500, "Internal error : Virtual DNS is not in a domain"))
-            virtual_DNSs = read_result.get('virtual_DNSs', None)
+            virtual_DNSs = read_result.get('virtual_DNSs', [])
             for vdns in virtual_DNSs:
                 vdns_uuid = vdns['uuid']
                 vdns_id = {'uuid': vdns_uuid}
