@@ -38,7 +38,7 @@ from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
     NodeStatus
 from cfgm_common.vnc_db import DBBase
 from db import BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM, \
-    LogicalInterfaceDM, VirtualMachineInterfaceDM, VirtualNetworkDM
+    LogicalInterfaceDM, VirtualMachineInterfaceDM, VirtualNetworkDM, RoutingInstanceDM
 from cfgm_common.dependency_tracker import DependencyTracker
 from sandesh.dm_introspect import ttypes as sandesh
 
@@ -190,7 +190,10 @@ class DeviceManager(object):
                         vn_set |= set([vmi.virtual_network])
 
             for vn_id in vn_set:
-                VirtualNetworkDM.locate(vn_id)
+                vn_obj = VirtualNetworkDM.locate(vn_id)
+                if vn_obj is not None and vn_obj.routing_instances is not None:
+                    for ri_id in vn_obj.routing_instances:
+                        ri_obj = RoutingInstanceDM.locate(ri_id)
 
             for pr in PhysicalRouterDM.values():
                 pr.push_config()

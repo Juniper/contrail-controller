@@ -29,6 +29,7 @@ class PhysicalRouterConfig(object):
         self.vnc_managed = vnc_managed
         self.reset_bgp_config()
         self._logger = logger
+        self.bgp_config_sent = False
     # end __init__
 
     def update(self, management_ip, user_creds, vendor, product, vnc_managed):
@@ -142,10 +143,10 @@ class PhysicalRouterConfig(object):
         term = etree.SubElement(ps, "term")
         etree.SubElement(term, "name").text= "t1"
         then = etree.SubElement(term, "then")
-        comm = etree.SubElement(then, "community")
-        etree.SubElement(comm, "add")
         for route_target in export_targets:
-            etree.SubElement(comm, "community_name").text = route_target.replace(':', '_') 
+            comm = etree.SubElement(then, "community")
+            etree.SubElement(comm, "add")
+            etree.SubElement(comm, "community-name").text = route_target.replace(':', '_') 
         etree.SubElement(then, "accept")
 
         # add policies for import route targets
@@ -312,7 +313,6 @@ class PhysicalRouterConfig(object):
     # end _get_bgp_config_xml
 
     def reset_bgp_config(self):
-        self.bgp_config_sent = False
         self.routing_instances = {}
         self.bgp_params = None
         self.ri_config = None
@@ -331,6 +331,7 @@ class PhysicalRouterConfig(object):
             return
         self.reset_bgp_config()
         self.send_netconf([], default_operation="none", operation="delete")
+        self.bgp_config_sent = False
     # end delete_config
 
     def add_bgp_peer(self, router, params, external):
