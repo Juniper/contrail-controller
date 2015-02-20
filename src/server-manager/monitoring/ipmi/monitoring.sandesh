@@ -23,6 +23,7 @@ struct IpmiChassis_status_info {
 struct Disk {
     1: u64 read_MB
     2: u64 write_MB
+    3: string disk_name
 }
 
 struct ServerMonitoringInfo {
@@ -31,9 +32,9 @@ struct ServerMonitoringInfo {
     3: optional list<IpmiSensor> sensor_stats (tags=".sensor,.sensor_type")
     4: optional list<IpmiSensor> sensor_state
     6: optional IpmiChassis_status_info chassis_state
-    7: optional list<Disk> disk_usage (tags="")
-    8: string cpu_usage
-    9: string mem_usage
+    7: optional list<Disk> disk_usage (tags=".disk_name")
+    8: double cpu_usage (tags="")
+    9: optional double mem_usage (tags="")
 }
 
 uve sandesh ServerMonitoringInfoTrace {
