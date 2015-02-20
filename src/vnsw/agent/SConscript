@@ -127,6 +127,7 @@ env.Prepend(LIBS = [
     'db',
     'cpuinfo',
     'io',
+    'ssl',
     'sandesh',
     'process_info',
     'http',

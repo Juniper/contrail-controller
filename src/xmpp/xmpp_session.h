@@ -7,17 +7,17 @@
 
 #include <string>
 #include <boost/regex.hpp>
-#include "io/tcp_server.h"
-#include "io/tcp_session.h"
+#include "io/ssl_server.h"
+#include "io/ssl_session.h"
 
 class XmppStream;
 class XmppServer;
 class XmppConnection;
 class XmppRegexMock;
 
-class XmppSession : public TcpSession {
+class XmppSession : public SslSession {
 public:
-    XmppSession(TcpServer *server, Socket *sock, bool async_ready = true);
+    XmppSession(SslServer *server, SslSocket *sock, bool async_ready = true);
     virtual ~XmppSession();
 
     void SetConnection(XmppConnection *connection) {
@@ -64,6 +64,10 @@ private:
     static const boost::regex stream_patt_;
     static const boost::regex stream_res_end_;
     static const boost::regex whitespace_;
+    static const boost::regex stream_features_patt_;
+    static const boost::regex starttls_patt_;
+    static const boost::regex proceed_patt_;
+    static const boost::regex end_patt_;
 
     DISALLOW_COPY_AND_ASSIGN(XmppSession);
 };
