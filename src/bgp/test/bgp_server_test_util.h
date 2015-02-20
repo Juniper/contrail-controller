@@ -280,8 +280,9 @@ private:
 
 class XmppStateMachineTest : public XmppStateMachine {
 public:
-    explicit XmppStateMachineTest(XmppConnection *connection, bool active)
-        : XmppStateMachine(connection, active) {
+    explicit XmppStateMachineTest(XmppConnection *connection, bool active,
+                                  bool auth_enabled = false)
+        : XmppStateMachine(connection, active, auth_enabled) {
     }
     ~XmppStateMachineTest() { }
 
