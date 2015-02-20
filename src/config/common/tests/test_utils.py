@@ -672,7 +672,8 @@ class FakeKombu(object):
 
         def publish(self, payload):
             for q in self.exchange.queues.values():
-                q.put(payload, None)
+                msg_obj = self.Message(payload)
+                q.put(msg_obj, None)
         #end publish
 
         def close(self):
@@ -770,6 +771,7 @@ class FakeExtensionManager(object):
     class FakeExtObj(object):
         def __init__(self, cls, *args, **kwargs):
             self.obj = cls(*args, **kwargs)
+            self.name = repr(cls)
 
     def __init__(self, child, ep_name, **kwargs):
         if ep_name not in self._entry_pt_to_classes:
@@ -782,6 +784,9 @@ class FakeExtensionManager(object):
             ext_obj = FakeExtensionManager.FakeExtObj(cls, **kwargs) 
             self._ext_objs.append(ext_obj)
     # end __init__
+
+    def names(self):
+        return [e.name for e in self._ext_objs]
 
     def map(self, cb):
         for ext_obj in self._ext_objs:
