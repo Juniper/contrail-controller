@@ -10,6 +10,8 @@
 // between vrouter to agent
 /////////////////////////////////////////////////////////////////////////////
 
+class PacketInterfaceData;
+
 class PacketInterface : public Interface {
 public:
     PacketInterface(const std::string &name);
@@ -21,13 +23,16 @@ public:
     KeyPtr GetDBRequestKey() const;
 
     // Helper function to enqueue DBRequest to create a Pkt Interface
-    static void CreateReq(InterfaceTable *table, const std::string &ifname);
-    static void Create(InterfaceTable *table, const std::string &ifname);
+    static void CreateReq(InterfaceTable *table, const std::string &ifname,
+                          Interface::Transport transport);
+    static void Create(InterfaceTable *table, const std::string &ifname,
+                       Interface::Transport transport);
     // Helper function to enqueue DBRequest to delete a Pkt Interface
     static void DeleteReq(InterfaceTable *table, const std::string &ifname);
     static void Delete(InterfaceTable *table, const std::string &ifname);
     void PostAdd();
     bool Delete(const DBRequest *req);
+    bool OnChange(PacketInterfaceData *data);
 private:
     DISALLOW_COPY_AND_ASSIGN(PacketInterface);
 };
@@ -55,7 +60,8 @@ struct PacketInterfaceKey : public InterfaceKey {
 };
 
 struct PacketInterfaceData : public InterfaceData {
-    PacketInterfaceData() : InterfaceData(NULL, NULL) {
+    PacketInterfaceData(Interface::Transport transport) :
+        InterfaceData(NULL, NULL, transport) {
         PktInit();
     }
 };

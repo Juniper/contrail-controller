@@ -129,9 +129,8 @@ public:
     virtual void Decoder(char *data, SandeshContext *ctxt);
     virtual bool Validate(char *data);
     virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb);
-    virtual void AsyncSendTo(IoContext *, boost::asio::mutable_buffers_1,
-                             HandlerCb);
-    virtual std::size_t SendTo(boost::asio::const_buffers_1, uint32_t);
+    virtual void AsyncSendTo(char *, uint32_t, uint32_t, HandlerCb);
+    virtual std::size_t SendTo(const char *, uint32_t, uint32_t);
     virtual void Receive(boost::asio::mutable_buffers_1);
 
     static void set_error_code(int code) { error_code_ = code; }

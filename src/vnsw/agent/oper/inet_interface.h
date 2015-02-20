@@ -56,12 +56,14 @@ public:
                        SubType sub_type, const std::string &vrf_name,
                        const Ip4Address &addr, int plen,
                        const Ip4Address &gw, const std::string &xconnect,
-                       const std::string &vn_name);
+                       const std::string &vn_name,
+                       Interface::Transport transport);
     static void CreateReq(InterfaceTable *table, const std::string &ifname,
                           SubType sub_type, const std::string &vrf_name,
                           const Ip4Address &addr, int plen,
                           const Ip4Address &gw, const std::string &xconnect,
-                          const std::string &vn_name);
+                          const std::string &vn_name,
+                          Interface::Transport transport);
     static void Delete(InterfaceTable *table, const std::string &ifname);
     static void DeleteReq(InterfaceTable *table, const std::string &ifname);
 private:
@@ -88,7 +90,8 @@ struct InetInterfaceData : public InterfaceData {
     InetInterfaceData(InetInterface::SubType sub_type, 
                       const std::string &vrf_name, const Ip4Address &addr,
                       int plen, const Ip4Address &gw,
-                      const std::string &xconnect, const std::string vn_name);
+                      const std::string &xconnect, const std::string vn_name,
+                      Interface::Transport transport);
     virtual ~InetInterfaceData() { }
 
     InetInterface::SubType sub_type_;

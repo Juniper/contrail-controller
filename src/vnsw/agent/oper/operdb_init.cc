@@ -121,6 +121,7 @@ void OperDB::CreateDBTables(DB *db) {
     assert(mpls_table);
     agent_->set_mpls_table(mpls_table);
     mpls_table->set_agent(agent_);
+    mpls_table->ReserveLabel();
 
     AclTable *acl_table;
     acl_table = static_cast<AclTable *>(db->CreateTable("db.acl.0"));

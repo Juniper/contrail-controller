@@ -101,7 +101,8 @@ static void AddInterface(InetInterfaceTest *t, const char *ifname,
     InetInterface::CreateReq(t->interface_table_, ifname, sub_type, vrf,
                              Ip4Address::from_string(ip), plen,
                              Ip4Address::from_string(gw),
-                             client->param()->eth_port(), "TEST");
+                             client->param()->eth_port(), "TEST",
+                             Interface::TRANSPORT_ETHERNET);
 }
 
 static void DelInterface(InetInterfaceTest *t, const char *ifname,
@@ -337,12 +338,14 @@ TEST_F(InetInterfaceTest, physical_eth_encap_1) {
     PhysicalInterface::CreateReq(interface_table_, "phy-1",
                                  agent_->fabric_vrf_name(),
                                  PhysicalInterface::FABRIC,
-                                 PhysicalInterface::ETHERNET, false, nil_uuid());
+                                 PhysicalInterface::ETHERNET, false, nil_uuid(),
+                                 Ip4Address(0),
+                                 Interface::TRANSPORT_ETHERNET);
     client->WaitForIdle();
 
     InetInterface::CreateReq(interface_table_, "vhost-1", InetInterface::VHOST,
                              agent_->fabric_vrf_name(), ip, plen, gw, "phy-1",
-                             "TEST");
+                             "TEST", Interface::TRANSPORT_ETHERNET);
     client->WaitForIdle();
 
     EXPECT_TRUE(RouteValidate(agent_, ip, 32, NextHop::RECEIVE));
@@ -370,12 +373,14 @@ TEST_F(InetInterfaceTest, physical_eth_raw_ip_1) {
     PhysicalInterface::CreateReq(interface_table_, "phy-1",
                                  agent_->fabric_vrf_name(),
                                  PhysicalInterface::FABRIC,
-                                 PhysicalInterface::RAW_IP, false, nil_uuid());
+                                 PhysicalInterface::RAW_IP, false, nil_uuid(),
+                                 Ip4Address(0),
+                                 Interface::TRANSPORT_ETHERNET);
     client->WaitForIdle();
 
     InetInterface::CreateReq(interface_table_, "vhost-1", InetInterface::VHOST,
                              agent_->fabric_vrf_name(), ip, plen, gw, "phy-1",
-                             "TEST");
+                             "TEST", Interface::TRANSPORT_ETHERNET);
     client->WaitForIdle();
 
     EXPECT_TRUE(RouteValidate(agent_, ip, 32, NextHop::RECEIVE));
@@ -405,12 +410,14 @@ TEST_F(InetInterfaceTest, physical_eth_no_arp_1) {
     PhysicalInterface::CreateReq(interface_table_, "phy-1",
                                  agent_->fabric_vrf_name(),
                                  PhysicalInterface::FABRIC,
-                                 PhysicalInterface::ETHERNET, true, nil_uuid());
+                                 PhysicalInterface::ETHERNET, true, nil_uuid(),
+                                 Ip4Address(0),
+                                 Interface::TRANSPORT_ETHERNET);
     client->WaitForIdle();
 
     InetInterface::CreateReq(interface_table_, "vhost-1", InetInterface::VHOST,
                              agent_->fabric_vrf_name(), ip, plen, gw, "phy-1",
-                             "TEST");
+                             "TEST", Interface::TRANSPORT_ETHERNET);
     client->WaitForIdle();
 
     EXPECT_TRUE(RouteValidate(agent_, ip, 32, NextHop::RECEIVE));

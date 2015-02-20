@@ -102,6 +102,7 @@ private:
     bool no_arp_;
     PhysicalInterface::EncapType encap_type_;
     std::string display_name_;
+    Interface::Transport transport_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceKSyncEntry);
 };
 

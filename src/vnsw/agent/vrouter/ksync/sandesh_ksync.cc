@@ -50,6 +50,7 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
     if (r->get_fr_op() == flow_op::FLOW_TABLE_GET) {
         flow_ksync_->major_devid_ = r->get_fr_ftable_dev();
         flow_ksync_->flow_table_size_ = r->get_fr_ftable_size();
+        flow_ksync_->flow_table_path_ = r->get_fr_file_path();
         LOG(DEBUG, "Flow table size : " << r->get_fr_ftable_size());
     } else if (r->get_fr_op() == flow_op::FLOW_SET) {
         const KSyncIoContext *ioc = ksync_io_ctx();

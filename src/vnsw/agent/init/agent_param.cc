@@ -351,6 +351,22 @@ void AgentParam::ParseHypervisor() {
     }
 }
 
+void AgentParam::ParsePlatform() {
+    std::string vrouter_platform;
+    GetValueFromTree<string>(vrouter_platform, "DEFAULT.platform");
+    if (vrouter_platform=="nic") {
+        platform_ = AgentParam::VROUTER_ON_NIC;
+    } else if (vrouter_platform=="dpdk") {
+        platform_ = AgentParam::VROUTER_ON_HOST_DPDK;
+        GetValueFromTree<string>(physical_interface_pci_addr_,
+                                 "DEFAULT.physical_interface_address");
+        GetValueFromTree<string>(physical_interface_mac_addr_,
+                                 "DEFAULT.physical_interface_mac");
+    } else {
+        platform_ = AgentParam::VROUTER_ON_HOST;
+    }
+}
+
 void AgentParam::ParseDefaultSection() { 
     optional<string> opt_str;
     optional<unsigned int> opt_uint;
@@ -661,6 +677,26 @@ void AgentParam::ParseNexthopServerArguments
     }
 }
 
+void AgentParam::ParsePlatformArguments
+    (const boost::program_options::variables_map &var_map) {
+    boost::system::error_code ec;
+    if (var_map.count("DEFAULT.platform") &&
+        !var_map["DEFAULT.platform"].defaulted()) {
+        if (var_map["DEFAULT.platform"].as<string>() == "nic") {
+            platform_ = AgentParam::VROUTER_ON_NIC;
+        } else if (var_map["DEFAULT.platform"].as<string>() == "dpdk") {
+            platform_ = AgentParam::VROUTER_ON_HOST_DPDK;
+            if (var_map.count("DEFAULT.physical_interface_address")) {
+                physical_interface_pci_addr_ =
+                var_map["DEFAULT.physical_interface_address"].as<string>();
+                physical_interface_mac_addr_ =
+                var_map["DEFAULT.physical_interface_mac"].as<string>();
+            }
+        } else {
+            platform_ = AgentParam::VROUTER_ON_HOST;
+        }
+    }
+}
 
 // Initialize hypervisor mode based on system information
 // If "/proc/xen" exists it means we are running in Xen dom0
@@ -708,7 +744,7 @@ void AgentParam::InitFromConfig() {
     ParseServiceInstance();
     ParseAgentMode();
     ParseNexthopServer();
-
+    ParsePlatform();
     cout << "Config file <" << config_file_ << "> parsing completed.\n";
     return;
 }
@@ -730,7 +766,7 @@ void AgentParam::InitFromArguments() {
     ParseServiceInstanceArguments(var_map_);
     ParseAgentModeArguments(var_map_);
     ParseNexthopServerArguments(var_map_);
-
+    ParsePlatformArguments(var_map_);
     return;
 }
 
@@ -831,6 +867,10 @@ static bool ValidateInterface(bool test_mode, const std::string &ifname,
 }
 
 int AgentParam::Validate() {
+    // TODO: fix the validation for the DPDK platform
+    if (platform_ == AgentParam::VROUTER_ON_HOST_DPDK)
+        return 0;
+
     // Validate vhost interface name
     if (vhost_.name_ == "") {
         LOG(ERROR, "Configuration error. vhost interface name not specified");
@@ -882,6 +922,19 @@ void AgentParam::InitVhostAndXenLLPrefix() {
     xen_ll_.prefix_ = Ip4Address(xen_ll_.addr_.to_ulong() & mask);
 }
 
+void AgentParam::InitPlatform() {
+    Ip4Address ip = Ip4Address::from_string("127.0.0.1");
+    if (platform_ == VROUTER_ON_NIC) {
+        agent_->set_vrouter_server_ip(ip);
+        agent_->set_vrouter_server_port(VROUTER_SERVER_PORT);
+        agent_->set_pkt_interface_name("pkt0");
+    } else if (platform_ == VROUTER_ON_HOST_DPDK) {
+        agent_->set_vrouter_server_ip(ip);
+        agent_->set_vrouter_server_port(VROUTER_SERVER_PORT);
+        agent_->set_pkt_interface_name("unix");
+    }
+}
+
 void AgentParam::Init(const string &config_file, const string &program_name) {
     config_file_ = config_file;
     program_name_ = program_name;
@@ -893,6 +946,7 @@ void AgentParam::Init(const string &config_file, const string &program_name) {
 
     vgw_config_table_->Init(tree_);
     ComputeFlowLimits();
+    InitPlatform();
 }
 
 void AgentParam::LogConfig() const {
@@ -962,6 +1016,14 @@ void AgentParam::PostValidateLogConfig() const {
     if (eth_port_no_arp_) {
     LOG(DEBUG, "Ethernet Port No-ARP        : " << "TRUE");
     }
+
+    if (platform_ == VROUTER_ON_NIC) {
+        LOG(DEBUG, "Platform mode           : Vrouter on NIC");
+    } else if (platform_ == VROUTER_ON_HOST_DPDK) {
+        LOG(DEBUG, "Platform mode           : Vrouter on DPDK");
+    } else {
+        LOG(DEBUG, "Platform mode           : Vrouter on host linux kernel ");
+    }
 }
 
 void AgentParam::set_test_mode(bool mode) {
@@ -988,7 +1050,8 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         enable_vhost_options_(enable_vhost_options),
         enable_hypervisor_options_(enable_hypervisor_options),
         enable_service_options_(enable_service_options),
-        agent_mode_(agent_mode), vhost_(), agent_name_(), eth_port_(),
+        agent_mode_(agent_mode), agent_(agent), vhost_(),
+        agent_name_(), eth_port_(),
         eth_port_no_arp_(false), eth_port_encap_type_(),
         xmpp_instance_count_(),
         dns_port_1_(ContrailPorts::DnsServerPort()),
@@ -1008,8 +1071,9 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         simulate_evpn_tor_(false), si_netns_command_(),
         si_docker_command_(), si_netns_workers_(0),
         si_netns_timeout_(0), si_haproxy_ssl_cert_path_(),
-        vmware_mode_(ESXI_NEUTRON), nexthop_server_endpoint_() {
-
+        vmware_mode_(ESXI_NEUTRON), nexthop_server_endpoint_(),
+        vrouter_on_nic_mode_(false),
+        exception_packet_interface_(""), physical_interface_mac_addr_("") {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable(agent));
 
@@ -1056,6 +1120,8 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
          "Shared secret for metadata proxy service")
         ("NETWORKS.control_network_ip", opt::value<string>(),
          "control-channel IP address used by WEB-UI to connect to vnswad")
+        ("DEFAULT.platform", opt::value<string>(),
+         "Mode in which vrouter is running, option are dpdk or vnic")
         ;
     options_.add(generic);
 

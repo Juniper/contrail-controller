@@ -16,8 +16,10 @@
 #include <base/logging.h>
 
 #include <cmn/agent_cmn.h>
+#include <init/agent_param.h>
 #include <cfg/cfg_init.h>
 #include <vgw/cfg_vgw.h>
+#include <oper/interface_common.h>
 #include <vgw/vgw.h>
 
 using namespace std;
@@ -130,12 +132,18 @@ bool VirtualGatewayConfigTable::AddVgw(VirtualGatewayInfo &vgw, uint32_t version
     std::sort(vgw.subnets_.begin(), vgw.subnets_.end());
     std::sort(vgw.routes_.begin(), vgw.routes_.end());
     Table::iterator it = table_.find(vgw.interface_name_);
+    Interface::Transport transport = Interface::TRANSPORT_ETHERNET;
+    if (agent_->vrouter_on_nic_mode() ||
+            agent_->vrouter_on_host_dpdk()) {
+        transport = Interface::TRANSPORT_PMD;
+    }
     if (it == table_.end()) {
         // Add new gateway
         table_.insert(VirtualGatewayConfig(vgw.interface_name_, vgw.vrf_name_,
                                            vgw.subnets_, vgw.routes_, version));
         agent_->vgw()->CreateVrf(vgw.vrf_name_);
-        agent_->vgw()->CreateInterface(vgw.interface_name_, vgw.vrf_name_);
+        agent_->vgw()->CreateInterface(vgw.interface_name_, vgw.vrf_name_,
+                                       transport);
     } else {
         // modify existing gateway
         if (vgw.vrf_name_ != it->vrf_name()) {
