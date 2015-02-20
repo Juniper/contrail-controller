@@ -21,6 +21,7 @@
 #include <tbb/compat/condition_variable>
 #endif
 #include "base/util.h"
+#include "base/task.h"
 #include "io/tcp_server.h"
 
 class EventManager;
@@ -118,6 +119,11 @@ public:
         return closed_;
     }
 
+    bool IsServerSession() {
+        if (direction_ == PASSIVE) return true;
+        return false;
+    }
+
     Endpoint remote_endpoint() const {
         return remote_;
     }
@@ -145,6 +151,9 @@ protected:
                                  size_t size);
     static void AsyncWriteHandler(TcpSessionPtr session,
                                   const boost::system::error_code &error);
+
+    virtual Task* CreateReaderTask(boost::asio::mutable_buffer, size_t);
+
     virtual ~TcpSession();
 
     // Read handler. Called from a TBB task.
@@ -167,6 +176,9 @@ protected:
 
     void CloseInternal(bool call_observer, bool notify_server = true);
 
+    // Protects session state and buffer queue.
+    mutable tbb::mutex mutex_;
+
 private:
     class Reader;
     friend class TcpServer;
@@ -186,6 +198,7 @@ private:
     bool IsClosedLocked() const {
         return closed_;
     }
+
     void SetName();
 
     boost::asio::mutable_buffer AllocateBuffer();
@@ -197,9 +210,6 @@ private:
     boost::scoped_ptr<Socket> socket_;
     bool read_on_connect_;
     int buffer_size_;
-
-    // Protects session state and buffer queue.
-    mutable tbb::mutex mutex_;
 
     /**************** protected by mutex_ ****************/
     bool established_;          // In TCP ESTABLISHED state.
