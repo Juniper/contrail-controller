@@ -187,6 +187,7 @@ public:
         server_->session_manager()->Terminate();
         TcpServerManager::DeleteServer(server_->session_manager());
         server_->session_mgr_ = NULL;
+        server_->set_destroyed();
     }
 
 private:
@@ -239,6 +240,7 @@ BgpServer::BgpServer(EventManager *evm)
       lifetime_manager_(new BgpLifetimeManager(this,
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)),
+      destroyed_(false),
       aspath_db_(new AsPathDB(this)),
       olist_db_(new BgpOListDB(this)),
       comm_db_(new CommunityDB(this)),

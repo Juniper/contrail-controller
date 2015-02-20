@@ -21,6 +21,7 @@
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/rtarget_group.h"
+#include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
 #include "db/db_table_partition.h"
@@ -63,12 +64,17 @@ protected:
 
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         scheduler->Stop();
+        server_.routing_instance_mgr()->CreateRoutingInstance(
+                master_cfg_.get());
+        server_.rtarget_group_mgr()->Initialize();
         server_.routing_instance_mgr()->CreateRoutingInstance(blue_cfg_.get());
         server_.routing_instance_mgr()->CreateRoutingInstance(red_cfg_.get());
         server_.routing_instance_mgr()->CreateRoutingInstance(
                 purple_cfg_.get());
         scheduler->Start();
 
+        vpn_ = static_cast<DBTable *>(
+            server_.database()->FindTable("bgp.l3vpn.0"));
         blue_ = static_cast<DBTable *>(
             server_.database()->FindTable("blue.inet.0"));
         purple_ = static_cast<DBTable *>(
@@ -76,6 +82,8 @@ protected:
         red_ = 
             static_cast<DBTable *>(server_.database()->FindTable("red.inet.0"));
 
+        vpn_l_ = vpn_->Register(boost::bind(&RoutingInstanceModuleTest::TableListener,
+                                            this, _1, _2));
         red_l_ = red_->Register(boost::bind(&RoutingInstanceModuleTest::TableListener,
                                             this, _1, _2));
         blue_l_ 
@@ -85,7 +93,7 @@ protected:
             = purple_->Register(boost::bind(&RoutingInstanceModuleTest::TableListener,
                                             this, _1, _2));
 
-        vpn_ = green_ = orange_ = NULL;
+        green_ = orange_ = NULL;
     }
 
     virtual void TearDown() {
@@ -222,6 +230,8 @@ protected:
 
 namespace {
 TEST_F(RoutingInstanceModuleTest, Connection) {
+    ConcurrencyScope scope("bgp::Config");
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
     RoutingInstance *red = 
         server_.routing_instance_mgr()->GetRoutingInstance("red");
     RoutingInstance *blue = 
@@ -268,6 +278,7 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
     TASK_UTIL_EXPECT_EQ(1, notification_count_[purple_]);
     TASK_UTIL_EXPECT_EQ(0, notification_count_[blue_]);
 
+    VerifyVpnTable(red, red_prefix);
     VerifyInetTable(purple_, "192.168.24.0/24");
 
     ClearCounters();
@@ -290,34 +301,7 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
     TASK_UTIL_EXPECT_EQ(0, notification_count_[purple_]);
     TASK_UTIL_EXPECT_EQ(1, notification_count_[blue_]);
 
-    BGP_DEBUG_UT("Add bgp.l3vpn.0");
-    ConcurrencyScope scope("bgp::Config");
-    ///////////// bgp.l3vpn.0 Table //////////////////
-    TaskScheduler *scheduler = TaskScheduler::GetInstance();
-    scheduler->Stop();
-    server_.routing_instance_mgr()->CreateRoutingInstance(master_cfg_.get());
-    vpn_ = static_cast<DBTable *>(server_.database()->FindTable("bgp.l3vpn.0"));
-    EXPECT_TRUE(vpn_ != NULL);
-
-    vpn_l_ = vpn_->Register(boost::bind(&RoutingInstanceModuleTest_Connection_Test::TableListener,
-                                        this, _1, _2));
-    RoutingInstance *master = 
-        server_.routing_instance_mgr()->GetRoutingInstance(
-            BgpConfigManager::kMasterInstance);
-    EXPECT_TRUE(master != NULL);
-
-    InetVpnTable *vpn_table = 
-        static_cast<InetVpnTable *>(master->GetTable(Address::INETVPN));
-    EXPECT_TRUE(vpn_table != NULL);
-    ClearCounters();
-    scheduler->Start();
-    task_util::WaitForIdle();
-
-    TASK_UTIL_EXPECT_EQ(2, notification_count_[vpn_]);
-    // Verify the route in VPN Table .. Due to Bulk sync
     VerifyVpnTable(blue, blue_prefix);
-    VerifyVpnTable(red, red_prefix);
-
     ClearCounters();
 
     // Create RouteTarget Attr
@@ -345,7 +329,6 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(1, notification_count_[red_]);
-    TASK_UTIL_EXPECT_EQ(1, notification_count_[vpn_]);
     TASK_UTIL_EXPECT_EQ(1, notification_count_[purple_]);
     TASK_UTIL_EXPECT_EQ(0, notification_count_[blue_]);
 
@@ -386,7 +369,6 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, notification_count_[red_]);
     TASK_UTIL_EXPECT_EQ(1, notification_count_[purple_]);
-    TASK_UTIL_EXPECT_EQ(1, notification_count_[vpn_]);
     TASK_UTIL_EXPECT_EQ(1, notification_count_[blue_]);
 
     VerifyInetTable(red_, "192.168.21.0/24");
@@ -413,7 +395,6 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
 
     TASK_UTIL_EXPECT_EQ(0, notification_count_[red_]);
     TASK_UTIL_EXPECT_EQ(0, notification_count_[purple_]);
-    TASK_UTIL_EXPECT_EQ(0, notification_count_[vpn_]);
     TASK_UTIL_EXPECT_EQ(0, notification_count_[blue_]);
     TASK_UTIL_EXPECT_EQ(3, notification_count_[green_]);
 
@@ -442,7 +423,6 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
 
     TASK_UTIL_EXPECT_EQ(0, notification_count_[red_]);
     TASK_UTIL_EXPECT_EQ(0, notification_count_[purple_]);
-    TASK_UTIL_EXPECT_EQ(0, notification_count_[vpn_]);
     TASK_UTIL_EXPECT_EQ(0, notification_count_[blue_]);
     TASK_UTIL_EXPECT_EQ(0, notification_count_[green_]);
     TASK_UTIL_EXPECT_EQ(4, notification_count_[orange_]);
@@ -463,7 +443,6 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
 
     TASK_UTIL_EXPECT_EQ(0, notification_count_[red_]);
     TASK_UTIL_EXPECT_EQ(0, notification_count_[purple_]);
-    TASK_UTIL_EXPECT_EQ(0, notification_count_[vpn_]);
     TASK_UTIL_EXPECT_EQ(0, notification_count_[blue_]);
     TASK_UTIL_EXPECT_EQ(0, notification_count_[green_]);
     TASK_UTIL_EXPECT_EQ(1, notification_count_[orange_]);
@@ -481,7 +460,6 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
 
     TASK_UTIL_EXPECT_EQ(0, notification_count_[red_]);
     TASK_UTIL_EXPECT_EQ(0, notification_count_[purple_]);
-    TASK_UTIL_EXPECT_EQ(0, notification_count_[vpn_]);
     TASK_UTIL_EXPECT_EQ(0, notification_count_[blue_]);
     TASK_UTIL_EXPECT_EQ(1, notification_count_[green_]);
     TASK_UTIL_EXPECT_EQ(0, notification_count_[orange_]);
@@ -498,7 +476,6 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
 
     TASK_UTIL_EXPECT_EQ(0, notification_count_[red_]);
     TASK_UTIL_EXPECT_EQ(0, notification_count_[purple_]);
-    TASK_UTIL_EXPECT_EQ(0, notification_count_[vpn_]);
     TASK_UTIL_EXPECT_EQ(0, notification_count_[blue_]);
     TASK_UTIL_EXPECT_EQ(4, notification_count_[green_]);
     TASK_UTIL_EXPECT_EQ(0, notification_count_[orange_]);
@@ -517,7 +494,6 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, notification_count_[red_]);
     TASK_UTIL_EXPECT_EQ(1, notification_count_[purple_]);
-    TASK_UTIL_EXPECT_EQ(1, notification_count_[vpn_]);
     TASK_UTIL_EXPECT_EQ(0, notification_count_[blue_]);
     TASK_UTIL_EXPECT_EQ(0, notification_count_[green_]);
     TASK_UTIL_EXPECT_EQ(1, notification_count_[orange_]);
@@ -533,7 +509,6 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, notification_count_[red_]);
     TASK_UTIL_EXPECT_EQ(0, notification_count_[purple_]);
-    TASK_UTIL_EXPECT_EQ(1, notification_count_[vpn_]);
     TASK_UTIL_EXPECT_EQ(1, notification_count_[blue_]);
     TASK_UTIL_EXPECT_EQ(0, notification_count_[green_]);
     TASK_UTIL_EXPECT_EQ(0, notification_count_[orange_]);
@@ -546,7 +521,6 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, notification_count_[red_]);
     TASK_UTIL_EXPECT_EQ(1, notification_count_[purple_]);
-    TASK_UTIL_EXPECT_EQ(1, notification_count_[vpn_]);
     TASK_UTIL_EXPECT_EQ(0, notification_count_[blue_]);
     TASK_UTIL_EXPECT_EQ(0, notification_count_[green_]);
     TASK_UTIL_EXPECT_EQ(1, notification_count_[orange_]);
@@ -562,7 +536,6 @@ TEST_F(RoutingInstanceModuleTest, Connection) {
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, notification_count_[red_]);
     TASK_UTIL_EXPECT_EQ(1, notification_count_[purple_]);
-    TASK_UTIL_EXPECT_EQ(1, notification_count_[vpn_]);
     TASK_UTIL_EXPECT_EQ(1, notification_count_[blue_]);
     TASK_UTIL_EXPECT_EQ(0, notification_count_[green_]);
     TASK_UTIL_EXPECT_EQ(1, notification_count_[orange_]);

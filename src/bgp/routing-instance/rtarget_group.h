@@ -76,6 +76,7 @@ public:
     bool RemoveExportTable(Address::Family family, BgpTable *tbl);
     bool HasImportExportTables(Address::Family family) const;
     bool HasImportExportTables() const;
+    bool HasVrfTables(Address::Family family) const;
 
     void AddDepRoute(int part_id, BgpRoute *rt);
     void RemoveDepRoute(int part_id, BgpRoute *rt);

@@ -279,8 +279,8 @@ RoutingInstance *RoutingInstanceMgr::CreateRoutingInstance(
 
     rtinstance = BgpObjectFactory::Create<RoutingInstance>(
         config->name(), server_, this, config);
-    rtinstance->ProcessConfig(server_);
     int index = instances_.Insert(config->name(), rtinstance);
+    rtinstance->ProcessConfig(server_);
 
     rtinstance->set_index(server_, index);
     InstanceTargetAdd(rtinstance);
@@ -832,21 +832,9 @@ BgpTable *RoutingInstance::VpnTableCreate(BgpServer *server,
         AddTable(table);
         RTINSTANCE_LOG_TABLE(Create, this, table, SandeshLevel::SYS_DEBUG,
                              RTINSTANCE_LOG_FLAG_ALL);
-
-        // For all the RouteTarget in the server, add the VPN table as
-        // importer and exporter
+        assert(server->rtarget_group_mgr()->GetRtGroupMap().empty());
         RoutePathReplicator *replicator = server->replicator(vpn_family);
-        for (RTargetGroupMgr::RtGroupMap::iterator it =
-             server->rtarget_group_mgr()->GetRtGroupMap().begin();
-            it != server->rtarget_group_mgr()->GetRtGroupMap().end(); ++it) {
-            RtGroup *group = it->second;
-            if ((group->GetImportTables(vpn_family).size() == 0) &&
-                (group->GetExportTables(vpn_family).size() == 0)) {
-                continue;
-            }
-            replicator->Join(table, it->first, true);
-            replicator->Join(table, it->first, false);
-        }
+        replicator->Initialize();
     }
     return table;
 }

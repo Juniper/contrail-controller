@@ -84,6 +84,28 @@ bool RtGroup::HasImportExportTables() const {
     return false;
 }
 
+bool RtGroup::HasVrfTables(Address::Family family) const {
+    RtGroupMembers::const_iterator it_import = import_.find(family);
+    if (it_import != import_.end()) {
+        if (it_import->second.size() > 1)
+            return true;
+        const BgpTable *table = *it_import->second.begin();
+        if (table && !table->IsVpnTable())
+            return true;
+    }
+
+    RtGroupMembers::const_iterator it_export = export_.find(family);
+    if (it_export != export_.end()) {
+        if (it_export->second.size() > 1)
+            return true;
+        const BgpTable *table = *it_export->second.begin();
+        if (table && !table->IsVpnTable())
+            return true;
+    }
+
+    return false;
+}
+
 const RouteTarget &RtGroup::rt() {
     return rt_;
 }

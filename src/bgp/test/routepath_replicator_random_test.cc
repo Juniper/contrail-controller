@@ -144,6 +144,7 @@ protected:
                 static_cast<BgpIfmapConfigManager *>(
                     bgp_server_->config_manager());
         config_manager->Initialize(&config_db_, &config_graph_, "localhost");
+        bgp_server_->rtarget_group_mgr()->Initialize();
     }
 
     virtual void TearDown() {
