@@ -29,6 +29,7 @@ class LogicalInterface : public Interface {
     virtual bool CmpInterface(const DBEntry &rhs) const;
     virtual std::string ToString() const;
     virtual bool Delete(const DBRequest *req);
+    virtual void GetOsParams(Agent *agent);
     virtual bool OnChange(const InterfaceTable *table,
                           const LogicalInterfaceData *data);
 
