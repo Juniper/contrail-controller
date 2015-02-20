@@ -177,6 +177,10 @@ bool OvsdbClientTcpSession::ProcessSessionEvent(OvsdbSessionEvent ovs_event) {
     case TcpSession::CONNECT_COMPLETE:
         ec = SetSocketOptions();
         assert(ec.value() == 0);
+        ec = SetSocketKeepaliveOptions(TcpKeepaliveIdleTime,
+                                       TcpKeepaliveInterval,
+                                       TcpKeepaliveProbes);
+        assert(ec.value() == 0);
         set_status("Established");
         OnEstablish();
         break;

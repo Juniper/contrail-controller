@@ -43,6 +43,9 @@ private:
 class OvsdbClientTcpSession : public OvsdbClientSession, public TcpSession {
 public:
     static const uint32_t TcpReconnectWait = 2000;      // in msec
+    static const uint32_t TcpKeepaliveIdleTime = 30; // in seconds
+    static const uint32_t TcpKeepaliveInterval = 3; // in seconds
+    static const uint32_t TcpKeepaliveProbes = 5; // count
 
     struct queue_msg {
         u_int8_t *buf;
