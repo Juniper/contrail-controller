@@ -26,7 +26,7 @@ libxmpptest = env.Library('xmpptest',
 
 env.Prepend(LIBS = ['task_test', 'gunit', 'xmpp', 'xml', 'pugixml', 'sandesh', 
                     'http', 'http_parser', 'curl', 'process_info', 
-                    'io', 'sandeshvns', 'base', 'peer_sandesh',
+                    'io', 'ssl', 'sandeshvns', 'base', 'peer_sandesh',
                     'boost_regex', 'xmpptest', 'control_node'])
 
 if sys.platform != 'darwin':
