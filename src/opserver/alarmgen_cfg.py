@@ -23,6 +23,8 @@ contrail-alarm-gen  --log_level SYS_DEBUG
                     --disc_server_ip 127.0.0.1
                     --disc_server_port 5998
                     --worker_id 0
+                    --redis_password
+                    --http_server_port 5995
                     --redis_uve_list 127.0.0.1:6379
                     --kafka_broker_list 127.0.0.1:9092
                     --conf_file /etc/contrail/contrail-alarm-gen.conf
@@ -59,6 +61,7 @@ log_file = /var/log/contrail/contrail-alarm-gen.log
 
         redis_opts = {
             'redis_server_port'  : 6379,
+            'redis_password'     : None,
         }
 
         disc_opts = {
@@ -116,6 +119,11 @@ log_file = /var/log/contrail/contrail-alarm-gen.log
         parser.add_argument("--disc_server_port",
             type=int,
             help="Discovery Server port")
+        parser.add_argument("--redis_server_port",
+            type=int,
+            help="Redis server port")
+        parser.add_argument("--redis_password",
+            help="Redis server password")
         parser.add_argument("--kafka_broker_list",
             help="List of bootstrap kafka brokers in ip:port format",
             nargs="+")
@@ -172,3 +180,8 @@ log_file = /var/log/contrail/contrail-alarm-gen.log
     def http_port(self):
         return self._args.http_server_port
 
+    def redis_password(self):
+        return self._args.redis_password
+
+    def redis_server_port(self):
+        return self._args.redis_server_port

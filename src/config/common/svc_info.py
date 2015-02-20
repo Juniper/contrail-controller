@@ -71,7 +71,7 @@ def get_left_vn_subnet():
 def get_right_vn_subnet():
     return _VN_RIGHT_SUBNET_CIDR
 
-def get_snat_left_network_prefix_name():
+def get_snat_left_vn_prefix():
     return _VN_SNAT_PREFIX_NAME
 
 def get_snat_left_subnet():

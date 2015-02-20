@@ -42,27 +42,26 @@ class PartitionHandler(gevent.Greenlet):
                     template = "Consumer Failure {0} occured. Arguments:\n{1!r}"
                     messag = template.format(type(ex).__name__, ex.args)
                     self._logger.info("%s" % messag)
-                    #self._logger.info("%d consumer failure for %s" % (self._partition , self._topic))
                     raise gevent.GreenletExit
 
                 self._logger.info("Starting %d" % self._partition)
 
                 # Find the offset of the last message that has been queued
-                consumer.seek(-1,2)
+                consumer.seek(0,2)
                 try:
                     mi = consumer.get_message(timeout=0.1)
-                    consumer.commit()
                 except common.OffsetOutOfRangeError:
                     mi = None
                 #import pdb; pdb.set_trace()
-                self._logger.info("Last Queued for %d is %s" % (self._partition,str(mi)))
-                # Now start reading from the beginning
-                # consumer.seek(0,0)
-                consumer.seek(-1,2)
+                self._logger.info("Last Queued for %d is %s" % \
+                                  (self._partition,str(mi)))
+
+                # start reading from last previously processed message
+                consumer.seek(0,1)
 
                 if mi != None:
                     count = 0
-                    self._logger.info("Syncing %d" % self._partition)
+                    self._logger.info("Catching Up %d" % self._partition)
                     loff = mi.offset
                     coff = 0
                     while True:
@@ -72,6 +71,7 @@ class PartitionHandler(gevent.Greenlet):
                             if not self.msg_handler(mm):
                                 self._logger.info("%d could not process %s" % (self._partition, str(mm)))
                                 raise gevent.GreenletExit
+                            consumer.commit()
                             coff = mm.offset
                             self._logger.info("Syncing offset %d" % coff)
                             if coff == loff:
@@ -84,8 +84,6 @@ class PartitionHandler(gevent.Greenlet):
                         continue
                     else:
                         self._logger.info("Sync Completed for %d count %d" % (self._partition, count))
-                else:
-                    consumer.seek(0,2)
                     
                 if self._limit:
                     raise gevent.GreenletExit
@@ -95,6 +93,7 @@ class PartitionHandler(gevent.Greenlet):
                         mm = consumer.get_message(timeout=None)
                         if mm is None:
                             continue
+                        consumer.commit()
                         pcount += 1
 		        if not self.msg_handler(mm):
                             self._logger.info("%d could not handle %s" % (self._partition, str(mm)))

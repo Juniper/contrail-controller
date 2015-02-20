@@ -16,6 +16,7 @@ public:
     virtual ~RemotePhysicalInterface();
 
     virtual bool CmpInterface(const DBEntry &rhs) const;
+    virtual void GetOsParams(Agent *agent);
     virtual std::string ToString() const;
     virtual KeyPtr GetDBRequestKey() const;
     virtual bool OnChange(const InterfaceTable *table,

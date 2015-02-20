@@ -72,3 +72,7 @@ uve sandesh AnalyticsNodeAlarmTrace {
     1: AnalyticsNodeAlarm data
 }
 
+trace sandesh AlarmgenTrace {
+    1: "Alarmgen list from Discovery:"
+    2: list<string>     publishers
+}

@@ -5,9 +5,10 @@
 #include "base/util.h"
 #include "base/logging.h"
 #include "base/connection_info.h"
-#include "controller/controller_dns.h"
-#include "xmpp/xmpp_channel.h"
 #include "cmn/agent_cmn.h"
+#include "controller/controller_dns.h"
+#include "controller/controller_init.h"
+#include "xmpp/xmpp_channel.h"
 #include "pugixml/pugixml.hpp"
 #include "xml/xml_pugi.h"
 #include "bind/xmpp_dns_agent.h"
@@ -77,6 +78,17 @@ std::string AgentDnsXmppChannel::ToString() const {
 void AgentDnsXmppChannel::WriteReadyCb(uint8_t *msg, 
                                        const boost::system::error_code &ec) {
     delete [] msg;
+}
+
+void AgentDnsXmppChannel::XmppClientChannelEvent(AgentDnsXmppChannel *peer,
+                                                 xmps::PeerState state) {
+    std::auto_ptr<XmlBase> dummy_dom;
+    boost::shared_ptr<ControllerXmppData> data(new ControllerXmppData(xmps::DNS,
+                                                                      state,
+                                                                      peer->GetXmppServerIdx(),
+                                                                      dummy_dom,
+                                                                      false));
+    peer->agent()->controller()->Enqueue(data);
 }
 
 void AgentDnsXmppChannel::HandleXmppClientChannelEvent(AgentDnsXmppChannel *peer,

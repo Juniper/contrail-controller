@@ -8,6 +8,8 @@
 # Utility functions for Operational State Server for VNC
 #
 
+from gevent import monkey
+monkey.patch_all()
 import datetime
 import time
 import requests
@@ -16,7 +18,7 @@ import xmltodict
 import json
 import gevent
 import socket, struct
-
+import copy
 try:
     from pysandesh.gen_py.sandesh.ttypes import SandeshType
 except:
@@ -29,6 +31,35 @@ def enum(**enums):
     return type('Enum', (), enums)
 # end enum
 
+class ServicePoller(gevent.Greenlet):
+    def __init__(self, logger, trace_cls, disc, svc_name, callbk):
+        gevent.Greenlet.__init__(self)
+        self.disc = disc
+        self.svc_name = svc_name
+        self.logger = logger
+        self.trace_cls = trace_cls
+        self.callbk = callbk
+
+    def _run(self):
+        while True:
+            svc_list = []
+            try:
+                sub_obj = \
+                    self.disc.subscribe(self.svc_name, 0)
+                slist= sub_obj.info 
+            except Exception as e:
+                self.logger.error('Failed to get svc list %s from ' \
+                                   'discovery server' % self.svc_name)
+            else:
+                if slist:
+                    disc_trace = self.trace_cls()
+                    disc_trace.publishers = []
+                    for svc in slist:
+                        svc_list.append((svc['ip-address'], svc['port']))
+                        disc_trace.publishers.append(svc['ip-address'])
+                    disc_trace.trace_msg(name='DiscoveryMsg')
+                    self.callbk(svc_list)
+            gevent.sleep(10)
 
 class OpServerUtils(object):
 

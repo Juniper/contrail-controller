@@ -1,3 +1,6 @@
+#
+# Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+#
 from gevent import monkey
 monkey.patch_all()
 

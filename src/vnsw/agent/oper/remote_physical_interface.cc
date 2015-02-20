@@ -42,6 +42,12 @@ bool RemotePhysicalInterface::CmpInterface(const DBEntry &rhs) const {
     return name_ < a.name_;
 }
 
+void RemotePhysicalInterface::GetOsParams(Agent *agent) {
+    os_index_ = Interface::kInvalidIndex;
+    mac_.Zero();
+    os_oper_state_ = true;
+}
+
 DBEntryBase::KeyPtr RemotePhysicalInterface::GetDBRequestKey() const {
     InterfaceKey *key = new RemotePhysicalInterfaceKey(name_);
     return DBEntryBase::KeyPtr(key);

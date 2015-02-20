@@ -26,15 +26,18 @@ from sandesh.analytics.ttypes import *
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
      ModuleCategoryMap, Module2NodeType, NodeTypeNames, ModuleIds,\
-     INSTANCE_ID_DEFAULT
+     INSTANCE_ID_DEFAULT, COLLECTOR_DISCOVERY_SERVICE_NAME,\
+     ALARM_GENERATOR_SERVICE_NAME
 from alarmgen_cfg import CfgParser
 from uveserver import UVEServer
 from partition_handler import PartitionHandler, UveStreamProc
 from sandesh.alarmgen_ctrl.ttypes import PartitionOwnershipReq, \
     PartitionOwnershipResp, PartitionStatusReq, UVECollInfo, UVEGenInfo, \
     PartitionStatusResp, UVEAlarms, AlarmElement, UVETableAlarmReq, \
-    UVETableAlarmResp, UVEAlarmInfo
+    UVETableAlarmResp, UVEAlarmInfo, AlarmgenTrace
+from sandesh.discovery.ttypes import CollectorTrace
 
+from opserver_util import ServicePoller
 from stevedore import hook
 
 class Controller(object):
@@ -67,6 +70,14 @@ class Controller(object):
             syslog_facility=self._conf.syslog_facility())
         self._logger = sandesh_global._logger
 
+        # Trace buffer list
+        self.trace_buf = [
+            {'name':'DiscoveryMsg', 'size':1000}
+        ]
+        # Create trace buffers 
+        for buf in self.trace_buf:
+            sandesh_global.trace_buffer_create(name=buf['name'], size=buf['size'])
+
         tables = [ "ObjectCollectorInfo",
                    "ObjectDatabaseInfo",
                    "ObjectVRouter",
@@ -94,17 +105,33 @@ class Controller(object):
             staticmethod(ConnectionState.get_process_state_cb),
             NodeStatusUVE, NodeStatus)
 
-        self._us = UVEServer(None, self._logger)
-        redis_uve_list = []
-        try:
-            for redis_uve in self._conf.redis_uve_list():
-                redis_ip_port = redis_uve.split(':')
-                redis_ip_port = (redis_ip_port[0], int(redis_ip_port[1]))
-                redis_uve_list.append(redis_ip_port)
-        except Exception as e:
-            self._logger.error('Failed to parse redis_uve_list: %s' % e)
+        self._us = UVEServer(None, self._logger, self._conf.redis_password())
+
+        self.disc = None
+        if self._conf.discovery()['server']:
+            import discoveryclient.client as client 
+            data = {
+                'ip-address': self._hostname ,
+                'port': self._instance_id
+            }
+            self.disc = client.DiscoveryClient(
+                self._conf.discovery()['server'],
+                self._conf.discovery()['port'],
+                ModuleNames[Module.ALARM_GENERATOR])
+            self._logger.info("Disc Publish to %s : %s"
+                          % (str(self._conf.discovery()), str(data)))
+            self.disc.publish(ALARM_GENERATOR_SERVICE_NAME, data)
         else:
-            self._us.update_redis_uve_list(redis_uve_list)
+            redis_uve_list = []
+            try:
+                for redis_uve in self._conf.redis_uve_list():
+                    redis_ip_port = redis_uve.split(':')
+                    redis_ip_port = (redis_ip_port[0], int(redis_ip_port[1]))
+                    redis_uve_list.append(redis_ip_port)
+            except Exception as e:
+                self._logger.error('Failed to parse redis_uve_list: %s' % e)
+            else:
+                self._us.update_redis_uve_list(redis_uve_list)
 
         PartitionOwnershipReq.handle_request = self.handle_PartitionOwnershipReq
         PartitionStatusReq.handle_request = self.handle_PartitionStatusReq
@@ -236,9 +263,31 @@ class Controller(object):
             resp.response(req.context(), mr)
             np = np + 1
 
+    def disc_cb_coll(self, clist):
+        '''
+        Analytics node may be brought up/down any time. For UVE aggregation,
+        alarmgen needs to know the list of all Analytics nodes (redis-uves).
+        Periodically poll the Collector list [in lieu of 
+        redi-uve nodes] from the discovery. 
+        '''
+        newlist = []
+        for elem in clist:
+            (ipaddr,port) = elem
+            newlist.append((ipaddr, self._conf.redis_server_port()))
+        self._us.update_redis_uve_list(newlist)
+
+    def disc_cb_ag(self, alist):
+        '''
+        Analytics node may be brought up/down any time. For partitioning,
+        alarmgen needs to know the list of all Analytics nodes (alarmgens).
+        Periodically poll the alarmgen list from the discovery service
+        '''
+        # TODO : Hookup with partitioning library
+        pass
+
     def run(self):
         while True:
-            gevent.sleep(1)
+            gevent.sleep(60)
 
 def setup_controller(argv):
     config = CfgParser(argv)
@@ -247,7 +296,21 @@ def setup_controller(argv):
 
 def main(args=None):
     controller = setup_controller(args or ' '.join(sys.argv[1:]))
-    controller.run()
+    gevs = [ 
+        gevent.spawn(controller.run)]
+
+    if controller.disc:
+        sp1 = ServicePoller(controller._logger, CollectorTrace, controller.disc, \
+                           COLLECTOR_DISCOVERY_SERVICE_NAME, controller.disc_cb_coll)
+        sp1.start()
+        gevs.append(sp1)
+
+        sp2 = ServicePoller(controller._logger, AlarmgenTrace, controller.disc, \
+                           ALARM_GENERATOR_SERVICE_NAME, controller.disc_cb_ag)
+        sp2.start()
+        gevs.append(sp2)
+
+    gevent.joinall(gevs)
 
 if __name__ == '__main__':
     main()
