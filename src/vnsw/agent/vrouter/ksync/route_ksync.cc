@@ -207,7 +207,7 @@ std::string RouteKSyncEntry::ToString() const {
 // Check if NH points to a service-chain interface or a Gateway interface
 static bool IsGatewayOrServiceInterface(const NextHop *nh) {
     if (nh->GetType() != NextHop::INTERFACE &&
-        nh->GetType() != NextHop::VLAN)
+        nh->GetType() != NextHop::VLAN && nh->GetType() != NextHop::ARP)
         return false;
 
     const Interface *intf = NULL;
@@ -217,6 +217,8 @@ static bool IsGatewayOrServiceInterface(const NextHop *nh) {
             return true;
     } else if (nh->GetType() == NextHop::VLAN) {
         intf = (static_cast<const VlanNH *>(nh))->GetInterface();
+    } else if (nh->GetType() == NextHop::ARP) {
+        intf = (static_cast<const ArpNH *>(nh))->GetInterface();
     }
 
     const VmInterface *vmi = dynamic_cast<const VmInterface *>(intf);
