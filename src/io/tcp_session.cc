@@ -10,8 +10,6 @@
 #include <boost/asio/detail/socket_option.hpp>
 
 #include "base/logging.h"
-#include "base/task.h"
-#include "base/util.h"
 #include "io/event_manager.h"
 #include "io/tcp_server.h"
 #include "io/tcp_message_write.h"
@@ -136,19 +134,19 @@ void TcpSession::DeferWriter() {
 }
 
 void TcpSession::AsyncReadSome(boost::asio::mutable_buffer buffer) {
-    socket_->async_read_some(mutable_buffers_1(buffer),
+    socket()->async_read_some(mutable_buffers_1(buffer),
         boost::bind(&TcpSession::AsyncReadHandler, TcpSessionPtr(this), buffer,
                     boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
 }
 
 std::size_t TcpSession::WriteSome(const uint8_t *data, std::size_t len,
                                   boost::system::error_code &error) {
-    return socket_->write_some(boost::asio::buffer(data, len), error);
+    return socket()->write_some(boost::asio::buffer(data, len), error);
 }
 
 void TcpSession::AsyncWrite(const u_int8_t *data, std::size_t size) {
     boost::asio::async_write(
-        *socket_.get(), buffer(data, size),
+        *socket(), buffer(data, size),
         boost::bind(&TcpSession::AsyncWriteHandler, TcpSessionPtr(this),
                     boost::asio::placeholders::error));
 }
@@ -358,6 +356,16 @@ bool TcpSession::Send(const u_int8_t *data, size_t size, size_t *sent) {
     return ret;
 }
 
+Task* TcpSession::CreateReaderTask(boost::asio::mutable_buffer buffer,
+                                  size_t bytes_transferred) {
+
+    std::cout << "\n\n **** TcpSession::CreateReaderTask \n\n";
+    Buffer rdbuf(buffer_cast<const uint8_t *>(buffer), bytes_transferred);
+    Reader *task = new Reader(
+        TcpSessionPtr(this), boost::bind(&TcpSession::OnRead, this, _1), rdbuf);
+    return (task);
+}
+
 void TcpSession::AsyncReadHandler(
     TcpSessionPtr session, mutable_buffer buffer,
     const boost::system::error_code &error, size_t bytes_transferred) {
@@ -384,9 +392,7 @@ void TcpSession::AsyncReadHandler(
     session->server_->stats_.read_calls++;
     session->server_->stats_.read_bytes += bytes_transferred;
 
-    Buffer rdbuf(buffer_cast<const uint8_t *>(buffer), bytes_transferred);
-    Reader *task = new Reader(
-        session, boost::bind(&TcpSession::OnRead, session.get(), _1), rdbuf);
+    Task *task = session->CreateReaderTask(buffer, bytes_transferred);
     // Starting a new task for the session
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(task);

@@ -110,6 +110,8 @@ protected:
 
     Endpoint LocalEndpoint() const;
 
+    io::SocketStats stats_;
+
 private:
     friend class TcpSession;
     friend class TcpMessageWriter;
@@ -144,7 +146,6 @@ private:
     void OnSessionClose(TcpSession *session);
     void SetName(Endpoint local_endpoint);
 
-    io::SocketStats stats_;
     EventManager *evm_;
     // mutex protects the session maps
     mutable tbb::mutex mutex_;
