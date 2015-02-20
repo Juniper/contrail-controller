@@ -680,15 +680,21 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         api_server = test_common.vnc_cfg_api_server.server
         max_pend_upd = 10
         api_server._args.rabbit_max_pending_updates = str(max_pend_upd)
-        orig_rabbitq_put = api_server._db_conn._msgbus._obj_update_q.put
+        orig_rabbitq_pub = api_server._db_conn._msgbus._producer.publish
+        orig_rabbitq_conn = api_server._db_conn._msgbus._conn.connect
         try:
-            def err_rabbitq_put(*args, **kwargs):
-                raise Exception("Faking Rabbit Exception")
-            api_server._db_conn._msgbus._obj_update_q.put = err_rabbitq_put
+            def err_rabbitq_pub(*args, **kwargs):
+                raise Exception("Faking Rabbit publish failure")
+
+            def err_rabbitq_conn(*args, **kwargs):
+                raise Exception("Faking RabbitMQ connection failure")
+
+            api_server._db_conn._msgbus._producer.publish = err_rabbitq_pub
+            api_server._db_conn._msgbus._conn.connect = err_rabbitq_conn
 
             logger.info("Creating objects to hit max rabbit pending.")
             # every create updates project quota
-            test_objs = self._create_test_objects(count=max_pend_upd)
+            test_objs = self._create_test_objects(count=max_pend_upd+1)
 
             def asserts_on_max_pending():
                 self.assertEqual(e.status_code, 500)
@@ -701,6 +707,8 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                 self._vnc_lib.virtual_network_create(obj)
             except HttpError as e:
                 asserts_on_max_pending()
+            else:
+                self.assertTrue(False, 'Create succeeded unexpectedly')
 
             logger.info("Update of object should fail.")
             test_objs[0].display_name = 'foo'
@@ -708,6 +716,8 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                 self._vnc_lib.virtual_network_update(test_objs[0])
             except HttpError as e:
                 asserts_on_max_pending()
+            else:
+                self.assertTrue(False, 'Update succeeded unexpectedly')
 
             logger.info("Delete of object should fail.")
             test_objs[0].display_name = 'foo'
@@ -715,12 +725,15 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                 self._vnc_lib.virtual_network_delete(id=test_objs[0].uuid)
             except HttpError as e:
                 asserts_on_max_pending()
+            else:
+                self.assertTrue(False, 'Delete succeeded unexpectedly')
 
             logger.info("Read obj object should be ok.")
             self._vnc_lib.virtual_network_read(id=test_objs[0].uuid)
 
         finally:
-            api_server._db_conn._msgbus._obj_update_q.put = orig_rabbitq_put
+            api_server._db_conn._msgbus._producer.publish = orig_rabbitq_pub
+            api_server._db_conn._msgbus._conn.connect = orig_rabbitq_conn
 
     def test_err_on_ifmap_publish(self):
         api_server = test_common.vnc_cfg_api_server.server
@@ -1050,7 +1063,7 @@ class TestExtensionApi(test_case.ApiServerTestCase):
             if request.method == 'POST':
                 obj_type = request.path[1:-1]
                 obj_name = request.json[obj_type]['fq_name'][-1]
-                if 'validate-create' in obj_name:
+                if 'transform-create' in obj_name:
                     bottle.response.status = '234 Transformed Response'
                     response[obj_type]['extra_field'] = 'foo'
         # end transform_response
