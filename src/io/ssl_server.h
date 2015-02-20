@@ -26,6 +26,8 @@ protected:
     boost::asio::ssl::context *context();
 
 private:
+    friend class SslSession;
+
     // suppress AllocSession method using tcp socket, not valid for
     // ssl server.
     TcpSession *AllocSession(Socket *socket) { return NULL; }
