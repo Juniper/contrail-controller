@@ -48,6 +48,15 @@ systemlog sandesh XmppOpenConfirm {
     6: string f3;
 }
 
+systemlog sandesh XmppControlMessage {
+    1: string f1 
+    2: i32 f2;
+    3: " bytes from: ";
+    4: string f3;
+    5: " To: ";
+    6: string f4;
+}
+
 systemlog sandesh XmppSendSubscription {
     1: "Send Subscription: ";
     2: i32 f1;

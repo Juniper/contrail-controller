@@ -80,7 +80,15 @@ public:
         enum XmppStreamSASL {
         };
 
+
+        enum XmppStreamTlsType {
+            TLS_FEATURE_REQUEST = 1,
+            TLS_START = 2,
+            TLS_PROCEED = 3   
+        };
+
         XmppStreamMsgType strmtype;
+        XmppStreamTlsType strmtlstype;
     };
 
     enum XmppMessageStateType {
@@ -177,6 +185,9 @@ private:
                           size_t size);
     static int EncodeOpenResp(uint8_t *data, std::string &to, std::string &from,
                               size_t size);
+    static int EncodeFeatureTlsRequest(uint8_t *data);
+    static int EncodeFeatureTlsStart(uint8_t *data);
+    static int EncodeFeatureTlsProceed(uint8_t *data); 
     static int EncodeWhitespace(uint8_t *data);
     static int SetTo(std::string &to, XmlBase *doc);
     static int SetFrom(std::string &from, XmlBase *doc);

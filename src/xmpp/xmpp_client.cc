@@ -41,10 +41,40 @@ private:
 };
 
 XmppClient::XmppClient(EventManager *evm) 
-    : TcpServer(evm), config_mgr_(new XmppConfigManager), 
+    : SslServer(evm, ssl::context::tlsv1_client, false, false),
+      config_mgr_(new XmppConfigManager),
       lifetime_manager_(new LifetimeManager(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
-      deleter_(new DeleteActor(this)) {
+      deleter_(new DeleteActor(this)),
+      auth_enabled_(false) {
+}
+
+XmppClient::XmppClient(EventManager *evm, const XmppChannelConfig *config) 
+    : SslServer(evm, ssl::context::tlsv1_client, config->auth_enabled, true),
+
+      config_mgr_(new XmppConfigManager),
+      lifetime_manager_(new LifetimeManager(
+          TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
+      deleter_(new DeleteActor(this)),
+      auth_enabled_(config->auth_enabled) {
+
+    if (config->auth_enabled) { 
+
+        // Get SSL context from base class and update
+        boost::asio::ssl::context *ctx = context();
+        boost::system::error_code ec;
+
+        //set mode
+        ctx->set_options(ssl::context::default_workarounds |
+                         ssl::context::no_sslv3 | ssl::context::no_sslv2, ec);
+        assert(ec.value() == 0);
+
+        // Verify server to have a valid certificate
+        ctx->load_verify_file(config->path_to_server_cert, ec);
+        assert(ec.value() == 0);
+        ctx->set_verify_mode(boost::asio::ssl::verify_peer, ec);
+        assert(ec.value() == 0);
+    }
 }
 
 XmppClient::~XmppClient() {
@@ -111,7 +141,7 @@ XmppClient::ProcessConfigUpdate(XmppConfigManager::DiffType delta,
     const XmppChannelConfig *current, const XmppChannelConfig *future) {
     if (delta == XmppConfigManager::DF_ADD) {
         XmppClientConnection *connection = CreateConnection(future);
-        connection->Initialize();
+        connection->Initialize(); // trigger state-machine
     }
     if (delta == XmppConfigManager::DF_DELETE) {
         ConnectionMap::iterator loc = connection_map_.find(current->endpoint);
@@ -157,8 +187,8 @@ size_t XmppClient::ConnectionCount() const {
     return connection_map_.size();
 }
 
-TcpSession *XmppClient::AllocSession(Socket *socket) {
-    TcpSession *session = new XmppSession(this, socket);
+SslSession *XmppClient::AllocSession(SslSocket *socket) {
+    SslSession *session = new XmppSession(this, socket);
     return session;
 }
 

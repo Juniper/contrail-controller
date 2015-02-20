@@ -65,7 +65,7 @@ protected:
         return content;
     }
 
-    virtual void SetUp() {
+    virtual void SetUp_Server() {
         evm_.reset(new EventManager());
         a_ = new XmppServer(evm_.get(), XMPP_CONTROL_SERV);
         b_ = new XmppClient(evm_.get());
@@ -77,7 +77,23 @@ protected:
         thread_->Start();
     }
 
+    virtual void SetUp_Ssl() {
+        evm_.reset(new EventManager());
+
+        server_cfg_ = new XmppChannelConfig(false);
+        server_cfg_->auth_enabled = true;
+        server_cfg_->path_to_server_cert = "controller/src/xmpp/testdata/server-build02.pem";
+        server_cfg_->path_to_pvt_key = "controller/src/xmpp/testdata/server-build02.key";
+        a_ = new XmppServer(evm_.get(), XMPP_CONTROL_SERV, server_cfg_);
+        thread_.reset(new ServerThread(evm_.get()));
+
+        a_->Initialize(0, false);
+        LOG(DEBUG, "Created server at port: " << a_->GetPort());
+        thread_->Start();
+    }
+
     virtual void TearDown() {
+
         a_->Shutdown();
         b_->Shutdown();
         task_util::WaitForIdle();
@@ -86,6 +102,8 @@ protected:
         a_ = NULL;
         TcpServerManager::DeleteServer(b_);
         b_ = NULL;
+
+        server_cfg_ = NULL;
 
         evm_->Shutdown();
         if (thread_.get() != NULL) {
@@ -112,6 +130,7 @@ protected:
 
     auto_ptr<EventManager> evm_;
     auto_ptr<ServerThread> thread_;
+    XmppChannelConfig *server_cfg_;
     XmppServer *a_;
     XmppClient *b_;
 };
@@ -119,6 +138,9 @@ protected:
 namespace {
 
 TEST_F(XmppPubSubTest, Connection) {
+
+    SetUp_Server();
+
     // create a pair of Xmpp channels in server A and client B.
     XmppConfigData *cfg_b = new XmppConfigData;
     LOG(DEBUG, "Create client");
@@ -169,6 +191,74 @@ TEST_F(XmppPubSubTest, Connection) {
     ConfigUpdate(b_, new XmppConfigData());
     task_util::WaitForIdle();
 }
+
+TEST_F(XmppPubSubTest, SSl_Connection) {
+
+    SetUp_Ssl();
+
+    // create a pair of Xmpp channels in server A and client B.
+    XmppConfigData *cfg_b = new XmppConfigData;
+    LOG(DEBUG, "Create client");
+
+    XmppChannelConfig *cfg = new XmppChannelConfig(true);
+    cfg->endpoint.address(ip::address::from_string("127.0.0.1"));
+    cfg->endpoint.port(a_->GetPort());
+    cfg->ToAddr = XMPP_CONTROL_SERV;
+    cfg->FromAddr = SUB_ADDR;
+    cfg->auth_enabled = true;
+    cfg->path_to_server_cert = "controller/src/xmpp/testdata/server-build02.pem";
+    cfg->path_to_pvt_key = "controller/src/xmpp/testdata/server-build02.key";
+
+    b_ = new XmppClient(evm_.get(), cfg);
+    cfg_b->AddXmppChannelConfig(cfg);
+    ConfigUpdate(b_, cfg_b);
+    LOG(DEBUG, "Created client at port: " << b_->GetPort());
+    LOG(DEBUG, "-- Executing --");
+
+    // server channels
+    XmppConnection *sconnection;
+    // Wait for connection on server. 
+    TASK_UTIL_EXPECT_TRUE((sconnection = a_->FindConnection(SUB_ADDR)) != NULL);
+    // Check for server, client connection is established. Wait upto 1 sec
+    TASK_UTIL_EXPECT_TRUE(sconnection->GetStateMcState() == xmsm::ESTABLISHED);
+    XmppBgpMockPeer *bgp_schannel = 
+            new XmppBgpMockPeer(sconnection->ChannelMux());
+
+    // client channel
+    XmppConnection *cconnection = b_->FindConnection(XMPP_CONTROL_SERV);
+    ASSERT_FALSE(cconnection == NULL);
+    TASK_UTIL_EXPECT_TRUE(cconnection->GetStateMcState() == xmsm::ESTABLISHED);
+    XmppBgpMockPeer *bgp_cchannel(
+            new XmppBgpMockPeer(cconnection->ChannelMux()));
+
+    //send subscribe message from agent to bgp
+    string data = FileRead("controller/src/xmpp/testdata/pubsub_sub.xml");
+    uint8_t buf[4096];
+    memcpy(buf, data.data(), data.size());
+    bool ret = bgp_cchannel->SendUpdate(buf, data.size());
+    EXPECT_TRUE(ret);
+    TASK_UTIL_EXPECT_TRUE(bgp_schannel->Count() != 0);
+
+    //send publish  message from agent to bgp
+    data = FileRead("controller/src/xmpp/testdata/pubsub_pub.xml");
+    memcpy(buf, data.data(), data.size());
+    ret = bgp_cchannel->SendUpdate(buf, data.size());
+    EXPECT_TRUE(ret);
+    LOG(DEBUG, "Sent bytes: " << data.size());
+    TASK_UTIL_EXPECT_TRUE(bgp_schannel->Count() != 1);
+
+    delete bgp_schannel;
+    delete bgp_cchannel;
+
+    task_util::WaitForIdle();
+
+    //cleanup client
+    ConfigUpdate(b_, new XmppConfigData());
+    cfg = NULL;
+    task_util::WaitForIdle();
+}
+
+
 
 }
 

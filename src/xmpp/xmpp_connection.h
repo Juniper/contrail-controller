@@ -38,11 +38,14 @@ public:
     };
 
     struct ErrorStats {
-        ErrorStats() : connect_error(0), session_close(0), open_fail(0) {
+        ErrorStats() : connect_error(0), session_close(0), open_fail(0),
+        stream_feature_fail(0), handshake_fail(0) {
         }
         uint32_t connect_error;
         uint32_t session_close;
         uint32_t open_fail;
+        uint32_t stream_feature_fail;
+        uint32_t handshake_fail;
     };
 
     XmppConnection(TcpServer *server, const XmppChannelConfig *config);
@@ -69,10 +72,18 @@ public:
     bool Send(const uint8_t *data, size_t size);
 
     // Xmpp connection messages
-    virtual bool SendOpen(TcpSession *session);
-    virtual bool SendOpenConfirm(TcpSession *session);
+    virtual bool SendOpen(XmppSession *session);
+    virtual bool SendOpenConfirm(XmppSession *session);
+    virtual bool SendStreamFeatureRequest(XmppSession *session);
+    virtual bool SendStartTls(XmppSession *session);
+    virtual bool SendProceedTls(XmppSession *session);
+    
     void SendKeepAlive();
-    void SendClose(TcpSession *session);
+    void SendClose(XmppSession *session);
+
+    // Ssl Handshake callback response
+    void ProcessSslHandShakeResponse(SslSessionPtr session,
+        const boost::system::error_code& error);
 
     // PubSub Messages
     int ProcessXmppIqMessage(const XmppStanza::XmppMessage *);
@@ -100,6 +111,7 @@ public:
     virtual const LifetimeActor *deleter() const = 0;
     virtual LifetimeManager *lifetime_manager() = 0;
     xmsm::XmState GetStateMcState() const;
+    xmsm::XmSubState GetStateMcSubState() const;
 
     bool IsActiveChannel() const {
         return state_machine_->IsActiveChannel();
@@ -190,9 +202,13 @@ public:
     void inc_connect_error();
     void inc_session_close();
     void inc_open_fail();
+    void inc_stream_feature_fail();
+    void inc_handshake_failure();
     size_t get_connect_error();
     size_t get_session_close();
     size_t get_open_fail();
+    size_t get_stream_feature_fail();
+    size_t get_handshake_failure();
 
 protected:
     TcpServer *server_;

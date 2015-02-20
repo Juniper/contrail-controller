@@ -49,7 +49,7 @@ XmppConnection::XmppConnection(TcpServer *server,
       from_(config->FromAddr),
       to_(config->ToAddr),
       state_machine_(XmppObjectFactory::Create<XmppStateMachine>(
-          this, config->ClientOnly())),
+          this, config->ClientOnly(), config->auth_enabled)),
       mux_(XmppObjectFactory::Create<XmppChannelMux>(this)) {
 }
 
@@ -107,6 +107,13 @@ xmsm::XmState XmppConnection::GetStateMcState() const {
     assert(sm);
     return sm->StateType();
 }
+
+xmsm::XmSubState XmppConnection::GetStateMcSubState() const {
+    const XmppStateMachine *sm = state_machine();
+    assert(sm);
+    return sm->SubStateType();
+}
+
 
 boost::asio::ip::tcp::endpoint XmppConnection::endpoint() const {
     return endpoint_;
@@ -185,7 +192,7 @@ bool XmppConnection::Send(const uint8_t *data, size_t size) {
     return session_->Send(data, size, &sent);
 }
 
-bool XmppConnection::SendOpen(TcpSession *session) {
+bool XmppConnection::SendOpen(XmppSession *session) {
     if (!session) return false;
     XmppProto::XmppStanza::XmppStreamMessage openstream;
     openstream.strmtype = XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER;
@@ -203,7 +210,7 @@ bool XmppConnection::SendOpen(TcpSession *session) {
     }
 }
 
-bool XmppConnection::SendOpenConfirm(TcpSession *session) {
+bool XmppConnection::SendOpenConfirm(XmppSession *session) {
     tbb::spin_mutex::scoped_lock lock(spin_mutex_);
     if (!session_) return false;
     XmppStanza::XmppStreamMessage openstream;
@@ -222,7 +229,68 @@ bool XmppConnection::SendOpenConfirm(TcpSession *session) {
     }
 }
 
-void XmppConnection::SendClose(TcpSession *session) {
+bool XmppConnection::SendStreamFeatureRequest(XmppSession *session) {
+    tbb::spin_mutex::scoped_lock lock(spin_mutex_);
+    if (!session_) return false;
+    XmppStanza::XmppStreamMessage featurestream;
+    featurestream.strmtype = XmppStanza::XmppStreamMessage::FEATURE_TLS;
+    featurestream.strmtlstype = XmppStanza::XmppStreamMessage::TLS_FEATURE_REQUEST;
+    uint8_t data[256];
+    int len = XmppProto::EncodeStream(featurestream, to_, from_, data, 
+                                      sizeof(data));
+    if (len <= 0) {
+        inc_stream_feature_fail();
+        return false;
+    } else {
+        XMPP_UTDEBUG(XmppControlMessage, "Send Stream Feature Request", 
+                     len, from_, to_);
+        session_->Send(data, len, NULL);
+        //stats_[1].open++;
+        return true;
+    }
+}
+
+bool XmppConnection::SendStartTls(XmppSession *session) {
+    tbb::spin_mutex::scoped_lock lock(spin_mutex_);
+    if (!session_) return false; 
+    XmppStanza::XmppStreamMessage stream;
+    stream.strmtype = XmppStanza::XmppStreamMessage::FEATURE_TLS;
+    stream.strmtlstype = XmppStanza::XmppStreamMessage::TLS_START;
+    uint8_t data[256];
+    int len = XmppProto::EncodeStream(stream, to_, from_, data,
+                                      sizeof(data));
+    if (len <= 0) {
+        inc_stream_feature_fail();
+        return false;
+    } else {
+        XMPP_UTDEBUG(XmppControlMessage, "Send Start Tls", len, from_, to_);
+        session_->Send(data, len, NULL);
+        //stats_[1].open++;
+        return true;
+    }
+}
+
+bool XmppConnection::SendProceedTls(XmppSession *session) {
+    tbb::spin_mutex::scoped_lock lock(spin_mutex_);
+    if (!session_) return false; 
+    XmppStanza::XmppStreamMessage stream;
+    stream.strmtype = XmppStanza::XmppStreamMessage::FEATURE_TLS;
+    stream.strmtlstype = XmppStanza::XmppStreamMessage::TLS_PROCEED;
+    uint8_t data[256];
+    int len = XmppProto::EncodeStream(stream, to_, from_, data,
+                                      sizeof(data));
+    if (len <= 0) {
+        inc_stream_feature_fail();
+        return false;
+    } else {
+        XMPP_UTDEBUG(XmppControlMessage, "Send Proceed Tls", len, from_, to_);
+        session_->Send(data, len, NULL);
+        //stats_[1].open++;
+        return true;
+    }
+}
+
+void XmppConnection::SendClose(XmppSession *session) {
     tbb::spin_mutex::scoped_lock lock(spin_mutex_);
     if (!session_) return;
     string str("</stream:stream>");
@@ -232,6 +300,32 @@ void XmppConnection::SendClose(TcpSession *session) {
     session_->Send(data, str.size(), NULL);
     stats_[1].close++;
 }
+
+void XmppConnection::ProcessSslHandShakeResponse(SslSessionPtr session,
+    const boost::system::error_code& error) {
+
+    if (error) {
+        inc_handshake_failure();
+        state_machine()->OnEvent(session.get(), xmsm::EvTLSHANDSHAKE_FAILURE);
+
+        if (error.category() == boost::asio::error::get_ssl_category()) {
+            string err = error.message();
+            err = string(" (")
+                         +boost::lexical_cast<string>(ERR_GET_LIB(error.value()))+","
+                         +boost::lexical_cast<string>(ERR_GET_FUNC(error.value()))+","
+                         +boost::lexical_cast<string>(ERR_GET_REASON(error.value()))+") "; 
+
+             char buf[128];
+             ::ERR_error_string_n(error.value(), buf, sizeof(buf));
+             err += buf;
+             XMPP_ALERT(XmppSslHandShakeMessage, "failure", err);
+        }
+
+    } else {
+        XMPP_DEBUG(XmppSslHandShakeMessage, "success", "");
+        state_machine()->OnEvent(session.get(), xmsm::EvTLSHANDSHAKE_SUCCESS);
+    }
+}                              
 
 void XmppConnection::LogMsg(std::string msg) {
     log4cplus::Logger logger = log4cplus::Logger::getRoot();
@@ -341,6 +435,14 @@ void XmppConnection::inc_open_fail() {
     error_stats_.open_fail++;
 }
 
+void XmppConnection::inc_stream_feature_fail() {
+    error_stats_.stream_feature_fail++;
+}
+
+void XmppConnection::inc_handshake_failure() {
+    error_stats_.handshake_fail++;
+}
+
 size_t XmppConnection::get_connect_error() {
     return error_stats_.connect_error;
 }
@@ -351,6 +453,14 @@ size_t XmppConnection::get_session_close() {
 
 size_t XmppConnection::get_open_fail() {
     return error_stats_.open_fail;
+}
+
+size_t XmppConnection::get_stream_feature_fail() {
+    return error_stats_.stream_feature_fail;
+}
+
+size_t XmppConnection::get_handshake_failure() {
+    return error_stats_.handshake_fail;
 }
 
 void XmppConnection::ReceiveMsg(XmppSession *session, const string &msg) {

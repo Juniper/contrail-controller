@@ -50,24 +50,63 @@ private:
     XmppServer *server_;
 };
 
-XmppServer::XmppServer(EventManager *evm, const string &server_addr) 
-    : TcpServer(evm),
+
+XmppServer::XmppServer(EventManager *evm, const string &server_addr,
+                       const XmppChannelConfig *config)
+    : SslServer(evm, ssl::context::tlsv1_server, config->auth_enabled, true),
+
       lifetime_manager_(XmppObjectFactory::Create<XmppLifetimeManager>(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)), 
       server_addr_(server_addr),
       log_uve_(false),
+      auth_enabled_(config->auth_enabled),
+      work_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
+          boost::bind(&XmppServer::DequeueConnection, this, _1)) {
+
+    if (config->auth_enabled) {
+
+        // Get SSL context from base class and update
+        boost::asio::ssl::context *ctx = context();
+        boost::system::error_code ec;
+
+        // set mode
+        ctx->set_options(ssl::context::default_workarounds |
+                         ssl::context::no_sslv3 | ssl::context::no_sslv2, ec);
+        assert(ec.value() == 0);
+        //ctx->use_certificate_file("server-build02.pem", 
+        ctx->use_certificate_file(config->path_to_server_cert, 
+                                  boost::asio::ssl::context::pem, ec);
+        assert(ec.value() == 0);
+        ctx->use_private_key_file(config->path_to_pvt_key,
+                                  boost::asio::ssl::context::pem, ec);
+        assert(ec.value() == 0);
+        ctx->set_verify_mode(boost::asio::ssl::verify_none, ec);
+        assert(ec.value() == 0);
+    }
+}
+
+XmppServer::XmppServer(EventManager *evm, const string &server_addr) 
+    : SslServer(evm, ssl::context::tlsv1_server, false, false),
+      lifetime_manager_(XmppObjectFactory::Create<XmppLifetimeManager>(
+          TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
+      deleter_(new DeleteActor(this)), 
+      server_addr_(server_addr),
+      log_uve_(false),
+      auth_enabled_(false),
       work_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
           boost::bind(&XmppServer::DequeueConnection, this, _1)) {
 }
 
+
 XmppServer::XmppServer(EventManager *evm) 
-    : TcpServer(evm),
+    : SslServer(evm, ssl::context::tlsv1_server, false, false),
       max_connections_(0),
       lifetime_manager_(new LifetimeManager(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"))),
       deleter_(new DeleteActor(this)), 
       log_uve_(false),
+      auth_enabled_(false),
       work_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
           boost::bind(&XmppServer::DequeueConnection, this, _1)) {
 }
@@ -231,8 +270,8 @@ void XmppServer::NotifyConnectionEvent(XmppChannelMux *mux,
     }
 }
 
-TcpSession *XmppServer::AllocSession(Socket *socket) {
-    TcpSession *session = new XmppSession(this, socket);
+SslSession *XmppServer::AllocSession(SslSocket *socket) {
+    SslSession *session = new XmppSession(this, socket);
     return session;
 }
 
@@ -306,6 +345,7 @@ XmppServerConnection *XmppServer::CreateConnection(XmppSession *session) {
     cfg.local_endpoint = session->local_endpoint();
     cfg.FromAddr = server_addr_;
     cfg.logUVE = log_uve_;
+    cfg.auth_enabled = auth_enabled_;
 
     XMPP_DEBUG(XmppCreateConnection, session->ToString());
     connection = XmppObjectFactory::Create<XmppServerConnection>(this, &cfg);
