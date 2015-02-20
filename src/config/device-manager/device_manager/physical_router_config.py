@@ -29,6 +29,7 @@ class PhysicalRouterConfig(object):
         self.vnc_managed = vnc_managed
         self.reset_bgp_config()
         self._logger = logger
+        self.bgp_config_sent = False
     # end __init__
 
     def update(self, management_ip, user_creds, vendor, product, vnc_managed):
@@ -40,7 +41,7 @@ class PhysicalRouterConfig(object):
     # end update
 
     def send_netconf(self, new_config, default_operation="merge",
-                     operation=None):
+                     operation="replace"):
         if (self.vendor is None or self.product is None or
                self.vendor.lower() != "juniper" or self.product.lower() != "mx"):
             self._logger.info("auto configuraion of physical router is not supported \
@@ -60,11 +61,7 @@ class PhysicalRouterConfig(object):
                     "config",
                     nsmap={"xc": "urn:ietf:params:xml:ns:netconf:base:1.0"})
                 config = etree.SubElement(add_config, "configuration")
-                if operation:
-                    config_group = etree.SubElement(config, "groups",
-                                                    operation=operation)
-                else:
-                    config_group = etree.SubElement(config, "groups")
+                config_group = etree.SubElement(config, "groups", operation=operation)
                 contrail_group = etree.SubElement(config_group, "name")
                 contrail_group.text = "__contrail__"
                 if isinstance(new_config, list):
@@ -72,10 +69,7 @@ class PhysicalRouterConfig(object):
                         config_group.append(nc)
                 else:
                     config_group.append(new_config)
-                if operation:
-                    apply_groups = etree.SubElement(config, "apply-groups", operation=operation)
-                else:
-                    apply_groups = etree.SubElement(config, "apply-groups")
+                apply_groups = etree.SubElement(config, "apply-groups", operation=operation)
                 apply_groups.text = "__contrail__"
                 self._logger.info("\nsend netconf message: %s\n" % (etree.tostring(add_config, pretty_print=True)))
                 m.edit_config(
@@ -142,10 +136,10 @@ class PhysicalRouterConfig(object):
         term = etree.SubElement(ps, "term")
         etree.SubElement(term, "name").text= "t1"
         then = etree.SubElement(term, "then")
-        comm = etree.SubElement(then, "community")
-        etree.SubElement(comm, "add")
         for route_target in export_targets:
-            etree.SubElement(comm, "community_name").text = route_target.replace(':', '_') 
+            comm = etree.SubElement(then, "community")
+            etree.SubElement(comm, "add")
+            etree.SubElement(comm, "community-name").text = route_target.replace(':', '_') 
         etree.SubElement(then, "accept")
 
         # add policies for import route targets
@@ -312,7 +306,6 @@ class PhysicalRouterConfig(object):
     # end _get_bgp_config_xml
 
     def reset_bgp_config(self):
-        self.bgp_config_sent = False
         self.routing_instances = {}
         self.bgp_params = None
         self.ri_config = None
@@ -331,6 +324,7 @@ class PhysicalRouterConfig(object):
             return
         self.reset_bgp_config()
         self.send_netconf([], default_operation="none", operation="delete")
+        self.bgp_config_sent = False
     # end delete_config
 
     def add_bgp_peer(self, router, params, external):
