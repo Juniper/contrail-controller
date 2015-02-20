@@ -661,6 +661,14 @@ TEST_F(ArpTest, DISABLED_SubnetResolveWithoutPolicy) {
     EXPECT_TRUE(VmPortFind(8));
     client->Reset();
 
+    AddPhysicalDevice(agent->host_name().c_str(), 1);
+    AddPhysicalInterface("pi1", 1, "pid1");
+    AddLogicalInterface("lp1", 1, "lp1", 1);
+    AddLink("physical-router", "prouter1", "physical-interface", "pi1");
+    AddLink("logical-interface", "lp1", "physical-interface", "pi1");
+    AddLink("virtual-machine-interface", "vnet8", "logical-interface", "lp1");
+    client->WaitForIdle();
+
     //Add a link to interface subnet and ensure resolve route is added
     AddSubnetType("subnet", 1, "8.1.1.0", 24);
     AddLink("virtual-machine-interface", input1[0].name,
@@ -831,6 +839,14 @@ TEST_F(ArpTest, DISABLED_SubnetResolveWithSg) {
     EXPECT_TRUE(VmPortFind(8));
     client->Reset();
 
+    AddPhysicalDevice(agent->host_name().c_str(), 1);
+    AddPhysicalInterface("pi1", 1, "pid1");
+    AddLogicalInterface("lp1", 1, "lp1", 1);
+    AddLink("physical-router", "prouter1", "physical-interface", "pi1");
+    AddLink("logical-interface", "lp1", "physical-interface", "pi1");
+    AddLink("virtual-machine-interface", "vnet8", "logical-interface", "lp1");
+    client->WaitForIdle();
+
     AddSg("sg1", 1);
     AddAcl("acl1", 1);
     AddLink("security-group", "sg1", "access-control-list", "acl1");
@@ -864,6 +880,7 @@ TEST_F(ArpTest, DISABLED_SubnetResolveWithSg) {
     DelLink("security-group", "sg1", "access-control-list", "acl1");
     DelAcl("acl1");
     DelNode("security-group", "sg1");
+    DelLink("virtual-machine-interface", "vnet8", "security-group", "sg1");
     client->WaitForIdle();
     DeleteVmportEnv(input1, 1, true, 1);
     client->WaitForIdle();
@@ -871,6 +888,121 @@ TEST_F(ArpTest, DISABLED_SubnetResolveWithSg) {
 
     EXPECT_FALSE(VmPortFind(8));
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
+    WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_table()->Find(&key, true)
+                == NULL));
+    client->Reset();
+}
+
+//Check leaked routes dont get updated
+//when original route changes
+TEST_F(ArpTest, DISABLED_SubnetResolveWithSg1) {
+  struct PortInfo input1[] = {
+        {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1},
+        {"vnet9", 9, "9.1.1.1", "00:00:00:01:01:02", 2, 2}
+    };
+
+    client->Reset();
+    //Create VM interface with policy
+    CreateVmportWithEcmp(input1, 2, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    EXPECT_TRUE(VmPortFind(8));
+    client->Reset();
+
+    AddPhysicalDevice(agent->host_name().c_str(), 1);
+    AddPhysicalInterface("pi1", 1, "pid1");
+    AddLogicalInterface("lp1", 1, "lp1", 1);
+    AddLink("physical-router", "prouter1", "physical-interface", "pi1");
+    AddLink("logical-interface", "lp1", "physical-interface", "pi1");
+    AddLink("virtual-machine-interface", "vnet8", "logical-interface", "lp1");
+    client->WaitForIdle();
+
+    VmInterface *vintf8 = VmInterfaceGet(8);
+    VmInterface *vintf9 = VmInterfaceGet(9);
+
+    AddSg("sg1", 1);
+    AddAcl("acl1", 1);
+    AddLink("security-group", "sg1", "access-control-list", "acl1");
+    client->WaitForIdle();
+    //Add a link to interface subnet and ensure resolve route is added
+    AddSubnetType("subnet", 1, "8.1.1.0", 24);
+    AddLink("virtual-machine-interface", input1[0].name,
+            "subnet", "subnet");
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    EXPECT_TRUE(RouteFind("vrf1", "8.1.1.0", 24));
+
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "vnet8");
+    Ip4Address subnet = Ip4Address::from_string("8.1.1.0");
+    InetUnicastAgentRouteTable::AddResolveRoute(vintf9->peer(), "vrf2",
+                                                subnet, 24, key, 0, false,
+                                                "vn1", SecurityGroupList());
+    client->WaitForIdle();
+
+    Ip4Address sip = Ip4Address::from_string("9.1.1.1");
+    Ip4Address dip = Ip4Address::from_string("8.1.1.2");
+    Ip4Address dip1 = Ip4Address::from_string("8.1.1.3");
+    SendArpReq(vintf9->id(), vintf9->vrf()->vrf_id(), sip.to_ulong(), dip.to_ulong());
+    SendArpReq(vintf9->id(), vintf9->vrf()->vrf_id(), sip.to_ulong(), dip1.to_ulong());
+    client->WaitForIdle();
+    WAIT_FOR(500, 1000,
+             Agent::GetInstance()->GetArpProto()->GetArpCacheSize() == 5);
+
+    WAIT_FOR(500, 1000, RouteFind("vrf2", "8.1.1.2", 32) == true);
+    WAIT_FOR(500, 1000, RouteFind("vrf2", "8.1.1.3", 32) == true);
+    AddLink("virtual-machine-interface", "vnet8", "security-group", "sg1");
+    client->WaitForIdle();
+
+    //Verify that route update on vrf1 doesnt reevaluate vrf2 arp routes
+    AgentRoute *rt = RouteGet("vrf2", dip, 32);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::ARP);
+    EXPECT_TRUE(rt->GetActivePath()->dest_vn_name() == "vn1");
+    EXPECT_TRUE(rt->GetActivePath()->sg_list().size() == 0);
+    rt = RouteGet("vrf2", dip1, 32);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::ARP);
+    EXPECT_TRUE(rt->GetActivePath()->dest_vn_name() == "vn1");
+    EXPECT_TRUE(rt->GetActivePath()->sg_list().size() == 0);
+
+    rt = RouteGet("vrf1", dip, 32);
+    EXPECT_TRUE(rt->GetActivePath()->sg_list().size() == 1);
+    rt = RouteGet("vrf1", dip1, 32);
+    EXPECT_TRUE(rt->GetActivePath()->sg_list().size() == 1);
+
+    //Resync the same on leaked vrf
+    InetUnicastAgentRouteTable::AddResolveRoute(vintf9->peer(), "vrf2",
+                                                subnet, 24, key, 0, false,
+                                                "vn1", SecurityGroupList(1));
+    client->WaitForIdle();
+
+    rt = RouteGet("vrf2", dip, 32);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::ARP);
+    EXPECT_TRUE(rt->GetActivePath()->dest_vn_name() == "vn1");
+    EXPECT_TRUE(rt->GetActivePath()->sg_list().size() == 1);
+
+    rt = RouteGet("vrf2", dip1, 32);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::ARP);
+    EXPECT_TRUE(rt->GetActivePath()->dest_vn_name() == "vn1");
+    EXPECT_TRUE(rt->GetActivePath()->sg_list().size() == 1);
+
+    rt = RouteGet("vrf1", dip, 32);
+    EXPECT_TRUE(rt->GetActivePath()->sg_list().size() == 1);
+    rt = RouteGet("vrf1", dip1, 32);
+    EXPECT_TRUE(rt->GetActivePath()->sg_list().size() == 1);
+
+    DelLink("virtual-machine-interface", input1[0].name,
+            "subnet", "subnet");
+    DelLink("security-group", "sg1", "access-control-list", "acl1");
+    DelAcl("acl1");
+    DelNode("security-group", "sg1");
+    InetUnicastAgentRouteTable::DeleteReq(vintf9->peer(), "vrf2",
+                                          subnet, 24, NULL);
+    client->WaitForIdle();
+    DeleteVmportEnv(input1, 2, true, 1);
+    client->WaitForIdle();
+    WAIT_FOR(500, 1000, RouteFind("vrf1", "8.1.1.2", 32) == false);
+    EXPECT_EQ(1U, Agent::GetInstance()->GetArpProto()->GetArpCacheSize());
+
+    EXPECT_FALSE(VmPortFind(8));
     WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_table()->Find(&key, true)
                 == NULL));
     client->Reset();
