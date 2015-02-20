@@ -22,31 +22,44 @@
 class BgpRoute;
 class BgpServer;
 class RtGroup;
+class RoutePathReplicator;
 class RouteTarget;
 class TaskTrigger;
 
 class TableState {
 public:
-    typedef std::list<RtGroup *> GroupList;
-    TableState(BgpTable *table, DBTableBase::ListenerId id);
+    typedef std::set<RtGroup *> GroupList;
+    TableState(RoutePathReplicator *replicator, BgpTable *table,
+        DBTableBase::ListenerId id);
     ~TableState();
 
     void ManagedDelete();
+    bool MayDelete() const;
 
-    const GroupList &GetGroupList() const {
-        return list_;
+    void AddGroup(RtGroup *group);
+    void RemoveGroup(RtGroup *group);
+    const RtGroup *FindGroup(RtGroup *group) const;
+    bool empty() const { return list_.empty(); }
+    bool deleted() const { return deleted_; }
+
+    uint32_t route_count() const { return route_count_; }
+    uint32_t increment_route_count() const {
+        return route_count_.fetch_and_increment();
     }
-    GroupList *MutableGroupList() {
-        return &list_;
+    uint32_t decrement_route_count() const {
+        return route_count_.fetch_and_decrement();
     }
-    DBTableBase::ListenerId GetListenerId() const {
-        return id_;
-    }
+    DBTableBase::ListenerId GetListenerId() const { return id_; }
 
 private:
+    RoutePathReplicator *replicator_;
+    BgpTable *table_;
     DBTableBase::ListenerId id_;
+    mutable tbb::atomic<uint32_t> route_count_;
+    bool deleted_;
     LifetimeRef<TableState> table_delete_ref_;
     GroupList list_;
+
     DISALLOW_COPY_AND_ASSIGN(TableState);
 };
 
@@ -149,6 +162,10 @@ class RoutePathReplicator {
 public:
     RoutePathReplicator(BgpServer *server, Address::Family family);
     virtual ~RoutePathReplicator();
+
+    void Initialize();
+    void DeleteVpnTableState();
+
     // Add a given BgpTable to RtGroup of given RouteTarget
     // It will create a new RtGroup if none exists
     // Register to DB for callback if not yet done
@@ -169,7 +186,7 @@ public:
     void BulkReplicationDone(DBTableBase *table);
 
     BgpServer *server() { return server_; }
-    Address::Family family() { return family_; }
+    Address::Family family() const { return family_; }
 
     const RtReplicated *GetReplicationState(BgpTable *table,
                                             BgpRoute *rt) const;
@@ -181,28 +198,44 @@ public:
     bool UnregisterTables();
 
 private:
+    friend class ReplicationTest;
+
     typedef std::map<BgpTable *, TableState *> RouteReplicatorTableState;
     typedef std::map<BgpTable *, BulkSyncState *> BulkSyncOrders;
     typedef std::set<BgpTable *> UnregTableList;
 
     bool StartWalk();
 
-    void AddVpnTable(RtGroup *rtgroup);
+    TableState *AddTableState(BgpTable *table, RtGroup *group = NULL);
+    void RemoveTableState(BgpTable *table, RtGroup *group);
+    void DeleteTableState(BgpTable *table);
+    TableState *FindTableState(BgpTable *table);
+    const TableState *FindTableState(BgpTable *table) const;
+
+    void JoinVpnTable(RtGroup *rtgroup);
+    void LeaveVpnTable(RtGroup *rtgroup);
 
     void DeleteSecondaryPath(BgpTable  *table, BgpRoute *rt,
                              const RtReplicated::SecondaryRouteInfo &rtinfo);
-    void DBStateSync(BgpTable *table, BgpRoute *rt, DBTableBase::ListenerId id,
+    void DBStateSync(BgpTable *table, const TableState *ts, BgpRoute *rt,
                      RtReplicated *dbstate,
                      RtReplicated::ReplicatedRtPathList &current);
 
-    // Mutex to protect unreg_table_list_, table_state_ and bulk_sync_
-    // from multiple DBTable task
+    bool VpnTableStateExists() const { return (vpn_ts_ != NULL); }
+    uint32_t VpnTableStateRouteCount() const {
+        return (vpn_ts_ ? vpn_ts_->route_count() : 0);
+    }
+
+    // Mutex to protect unreg_table_list_ and bulk_sync_ from multiple
+    // DBTable tasks.
     tbb::mutex mutex_;
-    RouteReplicatorTableState table_state_;
     BulkSyncOrders bulk_sync_;
     UnregTableList unreg_table_list_;
+    RouteReplicatorTableState table_state_;
     BgpServer *server_;
     Address::Family family_;
+    BgpTable *vpntable_;
+    TableState *vpn_ts_;
     boost::scoped_ptr<TaskTrigger> walk_trigger_;
     boost::scoped_ptr<TaskTrigger> unreg_trigger_;
     SandeshTraceBufferPtr trace_buf_;
