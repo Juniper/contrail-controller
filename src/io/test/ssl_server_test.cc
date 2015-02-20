@@ -32,7 +32,8 @@ class EchoServer;
 
 class EchoSession : public SslSession {
   public:
-    EchoSession(EchoServer *server, SslSocket *socket);
+    EchoSession(EchoServer *server, SslSocket *socket,
+                bool ssl_handshake_delayed);
 
   protected:
     virtual void OnRead(Buffer buffer) {
@@ -54,8 +55,11 @@ class EchoSession : public SslSession {
 
 class EchoServer : public SslServer {
 public:
-    explicit EchoServer(EventManager *evm) :
-        SslServer(evm, boost::asio::ssl::context::tlsv1_server), session_(NULL) {
+    EchoServer(EventManager *evm, bool ssl_handshake_delayed = false) :
+        SslServer(evm, boost::asio::ssl::context::tlsv1_server),
+        session_(NULL),
+        ssl_handshake_delayed_(ssl_handshake_delayed),
+        ssl_handshake_count_(0) {
         boost::asio::ssl::context *ctx = context();
         boost::system::error_code ec;
         ctx->set_verify_mode(boost::asio::ssl::context::verify_none, ec);
@@ -75,7 +79,7 @@ public:
     ~EchoServer() {
     }
     virtual SslSession *AllocSession(SslSocket *socket) {
-        session_ =  new EchoSession(this, socket);
+        session_ =  new EchoSession(this, socket, ssl_handshake_delayed_);
         return session_;
     }
 
@@ -99,20 +103,36 @@ public:
 
     EchoSession *GetSession() const { return session_; }
 
+    int GetSslHandShakeCount() { return ssl_handshake_count_; }
+    void ProcessSslHandShakeResponse(SslSessionPtr session, const boost::system::error_code& error) {
+        ssl_handshake_count_++;
+        if (!error) {
+            session->SetSslHandShakeStatus(true);
+            session->AsyncReadStart();
+        }
+    }
+
 private:
     EchoSession *session_;
+    bool ssl_handshake_delayed_;
+    int ssl_handshake_count_;
 };
 
-EchoSession::EchoSession(EchoServer *server, SslSocket *socket)
-    : SslSession(server, socket) {
-    set_observer(boost::bind(&EchoSession::OnEvent, this, _1, _2));
+EchoSession::EchoSession(EchoServer *server, SslSocket *socket,
+                         bool ssl_handshake_delayed)
+    : SslSession(server, socket, true, false, ssl_handshake_delayed) {
+
+    if (!ssl_handshake_delayed) {
+        set_observer(boost::bind(&EchoSession::OnEvent, this, _1, _2));
+    }
 }
 
 class SslClient;
 
 class ClientSession : public SslSession {
   public:
-    ClientSession(SslClient *server, SslSocket *socket);
+    ClientSession(SslClient *server, SslSocket *socket,
+                  bool ssl_handshake_delayed = false);
 
     void OnEvent(TcpSession *session, Event event) {
         if (event == CONNECT_COMPLETE) {
@@ -137,8 +157,11 @@ class ClientSession : public SslSession {
 
 class SslClient : public SslServer {
 public:
-    explicit SslClient(EventManager *evm) :
-        SslServer(evm, boost::asio::ssl::context::tlsv1), session_(NULL) {
+    SslClient(EventManager *evm, bool ssl_handshake_delayed = false) :
+        SslServer(evm, boost::asio::ssl::context::tlsv1), session_(NULL),
+        ssl_handshake_delayed_(ssl_handshake_delayed),
+        ssl_handshake_count_(0) {
+
         boost::asio::ssl::context *ctx = context();
         boost::system::error_code ec;
         ctx->set_verify_mode(boost::asio::ssl::context::verify_none, ec);
@@ -158,7 +181,7 @@ public:
     ~SslClient() {
     }
     virtual SslSession *AllocSession(SslSocket *socket) {
-        session_ =  new ClientSession(this, socket);
+        session_ =  new ClientSession(this, socket, ssl_handshake_delayed_);
         return session_;
     }
 
@@ -182,13 +205,30 @@ public:
 
     ClientSession *GetSession() const { return session_; }
 
+    int GetSslHandShakeCount() { return ssl_handshake_count_; }
+    void ProcessSslHandShakeResponse(SslSessionPtr session, const boost::system::error_code& error) {
+        ssl_handshake_count_++;
+        if (!error) {
+            session->SetSslHandShakeStatus(true);
+            session->AsyncReadStart();
+            const u_int8_t *data = (const u_int8_t *)"Encrypted Hello !";
+            size_t len = 18;
+            session->Send(data, len, NULL);
+        }
+    }
+
 private:
     ClientSession *session_;
+    bool ssl_handshake_delayed_;
+    int ssl_handshake_count_;
 };
 
-ClientSession::ClientSession(SslClient *server, SslSocket *socket)
-    : SslSession(server, socket) {
-    set_observer(boost::bind(&ClientSession::OnEvent, this, _1, _2));
+ClientSession::ClientSession(SslClient *server, SslSocket *socket,
+                             bool ssl_handshake_delayed)
+    : SslSession(server, socket, true, false, ssl_handshake_delayed) {
+    if (!ssl_handshake_delayed) {
+        set_observer(boost::bind(&ClientSession::OnEvent, this, _1, _2));
+    }
 }
 
 class SslEchoServerTest : public ::testing::Test {
@@ -212,11 +252,18 @@ protected:
         : evm_(new EventManager()), timer_(*evm_->io_service()),
           connect_success_(0), connect_fail_(0), connect_abort_(0) {
     }
-    virtual void SetUp() {
+
+    void SetUpImmedidate() {
         server_ = new EchoServer(evm_.get());
         thread_.reset(new ServerThread(evm_.get()));
         session_ = NULL;
     }
+    void SetUpDelayedHandShake() {
+        server_ = new EchoServer(evm_.get(), true);
+        thread_.reset(new ServerThread(evm_.get()));
+        session_ = NULL;
+    }
+
 
     virtual void TearDown() {
         if (server_->GetSession()) {
@@ -266,6 +313,8 @@ protected:
 };
 
 TEST_F(SslEchoServerTest, msg_send_recv) {
+
+    SetUpImmedidate();
     SslClient *client = new SslClient(evm_.get());
 
     task_util::WaitForIdle();
@@ -299,6 +348,61 @@ TEST_F(SslEchoServerTest, msg_send_recv) {
     TcpServerManager::DeleteServer(client);
     client = NULL;
 }
+
+TEST_F(SslEchoServerTest, test_delayed_ssl_handshake) {
+
+    SetUpDelayedHandShake();
+
+    // create a ssl client with delayed handshake = true
+    SslClient *client = new SslClient(evm_.get(), true);
+
+    task_util::WaitForIdle();
+    server_->Initialize(0);
+    task_util::WaitForIdle();
+    thread_->Start();		// Must be called after initialization
+
+    connect_success_ = connect_fail_ = connect_abort_ = 0;
+    ClientSession *session = static_cast<ClientSession *>(client->CreateSession());
+    session->set_observer(boost::bind(&SslEchoServerTest::OnEvent, this, _1, _2));
+    boost::asio::ip::tcp::endpoint endpoint;
+    boost::system::error_code ec;
+    endpoint.address(boost::asio::ip::address::from_string("127.0.0.1", ec));
+    endpoint.port(server_->GetPort());
+    client->Connect(session, endpoint);
+    task_util::WaitForIdle();
+    StartConnectTimer(session, 10);
+    TASK_UTIL_EXPECT_TRUE(session->IsEstablished());
+    TASK_UTIL_EXPECT_FALSE(session->IsClosed());
+    TASK_UTIL_EXPECT_EQ(1, connect_success_);
+    TASK_UTIL_EXPECT_EQ(connect_fail_, 0);
+    TASK_UTIL_EXPECT_EQ(connect_abort_, 0);
+    // wait till plain-text data is transferred
+    TASK_UTIL_EXPECT_EQ(session->len(), 14);
+
+    // Trigger delayed ssl handshake on server side
+    server_->GetSession()->TriggerServerSslHandShake(
+        boost::bind(&EchoServer::ProcessSslHandShakeResponse, server_, _1, _2));
+
+    // Trigger delayed ssl handshake on client side
+    session->TriggerClientSslHandShake(
+        boost::bind(&SslClient::ProcessSslHandShakeResponse, client, _1, _2));
+
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(client->GetSslHandShakeCount(), 1);
+    TASK_UTIL_EXPECT_EQ(server_->GetSslHandShakeCount(), 1);
+    // wait till encrypted data is transferred
+    TASK_UTIL_EXPECT_EQ(session->len(), 32);
+
+    session->Close();
+    client->DeleteSession(session);
+
+    client->Shutdown();
+    task_util::WaitForIdle();
+    TcpServerManager::DeleteServer(client);
+    client = NULL;
+}
+
+
 
 }  // namespace
 

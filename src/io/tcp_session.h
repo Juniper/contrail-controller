@@ -166,6 +166,16 @@ protected:
             int keepalive_intvl, int keepalive_probes);
 
     void CloseInternal(bool call_observer, bool notify_server = true);
+    void ReleaseBufferLocked(Buffer buffer);
+
+    bool IsClosedLocked() const {
+        return closed_;
+    }
+
+    // Protects session state and buffer queue.
+    mutable tbb::mutex mutex_;
+
+    io::SocketStats stats_;
 
 private:
     class Reader;
@@ -180,12 +190,8 @@ private:
                                    uint64_t block_start_time);
 
     void DeferWriter();
-    void ReleaseBufferLocked(Buffer buffer);
     void SetEstablished(Endpoint remote, Direction dir);
 
-    bool IsClosedLocked() const {
-        return closed_;
-    }
     void SetName();
 
     boost::asio::mutable_buffer AllocateBuffer();
@@ -197,9 +203,6 @@ private:
     boost::scoped_ptr<Socket> socket_;
     bool read_on_connect_;
     int buffer_size_;
-
-    // Protects session state and buffer queue.
-    mutable tbb::mutex mutex_;
 
     /**************** protected by mutex_ ****************/
     bool established_;          // In TCP ESTABLISHED state.
@@ -214,7 +217,6 @@ private:
     tbb::mutex obs_mutex_;
     EventObserver observer_;
 
-    io::SocketStats stats_;
     boost::scoped_ptr<TcpMessageWriter> writer_;
 
     tbb::atomic<int> refcount_;
