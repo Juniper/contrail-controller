@@ -320,7 +320,7 @@ class VncApiServer(VncApiServerGen):
             self._homepage_links.append(link)
 
         # Register for VN delete request. Disallow delete of system default VN
-        bottle.route('/virtual-network/<id>', 'DELETE', self.virtual_network_http_delete)
+        self.route('/virtual-network/<id>', 'DELETE', self.virtual_network_http_delete)
 
         bottle.route('/documentation/<filename:path>',
                      'GET', self.documentation_http_get)
