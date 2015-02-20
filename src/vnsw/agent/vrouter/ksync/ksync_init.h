@@ -60,14 +60,25 @@ protected:
     boost::scoped_ptr<VrfAssignKSyncObject> vrf_assign_ksync_obj_;
     boost::scoped_ptr<InterfaceKScan> interface_scanner_;
     boost::scoped_ptr<VnswInterfaceListener> vnsw_interface_listner_;
+    virtual void InitFlowMem();
+    virtual void ResetVRouter();
+    int Encode(Sandesh &encoder, uint8_t *buf, int buf_len);
 private:
-    void InitFlowMem();
     void NetlinkInit();
     void VRouterInterfaceSnapshot();
-    void ResetVRouter();
     void CreateVhostIntf();
-    int Encode(Sandesh &encoder, uint8_t *buf, int buf_len);
     DISALLOW_COPY_AND_ASSIGN(KSync);
+};
+
+class KSyncTcp : public KSync {
+public:
+    KSyncTcp(Agent *agent);
+    virtual ~KSyncTcp();
+    virtual void Init(bool create_vhost);
+    void TcpInit();
+protected:
+    virtual void InitFlowMem();
+    virtual void ResetVRouter();
 };
 
 int GenenericNetlinkFamily();

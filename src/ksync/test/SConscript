@@ -17,6 +17,8 @@ env.Prepend(CPPPATH = env['TOP'] + '/sandesh/library')
 env.Prepend(CPPPATH = '#/third_party/thrift-0.8.0/lib/cpp/src/')
 env.Prepend(CPPPATH = env['TOP'] + '/discovery/client')
 env.Prepend(CPPPATH = env['TOP'] + '/http/client')
+env.Append(CPPPATH = '#vrouter/include')
+env.Append(CPPPATH = env['TOP'] + '/vrouter/sandesh')
 
 env.Prepend(LIBS=['thrift','xmpp', 'peer_sandesh', 'xmpp_unicast',
                   'xmpp_multicast',  'ds', 'services', 
@@ -42,3 +44,6 @@ env.Alias('src/ksync:ksync_test', ksync_test)
 
 ksync_db_test = env.Program('ksync_db_test', ['ksync_db_test.cc'])
 env.Alias('src/ksync:ksync_db_test', ksync_db_test)
+
+ksync_tcp_test = env.Program('ksync_tcp_test', ['ksync_tcp_test.cc'])
+env.Alias('src/ksync:ksync_tcp_test', ksync_tcp_test)

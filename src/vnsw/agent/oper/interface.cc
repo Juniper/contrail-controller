@@ -5,6 +5,7 @@
 #include "base/os.h"
 #include <sys/types.h>
 #include <net/ethernet.h>
+#include <netinet/ether.h>
 #include <boost/uuid/uuid_io.hpp>
 #include <tbb/mutex.h>
 
@@ -15,6 +16,7 @@
 #include "ifmap/ifmap_node.h"
 #include "net/address.h"
 
+#include <init/agent_param.h>
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_interface.h>
 #include <oper/operdb_init.h>
@@ -116,6 +118,7 @@ DBEntry *InterfaceTable::OperDBAdd(const DBRequest *req) {
 
     intf->id_ = index_table_.Insert(intf);
 
+    intf->transport_ = data->transport_;
     // Get the os-ifindex and mac of interface
     intf->GetOsParams(agent());
 
@@ -137,9 +140,9 @@ bool InterfaceTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     case Interface::INET: {
         InetInterface *intf = static_cast<InetInterface *>(entry);
         if (intf) {
+            intf->OnChange(static_cast<InetInterfaceData *>(req->data.get()));
             // Get the os-ifindex and mac of interface
             intf->GetOsParams(agent());
-            intf->OnChange(static_cast<InetInterfaceData *>(req->data.get()));
             ret = true;
         }
         break;
@@ -167,6 +170,13 @@ bool InterfaceTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
         break;
     }
 
+    case Interface::PACKET: {
+         PacketInterface *intf = static_cast<PacketInterface *>(entry);
+         PacketInterfaceData *data = static_cast<PacketInterfaceData *>(req->data.get());
+         ret = intf->OnChange(data);
+         break;
+    }
+
     default:
         break;
     }
@@ -177,6 +187,7 @@ bool InterfaceTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
 // RESYNC supported only for VM_INTERFACE
 bool InterfaceTable::OperDBResync(DBEntry *entry, const DBRequest *req) {
     InterfaceKey *key = static_cast<InterfaceKey *>(req->key.get());
+
     if (key->type_ != Interface::VM_INTERFACE)
         return false;
 
@@ -310,13 +321,42 @@ Interface::Interface(Type type, const uuid &uuid, const string &name,
     vrf_(vrf), label_(MplsTable::kInvalidLabel),
     l2_label_(MplsTable::kInvalidLabel), ipv4_active_(true), l2_active_(true),
     id_(kInvalidIndex), dhcp_enabled_(true), dns_enabled_(true), mac_(),
-    os_index_(kInvalidIndex), admin_state_(true), test_oper_state_(true) {
+    os_index_(kInvalidIndex), admin_state_(true), test_oper_state_(true),
+    transport_(TRANSPORT_INVALID) {
 }
 
 Interface::~Interface() {
     if (id_ != kInvalidIndex) {
         static_cast<InterfaceTable *>(get_table())->FreeInterfaceId(id_);
     }
+}
+
+void Interface::SetPciIndex(Agent *agent) {
+    std::istringstream pci(agent->params()->physical_interface_pci_addr());
+
+    uint32_t  domain, bus, device, function;
+    char c;
+    if (pci >> std::hex >> domain) {
+        pci >> c;
+    } else {
+        assert(0);
+    }
+
+    if (pci >> std::hex >> bus) {
+        pci >> c;
+    } else {
+        assert(0);
+    }
+
+    if (pci >> std::hex >> device) {
+        pci >> c;
+    } else {
+        assert(0);
+    }
+
+    pci >> std::hex >> function;
+    os_index_ = domain << 16 | bus << 8 | device << 3 | function;
+    os_oper_state_ = true;
 }
 
 void Interface::GetOsParams(Agent *agent) {
@@ -336,6 +376,28 @@ void Interface::GetOsParams(Agent *agent) {
         const PhysicalInterface *phy_intf =
             static_cast<const PhysicalInterface *>(this);
         name = phy_intf->display_name();
+    }
+
+    if (transport_ == TRANSPORT_PMD && type_ == PHYSICAL) {
+        //PCI address is the name of the interface
+        // os index from that
+       SetPciIndex(agent);
+    }
+
+    //In case of DPDK, set mac-address to the physical
+    //mac address set in configuration file, since
+    //agent cane query for mac address as physical interface
+    //will not be present
+    if (transport_ == TRANSPORT_PMD) {
+        if (type_ == PHYSICAL || type_ == INET) {
+            mac_ = *ether_aton(agent->params()->
+                               physical_interface_mac_addr().c_str());
+        }
+    }
+
+    if (transport_ != TRANSPORT_ETHERNET) {
+        os_oper_state_ = true;
+        return;
     }
 
     struct ifreq ifr;
@@ -429,17 +491,19 @@ bool PacketInterface::Delete(const DBRequest *req) {
 
 // Enqueue DBRequest to create a Pkt Interface
 void PacketInterface::CreateReq(InterfaceTable *table,
-                                const std::string &ifname) {
+                                const std::string &ifname,
+                                Interface::Transport transport) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new PacketInterfaceKey(nil_uuid(), ifname));
-    req.data.reset(new PacketInterfaceData());
+    req.data.reset(new PacketInterfaceData(transport));
     table->Enqueue(&req);
 }
 
-void PacketInterface::Create(InterfaceTable *table, const std::string &ifname) {
+void PacketInterface::Create(InterfaceTable *table, const std::string &ifname,
+                             Interface::Transport transport) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new PacketInterfaceKey(nil_uuid(), ifname));
-    req.data.reset(new PacketInterfaceData());
+    req.data.reset(new PacketInterfaceData(transport));
     table->Process(req);
 }
 
@@ -459,6 +523,13 @@ void PacketInterface::Delete(InterfaceTable *table, const std::string &ifname) {
     table->Process(req);
 }
 
+bool PacketInterface::OnChange(PacketInterfaceData *data) {
+    if (transport_ != data->transport_) {
+        transport_ = data->transport_;
+        return true;
+    }
+    return false;
+}
 /////////////////////////////////////////////////////////////////////////////
 // DHCP Snoop routines
 // DHCP Snoop entry can be added from 3 different places,
@@ -845,6 +916,25 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         data.set_admin_state("Enabled");
     } else {
         data.set_admin_state("Disabled");
+    }
+
+    switch (transport_) {
+    case TRANSPORT_ETHERNET:{
+        data.set_transport("Ethernet");
+        break;
+    }
+    case TRANSPORT_SOCKET: {
+        data.set_transport("Socket");
+        break;
+    }
+    case TRANSPORT_PMD: {
+        data.set_transport("PMD");
+        break;
+    }
+    default: {
+        data.set_transport("Unknown");
+        break;
+    }
     }
 }
 
