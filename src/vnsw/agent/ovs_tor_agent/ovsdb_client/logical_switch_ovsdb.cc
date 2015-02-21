@@ -26,6 +26,12 @@ using OVSDB::OvsdbClient;
 using OVSDB::OvsdbClientSession;
 
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
+        const char *name) : OvsdbDBEntry(table), name_(name),
+    mcast_local_row_(NULL), mcast_remote_row_(NULL),
+    old_mcast_remote_row_(NULL), vxlan_id_(0) {
+}
+
+LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
         const PhysicalDeviceVn *entry) : OvsdbDBEntry(table),
         name_(UuidToString(entry->vn()->GetUuid())), mcast_local_row_(NULL),
         mcast_remote_row_(NULL), old_mcast_remote_row_(NULL) {
