@@ -56,13 +56,14 @@ def start_kafka(zk_client_port, broker_listen_port, broker_id=0):
          ("log.dirs=/tmp/kafka-logs","log.dirs="+kafkabase+"logs")])
 
     replace_string_(kafkabase + basefile + "/bin/kafka-server-stop.sh",
-        [("grep -v grep", "grep %d | grep -v grep" % broker_listen_port)])
+        [("grep -v grep", "grep %s | grep -v grep" % kafkabase)])
     replace_string_(kafkabase + basefile + "/bin/kafka-server-stop.sh",
         [("SIGINT", "SIGKILL")])
     replace_string_(kafkabase + basefile + "/bin/kafka-server-stop.sh",
         [("#!/bin/sh", "#!/bin/sh -x")])
     output,_ = call_command_("chmod +x " + kafkabase + basefile + "/bin/kafka-server-stop.sh") 
 
+    # Extra options for JMX : -Djava.net.preferIPv4Stack=true -Djava.rmi.server.hostname=xx.xx.xx.xx
     output,_ = call_command_(kafkabase + basefile + "/bin/kafka-server-start.sh -daemon " + kafkabase + basefile + "/config/server.properties")
 
     count = 0
