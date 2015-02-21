@@ -94,7 +94,8 @@ BuildTest(env, 'ifmap_update_queue_test', ['ifmap_update_queue_test.cc'],
           ['schema/ifmap_vnc', 'schema/bgp_schema', 'xml/xml'], [])
 
 BuildTest(env, 'ifmap_update_sender_test', ['ifmap_update_sender_test.cc'],
-          ['schema/ifmap_vnc', 'schema/bgp_schema', 'xml/xml'], [])
+          ['schema/ifmap_vnc', 'schema/bgp_schema', 'xml/xml'], [],
+          flaky_test_suite)
 
 BuildTest(env, 'ifmap_xmpp_test', ['ifmap_xmpp_test.cc'],
           ['schema/ifmap_vnc', 'schema/bgp_schema', 'xml/xml'], [], 
