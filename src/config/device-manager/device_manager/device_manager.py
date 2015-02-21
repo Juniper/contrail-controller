@@ -38,7 +38,7 @@ from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
     NodeStatus
 from cfgm_common.vnc_db import DBBase
 from db import BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM, \
-    LogicalInterfaceDM, VirtualMachineInterfaceDM, VirtualNetworkDM
+    LogicalInterfaceDM, VirtualMachineInterfaceDM, VirtualNetworkDM, RoutingInstanceDM
 from cfgm_common.dependency_tracker import DependencyTracker
 from sandesh.dm_introspect import ttypes as sandesh
 
@@ -163,17 +163,26 @@ class DeviceManager(object):
                                              self.config_log)
 
         DBBase.init(self, self._sandesh.logger(), self._cassandra)
+        ok, vn_list = self._cassandra._cassandra_virtual_network_list()
+        if not ok:
+            self.config_log('virtual network list returned error: %s' %
+                            vn_list)
+        else:
+            for fq_name, uuid in vn_list:
+                vn = VirtualNetworkDM.locate(uuid)
+                if vn is not None and vn.routing_instances is not None:
+                    for ri_id in vn.routing_instances:
+                        ri_obj = RoutingInstanceDM.locate(ri_id)
+
         ok, pr_list = self._cassandra._cassandra_physical_router_list()
         if not ok:
             self.config_log('physical router list returned error: %s' %
                             pr_list)
         else:
-            vn_set = set()
             for fq_name, uuid in pr_list:
                 pr = PhysicalRouterDM.locate(uuid)
                 if pr.bgp_router:
                     BgpRouterDM.locate(pr.bgp_router)
-                vn_set |= pr.virtual_networks
                 li_set = pr.logical_interfaces
                 for pi_id in pr.physical_interfaces:
                     pi = PhysicalInterfaceDM.locate(pi_id)
@@ -186,11 +195,6 @@ class DeviceManager(object):
                         vmi_set |= set([li.virtual_machine_interface])
                 for vmi_id in vmi_set:
                     vmi = VirtualMachineInterfaceDM.locate(vmi_id)
-                    if vmi:
-                        vn_set |= set([vmi.virtual_network])
-
-            for vn_id in vn_set:
-                VirtualNetworkDM.locate(vn_id)
 
             for pr in PhysicalRouterDM.values():
                 pr.push_config()
