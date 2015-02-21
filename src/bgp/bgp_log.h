@@ -137,7 +137,7 @@ do {                                                                       \
 do {                                                                       \
     if (LoggingDisabled()) break;                                          \
     BGP_LOG_SERVER(peer, table);                                           \
-    ostringstream _os;                                                     \
+    std::ostringstream _os;                                                \
     _os << arg;                                                            \
     BGP_LOG_PEER_INTERNAL(Route, peer, SandeshLevel::SYS_DEBUG,            \
             BGP_LOG_FLAG_TRACE, BGP_PEER_DIR_NA, _os.str(),                \
@@ -150,7 +150,7 @@ do {                                                                       \
 do {                                                                       \
     if (LoggingDisabled()) break;                                          \
     BGP_LOG_SERVER((IPeer *) 0, table);                                    \
-    ostringstream _os;                                                     \
+    std::ostringstream _os;                                                \
     _os << arg;                                                            \
     BGP_LOG(BgpTable, level, flags, (table) ? (table)->name() : "",        \
             _os.str());                                                    \
