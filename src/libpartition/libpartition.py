@@ -67,7 +67,7 @@ class PartitionClient(object):
 
         # create a lock array to contain locks for each partition
         self._part_locks = []
-        for part in range(1, self._max_partition):
+        for part in range(1, self._max_partition + 1):
             lockpath = "/lockpath/"+ app_name + "/" + str(part)
             l = self._zk.Lock(lockpath, self._name)
             self._part_locks.append(l)
@@ -76,7 +76,7 @@ class PartitionClient(object):
         self._part_lock_task_dict = {}
 
         # update target partition ownership list
-        for part in range(1, self._max_partition):
+        for part in range(1, self._max_partition + 1):
             if (self._con_hash.get_node(str(part)) == self._name):
                 self._target_part_ownership_list.append(part)
 
@@ -104,6 +104,7 @@ class PartitionClient(object):
         while True:
             ret = l.acquire(blocking=False)
             if ret == True:
+
                 logging.info("Acquired lock for:" + str(part))
                 self._curr_part_ownership_list.append(part)
                 self._update_cb(self._curr_part_ownership_list)
@@ -127,7 +128,7 @@ class PartitionClient(object):
         # this variable will help us decide if we need to call callback
         updated_curr_ownership = False 
 
-        for part in range(1, self._max_partition):
+        for part in range(1, self._max_partition + 1):
             if (part in self._target_part_ownership_list):
                 if (part in self._curr_part_ownership_list):
                     # do nothing, I already have ownership of this partition
@@ -150,17 +151,17 @@ class PartitionClient(object):
 
                 # cancel any lock acquisition which is ongoing 
                 if (part in self._part_lock_task_dict.keys()):
+                    # kill the greenlet trying to get the lock for this
+                    # partition
+                    self._part_lock_task_dict[part].kill()
+                    del self._part_lock_task_dict[part]
+
                     logging.info("canceling lock acquisition going on \
                             for:" + str(part))
                     try:
                         self._part_locks[part-1].cancel()
                     except:
                         pass
-
-                    # kill the greenlet trying to get the lock for this
-                    # partition
-                    self._part_lock_task_dict[part].kill()
-                    del self._part_lock_task_dict[part]
 
                 if (part in self._curr_part_ownership_list):
                     # release if lock was already acquired
@@ -210,7 +211,7 @@ class PartitionClient(object):
 
         # update target partition ownership list
         self._target_part_ownership_list = []
-        for part in range(1, self._max_partition):
+        for part in range(1, self._max_partition + 1):
             if (self._con_hash.get_node(str(part)) == self._name):
                 if not (part in self._target_part_ownership_list):
                     self._target_part_ownership_list.append(part)
@@ -231,3 +232,27 @@ class PartitionClient(object):
         return part_no in self._curr_part_ownership_list 
     #end own_partition
 
+    def close(self):
+        """ Closes any connections and frees up any data structures
+        Args:
+        Returns:
+            None
+        """
+        # clean up greenlets
+        for part in self._part_lock_task_dict.keys():
+            try:
+                self._part_lock_task_dict[part].kill()
+            except:
+                pass
+
+        # close zookeeper
+        try:
+            self._zk.stop()
+        except:
+            pass
+        try:
+            self._zk.close()
+        except:
+            pass
+
+    #end close
