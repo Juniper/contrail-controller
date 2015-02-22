@@ -26,10 +26,43 @@ VrouterUveEntryBase::VrouterUveEntryBase(Agent *agent)
     : agent_(agent), phy_intf_set_(), prev_stats_(), cpu_stats_count_(0),
       vn_listener_id_(DBTableBase::kInvalidId),
       vm_listener_id_(DBTableBase::kInvalidId),
-      intf_listener_id_(DBTableBase::kInvalidId), prev_vrouter_() {
+      intf_listener_id_(DBTableBase::kInvalidId), prev_vrouter_(),
+      do_vn_walk_(false), do_vm_walk_(false), do_interface_walk_(false),
+      timer_(NULL), vn_walk_id_(DBTableWalker::kInvalidWalkerId),
+      vm_walk_id_(DBTableWalker::kInvalidWalkerId),
+      interface_walk_id_(DBTableWalker::kInvalidWalkerId) {
+    if (agent_->tsn_enabled() || agent_->tor_agent_enabled()) {
+        timer_ = TimerManager::CreateTimer(
+	             *(agent_->event_manager())->io_service(), "UveDBWalkTimer",
+                     TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0);
+        timer_->Start(kDBWalkInterval,
+                  boost::bind(&VrouterUveEntryBase::TimerExpiry, this));
+    }
 }
 
 VrouterUveEntryBase::~VrouterUveEntryBase() {
+}
+
+bool VrouterUveEntryBase::TimerExpiry() {
+    Run();
+    /* Return true to request auto-restart of timer */
+    return true;
+}
+
+bool VrouterUveEntryBase::Run() {
+    if (do_vn_walk_ && vn_walk_id_ == DBTableWalker::kInvalidWalkerId) {
+        VnNotifyHandler();
+    }
+
+    if (do_vm_walk_ && vm_walk_id_ == DBTableWalker::kInvalidWalkerId) {
+        VmNotifyHandler();
+    }
+
+    if (do_interface_walk_ &&
+        interface_walk_id_ == DBTableWalker::kInvalidWalkerId) {
+        InterfaceNotifyHandler();
+    }
+    return true;
 }
 
 void VrouterUveEntryBase::RegisterDBClients() {
@@ -47,9 +80,29 @@ void VrouterUveEntryBase::RegisterDBClients() {
 }
 
 void VrouterUveEntryBase::Shutdown(void) {
-    agent_->interface_table()->Unregister(intf_listener_id_);
-    agent_->vm_table()->Unregister(vm_listener_id_);
-    agent_->vn_table()->Unregister(vn_listener_id_);
+    if (intf_listener_id_ != DBTableBase::kInvalidId)
+        agent_->interface_table()->Unregister(intf_listener_id_);
+    if (vm_listener_id_ != DBTableBase::kInvalidId)
+        agent_->vm_table()->Unregister(vm_listener_id_);
+    if (vn_listener_id_ != DBTableBase::kInvalidId)
+        agent_->vn_table()->Unregister(vn_listener_id_);
+    DBTableWalker *walker = agent_->db()->GetWalker();
+    if (walker) {
+        if (vn_walk_id_ != DBTableWalker::kInvalidWalkerId) {
+            walker->WalkCancel(vn_walk_id_);
+        }
+        if (vm_walk_id_ != DBTableWalker::kInvalidWalkerId) {
+            walker->WalkCancel(vm_walk_id_);
+        }
+        if (interface_walk_id_ != DBTableWalker::kInvalidWalkerId) {
+            walker->WalkCancel(interface_walk_id_);
+        }
+    }
+    if (timer_) {
+	timer_->Cancel();
+	TimerManager::DeleteTimer(timer_);
+	timer_ = NULL;
+    }
 }
 
 void VrouterUveEntryBase::DispatchVrouterMsg(const VrouterAgent &uve) {
@@ -61,6 +114,8 @@ void VrouterUveEntryBase::VmWalkDone(DBTableBase *base, StringVectorPtr list) {
     vrouter_agent.set_name(agent_->agent_name());
     vrouter_agent.set_virtual_machine_list(*(list.get()));
     DispatchVrouterMsg(vrouter_agent);
+    do_vm_walk_ = false;
+    vm_walk_id_ = DBTableWalker::kInvalidWalkerId;
 }
 
 bool VrouterUveEntryBase::AppendVm(DBTablePartBase *part, DBEntryBase *entry,
@@ -75,23 +130,29 @@ bool VrouterUveEntryBase::AppendVm(DBTablePartBase *part, DBEntryBase *entry,
     return true;
 }
 
-void VrouterUveEntryBase::VmNotifyHandler(const VmEntry *vm) {
+void VrouterUveEntryBase::StartVmWalk() {
     StringVectorPtr list(new vector<string>());
     DBTableWalker *walker = agent_->db()->GetWalker();
-    walker->WalkTable(agent_->vm_table(), NULL,
+    vm_walk_id_ = walker->WalkTable(agent_->vm_table(), NULL,
         boost::bind(&VrouterUveEntryBase::AppendVm, this, _1, _2, list),
         boost::bind(&VrouterUveEntryBase::VmWalkDone, this, _1, list));
 }
 
-void VrouterUveEntryBase::VmNotify(DBTablePartBase *partition, DBEntryBase *e) {
-    const VmEntry *vm = static_cast<const VmEntry *>(e);
+void VrouterUveEntryBase::VmNotifyHandler() {
+    if (agent_->tsn_enabled() || agent_->tor_agent_enabled()) {
+        do_vm_walk_ = true;
+    } else {
+        StartVmWalk();
+    }
+}
 
+void VrouterUveEntryBase::VmNotify(DBTablePartBase *partition, DBEntryBase *e) {
     DBState *state = static_cast<DBState *>
         (e->GetState(partition->parent(), vm_listener_id_));
 
     if (e->IsDeleted()) {
         if (state) {
-            VmNotifyHandler(vm);
+            VmNotifyHandler();
             e->ClearState(partition->parent(), vm_listener_id_);
             delete state;
         }
@@ -102,7 +163,7 @@ void VrouterUveEntryBase::VmNotify(DBTablePartBase *partition, DBEntryBase *e) {
         state = new DBState();
         e->SetState(partition->parent(), vm_listener_id_, state);
         //Send vrouter object only for a add/delete
-        VmNotifyHandler(vm);
+        VmNotifyHandler();
     }
 }
 
@@ -111,6 +172,8 @@ void VrouterUveEntryBase::VnWalkDone(DBTableBase *base, StringVectorPtr list) {
     vrouter_agent.set_name(agent_->agent_name());
     vrouter_agent.set_connected_networks(*(list.get()));
     DispatchVrouterMsg(vrouter_agent);
+    do_vn_walk_ = false;
+    vn_walk_id_ = DBTableWalker::kInvalidWalkerId;
 }
 
 bool VrouterUveEntryBase::AppendVn(DBTablePartBase *part, DBEntryBase *entry,
@@ -123,23 +186,29 @@ bool VrouterUveEntryBase::AppendVn(DBTablePartBase *part, DBEntryBase *entry,
     return true;
 }
 
-void VrouterUveEntryBase::VnNotifyHandler(const VnEntry *vn) {
+void VrouterUveEntryBase::StartVnWalk() {
     StringVectorPtr list(new vector<string>());
     DBTableWalker *walker = agent_->db()->GetWalker();
-    walker->WalkTable(agent_->vn_table(), NULL,
+    vn_walk_id_ = walker->WalkTable(agent_->vn_table(), NULL,
              boost::bind(&VrouterUveEntryBase::AppendVn, this, _1, _2, list),
              boost::bind(&VrouterUveEntryBase::VnWalkDone, this, _1, list));
 }
 
-void VrouterUveEntryBase::VnNotify(DBTablePartBase *partition, DBEntryBase *e) {
-    const VnEntry *vn = static_cast<const VnEntry *>(e);
+void VrouterUveEntryBase::VnNotifyHandler() {
+    if (agent_->tsn_enabled() || agent_->tor_agent_enabled()) {
+        do_vn_walk_ = true;
+    } else {
+        StartVnWalk();
+    }
+}
 
+void VrouterUveEntryBase::VnNotify(DBTablePartBase *partition, DBEntryBase *e) {
     DBState *state = static_cast<DBState *>
         (e->GetState(partition->parent(), vn_listener_id_));
 
     if (e->IsDeleted()) {
         if (state) {
-            VnNotifyHandler(vn);
+            VnNotifyHandler();
             e->ClearState(partition->parent(), vn_listener_id_);
             delete state;
         }
@@ -149,7 +218,7 @@ void VrouterUveEntryBase::VnNotify(DBTablePartBase *partition, DBEntryBase *e) {
     if (!state) {
         state = new DBState();
         e->SetState(partition->parent(), vn_listener_id_, state);
-        VnNotifyHandler(vn);
+        VnNotifyHandler();
     }
 }
 
@@ -167,6 +236,8 @@ void VrouterUveEntryBase::InterfaceWalkDone(DBTableBase *base,
     vrouter_agent.set_down_interface_count((err_if_list.get()->size() +
                                             nova_if_list.get()->size()));
     DispatchVrouterMsg(vrouter_agent);
+    do_interface_walk_ = false;
+    interface_walk_id_ = DBTableWalker::kInvalidWalkerId;
 }
 
 bool VrouterUveEntryBase::AppendInterface(DBTablePartBase *part,
@@ -192,17 +263,25 @@ bool VrouterUveEntryBase::AppendInterface(DBTablePartBase *part,
     return true;
 }
 
-void VrouterUveEntryBase::InterfaceNotifyHandler(const Interface *intf) {
+void VrouterUveEntryBase::StartInterfaceWalk() {
     StringVectorPtr intf_list(new std::vector<std::string>());
     StringVectorPtr err_if_list(new std::vector<std::string>());
     StringVectorPtr nova_if_list(new std::vector<std::string>());
 
     DBTableWalker *walker = agent_->db()->GetWalker();
-    walker->WalkTable(agent_->interface_table(), NULL,
-        boost::bind(&VrouterUveEntryBase::AppendInterface, this, _1, _2, intf_list,
-                    err_if_list, nova_if_list),
+    interface_walk_id_ = walker->WalkTable(agent_->interface_table(), NULL,
+        boost::bind(&VrouterUveEntryBase::AppendInterface, this, _1, _2,
+                    intf_list, err_if_list, nova_if_list),
         boost::bind(&VrouterUveEntryBase::InterfaceWalkDone, this, _1, intf_list,
                     err_if_list, nova_if_list));
+}
+
+void VrouterUveEntryBase::InterfaceNotifyHandler() {
+    if (agent_->tsn_enabled() || agent_->tor_agent_enabled()) {
+        do_interface_walk_ = true;
+    } else {
+        StartInterfaceWalk();
+    }
 }
 
 void VrouterUveEntryBase::InterfaceNotify(DBTablePartBase *partition,
@@ -222,19 +301,19 @@ void VrouterUveEntryBase::InterfaceNotify(DBTablePartBase *partition,
             set_state = true;
             vmport_ipv4_active = vm_port->ipv4_active();
             vmport_l2_active = vm_port->l2_active();
-            InterfaceNotifyHandler(intf);
+            InterfaceNotifyHandler();
         } else if (e->IsDeleted()) {
             if (state) {
                 reset_state = true;
-                InterfaceNotifyHandler(intf);
+                InterfaceNotifyHandler();
             }
         } else {
             if (state && vm_port->ipv4_active() != state->vmport_ipv4_active_) {
-                InterfaceNotifyHandler(intf);
+                InterfaceNotifyHandler();
                 state->vmport_ipv4_active_ = vm_port->ipv4_active();
             }
             if (state && vm_port->l2_active() != state->vmport_l2_active_) {
-                InterfaceNotifyHandler(intf);
+                InterfaceNotifyHandler();
                 state->vmport_l2_active_ = vm_port->l2_active();
             }
         }

@@ -204,8 +204,10 @@ void VmUveTableBase::RegisterDBClients() {
 }
 
 void VmUveTableBase::Shutdown(void) {
-    agent_->vm_table()->Unregister(vm_listener_id_);
-    agent_->interface_table()->Unregister(intf_listener_id_);
+    if (vm_listener_id_ != DBTableBase::kInvalidId)
+        agent_->vm_table()->Unregister(vm_listener_id_);
+    if (intf_listener_id_ != DBTableBase::kInvalidId)
+        agent_->interface_table()->Unregister(intf_listener_id_);
 }
 
 

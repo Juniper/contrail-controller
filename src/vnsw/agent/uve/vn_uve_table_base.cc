@@ -27,8 +27,10 @@ void VnUveTableBase::RegisterDBClients() {
 }
 
 void VnUveTableBase::Shutdown(void) {
-    agent_->vn_table()->Unregister(vn_listener_id_);
-    agent_->interface_table()->Unregister(intf_listener_id_);
+    if (vn_listener_id_ != DBTableBase::kInvalidId)
+        agent_->vn_table()->Unregister(vn_listener_id_);
+    if (intf_listener_id_ != DBTableBase::kInvalidId)
+        agent_->interface_table()->Unregister(intf_listener_id_);
 }
 
 void VnUveTableBase::DispatchVnMsg(const UveVirtualNetworkAgent &uve) {
