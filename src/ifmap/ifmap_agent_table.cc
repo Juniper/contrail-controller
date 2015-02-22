@@ -433,6 +433,22 @@ void IFMapAgentLinkTable::Input(DBTablePartition *partition, DBClient *client,
     if (req->oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
         if (link == NULL) {
             edge = graph_->Link(left, right);
+            IFMapLink *old_link = FindLink(edge);
+            if (old_link) {
+                bool exists, is_deleted = false;
+                uint64_t seq =
+                    old_link->sequence_number(IFMapOrigin::UNKNOWN, &exists);
+                is_deleted = old_link->IsDeleted();
+                LOG(ERROR, "New Left " << left->table() << ":" <<
+                        left->name() <<  "Right " << right->table() << ":"
+                        << right->name() << " Is Deleted " << is_deleted
+                        << "seq " << seq);
+                LOG(ERROR, "Old Left " << old_link->left()->table() << ":" <<
+                        old_link->left()->name() <<  "Right " <<
+                        old_link->right()->table() << ":"
+                        << old_link->right()->name());
+                assert(false);
+            }
             AddLink(edge, left, right, key->metadata, key->left_key.id_seq_num);
         } else {
             IFMapOrigin origin(IFMapOrigin::UNKNOWN);
