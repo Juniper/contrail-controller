@@ -15,6 +15,13 @@ ProuterUveTable::ProuterUveTable(Agent *agent)
 ProuterUveTable::~ProuterUveTable() {
 }
 
+ProuterUveTable::ProuterUveEntry::~ProuterUveEntry() {
+    if (encoder_task_trigger_) {
+        encoder_task_trigger_->Reset();
+        delete encoder_task_trigger_;
+    }
+}
+
 void ProuterUveTable::ProuterUveEntry::AddPhysicalInterface
                                            (const Interface *itf) {
     InterfaceSet::iterator it = physical_interface_set_.find(itf);
@@ -116,7 +123,8 @@ void ProuterUveTable::FillLogicalInterfaceList
 }
 
 void ProuterUveTable::FrameProuterMsg(const PhysicalDevice *p,
-                                          ProuterData *uve) const {
+                                      ProuterUveEntry *entry,
+                                      ProuterData *uve) const {
     vector<UvePhysicalInterfaceData> phy_if_list;
     vector<UveLogicalInterfaceData> logical_list;
     /* We are using hostname instead of fq-name because Prouter UVE sent by
@@ -124,7 +132,6 @@ void ProuterUveTable::FrameProuterMsg(const PhysicalDevice *p,
      * both these information to be seen in same UVE */
     uve->set_name(p->name());
     uve->set_uuid(to_string(p->uuid()));
-    ProuterUveEntry *entry = PDEntryToProuterUveEntry(p);
     InterfaceSet::iterator pit = entry->physical_interface_set_.begin();
     while (pit != entry->physical_interface_set_.end()) {
         UvePhysicalInterfaceData pif_data;
@@ -145,10 +152,26 @@ void ProuterUveTable::FrameProuterMsg(const PhysicalDevice *p,
     uve->set_logical_interface_list(logical_list);
 }
 
-void ProuterUveTable::SendProuterMsg(const PhysicalDevice *p) {
+void ProuterUveTable::RemoveUveEntry(const boost::uuids::uuid &u) {
+    UveProuterMap::iterator it = uve_prouter_map_.find(u);
+    if (it == uve_prouter_map_.end()) {
+        return;
+    }
+    uve_prouter_map_.erase(it);
+    SendProuterVrouterAssociation();
+}
+
+bool ProuterUveTable::SendProuterMsg(const PhysicalDevice *p,
+                                     ProuterUveEntry *entry) {
     ProuterData uve;
-    FrameProuterMsg(p, &uve);
+    if (entry->deleted_) {
+        RemoveUveEntry(p->uuid());
+        return true;
+    }
+    FrameProuterMsg(p, entry, &uve);
     DispatchProuterMsg(uve);
+    entry->prouter_msg_enqueued_ = false;
+    return true;
 }
 
 void ProuterUveTable::SendProuterDeleteMsg(ProuterUveEntry *e) {
@@ -158,10 +181,27 @@ void ProuterUveTable::SendProuterDeleteMsg(ProuterUveEntry *e) {
     DispatchProuterMsg(uve);
 }
 
+void ProuterUveTable::EnqueueProuterMsg(const PhysicalDevice *p) {
+    ProuterUveEntry *entry = PDEntryToProuterUveEntry(p);
+    if (entry->prouter_msg_enqueued_) {
+        return;
+    }
+    if (!entry->encoder_task_trigger_) {
+        entry->encoder_task_trigger_ =
+           new TaskTrigger(boost::bind(&ProuterUveTable::SendProuterMsg, this,
+                                       p, entry),
+               TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0);
+    }
+    /* encoder_task_trigger_ is TaskTrigger object. This will ensure that
+     * TaskTrigger callback is not invoked if it is not completed yet */
+    entry->encoder_task_trigger_->Set();
+    entry->prouter_msg_enqueued_ = true;
+}
+
 void ProuterUveTable::SendProuterMsgFromPhyInterface(const Interface *pi) {
     const PhysicalDevice *pde = InterfaceToProuter(pi);
     if (pde && !pde->IsDeleted()) {
-        SendProuterMsg(pde);
+        EnqueueProuterMsg(pde);
     }
 }
 
@@ -186,7 +226,7 @@ ProuterUveTable::ProuterUveEntry* ProuterUveTable::AddHandler
     pair<UveProuterMap::iterator, bool> ret;
     ret = uve_prouter_map_.insert(UveProuterPair(p->uuid(), uve));
     UveProuterMap::iterator it = ret.first;
-    SendProuterMsg(p);
+    EnqueueProuterMsg(p);
     SendProuterVrouterAssociation();
     return it->second.get();
 }
@@ -201,8 +241,12 @@ void ProuterUveTable::DeleteHandler(const PhysicalDevice *p) {
     SendProuterDeleteMsg(entry);
     entry->physical_interface_set_.clear();
     entry->logical_interface_set_.clear();
-    uve_prouter_map_.erase(it);
-    SendProuterVrouterAssociation();
+    if (!entry->prouter_msg_enqueued_) {
+        uve_prouter_map_.erase(it);
+        SendProuterVrouterAssociation();
+    } else {
+        entry->deleted_ = true;
+    }
 }
 
 void ProuterUveTable::AddLogicalInterface(const Interface *pintf,
@@ -233,7 +277,7 @@ void ProuterUveTable::AddProuterLogicalInterface
 
     ProuterUveEntry* entry = it->second.get();
     entry->AddLogicalInterface(intf);
-    SendProuterMsg(p);
+    EnqueueProuterMsg(p);
 }
 
 void ProuterUveTable::DeleteLogicalInterface(const Interface *pintf,
@@ -259,7 +303,7 @@ void ProuterUveTable::DeleteProuterLogicalInterface
     ProuterUveEntry* entry = it->second.get();
     bool deleted  = entry->DeleteLogicalInterface(intf);
     if (deleted) {
-        SendProuterMsg(p);
+        EnqueueProuterMsg(p);
     }
 }
 
@@ -284,7 +328,7 @@ void ProuterUveTable::PhysicalDeviceNotify(DBTablePartBase *partition,
             AddHandler(pr);
         } else {
             /* For Change notifications send only the msg */
-            SendProuterMsg(pr);
+            EnqueueProuterMsg(pr);
         }
     }
 }
@@ -293,11 +337,11 @@ void ProuterUveTable::DisassociatePhysicalInterface(const Interface *intf,
                                                    const PhysicalDevice *pde) {
     ProuterUveEntry *entry = PDEntryToProuterUveEntry(pde);
     entry->DeletePhysicalInterface(intf);
-    SendProuterMsg(pde);
+    EnqueueProuterMsg(pde);
 }
 
 void ProuterUveTable::PhysicalInterfaceHandler(const Interface *intf,
-                                                   const PhysicalDevice *pde) {
+                                               const PhysicalDevice *pde) {
     /* Ignore notifications for PhysicalInterface if it has no
        PhysicalDevice */
     if (pde == NULL) {
@@ -318,11 +362,11 @@ void ProuterUveTable::PhysicalInterfaceHandler(const Interface *intf,
     } else {
         entry->AddPhysicalInterface(intf);
     }
-    SendProuterMsg(pde);
+    EnqueueProuterMsg(pde);
 }
 
 void ProuterUveTable::InterfaceNotify(DBTablePartBase *partition,
-                                          DBEntryBase *e) {
+                                      DBEntryBase *e) {
     const Interface *intf = static_cast<const Interface *>(e);
     const LogicalInterface *lintf = NULL;
     const RemotePhysicalInterface *rpintf = NULL;
@@ -398,7 +442,7 @@ void ProuterUveTable::InterfaceNotify(DBTablePartBase *partition,
                 if (physical_interface) {
                     SendProuterMsgFromPhyInterface(physical_interface);
                 } else if (pde) {
-                    SendProuterMsg(pde);
+                    EnqueueProuterMsg(pde);
                 }
             }
         } else {
