@@ -12,11 +12,18 @@ FlowTableUnitTest::~FlowTableUnitTest() {
 }
 
 void FlowTableUnitTest::DispatchFlowMsg(SandeshLevel::type level,
-                                    FlowDataIpv4 &flow) {
+                                        FlowDataIpv4 &flow) {
     flow_log_ = flow;
+    if (flow.get_direction_ing()) {
+        ingress_flow_log_list_.push_back(flow);
+    }
 }
 
 FlowDataIpv4 FlowTableUnitTest::last_sent_flow_log() const {
     return flow_log_;
+}
+
+void FlowTableUnitTest::ClearList() {
+    ingress_flow_log_list_.clear();
 }
 

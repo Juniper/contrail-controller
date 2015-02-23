@@ -1531,18 +1531,6 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
     FlowTableKSyncObject *ksync_obj = 
         agent_->ksync()->flowtable_ksync_obj();
 
-    FlowStatsCollector *fec = agent_->flow_stats_collector();
-    uint64_t diff_bytes, diff_packets;
-    fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
-
-    fe->stats_.teardown_time = UTCTimestampUsec();
-    FlowExport(fe, diff_bytes, diff_packets);
-    /* Reset stats and teardown_time after these information is exported during
-     * flow delete so that if the flow entry is reused they point to right 
-     * values */
-    fe->ResetStats();
-    fe->stats_.teardown_time = 0;
-
     // Unlink the reverse flow, if one exists
     FlowEntry *rflow = fe->reverse_flow_entry();
     if (rflow) {
@@ -1567,37 +1555,6 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
     agent_->stats()->incr_flow_aged();
 }
 
-bool FlowTable::Delete(FlowEntryMap::iterator &it, bool rev_flow)
-{
-    FlowEntry *fe;
-    FlowEntryMap::iterator rev_it;
-
-    fe = it->second;
-    FlowEntry *reverse_flow = NULL;
-    if (fe->is_flags_set(FlowEntry::NatFlow) || rev_flow) {
-        reverse_flow = fe->reverse_flow_entry();
-    }
-    DeleteInternal(it);
-
-    if (!reverse_flow) {
-        return true;
-    }
-    /* If reverse-flow is valid and the present iterator is pointing to it,
-     * use that iterator to delete reverse flow
-     */
-    if (reverse_flow == it->second) {
-        DeleteInternal(it);
-        return true;
-    }
-
-    rev_it = flow_entry_map_.find(reverse_flow->key());
-    if (rev_it != flow_entry_map_.end()) {
-        DeleteInternal(rev_it);
-        return true;
-    }
-    return false;
-}
-
 bool FlowTable::Delete(const FlowKey &key, bool del_reverse_flow)
 {
     FlowEntryMap::iterator it;
@@ -1614,6 +1571,11 @@ bool FlowTable::Delete(const FlowKey &key, bool del_reverse_flow)
         reverse_flow = fe->reverse_flow_entry();
     }
 
+    /* Send flow log messages for both forward and reverse flows before we
+     * delete any flows because we need relationship between forward and
+     * reverse flow during FlowExport. This relationship will be broken if
+     * either of forward or reverse flow is deleted */
+    SendFlows(fe, reverse_flow);
     /* Delete the forward flow */
     DeleteInternal(it);
 
@@ -1627,6 +1589,33 @@ bool FlowTable::Delete(const FlowKey &key, bool del_reverse_flow)
         return true;
     }
     return false;
+}
+
+void FlowTable::SendFlowInternal(FlowEntry *fe)
+{
+    if (fe->deleted()) {
+        /* Already deleted return from here. */
+        return;
+    }
+    FlowStatsCollector *fec = agent_->flow_stats_collector();
+    uint64_t diff_bytes, diff_packets;
+    fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
+
+    fe->stats_.teardown_time = UTCTimestampUsec();
+    FlowExport(fe, diff_bytes, diff_packets);
+    /* Reset stats and teardown_time after these information is exported during
+     * flow delete so that if the flow entry is reused they point to right
+     * values */
+    fe->ResetStats();
+    fe->stats_.teardown_time = 0;
+}
+
+void FlowTable::SendFlows(FlowEntry *flow, FlowEntry *rflow)
+{
+    SendFlowInternal(flow);
+    if (rflow) {
+        SendFlowInternal(rflow);
+    }
 }
 
 void FlowTable::DeleteAll()

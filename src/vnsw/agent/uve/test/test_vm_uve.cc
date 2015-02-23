@@ -27,6 +27,7 @@
 #include "testing/gunit.h"
 #include "test/test_cmn_util.h"
 #include "pkt/test/test_flow_util.h"
+#include "pkt/test/flow_table_test.h"
 #include "ksync/ksync_sock_user.h"
 #include "vr_types.h"
 #include <uve/test/vm_uve_table_test.h>
@@ -1323,6 +1324,79 @@ TEST_F(UveVmUveTest, VmNameInInterfaceList) {
     //clear counters at the end of test case
     client->Reset();
     vmut->ClearCount();
+}
+
+//Verfiy Source IP overriden for NAT flows in flow-log messages exported by agent
+TEST_F(UveVmUveTest, SIP_override) {
+    FlowSetUp();
+    FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_collector();
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(Address::INET, vm1_ip, vm4_ip, 1, 0, 0, "vrf5",
+                        flow0->id(), 1),
+            {
+                new VerifyNat(vm4_ip, vm1_fip, 1, 0, 0)
+            }
+        }
+    };
+
+    CreateFlow(flow, 1);
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    //Verify Floating IP flows are created.
+    const FlowEntry *f1 = flow[0].pkt_.FlowFetch();
+    const FlowEntry *rev = f1->reverse_flow_entry();
+    EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, vm4_ip, 1, 0, 0,
+                        flow0->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(), vm4_ip,
+                        vm1_fip, 1, 0, 0, rev->key().nh));
+
+    FlowTableUnitTest *f = static_cast<FlowTableUnitTest *>
+        (Agent::GetInstance()->pkt()->flow_table());
+    f->ClearList();
+
+    std::vector<FlowDataIpv4> list = f->ingress_flow_log_list();
+    EXPECT_EQ(0U, list.size());
+
+    //Invoke FlowStatsCollector to export flow logs
+    util_.EnqueueFlowStatsCollectorTask();
+    client->WaitForIdle(10);
+
+    list = f->ingress_flow_log_list();
+    EXPECT_EQ(2U, list.size());
+
+    Ip4Address dip_addr = Ip4Address::from_string(vm4_ip);
+    Ip4Address sip_addr = Ip4Address::from_string(vm1_fip);
+    //Verify that the source-ip of one of the exported flow is overwritten
+    //with FIP
+    FlowDataIpv4 fl1, fl2;
+    fl1 = list.at(0);
+    fl2 = list.at(1);
+    if (fl1.get_destip() == dip_addr.to_ulong()) {
+        EXPECT_EQ(fl1.get_sourceip(), sip_addr.to_ulong());
+    } else if (fl2.get_destip() == dip_addr.to_ulong()) {
+        EXPECT_EQ(fl2.get_sourceip(), sip_addr.to_ulong());
+    }
+
+    f->ClearList();
+    //cleanup
+    FlowTearDown();
+    RemoveFipConfig();
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    //Verify that flow-logs are sent during flow delete
+    list = f->ingress_flow_log_list();
+    EXPECT_EQ(2U, list.size());
+
+    //Verify that SIP is overwritten even for flows sent during flow delete
+    fl1 = list.at(0);
+    fl2 = list.at(1);
+    if (fl1.get_destip() == dip_addr.to_ulong()) {
+        EXPECT_EQ(fl1.get_sourceip(), sip_addr.to_ulong());
+    } else if (fl2.get_destip() == dip_addr.to_ulong()) {
+        EXPECT_EQ(fl2.get_sourceip(), sip_addr.to_ulong());
+    }
+    f->ClearList();
 }
 
 int main(int argc, char **argv) {

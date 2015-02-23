@@ -757,7 +757,8 @@ private:
 
     void DeleteAclFlows(const AclDBEntry *acl);
     void DeleteInternal(FlowEntryMap::iterator &it);
-    bool Delete(FlowEntryMap::iterator &it, bool rev_flow);
+    void SendFlows(FlowEntry *flow, FlowEntry *rflow);
+    void SendFlowInternal(FlowEntry *fe);
 
     void UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow);
     void SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow);
