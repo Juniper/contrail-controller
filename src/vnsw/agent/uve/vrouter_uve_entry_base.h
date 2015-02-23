@@ -35,6 +35,7 @@ public:
     static const uint8_t bandwidth_mod_1min = 2;
     static const uint8_t bandwidth_mod_5min = 10;
     static const uint8_t bandwidth_mod_10min = 20;
+    static const uint32_t kDBWalkInterval = (1000); // time in milliseconds
     typedef std::set<const Interface *> PhysicalInterfaceSet;
     typedef boost::shared_ptr<std::vector<std::string> > StringVectorPtr;
 
@@ -74,9 +75,14 @@ private:
     void InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e);
     void VmNotify(DBTablePartBase *partition, DBEntryBase *e);
     void VnNotify(DBTablePartBase *partition, DBEntryBase *e);
-    void VmNotifyHandler(const VmEntry *vm);
-    void VnNotifyHandler(const VnEntry *vn);
-    void InterfaceNotifyHandler(const Interface *intf);
+    void VmNotifyHandler();
+    void VnNotifyHandler();
+    void InterfaceNotifyHandler();
+    void StartVnWalk();
+    void StartVmWalk();
+    void StartInterfaceWalk();
+    bool TimerExpiry();
+    bool Run();
     std::string GetMacAddress(const MacAddress &mac) const;
     void SubnetToStringList(VirtualGatewayConfig::SubnetList &l1,
                             std::vector<std::string> &l2);
@@ -86,6 +92,13 @@ private:
     DBTableBase::ListenerId vm_listener_id_;
     DBTableBase::ListenerId intf_listener_id_;
     VrouterAgent prev_vrouter_;
+    bool do_vn_walk_;
+    bool do_vm_walk_;
+    bool do_interface_walk_;
+    Timer *timer_;
+    DBTableWalker::WalkId vn_walk_id_;
+    DBTableWalker::WalkId vm_walk_id_;
+    DBTableWalker::WalkId interface_walk_id_;
     DISALLOW_COPY_AND_ASSIGN(VrouterUveEntryBase);
 };
 
