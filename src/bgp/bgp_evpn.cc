@@ -10,6 +10,7 @@
 
 #include "base/task_annotations.h"
 #include "base/util.h"
+#include "bgp/bgp_log.h"
 #include "bgp/bgp_path.h"
 #include "bgp/bgp_route.h"
 #include "bgp/evpn/evpn_table.h"
@@ -178,6 +179,8 @@ void EvpnLocalMcastNode::AddInclusiveMulticastRoute() {
     route->InsertPath(path);
     inclusive_mcast_route_ = route;
     tbl_partition->Notify(inclusive_mcast_route_);
+    BGP_LOG_ROUTE(partition_->table(), static_cast<IPeer *>(NULL),
+        route, "Insert new Local path");
 }
 
 //
@@ -189,6 +192,8 @@ void EvpnLocalMcastNode::DeleteInclusiveMulticastRoute() {
 
     DBTablePartition *tbl_partition = partition_->GetTablePartition();
     inclusive_mcast_route_->RemovePath(BgpPath::Local);
+    BGP_LOG_ROUTE(partition_->table(), static_cast<IPeer *>(NULL),
+        inclusive_mcast_route_, "Delete Local path");
 
     if (!inclusive_mcast_route_->BestPath()) {
         tbl_partition->Delete(inclusive_mcast_route_);
@@ -390,6 +395,8 @@ void EvpnManagerPartition::DeleteMcastNode(EvpnMcastNode *node) {
         if (regular_node_list_.erase(node) > 0)
             NotifyIrClientNodeRoutes(false);
     }
+    if (empty())
+        evpn_manager_->RetryDelete();
 }
 
 //
@@ -444,6 +451,13 @@ bool EvpnManagerPartition::empty() const {
 //
 BgpServer *EvpnManagerPartition::server() {
     return evpn_manager_->server();
+}
+
+//
+// Return the EvpnTable for the EvpnManagerPartition.
+//
+const EvpnTable *EvpnManagerPartition::table() const {
+    return evpn_manager_->table();
 }
 
 //
@@ -600,6 +614,8 @@ void EvpnManager::ManagedDelete() {
 // Attempt to enqueue a delete for the EvpnManager.
 //
 void EvpnManager::RetryDelete() {
+    if (!deleter()->IsDeleted())
+        return;
     deleter()->RetryDelete();
 }
 

@@ -167,6 +167,7 @@ public:
         return leaf_node_list_;
     }
     BgpServer *server();
+    const EvpnTable *table() const;
 
 private:
     friend class BgpEvpnManagerTest;
@@ -221,6 +222,7 @@ public:
     virtual UpdateInfo *GetUpdateInfo(EvpnRoute *route);
     DBTablePartition *GetTablePartition(size_t part_id);
     BgpServer *server();
+    const EvpnTable *table() const { return table_; }
 
     void ManagedDelete();
     void Shutdown();
