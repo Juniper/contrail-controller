@@ -109,6 +109,7 @@ void IFMapAgentTable::HandlePendingLinks(IFMapNode *node) {
         iter++;
         edge = graph_->GetEdge(node, right);
         assert(edge);
+        IFMapLink *l = static_cast<IFMapLink *>(edge);
    
         // Create both the request keys
         auto_ptr <IFMapAgentLinkTable::RequestKey> req_key (new IFMapAgentLinkTable::RequestKey);
@@ -119,6 +120,7 @@ void IFMapAgentTable::HandlePendingLinks(IFMapNode *node) {
         req_key->right_key.id_name = right->name();
         req_key->right_key.id_type = right->table()->Typename();
         req_key->right_key.id_seq_num = right->GetObject()->sequence_number();
+        req_key->metadata = l->metadata();
 
         DBRequest req; 
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -159,14 +161,14 @@ void IFMapAgentTable::NotifyNode(IFMapNode *node) {
 void IFMapAgentLinkTable::LinkDefAdd(DBRequest *request) {
     RequestKey *key = static_cast<RequestKey *>(request->key.get());
 
-    std::list<IFMapTable::RequestKey>::iterator it;
+    std::list<struct DeferredNode>::iterator it;
 
-    std::list<IFMapTable::RequestKey> *left = NULL;
+    std::list<struct DeferredNode> *left = NULL;
     LinkDefMap::iterator left_it = link_def_map_.find(key->left_key);
     if (link_def_map_.end() != left_it)
         left = left_it->second;
 
-    std::list<IFMapTable::RequestKey> *right = NULL;
+    std::list<struct DeferredNode> *right = NULL;
     LinkDefMap::iterator right_it = link_def_map_.find(key->right_key);
     if (link_def_map_.end() != right_it)
         right = right_it->second;
@@ -175,8 +177,8 @@ void IFMapAgentLinkTable::LinkDefAdd(DBRequest *request) {
         // remove left->right entry
         if (left) {
             for(it = left->begin(); it != left->end(); it++) {
-                if (((*it).id_type == key->right_key.id_type) && 
-                    ((*it).id_name == key->right_key.id_name)) {
+                if (((*it).node_key.id_type == key->right_key.id_type) &&
+                    ((*it).node_key.id_name == key->right_key.id_name)) {
                     left->erase(it);
                     break;
                 }   
@@ -187,8 +189,8 @@ void IFMapAgentLinkTable::LinkDefAdd(DBRequest *request) {
         // remove right->left entry
         if (right) {
             for(it = right->begin(); it != right->end(); it++) {
-                if (((*it).id_type == key->left_key.id_type) && 
-                    ((*it).id_name == key->left_key.id_name)) {
+                if (((*it).node_key.id_type == key->left_key.id_type) &&
+                    ((*it).node_key.id_name == key->left_key.id_name)) {
                     right->erase(it);
                     break;
                 }
@@ -205,15 +207,16 @@ void IFMapAgentLinkTable::LinkDefAdd(DBRequest *request) {
     if (left) {
         // If list already contains, just update the seq number
         for(it = left->begin(); it != left->end(); it++) {
-            if (((*it).id_type == key->right_key.id_type) && 
-                    ((*it).id_name == key->right_key.id_name)) {
-                (*it).id_seq_num = key->right_key.id_seq_num;
+            if (((*it).node_key.id_type == key->right_key.id_type) &&
+                    ((*it).node_key.id_name == key->right_key.id_name)) {
+                (*it).node_key.id_seq_num = key->right_key.id_seq_num;
+                (*it).link_metadata = key->metadata;
                 push_left = false;
                 break;
             }
         }
     } else {
-        left = new std::list<IFMapTable::RequestKey>();
+        left = new std::list<struct DeferredNode>();
         link_def_map_[key->left_key] = left;
     }
 
@@ -222,23 +225,30 @@ void IFMapAgentLinkTable::LinkDefAdd(DBRequest *request) {
     if (right) {
         // If list already contains, just update the seq number
         for(it = right->begin(); it != right->end(); it++) {
-            if (((*it).id_type == key->left_key.id_type) && 
-                    ((*it).id_name == key->left_key.id_name)) {
-                (*it).id_seq_num = key->left_key.id_seq_num;
+            if (((*it).node_key.id_type == key->left_key.id_type) &&
+                    ((*it).node_key.id_name == key->left_key.id_name)) {
+                (*it).node_key.id_seq_num = key->left_key.id_seq_num;
+                (*it).link_metadata = key->metadata;
                 push_right = false;
                 break;
             }
         }
     } else {
-        right = new std::list<IFMapTable::RequestKey>();
+        right = new std::list<struct DeferredNode>();
         link_def_map_[key->right_key] = right;
     }
 
     // Add it to the end of the list
-    if (push_left)
-        left->push_back(key->right_key);
-    if (push_right)
-        right->push_back(key->left_key);
+    struct DeferredNode dn;
+    dn.link_metadata = key->metadata;
+    if (push_left) {
+        dn.node_key = key->right_key;
+        left->push_back(dn);
+    }
+    if (push_right) {
+        dn.node_key = key->left_key;
+        right->push_back(dn);
+    }
     return;
 }
 
@@ -449,9 +459,9 @@ void IFMapAgentLinkTable::Input(DBTablePartition *partition, DBClient *client,
 
 bool IFMapAgentLinkTable::RemoveDefListEntry
     (LinkDefMap *map, LinkDefMap::iterator &map_it, 
-     std::list<IFMapTable::RequestKey>::iterator *list_it) {
+     std::list<struct DeferredNode>::iterator *list_it) {
     
-    std::list<IFMapTable::RequestKey> *list = map_it->second;
+    std::list<struct DeferredNode> *list = map_it->second;
     if (list_it) {
         list->erase(*list_it);
     }
@@ -475,36 +485,38 @@ void IFMapAgentLinkTable::EvalDefLink(IFMapTable::RequestKey *key) {
     if (link_def_map_.end() == link_defmap_it)
         return;
 
-    std::list<IFMapTable::RequestKey> *left_list = link_defmap_it->second;
-    std::list<IFMapTable::RequestKey>::iterator left_it, left_list_entry;
+    std::list<struct DeferredNode> *left_list = link_defmap_it->second;
+    std::list<struct DeferredNode>::iterator left_it, left_list_entry;
     for(left_it = left_list->begin(); left_it != left_list->end();) {
         left_list_entry = left_it++;
 
         // If link seq is older, dont consider the link. 
-        if ((*left_list_entry).id_seq_num < key->id_seq_num)
+        if ((*left_list_entry).node_key.id_seq_num < key->id_seq_num)
             continue;
 
         // Skip if right-node is not yet present
-        if (IFMapAgentTable::TableEntryLookup(database(), &(*left_list_entry))
+        if (IFMapAgentTable::TableEntryLookup(database(),
+                    &((*left_list_entry).node_key))
             == NULL) {
             continue;
         }
 
         // left->right entry found defer-list. Find the right->left entry
-        LinkDefMap::iterator right_defmap_it = link_def_map_.find(*left_list_entry);
+        LinkDefMap::iterator right_defmap_it =
+            link_def_map_.find((*left_list_entry).node_key);
         assert(link_def_map_.end() != right_defmap_it);
 
-        std::list<IFMapTable::RequestKey> *right_list = right_defmap_it->second;
-        std::list<IFMapTable::RequestKey>::iterator right_it, right_list_entry;
+        std::list<struct DeferredNode> *right_list = right_defmap_it->second;
+        std::list<struct DeferredNode>::iterator right_it, right_list_entry;
         for(right_it = right_list->begin(); right_it != right_list->end();) {
             right_list_entry = right_it++;
 
             // If link seq is older, dont consider the link. 
-            if ((*right_list_entry).id_seq_num < key->id_seq_num)
+            if ((*right_list_entry).node_key.id_seq_num < key->id_seq_num)
                 continue;
 
-            if ((*right_list_entry).id_type == key->id_type &&
-                    (*right_list_entry).id_name == key->id_name) { 
+            if ((*right_list_entry).node_key.id_type == key->id_type &&
+                    (*right_list_entry).node_key.id_name == key->id_name) {
                 RemoveDefListEntry(&link_def_map_, right_defmap_it,
                                &right_list_entry);
                 break;
@@ -514,7 +526,8 @@ void IFMapAgentLinkTable::EvalDefLink(IFMapTable::RequestKey *key) {
         //Remove from deferred list before enqueing
         auto_ptr <RequestKey> req_key (new RequestKey);
         req_key->left_key = *key;
-        req_key->right_key = *left_list_entry;
+        req_key->right_key = (*left_list_entry).node_key;
+        req_key->metadata = (*left_list_entry).link_metadata;
         // Dont delete left_list_entry. Its passed in req structure
         left_list->erase(left_list_entry);
 
@@ -529,8 +542,8 @@ void IFMapAgentLinkTable::EvalDefLink(IFMapTable::RequestKey *key) {
 }
 
 void IFMapAgentLinkTable::DestroyDefLink(uint64_t seq) {
-    std::list<IFMapTable::RequestKey> *ent;
-    std::list<IFMapTable::RequestKey>::iterator it, list_entry;
+    std::list<struct DeferredNode> *ent;
+    std::list<struct DeferredNode>::iterator it, list_entry;
     IFMapAgentLinkTable::LinkDefMap::iterator dlist_it, temp;
 
     for(dlist_it = link_def_map_.begin(); dlist_it != link_def_map_.end(); ) {
@@ -540,7 +553,7 @@ void IFMapAgentLinkTable::DestroyDefLink(uint64_t seq) {
             list_entry = it++;
 
             //Delete the deferred link if it is old seq
-            if ((*list_entry).id_seq_num < seq) {
+            if ((*list_entry).node_key.id_seq_num < seq) {
                 if (RemoveDefListEntry(&link_def_map_, temp,
                             &list_entry) == true) {
                     //The list has been deleted. Move to the next map

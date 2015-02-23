@@ -288,8 +288,8 @@ void ShowIFMapAgentDefLinkReq::HandleRequest() const {
                      ShowIFMapAgentTable::db_->FindTable(IFMAP_AGENT_LINK_DB_NAME));
 
     IFMapAgentLinkTable::LinkDefMap::const_iterator dlist_it;
-    std::list<IFMapTable::RequestKey> *ent;
-    std::list<IFMapTable::RequestKey>::iterator it;
+    std::list<IFMapAgentLinkTable::DeferredNode> *ent;
+    std::list<IFMapAgentLinkTable::DeferredNode>::iterator it;
 
     //Get linktables's deferred list
     const IFMapAgentLinkTable::LinkDefMap &def_list = link_table->GetLinkDefMap();
@@ -306,9 +306,12 @@ void ShowIFMapAgentDefLinkReq::HandleRequest() const {
         //Iterate the right nodes corresponding to above left node
         for(it = ent->begin(); it != ent->end(); it++) {
             IFMapAgentDefLink data;
-            data.set_seq_num((*it).id_seq_num);
-            data.set_left_node(temp.id_type + ":" + temp.id_name);
-            data.set_right_node((*it).id_type + ":" + (*it).id_name);
+            data.set_seq_num((*it).node_key.id_seq_num);
+            data.set_left_node(temp.id_type + ":" +
+                    temp.id_name);
+            data.set_metadata((*it).link_metadata);
+            data.set_right_node((*it).node_key.id_type + ":" +
+                    (*it).node_key.id_name);
             list.push_back(data);     
         }
     }

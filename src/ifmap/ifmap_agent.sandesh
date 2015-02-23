@@ -19,6 +19,7 @@ struct IFMapAgentDefLink {
     1: i64 seq_num;
     2: string left_node;
     3: string right_node;
+    4: string metadata;
 }
 
 response sandesh ShowIFMapAgentDefLinkResp {
