@@ -105,7 +105,6 @@ bool PhysicalDeviceVnTable::OnChange(DBEntry *e, const DBRequest *req) {
     PhysicalDeviceVnData *data =
         static_cast<PhysicalDeviceVnData *>(req->data.get());
     bool ret = entry->Copy(this, data);
-    entry->SendObjectLog(AgentLogEvent::CHANGE);
     return ret;
 }
 
@@ -114,7 +113,6 @@ bool PhysicalDeviceVnTable::Resync(DBEntry *e, const DBRequest *req) {
     PhysicalDeviceVnData *data =
         static_cast<PhysicalDeviceVnData *>(req->data.get());
     bool ret = entry->Copy(this, data);
-    entry->SendObjectLog(AgentLogEvent::RESYNC);
     return ret;
 }
 
