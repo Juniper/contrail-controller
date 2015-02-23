@@ -24,6 +24,7 @@ const string SERVICE_DISCOVERY = "contrail-discovery:0"
 const string SERVICE_STORAGE_STATS_MGR = "contrail-storage-stats"
 const string SERVICE_IPMI_STATS_MGR = "contrail-ipmi-stats"
 const string SERVICE_INVENTORY_AGENT = "contrail-inventory-agent"
+const string SERVICE_CONTRAIL_DATABASE = "contrail-database"
 
 // NodeMgr names
 const string SERVICE_COMPUTE_NODE_MGR = "contrail-vrouter-nodemgr"
