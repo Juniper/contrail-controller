@@ -352,6 +352,9 @@ void EvpnManagerPartition::DeleteMcastNode(EvpnMcastNode *node) {
     } else {
         remote_mcast_node_list_.erase(node);
     }
+    if (empty())
+        evpn_manager_->RetryDelete();
+
 }
 
 //
@@ -527,6 +530,8 @@ void EvpnManager::ManagedDelete() {
 // Attempt to enqueue a delete for the EvpnManager.
 //
 void EvpnManager::RetryDelete() {
+    if (!deleter()->IsDeleted())
+        return;
     deleter()->RetryDelete();
 }
 
