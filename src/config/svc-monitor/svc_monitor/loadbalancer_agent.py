@@ -1,30 +1,57 @@
 from vnc_api.vnc_api import *
 
 from cfgm_common import importutils
-
-from neutron.api.v2 import attributes
-from neutron.plugins.common import constants
-
-from config_db import *
+from cfgm_common import exceptions as vnc_exc
+from config_db import ServiceApplianceSetSM, LoadbalancerPoolSM, InstanceIpSM, VirtualMachineInterfaceSM
 
 class LoadbalancerAgent(object):
+
     def __init__(self, svc_mon, vnc_lib, config_section):
         # Loadbalancer
         self._vnc_lib = vnc_lib
         self._svc_mon = svc_mon
         self._pool_driver = {}
         self._loadbalancer_driver = {}
-        self._default_provider = self._load_driver(config_section)
+        # create default service appliance set
+        self._create_default_service_appliance_set("opencontrail", 
+          "svc_monitor.services.loadbalancer.drivers.ha_proxy.driver.OpencontrailLoadbalancerDriver")
+        self._default_provider = "opencontrail"
     # end __init__
 
-    def _load_driver(self, config_section):
-        # TODO Load the driver fom config option
-        self._loadbalancer_driver["opencontrail"] = importutils.import_object(
-            "svc_monitor.services.loadbalancer.drivers.ha_proxy.driver.OpencontrailLoadbalancerDriver", self._svc_mon, self._vnc_lib, config_section)
-        self._loadbalancer_driver["f5"] = importutils.import_object(
-            "svc_monitor.services.loadbalancer.drivers.f5.f5_driver.OpencontrailF5LoadbalancerDriver", self._svc_mon, self._vnc_lib, config_section)
-        return "opencontrail"
-    # end _load_driver
+    # create default loadbalancer driver
+    def _create_default_service_appliance_set(self, sa_set_name, driver_name):
+        default_gsc_name = "default-global-system-config"
+        default_gsc_fq_name = [default_gsc_name]
+        sa_set_fq_name = [default_gsc_name, sa_set_name]
+
+        try:
+            sa_set_obj = self._vnc_lib.service_appliance_set_read(fq_name=sa_set_fq_name)
+            sa_set_uuid = sa_set_obj.uuid
+            return
+        except vnc_exc.NoIdError:
+            gsc_obj = self._vnc_lib.global_system_config_read(fq_name=default_gsc_fq_name)
+            sa_set_obj = ServiceApplianceSet(sa_set_name, gsc_obj)
+            sa_set_obj.set_service_appliance_driver(driver_name)
+            sa_set_uuid = self._vnc_lib.service_appliance_set_create(sa_set_obj)
+
+    def load_drivers(self):
+        for sas in ServiceApplianceSetSM.values():
+            if sas.driver:
+                self._loadbalancer_driver[sas.name] = importutils.import_object(sas.driver, self._svc_mon, self._vnc_lib)
+    # end load_drivers
+
+    def load_driver(self, sas):
+        if sas.name in self._loadbalancer_driver:
+            return
+        if sas.driver:
+            self._loadbalancer_driver[sas.name] = importutils.import_object(sas.driver, self._svc_mon, self._vnc_lib)
+    # end load_driver
+
+    def unload_driver(self, sas):
+        if sas.name not in self._loadbalancer_driver:
+            return
+        del(self._loadbalancer_driver[sas.name])
+    # end unload_driver
 
     def _get_driver_for_provider(self, provider_name):
         return self._loadbalancer_driver[provider_name]
@@ -154,7 +181,7 @@ class LoadbalancerAgent(object):
         if port_id is None:
             return None
 
-        if not props['address'] or props['address'] == attributes.ATTR_NOT_SPECIFIED:
+        if not props['address']:
             vmi = VirtualMachineInterfaceSM.get(port_id)
             ip_refs = vmi.instance_ip
             if ip_refs:
@@ -267,8 +294,8 @@ class LoadbalancerAgent(object):
     def _get_object_status(self, obj):
         id_perms = obj.id_perms
         if id_perms and id_perms['enable']:
-            return constants.ACTIVE
-        return constants.PENDING_DELETE
+            return "ACTIVE"
+        return "PENDING_DELETE"
     # end _get_object_status
 
     def loadbalancer_pool_get_reqdict(self, pool):
