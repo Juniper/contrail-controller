@@ -89,6 +89,7 @@ struct VrouterAgent {  // Agent info
    45: optional list<string> tsn_prouter_list; 
    46: optional list<string> tor_prouter_list;
    47: optional list<string> embedded_prouter_list;
+   48: optional string mode;
 }
 
 uve sandesh UveVrouterAgent {
