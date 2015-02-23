@@ -660,6 +660,83 @@ class InterfaceRouteTableSM(DBBase):
     # end delete
 # end InterfaceRouteTableSM
 
+class ServiceApplianceSM(DBBase):
+    _dict = {}
+    obj_type = 'service_appliance'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.service_appliance_set = None
+        self.kvpairs = []
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        kvpairs = obj.get('service_appliance_set_properties', None)
+        if kvpairs:
+            self.kvpairs = kvpairs.get('key_value_pair', [])
+        self.user_credential = obj.get('service-appliance-user-credentials', None)
+        self.ip_address = obj.get('service-appliance-ip-address', None)
+        self.service_appliance_set = self.get_parent_uuid(obj)
+        if self.service_appliance_set:
+            parent = ServiceApplianceSetSM.get(self.service_appliance_set)
+            parent.service_appliances.add(self.uuid)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+
+        if obj.service_appliance_set:
+            parent = ServiceApplianceSetSM.get(obj.service_appliance_set)
+        if parent:
+            parent.service_instances.discard(obj.uuid)
+        del cls._dict[uuid]
+    # end delete
+# end ServiceApplianceSM
+
+class ServiceApplianceSetSM(DBBase):
+    _dict = {}
+    obj_type = 'service_appliance'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.service_appliances = set()
+        self.kvpairs = []
+        self.update(obj_dict)
+    # end __init__
+
+    def add(self):
+        self._manager.loadbalancer_agent.load_driver(self)
+    # end add
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.driver = obj.get('service_appliance_driver', None)
+        kvpairs = obj.get('service_appliance_set_properties', None)
+        if kvpairs:
+            self.kvpairs = kvpairs.get('key_value_pair', [])
+        self.service_appliances = set([sa['uuid'] for sa in obj.get('service_appliances', [])])
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        cls._manager.loadbalancer_agent.unload_driver(obj)
+        del cls._dict[uuid]
+    # end delete
+# end ServiceApplianceSetSM
+
 
 DBBase._OBJ_TYPE_MAP = {
     'loadbalancer_pool': LoadbalancerPoolSM,
@@ -680,4 +757,6 @@ DBBase._OBJ_TYPE_MAP = {
     'project': ProjectSM,
     'domain': DomainSM,
     'security_group': SecurityGroupSM,
+    'service_appliance': ServiceApplianceSM,
+    'service_appliance_set': ServiceApplianceSetSM,
 }

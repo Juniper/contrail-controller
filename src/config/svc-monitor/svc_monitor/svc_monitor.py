@@ -231,6 +231,11 @@ class SvcMonitor(object):
             cgitb.Hook(file=string_buf, format="text").handle(sys.exc_info())
             self.config_log(string_buf.getvalue(), level=SandeshLevel.SYS_ERR)
 
+        for sas_id in dependency_tracker.resources.get('service_appliance_set', []):
+            sas_obj = ServiceApplianceSetSM.get(sas_id)
+            if sas_obj is not None:
+                sas_obj.add()
+
         for lb_pool_id in dependency_tracker.resources.get('loadbalancer_pool', []):
             lb_pool = LoadbalancerPoolSM.get(lb_pool_id)
             if lb_pool is not None:
@@ -300,9 +305,8 @@ class SvcMonitor(object):
             self._vnc_lib, self.db, self.logger,
             self.vrouter_scheduler, self._nova_client, self._args)
 
-        # TODO activate the code
         # load a loadbalancer agent
-        # self.loadbalancer_agent = LoadbalancerAgent(self, self._vnc_lib, self._args)
+        self.loadbalancer_agent = LoadbalancerAgent(self, self._vnc_lib, self._args)
 
         # Read the cassandra and populate the entry in ServiceMonitor DB
         self.sync_sm()
@@ -454,6 +458,20 @@ class SvcMonitor(object):
             for fq_name, uuid in project_list:
                 prj = ProjectSM.locate(uuid)
 
+        ok, sas_list = self._cassandra._cassandra_service_appliance_set_list()
+        if not ok:
+            pass
+        else:
+            for fq_name, uuid in sas_list:
+                sas = ServiceApplianceSetSM.locate(uuid)
+
+        ok, sa_list = self._cassandra._cassandra_service_appliance_list()
+        if not ok:
+            pass
+        else:
+            for fq_name, uuid in sa_list:
+                sa = ServiceApplianceSM.locate(uuid)
+
         ok, domain_list = self._cassandra._cassandra_domain_list()
         if not ok:
             pass
@@ -482,8 +500,12 @@ class SvcMonitor(object):
                         continue
                     self.check_link_si_to_vm(vm, vmi)
 
+        # Load the loadbalancer driver
+        self.loadbalancer_agent.load_drivers()
+
         for lb_pool in LoadbalancerPoolSM.values():
             lb_pool.add()
+
 
         self._db_resync_done.set()
     # end sync_sm

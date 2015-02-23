@@ -187,6 +187,7 @@ class InstanceManager(object):
             except IndexError:
                 continue
 
+            nic = {}
             user_visible = True
             itf_type = st_if.get('service_interface_type')
             vn_fq_str = si_if.get('virtual_network', None)
@@ -210,7 +211,6 @@ class InstanceManager(object):
                 except NoIdError:
                     config_complete = False
 
-            nic = {}
             nic['type'] = st_if.get('service_interface_type')
             nic['index'] = str(index + 1)
             nic['net-id'] = vn_id
@@ -374,9 +374,8 @@ class InstanceManager(object):
             iip = InstanceIpSM.get(nic['iip-id'])
             iip_obj = None
             if iip:
-                iip_obj = InstaneIp()
+                iip_obj = InstanceIp(name=iip.name)
                 iip_obj.uuid = iip.uuid
-                iip_obj.name = iip.name
         elif nic['shared-ip']:
             iip_name = "__".join(si.fq_name) + '-' + nic['type']
             iip_obj = self._allocate_iip(vn_obj, iip_name)
