@@ -324,9 +324,12 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
         if (key->sub_op_ == AgentKey::RESYNC) {
             if (rt && (rt->IsDeleted() == false)) {
                 if (data) {
-                    notify = data->AddChangePath(agent_,
-                             key->peer() ? rt->FindPath(key->peer()) : NULL,
-                             rt);
+                    path = key->peer() ? rt->FindPath(key->peer()) : NULL;
+                    if (path != NULL) {
+                        // AddChangePath should be triggered only if a path
+                        // is available from the given peer
+                        notify = data->AddChangePath(agent_, path, rt);
+                    }
                 } else {
                     //Ignore RESYNC if received on non-existing
                     //or deleted route entry
