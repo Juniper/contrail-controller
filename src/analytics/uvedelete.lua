@@ -26,6 +26,7 @@ local sm = ARGV[1]..":"..ARGV[2]..":"..ARGV[3]..":"..ARGV[4]
 local typ = ARGV[5]
 local key = ARGV[6]
 local db = tonumber(ARGV[7])
+local is_alarm = tonumber(ARGV[8])
 
 local _del = KEYS[1]
 local _values = KEYS[2]
@@ -35,15 +36,20 @@ local _table = KEYS[5]
 local _deleted = KEYS[6]
 
 redis.call('select',db)
-local part = redis.call('hget',"KEY2PART:"..sm..":"..typ, key)
 
-if part == false then
-   part = "NULL"
+if is_alarm == 1 then
+    redis.log(redis.LOG_NOTICE,"DelAlarm on "..sm.." for "..key)
 else
-   redis.call('hdel', "KEY2PART:"..sm..":"..typ, key)
-   redis.call('srem', "PART2KEY:"..part, sm..":"..typ..":"..key)
+    local part = redis.call('hget',"KEY2PART:"..sm..":"..typ, key)
+    if part == false then
+        part = "NULL"
+    else
+        redis.call('hdel', "KEY2PART:"..sm..":"..typ, key)
+        redis.call('srem', "PART2KEY:"..part, sm..":"..typ..":"..key)
+    redis.log(redis.LOG_NOTICE,"DelUVE on "..sm.." for "..key.." part "..part)
+    end
 end
-redis.log(redis.LOG_NOTICE,"DelUVE on "..sm.." for "..key.." part "..part)
+
 sub_del(_values)
 redis.call('rename', _values, _del)
 redis.call('zrem', _uves, key)

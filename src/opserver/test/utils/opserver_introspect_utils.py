@@ -59,6 +59,10 @@ class VerificationOpsSrv (VerificationUtilBase):
     def uve_query(self, query):
         return self.dict_get('analytics/uves/%s' % query)
 
+    def get_alarms(self, query):
+        return self.dict_get('analytics/alarms/%s' % query)
+    # end get_alarms
+
     def get_redis_uve_info(self):
         path = 'Snh_RedisUVERequest'
         xpath = '/RedisUVEResponse/redis_uve_info'

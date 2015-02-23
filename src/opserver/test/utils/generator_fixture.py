@@ -23,6 +23,7 @@ from pysandesh.util import UTCTimestampUsec
 from sandesh.virtual_machine.ttypes import *
 from sandesh.virtual_network.ttypes import *
 from sandesh.flow.ttypes import *
+from sandesh.alarm_test.ttypes import *
 from analytics_fixture import AnalyticsFixture
 from generator_introspect_utils import VerificationGenerator
 from opserver_introspect_utils import VerificationOpsSrv
@@ -66,6 +67,14 @@ class GeneratorFixture(fixtures.Fixture):
     def get_generator_id(self):
         return self._generator_id
     # end get_generator_id
+
+    def connect_to_collector(self):
+        self._sandesh_instance._client._connection.set_admin_state(down=False)
+    # end connect_to_collector
+
+    def disconnect_from_collector(self):
+        self._sandesh_instance._client._connection.set_admin_state(down=True)
+    # end disconnect_from_collector
 
     @retry(delay=2, tries=5)
     def verify_on_setup(self):
@@ -353,4 +362,41 @@ class GeneratorFixture(fixtures.Fixture):
                     return True
         return False
     # end verify_vm_uve_cache
+
+    def _create_alarm(self, type, rule, value):
+        alarm_elements = []
+        alarm_elements.append(AlarmElement(rule=rule, value=value))
+        alarms = []
+        alarms.append(AlarmInfo(type=type, description=alarm_elements))
+        return alarms
+    # end _create_alarm
+
+    def create_process_state_alarm(self, process):
+        return self._create_alarm('ProcessStatus', 'process_state != RUNNING',
+                    '%s, STOPPED' % (process))
+    # end create_process_state_alarm
+
+    def send_alarm(self, name, alarms, table):
+        alarm_data = AlarmData(name=name, alarms=alarms)
+        alarm = Alarm(data=alarm_data, table=table,
+                      sandesh=self._sandesh_instance)
+        self._logger.info('send alarm: %s' % (alarm.log()))
+        alarm.send(sandesh=self._sandesh_instance)
+        # store the alarm for verification
+        if not hasattr(self, 'alarms'):
+            self.alarms = {}
+        if self.alarms.get(table) is None:
+            self.alarms[table] = {}
+        self.alarms[table][name] = alarm
+    # end send_alarm
+
+    def delete_alarm(self, name, table):
+        alarm_data = AlarmData(name=name, deleted=True)
+        alarm = Alarm(data=alarm_data, table=table,
+                      sandesh=self._sandesh_instance)
+        self._logger.info('delete alarm: %s' % (alarm.log()))
+        alarm.send(sandesh=self._sandesh_instance)
+        del self.alarms[table][name]
+    # end delete_alarm
+
 # end class GeneratorFixture

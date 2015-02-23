@@ -24,14 +24,15 @@ public:
                        const std::string &module, const std::string &instance_id,
                        const std::string &key, const std::string &message,
                        int32_t seq, const std::string &agg,
-                       const std::string &atyp, int64_t ts, unsigned int part);
+                       const std::string &atyp, int64_t ts, unsigned int part,
+                       bool is_alarm);
 
     static bool
     UVEDelete(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
             const std::string &type,
             const std::string &source, const std::string &node_type,
             const std::string &module, const std::string &instance_id,
-            const std::string &key, int32_t seq);
+            const std::string &key, int32_t seq, bool is_alarm);
 
     static bool
     SyncGetSeq(const std::string & redis_ip, unsigned short redis_port,
