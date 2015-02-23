@@ -3263,12 +3263,17 @@ class SchemaTransformer(object):
 
         rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
         wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
+        gc_grace_sec = 0
+        if num_dbnodes > 1:
+            gc_grace_sec = 60
+
         for cf in column_families:
             try:
-                sys_mgr.create_column_family(self._keyspace, cf)
+                sys_mgr.create_column_family(self._keyspace, cf, gc_grace_seconds=gc_grace_sec)
             except pycassa.cassandra.ttypes.InvalidRequestException as e:
                 # TODO verify only EEXISTS
                 print "Warning! " + str(e)
+                sys_mgr.alter_column_family(self._keyspace, cf, gc_grace_seconds=gc_grace_sec)
             result_dict[cf] = pycassa.ColumnFamily(
                 conn_pool, cf,
                 read_consistency_level=rd_consistency,

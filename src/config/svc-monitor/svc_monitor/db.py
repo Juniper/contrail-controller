@@ -154,11 +154,15 @@ class ServiceMonitorDB(object):
 
         # set up column families
         column_families = [self._SVC_SI_CF]
+        gc_grace_sec = 0
+        if num_dbnodes > 1:
+            gc_grace_sec = 60
         for cf in column_families:
             try:
-                sys_mgr.create_column_family(self._keyspace, cf)
+                sys_mgr.create_column_family(self._keyspace, cf, gc_grace_seconds=gc_grace_sec)
             except pycassa.cassandra.ttypes.InvalidRequestException as e:
                 print "Warning! " + str(e)
+                sys_mgr.alter_column_family(self._keyspace, cf, gc_grace_seconds=gc_grace_sec)
 
         conn_pool = pycassa.ConnectionPool(self._keyspace,
                                            self._args.cassandra_server_list,
