@@ -29,6 +29,7 @@ class IFMapNode;
 
 class IFMapAgentTable : public IFMapTable {
 public:
+
     struct IFMapAgentData : DBRequestData {
         std::auto_ptr<IFMapObject>content;
     };
@@ -66,6 +67,11 @@ public:
         std::string metadata;
     };
 
+    struct DeferredNode {
+        IFMapTable::RequestKey node_key;
+        std::string link_metadata;
+    };
+
     class comp {
         public:
             bool operator()(const IFMapTable::RequestKey &left, 
@@ -78,7 +84,7 @@ public:
     };
 
     IFMapAgentLinkTable(DB *db, const std::string &name, DBGraph *graph);
-    typedef std::map<IFMapTable::RequestKey, std::list<IFMapTable::RequestKey> *, comp> LinkDefMap;
+    typedef std::map<IFMapTable::RequestKey, std::list<DeferredNode> *, comp> LinkDefMap;
     virtual void Input(DBTablePartition *partition, DBClient *client,
                        DBRequest *req);
     void IFMapAgentLinkTable_Init(DB *db, DBGraph *graph);
@@ -86,7 +92,7 @@ public:
                                      DBGraph *graph);
     void EvalDefLink(IFMapTable::RequestKey *key);
     bool RemoveDefListEntry(LinkDefMap *map, LinkDefMap::iterator &map_it,
-                            std::list<IFMapTable::RequestKey>::iterator *list_it);
+                            std::list<DeferredNode>::iterator *list_it);
     void DestroyDefLink(uint64_t);
     const LinkDefMap &GetLinkDefMap() const {
         return link_def_map_;

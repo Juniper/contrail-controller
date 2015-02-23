@@ -1859,7 +1859,6 @@ TEST_F(CfgTest, StaleTimeoutDeferList) {
         TestFoo = static_cast<IFMapNode *>(iter.operator->());
         EXPECT_EQ("testfoo", TestFoo->name());
     }
-#if 1
 
     //Repeat the same with two hanging links
     sprintf(buff,
@@ -1979,9 +1978,217 @@ TEST_F(CfgTest, StaleTimeoutDeferList) {
         TestFoo = static_cast<IFMapNode *>(iter.operator->());
         EXPECT_EQ("testfoo", TestFoo->name());
     }
-#endif
 
     delete cl;
+}
+
+TEST_F(CfgTest, LinkMetadata) {
+    char buff[1500];
+    sprintf(buff,
+        "<update>\n"
+        "   <node type=\"foo\">\n"
+        "       <name>testfoo</name>\n"
+        "   </node>\n"
+        "   <node type=\"bar\">\n"
+        "       <name>testbar</name>\n"
+        "   </node>\n"
+        "   <link>\n"
+        "       <node type=\"foo\">\n"
+        "           <name>testfoo</name>\n"
+        "       </node>\n"
+        "       <node type=\"bar\">\n"
+        "           <name>testbar</name>\n"
+        "       </node>\n"
+        "       <metadata type=\"foo-bar\" />"
+        "   </link>\n"
+        "</update>");
+
+    IFMapTable *ftable = IFMapTable::FindTable(&db_, "foo");
+    ASSERT_TRUE(ftable!=NULL);
+
+    IFMapTable *btable = IFMapTable::FindTable(&db_, "bar");
+    ASSERT_TRUE(btable!=NULL);
+
+    IFMapAgentLinkTable *ltable = static_cast<IFMapAgentLinkTable *>(
+            db_.FindTable(IFMAP_AGENT_LINK_DB_NAME));
+    ASSERT_TRUE(ltable!=NULL);
+
+    pugi::xml_parse_result result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    parser_->ConfigParse(xdoc_, 0);
+    WaitForIdle();
+
+    //Ensure that both nodes are added fine along with attribute
+    IFMapNode *TestFoo = ftable->FindNode("testfoo");
+    ASSERT_TRUE(TestFoo !=NULL);
+    EXPECT_EQ("testfoo", TestFoo->name());
+
+    IFMapNode *TestBar = btable->FindNode("testbar");
+    ASSERT_TRUE(TestBar !=NULL);
+    EXPECT_EQ("testbar", TestBar->name());
+
+    IFMapLink *link = static_cast<IFMapLink *>(graph_.GetEdge(TestFoo, TestBar));
+    assert(link);
+    EXPECT_EQ(link->metadata(), "foo-bar");
+}
+
+TEST_F(CfgTest, DefLinkMetadata) {
+    char buff[1500];
+    sprintf(buff,
+        "<update>\n"
+        "   <link>\n"
+        "       <node type=\"foo\">\n"
+        "           <name>testfoo</name>\n"
+        "       </node>\n"
+        "       <node type=\"bar\">\n"
+        "           <name>testbar</name>\n"
+        "       </node>\n"
+        "       <metadata type=\"foo-bar\" />"
+        "   </link>\n"
+        "</update>");
+
+    IFMapTable *ftable = IFMapTable::FindTable(&db_, "foo");
+    ASSERT_TRUE(ftable!=NULL);
+
+    IFMapTable *btable = IFMapTable::FindTable(&db_, "bar");
+    ASSERT_TRUE(btable!=NULL);
+
+    IFMapAgentLinkTable *ltable = static_cast<IFMapAgentLinkTable *>(
+            db_.FindTable(IFMAP_AGENT_LINK_DB_NAME));
+    ASSERT_TRUE(ltable!=NULL);
+
+    pugi::xml_parse_result result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    parser_->ConfigParse(xdoc_, 0);
+    WaitForIdle();
+
+    sprintf(buff,
+        "<update>\n"
+        "   <node type=\"foo\">\n"
+        "       <name>testfoo</name>\n"
+        "   </node>\n"
+        "   <node type=\"bar\">\n"
+        "       <name>testbar</name>\n"
+        "   </node>\n"
+        "</update>");
+
+    result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    parser_->ConfigParse(xdoc_, 0);
+    WaitForIdle();
+
+    //Ensure that both nodes are added fine along with attribute
+    IFMapNode *TestFoo = ftable->FindNode("testfoo");
+    ASSERT_TRUE(TestFoo !=NULL);
+    EXPECT_EQ("testfoo", TestFoo->name());
+
+    IFMapNode *TestBar = btable->FindNode("testbar");
+    ASSERT_TRUE(TestBar !=NULL);
+    EXPECT_EQ("testbar", TestBar->name());
+
+    IFMapLink *link = static_cast<IFMapLink *>(graph_.GetEdge(TestFoo, TestBar));
+    assert(link);
+    EXPECT_EQ(link->metadata(), "foo-bar");
+}
+
+TEST_F(CfgTest, NodeDelLinkMetadata) {
+    char buff[1500];
+    sprintf(buff,
+        "<update>\n"
+        "   <link>\n"
+        "       <node type=\"foo\">\n"
+        "           <name>testfoo</name>\n"
+        "       </node>\n"
+        "       <node type=\"bar\">\n"
+        "           <name>testbar</name>\n"
+        "       </node>\n"
+        "       <metadata type=\"foo-bar\" />"
+        "   </link>\n"
+        "</update>");
+
+    IFMapTable *ftable = IFMapTable::FindTable(&db_, "foo");
+    ASSERT_TRUE(ftable!=NULL);
+
+    IFMapTable *btable = IFMapTable::FindTable(&db_, "bar");
+    ASSERT_TRUE(btable!=NULL);
+
+    IFMapAgentLinkTable *ltable = static_cast<IFMapAgentLinkTable *>(
+            db_.FindTable(IFMAP_AGENT_LINK_DB_NAME));
+    ASSERT_TRUE(ltable!=NULL);
+
+    pugi::xml_parse_result result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    parser_->ConfigParse(xdoc_, 0);
+    WaitForIdle();
+
+    sprintf(buff,
+        "<update>\n"
+        "   <node type=\"foo\">\n"
+        "       <name>testfoo</name>\n"
+        "   </node>\n"
+        "   <node type=\"bar\">\n"
+        "       <name>testbar</name>\n"
+        "   </node>\n"
+        "</update>");
+
+    result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    parser_->ConfigParse(xdoc_, 0);
+    WaitForIdle();
+
+    //Ensure that both nodes are added fine along with attribute
+    IFMapNode *TestFoo = ftable->FindNode("testfoo");
+    ASSERT_TRUE(TestFoo !=NULL);
+    EXPECT_EQ("testfoo", TestFoo->name());
+
+    IFMapNode *TestBar = btable->FindNode("testbar");
+    ASSERT_TRUE(TestBar !=NULL);
+    EXPECT_EQ("testbar", TestBar->name());
+
+    IFMapLink *link = static_cast<IFMapLink *>(graph_.GetEdge(TestFoo, TestBar));
+    assert(link);
+    EXPECT_EQ(link->metadata(), "foo-bar");
+
+    sprintf(buff,
+        "<delete>\n"
+        "   <node type=\"foo\">\n"
+        "       <name>testfoo</name>\n"
+        "   </node>\n"
+        "</delete>\n");
+
+    result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    parser_->ConfigParse(xdoc_, 0);
+    WaitForIdle();
+
+    //Ensure that there is no link from Bar to foo as well
+    int count = 0;
+    for (DBGraphVertex::adjacency_iterator iter = TestBar->begin(&graph_);
+         iter != TestBar->end(&graph_); ++iter) {
+        count++;
+    }
+    EXPECT_EQ(count, 0);
+
+
+    sprintf(buff,
+        "<update>\n"
+        "   <node type=\"foo\">\n"
+        "       <name>testfoo</name>\n"
+        "   </node>\n"
+        "</update>\n");
+
+    result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    parser_->ConfigParse(xdoc_, 0);
+    WaitForIdle();
+
+    TestFoo = ftable->FindNode("testfoo");
+    ASSERT_TRUE(TestFoo !=NULL);
+    EXPECT_EQ("testfoo", TestFoo->name());
+
+    link = static_cast<IFMapLink *>(graph_.GetEdge(TestFoo, TestBar));
+    assert(link);
+    EXPECT_EQ(link->metadata(), "foo-bar");
 }
 
 int main(int argc, char **argv) {
