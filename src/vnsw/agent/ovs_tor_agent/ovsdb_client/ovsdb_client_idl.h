@@ -104,6 +104,7 @@ public:
 
     KSyncObjectManager *ksync_obj_manager();
     OvsPeer *route_peer();
+    bool deleted() { return deleted_; }
     Agent *agent() {return agent_;}
     VMInterfaceKSyncObject *vm_interface_table();
     PhysicalSwitchTable *physical_switch_table();

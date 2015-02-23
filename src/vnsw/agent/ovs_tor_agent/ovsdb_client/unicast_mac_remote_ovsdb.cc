@@ -280,6 +280,17 @@ OvsdbDBEntry *UnicastMacRemoteTable::AllocOvsEntry(struct ovsdb_idl_row *row) {
     return static_cast<OvsdbDBEntry *>(Create(&key));
 }
 
+KSyncDBObject::DBFilterResp UnicastMacRemoteTable::DBEntryFilter(
+        const DBEntry *db_entry) {
+    // Since Object delete for unicast remote table happens by db
+    // walk on vrf table, it needs to implement filter to ignore
+    // db Add/Change notifications if idl is marked deleted.
+    if (client_idl()->deleted()) {
+        return DBFilterIgnore;
+    }
+    return DBFilterAccept;
+}
+
 void UnicastMacRemoteTable::ManagedDelete() {
     deleted_ = true;
     Unregister();
