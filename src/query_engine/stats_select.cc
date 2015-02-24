@@ -113,33 +113,6 @@ StatsSelect::Jsonify(const std::map<std::string, StatVal>&  uniks,
     return true;
 }
 
-QEOpServerProxy::AggOper StatsSelect::ParseAgg(
-        const std::string& vname,
-        std::string& sfield) {
-
-    if (0 == vname.compare(0,5,string("COUNT"))) {
-        sfield = vname.substr(6);
-        int len = sfield.size();
-        sfield.erase(len-1);
-        return QEOpServerProxy::COUNT;
-    }
-
-    if (0 == vname.compare(0,3,string("SUM"))) {
-        sfield = vname.substr(4);
-        int len = sfield.size();
-        sfield.erase(len-1);
-        return QEOpServerProxy::SUM;
-    }
-
-    if (0 == vname.compare(0,5,string("CLASS"))) {
-        sfield = vname.substr(6);
-        int len = sfield.size();
-        sfield.erase(len-1);
-        return QEOpServerProxy::CLASS;
-    }
-
-    return QEOpServerProxy::INVALID;
-}
 
 void StatsSelect::MergeFinal(const std::vector<boost::shared_ptr<MapBufT> >& inputs,
         MapBufT& output) {
@@ -219,8 +192,8 @@ StatsSelect::StatsSelect(AnalyticsQuery * m_query,
             QE_TRACE(DEBUG, "StatsSelect T=");
         } else {
             std::string sfield = select_fields_[j];
-            QEOpServerProxy::AggOper agg = ParseAgg(select_fields_[j], sfield);
-
+            QEOpServerProxy::AggOper agg =
+                StatsQuery::ParseAgg(select_fields_[j], sfield);
             if (main_query->stats().is_stat_table_static()) {
                 if (agg != QEOpServerProxy::COUNT) {
                     StatsQuery::column_t c = main_query->stats().get_column_desc(sfield);
@@ -285,7 +258,8 @@ void StatsSelect::SetSortOrder(const std::vector<sort_field_t>& sort_fields) {
             sort_cols_.insert(std::make_pair(sort_fields[st].name, st));                
         } else {
             std::string sfield = sort_fields[st].name;
-            QEOpServerProxy::AggOper agg = ParseAgg(sort_fields[st].name, sfield);
+            QEOpServerProxy::AggOper agg =
+                StatsQuery::ParseAgg(sort_fields[st].name, sfield);
             if (main_query->stats().is_stat_table_static()) {
                 StatsQuery::column_t c = main_query->stats().get_column_desc(sfield);
                 if (c.datatype == QEOpServerProxy::BLANK) {

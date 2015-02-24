@@ -54,10 +54,6 @@ public:
     void MergeFinal(const std::vector<boost::shared_ptr<MapBufT> >& inputs,
         MapBufT& output);
 
-    static QEOpServerProxy::AggOper ParseAgg(
-            const std::string& vname,
-            std::string& sfield);
-
     static bool Jsonify(const std::map<std::string, StatVal>&, 
             const QEOpServerProxy::AggRowT&, std::string& jstr);
 

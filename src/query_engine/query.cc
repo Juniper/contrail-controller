@@ -123,7 +123,16 @@ PostProcessingQuery::PostProcessingQuery(
                     QE_INVALIDARG_ERROR(datatype != std::string(""));
                 } else if (m_query->stats().is_stat_table_static()) {
                     // This is a static StatTable. We can check the schema
-                    QE_INVALIDARG_ERROR(datatype != std::string(""));
+                    std::string sfield;
+                    
+                    // If this is an agg field, check underlying data type
+                    if (StatsQuery::ParseAgg(sort_str, sfield) !=
+                            QEOpServerProxy::INVALID) {
+                        std::string dtype2(m_query->get_column_field_datatype(sfield));
+                        QE_INVALIDARG_ERROR(dtype2 != std::string(""));
+                    } else {
+                        QE_INVALIDARG_ERROR(datatype != std::string(""));
+                    }
                 }
                 QE_INVALIDARG_ERROR(
                     m_query->is_valid_sort_field(sort_str) != false);

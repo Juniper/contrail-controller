@@ -47,7 +47,7 @@ public:
             return ct;
         } 
     }
-
+    static QEOpServerProxy::AggOper ParseAgg(const std::string&, std::string&);
     StatsQuery(const std::string& table);
 private:
     std::string type_;

@@ -86,3 +86,31 @@ StatsQuery::StatsQuery(const std::string & tname) {
     }
 }
 
+QEOpServerProxy::AggOper StatsQuery::ParseAgg(
+        const std::string& vname,
+        std::string& sfield) {
+
+    if (0 == vname.compare(0,5,string("COUNT"))) {
+        sfield = vname.substr(6);
+        int len = sfield.size();
+        sfield.erase(len-1);
+        return QEOpServerProxy::COUNT;
+    }
+
+    if (0 == vname.compare(0,3,string("SUM"))) {
+        sfield = vname.substr(4);
+        int len = sfield.size();
+        sfield.erase(len-1);
+        return QEOpServerProxy::SUM;
+    }
+
+    if (0 == vname.compare(0,5,string("CLASS"))) {
+        sfield = vname.substr(6);
+        int len = sfield.size();
+        sfield.erase(len-1);
+        return QEOpServerProxy::CLASS;
+    }
+
+    return QEOpServerProxy::INVALID;
+}
+
