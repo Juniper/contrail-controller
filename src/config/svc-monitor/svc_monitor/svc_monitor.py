@@ -151,7 +151,8 @@ class SvcMonitor(object):
                     self._err_file, maxBytes=64*1024, backupCount=2)
                 self._svc_err_logger.addHandler(handler)
         except IOError:
-            self.logger.log("Failed to open trace file %s" % self._err_file)
+            self.logger.log_warning("Failed to open trace file %s" %
+                self._err_file)
 
         # Connect to Rabbit and Initialize cassandra connection
         self._connect_rabbit()
@@ -519,8 +520,8 @@ class SvcMonitor(object):
         domain_name = 'default-domain'
         domain_fq_name = [domain_name]
         st_fq_name = [domain_name, st_name]
-        self.logger.log("Creating %s %s hypervisor %s" %
-                         (domain_name, st_name, hypervisor_type))
+        self.logger.log_info("Creating %s %s hypervisor %s" %
+            (domain_name, st_name, hypervisor_type))
 
         domain_obj = None
         for domain in DomainSM.values():
@@ -530,12 +531,13 @@ class SvcMonitor(object):
                 domain_obj.fq_name = domain_fq_name
                 break
         if not domain_obj:
-            self.logger.log("%s domain not found" % (domain_name))
+            self.logger.log_error("%s domain not found" % (domain_name))
             return
 
         for st in ServiceTemplateSM.values():
             if st.fq_name == st_fq_name:
-                self.logger.log("%s exists uuid %s" % (st.name, str(st.uuid)))
+                self.logger.log_info("%s exists uuid %s" %
+                    (st.name, str(st.uuid)))
                 return
 
         st_obj = ServiceTemplate(name=st_name, domain_obj=domain)
@@ -577,7 +579,8 @@ class SvcMonitor(object):
         except Exception as e:
             print e
 
-        self.logger.log("%s created with uuid %s" % (st_name, str(st_uuid)))
+        self.logger.log_info("%s created with uuid %s" %
+            (st_name, str(st_uuid)))
     #_create_default_analyzer_template
 
     def check_link_si_to_vm(self, vm, vmi):
@@ -606,10 +609,11 @@ class SvcMonitor(object):
         elif st.virtualization_type == 'vrouter-instance':
             self.vrouter_manager.create_service(st, si)
         else:
-            self.logger.log("Unkown virt type: %s" % st.virtualization_type)
+            self.logger.log_error("Unknown virt type: %s" %
+                st.virtualization_type)
 
     def _delete_service_instance(self, vm):
-        self.logger.log("Deleting VM %s %s" %
+        self.logger.log_info("Deleting VM %s %s" %
             ((':').join(vm.proj_fq_name), vm.uuid))
 
         if vm.virtualization_type == svc_info.get_vm_instance_type():
@@ -652,7 +656,7 @@ class SvcMonitor(object):
 
     def _delete_shared_vn(self, vn_uuid):
         try:
-            self.logger.log("Deleting vn %s" % (vn_uuid))
+            self.logger.log_info("Deleting vn %s" % (vn_uuid))
             self._vnc_lib.virtual_network_delete(id=vn_uuid)
         except (NoIdError, RefsExistError):
             pass

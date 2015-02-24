@@ -71,13 +71,35 @@ class ServiceMonitorLogger(object):
     def _get_sandesh_logger_level(self, sandesh_level):
         return self._LOGGER_LEVEL_TO_SANDESH_LEVEL[sandesh_level]
 
-    def log(self, log_msg, level=logging.DEBUG):
-        sandesh_level = self._get_sandesh_logger_level(level)
-        vn_log = sandesh.SvcMonitorLog(level=sandesh_level,
+    def log(self, log_msg, level=SandeshLevel.SYS_DEBUG):
+        vn_log = sandesh.SvcMonitorLog(level=level,
             log_msg=log_msg, sandesh=self._sandesh)
         vn_log.send(sandesh=self._sandesh)
 
-    
+    def log_emergency(self, log_msg):
+        self.log(log_msg, level=SandeshLevel.SYS_EMERG)
+
+    def log_alert(self, log_msg):
+        self.log(log_msg, level=SandeshLevel.SYS_ALERT)
+
+    def log_critical(self, log_msg):
+        self.log(log_msg, level=SandeshLevel.SYS_CRIT)
+
+    def log_error(self, log_msg):
+        self.log(log_msg, level=SandeshLevel.SYS_ERR)
+
+    def log_warning(self, log_msg):
+        self.log(log_msg, level=SandeshLevel.SYS_WARN)
+
+    def log_notice(self, log_msg):
+        self.log(log_msg, level=SandeshLevel.SYS_NOTICE)
+
+    def log_info(self, log_msg):
+        self.log(log_msg, level=SandeshLevel.SYS_INFO)
+
+    def log_debug(self, log_msg):
+        self.log(log_msg, level=SandeshLevel.SYS_DEBUG)
+
     def api_conn_status_update(self, status, msg=None):
         ConnectionState.update(conn_type=ConnectionType.APISERVER,
             name='ApiServer', status=status, message=msg,
