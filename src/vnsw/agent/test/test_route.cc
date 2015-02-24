@@ -1532,6 +1532,41 @@ TEST_F(RouteTest, PathPreference_1) {
     EXPECT_TRUE(VrfFind("vrf1", true) == false);
 }
 
+// Enqueue a route resync for a peer which does not
+// have a path to route make sure, path change is not
+// notified
+TEST_F(RouteTest, RouteResync_1) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    Peer peer(Peer::LOCAL_VM_PORT_PEER, "test_peer", true);
+    Ip4Address ip = Ip4Address::from_string("1.1.1.10");
+    //Enqueue path change for non existent path
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    InetUnicastRouteKey *rt_key =
+        new InetUnicastRouteKey(&peer, "vrf1", ip, 32);
+    rt_key->sub_op_ = AgentKey::RESYNC;
+    req.key.reset(rt_key);
+    InetInterfaceKey intf_key("vnet1");
+    req.data.reset(new InetInterfaceRoute(intf_key, 1, TunnelType::GREType(), "vn1"));
+    AgentRouteTable *table =
+        agent_->vrf_table()->GetInet4UnicastRouteTable("vrf1");
+    table->Enqueue(&req);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(RouteFind("vrf1", ip, 32) == true);
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    //Make sure vrf and all routes are deleted
+    EXPECT_TRUE(VrfFind("vrf1", true) == false);
+}
+
 //Add IPAM and then add a smaller subnet as remote route.
 //Flood flag shud be set in both.
 TEST_F(RouteTest, SubnetRoute_Flood_1) {
