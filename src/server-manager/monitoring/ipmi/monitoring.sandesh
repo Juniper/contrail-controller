@@ -20,12 +20,21 @@ struct IpmiChassis_status_info {
     11: bool        cooling_fan_fault
 }
 
+struct Disk {
+    1: u64 read_MB
+    2: u64 write_MB
+    3: string disk_name
+}
+
 struct ServerMonitoringInfo {
     1: string name               (key="ObjectServerTable")
     2: optional bool             deleted
     3: optional list<IpmiSensor> sensor_stats (tags=".sensor,.sensor_type")
     4: optional list<IpmiSensor> sensor_state
     6: optional IpmiChassis_status_info chassis_state
+    7: optional list<Disk> disk_usage (tags=".disk_name")
+    8: double cpu_usage (tags="")
+    9: optional double mem_usage (tags="")
 }
 
 uve sandesh ServerMonitoringInfoTrace {
