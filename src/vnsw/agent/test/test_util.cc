@@ -317,6 +317,22 @@ void AddNode(const char *node_name, const char *name, int id,
     return;
 }
 
+// admin_state is true by default
+void AddNode(Agent *agent, const char *node_name, const char *name, int id,
+             const char *attr, bool admin_state) {
+    char buff[10240];
+    int len = 0;
+
+    AddXmlHdr(buff, len);
+    AddNodeString(buff, len, node_name, name, id, attr, admin_state);
+    AddXmlTail(buff, len);
+    pugi::xml_document xdoc_;
+    pugi::xml_parse_result result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    agent->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
+    return;
+}
+
 void AddLinkNode(const char *node_name, const char *name, const char *attr) {
     char buff[1024];
     int len = 0;
@@ -343,6 +359,20 @@ void DelNode(const char *node_name, const char *name) {
     pugi::xml_parse_result result = xdoc_.load(buff);
     EXPECT_TRUE(result);
     Agent::GetInstance()->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
+    return;
+}
+
+void DelNode(Agent *agent, const char *node_name, const char *name) {
+    char buff[1024];
+    int len = 0;
+
+    DelXmlHdr(buff, len);
+    DelNodeString(buff, len, node_name, name);
+    DelXmlTail(buff, len);
+    pugi::xml_document xdoc_;
+    pugi::xml_parse_result result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    agent->ifmap_parser()->ConfigParse(xdoc_.first_child(), 0);
     return;
 }
 
@@ -1869,8 +1899,33 @@ void AddEncapList(const char *encap1, const char *encap2, const char *encap3) {
     AddNode("global-vrouter-config", "vrouter-config", 1, str.str().c_str());
 }
 
+void AddEncapList(Agent *agent, const char *encap1, const char *encap2,
+                  const char *encap3) {
+    std::stringstream str;
+    str << "<encapsulation-priorities>" << endl;
+    if (encap1) {
+        str << "    <encapsulation>" << encap1 << "</encapsulation>";
+    }
+
+    if (encap2) {
+        str << "    <encapsulation>" << encap2 << "</encapsulation>";
+    }
+
+    if (encap3) {
+        str << "    <encapsulation>" << encap3 << "</encapsulation>";
+    }
+    str << "</encapsulation-priorities>";
+
+    AddNode(agent, "global-vrouter-config", "vrouter-config", 1,
+            str.str().c_str());
+}
+
 void DelEncapList() {
     DelNode("global-vrouter-config", "vrouter-config");
+}
+
+void DelEncapList(Agent *agent) {
+    DelNode(agent, "global-vrouter-config", "vrouter-config");
 }
 
 void send_icmp(int fd, uint8_t smac, uint8_t dmac, uint32_t sip, uint32_t dip) {
