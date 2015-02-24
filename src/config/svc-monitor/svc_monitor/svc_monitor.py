@@ -226,14 +226,6 @@ class SvcMonitor(object):
                                       svc_mode='in-network-nat',
                                       hypervisor_type='network-namespace',
                                       scaling=True)
-        self._create_default_template('docker-template', 'firewall',
-                                      svc_mode='transparent',
-                                      image_name="ubuntu",
-                                      hypervisor_type='vrouter-instance',
-                                      vrouter_instance_type='docker',
-                                      instance_data={
-                                          "command": "/bin/bash"
-                                      })
 
         self._nova_client = importutils.import_object(
             'svc_monitor.nova_client.ServiceMonitorNovaClient',
@@ -282,6 +274,22 @@ class SvcMonitor(object):
                 vm_key = prefix + 'uuid'
                 if vm_key not in si.keys():
                     continue
+
+                # rename the vm for upgrade to 2.0+
+                proj_name = si_fq_str.split(':')[-2]
+                vm = self._nova_client.oper('servers', 'get', proj_name,
+                    id=si[vm_key])
+                if vm:
+                    si_obj = ServiceInstance()
+                    si_obj.name = si_fq_str.split(':')[-1]
+                    si_obj.fq_name = si_fq_str.split(':')
+                    instance_name = self.vm_manager._get_instance_name(
+                        si_obj, idx)
+                    if vm.name != instance_name:
+                        vm.update(name=instance_name)
+                        vm_name_key = prefix + 'name'
+                        self.db.service_instance_insert(si_fq_str,
+                            {vm_name_key:instance_name})
 
                 try:
                     vm_obj = self._vnc_lib.virtual_machine_read(id=si[vm_key], fields=['virtual_machine_interface_back_refs'])
