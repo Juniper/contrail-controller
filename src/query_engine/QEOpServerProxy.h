@@ -23,6 +23,7 @@ class QueryResultMetaData;
 class QEOpServerProxy {
 public:
     static const int nMaxChunks = 16;
+    static const int nMaxRows = 1000000;
 
     // Increase max number of threads available by a factor of 4
     static const int nThreadCountMultFactor = 4;
@@ -43,7 +44,7 @@ public:
     QEOpServerProxy(EventManager *evm, QueryEngine *qe,
             const std::string & hostname,
             uint16_t port, const std::string & redis_password,
-            int max_chunks = nMaxChunks);
+            int max_chunks = nMaxChunks, int max_rows = nMaxRows);
     virtual ~QEOpServerProxy();
 
     // When the result of a Query is available, the client should
