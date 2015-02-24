@@ -1084,6 +1084,14 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('physical-router-vendor-name', 'physical-router') -->
 
+<xsd:element name="physical-router-product-name" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('physical-router-product-name', 'physical-router') -->
+
+<xsd:element name="physical-router-vnc-managed" type="xsd:boolean"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('physical-router-vnc-managed', 'physical-router') -->
+
 <xsd:complexType name="UserCredentials">
     <xsd:all>
         <xsd:element name="username" type="xsd:string"/>
