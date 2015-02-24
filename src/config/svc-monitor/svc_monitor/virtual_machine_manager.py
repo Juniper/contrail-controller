@@ -49,7 +49,7 @@ class VirtualMachineManager(InstanceManager):
             nics_with_port.append(nic_with_port)
 
         # launch vm
-        self.logger.log('Launching VM : ' + instance_name)
+        self.logger.log_info('Launching VM : ' + instance_name)
         nova_vm = self._nc.oper('servers', 'create', proj_name,
             name=instance_name, image=image,
             flavor=flavor, nics=nics_with_port,
@@ -58,7 +58,7 @@ class VirtualMachineManager(InstanceManager):
             return None
 
         nova_vm.get()
-        self.logger.log('Created VM : ' + str(nova_vm))
+        self.logger.log_info('Created VM : ' + str(nova_vm))
 
         # link si and vm
         self.link_si_to_vm(si, st, instance_index, nova_vm.id)
@@ -90,7 +90,7 @@ class VirtualMachineManager(InstanceManager):
         si.flavor = st.params.get('flavor', None)
         si.image = st.params.get('image_name', None)
         if not (si.flavor or si.image):
-            self.logger.log("ERROR: Image/flavor not present in %s" %
+            self.logger.log_error("Image/flavor not present in %s" %
                 ((':').join(st.fq_name)))
             return False
 

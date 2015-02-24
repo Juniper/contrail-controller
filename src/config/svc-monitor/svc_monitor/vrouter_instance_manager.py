@@ -9,12 +9,12 @@ class VRouterInstanceManager(VRouterHostedManager):
     Manager for service instances (Docker or KVM) hosted on selected VRouter
     """
     def create_service(self, st_obj, si_obj):
-        self.logger.log("Creating new VRouter instance!")
+        self.logger.log_info("Creating new VRouter instance!")
         si_props = si_obj.get_service_instance_properties()
         st_props = st_obj.get_service_template_properties()
         if st_props is None:
-            self.logger.log("Cannot find service template associated to "
-                            "service instance %s" % si_obj.get_fq_name_str())
+            self.logger.log_error("Cannot find service template associated to "
+                "service instance %s" % si_obj.get_fq_name_str())
             return
 
         self.db.service_instance_insert(si_obj.get_fq_name_str(),
@@ -29,18 +29,18 @@ class VRouterInstanceManager(VRouterHostedManager):
         try:
             vm_obj = self._vnc_lib.virtual_machine_read(
                 fq_name=[instance_name], fields="virtual_router_back_refs")
-            self.logger.log("Info: VM %s already exists" % instance_name)
+            self.logger.log_info("VM %s already exists" % instance_name)
         except NoIdError:
             vm_obj = VirtualMachine(instance_name)
             self._vnc_lib.virtual_machine_create(vm_obj)
-            self.logger.log("Info: VM %s created" % instance_name)
+            self.logger.log_info("VM %s created" % instance_name)
 
         si_refs = vm_obj.get_service_instance_refs()
         if (si_refs is None) or (si_refs[0]['to'][0] == 'ERROR'):
             vm_obj.set_service_instance(si_obj)
             self._vnc_lib.virtual_machine_update(vm_obj)
-            self.logger.log("Info: VM %s updated with SI %s" %
-                            (instance_name, si_obj.get_fq_name_str()))
+            self.logger.log_info("VM %s updated with SI %s" %
+                (instance_name, si_obj.get_fq_name_str()))
 
         # Create virtual machine interfaces with an IP on networks
         for nic in nics:
@@ -49,8 +49,8 @@ class VRouterInstanceManager(VRouterHostedManager):
             if vmi_obj.get_virtual_machine_refs() is None:
                 vmi_obj.set_virtual_machine(vm_obj)
                 self._vnc_lib.virtual_machine_interface_update(vmi_obj)
-                self.logger.log("Info: VMI %s updated with VM %s" %
-                                (vmi_obj.get_fq_name_str(), instance_name))
+                self.logger.log_info("VMI %s updated with VM %s" %
+                    (vmi_obj.get_fq_name_str(), instance_name))
 
         vrouter_name = None
         state = 'pending'
@@ -63,9 +63,8 @@ class VRouterInstanceManager(VRouterHostedManager):
                 id=vr_id)
             if vr_obj:
                 vr_obj.del_virtual_machine(vm_obj)
-                self.logger.log("Info: VM %s removed from VRouter %s" %
-                                (instance_name,
-                                 ':'.join(vr_obj.get_fq_name())))
+                self.logger.log_info("VM %s removed from VRouter %s" %
+                    (instance_name, ':'.join(vr_obj.get_fq_name())))
             vrouter_back_refs = None
         # Associate instance on the selected vrouter
         if vrouter_back_refs is None:
@@ -77,8 +76,8 @@ class VRouterInstanceManager(VRouterHostedManager):
                 vrouter_name = chosen_vr_fq_name[-1]
                 self._vnc_lib.virtual_router_update(vr_obj)
                 state = 'active'
-                self.logger.log("Info: VRouter %s updated with VM %s" %
-                                (':'.join(chosen_vr_fq_name), instance_name))
+                self.logger.log_info("Info: VRouter %s updated with VM %s" %
+                    (':'.join(chosen_vr_fq_name), instance_name))
         else:
             vrouter_name = vrouter_back_refs[0]['to'][-1]
             state = 'active'
