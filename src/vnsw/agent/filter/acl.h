@@ -146,6 +146,9 @@ public:
 
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
     virtual bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
+    virtual bool IFLinkToReq(IFMapLink *link, IFMapNode *node,
+                             const std::string &peer_type, IFMapNode *peer,
+                             DBRequest &req);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     TrafficAction::Action ConvertActionString(std::string action) const;

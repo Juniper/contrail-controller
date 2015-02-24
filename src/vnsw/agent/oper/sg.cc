@@ -185,6 +185,28 @@ bool SgTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     return false;
 }
 
+bool SgTable::IFLinkToReq(IFMapLink *link, IFMapNode *node,
+                          const std::string &peer_type, IFMapNode *peer,
+                          DBRequest &req) {
+    // Add/Delete of link other than VMInterface will most likely need re-eval
+    // of VN.
+    if (peer_type != "virtual-machine-interface") {
+        return IFNodeToReq(node, req);
+    }
+
+    // If peer is VMI, invoke re-eval if peer node is present
+    if (peer && peer->table() == agent()->cfg()->cfg_vm_interface_table()) {
+        DBRequest vmi_req;
+        if (agent()->interface_table()->IFNodeToReq(peer, vmi_req) == true) {
+             LOG(DEBUG, "SG change sync for Port " << peer->name());
+             agent()->interface_table()->Enqueue(&vmi_req);
+        }
+        return false;
+    }
+
+    return false;
+}
+
 bool SgEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
     SgListResp *resp = static_cast<SgListResp *>(sresp);
     std::string str_uuid = UuidToString(GetSgUuid());

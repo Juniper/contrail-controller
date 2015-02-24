@@ -415,6 +415,23 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     return false;
 }
 
+bool AclTable::IFLinkToReq(IFMapLink *link, IFMapNode *node,
+                          const std::string &peer_type, IFMapNode *peer,
+                          DBRequest &req) {
+    if (peer && peer->table() == agent()->cfg()->cfg_vn_table()) {
+        DBRequest vn_req;
+        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+        agent()->vn_table()->IFNodeToReq(peer, vn_req);
+    }
+
+    if (peer && peer->table() == agent()->cfg()->cfg_sg_table()) {
+        DBRequest sg_req;
+        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+        agent()->sg_table()->IFNodeToReq(peer, sg_req);
+    }
+    return false;
+}
+
 // ACL methods
 void AclDBEntry::SetAclEntries(AclEntries &entries)
 {

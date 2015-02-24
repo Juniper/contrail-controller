@@ -162,6 +162,10 @@ void AgentConfig::RegisterDBClients(DB *db) {
         ("virtual-network", agent_->vn_table());
     cfg_listener_->LinkRegister
         ("routing-instance", agent_->vrf_table());
+    cfg_listener_->LinkRegister
+        ("security-group", agent_->sg_table());
+    cfg_listener_->LinkRegister
+        ("access-control-list", agent_->acl_table());
 
     cfg_vm_interface_table_ = (static_cast<IFMapAgentTable *>
         (IFMapTable::FindTable(agent_->db(), "virtual-machine-interface")));
