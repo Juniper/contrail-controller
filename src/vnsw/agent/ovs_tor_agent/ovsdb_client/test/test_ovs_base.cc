@@ -125,7 +125,6 @@ int main(int argc, char *argv[]) {
     ksync_init = true;
     client = OvsTestInit(init_file, ksync_init);
     int ret = RUN_ALL_TESTS();
-    TestOvsAgentInit *init = static_cast<TestOvsAgentInit *>(client->agent_init());
     TestShutdown();
     return ret;
 }
