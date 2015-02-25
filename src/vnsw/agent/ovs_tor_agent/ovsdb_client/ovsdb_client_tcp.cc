@@ -71,14 +71,27 @@ void OvsdbClientTcp::shutdown() {
     if (shutdown_)
         return;
     shutdown_ = true;
-    session_->Close();
+    OvsdbClientTcpSession *tcp =
+                static_cast<OvsdbClientTcpSession *>(session_);
+    tcp->TriggerClose();
 }
 
 const boost::asio::ip::tcp::endpoint &OvsdbClientTcp::server_ep() const {
         return server_ep_;
 }
 
-OvsdbClientSession *OvsdbClientTcp::next_session(OvsdbClientSession *session) {
+OvsdbClientSession *OvsdbClientTcp::FindSession(Ip4Address ip, uint16_t port) {
+    // match both ip and port with available session
+    // if port is not provided match only ip
+    if (server_ep_.address().to_v4() == ip &&
+        (port == 0 || server_ep_.port() == port)) {
+        return static_cast<OvsdbClientSession *>(
+                static_cast<OvsdbClientTcpSession *>(session_));
+    }
+    return NULL;
+}
+
+OvsdbClientSession *OvsdbClientTcp::NextSession(OvsdbClientSession *session) {
     if (session_ == NULL) {
         return NULL;
     }
@@ -93,6 +106,8 @@ void OvsdbClientTcp::AddSessionInfo(SandeshOvsdbClient &client){
         OvsdbClientTcpSession *tcp =
             static_cast<OvsdbClientTcpSession *>(session_);
         session.set_status(tcp->status());
+        session.set_remote_ip(tcp->remote_endpoint().address().to_string());
+        session.set_remote_port(tcp->remote_endpoint().port());
     }
     session_list.push_back(session);
     client.set_sessions(session_list);

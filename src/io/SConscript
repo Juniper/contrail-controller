@@ -17,13 +17,14 @@ except_env = BuildEnv.Clone()
 except_env.Append(CPPPATH = env['TOP_INCLUDE'] + '/thrift')
 except_env.Append(CPPPATH = [env['TOP']])
 EventManagerSrc = except_env.Object('event_manager.o', 'event_manager.cc')
+SslServerSrc = except_env.Object('ssl_server.o', 'ssl_server.cc')
 
 libio = env.Library('io',
             SandeshGenSrcs +
             EventManagerSrc +
+            SslServerSrc +
             [
              'io_utils.cc',
-             'ssl_server.cc',
              'ssl_session.cc',
              'tcp_message_write.cc',
              'tcp_server.cc',

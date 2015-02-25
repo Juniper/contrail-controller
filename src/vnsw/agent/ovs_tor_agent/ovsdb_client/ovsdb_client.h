@@ -22,7 +22,14 @@ public:
     virtual const std::string server() = 0;
     virtual uint16_t port() = 0;
     virtual Ip4Address tsn_ip() = 0;
-    virtual OvsdbClientSession *next_session(OvsdbClientSession *session) = 0;
+
+    // API to find session given ip and port, if port is zero
+    // it should give the next available session for the ip
+    virtual OvsdbClientSession *FindSession(Ip4Address ip, uint16_t port) = 0;
+
+    // API to get the next session, return first session if
+    // argument provided is NULL
+    virtual OvsdbClientSession *NextSession(OvsdbClientSession *session) = 0;
     virtual void AddSessionInfo(SandeshOvsdbClient &client) = 0;
     virtual void shutdown() = 0;
 

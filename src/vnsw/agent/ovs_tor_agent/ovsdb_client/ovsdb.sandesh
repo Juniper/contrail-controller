@@ -8,12 +8,14 @@
 
 struct SandeshOvsdbClientSession {
     1: string status;
+    2: string remote_ip;
+    3: u16 remote_port;
 }
 
 struct SandeshOvsdbClient {
     1: string protocol;
     2: string server;
-    3: i16 port;
+    3: u16 port;
     4: string tor_service_node;
     5: list<SandeshOvsdbClientSession> sessions;
 }
@@ -49,7 +51,7 @@ response sandesh OvsdbPhysicalSwitchResp {
 
 request sandesh OvsdbPhysicalSwitchReq {
     1: string session_remote_ip;
-    2: i16 session_remote_port;
+    2: u16 session_remote_port;
 }
 
 struct SandeshPhysicalSwitchInfo {
@@ -66,7 +68,7 @@ traceobject sandesh OvsdbPhysicalSwitch {
  ****************************************************************************/
 
 struct OvsdbPhysicalPortVlanInfo {
-    1: i16 vlan;
+    1: u16 vlan;
     2: string logical_switch;
     3: i64 in_pkts;
     4: i64 in_bytes;
@@ -86,7 +88,7 @@ response sandesh OvsdbPhysicalPortResp {
 
 request sandesh OvsdbPhysicalPortReq {
     1: string session_remote_ip;
-    2: i16 session_remote_port;
+    2: u16 session_remote_port;
 }
 
 /****************************************************************************
@@ -106,7 +108,7 @@ response sandesh OvsdbLogicalSwitchResp {
 
 request sandesh OvsdbLogicalSwitchReq {
     1: string session_remote_ip;
-    2: i16 session_remote_port;
+    2: u16 session_remote_port;
 }
 
 struct SandeshLogicalSwitchInfo {
@@ -138,7 +140,7 @@ response sandesh OvsdbVlanPortBindingResp {
 
 request sandesh OvsdbVlanPortBindingReq {
     1: string session_remote_ip;
-    2: i16 session_remote_port;
+    2: u16 session_remote_port;
 }
 
 /****************************************************************************
@@ -158,7 +160,7 @@ response sandesh OvsdbUnicastMacLocalResp {
 
 request sandesh OvsdbUnicastMacLocalReq {
     1: string session_remote_ip;
-    2: i16 session_remote_port;
+    2: u16 session_remote_port;
 }
 
 /****************************************************************************
@@ -179,7 +181,7 @@ response sandesh OvsdbUnicastMacRemoteResp {
 
 request sandesh OvsdbUnicastMacRemoteReq {
     1: string session_remote_ip;
-    2: i16 session_remote_port;
+    2: u16 session_remote_port;
 }
 struct SandeshUnicastMacRemoteInfo {
     1: string op;

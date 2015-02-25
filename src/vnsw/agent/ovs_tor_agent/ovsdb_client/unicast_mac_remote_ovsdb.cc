@@ -446,17 +446,26 @@ VrfOvsdbObject::logical_switch_map() const {
 /////////////////////////////////////////////////////////////////////////////
 class UnicastMacRemoteSandeshTask : public Task {
 public:
-    UnicastMacRemoteSandeshTask(std::string resp_ctx) :
+    UnicastMacRemoteSandeshTask(std::string resp_ctx, const std::string &ip,
+                                uint32_t port) :
         Task((TaskScheduler::GetInstance()->GetTaskId("Agent::KSync")), 0),
-        resp_(new OvsdbUnicastMacRemoteResp()), resp_data_(resp_ctx) {
+        resp_(new OvsdbUnicastMacRemoteResp()), resp_data_(resp_ctx),
+        ip_(ip), port_(port) {
     }
     virtual ~UnicastMacRemoteSandeshTask() {}
     virtual bool Run() {
         std::vector<OvsdbUnicastMacRemoteEntry> macs;
         TorAgentInit *init =
             static_cast<TorAgentInit *>(Agent::GetInstance()->agent_init());
-        OvsdbClientSession *session = init->ovsdb_client()->next_session(NULL);
-        if (session->client_idl() != NULL) {
+        OvsdbClientSession *session;
+        if (ip_.empty()) {
+            session = init->ovsdb_client()->NextSession(NULL);
+        } else {
+            boost::system::error_code ec;
+            Ip4Address ip_addr = Ip4Address::from_string(ip_, ec);
+            session = init->ovsdb_client()->FindSession(ip_addr, port_);
+        }
+        if (session != NULL && session->client_idl() != NULL) {
             VrfOvsdbObject *vrf_obj = session->client_idl()->vrf_ovsdb();
             const VrfOvsdbObject::LogicalSwitchMap ls_table =
                 vrf_obj->logical_switch_map();
@@ -492,12 +501,15 @@ private:
 
     OvsdbUnicastMacRemoteResp *resp_;
     std::string resp_data_;
+    std::string ip_;
+    uint32_t port_;
     DISALLOW_COPY_AND_ASSIGN(UnicastMacRemoteSandeshTask);
 };
 
 void OvsdbUnicastMacRemoteReq::HandleRequest() const {
     UnicastMacRemoteSandeshTask *task =
-        new UnicastMacRemoteSandeshTask(context());
+        new UnicastMacRemoteSandeshTask(context(), get_session_remote_ip(),
+                                        get_session_remote_port());
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(task);
 }
