@@ -67,7 +67,8 @@ def start_kafka(zk_client_port, broker_listen_port, broker_id=0):
     output,_ = call_command_(kafkabase + basefile + "/bin/kafka-server-start.sh -daemon " + kafkabase + basefile + "/config/server.properties")
 
     count = 0
-    while count < 15:
+    start_wait = os.getenv('MAX_START_WAIT', 15)
+    while count < start_wait:
         try:
             logging.info('Trying to connect...')
             kk = KafkaClient("localhost:%d" % broker_listen_port)
