@@ -2365,9 +2365,14 @@ class VirtualMachineInterfaceST(DictST):
     # end set_interface_mirror
 
     def set_virtual_machine(self, virtual_machine):
-        if self.virtual_machine == virtual_machine:
+        try:
+            vm_obj = _vnc_lib.virtual_machine_read(fq_name_str=virtual_machine)
+        except NoIdError:
             return
-        self.virtual_machine = virtual_machine
+
+        if self.virtual_machine == vm_obj.uuid:
+            return
+        self.virtual_machine = vm_obj.uuid
         self._add_pbf_rules()
     # end set_virtual_machine
 
