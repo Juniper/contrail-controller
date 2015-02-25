@@ -126,6 +126,7 @@ const list<string> NodeUVEImplementedServices = [
     SERVICE_SVC_MONITOR,
     SERVICE_DEVICE_MANAGER,
     SERVICE_ALARM_GENERATOR,
+    SERVICE_DATABASE_NODE_MGR,
 ]
 
 const list<string> BackupImplementedServices = [
