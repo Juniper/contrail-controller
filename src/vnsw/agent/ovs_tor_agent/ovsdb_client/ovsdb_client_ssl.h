@@ -1,13 +1,13 @@
 /*
- * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+ * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
-#ifndef SRC_VNSW_AGENT_OVS_TOR_AGENT_OVSDB_CLIENT_OVSDB_CLIENT_TCP_H_
-#define SRC_VNSW_AGENT_OVS_TOR_AGENT_OVSDB_CLIENT_OVSDB_CLIENT_TCP_H_
+#ifndef SRC_VNSW_AGENT_OVS_TOR_AGENT_OVSDB_CLIENT_OVSDB_CLIENT_SSL_H_
+#define SRC_VNSW_AGENT_OVS_TOR_AGENT_OVSDB_CLIENT_OVSDB_CLIENT_SSL_H_
 #include <boost/asio.hpp>
 #include <boost/asio/buffer.hpp>
 
 #include <base/timer.h>
-#include <io/tcp_session.h>
+#include <io/ssl_session.h>
 #include <base/queue_task.h>
 
 #include <cmn/agent_cmn.h>
@@ -16,37 +16,15 @@
 #include <ovsdb_client.h>
 #include <ovsdb_client_idl.h>
 #include <ovsdb_client_session.h>
+#include <ovsdb_client_tcp.h>
 
 namespace OVSDB {
-class OvsdbClientTcpSessionReader : public TcpMessageReader {
+class OvsdbClientSsl;
+class OvsdbClientSslSession : public OvsdbClientSession, public SslSession {
 public:
-     OvsdbClientTcpSessionReader(TcpSession *session, ReceiveCallback callback);
-     virtual ~OvsdbClientTcpSessionReader();
-
-protected:
-    virtual int MsgLength(Buffer buffer, int offset);
-
-    virtual const int GetHeaderLenSize() {
-        // We don't have any header
-        return 0;
-    }
-
-    virtual const int GetMaxMessageSize() {
-        return kMaxMessageSize;
-    }
-
-private:
-    static const int kMaxMessageSize = 4096;
-    DISALLOW_COPY_AND_ASSIGN(OvsdbClientTcpSessionReader);
-};
-
-class OvsdbClientTcpSession : public OvsdbClientSession, public TcpSession {
-public:
-    static const uint32_t TcpReconnectWait = 2000;      // in msec
-
-    OvsdbClientTcpSession(Agent *agent, OvsPeerManager *manager,
-            TcpServer *server, Socket *sock, bool async_ready = true);
-    ~OvsdbClientTcpSession();
+    OvsdbClientSslSession(Agent *agent, OvsPeerManager *manager,
+            OvsdbClientSsl *server, SslSocket *sock, bool async_ready = true);
+    ~OvsdbClientSslSession();
 
     // Send message to OVSDB server
     void SendMsg(u_int8_t *buf, std::size_t len);
@@ -70,7 +48,6 @@ public:
     bool ProcessSessionEvent(OvsdbSessionEvent event);
 
     void EnqueueEvent(TcpSession::Event event);
-    bool ReconnectTimerCb();
 
 protected:
     virtual void OnRead(Buffer buffer);
@@ -84,30 +61,29 @@ protected:
     }
 
 private:
-    friend class OvsdbClientTcp;
-
+    friend class OvsdbClientSsl;
     std::string status_;
-    Timer *client_reconnect_timer_;
     OvsdbClientTcpSessionReader *reader_;
     WorkQueue<OvsdbSessionEvent> *session_event_queue_;
-    DISALLOW_COPY_AND_ASSIGN(OvsdbClientTcpSession);
+    DISALLOW_COPY_AND_ASSIGN(OvsdbClientSslSession);
 };
 
-class OvsdbClientTcp : public TcpServer, public OvsdbClient {
+class OvsdbClientSsl : public SslServer, public OvsdbClient {
 public:
-    OvsdbClientTcp(Agent *agent, IpAddress tor_ip, int tor_port,
-            IpAddress tsn_ip, int keepalive_interval,
-            bool disable_monitor_wait, OvsPeerManager *manager);
-    virtual ~OvsdbClientTcp();
+    typedef std::pair<Ip4Address, uint16_t> SessionKey;
+    typedef std::map<SessionKey, OvsdbClientSslSession *> SessionMap;
 
-    virtual TcpSession *AllocSession(Socket *socket);
+    OvsdbClientSsl(Agent *agent, TorAgentParam *params,
+            OvsPeerManager *manager);
+    virtual ~OvsdbClientSsl();
+
+    virtual SslSession *AllocSession(SslSocket *socket);
     void RegisterClients();
     void OnSessionEvent(TcpSession *session, TcpSession::Event event);
     const std::string protocol();
     const std::string server();
     uint16_t port();
     Ip4Address tsn_ip();
-    const boost::asio::ip::tcp::endpoint &server_ep() const;
 
     // API to shutdown the TCP server
     void shutdown();
@@ -117,16 +93,19 @@ public:
     void AddSessionInfo(SandeshOvsdbClient &client);
 
 private:
-    friend class OvsdbClientTcpSession;
+    friend class OvsdbClientSslSession;
+
+    // return true to accept incoming session or reject.
+    bool AcceptSession(TcpSession *session);
+
     Agent *agent_;
-    TcpSession *session_;
-    boost::asio::ip::tcp::endpoint server_ep_;
+    uint32_t ssl_server_port_;
     Ip4Address tsn_ip_;
     bool shutdown_;
-    bool disable_monitor_wait_;
-    DISALLOW_COPY_AND_ASSIGN(OvsdbClientTcp);
+    SessionMap session_map_;
+    DISALLOW_COPY_AND_ASSIGN(OvsdbClientSsl);
 };
 };
 
-#endif //SRC_VNSW_AGENT_OVS_TOR_AGENT_OVSDB_CLIENT_OVSDB_CLIENT_TCP_H_
+#endif //SRC_VNSW_AGENT_OVS_TOR_AGENT_OVSDB_CLIENT_OVSDB_CLIENT_SSL_H_
 

@@ -21,6 +21,11 @@ class OvsdbClientIdl;
 class OvsdbClientSession {
 public:
     static const uint32_t SendMonitorReqWait = 10000;       // in msec
+
+    struct OvsdbSessionEvent {
+        TcpSession::Event event;
+    };
+
     OvsdbClientSession(Agent *agent, OvsPeerManager *manager);
     virtual ~OvsdbClientSession();
 
@@ -44,6 +49,9 @@ public:
 
 protected:
     uint32_t monitor_wait_; // time to wait before sending monitor request
+
+    // ovsdb io task ID.
+    static int ovsdb_io_task_id_;
 
 private:
     friend class OvsdbClientIdl;

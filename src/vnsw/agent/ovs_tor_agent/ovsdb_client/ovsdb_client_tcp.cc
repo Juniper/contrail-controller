@@ -13,8 +13,6 @@ using OVSDB::OvsdbClientTcp;
 using OVSDB::OvsdbClientTcpSession;
 using OVSDB::OvsdbClientTcpSessionReader;
 
-int OvsdbClientTcpSession::ovsdb_io_task_id_ = -1;
-
 OvsdbClientTcp::OvsdbClientTcp(Agent *agent, IpAddress tor_ip, int tor_port,
         IpAddress tsn_ip, int keepalive_interval, bool disable_monitor_wait,
         OvsPeerManager *manager) :
@@ -66,14 +64,27 @@ void OvsdbClientTcp::shutdown() {
     if (shutdown_)
         return;
     shutdown_ = true;
-    session_->Close();
+    OvsdbClientTcpSession *tcp =
+                static_cast<OvsdbClientTcpSession *>(session_);
+    tcp->TriggerClose();
 }
 
 const boost::asio::ip::tcp::endpoint &OvsdbClientTcp::server_ep() const {
         return server_ep_;
 }
 
-OvsdbClientSession *OvsdbClientTcp::next_session(OvsdbClientSession *session) {
+OvsdbClientSession *OvsdbClientTcp::FindSession(Ip4Address ip, uint16_t port) {
+    // match both ip and port with available session
+    // if port is not provided match only ip
+    if (server_ep_.address().to_v4() == ip &&
+        (port == 0 || server_ep_.port() == port)) {
+        return static_cast<OvsdbClientSession *>(
+                static_cast<OvsdbClientTcpSession *>(session_));
+    }
+    return NULL;
+}
+
+OvsdbClientSession *OvsdbClientTcp::NextSession(OvsdbClientSession *session) {
     if (session_ == NULL) {
         return NULL;
     }
@@ -88,6 +99,8 @@ void OvsdbClientTcp::AddSessionInfo(SandeshOvsdbClient &client){
         OvsdbClientTcpSession *tcp =
             static_cast<OvsdbClientTcpSession *>(session_);
         session.set_status(tcp->status());
+        session.set_remote_ip(tcp->remote_endpoint().address().to_string());
+        session.set_remote_port(tcp->remote_endpoint().port());
     }
     session_list.push_back(session);
     client.set_sessions(session_list);
@@ -101,11 +114,6 @@ OvsdbClientTcpSession::OvsdbClientTcpSession(Agent *agent,
                 *(agent->event_manager())->io_service(),
                 "OVSDB Client TCP reconnect Timer",
                 TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0)) {
-    // initialize ovsdb_io task id on first constructor.
-    if (ovsdb_io_task_id_ == -1) {
-        ovsdb_io_task_id_ =
-            TaskScheduler::GetInstance()->GetTaskId("OVSDB::IO");
-    }
 
     reader_ = new OvsdbClientTcpSessionReader(this, 
             boost::bind(&OvsdbClientTcpSession::RecvMsg, this, _1, _2));
