@@ -116,7 +116,7 @@ class VRouterScheduler(object):
                 ('mode' in vrouter_agent['VrouterAgent'] and \
                 vrouter_agent['VrouterAgent']['mode'] != \
                 constants.VrouterAgentTypeMap[
-                    VrouterAgentType.VROUTER_AGENT_EMBEDDED]):
+                    constants.VrouterAgentType.VROUTER_AGENT_EMBEDDED]):
             return False
 
         fqdn_uuid = "%s?cfilt=NodeStatus" % vrouter_name
