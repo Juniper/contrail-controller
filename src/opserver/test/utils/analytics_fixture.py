@@ -111,17 +111,10 @@ class Collector(object):
 
     def stop(self):
         if self._instance is not None:
-            self._logger.info('Shutting down Vizd: 127.0.0.1:%d' 
-                              % (self.listen_port))
-            self._instance.terminate()
-            (vizd_out, vizd_err) = self._instance.communicate()
-            vcode = self._instance.returncode
-            if vcode != 0:
-                self._logger.info('vizd returned %d' % vcode)
-                self._logger.info('vizd terminated stdout: %s' % vizd_out)
-                self._logger.info('vizd terminated stderr: %s' % vizd_err)
-            subprocess.call(['rm', self._log_file])
-            assert(vcode == 0)
+            rcode = self.analytics_fixture.process_stop(
+                "contrail-collector:%d" % self.listen_port,
+                self._instance, self._log_file)
+            #assert(rcode == 0)
             self._instance = None
     # end stop
 
@@ -190,16 +183,10 @@ class OpServer(object):
 
     def stop(self):
         if self._instance is not None:
-            self._logger.info('Shutting down OpServer 127.0.0.1:%d' 
-                              % (self.listen_port))
-            self._instance.terminate()
-            (op_out, op_err) = self._instance.communicate()
-            ocode = self._instance.returncode
-            if ocode != 0:
-                self._logger.info('OpServer returned %d' % ocode)
-                self._logger.info('OpServer terminated stdout: %s' % op_out)
-                self._logger.info('OpServer terminated stderr: %s' % op_err)
-            subprocess.call(['rm', self._log_file])
+            rcode = self.analytics_fixture.process_stop(
+                "contrail-analytics-api:%d" % self.listen_port,
+                self._instance, self._log_file)
+            #assert(rcode == 0)
             self._instance = None
     # end stop
 
@@ -265,17 +252,10 @@ class QueryEngine(object):
 
     def stop(self):
         if self._instance is not None:
-            self._logger.info('Shutting down contrail-query-engine: 127.0.0.1:%d'
-                              % (self.listen_port))
-            self._instance.terminate()
-            (qe_out, qe_err) = self._instance.communicate()
-            rcode = self._instance.returncode
-            if rcode != 0:
-                self._logger.info('contrail-query-engine returned %d' % rcode)
-                self._logger.info('contrail-query-engine terminated stdout: %s' % qe_out)
-                self._logger.info('contrail-query-engine terminated stderr: %s' % qe_err)
-            subprocess.call(['rm', self._log_file])
-            assert(rcode == 0)
+            rcode = self.analytics_fixture.process_stop(
+                "contrail-query-engine:%d" % self.listen_port,
+                self._instance, self._log_file)
+            #assert(rcode == 0)
             self._instance = None
     # end stop
 
@@ -291,7 +271,8 @@ class Redis(object):
     def start(self):
         assert(self.running == False)
         self.running = True
-        mockredis.start_redis(self.port,self.builddir+'/testroot/bin/redis-server') 
+        ret = mockredis.start_redis(self.port,self.builddir+'/testroot/bin/redis-server') 
+        assert(ret)
     # end start
 
     def stop(self):
@@ -1705,6 +1686,31 @@ class AnalyticsFixture(fixtures.Fixture):
         cport = cs.getsockname()[1]
         cs.close()
         return cport
+
+    def process_stop(self, name, instance, log_file, del_log = True):
+        self.logger.info('Shutting down %s' % name)
+        if instance.poll() == None:
+            instance.terminate()
+            cnt = 1
+            while cnt < 10:
+                if instance.poll() != None:
+                    break
+                cnt += 1
+                gevent.sleep(1)
+        if instance.poll() == None:
+            self.logger.info('%s FAILED to terminate; will be killed' % name)
+            instance.kill()
+        (p_out, p_err) = instance.communicate()
+        rcode = instance.returncode
+        if rcode != 0:
+            self.logger.info('%s returned %d' % (name,rcode))
+            self.logger.info('%s terminated stdout: %s' % (name, p_out))
+            self.logger.info('%s terminated stderr: %s' % (name, p_err))
+            with open(log_file, 'r') as fin:
+                self.logger.info(fin.read())
+        if del_log:
+            subprocess.call(['rm', '-rf', log_file])
+        return rcode
 
     @staticmethod
     def enable_core():
