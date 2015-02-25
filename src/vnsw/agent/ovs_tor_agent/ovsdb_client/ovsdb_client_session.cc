@@ -15,6 +15,8 @@
 using OVSDB::OvsdbClientIdl;
 using OVSDB::OvsdbClientSession;
 
+int OvsdbClientSession::ovsdb_io_task_id_ = -1;
+
 OvsdbClientSession::OvsdbClientSession(Agent *agent, OvsPeerManager *manager) :
     monitor_wait_(SendMonitorReqWait), client_idl_(NULL),
     agent_(agent), manager_(manager),
@@ -22,6 +24,12 @@ OvsdbClientSession::OvsdbClientSession(Agent *agent, OvsPeerManager *manager) :
                 *(agent->event_manager())->io_service(),
                 "OVSDB Client Send Monitor Request Wait",
                 TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0)) {
+
+    // initialize ovsdb_io task id on first constructor.
+    if (ovsdb_io_task_id_ == -1) {
+        ovsdb_io_task_id_ =
+            TaskScheduler::GetInstance()->GetTaskId("OVSDB::IO");
+    }
 }
 
 OvsdbClientSession::~OvsdbClientSession() {

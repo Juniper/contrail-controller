@@ -79,7 +79,7 @@ protected:
         peer_manager_ = init_->ovs_peer_manager();
         WAIT_FOR(100, 10000,
                  (tcp_session_ = static_cast<OvsdbClientTcpSession *>
-                  (init_->ovsdb_client()->next_session(NULL))) != NULL);
+                  (init_->ovsdb_client()->NextSession(NULL))) != NULL);
         WAIT_FOR(100, 10000,
                  (tcp_session_->client_idl() != NULL));
     }
