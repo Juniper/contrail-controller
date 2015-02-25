@@ -76,16 +76,24 @@ def start_redis(port, exe=None):
                                stderr=subprocess.PIPE)
     r = redis.StrictRedis(host='localhost', port=port, db=0)
     done = False
+    start_wait = os.getenv('CONTRIAL_ANALYTICS_TEST_MAX_START_WAIT_TIME', 15)
+    cnt = 0
     while not done:
         try:
             r.ping()
         except:
+            cnt += 1
+            if cnt > start_wait:
+                logging.info('Redis Failed. Logs below: ')
+                with open(redisbase + "log", 'r') as fin:
+                    logging.info(fin.read())
+                return False
             logging.info('Redis not ready')
             time.sleep(1)
         else:
             done = True
     logging.info('Redis ready')
-
+    return True
 
 def stop_redis(port):
     '''
