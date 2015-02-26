@@ -220,7 +220,8 @@ class UVEServer(object):
             uves[redis_uve[0] + ":" + str(redis_uve[1])] = gen_uves
         return uves
         
-    def get_uve(self, key, flat, sfilter=None, mfilter=None, tfilter=None, multi=False):
+    def get_uve(self, key, flat, sfilter=None, mfilter=None,
+                tfilter=None, multi=False, is_alarm=False):
         state = {}
         state[key] = {}
         statdict = {}
@@ -230,7 +231,10 @@ class UVEServer(object):
                                        password=self._redis_password, db=1)
             try:
                 qmap = {}
-                for origs in redish.smembers("ORIGINS:" + key):
+                origins = redish.smembers("ALARM_ORIGINS:" + key)
+                if not is_alarm:
+                    origins = origins.union(redish.smembers("ORIGINS:" + key))
+                for origs in origins:
                     info = origs.rsplit(":", 1)
                     sm = info[0].split(":", 1)
                     source = sm[0]
@@ -387,7 +391,8 @@ class UVEServer(object):
         return re.compile(regex)
     # end get_uve_regex
 
-    def multi_uve_get(self, key, flat, kfilter, sfilter, mfilter, tfilter):
+    def multi_uve_get(self, key, flat, kfilter, sfilter, mfilter,
+                      tfilter, is_alarm=False):
         tbl_uve = key.split(':', 1)
         table = tbl_uve[0]
 
@@ -395,7 +400,7 @@ class UVEServer(object):
         # so we don't pass them here
         k1_filter = [tbl_uve[1]]
         uve_list = self.get_uve_list(table, k1_filter, sfilter,
-                                     mfilter, tfilter, False)
+                                     mfilter, tfilter, False, is_alarm)
         if kfilter is not None:
             patterns = set()
             for filt in kfilter:
@@ -411,7 +416,7 @@ class UVEServer(object):
                     continue
             uve_val = self.get_uve(
                 table + ':' + uve_name, flat,
-                sfilter, mfilter, tfilter, True)
+                sfilter, mfilter, tfilter, True, is_alarm)
             if uve_val == {}:
                 continue
             else:
@@ -420,7 +425,7 @@ class UVEServer(object):
     # end multi_uve_get
 
     def get_uve_list(self, key, kfilter, sfilter,
-                     mfilter, tfilter, parse_afilter):
+                     mfilter, tfilter, parse_afilter, is_alarm=False):
         uve_list = set()
         if kfilter is not None:
             patterns = set()
@@ -431,7 +436,11 @@ class UVEServer(object):
                                        port=redis_uve[1],
                                        password=self._redis_password, db=1)
             try:
-                for entry in redish.smembers("TABLE:" + key):
+                # For UVE queries, we wanna read both UVE and Alarm table
+                entries = redish.smembers('ALARM_TABLE:' + key)
+                if not is_alarm:
+                    entries = entries.union(redish.smembers('TABLE:' + key))
+                for entry in entries:
                     info = (entry.split(':', 1)[1]).rsplit(':', 5)
                     uve_key = info[0]
                     if kfilter is not None:

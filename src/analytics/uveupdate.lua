@@ -10,6 +10,7 @@ local seq = ARGV[8]
 local val = ARGV[9]
 local db = tonumber(ARGV[10])
 local part = ARGV[11]
+local is_alarm = tonumber(ARGV[12])
 
 local _types = KEYS[1]
 local _origins = KEYS[2]
@@ -22,8 +23,12 @@ local ism = redis.call('sismember', 'NGENERATORS', sm)
 if ism == 0 then
     return false
 end
-redis.call('sadd',"PART2KEY:"..part, sm..":"..typ..":"..key)
-redis.call('hset',"KEY2PART:"..sm..":"..typ, key, part)
+
+if is_alarm == 0 then
+    redis.call('sadd',"PART2KEY:"..part, sm..":"..typ..":"..key)
+    redis.call('hset',"KEY2PART:"..sm..":"..typ, key, part)
+end
+
 redis.call('sadd',_types,typ)
 redis.call('sadd',_origins,sm..":"..typ)
 redis.call('sadd',_table,key..':'..sm..":"..typ)

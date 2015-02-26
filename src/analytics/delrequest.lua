@@ -61,10 +61,15 @@ for k,v in pairs(typ) do
         redis.call('zrem', dval, deluve)
 
         dval = "ORIGINS:"..deluve
-        redis.call('srem', dval, sm..":"..deltyp)
-
-        dval = "TABLE:"..deltbl
-        redis.call('srem', dval, deluve..":"..sm..":"..deltyp)
+        if redis.call('srem', dval, sm..":"..deltyp) == 1 then
+            dval = "TABLE:"..deltbl
+            redis.call('srem', dval, deluve..":"..sm..":"..deltyp)
+        else
+            dval = "ALARM_ORIGINS:"..deluve
+            redis.call('srem', dval, sm..":"..deltyp)
+            dval = "ALARM_TABLE:"..deltbl
+            redis.call('srem', dval, deluve..":"..sm..":"..deltyp)
+        end
 
         if lttt == 1 then
             redis.call('lpush',"DELETED", dkey)

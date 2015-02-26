@@ -749,6 +749,7 @@ class AnalyticsFixture(fixtures.Fixture):
                     return False
         except Exception as e:
             self.logger.error('Exception: %s' % e)
+            return False
         return True
     # end verify_generator_uve_list
 
@@ -2037,6 +2038,51 @@ class AnalyticsFixture(fixtures.Fixture):
 	assert(len(res)==2)
         return True
     # end verify_fieldname_table
+
+    @retry(delay=1, tries=5)
+    def verify_alarms_table(self, table, expected_alarms):
+        self.logger.info('verify_alarms_table: %s' % (table))
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        try:
+            alarms = vns.get_alarms(table+'s')
+        except Exception as err:
+            self.logger.error('Failed to get alarms %ss: %s' % (table, str(err)))
+            assert(False)
+        actual_alarms = [alarm['name'] for alarm in alarms]
+        expected_alarms.sort()
+        actual_alarms.sort()
+        self.logger.info('Expected Alarms: %s' % (str(expected_alarms)))
+        self.logger.info('Actual Alarms: %s' % (str(actual_alarms)))
+        if actual_alarms != expected_alarms:
+            return False
+        return True
+    # end verify_alarms_table
+
+    @retry(delay=1, tries=3)
+    def verify_alarm(self, table, key, expected_alarm):
+        self.logger.info('verify_alarm: %s:%s' % (table, key))
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        try:
+            alarm = vns.get_alarms(table+'/'+key+'?flat')
+        except Exception as err:
+            self.logger.error('Failed to get alarm %s:%s: %s' % \
+                              (table, key, str(err)))
+            assert(False)
+        return self.verify_alarm_data(expected_alarm, alarm)
+    # end verify_alarm
+
+    def verify_alarm_data(self, expected_alarm_data, actual_alarm_data):
+        self.logger.info('Expected Alarm: %s' % (str(expected_alarm_data)))
+        self.logger.info('Actual Alarm: %s' % (str(actual_alarm_data)))
+        if expected_alarm_data == {}:
+            return actual_alarm_data == {}
+        expected_alarms = expected_alarm_data['alarms']
+        try:
+            actual_alarms = actual_alarm_data['AlarmData']['alarms']
+        except KeyError:
+            return False
+        return actual_alarms == expected_alarms
+    # end verify_alarm_data
 
     def cleanUp(self):
 

@@ -33,7 +33,8 @@ RedisProcessorExec::UVEUpdate(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
                        const std::string &instance_id,
                        const std::string &key, const std::string &msg,
                        int32_t seq, const std::string &agg,
-                       const std::string &hist, int64_t ts, unsigned int part) {
+                       const std::string &hist, int64_t ts, unsigned int part,
+                       bool is_alarm) {
     
     bool ret = false;
     size_t sep = key.find(":");
@@ -42,6 +43,8 @@ RedisProcessorExec::UVEUpdate(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
     seqstr << seq;
     std::ostringstream tsstr;
     tsstr << "{\"ts\":" << ts << "}";
+    const std::string table_index(is_alarm ? "ALARM_TABLE:" : "TABLE:");
+    const std::string origin_index(is_alarm ? "ALARM_ORIGINS:" : "ORIGINS:");
 
     if (agg == "stats") {
         std::string sc,sp,ss;
@@ -82,14 +85,15 @@ RedisProcessorExec::UVEUpdate(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
         ret = rac->RedisAsyncArgCmd(rpi,
             list_of(string("EVAL"))(lua_scr)("5")(
                 string("TYPES:") + source + ":" + node_type + ":" + module + ":" + instance_id)(
-                string("ORIGINS:") + key)(
-                string("TABLE:") + table)(
+                origin_index + key)(
+                table_index + table)(
                 string("UVES:") + source + ":" + node_type + ":" + module +
                 ":" + instance_id + ":" + type)(
                 string("VALUES:") + key + ":" + source + ":" + node_type + 
                 ":" + module + ":" + instance_id + ":" + type)(
                 source)(node_type)(module)(instance_id)(type)(attr)(key)
-                (seqstr.str())(msg)(integerToString(REDIS_DB_UVE))(integerToString(part)));        
+                (seqstr.str())(msg)(integerToString(REDIS_DB_UVE))
+                (integerToString(part))(integerToString(is_alarm)));
     }
     return ret;
 }
@@ -99,13 +103,15 @@ RedisProcessorExec::UVEDelete(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
         const std::string &type,
         const std::string &source, const std::string &node_type,
         const std::string &module, const std::string &instance_id,
-        const string &key, const int32_t seq) {
+        const string &key, const int32_t seq, bool is_alarm) {
 
     size_t sep = key.find(":");
     string table = key.substr(0, sep);
 
     std::ostringstream seqstr;
     seqstr << seq;
+    const std::string table_index(is_alarm ? "ALARM_TABLE:" : "TABLE:");
+    const std::string origin_index(is_alarm ? "ALARM_ORIGINS:" : "ORIGINS:");
 
     string lua_scr(reinterpret_cast<char *>(uvedelete_lua), uvedelete_lua_len);
     return rac->RedisAsyncArgCmd(rpi,
@@ -116,10 +122,11 @@ RedisProcessorExec::UVEDelete(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
             module + ":" + instance_id + ":" + type)(
             string("UVES:") + source + ":" + node_type + ":" + module + ":" +
             instance_id + ":" + type)(
-            string("ORIGINS:") + key)(
-            string("TABLE:") + table)(
+            origin_index + key)(
+            table_index + table)(
             string("DELETED"))(
-            source)(node_type)(module)(instance_id)(type)(key)(integerToString(REDIS_DB_UVE)));
+            source)(node_type)(module)(instance_id)(type)(key)(
+            integerToString(REDIS_DB_UVE))(integerToString(is_alarm)));
 
 }
 

@@ -39,7 +39,7 @@ public:
                            const std::string &instance_id,
                            const std::string &key, const std::string &message,
                            int32_t seq, const std::string& agg, 
-                           const std::string& atyp, int64_t ts);
+                           const std::string& atyp, int64_t ts, bool is_alarm);
 
     virtual bool UVENotif(const std::string &type,
                            const std::string &source, const std::string &node_type,
@@ -51,7 +51,7 @@ public:
     virtual bool UVEDelete(const std::string &type,
                        const std::string &source, const std::string &node_type,
                        const std::string &module, const std::string &instance_id,
-                       const std::string &key, int32_t seq);
+                       const std::string &key, int32_t seq, bool is_alarm);
 
     virtual bool GetSeq(const std::string &source, const std::string &node_type,
         const std::string &module, const std::string &instance_id,

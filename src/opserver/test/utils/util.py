@@ -50,3 +50,22 @@ def web_invoke(httplink):
         output = None
     return output
 # end web_invoke
+
+
+def obj_to_dict(obj):
+    if isinstance(obj, dict):
+        data = {}
+        for k, v in obj.iteritems():
+            data[k] = obj_to_dict(v)
+        return data
+    elif hasattr(obj, '__iter__'):
+        return [obj_to_dict(v) for v in obj]
+    elif hasattr(obj, '__dict__'):
+        data = dict([(key, obj_to_dict(value)) 
+            for key, value in obj.__dict__.iteritems() 
+            if value is not None and not callable(value) and \
+               not key.startswith('_')])
+        return data
+    else:
+        return obj
+# end obj_to_dict

@@ -231,10 +231,13 @@ static bool ParseTags(const string& tstr, const string& node,
 
 bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
     const VizMsg *rmsg, DbHandler *db, const SandeshHeader& header) {
-    if (header.get_Type() != SandeshType::UVE) {
+    const SandeshType::type& sandesh_type(header.get_Type());
+    if ((sandesh_type != SandeshType::UVE) &&
+        (sandesh_type != SandeshType::ALARM)) {
         return true;
     }
 
+    bool is_alarm = (sandesh_type == SandeshType::ALARM) ? true : false;
     bool uve_notif = false;
     std::string type(rmsg->msg->GetMessageType());
     std::string source(header.get_Source());
@@ -493,7 +496,8 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
         if (!osp_->UVEUpdate(object.name(), node.name(),
                              source, node_type, module, instance_id,
                              key, ostr.str(), seq,
-                             agg, node.attribute("hbin").value(), ts)) {
+                             agg, node.attribute("hbin").value(), ts,
+                             is_alarm)) {
             LOG(ERROR, __func__ << " Message: "  << type << " : " << source <<
               ":" << node_type << ":" << module << ":" << instance_id <<
               " Name: " << object.name() <<  " UVEUpdate Failed"); 
@@ -507,7 +511,7 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
 
     if (deleted) {
         if (!osp_->UVEDelete(object.name(), source, node_type, module, 
-                             instance_id, key, seq)) {
+                             instance_id, key, seq, is_alarm)) {
             LOG(ERROR, __func__ << " Cannot Delete " << key);
             PUBLISH_UVE_DELETE_TRACE(UVETraceBuf, source, module, type, key,
                 seq, false, node_type, instance_id);
@@ -520,7 +524,7 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
     }
 
     // Publish on the Kafka bus that this UVE has changed
-    if (uve_notif) {
+    if (sandesh_type == SandeshType::UVE && uve_notif) {
         osp_->UVENotif(object.name(), 
                        source, node_type, module, instance_id, key);
     }

@@ -621,7 +621,7 @@ OpServerProxy::UVEUpdate(const std::string &type, const std::string &attr,
                        const std::string &instance_id,
                        const std::string &key, const std::string &message,
                        int32_t seq, const std::string& agg, 
-                       const std::string& atyp, int64_t ts) {
+                       const std::string& atyp, int64_t ts, bool is_alarm) {
 
     shared_ptr<RedisAsyncConnection> prac = impl_->to_ops_conn();
     if (!prac) {
@@ -629,14 +629,17 @@ OpServerProxy::UVEUpdate(const std::string &type, const std::string &attr,
         return false;
     }
 
-    // Hashing into a partition is based on UVE Key
-    unsigned int pt = djb_hash(key.c_str(), key.size()) % impl_->partitions_;
+    unsigned int pt = 0;
+    if (!is_alarm) {
+        // Hashing into a partition is based on UVE Key
+        pt = djb_hash(key.c_str(), key.size()) % impl_->partitions_;
+    }
 
     bool ret = RedisProcessorExec::UVEUpdate(prac.get(), NULL, type, attr,
-            source, node_type, module, instance_id, key, message, seq, agg, atyp, ts, pt);
+            source, node_type, module, instance_id, key, message,
+            seq, agg, atyp, ts, pt, is_alarm);
     if (ret) {
         impl_->redis_uve_.RedisUveUpdate();
-
     } else {
         impl_->redis_uve_.RedisUveUpdateFail();
     }
@@ -648,7 +651,7 @@ OpServerProxy::UVEDelete(const std::string &type,
                        const std::string &source, const std::string &node_type,
                        const std::string &module, 
                        const std::string &instance_id,
-                       const std::string &key, int32_t seq) {
+                       const std::string &key, int32_t seq, bool is_alarm) {
 
     shared_ptr<RedisAsyncConnection> prac = impl_->to_ops_conn();
     if (!prac) {
@@ -657,7 +660,7 @@ OpServerProxy::UVEDelete(const std::string &type,
     }
 
     bool ret = RedisProcessorExec::UVEDelete(prac.get(), NULL, type, source, 
-            node_type, module, instance_id, key, seq);
+            node_type, module, instance_id, key, seq, is_alarm);
     ret ? impl_->redis_uve_.RedisUveDelete() : impl_->redis_uve_.RedisUveDeleteFail(); 
     return ret;
 }
