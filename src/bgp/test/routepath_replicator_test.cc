@@ -355,17 +355,32 @@ protected:
         return NULL;
     }
 
-    vector<string> GetInstanceRouteTargetList(const string &instance) {
+    vector<string> GetInstanceRouteTargetList(const string &instance,
+        bool import = false) {
         TASK_UTIL_EXPECT_NE(static_cast<RoutingInstance *>(NULL),
             bgp_server_->routing_instance_mgr()->GetRoutingInstance(instance));
         RoutingInstance *rti =
             bgp_server_->routing_instance_mgr()->GetRoutingInstance(instance);
         vector<string> target_list;
-        BOOST_FOREACH(RouteTarget tgt, rti->GetExportList()) {
-            target_list.push_back(tgt.ToString());
+        if (import) {
+            BOOST_FOREACH(RouteTarget tgt, rti->GetImportList()) {
+                target_list.push_back(tgt.ToString());
+            }
+        } else {
+            BOOST_FOREACH(RouteTarget tgt, rti->GetExportList()) {
+                target_list.push_back(tgt.ToString());
+            }
         }
         sort(target_list.begin(), target_list.end());
         return target_list;
+    }
+
+    vector<string> GetInstanceImportRouteTargetList(const string &instance) {
+        return GetInstanceRouteTargetList(instance, true);
+    }
+
+    vector<string> GetInstanceExportRouteTargetList(const string &instance) {
+        return GetInstanceRouteTargetList(instance, false);
     }
 
     int GetInstanceOriginVnIndex(const string &instance) {
@@ -377,13 +392,33 @@ protected:
         return rti->virtual_network_index();
     }
 
-    void AddInstanceRouteTarget(const string &instance, const string &target) {
+    void AddInstanceRouteTarget(const string &instance, const string &target,
+        bool do_import = true, bool do_export = true) {
+        assert(do_import || do_export);
+        autogen::InstanceTargetType *tgt_type = new autogen::InstanceTargetType;
+        if (do_import && do_export) {
+            tgt_type->import_export = "";
+        } else if (do_import) {
+            tgt_type->import_export = "import";
+        } else if (do_export) {
+            tgt_type->import_export = "export";
+        }
         TASK_UTIL_EXPECT_NE(static_cast<RoutingInstance *>(NULL),
             bgp_server_->routing_instance_mgr()->GetRoutingInstance(instance));
         ifmap_test_util::IFMapMsgLink(&config_db_,
             "routing-instance", instance,
-            "route-target", target, "instance-target");
+            "route-target", target, "instance-target", 0, tgt_type);
         task_util::WaitForIdle();
+    }
+
+    void AddInstanceImportRouteTarget(const string &instance,
+        const string &target) {
+        AddInstanceRouteTarget(instance, target, true, false);
+    }
+
+    void AddInstanceExportRouteTarget(const string &instance,
+        const string &target) {
+        AddInstanceRouteTarget(instance, target, false, true);
     }
 
     void RemoveInstanceRouteTarget(const string instance, const string &target) {
@@ -1767,6 +1802,203 @@ TEST_F(ReplicationTest, UpdateInstanceRouteTargets8) {
     VERIFY_EQ(0, RouteCount("red"));
     TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") == NULL);
     TASK_UTIL_EXPECT_TRUE(VPNRouteLookup("192.168.0.1:1:10.0.1.1/32") == NULL);
+}
+
+TEST_F(ReplicationTest, UpdateInstanceImportRouteTargets1) {
+    vector<string> instance_names = list_of("blue")("red");
+    multimap<string, string> connections;
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    // Verify targets for blue and red instances.
+    vector<string> instance_targets;
+    instance_targets = GetInstanceRouteTargetList("blue");
+    TASK_UTIL_EXPECT_EQ(1, instance_targets.size());
+    TASK_UTIL_EXPECT_EQ("target:64496:1", instance_targets[0]);
+    instance_targets = GetInstanceRouteTargetList("red");
+    TASK_UTIL_EXPECT_EQ(1, instance_targets.size());
+    TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[0]);
+
+    // Add route to blue table.
+    AddInetRoute(peers_[0], "blue", "10.0.1.1/32", 100, "192.168.0.1:1");
+    task_util::WaitForIdle();
+
+    // Make sure the route is in the blue table but not in red table.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(0, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") == NULL);
+
+    // Add blue export target to red import target list.
+    AddInstanceImportRouteTarget("red", "target:64496:1");
+    TASK_UTIL_EXPECT_EQ(2, GetInstanceImportRouteTargetList("red").size());
+    instance_targets = GetInstanceImportRouteTargetList("red");
+    TASK_UTIL_EXPECT_EQ("target:64496:1", instance_targets[0]);
+    TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[1]);
+
+    // Make sure the route is in the blue and red tables.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    // Remove blue export target from red import target list.
+    RemoveInstanceRouteTarget("red", "target:64496:1");
+    TASK_UTIL_EXPECT_EQ(1, GetInstanceImportRouteTargetList("red").size());
+    instance_targets = GetInstanceImportRouteTargetList("red");
+    TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[0]);
+
+    // Make sure the route is in the blue table but not in red table.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(0, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") == NULL);
+
+    // Delete route from blue table.
+    DeleteInetRoute(peers_[0], "blue", "10.0.1.1/32");
+    task_util::WaitForIdle();
+
+    // Make sure the route is gone from the blue red tables.
+    VERIFY_EQ(0, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") == NULL);
+    VERIFY_EQ(0, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") == NULL);
+}
+
+TEST_F(ReplicationTest, UpdateInstanceImportRouteTargets2) {
+    vector<string> instance_names = list_of("blue")("red");
+    multimap<string, string> connections;
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    // Verify targets for blue and red instances.
+    vector<string> instance_targets;
+    instance_targets = GetInstanceRouteTargetList("blue");
+    TASK_UTIL_EXPECT_EQ(1, instance_targets.size());
+    TASK_UTIL_EXPECT_EQ("target:64496:1", instance_targets[0]);
+    instance_targets = GetInstanceRouteTargetList("red");
+    TASK_UTIL_EXPECT_EQ(1, instance_targets.size());
+    TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[0]);
+
+    // Add route to VPN table with blue target.
+    AddVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32", 100, list_of("blue"));
+    task_util::WaitForIdle();
+
+    // Make sure the route is in the blue table but not in red table.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(0, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") == NULL);
+
+    // Add blue export target to red import target list.
+    AddInstanceImportRouteTarget("red", "target:64496:1");
+    TASK_UTIL_EXPECT_EQ(2, GetInstanceImportRouteTargetList("red").size());
+    instance_targets = GetInstanceImportRouteTargetList("red");
+    TASK_UTIL_EXPECT_EQ("target:64496:1", instance_targets[0]);
+    TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[1]);
+
+    // Make sure the route is in the blue and red tables.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    // Remove blue export target from red import target list.
+    RemoveInstanceRouteTarget("red", "target:64496:1");
+    TASK_UTIL_EXPECT_EQ(1, GetInstanceImportRouteTargetList("red").size());
+    instance_targets = GetInstanceImportRouteTargetList("red");
+    TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[0]);
+
+    // Make sure the route is in the blue table but not in red table.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(0, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") == NULL);
+
+    // Delete route from VPN table.
+    DeleteVPNRoute(peers_[0], "192.168.0.1:1:10.0.1.1/32");
+    task_util::WaitForIdle();
+
+    // Make sure the route is gone from the blue red tables.
+    VERIFY_EQ(0, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") == NULL);
+    VERIFY_EQ(0, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") == NULL);
+}
+
+TEST_F(ReplicationTest, UpdateInstanceExportRouteTargets) {
+    vector<string> instance_names = list_of("blue")("red");
+    multimap<string, string> connections;
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    // Verify targets for blue and red instances.
+    vector<string> instance_targets;
+    instance_targets = GetInstanceExportRouteTargetList("blue");
+    TASK_UTIL_EXPECT_EQ(1, instance_targets.size());
+    TASK_UTIL_EXPECT_EQ("target:64496:1", instance_targets[0]);
+    AddInstanceImportRouteTarget("red", "target:64496:202");
+    instance_targets = GetInstanceImportRouteTargetList("red");
+    TASK_UTIL_EXPECT_EQ(2, instance_targets.size());
+    TASK_UTIL_EXPECT_EQ("target:64496:2", instance_targets[0]);
+    TASK_UTIL_EXPECT_EQ("target:64496:202", instance_targets[1]);
+
+    // Add route to blue table.
+    AddInetRoute(peers_[0], "blue", "10.0.1.1/32", 100, "192.168.0.1:1");
+    task_util::WaitForIdle();
+
+    // Make sure the route is in the blue table but not in red table.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(0, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") == NULL);
+
+    // Add red import-only target to blue export target list.
+    AddInstanceExportRouteTarget("blue", "target:64496:202");
+    TASK_UTIL_EXPECT_EQ(2, GetInstanceExportRouteTargetList("blue").size());
+    instance_targets = GetInstanceExportRouteTargetList("blue");
+    TASK_UTIL_EXPECT_EQ("target:64496:1", instance_targets[0]);
+    TASK_UTIL_EXPECT_EQ("target:64496:202", instance_targets[1]);
+
+    // Make sure the route is in the blue and red tables.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(1, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") != NULL);
+
+    // Remove red import-only target from blue export target list.
+    RemoveInstanceRouteTarget("blue", "target:64496:202");
+    TASK_UTIL_EXPECT_EQ(1, GetInstanceExportRouteTargetList("blue").size());
+    instance_targets = GetInstanceExportRouteTargetList("blue");
+    TASK_UTIL_EXPECT_EQ("target:64496:1", instance_targets[0]);
+
+    // Make sure the route is in the blue table but not in red table.
+    VERIFY_EQ(1, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") != NULL);
+    VERIFY_EQ(0, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") == NULL);
+
+    // Delete route from blue table.
+    DeleteInetRoute(peers_[0], "blue", "10.0.1.1/32");
+    task_util::WaitForIdle();
+
+    // Make sure the route is gone from the blue red tables.
+    VERIFY_EQ(0, RouteCount("blue"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("blue", "10.0.1.1/32") == NULL);
+    VERIFY_EQ(0, RouteCount("red"));
+    TASK_UTIL_EXPECT_TRUE(InetRouteLookup("red", "10.0.1.1/32") == NULL);
 }
 
 TEST_F(ReplicationTest, OriginVn1) {
