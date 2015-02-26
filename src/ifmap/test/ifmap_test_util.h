@@ -21,11 +21,13 @@ namespace ifmap_test_util {
 void IFMapLinkCommon(DBRequest *request,
                      const std::string &lhs, const std::string &lid,
                      const std::string &rhs, const std::string &rid,
-                     const std::string &metadata, uint64_t sequence_number = 0);
+                     const std::string &metadata, uint64_t sequence_number = 0,
+                     AutogenProperty *content = NULL);
 
 void IFMapMsgLink(DB *db, const std::string &ltype, const std::string &lid,
                   const std::string &rtype, const std::string &rid,
-                  const std::string &metadata, uint64_t sequence_number = 0);
+                  const std::string &metadata, uint64_t sequence_number = 0,
+                  AutogenProperty *content = NULL);
 
 void IFMapMsgUnlink(DB *db, const std::string &ltype, const std::string &lid,
                     const std::string &rtype, const std::string &rid,
