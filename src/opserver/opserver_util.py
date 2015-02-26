@@ -41,6 +41,7 @@ class ServicePoller(gevent.Greenlet):
         self.callbk = callbk
 
     def _run(self):
+        old_list = []
         while True:
             svc_list = []
             try:
@@ -58,7 +59,10 @@ class ServicePoller(gevent.Greenlet):
                         svc_list.append((svc['ip-address'], svc['port']))
                         disc_trace.publishers.append(svc['ip-address'])
                     disc_trace.trace_msg(name='DiscoveryMsg')
-                    self.callbk(svc_list)
+                    if old_list != svc_list:
+                        self.callbk(svc_list)
+                    old_list = svc_list
+         
             gevent.sleep(10)
 
 class OpServerUtils(object):
