@@ -21,15 +21,37 @@ class PhysicalRouterConfig(object):
         'e-vpn': '<evpn><signaling/></evpn>'
     }
 
-    def __init__(self, management_ip, user_creds, logger=None):
+    def __init__(self, management_ip, user_creds, vendor, product, vnc_managed, logger=None):
         self.management_ip = management_ip
         self.user_creds = user_creds
+        self.vendor = vendor
+        self.product = product
+        self.vnc_managed = vnc_managed
         self.reset_bgp_config()
         self._logger = logger
+        self.bgp_config_sent = False
     # end __init__
 
+    def update(self, management_ip, user_creds, vendor, product, vnc_managed):
+        self.management_ip = management_ip
+        self.user_creds = user_creds
+        self.vendor = vendor
+        self.product = product
+        self.vnc_managed = vnc_managed
+    # end update
+
     def send_netconf(self, new_config, default_operation="merge",
-                     operation=None):
+                     operation="replace"):
+        if (self.vendor is None or self.product is None or
+               self.vendor.lower() != "juniper" or self.product.lower() != "mx"):
+            self._logger.info("auto configuraion of physical router is not supported \
+                on the configured vendor family, ip: %s, not pushing netconf message" % (self.management_ip))
+            return
+        if (self.vnc_managed is None or self.vnc_managed == False):
+            self._logger.info("vnc managed property must be set for a physical router to get auto \
+                configured, ip: %s, not pushing netconf message" % (self.management_ip))
+            return
+
         try:
             with manager.connect(host=self.management_ip, port=22,
                                  username=self.user_creds['username'],
@@ -39,11 +61,7 @@ class PhysicalRouterConfig(object):
                     "config",
                     nsmap={"xc": "urn:ietf:params:xml:ns:netconf:base:1.0"})
                 config = etree.SubElement(add_config, "configuration")
-                if operation:
-                    config_group = etree.SubElement(config, "groups",
-                                                    operation=operation)
-                else:
-                    config_group = etree.SubElement(config, "groups")
+                config_group = etree.SubElement(config, "groups", operation=operation)
                 contrail_group = etree.SubElement(config_group, "name")
                 contrail_group.text = "__contrail__"
                 if isinstance(new_config, list):
@@ -51,10 +69,7 @@ class PhysicalRouterConfig(object):
                         config_group.append(nc)
                 else:
                     config_group.append(new_config)
-                if operation:
-                    apply_groups = etree.SubElement(config, "apply-groups", operation=operation)
-                else:
-                    apply_groups = etree.SubElement(config, "apply-groups")
+                apply_groups = etree.SubElement(config, "apply-groups", operation=operation)
                 apply_groups.text = "__contrail__"
                 self._logger.info("\nsend netconf message: %s\n" % (etree.tostring(add_config, pretty_print=True)))
                 m.edit_config(
@@ -121,10 +136,10 @@ class PhysicalRouterConfig(object):
         term = etree.SubElement(ps, "term")
         etree.SubElement(term, "name").text= "t1"
         then = etree.SubElement(term, "then")
-        comm = etree.SubElement(then, "community")
-        etree.SubElement(comm, "add")
         for route_target in export_targets:
-            etree.SubElement(comm, "community_name").text = route_target.replace(':', '_') 
+            comm = etree.SubElement(then, "community")
+            etree.SubElement(comm, "add")
+            etree.SubElement(comm, "community-name").text = route_target.replace(':', '_') 
         etree.SubElement(then, "accept")
 
         # add policies for import route targets
@@ -169,7 +184,7 @@ class PhysicalRouterConfig(object):
         bd_config = None
         interfaces_config = None
         proto_config = None
-        if vni is not None:
+        if vni is not None and self.is_family_configured(self.bgp_params, "e-vpn"):
             etree.SubElement(ri, "vtep-source-interface").text = "lo0.0"
             rt_element = etree.SubElement(ri, "vrf-target")
             #fix me, check if this is correct target value for vrf-target
@@ -239,6 +254,14 @@ class PhysicalRouterConfig(object):
         self.ri_config = ri_config
     # end add_routing_instance
 
+    def is_family_configured(self, params, family_name):
+        if params is None or params.get('address_families') is None:
+            return False
+        families = params['address_families'].get('family', [])
+        if family_name in families:
+            return True
+        return False
+
     def _add_family_etree(self, parent, params):
         if params.get('address_families') is None:
             return
@@ -253,15 +276,19 @@ class PhysicalRouterConfig(object):
 
     def set_bgp_config(self, params):
         self.bgp_params = params
-        if params['vendor'] != "mx" or not params['vnc_managed']:
+        if (self.vnc_managed is None or self.vnc_managed == False):
             if self.bgp_config_sent:
+                # user must have unset the vnc managed property, so temporaly set it
+                # for deleting the existing config
+                self.vnc_managed = True
                 self.delete_bgp_config()
+                self.vnc_managed = False
+                return
             return
     # end set_bgp_config
 
     def _get_bgp_config_xml(self, external=False):
-        if (self.bgp_params is None or self.bgp_params.get('vendor') != 'mx' or
-            not self.bgp_params.get('vnc_managed', False)):
+        if self.bgp_params is None:
             return None
         bgp_config = etree.Element("group", operation="replace")
         if external:
@@ -279,7 +306,6 @@ class PhysicalRouterConfig(object):
     # end _get_bgp_config_xml
 
     def reset_bgp_config(self):
-        self.bgp_config_sent = False
         self.routing_instances = {}
         self.bgp_params = None
         self.ri_config = None
@@ -298,6 +324,7 @@ class PhysicalRouterConfig(object):
             return
         self.reset_bgp_config()
         self.send_netconf([], default_operation="none", operation="delete")
+        self.bgp_config_sent = False
     # end delete_config
 
     def add_bgp_peer(self, router, params, external):
