@@ -23,10 +23,13 @@ contrail-alarm-gen  --log_level SYS_DEBUG
                     --disc_server_ip 127.0.0.1
                     --disc_server_port 5998
                     --worker_id 0
+                    --partitions 100
                     --redis_password
                     --http_server_port 5995
                     --redis_uve_list 127.0.0.1:6379
+                    --alarmgen_list 127.0.0.1:0
                     --kafka_broker_list 127.0.0.1:9092
+                    --zk_list 127.0.0.1:2181
                     --conf_file /etc/contrail/contrail-alarm-gen.conf
 
 [DEFAULTS]
@@ -56,7 +59,11 @@ log_file = /var/log/contrail/contrail-alarm-gen.log
             'use_syslog'        : False,
             'syslog_facility'   : Sandesh._DEFAULT_SYSLOG_FACILITY,
             'http_server_port'  : 5995,
-            'redis_uve_list'    : ['127.0.0.1:6379']
+            'worker_id'         : '0',
+            'partitions'        : 100,
+            'zk_list'           : None,
+            'redis_uve_list'    : ['127.0.0.1:6379'],
+            'alarmgen_list'     : ['127.0.0.1:0']
         }
 
         redis_opts = {
@@ -114,6 +121,10 @@ log_file = /var/log/contrail/contrail-alarm-gen.log
             help="Syslog facility to receive log lines")
         parser.add_argument("--http_server_port", type=int,
             help="introspect server port")
+        parser.add_argument("--worker_id",
+            help="Worker Id")
+        parser.add_argument("--partitions", type=int,
+            help="Number of partitions for hashing UVE keys")
         parser.add_argument("--disc_server_ip",
             help="Discovery Server IP address")
         parser.add_argument("--disc_server_port",
@@ -127,16 +138,26 @@ log_file = /var/log/contrail/contrail-alarm-gen.log
         parser.add_argument("--kafka_broker_list",
             help="List of bootstrap kafka brokers in ip:port format",
             nargs="+")
+        parser.add_argument("--zk_list",
+            help="List of zookeepers in ip:port format",
+            nargs="+")
         parser.add_argument("--redis_uve_list",
             help="List of redis-uve in ip:port format. For internal use only",
+            nargs="+")
+        parser.add_argument("--alarmgen_list",
+            help="List of alarmgens in ip:inst format. For internal use only",
             nargs="+")
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
         if type(self._args.kafka_broker_list) is str:
             self._args.kafka_broker_list= self._args.kafka_broker_list.split()
+        if type(self._args.zk_list) is str:
+            self._args.zk_list= self._args.zk_list.split()
         if type(self._args.redis_uve_list) is str:
             self._args.redis_uve_list = self._args.redis_uve_list.split()
+        if type(self._args.redis_uve_list) is str:
+            self._args.alarmgen_list = self._args.alarmgen_list.split()
 
     def _pat(self):
         if self.__pat is None:
@@ -149,6 +170,9 @@ log_file = /var/log/contrail/contrail-alarm-gen.log
     def redis_uve_list(self):
         return self._args.redis_uve_list
 
+    def alarmgen_list(self):
+        return self._args.alarmgen_list
+
     def discovery(self):
         return {'server':self._args.disc_server_ip,
             'port':self._args.disc_server_port }
@@ -158,6 +182,9 @@ log_file = /var/log/contrail/contrail-alarm-gen.log
 
     def kafka_broker_list(self):
         return self._args.kafka_broker_list
+
+    def zk_list(self):
+        return self._args.zk_list;
 
     def log_local(self):
         return self._args.log_local
@@ -179,6 +206,12 @@ log_file = /var/log/contrail/contrail-alarm-gen.log
 
     def http_port(self):
         return self._args.http_server_port
+
+    def worker_id(self):
+        return self._args.worker_id
+
+    def partitions(self):
+        return self._args.partitions
 
     def redis_password(self):
         return self._args.redis_password
