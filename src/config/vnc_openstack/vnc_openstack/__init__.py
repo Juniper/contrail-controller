@@ -611,44 +611,35 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
     #end __call__
 
     def _create_default_security_group(self, proj_dict):
+        def _get_rule(ingress, sg, prefix, ethertype):
+            sgr_uuid = str(uuid.uuid4())
+            if sg:
+                addr = AddressType(sg)
+            elif prefix:
+                addr = AddressType(subnet=SubnetType(prefix, 0))
+            local_addr = AddressType(security_group='local')
+            if ingress:
+                src_addr = addr
+                dst_addr = local_addr
+            else:
+                src_addr = local_addr
+                dst_addr = addr
+            rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
+                                  protocol='any',
+                                  src_addresses=[src_addr],
+                                  src_ports=[PortType(0, 65535)],
+                                  dst_addresses=[dst_addr],
+                                  dst_ports=[PortType(0, 65535)],
+                                  ethertype=ethertype)
+            return rule
+
         proj_obj = vnc_api.Project.from_dict(**proj_dict)
-        sgr_uuid = str(uuid.uuid4())
-        ingress_rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
-                                      protocol='any',
-                                      src_addresses=[
-                                          AddressType(
-                                              security_group=proj_obj.get_fq_name_str() + ':' + 'default')],
-                                      src_ports=[PortType(0, 65535)],
-                                      dst_addresses=[
-                                          AddressType(security_group='local')],
-                                      dst_ports=[PortType(0, 65535)])
-        sg_rules = PolicyEntriesType([ingress_rule])
-
-        sgr_uuid = str(uuid.uuid4())
-        egress_rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
-                                     protocol='any',
-                                     src_addresses=[
-                                         AddressType(security_group='local')],
-                                     src_ports=[PortType(0, 65535)],
-                                     dst_addresses=[
-                                         AddressType(
-                                             subnet=SubnetType('0.0.0.0', 0))],
-                                     dst_ports=[PortType(0, 65535)],
-                                     ethertype='IPv4')
-        sg_rules.add_policy_rule(egress_rule)
-
-        sgr_uuid = str(uuid.uuid4())
-        egress_rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
-                                     protocol='any',
-                                     src_addresses=[
-                                         AddressType(security_group='local')],
-                                     src_ports=[PortType(0, 65535)],
-                                     dst_addresses=[
-                                         AddressType(
-                                             subnet=SubnetType('::', 0))],
-                                     dst_ports=[PortType(0, 65535)],
-                                     ethertype='IPv6')
-        sg_rules.add_policy_rule(egress_rule)
+        default_sg_name = proj_obj.get_fq_name_str() + ':default'
+        rules = [_get_rule(True, default_sg_name, None, 'IPv4'),
+                 _get_rule(True, default_sg_name, None, 'IPv6'),
+                 _get_rule(False, None, '0.0.0.0', 'IPv4'),
+                 _get_rule(False, None, '::', 'IPv6')]
+        sg_rules = PolicyEntriesType(rules)
 
         # create security group
         sg_obj = vnc_api.SecurityGroup(name='default', parent_obj=proj_obj,
