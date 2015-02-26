@@ -340,8 +340,43 @@ class SvcMonitor(object):
                                           "command": "/bin/bash"
                                       })
 
+        # upgrade handling
+        self.upgrade()
+
         # check services
         self.launch_services()
+
+    def upgrade(self):
+        for si in ServiceInstanceSM.values():
+            st = ServiceTemplateSM.get(si.service_template)
+            if not st:
+                continue
+            for vm_id in si.virtual_machines:
+                vm = VirtualMachineSM.get(vm_id)
+                if vm.virtualization_type:
+                    continue
+                nova_vm = self._nova_client.oper('servers', 'get',
+                    si.proj_name, id=vm_id)
+                if not nova_vm:
+                    continue
+
+                si_obj = ServiceInstance()
+                si_obj.name = si.name
+                si_obj.fq_name = si.fq_name
+                instance_name = self.vm_manager._get_instance_name(
+                    si_obj, vm.index)
+                if vm.name == instance_name:
+                    continue
+                nova_vm.update(name=instance_name)
+                vm_obj = VirtualMachine()
+                vm_obj.uuid = vm_id
+                vm_obj.fq_name = [vm_id]
+                vm_obj.set_display_name(instance_name + '__' +
+                    st.virtualization_type)
+                try:
+                    self._vnc_lib.virtual_machine_update(vm_obj)
+                except Exception:
+                    pass
 
     def launch_services(self):
         for si in ServiceInstanceSM.values():
@@ -666,7 +701,7 @@ def timer_callback(monitor):
     vm_delete_list = []
     for vm in VirtualMachineSM.values():
         si = ServiceInstanceSM.get(vm.service_instance)
-        if not si:
+        if not si and vm.virtualization_type:
             vm_delete_list.append(vm)
     for vm in vm_delete_list:
         monitor._delete_service_instance(vm)
