@@ -29,7 +29,8 @@ void UuidTypeSet(const boost::uuids::uuid &uuid, autogen::UuidType *idpair) {
 void IFMapLinkCommon(DBRequest *request,
                      const string &lhs, const string &lid,
                      const string &rhs, const string &rid,
-                     const string &metadata, uint64_t sequence_number) {
+                     const string &metadata, uint64_t sequence_number,
+                     AutogenProperty *content) {
 
     IFMapAgentLinkTable::RequestKey *key =
             new IFMapAgentLinkTable::RequestKey();
@@ -46,7 +47,8 @@ void IFMapLinkCommon(DBRequest *request,
 
 void IFMapMsgLink(DB *db, const string &ltype, const string &lid,
                   const string &rtype, const string &rid,
-                  const string &metadata, uint64_t sequence_number) {
+                  const string &metadata, uint64_t sequence_number,
+                  AutogenProperty *content) {
     DBRequest request;
     request.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     IFMapLinkCommon(&request, ltype, lid, rtype, rid, metadata,

@@ -10,7 +10,8 @@ using std::string;
 void IFMapLinkCommon(DBRequest *request,
                      const string &lhs, const string &lid,
                      const string &rhs, const string &rid,
-                     const string &metadata, uint64_t sequence_number) {
+                     const string &metadata, uint64_t sequence_number,
+                     AutogenProperty *content) {
     IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
     request->key.reset(key);
     key->id_type = lhs;
@@ -22,15 +23,17 @@ void IFMapLinkCommon(DBRequest *request,
     data->id_type = rhs;
     data->id_name = rid;
     data->origin.set_origin(IFMapOrigin::MAP_SERVER);
+    data->content.reset(content);
 }
 
 void IFMapMsgLink(DB *db, const string &ltype, const string &lid,
                   const string &rtype, const string &rid,
-                  const string &metadata, uint64_t sequence_number) {
+                  const string &metadata, uint64_t sequence_number,
+                  AutogenProperty *content) {
     DBRequest request;
     request.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     IFMapLinkCommon(&request, ltype, lid, rtype, rid, metadata,
-                    sequence_number);
+                    sequence_number, content);
     IFMapTable *tbl = IFMapTable::FindTable(db, ltype);
     tbl->Enqueue(&request);
 }
