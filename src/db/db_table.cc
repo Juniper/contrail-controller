@@ -17,6 +17,7 @@
 #include "db/db_table.h"
 #include "db/db_table_partition.h"
 #include "db/db_table_walker.h"
+#include "db/db_types.h"
 
 class DBEntry;
 class DBEntryBase;
@@ -43,19 +44,23 @@ void DBRequest::Swap(DBRequest *rhs) {
 class DBTableBase::ListenerInfo {
 public:
     typedef vector<ChangeCallback> CallbackList;
+    typedef vector<string> NameList;
 
-    DBTableBase::ListenerId Register(ChangeCallback callback) {
+    DBTableBase::ListenerId Register(ChangeCallback callback,
+        const string &name) {
         tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
         size_t i = bmap_.find_first();
         if (i == bmap_.npos) {
             i = callbacks_.size();
             callbacks_.push_back(callback);
+            names_.push_back(name);
         } else {
             bmap_.reset(i);
             if (bmap_.none()) {
                 bmap_.clear();
             }
             callbacks_[i] = callback;
+            names_[i] = name;
         }
         return i;
     }
@@ -63,9 +68,11 @@ public:
     void Unregister(ListenerId listener) {
         tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
         callbacks_[listener] = NULL;
+        names_[listener] = "";
         if ((size_t) listener == callbacks_.size() - 1) {
             while (!callbacks_.empty() && callbacks_.back() == NULL) {
                 callbacks_.pop_back();
+                names_.pop_back();
             }
             if (bmap_.size() > callbacks_.size()) {
                 bmap_.resize(callbacks_.size());
@@ -90,14 +97,34 @@ public:
         }
     }
 
-    bool empty() { 
+    void FillListeners(vector<ShowTableListener> *listeners) const {
+        tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
+        ListenerId id = 0;
+        for (CallbackList::const_iterator iter = callbacks_.begin();
+             iter != callbacks_.end(); ++iter, ++id) {
+            if (*iter != NULL) {
+                ShowTableListener item;
+                item.id = id;
+                item.name = names_[id];
+                listeners->push_back(item);
+            }
+        }
+    }
+
+    bool empty() const {
         tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
         return callbacks_.empty(); 
     }
 
+    size_t size() const {
+        tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
+        return (callbacks_.size() - bmap_.count());
+    }
+
 private:
     CallbackList callbacks_;
-    tbb::spin_rw_mutex rw_mutex_;
+    NameList names_;
+    mutable tbb::spin_rw_mutex rw_mutex_;
     boost::dynamic_bitset<> bmap_;      // free list.
 };
 
@@ -108,8 +135,9 @@ DBTableBase::DBTableBase(DB *db, const string &name)
 DBTableBase::~DBTableBase() {
 }
 
-DBTableBase::ListenerId DBTableBase::Register(ChangeCallback callback) {
-    return info_->Register(callback);
+DBTableBase::ListenerId DBTableBase::Register(ChangeCallback callback,
+    const string &name) {
+    return info_->Register(callback, name);
 }
 
 void DBTableBase::Unregister(ListenerId listener) {
@@ -134,6 +162,14 @@ void DBTableBase::RunNotify(DBTablePartBase *tpart, DBEntryBase *entry) {
 
 bool DBTableBase::HasListeners() const {
     return !info_->empty();
+}
+
+size_t DBTableBase::GetListenerCount() const {
+    return info_->size();
+}
+
+void DBTableBase::FillListeners(vector<ShowTableListener> *listeners) const {
+    info_->FillListeners(listeners);
 }
 
 ///////////////////////////////////////////////////////////

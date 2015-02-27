@@ -212,6 +212,15 @@ RibOut::RibOut(BgpTable *table, SchedulingGroupManager *mgr,
     listener_id_(DBTableBase::kInvalidId),
     updates_(BgpObjectFactory::Create<RibOutUpdates>(this)),
     bgp_export_(BgpObjectFactory::Create<BgpExport>(this)) {
+    name_ = "RibOut";
+    if (policy_.type == BgpProto::XMPP) {
+        name_ += " Type: XMPP";
+    } else if (policy_.type == BgpProto::IBGP) {
+        name_ += " Type: IBGP";
+    } else {
+        name_ += " Type: EBGP";
+        name_ += " (AS " + integerToString(policy_.as_number) + ")";
+    }
 }
 
 //
@@ -236,8 +245,9 @@ RibOut::~RibOut() {
 void RibOut::RegisterListener() {
     if (listener_id_ != DBTableBase::kInvalidId)
         return;
-    listener_id_ = table_->Register(boost::bind(&BgpExport::Export,
-        bgp_export_.get(), _1, _2));
+    listener_id_ = table_->Register(
+        boost::bind(&BgpExport::Export, bgp_export_.get(), _1, _2),
+        ToString());
 }
 
 //

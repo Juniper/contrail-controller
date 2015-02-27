@@ -16,6 +16,7 @@ class DBEntryBase;
 class DBEntry;
 class DBTablePartBase;
 class DBTablePartition;
+class ShowTableListener;
 
 class DBRequestKey {
 public:
@@ -52,6 +53,7 @@ class DBTableBase {
 public:
     typedef boost::function<void(DBTablePartBase *, DBEntryBase *)> ChangeCallback;
     typedef int ListenerId;
+
     static const int kInvalidId = -1;
 
     DBTableBase(DB *db, const std::string &name);
@@ -73,7 +75,8 @@ public:
 
 
     // Register a DB listener.
-    ListenerId Register(ChangeCallback callback);
+    ListenerId Register(ChangeCallback callback,
+        const std::string &name = "unspecified");
     void Unregister(ListenerId listener);
 
     void RunNotify(DBTablePartBase *tpart, DBEntryBase *entry);
@@ -87,6 +90,8 @@ public:
     const std::string &name() const { return name_; }
 
     bool HasListeners() const;
+    size_t GetListenerCount() const;
+    void FillListeners(std::vector<ShowTableListener> *listeners) const;
 
 private:
     class ListenerInfo;

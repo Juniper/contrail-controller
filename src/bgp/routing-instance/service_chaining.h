@@ -148,6 +148,7 @@ public:
 
     virtual bool Match(BgpServer *server, BgpTable *table,
                        BgpRoute *route, bool deleted);
+    virtual std::string ToString() const;
 
     void FillServiceChainInfo(ShowServicechainInfo *info) const;
 

@@ -483,7 +483,8 @@ EvpnManager::~EvpnManager() {
 void EvpnManager::Initialize() {
     AllocPartitions();
     listener_id_ = table_->Register(
-        boost::bind(&EvpnManager::RouteListener, this, _1, _2));
+        boost::bind(&EvpnManager::RouteListener, this, _1, _2),
+        "EvpnManager");
 }
 
 //

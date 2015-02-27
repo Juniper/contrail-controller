@@ -10,6 +10,7 @@ import sys
 env = BuildEnv.Clone()
 
 env.Append(CPPPATH = [env['TOP'],
+                      env['TOP'] + '/db',
                       env['TOP'] + '/io',
                      ])
 

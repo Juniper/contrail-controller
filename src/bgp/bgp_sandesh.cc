@@ -265,6 +265,10 @@ bool ShowRouteHandler::CallbackS1Common(const ShowRouteReq *req, int inst_id,
             srt.infeasible_paths = table->GetInfeasiblePathCount();
             srt.paths = srt.primary_paths + srt.secondary_paths;
 
+            vector<ShowTableListener> listeners;
+            table->FillListeners(&listeners);
+            srt.set_listeners(listeners);
+
             vector<ShowRoute> route_list;
             handler.BuildShowRouteTable(table, route_list,
                                         max_count ? max_count - count : 0);
@@ -362,6 +366,7 @@ int MergeValues(ShowRouteTable &result, vector<const ShowRouteTable *> &input,
     result.secondary_paths = input[0]->secondary_paths;
     result.infeasible_paths = input[0]->infeasible_paths;
     result.paths = input[0]->paths;
+    result.listeners = input[0]->listeners;
 
     int count = 0;
     for (size_t i = 0; i < input.size(); ++i) {
