@@ -1814,23 +1814,10 @@ class AnalyticsFixture(fixtures.Fixture):
                             end_time="now",
                             select_fields=["fields.value"],
                             where=[[{"name": "name", "value": "Message", "op": 7}]])
-	json_qstr = json.dumps(query.__dict__)
-	res = vns.post_query_json(json_qstr)
-        self.logger.info(str(res))
-        assert(len(res)>1)
-        return True
-
-    def verify_fieldname_objecttype(self):
-        self.logger.info('Verify stats table for stats name field');
-        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port);
-        query = Query(table="ObjectCollectorInfo",
-                            start_time="now-600s",
-                            end_time="now",
-                            select_fields=["ObjectId"]);
         json_qstr = json.dumps(query.__dict__)
         res = vns.post_query_json(json_qstr)
         self.logger.info(str(res))
-        assert(len(res) > 0)
+        assert(len(res)>1)
         return True
 
     @retry(delay=2, tries=5)
@@ -2018,6 +2005,25 @@ class AnalyticsFixture(fixtures.Fixture):
         return False
     # end verify_database_purge_request_limit
 
+    @retry(delay=1, tries=5)
+    def verify_object_table_sandesh_types(self, table, object_id,
+                                          exp_msg_types):
+        self.logger.info('verify_object_table_sandesh_types')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        res = vns.post_query(table, start_time='-1m', end_time='now',
+                select_fields=['Messagetype', 'ObjectLog', 'SystemLog'],
+                where_clause='ObjectId=%s' % object_id)
+        if not res:
+            return False
+        self.logger.info('ObjectTable query response: %s' % str(res))
+        actual_msg_types = [r['Messagetype'] for r in res]
+        actual_msg_types.sort()
+        exp_msg_types.sort()
+        self.logger.info('Expected message types: %s' % str(exp_msg_types))
+        self.logger.info('Actual message types: %s' % str(actual_msg_types))
+        return actual_msg_types == exp_msg_types
+    # end verify_object_table_sandesh_types
+
     @retry(delay=1, tries=10)
     def verify_object_value_table_query(self, table, exp_object_values):
         self.logger.info('verify_object_value_table_query')
@@ -2078,7 +2084,7 @@ class AnalyticsFixture(fixtures.Fixture):
         '''
         self.logger.info("verify_fieldname_table")
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
-	self.logger.info("VerificationOpsSrv")
+        self.logger.info("VerificationOpsSrv")
         res = vns.post_query('StatTable.FieldNames.fields',
                              start_time='-1m',
                              end_time='now',

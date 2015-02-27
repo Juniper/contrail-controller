@@ -24,6 +24,7 @@ from sandesh.virtual_machine.ttypes import *
 from sandesh.virtual_network.ttypes import *
 from sandesh.flow.ttypes import *
 from sandesh.alarm_test.ttypes import *
+from sandesh.object_table_test.ttypes import *
 from analytics_fixture import AnalyticsFixture
 from generator_introspect_utils import VerificationGenerator
 from opserver_introspect_utils import VerificationOpsSrv
@@ -398,5 +399,33 @@ class GeneratorFixture(fixtures.Fixture):
         alarm.send(sandesh=self._sandesh_instance)
         del self.alarms[table][name]
     # end delete_alarm
+
+    def send_all_sandesh_types_object_logs(self, name):
+        # send all sandesh types that should be returned in the Object query.
+        msg_types = []
+        systemlog = ObjectTableSystemLogTest(name=name,
+                        sandesh=self._sandesh_instance)
+        msg_types.append(systemlog.__class__.__name__)
+        self._logger.info('send systemlog: %s' % (systemlog.log()))
+        systemlog.send(sandesh=self._sandesh_instance)
+        objlog = ObjectTableObjectLogTest(name=name,
+                    sandesh=self._sandesh_instance)
+        msg_types.append(objlog.__class__.__name__)
+        self._logger.info('send objectlog: %s' % (objlog.log()))
+        objlog.send(sandesh=self._sandesh_instance)
+        uve_data = ObjectTableUveData(name=name)
+        uve = ObjectTableUveTest(data=uve_data,
+                sandesh=self._sandesh_instance)
+        msg_types.append(uve.__class__.__name__)
+        self._logger.info('send uve: %s' % (uve.log()))
+        uve.send(sandesh=self._sandesh_instance)
+        alarm_data = ObjectTableAlarmData(name=name)
+        alarm = ObjectTableAlarmTest(data=alarm_data,
+                    sandesh=self._sandesh_instance)
+        msg_types.append(alarm.__class__.__name__)
+        self._logger.info('send alarm: %s' % (alarm.log()))
+        alarm.send(sandesh=self._sandesh_instance)
+        return msg_types
+    # end send_all_sandesh_types_object_logs
 
 # end class GeneratorFixture

@@ -129,7 +129,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
     # end test_02_message_table_query
 
     #@unittest.skip('Send/query flow stats to test QE')
-    def test_04_flow_query(self):
+    def test_03_flow_query(self):
         '''
         This test starts redis,vizd,opserver and qed
         It uses the test class' cassandra instance
@@ -137,7 +137,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         and checks if flow stats can be accessed from
         QE.
         '''
-        logging.info("*** test_04_flow_query ***")
+        logging.info("*** test_03_flow_query ***")
         if AnalyticsTest._check_skip_test() is True:
             return True
 
@@ -171,10 +171,10 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_flow_table(generator_obj)
         assert vizd_obj.verify_flow_series_aggregation_binning(generator_object)
         return True
-    # end test_04_flow_query 
+    # end test_03_flow_query
 
     #@unittest.skip('InterVN stats using StatsOracle')
-    def test_06_intervn_query(self):
+    def test_04_intervn_query(self):
         '''
         This test starts redis,vizd,opserver and qed
         It uses the test class' cassandra instance
@@ -182,7 +182,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         and checks if intervn stats can be accessed from
         QE.
         '''
-        logging.info("*** test_06_intervn_query ***")
+        logging.info("*** test_04_intervn_query ***")
         if AnalyticsTest._check_skip_test() is True:
             return True
 
@@ -209,17 +209,17 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_intervn_all(generator_obj)
         assert vizd_obj.verify_intervn_sum(generator_obj)
         return True
-    # end test_06_intervn_query 
+    # end test_04_intervn_query
 
-    #@unittest.skip(' Messagetype and Objecttype queries')
-    def test_07_fieldname_query(self):
+    #@unittest.skip('Fieldname queries')
+    def test_05_fieldname_query(self):
         '''
         This test starts redis,vizd,opserver and qed
         It uses the test class' cassandra instance
         It then queries the stats table for messagetypes
         and objecttypes
         '''
-        logging.info("*** test_07_fieldname_query ***")
+        logging.info("*** test_05_fieldname_query ***")
         start_time = UTCTimestampUsec() - 3600 * 1000 * 1000
         self._update_analytics_start_time(start_time)
         vizd_obj = self.useFixture(
@@ -228,13 +228,20 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
-        assert vizd_obj.verify_fieldname_messagetype();
-        assert vizd_obj.verify_fieldname_objecttype();
-        return True;
-    #end test_07_fieldname_query
+        collectors = [vizd_obj.get_collector()]
+        generator_obj = self.useFixture(
+            GeneratorFixture("VRouterAgent", collectors,
+                             logging, vizd_obj.get_opserver_port()))
+        assert generator_obj.verify_on_setup()
+        # Sends 2 different vn uves in 1 sec spacing
+        generator_obj.generate_intervn()
+        assert vizd_obj.verify_fieldname_messagetype()
+        assert vizd_obj.verify_fieldname_table()
+        return True
+    # end test_05_fieldname_query
 
     #@unittest.skip('verify send-tracebuffer')
-    def test_08_send_tracebuffer(self):
+    def test_06_send_tracebuffer(self):
         '''
         This test verifies /analytics/send-tracebuffer/ REST API.
         Opserver publishes the request to send trace buffer to all
@@ -244,7 +251,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         analytics db. Verify that the trace messages are written in
         the analytics db.
         '''
-        logging.info('*** test_08_send_tracebuffer ***')
+        logging.info('*** test_06_send_tracebuffer ***')
         if AnalyticsTest._check_skip_test() is True:
             return True
         
@@ -281,15 +288,15 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_tracebuffer_in_analytics_db(
                     vizd_obj.collectors[1].hostname,
                     ModuleNames[Module.COLLECTOR], 'UveTrace')
-    #end test_08_send_tracebuffer 
+    #end test_06_send_tracebuffer
 
     #@unittest.skip('verify source/module list')
-    def test_09_table_source_module_list(self):
+    def test_07_table_source_module_list(self):
         '''
         This test verifies /analytics/table/<table>/column-values/Source
         and /analytics/table/<table>/column-values/ModuleId
         '''
-        logging.info('*** test_09_source_module_list ***')
+        logging.info('*** test_07_table_source_module_list ***')
         if AnalyticsTest._check_skip_test() is True:
             return True
 
@@ -316,15 +323,15 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         exp_mod_list = exp_genlist1
         assert vizd_obj.verify_table_source_module_list(exp_src_list, 
                                                         exp_mod_list)
-    #end test_09_table_source_module_list 
+    #end test_07_table_source_module_list
 
     #@unittest.skip(' where queries with different conditions')
-    def test_10_where_clause_query(self):
+    def test_08_where_clause_query(self):
         '''
         This test is used to check the working of integer 
         fields in the where query 
         '''
-        logging.info("*** test_09_where_clause_query ***")
+        logging.info("*** test_08_where_clause_query ***")
 
         if AnalyticsTest._check_skip_test() is True:
             return True
@@ -346,12 +353,34 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                              start_time))
         assert generator_obj.verify_on_setup()
         generator_obj.generate_flow_samples()
-	assert vizd_obj.verify_where_query_prefix(generator_obj)
-        return True;
-    #end test_10_where_clause_query
+        assert vizd_obj.verify_where_query_prefix(generator_obj)
+        return True
+    #end test_08_where_clause_query
+
+    #@unittest.skip('verify ObjectTable query')
+    def test_09_verify_object_table_query(self):
+        '''
+        This test verifies the Object Table query.
+        '''
+        logging.info('*** test_09_verify_object_table_query ***')
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.redis_port,
+                             self.__class__.cassandra_port))
+        assert vizd_obj.verify_on_setup()
+        collectors = [vizd_obj.get_collector()]
+        generator_obj = self.useFixture(
+            GeneratorFixture('contrail-control', collectors,
+                             logging, None, node_type='Control'))
+        assert generator_obj.verify_on_setup()
+        msg_types = generator_obj.send_all_sandesh_types_object_logs(
+                        socket.gethostname())
+        assert vizd_obj.verify_object_table_sandesh_types('ObjectBgpRouter',
+                socket.gethostname(), msg_types)
+    # end test_09_verify_object_table_query
 
     #@unittest.skip('verify ObjectValueTable query')
-    def test_11_verify_object_value_table_query(self):
+    def test_10_verify_object_value_table_query(self):
         '''
         This test verifies the ObjectValueTable query.
         '''
@@ -380,10 +409,10 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                                   msg_count=1)
         assert vizd_obj.verify_object_value_table_query(table='ObjectVMTable',
             exp_object_values=['vm11&>'])
-    # end test_11_verify_object_table_query
+    # end test_10_verify_object_table_query
 
-    #@unittest.skip('verify ObjectTable query')
-    def test_12_verify_syslog_table_query(self):
+    #@unittest.skip('verify syslog query')
+    def test_11_verify_syslog_table_query(self):
         '''
         This test verifies the Syslog query.
         '''
@@ -417,35 +446,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         syslogger.critical(line)
         assert vizd_obj.verify_keyword_query(line, ['football', 'baseball'])
 
-    # end test_12_verify_syslog_table_query
-
-    #@unittest.skip('Skipping Fieldnames table test')
-    def test_13_fieldname_table(self):
-        '''
-        This test starts vizd and a python generators that simulates
-        vrouter and sends messages. It uses the test class' cassandra
-        instance.Then it checks that the Field names table got the
-        values.
-        '''
-        logging.info("*** test_12_fieldname_table ***")
-        if AnalyticsTest._check_skip_test() is True:
-            return True
-
-        vizd_obj = self.useFixture(
-            AnalyticsFixture(logging, builddir,
-                             self.__class__.redis_port,
-                             self.__class__.cassandra_port))
-        assert vizd_obj.verify_on_setup()
-        collectors = [vizd_obj.get_collector()]
-        generator_obj = self.useFixture(
-            GeneratorFixture("VRouterAgent", collectors,
-                             logging, vizd_obj.get_opserver_port()))
-        assert generator_obj.verify_on_setup()
-	# Sends 2 different vn uves in 1 sec spacing
-	generator_obj.generate_intervn()
-	assert vizd_obj.verify_fieldname_table()
-        return True
-    # end test_13_fieldname_table
+    # end test_11_verify_syslog_table_query
 
     @staticmethod
     def get_free_port():

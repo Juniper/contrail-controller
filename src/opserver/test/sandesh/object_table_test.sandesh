@@ -1,0 +1,38 @@
+/*
+ * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+ */
+ 
+/*
+ *  object_table_test.sandesh
+ *
+ */
+
+systemlog sandesh ObjectTableSystemLogTest {
+    1: string name (key="ObjectBgpRouter")
+    2: "ObjectTableSystemLogTest"
+}
+
+objectlog sandesh ObjectTableObjectLogTest {
+    1: string name (key="ObjectBgpRouter")
+    2: "ObjectTableObjectLogTest"
+}
+
+struct ObjectTableUveData {
+    1: string name (key="ObjectBgpRouter")
+    2: optional bool deleted
+    3: "ObjectTableUveTest"
+}
+
+uve sandesh ObjectTableUveTest {
+    1: ObjectTableUveData data
+}
+
+struct ObjectTableAlarmData {
+    1: string name (key="ObjectBgpRouter")
+    2: optional bool deleted
+    3: "ObjectTableAlarmTest"
+}
+
+alarm sandesh ObjectTableAlarmTest {
+    1: ObjectTableAlarmData data
+}
