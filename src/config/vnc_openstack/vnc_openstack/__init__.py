@@ -65,6 +65,22 @@ def fill_keystone_opts(obj, conf_sections):
     except ConfigParser.NoOptionError:
         obj._err_file = '/var/log/contrail/vnc_openstack.err'
 
+    try:
+        # Duration between polls to keystone to find deleted projects
+        resync_interval = conf_sections.get('DEFAULTS',
+                                            'keystone_resync_interval_secs')
+    except ConfigParser.NoOptionError:
+        resync_interval = '60'
+    obj._resync_interval_secs = int(resync_interval)
+
+    try:
+        # Number of workers used to process keystone project resyncing
+        resync_workers = conf_sections.get('DEFAULTS',
+                                           'keystone_resync_workers')
+    except ConfigParser.NoOptionError:
+        resync_workers = '10'
+    obj._resync_number_workers = int(resync_workers)
+
 
 openstack_driver = None
 class OpenstackDriver(vnc_plugin_base.Resync):
@@ -101,8 +117,6 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             self._add_project_to_vnc = self._ksv2_add_project_to_vnc
             self._del_project_from_vnc = self._ksv2_del_project_from_vnc
         
-        self._resync_interval_secs = 2
-        self._resync_number_workers = 10 #TODO(sahid) needs to be configured by conf.
         self._ks = None
         self._vnc_lib = None
 
