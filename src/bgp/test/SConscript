@@ -12,6 +12,7 @@ env.CppDisableExceptions()
 
 env.Append(CPPPATH = [env['TOP'],
                       env['TOP'] + '/bgp',
+                      env['TOP'] + '/db',
                       env['TOP'] + '/io',
                       env['TOP'] + '/xmpp'
                      ])

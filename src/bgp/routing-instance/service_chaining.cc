@@ -232,6 +232,10 @@ bool ServiceChain::Match(BgpServer *server, BgpTable *table,
     return true;
 }
 
+std::string ServiceChain::ToString() const {
+    return (std::string("ServiceChain" ) + service_chain_addr_.to_string());
+}
+
 bool ServiceChain::is_more_specific(BgpRoute *route,
                                     Ip4Prefix *aggregate_match) {
     uint32_t broadcast = 0xFFFFFFFF;

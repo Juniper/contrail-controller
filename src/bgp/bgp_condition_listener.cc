@@ -163,8 +163,10 @@ void BgpConditionListener::AddMatchCondition(BgpTable *table,
     TableMap::iterator loc = map_.find(table);
     if (loc == map_.end()) {
         DBTableBase::ListenerId id =
-            table->Register(boost::bind(&BgpConditionListener::BgpRouteNotify,
-                                        this, server(), _1, _2));
+            table->Register(
+                boost::bind(&BgpConditionListener::BgpRouteNotify,
+                    this, server(), _1, _2),
+                obj->ToString());
         ts = new ConditionMatchTableState(table, id);
         map_.insert(make_pair(table, ts));
     } else {

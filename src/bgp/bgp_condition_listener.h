@@ -38,6 +38,7 @@ public:
     // from DB Walk context
     virtual bool Match(BgpServer *server, BgpTable *table,
                        BgpRoute *route, bool deleted) = 0;
+    virtual std::string ToString() const = 0;
 
     bool deleted() {
         return deleted_;

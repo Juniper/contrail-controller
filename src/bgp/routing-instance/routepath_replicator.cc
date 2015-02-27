@@ -135,7 +135,8 @@ TableState *RoutePathReplicator::AddTableState(BgpTable *table,
     RouteReplicatorTableState::iterator loc = table_state_.find(table);
     if (loc == table_state_.end()) {
         DBTableBase::ListenerId id = table->Register(
-            boost::bind(&RoutePathReplicator::BgpTableListener, this, _1, _2));
+            boost::bind(&RoutePathReplicator::BgpTableListener, this, _1, _2),
+            "RoutePathReplicator");
         TableState *ts = new TableState(this, table, id);
         if (group)
             ts->AddGroup(group);

@@ -796,7 +796,8 @@ McastTreeManager::~McastTreeManager() {
 void McastTreeManager::Initialize() {
     AllocPartitions();
     listener_id_ = table_->Register(
-        boost::bind(&McastTreeManager::RouteListener, this, _1, _2));
+        boost::bind(&McastTreeManager::RouteListener, this, _1, _2),
+        "McastTreeManager");
 }
 
 //
