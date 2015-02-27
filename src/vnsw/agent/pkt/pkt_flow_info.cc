@@ -206,7 +206,20 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
             const InetUnicastRouteEntry *rt =
                 static_cast<const InetUnicastRouteEntry *>(in->rt_);
             if (rt != NULL && rt->GetLocalNextHop()) {
-                out->nh_ = GetPolicyEnabledNH(rt->GetLocalNextHop())->id();
+                const NextHop *local_nh = rt->GetLocalNextHop();
+                out->nh_ = local_nh->id();
+                if (local_nh->GetType() == NextHop::INTERFACE) {
+                    const Interface *local_intf =
+                        static_cast<const InterfaceNH*>(local_nh)->GetInterface();
+                    //Get policy enabled nexthop only for
+                    //vm interface, in case of vgw or service interface in
+                    //transparent mode we should still
+                    //use policy disabled interface
+                    if (local_intf &&
+                            local_intf->type() == Interface::VM_INTERFACE) {
+                        out->nh_ = GetPolicyEnabledNH(local_nh)->id();
+                    }
+                }
             } else {
                 out->nh_ = in->nh_;
             }
