@@ -666,7 +666,6 @@ class NeutronPluginInterface(object):
         elif context['operation'] == 'READALL':
             return self.plugin_get_sec_groups(context, sg)
 
-    # Floating IP API Handling
     def plugin_get_sec_group_rule(self, context, sg_rule):
         """
         Security group rule get request
@@ -676,7 +675,8 @@ class NeutronPluginInterface(object):
 
         try:
             cfgdb = self._get_user_cfgdb(context)
-            sg_rule_info = cfgdb.security_group_rule_read(sg_rule['id'])
+            sg_rule_info = cfgdb.security_group_rule_read(context,
+                                                          sg_rule['id'])
             return sg_rule_info
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())
@@ -702,7 +702,7 @@ class NeutronPluginInterface(object):
 
         try:
             cfgdb = self._get_user_cfgdb(context)
-            cfgdb.security_group_rule_delete(sg_rule['id'])
+            cfgdb.security_group_rule_delete(context, sg_rule['id'])
             LOG.debug("plugin_delete_sec_group_rule(): " + 
                 pformat(sg_rule['id']))
         except Exception as e:
