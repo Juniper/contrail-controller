@@ -54,6 +54,23 @@ def _read_cfg(cfg_parser, section, option, default):
         return val
 #end _read_cfg
 
+class ActionUriDict(dict):
+    """Action uri dictionary with operator([]) overloading to parse home page
+       and populate the action_uri, if not populated already.
+    """
+    def __init__(self, vnc_api,  *args, **kwargs):
+        dict.__init__(self, args, **kwargs)
+        self.vnc_api = vnc_api
+
+    def __getitem__(self, key):
+        try:
+            return dict.__getitem__(self, key)
+        except KeyError:
+            homepage = self.vnc_api._request(rest.OP_GET, self.vnc_api._base_url,
+                                    retry_on_error=False)
+            self.vnc_api._cfg_root_url = self.vnc_api._parse_homepage(homepage)
+            return dict.__getitem__(self, key)
+
 
 class VncApi(VncApiClientGen):
     _DEFAULT_WEB_SERVER = "127.0.0.1"
@@ -154,7 +171,7 @@ class VncApi(VncApiClientGen):
         self._srv_root_url = None
 
         # Type-independent actions offered by server
-        self._action_uri = {}
+        self._action_uri = ActionUriDict(self)
 
         self._headers = self._DEFAULT_HEADERS.copy()
         self._headers[rest.hdr_client_tenant()] = self._tenant_name
