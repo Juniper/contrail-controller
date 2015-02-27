@@ -67,6 +67,7 @@ from overlay_to_underlay_mapper import OverlayToUnderlayMapper, \
 
 _ERRORS = {
     errno.EBADMSG: 400,
+    errno.ENOBUFS: 403,
     errno.EINVAL: 404,
     errno.ENOENT: 410,
     errno.EIO: 500,
@@ -74,6 +75,7 @@ _ERRORS = {
 }
 
 @bottle.error(400)
+@bottle.error(403)
 @bottle.error(404)
 @bottle.error(410)
 @bottle.error(500)

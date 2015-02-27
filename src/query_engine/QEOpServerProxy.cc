@@ -1,4 +1,4 @@
-/*
+/* 
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
@@ -10,6 +10,7 @@
 #include "base/logging.h"
 #include <tbb/atomic.h>
 #include <cstdlib>
+#include <cerrno>
 #include <utility>
 #include "hiredis/hiredis.h"
 #include "hiredis/boostasio.hpp"
@@ -79,7 +80,9 @@ public:
         string post;
         uint64_t time_period;
         string table;
+        uint32_t max_rows;
         tbb::atomic<uint32_t> chunk_q;
+        tbb::atomic<uint32_t> total_rows;
     };
 
     void JsonInsert(std::vector<query_column> &columns,
@@ -272,16 +275,25 @@ public:
         if (exts[step-1]->first.error) {
             res.ret_code =false;
         }
+
+        uint32_t added_rows;
+
         if (res.ret_code) {
             if (inp.need_merge) {
                 uint64_t then = UTCTimestampUsec();
                 if (inp.map_output) {
+                    uint32_t base_rows = res.mresult->size();
                     // TODO: This interface should not be Stats-Specific
                     StatsSelect::Merge(*(exts[step-1]->second.second), *(res.mresult));
+                    // Some rows of this chunk will merge into existing results
+                    added_rows = res.mresult->size() - base_rows;
                 } else {
+                    uint32_t base_rows = res.result->size();
                     res.ret_code =
                         qosp_->qe_->QueryAccumulate(inp.qp,
                             *(exts[step-1]->second.first), *(res.result));
+                    // Some rows of this chunk will merge into existing results
+                    added_rows = res.result->size() - base_rows;
                 }
                 res.chunk_merge_time.push_back(
                     static_cast<uint32_t>((UTCTimestampUsec() - then)/1000));
@@ -291,6 +303,7 @@ public:
                 //        a result upto redis at this point.
 
                 if (inp.map_output) {
+                    added_rows = exts[step-1]->second.second->size();
                     OutRowMultimapT::iterator jt = res.mresult->begin();
                     for (OutRowMultimapT::const_iterator it = exts[step-1]->second.second->begin();
                             it != exts[step-1]->second.second->end(); it++ ) {
@@ -299,12 +312,18 @@ public:
                                 std::make_pair(it->first, it->second));
                     }
                 } else {
+                    added_rows = exts[step-1]->second.first->size();
                     res.result->insert(res.result->begin(),
                         exts[step-1]->second.first->begin(),
                         exts[step-1]->second.first->end());                        
                 }
             }
             Input& cinp = const_cast<Input&>(inp);
+            if (cinp.total_rows.fetch_and_add(added_rows) > cinp.max_rows) {
+                QE_LOG_NOQID(ERROR,  "QueryExec Max Rows Exceeded " <<
+                    cinp.total_rows << " chunk " << cinp.chunk_q);
+                return NULL;
+            }
             uint32_t chunknum = cinp.chunk_q.fetch_and_increment(); 
             if (chunknum < inp.chunk_size.size()) {
                 string key = "QUERY:" + res.inp.qp.qid;
@@ -333,6 +352,7 @@ public:
     struct Stage0Merge {
         Input inp;
         bool ret_code;
+        bool overflow;
         uint32_t fm_time;
         vector<vector<QPerfInfo> > ret_info;
         vector<vector<uint32_t> > chunk_merge_time;
@@ -343,9 +363,25 @@ public:
            const boost::shared_ptr<Input> & inp, Stage0Merge & res) {
 
         res.ret_code = true;
+        res.overflow = false;
         res.inp = subs[0]->inp;
         res.fm_time = 0;
-      
+
+        uint32_t total_rows = 0;      
+        for (vector<shared_ptr<Stage0Out> >::const_iterator it = subs.begin() ;
+                it!=subs.end(); it++) {
+            if (res.inp.map_output)
+                total_rows += (*it)->mresult->size();
+            else
+                total_rows += (*it)->result->size();
+        }
+
+        // If max_rows have been exceeded, don't do any more processing
+        if (total_rows > res.inp.max_rows) {
+            res.overflow = true;
+            return true;
+        }
+
         std::vector<boost::shared_ptr<OutRowMultimapT> > mqsubs;
         std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> > qsubs;
         for (vector<shared_ptr<Stage0Out> >::const_iterator it = subs.begin() ;
@@ -434,8 +470,11 @@ public:
                     uint64_t then = UTCTimestampUsec();
                     char stat[80];
                     string key = "REPLY:" + ret.inp.qp.qid;
-                    if (!inp.ret_code) {
-                        sprintf(stat,"{\"progress\":%d}", - 5);
+                    
+                    if (inp.overflow) {
+                        sprintf(stat,"{\"progress\":%d}", - ENOBUFS);
+                    } else if (!inp.ret_code) {
+                        sprintf(stat,"{\"progress\":%d}", - EIO);
                     } else {
                         while (idx < res->size()) {
                             uint32_t rowsize = 0;
@@ -497,8 +536,6 @@ public:
                         outsize = inp.result.size();
 
                     qs.set_rows(static_cast<uint32_t>(outsize));                                           
-
-
                     qs.set_time(qtime);
                     qs.set_qid(ret.inp.qp.qid);
                     qs.set_chunks(inp.inp.chunk_size.size());
@@ -744,6 +781,9 @@ public:
         inp.get()->time_period = time_period;
         inp.get()->table = table;
         inp.get()->chunk_q = 0;
+        inp.get()->total_rows = 0;
+        inp.get()->max_rows = max_rows_;
+        
 
         vector<pair<int,int> > tinfo;
         for (uint idx=0; idx<(uint)max_tasks_; idx++) {
@@ -887,13 +927,14 @@ public:
     
     QEOpServerImpl(const string & redis_host, uint16_t port,
                    const string & redis_password, QEOpServerProxy * qosp,
-                   int max_tasks) :
+                   int max_tasks, int max_rows) :
             hostname_(boost::asio::ip::host_name()),
             redis_host_(redis_host),
             port_(port),
             redis_password_(redis_password),
             qosp_(qosp),
-            max_tasks_(max_tasks) {
+            max_tasks_(max_tasks),
+            max_rows_(max_rows) {
         for (int i=0; i<kConnections+1; i++) {
             cb_proc_fn_[i] = boost::bind(&QEOpServerImpl::CallbackProcess,
                     this, i, _1, _2, _3);
@@ -937,16 +978,17 @@ private:
     map<string,QEPipeT*> pipes_;
     int npipes_[kConnections];
     int max_tasks_;
+    int max_rows_;
 
 };
 
 QEOpServerProxy::QEOpServerProxy(EventManager *evm, QueryEngine *qe,
             const string & hostname, uint16_t port, const string & redis_password,
-            int max_tasks) :
+            int max_tasks, int max_rows) :
         evm_(evm),
         qe_(qe),
         impl_(new QEOpServerImpl(hostname, port, redis_password, this, 
-            max_tasks)) {}
+            max_tasks, max_rows)) {}
 
 QEOpServerProxy::~QEOpServerProxy() {}
 
