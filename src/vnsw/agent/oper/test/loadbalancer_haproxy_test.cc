@@ -111,6 +111,59 @@ TEST_F(LoadbalancerHaproxyTest, GenerateConfig_with_Monitor) {
     }
 }
 
+//Test to make sure HTTPS monitor adds SSL check
+TEST_F(LoadbalancerHaproxyTest, GenerateConfig_with_SSL_Monitor) {
+    boost::uuids::random_generator gen;
+    uuid pool_id = gen();
+
+    LoadbalancerProperties props;
+    props.set_vip_uuid(gen());
+
+    autogen::LoadbalancerPoolType pool_attr;
+    pool_attr.protocol = "HTTP";
+    props.set_pool_properties(pool_attr);
+
+    autogen::VirtualIpType vip_attr;
+    vip_attr.address = "127.0.0.1";
+    vip_attr.protocol = "HTTP";
+    vip_attr.protocol_port = 80;
+    vip_attr.connection_limit = 100;
+    props.set_vip_properties(vip_attr);
+
+    autogen::LoadbalancerMemberType member;
+    member.address = "127.0.0.2";
+    member.protocol_port = 80;
+    member.weight = 10;
+    props.members()->insert(std::make_pair(gen(), member));
+
+    autogen::LoadbalancerHealthmonitorType healthmonitor;
+    healthmonitor.monitor_type = "HTTPS";
+    healthmonitor.timeout = 30;
+    healthmonitor.max_retries = 3;
+    healthmonitor.http_method = "GET";
+    healthmonitor.expected_codes = "200";
+    props.healthmonitors()->insert(std::make_pair(gen(), healthmonitor));
+
+    stringstream ss;
+    boost::filesystem::path curr_dir(boost::filesystem::current_path());
+    ss << curr_dir.string() << "/" << getpid() << ".conf";
+    Agent::GetInstance()->oper_db()->instance_manager()->haproxy().GenerateConfig(ss.str(), pool_id, props);
+
+    ifstream file(ss.str().c_str());
+    if (file) {
+        string file_str((istreambuf_iterator<char>(file)), istreambuf_iterator<char>());
+        string search_str = "ssl-hello-chk";
+        size_t found = file_str.find(search_str);
+        EXPECT_NE(found, string::npos);
+    }
+
+    boost::system::error_code error;
+    boost::filesystem::remove_all(ss.str(), error);
+    if (error) {
+        LOG(ERROR, "Error: " << error.message() << "in removing the file" );
+    }
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     GETUSERARGS();
