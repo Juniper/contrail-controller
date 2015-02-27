@@ -487,6 +487,13 @@ class SvcMonitor(object):
             for fq_name, uuid in iip_list:
                 InstanceIpSM.locate(uuid)
 
+        ok, sg_list = self._cassandra._cassandra_security_group_list()
+        if not ok:
+            pass
+        else:
+            for fq_name, uuid in sg_list:
+                SecurityGroupSM.locate(uuid)
+
         ok, vm_list = self._cassandra._cassandra_virtual_machine_list()
         if not ok:
             pass

@@ -50,7 +50,7 @@ class InstanceManager(object):
         pass
 
     def _get_default_security_group(self, vn):
-        sg_fq_name = vn.fq_name()[:-1] + ['default']
+        sg_fq_name = vn.fq_name[:-1] + ['default']
         for sg in SecurityGroupSM.values():
             if sg.fq_name == sg_fq_name:
                 sg_obj = SecurityGroup()
@@ -297,6 +297,7 @@ class InstanceManager(object):
             if proj.fq_name == proj_fq_name:
                 proj_obj = Project()
                 proj_obj.uuid = proj.uuid
+                proj_obj.name = proj.name
                 proj_obj.fq_name = proj.fq_name
                 break
         if not proj_obj:
