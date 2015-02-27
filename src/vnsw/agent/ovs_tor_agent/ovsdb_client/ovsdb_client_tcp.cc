@@ -88,13 +88,7 @@ OvsdbClientTcpSession::OvsdbClientTcpSession(Agent *agent,
                 TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0)) {
     reader_ = new OvsdbClientTcpSessionReader(this, 
             boost::bind(&OvsdbClientTcpSession::RecvMsg, this, _1, _2));
-    /*
-     * Process the received messages in a KSync workqueue task context,
-     * to assure only one thread is writting data to OVSDB client.
-     */
-    receive_queue_ = new WorkQueue<queue_msg>(
-            TaskScheduler::GetInstance()->GetTaskId("OVSDB::IO"), 0,
-            boost::bind(&OvsdbClientTcpSession::ReceiveDequeue, this, _1));
+
     // Process session events in KSync workqueue task context,
     session_event_queue_ = new WorkQueue<OvsdbSessionEvent>(
             TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0,
@@ -103,8 +97,6 @@ OvsdbClientTcpSession::OvsdbClientTcpSession(Agent *agent,
 
 OvsdbClientTcpSession::~OvsdbClientTcpSession() {
     delete reader_;
-    receive_queue_->Shutdown();
-    delete receive_queue_;
     session_event_queue_->Shutdown();
     delete session_event_queue_;
     TimerManager::DeleteTimer(client_reconnect_timer_);
@@ -121,19 +113,7 @@ void OvsdbClientTcpSession::SendMsg(u_int8_t *buf, std::size_t len) {
 
 void OvsdbClientTcpSession::RecvMsg(const u_int8_t *buf, std::size_t len) {
     OVSDB_PKT_TRACE(Trace, "Received: " + std::string((const char*)buf, len));
-    queue_msg msg;
-    msg.buf = (u_int8_t *)malloc(len);
-    memcpy(msg.buf, buf, len);
-    msg.len = len;
-    receive_queue_->Enqueue(msg);
-}
-
-bool OvsdbClientTcpSession::ReceiveDequeue(queue_msg msg) {
-    if (!IsClosed()) {
-        MessageProcess(msg.buf, msg.len);
-    }
-    free(msg.buf);
-    return true;
+    MessageProcess(buf, len);
 }
 
 KSyncObjectManager *OvsdbClientTcpSession::ksync_obj_manager() {
