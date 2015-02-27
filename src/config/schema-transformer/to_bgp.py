@@ -1661,49 +1661,47 @@ class ServiceChain(DictST):
         return self.name
     # end process_service_chain
 
+    def add_pbf_rule(self, vmi_id, ri1, ri2, ip_address, vlan):
+        if_obj = _vnc_lib.virtual_machine_interface_read(id=vmi_id)
+        props = if_obj.get_virtual_machine_interface_properties()
+        if not props:
+            return None
+        interface_type = props.get_service_interface_type()
+        if interface_type not in ["left", "right"]:
+            return None
+        refs = if_obj.get_routing_instance_refs() or []
+        ri_refs = [ref['to'] for ref in refs]
+
+        pbf = PolicyBasedForwardingRuleType()
+        pbf.set_direction('both')
+        pbf.set_vlan_tag(vlan)
+        pbf.set_service_chain_address(ip_address)
+
+        if interface_type == 'left':
+            pbf.set_src_mac('02:00:00:00:00:01')
+            pbf.set_dst_mac('02:00:00:00:00:02')
+            if (ri1.get_fq_name() not in ri_refs):
+                if_obj.add_routing_instance(ri1.obj, pbf)
+                _vnc_lib.virtual_machine_interface_update(if_obj)
+        if interface_type == 'right' and self.direction == '<>':
+            pbf.set_src_mac('02:00:00:00:00:02')
+            pbf.set_dst_mac('02:00:00:00:00:01')
+            if (ri2.get_fq_name() not in ri_refs):
+                if_obj.add_routing_instance(ri2.obj, pbf)
+                _vnc_lib.virtual_machine_interface_update(if_obj)
+        return interface_type
+
     def process_transparent_service(self, vm_obj, sc_ip_address, service_ri1,
                                     service_ri2):
-        left_found = False
-        right_found = False
+        found = set()
         vlan = VirtualNetworkST.allocate_service_chain_vlan(
             vm_obj.uuid, self.name)
         for interface in (vm_obj.get_virtual_machine_interfaces() or
                           vm_obj.get_virtual_machine_interface_back_refs()
                           or []):
-            if_obj = _vnc_lib.virtual_machine_interface_read(
-                id=interface['uuid'])
-            props = if_obj.get_virtual_machine_interface_properties()
-            if not props:
-                return False
-            interface_type = props.get_service_interface_type()
-            if not interface_type:
-                return False
-            ri_refs = if_obj.get_routing_instance_refs()
-            if interface_type == 'left':
-                left_found = True
-                pbf = PolicyBasedForwardingRuleType()
-                pbf.set_direction('both')
-                pbf.set_vlan_tag(vlan)
-                pbf.set_src_mac('02:00:00:00:00:01')
-                pbf.set_dst_mac('02:00:00:00:00:02')
-                pbf.set_service_chain_address(sc_ip_address)
-                if (service_ri1.get_fq_name() not in
-                        [ref['to'] for ref in (ri_refs or [])]):
-                    if_obj.add_routing_instance(service_ri1.obj, pbf)
-                    _vnc_lib.virtual_machine_interface_update(if_obj)
-            if interface_type == 'right' and self.direction == '<>':
-                right_found = True
-                pbf = PolicyBasedForwardingRuleType()
-                pbf.set_direction('both')
-                pbf.set_src_mac('02:00:00:00:00:02')
-                pbf.set_dst_mac('02:00:00:00:00:01')
-                pbf.set_vlan_tag(vlan)
-                pbf.set_service_chain_address(sc_ip_address)
-                if (service_ri2.get_fq_name() not in
-                        [ref['to'] for ref in (ri_refs or [])]):
-                    if_obj.add_routing_instance(service_ri2.obj, pbf)
-                    _vnc_lib.virtual_machine_interface_update(if_obj)
-        return left_found and (self.direction != '<>' or right_found)
+            found.add(self.add_pbf_rule(interface['uuid'], service_ri1,
+                                        service_ri2, sc_ip_address, vlan))
+        return 'left' in found and 'right' in found
     # end process_transparent_service
 
     def process_in_network_service(self, vm_obj, service, vn1_obj, vn2_obj,
@@ -2273,7 +2271,11 @@ class VirtualMachineInterfaceST(DictST):
         self.service_interface_type = None
         self.interface_mirror = None
         self.virtual_network = None
+        self.virtual_machine = None
+        self.uuid = None
         self.instance_ip_set = set()
+        if_obj = _vnc_lib.virtual_machine_interface_read(fq_name_str=self.name)
+        self.uuid = if_obj.uuid
     # end __init__
     @classmethod
     
@@ -2289,19 +2291,79 @@ class VirtualMachineInterfaceST(DictST):
     def delete_instance_ip(self, ip_name):
         self.instance_ip_set.discard(ip_name)
     # end delete_instance_ip
-    
+
     def set_service_interface_type(self, service_interface_type):
+        if self.service_interface_type == service_interface_type:
+            return
         self.service_interface_type = service_interface_type
+        self._add_pbf_rules()
     # end set_service_interface_type
 
     def set_interface_mirror(self, interface_mirror):
         self.interface_mirror = interface_mirror
     # end set_interface_mirror
-    
+
+    def set_virtual_machine(self, virtual_machine):
+        try:
+            vm_obj = _vnc_lib.virtual_machine_read(fq_name_str=virtual_machine)
+        except NoIdError:
+            return
+
+        if self.virtual_machine == vm_obj.uuid:
+            return
+        self.virtual_machine = vm_obj.uuid
+        self._add_pbf_rules()
+    # end set_virtual_machine
+
+    def _add_pbf_rules(self):
+        if (not self.virtual_machine or
+            self.service_interface_type not in ['left', 'right']):
+            return
+
+        try:
+            vm_obj = _vnc_lib.virtual_machine_read(id=self.virtual_machine)
+            si_refs = vm_obj.get_service_instance_refs()
+            if not si_refs:
+                return
+            si_obj = _vnc_lib.service_instance_read(id=si_refs[0]['uuid'])
+            st_refs = si_obj.get_service_template_refs()
+            if not st_refs:
+                return
+            st_obj = _vnc_lib.service_template_read(id=st_refs[0]['uuid'])
+        except NoIdError:
+            return
+        smode = st_obj.get_service_template_properties().get_service_mode()
+        if smode in ['in-network', 'in-network-nat']:
+            return
+        for service_chain in ServiceChain.values():
+            if si_obj.get_fq_name_str() not in service_chain.service_list:
+                continue
+            if not service_chain.created:
+                continue
+            if self.service_interface_type == 'left':
+                vn_obj = VirtualNetworkST.locate(service_chain.left_vn)
+                vn1_obj = vn_obj
+            else:
+                vn1_obj = VirtualNetworkST.locate(service_chain.left_vn)
+                vn_obj = VirtualNetworkST.locate(service_chain.right_vn)
+
+            service_name = vn_obj.get_service_name(service_chain.name,
+                                                   si_obj.get_fq_name_str())
+            service_ri = vn_obj.locate_routing_instance(
+                service_name, service_chain.name)
+            sc_ip_address = vn1_obj.allocate_service_chain_ip(
+                service_name)
+            vlan = VirtualNetworkST.allocate_service_chain_vlan(
+                vm_obj.uuid, service_chain.name)
+
+            service_chain.add_pbf_rule(self.uuid, service_ri, service_ri,
+                                       sc_ip_address, vlan)
+    # end _add_pbf_rules
+
     def set_virtual_network(self, vn_name):
         try:
             if_obj = _vnc_lib.virtual_machine_interface_read(
-                fq_name_str=self.name)
+                id=self.uuid)
         except NoIdError:
             _sandesh._logger.debug("NoIdError while reading interface " +
                                    self.name)
@@ -2921,6 +2983,18 @@ class SchemaTransformer(object):
             self.current_network_set |= vmi.rebake()
             vmi.set_interface_mirror(prop.get_interface_mirror())
     # end add_virtual_machine_interface_properties
+
+    def add_virtual_machine_interface_virtual_machine(self, idents, meta):
+        vmi_name = idents['virtual-machine-interface']
+        vm_name = idents['virtual-machine']
+        vmi = VirtualMachineInterfaceST.locate(vmi_name)
+        if vmi is not None:
+            vmi.set_virtual_machine(vm_name)
+    # end add_virtual_machine_interface_virtual_machine
+
+    def add_virtual_machine_virtual_machine_interface(self, idents, meta):
+        self.add_virtual_machine_interface_virtual_machine(idents, meta)
+    # end add_virtual_machine_virtual_machine_interface
 
     def delete_virtual_machine_interface_virtual_machine(self, idents, meta):
         vmi_name = idents['virtual-machine-interface']
