@@ -47,11 +47,6 @@ public:
     static const uint32_t TcpKeepaliveInterval = 3; // in seconds
     static const uint32_t TcpKeepaliveProbes = 5; // count
 
-    struct queue_msg {
-        u_int8_t *buf;
-        std::size_t len;
-    };
-
     struct OvsdbSessionEvent {
         TcpSession::Event event;
     };
@@ -64,8 +59,6 @@ public:
     void SendMsg(u_int8_t *buf, std::size_t len);
     // Receive message from OVSDB server
     void RecvMsg(const u_int8_t *buf, std::size_t len);
-    // Dequeue received message from workqueue for processing
-    bool ReceiveDequeue(queue_msg msg);
 
     KSyncObjectManager *ksync_obj_manager();
     Ip4Address tsn_ip();
@@ -83,12 +76,24 @@ public:
 
 protected:
     virtual void OnRead(Buffer buffer);
+
+    // the default io::ReaderTask task for TCP session has task exclusion
+    // defined with db::DBTable task, Overriding reader task id with
+    // OVSDB::IO task to run the message receive and keep alive reply
+    // independent of db::DBTable task.
+    virtual int reader_task_id() const {
+        return ovsdb_io_task_id_;
+    }
+
 private:
     friend class OvsdbClientTcp;
+
+    // ovsdb io task ID.
+    static int ovsdb_io_task_id_;
+
     std::string status_;
     Timer *client_reconnect_timer_;
     OvsdbClientTcpSessionReader *reader_;
-    WorkQueue<queue_msg> *receive_queue_;
     WorkQueue<OvsdbSessionEvent> *session_event_queue_;
     DISALLOW_COPY_AND_ASSIGN(OvsdbClientTcpSession);
 };
