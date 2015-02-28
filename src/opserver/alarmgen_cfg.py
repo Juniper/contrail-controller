@@ -23,7 +23,7 @@ contrail-alarm-gen  --log_level SYS_DEBUG
                     --disc_server_ip 127.0.0.1
                     --disc_server_port 5998
                     --worker_id 0
-                    --partitions 100
+                    --partitions 5
                     --redis_password
                     --http_server_port 5995
                     --redis_uve_list 127.0.0.1:6379
@@ -60,7 +60,7 @@ log_file = /var/log/contrail/contrail-alarm-gen.log
             'syslog_facility'   : Sandesh._DEFAULT_SYSLOG_FACILITY,
             'http_server_port'  : 5995,
             'worker_id'         : '0',
-            'partitions'        : 100,
+            'partitions'        : 5,
             'zk_list'           : None,
             'redis_uve_list'    : ['127.0.0.1:6379'],
             'alarmgen_list'     : ['127.0.0.1:0']

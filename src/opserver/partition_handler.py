@@ -134,7 +134,7 @@ class UveStreamProc(PartitionHandler):
         uves  = set()
         for kcoll,coll in self._uvedb.iteritems():
             for kgen,gen in coll.iteritems():
-                uves.update(gen)
+                uves.update(set(gen.keys()))
         self._logger.info("Existing UVE keys %s" % str(uves))
         self._callback(uves)
 
@@ -156,15 +156,18 @@ class UveStreamProc(PartitionHandler):
                 if not self._uvedb.has_key(coll):
                     self._uvedb[coll] = {}
                 if not self._uvedb[coll].has_key(gen):
-                    self._uvedb[coll][gen] = set()
-                self._uvedb[coll][gen].add(uv["key"])
+                    self._uvedb[coll][gen] = {}
+                if self._uvedb[coll][gen].has_key(uv["key"]):
+                    self._uvedb[coll][gen][uv["key"]] += 1
+                else:
+                    self._uvedb[coll][gen][uv["key"]] = 1
                 chg.add(uv["key"])
             else:
                 # when a generator is delelted, we need to 
                 # notify for *ALL* its UVEs
                 if self._uvedb.has_key(coll):
                     if self._uvedb[coll].has_key(gen):
-                        chg = self._uvedb[coll][gen]
+                        chg = set(self._uvedb[coll][gen].keys())
                         del self._uvedb[coll][gen]
                 
                 # TODO : For the collector's generator, notify all

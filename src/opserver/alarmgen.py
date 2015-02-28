@@ -13,6 +13,7 @@ monkey.patch_all()
 import sys
 import json
 import socket
+import pprint
 try:
     from collections import OrderedDict
 except ImportError:
@@ -34,7 +35,7 @@ from partition_handler import PartitionHandler, UveStreamProc
 from sandesh.alarmgen_ctrl.ttypes import PartitionOwnershipReq, \
     PartitionOwnershipResp, PartitionStatusReq, UVECollInfo, UVEGenInfo, \
     PartitionStatusResp, UVEAlarms, AlarmElement, UVETableAlarmReq, \
-    UVETableAlarmResp, UVEAlarmInfo, AlarmgenTrace
+    UVETableAlarmResp, UVEAlarmInfo, AlarmgenTrace, AlarmTrace, UVEKeyInfo
 from sandesh.discovery.ttypes import CollectorTrace
 
 from opserver_util import ServicePoller
@@ -175,10 +176,6 @@ class Controller(object):
             from libpartition.libpartition import PartitionClient
             self._logger.error('Starting PC')
 
-            # TODO: Need partition numbering fix in libpartition
-            #       before enabling the PartitionClient
-            return None
-
             pc = PartitionClient("alarmgen",
                     self._libpart_name, ag_list,
                     self._conf.partitions(), self.libpart_cb,
@@ -200,8 +197,13 @@ class Controller(object):
             itr = self._us.multi_uve_get(uv, True, None, None, None, None)
             uve_data = itr.next()['value']
             if len(uve_data) == 0:
-                del self.tab_alarms[tab][uv]
                 self._logger.info("UVE %s deleted" % uv)
+                if self.tab_alarms[tab].has_key(uv):
+		    del self.tab_alarms[tab][uv]
+                    ustruct = UVEAlarms(name = uv, deleted = True)
+                    alarm_msg = AlarmTrace(data=ustruct, table=tab)
+                    self._logger.info('send del alarm: %s' % (alarm_msg.log()))
+                    alarm_msg.send()
                 continue
             results = self.mgrs[tab].map_method("__call__", uv, uve_data)
             new_uve_alarms = {}
@@ -216,6 +218,14 @@ class Controller(object):
                 if len(elems):
                     new_uve_alarms[nm] = UVEAlarmInfo(type = nm,
                                            description = elems, ack = False)
+            if (not self.tab_alarms[tab].has_key(uv)) or \
+                       pprint.pformat(self.tab_alarms[tab][uv]) != \
+                       pprint.pformat(new_uve_alarms):
+                ustruct = UVEAlarms(name = uv, alarms = new_uve_alarms.values(),
+                                    deleted = False)
+                alarm_msg = AlarmTrace(data=ustruct, table=tab)
+                self._logger.info('send alarm: %s' % (alarm_msg.log()))
+                alarm_msg.send()
             self.tab_alarms[tab][uv] = new_uve_alarms
             
         if len(no_handlers):
@@ -315,7 +325,12 @@ class Controller(object):
                     for kgen,gen in coll.iteritems():
                         ugi = UVEGenInfo()
                         ugi.generator = kgen
-                        ugi.uves = list(gen)
+                        ugi.uves = []
+                        for uk,uc in gen.iteritems():
+                            ukc = UVEKeyInfo()
+                            ukc.key = uk
+                            ukc.count = uc
+                            ugi.uves.append(ukc)
                         uci.uves.append(ugi)
                     resp.uves.append(uci)
             else:

@@ -21,9 +21,13 @@ request sandesh PartitionStatusReq {
     1: i32 partition
 }
 
+struct UVEKeyInfo {
+    1: string                   key
+    2: i32                      count
+}
 struct UVEGenInfo {
     1: string                   generator
-    2: list<string>             uves
+    2: list<UVEKeyInfo>         uves
 }
 
 struct UVECollInfo {
@@ -49,8 +53,9 @@ struct UVEAlarmInfo {
 }
 
 struct UVEAlarms {
-    1: string                      name
+    1: string                      name (key="none")
     2: list<UVEAlarmInfo>          alarms
+    3: bool                        deleted
 }
 
 request sandesh UVETableAlarmReq {
@@ -62,14 +67,8 @@ response sandesh UVETableAlarmResp {
     2: list<UVEAlarms>             uves
 }
 
-struct AnalyticsNodeAlarm {
-    1: string                      name (key="ObjectCollectorInfo")
-    2: optional bool               deleted
-    3: optional list<UVEAlarmInfo> alarms
-}
-
-uve sandesh AnalyticsNodeAlarmTrace {
-    1: AnalyticsNodeAlarm data
+alarm sandesh AlarmTrace {
+    1: UVEAlarms data
 }
 
 trace sandesh AlarmgenTrace {
