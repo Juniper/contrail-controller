@@ -216,8 +216,13 @@ class DBInterface(object):
         return
     #end _security_group_rule_create
 
-    def _security_group_rule_find(self, sgr_id):
-        dom_projects = self._project_list_domain(None)
+    def _security_group_rule_find(self, sgr_id, project_uuid=None):
+        dom_projects = []
+        if not project_uuid:
+            dom_projects = self._project_list_domain(None)
+        else:
+            dom_projects = [{'uuid': project_uuid}]
+
         for project in dom_projects:
             proj_id = project['uuid']
             project_sgs = self._security_group_list_project(proj_id)
@@ -3893,8 +3898,12 @@ class DBInterface(object):
         return ret_sg_rule_q
     #end security_group_rule_create
 
-    def security_group_rule_read(self, sgr_id):
-        sg_obj, sg_rule = self._security_group_rule_find(sgr_id)
+    def security_group_rule_read(self, context, sgr_id):
+        project_uuid = None
+        if not context['is_admin']:
+            project_uuid = str(uuid.UUID(context['tenant_id']))
+
+        sg_obj, sg_rule = self._security_group_rule_find(sgr_id, project_uuid)
         if sg_obj and sg_rule:
             return self._security_group_rule_vnc_to_neutron(sg_obj.uuid,
                                                             sg_rule, sg_obj)
@@ -3902,8 +3911,12 @@ class DBInterface(object):
         self._raise_contrail_exception('SecurityGroupRuleNotFound', id=sgr_id)
     #end security_group_rule_read
 
-    def security_group_rule_delete(self, sgr_id):
-        sg_obj, sg_rule = self._security_group_rule_find(sgr_id)
+    def security_group_rule_delete(self, context, sgr_id):
+        project_uuid = None
+        if not context['is_admin']:
+            project_uuid = str(uuid.UUID(context['tenant_id']))
+
+        sg_obj, sg_rule = self._security_group_rule_find(sgr_id, project_uuid)
         if sg_obj and sg_rule:
             return self._security_group_rule_delete(sg_obj, sg_rule)
 
