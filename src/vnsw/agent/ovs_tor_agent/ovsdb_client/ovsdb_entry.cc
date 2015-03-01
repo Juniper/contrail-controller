@@ -41,6 +41,13 @@ KSyncObject *OvsdbEntry::GetObject() {
 }
 
 void OvsdbEntry::Ack(bool success) {
+    // TODO we don't handle failures for these entries
+    if (!success) {
+        OVSDB_TRACE(Error, "Transaction failed for " + ToString());
+    }
+
+    OvsdbObject *object = static_cast<OvsdbObject*>(GetObject());
+    object->NotifyEvent(this, ack_event_);
 }
 
 OvsdbDBEntry::OvsdbDBEntry(OvsdbDBObject *table) : KSyncDBEntry(), table_(table),
@@ -56,8 +63,17 @@ OvsdbDBEntry::~OvsdbDBEntry() {
 
 bool OvsdbDBEntry::Add() {
     PreAddChange();
+
+    if (IsNoTxnEntry()) {
+        // trigger AddMsg with NULL pointer and return true to complete
+        // KSync state
+        AddMsg(NULL);
+        return true;
+    }
+
     OvsdbDBObject *object = static_cast<OvsdbDBObject*>(GetObject());
-    struct ovsdb_idl_txn *txn = object->client_idl_->CreateTxn(this);
+    struct ovsdb_idl_txn *txn =
+        object->client_idl_->CreateTxn(this, KSyncEntry::ADD_ACK);
     if (txn == NULL) {
         // failed to create transaction because of idl marked for
         // deletion return from here.
@@ -75,8 +91,17 @@ bool OvsdbDBEntry::Add() {
 
 bool OvsdbDBEntry::Change() {
     PreAddChange();
+
+    if (IsNoTxnEntry()) {
+        // trigger ChangeMsg with NULL pointer and return true to complete
+        // KSync state
+        ChangeMsg(NULL);
+        return true;
+    }
+
     OvsdbDBObject *object = static_cast<OvsdbDBObject*>(GetObject());
-    struct ovsdb_idl_txn *txn = object->client_idl_->CreateTxn(this);
+    struct ovsdb_idl_txn *txn =
+        object->client_idl_->CreateTxn(this, KSyncEntry::CHANGE_ACK);
     if (txn == NULL) {
         // failed to create transaction because of idl marked for
         // deletion return from here.
@@ -93,8 +118,18 @@ bool OvsdbDBEntry::Change() {
 }
 
 bool OvsdbDBEntry::Delete() {
+    if (IsNoTxnEntry()) {
+        // trigger DeleteMsg with NULL pointer
+        DeleteMsg(NULL);
+        // trigger Post Delete, to allow post delete processing
+        PostDelete();
+        // return true to complete KSync State
+        return true;
+    }
+
     OvsdbDBObject *object = static_cast<OvsdbDBObject*>(GetObject());
-    struct ovsdb_idl_txn *txn = object->client_idl_->CreateTxn(this);
+    struct ovsdb_idl_txn *txn =
+        object->client_idl_->CreateTxn(this, KSyncEntry::DEL_ACK);
     if (txn == NULL) {
         // failed to create transaction because of idl marked for
         // deletion return from here.

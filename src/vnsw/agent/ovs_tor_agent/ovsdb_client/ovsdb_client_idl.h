@@ -13,6 +13,7 @@
 #include <cmn/agent_cmn.h>
 #include <cmn/agent.h>
 #include <agent_types.h>
+#include <ksync/ksync_entry.h>
 
 extern SandeshTraceBufferPtr OvsdbTraceBuf;
 extern SandeshTraceBufferPtr OvsdbPktTraceBuf;
@@ -83,7 +84,8 @@ public:
     // Process the recevied message and trigger update to ovsdb client
     void MessageProcess(const u_int8_t *buf, std::size_t len);
     // Create a OVSDB transaction to start encoding an update
-    struct ovsdb_idl_txn *CreateTxn(OvsdbEntryBase *entry);
+    struct ovsdb_idl_txn *CreateTxn(OvsdbEntryBase *entry,
+            KSyncEntry::KSyncEvent ack_event = KSyncEntry::ADD_ACK);
     // Delete the OVSDB transaction
     void DeleteTxn(struct ovsdb_idl_txn *txn);
     void Register(EntryType type, NotifyCB cb) {callback_[type] = cb;}
