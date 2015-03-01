@@ -785,7 +785,9 @@ bool SelectQuery::process_object_query_specific_select_params(
     std::string sandesh_type;
     if (type_val == SandeshType::SYSTEM) {
         sandesh_type = g_viz_constants.SYSTEM_LOG;
-    } else if ((type_val == SandeshType::OBJECT) || (type_val == SandeshType::UVE)) {
+    } else if ((type_val == SandeshType::OBJECT) ||
+               (type_val == SandeshType::UVE) ||
+               (type_val == SandeshType::ALARM)) {
         sandesh_type = g_viz_constants.OBJECT_LOG;
     } else {
         // Ignore this message.
