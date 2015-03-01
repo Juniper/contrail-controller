@@ -79,7 +79,7 @@ void VlanPortBindingEntry::AddMsg(struct ovsdb_idl_txn *txn) {
                 physical_port_name_ + " vlan " + integerToString(vlan_));
         port->DeleteBinding(vlan_, NULL);
     }
-    port->Encode(txn);
+    port->TriggerUpdate();
 }
 
 void VlanPortBindingEntry::ChangeMsg(struct ovsdb_idl_txn *txn) {
@@ -102,7 +102,7 @@ void VlanPortBindingEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
             physical_port_name_ + " vlan " + integerToString(vlan_));
     port->DeleteBinding(vlan_,
             static_cast<LogicalSwitchEntry *>(logical_switch_.get()));
-    port->Encode(txn);
+    port->TriggerUpdate();
 }
 
 bool VlanPortBindingEntry::Sync(DBEntry *db_entry) {

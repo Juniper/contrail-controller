@@ -34,9 +34,11 @@ public:
     struct ovsdb_idl_row *ovs_entry() {return ovs_entry_;}
     KSyncObject* GetObject();
     void Ack(bool success);
+
 protected:
     OvsdbObject *table_;
     struct ovsdb_idl_row *ovs_entry_;
+
 private:
     DISALLOW_COPY_AND_ASSIGN(OvsdbEntry);
 };
@@ -76,9 +78,14 @@ public:
 
     KSyncObject* GetObject();
     void Ack(bool success);
+
 protected:
+    // by default create transaction for all entries
+    virtual bool IsNoTxnEntry() { return false; }
+
     OvsdbDBObject *table_;
     struct ovsdb_idl_row *ovs_entry_;
+
 private:
     friend class OvsdbDBObject;
     DISALLOW_COPY_AND_ASSIGN(OvsdbDBEntry);

@@ -30,6 +30,23 @@ PhysicalPortEntry::PhysicalPortEntry(PhysicalPortTable *table,
 PhysicalPortEntry::~PhysicalPortEntry() {
 }
 
+bool PhysicalPortEntry::Add() {
+    if (ovs_entry_ == NULL) {
+        return true;
+    }
+
+    return OverrideOvs();
+}
+
+bool PhysicalPortEntry::Change() {
+    return Add();
+}
+
+bool PhysicalPortEntry::Delete() {
+    // Nothing to do on delete, return true and be done
+    return true;
+}
+
 bool PhysicalPortEntry::IsLess(const KSyncEntry &entry) const {
     const PhysicalPortEntry &ps_entry =
         static_cast<const PhysicalPortEntry&>(entry);
@@ -38,6 +55,19 @@ bool PhysicalPortEntry::IsLess(const KSyncEntry &entry) const {
 
 KSyncEntry *PhysicalPortEntry::UnresolvedReference() {
     return NULL;
+}
+
+void PhysicalPortEntry::TriggerUpdate() {
+    if (GetState() == KSyncEntry::TEMP || IsDeleted()) {
+        /*
+         * we can only modify the vlan bindings in physical port
+         * table as we don't own the table, we are not suppose to create
+         * a new port entry in the table, so return from here if entry is
+         * marked temporary or deleted.
+         */
+        return;
+    }
+    table_->Change(this);
 }
 
 void PhysicalPortEntry::Encode(struct ovsdb_idl_txn *txn) {
@@ -91,20 +121,23 @@ PhysicalPortEntry::stats_table() const {
     return stats_table_;
 }
 
-void PhysicalPortEntry::OverrideOvs() {
+bool PhysicalPortEntry::OverrideOvs() {
     struct ovsdb_idl_txn *txn = table_->client_idl()->CreateTxn(this);
     if (txn == NULL) {
         // failed to create transaction because of idl marked for
         // deletion return from here.
-        return;
+        return true;
     }
     Encode(txn);
     struct jsonrpc_msg *msg = ovsdb_wrapper_idl_txn_encode(txn);
     if (msg == NULL) {
         table_->client_idl()->DeleteTxn(txn);
-        return;
+        return true;
     }
+    OVSDB_TRACE(Trace, "Sending Vlan Port Binding update for Physical Port " +
+                        name_);
     table_->client_idl()->SendJsonRpc(msg);
+    return false;
 }
 
 PhysicalPortTable::PhysicalPortTable(OvsdbClientIdl *idl) :
@@ -124,6 +157,7 @@ void PhysicalPortTable::Notify(OvsdbClientIdl::Op op,
         OVSDB_TRACE(Trace, "Delete of Physical Port " +
                 std::string(ovsdb_wrapper_physical_port_name(row)));
         if (entry != NULL && IsActiveEntry(entry)) {
+            entry->ovs_entry_ = NULL;
             Delete(entry);
         }
     } else if (op == OvsdbClientIdl::OVSDB_ADD) {
@@ -136,8 +170,10 @@ void PhysicalPortTable::Notify(OvsdbClientIdl::Op op,
             // entry is present but it is a temp entry.
             OVSDB_TRACE(Trace, "Add/Change of Physical Port " +
                     std::string(ovsdb_wrapper_physical_port_name(row)));
-            entry->ovs_entry_ = row;
             Change(entry);
+            // Set row pointer after triggering change to activate entry
+            // so that message is not encoded.
+            entry->ovs_entry_ = row;
         }
 
         std::size_t count = ovsdb_wrapper_physical_port_vlan_binding_count(row);
@@ -191,9 +227,8 @@ void PhysicalPortTable::Notify(OvsdbClientIdl::Op op,
 
         if (it != entry->binding_table_.end() ||
             ovs_it != entry->ovs_binding_table_.end()) {
-            OVSDB_TRACE(Trace, "Vlan Port Binding mismatch for Physical Port " +
-                        entry->name());
-            entry->OverrideOvs();
+            // change entry to update vlan port bindings
+            Change(entry);
         }
     } else {
         assert(0);
