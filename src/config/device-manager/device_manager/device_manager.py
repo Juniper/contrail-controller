@@ -38,7 +38,8 @@ from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
     NodeStatus
 from cfgm_common.vnc_db import DBBase
 from db import BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM, \
-    LogicalInterfaceDM, VirtualMachineInterfaceDM, VirtualNetworkDM, RoutingInstanceDM
+    LogicalInterfaceDM, VirtualMachineInterfaceDM, VirtualNetworkDM, RoutingInstanceDM, \
+    GlobalSystemConfigDM
 from cfgm_common.dependency_tracker import DependencyTracker
 from sandesh.dm_introspect import ttypes as sandesh
 
@@ -164,6 +165,14 @@ class DeviceManager(object):
                                              self.config_log)
 
         DBBase.init(self, self._sandesh.logger(), self._cassandra)
+        ok, global_system_config_list = self._cassandra._cassandra_global_system_config_list()
+        if not ok:
+            self.config_log('global system config list returned error: %s' %
+                            global_system_config_list)
+        else:
+            for fq_name, uuid in global_system_config_list:
+                GlobalSystemConfigDM.locate(uuid)
+
         ok, vn_list = self._cassandra._cassandra_virtual_network_list()
         if not ok:
             self.config_log('virtual network list returned error: %s' %
@@ -174,6 +183,14 @@ class DeviceManager(object):
                 if vn is not None and vn.routing_instances is not None:
                     for ri_id in vn.routing_instances:
                         ri_obj = RoutingInstanceDM.locate(ri_id)
+
+        ok, bgp_list = self._cassandra._cassandra_bgp_router_list()
+        if not ok:
+            self.config_log('bgp router list returned error: %s' %
+                            bgp_list)
+        else:
+            for fq_name, uuid in bgp_list:
+                BgpRouterDM.locate(uuid)
 
         ok, pr_list = self._cassandra._cassandra_physical_router_list()
         if not ok:
