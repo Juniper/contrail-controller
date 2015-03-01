@@ -182,6 +182,7 @@ class VirtualMachineSM(DBBase):
         self.service_instance = None
         self.virtual_router = None
         self.virtual_machine_interfaces = set()
+        self.virtualization_type = None
         self.update(obj_dict)
     # end __init__
 
@@ -194,10 +195,12 @@ class VirtualMachineSM(DBBase):
         self.update_single_ref('virtual_router', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
 
-        if self.service_instance:
-            self.display_name = obj['display_name']
-            self.virtualization_type = self.display_name.split('__')[-1]
-            self.proj_fq_name = self.display_name.split('__')[0:2]
+        self.display_name = obj['display_name']
+        display_list = self.display_name.split('__')
+        if self.service_instance and len(display_list) == 5:
+            self.virtualization_type = display_list[-1]
+            self.proj_fq_name = display_list[0:2]
+            self.index = int(display_list[-2]) - 1
     # end update
 
     @classmethod
