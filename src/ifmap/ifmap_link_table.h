@@ -17,7 +17,7 @@ class IFMapTable;
 class IFMapLinkTable : public DBTable {
 public:
     struct RequestKey : DBRequestKey {
-        DBGraphBase::edge_descriptor edge;
+        std::string name;
     };
     struct RequestData : DBRequestData {
         // Intentionally left blank.
@@ -30,6 +30,8 @@ public:
     virtual void Input(DBTablePartition *partition, DBClient *client,
                        DBRequest *req);
 
+    std::string LinkKey(const std::string &metadata, IFMapNode *left, 
+                        IFMapNode *right);
     void AddLink(DBGraphBase::edge_descriptor edge, IFMapNode *left,
                  IFMapNode *right, const std::string &metadata,
                  uint64_t sequence_number, const IFMapOrigin &origin);
@@ -42,7 +44,7 @@ public:
 
     static DBTable *CreateTable(DB *db, const std::string &name,
                                 DBGraph *graph);
-    IFMapLink *FindLink(DBGraphBase::edge_descriptor edge);
+    IFMapLink *FindLink(const std::string &name);
 
 protected:
     void DeleteLink(DBGraphEdge *edge);
