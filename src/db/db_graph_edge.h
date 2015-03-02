@@ -20,7 +20,13 @@ public:
 
     explicit DBGraphEdge(Edge edge_id);
 
-    Edge edge_id() const { return edge_id_; }
+    void SetEdge(Edge edge);
+
+    Edge edge_id() const {
+        assert(!IsDeleted());
+        // Don't access the edge id after deleting from graph
+        return edge_id_;
+    }
 
     DBGraphVertex *source(DBGraph *graph);
     const DBGraphVertex *source(DBGraph *graph) const;
