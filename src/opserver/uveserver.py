@@ -215,8 +215,8 @@ class UVEServer(object):
                 gen = info[0] + ":" + info[1] + ":" + info[2] + ":" + info[3]
                 key = info[5]
                 if not gen_uves.has_key(gen):
-                     gen_uves[gen] = set()
-                gen_uves[gen].add(key)
+                     gen_uves[gen] = {}
+                gen_uves[gen][key] = 0
             uves[redis_uve[0] + ":" + str(redis_uve[1])] = gen_uves
         return uves
         

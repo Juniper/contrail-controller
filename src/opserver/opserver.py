@@ -239,7 +239,7 @@ def redis_query_result(host, port, redis_password, qid):
             yield {}
     # Update connection info
     ConnectionState.update(conn_type = ConnectionType.REDIS,
-        message = 'Query[%s] result' % (qid),
+        message = None,
         status = ConnectionStatus.UP,
         server_addrs = ['%s:%d' % (host, port)],
         name = 'Query')
@@ -1155,8 +1155,7 @@ class OpServer(object):
             # Update connection info
             ConnectionState.update(conn_type = ConnectionType.REDIS,
                 name = 'Query', status = ConnectionStatus.UP,
-                message = 'Sync Query[%s] at %s' % \
-                    (qid, datetime.datetime.now().isoformat()),
+                message = None,
                 server_addrs = ['127.0.0.1' + ':' + 
                     str(self._args.redis_query_port)]) 
             self._logger.info(
