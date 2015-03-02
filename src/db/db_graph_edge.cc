@@ -10,6 +10,11 @@ DBGraphEdge::DBGraphEdge(Edge edge_id)
   : edge_id_(edge_id) {
 }
 
+void DBGraphEdge::SetEdge(Edge edge) {
+    assert(!IsDeleted());
+    edge_id_ = edge;
+}
+
 DBGraphVertex *DBGraphEdge::source(DBGraph *graph) {
     Vertex s = boost::source(edge_id_, *graph->graph());
     return graph->vertex_data(s);

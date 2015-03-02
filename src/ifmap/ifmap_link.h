@@ -26,10 +26,11 @@ public:
         uint64_t sequence_number;
     };
 
-    IFMapLink(DBGraphBase::edge_descriptor edge_id);
+    IFMapLink(const std::string &name);
+    const std::string &link_name() const { return link_name_; }
     
     // Initialize the link.
-    void SetProperties(IFMapNode *left, IFMapNode *right,
+    void SetProperties(Edge edge, IFMapNode *left, IFMapNode *right,
                        const std::string &metadata, uint64_t sequence_number,
                        const IFMapOrigin &origin);
     // Update some fields
@@ -80,6 +81,7 @@ public:
 private:
     friend class ShowIFMapLinkTable;
 
+    std::string link_name_;
     std::string metadata_;
     IFMapNode::Descriptor left_id_;
     IFMapNode::Descriptor right_id_;
