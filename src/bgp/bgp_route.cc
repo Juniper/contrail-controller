@@ -153,9 +153,9 @@ bool BgpRoute::RemovePath(const IPeer *peer) {
 }
 
 //
-// Check if the route is valid.
+// Check if the route is usable.
 //
-bool BgpRoute::IsValid() const {
+bool BgpRoute::IsUsable() const {
     if (IsDeleted())
         return false;
 
@@ -164,6 +164,13 @@ bool BgpRoute::IsValid() const {
         return false;
 
     return true;
+}
+
+//
+// Check if the route is valid.
+//
+bool BgpRoute::IsValid() const {
+    return IsUsable();
 }
 
 //
