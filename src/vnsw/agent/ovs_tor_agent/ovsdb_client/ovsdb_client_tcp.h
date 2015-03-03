@@ -125,6 +125,7 @@ private:
     boost::asio::ip::tcp::endpoint server_ep_;
     Ip4Address tsn_ip_;
     bool shutdown_;
+    bool disable_monitor_wait_;
     DISALLOW_COPY_AND_ASSIGN(OvsdbClientTcp);
 };
 };

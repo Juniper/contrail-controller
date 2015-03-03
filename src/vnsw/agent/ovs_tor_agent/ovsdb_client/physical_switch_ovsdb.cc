@@ -112,9 +112,8 @@ public:
     virtual ~PhysicalSwitchSandeshTask() {}
     virtual bool Run() {
         std::vector<OvsdbPhysicalSwitchEntry> pswitch;
-        TorAgentInit *init =
-            static_cast<TorAgentInit *>(Agent::GetInstance()->agent_init());
-        OvsdbClientSession *session = init->ovsdb_client()->next_session(NULL);
+        OvsdbClientSession *session =
+            Agent::GetInstance()->ovsdb_client()->next_session(NULL);
         if (session->client_idl() != NULL) {
             PhysicalSwitchTable *table =
                 session->client_idl()->physical_switch_table();

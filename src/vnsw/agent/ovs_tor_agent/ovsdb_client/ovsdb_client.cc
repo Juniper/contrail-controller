@@ -43,9 +43,7 @@ OvsdbClient *OvsdbClient::Allocate(Agent *agent, TorAgentParam *params,
 void OvsdbClientReq::HandleRequest() const {
     OvsdbClientResp *resp = new OvsdbClientResp();
     SandeshOvsdbClient client_data;
-    TorAgentInit *init =
-        static_cast<TorAgentInit *>(Agent::GetInstance()->agent_init());
-    OvsdbClient *client = init->ovsdb_client();
+    OvsdbClient *client = Agent::GetInstance()->ovsdb_client();
     client_data.set_protocol(client->protocol());
     client_data.set_server(client->server());
     client_data.set_port(client->port());

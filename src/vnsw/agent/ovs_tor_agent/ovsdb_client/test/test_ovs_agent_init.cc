@@ -130,6 +130,7 @@ void TestOvsAgentInit::CreateModules() {
                     IpAddress(Ip4Address::from_string("127.0.0.1")), ovsdb_port,
                     IpAddress(Ip4Address::from_string("127.0.0.1")),
                     ovs_peer_manager()));
+        agent()->set_ovsdb_client(ovsdb_client_.get());
     }
 }
 

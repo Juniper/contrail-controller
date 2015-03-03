@@ -20,6 +20,8 @@ OvsdbClientTcp::OvsdbClientTcp(Agent *agent, TorAgentParam *params,
     OvsdbClient(manager, params->keepalive_interval()), agent_(agent),
     session_(NULL), server_ep_(IpAddress(params->tor_ip()), params->tor_port()),
     tsn_ip_(params->tsn_ip()), shutdown_(false) {
+    // needed only for test code.
+    disable_monitor_wait_ = false;
 }
 
 OvsdbClientTcp::OvsdbClientTcp(Agent *agent, IpAddress tor_ip, int tor_port,
@@ -27,6 +29,9 @@ OvsdbClientTcp::OvsdbClientTcp(Agent *agent, IpAddress tor_ip, int tor_port,
     TcpServer(agent->event_manager()),
     OvsdbClient(manager, 0), agent_(agent), session_(NULL),
     server_ep_(tor_ip, tor_port), tsn_ip_(tsn_ip.to_v4()), shutdown_(false) {
+    // constructote supposed to be used by test code only
+    // disable monitor wait for test code
+    disable_monitor_wait_ = true;
 }
 
 OvsdbClientTcp::~OvsdbClientTcp() {
@@ -119,6 +124,12 @@ OvsdbClientTcpSession::OvsdbClientTcpSession(Agent *agent,
     session_event_queue_ = new WorkQueue<OvsdbSessionEvent>(
             TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0,
             boost::bind(&OvsdbClientTcpSession::ProcessSessionEvent, this, _1));
+
+    OvsdbClientTcp *ovs_server = static_cast<OvsdbClientTcp *>(server);
+    if (ovs_server->disable_monitor_wait_) {
+        // disable monitor request send wait by setting monitor_wait_ to 0
+        monitor_wait_ = 0;
+    }
 }
 
 OvsdbClientTcpSession::~OvsdbClientTcpSession() {
