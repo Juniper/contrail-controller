@@ -333,7 +333,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         global cov_handle
         if not cov_handle:
             cov_handle = coverage.coverage(source=['./'], omit=['.venv/*'])
-        cov_handle.start()
+        #cov_handle.start()
 
         cfgm_common.zkclient.LOG_DIR = './'
         gevent.wsgi.WSGIServer.handler_class = FakeWSGIHandler
@@ -367,8 +367,8 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         self._api_svr_greenlet.kill()
         self._api_server._db_conn._msgbus.shutdown()
         FakeIfmapClient.reset()
-        cov_handle.stop()
-        cov_handle.report(file=open('covreport.txt', 'w'))
+        #cov_handle.stop()
+        #cov_handle.report(file=open('covreport.txt', 'w'))
         super(TestCase, self).tearDown()
     # end tearDown
 

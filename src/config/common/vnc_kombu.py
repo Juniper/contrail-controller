@@ -106,12 +106,17 @@ class VncKombuClientBase(object):
     # end _connection_watch
 
     def _publisher(self):
+        message = None
         while True:
             try:
-                message = self._publish_queue.get()
+                if not message:
+                    # earlier was sent fine, dequeue one more
+                    message = self._publish_queue.get()
+
                 while True:
                     try:
                         self._producer.publish(message)
+                        message = None
                         break
                     except self._conn.connection_errors + self._conn.channel_errors as e:
                         self._reconnect()

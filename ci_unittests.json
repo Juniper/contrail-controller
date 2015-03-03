@@ -20,7 +20,10 @@
             "controller/src/api-lib",
             "controller/src/config"
         ],
-        "scons_test_targets" : [ ],
+        "scons_test_targets" : [
+            "controller/src/api-lib:test",
+            "controller/src/config/api-server:test"
+        ],
         "misc_test_targets" : [ ]
     },
     "contrail-control" : {
