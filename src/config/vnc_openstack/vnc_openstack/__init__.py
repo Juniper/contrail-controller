@@ -254,6 +254,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         proj_obj = vnc_api.Project(proj_name)
         proj_obj.uuid = id
         self._vnc_lib.project_create(proj_obj)
+        self._vnc_project_ids.add(id)
     # end _ksv2_sync_project_to_vnc
 
     def _ksv2_add_project_to_vnc(self, project_id):
@@ -366,6 +367,8 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         proj_obj = vnc_api.Project(project_name, parent_obj=dom_obj)
         proj_obj.uuid = project_id
         self._vnc_lib.project_create(proj_obj)
+        self._vnc_domain_ids.add(domain_uuid)
+        self._vnc_project_ids.add(project_id)
     # end _ksv3_sync_project_to_vnc
 
     def _ksv3_add_project_to_vnc(self, project_id):
