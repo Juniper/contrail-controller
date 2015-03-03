@@ -246,9 +246,8 @@ public:
     virtual ~PhysicalPortSandeshTask() {}
     virtual bool Run() {
         std::vector<OvsdbPhysicalPortEntry> port_list;
-        TorAgentInit *init =
-            static_cast<TorAgentInit *>(Agent::GetInstance()->agent_init());
-        OvsdbClientSession *session = init->ovsdb_client()->next_session(NULL);
+        OvsdbClientSession *session =
+            Agent::GetInstance()->ovsdb_client()->next_session(NULL);
         if (session->client_idl() != NULL) {
             PhysicalPortTable *table =
                 session->client_idl()->physical_port_table();

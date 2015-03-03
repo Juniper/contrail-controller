@@ -102,10 +102,9 @@ private:
 
 class OvsdbClientTcp : public TcpServer, public OvsdbClient {
 public:
-    OvsdbClientTcp(Agent *agent, TorAgentParam *params,
-            OvsPeerManager *manager);
     OvsdbClientTcp(Agent *agent, IpAddress tor_ip, int tor_port,
-            IpAddress tsn_ip, OvsPeerManager *manager);
+            IpAddress tsn_ip, int keepalive_interval,
+            bool disable_monitor_wait, OvsPeerManager *manager);
     virtual ~OvsdbClientTcp();
 
     virtual TcpSession *AllocSession(Socket *socket);
@@ -130,6 +129,7 @@ private:
     boost::asio::ip::tcp::endpoint server_ep_;
     Ip4Address tsn_ip_;
     bool shutdown_;
+    bool disable_monitor_wait_;
     DISALLOW_COPY_AND_ASSIGN(OvsdbClientTcp);
 };
 };

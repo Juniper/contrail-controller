@@ -8,8 +8,6 @@
 #include <ovsdb_types.h>
 #include <ovsdb_client_tcp.h>
 
-#include <ovs_tor_agent/tor_agent_param.h>
-
 using OVSDB::OvsdbClientSession;
 using OVSDB::OvsdbClientTcp;
 using OVSDB::OvsdbClientTcpSession;
@@ -17,18 +15,13 @@ using OVSDB::OvsdbClientTcpSessionReader;
 
 int OvsdbClientTcpSession::ovsdb_io_task_id_ = -1;
 
-OvsdbClientTcp::OvsdbClientTcp(Agent *agent, TorAgentParam *params,
-        OvsPeerManager *manager) : TcpServer(agent->event_manager()),
-    OvsdbClient(manager, params->keepalive_interval()), agent_(agent),
-    session_(NULL), server_ep_(IpAddress(params->tor_ip()), params->tor_port()),
-    tsn_ip_(params->tsn_ip()), shutdown_(false) {
-}
-
 OvsdbClientTcp::OvsdbClientTcp(Agent *agent, IpAddress tor_ip, int tor_port,
-        IpAddress tsn_ip, OvsPeerManager *manager) :
+        IpAddress tsn_ip, int keepalive_interval, bool disable_monitor_wait,
+        OvsPeerManager *manager) :
     TcpServer(agent->event_manager()),
-    OvsdbClient(manager, 0), agent_(agent), session_(NULL),
-    server_ep_(tor_ip, tor_port), tsn_ip_(tsn_ip.to_v4()), shutdown_(false) {
+    OvsdbClient(manager, keepalive_interval), agent_(agent), session_(NULL),
+    server_ep_(tor_ip, tor_port), tsn_ip_(tsn_ip.to_v4()), shutdown_(false),
+    disable_monitor_wait_(disable_monitor_wait) {
 }
 
 OvsdbClientTcp::~OvsdbClientTcp() {
@@ -121,6 +114,12 @@ OvsdbClientTcpSession::OvsdbClientTcpSession(Agent *agent,
     session_event_queue_ = new WorkQueue<OvsdbSessionEvent>(
             TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0,
             boost::bind(&OvsdbClientTcpSession::ProcessSessionEvent, this, _1));
+
+    OvsdbClientTcp *ovs_server = static_cast<OvsdbClientTcp *>(server);
+    if (ovs_server->disable_monitor_wait_) {
+        // disable monitor request send wait by setting monitor_wait_ to 0
+        monitor_wait_ = 0;
+    }
 }
 
 OvsdbClientTcpSession::~OvsdbClientTcpSession() {
