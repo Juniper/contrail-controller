@@ -10,13 +10,14 @@
 
 using namespace std;
 
-IFMapLink::IFMapLink(DBGraphBase::edge_descriptor edge_id)
-    : DBGraphEdge(edge_id) {
+IFMapLink::IFMapLink(const string &name)
+    : DBGraphEdge(Edge()), link_name_(name) {
 }
 
-void IFMapLink::SetProperties(IFMapNode *left, IFMapNode *right,
+void IFMapLink::SetProperties(Edge edge, IFMapNode *left, IFMapNode *right,
                               const string &metadata, uint64_t sequence_number,
                               const IFMapOrigin &origin) {
+    SetEdge(edge);
     left_node_ = left;
     left_id_ = make_pair(left->table()->Typename(), left->name());
     right_node_ = right;
@@ -87,7 +88,7 @@ string IFMapLink::ToString() const {
 
 bool IFMapLink::IsLess(const DBEntry &rgen) const {
     const IFMapLink &rhs = static_cast<const IFMapLink &>(rgen);
-    return edge_id() < rhs.edge_id();
+    return link_name() < rhs.link_name();
 }
 
 void IFMapLink::AddOriginInfo(const IFMapOrigin &in_origin, uint64_t seq_num) {
