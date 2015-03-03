@@ -684,8 +684,29 @@ class DBInterface(object):
         return self._port_list(net_objs, all_port_objs, port_iip_objs, port_vm_objs)
     #end _port_list_network
 
+    def _port_net_vm_projet(self, project_id=None, device_id=None):
+        port_vm_gevent = gevent.spawn(self._virtual_machine_list,
+                                      back_ref_id=device_id)
+        port_net_gevent = gevent.spawn(self._virtual_network_list,
+                                       parent_id=project_id,
+                                       detail=True)
+
+        gevent.joinall([port_net_gevent, port_vm_gevent])
+
+        port_net_objs = port_net_gevent.value
+        port_vm_objs = port_vm_gevent.value
+
+        return (port_net_objs, port_vm_objs)
+
+    def _port_instance_ips(self, port_net_objs, is_admin=False):
+        if is_admin:
+            return self._instance_ip_list()
+        else:
+            net_ids = [net_obj.uuid for net_obj in port_net_objs]
+            return self._instance_ip_list(back_ref_id=net_ids)
+
     # find port ids on a given project
-    def _port_list_project(self, project_id, count=False):
+    def _port_list_project(self, project_id, count=False, is_admin=False):
         if self._list_optimization_enabled:
             if count:
                 port_objs = self._virtual_machine_interface_list(parent_id=project_id)
@@ -693,22 +714,17 @@ class DBInterface(object):
 
             # it is a list operation, not count
             # read all VMI and IIP in detail one-shot
-            all_port_gevent = gevent.spawn(self._virtual_machine_interface_list,
-                                           parent_id=project_id)
-            port_iip_gevent = gevent.spawn(self._instance_ip_list)
-            port_vm_gevent = gevent.spawn(self._virtual_machine_list)
-            port_net_gevent = gevent.spawn(self._virtual_network_list,
-                                           parent_id=project_id,
-                                           detail=True)
+            all_port_objs = self._virtual_machine_interface_list(parent_id=project_id)
 
-            gevent.joinall([all_port_gevent, port_iip_gevent, port_net_gevent, port_vm_gevent])
+            if is_admin:
+                vmi_ids = []
+            else:
+                vmi_ids = [vmi_obj.uuid for vmi_obj in all_port_objs]
+            port_net_objs, port_vm_objs = self._port_net_vm_projet(project_id,
+                                                                   vmi_ids)
+            iip_objs = self._port_instance_ips(port_net_objs, is_admin=is_admin)
 
-            all_port_objs = all_port_gevent.value
-            port_iip_objs = port_iip_gevent.value
-            port_net_objs = port_net_gevent.value
-            port_vm_objs = port_vm_gevent.value
-
-            return self._port_list(port_net_objs, all_port_objs, port_iip_objs, port_vm_objs)
+            return self._port_list(port_net_objs, all_port_objs, iip_objs, port_vm_objs)
         else:
             if count:
                 ret_val = 0
@@ -3607,36 +3623,18 @@ class DBInterface(object):
             'network:dhcp' in filters.get('device_owner', [])):
              return ret_q_ports
 
+        if not context['is_admin']:
+            project_id = str(uuid.UUID(context['tenant']))
+        else:
+            project_id = None
+
         if not 'device_id' in filters:
             # Listing from back references
             if not filters:
                 # TODO once vmi is linked to project in schema, use project_id
                 # to limit scope of list
-                if not context['is_admin']:
-                    project_id = str(uuid.UUID(context['tenant']))
-                else:
-                    project_id = None
-
-                if self._list_optimization_enabled:
-                    ret_q_ports = self._port_list_project(project_id)
-                else:
-                    all_port_gevent = gevent.spawn(self._virtual_machine_interface_list)
-                    port_iip_gevent = gevent.spawn(self._instance_ip_list)
-                    port_vm_gevent = gevent.spawn(self._virtual_machine_list)
-                    port_net_gevent = gevent.spawn(self._virtual_network_list,
-                                                   parent_id=project_id,
-                                                   detail=True)
-
-                    gevent.joinall([all_port_gevent, port_iip_gevent, port_net_gevent, port_vm_gevent])
-
-                    all_port_objs = all_port_gevent.value
-                    port_iip_objs = port_iip_gevent.value
-                    port_net_objs = port_net_gevent.value
-                    port_vm_objs = port_vm_gevent.value
-
-                    ret_q_ports = self._port_list(port_net_objs, all_port_objs,
-                                                  port_iip_objs, port_vm_objs)
-
+               ret_q_ports = self._port_list_project(project_id,
+                                                     is_admin=context['is_admin'])
             elif 'tenant_id' in filters:
                 all_project_ids = self._validate_project_ids(context,
                                                              filters['tenant_id'])
@@ -3675,15 +3673,10 @@ class DBInterface(object):
             return ret_list
 
         # Listing from parent to children
-        port_iip_gevent = gevent.spawn(self._instance_ip_list)
-        port_vm_gevent = gevent.spawn(self._virtual_machine_list)
-        port_net_gevent = gevent.spawn(self._virtual_network_list, detail=True)
-
-        gevent.joinall([port_iip_gevent, port_net_gevent, port_vm_gevent])
-
-        port_iip_objs = port_iip_gevent.value
-        port_net_objs = port_net_gevent.value
-        port_vm_objs = port_vm_gevent.value
+        port_net_objs, port_vm_objs = self._port_net_vm_projet(project_id,
+                                                               filters['device_id'])
+        port_iip_objs = self._port_instance_ips(port_net_objs,
+                                                is_admin=context['is_admin'])
 
         # port has a back_ref to LR, so need to read in LRs based on device id
         device_ids = filters['device_id']
@@ -3725,7 +3718,7 @@ class DBInterface(object):
             else:
                 project_id = str(uuid.UUID(filters['tenant_id']))
 
-            nports = len(self._port_list_project(project_id))
+            nports = self._port_list_project(project_id, count=True)
         else:
             # across all projects - TODO very expensive,
             # get only a count from api-server!
