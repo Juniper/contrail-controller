@@ -42,6 +42,9 @@ public:
 
     bool SendMonitorReqTimerCb();
 
+protected:
+    uint32_t monitor_wait_; // time to wait before sending monitor request
+
 private:
     friend class OvsdbClientIdl;
     OvsdbClientIdlPtr client_idl_;

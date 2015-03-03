@@ -34,7 +34,10 @@ void OvsdbClient::Init() {
 OvsdbClient *OvsdbClient::Allocate(Agent *agent, TorAgentParam *params,
         OvsPeerManager *manager) {
     KSyncObjectManager::Init();
-    return (new OvsdbClientTcp(agent, params, manager));
+    return (new OvsdbClientTcp(agent, IpAddress(params->tor_ip()),
+                               params->tor_port(), params->tsn_ip(),
+                               params->keepalive_interval(), false ,
+                               manager));
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -43,9 +46,7 @@ OvsdbClient *OvsdbClient::Allocate(Agent *agent, TorAgentParam *params,
 void OvsdbClientReq::HandleRequest() const {
     OvsdbClientResp *resp = new OvsdbClientResp();
     SandeshOvsdbClient client_data;
-    TorAgentInit *init =
-        static_cast<TorAgentInit *>(Agent::GetInstance()->agent_init());
-    OvsdbClient *client = init->ovsdb_client();
+    OvsdbClient *client = Agent::GetInstance()->ovsdb_client();
     client_data.set_protocol(client->protocol());
     client_data.set_server(client->server());
     client_data.set_port(client->port());

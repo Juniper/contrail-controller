@@ -32,6 +32,9 @@ class TaskScheduler;
 class AgentInit;
 class AgentStatsCollector;
 class FlowStatsCollector;
+namespace OVSDB {
+class OvsdbClient;
+};
 
 class Interface;
 typedef boost::intrusive_ptr<Interface> InterfaceRef;
@@ -710,6 +713,9 @@ public:
     AgentInit *agent_init() const { return agent_init_; }
     void set_agent_init(AgentInit *init) { agent_init_ = init; }
 
+    OVSDB::OvsdbClient *ovsdb_client() const { return ovsdb_client_; }
+    void set_ovsdb_client(OVSDB::OvsdbClient *client) { ovsdb_client_ = client; }
+
     const std::string &fabric_interface_name() const {
         return ip_fabric_intf_name_;
     }
@@ -922,6 +928,9 @@ private:
 
     // Flow information
     uint32_t flow_table_size_;
+
+    // OVSDB client ptr
+    OVSDB::OvsdbClient *ovsdb_client_;
 
     // Constants
     static const std::string config_file_;
