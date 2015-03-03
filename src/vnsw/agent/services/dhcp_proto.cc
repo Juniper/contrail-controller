@@ -19,7 +19,8 @@ DhcpProto::DhcpProto(Agent *agent, boost::asio::io_service &io,
                      bool run_with_vrouter) :
     Proto(agent, "Agent::Services", PktHandler::DHCP, io),
     run_with_vrouter_(run_with_vrouter), ip_fabric_interface_(NULL),
-    ip_fabric_interface_index_(-1), dhcp_server_socket_(io) {
+    ip_fabric_interface_index_(-1), dhcp_server_socket_(io),
+    dhcp_server_read_buf_(NULL) {
 
     dhcp_relay_mode_ = agent->params()->dhcp_relay_mode();
     if (dhcp_relay_mode_) {

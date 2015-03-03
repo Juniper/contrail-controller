@@ -16,7 +16,8 @@ using OVSDB::OvsdbClientIdl;
 using OVSDB::OvsdbClientSession;
 
 OvsdbClientSession::OvsdbClientSession(Agent *agent, OvsPeerManager *manager) :
-    client_idl_(NULL), agent_(agent), manager_(manager),
+    monitor_wait_(SendMonitorReqWait), client_idl_(NULL),
+    agent_(agent), manager_(manager),
     monitor_req_timer_(TimerManager::CreateTimer(
                 *(agent->event_manager())->io_service(),
                 "OVSDB Client Send Monitor Request Wait",
@@ -34,8 +35,13 @@ void OvsdbClientSession::MessageProcess(const u_int8_t *buf, std::size_t len) {
 void OvsdbClientSession::OnEstablish() {
     OVSDB_TRACE(Trace, "Connection to client established");
     client_idl_ = new OvsdbClientIdl(this, agent_, manager_);
-    monitor_req_timer_->Start(SendMonitorReqWait,
+    // start the wait timer, to send monitor request if configured.
+    if (monitor_wait_ != 0) {
+        monitor_req_timer_->Start(monitor_wait_,
                 boost::bind(&OvsdbClientSession::SendMonitorReqTimerCb, this));
+    } else {
+        client_idl_->OnEstablish();
+    }
 }
 
 void OvsdbClientSession::OnClose() {
