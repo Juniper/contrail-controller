@@ -608,6 +608,10 @@ class OpServer(object):
                                          self._args.redis_query_port,
                                          self._args.redis_password)
 
+        # start gevent to monitor disk usage and automatically purge
+        if (self._args.auto_db_purge):
+            gevent.spawn(self._auto_purge)
+
         bottle.route('/', 'GET', self.homepage_http_get)
         bottle.route('/analytics', 'GET', self.analytics_http_get)
         bottle.route('/analytics/uves', 'GET', self.uves_http_get)
@@ -697,6 +701,7 @@ class OpServer(object):
                                --syslog_facility LOG_USER
                                --worker_id 0
                                --redis_uve_list 127.0.0.1:6379
+                               --auto_db_purge
         '''
         # Source any specified config/ini file
         # Turn off help, so we print all options in response to -h
@@ -720,7 +725,10 @@ class OpServer(object):
             'use_syslog'         : False,
             'syslog_facility'    : Sandesh._DEFAULT_SYSLOG_FACILITY,
             'dup'                : False,
-            'redis_uve_list'     : ['127.0.0.1:6379']
+            'redis_uve_list'     : ['127.0.0.1:6379'],
+            'auto_db_purge'      : False,
+            'db_purge_threshold' : 50,
+            'db_purge_level'     : 50
         }
         redis_opts = {
             'redis_server_port'  : 6379,
@@ -807,6 +815,8 @@ class OpServer(object):
         parser.add_argument("--cassandra_server_list",
             help="List of cassandra_server_ip in ip:port format",
             nargs="+")
+        parser.add_argument("--auto_db_purge", action="store_true",
+            help="Automatically purge database if disk usage cross threshold")
 
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
@@ -1679,6 +1689,40 @@ class OpServer(object):
         purge_data = DatabasePurge(data=purge_info)
         purge_data.send()
     #end db_purge_operation
+
+    def _auto_purge(self):
+        """ monitor dbusage continuously and purge the db accordingly """
+        while True:
+            trigger_purge = False
+            db_node_usage = self._analytics_db.get_dbusage_info()
+            self._logger.info("node usage:" + str(db_node_usage) )
+            self._logger.info("threshold:" + str(self._args.db_purge_threshold))
+
+            # check database disk usage on each node
+            for node in db_node_usage:
+                if (int(db_node_usage[node]) > int(self._args.db_purge_threshold)):
+                    self._logger.error("Database usage of %d on %s exceeds threshold",
+                            db_node_usage[node], node)
+                    trigger_purge = True
+                    break
+                else:
+                    self._logger.info("Database usage of %d on %s does not exceed threshold",
+                            db_node_usage[node], node)
+
+            if (trigger_purge):
+            # trigger purge
+                analytics_start_time = self._analytics_db._get_analytics_start_time()
+                current_time = UTCTimestampUsec()
+                purge_input = analytics_start_time + (float((self._args.db_purge_level)*
+                         (float(current_time) - float(analytics_start_time))))/100
+                self._logger.info("Starting purge")
+                self.db_purge_operation(purge_input, "AUTO:" + str(current_time))
+                self._logger.info("Ending purge")
+
+            gevent.sleep(60*30) # sleep for 30 minutes
+    # end _auto_purge
+
+
 
     def _get_analytics_data_start_time(self):
         analytics_start_time = self._analytics_db._get_analytics_start_time()

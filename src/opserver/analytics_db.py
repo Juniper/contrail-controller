@@ -15,10 +15,20 @@ from pycassa.types import *
 from pycassa import *
 from sandesh.viz.constants import *
 from pysandesh.util import UTCTimestampUsec
+import readline
+import code
+import urllib2
+import time
+import json
+import datetime
+import pdb
+import argparse
+import socket
+import struct
 
 class AnalyticsDb(object):
     def __init__(self, logger, cassandra_server_list,
-                 redis_query_port, redis_password):
+                    redis_query_port, redis_password):
         self._logger = logger
         self._cassandra_server_list = cassandra_server_list
         self._redis_query_port = redis_query_port
@@ -198,5 +208,34 @@ class AnalyticsDb(object):
                 self._update_analytics_start_time(int(purge_time))
         return total_rows_deleted
     # end db_purge
+
+    def get_dbusage_info(self):
+        """Collects database usage information from all db nodes
+        Returns:
+        A dictionary with db node name as key and db usage in % as value
+        """
+
+        to_return = {}
+        try:
+            uve_url = "http://127.0.0.1:8081/analytics/uves/database-nodes?cfilter=DatabaseUsageInfo"
+            node_dburls = json.loads(urllib2.urlopen(uve_url).read())
+
+            for node_dburl in node_dburls:
+                # calculate disk usage percentage for analytics in each cassandra node
+                db_uve_state = json.loads(urllib2.urlopen(node_dburl['href']).read())
+                db_usage_in_perc = (100*
+                    int(db_uve_state['DatabaseUsageInfo']['database_usage'][0][0]
+                        ['DatabaseUsageStats']['analytics_db_size_1k']['#text'])/
+                    int(db_uve_state['DatabaseUsageInfo']['database_usage'][0][0]
+                        ['DatabaseUsageStats']['disk_space_available_1k']['#text']))
+                to_return[node_dburl['name']] = db_usage_in_perc
+        except Exception as inst:
+            self._logger.error(type(inst))     # the exception instance
+            self._logger.error(inst.args)      # arguments stored in .args
+            self._logger.error(inst)           # __str__ allows args to be printed directly
+            self._logger.error("Could not retrieve db usage information")
+
+        return to_return
+    #end get_dbusage_info
 
 # end AnalyticsDb
