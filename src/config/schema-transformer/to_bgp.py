@@ -2678,7 +2678,9 @@ class SchemaTransformer(object):
             module_name, hostname, node_type_name, instance_id,
             self._args.collectors, 'to_bgp_context',
             int(args.http_server_port),
-            ['cfgm_common', 'schema_transformer.sandesh'], self._disc)
+            ['cfgm_common', 'schema_transformer.sandesh'], self._disc,
+            logger_class=args.logger_class,
+            logger_config_file=args.logging_conf)
         _sandesh.set_logging_params(enable_local_log=args.log_local,
                                     category=args.log_category,
                                     level=args.log_level,
@@ -3704,6 +3706,8 @@ def parse_args(args_str):
         'use_syslog': False,
         'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
         'cluster_id': '',
+        'logging_conf': '',
+        'logger_class': None,
     }
     secopts = {
         'use_certs': False,
@@ -3800,6 +3804,13 @@ def parse_args(args_str):
                         help="Tenant name for keystone admin user")
     parser.add_argument("--cluster_id",
                         help="Used for database keyspace separation")
+    parser.add_argument(
+        "--logging_conf",
+        help=("Optional logging configuration file, default: None"))
+    parser.add_argument(
+        "--logger_class",
+        help=("Optional external logger class, default: None"))
+
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
