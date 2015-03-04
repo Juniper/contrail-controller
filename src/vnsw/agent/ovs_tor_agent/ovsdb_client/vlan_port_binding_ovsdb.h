@@ -49,6 +49,10 @@ public:
     const std::string &physical_device_name() const;
     uint16_t vlan() const;
 
+protected:
+    // we don't want to create a transaction for this entry
+    bool IsNoTxnEntry() { return true; }
+
 private:
     friend class VlanPortBindingTable;
     KSyncEntryPtr logical_switch_;

@@ -27,10 +27,14 @@ public:
     PhysicalPortEntry(PhysicalPortTable *table, const std::string &name);
     ~PhysicalPortEntry();
 
+    virtual bool Add();
+    virtual bool Change();
+    virtual bool Delete();
+
     bool IsLess(const KSyncEntry&) const;
     std::string ToString() const {return "Physical Port";}
     KSyncEntry* UnresolvedReference();
-    void Encode(struct ovsdb_idl_txn *);
+    void TriggerUpdate();
     void AddBinding(int16_t vlan, LogicalSwitchEntry *ls);
     void DeleteBinding(int16_t vlan, LogicalSwitchEntry *ls);
 
@@ -41,7 +45,8 @@ public:
 
 private:
     friend class PhysicalPortTable;
-    void OverrideOvs();
+    void Encode(struct ovsdb_idl_txn *);
+    bool OverrideOvs();
     std::string name_;
     VlanLSTable binding_table_;
     VlanLSTable ovs_binding_table_;
