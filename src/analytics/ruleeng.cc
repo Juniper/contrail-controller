@@ -451,6 +451,7 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
 
                     // We don't want to show query info in the Analytics Node UVE
                     if (!strcmp(object.name(),"QueryPerfInfo")) continue;
+                    if (!strcmp(object.name(),"AlarmgenUpdate")) continue;
                     if (elem == subs.first_child()) {
                         vector<string> sels = DbHandler::StatTableSelectStr(
                                 object.name(), node.name(), attribs);

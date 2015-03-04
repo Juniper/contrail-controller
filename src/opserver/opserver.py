@@ -1749,7 +1749,12 @@ class OpServer(object):
         if ((column == MODULE) or (column == SOURCE)):
             sources = []
             moduleids = []
-            for redis_uve in self.redis_uve_list:
+            if self.disc:
+                ulist = self._uve_server._redis_uve_list
+            else:
+                ulist = self.redis_uve_list
+            
+            for redis_uve in ulist:
                 redish = redis.StrictRedis(
                     db=1,
                     host=redis_uve[0],
