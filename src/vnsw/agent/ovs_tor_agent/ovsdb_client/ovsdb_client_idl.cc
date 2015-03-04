@@ -190,7 +190,6 @@ void OvsdbClientIdl::MessageProcess(const u_int8_t *buf, std::size_t len) {
         std::size_t read;
         read = ovsdb_wrapper_json_parser_feed(parser_, (const char *)pkt,
                                               pkt_len);
-        OVSDB_PKT_TRACE(Trace, "Processed: " + std::string((const char *)pkt, read));
         used +=read;
 
         /* If we have complete JSON, attempt to parse it as JSON-RPC. */
@@ -213,7 +212,8 @@ void OvsdbClientIdl::MessageProcess(const u_int8_t *buf, std::size_t len) {
             } else if (ovsdb_wrapper_msg_echo_reply(msg)) {
                 /* It's a reply to our echo request.  Suppress it. */
             } else {
-                // Enqueue non-keepalive messages to task in KSync context
+                // Process the received messages in a KSync workqueue task context,
+                // to assure only one thread is writting data to OVSDB client.
                 if (!deleted_) {
                     OvsdbMsg *ovs_msg = new OvsdbMsg(msg);
                     receive_queue_->Enqueue(ovs_msg);
