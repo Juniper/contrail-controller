@@ -305,6 +305,81 @@ TEST_F(CfgTest, CreateVrfNh_1) {
     VrfDelReq("test_vrf");
 }
 
+TEST_F(CfgTest, EcmpNH_controller) {
+    client->WaitForIdle();
+    struct PortInfo input1[] = {
+        {"vnet10", 10, "1.1.1.1", "00:00:00:01:01:01", 10, 10}
+    };
+
+    client->Reset();
+    AddEncapList("MPLSoGRE", "MPLSoUDP", "VXLAN");
+    client->WaitForIdle();
+    CreateVmportEnv(input1, 1);
+    client->WaitForIdle();
+
+    //Now add remote route with ECMP comp NH
+    Ip4Address ip1 = Ip4Address::from_string("9.9.9.1");
+    Ip4Address ip2 = Ip4Address::from_string("9.9.9.2");
+    TunnelNHKey *nh_key = new TunnelNHKey(agent_->fabric_vrf_name(),
+                                          agent_->router_id(),
+                                          ip1, false,
+                                          TunnelType::MPLS_GRE);
+    std::auto_ptr<const NextHopKey> nh_key_ptr(nh_key);
+    TunnelNHKey *nh_key_2 = new TunnelNHKey(agent_->fabric_vrf_name(),
+                                            agent_->router_id(),
+                                            ip2, false,
+                                            TunnelType::MPLS_GRE);
+    std::auto_ptr<const NextHopKey> nh_key_ptr_2(nh_key_2);
+
+    ComponentNHKeyPtr component_nh_key(new ComponentNHKey(1000,
+                                                          nh_key_ptr));
+    ComponentNHKeyPtr component_nh_key_2(new ComponentNHKey(1001,
+                                                            nh_key_ptr_2));
+    ComponentNHKeyList comp_nh_list;
+    comp_nh_list.push_back(component_nh_key);
+    comp_nh_list.push_back(component_nh_key_2);
+
+    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    nh_req.key.reset(new CompositeNHKey(Composite::ECMP, true,
+                                        comp_nh_list, "vrf10"));
+    nh_req.data.reset(new CompositeNHData());
+    Ip4Address prefix = Ip4Address::from_string("18.18.18.0");
+    PathPreference rp(100, PathPreference::LOW, false, false);
+    SecurityGroupList sg;
+    BgpPeer *peer_;
+    peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1"),
+                          "xmpp channel");
+    ControllerEcmpRoute *data =
+        new ControllerEcmpRoute(peer_, prefix, 24, "vn10", -1,
+                                false, "vrf10", sg, rp,
+                                (1 << TunnelType::MPLS_GRE),
+                                nh_req);
+
+    //ECMP create component NH
+    InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer_, "vrf10",
+                                                    prefix, 24, data);
+    client->WaitForIdle();
+    InetUnicastRouteEntry *rt = RouteGet("vrf10", prefix, 24);
+    EXPECT_TRUE(rt != NULL);
+    const CompositeNH *cnh = static_cast<const CompositeNH *>(rt->GetActiveNextHop());
+    const TunnelNH *tnh = static_cast<const TunnelNH *>(cnh->GetNH(0));
+    EXPECT_TRUE(tnh->GetTunnelType().GetType() == TunnelType::MPLS_GRE);
+    tnh = static_cast<const TunnelNH *>(cnh->GetNH(1));
+    EXPECT_TRUE(tnh->GetTunnelType().GetType() == TunnelType::MPLS_GRE);
+
+    AddEncapList("MPLSoUDP", "MPLSoGRE", "VXLAN");
+    client->WaitForIdle();
+    rt = RouteGet("vrf10", prefix, 24);
+    EXPECT_TRUE(rt != NULL);
+    cnh = static_cast<const CompositeNH *>(rt->GetActiveNextHop());
+    tnh = static_cast<const TunnelNH *>(cnh->GetNH(0));
+    EXPECT_TRUE(tnh->GetTunnelType().GetType() == TunnelType::MPLS_GRE);
+    tnh = static_cast<const TunnelNH *>(cnh->GetNH(1));
+    EXPECT_TRUE(tnh->GetTunnelType().GetType() == TunnelType::MPLS_GRE);
+
+    DeleteBgpPeer(peer_);
+}
+
 TEST_F(CfgTest, EcmpNH_1) {
     //Create mutliple VM interface with same IP
     struct PortInfo input1[] = {

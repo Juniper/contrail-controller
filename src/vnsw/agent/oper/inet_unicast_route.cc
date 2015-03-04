@@ -250,6 +250,7 @@ bool InetUnicastRouteEntry::ModifyEcmpPath(const IpAddress &dest_addr,
                                             const string &vrf_name,
                                             SecurityGroupList sg_list,
                                             const PathPreference &path_preference,
+                                            TunnelType::TypeBmap tunnel_bmap,
                                             DBRequest &nh_req,
                                             Agent* agent, AgentPath *path) {
     bool ret = false;
@@ -264,7 +265,7 @@ bool InetUnicastRouteEntry::ModifyEcmpPath(const IpAddress &dest_addr,
         ret = true;
     }
 
-    path->set_tunnel_bmap(TunnelType::MplsType());
+    path->set_tunnel_bmap(tunnel_bmap);
     TunnelType::Type new_tunnel_type =
         TunnelType::ComputeType(path->tunnel_bmap());
     if (path->tunnel_type() != new_tunnel_type) {
@@ -336,8 +337,9 @@ AgentPath *InetUnicastRouteEntry::AllocateEcmpPath(Agent *agent,
     InetUnicastRouteEntry::ModifyEcmpPath(addr_, plen_, path2->dest_vn_name(),
                                            label, true, vrf()->GetName(),
                                            path2->sg_list(),
-                                           path2->path_preference(), nh_req,
-                                           agent, path);
+                                           path2->path_preference(),
+                                           path2->tunnel_bmap(),
+                                           nh_req, agent, path);
 
     //Make MPLS label point to Composite NH
     MplsLabel::CreateEcmpLabel(label, Composite::LOCAL_ECMP, component_nh_list,
@@ -446,6 +448,7 @@ bool InetUnicastRouteEntry::EcmpAddPath(AgentPath *path) {
         return false;
     }
 
+    path->set_tunnel_bmap(TunnelType::MplsType());
     Agent *agent = 
         (static_cast<InetUnicastAgentRouteTable *> (get_table()))->agent();
 
@@ -519,7 +522,7 @@ void InetUnicastRouteEntry::AppendEcmpPath(Agent *agent, AgentPath *path) {
     InetUnicastRouteEntry::ModifyEcmpPath(addr_, plen_, path->dest_vn_name(),
                                ecmp_path->label(), true, vrf()->GetName(),
                                path->sg_list(), path->path_preference(),
-                               nh_req, agent, ecmp_path);
+                               path->tunnel_bmap(), nh_req, agent, ecmp_path);
 
     //Make MPLS label point to composite NH
     MplsLabel::CreateEcmpLabel(ecmp_path->label(), Composite::LOCAL_ECMP,
@@ -558,7 +561,7 @@ void InetUnicastRouteEntry::DeleteComponentNH(Agent *agent, AgentPath *path) {
                                ecmp_path->dest_vn_name(),
                                ecmp_path->label(), true, vrf()->GetName(),
                                ecmp_path->sg_list(), ecmp_path->path_preference(),
-                               nh_req, agent, ecmp_path);
+                               ecmp_path->tunnel_bmap(), nh_req, agent, ecmp_path);
 
     //Make MPLS label point to composite NH
     MplsLabel::CreateEcmpLabel(ecmp_path->label(), Composite::LOCAL_ECMP,
