@@ -251,13 +251,18 @@ bool OvsdbClientIdl::ProcessMessage(OvsdbMsg *msg) {
     return true;
 }
 
-struct ovsdb_idl_txn *OvsdbClientIdl::CreateTxn(OvsdbEntryBase *entry) {
+struct ovsdb_idl_txn *OvsdbClientIdl::CreateTxn(OvsdbEntryBase *entry,
+                                            KSyncEntry::KSyncEvent ack_event) {
     if (deleted_) {
         // Don't create new transactions for deleted idl.
         return NULL;
     }
     struct ovsdb_idl_txn *txn =  ovsdb_wrapper_idl_txn_create(idl_);
     pending_txn_[txn] = entry;
+    if (entry != NULL) {
+        // if entry is available store the ack_event in entry
+        entry->ack_event_ = ack_event;
+    }
     return txn;
 }
 
