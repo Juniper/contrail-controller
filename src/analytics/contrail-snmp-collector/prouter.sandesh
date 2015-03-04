@@ -3,6 +3,8 @@
  */
 
 namespace cpp prouter
+include "base/sandesh/cpuinfo.sandesh"
+include "base/sandesh/process_info.sandesh"
 
 struct ArpTable {
     1: i32 localIfIndex

@@ -74,25 +74,38 @@ class DeviceConfig(object):
         return devices
 
     @staticmethod
-    def get_vnc(usr, passwd, tenant, ip, port):
+    def get_vnc(usr, passwd, tenant, api_servers, auth_host=None,
+            auth_port=None, auth_protocol=None, notifycb=None):
         for rt in (5, 2, 7, 9, 16, 25):
+          for api_server in api_servers:
+            srv = api_server.split(':')
+            if len(srv) == 2:
+                ip, port = srv[0], int(srv[1])
+            else:
+                ip, port = srv[0], 8082
             try:
-                return VncApi(usr, passwd, tenant, ip, port)
+                vnc = VncApi(usr, passwd, tenant, ip, port,
+                        auth_host=auth_host, auth_port=auth_port,
+                        auth_protocol=auth_protocol)
+                if callable(notifycb):
+                    notifycb('api', 'Connected', servers=api_server)
+                return vnc
             except Exception as e:
                 traceback.print_exc()
+                if callable(notifycb):
+                    notifycb('api', 'Not connected', servers=api_server,
+                            up=False)
                 time.sleep(rt)
         raise e
 
     @staticmethod
-    def fom_api_server(api_server, usr, passwd, tenant):
+    def fom_api_server(api_servers, usr, passwd, tenant, auth_host=None,
+            auth_port=None, auth_protocol=None, notifycb=None):
         devices = []
-        srv = api_server.split(':')
-        if len(srv) == 2:
-            ip, port = srv[0], int(srv[1])
-        else:
-            ip, port = srv[0], 8082
 
-        vnc = DeviceConfig.get_vnc(usr, passwd, tenant, ip, port)
+        vnc = DeviceConfig.get_vnc(usr, passwd, tenant, api_servers,
+                auth_host=auth_host, auth_port=auth_port,
+                auth_protocol=auth_protocol, notifycb=notifycb)
         for x in vnc.physical_routers_list()['physical-routers']:
             pr = vnc.physical_router_read(id=x['uuid'])
             snmp = pr.get_physical_router_snmp_credentials()

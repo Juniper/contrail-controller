@@ -73,28 +73,33 @@ class Controller(object):
                 lldp_ints.append(ifm[pl['lldpRemLocalPortNum']])
 
             vrouter_neighbors = []
-            dot1d2snmp = map (lambda x: (x['dot1dBasePortIfIndex'], x['snmpIfIndex']), d['PRouterEntry']['fdbPortIfIndexTable'])
-            dot1d2snmp_dict = dict(dot1d2snmp)
-            for mac_entry in d['PRouterEntry']['fdbPortTable']:
-                if mac_entry['mac'] in self.vrouter_macs:
-                    vrouter_mac_entry = self.vrouter_macs[mac_entry['mac']]
-                    fdbport = mac_entry['dot1dBasePortIfIndex']
-                    try:
-                        snmpport = dot1d2snmp_dict[fdbport]
-                    except:
-                        continue
-                    is_lldp_int = any(ifm[snmpport] == lldp_int for lldp_int in lldp_ints)
-                    if is_lldp_int:
-                        continue
-                    self.link[pr].append({
-                        'remote_system_name': vrouter_mac_entry['vrname'],
-                        'local_interface_name': ifm[snmpport],
-                        'remote_interface_name': vrouter_mac_entry['ifname'],
-                        'local_interface_index': snmpport,
-                        'remote_interface_index': 1, #dont know TODO:FIX 
-                        'type': 2
-                            })
-                    vrouter_neighbors.append(vrouter_mac_entry['vrname'])
+            if 'fdbPortIfIndexTable' in d['PRouterEntry']:
+                dot1d2snmp = map (lambda x: (x['dot1dBasePortIfIndex'],
+                            x['snmpIfIndex']),
+                        d['PRouterEntry']['fdbPortIfIndexTable'])
+                dot1d2snmp_dict = dict(dot1d2snmp)
+                for mac_entry in d['PRouterEntry']['fdbPortTable']:
+                    if mac_entry['mac'] in self.vrouter_macs:
+                        vrouter_mac_entry = self.vrouter_macs[
+                                                    mac_entry['mac']]
+                        fdbport = mac_entry['dot1dBasePortIfIndex']
+                        try:
+                            snmpport = dot1d2snmp_dict[fdbport]
+                        except:
+                            continue
+                        is_lldp_int = any(ifm[snmpport] == lldp_int \
+                                for lldp_int in lldp_ints)
+                        if is_lldp_int:
+                            continue
+                        self.link[pr].append({
+                         'remote_system_name': vrouter_mac_entry['vrname'],
+                         'local_interface_name': ifm[snmpport],
+                         'remote_interface_name':vrouter_mac_entry['ifname'],
+                         'local_interface_index': snmpport,
+                         'remote_interface_index': 1, #dont know TODO:FIX
+                         'type': 2
+                                })
+                        vrouter_neighbors.append(vrouter_mac_entry['vrname'])
             for arp in d['PRouterEntry']['arpTable']:
                 if arp['ip'] in self.vrouter_ips:
                     if arp['mac'] in map(lambda x: x['mac_address'],
