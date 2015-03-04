@@ -207,8 +207,11 @@ class ServiceMonitorLogger(object):
         sandesh_instance.init_generator(
             self._module_name, self._hostname, self._node_type_name, 
             self._instance_id, self._args.collectors, 'svc_monitor_context',
-            int(self._args.http_server_port), ['cfgm_common', 'svc_monitor.sandesh'],
-            discovery)
+            int(self._args.http_server_port),
+            ['cfgm_common', 'svc_monitor.sandesh'], discovery,
+            logger_class=self._args.logger_class,
+            logger_config_file=self._args.logging_conf)
+
         sandesh_instance.set_logging_params(
             enable_local_log=self._args.log_local,
             category=self._args.log_category,
