@@ -14,6 +14,7 @@ import sys
 import json
 import socket
 import pprint
+import time
 try:
     from collections import OrderedDict
 except ImportError:
@@ -24,6 +25,7 @@ from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionType,\
     ConnectionStatus
 from sandesh.analytics.ttypes import *
+from sandesh.analytics.cpuinfo.ttypes import ProcessCpuInfo
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
      ModuleCategoryMap, Module2NodeType, NodeTypeNames, ModuleIds,\
@@ -35,9 +37,10 @@ from partition_handler import PartitionHandler, UveStreamProc
 from sandesh.alarmgen_ctrl.ttypes import PartitionOwnershipReq, \
     PartitionOwnershipResp, PartitionStatusReq, UVECollInfo, UVEGenInfo, \
     PartitionStatusResp, UVEAlarms, AlarmElement, UVETableAlarmReq, \
-    UVETableAlarmResp, UVEAlarmInfo, AlarmgenTrace, AlarmTrace, UVEKeyInfo
+    UVETableAlarmResp, UVEAlarmInfo, AlarmgenTrace, AlarmTrace, UVEKeyInfo, \
+    UVETypeInfo, AlarmgenUpdateTrace, AlarmgenUpdate
 from sandesh.discovery.ttypes import CollectorTrace
-
+from cpuinfo import CpuInfoData
 from opserver_util import ServicePoller
 from stevedore import hook
 
@@ -175,7 +178,6 @@ class Controller(object):
         try:
             from libpartition.libpartition import PartitionClient
             self._logger.error('Starting PC')
-
             pc = PartitionClient("alarmgen",
                     self._libpart_name, ag_list,
                     self._conf.partitions(), self.libpart_cb,
@@ -200,7 +202,8 @@ class Controller(object):
                 self._logger.info("UVE %s deleted" % uv)
                 if self.tab_alarms[tab].has_key(uv):
 		    del self.tab_alarms[tab][uv]
-                    ustruct = UVEAlarms(name = uv, deleted = True)
+                    uname = uv.split(":")[1]
+                    ustruct = UVEAlarms(name = uname, deleted = True)
                     alarm_msg = AlarmTrace(data=ustruct, table=tab)
                     self._logger.info('send del alarm: %s' % (alarm_msg.log()))
                     alarm_msg.send()
@@ -209,7 +212,7 @@ class Controller(object):
             new_uve_alarms = {}
             for res in results:
                 nm, errs = res
-                self._logger.info("Alarm[%s] %s: %s" % (tab, nm, str(errs)))
+                self._logger.debug("Alarm[%s] %s: %s" % (tab, nm, str(errs)))
                 elems = []
                 for ae in errs:
                     rule, val = ae
@@ -221,7 +224,8 @@ class Controller(object):
             if (not self.tab_alarms[tab].has_key(uv)) or \
                        pprint.pformat(self.tab_alarms[tab][uv]) != \
                        pprint.pformat(new_uve_alarms):
-                ustruct = UVEAlarms(name = uv, alarms = new_uve_alarms.values(),
+                uname = uv.split(":")[1]
+                ustruct = UVEAlarms(name = uname, alarms = new_uve_alarms.values(),
                                     deleted = False)
                 alarm_msg = AlarmTrace(data=ustruct, table=tab)
                 self._logger.info('send alarm: %s' % (alarm_msg.log()))
@@ -229,7 +233,7 @@ class Controller(object):
             self.tab_alarms[tab][uv] = new_uve_alarms
             
         if len(no_handlers):
-            self._logger.info('No Alarm Handlers for %s' % str(no_handlers))
+            self._logger.debug('No Alarm Handlers for %s' % str(no_handlers))
 
     def handle_UVETableAlarmReq(self, req):
         status = False
@@ -271,10 +275,10 @@ class Controller(object):
             if self._workers.has_key(partno):
                 self._logger.info("Dup partition %d" % partno)
             else:
-                uvedb = self._us.get_part(partno)
+                #uvedb = self._us.get_part(partno)
                 ph = UveStreamProc(','.join(self._conf.kafka_broker_list()),
                                    partno, "uve-" + str(partno),
-                                   self._logger, uvedb,
+                                   self._logger, self._us.get_part,
                                    self.handle_uve_notif)
                 ph.start()
                 self._workers[partno] = ph
@@ -302,9 +306,54 @@ class Controller(object):
         resp = PartitionOwnershipResp()
         resp.status = status
 	resp.response(req.context())
-                
+               
+    def process_stats(self):
+        ''' Go through the UVEKey-Count stats collected over 
+            the previous time period over all partitions
+            and send it out
+        '''
+        for pk,pc in self._workers.iteritems():
+            din, dout = pc.stats()
+            for ktab,tab in dout.iteritems():
+                au = AlarmgenUpdate()
+                au.name = self._hostname
+                au.instance =  self._instance_id
+                au.table = ktab
+                au.partition = pk
+                au.keys = []
+                for uk,uc in tab.iteritems():
+                    ukc = UVEKeyInfo()
+                    ukc.key = uk
+                    ukc.count = uc
+                    au.keys.append(ukc)
+                au_trace = AlarmgenUpdateTrace(data=au)
+                self._logger.debug('send key stats: %s' % (au_trace.log()))
+                au_trace.send()
+
+            for ktab,tab in din.iteritems():
+                au = AlarmgenUpdate()
+                au.name = self._hostname
+                au.instance =  self._instance_id
+                au.table = ktab
+                au.partition = pk
+                au.notifs = []
+                for kcoll,coll in tab.iteritems():
+                    for kgen,gen in coll.iteritems():
+                        for tk,tc in gen.iteritems():
+                            tkc = UVETypeInfo()
+                            tkc.type= tk
+                            tkc.count = tc
+                            tkc.generator = kgen
+                            tkc.collector = kcoll
+                            au.notifs.append(tkc)
+                au_trace = AlarmgenUpdateTrace(data=au)
+                self._logger.debug('send notif stats: %s' % (au_trace.log()))
+                au_trace.send()
+         
     def handle_PartitionStatusReq(self, req):
-        
+        ''' Return the entire contents of the UVE DB for the 
+            requested partitions
+        '''
         if req.partition == -1:
             parts = self._workers.keys()
         else:
@@ -376,8 +425,43 @@ class Controller(object):
             self._libpart.update_cluster_list(newlist)
 
     def run(self):
+        alarmgen_cpu_info = CpuInfoData()
         while True:
-            gevent.sleep(60)
+            before = time.time()
+            mod_cpu_info = ModuleCpuInfo()
+            mod_cpu_info.module_id = self._moduleid
+            mod_cpu_info.instance_id = self._instance_id
+            mod_cpu_info.cpu_info = alarmgen_cpu_info.get_cpu_info(
+                system=False)
+            mod_cpu_state = ModuleCpuState()
+            mod_cpu_state.name = self._hostname
+
+            mod_cpu_state.module_cpu_info = [mod_cpu_info]
+
+            alarmgen_cpu_state_trace = ModuleCpuStateTrace(data=mod_cpu_state)
+            alarmgen_cpu_state_trace.send()
+
+            aly_cpu_state = AnalyticsCpuState()
+            aly_cpu_state.name = self._hostname
+
+            aly_cpu_info = ProcessCpuInfo()
+            aly_cpu_info.module_id= self._moduleid
+            aly_cpu_info.inst_id = self._instance_id
+            aly_cpu_info.cpu_share = mod_cpu_info.cpu_info.cpu_share
+            aly_cpu_info.mem_virt = mod_cpu_info.cpu_info.meminfo.virt
+            aly_cpu_state.cpu_info = [aly_cpu_info]
+
+            aly_cpu_state_trace = AnalyticsCpuStateTrace(data=aly_cpu_state)
+            aly_cpu_state_trace.send()
+
+            # Send out the UVEKey-Count stats for this time period
+            self.process_stats()
+
+            duration = time.time() - before
+            if duration < 60:
+                gevent.sleep(60 - duration)
+            else:
+                self._logger.error("Periodic collection took %s sec" % duration)
 
 def setup_controller(argv):
     config = CfgParser(argv)
