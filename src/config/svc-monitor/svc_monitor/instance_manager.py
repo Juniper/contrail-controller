@@ -113,9 +113,12 @@ class InstanceManager(object):
             if irt.fq_name == rt_fq_name:
                 rt_obj.set_interface_route_table_routes(static_routes)
                 self._vnc_lib.interface_route_table_update(rt_obj)
-                return
+                return rt_obj
 
-        self._vnc_lib.interface_route_table_create(rt_obj)
+        try:
+            self._vnc_lib.interface_route_table_create(rt_obj)
+        except RefsExistError:
+            self._vnc_lib.interface_route_table_update(rt_obj)
         return rt_obj
 
     def update_static_routes(self, si):
@@ -469,7 +472,7 @@ class VRouterHostedManager(InstanceManager):
                 if self.vrouter_scheduler.vrouter_running(vr.name):
                     continue
                 vr_obj = VirtualRouter()
-                vr_obj.uuid = vr.vr_id
+                vr_obj.uuid = vr.uuid
                 vr_obj.fq_name = vr.fq_name
                 vm_obj = VirtualMachine()
                 vm_obj.uuid = vm.uuid
@@ -492,8 +495,7 @@ class NetworkNamespaceManager(VRouterHostedManager):
         vm_list = [None for i in range(0, si.max_instances)]
         for vm_id in si.virtual_machines:
             vm = VirtualMachineSM.get(vm_id)
-            index = int(vm.display_name.split('__')[-2]) - 1
-            vm_list[index] = vm
+            vm_list[vm.index] = vm
 
         # create and launch vm
         si.state = 'launching'
