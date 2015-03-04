@@ -28,6 +28,7 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionType, \
 from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
     NodeStatus
 
+from config_db import *
 
 class ServiceMonitorLogger(object):
 
@@ -114,47 +115,52 @@ class ServiceMonitorLogger(object):
 
     def sandesh_si_handle_request(self, req):
         si_resp = sandesh.ServiceInstanceListResp(si_names=[])
-        if req.si_name is None:
-            si_list = self._db.service_instance_list()
+        for si in ServiceInstanceSM.values():
+            if req.si_name and req.si_name != si.name:
+                continue
 
-            for si_fq_name_str, si in si_list or []:
-                sandesh_si = sandesh.ServiceInstance(
-                    name=si_fq_name_str, si_type=si.get('instance_type', ''),
-                    si_state=si.get('state', ''))
+            st = ServiceTemplateSM.get(si.service_template)
+            sandesh_si = sandesh.ServiceInstance(
+                name=(':').join(si.fq_name), si_type=st.virtualization_type,
+                si_state=si.state)
 
-                sandesh_vm_list = []
-                for idx in range(0, int(si.get('max-instances', '0'))):
-                    prefix = self._db.get_vm_db_prefix(idx)
-                    if not (prefix + 'name') in si.keys():
-                        continue
-                    vm_name = si.get(prefix + 'name', '')
-                    vm_uuid = si.get(prefix + 'uuid', '')
-                    vm_str = ("%s: %s" % (vm_name, vm_uuid))
-                    vr_name = si.get(prefix + 'vrouter', '')
-                    ha = si.get(prefix + 'preference', '')
-                    if int(ha) == svc_info.get_standby_preference():
-                        ha_str = ("standby: %s" % (ha))
-                    else:
-                        ha_str = ("active: %s" % (ha))
-                    vm = sandesh.ServiceInstanceVM(name=vm_str,
-                        vr_name=vr_name, ha=ha_str)
-                    sandesh_vm_list.append(vm)
-                sandesh_si.vm_list = list(sandesh_vm_list)
+            sandesh_vm_list = []
+            for vm_id in si.virtual_machines:
+                vm = VirtualMachineSM.get(vm_id)
+                if not vm:
+                    continue
+                vm_str = ("%s: %s" % (vm.name, vm.uuid))
 
-                for itf_type in svc_info.get_if_str_list():
-                    key = itf_type + '-vn'
-                    if key not in si.keys():
-                        continue
-                    vn_name = si[key]
-                    vn_uuid = si[vn_name]
-                    if itf_type == svc_info.get_left_if_str():
-                        sandesh_si.left_vn = [vn_name, vn_uuid]
-                    if itf_type == svc_info.get_right_if_str():
-                        sandesh_si.right_vn = [vn_name, vn_uuid]
-                    if itf_type == svc_info.get_management_if_str():
-                        sandesh_si.management_vn = [vn_name, vn_uuid]
+                vr_name = 'None'
+                vr = VirtualRouterSM.get(vm.virtual_router)
+                if vr:
+                    vr_name = vr.name
 
-                si_resp.si_names.append(sandesh_si)
+                ha_str = "active"
+                if vm.index < len(si.local_preference):
+                    ha = si.local_preference[vm.index]
+                    if ha and int(ha) == svc_info.get_standby_preference():
+                        ha_str = "standby"
+                    if ha:
+                        ha_str = ha_str + ': ' + str(ha)
+
+                vm = sandesh.ServiceInstanceVM(name=vm_str,
+                    vr_name=vr_name, ha=ha_str)
+                sandesh_vm_list.append(vm)
+            sandesh_si.vm_list = list(sandesh_vm_list)
+
+            for nic in si.vn_info:
+                vn = VirtualNetworkSM.get(nic['net-id'])
+                if not vn:
+                    continue
+                if nic['type'] == svc_info.get_left_if_str():
+                    sandesh_si.left_vn = [vn.name, vn.uuid]
+                if nic['type'] == svc_info.get_right_if_str():
+                    sandesh_si.right_vn = [vn.name, vn.uuid]
+                if nic['type'] == svc_info.get_management_if_str():
+                    sandesh_si.management_vn = [vn.name, vn.uuid]
+
+            si_resp.si_names.append(sandesh_si)
 
         si_resp.response(req.context())
 
