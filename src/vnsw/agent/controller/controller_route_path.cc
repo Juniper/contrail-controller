@@ -70,6 +70,7 @@ bool ControllerEcmpRoute::AddChangePath(Agent *agent, AgentPath *path) {
                                                   label_, local_ecmp_nh_,
                                                   vrf_name_, sg_list_,
                                                   path_preference_,
+                                                  tunnel_bmap_,
                                                   nh_req_, agent, path);
 }
 

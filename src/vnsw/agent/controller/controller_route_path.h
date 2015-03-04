@@ -120,10 +120,12 @@ public:
                         bool local_ecmp_nh, const string &vrf_name,
                         SecurityGroupList sg_list,
                         const PathPreference &path_preference,
+                        TunnelType::TypeBmap tunnel_bmap,
                         DBRequest &nh_req) :
         ControllerPeerPath(peer), dest_addr_(dest_addr), plen_(plen),
         vn_name_(vn_name), label_(label), local_ecmp_nh_(local_ecmp_nh),
-        vrf_name_(vrf_name), sg_list_(sg_list), path_preference_(path_preference)
+        vrf_name_(vrf_name), sg_list_(sg_list),
+        path_preference_(path_preference), tunnel_bmap_(tunnel_bmap)
         {nh_req_.Swap(&nh_req);}
 
     virtual ~ControllerEcmpRoute() { }
@@ -140,6 +142,7 @@ private:
     string vrf_name_;
     SecurityGroupList sg_list_;
     PathPreference path_preference_;
+    TunnelType::TypeBmap tunnel_bmap_;
     DBRequest nh_req_;
     DISALLOW_COPY_AND_ASSIGN(ControllerEcmpRoute);
 };
