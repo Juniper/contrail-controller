@@ -27,9 +27,23 @@ void IFMapLinkTable::Input(DBTablePartition *partition, DBClient *client,
 std::auto_ptr<DBEntry> IFMapLinkTable::AllocEntry(
         const DBRequestKey *key) const {
     const RequestKey *rkey = static_cast<const RequestKey *>(key);
-    auto_ptr<DBEntry> entry(new IFMapLink(rkey->edge));
+    auto_ptr<DBEntry> entry(new IFMapLink(rkey->name));
     return entry;
 }
+
+// Generate an unique name for the link node and it should 
+// be independent of the order in which the right and left nodes are specified
+std::string IFMapLinkTable::LinkKey(const string &metadata, 
+                                        IFMapNode *left, IFMapNode *right) {
+    ostringstream oss;
+    if (left->IsLess(*right)) {
+        oss << metadata << "," << left->name() << "," << right->name();
+    } else {
+        oss << metadata << "," << right->name() << "," << left->name();
+    }
+    return oss.str();
+}
+
 
 void IFMapLinkTable::AddLink(DBGraphBase::edge_descriptor edge,
                              IFMapNode *left, IFMapNode *right,
@@ -38,26 +52,28 @@ void IFMapLinkTable::AddLink(DBGraphBase::edge_descriptor edge,
     DBTablePartition *partition =
         static_cast<DBTablePartition *>(GetTablePartition(0));
 
-    IFMapLink *link = FindLink(edge);
+
+    string link_name = LinkKey(metadata, left, right);
+    IFMapLink *link = FindLink(link_name);
     if (link) {
         assert(link->IsDeleted());
         link->ClearDelete();
         link->set_last_change_at_to_now();
         partition->Change(link);
     } else {
-        link = new IFMapLink(edge);
+        link = new IFMapLink(link_name);
         partition->Add(link);
     }
-    link->SetProperties(left, right, metadata, sequence_number, origin);
+    link->SetProperties(edge, left, right, metadata, sequence_number, origin);
     graph_->SetEdgeProperty(link);
 }
 
-IFMapLink *IFMapLinkTable::FindLink(DBGraphBase::edge_descriptor edge) {
+IFMapLink *IFMapLinkTable::FindLink(const string &name) {
 
     DBTablePartition *partition =
         static_cast<DBTablePartition *>(GetTablePartition(0));
     RequestKey key;
-    key.edge = edge;
+    key.name = name;
     return static_cast<IFMapLink *>(partition->Find(&key));
 }
 
