@@ -65,6 +65,7 @@ public:
                                const string &vrf_name,
                                SecurityGroupList sg_list,
                                const PathPreference &path_preference,
+                               TunnelType::TypeBmap tunnel_bmap,
                                DBRequest &nh_req,
                                Agent* agent,
                                AgentPath *path);
