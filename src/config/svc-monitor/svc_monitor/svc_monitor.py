@@ -812,6 +812,8 @@ def parse_args(args_str):
         'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
         'region_name': None,
         'cluster_id': '',
+        'logging_conf': '',
+        'logger_class': None,
         }
     secopts = {
         'use_certs': False,
@@ -922,6 +924,13 @@ def parse_args(args_str):
                         help="Region name for openstack API")
     parser.add_argument("--cluster_id",
                         help="Used for database keyspace separation")
+    parser.add_argument(
+        "--logging_conf",
+        help=("Optional logging configuration file, default: None"))
+    parser.add_argument(
+        "--logger_class",
+        help=("Optional external logger class, default: None"))
+
     args = parser.parse_args(remaining_argv)
     args.config_sections = config
     if type(args.cassandra_server_list) is str:
