@@ -1193,7 +1193,13 @@ class SecurityGroupST(DictST):
                     acl_rule.match_condition.src_address.security_group =\
                         to_value
                     update = True
+                if (acl_rule.match_condition.dst_address.security_group ==
+                        from_value):
+                    acl_rule.match_condition.dst_address.security_group =\
+                        to_value
+                    update = True
             if update:
+                acl.set_access_control_list_entries(acl_entries)
                 _vnc_lib.access_control_list_update(acl)
     # end update_acl
                 
