@@ -383,7 +383,8 @@ void NamedConfig::CreateZoneFile(std::string &zone_name,
 
 // Create a list of zones for the virtual DNS
 void NamedConfig::MakeZoneList(const VirtualDnsConfig *vdns_config, ZoneList &zones) {
-    std::string dns_domain = vdns_config->GetDomainName();
+    // always take domain name in lower case, to avoid differences due to case
+    std::string dns_domain = boost::to_lower_copy(vdns_config->GetDomainName());
     if (dns_domain.empty()) {
         return;
     }
