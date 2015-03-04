@@ -544,6 +544,10 @@ RtGroup *RTargetGroupMgr::LocateRtGroup(const RouteTarget &rt) {
     return group;
 }
 
+void RTargetGroupMgr::NotifyRtGroup(const RouteTarget &rt) {
+    AddRouteTargetToLists(rt);
+}
+
 void RTargetGroupMgr::RemoveRtGroup(const RouteTarget &rt) {
     tbb::mutex::scoped_lock lock(mutex_);
     RtGroupMap::iterator loc = rtgroup_map_.find(rt);
