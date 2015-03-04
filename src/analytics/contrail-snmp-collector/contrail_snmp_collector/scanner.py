@@ -24,6 +24,7 @@ class Controller(object):
         gevent.sleep(0)
         data = ses.get_data()
         sessions.put_nowait({data['name']: {
+                'name': netdev.name,
                 'snmp': data,
                 'flow_export_source_ip': netdev.get_flow_export_source_ip(),
                                            },

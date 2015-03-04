@@ -11,27 +11,32 @@ from gen_py.prouter.ttypes import ArpTable, IfTable, IfXTable, IfStats, \
          LldpRemOrgDefInfoTable, LldpRemOrgDefInfoEntry, \
          LldpRemManAddrEntry, LldpRemoteSystemsData, \
          dot1qTpFdbPortTable, dot1dBasePortIfIndexTable, \
-         LldpTable, PRouterEntry, PRouterUVE, PRouterFlowEntry, PRouterFlowUVE
+         LldpTable, PRouterEntry, PRouterUVE, PRouterFlowEntry, \
+         PRouterFlowUVE
+from opserver.sandesh.analytics.ttypes import NodeStatusUVE, NodeStatus
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
      ModuleCategoryMap, Module2NodeType, NodeTypeNames, ModuleIds,\
      INSTANCE_ID_DEFAULT
+from pysandesh.gen_py.process_info.ttypes import ConnectionType,\
+    ConnectionStatus
 
 class SnmpUve(object):
-    def __init__(self, conf):
+    def __init__(self, conf, instance='0'):
         self._conf = conf
         module = Module.CONTRAIL_SNMP_COLLECTOR
         self._moduleid = ModuleNames[module]
         node_type = Module2NodeType[module]
         self._node_type_name = NodeTypeNames[node_type]
         self._hostname = socket.gethostname()
-        self._instance_id = '0'
+        self._instance_id = instance
         sandesh_global.init_generator(self._moduleid, self._hostname,
                                       self._node_type_name, self._instance_id,
                                       self._conf.collectors(),
                                       self._node_type_name,
                                       self._conf.http_port(),
-                                      ['contrail_snmp_collector.gen_py'],
+                                      ['contrail_snmp_collector.gen_py',
+                                      'opserver.sandesh'],
                                       self._conf._disc)
         sandesh_global.set_logging_params(
             enable_local_log=self._conf.log_local(),
@@ -40,18 +45,44 @@ class SnmpUve(object):
             file=self._conf.log_file(),
             enable_syslog=self._conf.use_syslog(),
             syslog_facility=self._conf.syslog_facility())
-        #ConnectionState.init(sandesh_global, self._hostname, self._moduleid,
-        #    self._instance_id,
-        #    staticmethod(ConnectionState.get_process_state_cb),
-        #    NodeStatusUVE, NodeStatus)
+        ConnectionState.init(sandesh_global, self._hostname, self._moduleid,
+            self._instance_id,
+            staticmethod(ConnectionState.get_process_state_cb),
+            NodeStatusUVE, NodeStatus)
 
         self.if_stat = {}
         self._logger = sandesh_global.logger()
+
+    def map_svc(self, svc):
+        return {
+                'api'         : ConnectionType.APISERVER,
+                'discovery'   : ConnectionType.DISCOVERY,
+                'zookeeper'   : ConnectionType.ZOOKEEPER,
+            }[svc]
+
+    def map_sts(self, up):
+        return {
+            True   : ConnectionStatus.UP,
+            False  : ConnectionStatus.DOWN,
+        }[up]
+
+    def conn_state_notify(self, svc, msg='', up=True, servers=''):
+        ctype = self.map_svc(svc)
+        status = self.map_sts(up)
+        ConnectionState.update(conn_type=ctype, name='SNMP', status=status,
+                message=msg, server_addrs=[servers])
 
     def killall(self):
         sandesh_global.uninit()
         if self._conf._disc:
             self._conf._disc.uninit()
+
+    def delete(self, dev):
+        PRouterUVE(data=PRouterEntry(**dict(
+                    name=dev, deleted=True))).send()
+        PRouterFlowUVE(data=PRouterFlowEntry(**dict(
+                    name=dev, deleted=True))).send()
+
 
     def logger(self):
         return self._logger

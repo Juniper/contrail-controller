@@ -17,6 +17,12 @@ class CfgParser(object):
         self._args = None
         self.__pat = None
         self._argv = argv or ' '.join(sys.argv[1:])
+        self._name = ModuleNames[Module.CONTRAIL_SNMP_COLLECTOR]
+        self._disc = None
+        self._cb = None
+
+    def set_cb(self, cb=None):
+        self._cb = cb
 
     def parse(self):
         '''
@@ -65,9 +71,10 @@ Mibs = LldpTable, ArpTable
         # Turn off help, so we print all options in response to -h
         conf_parser = argparse.ArgumentParser(add_help=False)
 
-        kwargs = {'help': "Specify config file", 'metavar':"FILE"}
+        kwargs = {'help': "Specify config file", 'metavar':"FILE",
+                'action':'append'}
         if os.path.exists(self.CONF_DEFAULT_PATH):
-            kwargs['default'] = self.CONF_DEFAULT_PATH
+            kwargs['default'] = [self.CONF_DEFAULT_PATH]
         conf_parser.add_argument("-c", "--conf_file", **kwargs)
         args, remaining_argv = conf_parser.parse_known_args(self._argv.split())
 
@@ -81,8 +88,12 @@ Mibs = LldpTable, ArpTable
             'syslog_facility' : Sandesh._DEFAULT_SYSLOG_FACILITY,
             'scan_frequency'  : 600,
             'http_server_port': 5920,
+            'zookeeper'       : '127.0.0.1:2181',
         }
         ksopts = {
+            'auth_host': '127.0.0.1',
+            'auth_protocol': 'http',
+            'auth_port': 35357,
             'admin_user': 'user1',
             'admin_password': 'password1',
             'admin_tenant_name': 'default-domain'
@@ -96,8 +107,9 @@ Mibs = LldpTable, ArpTable
         if args.conf_file:
             config = ConfigParser.SafeConfigParser()
             config.optionxform = str
-            config.read([args.conf_file])
-            defaults.update(dict(config.items("DEFAULTS")))
+            config.read(args.conf_file)
+            if 'DEFAULTS' in config.sections():
+                defaults.update(dict(config.items("DEFAULTS")))
             if 'KEYSTONE' in config.sections():
                 ksopts.update(dict(config.items("KEYSTONE")))
             if 'DISCOVERY' in config.sections():
@@ -138,14 +150,20 @@ Mibs = LldpTable, ArpTable
             help="Time between snmp poll")
         parser.add_argument("--http_server_port", type=int,
             help="introspect server port")
+        parser.add_argument("--auth_host",
+                            help="ip of keystone server")
+        parser.add_argument("--auth_protocol",
+                            help="keystone authentication protocol")
+        parser.add_argument("--auth_port", type=int,
+                            help="ip of keystone server")
         parser.add_argument("--admin_user",
                             help="Name of keystone admin user")
         parser.add_argument("--admin_password",
                             help="Password of keystone admin user")
         parser.add_argument("--admin_tenant_name",
                             help="Tenant name for keystone admin user")
-        #parser.add_argument("--discovery_server",
-        #    help="ip:port of dicovery server")
+        parser.add_argument("--zookeeper",
+            help="ip:port of zookeeper server")
         parser.add_argument("--disc_server_ip",
             help="Discovery Server IP address")
         parser.add_argument("--disc_server_port", type=int,
@@ -159,7 +177,7 @@ Mibs = LldpTable, ArpTable
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
         self._args.config_sections = config
-        self._disc = None
+        self._disc = client.DiscoveryClient(*self.discovery_params())
 
     def devices(self):
         if self._args.device_config_file:
@@ -167,25 +185,35 @@ Mibs = LldpTable, ArpTable
                     self._args.device_config_file)
         elif self._args.api_server:
             self._devices = DeviceConfig.fom_api_server(
-                    self._args.api_server,
+                    [self._args.api_server],
                     self._args.admin_user, self._args.admin_password,
-                    self._args.admin_tenant_name)
+                    self._args.admin_tenant_name,
+                    self._args.auth_host, self._args.auth_port,
+                    self._args.auth_protocol, self._cb)
         elif self._args.disc_server_port:
-          try:
-            self._devices = DeviceConfig.fom_api_server(
-                self.get_api_svr(), self._args.admin_user,
-                self._args.admin_password, self._args.admin_tenant_name)
-          except Exception as e:
-            self._devices = []
+            apis = self.get_api_svrs()
+            if apis:
+                self._devices = DeviceConfig.fom_api_server(
+                    self.get_api_svrs(), self._args.admin_user,
+                    self._args.admin_password, self._args.admin_tenant_name,
+                    self._args.auth_host, self._args.auth_port,
+                    self._args.auth_protocol, self._cb)
+            else:
+                self._devices = []
         for d in self._devices:
             yield d
 
-    def get_api_svr(self):
+    def get_api_svrs(self):
         if self._disc is None:
-            self._disc = client.DiscoveryClient(*self.discovery_params())
+            p = self.discovery_params()
+            try:
+              self._disc = client.DiscoveryClient(*p)
+            except Exception as e:
+              import traceback; traceback.print_exc()
+              return []
         a = self._disc.subscribe(API_SERVER_DISCOVERY_SERVICE_NAME, 0)
-        d = a.read()
-        return d[-1]['ip-address'] + ':' + d[-1]['port']
+        x = a.read()
+        return map(lambda d:d['ip-address'] + ':' + d['port'], x)
 
     def discovery_params(self):
         if self._args.disc_server_ip:
@@ -193,10 +221,13 @@ Mibs = LldpTable, ArpTable
                        self._args.disc_server_port
         else:
             ip, port = '127.0.0.1', self._args.disc_server_port
-        return ip, port, ModuleNames[Module.CONTRAIL_SNMP_COLLECTOR]
+        return ip, port, self._name
 
     def collectors(self):
         return self._args.collectors
+
+    def zookeeper_server(self):
+        return self._args.zookeeper
 
     def log_local(self):
         return self._args.log_local
