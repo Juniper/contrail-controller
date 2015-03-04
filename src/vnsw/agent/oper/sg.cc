@@ -100,13 +100,21 @@ DBTableBase *SgTable::CreateTable(DB *db, const std::string &name) {
     return sg_table_;
 };
 
+bool SgTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
+    SecurityGroup *cfg = static_cast<SecurityGroup *>(node->GetObject());
+    assert(cfg);
+    autogen::IdPermsType id_perms = cfg->id_perms();
+    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+    return true;
+}
+
 bool SgTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     SecurityGroup *cfg = static_cast<SecurityGroup *>(node->GetObject());
     assert(cfg);
 
-    autogen::IdPermsType id_perms = cfg->id_perms();
-    boost::uuids::uuid u;
-    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+    uuid u;
+    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, u) == false)
+        return false;
 
     SgKey *key = new SgKey(u);
     SgData *data  = NULL;
@@ -174,6 +182,28 @@ bool SgTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
             Agent::GetInstance()->interface_table()->Enqueue(&req);
         }
     }
+    return false;
+}
+
+bool SgTable::IFLinkToReq(IFMapLink *link, IFMapNode *node,
+                          const std::string &peer_type, IFMapNode *peer,
+                          DBRequest &req) {
+    // Add/Delete of link other than VMInterface will most likely need re-eval
+    // of VN.
+    if (peer_type != "virtual-machine-interface") {
+        return IFNodeToReq(node, req);
+    }
+
+    // If peer is VMI, invoke re-eval if peer node is present
+    if (peer && peer->table() == agent()->cfg()->cfg_vm_interface_table()) {
+        DBRequest vmi_req;
+        if (agent()->interface_table()->IFNodeToReq(peer, vmi_req) == true) {
+             LOG(DEBUG, "SG change sync for Port " << peer->name());
+             agent()->interface_table()->Enqueue(&vmi_req);
+        }
+        return false;
+    }
+
     return false;
 }
 

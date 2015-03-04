@@ -83,6 +83,18 @@ void InterfaceTable::RegisterDBClients(IFMapDependencyManager *dep) {
                              autogen::LogicalInterface::ID_PERMS);
 }
 
+bool InterfaceTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
+    if (strcmp(node->table()->Typename(), "virtual-machine-interface") == 0) {
+        return VmiIFNodeToUuid(node, u);
+    }
+
+    if (strcmp(node->table()->Typename(), "logical-interface") == 0) {
+        return LogicalInterfaceIFNodeToUuid(node, u);
+    }
+
+    return false;
+}
+
 bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     if (strcmp(node->table()->Typename(), "physical-interface") == 0) {
         return PhysicalInterfaceIFNodeToReq(node, req);

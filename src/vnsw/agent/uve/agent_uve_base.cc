@@ -27,15 +27,18 @@ using process::g_process_info_constants;
 
 AgentUveBase *AgentUveBase::singleton_;
 
-AgentUveBase::AgentUveBase(Agent *agent, uint64_t intvl)
-    : vn_uve_table_(new VnUveTableBase(agent)),
-      vm_uve_table_(new VmUveTableBase(agent)),
-      vrouter_uve_entry_(new VrouterUveEntryBase(agent)),
+AgentUveBase::AgentUveBase(Agent *agent, uint64_t intvl, bool create_objects)
+    : vn_uve_table_(NULL), vm_uve_table_(NULL), vrouter_uve_entry_(NULL),
       prouter_uve_table_(new ProuterUveTable(agent)),
       agent_(agent), bandwidth_intvl_(intvl),
       vrouter_stats_collector_(new VrouterStatsCollector(
                                    *(agent->event_manager()->io_service()),
                                    this)) {
+    if (create_objects) {
+        vn_uve_table_.reset(new VnUveTableBase(agent));
+        vm_uve_table_.reset(new VmUveTableBase(agent));
+        vrouter_uve_entry_.reset(new VrouterUveEntryBase(agent));
+    }
     singleton_ = this;
 }
 

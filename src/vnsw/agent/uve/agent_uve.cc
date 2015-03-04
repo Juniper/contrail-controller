@@ -19,7 +19,7 @@
 #include <uve/vrouter_uve_entry.h>
 
 AgentUve::AgentUve(Agent *agent, uint64_t intvl)
-    : AgentUveBase(agent, intvl),
+    : AgentUveBase(agent, intvl, false),
       stats_manager_(new StatsManager(agent)) {
       //Override vm_uve_table_ to point to derived class object
       vn_uve_table_.reset(new VnUveTable(agent));

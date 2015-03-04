@@ -708,11 +708,10 @@ static void ComputeTypeInfo(Agent *agent, VmInterfaceConfigData *data,
                 autogen::LogicalInterface *port =
                     static_cast <autogen::LogicalInterface *>
                     (logical_node->GetObject());
-                data->rx_vlan_id_ = port->vlan_tag();
-                data->tx_vlan_id_ = port->vlan_tag();
-            } else {
-                data->rx_vlan_id_ = 0;
-                data->tx_vlan_id_ = 0;
+                if (port->vlan_tag()) {
+                    data->rx_vlan_id_ = port->vlan_tag();
+                    data->tx_vlan_id_ = port->vlan_tag();
+                }
             }
             return;
         } else {
@@ -765,6 +764,15 @@ static bool DeleteVmi(InterfaceTable *table, const uuid &u, DBRequest *req) {
     }
 }
 
+bool InterfaceTable::VmiIFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) { 
+
+    VirtualMachineInterface *cfg = static_cast <VirtualMachineInterface *>
+        (node->GetObject());
+    autogen::IdPermsType id_perms = cfg->id_perms();
+    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+    return true;
+}
+
 // Virtual Machine Interface is added or deleted into oper DB from Nova 
 // messages. The Config notify is used only to change interface.
 bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req) {
@@ -772,9 +780,9 @@ bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req) {
     VirtualMachineInterface *cfg = static_cast <VirtualMachineInterface *>
         (node->GetObject());
     assert(cfg);
-    autogen::IdPermsType id_perms = cfg->id_perms();
-    boost::uuids::uuid u;
-    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+    uuid u;
+    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, u) == false)
+        return false;
 
     // Handle object delete
     if (node->IsDeleted()) {
@@ -789,8 +797,8 @@ bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req) {
 
     // Update interface configuration
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    VmInterfaceConfigData *data = new VmInterfaceConfigData(NULL, NULL);
-    data->SetIFMapNode(agent(), node);
+    VmInterfaceConfigData *data = new VmInterfaceConfigData(agent(), NULL);
+    data->SetIFMapNode(node);
 
     IFMapNode *vn_node = NULL;
 

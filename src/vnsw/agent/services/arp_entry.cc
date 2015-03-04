@@ -175,7 +175,7 @@ void ArpEntry::SendArpRequest() {
         ip = vmi->GetGateway();
         vrf_id = nh_vrf_->vrf_id();
         if (vmi->parent()) {
-            intf_id = vmi->parent()->id();
+            intf_id = vmi->id();
             smac = vmi->parent()->mac();
         }
     } else {
