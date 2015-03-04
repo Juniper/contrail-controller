@@ -573,6 +573,7 @@ void AgentXmppChannel::ReceiveV4V6Update(XmlPugi *pugi) {
 void AgentXmppChannel::AddEcmpRoute(string vrf_name, Ip4Address prefix_addr,
                                     uint32_t prefix_len, ItemType *item) {
     PathPreference::Preference preference = PathPreference::LOW;
+    TunnelType::TypeBmap encap = TunnelType::MplsType(); //default
     if (item->entry.local_preference == PathPreference::HIGH) {
         preference = PathPreference::HIGH;
     }
@@ -624,7 +625,7 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, Ip4Address prefix_addr,
                 comp_nh_list.push_back(component_nh_key);
             }
         } else {
-            TunnelType::TypeBmap encap = GetTypeBitmap
+            encap = GetTypeBitmap
                 (item->entry.next_hops.next_hop[i].tunnel_encapsulation_list);
             TunnelNHKey *nh_key = new TunnelNHKey(agent_->fabric_vrf_name(),
                                                   agent_->router_id(),
@@ -647,7 +648,7 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, Ip4Address prefix_addr,
                                 item->entry.virtual_network, -1,
                                 false, vrf_name,
                                 item->entry.security_group_list.security_group,
-                                rp, nh_req);
+                                rp, encap, nh_req);
 
     //ECMP create component NH
     rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name,
