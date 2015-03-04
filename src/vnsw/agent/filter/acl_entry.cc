@@ -205,6 +205,10 @@ bool AclEntry::operator==(const AclEntry &rhs) const {
         return false;
     }
 
+    if (uuid_ != rhs.uuid_) {
+        return false;
+    }
+
    std::vector<AclEntryMatch *>::const_iterator it = matches_.begin();
    std::vector<AclEntryMatch *>::const_iterator rhs_it = rhs.matches_.begin();
    while (it != matches_.end() &&
