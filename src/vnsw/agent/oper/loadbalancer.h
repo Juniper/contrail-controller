@@ -7,6 +7,7 @@
 
 #include <boost/uuid/uuid.hpp>
 #include "cmn/agent_db.h"
+#include "oper/ifmap_dependency_manager.h"
 
 class IFMapDependencyManager;
 class LoadbalancerProperties;
@@ -55,11 +56,15 @@ public:
 
     const boost::uuids::uuid &uuid() const { return uuid_; }
 
+    void SetIFMapNodeState(IFMapDependencyManager::IFMapNodePtr ref) {
+        ifmap_node_state_ref_ = ref;
+    }
+
 private:
     boost::uuids::uuid uuid_;
     IFMapNode *node_;
     std::auto_ptr<Properties> properties_;
-
+    IFMapDependencyManager::IFMapNodePtr ifmap_node_state_ref_;
     DISALLOW_COPY_AND_ASSIGN(Loadbalancer);
 };
 
@@ -89,6 +94,7 @@ public:
      * Convert the ifmap node to a (key,data) pair stored in the database.
      */
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
+    virtual bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 

@@ -154,6 +154,10 @@ OvsdbClientIdl::OvsdbMsg::OvsdbMsg(struct jsonrpc_msg *m) : msg(m) {
 }
 
 OvsdbClientIdl::OvsdbMsg::~OvsdbMsg() {
+    if (this->msg != NULL) {
+        ovsdb_wrapper_jsonrpc_msg_destroy(this->msg);
+        this->msg = NULL;
+    }
 }
 
 void OvsdbClientIdl::OnEstablish() {
@@ -244,9 +248,9 @@ void OvsdbClientIdl::MessageProcess(const u_int8_t *buf, std::size_t len) {
 bool OvsdbClientIdl::ProcessMessage(OvsdbMsg *msg) {
     if (!deleted_) {
         ovsdb_wrapper_idl_msg_process(idl_, msg->msg);
+        // msg->msg is freed by process method above
+        msg->msg = NULL;
     }
-    // msg->msg is freed by process method above
-    msg->msg = NULL;
     delete msg;
     return true;
 }

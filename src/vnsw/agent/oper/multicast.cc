@@ -946,9 +946,11 @@ void MulticastHandler::Shutdown() {
          GetMulticastObjList().begin(); it != GetMulticastObjList().end();
          it++) {
         MulticastGroupObject *obj = (*it);
+        BridgeAgentRouteTable *bridge_table =
+            static_cast<BridgeAgentRouteTable *>
+            (agent_->vrf_table()->GetBridgeRouteTable(obj->vrf_name()));
         AgentRoute *route =
-            BridgeAgentRouteTable::FindRoute(agent_, obj->vrf_name(),
-                                             MacAddress::BroadcastMac());
+            bridge_table->FindRoute(MacAddress::BroadcastMac());
         if (route == NULL)
             return;
 

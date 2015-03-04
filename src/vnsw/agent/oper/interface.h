@@ -13,7 +13,6 @@
 #include <cmn/agent_cmn.h>
 #include <cmn/index_vector.h>
 #include <oper_db.h>
-#include <oper/mac_vm_binding.h>
 
 struct InterfaceData;
 class VmInterface;
@@ -275,10 +274,13 @@ public:
 
     // Config handlers
     bool VmiIFNodeToReq(IFMapNode *node, DBRequest &req);
+    bool VmiIFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
+    bool LogicalInterfaceIFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
     bool PhysicalInterfaceIFNodeToReq(IFMapNode *node, DBRequest &req);
     bool LogicalInterfaceIFNodeToReq(IFMapNode *node, DBRequest &req);
     bool RemotePhysicalInterfaceIFNodeToReq(IFMapNode *node, DBRequest &req);
     bool IFNodeToReq(IFMapNode *node, DBRequest &req);
+    bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
 
     // Handle change in config VRF for the interface
     void VmInterfaceVrfSync(IFMapNode *node);
@@ -320,7 +322,6 @@ public:
     static InterfaceTable *GetInstance() { return interface_table_; }
     Agent *agent() const { return agent_; }
     OperDB *operdb() const { return operdb_; }
-    MacVmBinding &mac_vm_binding() {return mac_vm_binding_;}
 
 private:
     bool L2VmInterfaceWalk(DBTablePartBase *partition,
@@ -338,7 +339,6 @@ private:
     DhcpSnoopMap dhcp_snoop_map_;
     UpdateFloatingIpFn update_floatingip_cb_;
     VmiToVmiTypeMap vmi_to_vmitype_map_;
-    MacVmBinding mac_vm_binding_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceTable);
 };
 

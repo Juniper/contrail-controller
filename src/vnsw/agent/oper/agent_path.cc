@@ -402,12 +402,6 @@ bool EvpnDerivedPathData::AddChangePath(Agent *agent, AgentPath *path,
         ret = true;
     }
 
-    bool flood_dhcp = reference_path_->flood_dhcp();
-    if (evpn_path->flood_dhcp() != flood_dhcp) {
-        evpn_path->set_flood_dhcp(flood_dhcp);
-        ret = true;
-    }
-
     return ret;
 }
 
@@ -1096,7 +1090,12 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
          path_preference_.wait_for_traffic());
     pdata.set_path_preference_data(path_preference_data);
     pdata.set_active_label(GetActiveLabel());
-    pdata.set_flood_dhcp(flood_dhcp() ? "true" : "false");
+    if (peer()->GetType() == Peer::MAC_VM_BINDING_PEER) {
+        const MacVmBindingPath *dhcp_path =
+            static_cast<const MacVmBindingPath *>(this);
+        pdata.set_flood_dhcp(dhcp_path->flood_dhcp() ? "true" : "false");
+        pdata.set_vm_name(dhcp_path->vm_interface()->ToString());
+    }
 }
 
 void AgentPath::set_local_ecmp_mpls_label(MplsLabel *mpls) {
@@ -1169,4 +1168,48 @@ const Ip4Address *AgentPath::NexthopIp(Agent *agent) const {
     }
 
     return peer_->NexthopIp(agent, this);
+}
+
+MacVmBindingPath::MacVmBindingPath(const Peer *peer) :
+    AgentPath(peer, NULL) {
+}
+
+bool MacVmBindingPath::IsLess(const AgentPath &r_path) const {
+    return peer()->IsLess(r_path.peer());
+}
+
+const NextHop *MacVmBindingPath::ComputeNextHop(Agent *agent) const {
+    return nexthop();
+}
+
+AgentPath *MacVmBindingPathData::CreateAgentPath(const Peer *peer,
+                                         AgentRoute *rt) const {
+    const Peer *mac_vm_binding_peer =
+        dynamic_cast<const Peer *>(peer);
+    assert(mac_vm_binding_peer != NULL);
+    return (new MacVmBindingPath(mac_vm_binding_peer));
+}
+
+bool MacVmBindingPathData::AddChangePath(Agent *agent, AgentPath *path,
+                                         const AgentRoute *rt) {
+    bool ret = false;
+    MacVmBindingPath *dhcp_path =
+        dynamic_cast<MacVmBindingPath *>(path);
+
+    NextHop *nh = agent->nexthop_table()->discard_nh();
+    if (path->ChangeNH(agent, nh) == true)
+        ret = true;
+
+    bool flood_dhcp = !(vm_intf_->dhcp_enable_config());
+    if (dhcp_path->flood_dhcp() != flood_dhcp) {
+        dhcp_path->set_flood_dhcp(flood_dhcp);
+        ret = true;
+    }
+
+    if (dhcp_path->vm_interface() != vm_intf_) {
+        dhcp_path->set_vm_interface(vm_intf_);
+        ret = true;
+    }
+
+    return ret;
 }

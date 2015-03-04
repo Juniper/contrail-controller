@@ -20,7 +20,7 @@ class VrouterStatsCollector;
 class AgentUveBase {
 public:
     static const uint64_t kBandwidthInterval = (1000000); // time in microseconds
-    AgentUveBase(Agent *agent, uint64_t intvl);
+    AgentUveBase(Agent *agent, uint64_t intvl, bool create_object);
     virtual ~AgentUveBase();
 
     virtual void Shutdown();
