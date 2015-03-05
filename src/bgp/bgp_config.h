@@ -26,6 +26,7 @@ struct AuthenticationKey {
     }
 
     bool operator<(const AuthenticationKey &) const;
+    bool operator!=(const AuthenticationKey &) const;
     bool IsMd5() const { return type == MD5; }
     void Reset() {
         id = "";
