@@ -123,7 +123,6 @@ protected:
         TestRouteTable table3(3);
         WAIT_FOR(100, 1000, (table3.Size() == 0));
         EXPECT_EQ(table3.Size(), 0U);
-
         VrfDelReq(vrf_name_.c_str());
         client->WaitForIdle();
         WAIT_FOR(100, 1000, (VrfFind(vrf_name_.c_str()) != true));
@@ -1924,6 +1923,179 @@ TEST_F(RouteTest, NonEcmpToEcmpConversion) {
     DeleteVmportEnv(input2, 3, true);
     client->WaitForIdle();
     EXPECT_TRUE(VrfFind("vrf8", true) == false);
+}
+
+TEST_F(RouteTest, Dhcp_enabled_ipam) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200", true},
+    };
+    client->Reset();
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+
+    //Find Bridge route
+    BridgeRouteEntry *rt =
+        L2RouteGet("vrf1",
+                   MacAddress::FromString("00:00:00:01:01:01"),
+                   Ip4Address::from_string("1.1.1.1"));
+    const AgentPath *path = rt->FindMacVmBindingPath();
+    const MacVmBindingPath *dhcp_path = dynamic_cast<const MacVmBindingPath *>(path);
+    EXPECT_TRUE(dhcp_path != NULL);
+    EXPECT_TRUE(dhcp_path->vm_interface()->GetUuid() == MakeUuid(1));
+    EXPECT_TRUE(dhcp_path->nexthop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(dhcp_path->flood_dhcp() == false);
+
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+}
+
+TEST_F(RouteTest, Dhcp_disabled_ipam) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200", false},
+    };
+    client->Reset();
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+
+    //Find Bridge route
+    BridgeRouteEntry *rt =
+        L2RouteGet("vrf1",
+                   MacAddress::FromString("00:00:00:01:01:01"),
+                   Ip4Address::from_string("1.1.1.1"));
+    const MacVmBindingPath *dhcp_path =
+        dynamic_cast<const MacVmBindingPath *>(rt->FindMacVmBindingPath());
+    EXPECT_TRUE(dhcp_path != NULL);
+    EXPECT_TRUE(dhcp_path->vm_interface()->GetUuid() == MakeUuid(1));
+    EXPECT_TRUE(dhcp_path->nexthop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(dhcp_path->flood_dhcp() == true);
+
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+}
+
+TEST_F(RouteTest, Dhcp_mode_toggled_ipam) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+        {"vnet2", 2, "1.1.1.2", "00:00:00:01:01:02", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200", true},
+    };
+    client->Reset();
+    CreateVmportEnv(input, 2, 0);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+
+    //Find Bridge route
+    BridgeRouteEntry *rt =
+        L2RouteGet("vrf1",
+                   MacAddress::FromString("00:00:00:01:01:01"),
+                   Ip4Address::from_string("1.1.1.1"));
+    const AgentPath *path = rt->FindMacVmBindingPath();
+    const MacVmBindingPath *dhcp_path = dynamic_cast<const MacVmBindingPath *>(path);
+    EXPECT_TRUE(dhcp_path != NULL);
+    EXPECT_TRUE(dhcp_path->vm_interface()->GetUuid() == MakeUuid(1));
+    EXPECT_TRUE(dhcp_path->nexthop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(dhcp_path->flood_dhcp() == false);
+    rt = L2RouteGet("vrf1",
+                    MacAddress::FromString("00:00:00:01:01:02"),
+                    Ip4Address::from_string("1.1.1.2"));
+    dhcp_path = dynamic_cast<const MacVmBindingPath *>(rt->FindMacVmBindingPath());
+    EXPECT_TRUE(dhcp_path->vm_interface()->GetUuid() == MakeUuid(2));
+    EXPECT_TRUE(dhcp_path->nexthop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(dhcp_path->flood_dhcp() == false);
+
+    //Toggle to disable
+    IpamInfo ipam_info_disabled[] = {
+        {"1.1.1.0", 24, "1.1.1.200", false},
+    };
+    AddIPAM("vn1", ipam_info_disabled, 1);
+    client->WaitForIdle();
+    rt = L2RouteGet("vrf1",
+                    MacAddress::FromString("00:00:00:01:01:01"),
+                    Ip4Address::from_string("1.1.1.1"));
+    dhcp_path = dynamic_cast<const MacVmBindingPath *>(rt->FindMacVmBindingPath());
+    EXPECT_TRUE(dhcp_path->vm_interface()->GetUuid() == MakeUuid(1));
+    EXPECT_TRUE(dhcp_path->nexthop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(dhcp_path->flood_dhcp() == true);
+    rt = L2RouteGet("vrf1",
+                    MacAddress::FromString("00:00:00:01:01:02"),
+                    Ip4Address::from_string("1.1.1.2"));
+    dhcp_path = dynamic_cast<const MacVmBindingPath *>(rt->FindMacVmBindingPath());
+    EXPECT_TRUE(dhcp_path->vm_interface()->GetUuid() == MakeUuid(2));
+    EXPECT_TRUE(dhcp_path->nexthop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(dhcp_path->flood_dhcp() == true);
+
+    //Toggle to enable
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+    rt = L2RouteGet("vrf1",
+                    MacAddress::FromString("00:00:00:01:01:01"),
+                    Ip4Address::from_string("1.1.1.1"));
+    dhcp_path = dynamic_cast<const MacVmBindingPath *>(rt->FindMacVmBindingPath());
+    EXPECT_TRUE(dhcp_path != NULL);
+    EXPECT_TRUE(dhcp_path->vm_interface()->GetUuid() == MakeUuid(1));
+    EXPECT_TRUE(dhcp_path->nexthop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(dhcp_path->flood_dhcp() == false);
+    rt = L2RouteGet("vrf1",
+                    MacAddress::FromString("00:00:00:01:01:02"),
+                    Ip4Address::from_string("1.1.1.2"));
+    dhcp_path = dynamic_cast<const MacVmBindingPath *>(rt->FindMacVmBindingPath());
+    EXPECT_TRUE(dhcp_path->vm_interface()->GetUuid() == MakeUuid(2));
+    EXPECT_TRUE(dhcp_path->nexthop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(dhcp_path->flood_dhcp() == false);
+
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 2, 1, 0);
+    client->WaitForIdle();
+}
+
+//Double delete ARP route and verify that ARP NH
+//get deleted, since we always enqueu RESYNC for arp NH change
+//from ARP route deletiong path
+TEST_F(RouteTest, ArpRouteDelete) {
+    ArpNHKey key(Agent::GetInstance()->fabric_vrf_name(), server1_ip_, false);
+
+    AddArp(server1_ip_.to_string().c_str(), "0a:0b:0c:0d:0e:0f", eth_name_.c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(FindNH(&key));
+    EXPECT_TRUE(GetNH(&key)->IsValid() == true);
+
+    //Delete Remote VM route
+    DelArp(server1_ip_.to_string(), "0a:0b:0c:0d:0e:0f", eth_name_.c_str());
+    client->WaitForIdle();
+    EXPECT_FALSE(RouteFind(vrf_name_, server1_ip_, 32));
+
+    DelArp(server1_ip_.to_string(), "0a:0b:0c:0d:0e:0f", eth_name_.c_str());
+    client->WaitForIdle();
+    EXPECT_FALSE(RouteFind(vrf_name_, server1_ip_, 32));
+
+    EXPECT_FALSE(FindNH(&key));
 }
 
 int main(int argc, char *argv[]) {

@@ -51,9 +51,9 @@ bool OvsPeer::AddOvsRoute(const VnEntry *vn,
 
     uint32_t vxlan_id = vn->vxlan_id()->vxlan_id();
     SecurityGroupList sg_list;
-    InterfaceTable *intf_table = agent->interface_table();
-    const VmInterface *vmi = dynamic_cast<const VmInterface *>
-        (intf_table->mac_vm_binding().FindMacVmBinding(mac, vxlan_id));
+    BridgeAgentRouteTable *bridge_table =
+        dynamic_cast<BridgeAgentRouteTable *>(vrf->GetBridgeRouteTable());
+    const VmInterface *vmi = bridge_table->FindVmFromDhcpBinding(mac);
     if (vmi) {
         vmi->CopySgIdList(&sg_list);
     }

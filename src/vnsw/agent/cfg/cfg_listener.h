@@ -13,8 +13,9 @@ class DB;
 
 class CfgDBState : public DBState {
 public:
-    CfgDBState() : notify_count_(0) { };
-    bool notify_count_;
+    CfgDBState() : notify_count_(0), uuid_(boost::uuids::nil_uuid()) { };
+    uint32_t notify_count_;
+    boost::uuids::uuid uuid_;
 };
 
 class CfgListener {
@@ -67,6 +68,8 @@ public:
     bool SkipNode(IFMapNode *node);
     bool SkipNode(IFMapNode *node, IFMapAgentTable *table);
 
+    bool GetCfgDBStateUuid(IFMapNode *node, boost::uuids::uuid &id);
+
     // Callback invoked for each IFMap neighbor node
     typedef boost::function<void(const Agent *agent, const char *name,
                                  IFMapNode *node, AgentKey *key,
@@ -84,7 +87,8 @@ private:
     void UpdateSeenState(DBTableBase *table, DBEntryBase *dbe,
                          CfgDBState *state, DBTableBase::ListenerId id);
     void LinkNotify(IFMapLink *link, IFMapNode *node, IFMapNode *peer,
-                    CfgDBState *state, DBTableBase::ListenerId id);
+                    const std::string &peer_type, CfgDBState *state,
+                    DBTableBase::ListenerId id);
     CfgDBState *GetCfgDBState(IFMapTable *table, DBEntryBase *dbe,
                               DBTableBase::ListenerId &id);
 

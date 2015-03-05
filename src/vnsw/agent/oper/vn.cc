@@ -623,7 +623,7 @@ VnData *VnTable::BuildData(IFMapNode *node) {
     bool bridging = true;
     bool layer3_forwarding = true;
 
-    return new VnData(node->name(), acl_uuid, vrf_name, mirror_acl_uuid,
+    return new VnData(agent(), node->name(), acl_uuid, vrf_name, mirror_acl_uuid,
                       mirror_cfg_acl_uuid, vn_ipam, vn_ipam_data,
                       cfg->properties().vxlan_network_identifier,
                       cfg->properties().network_id, bridging, layer3_forwarding,
@@ -658,38 +658,53 @@ void VnTable::ResyncVmInterface(IFMapNode *node) {
     }
 }
 
-bool VnTable::IFLinkToReq(IFMapLink *link, IFMapNode *node, IFMapNode *peer,
-                          DBRequest &req) {
+
+bool VnTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
     VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
     assert(cfg);
     autogen::IdPermsType id_perms = cfg->id_perms();
-    boost::uuids::uuid u;
     CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
-    req.key.reset(new VnKey(u));
+    return true;
+}
+
+bool VnTable::IFLinkToReq(IFMapLink *link, IFMapNode *node,
+                          const string &peer_type, IFMapNode *peer,
+                          DBRequest &req) {
+
 
     // Add/Delete of link other than VMInterface will most likely need re-eval
-    // of VN
-    if (peer->table() != agent()->cfg()->cfg_vm_interface_table()) {
+    // of VN.
+    if (peer_type != "virtual-machine-interface") {
+        VirtualNetwork *cfg = static_cast <VirtualNetwork *>(node->GetObject());
+        assert(cfg);
+        boost::uuids::uuid u;
+        agent()->cfg_listener()->GetCfgDBStateUuid(node, u);
+        req.key.reset(new VnKey(u));
         req.data.reset(BuildData(node));
         Enqueue(&req);
     }
 
-    // Any change to ACL/IPAM will need re-eval of all VMInterface on this VN
-    if (peer->table() == agent()->cfg()->cfg_acl_table() ||
-        peer->table() == agent()->cfg()->cfg_vn_network_ipam_table()) {
-        ResyncVmInterface(node);
-    }
-
-    if (peer->table() == agent()->cfg()->cfg_vm_interface_table()) {
-        DBRequest req;
-        if (agent()->interface_table()->IFNodeToReq(peer, req) == true) {
+    // If peer is VMI, invoke re-eval if peer node is present
+    if (peer && peer->table() == agent()->cfg()->cfg_vm_interface_table()) {
+        DBRequest vmi_req;
+        if (agent()->interface_table()->IFNodeToReq(peer, vmi_req) == true) {
              LOG(DEBUG, "VN change sync for Port " << peer->name());
-             agent()->interface_table()->Enqueue(&req);
+             agent()->interface_table()->Enqueue(&vmi_req);
         }
+        return false;
     }
 
-    if (peer->table() == agent()->cfg()->cfg_floatingip_pool_table()) {
+    // Any change to ACL/IPAM will need re-eval of all VMInterface on this VN
+    if (peer_type == "virtual-network-network-ipam" ||
+        peer_type == "access-control-list") {
+        ResyncVmInterface(node);
+        return false;
+    }
+
+    // If peer is known and is floating-ip pool, propogate change to it
+    if (peer && peer->table() == agent()->cfg()->cfg_floatingip_pool_table()) {
         VmInterface::FloatingIpPoolSync(agent()->interface_table(), peer);
+        return false;
     }
 
     return false;
@@ -700,7 +715,9 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     assert(cfg);
     autogen::IdPermsType id_perms = cfg->id_perms();
     boost::uuids::uuid u;
-    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, u) == false)
+        return false;
+
     req.key.reset(new VnKey(u));
     VnData *data = NULL;
 
@@ -710,7 +727,7 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         data = BuildData(node);
         req.data.reset(data);
-        data->SetIFMapNode(agent(), node);
+        data->SetIFMapNode(node);
     }
 
     Enqueue(&req);
@@ -756,7 +773,7 @@ void VnTable::AddVn(const uuid &vn_uuid, const string &name,
                     int vxlan_id, bool admin_state, bool enable_rpf) {
     DBRequest req;
     VnKey *key = new VnKey(vn_uuid);
-    VnData *data = new VnData(name, acl_id, vrf_name, nil_uuid(), 
+    VnData *data = new VnData(agent(), name, acl_id, vrf_name, nil_uuid(), 
                               nil_uuid(), ipam, vn_ipam_data,
                               vxlan_id, vxlan_id, true, true,
                               admin_state, enable_rpf);

@@ -431,6 +431,9 @@ void ProuterUveTable::RegisterDBClients() {
 }
 
 void ProuterUveTable::Shutdown(void) {
-    agent_->physical_device_table()->Unregister(physical_device_listener_id_);
-    agent_->interface_table()->Unregister(interface_listener_id_);
+    if (physical_device_listener_id_ != DBTableBase::kInvalidId)
+        agent_->physical_device_table()->
+            Unregister(physical_device_listener_id_);
+    if (interface_listener_id_ != DBTableBase::kInvalidId)
+        agent_->interface_table()->Unregister(interface_listener_id_);
 }

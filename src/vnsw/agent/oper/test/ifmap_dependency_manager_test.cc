@@ -141,7 +141,7 @@ class IFMapDependencyManagerTest : public ::testing::Test {
         for (DBEntry *entry = tslice->GetFirst(); entry;
              entry = tslice->GetNext(entry)) {
             TestEntry *test_entry = static_cast<TestEntry *>(entry);
-            manager_->ResetObject(test_entry->node());
+            manager_->SetObject(test_entry->node(), NULL);
             test_entry->reset_node();
             list.push_back(test_entry->name());
         }

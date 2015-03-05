@@ -110,10 +110,6 @@ public:
     }
     virtual bool DBEntrySandesh(Sandesh *sresp, bool stale) const;
     virtual uint32_t GetActiveLabel() const;
-    virtual bool RecomputeRoutePath(Agent *agent,
-                                    DBTablePartition *part,
-                                    AgentPath *path,
-                                    AgentRouteData *data);
 
     const MacAddress &mac() const {return mac_;}
     const IpAddress &ip_addr() const {return ip_addr_;}
@@ -121,7 +117,6 @@ public:
     uint32_t ethernet_tag() const {return ethernet_tag_;}
 
 private:
-    bool FloodDhcpRequired() const;
 
     MacAddress mac_;
     IpAddress ip_addr_;

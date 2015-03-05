@@ -233,6 +233,7 @@ struct PathSandeshData {
    15: optional string info;
    16: optional i32 active_label;
    17: optional string flood_dhcp;
+   18: optional string vm_name;
 }
 
 struct RouteUcSandeshData {

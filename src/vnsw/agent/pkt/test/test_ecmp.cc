@@ -2263,6 +2263,67 @@ TEST_F(EcmpTest, TrapFlag) {
     client->WaitForIdle();
 }
 
+//Send a packet from vgw to ecmp destination
+TEST_F(EcmpTest, VgwFlag) {
+    Agent *agent = Agent::GetInstance();
+    InetInterface::CreateReq(agent->interface_table(), "vgw1",
+                            InetInterface::SIMPLE_GATEWAY, "vrf2",
+                            Ip4Address(0), 0, Ip4Address(0), Agent::NullString(),
+                            "");
+    client->WaitForIdle();
+
+    InetInterfaceKey *intf_key = new InetInterfaceKey("vgw1");
+    std::auto_ptr<const NextHopKey> nh_key(new InterfaceNHKey(intf_key, false,
+                                                              InterfaceNHFlags::INET4));
+
+    Ip4Address remote_server_ip1 = Ip4Address::from_string("10.10.10.100");
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(16, nh_key));
+    ComponentNHKeyPtr nh_data2(new ComponentNHKey(20, agent->fabric_vrf_name(),
+                                                  agent->router_id(),
+                                                  remote_server_ip1,
+                                                  false,
+                                                  TunnelType::DefaultType()));
+    Ip4Address ip = Ip4Address::from_string("0.0.0.0");
+    ComponentNHKeyList comp_nh_list;
+    comp_nh_list.push_back(nh_data1);
+    comp_nh_list.push_back(nh_data2);
+    EcmpTunnelRouteAdd(bgp_peer, "vrf2", ip, 0,
+                       comp_nh_list, false, "vn2",
+                       SecurityGroupList(), PathPreference());
+    client->WaitForIdle();
+
+    InetInterfaceKey tmp_key("vgw1");
+    Interface *intf =
+       static_cast<Interface *>(agent->interface_table()->
+           FindActiveEntry(&tmp_key));
+
+    //Send packet on vgw interface
+    TxIpPacket(intf->id(), "100.1.1.1", "2.2.2.2", 1);
+    client->WaitForIdle();
+
+    FlowEntry *entry;
+    FlowEntry *rev_entry;
+    entry = FlowGet(VrfGet("vrf2")->vrf_id(),
+                    "2.2.2.2", "100.1.1.1", 1, 0, 0, intf->flow_key_nh()->id());
+    EXPECT_TRUE(entry != NULL);
+    EXPECT_TRUE(entry->data().component_nh_idx  ==
+                CompositeNH::kInvalidComponentNHIdx);
+
+    rev_entry = FlowGet(VrfGet("vrf2")->vrf_id(),
+                       "100.1.1.1", "2.2.2.2", 1, 0, 0, intf->flow_key_nh()->id());
+    EXPECT_TRUE(rev_entry != NULL);
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+
+    client->WaitForIdle();
+    agent->fabric_inet4_unicast_table()->DeleteReq(bgp_peer, "vrf2",
+                                                   ip, 0, NULL);
+    InetInterface::DeleteReq(agent->interface_table(), "vgw1");
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (Agent::GetInstance()->pkt()->
+                flow_table()->Size() == 0));
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, true, true, true, 100*1000);

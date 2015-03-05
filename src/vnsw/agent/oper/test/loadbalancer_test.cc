@@ -48,15 +48,15 @@ class LoadbalancerTest : public ::testing::Test {
     }
 
     virtual void TearDown() {
-        manager_->Terminate();
+        loadbalancer_table_->Clear();
         config_listener_.Shutdown();
+        manager_->Terminate();
 
         IFMapLinkTable *link_table = static_cast<IFMapLinkTable *>(
             database_.FindTable(IFMAP_AGENT_LINK_DB_NAME));
         assert(link_table);
         link_table->Clear();
 
-        loadbalancer_table_->Clear();
         db_util::Clear(&database_);
         DB::ClearFactoryRegistry();
     }
@@ -172,6 +172,7 @@ TEST_F(LoadbalancerTest, ConfigPool) {
     EXPECT_EQ("127.0.0.1", addresses.at(0));
     EXPECT_EQ("127.0.0.2", addresses.at(1));
     ASSERT_EQ(2, props->healthmonitors().size());
+    manager_->SetObject(loadbalancer->node(), NULL);
 }
 
 static void SetUp() {

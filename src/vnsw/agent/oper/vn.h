@@ -83,12 +83,12 @@ struct VnData : public AgentOperDBData {
     typedef std::map<std::string, VnIpamLinkData> VnIpamDataMap;
     typedef std::pair<std::string, VnIpamLinkData> VnIpamDataPair;
 
-    VnData(const string &name, const uuid &acl_id, const string &vrf_name,
-           const uuid &mirror_acl_id, const uuid &mc_acl_id, 
+    VnData(const Agent *agent, const string &name, const uuid &acl_id,
+           const string &vrf_name, const uuid &mirror_acl_id, const uuid &mc_acl_id,
            const std::vector<VnIpam> &ipam, const VnIpamDataMap &vn_ipam_data,
            int vxlan_id, int vnid, bool bridging,
            bool layer3_forwarding, bool admin_state, bool enable_rpf) :
-        AgentOperDBData(NULL, NULL), name_(name), vrf_name_(vrf_name),
+        AgentOperDBData(agent, NULL), name_(name), vrf_name_(vrf_name),
         acl_id_(acl_id), mirror_acl_id_(mirror_acl_id),
         mirror_cfg_acl_id_(mc_acl_id), ipam_(ipam), vn_ipam_data_(vn_ipam_data),
         vxlan_id_(vxlan_id), vnid_(vnid), bridging_(bridging),
@@ -152,7 +152,7 @@ public:
     bool ReEvaluateVxlan(VrfEntry *old_vrf, int new_vxlan_id, int new_vnid,
                          bool new_bridging,
                          bool vxlan_network_identifier_mode_changed);
-    void UpdateDhcpFloodFlag();
+    void UpdateMacVmBindingFloodFlag();
 
     const VxLanId *vxlan_id_ref() const {return vxlan_id_ref_.get();}
     const VxLanId *vxlan_id() const {return vxlan_id_ref_.get();}
@@ -209,8 +209,10 @@ public:
 
     void ResyncVmInterface(IFMapNode *node);
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
-    virtual bool IFLinkToReq(IFMapLink *link, IFMapNode *node, IFMapNode *peer,
+    virtual bool IFLinkToReq(IFMapLink *link, IFMapNode *node,
+                             const std::string &peer_type, IFMapNode *peer,
                              DBRequest &req);
+    virtual bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static VnTable *GetInstance() {return vn_table_;};
