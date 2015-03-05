@@ -112,6 +112,7 @@ public:
                      FlowPolicyInfo *info) const;
     bool Changed(const AclEntries &new_acl_entries) const;
     uint32_t ace_count() const { return acl_entries_.size();}
+    bool IsRulePresent(const std::string &uuid) const;
 private:
     friend class AclTable;
     uuid uuid_;

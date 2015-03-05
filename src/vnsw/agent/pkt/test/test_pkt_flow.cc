@@ -3681,6 +3681,39 @@ TEST_F(FlowTest, Layer2PrefixManipulation) {
     client->WaitForIdle();
 }
 
+TEST_F(FlowTest, AclRuleUpdate) {
+    char acl_name[1024];
+    uint16_t max_len = sizeof(acl_name) - 1;
+
+    FlowSetup();
+    EXPECT_EQ(flow5->sg_list().list_.size(), 0U);
+    AddSgEntry("sg_e", "sg_acl_e", 10, 1, "pass", EGRESS,
+               "fe6a4dcb-dde4-48e6-8957-856a7aacb2d2", "0");
+    AddLink("virtual-machine-interface", "flow5", "security-group", "sg_e");
+    client->WaitForIdle();
+
+    AclDBEntry *acl = AclGet(10);
+    EXPECT_TRUE(acl != NULL);
+    EXPECT_TRUE(acl->IsRulePresent("fe6a4dcb-dde4-48e6-8957-856a7aacb2d2"));
+
+    strncpy(acl_name, "sg_acl_e", max_len);
+    strncat(acl_name, "egress-access-control-list", max_len);
+
+    //Update the ACL with new rule
+    AddAclEntry(acl_name, 10, 1, "pass", "ge6a4dcb-dde4-48e6-8957-856a7aacb2d3");
+    client->WaitForIdle();
+    EXPECT_FALSE(acl->IsRulePresent("fe6a4dcb-dde4-48e6-8957-856a7aacb2d2"));
+    EXPECT_TRUE(acl->IsRulePresent("ge6a4dcb-dde4-48e6-8957-856a7aacb2d3"));
+
+    DelLink("virtual-machine-interface", "flow5", "security-group", "sg_e");
+    DelLink("security-group", "sg_e", "access-control-list", acl_name);
+    DelNode("access-control-list", acl_name);
+
+    DelNode("security-group", "sg_e");
+    FlowTeardown();
+    client->WaitForIdle(5);
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
