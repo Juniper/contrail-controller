@@ -635,6 +635,7 @@ bool VirtualDnsRecordConfig::GetObject(IFMapNode *node, DnsItem &item) {
     item.name = rec_data.record_name;
     item.data = rec_data.record_data;
     item.ttl = rec_data.record_ttl_seconds;
+    item.priority = rec_data.record_mx_preference;
     return true;
 }
 

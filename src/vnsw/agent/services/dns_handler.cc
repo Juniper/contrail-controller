@@ -192,7 +192,7 @@ bool DnsHandler::HandleDefaultDnsRequest(const VmInterface *vmitf) {
 
     DNS_BIND_TRACE(DnsBindTrace, "Default DNS query received; "
                    "interface = " << vmitf->vm_name() << " xid = " << 
-                   dns_->xid << "; " << DnsItemsToString(items_) << ";");
+                   dns_->xid << " " << DnsItemsToString(items_));
     if (pend_req_)
         return false;
 
@@ -270,13 +270,13 @@ void DnsHandler::DefaultDnsSendResponse() {
     if (dns_->flags.ret) {
         DNS_BIND_TRACE(DnsBindError, "Query failed : " << 
                        BindUtil::DnsResponseCode(dns_->flags.ret) <<
-                       "; xid = " << dns_->xid << "; " <<
-                       DnsItemsToString(items_) << ";" <<
-                       DnsItemsToString(linklocal_items_) << ";");
+                       " xid = " << dns_->xid << " " <<
+                       DnsItemsToString(items_) <<
+                       DnsItemsToString(linklocal_items_));
     } else {
         DNS_BIND_TRACE(DnsBindTrace, "Query successful : xid = " <<
-                       dns_->xid << ";" << DnsItemsToString(items_) << ";" <<
-                       DnsItemsToString(linklocal_items_) << ";");
+                       dns_->xid << " " << DnsItemsToString(items_) <<
+                       DnsItemsToString(linklocal_items_));
     }
     SendDnsResponse();
 }
@@ -285,11 +285,11 @@ bool DnsHandler::HandleVirtualDnsRequest(const VmInterface *vmitf) {
     rkey_ = new QueryKey(vmitf, dns_->xid);
     DnsProto *dns_proto = agent()->GetDnsProto();
     if (dns_proto->IsVmRequestDuplicate(rkey_)) {
-        DNS_BIND_TRACE(DnsBindTrace, 
+        DNS_BIND_TRACE(DnsBindTrace,
                        "Retry DNS query from VM - dropping; interface = " <<
-                       vmitf->vm_name() << " xid = " << dns_->xid << "; " << 
-                       DnsItemsToString(items_) << ";" <<
-                       DnsItemsToString(linklocal_items_) << "; ");
+                       vmitf->vm_name() << " xid = " << dns_->xid << " " <<
+                       DnsItemsToString(items_) <<
+                       DnsItemsToString(linklocal_items_));
         dns_proto->IncrStatsRetransmitReq();
         return true;
     }
@@ -339,7 +339,7 @@ bool DnsHandler::HandleVirtualDnsRequest(const VmInterface *vmitf) {
             } else {
                 DNS_BIND_TRACE(DnsBindTrace, "Client not allowed to update "
                 "dynamic records : " << vmitf->vm_name() << " ;Ignoring "
-                "update for " << DnsItemsToString(items_) << ";");
+                "update for " << DnsItemsToString(items_));
                 ret = DNS_ERR_NOT_AUTH;
             }
             BindUtil::BuildDnsHeader(dns_, ntohs(dns_->xid), DNS_QUERY_RESPONSE, 
@@ -368,7 +368,7 @@ bool DnsHandler::SendDnsQuery() {
         if (retries_ >= dns_proto->max_retries()) {
             DNS_BIND_TRACE(DnsBindTrace, 
                            "Max retries reached for query; xid = " << xid_ <<
-                           "; " << DnsItemsToString(items_) << ";");
+                           " " << DnsItemsToString(items_));
             goto cleanup;
         } else
             retries_++;
@@ -382,7 +382,7 @@ bool DnsHandler::SendDnsQuery() {
     if (BindResolver::Resolver()->DnsSend(pkt, agent()->dns_xmpp_server_index(),
                                           len)) {
         DNS_BIND_TRACE(DnsBindTrace, "DNS query sent to server; xid = " << 
-                       xid_ << "; " << DnsItemsToString(items_) << ";");
+                       xid_ << " " << DnsItemsToString(items_));
         timer_->Start(dns_proto->timeout(),
                       boost::bind(&DnsHandler::TimerExpiry, this, xid_));
         return true;
@@ -514,33 +514,39 @@ bool DnsHandler::HandleBindResponse() {
     if (handler) {
         dns_flags flags;
         DnsItems ques, ans, auth, add;
-        BindUtil::ParseDnsQuery(ipc->resp, xid, flags, ques, ans, auth, add);
-        switch(handler->action_) {
-            case DnsHandler::DNS_QUERY:
-                handler->Resolve(flags, ques, ans, auth, add);
-                if (flags.ret) {
-                    DNS_BIND_TRACE(DnsBindError, "Query failed : " << 
-                                   BindUtil::DnsResponseCode(flags.ret) <<
-                                   "; xid = " << xid << "; " <<
-                                   DnsItemsToString(items_) << ";" <<
-                                   DnsItemsToString(linklocal_items_) << ";");
-                } else {
-                    DNS_BIND_TRACE(DnsBindTrace, "Query successful : xid = " <<
-                                   xid << ";" << DnsItemsToString(ans) << ";" <<
-                                   DnsItemsToString(linklocal_items_) << ";");
-                }
-                break;
+        if (BindUtil::ParseDnsResponse(ipc->resp, xid, flags,
+                                       ques, ans, auth, add)) {
+            switch(handler->action_) {
+                case DnsHandler::DNS_QUERY:
+                    handler->Resolve(flags, ques, ans, auth, add);
+                    if (flags.ret) {
+                        DNS_BIND_TRACE(DnsBindError, "Query failed : " <<
+                                       BindUtil::DnsResponseCode(flags.ret) <<
+                                       " xid = " << xid << " " <<
+                                       DnsItemsToString(items_) <<
+                                       DnsItemsToString(linklocal_items_));
+                    } else {
+                        DNS_BIND_TRACE(DnsBindTrace,
+                                       "Query successful : xid = " <<
+                                       xid << " " << DnsItemsToString(ans) <<
+                                       DnsItemsToString(linklocal_items_));
+                    }
+                    break;
 
-            default:
-                DNS_BIND_TRACE(DnsBindTrace, 
-                               "Received invalid BIND response: xid = " << xid);
-                break;
+                default:
+                    DNS_BIND_TRACE(DnsBindTrace,
+                                   "Invalid DNS action: xid = " << xid);
+                    break;
+            }
+        } else {
+            DNS_BIND_TRACE(DnsBindTrace,
+                           "Received invalid BIND response: xid = " << xid);
         }
         dns_proto->DelDnsQuery(xid);
         dns_proto->DelVmRequest(handler->rkey_);
         delete handler;
     } else
-        DNS_BIND_TRACE(DnsBindError, "Invalid xid " << xid << 
+        DNS_BIND_TRACE(DnsBindError, "Invalid xid " << xid <<
                        "received from DNS server - dropping");
 
     delete ipc;
