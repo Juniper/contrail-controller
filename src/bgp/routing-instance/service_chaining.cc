@@ -864,11 +864,14 @@ bool ServiceChainMgr::LocateServiceChain(RoutingInstance *rtinstance,
         return false;
     }
 
-    // Get the service chain address
+    // Add to pending queue if the service chain address is invalid.
     error_code ec;
     IpAddress chain_addr = 
         Ip4Address::from_string(cfg.service_chain_address, ec);
-    assert(ec == 0);
+    if (ec != 0) {
+        AddPendingServiceChain(rtinstance);
+        return false;
+    }
 
     // Get the BGP Tables to add condition
     BgpTable *connected_table = connected_ri->GetTable(Address::INET);
@@ -893,10 +896,18 @@ bool ServiceChainMgr::LocateServiceChain(RoutingInstance *rtinstance,
                                       BgpConditionListener::RequestDoneCb());
     server()->condition_listener()->AddMatchCondition(dest_table, chain.get(),
                                       BgpConditionListener::RequestDoneCb());
+
+    // Delete from the pending list. The instance would already have been
+    // removed from the pending list if this method is called when trying
+    // to resolve items in the pending list.  However, if this method is
+    // called when processing a change in the service chain config, then
+    // we may need to remove it from the pending list.
+    DeletePendingServiceChain(rtinstance);
     return true;
 }
 
 bool ServiceChainMgr::ResolvePendingServiceChain() {
+    CHECK_CONCURRENCY("bgp::Config");
     for (UnresolvedServiceChainList::iterator it = pending_chain_.begin(), next;
          it != pending_chain_.end(); it = next) {
         next = it;
