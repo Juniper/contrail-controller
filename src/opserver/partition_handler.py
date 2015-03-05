@@ -29,6 +29,10 @@ class PartitionHandler(gevent.Greenlet):
         self._logger.info("%d Reading %s" % (self._partition, str(om)))
         return True
 
+    def start_partition(self):
+        self._logger.info("%d Initializing DB" % self._partition)
+        return True
+
     def _run(self):
 	pcount = 0
         while True:
@@ -50,41 +54,17 @@ class PartitionHandler(gevent.Greenlet):
                 consumer.seek(0,2)
                 try:
                     mi = consumer.get_message(timeout=0.1)
+                    consumer.commit()
                 except common.OffsetOutOfRangeError:
                     mi = None
                 #import pdb; pdb.set_trace()
                 self._logger.info("Last Queued for %d is %s" % \
                                   (self._partition,str(mi)))
+                self.start_partition()
 
                 # start reading from last previously processed message
                 consumer.seek(0,1)
 
-                if mi != None:
-                    count = 0
-                    self._logger.info("Catching Up %d" % self._partition)
-                    loff = mi.offset
-                    coff = 0
-                    while True:
-                        try:
-                            mm = consumer.get_message(timeout=None)
-                            count +=1
-                            if not self.msg_handler(mm):
-                                self._logger.info("%d could not process %s" % (self._partition, str(mm)))
-                                raise gevent.GreenletExit
-                            consumer.commit()
-                            coff = mm.offset
-                            self._logger.info("Syncing offset %d" % coff)
-                            if coff == loff:
-                                break
-                        except Exception as ex:
-                            self._logger.info("Sync Error %s" % str(ex))
-                            break
-                    if coff != loff:
-                        self._logger.info("Sync Failed for %d count %d" % (self._partition, count))
-                        continue
-                    else:
-                        self._logger.info("Sync Completed for %d count %d" % (self._partition, count))
-                    
                 if self._limit:
                     raise gevent.GreenletExit
 
@@ -93,6 +73,7 @@ class PartitionHandler(gevent.Greenlet):
                         mm = consumer.get_message(timeout=None)
                         if mm is None:
                             continue
+                        self._logger.debug("%d Reading offset %d" % (self._partition, mm.offset))
                         consumer.commit()
                         pcount += 1
 		        if not self.msg_handler(mm):
@@ -121,16 +102,26 @@ class UveStreamProc(PartitionHandler):
     #  partition : partition number
     #  uve_topic : topic to subscribe to
     #  logger    : logging object to use  
-    #  uvedb     : initial UVE DB (map of collector info,
-    #                  leading to map of generator info,
-    #                  which leads to set of UVE Keys
+    #  uvecb     : Callback to get the 
+    #            : initial UVE DB (map of collector info,
+    #              leading to map of generator info,
+    #              which leads to set of UVE Keys
     #  callback  : Callback function for reporting the set of the UVEs
     #              that may have changed for a given notification
-    def __init__(self, brokers, partition, uve_topic, logger, uvedb, callback):
+    def __init__(self, brokers, partition, uve_topic, logger, uvecb, callback):
         super(UveStreamProc, self).__init__(brokers, partition, "workers", uve_topic, logger, False)
         self._uvedb = {}
-        self._uvedb = uvedb
+        self._uvein = {}
+        self._uveout = {}
+        self._uvecb = uvecb
         self._callback = callback
+        self._partno = partition
+
+    def start_partition(self):
+        ''' This function loads the initial UVE database.
+            for the partition
+        '''
+        self._uvedb = self._uvecb(self._partno)
         uves  = set()
         for kcoll,coll in self._uvedb.iteritems():
             for kgen,gen in coll.iteritems():
@@ -141,6 +132,19 @@ class UveStreamProc(PartitionHandler):
     def contents(self):
         return self._uvedb
 
+    def stats(self):
+        ''' Return the UVEKey-Count stats collected over 
+            the last time period for this partition, and 
+            the incoming UVE Notifs as well.
+            Also, the stats should be cleared to prepare
+            for the next period of collection.
+        '''
+        ret_out = copy.deepcopy(self._uveout)
+        ret_in  = copy.deepcopy(self._uvein)
+        self._uveout = {}
+        self._uvein = {}
+        return ret_in, ret_out
+    
     def msg_handler(self, om):
         self._partoffset = om.offset
         chg = set()
@@ -151,25 +155,57 @@ class UveStreamProc(PartitionHandler):
             gen = uv["gen"]
             coll = uv["coll"]
 
+            if not self._uvedb.has_key(coll):
+                self._uvedb[coll] = {}
+            if not self._uvedb[coll].has_key(gen):
+                self._uvedb[coll][gen] = {}
 
             if (uv["message"] == "UVEUpdate"):
-                if not self._uvedb.has_key(coll):
-                    self._uvedb[coll] = {}
-                if not self._uvedb[coll].has_key(gen):
-                    self._uvedb[coll][gen] = {}
                 if self._uvedb[coll][gen].has_key(uv["key"]):
                     self._uvedb[coll][gen][uv["key"]] += 1
                 else:
                     self._uvedb[coll][gen][uv["key"]] = 1
+
+                tab = uv["key"].split(":")[0]
+
+                # Record stats on UVE Keys being processed
+                if not self._uveout.has_key(tab):
+                    self._uveout[tab] = {}
+                if self._uveout[tab].has_key(uv["key"]):
+                    self._uveout[tab][uv["key"]] += 1
+                else:
+                    self._uveout[tab][uv["key"]] = 1
+
+                # Record stats on the input UVE Notifications
+                if not self._uvein.has_key(tab):
+                    self._uvein[tab] = {}
+                if not self._uvein[tab].has_key(coll):
+                    self._uvein[tab][coll] = {}
+                if not self._uvein[tab][coll].has_key(gen):
+                    self._uvein[tab][coll][gen] = {}
+                if not self._uvein[tab][coll][gen].has_key(uv["type"]):
+                    self._uvein[tab][coll][gen][uv["type"]] = 1
+                else:
+                    self._uvein[tab][coll][gen][uv["type"]] += 1
+
                 chg.add(uv["key"])
             else:
+                # Record stats on UVE Keys being processed
+                for uk in self._uvedb[coll][gen].keys():
+                    tab = uk.split(":")[0]
+                    if not self._uveout.has_key(tab):
+                        self._uveout[tab] = {}
+
+                    if self._uveout[tab].has_key(uk):
+                        self._uveout[tab][uk] += 1
+                    else:
+                        self._uveout[tab][uk] = 1
+                
                 # when a generator is delelted, we need to 
                 # notify for *ALL* its UVEs
-                if self._uvedb.has_key(coll):
-                    if self._uvedb[coll].has_key(gen):
-                        chg = set(self._uvedb[coll][gen].keys())
-                        del self._uvedb[coll][gen]
-                
+                chg = set(self._uvedb[coll][gen].keys())
+                del self._uvedb[coll][gen]
+
                 # TODO : For the collector's generator, notify all
                 #        UVEs of all generators of the collector
         except Exception as ex:

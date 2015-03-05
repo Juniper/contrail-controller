@@ -171,7 +171,7 @@ class Collector(object):
     def stop(self):
         if self._instance is not None:
             rcode = self.analytics_fixture.process_stop(
-                "contrail-collector:%d" % self.listen_port,
+                "contrail-collector:%s" % str(self.listen_port),
                 self._instance, self._log_file)
             #assert(rcode == 0)
             self._instance = None
@@ -249,7 +249,7 @@ class AlarmGen(object):
     def stop(self):
         if self._instance is not None:
             rcode = self.analytics_fixture.process_stop(
-                "contrail-alarm-gen:%d" % self.http_port,
+                "contrail-alarm-gen:%s" % str(self.http_port),
                 self._instance, self._log_file)
             #assert(rcode == 0)
             self._instance = None
@@ -338,7 +338,7 @@ class OpServer(object):
     def stop(self):
         if self._instance is not None:
             rcode = self.analytics_fixture.process_stop(
-                "contrail-analytics-api:%d" % self.listen_port,
+                "contrail-analytics-api:%s" % str(self.listen_port),
                 self._instance, self._log_file)
             #assert(rcode == 0)
             self._instance = None
@@ -420,7 +420,7 @@ class QueryEngine(object):
     def stop(self):
         if self._instance is not None:
             rcode = self.analytics_fixture.process_stop(
-                "contrail-query-engine:%d" % self.listen_port,
+                "contrail-query-engine:%s" % str(self.listen_port),
                 self._instance, self._log_file)
             #assert(rcode == 0)
             self._instance = None
@@ -686,6 +686,8 @@ class AnalyticsFixture(fixtures.Fixture):
             else:
                 self.logger.info("Did not expect UVEs for %s" % table)
                 return False
+        if not ret['uves']:
+            return False
         alarms = set()
         for elem in ret['uves']:
             if elem['name'] != name:
