@@ -475,6 +475,7 @@ void RoutingInstance::ProcessConfig(BgpServer *server) {
 
     // Create BGP Table
     if (name_ == BgpConfigManager::kMasterInstance) {
+        assert(mgr_->count() == 1);
         is_default_ = true;
 
         VpnTableCreate(server, Address::INETVPN);

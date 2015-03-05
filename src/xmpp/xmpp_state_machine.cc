@@ -1053,6 +1053,8 @@ bool XmppStateMachine::HoldTimerExpired() {
 void XmppStateMachine::OnSessionEvent(
         TcpSession *session, TcpSession::Event event) {
     switch (event) {
+    case TcpSession::ACCEPT:
+        break;
     case TcpSession::CONNECT_COMPLETE:
         XMPP_NOTICE(XmppEventLog, this->ChannelType(), 
                     "Event: Tcp Connected ",
