@@ -116,6 +116,7 @@ protected:
         : bgp_server_(new BgpServer(&evm_)),
           parser_(&config_db_),
           ri_mgr_(NULL),
+          service_chain_mgr_(NULL),
           service_is_transparent_(false),
           connected_rt_is_inetvpn_(false) {
         IFMapLinkTable_Init(&config_db_, &config_graph_);
@@ -142,6 +143,7 @@ protected:
         config_manager->Initialize(&config_db_, &config_graph_, "local");
         bgp_server_->service_chain_mgr()->set_aggregate_host_route(true);
         ri_mgr_ = bgp_server_->routing_instance_mgr();
+        service_chain_mgr_ = bgp_server_->service_chain_mgr();
     }
 
     virtual void TearDown() {
@@ -963,6 +965,7 @@ protected:
     boost::scoped_ptr<BgpServer> bgp_server_;
     BgpConfigParser parser_;
     RoutingInstanceMgr *ri_mgr_;
+    ServiceChainMgr *service_chain_mgr_;
     vector<BgpPeerMock *> peers_;
     bool service_is_transparent_;
     bool connected_rt_is_inetvpn_;
@@ -1014,6 +1017,94 @@ TEST_P(ServiceChainParamTest, Basic) {
 
     // Delete More specific
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
+
+    // Delete connected route
+    DeleteConnectedRoute(NULL, "1.1.2.3/32");
+}
+
+TEST_P(ServiceChainParamTest, IgnoreNonInetServiceChainAddress1) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    NetworkConfig(instance_names, connections);
+    VerifyNetworkConfig(instance_names);
+
+    // Add chain with bad service chain address.
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_8a.xml");
+
+    // Add More specifics
+    AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
+    AddInetRoute(NULL, "red", "192.168.2.1/32", 100);
+
+    // Check for aggregated routes
+    VerifyInetRouteNoExists("blue", "192.168.1.0/24");
+    VerifyInetRouteNoExists("blue", "192.168.2.0/24");
+
+    // Add Connected
+    AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
+
+    // Verify that service chain is on pending list.
+    TASK_UTIL_EXPECT_EQ(1, service_chain_mgr_->PendingQueueSize());
+    VerifyPendingServiceChainSandesh(list_of("blue-i1"));
+
+    // Fix service chain address.
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
+    TASK_UTIL_EXPECT_EQ(0, service_chain_mgr_->PendingQueueSize());
+
+    // Check for aggregated routes
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.4.5", "red");
+    VerifyInetRouteExists("blue", "192.168.2.0/24");
+    VerifyInetRouteAttributes("blue", "192.168.2.0/24", "2.3.4.5", "red");
+
+    // Delete More specifics
+    DeleteInetRoute(NULL, "red", "192.168.1.1/32");
+    DeleteInetRoute(NULL, "red", "192.168.2.1/32");
+
+    // Delete connected route
+    DeleteConnectedRoute(NULL, "1.1.2.3/32");
+}
+
+TEST_P(ServiceChainParamTest, IgnoreNonInetServiceChainAddress2) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    NetworkConfig(instance_names, connections);
+    VerifyNetworkConfig(instance_names);
+
+    // Add chain with bad service chain address.
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_8b.xml");
+
+    // Add More specifics
+    AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
+    AddInetRoute(NULL, "red", "192.168.2.1/32", 100);
+
+    // Check for aggregated routes
+    VerifyInetRouteNoExists("blue", "192.168.1.0/24");
+    VerifyInetRouteNoExists("blue", "192.168.2.0/24");
+
+    // Add Connected
+    AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
+
+    // Verify that service chain is on pending list.
+    VerifyPendingServiceChainSandesh(list_of("blue-i1"));
+
+    // Fix service chain address.
+    SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
+
+    // Check for aggregated routes
+    VerifyInetRouteExists("blue", "192.168.1.0/24");
+    VerifyInetRouteAttributes("blue", "192.168.1.0/24", "2.3.4.5", "red");
+    VerifyInetRouteExists("blue", "192.168.2.0/24");
+    VerifyInetRouteAttributes("blue", "192.168.2.0/24", "2.3.4.5", "red");
+
+    // Delete More specifics
+    DeleteInetRoute(NULL, "red", "192.168.1.1/32");
+    DeleteInetRoute(NULL, "red", "192.168.2.1/32");
 
     // Delete connected route
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
