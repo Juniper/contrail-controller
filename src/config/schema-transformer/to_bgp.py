@@ -1207,9 +1207,9 @@ class SecurityGroupST(DictST):
                 _vnc_lib.access_control_list_update(acl)
     # end update_acl
                 
-    def __init__(self, name):
+    def __init__(self, name, obj=None):
         self.name = name
-        self.obj = _vnc_lib.security_group_read(fq_name_str=name)
+        self.obj = obj or _vnc_lib.security_group_read(fq_name_str=name)
         self.config_sgid = None
         self.sg_id = None
         self.ingress_acl = None
@@ -1226,7 +1226,6 @@ class SecurityGroupST(DictST):
                 _vnc_lib.access_control_list_delete(id=acl['uuid'])
         config_id = self.obj.get_configured_security_group_id() or 0
         self.set_configured_security_group_id(config_id)
-        self.update_policy_entries(self.obj.get_security_group_entries())
     # end __init__
 
     def set_configured_security_group_id(self, config_id):
@@ -2598,8 +2597,8 @@ class SchemaTransformer(object):
                     pass
         # end for ri
 
-        sg_list = _vnc_lib.security_groups_list()['security-groups']
-        sg_id_list = [sg['uuid'] for sg in sg_list]
+        sg_list = _vnc_lib.security_groups_list(detail=True)
+        sg_id_list = [sg.uuid for sg in sg_list]
         acl_list = _vnc_lib.access_control_lists_list(detail=True)
         for acl in acl_list or []:
             if acl.parent_type == 'virtual-network':
@@ -2614,6 +2613,9 @@ class SchemaTransformer(object):
                 except NoIdError:
                     pass
         # end for acl
+
+        for sg in sg_list:
+            SecurityGroupST.locate(sg.get_fq_name_str(), sg)
     # end reinit
 
     def cleanup(self):
