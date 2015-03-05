@@ -7,6 +7,7 @@
 #include <boost/asio/connect.hpp>
 #include <boost/asio/placeholders.hpp>
 #include <boost/bind.hpp>
+#include <errno.h>
 
 #include "base/logging.h"
 #include "io/event_manager.h"
@@ -444,12 +445,13 @@ int TcpServer::SetMd5SocketOption(int fd, uint32_t peer_ip,
     // XXX: stop printing the password when ready
     if (retval < 0) {
         TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA,
-            "Failure in setting key " + md5_password +
-            " on the listen socket for peer " + integerToString(peer_ip));
+            "Failure in setting key " + md5_password + " on the socket " +
+            integerToString(fd) + " for peer " + integerToString(peer_ip) +
+            " with errno " + strerror(errno));
     } else {
         TCP_SERVER_LOG_DEBUG(this, TCP_DIR_NA,
-            "Success in setting key " + md5_password +
-            " on the listen socket for peer " + integerToString(peer_ip));
+            "Success in setting key " + md5_password + " on the socket " +
+            integerToString(fd) + " for peer " + integerToString(peer_ip));
     }
     return retval;
 }
