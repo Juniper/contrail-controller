@@ -6,6 +6,7 @@
 #define _ROOT_PORT_IPC_HANDLER_H_
 
 #include <string>
+#include <rapidjson/document.h>
 
 class Agent;
 
@@ -31,22 +32,29 @@ class PortIpcHandler {
     };
     static const std::string kPortsDir;
 
-    explicit PortIpcHandler(Agent *agent);
-    PortIpcHandler(Agent *agent, const std::string &dir);
+    PortIpcHandler(Agent *agent, const std::string &dir, bool check_port);
     virtual ~PortIpcHandler();
     void ReloadAllPorts() const;
-    void AddPortFromJson(const std::string &json) const;
-    void DeletePort(const std::string &uuid_str) const;
+    bool AddPortFromJson(const std::string &json, bool chk_port,
+                         std::string &err_msg) const;
+    bool DeletePort(const std::string &uuid_str, std::string &err) const;
     std::string GetPortInfo(const std::string &uuid_str) const;
+    bool InterfaceExists(const std::string &name) const;
     friend class PortIpcTest;
  private:
     void ProcessFile(const std::string &file) const;
     bool ValidateMac(const std::string &mac) const;
-    void AddPort(const PortIpcHandler::AddPortParams &req) const;
+    bool AddPort(const PortIpcHandler::AddPortParams &req, bool chk_p,
+                 std::string &err_msg) const;
     bool IsUUID(const std::string &uuid_str) const;
+    bool ValidateMembers(const rapidjson::Document &d) const;
+    bool WriteJsonToFile(const PortIpcHandler::AddPortParams &r) const;
+    std::string GetJsonString(const PortIpcHandler::AddPortParams &r,
+                              bool meta_info) const;
 
     Agent *agent_;
     std::string ports_dir_;
+    bool check_port_on_reload_;
 
     DISALLOW_COPY_AND_ASSIGN(PortIpcHandler);
 };
