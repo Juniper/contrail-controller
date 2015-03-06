@@ -69,6 +69,7 @@ private:
     VmUveEntryBase* Add(const VmEntry *vm, bool vm_notify);
     void Delete(const boost::uuids::uuid &u);
     virtual void SendVmDeleteMsg(const boost::uuids::uuid &u);
+    void Change(const VmEntry *vm);
 
     DBTableBase::ListenerId intf_listener_id_;
     DBTableBase::ListenerId vm_listener_id_;

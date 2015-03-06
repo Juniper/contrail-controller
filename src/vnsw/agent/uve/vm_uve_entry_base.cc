@@ -15,6 +15,14 @@ VmUveEntryBase::VmUveEntryBase(Agent *agent, const string &vm_name)
 VmUveEntryBase::~VmUveEntryBase() {
 }
 
+bool VmUveEntryBase::Update(const VmEntry *vm) {
+    if (vm_config_name_ != vm->GetCfgName()) {
+        vm_config_name_ = vm->GetCfgName();
+        return true;
+    }
+    return false;
+}
+
 void VmUveEntryBase::InterfaceAdd(const Interface *intf,
                               const VmInterface::FloatingIpSet &old_list) {
     UveInterfaceEntry *ientry;
@@ -140,11 +148,17 @@ bool VmUveEntryBase::FrameInterfaceMsg(const VmInterface *vm_intf,
     return true;
 }
 
-bool VmUveEntryBase::FrameVmMsg(UveVirtualMachineAgent *uve) {
+bool VmUveEntryBase::FrameVmMsg(const boost::uuids::uuid &u,
+                                UveVirtualMachineAgent *uve) {
     bool changed = false;
     uve->set_name(vm_config_name_);
     vector<VmInterfaceAgent> s_intf_list;
 
+    if (!uve_info_.__isset.uuid) {
+        uve->set_uuid(to_string(u));
+        uve_info_.set_uuid(to_string(u));
+        changed = true;
+    }
     InterfaceSet::iterator it = interface_tree_.begin();
     while(it != interface_tree_.end()) {
         VmInterfaceAgent s_intf;

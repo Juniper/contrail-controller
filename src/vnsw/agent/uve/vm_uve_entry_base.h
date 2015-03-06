@@ -116,9 +116,11 @@ public:
     bool add_by_vm_notify() const { return add_by_vm_notify_; }
     void set_add_by_vm_notify(bool value) { add_by_vm_notify_ = value; }
 
-    void InterfaceAdd(const Interface *intf, const VmInterface::FloatingIpSet &olist);
+    void InterfaceAdd(const Interface *intf,
+                      const VmInterface::FloatingIpSet &olist);
     void InterfaceDelete(const Interface *intf);
-    bool FrameVmMsg(UveVirtualMachineAgent *uve);
+    bool FrameVmMsg(const boost::uuids::uuid &u, UveVirtualMachineAgent *uve);
+    bool Update(const VmEntry *vm);
 protected:
 
     Agent *agent_;

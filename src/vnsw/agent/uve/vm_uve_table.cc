@@ -111,7 +111,7 @@ void VmUveTable::SendVmDeleteMsg(const boost::uuids::uuid &u) {
     }
 
     entry->FrameVmStatsMsg(&uve, &stats_uve, &stats_uve_changed);
-    entry->FrameVmMsg(&uve);
+    entry->FrameVmMsg(u, &uve);
     uve.set_deleted(true);
     stats_uve.set_deleted(true);
 
