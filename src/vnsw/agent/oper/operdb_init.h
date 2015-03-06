@@ -17,6 +17,7 @@ class PathPreferenceModule;
 class IFMapDependencyManager;
 class MulticastHandler;
 class InstanceManager;
+class NexthopManager;
 
 class OperDB {
 public:
@@ -45,6 +46,9 @@ public:
     DomainConfig *domain_config_table() {
         return domain_config_.get();
     }
+    NexthopManager *nexthop_manager() {
+      return nexthop_manager_.get();
+    }
 
 private:
     OperDB();
@@ -56,6 +60,7 @@ private:
     std::auto_ptr<IFMapDependencyManager> dependency_manager_;
     std::auto_ptr<InstanceManager> instance_manager_;
     std::auto_ptr<DomainConfig> domain_config_;
+    std::auto_ptr<NexthopManager> nexthop_manager_;
     DISALLOW_COPY_AND_ASSIGN(OperDB);
 };
 #endif

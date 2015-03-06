@@ -1,0 +1,13 @@
+# -*- mode: python; -*-
+
+import sys
+Import('AgentEnv')
+env = AgentEnv.Clone()
+env.CppEnableExceptions()
+
+vnswnhserver_sources = ['nexthop_client.cc', 'nexthop_server.cc',
+                        'nexthop_manager.cc']
+
+vnswnhserver = env.Library('vnswnhserver', vnswnhserver_sources)
+
+env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)
