@@ -38,6 +38,20 @@ void VmUveTableBase::Delete(const boost::uuids::uuid &u) {
     uve_vm_map_.erase(it);
 }
 
+void VmUveTableBase::Change(const VmEntry *vm) {
+    VmUveEntryBase* entry = UveEntryFromVm(vm->GetUuid());
+    if (entry == NULL) {
+        return;
+    }
+
+    bool send = entry->Update(vm);
+    if (send) {
+        UveVirtualMachineAgent uve;
+        entry->FrameVmMsg(vm->GetUuid(), &uve);
+        DispatchVmMsg(uve);
+    }
+}
+
 VmUveTableBase::VmUveEntryPtr VmUveTableBase::Allocate(const VmEntry *vm) {
     VmUveEntryPtr uve(new VmUveEntryBase(agent_, vm->GetCfgName()));
     return uve;
@@ -57,7 +71,7 @@ void VmUveTableBase::SendVmDeleteMsg(const boost::uuids::uuid &u) {
     if (entry == NULL) {
         return;
     }
-    entry->FrameVmMsg(&uve);
+    entry->FrameVmMsg(u, &uve);
     uve.set_deleted(true);
 
     DispatchVmMsg(uve);
@@ -74,7 +88,7 @@ void VmUveTableBase::SendVmMsg(const boost::uuids::uuid &u) {
     }
     UveVirtualMachineAgent uve;
 
-    bool send = entry->FrameVmMsg(&uve);
+    bool send = entry->FrameVmMsg(u, &uve);
     if (send) {
         DispatchVmMsg(uve);
     }
@@ -166,8 +180,10 @@ void VmUveTableBase::VmNotify(DBTablePartBase *partition, DBEntryBase *e) {
         Add(vm, true);
 
         VmStatCollectionStart(state, vm);
+        SendVmMsg(vm->GetUuid());
+    } else {
+        Change(vm);
     }
-    SendVmMsg(vm->GetUuid());
 }
 
 void VmUveTableBase::VmStatCollectionStart(VmUveVmState *state,

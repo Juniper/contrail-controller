@@ -286,6 +286,8 @@ TEST_F(UveVmUveTest, VmAddDel_1) {
     EXPECT_TRUE(vm != NULL);
     UveVirtualMachineAgent *uve1 =  vmut->VmUveObject(vm);
     EXPECT_TRUE(uve1 != NULL);
+    string uuid_str = to_string(vm->GetUuid());
+    EXPECT_STREQ(uuid_str.c_str(), uve1->get_uuid().c_str());
     EXPECT_EQ(0U, uve1->get_interface_list().size()); 
 
     //Add another VM
@@ -1329,7 +1331,6 @@ TEST_F(UveVmUveTest, VmNameInInterfaceList) {
 //Verfiy Source IP overriden for NAT flows in flow-log messages exported by agent
 TEST_F(UveVmUveTest, SIP_override) {
     FlowSetUp();
-    FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_collector();
     TestFlow flow[] = {
         {
             TestFlowPkt(Address::INET, vm1_ip, vm4_ip, 1, 0, 0, "vrf5",
@@ -1372,9 +1373,9 @@ TEST_F(UveVmUveTest, SIP_override) {
     FlowDataIpv4 fl1, fl2;
     fl1 = list.at(0);
     fl2 = list.at(1);
-    if (fl1.get_destip() == dip_addr.to_ulong()) {
+    if ((unsigned int)fl1.get_destip() == dip_addr.to_ulong()) {
         EXPECT_EQ(fl1.get_sourceip(), sip_addr.to_ulong());
-    } else if (fl2.get_destip() == dip_addr.to_ulong()) {
+    } else if ((unsigned int)fl2.get_destip() == dip_addr.to_ulong()) {
         EXPECT_EQ(fl2.get_sourceip(), sip_addr.to_ulong());
     }
 
@@ -1391,9 +1392,9 @@ TEST_F(UveVmUveTest, SIP_override) {
     //Verify that SIP is overwritten even for flows sent during flow delete
     fl1 = list.at(0);
     fl2 = list.at(1);
-    if (fl1.get_destip() == dip_addr.to_ulong()) {
+    if ((unsigned int)fl1.get_destip() == dip_addr.to_ulong()) {
         EXPECT_EQ(fl1.get_sourceip(), sip_addr.to_ulong());
-    } else if (fl2.get_destip() == dip_addr.to_ulong()) {
+    } else if ((unsigned int)fl2.get_destip() == dip_addr.to_ulong()) {
         EXPECT_EQ(fl2.get_sourceip(), sip_addr.to_ulong());
     }
     f->ClearList();
