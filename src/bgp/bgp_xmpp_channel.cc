@@ -2080,6 +2080,18 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
         }
 
         return;
+    } else {
+        if (add_change) {
+            if (routing_instances_.find(rt_instance) !=
+                routing_instances_.end()) {
+                BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                             BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                             "Duplicate subscribe for routing instance " <<
+                             vrf_name << ", triggering close");
+                channel_->Close();
+                return;
+            }
+        }
     }
 
     // If the instance is being deleted and agent is trying to unsubscribe
