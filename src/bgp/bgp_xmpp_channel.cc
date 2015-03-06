@@ -2083,6 +2083,18 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
         }
 
         return;
+    } else {
+        if (add_change) {
+            if (routing_instances_.find(rt_instance) !=
+                routing_instances_.end()) {
+                BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                             BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                             "Duplicate subscribe for routing instance " <<
+                             vrf_name << ", triggering close");
+                channel_->Close();
+                return;
+            }
+        }
     }
 
     // If the instance is being deleted and agent is trying to unsubscribe
@@ -2119,25 +2131,10 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
             RoutingTableMembershipRequestMap::iterator loc =
                 routingtable_membership_request_map_.find(table->name());
             if (loc == routingtable_membership_request_map_.end()) {
-                IPeerRib *rib = mgr->IPeerRibFind(peer_.get(), table);
-                if (rib && !rib->IsStale()) {
-                    BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
-                                 BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
-                                 "Received registration req without " <<
-                                 "unregister : " << table->name());
-                    continue;
-                }
                 MembershipRequestState state(SUBSCRIBE, instance_id);
                 routingtable_membership_request_map_.insert(
                                         make_pair(table->name(), state));
             } else {
-                if (loc->second.pending_req == SUBSCRIBE) {
-                    BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
-                                 BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
-                                 "Received registration req without " <<
-                                 "unregister : " << table->name());
-                    continue;
-                }
                 loc->second.instance_id = instance_id;
                 loc->second.pending_req = SUBSCRIBE;
                 continue;

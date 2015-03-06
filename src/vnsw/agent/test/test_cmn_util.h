@@ -347,6 +347,7 @@ public:
     bool Send(const uint8_t *, size_t, xmps::PeerId, SendReadyCb) {
         return true;
     }
+    void Close() { }
     MOCK_METHOD2(RegisterReceive, void(xmps::PeerId, ReceiveCb));
     MOCK_METHOD1(UnRegisterReceive, void(xmps::PeerId));
     std::string ToString() const { return string("fake"); }

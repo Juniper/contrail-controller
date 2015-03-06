@@ -41,6 +41,7 @@ public:
     virtual bool Send(const uint8_t *, size_t, xmps::PeerId, SendReadyCb) = 0;
     virtual void RegisterReceive(xmps::PeerId, ReceiveCb) = 0;
     virtual void UnRegisterReceive(xmps::PeerId) = 0;
+    virtual void Close() = 0;
     virtual std::string ToString() const = 0;
     virtual std::string StateName() const = 0;
     virtual std::string LastStateName() const = 0;
