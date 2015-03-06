@@ -2093,6 +2093,8 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
                      " is being deleted when processing " <<
                      (add_change ? "subscribe" : "unsubscribe"));
         if (add_change) {
+            assert(routing_instances_.find(rt_instance) ==
+                routing_instances_.end());
             vrf_membership_request_map_[vrf_name] = instance_id;
             return;
         } else {
