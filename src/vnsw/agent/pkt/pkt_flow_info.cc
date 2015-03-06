@@ -843,10 +843,7 @@ void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
         out->vrf_ = vrf;
         if (vrf) {
             UpdateRoute(&out->rt_, vrf, pkt->ip_daddr, flow_dest_plen_map);
-            if (vm_intf->vrf_assign_acl()) {
-                UpdateRoute(&in->rt_, vrf, pkt->ip_saddr,
-                            flow_source_plen_map);
-            }
+            UpdateRoute(&in->rt_, vrf, pkt->ip_saddr, flow_source_plen_map);
         }
     }
 }
