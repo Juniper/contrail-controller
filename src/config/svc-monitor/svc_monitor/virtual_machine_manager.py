@@ -109,7 +109,7 @@ class VirtualMachineManager(InstanceManager):
             return
 
         # get current vm list
-        vm_list = [None for i in range(0, si.max_instances)]
+        vm_list = [None] * si.max_instances
         for vm_id in si.virtual_machines:
             vm = VirtualMachineSM.get(vm_id)
             vm_list[vm.index] = vm
