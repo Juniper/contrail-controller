@@ -304,6 +304,10 @@ public:
         pending_chain_.insert(rtinstance);
     }
 
+    void DeletePendingServiceChain(RoutingInstance *rtinstance) {
+        pending_chain_.erase(rtinstance);
+    }
+
     const ServiceChainMap &chain_set() const {
         return chain_set_;
     }
@@ -316,6 +320,7 @@ public:
 
     void StartResolve();
     bool ResolvePendingServiceChain();
+    size_t PendingQueueSize() const { return pending_chain_.size(); }
 
     void Enqueue(ServiceChainRequest *req);
 
