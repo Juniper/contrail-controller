@@ -1573,20 +1573,21 @@ void BgpStressTest::AddXmppRoute(int instance_id, int agent_id, int route_id) {
                 GetInstanceName(instance_id)))
         return;
 
-    string mcast_addr =
-        "225." + boost::lexical_cast<string>(instance_id) + ".1.1";
-
-    Ip4Prefix mcast_prefix(Ip4Prefix::FromString(mcast_addr + "/32"));
     Ip4Prefix prefix = GetAgentRoute(agent_id + 1, instance_id, route_id);
-    mcast_prefix = task_util::Ip4PrefixIncrement(mcast_prefix, route_id);
-
     xmpp_agents_[agent_id]->AddRoute(GetInstanceName(instance_id),
                                      prefix.ToString(),
                                      GetAgentNexthop(agent_id, route_id));
 
+    if (instance_id == 0)
+        return;
+
     if (!d_no_mcast_routes_) {
+        string mcast_addr =
+            "225." + boost::lexical_cast<string>(instance_id) + ".1.1";
+        Ip4Prefix mcast_prefix(Ip4Prefix::FromString(mcast_addr + "/32"));
+        mcast_prefix = task_util::Ip4PrefixIncrement(mcast_prefix, route_id);
         xmpp_agents_[agent_id]->AddMcastRoute(GetInstanceName(instance_id),
-                            "1/8/" + mcast_prefix.ip4_addr().to_string() +
+                            mcast_prefix.ip4_addr().to_string() +
                             "," + prefix.ip4_addr().to_string(),
                             prefix.ip4_addr().to_string(),
                             "10000-20000");
@@ -1670,17 +1671,19 @@ void BgpStressTest::DeleteXmppRoute(int instance_id, int agent_id,
         return;
 
     Ip4Prefix prefix = GetAgentRoute(agent_id + 1, instance_id, route_id);
-    string mcast_addr =
-        "225." + boost::lexical_cast<string>(instance_id) + ".1.1";
-
-    Ip4Prefix mcast_prefix(Ip4Prefix::FromString(mcast_addr + "/32"));
-    mcast_prefix = task_util::Ip4PrefixIncrement(mcast_prefix, route_id);
-
     xmpp_agents_[agent_id]->DeleteRoute(GetInstanceName(instance_id),
                                         prefix.ToString());
+
+    if (instance_id == 0)
+        return;
+
+    string mcast_addr =
+        "225." + boost::lexical_cast<string>(instance_id) + ".1.1";
+    Ip4Prefix mcast_prefix(Ip4Prefix::FromString(mcast_addr + "/32"));
+    mcast_prefix = task_util::Ip4PrefixIncrement(mcast_prefix, route_id);
     xmpp_agents_[agent_id]->DeleteMcastRoute(GetInstanceName(instance_id),
-                        "1/8/" + mcast_prefix.ip4_addr().to_string() +
-                        "," + prefix.ToString());
+                        mcast_prefix.ip4_addr().to_string() +
+                        "," + prefix.ip4_addr().to_string());
     if (!d_no_inet6_routes_) {
         Inet6Prefix prefix6 = CreateAgentInet6Prefix(agent_id, instance_id,
                                                      route_id);
@@ -2485,8 +2488,8 @@ TEST_P(BgpStressTest, RandomEvents) {
 
     boost::posix_time::ptime time_start(
                                  boost::posix_time::second_clock::local_time());
-    BringUpXmppAgents(n_agents_);
     AddBgpPeers(n_peers_);
+    BringUpXmppAgents(n_agents_);
     AddAllRoutes(n_instances_, n_peers_, n_agents_, n_routes_, n_targets_);
     boost::posix_time::ptime time_end(
                                  boost::posix_time::second_clock::local_time());

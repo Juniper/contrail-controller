@@ -337,6 +337,7 @@ bool RTargetGroupMgr::IsRTargetRouteOnList(RTargetRoute *rt) const {
 }
 
 void RTargetGroupMgr::Initialize() {
+    assert(table_state_.empty());
     RoutingInstanceMgr *mgr = server()->routing_instance_mgr();
     RoutingInstance *master =
         mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
