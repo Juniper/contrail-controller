@@ -47,6 +47,8 @@
 #include "ovs_tor_agent/ovsdb_client/physical_port_ovsdb.h"
 #include "test_ovs_agent_init.h"
 
+#include <ovsdb_types.h>
+
 using namespace pugi;
 using namespace OVSDB;
 
@@ -94,6 +96,11 @@ TEST_F(OvsBaseTest, physical_router) {
         tcp_session_->client_idl()->physical_switch_table();
     PhysicalSwitchEntry key(table, "test-router");
     WAIT_FOR(100, 10000, (table->FindActiveEntry(&key) != NULL));
+
+    OvsdbPhysicalSwitchReq *req = new OvsdbPhysicalSwitchReq();
+    req->HandleRequest();
+    client->WaitForIdle();
+    req->Release();
 }
 
 TEST_F(OvsBaseTest, physical_port) {
@@ -117,6 +124,19 @@ TEST_F(OvsBaseTest, physical_port) {
 
     PhysicalPortEntry key5(table, "ge-0/0/47");
     WAIT_FOR(100, 10000, (table->FindActiveEntry(&key5) != NULL));
+
+    OvsdbPhysicalPortReq *req = new OvsdbPhysicalPortReq();
+    req->HandleRequest();
+    client->WaitForIdle();
+    req->Release();
+}
+
+TEST_F(OvsBaseTest, connection_close) {
+    tcp_session_->TriggerClose();
+    client->WaitForIdle();
+    WAIT_FOR(100, 10000,
+             (tcp_session_ = static_cast<OvsdbClientTcpSession *>
+              (init_->ovsdb_client()->next_session(NULL))) != NULL);
 }
 
 int main(int argc, char *argv[]) {
