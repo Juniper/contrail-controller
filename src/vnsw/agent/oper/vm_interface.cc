@@ -19,6 +19,7 @@
 #include <cmn/agent.h>
 #include <oper/operdb_init.h>
 #include <oper/ifmap_dependency_manager.h>
+#include <oper/config_manager.h>
 #include <oper/route_common.h>
 #include <oper/vm.h>
 #include <oper/vn.h>
@@ -353,8 +354,6 @@ static void BuildVrfAndServiceVlanInfo(Agent *agent,
 
         if (rule.vlan_tag == 0 && rule.protocol == "" 
             && rule.service_chain_address == "") {
-            LOG(DEBUG, "VRF for interface " << data->cfg_name_ << " set to <" 
-                << vrf_node->name() << ">");
             data->vrf_name_ = vrf_node->name();
         } else {
             boost::system::error_code ec;
@@ -774,7 +773,7 @@ bool InterfaceTable::VmiIFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
 
 // Virtual Machine Interface is added or deleted into oper DB from Nova 
 // messages. The Config notify is used only to change interface.
-bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req) {
+bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req) {
     // Get interface UUID
     VirtualMachineInterface *cfg = static_cast <VirtualMachineInterface *>
         (node->GetObject());
@@ -785,7 +784,7 @@ bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req) {
 
     // Handle object delete
     if (node->IsDeleted()) {
-        return DeleteVmi(this, u, &req);
+        return false;
     }
 
     // Get the entry from Interface Config table
@@ -873,13 +872,29 @@ bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req) {
 
     if (data->device_type_ != VmInterface::DEVICE_TYPE_INVALID) {
         AddVmiToVmiType(u, data->device_type_);
-    } else {
-        LOG(DEBUG, "DeviceType for VMI <" << UuidToString(u) <<
-            "> could not be identified. RESYNC called on interface");
     }
     req.key.reset(key);
     req.data.reset(data);
     return true;
+}
+
+bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req) {
+    // Get interface UUID
+    VirtualMachineInterface *cfg = static_cast <VirtualMachineInterface *>
+        (node->GetObject());
+    assert(cfg);
+    uuid u;
+    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, u) == false)
+        return false;
+
+    // Handle object delete
+    if (node->IsDeleted()) {
+        agent()->config_manager()->DelVmiNode(node);
+        return DeleteVmi(this, u, &req);
+    }
+
+    agent()->config_manager()->AddVmiNode(node);
+    return false;
 }
 
 // Handle virtual-machine-interface-routing-instance config node
