@@ -19,6 +19,10 @@ XmppChannelMux::XmppChannelMux(XmppConnection *connection)
 XmppChannelMux::~XmppChannelMux() {
 }
 
+void XmppChannelMux::Close() {
+    connection_->Clear();
+}
+
 xmps::PeerState XmppChannelMux::GetPeerState() const {
     xmsm::XmState st = connection_->GetStateMcState();
     return (st == xmsm::ESTABLISHED) ? xmps::READY :
