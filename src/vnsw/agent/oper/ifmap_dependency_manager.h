@@ -89,6 +89,7 @@ public:
      * Add DBState to an IFMapNode
      */
     IFMapNodePtr SetState(IFMapNode *node);
+    IFMapNodeState *IFMapNodeGet(IFMapNode *node);
     /*
      * Register a notification callback.
      */
@@ -120,7 +121,6 @@ private:
     void ChangeListAdd(IFMapNode *node);
 
     void IFMapNodeReset(IFMapNode *node);
-    IFMapNodeState *IFMapNodeGet(IFMapNode *node);
 
     DB *database_;
     DBGraph *graph_;
