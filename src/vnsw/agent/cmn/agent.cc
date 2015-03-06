@@ -22,6 +22,7 @@
 #include <cmn/agent.h>
 
 #include <oper/operdb_init.h>
+#include <oper/config_manager.h>
 #include <oper/interface_common.h>
 #include <oper/multicast.h>
 #include <oper/nexthop.h>
@@ -397,6 +398,8 @@ Agent::Agent() :
 
     agent_signal_.reset(
         AgentObjectFactory::Create<AgentSignal>(event_mgr_));
+
+    config_manager_.reset(new ConfigManager(this));
 }
 
 Agent::~Agent() {
@@ -437,6 +440,10 @@ AgentStats *Agent::stats() const {
 
 void Agent::set_stats(AgentStats *stats) {
     stats_ = stats;
+}
+
+ConfigManager *Agent::config_manager() const {
+    return config_manager_.get();
 }
 
 KSync *Agent::ksync() const {

@@ -56,6 +56,8 @@ void AddXmlTail(char *buff, int &len) {
 void AddLinkString(char *buff, int &len, const char *node_name1,
                    const char *name1, const char *node_name2,
                    const char *name2) {
+    char mdata[256];
+    sprintf(mdata, "%s-%s", node_name1, node_name2);
     sprintf(buff + len,
             "       <link>\n"
             "           <node type=\"%s\">\n"
@@ -64,7 +66,8 @@ void AddLinkString(char *buff, int &len, const char *node_name1,
             "           <node type=\"%s\">\n"
             "               <name>%s</name>\n"
             "           </node>\n"
-            "       </link>\n", node_name1, name1, node_name2, name2);
+            "           <metadata type=\"%s\"/>\n"
+            "       </link>\n", node_name1, name1, node_name2, name2, mdata);
 
     len = strlen(buff);
 }
@@ -72,6 +75,8 @@ void AddLinkString(char *buff, int &len, const char *node_name1,
 void DelLinkString(char *buff, int &len, const char *node_name1,
                    const char *name1, const char *node_name2,
                    const char *name2) {
+    char mdata[256];
+    sprintf(mdata, "%s-%s", node_name1, node_name2);
     sprintf(buff + len,
             "       <link>\n"
             "           <node type=\"%s\">\n"
@@ -80,7 +85,8 @@ void DelLinkString(char *buff, int &len, const char *node_name1,
             "           <node type=\"%s\">\n"
             "               <name>%s</name>\n"
             "           </node>\n"
-            "       </link>\n", node_name1, name1, node_name2, name2);
+            "           <metadata>%s</metadata>\n"
+            "       </link>\n", node_name1, name1, node_name2, name2, mdata);
     len = strlen(buff);
 }
 
@@ -254,7 +260,7 @@ void AddLink(const char *node_name1, const char *name1,
              const char *node_name2, const char *name2) {
     char buff[1024];
     int len = 0;
-
+ 
     AddXmlHdr(buff, len);
     AddLinkString(buff, len, node_name1, name1, node_name2, name2);
     AddXmlTail(buff, len);
@@ -2163,8 +2169,8 @@ void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id,
         AddLink("virtual-network", vn_name, "routing-instance", vrf_name);
         AddLink("virtual-machine", vm_name, "virtual-machine-interface",
                 input[i].name);
-        AddLink("virtual-network", vn_name, "virtual-machine-interface",
-                input[i].name);
+        AddLink("virtual-machine-interface", input[i].name, "virtual-network",
+                vn_name);
         AddLink("virtual-machine-interface-routing-instance", input[i].name,
                 "routing-instance", vrf_name);
         AddLink("virtual-machine-interface-routing-instance", input[i].name,
@@ -2238,8 +2244,8 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id,
         }
         AddLink("virtual-machine", vm_name, "virtual-machine-interface",
                 input[i].name);
-        AddLink("virtual-network", vn_name, "virtual-machine-interface",
-                input[i].name);
+        AddLink("virtual-machine-interface", input[i].name,
+                "virtual-network", vn_name);
         AddLink("virtual-machine-interface-routing-instance", input[i].name,
                 "routing-instance", vrf_name);
         AddLink("virtual-machine-interface-routing-instance", input[i].name,

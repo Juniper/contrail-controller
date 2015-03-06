@@ -14,6 +14,7 @@
 #include <oper/ifmap_dependency_manager.h>
 #include <oper/physical_device.h>
 #include <oper/physical_device_vn.h>
+#include <oper/config_manager.h>
 
 using std::string;
 using boost::assign::map_list_of;
@@ -170,18 +171,20 @@ void PhysicalDeviceVnTable::IterateConfig(const Agent *agent, const char *type,
     if (adj_node == NULL)
         return;
 
-    autogen::VirtualNetwork *vn = static_cast<autogen::VirtualNetwork *>
-        (adj_node->GetObject());
-    assert(vn);
-    autogen::IdPermsType id_perms = vn->id_perms();
     boost::uuids::uuid vn_uuid;
-    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
-               vn_uuid);
+    if (agent->cfg_listener()->GetCfgDBStateUuid(adj_node, vn_uuid) == false)
+        return;
 
     PhysicalDeviceVnKey vn_key(dev_uuid, vn_uuid);
     config_tree_[vn_key] = config_version_;
+    agent->config_manager()->AddPhysicalDeviceVn(dev_uuid, vn_uuid);
+    return;
+}
+
+void PhysicalDeviceVnTable::PhysicalDeviceVnAdd(const boost::uuids::uuid &dev,
+                                                const boost::uuids::uuid &vn) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new PhysicalDeviceVnKey(dev_uuid, vn_uuid));
+    req.key.reset(new PhysicalDeviceVnKey(dev, vn));
     req.data.reset(new PhysicalDeviceVnData());
     Enqueue(&req);
     return;
@@ -199,7 +202,7 @@ bool PhysicalDeviceVnTable::DeviceVnWalk(DBTablePartBase *partition,
     req.key.reset(key);
     req.data.reset(NULL);
     Process(req);
-    return true;
+    return false;
 }
 
 void PhysicalDeviceVnTable::DeviceVnWalkDone(DBTableBase *part) {
@@ -251,6 +254,8 @@ void PhysicalDeviceVnTable::ConfigUpdate(IFMapNode *node) {
             req.key.reset(new PhysicalDeviceVnKey(del_it->first.device_uuid_,
                                                   del_it->first.vn_uuid_));
             Enqueue(&req);
+            agent()->config_manager()->DelPhysicalDeviceVn
+                (del_it->first.device_uuid_, del_it->first.vn_uuid_);
             config_tree_.erase(del_it);
         }
     }
