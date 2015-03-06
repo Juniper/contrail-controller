@@ -119,6 +119,35 @@ protected:
         assert(table_a);
     }
 
+    void TableListener(DBTablePartBase *root, DBEntryBase *entry) {
+    }
+
+    int Register(const char *inst, const string &name) {
+        DB *db_a = a_.get()->database();
+        InetTable *table_a = static_cast<InetTable *>(db_a->FindTable(
+                inst ? string(inst) + ".inet.0" : "inet.0"));
+        assert(table_a);
+        return table_a->Register(
+            boost::bind(&ShowRouteTestBase::TableListener, this, _1, _2),
+            name);
+    }
+
+    void Unregister(const char *inst, int id) {
+        DB *db_a = a_.get()->database();
+        InetTable *table_a = static_cast<InetTable *>(db_a->FindTable(
+                inst ? string(inst) + ".inet.0" : "inet.0"));
+        assert(table_a);
+        table_a->Unregister(id);
+    }
+
+    size_t ListenerCount(const char *inst) {
+        DB *db_a = a_.get()->database();
+        InetTable *table_a = static_cast<InetTable *>(db_a->FindTable(
+                inst ? string(inst) + ".inet.0" : "inet.0"));
+        assert(table_a);
+        return table_a->GetListenerCount();
+    }
+
     void AddInetRoute(std::string prefix_str, BgpPeer *peer,
                       const char *inst = NULL) {
         BgpAttrPtr attr_ptr;
@@ -353,6 +382,30 @@ protected:
         }
     }
 
+    static void ValidateShowRouteListenersSandeshResponse(Sandesh *sandesh,
+        vector<int> &ids, vector<string> names, int called_from_line) {
+        ShowRouteResp *resp = dynamic_cast<ShowRouteResp *>(sandesh);
+        EXPECT_NE((ShowRouteResp *)NULL, resp);
+
+        EXPECT_EQ(1, resp->get_tables().size());
+        const ShowRouteTable &table = resp->get_tables()[0];
+        const vector<ShowTableListener> &listeners = table.get_listeners();
+        EXPECT_EQ(ids.size(), listeners.size());
+        EXPECT_EQ(names.size(), listeners.size());
+
+        cout << "From line number: " << called_from_line << endl;
+        cout << "*****************************************************" << endl;
+        cout << "Listeners for " << table.routing_table_name << endl;
+        for (size_t i = 0; i < listeners.size(); i++) {
+            EXPECT_EQ(ids[i], listeners[i].id);
+            EXPECT_EQ(names[i], listeners[i].name);
+            cout << "Id: " << listeners[i].id << " ";
+            cout << "Name: " << listeners[i].name << endl;
+        }
+        cout << "*****************************************************" << endl;
+        validate_done_ = true;
+    }
+
     static void ValidateShowRouteSummarySandeshResponse(Sandesh *sandesh,
         vector<int> &result, int called_from_line) {
         ShowRouteSummaryResp *resp =
@@ -581,6 +634,68 @@ TEST_F(ShowRouteTest1, Basic) {
     DeleteInetVpnRoute("2:20:192.240.11.0/12", peers_[0], 2);
     DeleteInetVpnRoute("2:20:192.242.22.0/24", peers_[1], 1);
     DeleteInetVpnRoute("2:20:192.168.33.0/24", peers_[2], 0);
+}
+
+TEST_F(ShowRouteTest1, TableListeners) {
+    Configure();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, ListenerCount("blue"));
+
+    AddInetRoute("192.240.11.0/12", peers_[0], "blue");
+    AddInetRoute("192.168.12.0/24", peers_[1], "blue");
+    AddInetRoute("192.168.23.0/24", peers_[2], "blue");
+
+    string name0("Blue Listener 0");
+    string name1("Blue Listener 1");
+    string name2("Blue Listener 2");
+    string name3("Blue Listener 3");
+    int id0 = Register("blue", name0);
+    int id1 = Register("blue", name1);
+    int id2 = Register("blue", name2);
+    int id3 = Register("blue", name3);
+    TASK_UTIL_EXPECT_EQ(4, ListenerCount("blue"));
+
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = a_.get();
+    Sandesh::set_client_context(&sandesh_context);
+
+    vector<int> ids = list_of(id0)(id1)(id2)(id3);
+    vector<string> names = list_of(name0)(name1)(name2)(name3);
+    ShowRouteReq *show_req = new ShowRouteReq;
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRouteListenersSandeshResponse, _1, ids, names,
+            __LINE__));
+    show_req->set_routing_table("blue.inet.0");
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    Unregister("blue", id2);
+    TASK_UTIL_EXPECT_EQ(3, ListenerCount("blue"));
+
+    ids = list_of(id0)(id1)(id3);
+    names = list_of(name0)(name1)(name3);
+    show_req = new ShowRouteReq;
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRouteListenersSandeshResponse, _1, ids, names,
+            __LINE__));
+    show_req->set_routing_table("blue.inet.0");
+    validate_done_ = false;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(true, validate_done_);
+
+    Unregister("blue", id0);
+    Unregister("blue", id1);
+    Unregister("blue", id3);
+    TASK_UTIL_EXPECT_EQ(0, ListenerCount("blue"));
+
+    DeleteInetRoute("192.240.11.0/12", peers_[0], 2, "blue");
+    DeleteInetRoute("192.168.12.0/24", peers_[1], 1, "blue");
+    DeleteInetRoute("192.168.23.0/24", peers_[2], 0, "blue");
 }
 
 class ShowRouteTest2 : public ShowRouteTestBase {

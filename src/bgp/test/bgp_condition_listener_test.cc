@@ -96,6 +96,10 @@ public:
         return false;
     }
 
+    string ToString() const {
+        return "TestConditionMatch";
+    }
+
     bool matched_routes_empty() {
         tbb::mutex::scoped_lock lock(mutex_);
         return match_list_.empty();

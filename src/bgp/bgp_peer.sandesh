@@ -3,6 +3,7 @@
  */
 
 include "bgp/peer_info.sandesh"
+include "db/db.sandesh"
 include "io/io.sandesh"
 
 struct address_family {
@@ -160,6 +161,7 @@ struct ShowRouteTable {
     6: u64 secondary_paths;
     7: u64 infeasible_paths;
     8: list<ShowRoute> routes;
+    10: list<db.ShowTableListener> listeners;
 }
 
 response sandesh ShowRouteResp {

@@ -148,6 +148,10 @@ public:
     virtual bool Match(BgpServer *server, BgpTable *table,
                        BgpRoute *route, bool deleted);
 
+    virtual string ToString() const {
+        return (string("StaticRoute ") + nexthop_.to_string());
+    }
+
     void set_unregistered() {
         unregistered_ = true;
     }

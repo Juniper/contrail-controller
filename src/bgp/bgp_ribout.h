@@ -330,6 +330,7 @@ public:
     int RouteAdvertiseCount(const BgpRoute *rt) const;
 
     DBTableBase::ListenerId listener_id() const { return listener_id_; }
+    const std::string &ToString() const { return name_; }
 
     RibOutUpdates *updates() { return updates_.get(); }
     BgpExport *bgp_export() { return bgp_export_.get(); }
@@ -352,9 +353,11 @@ private:
         int index;
     };
     typedef IndexMap<IPeerUpdate *, PeerState, RibPeerSet> PeerStateMap;
+
     BgpTable *table_;
     SchedulingGroupManager *mgr_;
     RibExportPolicy policy_;
+    std::string name_;
     PeerStateMap state_map_;
     RibPeerSet active_peerset_;
     int listener_id_;

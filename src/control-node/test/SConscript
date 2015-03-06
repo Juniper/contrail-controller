@@ -8,6 +8,7 @@ import sys
 
 env = BuildEnv.Clone()
 env.Prepend(CPPPATH = [env['TOP'],
+                       env['TOP'] + '/db',
                        env['TOP'] + '/io'
                       ])
 

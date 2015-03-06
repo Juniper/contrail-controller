@@ -8,7 +8,15 @@ Import('BuildEnv')
 
 env = BuildEnv.Clone()
 
+env.Append(CPPPATH = [env['TOP'],
+                      env['TOP'] + '/db',
+                     ])
+
+SandeshGenFiles = env.SandeshGenOnlyCpp('db.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+
 libdb = env.Library('db',
+                    SandeshGenSrcs +
                     ['db.cc',
                      'db_entry.cc',
                      'db_graph.cc',

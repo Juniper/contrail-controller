@@ -22,6 +22,7 @@ SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 env.Append(CPPPATH = env['TOP'])
 env.Append(CPPPATH = [env['TOP'] + '/bgp'])
 env.Append(CPPPATH = [env['TOP'] + '/io'])
+env.Append(CPPPATH = [env['TOP'] + '/db'])
 
 SandeshPeerFiles = env.SandeshGenCpp('peer_info.sandesh')
 SandeshPeerGenSrcs = env.ExtractCpp(SandeshPeerFiles)
@@ -33,7 +34,7 @@ libbgp = env.Library('bgp',
                       'bgp_aspath.cc',
                       'bgp_attr.cc',
                       'bgp_attr_base.cc',
-		      'bgp_config.cc',
+                      'bgp_config.cc',
                       'bgp_condition_listener.cc',
                       'bgp_debug.cc',
                       'bgp_evpn.cc',
