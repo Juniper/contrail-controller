@@ -35,6 +35,7 @@ class FlowStatsCollector;
 namespace OVSDB {
 class OvsdbClient;
 };
+class ConfigManager;
 
 class Interface;
 typedef boost::intrusive_ptr<Interface> InterfaceRef;
@@ -784,6 +785,8 @@ public:
     bool init_done() const { return init_done_; }
     void set_init_done(bool done) { init_done_ = done; }
 
+    ConfigManager *config_manager() const;
+
     AgentParam *params() const { return params_; }
 
     bool isXenMode();
@@ -869,6 +872,7 @@ private:
     LoadbalancerTable *loadbalancer_table_;
     PhysicalDeviceTable *physical_device_table_;
     PhysicalDeviceVnTable *physical_device_vn_table_;
+    std::auto_ptr<ConfigManager> config_manager_;
  
     // Mirror config table
     MirrorCfgTable *mirror_cfg_table_;

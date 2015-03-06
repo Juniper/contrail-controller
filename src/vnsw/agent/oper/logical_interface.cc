@@ -15,6 +15,7 @@
 #include <oper/physical_device.h>
 #include <oper/logical_interface.h>
 #include <oper/vm_interface.h>
+#include <oper/config_manager.h>
 
 #include <vector>
 #include <string>
@@ -293,8 +294,8 @@ bool InterfaceTable::LogicalInterfaceIFNodeToUuid(IFMapNode *node,
     return true;
 }
 
-bool InterfaceTable::LogicalInterfaceIFNodeToReq(IFMapNode *node,
-                                                 DBRequest &req) {
+bool InterfaceTable::LogicalInterfaceProcessConfig(IFMapNode *node,
+                                                   DBRequest &req) {
     autogen::LogicalInterface *port =
         static_cast <autogen::LogicalInterface *>(node->GetObject());
     assert(port);
@@ -323,6 +324,27 @@ bool InterfaceTable::LogicalInterfaceIFNodeToReq(IFMapNode *node,
 
     Enqueue(&req);
     VmInterface::LogicalPortSync(this, node);
+    return false;
+}
+
+bool InterfaceTable::LogicalInterfaceIFNodeToReq(IFMapNode *node,
+                                                 DBRequest &req) {
+    autogen::LogicalInterface *port =
+        static_cast <autogen::LogicalInterface *>(node->GetObject());
+    assert(port);
+
+    boost::uuids::uuid u;
+    if (agent()->cfg_listener()->GetCfgDBStateUuid(node, u) == false)
+        return false;
+
+    req.key.reset(BuildKey(node, u));
+    if (node->IsDeleted()) {
+        agent()->config_manager()->DelLogicalInterfaceNode(node);
+        req.oper = DBRequest::DB_ENTRY_DELETE;
+        return true;
+    }
+
+    agent()->config_manager()->AddLogicalInterfaceNode(node);
     return false;
 }
 
