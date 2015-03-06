@@ -45,6 +45,7 @@ class XmppChannelMock : public XmppChannel {
 public:
     XmppChannelMock() { }
     virtual ~XmppChannelMock() { }
+    void Close() { }
     bool Send(const uint8_t *, size_t, xmps::PeerId, SendReadyCb) {
         return true;
     }

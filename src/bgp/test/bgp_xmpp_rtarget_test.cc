@@ -1429,7 +1429,6 @@ TEST_F(BgpXmppRTargetTest, SubscribeUnsubscribe2) {
     VerifyRTargetRouteNoExists(mx_.get(), "64496:target:64496:1");
 
     SubscribeAgents("blue", 1);
-    SubscribeAgents("blue", 1);
 
     VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
     VerifyInetRouteExists(cn1_.get(), "blue", BuildPrefix());
@@ -1501,7 +1500,6 @@ TEST_F(BgpXmppRTargetTest, SubscribeThenSessionDown2) {
 
     AddInetRoute(mx_.get(), NULL, "blue", BuildPrefix());
 
-    SubscribeAgents("blue", 1);
     SubscribeAgents("blue", 1);
 
     VerifyInetRouteExists(mx_.get(), "blue", BuildPrefix());
@@ -2213,8 +2211,6 @@ TEST_F(BgpXmppRTargetTest, LocalASNUpdate) {
     UpdateASN(64496, 64496, 64496, 64497, 64497, 64497);
     task_util::WaitForIdle();
     BringupAgents();
-
-    SubscribeAgents("blue", 1);
 
     VerifyRTargetRouteNoExists(cn1_.get(), "64496:target:64496:1");
     VerifyRTargetRouteNoExists(cn2_.get(), "64496:target:64496:1");

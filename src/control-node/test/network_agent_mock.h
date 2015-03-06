@@ -270,9 +270,11 @@ public:
 
             bool HasSubscribed(const std::string &network);
             void Subscribe(const std::string &network, int id = -1,
-                           bool wait_for_established = true);
+                           bool wait_for_established = true,
+                           bool send_subscribe = true);
             void Unsubscribe(const std::string &network, int id = -1,
-                             bool wait_for_established = true);
+                             bool wait_for_established = true,
+                             bool send_unsubscribe = true);
             void Update(const std::string &network, long count);
             void Update(const std::string &network,
                         const std::string &node_name, T *rt_entry);
@@ -301,6 +303,21 @@ public:
     }
     void SessionDown();
     void SessionUp();
+
+    void SubscribeAll(const std::string &network, int id = -1,
+                      bool wait_for_established = true) {
+        route_mgr_->Subscribe(network, id, wait_for_established, true);
+        inet6_route_mgr_->Subscribe(network, id, wait_for_established, false);
+        enet_route_mgr_->Subscribe(network, id, wait_for_established, false);
+        mcast_route_mgr_->Subscribe(network, id, wait_for_established, false);
+    }
+    void UnsubscribeAll(const std::string &network, int id = -1,
+                        bool wait_for_established = true) {
+        route_mgr_->Unsubscribe(network, id, wait_for_established, true);
+        inet6_route_mgr_->Unsubscribe(network, id, wait_for_established, false);
+        enet_route_mgr_->Unsubscribe(network, id, wait_for_established, false);
+        mcast_route_mgr_->Unsubscribe(network, id, wait_for_established, false);
+    }
 
     void Subscribe(const std::string &network, int id = -1,
                    bool wait_for_established = true) {
