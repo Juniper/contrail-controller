@@ -1294,7 +1294,7 @@ bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Addre
 
     ControllerEcmpRoute *data =
         new ControllerEcmpRoute(peer, vm_ip, plen, vn_name, -1, false, vrf_name,
-                                sg, path_preference, nh_req);
+                                sg, path_preference, TunnelType::MplsType(), nh_req);
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vrf_name, vm_ip, plen, data);
 }
 
