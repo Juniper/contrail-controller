@@ -537,7 +537,7 @@ class VncIfmapClient(VncIfmapClientGen):
             if self.accumulated_request_len >= 1024*1024:
                 upd_str = \
                     ''.join(''.join(request) for request in \
-                        self._ifmap_db.accumulator)
+                        self.accumulator)
                 self._publish_to_ifmap('update', upd_str, async=True)
                 self.accumulator = []
                 self.accumulated_request_len = 0
