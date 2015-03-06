@@ -112,8 +112,7 @@ class VirtualMachineManager(InstanceManager):
         vm_list = [None for i in range(0, si.max_instances)]
         for vm_id in si.virtual_machines:
             vm = VirtualMachineSM.get(vm_id)
-            index = int(vm.display_name.split('__')[-2]) - 1
-            vm_list[index] = vm
+            vm_list[vm.index] = vm
 
         # create and launch vm
         si.state = 'launching'
@@ -147,6 +146,12 @@ class VirtualMachineManager(InstanceManager):
 
     def check_service(self, si):
         for vm_id in si.virtual_machines:
+            # check if max instance count is reduced
+            vm = VirtualMachineSM.get(vm_id)
+            if vm and ((vm.index + 1) > si.max_instances):
+                delete_service(vm)
+                continue
+
             vm = self._nc.oper('servers', 'get', si.proj_name, id=vm_id)
             if vm and vm.status == 'ERROR':
                 try:

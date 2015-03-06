@@ -221,7 +221,7 @@ class VirtualRouterSM(DBBase):
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
-        self.virtual_machine = None
+        self.virtual_machines = set()
         self.update(obj_dict)
     # end __init__
 
@@ -230,7 +230,7 @@ class VirtualRouterSM(DBBase):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
-        self.update_single_ref('virtual_machine', obj)
+        self.update_multiple_refs('virtual_machine', obj)
     # end update
 
     @classmethod
@@ -238,7 +238,7 @@ class VirtualRouterSM(DBBase):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
-        obj.update_single_ref('virtual_machine', {})
+        obj.update_multiple_refs('virtual_machine', {})
         del cls._dict[uuid]
     # end delete
 # end VirtualRouterSM
@@ -640,9 +640,10 @@ class InterfaceRouteTableSM(DBBase):
     _dict = {}
     obj_type = 'interface_route_table'
 
-    def __init__(self, uuid):
+    def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
+        self.update(obj_dict)
     # end __init__
 
     def update(self, obj=None):
