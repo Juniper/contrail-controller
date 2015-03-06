@@ -12,7 +12,7 @@ class VMObjMatcher(object):
         self.index = index
 
     def _has_field(self, index, ob):
-        if str(index) in ob.uuid:
+        if str(index) == ob.display_name.split('__')[-2]:
             return True
         return False
 
@@ -22,8 +22,8 @@ class VMObjMatcher(object):
         return True
 
 class FakeNovaServer(object):
-    def __init__(self, name):
-        self.id = name
+    def __init__(self, uuid, name):
+        self.id = uuid
         self.name = name
 
     def get(self):
@@ -75,6 +75,8 @@ class VirtualMachineManagerTest(unittest.TestCase):
             nova_client=self.nova_mock, args=self.mocked_args)
 
     def tearDown(self):
+        ServiceTemplateSM.delete('fake-st-uuid')
+        ServiceInstanceSM.delete('fake-si-uuid')
         pass
 
     def create_test_project(self, fq_name_str):
@@ -136,14 +138,13 @@ class VirtualMachineManagerTest(unittest.TestCase):
 
         def nova_oper(resource, oper, proj_name, **kwargs):
             if resource == 'servers' and oper == 'create':
-                nova_vm = FakeNovaServer(kwargs['name'])
+                nova_vm = FakeNovaServer('fake-vm-uuid', kwargs['name'])
                 return nova_vm
             else:
                 return mock.MagicMock()
         self.nova_mock.oper = nova_oper
 
         self.vm_manager.create_service(st, si)
-        vm_obj = VirtualMachine()
         self.mocked_vnc.virtual_machine_create.assert_any_call(VMObjMatcher(1))
         self.mocked_vnc.virtual_machine_create.assert_any_call(VMObjMatcher(2))
 
