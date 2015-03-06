@@ -3,94 +3,65 @@
 from .instance_manager import VRouterHostedManager
 from vnc_api.vnc_api import *
 
-
+# Manager for service instances (Docker or KVM) hosted on selected vrouter
 class VRouterInstanceManager(VRouterHostedManager):
-    """
-    Manager for service instances (Docker or KVM) hosted on selected VRouter
-    """
-    def create_service(self, st_obj, si_obj):
-        self.logger.log_info("Creating new VRouter instance!")
-        si_props = si_obj.get_service_instance_properties()
-        st_props = st_obj.get_service_template_properties()
-        if st_props is None:
-            self.logger.log_error("Cannot find service template associated to "
-                "service instance %s" % si_obj.get_fq_name_str())
+    def _associate_vrouter(self, si, vm):
+        vrouter_name = None
+        vr_obj = None
+        vm_obj = VirtualMachine()
+        vm_obj.uuid = vm.uuid
+        vm_obj.fq_name = vm.fq_name
+
+        if vm.virtual_router:
+            vr = VirtualRouterSM.get(vm.virtual_router)
+            if si.vr_id == vr.uuid:
+                vrouter_name = vr.name
+            else:
+                vr_obj = VirtualRouter()
+                vr_obj.uuid = vr.uuid
+                vr_obj.fq_name = vr.fq_name
+                vr_obj.del_virtual_machine(vm_obj)
+                self._vnc_lib.virtual_router_update(vr_obj)
+                self.logger.log_info("vm %s deleted from vrouter %s" %
+                    (vm_obj.get_fq_name_str(), vr_obj.get_fq_name_str()))
+                vm.virtual_router = None
+
+        if not vm.virtual_router:
+            vr = VirtualRouterSM(si.vr_id)
+            vr_obj = VirtualRouter()
+            vr_obj.uuid = vr.uuid
+            vr_obj.fq_name = vr.fq_name
+            vr_obj.add_virtual_machine(vm_obj)
+            self._vnc_lib.virtual_router_update(vr_obj)
+            self.logger.log_info("vrouter %s updated with vm %s" %
+                (':'.join(vr_obj.get_fq_name()), vm.name))
+            vrouter_name = vr_obj.get_fq_name()[-1]
+
+        return vrouter_name
+
+    def create_service(self, st, si):
+        if not self.validate_network_config(st, si):
             return
 
-        self.db.service_instance_insert(si_obj.get_fq_name_str(),
-                                        {'max-instances': str(1),
-                                         'state': 'launching'})
+        # get current vm list
+        vm_list = [None for i in range(0, si.max_instances)]
+        for vm_id in si.virtual_machines:
+            vm = VirtualMachineSM.get(vm_id)
+            vm_list[vm.index] = vm
 
-        # populate nic information
-        nics = self._get_nic_info(si_obj, si_props, st_props)
+        # create and launch vm
+        si.state = 'launching'
+        instances = []
+        for index in range(0, si.max_instances):
+            vm = self._check_create_netns_vm(index, si, st, vm_list[index])
+            if not vm:
+                continue
 
-        # this type can have only one instance
-        instance_name = self._get_instance_name(si_obj, 0)
-        try:
-            vm_obj = self._vnc_lib.virtual_machine_read(
-                fq_name=[instance_name], fields="virtual_router_back_refs")
-            self.logger.log_info("VM %s already exists" % instance_name)
-        except NoIdError:
-            vm_obj = VirtualMachine(instance_name)
-            self._vnc_lib.virtual_machine_create(vm_obj)
-            self.logger.log_info("VM %s created" % instance_name)
-
-        si_refs = vm_obj.get_service_instance_refs()
-        if (si_refs is None) or (si_refs[0]['to'][0] == 'ERROR'):
-            vm_obj.set_service_instance(si_obj)
-            self._vnc_lib.virtual_machine_update(vm_obj)
-            self.logger.log_info("VM %s updated with SI %s" %
-                (instance_name, si_obj.get_fq_name_str()))
-
-        # Create virtual machine interfaces with an IP on networks
-        for nic in nics:
-            vmi_obj = self._create_svc_vm_port(nic, instance_name,
-                                               st_obj, si_obj)
-            if vmi_obj.get_virtual_machine_refs() is None:
-                vmi_obj.set_virtual_machine(vm_obj)
-                self._vnc_lib.virtual_machine_interface_update(vmi_obj)
-                self.logger.log_info("VMI %s updated with VM %s" %
-                    (vmi_obj.get_fq_name_str(), instance_name))
-
-        vrouter_name = None
-        state = 'pending'
-        vrouter_back_refs = getattr(vm_obj, "virtual_router_back_refs", None)
-        vr_id = si_props.get_virtual_router_id()
-        if (vrouter_back_refs is not None
-                and vrouter_back_refs[0]['uuid'] != vr_id):
-            # if it is not choosen vrouter remove machine from it
-            vr_obj = self._vnc_lib.virtual_router_read(
-                id=vr_id)
-            if vr_obj:
-                vr_obj.del_virtual_machine(vm_obj)
-                self.logger.log_info("VM %s removed from VRouter %s" %
-                    (instance_name, ':'.join(vr_obj.get_fq_name())))
-            vrouter_back_refs = None
-        # Associate instance on the selected vrouter
-        if vrouter_back_refs is None:
-            vr_obj = self._vnc_lib.virtual_router_read(
-                id=vr_id)
-            if vr_obj:
-                vr_obj.add_virtual_machine(vm_obj)
-                chosen_vr_fq_name = vr_obj.get_fq_name()
-                vrouter_name = chosen_vr_fq_name[-1]
-                self._vnc_lib.virtual_router_update(vr_obj)
-                state = 'active'
-                self.logger.log_info("Info: VRouter %s updated with VM %s" %
-                    (':'.join(chosen_vr_fq_name), instance_name))
-        else:
-            vrouter_name = vrouter_back_refs[0]['to'][-1]
-            state = 'active'
-
-        vm_db_entry = self._set_vm_db_info(0, instance_name,
-                                           vm_obj.uuid, state, vrouter_name)
-        self.db.service_instance_insert(si_obj.get_fq_name_str(),
-                                        vm_db_entry)
+            vr_name = self._associate_vrouter(si, vm)
+            instances.append({'uuid': vm.uuid, 'vr_name': vr_name})
 
         # uve trace
-        self.logger.uve_svc_instance(si_obj.get_fq_name_str(),
-                                     status='CREATE',
-                                     vms=[{'uuid': vm_obj.uuid,
-                                           'vr_name': vrouter_name}],
-                                     st_name=st_obj.get_fq_name_str())
-
+        si.state = 'active'
+        self.logger.uve_svc_instance((':').join(si.fq_name),
+            status='CREATE', vms=instances,
+            st_name=(':').join(st.fq_name))

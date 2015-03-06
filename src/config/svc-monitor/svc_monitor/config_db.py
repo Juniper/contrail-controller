@@ -314,6 +314,7 @@ class ServiceInstanceSM(DBBase):
         self.max_instances = 0
         self.availability_zone = None
         self.ha_mode = None
+        self.vr_id = None
         self.local_preference = [None, None]
         self.vn_info = []
         self.update(obj_dict)
@@ -330,6 +331,7 @@ class ServiceInstanceSM(DBBase):
         self.update_single_ref('loadbalancer_pool', obj)
         self.update_multiple_refs('virtual_machine', obj)
         self.id_perms = obj['id_perms']
+        self.vr_id = self.params.get('virtual_router_id', None)
         self.ha_mode = self.params.get('ha_mode', None)
         if self.ha_mode and self.ha_mode == 'active-standby':
             self.max_instances = 2
