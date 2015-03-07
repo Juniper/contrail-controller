@@ -79,8 +79,10 @@ private:
 
 class VlanTable : public DBTable {
 public:
-    VlanTable(DB *db) : DBTable(db, "__vlan__.0") { };
-    ~VlanTable() { };
+    VlanTable(DB *db) :
+        DBTable(db, "__vlan__.0"), retry_delete_count_(0), del_req_count_(0) {
+    }
+    ~VlanTable() { }
 
     uint32_t del_req_count() const { return del_req_count_; }
 
@@ -136,6 +138,12 @@ public:
         return table;
     }
 
+    void RetryDelete() {
+        retry_delete_count_++;
+    }
+
+    uint32_t retry_delete_count() const { return retry_delete_count_; }
+    uint32_t retry_delete_count_;
     uint32_t del_req_count_;
     DISALLOW_COPY_AND_ASSIGN(VlanTable);
 };
