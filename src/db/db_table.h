@@ -84,6 +84,9 @@ public:
     // Calculate the size across all partitions.
     virtual size_t Size() const { return 0; }
 
+    // Suspended deletion resume hook for user function
+    virtual void RetryDelete() { }
+
     DB *database() { return db_; }
     const DB *database() const { return db_; }
 
@@ -147,9 +150,6 @@ public:
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);
     // Delete hook for user function
     virtual bool Delete(DBEntry *entry, const DBRequest *req);
-
-    // Suspended deletion resume hook for user function
-    virtual void RetryDelete() { }
 
     void WalkCompleteCallback(DBTableBase *tbl_base);
     void NotifyAllEntries();
