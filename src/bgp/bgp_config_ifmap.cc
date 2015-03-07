@@ -19,6 +19,7 @@
 #include "schema/vnc_cfg_types.h"
 
 using namespace std;
+using boost::iequals;
 
 const int BgpIfmapConfigManager::kConfigTaskInstanceId = 0;
 
@@ -67,7 +68,8 @@ void BgpIfmapPeeringConfig::SetNodeProxy(IFMapNodeProxy *proxy) {
 }
 
 static AuthenticationKey::KeyType KeyChainType(const std::string &value) {
-    if (value == "md5") {
+    // Case-insensitive comparison
+    if (boost::iequals(value, "md5")) {
         return AuthenticationKey::MD5;
     }
     return AuthenticationKey::NIL;

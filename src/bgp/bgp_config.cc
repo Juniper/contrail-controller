@@ -22,6 +22,11 @@ bool AuthenticationKey::operator<(const AuthenticationKey &rhs) const {
     return cmp < 0;
 }
 
+bool AuthenticationKey::operator!=(const AuthenticationKey &rhs) const {
+    int cmp = CompareTo(*this, rhs);
+    return cmp != 0;
+}
+
 BgpNeighborConfig::BgpNeighborConfig()
         : type_(UNSPECIFIED),
           peer_as_(0),
