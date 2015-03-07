@@ -153,12 +153,15 @@ public:
 
 TEST_F(DBTest, Basic) {
     EXPECT_EQ(itbl, db_.FindTable("db.test.vlan.0"));
+    uint32_t retry_delete_count = itbl->retry_delete_count();
 
     tid_ = 
         itbl->Register(boost::bind(&DBTest::DBTestListener, this, _1, _2));
     EXPECT_EQ(tid_, 0);
 
     itbl->Unregister(tid_);
+    EXPECT_EQ(itbl->retry_delete_count(), retry_delete_count+1);
+    retry_delete_count = itbl->retry_delete_count();
 
     for (int i = 0; i < 15; i++) {
         tid_ = 
@@ -168,6 +171,8 @@ TEST_F(DBTest, Basic) {
     }
 
     itbl->Unregister(7);
+    // There are pending registers. retry_delete_count is not incremented
+    EXPECT_EQ(itbl->retry_delete_count(), retry_delete_count);
 
     tid_ = 
         itbl->Register(boost::bind(&DBTest::DBTestListener, this, _1, _2));
@@ -175,8 +180,13 @@ TEST_F(DBTest, Basic) {
 
 
     for (int i = 14; i >=0; i--) {
+        EXPECT_EQ(itbl->retry_delete_count(), retry_delete_count);
         itbl->Unregister(i);
     }
+
+    // All clients are registered. retry_delete_count should be incremented
+    EXPECT_EQ(itbl->retry_delete_count(), retry_delete_count+1);
+    retry_delete_count = itbl->retry_delete_count();
 }
 
 // To Test:
