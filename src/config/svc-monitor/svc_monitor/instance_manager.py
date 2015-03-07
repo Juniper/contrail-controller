@@ -433,7 +433,7 @@ class InstanceManager(object):
                 si.uuid, vm.uuid)
             if chosen_vr_fq_name:
                 vrouter_name = chosen_vr_fq_name[-1]
-                self.logger.log_info("Info: VRouter %s updated with VM %s" %
+                self.logger.log_info("VRouter %s updated with VM %s" %
                     (':'.join(chosen_vr_fq_name), vm.name))
         else:
             vr = VirtualRouterSM.get(vm.virtual_router)
@@ -458,7 +458,7 @@ class VRouterHostedManager(InstanceManager):
             vr_obj = self._vnc_lib.virtual_router_read(id=vm.virtual_router)
             vr_obj.del_virtual_machine(vm_obj)
             self._vnc_lib.virtual_router_update(vr_obj)
-            self.logger.log_info("vm %s deleted from vrvm %s" %
+            self.logger.log_info("vm %s deleted from vr %s" %
                 (vm_obj.get_fq_name_str(), vr_obj.get_fq_name_str()))
 
         self._vnc_lib.virtual_machine_delete(id=vm.uuid)
@@ -495,7 +495,7 @@ class NetworkNamespaceManager(VRouterHostedManager):
             return
 
         # get current vm list
-        vm_list = [None for i in range(0, si.max_instances)]
+        vm_list = [None] * si.max_instances
         for vm_id in si.virtual_machines:
             vm = VirtualMachineSM.get(vm_id)
             vm_list[vm.index] = vm

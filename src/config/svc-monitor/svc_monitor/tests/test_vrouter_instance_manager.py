@@ -1,98 +1,200 @@
 import mock
+from mock import patch
 import unittest
-import uuid
-from vnc_api import vnc_api
+from vnc_api.vnc_api import *
 from svc_monitor.vrouter_instance_manager import VRouterInstanceManager
+from svc_monitor.config_db import *
 
-
-class DBObjMatcher(object):
+class VMObjMatcher(object):
     """
-    Object for assert_called_with to check if db object is created properly
+    Object for assert_called_with to check if vm object is created properly
     """
-    def __init__(self, prefix):
-        self.prefix = prefix
+    def __init__(self, index, check_delete=False):
+        self.check_delete = check_delete
+        self.index = index
 
-    def _has_field(self, name, ob):
-        return (self.prefix + name) in ob
+    def _has_field(self, index, ob):
+        if self.check_delete:
+            if index == ob.fq_name[0]:
+                return True
+        else:
+            if str(index) == ob.display_name.split('__')[-2]:
+                return True
+        return False
 
     def __eq__(self, other):
-        if not(self._has_field("name", other)
-               and self._has_field("uuid", other)
-               and self._has_field("state", other)
-               and self._has_field("vrouter", other)):
-            return False
-        if other[self.prefix + "vrouter"] == "None":
+        if not(self._has_field(self.index, other)):
             return False
         return True
 
+class VRObjMatcher(object):
+    """
+    Object for assert_called_with to check if vr object is created properly
+    """
+    def __init__(self, vm):
+        self.vm = vm
+
+    def _has_field(self, vm, ob):
+        if vm == ob.get_virtual_machine_refs()[0]['to']:
+            return True
+        return False
+
+    def __eq__(self, other):
+        if not(self._has_field(self.vm, other)):
+            return False
+        return True
 
 class VRouterInstanceManagerTest(unittest.TestCase):
-    VM_UUID = str(uuid.uuid4())
-    VR_UUID = str(uuid.uuid4())
-    DB_PREFIX = "test"
-
-    MOCKED_VR_BACK_REF = [{
-        "uuid": VR_UUID
-    }]
-
     def setUp(self):
-        mocked_vnc = mock.MagicMock()
-        mocked_vm_ob = mock.MagicMock()
-        mocked_vm_ob.get_virtual_router_back_refs\
-            .return_value = self.MOCKED_VR_BACK_REF
-        mocked_vm_ob.uuid = self.VM_UUID
-        mocked_vnc.virtual_machine_read.return_value = mocked_vm_ob
+        def get_vn_id(obj_type, fq_name):
+            if obj_type != 'virtual-network':
+                return
+            for vn in VirtualNetworkSM.values():
+                if vn.fq_name == fq_name:
+                    return vn.uuid
+            raise NoIdError(fq_name)
 
-        self.mocked_vm_ob = mocked_vm_ob
-        mocked_db = mock.MagicMock()
-        mocked_db.get_vm_db_prefix.return_value = self.DB_PREFIX
+        def vm_create(vm_obj):
+            vm_obj.uuid = 'fake-vm-uuid'
+            return
+
+        def vmi_create(vmi_obj):
+            vmi_obj.uuid = 'fake-vmi-uuid'
+            return
+
+        def vm_read(vm_id):
+            class SI(object):
+                def __init__(self, name, fq_name):
+                    self.name = name
+                    self.fq_name = fq_name
+
+            vm_obj = {}
+            vm_obj['uuid'] = 'fake-vm-uuid'
+            vm_obj['fq_name'] = ['fake-vm-uuid']
+            fq_name = ['fake-domain', 'fake-project', 'fake-instance']
+            name = 'fake-instance'
+            si = SI(name, fq_name)
+            instance_name = self.vrouter_manager._get_instance_name(si, 0)
+            vm_obj['display_name'] = instance_name + '__' + 'vrouter-instance'
+            return True, [vm_obj]
+
+        def vr_read(vm_id):
+            vr_obj = {}
+            vr_obj['uuid'] = 'fake-vr-uuid'
+            vr_obj['fq_name'] = ['fake-vr-uuid']
+            return True, [vr_obj]
+
+        VirtualMachineSM._cassandra = mock.MagicMock()
+        VirtualMachineSM._cassandra._cassandra_virtual_machine_read = vm_read
+
+        VirtualRouterSM._cassandra = mock.MagicMock()
+        VirtualRouterSM._cassandra._cassandra_virtual_router_read = vr_read
+
+        self.mocked_vnc = mock.MagicMock()
+        self.mocked_vnc.fq_name_to_id = get_vn_id
+        self.mocked_vnc.virtual_machine_interface_create = vmi_create
+
+        self.nova_mock = mock.MagicMock()
+        self.mocked_db = mock.MagicMock()
+
+        self.mocked_args = mock.MagicMock()
+        self.mocked_args.availability_zone = None
+
         self.vrouter_manager = VRouterInstanceManager(
-            db=mocked_db, logger=mock.MagicMock(),
-            vnc_lib=mocked_vnc, vrouter_scheduler=mock.MagicMock(),
-            nova_client=mock.MagicMock())
+            db=self.mocked_db, logger=mock.MagicMock(),
+            vnc_lib=self.mocked_vnc, vrouter_scheduler=mock.MagicMock(),
+            nova_client=self.nova_mock, args=self.mocked_args)
+
+    def tearDown(self):
+        ServiceTemplateSM.delete('fake-st-uuid')
+        ServiceInstanceSM.delete('fake-si-uuid')
+        pass
+
+    def create_test_project(self, fq_name_str):
+        proj_obj = {}
+        proj_obj['fq_name'] = fq_name_str.split(':')
+        proj_obj['uuid'] = fq_name_str
+        proj_obj['id_perms'] = 'fake-id-perms'
+        ProjectSM.locate(proj_obj['uuid'], proj_obj)
+
+    def create_test_virtual_network(self, fq_name_str):
+        vn_obj = {}
+        vn_obj['fq_name'] = fq_name_str.split(':')
+        vn_obj['uuid'] = fq_name_str
+        vn_obj['id_perms'] = 'fake-id-perms'
+        VirtualNetworkSM.locate(vn_obj['uuid'], vn_obj)
+
+    def create_test_virtual_machine(self, fq_name_str):
+        vm_obj = {}
+        vm_obj['fq_name'] = fq_name_str.split(':')
+        vm_obj['uuid'] = fq_name_str
+        vm_obj['display_name'] = fq_name_str
+        vm = VirtualMachineSM.locate(vm_obj['uuid'], vm_obj)
+        vm.proj_fq_name = ['fake-domain', 'fake-project']
+        return vm
 
     def test_create(self):
-        st_obj = vnc_api.ServiceTemplate(name="test-template")
-        svc_properties = vnc_api.ServiceTemplateType()
-        svc_properties.set_service_virtualization_type('vrouter-instance')
-        svc_properties.set_image_name('test')
-        svc_properties.set_ordered_interfaces(True)
-        if_list = [['management', False], ['left', False], ['right', False]]
-        for itf in if_list:
-            if_type = vnc_api.ServiceTemplateInterfaceType(shared_ip=itf[1])
-            if_type.set_service_interface_type(itf[0])
-            svc_properties.add_interface_type(if_type)
-        svc_properties.set_vrouter_instance_type("docker")
-        st_obj.set_service_template_properties(svc_properties)
-        si_obj = vnc_api.ServiceInstance("test2")
-        si_prop = vnc_api.ServiceInstanceType(
-            left_virtual_network="left", right_virtual_network="right",
-            management_virtual_network="management")
-        si_prop.set_interface_list(
-            [vnc_api.ServiceInstanceInterfaceType(virtual_network="left"),
-             vnc_api.ServiceInstanceInterfaceType(virtual_network="right"),
-             vnc_api.ServiceInstanceInterfaceType(
-                 virtual_network="management")])
-        si_prop.set_virtual_router_id(uuid.uuid4())
-        si_obj.set_service_instance_properties(si_prop)
-        si_obj.set_service_template(st_obj)
-        si_obj.uuid = str(uuid.uuid4())
-        st_obj.uuid = str(uuid.uuid4())
+        self.create_test_project('fake-domain:fake-project')
+        self.create_test_virtual_network('fake-domain:fake-project:mgmt-vn')
+        self.create_test_virtual_network('fake-domain:fake-project:left-vn')
+        self.create_test_virtual_network('fake-domain:fake-project:right-vn')
 
-        self.vrouter_manager.create_service(st_obj, si_obj)
-        self.vrouter_manager.db.service_instance_insert.assert_called_with(
-            si_obj.get_fq_name_str(), DBObjMatcher(self.DB_PREFIX)
-        )
+        st_obj = {}
+        st_obj['fq_name'] = ['fake-domain', 'fake-template']
+        st_obj['uuid'] = 'fake-st-uuid'
+        st_obj['id_perms'] = 'fake-id-perms'
+        st_props = {}
+        st_props['flavor'] = 'm1.medium'
+        st_props['image'] = 'test-image'
+        st_props['service_virtualization_type'] = 'vrouter-instance'
+        st_props['service_type'] = 'firewall'
+        st_props['ordered_interfaces'] = True
+        st_props['vrouter_instance_type'] = 'docker'
+        st_props['interface_type'] = [{'service_interface_type': 'management', 'shared_ip': False},
+                                      {'service_interface_type': 'left', 'shared_ip': False},
+                                      {'service_interface_type': 'right', 'shared_ip': False}]
+        st_obj['service_template_properties'] = st_props
+
+        si_obj = {}
+        si_obj['fq_name'] = ['fake-domain', 'fake-project', 'fake-instance']
+        si_obj['uuid'] = 'fake-si-uuid'
+        si_obj['id_perms'] = 'fake-id-perms'
+        si_props = {}
+        si_props['scale_out'] = {'max_instances': 1}
+        si_props['interface_list'] = [{'virtual_network': 'fake-domain:fake-project:mgmt-vn'},
+                                      {'virtual_network': 'fake-domain:fake-project:left-vn'},
+                                      {'virtual_network': 'fake-domain:fake-project:right-vn'}]
+        si_props['virtual_router_id'] = 'fake-vr-uuid'
+        si_obj['service_instance_properties'] = si_props
+
+        st = ServiceTemplateSM.locate('fake-st-uuid', st_obj)
+        si = ServiceInstanceSM.locate('fake-si-uuid', si_obj)
+
+        self.vrouter_manager.create_service(st, si)
+        self.mocked_vnc.virtual_machine_create.assert_any_call(VMObjMatcher(1))
+        self.mocked_vnc.virtual_router_update.assert_any_call(VRObjMatcher(['fake-vm-uuid']))
 
     def test_delete(self):
+        def create_fake_virtual_machine(fq_name_str):
+            vm_obj = {}
+            vm_obj['fq_name'] = fq_name_str.split(':')
+            vm_obj['uuid'] = fq_name_str
+            vm_obj['display_name'] = fq_name_str
+            vm = VirtualMachineSM.locate(vm_obj['uuid'], vm_obj)
+            vm.proj_fq_name = ['fake-domain', 'fake-project']
+            vm.virtual_machine_interfaces = set(['fake-vmi-uuid1', 'fake-vmi-uuid2', 'fake-vmi-uuid3'])
+            vm.virtual_router = 'fake-vr-uuid'
+            return vm
+
         mocked_vr = mock.MagicMock()
-        mocked_vr.uuid = self.VR_UUID
+        mocked_vr.uuid = 'fake-vr-uuid'
 
         self.vrouter_manager._vnc_lib.virtual_router_read.\
             return_value = mocked_vr
 
-        self.vrouter_manager.delete_service(mock.MagicMock(), self.VM_UUID)
+        vm = create_fake_virtual_machine('fake-vm-uuid')
+        self.vrouter_manager.delete_service(vm)
+
         self.vrouter_manager._vnc_lib.virtual_machine_delete\
-            .assert_called_with(id=self.VM_UUID)
-        mocked_vr.del_virtual_machine.assert_called_with(
-            self.mocked_vm_ob)
+            .assert_called_with(id='fake-vm-uuid')
+        mocked_vr.del_virtual_machine.assert_called_with(VMObjMatcher('fake-vm-uuid', True))
