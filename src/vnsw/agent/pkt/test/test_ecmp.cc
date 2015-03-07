@@ -2269,7 +2269,7 @@ TEST_F(EcmpTest, VgwFlag) {
     InetInterface::CreateReq(agent->interface_table(), "vgw1",
                             InetInterface::SIMPLE_GATEWAY, "vrf2",
                             Ip4Address(0), 0, Ip4Address(0), Agent::NullString(),
-                            "");
+                            "", Interface::TRANSPORT_ETHERNET);
     client->WaitForIdle();
 
     InetInterfaceKey *intf_key = new InetInterfaceKey("vgw1");
