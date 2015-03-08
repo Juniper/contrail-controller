@@ -106,7 +106,9 @@ int BgpProto::OpenMessage::Validate(BgpPeer *peer) const {
     int result = ValidateCapabilities(peer);
     if (result != 0) {
         BGP_LOG_PEER(Message, peer, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                     BGP_PEER_DIR_IN, "Unsupported Capability: " << result);
+                     BGP_PEER_DIR_IN, "Unsupported Capability: " <<
+                     Capability::CapabilityToString(result) <<
+                     " (" << result << ")");
         return BgpProto::Notification::UnsupportedCapability;
     }
     return 0;
