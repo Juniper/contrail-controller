@@ -303,7 +303,12 @@ class TestRandomScheduler(unittest.TestCase):
         self.vnc_mock.virtual_routers_list.return_value = VROUTER_LIST
 
         self.analytics_mock.side_effect = [RUNNING_VROUTER_UVES_STATUS,
+                                           RUNNING_VROUTER_UVES_STATUS,
                                            NON_RUNNING_VROUTER_UVES_STATUS_3,
+                                           NON_RUNNING_VROUTER_UVES_STATUS_3,
+                                           RUNNING_VROUTER_UVES_STATUS,
+                                           RUNNING_VROUTER_UVES_STATUS,
+                                           RUNNING_VROUTER_UVES_STATUS,
                                            RUNNING_VROUTER_UVES_STATUS,
                                            RUNNING_VROUTER_UVES_STATUS,
                                            RUNNING_VROUTER_UVES_STATUS]
@@ -329,7 +334,12 @@ class TestRandomScheduler(unittest.TestCase):
                          expected_result)
 
         self.analytics_mock.side_effect = [RUNNING_VROUTER_UVES_STATUS,
+                                           RUNNING_VROUTER_UVES_STATUS,
                                            NON_RUNNING_VROUTER_UVES_STATUS_3,
+                                           NON_RUNNING_VROUTER_UVES_STATUS_3,
+                                           RUNNING_VROUTER_UVES_STATUS,
+                                           RUNNING_VROUTER_UVES_STATUS,
+                                           RUNNING_VROUTER_UVES_STATUS,
                                            RUNNING_VROUTER_UVES_STATUS,
                                            RUNNING_VROUTER_UVES_STATUS,
                                            RUNNING_VROUTER_UVES_STATUS]
@@ -345,11 +355,15 @@ class TestRandomScheduler(unittest.TestCase):
     def test_vrouter_running(self):
         self.analytics_mock.side_effect = [analytics.OpenContrailAPIFailed,
                                            NON_RUNNING_VROUTER_UVES_STATUS_1,
+                                           NON_RUNNING_VROUTER_UVES_STATUS_1,
                                            NON_RUNNING_VROUTER_UVES_STATUS_2,
+                                           NON_RUNNING_VROUTER_UVES_STATUS_2,
+                                           NON_RUNNING_VROUTER_UVES_STATUS_3,
                                            NON_RUNNING_VROUTER_UVES_STATUS_3,
                                            NON_RUNNING_VROUTER_UVES_STATUS_4,
                                            NON_RUNNING_VROUTER_UVES_STATUS_5,
                                            NON_RUNNING_VROUTER_UVES_STATUS_6,
+                                           RUNNING_VROUTER_UVES_STATUS,
                                            RUNNING_VROUTER_UVES_STATUS]
         self.assertFalse(self.scheduler.vrouter_running('fake_vrouter_name'))
         self.assertFalse(self.scheduler.vrouter_running('fake_vrouter_name'))

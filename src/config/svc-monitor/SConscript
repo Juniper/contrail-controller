@@ -35,7 +35,6 @@ sources = [
     'svc_monitor/services/loadbalancer/drivers/ha_proxy/__init__.py',
     'svc_monitor/services/loadbalancer/drivers/ha_proxy/driver.py',
     'svc_monitor/tests/__init__.py',
-    'svc_monitor/tests/test_init.py',
     'svc_monitor/tests/test_vrouter_instance_manager.py',
     'svc_monitor/tests/test_virtual_machine_manager.py',
     'svc_monitor/tests/scheduler/__init__.py',
