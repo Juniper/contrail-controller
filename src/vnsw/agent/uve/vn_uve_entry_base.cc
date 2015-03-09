@@ -50,6 +50,7 @@ void VnUveEntryBase::InterfaceDelete(const Interface *intf) {
 
 bool VnUveEntryBase::BuildInterfaceVmList(UveVirtualNetworkAgent &s_vn) {
     bool changed = false;
+    assert(!deleted_);
 
     s_vn.set_name(vn_->GetName());
     vector<string> vm_list;
@@ -137,6 +138,7 @@ bool VnUveEntryBase::UveVnAclRuleCountChanged(int32_t size) const {
 bool VnUveEntryBase::FrameVnAclRuleCountMsg(const VnEntry *vn,
                                             UveVirtualNetworkAgent *uve) {
     bool changed = false;
+    assert(!deleted_);
     uve->set_name(vn->GetName());
 
     int acl_rule_count;
@@ -157,6 +159,7 @@ bool VnUveEntryBase::FrameVnAclRuleCountMsg(const VnEntry *vn,
 
 bool VnUveEntryBase::FrameVnMsg(const VnEntry *vn, UveVirtualNetworkAgent &uve) {
     bool changed = false;
+    assert(!deleted_);
     uve.set_name(vn->GetName());
 
     string acl_name;
@@ -192,6 +195,9 @@ bool VnUveEntryBase::FrameVnMsg(const VnEntry *vn, UveVirtualNetworkAgent &uve) 
         changed = true;
     }
 
+    if (agent_->uve()->vn_uve_table()->timer() && BuildInterfaceVmList(uve)) {
+        changed = true;
+    }
     return changed;
 }
 

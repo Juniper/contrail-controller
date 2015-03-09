@@ -5,8 +5,8 @@
 #include <uve/vm_uve_entry.h>
 #include <uve/agent_uve.h>
 
-VmUveEntry::VmUveEntry(Agent *agent)
-    : VmUveEntryBase(agent), port_bitmap_() {
+VmUveEntry::VmUveEntry(Agent *agent, const std::string &vm_name)
+    : VmUveEntryBase(agent, vm_name), port_bitmap_() {
 }
 
 VmUveEntry::~VmUveEntry() {
@@ -97,6 +97,7 @@ bool VmUveEntry::FrameVmStatsMsg(const VmEntry* vm,
                                  VirtualMachineStats *stats_uve,
                                  bool *stats_uve_changed) {
     bool changed = false;
+    assert(!deleted_);
     uve->set_name(vm->GetCfgName());
     stats_uve->set_name(vm->GetCfgName());
     vector<VmInterfaceStats> s_intf_list;

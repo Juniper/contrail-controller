@@ -42,8 +42,11 @@ public:
     void RegisterDBClients();
     void Shutdown(void);
     void SendVnAclRuleCount();
+    bool TimerExpiry();
+    Timer *timer() const { return timer_; }
 
 protected:
+    void Delete(const std::string &name);
     virtual void Delete(const VnEntry *vn);
     VnUveEntryBase* UveEntryFromVn(const VnEntry *vn);
     //The following API is made protected for UT.
@@ -68,6 +71,12 @@ private:
 
     DBTableBase::ListenerId vn_listener_id_;
     DBTableBase::ListenerId intf_listener_id_;
+
+    // In case of TSN/TorAgent send UVE on timer expiry instead of notification
+    Timer *timer_;
+    // Last visited VmEntry by timer
+    std::string timer_last_visited_;
+
     DISALLOW_COPY_AND_ASSIGN(VnUveTableBase);
 };
 

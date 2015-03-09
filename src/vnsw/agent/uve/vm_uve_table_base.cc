@@ -9,10 +9,56 @@
 VmUveTableBase::VmUveTableBase(Agent *agent)
     : uve_vm_map_(), agent_(agent),
       intf_listener_id_(DBTableBase::kInvalidId),
-      vm_listener_id_(DBTableBase::kInvalidId) {
+      vm_listener_id_(DBTableBase::kInvalidId), timer_(NULL),
+      timer_last_visited_(NULL) {
+    if (agent->tsn_enabled() || agent->tor_agent_enabled()) {
+        timer_ = TimerManager::CreateTimer
+            (*(agent->event_manager())->io_service(), "VmUveTimer",
+             TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0);
+        timer_->Start(AgentUveBase::kTimerInterval,
+                      boost::bind(&VmUveTableBase::TimerExpiry, this));
+    }
 }
 
 VmUveTableBase::~VmUveTableBase() {
+}
+
+bool VmUveTableBase::TimerExpiry() {
+    UveVmMap::iterator it = uve_vm_map_.lower_bound(timer_last_visited_);
+    if (it == uve_vm_map_.end()) {
+        timer_last_visited_ = NULL;
+        return true;
+    }
+
+    uint32_t count = 0;
+    while (it != uve_vm_map_.end() && count < AgentUveBase::kUveCountPerTimer) {
+        VmUveEntryBase* entry = it->second.get();
+        const VmEntry *vm = it->first;
+        UveVmMap::iterator prev = it;
+        it++;
+        count++;
+
+        if (entry->deleted()) {
+            UveVirtualMachineAgent uve;
+            uve.set_name(entry->vm_cfg_name());
+            uve.set_deleted(true);
+            DispatchVmMsg(uve);
+            uve_vm_map_.erase(prev);
+        } else if (entry->changed()) {
+            UveVirtualMachineAgent uve;
+            entry->set_changed(false);
+            if (entry->FrameVmMsg(vm, &uve)) {
+                DispatchVmMsg(uve);
+            }
+        }
+    }
+
+    if (it == uve_vm_map_.end()) {
+        timer_last_visited_ = NULL;
+    } else {
+        timer_last_visited_ = it->first;
+    }
+    return true;
 }
 
 VmUveEntryBase* VmUveTableBase::Add(const VmEntry *vm, bool vm_notify) {
@@ -33,13 +79,18 @@ void VmUveTableBase::Delete(const VmEntry *vm) {
         return;
     }
 
-    SendVmDeleteMsg(vm);
+    VmUveEntryBase* entry = it->second.get();
+    if (timer_) {
+        entry->set_deleted();
+        return;
+    }
 
+    SendVmDeleteMsg(vm);
     uve_vm_map_.erase(it);
 }
 
 VmUveTableBase::VmUveEntryPtr VmUveTableBase::Allocate(const VmEntry *vm) {
-    VmUveEntryPtr uve(new VmUveEntryBase(agent_));
+    VmUveEntryPtr uve(new VmUveEntryBase(agent_, vm->GetCfgName()));
     return uve;
 }
 
@@ -57,11 +108,14 @@ void VmUveTableBase::SendVmDeleteMsg(const VmEntry *vm) {
     if (entry == NULL) {
         return;
     }
+
+    assert(!entry->deleted());
     uve.set_name(vm->GetCfgName());
     uve.set_deleted(true);
     entry->FrameVmMsg(vm, &uve);
 
     DispatchVmMsg(uve);
+    return;
 }
 
 void VmUveTableBase::DispatchVmMsg(const UveVirtualMachineAgent &uve) {
@@ -73,6 +127,13 @@ void VmUveTableBase::SendVmMsg(const VmEntry *vm) {
     if (entry == NULL) {
         return;
     }
+
+    if (timer_) {
+        // If we need to send UVE in timer, mark UVE Entry as dirty and return
+        entry->set_changed(true);
+        return;
+    }
+
     UveVirtualMachineAgent uve;
 
     bool send = entry->FrameVmMsg(vm, &uve);
@@ -208,6 +269,12 @@ void VmUveTableBase::Shutdown(void) {
         agent_->vm_table()->Unregister(vm_listener_id_);
     if (intf_listener_id_ != DBTableBase::kInvalidId)
         agent_->interface_table()->Unregister(intf_listener_id_);
+
+    if (timer_) {
+        timer_->Cancel();
+        TimerManager::DeleteTimer(timer_);
+        timer_ = NULL;
+    }
 }
 
 

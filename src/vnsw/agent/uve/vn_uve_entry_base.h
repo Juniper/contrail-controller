@@ -43,6 +43,12 @@ public:
     void GetOutStats(uint64_t *out_bytes, uint64_t *out_pkts) const;
     bool FrameVnAclRuleCountMsg(const VnEntry *vn,
                                 UveVirtualNetworkAgent *uve);
+
+    void set_changed(bool val) { changed_ = val; }
+    bool changed() const { return changed_; }
+    void set_deleted() { deleted_ = true; }
+    bool deleted() const { return deleted_; }
+
 protected:
     bool UveVnAclRuleCountChanged(int32_t size) const;
     Agent *agent_;
@@ -51,6 +57,9 @@ protected:
     InterfaceSet interface_tree_;
     VmSet vm_tree_;
 
+    // UVE entry is changed. Timer must generate UVE for this entry
+    bool changed_;
+    bool deleted_;
 private:
     bool UveVnInterfaceListChanged(const std::vector<string> &new_list) const;
     bool UveVnVmListChanged(const std::vector<string> &new_list) const;

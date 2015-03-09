@@ -46,13 +46,18 @@ VmUveEntry *VmUveTable::InterfaceIdToVmUveEntry(uint32_t id) {
 }
 
 VmUveTableBase::VmUveEntryPtr VmUveTable::Allocate(const VmEntry *vm) {
-    VmUveEntryPtr uve(new VmUveEntry(agent_));
+    VmUveEntryPtr uve(new VmUveEntry(agent_, vm->GetCfgName()));
     return uve;
 }
 
 void VmUveTable::SendVmStatsMsg(const VmEntry *vm) {
     VmUveEntry* entry = static_cast<VmUveEntry*>(UveEntryFromVm(vm));
     if (entry == NULL) {
+        return;
+    }
+    if (entry->deleted()) {
+        /* Skip entry marked for delete because the 'vm' pointer could be
+         * invalid */
         return;
     }
     UveVirtualMachineAgent uve;
@@ -109,6 +114,7 @@ void VmUveTable::SendVmDeleteMsg(const VmEntry *vm) {
     if (entry == NULL) {
         return;
     }
+    assert(!entry->deleted());
     uve.set_name(vm->GetCfgName());
     uve.set_deleted(true);
     stats_uve.set_name(vm->GetCfgName());

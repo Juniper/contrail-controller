@@ -45,7 +45,7 @@ L4PortBitmap* VmUveTableTest::GetVmIntfPortBitmap(const VmEntry *vm,
 }
 
 VmUveTable::VmUveEntryPtr VmUveTableTest::Allocate(const VmEntry *vm) {
-    VmUveEntryPtr uve(new VmUveEntryTest(agent_));
+    VmUveEntryPtr uve(new VmUveEntryTest(agent_, vm->GetCfgName()));
     return uve;
 }
 

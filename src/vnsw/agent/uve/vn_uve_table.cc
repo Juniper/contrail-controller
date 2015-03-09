@@ -51,10 +51,13 @@ void VnUveTable::SendVnStats(bool only_vrf_stats) {
     UveVnMap::const_iterator it = uve_vn_map_.begin();
     while (it != uve_vn_map_.end()) {
         const VnUveEntry *entry = static_cast<VnUveEntry *>(it->second.get());
+        ++it;
+        if (entry->deleted()) {
+            continue;
+        }
         if (entry->vn()) {
             SendVnStatsMsg(entry->vn(), only_vrf_stats);
         }
-        ++it;
     }
     UveVirtualNetworkAgent uve1, uve2;
     if (SendUnresolvedVnMsg(FlowHandler::UnknownVn(), uve1)) {

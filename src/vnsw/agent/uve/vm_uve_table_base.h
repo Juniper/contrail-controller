@@ -69,9 +69,14 @@ private:
     VmUveEntryBase* Add(const VmEntry *vm, bool vm_notify);
     void Delete(const VmEntry *vm);
     virtual void SendVmDeleteMsg(const VmEntry *vm);
+    bool TimerExpiry();
 
     DBTableBase::ListenerId intf_listener_id_;
     DBTableBase::ListenerId vm_listener_id_;
+    // In case of TSN/TorAgent send UVE on timer expiry instead of notification
+    Timer *timer_;
+    // Last visited VmEntry by timer
+    const VmEntry *timer_last_visited_;
     DISALLOW_COPY_AND_ASSIGN(VmUveTableBase);
 };
 
