@@ -142,6 +142,10 @@ DBTableBase::ListenerId DBTableBase::Register(ChangeCallback callback,
 
 void DBTableBase::Unregister(ListenerId listener) {
     info_->Unregister(listener);
+    // If a table is marked for deletion, then we may trigger the deletion
+    // process when the last client is removed
+    if (info_->empty())
+        RetryDelete();
 }
 
 bool DBTableBase::Enqueue(DBRequest *req) {

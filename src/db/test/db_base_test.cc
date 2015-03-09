@@ -223,7 +223,13 @@ public:
         return table;
     }
 
+    void RetryDelete() {
+        retry_delete_count_++;
+    }
+
+    uint32_t retry_delete_count() const { return retry_delete_count_; }
 private:
+    uint32_t retry_delete_count_;
     std::vector<VlanTablePart *> partitions_;
     DISALLOW_COPY_AND_ASSIGN(VlanTable);
 };
