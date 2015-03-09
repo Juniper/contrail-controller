@@ -679,7 +679,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      </xsd:restriction>
 </xsd:simpleType>
 
-<xsd:simpleType name="RpfModeType" default='enable'>
+<xsd:simpleType name="ControlModeType">
      <xsd:restriction base='xsd:string'>
          <xsd:enumeration value='enable'/>
          <xsd:enumeration value='disable'/>
@@ -697,7 +697,15 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <!-- Forwarding mode for virtual-network  -->
         <xsd:element name='forwarding-mode' type='ForwardingModeType'/>
         <!-- Enable or disable unicast RPF for virtual-network -->
-        <xsd:element name='rpf' type='RpfModeType'/>
+        <xsd:element name='rpf' type='ControlModeType' default='enable'/>
+        <!-- Enable or disable network policy for virtual-network -->
+        <xsd:element name='policy' type='ControlModeType' default='enable'/>
+        <!-- Enable or disable security group for virtual-network -->
+        <xsd:element name='security-group' type='ControlModeType' default='enable'/>
+        <!-- Enable or disable Proxy ARP in vrouter for virtual-network -->
+        <xsd:element name='proxy-arp' type='ControlModeType' default='enable'/>
+        <!-- Enable or disable Advertisement of IP address in EVPN for virtual-network -->
+        <xsd:element name='evpn-advertise-ip' type='ControlModeType' default='enable'/>
     </xsd:all>
 </xsd:complexType>
 
