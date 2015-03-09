@@ -455,12 +455,10 @@ class UVEServer(object):
                     if sfilter is not None:
                         if sfilter != src:
                             continue
-                    node_type = info[2]
-                    mdule = info[3]
+                    module = info[2]+':'+info[3]+':'+info[4]
                     if mfilter is not None:
-                        if mfilter != mdule:
+                        if mfilter != module:
                             continue
-                    inst = info[4] 
                     typ = info[5]
                     if tfilter is not None:
                         if typ not in tfilter:
@@ -468,8 +466,7 @@ class UVEServer(object):
                     if parse_afilter:
                         if tfilter is not None and len(tfilter[typ]):
                             valkey = "VALUES:" + key + ":" + uve_key + ":" + \
-                                 src + ":" + node_type + ":" + mdule + \
-                                 ":" + inst + ":" + typ
+                                 src + ":" + module + ":" + typ
                             for afilter in tfilter[typ]:
                                 attrval = redish.hget(valkey, afilter)
                                 if attrval is not None:
