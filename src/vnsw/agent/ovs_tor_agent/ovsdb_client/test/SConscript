@@ -17,23 +17,36 @@ AgentEnv.MakeTestEnv(env)
 
 env.Append(CPPPATH = './')
 env.Append(CPPPATH = '../')
+env.Append(CPPPATH = ['../../../oper/test/'])
+env.Append(CPPPATH = ['../../../test-xml/'])
 env.Append(LIBPATH = ['./'])
 env.Append(LIBPATH = ['../'])
+env.Append(LIBPATH = ['../../../oper/test/'])
+env.Append(LIBPATH = ['../../../test-xml/'])
 env.Append(LIBS = [ 'control_node_mock'])
 env.Prepend(LIBS = [ 'ovsdbclient', 'openvswitch'])
 env.Prepend(LIBS = [ 'test_ovs_agent_init'])
 env.Append(LIBS = ['ssl', 'crypto'])
+env.Append(LIBS = [
+                   'agent_test_xml',
+                   'agent_oper_test_xml',
+                   'agent_physical_devices_test_xml',
+                   'agent_ovsdb_test_xml'])
+
+env.Library('agent_ovsdb_test_xml', 'test_xml_ovsdb.cc')
 
 env.Library('test_ovs_agent_init', 'test_ovs_agent_init.cc')
 
 agent_suite = []
 flaky_agent_suite = []
 test_ovs_route = AgentEnv.MakeTestCmd(env, 'test_ovs_route', flaky_agent_suite)
-test_ovs_route = AgentEnv.MakeTestCmd(env, 'test_ovs_base', flaky_agent_suite)
+test_ovs_route = AgentEnv.MakeTestCmd(env, 'test_ovs_base', agent_suite)
+test_ovs_route = AgentEnv.MakeTestCmd(env, 'test_ovs_logical_switch', agent_suite)
 
+env.TestSuite('ovsdb_client:flaky_test', flaky_agent_suite)
 flaky_test = env.TestSuite('agent-flaky-test', flaky_agent_suite)
-env.Alias('ovsdb_client:flaky_test', flaky_test)
 
+env.TestSuite('ovsdb_client:test', agent_suite)
 test = env.TestSuite('agent-test', agent_suite)
 env.Alias('agent:agent_test', test)
 Return('agent_suite')

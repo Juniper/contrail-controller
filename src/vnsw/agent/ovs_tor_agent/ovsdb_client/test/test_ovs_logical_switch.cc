@@ -46,6 +46,10 @@
 #include "ovs_tor_agent/ovsdb_client/logical_switch_ovsdb.h"
 #include "ovs_tor_agent/ovsdb_client/physical_port_ovsdb.h"
 #include "test_ovs_agent_init.h"
+#include "test-xml/test_xml.h"
+#include "test-xml/test_xml_oper.h"
+#include "test_xml_physical_device.h"
+#include "test_xml_ovsdb.h"
 
 #include <ovsdb_types.h>
 
@@ -89,56 +93,24 @@ protected:
     OvsdbClientTcpSession *tcp_session_;
 };
 
-TEST_F(OvsBaseTest, connection) {
+TEST_F(OvsBaseTest, BasicOvsdb) {
     WAIT_FOR(100, 10000, (tcp_session_->status() == string("Established")));
 }
 
-TEST_F(OvsBaseTest, physical_router) {
-    PhysicalSwitchTable *table =
-        tcp_session_->client_idl()->physical_switch_table();
-    PhysicalSwitchEntry key(table, "test-router");
-    WAIT_FOR(100, 10000, (table->FindActiveEntry(&key) != NULL));
-
-    OvsdbPhysicalSwitchReq *req = new OvsdbPhysicalSwitchReq();
-    req->HandleRequest();
-    client->WaitForIdle();
-    req->Release();
-}
-
-TEST_F(OvsBaseTest, physical_port) {
-    PhysicalPortTable *table =
-        tcp_session_->client_idl()->physical_port_table();
-
-    PhysicalPortEntry key(table, "ge-0/0/0");
-    WAIT_FOR(100, 10000, (table->FindActiveEntry(&key) != NULL));
-
-    PhysicalPortEntry key1(table, "ge-0/0/1");
-    WAIT_FOR(100, 10000, (table->FindActiveEntry(&key1) != NULL));
-
-    PhysicalPortEntry key2(table, "ge-0/0/2");
-    WAIT_FOR(100, 10000, (table->FindActiveEntry(&key2) != NULL));
-
-    PhysicalPortEntry key3(table, "ge-0/0/3");
-    WAIT_FOR(100, 10000, (table->FindActiveEntry(&key3) != NULL));
-
-    PhysicalPortEntry key4(table, "ge-0/0/4");
-    WAIT_FOR(100, 10000, (table->FindActiveEntry(&key4) != NULL));
-
-    PhysicalPortEntry key5(table, "ge-0/0/47");
-    WAIT_FOR(100, 10000, (table->FindActiveEntry(&key5) != NULL));
-
-    OvsdbPhysicalPortReq *req = new OvsdbPhysicalPortReq();
-    req->HandleRequest();
-    client->WaitForIdle();
-    req->Release();
-}
-
-TEST_F(OvsBaseTest, connection_close) {
-    tcp_session_->TriggerClose();
-    client->WaitForIdle();
-    WAIT_FOR(100, 10000,
-             (tcp_session_ = static_cast<OvsdbClientTcpSession *>
-              (init_->ovsdb_client()->next_session(NULL))) != NULL);
+TEST_F(OvsBaseTest, LogicalSwitchBasic) {
+    AgentUtXmlTest test("controller/src/vnsw/agent/ovs_tor_agent/ovsdb_client/test/xml/logical-switch-base.xml");
+    // set current session in test context
+    OvsdbTestSetSessionContext(tcp_session_);
+    AgentUtXmlOperInit(&test);
+    AgentUtXmlPhysicalDeviceInit(&test);
+    AgentUtXmlOvsdbInit(&test);
+    if (test.Load() == true) {
+        test.ReadXml();
+        string str;
+        test.ToString(&str);
+        cout << str << endl;
+        test.Run();
+    }
 }
 
 int main(int argc, char *argv[]) {
