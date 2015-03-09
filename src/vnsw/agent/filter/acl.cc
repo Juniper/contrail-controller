@@ -641,7 +641,9 @@ void AclTable::AclFlowResponse(const string acl_uuid_str, const string ctx,
 
     if (acl_entry) {
         AclTable *table = Agent::GetInstance()->acl_table();
-        table->flow_acl_sandesh_data_cb_(acl_entry, *resp, last_count);
+        if (!table->flow_acl_sandesh_data_cb_.empty()) {
+            table->flow_acl_sandesh_data_cb_(acl_entry, *resp, last_count);
+        }
     }
 
     resp->set_context(ctx);
@@ -655,7 +657,9 @@ void AclTable::AclFlowCountResponse(const string acl_uuid_str,
 
     if (acl_entry) {
         AclTable *table = Agent::GetInstance()->acl_table();
-        table->flow_ace_sandesh_data_cb_(acl_entry, *resp, ace_id);
+        if (!table->flow_ace_sandesh_data_cb_.empty()) {
+            table->flow_ace_sandesh_data_cb_(acl_entry, *resp, ace_id);
+        }
     }
     resp->set_context(ctx);
     resp->Response();
