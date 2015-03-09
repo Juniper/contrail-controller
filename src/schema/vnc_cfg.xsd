@@ -665,6 +665,42 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('project-virtual-network',
           'project', 'virtual-network', ['has']) -->
 
+<xsd:element name="qos-queue" type="ifmap:IdentityType"/>
+<xsd:element name="project-qos-queue"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('project-qos-queue',
+          'project', 'qos-queue', ['has']) -->
+<xsd:element name="min-bandwidth" type="xsd:integer"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('min-bandwidth', 'qos-queue') -->
+<xsd:element name="max-bandwidth" type="xsd:integer"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('max-bandwidth', 'qos-queue') -->
+
+<xsd:element name="qos-forwarding-class" type="ifmap:IdentityType"/>
+<xsd:element name="project-qos-forwarding-class"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('project-qos-forwarding-class',
+          'project', 'qos-forwarding-class', ['has']) -->
+<xsd:element name="dscp" type="xsd:integer"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('dscp', 'qos-forwarding-class') -->
+<xsd:element name="trusted" type="xsd:boolean"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('trusted', 'qos-forwarding-class') -->
+<xsd:element name="qos-forwarding-class-qos-queue"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('qos-forwarding-class-qos-queue',
+          'qos-forwarding-class', 'qos-queue', ['ref']) -->
+<xsd:element name="virtual-network-qos-forwarding-class"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('virtual-network-qos-forwarding-class',
+          'virtual-network', 'qos-forwarding-class', ['ref']) -->
+<xsd:element name="virtual-machine-interface-qos-forwarding-class"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('virtual-machine-interface-qos-forwarding-class',
+          'virtual-machine-interface', 'qos-forwarding-class', ['ref']) -->
+
 <xsd:simpleType name="VxlanNetworkIdentifierType">
      <xsd:restriction base="xsd:integer">
          <xsd:minInclusive value="0"/>
