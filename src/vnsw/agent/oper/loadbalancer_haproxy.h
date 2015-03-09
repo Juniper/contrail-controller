@@ -9,6 +9,7 @@
 #include "base/util.h"
 
 #define LB_HAPROXY_SSL_PORT 443
+#define LB_HAPROXY_TERMINATION_PROTO "HTTPS"
 
 class LoadbalancerProperties;
 class Agent;
