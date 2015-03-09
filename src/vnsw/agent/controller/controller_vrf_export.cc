@@ -90,6 +90,7 @@ void VrfExport::Notify(AgentXmppChannel *bgp_xmpp_peer,
                                            fabric_vrf_name()) != 0) {
                     bgp_peer->route_walker()->StartRouteWalk(vrf);
                 }
+                state->force_chg_ = false;
             }
             return;
         }
