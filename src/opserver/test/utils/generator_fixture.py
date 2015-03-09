@@ -364,16 +364,43 @@ class GeneratorFixture(fixtures.Fixture):
         return False
     # end verify_vm_uve_cache
 
-    def _create_alarm(self, type, rule, value):
+    def send_vn_agent_uve(self, name, num_acl_rules=None, if_list=None,
+                          ipkts=None, ibytes=None, opkts=None, obytes=None,
+                          vm_list=None, vn_stats=None):
+        vn_agent = UveVirtualNetworkAgent(name=name,
+                    total_acl_rules=num_acl_rules, interface_list=if_list,
+                    in_tpkts=ipkts, in_bytes=ibytes, out_tpkts=opkts,
+                    out_bytes=obytes, virtualmachine_list=vm_list,
+                    vn_stats=vn_stats)
+        vn_uve = UveVirtualNetworkAgentTrace(data=vn_agent,
+                    sandesh=self._sandesh_instance)
+        self._logger.info('send uve: %s' % (vn_uve.log()))
+        vn_uve.send(sandesh=self._sandesh_instance)
+    # end send_vn_agent_uve
+
+    def send_vn_config_uve(self, name, conn_nw=None, partial_conn_nw=None,
+                           ri_list=None, num_acl_rules=None):
+        vn_config = UveVirtualNetworkConfig(name=name,
+                        connected_networks=conn_nw,
+                        partially_connected_networks=partial_conn_nw,
+                        routing_instance_list=ri_list,
+                        total_acl_rules=num_acl_rules)
+        vn_uve = UveVirtualNetworkConfigTrace(data=vn_config,
+                    sandesh=self._sandesh_instance)
+        self._logger.info('send uve: %s' % (vn_uve.log()))
+        vn_uve.send(sandesh=self._sandesh_instance)
+    # end send_vn_config_uve
+
+    def create_alarm(self, type, rule, value):
         alarm_elements = []
         alarm_elements.append(AlarmElement(rule=rule, value=value))
         alarms = []
         alarms.append(AlarmInfo(type=type, description=alarm_elements))
         return alarms
-    # end _create_alarm
+    # end create_alarm
 
     def create_process_state_alarm(self, process):
-        return self._create_alarm('ProcessStatus', 'process_state != RUNNING',
+        return self.create_alarm('ProcessStatus', 'process_state != RUNNING',
                     '%s, STOPPED' % (process))
     # end create_process_state_alarm
 

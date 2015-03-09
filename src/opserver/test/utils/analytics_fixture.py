@@ -2098,24 +2098,163 @@ class AnalyticsFixture(fixtures.Fixture):
         return True
     # end verify_fieldname_table
 
-    @retry(delay=1, tries=5)
-    def verify_alarms_table(self, table, expected_alarms):
-        self.logger.info('verify_alarms_table: %s' % (table))
+    def _get_filters_string(self, kfilt, sfilt, mfilt, cfilt):
+        filt = []
+        if kfilt is not None:
+            filt.append('kfilt=%s' % ','.join(kfilt))
+        if sfilt is not None:
+            filt.append('sfilt=%s' % sfilt)
+        if mfilt is not None:
+            filt.append('mfilt=%s' % mfilt)
+        if cfilt is not None:
+            filt.append('cfilt=%s' % ','.join(cfilt))
+        return '&'.join(filt)
+    # end _get_filters_string
+
+    def _get_filters_json(self, kfilt, sfilt, mfilt, cfilt):
+        filt = {}
+        if kfilt is not None:
+            filt['kfilt'] = kfilt
+        if sfilt is not None:
+            filt['sfilt'] = sfilt
+        if mfilt is not None:
+            filt['mfilt'] = mfilt
+        if cfilt is not None:
+            filt['cfilt'] = cfilt
+        return json.dumps(filt)
+    # end _get_filters_json
+
+    @retry(delay=1, tries=3)
+    def verify_uve_list(self, table, kfilt=None, sfilt=None, mfilt=None,
+                        cfilt=None, exp_uve_list=[]):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        filters = self._get_filters_string(kfilt, sfilt, mfilt, cfilt)
+        query = table+'s?'+filters
+        self.logger.info('verify_uve_list: %s' % (query))
         try:
-            alarms = vns.get_alarms(table+'s')
+            uve_list = vns.uve_query(query)
         except Exception as err:
-            self.logger.error('Failed to get alarms %ss: %s' % (table, str(err)))
+            self.logger.error('Failed to get response for %s: %s' % \
+                              (query, str(err)))
+            assert(False)
+        actual_uve_list = [uve['name'] for uve in uve_list]
+        exp_uve_list.sort()
+        actual_uve_list.sort()
+        self.logger.info('Expected UVE list: %s' % (str(exp_uve_list)))
+        self.logger.info('Actual UVE list: %s' % (str(actual_uve_list)))
+        return actual_uve_list == exp_uve_list
+    # end verify_uve_list
+
+    def _verify_uves(self, exp_uves, actual_uves):
+        self.logger.info('Expected UVEs: %s' % (str(exp_uves)))
+        self.logger.info('Actual UVEs: %s' % (str(actual_uves)))
+        if actual_uves is None:
+            return False
+        exp_uve_value = exp_uves['value']
+        actual_uve_value = actual_uves['value']
+        exp_uve_value.sort()
+        actual_uve_value.sort()
+        return actual_uve_value == exp_uve_value
+    # end _verify_uves
+
+    @retry(delay=1, tries=3)
+    def verify_multi_uve_get(self, table, kfilt=None, sfilt=None, mfilt=None,
+                             cfilt=None, exp_uves=None):
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        filters = self._get_filters_string(kfilt, sfilt, mfilt, cfilt)
+        if not filters:
+            filters = 'flat'
+        query = table+'/*?'+filters
+        self.logger.info('verify_multi_uve_get: %s' % (query))
+        try:
+            actual_uves = vns.uve_query(query)
+        except Exception as err:
+            self.logger.error('Failed to get response for %s: %s' % \
+                              (query, str(err)))
+            assert(False)
+        return self._verify_uves(exp_uves, actual_uves)
+    # end verify_multi_uve_get
+
+    @retry(delay=1, tries=3)
+    def verify_uve_post(self, table, kfilt=None, sfilt=None, mfilt=None,
+                        cfilt=None, exp_uves=None):
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        filter_json = self._get_filters_json(kfilt, sfilt, mfilt, cfilt)
+        self.logger.info('verify_uve_post: %s: %s' % (table, filter_json))
+        try:
+            actual_uves = vns.post_uve_request(table, filter_json)
+        except Exception as err:
+            self.logger.error('Failed to get response for UVE POST request'
+                              '%s: %s' % (table, str(err)))
+            assert(False)
+        return self._verify_uves(exp_uves, actual_uves)
+    # end verify_uve_post
+
+    @retry(delay=1, tries=5)
+    def verify_alarm_list(self, table, kfilt=None, sfilt=None, mfilt=None,
+                          cfilt=None, expected_alarms=[]):
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        filters = self._get_filters_string(kfilt, sfilt, mfilt, cfilt)
+        query = table+'s?'+filters
+        self.logger.info('verify_alarm_list: %s' % (query))
+        try:
+            alarms = vns.get_alarms(query)
+        except Exception as err:
+            self.logger.error('Failed to get response for %s: %s' % \
+                              (query, str(err)))
             assert(False)
         actual_alarms = [alarm['name'] for alarm in alarms]
         expected_alarms.sort()
         actual_alarms.sort()
         self.logger.info('Expected Alarms: %s' % (str(expected_alarms)))
         self.logger.info('Actual Alarms: %s' % (str(actual_alarms)))
-        if actual_alarms != expected_alarms:
+        return actual_alarms == expected_alarms
+    # end verify_alarm_list
+
+    def _verify_alarms(self, exp_alarms, actual_alarms):
+        self.logger.info('Expected Alarms: %s' % (str(exp_alarms)))
+        self.logger.info('Actual Alarms: %s' % (str(actual_alarms)))
+        if actual_alarms is None:
             return False
-        return True
-    # end verify_alarms_table
+        exp_alarm_value = exp_alarms['value']
+        actual_alarm_value = actual_alarms['value']
+        exp_alarm_value.sort()
+        actual_alarm_value.sort()
+        return actual_alarm_value == exp_alarm_value
+    # end _verify_alarms
+
+    @retry(delay=1, tries=3)
+    def verify_multi_alarm_get(self, table, kfilt=None, sfilt=None,
+                               mfilt=None, cfilt=None, exp_alarms=None):
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        filters = self._get_filters_string(kfilt, sfilt, mfilt, cfilt)
+        if not filters:
+            filters = 'flat'
+        query = table+'/*?'+filters
+        self.logger.info('verify_multi_alarm_get: %s' % (query))
+        try:
+            actual_alarms = vns.get_alarms(query)
+        except Exception as err:
+            self.logger.error('Failed to get response for %s: %s' % \
+                              (query, str(err)))
+            assert(False)
+        return self._verify_alarms(exp_alarms, actual_alarms)
+    # end verify_multi_alarm_get
+
+    @retry(delay=1, tries=3)
+    def verify_alarm_post(self, table, kfilt=None, sfilt=None, mfilt=None,
+                          cfilt=None, exp_alarms=None):
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        filter_json = self._get_filters_json(kfilt, sfilt, mfilt, cfilt)
+        self.logger.info('verify_alarm_post: %s: %s' % (table, filter_json))
+        try:
+            actual_alarms = vns.post_alarm_request(table, filter_json)
+        except Exception as err:
+            self.logger.error('Failed to get response for Alarm POST request'
+                              '%s: %s' % (table, str(err)))
+            assert(False)
+        return self._verify_alarms(exp_alarms, actual_alarms)
+    # end verify_alarm_post
 
     @retry(delay=1, tries=3)
     def verify_alarm(self, table, key, expected_alarm):
