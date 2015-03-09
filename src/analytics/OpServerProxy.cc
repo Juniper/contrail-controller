@@ -39,6 +39,7 @@ using process::ConnectionState;
 using process::ConnectionType;
 using process::ConnectionStatus;
 
+
 class KafkaDeliveryReportCb : public RdKafka::DeliveryReportCb {
  public:
   void dr_cb (RdKafka::Message &message) {
@@ -55,12 +56,15 @@ class KafkaDeliveryReportCb : public RdKafka::DeliveryReportCb {
 
 class KafkaEventCb : public RdKafka::EventCb {
  public:
+  bool disableKafka;
+  KafkaEventCb() : disableKafka(false) {}
+
   void event_cb (RdKafka::Event &event) {
     switch (event.type())
     {
       case RdKafka::Event::EVENT_ERROR:
         LOG(ERROR, RdKafka::err2str(event.err()) << " : " << event.str());
-        if (event.err() == RdKafka::ERR__ALL_BROKERS_DOWN) assert(0);
+        if (event.err() == RdKafka::ERR__ALL_BROKERS_DOWN) disableKafka = true;
         break;
 
       case RdKafka::Event::EVENT_LOG:
@@ -115,7 +119,10 @@ class OpServerProxy::OpServerImpl {
                           const string& skey,
                           const string& gen,
                           const string& value) {
-
+            if (k_event_cb.disableKafka) {
+                LOG(ERROR, "Kafka ignoring KafkaPub");
+                return;
+            }
             char* gn = new char[gen.length()+1];
             strcpy(gn,gen.c_str());
 
@@ -210,8 +217,10 @@ class OpServerProxy::OpServerImpl {
                                               redis_password_);
                 started_=true;
             }
-            if (collector_) 
+            if (collector_) {
                 collector_->RedisUpdate(true);
+                redis_up_ = true;
+            }
         }
 
         void toConnectCallbackProcess(const redisAsyncContext *c, void *r, void *privdata) {
@@ -311,6 +320,8 @@ class OpServerProxy::OpServerImpl {
                 redis_uve_.RedisStatusUpdate(RAC_DOWN);
             }
             collector_->RedisUpdate(false);
+            redis_up_ = false;
+
             // Update connection info
             ConnectionState::GetInstance()->Update(ConnectionType::REDIS,
                 "To", ConnectionStatus::DOWN, to_ops_conn_->Endpoint(),
@@ -425,6 +436,15 @@ class OpServerProxy::OpServerImpl {
             return from_ops_conn_;
         }
         bool KafkaTimer() {
+            if (k_event_cb.disableKafka) {
+                LOG(ERROR, "Kafka Restart");
+                StopKafka();
+                assert(StartKafka());
+                k_event_cb.disableKafka = false;
+                if (collector_ && redis_up_)
+                    LOG(ERROR, "Kafka Restarting Redis");
+                    collector_->RedisUpdate(true);
+            }
             if (producer_) {
                 producer_->poll(0);
             }
@@ -452,6 +472,9 @@ class OpServerProxy::OpServerImpl {
             redis_password_(redis_password),
             k_event_cb(),
             k_dr_cb(),
+            brokers_(brokers),
+            topicpre_(topic),
+            redis_up_(false),
             kafka_timer_(TimerManager::CreateTimer(*evm->io_service(),
                          "Kafka Timer", 
                          TaskScheduler::GetInstance()->GetTaskId(
@@ -478,38 +501,51 @@ class OpServerProxy::OpServerImpl {
             kafka_timer_->Start(1000,
                 boost::bind(&OpServerImpl::KafkaTimer, this), NULL);
             if (brokers.empty()) return;
+            assert(StartKafka());
+        }
 
+        void StopKafka(void) {
+            if (producer_) {
+                for (unsigned int i=0; i<partitions_; i++) {
+                    topic_[i].reset();
+                }
+                topic_.clear();
+                producer_.reset();
+
+                RdKafka::wait_destroyed(5000);
+            }
+        }
+
+        bool StartKafka(void) {
             string errstr;
             RdKafka::Conf *conf = RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL);
-            conf->set("metadata.broker.list", brokers, errstr);
+            conf->set("metadata.broker.list", brokers_, errstr);
             conf->set("event_cb", &k_event_cb, errstr);
             conf->set("dr_cb", &k_dr_cb, errstr);
             producer_.reset(RdKafka::Producer::create(conf, errstr));
+            LOG(ERROR, "Kafka new Prod " << errstr);
             if (!producer_) 
-                assert(0);
+                return false;
             for (unsigned int i=0; i<partitions_; i++) {
                 std::stringstream ss;
-                ss << topic;
+                ss << topicpre_;
                 ss << i;
+                errstr = string();
                 shared_ptr<RdKafka::Topic> sr(RdKafka::Topic::create(producer_.get(), ss.str(), NULL, errstr));
+                LOG(ERROR,"Kafka new topic " << ss.str() << " Err" << errstr);
+         
                 topic_.push_back(sr);
                 if (!topic_[i])
-                    assert(0);
+                    return false;
             }
             delete conf;
+            return true;
         }
 
         ~OpServerImpl() {
             TimerManager::DeleteTimer(kafka_timer_);
             kafka_timer_ = NULL;
-            if (producer_) {
-                for (unsigned int i=0; i<partitions_; i++) {
-                    topic_[i].reset();
-                }
-                producer_.reset();
-
-                RdKafka::wait_destroyed(5000);
-            }
+            StopKafka();
         }
 
         RedisInfo redis_uve_;
@@ -529,6 +565,9 @@ class OpServerProxy::OpServerImpl {
         std::vector<shared_ptr<RdKafka::Topic> > topic_;
         KafkaEventCb k_event_cb;
         KafkaDeliveryReportCb k_dr_cb;
+        std::string brokers_;
+        std::string topicpre_;
+        bool redis_up_;
         Timer *kafka_timer_;
 };
 
