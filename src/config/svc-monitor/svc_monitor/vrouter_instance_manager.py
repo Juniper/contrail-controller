@@ -2,6 +2,7 @@
 
 from .instance_manager import VRouterHostedManager
 from vnc_api.vnc_api import *
+from .config_db import VirtualRouterSM, VirtualMachineSM
 
 # Manager for service instances (Docker or KVM) hosted on selected vrouter
 class VRouterInstanceManager(VRouterHostedManager):
