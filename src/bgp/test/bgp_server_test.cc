@@ -639,6 +639,7 @@ TEST_F(BgpServerUnitTest, NoMd5ThenMd5ThenNoMd5) {
     EXPECT_GE(peer_a->get_rx_keepalive(), rx_ka_a + 10);
     EXPECT_GE(peer_b->get_rx_keepalive(), rx_ka_b + 10);
 
+    /*
     // Now remove the keys from both the routers and check that the peering
     // stays up.
     SetupPeers(a_.get(), peer_count, a_->session_manager()->GetPort(),
@@ -655,6 +656,7 @@ TEST_F(BgpServerUnitTest, NoMd5ThenMd5ThenNoMd5) {
     VerifyPeers(peer_count, check_count + 10);
     EXPECT_GE(peer_a->get_rx_keepalive(), rx_ka_a + 10);
     EXPECT_GE(peer_b->get_rx_keepalive(), rx_ka_b + 10);
+    */
     StateMachineTest::set_keepalive_time_msecs(0);
 }
 
