@@ -208,6 +208,7 @@ static void AclEntryObjectTrace(AclEntrySandeshData &ace_sandesh, AclEntrySpec &
     } else {
         ace_sandesh.set_rule_type("NT");
     }
+    ace_sandesh.set_uuid(ace_spec.rule_uuid);
 
     std::string src;
     if (ace_spec.src_addr_type == AddressMatch::NETWORK_ID) {
@@ -619,6 +620,18 @@ const AclDBEntry* AclTable::GetAclDBEntry(const string acl_uuid_str,
     AclDBEntry *acl_entry = static_cast<AclDBEntry *>(table->FindActiveEntry(&key));
 
     return acl_entry;
+}
+
+bool AclDBEntry::IsRulePresent(const string &rule_uuid) const {
+    AclDBEntry::AclEntries::const_iterator it = acl_entries_.begin();
+    while (it != acl_entries_.end()) {
+        const AclEntry *ae = it.operator->();
+        if (ae->uuid() == rule_uuid) {
+            return true;
+        }
+        ++it;
+    }
+    return false;
 }
 
 void AclTable::AclFlowResponse(const string acl_uuid_str, const string ctx,
