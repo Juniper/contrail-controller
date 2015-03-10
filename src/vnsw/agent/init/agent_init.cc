@@ -89,10 +89,16 @@ int AgentInit::Start() {
     agent_->set_module_type(ModuleType());
     agent_->set_module_name(module_name);
 
-    LoggingInit(agent_param_->log_file(), agent_param_->log_file_size(),
-                agent_param_->log_files_count(), agent_param_->use_syslog(),
-                agent_param_->syslog_facility(), module_name);
 
+    std::string log_property_file = agent_param_->log_property_file();
+    if (log_property_file.size()) {
+        LoggingInit(log_property_file);
+    }
+    else {
+        LoggingInit(agent_param_->log_file(), agent_param_->log_file_size(),
+                    agent_param_->log_files_count(), agent_param_->use_syslog(),
+                    agent_param_->syslog_facility(), module_name);
+    }
     agent_param_->LogConfig();
 
     int ret = agent_param_->Validate();
