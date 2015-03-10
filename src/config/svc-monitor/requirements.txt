@@ -3,3 +3,4 @@ gevent
 pycassa
 python-novaclient
 requests
+six >= 1.7.0

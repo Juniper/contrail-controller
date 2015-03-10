@@ -22,7 +22,8 @@
         ],
         "scons_test_targets" : [
             "controller/src/api-lib:test",
-            "controller/src/config/api-server:test"
+            "controller/src/config/api-server:test",
+            "controller/src/config/svc_monitor:test"
         ],
         "misc_test_targets" : [ ]
     },
