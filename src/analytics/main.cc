@@ -246,9 +246,15 @@ int main(int argc, char *argv[])
     Collector::SetProgramName(argv[0]);
     Module::type module = Module::COLLECTOR;
     std::string module_id(g_vns_constants.ModuleNames.find(module)->second);
-    LoggingInit(options.log_file(), options.log_file_size(),
-                options.log_files_count(), options.use_syslog(),
-                options.syslog_facility(), module_id);
+    std::string log_property_file = options.log_property_file();
+    if (log_property_file.size()) {
+        LoggingInit(log_property_file);
+    }
+    else {
+        LoggingInit(options.log_file(), options.log_file_size(),
+                    options.log_files_count(), options.use_syslog(),
+                    options.syslog_facility(), module_id);
+    }
 
     vector<string> cassandra_servers(options.cassandra_server_list());
     vector<string> cassandra_ips;

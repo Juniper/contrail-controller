@@ -400,6 +400,10 @@ void AgentParam::ParseDefaultSection() {
     if (!GetValueFromTree<string>(syslog_facility_, "DEFAULT.syslog_facility")) {
         syslog_facility_ = "LOG_LOCAL0";
     }
+
+    if (!GetValueFromTree<string>(log_property_file_, "DEFAULT.log_property_file")) {
+        log_property_file_ = "";
+    }
 }
 
 void AgentParam::ParseMetadataProxy() { 
