@@ -70,6 +70,7 @@ private:
     friend class StaticRouteTest;
 
     RoutingInstance *instance_;
+    BgpConditionListener *listener_;
     StaticRouteMap  static_route_map_;
     void DisableQueue() { static_route_queue_->set_disable(true); }
     void EnableQueue() { static_route_queue_->set_disable(false); }

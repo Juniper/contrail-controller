@@ -75,8 +75,13 @@ public:
         return inst_mgr_.get();
     }
     RTargetGroupMgr *rtarget_group_mgr() { return rtarget_group_mgr_.get(); }
-    BgpConditionListener *condition_listener() {
-        return condition_listener_.get();
+    BgpConditionListener *condition_listener(Address::Family family) {
+        if (family == Address::INET)
+            return inet_condition_listener_.get();
+        if (family == Address::INET6)
+            return inet6_condition_listener_.get();
+        assert(false);
+        return NULL;
     }
     ServiceChainMgr *service_chain_mgr() {
         return service_chain_mgr_.get();
@@ -196,7 +201,8 @@ private:
     boost::scoped_ptr<RoutingInstanceMgr> inst_mgr_;
     boost::scoped_ptr<RTargetGroupMgr> rtarget_group_mgr_;
     boost::scoped_ptr<PeerRibMembershipManager> membership_mgr_;
-    boost::scoped_ptr<BgpConditionListener> condition_listener_;
+    boost::scoped_ptr<BgpConditionListener> inet_condition_listener_;
+    boost::scoped_ptr<BgpConditionListener> inet6_condition_listener_;
     boost::scoped_ptr<RoutePathReplicator> inetvpn_replicator_;
     boost::scoped_ptr<RoutePathReplicator> ermvpn_replicator_;
     boost::scoped_ptr<RoutePathReplicator> evpn_replicator_;

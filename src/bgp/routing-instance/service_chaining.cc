@@ -194,7 +194,7 @@ bool ServiceChain::Match(BgpServer *server, BgpTable *table,
         return false;
     }
 
-    BgpConditionListener *listener = server->condition_listener();
+    BgpConditionListener *listener = server->condition_listener(Address::INET);
     ServiceChainState *state =
         static_cast<ServiceChainState *>(listener->GetMatchState(table, route,
                                                                 this));
@@ -571,12 +571,10 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
         aggregate_match = req->aggregate_match_;
     }
 
-    BgpConditionListener *listener = server()->condition_listener();
-
     ServiceChainState *state = NULL;
     if (route) {
         state = static_cast<ServiceChainState *>
-            (listener->GetMatchState(table, route, info));
+            (listener_->GetMatchState(table, route, info));
     }
 
     switch (req->type_) {
@@ -600,7 +598,7 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
                 // Delete the aggregate route
                 info->RemoveServiceChainRoute(aggregate_match, true);
             }
-            RemoveMatchState(listener, info, table, route, state);
+            RemoveMatchState(listener_, info, table, route, state);
             break;
         }
         case ServiceChainRequest::CONNECTED_ROUTE_ADD_CHG: {
@@ -656,7 +654,7 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
                 InetRoute *ext_route = static_cast<InetRoute *>(*it);
                 info->RemoveServiceChainRoute(ext_route->GetPrefix(), false);
             }
-            RemoveMatchState(listener, info, table, route, state);
+            RemoveMatchState(listener_, info, table, route, state);
             info->set_connected_route(NULL);
             break;
         }
@@ -680,7 +678,7 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
                 InetRoute *inet_route = dynamic_cast<InetRoute *>(route);
                 info->RemoveServiceChainRoute(inet_route->GetPrefix(), false);
             }
-            RemoveMatchState(listener, info, table, route, state);
+            RemoveMatchState(listener_, info, table, route, state);
             break;
         }
         case ServiceChainRequest::UPDATE_ALL_ROUTES: {
@@ -718,13 +716,13 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
             if (table == info->connected_table()) {
                 info->set_connected_table_unregistered();
                 if (!info->num_matchstate()) {
-                    listener->UnregisterCondition(table, info);
+                    listener_->UnregisterCondition(table, info);
                 }
             }
             if (table == info->dest_table()) {
                 info->set_dest_table_unregistered();
                 if (!info->num_matchstate()) {
-                    listener->UnregisterCondition(table, info);
+                    listener_->UnregisterCondition(table, info);
                 }
             }
             if (info->unregistered()) {
@@ -788,14 +786,14 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
     if (state) {
         state->DecrementRefCnt();
         if (state->refcnt() == 0 && state->deleted()) {
-            listener->RemoveMatchState(table, route, info);
+            listener_->RemoveMatchState(table, route, info);
             delete state;
             if (!info->num_matchstate()) {
                 if (info->dest_table_unregistered()) {
-                    listener->UnregisterCondition(info->dest_table(), info);
+                    listener_->UnregisterCondition(info->dest_table(), info);
                 }
                 if (info->connected_table_unregistered()) {
-                    listener->UnregisterCondition(
+                    listener_->UnregisterCondition(
                         info->connected_table(), info);
                 }
                 if (info->unregistered()) {
@@ -810,6 +808,7 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
 }
 
 ServiceChainMgr::ServiceChainMgr(BgpServer *server) : server_(server),
+    listener_(server_->condition_listener(Address::INET)),
     resolve_trigger_(new TaskTrigger(
              bind(&ServiceChainMgr::ResolvePendingServiceChain, this),
              TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0)),
@@ -868,10 +867,10 @@ bool ServiceChainMgr::LocateServiceChain(RoutingInstance *rtinstance,
         BgpConditionListener::RequestDoneCb callback =
             bind(&ServiceChainMgr::StopServiceChainDone, this, _1, _2);
 
-        server()->condition_listener()->RemoveMatchCondition(
+        listener_->RemoveMatchCondition(
                          chain->dest_table(), it->second.get(), callback);
 
-        server()->condition_listener()->RemoveMatchCondition(
+        listener_->RemoveMatchCondition(
                          chain->connected_table(), it->second.get(), callback);
         return true;
     }
@@ -927,9 +926,9 @@ bool ServiceChainMgr::LocateServiceChain(RoutingInstance *rtinstance,
 
     // Add the new service chain request
     chain_set_.insert(std::make_pair(rtinstance, chain));
-    server()->condition_listener()->AddMatchCondition(
+    listener_->AddMatchCondition(
         connected_table, chain.get(), BgpConditionListener::RequestDoneCb());
-    server()->condition_listener()->AddMatchCondition(
+    listener_->AddMatchCondition(
         dest_table, chain.get(), BgpConditionListener::RequestDoneCb());
 
     // Delete from the pending list. The instance would already have been
@@ -992,10 +991,8 @@ void ServiceChainMgr::StopServiceChain(RoutingInstance *src) {
         bind(&ServiceChainMgr::StopServiceChainDone, this, _1, _2);
 
     ServiceChain *obj = static_cast<ServiceChain *>(it->second.get());
-    server()->condition_listener()->RemoveMatchCondition(
-        obj->dest_table(), obj, callback);
-    server()->condition_listener()->RemoveMatchCondition(
-        obj->connected_table(), obj, callback);
+    listener_->RemoveMatchCondition(obj->dest_table(), obj, callback);
+    listener_->RemoveMatchCondition(obj->connected_table(), obj, callback);
 }
 
 void ServiceChainMgr::PeerRegistrationCallback(IPeer *peer, BgpTable *table,
