@@ -126,6 +126,7 @@ public:
     bool log_flow() const { return log_flow_; }
     const std::string &log_level() const { return log_level_; }
     const std::string &log_category() const { return log_category_; }
+    const std::string &log_property_file() const { return log_property_file_; }
     const bool use_syslog() const { return use_syslog_; }
     const std::string syslog_facility() const { return syslog_facility_; }
     const std::vector<std::string> collector_server_list() const {
@@ -320,6 +321,7 @@ private:
     std::string log_file_;
     int log_files_count_;
     long log_file_size_;
+    std::string log_property_file_;
 
     bool log_local_;
     bool log_flow_;
