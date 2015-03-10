@@ -237,9 +237,15 @@ void ContrailAgentInit::Init(AgentParam *param, Agent *agent,
 void ContrailAgentInit::Start() {
     Module::type module = Module::VROUTER_AGENT;
     string module_name = g_vns_constants.ModuleNames.find(module)->second;
-    LoggingInit(params_->log_file(), params_->log_file_size(),
-                params_->log_files_count(), params_->use_syslog(),
-                params_->syslog_facility(), module_name);
+    std::string log_property_file = params_->log_property_file();
+    if (log_property_file.size()) {
+        LoggingInit(log_property_file);
+    }
+    else {
+        LoggingInit(params_->log_file(), params_->log_file_size(),
+                    params_->log_files_count(), params_->use_syslog(),
+                    params_->syslog_facility(), module_name);
+    }
 
     params_->LogConfig();
     params_->Validate();
