@@ -62,7 +62,8 @@ public:
                BgpRoute *route, bool deleted) {
         InetRoute *inet_route = dynamic_cast<InetRoute *>(route);
 
-        BgpConditionListener *listener = server->condition_listener();
+        BgpConditionListener *listener =
+            server->condition_listener(Address::INET);
         TestMatchState *state = 
             static_cast<TestMatchState *>(listener->GetMatchState(table, route,
                                                                   this));
@@ -136,7 +137,9 @@ private:
 class BgpConditionListenerTest : public ::testing::Test {
 protected:
     BgpConditionListenerTest()
-        : evm_(new EventManager()), bgp_server_(new BgpServer(evm_.get())) {
+        : evm_(new EventManager()),
+          bgp_server_(new BgpServer(evm_.get())),
+          listener_(bgp_server_->condition_listener(Address::INET)) {
         IFMapLinkTable_Init(&config_db_, &config_graph_);
         vnc_cfg_Server_ModuleInit(&config_db_, &config_graph_);
         bgp_schema_Server_ModuleInit(&config_db_, &config_graph_);
@@ -275,7 +278,6 @@ protected:
     void AddMatchCondition(string name, std::string match, 
                            bool hold_db_state = false) {
         ConcurrencyScope scope("bgp::Config");
-        BgpConditionListener *listener = bgp_server_->condition_listener();
         Ip4Prefix prefix = Ip4Prefix::FromString(match);
         match_.reset(new TestConditionMatch(prefix, hold_db_state));
         RoutingInstance *rti =
@@ -284,14 +286,13 @@ protected:
         assert(table);
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         scheduler->Stop();
-        listener->AddMatchCondition(table, match_.get(), 
-                                    BgpConditionListener::RequestDoneCb());
+        listener_->AddMatchCondition(table, match_.get(),
+                                     BgpConditionListener::RequestDoneCb());
         scheduler->Start();
     }
 
 
     TestMatchState *GetMatchState(string name, const string &prefix) {
-        BgpConditionListener *listener = bgp_server_->condition_listener();
         RoutingInstance *rti =
             bgp_server_->routing_instance_mgr()->GetRoutingInstance(name);
         BgpTable *table = rti->GetTable(Address::INET);
@@ -307,13 +308,12 @@ protected:
         assert(route);
 
         TestMatchState *state = 
-            static_cast<TestMatchState *>(listener->GetMatchState(table, route,
+            static_cast<TestMatchState *>(listener_->GetMatchState(table, route,
                                                               match_.get()));
         return state;
     }
 
     void RemoveMatchState(string name, const string &prefix) {
-        BgpConditionListener *listener = bgp_server_->condition_listener();
         RoutingInstance *rti =
             bgp_server_->routing_instance_mgr()->GetRoutingInstance(name);
         BgpTable *table = rti->GetTable(Address::INET);
@@ -329,11 +329,11 @@ protected:
         assert(route);
 
         TestMatchState *state = 
-            static_cast<TestMatchState *>(listener->GetMatchState(table, route,
+            static_cast<TestMatchState *>(listener_->GetMatchState(table, route,
                                                               match_.get()));
         assert(state);
 
-        listener->RemoveMatchState(table, route, match_.get());
+        listener_->RemoveMatchState(table, route, match_.get());
         delete state;
 
         // Remove the matched route
@@ -341,13 +341,11 @@ protected:
     }
 
     void DeleteDone(BgpTable *table, ConditionMatch *obj) {
-        BgpConditionListener *listener = bgp_server_->condition_listener();
-        listener->UnregisterCondition(table, obj);
+        listener_->UnregisterCondition(table, obj);
     }
 
     void RemoveMatchCondition(string name) {
         ConcurrencyScope scope("bgp::Config");
-        BgpConditionListener *listener = bgp_server_->condition_listener();
         RoutingInstance *rti =
             bgp_server_->routing_instance_mgr()->GetRoutingInstance(name);
         BgpTable *table = rti->GetTable(Address::INET);
@@ -355,7 +353,7 @@ protected:
 
         BgpConditionListener::RequestDoneCb callback = 
             boost::bind(&BgpConditionListenerTest::DeleteDone, this, _1, _2);
-        listener->RemoveMatchCondition(table, match_.get(), callback);
+        listener_->RemoveMatchCondition(table, match_.get(), callback);
         task_util::WaitForIdle();
     }
 
@@ -363,6 +361,7 @@ protected:
     DB config_db_;
     DBGraph config_graph_;
     boost::scoped_ptr<BgpServer> bgp_server_;
+    BgpConditionListener *listener_;
     ConditionMatchPtr match_;
     typedef std::multimap<std::string, std::string> RouteMap;
     RouteMap routes_added_;

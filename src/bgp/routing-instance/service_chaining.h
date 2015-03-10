@@ -353,6 +353,7 @@ private:
     int registration_id_;
     UnresolvedServiceChainList pending_chain_;
     BgpServer *server_;
+    BgpConditionListener *listener_;
 
     // Work Queue to handle requests posted from Match function, called
     // in the context of db::DBTable task.

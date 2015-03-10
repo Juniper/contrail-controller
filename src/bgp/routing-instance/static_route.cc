@@ -257,7 +257,7 @@ StaticRoute::Match(BgpServer *server, BgpTable *table,
         return false;
     }
 
-    BgpConditionListener *listener = server->condition_listener();
+    BgpConditionListener *listener = server->condition_listener(Address::INET);
     StaticRouteState *state = static_cast<StaticRouteState *>
         (listener->GetMatchState(table, route, this));
     if (!deleted) {
@@ -467,9 +467,11 @@ StaticRoute::AddStaticRoute(NexthopPathIdList *old_path_ids) {
 int StaticRouteMgr::static_route_task_id_ = -1;
 
 StaticRouteMgr::StaticRouteMgr(RoutingInstance *instance)
-    : instance_(instance), resolve_trigger_(new TaskTrigger(
-       boost::bind(&StaticRouteMgr::ResolvePendingStaticRouteConfig, this),
-       TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0)) {
+    : instance_(instance),
+      listener_(instance_->server()->condition_listener(Address::INET)),
+      resolve_trigger_(new TaskTrigger(
+          boost::bind(&StaticRouteMgr::ResolvePendingStaticRouteConfig, this),
+          TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0)) {
     if (static_route_task_id_ == -1) {
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         static_route_task_id_ = scheduler->GetTaskId("bgp::StaticRoute");
@@ -490,13 +492,10 @@ bool StaticRouteMgr::StaticRouteEventCallback(StaticRouteRequest *req) {
     BgpRoute *route = req->rt_;
     StaticRoute *info = static_cast<StaticRoute *>(req->info_.get());
 
-    BgpConditionListener *listener =
-        routing_instance()->server()->condition_listener();
-
     StaticRouteState *state = NULL;
     if (route) {
         state = static_cast<StaticRouteState *>
-            (listener->GetMatchState(table, route, info));
+            (listener_->GetMatchState(table, route, info));
     }
 
     switch (req->type_) {
@@ -530,7 +529,7 @@ bool StaticRouteMgr::StaticRouteEventCallback(StaticRouteRequest *req) {
         case StaticRouteRequest::DELETE_STATIC_ROUTE_DONE: {
             info->set_unregistered();
             if (!info->num_matchstate()) {
-                listener->UnregisterCondition(table, info);
+                listener_->UnregisterCondition(table, info);
                 static_route_map_.erase(info->static_route_prefix());
                 if (!routing_instance()->deleted() && 
                     routing_instance()->config()) {
@@ -548,10 +547,10 @@ bool StaticRouteMgr::StaticRouteEventCallback(StaticRouteRequest *req) {
     if (state) {
         state->DecrementRefCnt();
         if (state->refcnt() == 0 && state->deleted()) {
-            listener->RemoveMatchState(table, route, info);
+            listener_->RemoveMatchState(table, route, info);
             delete state;
             if (!info->num_matchstate() && info->unregistered()) {
-                listener->UnregisterCondition(table, info);
+                listener_->UnregisterCondition(table, info);
                 static_route_map_.erase(info->static_route_prefix());
                 if (!routing_instance()->deleted() && 
                     routing_instance()->config()) {
@@ -569,9 +568,6 @@ void
 StaticRouteMgr::LocateStaticRoutePrefix(const StaticRouteConfig &cfg) {
     CHECK_CONCURRENCY("bgp::Config");
     Ip4Prefix prefix(cfg.address.to_v4(), cfg.prefix_length);
-
-    BgpConditionListener *listener =
-        routing_instance()->server()->condition_listener();
 
     // Verify whether the entry already exists
     StaticRouteMap::iterator it = static_route_map_.find(prefix);
@@ -603,7 +599,7 @@ StaticRouteMgr::LocateStaticRoutePrefix(const StaticRouteConfig &cfg) {
             boost::bind(&StaticRouteMgr::StopStaticRouteDone, this,
                         _1, _2);
 
-        listener->RemoveMatchCondition(match->bgp_table(), it->second.get(),
+        listener_->RemoveMatchCondition(match->bgp_table(), it->second.get(),
                                        callback);
         return;
     }
@@ -615,7 +611,7 @@ StaticRouteMgr::LocateStaticRoutePrefix(const StaticRouteConfig &cfg) {
 
     static_route_map_.insert(make_pair(prefix, static_route_match));
 
-    listener->AddMatchCondition(match->bgp_table(), static_route_match.get(),
+    listener_->AddMatchCondition(match->bgp_table(), static_route_match.get(),
                                 BgpConditionListener::RequestDoneCb());
 
     return;
@@ -643,10 +639,7 @@ void StaticRouteMgr::RemoveStaticRoutePrefix(const Ip4Prefix &static_route) {
         boost::bind(&StaticRouteMgr::StopStaticRouteDone, this, _1, _2);
 
     StaticRoute *match = static_cast<StaticRoute *>(it->second.get());
-
-    BgpConditionListener *listener =
-        routing_instance()->server()->condition_listener();
-    listener->RemoveMatchCondition(match->bgp_table(), match, callback);
+    listener_->RemoveMatchCondition(match->bgp_table(), match, callback);
 }
 
 void StaticRouteMgr::ProcessStaticRouteConfig() {
