@@ -187,8 +187,8 @@ TestClient *OvsTestInit(const char *init_file, bool ovs_init) {
                                agent->event_manager(), introspect_port, NULL);
 
     init->set_ksync_enable(false);
-    init->set_packet_enable(true);
-    init->set_services_enable(true);
+    init->set_packet_enable(false);
+    init->set_services_enable(false);
     init->set_create_vhost(false);
     init->set_uve_enable(true);
     init->set_vgw_enable(false);

@@ -40,7 +40,7 @@ public:
         ADD_ACK,
         DEL_ACK,
     };
-    LogicalSwitchEntry(OvsdbDBObject *table, const char *name);
+    LogicalSwitchEntry(OvsdbDBObject *table, const std::string &name);
     LogicalSwitchEntry(OvsdbDBObject *table, const LogicalSwitchEntry *key);
     LogicalSwitchEntry(OvsdbDBObject *table,
             const PhysicalDeviceVn *entry);

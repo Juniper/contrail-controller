@@ -26,7 +26,7 @@ using OVSDB::OvsdbClient;
 using OVSDB::OvsdbClientSession;
 
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
-        const char *name) : OvsdbDBEntry(table), name_(name),
+        const std::string &name) : OvsdbDBEntry(table), name_(name),
     vxlan_id_(0), mcast_local_row_(NULL), mcast_remote_row_(NULL),
     old_mcast_remote_row_(NULL) {
 }
