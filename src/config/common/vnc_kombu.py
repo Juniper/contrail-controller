@@ -87,8 +87,6 @@ class VncKombuClientBase(object):
         self._consumer = kombu.Consumer(self._channel,
                                        queues=self._update_queue_obj,
                                        callbacks=[self._subscribe])
-        if self._can_consume:
-            self._consumer.consume()
         self._producer = kombu.Producer(self._channel, exchange=self.obj_upd_exchange)
 
         self._conn_lock.release()
@@ -96,10 +94,9 @@ class VncKombuClientBase(object):
 
     def _connection_watch(self):
         self.prepare_to_consume()
-        self._can_consume = True
-        self._consumer.consume()
         while True:
             try:
+                self._consumer.consume()
                 self._conn.drain_events()
             except self._conn.connection_errors + self._conn.channel_errors as e:
                 self._reconnect()
@@ -133,7 +130,6 @@ class VncKombuClientBase(object):
 
 
     def _start(self):
-        self._can_consume = False
         self._reconnect()
 
         self._publisher_greenlet = gevent.spawn(self._publisher)
