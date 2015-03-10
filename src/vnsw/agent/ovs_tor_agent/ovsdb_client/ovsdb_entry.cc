@@ -62,7 +62,13 @@ OvsdbDBEntry::~OvsdbDBEntry() {
 }
 
 bool OvsdbDBEntry::Add() {
-    PreAddChange();
+    OvsdbDBObject *object = static_cast<OvsdbDBObject*>(GetObject());
+    // trigger pre add/change only if idl is not marked deleted.
+    // when idl is delete marked, we should not update KSync references as
+    // when the entry is deleted, existing references will eventually go away
+    if (!object->client_idl_->deleted()) {
+        PreAddChange();
+    }
 
     if (IsNoTxnEntry()) {
         // trigger AddMsg with NULL pointer and return true to complete
@@ -71,7 +77,6 @@ bool OvsdbDBEntry::Add() {
         return true;
     }
 
-    OvsdbDBObject *object = static_cast<OvsdbDBObject*>(GetObject());
     struct ovsdb_idl_txn *txn =
         object->client_idl_->CreateTxn(this, KSyncEntry::ADD_ACK);
     if (txn == NULL) {
@@ -90,7 +95,13 @@ bool OvsdbDBEntry::Add() {
 }
 
 bool OvsdbDBEntry::Change() {
-    PreAddChange();
+    OvsdbDBObject *object = static_cast<OvsdbDBObject*>(GetObject());
+    // trigger pre add/change only if idl is not marked deleted.
+    // when idl is delete marked, we should not update KSync references as
+    // when the entry is deleted, existing references will eventually go away
+    if (!object->client_idl_->deleted()) {
+        PreAddChange();
+    }
 
     if (IsNoTxnEntry()) {
         // trigger ChangeMsg with NULL pointer and return true to complete
@@ -99,7 +110,6 @@ bool OvsdbDBEntry::Change() {
         return true;
     }
 
-    OvsdbDBObject *object = static_cast<OvsdbDBObject*>(GetObject());
     struct ovsdb_idl_txn *txn =
         object->client_idl_->CreateTxn(this, KSyncEntry::CHANGE_ACK);
     if (txn == NULL) {
