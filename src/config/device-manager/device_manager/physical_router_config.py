@@ -11,7 +11,6 @@ from lxml import etree
 from ncclient import manager
 import copy
 
-
 class PhysicalRouterConfig(object):
     # mapping from contrail family names to junos
     _FAMILY_MAP = {
@@ -359,6 +358,8 @@ class PhysicalRouterConfig(object):
                     if attr.get('bgp_router') is None:
                         self._add_family_etree(nbr, attr)
                         break
+            if params.get('autonomous_system') is not None:
+                etree.SubElement(nbr, "peer-as").text = str(params.get('autonomous_system'))
     # end _get_neighbor_config_xml
 
     def send_bgp_config(self):
