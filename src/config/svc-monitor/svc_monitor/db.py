@@ -11,19 +11,13 @@ from pycassa.system_manager import *
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 
 import inspect
+import json
 import time
 
 
 class ServiceMonitorDB(object):
 
     _KEYSPACE = 'svc_monitor_keyspace'
-    _SVC_SI_CF = 'service_instance_table'
-
-    @classmethod
-    def get_db_info(cls):
-        db_info = [(cls._KEYSPACE, [cls._SVC_SI_CF])]
-        return db_info
-    # end get_db_info
 
     def __init__(self, args=None):
         self._args = args
@@ -34,47 +28,10 @@ class ServiceMonitorDB(object):
         else:
             self._keyspace = ServiceMonitorDB._KEYSPACE
 
-    def init_database(self):
-        self._cassandra_init()
 
     # update with logger instance
     def add_logger(self, logger):
         self._logger = logger
-
-    def get_vm_db_prefix(self, inst_count):
-        return('vm' + str(inst_count) + '-')
-
-    def remove_vm_info(self, si_fq_str, vm_uuid):
-        si_info = self.service_instance_get(si_fq_str)
-        if not si_info:
-            return
-
-        prefix = None
-        for key, item in si_info.items():
-            if item == vm_uuid:
-                prefix = key.split('-')[0]
-                break
-        if not prefix:
-            return
-
-        vm_column_list = []
-        for key in si_info.keys():
-            if key.startswith(prefix):
-                vm_column_list.append(key)
-        self.service_instance_remove(si_fq_str, vm_column_list)
-
-    # service instance CRUD
-    def service_instance_get(self, si_fq_str):
-        return self._db_get(self._svc_si_cf, si_fq_str)
-
-    def service_instance_insert(self, si_fq_str, entry):
-        return self._db_insert(self._svc_si_cf, si_fq_str, entry)
-
-    def service_instance_remove(self, si_fq_str, columns=None):
-        return self._db_remove(self._svc_si_cf, si_fq_str, columns)
-
-    def service_instance_list(self):
-        return self._db_list(self._svc_si_cf)
 
     # db CRUD
     def _db_get(self, table, key):
@@ -120,9 +77,8 @@ class ServiceMonitorDB(object):
 
         return entries
 
-
     # initialize cassandra
-    def _cassandra_init(self):
+    def _cassandra_init(self, cf_name):
         server_idx = 0
         num_dbnodes = len(self._args.cassandra_server_list)
         connected = False
@@ -159,7 +115,7 @@ class ServiceMonitorDB(object):
             print "Warning! " + str(e)
 
         # set up column families
-        column_families = [self._SVC_SI_CF]
+        column_families = [cf_name]
         for cf in column_families:
             try:
                 sys_mgr.create_column_family(self._keyspace, cf)
@@ -178,6 +134,91 @@ class ServiceMonitorDB(object):
 
         rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
         wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
-        self._svc_si_cf = pycassa.ColumnFamily(conn_pool, self._SVC_SI_CF,
+        svc_cf = pycassa.ColumnFamily(conn_pool, cf_name,
             read_consistency_level=rd_consistency,
             write_consistency_level=wr_consistency)
+        return svc_cf
+
+class ServiceInstanceDB(ServiceMonitorDB):
+
+    _SVC_SI_CF = 'service_instance_table'
+
+    def init_database(self):
+        self._svc_si_cf = self._cassandra_init(self._SVC_SI_CF)
+
+    def get_vm_db_prefix(self, inst_count):
+        return('vm' + str(inst_count) + '-')
+
+    def remove_vm_info(self, si_fq_str, vm_uuid):
+        si_info = self.service_instance_get(si_fq_str)
+        if not si_info:
+            return
+
+        prefix = None
+        for key, item in si_info.items():
+            if item == vm_uuid:
+                prefix = key.split('-')[0]
+                break
+        if not prefix:
+            return
+
+        vm_column_list = []
+        for key in si_info.keys():
+            if key.startswith(prefix):
+                vm_column_list.append(key)
+        self.service_instance_remove(si_fq_str, vm_column_list)
+
+    # service instance CRUD
+    def service_instance_get(self, si_fq_str):
+        return self._db_get(self._svc_si_cf, si_fq_str)
+
+    def service_instance_insert(self, si_fq_str, entry):
+        return self._db_insert(self._svc_si_cf, si_fq_str, entry)
+
+    def service_instance_remove(self, si_fq_str, columns=None):
+        return self._db_remove(self._svc_si_cf, si_fq_str, columns)
+
+    def service_instance_list(self):
+        return self._db_list(self._svc_si_cf)
+
+class LBDB(ServiceMonitorDB):
+
+    _LB_CF = 'pool_table'
+
+    def init_database(self):
+        self._lb_cf = self._cassandra_init(self._LB_CF)
+
+    def pool_config_get(self, pool_id):
+        json_str = self._db_get(self._lb_cf, pool_id)
+        if json_str:
+            return json.loads(json_str['config_info'])
+        else:
+            return None
+
+    def pool_driver_info_get(self, pool_id):
+        json_str = self._db_get(self._lb_cf, pool_id)
+        if json_str:
+            return json.loads(json_str['driver_info'])
+        else:
+            return None
+
+    def pool_config_insert(self, pool_id, pool_obj):
+        entry = json.dumps(pool_obj)
+        return self._db_insert(self._lb_cf, pool_id, {'config_info': entry})
+
+    def pool_driver_info_insert(self, pool_id, pool_obj):
+        entry = json.dumps(pool_obj)
+        return self._db_insert(self._lb_cf, pool_id, {'driver_info': entry})
+
+    def pool_remove(self, pool_id, columns=None):
+        return self._db_remove(self._lb_cf, pool_id, columns)
+
+    def pool_list(self):
+        ret_list = []
+        for each_entry_id, each_entry_data in self._db_list(self._lb_cf) or []:
+            config_info_obj_dict = json.loads(each_entry_data['config_info'])
+            driver_info_obj_dict = None
+            if 'driver_info' in each_entry_data:
+                driver_info_obj_dict = json.loads(each_entry_data['driver_info'])
+            ret_list.append((each_entry_id, config_info_obj_dict, driver_info_obj_dict))
+        return ret_list

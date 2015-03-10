@@ -49,7 +49,7 @@ from vnc_api.vnc_api import *
 
 import discoveryclient.client as client
 
-from db import ServiceMonitorDB
+from db import ServiceInstanceDB
 from logger import ServiceMonitorLogger
 from instance_manager import InstanceManager
 from loadbalancer_agent import LoadbalancerAgent
@@ -127,7 +127,7 @@ class SvcMonitor(object):
         self._args = args
 
         # create database and logger
-        self.db = ServiceMonitorDB(args)
+        self.si_db = ServiceInstanceDB(args)
 
         # initialize discovery client
         self._disc = None
@@ -137,9 +137,9 @@ class SvcMonitor(object):
                                                 ModuleNames[Module.SVC_MONITOR])
 
         # initialize logger
-        self.logger = ServiceMonitorLogger(self.db, self._disc, args)
-        self.db.add_logger(self.logger)
-        self.db.init_database()
+        self.logger = ServiceMonitorLogger(self.si_db, self._disc, args)
+        self.si_db.add_logger(self.logger)
+        self.si_db.init_database()
 
         # rotating log file for catchall errors
         self._err_file = self._args.trace_file
@@ -241,6 +241,7 @@ class SvcMonitor(object):
             lb_pool = LoadbalancerPoolSM.get(lb_pool_id)
             if lb_pool is not None:
                 lb_pool.add()
+    # end _vnc_subscribe_callback
 
         for si_id in dependency_tracker.resources.get('service_instance', []):
             si = ServiceInstanceSM.get(si_id)
@@ -290,19 +291,19 @@ class SvcMonitor(object):
         # load virtual machine instance manager
         self.vm_manager = importutils.import_object(
             'svc_monitor.virtual_machine_manager.VirtualMachineManager',
-            self._vnc_lib, self.db, self.logger,
+            self._vnc_lib, self.si_db, self.logger,
             self.vrouter_scheduler, self._nova_client, self._args)
 
         # load network namespace instance manager
         self.netns_manager = importutils.import_object(
             'svc_monitor.instance_manager.NetworkNamespaceManager',
-            self._vnc_lib, self.db, self.logger,
+            self._vnc_lib, self.si_db, self.logger,
             self.vrouter_scheduler, self._nova_client, self._args)
 
         # load a vrouter instance manager
         self.vrouter_manager = importutils.import_object(
             'svc_monitor.vrouter_instance_manager.VRouterInstanceManager',
-            self._vnc_lib, self.db, self.logger,
+            self._vnc_lib, self.si_db, self.logger,
             self.vrouter_scheduler, self._nova_client, self._args)
 
         # load a loadbalancer agent
@@ -344,6 +345,8 @@ class SvcMonitor(object):
 
         # check services
         self.launch_services()
+
+        self._db_resync_done.set()
 
     def upgrade(self):
         for si in ServiceInstanceSM.values():
@@ -548,8 +551,9 @@ class SvcMonitor(object):
         for lb_pool in LoadbalancerPoolSM.values():
             lb_pool.add()
 
+        # Audit the lb pools
+        self.loadbalancer_agent.audit_lb_pools()
 
-        self._db_resync_done.set()
     # end sync_sm
 
     # create service template

@@ -3,6 +3,7 @@ from vnc_api.vnc_api import *
 from cfgm_common import importutils
 from cfgm_common import exceptions as vnc_exc
 from config_db import ServiceApplianceSetSM, LoadbalancerPoolSM, InstanceIpSM, VirtualMachineInterfaceSM
+from db import LBDB
 
 class LoadbalancerAgent(object):
 
@@ -16,6 +17,9 @@ class LoadbalancerAgent(object):
         self._create_default_service_appliance_set("opencontrail", 
           "svc_monitor.services.loadbalancer.drivers.ha_proxy.driver.OpencontrailLoadbalancerDriver")
         self._default_provider = "opencontrail"
+        self.lb_db = LBDB(config_section)
+        self.lb_db.add_logger(self._svc_mon.logger)
+        self.lb_db.init_database()
     # end __init__
 
     # create default loadbalancer driver
@@ -37,8 +41,17 @@ class LoadbalancerAgent(object):
     def load_drivers(self):
         for sas in ServiceApplianceSetSM.values():
             if sas.driver:
-                self._loadbalancer_driver[sas.name] = importutils.import_object(sas.driver, self._svc_mon, self._vnc_lib)
+                self._loadbalancer_driver[sas.name] = importutils.import_object(sas.driver, self._svc_mon, self._vnc_lib, self.lb_db)
     # end load_drivers
+
+    def audit_lb_pools(self):
+        for pool_id, config_data, driver_data in self.lb_db.pool_list():
+            if LoadbalancerPoolSM.get(pool_id):
+                continue
+            # Delete the pool from the driver
+            driver = self._get_driver_for_provider(config_data['provider'])
+            driver.delete_pool(config_data)
+            self.lb_db.pool_remove(pool_id)
 
     def load_driver(self, sas):
         if sas.name in self._loadbalancer_driver:
@@ -82,6 +95,7 @@ class LoadbalancerAgent(object):
                 driver.update_pool(pool.last_sent, p)
         except Exception as ex:
             pass
+        self.lb_db.pool_config_insert(p['id'], p)
         return p
     # end loadbalancer_pool_add
 
@@ -136,6 +150,7 @@ class LoadbalancerAgent(object):
             driver.delete_pool(p)
         except Exception as ex:
             pass
+        self.lb_db.pool_remove(p['id'])
     # end delete_loadbalancer_pool
 
     def update_hm(self, obj):
