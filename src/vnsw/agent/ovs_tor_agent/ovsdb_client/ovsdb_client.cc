@@ -6,6 +6,7 @@
 #include <oper/agent_sandesh.h>
 #include <ovsdb_types.h>
 #include <ovsdb_client.h>
+#include <ovsdb_client_ssl.h>
 #include <ovsdb_client_tcp.h>
 #include <ovs_tor_agent/tor_agent_init.h>
 #include <ovs_tor_agent/tor_agent_param.h>
@@ -34,10 +35,15 @@ void OvsdbClient::Init() {
 OvsdbClient *OvsdbClient::Allocate(Agent *agent, TorAgentParam *params,
         OvsPeerManager *manager) {
     KSyncObjectManager::Init();
-    return (new OvsdbClientTcp(agent, IpAddress(params->tor_ip()),
-                               params->tor_port(), params->tsn_ip(),
-                               params->keepalive_interval(), false ,
-                               manager));
+    if (params->tor_protocol() == "tcp") {
+        return (new OvsdbClientTcp(agent, IpAddress(params->tor_ip()),
+                                   params->tor_port(), params->tsn_ip(),
+                                   params->keepalive_interval(), false ,
+                                   manager));
+    } else if (params->tor_protocol() == "pssl") {
+        return (new OvsdbClientSsl(agent, params, manager));
+    }
+    return NULL;
 }
 
 /////////////////////////////////////////////////////////////////////////////
