@@ -32,3 +32,15 @@ uve sandesh UveVirtualNetworkAgentTrace {
     1: UveVirtualNetworkAgent               data;
 }
 
+struct UveVirtualNetworkConfig {
+    1: string                           name (key="ObjectVNTable")
+    2: optional bool                    deleted
+    4: optional list<string>            connected_networks (aggtype="union")
+    5: optional list<string>            partially_connected_networks (aggtype="union")
+    6: optional list<string>            routing_instance_list (aggtype="union")
+    7: optional i32                     total_acl_rules;
+}
+
+uve sandesh UveVirtualNetworkConfigTrace {
+    1: UveVirtualNetworkConfig              data
+}
