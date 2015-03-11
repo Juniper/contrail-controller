@@ -128,19 +128,19 @@ TEST_F(LoadbalancerHaproxyTest, GenerateConfig_with_SSL_Monitor) {
     props.set_vip_uuid(gen());
 
     autogen::LoadbalancerPoolType pool_attr;
-    pool_attr.protocol = "HTTP";
+    pool_attr.protocol = "TCP";
     props.set_pool_properties(pool_attr);
 
     autogen::VirtualIpType vip_attr;
     vip_attr.address = "127.0.0.1";
-    vip_attr.protocol = "HTTP";
-    vip_attr.protocol_port = 80;
+    vip_attr.protocol = "TCP";
+    vip_attr.protocol_port = 443;
     vip_attr.connection_limit = 100;
     props.set_vip_properties(vip_attr);
 
     autogen::LoadbalancerMemberType member;
     member.address = "127.0.0.2";
-    member.protocol_port = 80;
+    member.protocol_port = 443;
     member.weight = 10;
     props.members()->insert(std::make_pair(gen(), member));
 
@@ -160,9 +160,14 @@ TEST_F(LoadbalancerHaproxyTest, GenerateConfig_with_SSL_Monitor) {
     ifstream file(ss.str().c_str());
     if (file) {
         string file_str((istreambuf_iterator<char>(file)), istreambuf_iterator<char>());
-        string search_str = "ssl-hello-chk";
-        size_t found = file_str.find(search_str);
+        string search_str1 = "ssl-hello-chk";
+        string search_str2 = "ssl_cert";
+
+        size_t found = file_str.find(search_str1);
         EXPECT_NE(found, string::npos);
+
+        found = file_str.find(search_str2);
+        EXPECT_EQ(found, string::npos);
     }
 
     boost::system::error_code error;
