@@ -173,6 +173,7 @@ TEST_F(LoadbalancerTest, ConfigPool) {
     EXPECT_EQ("127.0.0.2", addresses.at(1));
     ASSERT_EQ(2, props->healthmonitors().size());
     manager_->SetObject(loadbalancer->node(), NULL);
+    task_util::WaitForIdle();
 }
 
 static void SetUp() {
