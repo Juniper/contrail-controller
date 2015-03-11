@@ -12,6 +12,7 @@
 #
     
 import os
+import os.path
 import subprocess
 import logging
 import socket
@@ -138,8 +139,9 @@ def replace_string_(filePath, findreplace):
 def call_command_(command):
 
     distribution = platform.dist()[0]
-    if distribution == "debian":
-        jenv = { "JAVA_HOME" : "/usr/local/java/jre1.6.0_43" }
+    jpath = "/usr/local/java/jre1.6.0_43"
+    if distribution == "debian" and os.path.isdir(jpath):
+        jenv = { "JAVA_HOME" : jpath }
     else:
         jenv = None
 
