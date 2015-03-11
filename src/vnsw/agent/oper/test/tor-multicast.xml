@@ -44,6 +44,9 @@
     <global-vrouter-config uuid="1" name="default-global-system-config:default-global-vrouter-config" vxlan-mode="automatic"/>
     <virtual-network uuid="1" name="vn-1" vxlan-id="2" network-id="100" />
 
+    <validate name="validate-2">
+        <multicast-tor name="force-change-vxlan-network-id-mode" uuid="1"/>
+    </validate>
     <link left="logical-interface" left-name="l-intf-1"
           right="virtual-machine-interface" right-name="tap-1" del="1"/>
     <link left="physical-router" left-name="router-1"
@@ -62,8 +65,8 @@
     <physical-router uuid="2" name="router-2" del="1"/>
     <logical-interface uuid="2" name="l-intf-2" port="p-intf-2" vmi="tap2" del="1"/>
     <physical-interface uuid="2" name="intf-2" device="router-2"  del="1"/>
-    <validate name="validate-2">
-        <multicast-tor name="multicast-2" uuid="1"/>
+    <validate name="validate-3">
+        <multicast-tor name="verify-mcast-tor-peer-deleted" uuid="1"/>
     </validate>
     <link left="virtual-machine-interface" left-name="tap1"
           right="virtual-network" right-name="vn-1" del="1"/>

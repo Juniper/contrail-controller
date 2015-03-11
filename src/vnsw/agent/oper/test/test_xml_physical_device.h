@@ -171,6 +171,7 @@ public:
     virtual bool Validate();
     virtual const std::string ToString();
 private:
+    std::string test_name_;
 };
 
 #endif //vnsw_agent_test_xml_test_xml_physical_device_h
