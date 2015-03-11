@@ -532,10 +532,27 @@ bool AgentUtXmlMulticastTorValidate::ReadXml() {
     if (AgentUtXmlValidationNode::ReadXml() == false)
         return false;
 
+    GetStringAttribute(node(), "name", &test_name_);
     return true;
 }
 
 bool AgentUtXmlMulticastTorValidate::Validate() {
+    Agent *agent = Agent::GetInstance();
+    if (test_name_ == "force-change-vxlan-network-id-mode") {
+        agent->set_vxlan_network_identifier_mode(Agent::CONFIGURED);
+    }
+    if (test_name_ == "verify-mcast-tor-peer-deleted") {
+        VrfEntry *vrf =
+            Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf1");
+        BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
+            (vrf->GetBridgeRouteTable());
+        BridgeRouteEntry *entry = table->FindRoute(MacAddress::BroadcastMac());
+        if (entry == NULL)
+            return true;
+        AgentPath *path = entry->FindPath(agent->multicast_tor_peer());
+        if (path != NULL)
+            return false;
+    }
     return true;
 }
 

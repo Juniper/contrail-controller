@@ -40,11 +40,13 @@ struct OlistTunnelEntry {
 };
 
 struct MulticastDBState : DBState {
-    MulticastDBState(const std::string &vrf_name, const Ip4Address &ip_addr) :
-        vrf_name_(vrf_name), ip_addr_(ip_addr) { }
+    MulticastDBState(const std::string &vrf_name, const Ip4Address &ip_addr,
+                     uint32_t vxlan_id) :
+        vrf_name_(vrf_name), ip_addr_(ip_addr), vxlan_id_(vxlan_id) { }
 
     std::string vrf_name_;
     Ip4Address ip_addr_;
+    uint32_t vxlan_id_;
 };
 
 typedef std::vector<OlistTunnelEntry> TunnelOlist;
@@ -246,6 +248,8 @@ public:
 
     const Agent *agent() const {return agent_;}
     void Terminate();
+    DBTable::ListenerId physical_device_vn_listener_id() const {
+        return physical_device_vn_listener_id_;}
 
 private:
     //operations on list of all objectas per group/source/vrf
