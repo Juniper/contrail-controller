@@ -66,7 +66,10 @@ OvsdbDBObject::~OvsdbDBObject() {
 
 void OvsdbDBObject::NotifyAddOvsdb(OvsdbDBEntry *key, struct ovsdb_idl_row *row) {
     OvsdbDBEntry *entry = static_cast<OvsdbDBEntry *>(Find(key));
-    if (entry) {
+    // Check if entry is present and active. in case if we find an entry
+    // which is inactive, we will need to alloc ovs entry and trigger
+    // delete to update ovsdb-server
+    if (entry && entry->IsActive()) {
         // trigger notify add for the entry, to update ovs_idl state
         entry->NotifyAdd(row);
     } else {
