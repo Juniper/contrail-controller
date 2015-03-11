@@ -235,7 +235,13 @@ class AuthServiceKeystone(object):
         try:
             return self._auth_middleware.verify_signed_token(user_token)
         except:
-            return None
+            # Retry verify after fetching the certs.
+            try:
+                self._auth_middleware.fetch_signing_cert()
+                self._auth_middleware.fetch_ca_cert()
+                return self._auth_middleware.verify_signed_token(user_token)
+            except
+                return None
     # end
 
     # convert keystone user id to name
