@@ -34,10 +34,12 @@ struct VnIpam {
     bool       installed;    // is the route to send pkts to host installed
     bool       dhcp_enable;
     std::string ipam_name;
+    autogen::IpamType ipam;
     OperDhcpOptions oper_dhcp_options;
 
     VnIpam(const std::string& ip, uint32_t len, const std::string& gw,
            const std::string& dns, bool dhcp, std::string &name,
+           const autogen::IpamType &ipam_type,
            const std::vector<autogen::DhcpOptionType> &dhcp_options,
            const std::vector<autogen::RouteType> &host_routes);
 
@@ -136,7 +138,6 @@ public:
     const VnIpam *GetIpam(const IpAddress &ip) const;
     bool GetVnHostRoutes(const std::string &ipam,
                          std::vector<OperDhcpOptions::Subnet> *routes) const;
-    bool GetIpamName(const IpAddress &vm_addr, std::string *ipam_name) const;
     bool GetIpamData(const IpAddress &vm_addr, std::string *ipam_name,
                      autogen::IpamType *ipam_type) const;
     bool GetIpamVdnsData(const IpAddress &vm_addr,
@@ -275,6 +276,8 @@ public:
 private:
     void CallVdnsCb(IFMapNode *node);
     void CallIpamCb(IFMapNode *node);
+    bool IpamChanged(const autogen::IpamType &old,
+                     const autogen::IpamType &cur) const;
 
     IpamDomainConfigMap ipam_config_;
     VdnsDomainConfigMap vdns_config_;
