@@ -827,8 +827,16 @@ def parse_args(args_str):
         'auth_insecure': True,
         'admin_user': 'user1',
         'admin_password': 'password1',
-        'admin_tenant_name': 'default-domain'
-    }
+        'admin_tenant_name': 'default-domain',
+        'nova_auth_host': '127.0.0.1',
+        'nova_auth_protocol': 'http',
+        'nova_auth_port': '5000',
+        'nova_auth_version': 'v2.0',
+        'nova_auth_insecure': True,
+        'nova_admin_user': 'user1',
+        'nova_admin_password': 'password1',
+        'nova_admin_tenant_name': 'default-domain'
+     }
     schedops = {
         'si_netns_scheduler_driver': \
             'svc_monitor.scheduler.vrouter_scheduler.RandomScheduler',

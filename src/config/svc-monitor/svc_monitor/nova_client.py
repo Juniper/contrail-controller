@@ -14,14 +14,25 @@ class ServiceMonitorNovaClient(object):
             client = self._nova.get(proj_name)
             if client is not None:
                 return client
-    
-        auth_url = self._args.auth_protocol + '://' + self._args.auth_host \
-                   + ':' + self._args.auth_port + '/' + self._args.auth_version
+
+        auth_protocol = (self._args.nova_auth_protocol or
+                         self._args.auth_protocol)
+        auth_host = (self._args.nova_auth_host or self._args.auth_host)
+        auth_port = self._args.nova_auth_port or self._args.auth_port
+        auth_version = self._args.nova_auth_version or self._args.auth_version
+        admin_user = self._args.nova_admin_user or self._args.admin_user
+        admin_password = (self._args.nova_admin_password or
+                          self._args.admin_password)
+        auth_insecure = (self._args.nova_auth_insecure or
+                         self._args.auth_insecure)
+
+        auth_url = auth_protocol + '://' + auth_host \
+                   + ':' + auth_port + '/' + auth_version
         self._nova[proj_name] = nc.Client(
-            '2', username=self._args.admin_user, project_id=proj_name,
-            api_key=self._args.admin_password,
+            '2', username=admin_user, project_id=proj_name,
+            api_key=admin_password,
             region_name=self._args.region_name, service_type='compute',
-            auth_url=auth_url, insecure=self._args.auth_insecure,
+            auth_url=auth_url, insecure=auth_insecure,
             endpoint_type='internalURL')
         return self._nova[proj_name]
 
