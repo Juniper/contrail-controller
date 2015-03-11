@@ -37,7 +37,7 @@ public:
         remove(tmpfilename);
     }
 
-    int StartTask() {
+    pid_t StartTask() {
         /* create few fds */
         if(pipe(pipe_fds) == -1)
             return -1;
@@ -45,7 +45,8 @@ public:
         if (sock_fd < 0)
             return -1;
         /* run the task now */
-        task_pid = task_->Run();
+        task_->Run();
+        task_pid = task_->pid();
         return task_pid;
     }
 
@@ -72,7 +73,7 @@ protected:
     int pipe_fds[2];
     int sock_fd;
     InstanceTaskExecvp *task_;
-    int task_pid;
+    pid_t task_pid;
     EventManager evm;
     char tmpfilename[L_tmpnam];
 };
