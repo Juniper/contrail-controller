@@ -1,17 +1,19 @@
 import sys
-sys.path.append('../common/tests')
 import uuid
 import json
+import ConfigParser
+
+import bottle
 from flexmock import flexmock, Mock
 from testtools.matchers import Equals, Contains, Not
 import stevedore.extension
-from test_utils import *
-from test_common import TestCase, setup_extra_flexmock
-import ConfigParser
 
 from vnc_cfg_api_server import vnc_cfg_api_server
+sys.path.append('../common/tests')
+from test_utils import *
+from test_common import TestCase, setup_extra_flexmock
 
-import bottle
+import fake_neutron
 import vnc_openstack
 
 @bottle.hook('after_request')
@@ -44,9 +46,13 @@ class VncOpenstackTestCase(TestCase):
     # end setUp
 
     def tearDown(self):
-        with open('vnc_openstack.err') as f:
-            self.assertThat(len(f.read()), Equals(0),
-                            "Error log in vnc_openstack.err")
+        try:
+            with open('vnc_openstack.err') as f:
+                self.assertThat(len(f.read()), Equals(0),
+                                "Error log in vnc_openstack.err")
+        except IOError:
+            # vnc_openstack.err not created, No errors.
+            pass
         super(VncOpenstackTestCase, self).tearDown()
 # end class VncOpenstackTestCase
 
