@@ -1,10 +1,12 @@
 import sys
 import json
-sys.path.append('../common/tests')
+
 from testtools.matchers import Equals, Contains
 
+sys.path.append('../common/tests')
 from test_utils import *
 import test_common
+
 import test_case
 
 

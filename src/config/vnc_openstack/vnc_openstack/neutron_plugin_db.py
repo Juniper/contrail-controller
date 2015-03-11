@@ -16,8 +16,6 @@ import gevent
 import bottle
 
 from neutron.common import constants
-from neutron.common import exceptions
-from neutron.api.v2 import attributes as attr
 
 from cfgm_common import exceptions as vnc_exc
 from vnc_api.vnc_api import *
@@ -1158,17 +1156,18 @@ class DBInterface(object):
     #end _security_group_rule_neutron_to_vnc
 
     def _network_neutron_to_vnc(self, network_q, oper):
+        attr_not_specified = object()
         net_name = network_q.get('name', None)
         try:
             external_attr = network_q['router:external']
         except KeyError:
-            external_attr = attr.ATTR_NOT_SPECIFIED
+            external_attr = attr_not_specified
         if oper == CREATE:
             project_id = str(uuid.UUID(network_q['tenant_id']))
             project_obj = self._project_read(proj_id=project_id)
             id_perms = IdPermsType(enable=True)
             net_obj = VirtualNetwork(net_name, project_obj, id_perms=id_perms)
-            if external_attr == attr.ATTR_NOT_SPECIFIED:
+            if external_attr == attr_not_specified:
                 net_obj.router_external = False
             else:
                 net_obj.router_external = external_attr
@@ -1181,7 +1180,7 @@ class DBInterface(object):
             if oper == UPDATE:
                 if 'shared' in network_q:
                     net_obj.is_shared = network_q['shared']
-                if external_attr is not attr.ATTR_NOT_SPECIFIED:
+                if external_attr is not attr_not_specified:
                     net_obj.router_external = external_attr
 
         if 'name' in network_q and network_q['name']:
@@ -2999,7 +2998,8 @@ class DBInterface(object):
         try:
             net_obj = self._vnc_lib.virtual_network_read(id=network_id)
         except NoIdError:
-            raise exceptions.NetworkNotFound(net_id=ext_net_id)
+            self._raise_contrail_exception(
+                'NetworkNotFound', net_id=network_id)
         net_obj.set_route_table(rt_obj)
         self._vnc_lib.virtual_network_update(net_obj)
 
@@ -3018,7 +3018,8 @@ class DBInterface(object):
         try:
             net_obj = self._vnc_lib.virtual_network_read(id=network_id)
         except NoIdError:
-            raise exceptions.NetworkNotFound(net_id=ext_net_id)
+            self._raise_contrail_exception(
+                'NetworkNotFound', net_id=network_id)
         net_obj.del_route_table(rt_obj)
         self._vnc_lib.virtual_network_update(net_obj)
 

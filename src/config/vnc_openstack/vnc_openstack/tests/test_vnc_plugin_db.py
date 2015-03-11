@@ -2,6 +2,7 @@ import unittest
 import uuid
 from flexmock import flexmock
 
+import fake_neutron
 from vnc_openstack import neutron_plugin_db as db
 
 class MockDbInterface(db.DBInterface):
