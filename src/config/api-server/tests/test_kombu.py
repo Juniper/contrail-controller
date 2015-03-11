@@ -41,9 +41,9 @@ class TestIfmapKombuClient(unittest.TestCase):
         self._url_template = "pyamqp://%s:%s@%s:%d/%s/"
         self.mock_producer = flexmock(operational = True)
         self.mock_consumer = flexmock(operational = True)
-        vnc_kombu.kombu.Connection = lambda x: self.mock_connect
-        vnc_kombu.kombu.Producer = lambda x, **kwargs: self.mock_producer
-        vnc_kombu.kombu.Consumer = lambda x, **kwargs: self.mock_consumer
+        flexmock(vnc_kombu.kombu.Connection, __new__ = lambda *args, **kwargs: self.mock_connect)
+        flexmock(vnc_kombu.kombu.Producer, __new__ = lambda *args, **kwargs: self.mock_producer)
+        flexmock(vnc_kombu.kombu.Consumer, __new__= lambda *args, **kwargs: self.mock_consumer)
 
     def _url(self, server,
              port=None,
@@ -58,13 +58,13 @@ class TestIfmapKombuClient(unittest.TestCase):
                      "skipping because kombu client is older")
     def test_url_parsing(self):
         check_value = []
-        def Connection(urls):
+        def Connection(self, urls):
             if set(urls) != set(check_value):
                 raise WrongValueException()
             else:
                 raise CorrectValueException()
 
-        vnc_kombu.kombu.Connection = Connection
+        flexmock(vnc_kombu.kombu.Connection, __new__ = Connection)
 
         servers = "a.a.a.a,b.b.b.b:5050,cccc@c.c.c.c,dddd@d.d.d.d:5050,eeee:xxxx@e.e.e.e,ffff:xxxx@f.f.f.f:5050"
         check_value = [self._url("a.a.a.a"),
