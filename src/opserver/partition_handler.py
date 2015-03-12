@@ -30,7 +30,11 @@ class PartitionHandler(gevent.Greenlet):
         return True
 
     def start_partition(self):
-        self._logger.info("%d Initializing DB" % self._partition)
+        self._logger.info("%d Starting DB" % self._partition)
+        return True
+
+    def stop_partition(self):
+        self._logger.info("%d Stopping DB" % self._partition)
         return True
 
     def _run(self):
@@ -46,7 +50,7 @@ class PartitionHandler(gevent.Greenlet):
                     template = "Consumer Failure {0} occured. Arguments:\n{1!r}"
                     messag = template.format(type(ex).__name__, ex.args)
                     self._logger.info("%s" % messag)
-                    raise gevent.GreenletExit
+                    raise RuntimeError(messag)
 
                 self._logger.info("Starting %d" % self._partition)
 
@@ -90,7 +94,8 @@ class PartitionHandler(gevent.Greenlet):
                 template = "An exception of type {0} occured. Arguments:\n{1!r}"
                 messag = template.format(type(ex).__name__, ex.args)
                 self._logger.info("%s" % messag)
-                gevent.sleep(1)
+                self.stop_partition()
+                gevent.sleep(2)
         self._logger.info("Stopping %d pcount %d" % (self._partition, pcount))
         return self._partoffset, self._partdb
 
@@ -117,6 +122,20 @@ class UveStreamProc(PartitionHandler):
         self._callback = callback
         self._partno = partition
 
+    def __del__(self):
+        self._logger.info("Destroying UVEStream for part %d" % self._partno)
+        self.stop_partition()
+
+    def stop_partition(self):
+        uves  = set()
+        for kcoll,coll in self._uvedb.iteritems():
+            for kgen,gen in coll.iteritems():
+                uves.update(set(gen.keys()))
+        self._logger.info("Stopping part %d with UVE keys %s" % \
+                          (self._partno, str(uves)))
+        self._callback(uves, True)
+        self._uvedb = {}
+
     def start_partition(self):
         ''' This function loads the initial UVE database.
             for the partition
@@ -126,7 +145,8 @@ class UveStreamProc(PartitionHandler):
         for kcoll,coll in self._uvedb.iteritems():
             for kgen,gen in coll.iteritems():
                 uves.update(set(gen.keys()))
-        self._logger.info("Existing UVE keys %s" % str(uves))
+        self._logger.info("Starting part %d with UVE keys %s" % \
+                          (self._partno,str(uves)))
         self._callback(uves)
 
     def contents(self):
