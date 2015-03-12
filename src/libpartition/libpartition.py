@@ -14,7 +14,7 @@ class PartitionClient(object):
     Example usage:
     ---------------------
     import libpartition
-    from libpartition import PartitionClient
+    from libpartition.libpartition import PartitionClient
 
     def own_change_cb(l):
             print "ownership change:" + str(l)
@@ -61,9 +61,31 @@ class PartitionClient(object):
         if not(self._name in cluster_list):
             raise ValueError('cluster list is missing local server name')
 
+        # initialize logging and other stuff
+        logging.basicConfig()
+        self._conn_state = None
+        self._sandesh_connection_info_update(status='INIT', message='')
+
         # connect to zookeeper
         self._zk = KazooClient(zk_server)
-        self._zk.start()
+        while True:
+            try:
+                self._zk.start()
+                break
+            except gevent.event.Timeout as e:
+                # Update connection info
+                self._sandesh_connection_info_update(status='DOWN',
+                                                     message=str(e))
+                gevent.sleep(1)
+            # Zookeeper is also throwing exception due to delay in master election
+            except Exception as e:
+                # Update connection info
+                self._sandesh_connection_info_update(status='DOWN',
+                                                     message=str(e))
+                gevent.sleep(1)
+        # Update connection info
+        self._sandesh_connection_info_update(status='UP', message='')
+        # Done connecting to ZooKeeper
 
         # create a lock array to contain locks for each partition
         self._part_locks = []
@@ -84,6 +106,31 @@ class PartitionClient(object):
         self._acquire_partition_ownership()
 
     #end __init__
+
+    def _sandesh_connection_info_update(self, status, message):
+        from pysandesh.connection_info import ConnectionState
+        from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
+            ConnectionType
+        from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+
+        new_conn_state = getattr(ConnectionStatus, status)
+        ConnectionState.update(conn_type = ConnectionType.ZOOKEEPER,
+                name = 'Zookeeper', status = new_conn_state,
+                message = message,
+                server_addrs = self._zk_server.split(','))
+
+        if (self._conn_state and self._conn_state != ConnectionStatus.DOWN and 
+            new_conn_state == ConnectionStatus.DOWN):
+            msg = 'Connection to Zookeeper down: %s' %(message)
+            logging.error(msg)
+        if (self._conn_state and self._conn_state != new_conn_state and 
+            new_conn_state == ConnectionStatus.UP):
+            msg = 'Connection to Zookeeper ESTABLISHED'
+            logging.info(msg)
+
+        self._conn_state = new_conn_state
+    # end _sandesh_connection_info_update
+
 
     # following routine is the greenlet task function to acquire the lock
     # for a partition
@@ -128,6 +175,9 @@ class PartitionClient(object):
         # this variable will help us decide if we need to call callback
         updated_curr_ownership = False 
 
+        # list of partitions for which locks have to be released
+        release_lock_list = []
+
         for part in range(0, self._max_partition):
             if (part in self._target_part_ownership_list):
                 if (part in self._curr_part_ownership_list):
@@ -164,22 +214,25 @@ class PartitionClient(object):
                         pass
 
                 if (part in self._curr_part_ownership_list):
-                    # release if lock was already acquired
-                    logging.info("release the lock which was acquired:" + \
-                            str(part))
-                    try:
-                        self._part_locks[part].release()
-                    except:
-                        pass
-                    
+                    release_lock_list.append(part)
                     self._curr_part_ownership_list.remove(part)
                     updated_curr_ownership = True
-                    logging.info("gave up ownership of:" + str(part))
+                    logging.info("giving up ownership of:" + str(part))
 
         if (updated_curr_ownership is True):
             # current partition membership was updated call the callback 
             self._update_cb(self._curr_part_ownership_list)
-        
+
+        if (len(release_lock_list) != 0):
+            # release locks which were acquired
+            for part in release_lock_list:
+                logging.info("release the lock which was acquired:" + \
+                        str(part))
+                try:
+                    self._part_locks[part].release()
+                    logging.info("fully gave up ownership of:" + str(part))
+                except:
+                    pass
     #end _acquire_partition_ownership
 
     def update_cluster_list(self, cluster_list):
