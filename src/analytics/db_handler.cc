@@ -759,10 +759,14 @@ DbHandler::StatTableSelectStr(
                 break;
             case UINT64: {
                     aggstr.push_back(string("SUM(") + statAttr + "." + it->first + string(")"));
+                    aggstr.push_back(string("MAX(") + statAttr + "." + it->first + string(")"));
+                    aggstr.push_back(string("MIN(") + statAttr + "." + it->first + string(")"));
                 }
                 break;
             case DOUBLE: {
                     aggstr.push_back(string("SUM(") + statAttr + "." + it->first + string(")"));
+                    aggstr.push_back(string("MAX(") + statAttr + "." + it->first + string(")"));
+                    aggstr.push_back(string("MIN(") + statAttr + "." + it->first + string(")"));
                 }
                 break;                
             default:

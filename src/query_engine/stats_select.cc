@@ -75,6 +75,10 @@ StatsSelect::Jsonify(const std::map<std::string, StatVal>&  uniks,
                 sname = string("COUNT(") + it->first.second + string(")");
             } else if (it->first.first == QEOpServerProxy::CLASS) {
                 sname = string("CLASS(") + it->first.second + string(")");
+            } else if (it->first.first == QEOpServerProxy::MAX) {
+                sname = string("MAX(") + it->first.second + string(")");
+            } else if (it->first.first == QEOpServerProxy::MIN) {
+                sname = string("MIN(") + it->first.second + string(")");
             } else {
                 QE_ASSERT(0);
             }
@@ -232,6 +236,12 @@ StatsSelect::StatsSelect(AnalyticsQuery * m_query,
             } else if (agg == QEOpServerProxy::CLASS) {
                 class_cols_.insert(sfield);
                 QE_TRACE(DEBUG, "StatsSelect CLASS " << sfield);
+            } else if (agg == QEOpServerProxy::MAX) {
+                max_field_ = sfield;
+                QE_TRACE(DEBUG, "StatsSelect MAX " << sfield);
+            } else if (agg == QEOpServerProxy::MIN) {
+                min_field_ = sfield;
+                QE_TRACE(DEBUG, "StatsSelect MIN " << sfield);
             } else {
                 QE_ASSERT(0);
             }
@@ -335,6 +345,39 @@ void StatsSelect::MergeAggRow(QEOpServerProxy::AggRowT &arows,
                     QE_ASSERT(0);
                 }     
             }
+            if (jt->first.first == QEOpServerProxy::MAX) {
+                StatsSelect::StatVal & sv = jt->second;
+                try {
+                    if (sv.which() == QEOpServerProxy::UINT64) {
+                        uint64_t& existing_max = boost::get<uint64_t>(jt->second);
+                        existing_max = (existing_max > (boost::get<uint64_t>(kt->second))) ? existing_max:(boost::get<uint64_t>(kt->second));
+                    }
+                    if (sv.which() == QEOpServerProxy::DOUBLE) {
+                        double& existing_max = boost::get<double>(jt->second);
+                        existing_max = (existing_max > (boost::get<double>(kt->second))) ? existing_max:(boost::get<double>(kt->second));
+                    }                   
+                } catch (boost::bad_get& ex) {
+                    QE_ASSERT(0);
+                    QE_ASSERT(0);
+                }     
+            }
+            if (jt->first.first == QEOpServerProxy::MIN) {
+                StatsSelect::StatVal & sv = jt->second;
+                try {
+                    if (sv.which() == QEOpServerProxy::UINT64) {
+                        uint64_t& existing_min = boost::get<uint64_t>(jt->second);
+                        existing_min = (existing_min < (boost::get<uint64_t>(kt->second))) ? existing_min:(boost::get<uint64_t>(kt->second));
+                    }
+                    if (sv.which() == QEOpServerProxy::DOUBLE) {
+                        double& existing_min = boost::get<double>(jt->second);
+                        existing_min = (existing_min < (boost::get<double>(kt->second))) ? existing_min:(boost::get<double>(kt->second));
+                    }                   
+                } catch (boost::bad_get& ex) {
+                    QE_ASSERT(0);
+                    QE_ASSERT(0);
+                }     
+            }
+
         }
     }
 
@@ -404,6 +447,19 @@ bool StatsSelect::LoadRow(boost::uuids::uuid u,
             narows.insert(make_pair(aggkey, it->value)); 
         }
     }
+
+    for (vector<StatEntry>::const_iterator it = row.begin();
+            it != row.end(); it++) {
+        if (!max_field_.empty() && it->name == max_field_) {
+            pair<QEOpServerProxy::AggOper,string> aggkey(QEOpServerProxy::MAX,max_field_);
+            narows.insert(make_pair(aggkey, it->value)); 
+        }
+        if (!min_field_.empty() && it->name == min_field_) {
+            pair<QEOpServerProxy::AggOper,string> aggkey(QEOpServerProxy::MAX,min_field_);
+            narows.insert(make_pair(aggkey, it->value)); 
+        }
+    }
+
     
     for (std::set<std::string>::const_iterator ct = class_cols_.begin();
             ct!=class_cols_.end(); ct++) {
@@ -428,7 +484,7 @@ bool StatsSelect::LoadRow(boost::uuids::uuid u,
         pair<QEOpServerProxy::AggOper,string> aggkey(QEOpServerProxy::COUNT,count_field_);
         narows.insert(make_pair(aggkey, (uint64_t) 1));            
     }
-    
+
     MergeFullRow(ukey, uniks, narows, output);
 
     return true;
