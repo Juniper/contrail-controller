@@ -188,7 +188,7 @@ class Controller(object):
             self._logger.error('Could not import libpartition: %s' % str(e))
             return None
 
-    def handle_uve_notif(self, uves):
+    def handle_uve_notif(self, uves, remove = False):
         self._logger.debug("Changed UVEs : %s" % str(uves))
         no_handlers = set()
         for uv in uves:
@@ -196,13 +196,16 @@ class Controller(object):
             if not self.mgrs.has_key(tab):
                 no_handlers.add(tab)
                 continue
-            itr = self._us.multi_uve_get(uv, True, None, None, None, None)
-            uve_data = itr.next()['value']
+            if remove:
+                uve_data = []
+            else:
+                itr = self._us.multi_uve_get(uv, True, None, None, None, None)
+                uve_data = itr.next()['value']
             if len(uve_data) == 0:
                 self._logger.info("UVE %s deleted" % uv)
                 if self.tab_alarms[tab].has_key(uv):
 		    del self.tab_alarms[tab][uv]
-                    uname = uv.split(":")[1]
+                    uname = uv.split(":",1)[1]
                     ustruct = UVEAlarms(name = uname, deleted = True)
                     alarm_msg = AlarmTrace(data=ustruct, table=tab)
                     self._logger.info('send del alarm: %s' % (alarm_msg.log()))

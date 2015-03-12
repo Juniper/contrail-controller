@@ -129,7 +129,7 @@ class SyslogCollectorTest : public ::testing::Test
         listener_->Start();
         thread_.reset(new ServerThread(evm_.get()));
         Sandesh::InitGenerator("SyslogTest", "127.0.0.1", "Test", "Test",
-                evm_.get(), 8080, NULL);
+                evm_.get(), 0, NULL);
         thread_->Start();
     }
 
