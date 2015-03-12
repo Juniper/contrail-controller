@@ -79,6 +79,9 @@ if 'install' in BUILD_TARGETS:
 OpEnv['OPSERVER_PKG'] = sdist_gen
 OpEnv.SConscript('plugins/alarm_process_status/SConscript', exports='OpEnv', duplicate = 0)
 OpEnv.SConscript('plugins/alarm_process_connectivity/SConscript', exports='OpEnv', duplicate = 0)
+OpEnv.SConscript('plugins/alarm_partial_sysinfo/SConscript', exports='OpEnv', duplicate = 0)
+OpEnv.SConscript('plugins/alarm_bgp_connectivity/SConscript', exports='OpEnv', duplicate = 0)
+OpEnv.SConscript('plugins/alarm_vrouter_interface/SConscript', exports='OpEnv', duplicate = 0)
 OpEnv.SConscript('test/SConscript', exports='OpEnv', duplicate = 0)
 OpEnv.SConscript('docs/SConscript', exports='OpEnv', duplicate = 0)
 
