@@ -6,11 +6,13 @@
 #include <uve/agent_uve_base.h>
 
 VnUveEntryBase::VnUveEntryBase(Agent *agent, const VnEntry *vn)
-    : agent_(agent), vn_(vn), uve_info_(), interface_tree_(), vm_tree_() {
+    : agent_(agent), vn_(vn), uve_info_(), interface_tree_(), vm_tree_(),
+    changed_(true), deleted_(false), renewed_(false) {
 }
 
 VnUveEntryBase::VnUveEntryBase(Agent *agent)
-    : agent_(agent), vn_(NULL), uve_info_(), interface_tree_(),  vm_tree_() {
+    : agent_(agent), vn_(NULL), uve_info_(), interface_tree_(),  vm_tree_(),
+    changed_(true), deleted_(false), renewed_(false) {
 }
 
 VnUveEntryBase::~VnUveEntryBase() {
@@ -50,6 +52,7 @@ void VnUveEntryBase::InterfaceDelete(const Interface *intf) {
 
 bool VnUveEntryBase::BuildInterfaceVmList(UveVirtualNetworkAgent &s_vn) {
     bool changed = false;
+    assert(!deleted_);
 
     s_vn.set_name(vn_->GetName());
     vector<string> vm_list;
@@ -137,6 +140,7 @@ bool VnUveEntryBase::UveVnAclRuleCountChanged(int32_t size) const {
 bool VnUveEntryBase::FrameVnAclRuleCountMsg(const VnEntry *vn,
                                             UveVirtualNetworkAgent *uve) {
     bool changed = false;
+    assert(!deleted_);
     uve->set_name(vn->GetName());
 
     int acl_rule_count;
@@ -157,6 +161,7 @@ bool VnUveEntryBase::FrameVnAclRuleCountMsg(const VnEntry *vn,
 
 bool VnUveEntryBase::FrameVnMsg(const VnEntry *vn, UveVirtualNetworkAgent &uve) {
     bool changed = false;
+    assert(!deleted_);
     uve.set_name(vn->GetName());
 
     string acl_name;
@@ -192,6 +197,9 @@ bool VnUveEntryBase::FrameVnMsg(const VnEntry *vn, UveVirtualNetworkAgent &uve) 
         changed = true;
     }
 
+    if (BuildInterfaceVmList(uve)) {
+        changed = true;
+    }
     return changed;
 }
 
@@ -203,4 +211,13 @@ void VnUveEntryBase::GetInStats(uint64_t *in_bytes, uint64_t *in_pkts) const {
 void VnUveEntryBase::GetOutStats(uint64_t *out_bytes, uint64_t *out_pkts) const {
     *out_bytes = uve_info_.get_out_bytes();
     *out_pkts = uve_info_.get_out_tpkts();
+}
+
+void VnUveEntryBase::Reset() {
+    UveVirtualNetworkAgent uve;
+
+    interface_tree_.clear();
+    vm_tree_.clear();
+    uve_info_ = uve;
+    vn_ = NULL;
 }

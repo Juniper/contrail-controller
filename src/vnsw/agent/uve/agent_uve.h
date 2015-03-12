@@ -13,7 +13,8 @@
 //objects required for sending UVE information to collector.
 class AgentUve : public AgentUveBase {
 public:
-    AgentUve(Agent *agent, uint64_t intvl);
+    AgentUve(Agent *agent, uint64_t intvl, uint32_t default_intvl,
+             uint32_t incremental_intvl);
     virtual ~AgentUve();
 
     virtual void Shutdown();

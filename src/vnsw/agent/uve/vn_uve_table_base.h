@@ -36,14 +36,16 @@ public:
     typedef boost::shared_ptr<VnUveEntryBase> VnUveEntryPtr;
     typedef std::map<std::string, VnUveEntryPtr> UveVnMap;
     typedef std::pair<std::string, VnUveEntryPtr> UveVnPair;
-    VnUveTableBase(Agent *agent);
+    VnUveTableBase(Agent *agent, uint32_t default_intvl);
     virtual ~VnUveTableBase();
 
     void RegisterDBClients();
     void Shutdown(void);
     void SendVnAclRuleCount();
+    bool TimerExpiry();
 
 protected:
+    void Delete(const std::string &name);
     virtual void Delete(const VnEntry *vn);
     VnUveEntryBase* UveEntryFromVn(const VnEntry *vn);
     //The following API is made protected for UT.
@@ -59,15 +61,26 @@ private:
     void VnNotify(DBTablePartBase *partition, DBEntryBase *e);
     void InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e);
     void SendDeleteVnMsg(const std::string &vn);
-    void SendVnMsg(const VnEntry *vn);
+    void MarkChanged(const VnEntry *vn);
     void InterfaceDeleteHandler(const std::string &vm, const std::string &vn,
                                 const Interface* intf);
     void InterfaceAddHandler(const VnEntry* vn, const Interface* intf,
                              const std::string &vm_name,
                              VnUveInterfaceState *state);
+    bool set_expiry_time(int time);
+    bool RestartTimer();
+    void SendVnMsg(VnUveEntryBase *entry, const VnEntry *vn);
 
     DBTableBase::ListenerId vn_listener_id_;
     DBTableBase::ListenerId intf_listener_id_;
+
+    // Last visited VmEntry by timer
+    std::string timer_last_visited_;
+    // In case of TSN/TorAgent send UVE on timer expiry instead of notification
+    Timer *timer_;
+    TaskTrigger *timer_restart_trigger_;
+    int expiry_time_;
+
     DISALLOW_COPY_AND_ASSIGN(VnUveTableBase);
 };
 

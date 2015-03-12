@@ -341,6 +341,7 @@ bool VnUveEntry::FrameVnStatsMsg(const VnEntry *vn,
                                  UveVirtualNetworkAgent &uve,
                                  bool only_vrf_stats) {
     bool changed = false;
+    assert(!deleted_);
     uve.set_name(vn->GetName());
 
     uint64_t in_pkts = 0;
