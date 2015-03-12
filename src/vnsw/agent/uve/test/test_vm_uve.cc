@@ -279,6 +279,10 @@ TEST_F(UveVmUveTest, VmAddDel_1) {
     //Add VM
     util_.VmAdd(1);
     client->WaitForIdle();
+
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+
     EXPECT_EQ(1U, vmut->VmUveCount());
     EXPECT_EQ(1U, vmut->send_count());
 
@@ -293,6 +297,10 @@ TEST_F(UveVmUveTest, VmAddDel_1) {
     //Add another VM
     util_.VmAdd(2);
     client->WaitForIdle();
+
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+
     EXPECT_EQ(2U, vmut->VmUveCount());
     EXPECT_EQ(2U, vmut->send_count());
 
@@ -305,12 +313,21 @@ TEST_F(UveVmUveTest, VmAddDel_1) {
     //Delete one of the VMs
     util_.VmDelete(1);
     client->WaitForIdle();
+
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+
     EXPECT_EQ(1U, vmut->VmUveCount());
     EXPECT_EQ(1U, vmut->delete_count());
 
     //Delete other VM also
     util_.VmDelete(2);
     client->WaitForIdle();
+
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, ((vmut->VmUveCount() == 0U)));
+
     EXPECT_EQ(0U, vmut->VmUveCount());
     EXPECT_EQ(2U, vmut->delete_count());
 
@@ -327,6 +344,8 @@ TEST_F(UveVmUveTest, VmIntfAddDel_1) {
     VmUveTableTest *vmut = static_cast<VmUveTableTest *>
         (Agent::GetInstance()->uve()->vm_uve_table());
     vmut->ClearCount();
+    EXPECT_EQ(0U, vmut->VmUveCount());
+
     //Add VN
     util_.VnAdd(input[0].vn_id);
 
@@ -345,6 +364,9 @@ TEST_F(UveVmUveTest, VmIntfAddDel_1) {
 
     //Add VM
     util_.VmAdd(input[0].vm_id);
+    client->WaitForIdle();
+
+    util_.EnqueueSendVmUveTask();
     client->WaitForIdle();
 
     //Verify send_count after VM addition
@@ -372,12 +394,15 @@ TEST_F(UveVmUveTest, VmIntfAddDel_1) {
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input, 0));
 
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+
     //Verify UVE 
     VmEntry *vm = VmGet(input[0].vm_id);
     EXPECT_TRUE(vm != NULL);
     UveVirtualMachineAgent *uve1 =  vmut->VmUveObject(vm);
     EXPECT_TRUE(uve1 != NULL);
-    EXPECT_EQ(3U, vmut->send_count());
+    EXPECT_EQ(2U, vmut->send_count());
     EXPECT_EQ(1U, uve1->get_interface_list().size()); 
 
     //Verify interface UUID
@@ -397,8 +422,11 @@ TEST_F(UveVmUveTest, VmIntfAddDel_1) {
     //Verify that the port is inactive
     EXPECT_TRUE(VmPortInactive(input, 0));
 
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+
     //Verify UVE 
-    EXPECT_EQ(4U, vmut->send_count());
+    EXPECT_EQ(3U, vmut->send_count());
     EXPECT_EQ(1U, uve1->get_interface_list().size());
 
     //Activate the interface again
@@ -408,8 +436,11 @@ TEST_F(UveVmUveTest, VmIntfAddDel_1) {
             "virtual-machine-interface", "vnet1");
     client->WaitForIdle();
 
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+
     //Verify UVE 
-    EXPECT_EQ(5U, vmut->send_count());
+    EXPECT_EQ(4U, vmut->send_count());
     EXPECT_EQ(1U, uve1->get_interface_list().size()); 
 
     // Delete virtual-machine-interface to vrf link attribute
@@ -422,8 +453,11 @@ TEST_F(UveVmUveTest, VmIntfAddDel_1) {
     //Verify that the port is inactive
     EXPECT_TRUE(VmPortInactive(input, 0));
 
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+
     //Verify UVE 
-    EXPECT_EQ(6U, vmut->send_count());
+    EXPECT_EQ(5U, vmut->send_count());
     EXPECT_EQ(1U, uve1->get_interface_list().size());
 
     //other cleanup
@@ -445,6 +479,10 @@ TEST_F(UveVmUveTest, VmIntfAddDel_1) {
     IntfCfgDel(input, 0);
     client->WaitForIdle();
 
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, ((vmut->VmUveCount() == 0U)));
+
     //Verify UVE 
     EXPECT_EQ(1U, vmut->delete_count());
 
@@ -462,6 +500,7 @@ TEST_F(UveVmUveTest, VmIntfAddDel_2) {
     VmUveTableTest *vmut = static_cast<VmUveTableTest *>
         (Agent::GetInstance()->uve()->vm_uve_table());
     vmut->ClearCount();
+    EXPECT_EQ(0U, vmut->VmUveCount());
 
     //Add VN
     util_.VnAdd(input[0].vn_id);
@@ -481,6 +520,9 @@ TEST_F(UveVmUveTest, VmIntfAddDel_2) {
 
     //Add VM
     util_.VmAdd(input[0].vm_id);
+
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
 
     //Verify send_count after VM addition
     EXPECT_EQ(1U, vmut->send_count());
@@ -507,29 +549,41 @@ TEST_F(UveVmUveTest, VmIntfAddDel_2) {
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input, 0));
 
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+
     //Verify UVE 
     VmEntry *vm = VmGet(input[0].vm_id);
     EXPECT_TRUE(vm != NULL);
     UveVirtualMachineAgent *uve1 =  vmut->VmUveObject(vm);
     EXPECT_TRUE(uve1 != NULL);
-    EXPECT_EQ(3U, vmut->send_count());
+    EXPECT_EQ(2U, vmut->send_count());
     EXPECT_EQ(1U, uve1->get_interface_list().size()); 
 
     //Disassociate VM from VMI and delete the VM
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
     util_.VmDelete(input[0].vm_id);
     client->WaitForIdle();
-    EXPECT_TRUE((vmut->send_count() >= 4U));
+
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, ((vmut->VmUveCount() == 0U)));
+
+    EXPECT_TRUE((vmut->send_count() >= 3U));
+    EXPECT_EQ(1U, vmut->delete_count());
     
     //Add the VM back and re-associate it with same VMI
     util_.VmAdd(input[0].vm_id);
     AddLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
     client->WaitForIdle();
+    WAIT_FOR(1000, 500, ((vmut->VmUveCount() == 1U)));
+
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
 
     //Verify UVE 
-    EXPECT_TRUE((vmut->send_count() >= 5U));
+    EXPECT_TRUE((vmut->send_count() >= 4U));
     EXPECT_EQ(1U, vmut->delete_count());
-
 
     // Delete virtual-machine-interface to vrf link attribute
     DelLink("virtual-machine-interface-routing-instance", "vnet1",
@@ -541,12 +595,15 @@ TEST_F(UveVmUveTest, VmIntfAddDel_2) {
     //Verify that the port is inactive
     EXPECT_TRUE(VmPortInactive(input, 0));
 
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+
     //Verify UVE 
     vm = VmGet(input[0].vm_id);
     EXPECT_TRUE(vm != NULL);
     uve1 =  vmut->VmUveObject(vm);
     EXPECT_TRUE(uve1 != NULL);
-    EXPECT_TRUE((vmut->send_count() >= 6U));
+    EXPECT_TRUE((vmut->send_count() >= 5U));
     EXPECT_EQ(1U, uve1->get_interface_list().size());
 
     //Activate the interface again
@@ -556,8 +613,11 @@ TEST_F(UveVmUveTest, VmIntfAddDel_2) {
             "virtual-machine-interface", "vnet1");
     client->WaitForIdle();
 
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+
     //Verify UVE 
-    EXPECT_TRUE((vmut->send_count() >= 7U));
+    EXPECT_TRUE((vmut->send_count() >= 6U));
     EXPECT_EQ(1U, uve1->get_interface_list().size());
 
     // Delete virtual-machine-interface to vrf link attribute
@@ -570,8 +630,11 @@ TEST_F(UveVmUveTest, VmIntfAddDel_2) {
     //Verify that the port is inactive
     EXPECT_TRUE(VmPortInactive(input, 0));
 
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+
     //Verify UVE 
-    EXPECT_TRUE((vmut->send_count() >= 8U));
+    EXPECT_TRUE((vmut->send_count() >= 7U));
     EXPECT_EQ(1U, uve1->get_interface_list().size());
 
     //other cleanup
@@ -594,6 +657,10 @@ TEST_F(UveVmUveTest, VmIntfAddDel_2) {
     IntfCfgDel(input, 0);
     client->WaitForIdle();
 
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, ((vmut->VmUveCount() == 0U)));
+
     //Verify UVE 
     EXPECT_EQ(2U, vmut->delete_count());
 
@@ -611,6 +678,7 @@ TEST_F(UveVmUveTest, FipL3Disabled) {
 
     VmUveTableTest *vmut = static_cast<VmUveTableTest *>
         (Agent::GetInstance()->uve()->vm_uve_table());
+    EXPECT_EQ(0U, vmut->VmUveCount());
     //Add VN
     util_.VnAdd(input[0].vn_id);
     // Nova Port add message
@@ -707,6 +775,10 @@ TEST_F(UveVmUveTest, FipL3Disabled) {
     //clear counters at the end of test case
     client->Reset();
     vmut->ClearCount();
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, ((vmut->VmUveCount() == 0U)));
+    vmut->ClearCount();
 }
 
 /* Create a VMI which has ipv4_active_ as false.
@@ -722,6 +794,7 @@ TEST_F(UveVmUveTest, FipUninstalledRemove) {
 
     VmUveTableTest *vmut = static_cast<VmUveTableTest *>
         (Agent::GetInstance()->uve()->vm_uve_table());
+    EXPECT_EQ(0U, vmut->VmUveCount());
     //Add VN
     util_.VnAdd(input[0].vn_id);
     // Nova Port add message
@@ -821,9 +894,17 @@ TEST_F(UveVmUveTest, FipUninstalledRemove) {
     //clear counters at the end of test case
     client->Reset();
     vmut->ClearCount();
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, ((vmut->VmUveCount() == 0U)));
+    vmut->ClearCount();
 }
 
 TEST_F(UveVmUveTest, FipStats_1) {
+    VmUveTableTest *vmut = static_cast<VmUveTableTest *>
+        (Agent::GetInstance()->uve()->vm_uve_table());
+
+    EXPECT_EQ(0U, vmut->VmUveCount());
     FlowSetUp();
     FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_collector();
     TestFlow flow[] = {
@@ -846,9 +927,6 @@ TEST_F(UveVmUveTest, FipStats_1) {
                         flow0->flow_key_nh()->id()));
     EXPECT_TRUE(FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(), vm4_ip,
                         vm1_fip, 1, 0, 0, rev->key().nh));
-
-    VmUveTableTest *vmut = static_cast<VmUveTableTest *>
-        (Agent::GetInstance()->uve()->vm_uve_table());
 
     //Verify that stats FIP entry is absent until flow stats are updated
     EXPECT_EQ(0U, vmut->GetVmIntfFipCount(flow0->vm(), flow0));
@@ -871,11 +949,19 @@ TEST_F(UveVmUveTest, FipStats_1) {
     //cleanup
     FlowTearDown();
     RemoveFipConfig();
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, ((vmut->VmUveCount() == 0U)));
+    vmut->ClearCount();
 }
 
 // Delete FIP config and verify stats entry for that FIP is removed from
 // our data-structures
 TEST_F(UveVmUveTest, FipStats_2) {
+    VmUveTableTest *vmut = static_cast<VmUveTableTest *>
+        (Agent::GetInstance()->uve()->vm_uve_table());
+
+    EXPECT_EQ(0U, vmut->VmUveCount());
     FlowSetUp();
     FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_collector();
     TestFlow flow[] = {
@@ -898,9 +984,6 @@ TEST_F(UveVmUveTest, FipStats_2) {
                         flow0->flow_key_nh()->id()));
     EXPECT_TRUE(FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(), vm4_ip,
                         vm1_fip, 1, 0, 0, rev->key().nh));
-
-    VmUveTableTest *vmut = static_cast<VmUveTableTest *>
-        (Agent::GetInstance()->uve()->vm_uve_table());
 
     //Verify that stats FIP entry is absent until flow stats are updated
     EXPECT_EQ(0U, vmut->GetVmIntfFipCount(flow0->vm(), flow0));
@@ -920,10 +1003,19 @@ TEST_F(UveVmUveTest, FipStats_2) {
 
     //cleanup
     FlowTearDown();
+
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, ((vmut->VmUveCount() == 0U)));
+    vmut->ClearCount();
 }
 
 // Update FIP stats and verify dispatched VM Stats UVE has the expected stats
 TEST_F(UveVmUveTest, FipStats_3) {
+    VmUveTableTest *vmut = static_cast<VmUveTableTest *>
+        (Agent::GetInstance()->uve()->vm_uve_table());
+
+    EXPECT_EQ(0U, vmut->VmUveCount());
     FlowSetUp();
     FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_collector();
     TestFlow flow[] = {
@@ -938,6 +1030,12 @@ TEST_F(UveVmUveTest, FipStats_3) {
 
     CreateFlow(flow, 1);
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(3U, vmut->VmUveCount());
+
+    //Send the required UVEs which clears changed flag set on UVE objects.
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+    vmut->ClearCount();
 
     //Verify Floating IP flows are created.
     const FlowEntry *f1 = flow[0].pkt_.FlowFetch();
@@ -947,15 +1045,13 @@ TEST_F(UveVmUveTest, FipStats_3) {
     EXPECT_TRUE(FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(), vm4_ip,
                         vm1_fip, 1, 0, 0, rev->key().nh));
 
-    VmUveTableTest *vmut = static_cast<VmUveTableTest *>
-        (Agent::GetInstance()->uve()->vm_uve_table());
-
     //Verify that stats FIP entry is absent until flow stats are updated
     EXPECT_EQ(0U, vmut->GetVmIntfFipCount(flow0->vm(), flow0));
 
     //Update FIP stats which resuts in creation of stats FIP entry
     fsc->UpdateFloatingIpStats(f1, 300, 3);
     fsc->UpdateFloatingIpStats(rev, 300, 3);
+    client->WaitForIdle();
 
     //Verify that stats FIP entry is created
     EXPECT_EQ(1U, vmut->GetVmIntfFipCount(flow0->vm(), flow0));
@@ -988,6 +1084,10 @@ TEST_F(UveVmUveTest, FipStats_3) {
     //cleanup
     FlowTearDown();
     RemoveFipConfig();
+
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, ((vmut->VmUveCount() == 0U)));
     vmut->ClearCount();
 }
 
@@ -996,6 +1096,10 @@ TEST_F(UveVmUveTest, FipStats_3) {
 // assigned from a common third VN's floating IP pool. Both VMs are part of same
 // compute node (Local Flow case)
 TEST_F(UveVmUveTest, FipStats_4) {
+    VmUveTableTest *vmut = static_cast<VmUveTableTest *>
+        (Agent::GetInstance()->uve()->vm_uve_table());
+
+    EXPECT_EQ(0U, vmut->VmUveCount());
     FlowSetUp2();
     FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_collector();
     TestFlow flow[] = {
@@ -1018,9 +1122,6 @@ TEST_F(UveVmUveTest, FipStats_4) {
                         flowa->flow_key_nh()->id()));
     EXPECT_TRUE(FlowGet(VrfGet("vrf7")->vrf_id(), vm_b_ip, vm_c_fip1, 1, 0, 0,
                         rev->key().nh));
-
-    VmUveTableTest *vmut = static_cast<VmUveTableTest *>
-        (Agent::GetInstance()->uve()->vm_uve_table());
 
     //Verify that stats FIP entry is absent until flow stats are updated
     EXPECT_EQ(0U, vmut->GetVmIntfFipCount(flowa->vm(), flowa));
@@ -1060,6 +1161,11 @@ TEST_F(UveVmUveTest, FipStats_4) {
     //cleanup
     FlowTearDown2();
     RemoveFipConfig2();
+
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, ((vmut->VmUveCount() == 0U)));
+
     vmut->ClearCount();
     EXPECT_EQ(0U, vmut->GetVmIntfFipCount(flowa->vm(), flowa));
 }
@@ -1069,6 +1175,10 @@ TEST_F(UveVmUveTest, FipStats_4) {
 // assigned from a common third VN's floating IP pool. The destination VM is in
 // different compute node. (Non Local flow case)
 TEST_F(UveVmUveTest, FipStats_5) {
+    VmUveTableTest *vmut = static_cast<VmUveTableTest *>
+        (Agent::GetInstance()->uve()->vm_uve_table());
+
+    EXPECT_EQ(0U, vmut->VmUveCount());
     FlowSetUp();
     FlowStatsCollector *fsc = Agent::GetInstance()->flow_stats_collector();
     CreatePeer();
@@ -1093,9 +1203,6 @@ TEST_F(UveVmUveTest, FipStats_5) {
                         flow0->flow_key_nh()->id()));
     EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), remote_vm_fip, vm1_fip, 1, 0, 0,
                         rev->key().nh));
-
-    VmUveTableTest *vmut = static_cast<VmUveTableTest *>
-        (Agent::GetInstance()->uve()->vm_uve_table());
 
     //Verify that stats FIP entry is absent until flow stats are updated
     EXPECT_EQ(0U, vmut->GetVmIntfFipCount(flow0->vm(), flow0));
@@ -1136,14 +1243,23 @@ TEST_F(UveVmUveTest, FipStats_5) {
     util_.DeleteRemoteRoute("default-project:vn4:vn4", remote_vm_fip, peer_);
     RemoveFipConfig();
     DeletePeer();
+
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, ((vmut->VmUveCount() == 0U)));
+
     vmut->ClearCount();
 }
 
 // Update FIP stats and verify dispatched VM Stats UVE has the expected stats
 TEST_F(UveVmUveTest, VmUVE_Name_1) {
-    FlowSetUp();
     VmUveTableTest *vmut = static_cast<VmUveTableTest *>
         (Agent::GetInstance()->uve()->vm_uve_table());
+
+    EXPECT_EQ(0U, vmut->VmUveCount());
+    FlowSetUp();
 
     //Trigger VM UVE send
     vmut->ClearCount();
@@ -1163,6 +1279,9 @@ TEST_F(UveVmUveTest, VmUVE_Name_1) {
     vmut->ClearCount();
     FlowTearDown();
 
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+
     //Verify dispatched UVE deletes match the number of VMs deleted
     EXPECT_EQ(3U, vmut->delete_count());
     EXPECT_EQ(3U, vmut->vm_stats_delete_count());
@@ -1175,6 +1294,9 @@ TEST_F(UveVmUveTest, VmUVE_Name_1) {
     vmut->ClearCount();
 
     RemoveFipConfig();
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, ((vmut->VmUveCount() == 0U)));
 }
 
 /* Change the VM associated with a VMI to a different VM
@@ -1187,6 +1309,8 @@ TEST_F(UveVmUveTest, VmChangeOnVMI) {
 
     VmUveTableTest *vmut = static_cast<VmUveTableTest *>
         (Agent::GetInstance()->uve()->vm_uve_table());
+
+    EXPECT_EQ(0U, vmut->VmUveCount());
     //Add VN
     util_.VnAdd(input[0].vn_id);
     // Nova Port add message
@@ -1216,6 +1340,9 @@ TEST_F(UveVmUveTest, VmChangeOnVMI) {
     client->WaitForIdle(3);
     EXPECT_TRUE(VmPortActive(input, 0));
 
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+
     //Verify UVE
     VmEntry *vm = VmGet(1);
     UveVirtualMachineAgent *uve1 = vmut->VmUveObject(vm);
@@ -1226,6 +1353,9 @@ TEST_F(UveVmUveTest, VmChangeOnVMI) {
     util_.VmAdd(2);
     AddLink("virtual-machine", "vm2", "virtual-machine-interface", "vnet1");
     client->WaitForIdle(3);
+
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
 
     //Verify UVE
     uve1 = vmut->VmUveObject(vm);
@@ -1250,6 +1380,7 @@ TEST_F(UveVmUveTest, VmChangeOnVMI) {
     DelNode("virtual-machine-interface-routing-instance", "vnet1");
     client->WaitForIdle(3);
     DelNode("virtual-machine", "vm1");
+    DelNode("virtual-machine", "vm2");
     DelNode("routing-instance", "vrf1");
     client->WaitForIdle(3);
     DelNode("virtual-machine-interface", "vnet1");
@@ -1261,6 +1392,9 @@ TEST_F(UveVmUveTest, VmChangeOnVMI) {
 
     //clear counters at the end of test case
     client->Reset();
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, ((vmut->VmUveCount() == 0U)));
     vmut->ClearCount();
 }
 
@@ -1272,6 +1406,7 @@ TEST_F(UveVmUveTest, VmNameInInterfaceList) {
     struct PortInfo input[] = {
         {"vmi1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}
     };
+    EXPECT_EQ(0U, vmut->VmUveCount());
 
     //Add physical-device and physical-interface and add their association
     util_.VmAdd(input[0].vm_id);
@@ -1288,6 +1423,9 @@ TEST_F(UveVmUveTest, VmNameInInterfaceList) {
     WAIT_FOR(1000, 500, (PhysicalInterfaceGet("pi1") != NULL));
     WAIT_FOR(1000, 500, (LogicalInterfaceGet(1, "li1") != NULL));
     WAIT_FOR(1000, 500, (VmInterfaceGet(1) != NULL));
+
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
 
     //Verify UVE
     VmEntry *vm = VmGet(input[0].vm_id);
@@ -1325,6 +1463,9 @@ TEST_F(UveVmUveTest, VmNameInInterfaceList) {
 
     //clear counters at the end of test case
     client->Reset();
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, ((vmut->VmUveCount() == 0U)));
     vmut->ClearCount();
 }
 
