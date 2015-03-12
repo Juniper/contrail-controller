@@ -12,6 +12,7 @@ import requests
 import sys
 import string
 import ConfigParser
+from collections import OrderedDict
 
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
@@ -30,6 +31,32 @@ def error_404(err):
 @bottle.error(409)
 def error_409(err):
     return err.body
+
+
+class CacheContainer(object):
+    def __init__(self, size):
+        self.container_size = size
+        self.dictionary = OrderedDict()
+
+    def __getitem__(self, key, default=None):
+        value = self.dictionary[key]
+        # item accessed - put it in the front
+        del self.dictionary[key]
+        self.dictionary[key] = value
+
+        return value
+
+    def __setitem__(self, key, value):
+        self.dictionary[key] = value
+        if len(self.dictionary.keys()) > self.container_size:
+            # container is full, loose the least used item
+            self.dictionary.popitem(last=False)
+
+    def __contains__(self, key):
+        return key in self.dictionary
+
+    def __repr__(self):
+        return str(self.dictionary)
 
 
 class NeutronPluginInterface(object):
@@ -56,9 +83,16 @@ class NeutronPluginInterface(object):
         self._contrail_extensions_enabled = exts_enabled
 
         try:
+            _vnc_connection_cache_size = int(
+                conf_sections.get("DEFAULTS", "vnc_connection_cache_size"))
+        except ConfigParser.NoOptionError:
+            _vnc_connection_cache_size = 0
+
+        try:
             self._multi_tenancy = conf_sections.get('DEFAULTS', 'multi_tenancy')
         except ConfigParser.NoOptionError:
             self._multi_tenancy = False
+
         try:
             self._list_optimization_enabled = \
                 conf_sections.get('DEFAULTS', 'list_optimization_enabled')
@@ -72,7 +106,8 @@ class NeutronPluginInterface(object):
             self._sn_host_route = False
 
         self._cfgdb = None
-        self._cfgdb_map = {}
+        self._cfgdb_map = CacheContainer(_vnc_connection_cache_size) \
+            if _vnc_connection_cache_size > 0 else dict()
 
         global LOG
         LOG = sandesh.logger()
