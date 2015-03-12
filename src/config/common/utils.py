@@ -22,6 +22,7 @@
 
 
 import urllib
+from collections import OrderedDict
 
 def encode_string(enc_str, encoding='utf-8'):
     """Encode the string using urllib.quote_plus
@@ -62,3 +63,28 @@ def decode_string(dec_str, encoding='utf-8'):
     except Exception:
         return dec_str
 
+
+class CacheContainer(object):
+    def __init__(self, size):
+        self.container_size = size
+        self.dictionary = OrderedDict()
+
+    def __getitem__(self, key, default=None):
+        value = self.dictionary[key]
+        # item accessed - put it in the front
+        del self.dictionary[key]
+        self.dictionary[key] = value
+
+        return value
+
+    def __setitem__(self, key, value):
+        self.dictionary[key] = value
+        if len(self.dictionary.keys()) > self.container_size:
+            # container is full, loose the least used item
+            self.dictionary.popitem(last=False)
+
+    def __contains__(self, key):
+        return key in self.dictionary
+
+    def __repr__(self):
+        return str(self.dictionary)

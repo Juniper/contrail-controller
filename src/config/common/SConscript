@@ -46,6 +46,7 @@ test_sources = [
                 'tests/test_analytics_client.py',
                 'tests/test_importutils.py',
                 'tests/fake.py',
+                'tests/test_cache_container.py'
                ]
 test_sources_rules = []
 for file in test_sources:
