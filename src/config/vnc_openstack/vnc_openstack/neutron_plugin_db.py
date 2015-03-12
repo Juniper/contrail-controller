@@ -661,28 +661,53 @@ class DBInterface(object):
         return resp_dict['floating-ip-pools']
     #end _fip_pool_list_network
 
-    def _port_list(self, net_objs, port_objs, iip_objs, vm_objs):
+    def _port_list(self, port_objs):
         ret_q_ports = []
+
+        if not port_objs:
+            return ret_q_ports
 
         memo_req = {'networks': {},
                     'subnets': {},
                     'virtual-machines': {},
                     'instance-ips': {}}
 
+        # Read only the nets associated to port_objs
+        net_refs = [port_obj.get_virtual_network_refs() for port_obj in port_objs]
+        net_ids = [ref[0]['uuid'] for ref in net_refs if ref]
+        net_objs = self._virtual_network_list(obj_uuids=net_ids,
+                                              detail=True)
         for net_obj in net_objs:
             # dictionary of iip_uuid to iip_obj
             memo_req['networks'][net_obj.uuid] = net_obj
             subnets_info = self._virtual_network_to_subnets(net_obj)
             memo_req['subnets'][net_obj.uuid] = subnets_info
 
+        # Read only the instance-ips associated to port_objs
+        iip_objs = self._instance_ip_list(back_ref_id=
+                                  [port_obj.uuid for port_obj in port_objs])
         for iip_obj in iip_objs:
             # dictionary of iip_uuid to iip_obj
             memo_req['instance-ips'][iip_obj.uuid] = iip_obj
 
+        # Read only the VMs associated to port_objs
+        vm_ids = []
+        for port_obj in port_objs:
+            if port_obj.parent_type == 'virtual-machine':
+                # created in <1.06 schema with VM as port parent
+                vm_id = self._vnc_lib.fq_name_to_id('virtual-machine',
+                                             port_obj.get_fq_name()[:-1])
+                vm_ids.append(vm_id)
+            else:
+                vm_refs = port_obj.get_virtual_machine_refs() or []
+                vm_ids.extend([ref['uuid'] for ref in vm_refs if ref])
+
+        vm_objs = self._virtual_machine_list(obj_uuids=vm_ids)
         for vm_obj in vm_objs:
             # dictionary of vm_uuid to vm_obj
             memo_req['virtual-machines'][vm_obj.uuid] = vm_obj
 
+        # Convert port from contrail to neutron repr with the memo cache
         for port_obj in port_objs:
             try:
                 port_info = self._port_vnc_to_neutron(port_obj, memo_req)
@@ -695,46 +720,14 @@ class DBInterface(object):
 
     def _port_list_network(self, network_ids, count=False):
         ret_list = []
-        net_objs = self._virtual_network_list(obj_uuids=network_ids,
-                         fields=['virtual_machine_interface_back_refs'],
-                         detail=True)
-        if not net_objs:
+        if not network_ids:
             return ret_list
 
-        net_ids = [net_obj.uuid for net_obj in net_objs]
-        all_port_gevent = gevent.spawn(self._virtual_machine_interface_list,
-                                       back_ref_id=net_ids)
-        port_iip_gevent = gevent.spawn(self._instance_ip_list, back_ref_id=net_ids)
-        port_vm_gevent = gevent.spawn(self._virtual_machine_list)
-        gevent.joinall([all_port_gevent, port_iip_gevent, port_vm_gevent])
+        all_port_objs = self._virtual_machine_interface_list(
+                                       back_ref_id=network_ids)
 
-        all_port_objs = all_port_gevent.value
-        port_iip_objs = port_iip_gevent.value
-        port_vm_objs = port_vm_gevent.value
-
-        return self._port_list(net_objs, all_port_objs, port_iip_objs, port_vm_objs)
+        return self._port_list(all_port_objs)
     #end _port_list_network
-
-    def _port_net_vm_project(self, project_id=None, device_id=None):
-        port_vm_gevent = gevent.spawn(self._virtual_machine_list,
-                                      back_ref_id=device_id)
-        port_net_gevent = gevent.spawn(self._virtual_network_list,
-                                       parent_id=project_id,
-                                       detail=True)
-
-        gevent.joinall([port_net_gevent, port_vm_gevent])
-
-        port_net_objs = port_net_gevent.value
-        port_vm_objs = port_vm_gevent.value
-
-        return (port_net_objs, port_vm_objs)
-
-    def _port_instance_ips(self, port_net_objs, is_admin=False):
-        if is_admin:
-            return self._instance_ip_list()
-        else:
-            net_ids = [net_obj.uuid for net_obj in port_net_objs]
-            return self._instance_ip_list(back_ref_id=net_ids)
 
     # find port ids on a given project
     def _port_list_project(self, project_id, count=False, is_admin=False):
@@ -744,19 +737,8 @@ class DBInterface(object):
                 return len(port_objs)
 
             # it is a list operation, not count
-            # read all VMI and IIP in detail one-shot
             all_port_objs = self._virtual_machine_interface_list(parent_id=project_id)
-
-            device_ids = []
-            if not is_admin:
-                for vmi_obj in all_port_objs:
-                    if vmi_obj.get_virtual_machine_refs():
-                        device_ids.append(vmi_obj.get_virtual_machine_refs()[0]['uuid'])
-            port_net_objs, port_vm_objs = self._port_net_vm_project(project_id,
-                                                                    device_ids)
-            iip_objs = self._port_instance_ips(port_net_objs, is_admin=is_admin)
-
-            return self._port_list(port_net_objs, all_port_objs, iip_objs, port_vm_objs)
+            return self._port_list(all_port_objs)
         else:
             if count:
                 ret_val = 0
@@ -777,9 +759,7 @@ class DBInterface(object):
 
             net_ids = [net_obj.uuid for net_obj in net_objs]
             port_objs = self._virtual_machine_interface_list(back_ref_id=net_ids)
-            iip_objs = self._instance_ip_list(back_ref_id=net_ids)
-            vm_objs = self._virtual_machine_list()
-            return self._port_list(net_objs, port_objs, iip_objs, vm_objs)
+            return self._port_list(port_objs)
     #end _port_list_project
 
     # Returns True if
@@ -3704,10 +3684,6 @@ class DBInterface(object):
             return ret_list
 
         # Listing from parent to children
-        port_net_objs, port_vm_objs = self._port_net_vm_project(project_id,
-                                                                filters['device_id'])
-        port_iip_objs = self._port_instance_ips(port_net_objs,
-                                                is_admin=context['is_admin'])
 
         # port has a back_ref to LR, so need to read in LRs based on device id
         device_ids = filters['device_id']
@@ -3727,8 +3703,7 @@ class DBInterface(object):
             rtr_port_objs = self._virtual_machine_interface_list(obj_uuids=more_ports)
             port_objs.extend(rtr_port_objs)
 
-        ret_q_ports = self._port_list(port_net_objs, port_objs,
-                                      port_iip_objs, port_vm_objs)
+        ret_q_ports = self._port_list(port_objs)
 
         return ret_q_ports
     #end port_list
