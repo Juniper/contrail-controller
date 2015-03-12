@@ -622,6 +622,10 @@ VnData *VnTable::BuildData(IFMapNode *node) {
     }
     bool bridging = true;
     bool layer3_forwarding = true;
+    autogen::VirtualNetworkType properties = cfg->properties();
+    if (properties.forwarding_mode == "l2") {
+        layer3_forwarding = false;
+    }
 
     return new VnData(agent(), node->name(), acl_uuid, vrf_name, mirror_acl_uuid,
                       mirror_cfg_acl_uuid, vn_ipam, vn_ipam_data,

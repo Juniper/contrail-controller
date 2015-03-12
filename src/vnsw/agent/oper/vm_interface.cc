@@ -996,6 +996,7 @@ bool VmInterface::Resync(const InterfaceTable *table,
     uint8_t  old_subnet_plen = subnet_plen_;
     int old_ethernet_tag = ethernet_tag_;
     bool old_dhcp_enable = dhcp_enable_;
+    bool old_layer3_forwarding = layer3_forwarding_;
 
     if (data) {
         ret = data->OnResync(table, this, &sg_changed, &ecmp_changed,
@@ -1027,7 +1028,7 @@ bool VmInterface::Resync(const InterfaceTable *table,
                 old_addr, old_ethernet_tag, old_need_linklocal_ip, sg_changed,
                 old_ipv6_active, old_v6_addr, ecmp_changed,
                 local_pref_changed, old_subnet, old_subnet_plen,
-                old_dhcp_enable);
+                old_dhcp_enable, old_layer3_forwarding);
 
     return ret;
 }
@@ -1123,7 +1124,8 @@ void VmInterface::UpdateL2(bool old_l2_active, VrfEntry *old_vrf,
                            int old_ethernet_tag,
                            bool force_update, bool policy_change,
                            const Ip4Address &old_v4_addr,
-                           const Ip6Address &old_v6_addr) {
+                           const Ip6Address &old_v6_addr,
+                           bool old_layer3_forwarding) {
     if (device_type() == VmInterface::TOR)
         return;
 
@@ -1133,7 +1135,8 @@ void VmInterface::UpdateL2(bool old_l2_active, VrfEntry *old_vrf,
     //no force update on same.
     UpdateL2TunnelId(false, policy_change);
     UpdateL2InterfaceRoute(old_l2_active, force_update, old_vrf, old_v4_addr,
-                           old_v6_addr, old_ethernet_tag);
+                           old_v6_addr, old_ethernet_tag,
+                           old_layer3_forwarding, policy_change);
     UpdateFloatingIp(force_update, policy_change, true);
     //If the interface is Gateway we need to add a receive route,
     //such the packet gets routed. Bridging on gateway
@@ -1145,16 +1148,22 @@ void VmInterface::UpdateL2(bool old_l2_active, VrfEntry *old_vrf,
 
 void VmInterface::UpdateL2(bool force_update) {
     UpdateL2(l2_active_, vrf_.get(), ethernet_tag_, force_update, false,
-             ip_addr_, ip6_addr_);
+             ip_addr_, ip6_addr_, layer3_forwarding_);
 }
 
 void VmInterface::DeleteL2(bool old_l2_active, VrfEntry *old_vrf,
                            int old_ethernet_tag,
                            const Ip4Address &old_v4_addr,
-                           const Ip6Address &old_v6_addr) {
+                           const Ip6Address &old_v6_addr,
+                           bool old_layer3_forwarding) {
     DeleteL2TunnelId();
-    DeleteL2InterfaceRoute(old_l2_active, old_vrf, old_v4_addr, old_v6_addr,
-                           old_ethernet_tag);
+    DeleteL2InterfaceRoute(old_l2_active, old_vrf, Ip4Address(0),
+                           Ip6Address(), old_ethernet_tag);
+    if (old_layer3_forwarding) {
+        DeleteL2InterfaceRoute(old_l2_active, old_vrf, old_v4_addr,
+                               old_v6_addr, old_ethernet_tag);
+    }
+
     DeleteFloatingIp(true, old_ethernet_tag);
     DeleteL2NextHop(old_l2_active);
     DeleteL2ReceiveRoute(old_vrf, old_l2_active);
@@ -1211,7 +1220,8 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
                               bool local_pref_changed,
                               const Ip4Address &old_subnet,
                               uint8_t old_subnet_plen,
-                              bool old_dhcp_enable) {
+                              bool old_dhcp_enable,
+                              bool old_layer3_forwarding) {
     ApplyConfigCommon(old_vrf, old_l2_active, old_dhcp_enable);
     //Need not apply config for TOR VMI as it is more of an inidicative
     //interface. No route addition or NH addition happens for this interface.
@@ -1255,9 +1265,11 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
     // Add/Del/Update L2 
     if (l2_active_ && bridging_) {
         UpdateL2(old_l2_active, old_vrf, old_ethernet_tag, 
-                 force_update, policy_change, old_addr, old_v6_addr);
+                 force_update, policy_change, old_addr, old_v6_addr,
+                 old_layer3_forwarding);
     } else if (old_l2_active) {
-        DeleteL2(old_l2_active, old_vrf, old_ethernet_tag, old_addr, old_v6_addr);
+        DeleteL2(old_l2_active, old_vrf, old_ethernet_tag, old_addr, old_v6_addr,
+                 old_layer3_forwarding);
     }
 
     UpdateFlowKeyNextHop();
@@ -1924,6 +1936,10 @@ bool VmInterface::WaitForTraffic() const {
 bool VmInterface::PolicyEnabled() const {
     // Policy not supported for fabric ports
     if (fabric_port_) {
+        return false;
+    }
+
+    if (layer3_forwarding_ == false) {
         return false;
     }
 
@@ -2659,7 +2675,9 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
                                          VrfEntry *old_vrf,
                                          const Ip4Address &old_v4_addr,
                                          const Ip6Address &old_v6_addr,
-                                         int old_ethernet_tag) const {
+                                         int old_ethernet_tag,
+                                         bool old_layer3_forwarding,
+                                         bool policy_changed) const {
     if (l2_active_ == false)
         return;
 
@@ -2667,10 +2685,16 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
         force_update = true;
     }
 
+    if (old_layer3_forwarding != layer3_forwarding_) {
+        force_update = true;
+    }
+
     //Encap change will result in force update of l2 routes.
     if (force_update) {
         DeleteL2InterfaceRoute(true, old_vrf, old_v4_addr,
                                old_v6_addr, old_ethernet_tag);
+        DeleteL2InterfaceRoute(true, old_vrf, Ip4Address(), Ip6Address(),
+                               old_ethernet_tag);
     } else {
         if (ip_addr_ != old_v4_addr) {
             force_update = true;
@@ -2685,9 +2709,6 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
         }
     }
 
-    if (old_l2_active && force_update == false)
-        return;
-
     assert(peer_.get());
     EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
         (vrf_->GetEvpnRouteTable());
@@ -2698,14 +2719,48 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update,
     PathPreference path_preference;
     SetPathPreference(&path_preference, false);
 
+    if (policy_changed == true) {
+        //Resync the nexthop
+        table->ResyncVmRoute(peer_.get(), vrf_->GetName(),
+                             MacAddress::FromString(vm_mac_), Ip4Address(),
+                             ethernet_tag_, NULL);
+        table->ResyncVmRoute(peer_.get(), vrf_->GetName(),
+                             MacAddress::FromString(vm_mac_), Ip6Address(),
+                             ethernet_tag_, NULL);
+
+        if (layer3_forwarding_) {
+            table->ResyncVmRoute(peer_.get(), vrf_->GetName(),
+                    MacAddress::FromString(vm_mac_), ip_addr_,
+                    ethernet_tag_, NULL);
+            table->ResyncVmRoute(peer_.get(), vrf_->GetName(),
+                    MacAddress::FromString(vm_mac_), ip6_addr_,
+                    ethernet_tag_, NULL);
+        }
+    }
+
+    if (old_l2_active && force_update == false)
+        return;
+
+    //Add EVPN routes with NULL IP
     table->AddLocalVmRoute(peer_.get(), vrf_->GetName(),
-                           MacAddress::FromString(vm_mac_), this, ip_addr(),
-                           l2_label_, vn_->GetName(), sg_id_list,
-                           path_preference, ethernet_tag_);
+                MacAddress::FromString(vm_mac_), this, Ip4Address(),
+                l2_label_, vn_->GetName(), sg_id_list,
+                path_preference, ethernet_tag_);
     table->AddLocalVmRoute(peer_.get(), vrf_->GetName(),
-                           MacAddress::FromString(vm_mac_), this, ip6_addr(),
-                           l2_label_, vn_->GetName(), sg_id_list,
-                           path_preference, ethernet_tag_);
+                MacAddress::FromString(vm_mac_), this, Ip6Address(),
+                l2_label_, vn_->GetName(), sg_id_list,
+                path_preference, ethernet_tag_);
+
+    if (layer3_forwarding_) {
+        table->AddLocalVmRoute(peer_.get(), vrf_->GetName(),
+                MacAddress::FromString(vm_mac_), this, ip_addr_,
+                l2_label_, vn_->GetName(), sg_id_list,
+                path_preference, ethernet_tag_);
+        table->AddLocalVmRoute(peer_.get(), vrf_->GetName(),
+                MacAddress::FromString(vm_mac_), this, ip6_addr_,
+                l2_label_, vn_->GetName(), sg_id_list,
+                path_preference, ethernet_tag_);
+    }
 }
 
 void VmInterface::DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf,
