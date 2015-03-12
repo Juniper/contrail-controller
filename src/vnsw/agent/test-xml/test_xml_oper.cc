@@ -1092,6 +1092,9 @@ bool AgentUtXmlFlowValidate::ReadXml() {
     GetStringAttribute(node(), "svn", &svn_);
     GetStringAttribute(node(), "dvn", &dvn_);
     GetStringAttribute(node(), "action", &action_);
+    if (GetUintAttribute(node(), "rpf_nh", &rpf_nh_) == false) {
+        rpf_nh_ = 0;
+    }
     return true;
 }
 
@@ -1125,6 +1128,14 @@ bool AgentUtXmlFlowValidate::Validate() {
 
     if (MatchFlowAction(flow, action_) == false)
         return false;
+
+    if (rpf_nh_) {
+        if (!flow->data().nh_state_ ||
+            !flow->data().nh_state_->nh() ||
+             flow->data().nh_state_->nh()->id() != rpf_nh_) {
+            return false;
+        }
+    }
     return true;
 }
 
