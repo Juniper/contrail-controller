@@ -111,6 +111,20 @@ QEOpServerProxy::AggOper StatsQuery::ParseAgg(
         return QEOpServerProxy::CLASS;
     }
 
+    if (0 == vname.compare(0,3,string("MAX"))) {
+        sfield = vname.substr(4);
+        int len = sfield.size();
+        sfield.erase(len-1);
+        return QEOpServerProxy::MAX;
+    }
+
+    if (0 == vname.compare(0,3,string("MIN"))) {
+        sfield = vname.substr(4);
+        int len = sfield.size();
+        sfield.erase(len-1);
+        return QEOpServerProxy::MIN;
+    }
+
     return QEOpServerProxy::INVALID;
 }
 
