@@ -14,6 +14,49 @@
 
 class IFMapDependencyManager;
 
+struct PhysicalDeviceVnToVmi {
+    PhysicalDeviceVnToVmi(const boost::uuids::uuid &dev,
+                          const boost::uuids::uuid &vn,
+                          const boost::uuids::uuid vmi) :
+        dev_(dev), vn_(vn), vmi_(vmi) {
+    }
+    PhysicalDeviceVnToVmi() :
+        dev_(boost::uuids::nil_uuid()), vn_(boost::uuids::nil_uuid()),
+        vmi_(boost::uuids::nil_uuid()) {
+    }
+
+    PhysicalDeviceVnToVmi(const PhysicalDeviceVnToVmi &rhs) :
+        dev_(rhs.dev_), vn_(rhs.vn_), vmi_(rhs.vmi_) {
+    }
+
+    virtual ~PhysicalDeviceVnToVmi() { }
+
+    bool operator() (const PhysicalDeviceVnToVmi &lhs,
+                     const PhysicalDeviceVnToVmi &rhs) {
+        if (lhs.dev_ != rhs.dev_)
+            return lhs.dev_ < rhs.dev_;
+        if (lhs.vn_ != rhs.vn_)
+            return lhs.vn_ < rhs.vn_;
+        return lhs.vmi_ < rhs.vmi_;
+    }
+
+    boost::uuids::uuid dev_;
+    boost::uuids::uuid vn_;
+    boost::uuids::uuid vmi_;
+};
+
+struct PhysicalDeviceVnToVmiData {
+    PhysicalDeviceVnToVmiData(uint32_t vxlan_id, uint32_t vn_id) :
+        vxlan_id_(vxlan_id), vn_id_(vn_id) {
+    }
+
+    ~PhysicalDeviceVnToVmiData() {
+    }
+
+    uint32_t vxlan_id_;
+    uint32_t vn_id_;
+};
+
 struct PhysicalDeviceVnKey : public AgentKey {
     explicit PhysicalDeviceVnKey(const boost::uuids::uuid &dev_uuid,
                                  const boost::uuids::uuid &vn_uuid) :
@@ -79,9 +122,8 @@ class PhysicalDeviceVnTable : public AgentDBTable {
         }
     };
 
-    typedef std::map<PhysicalDeviceVnKey, uint32_t, Compare> ConfigTree;
-    typedef ConfigTree::iterator ConfigIterator;
-    typedef std::pair<PhysicalDeviceVnKey, uint32_t> ConfigPair;
+    typedef std::map<PhysicalDeviceVnToVmi, PhysicalDeviceVnToVmiData,
+            PhysicalDeviceVnToVmi> ConfigTree;
 
     PhysicalDeviceVnTable(DB *db, const std::string &name) :
         AgentDBTable(db, name), walkid_(DBTableWalker::kInvalidWalkerId) { }
@@ -97,9 +139,23 @@ class PhysicalDeviceVnTable : public AgentDBTable {
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
     virtual bool Resync(DBEntry *entry, const DBRequest *req);
 
-    void IterateConfig(const Agent *agent, const char *type, IFMapNode *node,
-                       AgentKey *key, AgentData *data,
-                       const boost::uuids::uuid &dev_uuid);
+    void ProcessConfig(const boost::uuids::uuid &dev,
+                       const boost::uuids::uuid &vn);
+    bool UpdateConfigEntry(const boost::uuids::uuid &vmi,
+                           const boost::uuids::uuid &dev,
+                           const boost::uuids::uuid &vn);
+    bool AddConfigEntry(const boost::uuids::uuid &vmi,
+                        const boost::uuids::uuid &dev,
+                        const boost::uuids::uuid &vn,
+                        uint32_t vxlan_id, uint32_t vn_id);
+    bool AddConfigEntry(const boost::uuids::uuid &vmi,
+                        const boost::uuids::uuid &dev,
+                        const boost::uuids::uuid &vn);
+    bool DeleteConfigEntry(const boost::uuids::uuid &vmi,
+                           const boost::uuids::uuid &dev,
+                           const boost::uuids::uuid &vn);
+    const ConfigTree &config_tree() const { return config_tree_; }
+
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 
     bool DeviceVnWalk(DBTablePartBase *partition, DBEntryBase *entry);
@@ -107,15 +163,8 @@ class PhysicalDeviceVnTable : public AgentDBTable {
     // Handle change in VxLan Identifier mode from global-config
     void UpdateVxLanNetworkIdentifierMode();
 
-    void PhysicalDeviceVnAdd(const boost::uuids::uuid &dev,
-                             const boost::uuids::uuid &vn);
-    void ConfigUpdate(IFMapNode *node);
-    const ConfigTree &config_tree() const { return config_tree_; }
-    uint32_t config_version() const { return config_version_; }
-
  private:
     ConfigTree config_tree_;
-    uint32_t config_version_;
     DBTableWalker::WalkId walkid_;
     DISALLOW_COPY_AND_ASSIGN(PhysicalDeviceVnTable);
 };

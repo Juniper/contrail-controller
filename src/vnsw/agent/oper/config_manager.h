@@ -87,6 +87,10 @@ public:
     void DelLogicalInterfaceNode(IFMapNode *node);
     uint32_t LogicalInterfaceNodeCount();
 
+    void AddPhysicalDeviceNode(IFMapNode *node);
+    void DelPhysicalDeviceNode(IFMapNode *node);
+    uint32_t PhysicalDeviceNodeCount();
+
     void AddPhysicalDeviceVn(const boost::uuids::uuid &dev,
                              const boost::uuids::uuid &vn);
     void DelPhysicalDeviceVn(const boost::uuids::uuid &dev,
@@ -98,6 +102,7 @@ private:
     std::auto_ptr<TaskTrigger> trigger_;
     NodeList vmi_list_;
     NodeList logical_interface_list_;
+    NodeList physical_device_list_;
     PhysicalDeviceVnList physical_device_vn_list_;
 
     DISALLOW_COPY_AND_ASSIGN(ConfigManager);

@@ -43,7 +43,7 @@ bool ConfigManager::Run() {
     NodeListIterator it;
 
     // Logical-interfaces can potentially trigger changes to VMInterfaces
-    // So, run thru the logical-interfaces first
+    // So, run thru the logical-interfaces before VMInterface
     it = logical_interface_list_.begin();
     while ((count < kIterationCount) && (it != logical_interface_list_.end())) {
         NodeListIterator prev = it++;
@@ -71,13 +71,27 @@ bool ConfigManager::Run() {
         count++;
     }
 
+    // Run thru changelist for physical-device
+    it = physical_device_list_.begin();
+    while ((count < kIterationCount) && (it != physical_device_list_.end())) {
+        NodeListIterator prev = it++;
+        IFMapNodeState *state = prev->state_.get();
+        IFMapNode *node = state->node();
+        DBRequest req;
+        if (agent_->physical_device_table()->ProcessConfig(node, req)) {
+            agent_->physical_device_table()->Enqueue(&req);
+        }
+        physical_device_list_.erase(prev);
+        count++;
+    }
+
     // changelist for physical-device-vn entries
     PhysicalDeviceVnIterator it_dev_vn = physical_device_vn_list_.begin();
     while ((count < kIterationCount) &&
            (it_dev_vn != physical_device_vn_list_.end())) {
         PhysicalDeviceVnIterator prev = it_dev_vn++;
         PhysicalDeviceVnTable *table = agent_->physical_device_vn_table();
-        table->PhysicalDeviceVnAdd(prev->dev_, prev->vn_);
+        table->ProcessConfig(prev->dev_, prev->vn_);
         physical_device_vn_list_.erase(prev);
         count++;
     }
@@ -130,6 +144,26 @@ void ConfigManager::DelLogicalInterfaceNode(IFMapNode *node) {
 
 uint32_t ConfigManager::LogicalInterfaceNodeCount() {
     return logical_interface_list_.size();
+}
+
+void ConfigManager::AddPhysicalDeviceNode(IFMapNode *node) {
+    IFMapDependencyManager *dep = agent_->oper_db()->dependency_manager();
+    Node n(dep->SetState(node));
+    physical_device_list_.insert(n);
+    trigger_->Set();
+}
+
+void ConfigManager::DelPhysicalDeviceNode(IFMapNode *node) {
+    IFMapDependencyManager *dep = agent_->oper_db()->dependency_manager();
+    IFMapNodeState *state = dep->IFMapNodeGet(node);
+    if (state == NULL)
+        return;
+    Node n(state);
+    physical_device_list_.erase(n);
+}
+
+uint32_t ConfigManager::PhysicalDeviceNodeCount() {
+    return physical_device_list_.size();
 }
 
 ConfigManager::PhysicalDeviceVnEntry::PhysicalDeviceVnEntry

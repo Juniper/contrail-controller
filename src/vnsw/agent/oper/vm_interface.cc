@@ -32,6 +32,7 @@
 #include <oper/vxlan.h>
 #include <oper/oper_dhcp_options.h>
 #include <oper/inet_unicast_route.h>
+#include <oper/physical_device_vn.h>
 
 #include <vnc_cfg_types.h>
 #include <oper/agent_sandesh.h>
@@ -875,6 +876,13 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req) {
     }
     req.key.reset(key);
     req.data.reset(data);
+
+    boost::uuids::uuid dev = nil_uuid();
+    if (prouter) {
+        autogen::IdPermsType id_perms = prouter->id_perms();
+        CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, dev);
+    }
+    UpdatePhysicalDeviceVnEntry(u, dev, data->vn_uuid_, vn_node);
     return true;
 }
 
@@ -890,6 +898,7 @@ bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req) {
     // Handle object delete
     if (node->IsDeleted()) {
         agent()->config_manager()->DelVmiNode(node);
+        DelPhysicalDeviceVnEntry(u);
         return DeleteVmi(this, u, &req);
     }
 
@@ -897,6 +906,7 @@ bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req) {
     return false;
 }
 
+uint32_t vmi_vrf_sync_;
 // Handle virtual-machine-interface-routing-instance config node
 // Find the interface-node and enqueue RESYNC of service-vlans to interface
 void InterfaceTable::VmInterfaceVrfSync(IFMapNode *node) {
@@ -916,12 +926,67 @@ void InterfaceTable::VmInterfaceVrfSync(IFMapNode *node) {
 
         if (adj_node->table() == agent_->cfg()->cfg_vm_interface_table()) {
             DBRequest req;
+            vmi_vrf_sync_++;
             if (IFNodeToReq(adj_node, req) == true) {
                 LOG(DEBUG, "Service VLAN SYNC for Port " << adj_node->name());
                 Enqueue(&req);
             }
         }
     }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Routines to manage VmiToPhysicalDeviceVnTree
+/////////////////////////////////////////////////////////////////////////////
+VmiToPhysicalDeviceVnData::VmiToPhysicalDeviceVnData
+(const boost::uuids::uuid &dev, const boost::uuids::uuid &vn) :
+    dev_(dev), vn_(vn) {
+}
+
+VmiToPhysicalDeviceVnData::~VmiToPhysicalDeviceVnData() {
+}
+
+void InterfaceTable::UpdatePhysicalDeviceVnEntry(const boost::uuids::uuid &vmi,
+                                                 boost::uuids::uuid &dev,
+                                                 boost::uuids::uuid &vn,
+                                                 IFMapNode *vn_node) {
+    VmiToPhysicalDeviceVnTree::iterator iter =
+        vmi_to_physical_device_vn_tree_.find(vmi);
+    if (iter == vmi_to_physical_device_vn_tree_.end()) {
+        vmi_to_physical_device_vn_tree_.insert
+            (make_pair(vmi,VmiToPhysicalDeviceVnData(nil_uuid(), nil_uuid())));
+        iter = vmi_to_physical_device_vn_tree_.find(vmi);
+    }
+
+    if (iter->second.dev_ != dev || iter->second.vn_ != vn) {
+        agent()->physical_device_vn_table()->DeleteConfigEntry
+            (vmi, iter->second.dev_, iter->second.vn_);
+    }
+
+    uint32_t vxlan_id = 0;
+    uint32_t vn_id = 0;
+    if (vn_node) {
+        VirtualNetwork *vn_cfg =
+            static_cast <VirtualNetwork *> (vn_node->GetObject());
+        vxlan_id = vn_cfg->properties().vxlan_network_identifier;
+        vn_id = vn_cfg->properties().network_id;
+    }
+
+    iter->second.dev_ = dev;
+    iter->second.vn_ = vn;
+    agent()->physical_device_vn_table()->AddConfigEntry(vmi, dev, vn, vxlan_id,
+                                                        vn_id);
+}
+
+void InterfaceTable::DelPhysicalDeviceVnEntry(const boost::uuids::uuid &vmi) {
+    VmiToPhysicalDeviceVnTree::iterator iter =
+        vmi_to_physical_device_vn_tree_.find(vmi);
+    if (iter == vmi_to_physical_device_vn_tree_.end())
+        return;
+
+    agent()->physical_device_vn_table()->DeleteConfigEntry
+        (vmi, iter->second.dev_, iter->second.vn_);
+    vmi_to_physical_device_vn_tree_.erase(iter);
 }
 
 /////////////////////////////////////////////////////////////////////////////
