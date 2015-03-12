@@ -32,6 +32,8 @@ class VirtualMachineManager(InstanceManager):
         else:
             flavor = self._nc.oper('flavors', 'find', proj_name, ram=4096)
         if not flavor:
+            self.logger.log_error("Flavor not found %s" %
+                ((':').join(st.fq_name)))
             return None
 
         image = self._nc.oper('images', 'find', proj_name, name=si.image)
@@ -89,8 +91,8 @@ class VirtualMachineManager(InstanceManager):
         # check image and flavor
         si.flavor = st.params.get('flavor', None)
         si.image = st.params.get('image_name', None)
-        if not (si.flavor or si.image):
-            self.logger.log_error("Image/flavor not present in %s" %
+        if not si.image:
+            self.logger.log_error("Image not present in %s" %
                 ((':').join(st.fq_name)))
             return False
 

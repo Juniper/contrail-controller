@@ -643,6 +643,10 @@ class SvcMonitor(object):
         if si.state == 'active':
             return
         st = ServiceTemplateSM.get(si.service_template)
+        if not st:
+            self.logger.log_error("template not found for %s" %
+                ((':').join(si.fq_name)))
+            return
         if st.virtualization_type == 'virtual-machine':
             self.vm_manager.create_service(st, si)
         elif st.virtualization_type == 'network-namespace':
