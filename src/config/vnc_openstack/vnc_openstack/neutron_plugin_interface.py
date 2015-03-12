@@ -17,7 +17,7 @@ from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from vnc_api import vnc_api
 from neutron_plugin_db import DBInterface
-
+from cfgm_common.utils import CacheContainer
 
 @bottle.error(400)
 def error_400(err):
@@ -56,9 +56,16 @@ class NeutronPluginInterface(object):
         self._contrail_extensions_enabled = exts_enabled
 
         try:
+            _vnc_connection_cache_size = int(
+                conf_sections.get("DEFAULTS", "vnc_connection_cache_size"))
+        except ConfigParser.NoOptionError:
+            _vnc_connection_cache_size = 0
+
+        try:
             self._multi_tenancy = conf_sections.get('DEFAULTS', 'multi_tenancy')
         except ConfigParser.NoOptionError:
             self._multi_tenancy = False
+
         try:
             self._list_optimization_enabled = \
                 conf_sections.get('DEFAULTS', 'list_optimization_enabled')
@@ -72,7 +79,8 @@ class NeutronPluginInterface(object):
             self._sn_host_route = False
 
         self._cfgdb = None
-        self._cfgdb_map = {}
+        self._cfgdb_map = CacheContainer(_vnc_connection_cache_size) \
+            if _vnc_connection_cache_size > 0 else dict()
 
         global LOG
         LOG = sandesh.logger()
