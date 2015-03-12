@@ -130,66 +130,6 @@ DBTableBase *PhysicalDeviceVnTable::CreateTable(DB *db,
     return table;
 }
 
-//////////////////////////////////////////////////////////////////////////////
-// Config handling routines
-//////////////////////////////////////////////////////////////////////////////
-/*
- * There is no IFMapNode for PhysicalDeviceVn. We act on physical-router
- * notification to build the PhysicalDeviceVnTable.
- *
- * From a physical-router run iterate thru the links given below,
- * <physical-router> - <phyiscal-interface> - <logical-interface> -
- * <virtual-machine-interface> - <virtual-network>
- *
- * Since there is no node for physical-device-vn, we build a config-tree and
- * audit the tree based on version-number to identify deleted entries
- */
-void PhysicalDeviceVnTable::IterateConfig(const Agent *agent, const char *type,
-                                          IFMapNode *node, AgentKey *key,
-                                          AgentData *data,
-                                          const boost::uuids::uuid &dev_uuid) {
-    CfgListener *cfg = agent->cfg_listener();
-    if (strcmp(type, "physical-interface") == 0) {
-        cfg->ForEachAdjacentIFMapNode
-            (agent, node, "logical-interface", NULL, NULL,
-             boost::bind(&PhysicalDeviceVnTable::IterateConfig, this, _1, _2,
-                         _3, _4, _5, dev_uuid));
-        return;
-    }
-
-    if (strcmp(type, "logical-interface") != 0) {
-        return;
-    }
-
-    IFMapNode *adj_node = NULL;
-    adj_node = cfg->FindAdjacentIFMapNode(agent, node,
-                                          "virtual-machine-interface");
-    if (adj_node == NULL)
-        return;
-
-    adj_node = cfg->FindAdjacentIFMapNode(agent, adj_node, "virtual-network");
-    if (adj_node == NULL)
-        return;
-
-    boost::uuids::uuid vn_uuid;
-    if (agent->cfg_listener()->GetCfgDBStateUuid(adj_node, vn_uuid) == false)
-        return;
-
-    PhysicalDeviceVnKey vn_key(dev_uuid, vn_uuid);
-    config_tree_[vn_key] = config_version_;
-    agent->config_manager()->AddPhysicalDeviceVn(dev_uuid, vn_uuid);
-    return;
-}
-
-void PhysicalDeviceVnTable::PhysicalDeviceVnAdd(const boost::uuids::uuid &dev,
-                                                const boost::uuids::uuid &vn) {
-    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new PhysicalDeviceVnKey(dev, vn));
-    req.data.reset(new PhysicalDeviceVnData());
-    Enqueue(&req);
-    return;
-}
-
 bool PhysicalDeviceVnTable::DeviceVnWalk(DBTablePartBase *partition,
                                          DBEntryBase *entry) {
     PhysicalDeviceVn *dev_vn = static_cast<PhysicalDeviceVn *>(entry);
@@ -221,44 +161,59 @@ void PhysicalDeviceVnTable::UpdateVxLanNetworkIdentifierMode() {
                                       this, _1));
 }
 
-void PhysicalDeviceVnTable::ConfigUpdate(IFMapNode *node) {
-    config_version_++;
+//////////////////////////////////////////////////////////////////////////////
+// Vmi Config handling routines
+//////////////////////////////////////////////////////////////////////////////
+void PhysicalDeviceVnTable::ProcessConfig(const boost::uuids::uuid &dev,
+                                          const boost::uuids::uuid &vn) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new PhysicalDeviceVnKey(dev, vn));
+    req.data.reset(new PhysicalDeviceVnData());
+    Enqueue(&req);
+    return;
+}
 
-    autogen::PhysicalRouter *router = static_cast <autogen::PhysicalRouter *>
-        (node->GetObject());
-    assert(router);
-    autogen::IdPermsType id_perms = router->id_perms();
-    boost::uuids::uuid router_uuid = nil_uuid();
-    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
-               router_uuid);
+bool PhysicalDeviceVnTable::AddConfigEntry(const boost::uuids::uuid &vmi,
+                                           const boost::uuids::uuid &dev,
+                                           const boost::uuids::uuid &vn) {
+    // Sanity checks. Needed since VMInterface is not checking for nil_uuid
+    if (vmi == nil_uuid() || dev == nil_uuid() || vn == nil_uuid())
+        return false;
 
-    if (!node->IsDeleted()) {
-        agent()->cfg_listener()->ForEachAdjacentIFMapNode
-            (agent(), node, "physical-interface", NULL, NULL,
-             boost::bind(&PhysicalDeviceVnTable::IterateConfig, this, _1, _2,
-                         _3, _4, _5, router_uuid));
+    config_tree_.insert(PhysicalDeviceVnToVmi(dev, vn, vmi));
+    agent()->config_manager()->AddPhysicalDeviceVn(dev, vn);
+    return true;
+}
+
+bool PhysicalDeviceVnTable::DeleteConfigEntry(const boost::uuids::uuid &vmi,
+                                              const boost::uuids::uuid &dev,
+                                              const boost::uuids::uuid &vn) {
+
+    // Sanity checks. Needed since VMInterface is not checking for nil_uuid
+    if (vmi == nil_uuid() || dev == nil_uuid() || vn == nil_uuid())
+        return false;
+
+    config_tree_.erase(PhysicalDeviceVnToVmi(dev, vn, vmi));
+    // Dont delete physical-device-vn entry if there are more entries in 
+    // config-tree with given dev and vn
+    ConfigTree::iterator it =
+        config_tree_.upper_bound(PhysicalDeviceVnToVmi(dev, vn, nil_uuid()));
+    bool del_entry = false;
+    if (it == config_tree_.end())
+        del_entry = true;
+    else if (it->dev_ != dev)
+        del_entry = true;
+    else if (it->vn_ != vn)
+        del_entry = true;
+       
+    if (del_entry) {
+        agent()->config_manager()->DelPhysicalDeviceVn(dev, vn);
+        DBRequest req(DBRequest::DB_ENTRY_DELETE);
+        req.key.reset(new PhysicalDeviceVnKey(dev, vn));
+        Enqueue(&req);
     }
 
-    // Audit and delete entries with old version-number in config-tree
-    ConfigIterator it = config_tree_.begin();
-    while (it != config_tree_.end()){
-        ConfigIterator del_it = it++;
-        if (del_it->first.device_uuid_ != router_uuid) {
-            // update version number and skip entry if it belongs to different
-            // physical router/device
-            del_it->second = config_version_;
-            continue;
-        }
-        if (del_it->second < config_version_) {
-            DBRequest req(DBRequest::DB_ENTRY_DELETE);
-            req.key.reset(new PhysicalDeviceVnKey(del_it->first.device_uuid_,
-                                                  del_it->first.vn_uuid_));
-            Enqueue(&req);
-            agent()->config_manager()->DelPhysicalDeviceVn
-                (del_it->first.device_uuid_, del_it->first.vn_uuid_);
-            config_tree_.erase(del_it);
-        }
-    }
+    return del_entry;
 }
 
 bool PhysicalDeviceVnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
@@ -386,18 +341,16 @@ bool ConfigPhysicalDeviceVnSandesh::Run() {
         new SandeshConfigPhysicalDeviceVnListResp();
     std::vector<SandeshConfigPhysicalDeviceVn> &list =
         const_cast<std::vector<SandeshConfigPhysicalDeviceVn>&>
-        (resp->get_port_list());
+        (resp->get_device_vn_list());
 
-    resp->set_config_version(table_->config_version());
     PhysicalDeviceVnTable::ConfigTree::const_iterator it =
         table_->config_tree().begin();
     while (it != table_->config_tree().end()){
         SandeshConfigPhysicalDeviceVn entry;
-        entry.set_device_uuid(UuidToString(it->first.device_uuid_));
-        entry.set_vn_uuid(UuidToString(it->first.vn_uuid_));
-        entry.set_version(it->second);
+        entry.set_device_uuid(UuidToString(it->dev_));
+        entry.set_vn_uuid(UuidToString(it->vn_));
+        entry.set_vmi_uuid(UuidToString(it->vmi_));
         list.push_back(entry);
-
         it++;
     }
     resp->set_context(context_);
