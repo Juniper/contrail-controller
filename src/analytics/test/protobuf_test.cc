@@ -459,6 +459,9 @@ class ProtobufServerStatsTest : public ::testing::Test {
         server_.reset(new protobuf::ProtobufServer(evm_.get(), 0,
             boost::bind(&StatCbTester::Cb, &stats_tester_, _1, _2, _3,
             _4, _5)));
+        // Set libprotobuf shutdown on delete to false since that can happen
+        // only once in the lifetime of a binary
+        server_->SetShutdownLibProtobufOnDelete(false);
         client_ = new ProtobufMockClient(evm_.get());
         thread_.reset(new ServerThread(evm_.get()));
     }
@@ -558,6 +561,9 @@ class ProtobufServerTest : public ::testing::Test {
     virtual void SetUp() {
         evm_.reset(new EventManager());
         server_.reset(new protobuf::ProtobufServer(evm_.get(), 0, NULL));
+        // Set libprotobuf shutdown on delete to false since that can happen
+        // only once in the lifetime of a binary
+        server_->SetShutdownLibProtobufOnDelete(false);
         client_ = new ProtobufMockClient(evm_.get());
         thread_.reset(new ServerThread(evm_.get()));
     }
