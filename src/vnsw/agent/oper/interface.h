@@ -236,6 +236,26 @@ struct InterfaceData : public AgentOperDBData {
 };
 
 /////////////////////////////////////////////////////////////////////////////
+// Definition of tree containing physical-device-vn entry created by the VMI
+//
+// Physical-device-vn entries are built from the VM-Interface to VN link
+// The table contains physical-device-vn entry for every VM-Interface
+/////////////////////////////////////////////////////////////////////////////
+struct VmiToPhysicalDeviceVnData {
+    VmiToPhysicalDeviceVnData(const boost::uuids::uuid &dev,
+                              const boost::uuids::uuid &vn);
+    ~VmiToPhysicalDeviceVnData();
+
+    VmiToPhysicalDeviceVnData &operator= (VmiToPhysicalDeviceVnData const &rhs);
+
+    boost::uuids::uuid dev_;
+    boost::uuids::uuid vn_;
+};
+
+typedef std::map<boost::uuids::uuid, VmiToPhysicalDeviceVnData>
+VmiToPhysicalDeviceVnTree;
+
+/////////////////////////////////////////////////////////////////////////////
 // Interface Table
 // Index for interface is maintained using an IndexVector.
 /////////////////////////////////////////////////////////////////////////////
@@ -333,6 +353,13 @@ public:
     int GetVmiToVmiType(const boost::uuids::uuid &u);
     void DelVmiToVmiType(const boost::uuids::uuid &u);
 
+    // Routines managing VMI to physical-device-vn entry
+    void UpdatePhysicalDeviceVnEntry(const boost::uuids::uuid &vmi,
+                                     boost::uuids::uuid &dev,
+                                     boost::uuids::uuid &vn,
+                                     IFMapNode *vn_node);
+    void DelPhysicalDeviceVnEntry(const boost::uuids::uuid &vmi);
+
     // TODO : to remove this
     static InterfaceTable *GetInstance() { return interface_table_; }
     Agent *agent() const { return agent_; }
@@ -354,6 +381,8 @@ private:
     DhcpSnoopMap dhcp_snoop_map_;
     UpdateFloatingIpFn update_floatingip_cb_;
     VmiToVmiTypeMap vmi_to_vmitype_map_;
+    // Tree of physical-device-vn entries created by VMIs
+    VmiToPhysicalDeviceVnTree vmi_to_physical_device_vn_tree_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceTable);
 };
 
