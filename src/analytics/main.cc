@@ -376,6 +376,9 @@ int main(int argc, char *argv[])
         SetLoggingDisabled(true);
     }
 
+    // Get local ip address
+    Collector::SetSelfIp(options.host_ip());
+
     //Publish services to Discovery Service Servee
     DiscoveryServiceClient *ds_client = NULL;
     tcp::endpoint dss_ep;
@@ -387,8 +390,6 @@ int main(int argc, char *argv[])
         ds_client = new DiscoveryServiceClient(a_evm, dss_ep, client_name);
         ds_client->Init();
 
-        // Get local ip address
-        Collector::SetSelfIp(options.host_ip());
         string service_name = g_vns_constants.COLLECTOR_DISCOVERY_SERVICE_NAME;
         stringstream pub_ss;
         pub_ss << "<" << service_name << "><ip-address>" << options.host_ip() <<
