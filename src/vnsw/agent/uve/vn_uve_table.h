@@ -26,7 +26,7 @@
 //VirtualNetwork UVEs
 class VnUveTable : public VnUveTableBase {
 public:
-    VnUveTable(Agent *agent);
+    VnUveTable(Agent *agent, uint32_t default_intvl);
     virtual ~VnUveTable();
 
     void UpdateBitmap(const std::string &vn, uint8_t proto, uint16_t sport,

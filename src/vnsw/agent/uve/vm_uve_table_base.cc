@@ -6,13 +6,76 @@
 #include <uve/vm_uve_table_base.h>
 #include <uve/agent_uve_base.h>
 
-VmUveTableBase::VmUveTableBase(Agent *agent)
+VmUveTableBase::VmUveTableBase(Agent *agent, uint32_t default_intvl)
     : uve_vm_map_(), agent_(agent),
       intf_listener_id_(DBTableBase::kInvalidId),
-      vm_listener_id_(DBTableBase::kInvalidId) {
+      vm_listener_id_(DBTableBase::kInvalidId), timer_last_visited_(nil_uuid()),
+      timer_(TimerManager::CreateTimer
+             (*(agent->event_manager())->io_service(),
+              "VmUveTimer",
+              TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0)) {
+      expiry_time_ = default_intvl;
+      timer_->Start(expiry_time_,
+                    boost::bind(&VmUveTableBase::TimerExpiry, this));
 }
 
 VmUveTableBase::~VmUveTableBase() {
+}
+
+bool VmUveTableBase::TimerExpiry() {
+    UveVmMap::iterator it = uve_vm_map_.lower_bound(timer_last_visited_);
+    if (it == uve_vm_map_.end()) {
+        timer_last_visited_ = nil_uuid();
+        return true;
+    }
+
+    uint32_t count = 0;
+    while (it != uve_vm_map_.end() && count < AgentUveBase::kUveCountPerTimer) {
+        VmUveEntryBase* entry = it->second.get();
+        const boost::uuids::uuid u= it->first;
+        UveVmMap::iterator prev = it;
+        it++;
+        count++;
+
+        if (entry->deleted()) {
+            SendVmDeleteMsg(entry->vm_config_name());
+            if (!entry->renewed()) {
+                uve_vm_map_.erase(prev);
+            } else {
+                entry->set_deleted(false);
+                entry->set_renewed(false);
+                entry->set_changed(false);
+                SendVmMsg(entry, u);
+            }
+        } else if (entry->changed()) {
+            SendVmMsg(entry, u);
+            entry->set_changed(false);
+        }
+    }
+
+    if (it == uve_vm_map_.end()) {
+        timer_last_visited_ = nil_uuid();
+        set_expiry_time(agent_->uve()->default_interval());
+    } else {
+        timer_last_visited_ = it->first;
+        set_expiry_time(agent_->uve()->incremental_interval());
+    }
+    /* Return true to trigger auto-restart of timer */
+    return true;
+}
+
+void VmUveTableBase::set_expiry_time(int time) {
+    if (time != expiry_time_) {
+        expiry_time_ = time;
+        timer_->Reschedule(expiry_time_);
+    }
+}
+
+void VmUveTableBase::SendVmDeleteMsg(const string &vm_name) {
+    UveVirtualMachineAgent uve;
+    uve.set_name(vm_name);
+    uve.set_deleted(true);
+    DispatchVmMsg(uve);
 }
 
 VmUveEntryBase* VmUveTableBase::Add(const VmEntry *vm, bool vm_notify) {
@@ -24,6 +87,9 @@ VmUveEntryBase* VmUveTableBase::Add(const VmEntry *vm, bool vm_notify) {
     if (!entry->add_by_vm_notify()) {
         entry->set_add_by_vm_notify(vm_notify);
     }
+    if (entry->deleted()) {
+        entry->set_renewed(true);
+    }
     return entry;
 }
 
@@ -32,10 +98,12 @@ void VmUveTableBase::Delete(const boost::uuids::uuid &u) {
     if (it == uve_vm_map_.end()) {
         return;
     }
-
-    SendVmDeleteMsg(u);
-
-    uve_vm_map_.erase(it);
+    VmUveEntryBase* entry = it->second.get();
+    entry->set_deleted(true);
+    /* We need to reset all non-key fields to ensure that they have right
+     * values if the entry gets re-used */
+    entry->Reset();
+    return;
 }
 
 void VmUveTableBase::Change(const VmEntry *vm) {
@@ -46,9 +114,7 @@ void VmUveTableBase::Change(const VmEntry *vm) {
 
     bool send = entry->Update(vm);
     if (send) {
-        UveVirtualMachineAgent uve;
-        entry->FrameVmMsg(vm->GetUuid(), &uve);
-        DispatchVmMsg(uve);
+        entry->set_changed(true);
     }
 }
 
@@ -65,33 +131,25 @@ VmUveEntryBase* VmUveTableBase::UveEntryFromVm(const boost::uuids::uuid &u) {
     return it->second.get();
 }
 
-void VmUveTableBase::SendVmDeleteMsg(const boost::uuids::uuid &u) {
-    UveVirtualMachineAgent uve;
-    VmUveEntryBase* entry = UveEntryFromVm(u);
-    if (entry == NULL) {
-        return;
-    }
-    entry->FrameVmMsg(u, &uve);
-    uve.set_deleted(true);
-
-    DispatchVmMsg(uve);
-}
-
 void VmUveTableBase::DispatchVmMsg(const UveVirtualMachineAgent &uve) {
     UveVirtualMachineAgentTrace::Send(uve);
 }
 
-void VmUveTableBase::SendVmMsg(const boost::uuids::uuid &u) {
+void VmUveTableBase::SendVmMsg(VmUveEntryBase *entry,
+                               const boost::uuids::uuid &u) {
+    UveVirtualMachineAgent uve;
+    if (entry->FrameVmMsg(u, &uve)) {
+        DispatchVmMsg(uve);
+    }
+}
+
+void VmUveTableBase::MarkChanged(const boost::uuids::uuid &u) {
     VmUveEntryBase* entry = UveEntryFromVm(u);
     if (entry == NULL) {
         return;
     }
-    UveVirtualMachineAgent uve;
-
-    bool send = entry->FrameVmMsg(u, &uve);
-    if (send) {
-        DispatchVmMsg(uve);
-    }
+    entry->set_changed(true);
+    return;
 }
 
 void VmUveTableBase::InterfaceAddHandler(const VmEntry* vm, const Interface* itf,
@@ -99,7 +157,7 @@ void VmUveTableBase::InterfaceAddHandler(const VmEntry* vm, const Interface* itf
     VmUveEntryBase *vm_uve_entry = Add(vm, false);
 
     vm_uve_entry->InterfaceAdd(itf, old_list);
-    SendVmMsg(vm->GetUuid());
+    vm_uve_entry->set_changed(true);
 }
 
 void VmUveTableBase::InterfaceDeleteHandler(const boost::uuids::uuid &u,
@@ -110,7 +168,7 @@ void VmUveTableBase::InterfaceDeleteHandler(const boost::uuids::uuid &u,
     }
 
     entry->InterfaceDelete(intf);
-    SendVmMsg(u);
+    entry->set_changed(true);
     if (!entry->add_by_vm_notify()) {
         Delete(u);
     }
@@ -180,7 +238,7 @@ void VmUveTableBase::VmNotify(DBTablePartBase *partition, DBEntryBase *e) {
         Add(vm, true);
 
         VmStatCollectionStart(state, vm);
-        SendVmMsg(vm->GetUuid());
+        MarkChanged(vm->GetUuid());
     } else {
         Change(vm);
     }
@@ -208,6 +266,12 @@ void VmUveTableBase::Shutdown(void) {
         agent_->vm_table()->Unregister(vm_listener_id_);
     if (intf_listener_id_ != DBTableBase::kInvalidId)
         agent_->interface_table()->Unregister(intf_listener_id_);
+
+    if (timer_) {
+        timer_->Cancel();
+        TimerManager::DeleteTimer(timer_);
+        timer_ = NULL;
+    }
 }
 
 

@@ -9,7 +9,8 @@
 
 class AgentUveBaseTest : public AgentUve {
 public:
-    AgentUveBaseTest(Agent *agent, uint64_t intvl);
+    AgentUveBaseTest(Agent *agent, uint64_t intvl, uint32_t default_intvl,
+                     uint32_t incremental_intvl);
     virtual ~AgentUveBaseTest();
 private:
     DISALLOW_COPY_AND_ASSIGN(AgentUveBaseTest);

@@ -77,8 +77,9 @@ void TorAgentInit::CreateModules() {
                 static_cast<TorAgentParam *>(agent_param()),
                 ovs_peer_manager()));
     agent()->set_ovsdb_client(ovsdb_client_.get());
-    uve_.reset(new AgentUveBase(agent(), AgentUveBase::kBandwidthInterval,
-                                true));
+    uve_.reset(new AgentUveBase(agent(), AgentUveBase::kBandwidthInterval, true,
+                                AgentUveBase::kDefaultInterval,
+                                AgentUveBase::kIncrementalInterval));
     agent()->set_uve(uve_.get());
 }
 

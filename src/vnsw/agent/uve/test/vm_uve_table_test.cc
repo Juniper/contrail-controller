@@ -5,8 +5,8 @@
 #include <uve/test/vm_uve_table_test.h>
 #include <uve/test/vm_uve_entry_test.h>
 
-VmUveTableTest::VmUveTableTest(Agent *agent) 
-    : VmUveTable(agent) {
+VmUveTableTest::VmUveTableTest(Agent *agent, uint32_t default_intvl)
+    : VmUveTable(agent, default_intvl) {
 }
 
 int VmUveTableTest::GetVmUveInterfaceCount(const std::string &vm) const {

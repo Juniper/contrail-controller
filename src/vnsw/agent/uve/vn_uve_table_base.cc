@@ -5,10 +5,18 @@
 #include <uve/vn_uve_table_base.h>
 #include <uve/agent_uve_base.h>
 
-VnUveTableBase::VnUveTableBase(Agent *agent)
+VnUveTableBase::VnUveTableBase(Agent *agent, uint32_t default_intvl)
     : uve_vn_map_(), agent_(agent),
       vn_listener_id_(DBTableBase::kInvalidId),
-      intf_listener_id_(DBTableBase::kInvalidId) {
+      intf_listener_id_(DBTableBase::kInvalidId),
+      timer_last_visited_(""),
+      timer_(TimerManager::CreateTimer
+             (*(agent->event_manager())->io_service(),
+              "VnUveTimer",
+              TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0)) {
+      expiry_time_ = default_intvl;
+      timer_->Start(expiry_time_,
+                    boost::bind(&VnUveTableBase::TimerExpiry, this));
 }
 
 VnUveTableBase::~VnUveTableBase() {
@@ -31,6 +39,69 @@ void VnUveTableBase::Shutdown(void) {
         agent_->vn_table()->Unregister(vn_listener_id_);
     if (intf_listener_id_ != DBTableBase::kInvalidId)
         agent_->interface_table()->Unregister(intf_listener_id_);
+    if (timer_) {
+        timer_->Cancel();
+        TimerManager::DeleteTimer(timer_);
+        timer_ = NULL;
+    }
+}
+
+bool VnUveTableBase::TimerExpiry() {
+    UveVnMap::iterator it = uve_vn_map_.lower_bound(timer_last_visited_);
+    if (it == uve_vn_map_.end()) {
+        timer_last_visited_ = "";
+        return true;
+    }
+
+    uint32_t count = 0;
+    while (it != uve_vn_map_.end() && count < AgentUveBase::kUveCountPerTimer) {
+        VnUveEntryBase *entry = it->second.get();
+        UveVnMap::iterator prev = it;
+        it++;
+        count++;
+
+        if (!entry->vn()) {
+            continue;
+        }
+
+        if (entry->deleted()) {
+            SendDeleteVnMsg(prev->first);
+            if (!entry->renewed()) {
+                Delete(prev->first);
+            } else {
+                entry->set_deleted(false);
+                entry->set_renewed(false);
+                entry->set_changed(false);
+                SendVnMsg(entry, entry->vn());
+            }
+        } else if (entry->changed()) {
+            SendVnMsg(entry, entry->vn());
+            entry->set_changed(false);
+        }
+    }
+
+    if (it == uve_vn_map_.end()) {
+        timer_last_visited_ = "";
+        set_expiry_time(agent_->uve()->default_interval());
+    } else {
+        timer_last_visited_ = it->first;
+        set_expiry_time(agent_->uve()->incremental_interval());
+    }
+    return true;
+}
+
+void VnUveTableBase::set_expiry_time(int time) {
+    if (time != expiry_time_) {
+        expiry_time_ = time;
+        timer_->Reschedule(expiry_time_);
+    }
+}
+
+void VnUveTableBase::SendVnMsg(VnUveEntryBase *entry, const VnEntry *vn) {
+    UveVirtualNetworkAgent uve;
+    if (entry->FrameVnMsg(vn, uve)) {
+        DispatchVnMsg(uve);
+    }
 }
 
 void VnUveTableBase::DispatchVnMsg(const UveVirtualNetworkAgent &uve) {
@@ -49,17 +120,14 @@ VnUveEntryBase* VnUveTableBase::UveEntryFromVn(const VnEntry *vn) {
     return it->second.get();
 }
 
-void VnUveTableBase::SendVnMsg(const VnEntry *vn) {
+void VnUveTableBase::MarkChanged(const VnEntry *vn) {
     VnUveEntryBase* entry = UveEntryFromVn(vn);
     if (entry == NULL) {
         return;
     }
-    UveVirtualNetworkAgent uve;
 
-    bool send = entry->FrameVnMsg(vn, uve);
-    if (send) {
-        DispatchVnMsg(uve);
-    }
+    entry->set_changed(true);
+    return;
 }
 
 void VnUveTableBase::SendDeleteVnMsg(const string &vn) {
@@ -69,11 +137,15 @@ void VnUveTableBase::SendDeleteVnMsg(const string &vn) {
     DispatchVnMsg(s_vn);
 }
 
-void VnUveTableBase::Delete(const VnEntry *vn) {
-    UveVnMap::iterator it = uve_vn_map_.find(vn->GetName());
+void VnUveTableBase::Delete(const std::string &name) {
+    UveVnMap::iterator it = uve_vn_map_.find(name);
     if (it != uve_vn_map_.end()) {
         uve_vn_map_.erase(it);
     }
+}
+
+void VnUveTableBase::Delete(const VnEntry *vn) {
+    Delete(vn->GetName());
 }
 
 VnUveEntryBase* VnUveTableBase::Add(const VnEntry *vn) {
@@ -83,6 +155,9 @@ VnUveEntryBase* VnUveTableBase::Add(const VnEntry *vn) {
     UveVnMap::iterator it = ret.first;
     VnUveEntryBase* entry = it->second.get();
     entry->set_vn(vn);
+    if (entry->deleted()) {
+        entry->set_renewed(true);
+    }
 
     return entry;
 }
@@ -110,8 +185,10 @@ void VnUveTableBase::VnNotify(DBTablePartBase *partition, DBEntryBase *e) {
 
     if (e->IsDeleted()) {
         if (state) {
-            Delete(vn);
-            SendDeleteVnMsg(vn->GetName());
+            VnUveEntryBase *uve = UveEntryFromVn(vn);
+            if (uve) {
+                uve->set_deleted(true);
+            }
 
             e->ClearState(partition->parent(), vn_listener_id_);
             delete state;
@@ -125,7 +202,7 @@ void VnUveTableBase::VnNotify(DBTablePartBase *partition, DBEntryBase *e) {
 
         Add(vn);
     }
-    SendVnMsg(vn);
+    MarkChanged(vn);
 }
 
 void VnUveTableBase::InterfaceDeleteHandler(const string &vm, const string &vn,
@@ -145,9 +222,8 @@ void VnUveTableBase::InterfaceDeleteHandler(const string &vm, const string &vn,
 
     vn_uve_entry->VmDelete(vm);
     vn_uve_entry->InterfaceDelete(intf);
-    if (vn_uve_entry->BuildInterfaceVmList(uve)) {
-        DispatchVnMsg(uve);
-    }
+    vn_uve_entry->set_changed(true);
+    return;
 }
 
 void VnUveTableBase::InterfaceAddHandler(const VnEntry* vn,
@@ -169,10 +245,8 @@ void VnUveTableBase::InterfaceAddHandler(const VnEntry* vn,
         vn_uve_entry->VmAdd(vm_name);
     }
     vn_uve_entry->InterfaceAdd(intf);
-    if (vn_uve_entry->BuildInterfaceVmList(uve)) {
-        DispatchVnMsg(uve);
-    }
-
+    vn_uve_entry->set_changed(true);
+    return;
 }
 
 void VnUveTableBase::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e) {
@@ -234,6 +308,9 @@ void VnUveTableBase::SendVnAclRuleCount() {
     while (it != uve_vn_map_.end()) {
         VnUveEntryBase *entry = it->second.get();
         ++it;
+        if (entry->deleted()) {
+            continue;
+        }
         if (entry->vn()) {
             UveVirtualNetworkAgent uve;
             bool send = entry->FrameVnAclRuleCountMsg(entry->vn(), &uve);
