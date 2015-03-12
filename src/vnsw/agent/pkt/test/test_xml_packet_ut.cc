@@ -82,6 +82,20 @@ TEST_F(TestPkt, l2_sg_flow_1) {
     }
 }
 
+TEST_F(TestPkt, rpf_flow) {
+    AgentUtXmlTest test("controller/src/vnsw/agent/pkt/test/rpf-flow.xml");
+    AgentUtXmlOperInit(&test);
+    if (test.Load() == true) {
+        test.ReadXml();
+
+        string str;
+        test.ToString(&str);
+        cout << str << endl;
+        test.Run();
+    }
+}
+
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
