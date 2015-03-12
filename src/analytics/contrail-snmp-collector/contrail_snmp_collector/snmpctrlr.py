@@ -13,7 +13,7 @@ class Controller(object):
     def __init__(self, config):
         self._config = config
         self._me = socket.gethostname() + ':' + str(os.getpid())
-        self.uve = SnmpUve(self._config, self._me)
+        self.uve = SnmpUve(self._config)
         self._logger = self.uve.logger()
         self.sleep_time()
         self._keep_running = True
