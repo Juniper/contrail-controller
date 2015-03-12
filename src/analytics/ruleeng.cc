@@ -239,6 +239,7 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
 
     bool is_alarm = (sandesh_type == SandeshType::ALARM) ? true : false;
     bool uve_notif = false;
+    bool uve_notif_disable = false;
     std::string type(rmsg->msg->GetMessageType());
     std::string source(header.get_Source());
     std::string module(header.get_Module());
@@ -452,6 +453,7 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
                     // We don't want to show query info in the Analytics Node UVE
                     if (!strcmp(object.name(),"QueryPerfInfo")) continue;
                     if (!strcmp(object.name(),"AlarmgenUpdate")) continue;
+                    if (!strcmp(object.name(),"GeneratorDbStats")) continue;
                     if (elem == subs.first_child()) {
                         vector<string> sels = DbHandler::StatTableSelectStr(
                                 object.name(), node.name(), attribs);
@@ -481,7 +483,12 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
                 }
 
                 // We don't want to show query info in the Analytics Node UVE
-                if (!strcmp(object.name(),"QueryPerfInfo")) continue;
+                if (!strcmp(object.name(),"QueryPerfInfo") ||
+                       !strcmp(object.name(),"AlarmgenUpdate") ||
+                       !strcmp(object.name(),"GeneratorDbStats")) {
+                    uve_notif_disable = true;
+                    continue;
+                }
 
             } else {
                 LOG(ERROR, __func__ << " Message: "  << type << " Source: " << source <<
@@ -525,9 +532,11 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
     }
 
     // Publish on the Kafka bus that this UVE has changed
-    if (sandesh_type == SandeshType::UVE && uve_notif) {
-        osp_->UVENotif(object.name(), 
-                       source, node_type, module, instance_id, key);
+    if (!uve_notif_disable) {
+        if (sandesh_type == SandeshType::UVE && uve_notif) {
+            osp_->UVENotif(object.name(), 
+            source, node_type, module, instance_id, key);
+        }
     }
     return true;
 }
