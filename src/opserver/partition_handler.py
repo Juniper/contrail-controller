@@ -141,6 +141,8 @@ class UveStreamProc(PartitionHandler):
             for the partition
         '''
         self._uvedb = self._uvecb(self._partno)
+        self._logger.debug("Starting part %d with UVE db %s" % \
+                           (self._partno,str(self._uvedb)))
         uves  = set()
         for kcoll,coll in self._uvedb.iteritems():
             for kgen,gen in coll.iteritems():
