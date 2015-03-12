@@ -45,7 +45,8 @@ public:
         if (sock_fd < 0)
             return -1;
         /* run the task now */
-        task_pid = task_->Run();
+        task_->Run();
+        task_pid = task_->pid();
         return task_pid;
     }
 
