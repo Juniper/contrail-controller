@@ -487,7 +487,11 @@ public:
                                 VrfEntry *vrf,
                                 const Ip4Address &old_addr,
                                 const Ip6Address &old_v6_addr,
-                                int ethernet_tag) const;
+                                int ethernet_tag,
+                                bool old_layer3_forwarding,
+                                bool policy_change,
+                                const Ip4Address &new_addr,
+                                const Ip6Address &new_v6_addr) const;
     uint32_t ethernet_tag() const {return ethernet_tag_;}
     void UpdateVxLan();
 
@@ -539,7 +543,8 @@ private:
                      bool sg_changed, bool old_ipv6_active,
                      const Ip6Address &old_v6_addr, bool ecmp_changed,
                      bool local_pref_changed, const Ip4Address &old_subnet,
-                     const uint8_t old_subnet_plen, bool old_dhcp_enable);
+                     const uint8_t old_subnet_plen, bool old_dhcp_enable,
+                     bool old_layer3_forwarding);
     void UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
                   const Ip4Address &old_addr, int old_ethernet_tag,
                   bool force_update, bool policy_change, bool old_ipv6_active,
@@ -551,9 +556,11 @@ private:
                   const Ip4Address &old_subnet, const uint8_t old_subnet_plen);
     void UpdateL2(bool old_l2_active, VrfEntry *old_vrf, int old_ethernet_tag,
                   bool force_update, bool policy_change,
-                  const Ip4Address &old_addr, const Ip6Address &old_v6_addr);
+                  const Ip4Address &old_addr, const Ip6Address &old_v6_addr,
+                  bool old_layer3_forwarding);
     void DeleteL2(bool old_l2_active, VrfEntry *old_vrf, int old_ethernet_tag,
-                  const Ip4Address &old_addr, const Ip6Address &old_v6_addr);
+                  const Ip4Address &old_addr, const Ip6Address &old_v6_addr,
+                  bool old_layer3_forwarding);
 
     void AllocL3MplsLabel(bool force_update, bool policy_change);
     void DeleteL3MplsLabel();

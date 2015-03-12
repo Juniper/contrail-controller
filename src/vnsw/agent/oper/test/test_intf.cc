@@ -2660,6 +2660,204 @@ TEST_F(IntfTest, VMI_Sequence_1) {
     client->WaitForIdle();
 }
 
+TEST_F(IntfTest, Layer2Mode_1) {
+    client->Reset();
+    VmAddReq(1);
+    EXPECT_TRUE(client->VmNotifyWait(1));
+
+    client->Reset();
+    NovaIntfAdd(1, "vnet1", "1.1.1.1", "00:00:00:00:00:01");
+    client->WaitForIdle();
+    EXPECT_TRUE(client->PortNotifyWait(1));
+    EXPECT_TRUE(VmPortInactive(1));
+    EXPECT_EQ(1U, Agent::GetInstance()->vm_table()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->vm_table()->Size());
+
+    client->Reset();
+    VnAddReq(1, "vn1", 0, "vrf2");
+    CfgIntfSync(1, "cfg-vnet1", 1, 1, NULL_VRF, ZERO_IP);
+    client->WaitForIdle();
+    EXPECT_TRUE(client->PortNotifyWait(1));
+    EXPECT_TRUE(VmPortInactive(1));
+    EXPECT_TRUE(client->VnNotifyWait(1));
+    EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
+
+    client->Reset();
+    VrfAddReq("vrf1");
+    AddL2Vn("vn1", 1);
+    AddAcl("Acl", 1, "vn1", "vn1", "pass");
+    AddLink("virtual-network", "vn1", "access-control-list", "Acl");
+    client->WaitForIdle();
+    client->WaitForIdle();
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    CfgIntfSync(1, "cfg-vnet1", 1, 1, "vrf1", "1.1.1.1");
+    client->WaitForIdle();
+    EXPECT_TRUE(client->PortNotifyWait(1));
+    const VmInterface *vm_intf = static_cast<const VmInterface *>(VmPortGet(1));
+    EXPECT_TRUE(vm_intf->policy_enabled() == false);
+    EXPECT_TRUE(vm_intf->IsL2Active() == true);
+
+    const MacAddress mac("00:00:00:00:00:01");
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    Ip4Address zero_ip = Ip4Address::from_string("0.0.0.0");
+    EXPECT_TRUE(L2RouteFind("vrf1", mac));
+    EvpnRouteEntry *evpn_rt = EvpnRouteGet("vrf1", mac, zero_ip,
+                                           vm_intf->ethernet_tag());
+    EXPECT_TRUE(evpn_rt != NULL);
+    evpn_rt = EvpnRouteGet("vrf1", mac, ip, vm_intf->ethernet_tag());
+    EXPECT_TRUE(evpn_rt == NULL);
+
+    NovaDel(1);
+    client->WaitForIdle();
+    EXPECT_TRUE(client->PortNotifyWait(1));
+    EXPECT_FALSE(VmPortFind(1));
+
+    DelAcl("Acl");
+    DelLink("virtual-network", "vn1", "access-control-list", "Acl");
+    DelVn("vn1");
+    VrfDelReq("vrf1");
+    ConfigDel(1);
+    VmDelReq(1);
+    client->WaitForIdle();
+}
+
+TEST_F(IntfTest, Layer2Mode_2) {
+    struct PortInfo input1[] = {
+        {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    client->Reset();
+    CreateVmportEnv(input1, 1, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    client->Reset();
+
+    const VmInterface *vm_intf = static_cast<const VmInterface *>(VmPortGet(8));
+    EXPECT_TRUE(vm_intf->policy_enabled() == true);
+    EXPECT_TRUE(vm_intf->IsL2Active() == true);
+
+    const MacAddress mac("00:00:00:01:01:01");
+    Ip4Address ip = Ip4Address::from_string("8.1.1.1");
+    Ip4Address zero_ip = Ip4Address::from_string("0.0.0.0");
+    EXPECT_TRUE(L2RouteFind("vrf1", mac));
+    EvpnRouteEntry *evpn_rt = EvpnRouteGet("vrf1", mac, zero_ip,
+                                           vm_intf->ethernet_tag());
+    EXPECT_TRUE(evpn_rt != NULL);
+    EXPECT_TRUE(evpn_rt->GetActiveNextHop()->PolicyEnabled() == true);
+    evpn_rt = EvpnRouteGet("vrf1", mac, ip, vm_intf->ethernet_tag());
+    EXPECT_TRUE(evpn_rt != NULL);
+    EXPECT_TRUE(evpn_rt->GetActiveNextHop()->PolicyEnabled() == true);
+
+    //Make the VN as layer2 only
+    //EVPN route should be added with IP set to 0
+    //Interface should be policy disabled
+    AddL2Vn("vn1", 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(vm_intf->policy_enabled() == false);
+    EXPECT_TRUE(vm_intf->IsL2Active() == true);
+
+    evpn_rt = EvpnRouteGet("vrf1", mac, zero_ip,
+                           vm_intf->ethernet_tag());
+    EXPECT_TRUE(evpn_rt != NULL);
+    EXPECT_TRUE(evpn_rt->GetActiveNextHop()->PolicyEnabled() == false);
+    uint32_t label = vm_intf->l2_label();
+    MplsLabel *mpls_label = GetActiveLabel(MplsLabel::VPORT_NH, label);
+    EXPECT_TRUE(mpls_label->nexthop()->PolicyEnabled() == false);
+    evpn_rt = EvpnRouteGet("vrf1", mac, ip, vm_intf->ethernet_tag());
+    EXPECT_TRUE(evpn_rt == NULL);
+    EXPECT_FALSE(RouteFind("vrf1", "8.1.1.1", 32));
+
+    //Verify L3 route gets added
+    //and policy get enabled
+    AddVn("vn1", 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(vm_intf->policy_enabled() == true);
+    EXPECT_TRUE(vm_intf->IsL2Active() == true);
+
+    evpn_rt = EvpnRouteGet("vrf1", mac, zero_ip,
+                           vm_intf->ethernet_tag());
+    EXPECT_TRUE(evpn_rt != NULL);
+    EXPECT_TRUE(evpn_rt->GetActiveNextHop()->PolicyEnabled() == true);
+    label = vm_intf->l2_label();
+    mpls_label = GetActiveLabel(MplsLabel::VPORT_NH, label);
+    EXPECT_TRUE(mpls_label->nexthop()->PolicyEnabled() == true);
+    evpn_rt = EvpnRouteGet("vrf1", mac, ip, vm_intf->ethernet_tag());
+    EXPECT_TRUE(evpn_rt != NULL);
+    EXPECT_TRUE(RouteFind("vrf1", "8.1.1.1", 32));
+
+    DeleteVmportEnv(input1, 1, true, 1);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(8));
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
+    WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_table()->Find(&key, true)
+                == NULL));
+    client->Reset();
+}
+
+TEST_F(IntfTest, Layer2Mode_3) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "0.0.0.0", "00:00:00:01:01:01", 1, 1, "fd11::2"},
+    };
+
+    CreateV6VmportEnv(input, 1, 0, NULL, NULL, false);
+    WAIT_FOR(100, 1000, (VmPortActive(input, 0)) == false);
+    WAIT_FOR(100, 1000, (VmPortV6Active(input, 0)) == true);
+    client->WaitForIdle();
+
+    boost::system::error_code ec;
+    Ip6Address addr = Ip6Address::from_string(input[0].ip6addr, ec);
+    InetUnicastRouteEntry* rt = RouteGetV6("vrf1", addr, 128);
+    EXPECT_TRUE(rt != NULL);
+
+    const VmInterface *vm_intf = static_cast<const VmInterface *>(VmPortGet(1));
+    EXPECT_TRUE(vm_intf->IsL2Active() == true);
+
+    const MacAddress mac("00:00:00:01:01:01");
+    Ip6Address zero_ip;
+    EXPECT_TRUE(L2RouteFind("vrf1", mac));
+    EvpnRouteEntry *evpn_rt = EvpnRouteGet("vrf1", mac, zero_ip,
+                                           vm_intf->ethernet_tag());
+    EXPECT_TRUE(evpn_rt != NULL);
+    evpn_rt = EvpnRouteGet("vrf1", mac, addr, vm_intf->ethernet_tag());
+    EXPECT_TRUE(evpn_rt != NULL);
+
+    //Make the VN as layer2 only
+    //EVPN route should be added with IP set to 0
+    //Interface should be policy disabled
+    AddL2Vn("vn1", 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(vm_intf->policy_enabled() == false);
+    EXPECT_TRUE(vm_intf->IsL2Active() == true);
+
+    evpn_rt = EvpnRouteGet("vrf1", mac, zero_ip,
+                           vm_intf->ethernet_tag());
+    EXPECT_TRUE(evpn_rt != NULL);
+    EXPECT_TRUE(evpn_rt->GetActiveNextHop()->PolicyEnabled() == false);
+    evpn_rt = EvpnRouteGet("vrf1", mac, addr, vm_intf->ethernet_tag());
+    EXPECT_TRUE(evpn_rt == NULL);
+    EXPECT_FALSE(RouteFindV6("vrf1", addr, 128));
+
+    //Verify L3 route gets added
+    //and policy get enabled
+    AddVn("vn1", 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(vm_intf->IsL2Active() == true);
+
+    evpn_rt = EvpnRouteGet("vrf1", mac, zero_ip,
+                           vm_intf->ethernet_tag());
+    EXPECT_TRUE(evpn_rt != NULL);
+    evpn_rt = EvpnRouteGet("vrf1", mac, addr, vm_intf->ethernet_tag());
+    EXPECT_TRUE(evpn_rt != NULL);
+    EXPECT_TRUE(RouteFindV6("vrf1", addr, 128));
+
+    DeleteVmportEnv(input, 1, 1, 0, NULL, NULL, false, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(8));
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(1), "");
+    WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_table()->Find(&key, true)
+                == NULL));
+    client->Reset();
+}
 int main(int argc, char **argv) {
     GETUSERARGS();
 
