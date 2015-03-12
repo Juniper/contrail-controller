@@ -99,5 +99,8 @@ private:
     std::set<std::string> sum_cols_;
     std::set<std::string> class_cols_;
 
+    std::set<std::string> max_field_;
+    std::set<std::string> min_field_;
+
 };
 #endif

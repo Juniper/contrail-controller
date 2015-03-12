@@ -589,6 +589,13 @@ class OpServer(object):
                     scln = stat_query_column(name= "CLASS(" + aln.name + ")",
                             datatype=aln.datatype, index=False)
                     scols.append(scln)
+                    sln = stat_query_column(name= "MAX(" + aln.name + ")",
+                            datatype=aln.datatype, index=False)
+                    scols.append(sln)
+                    scln = stat_query_column(name= "MIN(" + aln.name + ")",
+                            datatype=aln.datatype, index=False)
+                    scols.append(scln)
+
 
             if not isname: 
                 keyln = stat_query_column(name=STAT_OBJECTID_FIELD, datatype='string', index=True)
