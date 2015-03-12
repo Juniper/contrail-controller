@@ -110,7 +110,7 @@ void intrusive_ptr_release(OvsdbClientIdl *p) {
 OvsdbClientIdl::OvsdbClientIdl(OvsdbClientSession *session, Agent *agent,
         OvsPeerManager *manager) : idl_(ovsdb_wrapper_idl_create()),
     session_(session), agent_(agent), pending_txn_(), deleted_(false),
-    manager_(manager), keepalive_wait_(false),
+    manager_(manager), connection_state_(OvsdbSessionRcvWait),
     keepalive_timer_(TimerManager::CreateTimer(
                 *(agent->event_manager())->io_service(),
                 "OVSDB Client Keep Alive Timer",
@@ -177,6 +177,11 @@ void OvsdbClientIdl::OnEstablish() {
         return;
     }
 
+    if (keepalive_intv < OVSDBMinKeepAliveTimer) {
+        // keepalive interval is not supposed to be less than min value.
+        keepalive_intv = OVSDBMinKeepAliveTimer;
+    }
+
     // Start the Keep Alives
     keepalive_timer_->Start(keepalive_intv,
             boost::bind(&OvsdbClientIdl::KeepAliveTimerCb, this));
@@ -222,24 +227,23 @@ void OvsdbClientIdl::MessageProcess(const u_int8_t *buf, std::size_t len) {
             }
 
             if (ovsdb_wrapper_msg_echo_req(msg)) {
-                /* Echo request.  Send reply. */
+                // Echo request from ovsdb-server, reply inline so that
+                // ovsdb-server knows that connection is still active
                 struct jsonrpc_msg *reply;
                 reply = ovsdb_wrapper_jsonrpc_create_reply(msg);
                 SendJsonRpc(reply);
-                //jsonrpc_session_send(s, reply);
-            } else if (ovsdb_wrapper_msg_echo_reply(msg)) {
-                // echo reply to our request, reset keepalive_wait flag
-                // and suppress the message.
-                keepalive_wait_ = false;
-            } else {
-                // Process the received messages in a KSync workqueue task context,
-                // to assure only one thread is writting data to OVSDB client.
-                if (!deleted_) {
-                    OvsdbMsg *ovs_msg = new OvsdbMsg(msg);
-                    receive_queue_->Enqueue(ovs_msg);
-                    continue;
-                }
             }
+
+            // Process all received messages in a KSync workqueue task context,
+            // to assure only one thread is writting data to OVSDB client.
+            // we even enqueue processed echo req message to workqueue, to
+            // track session activity in KSync task context.
+            if (!deleted_) {
+                OvsdbMsg *ovs_msg = new OvsdbMsg(msg);
+                receive_queue_->Enqueue(ovs_msg);
+                continue;
+            }
+
             ovsdb_wrapper_jsonrpc_msg_destroy(msg);
         }
     }
@@ -247,9 +251,16 @@ void OvsdbClientIdl::MessageProcess(const u_int8_t *buf, std::size_t len) {
 
 bool OvsdbClientIdl::ProcessMessage(OvsdbMsg *msg) {
     if (!deleted_) {
-        ovsdb_wrapper_idl_msg_process(idl_, msg->msg);
-        // msg->msg is freed by process method above
-        msg->msg = NULL;
+        // echo req and reply messages are just enqueued to identify
+        // session activity, since they need no further processing
+        // skip and delete the message
+        if (!ovsdb_wrapper_msg_echo_req(msg->msg) &&
+            !ovsdb_wrapper_msg_echo_reply(msg->msg)) {
+            ovsdb_wrapper_idl_msg_process(idl_, msg->msg);
+            // msg->msg is freed by process method above
+            msg->msg = NULL;
+        }
+        connection_state_ = OvsdbSessionActive;
     }
     delete msg;
     return true;
@@ -337,16 +348,27 @@ VnOvsdbObject *OvsdbClientIdl::vn_ovsdb() {
 }
 
 bool OvsdbClientIdl::KeepAliveTimerCb() {
-    if (keepalive_wait_) {
-        // echo reply not recevied, close the session
-        OVSDB_TRACE(Error, "KeepAlive failed, Closing Session");
-        session_->TriggerClose();
-        return false;
-    } else {
+    switch (connection_state_) {
+    case OvsdbSessionActive:
+        // session is active, move to Receive wait state to
+        // identify session activity.
+        connection_state_ = OvsdbSessionRcvWait;
+        return true;
+    case OvsdbSessionRcvWait:
+        {
         // send echo request and restart the timer to wait for reply
         struct jsonrpc_msg *req = ovsdb_wrapper_jsonrpc_create_echo_request();
-        keepalive_wait_ = true;
+        connection_state_ = OvsdbSessionEchoWait;
         SendJsonRpc(req);
+        }
+        return true;
+    case OvsdbSessionEchoWait:
+        // echo reply not recevied ovsdb-server is not responding,
+        // close the session
+        OVSDB_TRACE(Error, "KeepAlive failed, Closing Session");
+        session_->TriggerClose();
+        // Connection is closed, timer doesn't need restart
+        return false;
     }
     return true;
 }

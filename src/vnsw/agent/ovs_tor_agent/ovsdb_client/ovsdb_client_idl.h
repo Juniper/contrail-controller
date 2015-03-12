@@ -51,7 +51,24 @@ typedef boost::intrusive_ptr<OvsdbClientIdl> OvsdbClientIdlPtr;
 
 class OvsdbClientIdl {
 public:
+    // OvsdbSessionState represent state of the session.
+    // it starts with OvsdbSessionRcvWait representing that idl is waiting
+    // for a message to come from ovsdb-server on message receive on session
+    // it moves to OvsdbSessionActive state, if keepalive timer fires with
+    // idl being in OvsdbSessionRcvWait state, it triggers an echo req (keep
+    // alive message) and moves to OvsdbSessionEchoWait state waiting for
+    // echo response, if there is no response till the next time timer fires
+    // it triggers the close of session.
+    enum OvsdbSessionState {
+        OvsdbSessionActive = 0,  // Actively receiving messages
+        OvsdbSessionRcvWait,     // Waiting to receive next message
+        OvsdbSessionEchoWait     // Echo Req sent waiting for reply
+    };
+
     static const uint32_t OVSDBKeepAliveTimer = 10000; // in millisecond
+
+    // minimum value of keep alive interval
+    static const int OVSDBMinKeepAliveTimer = 2000; // in millisecond
 
     enum Op {
         OVSDB_DEL = 0,
@@ -143,7 +160,7 @@ private:
     // task
     WorkQueue<OvsdbMsg *> *receive_queue_;
     OvsPeerManager *manager_;
-    bool keepalive_wait_;
+    OvsdbSessionState connection_state_;
     Timer *keepalive_timer_;
     tbb::atomic<int> refcount_;
     std::auto_ptr<OvsPeer> route_peer_;
