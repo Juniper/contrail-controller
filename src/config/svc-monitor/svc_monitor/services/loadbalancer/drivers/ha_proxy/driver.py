@@ -24,9 +24,10 @@ LOADBALANCER_SERVICE_TEMPLATE = [
 
 class OpencontrailLoadbalancerDriver(
         abstract_driver.ContrailLoadBalancerAbstractDriver):
-    def __init__(self, manager, api, args=None):
+    def __init__(self, manager, api, db, args=None):
         self._api = api
         self._lb_template = None
+        self.db = db
 
     def _get_template(self):
         if self._lb_template is not None:
@@ -177,19 +178,13 @@ class OpencontrailLoadbalancerDriver(
         if si_refs is None or si_refs[0]['uuid'] != si_obj.uuid:
             pool.set_service_instance(si_obj)
             self._api.loadbalancer_pool_update(pool)
+        self.db.pool_driver_info_insert(pool_id, {'service_instance': si_obj.uuid})
 
     def _clear_loadbalancer_instance(self, tenant_id, pool_id):
+        driver_data = self.db.pool_driver_info_get(pool_id)
+        si_id = driver_data['service_instance']
         try:
-            project = self._api.project_read(
-                id=str(uuid.UUID(tenant_id)))
-        except NoIdError as ex:
-            LOG.error(ex)
-            return
-        fq_name = list(project.get_fq_name())
-        fq_name.append(pool_id)
-
-        try:
-            si_obj = self._api.service_instance_read(fq_name=fq_name)
+            si_obj = self._api.service_instance_read(id=si_id)
         except NoIdError as ex:
             LOG.error(ex)
             return
@@ -202,9 +197,10 @@ class OpencontrailLoadbalancerDriver(
             self._api.loadbalancer_pool_update(pool_obj)
 
         try:
-            self._api.service_instance_delete(fq_name=fq_name)
+            self._api.service_instance_delete(id=si_id)
         except RefsExistError as ex:
             LOG.error(ex)
+        self.db.pool_remove(pool_id, ['service_instance'])
 
     def create_vip(self, vip):
         """A real driver would invoke a call to his backend
@@ -260,7 +256,8 @@ class OpencontrailLoadbalancerDriver(
         self.plugin._delete_db_pool(pool["id"])
         or set the status to ERROR if deletion failed
         """
-        pass
+        if pool['vip_id']:
+            self._clear_loadbalancer_instance(pool['tenant_id'], pool['id'])
 
     def stats(self, pool_id):
         pass
