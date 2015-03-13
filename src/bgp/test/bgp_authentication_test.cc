@@ -503,13 +503,11 @@ TEST_F(BgpAuthenticationTest, 2CnsWithChangingSameKeys) {
     SetKeys("cn1_cn2", "MD5", key_string, 0, &cn1_cn2_keys);
     AddPeering(cn1_, cn2_, uuid, cn1_cn2_keys);
     AddPeering(cn2_, cn1_, uuid, cn1_cn2_keys);
-    // Check that the peering came up. Flap counts will go up since we go from
-    // no-keys to keys.
     uint32_t check_count =
         peer12->get_rx_keepalive() > peer21->get_rx_keepalive() ?
         peer12->get_rx_keepalive() : peer21->get_rx_keepalive();
     VerifyPeers(__LINE__, cn1_, cn2_, (check_count + 10), cn1_->ifmap_id(),
-                cn2_->ifmap_id(), asn, asn, key_string, 1, 1);
+                cn2_->ifmap_id(), asn, asn, key_string, 0, 0);
 
     // Change the key to cn1cn2key2 on both CN1 and CN2. Peering should come up.
     cn1_cn2_keys.clear();
@@ -521,7 +519,7 @@ TEST_F(BgpAuthenticationTest, 2CnsWithChangingSameKeys) {
     check_count = peer12->get_rx_keepalive() > peer21->get_rx_keepalive() ?
         peer12->get_rx_keepalive() : peer21->get_rx_keepalive();
     VerifyPeers(__LINE__, cn1_, cn2_, (check_count + 10), cn1_->ifmap_id(),
-                cn2_->ifmap_id(), asn, asn, key_string, 1, 1);
+                cn2_->ifmap_id(), asn, asn, key_string, 0, 0);
 
     // Change the key to cn1cn2key3 on both CN1 and CN2. Peering should come up.
     cn1_cn2_keys.clear();
@@ -533,7 +531,7 @@ TEST_F(BgpAuthenticationTest, 2CnsWithChangingSameKeys) {
     check_count = peer12->get_rx_keepalive() > peer21->get_rx_keepalive() ?
         peer12->get_rx_keepalive() : peer21->get_rx_keepalive();
     VerifyPeers(__LINE__, cn1_, cn2_, (check_count + 10), cn1_->ifmap_id(),
-                cn2_->ifmap_id(), asn, asn, key_string, 1, 1);
+                cn2_->ifmap_id(), asn, asn, key_string, 0, 0);
 
     /*
     // Change the key to nothing on both CN1 and CN2. Peering should come up.
@@ -544,7 +542,7 @@ TEST_F(BgpAuthenticationTest, 2CnsWithChangingSameKeys) {
     check_count = peer12->get_rx_keepalive() > peer21->get_rx_keepalive() ?
         peer12->get_rx_keepalive() : peer21->get_rx_keepalive();
     VerifyPeers(__LINE__, cn1_, cn2_, (check_count + 10), cn1_->ifmap_id(),
-                cn2_->ifmap_id(), asn, asn, "");
+                cn2_->ifmap_id(), asn, asn, key_string, 0, 0);
     */
 
     // Cleanup the added peerings.
@@ -843,10 +841,8 @@ TEST_F(BgpAuthenticationTest, SameDifferentMultipleKeyChanges) {
     uint32_t check_count =
         peer12->get_rx_keepalive() > peer21->get_rx_keepalive() ?
         peer12->get_rx_keepalive() : peer21->get_rx_keepalive();
-    // Check that the peering comes up with key_string1. Flap counts will go up
-    // since we go from no-keys to keys.
     VerifyPeers(__LINE__, cn1_, cn2_, (check_count + 10), cn1_->ifmap_id(),
-                cn2_->ifmap_id(), asn, asn, key_string1, 1, 1);
+                cn2_->ifmap_id(), asn, asn, key_string1, 0, 0);
 
     // Now, change the key only on CN2 to key_string2. Peering should come down.
     string key_string2 = "somekey";
@@ -871,7 +867,7 @@ TEST_F(BgpAuthenticationTest, SameDifferentMultipleKeyChanges) {
     check_count = peer12->get_rx_keepalive() > peer21->get_rx_keepalive() ?
         peer12->get_rx_keepalive() : peer21->get_rx_keepalive();
     VerifyPeers(__LINE__, cn1_, cn2_, (check_count + 10), cn1_->ifmap_id(),
-                cn2_->ifmap_id(), asn, asn, key_string1, 1, 1);
+                cn2_->ifmap_id(), asn, asn, key_string1, 0, 0);
 
     // Change the key on CN1 to key_string2. Peering should come down.
     AddPeering(cn1_, cn2_, uuid, keys2);
@@ -892,7 +888,7 @@ TEST_F(BgpAuthenticationTest, SameDifferentMultipleKeyChanges) {
     check_count = peer12->get_rx_keepalive() > peer21->get_rx_keepalive() ?
         peer12->get_rx_keepalive() : peer21->get_rx_keepalive();
     VerifyPeers(__LINE__, cn1_, cn2_, (check_count + 10), cn1_->ifmap_id(),
-                cn2_->ifmap_id(), asn, asn, key_string2, 1, 1);
+                cn2_->ifmap_id(), asn, asn, key_string2, 0, 0);
 
     // Cleanup the added peerings.
     DeletePeering(cn1_, cn2_);
@@ -915,9 +911,7 @@ TEST_F(BgpAuthenticationTest, NoKeyToKeyWithDelay) {
     BgpPeer *peer12 = cn1_->FindPeerByUuid(__LINE__, uuid);
     BgpPeer *peer21 = cn2_->FindPeerByUuid(__LINE__, uuid);
 
-    // Add a key only to CN1. Since, we are moving from no-key to key, the
-    // session will be cleared. SM should move away from Established. The
-    // session should flap once.
+    // Add a key only to CN1.
     string key_string = "cn1cn2key1";
     vector<autogen::AuthenticationKeyItem> cn1_cn2_keys;
     SetKeys("cn1_cn2", "MD5", key_string, 0, &cn1_cn2_keys);
@@ -930,18 +924,20 @@ TEST_F(BgpAuthenticationTest, NoKeyToKeyWithDelay) {
     size_t old_p21_rx_count = peer21->get_rx_keepalive();
     size_t old_p12_tr_count = peer12->get_tr_keepalive();
     size_t old_p21_tr_count = peer21->get_tr_keepalive();
-
+    // Although both sides are transmitting keepalives, none will be received
+    // by either end.
+    TASK_UTIL_EXPECT_TRUE(peer12->get_tr_keepalive() > (old_p12_tr_count + 20));
     TASK_UTIL_EXPECT_TRUE(peer21->get_tr_keepalive() > (old_p21_tr_count + 20));
+    TASK_UTIL_EXPECT_EQ(peer12->get_rx_keepalive(), old_p12_rx_count);
     TASK_UTIL_EXPECT_EQ(peer21->get_rx_keepalive(), old_p21_rx_count);
 
-    // Now add the same key to CN2. Peering should come up. Flap counts will go
-    // up since we go from no-keys to keys.
+    // Now add the same key to CN2. Peering should come up.
     AddPeering(cn2_, cn1_, uuid, cn1_cn2_keys);
     uint32_t check_count =
         peer12->get_rx_keepalive() > peer21->get_rx_keepalive() ?
         peer12->get_rx_keepalive() : peer21->get_rx_keepalive();
     VerifyPeers(__LINE__, cn1_, cn2_, (check_count + 10), cn1_->ifmap_id(),
-                cn2_->ifmap_id(), asn, asn, key_string, 1, 1);
+                cn2_->ifmap_id(), asn, asn, key_string, 0, 0);
 
     // Cleanup the added peerings.
     DeletePeering(cn1_, cn2_);
@@ -1059,7 +1055,7 @@ TEST_F(BgpAuthenticationTest, NoKeyToRouterKey) {
         peer12->get_rx_keepalive() > peer21->get_rx_keepalive() ?
         peer12->get_rx_keepalive() : peer21->get_rx_keepalive();
     VerifyPeers(__LINE__, cn1_, cn2_, (check_count + 10), cn1_->ifmap_id(),
-                cn2_->ifmap_id(), asn, asn, key_string, 1, 1);
+                cn2_->ifmap_id(), asn, asn, key_string, 0, 0);
 
     // Change the router key on both sides and verify that the peers come up.
     router_keys.clear();
@@ -1070,7 +1066,7 @@ TEST_F(BgpAuthenticationTest, NoKeyToRouterKey) {
     check_count = peer12->get_rx_keepalive() > peer21->get_rx_keepalive() ?
         peer12->get_rx_keepalive() : peer21->get_rx_keepalive();
     VerifyPeers(__LINE__, cn1_, cn2_, (check_count + 10), cn1_->ifmap_id(),
-                cn2_->ifmap_id(), asn, asn, key_string, 1, 1);
+                cn2_->ifmap_id(), asn, asn, key_string, 0, 0);
 
     // Change the router key again but only on CN1.
     router_keys.clear();
@@ -1098,7 +1094,7 @@ TEST_F(BgpAuthenticationTest, NoKeyToRouterKey) {
     check_count = peer12->get_rx_keepalive() > peer21->get_rx_keepalive() ?
         peer12->get_rx_keepalive() : peer21->get_rx_keepalive();
     VerifyPeers(__LINE__, cn1_, cn2_, (check_count + 10), cn1_->ifmap_id(),
-                cn2_->ifmap_id(), asn, asn, key_string, 1, 1);
+                cn2_->ifmap_id(), asn, asn, key_string, 0, 0);
 
     // Cleanup the added peerings.
     DeletePeering(cn1_, cn2_);
