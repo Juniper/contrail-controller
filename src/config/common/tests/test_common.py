@@ -136,6 +136,7 @@ def launch_svc_monitor(api_server_ip, api_server_port):
     args_str = ""
     args_str = args_str + "--api_server_ip %s " % (api_server_ip)
     args_str = args_str + "--api_server_port %s " % (api_server_port)
+    args_str = args_str + "--http_server_port %s " % (get_free_port())
     args_str = args_str + "--ifmap_username api-server "
     args_str = args_str + "--ifmap_password api-server "
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
@@ -403,7 +404,9 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
                 sti = [ServiceTemplateInterfaceType(
                     'left'), ServiceTemplateInterfaceType('right')]
                 st_prop = ServiceTemplateType(
+                    flavor='medium',
                     image_name='junk',
+                    ordered_interfaces=True,
                     service_mode=service_mode, interface_type=sti)
                 service_template = ServiceTemplate(
                     name=service + 'template',
@@ -411,16 +414,17 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
                 self._vnc_lib.service_template_create(service_template)
                 scale_out = ServiceScaleOutType()
                 if service_mode == 'in-network':
+                    if_list = [ServiceInstanceInterfaceType(virtual_network=vn1.get_fq_name_str()),
+                               ServiceInstanceInterfaceType(virtual_network=vn2.get_fq_name_str())]
                     si_props = ServiceInstanceType(
-                        auto_policy=True, left_virtual_network=vn1.get_fq_name_str(),
-                        right_virtual_network=vn2.get_fq_name_str(), scale_out=scale_out)
+                        auto_policy=True, interface_list=if_list,
+                        scale_out=scale_out)
                 else:
                     si_props = ServiceInstanceType(scale_out=scale_out)
                 service_instance = ServiceInstance(
                     name=service, service_instance_properties=si_props)
-                self._vnc_lib.service_instance_create(service_instance)
                 service_instance.add_service_template(service_template)
-                self._vnc_lib.service_instance_update(service_instance)
+                self._vnc_lib.service_instance_create(service_instance)
                 service_name_list.append(service_instance.get_fq_name_str())
 
             action_list = ActionListType(apply_service=service_name_list)

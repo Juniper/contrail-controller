@@ -132,7 +132,7 @@ class FloatingIpServer(FloatingIpServerGen):
     def http_delete_fail(cls, id, obj_dict, db_conn):
         vn_fq_name = obj_dict['fq_name'][:-2]
         req_ip = obj_dict.get("floating_ip_address", None)
-        if req_ip == None:
+        if req_ip is None:
             return True, ""
         try:
             cls.addr_mgmt.ip_alloc_req(vn_fq_name, asked_ip_addr=req_ip)
@@ -274,7 +274,7 @@ class InstanceIpServer(InstanceIpServerGen):
             return True,  ""
 
         req_ip = obj_dict.get("instance_ip_address", None)
-        if req_ip == None:
+        if req_ip is None:
             return True, ""
         try:
             cls.addr_mgmt.ip_alloc_req(vn_fq_name, asked_ip_addr=req_ip)
