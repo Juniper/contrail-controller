@@ -223,7 +223,7 @@ class DBInterface(object):
 
         for sg_obj in project_sgs:
             sgr_entries = sg_obj.get_security_group_entries()
-            if sgr_entries == None:
+            if sgr_entries is None:
                 continue
 
             for sg_rule in sgr_entries.get_policy_rule():
@@ -1061,7 +1061,7 @@ class DBInterface(object):
 
     def _security_group_rule_vnc_to_neutron(self, sg_id, sg_rule, sg_obj=None):
         sgr_q_dict = {}
-        if sg_id == None:
+        if sg_id is None:
             return sgr_q_dict
 
         if not sg_obj:
@@ -1830,7 +1830,7 @@ class DBInterface(object):
             for fixed_ip in port_q.get('fixed_ips', []):
                 if 'ip_address' in fixed_ip:
                     # read instance ip addrs on port only once
-                    if port_obj_ips == None:
+                    if port_obj_ips is None:
                         port_obj_ips = []
                         ip_back_refs = getattr(port_obj, 'instance_ip_back_refs', None)
                         if ip_back_refs:
@@ -2361,7 +2361,7 @@ class DBInterface(object):
             if not self._filters_is_present(
                 filters, 'name', net_obj.get_display_name() or net_obj.name):
                 continue
-            if net_obj.is_shared == None:
+            if net_obj.is_shared is None:
                 is_shared = False
             else:
                 is_shared = net_obj.is_shared
@@ -3920,7 +3920,7 @@ class DBInterface(object):
 
             sgr_entries = sg_obj.get_security_group_entries()
             sg_rules = []
-            if sgr_entries == None:
+            if sgr_entries is None:
                 return
 
             for sg_rule in sgr_entries.get_policy_rule():
