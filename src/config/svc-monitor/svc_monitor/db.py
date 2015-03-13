@@ -190,14 +190,14 @@ class LBDB(ServiceMonitorDB):
 
     def pool_config_get(self, pool_id):
         json_str = self._db_get(self._lb_cf, pool_id)
-        if json_str:
+        if json_str and 'config_info' in json_str:
             return json.loads(json_str['config_info'])
         else:
             return None
 
     def pool_driver_info_get(self, pool_id):
         json_str = self._db_get(self._lb_cf, pool_id)
-        if json_str:
+        if json_str and 'driver_info' in json_str:
             return json.loads(json_str['driver_info'])
         else:
             return None
