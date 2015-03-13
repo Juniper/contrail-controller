@@ -18,7 +18,7 @@ VmUveTableBase::~VmUveTableBase() {
 VmUveEntryBase* VmUveTableBase::Add(const VmEntry *vm, bool vm_notify) {
     VmUveEntryPtr uve = Allocate(vm);
     pair<UveVmMap::iterator, bool> ret;
-    ret = uve_vm_map_.insert(UveVmPair(vm, uve));
+    ret = uve_vm_map_.insert(UveVmPair(vm->GetUuid(), uve));
     UveVmMap::iterator it = ret.first;
     VmUveEntryBase* entry = it->second.get();
     if (!entry->add_by_vm_notify()) {
@@ -27,39 +27,38 @@ VmUveEntryBase* VmUveTableBase::Add(const VmEntry *vm, bool vm_notify) {
     return entry;
 }
 
-void VmUveTableBase::Delete(const VmEntry *vm) {
-    UveVmMap::iterator it = uve_vm_map_.find(vm);
+void VmUveTableBase::Delete(const boost::uuids::uuid &u) {
+    UveVmMap::iterator it = uve_vm_map_.find(u);
     if (it == uve_vm_map_.end()) {
         return;
     }
 
-    SendVmDeleteMsg(vm);
+    SendVmDeleteMsg(u);
 
     uve_vm_map_.erase(it);
 }
 
 VmUveTableBase::VmUveEntryPtr VmUveTableBase::Allocate(const VmEntry *vm) {
-    VmUveEntryPtr uve(new VmUveEntryBase(agent_));
+    VmUveEntryPtr uve(new VmUveEntryBase(agent_, vm->GetCfgName()));
     return uve;
 }
 
-VmUveEntryBase* VmUveTableBase::UveEntryFromVm(const VmEntry *vm) {
-    UveVmMap::iterator it = uve_vm_map_.find(vm);
+VmUveEntryBase* VmUveTableBase::UveEntryFromVm(const boost::uuids::uuid &u) {
+    UveVmMap::iterator it = uve_vm_map_.find(u);
     if (it == uve_vm_map_.end()) {
         return NULL;
     }
     return it->second.get();
 }
 
-void VmUveTableBase::SendVmDeleteMsg(const VmEntry *vm) {
+void VmUveTableBase::SendVmDeleteMsg(const boost::uuids::uuid &u) {
     UveVirtualMachineAgent uve;
-    VmUveEntryBase* entry = UveEntryFromVm(vm);
+    VmUveEntryBase* entry = UveEntryFromVm(u);
     if (entry == NULL) {
         return;
     }
-    uve.set_name(vm->GetCfgName());
+    entry->FrameVmMsg(&uve);
     uve.set_deleted(true);
-    entry->FrameVmMsg(vm, &uve);
 
     DispatchVmMsg(uve);
 }
@@ -68,14 +67,14 @@ void VmUveTableBase::DispatchVmMsg(const UveVirtualMachineAgent &uve) {
     UveVirtualMachineAgentTrace::Send(uve);
 }
 
-void VmUveTableBase::SendVmMsg(const VmEntry *vm) {
-    VmUveEntryBase* entry = UveEntryFromVm(vm);
+void VmUveTableBase::SendVmMsg(const boost::uuids::uuid &u) {
+    VmUveEntryBase* entry = UveEntryFromVm(u);
     if (entry == NULL) {
         return;
     }
     UveVirtualMachineAgent uve;
 
-    bool send = entry->FrameVmMsg(vm, &uve);
+    bool send = entry->FrameVmMsg(&uve);
     if (send) {
         DispatchVmMsg(uve);
     }
@@ -86,31 +85,25 @@ void VmUveTableBase::InterfaceAddHandler(const VmEntry* vm, const Interface* itf
     VmUveEntryBase *vm_uve_entry = Add(vm, false);
 
     vm_uve_entry->InterfaceAdd(itf, old_list);
-    SendVmMsg(vm);
+    SendVmMsg(vm->GetUuid());
 }
 
-void VmUveTableBase::InterfaceDeleteHandler(const VmEntry* vm,
-                                        const Interface* intf) {
-    VmUveEntryBase* entry = UveEntryFromVm(vm);
+void VmUveTableBase::InterfaceDeleteHandler(const boost::uuids::uuid &u,
+                                            const Interface* intf) {
+    VmUveEntryBase* entry = UveEntryFromVm(u);
     if (entry == NULL) {
         return;
     }
 
     entry->InterfaceDelete(intf);
-    SendVmMsg(vm);
+    SendVmMsg(u);
     if (!entry->add_by_vm_notify()) {
-        Delete(vm);
+        Delete(u);
     }
 }
 
-const VmEntry *VmUveTableBase::VmUuidToVm(const boost::uuids::uuid u) {
-    VmKey key(u);
-    const VmEntry *vm = static_cast<VmEntry *>(agent_->vm_table()
-            ->Find(&key, true));
-    return vm;
-}
-
-void VmUveTableBase::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e) {
+void VmUveTableBase::InterfaceNotify(DBTablePartBase *partition,
+                                     DBEntryBase *e) {
     const VmInterface *vm_port = dynamic_cast<const VmInterface*>(e);
     if (vm_port == NULL) {
         return;
@@ -120,13 +113,8 @@ void VmUveTableBase::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e)
                       (e->GetState(partition->parent(), intf_listener_id_));
     if (e->IsDeleted() || ((vm_port->vm() == NULL))) {
         if (state) {
-            const VmEntry *vm = VmUuidToVm(state->vm_uuid_);
-            /* If vm is deleted, required UVEs will be sent as part of
-             * Vm Delete Notification */
-            if (vm != NULL) {
-                InterfaceDeleteHandler(vm, vm_port);
-                state->fip_list_.clear();
-            }
+            InterfaceDeleteHandler(state->vm_uuid_, vm_port);
+            state->fip_list_.clear();
             if (e->IsDeleted()) {
                 e->ClearState(partition->parent(), intf_listener_id_);
                 delete state;
@@ -147,12 +135,7 @@ void VmUveTableBase::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e)
         /* Handle Change of VM in a given VM interface */
         if (vm->GetUuid() != state->vm_uuid_) {
             //Handle disassociation of old VM from the VMI
-            const VmEntry *old_vm = VmUuidToVm(state->vm_uuid_);
-            /* If vm is deleted, required UVEs will be sent as part of
-             * Vm Delete Notification */
-            if (old_vm != NULL) {
-                InterfaceDeleteHandler(old_vm, vm_port);
-            }
+            InterfaceDeleteHandler(state->vm_uuid_, vm_port);
         }
         InterfaceAddHandler(vm, vm_port, old_list);
     }
@@ -166,7 +149,7 @@ void VmUveTableBase::VmNotify(DBTablePartBase *partition, DBEntryBase *e) {
 
     if (e->IsDeleted()) {
         if (state) {
-            Delete(vm);
+            Delete(vm->GetUuid());
 
             VmStatCollectionStop(state);
 
@@ -184,10 +167,11 @@ void VmUveTableBase::VmNotify(DBTablePartBase *partition, DBEntryBase *e) {
 
         VmStatCollectionStart(state, vm);
     }
-    SendVmMsg(vm);
+    SendVmMsg(vm->GetUuid());
 }
 
-void VmUveTableBase::VmStatCollectionStart(VmUveVmState *state, const VmEntry *vm) {
+void VmUveTableBase::VmStatCollectionStart(VmUveVmState *state,
+                                           const VmEntry *vm) {
 }
 
 void VmUveTableBase::VmStatCollectionStop(VmUveVmState *state) {

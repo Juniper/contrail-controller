@@ -110,17 +110,19 @@ public:
     };
     typedef std::set<UveInterfaceEntryPtr, UveInterfaceEntryCmp> InterfaceSet;
 
-    VmUveEntryBase(Agent *agent);
+    VmUveEntryBase(Agent *agent, const std::string &vm_name);
     virtual ~VmUveEntryBase();
+    const std::string &vm_config_name() const  { return vm_config_name_; }
     bool add_by_vm_notify() const { return add_by_vm_notify_; }
     void set_add_by_vm_notify(bool value) { add_by_vm_notify_ = value; }
 
     void InterfaceAdd(const Interface *intf, const VmInterface::FloatingIpSet &olist);
     void InterfaceDelete(const Interface *intf);
-    bool FrameVmMsg(const VmEntry* vm, UveVirtualMachineAgent *uve);
+    bool FrameVmMsg(UveVirtualMachineAgent *uve);
 protected:
 
     Agent *agent_;
+    std::string vm_config_name_;
     InterfaceSet interface_tree_;
     UveVirtualMachineAgent uve_info_;
 private:

@@ -5,8 +5,10 @@
 #include <uve/vm_uve_entry.h>
 #include <uve/agent_uve.h>
 
-VmUveEntry::VmUveEntry(Agent *agent)
-    : VmUveEntryBase(agent), port_bitmap_() {
+using namespace std;
+
+VmUveEntry::VmUveEntry(Agent *agent, const string &vm_name)
+    : VmUveEntryBase(agent, vm_name), port_bitmap_() {
 }
 
 VmUveEntry::~VmUveEntry() {
@@ -92,13 +94,12 @@ bool VmUveEntry::SetVmPortBitmap(UveVirtualMachineAgent *uve) {
     return changed;
 }
 
-bool VmUveEntry::FrameVmStatsMsg(const VmEntry* vm,
-                                 UveVirtualMachineAgent *uve,
+bool VmUveEntry::FrameVmStatsMsg(UveVirtualMachineAgent *uve,
                                  VirtualMachineStats *stats_uve,
                                  bool *stats_uve_changed) {
     bool changed = false;
-    uve->set_name(vm->GetCfgName());
-    stats_uve->set_name(vm->GetCfgName());
+    uve->set_name(vm_config_name_);
+    stats_uve->set_name(vm_config_name_);
     vector<VmInterfaceStats> s_intf_list;
     vector<VmInterfaceAgentBMap> if_bmap_list;
     vector<VmFloatingIPStats> s_fip_list;
