@@ -514,11 +514,7 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
         clear_session = true;
     }
 
-    AuthenticationKey::KeyType old_key_type = inuse_auth_key_.type;
     ProcessAuthKeyChainConfig(config);
-    if (old_key_type != inuse_auth_key_.type) {
-        clear_session = true;
-    }
 
     // Check if there is any change in the configured address families.
     if (family_ != new_families) {
