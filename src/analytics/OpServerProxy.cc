@@ -606,7 +606,7 @@ OpServerProxy::UVENotif(const std::string &type,
     string kstr = ks.str();
 
     std::stringstream collss;
-    collss << impl_->redis_uve_.GetIp() << ":" <<
+    collss << Collector::GetSelfIp() << ":" <<
                impl_->redis_uve_.GetPort();
     string collstr = collss.str();
 
