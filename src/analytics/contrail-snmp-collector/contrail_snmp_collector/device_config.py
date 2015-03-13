@@ -140,5 +140,5 @@ class DeviceConfig(object):
                         nd['PrivProto'] = snmp.get_v3_privacy_password()
                 devices.append(DeviceConfig(
                             pr.get_physical_router_management_ip(),
-                            nd, [], pr.get_physical_router_dataplane_ip()))
+                            nd, [], pr.get_physical_router_management_ip()))
         return devices
