@@ -149,7 +149,7 @@ void OvsdbDBEntry::NotifyAdd(struct ovsdb_idl_row *row) {
     OvsdbChange();
 }
 
-void OvsdbDBEntry::NotifyDelete() {
+void OvsdbDBEntry::NotifyDelete(struct ovsdb_idl_row *row) {
     ovs_entry_ = NULL;
 }
 

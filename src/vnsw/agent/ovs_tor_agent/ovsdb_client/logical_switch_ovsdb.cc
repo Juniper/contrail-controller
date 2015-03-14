@@ -211,7 +211,7 @@ void LogicalSwitchTable::OvsdbNotify(OvsdbClientIdl::Op op,
         struct ovsdb_idl_row *row) {
     LogicalSwitchEntry key(this, row);
     if (op == OvsdbClientIdl::OVSDB_DEL) {
-        NotifyDeleteOvsdb((OvsdbDBEntry*)&key);
+        NotifyDeleteOvsdb((OvsdbDBEntry*)&key, row);
         key.SendTrace(LogicalSwitchEntry::DEL_ACK);
     } else if (op == OvsdbClientIdl::OVSDB_ADD) {
         NotifyAddOvsdb((OvsdbDBEntry*)&key, row);
