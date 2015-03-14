@@ -62,7 +62,7 @@ public:
 
     bool AllowDeleteStateComp() {return false;}
     virtual void NotifyAdd(struct ovsdb_idl_row *);
-    virtual void NotifyDelete();
+    virtual void NotifyDelete(struct ovsdb_idl_row *);
 
     bool Add();
     bool Change();

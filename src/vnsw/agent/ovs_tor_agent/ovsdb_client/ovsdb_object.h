@@ -44,7 +44,7 @@ public:
     virtual ~OvsdbDBObject();
 
     void NotifyAddOvsdb(OvsdbDBEntry *key, struct ovsdb_idl_row *row);
-    void NotifyDeleteOvsdb(OvsdbDBEntry *key);
+    void NotifyDeleteOvsdb(OvsdbDBEntry *key, struct ovsdb_idl_row *row);
 
     virtual void OvsdbNotify(OvsdbClientIdl::Op, struct ovsdb_idl_row *) = 0;
     virtual OvsdbDBEntry *AllocOvsEntry(struct ovsdb_idl_row *row) = 0;
