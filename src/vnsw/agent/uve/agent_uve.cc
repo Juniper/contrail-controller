@@ -18,12 +18,13 @@
 #include <uve/vn_uve_table.h>
 #include <uve/vrouter_uve_entry.h>
 
-AgentUve::AgentUve(Agent *agent, uint64_t intvl)
-    : AgentUveBase(agent, intvl, false),
+AgentUve::AgentUve(Agent *agent, uint64_t intvl, uint32_t default_intvl,
+                   uint32_t incremental_intvl)
+    : AgentUveBase(agent, intvl, false, default_intvl, incremental_intvl),
       stats_manager_(new StatsManager(agent)) {
       //Override vm_uve_table_ to point to derived class object
-      vn_uve_table_.reset(new VnUveTable(agent));
-      vm_uve_table_.reset(new VmUveTable(agent));
+      vn_uve_table_.reset(new VnUveTable(agent, default_intvl));
+      vm_uve_table_.reset(new VmUveTable(agent, default_intvl));
       vrouter_uve_entry_.reset(new VrouterUveEntry(agent));
 }
 

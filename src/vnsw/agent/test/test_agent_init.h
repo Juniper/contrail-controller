@@ -21,6 +21,9 @@ public:
     TestAgentInit();
     virtual ~TestAgentInit();
 
+    static const uint32_t kDefaultInterval = 30 * 60 * 1000;
+    static const uint32_t kIncrementalInterval = 30 * 60 * 1000;
+
     void ProcessOptions(const std::string &config_file,
                         const std::string &program_name);
 

@@ -22,7 +22,8 @@ class NexthopManager;
 class AgentObjectFactory : public Factory<AgentObjectFactory> {
     FACTORY_TYPE_N1(AgentObjectFactory, KSync, Agent *);
     FACTORY_TYPE_N1(AgentObjectFactory, FlowTable, Agent *);
-    FACTORY_TYPE_N2(AgentObjectFactory, AgentUveBase, Agent *, uint64_t);
+    FACTORY_TYPE_N4(AgentObjectFactory, AgentUveBase, Agent *, uint64_t,
+                    uint32_t, uint32_t);
     FACTORY_TYPE_N1(AgentObjectFactory, AgentSignal, EventManager *);
     FACTORY_TYPE_N2(AgentObjectFactory, IFMapDependencyManager, DB *,
                     DBGraph *);
