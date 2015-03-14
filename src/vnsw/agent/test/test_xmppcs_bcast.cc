@@ -108,6 +108,19 @@ public:
     }
 
     void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
+        if (msg->type == XmppStanza::IQ_STANZA) {
+            const XmppStanza::XmppMessageIq *iq =
+                static_cast<const XmppStanza::XmppMessageIq *>(msg);
+            if (iq->iq_type.compare("set") == 0) {
+                if (iq->action.compare("subscribe") == 0) {
+                    assert(vrf_subscription_.find(iq->node) ==
+                           vrf_subscription_.end());
+                    vrf_subscription_[iq->node] = true;
+                } else if (iq->action.compare("unsubscribe") == 0) {
+                    vrf_subscription_.erase(iq->node);
+                }
+            }
+        }
         rx_count_++;
     }
 
@@ -128,6 +141,7 @@ public:
 private:
     XmppChannel *channel_;
     size_t rx_count_;
+    std::map<string, bool> vrf_subscription_;
 };
 
 
@@ -531,7 +545,7 @@ protected:
 	//Verify mpls table
 	WAIT_FOR(1000, 1000, (Agent::GetInstance()->mpls_table()->
                           FindMplsLabel(alloc_label+ 1) == NULL));
-	WAIT_FOR(1000, 1000, (Agent::GetInstance()->mpls_table()->Size() == 5));
+	WAIT_FOR(1000, 1000, (Agent::GetInstance()->mpls_table()->Size() == 7));
     }
 
     void XmppSubnetTearDown() {
