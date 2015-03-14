@@ -122,6 +122,12 @@ public:
                                state_ == DEL_DEFER_SYNC ||
                                state_ == DEL_DEFER_REF); };
 
+    // return true if an entry is actively owned some module,
+    // i.e., explicit Create was triggered for this entry and it
+    // is not deleted yet by the Creator.
+    // this entry however may still be still in unresolved state.
+    bool IsActive() { return (state_ != TEMP && !IsDeleted()); }
+
 protected:
     void SetIndex(size_t index) {index_ = index;};
     void SetState(KSyncState state) {state_ = state;};
