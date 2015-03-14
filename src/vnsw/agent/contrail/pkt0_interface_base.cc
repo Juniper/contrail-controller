@@ -2,6 +2,7 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <boost/filesystem.hpp>
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
@@ -27,8 +28,11 @@ do {                                                                     \
 } while (false)                                                          \
 
 ///////////////////////////////////////////////////////////////////////////////
-const char *Pkt0Socket::kAgentSocketPath = "/tmp/agent_pkt0";
-const char *Pkt0Socket::kVrouterSocketPath = "/tmp/dpdk_pkt0";
+const string Pkt0Socket::kSocketDir = "/var/run/vrouter";
+const string Pkt0Socket::kAgentSocketPath = Pkt0Socket::kSocketDir
+                                            + "/agent_pkt0";
+const string Pkt0Socket::kVrouterSocketPath = Pkt0Socket::kSocketDir
+                                            + "/dpdk_pkt0";
 
 Pkt0Interface::Pkt0Interface(const std::string &name,
                              boost::asio::io_service *io) :
@@ -129,12 +133,17 @@ Pkt0Socket::~Pkt0Socket() {
 }
 
 void Pkt0Socket::CreateUnixSocket() {
-    unlink(kAgentSocketPath);
+    boost::filesystem::create_directory(kSocketDir);
+    boost::filesystem::remove(kAgentSocketPath);
 
     boost::system::error_code ec;
     socket_.open();
     local::datagram_protocol::endpoint ep(kAgentSocketPath);
     socket_.bind(ep, ec);
+    if (ec) {
+        LOG(DEBUG, "Error binding to the socket " << kAgentSocketPath
+                << ": " << ec.message());
+    }
     assert(ec == 0);
 }
 
@@ -180,7 +189,8 @@ bool Pkt0Socket::OnTimeout() {
     boost::system::error_code ec;
     socket_.connect(ep, ec);
     if (ec != 0) {
-        LOG(DEBUG, "Control socket Connect error " << ec);
+        LOG(DEBUG, "Error connecting to socket " << kVrouterSocketPath
+                << ": " << ec.message());
         return true;
     }
     connected_ = true;
