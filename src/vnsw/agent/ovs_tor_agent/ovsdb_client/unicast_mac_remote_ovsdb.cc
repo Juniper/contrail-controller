@@ -57,6 +57,26 @@ UnicastMacRemoteEntry::UnicastMacRemoteEntry(OvsdbDBObject *table,
     }
 };
 
+void UnicastMacRemoteEntry::NotifyAdd(struct ovsdb_idl_row *row) {
+    if (ovs_entry() == NULL || ovs_entry() == row) {
+        // this is the first idl row to use let the base infra
+        // use it.
+        OvsdbDBEntry::NotifyAdd(row);
+        return;
+    }
+    dup_list_.insert(row);
+    // trigger change to delete duplicate entries
+    table_->Change(this);
+}
+
+void UnicastMacRemoteEntry::NotifyDelete(struct ovsdb_idl_row *row) {
+    if (ovs_entry() == row) {
+        OvsdbDBEntry::NotifyDelete(row);
+        return;
+    }
+    dup_list_.erase(row);
+}
+
 void UnicastMacRemoteEntry::PreAddChange() {
     boost::system::error_code ec;
     Ip4Address dest_ip = Ip4Address::from_string(dest_ip_, ec);
@@ -81,6 +101,14 @@ void UnicastMacRemoteEntry::PostDelete() {
 }
 
 void UnicastMacRemoteEntry::AddMsg(struct ovsdb_idl_txn *txn) {
+    if (!dup_list_.empty()) {
+        // if we have entries in duplicate list clean up all
+        // by encoding a delete message and on ack re-trigger
+        // Add Msg to return to sane state.
+        DeleteMsg(txn);
+        return;
+    }
+
     if (logical_switch_.get() == NULL) {
         DeleteMsg(txn);
         return;
@@ -111,6 +139,7 @@ void UnicastMacRemoteEntry::ChangeMsg(struct ovsdb_idl_txn *txn) {
 }
 
 void UnicastMacRemoteEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
+    DeleteDupEntries(txn);
     if (ovs_entry_) {
         ovsdb_wrapper_delete_ucast_mac_remote(ovs_entry_);
         SendTrace(UnicastMacRemoteEntry::DEL_REQ);
@@ -224,6 +253,15 @@ void UnicastMacRemoteEntry::SendTrace(Trace event) const {
     OVSDB_TRACE(UnicastMacRemote, info);
 }
 
+// Always called from any message encode Add/Change/Delete
+// to trigger delete for deleted entries.
+void UnicastMacRemoteEntry::DeleteDupEntries(struct ovsdb_idl_txn *txn) {
+    OvsdbDupIdlList::iterator it = dup_list_.begin();
+    for (; it != dup_list_.end(); it++) {
+        ovsdb_wrapper_delete_ucast_mac_remote(*it);
+    }
+}
+
 UnicastMacRemoteTable::UnicastMacRemoteTable(OvsdbClientIdl *idl,
         AgentRouteTable *table) : OvsdbDBObject(idl, table),
         deleted_(false), table_delete_ref_(this, table->deleter()) {
@@ -247,7 +285,7 @@ void UnicastMacRemoteTable::OvsdbNotify(OvsdbClientIdl::Op op,
     const char *dest_ip = ovsdb_wrapper_ucast_mac_remote_dst_ip(row);
     UnicastMacRemoteEntry key(this, mac, logical_switch);
     if (op == OvsdbClientIdl::OVSDB_DEL) {
-        NotifyDeleteOvsdb((OvsdbDBEntry*)&key);
+        NotifyDeleteOvsdb((OvsdbDBEntry*)&key, row);
         if (dest_ip)
             key.dest_ip_ = std::string(dest_ip);
         key.SendTrace(UnicastMacRemoteEntry::DEL_ACK);
@@ -368,7 +406,7 @@ void VrfOvsdbObject::OvsdbRouteNotify(OvsdbClientIdl::Op op,
     UnicastMacRemoteTable *table= it->second->l2_table;
     UnicastMacRemoteEntry key(table, mac, logical_switch);
     if (op == OvsdbClientIdl::OVSDB_DEL) {
-        table->NotifyDeleteOvsdb((OvsdbDBEntry*)&key);
+        table->NotifyDeleteOvsdb((OvsdbDBEntry*)&key, row);
         if (dest_ip)
             key.dest_ip_ = std::string(dest_ip);
         key.SendTrace(UnicastMacRemoteEntry::DEL_ACK);
