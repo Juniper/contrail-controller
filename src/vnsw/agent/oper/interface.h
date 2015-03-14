@@ -286,6 +286,8 @@ public:
     bool OperDBResync(DBEntry *entry, const DBRequest *req);
 
     // Config handlers
+    bool LogicalInterfaceProcessConfig(IFMapNode *node, DBRequest &req);
+    bool VmiProcessConfig(IFMapNode *node, DBRequest &req);
     bool VmiIFNodeToReq(IFMapNode *node, DBRequest &req);
     bool VmiIFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
     bool LogicalInterfaceIFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);

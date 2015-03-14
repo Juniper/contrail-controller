@@ -107,6 +107,8 @@ class PhysicalDeviceVnTable : public AgentDBTable {
     // Handle change in VxLan Identifier mode from global-config
     void UpdateVxLanNetworkIdentifierMode();
 
+    void PhysicalDeviceVnAdd(const boost::uuids::uuid &dev,
+                             const boost::uuids::uuid &vn);
     void ConfigUpdate(IFMapNode *node);
     const ConfigTree &config_tree() const { return config_tree_; }
     uint32_t config_version() const { return config_version_; }
