@@ -4,6 +4,7 @@
 import argparse, os, ConfigParser, sys, re
 from pysandesh.sandesh_base import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+import discoveryclient.client as client
 
 class CfgParser(object):
     CONF_DEFAULT_PATH = '/etc/contrail/contrail-topology.conf'
@@ -11,6 +12,7 @@ class CfgParser(object):
         self._args = None
         self.__pat = None
         self._argv = argv or ' '.join(sys.argv[1:])
+        self._disc = None
 
     def parse(self):
         '''
@@ -48,15 +50,19 @@ optional arguments:
                         introspect server port
   --api_serever API_SEREVER
                         ip:port of api-server for snmp credentials
+  --disc_server_ip 127.0.0.1
+  --disc_server_port 5998
 
         '''
         # Source any specified config/ini file
         # Turn off help, so we print all options in response to -h
         conf_parser = argparse.ArgumentParser(add_help=False)
 
-        kwargs = {'help': "Specify config file", 'metavar':"FILE"}
+        kwargs = {'help': "Specify config file", 'metavar':"FILE",
+                  'action':'append'
+                 }
         if os.path.exists(self.CONF_DEFAULT_PATH):
-            kwargs['default'] = self.CONF_DEFAULT_PATH
+            kwargs['default'] = [self.CONF_DEFAULT_PATH]
         conf_parser.add_argument("-c", "--conf_file", **kwargs)
         args, remaining_argv = conf_parser.parse_known_args(self._argv.split())
 
@@ -71,14 +77,22 @@ optional arguments:
             'syslog_facility' : Sandesh._DEFAULT_SYSLOG_FACILITY,
             'scan_frequency'  : 600,
             'http_server_port': 5921,
+            'zookeeper'       : '127.0.0.1:2181',
+        }
+        disc_opts = {
+            'disc_server_ip'     : None,
+            'disc_server_port'   : 5998,
         }
 
         config = None
         if args.conf_file:
             config = ConfigParser.SafeConfigParser()
             config.optionxform = str
-            config.read([args.conf_file])
-            defaults.update(dict(config.items("DEFAULTS")))
+            config.read(args.conf_file)
+            if 'DEFAULTS' in config.sections():
+                defaults.update(dict(config.items("DEFAULTS")))
+            if 'DISCOVERY' in config.sections():
+                disc_opts.update(dict(config.items('DISCOVERY')))
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
         parser = argparse.ArgumentParser(
@@ -89,6 +103,7 @@ optional arguments:
             # Don't mess with format of description
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
+        defaults.update(disc_opts)
         parser.set_defaults(**defaults)
         parser.add_argument("--analytics_api",
             help="List of analytics-api IP addresses in ip:port format",
@@ -102,10 +117,10 @@ optional arguments:
         parser.add_argument("--log_local", action="store_true",
             help="Enable local logging of sandesh messages")
         parser.add_argument(
-            "--log_category", 
+            "--log_category",
             help="Category filter for local logging of sandesh messages")
         parser.add_argument(
-            "--log_level",  
+            "--log_level",
             help="Severity level for local logging of sandesh messages")
         parser.add_argument("--use_syslog",
             action="store_true",
@@ -118,18 +133,37 @@ optional arguments:
             help="introspect server port")
         parser.add_argument("--api_serever",
             help="ip:port of api-server for snmp credentials")
+        parser.add_argument("--disc_server_ip",
+            help="Discovery Server IP address")
+        parser.add_argument("--disc_server_port", type=int,
+            help="Discovery Server port")
+        parser.add_argument("--zookeeper",
+            help="ip:port of zookeeper server")
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
         if type(self._args.analytics_api) is str:
             self._args.analytics_api = self._args.analytics_api.split()
-            
+
         self._args.config_sections = config
+
+    def disc_svr(self, name):
+        if self._disc is None:
+            self._disc = client.DiscoveryClient(*self.discovery_params(name))
+        return self._disc
 
     def _pat(self):
         if self.__pat is None:
            self.__pat = re.compile(', *| +')
         return self.__pat
+
+    def discovery_params(self, name):
+        if self._args.disc_server_ip:
+            ip, port = self._args.disc_server_ip, \
+                       self._args.disc_server_port
+        else:
+            ip, port = '127.0.0.1', self._args.disc_server_port
+        return ip, port, name
 
     def _mklist(self, s):
         return self._pat().split(s)
@@ -140,6 +174,9 @@ optional arguments:
 
     def collectors(self):
         return self._args.collectors
+
+    def zookeeper_server(self):
+        return self._args.zookeeper
 
     def analytics_api(self):
         return self._args.analytics_api
