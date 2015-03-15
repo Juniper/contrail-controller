@@ -47,3 +47,6 @@ class LinkUve(object):
                         link_table=lt))
             uve.send()
 
+    def delete(self, name):
+         PRouterLinkUVE(data=PRouterLinkEntry(name=name, deleted=True)).send()
+
