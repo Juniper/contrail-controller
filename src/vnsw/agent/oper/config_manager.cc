@@ -42,22 +42,7 @@ bool ConfigManager::Run() {
     uint32_t count = 0;
     NodeListIterator it;
 
-    // Logical-interfaces can potentially trigger changes to VMInterfaces
-    // So, run thru the logical-interfaces first
-    it = logical_interface_list_.begin();
-    while ((count < kIterationCount) && (it != logical_interface_list_.end())) {
-        NodeListIterator prev = it++;
-        IFMapNodeState *state = prev->state_.get();
-        IFMapNode *node = state->node();
-        DBRequest req;
-        if (agent_->interface_table()->LogicalInterfaceProcessConfig(node, req)) {
-            agent_->interface_table()->Enqueue(&req);
-        }
-        logical_interface_list_.erase(prev);
-        count++;
-    }
-
-    // Run thru changelist for VMI
+    // LI has reference to VMI. So, create VMI before LI
     it = vmi_list_.begin();
     while ((count < kIterationCount) && (it != vmi_list_.end())) {
         NodeListIterator prev = it++;
@@ -68,6 +53,20 @@ bool ConfigManager::Run() {
             agent_->interface_table()->Enqueue(&req);
         }
         vmi_list_.erase(prev);
+        count++;
+    }
+
+    // Run thru changelist for LI
+    it = logical_interface_list_.begin();
+    while ((count < kIterationCount) && (it != logical_interface_list_.end())) {
+        NodeListIterator prev = it++;
+        IFMapNodeState *state = prev->state_.get();
+        IFMapNode *node = state->node();
+        DBRequest req;
+        if (agent_->interface_table()->LogicalInterfaceProcessConfig(node, req)) {
+            agent_->interface_table()->Enqueue(&req);
+        }
+        logical_interface_list_.erase(prev);
         count++;
     }
 
