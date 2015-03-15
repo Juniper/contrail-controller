@@ -831,7 +831,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     VmInterface::AllowedAddressPairList allowed_address_pair_list_;
     VmInterface::DeviceType device_type_;
     VmInterface::VmiType vmi_type_;
-    // Parent physical-interface. Set only for ToR
+    // Parent physical-interface. Used in VMWare/ ToR logical-interface
     std::string physical_interface_;
     // Parent VMI. Set only for VM_VLAN_ON_VMI
     boost::uuids::uuid parent_vmi_;

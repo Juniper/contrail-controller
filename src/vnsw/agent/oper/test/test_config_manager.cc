@@ -79,11 +79,13 @@ bool ConfigManagerTest::AddInterface(uint32_t max_count) {
     };
     for (count = 1; count <= max_count; count++) {
         MakePortInfo(info, count);
-        CreateVmportEnv(info, 1);
+        AddPort(info[0].name, info[0].intf_id);
         char li_name[32];
         sprintf(li_name, "li-%d", count);
         AddLink("logical-interface", li_name, "virtual-machine-interface",
                 info[0].name);
+
+        CreateVmportEnv(info, 1);
         client->WaitForIdle();
     }
 
@@ -91,6 +93,13 @@ bool ConfigManagerTest::AddInterface(uint32_t max_count) {
         WAIT_FOR(1000, 1000, (VmPortActive(count) == true));
     }
 
+    for (count = 1; count <= max_count; count++) {
+        char name[32];
+        sprintf(name, "li-%d", count);
+        LogicalInterface *li = LogicalInterfaceGet(count, name);
+        EXPECT_TRUE(li != NULL);
+        EXPECT_TRUE(li->vm_interface() != NULL);
+    }
     WAIT_FOR(1000, 1000,
              (agent_->physical_device_vn_table()->Size() == max_count));
     return true;
