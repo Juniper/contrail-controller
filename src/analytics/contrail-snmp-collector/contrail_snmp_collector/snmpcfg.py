@@ -200,8 +200,7 @@ Mibs = LldpTable, ArpTable
                     self._args.auth_protocol, self._cb)
             else:
                 self._devices = []
-        for d in self._devices:
-            yield d
+        return self._devices
 
     def get_api_svrs(self):
         if self._disc is None:
