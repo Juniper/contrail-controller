@@ -2,13 +2,21 @@
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
 from analytic_client import AnalyticApiClient
+import time, socket, os
 from topology_uve import LinkUve
-import time
 import gevent
+from gevent.coros import Semaphore
+from opserver.consistent_schdlr import ConsistentScheduler
+
+class PRouter(object):
+    def __init__(self, name, data):
+        self.name = name
+        self.data = data
 
 class Controller(object):
     def __init__(self, config):
         self._config = config
+        self._me = socket.gethostname() + ':' + str(os.getpid())
         self.analytic_api = AnalyticApiClient(self._config)
         self.uve = LinkUve(self._config)
         self.sleep_time()
@@ -50,16 +58,15 @@ class Controller(object):
 
     def get_prouters(self):
         self.analytic_api.get_prouters(True)
-        self.prouters = {}
+        self.prouters = []
         for vr in self.analytic_api.list_prouters():
-            d = self.analytic_api.get_prouter(vr)
-            self.prouters[vr] = self.analytic_api.get_prouter(vr)
- 
+            self.prouters.append(PRouter(vr, self.analytic_api.get_prouter(vr)))
+
     def compute(self):
         self.link = {}
-        for pr, d in self.prouters.items():
-            if 'PRouterEntry' not in d or 'ifTable' not in d[
-                    'PRouterEntry']:
+        for prouter in self.constnt_schdlr.work_items():
+            pr, d = prouter.name, prouter.data
+            if 'PRouterEntry' not in d or 'ifTable' not in d['PRouterEntry']:
                 continue
             self.link[pr] = []
             lldp_ints = []
@@ -97,7 +104,7 @@ class Controller(object):
                                 'local_interface_name': ifm[snmpport],
                                 'remote_interface_name': vrouter_mac_entry['ifname'],
                                 'local_interface_index': snmpport,
-                                'remote_interface_index': 1, #dont know TODO:FIX 
+                                'remote_interface_index': 1, #dont know TODO:FIX
                                 'type': 2
                                     })
                             vrouter_neighbors.append(vrouter_mac_entry['vrname'])
@@ -121,7 +128,7 @@ class Controller(object):
                             'local_interface_name': ifm[arp['localIfIndex']],
                             'remote_interface_name': vr['if'][-1]['name'],#TODO
                             'local_interface_index': arp['localIfIndex'],
-                            'remote_interface_index': 1, #dont know TODO:FIX 
+                            'remote_interface_index': 1, #dont know TODO:FIX
                             'type': 2
                                 })
 
@@ -131,13 +138,34 @@ class Controller(object):
     def switcher(self):
         gevent.sleep(0)
 
+    def scan_data(self):
+        t = []
+        t.append(gevent.spawn(self.get_vrouters))
+        t.append(gevent.spawn(self.get_prouters))
+        gevent.joinall(t)
+
+    def _del_uves(self, prouters):
+        with self._sem:
+            for prouter in prouters:
+                self.uve.delete(prouter.name)
+
     def run(self):
+        self._sem = Semaphore()
+        self.constnt_schdlr = ConsistentScheduler(
+                            self.uve._moduleid,
+                            zookeeper=self._config.zookeeper_server(),
+                            delete_hndlr=self._del_uves)
         while self._keep_running:
-            t = []
-            t.append(gevent.spawn(self.get_vrouters))
-            t.append(gevent.spawn(self.get_prouters))
-            gevent.joinall(t)
-            del t
-            self.compute()
-            self.send_uve()
-            gevent.sleep(self._sleep_time)
+            self.scan_data()
+            if self.constnt_schdlr.schedule(self.prouters):
+                try:
+                    with self._sem:
+                        self.compute()
+                        self.send_uve()
+                except Exception as e:
+                    import traceback; traceback.print_exc()
+                    print str(e)
+                gevent.sleep(self._sleep_time)
+            else:
+                gevent.sleep(1)
+        self.constnt_schdlr.finish()

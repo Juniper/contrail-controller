@@ -2,12 +2,13 @@
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
 from gevent.queue import Queue as GQueue
+from gevent.coros import Semaphore
 import os, json, sys, subprocess, time, gevent, socket
 from tempfile import NamedTemporaryFile, mkdtemp
 import cPickle as pickle
 from snmpuve import SnmpUve
-import struct, hashlib
-from libpartition.libpartition import PartitionClient
+from opserver.consistent_schdlr import ConsistentScheduler
+
 
 class Controller(object):
     def __init__(self, config):
@@ -18,7 +19,7 @@ class Controller(object):
         self.sleep_time()
         self._keep_running = True
         self.last = set()
-        self.bucketsize = 47
+        self._sem = None
         self._config.set_cb(self.notify)
 
     def notify(self, svc, msg='', up=True, servers=''):
@@ -34,105 +35,89 @@ class Controller(object):
             self._sleep_time = self._config.frequency()
         return self._sleep_time
 
-    def device2partition(self, key):
-        return struct.unpack('H', hashlib.md5(key).digest(
-                    )[-2:])[0] % self.bucketsize
+    def _setup_io(self):
+        cdir = mkdtemp()
+        input_file = os.path.join(cdir, 'in.data')
+        output_file = os.path.join(cdir, 'out.data')
+        return cdir, input_file, output_file
 
-    def get_devices_inuse(self):
-        d = []
-        for i in self._dscvrd_workers:
-            if i['name'] != self._me:
-                d += i['devices'].split(', ')
+    def _create_input(self, input_file, output_file, devices, i):
+        with open(input_file, 'wb') as f:
+            pickle.dump(dict(out=output_file,
+                        netdev=devices,
+                        instance=i), f)
+            f.flush()
+
+    def _run_scanner(self, input_file, output_file, i):
+        proc = subprocess.Popen('contrail-snmp-scanner --input %s' % (
+                    input_file), shell=True,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        o,e = proc.communicate()
+        self._logger.debug('@run_scanner(%d): scan done with %d\nstdout:' \
+                '\n%s\nstderr:\n%s\n' % (i, proc.returncode, o, e))
+        with open(output_file, 'rb') as f:
+            d = pickle.load(f)
+        self._logger.debug('@run_scanner(%d): loaded %s' % (i, output_file))
         return d
 
-    def get_net_devices(self, pc):
-        devs = set()
-        inuse = self.get_devices_inuse()
-        for dev in self._config.devices():
-            if dev.name not in inuse:
-                part = self.device2partition(dev.name)
-                if pc.own_partition(part):
-                    devs.add(dev)
-        return list(devs)
+    def _cleanup_io(self, cdir, input_file, output_file):
+        os.unlink(input_file)
+        os.unlink(output_file)
+        os.rmdir(cdir)
+
+    def _send_uve(self, d):
+        for dev, data in d.items():
+            self.uve.send(data['snmp'])
+            self.uve.send_flow_uve({'name': dev,
+                'flow_export_source_ip': data['flow_export_source_ip']})
+            self.find_fix_name(data['name'], dev)
+        self._logger.debug('@send_uve:Processed %d!' % (len(d)))
+
+    def _del_uves(self, l):
+        with self._sem:
+            for dev in l:
+                self.uve.delete(dev)
 
     def do_work(self, i, devices):
-        self._logger.debug('@do_work(%d):started...' % i)
+        self._logger.debug('@do_work(%d):started (%d)...' % (i, len(devices)))
         if devices:
-            cdir = mkdtemp()
-            input_file = os.path.join(cdir, 'in.data')
-            output_file = os.path.join(cdir, 'out.data')
-            with open(input_file, 'wb') as f:
-                pickle.dump(dict(out=output_file,
-                            netdev=devices,
-                            instance=i), f)
-                f.flush()
-            proc = subprocess.Popen('contrail-snmp-scanner --input %s' % (
-                        input_file), shell=True,
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            o,e = proc.communicate()
-            self._logger.debug('@do_work(%d): scan done with %d\nstdout:' \
-                    '\n%s\nstderr:\n%s\n' % (i, proc.returncode, o, e))
-            with open(output_file, 'rb') as f:
-                d = pickle.load(f)
-            os.unlink(input_file)
-            os.unlink(output_file)
-            os.rmdir(cdir)
-            for dev, data in d.items():
-                self.uve.send(data['snmp'])
-                self.uve.send_flow_uve({'name': dev,
-                    'flow_export_source_ip': data['flow_export_source_ip']})
-            current = set(d.keys())
-            for dev in (self.last - current):
-                self.uve.delete(dev)
-            self.last = current
-        self._logger.debug('@do_work(%d):Done!' % i)
+            with self._sem:
+                self._work_set = devices
+                cdir, input_file, output_file = self._setup_io()
+                self._create_input(input_file, output_file, devices, i)
+                self._send_uve(self._run_scanner(input_file, output_file, i))
+                gevent.sleep(0)
+                self._cleanup_io(cdir, input_file, output_file)
+                del self._work_set
+        self._logger.debug('@do_work(%d):Processed %d!' % (i, len(devices)))
 
-    def workers(self):
-        try:
-            a = self._config._disc.subscribe(self._config._name, 0)
-            gevent.sleep(0)
-            self._dscvrd_workers = a.read()
-            self._logger.debug('@workers(discovery):%s' % (' '.join(
-                        map(lambda x: x['name'], self._dscvrd_workers))))
-            return set(map(lambda x: x['name'], self._dscvrd_workers))
-        except Exception as e:
-            import traceback; traceback.print_exc()
-            self._logger.exception('@workers(discovery):%s\n%s' % (str(
-                        e), str(dir(e))))
-            self._dscvrd_workers = []
-            return set([])
-
-    def notify_hndlr(self, p):
-        self._logger.debug('@notify_hndlr: New partition %s' % str(p))
+    def find_fix_name(self, cfg_name, snmp_name):
+        if snmp_name != cfg_name:
+            self._logger.debug('@do_work: snmp name %s differs from ' \
+                    'configured name %s, fixed for this run' % (
+                            snmp_name, cfg_name))
+            for d in self._work_set:
+                if d.name == cfg_name:
+                    d.name = snmp_name
+                    return
 
     def run(self):
         i = 0
-        self._config._disc.publish(self._config._name, dict(name=self._me,
-                devices=', '.join(self.last), time='0'))
-        w = self.workers()
-        gevent.sleep(1)
-        pc = PartitionClient(self._config._name, self._me, list(w),
-                self.bucketsize, self.notify_hndlr,
-                self._config.zookeeper_server())
+        self._sem = Semaphore()
+        constnt_schdlr = ConsistentScheduler(
+                            self._config._name,
+                            zookeeper=self._config.zookeeper_server(),
+                            delete_hndlr=self._del_uves,
+                            logger=self._logger)
         while self._keep_running:
-            w_ = self.workers()
-            if w == w_:
+            self._logger.debug('@run: ittr(%d)' % i)
+            if constnt_schdlr.schedule(self._config.devices()):
+                self.do_work(i, constnt_schdlr.work_items())
+                self._logger.debug('done work %s' % str(
+                            map(lambda x: x.name,
+                            constnt_schdlr.work_items())))
                 i += 1
-                self.do_work(i, self.get_net_devices(pc))
-                t = self._sleep_time
+                gevent.sleep(self._sleep_time)
             else:
-                try:
-                    pc.update_cluster_list(list(w_))
-                    self._logger.debug('@run(libpartition): updated %s' % (
-                                str(w_)))
-                    w = w_
-                    t = 1
-                except Exception as e:
-                    import traceback; traceback.print_exc()
-                    self._logger.exception('@run(libpartition):%s' % str(e))
-            self._config._disc.publish(self._config._name,
-                        dict(name=self._me,
-                            devices=', '.join(self.last),
-                            time='0'))
-            gevent.sleep(t)
-
+                gevent.sleep(1)
+        constnt_schdlr.finish()

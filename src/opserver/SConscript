@@ -35,7 +35,8 @@ local_sources = [
            'api_log.py',
            'alarmgen.py',
            'alarmgen_cfg.py',
-           'partition_handler.py'
+           'partition_handler.py',
+           'consistent_schdlr.py',
           ]
 
 plugins_sources = [
