@@ -3,12 +3,19 @@
 #
 from analytic_client import AnalyticApiClient
 from topology_uve import LinkUve
-import time
+import time, socket, os
 import gevent
+from libpartition.partition_helper import LibPartitionHelper
+
+class PRouter(object):
+    def __init__(self, name, data):
+        self.name = name
+        self.data = data
 
 class Controller(object):
     def __init__(self, config):
         self._config = config
+        self._me = socket.gethostname() + ':' + str(os.getpid())
         self.analytic_api = AnalyticApiClient(self._config)
         self.uve = LinkUve(self._config)
         self.sleep_time()
@@ -50,16 +57,15 @@ class Controller(object):
 
     def get_prouters(self):
         self.analytic_api.get_prouters(True)
-        self.prouters = {}
+        self.prouters = []
         for vr in self.analytic_api.list_prouters():
-            d = self.analytic_api.get_prouter(vr)
-            self.prouters[vr] = self.analytic_api.get_prouter(vr)
- 
+            self.prouters.append(PRouter(vr, self.analytic_api.get_prouter(vr)))
+
     def compute(self):
         self.link = {}
-        for pr, d in self.prouters.items():
-            if 'PRouterEntry' not in d or 'ifTable' not in d[
-                    'PRouterEntry']:
+        for prouter in self.lph.work_items():
+            pr, d = prouter.name, prouter.data
+            if 'PRouterEntry' not in d or 'ifTable' not in d['PRouterEntry']:
                 continue
             self.link[pr] = []
             lldp_ints = []
@@ -97,7 +103,7 @@ class Controller(object):
                                 'local_interface_name': ifm[snmpport],
                                 'remote_interface_name': vrouter_mac_entry['ifname'],
                                 'local_interface_index': snmpport,
-                                'remote_interface_index': 1, #dont know TODO:FIX 
+                                'remote_interface_index': 1, #dont know TODO:FIX
                                 'type': 2
                                     })
                             vrouter_neighbors.append(vrouter_mac_entry['vrname'])
@@ -121,7 +127,7 @@ class Controller(object):
                             'local_interface_name': ifm[arp['localIfIndex']],
                             'remote_interface_name': vr['if'][-1]['name'],#TODO
                             'local_interface_index': arp['localIfIndex'],
-                            'remote_interface_index': 1, #dont know TODO:FIX 
+                            'remote_interface_index': 1, #dont know TODO:FIX
                             'type': 2
                                 })
 
@@ -131,13 +137,31 @@ class Controller(object):
     def switcher(self):
         gevent.sleep(0)
 
+    def scan_data(self):
+        t = []
+        t.append(gevent.spawn(self.get_vrouters))
+        t.append(gevent.spawn(self.get_prouters))
+        gevent.joinall(t)
+
+    def _del_uves(self, prouters):
+        for prouter in prouters:
+            self.uve.delete(prouter.name)
+
     def run(self):
+        self.lph = LibPartitionHelper(self._me, self.uve._moduleid,
+                                     self._config.disc_svr(self.uve._moduleid),
+                                     self._config.zookeeper_server(),
+                                     self._del_uves)
         while self._keep_running:
-            t = []
-            t.append(gevent.spawn(self.get_vrouters))
-            t.append(gevent.spawn(self.get_prouters))
-            gevent.joinall(t)
-            del t
-            self.compute()
-            self.send_uve()
+            self.scan_data()
+            self.lph.refresh_workers()
+            self.lph.populate_work_items(self.prouters)
+            gevent.sleep(0)
+            try:
+                self.compute()
+                self.send_uve()
+            except Exception as e:
+                import traceback; traceback.print_exc()
+                print str(e)
+            self.lph.disc_pub()
             gevent.sleep(self._sleep_time)
