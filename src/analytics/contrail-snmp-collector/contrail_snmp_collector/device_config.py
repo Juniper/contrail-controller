@@ -8,9 +8,11 @@ from vnc_api.vnc_api import VncApi
 class DeviceConfig(object):
     __pat = None
 
-    def __init__(self, name, cfg={}, mibs=[], flow_export_source_ip=None):
+    def __init__(self, name, cfg={}, mibs=[], flow_export_source_ip=None,
+                 mgmt_ip=None):
         self._raw = cfg
         self.name = name
+        self.snmp_ip = mgmt_ip or name
         self.mibs = mibs or SnmpSession.TABLES() #all
         self.flow_export_source_ip = flow_export_source_ip
         self.snmp_name = None
@@ -33,7 +35,7 @@ class DeviceConfig(object):
 
     def snmp_cfg(self):
         cfg = copy.copy(self._raw)
-        cfg['DestHost'] = self.name
+        cfg['DestHost'] = self.snmp_ip
         cfg['Version'] = int(cfg['Version'])
         return cfg
 
@@ -139,6 +141,7 @@ class DeviceConfig(object):
                     if snmp.get_v3_privacy_password():
                         nd['PrivProto'] = snmp.get_v3_privacy_password()
                 devices.append(DeviceConfig(
-                            pr.get_physical_router_management_ip(),
-                            nd, [], pr.get_physical_router_dataplane_ip()))
+                            pr.name,
+                            nd, [], pr.get_physical_router_management_ip(),
+                            pr.get_physical_router_management_ip()))
         return devices
