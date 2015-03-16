@@ -175,6 +175,8 @@ void IFMapDependencyManager::Terminate() {
             database_->FindTable(iter->first));
         table->Unregister(iter->second);
     }
+    table_map_.clear();
+    event_map_.clear();
 }
 
 bool IFMapDependencyManager::ProcessChangeList() {
