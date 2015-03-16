@@ -40,9 +40,11 @@ VnTable *VnTable::vn_table_;
 
 VnIpam::VnIpam(const std::string& ip, uint32_t len, const std::string& gw,
                const std::string& dns, bool dhcp, std::string &name,
+               const autogen::IpamType &ipam_type,
                const std::vector<autogen::DhcpOptionType> &dhcp_options,
                const std::vector<autogen::RouteType> &host_routes)
-        : plen(len), installed(false), dhcp_enable(dhcp), ipam_name(name) {
+        : plen(len), installed(false), dhcp_enable(dhcp), ipam_name(name),
+          ipam(ipam_type) {
     boost::system::error_code ec;
     ip_prefix = IpAddress::from_string(ip, ec);
     default_gw = IpAddress::from_string(gw, ec);
@@ -129,11 +131,13 @@ bool VnEntry::GetVnHostRoutes(const std::string &ipam,
     return false;
 }
 
-bool VnEntry::GetIpamName(const IpAddress &vm_addr,
-                          std::string *ipam_name) const {
+bool VnEntry::GetIpamData(const IpAddress &vm_addr,
+                          std::string *ipam_name,
+                          autogen::IpamType *ipam) const {
     for (unsigned int i = 0; i < ipam_.size(); i++) {
         if (ipam_[i].IsSubnetMember(vm_addr)) {
             *ipam_name = ipam_[i].ipam_name;
+            *ipam = ipam_[i].ipam;
             return true;
         }
     }
@@ -149,23 +153,11 @@ const VnIpam *VnEntry::GetIpam(const IpAddress &ip) const {
     return NULL;
 }
 
-bool VnEntry::GetIpamData(const IpAddress &vm_addr, std::string *ipam_name,
-                          autogen::IpamType *ipam_type) const {
-    // This will be executed from non DB context; task policy will ensure that
-    // this is not run while DB task is updating the map
-    if (!GetIpamName(vm_addr, ipam_name) ||
-        !Agent::GetInstance()->domain_config_table()->GetIpam(*ipam_name, ipam_type))
-        return false;
-
-    return true;
-}
-
 bool VnEntry::GetIpamVdnsData(const IpAddress &vm_addr,
                               autogen::IpamType *ipam_type,
                               autogen::VirtualDnsType *vdns_type) const {
     std::string ipam_name;
-    if (!GetIpamName(vm_addr, &ipam_name) ||
-        !Agent::GetInstance()->domain_config_table()->GetIpam(ipam_name, ipam_type) ||
+    if (!GetIpamData(vm_addr, &ipam_name, ipam_type) ||
         ipam_type->ipam_dns_method != "virtual-dns-server")
         return false;
     
@@ -577,6 +569,11 @@ VnData *VnTable::BuildData(IFMapNode *node) {
             if (IFMapNode *ipam_node = FindTarget(table, adj_node,
                                                   "network-ipam")) {
                 ipam_name = ipam_node->name();
+                autogen::NetworkIpam *network_ipam =
+                  static_cast <autogen::NetworkIpam *> (ipam_node->GetObject());
+                autogen::IpamType ipam_type;
+                if (network_ipam)
+                    ipam_type = network_ipam->mgmt();
 
                 VirtualNetworkNetworkIpam *ipam =
                     static_cast<VirtualNetworkNetworkIpam *>
@@ -602,6 +599,7 @@ VnData *VnTable::BuildData(IFMapNode *node) {
                                 subnets.ipam_subnets[i].default_gateway,
                                 dns_server_address,
                                 subnets.ipam_subnets[i].enable_dhcp, ipam_name,
+                                ipam_type,
                                 subnets.ipam_subnets[i].dhcp_option_list.dhcp_option,
                                 subnets.ipam_subnets[i].host_routes.route));
                 }
@@ -1169,20 +1167,28 @@ void DomainConfig::RegisterVdnsCb(Callback cb) {
     vdns_callback_.push_back(cb);
 }
 
+// Callback is invoked only if there is change in IPAM properties.
+// In case of change in a link with IPAM, callback is not invoked.
 void DomainConfig::IpamSync(IFMapNode *node) {
     autogen::NetworkIpam *network_ipam =
             static_cast <autogen::NetworkIpam *> (node->GetObject());
     assert(network_ipam);
 
     if (!node->IsDeleted()) {
+        bool change = false;
         IpamDomainConfigMap::iterator it = ipam_config_.find(node->name());
         if (it != ipam_config_.end()) {
-            it->second = network_ipam->mgmt();
+            if (IpamChanged(it->second, network_ipam->mgmt())) {
+                it->second = network_ipam->mgmt();
+                change = true;
+            }
         } else {
             ipam_config_.insert(IpamDomainConfigPair(node->name(),
                                                      network_ipam->mgmt()));
+            change = true;
         }
-        CallIpamCb(node);
+        if (change)
+            CallIpamCb(node);
     } else {
         CallIpamCb(node);
         ipam_config_.erase(node->name());
@@ -1220,6 +1226,26 @@ void DomainConfig::CallVdnsCb(IFMapNode *node) {
     for (unsigned int i = 0; i < vdns_callback_.size(); ++i) {
         vdns_callback_[i](node);
     }
+}
+
+bool DomainConfig::IpamChanged(const autogen::IpamType &old,
+                               const autogen::IpamType &cur) const {
+    if (old.ipam_method != cur.ipam_method ||
+        old.ipam_dns_method != cur.ipam_dns_method)
+        return true;
+
+    if ((old.ipam_dns_server.virtual_dns_server_name !=
+         cur.ipam_dns_server.virtual_dns_server_name) ||
+        (old.ipam_dns_server.tenant_dns_server_address.ip_address !=
+         cur.ipam_dns_server.tenant_dns_server_address.ip_address))
+        return true;
+
+    if (old.cidr_block.ip_prefix != cur.cidr_block.ip_prefix ||
+        old.cidr_block.ip_prefix_len != cur.cidr_block.ip_prefix_len)
+        return true;
+
+    //ignoring changes to dhcp_option_list and host_routes
+    return false;
 }
 
 bool DomainConfig::GetIpam(const std::string &name, autogen::IpamType *ipam) {
