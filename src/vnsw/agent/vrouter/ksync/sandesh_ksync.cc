@@ -28,6 +28,10 @@ void vr_vrf_stats_req::Process(SandeshContext *context) {
     ioc->VrfStatsMsgHandler(this);
 }
 
+void vr_drop_stats_register::Process(SandeshContext *context) {
+
+}
+
 int KSyncSandeshContext::VrResponseMsgHandler(vr_response *r) {
     response_code_ = r->get_resp_code();
 
