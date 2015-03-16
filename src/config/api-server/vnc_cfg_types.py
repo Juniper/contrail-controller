@@ -18,6 +18,7 @@ import vnc_quota
 from gen.resource_xsd import *
 from gen.resource_common import *
 from gen.resource_server import *
+from netaddr import IPNetwork
 from pprint import pformat
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
@@ -197,9 +198,6 @@ class InstanceIpServer(InstanceIpServerGen):
             return True,  ""
 
         req_ip = obj_dict.get("instance_ip_address", None)
-        req_ip_family = obj_dict.get("instance_ip_family", None)
-        req_ip_version = 4 # default ip v4
-        if req_ip_family == "v6": req_ip_version = 6
 
         vn_id = {'uuid': db_conn.fq_name_to_uuid('virtual-network', vn_fq_name)}
         (read_ok, vn_dict) = db_conn.dbe_read('virtual-network', vn_id)
@@ -211,6 +209,14 @@ class InstanceIpServer(InstanceIpServerGen):
         if subnet_uuid and not sub:
             return (False, (404, "Subnet id " + subnet_uuid + " not found"))
 
+        req_ip_family = obj_dict.get("instance_ip_family", None)
+        if req_ip is None and subnet_uuid:
+            # pickup the version from subnet
+            req_ip_version = IPNetwork(sub).version
+        else:
+            req_ip_version = 4 # default ip v4
+
+        if req_ip_family == "v6": req_ip_version = 6
         # If its an external network, check whether floating IP equivalent to
         # requested fixed-IP is already reserved.
         router_external = vn_dict.get('router_external', None)
