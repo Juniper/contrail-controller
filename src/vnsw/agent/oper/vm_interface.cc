@@ -1468,8 +1468,9 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         ret = true;
     }
 
-    if (dhcp_enable_ != data->dhcp_enable_) {
-        dhcp_enable_ = data->dhcp_enable_;
+    bool dhcp_enable = layer3_forwarding_ ? data->dhcp_enable_: false;
+    if (dhcp_enable_ != dhcp_enable) {
+        dhcp_enable_ = dhcp_enable;
         ret = true;
     }
 
