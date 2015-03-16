@@ -166,7 +166,8 @@ struct ShowRouteTable {
 
 response sandesh ShowRouteResp {
     1: list<ShowRouteTable> tables;
-    2: optional string next_batch (link="ShowRouteReqIterate")
+    2: optional string next_batch (link="ShowRouteReqIterate",
+                                   link_title="next_batch");
 }
 
 request sandesh ShowRouteReq {
