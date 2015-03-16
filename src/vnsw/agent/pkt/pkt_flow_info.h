@@ -76,7 +76,7 @@ public:
                                           const VnEntry *vn,
                                           MatchPolicy *m_policy);
     void RewritePktInfo(uint32_t index);
-    void VrfTranslate(const PktInfo *pkt, PktControlInfo *ctrl,
+    bool VrfTranslate(const PktInfo *pkt, PktControlInfo *ctrl,
                       PktControlInfo *rev_flow, const IpAddress &src_ip);
     uint32_t LinkLocalBindPort(const VmEntry *vm, uint8_t proto);
     void UpdateFipStatsInfo(FlowEntry *flow, FlowEntry *rflow, const PktInfo *p,
