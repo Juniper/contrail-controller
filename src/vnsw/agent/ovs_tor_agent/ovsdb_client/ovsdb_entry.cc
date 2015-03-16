@@ -55,8 +55,14 @@ OvsdbDBEntry::~OvsdbDBEntry() {
 }
 
 bool OvsdbDBEntry::Add() {
-    PreAddChange();
     OvsdbDBObject *object = static_cast<OvsdbDBObject*>(GetObject());
+    // trigger pre add/change only if idl is not marked deleted.
+    // we should not update KSync references as, these references eventually
+    // need to be released as part of delete trigger due to cleanup.
+    if (!object->client_idl_->deleted()) {
+        PreAddChange();
+    }
+
     struct ovsdb_idl_txn *txn = object->client_idl_->CreateTxn(this);
     if (txn == NULL) {
         // failed to create transaction because of idl marked for
@@ -74,8 +80,14 @@ bool OvsdbDBEntry::Add() {
 }
 
 bool OvsdbDBEntry::Change() {
-    PreAddChange();
     OvsdbDBObject *object = static_cast<OvsdbDBObject*>(GetObject());
+    // trigger pre add/change only if idl is not marked deleted.
+    // we should not update KSync references as, these references eventually
+    // need to be released as part of delete trigger due to cleanup.
+    if (!object->client_idl_->deleted()) {
+        PreAddChange();
+    }
+
     struct ovsdb_idl_txn *txn = object->client_idl_->CreateTxn(this);
     if (txn == NULL) {
         // failed to create transaction because of idl marked for
