@@ -440,6 +440,23 @@ class InstanceManager(object):
             vrouter_name = vr.name
         return vrouter_name
 
+    def _update_local_preference(self, si, del_vm):
+        if si.ha_mode != 'active-standby':
+            return
+
+        if si.local_preference[del_vm.index] == \
+                svc_info.get_standby_preference():
+            return
+
+        si.local_preference[del_vm.index] = svc_info.get_standby_preference()
+        other_index = si.max_instances - del_vm.index - 1
+        si.local_preference[other_index] = svc_info.get_active_preference()
+
+        for vm_id in si.virtual_machines:
+            vm = VirtualMachineSM.get(vm_id)
+            if vm:
+                self._check_create_netns_vm(vm.index, si, st, vm)
+
 class VRouterHostedManager(InstanceManager):
     @abc.abstractmethod
     def create_service(self, st, si):
@@ -467,6 +484,9 @@ class VRouterHostedManager(InstanceManager):
         service_up = True
         for vm_id in si.virtual_machines:
             vm = VirtualMachineSM.get(vm_id)
+            if not vm:
+                continue
+
             if not vm.virtual_router:
                 self.logger.log_error("vrouter not found for vm %s" % vm.uuid)
                 service_up = False
@@ -482,6 +502,7 @@ class VRouterHostedManager(InstanceManager):
                 vm_obj.fq_name = vm.fq_name
                 vr_obj.del_virtual_machine(vm_obj)
                 self._vnc_lib.virtual_router_update(vr_obj)
+                self._update_local_preference(si, vm)
                 self.logger.log_error("vrouter down for vm %s" % vm.uuid)
                 service_up = False
 
