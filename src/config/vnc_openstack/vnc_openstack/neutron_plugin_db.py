@@ -1079,10 +1079,12 @@ class DBInterface(object):
                 for subnet_vnc in subnet_vncs:
                     cidr = '%s/%s' % (subnet_vnc.subnet.get_ip_prefix(),
                                       subnet_vnc.subnet.get_ip_prefix_len())
-                    if IPAddress(ip_addr) in IPSet([cidr]):
-                        subnet_id = subnet_vnc.subnet_uuid
-                        return subnet_id
-
+                    try:
+                        if IPAddress(ip_addr) in IPSet([cidr]):
+                            subnet_id = subnet_vnc.subnet_uuid
+                            return subnet_id
+                    except AddrFormatError:
+                        pass
         return None
     #end _ip_address_to_subnet_id
 
