@@ -59,6 +59,7 @@ TableState::TableState(RoutePathReplicator *replicator, BgpTable *table)
     : replicator_(replicator),
       table_(table),
       listener_id_(DBTableBase::kInvalidId),
+      deleted_(false),
       table_delete_ref_(this, table->deleter()) {
     assert(table->deleter() != NULL);
     route_count_ = 0;
