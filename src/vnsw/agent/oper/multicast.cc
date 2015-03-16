@@ -42,6 +42,10 @@ static bool IsTorDeleted(const PhysicalDeviceVn *device_vn,
         vrf->IsDeleted())
         return true;
 
+    //IP null is equivalent of delete
+    if (physical_device->ip().to_v4().is_unspecified())
+        return true;
+
     return false;
 }
 
@@ -223,9 +227,7 @@ void MulticastHandler::HandleTorRoute(DBTablePartBase *partition,
     const PhysicalDevice *physical_device = device_vn_entry->device();
     const VnEntry *device_vn = device_vn_entry->vn();
     const uuid &device_uuid = device_vn_entry->device_uuid();
-    uint32_t vxlan_id = device_vn->GetVxLanId();
     boost::system::error_code ec;
-    Ip4Address addr = physical_device->ip().to_v4();
     const VrfEntry *device_vn_vrf = device_vn ? device_vn->GetVrf() : NULL;
     bool rebake = false;
 
@@ -244,6 +246,7 @@ void MulticastHandler::HandleTorRoute(DBTablePartBase *partition,
 
         const std::string vrf_name = state->vrf_name_;
         const Ip4Address device_addr = state->ip_addr_;
+        uint32_t vxlan_id = state->vxlan_id_;
         device_vn_entry->ClearState(partition->parent(),
                                     physical_device_vn_listener_id_);
         delete state;
@@ -268,6 +271,9 @@ void MulticastHandler::HandleTorRoute(DBTablePartBase *partition,
         //Code is same for modification with add.
         rebake = true;
     } else {
+        uint32_t vxlan_id = device_vn_entry->vxlan_id();
+        Ip4Address addr = physical_device->ip().to_v4();
+
         if (device_vn_vrf)
             obj = FindFloodGroupObject(device_vn_vrf->GetName());
 
@@ -281,38 +287,39 @@ void MulticastHandler::HandleTorRoute(DBTablePartBase *partition,
                                              vxlan_id);
         }
 
+        //Adds device if device_uuid is not present in list,
+        //it does not update change in address or vxlan.
         rebake = obj->AddInTorList(device_uuid, addr, vxlan_id,
                                    TunnelType::VxlanType());
         if (!state) {
             //Set the state for vrf name and address
-            MulticastDBState *state =
-                new MulticastDBState(device_vn->GetVrf()->GetName(),
-                                     addr);
+            state = new MulticastDBState(device_vn->GetVrf()->GetName(),
+                                         addr, vxlan_id);
             device_vn_entry->SetState(partition->parent(),
                                       physical_device_vn_listener_id_, state);
 
         }
+        //Update the state's  and obj vxlan
+        if (state->vxlan_id_ != vxlan_id) {
+            state->vxlan_id_ = vxlan_id;
+            obj->set_vxlan_id(vxlan_id);
+            rebake = true;
+        }
+
+        //rebake if physical device address changed or any of the
+        //physical device has changed vxlan
+        rebake |= obj->UpdateTorAddressInOlist(device_vn_entry->device_uuid(),
+                                               addr,
+                                               vxlan_id);
     }
 
     assert(obj != NULL);
-    //rebake if VXLAN changed
-    if (vxlan_id != obj->vxlan_id()) {
-        obj->set_vxlan_id(vxlan_id);
-        rebake = true;
-    }
-
-    //rebake if physical device address changed or any of the
-    //physical device has changed vxlan
-    rebake |= obj->UpdateTorAddressInOlist(device_vn_entry->device_uuid(),
-                                          addr,
-                                          vxlan_id);
-
     if (rebake) {
         obj->CreateEvpnMplsLabel(agent_);
         ModifyTorMembers(agent_->multicast_tor_peer(),
-                         device_vn->GetVrf()->GetName(),
+                         obj->vrf_name(),
                          obj->tor_olist(),
-                         device_vn->GetVxLanId(),
+                         obj->vxlan_id(),
                          1);
     }
 }
@@ -346,8 +353,7 @@ void MulticastHandler::UpdatePhysicalDeviceAddressMap(const uuid &device_uuid,
 }
 
 void MulticastHandler::WalkDone() {
-    if (physical_device_vn_walker_id_ != DBTableWalker::kInvalidWalkerId)
-        physical_device_vn_walker_id_ = DBTableWalker::kInvalidWalkerId;
+    physical_device_vn_walker_id_ = DBTableWalker::kInvalidWalkerId;
 }
 
 bool MulticastHandler::TorWalker(DBTablePartBase *partition,
