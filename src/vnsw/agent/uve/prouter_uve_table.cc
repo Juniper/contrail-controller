@@ -246,6 +246,9 @@ void ProuterUveTable::SendProuterDeleteMsg(ProuterUveEntry *e) {
 
 void ProuterUveTable::EnqueueProuterMsg(const boost::uuids::uuid &pd_uuid) {
     ProuterUveEntry *entry = PDEntryToProuterUveEntry(pd_uuid);
+    if (!entry) {
+        return;
+    }
     if (entry->prouter_msg_enqueued_) {
         return;
     }
@@ -444,6 +447,9 @@ void ProuterUveTable::PhysicalDeviceNotify(DBTablePartBase *partition,
 void ProuterUveTable::DisassociatePhysicalInterface(const Interface *intf,
                                                  const boost::uuids::uuid &u) {
     ProuterUveEntry *entry = PDEntryToProuterUveEntry(u);
+    if (!entry) {
+        return;
+    }
     entry->DeletePhysicalInterface(intf);
     EnqueueProuterMsg(u);
 }
