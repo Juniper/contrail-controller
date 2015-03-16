@@ -738,7 +738,10 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
         return;
     }
 
-    VrfTranslate(pkt, in, out);
+    if (VrfTranslate(pkt, in, out) == false) {
+        return;
+    }
+
     // Compute out-intf and ECMP info from out-route
     if (RouteToOutInfo(out->rt_, pkt, this, in, out) == false) {
         return;
@@ -777,7 +780,7 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
     return;
 }
 
-void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
+bool PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
                                PktControlInfo *out) {
     const Interface *intf = NULL;
     if (ingress) {
@@ -786,7 +789,7 @@ void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
         intf = out->intf_;
     }
     if (!intf || intf->type() != Interface::VM_INTERFACE) {
-        return;
+        return true;
     }
 
     const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
@@ -804,7 +807,7 @@ void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
     }
 
     if (!acl) {
-        return;
+        return true;
     }
 
     PacketHeader hdr;
@@ -833,19 +836,26 @@ void PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
 
     MatchAclParams match_acl_param;
     if (!acl->PacketMatch(hdr, match_acl_param, NULL)) {
-        return;
+        return true;
     }
 
     if (match_acl_param.action_info.vrf_translate_action_.vrf_name() != "") {
         VrfKey key(match_acl_param.action_info.vrf_translate_action_.vrf_name());
         const VrfEntry *vrf = static_cast<const VrfEntry*>
             (Agent::GetInstance()->vrf_table()->FindActiveEntry(&key));
-        out->vrf_ = vrf;
-        if (vrf) {
-            UpdateRoute(&out->rt_, vrf, pkt->ip_daddr, flow_dest_plen_map);
-            UpdateRoute(&in->rt_, vrf, pkt->ip_saddr, flow_source_plen_map);
+        if (vrf == NULL) {
+            short_flow = true;
+            short_flow_reason = FlowEntry::SHORT_UNAVIALABLE_VRF;
+            in->rt_ = NULL;
+            out->rt_ = NULL;
+            return false;
         }
+        out->vrf_ = vrf;
+        UpdateRoute(&out->rt_, vrf, pkt->ip_daddr, flow_dest_plen_map);
+        UpdateRoute(&in->rt_, vrf, pkt->ip_saddr, flow_source_plen_map);
     }
+
+    return true;
 }
 
 void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
@@ -869,7 +879,9 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
     //exact same route with different nexthop, hence if both ingress
     //route and egress route are present in native vrf, acl match condition
     //can be applied
-    VrfTranslate(pkt, in, out);
+    if (VrfTranslate(pkt, in, out) == false) {
+        return;
+    }
 
     if (out->rt_) {
         // Compute out-intf and ECMP info from out-route
@@ -949,7 +961,9 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
     }
 
     //Apply vrf translate ACL to get ingress route
-    VrfTranslate(pkt, in, out);
+    if (VrfTranslate(pkt, in, out) == false) {
+        return;
+    }
 
     if (RouteAllowNatLookup(out->rt_)) {
         // If interface has floating IP, check if destination is one of the

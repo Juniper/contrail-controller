@@ -207,7 +207,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl3) {
     FlowEntry *fe = FlowGet(1, "1.1.1.1", "2.1.1.1", IPPROTO_TCP,
                             10, 20, nh_id);
     EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true &&
-                fe->short_flow_reason() == FlowEntry::SHORT_VRF_CHANGE);
+                fe->short_flow_reason() == FlowEntry::SHORT_NO_SRC_ROUTE);
 }
 
 //Add a VRF translate ACL to send all ssh traffic to "2.1.1.1" 
@@ -321,6 +321,61 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl6) {
     client->WaitForIdle();
 }
 
+//Send MplsoUdp packet to 1.1.1.1 from 3.1.1.1
+//Where 3.1.1.1 is a ecmp source and verify
+//that flow becomes short flow since destination VRF is not present
+TEST_F(TestVrfAssignAclFlow, VrfAssignAcl7) {
+    AddAddressVrfAssignAcl("intf1", 1, "3.1.1.0", "1.1.1.0", 6, 1, 65535,
+                           1, 65535, "xyz", "no");
+    //Remote VM IP
+    Ip4Address ip = Ip4Address::from_string("3.1.1.1");
+
+    ComponentNHKeyList comp_nh;
+    Ip4Address server_ip1 = Ip4Address::from_string("10.1.1.100");
+    Ip4Address server_ip2 = Ip4Address::from_string("10.1.1.101");
+
+    ComponentNHKeyPtr comp_nh_data1(new ComponentNHKey(
+                16, agent_->fabric_vrf_name(),
+                agent_->router_id(), server_ip1, false,
+                TunnelType::AllType()));
+    comp_nh.push_back(comp_nh_data1);
+
+    ComponentNHKeyPtr comp_nh_data2(new ComponentNHKey(
+                17, agent_->fabric_vrf_name(),
+                agent_->router_id(),
+                server_ip2, false, TunnelType::AllType()));
+    comp_nh.push_back(comp_nh_data2);
+
+    EcmpTunnelRouteAdd(agent_->local_peer(), "default-project:vn1:vn1",
+                       ip, 32, comp_nh, false,
+                       "default-project:vn2", SecurityGroupList(),
+                       PathPreference());
+
+    EcmpTunnelRouteAdd(agent_->local_peer(), "default-project:vn2:vn2",
+                       ip, 32, comp_nh, false,
+                       "default-project:vn2", SecurityGroupList(),
+                       PathPreference());
+    client->WaitForIdle();
+
+    VmInterface *vm_intf = static_cast<VmInterface *>(VmPortGet(1));
+    TestFlow flow[] = {
+        {  TestFlowPkt(Address::INET, "3.1.1.1", "1.1.1.1", IPPROTO_TCP, 10, 20,
+                "default-project:vn1:vn1", "10.1.1.101", vm_intf->label()),
+        {
+            new ShortFlow()
+        }
+        }
+    };
+    CreateFlow(flow, 1);
+
+    //Delete the leaked routes
+    agent_->fabric_inet4_unicast_table()->DeleteReq(agent_->local_peer(),
+            "default-project:vn2:vn2", ip, 32, NULL);
+    agent_->fabric_inet4_unicast_table()->DeleteReq(agent_->local_peer(),
+            "default-project:vn1:vn1", ip, 32, NULL);
+    client->WaitForIdle();
+}
+
 TEST_F(TestVrfAssignAclFlow, FloatingIp) {
     struct PortInfo input[] = {
         {"intf7", 7, "4.1.1.1", "00:00:00:01:01:01", 4, 7},
@@ -375,6 +430,60 @@ TEST_F(TestVrfAssignAclFlow, FloatingIp) {
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
 }
+
+TEST_F(TestVrfAssignAclFlow, FloatingIp_1) {
+    struct PortInfo input[] = {
+        {"intf7", 7, "4.1.1.1", "00:00:00:01:01:01", 4, 7},
+    };
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    //Leak route for 2.1.1.0 to default-project:vn1:vn1
+    Ip4Address ip1 = Ip4Address::from_string("2.1.1.0");
+    agent_->fabric_inet4_unicast_table()->
+        AddLocalVmRouteReq(agent_->local_peer(),
+                           "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
+                           "default-project:vn2", 16, SecurityGroupList(),
+                           false, PathPreference(), Ip4Address(0));
+    client->WaitForIdle();
+
+    //Add an ACL, such that for traffic from vn4:vn4 to default-project:vn2,
+    //route lookup happens in internal VRF, in this case VRF doesnt exist
+    //and hence flow should be short flow
+    AddVrfAssignNetworkAcl("Acl", 10, "default-project:vn1",
+                           "default-project:vn2", "pass",
+                           "default-project:vn3:xyz");
+    AddLink("virtual-network", "default-project:vn1", "access-control-list", "Acl");
+    client->WaitForIdle();
+
+
+    //Configure Floating-IP for intf7 in default-project:vn1
+    AddFloatingIpPool("fip-pool1", 1);
+    AddFloatingIp("fip1", 1, "1.1.1.100");
+    AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn1");
+    AddLink("virtual-machine-interface", "intf7", "floating-ip", "fip1");
+    client->WaitForIdle();
+
+     TestFlow flow[] = {
+        {  TestFlowPkt(Address::INET, "4.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
+                       "vrf4", VmPortGet(7)->id()),
+        {
+            new ShortFlow()
+        }
+        }
+    };
+    CreateFlow(flow, 1);
+
+    DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    DelLink("floating-ip-pool", "fip-pool1", "virtual-network", "default:vn4");
+    DelFloatingIp("fip1");
+    DelFloatingIpPool("fip-pool1");
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
