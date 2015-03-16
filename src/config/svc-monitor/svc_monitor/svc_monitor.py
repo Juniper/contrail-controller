@@ -241,7 +241,6 @@ class SvcMonitor(object):
             lb_pool = LoadbalancerPoolSM.get(lb_pool_id)
             if lb_pool is not None:
                 lb_pool.add()
-    # end _vnc_subscribe_callback
 
         for si_id in dependency_tracker.resources.get('service_instance', []):
             si = ServiceInstanceSM.get(si_id)

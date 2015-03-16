@@ -318,6 +318,10 @@ class ServiceInstanceSM(DBBase):
         self.local_preference = [None, None]
         self.vn_info = []
         self.update(obj_dict)
+        if self.ha_mode and self.ha_mode == 'active-standby':
+            self.max_instances = 2
+            self.local_preference = [svc_info.get_active_preference(),
+                                     svc_info.get_standby_preference()]
     # end __init__
 
     def update(self, obj=None):
@@ -333,11 +337,7 @@ class ServiceInstanceSM(DBBase):
         self.id_perms = obj['id_perms']
         self.vr_id = self.params.get('virtual_router_id', None)
         self.ha_mode = self.params.get('ha_mode', None)
-        if self.ha_mode and self.ha_mode == 'active-standby':
-            self.max_instances = 2
-            self.local_preference = [svc_info.get_active_preference(),
-                svc_info.get_standby_preference()]
-        else:
+        if not self.ha_mode or self.ha_mode != 'active-standby':
             scale_out = self.params.get('scale_out', None)
             if scale_out:
                 self.max_instances = scale_out.get('max_instances', 1)
