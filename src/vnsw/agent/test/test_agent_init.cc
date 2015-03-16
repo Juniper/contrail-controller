@@ -73,7 +73,9 @@ void TestAgentInit::CreateModules() {
     agent()->pkt()->set_control_interface(pkt0_.get());
 
     uve_.reset(AgentObjectFactory::Create<AgentUveBase>
-               (agent(), AgentUveBase::kBandwidthInterval));
+               (agent(), AgentUveBase::kBandwidthInterval,
+                TestAgentInit::kDefaultInterval,
+                TestAgentInit::kIncrementalInterval));
     agent()->set_uve(uve_.get());
 
     stats_collector_.reset(new AgentStatsCollectorTest(

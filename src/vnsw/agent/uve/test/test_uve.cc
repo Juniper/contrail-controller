@@ -229,6 +229,15 @@ TEST_F(UveTest, VmAddDelTest1) {
     WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_config_table()->Size() == 0));
     WAIT_FOR(100, 1000, (Agent::GetInstance()->vm_table()->Size() == 0));
     WAIT_FOR(100, 1000, (Agent::GetInstance()->vn_table()->Size() == 0));
+
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, ((vmut->VmUveCount() == 0U)));
+
+    util_.EnqueueSendVnUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (vnut->VnUveObject("vn1") == NULL));
+    WAIT_FOR(1000, 500, (vnut->VnUveObject("vn2") == NULL));
 }
 
 TEST_F(UveTest, VnAddDelTest1) {
@@ -279,11 +288,18 @@ TEST_F(UveTest, VnAddDelTest1) {
     client->VmDelNotifyWait(2);
     client->PortDelNotifyWait(2);
 
-    WAIT_FOR(500, 1000, (vmut->GetVmUveInterfaceCount("vm1")) == 0U);
-    WAIT_FOR(500, 1000, (vmut->GetVmUveInterfaceCount("vm2")) == 0U);
     WAIT_FOR(500, 1000, (Agent::GetInstance()->interface_config_table()->Size() == 0));
     WAIT_FOR(500, 1000, (Agent::GetInstance()->vm_table()->Size() == 0));
     WAIT_FOR(500, 1000, (Agent::GetInstance()->vn_table()->Size() == 0));
+
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, ((vmut->VmUveCount() == 0U)));
+
+    util_.EnqueueSendVnUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (vnut->VnUveObject("vn1") == NULL));
+    WAIT_FOR(1000, 500, (vnut->VnUveObject("vn2") == NULL));
 }
 
 TEST_F(UveTest, IntAddDelTest1) {
@@ -331,6 +347,15 @@ TEST_F(UveTest, IntAddDelTest1) {
     WAIT_FOR(500, 1000, (Agent::GetInstance()->interface_config_table()->Size() == 0));
     WAIT_FOR(500, 1000, (Agent::GetInstance()->vm_table()->Size() == 0));
     WAIT_FOR(500, 1000, (Agent::GetInstance()->vn_table()->Size() == 0));
+
+    util_.EnqueueSendVmUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, ((vmut->VmUveCount() == 0U)));
+
+    util_.EnqueueSendVnUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (vnut->VnUveObject("vn1") == NULL));
+    WAIT_FOR(1000, 500, (vnut->VnUveObject("vn2") == NULL));
 }
 
 //To verify VRF addition/removal keeps the vrf stats tree in correct state

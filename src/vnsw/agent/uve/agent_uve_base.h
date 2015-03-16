@@ -19,8 +19,18 @@ class VrouterStatsCollector;
 //objects required for sending UVE information to collector.
 class AgentUveBase {
 public:
+    /* Number of UVEs to be sent each time, the timer callback is Run */
+    static const uint32_t kUveCountPerTimer = 64;
+    /* The interval at which timer is fired */
+    static const uint32_t kDefaultInterval = (30 * 1000); // time in millisecs
+    /* When timer is Run, we send atmost 'kUveCountPerTimer' UVEs. If there
+     * are more UVEs to be sent, we reschedule timer at the following shorter
+     * interval*/
+    static const uint32_t kIncrementalInterval = (1000); // time in millisecs
+
     static const uint64_t kBandwidthInterval = (1000000); // time in microseconds
-    AgentUveBase(Agent *agent, uint64_t intvl, bool create_object);
+    AgentUveBase(Agent *agent, uint64_t intvl, bool create_object,
+                 uint32_t default_intvl, uint32_t incremental_intvl);
     virtual ~AgentUveBase();
 
     virtual void Shutdown();
@@ -40,11 +50,15 @@ public:
     virtual void RegisterDBClients();
     static AgentUveBase *GetInstance() {return singleton_;}
     uint8_t ExpectedConnections(uint8_t &num_c_nodes, uint8_t &num_d_servers);
+    uint32_t default_interval() const { return default_interval_; }
+    uint32_t incremental_interval() const { return incremental_interval_; }
 protected:
     boost::scoped_ptr<VnUveTableBase> vn_uve_table_;
     boost::scoped_ptr<VmUveTableBase> vm_uve_table_;
     boost::scoped_ptr<VrouterUveEntryBase> vrouter_uve_entry_;
     boost::scoped_ptr<ProuterUveTable> prouter_uve_table_;
+    uint32_t default_interval_;
+    uint32_t incremental_interval_;
     static AgentUveBase *singleton_;
 
 private:
