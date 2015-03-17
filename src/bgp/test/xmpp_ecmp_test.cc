@@ -275,19 +275,10 @@ void XmppEcmpTest::Initialize() {
 }
 
 void XmppEcmpTest::Subscribe() {
-    if (inet_) {
-        agent_a_->Subscribe(net_1_, 1);
-        agent_b_->Subscribe(net_2_, 2);
-        agent_c_->Subscribe(net_1_, 1);
-        agent_d_->Subscribe(net_2_, 2);
-    }
-
-    if (enet_) {
-        agent_a_->EnetSubscribe(net_1_, 1);
-        agent_b_->EnetSubscribe(net_2_, 2);
-        agent_c_->EnetSubscribe(net_1_, 1);
-        agent_d_->EnetSubscribe(net_2_, 2);
-    }
+    agent_a_->SubscribeAll(net_1_, 1);
+    agent_b_->SubscribeAll(net_2_, 2);
+    agent_c_->SubscribeAll(net_1_, 1);
+    agent_d_->SubscribeAll(net_2_, 2);
 }
 
 bool XmppEcmpTest::CheckNextHop(const autogen::NextHopType &nexthop,

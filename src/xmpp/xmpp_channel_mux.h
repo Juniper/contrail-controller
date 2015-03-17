@@ -18,6 +18,7 @@ public:
     explicit XmppChannelMux(XmppConnection *); 
     virtual ~XmppChannelMux();
 
+    virtual void Close();
     virtual bool Send(const uint8_t *, size_t, xmps::PeerId, SendReadyCb);
     virtual void RegisterReceive(xmps::PeerId, ReceiveCb);
     virtual void UnRegisterReceive(xmps::PeerId);

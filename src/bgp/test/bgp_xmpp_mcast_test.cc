@@ -907,11 +907,9 @@ TEST_F(BgpXmppMcastMultiAgentTest, MultipleNetworks) {
     const char *mroute = "225.0.0.1,90.1.1.1";
     const char *networks[] = { "blue", "pink" };
 
-    // Subscribe all agents to all networks.
-    int idx = 1;
-    BOOST_FOREACH(const char *net, networks) {
-        Subscribe(net, idx++);
-    }
+    // Subscribe all agents to pink network.
+    // All agents already subscribed to blue during test setup.
+    Subscribe("pink", 2);
 
     // Add mcast routes for all agents.
     BOOST_FOREACH(const char *net, networks) {
@@ -1600,11 +1598,9 @@ TEST_F(BgpXmppMcast2ServerTest, MultipleAgentMultipleNetworks) {
     const char *mroute = "225.0.0.1,90.1.1.1";
     const char *networks[] = { "blue", "pink" };
 
-    // Subscribe all agents to all networks.
-    int idx = 1;
-    BOOST_FOREACH(const char *net, networks) {
-        Subscribe(net, idx++);
-    }
+    // Subscribe all agents to pink network.
+    // All agents already subscribed to blue during test setup.
+    Subscribe("pink", 2);
 
     // Add mcast routes for all agents.
     BOOST_FOREACH(const char *net, networks) {

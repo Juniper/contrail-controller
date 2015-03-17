@@ -852,6 +852,74 @@ TEST_F(BgpXmppUnitTest, RegisterAddDelAddRouteWithDeletedRoutingInstance) {
     task_util::WaitForIdle();
 }
 
+TEST_F(BgpXmppUnitTest, DuplicateRegisterWithNonDeletedRoutingInstance) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+
+    TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Subscribe and add route to blue instance. Make sure that the messages
+    // have been processed on the bgp server.
+    agent_a_->Subscribe("blue", 1);
+    agent_a_->AddRoute("blue","10.1.1.1/32");
+    TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_TRUE(
+        PeerRegistered(bgp_channel_manager_->channel_, "blue", 1));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->RouteLookup("blue", "10.1.1.1/32") != NULL);
+
+    // Send a duplicate subscribe for the blue instance.
+    // This should trigger a Close from the server.
+    agent_a_->Subscribe("blue", 1);
+
+    // Make sure session to agent is down and instances are intact.
+    TASK_UTIL_EXPECT_FALSE(agent_a_->IsEstablished());
+    VerifyRoutingInstance("blue");
+    VerifyRoutingInstance("red");
+}
+
+TEST_F(BgpXmppUnitTest, DuplicateRegisterWithDeletedRoutingInstance) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+
+    TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Subscribe and add route to blue instance. Make sure that the messages
+    // have been processed on the bgp server.
+    agent_a_->Subscribe("blue", 1);
+    agent_a_->AddRoute("blue","10.1.1.1/32");
+    TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_TRUE(
+        PeerRegistered(bgp_channel_manager_->channel_, "blue", 1));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->RouteLookup("blue", "10.1.1.1/32") != NULL);
+
+    // Unconfigure all instances.
+    // The red instance should get destroyed while the blue instance should
+    // still exist in deleted state.
+    UnconfigureRoutingInstances();
+    task_util::WaitForIdle();
+    VerifyNoRoutingInstance("red");
+    RoutingInstance *blue = VerifyRoutingInstance("blue");
+    TASK_UTIL_EXPECT_TRUE(blue->deleted());
+
+    // Send a duplicate subscribe for the blue instance.
+    // This should trigger a Close from the server.
+    agent_a_->Subscribe("blue", 1);
+
+    // Make sure session to agent is down and the blue instance is gone.
+    TASK_UTIL_EXPECT_FALSE(agent_a_->IsEstablished());
+    VerifyNoRoutingInstance("blue");
+}
+
 TEST_F(BgpXmppUnitTest, RegisterWithDeletedBgpTable1) {
     Configure();
     task_util::WaitForIdle();
@@ -1688,21 +1756,6 @@ TEST_F(BgpXmppUnitTest, CreateRoutingInstanceWithPeerCloseInProgress2) {
     // peer close to resume and finish.
     ResumeBgpXmppChannelManager();
     task_util::WaitForIdle();
-}
-
-TEST_F(BgpXmppSerializeMembershipReqTest, SerializedMembershipReq0) {
-    TaskScheduler *scheduler = TaskScheduler::GetInstance();
-    scheduler->Stop();
-    agent_a_->Subscribe("red", 1, false); 
-    agent_a_->AddRoute("red","10.1.1.1/32");
-    agent_a_->Subscribe("red", 2, false); 
-    scheduler->Start();
-    task_util::WaitForIdle();
-
-    TASK_UTIL_EXPECT_TRUE(PeerRegistered(bgp_channel_manager_->channel_, 
-                                            "red", 1));
-    TASK_UTIL_EXPECT_EQ(1, agent_a_->RouteCount());
-    ASSERT_TRUE(agent_a_->RouteCount() == 1);
 }
 
 TEST_F(BgpXmppSerializeMembershipReqTest, SerializedMembershipReq1) {
