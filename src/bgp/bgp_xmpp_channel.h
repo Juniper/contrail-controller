@@ -46,6 +46,15 @@ public:
         int reach;
         int unreach;
     };
+    struct ChannelStats {
+        ChannelStats();
+        int instance_subscribe;
+        int instance_unsubscribe;
+        int table_subscribe;
+        int table_subscribe_complete;
+        int table_unsubscribe;
+        int table_unsubscribe_complete;
+    };
 
     struct ErrorStats {
         ErrorStats();
@@ -205,6 +214,7 @@ private:
 
     // statistics
     Stats stats_[2];
+    ChannelStats channel_stats_;
     ErrorStats error_stats_;
 
     // Label block manager for multicast labels.

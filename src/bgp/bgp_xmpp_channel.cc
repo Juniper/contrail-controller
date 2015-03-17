@@ -95,6 +95,15 @@ BgpXmppChannel::Stats::Stats()
     : rt_updates(0), reach(0), unreach(0) {
 }
 
+BgpXmppChannel::ChannelStats::ChannelStats()
+    : instance_subscribe(0),
+      instance_unsubscribe(0),
+      table_subscribe(0),
+      table_subscribe_complete(0),
+      table_unsubscribe(0),
+      table_unsubscribe_complete(0) {
+}
+
 class BgpXmppChannel::PeerClose : public IPeerClose {
 public:
     explicit PeerClose(BgpXmppChannel *channel)
@@ -1771,34 +1780,45 @@ void BgpXmppChannel::RegisterTable(BgpTable *table, int instance_id) {
     PeerRibMembershipManager *mgr = bgp_server_->membership_mgr();
     BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_DEBUG,
                  BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
-                 "Register to table " << table->name());
+                 "Subscribe to table " << table->name() <<
+                 " with id " << instance_id);
     mgr->Register(peer_.get(), table, bgp_policy_, instance_id,
-            boost::bind(&BgpXmppChannel::MembershipRequestCallback,
-                    this, _1, _2));
+        boost::bind(&BgpXmppChannel::MembershipRequestCallback, this, _1, _2));
+    channel_stats_.table_subscribe++;
 }
 
 void BgpXmppChannel::UnregisterTable(BgpTable *table) {
     PeerRibMembershipManager *mgr = bgp_server_->membership_mgr();
     BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_DEBUG,
                  BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
-                 "Unregister to table " << table->name());
+                 "Unsubscribe to table " << table->name());
     mgr->Unregister(peer_.get(), table,
-            boost::bind(&BgpXmppChannel::MembershipRequestCallback,
-                    this, _1, _2));
+        boost::bind(&BgpXmppChannel::MembershipRequestCallback, this, _1, _2));
+    channel_stats_.table_unsubscribe++;
 }
 
 bool BgpXmppChannel::MembershipResponseHandler(string table_name) {
-    BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
-                 BGP_PEER_DIR_NA,
-                 "MembershipResponseHandler for table " << table_name);
-
     RoutingTableMembershipRequestMap::iterator loc =
         routingtable_membership_request_map_.find(table_name);
     if (loc == routingtable_membership_request_map_.end()) {
         BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
                      BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
-                     "table " << table_name << " not in request queue");
-        assert(0);
+                     "Table " << table_name <<
+                     " not in subscribe/unsubscribe request queue");
+        assert(false);
+    }
+
+    MembershipRequestState state = loc->second;
+    if (state.current_req == SUBSCRIBE) {
+        BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_DEBUG,
+                     BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                     "Subscribe to table " << table_name << " completed");
+        channel_stats_.table_subscribe_complete++;
+    } else {
+        BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_DEBUG,
+                     BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                     "Unsubscribe to table " << table_name << " completed");
+        channel_stats_.table_unsubscribe_complete++;
     }
 
     if (defer_peer_close_) {
@@ -1813,34 +1833,21 @@ bool BgpXmppChannel::MembershipResponseHandler(string table_name) {
 
     BgpTable *table = static_cast<BgpTable *>
         (bgp_server_->database()->FindTable(table_name));
-    if (table == NULL) {
+    if (!table) {
         routingtable_membership_request_map_.erase(loc);
         return true;
     }
 
-    MembershipRequestState state = loc->second;
-    BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
-            BGP_PEER_DIR_NA,
-            "MembershipResponseHandler for table " << table_name <<
-            " current req = " <<
-            ((state.current_req == SUBSCRIBE) ? "subscribe" : "unsubscribe") <<
-            " pending req = " <<
-            ((state.pending_req == SUBSCRIBE) ? "subscribe" : "unsubscribe"));
-
     PeerRibMembershipManager *mgr = bgp_server_->membership_mgr();
     if ((state.current_req == UNSUBSCRIBE) &&
         (state.pending_req == SUBSCRIBE)) {
-        //
-        // Rxed Register while processing unregister
-        //
+        // Process pending subscribe now that unsubscribe has completed.
         RegisterTable(table, state.instance_id);
         loc->second.current_req = SUBSCRIBE;
         return true;
     } else if ((state.current_req == SUBSCRIBE) &&
                (state.pending_req == UNSUBSCRIBE)) {
-        //
-        // Rxed UnRegister while processing register
-        //
+        // Process pending unsubscribe now that subscribe has completed.
         UnregisterTable(table);
         loc->second.current_req = UNSUBSCRIBE;
         return true;
@@ -1873,8 +1880,8 @@ bool BgpXmppChannel::MembershipResponseHandler(string table_name) {
 
     vector<string> registered_tables;
     mgr->FillRegisteredTable(peer_.get(), &registered_tables);
-
-    if (registered_tables.empty()) return true;
+    if (registered_tables.empty())
+        return true;
 
     XmppPeerInfoData peer_info;
     peer_info.set_name(peer_->ToUVEKey());
@@ -2036,17 +2043,15 @@ void BgpXmppChannel::ProcessDeferredSubscribeRequest(RoutingInstance *instance,
             continue;
 
         RegisterTable(table, instance_id);
-
         MembershipRequestState state(SUBSCRIBE, instance_id);
-        routingtable_membership_request_map_.insert(make_pair(table->name(),
-                                                    state));
+        routingtable_membership_request_map_.insert(
+            make_pair(table->name(), state));
     }
 }
 
 void BgpXmppChannel::ProcessSubscriptionRequest(
         string vrf_name, const XmppStanza::XmppMessageIq *iq,
         bool add_change) {
-    PeerRibMembershipManager *mgr = bgp_server_->membership_mgr();
     int instance_id = -1;
 
     if (add_change) {
@@ -2061,27 +2066,38 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
     }
 
     RoutingInstanceMgr *instance_mgr = bgp_server_->routing_instance_mgr();
-    if (!instance_mgr) {
-        BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
-                     BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
-                     "Routing Instance Manager not found");
-        return;
-    }
+    assert(instance_mgr);
     RoutingInstance *rt_instance = instance_mgr->GetRoutingInstance(vrf_name);
     if (rt_instance == NULL) {
         BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
                      BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
-                     "Routing Instance " << vrf_name <<
+                     "Routing instance " << vrf_name <<
                      " not found when processing " <<
                      (add_change ? "subscribe" : "unsubscribe"));
         if (add_change) {
-            vrf_membership_request_map_[vrf_name] = instance_id;
+            if (vrf_membership_request_map_.find(vrf_name) !=
+                vrf_membership_request_map_.end()) {
+                BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                             BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                             "Duplicate subscribe for routing instance " <<
+                             vrf_name << ", triggering close");
+                channel_->Close();
+            } else {
+                vrf_membership_request_map_[vrf_name] = instance_id;
+                channel_stats_.instance_subscribe++;
+            }
         } else {
             if (vrf_membership_request_map_.erase(vrf_name)) {
                 FlushDeferQ(vrf_name);
+                channel_stats_.instance_unsubscribe++;
+            } else {
+                BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                             BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                             "Spurious unsubscribe for routing instance " <<
+                             vrf_name << ", triggering close");
+                channel_->Close();
             }
         }
-
         return;
     } else {
         if (add_change) {
@@ -2094,6 +2110,18 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
                 channel_->Close();
                 return;
             }
+            channel_stats_.instance_subscribe++;
+        } else {
+            if (routing_instances_.find(rt_instance) ==
+                routing_instances_.end()) {
+                BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                             BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                             "Spurious unsubscribe for routing instance " <<
+                             vrf_name << ", triggering close");
+                channel_->Close();
+                return;
+            }
+            channel_stats_.instance_unsubscribe++;
         }
     }
 
@@ -2104,7 +2132,7 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
     if (rt_instance->deleted()) {
         BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_DEBUG,
                      BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
-                     "Routing Instance " << vrf_name <<
+                     "Routing instance " << vrf_name <<
                      " is being deleted when processing " <<
                      (add_change ? "subscribe" : "unsubscribe"));
         if (add_change) {
@@ -2133,13 +2161,12 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
             if (loc == routingtable_membership_request_map_.end()) {
                 MembershipRequestState state(SUBSCRIBE, instance_id);
                 routingtable_membership_request_map_.insert(
-                                        make_pair(table->name(), state));
+                    make_pair(table->name(), state));
             } else {
                 loc->second.instance_id = instance_id;
                 loc->second.pending_req = SUBSCRIBE;
                 continue;
             }
-
             RegisterTable(table, instance_id);
         } else {
             if (defer_q_.count(make_pair(vrf_name, table->name()))) {
@@ -2155,26 +2182,10 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
             RoutingTableMembershipRequestMap::iterator loc =
                 routingtable_membership_request_map_.find(table->name());
             if (loc == routingtable_membership_request_map_.end()) {
-                IPeerRib *rib = mgr->IPeerRibFind(peer_.get(), table);
-                if (!rib) {
-                    BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
-                                 BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
-                                 "Received back to back unregister req:" <<
-                                 table->name());
-                    continue;
-                } else {
-                    MembershipRequestState state(UNSUBSCRIBE, instance_id);
-                    routingtable_membership_request_map_.insert(
-                                            make_pair(table->name(), state));
-                }
+                MembershipRequestState state(UNSUBSCRIBE, instance_id);
+                routingtable_membership_request_map_.insert(
+                    make_pair(table->name(), state));
             } else {
-                if (loc->second.pending_req == UNSUBSCRIBE) {
-                    BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
-                                 BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
-                                 "Received back to back unregister req:" <<
-                                 table->name());
-                    continue;
-                }
                 loc->second.instance_id = -1;
                 loc->second.pending_req = UNSUBSCRIBE;
                 continue;
