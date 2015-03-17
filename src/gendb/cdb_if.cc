@@ -1622,13 +1622,13 @@ bool CdbIf::Db_GetRangeSlicesInternal(GenDb::ColList& col_list,
     return true;
 }
 
-bool CdbIf::Db_GetQueueStats(uint64_t &queue_count, uint64_t &enqueues) const {
+bool CdbIf::Db_GetQueueStats(uint64_t *queue_count, uint64_t *enqueues) const {
     if (cdbq_.get() != NULL) {
-        queue_count = cdbq_->Length();
-        enqueues = cdbq_->NumEnqueues();
+        *queue_count = cdbq_->Length();
+        *enqueues = cdbq_->NumEnqueues();
     } else {
-        queue_count = 0;
-        enqueues = 0;
+        *queue_count = 0;
+        *enqueues = 0;
     }
     return true;
 }

@@ -161,8 +161,8 @@ public:
         const std::string& cfname, const ColumnNameRange& crange,
         const DbDataValueVec& key) = 0;
     // Queue
-    virtual bool Db_GetQueueStats(uint64_t &queue_count,
-        uint64_t &enqueues) const = 0;
+    virtual bool Db_GetQueueStats(uint64_t *queue_count,
+        uint64_t *enqueues) const = 0;
     virtual void Db_SetQueueWaterMark(bool high, size_t queue_count,
         DbQueueWaterMarkCb cb) = 0;
     virtual void Db_ResetQueueWaterMarks() = 0;

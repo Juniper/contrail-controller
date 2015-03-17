@@ -57,8 +57,8 @@ public:
         const std::string& cfname, const GenDb::ColumnNameRange& crange,
         const GenDb::DbDataValueVec& key);
     // Queue
-    virtual bool Db_GetQueueStats(uint64_t &queue_count,
-        uint64_t &enqueues) const;
+    virtual bool Db_GetQueueStats(uint64_t *queue_count,
+        uint64_t *enqueues) const;
     virtual void Db_SetQueueWaterMark(bool high, size_t queue_count,
         DbQueueWaterMarkCb cb);
     virtual void Db_ResetQueueWaterMarks();

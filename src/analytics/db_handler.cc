@@ -279,13 +279,16 @@ void DbHandler::ResetDbQueueWaterMarkInfo() {
     dbif_->Db_ResetQueueWaterMarks();
 }
 
-bool DbHandler::GetStats(uint64_t &queue_count, uint64_t &enqueues,
-    std::string &drop_level, std::vector<SandeshStats> &vdropmstats) const {
-    drop_level = Sandesh::LevelToString(drop_level_);
+void DbHandler::GetSandeshStats(std::string *drop_level,
+    std::vector<SandeshStats> *vdropmstats) const {
+    *drop_level = Sandesh::LevelToString(drop_level_);
     {
         tbb::mutex::scoped_lock lock(smutex_);
-        dropped_msg_stats_.Get(vdropmstats);
-    } 
+        dropped_msg_stats_.Get(*vdropmstats);
+    }
+}
+
+bool DbHandler::GetStats(uint64_t *queue_count, uint64_t *enqueues) const {
     return dbif_->Db_GetQueueStats(queue_count, enqueues);
 }
 

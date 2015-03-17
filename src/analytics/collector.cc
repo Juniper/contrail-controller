@@ -353,8 +353,8 @@ void Collector::GetGeneratorUVEInfo(vector<ModuleServerState> &genlist) {
         uint64_t db_enqueues;
         std::string db_drop_level;
         vector<SandeshStats> vdropmstats;
-        if (gen->GetDbStats(db_queue_count, db_enqueues,
-                db_drop_level, vdropmstats)) {
+        if (gen->GetDbStats(&db_queue_count, &db_enqueues,
+                &db_drop_level, &vdropmstats)) {
             ginfo.set_db_queue_count(db_queue_count);
             ginfo.set_db_enqueues(db_enqueues);
             ginfo.set_db_drop_level(db_drop_level);

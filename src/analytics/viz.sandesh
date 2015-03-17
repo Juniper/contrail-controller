@@ -786,6 +786,47 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
+      'display_name' : 'Analytics Protobuf Collector Database Table',
+      'stat_type' : 'ProtobufCollectorStats',
+      'stat_attr' : 'db_table_info',
+      'obj_table' : COLLECTOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'db_table_info.table_name', 'datatype' : 'string', 'index' : true},
+          { 'name' : 'db_table_info.reads', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'db_table_info.read_fails', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'db_table_info.writes', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'db_table_info.write_fails', 'datatype' : 'int', 'index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Analytics Protobuf Collector Statistics Database Table',
+      'stat_type' : 'ProtobufCollectorStats',
+      'stat_attr' : 'db_statistics_table_info',
+      'obj_table' : COLLECTOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'db_statistics_table_info.table_name', 'datatype' : 'string', 'index' : true},
+          { 'name' : 'db_statistics_table_info.reads', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'db_statistics_table_info.read_fails', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'db_statistics_table_info.writes', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'db_statistics_table_info.write_fails', 'datatype' : 'int', 'index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Analytics Protobuf Collector Database Errors',
+      'stat_type' : 'ProtobufCollectorStats',
+      'stat_attr' : 'db_errors',
+      'obj_table' : COLLECTOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'db_errors.write_tablespace_fails', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'db_errors.read_tablespace_fails', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'db_errors.write_table_fails', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'db_errors.read_table_fails', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'db_errors.write_column_fails', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'db_errors.write_batch_column_fails', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'db_errors.read_column_fails', 'datatype' : 'int', 'index' : false},
+        ]
+    },
+    {
       'display_name' : 'Physical Router Linecard Heap Usage',
       'stat_type' : 'PFEHeapInfo'
       'stat_attr' : 'heap_info',

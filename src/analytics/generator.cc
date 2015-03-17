@@ -264,10 +264,10 @@ bool SandeshGenerator::GetSandeshStateMachineStats(
     return state_machine_->GetStatistics(sm_stats, sm_msg_stats);
 }
 
-bool SandeshGenerator::GetDbStats(uint64_t &queue_count, uint64_t &enqueues,
-    std::string &drop_level, std::vector<SandeshStats> &vdropmstats) const {
-    return db_handler_->GetStats(queue_count, enqueues, drop_level,
-               vdropmstats);
+bool SandeshGenerator::GetDbStats(uint64_t *queue_count, uint64_t *enqueues,
+    std::string *drop_level, std::vector<SandeshStats> *vdropmstats) const {
+    db_handler_->GetSandeshStats(drop_level, vdropmstats);
+    return db_handler_->GetStats(queue_count, enqueues);
 }
 
 void SandeshGenerator::SendDbStatistics() {
