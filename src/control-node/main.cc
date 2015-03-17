@@ -143,7 +143,8 @@ static void ShutdownServers(
 
 bool ControlNodeInfoLogTimer(TaskTrigger *node_info_trigger) {
     node_info_trigger->Set();
-    return false;
+    // Periodic timer. Restart
+    return true;
 }
 
 bool ControlNodeVersion(string &build_info_str) {
@@ -594,6 +595,7 @@ int main(int argc, char *argv[]) {
                         start_time, node_info_log_timer.get()),
             TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0));
 
+    // Start Periodic timer to send BGPRouterInfo UVE
     node_info_log_timer->Start(
         60 * 1000,
         boost::bind(&ControlNodeInfoLogTimer, node_info_trigger.get()),
