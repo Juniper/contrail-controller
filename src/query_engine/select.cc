@@ -404,7 +404,7 @@ query_status_t SelectQuery::process_query() {
                 std::map<std::string, GenDb::DbDataValue>::iterator kt = col_res_map.find(*jt);
                 if (kt == col_res_map.end()) {
                     // rather than asserting just return empty string
-                    cmap.insert(std::make_pair(*jt, std::string("0")));
+                    cmap.insert(std::make_pair(*jt, std::string("")));
                     continue;
                 }
 
