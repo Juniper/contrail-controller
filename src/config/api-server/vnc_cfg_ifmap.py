@@ -1504,7 +1504,8 @@ class VncDbClient(object):
     # end dbe_update
 
     def dbe_list(self, obj_type, parent_uuids=None, back_ref_uuids=None,
-                 obj_uuids=None, count=False):
+                 obj_uuids=None, count=False, paginate_start=None,
+                 paginate_count=None):
         method_name = obj_type.replace('-', '_')
         (ok, cassandra_result) = self._cassandra_db.list(method_name, parent_uuids=parent_uuids,
                                         back_ref_uuids=back_ref_uuids,
