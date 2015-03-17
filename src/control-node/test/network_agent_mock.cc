@@ -1186,16 +1186,12 @@ void NetworkAgentMock::InstanceMgr<T>::Unsubscribe(const std::string &network,
     //
     Instance<T> *rti;
     typename InstanceMap::iterator loc = instance_map_.find(network);
-    if (loc == instance_map_.end()) return;
-
-    rti = loc->second;
-    rti->Clear();
-
-    //
-    // Remvoe the table from the map
-    //
-    instance_map_.erase(loc);
-    delete rti;
+    if (loc != instance_map_.end()) {
+        rti = loc->second;
+        rti->Clear();
+        instance_map_.erase(loc);
+        delete rti;
+    }
 
     if (!send_unsubscribe)
         return;
