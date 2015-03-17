@@ -470,7 +470,8 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
             return True,  ""
 
         vn_id = {'uuid': id}
-        (read_ok, read_result) = db_conn.dbe_read('virtual-network', vn_id)
+        (read_ok, read_result) = db_conn.dbe_read('virtual-network', vn_id,
+                                                  obj_fields=['instance_ip_back_refs'])
         if not read_ok:
             return (False, (500, read_result))
 
