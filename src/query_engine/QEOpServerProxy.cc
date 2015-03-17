@@ -100,6 +100,13 @@ public:
                 dd.AddMember(map_it->first.c_str(), val, dd.GetAllocator());
                 found = true;
             } else if (columns[j].name == map_it->first) {
+                if (map_it->second.length() == 0) {
+                    rapidjson::Value val(rapidjson::kNullType);
+                    dd.AddMember(map_it->first.c_str(), val, dd.GetAllocator());
+                    found = true;
+                    continue;
+                }
+
                 // find out type and convert
                 if (columns[j].datatype == "string" || 
                     columns[j].datatype == "uuid")
