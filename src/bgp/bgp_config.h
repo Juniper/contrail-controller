@@ -17,36 +17,64 @@
 class BgpServer;
 
 struct AuthenticationKey {
-    enum KeyType {
-        NIL = 0,
-        MD5,
-    };
-
-    AuthenticationKey() : type(NIL), start_time(0) {
+    AuthenticationKey() : start_time(0) {
     }
 
     bool operator<(const AuthenticationKey &) const;
-    bool operator!=(const AuthenticationKey &) const;
-    bool IsMd5() const { return type == MD5; }
+    bool operator==(const AuthenticationKey &) const;
     void Reset() {
-        id = "";
-        type = NIL;
         value = "";
-    }
-    std::string KeyTypeToString() const {
-        switch (type) {
-            case MD5: return "MD5";
-            default: return "NIL";
-        }
+        start_time = 0;
     }
 
-    std::string id;
-    KeyType type;
+    int id;
     std::string value;
     time_t start_time;
 };
 
 typedef std::vector<AuthenticationKey> AuthenticationKeyChain;
+
+class AuthenticationData {
+public:
+    enum KeyType {
+        NIL = 0,
+        MD5,
+    };
+    typedef AuthenticationKeyChain::iterator iterator;
+    typedef AuthenticationKeyChain::const_iterator const_iterator;
+
+    iterator begin() { return key_chain_.begin(); }
+    iterator end() { return key_chain_.end(); }
+    const_iterator begin() const { return key_chain_.begin(); }
+    const_iterator end() const { return key_chain_.end(); }
+
+    AuthenticationData();
+    AuthenticationData(KeyType type, const AuthenticationKeyChain &chain);
+
+    bool operator==(const AuthenticationData &rhs) const;
+    bool operator<(const AuthenticationData &rhs) const;
+    AuthenticationData &operator=(const AuthenticationData &rhs);
+
+    const AuthenticationKey *Find(int key_id) const;
+    bool IsMd5() const { return key_type_ == MD5; }
+    bool Empty() const;
+    void Clear();
+    std::string KeyTypeToString() const;
+    void AddKeyToKeyChain(const AuthenticationKey &key);
+
+    KeyType key_type() const { return key_type_; }
+    void set_key_type(KeyType in_type) {
+        key_type_ = in_type;
+    }
+    const AuthenticationKeyChain &key_chain() const { return key_chain_; }
+    void set_key_chain(const AuthenticationKeyChain &in_chain) {
+        key_chain_ = in_chain;
+    }
+
+private:
+    KeyType key_type_;
+    AuthenticationKeyChain key_chain_;
+};
 
 // The configuration associated with a BGP neighbor.
 //
@@ -125,11 +153,11 @@ public:
         local_identifier_ = identifier;
     }
 
-    const AuthenticationKeyChain &keychain() const {
-        return keychain_;
+    const AuthenticationData &auth_data() const {
+        return auth_data_;
     }
-    void set_keychain(const AuthenticationKeyChain &keychain) {
-        keychain_ = keychain;
+    void set_keydata(const AuthenticationData &in_auth_data) {
+        auth_data_ = in_auth_data;
     }
 
     const AddressFamilyList &address_families() const {
@@ -160,7 +188,7 @@ private:
     int hold_time_;
     uint32_t local_as_;
     uint32_t local_identifier_;
-    AuthenticationKeyChain keychain_;
+    AuthenticationData auth_data_;
     AddressFamilyList address_families_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpNeighborConfig);

@@ -67,27 +67,28 @@ void BgpIfmapPeeringConfig::SetNodeProxy(IFMapNodeProxy *proxy) {
     }
 }
 
-static AuthenticationKey::KeyType KeyChainType(const std::string &value) {
+static AuthenticationData::KeyType KeyChainType(const std::string &value) {
     // Case-insensitive comparison
     if (boost::iequals(value, "md5")) {
-        return AuthenticationKey::MD5;
+        return AuthenticationData::MD5;
     }
-    return AuthenticationKey::NIL;
+    return AuthenticationData::NIL;
 }
 
 static void BuildKeyChain(BgpNeighborConfig *neighbor,
-                          const autogen::AuthenticationKeyChain &values) {
-    AuthenticationKeyChain keychain;
-    for (autogen::AuthenticationKeyChain::const_iterator iter = values.begin();
-         iter != values.end(); ++iter) {
-        AuthenticationKey key;
+                          const autogen::AuthenticationData &values) {
+    AuthenticationData keydata;
+    keydata.set_key_type(KeyChainType(values.key_type));
+
+    AuthenticationKey key;
+    for (std::vector<autogen::AuthenticationKeyItem>::const_iterator iter =
+            values.key_items.begin(); iter != values.key_items.end(); ++iter) {
         key.id = iter->key_id;
-        key.type = KeyChainType(iter->key_type);
-        key.value =  iter->key;
-        key.start_time = iter->start_time;
-        keychain.push_back(key);
+        key.value = iter->key;
+        key.start_time = 0;
+        keydata.AddKeyToKeyChain(key);
     }
-    neighbor->set_keychain(keychain);
+    neighbor->set_keydata(keydata);
 }
 
 //
@@ -122,7 +123,7 @@ static void NeighborSetSessionAttributes(
     }
     if (attributes != NULL) {
         neighbor->set_address_families(attributes->address_families.family);
-        BuildKeyChain(neighbor, attributes->auth_key_chain);
+        BuildKeyChain(neighbor, attributes->auth_data);
     }
 }
 
@@ -195,9 +196,9 @@ static BgpNeighborConfig *MakeBgpNeighborConfig(
         if (neighbor->address_families().empty()) {
             neighbor->set_address_families(params.address_families.family);
         }
-        if (neighbor->keychain().empty()) {
+        if (neighbor->auth_data().Empty()) {
             const autogen::BgpRouterParams &lp = local_router->parameters();
-            BuildKeyChain(neighbor, lp.auth_key_chain);
+            BuildKeyChain(neighbor, lp.auth_data);
         }
     }
 

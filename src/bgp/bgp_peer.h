@@ -15,7 +15,7 @@
 #include "base/util.h"
 #include "base/task_trigger.h"
 #include "base/timer.h"
-#include "bgp/auth_keychain.h"
+#include "bgp/bgp_config.h"
 #include "bgp/bgp_debug.h"
 #include "bgp/bgp_peer_key.h"
 #include "bgp/bgp_proto.h"
@@ -220,10 +220,10 @@ public:
     const StateMachine *state_machine() const { return state_machine_.get(); }
 
     bool GetBestAuthKeyItem(AuthenticationKey *auth_key);
-    bool AuthKeyIsMd5(const AuthenticationKey &auth_key);
+    bool AuthDataIsMd5();
     void InstallAuthKeys(TcpSession *session);
     std::string GetInuseAuthKeyValue() const;
-    void SetListenSocketAuthKey();
+    void SetListenSocketAuthKey(const AuthenticationKey &auth_key);
     void ClearListenSocketAuthKey();
 
 private:
@@ -323,7 +323,7 @@ private:
     mutable tbb::atomic<int> refcount_;
     uint32_t flap_count_;
     uint64_t last_flap_;
-    AuthKeyChain auth_key_chain_;
+    AuthenticationData auth_data_;
     AuthenticationKey inuse_auth_key_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpPeer);

@@ -3,6 +3,8 @@
  */
 #include "bgp/bgp_config.h"
 
+#include "base/string_util.h"
+
 const char *BgpConfigManager::kMasterInstance =
         "default-domain:default-project:ip-fabric:__default__";
 const int BgpConfigManager::kDefaultPort = 179;
@@ -11,7 +13,6 @@ const uint32_t BgpConfigManager::kDefaultAutonomousSystem = 64512;
 static int CompareTo(const AuthenticationKey &lhs,
                      const AuthenticationKey &rhs) {
     KEY_COMPARE(lhs.id, rhs.id);
-    KEY_COMPARE(lhs.type, rhs.type);
     KEY_COMPARE(lhs.value, rhs.value);
     KEY_COMPARE(lhs.start_time, rhs.start_time);
     return 0;
@@ -22,9 +23,83 @@ bool AuthenticationKey::operator<(const AuthenticationKey &rhs) const {
     return cmp < 0;
 }
 
-bool AuthenticationKey::operator!=(const AuthenticationKey &rhs) const {
+bool AuthenticationKey::operator==(const AuthenticationKey &rhs) const {
     int cmp = CompareTo(*this, rhs);
-    return cmp != 0;
+    return cmp == 0;
+}
+
+AuthenticationData::AuthenticationData() : key_type_(NIL) {
+}
+
+AuthenticationData::AuthenticationData(KeyType type,
+        const AuthenticationKeyChain &chain) :
+    key_type_(type), key_chain_(chain) {
+}
+
+bool AuthenticationData::operator<(const AuthenticationData &rhs) const {
+    BOOL_KEY_COMPARE(key_type_, rhs.key_type());
+    BOOL_KEY_COMPARE(key_chain_, rhs.key_chain());
+    return false;
+}
+
+bool AuthenticationData::operator==(const AuthenticationData &rhs) const {
+    if ((key_chain_.size() != rhs.key_chain().size()) ||
+        (key_type_ != rhs.key_type())) {
+        return false;
+    }
+
+    for (size_t ocnt = 0; ocnt < rhs.key_chain().size(); ++ocnt) {
+        bool found = false;
+        for (size_t icnt = 0; icnt < key_chain_.size(); ++icnt) {
+            if (key_chain_[icnt] == rhs.key_chain()[ocnt]) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            return false;
+        }
+    }
+    return true;
+}
+
+AuthenticationData &AuthenticationData::operator=(
+        const AuthenticationData &rhs) {
+    set_key_type(rhs.key_type());
+    set_key_chain(rhs.key_chain());
+    return *this;
+}
+
+void AuthenticationData::AddKeyToKeyChain(const AuthenticationKey &key) {
+    key_chain_.push_back(key);
+}
+
+const AuthenticationKey *AuthenticationData::Find(int key_id) const {
+    const AuthenticationKey *item;
+    for (size_t i = 0; i < key_chain_.size(); ++i) {
+        item = &key_chain_[i];
+        if (item->id == key_id) {
+            return item;
+        }
+    }
+    return NULL;
+}
+
+bool AuthenticationData::Empty() const {
+    return key_chain_.empty();
+}
+
+void AuthenticationData::Clear() {
+    key_chain_.clear();
+}
+
+std::string AuthenticationData::KeyTypeToString() const {
+    switch (key_type_) {
+        case MD5:
+            return "MD5";
+        default:
+            return "NIL";
+    }
 }
 
 BgpNeighborConfig::BgpNeighborConfig()
@@ -48,7 +123,7 @@ void BgpNeighborConfig::CopyValues(const BgpNeighborConfig &rhs) {
     hold_time_ = rhs.hold_time_;
     local_as_ = rhs.local_as_;
     local_identifier_ = rhs.local_identifier_;
-    keychain_ = rhs.keychain_;
+    auth_data_ = rhs.auth_data_;
     address_families_ = rhs.address_families_;
 }
 
@@ -64,7 +139,7 @@ int BgpNeighborConfig::CompareTo(const BgpNeighborConfig &rhs) const {
     KEY_COMPARE(hold_time_, rhs.hold_time_);
     KEY_COMPARE(local_as_, rhs.local_as_);
     KEY_COMPARE(local_identifier_, rhs.local_identifier_);
-    KEY_COMPARE(keychain_, rhs.keychain_);
+    KEY_COMPARE(auth_data_, rhs.auth_data_);
     KEY_COMPARE(address_families_, rhs.address_families_);
     return 0;
 }
@@ -73,9 +148,11 @@ int BgpNeighborConfig::CompareTo(const BgpNeighborConfig &rhs) const {
 const std::vector<std::string> BgpNeighborConfig::AuthKeysToString() {
     AuthenticationKeyChain::const_iterator iter;
     std::vector<std::string> auth_keys;
-    for (iter = keychain_.begin(); iter != keychain_.end(); ++iter) {
+    std::string ktype = auth_data_.KeyTypeToString();
+    for (iter = auth_data_.key_chain().begin();
+                iter != auth_data_.key_chain().end(); ++iter) {
         AuthenticationKey key = *iter;
-        auth_keys.push_back(key.id + ":" + key.KeyTypeToString());
+        auth_keys.push_back(integerToString(key.id) + ":" + ktype);
     }
     return auth_keys;
 }
