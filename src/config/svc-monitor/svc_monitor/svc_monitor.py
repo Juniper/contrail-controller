@@ -725,7 +725,7 @@ def timer_callback(monitor):
         si = ServiceInstanceSM.get(si_id)
         if not monitor._check_service_running(si):
             monitor._relaunch_service_instance(si)
-        if si.max_instances > len(si.virtual_machines):
+        if si.max_instances != len(si.virtual_machines):
             monitor._relaunch_service_instance(si)
 
     # check vns to be deleted
