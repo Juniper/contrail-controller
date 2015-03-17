@@ -34,8 +34,10 @@ class ProtobufServer {
         std::vector<SocketEndpointMessageStats> *v_rx_msg_stats);
     void GetReceivedMessageStatistics(
         std::vector<SocketEndpointMessageStats> *v_rx_msg_stats);
+    void SetShutdownLibProtobufOnDelete(bool shutdown_on_delete);
 
  private:
+    bool shutdown_libprotobuf_on_delete_;
     class ProtobufServerImpl;
     ProtobufServerImpl *impl_;
 };

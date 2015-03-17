@@ -637,7 +637,8 @@ static void ProtobufLibraryLog(google::protobuf::LogLevel level,
 }
 
 ProtobufServer::ProtobufServer(EventManager *evm,
-    uint16_t udp_server_port, StatWalker::StatTableInsertFn stat_db_fn) {
+    uint16_t udp_server_port, StatWalker::StatTableInsertFn stat_db_fn) :
+    shutdown_libprotobuf_on_delete_(true) {
     GOOGLE_PROTOBUF_VERIFY_VERSION;
     google::protobuf::SetLogHandler(&ProtobufLibraryLog);
     impl_ = new ProtobufServerImpl(evm, udp_server_port, stat_db_fn);
@@ -648,7 +649,9 @@ ProtobufServer::~ProtobufServer() {
         delete impl_;
         impl_ = NULL;
     }
-    google::protobuf::ShutdownProtobufLibrary();
+    if (shutdown_libprotobuf_on_delete_) {
+        google::protobuf::ShutdownProtobufLibrary();
+    }
 }
 
 bool ProtobufServer::Initialize() {
@@ -673,6 +676,10 @@ void ProtobufServer::GetStatistics(std::vector<SocketIOStats> *v_tx_stats,
 void ProtobufServer::GetReceivedMessageStatistics(
     std::vector<SocketEndpointMessageStats> *v_rx_msg_stats) {
     return impl_->GetReceivedMessageStatistics(v_rx_msg_stats);
+}
+
+void ProtobufServer::SetShutdownLibProtobufOnDelete(bool shutdown_on_delete) {
+    shutdown_libprotobuf_on_delete_ = shutdown_on_delete;
 }
 
 }  // namespace protobuf
