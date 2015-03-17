@@ -248,20 +248,19 @@ class DBInterface(object):
         return
     #end _security_group_rule_create
 
-    def _security_group_rule_find(self, sgr_id):
-        dom_projects = self._project_list_domain(None)
-        for project in dom_projects:
-            proj_id = project['uuid']
-            project_sgs = self._security_group_list_project(proj_id)
+    def _security_group_rule_find(self, sgr_id, project_uuid=None):
+        # Get all security group for a project if project uuid is specified
+        # else get all security groups in the system(admin context)
+        project_sgs = self._security_group_list_project(project_uuid)
 
-            for sg_obj in project_sgs:
-                sgr_entries = sg_obj.get_security_group_entries()
-                if sgr_entries == None:
-                    continue
+        for sg_obj in project_sgs:
+            sgr_entries = sg_obj.get_security_group_entries()
+            if sgr_entries == None:
+                continue
 
-                for sg_rule in sgr_entries.get_policy_rule():
-                    if sg_rule.get_rule_uuid() == sgr_id:
-                        return sg_obj, sg_rule
+            for sg_rule in sgr_entries.get_policy_rule():
+                if sg_rule.get_rule_uuid() == sgr_id:
+                    return sg_obj, sg_rule
 
         return None, None
     #end _security_group_rule_find
