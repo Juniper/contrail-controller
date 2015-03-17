@@ -7,8 +7,6 @@ from cStringIO import StringIO
 import uuid
 import netaddr
 
-from neutron.common import exceptions as n_exc
-from neutron.openstack.common import log as logging
 import svc_monitor.services.loadbalancer.drivers.abstract_driver as abstract_driver
 
 from cfgm_common.zkclient import ZookeeperClient,IndexAllocator
@@ -22,8 +20,6 @@ from f5.bigip import bigip_interfaces
 from f5.bigip.bigip_interfaces import strip_folder_and_prefix
 
 from svc_monitor.config_db import *
-
-LOG = logging.getLogger(__name__)
 
 APP_COOKIE_RULE_PREFIX = 'app_cookie_'
 RPS_THROTTLE_RULE_PREFIX = 'rps_throttle_'
