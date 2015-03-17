@@ -80,7 +80,9 @@ public:
         INVALID = 0,
         SUM = 1,
         COUNT = 2,
-        CLASS = 3
+        CLASS = 3,
+        MAX = 4,
+        MIN = 5
     };
 
     // This is a map of aggregations for an output row

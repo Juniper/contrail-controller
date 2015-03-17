@@ -92,7 +92,7 @@ public:
         bool found = false;
         for (size_t j = 0; j < columns.size(); j++)
         {
-            if (0 == map_it->first.compare(0,5,string("COUNT"))) {
+            if ((0 == map_it->first.compare(0,5,string("COUNT")))) {
                 rapidjson::Value val(rapidjson::kNumberType);
                 unsigned long num = 0;
                 stringToInteger(map_it->second, num);
