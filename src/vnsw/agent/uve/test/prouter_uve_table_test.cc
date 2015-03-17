@@ -4,8 +4,8 @@
 
 #include <uve/test/prouter_uve_table_test.h>
 
-ProuterUveTableTest::ProuterUveTableTest(Agent *agent) :
-    ProuterUveTable(agent) {
+ProuterUveTableTest::ProuterUveTableTest(Agent *agent, uint32_t default_intvl) :
+    ProuterUveTable(agent, default_intvl) {
 }
 
 ProuterUveTableTest::~ProuterUveTableTest() {

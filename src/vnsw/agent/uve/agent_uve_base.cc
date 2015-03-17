@@ -30,7 +30,7 @@ AgentUveBase *AgentUveBase::singleton_;
 AgentUveBase::AgentUveBase(Agent *agent, uint64_t intvl, bool create_objects,
                            uint32_t default_intvl, uint32_t incremental_intvl)
     : vn_uve_table_(NULL), vm_uve_table_(NULL), vrouter_uve_entry_(NULL),
-      prouter_uve_table_(new ProuterUveTable(agent)),
+      prouter_uve_table_(new ProuterUveTable(agent, default_intvl)),
       default_interval_(default_intvl),
       incremental_interval_(incremental_intvl),
       agent_(agent), bandwidth_intvl_(intvl),
