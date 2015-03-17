@@ -681,7 +681,7 @@ class AddrMgmt(object):
         #     requested [1.1.1.0/24] OR
         #     requested [1.1.1.0/28, 2.2.2.0/24]
         requested_subnets = self._vn_to_subnets(req_vn_dict)
-        if requested_subnets == None:
+        if requested_subnets is None:
             # subnets not modified in request
             return True, ""
 
