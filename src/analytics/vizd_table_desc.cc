@@ -30,25 +30,25 @@ void init_vizd_tables() {
                       (GenDb::DbDataType::LexicalUUIDType),
                       boost::assign::map_list_of
                       (g_viz_constants.SOURCE,
-                       GenDb::DbDataType::AsciiType)
+                       GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.NAMESPACE,
-                       GenDb::DbDataType::AsciiType)
+                       GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.MODULE,
-                       GenDb::DbDataType::AsciiType)
+                       GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.INSTANCE_ID,
-                       GenDb::DbDataType::AsciiType)
+                       GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.NODE_TYPE,
-                       GenDb::DbDataType::AsciiType)
+                       GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.CONTEXT,
-                       GenDb::DbDataType::AsciiType)
+                       GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.TIMESTAMP,
                        GenDb::DbDataType::Unsigned64Type)
                       (g_viz_constants.CATEGORY,
-                       GenDb::DbDataType::AsciiType)
+                       GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.LEVEL,
                        GenDb::DbDataType::Unsigned32Type)
                       (g_viz_constants.MESSAGE_TYPE,
-                       GenDb::DbDataType::AsciiType)
+                       GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.SEQUENCE_NUM,
                        GenDb::DbDataType::Unsigned32Type)
                       (g_viz_constants.VERSION,
@@ -56,15 +56,15 @@ void init_vizd_tables() {
                       (g_viz_constants.SANDESH_TYPE,
                        GenDb::DbDataType::Unsigned8Type)
                       (g_viz_constants.IPADDRESS,
-                       GenDb::DbDataType::AsciiType)
+                       GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.PID,
                        GenDb::DbDataType::Unsigned32Type)
                       (g_viz_constants.DATA,
-                       GenDb::DbDataType::AsciiType)))
+                       GenDb::DbDataType::UTF8Type)))
         (GenDb::NewCf(g_viz_constants.MESSAGE_TABLE_SOURCE,
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type)
-                      (GenDb::DbDataType::AsciiType),
+                      (GenDb::DbDataType::UTF8Type),
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type),
                       boost::assign::list_of
@@ -72,7 +72,7 @@ void init_vizd_tables() {
         (GenDb::NewCf(g_viz_constants.MESSAGE_TABLE_MODULE_ID,
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type)
-                      (GenDb::DbDataType::AsciiType),
+                      (GenDb::DbDataType::UTF8Type),
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type),
                       boost::assign::list_of
@@ -80,7 +80,7 @@ void init_vizd_tables() {
         (GenDb::NewCf(g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE,
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type)
-                      (GenDb::DbDataType::AsciiType),
+                      (GenDb::DbDataType::UTF8Type),
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type),
                       boost::assign::list_of
@@ -88,7 +88,7 @@ void init_vizd_tables() {
         (GenDb::NewCf(g_viz_constants.MESSAGE_TABLE_CATEGORY,
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type)
-                      (GenDb::DbDataType::AsciiType),
+                      (GenDb::DbDataType::UTF8Type),
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type),
                       boost::assign::list_of
@@ -103,14 +103,14 @@ void init_vizd_tables() {
         (GenDb::NewCf(g_viz_constants.OBJECT_VALUE_TABLE,
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type)
-                      (GenDb::DbDataType::AsciiType),
+                      (GenDb::DbDataType::UTF8Type),
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type),
                       boost::assign::list_of
-                      (GenDb::DbDataType::AsciiType)))
+                      (GenDb::DbDataType::UTF8Type)))
         (GenDb::NewCf(g_viz_constants.SYSTEM_OBJECT_TABLE,
                       boost::assign::list_of
-                      (GenDb::DbDataType::AsciiType),
+                      (GenDb::DbDataType::UTF8Type),
                       boost::assign::map_list_of
                       (g_viz_constants.SYSTEM_OBJECT_START_TIME,
                        GenDb::DbDataType::Unsigned64Type)))
@@ -118,16 +118,16 @@ void init_vizd_tables() {
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type)
                       (GenDb::DbDataType::Unsigned8Type)
-                      (GenDb::DbDataType::AsciiType),
+                      (GenDb::DbDataType::UTF8Type),
                       boost::assign::list_of
-                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::UTF8Type)
                       (GenDb::DbDataType::Unsigned32Type),
                       boost::assign::list_of
                       (GenDb::DbDataType::LexicalUUIDType)))
         (GenDb::NewCf(g_viz_constants.MESSAGE_TABLE_KEYWORD,
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type)
-                      (GenDb::DbDataType::AsciiType),
+                      (GenDb::DbDataType::UTF8Type),
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type),
                       boost::assign::list_of
@@ -166,15 +166,15 @@ void init_vizd_tables() {
                       (GenDb::DbDataType::LexicalUUIDType),
                       boost::assign::map_list_of
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_VROUTER],
-                       GenDb::DbDataType::AsciiType)
+                       GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DIRECTION_ING],
                        GenDb::DbDataType::Unsigned8Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEVN],
-                       GenDb::DbDataType::AsciiType)
+                       GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP],
                        GenDb::DbDataType::Unsigned32Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTVN],
-                       GenDb::DbDataType::AsciiType)
+                       GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP],
                        GenDb::DbDataType::Unsigned32Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_PROTOCOL],
@@ -188,15 +188,15 @@ void init_vizd_tables() {
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_TCP_FLAGS],
                        GenDb::DbDataType::Unsigned8Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_VM],
-                       GenDb::DbDataType::AsciiType)
+                       GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_INPUT_INTERFACE],
-                       GenDb::DbDataType::AsciiType)
+                       GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_OUTPUT_INTERFACE],
-                       GenDb::DbDataType::AsciiType)
+                       GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_MPLS_LABEL],
                        GenDb::DbDataType::Unsigned32Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_REVERSE_UUID],
-                       GenDb::DbDataType::AsciiType)
+                       GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SETUP_TIME],
                        GenDb::DbDataType::Unsigned64Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_TEARDOWN_TIME],
@@ -214,17 +214,17 @@ void init_vizd_tables() {
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_PACKETS],
                        GenDb::DbDataType::Unsigned64Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DATA_SAMPLE],
-                       GenDb::DbDataType::AsciiType)
+                       GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_ACTION],
-                       GenDb::DbDataType::AsciiType)
+                       GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SG_RULE_UUID],
                        GenDb::DbDataType::LexicalUUIDType)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_NW_ACE_UUID],
                        GenDb::DbDataType::LexicalUUIDType)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_VROUTER_IP],
-                       GenDb::DbDataType::AsciiType)
+                       GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_OTHER_VROUTER_IP],
-                       GenDb::DbDataType::AsciiType)
+                       GenDb::DbDataType::UTF8Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_UNDERLAY_PROTO],
                        GenDb::DbDataType::Unsigned16Type)
                       (g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_UNDERLAY_SPORT],
@@ -238,7 +238,7 @@ void init_vizd_tables() {
                       (GenDb::DbDataType::Unsigned8Type)
                       (GenDb::DbDataType::Unsigned8Type),
                       boost::assign::list_of
-                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::UTF8Type)
                       (GenDb::DbDataType::Unsigned32Type)
                       (GenDb::DbDataType::Unsigned32Type)
                       (GenDb::DbDataType::LexicalUUIDType),
@@ -247,15 +247,15 @@ void init_vizd_tables() {
                       (GenDb::DbDataType::Unsigned64Type)
                       (GenDb::DbDataType::Unsigned8Type)
                       (GenDb::DbDataType::LexicalUUIDType)
-                      (GenDb::DbDataType::AsciiType)
-                      (GenDb::DbDataType::AsciiType)
-                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::UTF8Type)
+                      (GenDb::DbDataType::UTF8Type)
+                      (GenDb::DbDataType::UTF8Type)
                       (GenDb::DbDataType::Unsigned32Type)
                       (GenDb::DbDataType::Unsigned32Type)
                       (GenDb::DbDataType::Unsigned8Type)
                       (GenDb::DbDataType::Unsigned16Type)
                       (GenDb::DbDataType::Unsigned16Type)
-                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::UTF8Type)
                      ))
 
     /* (DVN,DIP) index table */
@@ -265,7 +265,7 @@ void init_vizd_tables() {
                   (GenDb::DbDataType::Unsigned8Type)
                   (GenDb::DbDataType::Unsigned8Type),
                   boost::assign::list_of
-                  (GenDb::DbDataType::AsciiType)
+                  (GenDb::DbDataType::UTF8Type)
                   (GenDb::DbDataType::Unsigned32Type)
                   (GenDb::DbDataType::Unsigned32Type)
                   (GenDb::DbDataType::LexicalUUIDType),
@@ -274,15 +274,15 @@ void init_vizd_tables() {
                   (GenDb::DbDataType::Unsigned64Type)
                   (GenDb::DbDataType::Unsigned8Type)
                   (GenDb::DbDataType::LexicalUUIDType)
-                  (GenDb::DbDataType::AsciiType)
-                  (GenDb::DbDataType::AsciiType)
-                  (GenDb::DbDataType::AsciiType)
+                  (GenDb::DbDataType::UTF8Type)
+                  (GenDb::DbDataType::UTF8Type)
+                  (GenDb::DbDataType::UTF8Type)
                   (GenDb::DbDataType::Unsigned32Type)
                   (GenDb::DbDataType::Unsigned32Type)
                   (GenDb::DbDataType::Unsigned8Type)
                   (GenDb::DbDataType::Unsigned16Type)
                   (GenDb::DbDataType::Unsigned16Type)
-                  (GenDb::DbDataType::AsciiType)
+                  (GenDb::DbDataType::UTF8Type)
                  ))
 
  /* (PROT, SP) index table */
@@ -301,15 +301,15 @@ void init_vizd_tables() {
                 (GenDb::DbDataType::Unsigned64Type)
                 (GenDb::DbDataType::Unsigned8Type)
                 (GenDb::DbDataType::LexicalUUIDType)
-                (GenDb::DbDataType::AsciiType)
-                (GenDb::DbDataType::AsciiType)
-                (GenDb::DbDataType::AsciiType)
+                (GenDb::DbDataType::UTF8Type)
+                (GenDb::DbDataType::UTF8Type)
+                (GenDb::DbDataType::UTF8Type)
                 (GenDb::DbDataType::Unsigned32Type)
                 (GenDb::DbDataType::Unsigned32Type)
                 (GenDb::DbDataType::Unsigned8Type)
                 (GenDb::DbDataType::Unsigned16Type)
                 (GenDb::DbDataType::Unsigned16Type)
-                (GenDb::DbDataType::AsciiType)
+                (GenDb::DbDataType::UTF8Type)
                 ))
         /* (PROT, DP) index table */
         (GenDb::NewCf(g_viz_constants.FLOW_TABLE_PROT_DP,
@@ -327,15 +327,15 @@ void init_vizd_tables() {
                       (GenDb::DbDataType::Unsigned64Type)
                       (GenDb::DbDataType::Unsigned8Type)
                       (GenDb::DbDataType::LexicalUUIDType)
-                      (GenDb::DbDataType::AsciiType)
-                      (GenDb::DbDataType::AsciiType)
-                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::UTF8Type)
+                      (GenDb::DbDataType::UTF8Type)
+                      (GenDb::DbDataType::UTF8Type)
                       (GenDb::DbDataType::Unsigned32Type)
                       (GenDb::DbDataType::Unsigned32Type)
                       (GenDb::DbDataType::Unsigned8Type)
                       (GenDb::DbDataType::Unsigned16Type)
                       (GenDb::DbDataType::Unsigned16Type)
-                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::UTF8Type)
                      ))
  /* (VROUTER) index table */
         (GenDb::NewCf(g_viz_constants.FLOW_TABLE_VROUTER,
@@ -344,7 +344,7 @@ void init_vizd_tables() {
                       (GenDb::DbDataType::Unsigned8Type)
                       (GenDb::DbDataType::Unsigned8Type),
                       boost::assign::list_of
-                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::UTF8Type)
                       (GenDb::DbDataType::Unsigned32Type)
                       (GenDb::DbDataType::LexicalUUIDType),
                       boost::assign::list_of
@@ -352,15 +352,15 @@ void init_vizd_tables() {
                       (GenDb::DbDataType::Unsigned64Type)
                       (GenDb::DbDataType::Unsigned8Type)
                       (GenDb::DbDataType::LexicalUUIDType)
-                      (GenDb::DbDataType::AsciiType)
-                      (GenDb::DbDataType::AsciiType)
-                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::UTF8Type)
+                      (GenDb::DbDataType::UTF8Type)
+                      (GenDb::DbDataType::UTF8Type)
                       (GenDb::DbDataType::Unsigned32Type)
                       (GenDb::DbDataType::Unsigned32Type)
                       (GenDb::DbDataType::Unsigned8Type)
                       (GenDb::DbDataType::Unsigned16Type)
                       (GenDb::DbDataType::Unsigned16Type)
-                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::UTF8Type)
                      ))
         ;
 
@@ -370,9 +370,9 @@ void init_vizd_tables() {
     GenDb::DbDataTypeVec stat_row_onetag = boost::assign::list_of
             (GenDb::DbDataType::Unsigned32Type)
             (GenDb::DbDataType::Unsigned8Type)
-            (GenDb::DbDataType::AsciiType)
-            (GenDb::DbDataType::AsciiType)
-            (GenDb::DbDataType::AsciiType)
+            (GenDb::DbDataType::UTF8Type)
+            (GenDb::DbDataType::UTF8Type)
+            (GenDb::DbDataType::UTF8Type)
         ;
 
 /*  For Stat Tables that have two tags
@@ -381,10 +381,10 @@ void init_vizd_tables() {
     GenDb::DbDataTypeVec stat_row_twotag = boost::assign::list_of
             (GenDb::DbDataType::Unsigned32Type)
             (GenDb::DbDataType::Unsigned8Type)
-            (GenDb::DbDataType::AsciiType)
-            (GenDb::DbDataType::AsciiType)
-            (GenDb::DbDataType::AsciiType)
-            (GenDb::DbDataType::AsciiType)
+            (GenDb::DbDataType::UTF8Type)
+            (GenDb::DbDataType::UTF8Type)
+            (GenDb::DbDataType::UTF8Type)
+            (GenDb::DbDataType::UTF8Type)
         ;
 
     vizd_stat_tables =
@@ -397,12 +397,12 @@ void init_vizd_tables() {
         (GenDb::NewCf(g_viz_constants.STATS_TABLE_BY_STR_STR_TAG,
                       stat_row_twotag,
                       boost::assign::list_of
-                      (GenDb::DbDataType::AsciiType)
-                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::UTF8Type)
+                      (GenDb::DbDataType::UTF8Type)
                       (GenDb::DbDataType::Unsigned32Type)
                       (GenDb::DbDataType::LexicalUUIDType),
                       boost::assign::list_of
-                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::UTF8Type)
                      ))
 /* Stats Table by String,U64 tag
  * The schema is as follows:
@@ -412,12 +412,12 @@ void init_vizd_tables() {
         (GenDb::NewCf(g_viz_constants.STATS_TABLE_BY_STR_U64_TAG,
                       stat_row_twotag,
                       boost::assign::list_of
-                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::UTF8Type)
                       (GenDb::DbDataType::Unsigned64Type)
                       (GenDb::DbDataType::Unsigned32Type)
                       (GenDb::DbDataType::LexicalUUIDType),
                       boost::assign::list_of
-                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::UTF8Type)
                      ))
 /* Stats Table by U64,Str tag
  * The schema is as follows:
@@ -428,11 +428,11 @@ void init_vizd_tables() {
                       stat_row_twotag,
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned64Type)
-                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::UTF8Type)
                       (GenDb::DbDataType::Unsigned32Type)
                       (GenDb::DbDataType::LexicalUUIDType),
                       boost::assign::list_of
-                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::UTF8Type)
                      ))
 /* Stats Table by U64,U64 tag
  * The schema is as follows:
@@ -447,7 +447,7 @@ void init_vizd_tables() {
                       (GenDb::DbDataType::Unsigned32Type)
                       (GenDb::DbDataType::LexicalUUIDType),
                       boost::assign::list_of
-                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::UTF8Type)
                      ))
 /* Stats Table by U64 tag
  * The schema is as follows:
@@ -461,7 +461,7 @@ void init_vizd_tables() {
                       (GenDb::DbDataType::Unsigned32Type)
                       (GenDb::DbDataType::LexicalUUIDType),
                       boost::assign::list_of
-                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::UTF8Type)
                      ))
 /* Stats Table by Double tag
  * The schema is as follows:
@@ -475,7 +475,7 @@ void init_vizd_tables() {
                       (GenDb::DbDataType::Unsigned32Type)
                       (GenDb::DbDataType::LexicalUUIDType),
                       boost::assign::list_of
-                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::UTF8Type)
                      ))
 /* Stats Table by String tag
  * The schema is as follows:
@@ -485,11 +485,11 @@ void init_vizd_tables() {
         (GenDb::NewCf(g_viz_constants.STATS_TABLE_BY_STR_TAG,
                       stat_row_onetag,
                       boost::assign::list_of
-                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::UTF8Type)
                       (GenDb::DbDataType::Unsigned32Type)
                       (GenDb::DbDataType::LexicalUUIDType),
                       boost::assign::list_of
-                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::UTF8Type)
                      ))
         ;
 
@@ -498,11 +498,11 @@ void init_vizd_tables() {
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DIRECTION_ING]] =
          FlowTypeInfo(FlowRecordFields::FLOWREC_DIRECTION_ING, GenDb::DbDataType::Unsigned8Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEVN]] =
-         FlowTypeInfo(FlowRecordFields::FLOWREC_SOURCEVN, GenDb::DbDataType::AsciiType);
+         FlowTypeInfo(FlowRecordFields::FLOWREC_SOURCEVN, GenDb::DbDataType::UTF8Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP]] =
          FlowTypeInfo(FlowRecordFields::FLOWREC_SOURCEIP, GenDb::DbDataType::Unsigned32Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTVN]] =
-         FlowTypeInfo(FlowRecordFields::FLOWREC_DESTVN, GenDb::DbDataType::AsciiType);
+         FlowTypeInfo(FlowRecordFields::FLOWREC_DESTVN, GenDb::DbDataType::UTF8Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP]] =
          FlowTypeInfo(FlowRecordFields::FLOWREC_DESTIP, GenDb::DbDataType::Unsigned32Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_PROTOCOL]] =
@@ -516,15 +516,15 @@ void init_vizd_tables() {
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_TCP_FLAGS]] =
          FlowTypeInfo(FlowRecordFields::FLOWREC_TCP_FLAGS, GenDb::DbDataType::Unsigned8Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_VM]] =
-         FlowTypeInfo(FlowRecordFields::FLOWREC_VM, GenDb::DbDataType::AsciiType);
+         FlowTypeInfo(FlowRecordFields::FLOWREC_VM, GenDb::DbDataType::UTF8Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_INPUT_INTERFACE]] =
-         FlowTypeInfo(FlowRecordFields::FLOWREC_INPUT_INTERFACE, GenDb::DbDataType::AsciiType);
+         FlowTypeInfo(FlowRecordFields::FLOWREC_INPUT_INTERFACE, GenDb::DbDataType::UTF8Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_OUTPUT_INTERFACE]] =
-         FlowTypeInfo(FlowRecordFields::FLOWREC_OUTPUT_INTERFACE, GenDb::DbDataType::AsciiType);
+         FlowTypeInfo(FlowRecordFields::FLOWREC_OUTPUT_INTERFACE, GenDb::DbDataType::UTF8Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_MPLS_LABEL]] =
          FlowTypeInfo(FlowRecordFields::FLOWREC_MPLS_LABEL, GenDb::DbDataType::Unsigned32Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_REVERSE_UUID]] =
-         FlowTypeInfo(FlowRecordFields::FLOWREC_REVERSE_UUID, GenDb::DbDataType::AsciiType);
+         FlowTypeInfo(FlowRecordFields::FLOWREC_REVERSE_UUID, GenDb::DbDataType::UTF8Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SETUP_TIME]] =
          FlowTypeInfo(FlowRecordFields::FLOWREC_SETUP_TIME, GenDb::DbDataType::Unsigned64Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_TEARDOWN_TIME]] =
@@ -546,17 +546,17 @@ void init_vizd_tables() {
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DIFF_PACKETS]] =
          FlowTypeInfo(FlowRecordFields::FLOWREC_DIFF_PACKETS, GenDb::DbDataType::Unsigned64Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DATA_SAMPLE]] =
-         FlowTypeInfo(FlowRecordFields::FLOWREC_DATA_SAMPLE, GenDb::DbDataType::AsciiType);
+         FlowTypeInfo(FlowRecordFields::FLOWREC_DATA_SAMPLE, GenDb::DbDataType::UTF8Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_ACTION]] =
-         FlowTypeInfo(FlowRecordFields::FLOWREC_ACTION, GenDb::DbDataType::AsciiType);
+         FlowTypeInfo(FlowRecordFields::FLOWREC_ACTION, GenDb::DbDataType::UTF8Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SG_RULE_UUID]] =
          FlowTypeInfo(FlowRecordFields::FLOWREC_SG_RULE_UUID, GenDb::DbDataType::LexicalUUIDType);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_NW_ACE_UUID]] =
          FlowTypeInfo(FlowRecordFields::FLOWREC_NW_ACE_UUID, GenDb::DbDataType::LexicalUUIDType);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_VROUTER_IP]] =
-         FlowTypeInfo(FlowRecordFields::FLOWREC_VROUTER_IP, GenDb::DbDataType::AsciiType);
+         FlowTypeInfo(FlowRecordFields::FLOWREC_VROUTER_IP, GenDb::DbDataType::UTF8Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_OTHER_VROUTER_IP]] =
-         FlowTypeInfo(FlowRecordFields::FLOWREC_OTHER_VROUTER_IP, GenDb::DbDataType::AsciiType);
+         FlowTypeInfo(FlowRecordFields::FLOWREC_OTHER_VROUTER_IP, GenDb::DbDataType::UTF8Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_UNDERLAY_PROTO]] =
          FlowTypeInfo(FlowRecordFields::FLOWREC_UNDERLAY_PROTO, GenDb::DbDataType::Unsigned16Type);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_UNDERLAY_SPORT]] =

@@ -1159,6 +1159,7 @@ bool FlowDataIpv4ObjectWalker<T>::for_each(pugi::xml_node& node) {
                 break;
             }
         case GenDb::DbDataType::AsciiType:
+        case GenDb::DbDataType::UTF8Type:
             {
                 std::string val = node.child_value();
                 TXMLProtocol::unescapeXMLControlChars(val);
