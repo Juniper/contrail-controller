@@ -357,7 +357,7 @@ yaml_test_env.Alias('bgp:bgp_yaml_config_manager_test',
 # All Tests
 test_suite = [
     bgp_attr_test,
-    bgp_authentication_test,
+    #bgp_authentication_test,
     bgp_condition_listener_test,
     bgp_config_listener_test,
     bgp_ifmap_config_manager_test,
