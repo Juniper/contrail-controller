@@ -78,8 +78,9 @@ struct OvsdbPhysicalPortVlanInfo {
 
 struct OvsdbPhysicalPortEntry {
     1: string state;
-    2: string name;
-    3: list<OvsdbPhysicalPortVlanInfo> vlans;
+    2: string switch_name;
+    3: string name;
+    4: list<OvsdbPhysicalPortVlanInfo> vlans;
 }
 
 response sandesh OvsdbPhysicalPortResp {

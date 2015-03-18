@@ -13,6 +13,8 @@ extern "C" {
 #include <ovsdb_client_idl.h>
 #include <ovsdb_client_session.h>
 #include <physical_switch_ovsdb.h>
+#include <logical_switch_ovsdb.h>
+#include <physical_port_ovsdb.h>
 #include <ovsdb_types.h>
 
 using OVSDB::OvsdbClient;
@@ -87,6 +89,28 @@ void PhysicalSwitchTable::Notify(OvsdbClientIdl::Op op,
             entry->SendTrace(PhysicalSwitchEntry::ADD);
         }
         entry->set_tunnel_ip(ovsdb_wrapper_physical_switch_tunnel_ip(row));
+        std::size_t count = ovsdb_wrapper_physical_switch_ports_count(row);
+        struct ovsdb_idl_row *ports[count];
+        ovsdb_wrapper_physical_switch_ports(row, ports, count);
+        PhysicalSwitchEntry::InterfaceList old = entry->intf_list_;
+        std::size_t i = 0;
+        entry->intf_list_.clear();
+        PhysicalPortTable *p_table = client_idl()->physical_port_table();
+        while (i < count) {
+            entry->intf_list_.insert(ports[i]);
+            if (old.erase(ports[i]) == 0) {
+                // if entry was not present eariler trigger Add.
+                p_table->CreatePortEntry(ports[i], entry->name());
+            }
+            i++;
+        }
+        PhysicalSwitchEntry::InterfaceList::iterator it = old.begin();
+        while (it != old.end()) {
+            // trigger del notify for ovs idl row
+            p_table->DeletePortEntry(*it);
+            old.erase(it);
+            it = old.begin();
+        }
     } else {
         assert(0);
     }

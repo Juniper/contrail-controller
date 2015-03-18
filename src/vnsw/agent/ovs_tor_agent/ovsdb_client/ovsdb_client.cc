@@ -38,8 +38,7 @@ OvsdbClient *OvsdbClient::Allocate(Agent *agent, TorAgentParam *params,
     if (params->tor_protocol() == "tcp") {
         return (new OvsdbClientTcp(agent, IpAddress(params->tor_ip()),
                                    params->tor_port(), params->tsn_ip(),
-                                   params->keepalive_interval(), false ,
-                                   manager));
+                                   params->keepalive_interval(), manager));
     } else if (params->tor_protocol() == "pssl") {
         return (new OvsdbClientSsl(agent, params, manager));
     }

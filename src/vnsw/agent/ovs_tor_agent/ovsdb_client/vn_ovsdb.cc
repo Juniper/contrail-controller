@@ -53,7 +53,7 @@ KSyncEntry *VnOvsdbEntry::UnresolvedReference() {
 }
 
 VnOvsdbObject::VnOvsdbObject(OvsdbClientIdl *idl, DBTable *table) :
-    OvsdbDBObject(idl, table) {
+    OvsdbDBObject(idl, table, false) {
 }
 
 VnOvsdbObject::~VnOvsdbObject() {

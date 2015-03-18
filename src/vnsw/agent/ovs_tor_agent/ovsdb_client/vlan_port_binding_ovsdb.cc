@@ -30,6 +30,14 @@ using OVSDB::LogicalSwitchEntry;
 using OVSDB::OvsdbClientSession;
 
 VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
+        const std::string &physical_device, const std::string &physical_port,
+        uint16_t vlan_tag, const std::string &logical_switch) :
+    OvsdbDBEntry(table_), logical_switch_name_(logical_switch),
+    physical_port_name_(physical_port), physical_device_name_(physical_device),
+    vlan_(vlan_tag) {
+}
+
+VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
         const VlanLogicalInterface *entry) : OvsdbDBEntry(table_),
     logical_switch_name_(), physical_port_name_(),
     physical_device_name_(""), vlan_(entry->vlan()) {
@@ -42,6 +50,7 @@ VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
 
 VlanPortBindingEntry::VlanPortBindingEntry(VlanPortBindingTable *table,
         const VlanPortBindingEntry *key) : OvsdbDBEntry(table),
+    logical_switch_name_(key->logical_switch_name_),
     physical_port_name_(key->physical_port_name_),
     physical_device_name_(key->physical_device_name_), vlan_(key->vlan_) {
 }
@@ -63,7 +72,7 @@ void VlanPortBindingEntry::PostDelete() {
 
 void VlanPortBindingEntry::AddMsg(struct ovsdb_idl_txn *txn) {
     PhysicalPortTable *p_table = table_->client_idl()->physical_port_table();
-    PhysicalPortEntry key(p_table, physical_port_name_.c_str());
+    PhysicalPortEntry key(p_table, physical_device_name_, physical_port_name_);
     physical_port_ = p_table->GetReference(&key);
     PhysicalPortEntry *port =
         static_cast<PhysicalPortEntry *>(physical_port_.get());
@@ -79,7 +88,11 @@ void VlanPortBindingEntry::AddMsg(struct ovsdb_idl_txn *txn) {
                 physical_port_name_ + " vlan " + integerToString(vlan_));
         port->DeleteBinding(vlan_, NULL);
     }
-    port->TriggerUpdate();
+
+    // Don't trigger update for stale entries
+    if (!stale()) {
+        port->TriggerUpdate();
+    }
 }
 
 void VlanPortBindingEntry::ChangeMsg(struct ovsdb_idl_txn *txn) {
@@ -144,17 +157,6 @@ bool VlanPortBindingEntry::IsLess(const KSyncEntry &entry) const {
 }
 
 KSyncEntry *VlanPortBindingEntry::UnresolvedReference() {
-    PhysicalPortTable *p_table = table_->client_idl()->physical_port_table();
-    PhysicalPortEntry key(p_table, physical_port_name_.c_str());
-    PhysicalPortEntry *p_port =
-        static_cast<PhysicalPortEntry *>(p_table->GetReference(&key));
-    if (!p_port->IsResolved()) {
-        OVSDB_TRACE(Trace, "Physical Port unavailable for Port Vlan Binding " +
-                physical_port_name_ + " vlan " + integerToString(vlan_) +
-                " to Logical Switch " + logical_switch_name_);
-        return p_port;
-    }
-
     PhysicalSwitchTable *ps_table =
         table_->client_idl()->physical_switch_table();
     PhysicalSwitchEntry ps_key(ps_table, physical_device_name_.c_str());
@@ -167,19 +169,33 @@ KSyncEntry *VlanPortBindingEntry::UnresolvedReference() {
         return p_switch;
     }
 
-    VMInterfaceKSyncObject *vm_intf_table =
-        table_->client_idl()->vm_interface_table();
-    VMInterfaceKSyncEntry vm_intf_key(vm_intf_table, vmi_uuid_);
-    VMInterfaceKSyncEntry *vm_intf = static_cast<VMInterfaceKSyncEntry *>(
-            vm_intf_table->GetReference(&vm_intf_key));
-    if (!vm_intf->IsResolved()) {
-        OVSDB_TRACE(Trace, "VM Interface unavailable for Port Vlan Binding " +
+    PhysicalPortTable *p_table = table_->client_idl()->physical_port_table();
+    PhysicalPortEntry key(p_table, physical_device_name_, physical_port_name_);
+    PhysicalPortEntry *p_port =
+        static_cast<PhysicalPortEntry *>(p_table->GetReference(&key));
+    if (!p_port->IsResolved()) {
+        OVSDB_TRACE(Trace, "Physical Port unavailable for Port Vlan Binding " +
                 physical_port_name_ + " vlan " + integerToString(vlan_) +
                 " to Logical Switch " + logical_switch_name_);
-        return vm_intf;
-    } else if (logical_switch_name_.empty()) {
-        // update latest name after resolution.
-        logical_switch_name_ = vm_intf->vn_name();
+        return p_port;
+    }
+
+    // check for VMI only if entry is not stale marked.
+    if (!stale()) {
+        VMInterfaceKSyncObject *vm_intf_table =
+            table_->client_idl()->vm_interface_table();
+        VMInterfaceKSyncEntry vm_intf_key(vm_intf_table, vmi_uuid_);
+        VMInterfaceKSyncEntry *vm_intf = static_cast<VMInterfaceKSyncEntry *>(
+                vm_intf_table->GetReference(&vm_intf_key));
+        if (!vm_intf->IsResolved()) {
+            OVSDB_TRACE(Trace, "VM Interface unavailable for Port Vlan Binding " +
+                    physical_port_name_ + " vlan " + integerToString(vlan_) +
+                    " to Logical Switch " + logical_switch_name_);
+            return vm_intf;
+        } else if (logical_switch_name_.empty()) {
+            // update latest name after resolution.
+            logical_switch_name_ = vm_intf->vn_name();
+        }
     }
 
     if (!logical_switch_name_.empty()) {
@@ -218,7 +234,7 @@ uint16_t VlanPortBindingEntry::vlan() const {
 }
 
 VlanPortBindingTable::VlanPortBindingTable(OvsdbClientIdl *idl, DBTable *table) :
-    OvsdbDBObject(idl, table) {
+    OvsdbDBObject(idl, table, true) {
 }
 
 VlanPortBindingTable::~VlanPortBindingTable() {
