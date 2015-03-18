@@ -40,11 +40,9 @@ using std::vector;
 static void SetBgpRouterParams(autogen::BgpRouterParams *property, int asn,
         const string &id, const string &address, int port, int hold_time,
         const vector<string> &families,
-        const vector<autogen::AuthenticationKeyItem> &auth_items,
-        int local_asn);
-static void SetAutogenAuthKey(const string &id, const string &type,
-        const string &value, time_t start_time,
-        autogen::AuthenticationKeyItem *item);
+        const autogen::AuthenticationData &auth_data, int local_asn);
+static void SetAutogenAuthKeyItem(int id, const string &value,
+        time_t start_time, autogen::AuthenticationKeyItem *item);
 static autogen::BgpPeeringAttributes *CreateBgpPeeringAttributes(
         const string &uuid, const vector<string> &families,
         const vector<autogen::AuthenticationKeyItem> &keys);
@@ -57,13 +55,11 @@ public:
     void AddBgpRouterNode(int asn, const string &fqn_ifmap_id,
             const string &bgp_id, const string &cn_address, int port,
             int local_asn, const vector<string> &families,
-            vector<autogen::AuthenticationKeyItem> auth_keys = 
-                vector<autogen::AuthenticationKeyItem>());
+            const autogen::AuthenticationData &auth_data);
     void ChangeBgpRouterNode(int asn, const string &fqn_ifmap_id,
             const string &bgp_id, const string &cn_address, int port,
             int local_asn, const vector<string> &families,
-            vector<autogen::AuthenticationKeyItem> auth_keys = 
-                vector<autogen::AuthenticationKeyItem>());
+            const autogen::AuthenticationData &auth_data);
     void DeleteBgpRouterNode(const string &fqn_ifmap_id);
     void Initialize(int port);
     void Shutdown();
@@ -120,16 +116,15 @@ void BgpServerAuthTestMock::Initialize(int port) {
         << cn_->session_manager()->GetPort());
     port_ = cn_->session_manager()->GetPort();
     cfg_mgr_ = static_cast<BgpIfmapConfigManager *>(cn_->config_manager());
-    //cfg_mgr_->Initialize(&db_, &db_graph_, ifmap_id_);
 }
 
 void BgpServerAuthTestMock::AddBgpRouterNode(int asn,
         const string &fqn_ifmap_id, const string &bgp_id, const string &address,
         int port, int local_asn, const vector<string> &families,
-        vector<autogen::AuthenticationKeyItem> auth_keys) {
+        const autogen::AuthenticationData &auth_data) {
     autogen::BgpRouterParams *prop = new autogen::BgpRouterParams();
     SetBgpRouterParams(prop, asn, bgp_id, address, port, 90, families,
-                       auth_keys, asn);
+                       auth_data, asn);
     ifmap_test_util::IFMapMsgNodeAdd(db_, "bgp-router", fqn_ifmap_id, 0,
                                      "bgp-router-parameters", prop);
     task_util::WaitForIdle();
@@ -138,10 +133,10 @@ void BgpServerAuthTestMock::AddBgpRouterNode(int asn,
 void BgpServerAuthTestMock::ChangeBgpRouterNode(int asn,
         const string &fqn_ifmap_id, const string &bgp_id, const string &address,
         int port, int local_asn, const vector<string> &families,
-        vector<autogen::AuthenticationKeyItem> auth_keys) {
+        const autogen::AuthenticationData &auth_data) {
     autogen::BgpRouterParams *prop = new autogen::BgpRouterParams();
-    SetBgpRouterParams(prop, asn, bgp_id, address, port,
-                       90, families, auth_keys, asn);
+    SetBgpRouterParams(prop, asn, bgp_id, address, port, 90, families,
+                       auth_data, asn);
     ifmap_test_util::IFMapMsgNodeAdd(db_, "bgp-router", fqn_ifmap_id, 0,
                                      "bgp-router-parameters", prop);
     task_util::WaitForIdle();
@@ -235,8 +230,8 @@ protected:
     void AddPeering(BgpServerAuthTestMock *cn1, BgpServerAuthTestMock *cn2,
         const string &uuid, const vector<autogen::AuthenticationKeyItem> &keys);
     void DeletePeering(BgpServerAuthTestMock *cn1, BgpServerAuthTestMock *cn2);
-    void SetKeys(const string &id, const string &type, const string &key,
-        time_t start_time, vector<autogen::AuthenticationKeyItem> *keys);
+    void SetKeys(int id, const string &key, time_t start_time,
+         vector<autogen::AuthenticationKeyItem> *keys);
     void ChangeBgpRouterNode(BgpServerAuthTestMock *cn,
         const vector<autogen::AuthenticationKeyItem> &auth_keys);
 
@@ -279,28 +274,28 @@ int BgpAuthenticationTest::TableCount(DBTable *table) {
 
 void BgpAuthenticationTest::AddBgpRouterNodes() {
     // No auth keys during init.
-    vector<autogen::AuthenticationKeyItem> auth_keys;
+    autogen::AuthenticationData auth_data;
     // Add cn1, cn2, cn3 BgpRouter nodes in CN1.
     cn1_->AddBgpRouterNode(asn, cn1_->fqn_ifmap_id(), cn1_->bgp_id(),
-            cn1_->address(), cn1_->port(), asn, cn1_->families(), auth_keys);
+            cn1_->address(), cn1_->port(), asn, cn1_->families(), auth_data);
     cn1_->AddBgpRouterNode(asn, cn2_->fqn_ifmap_id(), cn2_->bgp_id(),
-            cn2_->address(), cn2_->port(), asn, cn2_->families(), auth_keys);
+            cn2_->address(), cn2_->port(), asn, cn2_->families(), auth_data);
     cn1_->AddBgpRouterNode(asn, cn3_->fqn_ifmap_id(), cn3_->bgp_id(),
-            cn3_->address(), cn3_->port(), asn, cn3_->families(), auth_keys);
+            cn3_->address(), cn3_->port(), asn, cn3_->families(), auth_data);
     // Add cn1, cn2, cn3 BgpRouter nodes in CN2.
     cn2_->AddBgpRouterNode(asn, cn1_->fqn_ifmap_id(), cn1_->bgp_id(),
-            cn1_->address(), cn1_->port(), asn, cn1_->families(), auth_keys);
+            cn1_->address(), cn1_->port(), asn, cn1_->families(), auth_data);
     cn2_->AddBgpRouterNode(asn, cn2_->fqn_ifmap_id(), cn2_->bgp_id(),
-            cn2_->address(), cn2_->port(), asn, cn2_->families(), auth_keys);
+            cn2_->address(), cn2_->port(), asn, cn2_->families(), auth_data);
     cn2_->AddBgpRouterNode(asn, cn3_->fqn_ifmap_id(), cn3_->bgp_id(),
-            cn3_->address(), cn3_->port(), asn, cn3_->families(), auth_keys);
+            cn3_->address(), cn3_->port(), asn, cn3_->families(), auth_data);
     // Add cn1, cn2, cn3 BgpRouter nodes in CN3.
     cn3_->AddBgpRouterNode(asn, cn1_->fqn_ifmap_id(), cn1_->bgp_id(),
-            cn1_->address(), cn1_->port(), asn, cn1_->families(), auth_keys);
+            cn1_->address(), cn1_->port(), asn, cn1_->families(), auth_data);
     cn3_->AddBgpRouterNode(asn, cn2_->fqn_ifmap_id(), cn2_->bgp_id(),
-            cn2_->address(), cn2_->port(), asn, cn2_->families(), auth_keys);
+            cn2_->address(), cn2_->port(), asn, cn2_->families(), auth_data);
     cn3_->AddBgpRouterNode(asn, cn3_->fqn_ifmap_id(), cn3_->bgp_id(),
-            cn3_->address(), cn3_->port(), asn, cn3_->families(), auth_keys);
+            cn3_->address(), cn3_->port(), asn, cn3_->families(), auth_data);
 }
 
 void BgpAuthenticationTest::DeleteBgpRouterNodes() {
@@ -321,8 +316,11 @@ void BgpAuthenticationTest::DeleteBgpRouterNodes() {
 void BgpAuthenticationTest::ChangeBgpRouterNode(BgpServerAuthTestMock *cn,
     const vector<autogen::AuthenticationKeyItem> &auth_keys) {
 
+    autogen::AuthenticationData auth_data;
+    auth_data.key_type = "MD5";
+    auth_data.key_items = auth_keys;
     cn->ChangeBgpRouterNode(asn, cn->fqn_ifmap_id(), cn->bgp_id(),
-            cn->address(), cn->port(), asn, cn->families(), auth_keys);
+            cn->address(), cn->port(), asn, cn->families(), auth_data);
 }
 
 void BgpAuthenticationTest::VerifyPeers(int line, BgpServerAuthTestMock *cn1,
@@ -385,11 +383,10 @@ void BgpAuthenticationTest::DeletePeering(BgpServerAuthTestMock *cn1,
     task_util::WaitForIdle();
 }
 
-void BgpAuthenticationTest::SetKeys(const string &id, const string &type,
-        const string &key, time_t start_time,
-        vector<autogen::AuthenticationKeyItem> *keys) {
+void BgpAuthenticationTest::SetKeys(int id, const string &key,
+        time_t start_time, vector<autogen::AuthenticationKeyItem> *keys) {
     autogen::AuthenticationKeyItem auth_item;
-    SetAutogenAuthKey(id, type, key, start_time, &auth_item);
+    SetAutogenAuthKeyItem(id, key, start_time, &auth_item);
     keys->push_back(auth_item);
 }
 
@@ -405,7 +402,7 @@ TEST_F(BgpAuthenticationTest, 2CnsWithSameKey) {
     // Create the key and add it to both CN1 and CN2.
     string key_string = "cn1cn2key1";
     vector<autogen::AuthenticationKeyItem> cn1_cn2_keys;
-    SetKeys("cn1_cn2", "MD5", key_string, 0, &cn1_cn2_keys);
+    SetKeys(0, key_string, 0, &cn1_cn2_keys);
 
     // Create peering between CN1 and CN2 on CN1 and on CN2.
     AddPeering(cn1_, cn2_, uuid, cn1_cn2_keys);
@@ -428,13 +425,13 @@ TEST_F(BgpAuthenticationTest, 2CnsWithDifferentKeys) {
     // Bringup CN1 with key_string1 as key for peering CN1-CN2.
     string key_string1 = "key1";
     vector<autogen::AuthenticationKeyItem> keys1;
-    SetKeys("cn1_cn2", "MD5", key_string1, 0, &keys1);
+    SetKeys(0, key_string1, 0, &keys1);
     AddPeering(cn1_, cn2_, uuid, keys1);
 
     // Bringup CN2 with key_string2 as key for peering CN1-CN2.
     string key_string2 = "key2";
     vector<autogen::AuthenticationKeyItem> keys2;
-    SetKeys("cn1_cn2", "MD5", key_string2, 0, &keys2);
+    SetKeys(0, key_string2, 0, &keys2);
     AddPeering(cn2_, cn1_, uuid, keys2);
 
     // Get the peers.
@@ -450,7 +447,7 @@ TEST_F(BgpAuthenticationTest, 2CnsWithDifferentKeys) {
     // Change key on CN2 to key_string3 as key for peering CN1-CN2.
     keys2.clear();
     string key_string3 = "key3";
-    SetKeys("cn1_cn2", "MD5", key_string3, 0, &keys2);
+    SetKeys(0, key_string3, 0, &keys2);
     AddPeering(cn2_, cn1_, uuid, keys2);
     TASK_UTIL_EXPECT_EQ(0, peer21->GetInuseAuthKeyValue().compare(key_string3));
 
@@ -464,7 +461,7 @@ TEST_F(BgpAuthenticationTest, 2CnsWithDifferentKeys) {
 
     // Change key on CN1 to key_string2 as key for peering CN1-CN2.
     keys1.clear();
-    SetKeys("cn1_cn2", "MD5", key_string2, 0, &keys1);
+    SetKeys(0, key_string2, 0, &keys1);
     AddPeering(cn2_, cn1_, uuid, keys1);
     TASK_UTIL_EXPECT_EQ(0, peer21->GetInuseAuthKeyValue().compare(key_string2));
 
@@ -500,7 +497,7 @@ TEST_F(BgpAuthenticationTest, 2CnsWithChangingSameKeys) {
     // Add cn1cn2key1 as the key on both CN1 and CN2. Peering should come up.
     string key_string = "cn1cn2key1";
     vector<autogen::AuthenticationKeyItem> cn1_cn2_keys;
-    SetKeys("cn1_cn2", "MD5", key_string, 0, &cn1_cn2_keys);
+    SetKeys(0, key_string, 0, &cn1_cn2_keys);
     AddPeering(cn1_, cn2_, uuid, cn1_cn2_keys);
     AddPeering(cn2_, cn1_, uuid, cn1_cn2_keys);
     uint32_t check_count =
@@ -512,7 +509,7 @@ TEST_F(BgpAuthenticationTest, 2CnsWithChangingSameKeys) {
     // Change the key to cn1cn2key2 on both CN1 and CN2. Peering should come up.
     cn1_cn2_keys.clear();
     key_string = "cn1cn2key2";
-    SetKeys("cn1_cn2", "MD5", key_string, 0, &cn1_cn2_keys);
+    SetKeys(0, key_string, 0, &cn1_cn2_keys);
     AddPeering(cn1_, cn2_, uuid, cn1_cn2_keys);
     AddPeering(cn2_, cn1_, uuid, cn1_cn2_keys);
     // Check that the peering came up.
@@ -524,7 +521,7 @@ TEST_F(BgpAuthenticationTest, 2CnsWithChangingSameKeys) {
     // Change the key to cn1cn2key3 on both CN1 and CN2. Peering should come up.
     cn1_cn2_keys.clear();
     key_string = "cn1cn2key3";
-    SetKeys("cn1_cn2", "MD5", key_string, 0, &cn1_cn2_keys);
+    SetKeys(0, key_string, 0, &cn1_cn2_keys);
     AddPeering(cn1_, cn2_, uuid, cn1_cn2_keys);
     AddPeering(cn2_, cn1_, uuid, cn1_cn2_keys);
     // Check that the peering came up.
@@ -556,7 +553,7 @@ TEST_F(BgpAuthenticationTest, 3CnsWithSameKey) {
 
     string key_string = "cn1cn2key1";
     vector<autogen::AuthenticationKeyItem> auth_keys;
-    SetKeys("common", "MD5", key_string, 0, &auth_keys);
+    SetKeys(0, key_string, 0, &auth_keys);
     // Create peering between CN1 and CN2 on both CN1 and CN2.
     string uuid12 = BgpConfigParser::session_uuid("CN1", "CN2", 0);
     AddPeering(cn1_, cn2_, uuid12, auth_keys);
@@ -611,7 +608,7 @@ TEST_F(BgpAuthenticationTest, 3CnsWithDifferentKeyPairs) {
 
     // Create peering between CN1 and CN2 on both CN1 and CN2.
     vector<autogen::AuthenticationKeyItem> cn1_cn2_keys;
-    SetKeys("cn1_cn2", "MD5", "cn1cn2key1", 0, &cn1_cn2_keys);
+    SetKeys(0, "cn1cn2key1", 0, &cn1_cn2_keys);
     string uuid = BgpConfigParser::session_uuid("CN1", "CN2", 0);
     AddPeering(cn1_, cn2_, uuid, cn1_cn2_keys);
     AddPeering(cn2_, cn1_, uuid, cn1_cn2_keys);
@@ -620,7 +617,7 @@ TEST_F(BgpAuthenticationTest, 3CnsWithDifferentKeyPairs) {
 
     // Create peering between CN1 and CN3 on both CN1 and CN3.
     vector<autogen::AuthenticationKeyItem> cn1_cn3_keys;
-    SetKeys("cn1_cn3", "MD5", "cn1cn3key1", 0, &cn1_cn3_keys);
+    SetKeys(0, "cn1cn3key1", 0, &cn1_cn3_keys);
     uuid = BgpConfigParser::session_uuid("CN1", "CN3", 0);
     AddPeering(cn1_, cn3_, uuid, cn1_cn3_keys);
     AddPeering(cn3_, cn1_, uuid, cn1_cn3_keys);
@@ -629,7 +626,7 @@ TEST_F(BgpAuthenticationTest, 3CnsWithDifferentKeyPairs) {
 
     // Create peering between CN2 and CN3 on both CN2 and CN3.
     vector<autogen::AuthenticationKeyItem> cn2_cn3_keys;
-    SetKeys("cn2_cn3", "MD5", "cn2cn3key1", 0, &cn2_cn3_keys);
+    SetKeys(0, "cn2cn3key1", 0, &cn2_cn3_keys);
     uuid = BgpConfigParser::session_uuid("CN2", "CN3", 0);
     AddPeering(cn2_, cn3_, uuid, cn2_cn3_keys);
     AddPeering(cn3_, cn2_, uuid, cn2_cn3_keys);
@@ -655,7 +652,7 @@ TEST_F(BgpAuthenticationTest, 3CnsWithChangingSameKeys) {
     // Create peering between CN1 and CN2 on both CN1 and CN2.
     string key_string = "first_key";
     vector<autogen::AuthenticationKeyItem> keys;
-    SetKeys("cn1_cn2", "MD5", key_string, 0, &keys);
+    SetKeys(0, key_string, 0, &keys);
     string uuid12 = BgpConfigParser::session_uuid("CN1", "CN2", 0);
     AddPeering(cn1_, cn2_, uuid12, keys);
     AddPeering(cn2_, cn1_, uuid12, keys);
@@ -687,7 +684,7 @@ TEST_F(BgpAuthenticationTest, 3CnsWithChangingSameKeys) {
     // Change the key on all 3 peerings.
     keys.clear();
     key_string = "second_key";
-    SetKeys("cn1_cn2", "MD5", key_string, 0, &keys);
+    SetKeys(0, key_string, 0, &keys);
 
     // CN1-CN2
     AddPeering(cn1_, cn2_, uuid12, keys);
@@ -739,7 +736,7 @@ TEST_F(BgpAuthenticationTest, 3CnsWithChangingKeys) {
 
     // Create peering between CN1 and CN2 on both CN1 and CN2.
     vector<autogen::AuthenticationKeyItem> cn1_cn2_keys;
-    SetKeys("cn1_cn2", "MD5", "cn1cn2key1", 0, &cn1_cn2_keys);
+    SetKeys(0, "cn1cn2key1", 0, &cn1_cn2_keys);
     string uuid12 = BgpConfigParser::session_uuid("CN1", "CN2", 0);
     AddPeering(cn1_, cn2_, uuid12, cn1_cn2_keys);
     AddPeering(cn2_, cn1_, uuid12, cn1_cn2_keys);
@@ -749,7 +746,7 @@ TEST_F(BgpAuthenticationTest, 3CnsWithChangingKeys) {
 
     // Create peering between CN1 and CN3 on both CN1 and CN3.
     vector<autogen::AuthenticationKeyItem> cn1_cn3_keys;
-    SetKeys("cn1_cn3", "MD5", "cn1cn3key1", 0, &cn1_cn3_keys);
+    SetKeys(0, "cn1cn3key1", 0, &cn1_cn3_keys);
     string uuid13 = BgpConfigParser::session_uuid("CN1", "CN3", 0);
     AddPeering(cn1_, cn3_, uuid13, cn1_cn3_keys);
     AddPeering(cn3_, cn1_, uuid13, cn1_cn3_keys);
@@ -759,7 +756,7 @@ TEST_F(BgpAuthenticationTest, 3CnsWithChangingKeys) {
 
     // Create peering between CN2 and CN3 on both CN2 and CN3.
     vector<autogen::AuthenticationKeyItem> cn2_cn3_keys;
-    SetKeys("cn2_cn3", "MD5", "cn2cn3key1", 0, &cn2_cn3_keys);
+    SetKeys(0, "cn2cn3key1", 0, &cn2_cn3_keys);
     string uuid23 = BgpConfigParser::session_uuid("CN2", "CN3", 0);
     AddPeering(cn2_, cn3_, uuid23, cn2_cn3_keys);
     AddPeering(cn3_, cn2_, uuid23, cn2_cn3_keys);
@@ -774,7 +771,7 @@ TEST_F(BgpAuthenticationTest, 3CnsWithChangingKeys) {
 
     // Set a new key on both CN1 and CN2.
     cn1_cn2_keys.clear();
-    SetKeys("cn1_cn2", "MD5", "cn1cn2key2", 0, &cn1_cn2_keys);
+    SetKeys(0, "cn1cn2key2", 0, &cn1_cn2_keys);
     AddPeering(cn1_, cn2_, uuid12, cn1_cn2_keys);
     AddPeering(cn2_, cn1_, uuid12, cn1_cn2_keys);
     // Check that the peering came up.
@@ -784,7 +781,7 @@ TEST_F(BgpAuthenticationTest, 3CnsWithChangingKeys) {
 
     // Set a new key on both CN1 and CN3.
     cn1_cn3_keys.clear();
-    SetKeys("cn1_cn3", "MD5", "cn1cn3key2", 0, &cn1_cn3_keys);
+    SetKeys(0, "cn1cn3key2", 0, &cn1_cn3_keys);
     AddPeering(cn1_, cn3_, uuid13, cn1_cn3_keys);
     AddPeering(cn3_, cn1_, uuid13, cn1_cn3_keys);
     // Check that the peering came up.
@@ -794,7 +791,7 @@ TEST_F(BgpAuthenticationTest, 3CnsWithChangingKeys) {
 
     // Set a new key on both CN2 and CN3.
     cn2_cn3_keys.clear();
-    SetKeys("cn2_cn3", "MD5", "cn2cn3key2", 0, &cn2_cn3_keys);
+    SetKeys(0, "cn2cn3key2", 0, &cn2_cn3_keys);
     AddPeering(cn2_, cn3_, uuid23, cn2_cn3_keys);
     AddPeering(cn3_, cn2_, uuid23, cn2_cn3_keys);
     // Check that the peering came up.
@@ -835,7 +832,7 @@ TEST_F(BgpAuthenticationTest, SameDifferentMultipleKeyChanges) {
     // Add key_string1 to both CN1 and CN2. Peering should come up.
     string key_string1 = "cn1cn2key1";
     vector<autogen::AuthenticationKeyItem> keys1;
-    SetKeys("cn1_cn2", "MD5", key_string1, 0, &keys1);
+    SetKeys(0, key_string1, 0, &keys1);
     AddPeering(cn1_, cn2_, uuid, keys1);
     AddPeering(cn2_, cn1_, uuid, keys1);
     uint32_t check_count =
@@ -847,7 +844,7 @@ TEST_F(BgpAuthenticationTest, SameDifferentMultipleKeyChanges) {
     // Now, change the key only on CN2 to key_string2. Peering should come down.
     string key_string2 = "somekey";
     vector<autogen::AuthenticationKeyItem> keys2;
-    SetKeys("cn1_cn2", "MD5", key_string2, 0, &keys2);
+    SetKeys(0, key_string2, 0, &keys2);
     AddPeering(cn2_, cn1_, uuid, keys2);
     size_t old_p12_tr_count = peer12->get_tr_keepalive();
     size_t old_p21_tr_count = peer21->get_tr_keepalive();
@@ -914,7 +911,7 @@ TEST_F(BgpAuthenticationTest, NoKeyToKeyWithDelay) {
     // Add a key only to CN1.
     string key_string = "cn1cn2key1";
     vector<autogen::AuthenticationKeyItem> cn1_cn2_keys;
-    SetKeys("cn1_cn2", "MD5", key_string, 0, &cn1_cn2_keys);
+    SetKeys(0, key_string, 0, &cn1_cn2_keys);
 
     TASK_UTIL_EXPECT_EQ(0, peer12->GetInuseAuthKeyValue().compare(""));
     AddPeering(cn1_, cn2_, uuid, cn1_cn2_keys);
@@ -953,7 +950,7 @@ TEST_F(BgpAuthenticationTest, AddRouterKey) {
 
     string key_string = "somekey";
     vector<autogen::AuthenticationKeyItem> router_keys;
-    SetKeys("CN1CN2", "MD5", key_string, 0, &router_keys);
+    SetKeys(0, key_string, 0, &router_keys);
 
     // Add the same key on the BgpRouter nodes of both CN1 and CN2.
     ChangeBgpRouterNode(cn1_, router_keys);
@@ -983,7 +980,7 @@ TEST_F(BgpAuthenticationTest, MultipleRouterKeyChanges) {
     // Add the same key on the BgpRouter nodes of both CN1 and CN2.
     string key_string = "somekey";
     vector<autogen::AuthenticationKeyItem> router_keys;
-    SetKeys("CN1CN2", "MD5", key_string, 0, &router_keys);
+    SetKeys(0, key_string, 0, &router_keys);
     ChangeBgpRouterNode(cn1_, router_keys);
     ChangeBgpRouterNode(cn2_, router_keys);
 
@@ -1003,7 +1000,7 @@ TEST_F(BgpAuthenticationTest, MultipleRouterKeyChanges) {
     // Change the router key on both sides and verify that the peers come up.
     router_keys.clear();
     key_string = "newkey";
-    SetKeys("CN1CN2", "MD5", key_string, 0, &router_keys);
+    SetKeys(0, key_string, 0, &router_keys);
     ChangeBgpRouterNode(cn1_, router_keys);
     ChangeBgpRouterNode(cn2_, router_keys);
     uint32_t check_count =
@@ -1015,7 +1012,7 @@ TEST_F(BgpAuthenticationTest, MultipleRouterKeyChanges) {
     // Change the router key on both sides and verify that the peers come up.
     router_keys.clear();
     key_string = "onemorenewkey";
-    SetKeys("CN1CN2", "MD5", key_string, 0, &router_keys);
+    SetKeys(0, key_string, 0, &router_keys);
     ChangeBgpRouterNode(cn1_, router_keys);
     ChangeBgpRouterNode(cn2_, router_keys);
     check_count = peer12->get_rx_keepalive() > peer21->get_rx_keepalive() ?
@@ -1044,7 +1041,7 @@ TEST_F(BgpAuthenticationTest, NoKeyToRouterKey) {
     // Add the same key on the BgpRouter nodes of both CN1 and CN2.
     string key_string = "router_key";
     vector<autogen::AuthenticationKeyItem> router_keys;
-    SetKeys("CN1CN2", "MD5", key_string, 0, &router_keys);
+    SetKeys(0, key_string, 0, &router_keys);
     ChangeBgpRouterNode(cn1_, router_keys);
     ChangeBgpRouterNode(cn2_, router_keys);
 
@@ -1060,7 +1057,7 @@ TEST_F(BgpAuthenticationTest, NoKeyToRouterKey) {
     // Change the router key on both sides and verify that the peers come up.
     router_keys.clear();
     key_string = "newkey";
-    SetKeys("CN1CN2", "MD5", key_string, 0, &router_keys);
+    SetKeys(0, key_string, 0, &router_keys);
     ChangeBgpRouterNode(cn1_, router_keys);
     ChangeBgpRouterNode(cn2_, router_keys);
     check_count = peer12->get_rx_keepalive() > peer21->get_rx_keepalive() ?
@@ -1071,7 +1068,7 @@ TEST_F(BgpAuthenticationTest, NoKeyToRouterKey) {
     // Change the router key again but only on CN1.
     router_keys.clear();
     key_string = "onemorenewkey";
-    SetKeys("CN1CN2", "MD5", key_string, 0, &router_keys);
+    SetKeys(0, key_string, 0, &router_keys);
     ChangeBgpRouterNode(cn1_, router_keys);
 
     // Verify that keepalives are not received since both sides dont have the
@@ -1110,7 +1107,7 @@ TEST_F(BgpAuthenticationTest, RouterKeyWithDelay) {
 
     string key_string = "router_key";
     vector<autogen::AuthenticationKeyItem> router_keys;
-    SetKeys("CN1CN2", "MD5", key_string, 0, &router_keys);
+    SetKeys(0, key_string, 0, &router_keys);
 
     // Add key only on the BgpRouter node of CN1.
     ChangeBgpRouterNode(cn1_, router_keys);
@@ -1149,14 +1146,14 @@ TEST_F(BgpAuthenticationTest, PeeringCfgOverrideRouterCfg) {
     // Add a key on the BgpRouter node of both CN1 and CN2.
     string rkey = "router_key";
     vector<autogen::AuthenticationKeyItem> router_keys;
-    SetKeys("CN1CN2", "MD5", rkey, 0, &router_keys);
+    SetKeys(0, rkey, 0, &router_keys);
     ChangeBgpRouterNode(cn1_, router_keys);
     ChangeBgpRouterNode(cn2_, router_keys);
 
     // Create peering between CN1 and CN2 with a different key on CN1 and CN2.
     string pkey = "peering_key";
     vector<autogen::AuthenticationKeyItem> cn1_cn2_keys;
-    SetKeys("PeeringKey", "MD5", pkey, 0, &cn1_cn2_keys);
+    SetKeys(0, pkey, 0, &cn1_cn2_keys);
     AddPeering(cn1_, cn2_, uuid, cn1_cn2_keys);
     AddPeering(cn2_, cn1_, uuid, cn1_cn2_keys);
 
@@ -1178,7 +1175,7 @@ TEST_F(BgpAuthenticationTest, RouterKeyAndPeeringKey) {
 
     string key_string = "md5password";
     vector<autogen::AuthenticationKeyItem> keys;
-    SetKeys("CN1CN2", "MD5", key_string, 0, &keys);
+    SetKeys(0, key_string, 0, &keys);
 
     // Add key_string on CN1's BgpRouter node.
     ChangeBgpRouterNode(cn1_, keys);
@@ -1197,7 +1194,7 @@ TEST_F(BgpAuthenticationTest, RouterKeyAndPeeringKey) {
     // Change the key on CN1's BgpRouter node and CN2's peering node.
     keys.clear();
     key_string = "newpassword";
-    SetKeys("CN1CN2", "MD5", key_string, 0, &keys);
+    SetKeys(0, key_string, 0, &keys);
     ChangeBgpRouterNode(cn1_, keys);
     AddPeering(cn2_, cn1_, uuid, keys);
     uint32_t check_count =
@@ -1219,7 +1216,7 @@ TEST_F(BgpAuthenticationTest, TODO) {
 
     string router_key = "router_key";
     vector<autogen::AuthenticationKeyItem> router_keys;
-    SetKeys("CN1CN2", "MD5", router_key, 0, &router_keys);
+    SetKeys(0, router_key, 0, &router_keys);
 
     // Add the same key on the BgpRouter nodes of both CN1 and CN2.
     ChangeBgpRouterNode(cn1_, router_keys);
@@ -1256,25 +1253,21 @@ TEST_F(BgpAuthenticationTest, TODO) {
 static void SetBgpRouterParams(autogen::BgpRouterParams *property, int asn,
         const string &id, const string &address, int port, int hold_time,
         const vector<string> &families,
-        const vector<autogen::AuthenticationKeyItem> &auth_items,
-        int local_asn) {
+        const autogen::AuthenticationData &auth_data, int local_asn) {
     property->autonomous_system = asn;
     property->identifier = id;
     property->address = address;
     property->port = port;
     property->hold_time = hold_time;
     property->address_families.family = families;
-    property->auth_key_chain.auth_key_items = auth_items;
+    property->auth_data = auth_data;
     property->local_autonomous_system = local_asn;
 }
 
-static void SetAutogenAuthKey(const string &id, const string &type,
-        const string &value, time_t start_time,
-        autogen::AuthenticationKeyItem *item) {
+static void SetAutogenAuthKeyItem(int id, const string &value,
+        time_t start_time, autogen::AuthenticationKeyItem *item) {
     item->key_id = id;
-    item->key_type = type;
     item->key = value;
-    item->start_time = start_time;
 }
 
 static autogen::BgpPeeringAttributes *CreateBgpPeeringAttributes(
@@ -1294,17 +1287,17 @@ static autogen::BgpPeeringAttributes *CreateBgpPeeringAttributes(
     }
     config << "</address-families>";
 
-    config << "<auth-key-chain>";
+    config << "<auth-data>";
+    config << "<key-type>MD5</key-type>";
     for (vector<autogen::AuthenticationKeyItem>::const_iterator
          iter = keys.begin(); iter != keys.end(); ++iter) {
         const autogen::AuthenticationKeyItem &auth_item = *iter;
-        config << "<auth-key-items>";
+        config << "<key-items>";
         config << "<key-id>" << auth_item.key_id << "</key-id>";
-        config << "<key-type>" << auth_item.key_type << "</key-type>";
         config << "<key>" << auth_item.key << "</key>";
-        config << "</auth-key-items>";
+        config << "</key-items>";
     }
-    config << "</auth-key-chain>";
+    config << "</auth-data>";
 
     config << "</attributes>";
     config << "</session>";

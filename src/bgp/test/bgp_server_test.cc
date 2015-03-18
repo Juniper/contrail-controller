@@ -53,10 +53,9 @@ private:
 };
 
 struct ConfigUTAuthKeyItem {
-    ConfigUTAuthKeyItem(string id, string type, string ikey, string time) :
-        key_id(id), key_type(type), key(ikey), start_time(time) { }
+    ConfigUTAuthKeyItem(string id, string ikey, string time) :
+        key_id(id), key(ikey), start_time(time) { }
     string key_id;
-    string key_type;
     string key;
     string start_time;
 };
@@ -298,20 +297,20 @@ string BgpServerUnitTest::GetConfigStr(int peer_count,
     config << "</address-families>";
 
     if (!auth_keys.empty()) {
-        config << "<auth-key-chain>";
-        config << "<auth-key-items>";
+        config << "<auth-data>";
+        config << "<key-type>MD5</key-type>";
+        config << "<key-items>";
     }
     for (vector<ConfigUTAuthKeyItem>::const_iterator it =
             auth_keys.begin(); it != auth_keys.end(); ++it) {
         ConfigUTAuthKeyItem item = *it;
         config << "<key-id>" << item.key_id << "</key-id>";
-        config << "<key-type>" << item.key_type << "</key-type>";
         config << "<key>" << item.key << "</key>";
         //config << "<start-time>" << "2001-11-12 18:31:01" << "</start-time>";
     }
     if (!auth_keys.empty()) {
-        config << "</auth-key-items>";
-        config << "</auth-key-chain>";
+        config << "</key-items>";
+        config << "</auth-data>";
     }
 
     for (int i = 0; i < peer_count; i++) {
@@ -342,20 +341,20 @@ string BgpServerUnitTest::GetConfigStr(int peer_count,
     config << "</address-families>";
 
     if (!auth_keys.empty()) {
-        config << "<auth-key-chain>";
-        config << "<auth-key-items>";
+        config << "<auth-data>";
+        config << "<key-type>MD5</key-type>";
+        config << "<key-items>";
     }
     for (vector<ConfigUTAuthKeyItem>::const_iterator it =
             auth_keys.begin(); it != auth_keys.end(); ++it) {
         ConfigUTAuthKeyItem item = *it;
         config << "<key-id>" << item.key_id << "</key-id>";
-        config << "<key-type>" << item.key_type << "</key-type>";
         config << "<key>" << item.key << "</key>";
         //config << "<start-time>" << "2001-11-12 18:31:01" << "</start-time>";
     }
     if (!auth_keys.empty()) {
-        config << "</auth-key-items>";
-        config << "</auth-key-chain>";
+        config << "</key-items>";
+        config << "</auth-data>";
     }
 
     for (int i = 0; i < peer_count; i++) {
@@ -545,7 +544,7 @@ TEST_F(BgpServerUnitTest, BasicMd5Check) {
 
     // Set the key for router 'A'.
     vector<ConfigUTAuthKeyItem> keys;
-    keys.push_back(ConfigUTAuthKeyItem("keyid1", "md5", "utkey1", ""));
+    keys.push_back(ConfigUTAuthKeyItem("0", "utkey1", ""));
     SetupPeers(a_.get(), peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), true, keys);
     // No key for router 'B'.
@@ -612,7 +611,7 @@ TEST_F(BgpServerUnitTest, NoMd5ThenMd5ThenNoMd5) {
     // Now, set the key for both the routers and check that the peering is
     // still up.
     vector<ConfigUTAuthKeyItem> keys;
-    keys.push_back(ConfigUTAuthKeyItem("keyid1", "md5", "utkey1", ""));
+    keys.push_back(ConfigUTAuthKeyItem("0", "utkey1", ""));
     SetupPeers(a_.get(), peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), true, keys);
     SetupPeers(b_.get(), peer_count, a_->session_manager()->GetPort(),
@@ -670,7 +669,7 @@ TEST_F(BgpServerUnitTest, MultipleMd5KeyChanges) {
 
     // Set the same key for both 'A' and 'B'.
     vector<ConfigUTAuthKeyItem> keys;
-    keys.push_back(ConfigUTAuthKeyItem("keyid1", "md5", "utkey1", ""));
+    keys.push_back(ConfigUTAuthKeyItem("0", "utkey1", ""));
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), true, keys);
     VerifyPeers(peer_count, 10);
@@ -686,7 +685,7 @@ TEST_F(BgpServerUnitTest, MultipleMd5KeyChanges) {
     // Change the key for both 'A' and 'B' with the same key. Save the receive
     // keepalive count for both peers.
     keys.clear();
-    keys.push_back(ConfigUTAuthKeyItem("keyid1", "md5", "utkey2", ""));
+    keys.push_back(ConfigUTAuthKeyItem("0", "utkey2", ""));
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), true, keys);
     TASK_UTIL_EXPECT_EQ(0, peer_a->GetInuseAuthKeyValue().compare("utkey2"));
@@ -705,7 +704,7 @@ TEST_F(BgpServerUnitTest, MultipleMd5KeyChanges) {
 
     // Change the key only on router 'A'.
     keys.clear();
-    keys.push_back(ConfigUTAuthKeyItem("keyid1", "md5", "utkey3", ""));
+    keys.push_back(ConfigUTAuthKeyItem("0", "utkey3", ""));
     SetupPeers(a_.get(), peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), true, keys);
     TASK_UTIL_EXPECT_EQ(0, peer_a->GetInuseAuthKeyValue().compare("utkey3"));
@@ -738,7 +737,7 @@ TEST_F(BgpServerUnitTest, MultipleMd5KeyChanges) {
 
     // Change the key for both 'A' and 'B' with the first key again.
     keys.clear();
-    keys.push_back(ConfigUTAuthKeyItem("keyid1", "md5", "utkey1", ""));
+    keys.push_back(ConfigUTAuthKeyItem("0", "utkey1", ""));
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), true, keys);
     TASK_UTIL_EXPECT_EQ(0, peer_a->GetInuseAuthKeyValue().compare("utkey1"));
