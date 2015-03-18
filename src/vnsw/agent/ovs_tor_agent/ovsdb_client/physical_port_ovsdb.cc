@@ -15,6 +15,7 @@ extern "C" {
 
 #include <logical_switch_ovsdb.h>
 #include <physical_port_ovsdb.h>
+#include <vlan_port_binding_ovsdb.h>
 #include <ovsdb_types.h>
 
 using OVSDB::OvsdbClient;
@@ -23,8 +24,9 @@ using OVSDB::PhysicalPortEntry;
 using OVSDB::PhysicalPortTable;
 
 PhysicalPortEntry::PhysicalPortEntry(PhysicalPortTable *table,
-        const std::string &name) : OvsdbEntry(table), name_(name),
-    binding_table_(), ovs_binding_table_() {
+        const std::string &dev_name, const std::string &name) :
+    OvsdbEntry(table), name_(name), dev_name_(dev_name), binding_table_(),
+    ovs_binding_table_() {
 }
 
 PhysicalPortEntry::~PhysicalPortEntry() {
@@ -50,6 +52,10 @@ bool PhysicalPortEntry::Delete() {
 bool PhysicalPortEntry::IsLess(const KSyncEntry &entry) const {
     const PhysicalPortEntry &ps_entry =
         static_cast<const PhysicalPortEntry&>(entry);
+    if (dev_name_ != ps_entry.dev_name_) {
+        return (dev_name_.compare(ps_entry.dev_name_) < 0);
+    }
+
     return (name_.compare(ps_entry.name_) < 0);
 }
 
@@ -97,6 +103,10 @@ const std::string &PhysicalPortEntry::name() const {
     return name_;
 }
 
+const std::string &PhysicalPortEntry::dev_name() const {
+    return dev_name_;
+}
+
 const PhysicalPortEntry::VlanLSTable &
 PhysicalPortEntry::binding_table() const {
     return binding_table_;
@@ -126,8 +136,8 @@ bool PhysicalPortEntry::OverrideOvs() {
         table_->client_idl()->DeleteTxn(txn);
         return true;
     }
-    OVSDB_TRACE(Trace, "Sending Vlan Port Binding update for Physical Port " +
-                        name_);
+    OVSDB_TRACE(Trace, "Sending Vlan Port Binding update for Physical route " +
+                       dev_name_ + " Physical Port " + name_);
     table_->client_idl()->SendJsonRpc(msg);
     return false;
 }
@@ -143,95 +153,142 @@ PhysicalPortTable::~PhysicalPortTable() {
 
 void PhysicalPortTable::Notify(OvsdbClientIdl::Op op,
         struct ovsdb_idl_row *row) {
-    PhysicalPortEntry key(this, ovsdb_wrapper_physical_port_name(row));
-    PhysicalPortEntry *entry = static_cast<PhysicalPortEntry *>(Find(&key));
     if (op == OvsdbClientIdl::OVSDB_DEL) {
-        OVSDB_TRACE(Trace, "Delete of Physical Port " +
-                std::string(ovsdb_wrapper_physical_port_name(row)));
-        if (entry != NULL && IsActiveEntry(entry)) {
-            entry->ovs_entry_ = NULL;
-            Delete(entry);
-        }
+        DeletePortEntry(row);
     } else if (op == OvsdbClientIdl::OVSDB_ADD) {
-        if (entry == NULL) {
-            OVSDB_TRACE(Trace, "Add/Change of Physical Port " +
-                    std::string(ovsdb_wrapper_physical_port_name(row)));
-            entry = static_cast<PhysicalPortEntry *>(Create(&key));
-            entry->ovs_entry_ = row;
-        } else if (!IsActiveEntry(entry)) {
-            // entry is present but it is a temp entry.
-            OVSDB_TRACE(Trace, "Add/Change of Physical Port " +
-                    std::string(ovsdb_wrapper_physical_port_name(row)));
-            Change(entry);
-            // Set row pointer after triggering change to activate entry
-            // so that message is not encoded.
-            entry->ovs_entry_ = row;
+        PhysicalPortEntry *entry = FindPortEntry(row);
+        if (entry) {
+            EntryOvsdbUpdate(entry);
         }
-
-        std::size_t count = ovsdb_wrapper_physical_port_vlan_binding_count(row);
-        struct ovsdb_wrapper_port_vlan_binding new_bind[count];
-        ovsdb_wrapper_physical_port_vlan_binding(row, new_bind);
-
-        // clear the old ovs_binding_table and fill new entries.
-        entry->ovs_binding_table_.clear();
-        for (std::size_t i = 0; i < count; i++) {
-            LogicalSwitchEntry key(client_idl_->logical_switch_table(),
-                    ovsdb_wrapper_logical_switch_name(new_bind[i].ls));
-            LogicalSwitchEntry *ls_entry =
-                static_cast<LogicalSwitchEntry *>(
-                        client_idl_->logical_switch_table()->Find(&key));
-            entry->ovs_binding_table_[new_bind[i].vlan] = ls_entry;
-        }
-
-        // Compare difference between tor agent and ovsdb server.
-        // on mis-match override and re-program Physical port
-        PhysicalPortEntry::VlanLSTable::iterator it =
-            entry->binding_table_.begin();
-        PhysicalPortEntry::VlanLSTable::iterator ovs_it =
-            entry->ovs_binding_table_.begin();
-        while (it != entry->binding_table_.end() ||
-               ovs_it != entry->ovs_binding_table_.end()) {
-            if (it == entry->binding_table_.end() ||
-                ovs_it == entry->ovs_binding_table_.end()) {
-                // mis-match in ending entry.
-                break;
-            }
-            if (it->first == ovs_it->first) {
-                if (it->second != ovs_it->second) {
-                    // mis-match of logical switch for the vlan
-                    break;
-                }
-            } else {
-                // mis-match of vlans in binding
-                break;
-            }
-            it++;
-            ovs_it++;
-        }
-
-        count = ovsdb_wrapper_physical_port_vlan_stats_count(row);
-        struct ovsdb_wrapper_port_vlan_stats stats[count];
-        ovsdb_wrapper_physical_port_vlan_stats(row, stats);
-        entry->stats_table_.clear();
-        for (std::size_t i = 0; i < count; i++) {
-            entry->stats_table_[stats[i].vlan] = stats[i].stats;
-        }
-
-        if (it != entry->binding_table_.end() ||
-            ovs_it != entry->ovs_binding_table_.end()) {
-            // change entry to update vlan port bindings
-            Change(entry);
-        }
-    } else {
-        assert(0);
     }
 }
 
 KSyncEntry *PhysicalPortTable::Alloc(const KSyncEntry *key, uint32_t index) {
     const PhysicalPortEntry *k_entry =
         static_cast<const PhysicalPortEntry *>(key);
-    PhysicalPortEntry *entry = new PhysicalPortEntry(this, k_entry->name_);
+    PhysicalPortEntry *entry = new PhysicalPortEntry(this, k_entry->dev_name_,
+                                                     k_entry->name_);
     return entry;
+}
+
+void PhysicalPortTable::CreatePortEntry(struct ovsdb_idl_row *row,
+                                        const std::string &physical_device) {
+    assert(FindPortEntry(row) == NULL);
+    // Create a port entry and add to the idl entry map
+    PhysicalPortEntry key(this, physical_device,
+                          ovsdb_wrapper_physical_port_name(row));
+    PhysicalPortEntry *entry = static_cast<PhysicalPortEntry *>(Find(&key));
+    if (entry == NULL) {
+        OVSDB_TRACE(Trace, "Add/Change of Physical Port " +
+                std::string(ovsdb_wrapper_physical_port_name(row)));
+        entry = static_cast<PhysicalPortEntry *>(Create(&key));
+        entry->ovs_entry_ = row;
+    } else if (!IsActiveEntry(entry)) {
+        // entry is present but it is a temp entry.
+        OVSDB_TRACE(Trace, "Add/Change of Physical Port " +
+                std::string(ovsdb_wrapper_physical_port_name(row)));
+        Change(entry);
+        // Set row pointer after triggering change to activate entry
+        // so that message is not encoded.
+        entry->ovs_entry_ = row;
+    }
+    EntryOvsdbUpdate(entry);
+    idl_entry_map_[row] = entry;
+}
+
+PhysicalPortEntry *PhysicalPortTable::FindPortEntry(struct ovsdb_idl_row *row) {
+    IdlEntryMap::iterator it = idl_entry_map_.find(row);
+    if (it != idl_entry_map_.end()) {
+        return it->second;
+    }
+
+    return NULL;
+}
+
+void PhysicalPortTable::DeletePortEntry(struct ovsdb_idl_row *row) {
+    PhysicalPortEntry *entry = FindPortEntry(row);
+    if (entry == NULL) {
+        return;
+    }
+
+    OVSDB_TRACE(Trace, "Delete of Physical Port " +
+            std::string(ovsdb_wrapper_physical_port_name(row)));
+    idl_entry_map_.erase(row);
+    entry->ovs_entry_ = NULL;
+    Delete(entry);
+}
+
+void PhysicalPortTable::EntryOvsdbUpdate(PhysicalPortEntry *entry) {
+    std::size_t count =
+        ovsdb_wrapper_physical_port_vlan_binding_count(entry->ovs_entry());
+    struct ovsdb_wrapper_port_vlan_binding new_bind[count];
+    ovsdb_wrapper_physical_port_vlan_binding(entry->ovs_entry(), new_bind);
+
+    // clear the old ovs_binding_table and fill new entries.
+    entry->ovs_binding_table_.clear();
+    for (std::size_t i = 0; i < count; i++) {
+        LogicalSwitchEntry key(client_idl_->logical_switch_table(),
+                ovsdb_wrapper_logical_switch_name(new_bind[i].ls));
+        LogicalSwitchEntry *ls_entry =
+            static_cast<LogicalSwitchEntry *>(
+                    client_idl_->logical_switch_table()->Find(&key));
+        entry->ovs_binding_table_[new_bind[i].vlan] = ls_entry;
+    }
+
+    // Compare difference between tor agent and ovsdb server.
+    // on mis-match override and re-program Physical port
+    PhysicalPortEntry::VlanLSTable::iterator it =
+        entry->binding_table_.begin();
+    PhysicalPortEntry::VlanLSTable::iterator ovs_it =
+        entry->ovs_binding_table_.begin();
+    VlanPortBindingTable *vp_binding_table = client_idl_->vlan_port_table();
+    bool ret_override = false;
+    while (ovs_it != entry->ovs_binding_table_.end()) {
+        #if 0
+        if (it == entry->binding_table_.end() ||
+                ovs_it == entry->ovs_binding_table_.end()) {
+            // mis-match in ending entry.
+            break;
+        }
+        #endif
+        if (it != entry->binding_table_.end() && it->first == ovs_it->first) {
+            if (it->second != ovs_it->second) {
+                // mis-match of logical switch for the vlan
+                //break;
+                ret_override = true;
+            }
+            it++;
+            ovs_it++;
+        } else {
+            ret_override = true;
+            // mis-match of vlans in binding
+            if (it == entry->binding_table_.end() || it->first > ovs_it->first) {
+                // Create stale vlan port binding entry
+                VlanPortBindingEntry key(vp_binding_table, entry->dev_name(),
+                                         entry->name(), ovs_it->first,
+                                         ovs_it->second->name());
+                vp_binding_table->CreateStale(&key);
+                ovs_it++;
+            } else {
+                it++;
+            }
+        }
+    }
+
+    count = ovsdb_wrapper_physical_port_vlan_stats_count(entry->ovs_entry());
+    struct ovsdb_wrapper_port_vlan_stats stats[count];
+    ovsdb_wrapper_physical_port_vlan_stats(entry->ovs_entry(), stats);
+    entry->stats_table_.clear();
+    for (std::size_t i = 0; i < count; i++) {
+        entry->stats_table_[stats[i].vlan] = stats[i].stats;
+    }
+
+    if (ret_override) {
+    //if (it != entry->binding_table_.end() ||
+    //        ovs_it != entry->ovs_binding_table_.end()) {
+        // change entry to update vlan port bindings
+        Change(entry);
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -265,6 +322,7 @@ public:
             while (entry != NULL) {
                 OvsdbPhysicalPortEntry pentry;
                 pentry.set_state(entry->StateString());
+                pentry.set_switch_name(entry->dev_name());
                 pentry.set_name(entry->name());
                 const PhysicalPortEntry::VlanLSTable &bindings =
                     entry->binding_table();

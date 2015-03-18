@@ -33,17 +33,43 @@ KSyncObjectManager *KSyncObjectManager::singleton_;
 std::auto_ptr<KSyncEntry> KSyncObjectManager::default_defer_entry_;
 bool KSyncDebug::debug_;
 
+// to be used only by test code, for triggering
+// stale entry timer callback explicitly
+void TestTriggerStaleEntryCleanupCb(KSyncObject *obj) {
+    obj->StaleEntryCleanupCb();
+}
+
 KSyncObject::KSyncObject() : need_index_(false), index_table_(),
-                         delete_scheduled_(false) {
+                         delete_scheduled_(false), stale_entry_tree_(),
+                         stale_entry_cleanup_timer_(NULL) {
 }
 
 KSyncObject::KSyncObject(int max_index) : 
                          need_index_(true), index_table_(max_index),
-                         delete_scheduled_(false) {
+                         delete_scheduled_(false), stale_entry_tree_(),
+                         stale_entry_cleanup_timer_(NULL) {
 }
 
 KSyncObject::~KSyncObject() {
     assert(tree_.size() == 0);
+    if (stale_entry_cleanup_timer_ != NULL) {
+        TimerManager::DeleteTimer(stale_entry_cleanup_timer_);
+    }
+}
+
+void KSyncObject::InitStaleEntryCleanup(boost::asio::io_service &ios,
+                                        uint32_t cleanup_time,
+                                        uint32_t cleanup_intvl,
+                                        uint16_t entries_per_intvl) {
+    // init should be called only once
+    assert(stale_entry_cleanup_timer_ == NULL);
+    stale_entry_cleanup_timer_ = TimerManager::CreateTimer(ios,
+            "KSync Stale Entry Cleanup Timer",
+            TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0);
+    stale_entry_cleanup_timer_->Start(cleanup_time,
+            boost::bind(&KSyncObject::StaleEntryCleanupCb, this));
+    stale_entry_cleanup_intvl_ = cleanup_intvl;
+    stale_entries_per_intvl_ = entries_per_intvl;
 }
 
 void KSyncObject::Shutdown() {
@@ -88,20 +114,56 @@ KSyncEntry *KSyncObject::CreateImpl(const KSyncEntry *key) {
     return entry;
 }
 
+void KSyncObject::ClearStale(KSyncEntry *entry) {
+    // Clear stale marked entry and remove from stale entry tree
+    entry->stale_ = false;
+    stale_entry_tree_.erase(entry);
+}
+
 KSyncEntry *KSyncObject::Create(const KSyncEntry *key) {
     tbb::recursive_mutex::scoped_lock lock(lock_);
     KSyncEntry *entry = Find(key);
     if (entry == NULL) {
         entry = CreateImpl(key);
     } else {
-        // If entry is already present, it should be in TEMP state
-        // or deleted state.
-        if (entry->GetState() != KSyncEntry::TEMP && !entry->IsDeleted()) {
+        if (entry->stale_) {
+            // Clear stale marked entry
+            ClearStale(entry);
+        } else if (entry->GetState() != KSyncEntry::TEMP && !entry->IsDeleted()) {
+            // If entry is already present, it should be in TEMP state
+            // or deleted state.
             assert(0);
         }
     }
 
     NotifyEvent(entry, KSyncEntry::ADD_CHANGE_REQ);
+    return entry;
+}
+
+KSyncEntry *KSyncObject::CreateStale(const KSyncEntry *key) {
+    // Should not be called without initialising stale entry
+    // cleanup InitStaleEntryCleanup
+    assert(stale_entry_cleanup_timer_ != NULL);
+    tbb::recursive_mutex::scoped_lock lock(lock_);
+    KSyncEntry *entry = Find(key);
+    if (entry == NULL) {
+        entry = CreateImpl(key);
+    } else {
+        if (entry->GetState() != KSyncEntry::TEMP && !entry->IsDeleted()) {
+            // If entry is already present, it should be in TEMP state
+            // or deleted state.
+            assert(0);
+        }
+    }
+
+    // mark the entry stale and add to stale entry tree.
+    entry->stale_ = true;
+    stale_entry_tree_.insert(entry);
+
+    NotifyEvent(entry, KSyncEntry::ADD_CHANGE_REQ);
+    // try starting the timer if not running already
+    stale_entry_cleanup_timer_->Start(stale_entry_cleanup_intvl_,
+            boost::bind(&KSyncObject::StaleEntryCleanupCb, this));
     return entry;
 }
 
@@ -121,6 +183,9 @@ void KSyncObject::Change(KSyncEntry *entry) {
 }
 
 void KSyncObject::Delete(KSyncEntry *entry) {
+    if (entry->stale_) {
+        ClearStale(entry);
+    }
     SafeNotifyEvent(entry, KSyncEntry::DEL_REQ);
 }
 
@@ -296,6 +361,10 @@ void KSyncDBObject::Notify(DBTablePartBase *partition, DBEntryBase *e) {
                 ksync = static_cast<KSyncDBEntry *>(CreateImpl(key));
             } else {
                 ksync = static_cast<KSyncDBEntry *>(found);
+                if (ksync->stale()) {
+                    // Clear stale marked entry and remove from stale entry tree
+                    ClearStale(ksync);
+                }
             }
             delete key;
             entry->SetState(table, id_, ksync);
@@ -436,6 +505,10 @@ std::string KSyncEntry::StateString() const {
         case FREE_WAIT:
             str << "Free wait";
             break;
+    }
+
+    if (stale_) {
+        str << " (Stale entry) ";
     }
 
     str << '(' << state_ << ')';
@@ -1116,6 +1189,29 @@ void KSyncObject::NetlinkAckInternal(KSyncEntry *entry, KSyncEntry::KSyncEvent e
     NotifyEvent(entry, event);
 }
 
+bool KSyncObject::StaleEntryCleanupCb() {
+    // donot reschedule timer if no stale entries
+    if (stale_entry_tree_.empty()) {
+        return false;
+    }
+
+    uint32_t count = 0;
+    std::set<KSyncEntry::KSyncEntryPtr>::iterator it = stale_entry_tree_.begin();
+    while (it != stale_entry_tree_.end()) {
+        if (count == stale_entries_per_intvl_) {
+            break;
+        }
+        KSyncEntry *entry = (*it).get();
+        // Delete removes entry from stale entry tree
+        Delete(entry);
+        it = stale_entry_tree_.begin();
+        count++;
+    }
+
+    // iterate entries and trigger delete
+    return stale_entry_cleanup_timer_->Reschedule(stale_entry_cleanup_intvl_);
+}
+
 void KSyncObject::NetlinkAck(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
     NetlinkAckInternal(entry, event);
 }
@@ -1211,7 +1307,7 @@ bool KSyncObjectManager::Process(KSyncObjectEvent *event) {
                 count++;
                 if (entry->IsDeleted() == false) {
                     // trigger delete if entry is not marked delete already.
-                    event->obj_->SafeNotifyEvent(entry, KSyncEntry::DEL_REQ);
+                    event->obj_->Delete(entry);
                 }
 
                 if (count == kMaxEntriesProcess && next_entry != NULL) {

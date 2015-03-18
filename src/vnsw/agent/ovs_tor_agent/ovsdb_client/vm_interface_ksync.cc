@@ -102,7 +102,7 @@ const std::string &VMInterfaceKSyncEntry::vn_name() const {
 }
 
 VMInterfaceKSyncObject::VMInterfaceKSyncObject(OvsdbClientIdl *idl, DBTable *table) :
-    OvsdbDBObject(idl, table) {
+    OvsdbDBObject(idl, table, false) {
 }
 
 VMInterfaceKSyncObject::~VMInterfaceKSyncObject() {

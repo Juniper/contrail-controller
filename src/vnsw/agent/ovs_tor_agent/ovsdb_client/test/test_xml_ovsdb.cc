@@ -19,6 +19,7 @@
 #include <physical_switch_ovsdb.h>
 #include <logical_switch_ovsdb.h>
 #include <unicast_mac_remote_ovsdb.h>
+#include <vrf_ovsdb.h>
 
 #include <test-xml/test_xml.h>
 #include <test-xml/test_xml_oper.h>
@@ -116,16 +117,17 @@ bool AgentUtXmlUnicastRemoteValidate::ReadXml() {
 
 bool AgentUtXmlUnicastRemoteValidate::Validate() {
     VrfOvsdbObject *table = ovs_test_session->client_idl()->vrf_ovsdb();
-    const VrfOvsdbObject::LogicalSwitchMap ls_table = table->logical_switch_map();
-    VrfOvsdbObject::LogicalSwitchMap::const_iterator it = ls_table.find(UuidToString(vn_uuid_));
-    if (it == ls_table.end()) {
+    VrfOvsdbEntry vrf_key(table, UuidToString(vn_uuid_));
+    VrfOvsdbEntry *vrf_entry =
+        static_cast<VrfOvsdbEntry *>(table->Find(&vrf_key));
+    if (vrf_entry == NULL) {
         if (present()) {
             return false;
         }
         return true;
     }
 
-    UnicastMacRemoteTable *u_table = it->second->l2_table;
+    UnicastMacRemoteTable *u_table = vrf_entry->route_table();
     UnicastMacRemoteEntry key(u_table, mac_, UuidToString(vn_uuid_));
     UnicastMacRemoteEntry *entry = static_cast<UnicastMacRemoteEntry *>
         (u_table->Find(&key));

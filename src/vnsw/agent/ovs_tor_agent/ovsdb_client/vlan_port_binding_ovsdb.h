@@ -30,6 +30,10 @@ private:
 class VlanPortBindingEntry : public OvsdbDBEntry {
 public:
     VlanPortBindingEntry(VlanPortBindingTable *table,
+            const std::string &physical_device,
+            const std::string &physical_port,
+            uint16_t vlan_tag, const std::string &logical_switch);
+    VlanPortBindingEntry(VlanPortBindingTable *table,
             const VlanPortBindingEntry *key);
     VlanPortBindingEntry(VlanPortBindingTable *table,
             const VlanLogicalInterface *entry);
