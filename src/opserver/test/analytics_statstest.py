@@ -265,6 +265,50 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_03_ipfix
 
+    #@unittest.skip('Get minmax values from inserted stats')
+    def test_04_min_max_query(self):
+        '''
+        This test starts redis,vizd,opserver and qed
+        It uses the test class' cassandra instance
+        Then it inserts into the stat table rows 
+        and queries MAX and MIN on them
+        '''
+        logging.info("*** test_04_min_max_query ***")
+        if StatsTest._check_skip_test() is True:
+            return True
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.redis_port,
+                             self.__class__.cassandra_port))
+        assert vizd_obj.verify_on_setup()
+        assert vizd_obj.verify_collector_obj_count()
+        collectors = [vizd_obj.get_collector()]
+
+        generator_obj = self.useFixture(
+            StatsFixture("VRouterAgent", collectors,
+                             logging, vizd_obj.get_opserver_port()))
+        assert generator_obj.verify_on_setup()
+
+        logging.info("Starting stat gen " + str(UTCTimestampUsec()))
+
+        generator_obj.send_test_stat("t04","lxxx","samp1",1,5);
+        generator_obj.send_test_stat("t04","lyyy","samp1",4,3.4);
+        generator_obj.send_test_stat("t04","lyyy","samp1",2,4,"",5);
+
+        logging.info("Checking Stats " + str(UTCTimestampUsec()))
+        assert generator_obj.verify_test_stat("StatTable.StatTestState.st","-2m",
+            select_fields = [ "MAX(st.i1)"],
+            where_clause = 'name|st.s1=t04|samp1', num = 1, check_rows =
+            [{u'MAX(st.i1)': 4}]);
+
+        assert generator_obj.verify_test_stat("StatTable.StatTestState.st","-2m",
+            select_fields = [ "MIN(st.d1)"],
+            where_clause = 'name|st.s1=t04|samp1', num = 1, check_rows =
+            [{u'MIN(st.d1)': 3.4}]);
+
+        return True
+    # end test_04_overflowsamples
+
     @retry(delay=1, tries=5)
     def verify_ipfix(self, vns, uexp):
         logging.info("Trying to verify IPFIX...")
