@@ -2098,37 +2098,35 @@ class AnalyticsFixture(fixtures.Fixture):
         return True
     # end verify_fieldname_table
 
-    def _get_filters_string(self, kfilt, sfilt, mfilt, cfilt):
+    def _get_filters_string(self, filters):
+        if filters is None:
+            return ''
         filt = []
-        if kfilt is not None:
-            filt.append('kfilt=%s' % ','.join(kfilt))
-        if sfilt is not None:
-            filt.append('sfilt=%s' % sfilt)
-        if mfilt is not None:
-            filt.append('mfilt=%s' % mfilt)
-        if cfilt is not None:
-            filt.append('cfilt=%s' % ','.join(cfilt))
+        if filters.get('kfilt') is not None:
+            filt.append('kfilt=%s' % (','.join(filters['kfilt'])))
+        if filters.get('sfilt') is not None:
+            filt.append('sfilt=%s' % (filters['sfilt']))
+        if filters.get('mfilt') is not None:
+            filt.append('mfilt=%s' % (filters['mfilt']))
+        if filters.get('cfilt') is not None:
+            filt.append('cfilt=%s' % (','.join(filters['cfilt'])))
+        if filters.get('ackfilt') is not None:
+            filt.append('ackfilt=%s' %
+                        ('true' if filters['ackfilt'] else 'false'))
         return '&'.join(filt)
     # end _get_filters_string
 
-    def _get_filters_json(self, kfilt, sfilt, mfilt, cfilt):
-        filt = {}
-        if kfilt is not None:
-            filt['kfilt'] = kfilt
-        if sfilt is not None:
-            filt['sfilt'] = sfilt
-        if mfilt is not None:
-            filt['mfilt'] = mfilt
-        if cfilt is not None:
-            filt['cfilt'] = cfilt
+    def _get_filters_json(self, filters):
+        if filters is None:
+            filters = {}
+        filt = {k:v for k, v in filters.iteritems() if v is not None}
         return json.dumps(filt)
     # end _get_filters_json
 
     @retry(delay=1, tries=3)
-    def verify_uve_list(self, table, kfilt=None, sfilt=None, mfilt=None,
-                        cfilt=None, exp_uve_list=[]):
+    def verify_uve_list(self, table, filts=None, exp_uve_list=[]):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
-        filters = self._get_filters_string(kfilt, sfilt, mfilt, cfilt)
+        filters = self._get_filters_string(filts)
         query = table+'s?'+filters
         self.logger.info('verify_uve_list: %s' % (query))
         try:
@@ -2158,10 +2156,9 @@ class AnalyticsFixture(fixtures.Fixture):
     # end _verify_uves
 
     @retry(delay=1, tries=3)
-    def verify_multi_uve_get(self, table, kfilt=None, sfilt=None, mfilt=None,
-                             cfilt=None, exp_uves=None):
+    def verify_multi_uve_get(self, table, filts=None, exp_uves=None):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
-        filters = self._get_filters_string(kfilt, sfilt, mfilt, cfilt)
+        filters = self._get_filters_string(filts)
         if not filters:
             filters = 'flat'
         query = table+'/*?'+filters
@@ -2176,10 +2173,9 @@ class AnalyticsFixture(fixtures.Fixture):
     # end verify_multi_uve_get
 
     @retry(delay=1, tries=3)
-    def verify_uve_post(self, table, kfilt=None, sfilt=None, mfilt=None,
-                        cfilt=None, exp_uves=None):
+    def verify_uve_post(self, table, filts=None, exp_uves=None):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
-        filter_json = self._get_filters_json(kfilt, sfilt, mfilt, cfilt)
+        filter_json = self._get_filters_json(filts)
         self.logger.info('verify_uve_post: %s: %s' % (table, filter_json))
         try:
             actual_uves = vns.post_uve_request(table, filter_json)
@@ -2191,10 +2187,9 @@ class AnalyticsFixture(fixtures.Fixture):
     # end verify_uve_post
 
     @retry(delay=1, tries=5)
-    def verify_alarm_list(self, table, kfilt=None, sfilt=None, mfilt=None,
-                          cfilt=None, expected_alarms=[]):
+    def verify_alarm_list(self, table, filts=None, expected_alarms=[]):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
-        filters = self._get_filters_string(kfilt, sfilt, mfilt, cfilt)
+        filters = self._get_filters_string(filts)
         query = table+'s?'+filters
         self.logger.info('verify_alarm_list: %s' % (query))
         try:
@@ -2224,10 +2219,9 @@ class AnalyticsFixture(fixtures.Fixture):
     # end _verify_alarms
 
     @retry(delay=1, tries=3)
-    def verify_multi_alarm_get(self, table, kfilt=None, sfilt=None,
-                               mfilt=None, cfilt=None, exp_alarms=None):
+    def verify_multi_alarm_get(self, table, filts, exp_alarms=None):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
-        filters = self._get_filters_string(kfilt, sfilt, mfilt, cfilt)
+        filters = self._get_filters_string(filts)
         if not filters:
             filters = 'flat'
         query = table+'/*?'+filters
@@ -2242,10 +2236,9 @@ class AnalyticsFixture(fixtures.Fixture):
     # end verify_multi_alarm_get
 
     @retry(delay=1, tries=3)
-    def verify_alarm_post(self, table, kfilt=None, sfilt=None, mfilt=None,
-                          cfilt=None, exp_alarms=None):
+    def verify_alarm_post(self, table, filts, exp_alarms=None):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
-        filter_json = self._get_filters_json(kfilt, sfilt, mfilt, cfilt)
+        filter_json = self._get_filters_json(filts)
         self.logger.info('verify_alarm_post: %s: %s' % (table, filter_json))
         try:
             actual_alarms = vns.post_alarm_request(table, filter_json)
@@ -2276,7 +2269,7 @@ class AnalyticsFixture(fixtures.Fixture):
             return actual_alarm_data == {}
         expected_alarms = expected_alarm_data['alarms']
         try:
-            actual_alarms = actual_alarm_data['AlarmData']['alarms']
+            actual_alarms = actual_alarm_data['UVEAlarms']['alarms']
         except KeyError:
             return False
         return actual_alarms == expected_alarms
