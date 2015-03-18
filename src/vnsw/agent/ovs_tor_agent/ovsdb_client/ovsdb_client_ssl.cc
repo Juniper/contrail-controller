@@ -207,6 +207,10 @@ void OvsdbClientSslSession::TriggerClose() {
     EnqueueEvent(TcpSession::CLOSE);
 }
 
+Ip4Address OvsdbClientSslSession::remote_ip() {
+    return remote_endpoint().address().to_v4();
+}
+
 bool OvsdbClientSslSession::ProcessSessionEvent(OvsdbSessionEvent ovs_event) {
     boost::system::error_code ec;
     switch (ovs_event.event) {

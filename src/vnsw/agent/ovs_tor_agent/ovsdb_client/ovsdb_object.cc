@@ -42,11 +42,18 @@ void OvsdbObject::EmptyTable(void) {
     }
 }
 
-OvsdbDBObject::OvsdbDBObject(OvsdbClientIdl *idl) : KSyncDBObject(),
+OvsdbDBObject::OvsdbDBObject(OvsdbClientIdl *idl,
+                             bool init_stale_entry_cleanup) : KSyncDBObject(),
     client_idl_(idl), walkid_(DBTableWalker::kInvalidWalkerId) {
+    if (init_stale_entry_cleanup) {
+        InitStaleEntryCleanup(*(idl->agent()->event_manager())->io_service(),
+                              StaleEntryCleanupTimer, StaleEntryYeildTimer,
+                              StaleEntryDeletePerIteration);
+    }
 }
 
-OvsdbDBObject::OvsdbDBObject(OvsdbClientIdl *idl, DBTable *tbl) :
+OvsdbDBObject::OvsdbDBObject(OvsdbClientIdl *idl, DBTable *tbl,
+                             bool init_stale_entry_cleanup) :
     KSyncDBObject(tbl), client_idl_(idl),
     walkid_(DBTableWalker::kInvalidWalkerId) {
     DBTableWalker *walker = client_idl_->agent()->db()->GetWalker();
@@ -55,6 +62,11 @@ OvsdbDBObject::OvsdbDBObject(OvsdbClientIdl *idl, DBTable *tbl) :
     walkid_ = walker->WalkTable(tbl, NULL,
             boost::bind(&OvsdbDBObject::DBWalkNotify, this, _1, _2),
             boost::bind(&OvsdbDBObject::DBWalkDone, this, _1));
+    if (init_stale_entry_cleanup) {
+        InitStaleEntryCleanup(*(idl->agent()->event_manager())->io_service(),
+                              StaleEntryCleanupTimer, StaleEntryYeildTimer,
+                              StaleEntryDeletePerIteration);
+    }
 }
 
 OvsdbDBObject::~OvsdbDBObject() {
@@ -62,6 +74,17 @@ OvsdbDBObject::~OvsdbDBObject() {
         DBTableWalker *walker = client_idl_->agent()->db()->GetWalker();
         walker->WalkCancel(walkid_);
     }
+}
+
+void OvsdbDBObject::OvsdbRegisterDBTable(DBTable *tbl) {
+    assert(client_idl_.get() != NULL);
+    RegisterDb(tbl);
+    DBTableWalker *walker = client_idl_->agent()->db()->GetWalker();
+    // Start a walker to get the entries which were already present,
+    // when we register to the DB Table
+    walkid_ = walker->WalkTable(tbl, NULL,
+            boost::bind(&OvsdbDBObject::DBWalkNotify, this, _1, _2),
+            boost::bind(&OvsdbDBObject::DBWalkDone, this, _1));
 }
 
 void OvsdbDBObject::NotifyAddOvsdb(OvsdbDBEntry *key, struct ovsdb_idl_row *row) {
@@ -76,7 +99,8 @@ void OvsdbDBObject::NotifyAddOvsdb(OvsdbDBEntry *key, struct ovsdb_idl_row *row)
         OvsdbDBEntry *del_entry = AllocOvsEntry(row);
         // trigger notify add for the entry, to update ovs_idl state
         del_entry->NotifyAdd(row);
-        Delete(del_entry);
+        // entry created by AllocOvsEntry should always be stale
+        assert(del_entry->stale());
     }
 }
 

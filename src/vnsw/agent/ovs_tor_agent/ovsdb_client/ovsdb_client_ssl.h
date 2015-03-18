@@ -44,6 +44,9 @@ public:
     // method to trigger close of session
     void TriggerClose();
 
+    // method to return ip address of remoter endpoint
+    virtual Ip4Address remote_ip();
+
     // Dequeue event from workqueue for processing
     bool ProcessSessionEvent(OvsdbSessionEvent event);
 

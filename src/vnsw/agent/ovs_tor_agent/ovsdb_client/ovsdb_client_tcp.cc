@@ -14,12 +14,10 @@ using OVSDB::OvsdbClientTcpSession;
 using OVSDB::OvsdbClientTcpSessionReader;
 
 OvsdbClientTcp::OvsdbClientTcp(Agent *agent, IpAddress tor_ip, int tor_port,
-        IpAddress tsn_ip, int keepalive_interval, bool disable_monitor_wait,
-        OvsPeerManager *manager) :
+        IpAddress tsn_ip, int keepalive_interval, OvsPeerManager *manager) :
     TcpServer(agent->event_manager()),
     OvsdbClient(manager, keepalive_interval), agent_(agent), session_(NULL),
-    server_ep_(tor_ip, tor_port), tsn_ip_(tsn_ip.to_v4()), shutdown_(false),
-    disable_monitor_wait_(disable_monitor_wait) {
+    server_ep_(tor_ip, tor_port), tsn_ip_(tsn_ip.to_v4()), shutdown_(false) {
 }
 
 OvsdbClientTcp::~OvsdbClientTcp() {
@@ -122,12 +120,6 @@ OvsdbClientTcpSession::OvsdbClientTcpSession(Agent *agent,
     session_event_queue_ = new WorkQueue<OvsdbSessionEvent>(
             TaskScheduler::GetInstance()->GetTaskId("Agent::KSync"), 0,
             boost::bind(&OvsdbClientTcpSession::ProcessSessionEvent, this, _1));
-
-    OvsdbClientTcp *ovs_server = static_cast<OvsdbClientTcp *>(server);
-    if (ovs_server->disable_monitor_wait_) {
-        // disable monitor request send wait by setting monitor_wait_ to 0
-        monitor_wait_ = 0;
-    }
 }
 
 OvsdbClientTcpSession::~OvsdbClientTcpSession() {
@@ -181,6 +173,10 @@ void OvsdbClientTcpSession::TriggerClose() {
     OvsdbSessionEvent ovs_event;
     ovs_event.event = TcpSession::CLOSE;
     session_event_queue_->Enqueue(ovs_event);
+}
+
+Ip4Address OvsdbClientTcpSession::remote_ip() {
+    return remote_endpoint().address().to_v4();
 }
 
 bool OvsdbClientTcpSession::ProcessSessionEvent(OvsdbSessionEvent ovs_event) {

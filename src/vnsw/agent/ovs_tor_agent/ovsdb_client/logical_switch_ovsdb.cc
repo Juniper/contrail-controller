@@ -158,6 +158,12 @@ bool LogicalSwitchEntry::IsLess(const KSyncEntry &entry) const {
 }
 
 KSyncEntry *LogicalSwitchEntry::UnresolvedReference() {
+    if (stale()) {
+        // while creating stale entry we should not wait for physical
+        // switch object since it will not be available till config
+        // comes up
+        return NULL;
+    }
     PhysicalSwitchTable *p_table = table_->client_idl()->physical_switch_table();
     PhysicalSwitchEntry key(p_table, device_name_.c_str());
     PhysicalSwitchEntry *p_switch =
@@ -193,7 +199,7 @@ void LogicalSwitchEntry::SendTrace(Trace event) const {
 }
 
 LogicalSwitchTable::LogicalSwitchTable(OvsdbClientIdl *idl, DBTable *table) :
-    OvsdbDBObject(idl, table) {
+    OvsdbDBObject(idl, table, true) {
     idl->Register(OvsdbClientIdl::OVSDB_LOGICAL_SWITCH,
                   boost::bind(&LogicalSwitchTable::OvsdbNotify, this, _1, _2));
     idl->Register(OvsdbClientIdl::OVSDB_MCAST_MAC_LOCAL,
@@ -323,7 +329,7 @@ KSyncEntry *LogicalSwitchTable::DBToKSyncEntry(const DBEntry* db_entry) {
 
 OvsdbDBEntry *LogicalSwitchTable::AllocOvsEntry(struct ovsdb_idl_row *row) {
     LogicalSwitchEntry key(this, row);
-    return static_cast<OvsdbDBEntry *>(Create(&key));
+    return static_cast<OvsdbDBEntry *>(CreateStale(&key));
 }
 
 KSyncDBObject::DBFilterResp LogicalSwitchTable::DBEntryFilter(

@@ -39,9 +39,17 @@ private:
 
 class OvsdbDBObject : public KSyncDBObject {
 public:
-    OvsdbDBObject(OvsdbClientIdl *idl);
-    OvsdbDBObject(OvsdbClientIdl *idl, DBTable *tbl);
+    static const uint32_t StaleEntryCleanupTimer = 300000;          // 5 mins
+    static const uint32_t StaleEntryYeildTimer = 100;               // 100 ms
+    static const uint16_t StaleEntryDeletePerIteration = 32;
+
+    OvsdbDBObject(OvsdbClientIdl *idl, bool init_stale_entry_cleanup);
+    OvsdbDBObject(OvsdbClientIdl *idl, DBTable *tbl,
+                  bool init_stale_entry_cleanup);
     virtual ~OvsdbDBObject();
+
+    // API to register db table, if not already registered.
+    virtual void OvsdbRegisterDBTable(DBTable *tbl);
 
     void NotifyAddOvsdb(OvsdbDBEntry *key, struct ovsdb_idl_row *row);
     void NotifyDeleteOvsdb(OvsdbDBEntry *key, struct ovsdb_idl_row *row);

@@ -19,6 +19,7 @@
 #include "ksync/ksync_object.h"
 
 #include "base/test/task_test_util.h"
+#include "io/event_manager.h"
 
 using namespace std;
 class VlanTable;
@@ -115,8 +116,15 @@ uint32_t Vlan::free_wait_count_;
 
 class VlanTable : public KSyncObject {
 public:
-    VlanTable(int max_index) : KSyncObject(max_index), is_empty_count_(0) { };
-    ~VlanTable() { };
+    VlanTable(int max_index) : KSyncObject(max_index), is_empty_count_(0) {
+        evm_.reset(new EventManager());
+        // set timer value to -1, and trigger timer callback explicitly
+        // set 1 entry processing per iteration
+        InitStaleEntryCleanup(*(evm_->io_service()), -1, -1, 1);
+    };
+    ~VlanTable() {
+        evm_->Shutdown();
+    };
 
     virtual KSyncEntry *Alloc(const KSyncEntry *key, uint32_t index) {
         const Vlan *vlan  = static_cast<const Vlan *>(key);
@@ -132,6 +140,7 @@ public:
     virtual void EmptyTable(void) { is_empty_count_++; }
 
     int is_empty_count_;
+    auto_ptr<EventManager> evm_;
     DISALLOW_COPY_AND_ASSIGN(VlanTable);
 };
 
@@ -178,6 +187,17 @@ bool Vlan::Change() {
         return true;
     return false;
 };
+
+Vlan *AddStaleVlan(uint16_t tag, uint16_t dep_tag, KSyncEntry::KSyncState state,
+                   Vlan::LastOp op, uint32_t index) {
+    Vlan v(tag, dep_tag);
+    Vlan *vlan = static_cast<Vlan *>(vlan_table_->CreateStale(&v));
+
+    EXPECT_EQ(vlan->GetState(), state);
+    EXPECT_EQ(vlan->GetOp(), op);
+    EXPECT_EQ(vlan->GetIndex(), index);
+    return vlan;
+}
 
 Vlan *AddVlan(uint16_t tag, uint16_t dep_tag, KSyncEntry::KSyncState state,
               Vlan::LastOp op, uint32_t index) {
@@ -525,6 +545,7 @@ TEST_F(TestUT, async_change_defer) {
     ChangeVlan(vlan1, 0xFE2, KSyncEntry::CHANGE_DEFER, Vlan::ADD);
     EXPECT_EQ(vlan1->GetRefCount(), 2);
     Vlan *vlan2 = static_cast<Vlan *>(vlan1->dep_vlan_.get());
+    vlan2->GetState();
     vlan_table_->Delete(vlan1);
     EXPECT_EQ(vlan1->GetState(), KSyncEntry::DEL_ACK_WAIT);
     EXPECT_EQ(Vlan::delete_count_, 1);
@@ -904,6 +925,75 @@ TEST_F(TestUT, trigger_object_delete_with_pending_ack) {
     EXPECT_EQ(vlan_table_->is_empty_count_, 0);
 
     vlan_table_->NetlinkAck(vlan1, KSyncEntry::DEL_ACK);
+    EXPECT_EQ(vlan_table_->is_empty_count_, 1);
+
+    // Delete previous object and create a new one.
+    delete vlan_table_;
+    vlan_table_ = new VlanTable(200);
+}
+
+// create stale entry and clean up on timer trigger
+TEST_F(TestUT, stale_entry_create_cleanup) {
+    // Stale Vlan entry with index 0
+    AddStaleVlan(0xF01, 0, KSyncEntry::IN_SYNC, Vlan::ADD, 0);
+
+    // Stale Vlan entry with index 0
+    AddStaleVlan(0xF02, 0, KSyncEntry::IN_SYNC, Vlan::ADD, 1);
+
+    // Triggers delete of stale entry
+    TestTriggerStaleEntryCleanupCb(vlan_table_);
+
+    EXPECT_EQ(Vlan::add_count_, 2);
+    EXPECT_EQ(Vlan::change_count_, 0);
+    EXPECT_EQ(Vlan::delete_count_, 1);
+
+    // Triggers delete of stale entry
+    TestTriggerStaleEntryCleanupCb(vlan_table_);
+
+    EXPECT_EQ(Vlan::add_count_, 2);
+    EXPECT_EQ(Vlan::change_count_, 0);
+    EXPECT_EQ(Vlan::delete_count_, 2);
+}
+
+// create stale entry and convert it to non-stale entry
+// no clean up happens on timer trigger
+TEST_F(TestUT, stale_entry_convert_to_non_stale) {
+    // Stale Vlan entry with index 0
+    AddStaleVlan(0xF01, 0, KSyncEntry::IN_SYNC, Vlan::ADD, 0);
+
+    // convert to non stale entry
+    Vlan *vlan1 = AddVlan(0xF01, 0, KSyncEntry::IN_SYNC, Vlan::CHANGE, 0);
+
+    // Triggers delete of stale entry
+    TestTriggerStaleEntryCleanupCb(vlan_table_);
+
+    EXPECT_EQ(Vlan::add_count_, 1);
+    EXPECT_EQ(Vlan::change_count_, 1);
+    EXPECT_EQ(Vlan::delete_count_, 0);
+
+    // Delete entry with index 0
+    vlan_table_->Delete(vlan1);
+
+    EXPECT_EQ(Vlan::add_count_, 1);
+    EXPECT_EQ(Vlan::change_count_, 1);
+    EXPECT_EQ(Vlan::delete_count_, 1);
+}
+
+TEST_F(TestUT, trigger_object_delete_with_stale_entry) {
+    int count = 110;
+    int first_tag = 0xF00;
+    for (int i = 0; i < count; i++) {
+        AddStaleVlan((i+first_tag), 0, KSyncEntry::IN_SYNC, Vlan::ADD, i);
+    }
+
+    vlan_table_->is_empty_count_ = 0;
+    object_manager->Delete(vlan_table_);
+    task_util::WaitForIdle();
+
+    EXPECT_EQ(Vlan::add_count_, count);
+    EXPECT_EQ(Vlan::delete_count_, count);
+
+    EXPECT_TRUE(vlan_table_->delete_scheduled());
     EXPECT_EQ(vlan_table_->is_empty_count_, 1);
 
     // Delete previous object and create a new one.

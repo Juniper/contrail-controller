@@ -57,11 +57,13 @@ public:
     static const size_t kInvalidIndex = 0xFFFFFFFF;
 
     // Use this constructor if automatic index allocation is *not* needed
-    KSyncEntry() : index_(kInvalidIndex), state_(INIT), seen_(false) { 
+    KSyncEntry() : index_(kInvalidIndex), state_(INIT), seen_(false),
+    stale_(false) {
         refcount_ = 0;
     };
     // Use this constructor if automatic index allocation is needed
-    KSyncEntry(uint32_t index) : index_(index), state_(INIT), seen_(false) {
+    KSyncEntry(uint32_t index) : index_(index), state_(INIT), seen_(false),
+    stale_(false) {
         refcount_ = 0;
     };
     virtual ~KSyncEntry() { assert(refcount_ == 0);};
@@ -116,6 +118,7 @@ public:
     KSyncState GetState() const {return state_;};
     uint32_t GetRefCount() const {return refcount_;} 
     bool Seen() const {return seen_;}
+    bool stale() const {return stale_;}
     void SetSeen() {seen_ = true;}
     bool IsDeleted() { return (state_ == DEL_ACK_WAIT ||
                                state_ == DEL_DEFER_DEL_ACK ||
@@ -143,6 +146,10 @@ private:
     KSyncState          state_;
     tbb::atomic<int>    refcount_;
     bool                seen_;
+
+    // Stale Entry flag indicates an entry as stale, which will be
+    // removed once stale entry timer cleanup gets triggered.
+    bool                stale_;
     DISALLOW_COPY_AND_ASSIGN(KSyncEntry);
 };
 

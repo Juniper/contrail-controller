@@ -22,10 +22,13 @@ private:
 
 class PhysicalSwitchEntry : public OvsdbEntry {
 public:
+    typedef std::set<struct ovsdb_idl_row *> InterfaceList;
+
     enum Trace {
         ADD,
         DEL,
     };
+
     PhysicalSwitchEntry(PhysicalSwitchTable *table, const std::string &name);
     ~PhysicalSwitchEntry();
 
@@ -41,6 +44,7 @@ private:
     friend class PhysicalSwitchTable;
     std::string name_;
     Ip4Address tunnel_ip_;
+    InterfaceList intf_list_;
     DISALLOW_COPY_AND_ASSIGN(PhysicalSwitchEntry);
 };
 };
