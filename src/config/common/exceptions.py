@@ -56,6 +56,15 @@ class ResourceExistsError(VncError):
     # end __str__
 # end class ResourceExistsError
 
+class ResourceTypeUnknownError(VncError):
+    def __init__(self, obj_type):
+        self._unknown_type = obj_type
+    # end __init__
+
+    def __str__(self):
+        return 'Unknown object type: %s' %(self._unknown_type)
+    # end __str__
+# end class ResourceTypeUnknownError
 
 class PermissionDenied(VncError):
     pass
