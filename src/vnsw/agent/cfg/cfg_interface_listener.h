@@ -23,9 +23,12 @@ public:
     void Notify(DBTablePartBase *partition, DBEntryBase *e);
     void CfgNotify(DBTablePartBase *partition, DBEntryBase *e);
     void RouteTableNotify(DBTablePartBase *partition, DBEntryBase *e);
-    IFMapNode *UuidToIFNode(const uuid &u);
+    IFMapNode *UuidToIFNode(const uuid &u) const;
     void Init();
     void Shutdown();
+
+    void FetchInterfaceData(const uuid if_uuid) const;
+
 private:
     struct CfgState : DBState {
         bool seen_;
