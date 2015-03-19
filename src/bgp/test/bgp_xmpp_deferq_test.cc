@@ -876,6 +876,7 @@ TEST_F(BgpXmppUnitTest, DuplicateRegisterWithoutRoutingInstance) {
 
     TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    uint32_t old_flap_count = agent_a_->flap_count();
 
     // Subscribe to non-existent green instance.
     agent_a_->Subscribe("green", 3);
@@ -886,8 +887,8 @@ TEST_F(BgpXmppUnitTest, DuplicateRegisterWithoutRoutingInstance) {
     // This should trigger a Close from the server.
     agent_a_->Subscribe("green", 3);
 
-    // Make sure session to agent is down and instances are intact.
-    TASK_UTIL_EXPECT_FALSE(agent_a_->IsEstablished());
+    // Make sure session on agent flapped and instances are intact.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
     VerifyRoutingInstance("blue");
     VerifyRoutingInstance("red");
 }
@@ -902,6 +903,7 @@ TEST_F(BgpXmppUnitTest, DuplicateRegisterWithNonDeletedRoutingInstance) {
 
     TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    uint32_t old_flap_count = agent_a_->flap_count();
 
     // Subscribe and add route to blue instance. Make sure that the messages
     // have been processed on the bgp server.
@@ -916,8 +918,8 @@ TEST_F(BgpXmppUnitTest, DuplicateRegisterWithNonDeletedRoutingInstance) {
     // This should trigger a Close from the server.
     agent_a_->Subscribe("blue", 1);
 
-    // Make sure session to agent is down and instances are intact.
-    TASK_UTIL_EXPECT_FALSE(agent_a_->IsEstablished());
+    // Make sure session on agent flapped and instances are intact.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
     VerifyRoutingInstance("blue");
     VerifyRoutingInstance("red");
 }
@@ -932,6 +934,7 @@ TEST_F(BgpXmppUnitTest, DuplicateRegisterWithDeletedRoutingInstance) {
 
     TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    uint32_t old_flap_count = agent_a_->flap_count();
 
     // Subscribe and add route to blue instance. Make sure that the messages
     // have been processed on the bgp server.
@@ -955,8 +958,8 @@ TEST_F(BgpXmppUnitTest, DuplicateRegisterWithDeletedRoutingInstance) {
     // This should trigger a Close from the server.
     agent_a_->Subscribe("blue", 1);
 
-    // Make sure session to agent is down and the blue instance is gone.
-    TASK_UTIL_EXPECT_FALSE(agent_a_->IsEstablished());
+    // Make sure session on agent flapped and the blue instance is gone.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
     VerifyNoRoutingInstance("blue");
 }
 
@@ -970,14 +973,15 @@ TEST_F(BgpXmppUnitTest, SpuriousUnregisterWithoutRoutingInstance) {
 
     TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    uint32_t old_flap_count = agent_a_->flap_count();
 
     // Unsubscribe to non-existent green instance.
     agent_a_->Unsubscribe("green", -1);
     TASK_UTIL_EXPECT_FALSE(
         PeerRegistered(bgp_channel_manager_->channel_, "green", 3));
 
-    // Make sure session to agent is down and instances are intact.
-    TASK_UTIL_EXPECT_FALSE(agent_a_->IsEstablished());
+    // Make sure session on agent flapped and instances are intact.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
     VerifyRoutingInstance("blue");
     VerifyRoutingInstance("red");
 }
@@ -992,6 +996,7 @@ TEST_F(BgpXmppUnitTest, SpuriousUnregisterWithNonDeletedRoutingInstance1) {
 
     TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    uint32_t old_flap_count = agent_a_->flap_count();
 
     // Subscribe and add route to blue instance.
     agent_a_->Subscribe("blue", 1);
@@ -1005,8 +1010,8 @@ TEST_F(BgpXmppUnitTest, SpuriousUnregisterWithNonDeletedRoutingInstance1) {
     agent_a_->Unsubscribe("blue", -1);
     agent_a_->Unsubscribe("blue", -1);
 
-    // Make sure session to agent is down and instances are intact.
-    TASK_UTIL_EXPECT_FALSE(agent_a_->IsEstablished());
+    // Make sure session on agent flapped and instances are intact.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
     VerifyRoutingInstance("blue");
     VerifyRoutingInstance("red");
 }
@@ -1021,13 +1026,14 @@ TEST_F(BgpXmppUnitTest, SpuriousUnregisterWithNonDeletedRoutingInstance2) {
 
     TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    uint32_t old_flap_count = agent_a_->flap_count();
 
     // Send spurious unsubscribe for the blue instance.
     // This should trigger a Close from the server.
     agent_a_->Unsubscribe("blue", -1);
 
-    // Make sure session to agent is down and instances are intact.
-    TASK_UTIL_EXPECT_FALSE(agent_a_->IsEstablished());
+    // Make sure session on agent flapped and instances are intact.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
     VerifyRoutingInstance("blue");
     VerifyRoutingInstance("red");
 }
@@ -1042,6 +1048,7 @@ TEST_F(BgpXmppUnitTest, SpuriousUnregisterWithDeletedRoutingInstance1) {
 
     TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    uint32_t old_flap_count = agent_a_->flap_count();
 
     // Pause deletion for blue instance and the inet table.
     RoutingInstance *blue = VerifyRoutingInstance("blue");
@@ -1070,8 +1077,8 @@ TEST_F(BgpXmppUnitTest, SpuriousUnregisterWithDeletedRoutingInstance1) {
     agent_a_->Unsubscribe("blue", -1);
     agent_a_->Unsubscribe("blue", -1);
 
-    // Make sure session to agent is down.
-    TASK_UTIL_EXPECT_FALSE(agent_a_->IsEstablished());
+    // Make sure session on agent flapped.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
 
     // Resume deletion of blue inet table and blue instance and make sure
     // they are gone.
@@ -1090,6 +1097,7 @@ TEST_F(BgpXmppUnitTest, SpuriousUnregisterWithDeletedRoutingInstance2) {
 
     TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    uint32_t old_flap_count = agent_a_->flap_count();
 
     // Pause deletion for blue instance and the inet table.
     RoutingInstance *blue = VerifyRoutingInstance("blue");
@@ -1110,8 +1118,8 @@ TEST_F(BgpXmppUnitTest, SpuriousUnregisterWithDeletedRoutingInstance2) {
     // This should trigger a Close from the server.
     agent_a_->Unsubscribe("blue", -1);
 
-    // Make sure session to agent is down.
-    TASK_UTIL_EXPECT_FALSE(agent_a_->IsEstablished());
+    // Make sure session on agent flapped.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
 
     // Resume deletion of blue inet table and blue instance and make sure
     // they are gone.
