@@ -1,0 +1,16 @@
+<domain type='kvm'>
+  <name>contrail-libvirt</name>
+  <memory>131072</memory>
+  <vcpu>1</vcpu>
+  <os>
+    <type arch="i686">hvm</type>
+  </os>
+  <clock sync="localtime"/>
+  <devices>
+    <disk type='file' device='disk'>
+      <source file='/tmp/mini.iso'/>
+      <target dev='hda'/>
+    </disk>
+    <graphics type='vnc'/>
+  </devices>
+</domain>

@@ -17,6 +17,8 @@ env = BuildEnv.Clone()
 # Build CCFLAGS
 ##########################################################################
 env.CppDisableExceptions()
+if GetOption('with_libvirt'):
+    env.Append(CCFLAGS = ['-DWITH_LIBVIRT'])
 
 ##########################################################################
 # Build CPPPATH
@@ -138,6 +140,10 @@ env.Prepend(LIBS = [
     'boost_regex',
     'rt',
 ])
+
+# Libvirt library
+if GetOption('with_libvirt'):
+    env.Prepend(LIBS = ['virt'])
 
 # Common agent libraries
 env.Prepend(LIBS = [
