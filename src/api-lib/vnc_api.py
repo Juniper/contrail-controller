@@ -77,6 +77,10 @@ class VncApi(VncApiClientGen):
     _DEFAULT_WEB_PORT = 8082
     _DEFAULT_BASE_URL = "/"
 
+    # The number of items beyond which instead of GET /<collection>
+    # a POST /list-bulk-collection is issued
+    POST_FOR_LIST_THRESHOLD = 25
+
     def __init__(self, username=None, password=None, tenant_name=None,
                  api_server_host='127.0.0.1', api_server_port='8082',
                  api_server_url=None, conf_file=None, user_info=None,
@@ -539,5 +543,82 @@ class VncApi(VncApiClientGen):
         return self._auth_token
 
     #end get_auth_token
+
+    def resource_list(self, obj_type, parent_id=None, parent_fq_name=None,
+                      back_ref_id=None, obj_uuids=None, fields=None,
+                      detail=False, count=False):
+        if not obj_type:
+            raise ResourceTypeUnknownError(obj_type)
+
+        class_name = "%s" % (CamelCase(obj_type))
+        obj_class = str_to_class(class_name)
+        if not obj_class:
+            raise ResourceTypeUnknownError(obj_type)
+
+        query_params = {}
+        do_post_for_list = False
+
+        if parent_fq_name:
+            parent_fq_name_str = ':'.join(parent_fq_name)
+            query_params['parent_fq_name_str'] = parent_fq_name_str
+        elif parent_id:
+            if isinstance(parent_id, list):
+                query_params['parent_id'] = ','.join(parent_id)
+                if len(parent_id) > self.POST_FOR_LIST_THRESHOLD:
+                    do_post_for_list = True
+            else:
+                query_params['parent_id'] = parent_id
+
+        if back_ref_id:
+            if isinstance(back_ref_id, list):
+                query_params['back_ref_id'] = ','.join(back_ref_id)
+                if len(back_ref_id) > self.POST_FOR_LIST_THRESHOLD:
+                    do_post_for_list = True
+            else:
+                query_params['back_ref_id'] = back_ref_id
+
+        if obj_uuids:
+            comma_sep_obj_uuids = ','.join(u for u in obj_uuids)
+            query_params['obj_uuids'] = comma_sep_obj_uuids
+            if len(obj_uuids) > self.POST_FOR_LIST_THRESHOLD:
+                do_post_for_list = True
+
+        if fields:
+            comma_sep_fields = ','.join(f for f in fields)
+            query_params['fields'] = comma_sep_fields
+
+        query_params['detail'] = detail
+
+        query_params['count'] = count
+
+        if do_post_for_list:
+            uri = self._action_uri.get('list-bulk-collection')
+            if not uri:
+                raise
+
+            # use same keys as in GET with additional 'type'
+            query_params['type'] = obj_type
+            json_body = json.dumps(query_params)
+            content = self._request_server(rest.OP_POST,
+                                           uri, json_body)
+        else: # GET /<collection>
+            content = self._request_server(rest.OP_GET,
+                           obj_class.create_uri,
+                           data = query_params)
+
+        if not detail:
+            return json.loads(content)
+
+        resource_dicts = json.loads(content)['%ss' %(obj_type)]
+        resource_objs = []
+        for resource_dict in resource_dicts:
+            obj_dict = resource_dict['%s' %(obj_type)]
+            resource_obj = obj_class.from_dict(**obj_dict)
+            resource_obj.clear_pending_updates()
+            resource_obj.set_server_conn(self)
+            resource_objs.append(resource_obj)
+
+        return resource_objs
+    #end resource_list
 
 #end class VncApi

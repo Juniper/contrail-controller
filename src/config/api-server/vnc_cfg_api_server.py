@@ -53,8 +53,7 @@ threading._DummyThread._Thread__stop = lambda x: 42
 CONFIG_VERSION = '1.0'
 
 import bottle
-from bottle import request
-request.MEMFILE_MAX = 1024000
+bottle.BaseRequest.MEMFILE_MAX = 1024000
 
 import vnc_cfg_types
 from vnc_cfg_ifmap import VncDbClient
@@ -119,6 +118,8 @@ _ACTION_RESOURCES = [
      'method_name': 'start_profile'},
     {'uri': '/stop-profile', 'link_name': 'stop-profile',
      'method_name': 'stop_profile'},
+    {'uri': '/list-bulk-collection', 'link_name': 'list-bulk-collection',
+     'method_name': 'list_bulk_collection_http_post'},
 ]
 
 
@@ -595,7 +596,8 @@ class VncApiServer(VncApiServerGen):
                 fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
             except NoIdError:
                 bottle.abort(404, 'UUID ' + obj_uuid + ' not found')
-            (read_ok, read_result) = self._db_conn.dbe_read(obj_type, request.json)
+            (read_ok, read_result) = self._db_conn.dbe_read(
+                                          obj_type, bottle.request.json)
             if not read_ok:
                 (code, msg) = read_result
                 self.config_object_error(obj_uuid, None, obj_type, 'ref_update', msg)
@@ -722,6 +724,50 @@ class VncApiServer(VncApiServerGen):
 
         return None
     # end get_resource_class
+
+    def list_bulk_collection_http_post(self):
+        """ List collection when requested ids don't fit in query params."""
+
+        obj_type = bottle.request.json.get('type') # e.g. virtual-network
+        if not obj_type:
+            bottle.abort(400, "Bad Request, no 'type' in POST body")
+
+        obj_class = self._resource_classes.get(obj_type)
+        if not obj_class:
+            bottle.abort(400,
+                   "Bad Request, Unknown type %s in POST body" %(obj_type))
+
+        try:
+            parent_ids = bottle.request.json['parent_id'].split(',')
+            parent_uuids = [str(uuid.UUID(p_uuid)) for p_uuid in parent_ids]
+        except KeyError:
+            parent_uuids = None
+
+        try:
+            back_ref_ids = bottle.request.json['back_ref_id'].split(',')
+            back_ref_uuids = [str(uuid.UUID(b_uuid)) for b_uuid in back_ref_ids]
+        except KeyError:
+            back_ref_uuids = None
+
+        try:
+            obj_ids = bottle.request.json['obj_uuids'].split(',')
+            obj_uuids = [str(uuid.UUID(b_uuid)) for b_uuid in obj_ids]
+        except KeyError:
+            obj_uuids = None
+
+        try:
+            is_count = bottle.request.json['count']
+        except KeyError:
+            is_count = False
+
+        try:
+            is_detail = bottle.request.json['detail']
+        except KeyError:
+            is_detail = False
+
+        return self._list_collection(obj_type, parent_uuids, back_ref_uuids,
+                                     obj_uuids, is_count, is_detail)
+    # end list_bulk_collection_http_post
 
     # Private Methods
     def _parse_args(self, args_str):
@@ -1145,6 +1191,76 @@ class VncApiServer(VncApiServerGen):
         return s_obj
     # end _create_singleton_entry
 
+    def _list_collection(self, obj_type, parent_uuids=None,
+                         back_ref_uuids=None, obj_uuids=None,
+                         is_count=False, is_detail=False):
+        method_name = obj_type.replace('-', '_') # e.g. virtual_network
+
+        (ok, result) = self._db_conn.dbe_list(obj_type,
+                             parent_uuids, back_ref_uuids, obj_uuids, is_count)
+        if not ok:
+            self.config_object_error(None, None, '%ss' %(method_name),
+                                     'dbe_list', result)
+            bottle.abort(404, result)
+
+        # If only counting, return early
+        if is_count:
+            return {'%ss' %(obj_type): {'count': result}}
+
+        fq_names_uuids = result
+        obj_dicts = []
+        if not is_detail:
+            if not self.is_admin_request():
+                obj_ids_list = [{'uuid': obj_uuid} 
+                                for _, obj_uuid in fq_names_uuids]
+                obj_fields = [u'id_perms']
+                (ok, result) = self._db_conn.dbe_read_multi(
+                                    obj_type, obj_ids_list, obj_fields)
+                if not ok:
+                    bottle.abort(404, result)
+                for obj_result in result:
+                    if obj_result['id_perms'].get('user_visible', True):
+                        obj_dict = {}
+                        obj_dict['uuid'] = obj_result['uuid']
+                        obj_dict['href'] = self.generate_url(obj_type,
+                                                         obj_result['uuid'])
+                        obj_dict['fq_name'] = obj_result['fq_name']
+                        obj_dicts.append(obj_dict)
+            else: # admin
+                for fq_name, obj_uuid in fq_names_uuids:
+                    obj_dict = {}
+                    obj_dict['uuid'] = obj_uuid
+                    obj_dict['href'] = self.generate_url(obj_type, obj_uuid)
+                    obj_dict['fq_name'] = fq_name
+                    obj_dicts.append(obj_dict)
+        else: #detail
+            obj_ids_list = [{'uuid': obj_uuid}
+                            for _, obj_uuid in fq_names_uuids]
+
+            obj_class = self._resource_classes[obj_type]
+            obj_fields = list(obj_class.prop_fields) + \
+                         list(obj_class.ref_fields)
+            if 'fields' in bottle.request.query:
+                obj_fields.extend(bottle.request.query.fields.split(','))
+            (ok, result) = self._db_conn.dbe_read_multi(
+                                obj_type, obj_ids_list, obj_fields)
+
+            if not ok:
+                bottle.abort(404, result)
+
+            for obj_result in result:
+                obj_dict = {}
+                obj_dict['name'] = obj_result['fq_name'][-1]
+                obj_dict['href'] = self.generate_url(
+                                        obj_type, obj_result['uuid'])
+                obj_dict.update(obj_result)
+                if (obj_dict['id_perms'].get('user_visible', True) or
+                    self.is_admin_request()):
+                    obj_dicts.append({obj_type: obj_dict})
+
+        return {'%ss' %(obj_type): obj_dicts}
+    # end _list_collection
+
     def get_db_connection(self):
         return self._db_conn
     # end get_db_connection
@@ -1196,17 +1312,17 @@ class VncApiServer(VncApiServerGen):
     # end add_virtual_network_refs
 
     def _set_api_audit_info(self, apiConfig):
-        apiConfig.url = request.url
-        apiConfig.remote_ip = request.headers.get('Host')
-        useragent = request.headers.get('X-Contrail-Useragent')
+        apiConfig.url = bottle.request.url
+        apiConfig.remote_ip = bottle.request.headers.get('Host')
+        useragent = bottle.request.headers.get('X-Contrail-Useragent')
         if not useragent:
-            useragent = request.headers.get('User-Agent')
+            useragent = bottle.request.headers.get('User-Agent')
         apiConfig.useragent = useragent
-        apiConfig.user = request.headers.get('X-User-Name')
-        apiConfig.project = request.headers.get('X-Project-Name')
-        apiConfig.domain = request.headers.get('X-Domain-Name')
-        if int(request.headers.get('Content-Length', 0)) > 0:
-            apiConfig.body = str(request.json)
+        apiConfig.user = bottle.request.headers.get('X-User-Name')
+        apiConfig.project = bottle.request.headers.get('X-Project-Name')
+        apiConfig.domain = bottle.request.headers.get('X-Domain-Name')
+        if int(bottle.request.headers.get('Content-Length', 0)) > 0:
+            apiConfig.body = str(bottle.request.json)
     # end _set_api_audit_info
 
     # uuid is parent's for collections

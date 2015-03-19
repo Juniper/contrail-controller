@@ -18,6 +18,7 @@ import testtools
 from testtools.matchers import Equals, MismatchError, Not, Contains
 from testtools import content, content_type, ExpectedException
 import unittest
+from flexmock import flexmock
 import re
 import json
 import copy
@@ -902,6 +903,53 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self.assertTill(self.ifmap_has_ident, obj=rt_obj)
         self._vnc_lib.route_target_delete(id=rt_obj.uuid)
     # end test_name_with_reserved_xml_char
+
+    def test_list_bulk_collection(self):
+        obj_count = self._vnc_lib.POST_FOR_LIST_THRESHOLD + 1
+        vn_uuids = []
+        ri_uuids = []
+        vmi_uuids = []
+        logger.info("Creating %s VNs, RIs, VMIs.", obj_count)
+        for i in range(obj_count):
+            vn_obj = VirtualNetwork('%s-vn-%s' %(self.id(), i))
+            self._vnc_lib.virtual_network_create(vn_obj)
+            vn_uuids.append(vn_obj.uuid)
+
+            ri_obj = RoutingInstance('%s-ri-%s' %(self.id(), i),
+                                     parent_obj=vn_obj)
+            self._vnc_lib.routing_instance_create(ri_obj)
+            ri_uuids.append(ri_obj.uuid)
+
+            vmi_obj = VirtualMachineInterface('%s-vmi-%s' %(self.id(), i),
+                                              parent_obj=Project())
+            vmi_obj.add_virtual_network(vn_obj)
+            self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+            vmi_uuids.append(vmi_obj.uuid)
+
+        logger.info("Querying VNs by obj_uuids.")
+        flexmock(self._api_server).should_call('_list_collection').once()
+        ret_list = self._vnc_lib.resource_list('virtual-network',
+                                               obj_uuids=vn_uuids)
+        ret_uuids = [ret['uuid'] for ret in ret_list['virtual-networks']]
+        self.assertThat(set(vn_uuids), Equals(set(ret_uuids)))
+
+        logger.info("Querying RIs by parent_id.")
+        flexmock(self._api_server).should_call('_list_collection').once()
+        ret_list = self._vnc_lib.resource_list('routing-instance',
+                                               parent_id=vn_uuids)
+        ret_uuids = [ret['uuid']
+                     for ret in ret_list['routing-instances']]
+        self.assertThat(set(ri_uuids), Equals(set(ret_uuids)))
+
+        logger.info("Querying VMIs by back_ref_id.")
+        flexmock(self._api_server).should_call('_list_collection').once()
+        ret_list = self._vnc_lib.resource_list('virtual-machine-interface',
+                                               back_ref_id=vn_uuids)
+        ret_uuids = [ret['uuid']
+                     for ret in ret_list['virtual-machine-interfaces']]
+        self.assertThat(set(vmi_uuids), Equals(set(ret_uuids)))
+
+    # end test_list_bulk_collection
 
 # end class TestVncCfgApiServer
 
