@@ -9,6 +9,9 @@ import sys
 
 env = BuildEnv.Clone()
 
+AddOption('--with-libvirt', dest='with_libvirt', action='store_true',
+          default=False, help='whether compile with libvirt or not')
+
 subdirs = ['agent',
 ]
 

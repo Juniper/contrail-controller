@@ -196,6 +196,7 @@ static void FindAndSetInterfaces(
      * TODO: support more than 3 interfaces for VRouter instances.
      * Lookup for VMI nodes
      */
+    properties->interface_count = 0;
     for (DBGraphVertex::adjacency_iterator iter = vm_node->begin(graph);
          iter != vm_node->end(graph); ++iter) {
         IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
@@ -214,6 +215,7 @@ static void FindAndSetInterfaces(
             continue;
         }
 
+        properties->interface_count++;
         if(vmi_props.service_interface_type == "left") {
             properties->vmi_inside = IdPermsGetUuid(vmi->id_perms());
             properties->mac_addr_inside = vmi->mac_addresses().at(0);

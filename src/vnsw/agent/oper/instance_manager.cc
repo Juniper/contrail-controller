@@ -22,6 +22,9 @@
 #include "oper/vm.h"
 #include "oper/docker_instance_adapter.h"
 #include "oper/netns_instance_adapter.h"
+#ifdef WITH_LIBVIRT
+    #include "oper/libvirt_instance_adapter.h"
+#endif
 #include "base/util.h"
 
 using boost::uuids::uuid;
@@ -171,6 +174,10 @@ void InstanceManager::Initialize(DB *database, AgentSignal *signal,
     adapters_.push_back(new DockerInstanceAdapter(docker_cmd, agent_));
     adapters_.push_back(new NetNSInstanceAdapter(netns_cmd,
                         loadbalancer_config_path_, agent_));
+#ifdef WITH_LIBVIRT
+    adapters_.push_back(new LibvirtInstanceAdapter(agent_,
+                        "qemu:///system"));
+#endif
 
     netns_timeout_ = kTimeoutDefault;
     if (netns_timeout >= 1) {
