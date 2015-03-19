@@ -33,7 +33,8 @@ class GlobalSystemConfigServer(GlobalSystemConfigServerGen):
         if not ok:
             return (ok, result)
         for vn_name, vn_uuid in result:
-            ok, result = db_conn.dbe_read('virtual-network', {'uuid': vn_uuid})
+            ok, result = db_conn.dbe_read('virtual-network', {'uuid': vn_uuid}, 
+                                           obj_fields=['route_target_list'])
             if not ok:
                 return ok, result
             rt_dict = result.get('route_target_list', {})
@@ -200,7 +201,8 @@ class InstanceIpServer(InstanceIpServerGen):
         req_ip = obj_dict.get("instance_ip_address", None)
 
         vn_id = {'uuid': db_conn.fq_name_to_uuid('virtual-network', vn_fq_name)}
-        (read_ok, vn_dict) = db_conn.dbe_read('virtual-network', vn_id)
+        (read_ok, vn_dict) = db_conn.dbe_read('virtual-network', vn_id, 
+                            obj_fields=['router_external', 'network_ipam_refs'])
         if not read_ok:
             return (False, (500, 'Internal error : ' + pformat(vn_dict)))
 
@@ -227,7 +229,7 @@ class InstanceIpServer(InstanceIpServerGen):
 
         try:
             ip_addr = cls.addr_mgmt.ip_alloc_req(
-                vn_fq_name, sub=sub, asked_ip_addr=req_ip,
+                vn_fq_name, vn_dict=vn_dict, sub=sub, asked_ip_addr=req_ip,
                 asked_ip_version=req_ip_version)
         except Exception as e:
             return (False, (500, str(e)))
@@ -341,7 +343,8 @@ class VirtualMachineInterfaceServer(VirtualMachineInterfaceServerGen):
             if not vn_fq_name:
                 return (False, (500, 'Internal error : ' + pformat(vn_dict)))
             vn_uuid = db_conn.fq_name_to_uuid('virtual-network', vn_fq_name)
-        (ok, vn_dict) = db_conn.dbe_read('virtual-network', {'uuid':vn_uuid})
+        (ok, vn_dict) = db_conn.dbe_read('virtual-network', {'uuid':vn_uuid}, 
+                                         obj_fields=['parent_uuid'])
         if not ok:
             return (False, (500, 'Internal error : ' + pformat(vn_dict)))
 
@@ -486,7 +489,8 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
             return True,  ""
 
         vn_id = {'uuid': id}
-        (read_ok, read_result) = db_conn.dbe_read('virtual-network', vn_id)
+        (read_ok, read_result) = db_conn.dbe_read('virtual-network', vn_id, 
+                                               obj_fields=['network_ipam_refs'])
         if not read_ok:
             return (False, (500, read_result))
 
@@ -533,7 +537,8 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
             return True,  ""
 
         vn_id = {'uuid': id}
-        (read_ok, read_result) = db_conn.dbe_read('virtual-network', vn_id)
+        (read_ok, read_result) = db_conn.dbe_read('virtual-network', vn_id, 
+                                               obj_fields=['network_ipam_refs'])
         if not read_ok:
             return (False, (500, read_result))
         cls.addr_mgmt.net_update_req(fq_name, obj_dict, read_result, id)
