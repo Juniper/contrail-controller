@@ -193,6 +193,14 @@ public:
         bgp_channel_manager_->queue_.set_disable(false);
     }
 
+    int PeerInstanceSubscribe(BgpXmppChannel *channel) {
+        return channel->channel_stats_.instance_subscribe;
+    }
+
+    int PeerInstanceUnsubscribe(BgpXmppChannel *channel) {
+        return channel->channel_stats_.instance_unsubscribe;
+    }
+
     int PeerTableSubscribeComplete(BgpXmppChannel *channel) {
         return channel->channel_stats_.table_subscribe_complete;
     }
@@ -2072,6 +2080,8 @@ TEST_F(BgpXmppSerializeMembershipReqTest, MembershipRequestStateMachine1) {
     agent_a_->Subscribe("red", 1, false);
     agent_a_->AddRoute("red","10.1.1.1/32");
     agent_a_->Unsubscribe("red", -1, false);
+    TASK_UTIL_EXPECT_EQ(1, PeerInstanceSubscribe(channel));
+    TASK_UTIL_EXPECT_EQ(1, PeerInstanceUnsubscribe(channel));
     TASK_UTIL_EXPECT_TRUE(PeerHasPendingMembershipRequests(channel));
     ResumePeerRibMembershipManager();
 
@@ -2091,6 +2101,8 @@ TEST_F(BgpXmppSerializeMembershipReqTest, MembershipRequestStateMachine2) {
     agent_a_->AddRoute("red","10.1.1.1/32");
     agent_a_->Unsubscribe("red", -1, false);
     agent_a_->Subscribe("red", 2, false);
+    TASK_UTIL_EXPECT_EQ(2, PeerInstanceSubscribe(channel));
+    TASK_UTIL_EXPECT_EQ(1, PeerInstanceUnsubscribe(channel));
     TASK_UTIL_EXPECT_TRUE(PeerHasPendingMembershipRequests(channel));
     ResumePeerRibMembershipManager();
 
@@ -2112,6 +2124,8 @@ TEST_F(BgpXmppSerializeMembershipReqTest, MembershipRequestStateMachine3) {
     agent_a_->Unsubscribe("red", -1, false);
     agent_a_->Subscribe("red", 2, false);
     agent_a_->AddRoute("red","10.1.1.1/32");
+    TASK_UTIL_EXPECT_EQ(3, PeerInstanceSubscribe(channel));
+    TASK_UTIL_EXPECT_EQ(2, PeerInstanceUnsubscribe(channel));
     TASK_UTIL_EXPECT_TRUE(PeerHasPendingMembershipRequests(channel));
     ResumePeerRibMembershipManager();
 
@@ -2135,6 +2149,8 @@ TEST_F(BgpXmppSerializeMembershipReqTest, MembershipRequestStateMachine4) {
     agent_a_->Subscribe("red", 3, false);
     agent_a_->AddRoute("red","10.1.1.1/32");
     agent_a_->Unsubscribe("red", -1, false);
+    TASK_UTIL_EXPECT_EQ(3, PeerInstanceSubscribe(channel));
+    TASK_UTIL_EXPECT_EQ(3, PeerInstanceUnsubscribe(channel));
     TASK_UTIL_EXPECT_TRUE(PeerHasPendingMembershipRequests(channel));
     ResumePeerRibMembershipManager();
 
@@ -2160,6 +2176,8 @@ TEST_F(BgpXmppSerializeMembershipReqTest, MembershipRequestStateMachine5) {
     agent_a_->Unsubscribe("red", -1, false);
     agent_a_->Subscribe("red", 3, false);
     agent_a_->AddRoute("red","10.1.1.1/32");
+    TASK_UTIL_EXPECT_EQ(2, PeerInstanceSubscribe(channel));
+    TASK_UTIL_EXPECT_EQ(1, PeerInstanceUnsubscribe(channel));
     TASK_UTIL_EXPECT_TRUE(PeerHasPendingMembershipRequests(channel));
     ResumePeerRibMembershipManager();
 
@@ -2187,6 +2205,8 @@ TEST_F(BgpXmppSerializeMembershipReqTest, MembershipRequestStateMachine6) {
     agent_a_->Subscribe("red", 3, false);
     agent_a_->AddRoute("red","10.1.1.1/32");
     agent_a_->Unsubscribe("red", -1, false);
+    TASK_UTIL_EXPECT_EQ(2, PeerInstanceSubscribe(channel));
+    TASK_UTIL_EXPECT_EQ(2, PeerInstanceUnsubscribe(channel));
     TASK_UTIL_EXPECT_TRUE(PeerHasPendingMembershipRequests(channel));
     ResumePeerRibMembershipManager();
 
