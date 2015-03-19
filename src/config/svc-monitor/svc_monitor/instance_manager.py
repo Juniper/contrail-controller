@@ -509,6 +509,9 @@ class NetworkNamespaceManager(VRouterHostedManager):
                 continue
 
             vr_name = self._associate_vrouter(si, vm)
+            if not vr_name:
+                self.logger.log_error("Not VRouter available for VM %s" %
+                                      vm.name)
 
             if si.local_preference[index] == svc_info.get_standby_preference():
                 ha = ("standby: %s" % (si.local_preference[index]))
