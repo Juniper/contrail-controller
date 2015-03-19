@@ -16,8 +16,8 @@ class STTestCase(test_common.TestCase):
             self._api_server_ip, self._api_server_port)
 
     def tearDown(self):
-        self._svc_mon_greenlet.kill()
-        self._st_greenlet.kill()
+        test_common.kill_svc_monitor(self._svc_mon_greenlet)
+        test_common.kill_schema_transformer(self._st_greenlet)
         super(STTestCase, self).tearDown()
 
     def create_virtual_machine(self, name, vn, ipaddress):

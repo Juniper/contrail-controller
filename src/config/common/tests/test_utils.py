@@ -79,6 +79,9 @@ class CassandraCFs(object):
         return CassandraCFs._all_cfs[name]
     # end get_cf
 
+    @classmethod
+    def reset(cls):
+        cls._all_cfs = {}
 # end CassandraCFs
 
 class FakeCF(object):
@@ -695,6 +698,9 @@ class FakeKombu(object):
 
     # end class Producer
 
+    @classmethod
+    def reset(cls):
+        cls._queues = {}
 # end class FakeKombu
 
 class FakeRedis(object):

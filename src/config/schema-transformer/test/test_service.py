@@ -16,13 +16,13 @@ try:
 except ImportError:
     from schema_transformer import to_bgp
 
-from time import sleep
+from gevent import sleep
 
 def retry_exc_handler(tries_remaining, exception, delay):
     print >> sys.stderr, "Caught '%s', %d tries remaining, sleeping for %s seconds" % (exception, tries_remaining, delay)
 
 
-def retries(max_tries, delay=1, backoff=2, exceptions=(Exception,), hook=None):
+def retries(max_tries, delay=1, backoff=1, exceptions=(Exception,), hook=None):
     def dec(func):
         def f2(*args, **kwargs):
             mydelay = delay
@@ -138,9 +138,12 @@ class TestPolicy(test_case.STTestCase):
         raise Exception('prefix %s/%d not found in ACL rules for %s' %
                         (ip_prefix, ip_len, fq_name))
 
+    def get_ri_name(self, vn, ri_name=None):
+        return vn.get_fq_name() + [ri_name or vn.name]
+
     def test_basic_policy(self):
-        vn1_name = 'vn1'
-        vn2_name = 'vn2'
+        vn1_name = self.id() + 'vn1'
+        vn2_name = self.id() + 'vn2'
         vn1_obj = VirtualNetwork(vn1_name)
         vn2_obj = VirtualNetwork(vn2_name)
 
@@ -157,29 +160,29 @@ class TestPolicy(test_case.STTestCase):
             gevent.sleep(2)
             ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
 
-        self.check_ri_state_vn_policy(fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'],
-                                      to_fq_name=[u'default-domain', u'default-project', u'vn2', u'vn2'])
-        self.check_ri_state_vn_policy(fq_name=[u'default-domain', u'default-project', 'vn2', 'vn2'],
-                                      to_fq_name=[u'default-domain', u'default-project', u'vn1', u'vn1'])
+        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
+                                      self.get_ri_name(vn2_obj))
+        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj),
+                                      self.get_ri_name(vn1_obj))
 
         vn1_obj.del_network_policy(np)
         vn2_obj.del_network_policy(np)
         self._vnc_lib.virtual_network_update(vn1_obj)
         self._vnc_lib.virtual_network_update(vn2_obj)
 
-        self.check_ri_refs_are_deleted(fq_name=[u'default-domain', u'default-project', 'vn2', 'vn2'])
+        self.check_ri_refs_are_deleted(fq_name=self.get_ri_name(vn2_obj))
 
         self.delete_network_policy(np)
         self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
         self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
 
         self.check_vn_is_deleted(uuid=vn1_obj.uuid)
-        self.check_ri_is_deleted(fq_name=[u'default-domain', u'default-project', 'vn2', 'vn2'])
+        self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
     # end test_basic_policy
 
     def test_multiple_policy(self):
-        vn1_name = 'vn1'
-        vn2_name = 'vn2'
+        vn1_name = self.id() + 'vn1'
+        vn2_name = self.id() + 'vn2'
         vn1_obj = VirtualNetwork(vn1_name)
         vn2_obj = VirtualNetwork(vn2_name)
 
@@ -192,16 +195,18 @@ class TestPolicy(test_case.STTestCase):
         vn1_uuid = self._vnc_lib.virtual_network_create(vn1_obj)
         vn2_uuid = self._vnc_lib.virtual_network_create(vn2_obj)
 
-        self.check_ri_state_vn_policy(fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'],
-                                      to_fq_name=[u'default-domain', u'default-project', u'vn2', u'vn2'])
-        self.check_ri_state_vn_policy(fq_name=[u'default-domain', u'default-project', 'vn2', 'vn2'],
-                                      to_fq_name=[u'default-domain', u'default-project', u'vn1', u'vn1'])
+        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
+                                      self.get_ri_name(vn2_obj))
+        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj),
+                                      self.get_ri_name(vn1_obj))
 
         np1.network_policy_entries.policy_rule[0].action_list.simple_action = 'deny'
         np1.set_network_policy_entries(np1.network_policy_entries)
         self._vnc_lib.network_policy_update(np1)
 
-        expr ="('contrail:connection contrail:routing-instance:default-domain:default-project:vn2:vn2' in FakeIfmapClient._graph['contrail:routing-instance:default-domain:default-project:vn1:vn1']['links'])"
+        expr =("('contrail:connection contrail:routing-instance:%s' in FakeIfmapClient._graph['contrail:routing-instance:%s']['links'])"
+               % (':'.join(self.get_ri_name(vn2_obj)),
+                  ':'.join(self.get_ri_name(vn1_obj))))
         self.assertTill(expr)
         np1.network_policy_entries.policy_rule[0].action_list.simple_action = 'pass'
         np1.set_network_policy_entries(np1.network_policy_entries)
@@ -210,14 +215,17 @@ class TestPolicy(test_case.STTestCase):
         np2.set_network_policy_entries(np2.network_policy_entries)
         self._vnc_lib.network_policy_update(np2)
 
-        expr = "('contrail:connection contrail:routing-instance:default-domain:default-project:vn1:vn1' in FakeIfmapClient._graph['contrail:routing-instance:default-domain:default-project:vn2:vn2']['links'])"
+        expr = ("('contrail:connection contrail:routing-instance:%s' in FakeIfmapClient._graph['contrail:routing-instance:%s]['links'])"
+               % (':'.join(self.get_ri_name(vn1_obj)),
+                  ':'.join(self.get_ri_name(vn2_obj))))
+
         self.assertTill(expr)
         vn1_obj.del_network_policy(np1)
         vn2_obj.del_network_policy(np2)
         self._vnc_lib.virtual_network_update(vn1_obj)
         self._vnc_lib.virtual_network_update(vn2_obj)
 
-        self.check_ri_refs_are_deleted(fq_name=[u'default-domain', u'default-project', 'vn2', 'vn2'])
+        self.check_ri_refs_are_deleted(fq_name=self.get_ri_name(vn2_obj))
 
         self.delete_network_policy(np1)
         self.delete_network_policy(np2)
@@ -228,9 +236,9 @@ class TestPolicy(test_case.STTestCase):
     # end test_multiple_policy
 
     def test_policy_in_policy(self):
-        vn1_name = 'vn1'
-        vn2_name = 'vn2'
-        vn3_name = 'vn3'
+        vn1_name = self.id() + 'vn1'
+        vn2_name = self.id() + 'vn2'
+        vn3_name = self.id() + 'vn3'
         vn1_obj = VirtualNetwork(vn1_name)
         vn2_obj = VirtualNetwork(vn2_name)
 
@@ -252,17 +260,17 @@ class TestPolicy(test_case.STTestCase):
         vn1_uuid = self._vnc_lib.virtual_network_create(vn1_obj)
         vn2_uuid = self._vnc_lib.virtual_network_create(vn2_obj)
 
-        self.check_ri_state_vn_policy(fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'],
-                                      to_fq_name=[u'default-domain', u'default-project', u'vn2', u'vn2'])
-        self.check_ri_state_vn_policy(fq_name=[u'default-domain', u'default-project', 'vn2', 'vn2'],
-                                      to_fq_name=[u'default-domain', u'default-project', u'vn1', u'vn1'])
+        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
+                                      self.get_ri_name(vn2_obj))
+        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj),
+                                      self.get_ri_name(vn1_obj))
 
         vn3_obj = VirtualNetwork(vn3_name)
         vn3_obj.set_network_policy(np2, vnp)
         vn3_uuid = self._vnc_lib.virtual_network_create(vn3_obj)
 
-        self.check_ri_state_vn_policy(fq_name=[u'default-domain', u'default-project', 'vn3', 'vn3'],
-                                      to_fq_name=[u'default-domain', u'default-project', u'vn1', u'vn1'])
+        self.check_ri_state_vn_policy(self.get_ri_name(vn3_obj),
+                                      self.get_ri_name(vn1_obj))
 
         vn3_obj.del_network_policy(np2)
         self._vnc_lib.virtual_network_update(vn3_obj)
@@ -270,8 +278,7 @@ class TestPolicy(test_case.STTestCase):
         @retries(5, hook=retry_exc_handler)
         def _match_acl_rule():
             acl = self._vnc_lib.access_control_list_read(
-                    fq_name=[u'default-domain', u'default-project',
-                             'vn1', 'vn1'])
+                    fq_name=self.get_ri_name(vn1_obj))
             for rule in acl.get_access_control_list_entries().get_acl_rule():
                 if rule.match_condition.dst_address.virtual_network == vn3_obj.get_fq_name_str():
                     raise Exception("ACL rule still present")
@@ -293,71 +300,66 @@ class TestPolicy(test_case.STTestCase):
 
     def test_service_policy(self):
         # create  vn1
-        vn1_obj = VirtualNetwork('vn1')
-        ipam_obj = NetworkIpam('ipam1')
-        self._vnc_lib.network_ipam_create(ipam_obj)
-        vn1_obj.add_network_ipam(ipam_obj, VnSubnetsType(
-            [IpamSubnetType(SubnetType("10.0.0.0", 24))]))
-        self._vnc_lib.virtual_network_create(vn1_obj)
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
 
         # create vn2
-        vn2_obj = VirtualNetwork('vn2')
-        ipam_obj = NetworkIpam('ipam2')
-        self._vnc_lib.network_ipam_create(ipam_obj)
-        vn2_obj.add_network_ipam(ipam_obj, VnSubnetsType(
-            [IpamSubnetType(SubnetType("20.0.0.0", 24))]))
-        self._vnc_lib.virtual_network_create(vn2_obj)
+        vn2_name = self.id() + 'vn2'
+        vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
 
-        np = self.create_network_policy(vn1_obj, vn2_obj, ["s1"])
+        service_name = self.id() + 's1'
+        np = self.create_network_policy(vn1_obj, vn2_obj, [service_name])
         seq = SequenceType(1, 1)
         vnp = VirtualNetworkPolicyType(seq)
 
-        vn1_obj.clear_pending_updates()
-        vn2_obj.clear_pending_updates()
         vn1_obj.set_network_policy(np, vnp)
         vn2_obj.set_network_policy(np, vnp)
         self._vnc_lib.virtual_network_update(vn1_obj)
         self._vnc_lib.virtual_network_update(vn2_obj)
 
         sc = self.wait_to_get_sc()
-        sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_s1'
+        sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_' + service_name
+        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
+                                      self.get_ri_name(vn1_obj, sc_ri_name))
+        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj, sc_ri_name),
+                                      self.get_ri_name(vn2_obj))
 
-        self.check_ri_rt_state_vn_policy(fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'],
-                                       to_fq_name=[u'default-domain', u'default-project', u'vn1', sc_ri_name], expect_to_find=True)
-        self.check_ri_rt_state_vn_policy(fq_name=[u'default-domain', u'default-project', 'vn2', sc_ri_name],
-                                       to_fq_name=[u'default-domain', u'default-project', u'vn2', u'vn2'], expect_to_find=True)
-
-        self.check_service_chain_prefix_match(fq_name=[u'default-domain', u'default-project', 'vn2', sc_ri_name],
+        self.check_service_chain_prefix_match(fq_name=self.get_ri_name(vn2_obj, sc_ri_name),
                                        prefix='10.0.0.0/24')
 
         vn1_obj.del_network_policy(np)
         vn2_obj.del_network_policy(np)
         self._vnc_lib.virtual_network_update(vn1_obj)
         self._vnc_lib.virtual_network_update(vn2_obj)
-        self.check_ri_refs_are_deleted(fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'])
+        self.check_ri_refs_are_deleted(fq_name=self.get_ri_name(vn1_obj))
 
         self.delete_network_policy(np)
         self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
         self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
         self.check_vn_is_deleted(uuid=vn1_obj.uuid)
-        self.check_ri_is_deleted(fq_name=[u'default-domain', u'default-project', 'vn2', 'vn2'])
+        self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
     # end test_service_policy
 # end class TestPolicy
 
 #class TestRouteTable(test_case.STTestCase):
     def test_add_delete_route(self):
-        lvn = self.create_virtual_network("lvn", "10.0.0.0/24")
-        rvn = self.create_virtual_network("rvn", "20.0.0.0/24")
-        np = self.create_network_policy(lvn, rvn, ["s1"], "in-network")
+        lvn_name = self.id() + 'lvn'
+        rvn_name = self.id() + 'rvn'
+        lvn = self.create_virtual_network(lvn_name, "10.0.0.0/24")
+        rvn = self.create_virtual_network(rvn_name, "20.0.0.0/24")
 
-        vn = self.create_virtual_network("vn100", "1.0.0.0/24")
+        service_name = self.id() + 's1'
+        np = self.create_network_policy(lvn, rvn, [service_name], "in-network")
+
+        vn_name = self.id() + 'vn100'
+        vn = self.create_virtual_network(vn_name, "1.0.0.0/24")
         rt = RouteTable("rt1")
         self._vnc_lib.route_table_create(rt)
         vn.add_route_table(rt)
         self._vnc_lib.virtual_network_update(vn)
         routes = RouteTableType()
-        route = RouteType(
-            prefix="0.0.0.0/0", next_hop="default-domain:default-project:s1")
+        route = RouteType(prefix="0.0.0.0/0",
+                          next_hop="default-domain:default-project:"+service_name)
         routes.add_route(route)
         rt.set_routes(routes)
         self._vnc_lib.route_table_update(rt)
@@ -368,9 +370,10 @@ class TestPolicy(test_case.STTestCase):
             if len(sc) == 0:
                 raise Exception("sc has 0 len")
 
-            sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_s1'
+            sc_ri_name = ('service-'+sc[0] +
+                          '-default-domain_default-project_' + service_name)
             lri = self._vnc_lib.routing_instance_read(
-                fq_name=['default-domain', 'default-project', 'lvn', sc_ri_name])
+                fq_name=self.get_ri_name(lvn, sc_ri_name))
             sr = lri.get_static_route_entries()
             if sr is None:
                 raise Exception("sr is None")
@@ -379,8 +382,7 @@ class TestPolicy(test_case.STTestCase):
             self.assertEqual(route.next_hop, "10.0.0.252")
 
             ri100 = self._vnc_lib.routing_instance_read(
-                fq_name=[
-                    'default-domain', 'default-project', 'vn100', 'vn100'])
+                fq_name=self.get_ri_name(vn))
             rt100 = ri100.get_route_target_refs()[0]['to']
             for rt_ref in lri.get_route_target_refs() or []:
                 if rt100 == rt_ref['to']:
@@ -396,12 +398,12 @@ class TestPolicy(test_case.STTestCase):
         @retries(5, hook=retry_exc_handler)
         def _match_route_table_cleanup(sc_ri_name, rt100):
             lri = self._vnc_lib.routing_instance_read(
-                fq_name=['default-domain', 'default-project', 'lvn', sc_ri_name])
+                fq_name=self.get_ri_name(lvn, sc_ri_name))
             sr = lri.get_static_route_entries()
             if sr and sr.route:
                 raise Exception("sr has route")
             ri = self._vnc_lib.routing_instance_read(
-                fq_name=['default-domain', 'default-project', 'lvn', 'lvn'])
+                fq_name=self.get_ri_name(lvn))
             rt_refs = ri.get_route_target_refs()
             for rt_ref in ri.get_route_target_refs() or []:
                 if rt100 == rt_ref['to']:
@@ -409,32 +411,29 @@ class TestPolicy(test_case.STTestCase):
 
         _match_route_table_cleanup(sc_ri_name, rt100)
 
-        self._vnc_lib.virtual_network_delete(
-            fq_name=['default-domain', 'default-project', 'vn100'])
+        self._vnc_lib.virtual_network_delete(fq_name=vn.get_fq_name())
         self.delete_network_policy(np, auto_policy=True)
         gevent.sleep(2)
-        self._vnc_lib.virtual_network_delete(
-            fq_name=['default-domain', 'default-project', 'lvn'])
-        self._vnc_lib.virtual_network_delete(
-            fq_name=['default-domain', 'default-project', 'rvn'])
+        self._vnc_lib.virtual_network_delete(fq_name=lvn.get_fq_name())
+        self._vnc_lib.virtual_network_delete(fq_name=rvn.get_fq_name())
     # test_add_delete_route
 
     def test_vn_delete(self):
-        vn = self.create_virtual_network("vn", "10.1.1.0/24")
+        vn_name = self.id() + 'vn'
+        vn = self.create_virtual_network(vn_name, "10.1.1.0/24")
         gevent.sleep(2)
         for obj in [vn]:
             ident_name = self.get_obj_imid(obj)
             ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
 
-        self.check_vn_ri_state(fq_name=[u'default-domain', u'default-project', 'vn', 'vn'])
+        self.check_vn_ri_state(fq_name=self.get_ri_name(vn))
 
         # stop st
         self._st_greenlet.kill()
         gevent.sleep(5)
 
         # delete vn in api server
-        self._vnc_lib.virtual_network_delete(
-            fq_name=['default-domain', 'default-project', 'vn'])
+        self._vnc_lib.virtual_network_delete(fq_name=vn.get_fq_name())
 
         # start st on a free port
         self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
@@ -445,7 +444,7 @@ class TestPolicy(test_case.STTestCase):
         self.check_vn_is_deleted(uuid=vn.uuid)
 
         # check if ri is deleted
-        self.check_ri_is_deleted(fq_name=[u'default-domain', u'default-project', 'vn', 'vn'])
+        self.check_ri_is_deleted(fq_name=self.get_ri_name(vn))
     # test_vn_delete
 
     @retries(5, hook=retry_exc_handler)
@@ -453,8 +452,10 @@ class TestPolicy(test_case.STTestCase):
         ri = self._vnc_lib.routing_instance_read(fq_name)
 
     def test_policy_with_cidr(self):
-        vn1 = self.create_virtual_network("vn1", "10.1.1.0/24")
-        vn2 = self.create_virtual_network("vn2", "10.2.1.0/24")
+        vn1_name = self.id() + 'vn1'
+        vn2_name = self.id() + 'vn2'
+        vn1 = self.create_virtual_network(vn1_name, "10.1.1.0/24")
+        vn2 = self.create_virtual_network(vn2_name, "10.2.1.0/24")
         rules = []
         rule1 = { "protocol": "icmp",
                   "direction": "<>",
@@ -486,39 +487,33 @@ class TestPolicy(test_case.STTestCase):
             gevent.sleep(2)
             ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
 
-        self.check_vn_ri_state(fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'])
+        self.check_vn_ri_state(fq_name=self.get_ri_name(vn1))
 
-        self.check_acl_match_dst_cidr(
-            fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'],
-            ip_prefix="10.2.1.1", ip_len=32)
-        self.check_acl_match_dst_cidr(
-            fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'],
-            ip_prefix="10.2.1.2", ip_len=32)
+        self.check_acl_match_dst_cidr(fq_name=self.get_ri_name(vn1),
+                                      ip_prefix="10.2.1.1", ip_len=32)
+        self.check_acl_match_dst_cidr(fq_name=self.get_ri_name(vn1),
+                                      ip_prefix="10.2.1.2", ip_len=32)
 
         #cleanup
         self.delete_network_policy(np, auto_policy=True)
-        self._vnc_lib.virtual_network_delete(
-            fq_name=['default-domain', 'default-project', 'vn1'])
+        self._vnc_lib.virtual_network_delete(fq_name=vn1.get_fq_name())
+        self._vnc_lib.virtual_network_delete(fq_name=vn2.get_fq_name())
 
+        # check if vn is deleted
+        self.check_vn_is_deleted(uuid=vn1.uuid)
     # test st restart while service chain is configured
+
     def test_st_restart_service_chain_delete(self):
         # create  vn1
-        vn1_obj = VirtualNetwork('vn1')
-        ipam_obj = NetworkIpam('ipam1')
-        self._vnc_lib.network_ipam_create(ipam_obj)
-        vn1_obj.add_network_ipam(ipam_obj, VnSubnetsType(
-            [IpamSubnetType(SubnetType("10.0.0.0", 24))]))
-        self._vnc_lib.virtual_network_create(vn1_obj)
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
 
         # create vn2
-        vn2_obj = VirtualNetwork('vn2')
-        ipam_obj = NetworkIpam('ipam2')
-        self._vnc_lib.network_ipam_create(ipam_obj)
-        vn2_obj.add_network_ipam(ipam_obj, VnSubnetsType(
-            [IpamSubnetType(SubnetType("20.0.0.0", 24))]))
-        self._vnc_lib.virtual_network_create(vn2_obj)
+        vn1_name = self.id() + 'vn2'
+        vn2_obj = self.create_virtual_network(vn1_name, '20.0.0.0/24')
 
-        np = self.create_network_policy(vn1_obj, vn2_obj, ["s1"])
+        service_name = self.id() + 's1'
+        np = self.create_network_policy(vn1_obj, vn2_obj, [service_name])
         seq = SequenceType(1, 1)
         vnp = VirtualNetworkPolicyType(seq)
 
@@ -530,21 +525,22 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_update(vn2_obj)
 
         sc = self.wait_to_get_sc()
-        sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_s1'
-        self.check_ri_rt_state_vn_policy(fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'],
-                                   to_fq_name=[u'default-domain', u'default-project', u'vn1', sc_ri_name], expect_to_find=True)
-        self.check_ri_rt_state_vn_policy(fq_name=[u'default-domain', u'default-project', 'vn2', sc_ri_name],
-                                   to_fq_name=[u'default-domain', u'default-project', u'vn2', u'vn2'], expect_to_find=True)
+        sc_ri_name = ('service-' + sc[0] + '-default-domain_default-project_'
+                      + service_name)
+        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
+                                      self.get_ri_name(vn1_ob, sc_ri_name))
+        self.check_ri_state_vn_policy(self.get_ri_name(vn2_ob, sc_ri_name),
+                                      self.get_ri_name(vn2_ob))
 
         # stop st
-        self._st_greenlet.kill()
+        self.kill_schema_transformer(self._st_greenlet)
         gevent.sleep(5)
 
         vn1_obj.del_network_policy(np)
         vn2_obj.del_network_policy(np)
         self._vnc_lib.virtual_network_update(vn1_obj)
         self._vnc_lib.virtual_network_update(vn2_obj)
-        self.check_ri_refs_are_deleted(fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'])
+        self.check_ri_refs_are_deleted(fq_name=self.get_ri_name(vn1_obj))
 
         self.delete_network_policy(np)
         self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
@@ -558,42 +554,34 @@ class TestPolicy(test_case.STTestCase):
         gevent.sleep(4)
 
         #check if all ri's  are deleted
-        self.check_ri_is_deleted(fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'])
-        self.check_ri_is_deleted(fq_name=[u'default-domain', u'default-project', 'vn2', 'vn2'])
-        self.check_ri_is_deleted(fq_name=[u'default-domain', u'default-project', 'vn1', sc_ri_name])
-        self.check_ri_is_deleted(fq_name=[u'default-domain', u'default-project', 'vn2', sc_ri_name])
+        self.check_ri_is_deleted(fq_name=self.get_ri_name(vn1_obj))
+        self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
+        self.check_ri_is_deleted(fq_name=self.get_ri_name(vn1_obj, sc_ri_name))
+        self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj, sc_ri_name))
     #end
 
     # test service chain configuration while st is restarted
     def test_st_restart_service_chain(self):
         # create  vn1
-        vn1_obj = VirtualNetwork('vn1')
-        ipam_obj = NetworkIpam('ipam1')
-        self._vnc_lib.network_ipam_create(ipam_obj)
-        vn1_obj.add_network_ipam(ipam_obj, VnSubnetsType(
-            [IpamSubnetType(SubnetType("10.0.0.0", 24))]))
-        self._vnc_lib.virtual_network_create(vn1_obj)
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
 
         # create vn2
-        vn2_obj = VirtualNetwork('vn2')
-        ipam_obj = NetworkIpam('ipam2')
-        self._vnc_lib.network_ipam_create(ipam_obj)
-        vn2_obj.add_network_ipam(ipam_obj, VnSubnetsType([IpamSubnetType(SubnetType("20.0.0.0", 24))]))
-        self._vnc_lib.virtual_network_create(vn2_obj)
+        vn2_name = self.id() + 'vn2'
+        vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
 
-        np = self.create_network_policy(vn1_obj, vn2_obj, ["s1"])
+        service_name = self.id() + 's1'
+        np = self.create_network_policy(vn1_obj, vn2_obj, [service_name])
         seq = SequenceType(1, 1)
         vnp = VirtualNetworkPolicyType(seq)
 
-        vn1_obj.clear_pending_updates()
-        vn2_obj.clear_pending_updates()
         vn1_obj.set_network_policy(np, vnp)
         vn2_obj.set_network_policy(np, vnp)
         self._vnc_lib.virtual_network_update(vn1_obj)
         self._vnc_lib.virtual_network_update(vn2_obj)
 
         # stop st and wait for sometime
-        self._st_greenlet.kill()
+        self.kill_schema_transformer(self._st_greenlet)
         gevent.sleep(5)
 
         # start st on a free port
@@ -603,20 +591,20 @@ class TestPolicy(test_case.STTestCase):
 
         #check service chain state
         sc = self.wait_to_get_sc()
-        sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_s1'
+        sc_ri_name = ('service-' + sc[0] + '-default-domain_default-project_'
+                      + service_name)
 
-        self.check_ri_rt_state_vn_policy(fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'],
-                                       to_fq_name=[u'default-domain', u'default-project', u'vn1', sc_ri_name], expect_to_find=True)
-
-        self.check_ri_rt_state_vn_policy(fq_name=[u'default-domain', u'default-project', 'vn2', sc_ri_name],
-                                       to_fq_name=[u'default-domain', u'default-project', u'vn2', u'vn2'], expect_to_find=True)
+        self.check_ri_state_vn_policy(self.get_ri_name(vn1_obj),
+                                      self.get_ri_name(vn1_obj, sc_ri_name))
+        self.check_ri_state_vn_policy(self.get_ri_name(vn2_obj, sc_ri_name),
+                                      self.get_ri_name(vn1_obj))
 
         #cleanup
         vn1_obj.del_network_policy(np)
         vn2_obj.del_network_policy(np)
         self._vnc_lib.virtual_network_update(vn1_obj)
         self._vnc_lib.virtual_network_update(vn2_obj)
-        self.check_ri_refs_are_deleted(fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'])
+        self.check_ri_refs_are_deleted(fq_name=self.get_ri_name(vn1_obj))
 
         self.delete_network_policy(np)
         self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
@@ -625,10 +613,10 @@ class TestPolicy(test_case.STTestCase):
         self.check_vn_is_deleted(uuid=vn1_obj.uuid)
 
         #check if all ri's  are deleted
-        self.check_ri_is_deleted(fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'])
-        self.check_ri_is_deleted(fq_name=[u'default-domain', u'default-project', 'vn2', 'vn2'])
-        self.check_ri_is_deleted(fq_name=[u'default-domain', u'default-project', 'vn1', sc_ri_name])
-        self.check_ri_is_deleted(fq_name=[u'default-domain', u'default-project', 'vn2', sc_ri_name])
+        self.check_ri_is_deleted(fq_name=self.get_ri_name(vn1_obj))
+        self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
+        self.check_ri_is_deleted(fq_name=self.get_ri_name(vn1_obj, sc_ri_name))
+        self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj, sc_ri_name))
     #end
 
 # end class TestRouteTable

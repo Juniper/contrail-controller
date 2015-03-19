@@ -707,6 +707,12 @@ class SvcMonitor(object):
         except (NoIdError, RefsExistError):
             pass
 
+    @staticmethod
+    def reset():
+        for cls in DBBase._OBJ_TYPE_MAP.values():
+            cls.reset()
+
+
 def timer_callback(monitor):
     # delete vms without si
     vm_delete_list = []

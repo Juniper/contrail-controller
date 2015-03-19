@@ -133,6 +133,9 @@ class DictST(object):
         return cls._dict[name]
     # end locate
 
+    @classmethod
+    def reset(cls):
+        cls._dict = {}
 # end DictST
 
 def get_si_vns(si_obj, si_props):
@@ -3464,6 +3467,18 @@ class SchemaTransformer(object):
             sc_resp.service_chains.append(sandesh_sc)
         sc_resp.response(req.context())
     # end sandesh_sc_handle_request
+
+    @staticmethod
+    def reset():
+        VirtualNetworkST.reset()
+        NetworkPolicyST.reset()
+        RouteTableST.reset()
+        SecurityGroupST.reset()
+        ServiceChain.reset()
+        BgpRouterST.reset()
+        VirtualMachineInterfaceST.reset()
+        LogicalRouterST.reset()
+    # end reset
 # end class SchemaTransformer
 
 
@@ -3503,8 +3518,8 @@ def launch_arc(transformer, ssrc_mapc):
 def launch_ssrc(transformer):
     while True:
         ssrc_mapc = ssrc_initialize(transformer._args)
-        arc_glet = gevent.spawn(launch_arc, transformer, ssrc_mapc)
-        arc_glet.join()
+        transformer.arc_task = gevent.spawn(launch_arc, transformer, ssrc_mapc)
+        transformer.arc_task.join()
 # end launch_ssrc
 
 
@@ -3667,6 +3682,8 @@ def parse_args(args_str):
     return args
 # end parse_args
 
+transformer = None
+
 
 def run_schema_transformer(args):
     global _vnc_lib
@@ -3696,10 +3713,11 @@ def run_schema_transformer(args):
         except ResourceExhaustionError:  # haproxy throws 503
             time.sleep(3)
 
+    global transformer
     transformer = SchemaTransformer(args)
-    ssrc_task = gevent.spawn(launch_ssrc, transformer)
+    transformer.ssrc_task = gevent.spawn(launch_ssrc, transformer)
 
-    gevent.joinall([ssrc_task])
+    gevent.joinall([transformer.ssrc_task])
 # end run_schema_transformer
 
 

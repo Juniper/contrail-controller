@@ -163,6 +163,11 @@ class DBBase(object):
             if obj.name == name_or_uuid:
                 return obj
         return None
+    # end find_by_name_or_uuid
+
+    @classmethod
+    def reset(cls):
+        cls._dict = {}
 # end class DBBase
 
 DBBase._OBJ_TYPE_MAP = {
