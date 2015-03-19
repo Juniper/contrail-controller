@@ -68,6 +68,7 @@ public:
     void UpdateInterVnStats(const string &dst_vn, uint64_t bytes,
                             uint64_t pkts, bool outgoing);
     void ClearInterVnStats();
+    virtual void Reset();
 protected:
     L4PortBitmap port_bitmap_;
     VnStatsSet inter_vn_stats_;

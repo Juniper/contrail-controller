@@ -60,10 +60,6 @@ bool VnUveTableBase::TimerExpiry() {
         it++;
         count++;
 
-        if (!entry->vn()) {
-            continue;
-        }
-
         if (entry->deleted()) {
             SendDeleteVnMsg(prev->first);
             if (!entry->renewed()) {
@@ -101,6 +97,9 @@ void VnUveTableBase::set_expiry_time(int time) {
 
 void VnUveTableBase::SendVnMsg(VnUveEntryBase *entry, const VnEntry *vn) {
     UveVirtualNetworkAgent uve;
+    if (vn == NULL) {
+        return;
+    }
     if (entry->FrameVnMsg(vn, uve)) {
         DispatchVnMsg(uve);
     }
@@ -189,7 +188,9 @@ void VnUveTableBase::VnNotify(DBTablePartBase *partition, DBEntryBase *e) {
         if (state) {
             VnUveEntryBase *uve = UveEntryFromVn(vn);
             if (uve) {
-                uve->set_deleted(true);
+                /* The Reset API sets 'deleted' flag and resets 'renewed' and
+                 * 'add_by_vn_notify' flags */
+                uve->Reset();
             }
 
             e->ClearState(partition->parent(), vn_listener_id_);
@@ -202,7 +203,8 @@ void VnUveTableBase::VnNotify(DBTablePartBase *partition, DBEntryBase *e) {
         state = new DBState();
         e->SetState(partition->parent(), vn_listener_id_, state);
 
-        Add(vn);
+        VnUveEntryBase* entry = Add(vn);
+        entry->set_add_by_vn_notify(true);
     }
     MarkChanged(vn);
 }
