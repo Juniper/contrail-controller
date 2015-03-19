@@ -136,6 +136,10 @@ class VncCassandraClient(VncCassandraClientGen):
             # TODO verify only EEXISTS
             self._logger("Warning! " + str(e), level=SandeshLevel.SYS_WARN)
 
+        gc_grace_sec = 0
+        if num_dbnodes > 1:
+            gc_grace_sec = 60
+
         for cf_info in cf_info_list:
             try:
                 (cf_name, comparator_type) = cf_info
@@ -143,14 +147,17 @@ class VncCassandraClient(VncCassandraClientGen):
                     sys_mgr.create_column_family(
                         keyspace_name, cf_name,
                         comparator_type=comparator_type,
+                        gc_grace_seconds=gc_grace_sec,
                         default_validation_class='UTF8Type')
                 else:
                     sys_mgr.create_column_family(keyspace_name, cf_name,
+                        gc_grace_seconds=gc_grace_sec,
                         default_validation_class='UTF8Type')
             except pycassa.cassandra.ttypes.InvalidRequestException as e:
                 # TODO verify only EEXISTS
                 self._logger("Warning! " + str(e), level=SandeshLevel.SYS_WARN)
                 sys_mgr.alter_column_family(keyspace_name, cf_name,
+                    gc_grace_seconds=gc_grace_sec,
                     default_validation_class='UTF8Type')
     # end _cassandra_ensure_keyspace
 
