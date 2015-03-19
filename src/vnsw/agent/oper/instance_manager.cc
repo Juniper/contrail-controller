@@ -409,6 +409,7 @@ bool InstanceManager::StartTask(InstanceTaskQueue *task_queue,
     }
 
     task_queue->Pop();
+    task_svc_instances_.erase(task);
     delete task;
 
     return false;
@@ -440,6 +441,7 @@ void InstanceManager::ScheduleNextTask(InstanceTaskQueue *task_queue) {
 
                task_queue->StopTimer();
                task_queue->Pop();
+               task_svc_instances_.erase(task);
 
                delete task;
             } else {
@@ -510,9 +512,10 @@ void InstanceManager::StartServiceInstance(ServiceInstance *svc_instance,
         if (task != NULL) {
             state->set_properties(props);
             RegisterSvcInstance(task, svc_instance);
+            std::stringstream info;
+            info << "Service run command queued: " << task->cmd();
             Enqueue(task, props.instance_id);
-
-            LOG(DEBUG, "Service run command queued: " << task->cmd());
+            LOG(DEBUG, info.str().c_str());
         } else {
             LOG(ERROR, "Error creating task!");
         }
@@ -530,8 +533,10 @@ void InstanceManager::StopServiceInstance(ServiceInstance *svc_instance,
         InstanceTask *task = adapter->CreateStopTask(props);
         if (task != NULL) {
             RegisterSvcInstance(task, svc_instance);
+            std::stringstream info;
+            info << "Service stop command queued: " << task->cmd();
             Enqueue(task, props.instance_id);
-            LOG(DEBUG, "Service stop command queued: " << task->cmd());
+            LOG(DEBUG, info.str().c_str());
         } else {
             LOG(ERROR, "Error creating task!");
         }
@@ -572,9 +577,11 @@ void InstanceManager::StopStaleNetNS(ServiceInstance::Properties &props) {
 
     InstanceTask *task = new InstanceTaskExecvp(cmd_str.str(), Stop,
                                 agent_->event_manager());
+    std::stringstream info;
+    info << "NetNS stale run command queued: " << task->cmd();
     Enqueue(task, props.instance_id);
 
-    LOG(DEBUG, "NetNS stale run command queued: " << task->cmd());
+    LOG(DEBUG, info.str().c_str());
 }
 
 void InstanceManager::SetLastCmdType(ServiceInstance *svc_instance,
