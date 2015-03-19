@@ -114,10 +114,19 @@ void VmUveTable::SendVmStats(void) {
     }
 }
 
-void VmUveTable::SendVmDeleteMsg(const string &vm_name) {
-    VmUveTableBase::SendVmDeleteMsg(vm_name);
-    VirtualMachineStats uve;
-    uve.set_name(vm_name);
+void VmUveTable::SendVmDeleteMsg(VmUveEntryBase *e,
+                                 const boost::uuids::uuid &u) {
+    UveVirtualMachineAgent uve;
+    VirtualMachineStats stats_uve;
+    bool stats_uve_changed;
+
+    VmUveEntry *entry = static_cast<VmUveEntry *>(e);
+
+    entry->FrameVmStatsMsg(&uve, &stats_uve, &stats_uve_changed);
+    entry->FrameVmMsg(u, &uve);
     uve.set_deleted(true);
-    DispatchVmStatsMsg(uve);
+    stats_uve.set_deleted(true);
+
+    DispatchVmMsg(uve);
+    DispatchVmStatsMsg(stats_uve);
 }

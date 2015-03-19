@@ -21,6 +21,7 @@ public:
     void UpdateFloatingIpStats(const FipInfo &fip_info);
     VmUveEntryBase::FloatingIp * FipEntry(uint32_t fip, const std::string &vn,
                                       Interface *intf);
+    virtual void Reset();
 protected:
     uint64_t GetVmPortBandwidth
         (StatsManager::InterfaceStats *s, bool dir_in) const;

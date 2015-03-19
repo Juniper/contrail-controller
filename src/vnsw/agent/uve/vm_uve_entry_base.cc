@@ -152,7 +152,6 @@ bool VmUveEntryBase::FrameInterfaceMsg(const VmInterface *vm_intf,
 bool VmUveEntryBase::FrameVmMsg(const boost::uuids::uuid &u,
                                 UveVirtualMachineAgent *uve) {
     bool changed = false;
-    assert(!deleted_);
     uve->set_name(vm_config_name_);
     vector<VmInterfaceAgent> s_intf_list;
 

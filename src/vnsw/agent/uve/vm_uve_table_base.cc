@@ -38,7 +38,7 @@ bool VmUveTableBase::TimerExpiry() {
         count++;
 
         if (entry->deleted()) {
-            SendVmDeleteMsg(entry->vm_config_name());
+            SendVmDeleteMsg(entry, u);
             if (!entry->renewed()) {
                 uve_vm_map_.erase(prev);
             } else {
@@ -73,9 +73,10 @@ void VmUveTableBase::set_expiry_time(int time) {
     }
 }
 
-void VmUveTableBase::SendVmDeleteMsg(const string &vm_name) {
+void VmUveTableBase::SendVmDeleteMsg(VmUveEntryBase *e,
+                                     const boost::uuids::uuid &u) {
     UveVirtualMachineAgent uve;
-    uve.set_name(vm_name);
+    uve.set_name(e->vm_config_name());
     uve.set_deleted(true);
     DispatchVmMsg(uve);
 }
@@ -90,6 +91,9 @@ VmUveEntryBase* VmUveTableBase::Add(const VmEntry *vm, bool vm_notify) {
         entry->set_add_by_vm_notify(vm_notify);
     }
     if (entry->deleted()) {
+        /* We need to reset all non-key fields to ensure that they
+         * have right values since the entry is getting re-used */
+        entry->Reset();
         entry->set_renewed(true);
     }
     return entry;
@@ -102,9 +106,6 @@ void VmUveTableBase::Delete(const boost::uuids::uuid &u) {
     }
     VmUveEntryBase* entry = it->second.get();
     entry->set_deleted(true);
-    /* We need to reset all non-key fields to ensure that they have right
-     * values if the entry gets re-used */
-    entry->Reset();
     return;
 }
 

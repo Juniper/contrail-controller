@@ -28,7 +28,8 @@ protected:
 private:
     virtual VmUveEntryPtr Allocate(const VmEntry *vm);
     void SendVmStatsMsg(const boost::uuids::uuid &u);
-    virtual void SendVmDeleteMsg(const std::string &vm_name);
+    virtual void SendVmDeleteMsg(VmUveEntryBase *e,
+                                 const boost::uuids::uuid &u);
 
     boost::scoped_ptr<WorkQueue<VmStatData *> > event_queue_;
     DISALLOW_COPY_AND_ASSIGN(VmUveTable);
