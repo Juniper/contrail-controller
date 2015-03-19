@@ -584,9 +584,6 @@ class SvcMonitor(object):
                     (st.name, str(st.uuid)))
                 return
 
-        st_obj = ServiceTemplate(name=st_name, domain_obj=domain)
-        st_uuid = self._vnc_lib.service_template_create(st_obj)
-
         svc_properties = ServiceTemplateType()
         svc_properties.set_service_type(svc_type)
         svc_properties.set_service_mode(svc_mode)
@@ -617,9 +614,10 @@ class SvcMonitor(object):
             svc_properties.set_instance_data(
                 json.dumps(instance_data, separators=(',', ':')))
 
+        st_obj = ServiceTemplate(name=st_name, domain_obj=domain)
+        st_obj.set_service_template_properties(svc_properties)
         try:
-            st_obj.set_service_template_properties(svc_properties)
-            self._vnc_lib.service_template_update(st_obj)
+            st_uuid = self._vnc_lib.service_template_create(st_obj)
         except Exception as e:
             print e
 

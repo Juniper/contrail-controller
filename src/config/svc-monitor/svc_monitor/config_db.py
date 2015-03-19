@@ -363,7 +363,7 @@ class ServiceTemplateSM(DBBase):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.service_instances = set()
-        self.virtualization_type = None
+        self.virtualization_type = 'virtual-machine'
         self.update(obj_dict)
     # end __init__
 
@@ -373,10 +373,9 @@ class ServiceTemplateSM(DBBase):
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
         self.params = obj.get('service_template_properties')
-        self.virtualization_type = self.params.get(
-            'service_virtualization_type', None)
-        if not self.virtualization_type:
-            self.virtualization_type = 'virtual-machine'
+        if self.params:
+            self.virtualization_type = self.params.get(
+                'service_virtualization_type', 'virtual-machine')
         self.update_multiple_refs('service_instance', obj)
         self.id_perms = obj['id_perms']
     # end update
