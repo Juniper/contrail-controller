@@ -7,6 +7,17 @@
  *
  */
 
+struct VrouterAgent {
+    1: string name (key="ObjectVRouter")
+    2: optional string build_info
+    3: optional bool deleted
+    4: optional string state
+}
+
+uve sandesh VrouterAgentTest {
+    1: VrouterAgent data
+}
+
 struct AlarmElement {
     1: string  rule
     2: string  value

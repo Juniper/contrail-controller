@@ -131,9 +131,11 @@ class Collector(object):
             '--REDIS.port', 
             str(self._redis_uve.port),
             '--COLLECTOR.port', str(self.listen_port),
+            '--DEFAULT.hostip', '127.0.0.1',
             '--DEFAULT.http_server_port', str(self.http_port),
             '--DEFAULT.syslog_port', str(self.syslog_port),
             '--DEFAULT.ipfix_port', str(self.ipfix_port),
+            '--DEFAULT.log_level', 'SYS_DEBUG',
             '--DEFAULT.log_file', self._log_file]
         if self.redis_password:
             args.append('--REDIS.password')
@@ -681,6 +683,8 @@ class AnalyticsFixture(fixtures.Fixture):
             return False
         uves = ret['uves']
         if not name:
+            if not uves:
+                return True
             if not len(uves):
                 return True
             else:

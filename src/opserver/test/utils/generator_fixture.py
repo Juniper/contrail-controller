@@ -391,6 +391,19 @@ class GeneratorFixture(fixtures.Fixture):
         vn_uve.send(sandesh=self._sandesh_instance)
     # end send_vn_config_uve
 
+    def send_vrouterinfo(self, name, b_info = False):
+        vinfo = None
+        if b_info:
+            vinfo = VrouterAgent(name=name,
+                                 build_info="testinfo",
+                                 state="OK")
+        else:
+            vinfo = VrouterAgent(name=name, state="OK")
+        v_uve = VrouterAgentTest(data=vinfo,
+                    sandesh=self._sandesh_instance)
+        self._logger.info('send uve: %s' % (v_uve.log()))
+        v_uve.send(sandesh=self._sandesh_instance)
+
     def create_alarm(self, type, rule, value):
         alarm_elements = []
         alarm_elements.append(AlarmElement(rule=rule, value=value))
