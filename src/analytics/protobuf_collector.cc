@@ -52,5 +52,19 @@ void ProtobufCollector::SendStatistics(const std::string &name) {
     stats.set_tx_socket_stats(v_tx_stats);
     stats.set_rx_socket_stats(v_rx_stats);
     stats.set_rx_message_stats(v_rx_msg_stats);
+    // Database statistics
+    std::vector<GenDb::DbTableInfo> v_dbti, v_stats_dbti;
+    GenDb::DbErrors dbe;
+    DbHandler *db_handler(db_initializer_->GetDbHandler());
+    db_handler->GetStats(&v_dbti, &dbe, &v_stats_dbti);
+    std::vector<GenDb::DbErrors> v_dbe;
+    v_dbe.push_back(dbe);
+    stats.set_db_table_info(v_dbti);
+    stats.set_db_statistics_table_info(v_stats_dbti);
+    stats.set_db_errors(v_dbe);
+    uint64_t db_queue_count, db_enqueues;
+    db_handler->GetStats(&db_queue_count, &db_enqueues);
+    stats.set_db_queue_count(db_queue_count);
+    stats.set_db_enqueues(db_enqueues);
     ProtobufCollectorStatsUve::Send(stats);
 }

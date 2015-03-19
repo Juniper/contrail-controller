@@ -138,10 +138,11 @@ public:
         const SandeshHeader &header);
     bool UnderlayFlowSampleInsert(const UFlowData& flow_data,
         uint64_t timestamp);
-    bool GetStats(uint64_t &queue_count, uint64_t &enqueues,
-        std::string &drop_level, std::vector<SandeshStats> &vdropmstats) const;
+    bool GetStats(uint64_t *queue_count, uint64_t *enqueues) const;
     bool GetStats(std::vector<GenDb::DbTableInfo> *vdbti,
         GenDb::DbErrors *dbe, std::vector<GenDb::DbTableInfo> *vstats_dbti);
+    void GetSandeshStats(std::string *drop_level,
+        std::vector<SandeshStats> *vdropmstats) const;
 
     void SetDbQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm);
     void ResetDbQueueWaterMarkInfo();

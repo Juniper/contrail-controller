@@ -47,7 +47,7 @@ struct GeneratorDbStats {
     1: string                             name (key="ObjectGeneratorInfo")
     2: optional bool                      deleted
     3: optional list<gendb.DbTableInfo>   table_info (tags=".table_name")
-    4: optional list<gendb.DbErrors>      errors
+    4: optional list<gendb.DbErrors>      errors (tags="")
     5: optional list<gendb.DbTableInfo>   statistics_table_info (tags=".table_name")
 }
 
@@ -105,6 +105,11 @@ struct ProtobufCollectorStats {
     3: optional list<io.SocketIOStats>              rx_socket_stats (tags="")
     4: optional list<io.SocketIOStats>              tx_socket_stats (tags="")
     5: optional list<io.SocketEndpointMessageStats> rx_message_stats (tags=".endpoint_name,.message_name")
+    6: optional list<gendb.DbTableInfo>             db_table_info (tags=".table_name")
+    7: optional list<gendb.DbErrors>                db_errors (tags="")
+    8: optional list<gendb.DbTableInfo>             db_statistics_table_info (tags=".table_name")
+    9: optional u64                                 db_queue_count
+    10: optional u64                                db_enqueues
 }
 
 uve sandesh ProtobufCollectorStatsUve {
