@@ -148,6 +148,9 @@ class OverlayToUnderlayMapper(object):
         # populate where clause for Underlay Flow query
         uflow_data_where = []
         for row in flow_record_data:
+            # if any of the column value is None, then skip the row
+            if any(col == None for col in row.values()):
+                continue
             uflow_data_where_and_list = []
             ufname = self._flowrecord_to_uflowdata_name(
                 FlowRecordNames[FlowRecordFields.FLOWREC_VROUTER_IP])
@@ -176,6 +179,11 @@ class OverlayToUnderlayMapper(object):
                     op=OpServerUtils.MatchOp.EQUAL, suffix=sport)
             uflow_data_where_and_list.append(protocol.__dict__)
             uflow_data_where.append(uflow_data_where_and_list)
+
+        # if the where clause is empty, then no need to send
+        # the UFlowData query
+        if not len(uflow_data_where):
+            return []
 
         # populate UFlowData select
         uflow_data_select = []
@@ -288,5 +296,5 @@ class _QueryError(OverlayToUnderlayMapperError):
         self.query = query
 
     def __str__(self):
-        return 'Error in query processing: %s' % (query)
+        return 'Error in query processing: %s' % (self.query)
 # end class _QueryError

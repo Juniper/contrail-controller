@@ -363,6 +363,70 @@ class TestOverlayToUnderlayMapper(unittest.TestCase):
                 }
             },
             {
+                # FlowRecord query response containing None
+                'input': {
+                    'overlay_to_underlay_map_query': {
+                        'table': OVERLAY_TO_UNDERLAY_FLOW_MAP,
+                        'start_time':  1416275005000000,
+                        'end_time': 1416278605000000,
+                        'select_fields': [U_PROUTER, U_PROTOCOL],
+                    },
+                    'flow_record_data': [
+                        {'vrouter_ip': '1.2.3.4',
+                         'other_vrouter_ip': None,
+                         'underlay_source_port': 12345, 'underlay_proto': 1}
+                    ]
+                },
+                'output': {
+                    'uflow_data_query': None,
+                    'uflow_data': []
+                }
+            },
+            {
+                # FlowRecord query response (multiple records) - not all
+                # records contain None column value
+                'input': {
+                    'overlay_to_underlay_map_query': {
+                        'table': OVERLAY_TO_UNDERLAY_FLOW_MAP,
+                        'start_time':  1416265005000000,
+                        'end_time': 1416278605000000,
+                        'select_fields': [U_PROUTER, U_PIFINDEX],
+                    },
+                    'flow_record_data': [
+                        {'vrouter_ip': '1.2.3.4',
+                         'other_vrouter_ip': '1.1.1.1',
+                         'underlay_source_port': None, 'underlay_proto': 1},
+                        {'vrouter_ip': '2.2.2.1',
+                         'other_vrouter_ip': '1.2.2.1',
+                         'underlay_source_port': 3456, 'underlay_proto': 2}
+                    ]
+                },
+                'output': {
+                    'uflow_data_query': {
+                        'table': 'StatTable.UFlowData.flow',
+                        'start_time': 1416265005000000,
+                        'end_time': 1416278605000000,
+                        'select_fields': [UFLOW_PROUTER, UFLOW_PIFINDEX],
+                        'where': [
+                            [
+                                {'name': UFLOW_SIP, 'value': '2.2.2.1',
+                                 'op': 1, 'value2': None, 'suffix': None},
+                                {'name': UFLOW_DIP, 'value': '1.2.2.1',
+                                 'op': 1, 'value2': None, 'suffix': None},
+                                {'name': UFLOW_PROTOCOL, 'value': 17, 'op': 1,
+                                 'value2': None, 'suffix': {
+                                 'name': UFLOW_SPORT, 'value': 3456, 'op': 1,
+                                 'value2': None, 'suffix': None}}
+                            ]
+                        ],
+                    },
+                    'uflow_data': [
+                        {UFLOW_PROUTER: '10.20.30.1', UFLOW_PIFINDEX: 111},
+                        {UFLOW_PROUTER: '192.168.1.1', UFLOW_PIFINDEX: 222}
+                    ]
+                }
+            },
+            {
                 # Query containing sort_fields, limit and empty filter list
                 'input': {
                     'overlay_to_underlay_map_query': {
