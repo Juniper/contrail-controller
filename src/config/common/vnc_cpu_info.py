@@ -184,6 +184,7 @@ class CpuInfo(object):
         cnf_cpu_info.inst_id = self._instance_id
         cnf_cpu_info.cpu_share = self._cpu_share
         cnf_cpu_info.mem_virt = mod_cpu.cpu_info.meminfo.virt
+        cnf_cpu_info.mem_res = mod_cpu.cpu_info.meminfo.res
         cnf_cpu_state.cpu_info = [cnf_cpu_info]
 
         cnf_cpu_state_trace = ConfigCpuStateTrace(
