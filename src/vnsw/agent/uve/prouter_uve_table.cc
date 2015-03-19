@@ -119,6 +119,8 @@ ProuterUveTable::ProuterUveEntry::~ProuterUveEntry() {
 void ProuterUveTable::ProuterUveEntry::Reset() {
     physical_interface_set_.clear();
     logical_interface_set_.clear();
+    deleted_ = true;
+    renewed_ = false;
 }
 
 void ProuterUveTable::ProuterUveEntry::AddPhysicalInterface
@@ -347,9 +349,8 @@ void ProuterUveTable::DeleteHandler(const PhysicalDevice *p) {
 
     ProuterUveEntry* entry = it->second.get();
     /* Reset all the non-key fields of entry so that it has proper values in
-     * case it gets reused */
+     * case it gets reused. Also update deleted_ and renewed_ flags */
     entry->Reset();
-    entry->deleted_ = true;
 }
 
 void ProuterUveTable::UpdateLogicalInterface(const Interface *pintf,
