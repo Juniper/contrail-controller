@@ -6,8 +6,8 @@
 #include <uve/vn_uve_table.h>
 #include <uve/vn_uve_entry.h>
 
-VnUveTable::VnUveTable(Agent *agent)
-    : VnUveTableBase(agent) {
+VnUveTable::VnUveTable(Agent *agent, uint32_t default_intvl)
+    : VnUveTableBase(agent, default_intvl) {
 }
 
 VnUveTable::~VnUveTable() {
@@ -51,10 +51,13 @@ void VnUveTable::SendVnStats(bool only_vrf_stats) {
     UveVnMap::const_iterator it = uve_vn_map_.begin();
     while (it != uve_vn_map_.end()) {
         const VnUveEntry *entry = static_cast<VnUveEntry *>(it->second.get());
+        ++it;
+        if (entry->deleted()) {
+            continue;
+        }
         if (entry->vn()) {
             SendVnStatsMsg(entry->vn(), only_vrf_stats);
         }
-        ++it;
     }
     UveVirtualNetworkAgent uve1, uve2;
     if (SendUnresolvedVnMsg(FlowHandler::UnknownVn(), uve1)) {
@@ -68,6 +71,9 @@ void VnUveTable::SendVnStats(bool only_vrf_stats) {
 void VnUveTable::SendVnStatsMsg(const VnEntry *vn, bool only_vrf_stats) {
     VnUveEntry* entry = static_cast<VnUveEntry*>(UveEntryFromVn(vn));
     if (entry == NULL) {
+        return;
+    }
+    if (entry->deleted()) {
         return;
     }
     UveVirtualNetworkAgent uve;

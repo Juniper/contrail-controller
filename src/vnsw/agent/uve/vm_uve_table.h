@@ -13,7 +13,7 @@
 
 class VmUveTable : public VmUveTableBase {
 public:
-    VmUveTable(Agent *agent);
+    VmUveTable(Agent *agent, uint32_t default_intvl);
     virtual ~VmUveTable();
     void UpdateBitmap(const VmEntry* vm, uint8_t proto, uint16_t sport,
                       uint16_t dport);
@@ -27,8 +27,8 @@ protected:
     virtual void VmStatCollectionStop(VmUveVmState *state);
 private:
     virtual VmUveEntryPtr Allocate(const VmEntry *vm);
-    virtual void SendVmDeleteMsg(const boost::uuids::uuid &u);
     void SendVmStatsMsg(const boost::uuids::uuid &u);
+    virtual void SendVmDeleteMsg(VmUveEntryBase *entry);
 
     boost::scoped_ptr<WorkQueue<VmStatData *> > event_queue_;
     DISALLOW_COPY_AND_ASSIGN(VmUveTable);

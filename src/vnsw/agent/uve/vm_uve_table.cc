@@ -7,8 +7,8 @@
 #include <uve/vm_uve_entry.h>
 #include <uve/agent_uve.h>
 
-VmUveTable::VmUveTable(Agent *agent)
-    : VmUveTableBase(agent) {
+VmUveTable::VmUveTable(Agent *agent, uint32_t default_intvl)
+    : VmUveTableBase(agent, default_intvl) {
     event_queue_.reset(new WorkQueue<VmStatData *>
             (TaskScheduler::GetInstance()->GetTaskId("Agent::Uve"), 0,
              boost::bind(&VmUveTable::Process, this, _1)));
@@ -53,6 +53,11 @@ VmUveTableBase::VmUveEntryPtr VmUveTable::Allocate(const VmEntry *vm) {
 void VmUveTable::SendVmStatsMsg(const boost::uuids::uuid &u) {
     VmUveEntry* entry = static_cast<VmUveEntry*>(UveEntryFromVm(u));
     if (entry == NULL) {
+        return;
+    }
+    if (entry->deleted()) {
+        /* Skip entry marked for delete because the 'vm' pointer could be
+         * invalid */
         return;
     }
     UveVirtualMachineAgent uve;
@@ -101,14 +106,20 @@ void VmUveTable::DispatchVmStatsMsg(const VirtualMachineStats &uve) {
     VirtualMachineStatsTrace::Send(uve);
 }
 
-void VmUveTable::SendVmDeleteMsg(const boost::uuids::uuid &u) {
-    bool stats_uve_changed = false;
+void VmUveTable::SendVmStats(void) {
+    UveVmMap::iterator it = uve_vm_map_.begin();
+    while (it != uve_vm_map_.end()) {
+        SendVmStatsMsg(it->first);
+        it++;
+    }
+}
+
+void VmUveTable::SendVmDeleteMsg(VmUveEntryBase *e) {
     UveVirtualMachineAgent uve;
     VirtualMachineStats stats_uve;
-    VmUveEntry* entry = static_cast<VmUveEntry*>(UveEntryFromVm(u));
-    if (entry == NULL) {
-        return;
-    }
+    bool stats_uve_changed;
+
+    VmUveEntry *entry = static_cast<VmUveEntry *>(e);
 
     entry->FrameVmStatsMsg(&uve, &stats_uve, &stats_uve_changed);
     entry->FrameVmMsg(&uve);
@@ -117,12 +128,4 @@ void VmUveTable::SendVmDeleteMsg(const boost::uuids::uuid &u) {
 
     DispatchVmMsg(uve);
     DispatchVmStatsMsg(stats_uve);
-}
-
-void VmUveTable::SendVmStats(void) {
-    UveVmMap::iterator it = uve_vm_map_.begin();
-    while (it != uve_vm_map_.end()) {
-        SendVmStatsMsg(it->first);
-        it++;
-    }
 }

@@ -119,12 +119,22 @@ public:
     void InterfaceAdd(const Interface *intf, const VmInterface::FloatingIpSet &olist);
     void InterfaceDelete(const Interface *intf);
     bool FrameVmMsg(UveVirtualMachineAgent *uve);
+    void set_changed(bool val) { changed_ = val; }
+    bool changed() const { return changed_; }
+    void set_deleted(bool value) { deleted_ = value; }
+    bool deleted() const { return deleted_; }
+    void set_renewed(bool value) { renewed_ = value; }
+    bool renewed() const { return renewed_; }
+    virtual void Reset();
 protected:
 
     Agent *agent_;
-    std::string vm_config_name_;
     InterfaceSet interface_tree_;
     UveVirtualMachineAgent uve_info_;
+    // UVE entry is changed. Timer must generate UVE for this entry
+    bool changed_;
+    bool deleted_;
+    bool renewed_;
 private:
     bool UveVmInterfaceListChanged
         (const std::vector<VmInterfaceAgent> &new_l) const;
@@ -134,6 +144,7 @@ private:
     bool GetVmInterfaceGateway(const VmInterface *intf, std::string &gw) const;
 
     bool add_by_vm_notify_;
+    std::string vm_config_name_;
     DISALLOW_COPY_AND_ASSIGN(VmUveEntryBase);
 };
 #endif // vnsw_agent_vm_uve_entry_base_h

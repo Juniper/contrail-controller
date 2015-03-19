@@ -5,8 +5,9 @@
 #include <uve/test/vn_uve_table_test.h>
 #include <uve/test/vn_uve_entry_test.h>
 
-VnUveTableTest::VnUveTableTest(Agent *agent) 
-    : VnUveTable(agent), send_count_(0), delete_count_(0), uve_() {
+VnUveTableTest::VnUveTableTest(Agent *agent, uint32_t default_intvl)
+    : VnUveTable(agent, default_intvl), send_count_(0), delete_count_(0),
+    uve_() {
 }
 
 const VnUveEntry::VnStatsSet* VnUveTableTest::FindInterVnStats
@@ -51,6 +52,10 @@ int VnUveTableTest::GetVnUveVmCount(const std::string &vn) {
     VnUveEntryPtr vn_uve_entry(it->second);
     VnUveEntryTest *uve = static_cast<VnUveEntryTest *>(vn_uve_entry.get());
     return uve->VmCount();
+}
+
+int VnUveTableTest::VnUveCount() const {
+    return uve_vn_map_.size();
 }
 
 L4PortBitmap* VnUveTableTest::GetVnUvePortBitmap(const std::string &vn) {

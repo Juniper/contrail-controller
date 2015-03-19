@@ -8,8 +8,9 @@
 using namespace std;
 
 VmUveEntryBase::VmUveEntryBase(Agent *agent, const string &vm_name)
-    : agent_(agent), vm_config_name_(vm_name), interface_tree_(), uve_info_(),
-    add_by_vm_notify_(false) {
+    : agent_(agent), interface_tree_(), uve_info_(), changed_(true),
+    deleted_(false), renewed_(false), add_by_vm_notify_(false),
+    vm_config_name_(vm_name) {
 }
 
 VmUveEntryBase::~VmUveEntryBase() {
@@ -353,3 +354,9 @@ void VmUveEntryBase::UveInterfaceEntry::RemoveFloatingIp
     }
 }
 
+void VmUveEntryBase::Reset() {
+    UveVirtualMachineAgent uve;
+
+    interface_tree_.clear();
+    uve_info_ = uve;
+}

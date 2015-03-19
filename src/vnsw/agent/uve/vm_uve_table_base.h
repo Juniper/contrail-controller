@@ -45,11 +45,12 @@ public:
     typedef std::map<const boost::uuids::uuid, VmUveEntryPtr> UveVmMap;
     typedef std::pair<const boost::uuids::uuid, VmUveEntryPtr> UveVmPair;
 
-    VmUveTableBase(Agent *agent);
+    VmUveTableBase(Agent *agent, uint32_t default_intvl);
     virtual ~VmUveTableBase();
     void RegisterDBClients();
     void Shutdown(void);
     virtual void DispatchVmMsg(const UveVirtualMachineAgent &uve);
+    bool TimerExpiry();
 
 protected:
     virtual void VmStatCollectionStart(VmUveVmState *state, const VmEntry *vm);
@@ -65,13 +66,19 @@ private:
                              const VmInterface::FloatingIpSet &old_list);
     void InterfaceDeleteHandler(const boost::uuids::uuid &u,
                                 const Interface* intf);
-    void SendVmMsg(const boost::uuids::uuid &u);
+    void MarkChanged(const boost::uuids::uuid &u);
     VmUveEntryBase* Add(const VmEntry *vm, bool vm_notify);
     void Delete(const boost::uuids::uuid &u);
-    virtual void SendVmDeleteMsg(const boost::uuids::uuid &u);
+    void set_expiry_time(int time);
+    void SendVmMsg(VmUveEntryBase *entry);
+    virtual void SendVmDeleteMsg(VmUveEntryBase *entry);
 
     DBTableBase::ListenerId intf_listener_id_;
     DBTableBase::ListenerId vm_listener_id_;
+    // Last visited VmEntry by timer
+    boost::uuids::uuid timer_last_visited_;
+    Timer *timer_;
+    int expiry_time_;
     DISALLOW_COPY_AND_ASSIGN(VmUveTableBase);
 };
 

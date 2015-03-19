@@ -69,8 +69,9 @@ void LinuxVxlanAgentInit::FactoryInit() {
 
 void LinuxVxlanAgentInit::CreateModules() {
     ksync_vxlan_.reset(new KSyncLinuxVxlan(agent()));
-    uve_.reset(new AgentUveBase(agent(), AgentUveBase::kBandwidthInterval,
-                                true));
+    uve_.reset(new AgentUveBase(agent(), AgentUveBase::kBandwidthInterval, true,
+                                AgentUveBase::kDefaultInterval,
+                                AgentUveBase::kIncrementalInterval));
     agent()->set_uve(uve_.get());
 }
 

@@ -9,7 +9,7 @@
 
 class VmUveTableTest : public VmUveTable {
 public:
-    VmUveTableTest(Agent *agent);
+    VmUveTableTest(Agent *agent, uint32_t default_intvl);
     virtual void DispatchVmStatsMsg(const VirtualMachineStats &uve);
     virtual void DispatchVmMsg(const UveVirtualMachineAgent &uve);
     uint32_t send_count() const { return send_count_; }

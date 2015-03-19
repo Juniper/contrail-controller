@@ -48,6 +48,28 @@ private:
     int count_;
 };
 
+class VnUveSendTask : public Task {
+public:
+    VnUveSendTask() :
+        Task((TaskScheduler::GetInstance()->GetTaskId("db::DBTable")), 0) {
+    }
+    virtual bool Run() {
+        Agent::GetInstance()->uve()->vn_uve_table()->TimerExpiry();
+        return true;
+    }
+};
+
+class VmUveSendTask : public Task {
+public:
+    VmUveSendTask() :
+        Task((TaskScheduler::GetInstance()->GetTaskId("db::DBTable")), 0) {
+    }
+    virtual bool Run() {
+        Agent::GetInstance()->uve()->vm_uve_table()->TimerExpiry();
+        return true;
+    }
+};
+
 class TestUveUtil {
 public:
     void EnqueueAgentStatsCollectorTask(int count) {
@@ -67,6 +89,19 @@ public:
         VRouterStatsCollectorTask *task = new VRouterStatsCollectorTask(count);
         scheduler->Enqueue(task);
     }
+
+    void EnqueueSendVnUveTask() {
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        VnUveSendTask *task = new VnUveSendTask();
+        scheduler->Enqueue(task);
+    }
+
+    void EnqueueSendVmUveTask() {
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        VmUveSendTask *task = new VmUveSendTask();
+        scheduler->Enqueue(task);
+    }
+
     void VnAdd(int id) {
         char vn_name[80];
 
