@@ -1149,12 +1149,13 @@ request sandesh SandeshPhysicalDeviceVnReq {
 struct SandeshConfigPhysicalDeviceVn {
     1: string device_uuid;
     2: string vn_uuid;
-    3: i32 version;
+    3: string vmi_uuid;
+    4: i32 vxlan_id;
+    5: i32 vn_id;
 }
 
 response sandesh SandeshConfigPhysicalDeviceVnListResp {
-    1: i32 config_version;
-    2: list<SandeshConfigPhysicalDeviceVn> port_list;
+    1: list<SandeshConfigPhysicalDeviceVn> device_vn_list;
 }
 
 request sandesh SandeshConfigPhysicalDeviceVnReq {
