@@ -55,13 +55,17 @@ void InterfaceCfgClient::Notify(DBTablePartBase *partition, DBEntryBase *e) {
                              entry->GetMacAddr(), entry->vm_name(),
                              entry->vm_project_uuid(), tx_vlan_id, rx_vlan_id,
                              port, entry->ip6_addr(), transport);
-        IFMapNode *node = UuidToIFNode(entry->GetUuid());
-        if (node != NULL) {
-            DBRequest req;
-            req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-            if (agent_cfg_->agent()->interface_table()->IFNodeToReq(node, req)) {
-                agent_cfg_->agent()->interface_table()->Enqueue(&req);
-            }
+        FetchInterfaceData(entry->GetUuid());
+    }
+}
+
+void InterfaceCfgClient::FetchInterfaceData(const uuid if_uuid) const {
+    IFMapNode *node = UuidToIFNode(if_uuid);
+    if (node != NULL) {
+        DBRequest req;
+        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+        if (agent_cfg_->agent()->interface_table()->IFNodeToReq(node, req)) {
+            agent_cfg_->agent()->interface_table()->Enqueue(&req);
         }
     }
 }
@@ -138,7 +142,7 @@ void InterfaceCfgClient::CfgNotify(DBTablePartBase *partition, DBEntryBase *e) {
     }
 }
 
-IFMapNode *InterfaceCfgClient::UuidToIFNode(const uuid &u) {
+IFMapNode *InterfaceCfgClient::UuidToIFNode(const uuid &u) const {
     UuidToIFNodeTree::const_iterator it;
 
     it = uuid_ifnode_tree_.find(u);

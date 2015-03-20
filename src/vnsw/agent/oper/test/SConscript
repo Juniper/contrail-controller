@@ -75,6 +75,13 @@ docker_instance_adapter_test = env.UnitTest(
 env.Alias('agent:docker_instance_adapter_test', docker_instance_adapter_test)
 oper_test_suite.append(docker_instance_adapter_test)
 
+libvirt_instance_adapter_test = env.UnitTest(
+    'libvirt_instance_adapter_test',
+    ['libvirt_instance_adapter_test.cc'])
+env.Alias('agent:libvirt_instance_adapter_test', libvirt_instance_adapter_test)
+# optional; requires libvirt
+# oper_test_suite.append(libvirt_instance_adapter_test)
+
 loadbalancer_test = env.UnitTest(
     'loadbalancer_test',
     ['loadbalancer_test.cc'])
