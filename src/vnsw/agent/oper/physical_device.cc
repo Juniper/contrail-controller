@@ -163,8 +163,12 @@ void PhysicalDeviceTable::RegisterDBClients(IFMapDependencyManager *dep) {
     typedef IFMapDependencyTracker::PropagateList PropagateList;
     typedef IFMapDependencyTracker::ReactionMap ReactionMap;
 
+    // physical_device is created from ConfigManager change-list. Its possbile
+    // that physical-interface link is processed before physical-device is
+    // created. Let dependency manager to trigger all child physical-interfaces
+    // on create
     ReactionMap device_react = map_list_of<std::string, PropagateList>
-        ("self", list_of("self"))
+        ("self", list_of("self")("physical-router-physical-interface"))
         ("physical-router-physical-interface", list_of("self"));
     dep->RegisterReactionMap("physical-router", device_react);
 
