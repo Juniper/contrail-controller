@@ -32,7 +32,7 @@ AgentUveBaseTest::AgentUveBaseTest(Agent *agent, uint64_t intvl,
     vn_uve_table_.reset(new VnUveTableTest(agent, default_intvl));
     vm_uve_table_.reset(new VmUveTableTest(agent, default_intvl));
     vrouter_uve_entry_.reset(new VrouterUveEntryTest(agent));
-    prouter_uve_table_.reset(new ProuterUveTableTest(agent));
+    prouter_uve_table_.reset(new ProuterUveTableTest(agent, default_intvl));
 }
 
 AgentUveBaseTest::~AgentUveBaseTest() {

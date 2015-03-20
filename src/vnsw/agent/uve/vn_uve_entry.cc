@@ -452,3 +452,12 @@ bool VnUveEntry::FrameVnStatsMsg(const VnEntry *vn,
 
     return changed;
 }
+
+void VnUveEntry::Reset() {
+    VnUveEntryBase::Reset();
+    port_bitmap_.Reset();
+    inter_vn_stats_.clear();
+    prev_stats_update_time_ = 0;
+    prev_in_bytes_ = 0;
+    prev_out_bytes_ = 0;
+}

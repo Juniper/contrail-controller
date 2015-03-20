@@ -98,6 +98,7 @@ bool VmUveEntry::FrameVmStatsMsg(UveVirtualMachineAgent *uve,
                                  VirtualMachineStats *stats_uve,
                                  bool *stats_uve_changed) {
     bool changed = false;
+    assert(!deleted_);
     uve->set_name(vm_config_name());
     stats_uve->set_name(vm_config_name());
     vector<VmInterfaceStats> s_intf_list;
