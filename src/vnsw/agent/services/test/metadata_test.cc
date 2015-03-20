@@ -193,12 +193,12 @@ public:
               boost::bind(&MetadataTest::OnClientSessionEvent, this, _1, _2));
         switch (method) {
             case GET_METHOD:
-                conn->HttpGet(uri, false, false, header_options,
+                conn->HttpGet(uri, false, false, true, header_options,
                               boost::bind(&MetadataTest::HandleHttpResponse,
                                           this, conn, _1, _2));
                 break;
             case HEAD_METHOD:
-                conn->HttpHead(uri, false, false, header_options,
+                conn->HttpHead(uri, false, false, true, header_options,
                                boost::bind(&MetadataTest::HandleHttpResponse,
                                            this, conn, _1, _2));
                 break;
@@ -208,19 +208,19 @@ public:
                 str << "Content-Length: ";
                 str << body.size();
                 header_options.push_back(str.str());
-                conn->HttpPut(body, uri, false, false, header_options,
+                conn->HttpPut(body, uri, false, false, true, header_options,
                               boost::bind(&MetadataTest::HandleHttpResponse,
                                           this, conn, _1, _2));
                 break;
             }
             case POST_METHOD:
                 data_size_ = body.size();
-                conn->HttpPost(body, uri, false, false, header_options,
+                conn->HttpPost(body, uri, false, false, true, header_options,
                               boost::bind(&MetadataTest::HandleHttpResponse,
                                           this, conn, _1, _2));
                 break;
             case DELETE_METHOD:
-                conn->HttpDelete(uri, false, false, header_options,
+                conn->HttpDelete(uri, false, false, true, header_options,
                                  boost::bind(&MetadataTest::HandleHttpResponse,
                                              this, conn, _1, _2));
                 break;
