@@ -39,6 +39,37 @@
                       usleep(1000);                                            \
                     } while (condition);                                       \
 
+pthread_t curl_thread;
+// send multiple requests using curl
+void *SendMultiGetRequest(void *arg) {
+    uint16_t port = Agent::GetInstance()->metadata_server_port();
+    stringstream str;
+    str << "curl http://127.0.0.1:";
+    str << port;
+    str << "/{req1,req2}";
+    string cmd = str.str();
+    int res = system(cmd.c_str());
+    if (res) {
+        LOG(WARN, "curl command failed");
+    }
+    return NULL;
+}
+
+void CurlRun() {
+    pthread_attr_t attr;
+    int ret;
+
+    pthread_attr_init(&attr);
+    if ((ret = pthread_create(&curl_thread, &attr, SendMultiGetRequest, NULL)) != 0) {
+        LOG(ERROR, "pthread_create error : " <<  strerror(ret) );
+        assert(0);
+    }
+}
+
+void CurlStop() {
+    pthread_join(curl_thread, NULL);
+}
+
 class TestInterfaceTable : public InterfaceTable {
 public:
     TestInterfaceTable() :
@@ -192,12 +223,12 @@ public:
               boost::bind(&MetadataTest::OnClientSessionEvent, this, _1, _2));
         switch (method) {
             case GET_METHOD:
-                conn->HttpGet(uri, false, false, header_options,
+                conn->HttpGet(uri, false, false, true, header_options,
                               boost::bind(&MetadataTest::HandleHttpResponse,
                                           this, conn, _1, _2));
                 break;
             case HEAD_METHOD:
-                conn->HttpHead(uri, false, false, header_options,
+                conn->HttpHead(uri, false, false, true, header_options,
                                boost::bind(&MetadataTest::HandleHttpResponse,
                                            this, conn, _1, _2));
                 break;
@@ -207,19 +238,19 @@ public:
                 str << "Content-Length: ";
                 str << body.size();
                 header_options.push_back(str.str());
-                conn->HttpPut(body, uri, false, false, header_options,
+                conn->HttpPut(body, uri, false, false, true, header_options,
                               boost::bind(&MetadataTest::HandleHttpResponse,
                                           this, conn, _1, _2));
                 break;
             }
             case POST_METHOD:
                 data_size_ = body.size();
-                conn->HttpPost(body, uri, false, false, header_options,
+                conn->HttpPost(body, uri, false, false, true, header_options,
                               boost::bind(&MetadataTest::HandleHttpResponse,
                                           this, conn, _1, _2));
                 break;
             case DELETE_METHOD:
-                conn->HttpDelete(uri, false, false, header_options,
+                conn->HttpDelete(uri, false, false, true, header_options,
                                  boost::bind(&MetadataTest::HandleHttpResponse,
                                              this, conn, _1, _2));
                 break;
@@ -375,6 +406,50 @@ TEST_F(MetadataTest, MetadataReqTest) {
     Agent::GetInstance()->services()->metadataproxy()->ClearStats();
 }
 
+// test multiple client requests in the same session
+TEST_F(MetadataTest, MetadataMultiReqTest) {
+    int count = 0;
+    MetadataProxy::MetadataStats stats;
+    struct PortInfo input[] = {
+        {"vnet1", 1, vm1_ip, "00:00:00:01:01:01", 1, 1},
+    };
+
+    StartNovaApiProxy();
+    SetupLinkLocalConfig();
+
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    client->Reset();
+
+    // for agent to identify the vm, the remote end should have vm's ip;
+    // overload the FindVmUuidFromMetadataIp to return true
+    InterfaceTable *intf_table = Agent::GetInstance()->interface_table();
+    std::auto_ptr<InterfaceTable> interface_table(new TestInterfaceTable());
+    Agent::GetInstance()->set_interface_table(interface_table.get());
+
+    CurlRun();
+
+    METADATA_CHECK (stats.responses < 12);
+    Agent::GetInstance()->set_interface_table(intf_table);
+    EXPECT_EQ(2U, stats.requests);
+    EXPECT_EQ(12U, stats.responses);
+    EXPECT_EQ(1U, stats.proxy_sessions);
+    EXPECT_EQ(0U, stats.internal_errors);
+
+    CurlStop();
+    client->WaitForIdle();
+
+    client->Reset();
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+
+    ClearLinkLocalConfig();
+    StopNovaApiProxy();
+    client->WaitForIdle();
+
+    Agent::GetInstance()->services()->metadataproxy()->ClearStats();
+}
+
 // Send PUT / POST / HEAD / DELETE requests
 TEST_F(MetadataTest, MetadataOtherMethodsTest) {
     int count = 0;
@@ -398,9 +473,9 @@ TEST_F(MetadataTest, MetadataOtherMethodsTest) {
     std::auto_ptr<InterfaceTable> interface_table(new TestInterfaceTable());
     Agent::GetInstance()->set_interface_table(interface_table.get());
     SendHttpClientRequest(POST_METHOD);
-    METADATA_CHECK (stats.responses < 1);
+    METADATA_CHECK (stats.responses < 5);
     EXPECT_EQ(1U, stats.requests);
-    EXPECT_EQ(1U, stats.responses);
+    EXPECT_EQ(5U, stats.responses);
     EXPECT_EQ(1U, stats.proxy_sessions);
     EXPECT_EQ(0U, stats.internal_errors);
 
@@ -410,31 +485,31 @@ TEST_F(MetadataTest, MetadataOtherMethodsTest) {
         large_data.append("add more data to be sent");
     }
     SendHttpClientRequest(POST_METHOD, large_data);
-    METADATA_CHECK (stats.responses < 2);
+    METADATA_CHECK (stats.responses < 10);
     EXPECT_EQ(2U, stats.requests);
-    EXPECT_EQ(2U, stats.responses);
+    EXPECT_EQ(10U, stats.responses);
     EXPECT_EQ(2U, stats.proxy_sessions);
     EXPECT_EQ(0U, stats.internal_errors);
 
     SendHttpClientRequest(PUT_METHOD);
-    METADATA_CHECK (stats.responses < 3);
+    METADATA_CHECK (stats.responses < 15);
     EXPECT_EQ(3U, stats.requests);
-    EXPECT_EQ(3U, stats.responses);
+    EXPECT_EQ(15U, stats.responses);
     EXPECT_EQ(3U, stats.proxy_sessions);
     EXPECT_EQ(0U, stats.internal_errors);
 
     SendHttpClientRequest(HEAD_METHOD);
-    METADATA_CHECK (stats.responses < 4);
+    METADATA_CHECK (stats.responses < 20);
     EXPECT_EQ(4U, stats.requests);
-    EXPECT_EQ(4U, stats.responses);
+    EXPECT_EQ(20U, stats.responses);
     EXPECT_EQ(4U, stats.proxy_sessions);
     EXPECT_EQ(0U, stats.internal_errors);
 
     SendHttpClientRequest(DELETE_METHOD);
-    METADATA_CHECK (stats.responses < 5);
+    METADATA_CHECK (stats.responses < 25);
     Agent::GetInstance()->set_interface_table(intf_table);
     EXPECT_EQ(5U, stats.requests);
-    EXPECT_EQ(5U, stats.responses);
+    EXPECT_EQ(25U, stats.responses);
     EXPECT_EQ(5U, stats.proxy_sessions);
     EXPECT_EQ(0U, stats.internal_errors);
 
@@ -492,7 +567,6 @@ TEST_F(MetadataTest, MetadataNoLinkLocalTest) {
 
 // Send message and close server connection while message is going
 TEST_F(MetadataTest, MetadataCloseServerTest) {
-    int count = 0;
     MetadataProxy::MetadataStats stats;
     struct PortInfo input[] = {
         {"vnet1", 1, vm1_ip, "00:00:00:01:01:01", 1, 1},
@@ -514,7 +588,7 @@ TEST_F(MetadataTest, MetadataCloseServerTest) {
     for (int i = 0; i < 200; i++) {
         large_data.append("add more data to be sent");
     }
-    HttpConnection *conn = SendHttpClientRequest(POST_METHOD, large_data);
+    SendHttpClientRequest(POST_METHOD, large_data);
     // stop server
     StopNovaApiProxy();
     client->WaitForIdle();

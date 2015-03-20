@@ -102,6 +102,11 @@ static void check_multi_info(GlobalInfo *g)
       std::string empty_str("");
       if (conn->connection->HttpClientCb() != NULL)
           conn->connection->HttpClientCb()(empty_str, error);
+
+      if (conn) {
+        conn->connection->set_curl_handle(NULL);
+        del_curl_handle(conn, g);
+      }
     }
   }
 }
@@ -356,19 +361,25 @@ void del_conn(HttpConnection *connection, GlobalInfo *g) {
 
     struct _ConnInfo *curl_handle = connection->curl_handle();
     if (curl_handle) {
+        connection->set_curl_handle(NULL);
+        del_curl_handle(curl_handle, g);
+    }
+}
+
+void del_curl_handle(ConnInfo *curl_handle, GlobalInfo *g) {
+    if (curl_handle) {
         curl_multi_remove_handle(g->multi, curl_handle->easy);
         curl_slist_free_all(curl_handle->headers);
         free(curl_handle->post);
         free(curl_handle->url);
         curl_easy_cleanup(curl_handle->easy);
-        connection->set_curl_handle(NULL);
         free(curl_handle);
     }   
 }
 
 /* Create a new easy handle, and add it to the global curl_multi */
 ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g,
-                   bool header, bool timeout)
+                   bool header, bool timeout, bool reuse)
 {
   ConnInfo *conn = (ConnInfo *)calloc(1, sizeof(ConnInfo));
   memset(conn, 0, sizeof(ConnInfo));
@@ -396,7 +407,9 @@ ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g,
       curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_TIME, 3L);
       curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_LIMIT, 10L);
   }
-  curl_easy_setopt(conn->easy, CURLOPT_FORBID_REUSE, 1L);
+  if (!reuse) {
+      curl_easy_setopt(conn->easy, CURLOPT_FORBID_REUSE, 1L);
+  }
 
   /* to include the header in the body */
   if (header)
