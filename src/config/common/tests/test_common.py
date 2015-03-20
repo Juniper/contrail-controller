@@ -146,6 +146,16 @@ def launch_svc_monitor(api_server_ip, api_server_port):
     svc_monitor.main(args_str)
 # end launch_svc_monitor
 
+def kill_svc_monitor(glet):
+    glet.kill()
+    svc_monitor.SvcMonitor.reset()
+
+def kill_schema_transformer(glet):
+    glet.kill()
+    to_bgp.transformer.ssrc_task.kill()
+    to_bgp.transformer.arc_task.kill()
+    to_bgp.transformer.reset()
+
 def launch_schema_transformer(api_server_ip, api_server_port):
     try:
         import to_bgp
@@ -367,7 +377,9 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
     def tearDown(self):
         self._api_svr_greenlet.kill()
         self._api_server._db_conn._msgbus.shutdown()
+        FakeKombu.reset()
         FakeIfmapClient.reset()
+        CassandraCFs.reset()
         #cov_handle.stop()
         #cov_handle.report(file=open('covreport.txt', 'w'))
         super(TestCase, self).tearDown()
@@ -420,7 +432,10 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
                         auto_policy=True, interface_list=if_list,
                         scale_out=scale_out)
                 else:
-                    si_props = ServiceInstanceType(scale_out=scale_out)
+                    if_list = [ServiceInstanceInterfaceType(),
+                               ServiceInstanceInterfaceType()]
+                    si_props = ServiceInstanceType(interface_list=if_list,
+                                                   scale_out=scale_out)
                 service_instance = ServiceInstance(
                     name=service, service_instance_properties=si_props)
                 service_instance.add_service_template(service_template)
