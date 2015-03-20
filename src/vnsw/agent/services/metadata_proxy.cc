@@ -169,7 +169,7 @@ MetadataProxy::HandleMetadataRequest(HttpSession *session, const HttpRequest *re
         if (conn) {
             switch(request->GetMethod()) {
                 case HTTP_GET: {
-                    conn->HttpGet(uri, true, false, header_options,
+                    conn->HttpGet(uri, true, false, true, header_options,
                     boost::bind(&MetadataProxy::HandleMetadataResponse,
                                 this, conn, HttpSessionPtr(session), _1, _2));
                     METADATA_TRACE(Trace, "GET request for VM : " << vm_ip
@@ -178,7 +178,7 @@ MetadataProxy::HandleMetadataRequest(HttpSession *session, const HttpRequest *re
                 }
 
                 case HTTP_HEAD: {
-                    conn->HttpHead(uri, true, false, header_options,
+                    conn->HttpHead(uri, true, false, true, header_options,
                     boost::bind(&MetadataProxy::HandleMetadataResponse,
                                 this, conn, HttpSessionPtr(session), _1, _2));
                     METADATA_TRACE(Trace, "HEAD request for VM : " << vm_ip
@@ -187,7 +187,7 @@ MetadataProxy::HandleMetadataRequest(HttpSession *session, const HttpRequest *re
                 }
 
                 case HTTP_POST: {
-                    conn->HttpPost(body, uri, true, false, header_options,
+                    conn->HttpPost(body, uri, true, false, true, header_options,
                     boost::bind(&MetadataProxy::HandleMetadataResponse,
                                 this, conn, HttpSessionPtr(session), _1, _2));
                     METADATA_TRACE(Trace, "POST request for VM : " << vm_ip
@@ -196,7 +196,7 @@ MetadataProxy::HandleMetadataRequest(HttpSession *session, const HttpRequest *re
                 }
 
                 case HTTP_PUT: {
-                    conn->HttpPut(body, uri, true, false, header_options,
+                    conn->HttpPut(body, uri, true, false, true, header_options,
                     boost::bind(&MetadataProxy::HandleMetadataResponse,
                                 this, conn, HttpSessionPtr(session), _1, _2));
                     METADATA_TRACE(Trace, "PUT request for VM : " << vm_ip
@@ -205,7 +205,7 @@ MetadataProxy::HandleMetadataRequest(HttpSession *session, const HttpRequest *re
                 }
 
                 case HTTP_DELETE: {
-                    conn->HttpDelete(uri, true, false, header_options,
+                    conn->HttpDelete(uri, true, false, true, header_options,
                     boost::bind(&MetadataProxy::HandleMetadataResponse,
                                 this, conn, HttpSessionPtr(session), _1, _2));
                     METADATA_TRACE(Trace, "Delete request for VM : " << vm_ip
@@ -263,6 +263,7 @@ MetadataProxy::HandleMetadataResponse(HttpConnection *conn, HttpSessionPtr sessi
             goto done;
         }
 
+        metadata_stats_.responses++;
         if (!ec && it->second.close_req) {
             std::stringstream str(msg);
             std::string option;
@@ -275,7 +276,6 @@ MetadataProxy::HandleMetadataResponse(HttpConnection *conn, HttpSessionPtr sessi
                     CloseClientSession(it->second.conn);
                     CloseServerSession(session.get());
                     delete_session = true;
-                    metadata_stats_.responses++;
                 }
             } else if (it->second.header_end) {
                 it->second.data_sent += msg.length();
@@ -283,7 +283,6 @@ MetadataProxy::HandleMetadataResponse(HttpConnection *conn, HttpSessionPtr sessi
                     CloseClientSession(it->second.conn);
                     CloseServerSession(session.get());
                     delete_session = true;
-                    metadata_stats_.responses++;
                 }
             }
         }
