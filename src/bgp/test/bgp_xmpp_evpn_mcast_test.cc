@@ -703,7 +703,7 @@ protected:
     }
 
     int GetTsnIdx(test::NetworkAgentMock *tsn) {
-        for (int idx = 0; idx < tsns_.size(); ++idx) {
+        for (size_t idx = 0; idx < tsns_.size(); ++idx) {
             if (tsns_[idx] == tsn)
                 return idx;
         }
