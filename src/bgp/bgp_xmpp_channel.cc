@@ -1450,11 +1450,14 @@ bool BgpXmppChannel::MembershipResponseHandler(std::string table_name) {
 
     routingtable_membership_request_map_.erase(loc);
 
-    VrfTableName vrf_n_table =
-        std::make_pair(table->routing_instance()->name(), table_name);
+    string vrf_name = table->routing_instance()->name();
+    VrfTableName vrf_n_table = make_pair(vrf_name, table_name);
 
     if (state.pending_req == UNSUBSCRIBE) {
-        assert(!defer_q_.count(vrf_n_table));
+        if (vrf_membership_request_map_.find(vrf_name) ==
+            vrf_membership_request_map_.end()) {
+            assert(defer_q_.count(vrf_n_table) == 0);
+        }
         return true;
     } else if (state.pending_req == SUBSCRIBE) {
         IPeerRib *rib = mgr->IPeerRibFind(peer_.get(), table);
