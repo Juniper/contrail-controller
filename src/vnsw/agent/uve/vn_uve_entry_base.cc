@@ -7,12 +7,14 @@
 
 VnUveEntryBase::VnUveEntryBase(Agent *agent, const VnEntry *vn)
     : agent_(agent), vn_(vn), uve_info_(), interface_tree_(), vm_tree_(),
-    changed_(true), deleted_(false), renewed_(false) {
+    add_by_vn_notify_(false), changed_(true), deleted_(false),
+    renewed_(false) {
 }
 
 VnUveEntryBase::VnUveEntryBase(Agent *agent)
     : agent_(agent), vn_(NULL), uve_info_(), interface_tree_(),  vm_tree_(),
-    changed_(true), deleted_(false), renewed_(false) {
+    add_by_vn_notify_(false), changed_(true), deleted_(false),
+    renewed_(false) {
 }
 
 VnUveEntryBase::~VnUveEntryBase() {
@@ -40,6 +42,10 @@ void VnUveEntryBase::InterfaceAdd(const Interface *intf) {
     InterfaceSet::iterator it = interface_tree_.find(intf);
     if (it == interface_tree_.end()) {
         interface_tree_.insert(intf);
+    }
+    if (!add_by_vn_notify_ && (interface_tree_.size() == 0)) {
+        renewed_ = false;
+        deleted_ = true;
     }
 }
 
@@ -220,4 +226,8 @@ void VnUveEntryBase::Reset() {
     vm_tree_.clear();
     uve_info_ = uve;
     vn_ = NULL;
+
+    deleted_ = true;
+    renewed_ = false;
+    add_by_vn_notify_ = false;
 }

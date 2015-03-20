@@ -69,14 +69,15 @@ class ProuterUveTable {
         void AddLogicalInterface(const LogicalInterface *itf);
         void UpdateLogicalInterface(const LogicalInterface *itf);
         bool DeleteLogicalInterface(const LogicalInterface *itf);
+        void Reset();
 
         std::string name_;
         boost::uuids::uuid uuid_;
         UvePhyInterfaceAttrMap physical_interface_set_;
         LogicalInterfaceMap logical_interface_set_;
-        TaskTrigger *encoder_task_trigger_;
-        bool prouter_msg_enqueued_;
+        bool changed_;
         bool deleted_;
+        bool renewed_;
     };
     typedef boost::shared_ptr<ProuterUveEntry> ProuterUveEntryPtr;
     typedef std::map<boost::uuids::uuid, ProuterUveEntryPtr> UveProuterMap;
@@ -91,11 +92,12 @@ class ProuterUveTable {
     typedef std::pair<std::string, PhyInterfaceUveEntryPtr>
         UvePhyInterfacePair;
     static const uint16_t kInvalidVlanId = 0xFFFF;
-    explicit ProuterUveTable(Agent *agent);
+    explicit ProuterUveTable(Agent *agent, uint32_t default_intvl);
     virtual ~ProuterUveTable();
     void RegisterDBClients();
     void Shutdown(void);
     virtual void DispatchProuterMsg(const ProuterData &uve);
+    bool TimerExpiry();
 
  protected:
     UveProuterMap uve_prouter_map_;
@@ -104,7 +106,6 @@ class ProuterUveTable {
  private:
     ProuterUveEntryPtr Allocate(const PhysicalDevice *pr);
     ProuterUveEntry *PDEntryToProuterUveEntry(const boost::uuids::uuid &u) const;
-    void RemoveUveEntry(const boost::uuids::uuid &u);
     PhyInterfaceUveEntry *NameToPhyInterfaceUveEntry(const std::string &name)
         const;
     const Interface *NameToInterface(const std::string &name) const;
@@ -133,11 +134,15 @@ class ProuterUveTable {
                                        const LogicalInterface *intf);
     const PhysicalDevice *InterfaceToProuter(const Interface *intf);
     void SendProuterVrouterAssociation();
-    void EnqueueProuterMsg(const boost::uuids::uuid &u);
+    void set_expiry_time(int time);
 
     Agent *agent_;
     DBTableBase::ListenerId physical_device_listener_id_;
     DBTableBase::ListenerId interface_listener_id_;
+    // Last visited VmEntry by timer
+    boost::uuids::uuid timer_last_visited_;
+    Timer *timer_;
+    int expiry_time_;
     DISALLOW_COPY_AND_ASSIGN(ProuterUveTable);
 };
 

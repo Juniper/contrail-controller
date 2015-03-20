@@ -56,6 +56,7 @@ protected:
     virtual void VmStatCollectionStart(VmUveVmState *state, const VmEntry *vm);
     virtual void VmStatCollectionStop(VmUveVmState *state);
     VmUveEntryBase* UveEntryFromVm(const boost::uuids::uuid &u);
+    virtual void SendVmDeleteMsg(const std::string &vm_name);
     UveVmMap uve_vm_map_;
     Agent *agent_;
 private:
@@ -71,7 +72,6 @@ private:
     void Delete(const boost::uuids::uuid &u);
     void set_expiry_time(int time);
     void SendVmMsg(VmUveEntryBase *entry);
-    virtual void SendVmDeleteMsg(VmUveEntryBase *entry);
 
     DBTableBase::ListenerId intf_listener_id_;
     DBTableBase::ListenerId vm_listener_id_;

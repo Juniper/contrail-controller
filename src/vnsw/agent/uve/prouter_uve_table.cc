@@ -6,13 +6,79 @@
 #include <uve/prouter_uve_table.h>
 #include <uve/agent_uve_base.h>
 
-ProuterUveTable::ProuterUveTable(Agent *agent)
+ProuterUveTable::ProuterUveTable(Agent *agent, uint32_t default_intvl)
     : uve_prouter_map_(), uve_phy_interface_map_(), agent_(agent),
       physical_device_listener_id_(DBTableBase::kInvalidId),
-      interface_listener_id_(DBTableBase::kInvalidId) {
+      interface_listener_id_(DBTableBase::kInvalidId),
+      timer_last_visited_(nil_uuid()),
+      timer_(TimerManager::CreateTimer
+             (*(agent->event_manager())->io_service(),
+              "ProuterUveTimer",
+              TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0)) {
+      expiry_time_ = default_intvl;
+      timer_->Start(expiry_time_,
+                    boost::bind(&ProuterUveTable::TimerExpiry, this));
 }
 
 ProuterUveTable::~ProuterUveTable() {
+    if (timer_) {
+        timer_->Cancel();
+        TimerManager::DeleteTimer(timer_);
+        timer_ = NULL;
+    }
+}
+
+bool ProuterUveTable::TimerExpiry() {
+    UveProuterMap::iterator it = uve_prouter_map_.lower_bound
+        (timer_last_visited_);
+    if (it == uve_prouter_map_.end()) {
+        timer_last_visited_ = nil_uuid();
+        return true;
+    }
+
+    uint32_t count = 0;
+    while (it != uve_prouter_map_.end() &&
+           count < AgentUveBase::kUveCountPerTimer) {
+        ProuterUveEntry* entry = it->second.get();
+        UveProuterMap::iterator prev = it;
+        it++;
+        count++;
+
+        if (entry->deleted_) {
+            SendProuterDeleteMsg(entry);
+            if (!entry->renewed_) {
+                uve_prouter_map_.erase(prev);
+                SendProuterVrouterAssociation();
+            } else {
+                entry->deleted_ = false;
+                entry->renewed_ = false;
+                entry->changed_ = false;
+                SendProuterMsg(entry);
+            }
+        } else if (entry->changed_) {
+            SendProuterMsg(entry);
+            entry->changed_ = false;
+            /* Clear renew flag to be on safer side. Not really required */
+            entry->renewed_ = false;
+        }
+    }
+
+    if (it == uve_prouter_map_.end()) {
+        timer_last_visited_ = nil_uuid();
+        set_expiry_time(agent_->uve()->default_interval());
+    } else {
+        timer_last_visited_ = it->first;
+        set_expiry_time(agent_->uve()->incremental_interval());
+    }
+    /* Return true to trigger auto-restart of timer */
+    return true;
+}
+
+void ProuterUveTable::set_expiry_time(int time) {
+    if (time != expiry_time_) {
+        expiry_time_ = time;
+        timer_->Reschedule(expiry_time_);
+    }
 }
 
 ProuterUveTable::PhyInterfaceAttrEntry::PhyInterfaceAttrEntry
@@ -22,7 +88,7 @@ ProuterUveTable::PhyInterfaceAttrEntry::PhyInterfaceAttrEntry
 
 ProuterUveTable::ProuterUveEntry::ProuterUveEntry(const PhysicalDevice *p) :
     name_(p->name()), uuid_(p->uuid()), physical_interface_set_(),
-    encoder_task_trigger_(NULL), prouter_msg_enqueued_(false), deleted_(false) {
+    changed_(true), deleted_(false), renewed_(false) {
 }
 
 ProuterUveTable::LogicalInterfaceUveEntry::LogicalInterfaceUveEntry
@@ -48,10 +114,14 @@ void ProuterUveTable::LogicalInterfaceUveEntry::Update
 }
 
 ProuterUveTable::ProuterUveEntry::~ProuterUveEntry() {
-    if (encoder_task_trigger_) {
-        encoder_task_trigger_->Reset();
-        delete encoder_task_trigger_;
-    }
+}
+
+void ProuterUveTable::ProuterUveEntry::Reset() {
+    physical_interface_set_.clear();
+    logical_interface_set_.clear();
+
+    deleted_ = true;
+    renewed_ = true;
 }
 
 void ProuterUveTable::ProuterUveEntry::AddPhysicalInterface
@@ -216,24 +286,10 @@ void ProuterUveTable::FrameProuterMsg(ProuterUveEntry *entry,
     uve->set_logical_interface_list(logical_list);
 }
 
-void ProuterUveTable::RemoveUveEntry(const boost::uuids::uuid &u) {
-    UveProuterMap::iterator it = uve_prouter_map_.find(u);
-    if (it == uve_prouter_map_.end()) {
-        return;
-    }
-    uve_prouter_map_.erase(it);
-    SendProuterVrouterAssociation();
-}
-
 bool ProuterUveTable::SendProuterMsg(ProuterUveEntry *entry) {
     ProuterData uve;
-    if (entry->deleted_) {
-        RemoveUveEntry(entry->uuid_);
-        return true;
-    }
     FrameProuterMsg(entry, &uve);
     DispatchProuterMsg(uve);
-    entry->prouter_msg_enqueued_ = false;
     return true;
 }
 
@@ -244,30 +300,13 @@ void ProuterUveTable::SendProuterDeleteMsg(ProuterUveEntry *e) {
     DispatchProuterMsg(uve);
 }
 
-void ProuterUveTable::EnqueueProuterMsg(const boost::uuids::uuid &pd_uuid) {
-    ProuterUveEntry *entry = PDEntryToProuterUveEntry(pd_uuid);
-    if (!entry) {
-        return;
-    }
-    if (entry->prouter_msg_enqueued_) {
-        return;
-    }
-    if (!entry->encoder_task_trigger_) {
-        entry->encoder_task_trigger_ =
-           new TaskTrigger(boost::bind(&ProuterUveTable::SendProuterMsg, this,
-                                       entry),
-               TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0);
-    }
-    /* encoder_task_trigger_ is TaskTrigger object. This will ensure that
-     * TaskTrigger callback is not invoked if it is not completed yet */
-    entry->encoder_task_trigger_->Set();
-    entry->prouter_msg_enqueued_ = true;
-}
-
 void ProuterUveTable::SendProuterMsgFromPhyInterface(const Interface *pi) {
     const PhysicalDevice *pde = InterfaceToProuter(pi);
     if (pde && !pde->IsDeleted()) {
-        EnqueueProuterMsg(pde->uuid());
+        ProuterUveEntry *entry = PDEntryToProuterUveEntry(pde->uuid());
+        if (entry) {
+            entry->changed_ = true;
+        }
     }
 }
 
@@ -292,9 +331,15 @@ ProuterUveTable::ProuterUveEntry* ProuterUveTable::AddHandler
     pair<UveProuterMap::iterator, bool> ret;
     ret = uve_prouter_map_.insert(UveProuterPair(p->uuid(), uve));
     UveProuterMap::iterator it = ret.first;
-    EnqueueProuterMsg(p->uuid());
-    SendProuterVrouterAssociation();
-    return it->second.get();
+    ProuterUveEntry *entry = it->second.get();
+    entry->changed_ = true;
+    if (entry->deleted_) {
+        entry->renewed_ = true;
+    }
+    if (!entry->renewed_) {
+        SendProuterVrouterAssociation();
+    }
+    return entry;
 }
 
 void ProuterUveTable::DeleteHandler(const PhysicalDevice *p) {
@@ -304,17 +349,10 @@ void ProuterUveTable::DeleteHandler(const PhysicalDevice *p) {
     }
 
     ProuterUveEntry* entry = it->second.get();
-    SendProuterDeleteMsg(entry);
-    entry->physical_interface_set_.clear();
-    entry->logical_interface_set_.clear();
-    if (!entry->prouter_msg_enqueued_) {
-        uve_prouter_map_.erase(it);
-        SendProuterVrouterAssociation();
-    } else {
-        entry->deleted_ = true;
-    }
+    /* Reset all the non-key fields of entry so that it has proper values in
+     * case it gets reused. Also update deleted_ and renewed_ flags */
+    entry->Reset();
 }
-
 
 void ProuterUveTable::UpdateLogicalInterface(const Interface *pintf,
                                              const LogicalInterface *intf) {
@@ -369,7 +407,7 @@ void ProuterUveTable::AddProuterLogicalInterface
 
     ProuterUveEntry* entry = it->second.get();
     entry->AddLogicalInterface(intf);
-    EnqueueProuterMsg(p->uuid());
+    entry->changed_ = true;
 }
 
 void ProuterUveTable::UpdateProuterLogicalInterface
@@ -381,7 +419,7 @@ void ProuterUveTable::UpdateProuterLogicalInterface
 
     ProuterUveEntry* entry = it->second.get();
     entry->UpdateLogicalInterface(intf);
-    EnqueueProuterMsg(p->uuid());
+    entry->changed_ = true;
 }
 
 void ProuterUveTable::DeleteLogicalInterface(const string &name,
@@ -414,7 +452,7 @@ void ProuterUveTable::DeleteProuterLogicalInterface
     ProuterUveEntry* entry = it->second.get();
     bool deleted  = entry->DeleteLogicalInterface(intf);
     if (deleted) {
-        EnqueueProuterMsg(u);
+        entry->changed_ = true;
     }
 }
 
@@ -439,7 +477,8 @@ void ProuterUveTable::PhysicalDeviceNotify(DBTablePartBase *partition,
             AddHandler(pr);
         } else {
             /* For Change notifications send only the msg */
-            EnqueueProuterMsg(pr->uuid());
+            ProuterUveEntry *entry = PDEntryToProuterUveEntry(pr->uuid());
+            entry->changed_ = true;
         }
     }
 }
@@ -451,7 +490,7 @@ void ProuterUveTable::DisassociatePhysicalInterface(const Interface *intf,
         return;
     }
     entry->DeletePhysicalInterface(intf);
-    EnqueueProuterMsg(u);
+    entry->changed_ = true;
 }
 
 void ProuterUveTable::PhysicalInterfaceHandler(const Interface *intf,
@@ -477,7 +516,7 @@ void ProuterUveTable::PhysicalInterfaceHandler(const Interface *intf,
     } else {
         entry->AddPhysicalInterface(intf);
     }
-    EnqueueProuterMsg(u);
+    entry->changed_ = true;
 }
 
 void ProuterUveTable::InterfaceNotify(DBTablePartBase *partition,
