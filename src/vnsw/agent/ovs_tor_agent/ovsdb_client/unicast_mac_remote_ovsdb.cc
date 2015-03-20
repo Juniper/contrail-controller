@@ -326,6 +326,17 @@ KSyncDBObject::DBFilterResp UnicastMacRemoteTable::DBEntryFilter(
     if (client_idl()->deleted()) {
         return DBFilterIgnore;
     }
+
+    const BridgeRouteEntry *entry =
+        static_cast<const BridgeRouteEntry *>(db_entry);
+    if (entry->vrf()->IsDeleted() || (entry->vrf()->vn() == NULL)) {
+        // if notification comes for a entry with deleted vrf
+        // or if the VRF- VN link is missing
+        // trigger delete since we donot resue same vrf object
+        // so this entry has to be deleted eventually.
+        return DBFilterDelete;
+    }
+
     return DBFilterAccept;
 }
 
@@ -453,14 +464,18 @@ void VrfOvsdbObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
     VrfEntry *vrf = static_cast<VrfEntry *>(e);
     VrfState *state = static_cast<VrfState *>
         (vrf->GetState(partition->parent(), vrf_listener_id_));
-    if (deleted_ && state) {
-        // Vrf Object is marked for delete trigger delete for l2 table
-        // object and cleanup vrf state.
-        state->l2_table->DeleteTable();
-    }
 
-    if (deleted_ || vrf->IsDeleted()) {
+    // Trigger delete of route table in following cases:
+    //  - VrfOvsdbObject is scheduled for deletion.
+    //  - VrfEntry is deleted
+    //  - VRF-VN link not available
+    if (deleted_ || vrf->IsDeleted() || (vrf->vn() == NULL)) {
         if (state) {
+            // Vrf Object is marked for delete trigger delete for l2 table
+            // object and cleanup vrf state.
+            state->l2_table->DeleteTable();
+
+            // clear db state
             logical_switch_map_.erase(state->logical_switch_name_);
             vrf->ClearState(partition->parent(), vrf_listener_id_);
             delete state;
