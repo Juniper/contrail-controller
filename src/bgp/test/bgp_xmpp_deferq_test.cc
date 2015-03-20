@@ -924,7 +924,7 @@ TEST_F(BgpXmppUnitTest, DuplicateRegisterWithNonDeletedRoutingInstance) {
     VerifyRoutingInstance("red");
 }
 
-TEST_F(BgpXmppUnitTest, DuplicateRegisterWithDeletedRoutingInstance) {
+TEST_F(BgpXmppUnitTest, DuplicateRegisterWithDeletedRoutingInstance1) {
     Configure();
     task_util::WaitForIdle();
 
@@ -960,6 +960,58 @@ TEST_F(BgpXmppUnitTest, DuplicateRegisterWithDeletedRoutingInstance) {
 
     // Make sure session on agent flapped and the blue instance is gone.
     TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+    VerifyNoRoutingInstance("blue");
+}
+
+TEST_F(BgpXmppUnitTest, DuplicateRegisterWithDeletedRoutingInstance2) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // create an XMPP client in server A
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, SUB_ADDR, xs_a_->GetPort()));
+
+    TASK_UTIL_EXPECT_TRUE(bgp_channel_manager_->channel_ != NULL);
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    uint32_t old_flap_count = agent_a_->flap_count();
+
+    // Pause deletion for blue instance.
+    RoutingInstance *blue = VerifyRoutingInstance("blue");
+    PauseDelete(blue->deleter());
+
+    // Subscribe and add route to blue instance. Make sure that the messages
+    // have been processed on the bgp server.
+    agent_a_->Subscribe("blue", 1);
+    agent_a_->AddRoute("blue","10.1.1.1/32");
+    TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_->channel_->Count());
+    TASK_UTIL_EXPECT_TRUE(
+        PeerRegistered(bgp_channel_manager_->channel_, "blue", 1));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->RouteLookup("blue", "10.1.1.1/32") != NULL);
+
+    // Unconfigure all instances.
+    // The red instance should get destroyed while the blue instance should
+    // still exist in deleted state.
+    UnconfigureRoutingInstances();
+    task_util::WaitForIdle();
+    VerifyNoRoutingInstance("red");
+    VerifyRoutingInstance("blue");
+    TASK_UTIL_EXPECT_TRUE(blue->deleted());
+
+    // Send unsubscribe for the blue instance.
+    agent_a_->Unsubscribe("blue", -1);
+    TASK_UTIL_EXPECT_FALSE(
+        PeerRegistered(bgp_channel_manager_->channel_, "blue", 1));
+
+    // Send back to back subscribe for the blue instance.
+    // This should trigger a Close from the server.
+    agent_a_->Subscribe("blue", 1);
+    agent_a_->Subscribe("blue", 1);
+
+    // Make sure session on agent flapped.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > old_flap_count);
+
+    // Resume deletion of blue instance and make sure it's gone.
+    ResumeDelete(blue->deleter());
     VerifyNoRoutingInstance("blue");
 }
 

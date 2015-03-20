@@ -2099,6 +2099,52 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
             }
         }
         return;
+    } else if (rt_instance->deleted()) {
+        BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_DEBUG,
+                     BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                     "Routing instance " << vrf_name <<
+                     " is being deleted when processing " <<
+                     (add_change ? "subscribe" : "unsubscribe"));
+        if (add_change) {
+            if (vrf_membership_request_map_.find(vrf_name) !=
+                vrf_membership_request_map_.end()) {
+                BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                             BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                             "Duplicate subscribe for routing instance " <<
+                             vrf_name << ", triggering close");
+                channel_->Close();
+            } else if (routing_instances_.find(rt_instance) !=
+                routing_instances_.end()) {
+                BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                             BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                             "Duplicate subscribe for routing instance " <<
+                             vrf_name << ", triggering close");
+                channel_->Close();
+            } else {
+                vrf_membership_request_map_[vrf_name] = instance_id;
+                channel_stats_.instance_subscribe++;
+            }
+            return;
+        } else {
+            // If instance is being deleted and agent is trying to unsubscribe
+            // we need to process the unsubscribe if vrf is not in the request
+            // map.  This would be the normal case where we wait for agent to
+            // unsubscribe in order to remove routes added by it.
+            if (vrf_membership_request_map_.erase(vrf_name)) {
+                FlushDeferQ(vrf_name);
+                channel_stats_.instance_unsubscribe++;
+                return;
+            } else if (routing_instances_.find(rt_instance) ==
+                routing_instances_.end()) {
+                BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                             BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                             "Spurious unsubscribe for routing instance " <<
+                             vrf_name << ", triggering close");
+                channel_->Close();
+                return;
+            }
+            channel_stats_.instance_unsubscribe++;
+        }
     } else {
         if (add_change) {
             if (routing_instances_.find(rt_instance) !=
@@ -2122,27 +2168,6 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
                 return;
             }
             channel_stats_.instance_unsubscribe++;
-        }
-    }
-
-    // If the instance is being deleted and agent is trying to unsubscribe
-    // we need to process the unsubscribe if the vrf is not in the request
-    // map.  This would be the normal case where we wait for the agent to
-    // unsubscribe in order to remove routes added by it.
-    if (rt_instance->deleted()) {
-        BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_DEBUG,
-                     BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
-                     "Routing instance " << vrf_name <<
-                     " is being deleted when processing " <<
-                     (add_change ? "subscribe" : "unsubscribe"));
-        if (add_change) {
-            vrf_membership_request_map_[vrf_name] = instance_id;
-            return;
-        } else {
-            if (vrf_membership_request_map_.erase(vrf_name)) {
-                FlushDeferQ(vrf_name);
-                return;
-            }
         }
     }
 
