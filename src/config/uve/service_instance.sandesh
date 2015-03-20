@@ -25,3 +25,85 @@ uve sandesh UveSvcInstanceConfigTrace {
     1: UveSvcInstanceConfig data
 }
 
+// Loadbalancer stats
+struct UveLoadbalancerSample {
+    1: string          uuid;
+    2: string          obj_name;
+    3: optional u64    connection_errors;
+    4: optional u64    active_connections;
+    5: optional u64    max_connections;
+    6: optional u64    current_sessions;
+    7: optional u64    max_sessions;
+    8: optional u64    total_sessions;
+    9: optional u64    bytes_in;
+    10: optional u64   bytes_out;
+    11: optional u64   connection_errors;
+    12: optional u64   reponse_errors;
+}
+
+// Loadbalancer status
+struct UveLoadbalancerState {
+    1: string                obj_name;
+    2: string                uuid;
+    3: string                status;
+    4: string                admin_state;
+    5: UveLoadbalancerSample obj_stats;
+}
+
+struct UveLoadbalancerVirtualIp {
+    1: string                 vip;
+    2: string                 vip_subnet;
+    3: UveLoadbalancerState   loadbalancer_status;
+}
+
+struct UveLoadbalancerListener {
+    1: string                 loadbalancer_uuid;
+    2: string                 protocol;
+    3: string                 protocol_port;
+    4: string                 connection_limit;
+    5: UveLoadbalancerState   listener_status;
+}
+
+struct UveLoadbalancerPool {
+    1: string                 listener_uuid;
+    2: string                 protocol;
+    3: string                 protocol_port;
+    4: string                 lb_algorithm;
+    5: string                 session_persistence;
+    6: UveLoadbalancerState   pool_status;
+}
+
+struct UveLoadbalancerMember {
+    1: string                 pool_uuid;
+    2: string                 address;
+    3: string                 protocol_port;
+    4: string                 weight;
+    5: UveLoadbalancerState   member_status;
+}
+
+struct UveLoadbalancerStatus {
+    1: string                                 name (key="ObjectSITable")
+    2: optional bool                          deleted
+    3: optional UveLoadbalancerVirtualIp      virtual_ip;
+    4: optional list<UveLoadbalancerListener> listeners;
+    5: optional list<UveLoadbalancerPool>     pools;
+    6: optional list<UveLoadbalancerState>    members;
+}
+
+uve sandesh UveLoadbalancerStatusTrace {
+    1: UveLoadbalancerStatus data
+}
+
+
+struct UveLoadbalancerStats {
+    1: string                                 name (key="ObjectSITable")
+    2: optional bool                          deleted
+    3: optional list<UveLoadbalancerSample>   virtual_ip (tags=.uuid,.obj_name);
+    4: optional list<UveLoadbalancerSample>   listeners  (tags=.uuid,.obj_name);
+    5: optional list<UveLoadbalancerSample>   pools      (tags=.uuid,.obj_name);
+    6: optional list<UveLoadbalancerSample>   members    (tags=.uuid,.obj_name);
+}
+
+uve sandesh UveLoadbalancerStatsTrace {
+    1: UveLoadbalancerStats data
+}
