@@ -350,10 +350,10 @@ class AddrMgmt(object):
 
     def _get_subnet_dicts(self, vn_fq_name, vn_dict=None):
         db_conn = self._get_db_conn()
-        vn_uuid = db_conn.fq_name_to_uuid('virtual-network', vn_fq_name)
 
         # Read in the VN details if not passed in
         if not vn_dict:
+            vn_uuid = db_conn.fq_name_to_uuid('virtual-network', vn_fq_name)
             (ok, result) = self._db_conn.dbe_read(
                                 obj_type='virtual-network',
                                 obj_ids={'uuid': vn_uuid},
@@ -571,7 +571,8 @@ class AddrMgmt(object):
         for network in proj_dict.get('virtual_networks', []):
             if network['uuid'] == db_vn_dict['uuid']:
                 continue
-            ok, net_dict = db_conn.dbe_read('virtual-network', network)
+            ok, net_dict = db_conn.dbe_read('virtual-network', network, 
+                                            obj_fields=['network_ipam_refs'])
             if not ok:
                 continue
             vn_subnets = self._vn_to_subnets(net_dict)
@@ -745,10 +746,10 @@ class AddrMgmt(object):
 
     # allocate an IP address for given virtual network
     # we use the first available subnet unless provided
-    def ip_alloc_req(self, vn_fq_name, sub=None, asked_ip_addr=None, 
+    def ip_alloc_req(self, vn_fq_name, vn_dict=None, sub=None, asked_ip_addr=None, 
                      asked_ip_version=4):
         vn_fq_name_str = ':'.join(vn_fq_name)
-        subnet_dicts = self._get_subnet_dicts(vn_fq_name)
+        subnet_dicts = self._get_subnet_dicts(vn_fq_name, vn_dict)
 
         if not subnet_dicts:
             raise AddrMgmtSubnetUndefined(vn_fq_name_str)
