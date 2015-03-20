@@ -20,6 +20,7 @@ import time
 from util import retry
 from pysandesh.sandesh_base import *
 from pysandesh.util import UTCTimestampUsec
+from opserver.sandesh.alarmgen_ctrl.ttypes import *
 from sandesh.virtual_machine.ttypes import *
 from sandesh.virtual_network.ttypes import *
 from sandesh.flow.ttypes import *
@@ -53,9 +54,10 @@ class GeneratorFixture(fixtures.Fixture):
         super(GeneratorFixture, self).setUp()
         self._sandesh_instance = Sandesh()
         self._http_port = AnalyticsFixture.get_free_port()
+        sandesh_pkg = ['opserver.sandesh.alarmgen_ctrl', 'sandesh']
         self._sandesh_instance.init_generator(
             self._name, self._hostname, self._node_type, "0", self._collectors,
-            '', self._http_port, sandesh_req_uve_pkg_list=['sandesh'])
+            '', self._http_port, sandesh_req_uve_pkg_list=sandesh_pkg)
         self._sandesh_instance.set_logging_params(enable_local_log=True,
                                                   level=SandeshLevel.UT_DEBUG)
     # end setUp
@@ -404,11 +406,12 @@ class GeneratorFixture(fixtures.Fixture):
         self._logger.info('send uve: %s' % (v_uve.log()))
         v_uve.send(sandesh=self._sandesh_instance)
 
-    def create_alarm(self, type, rule, value):
+    def create_alarm(self, type, rule, value, ack=None):
         alarm_elements = []
         alarm_elements.append(AlarmElement(rule=rule, value=value))
         alarms = []
-        alarms.append(AlarmInfo(type=type, description=alarm_elements))
+        alarms.append(UVEAlarmInfo(type=type, description=alarm_elements,
+                                   ack=ack))
         return alarms
     # end create_alarm
 
@@ -418,9 +421,9 @@ class GeneratorFixture(fixtures.Fixture):
     # end create_process_state_alarm
 
     def send_alarm(self, name, alarms, table):
-        alarm_data = AlarmData(name=name, alarms=alarms)
-        alarm = Alarm(data=alarm_data, table=table,
-                      sandesh=self._sandesh_instance)
+        alarm_data = UVEAlarms(name=name, alarms=alarms)
+        alarm = AlarmTrace(data=alarm_data, table=table,
+                           sandesh=self._sandesh_instance)
         self._logger.info('send alarm: %s' % (alarm.log()))
         alarm.send(sandesh=self._sandesh_instance)
         # store the alarm for verification
@@ -432,9 +435,9 @@ class GeneratorFixture(fixtures.Fixture):
     # end send_alarm
 
     def delete_alarm(self, name, table):
-        alarm_data = AlarmData(name=name, deleted=True)
-        alarm = Alarm(data=alarm_data, table=table,
-                      sandesh=self._sandesh_instance)
+        alarm_data = UVEAlarms(name=name, deleted=True)
+        alarm = AlarmTrace(data=alarm_data, table=table,
+                           sandesh=self._sandesh_instance)
         self._logger.info('delete alarm: %s' % (alarm.log()))
         alarm.send(sandesh=self._sandesh_instance)
         del self.alarms[table][name]

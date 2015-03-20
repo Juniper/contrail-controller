@@ -1273,52 +1273,53 @@ class OpServer(object):
 
     @staticmethod
     def _uve_filter_set(req):
-        sfilter = None
-        mfilter = None
-        tfilter = None
-        kfilter = None
-        any_filter = False
-        if 'sfilt' in req.keys():
-            any_filter = True
-            sfilter = req.sfilt
-        if 'mfilt' in req.keys():
-            any_filter = True
-            mfilter = req.mfilt
-        if 'cfilt' in req.keys():
-            any_filter = True
-            infos = req.cfilt.split(',')
-            tfilter = OpServer._get_tfilter(infos)
-        if 'kfilt' in req.keys():
-            any_filter = True
-            kfilter = req.kfilt.split(',')
-        return any_filter, kfilter, sfilter, mfilter, tfilter
+        filters = {}
+        filters['sfilt'] = req.get('sfilt')
+        filters['mfilt'] = req.get('mfilt')
+        if req.get('cfilt'):
+            infos = req['cfilt'].split(',')
+            filters['cfilt'] = OpServer._get_tfilter(infos)
+        else:
+            filters['cfilt'] = None
+        if req.get('kfilt'):
+            filters['kfilt'] = req['kfilt'].split(',')
+        else:
+            filters['kfilt'] = None
+        filters['ackfilt'] = req.get('ackfilt')
+        if filters['ackfilt'] is not None:
+            if filters['ackfilt'] != 'true' and filters['ackfilt'] != 'false':
+                raise ValueError('Invalid ackfilt. ackfilt must be true|false')
+        return filters
     # end _uve_filter_set
 
     @staticmethod
     def _uve_http_post_filter_set(req):
+        filters = {}
         try:
-            kfilter = req['kfilt']
-            if not isinstance(kfilter, list):
+            filters['kfilt'] = req['kfilt']
+            if not isinstance(filters['kfilt'], list):
                 raise ValueError('Invalid kfilt')
         except KeyError:
-            kfilter = ['*']
-        try:
-            sfilter = req['sfilt']
-        except KeyError:
-            sfilter = None
-        try:
-            mfilter = req['mfilt']
-        except KeyError:
-            mfilter = None
+            filters['kfilt'] = ['*']
+        filters['sfilt'] = req.get('sfilt')
+        filters['mfilt'] = req.get('mfilt')
         try:
             cfilt = req['cfilt']
             if not isinstance(cfilt, list):
                 raise ValueError('Invalid cfilt')
         except KeyError:
-            tfilter = None
+            filters['cfilt'] = None
         else:
-            tfilter = OpServer._get_tfilter(cfilt)
-        return True, kfilter, sfilter, mfilter, tfilter
+            filters['cfilt'] = OpServer._get_tfilter(cfilt)
+        try:
+            ackfilt = req['ackfilt']
+        except KeyError:
+            filters['ackfilt'] = None
+        else:
+            if not isinstance(ackfilt, bool):
+                raise ValueError('Invalid ackfilt. ackfilt must be bool')
+            filters['ackfilt'] = 'true' if ackfilt else 'false'
+        return filters
     # end _uve_http_post_filter_set
 
     def _uve_alarm_http_post(self, is_alarm):
@@ -1335,19 +1336,16 @@ class OpServer(object):
         else:
             try:
                 req = bottle.request.json
-                _, kfilter, sfilter, mfilter, tfilter = \
-                    OpServer._uve_http_post_filter_set(req)
+                filters = OpServer._uve_http_post_filter_set(req)
             except Exception as err:
                 yield bottle.HTTPError(_ERRORS[errno.EBADMSG], err)
             bottle.response.set_header('Content-Type', 'application/json')
             yield u'{"value": ['
             first = True
-            for key in kfilter:
+            for key in filters['kfilt']:
                 if key.find('*') != -1:
-                    uve_name = uve_tbl + ':*'
-                    for gen in self._uve_server.multi_uve_get(uve_name, True,
-                                                              kfilter, sfilter,
-                                                              mfilter, tfilter,
+                    for gen in self._uve_server.multi_uve_get(uve_tbl, True,
+                                                              filters,
                                                               is_alarm):
                         if first:
                             yield u'' + json.dumps(gen)
@@ -1357,10 +1355,9 @@ class OpServer(object):
                     yield u']}'
                     return
             first = True
-            for key in kfilter:
+            for key in filters['kfilt']:
                 uve_name = uve_tbl + ':' + key
-                rsp = self._uve_server.get_uve(uve_name, True, sfilter,
-                                               mfilter, tfilter,
+                rsp = self._uve_server.get_uve(uve_name, True, filters,
                                                is_alarm=is_alarm)
                 if rsp != {}:
                     data = {'name': key, 'value': rsp}
@@ -1395,14 +1392,13 @@ class OpServer(object):
             bottle.response.set_header('Content-Type', 'application/json')
             uve_name = uve_tbl + ':' + name
             req = bottle.request.query
-
+            try:
+                filters = OpServer._uve_filter_set(req)
+            except Exception as e:
+                yield bottle.HTTPError(_ERRORS[errno.EBADMSG], e)
+            
             flat = False
-            if 'flat' in req.keys():
-                flat = True
-
-            any_filter, kfilter, sfilter, mfilter, tfilter = \
-                OpServer._uve_filter_set(req)
-            if any_filter:
+            if 'flat' in req.keys() or any(filters.values()):
                 flat = True
 
             uve_name = uve_tbl + ':' + name
@@ -1410,10 +1406,10 @@ class OpServer(object):
                 flat = True
                 yield u'{"value": ['
                 first = True
-                for gen in self._uve_server.multi_uve_get(uve_name, flat,
-                                                          kfilter, sfilter,
-                                                          mfilter, tfilter,
-                                                          is_alarm):
+                if filters['kfilt'] is None:
+                    filters['kfilt'] = [name]
+                for gen in self._uve_server.multi_uve_get(uve_tbl, flat,
+                                                          filters, is_alarm):
                     if first:
                         yield u'' + json.dumps(gen)
                         first = False
@@ -1421,8 +1417,7 @@ class OpServer(object):
                         yield u', ' + json.dumps(gen)
                 yield u']}'
             else:
-                rsp = self._uve_server.get_uve(uve_name, flat, sfilter,
-                                               mfilter, tfilter,
+                rsp = self._uve_server.get_uve(uve_name, flat, filters,
                                                is_alarm=is_alarm)
                 yield json.dumps(rsp)
     # end _uve_alarm_http_get
@@ -1463,12 +1458,12 @@ class OpServer(object):
         else:
             bottle.response.set_header('Content-Type', 'application/json')
             req = bottle.request.query
-
-            _, kfilter, sfilter, mfilter, tfilter = \
-                OpServer._uve_filter_set(req)
-
+            try:
+                filters = OpServer._uve_filter_set(req)
+            except Exception as e:
+                return bottle.HTTPError(_ERRORS[errno.EBADMSG], e)
             uve_list = self._uve_server.get_uve_list(
-                uve_tbl, kfilter, sfilter, mfilter, tfilter, True, is_alarm)
+                uve_tbl, filters, True, is_alarm)
             uve_or_alarm = 'alarms' if is_alarm else 'uves'
             base_url = bottle.request.urlparts.scheme + '://' + \
                 bottle.request.urlparts.netloc + \
@@ -1794,9 +1789,7 @@ class OpServer(object):
                     objtab = t.obj_table
                     break
             if (objtab != None) and (objtab != "None"): 
-            #import pdb; pdb.set_trace()
-                return list(self._uve_server.get_uve_list(objtab,
-                        None, None, None, None, False))
+                return list(self._uve_server.get_uve_list(objtab))
 
         return []
     # end generator_info
