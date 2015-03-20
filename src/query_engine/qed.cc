@@ -75,18 +75,8 @@ bool QEInfoLogger(const string &hostname) {
 
     ModuleCpuStateTrace::Send(state);
 
-    AnalyticsCpuState  astate;
-    astate.set_name(hostname);
-
-    ProcessCpuInfo ainfo;
-    ainfo.set_module_id(Sandesh::module());
-    ainfo.set_inst_id(Sandesh::instance_id());
-    ainfo.set_cpu_share(cpu_load_info.get_cpu_share());
-    ainfo.set_mem_virt(cpu_load_info.get_meminfo().get_virt());
-    vector<ProcessCpuInfo> aciv;
-    aciv.push_back(ainfo);
-    astate.set_cpu_info(aciv);
-    AnalyticsCpuStateTrace::Send(astate);
+    SendCpuInfoStat<AnalyticsCpuStateTrace, AnalyticsCpuState>(hostname,
+        cpu_load_info);
 
     qe_info_log_timer->Cancel();
     qe_info_log_timer->Start(60*1000, boost::bind(&QEInfoLogTimer),

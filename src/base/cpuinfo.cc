@@ -192,3 +192,12 @@ void CpuLoadInfoReq::HandleRequest() const {
     resp->set_context(context());
     resp->Response();
 }
+
+void PopulateProcessCpuInfo(const CpuLoadInfo &cpu_load_info,
+    ProcessCpuInfo *pinfo) {
+    pinfo->set_module_id(Sandesh::module());
+    pinfo->set_inst_id(Sandesh::instance_id());
+    pinfo->set_cpu_share(cpu_load_info.get_cpu_share());
+    pinfo->set_mem_virt(cpu_load_info.get_meminfo().get_virt());
+    pinfo->set_mem_res(cpu_load_info.get_meminfo().get_res());
+}

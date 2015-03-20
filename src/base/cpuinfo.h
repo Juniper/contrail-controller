@@ -47,4 +47,20 @@ public:
     static void Init();
 };
 
+void PopulateProcessCpuInfo(const CpuLoadInfo &cpu_load_info,
+    ProcessCpuInfo *pinfo);
+
+template <typename CpuInfoStatUveType, typename CpuInfoStatUveDataType>
+void SendCpuInfoStat(const std::string &name,
+    const CpuLoadInfo &cpu_load_info) {
+    CpuInfoStatUveDataType data;
+    data.set_name(name);
+    ProcessCpuInfo pinfo;
+    PopulateProcessCpuInfo(cpu_load_info, &pinfo);
+    std::vector<ProcessCpuInfo> v_pinfo;
+    v_pinfo.push_back(pinfo);
+    data.set_cpu_info(v_pinfo);
+    CpuInfoStatUveType::Send(data);
+}
+
 #endif // ctrlplane_cpuinfo_h 

@@ -452,6 +452,7 @@ class Controller(object):
             aly_cpu_info.inst_id = self._instance_id
             aly_cpu_info.cpu_share = mod_cpu_info.cpu_info.cpu_share
             aly_cpu_info.mem_virt = mod_cpu_info.cpu_info.meminfo.virt
+            aly_cpu_info.mem_res = mod_cpu_info.cpu_info.meminfo.res
             aly_cpu_state.cpu_info = [aly_cpu_info]
 
             aly_cpu_state_trace = AnalyticsCpuStateTrace(data=aly_cpu_state)

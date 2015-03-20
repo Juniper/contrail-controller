@@ -640,6 +640,7 @@ void VrouterUveEntryBase::BuildAndSendComputeCpuStateMsg(const CpuLoadInfo &info
     astate.set_name(agent_->agent_name());
     ainfo.set_cpu_share(info.get_cpu_share());
     ainfo.set_mem_virt(info.get_meminfo().get_virt());
+    ainfo.set_mem_res(info.get_meminfo().get_res());
     ainfo.set_used_sys_mem(info.get_sys_mem_info().get_used());
     ainfo.set_one_min_cpuload(info.get_cpuload().get_one_min_avg());
     aciv.push_back(ainfo);

@@ -41,4 +41,5 @@ struct ProcessCpuInfo {
     2: string                              inst_id
     3: u32                                 mem_virt
     4: double                              cpu_share
+    5: u32                                 mem_res
 }
