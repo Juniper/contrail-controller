@@ -17,6 +17,7 @@ VmUveEntry::~VmUveEntry() {
 bool VmUveEntry::FrameInterfaceStatsMsg(const VmInterface *vm_intf,
                                         VmInterfaceStats *s_intf) const {
     uint64_t in_band, out_band;
+    assert(!deleted_);
     if (vm_intf->cfg_name() == agent_->NullString()) {
         return false;
     }

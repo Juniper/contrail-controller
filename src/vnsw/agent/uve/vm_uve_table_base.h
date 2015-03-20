@@ -56,8 +56,8 @@ protected:
     virtual void VmStatCollectionStart(VmUveVmState *state, const VmEntry *vm);
     virtual void VmStatCollectionStop(VmUveVmState *state);
     VmUveEntryBase* UveEntryFromVm(const boost::uuids::uuid &u);
-    virtual void SendVmDeleteMsg(VmUveEntryBase *e,
-                                 const boost::uuids::uuid &u);
+    virtual void SendVmDeleteMsg(const std::string &vm_config_name);
+
     UveVmMap uve_vm_map_;
     Agent *agent_;
 private:

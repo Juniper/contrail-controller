@@ -50,7 +50,8 @@ public:
     bool deleted() const { return deleted_; }
     void set_renewed(bool value) { renewed_ = value; }
     bool renewed() const { return renewed_; }
-    void Reset();
+    void set_add_by_vn_notify(bool val) { add_by_vn_notify_ = val; }
+    virtual void Reset();
 
 protected:
     bool UveVnAclRuleCountChanged(int32_t size) const;
@@ -59,6 +60,7 @@ protected:
     UveVirtualNetworkAgent uve_info_;
     InterfaceSet interface_tree_;
     VmSet vm_tree_;
+    bool add_by_vn_notify_;
 
     // UVE entry is changed. Timer must generate UVE for this entry
     bool changed_;

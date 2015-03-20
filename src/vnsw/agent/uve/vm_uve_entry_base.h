@@ -127,7 +127,7 @@ public:
     bool deleted() const { return deleted_; }
     void set_renewed(bool value) { renewed_ = value; }
     bool renewed() const { return renewed_; }
-    void Reset();
+    virtual void Reset();
 protected:
 
     Agent *agent_;
