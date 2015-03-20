@@ -371,7 +371,10 @@ class VncApiServer(VncApiServerGen):
                                      self._args.collectors,
                                      'vnc_api_server_context',
                                      int(self._args.http_server_port),
-                                     ['cfgm_common', 'sandesh'], self._disc)
+                                     ['cfgm_common', 'sandesh'], self._disc,
+                                     logger_class=self._args.logger_class,
+                                     logger_config_file=self._args.logging_conf)
+
         self._sandesh.trace_buffer_create(name="VncCfgTraceBuf", size=1000)
         self._sandesh.trace_buffer_create(name="RestApiTraceBuf", size=1000)
         self._sandesh.trace_buffer_create(name="DBRequestTraceBuf", size=1000)
@@ -784,6 +787,7 @@ class VncApiServer(VncApiServerGen):
             'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
             'logging_level': 'WARN',
             'logging_conf': '',
+            'logger_class': None,
             'multi_tenancy': True,
             'disc_server_ip': None,
             'disc_server_port': '5998',
@@ -919,6 +923,9 @@ class VncApiServer(VncApiServerGen):
         parser.add_argument(
             "--logging_conf",
             help=("Optional logging configuration file, default: None"))
+        parser.add_argument(
+            "--logger_class",
+            help=("Optional external logger class, default: None"))
         parser.add_argument(
             "--log_category",
             help="Category filter for local logging of sandesh messages")
