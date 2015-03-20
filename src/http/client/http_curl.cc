@@ -368,7 +368,7 @@ void del_conn(HttpConnection *connection, GlobalInfo *g) {
 
 /* Create a new easy handle, and add it to the global curl_multi */
 ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g,
-                   bool header, bool timeout)
+                   bool header, bool timeout, bool reuse)
 {
   ConnInfo *conn = (ConnInfo *)calloc(1, sizeof(ConnInfo));
   memset(conn, 0, sizeof(ConnInfo));
@@ -396,7 +396,9 @@ ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g,
       curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_TIME, 3L);
       curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_LIMIT, 10L);
   }
-  curl_easy_setopt(conn->easy, CURLOPT_FORBID_REUSE, 1L);
+  if (!reuse) {
+      curl_easy_setopt(conn->easy, CURLOPT_FORBID_REUSE, 1L);
+  }
 
   /* to include the header in the body */
   if (header)
