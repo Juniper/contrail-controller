@@ -536,7 +536,7 @@ TEST_F(ProtobufServerStatsTest, Basic) {
     EXPECT_EQ(0, a_tx_io_stats.get_calls());
     EXPECT_EQ(0, a_tx_io_stats.get_bytes());
     EXPECT_EQ(0, a_tx_io_stats.get_average_bytes());
-    EXPECT_EQ(1, GetServerReceivedMessageStatisticsSize());
+    TASK_UTIL_EXPECT_EQ(1, GetServerReceivedMessageStatisticsSize());
     std::vector<SocketEndpointMessageStats> va_rx_msg_stats;
     server_->GetReceivedMessageStatistics(&va_rx_msg_stats);
     const SocketEndpointMessageStats &a_rx_msg_stats(va_rx_msg_stats[0]);
