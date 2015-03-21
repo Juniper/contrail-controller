@@ -58,6 +58,10 @@ void VmUveEntryBase::InterfaceDelete(const Interface *intf) {
         ((*intf_it).get())->fip_tree_.clear();
         interface_tree_.erase(intf_it);
     }
+    if (!add_by_vm_notify_ && (interface_tree_.size() == 0)) {
+        renewed_ = false;
+        deleted_ = true;
+    }
 }
 
 bool VmUveEntryBase::GetVmInterfaceGateway(const VmInterface *vm_intf,
@@ -143,6 +147,7 @@ bool VmUveEntryBase::FrameInterfaceMsg(const VmInterface *vm_intf,
 
 bool VmUveEntryBase::FrameVmMsg(UveVirtualMachineAgent *uve) {
     bool changed = false;
+    assert(!deleted_);
     uve->set_name(vm_config_name_);
     vector<VmInterfaceAgent> s_intf_list;
 
@@ -359,4 +364,8 @@ void VmUveEntryBase::Reset() {
 
     interface_tree_.clear();
     uve_info_ = uve;
+
+    deleted_ = true;
+    renewed_ = false;
+    add_by_vm_notify_ = false;
 }
