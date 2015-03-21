@@ -444,6 +444,7 @@ class OpServer(object):
             self._args.disc_server_ip,
             self._args.disc_server_port,
             ModuleNames[Module.OPSERVER])
+        self.disc.set_sandesh(sandesh_global)
         self._logger.info("Disc Publish to %s : %d - %s"
                           % (self._args.disc_server_ip,
                              self._args.disc_server_port, str(data)))
