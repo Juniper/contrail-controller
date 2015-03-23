@@ -1,4 +1,4 @@
 eventlet
 netaddr
-contrail-vrouter-api
 docker-py
+requests>=2.5.2
