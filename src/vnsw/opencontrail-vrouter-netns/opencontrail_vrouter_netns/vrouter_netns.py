@@ -35,6 +35,7 @@ import json
 
 from linux import ip_lib
 
+NULL_UUID = "00000000-0000-0000-0000-000000000000"
 
 def validate_uuid(val):
     try:
@@ -256,11 +257,12 @@ class NetnsManager(object):
         elif self.PORT_TYPE == "NameSpacePort":
             port_type_value = 1
         payload = {"ip-address": str(nic['ip'].ip), "vlan-id": -1,
+                   "rx-vlan-id": -1, "tx-vlan-id": -1,
                    "display-name": display_name, "id": nic['uuid'],
-                   "instance-id": self.vm_uuid, "ip6-address": '',
+                   "instance-id": self.vm_uuid, "ip6-address": 'None',
                    "isolated-vlan-id": -1,
                    "system-name": self._get_tap_name(nic['uuid']),
-                   "vn-id": '', "vm-project-id": '',
+                   "vn-id": NULL_UUID, "vm-project-id": NULL_UUID,
                    "type": port_type_value, "mac-address": str(nic['mac'])}
         json_dump = json.dumps(payload)
         self._request_to_agent(self.BASE_URL, 'post', json_dump)
