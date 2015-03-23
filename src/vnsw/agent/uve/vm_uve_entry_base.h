@@ -116,9 +116,9 @@ public:
     bool add_by_vm_notify() const { return add_by_vm_notify_; }
     void set_add_by_vm_notify(bool value) { add_by_vm_notify_ = value; }
 
-    void InterfaceAdd(const Interface *intf, const VmInterface::FloatingIpSet &olist);
+    void InterfaceAdd(const Interface *intf,
+                      const VmInterface::FloatingIpSet &olist);
     void InterfaceDelete(const Interface *intf);
-    bool FrameVmMsg(UveVirtualMachineAgent *uve);
     void set_changed(bool val) { changed_ = val; }
     bool changed() const { return changed_; }
     void set_deleted(bool value) { deleted_ = value; }
@@ -126,6 +126,8 @@ public:
     void set_renewed(bool value) { renewed_ = value; }
     bool renewed() const { return renewed_; }
     virtual void Reset();
+    bool FrameVmMsg(const boost::uuids::uuid &u, UveVirtualMachineAgent *uve);
+    bool Update(const VmEntry *vm);
 protected:
 
     Agent *agent_;

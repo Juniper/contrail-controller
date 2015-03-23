@@ -31,6 +31,7 @@ bool VmUveTableBase::TimerExpiry() {
 
     uint32_t count = 0;
     while (it != uve_vm_map_.end() && count < AgentUveBase::kUveCountPerTimer) {
+        const boost::uuids::uuid u= it->first;
         VmUveEntryBase* entry = it->second.get();
         UveVmMap::iterator prev = it;
         it++;
@@ -44,10 +45,10 @@ bool VmUveTableBase::TimerExpiry() {
                 entry->set_deleted(false);
                 entry->set_renewed(false);
                 entry->set_changed(false);
-                SendVmMsg(entry);
+                SendVmMsg(entry, u);
             }
         } else if (entry->changed()) {
-            SendVmMsg(entry);
+            SendVmMsg(entry, u);
             entry->set_changed(false);
             /* Clear renew flag to be on safer side. Not really required */
             entry->set_renewed(false);
@@ -107,6 +108,18 @@ void VmUveTableBase::Delete(const boost::uuids::uuid &u) {
     return;
 }
 
+void VmUveTableBase::Change(const VmEntry *vm) {
+    VmUveEntryBase* entry = UveEntryFromVm(vm->GetUuid());
+    if (entry == NULL) {
+        return;
+    }
+
+    bool send = entry->Update(vm);
+    if (send) {
+        entry->set_changed(true);
+    }
+}
+
 VmUveTableBase::VmUveEntryPtr VmUveTableBase::Allocate(const VmEntry *vm) {
     VmUveEntryPtr uve(new VmUveEntryBase(agent_, vm->GetCfgName()));
     return uve;
@@ -124,9 +137,10 @@ void VmUveTableBase::DispatchVmMsg(const UveVirtualMachineAgent &uve) {
     UveVirtualMachineAgentTrace::Send(uve);
 }
 
-void VmUveTableBase::SendVmMsg(VmUveEntryBase *entry) {
+void VmUveTableBase::SendVmMsg(VmUveEntryBase *entry,
+                               const boost::uuids::uuid &u) {
     UveVirtualMachineAgent uve;
-    if (entry->FrameVmMsg(&uve)) {
+    if (entry->FrameVmMsg(u, &uve)) {
         DispatchVmMsg(uve);
     }
 }
@@ -223,8 +237,10 @@ void VmUveTableBase::VmNotify(DBTablePartBase *partition, DBEntryBase *e) {
         Add(vm, true);
 
         VmStatCollectionStart(state, vm);
+        MarkChanged(vm->GetUuid());
+    } else {
+        Change(vm);
     }
-    MarkChanged(vm->GetUuid());
 }
 
 void VmUveTableBase::VmStatCollectionStart(VmUveVmState *state,

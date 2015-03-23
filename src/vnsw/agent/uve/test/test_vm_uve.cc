@@ -289,6 +289,8 @@ TEST_F(UveVmUveTest, VmAddDel_1) {
     EXPECT_TRUE(vm != NULL);
     UveVirtualMachineAgent *uve1 =  vmut->VmUveObject(vm);
     EXPECT_TRUE(uve1 != NULL);
+    string uuid_str = to_string(vm->GetUuid());
+    EXPECT_STREQ(uuid_str.c_str(), uve1->get_uuid().c_str());
     EXPECT_EQ(0U, uve1->get_interface_list().size()); 
 
     //Add another VM
