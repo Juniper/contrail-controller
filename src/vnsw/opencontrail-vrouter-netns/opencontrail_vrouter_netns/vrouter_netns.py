@@ -251,7 +251,15 @@ class NetnsManager(object):
                    "vn-id": '', "vm-project-id": '',
                    "type": port_type_value, "mac-address": str(nic['mac'])}
         json_dump = json.dumps(payload)
-        requests.post(self.BASE_URL, data=json_dump, headers=self.HEADERS)
+        resp = requests.post(self.BASE_URL, data=json_dump, headers=self.HEADERS)
+        if resp.status_code != requests.codes.ok:
+            error_str = resp.text
+            try:
+                err = json.loads(resp.text)
+                error_str = err['error']
+            except Exception:
+                pass
+            raise ValueError(error_str)
 
     def _delete_port_to_agent(self, nic):
         url = self.BASE_URL + "/" + nic['uuid']
