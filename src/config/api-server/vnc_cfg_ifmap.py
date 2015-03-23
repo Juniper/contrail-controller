@@ -680,6 +680,12 @@ class VncServerCassandraClient(VncCassandraClient):
         return method(*args, **kwargs)
     # end read
 
+    def count_children(self, method_name, *args, **kwargs):
+        method = getattr(self, '_cassandra_%s_count_children' % (method_name))
+        return method(*args, **kwargs)
+    # end read
+
+
     def update(self, method_name, *args, **kwargs):
         method = getattr(self, '_cassandra_%s_update' % (method_name))
         return method(*args, **kwargs)
@@ -1470,6 +1476,19 @@ class VncDbClient(object):
 
         return (ok, cassandra_result[0])
     # end dbe_read
+
+
+    def dbe_count_children(self, obj_type, obj_id, child_type):
+        method_name = obj_type.replace('-', '_')
+        try:
+            (ok, cassandra_result) = self._cassandra_db.count_children(method_name,
+                                                             obj_id, child_type)
+        except NoIdError as e:
+            return (False, str(e))
+
+        return (ok, cassandra_result)
+    # end dbe_read
+
 
     def dbe_read_multi(self, obj_type, obj_ids_list, obj_fields=None):
         method_name = obj_type.replace('-', '_')
