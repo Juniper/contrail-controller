@@ -51,7 +51,8 @@
         ],
         "scons_test_targets" : [
             "controller/src/agent:test",
-            "vrouter:test"
+            "vrouter:test",
+            "controller/src/vnsw/opencontrail_vrouter_netns:test"
         ],
         "misc_test_targets" : [ ]
     },
