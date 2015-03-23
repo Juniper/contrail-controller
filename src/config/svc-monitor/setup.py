@@ -38,6 +38,7 @@ setuptools.setup(
     install_requires=requirements('requirements.txt'),
 
     test_suite='svc_monitor.tests',
+    tests_require=requirements('test-requirements.txt'),
 
     entry_points = {
         # Please update sandesh/common/vns.sandesh on process name change

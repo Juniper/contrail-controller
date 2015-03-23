@@ -1,1 +1,2 @@
 mock
+requests>=2.5.2
