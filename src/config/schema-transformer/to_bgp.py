@@ -1209,8 +1209,13 @@ class SecurityGroupST(DictST):
                 acl.set_access_control_list_entries(acl_entries)
                 _vnc_lib.access_control_list_update(acl)
     # end update_acl
-                
-    def __init__(self, name, obj=None):
+
+    def __init__(self, name, obj=None, acl_dict=None):
+        def _get_acl(uuid):
+            if acl_dict:
+                return acl_dict[uuid]
+            return _vnc_lib.access_control_list_read(id=uuid)
+
         self.name = name
         self.obj = obj or _vnc_lib.security_group_read(fq_name_str=name)
         self.config_sgid = None
@@ -1220,11 +1225,9 @@ class SecurityGroupST(DictST):
         acls = self.obj.get_access_control_lists()
         for acl in acls or []:
             if acl['to'][-1] == 'egress-access-control-list':
-                self.egress_acl = _vnc_lib.access_control_list_read(
-                    id=acl['uuid'])
+                self.egress_acl = _get_acl(acl['uuid'])
             elif acl['to'][-1] == 'ingress-access-control-list':
-                self.ingress_acl = _vnc_lib.access_control_list_read(
-                    id=acl['uuid'])
+                self.ingress_acl = _get_acl(acl['uuid'])
             else:
                 _vnc_lib.access_control_list_delete(id=acl['uuid'])
         config_id = self.obj.get_configured_security_group_id() or 0
@@ -2603,6 +2606,7 @@ class SchemaTransformer(object):
         sg_list = _vnc_lib.security_groups_list(detail=True)
         sg_id_list = [sg.uuid for sg in sg_list]
         acl_list = _vnc_lib.access_control_lists_list(detail=True)
+        sg_acl_dict = {}
         for acl in acl_list or []:
             if acl.parent_type == 'virtual-network':
                 parent_list = vn_id_list
@@ -2615,10 +2619,12 @@ class SchemaTransformer(object):
                     _vnc_lib.access_control_list_delete(id=acl.uuid)
                 except NoIdError:
                     pass
+            elif acl.parent_type == 'security-group':
+                sg_acl_dict[acl.uuid] = acl
         # end for acl
 
         for sg in sg_list:
-            SecurityGroupST.locate(sg.get_fq_name_str(), sg)
+            SecurityGroupST.locate(sg.get_fq_name_str(), sg, sg_acl_dict)
     # end reinit
 
     def cleanup(self):
