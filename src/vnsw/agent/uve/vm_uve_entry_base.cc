@@ -133,6 +133,12 @@ bool VmUveEntryBase::FrameVmMsg(const VmEntry* vm, UveVirtualMachineAgent *uve) 
     uve->set_name(vm->GetCfgName());
     vector<VmInterfaceAgent> s_intf_list;
 
+    if (!uve_info_.__isset.uuid) {
+        string uuid_str = to_string(vm->GetUuid());
+        uve->set_uuid(uuid_str);
+        uve_info_.set_uuid(uuid_str);
+        changed = true;
+    }
     InterfaceSet::iterator it = interface_tree_.begin();
     while(it != interface_tree_.end()) {
         VmInterfaceAgent s_intf;
