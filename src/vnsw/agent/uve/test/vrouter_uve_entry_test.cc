@@ -24,6 +24,8 @@
 #include <uve/agent_uve.h>
 #include <uve/test/vrouter_uve_entry_test.h>
 #include <uve/vrouter_stats_collector.h>
+#include "testing/gunit.h"
+#include "xmpp/test/xmpp_test_util.h"
 
 VrouterUveEntryTest::VrouterUveEntryTest(Agent *agent)
         : VrouterUveEntry(agent), first_uve_dispatched_(false), 
@@ -69,4 +71,13 @@ void VrouterUveEntryTest::DispatchVrouterStatsMsg(const VrouterStatsAgent &uve)
     {
     vrouter_stats_msg_count_++;
     last_sent_vrouter_stats_ = uve;
+}
+
+void VrouterUveEntryTest::WaitForWalkCompletion() {
+    WAIT_FOR(1000, 500, (do_vn_walk_ == false));
+    WAIT_FOR(1000, 500, (do_vm_walk_ == false));
+    WAIT_FOR(1000, 500, (do_interface_walk_ == false));
+    WAIT_FOR(1000, 500, (vn_walk_id_ == DBTableWalker::kInvalidWalkerId));
+    WAIT_FOR(1000, 500, (vm_walk_id_ == DBTableWalker::kInvalidWalkerId));
+    WAIT_FOR(1000, 500, (interface_walk_id_ == DBTableWalker::kInvalidWalkerId));
 }

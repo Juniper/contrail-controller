@@ -35,7 +35,6 @@ public:
     static const uint8_t bandwidth_mod_1min = 2;
     static const uint8_t bandwidth_mod_5min = 10;
     static const uint8_t bandwidth_mod_10min = 20;
-    static const uint32_t kDBWalkInterval = (1000); // time in milliseconds
     typedef std::set<const Interface *> PhysicalInterfaceSet;
     typedef boost::shared_ptr<std::vector<std::string> > StringVectorPtr;
 
@@ -57,11 +56,18 @@ public:
                            StringVectorPtr nova_if_l);
     virtual bool SendVrouterMsg();
     void SendVrouterProuterAssociation(const std::vector<std::string> &list);
+    bool TimerExpiry();
 protected:
     Agent *agent_;
     PhysicalInterfaceSet phy_intf_set_;
     VrouterStatsAgent prev_stats_;
     uint8_t cpu_stats_count_;
+    bool do_vn_walk_;
+    bool do_vm_walk_;
+    bool do_interface_walk_;
+    DBTableWalker::WalkId vn_walk_id_;
+    DBTableWalker::WalkId vm_walk_id_;
+    DBTableWalker::WalkId interface_walk_id_;
 
     //The following Dispatch functions are not made const function because
     //in derived class they need to be non-const
@@ -75,13 +81,10 @@ private:
     void InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e);
     void VmNotify(DBTablePartBase *partition, DBEntryBase *e);
     void VnNotify(DBTablePartBase *partition, DBEntryBase *e);
-    void VmNotifyHandler();
-    void VnNotifyHandler();
-    void InterfaceNotifyHandler();
-    void StartVnWalk();
-    void StartVmWalk();
-    void StartInterfaceWalk();
-    bool TimerExpiry();
+    bool StartVnWalk();
+    bool StartVmWalk();
+    bool StartInterfaceWalk();
+    void StartTimer();
     bool Run();
     std::string GetMacAddress(const MacAddress &mac) const;
     void SubnetToStringList(VirtualGatewayConfig::SubnetList &l1,
@@ -92,13 +95,7 @@ private:
     DBTableBase::ListenerId vm_listener_id_;
     DBTableBase::ListenerId intf_listener_id_;
     VrouterAgent prev_vrouter_;
-    bool do_vn_walk_;
-    bool do_vm_walk_;
-    bool do_interface_walk_;
     Timer *timer_;
-    DBTableWalker::WalkId vn_walk_id_;
-    DBTableWalker::WalkId vm_walk_id_;
-    DBTableWalker::WalkId interface_walk_id_;
     DISALLOW_COPY_AND_ASSIGN(VrouterUveEntryBase);
 };
 
