@@ -44,12 +44,28 @@ struct PortInfo input[] = {
 void RouterIdDepInit(Agent *agent) {
 }
 
+class VrouterUveSendTask : public Task {
+public:
+    VrouterUveSendTask() :
+        Task((TaskScheduler::GetInstance()->GetTaskId("db::DBTable")), 0) {
+    }
+    virtual bool Run() {
+        Agent::GetInstance()->uve()->vrouter_uve_entry()->TimerExpiry();
+        return true;
+    }
+};
+
 int hash_id;
 VmInterface *flow0, *flow1;
 
 class UveVrouterUveTest : public ::testing::Test {
 public:
     static void TestSetup() {
+    }
+    void EnqueueSendVrouterUveTask() {
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        VrouterUveSendTask *task = new VrouterUveSendTask();
+        scheduler->Enqueue(task);
     }
     void FlowSetUp() {
         EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
@@ -265,11 +281,18 @@ TEST_F(UveVrouterUveTest, VmAddDel) {
     util_.VmAdd(1);
     client->WaitForIdle();
 
+    EnqueueSendVrouterUveTask();
+    client->WaitForIdle();
+    vr->WaitForWalkCompletion();
+
     EXPECT_EQ(1U, vr->vrouter_msg_count());
     EXPECT_EQ(1U, uve.get_virtual_machine_list().size());
 
     util_.VmAdd(2);
     client->WaitForIdle();
+
+    EnqueueSendVrouterUveTask();
+    vr->WaitForWalkCompletion();
 
     EXPECT_EQ(2U, vr->vrouter_msg_count());
     EXPECT_EQ(2U, uve.get_virtual_machine_list().size());
@@ -277,11 +300,17 @@ TEST_F(UveVrouterUveTest, VmAddDel) {
     util_.VmDelete(2);
     client->WaitForIdle();
 
+    EnqueueSendVrouterUveTask();
+    vr->WaitForWalkCompletion();
+
     EXPECT_EQ(3U, vr->vrouter_msg_count());
     EXPECT_EQ(1U, uve.get_virtual_machine_list().size());
 
     util_.VmDelete(1);
     client->WaitForIdle();
+
+    EnqueueSendVrouterUveTask();
+    vr->WaitForWalkCompletion();
 
     EXPECT_EQ(4U, vr->vrouter_msg_count());
     EXPECT_EQ(0U, uve.get_virtual_machine_list().size());
@@ -300,11 +329,17 @@ TEST_F(UveVrouterUveTest, VnAddDel) {
     util_.VnAdd(1);
     client->WaitForIdle();
 
+    EnqueueSendVrouterUveTask();
+    vr->WaitForWalkCompletion();
+
     EXPECT_EQ(1U, vr->vrouter_msg_count());
     EXPECT_EQ(1U, uve.get_connected_networks().size());
 
     util_.VnAdd(2);
     client->WaitForIdle();
+
+    EnqueueSendVrouterUveTask();
+    vr->WaitForWalkCompletion();
 
     EXPECT_EQ(2U, vr->vrouter_msg_count());
     EXPECT_EQ(2U, uve.get_connected_networks().size());
@@ -312,11 +347,17 @@ TEST_F(UveVrouterUveTest, VnAddDel) {
     util_.VnDelete(2);
     client->WaitForIdle();
 
+    EnqueueSendVrouterUveTask();
+    vr->WaitForWalkCompletion();
+
     EXPECT_EQ(3U, vr->vrouter_msg_count());
     EXPECT_EQ(1U, uve.get_connected_networks().size());
 
     util_.VnDelete(1);
     client->WaitForIdle();
+
+    EnqueueSendVrouterUveTask();
+    vr->WaitForWalkCompletion();
 
     EXPECT_EQ(4U, vr->vrouter_msg_count());
     EXPECT_EQ(0U, uve.get_connected_networks().size());
