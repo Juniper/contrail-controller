@@ -33,8 +33,9 @@ bool OvsPeer::Compare(const Peer *rhs) const {
     return peer_ip_ < rhs_peer->peer_ip_;
 }
 
-bool OvsPeer::AddOvsRoute(const VnEntry *vn,
-                          const MacAddress &mac, Ip4Address &tor_ip) {
+bool OvsPeer::AddOvsRoute(const VrfEntry *vrf, uint32_t vxlan_id,
+                          const std::string &dest_vn, const MacAddress &mac,
+                          Ip4Address &tor_ip) {
 
     Agent *agent = peer_manager_->agent();
 
@@ -42,14 +43,12 @@ bool OvsPeer::AddOvsRoute(const VnEntry *vn,
     // (unknown ip) for the MAC in EVPN route
     IpAddress prefix_ip = IpAddress(Ip4Address::from_string("0.0.0.0"));
 
-    if (vn == NULL)
-        return false;
-
-    VrfEntry *vrf = vn->GetVrf();
     if (vrf == NULL)
         return false;
 
-    uint32_t vxlan_id = vn->vxlan_id()->vxlan_id();
+    if (vxlan_id == 0)
+        return false;
+
     SecurityGroupList sg_list;
     BridgeAgentRouteTable *bridge_table =
         dynamic_cast<BridgeAgentRouteTable *>(vrf->GetBridgeRouteTable());
@@ -60,17 +59,20 @@ bool OvsPeer::AddOvsRoute(const VnEntry *vn,
     OvsdbRouteData *data = new OvsdbRouteData(this, vxlan_id,
                                               tor_ip, agent->router_id(),
                                               agent->fabric_vrf_name(),
-                                              vn->GetName(), sg_list);
+                                              dest_vn, sg_list);
     EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
         (vrf->GetEvpnRouteTable());
     table->AddRemoteVmRoute(this, vrf->GetName(), mac, prefix_ip,
-                            vn->vxlan_id()->vxlan_id(), data);
+                            vxlan_id, data);
     return true;
 }
 
 void OvsPeer::DeleteOvsRoute(VrfEntry *vrf, uint32_t vxlan_id,
                              const MacAddress &mac) {
     if (vrf == NULL)
+        return;
+
+    if (vxlan_id == 0)
         return;
 
     IpAddress prefix_ip = IpAddress(Ip4Address::from_string("0.0.0.0"));

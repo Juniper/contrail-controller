@@ -50,20 +50,21 @@ bool UnicastMacLocalEntry::Add() {
     UnicastMacLocalOvsdb *table = static_cast<UnicastMacLocalOvsdb *>(table_);
     OVSDB_TRACE(Trace, "Adding Route " + mac_ + " VN uuid " +
             logical_switch_name_ + " destination IP " + dest_ip_);
-    LogicalSwitchTable *l_table = table_->client_idl()->logical_switch_table();
-    LogicalSwitchEntry l_key(l_table, logical_switch_name_.c_str());
-    LogicalSwitchEntry *ls_entry =
-        static_cast<LogicalSwitchEntry *>(l_table->Find(&l_key));
-    const PhysicalDeviceVn *dev_vn =
-        static_cast<const PhysicalDeviceVn *>(ls_entry->GetDBEntry());
+    VnOvsdbObject *vn_object = table_->client_idl()->vn_ovsdb();
+    VnOvsdbEntry vn_key(vn_object, StringToUuid(logical_switch_name_));
+    VnOvsdbEntry *vn_entry =
+        static_cast<VnOvsdbEntry *>(vn_object->GetReference(&vn_key));
+
     // Take vrf reference to genrate withdraw/delete route request
-    vrf_ = dev_vn->vn()->GetVrf();
+    vrf_ = vn_entry->vrf();
     // Add vrf dep in UnicastMacLocalOvsdb
-    table->vrf_dep_list_.insert(UnicastMacLocalOvsdb::VrfDepEntry(vrf_.get(), this));
-    vxlan_id_ = dev_vn->vxlan_id();
+    table->vrf_dep_list_.insert(UnicastMacLocalOvsdb::VrfDepEntry(vrf_.get(),
+                                                                  this));
+    vxlan_id_ = vn_entry->vxlan_id();
     boost::system::error_code err;
     Ip4Address dest = Ip4Address::from_string(dest_ip_, err);
-    table->peer()->AddOvsRoute(dev_vn->vn(), MacAddress(mac_), dest);
+    table->peer()->AddOvsRoute(vrf_.get(), vxlan_id_, vn_entry->name(),
+                               MacAddress(mac_), dest);
     return true;
 }
 
@@ -87,17 +88,6 @@ bool UnicastMacLocalEntry::IsLess(const KSyncEntry& entry) const {
 }
 
 KSyncEntry *UnicastMacLocalEntry::UnresolvedReference() {
-    LogicalSwitchTable *l_table = table_->client_idl()->logical_switch_table();
-    LogicalSwitchEntry key(l_table, logical_switch_name_.c_str());
-    LogicalSwitchEntry *l_switch =
-        static_cast<LogicalSwitchEntry *>(l_table->GetReference(&key));
-    if (!l_switch->IsResolved()) {
-        OVSDB_TRACE(Trace, "Skipping route add " + mac_ + " VN uuid " +
-                logical_switch_name_ + " destination IP " + dest_ip_ +
-                " due to unavailable Logical Switch ");
-        return l_switch;
-    }
-
     VnOvsdbObject *vn_object = table_->client_idl()->vn_ovsdb();
     VnOvsdbEntry vn_key(vn_object, StringToUuid(logical_switch_name_));
     VnOvsdbEntry *vn_entry =
