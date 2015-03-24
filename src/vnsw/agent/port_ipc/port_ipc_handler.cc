@@ -83,41 +83,54 @@ void PortIpcHandler::ProcessFile(const string &file) const {
     AddPortFromJson(json, check_port_on_reload_, err_msg);
 }
 
-bool PortIpcHandler::ValidateMembers(const rapidjson::Document &d) const {
+bool PortIpcHandler::ValidateMembers(const rapidjson::Document &d,
+                                     std::string &member_err) const {
     if (!d.HasMember("id") || !d["id"].IsString()) {
+        member_err = "id";
         return false;
     }
     if (!d.HasMember("instance-id") || !d["instance-id"].IsString()) {
+        member_err = "instance-id";
         return false;
     }
     if (!d.HasMember("vn-id") || !d["vn-id"].IsString()) {
+        member_err = "vn-id";
         return false;
     }
     if (!d.HasMember("vm-project-id") || !d["vm-project-id"].IsString()) {
+        member_err = "vm-project-id";
         return false;
     }
     if (!d.HasMember("display-name") || !d["display-name"].IsString()) {
+        member_err = "display-name";
         return false;
     }
     if (!d.HasMember("system-name") || !d["system-name"].IsString()) {
+        member_err = "system-name";
         return false;
     }
     if (!d.HasMember("ip-address") || !d["ip-address"].IsString()) {
+        member_err = "ip-address";
         return false;
     }
     if (!d.HasMember("ip6-address") || !d["ip6-address"].IsString()) {
+        member_err = "ip6-address";
         return false;
     }
     if (!d.HasMember("mac-address") || !d["mac-address"].IsString()) {
+        member_err = "mac-address";
         return false;
     }
     if (!d.HasMember("type") || !d["type"].IsInt()) {
+        member_err = "type";
         return false;
     }
     if (!d.HasMember("rx-vlan-id") || !d["rx-vlan-id"].IsInt()) {
+        member_err = "rx-vlan-id";
         return false;
     }
     if (!d.HasMember("tx-vlan-id") || !d["tx-vlan-id"].IsInt()) {
+        member_err = "tx-vlan-id";
         return false;
     }
     return true;
@@ -138,8 +151,10 @@ bool PortIpcHandler::AddPortFromJson(const string &json, bool check_port,
         return false;
     }
 
-    if (!ValidateMembers(d)) {
-        err_msg = "Json string does not have all required members ==> "
+    string member_err;
+    if (!ValidateMembers(d, member_err)) {
+        err_msg = "Json string does not have all required members, "
+                         + member_err + " is missing ==> "
                          + json;
         CONFIG_TRACE(PortInfo, err_msg.c_str());
         return false;

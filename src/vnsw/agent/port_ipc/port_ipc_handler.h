@@ -47,7 +47,8 @@ class PortIpcHandler {
     bool AddPort(const PortIpcHandler::AddPortParams &req, bool chk_p,
                  std::string &err_msg) const;
     bool IsUUID(const std::string &uuid_str) const;
-    bool ValidateMembers(const rapidjson::Document &d) const;
+    bool ValidateMembers(const rapidjson::Document &d,
+                 std::string &member_err) const;
     bool WriteJsonToFile(const PortIpcHandler::AddPortParams &r) const;
     std::string GetJsonString(const PortIpcHandler::AddPortParams &r,
                               bool meta_info) const;
