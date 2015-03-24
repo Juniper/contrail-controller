@@ -715,6 +715,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Exclude('is-shared', ['backend']);
      Property('is-shared', 'virtual-network') -->
 
+<xsd:element name="external-ipam" type="xsd:boolean"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('external-ipam', 'virtual-network') -->
+
 <xsd:element name="network-ipam" type="ifmap:IdentityType"/>
 <xsd:element name="network-ipam-mgmt" type="IpamType"/>
 <!--#IFMAP-SEMANTICS-IDL
