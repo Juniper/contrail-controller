@@ -37,6 +37,15 @@
  *
  */
 
+struct AgentRouteWalkerData {
+    AgentRouteWalkerData(const VrfEntry *vrf, bool start_walk) :
+        vrf_ref_(vrf), start_walk_(start_walk) { }
+    virtual ~AgentRouteWalkerData() { }
+
+    VrfEntryConstRef vrf_ref_;
+    bool start_walk_;
+};
+
 class AgentRouteWalker {
 public:
     static const int kInvalidWalkCount = 0;
@@ -52,7 +61,7 @@ public:
     typedef std::map<uint32_t, DBTableWalker::WalkId>::iterator VrfRouteWalkerIdMapIterator;
 
     AgentRouteWalker(Agent *agent, WalkType type);
-    virtual ~AgentRouteWalker() { }
+    virtual ~AgentRouteWalker();
 
     void StartVrfWalk();
     void CancelVrfWalk();
@@ -71,6 +80,9 @@ public:
     void RouteWalkDoneForVrfCallback(RouteWalkDoneCb cb);
     int walk_count() const {return walk_count_;}
     bool IsWalkCompleted() const {return (walk_count_ == 0);}
+    //Callback for start of a walk issued from Agent::RouteWalker
+    //task context.
+    virtual bool RouteWalker(boost::shared_ptr<AgentRouteWalkerData> data);
     Agent *agent() const {return agent_;}
 
 private:
@@ -79,6 +91,10 @@ private:
     void OnRouteTableWalkCompleteForVrf(VrfEntry *vrf);
     void DecrementWalkCount();
     void IncrementWalkCount() {walk_count_++;}
+    void StartVrfWalkInternal();
+    void CancelVrfWalkInternal();
+    void StartRouteWalkInternal(const VrfEntry * vrf);
+    void CancelRouteWalkInternal(const VrfEntry *vrf);
 
     Agent *agent_;
     AgentRouteWalker::WalkType walk_type_;    
@@ -87,6 +103,11 @@ private:
     VrfRouteWalkerIdMap route_walkid_[Agent::ROUTE_TABLE_MAX];
     WalkDone walk_done_cb_;
     RouteWalkDoneCb route_walk_done_for_vrf_cb_;
+    //work queue(Agent::RouteWalker) is used for starting/cancelling
+    //walks. This task is in exclusion with dbtable and Controller
+    //which makes sure that walk-done and cancel walk do not get executed in
+    //parallel. Both these calls modify walkid.
+    WorkQueue<boost::shared_ptr<AgentRouteWalkerData> > work_queue_;
     DISALLOW_COPY_AND_ASSIGN(AgentRouteWalker);
 };
 
