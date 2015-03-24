@@ -127,6 +127,27 @@ void BridgeAgentRouteTable::AddBridgeRoute(const AgentRoute *rt) {
     BridgeTableProcess(agent(), vrf_name(), req);
 }
 
+void BridgeAgentRouteTable::AddOvsPeerMulticastRoute(const Peer *peer,
+                                                     uint32_t vxlan_id,
+                                                     Ip4Address tsn,
+                                                     Ip4Address tor_ip) {
+    const VrfEntry *vrf = vrf_entry();
+    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    nh_req.key.reset(new TunnelNHKey(vrf->GetName(), tsn, tor_ip,
+                                     false, TunnelType::VXLAN));
+    nh_req.data.reset(new TunnelNHData());
+
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new BridgeRouteKey(peer,
+                                     vrf->GetName(),
+                                     MacAddress::BroadcastMac(),
+                                     vxlan_id));
+    req.data.reset(new MulticastRoute(vrf->vn()->GetName(), 0, vxlan_id,
+                                      TunnelType::VxlanType(),
+                                      nh_req, Composite::L2COMP));
+    BridgeTableProcess(agent(), vrf_name(), req);
+}
+
 void BridgeAgentRouteTable::AddMacVmBindingRoute(const Peer *peer,
                                                  const std::string &vrf_name,
                                                  const MacAddress &mac,
@@ -176,6 +197,18 @@ void BridgeAgentRouteTable::Delete(const Peer *peer, const string &vrf_name,
     BridgeTableProcess(Agent::GetInstance(), vrf_name, req);
 }
 
+void BridgeAgentRouteTable::DeleteOvsPeerMulticastRoute(const Peer *peer,
+                                                        uint32_t vxlan_id) {
+    const VrfEntry *vrf = vrf_entry();
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key.reset(new BridgeRouteKey(peer,
+                                     vrf->GetName(),
+                                     MacAddress::BroadcastMac(),
+                                     vxlan_id));
+    req.data.reset(NULL);
+    BridgeTableProcess(agent(), vrf->GetName(), req);
+}
+
 void BridgeAgentRouteTable::AddBridgeBroadcastRoute(const Peer *peer,
                                                     const string &vrf_name,
                                                     const string &vn_name,
@@ -197,21 +230,24 @@ void BridgeAgentRouteTable::AddBridgeBroadcastRoute(const Peer *peer,
     req.data.reset(new MulticastRoute(vn_name, label,
                                       ((peer->GetType() == Peer::BGP_PEER) ?
                                       ethernet_tag : vxlan_id), tunnel_type,
-                                      nh_req));
+                                      nh_req, type));
     BridgeTableEnqueue(Agent::GetInstance(), &req);
 }
 
 void BridgeAgentRouteTable::DeleteBroadcastReq(const Peer *peer,
                                                const string &vrf_name,
-                                               uint32_t ethernet_tag) {
+                                               uint32_t ethernet_tag,
+                                               COMPOSITETYPE type) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new BridgeRouteKey(peer, vrf_name,
                                      MacAddress::BroadcastMac(), ethernet_tag));
     DBRequest nh_req;
+    //For same BGP peer type comp type helps in identifying if its a delete
+    //for TOR or EVPN path.
     //Only ethernet tag is required, rest are dummy.
     req.data.reset(new MulticastRoute("", 0, ethernet_tag,
                                       TunnelType::AllType(),
-                                      nh_req));
+                                      nh_req, type));
     BridgeTableEnqueue(Agent::GetInstance(), &req);
 }
 
@@ -231,6 +267,14 @@ const VmInterface *BridgeAgentRouteTable::FindVmFromDhcpBinding
 /////////////////////////////////////////////////////////////////////////////
 // BridgeRouteEntry methods
 /////////////////////////////////////////////////////////////////////////////
+const std::string BridgeRouteEntry::GetAddressString() const {
+    //For multicast use the same tree as of 255.255.255.255
+    if (is_multicast()) {
+        return "255.255.255.255";
+    }
+    return ToString();
+}
+
 string BridgeRouteEntry::ToString() const {
     return mac_.ToString();
 }
@@ -273,10 +317,9 @@ uint32_t BridgeRouteEntry::GetActiveLabel() const {
 AgentPath *BridgeRouteEntry::FindPathUsingKeyData
 (const AgentRouteKey *key, const AgentRouteData *data) const {
     const Peer *peer = key->peer();
-    const EvpnPeer *evpn_peer = dynamic_cast<const EvpnPeer*>(peer);
     if (is_multicast())
         return FindMulticastPathUsingKeyData(key, data);
-
+    const EvpnPeer *evpn_peer = dynamic_cast<const EvpnPeer*>(peer);
     if (evpn_peer != NULL)
         return FindEvpnPathUsingKeyData(key, data);
 
@@ -303,6 +346,14 @@ AgentPath *BridgeRouteEntry::FindMulticastPathUsingKeyData
             dynamic_cast<const MulticastRoute *>(data);
         assert(multicast_data != NULL);
         if (multicast_data->vxlan_id() != path->vxlan_id())
+            continue;
+
+        //In multicast from same peer, TOR and EVPN comp can
+        //come. These should not overlap and be installed as
+        //different path.
+        const CompositeNH *cnh = dynamic_cast<CompositeNH *>(path->nexthop());
+        if ((cnh != NULL) &&
+            (multicast_data->comp_nh_type() != cnh->composite_nh_type()))
             continue;
 
         return const_cast<AgentPath *>(path);
@@ -398,6 +449,17 @@ const AgentPath *BridgeRouteEntry::FindMacVmBindingPath() const {
     return FindPath(agent->mac_vm_binding_peer());
 }
 
+const AgentPath *BridgeRouteEntry::FindOvsPath() const {
+    for(Route::PathList::const_iterator it = GetPathList().begin();
+        it != GetPathList().end(); it++) {
+        const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
+        if (path->peer()->GetType() == Peer::OVS_PEER) {
+            return const_cast<AgentPath *>(path);
+        }
+    }
+    return NULL;
+}
+
 bool BridgeRouteEntry::ReComputePathAdd(AgentPath *path) {
     if (is_multicast()) {
         //evaluate add of path
@@ -459,18 +521,37 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
 
         //Handle deletions
         if (del && (path->peer() == it_path->peer())) {
-            continue;
+            if (path->peer()->GetType() != Peer::BGP_PEER)
+                continue;
+
+            //Dive into comp NH type for BGP peer
+            const CompositeNH *it_path_comp_nh =
+                static_cast<const CompositeNH *>(it_path->nexthop());
+            const CompositeNH *comp_nh =
+                static_cast<const CompositeNH *>(path->nexthop());
+            if (it_path_comp_nh->composite_nh_type() ==
+                comp_nh->composite_nh_type())
+                continue;
         }
 
         //Handle Add/Changes
         if (it_path->peer() == agent->local_vm_peer()) {
             local_peer_path = it_path;
-        } else if (it_path->peer()->GetType() == Peer::MULTICAST_TOR_PEER) {
-            tor_peer_path = it_path;
         } else if (it_path->peer()->GetType() == Peer::BGP_PEER) {
+            const CompositeNH *bgp_comp_nh =
+                static_cast<const CompositeNH *>(it_path->nexthop());    
+            //Its a TOR NH
+            if (bgp_comp_nh && (bgp_comp_nh->composite_nh_type() ==
+                                Composite::TOR)) {
+                if (tor_peer_path == NULL)
+                    tor_peer_path = it_path;
+            }
             //Pick up the first peer.
-            if (evpn_peer_path == NULL)
-                evpn_peer_path = it_path;
+            if (bgp_comp_nh && (bgp_comp_nh->composite_nh_type() ==
+                                Composite::EVPN)) {
+                if (evpn_peer_path == NULL)
+                    evpn_peer_path = it_path;
+            }
         } else if (it_path->peer()->GetType() ==
                    Peer::MULTICAST_FABRIC_TREE_BUILDER) {
             fabric_peer_path = it_path;

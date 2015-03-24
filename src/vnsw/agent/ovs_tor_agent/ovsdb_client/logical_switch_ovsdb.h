@@ -12,6 +12,8 @@
 class PhysicalDeviceVn;
 
 namespace OVSDB {
+class MulticastMacLocalEntry;
+
 class LogicalSwitchTable : public OvsdbDBObject {
 public:
     LogicalSwitchTable(OvsdbClientIdl *idl, DBTable *table);
@@ -57,6 +59,7 @@ public:
     const std::string &name() const;
     const std::string &device_name() const;
     int64_t vxlan_id() const;
+    const IpAddress &tor_ip() const;
 
     bool Sync(DBEntry*);
     bool IsLess(const KSyncEntry&) const;
@@ -74,6 +77,8 @@ private:
     struct ovsdb_idl_row *mcast_remote_row_;
     struct ovsdb_idl_row *old_mcast_remote_row_;
     UcastLocalRouteList ucast_local_row_list_;
+    IpAddress tor_ip_;
+    MulticastMacLocalEntry *mc_flood_entry_;
     DISALLOW_COPY_AND_ASSIGN(LogicalSwitchEntry);
 };
 };
