@@ -1029,6 +1029,20 @@ class TestLocalAuth(test_case.ApiServerTestCase):
         resp = requests.get(url, auth=HTTPBasicAuth('bar', 'foo'))
         self.assertThat(resp.status_code, Equals(401))
 
+    def test_doc_auth(self):
+        listen_port = self._api_server._args.listen_port
+
+        # equivalent to curl -u foo:bar http://localhost:8095/documentation/index.html
+        logger.info("Positive case")
+        url = 'http://localhost:%s/documentation/' %(listen_port)
+        resp = requests.get(url)
+        self.assertThat(resp.status_code, Equals(200))
+
+        logger.info("Negative case without Documentation")
+        url = 'http://localhost:%s/' %(listen_port)
+        resp = requests.get(url)
+        self.assertThat(resp.status_code, Equals(401))
+
 # end class TestLocalAuth
 
 if __name__ == '__main__':

@@ -84,7 +84,12 @@ class AuthPreKeystone(object):
         self.mt = value
 
     def __call__(self, env, start_response):
-        app = self.app if self.mt else bottle.app()
+        if (env.get('PATH_INFO') and
+            env['PATH_INFO'].startswith('/documentation')):
+            app = bottle.app()
+        else:
+            app = self.app if self.mt else bottle.app()
+
         return app(env, start_response)
 
 # Post-auth filter. Normalize user/role supplied by quantum plugin for
