@@ -18,11 +18,42 @@ class AgentIfMapVmExport;
 class BgpPeer;
 class XmlBase;
 
-class ControllerXmppData {
+class ControllerWorkQueueData {
+public:
+    enum Type {
+        DOM,
+        DELETE_DECOMMISSIONED_PEER
+    };
+
+    ControllerWorkQueueData(Type type) : type_(type) {}
+    ~ControllerWorkQueueData() {}
+    Type type() const {return type_;}
+
+private:
+    Type type_;
+    DISALLOW_COPY_AND_ASSIGN(ControllerWorkQueueData);
+};
+
+class ControllerDeletePeerData : public ControllerWorkQueueData {
+public:
+    ControllerDeletePeerData(BgpPeer *bgp_peer) :
+        ControllerWorkQueueData(ControllerWorkQueueData::DELETE_DECOMMISSIONED_PEER),
+        bgp_peer_(bgp_peer) {}
+    ~ControllerDeletePeerData() {}
+
+    BgpPeer *bgp_peer() const {return bgp_peer_;}
+
+private:
+    BgpPeer *bgp_peer_;
+    DISALLOW_COPY_AND_ASSIGN(ControllerDeletePeerData);
+};
+
+class ControllerXmppData : public ControllerWorkQueueData {
 public:
     ControllerXmppData(xmps::PeerId peer_id, xmps::PeerState peer_state,
                        uint8_t channel_id, std::auto_ptr<XmlBase> dom,
                        bool config) :
+        ControllerWorkQueueData(ControllerWorkQueueData::DOM),
         peer_id_(peer_id), peer_state_(peer_state), channel_id_(channel_id),
         dom_(dom), config_(config) { }
     ~ControllerXmppData() { }
@@ -39,6 +70,7 @@ private:
     uint8_t channel_id_;
     std::auto_ptr<XmlBase> dom_;
     bool config_;
+    Type type_;
     DISALLOW_COPY_AND_ASSIGN(ControllerXmppData);
 };
 
@@ -81,7 +113,8 @@ public:
     void StartUnicastCleanupTimer(AgentXmppChannel *agent_xmpp_channel);
     void UnicastCleanupTimerExpired();
     CleanupTimer &unicast_cleanup_timer() {return unicast_cleanup_timer_;}
-    void ControllerPeerHeadlessAgentDelDone(BgpPeer *peer);
+    void ControllerPeerHeadlessAgentDelDoneEnqueue(BgpPeer *peer);
+    bool ControllerPeerHeadlessAgentDelDone(BgpPeer *peer);
 
     //Multicast timer
     void StartMulticastCleanupTimer(AgentXmppChannel *agent_xmpp_channel);
@@ -97,9 +130,10 @@ public:
     // Clear of decommissioned peer listener id for vrf specified
     void DeleteVrfStateOfDecommisionedPeers(DBTablePartBase *partition, 
                                             DBEntryBase *e);
+    bool ControllerWorkQueueProcess(boost::shared_ptr<ControllerWorkQueueData> data);
     bool XmppMessageProcess(boost::shared_ptr<ControllerXmppData> data);
     Agent *agent() {return agent_;}
-    void Enqueue(boost::shared_ptr<ControllerXmppData> data);
+    void Enqueue(boost::shared_ptr<ControllerWorkQueueData> data);
 
 private:
     AgentXmppChannel *FindAgentXmppChannel(const std::string &server_ip);
@@ -114,7 +148,7 @@ private:
     UnicastCleanupTimer unicast_cleanup_timer_;
     MulticastCleanupTimer multicast_cleanup_timer_;
     ConfigCleanupTimer config_cleanup_timer_;
-    WorkQueue<boost::shared_ptr<ControllerXmppData> > work_queue_;
+    WorkQueue<boost::shared_ptr<ControllerWorkQueueData> > work_queue_;
 };
 
 extern SandeshTraceBufferPtr ControllerTraceBuf;

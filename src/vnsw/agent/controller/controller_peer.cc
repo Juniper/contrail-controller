@@ -1018,6 +1018,8 @@ void AgentXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
                                                                           xs_idx_,
                                                                           impl,
                                                                           true));
+        boost::shared_ptr<ControllerWorkQueueData> base_data =
+            boost::static_pointer_cast<ControllerWorkQueueData>(data);
         agent_->controller()->Enqueue(data);
     }
 }
@@ -1160,7 +1162,7 @@ void AgentXmppChannel::UnicastPeerDown(AgentXmppChannel *peer,
     // Callback provided  for all walk done - this invokes cleanup in case
     // delete of peer is issued because of channel getting disconnected.
     peer_id->DelPeerRoutes(boost::bind(
-                           &VNController::ControllerPeerHeadlessAgentDelDone,
+                           &VNController::ControllerPeerHeadlessAgentDelDoneEnqueue,
                            agent->controller(), peer_id));
     CONTROLLER_TRACE(Trace, peer->GetBgpPeerName(), "None",
                      "Delete peer paths");
@@ -1247,7 +1249,9 @@ void AgentXmppChannel::XmppClientChannelEvent(AgentXmppChannel *peer,
                                                    peer->GetXmppServerIdx(),
                                                    dummy_dom,
                                                    false));
-    peer->agent()->controller()->Enqueue(data);
+    boost::shared_ptr<ControllerWorkQueueData> base_data =
+        boost::static_pointer_cast<ControllerWorkQueueData>(data);
+    peer->agent()->controller()->Enqueue(base_data);
 }
 
 /*
