@@ -2,6 +2,8 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 import sys
+import gevent.monkey
+gevent.monkey.patch_all()
 
 import logging
 import tempfile
