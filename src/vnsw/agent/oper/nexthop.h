@@ -1083,6 +1083,7 @@ private:
 //TODO Shift this to class CompositeNH
 struct Composite {
     enum Type {
+        INVALID,
         FABRIC,
         L2COMP,
         L3COMP,
