@@ -1113,8 +1113,12 @@ class DBInterface(object):
                 pfx_len = int(cidr[1])
                 endpt = [AddressType(subnet=SubnetType(pfx, pfx_len))]
             elif sgr_q['remote_group_id']:
-                sg_obj = self._vnc_lib.security_group_read(
-                    id=sgr_q['remote_group_id'])
+                try:
+                    sg_obj = self._vnc_lib.security_group_read(
+                        id=sgr_q['remote_group_id'])
+                except NoIdError:
+                    self._raise_contrail_exception('SecurityGroupNotFound',
+                                                   id=sgr_q['remote_group_id'])
                 endpt = [AddressType(security_group=sg_obj.get_fq_name_str())]
 
             if sgr_q['direction'] == 'ingress':
