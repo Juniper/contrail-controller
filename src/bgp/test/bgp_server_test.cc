@@ -557,11 +557,13 @@ TEST_F(BgpServerUnitTest, BasicMd5Check) {
     BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                          uuid);
 
-    // Sleep for sometime. The peering should not come up due to key mismatch.
+    // The peering should not come up due to key mismatch.
     TASK_UTIL_EXPECT_EQ(0, peer_a->GetInuseAuthKeyValue().compare("utkey1"));
-    usleep(100000); // 100ms
+    TASK_UTIL_EXPECT_TRUE(peer_a->get_connect_timer_expired() > 10);
+    TASK_UTIL_EXPECT_TRUE(peer_b->get_connect_timer_expired() > 10);
     EXPECT_EQ(0, peer_a->get_rx_keepalive());
     EXPECT_EQ(0, peer_b->get_rx_keepalive());
+    EXPECT_EQ(0, peer_b->GetInuseAuthKeyValue().compare(""));
     TASK_UTIL_EXPECT_NE(peer_a->GetState(), StateMachine::ESTABLISHED);
     TASK_UTIL_EXPECT_NE(peer_b->GetState(), StateMachine::ESTABLISHED);
 
@@ -718,10 +720,10 @@ TEST_F(BgpServerUnitTest, MultipleMd5KeyChanges) {
     // Both sides should not receive any keepalives since TCP should be
     // dropping the segments due to Md5 mismatch. But, the transmit counters
     // should keep going up.
+    TASK_UTIL_EXPECT_TRUE(peer_a->get_tr_keepalive() > (tx_ka_a + 10));
+    TASK_UTIL_EXPECT_TRUE(peer_b->get_tr_keepalive() > (tx_ka_b + 10));
     EXPECT_EQ(peer_a->get_rx_keepalive(), rx_ka_a);
     EXPECT_EQ(peer_b->get_rx_keepalive(), rx_ka_b);
-    EXPECT_GT(peer_a->get_tr_keepalive(), tx_ka_a); // greater than
-    EXPECT_GT(peer_b->get_tr_keepalive(), tx_ka_b); // greater than
 
     // Change the key on router 'B'.
     SetupPeers(b_.get(), peer_count, a_->session_manager()->GetPort(),

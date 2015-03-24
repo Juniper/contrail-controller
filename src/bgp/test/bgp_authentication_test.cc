@@ -539,7 +539,7 @@ TEST_F(BgpAuthenticationTest, 2CnsWithChangingSameKeys) {
     check_count = peer12->get_rx_keepalive() > peer21->get_rx_keepalive() ?
         peer12->get_rx_keepalive() : peer21->get_rx_keepalive();
     VerifyPeers(__LINE__, cn1_, cn2_, (check_count + 10), cn1_->ifmap_id(),
-                cn2_->ifmap_id(), asn, asn, key_string, 0, 0);
+                cn2_->ifmap_id(), asn, asn, "", 0, 0);
     */
 
     // Cleanup the added peerings.
@@ -861,6 +861,7 @@ TEST_F(BgpAuthenticationTest, SameDifferentMultipleKeyChanges) {
 
     // Change the key on CN2 back to key_string1. Peering should come up.
     AddPeering(cn2_, cn1_, uuid, keys1);
+    TASK_UTIL_EXPECT_EQ(0, peer21->GetInuseAuthKeyValue().compare(key_string1));
     check_count = peer12->get_rx_keepalive() > peer21->get_rx_keepalive() ?
         peer12->get_rx_keepalive() : peer21->get_rx_keepalive();
     VerifyPeers(__LINE__, cn1_, cn2_, (check_count + 10), cn1_->ifmap_id(),
@@ -1070,6 +1071,7 @@ TEST_F(BgpAuthenticationTest, NoKeyToRouterKey) {
     key_string = "onemorenewkey";
     SetKeys(0, key_string, 0, &router_keys);
     ChangeBgpRouterNode(cn1_, router_keys);
+    TASK_UTIL_EXPECT_EQ(0, peer12->GetInuseAuthKeyValue().compare(key_string));
 
     // Verify that keepalives are not received since both sides dont have the
     // same key.
@@ -1088,6 +1090,7 @@ TEST_F(BgpAuthenticationTest, NoKeyToRouterKey) {
 
     // Change the router key on CN2 with the latest key. Peering should come up.
     ChangeBgpRouterNode(cn2_, router_keys);
+    TASK_UTIL_EXPECT_EQ(0, peer21->GetInuseAuthKeyValue().compare(key_string));
     check_count = peer12->get_rx_keepalive() > peer21->get_rx_keepalive() ?
         peer12->get_rx_keepalive() : peer21->get_rx_keepalive();
     VerifyPeers(__LINE__, cn1_, cn2_, (check_count + 10), cn1_->ifmap_id(),
