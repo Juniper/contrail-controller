@@ -375,7 +375,7 @@ class ServiceTemplateSM(DBBase):
         self.params = obj.get('service_template_properties')
         if self.params:
             self.virtualization_type = self.params.get(
-                'service_virtualization_type', 'virtual-machine')
+                'service_virtualization_type') or 'virtual-machine'
         self.update_multiple_refs('service_instance', obj)
         self.id_perms = obj['id_perms']
     # end update
