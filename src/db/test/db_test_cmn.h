@@ -28,7 +28,6 @@ protected:
     tbb::atomic<long> del_notification_client1;
     tbb::atomic<long> del_notification_client2;
     tbb::atomic<long> walk_count_;
-    tbb::atomic<int> walk_done_task_instance_id_;
     tbb::atomic<bool> walk_done_;
     tbb::atomic<bool> notify_yield;
 public:
@@ -63,7 +62,6 @@ public:
     }
 
     void TWalkDone(DBTableBase *tbl) {
-        walk_done_task_instance_id_ = Task::Running()->GetTaskInstance();
         walk_done_ = true;
     }
 
@@ -524,7 +522,6 @@ TEST_F(DBTest, JWalker) {
     
     walk_done_ = false;
     walk_count_ = 0;
-    walk_done_task_instance_id_ = 0;
 
     VlanTableReqKey *searchKey = new VlanTableReqKey(0);
     DBTableWalker::WalkId id = db_.GetWalker()->WalkTable(table, searchKey,
@@ -537,13 +534,11 @@ TEST_F(DBTest, JWalker) {
 
     task_util::WaitForIdle();
     EXPECT_TRUE(walk_done_);
-    EXPECT_TRUE(walk_done_task_instance_id_ == -1);
 
     EXPECT_EQ(walk_count_, walk_count);
 
     walk_done_ = false;
     walk_count_ = 0;
-    walk_done_task_instance_id_ = 0;
 
     VlanTableReqKey *fail_search = new VlanTableReqKey(4091);
     id = db_.GetWalker()->WalkTable(table, fail_search,
@@ -555,7 +550,6 @@ TEST_F(DBTest, JWalker) {
     task_util::WaitForIdle();
     EXPECT_TRUE(walk_done_);
     EXPECT_EQ(walk_count_, 0);
-    EXPECT_TRUE(walk_done_task_instance_id_ == -1);
 
 
     del_notification = 0;

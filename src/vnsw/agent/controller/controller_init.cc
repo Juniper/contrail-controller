@@ -40,6 +40,7 @@ VNController::VNController(Agent *agent)
 }
 
 VNController::~VNController() {
+    work_queue_.Shutdown();
 }
 
 void VNController::XmppServerConnect() {

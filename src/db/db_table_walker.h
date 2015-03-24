@@ -10,7 +10,6 @@
 #include <tbb/task.h>
 
 #include "base/logging.h"
-#include "base/queue_task.h"
 #include "db/db_table.h"
 #include "db/db_table_partition.h"
 
@@ -44,7 +43,6 @@ public:
     void WalkCancel(WalkId id);
 
     DBTableWalker();
-    virtual ~DBTableWalker();
 
     uint64_t walk_request_count() { return walk_request_count_; }
     uint64_t walk_complete_count() { return walk_complete_count_; }
@@ -85,7 +83,6 @@ private:
 
     // Purge the walker after the walk is completed/cancelled
     void PurgeWalker(WalkId id);
-    bool WalkDone(DBTableWalker::Walker *walker);
 
     // List of walkers allocated
     tbb::mutex walkers_mutex_;
@@ -97,6 +94,5 @@ private:
     uint64_t walk_cancel_count_;
 
     static int walker_task_id_;
-    WorkQueue<Walker *> *work_queue_;
 };
 #endif

@@ -130,6 +130,7 @@ void Agent::SetAgentTaskPolicy() {
         "sandesh::RecvQueue",
         "io::ReaderTask",
         "Agent::ControllerXmpp",
+        "Agent::RouteWalker",
         "db::DBTable"
     };
     SetTaskPolicyOne("bgp::Config", xmpp_config_exclude_list, 
@@ -141,6 +142,13 @@ void Agent::SetAgentTaskPolicy() {
     };
     SetTaskPolicyOne("Agent::ControllerXmpp", controller_xmpp_exclude_list,
                      sizeof(controller_xmpp_exclude_list) / sizeof(char *));
+
+    const char *walk_cancel_exclude_list[] = {
+        "Agent::ControllerXmpp",
+        "db::DBTable"
+    };
+    SetTaskPolicyOne("Agent::RouteWalker", walk_cancel_exclude_list,
+                     sizeof(walk_cancel_exclude_list) / sizeof(char *));
 
     const char *ksync_exclude_list[] = {
         "Agent::FlowHandler",
