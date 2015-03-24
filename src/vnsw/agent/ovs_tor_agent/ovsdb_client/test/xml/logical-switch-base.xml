@@ -82,7 +82,7 @@
     <physical-interface uuid="1" name="ge-0/0/0" device="test-router"  del="1"/>
     <logical-interface uuid="1" name="l-ge-0/0/0" port="p-ge-0/0/0" vmi="tap1" del="1"/>
 
-    <validate name="validate-logical-switch-1">
+    <validate name="validate-logical-switch-2">
         <ovs-logical-switch name="ls-1" uuid="1" device="1" vn="1" vxlan-id="100" present="no"/>
     </validate>
 

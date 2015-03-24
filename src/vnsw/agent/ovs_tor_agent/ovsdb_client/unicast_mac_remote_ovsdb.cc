@@ -190,6 +190,7 @@ bool UnicastMacRemoteEntry::Sync(DBEntry *db_entry) {
         self_exported_route_ = self_exported_route;
         change = true;
     }
+
     return change;
 }
 
@@ -329,6 +330,12 @@ KSyncDBObject::DBFilterResp UnicastMacRemoteTable::DBEntryFilter(
 
     const BridgeRouteEntry *entry =
         static_cast<const BridgeRouteEntry *>(db_entry);
+    //Locally programmed multicast route should not be added in
+    //OVS.
+    if (entry->is_multicast()) {
+        return DBFilterIgnore;
+    }
+
     if (entry->vrf()->IsDeleted()) {
         // if notification comes for a entry with deleted vrf,
         // trigger delete since we donot resue same vrf object

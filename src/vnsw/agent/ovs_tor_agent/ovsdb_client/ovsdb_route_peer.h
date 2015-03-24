@@ -21,6 +21,13 @@ class OvsPeer : public Peer {
                      const std::string &dest_vn, const MacAddress &mac,
                      Ip4Address &tor_ip);
     void DeleteOvsRoute(VrfEntry *vrf, uint32_t vxlan, const MacAddress &mac);
+    void AddOvsPeerMulticastRoute(const VrfEntry *vrf,
+                                  uint32_t vxlan_id,
+                                  const Ip4Address &tsn_ip,
+                                  const Ip4Address &tor_ip);
+    void DeleteOvsPeerMulticastRoute(const VrfEntry *vrf, uint32_t vxlan_id);
+    const IpAddress &peer_ip() const {return peer_ip_;}
+
  private:
     IpAddress peer_ip_;
     uint64_t gen_id_;

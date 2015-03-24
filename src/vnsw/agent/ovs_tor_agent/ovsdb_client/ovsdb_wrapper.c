@@ -519,6 +519,24 @@ ovsdb_wrapper_mcast_mac_local_physical_locator_set(struct ovsdb_idl_row *row)
     return &(mcast->locator_set->header_);
 }
 
+char *
+ovsdb_wrapper_mcast_mac_remote_dst_ip(struct ovsdb_idl_row *row)
+{
+    struct ovsdb_idl_row *locater_set_row =
+        ovsdb_wrapper_mcast_mac_local_physical_locator_set(row);
+    struct vteprec_physical_locator_set *physical_locator_set =
+        locater_set_row ? CONTAINER_OF(locater_set_row,
+                                       struct vteprec_physical_locator_set,
+                                       header_) : NULL;
+    if (!physical_locator_set)
+        return NULL;
+    size_t n_locators = physical_locator_set->n_locators;
+    if (n_locators == 0)
+        return NULL;
+    //Pick up first locator
+    return physical_locator_set->locators[0]->dst_ip;
+}
+
 /* multicast mac remote */
 void
 ovsdb_wrapper_add_mcast_mac_remote(struct ovsdb_idl_txn *txn,

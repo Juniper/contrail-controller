@@ -34,6 +34,7 @@ private:
 class LogicalSwitchEntry : public OvsdbDBEntry {
 public:
     typedef std::set<struct ovsdb_idl_row *> UcastLocalRouteList;
+    typedef std::set<struct ovsdb_idl_row *> McastLocalRouteList;
     enum Trace {
         ADD_REQ,
         DEL_REQ,
@@ -48,6 +49,7 @@ public:
             struct ovsdb_idl_row *entry);
 
     Ip4Address &physical_switch_tunnel_ip();
+    const VrfEntry *vrf_entry();
     void AddMsg(struct ovsdb_idl_txn *);
     void ChangeMsg(struct ovsdb_idl_txn *);
     void DeleteMsg(struct ovsdb_idl_txn *);
@@ -69,11 +71,12 @@ private:
     std::string name_;
     std::string device_name_;
     KSyncEntryPtr physical_switch_;
+    VrfEntryConstRef vrf_;
     int64_t vxlan_id_;
-    struct ovsdb_idl_row *mcast_local_row_;
     struct ovsdb_idl_row *mcast_remote_row_;
     struct ovsdb_idl_row *old_mcast_remote_row_;
     UcastLocalRouteList ucast_local_row_list_;
+    McastLocalRouteList mcast_local_row_list_;
     DISALLOW_COPY_AND_ASSIGN(LogicalSwitchEntry);
 };
 };
