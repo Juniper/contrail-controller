@@ -1973,6 +1973,69 @@ TEST_F(BgpXmppEvpnTest2, MacOnlyRouteAddDelete2) {
 }
 
 //
+// Add/Delete routes from 2 agents with only MAC.
+// Address field is 0.0.0.0/0.
+// This is not really a valid host IP address but we treat it the same as
+// 0.0.0.0/32 for backward compatibility.
+//
+TEST_F(BgpXmppEvpnTest2, MacOnlyRouteAddDelete3) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->EnetSubscribe("blue", 1);
+    agent_b_->EnetSubscribe("blue", 1);
+
+    // Add route from agent A.
+    stringstream eroute_a;
+    eroute_a << "aa:00:00:00:00:01,0.0.0.0/0";
+    agent_a_->AddEnetRoute("blue", eroute_a.str(), "192.168.1.1");
+    task_util::WaitForIdle();
+
+    // Add route from agent B.
+    stringstream eroute_b;
+    eroute_b << "bb:00:00:00:00:01,0.0.0.0/0";
+    agent_b_->AddEnetRoute("blue", eroute_b.str(), "192.168.1.2");
+    task_util::WaitForIdle();
+
+    // Verify that routes showed up on the agents.
+    TASK_UTIL_EXPECT_EQ(2, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_a_->EnetRouteCount("blue"));
+    TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount("blue"));
+
+    // Delete route from agent A.
+    agent_a_->DeleteEnetRoute("blue", eroute_a.str());
+    task_util::WaitForIdle();
+
+    // Delete route from agent B.
+    agent_b_->DeleteEnetRoute("blue", eroute_b.str());
+    task_util::WaitForIdle();
+
+    // Verify that there are no routes on the agents.
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount("blue"));
+    TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount("blue"));
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
 // Add/Delete routes from 2 agents with inet6 address.
 //
 TEST_F(BgpXmppEvpnTest2, Inet6RouteAddDelete) {
