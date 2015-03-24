@@ -362,12 +362,12 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         # check for PartialSysinfo alarm
         alarm_gen1.send_vrouterinfo("myvrouter")
         assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
-            "ObjectVRouter:myvrouter", "PartialSysinfo"))
+            "ObjectVRouter:myvrouter", "PartialSysinfoCompute"))
 
         # Now try to clear the alarm by sending build_info
         alarm_gen1.send_vrouterinfo("myvrouter", True)
         assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
-            "ObjectVRouter:myvrouter", "PartialSysinfo", is_set = False))
+            "ObjectVRouter:myvrouter", "PartialSysinfoCompute", is_set = False))
  
         return True
     # end test_06_alarmgen_basic

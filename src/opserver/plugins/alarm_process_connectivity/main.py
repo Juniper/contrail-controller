@@ -2,6 +2,7 @@
 from  opserver.plugins.alarm_base import AlarmBase
 
 class ProcessConnectivity(AlarmBase):
+    """Process(es) are reporting non-functional components in NodeStatus.process_status"""
 
     def __call__(self, uve_key, uve_data):
         err_list = []
