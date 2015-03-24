@@ -37,6 +37,9 @@
     <validate name="validate-1">
         <multicast-tor name="multicast-1" uuid="1"/>
     </validate>
+    <validate name="validate-add-tor-olist">
+        <multicast-tor name="add_del_tor_olist" uuid="1"/>
+    </validate>
           
     <virtual-network uuid="1" name="vn-1" vxlan-id="2" network-id="100" />
     <global-vrouter-config uuid="1" name="default-global-system-config:default-global-vrouter-config" vxlan-mode="configured"/>

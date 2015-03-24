@@ -16,6 +16,7 @@
 #include "oper/operdb_init.h"
 #include "oper/vrf.h"
 #include "oper/nexthop.h"
+#include "oper/tunnel_nh.h"
 #include "oper/mirror_table.h"
 #include "oper/multicast.h"
 #include "oper/peer.h"
@@ -221,6 +222,16 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
                         ModifyEvpnMembers(bgp_peer_id(),
                                           vrf_name, olist,
                                           ethernet_tag,
+                             ControllerPeerPath::kInvalidPeerIdentifier);
+
+                    //Ideally in non TSN node leaf olist is not to be
+                    //present
+                    if (agent_->tsn_enabled() == false)
+                        return;
+                    agent_->oper_db()->multicast()->
+                        ModifyTorMembers(bgp_peer_id(),
+                                         vrf_name, olist,
+                                         ethernet_tag,
                              ControllerPeerPath::kInvalidPeerIdentifier);
                 } else {
                     rt_table->DeleteReq(bgp_peer_id(), vrf_name, mac,
@@ -655,30 +666,55 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, Ip4Address prefix_addr,
                                   prefix_addr, prefix_len, data);
 }
 
+static bool FillEvpnOlist(EnetOlistType &olist, TunnelOlist &tunnel_olist) {
+    for (uint32_t i = 0; i < olist.next_hop.size(); i++) {
+        boost::system::error_code ec;
+        IpAddress addr =
+            IpAddress::from_string(olist.next_hop[i].address,
+                                   ec);
+        if (ec.value() != 0) {
+            return false;
+        }
+
+        int label = olist.next_hop[i].label;
+        TunnelType::TypeBmap encap =
+            GetEnetTypeBitmap(olist.next_hop[i].tunnel_encapsulation_list);
+        tunnel_olist.push_back(OlistTunnelEntry(nil_uuid(), label,
+                                                addr.to_v4(), encap));
+    }
+    return true;
+}
+
 void AgentXmppChannel::AddMulticastEvpnRoute(string vrf_name,
                                              MacAddress &mac,
                                              EnetItemType *item) {
+    //Traverse Leaf Olist
+    TunnelOlist leaf_olist;
     TunnelOlist olist;
-    for (uint32_t i = 0; i < item->entry.olist.next_hop.size(); i++) {
-        boost::system::error_code ec;
-        IpAddress addr =
-            IpAddress::from_string(item->entry.olist.next_hop[i].address,
-                                   ec);
-        if (ec.value() != 0) {
-            CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                             "Error parsing next-hop address");
-            return;
-        }
-
-        int label = item->entry.olist.next_hop[i].label;
-        TunnelType::TypeBmap encap = GetEnetTypeBitmap(item->
-                       entry.olist.next_hop[i].tunnel_encapsulation_list);
-        olist.push_back(OlistTunnelEntry(nil_uuid(), label,
-                                         addr.to_v4(), encap));
+    //Fill leaf olist and olist
+    //TODO can check for item->entry.assisted_replication_supported
+    //and then populate leaf_olist
+    CONTROLLER_TRACE(Trace, GetBgpPeerName(), "Composite",
+                     "add leaf evpn multicast route");
+    if (FillEvpnOlist(item->entry.leaf_olist, leaf_olist) == false) {
+        CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                         "Error parsing next-hop address");
+        return;
     }
-
     CONTROLLER_TRACE(Trace, GetBgpPeerName(), "Composite",
                      "add evpn multicast route");
+    if (FillEvpnOlist(item->entry.olist, olist) == false) {
+        CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                         "Error parsing next-hop address");
+        return;
+    }
+
+    agent_->oper_db()->multicast()->
+        ModifyTorMembers(bgp_peer_id(), vrf_name, leaf_olist,
+                         item->entry.nlri.ethernet_tag,
+                         agent_->controller()->
+                         multicast_sequence_number());
+
     agent_->oper_db()->multicast()->
         ModifyEvpnMembers(bgp_peer_id(), vrf_name, olist,
                           item->entry.nlri.ethernet_tag,
@@ -1729,74 +1765,56 @@ bool AgentXmppChannel::ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
     return (SendUpdate(data_,datalen_));
 }
 
-bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
-                                                     const Ip4Address *nh_ip,
-                                                     std::string vn,
-                                                     const SecurityGroupList *sg_list,
-                                                     uint32_t label,
-                                                     uint32_t tunnel_bmap,
-                                                     bool associate) {
-    static int id = 0;
-    EnetItemType item;
-    uint8_t data_[4096];
-    size_t datalen_;
+bool AgentXmppChannel::BuildTorMulticastMessage(EnetItemType &item,
+                                                stringstream &node_id,
+                                                AgentRoute *route,
+                                                const Ip4Address *nh_ip,
+                                                std::string vn,
+                                                const SecurityGroupList *sg_list,
+                                                uint32_t label,
+                                                uint32_t tunnel_bmap,
+                                                bool associate) {
+    assert(route->GetTableType() == Agent::BRIDGE);
+    const AgentPath *path = NULL;
+    BridgeRouteEntry *l2_route =
+        dynamic_cast<BridgeRouteEntry *>(route);
+    path = l2_route->FindOvsPath();
 
-    if (label == MplsTable::kInvalidLabel) return false;
-
-    //Build the DOM tree
-    auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
-    XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
-
-    if (route->is_multicast() && agent_->simulate_evpn_tor()) {
-        item.entry.edge_replication_not_supported = true;
-    } else {
-        item.entry.edge_replication_not_supported = false;
-    }
+    item.entry.local_preference = PathPreference::LOW;
+    item.entry.sequence_number = 0;
+    const TunnelNH *tnh =
+        dynamic_cast<const TunnelNH *>(path->nexthop());
+    item.entry.replicator_address = tnh->GetSip()->to_string();
     item.entry.nlri.af = BgpAf::L2Vpn;
     item.entry.nlri.safi = BgpAf::Enet;
     stringstream rstr;
-    if ((route->GetTableType() == Agent::BRIDGE) &&
-               (route->is_multicast())) {
-        //For bridge we expect only multicast route to send subscription
-        rstr << route->ToString();
-    } else {
-        rstr << route->GetAddressString();
-    }
-
+    rstr << route->ToString();
     item.entry.nlri.mac = rstr.str();
+    item.entry.assisted_replication_supported = false;
 
-    const AgentPath *active_path = NULL;
     rstr.str("");
     //TODO fix this when multicast moves to evpn
-    if (route->GetTableType() == Agent::EVPN) {
-        EvpnRouteEntry *evpn_route = static_cast<EvpnRouteEntry *>(route);
-        rstr << evpn_route->ip_addr().to_string() << "/"
-            << evpn_route->GetVmIpPlen();
-        active_path = evpn_route->FindLocalVmPortPath();
-        item.entry.nlri.ethernet_tag = evpn_route->ethernet_tag();
-    } else if (route->is_multicast()) {
-        BridgeRouteEntry *l2_route = static_cast<BridgeRouteEntry *>(route);
-        assert(l2_route->is_multicast());
-        rstr << "0.0.0.0/0";
-        active_path = l2_route->FindPath(agent_->multicast_peer());
-        item.entry.nlri.ethernet_tag = 0;
-        if (associate == false)
-            item.entry.nlri.ethernet_tag = label;
-
-    }
+    assert(l2_route->is_multicast());
+    rstr << tnh->GetDip()->to_string();
+    rstr << "/32";
+    item.entry.nlri.ethernet_tag = 0;
+    if (associate == false)
+        item.entry.nlri.ethernet_tag = label;
 
     item.entry.nlri.address = rstr.str();
     assert(item.entry.nlri.address != "0.0.0.0");
 
     autogen::EnetNextHopType nh;
     nh.af = Address::INET;
-    nh.address = nh_ip->to_string();
+    nh.address = tnh->GetDip()->to_string();
     nh.label = label;
 
+    node_id << item.entry.nlri.af << "/" << item.entry.nlri.safi << "/"
+        << route->ToString() << "," << item.entry.nlri.address;
     TunnelType::Type tunnel_type = TunnelType::ComputeType(tunnel_bmap);
 
-    if (active_path) {
-        tunnel_type = active_path->tunnel_type();
+    if (path) {
+        tunnel_type = path->tunnel_type();
     }
     if (associate) {
         if (tunnel_type != TunnelType::VXLAN) {
@@ -1807,10 +1825,9 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
                 nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("udp");
             }
         } else {
-            if (active_path) {
-                nh.label = active_path->vxlan_id();
-                if (route->is_multicast())
-                    item.entry.nlri.ethernet_tag = nh.label;
+            if (path) {
+                nh.label = path->vxlan_id();
+                item.entry.nlri.ethernet_tag = nh.label;
             } else {
                 nh.label = 0;
             }
@@ -1825,6 +1842,176 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
     item.entry.next_hops.next_hop.push_back(nh);
     //item.entry.version = 1; //TODO
     //item.entry.virtual_network = vn;
+    return true;
+}
+
+bool AgentXmppChannel::BuildEvpnMulticastMessage(EnetItemType &item,
+                                                 stringstream &node_id,
+                                                 AgentRoute *route,
+                                                 const Ip4Address *nh_ip,
+                                                 std::string vn,
+                                                 const SecurityGroupList *sg_list,
+                                                 uint32_t label,
+                                                 uint32_t tunnel_bmap,
+                                                 bool associate,
+                                                 const AgentPath *path,
+                                                 bool assisted_replication) {
+    assert(route->is_multicast() == true);
+    item.entry.local_preference = PathPreference::LOW;
+    item.entry.sequence_number = 0;
+    if (agent_->simulate_evpn_tor()) {
+        item.entry.edge_replication_not_supported = true;
+    } else {
+        item.entry.edge_replication_not_supported = false;
+    }
+    item.entry.nlri.af = BgpAf::L2Vpn;
+    item.entry.nlri.safi = BgpAf::Enet;
+    stringstream rstr;
+    //TODO fix this when multicast moves to evpn
+    rstr << "0.0.0.0/32";
+    item.entry.nlri.address = rstr.str();
+    assert(item.entry.nlri.address != "0.0.0.0");
+
+    rstr.str("");
+    if (assisted_replication) {
+        rstr << route->ToString();
+        item.entry.assisted_replication_supported = true;
+        node_id << item.entry.nlri.af << "/" << item.entry.nlri.safi << "/"
+            << route->ToString() << "," << item.entry.nlri.address;
+    } else {
+        rstr << route->GetAddressString();
+        item.entry.assisted_replication_supported = false;
+        node_id << item.entry.nlri.af << "/" << item.entry.nlri.safi << "/"
+            << route->GetAddressString() << "," << item.entry.nlri.address;
+    }
+    item.entry.nlri.mac = route->ToString();
+
+    item.entry.nlri.ethernet_tag = 0;
+    if (associate == false)
+        item.entry.nlri.ethernet_tag = label;
+
+    autogen::EnetNextHopType nh;
+    nh.af = Address::INET;
+    nh.address = nh_ip->to_string();
+    nh.label = label;
+
+    TunnelType::Type tunnel_type = TunnelType::ComputeType(tunnel_bmap);
+
+    if (path) {
+        tunnel_type = path->tunnel_type();
+    }
+    if (associate) {
+        if (tunnel_type != TunnelType::VXLAN) {
+            if (tunnel_bmap & TunnelType::GREType()) {
+                nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("gre");
+            }
+            if (tunnel_bmap & TunnelType::UDPType()) {
+                nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("udp");
+            }
+        } else {
+            if (path) {
+                nh.label = path->vxlan_id();
+                item.entry.nlri.ethernet_tag = nh.label;
+            } else {
+                nh.label = 0;
+            }
+            nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("vxlan");
+        }
+
+        if (sg_list && sg_list->size()) {
+            item.entry.security_group_list.security_group = *sg_list;
+        }
+    }
+
+    item.entry.next_hops.next_hop.push_back(nh);
+    //item.entry.version = 1; //TODO
+    //item.entry.virtual_network = vn;
+    return true;
+}
+
+bool AgentXmppChannel::BuildEvpnUnicastMessage(EnetItemType &item,
+                                               stringstream &node_id,
+                                               AgentRoute *route,
+                                               const Ip4Address *nh_ip,
+                                               std::string vn,
+                                               const SecurityGroupList *sg_list,
+                                               uint32_t label,
+                                               uint32_t tunnel_bmap,
+                                               bool associate) {
+    assert(route->is_multicast() == false);
+    assert(route->GetTableType() == Agent::EVPN);
+    item.entry.local_preference = PathPreference::LOW;
+    item.entry.sequence_number = 0;
+    item.entry.assisted_replication_supported = false;
+    item.entry.edge_replication_not_supported = false;
+    item.entry.nlri.af = BgpAf::L2Vpn;
+    item.entry.nlri.safi = BgpAf::Enet;
+
+    stringstream rstr;
+    rstr << route->GetAddressString();
+    item.entry.nlri.mac = rstr.str();
+
+    const AgentPath *active_path = NULL;
+    rstr.str("");
+    EvpnRouteEntry *evpn_route = static_cast<EvpnRouteEntry *>(route);
+    rstr << evpn_route->ip_addr().to_string() << "/"
+        << evpn_route->GetVmIpPlen();
+    active_path = evpn_route->FindLocalVmPortPath();
+    item.entry.nlri.ethernet_tag = evpn_route->ethernet_tag();
+
+    item.entry.nlri.address = rstr.str();
+    assert(item.entry.nlri.address != "0.0.0.0");
+
+    autogen::EnetNextHopType nh;
+    nh.af = Address::INET;
+    nh.address = nh_ip->to_string();
+    nh.label = label;
+    TunnelType::Type tunnel_type = TunnelType::ComputeType(tunnel_bmap);
+    if (active_path) {
+        tunnel_type = active_path->tunnel_type();
+    }
+    if (associate) {
+        if (tunnel_type != TunnelType::VXLAN) {
+            if (tunnel_bmap & TunnelType::GREType()) {
+                nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("gre");
+            }
+            if (tunnel_bmap & TunnelType::UDPType()) {
+                nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("udp");
+            }
+        } else {
+            if (active_path) {
+                nh.label = active_path->vxlan_id();
+            } else {
+                nh.label = 0;
+            }
+            nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("vxlan");
+        }
+
+        if (sg_list && sg_list->size()) {
+            item.entry.security_group_list.security_group = *sg_list;
+        }
+    }
+
+    item.entry.next_hops.next_hop.push_back(nh);
+    //item.entry.version = 1; //TODO
+    //item.entry.virtual_network = vn;
+
+    node_id << item.entry.nlri.af << "/" << item.entry.nlri.safi << "/"
+        << route->GetAddressString() << "," << item.entry.nlri.address;
+    return true;
+}
+
+bool AgentXmppChannel::BuildAndSendEvpnDom(EnetItemType &item,
+                                           stringstream &ss_node,
+                                           const AgentRoute *route,
+                                           bool associate) {
+    static int id = 0;
+    uint8_t data_[4096];
+    size_t datalen_;
+
+    //Build the DOM tree
+    auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
+    XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
 
     pugi->AddNode("iq", "");
     pugi->AddAttribute("type", "set");
@@ -1843,9 +2030,6 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
     pugi->AddAttribute("xmlns", "http://jabber.org/protocol/pubsub");
     pugi->AddChildNode("publish", "");
 
-    stringstream ss_node;
-    ss_node << item.entry.nlri.af << "/" << item.entry.nlri.safi << "/"
-        << route->GetAddressString() << "," << item.entry.nlri.address;
     std::string node_id(ss_node.str());
     pugi->AddAttribute("node", node_id);
     pugi->AddChildNode("item", "");
@@ -1880,6 +2064,57 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
     datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
     // send data
     return (SendUpdate(data_,datalen_));
+}
+
+bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
+                                                     const Ip4Address *nh_ip,
+                                                     std::string vn,
+                                                     const SecurityGroupList *sg_list,
+                                                     uint32_t label,
+                                                     uint32_t tunnel_bmap,
+                                                     bool associate) {
+    EnetItemType item;
+    stringstream ss_node;
+    bool ret = true;
+
+    if (label == MplsTable::kInvalidLabel) return false;
+
+    if (route->is_multicast()) {
+        BridgeRouteEntry *l2_route =
+            dynamic_cast<BridgeRouteEntry *>(route);
+        if (agent_->tsn_enabled()) {
+            //Second subscribe for TSN assited replication
+            if (BuildEvpnMulticastMessage(item, ss_node,
+                                          route, nh_ip, vn, sg_list,
+                                          label, tunnel_bmap, associate,
+                                          l2_route->FindPath(agent_->
+                                                             local_peer()),
+                                          true) == false)
+                return false;
+            ret |= BuildAndSendEvpnDom(item, ss_node,
+                                       route, associate);
+        } else if (agent_->tor_agent_enabled()) {
+            if (BuildTorMulticastMessage(item, ss_node, route, nh_ip,
+                                         vn, sg_list, label, tunnel_bmap,
+                                         associate) == false)
+                return false;;
+            ret = BuildAndSendEvpnDom(item, ss_node, route, associate);
+        } else {
+            if (BuildEvpnMulticastMessage(item, ss_node, route, nh_ip, vn, sg_list,
+                                          label, tunnel_bmap, associate,
+                                          l2_route->FindPath(agent_->
+                                                             multicast_peer()),
+                                          false) == false)
+                return false;
+            ret = BuildAndSendEvpnDom(item, ss_node, route, associate);
+        }
+    } else {
+        if (BuildEvpnUnicastMessage(item, ss_node, route, nh_ip, vn, sg_list,
+                                label, tunnel_bmap, associate) == false)
+            return false;;
+            ret = BuildAndSendEvpnDom(item, ss_node, route, associate);
+    }
+    return ret;
 }
 
 bool AgentXmppChannel::ControllerSendMcastRouteCommon(AgentRoute *route,

@@ -40,12 +40,10 @@ struct OlistTunnelEntry {
 };
 
 struct MulticastDBState : DBState {
-    MulticastDBState(const std::string &vrf_name, const Ip4Address &ip_addr,
-                     uint32_t vxlan_id) :
-        vrf_name_(vrf_name), ip_addr_(ip_addr), vxlan_id_(vxlan_id) { }
+    MulticastDBState(const std::string &vrf_name, const uint32_t vxlan_id) :
+        vrf_name_(vrf_name), vxlan_id_(vxlan_id) { }
 
     std::string vrf_name_;
-    Ip4Address ip_addr_;
     uint32_t vxlan_id_;
 };
 
@@ -62,7 +60,6 @@ public:
         boost::system::error_code ec;
         src_address_ =  IpAddress::from_string("0.0.0.0", ec).to_v4();
         local_olist_.clear();
-        tor_olist_.clear();
     };     
     MulticastGroupObject(const std::string &vrf_name, 
                          const Ip4Address &grp_addr,
@@ -71,7 +68,6 @@ public:
         evpn_mpls_label_(0), vxlan_id_(0), bridging_(true),
         peer_identifier_(0), deleted_(false) {
         local_olist_.clear();
-        tor_olist_.clear();
     };     
     virtual ~MulticastGroupObject() { };
 
@@ -122,21 +118,6 @@ public:
     uint32_t vxlan_id() const {return vxlan_id_;}
     void set_peer_identifier(uint64_t peer_id) {peer_identifier_ = peer_id;}
     uint64_t peer_identifier() {return peer_identifier_;}
-    bool AddInTorList(const boost::uuids::uuid &device_uuid,
-                      const Ip4Address &ip_addr,
-                      uint32_t vxlan_id,
-                      uint32_t tunnel_bmap);
-    bool DeleteFromTorList(const boost::uuids::uuid &device_uuid,
-                           const Ip4Address &ip_addr, uint32_t vxlan_id,
-                           uint32_t tunnel_bmap, bool use_uuid_only);
-    const OlistTunnelEntry *FindInTorListUsingUuid(const boost::uuids::uuid &device_uuid);
-    const OlistTunnelEntry *FindInTorList(const boost::uuids::uuid &device_uuid,
-                                          uint32_t vxlan_id,
-                                          uint32_t tunnel_bmap);
-    const TunnelOlist &tor_olist() const {return tor_olist_;}
-    bool UpdateTorAddressInOlist(const boost::uuids::uuid &device_uuid,
-                                 const Ip4Address &ip,
-                                 uint32_t vxlan_id);
     void CreateEvpnMplsLabel(const Agent *agent);
 
 private:
@@ -151,7 +132,6 @@ private:
     uint64_t peer_identifier_;
     bool deleted_;
     std::list<boost::uuids::uuid> local_olist_; /* UUID of local i/f */
-    TunnelOlist tor_olist_; 
 
     friend class MulticastHandler;
     DISALLOW_COPY_AND_ASSIGN(MulticastGroupObject);
@@ -190,18 +170,8 @@ public:
                           const TunnelOlist &olist,
                           uint32_t ethernet_tag,
                           uint64_t peer_identifier = 0);
-    void ModifyTor(DBTablePartBase *partition, DBEntryBase *e);
-    void ModifyPhysicalDevice(DBTablePartBase *partition, DBEntryBase *e);
 
-    void HandleTorRoute(DBTablePartBase *partition,
-                        DBEntryBase *device_vn_entry);
-    void UpdatePhysicalDeviceAddressMap(const boost::uuids::uuid &uuid,
-                                        const IpAddress &ip);
-    void HandleTor(const VnEntry *vn); 
-    void WalkDone();
-    bool TorWalker(DBTablePartBase *partition, DBEntryBase *entry);
-
-        //Registered for VN notification
+    //Registered for VN notification
     void ModifyVN(DBTablePartBase *partition, DBEntryBase *e);
     //Registered for VM notification
     void ModifyVmInterface(DBTablePartBase *partition, DBEntryBase *e); 
@@ -226,6 +196,8 @@ public:
     void HandleIpam(const VnEntry *vn);
     void HandleFamilyConfig(const VnEntry *vn);
     void HandleVxLanChange(const VnEntry *vn);
+    void HandleTsnSubscription(DBTablePartBase *partition,
+                               DBEntryBase *e);
     //For test routines to clear all routes and mpls label
     void Shutdown();
     //Multicast obj list addition deletion
@@ -242,14 +214,13 @@ public:
     bool FlushPeerInfo(uint64_t peer_sequence);
     void DeleteBroadcast(const Peer *peer,
                          const std::string &vrf_name,
-                         uint32_t ethernet_tag);
+                         uint32_t ethernet_tag,
+                         COMPOSITETYPE type);
     void DeleteMulticastObject(const std::string &vrf_name,
                                const Ip4Address &grp_addr);
 
     const Agent *agent() const {return agent_;}
     void Terminate();
-    DBTable::ListenerId physical_device_vn_listener_id() const {
-        return physical_device_vn_listener_id_;}
 
 private:
     //operations on list of all objectas per group/source/vrf
@@ -304,10 +275,6 @@ private:
 
     DBTable::ListenerId vn_listener_id_;
     DBTable::ListenerId interface_listener_id_;
-    DBTable::ListenerId physical_device_vn_listener_id_;
-    DBTable::ListenerId physical_device_listener_id_;
-    DBTableWalker::WalkId physical_device_vn_walker_id_;
-    std::map<uuid, IpAddress> physical_device_uuid_addr_map_;
     DISALLOW_COPY_AND_ASSIGN(MulticastHandler);
 };
 

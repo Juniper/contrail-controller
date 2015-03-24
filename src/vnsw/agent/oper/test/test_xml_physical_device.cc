@@ -554,6 +554,46 @@ bool AgentUtXmlMulticastTorValidate::Validate() {
         if (path != NULL)
             return false;
     }
+    if (test_name_ == "add_del_tor_olist") {
+        AgentXmppChannel *channel = new AgentXmppChannel(Agent::GetInstance(),
+                                                         "XMPP Server", "", 0);
+        BgpPeer *peer = new BgpPeer(IpAddress::from_string("127.0.0.1").to_v4(),
+                                    "dummy", channel, 1, Peer::BGP_PEER);
+        VrfEntry *vrf =
+            Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf1");
+        BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
+            (vrf->GetBridgeRouteTable());
+        //Add multicast tor olist
+        MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent->
+            oper_db()->multicast());
+        TunnelOlist olist;
+        olist.push_back(OlistTunnelEntry(nil_uuid(), 10, 
+                                         IpAddress::from_string("8.8.8.8").to_v4(),
+                                         TunnelType::VxlanType()));
+        mc_handler->ModifyTorMembers(peer,
+                                     vrf->GetName(),
+                                     olist,
+                                     10,
+                                     0);
+        //Verify CNH
+        BridgeRouteEntry *entry = table->FindRoute(MacAddress::BroadcastMac());
+        if (entry == NULL)
+            return false;
+        AgentPath *path = entry->FindPath(agent->multicast_peer());
+        if (path == NULL)
+            return false;
+        path = entry->FindPath(peer);
+        if (path == NULL)
+            return false;
+
+        //Delete route
+        mc_handler->ModifyTorMembers(agent->multicast_tor_peer(),
+                                     vrf->GetName(),
+                                     olist,
+                                     10,
+                                     ControllerPeerPath::kInvalidPeerIdentifier);
+    }
+
     return true;
 }
 

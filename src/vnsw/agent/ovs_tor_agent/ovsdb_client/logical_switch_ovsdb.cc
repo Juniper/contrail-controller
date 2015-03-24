@@ -6,16 +6,22 @@ extern "C" {
 #include <ovsdb_wrapper.h>
 };
 #include <ovs_tor_agent/tor_agent_init.h>
+#include <ovs_tor_agent/tor_agent_param.h>
 #include <ovsdb_client.h>
 #include <ovsdb_client_idl.h>
 #include <ovsdb_client_session.h>
 #include <physical_switch_ovsdb.h>
 #include <logical_switch_ovsdb.h>
 #include <physical_locator_ovsdb.h>
+#include <vn_ovsdb.h>
+#include <ovsdb_route_peer.h>
 
 #include <oper/vn.h>
 #include <oper/physical_device.h>
 #include <oper/physical_device_vn.h>
+#include <oper/agent_route.h>
+#include <oper/bridge_route.h>
+#include <oper/vrf.h>
 #include <ovsdb_types.h>
 
 using OVSDB::LogicalSwitchEntry;
@@ -24,6 +30,8 @@ using OVSDB::OvsdbDBEntry;
 using OVSDB::OvsdbDBObject;
 using OVSDB::OvsdbClient;
 using OVSDB::OvsdbClientSession;
+using OVSDB::VnOvsdbObject;
+using OVSDB::VnOvsdbEntry;
 
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
         const std::string &name) : OvsdbDBEntry(table), name_(name),
@@ -37,6 +45,7 @@ LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
         mcast_remote_row_(NULL), old_mcast_remote_row_(NULL) {
     vxlan_id_ = entry->vxlan_id();
     device_name_ = entry->device()->name();
+    vn_uuid_ = entry->vn_uuid();
 }
 
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
@@ -46,6 +55,7 @@ LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
     name_ = entry->name_;
     vxlan_id_ = entry->vxlan_id_;;
     device_name_ = entry->device_name_;
+    vn_uuid_ = entry->vn_uuid_;
 }
 
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
@@ -53,7 +63,11 @@ LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
         name_(ovsdb_wrapper_logical_switch_name(entry)), device_name_(""),
         vxlan_id_(ovsdb_wrapper_logical_switch_tunnel_key(entry)),
         mcast_local_row_(NULL), mcast_remote_row_(NULL),
-        old_mcast_remote_row_(NULL) {
+        old_mcast_remote_row_(NULL), vn_uuid_() {
+}
+
+const VrfEntry *LogicalSwitchEntry::vrf_entry() {
+    return vrf_.get();
 }
 
 Ip4Address &LogicalSwitchEntry::physical_switch_tunnel_ip() {
@@ -66,6 +80,12 @@ void LogicalSwitchEntry::AddMsg(struct ovsdb_idl_txn *txn) {
     PhysicalSwitchTable *p_table = table_->client_idl()->physical_switch_table();
     PhysicalSwitchEntry key(p_table, device_name_.c_str());
     physical_switch_ = p_table->GetReference(&key);
+
+    VnOvsdbObject *vn_object = table_->client_idl()->vn_ovsdb();
+    VnOvsdbEntry vn_key(vn_object, vn_uuid_);
+    VnOvsdbEntry *vn_ovsdb = static_cast<VnOvsdbEntry*>(vn_object->GetReference(&vn_key));
+    vrf_ = vn_ovsdb->vrf();
+
     struct ovsdb_idl_row *row =
         ovsdb_wrapper_add_logical_switch(txn, ovs_entry_, name_.c_str(),
                 vxlan_id_);
@@ -90,6 +110,31 @@ void LogicalSwitchEntry::AddMsg(struct ovsdb_idl_txn *txn) {
     if (old_mcast_remote_row_ != NULL) {
         ovsdb_wrapper_delete_mcast_mac_remote(old_mcast_remote_row_);
     }
+
+    //Add Multicast route with OVS peer
+    BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
+        (vrf_entry()->GetBridgeRouteTable());
+    const OvsPeer *ovs_peer = table_->client_idl()->route_peer();
+    table->AddOvsPeerMulticastRoute((Peer *)ovs_peer,
+                                    vxlan_id_, table_->client_idl()->tsn_ip(),
+                                    ovs_peer->peer_ip().to_v4());
+    /*
+    const Agent *agent = table->agent();
+    TorAgentInit *init =
+        static_cast<TorAgentInit *>(agent->agent_init());
+    if (init) {
+        TorAgentParam *param = static_cast<TorAgentParam *>(init->agent_param());
+        table->AddOvsPeerMulticastRoute((Peer *)table_->client_idl()->route_peer(),
+                                        vxlan_id_, table_->client_idl()->tsn_ip(),
+                                        param->tor_ip());
+    } else {
+        //This is hit only for UT.
+        table->AddOvsPeerMulticastRoute((Peer *)table_->client_idl()->route_peer(),
+                                        vxlan_id_, table_->client_idl()->tsn_ip(),
+                                        Ip4Address());
+    }
+    */
+
     SendTrace(LogicalSwitchEntry::ADD_REQ);
 }
 
@@ -98,6 +143,15 @@ void LogicalSwitchEntry::ChangeMsg(struct ovsdb_idl_txn *txn) {
 }
 
 void LogicalSwitchEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
+    //Delete Multicast route
+    const VrfEntry *vrf = vrf_entry();
+    if (vrf) {
+        BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
+            (vrf_entry()->GetBridgeRouteTable());
+        table->DeleteOvsPeerMulticastRoute((Peer *)table_->client_idl()->route_peer(),
+                                           vxlan_id_);
+    }
+
     physical_switch_ = NULL;
     if (mcast_local_row_ != NULL) {
         ovsdb_wrapper_delete_mcast_mac_local(mcast_local_row_);
@@ -148,6 +202,10 @@ bool LogicalSwitchEntry::Sync(DBEntry *db_entry) {
         device_name_ = entry->device()->name();
         change = true;
     }
+    if (vn_uuid_ != entry->vn_uuid()) {
+        vn_uuid_ = entry->vn_uuid();
+        change = true;
+    }
     return change;
 }
 
@@ -165,6 +223,16 @@ KSyncEntry *LogicalSwitchEntry::UnresolvedReference() {
     if (!p_switch->IsResolved()) {
         return p_switch;
     }
+
+    //Dependant on VN for VRF.
+    VnOvsdbObject *vn_object = table_->client_idl()->vn_ovsdb();
+    VnOvsdbEntry vn_key(vn_object, vn_uuid_);
+    VnOvsdbEntry *vn_entry =
+        static_cast<VnOvsdbEntry *>(vn_object->GetReference(&vn_key));
+    if (!vn_entry->IsResolved()) {
+        return vn_entry;
+    }
+
     return NULL;
 }
 

@@ -21,6 +21,7 @@
 #define EVPN_PEER_NAME "EVPN"
 #define MULTICAST_PEER_NAME "Multicast"
 #define MULTICAST_TOR_PEER_NAME "Multicast TOR"
+#define MULTICAST_OVS_PEER_NAME "Multicast OVS"
 #define MULTICAST_FABRIC_TREE_BUILDER_NAME "MulticastTreeBuilder"
 #define MAC_VM_BINDING_PEER_NAME "MacVmBindingPeer"
 

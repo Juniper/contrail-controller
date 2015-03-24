@@ -40,6 +40,7 @@ public:
     bool IsLess(const KSyncEntry&) const;
     std::string ToString() const {return "Virtual Network Ksync";}
     KSyncEntry* UnresolvedReference();
+    const VrfEntry *vrf() const {return vrf_.get();}
 
     VrfEntry *vrf();
     uint32_t vxlan_id() { return vxlan_id_; }

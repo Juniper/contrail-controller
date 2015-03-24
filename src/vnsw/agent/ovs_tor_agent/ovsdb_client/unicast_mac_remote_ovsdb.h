@@ -96,6 +96,7 @@ private:
     std::string logical_switch_name_;
     std::string dest_ip_;
     bool self_exported_route_;
+    bool is_multicast_;
     KSyncEntryPtr logical_switch_;
     OvsdbDupIdlList dup_list_;
     DISALLOW_COPY_AND_ASSIGN(UnicastMacRemoteEntry);

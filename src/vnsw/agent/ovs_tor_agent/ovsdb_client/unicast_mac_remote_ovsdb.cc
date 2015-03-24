@@ -31,7 +31,7 @@ using OVSDB::OvsdbClientSession;
 UnicastMacRemoteEntry::UnicastMacRemoteEntry(UnicastMacRemoteTable *table,
         const std::string mac) : OvsdbDBEntry(table), mac_(mac),
     logical_switch_name_(table->logical_switch_name()),
-    self_exported_route_(false) {
+    self_exported_route_(false), is_multicast_(false) {
 }
 
 UnicastMacRemoteEntry::UnicastMacRemoteEntry(UnicastMacRemoteTable *table,
@@ -84,7 +84,7 @@ void UnicastMacRemoteEntry::PreAddChange() {
     LogicalSwitchEntry *logical_switch =
         static_cast<LogicalSwitchEntry *>(l_table->GetReference(&key));
 
-    if (self_exported_route_ ||
+    if (self_exported_route_ || is_multicast_ ||
             dest_ip == logical_switch->physical_switch_tunnel_ip()) {
         // if the route is self exported or if dest tunnel end-point points to
         // the physical switch itself then donot export this route to OVSDB
@@ -155,6 +155,7 @@ bool UnicastMacRemoteEntry::Sync(DBEntry *db_entry) {
         static_cast<const BridgeRouteEntry *>(db_entry);
     std::string dest_ip;
     const NextHop *nh = entry->GetActiveNextHop();
+
     /* 
      * TOR Agent will not have any local VM so only tunnel nexthops
      * are to be looked into
@@ -190,6 +191,14 @@ bool UnicastMacRemoteEntry::Sync(DBEntry *db_entry) {
         self_exported_route_ = self_exported_route;
         change = true;
     }
+
+    //Check if this is a multicast route with ovs_peer
+    bool is_multicast = entry->is_multicast();
+    if (is_multicast_ != is_multicast) {
+        is_multicast_ = is_multicast;
+        change = true;
+    }
+
     return change;
 }
 

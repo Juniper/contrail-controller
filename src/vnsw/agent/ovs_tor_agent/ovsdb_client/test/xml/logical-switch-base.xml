@@ -59,6 +59,10 @@
         <ovs-uc-remote name="uc-1" uuid="1" vn-uuid="1" mac="00:11:22:33:44:55"/>
     </validate>
 
+    <validate name="validate-mc-remote-1">
+        <ovs-uc-remote name="mc-1" uuid="1" vn-uuid="1" mac="ff:ff:ff:ff:ff:ff"/>
+    </validate>
+
     <fdb name="fdb-1" uuid="1" mac="00:11:22:33:44:55" vn="vn-1" vrf="vrf1" vxlan_id="100" del="1"/>
 
     <validate name="validate-uc-remote-1">
@@ -82,7 +86,7 @@
     <physical-interface uuid="1" name="ge-0/0/0" device="test-router"  del="1"/>
     <logical-interface uuid="1" name="l-ge-0/0/0" port="p-ge-0/0/0" vmi="tap1" del="1"/>
 
-    <validate name="validate-logical-switch-1">
+    <validate name="validate-logical-switch-2">
         <ovs-logical-switch name="ls-1" uuid="1" device="1" vn="1" vxlan-id="100" present="no"/>
     </validate>
 
