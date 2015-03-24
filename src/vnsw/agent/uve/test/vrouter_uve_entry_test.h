@@ -44,6 +44,7 @@ public:
     void DispatchVrouterMsg(const VrouterAgent &uve);
     void DispatchVrouterStatsMsg(const VrouterStatsAgent &uve);
     void DispatchComputeCpuStateMsg(const ComputeCpuState &ccs);
+    void WaitForWalkCompletion();
 private:
     bool first_uve_dispatched_;
     uint32_t vrouter_msg_count_;
