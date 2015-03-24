@@ -24,48 +24,58 @@ using namespace std;
 
 VrouterUveEntryBase::VrouterUveEntryBase(Agent *agent)
     : agent_(agent), phy_intf_set_(), prev_stats_(), cpu_stats_count_(0),
+      do_vn_walk_(false), do_vm_walk_(false), do_interface_walk_(false),
+      vn_walk_id_(DBTableWalker::kInvalidWalkerId),
+      vm_walk_id_(DBTableWalker::kInvalidWalkerId),
+      interface_walk_id_(DBTableWalker::kInvalidWalkerId),
       vn_listener_id_(DBTableBase::kInvalidId),
       vm_listener_id_(DBTableBase::kInvalidId),
-      intf_listener_id_(DBTableBase::kInvalidId), prev_vrouter_(),
-      do_vn_walk_(false), do_vm_walk_(false), do_interface_walk_(false),
-      timer_(NULL), vn_walk_id_(DBTableWalker::kInvalidWalkerId),
-      vm_walk_id_(DBTableWalker::kInvalidWalkerId),
-      interface_walk_id_(DBTableWalker::kInvalidWalkerId) {
-    if (agent_->tsn_enabled() || agent_->tor_agent_enabled()) {
-        timer_ = TimerManager::CreateTimer(
-                    *(agent_->event_manager())->io_service(), "UveDBWalkTimer",
-                    TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0);
-        timer_->Start(kDBWalkInterval,
-                  boost::bind(&VrouterUveEntryBase::TimerExpiry, this));
-    }
+      intf_listener_id_(DBTableBase::kInvalidId),
+      prev_vrouter_(),
+      timer_(TimerManager::CreateTimer(
+                 *(agent_->event_manager())->io_service(), "UveDBWalkTimer",
+                 TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0)) {
+    StartTimer();
 }
 
 VrouterUveEntryBase::~VrouterUveEntryBase() {
 }
 
+void VrouterUveEntryBase::StartTimer() {
+    timer_->Cancel();
+    timer_->Start(AgentUveBase::kDefaultInterval,
+                  boost::bind(&VrouterUveEntryBase::TimerExpiry, this));
+}
+
 bool VrouterUveEntryBase::TimerExpiry() {
-    Run();
-    /* Return true to request auto-restart of timer */
-    return true;
+    bool restart = Run();
+    return restart;
 }
 
 bool VrouterUveEntryBase::Run() {
-    if (do_vn_walk_ && vn_walk_id_ == DBTableWalker::kInvalidWalkerId) {
-        do_vn_walk_ = false;
-        StartVnWalk();
-    }
+    /* We don't do vn, vm and interface walks simultaneously to avoid creation
+     * of multiple threads (caused by start of walks). After all the walks are
+     * done we re-start the timer */
+    StartVnWalk();
 
-    if (do_vm_walk_ && vm_walk_id_ == DBTableWalker::kInvalidWalkerId) {
-        do_vm_walk_ = false;
+    /* If VN walk is not started or not already going on start VM walk */
+    if (vn_walk_id_ == DBTableWalker::kInvalidWalkerId) {
         StartVmWalk();
+
+        /* If neither VN nor VM walks have started/going-on, start
+         * interface walk */
+        if (vm_walk_id_ == DBTableWalker::kInvalidWalkerId) {
+            StartInterfaceWalk();
+
+            /* If none of the walks are going on, return true to trigger
+             * auto restart of timer */
+            if (interface_walk_id_ == DBTableWalker::kInvalidWalkerId) {
+                return true;
+            }
+        }
     }
 
-    if (do_interface_walk_ &&
-        interface_walk_id_ == DBTableWalker::kInvalidWalkerId) {
-        do_interface_walk_ = false;
-        StartInterfaceWalk();
-    }
-    return true;
+    return false;
 }
 
 void VrouterUveEntryBase::RegisterDBClients() {
@@ -118,6 +128,14 @@ void VrouterUveEntryBase::VmWalkDone(DBTableBase *base, StringVectorPtr list) {
     vrouter_agent.set_virtual_machine_list(*(list.get()));
     DispatchVrouterMsg(vrouter_agent);
     vm_walk_id_ = DBTableWalker::kInvalidWalkerId;
+
+    /* Start Interface Walk after we are done with Vm Walk */
+    StartInterfaceWalk();
+
+    /* If interface walk has not started/going-on, restart the timer */
+    if (interface_walk_id_ == DBTableWalker::kInvalidWalkerId) {
+        StartTimer();
+    }
 }
 
 bool VrouterUveEntryBase::AppendVm(DBTablePartBase *part, DBEntryBase *entry,
@@ -133,19 +151,21 @@ bool VrouterUveEntryBase::AppendVm(DBTablePartBase *part, DBEntryBase *entry,
 }
 
 void VrouterUveEntryBase::StartVmWalk() {
+    if (!do_vm_walk_) {
+        /* There is no change in VM list. No need of walk */
+        return;
+    }
+    if (vm_walk_id_ != DBTableWalker::kInvalidWalkerId) {
+        /* A walk is already in progress. */
+        return;
+    }
+
     StringVectorPtr list(new vector<string>());
     DBTableWalker *walker = agent_->db()->GetWalker();
     vm_walk_id_ = walker->WalkTable(agent_->vm_table(), NULL,
         boost::bind(&VrouterUveEntryBase::AppendVm, this, _1, _2, list),
         boost::bind(&VrouterUveEntryBase::VmWalkDone, this, _1, list));
-}
-
-void VrouterUveEntryBase::VmNotifyHandler() {
-    if (timer_) {
-        do_vm_walk_ = true;
-    } else {
-        StartVmWalk();
-    }
+    do_vm_walk_ = false;
 }
 
 void VrouterUveEntryBase::VmNotify(DBTablePartBase *partition, DBEntryBase *e) {
@@ -154,7 +174,7 @@ void VrouterUveEntryBase::VmNotify(DBTablePartBase *partition, DBEntryBase *e) {
 
     if (e->IsDeleted()) {
         if (state) {
-            VmNotifyHandler();
+            do_vm_walk_ = true;
             e->ClearState(partition->parent(), vm_listener_id_);
             delete state;
         }
@@ -165,7 +185,7 @@ void VrouterUveEntryBase::VmNotify(DBTablePartBase *partition, DBEntryBase *e) {
         state = new DBState();
         e->SetState(partition->parent(), vm_listener_id_, state);
         //Send vrouter object only for a add/delete
-        VmNotifyHandler();
+        do_vm_walk_ = true;
     }
 }
 
@@ -175,6 +195,19 @@ void VrouterUveEntryBase::VnWalkDone(DBTableBase *base, StringVectorPtr list) {
     vrouter_agent.set_connected_networks(*(list.get()));
     DispatchVrouterMsg(vrouter_agent);
     vn_walk_id_ = DBTableWalker::kInvalidWalkerId;
+
+    /* Start Vm Walk after we are done with Vn Walk */
+    StartVmWalk();
+
+    /* If VM walk has not started/going-on, start interface walk */
+    if (vm_walk_id_ == DBTableWalker::kInvalidWalkerId) {
+        StartInterfaceWalk();
+
+        /* If interface walk has not started/going-on, restart the timer */
+        if (interface_walk_id_ == DBTableWalker::kInvalidWalkerId) {
+            StartTimer();
+        }
+    }
 }
 
 bool VrouterUveEntryBase::AppendVn(DBTablePartBase *part, DBEntryBase *entry,
@@ -188,19 +221,20 @@ bool VrouterUveEntryBase::AppendVn(DBTablePartBase *part, DBEntryBase *entry,
 }
 
 void VrouterUveEntryBase::StartVnWalk() {
+    if (!do_vn_walk_) {
+        /* There is no change in VM list. No need of walk */
+        return;
+    }
+    if (vn_walk_id_ != DBTableWalker::kInvalidWalkerId) {
+        /* A walk is already in progress. */
+        return;
+    }
     StringVectorPtr list(new vector<string>());
     DBTableWalker *walker = agent_->db()->GetWalker();
     vn_walk_id_ = walker->WalkTable(agent_->vn_table(), NULL,
              boost::bind(&VrouterUveEntryBase::AppendVn, this, _1, _2, list),
              boost::bind(&VrouterUveEntryBase::VnWalkDone, this, _1, list));
-}
-
-void VrouterUveEntryBase::VnNotifyHandler() {
-    if (timer_) {
-        do_vn_walk_ = true;
-    } else {
-        StartVnWalk();
-    }
+    do_vn_walk_ = false;
 }
 
 void VrouterUveEntryBase::VnNotify(DBTablePartBase *partition, DBEntryBase *e) {
@@ -209,7 +243,7 @@ void VrouterUveEntryBase::VnNotify(DBTablePartBase *partition, DBEntryBase *e) {
 
     if (e->IsDeleted()) {
         if (state) {
-            VnNotifyHandler();
+            do_vn_walk_ = true;
             e->ClearState(partition->parent(), vn_listener_id_);
             delete state;
         }
@@ -219,7 +253,7 @@ void VrouterUveEntryBase::VnNotify(DBTablePartBase *partition, DBEntryBase *e) {
     if (!state) {
         state = new DBState();
         e->SetState(partition->parent(), vn_listener_id_, state);
-        VnNotifyHandler();
+        do_vn_walk_ = true;
     }
 }
 
@@ -238,6 +272,9 @@ void VrouterUveEntryBase::InterfaceWalkDone(DBTableBase *base,
                                             nova_if_list.get()->size()));
     DispatchVrouterMsg(vrouter_agent);
     interface_walk_id_ = DBTableWalker::kInvalidWalkerId;
+
+    /* Restart the timer after we are done with the walk */
+    StartTimer();
 }
 
 bool VrouterUveEntryBase::AppendInterface(DBTablePartBase *part,
@@ -264,6 +301,14 @@ bool VrouterUveEntryBase::AppendInterface(DBTablePartBase *part,
 }
 
 void VrouterUveEntryBase::StartInterfaceWalk() {
+    if (!do_interface_walk_) {
+        /* There is no change in interface list. No need of walk */
+        return;
+    }
+    if (interface_walk_id_ != DBTableWalker::kInvalidWalkerId) {
+        /* A walk is already in progress. */
+        return;
+    }
     StringVectorPtr intf_list(new std::vector<std::string>());
     StringVectorPtr err_if_list(new std::vector<std::string>());
     StringVectorPtr nova_if_list(new std::vector<std::string>());
@@ -274,14 +319,7 @@ void VrouterUveEntryBase::StartInterfaceWalk() {
                     intf_list, err_if_list, nova_if_list),
         boost::bind(&VrouterUveEntryBase::InterfaceWalkDone, this, _1, intf_list,
                     err_if_list, nova_if_list));
-}
-
-void VrouterUveEntryBase::InterfaceNotifyHandler() {
-    if (timer_) {
-        do_interface_walk_ = true;
-    } else {
-        StartInterfaceWalk();
-    }
+    do_interface_walk_ = false;
 }
 
 void VrouterUveEntryBase::InterfaceNotify(DBTablePartBase *partition,
@@ -301,19 +339,19 @@ void VrouterUveEntryBase::InterfaceNotify(DBTablePartBase *partition,
             set_state = true;
             vmport_ipv4_active = vm_port->ipv4_active();
             vmport_l2_active = vm_port->l2_active();
-            InterfaceNotifyHandler();
+            do_interface_walk_ = true;
         } else if (e->IsDeleted()) {
             if (state) {
                 reset_state = true;
-                InterfaceNotifyHandler();
+                do_interface_walk_ = true;
             }
         } else {
             if (state && vm_port->ipv4_active() != state->vmport_ipv4_active_) {
-                InterfaceNotifyHandler();
+                do_interface_walk_ = true;
                 state->vmport_ipv4_active_ = vm_port->ipv4_active();
             }
             if (state && vm_port->l2_active() != state->vmport_l2_active_) {
-                InterfaceNotifyHandler();
+                do_interface_walk_ = true;
                 state->vmport_l2_active_ = vm_port->l2_active();
             }
         }
