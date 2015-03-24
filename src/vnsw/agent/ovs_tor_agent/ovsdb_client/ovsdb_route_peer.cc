@@ -82,6 +82,22 @@ void OvsPeer::DeleteOvsRoute(VrfEntry *vrf, uint32_t vxlan_id,
     return;
 }
 
+void OvsPeer::AddOvsPeerMulticastRoute(const VrfEntry *vrf,
+                                       uint32_t vxlan_id,
+                                       const Ip4Address &tsn_ip,
+                                       const Ip4Address &tor_ip) {
+    BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
+        (vrf->GetBridgeRouteTable());
+    table->AddOvsPeerMulticastRoute(this, vxlan_id, tsn_ip, tor_ip);
+}
+
+void OvsPeer::DeleteOvsPeerMulticastRoute(const VrfEntry *vrf,
+                                          uint32_t vxlan_id) {
+    BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
+        (vrf->GetBridgeRouteTable());
+    table->DeleteOvsPeerMulticastRoute(this, vxlan_id);
+}
+
 const Ip4Address *OvsPeer::NexthopIp(Agent *agent,
                                      const AgentPath *path) const {
     const TunnelNH *nh = dynamic_cast<const TunnelNH *>(path->

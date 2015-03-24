@@ -99,6 +99,7 @@ public:
     uint32_t GetNHCount(Ip4Address ip, uint8_t plen) ;
     void UpdateLabel(Ip4Address ip, uint8_t plen, uint32_t label);
     uint32_t GetLabel(Ip4Address ip, uint8_t plen);
+    uint32_t vxlan_id() const {return vxlan_id_;}
     std::vector<ComponentNHData>* GetNHList(Ip4Address ip, uint8_t plen);
     bool FindNH(const Ip4Address &ip, uint8_t plen,
                 const ComponentNHData &nh_data);

@@ -34,6 +34,7 @@ private:
 class LogicalSwitchEntry : public OvsdbDBEntry {
 public:
     typedef std::set<struct ovsdb_idl_row *> UcastLocalRouteList;
+    typedef std::set<struct ovsdb_idl_row *> McastLocalRouteList;
     enum Trace {
         ADD_REQ,
         DEL_REQ,
@@ -70,10 +71,10 @@ private:
     std::string device_name_;
     KSyncEntryPtr physical_switch_;
     int64_t vxlan_id_;
-    struct ovsdb_idl_row *mcast_local_row_;
     struct ovsdb_idl_row *mcast_remote_row_;
     struct ovsdb_idl_row *old_mcast_remote_row_;
     UcastLocalRouteList ucast_local_row_list_;
+    McastLocalRouteList mcast_local_row_list_;
     DISALLOW_COPY_AND_ASSIGN(LogicalSwitchEntry);
 };
 };

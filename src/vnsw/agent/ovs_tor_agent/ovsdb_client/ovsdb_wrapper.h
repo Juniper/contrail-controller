@@ -100,6 +100,7 @@ char *
 ovsdb_wrapper_mcast_mac_local_logical_switch(struct ovsdb_idl_row *row);
 struct ovsdb_idl_row *
 ovsdb_wrapper_mcast_mac_local_physical_locator_set(struct ovsdb_idl_row *row);
+char *ovsdb_wrapper_mcast_mac_remote_dst_ip(struct ovsdb_idl_row *row);
 
 /* multicast mac remote */
 void ovsdb_wrapper_add_mcast_mac_remote(struct ovsdb_idl_txn *txn,

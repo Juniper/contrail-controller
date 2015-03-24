@@ -42,6 +42,7 @@ class PhysicalLocatorTable;
 class VlanPortBindingTable;
 class PhysicalLocatorTable;
 class UnicastMacLocalOvsdb;
+class MulticastMacLocalOvsdb;
 class VrfOvsdbObject;
 class VnOvsdbObject;
 class OvsdbEntryBase;
@@ -134,6 +135,7 @@ public:
     PhysicalLocatorTable *physical_locator_table();
     VlanPortBindingTable *vlan_port_table();
     UnicastMacLocalOvsdb *unicast_mac_local_ovsdb();
+    MulticastMacLocalOvsdb *multicast_mac_local_ovsdb();
     VrfOvsdbObject *vrf_ovsdb();
     VnOvsdbObject *vn_ovsdb();
 
@@ -171,6 +173,7 @@ private:
     std::auto_ptr<PhysicalLocatorTable> physical_locator_table_;
     std::auto_ptr<VlanPortBindingTable> vlan_port_table_;
     std::auto_ptr<UnicastMacLocalOvsdb> unicast_mac_local_ovsdb_;
+    std::auto_ptr<MulticastMacLocalOvsdb> multicast_mac_local_ovsdb_;
     std::auto_ptr<VrfOvsdbObject> vrf_ovsdb_;
     std::auto_ptr<VnOvsdbObject> vn_ovsdb_;
     DISALLOW_COPY_AND_ASSIGN(OvsdbClientIdl);
