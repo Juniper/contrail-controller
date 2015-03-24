@@ -42,31 +42,30 @@ class OpencontrailF5LoadbalancerDriver(
             'ha_mode': 'standalone',
             'use_snat': 'True',
             'num_snat': '1',
-            'icontrol_user': 'admin',
-            'icontrol_password': 'c0ntrail123',
+            'user': 'admin',
+            'password': 'c0ntrail123',
             'mx_name': None,
             'mx_ip': None,
             'mx_f5_interface': None,
             'f5_mx_interface': None,
         }
 
-        f5opts.update(dict(config_section.items("F5")))
+        f5opts.update(dict(config_section.items(self._name)))
         self.device_ip = f5opts.get('device_ip')
         self.global_routed_mode = f5opts.get('global_routed_mode')
         self.sync_mode = f5opts.get('sync_mode')
         self.ha_mode = f5opts.get('ha_mode')
         self.use_snat = f5opts.get('use_snat')
         self.num_snat = f5opts.get('num_snat')
-        self.icontrol_user = f5opts.get('icontrol_user')
-        self.icontrol_password = f5opts.get('icontrol_password')
+        self.icontrol_user = f5opts.get('user')
+        self.icontrol_password = f5opts.get('password')
         self.mx_f5_interface = f5opts.get('mx_f5_interface')
         self.f5_mx_interface = f5opts.get('f5_mx_interface')
         self.mx_name = f5opts.get('mx_name')
         self.mx_ip = f5opts.get('mx_ip')
-        if not self.mx_ip or not self.mx_f5_interface or not self.f5_mx_interface:
-            raise InvalidConfigError
 
-    def __init__(self, manager, api, db, args=None):
+    def __init__(self, name, manager, api, db, args=None):
+        self._name = name
         self._vlan_allocator = None
         self._api = api
         self._svc_mon = manager
@@ -75,13 +74,13 @@ class OpencontrailF5LoadbalancerDriver(
         self.fill_config_options(args.config_sections)
         self.connected = False
         self._init_connection()
-        self.mx_physical_router = self.create_physical_router(self.mx_name, self.mx_ip)
-        self.mx_physical_interface = self.create_ifd_on_mx(self.mx_f5_interface)
+        if not self.global_routed_mode:
+            self.mx_physical_router = self.create_physical_router(self.mx_name, self.mx_ip)
+            self.mx_physical_interface = self.create_ifd_on_mx(self.mx_f5_interface)
     # end  __init__
 
     def init_traffic_groups(self, bigip):
-        bigip.system.set_folder(folder='/Common')
-        self.__traffic_groups = bigip.cluster.mgmt_tg.get_list()
+        self.__traffic_groups = bigip.cluster.get_traffic_groups()
         if '/Common/traffic-group-local-only' in self.__traffic_groups:
             self.__traffic_groups.remove(
                             '/Common/traffic-group-local-only')

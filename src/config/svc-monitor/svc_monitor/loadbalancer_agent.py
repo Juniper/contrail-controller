@@ -2,7 +2,8 @@ from vnc_api.vnc_api import *
 
 from cfgm_common import importutils
 from cfgm_common import exceptions as vnc_exc
-from config_db import ServiceApplianceSetSM, LoadbalancerPoolSM, InstanceIpSM, VirtualMachineInterfaceSM
+from config_db import ServiceApplianceSM, ServiceApplianceSetSM, \
+                     LoadbalancerPoolSM, InstanceIpSM, VirtualMachineInterfaceSM
 from db import LBDB
 
 class LoadbalancerAgent(object):
@@ -12,6 +13,7 @@ class LoadbalancerAgent(object):
         self._vnc_lib = vnc_lib
         self._svc_mon = svc_mon
         self._pool_driver = {}
+        self._args = config_section
         self._loadbalancer_driver = {}
         # create default service appliance set
         self._create_default_service_appliance_set("opencontrail", 
@@ -41,7 +43,22 @@ class LoadbalancerAgent(object):
     def load_drivers(self):
         for sas in ServiceApplianceSetSM.values():
             if sas.driver:
-                self._loadbalancer_driver[sas.name] = importutils.import_object(sas.driver, self._svc_mon, self._vnc_lib, self.lb_db)
+                config = self._args.config_sections
+                config.add_section(sas.name)
+                for kvp in sas.kvpairs or []:
+                    config.set(sas.name, kvp['key'], kvp['value'])
+                if sas.ha_mode:
+                    config.set(sas.name, 'ha_mode', str(sas.ha_mode))
+                for sa in sas.service_appliances or []:
+                    saobj = ServiceApplianceSM.get(sa)
+                    config.set(sas.name, 'device_ip', saobj.ip_address)
+                    config.set(sas.name, 'user',
+                               saobj.user_credential['username'])
+                    config.set(sas.name, 'password',
+                               saobj.user_credential['password'])
+                self._loadbalancer_driver[sas.name] = \
+                       importutils.import_object(sas.driver, sas.name,
+                           self._svc_mon, self._vnc_lib, self.lb_db, self._args)
     # end load_drivers
 
     def audit_lb_pools(self):
@@ -57,7 +74,21 @@ class LoadbalancerAgent(object):
         if sas.name in self._loadbalancer_driver:
             return
         if sas.driver:
-            self._loadbalancer_driver[sas.name] = importutils.import_object(sas.driver, self._svc_mon, self._vnc_lib)
+            config = self._args.config_sections
+            config.add_section(sas.name)
+            for kvp in sas.kvpairs or []:
+                config.set(sas.name, kvp['key'], kvp['value'])
+            if sas.ha_mode:
+                config.set(sas.name, 'ha_mode', sas.ha_mode)
+            for sa in sas.service_appliances or []:
+                saobj = ServiceApplianceSet.get(sa)
+                config.set(sas.name, 'device_ip', saobj.ip_address)
+                config.set(sas.name, 'user', saobj.user_credential['username'])
+                config.set(sas.name, 'password',
+                           saobj.user_credential['password'])
+            self._loadbalancer_driver[sas.name] = \
+                       importutils.import_object(sas.driver, sas.name,
+                          self._svc_mon, self._vnc_lib, self.lb_db, self._args)
     # end load_driver
 
     def unload_driver(self, sas):
