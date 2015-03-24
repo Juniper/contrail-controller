@@ -33,10 +33,6 @@ READ = 2
 UPDATE = 3
 DELETE = 4
 
-IP_PROTOCOL_MAP = {constants.PROTO_NUM_TCP: constants.PROTO_NAME_TCP,
-                   constants.PROTO_NUM_UDP: constants.PROTO_NAME_UDP,
-                   constants.PROTO_NUM_ICMP: constants.PROTO_NAME_ICMP}
-
 # SNAT defines
 SNAT_SERVICE_TEMPLATE_FQ_NAME = ['default-domain', 'netns-snat-template']
 _IFACE_ROUTE_TABLE_NAME_PREFIX = 'NEUTRON_IFACE_RT'
@@ -1132,6 +1128,14 @@ class DBInterface(object):
 
             if not sgr_q['protocol']:
                 sgr_q['protocol'] = 'any'
+            else:
+                protos = [constants.PROTO_NAME_TCP, str(constants.PROTO_NUM_TCP),
+                          constants.PROTO_NAME_UDP, str(constants.PROTO_NUM_UDP),
+                          constants.PROTO_NAME_ICMP, str(constants.PROTO_NUM_ICMP)]
+                if sgr_q['protocol'] not in protos:
+                    self._raise_contrail_exception(
+                        'SecurityGroupRuleInvalidProtocol',
+                        protocol=sgr_q['protocol'], values=protos)
 
             if not sgr_q['remote_ip_prefix'] and not sgr_q['remote_group_id']:
                 if not sgr_q['ethertype']:
@@ -3807,28 +3811,6 @@ class DBInterface(object):
         return ret_list
     #end security_group_list
 
-    def _convert_protocol(self, value):
-        if value is None:
-            return
-        try:
-            val = int(value)
-            #TODO(ethuleau): support all protocol numbers
-            if val >= 0 and val <= 255 and IP_PROTOCOL_MAP.has_key(val):
-                return IP_PROTOCOL_MAP[val]
-            self._raise_contrail_exception(
-                'SecurityGroupRuleInvalidProtocol',
-                protocol=value, values=IP_PROTOCOL_MAP.values())
-        except (ValueError, TypeError):
-            if value.lower() in IP_PROTOCOL_MAP.values():
-                return value.lower()
-            self._raise_contrail_exception(
-                'SecurityGroupRuleInvalidProtocol',
-                protocol=value, values=IP_PROTOCOL_MAP.values())
-        except AttributeError:
-            self._raise_contrail_exception(
-                'SecurityGroupRuleInvalidProtocol',
-                protocol=value, values=IP_PROTOCOL_MAP.values())
-
     def _validate_port_range(self, rule):
         """Check that port_range is valid."""
         if (rule['port_range_min'] is None and
@@ -3837,13 +3819,17 @@ class DBInterface(object):
         if not rule['protocol']:
             self._raise_contrail_exception(
                 'SecurityGroupProtocolRequiredWithPorts')
-        if rule['protocol'] in [constants.PROTO_NAME_TCP, constants.PROTO_NAME_UDP]:
+        if rule['protocol'] in [constants.PROTO_NAME_TCP,
+                                constants.PROTO_NAME_UDP,
+                                str(constants.PROTO_NUM_TCP),
+                                str(constants.PROTO_NUM_UDP)]:
             if (rule['port_range_min'] is not None and
                 rule['port_range_min'] <= rule['port_range_max']):
                 pass
             else:
                 self._raise_contrail_exception('SecurityGroupInvalidPortRange')
-        elif rule['protocol'] == constants.PROTO_NAME_ICMP:
+        elif rule['protocol'] in [constants.PROTO_NAME_ICMP,
+                                  str(constants.PROTO_NUM_ICMP)]:
             for attr, field in [('port_range_min', 'type'),
                                 ('port_range_max', 'code')]:
                 if rule[attr] > 255:
@@ -3856,7 +3842,6 @@ class DBInterface(object):
                                                value=rule['port_range_max'])
 
     def security_group_rule_create(self, sgr_q):
-        sgr_q['protocol'] = self._convert_protocol(sgr_q['protocol'])
         self._validate_port_range(sgr_q)
         sg_id = sgr_q['security_group_id']
         sg_rule = self._security_group_rule_neutron_to_vnc(sgr_q, CREATE)
