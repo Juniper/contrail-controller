@@ -1,8 +1,8 @@
 
 from  opserver.plugins.alarm_base import AlarmBase
 
-class BgpConnectivity(AlarmBase):
-    """Not enough BGP peers are up in BgpRouterState.num_up_bgp_peer"""
+class XmppConnectivity(AlarmBase):
+    """Not enough XMPP peers are up in BgpRouterState.num_up_bgp_peer"""
 
     def __call__(self, uve_key, uve_data):
         err_list = []
@@ -11,7 +11,7 @@ class BgpConnectivity(AlarmBase):
         
         ust = uve_data["BgpRouterState"]
 
-        l,r = ("num_up_bgp_peer","num_bgp_peer")
+        l,r = ("num_up_xmpp_peer","num_xmpp_peer")
         cm = True
         if not ust.has_key(l):
             err_list.append(("BgpRouterState.%s != None" % l,"None"))

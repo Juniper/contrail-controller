@@ -64,6 +64,7 @@ from sandesh.analytics_database.ttypes import *
 from sandesh.analytics_database.constants import PurgeStatusString
 from overlay_to_underlay_mapper import OverlayToUnderlayMapper, \
      OverlayToUnderlayMapperError
+from stevedore import hook
 
 _ERRORS = {
     errno.EBADMSG: 400,
@@ -422,6 +423,8 @@ class OpServer(object):
                 '/analytics/alarms/' + uve + '/<name>', 'GET', obj.alarm_http_get)
             bottle.route(
                 '/analytics/alarms/' + uve, 'POST', obj.alarm_http_post)
+            bottle.route(
+                '/analytics/alarms/' + uve +'s/types', 'GET', obj.alarm_http_types)
 
         return obj
     # end __new__
@@ -542,6 +545,21 @@ class OpServer(object):
 
         self._VIRTUAL_TABLES = copy.deepcopy(_TABLES)
 
+        self._ALARM_TYPES = {}
+        for uk,uv in UVE_MAP.iteritems():
+            mgr = hook.HookManager(
+                namespace='contrail.analytics.alarms',
+                name=uv,
+                invoke_on_load=False,
+                invoke_args=()
+            )
+            self._ALARM_TYPES[uv] = {}
+            for extn in mgr[uv]:
+                self._logger.info('Loaded extensions for %s: %s,%s doc %s' % \
+                    (uv, extn.name, extn.entry_point_target, extn.obj.__doc__))
+                ty = extn.entry_point_target.rsplit(":",1)[1]
+                self._ALARM_TYPES[uv][ty]  = extn.obj.__doc__
+           
         for t in _OBJECT_TABLES:
             obj = query_table(
                 name=t, display_name=_OBJECT_TABLES[t].objtable_display_name,
@@ -683,6 +701,8 @@ class OpServer(object):
                 '/analytics/alarms/' + uve + '/<name>', 'GET', self.alarm_http_get)
             bottle.route(
                 '/analytics/alarms/' + uve, 'POST', self.alarm_http_post)
+            bottle.route(
+                '/analytics/alarms/' + uve +'s/types', 'GET', self.alarm_http_types)
     # end __init__
 
     def _parse_args(self, args_str=' '.join(sys.argv[1:])):
@@ -1430,6 +1450,29 @@ class OpServer(object):
         return self._uve_alarm_http_get(name, is_alarm=True)
     # end alarm_http_get
 
+    def alarm_http_types(self):
+        return self._uve_alarm_http_types()
+    # end alarm_http_get
+
+    def _uve_alarm_http_types(self):
+        # common handling for all resource get
+        (ok, result) = self._get_common(bottle.request)
+        if not ok:
+            (code, msg) = result
+            abort(code, msg)
+        arg_line = bottle.request.url.rsplit('/', 2)[1]
+        uve_type = arg_line[:-1]
+
+        ret = None
+        try:
+            uve_tbl = UVE_MAP[uve_type]
+            ret = self._ALARM_TYPES[uve_tbl] 
+        except Exception as e:
+            return {}
+        else:
+            bottle.response.set_header('Content-Type', 'application/json')
+            return json.dumps(ret)
+
     def _uve_alarm_list_http_get(self, is_alarm):
         # common handling for all resource get
         (ok, result) = self._get_common(bottle.request)
@@ -1507,10 +1550,14 @@ class OpServer(object):
         uve_or_alarm = 'alarms' if is_alarm else 'uves'
         base_url = bottle.request.urlparts.scheme + '://' + \
             bottle.request.urlparts.netloc + '/analytics/%s/' % (uve_or_alarm)
-        uvetype_links =\
-            [obj_to_dict(
-             LinkObject(uvetype + 's', base_url + uvetype + 's'))
-                for uvetype in UVE_MAP]
+        uvetype_links = []
+        for uvetype in UVE_MAP:
+            entry = obj_to_dict(LinkObject(uvetype + 's',
+                                base_url + uvetype + 's'))
+            if is_alarm:
+                entry['type'] = base_url + uvetype + 's/types'
+            uvetype_links.append(entry)
+            
         return json.dumps(uvetype_links)
     # end _uves_alarms_http_get
 
