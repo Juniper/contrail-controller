@@ -220,8 +220,12 @@ class UVEServer(object):
             uves[redis_uve[0] + ":" + str(redis_uve[1])] = gen_uves
         return uves
         
-    def get_uve(self, key, flat, sfilter=None, mfilter=None,
-                tfilter=None, multi=False, is_alarm=False):
+    def get_uve(self, key, flat, filters=None, multi=False, is_alarm=False):
+        filters = filters or {}
+        sfilter = filters.get('sfilt')
+        mfilter = filters.get('mfilt')
+        tfilter = filters.get('cfilt')
+        ackfilter = filters.get('ackfilt')
         state = {}
         state[key] = {}
         statdict = {}
@@ -268,15 +272,31 @@ class UVEServer(object):
                         if value[0] == '<':
                             snhdict = xmltodict.parse(value)
                             if snhdict[attr]['@type'] == 'list':
+                                sname = ParallelAggregator.get_list_name(
+                                        snhdict[attr])
                                 if snhdict[attr]['list']['@size'] == '0':
                                     continue
                                 elif snhdict[attr]['list']['@size'] == '1':
-                                    sname = ParallelAggregator.get_list_name(
-                                        snhdict[attr])
                                     if not isinstance(
                                         snhdict[attr]['list'][sname], list):
                                         snhdict[attr]['list'][sname] = [
                                             snhdict[attr]['list'][sname]]
+                                if typ == 'UVEAlarms' and attr == 'alarms' and \
+                                    ackfilter is not None:
+                                    alarms = []
+                                    for alarm in snhdict[attr]['list'][sname]:
+                                        ack_attr = alarm.get('ack')
+                                        if ack_attr:
+                                            ack = ack_attr['#text']
+                                        else:
+                                            ack = 'false'
+                                        if ack == ackfilter:
+                                            alarms.append(alarm)
+                                    if not len(alarms):
+                                        continue
+                                    snhdict[attr]['list'][sname] = alarms
+                                    snhdict[attr]['list']['@size'] = \
+                                        str(len(alarms))
                         else:
                             if not flat:
                                 continue
@@ -285,7 +305,6 @@ class UVEServer(object):
                             statdict[typ][attr] = []
                             statsattr = json.loads(value)
                             for elem in statsattr:
-                                #import pdb; pdb.set_trace()
                                 edict = {}
                                 if elem["rtype"] == "list":
                                     elist = redish.lrange(elem["href"], 0, -1)
@@ -391,32 +410,13 @@ class UVEServer(object):
         return re.compile(regex)
     # end get_uve_regex
 
-    def multi_uve_get(self, key, flat, kfilter, sfilter, mfilter,
-                      tfilter, is_alarm=False):
-        tbl_uve = key.split(':', 1)
-        table = tbl_uve[0]
-
+    def multi_uve_get(self, table, flat, filters=None, is_alarm=False):
         # get_uve_list cannot handle attribute names very efficiently,
         # so we don't pass them here
-        k1_filter = [tbl_uve[1]]
-        uve_list = self.get_uve_list(table, k1_filter, sfilter,
-                                     mfilter, tfilter, False, is_alarm)
-        if kfilter is not None:
-            patterns = set()
-            for filt in kfilter:
-                patterns.add(self.get_uve_regex(filt))
+        uve_list = self.get_uve_list(table, filters, False, is_alarm)
         for uve_name in uve_list:
-            if kfilter is not None:
-                kfilter_match = False
-                for pattern in patterns:
-                    if pattern.match(uve_name):
-                        kfilter_match = True
-                        break
-                if not kfilter_match:
-                    continue
             uve_val = self.get_uve(
-                table + ':' + uve_name, flat,
-                sfilter, mfilter, tfilter, True, is_alarm)
+                table + ':' + uve_name, flat, filters, True, is_alarm)
             if uve_val == {}:
                 continue
             else:
@@ -424,9 +424,11 @@ class UVEServer(object):
                 yield uve
     # end multi_uve_get
 
-    def get_uve_list(self, key, kfilter, sfilter,
-                     mfilter, tfilter, parse_afilter, is_alarm=False):
+    def get_uve_list(self, table, filters=None, parse_afilter=False,
+                     is_alarm=False):
+        filters = filters or {}
         uve_list = set()
+        kfilter = filters.get('kfilt')
         if kfilter is not None:
             patterns = set()
             for filt in kfilter:
@@ -437,9 +439,9 @@ class UVEServer(object):
                                        password=self._redis_password, db=1)
             try:
                 # For UVE queries, we wanna read both UVE and Alarm table
-                entries = redish.smembers('ALARM_TABLE:' + key)
+                entries = redish.smembers('ALARM_TABLE:' + table)
                 if not is_alarm:
-                    entries = entries.union(redish.smembers('TABLE:' + key))
+                    entries = entries.union(redish.smembers('TABLE:' + table))
                 for entry in entries:
                     info = (entry.split(':', 1)[1]).rsplit(':', 5)
                     uve_key = info[0]
@@ -452,21 +454,24 @@ class UVEServer(object):
                         if not kfilter_match:
                             continue
                     src = info[1]
+                    sfilter = filters.get('sfilt')
                     if sfilter is not None:
                         if sfilter != src:
                             continue
                     module = info[2]+':'+info[3]+':'+info[4]
+                    mfilter = filters.get('mfilt')
                     if mfilter is not None:
                         if mfilter != module:
                             continue
                     typ = info[5]
+                    tfilter = filters.get('cfilt')
                     if tfilter is not None:
                         if typ not in tfilter:
                             continue
                     if parse_afilter:
                         if tfilter is not None and len(tfilter[typ]):
-                            valkey = "VALUES:" + key + ":" + uve_key + ":" + \
-                                 src + ":" + module + ":" + typ
+                            valkey = "VALUES:" + table + ":" + uve_key + \
+                                ":" + src + ":" + module + ":" + typ
                             for afilter in tfilter[typ]:
                                 attrval = redish.hget(valkey, afilter)
                                 if attrval is not None:
