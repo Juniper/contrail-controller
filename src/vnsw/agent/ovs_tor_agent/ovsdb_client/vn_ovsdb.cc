@@ -8,6 +8,7 @@ extern "C" {
 
 #include <oper/vn.h>
 #include <oper/vrf.h>
+#include <oper/vxlan.h>
 #include <ovsdb_types.h>
 
 #include <unicast_mac_local_ovsdb.h>
@@ -18,7 +19,8 @@ using OVSDB::VnOvsdbEntry;
 using OVSDB::VnOvsdbObject;
 
 VnOvsdbEntry::VnOvsdbEntry(VnOvsdbObject *table,
-        const boost::uuids::uuid &uuid) : OvsdbDBEntry(table), uuid_(uuid) {
+        const boost::uuids::uuid &uuid) : OvsdbDBEntry(table), uuid_(uuid),
+        vxlan_id_(0), name_("") {
 }
 
 void VnOvsdbEntry::AddMsg(struct ovsdb_idl_txn *txn) {
@@ -27,6 +29,16 @@ void VnOvsdbEntry::AddMsg(struct ovsdb_idl_txn *txn) {
 }
 
 void VnOvsdbEntry::ChangeMsg(struct ovsdb_idl_txn *txn) {
+    UnicastMacLocalOvsdb *uc_obj =
+        table_->client_idl()->unicast_mac_local_ovsdb();
+    // Entries in Unicast Mac Local Table are dependent on vn/vrf
+    // and VxLAN ID on Change of this entry trigger Vrf re-eval for
+    // entries in Unicast Mac Local Table
+    uc_obj->VrfReEvalEnqueue(vrf_.get());
+
+    // Update VRF with the current value.
+    VnEntry *vn = static_cast<VnEntry *>(GetDBEntry());
+    vrf_ = vn->GetVrf();
 }
 
 void VnOvsdbEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
@@ -40,7 +52,26 @@ void VnOvsdbEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
 }
 
 bool VnOvsdbEntry::Sync(DBEntry *db_entry) {
-    return false;
+    VnEntry *vn = static_cast<VnEntry *>(db_entry);
+    uint32_t vxlan_id = vn->vxlan_id() ? vn->vxlan_id()->vxlan_id() : 0;
+    bool ret = false;
+
+    if (vrf_.get() != vn->GetVrf()) {
+        // Update Vrf After taking action on previous vrf in Add/Change
+        ret = true;
+    }
+
+    if (vxlan_id_ != vxlan_id) {
+        vxlan_id_ = vxlan_id;
+        ret = true;
+    }
+
+    if (name_ != vn->GetName()) {
+        name_ = vn->GetName();
+        ret = true;
+    }
+
+    return ret;
 }
 
 bool VnOvsdbEntry::IsLess(const KSyncEntry &entry) const {
@@ -50,6 +81,10 @@ bool VnOvsdbEntry::IsLess(const KSyncEntry &entry) const {
 
 KSyncEntry *VnOvsdbEntry::UnresolvedReference() {
     return NULL;
+}
+
+VrfEntry *VnOvsdbEntry::vrf() {
+    return vrf_.get();
 }
 
 VnOvsdbObject::VnOvsdbObject(OvsdbClientIdl *idl, DBTable *table) :
