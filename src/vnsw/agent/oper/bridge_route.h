@@ -27,6 +27,10 @@ public:
                       const std::string &vrf_name,
                       const MacAddress &mac,
                       const VmInterface *vm_intf);
+    void AddOvsPeerMulticastRoute(const Peer* peer,
+                                  uint32_t vxlan_id,
+                                  Ip4Address vtep,
+                                  Ip4Address tor_ip);
     void AddBridgeRoute(const AgentRoute *rt);
     static void AddBridgeBroadcastRoute(const Peer *peer,
                                         const std::string &vrf_name,
@@ -56,8 +60,11 @@ public:
                        const MacAddress &mac, uint32_t ethernet_tag);
     static void DeleteBroadcastReq(const Peer *peer,
                                    const std::string &vrf_name,
-                                   uint32_t ethernet_tag);
+                                   uint32_t ethernet_tag,
+                                   COMPOSITETYPE type);
     void DeleteBridgeRoute(const AgentRoute *rt);
+    void DeleteOvsPeerMulticastRoute(const Peer *peer,
+                                     uint32_t vxlan_id);
     void DeleteMacVmBindingRoute(const Peer *peer,
                          const std::string &vrf_name,
                          const MacAddress &mac,
@@ -84,12 +91,7 @@ public:
     virtual void UpdateNH() { }
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *key);
-    virtual const std::string GetAddressString() const {
-        //For multicast use the same tree as of 255.255.255.255
-        if (is_multicast())
-            return "255.255.255.255";
-        return ToString();
-    }
+    virtual const std::string GetAddressString() const;
     virtual Agent::RouteTableType GetTableType() const {
         return Agent::BRIDGE;
     }
@@ -105,6 +107,7 @@ public:
 
     const MacAddress &mac() const {return mac_;}
     const AgentPath *FindMacVmBindingPath() const;
+    const AgentPath *FindOvsPath() const;
 
 private:
     bool ReComputeMulticastPaths(AgentPath *path, bool del);

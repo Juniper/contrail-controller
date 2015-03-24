@@ -485,9 +485,10 @@ private:
 class MulticastRoute : public AgentRouteData {
 public:
     MulticastRoute(const string &vn_name, uint32_t label, int vxlan_id,
-                   uint32_t tunnel_type, DBRequest &nh_req):
+                   uint32_t tunnel_type, DBRequest &nh_req,
+                   COMPOSITETYPE comp_nh_type):
     AgentRouteData(true), vn_name_(vn_name), label_(label), vxlan_id_(vxlan_id), 
-    tunnel_type_(tunnel_type) {
+    tunnel_type_(tunnel_type), comp_nh_type_(comp_nh_type) {
         composite_nh_req_.Swap(&nh_req);
     }
     virtual ~MulticastRoute() { }
@@ -495,6 +496,7 @@ public:
                                const AgentRoute *rt);
     virtual std::string ToString() const {return "multicast";}
     uint32_t vxlan_id() const {return vxlan_id_;}
+    COMPOSITETYPE comp_nh_type() const {return comp_nh_type_;}
     static bool CopyPathParameters(Agent *agent,
                                    AgentPath *path,
                                    const std::string &dest_vn_name,
@@ -510,6 +512,7 @@ private:
     uint32_t vxlan_id_;
     uint32_t tunnel_type_;
     DBRequest composite_nh_req_;
+    COMPOSITETYPE comp_nh_type_;
     DISALLOW_COPY_AND_ASSIGN(MulticastRoute);
 };
 

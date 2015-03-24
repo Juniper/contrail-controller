@@ -60,6 +60,11 @@ bool PhysicalDeviceVn::Copy(PhysicalDeviceVnTable *table,
         ret = true;
     }
 
+    if (dev && (dev->ip() != tor_ip_)) {
+        tor_ip_ = dev->ip();
+        ret = true;
+    }
+
     VnEntry *vn = table->agent()->vn_table()->Find(vn_uuid_);
     if (vn != vn_.get()) {
         vn_.reset(vn);
