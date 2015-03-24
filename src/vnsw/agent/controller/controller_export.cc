@@ -183,6 +183,13 @@ done:
 static const AgentPath *GetMulticastExportablePath(const Agent *agent,
                                                    const AgentRoute *route) {
     const AgentPath *active_path = route->FindPath(agent->local_vm_peer());
+    //OVS peer path
+    if (active_path == NULL) {
+        const BridgeRouteEntry *bridge_route =
+            dynamic_cast<const BridgeRouteEntry *>(route);
+        if (bridge_route)
+            active_path = bridge_route->FindOvsPath();
+    }
     //If no loca peer, then look for tor peer as that should also result
     //in export of route.
     if (active_path == NULL)
@@ -190,10 +197,11 @@ static const AgentPath *GetMulticastExportablePath(const Agent *agent,
     //Subnet discard
     if (active_path == NULL) {
         const AgentPath *local_path = route->FindPath(agent->local_peer());
-        if (local_path && local_path->is_subnet_discard()) {
+        if (local_path) {
             return local_path;
         }
     }
+
     return active_path;
 }
 
@@ -202,7 +210,7 @@ static bool RouteCanDissociate(const AgentRoute *route) {
     Agent *agent = static_cast<AgentRouteTable*>(route->get_table())->
         agent();
     const AgentPath *local_path = route->FindPath(agent->local_peer());
-    if (local_path && local_path->is_subnet_discard()) {
+    if (local_path) {
         return can_dissociate;
     }
     if (route->is_multicast()) {
@@ -268,21 +276,16 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
         return;
     }
 
-    // Dont register for multicast if vrouter is not present. If vrouter is
-    // not present, vhost interface will also be not present
-    if (route->GetTableType() == Agent::BRIDGE &&
-        agent->vhost_interface() == NULL) {
-        return;
-    }
-
     if (state == NULL) {
         state = new State();
         route->SetState(partition->parent(), id_, state);
     }
 
     if (!route_can_be_dissociated) {
-        if (!(agent->simulate_evpn_tor()) && ((state->exported_ == false) ||
-                                              (state->force_chg_ == true))) {
+        const AgentPath *active_path = GetMulticastExportablePath(agent, route);
+        if (!(agent->simulate_evpn_tor()) &&
+            (active_path->peer()->GetType() != Peer::OVS_PEER) &&
+            ((state->exported_ == false) || (state->force_chg_ == true))) {
             //Sending 255.255.255.255 for fabric tree
             if (associate) {
             state->exported_ =
@@ -295,7 +298,6 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
         }
 
         //Sending ff:ff:ff:ff:ff:ff for evpn replication
-        const AgentPath *active_path = GetMulticastExportablePath(agent, route);
         //const AgentPath *active_path = route->GetActivePath();
         TunnelType::Type old_tunnel_type = state->tunnel_type_;
         uint32_t old_label = state->label_;

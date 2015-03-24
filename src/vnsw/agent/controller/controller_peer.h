@@ -23,6 +23,7 @@ class BgpPeer;
 class VrfEntry;
 class XmlPugi;
 class PathPreference;
+class AgentPath;
 
 class AgentXmppChannel {
 public:
@@ -123,15 +124,6 @@ public:
     void increment_unicast_sequence_number() {unicast_sequence_number_++;}
     uint64_t unicast_sequence_number() const {return unicast_sequence_number_;}
 
-    //Common helpers
-    bool ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
-                                            std::string vn,
-                                            const SecurityGroupList *sg_list,
-                                            uint32_t mpls_label,
-                                            uint32_t tunnel_bmap,
-                                            const PathPreference &path_preference,
-                                            bool associate,
-                                            Agent::RouteTableType type);
     bool ControllerSendEvpnRouteCommon(AgentRoute *route,
                                        const Ip4Address *nexthop_ip,
                                        std::string vn,
@@ -149,8 +141,8 @@ private:
     void ReceiveInternal(const XmppStanza::XmppMessage *msg);
     void AddRoute(std::string vrf_name, IpAddress ip, uint32_t plen,
                   autogen::ItemType *item);
-    void AddMulticastEvpnRoute(std::string vrf_name, MacAddress &mac,
-
+    void AddMulticastEvpnRoute(const std::string &vrf_name,
+                               const MacAddress &mac,
                                autogen::EnetItemType *item);
     void AddEvpnRoute(const std::string &vrf_name, std::string mac_addr,
                       autogen::EnetItemType *item);
@@ -158,6 +150,49 @@ private:
                         autogen::ItemType *item);
     void AddEcmpRoute(std::string vrf_name, Ip4Address ip, uint32_t plen,
                       autogen::ItemType *item);
+    //Common helpers
+    bool ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
+                                            const std::string &vn,
+                                            const SecurityGroupList *sg_list,
+                                            uint32_t mpls_label,
+                                            uint32_t tunnel_bmap,
+                                            const PathPreference &path_preference,
+                                            bool associate,
+                                            Agent::RouteTableType type);
+    bool BuildTorMulticastMessage(autogen::EnetItemType &item,
+                                  std::stringstream &node_id,
+                                  AgentRoute *route,
+                                  const Ip4Address *nh_ip,
+                                  const std::string &vn,
+                                  const SecurityGroupList *sg_list,
+                                  uint32_t label,
+                                  uint32_t tunnel_bmap,
+                                  bool associate);
+    bool BuildEvpnMulticastMessage(autogen::EnetItemType &item,
+                                   std::stringstream &node_id,
+                                   AgentRoute *route,
+                                   const Ip4Address *nh_ip,
+                                   const std::string &vn,
+                                   const SecurityGroupList *sg_list,
+                                   uint32_t label,
+                                   uint32_t tunnel_bmap,
+                                   bool associate,
+                                   const AgentPath *path,
+                                   bool assisted_replication);
+    bool BuildEvpnUnicastMessage(autogen::EnetItemType &item,
+                                 std::stringstream &node_id,
+                                 AgentRoute *route,
+                                 const Ip4Address *nh_ip,
+                                 const std::string &vn,
+                                 const SecurityGroupList *sg_list,
+                                 uint32_t label,
+                                 uint32_t tunnel_bmap,
+                                 bool associate);
+    bool BuildAndSendEvpnDom(autogen::EnetItemType &item,
+                             std::stringstream &ss_node,
+                             const AgentRoute *route,
+                             bool associate);
+
     XmppChannel *channel_;
     std::string xmpp_server_;
     std::string label_range_;

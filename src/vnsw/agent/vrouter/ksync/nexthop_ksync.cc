@@ -763,6 +763,9 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 flags |= NH_FLAG_COMPOSITE_ECMP;
                 break;
             }
+            case Composite::INVALID: {
+                assert(0);
+            }
             }
             encoder.set_nhr_flags(flags);
             for (KSyncComponentNHList::iterator it = component_nh_list_.begin();

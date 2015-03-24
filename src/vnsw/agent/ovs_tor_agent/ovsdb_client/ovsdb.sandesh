@@ -194,3 +194,22 @@ traceobject sandesh OvsdbUnicastMacRemote {
     1: SandeshUnicastMacRemoteInfo ucast_remote;
 }
 
+/****************************************************************************
+  Sandesh definitions for Multicast Mac Local.
+ ****************************************************************************/
+
+struct OvsdbMulticastMacLocalEntry {
+    1: string state;
+    2: string mac;
+    3: string logical_switch;
+    4: i64 vxlan_id;
+}
+
+response sandesh OvsdbMulticastMacLocalResp {
+    1: list<OvsdbMulticastMacLocalEntry> macs;
+}
+
+request sandesh OvsdbMulticastMacLocalReq {
+    1: string session_remote_ip;
+    2: u16 session_remote_port;
+}
