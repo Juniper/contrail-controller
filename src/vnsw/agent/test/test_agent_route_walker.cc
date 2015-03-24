@@ -59,6 +59,7 @@ public:
         route_notifications_ = 0;
         vrf_notifications_ = vrf_notifications_count_ = 0;
         total_rt_vrf_walk_done_ = 0;
+        walk_task_context_mismatch_ = false;
     };
     ~AgentRouteWalkerTest() { 
     }
@@ -145,6 +146,14 @@ public:
         client->WaitForIdle();
     }
 
+    virtual bool RouteWalker(boost::shared_ptr<AgentRouteWalkerData> data) {
+        if ((Task::Running()->GetTaskId() != TaskScheduler::GetInstance()->
+            GetTaskId("Agent::RouteWalker")) ||
+            (Task::Running()->GetTaskInstance() != 0))
+            walk_task_context_mismatch_ = true;
+        AgentRouteWalker::RouteWalker(data);
+    }
+
     virtual bool RouteWalkNotify(DBTablePartBase *partition, DBEntryBase *e) {
         //Fabric VRF
         //0.0.0.0/32; 10.1.1.0/24; 10.1.1.1/32; 10.1.1.254/3; 10.1.1.255/32;
@@ -199,13 +208,41 @@ public:
     uint32_t vrf_notifications_;
     uint32_t vrf_notifications_count_;
     uint32_t total_rt_vrf_walk_done_;
+    int walk_task_instance_;
+    string walk_task_name_;
+    bool walk_task_context_mismatch_;
+    friend class SetupTask;
+};
+
+class SetupTask : public Task {
+    public:
+        SetupTask(AgentRouteWalkerTest *test, std::string name) :
+            Task((TaskScheduler::GetInstance()->
+                  GetTaskId("db::DBTable")), 0), test_(test),
+            test_name_(name) {
+        }
+        virtual bool Run() {
+            if (test_name_ == "restart_walk_with_2_vrf") {
+                test_->StartVrfWalk();
+                test_->StartVrfWalk();
+            } else if (test_name_ == "cancel_vrf_walk_with_2_vrf") {
+                test_->StartVrfWalk();
+                test_->CancelVrfWalk();
+            }
+            return true;
+        }
+    private:
+        AgentRouteWalkerTest *test_;
+        std::string test_name_;
 };
 
 TEST_F(AgentRouteWalkerTest, walk_all_routes_wih_no_vrf) {
     client->Reset();
     SetupEnvironment(0);
     StartVrfWalk();
-    VerifyNotifications(6, 1, 1, Agent::ROUTE_TABLE_MAX);
+    VerifyNotifications(8, 1, 1, Agent::ROUTE_TABLE_MAX - 1);
+    EXPECT_TRUE(walk_task_context_mismatch_ == false);
+    walk_task_context_mismatch_ = true;
     DeleteEnvironment(0);
 }
 
@@ -213,7 +250,9 @@ TEST_F(AgentRouteWalkerTest, walk_all_routes_wih_1_vrf) {
     client->Reset();
     SetupEnvironment(1);
     StartVrfWalk();
-    VerifyNotifications(11, 2, 1, (Agent::ROUTE_TABLE_MAX * 2));
+    VerifyNotifications(17, 2, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 2));
+    EXPECT_TRUE(walk_task_context_mismatch_ == false);
+    walk_task_context_mismatch_ = true;
     DeleteEnvironment(1);
 }
 
@@ -221,7 +260,9 @@ TEST_F(AgentRouteWalkerTest, walk_all_routes_with_2_vrf) {
     client->Reset();
     SetupEnvironment(2);
     StartVrfWalk();
-    VerifyNotifications(16, 3, 1, (Agent::ROUTE_TABLE_MAX * 3));
+    VerifyNotifications(26, 3, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 3));
+    EXPECT_TRUE(walk_task_context_mismatch_ == false);
+    walk_task_context_mismatch_ = true;
     DeleteEnvironment(2);
 }
 
@@ -229,28 +270,32 @@ TEST_F(AgentRouteWalkerTest, walk_all_routes_with_3_vrf) {
     client->Reset();
     SetupEnvironment(3);
     StartVrfWalk();
-    VerifyNotifications(21, 4, 1, (Agent::ROUTE_TABLE_MAX * 4));
+    VerifyNotifications(35, 4, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 4));
+    EXPECT_TRUE(walk_task_context_mismatch_ == false);
+    walk_task_context_mismatch_ = true;
     DeleteEnvironment(3);
 }
 
 TEST_F(AgentRouteWalkerTest, restart_walk_with_2_vrf) {
     client->Reset();
     SetupEnvironment(2);
-    StartVrfWalk();
-    StartVrfWalk();
-    //TODO validate
+    SetupTask * task = new SetupTask(this, "restart_walk_with_2_vrf");
+    TaskScheduler::GetInstance()->Enqueue(task);
     WAIT_FOR(100, 1000, IsWalkCompleted() == true);
+    EXPECT_TRUE(walk_task_context_mismatch_ == false);
+    walk_task_context_mismatch_ = true;
     DeleteEnvironment(2);
 }
 
 TEST_F(AgentRouteWalkerTest, cancel_vrf_walk_with_2_vrf) {
     client->Reset();
     SetupEnvironment(2);
-    StartVrfWalk();
-    CancelVrfWalk();
+    SetupTask * task = new SetupTask(this, "cancel_vrf_walk_with_2_vrf");
+    TaskScheduler::GetInstance()->Enqueue(task);
     WAIT_FOR(100, 1000, IsWalkCompleted() == true);
     //TODO validate
-    client->WaitForIdle(10);
+    EXPECT_TRUE(walk_task_context_mismatch_ == false);
+    walk_task_context_mismatch_ = true;
     DeleteEnvironment(2);
 }
 

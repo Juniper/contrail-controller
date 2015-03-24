@@ -19,7 +19,10 @@ using namespace std;
 AgentRouteWalker::AgentRouteWalker(Agent *agent, WalkType type) :
     agent_(agent), walk_type_(type),
     vrf_walkid_(DBTableWalker::kInvalidWalkerId), walk_done_cb_(),
-    route_walk_done_for_vrf_cb_() {
+    route_walk_done_for_vrf_cb_(),
+    work_queue_(TaskScheduler::GetInstance()->
+                GetTaskId("Agent::RouteWalker"), 0,
+                boost::bind(&AgentRouteWalker::RouteWalker, this, _1)) {
     walk_count_ = AgentRouteWalker::kInvalidWalkCount;
     for (uint8_t table_type = (Agent::INVALID + 1);
          table_type < Agent::ROUTE_TABLE_MAX;
@@ -28,10 +31,38 @@ AgentRouteWalker::AgentRouteWalker(Agent *agent, WalkType type) :
     }
 }
 
+AgentRouteWalker::~AgentRouteWalker() {
+    work_queue_.Shutdown();
+}
+
+bool AgentRouteWalker::RouteWalker(boost::shared_ptr<AgentRouteWalkerData> data) {
+    const VrfEntry *vrf = data->vrf_ref_.get();
+    if (data->start_walk_) {
+        if (vrf) {
+            StartRouteWalkInternal(vrf);
+        } else {
+            StartVrfWalkInternal();
+        }
+    } else {
+        if (vrf) {
+            CancelRouteWalkInternal(vrf);
+        } else {
+            CancelVrfWalkInternal();
+        }
+    }
+    return true;
+}
+
 /*
  * Cancels VRF walk. Does not stop route walks if issued for vrf
  */
 void AgentRouteWalker::CancelVrfWalk() {
+    boost::shared_ptr<AgentRouteWalkerData> data(new AgentRouteWalkerData(NULL,
+                                                                          false));
+    work_queue_.Enqueue(data);
+}
+
+void AgentRouteWalker::CancelVrfWalkInternal() {
     DBTableWalker *walker = agent_->db()->GetWalker();
     if (vrf_walkid_ != DBTableWalker::kInvalidWalkerId) {
         AGENT_DBWALK_TRACE(AgentRouteWalkerTrace,
@@ -48,6 +79,12 @@ void AgentRouteWalker::CancelVrfWalk() {
  * Cancels route walks started for given VRF
  */
 void AgentRouteWalker::CancelRouteWalk(const VrfEntry *vrf) {
+    boost::shared_ptr<AgentRouteWalkerData> data(new AgentRouteWalkerData(vrf,
+                                                                          false));
+    work_queue_.Enqueue(data);
+}
+
+void AgentRouteWalker::CancelRouteWalkInternal(const VrfEntry *vrf) {
     DBTableWalker *walker = agent_->db()->GetWalker();
     uint32_t vrf_id = vrf->vrf_id();
 
@@ -73,12 +110,18 @@ void AgentRouteWalker::CancelRouteWalk(const VrfEntry *vrf) {
  * Startes a new walk for all VRF.
  * Cancels any old walk of VRF.
  */
-void AgentRouteWalker::StartVrfWalk()
+void AgentRouteWalker::StartVrfWalk() {
+    boost::shared_ptr<AgentRouteWalkerData> data(new AgentRouteWalkerData(NULL,
+                                                                          true));
+    work_queue_.Enqueue(data);
+}
+
+void AgentRouteWalker::StartVrfWalkInternal()
 {
     DBTableWalker *walker = agent_->db()->GetWalker();
 
     //Cancel the VRF walk if started previously
-    CancelVrfWalk();
+    CancelVrfWalkInternal();
 
     //New walk start for VRF
     vrf_walkid_ = walker->WalkTable(agent_->vrf_table(), NULL,
@@ -100,13 +143,19 @@ void AgentRouteWalker::StartVrfWalk()
  * Cancels any old route walks started for given VRF
  */
 void AgentRouteWalker::StartRouteWalk(const VrfEntry *vrf) {
+    boost::shared_ptr<AgentRouteWalkerData> data(new AgentRouteWalkerData(vrf,
+                                                                          true));
+    work_queue_.Enqueue(data);
+}
+
+void AgentRouteWalker::StartRouteWalkInternal(const VrfEntry *vrf) {
     DBTableWalker *walker = agent_->db()->GetWalker();
     DBTableWalker::WalkId walkid;
     uint32_t vrf_id = vrf->vrf_id();
     AgentRouteTable *table = NULL;
 
     //Cancel any walk started previously for this VRF
-    CancelRouteWalk(vrf);
+    CancelRouteWalkInternal(vrf);
 
     //Start the walk for every route table
     for (uint8_t table_type = (Agent::INVALID + 1);
@@ -158,7 +207,7 @@ bool AgentRouteWalker::VrfWalkNotify(DBTablePartBase *partition,
                        "Starting route walk for vrf", walk_type_,
                        (vrf != NULL) ? vrf->GetName() : "Unknown",
                        vrf_walkid_, 0, "", DBTableWalker::kInvalidWalkerId);
-    StartRouteWalk(vrf);
+    StartRouteWalkInternal(vrf);
     return true;
 }
 
