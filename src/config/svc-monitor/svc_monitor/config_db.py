@@ -681,11 +681,11 @@ class ServiceApplianceSM(DBBase):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
-        kvpairs = obj.get('service_appliance_set_properties', None)
+        kvpairs = obj.get('service_appliance_properties', None)
         if kvpairs:
             self.kvpairs = kvpairs.get('key_value_pair', [])
-        self.user_credential = obj.get('service-appliance-user-credentials', None)
-        self.ip_address = obj.get('service-appliance-ip-address', None)
+        self.user_credential = obj.get('service_appliance_user_credentials', None)
+        self.ip_address = obj.get('service_appliance_ip_address', None)
         self.service_appliance_set = self.get_parent_uuid(obj)
         if self.service_appliance_set:
             parent = ServiceApplianceSetSM.get(self.service_appliance_set)
@@ -714,6 +714,7 @@ class ServiceApplianceSetSM(DBBase):
         self.uuid = uuid
         self.service_appliances = set()
         self.kvpairs = []
+        self.ha_mode = "standalone"
         self.update(obj_dict)
     # end __init__
 
@@ -730,6 +731,8 @@ class ServiceApplianceSetSM(DBBase):
         if kvpairs:
             self.kvpairs = kvpairs.get('key_value_pair', [])
         self.service_appliances = set([sa['uuid'] for sa in obj.get('service_appliances', [])])
+        if 'service_appliance_ha_mode' in obj:
+            self.ha_mode = obj['service_appliance_ha_mode']
     # end update
 
     @classmethod

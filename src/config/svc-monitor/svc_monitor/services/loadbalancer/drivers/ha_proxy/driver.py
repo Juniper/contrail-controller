@@ -20,7 +20,8 @@ LOADBALANCER_SERVICE_TEMPLATE = [
 
 class OpencontrailLoadbalancerDriver(
         abstract_driver.ContrailLoadBalancerAbstractDriver):
-    def __init__(self, manager, api, db, args=None):
+    def __init__(self, name, manager, api, db, args=None):
+        self._name = name
         self._api = api
         self._svc_manager = manager
         self._lb_template = None
