@@ -87,6 +87,7 @@ public:
     virtual bool IFLinkToReq(IFMapLink *link, IFMapNode *node,
                              const std::string &peer_type, IFMapNode *peer,
                              DBRequest &req);
+    virtual AgentSandesh *GetAgentSandesh(const std::string &context);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static SgTable *GetInstance() {return sg_table_;};

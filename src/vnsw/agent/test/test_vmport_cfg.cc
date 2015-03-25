@@ -1287,20 +1287,24 @@ TEST_F(CfgTest, Basic_1) {
     client->WaitForIdle();
     std::vector<int> result = list_of(1);
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
-    AgentIntfSandesh *sand_1 = new AgentIntfSandesh("", "vnet1");
+    AgentSandeshPtr sand_1(new AgentIntfSandesh("", "vnet1"));
     sand_1->DoSandesh();
     client->WaitForIdle();
 
-    AgentIntfSandesh *sand_2 = new AgentIntfSandesh("", "eth10");
+    AgentSandeshPtr sand_2(new AgentIntfSandesh("", "eth10"));
     sand_2->DoSandesh();
     client->WaitForIdle();
 
-    AgentIntfSandesh *sand_3 = new AgentIntfSandesh("", "pkt0");
+    AgentSandeshPtr sand_3(new AgentIntfSandesh("", "pkt0"));
     sand_3->DoSandesh();
     client->WaitForIdle();
 
-    AgentIntfSandesh *sand_4 = new AgentIntfSandesh("", "vhost10");
+    AgentSandeshPtr sand_4(new AgentIntfSandesh("", "vhost10"));
     sand_4->DoSandesh();
+    client->WaitForIdle();
+
+    AgentSandeshPtr sand_5(new AgentIntfSandesh("", "vhost10"));
+    sand_5->DoSandesh(0, 1);
     client->WaitForIdle();
 
     InetInterface::DeleteReq(Agent::GetInstance()->interface_table(),

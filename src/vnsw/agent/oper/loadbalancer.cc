@@ -168,10 +168,13 @@ bool Loadbalancer::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
 }
 
 void LoadBalancerReq::HandleRequest() const {
-    AgentLoadBalancerSandesh *sand = new AgentLoadBalancerSandesh(context(), get_uuid());
-    sand->DoSandesh();
+    AgentSandeshPtr sand(new AgentLoadBalancerSandesh(context(), get_uuid()));
+    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
 }
 
+AgentSandesh *LoadbalancerTable::GetAgentSandesh(const std::string &context) {
+    return new AgentLoadBalancerSandesh(context, "");
+}
 
 /*
  * LoadbalancerTable class
