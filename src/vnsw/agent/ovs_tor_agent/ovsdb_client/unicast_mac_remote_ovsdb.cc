@@ -326,6 +326,16 @@ KSyncDBObject::DBFilterResp UnicastMacRemoteTable::DBEntryFilter(
     if (client_idl()->deleted()) {
         return DBFilterIgnore;
     }
+
+    const BridgeRouteEntry *entry =
+        static_cast<const BridgeRouteEntry *>(db_entry);
+    if (entry->vrf()->IsDeleted()) {
+        // if notification comes for a entry with deleted vrf,
+        // trigger delete since we donot resue same vrf object
+        // so this entry has to be deleted eventually.
+        return DBFilterDelete;
+    }
+
     return DBFilterAccept;
 }
 
