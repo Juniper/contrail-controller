@@ -264,6 +264,7 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
     std::string rowkey;
     std::string table;
 
+    bool deleted = false;
     for (pugi::xml_node node = object.first_child(); node;
             node = node.next_sibling()) {
         tempstr = node.attribute("key").value();
@@ -279,6 +280,11 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
                 
             }
         }
+        if (!strcmp(node.name(), "deleted")) {
+            if (!strcmp(node.child_value(), "true")) {
+                deleted = true;
+            }
+        }
     }
 
     std::string key = table + ":" + barekey;
@@ -290,20 +296,30 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
         return false;
     }
 
-    bool deleted = false;
+    if (deleted) {
+        if (!osp_->UVEDelete(object.name(), source, node_type, module, 
+                             instance_id, key, seq, is_alarm)) {
+            LOG(ERROR, __func__ << " Cannot Delete " << key);
+            PUBLISH_UVE_DELETE_TRACE(UVETraceBuf, source, module, type, key,
+                seq, false, node_type, instance_id);
+        } else {
+            PUBLISH_UVE_DELETE_TRACE(UVETraceBuf, source, module, type, key,
+                seq, true, node_type, instance_id);
+        }
+        LOG(DEBUG, __func__ << " Deleted " << key);
+        if (!is_alarm) {
+            osp_->UVENotif(object.name(), 
+                source, node_type, module, instance_id, key);
+        }
+        return true;
+    }
+
     for (pugi::xml_node node = object.first_child(); node;
            node = node.next_sibling()) {
         std::ostringstream ostr; 
         node.print(ostr, "", pugi::format_raw | pugi::format_no_escapes);
         std::string agg;
         std::string atyp;
-        if (!strcmp(node.name(), "deleted")) {
-            if (!strcmp(node.child_value(), "true")) {
-                deleted = true;
-                continue;
-            }
-            continue;
-        }
         tempstr = node.attribute("key").value();
         if (strcmp(tempstr, "")) {
             continue;
@@ -512,18 +528,6 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
         }
     }
 
-    if (deleted) {
-        if (!osp_->UVEDelete(object.name(), source, node_type, module, 
-                             instance_id, key, seq, is_alarm)) {
-            LOG(ERROR, __func__ << " Cannot Delete " << key);
-            PUBLISH_UVE_DELETE_TRACE(UVETraceBuf, source, module, type, key,
-                seq, false, node_type, instance_id);
-        } else {
-            PUBLISH_UVE_DELETE_TRACE(UVETraceBuf, source, module, type, key,
-                seq, true, node_type, instance_id);
-        }
-        LOG(DEBUG, __func__ << " Deleted " << key);
-    }
 
     // Publish on the Kafka bus that this UVE has changed
     if (!uve_notif_disable && !is_alarm) {
