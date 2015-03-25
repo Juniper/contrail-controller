@@ -661,7 +661,7 @@ class FakeKombu(object):
             self.callbacks = kwargs['callbacks']
         # end __init__
 
-        def _consume(self):
+        def consume(self):
             while True:
                 try:
                     msg = self.queues.get()
@@ -669,14 +669,10 @@ class FakeKombu(object):
                         c(msg.payload, msg)
                 except Exception:
                     pass
-        # end _consume
-
-        def consume(self):
-            self.geventlet = gevent.spawn(self._consume)
         # end consume
 
         def close(self):
-            self.geventlet.kill()
+            pass
         # end close
 
     # end class Consumer
