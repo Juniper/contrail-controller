@@ -35,6 +35,7 @@
 #include <oper/loadbalancer.h>
 #include <oper/physical_device.h>
 #include <oper/physical_device_vn.h>
+#include <oper/agent_sandesh.h>
 #include <nexthop_server/nexthop_manager.h>
 
 using boost::assign::map_list_of;
@@ -200,6 +201,10 @@ void OperDB::Init() {
     if (nexthop_manager_.get()) {
         nexthop_manager_->Initialize(agent_->db());
     }
+
+    if (agent_sandesh_manager_.get()) {
+        agent_sandesh_manager_->Init();
+    }
 }
 
 void OperDB::RegisterDBClients() {
@@ -224,6 +229,8 @@ OperDB::OperDB(Agent *agent)
         nexthop_manager_.reset(new NexthopManager(agent_->event_manager(),
                                agent->params()->nexthop_server_endpoint()));
     }
+
+    agent_sandesh_manager_.reset(new AgentSandeshManager(agent));
 }
 
 OperDB::~OperDB() {
@@ -240,6 +247,10 @@ void OperDB::Shutdown() {
     route_preference_module_->Shutdown();
     multicast_->Shutdown();
     multicast_->Terminate();
+
+    if (agent_sandesh_manager_.get()) {
+        agent_sandesh_manager_->Shutdown();
+    }
 #if 0
     agent_->interface_table()->Clear();
     agent_->nexthop_table()->Clear();

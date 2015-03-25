@@ -188,6 +188,10 @@ void VxLanId::SendObjectLog(AgentLogEvent::type event) const {
 }
 
 void VxLanReq::HandleRequest() const {
-    AgentVxLanSandesh *sand = new AgentVxLanSandesh(context());
-    sand->DoSandesh();
+    AgentSandeshPtr sand(new AgentVxLanSandesh(context()));
+    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
+}
+
+AgentSandesh *VxLanTable::GetAgentSandesh(const std::string &context) {
+    return new AgentVxLanSandesh(context);
 }

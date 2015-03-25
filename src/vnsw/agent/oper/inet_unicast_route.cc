@@ -916,17 +916,22 @@ void Inet4UcRouteReq::HandleRequest() const {
         return;
     }
 
-    AgentInet4UcRtSandesh *sand;
+    AgentSandeshPtr sand;
     if (get_src_ip().empty()) {
-        sand = new AgentInet4UcRtSandesh(vrf, context(), get_stale());
+        sand.reset(new AgentInet4UcRtSandesh(vrf, context(), get_stale()));
     } else {
         boost::system::error_code ec;
         Ip4Address src_ip = Ip4Address::from_string(get_src_ip(), ec);
-        sand = 
-            new AgentInet4UcRtSandesh(vrf, context(), src_ip, 
-                                      (uint8_t)get_prefix_len(), get_stale());
+        sand.reset(new AgentInet4UcRtSandesh(vrf, context(), src_ip,
+                                             (uint8_t)get_prefix_len(),
+                                             get_stale()));
     }
-    sand->DoSandesh();
+    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
+}
+
+AgentSandesh *InetUnicastAgentRouteTable::GetAgentSandesh
+(const std::string &context) {
+    return new AgentInet4UcRtSandesh(vrf_entry(), context, true);
 }
 
 void Inet6UcRouteReq::HandleRequest() const {
@@ -939,17 +944,17 @@ void Inet6UcRouteReq::HandleRequest() const {
         return;
     }
 
-    AgentInet6UcRtSandesh *sand;
+    AgentSandeshPtr sand;
     if (get_src_ip().empty()) {
-        sand = new AgentInet6UcRtSandesh(vrf, context(), get_stale());
+        sand.reset(new AgentInet6UcRtSandesh(vrf, context(), get_stale()));
     } else {
         boost::system::error_code ec;
         Ip6Address src_ip = Ip6Address::from_string(get_src_ip(), ec);
-        sand =
-            new AgentInet6UcRtSandesh(vrf, context(), src_ip,
-                                      (uint8_t)get_prefix_len(), get_stale());
+        sand.reset(new AgentInet6UcRtSandesh(vrf, context(), src_ip,
+                                             (uint8_t)get_prefix_len(),
+                                             get_stale()));
     }
-    sand->DoSandesh();
+    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
 }
 
 /////////////////////////////////////////////////////////////////////////////

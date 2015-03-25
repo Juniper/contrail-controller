@@ -109,6 +109,7 @@ public:
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
     virtual DBEntry *Add(const DBRequest *req);
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);
+    virtual AgentSandesh *GetAgentSandesh(const std::string &context);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static VrfAssignTable *GetInstance() {return vrf_assign_table_;};

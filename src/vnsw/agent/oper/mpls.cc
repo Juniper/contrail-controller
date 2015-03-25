@@ -405,6 +405,10 @@ void MplsLabel::SyncDependentPath() {
 }
 
 void MplsReq::HandleRequest() const {
-    AgentMplsSandesh *sand = new AgentMplsSandesh(context());
-    sand->DoSandesh();
+    AgentSandeshPtr sand(new AgentMplsSandesh(context()));
+    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
+}
+
+AgentSandesh *MplsTable::GetAgentSandesh(const std::string &context) {
+    return new AgentMplsSandesh(context);
 }

@@ -265,7 +265,10 @@ void SgEntry::SendObjectLog(AgentLogEvent::type event) const {
 }
 
 void SgListReq::HandleRequest() const {
-    AgentSgSandesh *sand =
-            new AgentSgSandesh(context(), get_name());
-    sand->DoSandesh();
+    AgentSandeshPtr sand(new AgentSgSandesh(context(), get_name()));
+    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
+}
+
+AgentSandesh *SgTable::GetAgentSandesh(const std::string &context) {
+    return new AgentSgSandesh(context, "");
 }

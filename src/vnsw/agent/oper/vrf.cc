@@ -689,8 +689,12 @@ bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
 }
 
 void VrfListReq::HandleRequest() const {
-    AgentVrfSandesh *sand = new AgentVrfSandesh(context(), get_name());
-    sand->DoSandesh();
+    AgentSandeshPtr sand(new AgentVrfSandesh(context(), get_name()));
+    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
+}
+
+AgentSandesh *VrfTable::GetAgentSandesh(const std::string &context) {
+    return new AgentVrfSandesh(context, "");
 }
 
 class RouteDeleteWalker : public AgentRouteWalker {
