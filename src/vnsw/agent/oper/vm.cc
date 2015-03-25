@@ -146,5 +146,9 @@ bool VmTable::IFNodeToReq(IFMapNode *node, DBRequest &req){
 
 void VmListReq::HandleRequest() const {
     AgentVmSandesh *sand = new AgentVmSandesh(context(), get_uuid());
-    sand->DoSandesh();
+    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
+}
+
+AgentSandesh *VmTable::GetAgentSandesh(const std::string &context) {
+    return new AgentVmSandesh(context, "");
 }

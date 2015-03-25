@@ -98,6 +98,7 @@ class PhysicalDeviceTable : public AgentOperDBTable {
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
     bool ProcessConfig(IFMapNode *node, DBRequest &req);
     virtual bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
+    virtual AgentSandesh *GetAgentSandesh(const std::string &context);
 
     PhysicalDevice *Find(const boost::uuids::uuid &u);
 

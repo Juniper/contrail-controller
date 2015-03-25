@@ -965,7 +965,11 @@ bool Interface::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
 
 void ItfReq::HandleRequest() const {
     AgentIntfSandesh *sand = new AgentIntfSandesh(context(), get_name());
-    sand->DoSandesh();
+    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
+}
+
+AgentSandesh *InterfaceTable::GetAgentSandesh(const std::string &context) {
+    return new AgentIntfSandesh(context, "");
 }
 
 void Interface::SendTrace(Trace event) const {

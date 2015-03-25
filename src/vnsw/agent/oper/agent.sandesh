@@ -6,6 +6,18 @@ enum AgentConsts {
     MAX_SANDESH_COUNT = 256
 }
 
+request sandesh SandeshDBEntryIndex {
+    1: string key;
+}
+
+struct SandeshPageReq {
+    1: string prev_page (link="SandeshDBEntryIndex");
+    2: string next_page (link="SandeshDBEntryIndex");
+    3: string first_page (link="SandeshDBEntryIndex");
+    4: string all (link="SandeshDBEntryIndex");
+    5: string entries;
+}
+
 struct ServiceVlanSandeshList {
    1: i16 tag;
    2: string vrf_name (link="VrfListReq"); // VRF name
@@ -323,7 +335,8 @@ request sandesh SgListReq {
 }
 
 response sandesh SgListResp {
-    1: list<SgSandeshData> sg_list;
+    1: SandeshPageReq req;
+    2: list<SgSandeshData> sg_list;
 }
 
 request sandesh VnListReq {
@@ -331,7 +344,8 @@ request sandesh VnListReq {
 }
 
 response sandesh VnListResp {
-    1: list<VnSandeshData> vn_list;
+    1: SandeshPageReq req;
+    2: list<VnSandeshData> vn_list;
 }
 
 request sandesh VmListReq {
@@ -339,14 +353,16 @@ request sandesh VmListReq {
 }
 
 response sandesh VmListResp {
-    1: list<VmSandeshData> vm_list;
+    1: SandeshPageReq req;
+    2: list<VmSandeshData> vm_list;
 }
 
 request sandesh NhListReq {
 }
 
 response sandesh NhListResp {
-    1: list<NhSandeshData> nh_list;
+    1: SandeshPageReq req;
+    2: list<NhSandeshData> nh_list;
 }
 
 request sandesh VrfListReq {
@@ -354,7 +370,8 @@ request sandesh VrfListReq {
 }
 
 response sandesh VrfListResp {
-    1: list<VrfSandeshData> vrf_list;
+    1: SandeshPageReq req;
+    2: list<VrfSandeshData> vrf_list;
 }
 
 request sandesh Inet4UcRouteReq {
@@ -365,7 +382,8 @@ request sandesh Inet4UcRouteReq {
 }
 
 response sandesh Inet4UcRouteResp {
-    1: list<RouteUcSandeshData> route_list; // routes
+    1: SandeshPageReq req;
+    2: list<RouteUcSandeshData> route_list; // routes
 }
 
 request sandesh Inet6UcRouteReq {
@@ -376,7 +394,8 @@ request sandesh Inet6UcRouteReq {
 }
 
 response sandesh Inet6UcRouteResp {
-    1: list<RouteUcSandeshData> route_list; // routes
+    1: SandeshPageReq req;
+    2: list<RouteUcSandeshData> route_list; // routes
 }
 
 request sandesh Inet4McRouteReq {
@@ -385,7 +404,8 @@ request sandesh Inet4McRouteReq {
 }
 
 response sandesh Inet4McRouteResp {
-    1: list<RouteMcSandeshData> route_list; // routes
+    1: SandeshPageReq req;
+    2: list<RouteMcSandeshData> route_list; // routes
 }
 
 request sandesh Layer2RouteReq {
@@ -395,7 +415,8 @@ request sandesh Layer2RouteReq {
 }
 
 response sandesh Layer2RouteResp {
-    1: list<RouteL2SandeshData> route_list; // routes
+    1: SandeshPageReq req;
+    2: list<RouteL2SandeshData> route_list; // routes
 }
 
 request sandesh BridgeRouteReq {
@@ -405,7 +426,8 @@ request sandesh BridgeRouteReq {
 }
 
 response sandesh BridgeRouteResp {
-    1: list<RouteL2SandeshData> route_list; // routes
+    1: SandeshPageReq req;
+    2: list<RouteL2SandeshData> route_list; // routes
 }
 
 request sandesh EvpnRouteReq {
@@ -415,7 +437,8 @@ request sandesh EvpnRouteReq {
 }
 
 response sandesh EvpnRouteResp {
-    1: list<RouteEvpnSandeshData> route_list; // routes
+    1: SandeshPageReq req;
+    2: list<RouteEvpnSandeshData> route_list; // routes
 }
 
 request sandesh ItfReq {
@@ -423,14 +446,16 @@ request sandesh ItfReq {
 }
 
 response sandesh ItfResp {
-    1: list<ItfSandeshData> itf_list;
+    1: SandeshPageReq req;
+    2: list<ItfSandeshData> itf_list;
 }
 
 request sandesh MplsReq {
 }
 
 response sandesh MplsResp {
-    1: list<MplsSandeshData> mpls_list;
+    1: SandeshPageReq req;
+    2: list<MplsSandeshData> mpls_list;
 }
 
 struct VrfAssignSandeshData {
@@ -445,14 +470,16 @@ request sandesh VrfAssignReq {
 }
 
 response sandesh VrfAssignResp {
-    1: list<VrfAssignSandeshData> vrf_assign_list;
+    1: SandeshPageReq req;
+    2: list<VrfAssignSandeshData> vrf_assign_list;
 }
 
 request sandesh MirrorEntryReq {
 }
 
 response sandesh MirrorEntryResp {
-    1: list<MirrorEntrySandeshData> mirror_entry_list;
+    1: SandeshPageReq req;
+    2: list<MirrorEntrySandeshData> mirror_entry_list;
 }
 
 response sandesh ErrorResp {
@@ -583,7 +610,8 @@ request sandesh LoadBalancerReq {
 }
 
 response sandesh LoadBalancerResp {
-    1: list<LoadBalancerSandeshData> load_balancer_list;
+    1: SandeshPageReq req;
+    2: list<LoadBalancerSandeshData> load_balancer_list;
 }
 
 struct AceIdFlowCnt {
@@ -603,7 +631,8 @@ request sandesh AclReq {
 }
 
 response sandesh AclResp {
-    1: list<AclSandeshData> acl_list;
+    1: SandeshPageReq req;
+    2: list<AclSandeshData> acl_list;
 }
 
 request sandesh AclFlowReq {
@@ -720,7 +749,8 @@ request sandesh VxLanReq {
 }
 
 response sandesh VxLanResp {
-    1: list<VxLanSandeshData> vxlan_list;
+    1: SandeshPageReq req;
+    2: list<VxLanSandeshData> vxlan_list;
 }
 
 request sandesh ServiceInstanceReq {
@@ -728,7 +758,8 @@ request sandesh ServiceInstanceReq {
 }
 
 response sandesh ServiceInstanceResp {
-    1: list<ServiceInstanceSandeshData> service_instance_list;
+    1: SandeshPageReq req;
+    2: list<ServiceInstanceSandeshData> service_instance_list;
 }
 
 struct MirrorCfgSandesh {
@@ -1103,7 +1134,8 @@ struct SandeshDevice {
 }
 
 response sandesh SandeshDeviceListResp {
-    1: list<SandeshDevice> device_list;
+    1: SandeshPageReq req;
+    2: list<SandeshDevice> device_list;
 }
 
 request sandesh SandeshDeviceReq {
@@ -1138,7 +1170,8 @@ struct SandeshPhysicalDeviceVn {
 }
 
 response sandesh SandeshPhysicalDeviceVnListResp {
-    1: list<SandeshPhysicalDeviceVn> port_list;
+    1: SandeshPageReq req;
+    2: list<SandeshPhysicalDeviceVn> port_list;
 }
 
 request sandesh SandeshPhysicalDeviceVnReq {
@@ -1155,7 +1188,8 @@ struct SandeshConfigPhysicalDeviceVn {
 }
 
 response sandesh SandeshConfigPhysicalDeviceVnListResp {
-    1: list<SandeshConfigPhysicalDeviceVn> device_vn_list;
+    1: SandeshPageReq req;
+    2: list<SandeshConfigPhysicalDeviceVn> device_vn_list;
 }
 
 request sandesh SandeshConfigPhysicalDeviceVnReq {
