@@ -126,7 +126,7 @@ bool AgentUtXmlUnicastRemoteValidate::Validate() {
     }
 
     UnicastMacRemoteTable *u_table = it->second->l2_table;
-    UnicastMacRemoteEntry key(u_table, mac_, UuidToString(vn_uuid_));
+    UnicastMacRemoteEntry key(u_table, mac_);
     UnicastMacRemoteEntry *entry = static_cast<UnicastMacRemoteEntry *>
         (u_table->Find(&key));
     if (present()) {
