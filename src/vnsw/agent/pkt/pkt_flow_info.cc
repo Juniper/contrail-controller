@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
+#include "net/address_util.h"
 #include "route/route.h"
 
 #include "cmn/agent_cmn.h"
@@ -38,11 +39,15 @@ static void LogError(const PktInfo *pkt, const char *str) {
     if (pkt->family == Address::INET) {
         FLOW_TRACE(DetailErr, pkt->agent_hdr.cmd_param, pkt->agent_hdr.ifindex,
                    pkt->agent_hdr.vrf, pkt->ip_saddr.to_v4().to_ulong(),
-                   pkt->ip_daddr.to_v4().to_ulong(), str, pkt->l3_forwarding);
+                   pkt->ip_daddr.to_v4().to_ulong(), str, pkt->l3_forwarding,
+                   0, 0, 0, 0);
     } else if (pkt->family == Address::INET6) {
-        // TODO : IPv6
+        uint64_t sip[2], dip[2];
+        Ip6AddressToU64Array(pkt->ip_saddr.to_v6(), sip, 2);
+        Ip6AddressToU64Array(pkt->ip_daddr.to_v6(), dip, 2);
         FLOW_TRACE(DetailErr, pkt->agent_hdr.cmd_param, pkt->agent_hdr.ifindex,
-                   pkt->agent_hdr.vrf, -1, -1, str, pkt->l3_forwarding);
+                   pkt->agent_hdr.vrf, -1, -1, str, pkt->l3_forwarding,
+                   sip[0], sip[1], dip[0], dip[1]);
     } else {
         assert(0);
     }
@@ -254,29 +259,25 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
         // 2. In case of ECMP, label will point to ECMP of local-composite members
     case NextHop::TUNNEL: {
         if (pkt->l3_forwarding) {
-            if (pkt->family == Address::INET) {
-                const InetUnicastRouteEntry *rt =
-                    static_cast<const InetUnicastRouteEntry *>(in->rt_);
-                if (rt != NULL && rt->GetLocalNextHop()) {
-                    const NextHop *local_nh = rt->GetLocalNextHop();
-                    out->nh_ = local_nh->id();
-                    if (local_nh->GetType() == NextHop::INTERFACE) {
-                        const Interface *local_intf =
-                            static_cast<const InterfaceNH*>(local_nh)->GetInterface();
-                        //Get policy enabled nexthop only for
-                        //vm interface, in case of vgw or service interface in
-                        //transparent mode we should still
-                        //use policy disabled interface
-                        if (local_intf &&
+            const InetUnicastRouteEntry *rt =
+                static_cast<const InetUnicastRouteEntry *>(in->rt_);
+            if (rt != NULL && rt->GetLocalNextHop()) {
+                const NextHop *local_nh = rt->GetLocalNextHop();
+                out->nh_ = local_nh->id();
+                if (local_nh->GetType() == NextHop::INTERFACE) {
+                    const Interface *local_intf =
+                        static_cast<const InterfaceNH*>(local_nh)->GetInterface();
+                    //Get policy enabled nexthop only for
+                    //vm interface, in case of vgw or service interface in
+                    //transparent mode we should still
+                    //use policy disabled interface
+                    if (local_intf &&
                             local_intf->type() == Interface::VM_INTERFACE) {
-                            out->nh_ = GetPolicyEnabledNH(local_nh)->id();
-                        }
+                        out->nh_ = GetPolicyEnabledNH(local_nh)->id();
                     }
-                } else {
-                    out->nh_ = in->nh_;
                 }
             } else {
-                //TODO::v6
+                out->nh_ = in->nh_;
             }
         } else {
             // Bridged flow. ECMP not supported for L2 flows
@@ -1170,6 +1171,7 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
     out->nh_ = in->nh_ = pkt->agent_hdr.nh;
     if (in->intf_ == NULL ||
         (pkt->l3_forwarding == true &&
+         in->intf_->type() == Interface::VM_INTERFACE &&
          in->intf_->ip_active(pkt->family) == false) ||
         (pkt->l3_forwarding == false &&
          in->intf_->l2_active() == false)) {
@@ -1308,7 +1310,8 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
 
     uint16_t r_sport;
     uint16_t r_dport;
-    if (pkt->ip_proto == IPPROTO_ICMP) {
+    if ((pkt->family == Address::INET && pkt->ip_proto == IPPROTO_ICMP) ||
+        (pkt->family == Address::INET6 && pkt->ip_proto == IPPROTO_ICMPV6)) {
         r_sport = pkt->sport;
         r_dport = pkt->dport;
     } else if (nat_done) {

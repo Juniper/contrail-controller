@@ -616,6 +616,7 @@ public:
         void Unregister(VrfEntry *vrf);
 
         InetRouteFlowUpdate *inet4_unicast_update_;
+        InetRouteFlowUpdate *inet6_unicast_update_;
         BridgeEntryFlowUpdate *bridge_update_;
     };
     struct RouteFlowHandlerState : public DBState {

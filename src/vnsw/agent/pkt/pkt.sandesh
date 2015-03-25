@@ -193,6 +193,10 @@ struct FlowInfo {
    32: bool l3_flow;
    33: string smac;
    34: string dmac;
+   35: optional u64 sip_upper;
+   36: optional u64 sip_lower;
+   37: optional u64 dip_upper;
+   38: optional u64 dip_lower;
 }
 
 traceobject sandesh FlowTrace {
@@ -208,6 +212,10 @@ trace sandesh FlowDetailErr {
     5: u32 dip;
     6: string error;
     7: bool l3_flow;
+    8: u64 sip_upper;
+    9: u64 sip_lower;
+   10: u64 dip_upper;
+   11: u64 dip_lower;
 }
 
 trace sandesh FlowErr {

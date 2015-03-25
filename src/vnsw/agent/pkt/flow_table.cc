@@ -11,6 +11,7 @@
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_trace.h>
+#include <net/address_util.h>
 #include <pkt/flow_table.h>
 #include <vrouter/flow_stats/flow_stats_collector.h>
 #include <vrouter/ksync/ksync_init.h>
@@ -174,7 +175,7 @@ uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr,
     }
 
     // PASS default GW traffic, if it is ICMP or DNS
-    if ((hdr.protocol == IPPROTO_ICMP ||
+    if ((hdr.protocol == IPPROTO_ICMP ||  hdr.protocol == IPPROTO_ICMPV6 ||
          (hdr.protocol == IPPROTO_UDP && 
           (hdr.src_port == DNS_SERVER_PORT ||
            hdr.dst_port == DNS_SERVER_PORT))) &&
@@ -1055,7 +1056,13 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
         info.set_source_ip(key_.src_addr.to_v4().to_ulong());
         info.set_destination_ip(key_.dst_addr.to_v4().to_ulong());
     } else {
-        // TODO : IPV6
+        uint64_t sip[2], dip[2];
+        Ip6AddressToU64Array(key_.src_addr.to_v6(), sip, 2);
+        Ip6AddressToU64Array(key_.dst_addr.to_v6(), dip, 2);
+        info.set_sip_upper(sip[0]);
+        info.set_sip_lower(sip[1]);
+        info.set_dip_upper(dip[0]);
+        info.set_dip_lower(dip[1]);
         info.set_source_ip(0);
         info.set_destination_ip(0);
     }
@@ -1247,10 +1254,6 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
 
 bool FlowEntry::SetRpfNH(const AgentRoute *rt) {
     const NextHop *nh = rt->GetActiveNextHop();
-    if (key_.family != Address::INET) {
-        //TODO:IPV6
-        return false;
-    }
     if (nh->GetType() == NextHop::COMPOSITE &&
         !is_flags_set(FlowEntry::LocalFlow) &&
         is_flags_set(FlowEntry::IngressDir)) {
@@ -2238,6 +2241,15 @@ void FlowTable::VrfFlowHandlerState::Register(VrfEntry *vrf) {
         (inet_table->Register(boost::bind(&RouteFlowUpdate::Notify,
                                          inet4_unicast_update_, _1, _2)));
 
+    // Register to the Inet6 Unicast Table
+    InetUnicastAgentRouteTable *inet6_table =
+        static_cast<InetUnicastAgentRouteTable *>
+        (vrf->GetInet6UnicastRouteTable());
+    inet6_unicast_update_ = new InetRouteFlowUpdate(inet6_table);
+    inet6_unicast_update_->set_dblistener_id
+        (inet6_table->Register(boost::bind(&RouteFlowUpdate::Notify,
+                                           inet6_unicast_update_, _1, _2)));
+
     // Register to the Bridge Unicast Table
     BridgeAgentRouteTable *bridge_table =
         static_cast<BridgeAgentRouteTable *>
@@ -2249,6 +2261,8 @@ void FlowTable::VrfFlowHandlerState::Register(VrfEntry *vrf) {
     LOG(DEBUG, "ROUTE-FLOW-UPDATE"
         << " Inet : " << inet4_unicast_update_
         << " Listener : " << inet4_unicast_update_->dblistener_id()
+        << " Inet6 : " << inet6_unicast_update_
+        << " Listener : " << inet6_unicast_update_->dblistener_id()
         << " Bridge : " << bridge_update_
         << " Listener : " << bridge_update_->dblistener_id());
 }
@@ -2267,6 +2281,14 @@ void FlowTable::VrfFlowHandlerState::Unregister(VrfEntry *vrf) {
                       boost::bind(&RouteFlowUpdate::WalkDone, _1,
                                   inet4_unicast_update_));
     inet4_unicast_update_->set_walk_id(id);
+
+    DBTableWalker *walker6 = agent->db()->GetWalker();
+    id = walker6->WalkTable(vrf->GetInet6UnicastRouteTable(), NULL,
+                      boost::bind(&RouteFlowUpdate::DeleteState,
+                                  _1, _2, inet6_unicast_update_),
+                      boost::bind(&RouteFlowUpdate::WalkDone, _1,
+                                  inet6_unicast_update_));
+    inet6_unicast_update_->set_walk_id(id);
 
     DBTableWalker *bridge_walker = agent->db()->GetWalker();
     id = bridge_walker->WalkTable(vrf->GetBridgeRouteTable(), NULL,

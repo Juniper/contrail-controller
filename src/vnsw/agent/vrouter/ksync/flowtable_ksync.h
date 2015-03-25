@@ -100,6 +100,8 @@ public:
     void MapSharedMemory();
     void GetFlowTableSize();
     void StartAuditTimer();
+    std::vector<int8_t> IpToVector(const IpAddress &sip, const IpAddress &dip,
+                                   Address::Family fam);
 private:
     friend class KSyncSandeshContext;
     KSync *ksync_;
