@@ -41,10 +41,16 @@ public:
     std::string ToString() const {return "Virtual Network Ksync";}
     KSyncEntry* UnresolvedReference();
 
+    VrfEntry *vrf();
+    uint32_t vxlan_id() { return vxlan_id_; }
+    const std::string &name() { return name_; }
+
 private:
     friend class VnOvsdbObject;
     boost::uuids::uuid uuid_;
     VrfEntryRef vrf_;
+    uint32_t vxlan_id_;
+    std::string name_;
     DISALLOW_COPY_AND_ASSIGN(VnOvsdbEntry);
 };
 };

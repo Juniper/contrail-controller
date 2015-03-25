@@ -17,7 +17,8 @@ class OvsPeer : public Peer {
 
     bool Compare(const Peer *rhs) const;
     const Ip4Address *NexthopIp(Agent *agent, const AgentPath *path) const;
-    bool AddOvsRoute(const VnEntry *vn, const MacAddress &mac,
+    bool AddOvsRoute(const VrfEntry *vrf, uint32_t vxlan_id,
+                     const std::string &dest_vn, const MacAddress &mac,
                      Ip4Address &tor_ip);
     void DeleteOvsRoute(VrfEntry *vrf, uint32_t vxlan, const MacAddress &mac);
  private:
