@@ -1162,7 +1162,11 @@ void VnEntry::SendObjectLog(AgentLogEvent::type event) const {
 
 void VnListReq::HandleRequest() const {
     AgentVnSandesh *sand = new AgentVnSandesh(context(), get_name());
-    sand->DoSandesh();
+    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
+}
+
+AgentSandesh *VnTable::GetAgentSandesh(const std::string &context) {
+    return new AgentVnSandesh(context, "");
 }
 
 void DomainConfig::RegisterIpamCb(Callback cb) {
