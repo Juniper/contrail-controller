@@ -65,6 +65,7 @@ public:
 
     int Hash(const DBEntry *entry) const {return 0;};
     int Hash(const DBRequestKey *key) const {return 0;};
+    virtual AgentSandesh *GetAgentSandesh(const std::string &context);
 
     DBEntry *Add(const DBRequest *req);
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);

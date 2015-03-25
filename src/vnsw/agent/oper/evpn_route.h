@@ -21,6 +21,7 @@ public:
     }
     virtual void UpdateDependants(AgentRoute *entry);
     virtual void PreRouteDelete(AgentRoute *entry);
+    virtual AgentSandesh *GetAgentSandesh(const std::string &context);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 

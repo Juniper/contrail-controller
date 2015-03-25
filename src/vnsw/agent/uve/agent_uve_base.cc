@@ -182,8 +182,8 @@ void AgentUveBase::VrouterAgentProcessState
 }
 
 void AgentUveBase::RegisterDBClients() {
-    vn_uve_table_.get()->RegisterDBClients();
-    vm_uve_table_.get()->RegisterDBClients();
+    //vn_uve_table_.get()->RegisterDBClients();
+    //vm_uve_table_.get()->RegisterDBClients();
     vrouter_uve_entry_.get()->RegisterDBClients();
     prouter_uve_table_.get()->RegisterDBClients();
 }

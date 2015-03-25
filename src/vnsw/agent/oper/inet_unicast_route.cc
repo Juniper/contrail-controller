@@ -926,7 +926,12 @@ void Inet4UcRouteReq::HandleRequest() const {
             new AgentInet4UcRtSandesh(vrf, context(), src_ip, 
                                       (uint8_t)get_prefix_len(), get_stale());
     }
-    sand->DoSandesh();
+    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
+}
+
+AgentSandesh *InetUnicastAgentRouteTable::GetAgentSandesh
+(const std::string &context) {
+    return new AgentInet4UcRtSandesh(vrf_entry(), context, true);
 }
 
 void Inet6UcRouteReq::HandleRequest() const {
@@ -949,7 +954,7 @@ void Inet6UcRouteReq::HandleRequest() const {
             new AgentInet6UcRtSandesh(vrf, context(), src_ip,
                                       (uint8_t)get_prefix_len(), get_stale());
     }
-    sand->DoSandesh();
+    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
 }
 
 /////////////////////////////////////////////////////////////////////////////

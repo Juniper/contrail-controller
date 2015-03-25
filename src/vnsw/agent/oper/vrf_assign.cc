@@ -248,5 +248,9 @@ bool VlanVrfAssign::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
 void VrfAssignReq::HandleRequest() const {
     AgentVrfAssignSandesh *sand =
         new AgentVrfAssignSandesh(context(), get_uuid());
-    sand->DoSandesh();
+    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
+}
+
+AgentSandesh *VrfAssignTable::GetAgentSandesh(const std::string &context) {
+    return new AgentVrfAssignSandesh(context, "");
 }
