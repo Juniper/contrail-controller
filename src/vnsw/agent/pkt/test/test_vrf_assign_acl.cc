@@ -376,6 +376,34 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl7) {
     client->WaitForIdle();
 }
 
+TEST_F(TestVrfAssignAclFlow, VrfAssignAcl8) {
+
+    TunnelRouteAdd("10.1.1.2", "2.1.1.1", "default-project:vn1:vn1",
+                   16, "default-project:vn2");
+
+    TestFlow flow[] = {
+        {  TestFlowPkt(Address::INET, "1.1.1.1", "2.1.1.1", IPPROTO_TCP, 10, 20,
+                       "default-project:vn1:vn1", VmPortGet(1)->id()),
+        {
+            new VerifyVn("default-project:vn1", "default-project:vn2"),
+        }
+        }
+    };
+    CreateFlow(flow, 1);
+
+    AddAddressVrfAssignAcl("intf1", 1, "1.1.1.0", "2.1.1.0", 6, 1, 65535,
+                           1, 65535, "default-project:vn3:vn3", "true");
+    client->WaitForIdle();
+    int nh_id = VmPortGet(1)->flow_key_nh()->id();
+    FlowEntry *fe = FlowGet(1, "1.1.1.1", "2.1.1.1", IPPROTO_TCP,
+                            10, 20, nh_id);
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->acl_assigned_vrf() == "default-project:vn3:vn3");
+    DeleteRoute("default-project:vn1:vn1", "2.1.1.1", 32);
+    client->WaitForIdle();
+}
+
+
 TEST_F(TestVrfAssignAclFlow, FloatingIp) {
     struct PortInfo input[] = {
         {"intf7", 7, "4.1.1.1", "00:00:00:01:01:01", 4, 7},

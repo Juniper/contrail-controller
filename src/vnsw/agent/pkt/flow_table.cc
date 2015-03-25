@@ -1752,6 +1752,7 @@ void FlowTable::IntfNotify(DBTablePartBase *part, DBEntryBase *e) {
         state->policy_ = !vm_port->policy_enabled();
         state->sg_l_ = new_sg_l;
         state->vn_ = new_vn;
+        state->vrf_assign_acl_ = vm_port->vrf_assign_acl();
         changed = true;
     } else {
         if (state->vn_.get() != new_vn) {
@@ -1765,6 +1766,10 @@ void FlowTable::IntfNotify(DBTablePartBase *part, DBEntryBase *e) {
         if (state->sg_l_.list_ != new_sg_l.list_) {
             changed = true;
             state->sg_l_ = new_sg_l;
+        }
+        if (state->vrf_assign_acl_.get() != vm_port->vrf_assign_acl()) {
+            changed = true;
+            state->vrf_assign_acl_ = vm_port->vrf_assign_acl();
         }
     }
 
