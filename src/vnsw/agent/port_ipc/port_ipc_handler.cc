@@ -42,6 +42,14 @@ PortIpcHandler::AddPortParams::AddPortParams
 PortIpcHandler::PortIpcHandler(Agent *agent, const std::string &dir,
                                bool chk_port)
     : agent_(agent), ports_dir_(dir), check_port_on_reload_(chk_port) {
+    fs::path ports_dir(ports_dir_);
+    if (fs::exists(ports_dir)) {
+        return;
+    }
+    if (!fs::create_directories(ports_dir)) {
+        string err_msg = "Creating directory " + ports_dir_ + " failed";
+        CONFIG_TRACE(PortInfo, err_msg.c_str());
+    }
 }
 
 PortIpcHandler::~PortIpcHandler() {
