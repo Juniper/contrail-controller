@@ -1486,7 +1486,7 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
     Ip4Prefix inet_prefix;
     Inet6Prefix inet6_prefix;
     IpAddress ip_addr;
-    if (!mac_addr.IsBroadcast() && !item.entry.nlri.address.empty()) {
+    if (!item.entry.nlri.address.empty()) {
         size_t pos = item.entry.nlri.address.find('/');
         if (pos == string::npos) {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
@@ -1518,7 +1518,7 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
                 return;
             }
             ip_addr = inet6_prefix.ip6_addr();
-        } else {
+        } else if (item.entry.nlri.address != "0.0.0.0/0") {
             BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                 SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                 "Bad prefix length in address string: " <<
