@@ -3,10 +3,6 @@ struct interface_info {
         2: optional string      macaddress
         3: optional string      ip_addr
         4: optional string      netmask
-        5: optional u64 tx_bytes
-        6: optional u64 tx_packets
-        7: optional u64 rx_bytes
-        8: optional u64 rx_packets
 }
 
 struct fru_info {
