@@ -553,12 +553,26 @@ TEST_F(RouteTest, RemoteVmRoute_4) {
         EXPECT_TRUE(tun->GetTunnelType().Compare(t));
     }
 
+    client->Reset();
     //Add ARP for server IP address
     //Once Arp address is added, remote VM tunnel nexthop
     //would be reevaluated, and tunnel nexthop would be valid
     AddArp(server1_ip_.to_string().c_str(), "0a:0b:0c:0d:0e:0f", eth_name_.c_str());
     client->WaitForIdle();
     EXPECT_TRUE(addr_nh->IsValid() == true);
+    client->NHWait(2);
+
+    //Trigger change of route. verify tunnel NH is also notified
+    AddArp(server1_ip_.to_string().c_str(), "0a:0b:0c:0d:0e:0e", eth_name_.c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(addr_nh->IsValid() == true);
+    client->NHWait(2);
+
+    //No-op change, verify tunnel NH is not notified
+    AddArp(server1_ip_.to_string().c_str(), "0a:0b:0c:0d:0e:0e", eth_name_.c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(addr_nh->IsValid() == true);
+    client->NHWait(4);
 
     //Delete Remote VM route
     DeleteRoute(NULL, vrf_name_, remote_vm_ip_, 32);
@@ -727,7 +741,7 @@ TEST_F(RouteTest, GatewayRoute_1) {
 
     //Change mac, and verify that nexthop of gateway route
     //also get updated
-    AddArp(fabric_gw_ip_.to_string().c_str(), "0a:0b:0c:0d:0e:0f", 
+    AddArp(fabric_gw_ip_.to_string().c_str(), "0a:0b:0c:0d:0e:0e",
            eth_name_.c_str());
     client->WaitForIdle();
     EXPECT_TRUE(IsSameNH(server2_ip_, 32, fabric_gw_ip_, 32,
@@ -944,9 +958,6 @@ TEST_F(RouteTest, VlanNHRoute_1) {
         client->WaitForIdle();
     }
     EXPECT_TRUE(rt == NULL);
-
-    Ip4Address addr = Ip4Address::from_string("2.2.2.10");
-    DeleteRoute(NULL, "vrf1", addr, 24);
 
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
@@ -1256,6 +1267,7 @@ TEST_F(RouteTest, ScaleRouteAddDel_3) {
         EcmpTunnelRouteAdd(NULL, vrf_name_, remote_vm_ip_, 32, 
                            comp_nh_list, false, "test", sg_id_list,
                            PathPreference());
+        client->WaitForIdle();
         DeleteRoute(NULL, vrf_name_, remote_vm_ip_, 32);
     }
     client->WaitForIdle(5);
@@ -1288,6 +1300,7 @@ TEST_F(RouteTest, ScaleRouteAddDel_4) {
         EcmpTunnelRouteAdd(NULL, vrf_name_, remote_vm_ip_, 32, 
                            comp_nh_list, -1, "test", sg_id_list,
                            PathPreference());
+        client->WaitForIdle();
         if (i != (repeat - 1)) {
             DeleteRoute(NULL, vrf_name_, remote_vm_ip_, 32);
         }

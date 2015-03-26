@@ -197,6 +197,17 @@ public:
     //Flood DHCP
     bool flood_dhcp() const {return flood_dhcp_;}
     void set_flood_dhcp(bool flood_dhcp) const {flood_dhcp_ = flood_dhcp;}
+    MacAddress mac() const {return mac_;}
+    void set_mac(const MacAddress &mac) {
+        mac_ = mac;
+    }
+    const Interface* interface() const {return interface_.get();}
+    void set_interface(const Interface *intf) {
+        interface_ = intf;
+    }
+
+    bool valid() const { return valid_;}
+    void set_valid(bool valid) { valid_ = valid;}
 
 private:
     const Peer *peer_;
@@ -255,6 +266,11 @@ private:
     IpAddress subnet_gw_ip_;
     // should vrouter flood the DHCP request coming from this source route
     mutable bool flood_dhcp_;
+    //Mac address of dependent ARP route
+    MacAddress mac_;
+    //Interface on which ARP would be resolved
+    InterfaceConstRef interface_;
+    bool valid_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 

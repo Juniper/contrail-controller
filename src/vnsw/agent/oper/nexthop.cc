@@ -258,7 +258,10 @@ void NextHopTable::OnZeroRefcount(AgentDBEntry *e) {
         return;
     }
 
-    agent()->ConcurrencyCheck();
+    if (agent()->test_mode() == false) {
+        agent()->ConcurrencyCheck();
+    }
+
     nh->OnZeroRefCount();
     
     DBRequest req;
@@ -334,6 +337,7 @@ bool ArpNH::Change(const DBRequest *req) {
     }
 
     if (!data->valid_) {
+        mac_.Zero();
         return ret;
     }
 
@@ -682,7 +686,7 @@ void VrfNH::SendObjectLog(AgentLogEvent::type event) const {
 TunnelNH::TunnelNH(VrfEntry *vrf, const Ip4Address &sip, const Ip4Address &dip,
                    bool policy, TunnelType type) :
     NextHop(NextHop::TUNNEL, false, policy), vrf_(vrf), sip_(sip),
-    dip_(dip), tunnel_type_(type), arp_rt_(this) {
+    dip_(dip), tunnel_type_(type), arp_rt_(this), interface_(NULL), dmac_() {
 }
 
 TunnelNH::~TunnelNH() {
@@ -778,8 +782,41 @@ bool TunnelNH::Change(const DBRequest *req) {
         ret = true;
     }
 
-    arp_rt_.reset(rt);
-    ret = true; 
+    if (arp_rt_.get() != rt) {
+        arp_rt_.reset(rt);
+        ret = true;
+    }
+
+    //If route is present, check if the interface or mac
+    //address changed for the dependent route
+    if (valid_ && rt) {
+        //Check if the interface or mac
+        //of the dependent route has changed
+        //only then notify the route
+        const NextHop *active_nh = rt->GetActiveNextHop();
+        const Interface *intf = NULL;
+        MacAddress dmac;
+        if (active_nh->GetType() == NextHop::ARP) {
+            const ArpNH *arp_nh = static_cast<const ArpNH *>(active_nh);
+            dmac = arp_nh->GetMac();
+            intf = arp_nh->GetInterface();
+        } else if (active_nh->GetType() == NextHop::INTERFACE) {
+            const InterfaceNH *intf_nh =
+                static_cast<const InterfaceNH *>(active_nh);
+            intf = intf_nh->GetInterface();
+            dmac_.Zero();
+        }
+
+        if (dmac_ != dmac) {
+            dmac_ = dmac;
+            ret = true;
+        }
+
+        if (interface_ != intf) {
+            interface_ = intf;
+            ret = true;
+        }
+    }
 
     return ret;
 }
@@ -891,8 +928,41 @@ bool MirrorNH::Change(const DBRequest *req) {
         ret = true;
     }
 
-    arp_rt_.reset(rt);
-    ret = true; 
+    if (arp_rt_.get() != rt) {
+        arp_rt_.reset(rt);
+        ret = true;
+    }
+
+    //If route is present, check if the interface or mac
+    //address changed for the dependent route
+    if (valid_ && rt) {
+        //Check if the interface or mac
+        //of the dependent route has changed
+        //only then notify the route
+        const NextHop *active_nh = rt->GetActiveNextHop();
+        const Interface *intf = NULL;
+        MacAddress dmac;
+        if (active_nh->GetType() == NextHop::ARP) {
+            const ArpNH *arp_nh = static_cast<const ArpNH *>(active_nh);
+            dmac = arp_nh->GetMac();
+            intf = arp_nh->GetInterface();
+        } else if (active_nh->GetType() == NextHop::INTERFACE) {
+            const InterfaceNH *intf_nh =
+                static_cast<const InterfaceNH *>(active_nh);
+            intf = intf_nh->GetInterface();
+            dmac_.Zero();
+        }
+
+        if (dmac_ != dmac) {
+            dmac_ = dmac;
+            ret = true;
+        }
+
+        if (interface_ != intf) {
+            interface_ = intf;
+            ret = true;
+        }
+    }
 
     return ret;
 }

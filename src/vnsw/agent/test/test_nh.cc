@@ -196,6 +196,29 @@ TEST_F(CfgTest, TunnelNh_2) {
     client->WaitForIdle();
 }
 
+//Enqueue change request for tunnel
+//Since all the request are same,
+//make sure tunnel NH is not notified
+TEST_F(CfgTest, TunnelNh_3) {
+    CreateTunnelNH(agent_->fabric_vrf_name(), agent_->router_id(),
+            Ip4Address::from_string("10.1.1.10"), false,
+            TunnelType::AllType());
+    client->WaitForIdle();
+ 
+    client->NextHopReset();
+    for (uint32_t i = 0; i < 10; i++) {
+        CreateTunnelNH(agent_->fabric_vrf_name(), agent_->router_id(),
+                       Ip4Address::from_string("10.1.1.10"), false,
+                       TunnelType::AllType());
+        client->WaitForIdle();
+    }
+    EXPECT_TRUE(client->nh_notify_ == 0);
+    DeleteTunnelNH(agent_->fabric_vrf_name(), agent_->router_id(),
+                   Ip4Address::from_string("10.1.1.10"), true,
+                   TunnelType::AllType());
+    client->WaitForIdle();
+}
+
 TEST_F(CfgTest, MirrorNh_1) {
     DBRequest req;
     uint32_t table_size = agent_->nexthop_table()->Size();
@@ -252,6 +275,37 @@ TEST_F(CfgTest, MirrorNh_1) {
     WaitForIdle(table_size, 5);
     DelVrf("test_vrf");
 }
+
+TEST_F(CfgTest, MirrorNh_2) {
+    AddVrf("test_vrf");
+    client->WaitForIdle();
+    client->Reset();
+
+    MirrorNHKey key
+        (agent_->fabric_vrf_name(), Ip4Address::from_string("10.10.10.10"),
+         10, Ip4Address::from_string("20.20.20.20"), 20);
+    std::string analyzer_1 = "TestAnalyzer_1";
+    MirrorTable::AddMirrorEntry(analyzer_1, agent_->fabric_vrf_name(),
+            Ip4Address::from_string("10.10.10.10"), 10,
+            Ip4Address::from_string("20.20.20.20"), 20);
+    client->WaitForIdle();
+
+    client->Reset();
+
+    for (uint32_t i = 0; i < 10; i++) {
+        MirrorTable::AddMirrorEntry(analyzer_1, agent_->fabric_vrf_name(),
+                Ip4Address::from_string("10.10.10.10"), 10,
+                Ip4Address::from_string("20.20.20.20"), 20);
+        client->WaitForIdle();
+    }
+    EXPECT_TRUE(client->nh_notify_ == 0);
+
+    MirrorTable::DelMirrorEntry(analyzer_1);
+    client->WaitForIdle();
+    DelVrf("test_vrf");
+    client->WaitForIdle();
+}
+
 
 TEST_F(CfgTest, NhSandesh_1) {
     uint32_t table_size = agent_->nexthop_table()->Size();
