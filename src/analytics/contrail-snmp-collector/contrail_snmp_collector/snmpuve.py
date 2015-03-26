@@ -22,6 +22,12 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionType,\
     ConnectionStatus
 
 class SnmpUve(object):
+    _composite_rules = dict(
+            ifInPkts=['ifInUcastPkts', 'ifInBroadcastPkts', 'ifInMulticastPkts'],
+            ifOutPkts=['ifOutUcastPkts', 'ifOutBroadcastPkts',
+                       'ifOutMulticastPkts'],
+            )
+
     def __init__(self, conf, instance='0'):
         self._conf = conf
         module = Module.CONTRAIL_SNMP_COLLECTOR
@@ -83,15 +89,23 @@ class SnmpUve(object):
         PRouterFlowUVE(data=PRouterFlowEntry(**dict(
                     name=dev, deleted=True))).send()
 
-
     def logger(self):
         return self._logger
+
+    def make_composites(self, ife):
+        for k in self._composite_rules.keys():
+            for cmpsr in self._composite_rules[k]:
+                if cmpsr in ife:
+                    if k not in ife:
+                        ife[k] = 0
+                    ife[k] += ife[cmpsr]
 
     def get_diff(self, data):
         pname = data['name']
         if pname not in self.if_stat:
             self.if_stat[pname] = {}
         diffs = {}
+        iftables = {}
         for ife in data['ifMib']['ifTable'] + data['ifMib']['ifXTable']:
             if 'ifDescr' in ife:
                 ifname = ife['ifDescr']
@@ -100,29 +114,32 @@ class SnmpUve(object):
             else:
                 print str(datetime.datetime.now()),'Err: ', ife.keys(), pname
                 continue
+            if ifname not in iftables:
+                iftables[ifname] = {}
+            iftables[ifname].update(ife)
+        for ifname, ife in iftables.items():
+            self.make_composites(ife)
 
             if ifname not in diffs:
                 diffs[ifname] = {}
             if ifname in self.if_stat[pname]:
-                diffs[ifname].update(self.diff(self.if_stat[pname][ifname],
-                                                                        ife))
+                diffs[ifname].update(self.diff(self.if_stat[pname][ifname], ife,
+                                     ifname))
             if ifname not in self.if_stat[pname]:
                 self.if_stat[pname][ifname] = {}
             self.if_stat[pname][ifname].update(self.stat_req(ife))
         data['ifStats'] = map(lambda x: IfStats(**x), diffs.values())
 
-    def diff(self, old, new):
-        d = {'ifIndex': new['ifIndex']}
+    def diff(self, old, new, ifname):
+        d = dict(ifIndex=new['ifIndex'], ifName=ifname)
         for k in self.stat_list():
             if k in new and k in old:
                 d[k] = new[k] - old[k]
         return d
 
     def stat_list(self):
-        return ('ifInUcastPkts', 'ifInMulticastPkts', 'ifInBroadcastPkts',
-                'ifInDiscards', 'ifInErrors', 'ifOutUcastPkts',
-                'ifOutMulticastPkts', 'ifOutBroadcastPkts', 'ifOutDiscards',
-                'ifOutErrors',)
+        return ('ifInPkts', 'ifOutPkts', 'ifInOctets', 'ifOutOctets',
+                'ifInDiscards', 'ifInErrors', 'ifOutDiscards', 'ifOutErrors',)
 
     def stat_req(self, d):
         r = {}
