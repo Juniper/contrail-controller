@@ -90,3 +90,10 @@ class CacheContainer(object):
         return str(self.dictionary)
 
 
+def CamelCase(input):
+    words = input.replace('_', '-').split('-')
+    name = ''
+    for w in words:
+        name += w.capitalize()
+    return name
+#end CamelCase

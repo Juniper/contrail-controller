@@ -33,7 +33,6 @@ import cgitb
 from cStringIO import StringIO
 #import GreenletProfiler
 
-import logging
 logger = logging.getLogger(__name__)
 
 """
@@ -205,6 +204,14 @@ def mask_password(message, secret="***"):
         message = re.sub(pattern, secret, message)
     return message
 
+def str_to_class(class_name):
+    try:
+        return reduce(getattr, class_name.split("."), sys.modules[__name__])
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.warn("Exception: %s", str(e))
+        return None
+#end str_to_class
 
 class VncApiServer(VncApiServerGen):
 
@@ -250,73 +257,75 @@ class VncApiServer(VncApiServerGen):
         self._post_common = self._http_post_common
 
         # Type overrides from generated code
-        self._resource_classes['global-system-config'] = \
-            vnc_cfg_types.GlobalSystemConfigServer
-        self._resource_classes['floating-ip'] = vnc_cfg_types.FloatingIpServer
-        self._resource_classes['instance-ip'] = vnc_cfg_types.InstanceIpServer
-        self._resource_classes['logical-router'] = vnc_cfg_types.LogicalRouterServer
-        self._resource_classes['security-group'] = vnc_cfg_types.SecurityGroupServer
-        self._resource_classes['virtual-machine-interface'] = \
-            vnc_cfg_types.VirtualMachineInterfaceServer
-        self._resource_classes['virtual-network'] = \
-            vnc_cfg_types.VirtualNetworkServer
-        self._resource_classes['network-policy'] = \
-            vnc_cfg_types.NetworkPolicyServer
-        self._resource_classes['network-ipam'] = \
-            vnc_cfg_types.NetworkIpamServer
-        self._resource_classes['virtual-DNS'] = vnc_cfg_types.VirtualDnsServer
-        self._resource_classes['virtual-DNS-record'] = \
-            vnc_cfg_types.VirtualDnsRecordServer
-        self._resource_classes['logical-interface'] = \
-            vnc_cfg_types.LogicalInterfaceServer
-        self._resource_classes['physical-interface'] = \
-            vnc_cfg_types.PhysicalInterfaceServer
+        self.set_resource_class('global-system-config',
+            vnc_cfg_types.GlobalSystemConfigServer)
+        self.set_resource_class('floating-ip', vnc_cfg_types.FloatingIpServer)
+        self.set_resource_class('instance-ip', vnc_cfg_types.InstanceIpServer)
+        self.set_resource_class('logical-router',
+            vnc_cfg_types.LogicalRouterServer)
+        self.set_resource_class('security-group',
+            vnc_cfg_types.SecurityGroupServer)
+        self.set_resource_class('virtual-machine-interface',
+            vnc_cfg_types.VirtualMachineInterfaceServer)
+        self.set_resource_class('virtual-network',
+            vnc_cfg_types.VirtualNetworkServer)
+        self.set_resource_class('network-policy',
+            vnc_cfg_types.NetworkPolicyServer)
+        self.set_resource_class('network-ipam',
+            vnc_cfg_types.NetworkIpamServer)
+        self.set_resource_class('virtual-DNS', vnc_cfg_types.VirtualDnsServer)
+        self.set_resource_class('virtual-DNS-record',
+            vnc_cfg_types.VirtualDnsRecordServer)
+        self.set_resource_class('logical-interface',
+            vnc_cfg_types.LogicalInterfaceServer)
+        self.set_resource_class('physical-interface',
+            vnc_cfg_types.PhysicalInterfaceServer)
 
-        self._resource_classes['virtual-ip'] = vnc_cfg_types.VirtualIpServer
-        self._resource_classes['loadbalancer-healthmonitor'] = (
+        self.set_resource_class('virtual-ip', vnc_cfg_types.VirtualIpServer)
+        self.set_resource_class('loadbalancer-healthmonitor',
             vnc_cfg_types.LoadbalancerHealthmonitorServer)
-        self._resource_classes['loadbalancer-member'] = (
+        self.set_resource_class('loadbalancer-member',
             vnc_cfg_types.LoadbalancerMemberServer)
-        self._resource_classes['loadbalancer-pool'] = (
+        self.set_resource_class('loadbalancer-pool',
             vnc_cfg_types.LoadbalancerPoolServer)
 
         # TODO default-generation-setting can be from ini file
-        self._resource_classes['bgp-router'].generate_default_instance = False
-        self._resource_classes[
-            'virtual-router'].generate_default_instance = False
-        self._resource_classes[
-            'access-control-list'].generate_default_instance = False
-        self._resource_classes[
-            'floating-ip-pool'].generate_default_instance = False
-        self._resource_classes['instance-ip'].generate_default_instance = False
-        self._resource_classes['logical-router'].generate_default_instance = False
-        self._resource_classes['security-group'].generate_default_instance = False
-        self._resource_classes[
-            'virtual-machine'].generate_default_instance = False
-        self._resource_classes[
-            'virtual-machine-interface'].generate_default_instance = False
-        self._resource_classes[
-            'service-template'].generate_default_instance = False
-        self._resource_classes[
-            'service-instance'].generate_default_instance = False
-        self._resource_classes[
-            'virtual-DNS-record'].generate_default_instance = False
-        self._resource_classes['virtual-DNS'].generate_default_instance = False
-        self._resource_classes[
-            'global-vrouter-config'].generate_default_instance = False
-        self._resource_classes[
-            'loadbalancer-pool'].generate_default_instance = False
-        self._resource_classes[
-            'loadbalancer-member'].generate_default_instance = False
-        self._resource_classes[
-            'loadbalancer-healthmonitor'].generate_default_instance = False
-        self._resource_classes[
-            'virtual-ip'].generate_default_instance = False
-        self._resource_classes['analytics-node'].generate_default_instance = False
-        self._resource_classes['database-node'].generate_default_instance = False
-        self._resource_classes['physical-router'].generate_default_instance = False
-        self._resource_classes['physical-interface'].generate_default_instance = False
-        self._resource_classes['logical-interface'].generate_default_instance = False
+        self.get_resource_class('bgp-router').generate_default_instance = False
+        self.get_resource_class(
+            'virtual-router').generate_default_instance = False
+        self.get_resource_class(
+            'access-control-list').generate_default_instance = False
+        self.get_resource_class(
+            'floating-ip-pool').generate_default_instance = False
+        self.get_resource_class('instance-ip').generate_default_instance = False
+        self.get_resource_class('logical-router').generate_default_instance = False
+        self.get_resource_class('security-group').generate_default_instance = False
+        self.get_resource_class(
+            'virtual-machine').generate_default_instance = False
+        self.get_resource_class(
+            'virtual-machine-interface').generate_default_instance = False
+        self.get_resource_class(
+            'service-template').generate_default_instance = False
+        self.get_resource_class(
+            'service-instance').generate_default_instance = False
+        self.get_resource_class(
+            'virtual-DNS-record').generate_default_instance = False
+        self.get_resource_class('virtual-DNS').generate_default_instance = False
+        self.get_resource_class(
+            'global-vrouter-config').generate_default_instance = False
+        self.get_resource_class(
+            'loadbalancer-pool').generate_default_instance = False
+        self.get_resource_class(
+            'loadbalancer-member').generate_default_instance = False
+        self.get_resource_class(
+            'loadbalancer-healthmonitor').generate_default_instance = False
+        self.get_resource_class(
+            'virtual-ip').generate_default_instance = False
+        self.get_resource_class('analytics-node').generate_default_instance = False
+        self.get_resource_class('database-node').generate_default_instance = False
+        self.get_resource_class('physical-router').generate_default_instance = False
+        self.get_resource_class('physical-interface').generate_default_instance = False
+        self.get_resource_class('logical-interface').generate_default_instance = False
 
         for act_res in _ACTION_RESOURCES:
             link = LinkObject('action', self._base_url, act_res['uri'],
@@ -646,7 +655,7 @@ class VncApiServer(VncApiServerGen):
                 bottle.abort(404, 'Name ' + pformat(ref_fq_name) + ' not found')
 
         # type-specific hook
-        r_class = self._resource_classes.get(obj_type)
+        r_class = self.get_resource_class(obj_type)
         if r_class:
             try:
                 fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
@@ -786,11 +795,17 @@ class VncApiServer(VncApiServerGen):
     # end get_profile_info
 
     def get_resource_class(self, resource_type):
-        if resource_type in self._resource_classes:
-            return self._resource_classes[resource_type]
+        if resource_type.replace('-', '_') in self._resource_classes:
+            return self._resource_classes[resource_type.replace('-', '_')]
 
-        return None
+        cls_name = '%sServerGen' %(cfgm_common.utils.CamelCase(resource_type))
+        return str_to_class(cls_name)
     # end get_resource_class
+
+    def set_resource_class(self, resource_type, resource_class):
+        obj_type = resource_type.replace('-', '_')
+        self._resource_classes[obj_type]  = resource_class
+    # end set_resource_class
 
     def list_bulk_collection_http_post(self):
         """ List collection when requested ids don't fit in query params."""
@@ -799,7 +814,7 @@ class VncApiServer(VncApiServerGen):
         if not obj_type:
             bottle.abort(400, "Bad Request, no 'type' in POST body")
 
-        obj_class = self._resource_classes.get(obj_type)
+        obj_class = self.get_resource_class(obj_type)
         if not obj_class:
             bottle.abort(400,
                    "Bad Request, Unknown type %s in POST body" %(obj_type))
@@ -1099,7 +1114,7 @@ class VncApiServer(VncApiServerGen):
             obj_ids_list = [{'uuid': obj_uuid}
                             for _, obj_uuid in fq_names_uuids]
 
-            obj_class = self._resource_classes[obj_type]
+            obj_class = self.get_resource_class(obj_type)
             obj_fields = list(obj_class.prop_fields) + \
                          list(obj_class.ref_fields)
             if 'fields' in bottle.request.query:
