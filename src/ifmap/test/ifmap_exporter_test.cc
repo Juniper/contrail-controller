@@ -531,6 +531,35 @@ TEST_F(IFMapExporterTest, CrcChecks) {
     ASSERT_TRUE(crc_vm_vec_simple1 == crc_vm_vec_simple3);
 }
 
+// Create links between VM and IPAM, one with both nodes having the same name
+// and another with them having different names.
+TEST_F(IFMapExporterTest, PR1383393) {
+    std::string samename = "samename";
+    std::string name1 = "name1";
+    std::string name2 = "name2";
+    IFMapMsgLink("virtual-network", "network-ipam", samename, samename);
+    IFMapMsgLink("virtual-network", "network-ipam", name1, name2);
+
+    IFMapTable *vn_tbl = IFMapTable::FindTable(&db_, "virtual-network");
+    TASK_UTIL_EXPECT_EQ(2, vn_tbl->Size());
+    IFMapTable *ni_tbl = IFMapTable::FindTable(&db_, "network-ipam");
+    TASK_UTIL_EXPECT_EQ(2, ni_tbl->Size());
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-network", samename) != NULL);
+    TASK_UTIL_EXPECT_TRUE(TableLookup("network-ipam", samename) != NULL);
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-network", name1) != NULL);
+    TASK_UTIL_EXPECT_TRUE(TableLookup("network-ipam", name2) != NULL);
+
+    IFMapMsgUnlink("virtual-network", "network-ipam", samename, samename);
+    IFMapMsgUnlink("virtual-network", "network-ipam", name1, name2);
+
+    TASK_UTIL_EXPECT_EQ(0, vn_tbl->Size());
+    TASK_UTIL_EXPECT_EQ(0, ni_tbl->Size());
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-network", samename) == NULL);
+    TASK_UTIL_EXPECT_TRUE(TableLookup("network-ipam", samename) == NULL);
+    TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-network", name1) == NULL);
+    TASK_UTIL_EXPECT_TRUE(TableLookup("network-ipam", name2) == NULL);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     LoggingInit();
