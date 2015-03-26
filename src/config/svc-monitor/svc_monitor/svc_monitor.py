@@ -89,6 +89,9 @@ class SvcMonitor(object):
         "instance_ip": {
             'self': [],
         },
+        "floating_ip": {
+            'self': [],
+        },
         "service_template": {
             'self': [],
         },
@@ -272,6 +275,14 @@ class SvcMonitor(object):
                 for irt_id in dependency_tracker.resources.get(
                         'interface_route_table', []):
                     self._delete_interface_route_table(irt_id)
+
+        for fip_id in dependency_tracker.resources.get('floating_ip', []):
+            fip = FloatingIpSM.get(fip_id)
+            if fip:
+                for vmi_id in fip.virtual_machine_interfaces:
+                    vmi = VirtualMachineInterfaceSM.get(vmi_id)
+                    if vmi and vmi.virtual_ip:
+                        self.netns_manager.add_fip_to_vip_vmi(vmi, fip)
 
     def post_init(self, vnc_lib, args=None):
         # api server
@@ -522,6 +533,13 @@ class SvcMonitor(object):
         else:
             for fq_name, uuid in iip_list:
                 InstanceIpSM.locate(uuid)
+
+        ok, fip_list = self._cassandra._cassandra_floating_ip_list()
+        if not ok:
+            pass
+        else:
+            for fq_name, uuid in fip_list:
+                FloatingIpSM.locate(uuid)
 
         ok, sg_list = self._cassandra._cassandra_security_group_list()
         if not ok:
