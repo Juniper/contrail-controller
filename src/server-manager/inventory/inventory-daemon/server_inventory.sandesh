@@ -3,10 +3,6 @@ struct interface_info {
         2: optional string      macaddress
         3: optional string      ip_addr
         4: optional string      netmask
-        5: optional u64 tx_bytes
-        6: optional u64 tx_packets
-        7: optional u64 rx_bytes
-        8: optional u64 rx_packets
 }
 
 struct fru_info {
@@ -29,6 +25,7 @@ struct memory_info {
         3: u32 num_of_dimms
         4: u64 dimm_size_mb
         5: double swap_size_mb
+        6: u64 total_mem_mb
 }
 
 struct cpu_info {
