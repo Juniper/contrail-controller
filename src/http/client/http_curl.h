@@ -42,8 +42,9 @@ int http_get(ConnInfo *conn, GlobalInfo *g);
 void set_url(ConnInfo *conn, const char *url); 
 int curl_init(HttpClient *);
 ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g,
-                   bool header, bool timeout);
+                   bool header, bool timeout, bool reuse);
 void del_conn(HttpConnection *connection, GlobalInfo *g);
+void del_curl_handle(ConnInfo *curl_handle, GlobalInfo *g);
 void set_header_options(ConnInfo *conn, const char *options);
 void set_post_string(ConnInfo *conn, const char *post, uint32_t len);
 void set_put_string(ConnInfo *conn, const char *put, uint32_t len);
