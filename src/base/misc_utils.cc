@@ -139,9 +139,12 @@ bool MiscUtils::GetBuildInfo(BuildModule id, const string &build_info,
         result = build_info;
         return false;
     }
-    fields[0u].AddMember("build-id", const_cast<char *>(rpm_version.c_str()), 
+    typedef rapidjson::Document::StringRefType StringRefType;
+    fields[0u].AddMember(StringRefType("build-id"),
+			 StringRefType(rpm_version.c_str()),
                          d.GetAllocator());
-    fields[0u].AddMember("build-number", const_cast<char *>(build_num.c_str()), 
+    fields[0u].AddMember(StringRefType("build-number"),
+			 StringRefType(build_num.c_str()),
                          d.GetAllocator());
 
     rapidjson::StringBuffer strbuf;
