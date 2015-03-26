@@ -61,3 +61,12 @@ def decode_string(dec_str, encoding='utf-8'):
         return ret_dec_str.decode(encoding)
     except Exception:
         return dec_str
+
+
+def CamelCase(input):
+    words = input.replace('_', '-').split('-')
+    name = ''
+    for w in words:
+        name += w.capitalize()
+    return name
+#end CamelCase

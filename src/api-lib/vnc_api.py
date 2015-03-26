@@ -18,20 +18,10 @@ from gen.resource_xsd import *
 from gen.resource_client import *
 from gen.vnc_api_client_gen import VncApiClientGen
 
-from cfgm_common import rest
+from cfgm_common import rest, utils
 from cfgm_common.exceptions import *
 
 from pprint import pformat
-
-
-def CamelCase(input):
-    words = input.replace('_', '-').split('-')
-    name = ''
-    for w in words:
-        name += w.capitalize()
-    return name
-#end CamelCase
-
 
 def str_to_class(class_name):
     try:
@@ -307,13 +297,13 @@ class VncApi(VncApiClientGen):
             # strip base from *_url to get *_uri
             uri = link['link']['href'].replace(srv_root_url, '')
             if link['link']['rel'] == 'collection':
-                class_name = "%s" % (CamelCase(link['link']['name']))
+                class_name = "%s" % (utils.CamelCase(link['link']['name']))
                 cls = str_to_class(class_name)
                 if not cls:
                     continue
                 cls.create_uri = uri
             elif link['link']['rel'] == 'resource-base':
-                class_name = "%s" % (CamelCase(link['link']['name']))
+                class_name = "%s" % (utils.CamelCase(link['link']['name']))
                 cls = str_to_class(class_name)
                 if not cls:
                     continue
@@ -512,7 +502,7 @@ class VncApi(VncApiClientGen):
     #end fetch_records
 
     def restore_config(self, create, resource, json_body):
-        class_name = "%s" % (CamelCase(resource))
+        class_name = "%s" % (utils.CamelCase(resource))
         cls = str_to_class(class_name)
         if not cls:
             return None
@@ -599,7 +589,7 @@ class VncApi(VncApiClientGen):
         if not obj_type:
             raise ResourceTypeUnknownError(obj_type)
 
-        class_name = "%s" % (CamelCase(obj_type))
+        class_name = "%s" % (utils.CamelCase(obj_type))
         obj_class = str_to_class(class_name)
         if not obj_class:
             raise ResourceTypeUnknownError(obj_type)
