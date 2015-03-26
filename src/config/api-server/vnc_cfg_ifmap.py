@@ -312,14 +312,22 @@ class VncIfmapClient(VncIfmapClientGen):
         try:
             not_published = True
             retry_count = 0
+            resp_xml = None
             while not_published:
                 sess_id = self._mapclient.get_session_id()
                 if async:
                     method = getattr(self._mapclient, 'call_async_result')
                 else:
                     method = getattr(self._mapclient, 'call')
-                req_xml = PublishRequest(sess_id, oper_body)
-                resp_xml = method('publish', req_xml)
+                if oper != 'search':
+                    req_xml = PublishRequest(sess_id, oper_body)
+                    resp_xml = method('publish', req_xml)
+                else:
+                    req_xml = SearchRequest(
+                        sess_id, oper_body['id'],
+                        search_parameters=oper_body['parameters'])
+                    resp_xml = method('search', req_xml)
+
                 resp_doc = etree.parse(StringIO.StringIO(resp_xml))
                 err_codes = resp_doc.xpath('/env:Envelope/env:Body/ifmap:response/errorResult/@errorCode',
                                            namespaces=self._NAMESPACES)
@@ -348,6 +356,8 @@ class VncIfmapClient(VncIfmapClientGen):
 
             if do_trace:
                 trace_msg(trace, 'IfmapTraceBuf', self._sandesh)
+
+            return resp_xml
         except Exception as e:
             if (isinstance(e, socket.error) and
                 self._conn_state != ConnectionStatus.DOWN):
@@ -363,7 +373,9 @@ class VncIfmapClient(VncIfmapClientGen):
 
                 # this will block till connection is re-established
                 self._reset_cache_and_accumulator()
+                self._db_client_mgr._api_svr_mgr.un_publish(only_ifmap=True)
                 self._init_conn()
+                self._db_client_mgr._api_svr_mgr.publish(only_ifmap=True)
                 self._publish_config_root()
                 self._db_client_mgr.db_resync()
                 return
@@ -564,11 +576,10 @@ class VncIfmapClient(VncIfmapClientGen):
             # default to return match_meta metadata types only
             srch_params['result-filter'] = match_meta
 
-        mapclient = self._mapclient
-        srch_req = SearchRequest(mapclient.get_session_id(), start_id,
-                                 search_parameters=srch_params
-                                 )
-        result = mapclient.call('search', srch_req)
+        result = self._publish_to_ifmap(
+            'search',
+            {'id': start_id, 'parameters': srch_params},
+            async=False)
 
         return result
     # end _search
