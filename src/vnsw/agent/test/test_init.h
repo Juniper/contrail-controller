@@ -177,7 +177,9 @@ public:
         vrf_notify_ = 0;
         mpls_notify_ = 0;
         nh_notify_ = 0;
+        comp_nh_notify_ = 0;
         mpls_del_notify_ = 0;
+        comp_nh_del_notify_ = 0;
         nh_del_notify_ = 0;
         shutdown_done_ = false;
         comp_nh_list_.clear();
@@ -220,22 +222,29 @@ public:
     };
 
     void CompositeNHNotify(DBTablePartBase *partition, DBEntryBase *e) {
-        const NextHop *nh = static_cast<const NextHop *>(e);
-        if (nh->GetType() != NextHop::COMPOSITE) 
+        const NextHop *comp_nh = static_cast<const NextHop *>(e);
+        if (comp_nh->GetType() != NextHop::COMPOSITE)
             return;
-        nh_notify_++;
+        comp_nh_notify_++;
         std::vector<const NextHop *>::iterator it = 
-            std::find(comp_nh_list_.begin(), comp_nh_list_.end(), nh);
+            std::find(comp_nh_list_.begin(), comp_nh_list_.end(), comp_nh);
         if (e->IsDeleted()) {
-            nh_del_notify_++;
+            comp_nh_del_notify_++;
             if (it != comp_nh_list_.end())
                 comp_nh_list_.erase(it);
         } else { 
             if (it == comp_nh_list_.end()) {
-                comp_nh_list_.push_back(nh);
+                comp_nh_list_.push_back(comp_nh);
             }
         }
     };
+
+    void NHNotify(DBTablePartBase *partition, DBEntryBase *e) {
+        nh_notify_++;
+        if (e->IsDeleted()) {
+            nh_del_notify_++;
+        }
+    }
 
     void MplsNotify(DBTablePartBase *partition, DBEntryBase *e) {
         mpls_notify_++;
@@ -257,12 +266,15 @@ public:
     void VnReset() {vn_notify_ = 0;};
     void VmReset() {vm_notify_ = 0;};
     void PortReset() {port_notify_ = port_del_notify_ = 0;};
-    void NextHopReset() {nh_notify_ = nh_del_notify_ = 0;};
+    void NextHopReset() {
+        nh_notify_ = nh_del_notify_ = comp_nh_notify_ = comp_nh_del_notify_ = 0;
+    }
     void CompositeNHReset() {comp_nh_list_.clear();};
     void MplsReset() {mpls_notify_ = mpls_del_notify_ = 0;};
     void Reset() {vrf_notify_ = acl_notify_ = port_notify_ = vn_notify_ = 
         vm_notify_ = cfg_notify_ = port_del_notify_ =  
-        vm_del_notify_ = vn_del_notify_ = vrf_del_notify_ = 0;};
+        vm_del_notify_ = vn_del_notify_ = vrf_del_notify_ = 
+        nh_notify_ = nh_del_notify_ = comp_nh_notify_ = comp_nh_del_notify_ = 0;};
     uint32_t acl_notify() { return acl_notify_;}
 
     void NotifyCfgWait(int cfg_count) {
@@ -484,14 +496,19 @@ public:
     }
 
     size_t CompositeNHCount() {return comp_nh_list_.size();};
-    bool CompositeNHDelWait(int nh_count) {
-        WAIT_FOR(100, 10000, (nh_del_notify_ >= nh_count));
-        return (nh_del_notify_ >= nh_count);
+    bool CompositeNHDelWait(int comp_nh_count) {
+        WAIT_FOR(100, 10000, (comp_nh_del_notify_ >= comp_nh_count));
+        return (comp_nh_del_notify_ >= comp_nh_count);
     }
 
-    bool CompositeNHWait(int nh_count) {
-        WAIT_FOR(100, 10000, (nh_notify_ >= nh_count));
-        return (nh_notify_ >= nh_count);
+    bool CompositeNHWait(int comp_nh_count) {
+        WAIT_FOR(100, 10000, (comp_nh_notify_ >= comp_nh_count));
+        return (comp_nh_notify_ >= comp_nh_count);
+    }
+
+    bool NHWait(int nh_count) {
+         WAIT_FOR(100, 10000, (nh_notify_ >= nh_count));
+         return (nh_notify_ >= nh_count);
     }
 
     bool MplsDelWait(int mpls_count) {
@@ -557,6 +574,8 @@ public:
                                                    this, _1, _2));
         Agent::GetInstance()->nexthop_table()->Register(boost::bind(&TestClient::CompositeNHNotify,
                                                    this, _1, _2));
+        Agent::GetInstance()->nexthop_table()->Register(boost::bind(&TestClient::NHNotify,
+                                                   this, _1, _2));
         Agent::GetInstance()->mpls_table()->Register(boost::bind(&TestClient::MplsNotify, 
                                                    this, _1, _2));
     };
@@ -577,9 +596,11 @@ public:
     int cfg_notify_;
     int acl_notify_;
     int vrf_notify_;
-    int nh_del_notify_;
+    int comp_nh_del_notify_;
     int mpls_del_notify_;
+    int nh_del_notify_;
     int nh_notify_;
+    int comp_nh_notify_;
     int mpls_notify_;
     std::vector<const NextHop *> comp_nh_list_;
     std::auto_ptr<TestAgentInit> agent_init_;
