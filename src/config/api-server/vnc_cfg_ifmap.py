@@ -363,7 +363,9 @@ class VncIfmapClient(VncIfmapClientGen):
 
                 # this will block till connection is re-established
                 self._reset_cache_and_accumulator()
+                self._db_client_mgr._api_svr_mgr.un_publish(only_ifmap=True)
                 self._init_conn()
+                self._db_client_mgr._api_svr_mgr.publish(only_ifmap=True)
                 self._publish_config_root()
                 self._db_client_mgr.db_resync()
                 return
