@@ -1492,23 +1492,46 @@ class VncApiServer(VncApiServerGen):
         return {}
     # end
 
-    def publish(self):
+    def publish(self, publish_api=True, publish_ifmap=True):
         # publish API server
-        data = {
-            'ip-address': self._args.ifmap_server_ip,
-            'port': self._args.listen_port,
-        }
-        self.api_server_task = self._disc.publish(
-            API_SERVER_DISCOVERY_SERVICE_NAME, data)
+        if publish_api:
+            data = {
+                'ip-address': self._args.ifmap_server_ip,
+                'port': self._args.listen_port,
+            }
+            self.api_server_task = self._disc.publish(
+                API_SERVER_DISCOVERY_SERVICE_NAME, data)
 
         # publish ifmap server
-        data = {
-            'ip-address': self._args.ifmap_server_ip,
-            'port': self._args.ifmap_server_port,
-        }
-        self.ifmap_task = self._disc.publish(
-            IFMAP_SERVER_DISCOVERY_SERVICE_NAME, data)
+        if publish_ifmap
+            data = {
+                'ip-address': self._args.ifmap_server_ip,
+                'port': self._args.ifmap_server_port,
+            }
+            self.ifmap_task = self._disc.publish(
+                IFMAP_SERVER_DISCOVERY_SERVICE_NAME, data)
     # end
+
+    def un_publish(self, un_publish_api=True, un_publish_ifmap=True):
+        if un_publish_api:
+            # un publish api server
+            data = {
+                'ip-address': self._args.ifmap_server_ip,
+                'port': self._args.listen_port,
+            }
+            self._disc.un_publish(
+                API_SERVER_DISCOVERY_SERVICE_NAME, data)
+
+        # un publish ifmap server
+        if un_publish_ifmap:
+            data = {
+                'ip-address': self._args.ifmap_server_ip,
+                'port': self._args.ifmap_server_port,
+            }
+            self._disc.un_publish(
+                IFMAP_SERVER_DISCOVERY_SERVICE_NAME, data)
+
+    # end un_publish
 
 # end class VncApiServer
 
