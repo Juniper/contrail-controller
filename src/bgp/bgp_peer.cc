@@ -426,7 +426,7 @@ void BgpPeer::InstallAuthKeys(TcpSession *session) {
     if (valid) {
         if (AuthDataIsMd5()) {
             LogInstallAuthKeys("add", auth_key);
-            inuse_auth_key_ = auth_key;
+            SetInuseAuthKeyInfo(auth_key, AuthenticationData::MD5);
             if (session) {
                 session->SetMd5SocketOption(PeerAddress(), auth_key.value);
             }
@@ -435,15 +435,25 @@ void BgpPeer::InstallAuthKeys(TcpSession *session) {
     } else {
         // If there are no valid available keys but an older one is currently
         // installed, un-install it.
-        if (AuthDataIsMd5()) {
+        if (inuse_authkey_type_ == AuthenticationData::MD5) {
             LogInstallAuthKeys("delete", inuse_auth_key_);
             ClearListenSocketAuthKey();
             if (session) {
                 session->ClearMd5SocketOption(PeerAddress());
             }
-            inuse_auth_key_.Reset();
+            ResetInuseAuthKeyInfo();
         }
     }
+}
+
+void BgpPeer::SetInuseAuthKeyInfo(const AuthenticationKey &key, KeyType type) {
+    inuse_auth_key_ = key;
+    inuse_authkey_type_ = type;
+}
+
+void BgpPeer::ResetInuseAuthKeyInfo() {
+    inuse_auth_key_.Reset();
+    inuse_authkey_type_ = AuthenticationData::NIL;
 }
 
 void BgpPeer::SetListenSocketAuthKey(const AuthenticationKey &auth_key) {

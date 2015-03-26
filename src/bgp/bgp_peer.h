@@ -39,6 +39,7 @@ class BgpNeighborResp;
 class BgpPeer : public IPeer {
 public:
     typedef std::set<Address::Family> AddressFamilyList;
+    typedef AuthenticationData::KeyType KeyType;
 
     BgpPeer(BgpServer *server, RoutingInstance *instance,
             const BgpNeighborConfig *config);
@@ -259,6 +260,8 @@ private:
     void ProcessAuthKeyChainConfig(const BgpNeighborConfig *config);
     void LogInstallAuthKeys(const std::string &oper,
                             const AuthenticationKey &auth_key);
+    void SetInuseAuthKeyInfo(const AuthenticationKey &key, KeyType type);
+    void ResetInuseAuthKeyInfo();
 
     void PostCloseRelease();
     void CustomClose();
@@ -325,6 +328,7 @@ private:
     uint64_t last_flap_;
     AuthenticationData auth_data_;
     AuthenticationKey inuse_auth_key_;
+    KeyType inuse_authkey_type_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpPeer);
 };
