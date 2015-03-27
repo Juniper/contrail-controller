@@ -1880,7 +1880,7 @@ TEST_F(BitSetTest, NumberedString1) {
 
 TEST_F(BitSetTest, NumberedString2) {
     BitSet bitset;
-    EXPECT_EQ("", bitset.ToNumberedString());
+    EXPECT_EQ("-", bitset.ToNumberedString());
     bitset.set(1);
     EXPECT_EQ("1", bitset.ToNumberedString());
     bitset.set(3);

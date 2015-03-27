@@ -610,8 +610,11 @@ string BitSet::ToNumberedString() const {
         }
     }
 
-    if (range)
+    if (range) {
        oss << "-" << integerToString(last_pos);
+    } else if (last_pos == BitSet::npos) {
+       oss << "-";
+    }
 
     return oss.str();
 }
