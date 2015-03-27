@@ -32,7 +32,9 @@ class PortIpcTest : public ::testing::Test {
          string err_str;
          fs::path ports_dir(dir);
          fs::directory_iterator end_iter;
-         PortIpcHandler pih(agent(), PortIpcHandler::kPortsDir, false);
+         //Pass directory as something different from where the files are
+         //present. Otherwise it will result in deletion of files
+         PortIpcHandler pih(agent(), "dummy", false);
 
          if (!fs::exists(ports_dir) || !fs::is_directory(ports_dir)) {
              return;

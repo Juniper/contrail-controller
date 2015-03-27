@@ -29,13 +29,13 @@ public:
     void InitModules();
     void CreateVrf();
     void CreateInterfaces();
-    void InitDone();
+    virtual void InitDone();
 
     // Shutdown virtual methods
     void IoShutdown();
     void FlushFlows();
     void ServicesShutdown();
-    void ModulesShutdown();
+    virtual void ModulesShutdown();
     void PktShutdown();
 
     bool ksync_enable() const { return ksync_enable_; }
@@ -70,7 +70,6 @@ private:
     std::auto_ptr<ServicesModule> services_;
     std::auto_ptr<PktModule> pkt_;
     std::auto_ptr<VirtualGateway> vgw_;
-    std::auto_ptr<RESTServer> rest_server_;
     DISALLOW_COPY_AND_ASSIGN(ContrailInitCommon);
 };
 
