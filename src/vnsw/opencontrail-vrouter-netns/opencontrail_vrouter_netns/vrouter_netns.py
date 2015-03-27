@@ -243,10 +243,10 @@ class NetnsManager(object):
             port_type_value = 0
         elif self.PORT_TYPE == "NameSpacePort":
             port_type_value = 1
-        payload = {"ip-address": str(nic['ip'].ip), "vlan-id": -1,
+        payload = {"ip-address": str(nic['ip'].ip), "tx-vlan-id": -1,
                    "display-name": display_name, "id": nic['uuid'],
                    "instance-id": self.vm_uuid, "ip6-address": '',
-                   "isolated-vlan-id": -1,
+                   "rx-vlan-id": -1,
                    "system-name": self._get_tap_name(nic['uuid']),
                    "vn-id": '', "vm-project-id": '',
                    "type": port_type_value, "mac-address": str(nic['mac'])}
