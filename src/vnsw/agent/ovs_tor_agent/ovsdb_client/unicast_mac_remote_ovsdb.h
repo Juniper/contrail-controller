@@ -17,7 +17,8 @@ class VrfOvsdbObject;
 
 class UnicastMacRemoteTable : public OvsdbDBObject {
 public:
-    UnicastMacRemoteTable(OvsdbClientIdl *idl, AgentRouteTable *table);
+    UnicastMacRemoteTable(OvsdbClientIdl *idl, AgentRouteTable *table,
+                          const std::string &logical_switch_name);
     virtual ~UnicastMacRemoteTable();
 
     void OvsdbNotify(OvsdbClientIdl::Op, struct ovsdb_idl_row *);
@@ -32,10 +33,12 @@ public:
     void Unregister();
     virtual void EmptyTable();
 
+    const std::string &logical_switch_name() const;
     void set_deleted(bool deleted);
     bool deleted();
 
 private:
+    std::string logical_switch_name_;
     bool deleted_;
     LifetimeRef<UnicastMacRemoteTable> table_delete_ref_;
     DISALLOW_COPY_AND_ASSIGN(UnicastMacRemoteTable);
@@ -50,12 +53,13 @@ public:
         ADD_ACK,
         DEL_ACK,
     };
-    UnicastMacRemoteEntry(OvsdbDBObject *table, const std::string mac,
-            const std::string logical_switch);
-    UnicastMacRemoteEntry(OvsdbDBObject *table, const BridgeRouteEntry *entry);
-    UnicastMacRemoteEntry(OvsdbDBObject *table, const UnicastMacRemoteEntry *key);
-    UnicastMacRemoteEntry(OvsdbDBObject *table,
-            struct ovsdb_idl_row *entry);
+    UnicastMacRemoteEntry(UnicastMacRemoteTable *table, const std::string mac);
+    UnicastMacRemoteEntry(UnicastMacRemoteTable *table,
+                          const BridgeRouteEntry *entry);
+    UnicastMacRemoteEntry(UnicastMacRemoteTable *table,
+                          const UnicastMacRemoteEntry *key);
+    UnicastMacRemoteEntry(UnicastMacRemoteTable *table,
+                          struct ovsdb_idl_row *entry);
 
     // OVSDB schema does not consider a key for unicast mac remote entry
     // so over-ride the default behaviour of NotifyAdd and NotifyDelete
