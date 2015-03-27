@@ -556,6 +556,19 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
+      'display_name' : 'VM CPU Stats'
+      'stat_type' : 'VirtualMachineStats',
+      'stat_attr' : 'cpu_stats',
+      'obj_table' : VM_TABLE,
+      'attributes': [
+          { 'name' : 'cpu_stats.cpu_one_min_avg', 'datatype' : 'double', 'index' : false},
+          { 'name' : 'cpu_stats.vm_memory_quota',  'datatype' : 'int',    'index' : false},
+          { 'name' : 'cpu_stats.rss', 'datatype' : 'int',    'index' : false},
+          { 'name' : 'cpu_stats.virt_memory', 'datatype' : 'double', 'index' : false},
+          { 'name' : 'cpu_stats.peak_virt_memory', 'datatype' : 'int',    'index' : false},
+        ]
+    },
+    {
       'display_name' : 'Storage Pool Info',
       'stat_type' : 'ComputeStoragePool',
       'stat_attr' : 'info_stats',
