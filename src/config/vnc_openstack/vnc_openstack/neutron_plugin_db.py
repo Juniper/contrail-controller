@@ -191,7 +191,7 @@ class DBInterface(object):
         bottle.abort(400, json.dumps(exc_info))
     #end _raise_contrail_exception
 
-    def _security_group_rule_create(self, sg_id, sg_rule):
+    def _security_group_rule_create(self, sg_id, sg_rule, sgr_q=None):
         try:
             sg_vnc = self._vnc_lib.security_group_read(id=sg_id)
         except NoIdError:
@@ -201,6 +201,13 @@ class DBInterface(object):
         if rules is None:
             rules = PolicyEntriesType([sg_rule])
         else:
+            for sgr_rule in rules.get_policy_rule():
+                sgr_info = self._security_group_rule_vnc_to_neutron(
+                                        sg_vnc.uuid, sgr_rule, sg_vnc)
+                sgr_diff = set(sgr_q.items()) ^ set(sgr_info.items())
+                if len(sgr_diff) == 1 and 'id' == sgr_diff.pop()[0]:
+                    self._raise_contrail_exception('SecurityGroupRuleExists',
+                                                   id=sgr_info['id'])
             rules.add_policy_rule(sg_rule)
 
         sg_vnc.set_security_group_entries(rules)
@@ -3846,7 +3853,7 @@ class DBInterface(object):
         self._validate_port_range(sgr_q)
         sg_id = sgr_q['security_group_id']
         sg_rule = self._security_group_rule_neutron_to_vnc(sgr_q, CREATE)
-        self._security_group_rule_create(sg_id, sg_rule)
+        self._security_group_rule_create(sg_id, sg_rule, sgr_q)
         ret_sg_rule_q = self._security_group_rule_vnc_to_neutron(sg_id,
                                                                  sg_rule)
 
