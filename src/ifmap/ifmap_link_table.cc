@@ -37,13 +37,12 @@ std::string IFMapLinkTable::LinkKey(const string &metadata,
                                         IFMapNode *left, IFMapNode *right) {
     ostringstream oss;
     if (left->IsLess(*right)) {
-        oss << metadata << "," << left->name() << "," << right->name();
+        oss << metadata << "," << left->ToString() << "," << right->ToString();
     } else {
-        oss << metadata << "," << right->name() << "," << left->name();
+        oss << metadata << "," << right->ToString() << "," << left->ToString();
     }
     return oss.str();
 }
-
 
 void IFMapLinkTable::AddLink(DBGraphBase::edge_descriptor edge,
                              IFMapNode *left, IFMapNode *right,
@@ -51,7 +50,6 @@ void IFMapLinkTable::AddLink(DBGraphBase::edge_descriptor edge,
                              const IFMapOrigin &origin) {
     DBTablePartition *partition =
         static_cast<DBTablePartition *>(GetTablePartition(0));
-
 
     string link_name = LinkKey(metadata, left, right);
     IFMapLink *link = FindLink(link_name);
