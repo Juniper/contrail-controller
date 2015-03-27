@@ -72,6 +72,20 @@ class InstanceManager(object):
         rt_fq_name = si.fq_name[:-1] + [rt_name]
         return rt_fq_name
 
+    def _get_project_obj(self, proj_fq_name):
+        proj_obj = None
+        for proj in ProjectSM.values():
+            if proj.fq_name == proj_fq_name:
+                proj_obj = Project()
+                proj_obj.uuid = proj.uuid
+                proj_obj.name = proj.name
+                proj_obj.fq_name = proj.fq_name
+                break
+        if not proj_obj:
+            self.logger.log_error("%s project not found" %
+                (proj_fq_name.join(':')))
+        return proj_obj
+
     def _allocate_iip(self, vn_obj, iip_name):
         iip_obj = InstanceIp(name=iip_name)
         iip_obj.add_virtual_network(vn_obj)
@@ -93,17 +107,8 @@ class InstanceManager(object):
         if not static_routes:
             static_routes = {'route':[]}
 
-        proj_fq_name = si.fq_name[:-1]
-        proj_obj = None
-        for proj in ProjectSM.values():
-            if proj.fq_name == proj_fq_name:
-                proj_obj = Project()
-                proj_obj.uuid = proj.uuid
-                proj_obj.fq_name = proj.fq_name
-                break
+        proj_obj = self._get_project_obj(si.fq_name[:-1])
         if not proj_obj:
-            self.logger.log_error("%s project not found" %
-                (proj_fq_name.join(':')))
             return
 
         rt_fq_name = self._get_if_route_table_name(nic['type'], si)
@@ -149,17 +154,9 @@ class InstanceManager(object):
         self.logger.log_info(
             "Creating network %s subnet %s" % (vn_name, vn_subnet))
 
-        proj_obj = None
-        for proj in ProjectSM.values():
-            if proj.fq_name == proj_fq_name:
-                proj_obj = Project()
-                proj_obj.uuid = proj.uuid
-                proj_obj.fq_name = proj.fq_name
-                break
+        proj_obj = self._get_project_obj(proj_fq_name)
         if not proj_obj:
-            self.logger.log_error("%s project not found" %
-                (proj_fq_name.join(':')))
-            return None
+            return
 
         vn_obj = VirtualNetwork(name=vn_name, parent_obj=proj_obj)
         if user_visible is not None:
@@ -294,18 +291,8 @@ class InstanceManager(object):
             return
 
         # get project
-        proj_obj = None
-        proj_fq_name = si.fq_name[:-1]
-        for proj in ProjectSM.values():
-            if proj.fq_name == proj_fq_name:
-                proj_obj = Project()
-                proj_obj.uuid = proj.uuid
-                proj_obj.name = proj.name
-                proj_obj.fq_name = proj.fq_name
-                break
+        proj_obj = self._get_project_obj(si.fq_name[:-1])
         if not proj_obj:
-            self.logger.log_error("%s project not found" %
-                (proj_fq_name.join(':')))
             return
 
         vmi_create = False
@@ -313,7 +300,7 @@ class InstanceManager(object):
         if_properties = None
         
         port_name = ('__').join([instance_name, nic['type'], nic['index']])
-        port_fq_name = proj_fq_name + [port_name]
+        port_fq_name = proj_obj.fq_name + [port_name]
         vmi_obj = VirtualMachineInterface(parent_obj=proj_obj, name=port_name)
         for vmi in VirtualMachineInterfaceSM.values():
             if vmi.fq_name == port_fq_name:
@@ -531,7 +518,7 @@ class NetworkNamespaceManager(VRouterHostedManager):
 
             vr_name = self._associate_vrouter(si, vm)
             if not vr_name:
-                self.logger.log_error("Not VRouter available for VM %s" %
+                self.logger.log_error("No vrouter available for VM %s" %
                                       vm.name)
 
             if si.local_preference[index] == svc_info.get_standby_preference():
@@ -590,3 +577,35 @@ class NetworkNamespaceManager(VRouterHostedManager):
             return None, None
 
         return vmi.instance_ip, vmi.virtual_network
+
+    def add_fip_to_vip_vmi(self, vmi, fip):
+        iip = InstanceIpSM.get(vmi.instance_ip)
+        if not iip:
+            return
+
+        proj_obj = self._get_project_obj(vmi.fq_name[:-1])
+        if not proj_obj:
+            return
+
+        try:
+            fip_obj = self._vnc_lib.floating_ip_read(id=fip.uuid)
+        except NoIdError:
+            return
+
+        fip_updated = False
+        for vmi_id in iip.virtual_machine_interfaces:
+            if vmi_id in fip.virtual_machine_interfaces:
+                continue
+            vmi = VirtualMachineInterfaceSM.get(vmi_id)
+            if not vmi:
+                continue
+
+            vmi_obj = VirtualMachineInterface(parent_obj=proj_obj,
+                name=vmi.name)
+            vmi_obj.uuid = vmi.uuid
+            vmi_obj.fq_name = vmi.fq_name
+            fip_obj.add_virtual_machine_interface(vmi_obj)
+            fip_updated = True
+
+        if fip_updated:
+            self._vnc_lib.floating_ip_update(fip_obj)

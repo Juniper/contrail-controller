@@ -258,6 +258,7 @@ class VirtualMachineInterfaceSM(DBBase):
         self.loadbalancer_pool = None
         self.logical_interface = None
         self.instance_ip = None
+        self.floating_ip = None
         self.interface_route_table = None
         self.security_group = None
         self.update(obj_dict)
@@ -274,6 +275,7 @@ class VirtualMachineInterfaceSM(DBBase):
         self.update_single_ref('virtual_ip', obj)
         self.update_single_ref('loadbalancer_pool', obj)
         self.update_single_ref('instance_ip', obj)
+        self.update_single_ref('floating_ip', obj)
         self.update_single_ref('virtual_network', obj)
         self.update_single_ref('virtual_machine', obj)
         self.update_single_ref('logical_interface', obj)
@@ -289,6 +291,7 @@ class VirtualMachineInterfaceSM(DBBase):
         obj.update_single_ref('virtual_ip', {})
         obj.update_single_ref('loadbalancer_pool', {})
         obj.update_single_ref('instance_ip', {})
+        obj.update_single_ref('floating_ip', {})
         obj.update_single_ref('virtual_network', {})
         obj.update_single_ref('virtual_machine', {})
         obj.update_single_ref('logical_interface', {})
@@ -420,6 +423,37 @@ class VirtualNetworkSM(DBBase):
 
 # end class VirtualNetworkSM
 
+
+class FloatingIpSM(DBBase):
+    _dict = {}
+    obj_type = 'floating_ip'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.address = None
+        self.virtual_machine_interfaces = set()
+        self.virtual_ip = None
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.address = obj['floating_ip_address']
+        self.update_multiple_refs('virtual_machine_interface', obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('virtual_machine_interface', {})
+        del cls._dict[uuid]
+    # end delete
+# end class FloatingIpSM
 
 class InstanceIpSM(DBBase):
     _dict = {}
@@ -758,6 +792,7 @@ DBBase._OBJ_TYPE_MAP = {
     'virtual_machine_interface': VirtualMachineInterfaceSM,
     'interface_route_table': InterfaceRouteTableSM,
     'instance_ip': InstanceIpSM,
+    'floating_ip': FloatingIpSM,
     'logical_interface': LogicalInterfaceSM,
     'physical_interface': PhysicalInterfaceSM,
     'virtual_router': VirtualRouterSM,
