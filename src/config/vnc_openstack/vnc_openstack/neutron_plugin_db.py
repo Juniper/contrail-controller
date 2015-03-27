@@ -4,6 +4,7 @@
 """
 .. attention:: Fix the license string
 """
+import copy
 import requests
 import re
 import uuid
@@ -201,6 +202,12 @@ class DBInterface(object):
         if rules is None:
             rules = PolicyEntriesType([sg_rule])
         else:
+            for sgr in rules.get_policy_rule() or []:
+                sgr_copy = copy.copy(sgr)
+                sgr_copy.rule_uuid = sg_rule.rule_uuid
+                if sg_rule == sgr_copy:
+                    self._raise_contrail_exception('SecurityGroupRuleExists',
+                                                   id=sgr.rule_uuid)
             rules.add_policy_rule(sg_rule)
 
         sg_vnc.set_security_group_entries(rules)
