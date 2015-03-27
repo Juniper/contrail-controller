@@ -99,8 +99,8 @@ class Controller(object):
             )
             
             for extn in self.mgrs[table][table]:
-                self._logger.info('Loaded extensions for %s: %s,%s' % \
-                    (table, extn.name, extn.entry_point_target))
+                self._logger.info('Loaded extensions for %s: %s,%s doc %s' % \
+                    (table, extn.name, extn.entry_point_target, extn.obj.__doc__))
 
             self.tab_alarms[table] = {}
 

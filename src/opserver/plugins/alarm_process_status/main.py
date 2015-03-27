@@ -2,6 +2,7 @@ from opserver.plugins.alarm_base import AlarmBase
 
 
 class ProcessStatus(AlarmBase):
+    """NodeMgr reports abnormal status for process(es) in NodeStatus.process_info"""
 
     def __call__(self, uve_key, uve_data):
         err_list = []

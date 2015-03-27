@@ -74,6 +74,7 @@ build_pkgs = [
         env['TOP'] + '/opserver/plugins/alarm_process_connectivity',
         env['TOP'] + '/opserver/plugins/alarm_partial_sysinfo',
         env['TOP'] + '/opserver/plugins/alarm_bgp_connectivity',
+        env['TOP'] + '/opserver/plugins/alarm_xmpp_connectivity',
         env['TOP'] + '/opserver/plugins/alarm_vrouter_interface',
         env['TOP'] + '/opserver']
 
@@ -83,6 +84,7 @@ env.Depends (env['analytics_test'], env['ALARM_PROCESS_STATUS_PKG'])
 env.Depends (env['analytics_test'], env['ALARM_PROCESS_CONNECTIVITY_PKG'])
 env.Depends (env['analytics_test'], env['ALARM_PARTIAL_SYSINFO_PKG'])
 env.Depends (env['analytics_test'], env['ALARM_BGP_CONNECTIVITY_PKG'])
+env.Depends (env['analytics_test'], env['ALARM_XMPP_CONNECTIVITY_PKG'])
 env.Depends (env['analytics_test'], env['ALARM_VROUTER_INTERFACE_PKG'])
 env.Requires (env['analytics_test'], env['TOP']+'/sandesh/common/dist/sandesh-common-0.1dev.tar.gz')
 env.Requires (env['analytics_test'], env['TOP']+'/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz')
