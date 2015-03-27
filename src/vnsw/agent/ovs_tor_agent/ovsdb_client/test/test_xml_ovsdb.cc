@@ -44,11 +44,14 @@ CreateOvsdbValidateNode(const string &type, const string &name,
         return new AgentUtXmlLogicalSwitchValidate(name, id, node);
     if (type == "ovs-uc-remote")
         return new AgentUtXmlUnicastRemoteValidate(name, id, node);
+    if (type == "ovs-vrf")
+        return new AgentUtXmlOvsdbVrfValidate(name, id, node);
 }
 
 void AgentUtXmlOvsdbInit(AgentUtXmlTest *test) {
     test->AddValidateEntry("ovs-logical-switch", CreateOvsdbValidateNode);
     test->AddValidateEntry("ovs-uc-remote", CreateOvsdbValidateNode);
+    test->AddValidateEntry("ovs-vrf", CreateOvsdbValidateNode);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -82,6 +85,50 @@ bool AgentUtXmlLogicalSwitchValidate::Validate() {
 
 const string AgentUtXmlLogicalSwitchValidate::ToString() {
     return "ovs-logical-switch";
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//  AgentUtXmlOvsdbVrfValidate routines
+/////////////////////////////////////////////////////////////////////////////
+AgentUtXmlOvsdbVrfValidate::AgentUtXmlOvsdbVrfValidate
+(const string &name, const uuid &id, const xml_node &node) :
+    AgentUtXmlValidationNode(name, node), id_(id) {
+}
+
+AgentUtXmlOvsdbVrfValidate::~AgentUtXmlOvsdbVrfValidate() {
+}
+
+bool AgentUtXmlOvsdbVrfValidate::ReadXml() {
+    if (AgentUtXmlValidationNode::ReadXml() == false)
+        return false;
+
+    uint16_t id = 0;
+    if (GetUintAttribute(node(), "vn-uuid", &id) == false) {
+        cout << "Attribute Parsing failed " << endl;
+        return false;
+    }
+
+    vn_uuid_ = MakeUuid(id);
+
+    return true;
+}
+
+bool AgentUtXmlOvsdbVrfValidate::Validate() {
+    VrfOvsdbObject *table = ovs_test_session->client_idl()->vrf_ovsdb();
+    const VrfOvsdbObject::LogicalSwitchMap ls_table = table->logical_switch_map();
+    VrfOvsdbObject::LogicalSwitchMap::const_iterator it = ls_table.find(UuidToString(vn_uuid_));
+    if (it == ls_table.end()) {
+        if (present()) {
+            return false;
+        }
+        return true;
+    }
+
+    return true;
+}
+
+const string AgentUtXmlOvsdbVrfValidate::ToString() {
+    return "ovs-vrf";
 }
 
 /////////////////////////////////////////////////////////////////////////////
