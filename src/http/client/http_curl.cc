@@ -173,17 +173,18 @@ static void remsock(int *f, GlobalInfo *g)
   }
 }
 
-static void setsock(int *fdp, curl_socket_t s, CURL*e, int act, GlobalInfo *g)
+static bool setsock(int *fdp, curl_socket_t s, CURL*e, int act, GlobalInfo *g)
 {
   std::map<curl_socket_t, HttpClientSession *>::iterator it = socket_map.find(s);
 
   if ( it == socket_map.end() )
   {
-    return;
+    return false;
   }
 
   HttpClientSession *session = it->second;
-  if (session->IsClosed()) return;
+  if (session->IsClosed())
+       return false;
 
   boost::asio::ip::tcp::socket * tcp_socket = session->socket();
 
@@ -210,6 +211,7 @@ static void setsock(int *fdp, curl_socket_t s, CURL*e, int act, GlobalInfo *g)
                                  boost::bind(&event_cb, g, TcpSessionPtr(session),
                                  act, _1, _2));
   }
+  return true;
 }
 
 
@@ -217,7 +219,11 @@ static void addsock(curl_socket_t s, CURL *easy, int action, GlobalInfo *g)
 {
   int *fdp = (int *)calloc(sizeof(int), 1); /* fdp is used to store current action */
 
-  setsock(fdp, s, easy, action, g);
+  if (!setsock(fdp, s, easy, action, g)) {
+      free(fdp);
+      return;
+  }
+
   curl_multi_assign(g->multi, s, fdp);
 }
 
@@ -405,6 +411,10 @@ ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g,
   if (timeout) {
       /* set the timeout limits to abort the connection */
       curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_TIME, 3L);
+      curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_LIMIT, 10L);
+  } else {
+      /* set longer timeout limits */
+      curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_TIME, 30L);
       curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_LIMIT, 10L);
   }
   if (!reuse) {
