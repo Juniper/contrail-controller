@@ -69,19 +69,19 @@ public:
 
     int HttpPut(const std::string &put_string, const std::string &path, HttpCb);
     int HttpPut(const std::string &put_string, const std::string &path,
-                bool header, bool timeout, bool reuse,
+                bool header, bool short_timeout, bool reuse,
                 std::vector<std::string> &hdr_options, HttpCb cb);
     int HttpPost(const std::string &post_string, const std::string &path, HttpCb);
     int HttpPost(const std::string &post_string, const std::string &path,
-                 bool header, bool timeout, bool reuse,
+                 bool header, bool short_timeout, bool reuse,
                  std::vector<std::string> &hdr_options, HttpCb cb);
     int HttpGet(const std::string &path, HttpCb);
-    int HttpGet(const std::string &path, bool header, bool timeout, bool reuse,
+    int HttpGet(const std::string &path, bool header, bool short_timeout, bool reuse,
                 std::vector<std::string> &hdr_options, HttpCb cb);
-    int HttpHead(const std::string &path, bool header, bool timeout, bool reuse,
+    int HttpHead(const std::string &path, bool header, bool short_timeout, bool reuse,
                  std::vector<std::string> &hdr_options, HttpCb cb);
     int HttpDelete(const std::string &path, HttpCb);
-    int HttpDelete(const std::string &path, bool header, bool timeout,
+    int HttpDelete(const std::string &path, bool header, bool short_timeout,
                    bool reuse, std::vector<std::string> &hdr_options,
                    HttpCb cb);
     void ClearCallback();
@@ -107,7 +107,7 @@ private:
     std::string make_url(std::string &path);
 
     void HttpProcessInternal(const std::string body, std::string path,
-                             bool header, bool timeout, bool reuse,
+                             bool header, bool short_timeout, bool reuse,
                              std::vector<std::string> hdr_options,
                              HttpCb, http_method);
 

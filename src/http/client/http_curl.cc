@@ -173,17 +173,18 @@ static void remsock(int *f, GlobalInfo *g)
   }
 }
 
-static void setsock(int *fdp, curl_socket_t s, CURL*e, int act, GlobalInfo *g)
+static bool setsock(int *fdp, curl_socket_t s, CURL*e, int act, GlobalInfo *g)
 {
   std::map<curl_socket_t, HttpClientSession *>::iterator it = socket_map.find(s);
 
   if ( it == socket_map.end() )
   {
-    return;
+    return false;
   }
 
   HttpClientSession *session = it->second;
-  if (session->IsClosed()) return;
+  if (session->IsClosed())
+       return false;
 
   boost::asio::ip::tcp::socket * tcp_socket = session->socket();
 
@@ -210,6 +211,7 @@ static void setsock(int *fdp, curl_socket_t s, CURL*e, int act, GlobalInfo *g)
                                  boost::bind(&event_cb, g, TcpSessionPtr(session),
                                  act, _1, _2));
   }
+  return true;
 }
 
 
@@ -217,7 +219,11 @@ static void addsock(curl_socket_t s, CURL *easy, int action, GlobalInfo *g)
 {
   int *fdp = (int *)calloc(sizeof(int), 1); /* fdp is used to store current action */
 
-  setsock(fdp, s, easy, action, g);
+  if (!setsock(fdp, s, easy, action, g)) {
+      free(fdp);
+      return;
+  }
+
   curl_multi_assign(g->multi, s, fdp);
 }
 
@@ -379,7 +385,7 @@ void del_curl_handle(ConnInfo *curl_handle, GlobalInfo *g) {
 
 /* Create a new easy handle, and add it to the global curl_multi */
 ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g,
-                   bool header, bool timeout, bool reuse)
+                   bool header, bool short_timeout, bool reuse)
 {
   ConnInfo *conn = (ConnInfo *)calloc(1, sizeof(ConnInfo));
   memset(conn, 0, sizeof(ConnInfo));
@@ -402,9 +408,13 @@ ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g,
   curl_easy_setopt(conn->easy, CURLOPT_PROGRESSFUNCTION, prog_cb);
   curl_easy_setopt(conn->easy, CURLOPT_PROGRESSDATA, conn);
   curl_easy_setopt(conn->easy, CURLOPT_CONNECTTIMEOUT, 4L); // in secs
-  if (timeout) {
+  if (short_timeout) {
       /* set the timeout limits to abort the connection */
       curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_TIME, 3L);
+      curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_LIMIT, 10L);
+  } else {
+      /* set longer timeout limits */
+      curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_TIME, 30L);
       curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_LIMIT, 10L);
   }
   if (!reuse) {
