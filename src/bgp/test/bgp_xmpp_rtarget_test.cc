@@ -653,23 +653,40 @@ protected:
         return RTargetRouteLookup(server, prefix);
     }
 
-    void VerifyRTargetRouteNexthops(BgpServerTest *server,
+    bool CheckRTargetRouteNexthops(BgpServerTest *server,
         const string &prefix, const vector<string> &nexthops) {
-        BgpRoute *route = VerifyRTargetRouteExists(server, prefix);
-        TASK_UTIL_EXPECT_EQ(nexthops.size(), route->count());
+        task_util::TaskSchedulerLock lock;
+
+        BgpRoute *route = RTargetRouteLookup(server, prefix);
+        if (!route || !route->IsUsable())
+            return false;
+        if (nexthops.size() != route->count())
+            return false;
         for (Route::PathList::iterator it = route->GetPathList().begin();
              it != route->GetPathList().end(); ++it) {
             bool found = false;
             const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
+            if (!path)
+                return false;
             const BgpAttr *attr = path->GetAttr();
+            if (!attr)
+                return false;
             BOOST_FOREACH(const string &nexthop, nexthops) {
                 if (attr->nexthop().to_v4().to_string() == nexthop) {
                     found = true;
                     break;
                 }
             }
-            EXPECT_TRUE(found);
+            if (!found)
+                return false;
         }
+        return true;
+    }
+
+    void VerifyRTargetRouteNexthops(BgpServerTest *server,
+        const string &prefix, const vector<string> &nexthops) {
+        TASK_UTIL_EXPECT_TRUE(
+            CheckRTargetRouteNexthops(server, prefix, nexthops));
     }
 
     void VerifyRTargetRouteNoExists(BgpServerTest *server,
