@@ -21,6 +21,8 @@ elif distname == 'centos' and LooseVersion(version) >= LooseVersion('7.0'):
         'gperftools',
         'log4cplus',
     ]
+elif distname == 'fedora' and LooseVersion(version) >= LooseVersion('20'):
+    pass
 else:
     subdirs += [
         'boost',
