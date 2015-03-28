@@ -63,15 +63,18 @@ private:
 class VpnRouteState : public DBState {
 public:
     typedef std::set<RouteTarget> RTargetList;
-    const RTargetList &GetList() const {
-        return list_;
-    }
 
-    RTargetList *GetMutableList() {
-        return &list_;
-    }
+    void AddRouteTarget(RTargetGroupMgr *mgr, int part_id, BgpRoute *rt,
+        RTargetList::const_iterator it);
+    void DeleteRouteTarget(RTargetGroupMgr *mgr, int part_id, BgpRoute *rt,
+        RTargetList::const_iterator it);
 
 private:
+    friend class RTargetGroupMgr;
+
+    const RTargetList *GetList() const { return &list_; }
+    RTargetList *GetMutableList() { return &list_; }
+
     RTargetList list_;
 };
 
@@ -233,7 +236,7 @@ private:
 
     void RTargetDepSync(DBTablePartBase *root, BgpRoute *rt,
                         DBTableBase::ListenerId id, VpnRouteState *dbstate,
-                        VpnRouteState::RTargetList &current);
+                        const VpnRouteState::RTargetList *future);
     void RTargetPeerSync(BgpTable *table, RTargetRoute *rt,
                          DBTableBase::ListenerId id, RTargetState *dbstate,
                          RtGroup::InterestedPeerList &current);
