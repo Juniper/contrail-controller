@@ -29,8 +29,10 @@ public:
     void FactoryInit();
     void CreateModules();
     void ConnectToController();
+    void InitDone();
 
     // Shutdown virtual methods
+    void ModulesShutdown();
     void KSyncShutdown();
     void UveShutdown();
     void StatsCollectorShutdown();
@@ -43,6 +45,7 @@ private:
     std::auto_ptr<VrouterControlInterface> pkt0_;
     std::auto_ptr<AgentStatsCollector> stats_collector_;
     std::auto_ptr<FlowStatsCollector> flow_stats_collector_;
+    std::auto_ptr<RESTServer> rest_server_;
 
     DISALLOW_COPY_AND_ASSIGN(ContrailAgentInit);
 };

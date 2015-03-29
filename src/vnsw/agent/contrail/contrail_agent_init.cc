@@ -14,6 +14,8 @@
 #include <vrouter/stats_collector/agent_stats_collector.h>
 #include <vrouter/flow_stats/flow_stats_collector.h>
 #include <openstack/instance_service_server.h>
+#include <port_ipc/rest_server.h>
+#include <port_ipc/port_ipc_handler.h>
 
 #include "contrail_agent_init.h"
 
@@ -80,6 +82,9 @@ void ContrailAgentInit::CreateModules() {
 
     ksync_.reset(AgentObjectFactory::Create<KSync>(agent()));
     agent()->set_ksync(ksync_.get());
+
+    rest_server_.reset(new RESTServer(agent()));
+    agent()->set_rest_server(rest_server_.get());
 }
 
 void ContrailAgentInit::ConnectToController() {
@@ -115,4 +120,20 @@ void ContrailAgentInit::FlowStatsCollectorShutdown() {
 
 void ContrailAgentInit::WaitForIdle() {
     sleep(5);
+}
+
+void ContrailAgentInit::InitDone() {
+    ContrailInitCommon::InitDone();
+
+    /* Reads and processes port information written by nova-compute */
+    PortIpcHandler pih(agent(), PortIpcHandler::kPortsDir, true);
+    pih.ReloadAllPorts();
+}
+
+void ContrailAgentInit::ModulesShutdown() {
+    ContrailInitCommon::ModulesShutdown();
+
+    if (agent()->rest_server()) {
+        agent()->rest_server()->Shutdown();
+    }
 }
