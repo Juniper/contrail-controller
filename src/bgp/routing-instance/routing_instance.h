@@ -54,7 +54,7 @@ public:
         return vrf_tables_;
     }
 
-    void ProcessConfig(BgpServer *server);
+    void ProcessConfig();
     void UpdateConfig(const BgpInstanceConfig *config);
     void ClearConfig();
 
@@ -86,7 +86,7 @@ public:
     const LifetimeActor *deleter() const;
     bool deleted() const;
 
-    void set_index(BgpServer *, int index);
+    void set_index(int index);
     int index() const { return index_; }
     bool IsDefaultRoutingInstance() const {
         return is_default_;
@@ -104,8 +104,8 @@ public:
     const RoutingInstanceMgr *manager() const { return mgr_; }
     RoutingInstanceInfo GetDataCollection(const char *operation);
 
-    BgpServer *server();
-    const BgpServer *server() const;
+    BgpServer *server() { return server_; }
+    const BgpServer *server() const { return server_; };
 
     // Remove import and export route target
     // and Leave corresponding RtGroup
@@ -125,9 +125,9 @@ private:
     // Cleanup all the state prior to deletion.
     void Shutdown();
 
-    BgpTable *VpnTableCreate(BgpServer *server, Address::Family vpn_family);
-    BgpTable *RTargetTableCreate(BgpServer *server);
-    BgpTable *VrfTableCreate(BgpServer *server, Address::Family vrf_family,
+    BgpTable *VpnTableCreate(Address::Family vpn_family);
+    BgpTable *RTargetTableCreate();
+    BgpTable *VrfTableCreate(Address::Family vrf_family,
                              Address::Family vpn_family);
     void ClearFamilyRouteTarget(Address::Family vrf_family,
                                 Address::Family vpn_family);
