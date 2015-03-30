@@ -107,6 +107,7 @@ bool PeerIFMapServerFinder::GetBestPeer(PeerIFMapServerInfo *srv_info) {
     if (is_valid) {
         current_peer_ = *srv_info;
     } else {
+        current_peer_ = PeerIFMapServerInfo();
         incr_no_best_peer_count();
     }
     return is_valid;
