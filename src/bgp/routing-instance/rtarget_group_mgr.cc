@@ -8,6 +8,7 @@
 
 #include <utility>
 
+#include "base/set_util.h"
 #include "base/task.h"
 #include "base/task_annotations.h"
 #include "bgp/bgp_config.h"
@@ -20,7 +21,26 @@
 #include "bgp/rtarget/rtarget_address.h"
 #include "bgp/rtarget/rtarget_route.h"
 
+using std::pair;
+
 int RTargetGroupMgr::rtfilter_task_id_ = -1;
+
+void VpnRouteState::AddRouteTarget(RTargetGroupMgr *mgr, int part_id,
+    BgpRoute *rt, RTargetList::const_iterator it) {
+    pair<RTargetList::iterator, bool> result;
+    result = list_.insert(*it);
+    assert(result.second);
+    RtGroup *rtgroup = mgr->LocateRtGroup(*it);
+    rtgroup->AddDepRoute(part_id, rt);
+}
+
+void VpnRouteState::DeleteRouteTarget(RTargetGroupMgr *mgr, int part_id,
+    BgpRoute *rt, RTargetList::const_iterator it) {
+    RtGroup *rtgroup = mgr->GetRtGroup(*it);
+    rtgroup->RemoveDepRoute(part_id, rt);
+    mgr->RemoveRtGroup(*it);
+    list_.erase(it);
+}
 
 RTargetGroupMgr::RTargetGroupMgr(BgpServer *server) : server_(server),
     rtarget_route_trigger_(new TaskTrigger(
@@ -376,65 +396,23 @@ void
 RTargetGroupMgr::RTargetDepSync(DBTablePartBase *root, BgpRoute *rt,
                                 DBTableBase::ListenerId id,
                                 VpnRouteState *dbstate,
-                                VpnRouteState::RTargetList &current) {
+                                const VpnRouteState::RTargetList *future) {
     CHECK_CONCURRENCY("db::DBTable");
 
-    VpnRouteState::RTargetList::iterator cur_it = current.begin();
-    VpnRouteState::RTargetList::iterator dbstate_next_it, dbstate_it;
     BgpTable *table = static_cast<BgpTable *>(root->parent());
-
-    if (dbstate == NULL) {
+    if (!dbstate) {
         dbstate = new VpnRouteState();
         rt->SetState(table, id, dbstate);
     }
-    dbstate_it = dbstate_next_it = dbstate->GetMutableList()->begin();
-    std::pair<VpnRouteState::RTargetList::iterator, bool> r;
 
-    while (cur_it != current.end() &&
-           dbstate_it != dbstate->GetMutableList()->end()) {
-        if (*cur_it < *dbstate_it) {
-            // Add RTarget to DBState
-            r = dbstate->GetMutableList()->insert(*cur_it);
-            assert(r.second);
-            // Add route to rtarget to route dep tree
-            RtGroup *rtgroup = LocateRtGroup(*cur_it);
-            rtgroup->AddDepRoute(root->index(), rt);
-            cur_it++;
-        } else if (*cur_it > *dbstate_it) {
-            // Remove from DBstate
-            dbstate_next_it++;
-            // Remove the route from rtarget to route dep tree
-            RtGroup *rtgroup = GetRtGroup(*dbstate_it);
-            rtgroup->RemoveDepRoute(root->index(), rt);
-            RemoveRtGroup(*dbstate_it);
-            dbstate->GetMutableList()->erase(dbstate_it);
-            dbstate_it = dbstate_next_it;
-        } else {
-            // Update
-            cur_it++;
-            dbstate_it++;
-        }
-        dbstate_next_it = dbstate_it;
-    }
-    for (; cur_it != current.end(); ++cur_it) {
-        r = dbstate->GetMutableList()->insert(*cur_it);
-        assert(r.second);
-        // Add route to rtarget to route dep tree
-        RtGroup *rtgroup = LocateRtGroup(*cur_it);
-        rtgroup->AddDepRoute(root->index(), rt);
-    }
-    for (dbstate_next_it = dbstate_it;
-         dbstate_it != dbstate->GetMutableList()->end();
-         dbstate_it = dbstate_next_it) {
-        dbstate_next_it++;
-        // Remove the route from rtarget to route dep tree
-        RtGroup *rtgroup = GetRtGroup(*dbstate_it);
-        rtgroup->RemoveDepRoute(root->index(), rt);
-        RemoveRtGroup(*dbstate_it);
-        dbstate->GetMutableList()->erase(dbstate_it);
-    }
+    int part_id = root->index();
+    set_synchronize(dbstate->GetMutableList(), future,
+        boost::bind(
+            &VpnRouteState::AddRouteTarget, dbstate, this, part_id, rt, _1),
+        boost::bind(
+            &VpnRouteState::DeleteRouteTarget, dbstate, this, part_id, rt, _1));
 
-    if (dbstate->GetList().empty()) {
+    if (dbstate->GetList()->empty()) {
         rt->ClearState(root->parent(), id);
         delete dbstate;
     }
@@ -468,7 +446,7 @@ bool RTargetGroupMgr::VpnRouteNotify(DBTablePartBase *root,
         !rt->BestPath()->IsFeasible()) {
         if (!dbstate)
             return true;
-        RTargetDepSync(root, rt, id, dbstate, list);
+        RTargetDepSync(root, rt, id, dbstate, &list);
         return true;
     }
 
@@ -486,7 +464,7 @@ bool RTargetGroupMgr::VpnRouteNotify(DBTablePartBase *root,
         }
     }
 
-    RTargetDepSync(root, rt, id, dbstate, list);
+    RTargetDepSync(root, rt, id, dbstate, &list);
     return true;
 }
 
