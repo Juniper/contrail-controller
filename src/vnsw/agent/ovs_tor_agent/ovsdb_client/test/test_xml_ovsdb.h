@@ -31,6 +31,24 @@ private:
     const boost::uuids::uuid id_;
 };
 
+class AgentUtXmlOvsdbVrfValidate : public AgentUtXmlValidationNode {
+public:
+    AgentUtXmlOvsdbVrfValidate(const std::string &name,
+                               const boost::uuids::uuid &id,
+                               const pugi::xml_node &node);
+    virtual ~AgentUtXmlOvsdbVrfValidate();
+
+    virtual bool ReadXml();
+    virtual bool Validate();
+    virtual const std::string ToString();
+    virtual uint32_t wait_count() const { return 2000; }
+    virtual uint32_t sleep_time() const { return 2000; }
+
+private:
+    const boost::uuids::uuid id_;
+    boost::uuids::uuid vn_uuid_;
+};
+
 class AgentUtXmlUnicastRemoteValidate : public AgentUtXmlValidationNode {
 public:
     AgentUtXmlUnicastRemoteValidate(const std::string &name,

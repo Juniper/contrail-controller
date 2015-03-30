@@ -30,16 +30,12 @@ public:
     KSyncDBObject::DBFilterResp DBEntryFilter(const DBEntry *entry);
 
     void ManagedDelete();
-    void Unregister();
     virtual void EmptyTable();
 
     const std::string &logical_switch_name() const;
-    void set_deleted(bool deleted);
-    bool deleted();
 
 private:
     std::string logical_switch_name_;
-    bool deleted_;
     LifetimeRef<UnicastMacRemoteTable> table_delete_ref_;
     DISALLOW_COPY_AND_ASSIGN(UnicastMacRemoteTable);
 };

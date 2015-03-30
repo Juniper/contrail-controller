@@ -264,7 +264,7 @@ void UnicastMacRemoteEntry::DeleteDupEntries(struct ovsdb_idl_txn *txn) {
 UnicastMacRemoteTable::UnicastMacRemoteTable(OvsdbClientIdl *idl,
         AgentRouteTable *table, const std::string &logical_switch_name) :
     OvsdbDBObject(idl, table), logical_switch_name_(logical_switch_name),
-    deleted_(false), table_delete_ref_(this, table->deleter()) {
+    table_delete_ref_(this, table->deleter()) {
 }
 
 UnicastMacRemoteTable::~UnicastMacRemoteTable() {
@@ -340,36 +340,21 @@ KSyncDBObject::DBFilterResp UnicastMacRemoteTable::DBEntryFilter(
 }
 
 void UnicastMacRemoteTable::ManagedDelete() {
-    deleted_ = true;
-    Unregister();
-}
-
-void UnicastMacRemoteTable::Unregister() {
-    if (IsEmpty() == true && deleted_ == true) {
-        KSyncObjectManager::Unregister(this);
-    }
+    // We do rely on follow up notification of VRF Delete
+    // to handle delete of this route table
 }
 
 void UnicastMacRemoteTable::EmptyTable() {
     OvsdbDBObject::EmptyTable();
     // unregister the object if emptytable is called with
-    // object being scheduled for delete, or if managed
-    // delete is triggered on the object.
-    if (delete_scheduled() || deleted_ == true) {
-        Unregister();
+    // object being scheduled for delete
+    if (delete_scheduled()) {
+        KSyncObjectManager::Unregister(this);
     }
 }
 
 const std::string &UnicastMacRemoteTable::logical_switch_name() const {
     return logical_switch_name_;
-}
-
-void UnicastMacRemoteTable::set_deleted(bool deleted) {
-    deleted_ = deleted;
-}
-
-bool UnicastMacRemoteTable::deleted() {
-    return deleted_;
 }
 
 VrfOvsdbObject::VrfOvsdbObject(OvsdbClientIdl *idl, DBTable *table) :
