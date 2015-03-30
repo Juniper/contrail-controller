@@ -144,6 +144,13 @@ class VirtualMachineManager(InstanceManager):
             vms=instances, st_name=st.name)
 
     def delete_service(self, vm):
+        # instance ip delete
+        vmi_list = []
+        for vmi_id in vm.virtual_machine_interfaces:
+            vmi_list.append(vmi_id)
+        self.cleanup_svc_vm_ports(vmi_list, port_delete=False)
+
+        # nova vm delete
         proj_name = vm.proj_fq_name[-1]
         vm = self._nc.oper('servers', 'get', proj_name, id=vm.uuid)
         if vm:

@@ -226,12 +226,12 @@ class InstanceManager(object):
             self.logger.log_info("SI %s info is complete" % si.fq_name)
             si.state = 'config_complete'
         else:
-            self.logger.log_warn("SI %s info is not complete" % si.fq_name)
+            self.logger.log_warning("SI %s info is not complete" % si.fq_name)
             si.state = 'config_pending'
 
         return config_complete
 
-    def cleanup_svc_vm_ports(self, vmi_list):
+    def cleanup_svc_vm_ports(self, vmi_list, port_delete=True):
         for vmi_id in vmi_list:
             try:
                 vmi_obj = self._vnc_lib.virtual_machine_interface_read(
@@ -241,16 +241,15 @@ class InstanceManager(object):
 
             for iip in vmi_obj.get_instance_ip_back_refs() or []:
                 try:
-                    iip_obj = self._vnc_lib.instance_ip_read(id=iip['uuid'])
-                except NoIdError:
-                    continue
-                iip_obj.del_virtual_machine_interface(vmi_obj)
-                vmi_refs = iip_obj.get_virtual_machine_interface_refs()
-                if not vmi_refs:
                     self._vnc_lib.instance_ip_delete(id=iip['uuid'])
-                else:
-                    self._vnc_lib.instance_ip_update(iip_obj)
-            self._vnc_lib.virtual_machine_interface_delete(id=vmi_id)
+                except NoIdError:
+                    pass
+
+            if port_delete:
+                try:
+                    self._vnc_lib.virtual_machine_interface_delete(id=vmi_id)
+                except (NoIdError, RefsExistError):
+                    pass
 
     def _check_create_netns_vm(self, instance_index, si, st, vm):
         instance_name = self._get_instance_name(si, instance_index)

@@ -13,6 +13,7 @@ import gevent
 from gevent import monkey
 monkey.patch_all(thread=not 'unittest' in sys.modules)
 
+import copy
 from cfgm_common.zkclient import ZookeeperClient
 import requests
 import ConfigParser
@@ -666,26 +667,33 @@ class SvcMonitor(object):
             self.logger.log_error("template not found for %s" %
                 ((':').join(si.fq_name)))
             return
-        if st.virtualization_type == 'virtual-machine':
-            self.vm_manager.create_service(st, si)
-        elif st.virtualization_type == 'network-namespace':
-            self.netns_manager.create_service(st, si)
-        elif st.virtualization_type == 'vrouter-instance':
-            self.vrouter_manager.create_service(st, si)
-        else:
-            self.logger.log_error("Unknown virt type: %s" %
-                st.virtualization_type)
+
+        try:
+            if st.virtualization_type == 'virtual-machine':
+                self.vm_manager.create_service(st, si)
+            elif st.virtualization_type == 'network-namespace':
+                self.netns_manager.create_service(st, si)
+            elif st.virtualization_type == 'vrouter-instance':
+                self.vrouter_manager.create_service(st, si)
+            else:
+                self.logger.log_error("Unknown virt type: %s" %
+                    st.virtualization_type)
+        except Exception:
+            cgitb_error_log(self)
 
     def _delete_service_instance(self, vm):
         self.logger.log_info("Deleting VM %s %s" %
             ((':').join(vm.proj_fq_name), vm.uuid))
 
-        if vm.virtualization_type == svc_info.get_vm_instance_type():
-            self.vm_manager.delete_service(vm)
-        elif vm.virtualization_type == svc_info.get_netns_instance_type():
-            self.netns_manager.delete_service(vm)
-        elif vm.virtualization_type == 'vrouter-instance':
-            self.vrouter_manager.delete_service(vm)
+        try:
+            if vm.virtualization_type == svc_info.get_vm_instance_type():
+                self.vm_manager.delete_service(vm)
+            elif vm.virtualization_type == svc_info.get_netns_instance_type():
+                self.netns_manager.delete_service(vm)
+            elif vm.virtualization_type == 'vrouter-instance':
+                self.vrouter_manager.delete_service(vm)
+        except Exception:
+            cgitb_error_log(self)
 
         # generate UVE
         si_fq_name = vm.display_name.split('__')[:-2]
@@ -742,8 +750,17 @@ def timer_callback(monitor):
         monitor._delete_service_instance(vm)
 
     # check status of service
-    for si_id in ServiceInstanceSM:
+    delete_vm_shared_vn = True
+    si_id_list = copy.deepcopy(ServiceInstanceSM)
+    for si_id in si_id_list:
         si = ServiceInstanceSM.get(si_id)
+        if not si:
+            continue
+        st = ServiceTemplateSM.get(si.service_template)
+        if not st:
+            continue
+        if st.virtualization_type == 'virtual-machine':
+            delete_vm_shared_vn = False
         if not monitor._check_service_running(si):
             monitor._relaunch_service_instance(si)
         if si.max_instances != len(si.virtual_machines):
@@ -753,7 +770,7 @@ def timer_callback(monitor):
     for vn in VirtualNetworkSM.values():
         if vn.virtual_machine_interfaces:
             continue
-        elif vn.name in svc_info.get_shared_vn_list():
+        elif vn.name in svc_info.get_shared_vn_list() and delete_vm_shared_vn:
             monitor._delete_shared_vn(vn.uuid)
         elif vn.name.startswith(svc_info.get_snat_left_vn_prefix()):
             monitor._delete_shared_vn(vn.uuid)
