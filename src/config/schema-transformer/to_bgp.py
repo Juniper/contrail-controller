@@ -197,6 +197,10 @@ def _access_control_list_update(acl_obj, name, obj, entries):
                 pass
             return None
 
+        # if entries did not change, just return the object
+        if acl_obj.get_access_control_list_entries() == entries:
+            return acl_obj
+
         # Set new value of entries on the ACL
         acl_obj.set_access_control_list_entries(entries)
         try:
@@ -226,16 +230,24 @@ class VirtualNetworkST(DictST):
     _rt_allocator = None
     _sc_vlan_allocator_dict = {}
     
-    def __init__(self, name):
-        self.obj = _vnc_lib.virtual_network_read(fq_name_str=name)
+    def __init__(self, name, obj=None, acl_dict=None, ri_dict=None):
+        self.obj = obj or _vnc_lib.virtual_network_read(
+            fq_name_str=name, fields=['routing-instances',
+                                      'access-control-lists'])
         self.name = name
         self.policies = OrderedDict()
         self.connections = set()
         self.rinst = {}
         self.acl = None
         self.dynamic_acl = None
-        for acl in self.obj.get_access_control_lists() or []:
-            acl_obj = _vnc_lib.access_control_list_read(id=acl['uuid'])
+        # FIXME: due to a bug in contrail api, calling
+        # get_access_control_lists() may result in another call to
+        # virtual_network_read. Avoid it for now.
+        for acl in getattr(self.obj, 'access_control_lists', None) or []:
+            if acl_dict:
+                acl_obj = acl_dict[acl['uuid']]
+            else:
+                acl_obj = _vnc_lib.access_control_list_read(id=acl['uuid'])
             if acl_obj.name == self.obj.name:
                 self.acl = acl_obj
             elif acl_obj.name == 'dynamic':
@@ -263,10 +275,10 @@ class VirtualNetworkST(DictST):
             _vnc_lib.virtual_network_update(self.obj)
         if self.obj.get_fq_name() == common.IP_FABRIC_VN_FQ_NAME:
             self._default_ri_name = common.IP_FABRIC_RI_FQ_NAME[-1]
-            self.locate_routing_instance_no_target(self._default_ri_name)
+            self.locate_routing_instance_no_target(self._default_ri_name, ri_dict)
         elif self.obj.get_fq_name() == common.LINK_LOCAL_VN_FQ_NAME:
             self._default_ri_name = common.LINK_LOCAL_RI_FQ_NAME[-1]
-            self.locate_routing_instance_no_target(self._default_ri_name)
+            self.locate_routing_instance_no_target(self._default_ri_name, ri_dict)
         else:
             self._default_ri_name = self.obj.name
             self.locate_routing_instance(self._default_ri_name)
@@ -274,7 +286,7 @@ class VirtualNetworkST(DictST):
         for ri in self.obj.get_routing_instances() or []:
             ri_name = ri['to'][-1]
             if ri_name not in self.rinst:
-                self.locate_routing_instance(ri_name)
+                self.locate_routing_instance(ri_name, None, ri_dict)
         for policy in NetworkPolicyST.values():
             if policy.internal and name in policy.network_back_ref:
                 self.add_policy(policy.name)
@@ -525,25 +537,25 @@ class VirtualNetworkST(DictST):
                                  self._route_target)
     # end get_route_target
 
-    def locate_routing_instance_no_target(self, rinst_name):
+    def locate_routing_instance_no_target(self, rinst_name, ri_dict):
         """ locate a routing instance but do not allocate a route target """
         if rinst_name in self.rinst:
             return self.rinst[rinst_name]
 
         rinst_fq_name_str = '%s:%s' % (self.obj.get_fq_name_str(), rinst_name)
         try:
-            rinst_obj = _vnc_lib.routing_instance_read(
-                fq_name_str=rinst_fq_name_str)
-            rinst = RoutingInstanceST(rinst_obj)
-            self.rinst[rinst_name] = rinst
-            return rinst
-        except NoIdError:
-            _sandesh._logger.error(
-                "Cannot read routing instance %s", rinst_fq_name_str)
+            rinst_obj = ri_dict[rinst_fq_name_str]
+        except KeyError:
+            _sandesh._logger.error("Cannot read routing instance %s",
+                                   rinst_fq_name_str)
             return None
+        rinst = RoutingInstanceST(rinst_obj)
+        self.rinst[rinst_name] = rinst
+        return rinst
     # end locate_routing_instance_no_target
 
-    def locate_routing_instance(self, rinst_name, service_chain=None):
+    def locate_routing_instance(self, rinst_name, service_chain=None,
+                                ri_dict=None):
         if rinst_name in self.rinst:
             return self.rinst[rinst_name]
 
@@ -573,8 +585,11 @@ class VirtualNetworkST(DictST):
 
         try:
             try:
-                rinst_obj = _vnc_lib.routing_instance_read(
-                    fq_name_str=rinst_fq_name_str)
+                if ri_dict:
+                    rinst_obj = ri_dict[rinst_fq_name_str]
+                else:
+                    rinst_obj = _vnc_lib.routing_instance_read(
+                        fq_name_str=rinst_fq_name_str)
                 if rinst_obj.parent_uuid != self.obj.uuid:
                     # Stale object. Delete it.
                     _vnc_lib.routing_instance_delete(id=rinst_obj.uuid)
@@ -592,7 +607,7 @@ class VirtualNetworkST(DictST):
                         rinst_obj.add_route_target(rtgt_obj, inst_tgt_data)
 
                     _vnc_lib.routing_instance_update(rinst_obj)
-            except NoIdError:
+            except NoIdError, KeyError:
                 rinst_obj = None
             if rinst_obj is None:
                 rinst_obj = RoutingInstance(rinst_name, self.obj)
@@ -881,20 +896,15 @@ class VirtualNetworkST(DictST):
             vm_analyzer = si.get_virtual_machine_back_refs()
             if vm_analyzer is None:
                 return (None, None)
-            vm_analyzer_obj = _vnc_lib.virtual_machine_read(
-                id=vm_analyzer[0]['uuid'])
+            vm_analyzer_obj = VirtualMachineST.get(':'.join(vm_analyzer[0]['to']))
             if vm_analyzer_obj is None:
                 return (None, None)
-            vmi_refs = (vm_analyzer_obj.get_virtual_machine_interfaces() or
-                        vm_analyzer_obj.get_virtual_machine_interface_back_refs())
-            for vmi_ref in vmi_refs or []:
-                vmi_fq_name = ':'.join(vmi_ref['to'])
-                vmi = VirtualMachineInterfaceST.get(vmi_fq_name)
+            vmis = vm_analyzer_obj.interfaces
+            for vmi_name in vmis:
+                vmi = VirtualMachineInterfaceST.get(vmi_name)
                 if vmi and vmi.service_interface_type == 'left':
                     vn_analyzer = vmi.virtual_network
-                    for ip_analyzer in vmi.instance_ips.values():
-                        if ip_analyzer:
-                            break
+                    ip_analyzer = vmi.get_any_instance_ip_address()
                     break
             # end for vmi_ref
         except NoIdError:
@@ -1653,29 +1663,10 @@ class ServiceChain(DictST):
                 service_ri1.update_route_target_list(rt_list,
                                                      import_export='export')
 
-            try:
-                service_instance = _vnc_lib.service_instance_read(
-                    fq_name_str=service)
-            except NoIdError:
-                _sandesh._logger.error("service chain %s: NoIdError while "
-                                       "reading service_instance", self.name)
+            tmp_vm_obj = VirtualMachineST('', service)
+            mode = tmp_vm_obj.get_service_mode()
+            if mode is None:
                 return None
-
-            try:
-                si_refs = service_instance.get_service_template_refs()
-                if not si_refs:
-                    _sandesh._logger.error(
-                        "service chain %s: si_refs is None", self.name)
-                    return None
-                service_template = _vnc_lib.service_template_read(
-                    id=si_refs[0]['uuid'])
-            except NoIdError:
-                _sandesh._logger.error("service chain %s: NoIdError while "
-                                       "reading service template", self.name)
-                return None
-
-            mode = service_template.get_service_template_properties(
-            ).get_service_mode()
             nat_service = (mode == "in-network-nat")
             transparent = (mode not in ["in-network", "in-network-nat"])
             _sandesh._logger.error("service chain %s: creating %s chain",
@@ -1805,11 +1796,8 @@ class ServiceChain(DictST):
             if (if_obj is None or
                 if_obj.service_interface_type not in ['left', 'right']):
                 continue
-            ip_addr = None
-            for ip_addr in if_obj.instance_ips.values():
-                if ip_addr is not None:
-                    break
-            else:
+            ip_addr = if_obj.get_any_instance_ip_address()
+            if ip_addr is None:
                 _sandesh._logger.error(
                         "No ip address found for interface " + if_obj.name)
                 return False
@@ -2034,16 +2022,16 @@ class BgpRouterST(DictST):
 
 class VirtualMachineInterfaceST(DictST):
     _dict = {}
-    def __init__(self, name):
+    def __init__(self, name, obj):
         self.name = name
         self.service_interface_type = None
         self.interface_mirror = None
         self.virtual_network = None
         self.virtual_machine = None
         self.uuid = None
-        self.instance_ips = {}
-        self.floating_ips = {}
-        self.obj = _vnc_lib.virtual_machine_interface_read(fq_name_str=self.name)
+        self.instance_ips = set()
+        self.floating_ips = set()
+        self.obj = obj or _vnc_lib.virtual_machine_interface_read(fq_name_str=name)
         self.uuid = self.obj.uuid
         self.vrf_table = jsonpickle.encode(self.obj.get_vrf_assign_table())
     # end __init__
@@ -2055,31 +2043,27 @@ class VirtualMachineInterfaceST(DictST):
     # end delete
     
     def add_instance_ip(self, ip_name):
-        try:
-            ip_obj = _vnc_lib.instance_ip_read(fq_name_str=ip_name)
-            addr = ip_obj.get_instance_ip_address()
-        except NoIdError:
-            addr = None
-        self.instance_ips[ip_name] = addr
+        self.instance_ips.add(ip_name)
     # end add_instance_ip
     
     def delete_instance_ip(self, ip_name):
-        if ip_name in self.instance_ips:
-            del self.instance_ips[ip_name]
+        self.instance_ips.discard(ip_name)
     # end delete_instance_ip
 
+    def get_any_instance_ip_address(self):
+        for ip_name in self.instance_ips:
+            ip = InstanceIpST.get(ip_name)
+            if ip and ip.address:
+                return ip.address
+        return None
+    # end get_any_instance_ip_address
+
     def add_floating_ip(self, ip_name):
-        try:
-            ip_obj = _vnc_lib.floating_ip_read(fq_name_str=ip_name)
-            addr = ip_obj.get_floating_ip_address()
-        except NoIdError:
-            addr = None
-        self.floating_ips[ip_name] = addr
+        self.floating_ips.add(ip_name)
     # end add_floating_ip
 
     def delete_floating_ip(self, ip_name):
-        if ip_name in self.floating_ips:
-            del self.floating_ips[ip_name]
+        self.floating_ips.discard(ip_name)
     # end delete_floating_ip
 
     def set_service_interface_type(self, service_interface_type):
@@ -2094,14 +2078,9 @@ class VirtualMachineInterfaceST(DictST):
     # end set_interface_mirror
 
     def set_virtual_machine(self, virtual_machine):
-        try:
-            vm_obj = _vnc_lib.virtual_machine_read(fq_name_str=virtual_machine)
-        except NoIdError:
+        if self.virtual_machine == virtual_machine:
             return
-
-        if self.virtual_machine == vm_obj.uuid:
-            return
-        self.virtual_machine = vm_obj.uuid
+        self.virtual_machine = virtual_machine
         self._add_pbf_rules()
     # end set_virtual_machine
 
@@ -2110,20 +2089,11 @@ class VirtualMachineInterfaceST(DictST):
             self.service_interface_type not in ['left', 'right']):
             return
 
-        try:
-            vm_obj = _vnc_lib.virtual_machine_read(id=self.virtual_machine)
-            si_refs = vm_obj.get_service_instance_refs()
-            if not si_refs:
-                return
-            si_obj = _vnc_lib.service_instance_read(id=si_refs[0]['uuid'])
-            st_refs = si_obj.get_service_template_refs()
-            if not st_refs:
-                return
-            st_obj = _vnc_lib.service_template_read(id=st_refs[0]['uuid'])
-        except NoIdError:
+        vm_obj = VirtualMachineST.get(self.virtual_machine)
+        if vm_obj is None:
             return
-        smode = st_obj.get_service_template_properties().get_service_mode()
-        if smode in ['in-network', 'in-network-nat']:
+        smode = vm_obj.get_service_mode()
+        if smode != 'transparent':
             return
         for service_chain in ServiceChain.values():
             if si_obj.get_fq_name_str() not in service_chain.service_list:
@@ -2151,25 +2121,17 @@ class VirtualMachineInterfaceST(DictST):
     # end _add_pbf_rules
 
     def set_virtual_network(self, vn_name):
-        try:
-            if_obj = _vnc_lib.virtual_machine_interface_read(
-                id=self.uuid)
-        except NoIdError:
-            _sandesh._logger.error("NoIdError while reading interface " +
-                                   self.name)
-            self.delete(self.name)
-            return
         self.virtual_network = vn_name
         virtual_network = VirtualNetworkST.locate(vn_name)
         if virtual_network is None:
             return
         ri = virtual_network.get_primary_routing_instance().obj
-        refs = if_obj.get_routing_instance_refs()
+        refs = self.obj.get_routing_instance_refs()
         if ri.get_fq_name() not in [r['to'] for r in (refs or [])]:
-            if_obj.add_routing_instance(
+            self.obj.add_routing_instance(
                 ri, PolicyBasedForwardingRuleType(direction="both"))
             try:
-                _vnc_lib.virtual_machine_interface_update(if_obj)
+                _vnc_lib.virtual_machine_interface_update(self.obj)
             except NoIdError:
                 _sandesh._logger.error("NoIdError while updating interface " +
                                        self.name)
@@ -2180,14 +2142,6 @@ class VirtualMachineInterfaceST(DictST):
     # end set_virtual_network
     
     def process_analyzer(self):
-        try:
-            if_obj = _vnc_lib.virtual_machine_interface_read(
-                fq_name_str=self.name)
-        except NoIdError:
-            _sandesh._logger.error("NoIdError while reading interface " +
-                                   self.name)
-            self.delete(self.name)
-            return
         if self.interface_mirror is None or self.virtual_network is None:
             return
         vn = VirtualNetworkST.get(self.virtual_network)
@@ -2195,7 +2149,7 @@ class VirtualMachineInterfaceST(DictST):
             return
 
         vn.process_analyzer(self.interface_mirror)
-        vmi_props = if_obj.get_virtual_machine_interface_properties()
+        vmi_props = self.obj.get_virtual_machine_interface_properties()
         if vmi_props is None:
             return
         if_mirror = vmi_props.get_interface_mirror()
@@ -2207,9 +2161,9 @@ class VirtualMachineInterfaceST(DictST):
         if mirror_to.__dict__ == self.interface_mirror.mirror_to.__dict__:
             return
         vmi_props.set_interface_mirror(self.interface_mirror)
-        if_obj.set_virtual_machine_interface_properties(vmi_props)
+        self.obj.set_virtual_machine_interface_properties(vmi_props)
         try:
-            _vnc_lib.virtual_machine_interface_update(if_obj)
+            _vnc_lib.virtual_machine_interface_update(self.obj)
         except NoIdError:
             _sandesh._logger.error("NoIdError while updating interface " +
                                    self.name)
@@ -2217,14 +2171,6 @@ class VirtualMachineInterfaceST(DictST):
 
     def rebake(self):
         network_set = set()
-        try:
-            vmi_obj = _vnc_lib.virtual_machine_interface_read(
-                fq_name_str=self.name)
-        except NoIdError:
-            _sandesh._logger.error("NoIdError while reading interface %s",
-                                   self.name)
-            self.delete(self.name)
-            return network_set
         if self.virtual_network in VirtualNetworkST:
             network_set.add(self.virtual_network)
         # if this interface is left or right interface of a service instance,
@@ -2232,26 +2178,16 @@ class VirtualMachineInterfaceST(DictST):
         # return all networks that refer to those policies
         if self.service_interface_type not in ['left', 'right']:
             return network_set
-        vm_id = get_vm_id_from_interface(vmi_obj)
-        if vm_id is None:
+        if self.virtual_machine is None:
             return network_set
-        try:
-            vm_obj = _vnc_lib.virtual_machine_read(id=vm_id)
-        except NoIdError:
-            _sandesh._logger.error("NoIdError while reading virtual machine " +
-                                   vm_id)
+        vm_obj = VirtualMachineST.get(self.virtual_machine)
+        if vm_obj is None:
+            _sandesh._logger.error("Virtual machine %s not found " %
+                                   self.virtual_machine)
             return network_set
-        vm_si_refs = vm_obj.get_service_instance_refs()
-        if not vm_si_refs:
+        if not vm_obj.service_instance:
             return network_set
-        service_instance = vm_obj.get_service_instance_refs()[0]
-        try:
-            si_obj = _vnc_lib.service_instance_read(id=service_instance['uuid'])
-        except NoIdError:
-            _sandesh._logger.error("NoIdError while reading service instance "
-                                   + service_instance['uuid'])
-            return network_set
-        si_name = si_obj.get_fq_name_str()
+        si_name = vm_obj.service_instance
         for policy in NetworkPolicyST.values():
             for prule in policy.rules:
                 if prule.action_list is not None:
@@ -2275,19 +2211,21 @@ class VirtualMachineInterfaceST(DictST):
         vn = VirtualNetworkST.get(self.virtual_network)
         if vn is None:
             return
-        vm_id = self.virtual_machine
-        if vm_id is None:
-            _sandesh._logger.error("vm id is None for interface %s", self.name)
+        if self.virtual_machine is None:
+            _sandesh._logger.error("vm is None for interface %s", self.name)
             return
 
         vrf_table = VrfAssignTableType()
         ip_list = []
-        ip_list[:] = self.instance_ips.values()
-        ip_list.extend(self.floating_ips.values())
+        for ip_name in self.instance_ips:
+            ip = InstanceIpST.get(ip_name)
+            if ip and ip.address:
+                ip_list.append(ip.address)
+        for ip_name in self.floating_ips:
+            ip = FloatingIpST.get(ip_name)
+            if ip and ip.address:
+                ip_list.append(ip.address)
         for ip in ip_list:
-            if ip is None:
-                continue
-
             address = AddressType(subnet=SubnetType(ip, 32))
             mc = MatchConditionType(src_address=address)
 
@@ -2297,35 +2235,13 @@ class VirtualMachineInterfaceST(DictST):
                                          ignore_acl=False)
             vrf_table.add_vrf_assign_rule(vrf_rule)
 
-        try:
-            vm_obj = _vnc_lib.virtual_machine_read(id=vm_id)
-        except NoIdError as e:
+        vm_obj = VirtualMachineST.get(self.virtual_machine)
+        if vm_obj is None:
             _sandesh._logger.error(
-                "NoIdError while reading virtual machine %s: %s",
-                vm_id, str(e))
+                "virtual machine %s not found: %s",
+                self.virtual_machine, str(e))
             return
-        vm_si_refs = vm_obj.get_service_instance_refs()
-        if not vm_si_refs:
-            return
-        try:
-            si_obj = _vnc_lib.service_instance_read(id=vm_si_refs[0]['uuid'])
-        except NoIdError:
-            _sandesh._logger.error("NoIdError while reading service instance "
-                                   + vm_si_refs[0]['uuid'])
-            return
-
-        st_refs = si_obj.get_service_template_refs()
-        if st_refs is None:
-            return
-
-        try:
-            st_obj = _vnc_lib.service_template_read(id=st_refs[0]['uuid'])
-        except NoIdError:
-            _sandesh._logger.error("NoIdError while reading service instance "
-                                   + st_refs[0]['uuid'])
-            return
-
-        smode = st_obj.get_service_template_properties().get_service_mode()
+        smode = vm_obj.get_service_mode()
         if smode not in ['in-network', 'in-network-nat']:
             return
 
@@ -2386,6 +2302,97 @@ class VirtualMachineInterfaceST(DictST):
 
     # end recreate_vrf_assign_table
 # end VirtualMachineInterfaceST
+
+
+class InstanceIpST(DictST):
+    _dict = {}
+
+    def __init__(self, name, address):
+        self.name = name
+        self.address = address
+    # end __init
+
+    @classmethod
+    def delete(cls, name):
+        ip = cls.get(name)
+        if ip is None:
+            return
+        del cls[name]
+    # end delete
+# end InstanceIpST
+
+
+class FloatingIpST(DictST):
+    _dict = {}
+
+    def __init__(self, name, address):
+        self.name = name
+        self.address = address
+    # end __init
+
+    @classmethod
+    def delete(cls, name):
+        ip = cls.get(name)
+        if ip is None:
+            return
+        del cls[name]
+    # end delete
+# end FloatingIpST
+
+
+class VirtualMachineST(DictST):
+    _dict = {}
+
+    def __init__(self, name, si):
+        self.name = name
+        self.interfaces = set()
+        self.service_instance = si
+        for vmi in VirtualMachineInterfaceST.values():
+            if vmi.virtual_machine == name:
+                self.add_interface(vmi.name)
+    # end __init__
+
+    @classmethod
+    def delete(cls, name):
+        vm = cls.get(name)
+        if vm is None:
+            return
+        del cls[name]
+    # end delete
+
+    def add_interface(self, interface):
+        self.interfaces.add(interface)
+    # end add_interface
+
+    def delete_interface(self, interface):
+        self.interfaces.discard(interface)
+    # end delete_interface
+
+    def get_service_mode(self):
+        if self.service_instance is None:
+            return None
+        try:
+            si_obj = _vnc_lib.service_instance_read(
+                fq_name_str=self.service_instance)
+        except NoIdError:
+            _sandesh._logger.error("NoIdError while reading service instance "
+                                   + self.service_instance)
+            return None
+        st_refs = si_obj.get_service_template_refs()
+        if not st_refs:
+            _sandesh._logger.error("st_refs is None for service instance "
+                                   + self.service_instance)
+            return None
+        try:
+            st_obj = _vnc_lib.service_template_read(id=st_refs[0]['uuid'])
+        except NoIdError:
+            _sandesh._logger.error("NoIdError while reading service template "
+                                   + st_refs[0]['uuid'])
+            return None
+        smode = st_obj.get_service_template_properties().get_service_mode()
+        return smode or 'transparent'
+    # end get_service_mode
+# end VirtualMachineST
 
 
 class LogicalRouterST(DictST):
@@ -2591,9 +2598,12 @@ class SchemaTransformer(object):
 
     # Clean up stale objects
     def reinit(self):
-        vn_list = _vnc_lib.virtual_networks_list()['virtual-networks']
-        vn_id_list = [vn['uuid'] for vn in vn_list]
+        vn_list = _vnc_lib.virtual_networks_list(detail=True,
+                                                 fields=['routing_instances',
+                                                         'access_control_lists'])
+        vn_id_list = [vn.uuid for vn in vn_list]
         ri_list = _vnc_lib.routing_instances_list(detail=True)
+        ri_dict = {}
         for ri in ri_list:
             if ri.parent_uuid not in vn_id_list:
                 try:
@@ -2601,6 +2611,8 @@ class SchemaTransformer(object):
                     ri_obj.delete()
                 except NoIdError:
                     pass
+            else:
+                ri_dict[ri.get_fq_name_str()] = ri
         # end for ri
 
         sg_list = _vnc_lib.security_groups_list(detail=True,
@@ -2608,24 +2620,37 @@ class SchemaTransformer(object):
         sg_id_list = [sg.uuid for sg in sg_list]
         acl_list = _vnc_lib.access_control_lists_list(detail=True)
         sg_acl_dict = {}
+        vn_acl_dict = {}
         for acl in acl_list or []:
+            delete = False
             if acl.parent_type == 'virtual-network':
-                parent_list = vn_id_list
+                if acl.parent_uuid in vn_id_list:
+                    vn_acl_dict[acl.uuid] = acl
+                else:
+                    delete = True
             elif acl.parent_type == 'security-group':
-                parent_list = sg_id_list
+                if acl.parent_uuid in sg_id_list:
+                    sg_acl_dict[acl.uuid] = acl
+                else:
+                    delete = True
             else:
-                parent_list = []
-            if acl.parent_uuid not in parent_list:
+                delete = True
+
+            if delete:
                 try:
                     _vnc_lib.access_control_list_delete(id=acl.uuid)
                 except NoIdError:
                     pass
-            elif acl.parent_type == 'security-group':
-                sg_acl_dict[acl.uuid] = acl
         # end for acl
 
         for sg in sg_list:
             SecurityGroupST.locate(sg.get_fq_name_str(), sg, sg_acl_dict)
+        for vn in vn_list:
+            VirtualNetworkST.locate(vn.get_fq_name_str(), vn, vn_acl_dict,
+                                    ri_dict)
+        vmi_list = _vnc_lib.virtual_machine_interfaces_list(detail=True)
+        for vmi in vmi_list:
+            VirtualMachineInterfaceST.locate(vmi.get_fq_name_str(), vmi)
     # end reinit
 
     def cleanup(self):
@@ -2822,17 +2847,13 @@ class SchemaTransformer(object):
         ip_name = idents['instance-ip']
         address = meta.text
 
-        try:
-            ip_obj = _vnc_lib.instance_ip_read(fq_name_str=ip_name)
-        except NoIdError:
-            return
-        vmi_refs = ip_obj.get_virtual_machine_interface_refs()
-        if vmi_refs:
-            vmi_fq_name = ':'.join(vmi_refs[0]['to'])
-            vmi = VirtualMachineInterfaceST.get(vmi_fq_name)
-            if vmi:
-                vmi.instance_ips[ip_name] = address
+        ip = InstanceIpST.locate(ip_name, address)
     # end add_instance_ip_address
+
+    def delete_instance_ip_address(self, idents, meta):
+        ip_name = idents['instance-ip']
+        InstanceIpST.delete(ip_name)
+    # end delete_instance_ip_address
 
     def add_floating_ip_virtual_machine_interface(self, idents, meta):
         vmi_name = idents['virtual-machine-interface']
@@ -2854,18 +2875,13 @@ class SchemaTransformer(object):
     def add_floating_ip_address(self, idents, meta):
         ip_name = idents['floating-ip']
         address = meta.text
-
-        try:
-            ip_obj = _vnc_lib.floating_ip_read(fq_name_str=ip_name)
-        except NoIdError:
-            return
-        vmi_refs = ip_obj.get_virtual_machine_interface_refs()
-        if vmi_refs:
-            vmi_fq_name = ':'.join(vmi_refs[0]['to'])
-            vmi = VirtualMachineInterfaceST.get(vmi_fq_name)
-            if vmi:
-                vmi.floating_ips[ip_name] = address
+        FloatingIpST.locate(ip_name, address)
     # end add_floating_ip_address
+
+    def delete_floating_ip_address(self, idents, meta):
+        ip_name = idents['floating-ip']
+        FloatingIpST.delete(ip_name)
+    # end delete_floating_ip_address
 
     def add_virtual_machine_interface_properties(self, idents, meta):
         vmi_name = idents['virtual-machine-interface']
@@ -2884,6 +2900,9 @@ class SchemaTransformer(object):
         vmi = VirtualMachineInterfaceST.locate(vmi_name)
         if vmi is not None:
             vmi.set_virtual_machine(vm_name)
+        vm = VirtualMachineST.get(vm_name)
+        if vm is not None:
+            vm.add_interface(vmi_name)
     # end add_virtual_machine_interface_virtual_machine
 
     def add_virtual_machine_virtual_machine_interface(self, idents, meta):
@@ -2892,18 +2911,35 @@ class SchemaTransformer(object):
 
     def delete_virtual_machine_interface_virtual_machine(self, idents, meta):
         vmi_name = idents['virtual-machine-interface']
+        vm_name = idents['virtual-machine']
         VirtualMachineInterfaceST.delete(vmi_name)
+        vm = VirtualMachineST.get(vm_name)
+        if vm is not None:
+            vm.delete_interface(vmi_name)
     # end delete_virtual_machine_interface_virtual_machine
 
     def add_virtual_machine_service_instance(self, idents, meta):
+        vm_name = idents['virtual-machine']
         si_name = idents['service-instance']
+        vm = VirtualMachineST.locate(si_name, si_name)
         for sc in ServiceChain._dict.values():
             if si_name in sc.service_list:
                 if VirtualNetworkST.get(sc.left_vn) is not None:
                     self.current_network_set.add(sc.left_vn)
                 if VirtualNetworkST.get(sc.right_vn):
                     self.current_network_set.add(sc.right_vn)
+    # end add_virtual_machine_service_instance(self, idents, meta):
 
+    def delete_virtual_machine_service_instance(self, idents, meta):
+        vm_name = idents['virtual-machine']
+        si_name = idents['service-instance']
+        vm = VirtualMachineST.delete(si_name)
+        for sc in ServiceChain._dict.values():
+            if si_name in sc.service_list:
+                if VirtualNetworkST.get(sc.left_vn) is not None:
+                    self.current_network_set.add(sc.left_vn)
+                if VirtualNetworkST.get(sc.right_vn):
+                    self.current_network_set.add(sc.right_vn)
     # end add_virtual_machine_service_instance(self, idents, meta):
 
     def add_route_target_list(self, idents, meta):
