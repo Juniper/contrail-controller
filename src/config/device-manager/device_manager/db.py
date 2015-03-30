@@ -92,6 +92,7 @@ class PhysicalRouterDM(DBBase):
         self.product = obj.get('physical_router_product_name')
         self.vnc_managed = obj.get('physical_router_vnc_managed')
         self.user_credentials = obj.get('physical_router_user_credentials')
+        self.bare_metal_service = obj.get('physical_router_bare_metal_service')
         self.update_single_ref('bgp_router', obj)
         self.update_multiple_refs('virtual_network', obj)
         self.physical_interfaces = set([pi['uuid'] for pi in
@@ -114,6 +115,12 @@ class PhysicalRouterDM(DBBase):
         obj.update_multiple_refs('virtual_network', {})
         del cls._dict[uuid]
     # end delete
+
+    def is_bare_metal_service_enabled(self):
+        if self.bare_metal_service is not None and self.bare_metal_service.get('service_port') is not None:
+            return True
+        return False
+    #end is_bare_metal_service_enabled
 
     def push_config(self):
         self.config_manager.reset_bgp_config()
@@ -153,10 +160,14 @@ class PhysicalRouterDM(DBBase):
             else:
                 vn_dict[vn_id] = [li.name]
 
+        #for now, assume service port ifls unit numbers are always starts with 0 and goes on
+        service_port_id = 0
         for vn_id, interfaces in vn_dict.items():
             vn_obj = VirtualNetworkDM.get(vn_id)
             if vn_obj is None:
                 continue
+            export_set = None
+            import_set = None
             for ri_id in vn_obj.routing_instances:
                 # Find the primary RI by matching the name
                 ri_obj = RoutingInstanceDM.get(ri_id)
@@ -180,7 +191,29 @@ class PhysicalRouterDM(DBBase):
                                                              vn_obj.router_external,
                                                              interfaces,
                                                              vn_obj.vxlan_vni)
+
                     break
+
+            if export_set is not None and self.is_bare_metal_service_enabled() and len(vn_obj.vmi_public_network_map) > 0:
+                vrf_name = ':'.join(vn_obj.fq_name)
+                vrf_name = vrf_name + '_public_nat'
+                interfaces = []
+                service_ports = self.bare_metal_service.get('service_port')
+                interfaces.append(service_ports[0] + "." + str(service_port_id))
+                service_port_id  = service_port_id + 1
+                interfaces.append(service_ports[0] + "." + str(service_port_id))
+                service_port_id  = service_port_id + 1
+                ip_map = vn_obj.get_vmi_public_network_map()
+                self.config_manager.add_routing_instance(vrf_name,
+                                                         import_set,
+                                                         export_set,
+                                                         None,
+                                                         None,
+                                                         False,
+                                                         interfaces,
+                                                         None,
+                                                         ip_map)
+
         self.config_manager.send_bgp_config()
     # end push_config
 # end PhysicalRouterDM
@@ -292,6 +325,71 @@ class LogicalInterfaceDM(DBBase):
     # end delete
 # end LogicalInterfaceDM
 
+class FloatingIpDM(DBBase):
+    _dict = {}
+    obj_type = 'floating_ip'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.virtual_machine_interface = None
+        self.floating_ip_address = None
+        self.update(obj_dict)
+        self.public_network = self.get_pool_public_network(self.get_parent_uuid(obj_dict))
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.floating_ip_address = obj.get("floating_ip_address")
+        self.update_single_ref('virtual_machine_interface', obj)
+    # end update
+
+    def get_pool_public_network(self, pool_uuid):
+        pool_obj = self.read_obj(pool_uuid, "floating_ip_pool")
+        if pool_obj is None:
+            return None
+        return self.get_parent_uuid(pool_obj)
+    # end get_pool_public_network
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_single_ref('virtual_machine_interface', {})
+        del cls._dict[uuid]
+    # end delete
+
+#end FloatingIpDM
+
+class InstanceIpDM(DBBase):
+    _dict = {}
+    obj_type = 'instance_ip'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.instance_ip_address = None
+        self.virtual_machine_interface = None
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.instance_ip_address = obj.get("instance_ip_address")
+        self.update_single_ref('virtual_machine_interface', obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_single_ref('virtual_machine_interface', {})
+        del cls._dict[uuid]
+    # end delete
+
+#end InstanceIpDM
 
 class VirtualMachineInterfaceDM(DBBase):
     _dict = {}
@@ -300,6 +398,8 @@ class VirtualMachineInterfaceDM(DBBase):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.virtual_network = None
+        self.floating_ip = None
+        self.instance_ip = None
         self.logical_interface = None
         self.update(obj_dict)
     # end __init__
@@ -309,6 +409,8 @@ class VirtualMachineInterfaceDM(DBBase):
             obj = self.read_obj(self.uuid)
         self.update_single_ref('logical_interface', obj)
         self.update_single_ref('virtual_network', obj)
+        self.update_single_ref('floating_ip', obj)
+        self.update_single_ref('instance_ip', obj)
     # end update
 
     @classmethod
@@ -318,6 +420,8 @@ class VirtualMachineInterfaceDM(DBBase):
         obj = cls._dict[uuid]
         obj.update_single_ref('logical_interface', {})
         obj.update_single_ref('virtual_network', {})
+        obj.update_single_ref('floating_ip', {})
+        obj.update_single_ref('instance_ip', {})
         del cls._dict[uuid]
     # end delete
 
@@ -335,6 +439,7 @@ class VirtualNetworkDM(DBBase):
         self.vxlan_configured = False
         self.vxlan_vni = None
         self.gateways = None
+        self.vmi_public_network_map = {}
         self.update(obj_dict)
     # end __init__
 
@@ -370,6 +475,35 @@ class VirtualNetworkDM(DBBase):
                                   )
                 self.gateways.add(subnet['default_gateway'])
     # end update
+
+    def update_vmi_public_network_map(self):
+        self.vmi_public_network_map = {}
+        for vmi_uuid in self.virtual_machine_interfaces:
+            vmi = VirtualMachineInterfaceDM.get(vmi_uuid)
+            if vmi is not None and vmi.floating_ip is not None:
+                fip = FloatingIpDM.get(vmi.floating_ip)
+                self.vmi_public_network_map[vmi.uuid] = fip.public_network
+    # end update_vmi_public_network_map
+
+    def get_vmi_public_network_map(self):
+        ip_map = {}
+        for vmi_uuid in self.vmi_public_network_map:
+            vmi = VirtualMachineInterfaceDM.get(vmi_uuid)
+            if vmi.floating_ip is None or vmi.instance_ip is None:
+                continue
+            fip = FloatingIpDM.get(vmi.floating_ip)
+            inst_ip  = InstanceIpDM.get(vmi.instance_ip)
+            if fip is None or inst_ip is None:
+                continue
+            instance_ip = inst_ip.instance_ip_address
+            floating_ip = fip.floating_ip_address
+            public_network = self.vmi_public_network_map[vmi_uuid]
+            public_vn = VirtualNetworkDM.get(public_network)
+            public_vrf_name = "__contrail__" + '_'.join(public_vn.fq_name)
+            ip_map[instance_ip] = {'floating_ip': floating_ip,
+                                   'vrf_name': public_vrf_name}
+        return ip_map
+    #end get_vmi_public_network_map
 
     @classmethod
     def delete(cls, uuid):
@@ -439,4 +573,6 @@ DBBase._OBJ_TYPE_MAP = {
     'virtual_machine_interface': VirtualMachineInterfaceDM,
     'virtual_network': VirtualNetworkDM,
     'routing_instance': RoutingInstanceDM,
+    'floating_ip': FloatingIpDM,
+    'instance_ip': InstanceIpDM,
 }
