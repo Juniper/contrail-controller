@@ -7,7 +7,7 @@
 #include <boost/bind.hpp>
 #include <yaml-cpp/yaml.h>
 #include "base/logging.h"
-#include "base/map_difference.h"
+#include "base/map_util.h"
 
 using namespace std;
 using boost::assign::map_list_of;
