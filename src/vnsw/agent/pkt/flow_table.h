@@ -571,12 +571,14 @@ public:
         virtual ~VnFlowHandlerState() { }
     };
     struct VmIntfFlowHandlerState : public DBState {
-        VmIntfFlowHandlerState(const VnEntry *vn) : vn_(vn) { }
+        VmIntfFlowHandlerState(const VnEntry *vn) : vn_(vn),
+            vrf_assign_acl_(NULL) { }
         virtual ~VmIntfFlowHandlerState() { }
 
         VnEntryConstRef vn_;
         bool policy_;
         VmInterface::SecurityGroupEntryList sg_l_;
+        AclDBEntryConstRef vrf_assign_acl_;
     };
 
     struct VrfFlowHandlerState : public DBState {
