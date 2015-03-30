@@ -83,14 +83,15 @@ class PhysicalRouterConfig(object):
     # end send_config
 
     def add_routing_instance(self, name, import_targets, export_targets,
-                             prefixes=[], gateways=[], router_external=False, interfaces=[], vni=None):
+                             prefixes=[], gateways=[], router_external=False, interfaces=[], vni=None, fip_map=None):
         self.routing_instances[name] = {'import_targets': import_targets,
                                         'export_targets': export_targets,
                                         'prefixes': prefixes,
                                         'gateways': gateways,
                                         'router_external': router_external,
                                         'interfaces': interfaces,
-                                        'vni': vni}
+                                        'vni': vni,
+                                        'fip_map': fip_map}
 
         ri_config = self.ri_config or etree.Element("routing-instances")
         policy_config = self.policy_config or etree.Element("policy-options")
@@ -128,6 +129,31 @@ class PhysicalRouterConfig(object):
             route_config = etree.SubElement(static_config, "route")
             etree.SubElement(route_config, "name").text = "0.0.0.0/0"
             etree.SubElement(route_config, "next-table").text = "inet.0"
+
+        if fip_map is not None:
+            if ri_opt is None:
+                ri_opt = etree.SubElement(ri, "routing-options")
+                static_config = etree.SubElement(ri_opt, "static")
+            route_config = etree.SubElement(static_config, "route")
+            etree.SubElement(route_config, "name").text = "0.0.0.0/0"
+            etree.SubElement(route_config, "next-hop").text = interfaces[0]
+            public_vrf_ips = {}
+            for pip in fip_map:
+                if fip_map[pip]["vrf_name"] not in public_vrf_ips:
+                    public_vrf_ips[fip_map[pip]["vrf_name"]] = set()
+                public_vrf_ips[fip_map[pip]["vrf_name"]].add(fip_map[pip]["floating_ip"])
+
+            for public_vrf in public_vrf_ips:
+                ri_public = etree.SubElement(ri_config, "instance")
+                etree.SubElement(ri_public, "name").text = public_vrf
+                ri_opt = etree.SubElement(ri_public, "routing-options")
+                static_config = etree.SubElement(ri_opt, "static")
+
+                fips = public_vrf_ips[public_vrf]
+                for fip in fips:
+                    route_config = etree.SubElement(static_config, "route")
+                    etree.SubElement(route_config, "name").text = fip + "/32"
+                    etree.SubElement(route_config, "next-hop").text = interfaces[1]
 
         # add policies for export route targets
         ps = etree.SubElement(policy_config, "policy-statement")
@@ -243,12 +269,78 @@ class PhysicalRouterConfig(object):
             mpls = etree.SubElement(proto_config, "mpls")
             intf = etree.SubElement(mpls, "interface")
             etree.SubElement(intf, "name").text = "all"
+        #fip services config
+        services_config = None
+        if fip_map is not None:
+            services_config = self.services_config or etree.Element("services")
+            service_name = ri_name + "-fip-nat"
+            service_set = etree.SubElement(services_config, "service-set")
+            etree.SubElement(service_set, "name").text = service_name
+            rule_count = len(fip_map)
+            for rule_id in range(0, rule_count):
+                nat_rule = etree.SubElement(service_set, "nat-rules")
+                etree.SubElement(nat_rule, "name").text = service_name + "-snat-rule-" + str(rule_id)
+                nat_rule = etree.SubElement(service_set, "nat-rules")
+                etree.SubElement(nat_rule, "name").text = service_name + "-dnat-rule-" + str(rule_id)
+            next_hop_service = etree.SubElement(service_set, "next-hop-service")
+            etree.SubElement(next_hop_service , "inside-service-interface").text = interfaces[0]
+            etree.SubElement(next_hop_service , "outside-service-interface").text = interfaces[1]
+
+            nat = etree.SubElement(services_config, "nat")
+
+            rule_id = 0
+            for pip in fip_map:
+                fip = fip_map[pip]["floating_ip"]
+                rule = etree.SubElement(nat, "rule")
+                etree.SubElement(rule, "name").text = service_name + "-snat-rule-" + str(rule_id)
+                etree.SubElement(rule, "match-condition").text = "input"
+                term = etree.SubElement(rule, "term")
+                etree.SubElement(term, "name").text = "t1"
+                from_ = etree.SubElement(term, "from")
+                src_addr = etree.SubElement(from_, "source-address")
+                etree.SubElement(src_addr, "name").text = pip + "/32"  # private ip
+                then_ = etree.SubElement(term, "then")
+                translated = etree.SubElement(then_, "translated")
+                etree.SubElement(translated , "source-prefix").text = fip + "/32" # public ip
+                translation_type = etree.SubElement(translated, "translation-type")
+                etree.SubElement(translation_type, "basic-nat44")
+
+                rule = etree.SubElement(nat, "rule")
+                etree.SubElement(rule, "name").text = service_name + "-dnat-rule-" + str(rule_id)
+                etree.SubElement(rule, "match-condition").text = "output"
+                term = etree.SubElement(rule, "term")
+                etree.SubElement(term, "name").text = "t1"
+                from_ = etree.SubElement(term, "from")
+                src_addr = etree.SubElement(from_, "destination-address")
+                etree.SubElement(src_addr, "name").text = fip + "/32" #public ip
+                then_ = etree.SubElement(term, "then")
+                translated = etree.SubElement(from_, "translated")
+                etree.SubElement(translated , "destination-prefix").text = pip + "/32" #source ip
+                translation_type = etree.SubElement(translated, "translation-type")
+                etree.SubElement(translation_type, "dnat-44")
+                rule_id = rule_id + 1
+
+            interfaces_config = self.interfaces_config or etree.Element("interfaces")
+            si_intf = etree.SubElement(interfaces_config, "interface")
+            intfparts = interfaces[0].split(".")
+            etree.SubElement(si_intf, "name").text = intfparts[0]
+            intf_unit = etree.SubElement(si_intf, "unit")
+            etree.SubElement(intf_unit, "name").text = interfaces[0].split(".")[1]
+            family = etree.SubElement(intf_unit, "family")
+            etree.SubElement(family, "inet")
+            etree.SubElement(intf_unit, "service-domain").text = "inside"
+            intf_unit = etree.SubElement(si_intf, "unit")
+            etree.SubElement(intf_unit, "name").text = interfaces[1].split(".")[1]
+            family = etree.SubElement(intf_unit, "family")
+            etree.SubElement(family, "inet")
+            etree.SubElement(intf_unit, "service-domain").text = "outside"
 
         self.forwarding_options_config = forwarding_options_config
         self.firewall_config = firewall_config
         self.policy_config = policy_config
         self.proto_config = proto_config
         self.interfaces_config = interfaces_config
+        self.services_config = services_config
         self.route_targets |= import_targets | export_targets
         self.ri_config = ri_config
     # end add_routing_instance
@@ -309,6 +401,7 @@ class PhysicalRouterConfig(object):
         self.bgp_params = None
         self.ri_config = None
         self.interfaces_config = None
+        self.services_config = None
         self.policy_config = None
         self.firewall_config = None
         self.forwarding_options_config = None
@@ -390,6 +483,8 @@ class PhysicalRouterConfig(object):
             etree.SubElement(comm, 'members').text = route_target
         if self.interfaces_config is not None:
             config_list.append(self.interfaces_config)
+        if self.services_config is not None:
+            config_list.append(self.services_config)
         if self.policy_config is not None:
             config_list.append(self.policy_config)
         if self.firewall_config is not None:
