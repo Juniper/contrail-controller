@@ -2061,7 +2061,6 @@ class AnalyticsFixture(fixtures.Fixture):
                                 "op": 1}], keywords))
         json_qstr = json.dumps(query.__dict__)
         res = vns.post_query_json(json_qstr)
-        assert(len(res)>0)
         self.logger.info(str(res))
         return len(res)>0
     # end verify_keyword_query
