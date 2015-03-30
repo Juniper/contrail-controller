@@ -601,6 +601,8 @@ class ProjectSM(DBBase):
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
+        self.service_instances = set()
+        self.virtual_networks = set()
         self.update(obj_dict)
     # end __init__
 
@@ -609,6 +611,8 @@ class ProjectSM(DBBase):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
+        self.update_multiple_refs('service_instance', obj)
+        self.update_multiple_refs('virtual_network', obj)
     # end update
 
     @classmethod
@@ -616,6 +620,8 @@ class ProjectSM(DBBase):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
+        self.update_multiple_refs('service_instance', {})
+        self.update_multiple_refs('virtual_network', {})
         del cls._dict[uuid]
     # end delete
 # end ProjectSM
