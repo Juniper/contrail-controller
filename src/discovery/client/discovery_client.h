@@ -27,6 +27,9 @@ struct DiscoveryClientSubscriberStats;
 
 struct DSResponse {
    boost::asio::ip::tcp::endpoint  ep;
+   bool operator==(const DSResponse &rhs) {
+       return this->ep == rhs.ep;
+   }
 };
 
 struct DSResponseHeader {

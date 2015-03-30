@@ -644,7 +644,14 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
 
         hdr->sub_rcvd_++;
         hdr->attempts_ = 0;
-        if ((hdr->chksum_ == gen_chksum) || (ds_response.size() == 0)) {
+        bool is_equal = false;
+        if ( ds_response.size() == hdr->service_list_.size() ) {
+            if ( ds_response.size() && hdr->service_list_.size() )
+                is_equal = std::equal ( ds_response.begin(), ds_response.end(), hdr->service_list_.begin() );
+            else
+                is_equal = true;
+        }
+        if (is_equal) {
             //Restart Subscribe Timer
             hdr->StartSubscribeTimer(ttl);
             DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "SubscribeResponseHandler",
