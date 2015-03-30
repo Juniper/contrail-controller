@@ -1102,6 +1102,9 @@ class DBInterface(object):
             if sgr_q['port_range_max'] is not None:
                 port_max = sgr_q['port_range_max']
 
+            if sgr_q['remote_ip_prefix'] and sgr_q['remote_group_id']:
+                self._raise_contrail_exception(
+                    'SecurityGroupRemoteGroupAndRemoteIpPrefix')
             endpt = [AddressType(security_group='any')]
             if sgr_q['remote_ip_prefix']:
                 cidr = sgr_q['remote_ip_prefix'].split('/')
