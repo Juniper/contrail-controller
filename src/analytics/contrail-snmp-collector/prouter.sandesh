@@ -11,17 +11,16 @@ struct ArpTable {
 }
 
 struct IfStats {
-  1: u64 ifInUcastPkts
-  2: u64 ifInMulticastPkts
-  3: u64 ifInBroadcastPkts
-  4: u64 ifInDiscards
-  5: u64 ifInErrors
-  6: u64 ifOutUcastPkts
-  7: u64 ifOutMulticastPkts
-  8: u64 ifOutBroadcastPkts
-  9: u64 ifOutDiscards
-  10: u64 ifOutErrors
-  11: u64 ifIndex
+  1: u64 ifInPkts
+  2: u64 ifOutPkts
+  3: u64 ifInOctets
+  4: u64 ifOutOctets
+  5: u64 ifInDiscards
+  6: u64 ifInErrors
+  7: u64 ifOutDiscards
+  8: u64 ifOutErrors
+  9: u64 ifIndex
+  10: string ifName
 }
 
 struct IfXTable {
