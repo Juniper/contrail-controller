@@ -47,7 +47,7 @@ class AnalyticApiClient(object):
             return self.base['uves']
 
     def get_uves(self, ob=None, defult=None):
-        if self._uves is None:
+        if not self._uves:
             self._uves = self._get_list_2_dict(self._get_url_json(
                     self.get_uve_url()))
         if ob is None:
