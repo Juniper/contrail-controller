@@ -18,6 +18,7 @@ class IFMapDependencyManager;
 class MulticastHandler;
 class InstanceManager;
 class NexthopManager;
+class AgentSandeshManager;
 
 class OperDB {
 public:
@@ -49,6 +50,9 @@ public:
     NexthopManager *nexthop_manager() {
       return nexthop_manager_.get();
     }
+    AgentSandeshManager *agent_sandesh_manager() {
+        return agent_sandesh_manager_.get();
+    }
 
 private:
     OperDB();
@@ -61,6 +65,7 @@ private:
     std::auto_ptr<InstanceManager> instance_manager_;
     std::auto_ptr<DomainConfig> domain_config_;
     std::auto_ptr<NexthopManager> nexthop_manager_;
+    std::auto_ptr<AgentSandeshManager> agent_sandesh_manager_;
     DISALLOW_COPY_AND_ASSIGN(OperDB);
 };
 #endif

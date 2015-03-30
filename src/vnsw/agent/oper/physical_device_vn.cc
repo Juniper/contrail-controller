@@ -228,6 +228,7 @@ class AgentPhysicalDeviceVnSandesh : public AgentSandesh {
     AgentPhysicalDeviceVnSandesh(std::string context, const std::string &name)
         : AgentSandesh(context, name) {}
 
+    void SetSandeshPageReq(Sandesh *sresp, const SandeshPageReq *req);
  private:
     DBTable *AgentGetTable() {
         Agent *agent = Agent::GetInstance();
@@ -275,9 +276,20 @@ bool PhysicalDeviceVn::DBEntrySandesh(Sandesh *resp, std::string &name)
 }
 
 void SandeshPhysicalDeviceVnReq::HandleRequest() const {
-    AgentPhysicalDeviceVnSandesh *sand =
-        new AgentPhysicalDeviceVnSandesh(context(), get_device());
-    sand->DoSandesh();
+    AgentSandeshPtr sand(new AgentPhysicalDeviceVnSandesh(context(),
+                                                          get_device()));
+    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
+}
+
+AgentSandesh *PhysicalDeviceVnTable::GetAgentSandesh(const std::string &context){
+    return new AgentPhysicalDeviceVnSandesh(context, "");
+}
+
+void AgentPhysicalDeviceVnSandesh::SetSandeshPageReq(Sandesh *sresp,
+                                                     const SandeshPageReq *req){
+    SandeshPhysicalDeviceVnListResp *resp =
+        static_cast<SandeshPhysicalDeviceVnListResp *>(sresp);
+    resp->set_req(*req);
 }
 
 void PhysicalDeviceVn::SendObjectLog(AgentLogEvent::type event) const {

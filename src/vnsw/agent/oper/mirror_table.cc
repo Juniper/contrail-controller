@@ -202,6 +202,10 @@ bool MirrorEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
 }
 
 void MirrorEntryReq::HandleRequest() const {
-    AgentMirrorSandesh *sand = new AgentMirrorSandesh(context());
-    sand->DoSandesh();
+    AgentSandeshPtr sand(new AgentMirrorSandesh(context()));
+    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
+}
+
+AgentSandesh *MirrorTable::GetAgentSandesh(const std::string &context) {
+    return new AgentMirrorSandesh(context);
 }

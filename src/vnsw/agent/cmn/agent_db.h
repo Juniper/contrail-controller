@@ -11,6 +11,7 @@ class Agent;
 class AgentDBEntry;
 class AgentDBTable;
 class AgentDBState;
+class AgentSandesh;
 
 /////////////////////////////////////////////////////////////////////////////
 // Refcount class for AgentDBEntry
@@ -163,6 +164,10 @@ public:
     };
     virtual void OnZeroRefcount(AgentDBEntry *e) {};
     virtual void NotifyEntry(DBEntryBase *entry);
+    virtual AgentSandesh *GetAgentSandesh(const std::string &context) {
+        return NULL;
+    }
+
     // Dummy notification
     void Notify(DBTablePartBase *partition, DBEntryBase *entry) {
     };

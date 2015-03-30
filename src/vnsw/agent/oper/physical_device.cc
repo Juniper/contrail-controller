@@ -252,6 +252,7 @@ class DeviceSandesh : public AgentSandesh {
  public:
     DeviceSandesh(std::string context, const std::string &name)
         : AgentSandesh(context, name) {}
+    void SetSandeshPageReq(Sandesh *sresp, const SandeshPageReq *req);
 
  private:
     DBTable *AgentGetTable() {
@@ -293,8 +294,18 @@ bool PhysicalDevice::DBEntrySandesh(Sandesh *resp, std::string &name)
 }
 
 void SandeshDeviceReq::HandleRequest() const {
-    DeviceSandesh *sand = new DeviceSandesh(context(), get_name());
-    sand->DoSandesh();
+    AgentSandeshPtr sand(new DeviceSandesh(context(), get_name()));
+    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
+}
+
+void DeviceSandesh::SetSandeshPageReq(Sandesh *sresp,
+                                      const SandeshPageReq *req) {
+    SandeshDeviceListResp *resp = static_cast<SandeshDeviceListResp *>(sresp);
+    resp->set_req(*req);
+}
+
+AgentSandesh *PhysicalDeviceTable::GetAgentSandesh(const std::string &context) {
+    return new DeviceSandesh(context, "");
 }
 
 void PhysicalDevice::SendObjectLog(AgentLogEvent::type event) const {

@@ -2318,6 +2318,10 @@ bool NextHop::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
 }
 
 void NhListReq::HandleRequest() const {
-    AgentNhSandesh *sand = new AgentNhSandesh(context());
-    sand->DoSandesh();
+    AgentSandeshPtr sand(new AgentNhSandesh(context()));
+    sand->DoSandesh(0, AgentSandesh::kEntriesPerPage);
+}
+
+AgentSandesh *NextHopTable::GetAgentSandesh(const std::string &context) {
+    return new AgentNhSandesh(context);
 }
