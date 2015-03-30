@@ -30,6 +30,8 @@ setuptools.setup(
     entry_points = {
         'console_scripts': [
             'opencontrail-vrouter-netns = opencontrail_vrouter_netns.vrouter_netns:main'
+            'netns-daemon-start = opencontrail_vrouter_netns.daemon_start:daemon_start',
+            'netns-daemon-stop = opencontrail_vrouter_netns.daemon_stop:daemon_stop'
         ],
     },
 )
