@@ -1,7 +1,6 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
-
 import sys
 import gevent
 sys.path.append("../common/tests")
@@ -120,6 +119,7 @@ class TestDM(test_case.DMTestCase):
         self.assertTrue(result)
             
     def test_basic_dm(self):
+        import pdb; pdb.set_trace()
         vn1_name = 'vn1'
         vn2_name = 'vn2'
         vn1_obj = VirtualNetwork(vn1_name)
@@ -370,6 +370,73 @@ class TestDM(test_case.DMTestCase):
         xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups><name operation="delete">__contrail__</name></groups></configuration></config>'
         self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
     # end test_evpn
-#end
 
+    def test_fip(self):
+        vn1_name = 'vn-private'
+        vn1_obj = VirtualNetwork(vn1_name)
+        ipam_obj = NetworkIpam('ipam1')
+        self._vnc_lib.network_ipam_create(ipam_obj)
+        vn1_obj.add_network_ipam(ipam_obj, VnSubnetsType(
+            [IpamSubnetType(SubnetType("10.0.0.0", 24))]))
+        vn1_uuid = self._vnc_lib.virtual_network_create(vn1_obj)
+
+        #MX router
+        bgp_router1, pr_mx = self.create_router('mx_router', '1.1.1.1')
+        pr_mx.set_virtual_network(vn1_obj)
+        bare_metal_service = BaremetalService()
+        bare_metal_service.service_port = "ge-0/0/0"
+        pr_mx.set_physical_router_bare_metal_service(bare_metal_service)
+
+        self._vnc_lib.physical_router_update(pr_mx)
+
+        pi_mx = PhysicalInterface('pi-mx', parent_obj = pr_mx)
+        pi_mx_id = self._vnc_lib.physical_interface_create(pi_mx)
+
+        #TOR 
+        bgp_router2, pr_tor = self.create_router('tor_router', '2.2.2.2')
+        pr_tor.set_virtual_network(vn1_obj)
+        self._vnc_lib.physical_router_update(pr_tor)
+        pi_tor = PhysicalInterface('pi-tor', parent_obj = pr_tor)
+        pi_tor_id = self._vnc_lib.physical_interface_create(pi_tor)
+
+        fq_name = ['default-domain', 'default-project', 'vmi1']
+        vmi = VirtualMachineInterface(fq_name=fq_name, parent_type = 'project')
+        vmi.set_virtual_network(vn1_obj)
+        self._vnc_lib.virtual_machine_interface_create(vmi)
+
+        li_tor = LogicalInterface('li_tor', parent_obj = pi_tor)
+        li_tor.set_virtual_machine_interface(vmi)
+        li_tor_id = self._vnc_lib.logical_interface_create(li_tor)
+        vmi = self._vnc_lib.virtual_machine_interface_read(vmi.get_fq_name())
+
+        ip_obj1 = InstanceIp(name='inst-ip-1')
+        ip_obj1.set_virtual_machine_interface(vmi)
+        ip_obj1.set_virtual_network(vn1_obj)
+        ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1)
+        ip_obj1 = self._vnc_lib.instance_ip_read(id=ip_id1)
+        ip_addr1 = ip_obj1.get_instance_ip_address()
+        vn2_name = 'vn-public'
+        vn2_obj = VirtualNetwork(vn2_name)
+        vn2_obj.set_router_external(True)
+        ipam2_obj = NetworkIpam('ipam2')
+        self._vnc_lib.network_ipam_create(ipam2_obj)
+        vn2_obj.add_network_ipam(ipam2_obj, VnSubnetsType(
+            [IpamSubnetType(SubnetType("192.168.7.0", 24))]))
+        vn2_uuid = self._vnc_lib.virtual_network_create(vn2_obj)
+        fip_pool_name = 'vn_public_fip_pool'
+        fip_pool = FloatingIpPool(fip_pool_name, vn2_obj)
+        self._vnc_lib.floating_ip_pool_create(fip_pool)
+        fip_obj = FloatingIp("fip1", fip_pool)
+        fip_obj.set_virtual_machine_interface(vmi)
+        default_project = self._vnc_lib.project_read(fq_name=[u'default-domain', u'default-project'])
+        fip_obj.set_project(default_project)
+        fip_uuid = self._vnc_lib.floating_ip_create(fip_obj)
+
+        for obj in [vn1_obj, vn2_obj]:
+            ident_name = self.get_obj_imid(obj)
+            gevent.sleep(2)
+            ifmap_ident = self.assertThat(FakeIfmapClient._graph, Contains(ident_name))
+
+        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups operation="replace"><name>__contrail__</name><protocols><bgp><group operation="replace"><name>__contrail__</name><type>internal</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group><group operation="replace"><name>__contrail_external__</name><type>external</type><multihop/><local-address>1.1.1.1</local-address><family><route-target/><inet-vpn><unicast/></inet-vpn><evpn><signaling/></evpn><inet6-vpn><unicast/></inet6-vpn></family><keep>all</keep></group></bgp></protocols><routing-options><route-distinguisher-id/><autonomous-system>64512</autonomous-system></routing-options><routing-instances><instance operation="replace"><name>__contrail__default-domain_default-project_vn-private</name><instance-type>vrf</instance-type><vrf-import>__contrail__default-domain_default-project_vn-private-import</vrf-import><vrf-export>__contrail__default-domain_default-project_vn-private-export</vrf-export><vrf-table-label/><routing-options><static><route><name>10.0.0.0/24</name><discard/></route></static><auto-export><family><inet><unicast/></inet></family></auto-export></routing-options></instance><instance operation="replace"><name>__contrail__default-domain_default-project_vn-private_public_nat</name><instance-type>vrf</instance-type><interface><name>ge-0/0/0.0</name></interface><interface><name>ge-0/0/0.1</name></interface><vrf-import>__contrail__default-domain_default-project_vn-private_public_nat-import</vrf-import><vrf-export>__contrail__default-domain_default-project_vn-private_public_nat-export</vrf-export><vrf-table-label/><routing-options><static><route><name>0.0.0.0/0</name><next-hop>ge-0/0/0.0</next-hop></route></static></routing-options></instance><instance><name>__contrail__default-domain_default-project_vn-public</name><routing-options><static><route><name>192.168.7.252/0</name><next-hop>ge-0/0/0.1</next-hop></route></static></routing-options></instance></routing-instances><interfaces><interface><name>ge-0/0/0</name><unit><name>0</name><family><inet/></family><service-domain>inside</service-domain></unit><unit><name>1</name><family><inet/></family><service-domain>outside</service-domain></unit></interface></interfaces><services><service-set><name>__contrail__default-domain_default-project_vn-private_public_nat-fip-nat</name><next-hop-service><inside-service-interface>ge-0/0/0.0</inside-service-interface><outside-service-interface>ge-0/0/0.1</outside-service-interface></next-hop-service></service-set><nat><rule><name>__contrail__default-domain_default-project_vn-private_public_nat-fip-nat-snat-rule-1</name><match-condition>input</match-condition><term><name>t1</name><from><source-address><name>10.0.0.252/32</name></source-address></from><then><translated><source-prefix>192.168.7.252/32</source-prefix><translation-type><basic-nat44/></translation-type></translated></then></term></rule><rule><name>__contrail__default-domain_default-project_vn-private_public_nat-fip-nat-dnat-rule-1</name><match-condition>output</match-condition><term><name>t1</name><from><destination-address><name>192.168.7.252/32</name></destination-address><translated><destination-prefix>10.0.0.252/32</destination-prefix><translation-type><dnat-44/></translation-type></translated></from><then/></term></rule></nat></services><policy-options><policy-statement><name>__contrail__default-domain_default-project_vn-private-export</name><term><name>t1</name><then><community><add/><community-name>target_64512_8000001</community-name></community><accept/></then></term></policy-statement><policy-statement><name>__contrail__default-domain_default-project_vn-private-import</name><term><name>t1</name><from><community>target_64512_8000001</community></from><then><accept/></then></term><then><reject/></then></policy-statement><policy-statement><name>__contrail__default-domain_default-project_vn-private_public_nat-export</name><term><name>t1</name><then><community><add/><community-name>target_64512_8000001</community-name></community><accept/></then></term></policy-statement><policy-statement><name>__contrail__default-domain_default-project_vn-private_public_nat-import</name><term><name>t1</name><from><community>target_64512_8000001</community></from><then><accept/></then></term><then><reject/></then></policy-statement><community><name>target_64512_8000001</name><members>target:64512:8000001</members></community></policy-options></groups><apply-groups operation="replace">__contrail__</apply-groups></configuration></config>'
+        self.check_netconf_config_mesg('1.1.1.1', xml_config_str)
 #end

@@ -39,7 +39,7 @@ from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
 from cfgm_common.vnc_db import DBBase
 from db import BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM, \
     LogicalInterfaceDM, VirtualMachineInterfaceDM, VirtualNetworkDM, RoutingInstanceDM, \
-    GlobalSystemConfigDM
+    GlobalSystemConfigDM, FloatingIpDM
 from cfgm_common.dependency_tracker import DependencyTracker
 from sandesh.dm_introspect import ttypes as sandesh
 
@@ -52,6 +52,7 @@ class DeviceManager(object):
             'physical_interface': [],
             'logical_interface': [],
             'virtual_network': [],
+            'floating_ip': [],
         },
         'bgp_router': {
             'self': ['bgp_router', 'physical_router'],
@@ -72,21 +73,27 @@ class DeviceManager(object):
             'physical_router': ['virtual_machine_interface']
         },
         'virtual_machine_interface': {
-            'self': ['logical_interface', 'virtual_network'],
+            'self': ['logical_interface', 'virtual_network', 'floating_ip'],
             'logical_interface': ['virtual_network'],
-            'virtual_network': ['logical_interface']
+            'virtual_network': ['logical_interface'],
+            'floating_ip': ['virtual_network']
         },
         'virtual_network': {
             'self': ['physical_router', 'virtual_machine_interface'],
             'routing_instance': ['physical_router',
                                  'virtual_machine_interface'],
             'physical_router': [],
-            'virtual_machine_interface': []
+            'virtual_machine_interface': [],
+            'floating_ip': ['physical_router']
         },
         'routing_instance': {
             'self': ['routing_instance', 'virtual_network'],
             'routing_instance': ['virtual_network'],
             'virtual_network': []
+        },
+        'floating_ip': {
+            'self': ['virtual_machine_interface'],
+            'virtual_machine_interface': []
         },
     }
 
@@ -191,6 +198,14 @@ class DeviceManager(object):
         else:
             for fq_name, uuid in bgp_list:
                 BgpRouterDM.locate(uuid)
+
+        ok, fip_list = self._cassandra._cassandra_floating_ip_list()
+        if not ok:
+            self.config_log('floating ip list returned error: %s' %
+                            fip_list)
+        else:
+            for fq_name, uuid in fip_list:
+                FloatingIpDM.locate(uuid)
 
         ok, pr_list = self._cassandra._cassandra_physical_router_list()
         if not ok:
