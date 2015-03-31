@@ -297,8 +297,10 @@ void AgentParam::ParseVirtualHost() {
 
 void AgentParam::ParseDiscovery() {
     GetValueFromTree<string>(dss_server_, "DISCOVERY.server");
-    GetValueFromTree<uint16_t>(xmpp_instance_count_, 
-                               "DISCOVERY.max_control_nodes");
+    if (!GetValueFromTree<uint16_t>(xmpp_instance_count_,
+                                    "DISCOVERY.max_control_nodes")) {
+        xmpp_instance_count_ = 2;
+    }
 }
 
 void AgentParam::ParseNetworks() {
