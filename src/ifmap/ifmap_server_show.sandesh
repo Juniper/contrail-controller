@@ -346,6 +346,7 @@ request sandesh IFMapNodeTableListShowReq {
 
 struct IFMapNodeTableListShowEntry {
     1: string table_name (link="IFMapTableShowReq")
+    2: u32 size
 }
 
 response sandesh IFMapNodeTableListShowResp {
