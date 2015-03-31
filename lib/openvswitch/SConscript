@@ -31,5 +31,5 @@ def Symlink(target, source):
     if not os.path.exists(target[0].abspath):
         os.symlink(source[0].abspath, target[0].abspath)
 
-Symlink([Dir('#/build/include/openvswitch/include')], [Dir(vpath + '/include')])
-Symlink([Dir('#/build/include/openvswitch/lib')], [Dir(vpath + '/lib')])
+#Symlink([Dir('#/build/include/openvswitch/include')], [Dir(vpath + '/include')])
+#Symlink([Dir('#/build/include/openvswitch/lib')], [Dir(vpath + '/lib')])
