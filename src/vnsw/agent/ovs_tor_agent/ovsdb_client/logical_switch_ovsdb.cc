@@ -330,6 +330,14 @@ KSyncDBObject::DBFilterResp LogicalSwitchTable::DBEntryFilter(
         const DBEntry *db_entry) {
     const PhysicalDeviceVn *entry =
         static_cast<const PhysicalDeviceVn *>(db_entry);
+
+    // Physical Device missing, trigger delete
+    if (entry->device() == NULL) {
+        OVSDB_TRACE(Trace, "Missing Physical Device info, triggering delete"
+                           " of logical switch");
+        return DBFilterDelete;
+    }
+
     // Delete the entry which has invalid VxLAN id associated.
     if (entry->vxlan_id() == 0) {
         return DBFilterDelete;
