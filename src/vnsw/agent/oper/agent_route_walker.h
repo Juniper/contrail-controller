@@ -37,6 +37,23 @@
  *
  */
 
+struct AgentRouteWalkerQueueEntry {
+    enum RequestType {
+        START_VRF_WALK,
+        CANCEL_VRF_WALK,
+        START_ROUTE_WALK,
+        CANCEL_ROUTE_WALK,
+        DONE_WALK
+    };
+
+    AgentRouteWalkerQueueEntry(VrfEntry *vrf, RequestType type) :
+        vrf_ref_(vrf), type_(type) { }
+    virtual ~AgentRouteWalkerQueueEntry() { }
+
+    VrfEntryRef vrf_ref_;
+    RequestType type_;
+};
+
 class AgentRouteWalker {
 public:
     static const int kInvalidWalkCount = 0;
@@ -52,14 +69,14 @@ public:
     typedef std::map<uint32_t, DBTableWalker::WalkId>::iterator VrfRouteWalkerIdMapIterator;
 
     AgentRouteWalker(Agent *agent, WalkType type);
-    virtual ~AgentRouteWalker() { }
+    virtual ~AgentRouteWalker();
 
     void StartVrfWalk();
     void CancelVrfWalk();
 
     //Route table walk for specified VRF
-    void StartRouteWalk(const VrfEntry *vrf);
-    void CancelRouteWalk(const VrfEntry *vrf);
+    void StartRouteWalk(VrfEntry *vrf);
+    void CancelRouteWalk(VrfEntry *vrf);
 
     virtual bool VrfWalkNotify(DBTablePartBase *partition, DBEntryBase *e);
     virtual bool RouteWalkNotify(DBTablePartBase *partition, DBEntryBase *e);
@@ -71,10 +88,19 @@ public:
     void RouteWalkDoneForVrfCallback(RouteWalkDoneCb cb);
     int walk_count() const {return walk_count_;}
     bool IsWalkCompleted() const {return (walk_count_ == 0);}
+    //Callback for start of a walk issued from Agent::RouteWalker
+    //task context.
+    virtual bool RouteWalker(boost::shared_ptr<AgentRouteWalkerQueueEntry> data);
     Agent *agent() const {return agent_;}
 
 private:
+    void StartVrfWalkInternal();
+    void CancelVrfWalkInternal();
+    void StartRouteWalkInternal(const VrfEntry * vrf);
+    void CancelRouteWalkInternal(const VrfEntry *vrf);
+
     void Callback(VrfEntry *vrf);
+    void CallbackInternal(VrfEntry *vrf);
     void OnWalkComplete();
     void OnRouteTableWalkCompleteForVrf(VrfEntry *vrf);
     void DecrementWalkCount();
@@ -87,6 +113,11 @@ private:
     VrfRouteWalkerIdMap route_walkid_[Agent::ROUTE_TABLE_MAX];
     WalkDone walk_done_cb_;
     RouteWalkDoneCb route_walk_done_for_vrf_cb_;
+    //work queue(Agent::RouteWalker) is used for starting/cancelling
+    //walks. This task is in exclusion with dbtable and Controller
+    //which makes sure that walk-done and cancel walk do not get executed in
+    //parallel. Both these calls modify walkid.
+    WorkQueue<boost::shared_ptr<AgentRouteWalkerQueueEntry> > work_queue_;
     DISALLOW_COPY_AND_ASSIGN(AgentRouteWalker);
 };
 

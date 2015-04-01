@@ -1160,7 +1160,7 @@ void AgentXmppChannel::UnicastPeerDown(AgentXmppChannel *peer,
     // Callback provided  for all walk done - this invokes cleanup in case
     // delete of peer is issued because of channel getting disconnected.
     peer_id->DelPeerRoutes(boost::bind(
-                           &VNController::ControllerPeerHeadlessAgentDelDone,
+                           &VNController::ControllerPeerHeadlessAgentDelDoneEnqueue,
                            agent->controller(), peer_id));
     CONTROLLER_TRACE(Trace, peer->GetBgpPeerName(), "None",
                      "Delete peer paths");
