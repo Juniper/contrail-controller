@@ -68,6 +68,14 @@ struct ProcessStatus {
 }
 
 // Sent by the node manager
+struct DiskPartitionUsageStats {
+    1: string                              partition_type
+    2: string                              partition_name
+    3: u64                                 partition_space_used_1k
+    4: u64                                 partition_space_available_1k
+}
+
+// Sent by the node manager
 struct ProcessInfo {
     1: string                              process_name
     2: string                              process_state
