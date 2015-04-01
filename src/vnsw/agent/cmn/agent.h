@@ -63,6 +63,7 @@ void intrusive_ptr_add_ref(const SgEntry* p);
 
 class VrfEntry;
 typedef boost::intrusive_ptr<VrfEntry> VrfEntryRef;
+typedef boost::intrusive_ptr<const VrfEntry> VrfEntryConstRef;
 void intrusive_ptr_release(const VrfEntry* p);
 void intrusive_ptr_add_ref(const VrfEntry* p);
 
