@@ -62,7 +62,8 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     vrf_assign_acl_(NULL), vm_ip_gw_addr_(0), vm_ip6_gw_addr_(),
     device_type_(VmInterface::DEVICE_TYPE_INVALID),
     vmi_type_(VmInterface::VMI_TYPE_INVALID),
-    configurer_(0), subnet_(0), subnet_plen_(0), ethernet_tag_(0) {
+    configurer_(0), subnet_(0), subnet_plen_(0), ethernet_tag_(0),
+    logical_interface_(nil_uuid()) {
     ipv4_active_ = false;
     ipv6_active_ = false;
     l2_active_ = false;
@@ -90,7 +91,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     allowed_address_pair_list_(), vrf_assign_rule_list_(),
     vrf_assign_acl_(NULL), device_type_(device_type),
     vmi_type_(vmi_type), configurer_(0), subnet_(0),
-    subnet_plen_(0) {
+    subnet_plen_(0), logical_interface_(nil_uuid()) {
     ipv4_active_ = false;
     ipv6_active_ = false;
     l2_active_ = false;
@@ -103,6 +104,7 @@ bool VmInterface::CmpInterface(const DBEntry &rhs) const {
     const VmInterface &intf=static_cast<const VmInterface &>(rhs);
     return uuid_ < intf.uuid_;
 }
+
 /////////////////////////////////////////////////////////////////////////////
 // Template function to audit two lists. This is used to synchronize the
 // operational and config list for Floating-IP, Service-Vlans, Static Routes
@@ -587,6 +589,8 @@ static PhysicalRouter *BuildParentInfo(Agent *agent,
     if (logical_node) {
         IFMapNode *physical_node = agent->cfg_listener()->
             FindAdjacentIFMapNode(agent, logical_node, "physical-interface");
+        agent->interface_table()->
+           LogicalInterfaceIFNodeToUuid(logical_node, data->logical_interface_);
         // Find phyiscal-interface for the VMI
         IFMapNode *prouter_node = NULL;
         if (physical_node) {
@@ -1403,6 +1407,25 @@ bool VmInterface::CopyIpAddress(Ip4Address &addr) {
 /////////////////////////////////////////////////////////////////////////////
 // VmInterfaceConfigData routines
 /////////////////////////////////////////////////////////////////////////////
+VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
+        VmInterfaceData(agent, node, CONFIG), addr_(0), ip6_addr_(),
+        vm_mac_(""),
+        cfg_name_(""), vm_uuid_(), vm_name_(), vn_uuid_(), vrf_name_(""),
+        fabric_port_(true), need_linklocal_ip_(false), bridging_(true),
+        layer3_forwarding_(true), mirror_enable_(false), ecmp_(false),
+        dhcp_enable_(true), admin_state_(true), analyzer_name_(""),
+        local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
+        mirror_direction_(Interface::UNKNOWN), sg_list_(),
+        floating_ip_list_(), service_vlan_list_(), static_route_list_(),
+        allowed_address_pair_list_(),
+        device_type_(VmInterface::DEVICE_TYPE_INVALID),
+        vmi_type_(VmInterface::VMI_TYPE_INVALID),
+        physical_interface_(""), parent_vmi_(), subnet_(0), subnet_plen_(0),
+        rx_vlan_id_(VmInterface::kInvalidVlanId),
+        tx_vlan_id_(VmInterface::kInvalidVlanId),
+        logical_interface_(nil_uuid()) {
+}
+
 VmInterface *VmInterfaceConfigData::OnAdd(const InterfaceTable *table,
                                           const VmInterfaceKey *key) const {
     VmInterface *vmi =
@@ -1629,6 +1652,11 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
             tx_vlan_id_ = data->tx_vlan_id_;
             ret = true;
         }
+    }
+
+    if (logical_interface_ != data->logical_interface_) {
+        logical_interface_ = data->logical_interface_;
+        ret = true;
     }
 
     Interface *new_parent = NULL;

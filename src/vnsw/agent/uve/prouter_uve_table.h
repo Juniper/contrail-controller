@@ -61,6 +61,12 @@ class ProuterUveTable {
         }
     };
 
+    struct VmInterfaceState : public DBState {
+        boost::uuids::uuid logical_interface_;
+        VmInterfaceState() : logical_interface_(boost::uuids::nil_uuid()) {
+        }
+    };
+
     struct ProuterUveEntry {
         explicit  ProuterUveEntry(const PhysicalDevice *p);
         ~ProuterUveEntry();
@@ -91,6 +97,18 @@ class ProuterUveTable {
         UvePhyInterfaceMap;
     typedef std::pair<std::string, PhyInterfaceUveEntryPtr>
         UvePhyInterfacePair;
+
+    typedef std::set<boost::uuids::uuid> VmiSet;
+    struct LogicalIntf2VmiListEntry {
+        VmiSet vmi_list;
+    };
+    typedef boost::shared_ptr<LogicalIntf2VmiListEntry>
+        LogicalIntf2VmiListEntryPtr;
+    typedef std::map<boost::uuids::uuid, LogicalIntf2VmiListEntryPtr>
+        LogicalIntf2VmiListMap;
+    typedef std::pair<boost::uuids::uuid, LogicalIntf2VmiListEntryPtr>
+        LogicalIntf2VmiListPair;
+
     static const uint16_t kInvalidVlanId = 0xFFFF;
     explicit ProuterUveTable(Agent *agent, uint32_t default_intvl);
     virtual ~ProuterUveTable();
@@ -102,6 +120,7 @@ class ProuterUveTable {
  protected:
     UveProuterMap uve_prouter_map_;
     UvePhyInterfaceMap uve_phy_interface_map_;
+    LogicalIntf2VmiListMap uve_logical_interface_map_;
 
  private:
     ProuterUveEntryPtr Allocate(const PhysicalDevice *pr);
@@ -135,6 +154,14 @@ class ProuterUveTable {
     const PhysicalDevice *InterfaceToProuter(const Interface *intf);
     void SendProuterVrouterAssociation();
     void set_expiry_time(int time);
+    void VmInterfaceHandler(DBTablePartBase *partition, DBEntryBase *e);
+    void LogicalIntf2VmiListMapAdd(const VmInterface *vmi);
+    void LogicalIntf2VmiListMapRemove(const boost::uuids::uuid &li,
+                                      const VmInterface *vmi);
+    void FillVmInterfaceList(const boost::uuids::uuid &u,
+                             std::vector<std::string> &vmi_list) const;
+    void MarkPhysicalDeviceChanged(const PhysicalDevice *pde);
+    void MarkChanged(const boost::uuids::uuid &li);
 
     Agent *agent_;
     DBTableBase::ListenerId physical_device_listener_id_;

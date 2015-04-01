@@ -571,6 +571,33 @@ TEST_F(UveProuterUveTest, PhysicalDeviceDel_2) {
     WAIT_FOR(1000, 500, (2U == pr->delete_count()));
 }
 
+TEST_F(UveProuterUveTest, VMI_Logical_Assoc_1) {
+    struct PortInfo input[] = {
+        {"vmi1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+    IntfCfgAdd(input, 0);
+    AddLogicalInterface("li1", 1, "lid1");
+    AddPort("vmi1", 1);
+    AddLink("virtual-machine-interface", "vmi1", "logical-interface", "li1");
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (LogicalInterfaceGet(1, "li1") != NULL));
+    WAIT_FOR(1000, 500, (VmInterfaceGet(1) != NULL));
+    const VmInterface *vmi = VmInterfaceGet(1);
+    const LogicalInterface *li = LogicalInterfaceGet(1, "li1");
+    EXPECT_TRUE(vmi->logical_interface() == li->GetUuid());
+
+    DelLink("virtual-machine-interface", "vmi1", "logical-interface", "li1");
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (vmi->logical_interface() == nil_uuid()));
+
+    DelPort("vmi1");
+    DeleteLogicalInterface("li1");
+    IntfCfgDel(input, 0);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (LogicalInterfaceGet(1, "li1") == NULL));
+    WAIT_FOR(1000, 500, (VmInterfaceGet(1) == NULL));
+}
+
 TEST_F(UveProuterUveTest, VMIAddDel_1) {
     AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
     ProuterUveTableTest *pr = static_cast<ProuterUveTableTest *>
@@ -697,6 +724,90 @@ TEST_F(UveProuterUveTest, VMIAddDel_2) {
     DeletePhysicalInterface("pi1");
     DeletePhysicalDevice("prouter1");
     IntfCfgDel(input, 0);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (PhysicalInterfaceGet("pi1") == NULL));
+    WAIT_FOR(1000, 500, (PhysicalDeviceGet(1) == NULL));
+    WAIT_FOR(1000, 500, (LogicalInterfaceGet(1, "li1") == NULL));
+
+    EnqueueSendProuterUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (pr->ProuterUveCount() == 0U));
+
+    WAIT_FOR(1000, 500, (1U == pr->delete_count()));
+}
+
+TEST_F(UveProuterUveTest, VMIAddDel_3) {
+    AgentUve *u = static_cast<AgentUve *>(Agent::GetInstance()->uve());
+    ProuterUveTableTest *pr = static_cast<ProuterUveTableTest *>
+        (u->prouter_uve_table());
+    pr->ClearCount();
+    struct PortInfo input[] = {
+        {"vmi1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+        {"vmi1", 2, "1.1.1.2", "00:00:00:01:01:02", 1, 2}
+    };
+
+    //Add physical-device and physical-interface and add their association
+    IntfCfgAdd(input, 0);
+    AddPhysicalDevice("prouter1", 1);
+    AddPhysicalInterface("pi1", 1, "pid1");
+    AddLogicalInterface("li1", 1, "lid1");
+    AddPort("vmi1", 1);
+    AddLink("physical-router", "prouter1", "physical-interface", "pi1");
+    AddLink("physical-interface", "pi1", "logical-interface", "li1");
+    AddLink("virtual-machine-interface", "vmi1", "logical-interface", "li1");
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (PhysicalDeviceGet(1) != NULL));
+    WAIT_FOR(1000, 500, (PhysicalInterfaceGet("pi1") != NULL));
+    WAIT_FOR(1000, 500, (LogicalInterfaceGet(1, "li1") != NULL));
+    WAIT_FOR(1000, 500, (VmInterfaceGet(1) != NULL));
+
+    //Create one more VMI and associate with the above logical interface
+    IntfCfgAdd(input, 1);
+    AddPort("vmi2", 2);
+    AddLink("virtual-machine-interface", "vmi2", "logical-interface", "li1");
+    client->WaitForIdle();
+
+    EnqueueSendProuterUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (pr->ProuterUveCount() == 1U));
+
+    WAIT_FOR(1000, 500, (pr->last_sent_uve().get_physical_interface_list().
+                         size() == 1U));
+    UvePhysicalInterfaceData data = pr->last_sent_uve().
+                                    get_physical_interface_list().front();
+    EXPECT_EQ(1U, data.get_logical_interface_list().size());
+    UveLogicalInterfaceData ldata = data.get_logical_interface_list().front();
+    EXPECT_EQ(2U, ldata.get_vm_interface_list().size());
+
+    uint32_t send_count = pr->send_count();
+    //Disassociate one of the VMI from Logical interface
+    DelLink("virtual-machine-interface", "vmi2", "logical-interface", "li1");
+    client->WaitForIdle();
+
+    EnqueueSendProuterUveTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (pr->send_count() >= (send_count + 1U)));
+
+    //Verify that VMI list count in last sent UVE is reduced by 1
+    data = pr->last_sent_uve().get_physical_interface_list().front();
+    EXPECT_EQ(1U, data.get_logical_interface_list().size());
+    ldata = data.get_logical_interface_list().front();
+    EXPECT_EQ(1U, ldata.get_vm_interface_list().size());
+
+    //Disassociate logical-interface from physical_interface
+    DelLink("physical-interface", "pi1", "logical-interface", "li1");
+    //Disassociate physical-device from physical-interface
+    DelLink("physical-router", "prouter1", "physical-interface", "pi1");
+    DelLink("virtual-machine-interface", "vmi1", "logical-interface", "li1");
+    //Delete physical-device and physical-interface
+    DelPort("vmi1");
+    DelPort("vmi2");
+    DeleteLogicalInterface("li1");
+    DeletePhysicalInterface("pi1");
+    DeletePhysicalDevice("prouter1");
+    IntfCfgDel(input, 0);
+    IntfCfgDel(input, 1);
+
     client->WaitForIdle();
     WAIT_FOR(1000, 500, (PhysicalInterfaceGet("pi1") == NULL));
     WAIT_FOR(1000, 500, (PhysicalDeviceGet(1) == NULL));
