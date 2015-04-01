@@ -376,6 +376,9 @@ public:
     const Ip4Address& subnet() const { return subnet_;}
     const uint8_t subnet_plen() const { return subnet_plen_;}
     const MacAddress& GetVifMac(const Agent*) const;
+    const boost::uuids::uuid &logical_interface() const {
+        return logical_interface_;
+    }
 
     Interface::MirrorDirection mirror_direction() const {
         return mirror_direction_;
@@ -679,6 +682,8 @@ private:
     Ip4Address subnet_;
     uint8_t subnet_plen_;
     int ethernet_tag_;
+    // Logical interface uuid to which the interface belongs
+    boost::uuids::uuid logical_interface_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 
@@ -794,7 +799,8 @@ struct VmInterfaceConfigData : public VmInterfaceData {
         vmi_type_(VmInterface::VMI_TYPE_INVALID),
         physical_interface_(""), parent_vmi_(), subnet_(0), subnet_plen_(0),
         rx_vlan_id_(VmInterface::kInvalidVlanId),
-        tx_vlan_id_(VmInterface::kInvalidVlanId) {
+        tx_vlan_id_(VmInterface::kInvalidVlanId),
+        logical_interface_(nil_uuid()) {
     }
 
     virtual ~VmInterfaceConfigData() { }
@@ -846,6 +852,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     uint8_t subnet_plen_;
     uint16_t rx_vlan_id_;
     uint16_t tx_vlan_id_;
+    boost::uuids::uuid logical_interface_;
 };
 
 // Definition for structures when request queued from Nova
