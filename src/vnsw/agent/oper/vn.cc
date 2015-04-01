@@ -627,10 +627,16 @@ VnData *VnTable::BuildData(IFMapNode *node) {
         layer3_forwarding = false;
     }
 
+    int network_id;
+    if (cfg->IsPropertySet(autogen::VirtualNetwork::NETWORK_ID))
+        network_id = cfg->network_id();
+    else
+        network_id = cfg->properties().network_id;
+
     return new VnData(agent(), node->name(), acl_uuid, vrf_name, mirror_acl_uuid,
                       mirror_cfg_acl_uuid, vn_ipam, vn_ipam_data,
                       cfg->properties().vxlan_network_identifier,
-                      cfg->properties().network_id, bridging, layer3_forwarding,
+                      network_id, bridging, layer3_forwarding,
                       cfg->id_perms().enable, enable_rpf);
 }
 

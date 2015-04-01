@@ -1401,10 +1401,10 @@ void DelVrf(const char *name) {
 void ModifyForwardingModeVn(const string &name, int id, const string &fw_mode) {
     std::stringstream str;
     str << "<virtual-network-properties>" << endl;
-    str << "    <network-id>" << id << "</network-id>" << endl;
     str << "    <vxlan-network-identifier>" << (id+100) << "</vxlan-network-identifier>" << endl;
     str << "    <forwarding-mode>" << fw_mode << "</forwarding-mode>" << endl;
     str << "</virtual-network-properties>" << endl;
+    str << "<virtual-network-network-id>" << id << "</virtual-network-network-id>" << endl;
 
     AddNode("virtual-network", name.c_str(), id, str.str().c_str());
 }
@@ -1412,10 +1412,10 @@ void ModifyForwardingModeVn(const string &name, int id, const string &fw_mode) {
 void AddL2Vn(const char *name, int id) {
     std::stringstream str;
     str << "<virtual-network-properties>" << endl;
-    str << "    <network-id>" << id << "</network-id>" << endl;
     str << "    <vxlan-network-identifier>" << (id+100) << "</vxlan-network-identifier>" << endl;
     str << "    <forwarding-mode>l2</forwarding-mode>" << endl;
     str << "</virtual-network-properties>" << endl;
+    str << "<virtual-network-network-id>" << id << "</virtual-network-network-id>" << endl;
 
     AddNode("virtual-network", name, id, str.str().c_str());
 }
@@ -1424,11 +1424,11 @@ void AddL2Vn(const char *name, int id) {
 void AddVn(const char *name, int id, bool admin_state) {
     std::stringstream str;
     str << "<virtual-network-properties>" << endl;
-    str << "    <network-id>" << id << "</network-id>" << endl;
     str << "    <vxlan-network-identifier>" << (id+100) << "</vxlan-network-identifier>" << endl;
     str << "    <forwarding-mode>l2_l3</forwarding-mode>" << endl;
     str << "    <rpf>enable</rpf>" << endl;
     str << "</virtual-network-properties>" << endl;
+    str << "<virtual-network-network-id>" << id << "</virtual-network-network-id>" << endl;
 
     AddNode("virtual-network", name, id, str.str().c_str(), admin_state);
 }
