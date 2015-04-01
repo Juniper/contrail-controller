@@ -26,6 +26,7 @@
 #include "oper/mpls.h"
 #include "oper/vm.h"
 #include "oper/vn.h"
+#include "oper/physical_device_vn.h"
 #include "filter/acl.h"
 #include "openstack/instance_service_server.h"
 #include "test_cmn_util.h"
@@ -87,6 +88,26 @@ protected:
     virtual void TearDown() {
     }
 
+    void AddPhysicalDeviceVn(int dev_id, int vn_id) {
+        DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+        req.key.reset(new PhysicalDeviceVnKey(MakeUuid(dev_id),
+                                              MakeUuid(vn_id)));
+        agent_->physical_device_vn_table()->Enqueue(&req);
+        PhysicalDeviceVn key(MakeUuid(dev_id), MakeUuid(vn_id));
+        WAIT_FOR(100, 10000,
+               (agent_->physical_device_vn_table()->Find(&key, false) != NULL));
+    }
+
+    void DelPhysicalDeviceVn(int dev_id, int vn_id) {
+        DBRequest req(DBRequest::DB_ENTRY_DELETE);
+        req.key.reset(new PhysicalDeviceVnKey(MakeUuid(dev_id),
+                                              MakeUuid(vn_id)));
+        agent_->physical_device_vn_table()->Enqueue(&req);
+        PhysicalDeviceVn key(MakeUuid(dev_id), MakeUuid(vn_id));
+        WAIT_FOR(100, 10000,
+                (agent_->physical_device_vn_table()->Find(&key, true) == NULL));
+    }
+
     Agent *agent_;
     TestOvsAgentInit *init_;
     OvsPeerManager *peer_manager_;
@@ -111,6 +132,18 @@ TEST_F(OvsBaseTest, LogicalSwitchBasic) {
         cout << str << endl;
         test.Run();
     }
+}
+
+TEST_F(OvsBaseTest, PhysicalDeviceVnWithNullDevice) {
+    AddPhysicalDeviceVn(1, 1);
+
+    VnAddReq(1, "vn1");
+    WAIT_FOR(100, 10000, (VnGet(1) != NULL));
+
+    DelPhysicalDeviceVn(1, 1);
+
+    VnDelReq(1);
+    WAIT_FOR(100, 10000, (VnGet(1) == NULL));
 }
 
 int main(int argc, char *argv[]) {
