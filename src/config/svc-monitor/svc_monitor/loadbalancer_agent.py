@@ -72,16 +72,20 @@ class LoadbalancerAgent(object):
 
     def load_driver(self, sas):
         if sas.name in self._loadbalancer_driver:
-            return
+            del(self._loadbalancer_driver[sas.name])
         if sas.driver:
             config = self._args.config_sections
+            try:
+                config.remove_section(sas.name)
+            except Exception as ex:
+                pass
             config.add_section(sas.name)
             for kvp in sas.kvpairs or []:
                 config.set(sas.name, kvp['key'], kvp['value'])
             if sas.ha_mode:
                 config.set(sas.name, 'ha_mode', sas.ha_mode)
             for sa in sas.service_appliances or []:
-                saobj = ServiceApplianceSet.get(sa)
+                saobj = ServiceApplianceSM.get(sa)
                 config.set(sas.name, 'device_ip', saobj.ip_address)
                 config.set(sas.name, 'user', saobj.user_credential['username'])
                 config.set(sas.name, 'password',

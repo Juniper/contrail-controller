@@ -54,14 +54,19 @@ class LoadbalancerPoolSM(DBBase):
     # end delete
 
     def add(self):
-        self.last_sent = self._manager.loadbalancer_agent.loadbalancer_pool_add(self)
+        self.last_sent = \
+                self._manager.loadbalancer_agent.loadbalancer_pool_add(self)
         if len(self.members):
             for member in self.members:
                 member_obj = LoadbalancerMemberSM.get(member)
-                member_obj.last_sent = self._manager.loadbalancer_agent.loadbalancer_member_add(member_obj)
+                if member_obj:
+                    member_obj.last_sent = \
+                            self._manager.loadbalancer_agent.loadbalancer_member_add(member_obj)
         if self.virtual_ip:
             vip_obj = VirtualIpSM.get(self.virtual_ip)
-            vip_obj.last_sent = self._manager.loadbalancer_agent.virtual_ip_add(vip_obj)
+            if vip_obj:
+                vip_obj.last_sent = \
+                        self._manager.loadbalancer_agent.virtual_ip_add(vip_obj)
     # end add
 # end class LoadbalancerPoolSM
 
