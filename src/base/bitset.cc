@@ -591,8 +591,10 @@ void BitSet::FromString(string str) {
 // positions.
 //
 string BitSet::ToNumberedString() const {
-    ostringstream oss;
+    if (empty())
+        return "-";
 
+    ostringstream oss;
     bool range = false;
     size_t last_pos = BitSet::npos;
     for (size_t pos = find_first(); pos != BitSet::npos;
@@ -610,11 +612,8 @@ string BitSet::ToNumberedString() const {
         }
     }
 
-    if (range) {
+    if (range)
        oss << "-" << integerToString(last_pos);
-    } else if (last_pos == BitSet::npos) {
-       oss << "-";
-    }
 
     return oss.str();
 }
