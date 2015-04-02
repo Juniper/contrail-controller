@@ -7,7 +7,7 @@ class BgpConnectivity(AlarmBase):
     def __call__(self, uve_key, uve_data):
         err_list = []
         if not uve_data.has_key("BgpRouterState"):
-            return self.__class__.__name__, err_list
+            return self.__class__.__name__, 4, err_list
         
         ust = uve_data["BgpRouterState"]
 
@@ -24,4 +24,4 @@ class BgpConnectivity(AlarmBase):
                 err_list.append(("BgpRouterState.%s != BgpRouterState.%s" % (l,r),
                              "%s != %s" % (str(ust[l]), str(ust[r]))))
 
-        return self.__class__.__name__, err_list 
+        return self.__class__.__name__, 4, err_list 

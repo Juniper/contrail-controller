@@ -15,6 +15,7 @@ import json
 import socket
 import pprint
 import time
+import copy
 try:
     from collections import OrderedDict
 except ImportError:
@@ -43,6 +44,7 @@ from sandesh.discovery.ttypes import CollectorTrace
 from cpuinfo import CpuInfoData
 from opserver_util import ServicePoller
 from stevedore import hook
+from pysandesh.util import UTCTimestampUsec
 
 class Controller(object):
     
@@ -205,7 +207,7 @@ class Controller(object):
             if len(uve_data) == 0:
                 self._logger.info("UVE %s deleted" % uv)
                 if self.tab_alarms[tab].has_key(uv):
-		    del self.tab_alarms[tab][uv]
+                    del self.tab_alarms[tab][uv]
                     uname = uv.split(":",1)[1]
                     ustruct = UVEAlarms(name = uname, deleted = True)
                     alarm_msg = AlarmTrace(data=ustruct, table=tab)
@@ -215,7 +217,7 @@ class Controller(object):
             results = self.mgrs[tab].map_method("__call__", uv, uve_data)
             new_uve_alarms = {}
             for res in results:
-                nm, errs = res
+                nm, sev, errs = res
                 self._logger.debug("Alarm[%s] %s: %s" % (tab, nm, str(errs)))
                 elems = []
                 for ae in errs:
@@ -223,18 +225,52 @@ class Controller(object):
                     rv = AlarmElement(rule, val)
                     elems.append(rv)
                 if len(elems):
-                    new_uve_alarms[nm] = UVEAlarmInfo(type = nm,
+                    new_uve_alarms[nm] = UVEAlarmInfo(type = nm, severity = sev,
+                                           timestamp = 0,
                                            description = elems, ack = False)
-            if (not self.tab_alarms[tab].has_key(uv)) or \
-                       pprint.pformat(self.tab_alarms[tab][uv]) != \
-                       pprint.pformat(new_uve_alarms):
+            del_types = []
+            if self.tab_alarms[tab].has_key(uv):
+                for nm, uai in self.tab_alarms[tab][uv].iteritems():
+                    uai2 = copy.deepcopy(uai)
+                    uai2.timestamp = 0
+                    # This type was present earlier, but is now gone
+                    if not new_uve_alarms.has_key(nm):
+                        del_types.append(nm)
+                    else:
+                        # This type has no new information
+                        if pprint.pformat(uai2) == \
+                                pprint.pformat(new_uve_alarms[nm]):
+                            del new_uve_alarms[nm]
+            if len(del_types) != 0  or \
+                    len(new_uve_alarms) != 0:
+                self._logger.debug("Alarm[%s] Deleted %s" % \
+                        (tab, str(del_types))) 
+                self._logger.debug("Alarm[%s] Updated %s" % \
+                        (tab, str(new_uve_alarms))) 
+                # These alarm types are new or updated
+                for nm, uai2 in new_uve_alarms.iteritems():
+                    uai = copy.deepcopy(uai2)
+                    uai.timestamp = UTCTimestampUsec()
+                    if not self.tab_alarms[tab].has_key(uv):
+                        self.tab_alarms[tab][uv] = {}
+                    self.tab_alarms[tab][uv][nm] = uai
+                # These alarm types are now gone
+                for dnm in del_types:
+                    del self.tab_alarms[tab][uv][dnm]
+                    
                 uname = uv.split(":")[1]
-                ustruct = UVEAlarms(name = uname, alarms = new_uve_alarms.values(),
-                                    deleted = False)
+                ustruct = None
+                if len(self.tab_alarms[tab][uv]) == 0:
+                    ustruct = UVEAlarms(name = uname,
+                            deleted = True)
+                    del self.tab_alarms[tab][uv]
+                else:
+                    ustruct = UVEAlarms(name = uname,
+                            alarms = self.tab_alarms[tab][uv].values(),
+                            deleted = False)
                 alarm_msg = AlarmTrace(data=ustruct, table=tab)
                 self._logger.info('send alarm: %s' % (alarm_msg.log()))
                 alarm_msg.send()
-            self.tab_alarms[tab][uv] = new_uve_alarms
             
         if len(no_handlers):
             self._logger.debug('No Alarm Handlers for %s' % str(no_handlers))
