@@ -62,6 +62,7 @@ void IFMapTable::FillNodeTableList(DB *db,
 
         IFMapNodeTableListShowEntry entry;
         entry.table_name = name;
+        entry.size = table->Size();
 
         table_list->push_back(entry);
         if (table->name().find("__ifmap__") != 0) {
