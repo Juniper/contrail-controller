@@ -3597,6 +3597,9 @@ class DBInterface(object):
     #end port_delete
 
     def _port_fixed_ips_is_present(self, check, against):
+        # filters = {'fixed_ips': {'ip_address': ['20.0.0.5', '20.0.0.6']}}
+        # check = {'ip_address': ['20.0.0.5', '20.0.0.6']}
+        # against = [{'subnet_id': 'uuid', 'ip_address': u'20.0.0.5'}]
         for addr in check['ip_address']:
             for item in against:
                 if item['ip_address'] == addr:
@@ -3624,12 +3627,9 @@ class DBInterface(object):
 
         if not 'device_id' in filters:
             # Listing from back references
-            if not filters:
-                # TODO once vmi is linked to project in schema, use project_id
-                # to limit scope of list
-               ret_q_ports = self._port_list_project(project_id,
-                                                     is_admin=context['is_admin'])
-            elif 'tenant_id' in filters:
+            # TODO once vmi is linked to project in schema, use project_id
+            # to limit scope of list
+            if 'tenant_id' in filters:
                 all_project_ids = self._validate_project_ids(context,
                                                              filters['tenant_id'])
             elif 'name' in filters or 'device_owner' in filters:
@@ -3642,12 +3642,15 @@ class DBInterface(object):
                     except NoIdError:
                         continue
                     ret_q_ports.append(port_info)
+            else:
+                ret_q_ports = self._port_list_project(project_id,
+                                                  is_admin=context['is_admin'])
 
-            for proj_id in all_project_ids:
-                ret_q_ports = self._port_list_project(proj_id)
-
-            if 'network_id' in filters:
-                ret_q_ports = self._port_list_network(filters['network_id'])
+            if all_project_ids:
+                ret_q_ports = []
+                for proj_id in all_project_ids:
+                    # Get data from filter tenant-ids
+                    ret_q_ports.extend(self._port_list_project(proj_id))
 
             # prune phase
             ret_list = []
@@ -3661,6 +3664,10 @@ class DBInterface(object):
                 if 'fixed_ips' in filters and \
                     not self._port_fixed_ips_is_present(filters['fixed_ips'],
                                                         port_obj['fixed_ips']):
+                    continue
+                if ('network_id' in filters and
+                    not [ True for net_id in filters['network_id']
+                               if net_id == port_obj['network_id']]):
                     continue
 
                 ret_list.append(port_obj)
