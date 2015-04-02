@@ -129,6 +129,8 @@ static const char *config_2_control_nodes_different_asn = "\
 //
 class BgpXmppInetvpn2ControlNodeTest : public ::testing::Test {
 protected:
+    static const int kRouteCount = 512;
+
     BgpXmppInetvpn2ControlNodeTest()
         : thread_(&evm_), xs_x_(NULL), xs_y_(NULL) {
     }
@@ -230,7 +232,7 @@ protected:
     }
 
     void VerifyRouteExists(test::NetworkAgentMockPtr agent, string net,
-        string prefix, string nexthop, int local_pref,
+        string prefix, string nexthop, int local_pref = 100,
         const string &encap = string(), const string &origin_vn = string(),
         const vector<int> sgids = vector<int>()) {
         TASK_UTIL_EXPECT_TRUE(CheckRoute(
@@ -259,6 +261,13 @@ protected:
     boost::scoped_ptr<BgpXmppChannelManager> cm_x_;
     boost::scoped_ptr<BgpXmppChannelManager> cm_y_;
 };
+
+static string BuildPrefix(uint32_t idx) {
+    assert(idx <= 65535);
+    string prefix = string("10.1.") +
+        integerToString(idx / 255) + "." + integerToString(idx % 255) + "/32";
+    return prefix;
+}
 
 //
 // Added route has expected local preference.
@@ -447,6 +456,56 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteFlap2) {
     // Verify that route is deleted at agents A and B.
     VerifyRouteNoExists(agent_a_, "blue", route_a.str());
     VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Multiple routes are exchanged correctly.
+//
+TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAdd) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+
+    // Add routes from agent A.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        agent_a_->AddRoute("blue", BuildPrefix(idx), "192.168.1.1");
+    }
+
+    // Verify that routes showed up on agents A and B.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        VerifyRouteExists(agent_a_, "blue", BuildPrefix(idx), "192.168.1.1");
+        VerifyRouteExists(agent_b_, "blue", BuildPrefix(idx), "192.168.1.1");
+    }
+
+    // Delete routes from agent A.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        agent_a_->DeleteRoute("blue", BuildPrefix(idx));
+    }
+
+    // Verify that routes are deleted at agents A and B.
+    for (int idx = 0; idx < kRouteCount; ++idx) {
+        VerifyRouteNoExists(agent_a_, "blue", BuildPrefix(idx));
+        VerifyRouteNoExists(agent_b_, "blue", BuildPrefix(idx));
+    }
 
     // Close the sessions.
     agent_a_->SessionDown();
