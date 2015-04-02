@@ -27,22 +27,20 @@ using OVSDB::OvsdbClientSession;
 
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
         const std::string &name) : OvsdbDBEntry(table), name_(name),
-    vxlan_id_(0), mcast_local_row_(NULL), mcast_remote_row_(NULL),
-    old_mcast_remote_row_(NULL) {
+    vxlan_id_(0), mcast_local_row_(NULL), mcast_remote_row_(NULL) {
 }
 
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
         const PhysicalDeviceVn *entry) : OvsdbDBEntry(table),
         name_(UuidToString(entry->vn()->GetUuid())), mcast_local_row_(NULL),
-        mcast_remote_row_(NULL), old_mcast_remote_row_(NULL) {
+        mcast_remote_row_(NULL) {
     vxlan_id_ = entry->vxlan_id();
     device_name_ = entry->device()->name();
 }
 
 LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
         const LogicalSwitchEntry *entry) : OvsdbDBEntry(table),
-        mcast_local_row_(NULL), mcast_remote_row_(NULL),
-        old_mcast_remote_row_(NULL) {
+        mcast_local_row_(NULL), mcast_remote_row_(NULL) {
     name_ = entry->name_;
     vxlan_id_ = entry->vxlan_id_;;
     device_name_ = entry->device_name_;
@@ -52,8 +50,7 @@ LogicalSwitchEntry::LogicalSwitchEntry(OvsdbDBObject *table,
         struct ovsdb_idl_row *entry) : OvsdbDBEntry(table, entry),
         name_(ovsdb_wrapper_logical_switch_name(entry)), device_name_(""),
         vxlan_id_(ovsdb_wrapper_logical_switch_tunnel_key(entry)),
-        mcast_local_row_(NULL), mcast_remote_row_(NULL),
-        old_mcast_remote_row_(NULL) {
+        mcast_local_row_(NULL), mcast_remote_row_(NULL) {
 }
 
 Ip4Address &LogicalSwitchEntry::physical_switch_tunnel_ip() {
@@ -69,7 +66,11 @@ void LogicalSwitchEntry::AddMsg(struct ovsdb_idl_txn *txn) {
     struct ovsdb_idl_row *row =
         ovsdb_wrapper_add_logical_switch(txn, ovs_entry_, name_.c_str(),
                 vxlan_id_);
-    /* Add remote multicast entry if not already present */
+
+    // Encode Delete for Old remote multicast entries
+    DeleteOldMcastRemoteMac();
+
+    // Add remote multicast entry if not already present
     if (mcast_remote_row_ == NULL) {
         std::string dest_ip = table_->client_idl()->tsn_ip().to_string();
         PhysicalLocatorTable *pl_table =
@@ -87,9 +88,6 @@ void LogicalSwitchEntry::AddMsg(struct ovsdb_idl_txn *txn) {
         ovsdb_wrapper_add_mcast_mac_remote(txn, NULL, "unknown-dst", row,
                 pl_row, dest_ip.c_str());
     }
-    if (old_mcast_remote_row_ != NULL) {
-        ovsdb_wrapper_delete_mcast_mac_remote(old_mcast_remote_row_);
-    }
     SendTrace(LogicalSwitchEntry::ADD_REQ);
 }
 
@@ -102,16 +100,21 @@ void LogicalSwitchEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
     if (mcast_local_row_ != NULL) {
         ovsdb_wrapper_delete_mcast_mac_local(mcast_local_row_);
     }
-    if (mcast_remote_row_ != NULL) {
+
+    // encode delete of entry if it is non-NULL and not present in
+    // old mcast remote list
+    if (mcast_remote_row_ != NULL &&
+        old_mcast_remote_row_list_.find(mcast_remote_row_) ==
+        old_mcast_remote_row_list_.end()) {
         ovsdb_wrapper_delete_mcast_mac_remote(mcast_remote_row_);
     }
-    if (old_mcast_remote_row_ != NULL) {
-        ovsdb_wrapper_delete_mcast_mac_remote(old_mcast_remote_row_);
-    }
+    DeleteOldMcastRemoteMac();
+
     if (ovs_entry_ != NULL) {
         ovsdb_wrapper_delete_logical_switch(ovs_entry_);
     }
-    UcastLocalRouteList::iterator it;
+
+    OvsdbIdlRowList::iterator it;
     for (it = ucast_local_row_list_.begin();
          it != ucast_local_row_list_.end(); ++it) {
         ovsdb_wrapper_delete_ucast_mac_local(*it);
@@ -134,6 +137,10 @@ const std::string &LogicalSwitchEntry::device_name() const {
 
 int64_t LogicalSwitchEntry::vxlan_id() const {
     return vxlan_id_;
+}
+
+std::string LogicalSwitchEntry::tor_service_node() const {
+    return ovsdb_wrapper_mcast_mac_remote_dst_ip(mcast_remote_row_);
 }
 
 bool LogicalSwitchEntry::Sync(DBEntry *db_entry) {
@@ -190,6 +197,14 @@ void LogicalSwitchEntry::SendTrace(Trace event) const {
     info.set_device_name(device_name_);
     info.set_vxlan(vxlan_id_);
     OVSDB_TRACE(LogicalSwitch, info);
+}
+
+void LogicalSwitchEntry::DeleteOldMcastRemoteMac() {
+    OvsdbIdlRowList::iterator it;
+    for (it = old_mcast_remote_row_list_.begin();
+         it != old_mcast_remote_row_list_.end(); ++it) {
+        ovsdb_wrapper_delete_mcast_mac_remote(*it);
+    }
 }
 
 LogicalSwitchTable::LogicalSwitchTable(OvsdbClientIdl *idl, DBTable *table) :
@@ -260,21 +275,52 @@ void LogicalSwitchTable::OvsdbMcastRemoteMacNotify(OvsdbClientIdl::Op op,
         OVSDB_TRACE(Trace, "Delete : Remote Mcast MAC " + std::string(mac) +
                 ", logical switch " + (ls ? std::string(ls) : ""));
         if (entry) {
-            if (entry->old_mcast_remote_row_ == row)
-                entry->old_mcast_remote_row_ = NULL;
-            if (entry->mcast_remote_row_ == row)
+            entry->old_mcast_remote_row_list_.erase(row);
+            if (entry->mcast_remote_row_ == row) {
                 entry->mcast_remote_row_ = NULL;
+            }
+
+            // trigger change for active entry, once we are done deleting
+            // all old mcast remote rows
+            if (entry->IsActive() && entry->old_mcast_remote_row_list_.empty())
+                Change(entry);
         }
     } else if (op == OvsdbClientIdl::OVSDB_ADD) {
         OVSDB_TRACE(Trace, "Add : Remote Mcast MAC " + std::string(mac) +
                 ", logical switch " + (ls ? std::string(ls) : ""));
         if (entry) {
             if (entry->mcast_remote_row_ != row) {
-                entry->old_mcast_remote_row_ = entry->mcast_remote_row_;
+                if (entry->mcast_remote_row_) {
+                    // move the old entry to old mcast mac list
+                    entry->old_mcast_remote_row_list_.insert(
+                            entry->mcast_remote_row_);
+                    // add the current row also to old mcast mac list
+                    // so that we trigger delete of all the mcast remote
+                    // macs then re-add only one mac entry, as TOR may
+                    // not handle two mcast remote entries in transient
+                    // state.
+                    entry->old_mcast_remote_row_list_.insert(row);
+                }
                 entry->mcast_remote_row_ = row;
-                if (entry->old_mcast_remote_row_ != NULL)
-                    entry->OvsdbChange();
             }
+
+            std::string dest_ip = ovsdb_wrapper_mcast_mac_remote_dst_ip(row);
+            std::string tsn_ip = client_idl()->tsn_ip().to_string();
+            if (dest_ip.compare(tsn_ip) != 0) {
+                // dest ip is different from tsn ip
+                // push this row to old mcast list and trigger
+                // change to update new mcast remote entry with
+                // correct TSN ip
+                entry->old_mcast_remote_row_list_.insert(row);
+                // we will not make mcast remote row NULL here, so that
+                // we wait for deletion of all the old remote entries to
+                // reprogram mcast_remote_row_
+            }
+
+            // trigger change on active entry to delete all old
+            // mcast remote rows.
+            if (entry->IsActive() && !entry->old_mcast_remote_row_list_.empty())
+                Change(entry);
         }
     } else {
         assert(0);
@@ -372,6 +418,7 @@ public:
                 lentry.set_name(entry->name());
                 lentry.set_physical_switch(entry->device_name());
                 lentry.set_vxlan_id(entry->vxlan_id());
+                lentry.set_tor_service_node(entry->tor_service_node());
                 lswitch.push_back(lentry);
                 entry = static_cast<LogicalSwitchEntry *>(table->Next(entry));
             }

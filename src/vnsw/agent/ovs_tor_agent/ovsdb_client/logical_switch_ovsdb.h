@@ -33,7 +33,7 @@ private:
 
 class LogicalSwitchEntry : public OvsdbDBEntry {
 public:
-    typedef std::set<struct ovsdb_idl_row *> UcastLocalRouteList;
+    typedef std::set<struct ovsdb_idl_row *> OvsdbIdlRowList;
     enum Trace {
         ADD_REQ,
         DEL_REQ,
@@ -57,6 +57,7 @@ public:
     const std::string &name() const;
     const std::string &device_name() const;
     int64_t vxlan_id() const;
+    std::string tor_service_node() const;
 
     bool Sync(DBEntry*);
     bool IsLess(const KSyncEntry&) const;
@@ -64,6 +65,7 @@ public:
     KSyncEntry* UnresolvedReference();
 private:
     void SendTrace(Trace event) const;
+    void DeleteOldMcastRemoteMac();
 
     friend class LogicalSwitchTable;
     std::string name_;
@@ -72,8 +74,8 @@ private:
     int64_t vxlan_id_;
     struct ovsdb_idl_row *mcast_local_row_;
     struct ovsdb_idl_row *mcast_remote_row_;
-    struct ovsdb_idl_row *old_mcast_remote_row_;
-    UcastLocalRouteList ucast_local_row_list_;
+    OvsdbIdlRowList old_mcast_remote_row_list_;
+    OvsdbIdlRowList ucast_local_row_list_;
     DISALLOW_COPY_AND_ASSIGN(LogicalSwitchEntry);
 };
 };
