@@ -2,7 +2,7 @@ import mock
 from mock import patch
 import unittest
 from vnc_api.vnc_api import *
-from svc_monitor.vrouter_instance_manager import VRouterInstanceManager
+from svc_monitor.instance_manager import NetworkNamespaceManager
 from svc_monitor.config_db import *
 
 class VMObjMatcher(object):
@@ -27,24 +27,7 @@ class VMObjMatcher(object):
             return False
         return True
 
-class VRObjMatcher(object):
-    """
-    Object for assert_called_with to check if vr object is created properly
-    """
-    def __init__(self, vm):
-        self.vm = vm
-
-    def _has_field(self, vm, ob):
-        if vm == ob.get_virtual_machine_refs()[0]['to']:
-            return True
-        return False
-
-    def __eq__(self, other):
-        if not(self._has_field(self.vm, other)):
-            return False
-        return True
-
-class VRouterInstanceManagerTest(unittest.TestCase):
+class SnatInstanceManager(unittest.TestCase):
     def setUp(self):
         def get_vn_id(obj_type, fq_name):
             if obj_type != 'virtual-network':
@@ -58,6 +41,16 @@ class VRouterInstanceManagerTest(unittest.TestCase):
             vmi_obj.uuid = 'fake-vmi-uuid'
             return
 
+        def vn_create(vn_obj):
+            vn_obj.uuid = 'fake-vn-uuid'
+            return
+
+        def vn_read(vn_id):
+            vn_obj = {}
+            vn_obj['uuid'] = 'fake-vn-uuid'
+            vn_obj['fq_name'] = ['fake-domain', 'fake-project', 'fake-vn-uuid']
+            return True, [vn_obj]
+
         def vm_read(vm_id):
             class SI(object):
                 def __init__(self, name, fq_name):
@@ -67,11 +60,11 @@ class VRouterInstanceManagerTest(unittest.TestCase):
             vm_obj = {}
             vm_obj['uuid'] = 'fake-vm-uuid'
             vm_obj['fq_name'] = ['fake-vm-uuid']
-            fq_name = ['fake-domain', 'fake-project', 'fake-instance']
-            name = 'fake-instance'
+            fq_name = ['fake-domain', 'fake-project', 'fake-snat-instance']
+            name = 'fake-snat-instance'
             si = SI(name, fq_name)
-            instance_name = self.vrouter_manager._get_instance_name(si, 0)
-            vm_obj['display_name'] = instance_name + '__' + 'vrouter-instance'
+            instance_name = self.netns_manager._get_instance_name(si, 0)
+            vm_obj['display_name'] = instance_name + '__' + 'network-namespace'
             return True, [vm_obj]
 
         def vr_read(vm_id):
@@ -86,9 +79,13 @@ class VRouterInstanceManagerTest(unittest.TestCase):
         VirtualRouterSM._cassandra = mock.MagicMock()
         VirtualRouterSM._cassandra._cassandra_virtual_router_read = vr_read
 
+        VirtualNetworkSM._cassandra = mock.MagicMock()
+        VirtualNetworkSM._cassandra._cassandra_virtual_network_read = vn_read
+
         self.mocked_vnc = mock.MagicMock()
         self.mocked_vnc.fq_name_to_id = get_vn_id
         self.mocked_vnc.virtual_machine_interface_create = vmi_create
+        self.mocked_vnc.virtual_network_create = vn_create
 
         self.nova_mock = mock.MagicMock()
         self.mocked_db = mock.MagicMock()
@@ -96,7 +93,7 @@ class VRouterInstanceManagerTest(unittest.TestCase):
         self.mocked_args = mock.MagicMock()
         self.mocked_args.availability_zone = None
 
-        self.vrouter_manager = VRouterInstanceManager(
+        self.netns_manager = NetworkNamespaceManager(
             db=self.mocked_db, logger=mock.MagicMock(),
             vnc_lib=self.mocked_vnc, vrouter_scheduler=mock.MagicMock(),
             nova_client=self.nova_mock, args=self.mocked_args)
@@ -120,6 +117,13 @@ class VRouterInstanceManagerTest(unittest.TestCase):
         vn_obj['id_perms'] = 'fake-id-perms'
         VirtualNetworkSM.locate(vn_obj['uuid'], vn_obj)
 
+    def create_test_security_group(self, fq_name_str):
+        sg_obj = {}
+        sg_obj['fq_name'] = fq_name_str.split(':')
+        sg_obj['uuid'] = fq_name_str
+        sg_obj['id_perms'] = 'fake-id-perms'
+        SecurityGroupSM.locate(sg_obj['uuid'], sg_obj)
+
     def create_test_virtual_machine(self, fq_name_str):
         vm_obj = {}
         vm_obj['fq_name'] = fq_name_str.split(':')
@@ -129,48 +133,43 @@ class VRouterInstanceManagerTest(unittest.TestCase):
         vm.proj_fq_name = ['fake-domain', 'fake-project']
         return vm
 
-    def test_vrouter_instance_create(self):
+    def test_snat_instance_create(self):
         self.create_test_project('fake-domain:fake-project')
-        self.create_test_virtual_network('fake-domain:fake-project:mgmt-vn')
-        self.create_test_virtual_network('fake-domain:fake-project:left-vn')
-        self.create_test_virtual_network('fake-domain:fake-project:right-vn')
+        self.create_test_virtual_network('fake-domain:fake-project:public-vn')
+        self.create_test_security_group('fake-domain:fake-project:default')
 
         st_obj = {}
-        st_obj['fq_name'] = ['fake-domain', 'fake-template']
+        st_obj['fq_name'] = ['fake-domain', 'fake-snat-template']
         st_obj['uuid'] = 'fake-st-uuid'
         st_obj['id_perms'] = 'fake-id-perms'
         st_props = {}
-        st_props['flavor'] = 'm1.medium'
-        st_props['image'] = 'test-image'
-        st_props['service_virtualization_type'] = 'vrouter-instance'
-        st_props['service_type'] = 'firewall'
+        st_props['service_virtualization_type'] = 'network-namespace'
+        st_props['service_mode'] = 'in-network-nat'
+        st_props['service_type'] = 'source-nat'
         st_props['ordered_interfaces'] = True
-        st_props['vrouter_instance_type'] = 'docker'
-        st_props['interface_type'] = [{'service_interface_type': 'management', 'shared_ip': False},
-                                      {'service_interface_type': 'left', 'shared_ip': False},
-                                      {'service_interface_type': 'right', 'shared_ip': False}]
+        st_props['service_scaling'] = True
+        st_props['interface_type'] = [{'service_interface_type': 'right', 'shared_ip': True},
+                                      {'service_interface_type': 'left', 'shared_ip': True}]
         st_obj['service_template_properties'] = st_props
 
         si_obj = {}
-        si_obj['fq_name'] = ['fake-domain', 'fake-project', 'fake-instance']
+        si_obj['fq_name'] = ['fake-domain', 'fake-project', 'fake-snat-instance']
         si_obj['uuid'] = 'fake-si-uuid'
         si_obj['id_perms'] = 'fake-id-perms'
         si_props = {}
-        si_props['scale_out'] = {'max_instances': 1}
-        si_props['interface_list'] = [{'virtual_network': 'fake-domain:fake-project:mgmt-vn'},
-                                      {'virtual_network': 'fake-domain:fake-project:left-vn'},
-                                      {'virtual_network': 'fake-domain:fake-project:right-vn'}]
-        si_props['virtual_router_id'] = 'fake-vr-uuid'
+        si_props['scale_out'] = {'max_instances': 2}
+        si_props['interface_list'] = [{'virtual_network': 'fake-domain:fake-project:public-vn'},
+                                      {'virtual_network': ''}]
         si_obj['service_instance_properties'] = si_props
 
         st = ServiceTemplateSM.locate('fake-st-uuid', st_obj)
         si = ServiceInstanceSM.locate('fake-si-uuid', si_obj)
 
-        self.vrouter_manager.create_service(st, si)
+        self.netns_manager.create_service(st, si)
         self.mocked_vnc.virtual_machine_create.assert_any_call(VMObjMatcher(1))
-        self.mocked_vnc.virtual_router_update.assert_any_call(VRObjMatcher(['fake-vm-uuid']))
+        self.mocked_vnc.virtual_machine_create.assert_any_call(VMObjMatcher(2))
 
-    def test_vrouter_instance_delete(self):
+    def test_snat_instance_delete(self):
         def create_fake_virtual_machine(fq_name_str):
             vm_obj = {}
             vm_obj['fq_name'] = fq_name_str.split(':')
@@ -185,12 +184,12 @@ class VRouterInstanceManagerTest(unittest.TestCase):
         mocked_vr = mock.MagicMock()
         mocked_vr.uuid = 'fake-vr-uuid'
 
-        self.vrouter_manager._vnc_lib.virtual_router_read.\
+        self.netns_manager._vnc_lib.virtual_router_read.\
             return_value = mocked_vr
 
         vm = create_fake_virtual_machine('fake-vm-uuid')
-        self.vrouter_manager.delete_service(vm)
+        self.netns_manager.delete_service(vm)
 
-        self.vrouter_manager._vnc_lib.virtual_machine_delete\
+        self.netns_manager._vnc_lib.virtual_machine_delete\
             .assert_called_with(id='fake-vm-uuid')
         mocked_vr.del_virtual_machine.assert_called_with(VMObjMatcher('fake-vm-uuid', True))

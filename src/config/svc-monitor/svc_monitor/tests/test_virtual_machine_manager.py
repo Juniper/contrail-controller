@@ -102,7 +102,7 @@ class VirtualMachineManagerTest(unittest.TestCase):
         vm.proj_fq_name = ['fake-domain', 'fake-project']
         return vm
 
-    def test_create(self):
+    def test_virtual_machine_create(self):
         self.create_test_project('fake-domain:fake-project')
         self.create_test_virtual_network('fake-domain:fake-project:left-vn')
         self.create_test_virtual_network('fake-domain:fake-project:right-vn')
@@ -113,7 +113,7 @@ class VirtualMachineManagerTest(unittest.TestCase):
         st_obj['id_perms'] = 'fake-id-perms'
         st_props = {}
         st_props['flavor'] = 'm1.medium'
-        st_props['image'] = 'nat-image'
+        st_props['image_name'] = 'nat-image'
         st_props['service_virtualization_type'] = 'virtual-machine'
         st_props['service_type'] = 'firewall'
         st_props['ordered_interfaces'] = True
@@ -148,6 +148,6 @@ class VirtualMachineManagerTest(unittest.TestCase):
         self.mocked_vnc.virtual_machine_create.assert_any_call(VMObjMatcher(1))
         self.mocked_vnc.virtual_machine_create.assert_any_call(VMObjMatcher(2))
 
-    def test_delete(self):
+    def test_virtual_machine_delete(self):
         vm = self.create_test_virtual_machine('fake-vm-uuid')
         self.vm_manager.delete_service(vm)
