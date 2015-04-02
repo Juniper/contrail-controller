@@ -3597,9 +3597,13 @@ class DBInterface(object):
     #end port_delete
 
     def _port_fixed_ips_is_present(self, check, against):
+        # filters = {'fixed_ips': ['ip_address=10.0.0.5']}
+        # check = ['ip_address=10.0.0.5']
+        # against = [{'subnet_id': 'uuid', 'ip_address': u'10.0.0.5'}]
         for addr in check['ip_address']:
+            ip_addr = addr.split('=')[-1]
             for item in against:
-                if item['ip_address'] == addr:
+                if item['ip_address'] == ip_addr:
                     return True
 
         return False
@@ -3624,12 +3628,11 @@ class DBInterface(object):
 
         if not 'device_id' in filters:
             # Listing from back references
-            if not filters:
-                # TODO once vmi is linked to project in schema, use project_id
-                # to limit scope of list
-               ret_q_ports = self._port_list_project(project_id,
-                                                     is_admin=context['is_admin'])
-            elif 'tenant_id' in filters:
+            # TODO once vmi is linked to project in schema, use project_id
+            # to limit scope of list
+            ret_q_ports = self._port_list_project(project_id,
+                                                  is_admin=context['is_admin'])
+            if 'tenant_id' in filters:
                 all_project_ids = self._validate_project_ids(context,
                                                              filters['tenant_id'])
             elif 'name' in filters or 'device_owner' in filters:
