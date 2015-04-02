@@ -76,6 +76,7 @@ public:
 private:
     std::string port_name_;
     std::string vmi_name_;
+    uint16_t vlan_;
 };
 
 /////////////////////////////////////////////////////////////////////////////

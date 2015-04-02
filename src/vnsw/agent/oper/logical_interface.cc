@@ -87,10 +87,6 @@ bool LogicalInterface::OnChange(const InterfaceTable *table,
         ret = true;
     }
 
-    if (Copy(table, data) == true) {
-        ret = true;
-    }
-
     return ret;
 }
 
@@ -145,8 +141,9 @@ LogicalInterfaceData::~LogicalInterfaceData() {
 // VlanLogicalInterface routines
 //////////////////////////////////////////////////////////////////////////////
 VlanLogicalInterface::VlanLogicalInterface(const boost::uuids::uuid &uuid,
-                                           const std::string &name) :
-    LogicalInterface(uuid, name) {
+                                           const std::string &name,
+                                           uint16_t vlan) :
+    LogicalInterface(uuid, name), vlan_(vlan) {
 }
 
 VlanLogicalInterface::~VlanLogicalInterface() {
@@ -155,20 +152,6 @@ VlanLogicalInterface::~VlanLogicalInterface() {
 DBEntryBase::KeyPtr VlanLogicalInterface::GetDBRequestKey() const {
     InterfaceKey *key = new VlanLogicalInterfaceKey(uuid_, name_);
     return DBEntryBase::KeyPtr(key);
-}
-
-bool VlanLogicalInterface::Copy(const InterfaceTable *table,
-                                const LogicalInterfaceData *d) {
-    bool ret = false;
-    const VlanLogicalInterfaceData *data =
-        static_cast<const VlanLogicalInterfaceData *>(d);
-
-    if (vlan_ != data->vlan_) {
-        vlan_ = data->vlan_;
-        ret = true;
-    }
-
-    return ret;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -185,15 +168,17 @@ VlanLogicalInterfaceKey::~VlanLogicalInterfaceKey() {
 LogicalInterface *
 VlanLogicalInterfaceKey::AllocEntry(const InterfaceTable *table)
     const {
-    return new VlanLogicalInterface(uuid_, name_);
+    return new VlanLogicalInterface(uuid_, name_, 0);
 }
 
 LogicalInterface *
 VlanLogicalInterfaceKey::AllocEntry(const InterfaceTable *table,
                                     const InterfaceData *d) const {
-    VlanLogicalInterface *intf = new VlanLogicalInterface(uuid_, name_);
     const VlanLogicalInterfaceData *data =
         static_cast<const VlanLogicalInterfaceData *>(d);
+    VlanLogicalInterface *intf = new VlanLogicalInterface(uuid_, name_,
+                                                          data->vlan_);
+
     intf->OnChange(table, data);
     return intf;
 }
@@ -227,7 +212,8 @@ static LogicalInterfaceKey *BuildKey(IFMapNode *node,
 }
 
 static LogicalInterfaceData *BuildData(Agent *agent, IFMapNode *node,
-                                  const autogen::LogicalInterface *port) {
+                                       const uuid &u,
+                                       const autogen::LogicalInterface *port) {
     // Find link with physical-interface adjacency
     string physical_interface;
     IFMapNode *adj_node = NULL;
@@ -260,21 +246,35 @@ static LogicalInterfaceData *BuildData(Agent *agent, IFMapNode *node,
                    vmi_uuid);
     }
 
+    string dev_name;
     adj_node = agent->cfg_listener()->FindAdjacentIFMapNode
         (agent, node, "physical-router");
     if (adj_node) {
+        dev_name = adj_node->name();
         if (dev_uuid != nil_uuid()) {
             IFMAP_ERROR(LogicalInterfaceConfiguration,
                 "Both physical-router and physical-interface links for "
                 "interface:", node->name(),
                 "physical interface", physical_interface,
-                "prouter name", adj_node->name());
+                "prouter name", dev_name);
         }
         autogen::PhysicalRouter *router =
             static_cast<autogen::PhysicalRouter *>(adj_node->GetObject());
         autogen::IdPermsType id_perms = router->id_perms();
         CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
                    dev_uuid);
+    }
+
+    // Logical-Interface must have VLAN-Tag field. Ignore the interface if
+    // VLAN-Tag is not yet present
+    if (port->IsPropertySet(autogen::LogicalInterface::VLAN_TAG) == false) {
+        OperConfigInfo t;
+        t.set_name(node->name());
+        t.set_uuid(UuidToString(u));
+        t.set_message("VLAN-Tag property not set. Ignoring node");
+
+        OPER_IFMAP_TRACE(Config, t);
+        return NULL;
     }
 
     return new VlanLogicalInterfaceData(agent, node, port->display_name(),
@@ -320,9 +320,11 @@ bool InterfaceTable::LogicalInterfaceProcessConfig(IFMapNode *node,
     }
 
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req.data.reset(BuildData(agent(), node, port));
+    req.data.reset(BuildData(agent(), node, u, port));
 
-    Enqueue(&req);
+    if (req.data.get() != NULL) {
+        Enqueue(&req);
+    }
     VmInterface::LogicalPortSync(this, node);
     return false;
 }

@@ -213,7 +213,7 @@ string AgentUtXmlRemotePhysicalInterface::NodeType() {
 AgentUtXmlLogicalInterface::AgentUtXmlLogicalInterface
     (const string &name, const uuid &id, const xml_node &node,
      AgentUtXmlTestCase *test_case) :
-    AgentUtXmlConfig(name, id, node, test_case) {
+    AgentUtXmlConfig(name, id, node, test_case), vlan_(0xFFFF) {
 }
 
 AgentUtXmlLogicalInterface::~AgentUtXmlLogicalInterface() {
@@ -225,6 +225,7 @@ bool AgentUtXmlLogicalInterface::ReadXml() {
 
     GetStringAttribute(node(), "port", &port_name_);
     GetStringAttribute(node(), "vmi", &vmi_name_);
+    GetUintAttribute(node(), "vlan", &vlan_);
     return true;
 }
 
@@ -232,6 +233,8 @@ bool AgentUtXmlLogicalInterface::ToXml(xml_node *parent) {
     xml_node n = AddXmlNodeWithAttr(parent, NodeType().c_str());
     AddXmlNodeWithValue(&n, "name", name());
     AddXmlNodeWithValue(&n, "display-name", name());
+    if (vlan_ >= 0 && vlan_ <= 0x4096)
+        AddXmlNodeWithIntValue(&n, "logical-interface-vlan-tag", vlan_);
     AddIdPerms(&n);
 
     if (port_name_ != "") {
@@ -390,7 +393,7 @@ const string AgentUtXmlRemotePhysicalInterfaceValidate::ToString() {
 AgentUtXmlLogicalInterfaceValidate::AgentUtXmlLogicalInterfaceValidate
     (const string &name, const uuid &id, const xml_node &node) :
     AgentUtXmlValidationNode(name, node), id_(id), physical_port_(),
-    device_uuid_(), vmi_uuid_(), vlan_() {
+    device_uuid_(), vmi_uuid_(), vlan_(0xFFFF) {
 }
 
 AgentUtXmlLogicalInterfaceValidate::~AgentUtXmlLogicalInterfaceValidate() {
@@ -415,10 +418,10 @@ bool AgentUtXmlLogicalInterfaceValidate::ReadXml() {
 bool AgentUtXmlLogicalInterfaceValidate::Validate() {
     Agent *agent = Agent::GetInstance();
 
-    LogicalInterface *port;
+    VlanLogicalInterface *port;
 
     VlanLogicalInterfaceKey key(id_, name());
-    port = static_cast<LogicalInterface *>
+    port = static_cast<VlanLogicalInterface *>
         (agent->interface_table()->FindActiveEntry(&key));
 
     if (present() == false) {
@@ -444,6 +447,11 @@ bool AgentUtXmlLogicalInterfaceValidate::Validate() {
         if (vmi == NULL)
             return false;
         if (vmi->GetUuid() != vmi_uuid_)
+            return false;
+    }
+
+    if (vlan_ >= 0 && vlan_ < 4096) {
+        if (vlan_ != port->vlan())
             return false;
     }
 

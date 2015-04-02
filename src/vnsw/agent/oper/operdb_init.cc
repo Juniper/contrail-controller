@@ -42,6 +42,8 @@ using boost::assign::map_list_of;
 using boost::assign::list_of;
 
 SandeshTraceBufferPtr OperDBTraceBuf(SandeshTraceBufferCreate("Oper DB", 5000));
+SandeshTraceBufferPtr OperConfigTraceBuf(SandeshTraceBufferCreate("OperIfmap",
+                                                                  1000));
 
 template<typename T>
 T *DBTableCreate(DB *db, Agent *agent, OperDB *oper,
