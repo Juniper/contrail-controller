@@ -326,7 +326,8 @@ class FlowQuerier(object):
     
         for flow_dict in flow_dict_list:
             # Setup time
-            if self._SETUP_TIME in flow_dict:
+            if self._SETUP_TIME in flow_dict and\
+                flow_dict[self._SETUP_TIME] is not None:
                 setup_time = int(flow_dict[self._SETUP_TIME])
                 if setup_time != 0:
                     setup_dt = datetime.datetime.fromtimestamp(
@@ -343,7 +344,8 @@ class FlowQuerier(object):
             else:
                 setup_ts = 'Setup Time: NA'
             # Teardown time
-            if self._TEARDOWN_TIME in flow_dict:
+            if self._TEARDOWN_TIME in flow_dict and\
+                flow_dict[self._TEARDOWN_TIME] is not None:
                 teardown_time = int(flow_dict[ 
                     self._TEARDOWN_TIME])
                 if teardown_time != 0:
@@ -361,12 +363,14 @@ class FlowQuerier(object):
             else:
                 teardown_ts = 'Active'
             # VRouter
-            if self._VROUTER in flow_dict:
+            if self._VROUTER in flow_dict and\
+                flow_dict[self._VROUTER] is not None:
                 vrouter = flow_dict[self._VROUTER]
             else:
                 vrouter = 'VRouter: NA'
             # Direction 
-            if self._DIRECTION in flow_dict:
+            if self._DIRECTION in flow_dict and\
+                flow_dict[self._DIRECTION] is not None:
                 direction = int(flow_dict[self._DIRECTION])
                 if direction == 1:
                     direction = 'ingress'
@@ -377,86 +381,103 @@ class FlowQuerier(object):
             else:
                 direction = 'Direction: NA'
             # Flow UUID 
-            if VizConstants.FLOW_TABLE_UUID in flow_dict:
+            if VizConstants.FLOW_TABLE_UUID in flow_dict and\
+                flow_dict[VizConstants.FLOW_TABLE_UUID] is not None:
                 flow_uuid = flow_dict[VizConstants.FLOW_TABLE_UUID]
             else:
                 flow_uuid = 'UUID: NA'
             # Source VN
-            if self._SOURCE_VN in flow_dict:
+            if self._SOURCE_VN in flow_dict and\
+                flow_dict[self._SOURCE_VN] is not None:
                 source_vn = flow_dict[self._SOURCE_VN]
             else:
                 source_vn = 'Source VN: NA'
             # Destination VN
-            if self._DESTINATION_VN in flow_dict:
+            if self._DESTINATION_VN in flow_dict and\
+                flow_dict[self._DESTINATION_VN] is not None:
                 destination_vn = flow_dict[self._DESTINATION_VN]
             else:
                 destination_vn = 'Destination VN: NA'
             # Source IP 
-            if self._SOURCE_IP in flow_dict:
+            if self._SOURCE_IP in flow_dict and\
+                flow_dict[self._SOURCE_IP] is not None:
                 source_ip = flow_dict[self._SOURCE_IP]
             else:
                 source_ip = 'Source IP: NA'
             # Destination IP 
-            if self._DESTINATION_IP in flow_dict:
+            if self._DESTINATION_IP in flow_dict and\
+                flow_dict[self._DESTINATION_IP] is not None:
                 destination_ip = flow_dict[self._DESTINATION_IP]
             else:
                 destination_ip = 'Destination IP: NA'
             # Source port 
-            if self._SOURCE_PORT in flow_dict:
+            if self._SOURCE_PORT in flow_dict and\
+                flow_dict[self._SOURCE_PORT] is not None:
                 source_port = flow_dict[self._SOURCE_PORT]
             else:
                 source_port = 'Source Port: NA'
             # Destination port 
-            if self._DESTINATION_PORT in flow_dict:
+            if self._DESTINATION_PORT in flow_dict and\
+                flow_dict[self._DESTINATION_PORT] is not None:
                 destination_port = flow_dict[self._DESTINATION_PORT]
             else:
                 destination_port = 'Destination Port: NA'
             # Protocol
-            if self._PROTOCOL in flow_dict:
+            if self._PROTOCOL in flow_dict and\
+                flow_dict[self._PROTOCOL] is not None:
                 protocol = OpServerUtils.ip_protocol_to_str(
                     int(flow_dict[self._PROTOCOL]))
             else:
                 protocol = 'Protocol: NA'
             # Action 
-            if self._ACTION in flow_dict:
+            if self._ACTION in flow_dict and\
+                flow_dict[self._ACTION] is not None:
                 action = flow_dict[self._ACTION]
             else:
                 action = ''
             # Agg packets and bytes
-            if VizConstants.FLOW_TABLE_AGG_BYTES in flow_dict:
+            if VizConstants.FLOW_TABLE_AGG_BYTES in flow_dict and\
+                flow_dict[VizConstants.FLOW_TABLE_AGG_BYTES] is not None:
                 agg_bytes = int(flow_dict[VizConstants.FLOW_TABLE_AGG_BYTES])
             else:
                 agg_bytes = 'Agg Bytes: NA'
-            if VizConstants.FLOW_TABLE_AGG_PKTS in flow_dict:
+            if VizConstants.FLOW_TABLE_AGG_PKTS in flow_dict and\
+                flow_dict[VizConstants.FLOW_TABLE_AGG_PKTS] is not None:
                 agg_pkts = int(flow_dict[VizConstants.FLOW_TABLE_AGG_PKTS])
             else:
                 agg_pkts = 'Agg Packets: NA'
             # SG rule UUID
-            if self._SG_RULE_UUID in flow_dict:
+            if self._SG_RULE_UUID in flow_dict and\
+                flow_dict[self._SG_RULE_UUID] is not None:
                 sg_rule_uuid = flow_dict[self._SG_RULE_UUID]
             else:
                 sg_rule_uuid = None
             # NW ACE UUID
-            if self._NW_ACE_UUID in flow_dict:
+            if self._NW_ACE_UUID in flow_dict and\
+                flow_dict[self._NW_ACE_UUID] is not None:
                 nw_ace_uuid = flow_dict[self._NW_ACE_UUID]
             else:
                 nw_ace_uuid = None
             # VRouter IP
-            if self._VROUTER_IP in flow_dict:
+            if self._VROUTER_IP in flow_dict and\
+                flow_dict[self._VROUTER_IP] is not None:
                 vrouter_ip = '/' + flow_dict[self._VROUTER_IP]
             else:
                 vrouter_ip = ''
             # Other VRouter IP
-            if self._OTHER_VROUTER_IP in flow_dict:
+            if self._OTHER_VROUTER_IP in flow_dict and\
+                flow_dict[self._OTHER_VROUTER_IP] is not None:
                 other_vrouter_ip = ' [DST-VR:' + flow_dict[self._OTHER_VROUTER_IP] + ']'
             else:
                 other_vrouter_ip = ''
             # Underlay info
-            if self._UNDERLAY_PROTO in flow_dict:
+            if self._UNDERLAY_PROTO in flow_dict and\
+                flow_dict[self._UNDERLAY_PROTO] is not None:
                 tunnel_proto = 'T:' + OpServerUtils.tunnel_type_to_str(flow_dict[self._UNDERLAY_PROTO])
             else:
                 tunnel_proto = None
-            if self._UNDERLAY_SPORT in flow_dict:
+            if self._UNDERLAY_SPORT in flow_dict and\
+                flow_dict[self._UNDERLAY_SPORT] is not None:
                 tunnel_sport = 'Src Port:' + str(flow_dict[self._UNDERLAY_SPORT]) + ' '
                 if tunnel_proto:
                     tunnel_info = tunnel_proto + '/' + tunnel_sport
