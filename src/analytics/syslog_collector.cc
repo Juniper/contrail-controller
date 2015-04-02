@@ -528,12 +528,12 @@ class SyslogParser
 #ifdef SYSLOG_DEBUG
           LOG(DEBUG, "parsed " << r << ".");
 #endif
-
-          v.insert(std::pair<std::string, Holder>("ip",
-                Holder("ip", ip)));
-          PostParsing (v);
-
-          MakeSandesh (v);
+          if (r) {
+              v.insert(std::pair<std::string, Holder>("ip",
+                    Holder("ip", ip)));
+              PostParsing(v);
+              MakeSandesh(v);
+          }
 
 #ifdef SYSLOG_DEBUG
           LOG(DEBUG, __func__ << " syslog msg from " << ip << ":" <<

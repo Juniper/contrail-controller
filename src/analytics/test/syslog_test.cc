@@ -41,12 +41,13 @@ class SyslogParserTestHelper : public SyslogParser
 
         bool TestParse(std::string s) {
             syslog_m_t v;
-            bool r = parse_syslog (s.begin(), s.end(), v);
-            v.insert(std::pair<std::string, Holder>("ip",
-                  Holder("ip", "10.0.0.42")));
-            PostParsing (v);
-
-            MakeSandesh (v);
+            bool r;
+            if ((r = parse_syslog (s.begin(), s.end(), v))) {
+                v.insert(std::pair<std::string, Holder>("ip",
+                      Holder("ip", "10.0.0.42")));
+                PostParsing(v);
+                MakeSandesh(v);
+            }
             return r;
         }
 
